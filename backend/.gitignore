@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+bun.lockb
+
+# Build outputs
+dist/
+build/
+target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Database
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db

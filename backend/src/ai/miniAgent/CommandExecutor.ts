@@ -1,0 +1,176 @@
+/**
+ * 命令执行器
+ * 处理本地命令执行
+ */
+
+import { spawn } from 'child_process';
+import type { CommandMatch, CommandExecutor } from './types.js';
+
+export class LocalCommandExecutor implements CommandExecutor {
+  private allowedCommands: Set<string>;
+  private maxOutputLength: number;
+
+  constructor(
+    allowedCommands: string[] = ['ls', 'dir', 'cat', 'type', 'echo', 'date', 'time', 'pwd', 'cd'],
+    maxOutputLength: number = 10000
+  ) {
+    this.allowedCommands = new Set(allowedCommands.map((c) => c.toLowerCase()));
+    this.maxOutputLength = maxOutputLength;
+  }
+
+  async execute(match: CommandMatch, context?: any): Promise<string> {
+    const { action, args } = match;
+
+    switch (action) {
+      case 'create':
+        return this.handleCreate(args, context);
+      case 'delete':
+        return this.handleDelete(args, context);
+      case 'read':
+        return this.handleRead(args, context);
+      case 'write':
+        return this.handleWrite(args, context);
+      case 'execute':
+        return this.handleExecute(args, context);
+      default:
+        return `Unknown action: ${action}`;
+    }
+  }
+
+  private async handleCreate(args?: Record<string, string>, context?: any): Promise<string> {
+    const path = args?.path || context?.path;
+
+    if (!path) {
+      return 'Error: path is required for create action';
+    }
+
+    if (path.includes('..') || path.includes('~')) {
+      return 'Error: path traversal not allowed';
+    }
+
+    return `Simulated create: ${path}`;
+  }
+
+  private async handleDelete(args?: Record<string, string>, context?: any): Promise<string> {
+    const path = args?.path || context?.path;
+
+    if (!path) {
+      return 'Error: path is required for delete action';
+    }
+
+    if (path.includes('..') || path.includes('~')) {
+      return 'Error: path traversal not allowed';
+    }
+
+    return `Simulated delete: ${path}`;
+  }
+
+  private async handleRead(args?: Record<string, string>, context?: any): Promise<string> {
+    const path = args?.path || context?.path;
+
+    if (!path) {
+      return 'Error: path is required for read action';
+    }
+
+    if (path.includes('..') || path.includes('~')) {
+      return 'Error: path traversal not allowed';
+    }
+
+    return `Simulated read: ${path}`;
+  }
+
+  private async handleWrite(args?: Record<string, string>, context?: any): Promise<string> {
+    const path = args?.path || context?.path;
+    const content = args?.content || context?.content;
+
+    if (!path) {
+      return 'Error: path is required for write action';
+    }
+
+    if (path.includes('..') || path.includes('~')) {
+      return 'Error: path traversal not allowed';
+    }
+
+    return `Simulated write to: ${path}`;
+  }
+
+  private async handleExecute(args?: Record<string, string>, context?: any): Promise<string> {
+    const command = args?.command || context?.command;
+    const commandArgs = args?.args || context?.args;
+
+    if (!command) {
+      return 'Error: command is required for execute action';
+    }
+
+    if (!this.isCommandAllowed(command)) {
+      return `Error: command not allowed: ${command}`;
+    }
+
+    return this.executeCommand(command, commandArgs);
+  }
+
+  private isCommandAllowed(command: string): boolean {
+    return this.allowedCommands.has(command.toLowerCase());
+  }
+
+  private executeCommand(command: string, args?: string[]): Promise<string> {
+    return new Promise((resolve) => {
+      const proc = spawn(command, args, {
+        shell: true,
+        timeout: 5000,
+      });
+
+      let output = '';
+      let errorOutput = '';
+
+      proc.stdout?.on('data', (data) => {
+        output += data.toString();
+        if (output.length > this.maxOutputLength) {
+          output = output.substring(0, this.maxOutputLength) + '\n... (truncated)';
+          proc.kill();
+        }
+      });
+
+      proc.stderr?.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolve(output || 'Command executed successfully');
+        } else {
+          resolve(`Error: ${errorOutput || `exit code ${code}`}`);
+        }
+      });
+
+      proc.on('error', (err) => {
+        resolve(`Error: ${err.message}`);
+      });
+
+      setTimeout(() => {
+        proc.kill();
+        resolve('Error: command timeout');
+      }, 5000);
+    });
+  }
+
+  allowCommand(command: string): void {
+    this.allowedCommands.add(command.toLowerCase());
+  }
+
+  disallowCommand(command: string): void {
+    this.allowedCommands.delete(command.toLowerCase());
+  }
+
+  isAllowed(command: string): boolean {
+    return this.allowedCommands.has(command.toLowerCase());
+  }
+
+  getAllowedCommands(): string[] {
+    return Array.from(this.allowedCommands);
+  }
+}
+
+export function createCommandExecutor(allowedCommands?: string[]): LocalCommandExecutor {
+  return new LocalCommandExecutor(allowedCommands);
+}

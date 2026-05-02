@@ -1,0 +1,24 @@
+{
+  "id": "snapshot_1777105418558_pb329c98w",
+  "timestamp": "2026-04-25T08:23:38.558Z",
+  "memory": {
+    "rss": 178130944,
+    "heapTotal": 2562048,
+    "heapUsed": 1240897,
+    "external": 423953,
+    "arrayBuffers": 0
+  },
+  "reason": "test-1",
+  "processInfo": {
+    "pid": 13204,
+    "title": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+    "version": "v24.3.0",
+    "env": "production"
+  },
+  "systemInfo": {
+    "platform": "win32",
+    "arch": "x64",
+    "totalMemory": 34065145856,
+    "freeMemory": 17889935360
+  }
+}

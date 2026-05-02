@@ -1,0 +1,235 @@
+import { Command } from 'commander';
+import { skillManager } from '../managers/SkillManager';
+import { UserSkillLoader } from '../loaders/sources/UserSkillLoader';
+import { ProjectSkillLoader } from '../loaders/sources/ProjectSkillLoader';
+import { PluginSkillLoader } from '../loaders/sources/PluginSkillLoader';
+import { MCPSkillLoader } from '../loaders/sources/MCPSkillLoader';
+
+// 颜色输出
+const chalk = {
+  green: (text: string) => `\x1b[32m${text}\x1b[0m`,
+  blue: (text: string) => `\x1b[34m${text}\x1b[0m`,
+  yellow: (text: string) => `\x1b[33m${text}\x1b[0m`,
+  red: (text: string) => `\x1b[31m${text}\x1b[0m`,
+  cyan: (text: string) => `\x1b[36m${text}\x1b[0m`,
+  bold: (text: string) => `\x1b[1m${text}\x1b[0m`,
+};
+
+/**
+ * 注册Skills CLI命令
+ * @param program Commander程序实例
+ */
+export function registerSkillsCommands(program: Command): void {
+  const skillsCommand = program.command('skills').description('Manage skills');
+
+  // 列出所有技能
+  skillsCommand
+    .command('list')
+    .description('List all available skills')
+    .option('-s, --source <source>', 'Filter skills by source')
+    .option('-i, --invocable', 'Only show user invocable skills')
+    .action(async (options: any) => {
+      try {
+        console.log(chalk.blue('Loading skills...'));
+
+        // 注册加载器
+        skillManager.registerLoader(new UserSkillLoader());
+        skillManager.registerLoader(new ProjectSkillLoader());
+        skillManager.registerLoader(new PluginSkillLoader());
+        skillManager.registerLoader(new MCPSkillLoader());
+
+        // 加载技能
+        await skillManager.loadSkills();
+
+        // 构建过滤条件
+        const filter: any = {};
+        if (options.source) {
+          filter.source = options.source;
+        }
+        if (options.invocable) {
+          filter.userInvocable = true;
+        }
+
+        // 获取技能列表
+        const skills = skillManager.getSkills(filter);
+
+        if (skills.length === 0) {
+          console.log(chalk.yellow('No skills found.'));
+          return;
+        }
+
+        console.log(chalk.bold('Available skills:'));
+        console.log(chalk.cyan('═'.repeat(80)));
+        skills.forEach((skill) => {
+          console.log(chalk.green(`Name: ${skill.name}`));
+          console.log(chalk.blue(`Description: ${skill.description}`));
+          console.log(chalk.yellow(`Source: ${skill.source}`));
+          console.log(
+            chalk.cyan(`User invocable: ${skill.userInvocable ? 'Yes' : 'No'}`)
+          );
+          console.log(chalk.cyan('─'.repeat(80)));
+        });
+        console.log(chalk.bold(`Total skills: ${skills.length}`));
+      } catch (error: any) {
+        console.error(chalk.red(`Error listing skills: ${error.message}`));
+      }
+    });
+
+  // 查看技能详情
+  skillsCommand
+    .command('info <skill-name>')
+    .description('Show skill details')
+    .action(async (skillName: string) => {
+      try {
+        console.log(chalk.blue(`Loading skill details for ${skillName}...`));
+
+        // 注册加载器
+        skillManager.registerLoader(new UserSkillLoader());
+        skillManager.registerLoader(new ProjectSkillLoader());
+        skillManager.registerLoader(new PluginSkillLoader());
+        skillManager.registerLoader(new MCPSkillLoader());
+
+        // 加载技能
+        await skillManager.loadSkills();
+
+        // 获取技能
+        const skill = skillManager.getSkill(skillName);
+
+        if (!skill) {
+          console.log(chalk.red(`Skill not found: ${skillName}`));
+          return;
+        }
+
+        console.log(chalk.bold('Skill details:'));
+        console.log(chalk.cyan('═'.repeat(80)));
+        console.log(chalk.green(`Name: ${skill.name}`));
+        console.log(chalk.blue(`Display name: ${skill.userFacingName()}`));
+        console.log(chalk.blue(`Description: ${skill.description}`));
+        console.log(chalk.yellow(`Source: ${skill.source}`));
+        console.log(chalk.yellow(`Loaded from: ${skill.loadedFrom}`));
+        console.log(
+          chalk.cyan(`User invocable: ${skill.userInvocable ? 'Yes' : 'No'}`)
+        );
+        console.log(
+          chalk.cyan(
+            `Allowed tools: ${skill.allowedTools.length > 0 ? skill.allowedTools.join(', ') : 'None'}`
+          )
+        );
+        console.log(
+          chalk.cyan(
+            `Arguments: ${skill.argNames ? skill.argNames.join(', ') : 'None'}`
+          )
+        );
+        console.log(
+          chalk.cyan(`Argument hint: ${skill.argumentHint || 'None'}`)
+        );
+        console.log(chalk.cyan(`When to use: ${skill.whenToUse || 'None'}`));
+        console.log(chalk.cyan(`Version: ${skill.version || 'None'}`));
+        console.log(chalk.cyan(`Model: ${skill.model || 'None'}`));
+        console.log(chalk.cyan(`Effort: ${skill.effort || 'None'}`));
+        console.log(
+          chalk.cyan(`Paths: ${skill.paths ? skill.paths.join(', ') : 'None'}`)
+        );
+        console.log(
+          chalk.cyan(`Content length: ${skill.contentLength} characters`)
+        );
+        console.log(chalk.cyan('═'.repeat(80)));
+      } catch (error: any) {
+        console.error(chalk.red(`Error getting skill info: ${error.message}`));
+      }
+    });
+
+  // 执行技能
+  skillsCommand
+    .command('run <skill-name> [arguments...]')
+    .description('Run a skill')
+    .action(async (skillName: string, args: string[]) => {
+      try {
+        console.log(chalk.blue(`Running skill: ${skillName}`));
+        if (args.length > 0) {
+          console.log(chalk.yellow(`Arguments: ${args.join(' ')}`));
+        }
+
+        // 注册加载器
+        skillManager.registerLoader(new UserSkillLoader());
+        skillManager.registerLoader(new ProjectSkillLoader());
+        skillManager.registerLoader(new PluginSkillLoader());
+        skillManager.registerLoader(new MCPSkillLoader());
+
+        // 加载技能
+        await skillManager.loadSkills();
+
+        // 解析参数
+        const parsedArgs = parseArguments(args);
+
+        // 执行技能
+        console.log(chalk.blue('Executing skill...'));
+        const result = await skillManager.executeSkill(
+          skillName,
+          parsedArgs,
+          {}
+        );
+
+        console.log(chalk.bold('Skill execution result:'));
+        console.log(chalk.cyan('═'.repeat(80)));
+        console.log(chalk.green(JSON.stringify(result, null, 2)));
+        console.log(chalk.cyan('═'.repeat(80)));
+      } catch (error: any) {
+        console.error(chalk.red(`Error running skill: ${error.message}`));
+      }
+    });
+
+  // 重新加载技能
+  skillsCommand
+    .command('reload')
+    .description('Reload skills')
+    .action(async () => {
+      try {
+        console.log(chalk.blue('Reloading skills...'));
+
+        // 清理缓存
+        skillManager.clearCache();
+        console.log(chalk.yellow('Cache cleared.'));
+
+        // 注册加载器
+        skillManager.registerLoader(new UserSkillLoader());
+        skillManager.registerLoader(new ProjectSkillLoader());
+        skillManager.registerLoader(new PluginSkillLoader());
+        skillManager.registerLoader(new MCPSkillLoader());
+
+        // 加载技能
+        await skillManager.loadSkills();
+
+        // 获取技能列表
+        const skills = skillManager.getSkills();
+
+        console.log(
+          chalk.green(`Successfully reloaded ${skills.length} skills.`)
+        );
+      } catch (error: any) {
+        console.error(chalk.red(`Error reloading skills: ${error.message}`));
+      }
+    });
+}
+
+/**
+ * 解析命令行参数
+ * @param args 命令行参数数组
+ * @returns 解析后的参数对象
+ */
+function parseArguments(args: string[]): any {
+  const parsed: any = {};
+
+  for (const arg of args) {
+    if (arg.includes('=')) {
+      const [key, value] = arg.split('=');
+      parsed[key] = value;
+    } else {
+      // 位置参数
+      const index = Object.keys(parsed).length;
+      parsed[`arg${index + 1}`] = arg;
+    }
+  }
+
+  return parsed;
+}

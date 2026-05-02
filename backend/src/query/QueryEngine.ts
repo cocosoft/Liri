@@ -1,0 +1,1452 @@
+/**
+ * QueryEngine核心
+ * 基于现有ChatManager和其他组件实现查询引擎核心功能
+ */
+
+import type { Message } from '../chat/types/message.js';
+import type { ToolCall, ToolResult } from '../chat/types/tool.js';
+import { ChatManagerImpl } from '../chat/ChatManager.js';
+import {
+  PostSamplingHookManager,
+  createPostSamplingHookManager,
+} from '../hooks/managers/PostSamplingHookManager.js';
+import type {
+  PostSamplingHookContext,
+  PostSamplingHook,
+} from '../hooks/types/PostSampling.js';
+import { CompactServiceImpl } from '../services/compact/CompactService.js';
+import type { CompactArtifact } from '../services/compact/CompactService.js';
+import {
+  AnalyticsService,
+  analyticsService,
+} from '../analytics/index.js';
+import {
+  AnalyticsEventQueue,
+  getGlobalAnalyticsQueue,
+} from '../analytics/AnalyticsEventQueue.js';
+import {
+  CostAnalyticsTracker,
+  createCostAnalyticsTracker,
+} from '../analytics/CostAnalyticsTracker.js';
+import {
+  withRetry,
+  categorizeAPIError,
+  DEFAULT_RETRY_CONFIG,
+  type RetryConfig,
+} from './withRetry.js';
+import {
+  processUserInput as processInput,
+  sanitizeUserInput,
+  type ProcessedInput,
+} from './processUserInput.js';
+import {
+  TokenBudgetManager,
+  TokenBudgetStatus,
+  getTokenCountFromUsage,
+} from '../services/tokenManagement/TokenBudgetManager.js';
+import type { TokenUsage } from '../services/tokenManagement/TokenCounter.js';
+import {
+  StopHookManager,
+  createStopHookManager,
+  type StopHook,
+  type StopHookContext,
+  type StopHookReason,
+} from './StopHooks.js';
+
+/**
+ * 查询状态枚举
+ */
+export enum QueryState {
+  IDLE = 'idle',
+  RUNNING = 'running',
+  WAITING_FOR_TOOL = 'waiting_for_tool',
+  COMPACTING = 'compacting',
+  COMPLETED = 'completed',
+  ERROR = 'error',
+  ABORTED = 'aborted',
+}
+
+/**
+ * 会话状态接口
+ */
+export interface SessionState {
+  sessionId: string;
+  queryState: QueryState;
+  turnCount: number;
+  startTime: number;
+  lastActivityTime: number;
+  totalUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
+  };
+  totalCostUSD: number;
+  errorCount: number;
+  toolCallCount: number;
+}
+
+/**
+ * 进度事件接口
+ */
+export interface ProgressEvent {
+  type:
+    | 'query_start'
+    | 'query_end'
+    | 'tool_start'
+    | 'tool_end'
+    | 'compact_start'
+    | 'compact_end'
+    | 'api_start'
+    | 'api_end';
+  timestamp: number;
+  data?: Record<string, any>;
+}
+
+/**
+ * 查询配置接口
+ */
+export interface QueryEngineConfig {
+  maxTurns?: number;
+  maxBudgetUsd?: number;
+  taskBudget?: { total: number };
+  includePartialMessages?: boolean;
+  customSystemPrompt?: string;
+  appendSystemPrompt?: string;
+  querySource?: string;
+  retryConfig?: RetryConfig;
+}
+
+/**
+ * 错误类型枚举
+ */
+export enum QueryErrorType {
+  API_ERROR = 'api_error',
+  TOOL_ERROR = 'tool_error',
+  PERMISSION_DENIED = 'permission_denied',
+  TIMEOUT = 'timeout',
+  BUDGET_EXCEEDED = 'budget_exceeded',
+  MAX_TURNS_EXCEEDED = 'max_turns_exceeded',
+  UNKNOWN = 'unknown',
+}
+
+/**
+ * 查询错误接口
+ */
+export interface QueryError {
+  type: QueryErrorType;
+  message: string;
+  code?: number;
+  retryable: boolean;
+  timestamp: number;
+  details?: Record<string, any>;
+}
+
+/**
+ * 查询参数接口
+ */
+export interface QueryParams {
+  /**
+   * 提示内容
+   */
+  prompt: string;
+
+  /**
+   * 会话ID
+   */
+  sessionId?: string;
+
+  /**
+   * 选项
+   */
+  options?: {
+    /**
+     * 是否启用工具调用
+     */
+    enableTools?: boolean;
+
+    /**
+     * 是否启用流式输出
+     */
+    enableStream?: boolean;
+
+    /**
+     * 最大迭代次数
+     */
+    maxIterations?: number;
+
+    /**
+     * 调试模式
+     */
+    debug?: boolean;
+
+    /**
+     * 最大预算（美元）
+     */
+    maxBudgetUsd?: number;
+  };
+}
+
+/**
+ * 查询结果接口
+ */
+export interface QueryResult {
+  /**
+   * 消息
+   */
+  message: Message;
+
+  /**
+   * 工具调用
+   */
+  toolCalls?: ToolCall[];
+
+  /**
+   * 工具结果
+   */
+  toolResults?: ToolResult[];
+
+  /**
+   * 是否完成
+   */
+  done: boolean;
+
+  /**
+   * 使用情况
+   */
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cacheReadInputTokens?: number;
+    cacheCreationInputTokens?: number;
+  };
+}
+
+/**
+ * SDK消息接口
+ */
+export interface SDKMessage {
+  /**
+   * 类型
+   */
+  type: 'text' | 'tool_use' | 'tool_result' | 'error';
+
+  /**
+   * 内容
+   */
+  content?: string;
+
+  /**
+   * 工具使用
+   */
+  toolUse?: {
+    id: string;
+    name: string;
+    input: Record<string, any>;
+  };
+
+  /**
+   * 工具结果
+   */
+  toolResult?: {
+    toolUseId: string;
+    content: string;
+    isError?: boolean;
+  };
+
+  /**
+   * 错误
+   */
+  error?: string;
+
+  /**
+   * 会话ID
+   */
+  session_id?: string;
+}
+
+/**
+ * QueryEngine类
+ */
+export class QueryEngine {
+  /**
+   * 聊天管理器
+   */
+  private chatManager: ChatManagerImpl;
+
+  /**
+   * 采样后置Hook管理器
+   */
+  private postSamplingHookManager: PostSamplingHookManager;
+
+  /**
+   * 压缩服务
+   */
+  private compactService: CompactServiceImpl;
+
+  /**
+   * 分析服务
+   */
+  private analyticsService: AnalyticsService;
+
+  /**
+   * 成本追踪器
+   */
+  private costTracker: CostAnalyticsTracker;
+
+  /**
+   * 会话状态
+   */
+  private sessionState: SessionState | null = null;
+
+  /**
+   * 中止控制器
+   */
+  private abortController: AbortController | null = null;
+
+  /**
+   * Token 预算管理器
+   */
+  private tokenBudgetManager: TokenBudgetManager;
+
+  /**
+   * 进度监听器
+   */
+  private progressListeners: ((event: ProgressEvent) => void)[] = [];
+
+  /**
+   * 错误处理器
+   */
+  private errorHandlers: ((error: QueryError) => void)[] = [];
+
+  /**
+   * 配置
+   */
+  private config: QueryEngineConfig;
+
+  /**
+   * 停止钩子管理器
+   */
+  private stopHookManager: StopHookManager;
+
+  /**
+   * 查询开始时间（用于计算持续时间）
+   */
+  private queryStartTime: number = 0;
+
+  /**
+   * 构造函数
+   * @param chatManager 聊天管理器
+   * @param config 查询引擎配置
+   */
+  constructor(chatManager: ChatManagerImpl, config: QueryEngineConfig = {}) {
+    this.chatManager = chatManager;
+    this.postSamplingHookManager = createPostSamplingHookManager({
+      enableLogging: false,
+    });
+    this.compactService = new CompactServiceImpl();
+    this.analyticsService = analyticsService;
+    const analyticsQueue = getGlobalAnalyticsQueue();
+    this.costTracker = createCostAnalyticsTracker(analyticsQueue);
+    this.tokenBudgetManager = new TokenBudgetManager({
+      maxContextTokens: this.config.taskBudget?.total || 200_000,
+    });
+    this.stopHookManager = createStopHookManager();
+    this.config = config;
+  }
+
+  /**
+   * 注册采样后置Hook
+   * @param name Hook名称
+   * @param hook Hook函数
+   * @param options Hook选项
+   */
+  registerPostSamplingHook(
+    name: string,
+    hook: PostSamplingHook,
+    options?: {
+      enabled?: boolean;
+      priority?: number;
+      timeout?: number;
+    }
+  ): void {
+    this.postSamplingHookManager.registerHook(name, hook, options);
+  }
+
+  /**
+   * 注销采样后置Hook
+   * @param name Hook名称
+   * @returns 是否成功
+   */
+  unregisterPostSamplingHook(name: string): boolean {
+    return this.postSamplingHookManager.unregisterHook(name);
+  }
+
+  /**
+   * 获取采样后置Hook管理器
+   * @returns Hook管理器
+   */
+  getPostSamplingHookManager(): PostSamplingHookManager {
+    return this.postSamplingHookManager;
+  }
+
+  /**
+   * 注册停止钩子
+   * @param hook 停止钩子
+   */
+  registerStopHook(hook: StopHook): void {
+    this.stopHookManager.registerHook(hook);
+  }
+
+  /**
+   * 注销停止钩子
+   * @param name 钩子名称
+   * @returns 是否成功
+   */
+  unregisterStopHook(name: string): boolean {
+    return this.stopHookManager.unregisterHook(name);
+  }
+
+  /**
+   * 获取停止钩子管理器
+   * @returns 停止钩子管理器
+   */
+  getStopHookManager(): StopHookManager {
+    return this.stopHookManager;
+  }
+
+  /**
+   * 执行停止钩子
+   * @param reason 停止原因
+   * @param error 错误对象（可选）
+   */
+  private async executeStopHooks(reason: StopHookReason, error?: Error): Promise<void> {
+    if (!this.sessionState) return;
+
+    const context: StopHookContext = {
+      sessionId: this.sessionState.sessionId,
+      reason,
+      turnCount: this.sessionState.turnCount,
+      durationMs: Date.now() - this.sessionState.startTime,
+      error,
+      usage: this.sessionState.totalUsage,
+    };
+
+    await this.stopHookManager.executeHooks(context);
+  }
+
+  /**
+   * 提交消息入口
+   * @param prompt 提示内容
+   * @param options 选项
+   * @returns 异步生成器，产生SDK消息
+   */
+  async *submitMessage(
+    prompt: string,
+    options?: {
+      sessionId?: string;
+      isMeta?: boolean;
+    }
+  ): AsyncGenerator<SDKMessage, void, unknown> {
+    const sessionId = options?.sessionId || this.createSession();
+
+    // 清理和预处理用户输入
+    const cleanPrompt = sanitizeUserInput(prompt);
+    const inputInfo = processInput(cleanPrompt);
+
+    // 如果是元指令，标记为meta消息
+    const isMeta = options?.isMeta || inputInfo.isMeta;
+
+    // 创建用户消息
+    yield {
+      type: 'text',
+      content: cleanPrompt,
+      session_id: sessionId,
+    };
+
+    try {
+      // 处理用户输入
+      const processed = await this.processUserInput(cleanPrompt, sessionId);
+
+      // 如果是空输入或元指令，跳过查询
+      if (!processed && isMeta) {
+        this.updateSessionState({ queryState: QueryState.COMPLETED });
+        return;
+      }
+
+      // 执行查询
+      const queryResults = this.query({
+        prompt: processed || cleanPrompt,
+        sessionId,
+        options: {
+          enableTools: true,
+          enableStream: true,
+          maxIterations: this.config.maxTurns || 10,
+          maxBudgetUsd: this.config.maxBudgetUsd,
+        },
+      });
+
+      // 产生查询结果
+      for await (const result of queryResults) {
+        if (result.message) {
+          yield {
+            type: 'text',
+            content:
+              typeof result.message.content === 'string'
+                ? result.message.content
+                : '',
+            session_id: sessionId,
+          };
+        }
+
+        if (result.toolCalls) {
+          for (const toolCall of result.toolCalls) {
+            yield {
+              type: 'tool_use',
+              toolUse: {
+                id: toolCall.id,
+                name: toolCall.name,
+                input: toolCall.arguments,
+              },
+            };
+          }
+        }
+
+        if (result.toolResults) {
+          for (const toolResult of result.toolResults) {
+            yield {
+              type: 'tool_result',
+              toolResult: {
+                toolUseId: toolResult.toolCallId,
+                content:
+                  typeof toolResult.result === 'string'
+                    ? toolResult.result
+                    : '',
+                isError: toolResult.error !== undefined,
+              },
+            };
+          }
+        }
+
+        if (result.done) {
+          break;
+        }
+      }
+
+      // 触发查询结束进度事件
+      this.emitProgress('query_end', { sessionId });
+      this.updateSessionState({ queryState: QueryState.COMPLETED });
+    } catch (error) {
+      const queryError: QueryError = {
+        type: QueryErrorType.UNKNOWN,
+        message: error instanceof Error ? error.message : String(error),
+        retryable: true,
+        timestamp: Date.now(),
+      };
+      this.emitError(queryError);
+      this.updateSessionState({ queryState: QueryState.ERROR });
+      
+      // 执行停止钩子
+      await this.executeStopHooks('error', error instanceof Error ? error : undefined);
+      
+      yield {
+        type: 'error',
+        error: queryError.message,
+        session_id: sessionId,
+      };
+    }
+  }
+
+  /**
+   * 查询入口
+   * @param params 查询参数
+   * @returns 异步生成器，产生查询结果
+   */
+  async *query(
+    params: QueryParams
+  ): AsyncGenerator<QueryResult, void, unknown> {
+    let { prompt, sessionId, options } = params;
+    const maxIterations = options?.maxIterations || 10;
+    let iteration = 0;
+    const startTime = Date.now();
+
+    // 记录查询开始事件
+    this.analyticsService.logEvent('query_start', {
+      prompt_length: prompt.length,
+      session_id: sessionId,
+      timestamp: startTime,
+    });
+
+    // 触发查询开始进度事件
+    this.emitProgress('query_start', {
+      prompt: prompt.substring(0, 100),
+      sessionId,
+    });
+    this.updateSessionState({ queryState: QueryState.RUNNING });
+
+    // 检查是否需要压缩
+    await this.checkAndPerformCompact(sessionId || '');
+
+    // 主循环
+    while (iteration < maxIterations) {
+      iteration++;
+
+      // 更新会话状态中的turnCount
+      if (this.sessionState) {
+        this.updateSessionState({ turnCount: iteration });
+      }
+
+      // 检查预算和Turn限制
+      if (!this.checkBudget() || !this.checkMaxTurns()) {
+        break;
+      }
+
+      // 触发API开始进度事件
+      this.emitProgress('api_start', { iteration, session_id: sessionId });
+
+      // 调用API获取响应
+      const response = await this.callAPI(prompt, sessionId || '');
+
+      // 记录 Token 使用并检查预算
+      if (response.usage) {
+        this.tokenBudgetManager.recordUsage({
+          inputTokens: response.usage.inputTokens,
+          outputTokens: response.usage.outputTokens,
+          totalTokens: response.usage.totalTokens,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+        });
+
+        const budgetState = this.tokenBudgetManager.getCurrentBudgetState();
+        if (budgetState.status === TokenBudgetStatus.CRITICAL || budgetState.status === TokenBudgetStatus.EXCEEDED) {
+          this.analyticsService.logEvent('token_budget_threshold', {
+            session_id: sessionId,
+            status: budgetState.status,
+            percent_used: budgetState.percentUsed,
+            current_tokens: budgetState.currentTokens,
+            max_tokens: budgetState.maxTokens,
+            timestamp: Date.now(),
+          });
+        }
+      }
+
+      // 触发API结束进度事件
+      this.emitProgress('api_end', { iteration, session_id: sessionId });
+
+      // 执行采样后置Hook
+      await this.executePostSamplingHooks(response.message, sessionId || '');
+
+      // 更新会话使用量
+      if (this.sessionState) {
+        this.updateSessionState({
+          totalUsage: {
+            inputTokens:
+              this.sessionState.totalUsage.inputTokens +
+              (response.usage?.inputTokens || 0),
+            outputTokens:
+              this.sessionState.totalUsage.outputTokens +
+              (response.usage?.outputTokens || 0),
+            totalTokens:
+              this.sessionState.totalUsage.totalTokens +
+              (response.usage?.totalTokens || 0),
+            cacheReadInputTokens: 0,
+            cacheCreationInputTokens: 0,
+          },
+          totalCostUSD: 0,
+        });
+      }
+
+      // 产生结果
+      yield {
+        message: response.message,
+        toolCalls: response.toolCalls,
+        toolResults: response.toolResults,
+        done: !response.toolCalls || response.toolCalls.length === 0,
+        usage: response.usage,
+      };
+
+      // 如果没有工具调用，退出循环
+      if (!response.toolCalls || response.toolCalls.length === 0) {
+        break;
+      }
+
+      // 更新会话状态为等待工具
+      this.updateSessionState({ queryState: QueryState.WAITING_FOR_TOOL });
+
+      // 执行工具调用
+      const toolResults = await this.executeToolCalls(
+        response.toolCalls,
+        sessionId || ''
+      );
+
+      // 产生工具结果
+      yield {
+        message: response.message,
+        toolCalls: response.toolCalls,
+        toolResults: toolResults,
+        done: false,
+        usage: response.usage,
+      };
+
+      // 更新提示词
+      prompt = this.buildPromptWithToolResults(
+        typeof response.message.content === 'string'
+          ? response.message.content
+          : '',
+        toolResults
+      );
+
+      // 检查是否需要压缩
+      await this.checkAndPerformCompact(sessionId || '');
+    }
+
+    // 触发查询结束进度事件
+    this.emitProgress('query_end', { sessionId });
+    this.updateSessionState({ queryState: QueryState.COMPLETED });
+
+    // 执行停止钩子
+    await this.executeStopHooks('completed');
+
+    // 记录查询完成事件
+    const duration = Date.now() - startTime;
+    this.analyticsService.logEvent('query_complete', {
+      session_id: sessionId,
+      duration: duration,
+      iterations: iteration,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * 处理用户输入
+   * @param input 用户输入
+   * @param sessionId 会话ID
+   * @returns 处理后的输入
+   */
+  private async processUserInput(
+    input: string,
+    sessionId: string
+  ): Promise<string> {
+    const inputInfo = processInput(input);
+
+    // 检查是否是命令
+    if (inputInfo.isCommand) {
+      this.analyticsService.logEvent('command_detected', {
+        session_id: sessionId,
+        command: inputInfo.commandName,
+        args: inputInfo.commandArgs,
+        timestamp: Date.now(),
+      });
+      return '';
+    }
+
+    return input;
+  }
+
+  /**
+   * 调用API
+   * @param prompt 提示词
+   * @param sessionId 会话ID
+   * @returns 响应
+   */
+  private async callAPI(
+    prompt: string,
+    sessionId: string
+  ): Promise<{
+    message: Message;
+    toolCalls?: ToolCall[];
+    toolResults?: ToolResult[];
+    usage?: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    };
+  }> {
+    const apiStartTime = Date.now();
+
+    // 使用重试机制包装API调用
+    const apiCall = async (): Promise<{
+      message: Message;
+      toolCalls?: ToolCall[];
+      toolResults?: ToolResult[];
+      usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+    }> => {
+      // 使用ChatManager发送消息，实现完整的聊天循环
+      const message = await this.chatManager.sendMessage(prompt, {
+        sessionId,
+      });
+
+      // 从消息中提取工具调用（如果有）
+      const toolCalls: ToolCall[] = [];
+      if ((message as any).tool_calls && Array.isArray((message as any).tool_calls)) {
+        for (const tc of (message as any).tool_calls) {
+          toolCalls.push({
+            id: tc.id,
+            name: tc.function?.name || tc.name || 'unknown',
+            arguments: tc.function?.arguments || tc.arguments || {},
+          });
+        }
+      }
+
+      // 计算token使用量（简化计算）
+      const contentLength = typeof message.content === 'string' ? message.content.length : JSON.stringify(message.content).length;
+      const usage = {
+        inputTokens: prompt.length,
+        outputTokens: contentLength,
+        totalTokens: prompt.length + contentLength,
+      };
+
+      return { message, toolCalls, usage };
+    };
+
+    try {
+      const result = await withRetry(
+        apiCall,
+        DEFAULT_RETRY_CONFIG,
+        (error, attempt, delayMs) => {
+          this.analyticsService.logEvent('api_retry', {
+            session_id: sessionId,
+            attempt,
+            delay_ms: delayMs,
+            error: error instanceof Error ? error.message : String(error),
+            timestamp: Date.now(),
+          });
+        }
+      );
+
+      // 记录API调用事件
+      const apiDuration = Date.now() - apiStartTime;
+      this.analyticsService.logEvent('api_call', {
+        session_id: sessionId,
+        model: 'default',
+        duration: apiDuration,
+        timestamp: Date.now(),
+      });
+
+      // 跟踪模型使用成本
+      this.costTracker.trackModelUsage('default', {
+        inputTokens: result.usage?.inputTokens || 0,
+        outputTokens: result.usage?.outputTokens || 0,
+        totalTokens: result.usage?.totalTokens || 0,
+      });
+
+      return result;
+    } catch (error) {
+      const classification = categorizeAPIError(error);
+      this.analyticsService.logEvent('api_error', {
+        session_id: sessionId,
+        error_type: classification.type,
+        retryable: classification.retryable,
+        error: error instanceof Error ? error.message : String(error),
+        api_duration_ms: Date.now() - apiStartTime,
+        timestamp: Date.now(),
+      });
+
+      // 更新会话错误计数
+      if (this.sessionState) {
+        this.updateSessionState({
+          errorCount: this.sessionState.errorCount + 1,
+          queryState: QueryState.ERROR,
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * 执行工具调用
+   * @param toolCalls 工具调用列表
+   * @param sessionId 会话ID
+   * @returns 工具结果列表
+   */
+  private async executeToolCalls(
+    toolCalls: ToolCall[],
+    sessionId: string
+  ): Promise<ToolResult[]> {
+    const results: ToolResult[] = [];
+
+    for (const toolCall of toolCalls) {
+      const toolStartTime = Date.now();
+
+      // 触发工具开始进度事件
+      this.emitProgress('tool_start', {
+        tool_name: toolCall.name,
+        session_id: sessionId,
+      });
+
+      // 记录工具执行开始事件
+      this.analyticsService.logEvent('tool_execute', {
+        session_id: sessionId,
+        tool_name: toolCall.name,
+        timestamp: toolStartTime,
+      });
+
+      try {
+        const result = await this.chatManager.executeTool(toolCall);
+        results.push(result);
+
+        // 更新会话状态中的工具调用计数
+        if (this.sessionState) {
+          this.updateSessionState({
+            toolCallCount: this.sessionState.toolCallCount + 1,
+          });
+        }
+
+        // 记录工具执行成功事件
+        const toolDuration = Date.now() - toolStartTime;
+        this.analyticsService.logEvent('tool_result', {
+          session_id: sessionId,
+          tool_name: toolCall.name,
+          success: true,
+          duration: toolDuration,
+          timestamp: Date.now(),
+        });
+      } catch (error) {
+        const errorResult = {
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          result: '',
+          error: error instanceof Error ? error.message : String(error),
+        };
+        results.push(errorResult);
+
+        // 触发错误处理
+        const queryError: QueryError = {
+          type: QueryErrorType.TOOL_ERROR,
+          message: error instanceof Error ? error.message : String(error),
+          retryable: true,
+          timestamp: Date.now(),
+          details: { toolName: toolCall.name },
+        };
+        this.emitError(queryError);
+
+        // 记录工具执行失败事件
+        const toolDuration = Date.now() - toolStartTime;
+        this.analyticsService.logEvent('tool_result', {
+          session_id: sessionId,
+          tool_name: toolCall.name,
+          success: false,
+          error: queryError.message,
+          duration: toolDuration,
+          timestamp: Date.now(),
+        });
+      }
+
+      // 触发工具结束进度事件
+      this.emitProgress('tool_end', {
+        tool_name: toolCall.name,
+        session_id: sessionId,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * 构建包含工具结果的提示词
+   * @param originalContent 原始内容
+   * @param toolResults 工具结果
+   * @returns 新的提示词
+   */
+  private buildPromptWithToolResults(
+    originalContent: string,
+    toolResults: ToolResult[]
+  ): string {
+    let prompt = originalContent;
+
+    for (const toolResult of toolResults) {
+      if (toolResult.error) {
+        prompt += `\n[Error: ${toolResult.error}]`;
+      } else {
+        prompt += `\n[Tool result: ${JSON.stringify(toolResult.result)}]`;
+      }
+    }
+
+    return prompt;
+  }
+
+  /**
+   * 执行采样后置Hook
+   * @param message 响应消息
+   * @param sessionId 会话ID
+   */
+  private async executePostSamplingHooks(
+    message: Message,
+    sessionId: string
+  ): Promise<void> {
+    const hookContext: PostSamplingHookContext = {
+      messages: [message],
+      systemPrompt: { content: '' },
+      userContext: {},
+      systemContext: {},
+      toolUseContext: {
+        toolName: '',
+        toolInput: {},
+        sessionId: sessionId,
+        type: 'tool',
+        createdAt: new Date(),
+      } as any,
+    } as any;
+
+    await this.postSamplingHookManager.executeHooks(hookContext);
+  }
+
+  /**
+   * 检查并执行压缩
+   * @param sessionId 会话ID
+   */
+  private async checkAndPerformCompact(sessionId: string): Promise<void> {
+    try {
+      // 从ChatManager获取会话消息
+      const sessions = await this.chatManager.getSessions();
+      const session = sessions.find((s: any) => s.id === sessionId);
+      if (!session) return;
+
+      // 这里简化处理，假设session有messages属性
+      const messages = (session as any).messages || [];
+
+      // 触发压缩开始进度事件
+      this.emitProgress('compact_start', { session_id: sessionId });
+
+      // 获取当前Token预算状态
+      const budgetState = this.tokenBudgetManager.getCurrentBudgetState();
+      const percentUsed = budgetState.percentUsed || 0;
+
+      // 根据Token使用率决定压缩级别
+      const compactLevel = this.determineCompactLevel(percentUsed);
+      
+      if (compactLevel > 0) {
+        console.log(`🔄 检测到需要压缩，级别: Level ${compactLevel}, Token使用率: ${percentUsed}%`);
+
+        // 更新会话状态为压缩中
+        this.updateSessionState({ queryState: QueryState.COMPACTING });
+
+        // 根据压缩级别执行不同的压缩策略
+        let artifacts: any[];
+        if (compactLevel === 3) {
+          // Level 3: 深度压缩 - 保留最近1轮对话
+          artifacts = await this.performDeepCompact(sessionId, messages);
+        } else if (compactLevel === 2) {
+          // Level 2: 中等压缩 - 保留最近2轮对话
+          artifacts = await this.performMediumCompact(sessionId, messages);
+        } else {
+          // Level 1: 轻度压缩 - 保留最近3轮对话
+          artifacts = await this.performLightCompact(sessionId, messages);
+        }
+
+        console.log(`✅ 压缩完成，生成了 ${artifacts.length} 个压缩产物`);
+
+        // 重新注入压缩产物
+        await this.compactService.reinjectArtifacts(sessionId, artifacts);
+
+        // 记录压缩事件
+        this.analyticsService.logEvent('compaction_performed', {
+          session_id: sessionId,
+          level: compactLevel,
+          token_percent_used: percentUsed,
+          artifacts_count: artifacts.length,
+          timestamp: Date.now(),
+        });
+
+        // 更新会话状态为运行中
+        this.updateSessionState({ queryState: QueryState.RUNNING });
+      }
+
+      // 触发压缩结束进度事件
+      this.emitProgress('compact_end', { session_id: sessionId });
+    } catch (error) {
+      console.error('压缩检查失败:', error);
+      this.analyticsService.logEvent('compaction_failed', {
+        session_id: sessionId,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  /**
+   * 根据Token使用率决定压缩级别
+   * @param percentUsed Token使用率
+   * @returns 压缩级别 (0=不需要压缩, 1=轻度, 2=中等, 3=深度)
+   */
+  private determineCompactLevel(percentUsed: number): number {
+    // 三级压缩策略
+    // Level 1: 60%-75% - 轻度压缩
+    // Level 2: 75%-90% - 中等压缩
+    // Level 3: 90%+ - 深度压缩
+    if (percentUsed >= 90) return 3;
+    if (percentUsed >= 75) return 2;
+    if (percentUsed >= 60) return 1;
+    return 0;
+  }
+
+  /**
+   * 轻度压缩 - 保留最近3轮对话
+   * @param sessionId 会话ID
+   * @param messages 消息列表
+   * @returns 压缩产物
+   */
+  private async performLightCompact(sessionId: string, messages: any[]): Promise<any[]> {
+    const result = await this.compactService.compactConversation(messages, {
+      isAutoCompact: true,
+      suppressFollowUpQuestions: true,
+    });
+    return result.summaryMessages.map((msg: string) => ({
+      id: `compact_light_${Date.now()}`,
+      sessionId,
+      type: 'summary',
+      content: msg,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+  }
+
+  /**
+   * 中等压缩 - 保留最近2轮对话
+   * @param sessionId 会话ID
+   * @param messages 消息列表
+   * @returns 压缩产物
+   */
+  private async performMediumCompact(sessionId: string, messages: any[]): Promise<any[]> {
+    const pivotIndex = Math.max(0, messages.length - 6);
+    const result = await this.compactService.partialCompactConversation(
+      messages,
+      pivotIndex,
+      'up_to'
+    );
+    return result.summaryMessages.map((msg: string) => ({
+      id: `compact_medium_${Date.now()}`,
+      sessionId,
+      type: 'summary',
+      content: msg,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+  }
+
+  /**
+   * 深度压缩 - 保留最近1轮对话
+   * @param sessionId 会话ID
+   * @param messages 消息列表
+   * @returns 压缩产物
+   */
+  private async performDeepCompact(sessionId: string, messages: any[]): Promise<any[]> {
+    const pivotIndex = Math.max(0, messages.length - 3);
+    const result = await this.compactService.partialCompactConversation(
+      messages,
+      pivotIndex,
+      'up_to'
+    );
+    
+    // 同时提取关键信息
+    const keyArtifacts = await this.compactService.extractKeyInformation(messages, sessionId);
+    
+    const summaryArtifact = {
+      id: `compact_deep_${Date.now()}`,
+      sessionId,
+      type: 'summary',
+      content: result.summaryMessages.join('\n'),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    return [summaryArtifact, ...keyArtifacts];
+  }
+
+  /**
+   * 获取压缩服务
+   * @returns 压缩服务实例
+   */
+  getCompactService(): CompactServiceImpl {
+    return this.compactService;
+  }
+
+  /**
+   * 获取分析服务
+   * @returns 分析服务实例
+   */
+  getAnalyticsService(): AnalyticsService {
+    return this.analyticsService;
+  }
+
+  /**
+   * 获取成本追踪器
+   * @returns 成本追踪器实例
+   */
+  getCostTracker(): CostAnalyticsTracker {
+    return this.costTracker;
+  }
+
+  /**
+   * 创建新会话
+   * @param sessionId 会话ID
+   * @returns 会话ID
+   */
+  createSession(sessionId?: string): string {
+    const id = sessionId || `session-${Date.now()}`;
+    this.sessionState = {
+      sessionId: id,
+      queryState: QueryState.IDLE,
+      turnCount: 0,
+      startTime: Date.now(),
+      lastActivityTime: Date.now(),
+      totalUsage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+      },
+      totalCostUSD: 0,
+      errorCount: 0,
+      toolCallCount: 0,
+    };
+    return id;
+  }
+
+  /**
+   * 获取当前会话状态
+   * @returns 会话状态
+   */
+  getSessionState(): SessionState | null {
+    return this.sessionState;
+  }
+
+  /**
+   * 获取当前查询状态
+   * @returns 查询状态
+   */
+  getQueryState(): QueryState {
+    return this.sessionState?.queryState || QueryState.IDLE;
+  }
+
+  /**
+   * 获取总使用量
+   * @returns 使用量统计
+   */
+  getTotalUsage() {
+    return (
+      this.sessionState?.totalUsage || {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        cacheReadInputTokens: 0,
+        cacheCreationInputTokens: 0,
+      }
+    );
+  }
+
+  /**
+   * 获取总成本
+   * @returns 总成本
+   */
+  getTotalCost(): number {
+    return this.sessionState?.totalCostUSD || 0;
+  }
+
+  /**
+   * 获取Turn数
+   * @returns Turn数
+   */
+  getTurnCount(): number {
+    return this.sessionState?.turnCount || 0;
+  }
+
+  /**
+   * 添加进度监听器
+   * @param listener 监听器函数
+   */
+  addProgressListener(listener: (event: ProgressEvent) => void): void {
+    this.progressListeners.push(listener);
+  }
+
+  /**
+   * 移除进度监听器
+   * @param listener 监听器函数
+   */
+  removeProgressListener(listener: (event: ProgressEvent) => void): void {
+    this.progressListeners = this.progressListeners.filter(
+      (l) => l !== listener
+    );
+  }
+
+  /**
+   * 添加错误处理器
+   * @param handler 错误处理函数
+   */
+  addErrorHandler(handler: (error: QueryError) => void): void {
+    this.errorHandlers.push(handler);
+  }
+
+  /**
+   * 移除错误处理器
+   * @param handler 错误处理函数
+   */
+  removeErrorHandler(handler: (error: QueryError) => void): void {
+    this.errorHandlers = this.errorHandlers.filter((h) => h !== handler);
+  }
+
+  /**
+   * 触发进度事件
+   * @param type 事件类型
+   * @param data 事件数据
+   */
+  private emitProgress(
+    type: ProgressEvent['type'],
+    data?: Record<string, any>
+  ): void {
+    const event: ProgressEvent = {
+      type,
+      timestamp: Date.now(),
+      data,
+    };
+    for (const listener of this.progressListeners) {
+      try {
+        listener(event);
+      } catch (e) {
+        console.error('Progress listener error:', e);
+      }
+    }
+  }
+
+  /**
+   * 触发错误处理
+   * @param error 错误对象
+   */
+  private emitError(error: QueryError): void {
+    if (this.sessionState) {
+      this.sessionState.errorCount++;
+    }
+    for (const handler of this.errorHandlers) {
+      try {
+        handler(error);
+      } catch (e) {
+        console.error('Error handler error:', e);
+      }
+    }
+  }
+
+  /**
+   * 更新会话状态
+   * @param updates 更新内容
+   */
+  private updateSessionState(updates: Partial<SessionState>): void {
+    if (this.sessionState) {
+      this.sessionState = {
+        ...this.sessionState,
+        ...updates,
+        lastActivityTime: Date.now(),
+      };
+    }
+  }
+
+  /**
+   * 检查预算限制
+   * @returns 是否在预算范围内
+   */
+  private checkBudget(): boolean {
+    if (this.config.maxBudgetUsd !== undefined) {
+      const currentCost = this.getTotalCost();
+      if (currentCost >= this.config.maxBudgetUsd) {
+        const error: QueryError = {
+          type: QueryErrorType.BUDGET_EXCEEDED,
+          message: `Budget exceeded: ${currentCost} USD >= ${this.config.maxBudgetUsd} USD`,
+          retryable: false,
+          timestamp: Date.now(),
+        };
+        this.emitError(error);
+        return false;
+      }
+    }
+
+    const budgetState = this.tokenBudgetManager.getCurrentBudgetState();
+    if (budgetState.status === TokenBudgetStatus.EXCEEDED) {
+      const error: QueryError = {
+        type: QueryErrorType.BUDGET_EXCEEDED,
+        message: budgetState.warningMessage || 'Token budget exhausted',
+        retryable: false,
+        timestamp: Date.now(),
+        details: { currentTokens: budgetState.currentTokens, maxTokens: budgetState.maxTokens },
+      };
+      this.emitError(error);
+      return false;
+    }
+
+    if (budgetState.shouldCompact) {
+      this.analyticsService.logEvent('auto_compact_triggered', {
+        status: budgetState.status,
+        percent_used: budgetState.percentUsed,
+        timestamp: Date.now(),
+      });
+    }
+
+    return true;
+  }
+
+  /**
+   * 检查Turn限制
+   * @returns 是否在Turn限制范围内
+   */
+  private checkMaxTurns(): boolean {
+    if (this.config.maxTurns !== undefined) {
+      const currentTurns = this.getTurnCount();
+      if (currentTurns >= this.config.maxTurns) {
+        const error: QueryError = {
+          type: QueryErrorType.MAX_TURNS_EXCEEDED,
+          message: `Max turns exceeded: ${currentTurns} >= ${this.config.maxTurns}`,
+          retryable: false,
+          timestamp: Date.now(),
+        };
+        this.emitError(error);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * 中止当前查询
+   */
+  async abort(): Promise<void> {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    this.updateSessionState({ queryState: QueryState.ABORTED });
+    
+    // 执行停止钩子
+    await this.executeStopHooks('aborted');
+  }
+
+  getTokenBudgetManager(): TokenBudgetManager {
+    return this.tokenBudgetManager;
+  }
+
+  /**
+   * 重置会话
+   */
+  resetSession(): void {
+    this.sessionState = null;
+    this.abortController = null;
+  }
+}
+
+/**
+ * 创建QueryEngine实例
+ * @param chatManager 聊天管理器
+ * @param config 查询引擎配置
+ * @returns QueryEngine实例
+ */
+export function createQueryEngine(
+  chatManager: ChatManagerImpl,
+  config?: QueryEngineConfig
+): QueryEngine {
+  return new QueryEngine(chatManager, config);
+}
+
+export default {
+  QueryEngine,
+  createQueryEngine,
+};

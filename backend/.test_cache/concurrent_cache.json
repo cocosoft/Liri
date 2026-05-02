@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "data": {
+    "counter": {
+      "counter": 9,
+      "timestamp": 1777673768695
+    }
+  },
+  "metadata": {
+    "createdAt": 1777673768695,
+    "updatedAt": 1777673768695,
+    "checksum": "458666edbf12ac1cf8466fb53d3fc697"
+  }
+}

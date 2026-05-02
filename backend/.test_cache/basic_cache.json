@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "data": {
+    "item1": {
+      "name": "test",
+      "value": 42
+    },
+    "item2": {
+      "name": "test2",
+      "value": 100
+    }
+  },
+  "metadata": {
+    "createdAt": 1777673768683,
+    "updatedAt": 1777673768683,
+    "checksum": "d2174bfe7043879f3e394d0d3467240b"
+  }
+}

@@ -1,0 +1,19 @@
+/**
+ * 安全模式导出
+ */
+
+export {
+  DANGEROUS_COMMAND_PATTERNS,
+  DANGEROUS_BASE_COMMANDS,
+} from './dangerousCommands';
+export {
+  INJECTION_PATTERNS,
+  IFS_INJECTION_PATTERNS,
+  ENV_INJECTION_PATTERNS,
+} from './injectionPatterns';
+export {
+  ZSH_SPECIFIC_PATTERNS,
+  ZSH_DANGEROUS_COMMANDS,
+  PRIVILEGE_ESCALATION_COMMANDS,
+  SPECIAL_CHAR_PATTERNS,
+} from './shellSpecific';

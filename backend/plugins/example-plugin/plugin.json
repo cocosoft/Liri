@@ -1,0 +1,15 @@
+{
+  "plugin": {
+    "name": "example-plugin",
+    "version": "1.0.0",
+    "description": "示例插件",
+    "main": "src/index.ts",
+    "author": "PY_APP",
+    "license": "MIT",
+    "categories": ["utility"],
+    "tags": ["example", "demo"],
+    "dependencies": [],
+    "commands": [],
+    "tools": []
+  }
+}

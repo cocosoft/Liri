@@ -1,0 +1,538 @@
+/**
+ * Bash 安全分析器
+ *
+ * 参考 cc_code/backend/tools/BashTool/bashSecurity.ts 实现
+ * 提供多层次的命令安全检查
+ */
+
+import type {
+  SecurityAnalysisResult,
+  SecurityPattern,
+  SecurityCheckContext,
+  SecurityBehavior,
+  RiskLevel,
+} from './types';
+import {
+  DANGEROUS_COMMAND_PATTERNS,
+  DANGEROUS_BASE_COMMANDS,
+  INJECTION_PATTERNS,
+  IFS_INJECTION_PATTERNS,
+  ENV_INJECTION_PATTERNS,
+  ZSH_SPECIFIC_PATTERNS,
+  ZSH_DANGEROUS_COMMANDS,
+  PRIVILEGE_ESCALATION_COMMANDS,
+  SPECIAL_CHAR_PATTERNS,
+} from './patterns';
+import {
+  parseCommand,
+  type IParsedCommand,
+} from './bash/ParsedCommand';
+import {
+  analyzeBashCommand,
+  type BashAnalysisResult,
+} from './bash/BashAST';
+import {
+  extractHeredocs,
+  hasHeredoc,
+  isHeredocSafe,
+  type HeredocInfo,
+} from './bash/BashAST';
+import {
+  classifyCommand,
+  type CommandCategory,
+} from './bash/CommandRegistry';
+import {
+  hasUnterminatedQuote,
+  hasShellQuoteBug,
+} from './bash/QuoteHandler';
+import { PathValidator, createDefaultPathValidator, isDangerousRemovalPath } from './validation/PathValidator.js';
+
+const ADDITIONAL_DANGEROUS_COMMANDS = new Set([
+  'chgrp',
+  'usermod',
+  'groupadd',
+  'groupdel',
+  'passwd',
+  'su',
+  'sudo',
+  'doas',
+  'pkexec',
+]);
+
+const SENSITIVE_DIRECTORIES = [
+  '/etc',
+  '/usr/bin',
+  '/usr/sbin',
+  '/bin',
+  '/sbin',
+  '/var',
+  '/boot',
+  '/lib',
+  '/lib64',
+];
+
+export class BashSecurityAnalyzer {
+  private allPatterns: SecurityPattern[];
+  private pathValidator: PathValidator;
+
+  constructor() {
+    this.allPatterns = [
+      ...DANGEROUS_COMMAND_PATTERNS,
+      ...INJECTION_PATTERNS,
+      ...IFS_INJECTION_PATTERNS,
+      ...ENV_INJECTION_PATTERNS,
+      ...ZSH_SPECIFIC_PATTERNS,
+      ...PRIVILEGE_ESCALATION_COMMANDS,
+      ...SPECIAL_CHAR_PATTERNS,
+    ];
+    this.pathValidator = createDefaultPathValidator();
+  }
+
+  /**
+   * 分析命令安全性
+   */
+  analyze(command: string): SecurityAnalysisResult {
+    if (!command) {
+      return {
+        safe: true,
+        behavior: 'allow',
+        riskLevel: 'low',
+        matchedPatterns: [],
+      };
+    }
+
+    const trimmedCommand = command.trim();
+
+    if (!trimmedCommand) {
+      return {
+        safe: true,
+        behavior: 'allow',
+        riskLevel: 'low',
+        matchedPatterns: [],
+      };
+    }
+
+    const context = this.buildContext(trimmedCommand);
+    const matchedPatterns: string[] = [];
+    let highestRiskLevel: RiskLevel = 'low';
+    let finalBehavior: SecurityBehavior = 'allow';
+    const messages: string[] = [];
+
+    for (const pattern of this.allPatterns) {
+      if (pattern.pattern.test(trimmedCommand)) {
+        matchedPatterns.push(pattern.name);
+
+        if (this.isHigherRisk(pattern.riskLevel, highestRiskLevel)) {
+          highestRiskLevel = pattern.riskLevel;
+        }
+
+        if (pattern.behavior === 'deny') {
+          finalBehavior = 'deny';
+        } else if (pattern.behavior === 'ask' && finalBehavior !== 'deny') {
+          finalBehavior = 'ask';
+        }
+
+        messages.push(pattern.message);
+      }
+    }
+
+    if (this.checkDangerousBaseCommand(context.baseCommand)) {
+      matchedPatterns.push('dangerous_base_command');
+      highestRiskLevel = 'high';
+      finalBehavior = 'ask';
+      messages.push(`检测到危险基础命令: ${context.baseCommand}`);
+    }
+
+    if (
+      context.shellType === 'zsh' &&
+      ZSH_DANGEROUS_COMMANDS.has(context.baseCommand)
+    ) {
+      matchedPatterns.push('zsh_dangerous_command');
+      highestRiskLevel = 'high';
+      finalBehavior = 'deny';
+      messages.push(`检测到 Zsh 危险命令: ${context.baseCommand}`);
+    }
+
+    if (this.checkDangerousPathOperations(trimmedCommand)) {
+      matchedPatterns.push('dangerous_path_operation');
+      if (highestRiskLevel !== 'high') {
+        highestRiskLevel = 'high';
+      }
+      finalBehavior = 'ask';
+      messages.push('检测到危险路径操作，需要路径验证');
+    }
+
+    if (this.checkSensitiveDirectoryAccess(trimmedCommand)) {
+      matchedPatterns.push('sensitive_directory_access');
+      if (highestRiskLevel !== 'high') {
+        highestRiskLevel = 'high';
+      }
+      if (finalBehavior === 'allow') {
+        finalBehavior = 'ask';
+      }
+      messages.push('检测到访问敏感系统目录');
+    }
+
+    if (this.checkEnvVarPollution(trimmedCommand)) {
+      matchedPatterns.push('env_var_pollution');
+      if (highestRiskLevel !== 'high') {
+        highestRiskLevel = 'high';
+      }
+      if (finalBehavior === 'allow') {
+        finalBehavior = 'ask';
+      }
+      messages.push('检测到环境变量污染攻击尝试');
+    }
+
+    if (this.checkNullByteInjection(trimmedCommand)) {
+      matchedPatterns.push('null_byte_injection');
+      highestRiskLevel = 'high';
+      finalBehavior = 'deny';
+      messages.push('检测到空字节注入攻击');
+    }
+
+    if (this.checkZeroWidthCharacters(trimmedCommand)) {
+      matchedPatterns.push('zero_width_characters');
+      highestRiskLevel = 'high';
+      finalBehavior = 'deny';
+      messages.push('检测到Unicode零宽字符，可能隐藏恶意代码');
+    }
+
+    if (this.checkZshEqualsExpansion(trimmedCommand)) {
+      matchedPatterns.push('zsh_equals_expansion');
+      highestRiskLevel = 'high';
+      finalBehavior = 'deny';
+      messages.push('检测到Zsh equals expansion绕过尝试');
+    }
+
+    const safe = finalBehavior === 'allow';
+
+    return {
+      safe,
+      behavior: finalBehavior,
+      riskLevel: highestRiskLevel,
+      message: messages.length > 0 ? messages.join('; ') : undefined,
+      matchedPatterns,
+    };
+  }
+
+  /**
+   * 检查危险路径操作
+   */
+  private checkDangerousPathOperations(command: string): boolean {
+    const pathPatterns = [
+      /\brm\s+(-[rf]+\s+)?\/[^s]/,
+      /\brm\s+(-[rf]+\s+)?~\//,
+      /\brm\s+(-[rf]+\s+)?[A-Z]:\\/,
+      /\bchmod\s+777\s+\/[^s]/,
+      /\bchmod\s+777\s+~\//,
+      /\bmv\s+.*\/(etc|usr|var|tmp|home)\b/,
+      /\bcp\s+.*\/(etc|usr|var|tmp|home)\b/,
+    ];
+
+    return pathPatterns.some(pattern => pattern.test(command));
+  }
+
+  /**
+   * 构建检查上下文
+   */
+  private buildContext(command: string): SecurityCheckContext {
+    const baseCommand = this.extractBaseCommand(command);
+    const shellType = this.detectShellType(command);
+
+    return {
+      command,
+      baseCommand,
+      shellType,
+    };
+  }
+
+  /**
+   * 提取基础命令
+   */
+  private extractBaseCommand(command: string): string {
+    if (!command) {
+      return '';
+    }
+
+    const parts = command.trim().split(/\s+/);
+    let baseCmd = parts[0] || '';
+
+    if (baseCmd.includes('=')) {
+      const eqIndex = baseCmd.indexOf('=');
+      baseCmd = baseCmd.substring(eqIndex + 1) || baseCmd;
+    }
+
+    return baseCmd.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+  }
+
+  /**
+   * 检测 Shell 类型
+   */
+  private detectShellType(
+    command: string
+  ): 'bash' | 'zsh' | 'powershell' | 'unknown' {
+    if (!command) {
+      return 'unknown';
+    }
+
+    if (command.includes('zsh') || command.includes('=curl')) {
+      return 'zsh';
+    }
+    if (command.includes('powershell') || command.includes('pwsh')) {
+      return 'powershell';
+    }
+    return 'bash';
+  }
+
+  /**
+   * 检查是否为危险基础命令
+   */
+  private checkDangerousBaseCommand(baseCommand: string): boolean {
+    return DANGEROUS_BASE_COMMANDS.has(baseCommand) || ADDITIONAL_DANGEROUS_COMMANDS.has(baseCommand);
+  }
+
+  /**
+   * 检查是否访问敏感目录
+   */
+  private checkSensitiveDirectoryAccess(command: string): boolean {
+    const lowerCommand = command.toLowerCase();
+    return SENSITIVE_DIRECTORIES.some(dir => 
+      lowerCommand.includes(dir) || lowerCommand.includes(dir.replace('/', '\\'))
+    );
+  }
+
+  /**
+   * 检查环境变量污染攻击
+   */
+  private checkEnvVarPollution(command: string): boolean {
+    const envPatterns = [
+      /\bPATH\s*=\s*[^$]/,
+      /\bLD_PRELOAD\s*=/,
+      /\bLD_LIBRARY_PATH\s*=/,
+      /\bPYTHONPATH\s*=/,
+      /\bLD_AUDIT\s*=/,
+      /\bLD_DEBUG\s*=/,
+    ];
+    return envPatterns.some(pattern => pattern.test(command));
+  }
+
+  /**
+   * 检查空字节注入
+   */
+  private checkNullByteInjection(command: string): boolean {
+    return command.includes('\x00');
+  }
+
+  /**
+   * 检查Unicode零宽字符
+   */
+  private checkZeroWidthCharacters(command: string): boolean {
+    const zeroWidthPattern = /[\u200B-\u200F\u2028-\u202F\u205F-\u206F\uFEFF]/;
+    return zeroWidthPattern.test(command);
+  }
+
+  /**
+   * 检查Zsh equals expansion绕过
+   */
+  private checkZshEqualsExpansion(command: string): boolean {
+    return /(?:^|[\s;&|])=[a-zA-Z_]/.test(command);
+  }
+
+  /**
+   * 比较风险级别
+   */
+  private isHigherRisk(newLevel: RiskLevel, currentLevel: RiskLevel): boolean {
+    const levels: Record<RiskLevel, number> = {
+      low: 1,
+      medium: 2,
+      high: 3,
+    };
+    return levels[newLevel] > levels[currentLevel];
+  }
+
+  /**
+   * 快速安全检查（用于只读命令）
+   */
+  isReadOnlyCommand(command: string): boolean {
+    const readOnlyCommands = new Set([
+      'ls',
+      'cat',
+      'head',
+      'tail',
+      'less',
+      'more',
+      'wc',
+      'grep',
+      'find',
+      'which',
+      'whereis',
+      'type',
+      'echo',
+      'printf',
+      'pwd',
+      'whoami',
+      'id',
+      'date',
+      'uname',
+      'hostname',
+      'df',
+      'du',
+      'git',
+      'npm',
+      'yarn',
+      'pnpm',
+      'bun',
+      'node',
+      'python',
+      'python3',
+    ]);
+
+    const baseCommand = this.extractBaseCommand(command);
+    return readOnlyCommands.has(baseCommand);
+  }
+
+  /**
+   * 获取所有模式
+   */
+  getPatterns(): SecurityPattern[] {
+    return [...this.allPatterns];
+  }
+
+  /**
+   * 深度安全分析（使用 AST 和结构分析）
+   * 在现有 analyze() 基础上增加更深层次的检查
+   */
+  analyzeDeep(command: string): SecurityAnalysisResult {
+    const baseResult = this.analyze(command)
+
+    const warnings: string[] = []
+    if (baseResult.message) {
+      warnings.push(baseResult.message)
+    }
+
+    if (hasUnterminatedQuote(command)) {
+      warnings.push('检测到未闭合的引号')
+    }
+
+    if (hasShellQuoteBug(command)) {
+      warnings.push('检测到单引号内转义模式（可能的解析差异）')
+    }
+
+    if (hasHeredoc(command)) {
+      const { heredocs } = extractHeredocs(command)
+      for (const [, info] of heredocs) {
+        if (!info.quoted) {
+          const content = info.fullText
+          if (!isHeredocSafe(info, content)) {
+            warnings.push('Heredoc 内容可能包含危险操作')
+            if (baseResult.behavior === 'allow') {
+              return {
+                ...baseResult,
+                behavior: 'ask',
+                riskLevel: 'medium',
+                message: warnings.join('; '),
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const astResult = analyzeBashCommand(command)
+    if (astResult.kind === 'too-complex') {
+      warnings.push(`复杂命令结构: ${astResult.reason}`)
+    } else if (astResult.kind === 'simple') {
+      for (const cmd of astResult.commands) {
+        if (cmd.hasDangerousConstruct) {
+          const types = cmd.dangerousTypes.join(', ')
+          warnings.push(`检测到危险构造: ${types}`)
+        }
+      }
+    }
+
+    const parsedCmd = parseCommand(command)
+    const segments = parsedCmd.getPipeSegments()
+    for (const segment of segments) {
+      const firstWord = segment.trim().split(/\s+/, 1)[0] || ''
+      const category = classifyCommand(firstWord)
+      if (category === 'dangerous') {
+        warnings.push(`危险命令分类: ${firstWord}`)
+      }
+    }
+
+    const safe = baseResult.safe && !warnings.some(
+      w => w.includes('危险') || w.includes('未闭合'),
+    )
+
+    return {
+      ...baseResult,
+      safe,
+      message: warnings.length > 0 ? warnings.join('; ') : baseResult.message,
+    }
+  }
+
+  /**
+   * 解析命令结构
+   */
+  parseCommand(command: string): IParsedCommand {
+    return parseCommand(command)
+  }
+
+  /**
+   * AST 分析命令
+   */
+  analyzeAST(command: string): BashAnalysisResult {
+    return analyzeBashCommand(command)
+  }
+
+  /**
+   * 分类命令
+   */
+  classifyCommand(commandName: string): CommandCategory {
+    return classifyCommand(commandName)
+  }
+
+  /**
+   * 检查 heredoc
+   */
+  checkHeredoc(command: string): {
+    hasHeredoc: boolean
+    heredocCount: number
+    allSafe: boolean
+  } {
+    if (!hasHeredoc(command)) {
+      return { hasHeredoc: false, heredocCount: 0, allSafe: true }
+    }
+
+    const { heredocs } = extractHeredocs(command)
+    let allSafe = true
+    for (const [, info] of heredocs) {
+      if (!info.quoted) {
+        const content = info.fullText
+        if (!isHeredocSafe(info, content)) {
+          allSafe = false
+        }
+      }
+    }
+
+    return {
+      hasHeredoc: true,
+      heredocCount: heredocs.size,
+      allSafe,
+    }
+  }
+
+  /**
+   * 检查引号完整性
+   */
+  checkQuotes(command: string): {
+    hasUnterminatedQuote: boolean
+    hasShellQuoteBug: boolean
+  } {
+    return {
+      hasUnterminatedQuote: hasUnterminatedQuote(command),
+      hasShellQuoteBug: hasShellQuoteBug(command),
+    }
+  }
+}

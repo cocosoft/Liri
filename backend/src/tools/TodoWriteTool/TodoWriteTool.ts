@@ -1,0 +1,589 @@
+/**
+ * TodoWriteTool - 待办事项管理工具
+ *
+ * 参考CC源码实现: cc_code/tools/TodoWriteTool.ts
+ * 提供任务清单管理功能
+ */
+
+import { Tool } from '../types/Tool';
+import { ToolResult, createToolResult } from '../types/ToolResult';
+import { ToolUseContext } from '../types/ToolUseContext';
+import { ToolParam } from '../types/Tool';
+
+/**
+ * Todo 项状态
+ */
+type TodoStatus = 'pending' | 'in_progress' | 'completed';
+
+/**
+ * Todo 项
+ */
+interface Todo {
+  id: string;
+  content: string;
+  status: TodoStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Todo 管理器
+ */
+class TodoManager {
+  private todos: Map<string, Todo[]> = new Map();
+
+  /**
+   * 获取指定会话的 todos
+   */
+  getTodos(sessionId: string): Todo[] {
+    return this.todos.get(sessionId) || [];
+  }
+
+  /**
+   * 设置指定会话的 todos
+   */
+  setTodos(sessionId: string, todos: Todo[]): void {
+    this.todos.set(sessionId, todos);
+  }
+
+  /**
+   * 添加 todo
+   */
+  addTodo(sessionId: string, content: string): Todo {
+    const todos = this.getTodos(sessionId);
+    const todo: Todo = {
+      id: `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      content,
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    todos.push(todo);
+    this.setTodos(sessionId, todos);
+
+    return todo;
+  }
+
+  /**
+   * 更新 todo
+   */
+  updateTodo(
+    sessionId: string,
+    todoId: string,
+    updates: Partial<Todo>
+  ): Todo | null {
+    const todos = this.getTodos(sessionId);
+    const index = todos.findIndex((t) => t.id === todoId);
+
+    if (index === -1) return null;
+
+    todos[index] = {
+      ...todos[index],
+      ...updates,
+      updatedAt: new Date(),
+    };
+
+    this.setTodos(sessionId, todos);
+    return todos[index];
+  }
+
+  /**
+   * 删除 todo
+   */
+  deleteTodo(sessionId: string, todoId: string): boolean {
+    const todos = this.getTodos(sessionId);
+    const filtered = todos.filter((t) => t.id !== todoId);
+
+    if (filtered.length === todos.length) return false;
+
+    this.setTodos(sessionId, filtered);
+    return true;
+  }
+
+  /**
+   * 清除已完成的 todos
+   */
+  clearCompleted(sessionId: string): number {
+    const todos = this.getTodos(sessionId);
+    const completed = todos.filter((t) => t.status === 'completed');
+    const active = todos.filter((t) => t.status !== 'completed');
+
+    this.setTodos(sessionId, active);
+    return completed.length;
+  }
+
+  /**
+   * 列出所有会话的 todos
+   */
+  listAll(): Array<{ sessionId: string; todos: Todo[] }> {
+    return Array.from(this.todos.entries())
+      .map(([sessionId, todos]) => ({ sessionId, todos }))
+      .filter((item) => item.todos.length > 0);
+  }
+}
+
+// 全局 Todo 管理器
+const todoManager = new TodoManager();
+
+/**
+ * TodoWriteTool实现
+ */
+export class TodoWriteTool implements Tool {
+  /** 工具名称 */
+  name = 'todo_write';
+
+  /** 工具描述 */
+  description =
+    'Manage a todo list for tracking tasks. Create, update, and complete todos.';
+
+  /** 工具参数 */
+  params: ToolParam[] = [
+    {
+      name: 'action',
+      type: 'string',
+      description:
+        'Action to perform: list, add, update, delete, clear_completed, write',
+      required: true,
+      default: 'list',
+    },
+    {
+      name: 'session_id',
+      type: 'string',
+      description: 'Session ID for the todo list',
+      required: false,
+      default: 'default',
+    },
+    {
+      name: 'todo_id',
+      type: 'string',
+      description: 'ID of the todo to update or delete',
+      required: false,
+      default: '',
+    },
+    {
+      name: 'content',
+      type: 'string',
+      description: 'Content of the todo',
+      required: false,
+      default: '',
+    },
+    {
+      name: 'status',
+      type: 'string',
+      description: 'Status of the todo: pending, in_progress, completed',
+      required: false,
+      default: 'pending',
+    },
+    {
+      name: 'todos',
+      type: 'object',
+      description: 'Array of todos for write action',
+      required: false,
+      default: [],
+    },
+  ];
+
+  /** 工具别名 */
+  aliases = ['todo', 'tasks', 'todo_list'];
+
+  /** 搜索提示 */
+  searchHint = 'Manage tasks';
+
+  /**
+   * 检查工具是否启用
+   */
+  isEnabled(): boolean {
+    return true;
+  }
+
+  /**
+   * 检查工具是否只读
+   */
+  isReadOnly(_input?: Record<string, unknown>): boolean {
+    return false;
+  }
+
+  /**
+   * 检查工具是否并发安全
+   */
+  isConcurrencySafe(_input?: Record<string, unknown>): boolean {
+    return true;
+  }
+
+  /**
+   * 获取工具信息
+   */
+  getInfo() {
+    return {
+      name: this.name,
+      description: this.description,
+      params: this.params,
+      enabled: true,
+      readOnly: false,
+      destructive: false,
+      concurrencySafe: true,
+      deferred: false,
+      alwaysLoad: false,
+      interruptBehavior: 'block' as const,
+      maxResultSizeChars: 10000,
+    };
+  }
+
+  /**
+   * 验证输入
+   */
+  validateInput(
+    input: Record<string, unknown>
+  ): { result: true } | { result: false; message: string; errorCode?: number } {
+    const validActions = [
+      'list',
+      'add',
+      'update',
+      'delete',
+      'clear_completed',
+      'write',
+    ];
+    if (!input.action || !validActions.includes(input.action as string)) {
+      return {
+        result: false,
+        message: `action must be one of: ${validActions.join(', ')}`,
+      };
+    }
+
+    const action = input.action as string;
+    if (action === 'add' && !input.content) {
+      return { result: false, message: 'content is required for add action' };
+    }
+
+    if ((action === 'update' || action === 'delete') && !input.todo_id) {
+      return {
+        result: false,
+        message: 'todo_id is required for update/delete action',
+      };
+    }
+
+    if (action === 'write' && (!input.todos || !Array.isArray(input.todos))) {
+      return {
+        result: false,
+        message: 'todos array is required for write action',
+      };
+    }
+
+    return { result: true };
+  }
+
+  /**
+   * 获取用户可见的工具名称
+   */
+  userFacingName(input?: Partial<Record<string, unknown>>): string {
+    const action = (input?.action as string) || '';
+    const content = (input?.content as string) || '';
+    const sessionId = (input?.session_id as string) || 'default';
+
+    switch (action) {
+      case 'add':
+        return `Todo Add: ${content.substring(0, 30)}${content.length > 30 ? '...' : ''}`;
+      case 'update':
+        return `Todo Update: ${(input?.todo_id as string) || ''}`;
+      case 'delete':
+        return `Todo Delete: ${(input?.todo_id as string) || ''}`;
+      case 'list':
+        return `Todo List: ${sessionId}`;
+      case 'clear_completed':
+        return `Todo Clear Completed: ${sessionId}`;
+      case 'write':
+        return `Todo Write: ${sessionId}`;
+      default:
+        return this.name;
+    }
+  }
+
+  /**
+   * 获取活动描述
+   */
+  getActivityDescription(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
+    const action = (input?.action as string) || '';
+    const content = (input?.content as string) || '';
+    const sessionId = (input?.session_id as string) || 'default';
+
+    switch (action) {
+      case 'add':
+        return `Adding todo: ${content}`;
+      case 'update':
+        return `Updating todo: ${(input?.todo_id as string) || ''}`;
+      case 'delete':
+        return `Deleting todo: ${(input?.todo_id as string) || ''}`;
+      case 'list':
+        return `Listing todos for session: ${sessionId}`;
+      case 'clear_completed':
+        return `Clearing completed todos for session: ${sessionId}`;
+      case 'write':
+        return `Writing todos to session: ${sessionId}`;
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * 获取工具使用摘要
+   */
+  getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+    const action = (input?.action as string) || '';
+    const content = (input?.content as string) || '';
+    const sessionId = (input?.session_id as string) || 'default';
+
+    switch (action) {
+      case 'add':
+        return `Add todo: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`;
+      case 'update':
+        return `Update todo: ${(input?.todo_id as string) || ''}`;
+      case 'delete':
+        return `Delete todo: ${(input?.todo_id as string) || ''}`;
+      case 'list':
+        return `List todos for session: ${sessionId}`;
+      case 'clear_completed':
+        return `Clear completed todos for session: ${sessionId}`;
+      case 'write':
+        return `Write todos to session: ${sessionId}`;
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * 执行工具
+   */
+  async execute(
+    input: Record<string, unknown>,
+    _context: ToolUseContext
+  ): Promise<ToolResult> {
+    const validation = this.validateInput(input);
+    if (!validation.result) {
+      return createToolResult(null, {
+        newMessages: [
+          {
+            role: 'system',
+            content: `Error: ${validation.message}`,
+          },
+        ],
+      });
+    }
+
+    const {
+      action,
+      session_id = 'default',
+      todo_id,
+      content,
+      status,
+      todos,
+    } = input;
+
+    try {
+      switch (action) {
+        case 'list': {
+          const todos = todoManager.getTodos(session_id as string);
+
+          if (todos.length === 0) {
+            return createToolResult(
+              'No todos found.\nUse `todo add` to create a new todo.',
+              {
+                newMessages: [
+                  {
+                    role: 'system',
+                    content: 'No todos found.',
+                  },
+                ],
+              }
+            );
+          }
+
+          const pending = todos.filter((t) => t.status === 'pending').length;
+          const inProgress = todos.filter(
+            (t) => t.status === 'in_progress'
+          ).length;
+          const completed = todos.filter(
+            (t) => t.status === 'completed'
+          ).length;
+
+          let output = `Todo List (${todos.length} items):\n`;
+          output += `  Pending: ${pending} | In Progress: ${inProgress} | Completed: ${completed}\n`;
+          output += `${'='.repeat(60)}\n\n`;
+
+          todos.forEach((todo, index) => {
+            const statusIcon =
+              todo.status === 'completed'
+                ? '✓'
+                : todo.status === 'in_progress'
+                  ? '◐'
+                  : '○';
+            output += `${index + 1}. [${statusIcon}] ${todo.content}\n`;
+            output += `   ID: ${todo.id} | Status: ${todo.status}\n\n`;
+          });
+
+          return createToolResult(output, {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Listed ${todos.length} todos`,
+              },
+            ],
+          });
+        }
+
+        case 'add': {
+          const todo = todoManager.addTodo(
+            session_id as string,
+            content as string
+          );
+
+          return createToolResult(
+            `Added todo:\n  ID: ${todo.id}\n  Content: ${todo.content}\n  Status: ${todo.status}`,
+            {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Added todo: ${todo.id}`,
+                },
+              ],
+            }
+          );
+        }
+
+        case 'update': {
+          const updates: Partial<Todo> = {};
+          if (content) updates.content = content as string;
+          if (
+            status &&
+            ['pending', 'in_progress', 'completed'].includes(status as string)
+          ) {
+            updates.status = status as TodoStatus;
+          }
+
+          const todo = todoManager.updateTodo(
+            session_id as string,
+            todo_id as string,
+            updates
+          );
+
+          if (todo) {
+            return createToolResult(
+              `Updated todo:\n  ID: ${todo.id}\n  Content: ${todo.content}\n  Status: ${todo.status}`,
+              {
+                newMessages: [
+                  {
+                    role: 'system',
+                    content: `Updated todo: ${todo.id}`,
+                  },
+                ],
+              }
+            );
+          }
+
+          return createToolResult(null, {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Error: Todo not found: ${todo_id}`,
+              },
+            ],
+          });
+        }
+
+        case 'delete': {
+          const deleted = todoManager.deleteTodo(
+            session_id as string,
+            todo_id as string
+          );
+
+          if (deleted) {
+            return createToolResult(`Deleted todo: ${todo_id}`, {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Deleted todo: ${todo_id}`,
+                },
+              ],
+            });
+          }
+
+          return createToolResult(null, {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Error: Todo not found: ${todo_id}`,
+              },
+            ],
+          });
+        }
+
+        case 'clear_completed': {
+          const count = todoManager.clearCompleted(session_id as string);
+
+          return createToolResult(`Cleared ${count} completed todo(s)`, {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Cleared ${count} completed todos`,
+              },
+            ],
+          });
+        }
+
+        case 'write': {
+          const newTodos: Todo[] = (todos as any[]).map((t) => ({
+            id:
+              t.id ||
+              `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            content: t.content,
+            status: t.status || 'pending',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }));
+
+          todoManager.setTodos(session_id as string, newTodos);
+
+          return createToolResult(
+            `Wrote ${newTodos.length} todo(s) to session: ${session_id}`,
+            {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Wrote ${newTodos.length} todos to session: ${session_id}`,
+                },
+              ],
+            }
+          );
+        }
+
+        default:
+          return createToolResult(null, {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Error: Unknown action: ${action}`,
+              },
+            ],
+          });
+      }
+    } catch (error: any) {
+      return createToolResult(null, {
+        newMessages: [
+          {
+            role: 'system',
+            content: `Error: Todo operation failed: ${error.message}`,
+          },
+        ],
+      });
+    }
+  }
+}
+
+/**
+ * 创建TodoWriteTool实例
+ */
+export function createTodoWriteTool(): TodoWriteTool {
+  return new TodoWriteTool();
+}

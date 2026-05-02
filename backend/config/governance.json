@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "enforcePermission": true,
+  "enforceSandbox": false,
+  "enforceHooks": true,
+  "enforceFeatureFlags": true,
+  "maxExecutionTimeMs": 300000,
+  "allowParallelExecution": true
+}

@@ -1,0 +1,70 @@
+/**
+ * 上下文管理
+ * 提供系统和用户上下文信息
+ */
+
+/**
+ * 获取系统上下文
+ * @returns {Promise<Object>} 系统上下文信息
+ */
+export async function getSystemContext() {
+  try {
+    // 系统信息
+    const systemInfo = {
+      platform: process.platform,
+      arch: process.arch,
+      nodeVersion: process.version,
+      cwd: process.cwd(),
+      env: Object.keys(process.env).filter(
+        (key) =>
+          !key.includes('PASSWORD') &&
+          !key.includes('TOKEN') &&
+          !key.includes('SECRET')
+      ),
+    };
+
+    // 尝试获取Git信息
+    try {
+      const { execSync } = await import('child_process');
+      const gitBranch = execSync('git branch --show-current', {
+        encoding: 'utf8',
+        stdio: 'ignore',
+      }).trim();
+      const gitCommit = execSync('git rev-parse HEAD', {
+        encoding: 'utf8',
+        stdio: 'ignore',
+      }).trim();
+      systemInfo.git = {
+        branch: gitBranch,
+        commit: gitCommit,
+      };
+    } catch (error) {
+      // Git信息获取失败，忽略
+    }
+
+    return systemInfo;
+  } catch (error) {
+    console.error('获取系统上下文失败:', error);
+    return {};
+  }
+}
+
+/**
+ * 获取用户上下文
+ * @returns {Promise<Object>} 用户上下文信息
+ */
+export async function getUserContext() {
+  try {
+    // 用户信息
+    const userInfo = {
+      username: process.env.USER || process.env.USERNAME || 'unknown',
+      homeDir: process.env.HOME || process.env.USERPROFILE || 'unknown',
+      shell: process.env.SHELL || process.env.COMSPEC || 'unknown',
+    };
+
+    return userInfo;
+  } catch (error) {
+    console.error('获取用户上下文失败:', error);
+    return {};
+  }
+}

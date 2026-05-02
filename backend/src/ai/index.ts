@@ -1,0 +1,229 @@
+/**
+ * AI模块主入口（已整合LLM模块）
+ */
+
+import type { AIService } from './models/types';
+import { createAIService } from './services/aiService';
+import {
+  AIModelType,
+  AIMessage,
+  AIMessageRole,
+  AIResponse,
+  AIClient,
+  AIServiceConfig,
+  LLMConfig,
+  ChatMessage,
+  ChatResponse,
+  ToolCall,
+  ToolDefinition,
+  ParsedToolCall,
+} from './models/types';
+
+export { AIModelType, AIMessage, AIMessageRole, AIResponse, AIClient, AIServiceConfig };
+export {
+  LLMConfig,
+  ChatMessage,
+  ChatResponse,
+  ToolCall,
+  ToolDefinition,
+  ParsedToolCall,
+};
+export type { AIService };
+export { createAIService };
+
+export { LLMClient } from './clients/LLMClient';
+export {
+  DefaultLLMClientFactory,
+  getLLMClientFactory,
+  createLLMClient,
+  LLMClientType,
+  AnthropicConfig,
+  OpenAIConfig,
+  AWSConfig,
+  AzureConfig,
+  VertexConfig,
+} from './clients/LLMClientFactory';
+export {
+  ModelConfig,
+  ValidationResult,
+  getModelOverride,
+  setModelOverride,
+  getApiKeyOverride,
+  setApiKeyOverride,
+  getBaseUrlOverride,
+  setBaseUrlOverride,
+  getDefaultModel,
+  getDefaultApiKey,
+  getDefaultBaseUrl,
+  resolveModel,
+  resolveApiKey,
+  resolveBaseUrl,
+  getModelConfig,
+  getAllAvailableModels,
+  isValidModel,
+  getModelMetadata,
+  validateModel,
+  getModelOptions,
+  getModelContextSize,
+  modelSupportsCapability,
+  getRecommendedModel,
+  clearOverrides,
+} from './clients/ModelConfig';
+export type { ModelMetadata } from './clients/ModelConfig';
+
+export { DeepSeekClient } from './clients/DeepSeekClient';
+export { AnthropicClient } from './clients/AnthropicClient';
+export { OpenAIClient } from './clients/openaiClient';
+export { AWSClient } from './clients/AWSClient';
+export { AzureClient } from './clients/AzureClient';
+export { VertexClient } from './clients/VertexClient';
+
+export {
+  LLMInputValidator,
+  ValidationResult as LLMValidationResult,
+} from './utils/LLMInputValidator';
+export {
+  LLMOutputValidator,
+  OutputValidationResult,
+} from './utils/LLMOutputValidator';
+export {
+  LLMPerformanceMonitor,
+  PerformanceMetrics,
+  RequestRecord,
+} from './utils/LLMPerformanceMonitor';
+
+export {
+  ToolAssistant,
+  createToolAssistant,
+  getToolAssistant,
+} from './assistants/ToolAssistant';
+
+export {
+  IToolExecutor,
+  ToolExecutor,
+  ToolExecutorConfig,
+  DefaultToolExecutor,
+} from './interfaces/ToolExecutor';
+export type { ToolExecutorConfig as IToolExecutorConfig } from './interfaces/ToolExecutor';
+
+export {
+  AIQueryEngine,
+  AIQueryEngineConfig,
+} from './services/AIQueryEngine';
+
+export type {
+  QueryParams,
+  QueryResult,
+  ToolContext,
+  StreamEvent,
+  StreamResult,
+} from './interfaces/QueryInterfaces';
+
+export type {
+  ThinkingConfig,
+  ThinkingOptions,
+  ThinkingEffort,
+} from './clients/thinking';
+export {
+  DEFAULT_THINKING_BUDGET_TOKENS,
+  DEFAULT_THINKING_EFFORT,
+  EFFORT_TO_BUDGET,
+  buildThinkingConfig,
+  parseEffortArg,
+  modelSupportsThinking,
+  modelSupportsAdaptiveThinking,
+  getThinkingBudgetForModel,
+  shouldEnableThinkingByDefault,
+} from './clients/thinking';
+
+// Retry mechanism
+export {
+  withRetry,
+  createRetryWrapper,
+  onRetryEvent,
+  offRetryEvent,
+} from './clients/retry';
+export type {
+  RetryConfig,
+  RetryContext,
+  RetryResult,
+  RetryEvent,
+} from './clients/retry';
+
+// Telemetry
+export {
+  AITelemetry,
+  aiTelemetry,
+} from './telemetry';
+export type {
+  APIUsageMetrics,
+  TelemetryConfig,
+  SpanContext,
+  AITraceData,
+  TraceEvent,
+} from './telemetry';
+
+export {
+  MiniAgent,
+  KeywordRuleEngine,
+  TaskRouterImpl,
+  OllamaProvider,
+  LocalCommandExecutor,
+  createMiniAgent,
+  getGlobalMiniAgent,
+  setGlobalMiniAgent,
+  createTaskRouter,
+  createCommandExecutor,
+  createOllamaProvider,
+  createDefaultOllamaConfig,
+  QueryEngineIntegrationAdapter,
+  createIntegrationAdapter,
+  getGlobalIntegrationAdapter,
+  MCPProvider,
+  getGlobalMCPProvider,
+  createMCPProvider,
+  MetricsCollector,
+  createMetricsCollector,
+  getGlobalMetricsCollector,
+} from './miniAgent';
+
+export type {
+  Intent,
+  RouteDecision,
+  RouteTarget,
+  IntentType,
+  CommandMatch,
+  CommandAction,
+  RuleMatch,
+  MiniAgentConfig,
+  MiniAgentResult,
+  OllamaConfig,
+  RoutingConfig,
+  RoutingStrategy,
+  IRuleEngine,
+  IOllamaProvider,
+  OllamaGenerateOptions,
+  OllamaChatOptions,
+  OllamaResponse,
+  OllamaChatResponse,
+  QueryEngineIntegrationConfig,
+  IntegrationResult as QueryEngineIntegrationResult,
+  MCPProviderConfig,
+  IMCPClient,
+  MCPToolCall,
+  MCPToolResult,
+  MiniAgentMetrics,
+  MetricEntry,
+} from './miniAgent';
+
+export {
+  QueryEngineWrapper,
+  createQueryEngineWrapper,
+} from './services/QueryEngineWrapper';
+
+export type {
+  QueryEngineWrapperConfig,
+} from './services/QueryEngineWrapper';
+
+const aiService = createAIService();
+export default aiService;

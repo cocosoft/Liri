@@ -1,0 +1,78 @@
+/**
+ * 错误处理模块索引
+ * 统一导出所有错误处理相关功能
+ */
+
+// 错误类型
+export * from './types';
+
+// 错误 ID 追踪系统
+export * from './ErrorIds';
+
+// API 错误处理子模块
+export * from './api';
+
+// 错误工具函数
+export * from './utils';
+
+// 错误格式化器
+export * from './formatter';
+
+// 安全日志
+export * from './safeLog';
+
+// 错误处理器
+export * from './ErrorHandler';
+
+// 错误监控器
+export * from './monitor/ErrorMonitor';
+
+// 外部错误监控器（预留接口）
+export * from './monitor/ExternalErrorMonitor';
+
+// 错误追踪器
+export * from './tracker/ErrorTracker';
+
+// 错误恢复器
+export * from './recovery/ErrorRecoverer';
+
+// 重试策略
+export * from './recovery/RetryStrategies';
+
+// 网络错误处理子模块
+export * from './network';
+
+// 错误上下文子模块
+export * from './context';
+
+// 错误预警器
+export * from './warning/ErrorWarner';
+
+// 专门错误处理策略
+export * from './handlers/SpecializedErrorHandlers';
+
+// 错误服务层
+export * from './services/ErrorService';
+
+// 错误管理器
+export * from './ErrorManager';
+
+// 增强错误管理器
+export * from './EnhancedErrorManager';
+
+// 高级错误分析器
+export * from './AdvancedErrorAnalyzer';
+
+/**
+ * 初始化错误处理系统
+ */
+export function initializeErrorSystem(): void {
+  console.log('错误处理系统初始化完成');
+}
+
+/**
+ * 关闭错误处理系统
+ */
+export function shutdownErrorSystem(): void {
+  console.log('错误处理系统已关闭');
+}

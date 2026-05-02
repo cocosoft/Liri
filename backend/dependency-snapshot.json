@@ -1,0 +1,487 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-05-01T23:57:47.872Z",
+  "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
+  "modules": {
+    "core": {
+      "id": "core",
+      "name": "core",
+      "category": "core",
+      "version": "1.0.0",
+      "dependencies": [],
+      "optionalDependencies": []
+    },
+    "infrastructure": {
+      "id": "infrastructure",
+      "name": "infrastructure",
+      "category": "infrastructure",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": []
+    },
+    "ai": {
+      "id": "ai",
+      "name": "ai",
+      "category": "ai",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "error"
+      ],
+      "optionalDependencies": []
+    },
+    "agent": {
+      "id": "agent",
+      "name": "agent",
+      "category": "agent",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "ai",
+        "error"
+      ],
+      "optionalDependencies": [
+        "memory",
+        "permission"
+      ]
+    },
+    "bridge": {
+      "id": "bridge",
+      "name": "bridge",
+      "category": "bridge",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "oauth",
+        "error"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "ui": {
+      "id": "ui",
+      "name": "ui",
+      "category": "ui",
+      "version": "1.1.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "cli": {
+      "id": "cli",
+      "name": "cli",
+      "category": "cli",
+      "version": "1.1.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "tools": {
+      "id": "tools",
+      "name": "tools",
+      "category": "tools",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "error"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "commands": {
+      "id": "commands",
+      "name": "commands",
+      "category": "commands",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "cli"
+      ],
+      "optionalDependencies": [
+        "tools"
+      ]
+    },
+    "memory": {
+      "id": "memory",
+      "name": "memory",
+      "category": "memory",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "error"
+      ],
+      "optionalDependencies": []
+    },
+    "cache": {
+      "id": "cache",
+      "name": "cache",
+      "category": "cache",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "security": {
+      "id": "security",
+      "name": "security",
+      "category": "security",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "error"
+      ],
+      "optionalDependencies": []
+    },
+    "oauth": {
+      "id": "oauth",
+      "name": "oauth",
+      "category": "security",
+      "version": "2.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "config"
+      ],
+      "optionalDependencies": []
+    },
+    "permission": {
+      "id": "permission",
+      "name": "permission",
+      "category": "security",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "security"
+      ],
+      "optionalDependencies": []
+    },
+    "performance": {
+      "id": "performance",
+      "name": "performance",
+      "category": "performance",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "error"
+      ],
+      "optionalDependencies": []
+    },
+    "monitoring": {
+      "id": "monitoring",
+      "name": "monitoring",
+      "category": "monitoring",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "error"
+      ],
+      "optionalDependencies": [
+        "performance"
+      ]
+    },
+    "featureflags": {
+      "id": "featureflags",
+      "name": "featureflags",
+      "category": "security",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "analytics": {
+      "id": "analytics",
+      "name": "analytics",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "buddy": {
+      "id": "buddy",
+      "name": "buddy",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "ui"
+      ],
+      "optionalDependencies": []
+    },
+    "chat": {
+      "id": "chat",
+      "name": "chat",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "ai",
+        "error"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "chronos": {
+      "id": "chronos",
+      "name": "chronos",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "config": {
+      "id": "config",
+      "name": "config",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "context": {
+      "id": "context",
+      "name": "context",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "cost": {
+      "id": "cost",
+      "name": "cost",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "docs": {
+      "id": "docs",
+      "name": "docs",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "error": {
+      "id": "error",
+      "name": "error",
+      "category": "infrastructure",
+      "version": "2.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "infrastructure",
+        "memory"
+      ]
+    },
+    "hooks": {
+      "id": "hooks",
+      "name": "hooks",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "hooks"
+      ]
+    },
+    "lsp": {
+      "id": "lsp",
+      "name": "lsp",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "mcp": {
+      "id": "mcp",
+      "name": "mcp",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "featureflags",
+        "oauth"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "plugins": {
+      "id": "plugins",
+      "name": "plugins",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "memory"
+      ]
+    },
+    "query": {
+      "id": "query",
+      "name": "query",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "sandbox": {
+      "id": "sandbox",
+      "name": "sandbox",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "security",
+        "featureflags"
+      ],
+      "optionalDependencies": []
+    },
+    "services": {
+      "id": "services",
+      "name": "services",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "streaming": {
+      "id": "streaming",
+      "name": "streaming",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "services"
+      ],
+      "optionalDependencies": []
+    },
+    "utils": {
+      "id": "utils",
+      "name": "utils",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "keybindings": {
+      "id": "keybindings",
+      "name": "keybindings",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "cli",
+        "ui"
+      ]
+    }
+  },
+  "initializationOrder": [
+    "core",
+    "infrastructure",
+    "ai",
+    "config",
+    "context",
+    "error",
+    "featureflags",
+    "memory",
+    "cache",
+    "agent",
+    "bridge",
+    "chat",
+    "chronos",
+    "cost",
+    "hooks",
+    "lsp",
+    "mcp",
+    "plugins",
+    "query",
+    "ui",
+    "cli",
+    "tools",
+    "commands",
+    "security",
+    "oauth",
+    "permission",
+    "sandbox",
+    "performance",
+    "monitoring",
+    "analytics",
+    "buddy",
+    "docs",
+    "services",
+    "streaming",
+    "utils",
+    "keybindings"
+  ],
+  "fingerprint": "98bd98f4ab374c76"
+}

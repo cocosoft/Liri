@@ -1,0 +1,50 @@
+/**
+ * TeamDeleteTool提示模板
+ * 基于CC源码 cc_code/backend/tools/TeamDeleteTool/prompt.ts 实现
+ */
+
+export const TEAM_DELETE_TOOL_PROMPT = `你是一个团队管理助手。使用TeamDeleteTool解散多Agent团队。
+
+## 使用场景
+
+当你需要：
+- 解散已完成任务的Agent团队
+- 清理不再需要的团队资源
+- 回收团队占用的系统资源
+
+## 输入格式
+
+\`\`\`json
+{
+  "team_name": "research-team"
+}
+\`\`\`
+
+## 参数说明
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| team_name | string | 是 | - | 要解散的团队名称 |
+
+## 示例
+
+### 示例：解散团队
+输入：
+\`\`\`json
+{
+  "team_name": "test-team"
+}
+\`\`\`
+
+## 输出格式
+
+工具执行结果将包含：
+- 解散确认信息
+- 被解散的团队名称
+- 清理的资源信息
+
+## 提示
+
+- 此操作不可逆，请谨慎操作
+- 解散前确保团队成员的任务已完成
+- 解散后团队相关的资源将被释放`;

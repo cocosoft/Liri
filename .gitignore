@@ -1,0 +1,90 @@
+# Dependencies
+node_modules/
+bun.lockb
+package-lock.json
+
+# Build outputs
+dist/
+build/
+target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Rust (Tauri)
+py-app-client/src-tauri/target/
+
+# Application data
+.py_app/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Reference / Third-party code (extracted archives)
+openclaw-main/
+
+# Testing - main test directory
+backend/testing/
+
+# Testing - test directories within source code
+backend/src/**/__tests__/
+backend/src/**/tests/
+
+# Testing - standalone test files within source
+backend/src/**/*.test.ts
+backend/src/**/*.test.tsx
+
+# Testing - test config
+backend/.test_config/
+
+# Testing - root-level test files
+backend/test_*.ts
+backend/test_*.js
+backend/test_*.mjs
+backend/test-*.ts
+backend/test-*.js
+backend/test-*.json
+backend/*.test.ts
+backend/*.test.js
+
+# Testing - frontend tests
+py-app-client/src/tests/
+
+# Config
+backend/config.json
+backend/settings.json
+
+# 参考 / 第三方代码（提取后的档案）
+openclaw-main/
+cc_code/

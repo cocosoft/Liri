@@ -1,0 +1,32 @@
+/**
+ * 安全模块导出
+ */
+
+export { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
+export { SandboxManager } from './SandboxManager';
+export { PermissionManager } from './PermissionManager';
+export { SecurityAudit } from './SecurityAudit';
+export { DestructiveCommandWarner } from './destructiveCommandWarning';
+export { CommandSemanticsAnalyzer } from './commandSemantics';
+export { ReadOnlyValidator, DEFAULT_READONLY_CONFIG } from './readOnlyValidation';
+export { SecurityIntegrationService, securityIntegrationService } from './SecurityIntegration';
+export type {
+  CommandSemantic,
+  CommandSemanticPattern,
+} from './commandSemantics';
+export type {
+  DestructiveCommandConfig,
+} from './destructiveCommandWarning';
+export type {
+  ReadOnlyValidationOptions,
+} from './readOnlyValidation';
+export type {
+  SecurityAnalysisResult,
+  SecurityPattern,
+  SecurityBehavior,
+  RiskLevel,
+  SecurityCheckContext,
+  SecurityDecision,
+} from './types';
+export * from './patterns';
+export * from './bash';

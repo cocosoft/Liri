@@ -1,0 +1,285 @@
+/**
+ * 优化的工具管理器工具
+ * 用于优化工具系统的加载和执行性能
+ */
+
+import { Tool } from '../types/Tool';
+import { ToolFactory } from '../ToolFactory';
+import { profileCheckpoint } from '../../utils/startupProfiler.js';
+
+/**
+ * 延迟加载工具模块
+ * @param modulePath 模块路径
+ * @returns 工具模块
+ */
+async function lazyLoadToolModule(modulePath: string): Promise<any> {
+  try {
+    const module = await import(modulePath);
+    return module;
+  } catch (error) {
+    console.warn(`Failed to load tool module ${modulePath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * 优化的内置工具加载函数
+ * @param factory 工具工厂
+ * @returns 工具列表
+ */
+export function loadBuiltinTools(factory: ToolFactory): Tool[] {
+  profileCheckpoint('optimized_load_builtin_tools_start');
+  
+  const tools: Tool[] = [];
+  const toolModules: string[] = [
+    '../tools/AI/AIQueryTool/AIQueryTool',
+    '../tools/AI/AIWebSearchTool/AIWebSearchTool',
+    '../tools/AI/AgentTool/AgentTool',
+    '../tools/AI/AgentsTool/AgentsTool',
+    '../tools/Dev/LSPTool/LSPTool',
+    '../tools/Dev/NotebookTool/NotebookTool',
+    '../tools/Dev/REPLTool/REPLTool',
+    '../tools/File/EditTool/EditTool',
+    '../tools/File/GlobTool/GlobTool',
+    '../tools/File/WriteTool/WriteTool',
+    '../tools/Network/MCPTool/MCPTool',
+    '../tools/System/BashTool/BashTool',
+    '../tools/System/GrepTool/GrepTool',
+    '../tools/Task/TaskTool/TaskTool',
+    '../tools/Task/TodoTool/TodoTool',
+    '../tools/ReadMcpResourceTool/ReadMcpResourceTool',
+    '../tools/TaskStopTool/TaskStopTool',
+  ];
+
+  // 同步加载核心工具，异步加载其他工具
+  const coreToolModules = toolModules.slice(0, 5); // 前5个作为核心工具
+  const otherToolModules = toolModules.slice(5);
+
+  // 同步加载核心工具
+  for (const modulePath of coreToolModules) {
+    try {
+      const module = require(modulePath);
+      const toolClass = module.default || module[Object.keys(module)[0]];
+      if (toolClass) {
+        const tool = factory.createTool(toolClass);
+        if (tool) {
+          tools.push(tool);
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to load core tool ${modulePath}:`, error);
+    }
+  }
+
+  // 异步加载其他工具（非阻塞）
+  for (const modulePath of otherToolModules) {
+    lazyLoadToolModule(modulePath).then(module => {
+      if (module) {
+        const toolClass = module.default || module[Object.keys(module)[0]];
+        if (toolClass) {
+          const tool = factory.createTool(toolClass);
+          if (tool) {
+            // 这里可以通过事件或回调注册工具
+            console.log(`Lazily loaded tool: ${tool.name}`);
+          }
+        }
+      }
+    });
+  }
+
+  profileCheckpoint('optimized_load_builtin_tools_end');
+  return tools;
+}
+
+/**
+ * 工具执行缓存
+ */
+class ToolExecutionCache {
+  private cache: Map<string, { result: any; timestamp: number }> = new Map();
+  private maxCacheSize = 100;
+  private cacheExpiryMs = 5 * 60 * 1000; // 5分钟过期
+
+  /**
+   * 获取缓存结果
+   * @param key 缓存键
+   * @returns 缓存结果或undefined
+   */
+  get(key: string): any {
+    const cached = this.cache.get(key);
+    if (cached) {
+      const now = Date.now();
+      if (now - cached.timestamp < this.cacheExpiryMs) {
+        return cached.result;
+      } else {
+        this.cache.delete(key);
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * 设置缓存结果
+   * @param key 缓存键
+   * @param result 执行结果
+   */
+  set(key: string, result: any): void {
+    if (this.cache.size >= this.maxCacheSize) {
+      // 移除最旧的缓存项
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+      }
+    }
+    this.cache.set(key, { result, timestamp: Date.now() });
+  }
+
+  /**
+   * 清除缓存
+   */
+  clear(): void {
+    this.cache.clear();
+  }
+
+  /**
+   * 获取缓存大小
+   * @returns 缓存大小
+   */
+  size(): number {
+    return this.cache.size;
+  }
+}
+
+/**
+ * 全局工具执行缓存实例
+ */
+export const toolExecutionCache = new ToolExecutionCache();
+
+/**
+ * 优化的工具执行函数
+ * @param tool 工具
+ * @param input 输入
+ * @param context 上下文
+ * @param onProgress 进度回调
+ * @returns 执行结果
+ */
+export async function optimizedExecuteTool(
+  tool: Tool,
+  input: any,
+  context: any,
+  onProgress?: any
+): Promise<any> {
+  // 生成缓存键
+  const cacheKey = `${tool.name}:${JSON.stringify(input)}`;
+  
+  // 检查缓存
+  const cachedResult = toolExecutionCache.get(cacheKey);
+  if (cachedResult) {
+    return cachedResult;
+  }
+  
+  // 执行工具
+  const result = await tool.execute(input, context, onProgress);
+  
+  // 缓存结果（仅缓存成功的结果）
+  if (result && !result.error) {
+    toolExecutionCache.set(cacheKey, result);
+  }
+  
+  return result;
+}
+
+/**
+ * 工具加载状态管理
+ */
+export class ToolLoadStateManager {
+  private loadedTools: Set<string> = new Set();
+  private loadingTools: Set<string> = new Set();
+  private loadCallbacks: Map<string, Array<(tool: Tool) => void>> = new Map();
+
+  /**
+   * 检查工具是否已加载
+   * @param toolName 工具名称
+   * @returns 是否已加载
+   */
+  isToolLoaded(toolName: string): boolean {
+    return this.loadedTools.has(toolName);
+  }
+
+  /**
+   * 检查工具是否正在加载
+   * @param toolName 工具名称
+   * @returns 是否正在加载
+   */
+  isToolLoading(toolName: string): boolean {
+    return this.loadingTools.has(toolName);
+  }
+
+  /**
+   * 标记工具开始加载
+   * @param toolName 工具名称
+   */
+  markToolLoading(toolName: string): void {
+    this.loadingTools.add(toolName);
+  }
+
+  /**
+   * 标记工具加载完成
+   * @param toolName 工具名称
+   * @param tool 工具实例
+   */
+  markToolLoaded(toolName: string, tool: Tool): void {
+    this.loadedTools.add(toolName);
+    this.loadingTools.delete(toolName);
+    
+    // 触发回调
+    const callbacks = this.loadCallbacks.get(toolName);
+    if (callbacks) {
+      for (const callback of callbacks) {
+        callback(tool);
+      }
+      this.loadCallbacks.delete(toolName);
+    }
+  }
+
+  /**
+   * 注册工具加载完成回调
+   * @param toolName 工具名称
+   * @param callback 回调函数
+   */
+  onToolLoaded(toolName: string, callback: (tool: Tool) => void): void {
+    if (this.isToolLoaded(toolName)) {
+      // 工具已加载，立即执行回调
+      const tool = require(`../tools/${toolName}/${toolName}`).default;
+      if (tool) {
+        callback(tool);
+      }
+    } else {
+      // 工具未加载，注册回调
+      if (!this.loadCallbacks.has(toolName)) {
+        this.loadCallbacks.set(toolName, []);
+      }
+      this.loadCallbacks.get(toolName)?.push(callback);
+    }
+  }
+
+  /**
+   * 获取已加载工具数量
+   * @returns 已加载工具数量
+   */
+  getLoadedToolCount(): number {
+    return this.loadedTools.size;
+  }
+
+  /**
+   * 获取正在加载工具数量
+   * @returns 正在加载工具数量
+   */
+  getLoadingToolCount(): number {
+    return this.loadingTools.size;
+  }
+}
+
+/**
+ * 全局工具加载状态管理器实例
+ */
+export const toolLoadStateManager = new ToolLoadStateManager();

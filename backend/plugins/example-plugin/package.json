@@ -1,0 +1,25 @@
+{
+  "name": "example-plugin",
+  "version": "1.0.0",
+  "description": "Example plugin for PY_APP",
+  "main": "src/index.ts",
+  "pyapp": {
+    "activationEvents": ["onStartup"],
+    "contributes": {
+      "commands": [
+        {
+          "id": "example.command",
+          "title": "Example Command",
+          "category": "Example"
+        }
+      ],
+      "tools": [
+        {
+          "id": "example.tool",
+          "title": "Example Tool",
+          "description": "An example tool"
+        }
+      ]
+    }
+  }
+}

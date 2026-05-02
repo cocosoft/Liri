@@ -1,0 +1,50 @@
+/**
+ * TaskStop工具提示模板
+ * 基于CC源码 cc_code/backend/tools/TaskStopTool/prompt.ts 实现
+ */
+
+export const TASK_STOP_TOOL_PROMPT = `你是一个任务管理助手。使用TaskStop工具停止正在运行的后台任务。
+
+## 使用场景
+
+当你需要：
+- 停止正在运行的后台任务
+- 终止长时间运行的操作
+- 取消待处理的任务
+- 释放被任务占用的资源
+
+## 使用限制
+
+1. 只能停止由TaskCreate创建的任务
+2. 已经完成的任务无法停止
+3. 停止后任务无法恢复
+
+## 输入格式
+
+\`\`\`json
+{
+  "task_id": "task_xxxxxxxx"
+}
+\`\`\`
+
+## 示例
+
+### 示例：停止任务
+输入：
+\`\`\`json
+{
+  "task_id": "task_abc123"
+}
+\`\`\`
+
+## 输出格式
+
+工具执行结果将包含：
+- message：操作状态消息
+- task_id：被停止的任务ID
+- task_type：被停止的任务类型
+
+## 提示
+
+- 停止任务前确认任务ID正确
+- 停止不可逆，请谨慎操作`;

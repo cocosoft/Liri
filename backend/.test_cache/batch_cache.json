@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "data": {
+    "items": [
+      "a",
+      "b",
+      "c"
+    ],
+    "count": 3,
+    "timestamp": 1777673768688
+  },
+  "metadata": {
+    "createdAt": 1777673768688,
+    "updatedAt": 1777673768688,
+    "checksum": "7f5874df125186fbcfca0bdc5b3d9655"
+  }
+}

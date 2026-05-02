@@ -1,0 +1,78 @@
+[
+  {
+    "id": "strict",
+    "name": "严格模式",
+    "type": "strict",
+    "description": "最高安全级别，严格限制所有操作",
+    "rules": [
+      {
+        "id": "strict-1",
+        "type": "permission",
+        "action": "deny",
+        "target": "BashTool",
+        "priority": 100,
+        "description": "默认拒绝Bash工具"
+      },
+      {
+        "id": "strict-2",
+        "type": "permission",
+        "action": "deny",
+        "target": "PowerShellTool",
+        "priority": 100,
+        "description": "默认拒绝PowerShell工具"
+      }
+    ],
+    "createdAt": 1776992427008,
+    "updatedAt": 1776992427008,
+    "version": 1,
+    "isActive": false
+  },
+  {
+    "id": "balanced",
+    "name": "平衡模式",
+    "type": "balanced",
+    "description": "平衡安全性和便利性",
+    "rules": [
+      {
+        "id": "balanced-1",
+        "type": "permission",
+        "action": "allow",
+        "target": "Read",
+        "priority": 50,
+        "description": "允许读取文件"
+      },
+      {
+        "id": "balanced-2",
+        "type": "permission",
+        "action": "monitor",
+        "target": "Write",
+        "priority": 50,
+        "description": "监控写入操作"
+      }
+    ],
+    "createdAt": 1776992427008,
+    "updatedAt": 1776992427008,
+    "version": 1,
+    "isActive": true
+  },
+  {
+    "id": "permissive",
+    "name": "宽松模式",
+    "type": "permissive",
+    "description": "最高便利性，最小安全限制",
+    "rules": [
+      {
+        "id": "permissive-1",
+        "type": "permission",
+        "action": "allow",
+        "target": "*",
+        "priority": 10,
+        "description": "允许所有工具"
+      }
+    ],
+    "createdAt": 1776992427008,
+    "updatedAt": 1776992427008,
+    "version": 1,
+    "isActive": false
+  }
+]

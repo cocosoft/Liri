@@ -4,7 +4,7 @@
  */
 
 // 导出类型定义
-export * from './types/UITypes';
+export type { UITheme, ThemeName, ThemeSetting, ThemeContextValue, DialogProps, PaneProps, TextProps, ButtonProps, InputProps, SelectOption, SelectProps, TabItem, TabsProps, ProgressBarProps, LoadingStateProps, DividerProps, KeyboardShortcutHintProps, FuzzyPickerProps, ListItemProps, StatusIconProps, BylineProps, ComponentSize, ComponentVariant, ComponentState, LayoutDirection, Alignment, Distribution, Breakpoints, ResponsiveProp } from './types/UITypes';
 
 // 导出设计系统组件
 export { 

@@ -9,7 +9,7 @@ import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { mcpToolBridge } from './MCPToolBridge';
 import { claudeAIIntegration } from './ClaudeAIIntegration';
-import { commandManager } from './commandManager';
+import { getCommandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
 import { mcpCacheManager } from './MCPCacheManager';
 import { prefetchOfficialMcpUrls, getOfficialServers, getOfficialServersByCategory, getOfficialServer, getCategories } from './MCPOfficialRegistry';
@@ -105,21 +105,21 @@ export class MCPSystem {
    * 执行命令
    */
   async executeCommand(name: string, args: any) {
-    return await commandManager.executeCommand(name, args);
+    return await getCommandManager().executeCommand(name, args);
   }
 
   /**
    * 获取所有命令
    */
   getCommands() {
-    return commandManager.getCommands();
+    return getCommandManager().getCommands();
   }
 
   /**
    * 获取所有资源
    */
   getResources() {
-    return resourceManager.getResources();
+    return getCommandManager().getResources();
   }
 
   /**
@@ -310,7 +310,7 @@ export class MCPSystem {
       await mcpConnectionManager.closeAll();
 
       // 清理命令和资源
-      commandManager.clear();
+      getCommandManager().clear();
       resourceManager.clear();
 
       // 清理缓存

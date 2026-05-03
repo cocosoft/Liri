@@ -5,6 +5,10 @@
 
 import type { InkInstance } from './types';
 
+// 用于 root.ts 的默认导出
+const instancesMap = new Map<NodeJS.WriteStream, { cleanup: () => void }>();
+
+// 用于其他文件的实例集合
 const instances = new Set<InkInstance>();
 
 export function registerInstance(instance: InkInstance): void {
@@ -47,3 +51,6 @@ export function destroyAllInstances(): void {
 export function countInstances(): number {
   return instances.size;
 }
+
+// 默认导出，用于 root.ts
+export default instancesMap;

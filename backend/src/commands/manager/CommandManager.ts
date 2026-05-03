@@ -428,19 +428,21 @@ export class CommandManager {
 }
 
 /**
- * 命令管理器实例
+ * 命令管理器实例（使用 Symbol 存储在全局对象中，防止模块重复加载导致实例丢失）
  */
-let commandManager: CommandManager | undefined;
+const COMMAND_MANAGER_SYMBOL = Symbol.for('PY_APP_COMMAND_MANAGER');
 
 /**
  * 获取命令管理器实例
  * @returns 命令管理器实例
  */
 export function getCommandManager(): CommandManager {
-  if (!commandManager) {
-    commandManager = new CommandManager(commandRegistry, commandLoaderRegistry);
+  const globalObj = globalThis as any;
+  
+  if (!globalObj[COMMAND_MANAGER_SYMBOL]) {
+    globalObj[COMMAND_MANAGER_SYMBOL] = new CommandManager(commandRegistry, commandLoaderRegistry);
   }
-  return commandManager;
+  return globalObj[COMMAND_MANAGER_SYMBOL];
 }
 
 /**

@@ -5,7 +5,7 @@
  */
 
 // 导出类型定义
-export * from './types/ToolTypes';
+export type { TOOL_SYSTEM_VERSION, ToolDefinition, ToolMetadata, ToolExecutionContext } from './types/ToolTypes';
 
 // 导入组件用于导出
 import { feature } from '@modules/core';

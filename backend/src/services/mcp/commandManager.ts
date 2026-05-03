@@ -110,3 +110,10 @@ export class CommandManager {
 
 // 导出单例
 export const commandManager = new CommandManager();
+
+/**
+ * 获取命令管理器实例
+ */
+export function getCommandManager(): CommandManager {
+  return commandManager;
+}

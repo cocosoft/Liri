@@ -8,7 +8,7 @@ import { logger } from '../../utils/log';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { registerChannelNotificationHandler, removeChannelNotificationHandler } from './channelNotification';
 import { createChannelPermissionCallbacks } from './channelPermissions';
-import { commandManager } from './commandManager';
+import { getCommandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
 import { mcpCacheManager } from './MCPCacheManager';
 import type { ConnectedMCPServer } from './types';
@@ -84,7 +84,7 @@ export class ClaudeAIIntegration {
       }
 
       // 移除命令和资源
-      commandManager.removeServerCommands(serverName);
+      getCommandManager().removeServerCommands(serverName);
       resourceManager.removeServerResources(serverName);
       mcpCacheManager.clearServerCache(serverName);
 
@@ -112,7 +112,7 @@ export class ClaudeAIIntegration {
    */
   private async loadClaudeAICommands(server: ConnectedMCPServer): Promise<void> {
     try {
-      const commands = await commandManager.loadCommandsFromServer(server.client, server.name);
+      const commands = await getCommandManager().loadCommandsFromServer(server.client, server.name);
       mcpCacheManager.setCommandCache(server.name, commands);
       logger.info(`Loaded ${commands.length} Claude AI commands from server ${server.name}`);
     } catch (error) {
@@ -139,7 +139,7 @@ export class ClaudeAIIntegration {
   async executeClaudeAICommand(serverName: string, commandName: string, args: any): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const fullCommandName = `${serverName}:${commandName}`;
-      return await commandManager.executeCommand(fullCommandName, args);
+      return await getCommandManager().executeCommand(fullCommandName, args);
     } catch (error) {
       logger.error(`Failed to execute Claude AI command:`, error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

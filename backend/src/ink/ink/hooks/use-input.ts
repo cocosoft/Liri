@@ -89,4 +89,5 @@ const useInput = (inputHandler: Handler, options: Options = {}) => {
   }, [internal_eventEmitter, handleData])
 }
 
+export { useInput }
 export default useInput

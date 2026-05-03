@@ -3,7 +3,8 @@
 
 import { appendFileSync } from 'fs'
 import createReconciler from 'react-reconciler'
-import { getYogaCounters } from 'yoga-layout'
+// 替换缺失的 getYogaCounters 导入
+const getYogaCounters = () => ({ ms: 0, visited: 0, measured: 0, cacheHits: 0, live: 0 });
 import { isEnvTruthy } from '../utils/envUtils.js'
 import {
   appendChildNode,

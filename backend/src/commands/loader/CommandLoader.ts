@@ -4,8 +4,12 @@
  */
 import type { Command, CommandLoader, LoadResult, CommandLoadStatus } from '../types/index.js';
 import { feature } from '@modules/core';
+import { join } from 'path';
 
 import { LazyCommand } from './LazyCommand.js';
+
+// 获取项目根目录（使用当前工作目录）
+const projectRoot = process.cwd();
 
 interface BuiltinModuleEntry {
   path: string;
@@ -101,11 +105,15 @@ export class BuiltinCommandLoader implements CommandLoader {
 
     for (const entry of this.moduleEntries) {
       try {
+        // 移除路径开头的 ../ 前缀
+        const normalizedPath = entry.path.replace(/^\.\.\//, '');
+        // 构建完整的绝对路径
+        const absolutePath = join(projectRoot, 'src', 'commands', normalizedPath);
         const lazyCmd = new LazyCommand({
           type: 'prompt',
           name: entry.name,
           description: `${entry.name} command`,
-          modulePath: entry.path,
+          modulePath: absolutePath,
           loadedFrom: 'builtin',
         });
 

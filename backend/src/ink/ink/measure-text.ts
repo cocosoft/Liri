@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { lineWidth } from './line-width-cache.js'
+import { getLineWidth } from './line-width-cache.js'
 
 type Output = {
   width: number
@@ -29,7 +29,7 @@ function measureText(text: string, maxWidth: number): Output {
     const end = text.indexOf('\n', start)
     const line = end === -1 ? text.substring(start) : text.substring(start, end)
 
-    const w = lineWidth(line)
+    const w = getLineWidth(line)
     width = Math.max(width, w)
 
     if (noWrap) {

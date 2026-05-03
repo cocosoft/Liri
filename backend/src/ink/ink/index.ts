@@ -14,7 +14,7 @@ export { default as NoSelect } from './components/NoSelect';
 export { default as RawAnsi } from './components/RawAnsi';
 export { useInput } from './hooks/use-input';
 export { useApp } from './hooks/use-app';
-export { useTerminalSize } from './components/TerminalSizeContext';
+export { useTerminalSize } from '../../hooks/useTerminalSize';
 
 // 导出渲染函数
-export { render } from './ink';
+export { default as render, renderSync, createRoot } from './root';

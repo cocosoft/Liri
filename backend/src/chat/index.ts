@@ -18,10 +18,11 @@ export type { SecurityCheckResult, AuditRecord, SecurityConfig, SecurityReport, 
 export { ChatEcosystem, chatEcosystem } from './ecosystem/ChatEcosystem';
 export type { Extension, ExtensionPoint, ExtensionHandler, EcosystemEvent, EcosystemMetrics, EventListener, IChatEcosystem } from './ecosystem/ChatEcosystem';
 
-export * from './types/message';
-export * from './types/session';
-export * from './types/tool';
-export * from './types/ToolUseBlock';
+// 导出类型
+export type { MessageContent, MessageType, ChatMessage } from './types/message';
+export type { SessionConfig, SessionState } from './types/session';
+export type { ToolCall, ToolResult } from './types/tool';
+export type { ToolUseBlock } from './types/ToolUseBlock';
 
 const chatService = createChatService();
 export default chatService;

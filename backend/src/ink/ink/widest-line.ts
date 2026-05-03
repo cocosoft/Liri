@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { lineWidth } from './line-width-cache.js'
+import { getLineWidth } from './line-width-cache.js'
 
 export function widestLine(string: string): number {
   let maxWidth = 0
@@ -10,7 +10,7 @@ export function widestLine(string: string): number {
     const line =
       end === -1 ? string.substring(start) : string.substring(start, end)
 
-    maxWidth = Math.max(maxWidth, lineWidth(line))
+    maxWidth = Math.max(maxWidth, getLineWidth(line))
 
     if (end === -1) break
     start = end + 1

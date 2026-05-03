@@ -426,8 +426,8 @@ export class PluginSystem {
 // 创建全局插件系统实例
 export const pluginSystem = new PluginSystem();
 
-// 导出所有类型和组件
-export * from './types/PluginTypes';
+// 导出类型
+export type { PluginState, PluginType, PluginMetadata, PluginConfig, LoadedPlugin, PluginLoaderOptions, PluginLoadResult, PluginEventType, PluginEvent } from './types/PluginTypes';
 export { default as PluginLoader } from './core/PluginLoader';
 export { default as PluginRegistry } from './core/PluginRegistry';
 export { default as PluginLifecycleManager } from './core/PluginLifecycleManager';
@@ -436,10 +436,10 @@ export { default as PluginConfigManager } from './management/PluginConfigManager
 export { default as PluginEventSystem } from './core/PluginEventSystem';
 
 // 导出增强功能
-export * from './EnhancedPluginManager.js';
-export * from './IntelligentPluginAnalyzer.js';
+export { EnhancedPluginManager } from './EnhancedPluginManager.js';
+export { IntelligentPluginAnalyzer } from './IntelligentPluginAnalyzer.js';
 
 // 导出内置插件
-export * from './bundled/index.js';
+export { bundledPlugins } from './bundled/index.js';
 
 export default PluginSystem;

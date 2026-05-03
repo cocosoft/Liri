@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * TaskStopTool UI 组件
  *

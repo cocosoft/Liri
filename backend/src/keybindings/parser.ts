@@ -243,3 +243,7 @@ export function getModifiers(keystroke: ParsedKeystroke): KeyModifier[] {
   if (keystroke.meta) modifiers.push('meta');
   return modifiers;
 }
+
+export function chordToDisplayString(chord: ParsedKeystroke[]): string {
+  return formatChord(chord);
+}

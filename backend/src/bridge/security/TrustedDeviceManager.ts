@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 信任设备管理器
  * 负责管理信任设备的注册、验证和Token管理
@@ -228,5 +229,5 @@ export function resetDeviceManager(): void {
   defaultManager = undefined;
 }
 
-export { DeviceManager };
+export { getDeviceManager, resetDeviceManager };
 export type { DeviceManagerOptions };

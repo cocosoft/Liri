@@ -382,3 +382,11 @@ export function getActionsByContext(context: ActionContext): CoreAction[] {
 export function getActionInfo(actionId: string): CoreAction | undefined {
   return ALL_ACTIONS.find((action) => action.id === actionId);
 }
+
+export function getActionById(id: string): CoreAction | undefined {
+  return getActionInfo(id);
+}
+
+export const ACTIONS = ALL_ACTIONS;
+export type Action = CoreAction;
+export type ActionType = ActionContext;

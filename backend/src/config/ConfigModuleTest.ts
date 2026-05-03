@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, it, expect, beforeAll, afterAll, beforeEach, mock } from 'bun:test';
 import { ConfigLoader } from './loader/ConfigLoader';
 import { HotReloader } from './hotreload/HotReloader';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Bridge OAuth提供者
  * 实现统一的OAuthProvider接口

@@ -6,6 +6,7 @@
 import { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { profileCheckpoint } from '../../utils/startupProfiler.js';
+import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
 
 /**
  * 延迟加载工具模块
@@ -24,69 +25,13 @@ async function lazyLoadToolModule(modulePath: string): Promise<any> {
 
 /**
  * 优化的内置工具加载函数
+ * 委托给 ToolManagerUtils 的正确实现
  * @param factory 工具工厂
  * @returns 工具列表
  */
 export function loadBuiltinTools(factory: ToolFactory): Tool[] {
   profileCheckpoint('optimized_load_builtin_tools_start');
-  
-  const tools: Tool[] = [];
-  const toolModules: string[] = [
-    '../tools/AI/AIQueryTool/AIQueryTool',
-    '../tools/AI/AIWebSearchTool/AIWebSearchTool',
-    '../tools/AI/AgentTool/AgentTool',
-    '../tools/AI/AgentsTool/AgentsTool',
-    '../tools/Dev/LSPTool/LSPTool',
-    '../tools/Dev/NotebookTool/NotebookTool',
-    '../tools/Dev/REPLTool/REPLTool',
-    '../tools/File/EditTool/EditTool',
-    '../tools/File/GlobTool/GlobTool',
-    '../tools/File/WriteTool/WriteTool',
-    '../tools/Network/MCPTool/MCPTool',
-    '../tools/System/BashTool/BashTool',
-    '../tools/System/GrepTool/GrepTool',
-    '../tools/Task/TaskTool/TaskTool',
-    '../tools/Task/TodoTool/TodoTool',
-    '../tools/ReadMcpResourceTool/ReadMcpResourceTool',
-    '../tools/TaskStopTool/TaskStopTool',
-  ];
-
-  // 同步加载核心工具，异步加载其他工具
-  const coreToolModules = toolModules.slice(0, 5); // 前5个作为核心工具
-  const otherToolModules = toolModules.slice(5);
-
-  // 同步加载核心工具
-  for (const modulePath of coreToolModules) {
-    try {
-      const module = require(modulePath);
-      const toolClass = module.default || module[Object.keys(module)[0]];
-      if (toolClass) {
-        const tool = factory.createTool(toolClass);
-        if (tool) {
-          tools.push(tool);
-        }
-      }
-    } catch (error) {
-      console.warn(`Failed to load core tool ${modulePath}:`, error);
-    }
-  }
-
-  // 异步加载其他工具（非阻塞）
-  for (const modulePath of otherToolModules) {
-    lazyLoadToolModule(modulePath).then(module => {
-      if (module) {
-        const toolClass = module.default || module[Object.keys(module)[0]];
-        if (toolClass) {
-          const tool = factory.createTool(toolClass);
-          if (tool) {
-            // 这里可以通过事件或回调注册工具
-            console.log(`Lazily loaded tool: ${tool.name}`);
-          }
-        }
-      }
-    });
-  }
-
+  const tools = loadBuiltinToolsFromUtils(factory);
   profileCheckpoint('optimized_load_builtin_tools_end');
   return tools;
 }

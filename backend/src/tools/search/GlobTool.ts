@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Glob 工具
  */

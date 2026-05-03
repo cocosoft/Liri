@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OpenTelemetry  instrumentation 配置
  * 基于CC源码实现

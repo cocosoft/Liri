@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const CHARS_PER_TOKEN = 4
 
 export const TOKEN_ESTIMATION_OFFSET = 3

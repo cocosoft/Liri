@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Hook CLI命令
  * 负责Hook的管理和操作

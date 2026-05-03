@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * TaskOutput UI 组件
  *

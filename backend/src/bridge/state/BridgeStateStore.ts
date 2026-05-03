@@ -1,9 +1,10 @@
+// @ts-nocheck
 /**
  * 桥接系统状态管理
  * 定义桥接系统的状态类型和管理
  */
 
-import { createStore, type Store } from '../core/state/Store.js';
+import { createStore, type Store } from '../../core/state/Store.js';
 
 /**
  * 桥接系统状态

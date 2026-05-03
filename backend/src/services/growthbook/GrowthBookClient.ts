@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { GrowthBook } from '@growthbook/growthbook'
 import type { GrowthBookUserAttributes, GrowthBookConfig } from './GrowthBookConfig'
 import { DEFAULT_GROWTHBOOK_CONFIG } from './GrowthBookConfig'

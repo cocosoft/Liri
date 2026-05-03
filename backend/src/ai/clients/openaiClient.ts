@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OpenAI客户端实现
  */

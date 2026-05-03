@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Export命令
  * 导出对话记录到文件

@@ -83,5 +83,6 @@ export {
 } from './sessionMemoryCompact';
 export type {
   SessionMemoryCompactConfig,
+  SessionMemoryCompactResult,
   SessionMemoryCompactionResult,
 } from './sessionMemoryCompact';

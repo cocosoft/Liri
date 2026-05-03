@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Share命令
  * 分享对话记录

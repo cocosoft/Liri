@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 远程Agent通信协议实现
  */

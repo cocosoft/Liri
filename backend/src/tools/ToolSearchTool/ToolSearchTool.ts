@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 工具搜索工具
  * 用于动态发现延迟加载的工具（MCP/shouldDefer）

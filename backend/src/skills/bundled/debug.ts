@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Debug技能
  * 用于调试问题

@@ -1,0 +1,11 @@
+{
+  "name": "py-app-native",
+  "version": "0.1.0",
+  "description": "PY_APP Rust performance core - Bun FFI bindings",
+  "main": "index.js",
+  "scripts": {
+    "build": "cargo build --release",
+    "build:debug": "cargo build",
+    "clean": "cargo clean"
+  }
+}

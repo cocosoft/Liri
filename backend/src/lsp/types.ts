@@ -246,3 +246,27 @@ export interface ScopedLspServerConfig {
   maxRestarts?: number
   startupTimeout?: number
 }
+
+export interface LSPClient {
+  capabilities: Record<string, unknown>;
+  serverConfig: LSPServerConfig;
+  sendRequest(method: string, params?: unknown): Promise<unknown>;
+  sendNotification(method: string, params?: unknown): void;
+  onNotification(method: string, handler: (params: unknown) => void): void;
+  close(): void;
+}
+
+export interface LSPServerConfig {
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+  languageId?: string;
+}
+
+export interface LSPConnection {
+  client: LSPClient;
+  serverCapabilities: Record<string, unknown>;
+  isConnected: boolean;
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+}

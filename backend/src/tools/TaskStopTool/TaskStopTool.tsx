@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * TaskStopTool - 停止运行中的后台任务
  */

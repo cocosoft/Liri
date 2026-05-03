@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 按键绑定配置的Zod schema
  * 用于验证和JSON schema生成

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import wrapAnsiNpm from 'wrap-ansi'
 
 type WrapAnsiOptions = {

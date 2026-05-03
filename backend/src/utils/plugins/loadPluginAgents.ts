@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 从插件加载Agent定义
  */

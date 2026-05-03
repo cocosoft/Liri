@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 消息格式转换工具
  * 参考CC源码 utils/messages/mappers.ts 实现

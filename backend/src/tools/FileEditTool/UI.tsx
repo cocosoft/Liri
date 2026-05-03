@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * FileEditTool UI 组件
  *

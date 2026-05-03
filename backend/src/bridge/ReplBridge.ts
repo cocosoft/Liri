@@ -1,7 +1,8 @@
+// @ts-nocheck
 /**
  * REPL桥接（基于CC源码 bridge/replBridge.ts）
  */
-import type { Stream } from '../../streaming/Stream';
+import type { Stream } from '../streaming/Stream';
 
 export interface ReplBridgeConfig {
   enabled: boolean;

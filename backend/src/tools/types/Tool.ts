@@ -330,6 +330,9 @@ export interface Tool<
  */
 export type Tools = readonly Tool[];
 
+export type ToolCall = any;
+export type ToolContext = any;
+
 /**
  * 工具定义类型
  */

@@ -53,3 +53,5 @@ export interface TokenWarningState {
   isAboveAutoCompactThreshold: boolean;
   isAtBlockingLimit: boolean;
 }
+
+export type { CompactConversationOptions } from './CompactService';

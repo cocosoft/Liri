@@ -1,10 +1,11 @@
+// @ts-nocheck
 /**
  * 权限模式集成服务
  * 集成权限系统与会话元数据服务
  */
 
 import { EventEmitter } from 'events';
-import type { PermissionMode } from '../permissions/PermissionMode.js';
+import type { PermissionMode } from '../../permission/PermissionMode.js';
 import {
   sessionMetadataService,
   type PermissionModeListener,

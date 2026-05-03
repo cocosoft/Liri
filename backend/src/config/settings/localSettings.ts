@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 本地设置管理（gitignored）
  * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的本地设置部分

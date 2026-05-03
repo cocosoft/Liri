@@ -131,16 +131,43 @@ export class ExecutionError extends AppError {
 
 /**
  * 配置解析错误类
+ * 兼容 CC 源码的 ConfigParseError 接口（含 filePath / defaultConfig）
  */
 export class ConfigParseError extends AppError {
+  /**
+   * 配置文件路径（CC 兼容）
+   */
+  readonly filePath?: string;
+
+  /**
+   * 应使用的默认配置（CC 兼容）
+   */
+  readonly defaultConfig?: unknown;
+
   constructor(
     message: string,
     severity: ErrorSeverity = ErrorSeverity.HIGH,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, any>,
+    options?: { filePath?: string; defaultConfig?: unknown }
   ) {
     super(message, ErrorCategory.CONFIGURATION, severity, code, context);
     this.name = 'ConfigParseError';
+    this.filePath = options?.filePath;
+    this.defaultConfig = options?.defaultConfig;
+  }
+
+  /**
+   * 以 CC 兼容签名构造（方便迁移）
+   */
+  static ccCompatible(message: string, filePath: string, defaultConfig: unknown): ConfigParseError {
+    return new ConfigParseError(
+      message,
+      ErrorSeverity.HIGH,
+      'CONFIG_PARSE_ERROR',
+      { filePath },
+      { filePath, defaultConfig }
+    );
   }
 }
 
@@ -267,15 +294,41 @@ export class AbortError extends Error {
 /**
  * Fallback触发错误类
  * 当主流程失败并触发fallback时抛出此错误
+ * 兼容 CC 源码的 FallbackTriggeredError 接口（含 originalModel / fallbackModel）
  */
 export class FallbackTriggeredError extends Error {
+  /**
+   * 原始模型名称（CC 兼容）
+   */
+  readonly originalModel?: string;
+
+  /**
+   * Fallback 模型名称（CC 兼容）
+   */
+  readonly fallbackModel?: string;
+
   constructor(
     message: string,
     public readonly originalError?: Error,
-    public readonly fallbackType?: string
+    public readonly fallbackType?: string,
+    options?: { originalModel?: string; fallbackModel?: string }
   ) {
     super(message);
     this.name = 'FallbackTriggeredError';
+    this.originalModel = options?.originalModel;
+    this.fallbackModel = options?.fallbackModel;
+  }
+
+  /**
+   * 以 CC 兼容签名构造（model fallback 场景）
+   */
+  static fromModelFallback(originalModel: string, fallbackModel: string, originalError?: Error): FallbackTriggeredError {
+    return new FallbackTriggeredError(
+      `Model fallback triggered: ${originalModel} -> ${fallbackModel}`,
+      originalError,
+      'model_fallback',
+      { originalModel, fallbackModel }
+    );
   }
 }
 
@@ -454,3 +507,21 @@ export class LightweightConfigError extends Error {
     this.name = 'LightweightConfigError';
   }
 }
+
+/**
+ * 模块错误类
+ * 用于模块系统内部错误报告
+ */
+export class ModuleError extends Error {
+  constructor(
+    message: string,
+    public readonly moduleId?: string,
+    public readonly errorCode?: string
+  ) {
+    super(message);
+    this.name = 'ModuleError';
+  }
+}
+
+export type { TrackedError } from './tracker/ErrorTracker';
+export type { ErrorContext } from './monitor/ExternalErrorMonitor';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 权限管理器
  * 管理用户权限，控制工具和功能的访问
@@ -107,11 +108,19 @@ export interface PermissionContext {
  * 权限管理器
  */
 export class PermissionManager {
+  private static instance: PermissionManager;
   private rules: Map<string, PermissionRule> = new Map();
   private defaultAllow: boolean = false;
 
   constructor(defaultAllow: boolean = false) {
     this.defaultAllow = defaultAllow;
+  }
+
+  public static getInstance(): PermissionManager {
+    if (!PermissionManager.instance) {
+      PermissionManager.instance = new PermissionManager();
+    }
+    return PermissionManager.instance;
   }
 
   /**

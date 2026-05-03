@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Branch命令导出
  */

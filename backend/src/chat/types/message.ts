@@ -114,6 +114,10 @@ export type MessageCategory =
   | 'debug'
   | 'analytics';
 
+export type UserMessage = Message;
+export type AssistantMessage = Message;
+export type SystemMessage = Message;
+
 /**
  * 内容块类型
  */

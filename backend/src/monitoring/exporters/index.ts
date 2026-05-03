@@ -4,16 +4,22 @@
 
 export {
   ConsoleExporter,
-  ConsoleExporterConfig,
-  ExportData,
   getConsoleExporter,
   createConsoleExporter,
 } from './ConsoleExporter.js';
 
+export type {
+  ConsoleExporterConfig,
+  ExportData,
+} from './ConsoleExporter.js';
+
 export {
   FileExporter,
-  FileExporterConfig,
-  FileExportData,
   getFileExporter,
   createFileExporter,
+} from './FileExporter.js';
+
+export type {
+  FileExporterConfig,
+  FileExportData,
 } from './FileExporter.js';

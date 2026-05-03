@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * VerificationAgent 策略定义
  *

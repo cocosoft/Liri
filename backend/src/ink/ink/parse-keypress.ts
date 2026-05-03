@@ -12,6 +12,64 @@ export interface KeyPress {
   raw?: string;
 }
 
+export interface ParsedKey {
+  name: string;
+  ctrl: boolean;
+  meta: boolean;
+  shift: boolean;
+  alt: boolean;
+  value?: string;
+}
+
+export interface ParsedMouse {
+  type: string;
+  row: number;
+  col: number;
+  ctrl: boolean;
+  meta: boolean;
+  shift: boolean;
+  alt: boolean;
+}
+
+export type ParsedInput = ParsedKey | ParsedMouse;
+
+export type TerminalResponse = string;
+
+export const INITIAL_STATE = {
+  input: '',
+  parsed: null,
+};
+
+export const nonAlphanumericKeys: Record<string, string> = {
+  escape: 'escape',
+  return: 'return',
+  tab: 'tab',
+  backspace: 'backspace',
+  delete: 'delete',
+  up: 'up',
+  down: 'down',
+  left: 'left',
+  right: 'right',
+  home: 'home',
+  end: 'end',
+  pageup: 'pageup',
+  pagedown: 'pagedown',
+  space: 'space',
+};
+
+export function parseMultipleKeypresses(data: string, callback: (key: ParsedKey) => void): void {
+  for (const char of data) {
+    callback({
+      name: char,
+      ctrl: false,
+      meta: false,
+      shift: false,
+      alt: false,
+      value: char,
+    });
+  }
+}
+
 const KEY_MAP: Record<string, string> = {
   '\x1b': 'escape',
   '\n': 'return',

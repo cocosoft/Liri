@@ -3,6 +3,7 @@
  * MCP（Model Context Protocol）管理和配置
  */
 import type { CommandImplementation } from '../../types/index.js';
+import { mcpConnectionManager } from '../../../services/mcp/MCPConnectionManager.js';
 
 /**
  * MCP服务器数据定义
@@ -482,167 +483,53 @@ export class MCP implements CommandImplementation {
    * @returns MCP数据
    */
   private async collectMCPData(context: any): Promise<MCPManagementData> {
-    // 这里应该从实际的MCP管理系统中获取数据
-    // 目前使用模拟数据，后续需要集成真实的MCP管理系统
-    
-    const servers: MCPServerData[] = [
-      {
-        name: 'file-server',
-        description: '文件系统MCP服务器',
-        type: 'file',
-        status: 'running',
-        address: 'localhost',
-        port: 8080,
-        protocolVersion: '1.0.0',
-        connectionStatus: 'connected',
-        lastConnected: new Date(),
-        config: { timeout: 5000, maxConnections: 10 },
-        supportedResources: ['file', 'directory', 'text'],
-        supportedTools: ['readFile', 'writeFile', 'listDirectory'],
+    const realServers = mcpConnectionManager.getServers();
+
+    const servers: MCPServerData[] = realServers.map(conn => {
+      const tools = mcpConnectionManager.getServerTools(conn.name);
+      return {
+        name: conn.name,
+        description: `${conn.type} MCP server`,
+        type: 'custom',
+        status: conn.type === 'connected' ? 'running' : conn.type === 'failed' ? 'error' : 'stopped',
+        address: 'mcp',
+        protocolVersion: (conn as any).serverInfo?.version || '1.0.0',
+        connectionStatus: conn.type === 'connected' ? 'connected' : conn.type === 'failed' ? 'error' : 'disconnected',
+        config: (conn.config as any) || {},
+        supportedResources: [],
+        supportedTools: tools.map(t => t.name),
         metrics: {
-          uptime: 86400,
-          requestCount: 1500,
-          errorCount: 15,
-          averageResponseTime: 45,
-          lastResponseTime: 42
-        }
-      },
-      {
-        name: 'database-server',
-        description: '数据库MCP服务器',
-        type: 'database',
-        status: 'running',
-        address: 'localhost',
-        port: 8081,
-        protocolVersion: '1.0.0',
-        connectionStatus: 'connected',
-        lastConnected: new Date(Date.now() - 3600000),
-        config: { timeout: 10000, maxConnections: 5 },
-        supportedResources: ['table', 'query', 'schema'],
-        supportedTools: ['executeQuery', 'getSchema', 'listTables'],
-        metrics: {
-          uptime: 172800,
-          requestCount: 2500,
-          errorCount: 25,
-          averageResponseTime: 120,
-          lastResponseTime: 115
-        }
-      },
-      {
-        name: 'api-server',
-        description: 'API服务MCP服务器',
-        type: 'api',
-        status: 'stopped',
-        address: 'api.example.com',
-        port: 443,
-        protocolVersion: '1.0.0',
-        connectionStatus: 'disconnected',
-        lastConnected: new Date(Date.now() - 86400000),
-        config: { timeout: 15000, retryCount: 3 },
-        supportedResources: ['endpoint', 'response', 'request'],
-        supportedTools: ['callAPI', 'validateRequest', 'parseResponse'],
-        metrics: {
-          uptime: 0,
+          uptime: conn.type === 'connected' ? (process.uptime() || 1) * 100 : 0,
           requestCount: 0,
-          errorCount: 0,
+          errorCount: conn.type === 'failed' ? 1 : 0,
           averageResponseTime: 0,
           lastResponseTime: 0
         }
-      }
-    ];
+      };
+    });
 
-    const resources: MCPResourceData[] = [
-      {
-        name: 'config.json',
-        type: 'file',
-        description: '配置文件',
-        server: 'file-server',
-        uri: 'file:///config.json',
-        size: 1024,
-        lastUpdated: new Date(),
-        permissions: ['read', 'write'],
-        metadata: { format: 'json', encoding: 'utf-8' }
-      },
-      {
-        name: 'users_table',
-        type: 'table',
-        description: '用户数据表',
-        server: 'database-server',
-        uri: 'db://users_table',
-        size: 2048,
-        lastUpdated: new Date(Date.now() - 7200000),
-        permissions: ['read', 'query'],
-        metadata: { columns: 5, rows: 100 }
-      },
-      {
-        name: 'api_status',
-        type: 'endpoint',
-        description: 'API状态端点',
-        server: 'api-server',
-        uri: 'https://api.example.com/status',
-        lastUpdated: new Date(Date.now() - 86400000),
-        permissions: ['read'],
-        metadata: { method: 'GET', requiresAuth: false }
-      }
-    ];
+    const resources: MCPResourceData[] = [];
 
-    const tools: MCPToolData[] = [
-      {
-        name: 'readFile',
-        description: '读取文件内容',
-        server: 'file-server',
-        parameters: [
-          { name: 'path', type: 'string', description: '文件路径', required: true },
-          { name: 'encoding', type: 'string', description: '文件编码', required: false }
-        ],
-        returns: { type: 'string', description: '文件内容' },
-        status: 'available',
-        lastUsed: new Date(),
-        usageStats: {
-          totalUses: 500,
-          successfulUses: 495,
-          failedUses: 5,
-          averageExecutionTime: 25
-        }
-      },
-      {
-        name: 'executeQuery',
-        description: '执行数据库查询',
-        server: 'database-server',
-        parameters: [
-          { name: 'query', type: 'string', description: 'SQL查询语句', required: true },
-          { name: 'params', type: 'array', description: '查询参数', required: false }
-        ],
-        returns: { type: 'array', description: '查询结果' },
-        status: 'available',
-        lastUsed: new Date(Date.now() - 3600000),
-        usageStats: {
-          totalUses: 300,
-          successfulUses: 290,
-          failedUses: 10,
-          averageExecutionTime: 150
-        }
-      },
-      {
-        name: 'callAPI',
-        description: '调用API接口',
-        server: 'api-server',
-        parameters: [
-          { name: 'endpoint', type: 'string', description: 'API端点', required: true },
-          { name: 'method', type: 'string', description: 'HTTP方法', required: false },
-          { name: 'payload', type: 'object', description: '请求数据', required: false }
-        ],
-        returns: { type: 'object', description: 'API响应' },
-        status: 'unavailable',
-        lastUsed: new Date(Date.now() - 86400000),
-        usageStats: {
-          totalUses: 100,
-          successfulUses: 95,
-          failedUses: 5,
-          averageExecutionTime: 200
-        }
+    const tools: MCPToolData[] = [];
+    for (const conn of realServers) {
+      const serverTools = mcpConnectionManager.getServerTools(conn.name);
+      for (const t of serverTools) {
+        tools.push({
+          name: t.name,
+          description: t.description || '',
+          server: conn.name,
+          parameters: [],
+          returns: { type: 'object', description: 'Tool result' },
+          status: conn.type === 'connected' ? 'available' : 'unavailable',
+          usageStats: {
+            totalUses: 0,
+            successfulUses: 0,
+            failedUses: conn.type === 'failed' ? 1 : 0,
+            averageExecutionTime: 0
+          }
+        });
       }
-    ];
+    }
 
     const overall = this.analyzeOverallStats(servers, resources, tools);
     const connectionStatus = this.getConnectionStatus(servers);

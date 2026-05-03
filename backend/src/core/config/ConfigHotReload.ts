@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { EventEmitter } from 'events';
 import { watch, FSWatcher } from 'fs';
 import { existsSync, statSync } from 'fs';

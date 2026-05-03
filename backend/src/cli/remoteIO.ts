@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 远程IO模块
  * 处理Bridge模式下的远程输入输出

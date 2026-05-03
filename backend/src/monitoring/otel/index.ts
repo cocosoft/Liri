@@ -10,15 +10,21 @@ export {
 
 export {
   OTelMetrics,
-  OTelMetricsConfig,
   getOTelMetrics,
   createOTelMetrics,
 } from './OTelMetrics.js';
 
+export type {
+  OTelMetricsConfig,
+} from './OTelMetrics.js';
+
 export {
   OTelTracing,
-  OTelTracingConfig,
-  TraceWrapperOptions,
   getOTelTracing,
   createOTelTracing,
+} from './OTelTracing.js';
+
+export type {
+  OTelTracingConfig,
+  TraceWrapperOptions,
 } from './OTelTracing.js';

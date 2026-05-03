@@ -4,6 +4,31 @@
  */
 
 /**
+ * 客户端元数据
+ */
+export interface ClientMetadata {
+  clientId: string;
+  clientName?: string;
+  clientUri?: string;
+  logoUri?: string;
+  contacts?: string[];
+  tosUri?: string;
+  policyUri?: string;
+}
+
+/**
+ * 客户端信息
+ */
+export interface ClientInfo {
+  clientId: string;
+  clientSecret?: string;
+  registrationAccessToken?: string;
+  registrationClientUri?: string;
+  clientIdIssuedAt?: number;
+  clientSecretExpiresAt?: number;
+}
+
+/**
  * OAuth元数据发现结果
  */
 export interface OAuthDiscoveryResult {

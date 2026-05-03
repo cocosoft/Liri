@@ -4,11 +4,14 @@
 
 export {
   AlertManager,
+  AlertLevel,
+  getAlertManager,
+  createAlertManager,
+} from './AlertManager.js';
+
+export type {
   AlertManagerConfig,
   AlertRule,
   AlertNotification,
   AlertHandler,
-  AlertLevel,
-  getAlertManager,
-  createAlertManager,
 } from './AlertManager.js';

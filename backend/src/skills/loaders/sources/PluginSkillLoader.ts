@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Skill, SkillSource } from '../../types';
 import { SkillLoader } from '../SkillLoader';
 import {

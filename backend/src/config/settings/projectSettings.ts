@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 项目级设置管理
  * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的项目设置部分

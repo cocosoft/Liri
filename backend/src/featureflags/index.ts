@@ -63,4 +63,4 @@ export function conditionalImport<T>(
 }
 
 export type { FeatureName } from './types.js';
-export { FEATURE_CONFIGS as FEATURE_LIST } from './types.js';
+export const FEATURE_LIST = FEATURE_CONFIGS;

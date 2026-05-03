@@ -13,9 +13,19 @@ import type { ThinkingConfig } from './thinking';
 
 export abstract class LLMClient {
   protected config: LLMConfig;
+  protected toolRegistry: any = null;
+  protected toolExecutor: any = null;
 
   constructor(config: LLMConfig) {
     this.config = config;
+  }
+
+  setToolRegistry(registry: any): void {
+    this.toolRegistry = registry;
+  }
+
+  setToolExecutor(executor: any): void {
+    this.toolExecutor = executor;
   }
 
   initialize(): void {

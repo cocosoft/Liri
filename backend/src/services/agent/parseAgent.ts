@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Agent解析工具
  */

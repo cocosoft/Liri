@@ -38,3 +38,6 @@ export function classifySeverity(
   if (/deprecated|anti-pattern|inefficient/i.test(message)) return 'warning';
   return 'info';
 }
+
+const Review = { createReviewResult, classifySeverity };
+export default Review;

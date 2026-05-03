@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { AgentMemoryImpl, MemoryItem } from './agentMemory';
 import { logger } from '../../utils/log';

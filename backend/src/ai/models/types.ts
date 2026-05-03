@@ -55,6 +55,7 @@ export interface AIRequestParams {
   top_p?: number;
   stop?: string[];
   stream?: boolean;
+  tools?: ToolDefinition[];
 }
 
 export interface AIClient {

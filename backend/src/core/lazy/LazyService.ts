@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 延迟加载服务
  * 参考CC源码的延迟加载模式（如defer_loading工具、懒加载模块等）

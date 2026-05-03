@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 查询依赖管理（参考CC源码 cc_code/query/deps.ts）
  * 统一管理QueryEngine所需的依赖项

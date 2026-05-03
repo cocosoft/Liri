@@ -68,6 +68,7 @@ export class AIServiceImpl implements AIService {
       model: options.model || model,
       maxTokens: options.max_tokens,
       temperature: options.temperature,
+      tools: options.tools,
     });
 
     return this.convertToAIResponse(chatResponse, model);
@@ -85,6 +86,7 @@ export class AIServiceImpl implements AIService {
       model: options.model || model,
       maxTokens: options.max_tokens,
       temperature: options.temperature,
+      tools: options.tools,
     });
 
     let result = await gen.next();

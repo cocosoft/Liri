@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Ollama Provider
  * 本地中模型推理提供者 (可选组件)

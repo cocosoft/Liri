@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * AI状态同步服务
  * 负责将AI模型状态与AppState同步

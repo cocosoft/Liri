@@ -5,7 +5,7 @@
  * 基于CC源码 cc_code/backend/utils/swarm/teammateManager.ts 实现
  */
 
-import type { Message } from '../../chat/types/message';
+import type { Message } from '../chat/types/message';
 import {
   TeammateBackend,
   TeammateConfig,

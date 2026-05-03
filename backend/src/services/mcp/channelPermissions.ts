@@ -128,3 +128,16 @@ export function isToolAccessAllowed(serverName: string, toolName: string): boole
   const behavior = checkToolPermission(serverName, toolName);
   return behavior !== 'always_deny';
 }
+
+export const channelPermissions = {
+  setChannelPermissionConfig,
+  getChannelPermissionConfig,
+  checkResourcePermission,
+  checkToolPermission,
+  isResourceAccessAllowed,
+  isToolAccessAllowed,
+  createChannelPermissionCallbacks,
+  isChannelPermissionRelayEnabled,
+  sendChannelPermissionRequest,
+  removeChannelPermissionConfig,
+};

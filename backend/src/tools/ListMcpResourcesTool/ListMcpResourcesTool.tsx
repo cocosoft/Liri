@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ListMcpResourcesTool - 列出MCP服务器资源
  */

@@ -2,7 +2,7 @@
  * AI模块主入口（已整合LLM模块）
  */
 
-import type { AIService } from './models/types';
+import type { AIService, AIServiceConfig, LLMConfig, ChatMessage, ChatResponse, ToolCall, ToolDefinition, ParsedToolCall } from './models/types';
 import { createAIService } from './services/aiService';
 import {
   AIModelType,
@@ -10,25 +10,11 @@ import {
   AIMessageRole,
   AIResponse,
   AIClient,
-  AIServiceConfig,
-  LLMConfig,
-  ChatMessage,
-  ChatResponse,
-  ToolCall,
-  ToolDefinition,
-  ParsedToolCall,
 } from './models/types';
 
-export { AIModelType, AIMessage, AIMessageRole, AIResponse, AIClient, AIServiceConfig };
-export {
-  LLMConfig,
-  ChatMessage,
-  ChatResponse,
-  ToolCall,
-  ToolDefinition,
-  ParsedToolCall,
-};
-export type { AIService };
+export { AIModelType, AIMessageRole } from './models/types';
+export type { AIMessage, AIResponse, AIClient, AIServiceConfig, LLMConfig, ChatMessage, ToolCall, ToolDefinition, ParsedToolCall } from './models/types';
+export type { AIService } from './models/types';
 export { createAIService };
 
 export { LLMClient } from './clients/LLMClient';
@@ -36,6 +22,8 @@ export {
   DefaultLLMClientFactory,
   getLLMClientFactory,
   createLLMClient,
+} from './clients/LLMClientFactory';
+export type {
   LLMClientType,
   AnthropicConfig,
   OpenAIConfig,
@@ -43,9 +31,9 @@ export {
   AzureConfig,
   VertexConfig,
 } from './clients/LLMClientFactory';
+export type { ModelMetadata } from './clients/ModelConfig';
+export type { ModelConfig, ValidationResult } from './clients/ModelConfig';
 export {
-  ModelConfig,
-  ValidationResult,
   getModelOverride,
   setModelOverride,
   getApiKeyOverride,
@@ -69,7 +57,6 @@ export {
   getRecommendedModel,
   clearOverrides,
 } from './clients/ModelConfig';
-export type { ModelMetadata } from './clients/ModelConfig';
 
 export { DeepSeekClient } from './clients/DeepSeekClient';
 export { AnthropicClient } from './clients/AnthropicClient';
@@ -80,14 +67,20 @@ export { VertexClient } from './clients/VertexClient';
 
 export {
   LLMInputValidator,
+} from './utils/LLMInputValidator';
+export type {
   ValidationResult as LLMValidationResult,
 } from './utils/LLMInputValidator';
 export {
   LLMOutputValidator,
+} from './utils/LLMOutputValidator';
+export type {
   OutputValidationResult,
 } from './utils/LLMOutputValidator';
 export {
   LLMPerformanceMonitor,
+} from './utils/LLMPerformanceMonitor';
+export type {
   PerformanceMetrics,
   RequestRecord,
 } from './utils/LLMPerformanceMonitor';
@@ -99,15 +92,18 @@ export {
 } from './assistants/ToolAssistant';
 
 export {
-  IToolExecutor,
-  ToolExecutor,
-  ToolExecutorConfig,
   DefaultToolExecutor,
+} from './interfaces/ToolExecutor';
+export type {
+  IToolExecutor,
+  ToolExecutorConfig,
 } from './interfaces/ToolExecutor';
 export type { ToolExecutorConfig as IToolExecutorConfig } from './interfaces/ToolExecutor';
 
 export {
   AIQueryEngine,
+} from './services/AIQueryEngine';
+export type {
   AIQueryEngineConfig,
 } from './services/AIQueryEngine';
 

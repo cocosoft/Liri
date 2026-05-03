@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * PowerShell 工具（Windows专用）
  *

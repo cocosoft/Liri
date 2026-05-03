@@ -446,3 +446,22 @@ export async function cleanupRecording(filePath: string): Promise<void> {
     // 文件不存在时忽略
   }
 }
+
+const voiceService = {
+  checkRecordingAvailability: async () => {
+    const deps = checkVoiceDependencies();
+    return {
+      available: deps.available,
+      method: deps.method,
+      missing: deps.missing,
+      installCommand: deps.installCommand,
+      reason: deps.available ? undefined : (deps.missing.length > 0 ? `Missing: ${deps.missing.join(', ')}` : 'Voice recording not available'),
+    };
+  },
+  checkVoiceDependencies,
+  startRecording,
+  getRecording,
+  cleanupRecording,
+};
+
+export default voiceService;

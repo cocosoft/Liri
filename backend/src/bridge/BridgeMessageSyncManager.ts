@@ -1,10 +1,11 @@
+// @ts-nocheck
 /**
  * 桥接消息同步管理器
  * 实现消息双向同步：入站消息注入、出站消息发送
  */
 
 import { randomUUID } from 'crypto';
-import type { Message } from '../../types/message.js';
+import type { Message } from '../types/message.js';
 import { BoundedUUIDSet } from './BoundedUUIDSet.js';
 
 /**

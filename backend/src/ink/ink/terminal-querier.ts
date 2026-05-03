@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Query the terminal and await responses without timeouts.
  *

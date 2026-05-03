@@ -58,7 +58,8 @@ export async function prefetchOfficialMcpUrls(): Promise<void> {
     officialUrls = urls;
     logger.debug(`[mcp-registry] Loaded ${urls.size} official MCP URLs`);
   } catch (error) {
-    logger.error(`Failed to fetch MCP registry: ${error instanceof Error ? error.message : String(error)}`);
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.debug(`[mcp-registry] Prefetch unavailable: ${msg}`);
   }
 }
 

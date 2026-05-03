@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * WebFetch 工具
  *

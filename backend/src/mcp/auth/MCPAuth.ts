@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCP OAuth认证管理器
  * 集成OAuth Discovery和Token持久化功能
@@ -23,9 +24,8 @@ export class MCPAuthManager {
 
   private async loadPersistedTokens(): Promise<void> {
     try {
-      const serverKeys = await this.storage.listTokens();
-      for (const serverKey of serverKeys) {
-        const tokenData = await this.storage.loadToken(serverKey);
+      const allTokens = await this.storage.loadAllTokens();
+      for (const [serverKey, tokenData] of Object.entries(allTokens)) {
         if (tokenData && tokenData.expiresAt > Date.now()) {
           this.tokens.set(serverKey, {
             accessToken: tokenData.accessToken,

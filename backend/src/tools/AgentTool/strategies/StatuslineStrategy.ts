@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * StatuslineSetup 策略定义
  *

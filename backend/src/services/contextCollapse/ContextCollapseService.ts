@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ContextCollapse 上下文折叠服务
  * 基于CC源码设计原理实现

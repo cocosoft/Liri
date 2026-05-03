@@ -3,7 +3,8 @@
  * 负责插件的安装、卸载、更新等操作
  */
 
-import { join, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import { join } from 'path';
+import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { logger } from '../utils/log';
 import { pluginLoader } from './PluginLoader';
 import { pluginCacheManager } from './PluginCacheManager';

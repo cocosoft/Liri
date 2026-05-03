@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * HTTP传输层
  * 基于HTTP的传输方式

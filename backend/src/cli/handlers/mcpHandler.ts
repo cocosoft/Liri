@@ -4,6 +4,7 @@
  */
 
 import chalk from 'chalk';
+import { mcpConnectionManager } from '../../services/mcp/MCPConnectionManager.js';
 
 export interface MCPHandlerOptions {
   verbose?: boolean;
@@ -34,7 +35,7 @@ export class MCPHandler {
 
     try {
       await this.fetchServerList();
-      
+
       console.log(chalk.cyan('═'.repeat(60)));
       console.log(chalk.bold('  MCP Servers'));
       console.log(chalk.cyan('═'.repeat(60)));
@@ -67,7 +68,6 @@ export class MCPHandler {
    */
   async handleConnect(args: string[]): Promise<void> {
     const serverName = args[0];
-    const serverUrl = args[1];
 
     if (!serverName) {
       console.error(chalk.red('✗'), 'Server name is required');
@@ -79,16 +79,14 @@ export class MCPHandler {
     }
 
     try {
+      await mcpConnectionManager.reconnectServer(serverName);
+
       const server: MCPServerInfo = {
         name: serverName,
-        url: serverUrl || `https://${serverName}.example.com`,
-        status: 'connecting',
+        url: '',
+        status: 'connected',
+        version: '1.0.0',
       };
-
-      // 模拟连接过程
-      await this.establishConnection(server);
-      server.status = 'connected';
-      server.version = '1.0.0';
 
       const existingIndex = this.servers.findIndex(s => s.name === serverName);
       if (existingIndex >= 0) {
@@ -120,13 +118,10 @@ export class MCPHandler {
     }
 
     try {
-      const server = this.servers.find(s => s.name === serverName);
+      const server = mcpConnectionManager.getServer(serverName);
       if (!server) {
         throw new Error(`Server not found: ${serverName}`);
       }
-
-      await this.closeConnection(server);
-      server.status = 'disconnected';
 
       console.log(chalk.green('✓'), `Disconnected from ${serverName}`);
     } catch (error) {
@@ -152,30 +147,16 @@ export class MCPHandler {
   }
 
   /**
-   * 获取服务器列表
+   * 获取服务器列表（从MCP连接管理器）
    */
   private async fetchServerList(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    // 返回模拟数据
-    if (this.servers.length === 0) {
-      this.servers = [
-        { name: 'default', url: 'https://api.example.com/mcp', status: 'disconnected' },
-      ];
-    }
-  }
-
-  /**
-   * 建立连接
-   */
-  private async establishConnection(server: MCPServerInfo): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-
-  /**
-   * 关闭连接
-   */
-  private async closeConnection(server: MCPServerInfo): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    const realServers = mcpConnectionManager.getServers();
+    this.servers = realServers.map(conn => ({
+      name: conn.name,
+      url: ((conn as any).config?.url || '') as string,
+      status: conn.type === 'connected' ? 'connected' : conn.type === 'pending' ? 'connecting' : 'disconnected',
+      version: (conn as any).serverInfo?.version || undefined,
+    }));
   }
 }
 

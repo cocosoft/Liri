@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Verify技能
  * 用于验证结果

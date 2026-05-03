@@ -291,3 +291,5 @@ export function checkBindingConflict(
     c.actions.includes(action)
   );
 }
+
+export type ConflictResult = ConflictDetectionResult;

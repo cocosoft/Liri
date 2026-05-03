@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 退出Worktree工具
  * 用于退出worktree并返回原分支

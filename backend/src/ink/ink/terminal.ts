@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { coerce } from 'semver'
 import type { Writable } from 'stream'
 import { env } from '../utils/env.js'

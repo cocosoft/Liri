@@ -1,7 +1,34 @@
 /**
  * Bash AST 安全分析（基于CC源码 utils/bash/ast.ts FAIL-CLOSED模式）
  * 白名单节点类型策略：未知结构 -> 询问用户
+ *
+ * 使用Rust原生库进行精确解析（编译时零依赖C FFI）
+ * 当原生库不可用时自动降级为TypeScript解析
  */
+
+let nativeParseBash: ((command: string) => object | null) | null = null;
+
+function lazyInitNative() {
+  if (nativeParseBash === undefined) {
+    try {
+      const native = require('../../../native');
+      if (native && typeof native.parseBashForSecurity === 'function') {
+        nativeParseBash = (command) => {
+          try {
+            return native.parseBashForSecurity(command);
+          } catch {
+            return null;
+          }
+        };
+      } else {
+        nativeParseBash = null;
+      }
+    } catch {
+      nativeParseBash = null;
+    }
+  }
+  return nativeParseBash;
+}
 
 export type SimpleCommand = {
   argv: string[];
@@ -32,7 +59,35 @@ export function parseForSecurity(command: string): ParseForSecurityResult {
     return { kind: 'too-complex', reason: 'empty command' };
   }
 
-  // Heredoc预处理：去除heredoc内容后分析
+  // 尝试Rust原生解析器
+  const native = lazyInitNative();
+  if (native) {
+    try {
+      const result = native(trimmed) as any;
+      if (result && result.kind === 'simple') {
+        return {
+          kind: 'simple',
+          commands: [{
+            argv: result.args ? [result.command, ...result.args] : [result.command],
+            envVars: (result.env_vars || []).map((e: any) => ({ name: e.name, value: e.value })),
+            redirects: (result.redirects || []).map((r: any) => ({
+              op: r.op as Redirect['op'],
+              target: r.target,
+              fd: r.fd,
+            })),
+            text: trimmed,
+          }],
+        };
+      }
+      if (result && result.error) {
+        return { kind: 'too-complex', reason: result.error };
+      }
+    } catch {
+      // 降级到TypeScript解析
+    }
+  }
+
+  // TypeScript降级解析器
   const cleanedCommand = hasHeredoc(trimmed) ? stripHeredocs(trimmed) : trimmed;
 
   try {

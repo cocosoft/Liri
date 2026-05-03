@@ -150,3 +150,14 @@ export interface PluginManager {
   registerBuiltinPlugin(plugin: LoadedPlugin): void;
   clearCache(): void;
 }
+
+export class PluginError extends Error {
+  constructor(
+    message: string,
+    public readonly pluginName?: string,
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = 'PluginError';
+  }
+}

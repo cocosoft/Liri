@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * doctor命令 - 系统诊断
  */

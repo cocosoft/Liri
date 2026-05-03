@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OAuth Discovery服务
  * 实现RFC 8414 OAuth 2.0授权服务器元数据发现

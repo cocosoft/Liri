@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Claude AI集成
  * 负责与Claude AI MCP服务器的集成

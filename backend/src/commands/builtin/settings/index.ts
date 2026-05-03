@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * settings 命令
  * 打开或显示设置

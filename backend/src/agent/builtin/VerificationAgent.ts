@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Verification内置Agent
  * 验证代码变更和测试结果

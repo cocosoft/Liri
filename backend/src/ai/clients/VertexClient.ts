@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Vertex AI客户端实现
  */

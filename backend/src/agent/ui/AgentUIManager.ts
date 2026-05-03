@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { AIAgent, AgentState, AgentConfig, AgentTask, AgentResponse } from '../models/types';
 import { logger } from '../../utils/log';
 

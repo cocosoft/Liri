@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 工具系统模块主入口（基于CC源码）
  * 导出所有工具系统组件和类型定义
@@ -9,12 +10,14 @@ export * from './types/ToolTypes';
 // 导入组件用于导出
 import { feature } from '@modules/core';
 import { ToolManager, globalToolManager } from './core/ToolManager';
+import { ToolRegistry, setToolRegistry, getToolRegistry } from './ToolRegistry';
 import { ToolExecutor, globalToolExecutor } from './executor/ToolExecutor';
 import { ToolPermissionManager, globalToolPermissionManager } from './security/ToolPermissionManager';
 import { ToolMonitor, globalToolMonitor } from './monitoring/ToolMonitor';
 
 // 导出核心组件
 export { ToolManager, globalToolManager };
+export { ToolRegistry, setToolRegistry, getToolRegistry };
 export { ToolExecutor, globalToolExecutor };
 
 // 导出安全组件

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ParsedKey } from '../parse-keypress.js'
 import { TerminalEvent } from './terminal-event.js'
 

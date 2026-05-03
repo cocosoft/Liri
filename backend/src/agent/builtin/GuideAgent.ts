@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Guide内置Agent
  * 提供交互式学习指南

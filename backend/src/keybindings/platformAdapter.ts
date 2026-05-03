@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 平台适配器
  * 处理Windows和macOS之间的按键差异

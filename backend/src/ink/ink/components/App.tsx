@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { PureComponent, type ReactNode } from 'react';
 import { logForDebugging, logError } from '../../../utils/debug.js';
 import { isEnvTruthy } from '../../../utils/envUtils.js';

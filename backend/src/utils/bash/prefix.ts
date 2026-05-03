@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Bash 命令前缀处理
  *

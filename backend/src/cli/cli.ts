@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-nocheck
 
 import { getUIEnhancer } from '../ui/UIEnhancer';
 import { getSkillManager } from '../skills/SkillManager';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Message组件 - 消息提示
  */

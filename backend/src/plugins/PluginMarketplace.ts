@@ -3,7 +3,8 @@
  * 负责与插件市场交互，获取插件列表，安装插件等
  */
 
-import { join, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { logger } from '../utils/log';
 import { pluginInstallManager } from './PluginInstallManager';
 import { PluginErrorFactory, PluginErrorHandler } from './PluginErrorHandler';

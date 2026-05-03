@@ -42,7 +42,7 @@ export type Supplier<T = any> = () => T;
 
 export type Mapper<T = any, R = any> = (value: T) => R;
 
-export typeReducer<T = any, R = any> = (accumulator: R, value: T, index?: number) => R;
+export type Reducer<T = any, R = any> = (accumulator: R, value: T, index?: number) => R;
 
 /**
  * Promise类型别名

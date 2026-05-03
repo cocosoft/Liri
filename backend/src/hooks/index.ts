@@ -74,3 +74,5 @@ export {
 // 其他增强Hook
 export { useVoice } from './useVoice';
 export { usePrStatus, getPRCombinedStatus, canMergePR } from './usePrStatus';
+export { useDiffData } from './useDiffData';
+export { useMemoryUsage } from './useMemoryUsage';

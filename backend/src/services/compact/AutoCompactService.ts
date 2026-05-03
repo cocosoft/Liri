@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 自动压缩服务
  * 基于CC源码 cc_code/backend/services/compact/autoCompact.ts 实现

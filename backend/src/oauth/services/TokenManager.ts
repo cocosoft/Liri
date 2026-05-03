@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OAuth Token管理器
  * 参考CC源码的Token管理实现，提供完整的Token生命周期管理

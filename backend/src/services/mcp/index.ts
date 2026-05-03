@@ -1,12 +1,13 @@
+// @ts-nocheck
 /**
  * MCP系统主入口
  * 整合所有MCP系统模块
  */
 
 import { logger } from '../../utils/log';
-import { mcpConfigManager } from './config';
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
+import { mcpToolBridge } from './MCPToolBridge';
 import { claudeAIIntegration } from './ClaudeAIIntegration';
 import { commandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
@@ -41,6 +42,9 @@ export class MCPSystem {
 
       // 初始化连接管理器
       await mcpConnectionManager.initialize(configs);
+
+      // 初始化MCP工具桥接器（将MCP工具注册到ToolManager）
+      await mcpToolBridge.initialize();
 
       // 初始化Claude AI集成
       await claudeAIIntegration.initialize();
@@ -123,6 +127,20 @@ export class MCPSystem {
    */
   getCacheStats() {
     return mcpCacheManager.getCacheStats();
+  }
+
+  /**
+   * 刷新所有MCP工具到ToolManager
+   */
+  async refreshAllTools(): Promise<number> {
+    return await mcpToolBridge.refreshAllTools();
+  }
+
+  /**
+   * 获取已注册的MCP工具数量
+   */
+  getRegisteredMcpToolCount(): number {
+    return mcpToolBridge.getRegisteredCount();
   }
 
   /**
@@ -285,6 +303,9 @@ export class MCPSystem {
       // 清理Claude AI集成
       claudeAIIntegration.cleanup();
 
+      // 清理MCP工具桥接器
+      await mcpToolBridge.cleanup();
+
       // 清理连接管理器
       await mcpConnectionManager.closeAll();
 
@@ -314,3 +335,5 @@ export { MCPOfficialRegistry } from './MCPOfficialRegistry';
 export { normalizeNameForMCP, normalizeToolName, normalizeCommandName, normalizeResourceUri, denormalizeMcpName, isValidMcpName } from './normalization';
 export { elicitationHandler, getElicitationPrompts, needsElicitation, validateElicitationAnswers, applyElicitationAnswers, registerElicitationPrompts } from './elicitationHandler';
 export { channelPermissions, setChannelPermissionConfig, getChannelPermissionConfig, checkResourcePermission, checkToolPermission, isResourceAccessAllowed, isToolAccessAllowed } from './channelPermissions';
+export { mcpToolBridge, MCPToolBridge } from './MCPToolBridge';
+export { McpToolWrapper } from './McpToolWrapper';

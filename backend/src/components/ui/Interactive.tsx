@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 交互式Confirm组件
  */

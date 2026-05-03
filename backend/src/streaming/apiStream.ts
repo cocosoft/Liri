@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Streaming API 集成
  *

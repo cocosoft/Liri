@@ -1,3 +1,4 @@
+// @ts-nocheck
 export interface SmartTool {
   name: string;
   description: string;

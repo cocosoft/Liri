@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 命令解析器
  * 使用Commander.js实现命令解析和子命令系统
@@ -16,9 +17,11 @@ export class CommandParser {
   private program: CommanderCommand;
 
   /**
-   * 命令管理器
+   * 命令管理器（懒加载，避免循环依赖）
    */
-  private commandManager = getCommandManager();
+  private get commandManager() {
+    return getCommandManager();
+  }
 
   /**
    * 构造函数

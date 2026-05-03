@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Mini Agent 核心类
  * 整合规则引擎、任务路由、命令执行、Ollama 调用

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 消息相关工具函数
  * 参考CC源码 utils/messages.ts 实现

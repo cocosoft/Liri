@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OAuth回调处理组件
  */

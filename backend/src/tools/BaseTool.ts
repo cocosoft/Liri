@@ -15,6 +15,9 @@ import type {
 } from './types';
 import { createAllowResult } from './types/PermissionResult';
 
+export type { ToolDef } from './types/Tool';
+export { buildTool } from './types/Tool';
+
 /**
  * 工具基类
  * 实现Tool接口的默认方法，提供抽象方法供子类实现

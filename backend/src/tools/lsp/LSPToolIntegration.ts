@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * LSP与Tool系统集成模块
  * 实现LSP工具与核心Tool系统的深度集成

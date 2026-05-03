@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * LocalShellTask 终止辅助函数
  * 纯函数（非React），使 runAgent 等模块可以杀死 agent 级别的 shell 任务

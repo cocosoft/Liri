@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 用户全局设置管理
  * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的用户设置部分

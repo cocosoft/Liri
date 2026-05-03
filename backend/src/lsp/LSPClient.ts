@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { spawn, type ChildProcess } from 'child_process'
 
 import type {

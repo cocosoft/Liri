@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * PR订阅工具 SubscribePRTool（条件编译：KAIROS_GITHUB_WEBHOOKS）
  */

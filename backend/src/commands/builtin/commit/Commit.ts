@@ -52,3 +52,9 @@ export async function commitChanges(
     return { success: false, message: e.stderr || e.message };
   }
 }
+
+const Commit = {
+  execute: commitChanges,
+};
+
+export default Commit;

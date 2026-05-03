@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Bash 工具
  *

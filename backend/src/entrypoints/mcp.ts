@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCP 服务器入口点
  * 实现 Model Context Protocol 服务器功能

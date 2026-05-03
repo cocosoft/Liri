@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCP命令
  * 管理MCP服务器

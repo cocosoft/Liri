@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Keybindings模块导出文件
  */

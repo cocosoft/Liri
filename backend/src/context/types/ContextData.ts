@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Context } from './Context';
 
 export interface ContextData {

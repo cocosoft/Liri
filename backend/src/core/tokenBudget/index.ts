@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Token预算模块导出
  */

@@ -290,9 +290,9 @@ try {
 - 实现策略违规处理
 
 **验证标准**:
-- [ ] 策略可正确定义和加载 — ⏭️ 未实施（中优先级，暂未实现）
-- [ ] 限制检查可正确触发 — ⏭️ 未实施
-- [ ] 违规处理有明确反馈 — ⏭️ 未实施
+- [x] 策略可正确定义和加载 — ✅ 已完成（`src/services/policyLimits/PolicyLimitsClient.ts` + `types.ts`）
+- [x] 限制检查可正确触发 — ✅ 已完成（`src/services/policyLimits/LimitEnforcer.ts` + `UsageQuotaTracker.ts`）
+- [x] 违规处理有明确反馈 — ✅ 已完成（`src/services/policyLimits/PolicyLimitsHook.ts`）
 
 #### 任务 3.2：实现远程托管设置服务
 
@@ -305,9 +305,9 @@ try {
 - 实现本地覆盖机制
 
 **验证标准**:
-- [ ] 远程设置可获取和缓存 — ⏭️ 未实施（中优先级，暂未实现）
-- [ ] 设置变更可通知到系统 — ⏭️ 未实施
-- [ ] 本地覆盖机制可用 — ⏭️ 未实施
+- [x] 远程设置可获取和缓存 — ✅ 已完成（`src/services/remoteManagedSettings/RemoteSettingsClient.ts`，支持 ETag/If-None-Match）
+- [x] 设置变更可通知到系统 — ✅ 已完成（`src/services/remoteManagedSettings/SettingsPoller.ts`，支持 onChange 回调）
+- [x] 本地覆盖机制可用 — ✅ 已完成（`src/services/remoteManagedSettings/SettingsApplier.ts`，支持 overridable 标志）
 
 ### 阶段四：Streaming 模块深化（🟡 中优先级）
 
@@ -630,8 +630,8 @@ bun run modules:check       # 完整检查
 | 阶段二 | 2.1 | 实现 Bash 工具子目录 | ✅ 已完成 | `backend/src/utils/bash/` 含7个文件（ast/parser/heredoc/registry/prefix/commands/index） |
 | 阶段二 | 2.2 | 实现 Git 工具 | ✅ 已完成 | `backend/src/utils/git.ts` 实现 branch/commit/dirty/remote 检测 |
 | 阶段二 | 2.3 | 实现认证工具 | ✅ 已完成 | `backend/src/utils/auth.ts` + `aws.ts` 认证令牌和AWS凭证管理 |
-| 阶段三 | 3.1 | 实现策略限制服务 | ⏭️ 未实施 | 中优先级任务，暂未实现 |
-| 阶段三 | 3.2 | 实现远程托管设置服务 | ⏭️ 未实施 | 中优先级任务，暂未实现 |
+| 阶段三 | 3.1 | 实现策略限制服务 | ✅ 已完成 | `src/services/policyLimits/` 含5个文件完整实现 |
+| 阶段三 | 3.2 | 实现远程托管设置服务 | ✅ 已完成 | `src/services/remoteManagedSettings/` 含4个文件完整实现 |
 | 阶段四 | 4.1 | 深化 Streaming 与 API 客户端集成 | ✅ 已完成 | `backend/src/streaming/apiStream.ts` 实现ApiClient+Stream连接 |
 | 阶段四 | 4.2 | 补充流式错误处理 | ✅ 已完成 | `backend/src/streaming/retry.ts` 实现断路器模式+重试 |
 | 阶段四 | 4.3 | 实现背压支持 | ✅ 已完成 | `backend/src/streaming/backpressure.ts` 实现BackpressureController |
@@ -661,7 +661,7 @@ bun run modules:check       # 完整检查
 |------|------|--------|------|
 | 阶段一（Services核心） | 30% → 42% | ✅ 100% | API客户端+上下文压缩+分析服务全部实现 |
 | 阶段二（Utils核心） | 40% → 50% | ✅ 100% | Bash工具+Git+认证全部实现 |
-| 阶段三（辅助功能） | 42% → 50% | ⏭️ 0% | 策略限制+远程设置未实施 |
+| 阶段三（辅助功能） | 42% → 50% | ✅ 100% | 策略限制+远程设置已完成 |
 | 阶段四（Streaming深化） | - | ✅ 100% | API集成+错误处理+背压全部实现 |
 | 阶段五（Utils扩展） | 50% → 60% | ✅ 100% | 安全存储+遥测+会话全部实现 |
 | 阶段六（低优先级） | 55% → 62% | ✅ 100% | 语音+通知+技能搜索+图片全部实现 |
@@ -670,6 +670,6 @@ bun run modules:check       # 完整检查
 
 | 模块 | 实施前 | 实施后 | 提升 |
 |------|--------|--------|------|
-| Services | 30% | 55% | +25% |
+| Services | 30% | 65% | +35% |
 | Utils | 40% | 62% | +22% |
 | Streaming | 基础 | 深化完成 | - |

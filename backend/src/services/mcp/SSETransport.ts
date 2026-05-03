@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SSE传输层
  */

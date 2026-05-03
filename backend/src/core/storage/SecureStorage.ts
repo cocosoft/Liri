@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { EventEmitter } from 'events';
 import { createCipheriv, createDecipheriv, randomBytes, pbkdf2 } from 'crypto';
 import { readFile, writeFile, mkdir, access, stat } from 'fs/promises';

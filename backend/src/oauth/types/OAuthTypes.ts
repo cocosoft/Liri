@@ -13,6 +13,8 @@ export interface OAuthTokenData {
   scopes?: string[];
 }
 
+export type OAuthTokens = OAuthTokenData;
+
 /**
  * OAuth服务器元数据
  */
@@ -37,8 +39,8 @@ export interface OAuthConfig {
   authorizeUrl: string;
   tokenUrl: string;
   profileUrl: string;
-  successUrl: string;
-  manualRedirectUrl: string;
+  successUrl?: string;
+  manualRedirectUrl?: string;
   clientId: string;
   clientSecret?: string;
   scopes: string[];

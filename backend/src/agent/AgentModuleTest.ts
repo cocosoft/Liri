@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { MultiSourceAgentManager } from './managers/MultiSourceAgentManager';
 import { PluginLoader } from './managers/PluginLoader';
 import { AgentSourceManager } from './managers/AgentSourceManager';

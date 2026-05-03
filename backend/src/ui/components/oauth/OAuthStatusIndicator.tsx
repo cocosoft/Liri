@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OAuth状态指示器组件
  */

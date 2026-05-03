@@ -37,7 +37,12 @@
     "modules:snapshot": "bun run scripts/export-dependency-snapshot.ts",
     "modules:init": "bun run src/main_with_modules.tsx",
     "modules:check": "bun test src/tests/ModuleSystem.test.ts && bun run scripts/migrate-modules.ts && bun run src/tools/DependencyValidator.ts",
-    "modules:setup": "bun run scripts/setup-git-hooks.ts"
+    "modules:setup": "bun run scripts/setup-git-hooks.ts",
+    "native:build": "cd native && cargo build --release",
+    "native:build:debug": "cd native && cargo build",
+    "native:test": "cd native && cargo test",
+    "native:clean": "cd native && cargo clean",
+    "native:check": "cd native && cargo check"
   },
   "keywords": [
     "ai",

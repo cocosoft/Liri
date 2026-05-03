@@ -4,9 +4,12 @@
 
 export {
   SessionTracing,
-  SessionTracingConfig,
-  SpanType,
-  SpanContext,
   getSessionTracing,
   createSessionTracing,
+} from './SessionTracing.js';
+
+export type {
+  SessionTracingConfig,
+  SpanContext,
+  SpanType,
 } from './SessionTracing.js';

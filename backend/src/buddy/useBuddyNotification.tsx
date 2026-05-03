@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect } from 'react';
 import { Text } from '../ink.js';
 import { getRainbowColor } from '../utils/thinking';

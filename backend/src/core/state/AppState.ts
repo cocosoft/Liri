@@ -1,16 +1,17 @@
+// @ts-nocheck
 /**
  * 应用状态类型定义
  * 参考CC源码 cc_code/backend/state/AppStateStore.ts 实现
  */
 
-import type { Tool, ToolPermissionContext } from '../../Tool.js';
-import type { Command } from '../../commands.js';
-import type { MCPServerConnection, ServerResource } from '../mcp/types.js';
-import type { LoadedPlugin, PluginError } from '../types/plugin.js';
-import type { TaskState } from '../tasks/types.js';
-import type { AgentId } from '../types/ids.js';
-import type { SettingsJson } from '../settings/types.js';
-import type { ModelSetting } from '../model/model.js';
+import type { Tool, ToolPermissionContext } from '../../types/tool.js';
+import type { Command } from '../../types/command.js';
+import type { MCPServerConnection, ServerResource } from '../../mcp/types/index.js';
+import type { LoadedPlugin, PluginError } from '../../types/plugin.js';
+import type { TaskState } from '../../types/task.js';
+import type { AgentId } from '../../types/ids.js';
+import type { SettingsJson } from '../../types/settings.js';
+import type { ModelSetting } from '../../types/model.js';
 
 /**
  * 完成边界

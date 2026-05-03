@@ -4,10 +4,13 @@
 
 export {
   SystemMonitor,
+  getSystemMonitor,
+  createSystemMonitor,
+} from './SystemMonitor.js';
+
+export type {
   SystemMonitorConfig,
   SystemInfo,
   ProcessInfo,
   DiskInfo,
-  getSystemMonitor,
-  createSystemMonitor,
 } from './SystemMonitor.js';

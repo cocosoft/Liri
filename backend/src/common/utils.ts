@@ -139,6 +139,10 @@ export namespace StringUtils {
   }
 }
 
+/** Top-level aliases for namespace exports */
+export const capitalize = StringUtils.capitalize;
+export const lowercaseFirst = StringUtils.lowercaseFirst;
+
 /**
  * 数组工具函数命名空间
  */

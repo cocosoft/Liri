@@ -1,18 +1,17 @@
 /**
- * Memory命令
- * 编辑PY_APP记忆文件
- * 参考CC源码 cc_code/backend/commands/memory/index.ts 实现
+ * Memory命令（旧版）
+ * 编辑PY_APP记忆文件（旧版，请使用 builtin/memory）
  */
 
 import type { Command } from '../types/index.js';
 
 /**
- * Memory命令实现
+ * Memory命令实现（旧版）
  */
 const memory: Command = {
   type: 'local',
-  name: 'memory',
-  description: '编辑PY_APP记忆文件',
+  name: 'memory-legacy',
+  description: '编辑PY_APP记忆文件（旧版）',
   load: async () => {
     const { executeMemory } = await import('./memory.js');
     return {

@@ -153,6 +153,32 @@ export function initializeGlobalStore(initialState: AppState): AppStateStore {
   return globalStore;
 }
 
+export const appStateStore = new Proxy<AppStateStore>({} as AppStateStore, {
+  get(_, prop) {
+    const store = getGlobalStore();
+    return store[prop as keyof AppStateStore];
+  },
+  set(_, prop, value) {
+    const store = getGlobalStore();
+    (store as any)[prop as keyof AppStateStore] = value;
+    return true;
+  },
+  has(_, prop) {
+    const store = getGlobalStore();
+    return prop in store;
+  },
+  ownKeys() {
+    const store = getGlobalStore();
+    return Reflect.ownKeys(store);
+  },
+  getOwnPropertyDescriptor() {
+    return {
+      enumerable: true,
+      configurable: true,
+    };
+  },
+});
+
 /**
  * 重置全局应用状态存储
  */

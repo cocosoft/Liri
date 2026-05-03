@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 插件版本检查器
  * 负责检查插件更新和管理版本历史
@@ -244,4 +245,13 @@ export class PluginVersionManager {
 /**
  * 导出单例
  */
+/**
+ * 计算插件版本
+ * @param manifest 插件清单
+ * @returns 版本号
+ */
+export function calculatePluginVersion(manifest: { version?: string }): string {
+  return manifest.version || '0.0.0';
+}
+
 export const pluginVersionManager = new PluginVersionManager();

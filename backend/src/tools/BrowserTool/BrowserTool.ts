@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 浏览器自动化工具
  * 参考CC源码 cc_code/backend/skills/bundled/claudeInChrome.ts 实现

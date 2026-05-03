@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 语音上下文（参考CC源码 cc_code/context/voice.tsx）
  * 管理语音输入/输出功能

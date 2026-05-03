@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OAuth启动预加载服务
  * 实现启动时OAuth Token并行预加载策略

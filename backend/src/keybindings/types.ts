@@ -122,7 +122,18 @@ export interface KeyBinding {
  * 按键序列定义
  */
 export interface KeySequence {
-  sequence: string[];
+  keys: string[];
   description?: string;
-  action: () => void | Promise<void>;
 }
+
+export const KEYBINDING_ACTIONS = {
+  COPY: 'edit.copy',
+  CUT: 'edit.cut',
+  PASTE: 'edit.paste',
+  UNDO: 'edit.undo',
+  REDO: 'edit.redo',
+  SAVE: 'file.save',
+  OPEN: 'file.open',
+  SEARCH: 'search.find',
+  REPLACE: 'search.replace',
+} as const;

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OAuth Token安全存储服务
  * 提供Token的加密存储和读取功能

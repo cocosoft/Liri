@@ -142,6 +142,27 @@ function checkCommandSafety(commands: SimpleCommand[]): boolean {
   return true
 }
 
+export interface ParseResult {
+  command: string;
+  args: string[];
+  envVars?: Record<string, string>;
+  commandNode?: string;
+}
+
+export async function parseCommand(command: string): Promise<{ envVars: Record<string, string>; commandNode: string } | null> {
+  const envMatch = command.match(/^([A-Za-z_][A-Za-z0-9_]*=[^\s]*)\s+/);
+  if (envMatch) {
+    return { envVars: { [envMatch[1].split('=')[0]]: envMatch[1].split('=')[1] }, commandNode: command.slice(envMatch[0].length) };
+  }
+  const trimmed = command.trim();
+  if (!trimmed) return null;
+  return { envVars: {}, commandNode: trimmed };
+}
+
+export function extractCommandArguments(node: string): string[] {
+  return tokenize(node);
+}
+
 export function parseForSecurity(command: string): ParseForSecurityResult {
   const trimmed = command.trim()
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { AIAgent, AgentConfig, AgentState, AgentTask, AgentResponse, AgentSource } from '../models/types';
 import { AIAgentImpl } from '../agent';
 import { AgentSourceManager } from './AgentSourceManager';

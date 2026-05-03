@@ -200,7 +200,11 @@ export async function prefetchOfficialMcpUrls(): Promise<void> {
     );
 
     if (!response.ok) {
-      logger.warn(`Failed to fetch MCP registry: ${response.status}`);
+      if (response.status === 403) {
+        logger.debug('MCP registry access restricted (403) — expected in sandbox/network-restricted environments');
+      } else {
+        logger.warn(`Failed to fetch MCP registry: ${response.status}`);
+      }
       return;
     }
 
@@ -219,7 +223,8 @@ export async function prefetchOfficialMcpUrls(): Promise<void> {
     officialUrls = urls;
     logger.info(`Loaded ${urls.size} official MCP URLs from registry`);
   } catch (error) {
-    logger.warn(`Failed to fetch MCP registry: ${error instanceof Error ? error.message : 'unknown error'}`);
+    const msg = error instanceof Error ? error.message : 'unknown error';
+    logger.debug(`MCP registry prefetch unavailable: ${msg}`);
   }
 }
 
@@ -247,3 +252,13 @@ export function getCategories(): string[] {
 export function resetOfficialUrlsForTesting(): void {
   officialUrls = undefined;
 }
+
+export const MCPOfficialRegistry = {
+  prefetchOfficialMcpUrls,
+  isOfficialMcpUrl,
+  getOfficialServers,
+  getOfficialServersByCategory,
+  getOfficialServer,
+  getCategories,
+  resetOfficialUrlsForTesting,
+};

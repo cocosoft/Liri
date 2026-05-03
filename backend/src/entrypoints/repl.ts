@@ -283,6 +283,7 @@ export async function launchRepl(
 
         const context: CommandContext = {
           sessionId: `repl-${Date.now()}`,
+          chatManager,
         };
 
         const loading = ui.showLoading(`执行命令: ${commandName}`);
@@ -391,8 +392,10 @@ export async function executeOnce(
       const commandName = parts[0].replace(/^\//, '');
       const finalArgs = args || parts.slice(1).join(' ');
 
+      const chatManager = initializeChatManager();
       const context: CommandContext = {
         sessionId: `once-${Date.now()}`,
+        chatManager,
       };
 
       profileCheckpoint('execute_once_command_start');
@@ -459,6 +462,7 @@ export async function executeFromPipe(): Promise<void> {
 
         const context: CommandContext = {
           sessionId: `pipe-${Date.now()}`,
+          chatManager,
         };
 
         profileCheckpoint('execute_from_pipe_command_start');

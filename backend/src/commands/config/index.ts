@@ -1,17 +1,17 @@
 /**
- * Config命令
- * 管理配置
+ * Config命令（旧版）
+ * 管理配置（旧版，请使用 builtin/config）
  */
 
 // 使用CommonJS的require方法来导入配置模块
 const configModule = require('../../utils/config.js');
 
 /**
- * Config命令
+ * Config命令（旧版）
  */
-export const configCommand = {
-  name: 'config',
-  description: '管理配置',
+export const configLegacyCommand = {
+  name: 'config-legacy',
+  description: '管理配置（旧版，请使用 /config）',
   type: 'local',
   load: async () => {
     return {
@@ -73,4 +73,4 @@ export const configCommand = {
   },
 };
 
-export default configCommand;
+export default configLegacyCommand;

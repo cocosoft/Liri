@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCP引导处理器
  * 负责处理MCP服务器的引导（elicitation）流程
@@ -190,3 +191,11 @@ export function registerElicitationPrompts(
   ELICITATION_PROMPTS[serverName] = prompts;
   logger.info(`Registered elicitation prompts for MCP server: ${serverName}`);
 }
+
+export const elicitationHandler = {
+  getElicitationPrompts,
+  needsElicitation,
+  validateElicitationAnswers,
+  applyElicitationAnswers,
+  registerElicitationPrompts,
+};

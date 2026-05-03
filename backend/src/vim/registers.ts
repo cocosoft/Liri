@@ -186,4 +186,8 @@ export function createRegisterManager(): RegisterManager {
 /**
  * 全局寄存器管理器实例
  */
+export function createVimRegisters(): RegisterManager {
+  return createRegisterManager();
+}
+
 export const registerManager = createRegisterManager();

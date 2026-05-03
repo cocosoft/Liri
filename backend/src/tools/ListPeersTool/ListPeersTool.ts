@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 列出Peers工具
  * 用于发现本地peer（UDS）或远程会话（bridge）

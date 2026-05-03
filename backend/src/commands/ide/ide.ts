@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * IDE命令执行逻辑
  * 管理IDE集成

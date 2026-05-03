@@ -199,7 +199,7 @@ export class MonitoringService {
     profileCheckpoint('monitoring_health_check_start');
     try {
       const status = this.getSystemStatus();
-      this.log('info', '健康检查: 系统状态正常', {
+      this.writeToLogFile('info', '健康检查: 系统状态正常', {
         uptime: status.uptime,
         memory: `${(status.memory.heapUsed / 1024 / 1024).toFixed(2)} MB`,
         cpu: `${((status.cpu.user + status.cpu.system) / 1000).toFixed(2)} ms`,

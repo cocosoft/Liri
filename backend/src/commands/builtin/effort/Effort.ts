@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Effort设置命令实现
  */

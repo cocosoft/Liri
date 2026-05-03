@@ -13,6 +13,24 @@ import { calculateCacheAwareUsage, getCacheEfficiency } from './CacheAwareBudget
 import { createContextStatsCollector, type ContextStatsCollector } from './ContextStatsCollector';
 import type { APIProviderType, TokenUsageDetail, ContextStats } from './types';
 
+let nativeEstimateTokens: ((text: string, model?: string) => number) | null = null;
+
+function lazyInitNative() {
+  if (nativeEstimateTokens === undefined) {
+    try {
+      const native = require('../../../native');
+      if (native && typeof native.estimateTokens === 'function') {
+        nativeEstimateTokens = (text, model) => native.estimateTokens(text, model);
+      } else {
+        nativeEstimateTokens = null;
+      }
+    } catch {
+      nativeEstimateTokens = null;
+    }
+  }
+  return nativeEstimateTokens;
+}
+
 export interface TokenBudgetParams {
   total: number;
   remaining: number;
@@ -256,23 +274,34 @@ export function getDefaultTokenBudget(model: string): TokenBudgetParams {
 }
 
 export function estimateTokenCount(text: string): number {
+  const native = lazyInitNative();
+  if (native) {
+    return native(text);
+  }
   return Math.ceil(text.length / 4);
 }
 
 export function estimateMessageTokenCount(message: any): number {
+  const native = lazyInitNative();
+
+  function doCount(text: string): number {
+    if (native) return native(text);
+    return Math.ceil(text.length / 4);
+  }
+
   if (typeof message === 'string') {
-    return estimateTokenCount(message);
+    return doCount(message);
   }
 
   if (message.content) {
     if (typeof message.content === 'string') {
-      return estimateTokenCount(message.content);
+      return doCount(message.content);
     }
     if (Array.isArray(message.content)) {
       let total = 0;
       for (const part of message.content) {
         if (part.text) {
-          total += estimateTokenCount(part.text);
+          total += doCount(part.text);
         }
       }
       return total;

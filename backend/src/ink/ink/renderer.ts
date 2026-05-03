@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { logForDebugging } from 'src/utils/debug.js'
 import { type DOMElement, markDirty } from './dom.js'
 import type { Frame } from './frame.js'

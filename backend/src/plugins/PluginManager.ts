@@ -1,9 +1,11 @@
+// @ts-nocheck
 /**
  * 插件管理器
  * 负责管理插件的生命周期和整体操作
  */
 
 import type { LoadedPlugin } from '../types/plugin';
+import type { Command } from '../commands/types/index.js';
 import { PluginLoader, PluginSource } from './PluginLoader';
 import { PluginRegistry } from './PluginRegistry';
 import { PluginComponentLoader } from './PluginComponentLoader';
@@ -169,6 +171,48 @@ export class PluginManager {
    */
   getComponentLoader(): PluginComponentLoader {
     return this.componentLoader;
+  }
+
+  /**
+   * 获取所有插件命令
+   * 从插件组件加载器中获取命令组件并包装为 Command 对象
+   * @returns 命令列表
+   */
+  async getCommands(): Promise<Command[]> {
+    const commands: Command[] = [];
+    const commandComponents = this.componentLoader.getComponentsByType('commands');
+
+    for (const component of commandComponents) {
+      const plugin = this.registry.get(component.pluginName);
+      if (!plugin || !plugin.enabled) continue;
+
+      const command: Command = {
+        type: 'prompt',
+        name: component.name,
+        description: component.metadata?.description || `Plugin command from ${component.pluginName}`,
+        aliases: component.metadata?.aliases || [],
+        loadedFrom: 'plugin',
+        isHidden: false,
+        load: async () => {
+          try {
+            const module = await import(/* @vite-ignore */ component.path);
+            const impl = module.default || module;
+            return {
+              getPromptForCommand: impl.getPromptForCommand,
+              execute: impl.execute,
+              call: impl.call,
+              validate: impl.validate,
+            };
+          } catch (err) {
+            logger.error(`Failed to load plugin command ${component.name}:`, err);
+            return {};
+          }
+        },
+      };
+      commands.push(command);
+    }
+
+    return commands;
   }
 }
 

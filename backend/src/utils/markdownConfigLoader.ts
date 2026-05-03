@@ -5,6 +5,17 @@
 /**
  * 从frontmatter解析Agent工具
  */
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+
+export async function loadMarkdownFilesForSubdir(subdir: string, cwd: string): Promise<string[]> {
+  const dirPath = join(cwd, subdir);
+  if (!existsSync(dirPath)) return [];
+  const files = await readdir(dirPath);
+  return files.filter(f => f.endsWith('.md') || f.endsWith('.mdx')).map(f => join(dirPath, f));
+}
+
 export function parseAgentToolsFromFrontmatter(toolsRaw: unknown): string[] | undefined {
   if (!toolsRaw) {
     return undefined;

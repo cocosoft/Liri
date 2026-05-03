@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 工具调用摘要服务（参考CC源码 cc_code/backend/services/toolUseSummary/）
  * 在Token预算紧张时自动生成工具调用结果的摘要

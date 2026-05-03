@@ -24,9 +24,18 @@ export type {
   PluginMetadata as PluginMetadataExtended,
 } from './PluginMetadata.js';
 
-/**
- * 加载的插件
- */
+export interface PluginConfig {
+  repositories: Record<string, string>;
+  enabled: string[];
+  disabled: string[];
+}
+
+export interface PluginRepository {
+  name: string;
+  url: string;
+  type: 'git' | 'npm' | 'local';
+}
+
 export interface LoadedPlugin {
   /**
    * 插件名称

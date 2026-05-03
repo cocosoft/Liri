@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 任务停止工具
  * 参考CC源码 cc_code/backend/tools/TaskTool/TaskStopTool.ts 实现

@@ -11,4 +11,16 @@ declare module '*.ts' {
   export default value;
 }
 
+declare module './components/AlternateScreen' {
+  export default function AlternateScreen(props: Record<string, unknown>): JSX.Element;
+}
+
+declare module './components/NoSelect' {
+  export default function NoSelect(props: Record<string, unknown>): JSX.Element;
+}
+
+declare module './components/RawAnsi' {
+  export default function RawAnsi(props: Record<string, unknown>): JSX.Element;
+}
+
 // Add any other global type declarations here

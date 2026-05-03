@@ -1,5 +1,5 @@
 /**
- * MCP命令
+ * MCP Tool命令
  * 调用MCPTool来执行MCP操作
  */
 
@@ -7,12 +7,12 @@ import type { Command } from '../../types/index.js';
 import { getToolManager } from '../../../tools/ToolManager.js';
 
 /**
- * MCP命令
+ * MCP Tool命令
  */
-export const mcpCommand: Command = {
+export const mcpToolCommand: Command = {
   type: 'action',
-  name: 'mcp',
-  description: '执行MCP操作',
+  name: 'mcp-tool',
+  description: '执行MCP操作（通过ToolManager）',
   aliases: [],
   argumentHint: '<action> <params>',
   whenToUse: '当你需要执行MCP操作时',
@@ -55,4 +55,4 @@ export const mcpCommand: Command = {
   }),
 };
 
-export default mcpCommand;
+export default mcpToolCommand;

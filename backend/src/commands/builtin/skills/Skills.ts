@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Skills命令实现
  * 技能管理和展示

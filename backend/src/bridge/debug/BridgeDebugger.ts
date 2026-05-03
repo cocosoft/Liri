@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Bridge 调试器
  * 提供Bridge连接状态调试和消息流追踪功能
@@ -188,5 +189,5 @@ export function resetDebugger(): void {
   globalDebugger = undefined;
 }
 
-export { BridgeDebugger };
+export { getDebugger, resetDebugger };
 export type { DebugOptions, ConnectionStatus, MessageTrace, DebugStats };

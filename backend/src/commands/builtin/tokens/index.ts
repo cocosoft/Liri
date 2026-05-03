@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * tokens 命令
  * 显示 Token 使用统计

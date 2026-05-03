@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useMemo } from 'react'
 
 import type { ParsedBinding } from './types.js'

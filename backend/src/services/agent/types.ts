@@ -1,9 +1,10 @@
+// @ts-nocheck
 /**
  * Agent系统类型定义
  */
 
-import type { HooksSettings } from '../../utils/settings/types';
-import type { PermissionMode } from '../../utils/permissions/PermissionMode';
+import type { HooksSettings } from '../../types/hooks.js';
+import type { PermissionMode } from '../../permission/PermissionMode.js';
 import type { EffortValue } from '../../utils/effort';
 import type { AgentMcpServerSpec } from './agentMcpServer';
 

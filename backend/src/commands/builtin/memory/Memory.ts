@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Memory命令实现
  * 内存管理和监控

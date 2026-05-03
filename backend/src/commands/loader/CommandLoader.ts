@@ -5,16 +5,24 @@
 import type { Command, CommandLoader, LoadResult, CommandLoadStatus } from '../types/index.js';
 import { feature } from '@modules/core';
 
+import { LazyCommand } from './LazyCommand.js';
+
+interface BuiltinModuleEntry {
+  path: string;
+  name: string;
+}
+
 /**
- * 内置命令加载器
+ * 内置命令加载器（懒加载模式）
+ * 仅在首次通过 getLoadedCommand() 或 load() 调用时导入模块
  */
 export class BuiltinCommandLoader implements CommandLoader {
   private loadedCommands: Map<string, Command> = new Map();
   private loadErrors: Map<string, string> = new Map();
+  private moduleEntries: BuiltinModuleEntry[] = [];
 
   /**
-   * 加载命令
-   * @returns 命令列表
+   * 加载命令（首次仅注册元数据，不导入模块）
    */
   async loadCommands(): Promise<Command[]> {
     const result = await this.loadBuiltInCommands();
@@ -22,121 +30,101 @@ export class BuiltinCommandLoader implements CommandLoader {
   }
 
   /**
-   * 加载所有内置命令（带详细状态）
-   * @returns 加载结果
+   * 注册所有内置命令为懒加载代理
    */
   async loadBuiltInCommands(): Promise<LoadResult> {
+    this.moduleEntries = [
+      { path: '../builtin/help/index.js', name: 'help' },
+      { path: '../builtin/status/index.js', name: 'status' },
+      { path: '../builtin/clear/index.js', name: 'clear' },
+      { path: '../builtin/skill/index.js', name: 'skill' },
+      { path: '../builtin/config/index.js', name: 'config' },
+      { path: '../builtin/history/index.js', name: 'history' },
+      { path: '../builtin/tool/index.js', name: 'tool' },
+      { path: '../builtin/compact/index.js', name: 'compact' },
+      { path: '../builtin/session/index.js', name: 'session' },
+      { path: '../builtin/exit/index.js', name: 'exit' },
+      { path: '../builtin/advisor/index.js', name: 'advisor' },
+      { path: '../builtin/brief/index.js', name: 'brief' },
+      { path: '../builtin/cache/index.js', name: 'cache' },
+      { path: '../builtin/chat/index.js', name: 'chat' },
+      { path: '../builtin/commit/index.js', name: 'commit' },
+      { path: '../builtin/complete/index.js', name: 'complete' },
+      { path: '../builtin/parallel/index.js', name: 'parallel' },
+      { path: '../builtin/permission/index.js', name: 'permission' },
+      { path: '../builtin/security/index.js', name: 'security' },
+      { path: '../builtin/vim/index.js', name: 'vim' },
+      { path: '../builtin/voice/index.js', name: 'voice' },
+      { path: '../builtin/export/index.js', name: 'export' },
+      { path: '../builtin/share/index.js', name: 'share' },
+      { path: '../builtin/version/index.js', name: 'version' },
+      { path: '../builtin/stats/index.js', name: 'stats' },
+      { path: '../builtin/cost/index.js', name: 'cost' },
+      { path: '../builtin/usage/index.js', name: 'usage' },
+      { path: '../builtin/doctor/index.js', name: 'doctor' },
+      { path: '../builtin/fast/index.js', name: 'fast' },
+      { path: '../builtin/memory/index.js', name: 'memory' },
+      { path: '../builtin/skills/index.js', name: 'skills' },
+      { path: '../builtin/hooks/index.js', name: 'hooks' },
+      { path: '../builtin/mcp/index.js', name: 'mcp' },
+      { path: '../builtin/plugins/index.js', name: 'plugins' },
+      { path: '../builtin/models/index.js', name: 'models' },
+      { path: '../builtin/permissions/index.js', name: 'permissions' },
+      { path: '../builtin/tokens/index.js', name: 'tokens' },
+      { path: '../builtin/settings/index.js', name: 'settings' },
+      { path: '../builtin/env/index.js', name: 'env' },
+      { path: '../builtin/debug/index.js', name: 'debug' },
+      { path: '../agents/index.js', name: 'agent' },
+      { path: '../bridge/index.js', name: 'bridge' },
+      { path: '../ide/index.js', name: 'ide' },
+      { path: '../tasks/index.js', name: 'tasks' },
+      { path: '../model/index.js', name: 'model' },
+      { path: '../tools/file/write.js', name: 'write' },
+      { path: '../tools/file/edit.js', name: 'edit' },
+      { path: '../tools/file/glob.js', name: 'glob' },
+      { path: '../tools/system/bash.js', name: 'bash' },
+      { path: '../tools/system/grep.js', name: 'grep' },
+      { path: '../tools/ai/agent.js', name: 'agent_tool' },
+      { path: '../tools/ai/agents.js', name: 'agents_tool' },
+      { path: '../tools/network/mcp.js', name: 'mcp_tool' },
+      { path: '../tools/network/fetch.js', name: 'fetch' },
+      { path: '../tools/network/websearch.js', name: 'websearch' },
+      { path: '../tools/task/todo.js', name: 'todo' },
+      { path: '../tools/task/task.js', name: 'task' },
+      { path: '../tools/dev/lsp.js', name: 'lsp' },
+      { path: '../tools/dev/repl.js', name: 'repl_tool' },
+      { path: '../tools/dev/notebook.js', name: 'notebook' },
+    ];
+
     const commands: Command[] = [];
     const errors: { name: string; error: string }[] = [];
 
-    const builtinModules = [
-      '../builtin/help/index.js',
-      '../builtin/status/index.js',
-      '../builtin/clear/index.js',
-      '../builtin/skill/index.js',
-      '../builtin/config/index.js',
-      '../builtin/history/index.js',
-      '../builtin/tool/index.js',
-      '../builtin/compact/index.js',
-      '../builtin/session/index.js',
-      '../builtin/exit/index.js',
-      '../builtin/advisor/index.js',
-      '../builtin/brief/index.js',
-      '../builtin/cache/index.js',
-      '../builtin/chat/index.js',
-      '../builtin/commit/index.js',
-      '../builtin/complete/index.js',
-      '../builtin/parallel/index.js',
-      '../builtin/permission/index.js',
-      '../builtin/security/index.js',
-      '../builtin/vim/index.js',
-      '../builtin/voice/index.js',
-      '../builtin/export/index.js',
-      '../builtin/share/index.js',
-      '../builtin/version/index.js',
-      '../builtin/stats/index.js',
-      '../builtin/cost/index.js',
-      '../builtin/usage/index.js',
-      '../builtin/doctor/index.js',
-      '../builtin/fast/index.js',
-      '../builtin/memory/index.js',
-      '../builtin/skills/index.js',
-      '../builtin/hooks/index.js',
-      '../builtin/mcp/index.js',
-      '../builtin/plugins/index.js',
-      '../builtin/models/index.js',
-      '../builtin/permissions/index.js',
-      '../builtin/tokens/index.js',
-      '../builtin/settings/index.js',
-      '../builtin/env/index.js',
-      '../builtin/debug/index.js',
-      '../agents/index.js',
-      '../branch/index.js',
-      '../bridge/index.js',
-      '../chrome/index.js',
-      '../config/index.js',
-      '../login/index.js',
-      '../logout/index.js',
-      '../memory/index.js',
-      '../hooks/index.js',
-      '../ide/index.js',
-      '../mcp/index.js',
-      '../tasks/index.js',
-      '../model/index.js',
-      '../tools/file/write.js',
-      '../tools/file/edit.js',
-      '../tools/file/glob.js',
-      '../tools/system/bash.js',
-      '../tools/system/grep.js',
-      '../tools/ai/agent.js',
-      '../tools/ai/agents.js',
-      '../tools/network/mcp.js',
-      '../tools/network/fetch.js',
-      '../tools/network/websearch.js',
-      '../tools/task/todo.js',
-      '../tools/task/task.js',
-      '../tools/dev/lsp.js',
-      '../tools/dev/repl.js',
-      '../tools/dev/notebook.js',
-    ];
-
-    for (const modulePath of builtinModules) {
+    for (const entry of this.moduleEntries) {
       try {
-        const module = await import(modulePath);
-        if (module.default) {
-          const command = module.default;
-          commands.push(command);
-          this.loadedCommands.set(command.name, command);
+        const lazyCmd = new LazyCommand({
+          type: 'prompt',
+          name: entry.name,
+          description: `${entry.name} command`,
+          modulePath: entry.path,
+          loadedFrom: 'builtin',
+        });
 
-          // 注册别名
-          if (command.aliases && Array.isArray(command.aliases)) {
-            for (const alias of command.aliases) {
-              this.loadedCommands.set(alias, command);
-            }
-          }
-        }
+        commands.push(lazyCmd);
+        this.loadedCommands.set(entry.name, lazyCmd);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        const commandName = modulePath.split('/').pop()?.replace('.js', '') || modulePath;
-        errors.push({ name: commandName, error: errorMsg });
-        this.loadErrors.set(commandName, errorMsg);
-        console.warn(`Failed to load builtin command from ${modulePath}: ${errorMsg}`);
+        errors.push({ name: entry.name, error: errorMsg });
+        this.loadErrors.set(entry.name, errorMsg);
       }
     }
 
     return { commands, errors };
   }
 
-  /**
-   * 通过名称或别名获取已加载的命令
-   */
   getLoadedCommand(nameOrAlias: string): Command | undefined {
     return this.loadedCommands.get(nameOrAlias);
   }
 
-  /**
-   * 获取加载状态
-   */
   getLoadStatus(): CommandLoadStatus {
     return {
       loaded: Array.from(this.loadedCommands.keys()),
@@ -144,23 +132,14 @@ export class BuiltinCommandLoader implements CommandLoader {
     };
   }
 
-  /**
-   * 检查命令是否已加载
-   */
   isCommandLoaded(name: string): boolean {
     return this.loadedCommands.has(name);
   }
 
-  /**
-   * 获取已加载的命令
-   */
   getLoadedCommands(): Command[] {
     return Array.from(this.loadedCommands.values());
   }
 
-  /**
-   * 获取来源
-   */
   getSource(): string {
     return 'builtin';
   }
@@ -240,15 +219,8 @@ export class PluginCommandLoader implements CommandLoader {
 
     try {
       const { pluginManager } = await import('../../plugins/PluginManager.js');
-      try {
-        // 插件管理器没有getCommands方法，暂时不加载插件命令
-        console.log('Plugin commands loading not implemented');
-      } catch (error) {
-        // 插件管理器未初始化，忽略错误
-        console.debug(
-          'Plugin manager not initialized, skipping plugin commands'
-        );
-      }
+      const pluginCommands = await pluginManager.getCommands();
+      commands.push(...pluginCommands);
     } catch (error) {
       console.error('Failed to load plugin commands:', error);
     }

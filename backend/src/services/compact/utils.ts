@@ -1,7 +1,28 @@
 /**
  * 压缩服务工具函数
  * 基于CC源码 cc_code/backend/services/compact/ 实现
+ *
+ * 使用Rust原生库进行精确的token估算（编译时零依赖C FFI）
+ * 当原生库不可用时自动降级为启发式估算
  */
+
+let nativeEstimateTokens: ((text: string, model?: string) => number) | null = null;
+
+function lazyInitNative() {
+  if (nativeEstimateTokens === undefined) {
+    try {
+      const native = require('../../../native');
+      if (native && typeof native.estimateTokens === 'function') {
+        nativeEstimateTokens = (text, model) => native.estimateTokens(text, model);
+      } else {
+        nativeEstimateTokens = null;
+      }
+    } catch {
+      nativeEstimateTokens = null;
+    }
+  }
+  return nativeEstimateTokens;
+}
 
 export const DEFAULT_MAX_OUTPUT_TOKENS_FOR_SUMMARY = 20000;
 export const DEFAULT_AUTO_COMPACT_BUFFER_TOKENS = 13000;
@@ -109,6 +130,10 @@ export function calculateTokenWarningState(
 }
 
 export function roughTokenCountEstimation(text: string): number {
+  const native = lazyInitNative();
+  if (native) {
+    return native(text);
+  }
   return Math.ceil(text.length / 4);
 }
 

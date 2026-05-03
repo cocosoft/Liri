@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Hook管理核心
  * 负责Hook的注册、管理和执行

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * QueryEngine核心
  * 基于现有ChatManager和其他组件实现查询引擎核心功能

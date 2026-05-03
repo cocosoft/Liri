@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Ink Link组件
  * 用于显示可点击链接

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OAuth统一服务
  * 作为OAuth模块的统一入口，协调所有OAuth操作

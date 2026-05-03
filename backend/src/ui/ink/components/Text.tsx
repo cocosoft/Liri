@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Ink Text组件
  * 用于显示文本

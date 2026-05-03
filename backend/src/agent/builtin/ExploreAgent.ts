@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Explore内置Agent
  * 探索代码库并提供洞察

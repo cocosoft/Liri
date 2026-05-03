@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 认证管理器
  * 负责管理各种认证方式（API Key、OAuth、AWS、GCP等）

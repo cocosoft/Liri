@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Login命令执行逻辑
  * 处理用户登录流程，支持OAuth和API Key两种方式

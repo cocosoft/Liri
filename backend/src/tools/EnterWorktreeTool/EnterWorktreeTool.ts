@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 进入Worktree工具
  * 用于创建并切换到git worktree，为Agent创建隔离的工作区

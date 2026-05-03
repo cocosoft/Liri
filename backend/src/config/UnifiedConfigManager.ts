@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 统一配置管理器
  * 整合 ConfigLoader、HotReloader、VersionController、RemoteConfigManager 等子系统

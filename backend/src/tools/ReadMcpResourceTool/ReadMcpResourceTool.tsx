@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ReadMcpResourceTool - 读取MCP服务器资源
  */

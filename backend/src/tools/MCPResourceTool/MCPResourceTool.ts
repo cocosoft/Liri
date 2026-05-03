@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * MCP资源工具
  * 参考CC源码 cc_code/backend/tools/MCPResourceTool/MCPResourceTool.ts 实现

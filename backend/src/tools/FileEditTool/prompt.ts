@@ -3,6 +3,12 @@
  * 基于CC源码 cc_code/backend/tools/FileEditTool/prompt.ts 实现
  */
 
+export const FILE_EDIT_TOOL_NAME = 'file_edit';
+
+export function getEditToolDescription(): string {
+  return 'Edit file content using SearchReplace pattern';
+}
+
 export const FILE_EDIT_TOOL_PROMPT = `你是一个文件编辑助手，使用SearchReplace模式修改文件内容。
 
 ## 使用场景

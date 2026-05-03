@@ -3,7 +3,7 @@
  * 提供响应验证、内容过滤和输出安全检查
  */
 
-import type { ChatResponse } from '..';
+import type { ChatResponse } from '../models/types';
 
 export interface OutputValidationResult {
   valid: boolean;

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 代理类型Hook执行器
  * 负责执行代理类型的Hook

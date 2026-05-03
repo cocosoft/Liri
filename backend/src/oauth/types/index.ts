@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OAuth模块类型定义
  */

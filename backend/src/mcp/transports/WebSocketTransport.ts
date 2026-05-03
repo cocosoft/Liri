@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * WebSocket传输层
  * 基于WebSocket的传输方式

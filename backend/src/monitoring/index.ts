@@ -6,32 +6,41 @@
 // 核心监控服务
 export {
   MonitoringService,
-  MonitoringConfig,
-  SystemStatus,
   getMonitoringService,
   getAndStartMonitoringService,
+} from './MonitoringService.js';
+
+export type {
+  MonitoringConfig,
+  SystemStatus,
 } from './MonitoringService.js';
 
 // 指标系统
 export {
   MetricsService,
   MetricType,
+  getMetricsService,
+  createMetricsService,
+} from './metrics/MetricsService.js';
+
+export type {
   MetricConfig,
   CounterMetric,
   GaugeMetric,
   HistogramMetric,
   SummaryMetric,
-  getMetricsService,
-  createMetricsService,
 } from './metrics/MetricsService.js';
 
 // 日志系统
 export {
   Logger,
   LogLevel,
-  LoggerConfig,
   getLogger,
   createLogger,
+} from './logs/Logger.js';
+
+export type {
+  LoggerConfig,
 } from './logs/Logger.js';
 
 // OpenTelemetry集成
@@ -40,71 +49,89 @@ export {
   setupOtelDiagnostics,
   getDiagLogLevelFromEnv,
   OTelMetrics,
-  OTelMetricsConfig,
   getOTelMetrics,
   createOTelMetrics,
   OTelTracing,
-  OTelTracingConfig,
-  TraceWrapperOptions,
   getOTelTracing,
   createOTelTracing,
+} from './otel/index.js';
+
+export type {
+  OTelMetricsConfig,
+  OTelTracingConfig,
+  TraceWrapperOptions,
 } from './otel/index.js';
 
 // 导出器
 export {
   ConsoleExporter,
-  ConsoleExporterConfig,
-  ExportData,
   getConsoleExporter,
   createConsoleExporter,
   FileExporter,
-  FileExporterConfig,
-  FileExportData,
   getFileExporter,
   createFileExporter,
+} from './exporters/index.js';
+
+export type {
+  ConsoleExporterConfig,
+  ExportData,
+  FileExporterConfig,
+  FileExportData,
 } from './exporters/index.js';
 
 // 追踪系统
 export {
   SessionTracing,
-  SessionTracingConfig,
-  SpanType,
-  SpanContext,
   getSessionTracing,
   createSessionTracing,
+} from './tracing/index.js';
+
+export type {
+  SessionTracingConfig,
+  SpanContext,
+  SpanType,
 } from './tracing/index.js';
 
 // 告警系统
 export {
   AlertManager,
-  AlertManagerConfig,
-  AlertRule,
-  AlertNotification,
-  AlertHandler,
   AlertLevel,
   getAlertManager,
   createAlertManager,
 } from './alerts/index.js';
 
+export type {
+  AlertManagerConfig,
+  AlertRule,
+  AlertNotification,
+  AlertHandler,
+} from './alerts/index.js';
+
 // 系统集成
 export {
   SystemMonitor,
+  getSystemMonitor,
+  createSystemMonitor,
+} from './integration/index.js';
+
+export type {
   SystemMonitorConfig,
   SystemInfo,
   ProcessInfo,
   DiskInfo,
-  getSystemMonitor,
-  createSystemMonitor,
 } from './integration/index.js';
 
 // 性能分析
 export {
   PerformanceAnalyzer,
+  getPerformanceAnalyzer,
+  createPerformanceAnalyzer,
+} from './performance/index.js';
+
+export type {
   PerformanceMetrics,
   PerformanceSnapshot,
   PerformanceReport,
-  getPerformanceAnalyzer,
-  createPerformanceAnalyzer,
 } from './performance/index.js';
 
 // 健康检查

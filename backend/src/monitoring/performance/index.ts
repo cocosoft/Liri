@@ -4,9 +4,12 @@
 
 export {
   PerformanceAnalyzer,
+  getPerformanceAnalyzer,
+  createPerformanceAnalyzer,
+} from './PerformanceAnalyzer';
+
+export type {
   PerformanceMetrics,
   PerformanceSnapshot,
   PerformanceReport,
-  getPerformanceAnalyzer,
-  createPerformanceAnalyzer,
 } from './PerformanceAnalyzer';

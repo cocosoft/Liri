@@ -230,3 +230,11 @@ export type UserConfigSchema = Record<
     options?: string[];
   }
 >;
+
+export interface ServerResource {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+  metadata?: Record<string, unknown>;
+}

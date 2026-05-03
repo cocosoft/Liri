@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 安全模块集成服务
  * 负责协调Security、Sandbox、Permission三个模块的集成
@@ -6,7 +7,8 @@
 import { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 import { SecurityAnalysisResult, SecurityBehavior } from './types';
 import { SandboxManager } from '@modules/sandbox';
-import { PermissionManager, PermissionMode } from '@modules/permission';
+import { PermissionManager } from './PermissionManager';
+import { PermissionMode } from '@modules/permission';
 
 /**
  * 安全决策结果

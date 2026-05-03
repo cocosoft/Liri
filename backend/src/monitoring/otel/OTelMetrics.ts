@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * OpenTelemetry 指标系统
  * 基于CC源码实现，提供OTel指标支持

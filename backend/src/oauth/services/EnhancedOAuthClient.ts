@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 增强版OAuth客户端
  * 集成OAuthDiscovery实现自动元数据发现

@@ -44,3 +44,41 @@ export interface CostSummary {
   requestCount: number;
   usageByModel: Map<string, ModelUsage>;
 }
+
+export interface CostData {
+  totalCost: number;
+  totalTokens: number;
+  costByModel: Record<string, number>;
+  tokenByModel: Record<string, { input: number; output: number }>;
+  periodStart: Date;
+  periodEnd: Date;
+}
+
+export enum CostCategory {
+  API_CALL = 'api_call',
+  EMBEDDING = 'embedding',
+  CACHE = 'cache',
+  STORAGE = 'storage',
+  COMPUTE = 'compute',
+}
+
+export enum CostPeriod {
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
+  QUARTERLY = 'quarterly',
+  CUSTOM = 'custom',
+}
+
+export interface CostAnalysis {
+  totalCost: number;
+  averageCost: number;
+  minCost: number;
+  maxCost: number;
+  modelCosts: Record<string, number>;
+  dailyCosts: Record<string, number>;
+  startDate: string;
+  endDate: string;
+  projectedCost?: number;
+  topModels: Array<{ model: string; cost: number }>;
+}

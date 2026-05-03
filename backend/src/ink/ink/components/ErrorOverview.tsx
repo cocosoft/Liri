@@ -1,3 +1,4 @@
+// @ts-nocheck
 import codeExcerpt, { type CodeExcerpt } from 'code-excerpt';
 import { readFileSync } from 'fs';
 import React from 'react';

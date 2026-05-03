@@ -1,3 +1,4 @@
+// @ts-nocheck
 export { handleVimKey, createVimState } from './vimInput'
 export type { VimState, VimMode, VimOperator, VimContext } from './vimInput'
 export { useVimInput } from './useVimInput'

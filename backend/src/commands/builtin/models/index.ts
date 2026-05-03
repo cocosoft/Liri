@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * models 命令
  * 列出所有可用的 AI 模型

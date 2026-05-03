@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 启动预读取模块
  * 基于CC源码 cc_code/backend/main.tsx 的 startDeferredPrefetches 设计

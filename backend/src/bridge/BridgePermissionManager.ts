@@ -3,7 +3,7 @@
  * 处理桥接权限请求的转发和响应
  */
 
-import type { PermissionUpdate } from '../utils/permissions/PermissionUpdateSchema.js';
+import type { PermissionUpdate } from './utils/permissions/PermissionUpdateSchema.js';
 
 /**
  * 桥接权限响应

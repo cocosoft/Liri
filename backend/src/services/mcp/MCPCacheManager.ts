@@ -4,9 +4,8 @@
  */
 
 import { logger } from '../../utils/log';
-import type { Tool } from '../../Tool';
 import type { Command } from '../../commands';
-import type { ServerResource } from './types';
+import type { ServerResource, SerializedTool } from './types';
 
 /**
  * 缓存项
@@ -21,7 +20,7 @@ interface CacheItem<T> {
  * MCP缓存管理器
  */
 export class MCPCacheManager {
-  private toolCache: Map<string, CacheItem<Tool[]>> = new Map();
+  private toolCache: Map<string, CacheItem<SerializedTool[]>> = new Map();
   private commandCache: Map<string, CacheItem<Command[]>> = new Map();
   private resourceCache: Map<string, CacheItem<ServerResource[]>> = new Map();
   private capabilitiesCache: Map<string, CacheItem<any>> = new Map();
@@ -32,7 +31,7 @@ export class MCPCacheManager {
   /**
    * 设置工具缓存
    */
-  setToolCache(serverName: string, tools: Tool[], ttl?: number): void {
+  setToolCache(serverName: string, tools: SerializedTool[], ttl?: number): void {
     this.toolCache.set(serverName, {
       data: tools,
       timestamp: Date.now(),
@@ -44,7 +43,7 @@ export class MCPCacheManager {
   /**
    * 获取工具缓存
    */
-  getToolCache(serverName: string): Tool[] | null {
+  getToolCache(serverName: string): SerializedTool[] | null {
     const cache = this.toolCache.get(serverName);
     if (!cache) {
       return null;

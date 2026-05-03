@@ -8,6 +8,11 @@ export * from './DataAnalyzer.js';
 export * from './types.js';
 
 export {
+  AnalyticsService,
+  analyticsService,
+} from './AnalyticsService.js';
+
+export {
   AnalyticsPersistenceService,
   DEFAULT_STORAGE_CONFIG,
 } from './AnalyticsPersistenceService.js';
@@ -111,11 +116,20 @@ export type {
   AnonymizationOptions,
 } from './AnonymizationService.js';
 
+import { analyticsService } from './AnalyticsService.js';
+
+export function logEvent(
+  eventName: string,
+  metadata: Record<string, boolean | number | string | undefined> = {}
+): void {
+  analyticsService.logEvent(eventName, metadata);
+}
+
 // 导出分析报告类型
-export { AnalyticsReport } from './AnalyticsManager.js';
-export { EventStats } from './DataCollector.js';
-export { 
-  EventAnalysis, 
+export type { AnalyticsReport } from './AnalyticsManager.js';
+export type { EventStats } from './DataCollector.js';
+export type {
+  EventAnalysis,
   SessionAnalysis,
   TimeDistribution,
   MetadataPatterns,
@@ -126,5 +140,5 @@ export {
   TokenUsageAnalysis,
   CostAnalysis,
   ErrorRateAnalysis,
-  ToolUsageAnalysis
+  ToolUsageAnalysis,
 } from './DataAnalyzer.js';

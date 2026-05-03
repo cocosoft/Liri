@@ -1,16 +1,16 @@
 /**
- * Agents命令
- * 管理智能代理
+ * Agents命令（旧版）
+ * 管理智能代理（旧版，tools/ai/agents 为新版）
  */
 
 import type { Command } from '../types/index.js';
 
 /**
- * Agents命令
+ * Agents命令（旧版）
  */
-export const agentsCommand: Command = {
-  name: 'agents',
-  description: '管理智能代理',
+export const agentsLegacyCommand: Command = {
+  name: 'agents-legacy',
+  description: '管理智能代理（旧版）',
   type: 'local',
   load: async () => {
     return {
@@ -29,4 +29,4 @@ export const agentsCommand: Command = {
   },
 };
 
-export default agentsCommand;
+export default agentsLegacyCommand;

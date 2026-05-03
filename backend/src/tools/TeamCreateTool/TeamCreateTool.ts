@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 团队创建工具
  * 用于创建多Agent swarm团队

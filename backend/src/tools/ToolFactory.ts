@@ -44,7 +44,7 @@ import { ExitWorktreeTool } from './ExitWorktreeTool/ExitWorktreeTool';
 import { ListPeersTool } from './ListPeersTool/ListPeersTool';
 import { ListMcpResourcesTool } from './ListMcpResourcesTool/ListMcpResourcesTool.js';
 import { ReadMcpResourceTool } from './ReadMcpResourceTool/ReadMcpResourceTool.js';
-import MCPTool from '../mcp/MCPTool';
+import { MCPTool } from '../mcp/MCPTool';
 import {
   FeatureFlag,
   isFeatureEnabled,

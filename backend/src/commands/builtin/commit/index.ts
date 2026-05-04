@@ -1,6 +1,6 @@
 import Commit from './Commit.js';
 
-export default {
+const commitCommand = {
   name: 'commit',
   description: '执行Git提交操作',
   aliases: ['git-commit'],
@@ -8,3 +8,5 @@ export default {
   type: 'local' as const,
   load: () => Promise.resolve(Commit),
 };
+
+export { commitCommand };

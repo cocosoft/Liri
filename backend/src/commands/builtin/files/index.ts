@@ -17,4 +17,3 @@ export const filesCommand: Command = {
   load: async () => import('./Files.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default filesCommand;

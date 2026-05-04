@@ -34,4 +34,4 @@ export { Cost };
 /**
  * 默认导出Cost命令定义
  */
-export default costCommand;
+export { costCommand };

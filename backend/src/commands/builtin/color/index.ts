@@ -16,5 +16,3 @@ export const colorCommand: Command = {
   whenToUse: '当你需要配置界面颜色时',
   load: async () => import('./Color.js').then((m) => ({ execute: m.default.execute })),
 };
-
-export default colorCommand;

@@ -180,4 +180,5 @@ const parallelCommand = {
   },
 };
 
+export { parallelCommand };
 export default parallelCommand;

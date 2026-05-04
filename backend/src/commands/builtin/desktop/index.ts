@@ -17,4 +17,3 @@ export const desktopCommand: Command = {
   load: async () => import('./Desktop.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default desktopCommand;

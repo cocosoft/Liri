@@ -16,5 +16,3 @@ export const mobileCommand: Command = {
   whenToUse: '当你需要管理移动端连接时',
   load: async () => import('./Mobile.js').then((m) => ({ execute: m.default.execute })),
 };
-
-export default mobileCommand;

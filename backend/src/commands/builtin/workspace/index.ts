@@ -17,4 +17,3 @@ export const workspaceCommand: Command = {
   load: async () => import('./Workspace.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default workspaceCommand;

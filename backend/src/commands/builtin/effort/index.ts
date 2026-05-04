@@ -17,4 +17,3 @@ export const effortCommand: Command = {
   load: async () => import('./Effort.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default effortCommand;

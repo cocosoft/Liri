@@ -1,6 +1,6 @@
 import Vim from './Vim.js';
 
-export default {
+const vimCommand = {
   name: 'vim',
   description: '打开Vim编辑器编辑文件',
   aliases: ['vi'],
@@ -8,3 +8,5 @@ export default {
   type: 'local' as const,
   load: () => Promise.resolve(Vim),
 };
+
+export { vimCommand };

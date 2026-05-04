@@ -1,6 +1,6 @@
 import Advisor from './Advisor.js';
 
-export default {
+const advisorCommand = {
   name: 'advisor',
   description: '提供代码建议和优化建议',
   aliases: ['advise', 'suggest'],
@@ -8,3 +8,5 @@ export default {
   type: 'local' as const,
   load: () => Promise.resolve(Advisor),
 };
+
+export { advisorCommand };

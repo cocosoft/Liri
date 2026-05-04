@@ -17,4 +17,3 @@ export const loginCommand: Command = {
   load: async () => import('./Login.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default loginCommand;

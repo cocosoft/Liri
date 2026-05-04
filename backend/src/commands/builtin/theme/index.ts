@@ -17,4 +17,3 @@ export const themeCommand: Command = {
   load: async () => import('./Theme.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default themeCommand;

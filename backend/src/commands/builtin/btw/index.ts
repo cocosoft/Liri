@@ -17,4 +17,3 @@ export const btwCommand: Command = {
   load: async () => import('./Btw.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default btwCommand;

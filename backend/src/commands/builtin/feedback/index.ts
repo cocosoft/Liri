@@ -17,4 +17,3 @@ export const feedbackCommand: Command = {
   load: async () => import('./Feedback.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default feedbackCommand;

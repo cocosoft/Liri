@@ -17,4 +17,3 @@ export const planCommand: Command = {
   load: async () => import('./Plan.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default planCommand;

@@ -269,5 +269,3 @@ export class ToolExecutor {
  * 全局工具执行器实例（基于CC源码）
  */
 export const globalToolExecutor = new ToolExecutor();
-
-export default ToolExecutor;

@@ -17,4 +17,3 @@ export const keybindingsCommand: Command = {
   load: async () => import('./Keybindings.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default keybindingsCommand;

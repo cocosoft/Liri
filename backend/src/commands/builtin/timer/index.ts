@@ -17,4 +17,3 @@ export const timerCommand: Command = {
   load: async () => import('./Timer.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default timerCommand;

@@ -17,4 +17,3 @@ export const statsCommand: Command = {
   load: async () => import('./Stats.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default statsCommand;

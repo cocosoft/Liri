@@ -34,4 +34,4 @@ export { Usage };
 /**
  * 默认导出Usage命令定义
  */
-export default usageCommand;
+export { usageCommand };

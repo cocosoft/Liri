@@ -32,6 +32,6 @@ const hooksCommand: Command = {
 export { Hooks };
 
 /**
- * 默认导出Hooks命令定义
+ * 导出Hooks命令定义
  */
-export default hooksCommand;
+export { hooksCommand };

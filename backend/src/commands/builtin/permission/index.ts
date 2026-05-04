@@ -1,6 +1,6 @@
 import Permission from './Permission.js';
 
-export default {
+const permissionCommand = {
   name: 'permission',
   description: '管理细粒度权限控制',
   aliases: ['permissions', 'auth'],
@@ -8,3 +8,5 @@ export default {
   type: 'local' as const,
   load: () => Promise.resolve(Permission),
 };
+
+export { permissionCommand };

@@ -17,4 +17,3 @@ export const debugCommand: Command = {
   load: async () => import('./Debug.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default debugCommand;

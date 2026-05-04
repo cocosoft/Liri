@@ -1,6 +1,6 @@
 import Complete from './Complete.js';
 
-export default {
+const completeCommand = {
   name: 'complete',
   description: '提供命令自动补全功能',
   aliases: ['comp', 'auto'],
@@ -8,3 +8,5 @@ export default {
   type: 'local' as const,
   load: () => Promise.resolve(Complete),
 };
+
+export { completeCommand };

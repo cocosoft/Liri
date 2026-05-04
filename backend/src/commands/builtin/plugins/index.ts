@@ -34,4 +34,4 @@ export { Plugins };
 /**
  * 默认导出Plugins命令定义
  */
-export default pluginsCommand;
+export { pluginsCommand };

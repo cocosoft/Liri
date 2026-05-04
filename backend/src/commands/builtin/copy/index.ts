@@ -2,4 +2,4 @@
  * Copy命令导出
  */
 
-export { default } from './Copy.js';
+export { copyCommand } from './Copy.ts';

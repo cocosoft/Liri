@@ -17,4 +17,3 @@ export const thinkbackCommand: Command = {
   load: async () => import('./Thinkback.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default thinkbackCommand;

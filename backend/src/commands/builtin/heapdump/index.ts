@@ -17,4 +17,3 @@ export const heapdumpCommand: Command = {
   load: async () => import('./Heapdump.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default heapdumpCommand;

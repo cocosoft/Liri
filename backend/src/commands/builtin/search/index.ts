@@ -17,4 +17,3 @@ export const searchCommand: Command = {
   load: async () => import('./Search.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default searchCommand;

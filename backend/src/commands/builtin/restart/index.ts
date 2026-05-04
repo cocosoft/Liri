@@ -17,4 +17,3 @@ export const restartCommand: Command = {
   load: async () => import('./Restart.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default restartCommand;

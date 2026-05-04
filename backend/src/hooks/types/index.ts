@@ -529,20 +529,3 @@ export interface CompressionHookResult extends HookResult {
    */
   compressionOptimizations?: any;
 }
-
-export default {
-  HookEvent,
-  HookPriority,
-  HookDependency,
-  HookDefinition,
-  HookContext,
-  HookResult,
-  HookExecutorConfig,
-  HookExecutionStats,
-  HookSystemConfig,
-  ReactHookDefinition,
-  PermissionHookContext,
-  PermissionHookResult,
-  CompressionHookContext,
-  CompressionHookResult,
-};

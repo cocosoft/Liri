@@ -17,4 +17,3 @@ export const chromeCommand: Command = {
   load: async () => import('./Chrome.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default chromeCommand;

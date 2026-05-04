@@ -17,4 +17,3 @@ export const keyboardCommand: Command = {
   load: async () => import('./Keyboard.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default keyboardCommand;

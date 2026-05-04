@@ -145,5 +145,3 @@ export class InterruptibleToolExecutor {
     this.config = { ...this.config, ...config };
   }
 }
-
-export default InterruptibleToolExecutor;

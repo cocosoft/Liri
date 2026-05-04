@@ -102,4 +102,4 @@ const copyCommand = {
   },
 };
 
-export default copyCommand;
+export { copyCommand };

@@ -21,8 +21,8 @@ export { default as fetch } from './network/fetch.js';
 export { default as websearch } from './network/websearch.js';
 
 // 任务管理命令
-export { default as todo } from './task/todo.js';
-export { default as task } from './task/task.js';
+export { todoCommand as todo } from './task/todo.js';
+export { taskCommand as task } from './task/task.js';
 
 // 开发工具命令
 export { default as lsp } from './dev/lsp.js';

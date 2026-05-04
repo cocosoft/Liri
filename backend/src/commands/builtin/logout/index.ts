@@ -17,4 +17,3 @@ export const logoutCommand: Command = {
   load: async () => import('./Logout.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default logoutCommand;

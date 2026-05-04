@@ -85,7 +85,7 @@ function formatCurrentSession(session: any): string {
 /**
  * 会话命令
  */
-export const sessionCommand: Command = {
+const sessionCommand: Command = {
   type: 'action',
   name: 'session',
   description: '管理会话',
@@ -185,4 +185,4 @@ export const sessionCommand: Command = {
   }),
 };
 
-export default sessionCommand;
+export { sessionCommand };

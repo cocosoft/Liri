@@ -1,6 +1,6 @@
 import type { Command } from '../../types/index.js';
 
-const history: Command = {
+const historyCommand: Command = {
   type: 'action',
   name: 'history',
   description: '管理命令历史记录',
@@ -14,4 +14,4 @@ const history: Command = {
   },
 };
 
-export default history;
+export { historyCommand };

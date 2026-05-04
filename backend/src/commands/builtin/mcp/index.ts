@@ -34,4 +34,4 @@ export { MCP };
 /**
  * 默认导出MCP命令定义
  */
-export default mcpCommand;
+export { mcpCommand };

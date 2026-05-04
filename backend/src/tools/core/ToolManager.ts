@@ -427,5 +427,3 @@ export class ToolManager extends EventEmitter {
  * 全局工具管理器实例（基于CC源码）
  */
 export const globalToolManager = new ToolManager();
-
-export default ToolManager;

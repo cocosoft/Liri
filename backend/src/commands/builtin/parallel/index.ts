@@ -1,6 +1,6 @@
-import Parallel from './Parallel.js';
+import Parallel, { parallelCommand } from './Parallel.js';
 
-export default {
+export const parallel = {
   name: 'parallel',
   description: '并行执行多个工具',
   aliases: ['async', 'multi'],
@@ -8,3 +8,5 @@ export default {
   type: 'local' as const,
   load: () => Promise.resolve(Parallel),
 };
+
+export { parallelCommand };

@@ -513,5 +513,3 @@ export const NotebookEditTool: Tool = {
     return null;
   },
 };
-
-export default NotebookEditTool;

@@ -280,5 +280,3 @@ export const MCPTool: Tool = {
     }
   },
 };
-
-export default MCPTool;

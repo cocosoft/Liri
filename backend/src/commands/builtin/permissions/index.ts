@@ -17,4 +17,3 @@ export const permissionsCommand: Command = {
   load: async () => import('./Permissions.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default permissionsCommand;

@@ -17,4 +17,3 @@ export const passesCommand: Command = {
   load: async () => import('./Passes.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default passesCommand;

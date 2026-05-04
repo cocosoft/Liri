@@ -37,7 +37,6 @@ import {
   createChatHookExecutor,
 } from '../hooks/executors/ChatHookExecutor.js';
 import { HookManager } from '../hooks/managers/HookManager.js';
-import { commandExecutor } from '../commands/index.js';
 import {
   recursivelySanitizeUnicode,
   sanitizeHTML,
@@ -502,6 +501,7 @@ export class ChatManagerImpl implements ChatManager {
       const [commandName, ...args] = parts;
 
       let commandResult = '';
+      const { commandExecutor } = await import('../commands/index.js');
       const result = await commandExecutor.execute(
         `/${commandName} ${args.join(' ')}`,
         {

@@ -122,12 +122,3 @@ export class ToolResultBudgetManager {
 }
 
 export const toolResultBudgetManager = new ToolResultBudgetManager();
-
-export default {
-  DEFAULT_TOOL_RESULT_BUDGET,
-  TOOL_RESULT_BUDGETS,
-  applyToolResultBudget,
-  getToolBudget,
-  ToolResultBudgetManager,
-  toolResultBudgetManager,
-};

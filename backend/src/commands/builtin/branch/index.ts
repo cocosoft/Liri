@@ -64,4 +64,4 @@ const branchCommand: Command = {
   progressMessage: 'Managing git branches...',
 };
 
-export default branchCommand;
+export { branchCommand };

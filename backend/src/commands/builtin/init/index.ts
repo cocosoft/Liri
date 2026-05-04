@@ -16,5 +16,3 @@ export const initCommand: Command = {
   whenToUse: '当你需要创建一个新的项目目录时',
   load: async () => import('./Init.js').then((m) => ({ execute: m.default.execute })),
 };
-
-export default initCommand;

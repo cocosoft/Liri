@@ -34,4 +34,4 @@ export { Fast };
 /**
  * 默认导出Fast命令定义
  */
-export default fastCommand;
+export { fastCommand };

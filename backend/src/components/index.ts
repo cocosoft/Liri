@@ -1,1 +1,1 @@
-export { Text, Box } from '../components/ink';
+export { Text, Box } from 'ink';

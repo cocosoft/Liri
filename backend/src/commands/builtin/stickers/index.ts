@@ -16,5 +16,3 @@ export const stickersCommand: Command = {
   whenToUse: '当你需要管理贴纸时',
   load: async () => import('./Stickers.js').then((m) => ({ execute: m.default.execute })),
 };
-
-export default stickersCommand;

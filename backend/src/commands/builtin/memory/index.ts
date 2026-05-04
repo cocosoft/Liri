@@ -34,4 +34,4 @@ export { Memory };
 /**
  * 默认导出Memory命令定义
  */
-export default memoryCommand;
+export { memoryCommand };

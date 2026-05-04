@@ -2,4 +2,4 @@
  * Export命令导出
  */
 
-export { ExportCommand } from './Export';
+export { ExportCommand as exportCommand } from './Export';

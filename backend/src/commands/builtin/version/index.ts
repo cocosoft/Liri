@@ -6,9 +6,6 @@ import type { Command } from '../../types/index.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
-/**
- * 版本命令
- */
 export const versionCommand: Command = {
   type: 'action',
   name: 'version',
@@ -18,7 +15,6 @@ export const versionCommand: Command = {
   load: async () => ({
     execute: async () => {
       try {
-        // 读取package.json文件获取版本信息
         const packagePath = path.join(process.cwd(), 'package.json');
         const packageContent = fs.readFileSync(packagePath, 'utf8');
         const packageData = JSON.parse(packageContent);
@@ -40,5 +36,3 @@ export const versionCommand: Command = {
     },
   }),
 };
-
-export default versionCommand;

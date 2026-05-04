@@ -34,4 +34,4 @@ export { Doctor };
 /**
  * 默认导出Doctor命令定义
  */
-export default doctorCommand;
+export { doctorCommand };

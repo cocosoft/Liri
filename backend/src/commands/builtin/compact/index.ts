@@ -2,5 +2,5 @@
  * Compact命令导出
  */
 
-export { CompactCommand } from './Compact';
+export { CompactCommand as compactCommand } from './Compact';
 export type { CompactCommandOptions } from './Compact';

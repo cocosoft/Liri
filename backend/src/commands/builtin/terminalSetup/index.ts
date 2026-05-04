@@ -17,4 +17,3 @@ export const terminalSetupCommand: Command = {
   load: async () => import('./TerminalSetup.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default terminalSetupCommand;

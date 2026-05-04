@@ -28,4 +28,3 @@ export const exitCommand: Command = {
   }),
 };
 
-export default exitCommand;

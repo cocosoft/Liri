@@ -26,4 +26,3 @@ export const clearCommand: Command = {
   }),
 };
 
-export default clearCommand;

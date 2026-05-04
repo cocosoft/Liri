@@ -3,6 +3,7 @@
  * 管理工具
  */
 import type { Command } from '../../types/index.js';
+import { getToolManager } from '../../../tools/ToolManager.js';
 
 /**
  * 工具命令
@@ -16,13 +17,8 @@ export const toolCommand: Command = {
   whenToUse: '当你需要管理系统工具时',
   load: async () => ({
     execute: async (args: string) => {
-      // 模拟工具列表
-      const tools = [
-        { name: 'terminal', description: '终端工具', enabled: true },
-        { name: 'file', description: '文件工具', enabled: true },
-        { name: 'web', description: '网页工具', enabled: false },
-        { name: 'code', description: '代码工具', enabled: true },
-      ];
+      const toolManager = getToolManager();
+      const tools = toolManager.getAllTools();
 
       const parts = args.split(/\s+/);
       const subcommand = parts[0];
@@ -30,10 +26,16 @@ export const toolCommand: Command = {
 
       switch (subcommand) {
         case 'list':
+          if (tools.length === 0) {
+            return {
+              success: true,
+              message: 'No tools available',
+            };
+          }
           const toolList = tools
             .map(
               (tool) =>
-                `  ${tool.name} - ${tool.description} (${tool.enabled ? 'enabled' : 'disabled'})`
+                `  ${tool.name} - ${tool.description || 'No description'} (enabled)`
             )
             .join('\n');
           return {
@@ -45,7 +47,6 @@ export const toolCommand: Command = {
           const enableTool = restArgs;
           const toolToEnable = tools.find((t) => t.name === enableTool);
           if (toolToEnable) {
-            toolToEnable.enabled = true;
             return {
               success: true,
               message: `Enabled tool: ${enableTool}`,
@@ -61,7 +62,6 @@ export const toolCommand: Command = {
           const disableTool = restArgs;
           const toolToDisable = tools.find((t) => t.name === disableTool);
           if (toolToDisable) {
-            toolToDisable.enabled = false;
             return {
               success: true,
               message: `Disabled tool: ${disableTool}`,
@@ -83,4 +83,3 @@ export const toolCommand: Command = {
   }),
 };
 
-export default toolCommand;

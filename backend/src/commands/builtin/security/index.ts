@@ -1,6 +1,6 @@
 import Security from './Security.js';
 
-export default {
+const securityCommand = {
   name: 'security',
   description: '管理安全相关功能',
   aliases: ['scan', 'validate'],
@@ -8,3 +8,5 @@ export default {
   type: 'local' as const,
   load: () => Promise.resolve(Security),
 };
+
+export { securityCommand };

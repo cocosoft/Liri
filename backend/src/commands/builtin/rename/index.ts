@@ -17,4 +17,3 @@ export const renameCommand: Command = {
   load: async () => import('./Rename.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default renameCommand;

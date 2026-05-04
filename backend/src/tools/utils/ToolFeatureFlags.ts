@@ -75,13 +75,3 @@ export function resetToolFlags(): void {
     TOOL_FEATURE_FLAGS[key] = defaultValue;
   });
 }
-
-export default {
-  TOOL_FEATURE_FLAGS,
-  isToolEnabled,
-  setToolEnabled,
-  getAllToolFlags,
-  getEnabledTools,
-  getDisabledTools,
-  resetToolFlags,
-};

@@ -34,4 +34,4 @@ export { Skills };
 /**
  * 默认导出Skills命令定义
  */
-export default skillsCommand;
+export { skillsCommand };

@@ -79,4 +79,3 @@ export const configCommand: Command = {
   }),
 };
 
-export default configCommand;

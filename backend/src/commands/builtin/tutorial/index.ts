@@ -17,4 +17,3 @@ export const tutorialCommand: Command = {
   load: async () => import('./Tutorial.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default tutorialCommand;

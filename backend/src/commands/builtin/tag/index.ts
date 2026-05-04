@@ -17,4 +17,3 @@ export const tagCommand: Command = {
   load: async () => import('./Tag.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default tagCommand;

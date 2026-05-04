@@ -17,4 +17,3 @@ export const upgradeCommand: Command = {
   load: async () => import('./Upgrade.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default upgradeCommand;

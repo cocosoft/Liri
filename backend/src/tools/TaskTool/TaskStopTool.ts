@@ -254,5 +254,3 @@ export class TaskStopTool extends BaseTool<
     }
   }
 }
-
-export default TaskStopTool;

@@ -1,6 +1,6 @@
 import Cache from './Cache.js';
 
-export default {
+const cacheCommand = {
   name: 'cache',
   description: '管理工具执行缓存',
   aliases: ['tool-cache'],
@@ -8,3 +8,5 @@ export default {
   type: 'local' as const,
   load: () => Promise.resolve(Cache),
 };
+
+export { cacheCommand };

@@ -6,7 +6,7 @@ import { getToolManager } from '../../../tools/ToolManager';
  * Brief命令
  * 生成当前会话的摘要
  */
-const briefCommand = {
+export const briefCommand = {
   async call(args: string, context: CommandContext) {
     try {
       const toolManager = getToolManager();
@@ -61,5 +61,3 @@ const briefCommand = {
     }
   },
 };
-
-export default briefCommand;

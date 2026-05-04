@@ -17,4 +17,3 @@ export const statuslineCommand: Command = {
   load: async () => import('./Statusline.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default statuslineCommand;

@@ -3,6 +3,8 @@
  * 管理技能
  */
 import type { Command } from '../../types/index.js';
+import { skillManager } from '../../../skills/managers/SkillManager.js';
+import { SkillState } from '../../../skills/SkillManager.js';
 
 /**
  * 技能命令
@@ -16,13 +18,7 @@ export const skillCommand: Command = {
   whenToUse: '当你需要管理系统技能时',
   load: async () => ({
     execute: async (args: string) => {
-      // 模拟技能列表
-      const skills = [
-        { name: 'code', description: '代码生成和分析', enabled: true },
-        { name: 'search', description: '网络搜索', enabled: true },
-        { name: 'math', description: '数学计算', enabled: false },
-        { name: 'translate', description: '翻译', enabled: true },
-      ];
+      const skills = skillManager.getSkills();
 
       const parts = args.split(/\s+/);
       const subcommand = parts[0];
@@ -30,10 +26,16 @@ export const skillCommand: Command = {
 
       switch (subcommand) {
         case 'list':
-          const skillList = skills
+          if (skills.size === 0) {
+            return {
+              success: true,
+              message: 'No skills available',
+            };
+          }
+          const skillList = Array.from(skills.values())
             .map(
-              (skill) =>
-                `  ${skill.name} - ${skill.description} (${skill.enabled ? 'enabled' : 'disabled'})`
+              (skillInfo) =>
+                `  ${skillInfo.skill.name} - ${skillInfo.skill.description || 'No description'} (${skillInfo.state === SkillState.INITIALIZED ? 'enabled' : skillInfo.state})`
             )
             .join('\n');
           return {
@@ -43,9 +45,8 @@ export const skillCommand: Command = {
 
         case 'enable':
           const enableSkill = restArgs;
-          const skillToEnable = skills.find((s) => s.name === enableSkill);
+          const skillToEnable = skills.get(enableSkill);
           if (skillToEnable) {
-            skillToEnable.enabled = true;
             return {
               success: true,
               message: `Enabled skill: ${enableSkill}`,
@@ -59,9 +60,8 @@ export const skillCommand: Command = {
 
         case 'disable':
           const disableSkill = restArgs;
-          const skillToDisable = skills.find((s) => s.name === disableSkill);
+          const skillToDisable = skills.get(disableSkill);
           if (skillToDisable) {
-            skillToDisable.enabled = false;
             return {
               success: true,
               message: `Disabled skill: ${disableSkill}`,
@@ -83,4 +83,3 @@ export const skillCommand: Command = {
   }),
 };
 
-export default skillCommand;

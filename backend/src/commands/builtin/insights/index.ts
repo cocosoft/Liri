@@ -17,4 +17,3 @@ export const insightsCommand: Command = {
   load: async () => import('./Insights.js').then((m) => ({ execute: m.default.execute })),
 };
 
-export default insightsCommand;

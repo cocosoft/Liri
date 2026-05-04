@@ -1,10 +1,12 @@
-import Brief from './Brief.js';
+import { briefCommand } from './Brief.js';
 
-export default {
+export const brief = {
   name: 'brief',
   description: '生成代码或文档的摘要',
   aliases: ['summary', 'overview'],
   argumentHint: '<文件路径>',
   type: 'local' as const,
-  load: () => Promise.resolve(Brief),
+  load: () => Promise.resolve(briefCommand),
 };
+
+export { briefCommand };

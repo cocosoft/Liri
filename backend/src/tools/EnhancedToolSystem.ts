@@ -235,8 +235,3 @@ export function createEnhancedToolSystem(
 ): EnhancedToolSystem {
   return new EnhancedToolSystem(chatManager, options);
 }
-
-export default {
-  EnhancedToolSystem,
-  createEnhancedToolSystem,
-};

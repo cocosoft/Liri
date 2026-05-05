@@ -206,16 +206,27 @@ export class ToolManager {
 }
 
 /**
- * 工具管理器实例
+ * 工具管理器实例（惰性初始化）
+ * 避免与 AgentTool 等工具的循环依赖导致 ReferenceError
  */
-export const toolManager = new ToolManager();
+let _toolManagerInstance: ToolManager | null = null;
+
+/**
+ * 获取或创建工具管理器实例
+ */
+function getOrCreateToolManager(): ToolManager {
+  if (!_toolManagerInstance) {
+    _toolManagerInstance = new ToolManager();
+  }
+  return _toolManagerInstance;
+}
 
 /**
  * 获取工具管理器
  * @returns 工具管理器
  */
 export function getToolManager(): ToolManager {
-  return toolManager;
+  return getOrCreateToolManager();
 }
 
 /**
@@ -232,7 +243,7 @@ export async function executeTool(
   context: any,
   onProgress?: any
 ): Promise<any> {
-  return await toolManager.executeTool(name, input, context, onProgress);
+  return await getOrCreateToolManager().executeTool(name, input, context, onProgress);
 }
 
 /**
@@ -240,7 +251,7 @@ export async function executeTool(
  * @param tool 工具
  */
 export function registerTool(tool: Tool): void {
-  toolManager.registerTool(tool);
+  getOrCreateToolManager().registerTool(tool);
 }
 
 /**
@@ -248,7 +259,7 @@ export function registerTool(tool: Tool): void {
  * @param tools 工具列表
  */
 export function registerTools(tools: Tool[]): void {
-  toolManager.registerTools(tools);
+  getOrCreateToolManager().registerTools(tools);
 }
 
 /**

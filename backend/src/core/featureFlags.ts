@@ -24,7 +24,7 @@ export const FEATURE_FLAGS = {
   ENABLE_ADVANCED_COMMANDS: false,
 
   /** 定时任务触发器 */
-  AGENT_TRIGGERS: false,
+  AGENT_TRIGGERS: true,
   /** 远程触发器 */
   AGENT_TRIGGERS_REMOTE: false,
   /** 桥接模式 */
@@ -61,6 +61,34 @@ export const FEATURE_FLAGS = {
   EXPERIMENTAL_SKILL_SEARCH: false,
   /** 模板系统 */
   TEMPLATES: false,
+
+  // ───── 工具层条件加载标志 ─────
+  /** PowerShell 工具（Windows） */
+  POWERSHELL: true,
+  /** LSP 工具 */
+  LSP: false,
+  /** MCP 工具（工具层） */
+  MCP: false,
+  /** REPL 工具 */
+  REPL: false,
+  /** Notebook 工具 */
+  NOTEBOOK: false,
+  /** 配置工具 */
+  CONFIG: true,
+  /** 浏览器工具 */
+  BROWSER: false,
+  /** 计划工具 */
+  PLAN: true,
+  /** KAIROS GitHub Webhooks */
+  KAIROS_GITHUB_WEBHOOKS: false,
+  /** UDS 收件箱 */
+  UDS_INBOX: false,
+  /** 工作流脚本 */
+  WORKFLOW_SCRIPTS: false,
+  /** 工具搜索 */
+  TOOL_SEARCH: true,
+  /** Git Worktree */
+  WORKTREE: false,
 } as const;
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;

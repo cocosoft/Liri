@@ -2,9 +2,9 @@ import Vim from './Vim.js';
 
 const vimCommand = {
   name: 'vim',
-  description: '打开Vim编辑器编辑文件',
+  description: '切换编辑模式（normal ↔ vim），启用后可使用 vim 风格快捷键',
   aliases: ['vi'],
-  argumentHint: '<文件路径>',
+  argumentHint: '[normal|enable|status|help]',
   type: 'local' as const,
   load: () => Promise.resolve(Vim),
 };

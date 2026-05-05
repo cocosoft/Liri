@@ -127,8 +127,14 @@ export class InteractiveCommandExecutor {
       this.historyManager.addHistory(commandName, args, result.success);
       
       // 显示结果
-      if (result.data) {
-        console.log(JSON.stringify(result.data, null, 2));
+      if (result.value) {
+        console.log(result.value);
+      } else if (result.data) {
+        if (typeof result.data === 'object' && result.data !== null && result.data.type === 'text') {
+          console.log(result.data.value);
+        } else {
+          console.log(JSON.stringify(result.data, null, 2));
+        }
       }
     } catch (error) {
       console.error('命令执行错误:', error);

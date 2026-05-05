@@ -10,6 +10,97 @@ import { ContextHelpEntry, ContextMatchCondition } from './types.js';
  */
 const DEFAULT_CONTEXT_HELP: ContextHelpEntry[] = [
   {
+    contextId: 'complete-command',
+    description: '/complete 命令帮助',
+    helpContent: `
+/complete 命令 - 命令自动补全
+
+提供命令自动补全功能，支持查看补全项、历史记录和统计信息。
+
+子命令:
+  list          - 列出所有补全项
+  recent        - 列出最近使用的命令
+  frequent      - 列出常用命令 (按使用频率排序)
+  search        - 搜索补全项
+  stats         - 显示补全统计信息
+  clear         - 清除历史记录
+  refresh       - 刷新补全缓存
+  help          - 显示帮助
+
+选项:
+  --all, -a     显示所有项
+  --limit=<n>, -n <n> 限制显示数量
+  --fuzzy, -f   启用模糊匹配
+
+使用示例:
+  /complete list           - 列出所有补全项
+  /complete recent         - 查看最近使用的命令
+  /complete frequent       - 查看常用命令
+  /complete list --limit=5  - 只显示前5条
+  /complete stats          - 查看统计信息
+
+别名: /comp, /auto
+    `.trim(),
+    relatedCommands: ['complete', 'history', 'commands'],
+    relatedTools: [],
+    matchConditions: [
+      { type: 'command', value: 'complete', matchType: 'startsWith' },
+      { type: 'command', value: '/complete', matchType: 'exact' },
+    ],
+  },
+  {
+    contextId: 'git-command',
+    description: '/git 命令帮助',
+    helpContent: `
+/git 命令 - Git操作封装
+
+基于CC源码实现的完整Git操作命令。
+
+子命令:
+  status      - 显示工作区状态
+  branch      - 显示/管理分支
+  log         - 显示提交历史
+  diff        - 显示文件差异
+  stash       - 管理stash
+  remote      - 管理远程仓库
+  worktree    - 管理工作树
+  submodule   - 管理子模块
+  tag         - 管理标签
+  info        - 显示仓库信息
+  shortcut    - 显示快捷方式
+
+选项:
+  --short, -s    简洁输出
+  --verbose, -v  详细输出
+  --stat         显示统计信息
+  --file=<文件>  指定文件
+
+使用示例:
+  /git status           - 查看工作区状态
+  /git status --short   - 简洁模式
+  /git branch           - 查看所有分支
+  /git log -n 20       - 查看最近20条提交
+  /git diff --cached   - 查看暂存区差异
+  /git log --file=src/index.ts  - 查看文件历史
+  /git info             - 显示仓库信息
+  /git shortcut        - 显示快捷方式
+
+快捷方式:
+  /git s  = /git status
+  /git b  = /git branch
+  /git l  = /git log
+  /git d  = /git diff
+
+别名: /git-cmd
+    `.trim(),
+    relatedCommands: ['git', 'commit', 'diff', 'branch', 'stash'],
+    relatedTools: ['BashTool'],
+    matchConditions: [
+      { type: 'command', value: 'git', matchType: 'startsWith' },
+      { type: 'command', value: '/git', matchType: 'exact' },
+    ],
+  },
+  {
     contextId: 'file-operation',
     description: '文件操作帮助',
     helpContent: `
@@ -40,8 +131,17 @@ Git 操作帮助:
 - 使用 "git log" 查看提交历史
 
 /commit 命令用法:
+  /commit --status           - 显示详细的Git状态
   /commit "fix: 修复bug"    - 使用指定消息提交
-  /commit 功能描述           - 直接提交（消息需不含空格）
+  /commit --all "feat: 新功能" - 暂存所有变更并提交
+  /commit --dry-run "test"  - 预览提交（不实际执行）
+
+选项:
+  --status     - 显示详细的Git状态
+  --all        - 暂存所有已跟踪文件的变更
+  --dry-run    - 预览提交（不实际执行）
+  --no-verify  - 跳过pre-commit hooks（不推荐）
+  --amend      - 修改最后一次提交（不推荐）
 
 注意: 执行提交前请确保已使用 git add 暂存需要提交的文件。
     `.trim(),

@@ -5,7 +5,7 @@
  */
 
 import { logger } from '../../utils/log';
-import { toolManager } from '../../tools/ToolManager';
+import { getToolManager } from '../../tools/ToolManager';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import type { Tool } from '../../tools/types/Tool';
@@ -77,7 +77,7 @@ export class MCPToolBridge {
       );
 
       this.registeredMcpTools.set(wrapper.name, wrapper);
-      toolManager.registerTool(wrapper);
+      getToolManager().registerTool(wrapper);
     }
 
     logger.info(`Registered ${serializedTools.length} tools from MCP server: ${serverName}`);
@@ -103,7 +103,7 @@ export class MCPToolBridge {
    */
   private unregisterAllTools(): void {
     for (const [name] of this.registeredMcpTools) {
-      toolManager.unregisterTool(name);
+      getToolManager().unregisterTool(name);
     }
     this.registeredMcpTools.clear();
   }

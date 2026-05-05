@@ -64,7 +64,7 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/export/index.js', name: 'export' },
       { path: '../builtin/share/index.js', name: 'share' },
       { path: '../builtin/version/index.js', name: 'version' },
-      { path: '../builtin/stats/index.js', name: 'stats' },
+      { path: '../builtin/activity/index.js', name: 'activity' },
       { path: '../builtin/cost/index.js', name: 'cost' },
       { path: '../builtin/usage/index.js', name: 'usage' },
       { path: '../builtin/doctor/index.js', name: 'doctor' },

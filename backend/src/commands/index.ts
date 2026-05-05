@@ -61,7 +61,7 @@ export { copyCommand } from './builtin/copy/index.js';
 export { voiceCommand } from './builtin/voice/index.js';
 export { exportCommand } from './builtin/export/index.js';
 export { shareCommand } from './builtin/share/index.js';
-export { statsCommand } from './builtin/stats/index.js';
+export { activityCommand } from './builtin/activity/index.js';
 export { costCommand } from './builtin/cost/index.js';
 export { usageCommand } from './builtin/usage/index.js';
 export { doctorCommand } from './builtin/doctor/index.js';

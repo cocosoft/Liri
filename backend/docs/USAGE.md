@@ -108,6 +108,8 @@ PY_APP 使用 `/` 开头的命令语法。输入 `/help` 可以查看所有可�
 
 ### 任务管理
 
+`/task` 命令通过 `TaskTool` 系列管理任务，基于 CC 源码 `cc_code/backend/tools/TaskTool` 实现。
+
 ```bash
 # 查看任务帮助
 /task help
@@ -118,14 +120,26 @@ PY_APP 使用 `/` 开头的命令语法。输入 `/help` 可以查看所有可�
 # 列出所有任务
 /task list
 
+# 按状态筛选任务
+/task list pending
+/task list in_progress
+/task list completed
+
 # 获取任务详情
 /task get <task_id>
 
-# 更新任务状态
+# 更新任务状态（可选更新标题和描述）
 /task update <task_id> <status>
+/task update <task_id> completed
+/task update <task_id> in_progress "新标题" "新描述"
+
+# 删除任务
+/task delete <task_id>
 ```
 
 ### 待办事项
+
+`/todo` 命令通过 `TodoWriteTool` 管理待办事项，基于 CC 源码 `cc_code/backend/tools/TodoWriteTool` 实现。
 
 ```bash
 # 查看待办帮助
@@ -137,11 +151,21 @@ PY_APP 使用 `/` 开头的命令语法。输入 `/help` 可以查看所有可�
 # 查看待办列表
 /todo list
 
-# 标记完成
-/todo done <index>
+# 按状态筛选待办
+/todo list pending
+/todo list in_progress
+/todo list completed
+
+# 更新待办状态或内容
+/todo update <todo_id> <status>
+/todo update <todo_id> completed
+/todo update <todo_id> in_progress "新内容"
 
 # 删除待办
-/todo remove <index>
+/todo delete <todo_id>
+
+# 清除所有已完成事项
+/todo clear-completed
 ```
 
 ### 后台任务管理
@@ -252,10 +276,139 @@ PY_APP 提供多种内置工具：
 
 # 获取 API 数据
 /fetch https://api.example.com/data
+
+```bash
+# 执行网络搜索
+/websearch <query>
+```
+
+`/websearch` 命令用于执行网络搜索，通过 Bing 搜索引擎获取互联网信息。支持以下特性：
+- **结果格式化** — 自动以编号列表展示搜索结果（标题、链接、摘要）
+- **搜索语言** — 默认使用英文搜索，可根据需要调整查询词的语言
+
+示例：
+```bash
+# 搜索技术资料
+/websearch "Python programming"
+
+# 搜索最新资讯
+/websearch "最新人工智能进展"
 ```
 
 - `web_fetch` - 获取网页内容（内部工具接口）
-- `web_search` - 网络搜索
+- `web_search` - 网络搜索（内部工具接口）
+
+### 开发工具
+
+`/lsp` 命令用于执行语言服务器协议（LSP）操作，提供代码智能提示、定义跳转、引用查找、实现查找、符号搜索、调用层次分析等功能，对标 CC 源码 `cc_code/backend/tools/LSPTool/LSPTool.ts`：
+
+```bash
+# 查找定义
+/lsp definition <file> <line> <col>
+
+# 查找引用
+/lsp references <file> <line> <col>
+
+# 获取悬停信息
+/lsp hover <file> <line> <col>
+
+# 代码补全
+/lsp completion <file> <line> <col>
+
+# 查找实现
+/lsp goToImplementation <file> <line> <col>
+
+# 获取文档符号列表
+/lsp documentSymbol <file>
+
+# 搜索工作区符号
+/lsp workspaceSymbol <query>
+
+# 准备调用层次
+/lsp prepareCallHierarchy <file> <line> <col>
+
+# 查找传入调用
+/lsp incomingCalls <file> <line> <col>
+
+# 查找传出调用
+/lsp outgoingCalls <file> <line> <col>
+
+# 查看帮助（列出所有操作）
+/lsp help
+```
+
+**注意：** `line` 和 `col` 使用从 1 开始的坐标（人类友好格式），内部会自动转换为 LSP 协议的 0 基坐标。
+
+---
+
+`/repl_tool` 命令用于在 REPL（交互式解释器）环境中执行代码，支持多种语言：
+
+```bash
+# 交互式执行 Python 代码
+/repl_tool python "print('Hello, world!')"
+
+# 执行 JavaScript 代码
+/repl_tool javascript "console.log('Hello, world!')"
+
+# 执行 TypeScript 代码
+/repl_tool typescript "const x: number = 42;"
+
+# 执行 Shell 命令
+/repl_tool bash "ls -la"
+
+# 执行 PowerShell 命令
+/repl_tool powershell "Get-Process | Select-Object -First 5"
+
+# 执行 Ruby 代码
+/repl_tool ruby "puts 'Hello'"
+
+# 查看帮助
+/repl_tool help
+```
+
+**支持的语言：** Python、JavaScript、TypeScript、Bash、PowerShell、Ruby。
+
+---
+
+`/notebook` 命令用于编辑和运行 Jupyter 笔记本（`.ipynb` 文件），支持创建、打开、添加/编辑/删除单元格、运行、保存等操作，对标 CC 源码 `cc_code/backend/tools/NotebookEditTool/NotebookEditTool.ts`：
+
+```bash
+# 创建新笔记本
+/notebook create "My Notebook"
+
+# 打开现有笔记本
+/notebook open notebook.ipynb
+
+# 添加代码单元格
+/notebook add code "print('Hello')"
+
+# 添加 Markdown 单元格
+/notebook add markdown "## Section Title"
+
+# 替换指定单元格内容（cell_id 支持 cell-N 格式的 0 基索引）
+/notebook replace notebook.ipynb cell-0 "print('Modified')"
+
+# 在指定位置插入新单元格
+/notebook insert notebook.ipynb cell-0 markdown "## New Section"
+
+# 删除指定单元格
+/notebook delete notebook.ipynb cell-2
+
+# 运行笔记本
+/notebook run notebook.ipynb
+
+# 保存笔记本
+/notebook save notebook.ipynb
+
+# 查看帮助
+/notebook help
+```
+
+**单元格编辑说明：**
+- `replace` - 替换指定单元格的源代码（重置执行计数和输出）
+- `insert` - 在指定单元格后插入新单元格（需要指定 `cell_type`: code/markdown）
+- `delete` - 删除指定单元格
+- `cell_id` 支持实际 UUID（如 `cell_xxx`）和 0 基索引格式（如 `cell-0`、`cell-2`）
 
 ### IDE 集成
 

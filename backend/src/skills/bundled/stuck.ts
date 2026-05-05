@@ -1,7 +1,6 @@
-// @ts-nocheck
 /**
  * Stuck技能
- * 用于解决卡住的问题
+ * 用于解决卡住的问题，基于CC源码 cc_code/backend/skills/bundled/stuck.ts 实现
  */
 
 import { registerBundledSkill } from './bundledSkills';
@@ -14,15 +13,59 @@ import type { SkillService } from '../services/skillService';
 export default function registerStuckSkill(skillService: SkillService): void {
   registerBundledSkill(skillService, {
     name: 'stuck',
-    description: 'Help when you get stuck',
-    whenToUse: 'When you are stuck and need help',
-    argumentHint: '[description of what you are stuck on]',
-    getPromptForCommand: async (args, context) => {
+    description: '当你卡住时获得帮助——诊断卡住的原因并找到前进的路径',
+    aliases: ['卡住', 'help'],
+    whenToUse: '当用户卡在某个问题上、不确定下一步怎么做或需要跳出思维定势时使用',
+    argumentHint: '[卡住问题的描述]',
+    userInvocable: true,
+    async getPromptForCommand(args, context) {
+      const issue = (args || '').trim();
+
       return [
-        {
-          type: 'text',
-          text: `You are a PY_APP stuck assistant. Help the user get unstuck.\n\nIssue: ${args}\n\nContext:\n${JSON.stringify(context, null, 2)}\n\nPlease provide creative solutions to help the user get unstuck.`,
-        },
+        '# /stuck — 诊断并解决卡住的问题',
+        '',
+        '用户在当前会话中卡住了。帮助诊断并找到前进的路径。',
+        ...(issue ? ['', `## 用户描述的问题`, '', issue] : []),
+        '',
+        '## 诊断步骤',
+        '',
+        '### 1. 分析当前状态',
+        '- 用户正在尝试做什么？目标是什么？',
+        '- 已经完成了哪些步骤？',
+        '- 卡在哪个具体环节？',
+        '',
+        '### 2. 识别卡点类型',
+        '',
+        '| 卡点类型 | 特征 | 常见原因 |',
+        '|---------|------|---------|',
+        '| **知识缺失** | 不知道如何实现某个功能 | 不熟悉API、框架或语言特性 |',
+        '| **逻辑错误** | 代码运行但结果不正确 | 边界条件、算法错误、状态管理 |',
+        '| **环境问题** | 代码在本地不能运行 | 依赖冲突、版本不匹配、配置错误 |',
+        '| **设计困境** | 有多种方案不知如何选择 | 架构决策、技术选型、权衡取舍 |',
+        '| **调试困境** | 无法定位bug根因 | 复杂堆栈、间歇性bug、难以复现 |',
+        '',
+        '### 3. 提供解决方案',
+        '',
+        '根据卡点类型提供针对性的帮助：',
+        '',
+        '- **知识缺失**：提供文档链接、示例代码和最佳实践',
+        '- **逻辑错误**：建议添加日志、使用调试器、简化测试用例',
+        '- **环境问题**：检查依赖版本、配置文件和系统环境',
+        '- **设计困境**：列出各方案的优缺点，推荐最合适的方案',
+        '- **调试困境**：使用二分法隔离问题，添加断言验证假设',
+        '',
+        '### 4. 制定前进计划',
+        '',
+        '- 提供清晰、可操作的下一步',
+        '- 将大问题分解为小步骤',
+        '- 建议验证每个步骤的方法',
+        '',
+        '## 注意事项',
+        '',
+        '- 保持耐心和鼓励的态度',
+        '- 如果问题复杂，建议分步解决',
+        '- 适时建议休息或换个角度思考',
+        '- 如果当前方法不行，提供替代方案',
       ];
     },
   });

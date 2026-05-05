@@ -3,18 +3,18 @@ import React from 'react'
 import { Box, Text } from '../../ink.js'
 
 export function renderToolUseMessage(
-  input: Partial<{ setting_name: string; setting_value: string }>,
+  input: Partial<{ action: string; key: string }>,
   { verbose }: { verbose: boolean },
 ): React.ReactNode {
-  const { setting_name, setting_value } = input
+  const { action, key } = input
 
-  if (verbose && setting_name && setting_value !== undefined) {
+  if (verbose && key && action) {
     return (
       <Box flexDirection="row">
         <Text dimColor>Config: </Text>
-        <Text bold>{setting_name}</Text>
-        <Text> = </Text>
-        <Text bold>{String(setting_value).slice(0, 60)}</Text>
+        <Text bold>{action}</Text>
+        <Text> </Text>
+        <Text bold>{key}</Text>
       </Box>
     )
   }
@@ -22,35 +22,37 @@ export function renderToolUseMessage(
   return (
     <Box flexDirection="row">
       <Text dimColor>Config: </Text>
-      <Text bold>{setting_name || 'settings'}</Text>
+      <Text bold>{action || 'settings'}</Text>
     </Box>
   )
 }
 
 export function renderToolResultMessage(
-  output: Partial<{ setting: string; value: string; status: string }>,
+  output: Partial<{ success: boolean; output: string; error: string }>,
   _progressMessages: any[],
   { verbose }: { verbose: boolean },
 ): React.ReactNode {
-  const { setting, value, status } = output
+  const { success, output: resultOutput, error } = output
 
-  if (status === 'error') {
+  if (success === false || error) {
     return (
       <Box flexDirection="row">
-        <Text color="red">✗ Config update failed</Text>
+        <Text color="red">✗ Config failed: {error || 'unknown error'}</Text>
       </Box>
     )
   }
 
-  if (verbose && setting && value !== undefined) {
+  if (verbose && resultOutput) {
+    const displayText = typeof resultOutput === 'string' ? resultOutput : JSON.stringify(resultOutput)
+    const preview = displayText.length > 200 ? displayText.slice(0, 197) + '...' : displayText
     return (
       <Box flexDirection="column">
         <Box flexDirection="row">
           <Text color="green">✓ </Text>
-          <Text>{setting} updated</Text>
+          <Text>Config updated</Text>
         </Box>
         <Box marginLeft={2}>
-          <Text dimColor>= {String(value).slice(0, 100)}</Text>
+          <Text dimColor>{preview}</Text>
         </Box>
       </Box>
     )
@@ -59,14 +61,15 @@ export function renderToolResultMessage(
   return (
     <Box flexDirection="row">
       <Text color="green">✓ </Text>
-      <Text>{setting || 'Config'} updated</Text>
+      <Text>Config updated</Text>
     </Box>
   )
 }
 
 export function getToolUseSummary(
-  input: Partial<{ setting_name: string }> | undefined,
+  input: Partial<{ action: string; key: string }> | undefined,
 ): string | null {
-  if (!input?.setting_name) return 'Config update'
-  return `Config: ${input.setting_name}`
+  if (!input?.action) return 'Config update'
+  if (input.key) return `Config: ${input.action} ${input.key}`
+  return `Config: ${input.action}`
 }

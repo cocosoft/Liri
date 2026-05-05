@@ -6,6 +6,7 @@
  */
 
 import type { Command, CommandContext, CommandType, CommandResult } from '../../types';
+import type { CompactArtifact } from '../../../services/compact/CompactService';
 
 export interface CompactCommandOptions {
   preserveRecentMessages?: number;
@@ -25,23 +26,56 @@ export class CompactCommand implements Command {
     const argArray = args.trim().split(/\s+/);
     const options = this.parseOptions(argArray);
 
-    let message = '对话历史已压缩';
-    
-    if (options.summarize) {
-      message += '，摘要已生成';
+    try {
+      // 获取chatManager并执行压缩
+      const { chatManager, sessionId } = context;
+      
+      if (!chatManager) {
+        return {
+          success: false,
+          type: 'error',
+          value: '无法执行压缩：聊天管理器不可用',
+        };
+      }
+
+      // 执行会话压缩
+      const artifacts = await chatManager.compactSession(sessionId);
+
+      // 构建返回消息
+      let message = '对话历史已压缩';
+      
+      const hasSummary = artifacts.some((a: CompactArtifact) => a.type === 'summary');
+      const hasKeyInfo = artifacts.some((a: CompactArtifact) => 
+        ['key_point', 'code_snippet', 'decision', 'action_item'].includes(a.type)
+      );
+      
+      if (options.summarize && hasSummary) {
+        message += '，摘要已生成';
+      }
+
+      if (options.extractKeyInfo && hasKeyInfo) {
+        message += '，关键信息已提取';
+      }
+
+      message += `（保留最近 ${options.preserveRecentMessages} 条消息）`;
+
+      return {
+        success: true,
+        type: 'system',
+        value: message,
+        data: {
+          artifacts,
+          preservedMessages: options.preserveRecentMessages,
+        },
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return {
+        success: false,
+        type: 'error',
+        value: `压缩失败：${errorMsg}`,
+      };
     }
-
-    if (options.extractKeyInfo) {
-      message += '，关键信息已提取';
-    }
-
-    message += `（保留最近 ${options.preserveRecentMessages} 条消息）`;
-
-    return {
-      success: true,
-      type: 'system',
-      value: message,
-    };
   }
 
   private parseOptions(args: string[]): CompactCommandOptions {

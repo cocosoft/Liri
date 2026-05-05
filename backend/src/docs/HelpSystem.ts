@@ -230,12 +230,20 @@ PY_APP是一个智能编程助手，帮助你更高效地编写代码。
 - \`/cache clear [工具名称]\` - 清除缓存（可选指定工具名称）
 - \`/cache stats\` - 显示缓存统计信息
 - \`/cache size\` - 显示缓存大小
+- \`/cache list [工具名称]\` - 列出缓存项（可选指定工具名称）
+- \`/cache info <工具名称>\` - 显示指定工具的缓存详情
+- \`/cache purge\` - 清除所有缓存（包括未过期的）
+- \`/cache cleanup\` - 清理过期的缓存项
 
 示例:
 - \`/cache clear\` - 清除所有工具缓存
 - \`/cache clear bash\` - 清除bash工具的缓存
 - \`/cache stats\` - 查看缓存统计信息
 - \`/cache size\` - 查看缓存大小
+- \`/cache list\` - 列出所有缓存项
+- \`/cache list git\` - 列出git工具的缓存项
+- \`/cache info bash\` - 显示bash工具的缓存详情
+- \`/cache cleanup\` - 清理过期缓存
 
 ### /chat
 与LLM进行对话。
@@ -243,12 +251,18 @@ PY_APP是一个智能编程助手，帮助你更高效地编写代码。
 别名: \`/c\`, \`/talk\`
 
 用法:
-- \`/chat <消息内容>\` - 发送消息给LLM
+- \`/chat <消息内容> [选项]\` - 发送消息给LLM
+
+选项:
+- \`--stream\` - 使用流式输出
+- \`--model=<模型名称>\` - 指定使用的模型
 
 示例:
 - \`/chat 你好\` - 向LLM打招呼
 - \`/chat 帮我写一段Python代码\` - 请求代码帮助
 - \`/chat 解释一下这个概念\` - 请求解释
+- \`/chat --stream 请给我写一个算法\` - 使用流式输出
+- \`/chat --model=gpt-4 请分析这段代码\` - 指定模型
 
 注意: 需要配置 DEEPSEEK_API_KEY 环境变量才能使用此命令。
 

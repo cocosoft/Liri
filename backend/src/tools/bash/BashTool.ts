@@ -19,6 +19,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { createBashProgress } from '../types/ToolProgress';
 import { ToolUtils } from '../utils/ToolUtils';
+import type { InterruptBehavior } from '../types/Tool';
 import { BashSecurityAnalyzer } from '../../security';
 import { parseForSecurity, isDangerousCommand, type ParseForSecurityResult } from '../../security/bash/BashAST';
 import { exec, ExecOptions } from 'child_process';
@@ -458,7 +459,7 @@ export class BashTool extends BaseTool {
     concurrencySafe: boolean;
     deferred: boolean;
     alwaysLoad: boolean;
-    interruptBehavior: string;
+    interruptBehavior: InterruptBehavior;
     maxResultSizeChars?: number;
   } {
     return {
@@ -473,7 +474,7 @@ export class BashTool extends BaseTool {
       concurrencySafe: this.isConcurrencySafe(),
       deferred: this.shouldDefer || false,
       alwaysLoad: this.alwaysLoad || false,
-      interruptBehavior: 'block',
+      interruptBehavior: 'block' as const,
       maxResultSizeChars: this.maxResultSizeChars,
     };
   }

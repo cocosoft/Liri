@@ -366,6 +366,22 @@ export class ToolFactory {
   }
 
   /**
+   * 创建ListMcpResources工具
+   * @returns ListMcpResources工具实例
+   */
+  createListMcpResourcesTool(): Tool {
+    return ListMcpResourcesTool;
+  }
+
+  /**
+   * 创建ReadMcpResource工具
+   * @returns ReadMcpResource工具实例
+   */
+  createReadMcpResourceTool(): Tool {
+    return ReadMcpResourceTool;
+  }
+
+  /**
    * 创建Brief工具
    * @returns Brief工具实例
    */
@@ -572,7 +588,7 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new FileEditTool() as any);
   tools.push(new FileReadTool());
   tools.push(new FileWriteTool());
-  tools.push(new NotebookEditTool() as any);
+  tools.push(NotebookEditTool as any);
   tools.push(new WebFetchTool() as any);
   tools.push(new TodoWriteTool());
   tools.push(new WebSearchTool() as any);

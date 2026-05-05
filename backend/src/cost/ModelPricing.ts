@@ -102,13 +102,13 @@ export const MODEL_ALIASES: Record<string, string> = {
   'claude-3-opus': 'claude-3-opus-20240229',
   'claude-3-sonnet': 'claude-3-sonnet-20240229',
   'claude-3-haiku': 'claude-3-haiku-20240307',
-  'claude-4-opus': 'claude-4-opus-20250219',
-  'claude-4-sonnet': 'claude-4-sonnet-20250219',
-  'claude-4-haiku': 'claude-4-haiku-20250219',
-  'claude-4-5-opus': 'claude-4-5-opus-20250715',
-  'claude-4-5-sonnet': 'claude-4-5-sonnet-20250715',
-  'claude-4-5-haiku': 'claude-4-5-haiku-20250715',
-  'claude-4-6-opus': 'claude-4-6-opus-20251015',
+  'claude-4-opus': 'claude-opus-4-6',
+  'claude-4-sonnet': 'claude-sonnet-4-6',
+  'claude-4-haiku': 'claude-haiku-4-5-20251001',
+  'claude-4-5-opus': 'claude-opus-4-5-20251101',
+  'claude-4-5-sonnet': 'claude-sonnet-4-5-20250929',
+  'claude-4-5-haiku': 'claude-haiku-4-5-20251001',
+  'claude-4-6-opus': 'claude-opus-4-6',
   
   // OpenAI GPT 模型别名
   'gpt-4-turbo-preview': 'gpt-4-turbo',
@@ -142,22 +142,14 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   },
   
   // Anthropic Claude 模型 - 4系列
-  'claude-4-opus-20250219': COST_TIER_15_75,
-  'claude-4-opus-20250315': COST_TIER_15_75,
-  'claude-4-sonnet-20250219': COST_TIER_3_15,
-  'claude-4-sonnet-20250315': COST_TIER_3_15,
-  'claude-4-haiku-20250219': COST_HAIKU_45,
-  
-  // Anthropic Claude 模型 - 4.5系列
-  'claude-4-5-opus-20250715': COST_TIER_5_25,
-  'claude-4-5-sonnet-20250715': COST_TIER_3_15,
-  'claude-4-5-haiku-20250715': COST_HAIKU_45,
-  
-  // Anthropic Claude 模型 - 4.6系列（支持快速模式）
-  'claude-4-6-opus-20251015': {
-    ...COST_TIER_5_25,
-    fastModePricing: COST_TIER_30_150,
-  },
+  'claude-opus-4-6': COST_TIER_15_75,
+  'claude-opus-4-5-20251101': COST_TIER_15_75,
+  'claude-opus-4-1-20250805': COST_TIER_15_75,
+  'claude-opus-4-20250514': COST_TIER_15_75,
+  'claude-sonnet-4-6': COST_TIER_3_15,
+  'claude-sonnet-4-5-20250929': COST_TIER_3_15,
+  'claude-sonnet-4-20250514': COST_TIER_3_15,
+  'claude-haiku-4-5-20251001': COST_HAIKU_45,
   
   // OpenAI GPT 模型
   'gpt-4o': {

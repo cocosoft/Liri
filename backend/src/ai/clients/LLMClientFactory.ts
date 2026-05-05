@@ -12,6 +12,7 @@ import { OpenAIClient } from './openaiClient';
 import { AWSClient } from './AWSClient';
 import { AzureClient } from './AzureClient';
 import { VertexClient } from './VertexClient';
+import { getConfig } from '../../config';
 
 export interface AnthropicConfig {
   apiKey: string;
@@ -49,6 +50,12 @@ export interface OpenAIConfig {
   organization?: string;
 }
 
+export interface DeepSeekConfig {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
 export type LLMClientType =
   | 'anthropic'
   | 'aws'
@@ -58,8 +65,9 @@ export type LLMClientType =
   | 'deepseek';
 
 export interface LLMClientFactory {
-  createClient(type: LLMClientType, config: any): LLMClient;
+  createClient(type: LLMClientType, config?: any): LLMClient;
   getDefaultClient(): LLMClient;
+  getClientForProvider(provider: string): LLMClient;
   hasClient(type: LLMClientType): boolean;
 }
 
@@ -73,15 +81,73 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
 
   private registerDefaultClients(): void {
     try {
-      const deepseekClient = new DeepSeekClient();
-      this.clients.set('deepseek', deepseekClient);
-      this.defaultClient = deepseekClient;
+      // 从配置获取 DeepSeek 配置
+      const config = getConfig();
+      const aiConfig = config.ai;
+      
+      // 创建 DeepSeek 客户端（默认）
+      const deepseekConfig: DeepSeekConfig = {
+        apiKey: aiConfig?.deepseek?.apiKey || process.env.DEEPSEEK_API_KEY || '',
+        baseUrl: aiConfig?.deepseek?.baseUrl || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+        model: aiConfig?.deepseek?.model || 'deepseek-chat',
+      };
+      
+      if (deepseekConfig.apiKey) {
+        const deepseekClient = new DeepSeekClient(deepseekConfig);
+        this.clients.set('deepseek', deepseekClient);
+        this.defaultClient = deepseekClient;
+      } else {
+        console.warn('DeepSeek API key not configured');
+      }
     } catch (error) {
       console.error('Failed to register default DeepSeek client:', error);
     }
   }
 
-  createClient(type: LLMClientType, config: any): LLMClient {
+  createClient(type: LLMClientType, config?: any): LLMClient {
+    // 如果没有传入配置，尝试从系统配置获取
+    if (!config) {
+      const systemConfig = getConfig();
+      const aiConfig = systemConfig.ai;
+      
+      switch (type) {
+        case 'deepseek':
+          config = {
+            apiKey: aiConfig?.deepseek?.apiKey || process.env.DEEPSEEK_API_KEY || '',
+            baseUrl: aiConfig?.deepseek?.baseUrl || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+            model: aiConfig?.deepseek?.model || 'deepseek-chat',
+          };
+          break;
+        case 'openai':
+          config = {
+            apiKey: aiConfig?.openai?.apiKey || process.env.OPENAI_API_KEY || '',
+            baseUrl: aiConfig?.openai?.baseUrl || 'https://api.openai.com/v1',
+          };
+          break;
+        case 'anthropic':
+          config = {
+            apiKey: aiConfig?.anthropic?.apiKey || process.env.ANTHROPIC_API_KEY || '',
+            baseUrl: aiConfig?.anthropic?.baseUrl || 'https://api.anthropic.com',
+          };
+          break;
+        case 'azure':
+          config = {
+            resourceName: aiConfig?.azure?.resourceName || '',
+            apiKey: aiConfig?.azure?.apiKey || '',
+            apiVersion: aiConfig?.azure?.apiVersion || '2024-02-15-preview',
+            baseUrl: aiConfig?.azure?.baseUrl,
+          };
+          break;
+        case 'vertex':
+          config = {
+            projectId: aiConfig?.vertex?.projectId || '',
+            region: aiConfig?.vertex?.region || 'us-central1',
+            credentials: aiConfig?.vertex?.credentials,
+          };
+          break;
+      }
+    }
+
     switch (type) {
       case 'deepseek':
         return this.createDeepSeekClient(config);
@@ -100,7 +166,19 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
     }
   }
 
-  private createDeepSeekClient(config?: any): LLMClient {
+  getClientForProvider(provider: string): LLMClient {
+    const type = provider.toLowerCase() as LLMClientType;
+    
+    // 如果已存在该类型的客户端，直接返回
+    if (this.clients.has(type)) {
+      return this.clients.get(type)!;
+    }
+    
+    // 否则创建新的客户端
+    return this.createClient(type);
+  }
+
+  private createDeepSeekClient(config?: DeepSeekConfig): LLMClient {
     const client = new DeepSeekClient(config);
     this.clients.set('deepseek', client);
     return client;

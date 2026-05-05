@@ -16,7 +16,6 @@ export { default as agent } from './ai/agent.js';
 export { default as agents } from './ai/agents.js';
 
 // 网络工具命令
-export { default as mcp } from './network/mcp.js';
 export { default as fetch } from './network/fetch.js';
 export { default as websearch } from './network/websearch.js';
 

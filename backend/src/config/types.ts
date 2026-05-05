@@ -56,9 +56,43 @@ export type DiffTool = 'terminal' | 'auto';
  */
 export interface AIConfig {
   /** AI 提供商 */
-  provider?: 'anthropic' | 'openai' | 'deepseek' | 'ollama';
+  provider?: 'anthropic' | 'openai' | 'deepseek' | 'ollama' | 'azure' | 'vertex';
   /** 默认模型 */
   model?: string;
+  /** DeepSeek 配置 */
+  deepseek?: {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+  };
+  /** Anthropic 配置 */
+  anthropic?: {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+  };
+  /** OpenAI 配置 */
+  openai?: {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+  };
+  /** Azure 配置 */
+  azure?: {
+    resourceName?: string;
+    apiKey?: string;
+    apiVersion?: string;
+    baseUrl?: string;
+  };
+  /** Vertex 配置 */
+  vertex?: {
+    projectId?: string;
+    region?: string;
+    credentials?: {
+      clientEmail?: string;
+      privateKey?: string;
+    };
+  };
   /** 本地 Ollama 配置 */
   localOllama?: OllamaConfig;
   /** 路由配置 */
@@ -228,6 +262,35 @@ export function createDefaultGlobalConfig(): GlobalConfig {
     ai: {
       provider: 'deepseek',
       model: 'deepseek-chat',
+      deepseek: {
+        apiKey: process.env.DEEPSEEK_API_KEY || '',
+        baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+        model: 'deepseek-chat',
+      },
+      anthropic: {
+        apiKey: process.env.ANTHROPIC_API_KEY || '',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'claude-3-5-sonnet-20241022',
+      },
+      openai: {
+        apiKey: process.env.OPENAI_API_KEY || '',
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-4o',
+      },
+      azure: {
+        resourceName: '',
+        apiKey: '',
+        apiVersion: '2024-02-15-preview',
+        baseUrl: '',
+      },
+      vertex: {
+        projectId: '',
+        region: 'us-central1',
+        credentials: {
+          clientEmail: '',
+          privateKey: '',
+        },
+      },
       localOllama: {
         enabled: false,
         baseUrl: 'http://localhost:11434',

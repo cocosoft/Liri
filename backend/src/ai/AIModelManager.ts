@@ -39,6 +39,27 @@ export class AIModelManager {
   private constructor() {
     this.defaultThinkingEffort = DEFAULT_THINKING_EFFORT;
     this.thinkingEnabled = process.env.DISABLE_THINKING !== 'true' && process.env.DISABLE_THINKING !== '1';
+    // 构造函数中验证 modelManager 可用性，避免运行时委托调用失败
+    this.ensureModelManager();
+  }
+
+  /**
+   * 验证 modelManager 实例可用性
+   * 防止因模块加载时序或初始化顺序导致 modelManager 不可用
+   */
+  private ensureModelManager(): void {
+    if (!modelManager) {
+      throw new Error(
+        'AIModelManager: modelManager is not available. ' +
+        'Ensure ModelManager is initialized before using AIModelManager.'
+      );
+    }
+    if (typeof modelManager.getModelContextWindow !== 'function') {
+      throw new Error(
+        'AIModelManager: modelManager instance is invalid. ' +
+        'Expected ModelManager with getModelContextWindow method.'
+      );
+    }
   }
 
   /**
@@ -101,6 +122,7 @@ export class AIModelManager {
    * 获取模型上下文窗口大小 — 委托给 ModelManager
    */
   getContextWindow(model: string): number {
+    this.ensureModelManager();
     const resolved = this.parseUserSpecifiedModel(model);
     return modelManager.getModelContextWindow(resolved);
   }
@@ -109,6 +131,7 @@ export class AIModelManager {
    * 获取模型显示名称 — 委托给 ModelManager
    */
   getModelDisplayName(model: string): string {
+    this.ensureModelManager();
     const resolved = this.parseUserSpecifiedModel(model);
     return modelManager.getModelDisplayName(resolved);
   }
@@ -117,6 +140,7 @@ export class AIModelManager {
    * 获取模型价格字符串 — 委托给 ModelManager
    */
   getModelPricingString(model: string): string {
+    this.ensureModelManager();
     const resolved = this.parseUserSpecifiedModel(model);
     const pricing = modelManager.getModelPricing(resolved);
     if (pricing) {
@@ -145,6 +169,7 @@ export class AIModelManager {
    * 检查模型是否存在 — 委托给 ModelManager
    */
   hasModel(model: string): boolean {
+    this.ensureModelManager();
     const resolved = this.parseUserSpecifiedModel(model);
     return modelManager.isValidModel(resolved);
   }
@@ -153,6 +178,7 @@ export class AIModelManager {
    * 获取所有可用模型 — 委托给 ModelManager
    */
   getAvailableModels(): string[] {
+    this.ensureModelManager();
     return modelManager.getAvailableModels();
   }
 

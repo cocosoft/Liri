@@ -1,126 +1,124 @@
-import type { CommandContext } from '../../types/index.js';
-import * as fs from 'fs';
-import * as path from 'path';
-
 /**
  * Vim命令
- * 提供Vim编辑器功能
+ * 切换编辑模式：normal ↔ vim
+ * 对标 CC 源码 cc_code/backend/commands/vim/vim.ts
+ *
+ * CC 中的 /vim 命令是一个简单的模式切换开关，实际的 Vim 键盘处理
+ * 由 cc_code/backend/vim/ 目录下的完整状态机实现（包括 transitions.ts、
+ * operators.ts、motions.ts、textObjects.ts）以及 React 钩子
+ * cc_code/backend/hooks/useVimInput.ts 驱动。
+ */
+
+import { configManager } from '../../../config/ConfigManager.js';
+
+/**
+ * Vim命令实现
  */
 const vimCommand = {
-  async execute(args: string, context: CommandContext) {
+  async execute(args: string) {
     // 解析参数
-    const params = args.trim().split(' ');
-    const filePath = params[0];
-    const options = params.slice(1);
+    const subcommand = args.trim().toLowerCase();
 
-    if (!filePath) {
+    // 帮助
+    if (subcommand === 'help') {
       return {
         success: true,
-        message: '用法: /vim <文件路径> [选项]\n打开指定文件进行编辑\n\n选项:\n  --insert, -i  直接进入插入模式\n  --readonly, -r  只读模式\n  --line=<行号>, -l <行号>  跳转到指定行',
+        message: [
+          `Vim Command Help\n==================`,
+          ``,
+          `Toggle between normal (readline) and vim editing modes.`,
+          ``,
+          `Usage:`,
+          `  /vim              - Toggle between normal and vim mode`,
+          `  /vim normal       - Switch to normal (readline) mode`,
+          `  /vim enable       - Switch to vim mode`,
+          `  /vim status       - Show current editing mode`,
+          `  /vim help         - Show this help`,
+          ``,
+          `When vim mode is enabled:`,
+          `  - Normal mode uses vim-style keybindings (h,j,k,l,w,b,etc.)`,
+          `  - Press Escape to return to NORMAL mode from INSERT mode`,
+          `  - Supports operators: d (delete), c (change), y (yank)`,
+          `  - Supports text objects: iw (inner word), ip (inner paragraph)`,
+          ``,
+          `Current mode: ${getCurrentMode()}`,
+        ].join('\n'),
       };
     }
 
     try {
-      const fullPath = path.resolve(filePath);
-      let fileContent = '';
-      let mode = 'normal'; // normal, insert, visual
-      let currentLine = 1;
-      let readonly = false;
+      const config = configManager.getGlobalConfig();
+      let currentMode = config.editorMode || 'normal';
 
-      // 处理选项
-      for (const option of options) {
-        if (option === '--insert' || option === '-i') {
-          mode = 'insert';
-        } else if (option === '--readonly' || option === '-r') {
-          readonly = true;
-        } else if (option.startsWith('--line=') || option === '-l') {
-          const lineIndex = options.indexOf(option);
-          if (lineIndex + 1 < options.length) {
-            currentLine = parseInt(options[lineIndex + 1], 10) || 1;
-          } else if (option.startsWith('--line=')) {
-            currentLine = parseInt(option.replace('--line=', ''), 10) || 1;
-          }
-        }
+      // 处理向后兼容：将 'emacs' 视为 'normal'
+      if (currentMode === 'emacs') {
+        currentMode = 'normal';
       }
 
-      // 检查文件是否存在
-      if (fs.existsSync(fullPath)) {
-        fileContent = fs.readFileSync(fullPath, 'utf8');
+      let newMode: string;
+
+      // 根据子命令确定新模式
+      if (subcommand === 'status') {
+        return {
+          success: true,
+          message: `Current editor mode: ${currentMode}`,
+        };
+      } else if (subcommand === 'normal') {
+        newMode = 'normal';
+      } else if (subcommand === 'enable' || subcommand === 'vim') {
+        newMode = 'vim';
+      } else if (!subcommand) {
+        // 无参数：切换模式
+        newMode = currentMode === 'normal' ? 'vim' : 'normal';
+      } else {
+        return {
+          success: false,
+          error: `Error: Unknown argument "${subcommand}".\nUsage: /vim [normal|enable|status|help]`,
+        };
       }
 
-      // 计算文件行数
-      const lines = fileContent.split('\n');
-      const totalLines = lines.length;
+      // 如果模式未变化，提前返回
+      if (newMode === currentMode) {
+        return {
+          success: true,
+          message: `Editor mode is already set to ${newMode}.`,
+        };
+      }
 
-      // 确保行号有效
-      currentLine = Math.max(1, Math.min(currentLine, totalLines));
-
-      // 构建Vim界面
-      const vimInterface = this.buildVimInterface(
-        fullPath,
-        fileContent,
-        mode,
-        currentLine,
-        totalLines,
-        readonly
-      );
+      // 保存配置
+      configManager.saveGlobalConfig((current: any) => ({
+        ...current,
+        editorMode: newMode,
+      }));
 
       return {
         success: true,
-        message: vimInterface,
+        message: [
+          `Editor mode set to ${newMode}.`,
+          newMode === 'vim'
+            ? 'Use Escape key to toggle between INSERT and NORMAL modes.'
+            : 'Using standard (readline) keyboard bindings.',
+        ].join('\n'),
       };
     } catch (error) {
       return {
         success: false,
-        message: `错误: ${error instanceof Error ? error.message : '未知错误'}`,
+        error: `Error toggling editor mode: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   },
-
-  /**
-   * 构建Vim界面
-   */
-  buildVimInterface(
-    filePath: string,
-    content: string,
-    mode: string,
-    currentLine: number,
-    totalLines: number,
-    readonly: boolean
-  ): string {
-    const lines = content.split('\n');
-    const header = `VIM - ${filePath}${readonly ? ' [只读]' : ''}`;
-    const statusBar = `第 ${currentLine} 行, 共 ${totalLines} 行 [${mode.toUpperCase()}模式]`;
-    
-    // 构建文件内容显示
-    let contentDisplay = '';
-    for (let i = 0; i < lines.length; i++) {
-      const lineNumber = i + 1;
-      const lineContent = lines[i];
-      const linePrefix = lineNumber === currentLine 
-        ? `> ${lineNumber.toString().padStart(4)} | ` 
-        : `  ${lineNumber.toString().padStart(4)} | `;
-      contentDisplay += `${linePrefix}${lineContent}\n`;
-    }
-
-    // 构建帮助信息
-    const helpInfo = `\nVim 命令帮助:\n` +
-      `  i        - 进入插入模式\n` +
-      `  Esc      - 返回普通模式\n` +
-      `  :w       - 保存文件\n` +
-      `  :q       - 退出\n` +
-      `  :wq      - 保存并退出\n` +
-      `  :q!      - 强制退出不保存\n` +
-      `  dd       - 删除当前行\n` +
-      `  yy       - 复制当前行\n` +
-      `  p        - 粘贴\n` +
-      `  /<搜索>  - 搜索\n` +
-      `  n        - 下一个搜索结果\n` +
-      `  N        - 上一个搜索结果\n` +
-      `  :%s/old/new/g - 替换所有匹配\n`;
-
-    return `${header}\n\n${contentDisplay}\n${statusBar}\n${helpInfo}`;
-  },
 };
+
+/**
+ * 获取当前编辑模式
+ */
+function getCurrentMode(): string {
+  try {
+    const config = configManager.getGlobalConfig();
+    return config.editorMode || 'normal';
+  } catch {
+    return 'normal';
+  }
+}
 
 export default vimCommand;

@@ -5,12 +5,19 @@
  */
 import type { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
+import { feature as coreFeature } from '@modules/core';
+import { isAntUser } from '../../utils/features.js';
 
 /**
  * 功能标志检查函数
+ * 优先检查环境变量，其次回退到集中式标志配置
  */
 export function feature(name: string): boolean {
-  return process.env[`FEATURE_${name.toUpperCase()}`] === 'true';
+  const envValue = process.env[`FEATURE_${name.toUpperCase()}`];
+  if (envValue !== undefined) {
+    return envValue === 'true';
+  }
+  return coreFeature(name as any);
 }
 
 /**
@@ -80,18 +87,30 @@ export const builtinToolLoaders: ToolLoader[] = [
   createToolLoader(ToolFactory.prototype.createAskUserQuestionTool),
   createToolLoader(ToolFactory.prototype.createBriefTool),
   
+  // Notebook 编辑工具
+  createToolLoader(ToolFactory.prototype.createNotebookEditTool),
+  
   // 通用工具
   createToolLoader(ToolFactory.prototype.createSleepTool),
   createToolLoader(ToolFactory.prototype.createMonitorTool),
+  
+  // 团队与消息工具 (工厂方法内部进行特性开关检查)
+  createToolLoader(ToolFactory.prototype.createSendMessageTool),
+  createToolLoader(ToolFactory.prototype.createTeamCreateTool),
+  createToolLoader(ToolFactory.prototype.createTeamDeleteTool),
   
   // 条件工具
   conditionalTool(feature('POWERSHELL'), createToolLoader(ToolFactory.prototype.createPowerShellTool)),
   conditionalTool(feature('LSP'), createToolLoader(ToolFactory.prototype.createLSPTool)),
   conditionalTool(feature('MCP'), createToolLoader(ToolFactory.prototype.createMCPTool)),
   conditionalTool(feature('MCP'), createToolLoader(ToolFactory.prototype.createMCPResourceTool)),
+  conditionalTool(feature('MCP'), createToolLoader(ToolFactory.prototype.createListMcpResourcesTool)),
+  conditionalTool(feature('MCP'), createToolLoader(ToolFactory.prototype.createReadMcpResourceTool)),
   conditionalTool(feature('REPL'), createToolLoader(ToolFactory.prototype.createREPLTool)),
   conditionalTool(feature('NOTEBOOK'), createToolLoader(ToolFactory.prototype.createNotebookTool)),
   conditionalTool(feature('CONFIG'), createToolLoader(ToolFactory.prototype.createConfigTool)),
+  // Tungsten 工具 (仅 ANT 用户)
+  conditionalTool(isAntUser(), createToolLoader(ToolFactory.prototype.createTungstenTool)),
   conditionalTool(feature('BROWSER'), createToolLoader(ToolFactory.prototype.createBrowserTool)),
   conditionalTool(feature('PLAN'), createToolLoader(ToolFactory.prototype.createPlanTool)),
   

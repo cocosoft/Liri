@@ -29,7 +29,7 @@ export { copyCommand } from './copy/index.js';
 export { voiceCommand } from './voice/index.js';
 export { exportCommand } from './export/index.js';
 export { shareCommand } from './share/index.js';
-export { statsCommand } from './stats/index.js';
+export { activityCommand } from './activity/index.js';
 export { costCommand } from './cost/index.js';
 export { usageCommand } from './usage/index.js';
 export { doctorCommand } from './doctor/index.js';

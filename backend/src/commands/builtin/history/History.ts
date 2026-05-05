@@ -1,6 +1,15 @@
+/**
+ * 历史命令
+ * 管理命令历史记录：查看、搜索和清空
+ */
+
 import type { CommandContext } from '../../types/index.js';
 import { historyManager } from '../../../utils/history.js';
 
+/**
+ * 显示历史记录
+ * @param limit 显示条数
+ */
 const showHistory = async (
   limit: number
 ): Promise<{ type: 'text'; value: string }> => {
@@ -33,6 +42,9 @@ const showHistory = async (
   }
 };
 
+/**
+ * 清空历史记录
+ */
 const clearHistory = async (): Promise<{ type: 'text'; value: string }> => {
   try {
     await historyManager.clear();
@@ -48,6 +60,10 @@ const clearHistory = async (): Promise<{ type: 'text'; value: string }> => {
   }
 };
 
+/**
+ * 搜索历史记录
+ * @param query 搜索关键词
+ */
 const searchHistory = async (
   query: string
 ): Promise<{ type: 'text'; value: string }> => {
@@ -87,26 +103,60 @@ const searchHistory = async (
   }
 };
 
+/**
+ * 获取帮助文本
+ */
+const getHelpText = (): string => {
+  return [
+    '历史命令用法:',
+    '',
+    '  /history              显示最近10条历史记录',
+    '  /history show [数量]  显示指定数量的历史记录（默认10条）',
+    '  /history clear        清空所有历史记录',
+    '  /history search <词>  搜索包含关键词的历史记录',
+    '',
+    '示例:',
+    '  /history              - 显示最近10条记录',
+    '  /history show 50      - 显示最近50条记录',
+    '  /history search git   - 搜索包含"git"的记录',
+    '  /history clear        - 清空所有记录',
+    '',
+    '别名: /hist, /hst',
+  ].join('\n');
+};
+
+/**
+ * 命令入口
+ * @param args 命令参数
+ * @param _context 命令上下文
+ */
 const call = async (
   args: string,
   _context: CommandContext
 ): Promise<{ type: 'text'; value: string }> => {
-  const parts = args.split(' ');
+  const trimmed = args.trim();
+
+  if (!trimmed) {
+    return await showHistory(10);
+  }
+
+  const parts = trimmed.split(/\s+/);
   const subCommand = parts[0];
-  const limit = parts[1] ? parseInt(parts[1]) : 10;
+  const subArgs = parts.slice(1).join(' ');
 
   switch (subCommand) {
     case 'show':
-      return await showHistory(limit);
+      return await showHistory(subArgs ? parseInt(subArgs) : 10);
     case 'clear':
       return await clearHistory();
     case 'search':
-      return await searchHistory(parts.slice(1).join(' '));
+      return await searchHistory(subArgs);
+    case 'help':
+    case '--help':
+    case '-h':
+      return { type: 'text', value: getHelpText() };
     default:
-      return {
-        type: 'text',
-        value: `历史命令用法:\n\n/history show [数量] - 显示历史记录\n/history clear - 清空历史记录\n/history search <关键词> - 搜索历史记录`,
-      };
+      return { type: 'text', value: getHelpText() };
   }
 };
 

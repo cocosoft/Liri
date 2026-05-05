@@ -1,6 +1,7 @@
 /**
  * WebSearch命令
  * 调用WebSearchTool来执行网络搜索
+ * 基于CC源码 cc_code/backend/tools/WebSearchTool 实现
  */
 
 import type { Command } from '../../types/index.js';
@@ -29,7 +30,7 @@ export const websearchCommand: Command = {
 
       try {
         const toolManager = getToolManager();
-        const result = await toolManager.executeTool(
+        const rawResult = await toolManager.executeTool(
           'web_search',
           {
             query: query,
@@ -37,9 +38,17 @@ export const websearchCommand: Command = {
           {}
         );
 
-        if (result.results && result.results.length > 0) {
-          const formattedResults = result.results
-            .map((item: any, index: number) => {
+        // executeTool 返回的是 createToolResult 包裹后的 ToolResult 对象
+        // 实际数据在 data 字段中
+        const data = rawResult.data as {
+          query: string;
+          results: Array<{ title: string; url: string; snippet: string }>;
+          totalResults: number;
+        };
+
+        if (data && data.results && data.results.length > 0) {
+          const formattedResults = data.results
+            .map((item, index) => {
               return `${index + 1}. ${item.title}\n   ${item.url}\n   ${item.snippet}`;
             })
             .join('\n\n');

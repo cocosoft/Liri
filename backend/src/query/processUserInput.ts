@@ -17,6 +17,7 @@ const COMMAND_PREFIXES = ['/', '!'];
 const META_COMMANDS = new Set([
   'clear', 'reset', 'help', 'exit', 'quit',
   'status', 'skills', 'tools', 'buddy',
+  'activity',
 ]);
 
 /**

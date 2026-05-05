@@ -13,6 +13,7 @@ import type {
   ToolCallProgress,
   ValidationResult,
 } from '../types';
+import type { Tool } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 
 /**
@@ -281,6 +282,37 @@ export class PlanTool extends BaseTool<
   }
 
   /**
+   * 拓扑排序 - 按依赖关系排序步骤
+   */
+  private topologicalSort(steps: PlanStep[]): PlanStep[] {
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+    const sorted: PlanStep[] = [];
+    const stepMap = new Map(steps.map(s => [s.id, s]));
+
+    const visit = (stepId: string) => {
+      if (visited.has(stepId)) return;
+      if (visiting.has(stepId)) return;
+      visiting.add(stepId);
+      const step = stepMap.get(stepId);
+      if (step?.dependencies) {
+        for (const depId of step.dependencies) {
+          visit(depId);
+        }
+      }
+      visiting.delete(stepId);
+      visited.add(stepId);
+      if (step) sorted.push(step);
+    };
+
+    for (const step of steps) {
+      visit(step.id);
+    }
+
+    return sorted;
+  }
+
+  /**
    * 获取工具用于自动分类器的输入
    */
   toAutoClassifierInput(input: PlanToolInput): unknown {
@@ -410,33 +442,94 @@ export class PlanTool extends BaseTool<
               message: `Plan not found: ${input.plan_id!}`,
             };
           } else {
-            // 模拟执行计划
-            const executionResults = [];
-            for (const step of plan.steps) {
-              executionResults.push({
-                step_id: step.id,
-                step_name: step.name,
-                status: 'completed',
-                result: `Executed step: ${step.name}`,
-                timestamp: new Date().toISOString(),
-              });
+            const executionResults: any[] = [];
+            const errors: string[] = [];
+            const tools: readonly Tool[] = context?.options?.tools || [];
+
+            const sortedSteps = this.topologicalSort(plan.steps);
+
+            for (const step of sortedSteps) {
+              if (onProgress) {
+                onProgress({
+                  toolUseID: input.plan_id!,
+                  data: { type: 'text', value: `执行步骤: ${step.name}` } as any,
+                });
+              }
+
+              let stepResult: any;
+
+              try {
+                if (step.type === 'tool') {
+                  const toolName = step.params?.tool_name || step.name;
+                  const toolArgs = step.params?.tool_args || {};
+                  const tool = tools.find(t => {
+                    const tName = (t as any).name?.toLowerCase();
+                    const tAliases: string[] = (t as any).aliases?.map((a: string) => a.toLowerCase()) || [];
+                    const searchName = toolName.toLowerCase();
+                    return tName === searchName || tAliases.includes(searchName);
+                  });
+
+                  if (tool) {
+                    stepResult = await tool.execute(toolArgs, context);
+                  } else {
+                    throw new Error(`工具未找到: ${toolName}`);
+                  }
+                } else if (step.type === 'command') {
+                  const command = step.params?.command || '';
+                  if (!command) {
+                    throw new Error('命令步骤缺少 command 参数');
+                  }
+                  const bashTool = tools.find(t => {
+                    const name = (t as any).name?.toLowerCase();
+                    return name === 'bash';
+                  });
+                  if (bashTool) {
+                    stepResult = await bashTool.execute({ command, description: step.description || step.name }, context);
+                  } else {
+                    throw new Error('Bash 工具未找到，无法执行命令');
+                  }
+                } else {
+                  stepResult = { success: true, message: `步骤 ${step.name} (${step.type}) 已跳过` };
+                }
+
+                executionResults.push({
+                  step_id: step.id,
+                  step_name: step.name,
+                  status: 'completed',
+                  result: stepResult,
+                  timestamp: new Date().toISOString(),
+                });
+              } catch (error: any) {
+                executionResults.push({
+                  step_id: step.id,
+                  step_name: step.name,
+                  status: 'failed',
+                  error: error.message,
+                  timestamp: new Date().toISOString(),
+                });
+                errors.push(error.message);
+                break;
+              }
             }
-            
-            // 更新计划状态
+
+            const hasErrors = errors.length > 0;
             const updatedPlan: PlanData = {
               ...plan,
-              status: 'completed',
+              status: hasErrors ? 'active' : 'completed',
               updated_at: new Date().toISOString(),
             };
             this.plans.set(input.plan_id!, updatedPlan);
-            
+
             result = {
-              success: true,
-              message: `Plan executed successfully: ${input.plan_id!}`,
+              success: !hasErrors,
+              message: hasErrors
+                ? `计划执行部分完成，${errors.length} 个步骤失败: ${errors.join('; ')}`
+                : `计划执行成功: ${input.plan_id!}`,
               execution_result: {
                 plan_id: input.plan_id!,
                 steps: executionResults,
                 completed_at: new Date().toISOString(),
+                has_errors: hasErrors,
               },
             };
           }

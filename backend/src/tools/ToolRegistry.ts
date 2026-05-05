@@ -188,15 +188,17 @@ export class ToolRegistry {
         searchTips: info.searchHint ? [info.searchHint] : [],
       };
 
-      for (const param of info.params) {
-        schema.input_schema.properties[param.name] = {
-          type: param.type,
-          description: param.description,
-          default: param.default,
-        };
+      if (info.params) {
+        for (const param of info.params) {
+          schema.input_schema.properties[param.name] = {
+            type: param.type,
+            description: param.description,
+            default: param.default,
+          };
 
-        if (param.required) {
-          schema.input_schema.required?.push(param.name);
+          if (param.required) {
+            schema.input_schema.required?.push(param.name);
+          }
         }
       }
 

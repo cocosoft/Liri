@@ -57,7 +57,6 @@ export function Tabs({
                 color={tabColor}
                 bold={isActive}
                 underline={isActive}
-                onMouseDown={() => handleTabClick(tab)}
               >
                 {tab.label}
               </Text>

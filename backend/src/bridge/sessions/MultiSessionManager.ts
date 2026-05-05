@@ -113,3 +113,27 @@ export class MultiSessionManager implements IMultiSessionManager {
     return { totalCreated: this.totalCreated, totalClosed: this.totalClosed, activeCount, idleCount, averageLifetime };
   }
 }
+
+import type { SessionSpawner, SessionHandle, SessionSpawnOpts } from '../types/index.js';
+
+/**
+ * 创建虚拟会话生成器（用于模拟模式）
+ */
+export function createDummySpawner(): SessionSpawner {
+  return {
+    spawn(_opts: SessionSpawnOpts, _dir: string): SessionHandle {
+      const activities: import('../types/index.js').SessionActivity[] = [];
+      return {
+        currentActivity: null,
+        activities,
+        lastStderr: [],
+        updateAccessToken(_token: string): void {
+          // 模拟模式下无需操作
+        },
+        async stop(): Promise<void> {
+          // 模拟模式下无需操作
+        },
+      };
+    },
+  };
+}

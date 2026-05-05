@@ -5,9 +5,11 @@
  *
  * 功能:
  * - 创建子代理执行复杂任务
- * - 支持后台运行
- * - 支持工作目录隔离
- * - 支持多种Agent类型
+ * - 完整的查询循环（多轮工具调用）
+ * - 后台运行支持（BackgroundTaskManager）
+ * - 隐式 fork 子代理
+ * - 工作目录隔离
+ * - 多种Agent类型
  */
 
 import { randomUUID } from 'crypto';
@@ -17,14 +19,20 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import {
   AGENT_TOOL_NAME,
   LEGACY_AGENT_TOOL_NAME,
-  ONE_SHOT_BUILTIN_AGENT_TYPES,
   BUILTIN_AGENTS,
 } from './constants';
 import type { AgentInput, AgentConfig, BuiltInAgent, AgentType } from './types';
 import { VERIFICATION_SYSTEM_PROMPT } from './strategies/VerificationStrategy';
 import { STATUSLINE_SYSTEM_PROMPT } from './strategies/StatuslineStrategy';
-import { FORK_SUBAGENT_TYPE, isForkSubagentEnabled, buildForkSystemPrompt, buildForkContextMessages } from './ForkSubagent';
-import { DeepSeekClient } from '../../ai/clients/DeepSeekClient';
+import {
+  FORK_SUBAGENT_TYPE,
+  isForkSubagentEnabled,
+  buildForkSystemPrompt,
+  buildForkContextMessages,
+  buildChildMessage,
+} from './ForkSubagent';
+import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
+import { getBackgroundTaskManager } from './BackgroundTaskManager';
 import { getToolManager } from '../ToolManager';
 
 /**
@@ -114,6 +122,9 @@ export class AgentTool implements Tool {
   /** 工具配置 */
   private config: AgentConfig;
 
+  /** 子代理引擎 */
+  private engine: SubAgentEngine;
+
   /** 活跃的Agent映射 */
   private activeAgents: Map<
     string,
@@ -132,6 +143,7 @@ export class AgentTool implements Tool {
    */
   constructor(config: Partial<AgentConfig> = {}) {
     this.config = { ...DEFAULT_AGENT_CONFIG, ...config };
+    this.engine = getSubAgentEngine();
   }
 
   /**
@@ -326,104 +338,133 @@ export class AgentTool implements Tool {
   }
 
   /**
-   * 运行Agent任务
-   * @param input Agent输入
-   * @param agentId Agent ID
-   * @param systemPrompt 系统提示
-   * @param context 执行上下文
+   * 构建工具定义列表
    */
-  private async runAgentTask(
+  private buildToolDefinitions(): Array<{
+    name: string;
+    description: string;
+    parameters: Record<string, any>;
+  }> {
+    const toolManager = getToolManager();
+    const tools = toolManager.getAllTools();
+
+    return tools.map((tool) => {
+      const info = tool.getInfo();
+      return {
+        name: tool.name,
+        description: info.description,
+        parameters: {
+          type: 'object' as const,
+          properties: info.params.reduce(
+            (acc, param) => {
+              acc[param.name] = {
+                type: param.type,
+                description: param.description,
+              };
+              if (param.default !== undefined) {
+                (acc[param.name] as any).default = param.default;
+              }
+              return acc;
+            },
+            {} as Record<string, any>
+          ),
+          required: info.params
+            .filter((param) => param.required)
+            .map((param) => param.name),
+        },
+      };
+    });
+  }
+
+  /**
+   * 使用子代理引擎运行Agent任务
+   */
+  private async runWithEngine(
     input: AgentInput,
     agentId: string,
     systemPrompt: string,
-    _context?: ToolUseContext
+    isFork: boolean,
+  ): Promise<{ result: string; tokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
+    const toolDefinitions = this.buildToolDefinitions();
+
+    const engineInput = {
+      agentId,
+      systemPrompt,
+      messages: isFork
+        ? [{ role: 'user' as const, content: input.prompt }]
+        : [{ role: 'user' as const, content: input.prompt }],
+      tools: toolDefinitions.map(t => ({
+        type: 'function' as const,
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters,
+        },
+      })),
+      toolInstances: new Map(
+        getToolManager().getAllTools().map(t => [t.name, t])
+      ),
+      maxTurns: 50,
+      model: input.model,
+    };
+
+    const result = await this.engine.execute(engineInput);
+
+    return {
+      result: result.output,
+      tokenUsage: result.tokenUsage,
+    };
+  }
+
+  /**
+   * 直接调用LLM（简单任务，不使用查询循环）
+   */
+  private async runDirectCall(
+    input: AgentInput,
+    agentId: string,
+    systemPrompt: string,
   ): Promise<{ result: string }> {
-    try {
-      // 创建DeepSeekClient实例
-      const llmClient = new DeepSeekClient();
+    const { DeepSeekClient } = await import('../../ai/clients/DeepSeekClient');
+    const llmClient = new DeepSeekClient();
 
-      // 获取所有可用的工具定义
-      const { getToolManager } = await import('../ToolManager');
-      const toolManager = getToolManager();
-      const tools = toolManager.getAllTools();
-      const toolDefinitions = tools.map((tool) => {
-        const info = tool.getInfo();
-        return {
-          type: 'function' as const,
-          function: {
-            name: tool.name,
-            description: info.description,
-            parameters: {
-              type: 'object' as const,
-              properties: info.params.reduce(
-                (acc, param) => {
-                  acc[param.name] = {
-                    type: param.type,
-                    description: param.description,
-                  };
-                  if (param.default !== undefined) {
-                    (acc[param.name] as any).default = param.default;
-                  }
-                  return acc;
-                },
-                {} as Record<string, any>
-              ),
-              required: info.params
-                .filter((param) => param.required)
-                .map((param) => param.name),
-            },
-          },
-        };
-      });
+    const toolDefinitions = this.buildToolDefinitions().map(t => ({
+      type: 'function' as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters,
+      },
+    }));
 
-      // 构建消息历史
-      const messages = [
-        {
-          role: 'system' as const,
-          content: systemPrompt,
-        },
-        {
-          role: 'user' as const,
-          content: input.prompt,
-        },
-      ];
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: input.prompt },
+    ];
 
-      // 调用DeepSeekClient的chat方法
-      const response = await llmClient.chat(messages, {
-        tools: toolDefinitions,
-        model: input.model,
-      });
+    const response = await llmClient.chat(messages, {
+      tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+      model: input.model,
+    });
 
-      // 处理工具调用（如果有）
-      if (response.tool_calls && response.tool_calls.length > 0) {
-        // 这里可以添加工具调用的处理逻辑
-        // 例如，执行工具并将结果返回给模型
-        return {
-          result:
-            `Agent [${agentId}] completed task with tool calls:\n\n` +
-            `Type: ${input.subagent_type || 'general'}\n` +
-            `Prompt: ${input.prompt}\n\n` +
-            `Tool Calls: ${JSON.stringify(response.tool_calls, null, 2)}\n\n` +
-            `Content: ${response.content || 'No content'}`,
-        };
-      } else {
-        return {
-          result:
-            `Agent [${agentId}] completed task:\n\n` +
-            `Type: ${input.subagent_type || 'general'}\n` +
-            `Prompt: ${input.prompt}\n\n` +
-            `Result: ${response.content || 'No result'}`,
-        };
-      }
-    } catch (error) {
+    const content = response.content || '';
+    const toolCalls = response.tool_calls;
+
+    if (toolCalls && toolCalls.length > 0) {
       return {
-        result:
-          `Agent [${agentId}] failed:\n\n` +
+        result: `Agent [${agentId}] completed task with tool calls:\n\n` +
           `Type: ${input.subagent_type || 'general'}\n` +
           `Prompt: ${input.prompt}\n\n` +
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
+          `Tool Calls: ${JSON.stringify(toolCalls, null, 2)}\n\n` +
+          `Content: ${content}`,
       };
     }
+
+    return {
+      result: `Agent [${agentId}] completed task:\n\n` +
+        `Type: ${input.subagent_type || 'general'}\n` +
+        `Prompt: ${input.prompt}\n\n` +
+        `Result: ${content}`,
+    };
   }
 
   /**
@@ -457,6 +498,7 @@ export class AgentTool implements Tool {
 
     const isFork = !agentInput.subagent_type && isForkSubagentEnabled();
     const effectiveType = isFork ? (FORK_SUBAGENT_TYPE as AgentType) : agentType;
+    const isBackground = agentInput.run_in_background === true;
 
     if (!this.checkConcurrencyLimit()) {
       return {
@@ -498,23 +540,90 @@ export class AgentTool implements Tool {
                 content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
               }))
             : [];
+
         systemPrompt = buildForkSystemPrompt(systemPrompt, {
           renderedSystemPrompt: systemPrompt,
           parentMessages,
           directive: agentInput.description,
         });
+
         const forkMessages = buildForkContextMessages(parentMessages);
+        const childInstruction = buildChildMessage(agentInput.prompt);
         agentInput.prompt = forkMessages
           .map((m) => `${m.role}: ${m.content}`)
-          .join('\n\n');
+          .join('\n\n') + '\n\n' + childInstruction;
       }
 
-      const result = await this.runAgentTask(
-        agentInput,
-        agentId,
-        systemPrompt,
-        context
-      );
+      if (isBackground) {
+        if (!this.config.allowBackground) {
+          return {
+            status: ToolExecutionStatus.FAILURE,
+            result: null,
+            error: 'Background execution is disabled',
+            executionTime: 0,
+            output: '',
+            errorOutput: 'Background execution is disabled',
+            progress: [],
+            metadata: {},
+            executionId: agentId,
+            toolName: this.name,
+            timestamp: Date.now(),
+          };
+        }
+
+        const bgManager = getBackgroundTaskManager();
+        const taskId = bgManager.createTask(
+          agentInput.name || agentId,
+          effectiveType,
+          agentInput.description || 'Background agent task',
+        );
+        bgManager.startTask(taskId);
+
+        this.runWithEngine(agentInput, agentId, systemPrompt, isFork)
+          .then((runResult) => {
+            bgManager.completeTask(taskId, runResult.result, runResult.tokenUsage);
+            this.activeAgents.get(agentId)!.status = 'completed';
+          })
+          .catch((error) => {
+            bgManager.failTask(
+              taskId,
+              error instanceof Error ? error.message : String(error),
+            );
+            this.activeAgents.get(agentId)!.status = 'failed';
+          });
+
+        return {
+          status: ToolExecutionStatus.SUCCESS,
+          result: `Background agent task started (ID: ${taskId}). Use /agent status ${taskId} to check progress.`,
+          error: undefined,
+          executionTime: 0,
+          output: `Background agent task started (ID: ${taskId})`,
+          errorOutput: '',
+          progress: [],
+          metadata: {
+            agentId,
+            agentType: effectiveType,
+            taskId,
+            background: true,
+            isFork,
+          },
+          executionId: agentId,
+          toolName: this.name,
+          timestamp: Date.now(),
+        };
+      }
+
+      const isSimpleTask = agentInput.prompt.length < 500 &&
+        !isFork &&
+        !agentInput.subagent_type;
+
+      let result: { result: string; tokenUsage?: any };
+
+      if (isSimpleTask) {
+        result = await this.runDirectCall(agentInput, agentId, systemPrompt);
+      } else {
+        result = await this.runWithEngine(agentInput, agentId, systemPrompt, isFork);
+      }
 
       this.activeAgents.get(agentId)!.status = 'completed';
 
@@ -531,6 +640,7 @@ export class AgentTool implements Tool {
           agentType: effectiveType,
           completed: true,
           isFork,
+          tokenUsage: result.tokenUsage,
         },
         executionId: agentId,
         toolName: this.name,
@@ -560,6 +670,13 @@ export class AgentTool implements Tool {
         timestamp: Date.now(),
       };
     }
+  }
+
+  /**
+   * 获取子代理引擎
+   */
+  getEngine(): SubAgentEngine {
+    return this.engine;
   }
 
   /**
@@ -600,12 +717,15 @@ export class AgentTool implements Tool {
    */
   stopAgent(agentId: string): boolean {
     const agent = this.activeAgents.get(agentId);
-    if (!agent || agent.status !== 'running') {
-      return false;
+
+    const engineStopped = this.engine.abort(agentId);
+
+    if (agent && agent.status === 'running') {
+      agent.status = 'failed';
+      return true;
     }
 
-    agent.status = 'failed';
-    return true;
+    return engineStopped;
   }
 
   /**

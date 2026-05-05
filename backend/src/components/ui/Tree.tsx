@@ -52,11 +52,6 @@ function RenderNode({ node, depth, showLines, isLast, parentPrefixes }: RenderNo
         <Text
           color={nodeColor}
           bold
-          onMouseDown={() => {
-            if (node.children && node.children.length > 0) {
-              setExpanded(!expanded);
-            }
-          }}
         >
           {expandIcon}
           {node.icon && <Text>{node.icon} </Text>}

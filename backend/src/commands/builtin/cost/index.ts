@@ -1,7 +1,7 @@
 /**
  * Cost命令模块入口
  */
-import { Cost } from './Cost.js';
+import { CostCommand } from './Cost.js';
 import type { Command } from '../../types/index.js';
 
 /**
@@ -22,14 +22,14 @@ const costCommand: Command = {
    * 加载命令实现
    */
   async load(): Promise<any> {
-    return new Cost();
+    return new CostCommand();
   }
 };
 
 /**
  * 导出Cost命令实现
  */
-export { Cost };
+export { CostCommand };
 
 /**
  * 默认导出Cost命令定义

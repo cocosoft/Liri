@@ -4,6 +4,7 @@
  */
 import type { CommandImplementation } from '../../types/index.js';
 import { mcpConnectionManager } from '../../../services/mcp/MCPConnectionManager.js';
+import { getToolManager } from '../../../tools/ToolManager.js';
 
 /**
  * MCP服务器数据定义
@@ -152,6 +153,13 @@ export class MCP implements CommandImplementation {
    */
   async execute(args: string, context: any): Promise<any> {
     try {
+      // 检查是否为 run 子命令
+      const trimmed = args.trim();
+      const runMatch = trimmed.match(/^run\s+(.+)$/);
+      if (runMatch) {
+        return await this.runMCPToolAction(runMatch[1], context);
+      }
+
       // 解析参数
       const params = this.parseArgs(args);
       
@@ -478,11 +486,51 @@ export class MCP implements CommandImplementation {
   }
 
   /**
+   * 执行MCP操作（通过ToolManager）
+   * @param args 操作参数，格式: <action> [params...]
+   * @param context 命令上下文
+   * @returns 执行结果
+   */
+  private async runMCPToolAction(args: string, context: any): Promise<any> {
+    const parts = args.trim().split(/\s+/);
+    const action = parts[0];
+    const params = parts.slice(1).join(' ');
+
+    try {
+      const toolManager = getToolManager();
+      const result = await toolManager.executeTool(
+        'mcp',
+        { action, params },
+        {}
+      );
+
+      return {
+        success: true,
+        message: result.output || 'MCP操作已完成',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `执行MCP操作失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
    * 收集MCP数据
    * @param context 命令上下文
    * @returns MCP数据
    */
   private async collectMCPData(context: any): Promise<MCPManagementData> {
+    // 确保MCP连接管理器已初始化
+    if (mcpConnectionManager.getServers().length === 0) {
+      try {
+        await mcpConnectionManager.initialize({});
+      } catch (error) {
+        console.debug('MCP initialization skipped or failed:', error);
+      }
+    }
+
     const realServers = mcpConnectionManager.getServers();
 
     const servers: MCPServerData[] = realServers.map(conn => {

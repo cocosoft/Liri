@@ -11,7 +11,7 @@ export const configCommand: Command = {
   type: 'action',
   name: 'config',
   description: '管理配置',
-  aliases: ['cfg'],
+  aliases: ['cfg', 'settings', 'preferences', 'opts'],
   argumentHint: '[get|set|list]',
   whenToUse: '当你需要管理系统配置时',
   load: async () => ({
@@ -30,7 +30,7 @@ export const configCommand: Command = {
       const restArgs = parts.slice(1).join(' ');
 
       switch (subcommand) {
-        case 'get':
+        case 'get': {
           const key = restArgs;
           if (key in configStore) {
             return {
@@ -43,8 +43,9 @@ export const configCommand: Command = {
               error: `Config key not found: ${key}`,
             };
           }
+        }
 
-        case 'set':
+        case 'set': {
           const [setKey, ...valueParts] = restArgs.split(/\s+/);
           const value = valueParts.join(' ');
           if (setKey) {
@@ -59,8 +60,9 @@ export const configCommand: Command = {
               error: 'Missing config key',
             };
           }
+        }
 
-        case 'list':
+        case 'list': {
           const configList = Object.entries(configStore)
             .map(([key, value]) => `  ${key}: ${value}`)
             .join('\n');
@@ -68,6 +70,26 @@ export const configCommand: Command = {
             success: true,
             message: `Configuration:\n${configList}`,
           };
+        }
+
+        case '':
+        case undefined: {
+          // 没有子命令时显示帮助信息
+          const helpMessage = `配置命令用法:
+
+/config list          - 列出所有配置项
+/config get <key>     - 获取指定配置项的值
+/config set <key> <value>  - 设置配置项的值
+
+示例:
+  /config list
+  /config get model
+  /config set theme light`;
+          return {
+            success: true,
+            message: helpMessage,
+          };
+        }
 
         default:
           return {

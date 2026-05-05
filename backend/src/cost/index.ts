@@ -37,6 +37,9 @@ export * from './AdvancedCostAnalyzer.js';
 // 导出预算管理器
 export * from './CostBudgetManager.js';
 
+// 导出成本持久化服务
+export * from './CostPersistenceService.js';
+
 // 导出React Hooks
 export * from './useCostSummary.js';
 
@@ -77,6 +80,30 @@ export async function initializeCostTrackingSystem(): Promise<void> {
  */
 export async function shutdownCostTrackingSystem(): Promise<void> {
   try {
+    const { costPersistenceService } = await import('./CostPersistenceService.js');
+    const { getCostAnalyticsTracker } = await import('../analytics/CostAnalyticsTracker.js');
+
+    const tracker = getCostAnalyticsTracker();
+    const sessionSummary = tracker.getSessionCost();
+
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    for (const mc of Object.values(sessionSummary.modelBreakdown)) {
+      totalInputTokens += mc.inputTokens;
+      totalOutputTokens += mc.outputTokens;
+    }
+
+    const sessionData = {
+      totalCost: sessionSummary.totalCost,
+      totalInputTokens,
+      totalOutputTokens,
+      totalRequests: sessionSummary.totalRequests,
+      modelBreakdown: sessionSummary.modelBreakdown,
+      successfulRequests: sessionSummary.totalRequests,
+      failedRequests: 0,
+    };
+
+    await costPersistenceService.mergeAndSave(sessionData);
     console.log('成本跟踪系统已关闭');
   } catch (error) {
     console.error('成本跟踪系统关闭失败:', error);

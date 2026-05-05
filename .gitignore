@@ -48,6 +48,20 @@ py-app-client/src-tauri/target/
 
 # Archives
 *.zip
+
+# Development artifacts
+conversation-*.txt
+share-*.md
+test_write.txt
+dev_docs/
+backend/check-exports.js
+backend/debug-*.ts
+backend/debug_tools.*
+backend/find-problems.js
+backend/fix-*.js
+backend/fix-duplicate-exports.js
+backend/fix-exports.js
+backend/fix-remaining.js
 *.tar.gz
 *.rar
 

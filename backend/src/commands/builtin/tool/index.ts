@@ -12,7 +12,7 @@ export const toolCommand: Command = {
   type: 'action',
   name: 'tool',
   description: '管理工具',
-  aliases: ['t'],
+  aliases: ['t', 'tools'],
   argumentHint: '[list|enable|disable]',
   whenToUse: '当你需要管理系统工具时',
   load: async () => ({
@@ -25,7 +25,7 @@ export const toolCommand: Command = {
       const restArgs = parts.slice(1).join(' ');
 
       switch (subcommand) {
-        case 'list':
+        case 'list': {
           if (tools.length === 0) {
             return {
               success: true,
@@ -42,8 +42,9 @@ export const toolCommand: Command = {
             success: true,
             message: `Tools:\n${toolList}`,
           };
+        }
 
-        case 'enable':
+        case 'enable': {
           const enableTool = restArgs;
           const toolToEnable = tools.find((t) => t.name === enableTool);
           if (toolToEnable) {
@@ -57,8 +58,9 @@ export const toolCommand: Command = {
               error: `Tool not found: ${enableTool}`,
             };
           }
+        }
 
-        case 'disable':
+        case 'disable': {
           const disableTool = restArgs;
           const toolToDisable = tools.find((t) => t.name === disableTool);
           if (toolToDisable) {
@@ -72,6 +74,28 @@ export const toolCommand: Command = {
               error: `Tool not found: ${disableTool}`,
             };
           }
+        }
+
+        case '':
+        case undefined: {
+          // 没有子命令时显示帮助信息
+          const helpMessage = `工具命令用法:
+
+/tool list            - 列出所有可用工具
+/tool enable <工具名>  - 启用指定工具
+/tool disable <工具名> - 禁用指定工具
+
+别名: /tools, /t
+
+示例:
+  /tool list
+  /tool enable bash
+  /tool disable websearch`;
+          return {
+            success: true,
+            message: helpMessage,
+          };
+        }
 
         default:
           return {

@@ -170,7 +170,7 @@ export class ToolFactory {
    * @returns 文件编辑工具实例
    */
   createFileEditTool(): Tool {
-    return FileEditTool as any;
+    return new FileEditTool() as any;
   }
 
   /**
@@ -186,7 +186,7 @@ export class ToolFactory {
    * @returns 文件匹配工具实例
    */
   createGlobTool(): Tool {
-    return GlobTool as any;
+    return new GlobTool() as any;
   }
 
   /**
@@ -560,7 +560,7 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new TaskStopTool());
   tools.push(new BashTool());
 
-  const globTool = GlobTool;
+  const globTool = new GlobTool();
   const grepTool = new GrepTool();
   if (globTool) {
     tools.push(globTool as any);
@@ -572,7 +572,7 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new FileEditTool() as any);
   tools.push(new FileReadTool());
   tools.push(new FileWriteTool());
-  tools.push(NotebookEditTool as any);
+  tools.push(new NotebookEditTool() as any);
   tools.push(new WebFetchTool() as any);
   tools.push(new TodoWriteTool());
   tools.push(new WebSearchTool() as any);

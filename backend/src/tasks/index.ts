@@ -4,7 +4,7 @@
  */
 
 // 导出类型
-export type { TaskStatus, TaskType, TaskContext, TaskOptions, TaskResult } from './types';
+export type { TaskStatus, TaskType } from './types';
 
 // 导出任务基类
 export { BaseTask } from './BaseTask';

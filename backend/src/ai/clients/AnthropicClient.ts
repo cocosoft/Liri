@@ -104,7 +104,7 @@ export class AnthropicClient extends LLMClient {
       thinking?: ThinkingConfig;
     },
   ): Promise<ChatResponse> {
-    const model = options?.model || this.config.model || 'claude-sonnet-4-20250514';
+    const model = options?.model || this.config.model || 'claude-sonnet-4-6-20250219';
 
     return withRetry(
       async () => {
@@ -135,7 +135,7 @@ export class AnthropicClient extends LLMClient {
       thinking?: ThinkingConfig;
     },
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const model = options?.model || this.config.model || 'claude-sonnet-4-20250514';
+    const model = options?.model || this.config.model || 'claude-sonnet-4-6-20250219';
     let finalResponse: ChatResponse = {
       content: '',
       model,

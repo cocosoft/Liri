@@ -3,10 +3,10 @@
  * 显示工作统计信息
  */
 import type { Command } from '../../types/index.js';
+import { StatsCommand } from './Stats.js';
 
-/**
- * stats 命令定义
- */
+const statsInstance = new StatsCommand();
+
 export const statsCommand: Command = {
   type: 'action',
   name: 'stats',
@@ -14,6 +14,5 @@ export const statsCommand: Command = {
   aliases: ['statistics', 'analytics'],
   argumentHint: '[summary|code|tasks|time|help]',
   whenToUse: '当你需要查看工作统计时',
-  load: async () => import('./Stats.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => statsInstance,
 };
-

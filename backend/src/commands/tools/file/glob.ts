@@ -30,17 +30,17 @@ export const globCommand: Command = {
       try {
         const toolManager = getToolManager();
         const result = await toolManager.executeTool(
-          'GlobTool',
+          'glob',
           {
             pattern: pattern,
           },
           {}
         );
 
-        if (result.files && result.files.length > 0) {
+        if (result.data && Array.isArray(result.data) && result.data.length > 0) {
           return {
             success: true,
-            message: `Found ${result.files.length} files:\n${result.files.join('\n')}`,
+            message: `Found ${result.data.length} files:\n${result.data.join('\n')}`,
           };
         } else {
           return {

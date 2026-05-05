@@ -42,14 +42,15 @@ export function Switch({
       <Text
         color={switchColor}
         dimColor={disabled}
-        onMouseDown={handleToggle}
       >
         {isChecked ? switchOn : switchOff}
       </Text>
       {label && (
-        <Text color={switchColor} marginLeft={1} dimColor={disabled}>
-          {label}
-        </Text>
+        <Box marginLeft={1}>
+          <Text color={switchColor} dimColor={disabled}>
+            {label}
+          </Text>
+        </Box>
       )}
     </Box>
   );

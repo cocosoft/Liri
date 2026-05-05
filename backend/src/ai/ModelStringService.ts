@@ -4,6 +4,7 @@
  */
 
 import { getAIModelManager } from './AIModelManager.js';
+import { modelManager } from './models/ModelManager.js';
 
 /**
  * 模型名称类型
@@ -49,28 +50,28 @@ export class ModelStringService {
    * 获取默认主循环模型
    */
   getDefaultMainLoopModel(): ModelName {
-    return 'claude-3-5-sonnet-20240620';
+    return modelManager.getDefaultMainLoopModel();
   }
 
   /**
-   * 获取默认Opus模型
+   * 获取默认Opus模型 — 委托给 ModelManager
    */
   getDefaultOpusModel(): ModelName {
-    return 'claude-3-opus-20240229';
+    return modelManager.getDefaultOpusModel();
   }
 
   /**
-   * 获取默认Sonnet模型
+   * 获取默认Sonnet模型 — 委托给 ModelManager
    */
   getDefaultSonnetModel(): ModelName {
-    return 'claude-3-5-sonnet-20240620';
+    return modelManager.getDefaultSonnetModel();
   }
 
   /**
-   * 获取默认Haiku模型
+   * 获取默认Haiku模型 — 委托给 ModelManager
    */
   getDefaultHaikuModel(): ModelName {
-    return 'claude-3-5-haiku-20240620';
+    return modelManager.getDefaultHaikuModel();
   }
 
   /**

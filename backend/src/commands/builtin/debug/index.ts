@@ -14,6 +14,6 @@ export const debugCommand: Command = {
   aliases: ['dev', 'developer'],
   argumentHint: '[status|logs|enable|disable|inspect|help]',
   whenToUse: '当你需要调试应用时',
-  load: async () => import('./Debug.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Debug.js').then((m) => m.default),
 };
 

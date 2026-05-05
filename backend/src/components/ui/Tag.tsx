@@ -39,7 +39,7 @@ export function Tag({
         {' '}
       </Text>
       {closable && onClose && (
-        <Text color={colors.text} onMouseDown={onClose}>
+        <Text color={colors.text}>
           ✕ 
         </Text>
       )}

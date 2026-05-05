@@ -89,18 +89,24 @@ export class LazyCommand implements Command {
         command = module as unknown as Command;
       }
 
+      // 如果 command 是类（有 constructor），创建实例
+      let commandInstance: Command = command;
+      if (typeof command === 'function' && command.prototype && typeof command.prototype.execute === 'function') {
+        commandInstance = new (command as any)();
+      }
+
       this.loadedImpl = {
-        getPromptForCommand: command.getPromptForCommand,
-        execute: command.execute,
-        call: command.call,
-        validate: command.validate,
+        getPromptForCommand: commandInstance.getPromptForCommand?.bind(commandInstance),
+        execute: commandInstance.execute?.bind(commandInstance),
+        call: commandInstance.call?.bind(commandInstance),
+        validate: commandInstance.validate?.bind(commandInstance),
       };
 
-      if (!command.execute && command.load) {
-        const impl = await command.load();
-        if (impl.execute) this.loadedImpl.execute = impl.execute;
-        if (impl.call) this.loadedImpl.call = impl.call;
-        if (impl.getPromptForCommand) this.loadedImpl.getPromptForCommand = impl.getPromptForCommand;
+      if (!commandInstance.execute && commandInstance.load) {
+        const impl = await commandInstance.load();
+        if (impl.execute) this.loadedImpl.execute = impl.execute.bind(impl);
+        if (impl.call) this.loadedImpl.call = impl.call.bind(impl);
+        if (impl.getPromptForCommand) this.loadedImpl.getPromptForCommand = impl.getPromptForCommand.bind(impl);
       }
 
       return this.loadedImpl;

@@ -245,6 +245,85 @@ export class ModelManager {
   }
 
   /**
+   * 获取模型信息列表（供命令层展示）
+   */
+  getModelInfoList(): Array<{ id: string; name: string; description: string }> {
+    const modelKeys = Object.keys(ALL_MODEL_CONFIGS) as ModelKey[];
+    return modelKeys
+      .filter(key => ALL_MODEL_CONFIGS[key].firstParty.length > 0)
+      .map(key => {
+        const config = ALL_MODEL_CONFIGS[key];
+        const id = config.firstParty;
+        const pricing = config.pricing
+          ? `(输入: $${config.pricing.inputPer1K}/1K, 输出: $${config.pricing.outputPer1K}/1K)`
+          : '';
+        return {
+          id,
+          name: config.displayName,
+          description: `${config.contextWindow.toLocaleString()} tokens 上下文, 最大输出 ${config.maxOutputTokens.toLocaleString()} tokens ${pricing}`,
+        };
+      });
+  }
+
+  /**
+   * 获取当前模型
+   */
+  getCurrentModel(): string {
+    const envModel = process.env.PY_APP_MODEL;
+    if (envModel) {
+      const modelKey = getModelKeyByName(envModel);
+      if (modelKey) {
+        return envModel;
+      }
+    }
+    const defaultModel = this.getDefaultMainLoopModel();
+    process.env.PY_APP_MODEL = defaultModel;
+    return defaultModel;
+  }
+
+  /**
+   * 设置当前模型
+   */
+  setCurrentModel(modelId: string): boolean {
+    const resolved = this.resolveModel(modelId);
+    if (resolved) {
+      process.env.PY_APP_MODEL = resolved;
+      this.config.modelOverride = resolved;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 检查模型是否有效（在配置中存在或为有效别名）
+   */
+  isValidModel(modelName: string): boolean {
+    if (getModelKeyByName(modelName)) {
+      return true;
+    }
+    const lower = modelName.toLowerCase();
+    if (isModelAlias(lower)) {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 解析模型输入（别名或完整ID），返回规范模型ID或null
+   */
+  resolveModel(modelInput: string): string | null {
+    const lower = modelInput.toLowerCase();
+    if (isModelAlias(lower)) {
+      return parseModelAlias(lower);
+    }
+    const modelKey = getModelKeyByName(modelInput);
+    if (modelKey) {
+      return ALL_MODEL_CONFIGS[modelKey].firstParty;
+    }
+    return null;
+  }
+
+  /**
    * 获取当前配置
    */
   getConfig(): ModelManagerConfig {

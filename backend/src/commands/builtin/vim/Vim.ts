@@ -7,7 +7,7 @@ import * as path from 'path';
  * 提供Vim编辑器功能
  */
 const vimCommand = {
-  async call(args: string, context: CommandContext) {
+  async execute(args: string, context: CommandContext) {
     // 解析参数
     const params = args.trim().split(' ');
     const filePath = params[0];
@@ -15,8 +15,8 @@ const vimCommand = {
 
     if (!filePath) {
       return {
-        type: 'text' as const,
-        value: '用法: /vim <文件路径> [选项]\n打开指定文件进行编辑\n\n选项:\n  --insert, -i  直接进入插入模式\n  --readonly, -r  只读模式\n  --line=<行号>, -l <行号>  跳转到指定行',
+        success: true,
+        message: '用法: /vim <文件路径> [选项]\n打开指定文件进行编辑\n\n选项:\n  --insert, -i  直接进入插入模式\n  --readonly, -r  只读模式\n  --line=<行号>, -l <行号>  跳转到指定行',
       };
     }
 
@@ -66,13 +66,13 @@ const vimCommand = {
       );
 
       return {
-        type: 'text' as const,
-        value: vimInterface,
+        success: true,
+        message: vimInterface,
       };
     } catch (error) {
       return {
-        type: 'text' as const,
-        value: `错误: ${error instanceof Error ? error.message : '未知错误'}`,
+        success: false,
+        message: `错误: ${error instanceof Error ? error.message : '未知错误'}`,
       };
     }
   },

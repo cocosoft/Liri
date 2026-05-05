@@ -1,43 +1,35 @@
 /**
- * Bridge主逻辑
- * 负责协调各个组件的工作
+ * Bridge 主逻辑
+ * 负责协调轮询、会话、心跳等管理器的工作
  */
 
-import { randomUUID } from 'crypto';
-import { hostname } from 'os';
-import {
+import type {
   BridgeConfig,
   BridgeApiClient,
   WorkResponse,
   SessionSpawner,
-  BridgeLogger,
   BackoffConfig,
   PollConfig,
-} from './types';
-import { createBridgeApiClient } from './api/BridgeApi';
-import { createPollManager } from './managers/PollManager';
-import { createSessionManager } from './managers/SessionManager';
-import { createHeartbeatManager } from './managers/HeartbeatManager';
-import { createWorktreeManager } from './managers/WorktreeManager';
-import { createTokenRefreshScheduler } from './utils/jwtUtils';
-import {
-  decodeWorkSecret,
-  buildSdkUrl,
-  buildCCRv2SdkUrl,
-  registerWorker,
-  sameSessionId,
-} from './utils/workSecret';
+  SessionActivity,
+} from './types/index.js';
+import { createBridgeApiClient } from './api/BridgeApi.js';
+import { createSimulatedBridgeApi } from './api/SimulatedBridgeApi.js';
+import { createPollManager } from './managers/PollManager.js';
+import { createSessionManager } from './managers/SessionManager.js';
+import { createHeartbeatManager } from './managers/HeartbeatManager.js';
+import { createWorktreeManager } from './managers/WorktreeManager.js';
+import { bridgeStateStore } from './state/BridgeStateStore.js';
 
 /**
  * 默认退避配置
  */
 const DEFAULT_BACKOFF: BackoffConfig = {
   connInitialMs: 2_000,
-  connCapMs: 120_000, // 2分钟
-  connGiveUpMs: 600_000, // 10分钟
+  connCapMs: 120_000,
+  connGiveUpMs: 600_000,
   generalInitialMs: 500,
   generalCapMs: 30_000,
-  generalGiveUpMs: 600_000, // 10分钟
+  generalGiveUpMs: 600_000,
   shutdownGraceMs: 30_000,
   stopWorkBaseDelayMs: 1000,
 };
@@ -54,15 +46,21 @@ const DEFAULT_POLL_CONFIG: PollConfig = {
 };
 
 /**
- * Bridge主逻辑选项
+ * Bridge 主逻辑选项
  */
-interface BridgeMainOptions {
-  /** Bridge配置 */
+export interface BridgeMainOptions {
+  /** Bridge 配置 */
   config: BridgeConfig;
   /** 会话生成器 */
   spawner: SessionSpawner;
   /** 日志器 */
-  logger: BridgeLogger;
+  logger: {
+    logError: (msg: string) => void;
+    logVerbose: (msg: string) => void;
+    logInfo?: (msg: string) => void;
+    printBanner?: (config: BridgeConfig, envId: string) => void;
+    setAttached?: (sessionId: string) => void;
+  };
   /** 获取访问令牌的函数 */
   getAccessToken?: () => string | undefined | Promise<string | undefined>;
   /** 退避配置 */
@@ -71,36 +69,36 @@ interface BridgeMainOptions {
   pollConfig?: PollConfig;
   /** 初始会话ID */
   initialSessionId?: string;
+  /** 使用模拟模式（不需要网络） */
+  useSimulatedApi?: boolean;
+  /** 模拟模式下的轮询回调（用于注入本地工作） */
+  onSimulatedPoll?: (pollCount: number) => WorkResponse | null;
 }
 
 /**
- * Bridge主逻辑
+ * Bridge 主逻辑
+ * 管理完整的 Bridge 生命周期：注册、轮询、会话管理、心跳、清理
  */
 export class BridgeMain {
   private readonly config: BridgeConfig;
   private readonly spawner: SessionSpawner;
-  private readonly logger: BridgeLogger;
-  private readonly getAccessToken?: () =>
-    | string
-    | undefined
-    | Promise<string | undefined>;
+  private readonly logger: BridgeMainOptions['logger'];
+  private readonly getAccessToken?: () => string | undefined | Promise<string | undefined>;
   private readonly backoffConfig: BackoffConfig;
   private readonly pollConfig: PollConfig;
   private readonly initialSessionId?: string;
+  private readonly useSimulatedApi: boolean;
+  private readonly onSimulatedPoll?: (pollCount: number) => WorkResponse | null;
+
   private api: BridgeApiClient | null = null;
   private environmentId: string | null = null;
   private environmentSecret: string | null = null;
   private pollManager: ReturnType<typeof createPollManager> | null = null;
   private sessionManager: ReturnType<typeof createSessionManager> | null = null;
-  private heartbeatManager: ReturnType<typeof createHeartbeatManager> | null =
-    null;
-  private worktreeManager: ReturnType<typeof createWorktreeManager> | null =
-    null;
-  private tokenRefreshScheduler: ReturnType<
-    typeof createTokenRefreshScheduler
-  > | null = null;
+  private heartbeatManager: ReturnType<typeof createHeartbeatManager> | null = null;
+  private worktreeManager: ReturnType<typeof createWorktreeManager> | null = null;
   private abortController: AbortController | null = null;
-  private pendingCleanups: Set<Promise<unknown>> = new Set();
+  private isRunning = false;
 
   constructor(options: BridgeMainOptions) {
     this.config = options.config;
@@ -110,53 +108,63 @@ export class BridgeMain {
     this.backoffConfig = options.backoffConfig || DEFAULT_BACKOFF;
     this.pollConfig = options.pollConfig || DEFAULT_POLL_CONFIG;
     this.initialSessionId = options.initialSessionId;
+    this.useSimulatedApi = options.useSimulatedApi ?? false;
+    this.onSimulatedPoll = options.onSimulatedPoll;
   }
 
   /**
-   * 运行Bridge循环
+   * 运行 Bridge 循环
    */
   async run(): Promise<void> {
+    if (this.isRunning) return;
+    this.isRunning = true;
+
     this.abortController = new AbortController();
     const signal = this.abortController.signal;
 
     try {
-      // 初始化API客户端
-      this.api = createBridgeApiClient({
-        baseUrl: this.config.apiBaseUrl,
-        getAccessToken: () => {
-          const token = this.getAccessToken
-            ? this.getAccessToken()
-            : this.environmentSecret;
-          if (typeof token === 'string') {
-            return token;
-          }
-          return undefined;
-        },
-        runnerVersion: '1.0.0',
-        onDebug: (msg) => console.log(msg),
-      });
+      this.api = this.useSimulatedApi
+        ? createSimulatedBridgeApi({
+            onPoll: this.onSimulatedPoll,
+            onDebug: (msg) => this.logger.logVerbose(msg),
+          })
+        : createBridgeApiClient({
+            baseUrl: this.config.apiBaseUrl,
+            getAccessToken: () => {
+              const token = this.getAccessToken
+                ? this.getAccessToken()
+                : this.environmentSecret;
+              return typeof token === 'string' ? token : undefined;
+            },
+            runnerVersion: '1.0.0',
+            onDebug: (msg) => this.logger.logVerbose(msg),
+          });
 
-      // 注册环境
       const envInfo = await this.api.registerBridgeEnvironment(this.config);
       this.environmentId = envInfo.environment_id;
       this.environmentSecret = envInfo.environment_secret;
 
-      // 初始化管理器
+      bridgeStateStore.setEnvironmentId(this.environmentId);
+      bridgeStateStore.setBridgeState('connected');
+
       this.sessionManager = createSessionManager({
         spawner: this.spawner,
         maxSessions: this.config.maxSessions,
         sessionTimeoutMs: 30 * 60 * 1000,
-        onSessionDone: (sessionId, status) =>
-          this.onSessionDone(sessionId, status),
+        onSessionDone: (sessionId, status) => {
+          void this.onSessionDone(sessionId, status);
+        },
       });
 
       this.heartbeatManager = createHeartbeatManager({
         api: this.api,
         environmentId: this.environmentId,
-        heartbeatIntervalMs:
-          this.pollConfig.non_exclusive_heartbeat_interval_ms,
-        onError: (error) =>
-          this.logger.logError(`Heartbeat error: ${error.message}`),
+        heartbeatIntervalMs: this.pollConfig.non_exclusive_heartbeat_interval_ms,
+        onError: (error) => this.logger.logError(`心跳错误: ${error.message}`),
+        onSessionExpired: (sessionId, workId) => {
+          this.logger.logError(`会话 ${sessionId} (工作 ${workId}) 心跳过期`);
+          bridgeStateStore.removeSession(sessionId);
+        },
         signal,
       });
 
@@ -164,81 +172,133 @@ export class BridgeMain {
         baseDir: this.config.dir,
       });
 
-      // 初始化令牌刷新调度器
-      if (this.getAccessToken) {
-        this.tokenRefreshScheduler = createTokenRefreshScheduler({
-          getAccessToken: this.getAccessToken,
-          onRefresh: (sessionId, token) =>
-            this.onTokenRefresh(sessionId, token),
-          label: 'bridge',
-        });
+      if (this.logger.printBanner) {
+        this.logger.printBanner(this.config, this.environmentId);
       }
 
-      // 打印横幅
-      this.logger.printBanner(this.config, this.environmentId);
-
-      // 如果有初始会话，显示其URL
-      if (this.initialSessionId) {
+      if (this.initialSessionId && this.logger.setAttached) {
         this.logger.setAttached(this.initialSessionId);
       }
 
-      // 启动心跳管理器
       this.heartbeatManager.start();
 
-      // 启动轮询管理器
       this.pollManager = createPollManager({
         api: this.api,
         environmentId: this.environmentId,
         environmentSecret: this.environmentSecret,
         pollConfig: this.pollConfig,
-        onPoll: (work) => this.handleWork(work),
-        onError: (error) =>
-          this.logger.logError(`Poll error: ${error.message}`),
+        getActiveSessionCount: () => this.sessionManager?.getActiveSessionCount() ?? 0,
+        maxSessions: this.config.maxSessions,
+        onWork: (work) => this.handleWork(work),
+        onError: (error) => this.logger.logError(`轮询错误: ${error.message}`),
         signal,
       });
 
       await this.pollManager.start();
     } catch (error) {
-      this.logger.logError(
-        `Bridge error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.logError(`Bridge 错误: ${msg}`);
+      bridgeStateStore.setError(msg);
       await this.shutdown();
       throw error;
     }
   }
 
   /**
-   * 处理工作任务
+   * 关闭 Bridge
    */
-  private async handleWork(work: WorkResponse | null): Promise<void> {
-    if (!work) {
-      // 没有工作任务
-      return;
+  async shutdown(): Promise<void> {
+    if (!this.isRunning) return;
+    this.isRunning = false;
+
+    this.logger.logVerbose('正在关闭 Bridge...');
+
+    this.abortController?.abort();
+
+    this.heartbeatManager?.stop();
+
+    if (this.sessionManager) {
+      await this.sessionManager.clearAllSessions();
     }
 
+    if (this.worktreeManager) {
+      await this.worktreeManager.clearAllWorktrees();
+    }
+
+    if (this.api && this.environmentId) {
+      try {
+        await this.api.deregisterEnvironment(this.environmentId);
+      } catch (error) {
+        this.logger.logError(
+          `注销环境失败: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    bridgeStateStore.setBridgeState('ready');
+    bridgeStateStore.disable();
+
+    this.logger.logVerbose('Bridge 关闭完成');
+  }
+
+  /**
+   * 获取轮询管理器（用于注入模拟工作）
+   */
+  getPollManager(): ReturnType<typeof createPollManager> | null {
+    return this.pollManager;
+  }
+
+  /**
+   * 获取会话管理器
+   */
+  getSessionManager(): ReturnType<typeof createSessionManager> | null {
+    return this.sessionManager;
+  }
+
+  /**
+   * 获取心跳管理器
+   */
+  getHeartbeatManager(): ReturnType<typeof createHeartbeatManager> | null {
+    return this.heartbeatManager;
+  }
+
+  /**
+   * 是否正在运行
+   */
+  getIsRunning(): boolean {
+    return this.isRunning;
+  }
+
+  /**
+   * 获取环境 ID
+   */
+  getEnvironmentId(): string | null {
+    return this.environmentId;
+  }
+
+  /**
+   * 处理工作任务
+   */
+  private async handleWork(work: WorkResponse): Promise<void> {
     try {
-      // 解码工作密钥
-      const secret = decodeWorkSecret(work.secret);
+      bridgeStateStore.incrementMessageCount();
 
       switch (work.data.type) {
         case 'healthcheck':
-          // 处理健康检查
           await this.api!.acknowledgeWork(
             this.environmentId!,
             work.id,
-            secret.session_ingress_token
+            work.secret,
           );
-          this.logger.logVerbose('Healthcheck received');
           break;
 
         case 'session':
-          // 处理会话任务
-          await this.handleSessionWork(work, secret);
+          await this.handleSessionWork(work);
           break;
       }
     } catch (error) {
       this.logger.logError(
-        `Error handling work: ${error instanceof Error ? error.message : String(error)}`
+        `处理工作失败: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -246,127 +306,65 @@ export class BridgeMain {
   /**
    * 处理会话工作任务
    */
-  private async handleSessionWork(
-    work: WorkResponse,
-    secret: any
-  ): Promise<void> {
-    const sessionId =
-      work.data.type === 'session' ? (work.data as any).id : undefined;
+  private async handleSessionWork(work: WorkResponse): Promise<void> {
+    if (work.data.type !== 'session') return;
 
+    const sessionId = work.data.id;
     if (!sessionId) {
-      this.logger.logError('Session work without session ID');
+      this.logger.logError('会话工作缺少会话 ID');
       return;
     }
 
-    // 检查是否已有会话
     if (this.sessionManager!.hasSession(sessionId)) {
-      // 更新现有会话的令牌
-      const sessionInfo = this.sessionManager!.getSession(sessionId);
-      if (sessionInfo) {
-        sessionInfo.handle.updateAccessToken(secret.session_ingress_token);
-        this.heartbeatManager!.addSession(
-          sessionId,
-          work.id,
-          secret.session_ingress_token
-        );
-        this.tokenRefreshScheduler?.schedule(
-          sessionId,
-          secret.session_ingress_token
-        );
-      }
-      await this.api!.acknowledgeWork(
-        this.environmentId!,
-        work.id,
-        secret.session_ingress_token
-      );
+      this.heartbeatManager!.addSession(sessionId, work.id, work.secret);
+      await this.api!.acknowledgeWork(this.environmentId!, work.id, work.secret);
       return;
     }
 
-    // 检查是否达到最大会话数
-    if (
-      this.sessionManager!.getActiveSessionCount() >= this.config.maxSessions
-    ) {
+    if (this.sessionManager!.getActiveSessionCount() >= this.config.maxSessions) {
       this.logger.logError(
-        `At capacity, cannot spawn new session for workId=${work.id}`
+        `已达容量上限，无法为工作 ${work.id} 创建新会话`
       );
       return;
     }
 
-    // 确认工作任务
-    await this.api!.acknowledgeWork(
-      this.environmentId!,
-      work.id,
-      secret.session_ingress_token
-    );
+    await this.api!.acknowledgeWork(this.environmentId!, work.id, work.secret);
 
-    // 确定SDK URL
-    let sdkUrl: string;
-    let useCcrV2 = false;
-
-    if (secret.use_code_sessions === true) {
-      // CCR v2路径
-      sdkUrl = buildCCRv2SdkUrl(this.config.apiBaseUrl, sessionId);
-      try {
-        await registerWorker(sdkUrl, secret.session_ingress_token);
-        useCcrV2 = true;
-      } catch (error) {
-        this.logger.logError(
-          `CCR v2 worker registration failed: ${error instanceof Error ? error.message : String(error)}`
-        );
-        return;
-      }
-    } else {
-      // v1路径
-      sdkUrl = buildSdkUrl(this.config.sessionIngressUrl, sessionId);
-    }
-
-    // 确定会话目录
     let sessionDir = this.config.dir;
 
-    if (
-      this.config.spawnMode === 'worktree' &&
-      (this.initialSessionId === undefined ||
-        !sameSessionId(sessionId, this.initialSessionId))
-    ) {
+    if (this.config.spawnMode === 'worktree') {
       try {
-        const worktreeInfo =
-          await this.worktreeManager!.createWorktree(sessionId);
+        const worktreeInfo = await this.worktreeManager!.createWorktree(sessionId);
         sessionDir = worktreeInfo.worktreePath;
       } catch (error) {
         this.logger.logError(
-          `Failed to create worktree: ${error instanceof Error ? error.message : String(error)}`
+          `创建工作树失败: ${error instanceof Error ? error.message : String(error)}`
         );
         return;
       }
     }
 
-    // 创建会话
     try {
       const handle = this.sessionManager!.createSession(
         sessionId,
-        sdkUrl,
-        secret.session_ingress_token,
+        this.config.sessionIngressUrl,
+        work.secret,
         work.id,
-        sessionDir
+        sessionDir,
       );
 
-      // 添加到心跳管理器
-      this.heartbeatManager!.addSession(
-        sessionId,
-        work.id,
-        secret.session_ingress_token
-      );
+      this.heartbeatManager!.addSession(sessionId, work.id, work.secret);
 
-      // 调度令牌刷新
-      this.tokenRefreshScheduler?.schedule(
-        sessionId,
-        secret.session_ingress_token
-      );
+      bridgeStateStore.addSession({
+        id: sessionId,
+        createdAt: Date.now(),
+        directory: sessionDir,
+      });
 
-      this.logger.logVerbose(`Spawned session ${sessionId}`);
+      this.logger.logVerbose(`已创建会话 ${sessionId}`);
     } catch (error) {
       this.logger.logError(
-        `Failed to spawn session: ${error instanceof Error ? error.message : String(error)}`
+        `创建会话失败: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -374,84 +372,26 @@ export class BridgeMain {
   /**
    * 处理会话完成
    */
-  private async onSessionDone(
-    sessionId: string,
-    status: string
-  ): Promise<void> {
-    // 从心跳管理器中移除
-    this.heartbeatManager!.removeSession(sessionId);
+  private async onSessionDone(sessionId: string, status: string): Promise<void> {
+    this.heartbeatManager?.removeSession(sessionId);
 
-    // 清理工作树
-    await this.worktreeManager!.removeWorktree(sessionId);
+    await this.worktreeManager?.removeWorktree(sessionId);
 
-    // 取消令牌刷新
-    this.tokenRefreshScheduler?.cancel(sessionId);
+    bridgeStateStore.removeSession(sessionId);
 
-    this.logger.logVerbose(
-      `Session ${sessionId} completed with status: ${status}`
-    );
-  }
+    const activity: SessionActivity = {
+      type: 'result',
+      summary: `会话完成: ${status}`,
+      timestamp: Date.now(),
+    };
+    this.sessionManager?.updateSessionActivity(sessionId, activity);
 
-  /**
-   * 处理令牌刷新
-   */
-  private onTokenRefresh(sessionId: string, token: string): void {
-    const sessionInfo = this.sessionManager!.getSession(sessionId);
-    if (sessionInfo) {
-      sessionInfo.handle.updateAccessToken(token);
-    }
-  }
-
-  /**
-   * 关闭Bridge
-   */
-  async shutdown(): Promise<void> {
-    this.logger.logVerbose('Shutting down Bridge...');
-
-    // 中止轮询
-    this.abortController?.abort();
-
-    // 停止心跳
-    this.heartbeatManager?.stop();
-
-    // 清理所有会话
-    if (this.sessionManager) {
-      await this.sessionManager.clearAllSessions();
-    }
-
-    // 清理所有工作树
-    if (this.worktreeManager) {
-      await this.worktreeManager.clearAllWorktrees();
-    }
-
-    // 等待所有清理操作完成
-    await Promise.all(this.pendingCleanups);
-
-    // 注销环境
-    if (this.api && this.environmentId) {
-      try {
-        await this.api.deregisterEnvironment(this.environmentId);
-      } catch (error) {
-        this.logger.logError(
-          `Failed to deregister environment: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-    }
-
-    this.logger.logVerbose('Bridge shutdown complete');
-  }
-
-  /**
-   * 跟踪清理操作
-   */
-  private trackCleanup(p: Promise<unknown>): void {
-    this.pendingCleanups.add(p);
-    void p.finally(() => this.pendingCleanups.delete(p));
+    this.logger.logVerbose(`会话 ${sessionId} 完成，状态: ${status}`);
   }
 }
 
 /**
- * 创建Bridge主逻辑
+ * 创建 Bridge 主逻辑
  */
 export function createBridgeMain(options: BridgeMainOptions): BridgeMain {
   return new BridgeMain(options);

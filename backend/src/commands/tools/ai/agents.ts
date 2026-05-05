@@ -1,6 +1,9 @@
 /**
- * Agents命令
- * 管理多个Agent实例
+ * agent-instance 命令
+ *
+ * 对标 CC 源码: src/commands/tools/ai/agents.ts (Agent 实例管理)
+ * 功能: 创建/删除工具管理器中的 Agent 实例
+ * 与 CC 差异: 仅保留实例管理功能，任务执行归 /subagent-run
  */
 
 import type { Command } from '../../types/index.js';
@@ -11,11 +14,11 @@ import { getToolManager } from '../../../tools/ToolManager.js';
  */
 export const agentsCommand: Command = {
   type: 'action',
-  name: 'agents',
-  description: '管理多个Agent实例',
-  aliases: [],
+  name: 'agent-instance',
+  description: '管理多个Agent实例（通过工具管理器）',
+  aliases: ['agents_tool'],
   argumentHint: '[list|create|delete|help] [args]',
-  whenToUse: '当你需要管理多个Agent实例时',
+  whenToUse: '当你需要通过工具管理器管理多个Agent实例时',
   load: async () => ({
     execute: async (args: string) => {
       const parts = args.trim().split(/\s+/);
@@ -24,7 +27,38 @@ export const agentsCommand: Command = {
       if (!subcommand || subcommand === 'help') {
         return {
           success: true,
-          message: `Agents Command Help\n=====================\n\nUsage:\n  /agents list                    - List all active agents\n  /agents create <type> <name>    - Create a new agent\n  /agents delete <agent_id>       - Delete an agent\n\nExamples:\n  /agents list\n  /agents create general my_agent\n  /agents delete 12345`,
+          message: [
+            'Agent-Instance 命令帮助',
+            '═══════════════════════',
+            '',
+            '用法:',
+            '  /agent-instance list                    - 列出所有活跃的 Agent',
+            '  /agent-instance create <type> <name>    - 创建新的 Agent',
+            '  /agent-instance delete <agent_id>       - 删除指定 Agent',
+            '',
+            '使用示例:',
+            '  /agent-instance list',
+            '  /agent-instance create general my_agent',
+            '  /agent-instance delete 12345',
+            '',
+            '别名: /agents_tool',
+            '',
+            '━━━ 相关命令对比 ━━━',
+            '',
+            '  /agent-instance（当前） - Agent 实例管理器：',
+            '                           创建/删除工具管理器中的 Agent 实例（非运行任务）',
+            '',
+            '  /subagent              - 子代理配置管理器：',
+            '                           查看/创建/删除子代理定义（.md 配置文件）',
+            '',
+            '  /subagent-run          - 子代理任务执行器：',
+            '                           运行/查看/停止子代理的执行任务',
+            '',
+            '使用建议：',
+            '  - 管理 Agent 实例   → 使用 /agent-instance',
+            '  - 日常运行子代理任务 → 使用 /subagent-run',
+            '  - 管理子代理配置     → 使用 /subagent',
+          ].join('\n'),
         };
       }
 
@@ -53,7 +87,7 @@ export const agentsCommand: Command = {
         } catch (error) {
           return {
             success: false,
-            error: `Error listing agents: ${error instanceof Error ? error.message : String(error)}`,
+            error: `列出 Agent 时出错: ${error instanceof Error ? error.message : String(error)}`,
           };
         }
       }
@@ -66,7 +100,7 @@ export const agentsCommand: Command = {
           return {
             success: false,
             error:
-              'Error: Please specify agent type and name\nUsage: /agents create <type> <name>',
+              '请指定 Agent 类型和名称\n用法: /agent-instance create <type> <name>',
           };
         }
 
@@ -89,7 +123,7 @@ export const agentsCommand: Command = {
         } catch (error) {
           return {
             success: false,
-            error: `Error creating agent: ${error instanceof Error ? error.message : String(error)}`,
+            error: `创建 Agent 时出错: ${error instanceof Error ? error.message : String(error)}`,
           };
         }
       }
@@ -101,7 +135,7 @@ export const agentsCommand: Command = {
           return {
             success: false,
             error:
-              'Error: Please specify agent ID\nUsage: /agents delete <agent_id>',
+              '请指定 Agent ID\n用法: /agent-instance delete <agent_id>',
           };
         }
 
@@ -123,14 +157,14 @@ export const agentsCommand: Command = {
         } catch (error) {
           return {
             success: false,
-            error: `Error deleting agent: ${error instanceof Error ? error.message : String(error)}`,
+            error: `删除 Agent 时出错: ${error instanceof Error ? error.message : String(error)}`,
           };
         }
       }
 
       return {
         success: false,
-        error: `Error: Unknown subcommand: ${subcommand}\n\nUse /agents help for help`,
+        error: `未知子命令: ${subcommand}\n\n使用 /agent-instance help 获取帮助`,
       };
     },
   }),

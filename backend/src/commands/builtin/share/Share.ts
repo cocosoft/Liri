@@ -17,14 +17,20 @@ export class ShareCommand implements Command {
   aliases = ['分享'];
   argumentHint = '';
 
-  async execute(args: string, context: CommandContext): Promise<void> {
+  async execute(args: string, context: CommandContext): Promise<{ success: boolean; message: string }> {
     const content = this.renderShareContent(context);
 
     try {
       const filepath = await this.saveToFile(content);
-      console.log(`对话已保存，可分享文件: ${filepath}`);
+      return {
+        success: true,
+        message: `对话已保存，可分享文件: ${filepath}`,
+      };
     } catch (error) {
-      console.log(`分享失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      return {
+        success: false,
+        message: `分享失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      };
     }
   }
 

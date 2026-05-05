@@ -11,6 +11,7 @@ export interface TooltipProps {
   position?: 'top' | 'bottom' | 'left' | 'right';
   color?: string;
   bgColor?: string;
+  visible?: boolean;
 }
 
 export function Tooltip({
@@ -19,8 +20,11 @@ export function Tooltip({
   position = 'top',
   color = 'white',
   bgColor = 'gray',
+  visible: controlledVisible,
 }: TooltipProps): React.ReactNode {
-  const [visible, setVisible] = useState(false);
+  const [internalVisible, setInternalVisible] = useState(controlledVisible ?? true);
+
+  const visible = controlledVisible !== undefined ? controlledVisible : internalVisible;
 
   const renderTooltip = (): React.ReactNode => {
     if (!visible) return null;
@@ -71,10 +75,7 @@ export function Tooltip({
   };
 
   return (
-    <Box
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
-    >
+    <Box>
       {renderTooltip()}
     </Box>
   );

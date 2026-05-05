@@ -132,8 +132,20 @@ PY_APP是一个智能编程助手，帮助你更高效地编写代码。
 ### /help [topic]
 显示帮助信息。可以指定主题名称来查看特定帮助。
 
-### /tools
-列出所有可用工具及其描述。
+### /tool
+管理系统工具。
+
+别名: \`/tools\`, \`/t\`
+
+子命令:
+- \`/tool list\` - 列出所有可用工具
+- \`/tool enable <工具名>\` - 启用指定工具
+- \`/tool disable <工具名>\` - 禁用指定工具
+
+示例:
+- \`/tool list\` - 查看所有工具
+- \`/tool enable bash\` - 启用bash工具
+- \`/tool disable websearch\` - 禁用网络搜索工具
 
 ### /skills
 列出所有可用技能及其描述。
@@ -143,6 +155,132 @@ PY_APP是一个智能编程助手，帮助你更高效地编写代码。
 
 ### /doctor
 运行系统诊断，检查环境配置和问题。
+
+### /config
+管理系统配置。
+
+子命令:
+- \`/config list\` - 列出所有配置项
+- \`/config get <key>\` - 获取指定配置项的值
+- \`/config set <key> <value>\` - 设置配置项的值
+
+示例:
+- \`/config list\` - 查看所有配置
+- \`/config get model\` - 获取模型配置
+- \`/config set theme light\` - 设置主题为亮色
+
+### /compact
+手动压缩对话历史，减少上下文大小。
+
+别名: \`/compress\`, \`/shrink\`
+
+选项:
+- \`--preserve-recent <number>\` - 保留最近的消息数量（默认5）
+- \`--no-summarize\` - 不生成摘要
+- \`--no-extract-key-info\` - 不提取关键信息
+
+示例:
+- \`/compact\` - 压缩对话历史（保留最近5条）
+- \`/compact --preserve-recent 10\` - 压缩对话历史，保留最近10条消息
+- \`/compact --no-summarize\` - 压缩对话历史，不生成摘要
+
+### /exit
+退出应用程序。
+
+别名: \`/quit\`, \`/q\`
+
+选项:
+- \`--force\` - 强制退出，不保存当前会话
+
+示例:
+- \`/exit\` - 退出应用（会提示确认）
+- \`/exit --force\` - 强制退出，不确认
+
+### /advisor
+代码建议和优化顾问，提供代码质量分析、性能分析和安全性分析。
+
+子命令:
+- \`/advisor code <文件路径>\` - 分析代码质量
+- \`/advisor performance <文件路径>\` - 分析性能
+- \`/advisor security <文件路径>\` - 分析安全性
+
+示例:
+- \`/advisor code ./src/index.ts\` - 分析指定文件的代码质量
+- \`/advisor performance ./src/utils/\` - 分析性能
+- \`/advisor security ./src/auth/\` - 分析安全性
+
+### /brief
+生成当前会话的摘要，提取关键信息和决策点。
+
+选项:
+- \`--length=<数字>\` - 摘要最大长度（默认1000）
+- \`--count=<数字>\` - 考虑的消息数量（默认20）
+- \`--type=<类型>\` - 摘要类型：concise（简洁）、detailed（详细）、actionable（可操作）
+
+示例:
+- \`/brief\` - 生成简洁摘要
+- \`/brief --length=2000\` - 生成2000字符的摘要
+- \`/brief --type=detailed\` - 生成详细摘要
+- \`/brief --count=50 --type=actionable\` - 基于50条消息生成可操作摘要
+
+### /cache
+管理工具缓存。
+
+子命令:
+- \`/cache clear [工具名称]\` - 清除缓存（可选指定工具名称）
+- \`/cache stats\` - 显示缓存统计信息
+- \`/cache size\` - 显示缓存大小
+
+示例:
+- \`/cache clear\` - 清除所有工具缓存
+- \`/cache clear bash\` - 清除bash工具的缓存
+- \`/cache stats\` - 查看缓存统计信息
+- \`/cache size\` - 查看缓存大小
+
+### /chat
+与LLM进行对话。
+
+别名: \`/c\`, \`/talk\`
+
+用法:
+- \`/chat <消息内容>\` - 发送消息给LLM
+
+示例:
+- \`/chat 你好\` - 向LLM打招呼
+- \`/chat 帮我写一段Python代码\` - 请求代码帮助
+- \`/chat 解释一下这个概念\` - 请求解释
+
+注意: 需要配置 DEEPSEEK_API_KEY 环境变量才能使用此命令。
+
+## 历史记录命令
+
+### /history show [数量]
+显示历史命令记录。数量参数可选，默认显示最近10条。
+
+示例:
+- \`/history show\` - 显示最近10条历史记录
+- \`/history show 50\` - 显示最近50条历史记录
+- \`/history show 100\` - 显示最近100条历史记录
+
+### /history clear
+清空所有历史记录。
+
+### /history search <关键词>
+搜索包含指定关键词的历史记录。
+
+## 技能管理命令
+
+### /skill list
+列出所有可用技能。
+
+### /skill info <技能名>
+查看技能的详细信息，包括描述、参数和使用场景。
+
+### /skill enable <技能名>
+启用指定的技能。
+
+### /skill disable <技能名>
+禁用指定的技能。
 
 ## 版本控制命令
 
@@ -157,6 +295,27 @@ PY_APP是一个智能编程助手，帮助你更高效地编写代码。
 
 ### /tag
 管理Git标签。创建、列出和删除标签。
+
+## 会话管理命令
+
+### /session
+管理会话（创建、切换、删除会话等）。
+
+子命令:
+- \`/session list\` - 列出所有可用会话
+- \`/session create <title>\` - 创建新会话
+- \`/session switch <session_id>\` - 切换到指定会话
+- \`/session delete <session_id>\` - 删除指定会话
+- \`/session rename <id> <title>\` - 重命名会话
+- \`/session info <session_id>\` - 显示会话详情
+- \`/session current\` - 显示当前会话
+
+示例:
+- \`/session list\` - 查看所有会话
+- \`/session create "My Project"\` - 创建名为 "My Project" 的新会话
+- \`/session switch session_123456\` - 切换到指定会话
+- \`/session delete session_123456\` - 删除指定会话
+- \`/session current\` - 查看当前会话信息
 
 ## 聊天增强命令
 
@@ -284,40 +443,67 @@ Jupyter笔记本编辑。
 ## 内置技能
 
 ### debug
-调试技能，帮助诊断和解决问题。
+启用调试日志并帮助诊断问题。
 
-### verify
-验证技能，用于验证代码更改和结果。
+用法: \`/skill info debug\`
 
 ### loop
-循环技能，创建重复执行的动作。
+按定期间隔运行提示或命令。
 
-### stuck
-卡住时帮助技能，提供替代方法和建议。
+用法: \`/skill info loop\`
+
+### simplify
+简化和解释复杂代码。
+
+用法: \`/skill info simplify\`
+
+### remember
+记住信息供以后参考。
+
+用法: \`/skill info remember\`
+
+### verify
+验证代码变更并建议改进。
+
+用法: \`/skill info verify\`
 
 ### batch
-批处理技能，对多个文件执行批量操作。
+批量处理多个文件或任务。
 
-### analyze
-分析技能，分析代码质量和模式。
+用法: \`/skill info batch\`
 
-### optimize
-优化技能，优化代码性能和效率。
+### stuck
+当用户遇到问题卡住时提供帮助。
 
-### document
-文档技能，为代码生成文档。
+用法: \`/skill info stuck\`
 
-### summarize
-总结技能，总结当前上下文或选定内容。
+## 测试技能
 
-### explain
-解释技能，详细解释代码或概念。
+### test-skill
+用于验证技能系统的测试技能。
 
-### refactor
-重构技能，重构代码以提高质量。
+## 技能管理命令
 
-### test
-测试技能，生成或运行测试。
+### /skill list
+列出所有可用技能。
+
+### /skill info <技能名>
+查看技能详细信息。
+
+### /skill enable <技能名>
+启用指定技能。
+
+### /skill disable <技能名>
+禁用指定技能。
+
+## 技能来源
+
+技能来自以下来源：
+- **内置技能** (bundled) - 随应用一起发布的核心技能
+- **用户技能** (user) - 用户自定义的技能
+- **项目技能** (project) - 项目级别的技能
+- **插件技能** (plugin) - 通过插件安装的技能
+- **MCP技能** (mcp) - 通过MCP协议获取的技能
 `,
       relatedTopics: ['commands', 'tools'],
       keywords: ['技能', 'skill', '列表'],

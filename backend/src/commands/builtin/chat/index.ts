@@ -1,3 +1,3 @@
-import { command as chatCommand } from './Chat.ts';
+import { command as chatCommand } from './Chat.js';
 
 export { chatCommand };

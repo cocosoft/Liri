@@ -138,6 +138,14 @@ export class HistoryManager {
 }
 
 /**
- * 历史记录管理器实例
+ * 历史记录管理器实例（使用全局符号确保单例）
  */
-export const historyManager = new HistoryManager();
+const HISTORY_MANAGER_SYMBOL = Symbol.for('PY_APP_HISTORY_MANAGER');
+
+export const historyManager: HistoryManager = (() => {
+  const globalObj = globalThis as any;
+  if (!globalObj[HISTORY_MANAGER_SYMBOL]) {
+    globalObj[HISTORY_MANAGER_SYMBOL] = new HistoryManager();
+  }
+  return globalObj[HISTORY_MANAGER_SYMBOL];
+})();

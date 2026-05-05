@@ -30,7 +30,7 @@ function createToolRegistry(): ToolRegistry {
 
   registry.registerTool(FileReadTool.create());
   registry.registerTool(FileWriteTool.create());
-  registry.registerTool(FileEditTool);
+  registry.registerTool(new FileEditTool());
 
   // 创建 BashTool 实例
   const bashTool = new BashTool();
@@ -94,10 +94,23 @@ export const call = async (
   context: CommandContext
 ): Promise<CommandResult> => {
   if (!args) {
-    return { type: 'text', value: '请输入要发送给LLM的消息' };
+    return { 
+      success: true,
+      type: 'text', 
+      value: '用法: /chat <消息内容>\n\n发送消息给LLM进行对话。\n\n示例:\n  /chat 你好\n  /chat 帮我写一段Python代码\n  /chat 解释一下这个概念' 
+    };
   }
 
   try {
+    // 检查 API key
+    if (!process.env.DEEPSEEK_API_KEY) {
+      return { 
+        success: true,
+        type: 'text', 
+        value: '错误: 未设置 DEEPSEEK_API_KEY 环境变量，请先配置API密钥。' 
+      };
+    }
+
     const chatManager = new ChatManagerImpl();
     const llmClient = new DeepSeekClient({
       apiKey: process.env.DEEPSEEK_API_KEY || '',
@@ -122,12 +135,15 @@ export const call = async (
     });
 
     return {
+      success: true,
       type: 'text',
       value:
         typeof message.content === 'string' ? message.content : '没有收到回复',
     };
   } catch (error) {
+    console.error('Chat command error:', error);
     return {
+      success: true,
       type: 'text',
       value: `聊天错误: ${error instanceof Error ? error.message : String(error)}`,
     };

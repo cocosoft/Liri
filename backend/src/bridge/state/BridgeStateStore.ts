@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 桥接系统状态管理
  * 定义桥接系统的状态类型和管理
@@ -128,7 +127,7 @@ export class BridgeStateStore {
       bridgeState: state,
       error: state === 'failed' ? detail : prev.error,
       lastConnectedAt: state === 'connected' ? Date.now() : prev.lastConnectedAt,
-      lastDisconnectedAt: state === 'disconnected' ? Date.now() : prev.lastDisconnectedAt,
+      lastDisconnectedAt: state !== 'connected' && state !== 'ready' ? Date.now() : prev.lastDisconnectedAt,
       reconnectAttempts: state === 'reconnecting' ? prev.reconnectAttempts + 1 : 0,
     }));
   }
@@ -271,7 +270,7 @@ export class BridgeStateStore {
    * 重置状态
    */
   reset(): void {
-    this.store.setState(createDefaultBridgeState());
+    this.store.setState(() => createDefaultBridgeState());
   }
 
   /**

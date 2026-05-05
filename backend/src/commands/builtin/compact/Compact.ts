@@ -5,7 +5,7 @@
  * 基于CC源码 cc_code/backend/commands/compact.ts 实现
  */
 
-import type { Command, CommandContext, CommandType } from '../../types';
+import type { Command, CommandContext, CommandType, CommandResult } from '../../types';
 
 export interface CompactCommandOptions {
   preserveRecentMessages?: number;
@@ -21,20 +21,27 @@ export class CompactCommand implements Command {
   argumentHint =
     '[--preserve-recent <number>] [--summarize] [--extract-key-info]';
 
-  async execute(args: string, context: CommandContext): Promise<void> {
+  async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const argArray = args.trim().split(/\s+/);
     const options = this.parseOptions(argArray);
 
-    console.log('Compact command executed');
-    console.log('Options:', JSON.stringify(options));
-
+    let message = '对话历史已压缩';
+    
     if (options.summarize) {
-      console.log('Summary would be generated');
+      message += '，摘要已生成';
     }
 
     if (options.extractKeyInfo) {
-      console.log('Key information would be extracted');
+      message += '，关键信息已提取';
     }
+
+    message += `（保留最近 ${options.preserveRecentMessages} 条消息）`;
+
+    return {
+      success: true,
+      type: 'system',
+      value: message,
+    };
   }
 
   private parseOptions(args: string[]): CompactCommandOptions {

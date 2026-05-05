@@ -4,6 +4,7 @@ export enum SkillSource {
   PLUGIN = 'plugin',
   BUILTIN = 'builtin',
   MCP = 'mcp',
+  BUNDLED = 'bundled',
 }
 
 export interface SkillFrontmatter {
@@ -30,6 +31,7 @@ export interface Skill {
   description: string;
   hasUserSpecifiedDescription: boolean;
   allowedTools: string[];
+  aliases?: string[];
   argumentHint?: string;
   argNames?: string[];
   whenToUse?: string;

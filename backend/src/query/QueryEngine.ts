@@ -28,6 +28,7 @@ import {
 import {
   CostAnalyticsTracker,
   createCostAnalyticsTracker,
+  setCostAnalyticsTracker,
 } from '../analytics/CostAnalyticsTracker.js';
 import {
   withRetry,
@@ -351,6 +352,7 @@ export class QueryEngine {
     this.analyticsService = analyticsService;
     const analyticsQueue = getGlobalAnalyticsQueue();
     this.costTracker = createCostAnalyticsTracker(analyticsQueue);
+    setCostAnalyticsTracker(this.costTracker);
     this.tokenBudgetManager = new TokenBudgetManager({
       maxContextTokens: this.config.taskBudget?.total || 200_000,
     });

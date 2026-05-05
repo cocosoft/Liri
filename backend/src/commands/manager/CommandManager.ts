@@ -63,7 +63,11 @@ export class CommandManager {
       for (const command of commands) {
         if (command && command.name) {
           this.registry.register(command);
-          this.parser.registerCommand(command);
+          try {
+            this.parser.registerCommand(command);
+          } catch {
+            // Commander.js 可能因重复注册抛出异常，不影响其他命令注册
+          }
           registeredCount++;
         }
       }
@@ -127,11 +131,19 @@ export class CommandManager {
       }
 
       // 执行命令
-      if (implementation.execute) {
-        return await implementation.execute(args, context);
-      } else if (implementation.getPromptForCommand) {
+      if (typeof implementation === 'object' && implementation !== null && implementation.execute) {
+        // 使用 bind 确保 this 正确绑定到实例
+        return await implementation.execute.bind(implementation)(args, context);
+      } else if (typeof implementation === 'object' && implementation !== null && implementation.call) {
+        // 支持 call 方法作为 execute 的别名
+        const result = await implementation.call.bind(implementation)(args, context);
+        return {
+          success: true,
+          data: result,
+        };
+      } else if (typeof implementation === 'object' && implementation !== null && implementation.getPromptForCommand) {
         // 对于prompt类型命令，返回提示
-        const prompt = implementation.getPromptForCommand(args);
+        const prompt = implementation.getPromptForCommand.bind(implementation)(args);
         return {
           success: true,
           data: { prompt },

@@ -12,7 +12,7 @@ const mcpCommand: Command = {
   name: 'mcp',
   description: 'MCP（Model Context Protocol）管理和配置',
   aliases: ['mcp-server', 'model-context'],
-  argumentHint: '[--list|-l] [--status|-s] [--manage|-m] [--resources|-r] [--tools|-t] [--test|-e]',
+  argumentHint: '[--list|-l] [--status|-s] [--manage|-m] [--resources|-r] [--tools|-t] [--test|-e] | run <action> [params]',
   whenToUse: '查看MCP服务器状态、管理MCP资源和工具时使用',
   version: '1.0.0',
   userInvocable: true,

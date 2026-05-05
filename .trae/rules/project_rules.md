@@ -317,6 +317,35 @@ T0: 返回启动进度 → T1: 并行预加载(Keychain+API+Rust核心预热)
 | **条件编译** | 逐步迁移至 `bun:bundle feature()` 获得编译时死代码消除 |
 | **Anthropic SDK** | 保持自实现，但须确保API兼容性 |
 
+### 7.11 模型数据唯一源架构
+所有模型数据（定义、配置、别名、定价）必须遵循 **单一数据源** 原则：
+
+```
+ModelConfigs.ts (唯一数据源)
+       ↓
+ModelManager.ts (统一查询API层)
+       ↓
+┌──────────┬──────────────┬──────────────┐
+│ 命令层    │ AIModelManager │ ModelDisplay │
+│ (/model)  │ (委托查询)     │ (展示层)      │
+└──────────┴──────────────┴──────────────┘
+```
+
+**核心约束**:
+- **ModelConfigs.ts** 是模型定义、定价、ID映射的唯一源头
+- **ModelManager.ts** 提供统一的查询 API，所有消费者通过它获取模型数据
+- **AIModelManager.ts** 保留模型别名解析和 thinking 配置等独特功能，但模型数据查询委托给 ModelManager
+- **命令层**（如 `/model`）禁止硬编码任何模型 ID 或列表，全部通过 ModelManager 获取
+- **ModelAliases.ts** 中的别名解析目标必须指向 ModelConfigs 中 `firstParty` 字段的规范 ID
+- 新增模型时，只需在 `ModelConfigs.ts` 中添加配置，所有下游自动生效
+
+**数据流**:
+```typescript
+/model sonnet → ModelManager.resolveModel() → ModelConfigs → 规范ID (claude-sonnet-4-6-20250219)
+ModelManager.setCurrentModel(id) → process.env.PY_APP_MODEL（唯一写入点）
+AIModelManager 查询 → modelManager.getModelPricing() / getModelDisplayName()
+```
+
 ## §8 安全必做项
 
 参考 cc_code `bashSecurity.ts` 的23项检查，必须实现：
@@ -353,6 +382,7 @@ T0: 返回启动进度 → T1: 并行预加载(Keychain+API+Rust核心预热)
 - [ ] 运行了模块系统测试
 - [ ] 修改模块结构后运行了 `bun run modules:snapshot` 更新依赖图快照
 - [ ] 讨论中产生的约束性结论已同步到规则文件（参见§3.5）
+- [ ] 涉及模型数据变更时，仅修改 `ModelConfigs.ts`，不硬编码到命令层或服务层
 
 ## §11 特别说明
 
@@ -376,9 +406,13 @@ CC源码中的KAIROS系统已被Chronos系统替换，相关模块仅与Chronos�
 
 ---
 
-**规则文件版本**: 4.3.0
-**最后更新**: 2026-05-02
-**下次评审**: 2026-06-02
+**规则文件版本**: 4.4.0
+**最后更新**: 2026-05-04
+**下次评审**: 2026-06-04
+
+**V4.4.0 更新说明**:
+- **§7.11 新增**: 模型数据唯一源架构——ModelConfigs 为唯一数据源，禁止硬编码模型数据
+- **§10 补充**: 检查清单增加"模型数据变更仅修改 ModelConfigs.ts"检查项
 
 **V4.3.0 更新说明**:
 - **§1.3 补充**: 增加依赖图快照文件管理说明

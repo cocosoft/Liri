@@ -7,14 +7,14 @@ import type { ToolUseContext } from '../../../tools/types/ToolUseContext.js';
 const toolManager = createToolManager();
 
 const parallelCommand = {
-  async call(args: string, context: CommandContext) {
+  async execute(args: string, context: CommandContext) {
     // 解析参数
     const tasks = this.parseTasks(args);
 
     if (tasks.length === 0) {
       return {
-        type: 'text' as const,
-        value:
+        success: true,
+        message:
           '用法: /parallel <工具1> <输入1> ; <工具2> <输入2> ; ...\n\n示例: /parallel bash "echo hello" ; bash "echo world"',
       };
     }
@@ -70,8 +70,8 @@ const parallelCommand = {
         const tool = toolManager.getTool(task.toolName);
         if (!tool) {
           return {
-            type: 'text' as const,
-            value: `错误: 工具 ${task.toolName} 不存在`,
+            success: false,
+            message: `错误: 工具 ${task.toolName} 不存在`,
           };
         }
 
@@ -80,8 +80,8 @@ const parallelCommand = {
           scheduler.addTask(tool, input, toolContext);
         } catch (error) {
           return {
-            type: 'text' as const,
-            value: `错误: 输入格式无效: ${task.input}`,
+            success: false,
+            message: `错误: 输入格式无效: ${task.input}`,
           };
         }
       }
@@ -108,13 +108,13 @@ const parallelCommand = {
       }
 
       return {
-        type: 'text' as const,
-        value: resultText,
+        success: true,
+        message: resultText,
       };
     } catch (error) {
       return {
-        type: 'text' as const,
-        value: `错误: ${error instanceof Error ? error.message : '未知错误'}`,
+        success: false,
+        message: `错误: ${error instanceof Error ? error.message : '未知错误'}`,
       };
     }
   },

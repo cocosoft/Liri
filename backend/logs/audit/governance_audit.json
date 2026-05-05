@@ -2,6 +2,168 @@
   {
     "type": "governance_audit",
     "toolName": "test_file_write",
+    "toolUseId": "ba43aeae-cb54-4e3a-b283-78e2b115430d",
+    "timestamp": "2026-05-03T23:00:25.364Z",
+    "data": {
+      "success": true,
+      "durationMs": 0,
+      "violations": [],
+      "governanceCheck": {
+        "allowed": true,
+        "source": "permission"
+      }
+    },
+    "auditId": "audit_1777849225364_b8aacjq7i"
+  },
+  {
+    "type": "execution_completed",
+    "data": {
+      "result": {
+        "success": true,
+        "output": {
+          "result": {
+            "success": true,
+            "path": "E:\\PY\\CODES\\PY_APP\\backend\\testing\\test_integration.txt"
+          },
+          "status": "success",
+          "output": "File written to E:\\PY\\CODES\\PY_APP\\backend\\testing\\test_integration.txt"
+        },
+        "durationMs": 0,
+        "events": [],
+        "violations": [],
+        "governanceCheck": {
+          "allowed": true,
+          "source": "permission"
+        }
+      },
+      "success": true
+    },
+    "auditId": "audit_1777849225363_j4qlb72he",
+    "timestamp": "2026-05-03T23:00:25.363Z"
+  },
+  {
+    "type": "governance_audit",
+    "toolName": "test_tool",
+    "toolUseId": "7cf36cb7-5be4-4418-84b1-92d3e1f4f4c8",
+    "timestamp": "2026-05-03T23:00:25.357Z",
+    "data": {
+      "success": true,
+      "durationMs": 0,
+      "violations": [],
+      "governanceCheck": {
+        "allowed": true,
+        "source": "permission"
+      }
+    },
+    "auditId": "audit_1777849225357_tj666j9d6"
+  },
+  {
+    "type": "execution_completed",
+    "data": {
+      "result": {
+        "success": true,
+        "output": {
+          "result": "Processed: Governance Test",
+          "status": "success",
+          "output": "Processed: Governance Test"
+        },
+        "durationMs": 0,
+        "events": [],
+        "violations": [],
+        "governanceCheck": {
+          "allowed": true,
+          "source": "permission"
+        }
+      },
+      "success": true
+    },
+    "auditId": "audit_1777849225354_jynbxcq37",
+    "timestamp": "2026-05-03T23:00:25.354Z"
+  },
+  {
+    "type": "governance_audit",
+    "toolName": "test_file_write",
+    "toolUseId": "4c57695a-7ea5-4b02-a5c0-6d6107b34fed",
+    "timestamp": "2026-05-03T15:27:43.137Z",
+    "data": {
+      "success": true,
+      "durationMs": 2,
+      "violations": [],
+      "governanceCheck": {
+        "allowed": true,
+        "source": "permission"
+      }
+    },
+    "auditId": "audit_1777822063137_kiyigk8g7"
+  },
+  {
+    "type": "execution_completed",
+    "data": {
+      "result": {
+        "success": true,
+        "output": {
+          "result": {
+            "success": true,
+            "path": "E:\\PY\\CODES\\PY_APP\\backend\\testing\\test_integration.txt"
+          },
+          "status": "success",
+          "output": "File written to E:\\PY\\CODES\\PY_APP\\backend\\testing\\test_integration.txt"
+        },
+        "durationMs": 2,
+        "events": [],
+        "violations": [],
+        "governanceCheck": {
+          "allowed": true,
+          "source": "permission"
+        }
+      },
+      "success": true
+    },
+    "auditId": "audit_1777822063136_19rv7gb9r",
+    "timestamp": "2026-05-03T15:27:43.136Z"
+  },
+  {
+    "type": "governance_audit",
+    "toolName": "test_tool",
+    "toolUseId": "de2f73a5-e34c-40a5-992a-cef0c7135575",
+    "timestamp": "2026-05-03T15:27:43.126Z",
+    "data": {
+      "success": true,
+      "durationMs": 0,
+      "violations": [],
+      "governanceCheck": {
+        "allowed": true,
+        "source": "permission"
+      }
+    },
+    "auditId": "audit_1777822063126_jqki42gox"
+  },
+  {
+    "type": "execution_completed",
+    "data": {
+      "result": {
+        "success": true,
+        "output": {
+          "result": "Processed: Governance Test",
+          "status": "success",
+          "output": "Processed: Governance Test"
+        },
+        "durationMs": 0,
+        "events": [],
+        "violations": [],
+        "governanceCheck": {
+          "allowed": true,
+          "source": "permission"
+        }
+      },
+      "success": true
+    },
+    "auditId": "audit_1777822063123_3rvc73a7z",
+    "timestamp": "2026-05-03T15:27:43.123Z"
+  },
+  {
+    "type": "governance_audit",
+    "toolName": "test_file_write",
     "toolUseId": "6e8c1e57-6528-4f2a-b320-686620bece79",
     "timestamp": "2026-05-03T05:08:02.154Z",
     "data": {

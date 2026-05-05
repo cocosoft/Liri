@@ -399,8 +399,16 @@ export async function executeOnce(
       };
 
       profileCheckpoint('execute_once_command_start');
-      await commandExecutor.execute(commandName + ' ' + finalArgs, context);
+      const result = await commandExecutor.execute(commandName + ' ' + finalArgs, context);
       profileCheckpoint('execute_once_command_end');
+      if (result.success) {
+        if (result.message) console.log(result.message);
+        else if (result.value) console.log(result.value);
+        else if (result.data) console.log(JSON.stringify(result.data, null, 2));
+        else console.log(JSON.stringify(result));
+      } else {
+        console.error(chalk.red(result.error || '命令执行失败'));
+      }
     } else {
       profileCheckpoint('execute_once_initialize_chat_start');
       const chatManager = initializeChatManager();
@@ -466,8 +474,23 @@ export async function executeFromPipe(): Promise<void> {
         };
 
         profileCheckpoint('execute_from_pipe_command_start');
-        await commandExecutor.execute(commandName + ' ' + args, context);
+        const result = await commandExecutor.execute(commandName + ' ' + args, context);
         profileCheckpoint('execute_from_pipe_command_end');
+
+        if (result.success) {
+          if (result.message) {
+            console.log('\n' + result.message);
+          } else if (result.value) {
+            console.log('\n' + result.value);
+          } else if (result.data) {
+            console.log('\n' + JSON.stringify(result.data, null, 2));
+          }
+        } else {
+          console.error(chalk.red(result.error || '命令执行失败'));
+          if (result.error?.includes('Command not found')) {
+            console.log(chalk.cyan('提示: 使用 /help 查看可用命令'));
+          }
+        }
       } else {
         try {
           profileCheckpoint('execute_from_pipe_send_message_start');

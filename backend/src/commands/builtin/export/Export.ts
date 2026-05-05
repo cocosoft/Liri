@@ -36,35 +36,34 @@ export class ExportCommand implements Command {
   aliases = ['导出'];
   argumentHint = '[filename]';
 
-  async execute(args: string, context: CommandContext): Promise<void> {
+  async execute(args: string, context: CommandContext): Promise<{ success: boolean; message: string }> {
     const filename = args.trim();
+
+    let filepath: string;
 
     if (filename) {
       const finalFilename = filename.endsWith('.txt')
         ? filename
         : filename.replace(/\.[^.]+$/, '') + '.txt';
-      const filepath = join(process.cwd(), finalFilename);
-
-      try {
-        const content = this.renderMessages(context);
-        writeFileSync(filepath, content, { encoding: 'utf-8' });
-        console.log(`对话已导出到: ${filepath}`);
-      } catch (error) {
-        console.log(`导出失败: ${error instanceof Error ? error.message : '未知错误'}`);
-      }
-      return;
+      filepath = join(process.cwd(), finalFilename);
+    } else {
+      const timestamp = formatTimestamp(new Date());
+      const defaultFilename = `conversation-${timestamp}.txt`;
+      filepath = join(process.cwd(), defaultFilename);
     }
-
-    const timestamp = formatTimestamp(new Date());
-    const defaultFilename = `conversation-${timestamp}.txt`;
-    const filepath = join(process.cwd(), defaultFilename);
 
     try {
       const content = this.renderMessages(context);
       writeFileSync(filepath, content, { encoding: 'utf-8' });
-      console.log(`对话已导出到: ${filepath}`);
+      return {
+        success: true,
+        message: `对话已导出到: ${filepath}`,
+      };
     } catch (error) {
-      console.log(`导出失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      return {
+        success: false,
+        message: `导出失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      };
     }
   }
 

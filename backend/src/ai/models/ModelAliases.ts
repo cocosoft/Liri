@@ -56,17 +56,17 @@ export function isModelFamilyAlias(model: string): boolean {
 export function parseModelAlias(alias: ModelAlias): string {
   switch (alias) {
     case 'sonnet':
-      return 'claude-sonnet-4-20250514';
+      return 'claude-sonnet-4-6-20250219';
     case 'opus':
-      return 'claude-opus-4-20250514';
+      return 'claude-opus-4-6-20250219';
     case 'haiku':
       return 'claude-3-5-haiku-20241022';
     case 'best':
-      return 'claude-opus-4-20250514';
+      return 'claude-opus-4-6-20250219';
     case 'sonnet[1m]':
-      return 'claude-sonnet-4-20250514';
+      return 'claude-sonnet-4-6-20250219';
     case 'opus[1m]':
-      return 'claude-opus-4-20250514';
+      return 'claude-opus-4-6-20250219';
     default:
       return alias;
   }

@@ -6,6 +6,8 @@
  * 当原生库不可用时自动降级为启发式估算
  */
 
+import { modelManager } from '../../ai/models/ModelManager.js';
+
 let nativeEstimateTokens: ((text: string, model?: string) => number) | null = null;
 
 function lazyInitNative() {
@@ -52,7 +54,7 @@ const MAX_OUTPUT_TOKENS_MAP: Record<string, number> = {
 };
 
 export function getContextWindowForModel(model: string): number {
-  return CONTEXT_WINDOW_MAP[model] || 100000;
+  return CONTEXT_WINDOW_MAP[model] || modelManager.getModelContextWindow(model) || 100000;
 }
 
 export function getMaxOutputTokensForModel(model: string): number {

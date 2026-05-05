@@ -1,15 +1,15 @@
 /**
  * 统计命令实现
  */
-import type { CommandContext, CommandResult } from '../../types/index.js';
+import type { CommandContext, CommandResult, Command, CommandType } from '../../types/index.js';
 
-export default {
-  /**
-   * 执行统计命令
-   * @param args 子命令参数
-   * @param context 命令上下文
-   * @returns 命令结果
-   */
+export class StatsCommand implements Command {
+  type: CommandType = 'action';
+  name = 'stats';
+  description = '显示统计信息';
+  aliases = ['statistics', '统计'];
+  argumentHint = '[summary|code|tasks|time|help]';
+
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const parts = args.trim().split(' ');
     const subcommand = parts[0] || 'summary';
@@ -28,12 +28,9 @@ export default {
       default:
         return this.handleHelp();
     }
-  },
+  }
 
-  /**
-   * 显示综合统计
-   */
-  async handleSummary(context: CommandContext): Promise<CommandResult> {
+  private async handleSummary(context: CommandContext): Promise<CommandResult> {
     const stats = {
       todayCodeLines: 1250,
       todayTasks: 8,
@@ -62,16 +59,11 @@ export default {
 
     return {
       success: true,
-      type: 'text',
       message,
-      data: stats,
     };
-  },
+  }
 
-  /**
-   * 显示代码统计
-   */
-  async handleCode(context: CommandContext): Promise<CommandResult> {
+  private async handleCode(context: CommandContext): Promise<CommandResult> {
     const codeStats = {
       totalLines: 125000,
       languages: [
@@ -89,18 +81,13 @@ export default {
 
     return {
       success: true,
-      type: 'text',
       message: `📝 代码统计\n\n` +
         `总行数: ${codeStats.totalLines.toLocaleString()}\n\n` +
         `语言分布:\n${table}`,
-      data: codeStats,
     };
-  },
+  }
 
-  /**
-   * 显示任务统计
-   */
-  async handleTasks(context: CommandContext): Promise<CommandResult> {
+  private async handleTasks(context: CommandContext): Promise<CommandResult> {
     const taskStats = {
       completedToday: 8,
       completedWeek: 45,
@@ -112,7 +99,6 @@ export default {
 
     return {
       success: true,
-      type: 'text',
       message: `✅ 任务统计\n\n` +
         `今日完成: ${taskStats.completedToday}\n` +
         `本周完成: ${taskStats.completedWeek}\n` +
@@ -120,14 +106,10 @@ export default {
         `进行中: ${taskStats.inProgress}\n` +
         `待处理: ${taskStats.openIssues}\n` +
         `阻塞中: ${taskStats.blocked}`,
-      data: taskStats,
     };
-  },
+  }
 
-  /**
-   * 显示时间统计
-   */
-  async handleTime(context: CommandContext): Promise<CommandResult> {
+  private async handleTime(context: CommandContext): Promise<CommandResult> {
     const timeStats = {
       today: '5h 32m',
       week: '32h 15m',
@@ -139,7 +121,6 @@ export default {
 
     return {
       success: true,
-      type: 'text',
       message: `⏰ 时间统计\n\n` +
         `今日工作: ${timeStats.today}\n` +
         `本周工作: ${timeStats.week}\n` +
@@ -147,14 +128,10 @@ export default {
         `日均工作: ${timeStats.averageDaily}\n` +
         `最活跃: ${timeStats.mostActiveDay}\n` +
         `高峰时段: ${timeStats.peakHour}`,
-      data: timeStats,
     };
-  },
+  }
 
-  /**
-   * 显示帮助信息
-   */
-  async handleHelp(): Promise<CommandResult> {
+  private async handleHelp(): Promise<CommandResult> {
     const help = `统计命令用法:
 
 /stats summary   - 显示综合统计
@@ -169,8 +146,7 @@ export default {
 
     return {
       success: true,
-      type: 'text',
       message: help,
     };
-  },
-};
+  }
+}

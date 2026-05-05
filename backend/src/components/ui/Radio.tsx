@@ -53,7 +53,6 @@ export function Radio({
               color={itemColor}
               bold={isSelected}
               dimColor={item.disabled}
-              onMouseDown={() => handleSelect(item)}
             >
               {radioIcon} {item.label}
             </Text>

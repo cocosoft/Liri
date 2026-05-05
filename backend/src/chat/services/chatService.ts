@@ -144,6 +144,27 @@ export class ChatServiceImpl implements ChatService {
   }
 
   /**
+   * 获取会话消息
+   * @param sessionId 会话ID
+   * @returns 消息列表
+   */
+  getSessionMessages(sessionId: string): any[] {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return [];
+    }
+    
+    // 尝试获取消息，支持不同的会话实现
+    if (session.getMessages) {
+      return session.getMessages();
+    } else if (session.messages) {
+      return session.messages;
+    }
+    
+    return [];
+  }
+
+  /**
    * 保存会话
    * @param session 聊天会话
    */

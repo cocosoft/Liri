@@ -42,7 +42,6 @@ export function Checkbox({
         color={checkboxColor}
         bold={isChecked}
         dimColor={disabled}
-        onMouseDown={handleToggle}
       >
         {checkboxIcon} {label}
       </Text>

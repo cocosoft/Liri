@@ -411,6 +411,15 @@ export interface CreateSkillCommandOptions {
   loadedFrom: string;
 }
 
+/**
+ * 解析技能Frontmatter（为兼容旧API而导出）
+ */
+export function parseSkillFrontmatter(content: string): { frontmatter: SkillFrontmatter; content: string } {
+  const parser = new SkillParser();
+  const { frontmatter, skillContent } = parser.extractFrontmatter(content);
+  return { frontmatter, content: skillContent };
+}
+
 export function createSkillCommand(options: CreateSkillCommandOptions): Skill {
   const { skillName, frontmatter, content, source, loadedFrom } = options;
   const skill: Skill = {

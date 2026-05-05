@@ -14,6 +14,7 @@ const projectRoot = process.cwd();
 interface BuiltinModuleEntry {
   path: string;
   name: string;
+  aliases?: string[];
 }
 
 /**
@@ -53,9 +54,10 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/cache/index.js', name: 'cache' },
       { path: '../builtin/chat/index.js', name: 'chat' },
       { path: '../builtin/commit/index.js', name: 'commit' },
+      { path: '../builtin/git/index.js', name: 'git' },
       { path: '../builtin/complete/index.js', name: 'complete' },
       { path: '../builtin/parallel/index.js', name: 'parallel' },
-      { path: '../builtin/permission/index.js', name: 'permission' },
+      { path: '../builtin/permissions/index.js', name: 'permission' },
       { path: '../builtin/security/index.js', name: 'security' },
       { path: '../builtin/vim/index.js', name: 'vim' },
       { path: '../builtin/voice/index.js', name: 'voice' },
@@ -68,17 +70,14 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/doctor/index.js', name: 'doctor' },
       { path: '../builtin/fast/index.js', name: 'fast' },
       { path: '../builtin/memory/index.js', name: 'memory' },
-      { path: '../builtin/skills/index.js', name: 'skills' },
       { path: '../builtin/hooks/index.js', name: 'hooks' },
       { path: '../builtin/mcp/index.js', name: 'mcp' },
       { path: '../builtin/plugins/index.js', name: 'plugins' },
-      { path: '../builtin/models/index.js', name: 'models' },
       { path: '../builtin/permissions/index.js', name: 'permissions' },
       { path: '../builtin/tokens/index.js', name: 'tokens' },
-      { path: '../builtin/settings/index.js', name: 'settings' },
       { path: '../builtin/env/index.js', name: 'env' },
       { path: '../builtin/debug/index.js', name: 'debug' },
-      { path: '../agents/index.js', name: 'agent' },
+      { path: '../agents/index.js', name: 'subagent', aliases: ['agent', 'agents'] },
       { path: '../bridge/index.js', name: 'bridge' },
       { path: '../ide/index.js', name: 'ide' },
       { path: '../tasks/index.js', name: 'tasks' },
@@ -88,9 +87,8 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../tools/file/glob.js', name: 'glob' },
       { path: '../tools/system/bash.js', name: 'bash' },
       { path: '../tools/system/grep.js', name: 'grep' },
-      { path: '../tools/ai/agent.js', name: 'agent_tool' },
-      { path: '../tools/ai/agents.js', name: 'agents_tool' },
-      { path: '../tools/network/mcp.js', name: 'mcp_tool' },
+      { path: '../tools/ai/agent.js', name: 'subagent-run', aliases: ['agent_tool'] },
+      { path: '../tools/ai/agents.js', name: 'agent-instance', aliases: ['agents_tool'] },
       { path: '../tools/network/fetch.js', name: 'fetch' },
       { path: '../tools/network/websearch.js', name: 'websearch' },
       { path: '../tools/task/todo.js', name: 'todo' },
@@ -114,6 +112,7 @@ export class BuiltinCommandLoader implements CommandLoader {
           name: entry.name,
           description: `${entry.name} command`,
           modulePath: absolutePath,
+          aliases: entry.aliases,
           loadedFrom: 'builtin',
         });
 

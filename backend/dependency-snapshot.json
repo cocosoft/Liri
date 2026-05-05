@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-01T23:57:47.872Z",
+  "generatedAt": "2026-05-04T08:29:23.229Z",
   "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {

@@ -2,10 +2,10 @@
  * /commit 命令 - 智能Git提交
  * 基于CC源码 commands/commit.js 模式
  */
-import { execFile } from 'child_process';
+import { exec } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(execFile);
+const execAsync = promisify(exec);
 
 export interface CommitCommandResult {
   success: boolean;
@@ -16,7 +16,7 @@ export interface CommitCommandResult {
 
 export async function getStagedFiles(cwd?: string): Promise<string[]> {
   try {
-    const { stdout } = await execAsync('git', ['diff', '--cached', '--name-only'], {
+    const { stdout } = await execAsync('git diff --cached --name-only', {
       cwd: cwd || process.cwd(),
       timeout: 10_000,
     });
@@ -28,7 +28,7 @@ export async function getStagedFiles(cwd?: string): Promise<string[]> {
 
 export async function getStagedDiff(cwd?: string): Promise<string> {
   try {
-    const { stdout } = await execAsync('git', ['diff', '--cached', '--stat'], {
+    const { stdout } = await execAsync('git diff --cached --stat', {
       cwd: cwd || process.cwd(),
       timeout: 10_000,
     });
@@ -42,8 +42,12 @@ export async function commitChanges(
   message: string,
   cwd?: string,
 ): Promise<{ success: boolean; message: string }> {
+  if (!message || message.trim() === '') {
+    return { success: false, message: '请提供提交信息。用法: /commit <提交信息>' };
+  }
+  
   try {
-    await execAsync('git', ['commit', '-m', message], {
+    await execAsync(`git commit -m "${message.replace(/"/g, '\\"')}"`, {
       cwd: cwd || process.cwd(),
       timeout: 30_000,
     });

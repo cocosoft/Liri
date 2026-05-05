@@ -50,7 +50,6 @@ export function Dropdown({
         <Text
           color={isOpen ? selectedColor : color}
           underline={isOpen}
-          onMouseDown={handleToggle}
         >
           {displayText} {isOpen ? '▲' : '▼'}
         </Text>

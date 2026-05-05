@@ -1,6 +1,7 @@
 /**
  * AI模型管理服务
  * 实现模型别名、上下文窗口管理和模型显示优化
+ * 模型数据统一委托给 ModelManager（ModelConfigs 为唯一数据源）
  */
 
 import type { ThinkingConfig, ThinkingEffort } from './clients/thinking';
@@ -10,6 +11,13 @@ import {
   DEFAULT_THINKING_EFFORT,
   DEFAULT_THINKING_BUDGET_TOKENS,
 } from './clients/thinking';
+import {
+  MODEL_FAMILY_ALIASES,
+  parseModelAlias,
+  getModelFamily as getAliasFamily,
+  supports1MContext as aliasSupports1MContext,
+} from './models/ModelAliases.js';
+import { modelManager } from './models/ModelManager.js';
 
 export const MODEL_ALIASES = [
   'sonnet',
@@ -23,39 +31,14 @@ export const MODEL_ALIASES = [
 
 export type ModelAlias = (typeof MODEL_ALIASES)[number];
 
-export const MODEL_FAMILY_ALIASES = ['sonnet', 'opus', 'haiku'] as const;
-
-export interface ModelContextWindow {
-  model: string;
-  contextWindow: number;
-  supports1M: boolean;
-}
-
-export interface ModelDisplayConfig {
-  model: string;
-  displayName: string;
-  pricing?: {
-    input: number;
-    output: number;
-  };
-  family: 'opus' | 'sonnet' | 'haiku' | 'other';
-}
-
 export class AIModelManager {
   private static instance: AIModelManager;
-  private modelContextWindows: Map<string, ModelContextWindow>;
-  private modelDisplayConfigs: Map<string, ModelDisplayConfig>;
-  private modelAliases: Map<string, string>;
   private defaultThinkingEffort: ThinkingEffort;
   private thinkingEnabled: boolean;
 
   private constructor() {
-    this.modelContextWindows = new Map();
-    this.modelDisplayConfigs = new Map();
-    this.modelAliases = new Map();
     this.defaultThinkingEffort = DEFAULT_THINKING_EFFORT;
     this.thinkingEnabled = process.env.DISABLE_THINKING !== 'true' && process.env.DISABLE_THINKING !== '1';
-    this.initializeDefaults();
   }
 
   /**
@@ -69,111 +52,10 @@ export class AIModelManager {
   }
 
   /**
-   * 初始化默认配置
-   */
-  private initializeDefaults(): void {
-    // 初始化模型上下文窗口
-    this.addModelContextWindow({
-      model: 'claude-3-opus-20240229',
-      contextWindow: 200000,
-      supports1M: false,
-    });
-    
-    this.addModelContextWindow({
-      model: 'claude-3-sonnet-20240229',
-      contextWindow: 200000,
-      supports1M: false,
-    });
-    
-    this.addModelContextWindow({
-      model: 'claude-3-haiku-20240307',
-      contextWindow: 200000,
-      supports1M: false,
-    });
-    
-    this.addModelContextWindow({
-      model: 'claude-3-5-sonnet-20240620',
-      contextWindow: 200000,
-      supports1M: false,
-    });
-    
-    this.addModelContextWindow({
-      model: 'claude-3-5-sonnet-20240620[1m]',
-      contextWindow: 1000000,
-      supports1M: true,
-    });
-    
-    this.addModelContextWindow({
-      model: 'claude-3-5-haiku-20240620',
-      contextWindow: 200000,
-      supports1M: false,
-    });
-    
-    // 初始化模型显示配置
-    this.addModelDisplayConfig({
-      model: 'claude-3-opus-20240229',
-      displayName: 'Opus 3',
-      family: 'opus',
-    });
-    
-    this.addModelDisplayConfig({
-      model: 'claude-3-sonnet-20240229',
-      displayName: 'Sonnet 3',
-      family: 'sonnet',
-    });
-    
-    this.addModelDisplayConfig({
-      model: 'claude-3-haiku-20240307',
-      displayName: 'Haiku 3',
-      family: 'haiku',
-    });
-    
-    this.addModelDisplayConfig({
-      model: 'claude-3-5-sonnet-20240620',
-      displayName: 'Sonnet 3.5',
-      family: 'sonnet',
-    });
-    
-    this.addModelDisplayConfig({
-      model: 'claude-3-5-sonnet-20240620[1m]',
-      displayName: 'Sonnet 3.5 (1M context)',
-      family: 'sonnet',
-    });
-    
-    this.addModelDisplayConfig({
-      model: 'claude-3-5-haiku-20240620',
-      displayName: 'Haiku 3.5',
-      family: 'haiku',
-    });
-    
-    // 初始化模型别名
-    this.modelAliases.set('opus', 'claude-3-opus-20240229');
-    this.modelAliases.set('sonnet', 'claude-3-5-sonnet-20240620');
-    this.modelAliases.set('haiku', 'claude-3-5-haiku-20240620');
-    this.modelAliases.set('best', 'claude-3-opus-20240229');
-    this.modelAliases.set('sonnet[1m]', 'claude-3-5-sonnet-20240620[1m]');
-    this.modelAliases.set('opus[1m]', 'claude-3-opus-20240229'); // Opus 3 不支持1M
-  }
-
-  /**
-   * 添加模型上下文窗口配置
-   */
-  addModelContextWindow(window: ModelContextWindow): void {
-    this.modelContextWindows.set(window.model, window);
-  }
-
-  /**
-   * 添加模型显示配置
-   */
-  addModelDisplayConfig(config: ModelDisplayConfig): void {
-    this.modelDisplayConfigs.set(config.model, config);
-  }
-
-  /**
    * 检查是否为模型别名
    */
   isModelAlias(model: string): model is ModelAlias {
-    return MODEL_ALIASES.includes(model as ModelAlias);
+    return (MODEL_ALIASES as readonly string[]).includes(model);
   }
 
   /**
@@ -184,98 +66,72 @@ export class AIModelManager {
   }
 
   /**
-   * 解析用户指定的模型
+   * 解析用户指定的模型 — 委托给 ModelAliases
    */
   parseUserSpecifiedModel(modelInput: string): string {
-    const modelInputTrimmed = modelInput.trim();
-    const normalizedModel = modelInputTrimmed.toLowerCase();
+    const trimmed = modelInput.trim();
+    const lower = trimmed.toLowerCase();
 
-    // 检查是否为别名
-    if (this.isModelAlias(normalizedModel)) {
-      const resolved = this.modelAliases.get(normalizedModel);
-      if (resolved) {
-        return resolved;
-      }
+    if (lower === 'opusplan') {
+      return 'opusplan';
     }
 
-    // 检查是否带有[1m]后缀
-    const has1mTag = normalizedModel.includes('[1m]');
-    const modelString = has1mTag
-      ? normalizedModel.replace(/\[1m]$/i, '').trim()
-      : normalizedModel;
-
-    // 检查基础别名
-    if (this.isModelFamilyAlias(modelString)) {
-      const baseModel = this.modelAliases.get(modelString);
-      if (baseModel) {
-        return has1mTag ? baseModel + '[1m]' : baseModel;
-      }
+    if (this.isModelAlias(lower)) {
+      return parseModelAlias(lower as any);
     }
 
-    return modelInputTrimmed;
+    const baseInput = lower.replace(/\[1m]$/i, '').trim();
+
+    if (this.isModelFamilyAlias(baseInput)) {
+      return parseModelAlias(baseInput as any);
+    }
+
+    return trimmed;
   }
 
   /**
-   * 检查模型是否支持1M上下文
+   * 检查模型是否支持1M上下文 — 委托给 ModelAliases
    */
   supports1MContext(model: string): boolean {
-    const resolvedModel = this.parseUserSpecifiedModel(model);
-    const window = this.modelContextWindows.get(resolvedModel);
-    return window?.supports1M || false;
+    const resolved = this.parseUserSpecifiedModel(model);
+    return aliasSupports1MContext(resolved);
   }
 
   /**
-   * 获取模型上下文窗口大小
+   * 获取模型上下文窗口大小 — 委托给 ModelManager
    */
   getContextWindow(model: string): number {
-    const resolvedModel = this.parseUserSpecifiedModel(model);
-    const window = this.modelContextWindows.get(resolvedModel);
-    return window?.contextWindow || 200000; // 默认200k
+    const resolved = this.parseUserSpecifiedModel(model);
+    return modelManager.getModelContextWindow(resolved);
   }
 
   /**
-   * 获取模型显示名称
+   * 获取模型显示名称 — 委托给 ModelManager
    */
   getModelDisplayName(model: string): string {
-    const resolvedModel = this.parseUserSpecifiedModel(model);
-    const config = this.modelDisplayConfigs.get(resolvedModel);
-    if (config) {
-      return config.displayName;
-    }
-    
-    // 尝试不带[1m]的版本
-    const baseModel = resolvedModel.replace(/\[1m]$/i, '');
-    const baseConfig = this.modelDisplayConfigs.get(baseModel);
-    if (baseConfig) {
-      return resolvedModel.includes('[1m]') 
-        ? `${baseConfig.displayName} (1M context)`
-        : baseConfig.displayName;
-    }
-    
-    return model; //  fallback to original model name
+    const resolved = this.parseUserSpecifiedModel(model);
+    return modelManager.getModelDisplayName(resolved);
   }
 
   /**
-   * 获取模型价格字符串
+   * 获取模型价格字符串 — 委托给 ModelManager
    */
   getModelPricingString(model: string): string {
-    const resolvedModel = this.parseUserSpecifiedModel(model);
-    const config = this.modelDisplayConfigs.get(resolvedModel);
-    
-    if (config?.pricing) {
-      return `$${config.pricing.input.toFixed(4)}/$${config.pricing.output.toFixed(4)} per 1K tokens`;
+    const resolved = this.parseUserSpecifiedModel(model);
+    const pricing = modelManager.getModelPricing(resolved);
+    if (pricing) {
+      return `$${pricing.inputPer1K.toFixed(4)}/$${pricing.outputPer1K.toFixed(4)} per 1K tokens`;
     }
-    
     return '';
   }
 
   /**
-   * 获取模型族
+   * 获取模型族 — 委托给 ModelAliases
    */
   getModelFamily(model: string): string {
-    const resolvedModel = this.parseUserSpecifiedModel(model);
-    const config = this.modelDisplayConfigs.get(resolvedModel);
-    return config?.family || 'other';
+    const resolved = this.parseUserSpecifiedModel(model);
+    const family = getAliasFamily(resolved);
+    return family || 'other';
   }
 
   /**
@@ -286,19 +142,25 @@ export class AIModelManager {
   }
 
   /**
-   * 检查模型是否存在
+   * 检查模型是否存在 — 委托给 ModelManager
    */
   hasModel(model: string): boolean {
-    const resolvedModel = this.parseUserSpecifiedModel(model);
-    return this.modelDisplayConfigs.has(resolvedModel) || 
-           this.modelContextWindows.has(resolvedModel);
+    const resolved = this.parseUserSpecifiedModel(model);
+    return modelManager.isValidModel(resolved);
   }
 
   /**
-   * 获取所有可用模型
+   * 获取所有可用模型 — 委托给 ModelManager
    */
   getAvailableModels(): string[] {
-    return Array.from(this.modelDisplayConfigs.keys());
+    return modelManager.getAvailableModels();
+  }
+
+  /**
+   * 获取所有模型别名
+   */
+  getModelAliases(): string[] {
+    return [...MODEL_ALIASES];
   }
 
   setDefaultThinkingEffort(effort: ThinkingEffort): void {
@@ -338,13 +200,6 @@ export class AIModelManager {
   getThinkingBudgetForModel(model: string, effort?: ThinkingEffort): number {
     const effectiveEffort = effort ?? this.getDefaultThinkingEffort();
     return EFFORT_TO_BUDGET[effectiveEffort] ?? DEFAULT_THINKING_BUDGET_TOKENS;
-  }
-
-  /**
-   * 获取所有模型别名
-   */
-  getModelAliases(): string[] {
-    return [...MODEL_ALIASES];
   }
 }
 

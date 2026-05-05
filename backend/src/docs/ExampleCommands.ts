@@ -73,6 +73,15 @@ const DEFAULT_EXAMPLES: ExampleCommand[] = [
     createdAt: Date.now(),
   },
   {
+    id: 'git-commit',
+    category: ExampleCategory.GIT_OPERATIONS,
+    description: '提交 Git 更改',
+    command: '/commit "fix: 修复bug"',
+    tags: ['git', 'commit'],
+    usageCount: 0,
+    createdAt: Date.now(),
+  },
+  {
     id: 'debug-error',
     category: ExampleCategory.DEBUGGING,
     description: '调试错误',

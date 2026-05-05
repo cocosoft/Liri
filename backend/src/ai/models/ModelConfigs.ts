@@ -45,6 +45,7 @@ export type ModelKey =
   | 'sonnet45'
   | 'sonnet41'
   | 'sonnet40'
+  | 'sonnet35'
   | 'haiku45'
   | 'haiku40';
 
@@ -172,6 +173,21 @@ export const ALL_MODEL_CONFIGS: Record<ModelKey, ModelConfig> = {
       outputPer1K: 0.015,
     },
   },
+  sonnet35: {
+    firstParty: 'claude-3-5-sonnet-20241022',
+    bedrock: 'anthropic.claude-3-5-sonnet-20241022-v1:0',
+    vertex: 'claude-3-5-sonnet-20241022',
+    azure: 'claude-3-5-sonnet-20241022',
+    openai: '',
+    deepseek: '',
+    displayName: 'Claude 3.5 Sonnet',
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    pricing: {
+      inputPer1K: 0.003,
+      outputPer1K: 0.015,
+    },
+  },
   haiku45: {
     firstParty: 'claude-3-5-haiku-20241022',
     bedrock: 'anthropic.claude-3-5-haiku-20241022-v1:0',
@@ -216,6 +232,7 @@ export const CANONICAL_ID_TO_KEY: Record<string, ModelKey> = {
   'claude-sonnet-4-5-20250219': 'sonnet45',
   'claude-sonnet-4-1-20250219': 'sonnet41',
   'claude-sonnet-4-0-20250219': 'sonnet40',
+  'claude-3-5-sonnet-20241022': 'sonnet35',
   'claude-3-5-haiku-20241022': 'haiku45',
   'claude-3-haiku-20240307': 'haiku40',
 };

@@ -113,8 +113,10 @@
       "@modules/permissions/*": ["permissions/*"],
       "@modules/performance": ["core/performance"],
       "@modules/performance/*": ["core/performance/*"],
+      "@modules/common/*": ["common/*"],
       "@modules/common": ["common"],
-      "@modules/common/*": ["common/*"]
+      "@modules/types": ["types"],
+      "@modules/types/*": ["types/*"]
     }
   },
   "include": ["src/**/*"],

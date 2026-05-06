@@ -3,7 +3,7 @@
  * 提供消息的格式化、解析和安全过滤功能
  */
 
-import type { Message } from '../../types/message.js';
+import type { Message } from '@modules/types/message.js';
 
 /**
  * 消息类型

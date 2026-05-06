@@ -108,7 +108,11 @@
       "@modules/diagnostics": ["diagnostics"],
       "@modules/diagnostics/*": ["diagnostics/*"],
       "@modules/remote": ["remote"],
-      "@modules/remote/*": ["remote/*"]
+      "@modules/remote/*": ["remote/*"],
+      "@modules/permissions": ["permissions"],
+      "@modules/permissions/*": ["permissions/*"],
+      "@modules/performance": ["core/performance"],
+      "@modules/performance/*": ["core/performance/*"]
     }
   },
   "include": ["src/**/*"],

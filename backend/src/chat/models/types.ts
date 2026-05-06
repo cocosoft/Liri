@@ -3,7 +3,7 @@
  * 聊天模型类型定义
  */
 
-import { AIMessage, AIModelType } from '../../ai/models/types';
+import { AIMessage, AIModelType } from '@modules/ai/models/types';
 
 /**
  * 聊天消息类型

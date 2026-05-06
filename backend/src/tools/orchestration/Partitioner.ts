@@ -4,7 +4,7 @@
  * 根据工具类型将工具调用分区为并发安全组和串行执行组
  */
 
-import type { ToolUseBlock } from '../../chat/types/ToolUseBlock';
+import type { ToolUseBlock } from '@modules/chat/types/ToolUseBlock';
 import type { ToolCallPartition } from './types';
 import { isReadOnlyTool, isWriteTool, isConcurrencySafe } from './types';
 

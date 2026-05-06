@@ -4,7 +4,7 @@
  */
 
 import type { Message, SystemMessage } from '../types/message.js';
-import { createCompactBoundaryMessage, createMicrocompactBoundaryMessage } from '../../utils/messages.js';
+import { createCompactBoundaryMessage, createMicrocompactBoundaryMessage } from '@modules/utils/messages.js';
 
 export interface CompressionConfig {
   /** 最大消息数触发压缩 */

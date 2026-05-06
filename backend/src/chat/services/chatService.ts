@@ -18,7 +18,7 @@ import {
   existsSync,
   mkdirSync,
 } from 'fs';
-import { AIModelType } from '../../ai/models/types';
+import { AIModelType } from '@modules/ai/models/types';
 
 /**
  * 聊天服务类

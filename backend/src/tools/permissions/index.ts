@@ -8,7 +8,7 @@ export {
   permissionModeTitle,
   isAutoMode,
   shouldAvoidPermissionPrompts,
-} from '../../permissions/PermissionMode';
+} from '@modules/permissions/PermissionMode';
 
 export {
   createAllowDecision,
@@ -17,27 +17,27 @@ export {
   createPassthroughDecision,
   type PermissionDecision,
   type PermissionResult,
-} from '../../permissions/PermissionResult';
+} from '@modules/permissions/PermissionResult';
 
 export {
   parsePermissionRule,
   serializePermissionRule,
   ruleMatches,
   type PermissionRule,
-} from '../../permissions/PermissionRule';
+} from '@modules/permissions/PermissionRule';
 
 export {
   permissionCache,
   PermissionRuleValidator,
   generateInputHash,
-} from '../../permissions/permissionCache';
+} from '@modules/permissions/permissionCache';
 
-export { PermissionPolicyManager } from '../../permissions/permissionPolicies';
+export { PermissionPolicyManager } from '@modules/permissions/permissionPolicies';
 
 export {
   hasPermissionsToUseTool,
   type ToolPermissionContext,
   type ToolUseContext,
-} from '../../permissions/permissions';
+} from '@modules/permissions/permissions';
 
-export { createPermissionManager } from '../../permission/PermissionManager';
+export { createPermissionManager } from '@modules/permission/PermissionManager';

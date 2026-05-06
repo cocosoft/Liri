@@ -2,7 +2,7 @@
  * 技能系统类型定义
  */
 
-import type { ToolUseContext } from '../../context/types/ToolUseContext';
+import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
 
 /**
  * 技能定义

@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { ChatMessage, ChatResponse, ToolDefinition } from '../../ai/models/types';
+import type { ChatMessage, ChatResponse, ToolDefinition } from '@modules/ai/models/types';
 import type { Tool } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import { DeepSeekClient } from '../../ai/clients/DeepSeekClient';

@@ -2,7 +2,7 @@
  * 工具助手
  */
 
-import { Tool, ToolInfo } from '../../tools/types/Tool';
+import { Tool, ToolInfo } from '@modules/tools/types/Tool';
 import aiService from '../index';
 import { AIMessage, AIMessageRole, AIResponse } from '../models/types';
 

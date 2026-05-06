@@ -4,16 +4,16 @@
  * 用于设置周期性任务的技能
  */
 
-import { Tool } from '../../tools/types/Tool';
-import { ToolResult } from '../../tools/types/ToolResult';
-import { ToolUseContext } from '../../tools/types/ToolUseContext';
-import { ToolUtils } from '../../tools/utils/ToolUtils';
+import { Tool } from '@modules/tools/types/Tool';
+import { ToolResult } from '@modules/tools/types/ToolResult';
+import { ToolUseContext } from '@modules/tools/types/ToolUseContext';
+import { ToolUtils } from '@modules/tools/utils/ToolUtils';
 import {
   addCronTask,
   listAllCronTasks,
   nextCronRunMs,
-} from '../../chronos/CronTasks';
-import { cronToHuman, parseCronExpression } from '../../chronos/cron';
+} from '@modules/chronos/CronTasks';
+import { cronToHuman, parseCronExpression } from '@modules/chronos/cron';
 
 const DEFAULT_INTERVAL = '10m';
 const DEFAULT_MAX_AGE_DAYS = 7;

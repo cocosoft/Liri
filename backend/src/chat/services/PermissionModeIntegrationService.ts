@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-import type { PermissionMode } from '../../permission/PermissionMode.js';
+import type { PermissionMode } from '@modules/permission/PermissionMode.js';
 import {
   sessionMetadataService,
   type PermissionModeListener,

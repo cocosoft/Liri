@@ -14,7 +14,7 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { getMCPServerManager } from '../../mcp/managers/MCPServerManager';
+import { getMCPServerManager } from '@modules/mcp/managers/MCPServerManager';
 
 /**
  * MCP资源工具输入类型

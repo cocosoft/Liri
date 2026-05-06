@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { ChatMessage } from '../../ai/models/types';
+import type { ChatMessage } from '@modules/ai/models/types';
 import { getSubAgentEngine } from './SubAgentEngine';
 import type { SubAgentEngine, SubAgentProgressEvent, SubAgentResult } from './SubAgentEngine';
 

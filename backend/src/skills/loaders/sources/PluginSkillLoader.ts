@@ -8,7 +8,7 @@ import {
 import { validateSkillFrontmatter } from '../../utils/skillValidator';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { PluginManager } from '../../../plugins/managers/PluginManager';
+import { PluginManager } from '@modules/plugins/managers/PluginManager';
 
 const pluginManager = PluginManager.getInstance();
 

@@ -1,7 +1,7 @@
 /**
  * 推送通知工具（条件编译：KAIROS/PROACTIVE）
  */
-import { FEATURE_FLAGS } from '../../core/featureFlags';
+import { FEATURE_FLAGS } from '@modules/core/featureFlags';
 const feature = (name: keyof typeof FEATURE_FLAGS) => FEATURE_FLAGS[name] ?? false;
 
 export interface PushNotification {

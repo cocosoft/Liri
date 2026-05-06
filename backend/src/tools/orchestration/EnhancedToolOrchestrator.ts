@@ -4,7 +4,7 @@
  * 支持并发/串行混合执行，上下文修改器
  */
 
-import type { ToolUseBlock } from '../../chat/types/ToolUseBlock';
+import type { ToolUseBlock } from '@modules/chat/types/ToolUseBlock';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { MessageUpdate, ToolCallPartition } from './types';
 import { partitionToolCalls } from './Partitioner';

@@ -6,15 +6,15 @@
 import { constants as fsConstants } from 'fs';
 import { mkdir, open, readdir, readFile, stat } from 'fs/promises';
 import { dirname, isAbsolute, join, normalize, sep as pathSep } from 'path';
-import { getConfigHomeDir } from '../../utils/envUtils';
-import { logError, logInfo, logDebug } from '../../utils/logger';
+import { getConfigHomeDir } from '@modules/utils/envUtils';
+import { logError, logInfo, logDebug } from '@modules/utils/logger';
 import type {
   SkillDefinition,
   SkillInfo,
   SkillExecutionResult,
   SkillServiceConfig,
 } from '../models/types';
-import type { ToolUseContext } from '../../context/types/ToolUseContext';
+import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
 
 // 内部技能注册表
 const skills: SkillDefinition[] = [];

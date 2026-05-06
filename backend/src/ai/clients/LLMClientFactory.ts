@@ -12,7 +12,7 @@ import { OpenAIClient } from './openaiClient';
 import { AWSClient } from './AWSClient';
 import { AzureClient } from './AzureClient';
 import { VertexClient } from './VertexClient';
-import { getConfig } from '../../config';
+import { getConfig } from '@modules/config';
 
 export interface AnthropicConfig {
   apiKey: string;

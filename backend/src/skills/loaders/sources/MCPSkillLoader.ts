@@ -1,7 +1,7 @@
 import { Skill, SkillSource } from '../../types';
 import { SkillLoader } from '../SkillLoader';
 import { createSkillCommand } from '../../utils/skillParser';
-import { MCPServerManager } from '../../../mcp/managers/MCPServerManager';
+import { MCPServerManager } from '@modules/mcp/managers/MCPServerManager';
 
 /**
  * MCP技能加载器

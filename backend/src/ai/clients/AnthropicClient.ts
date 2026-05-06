@@ -16,7 +16,7 @@ import {
   BASE_DELAY_MS,
   categorizeAPIError,
   type RetryConfig,
-} from '../../query/withRetry';
+} from '@modules/query/withRetry';
 import { feature } from '@modules/core';
 
 export type APIProvider = 'anthropic' | 'bedrock' | 'vertex' | 'custom';

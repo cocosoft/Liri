@@ -6,7 +6,7 @@
 import type { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { feature as coreFeature } from '@modules/core';
-import { isAntUser } from '../../utils/features.js';
+import { isAntUser } from '@modules/utils/features.js';
 
 /**
  * 功能标志检查函数

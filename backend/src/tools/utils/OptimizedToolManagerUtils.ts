@@ -5,7 +5,7 @@
 
 import { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
-import { profileCheckpoint } from '../../utils/startupProfiler.js';
+import { profileCheckpoint } from '@modules/utils/startupProfiler.js';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
 
 /**

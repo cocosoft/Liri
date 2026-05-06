@@ -3,7 +3,7 @@
  * 基于CC源码 cc_code/backend/services/tools/toolOrchestration.ts 实现
  */
 
-import type { ToolUseBlock } from '../../chat/types/ToolUseBlock';
+import type { ToolUseBlock } from '@modules/chat/types/ToolUseBlock';
 
 /**
  * 工具调用分区

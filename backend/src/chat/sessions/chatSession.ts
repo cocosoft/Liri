@@ -10,8 +10,8 @@ import {
   ChatMessageType,
 } from '../models/types';
 import { ChatHistory } from '../history/chatHistory';
-import aiService from '../../ai';
-import { AIMessageRole } from '../../ai/models/types';
+import aiService from '@modules/ai';
+import { AIMessageRole } from '@modules/ai/models/types';
 
 /**
  * 聊天会话类

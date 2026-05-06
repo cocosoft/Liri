@@ -6,7 +6,7 @@ import { Tool, ToolInfo, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_OUTPUT_TOOL_NAME } from './constants';
-import { voiceService } from '../../services/VoiceService';
+import { voiceService } from '@modules/services/VoiceService';
 
 const VOICE_OUTPUT_PARAMS = [
   {

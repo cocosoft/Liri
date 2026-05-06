@@ -8,7 +8,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { SkillSource, type SkillDefinition } from '../utils/skillParser';
 import type { SkillService } from '../services/skillService';
-import type { ToolUseContext } from '../../context/types/ToolUseContext';
+import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
 
 /**
  * 内置技能定义接口（基于CC源码）

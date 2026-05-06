@@ -4,7 +4,7 @@
  */
 import type { Tools } from './Tool';
 import type { ToolPermissionContext } from './PermissionContext';
-import type { Message } from '../../core/types';
+import type { Message } from '@modules/core/types';
 
 /**
  * 紧凑进度事件类型

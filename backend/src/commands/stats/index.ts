@@ -2,7 +2,7 @@
  * stats命令 - 系统统计信息
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * stats命令实现

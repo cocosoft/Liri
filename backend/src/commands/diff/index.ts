@@ -2,7 +2,7 @@
  * diff命令 - 查看代码差异
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * diff命令实现

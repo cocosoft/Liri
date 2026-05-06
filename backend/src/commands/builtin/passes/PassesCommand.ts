@@ -1,4 +1,4 @@
-import { PassesService } from '../../../analytics/PassesService.js'
+import { PassesService } from '@modules/analytics/PassesService.js'
 
 export interface PassesCommandOutput {
   header: string

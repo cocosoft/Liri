@@ -9,8 +9,8 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import type { BackgroundTaskInfo, BackgroundTaskStatus } from '../../tools/AgentTool/BackgroundTaskManager.js';
-import { getBackgroundTaskManager } from '../../tools/AgentTool/BackgroundTaskManager.js';
+import type { BackgroundTaskInfo, BackgroundTaskStatus } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
+import { getBackgroundTaskManager } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
 
 /**
  * 格式化时长

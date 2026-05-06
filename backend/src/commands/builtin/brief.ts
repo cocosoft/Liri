@@ -4,8 +4,8 @@
  * 用于切换brief-only模式
  */
 
-import type { Command, CommandContext, CommandResult } from '../types/index.js';
-import { logger } from '../../utils/log.js';
+import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import { logger } from '@modules/utils/log.js';
 
 let isBriefOnly = false;
 

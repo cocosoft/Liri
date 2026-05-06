@@ -6,7 +6,7 @@
  * 与 CC 差异: 仅保留实例管理功能，任务执行归 /subagent-run
  */
 
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**

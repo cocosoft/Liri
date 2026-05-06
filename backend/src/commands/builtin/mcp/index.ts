@@ -2,7 +2,7 @@
  * MCP命令模块入口
  */
 import { MCP } from './MCP.js';
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * MCP命令定义

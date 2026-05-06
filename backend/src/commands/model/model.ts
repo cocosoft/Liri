@@ -6,8 +6,8 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { modelManager } from '../../ai/models/ModelManager.js';
-import { MODEL_ALIASES } from '../../ai/models/ModelAliases.js';
+import { modelManager } from '@modules/ai/models/ModelManager.js';
+import { MODEL_ALIASES } from '@modules/ai/models/ModelAliases.js';
 
 /**
  * 执行model命令

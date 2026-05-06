@@ -1,4 +1,4 @@
-import { commandRegistry } from '../../registry/index.js';
+import { commandRegistry } from '@modules/commands/registry/index.js';
 
 export default {
   async call(args: string) {

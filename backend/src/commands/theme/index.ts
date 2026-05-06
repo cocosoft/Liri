@@ -2,7 +2,7 @@
  * theme命令 - 主题管理
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * theme命令实现

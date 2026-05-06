@@ -7,7 +7,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { OAuthService } from '@modules/oauth';
-import { executePostLogin } from '../../core/auth/post-login.js';
+import { executePostLogin } from '@modules/core/auth/post-login.js';
 
 /**
  * 登录结果

@@ -5,7 +5,7 @@
  * 此处作为用户命令封装，提供多语言代码执行能力
  */
 
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**

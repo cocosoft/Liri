@@ -6,10 +6,10 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
-import { pluginRegistry } from '../../plugins/PluginRegistry';
-import { getPluginSettings, savePluginSettings } from '../../plugins/utils/pluginSettings';
-import { validatePluginConfig, mergeWithDefaults } from '../../plugins/utils/pluginConfigSchema';
-import type { PluginConfigSchema } from '../../plugins/utils/pluginConfigSchema';
+import { pluginRegistry } from '@modules/plugins/PluginRegistry';
+import { getPluginSettings, savePluginSettings } from '@modules/plugins/utils/pluginSettings';
+import { validatePluginConfig, mergeWithDefaults } from '@modules/plugins/utils/pluginConfigSchema';
+import type { PluginConfigSchema } from '@modules/plugins/utils/pluginConfigSchema';
 
 /**
  * 插件设置命令

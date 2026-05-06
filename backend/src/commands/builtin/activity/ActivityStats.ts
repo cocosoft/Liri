@@ -5,7 +5,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { promises as fs } from 'fs';
 import { join, extname } from 'path';
-import { getCommandManager as getCmdMgr } from '../../manager/CommandManager.js';
+import { getCommandManager as getCmdMgr } from '@modules/commands/manager/CommandManager.js';
 
 /**
  * 语言扩展名映射

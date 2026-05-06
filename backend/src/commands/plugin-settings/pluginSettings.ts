@@ -5,10 +5,10 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { pluginRegistry } from '../../plugins/PluginRegistry.js';
-import { getPluginSettings, savePluginSettings } from '../../plugins/utils/pluginSettings.js';
-import { validatePluginConfig, mergeWithDefaults } from '../../plugins/utils/pluginConfigSchema.js';
-import type { PluginConfigSchema } from '../../plugins/utils/pluginConfigSchema.js';
+import { pluginRegistry } from '@modules/plugins/PluginRegistry.js';
+import { getPluginSettings, savePluginSettings } from '@modules/plugins/utils/pluginSettings.js';
+import { validatePluginConfig, mergeWithDefaults } from '@modules/plugins/utils/pluginConfigSchema.js';
+import type { PluginConfigSchema } from '@modules/plugins/utils/pluginConfigSchema.js';
 
 /**
  * 执行插件设置命令

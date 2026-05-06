@@ -102,7 +102,13 @@
       "@modules/ui": ["ui"],
       "@modules/ui/*": ["ui/*"],
       "@modules/monitoring": ["monitoring"],
-      "@modules/monitoring/*": ["monitoring/*"]
+      "@modules/monitoring/*": ["monitoring/*"],
+      "@modules/utils": ["utils"],
+      "@modules/utils/*": ["utils/*"],
+      "@modules/diagnostics": ["diagnostics"],
+      "@modules/diagnostics/*": ["diagnostics/*"],
+      "@modules/remote": ["remote"],
+      "@modules/remote/*": ["remote/*"]
     }
   },
   "include": ["src/**/*"],

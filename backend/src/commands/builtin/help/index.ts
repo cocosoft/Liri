@@ -3,7 +3,7 @@
  * 显示帮助信息和可用命令
  */
 import type { Command } from '@modules/commands/types';
-import { getCommandManager } from '../../manager/CommandManager.js';
+import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 
 /**
  * 帮助命令

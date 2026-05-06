@@ -2,7 +2,7 @@
  * btw命令 - 旁注功能
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * btw命令实现

@@ -2,7 +2,7 @@
  * MCP命令实现
  * MCP（Model Context Protocol）管理和配置
  */
-import type { CommandImplementation } from '../../types/index.js';
+import type { CommandImplementation } from '@modules/commands/types';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 

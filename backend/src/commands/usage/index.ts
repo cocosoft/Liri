@@ -2,7 +2,7 @@
  * usage命令 - 使用情况分析
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * usage命令实现

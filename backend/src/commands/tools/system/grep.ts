@@ -3,7 +3,7 @@
  * 对标CC源码实现，支持丰富的搜索选项
  */
 
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { grep } from '@modules/tools/GrepTool/GrepTool.js';
 
 /**

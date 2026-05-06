@@ -3,7 +3,7 @@
  * 显示系统状态信息
  */
 import type { Command } from '@modules/commands/types';
-import { getCommandManager } from '../../manager/CommandManager.js';
+import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 
 /**
  * 状态命令

@@ -9,7 +9,7 @@
  * cc_code/backend/hooks/useVimInput.ts 驱动。
  */
 
-import { configManager } from '../../../config/ConfigManager.js';
+import { configManager } from '@modules/config/ConfigManager.js';
 
 /**
  * Vim命令实现

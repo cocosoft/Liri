@@ -2,7 +2,7 @@
  * plan命令 - 计划生成
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * plan命令实现

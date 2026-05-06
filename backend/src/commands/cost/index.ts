@@ -2,7 +2,7 @@
  * cost命令 - 成本分析
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * cost命令实现

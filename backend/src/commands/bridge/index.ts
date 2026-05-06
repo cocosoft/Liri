@@ -4,11 +4,11 @@
  * 对标 CC 的 /remote-control (rc) 命令
  */
 
-import { isFeatureEnabled, FeatureFlag } from '../../utils/features.js';
-import { bridgeStateStore, type BridgeState } from '../../bridge/state/BridgeStateStore.js';
-import { readBridgeConfig } from '../../bridge/utils/bridgeConfig.js';
-import { createBridgeMain, type BridgeMain } from '../../bridge/BridgeMain.js';
-import { createDummySpawner } from '../../bridge/sessions/MultiSessionManager.js';
+import { isFeatureEnabled, FeatureFlag } from '@modules/utils/features.js';
+import { bridgeStateStore, type BridgeState } from '@modules/bridge/state/BridgeStateStore.js';
+import { readBridgeConfig } from '@modules/bridge/utils/bridgeConfig.js';
+import { createBridgeMain, type BridgeMain } from '@modules/bridge/BridgeMain.js';
+import { createDummySpawner } from '@modules/bridge/sessions/MultiSessionManager.js';
 import type { Command, CommandImplementation } from '@modules/commands/types';
 
 const BRIDGE_CONFIG_PATH = './settings.json';

@@ -5,7 +5,7 @@
  */
 
 import { feature, FeatureFlag } from '@modules/core';
-import type { Command, CommandLoader } from '../../types/index.js';
+import type { Command, CommandLoader } from '@modules/commands/types';
 
 export interface FeatureCommandConfig {
   featureFlag: FeatureFlag;

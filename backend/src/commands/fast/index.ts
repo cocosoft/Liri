@@ -1,7 +1,7 @@
 /**
  * fast命令 - 快速模式聊�? */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * fast命令实现

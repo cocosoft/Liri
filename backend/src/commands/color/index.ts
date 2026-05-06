@@ -2,7 +2,7 @@
  * color命令 - 颜色配置
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 
 /**
  * color命令实现

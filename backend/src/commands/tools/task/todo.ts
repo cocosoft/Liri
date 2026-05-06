@@ -4,7 +4,7 @@
  * 基于CC源码 cc_code/backend/tools/TodoWriteTool 实现
  */
 
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**

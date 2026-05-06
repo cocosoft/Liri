@@ -8,8 +8,8 @@
  * 用法：import { BaseTask, LocalBashTask, TaskRegistry } from '@modules/commands/task-unified';
  */
 
-export { BaseTask } from '../tasks/BaseTask';
-export { LocalBashTask, looksLikePrompt } from '../tasks/LocalBashTask';
-export type { LocalBashTaskOptions } from '../tasks/LocalBashTask';
-export { TaskRegistry } from '../tasks/TaskRegistry';
-export type { Task, TaskConfig, TaskResult, TaskStatus } from '../tasks/BaseTask';
+export { BaseTask } from '@modules/tasks/BaseTask';
+export { LocalBashTask, looksLikePrompt } from '@modules/tasks/LocalBashTask';
+export type { LocalBashTaskOptions } from '@modules/tasks/LocalBashTask';
+export { TaskRegistry } from '@modules/tasks/TaskRegistry';
+export type { Task, TaskConfig, TaskResult, TaskStatus } from '@modules/tasks/BaseTask';

@@ -4,9 +4,9 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { truncateMemoryContent, MAX_MEMORY_LINES, MAX_MEMORY_BYTES } from '../../../memory/MemoryTruncation';
-import { getMemoryFreshness } from '../../../memory/MemoryFreshness';
-import { isAutoMemoryEnabled, getAutoMemPath } from '../../../memory/AutoMemory';
+import { truncateMemoryContent, MAX_MEMORY_LINES, MAX_MEMORY_BYTES } from '@modules/memory/MemoryTruncation';
+import { getMemoryFreshness } from '@modules/memory/MemoryFreshness';
+import { isAutoMemoryEnabled, getAutoMemPath } from '@modules/memory/AutoMemory';
 
 export interface MemoryCommandResult {
   success: boolean;

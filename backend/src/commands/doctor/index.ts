@@ -3,11 +3,11 @@
  * doctor命令 - 系统诊断
  */
 
-import { Command } from '../types/index';
+import { Command } from '@modules/commands/types';
 import {
   getDiagnosticsService,
   DiagnosticLevel,
-} from '../../diagnostics/DiagnosticsService';
+} from '@modules/diagnostics/DiagnosticsService';
 
 /**
  * doctor命令实现

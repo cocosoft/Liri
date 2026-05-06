@@ -3,7 +3,7 @@
  * 对标CC源码实现，支持超时、工作目录等高级参数
  */
 
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**

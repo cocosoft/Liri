@@ -4,7 +4,7 @@
  */
 
 import type { CommandContext } from '@modules/commands/types';
-import { historyManager } from '../../../utils/history.js';
+import { historyManager } from '@modules/utils/history.js';
 
 /**
  * 显示历史记录

@@ -4,7 +4,7 @@
  * 对标 CC 源码 cc_code/backend/tools/NotebookEditTool/NotebookEditTool.ts
  */
 
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**

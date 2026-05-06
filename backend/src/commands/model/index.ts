@@ -6,7 +6,7 @@
  */
 
 import type { Command } from '@modules/commands/types';
-import { modelManager } from '../../ai/models/ModelManager.js';
+import { modelManager } from '@modules/ai/models/ModelManager.js';
 
 /**
  * Model命令实现

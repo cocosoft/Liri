@@ -3,15 +3,15 @@
  * 提供SSH和直接连接的命令行接口
  */
 
-import { TerminalUIIntegration } from '../../../ui/TerminalUIIntegration.js';
+import { TerminalUIIntegration } from '@modules/ui/TerminalUIIntegration.js';
 import {
   RemoteSessionManager,
   RemoteSessionConfig,
   createRemoteSessionConfig,
-} from '../../../remote/RemoteSessionManager.js';
-import { SSHConfig } from '../../../remote/SSHConnection.js';
-import { TerminalComponents } from '../../../ui/TerminalComponents.js';
-import { logger } from '../../../utils/log.js';
+} from '@modules/remote/RemoteSessionManager.js';
+import { SSHConfig } from '@modules/remote/SSHConnection.js';
+import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * CLI命令结果

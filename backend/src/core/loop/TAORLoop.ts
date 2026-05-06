@@ -3,12 +3,12 @@
  */
 
 import type { ToolCall, ToolResult } from '../types';
-import type { LLMClient } from '../../ai/clients/LLMClient';
+import type { LLMClient } from '@modules/ai/clients/LLMClient';
 import type {
   ChatMessage,
   ToolDefinition,
   ParsedToolCall,
-} from '../../ai/models/types';
+} from '@modules/ai/models/types';
 
 interface TAORLoopConfig {
   systemPrompt?: string;

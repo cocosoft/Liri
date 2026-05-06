@@ -4,7 +4,7 @@ import { createCipheriv, createDecipheriv, randomBytes, pbkdf2 } from 'crypto';
 import { readFile, writeFile, mkdir, access, stat } from 'fs/promises';
 import { existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * 安全存储数据接口

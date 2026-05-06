@@ -3,8 +3,8 @@
  * 负责应用的错误恢复和容错机制
  */
 
-import { logger } from '../../utils/log.js';
-import { toError, isAbortError, errorMessage } from '../../utils/errors.js';
+import { logger } from '@modules/utils/log.js';
+import { toError, isAbortError, errorMessage } from '@modules/utils/errors.js';
 
 /**
  * 错误处理选项

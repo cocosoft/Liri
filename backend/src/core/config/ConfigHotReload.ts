@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import { watch, FSWatcher } from 'fs';
 import { existsSync, statSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * 配置变更事件

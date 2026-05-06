@@ -5,7 +5,7 @@
  * 包括：迁移注册、版本检查、迁移执行、回滚支持
  */
 
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * 迁移函数类型

@@ -5,7 +5,7 @@
  * 以减少整体启动时间
  */
 
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * 预加载任务接口

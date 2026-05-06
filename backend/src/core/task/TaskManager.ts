@@ -4,7 +4,7 @@
  * 提供任务创建、状态更新、查询和生命周期管理
  */
 
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 import {
   TaskType,
   TaskStatus,

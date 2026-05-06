@@ -5,7 +5,7 @@
  * 提供按需加载、缓存、状态追踪等功能
  */
 
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * 延迟加载状态

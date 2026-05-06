@@ -10,7 +10,7 @@ import {
   UserConfigValues,
   UserConfigSchema,
 } from '../types';
-import type { LoadedPlugin, PluginError } from '../../plugins/types';
+import type { LoadedPlugin, PluginError } from '@modules/plugins/types';
 
 /**
  * 未配置的通道

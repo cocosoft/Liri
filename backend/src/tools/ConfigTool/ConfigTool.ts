@@ -6,7 +6,7 @@
  */
 
 import { BaseTool } from '../BaseTool';
-import { getConfig, getConfigValue, setConfigValue, resetConfigToDefaults } from '../../config';
+import { getConfig, getConfigValue, setConfigValue, resetConfigToDefaults } from '@modules/config';
 import type { ToolContext, ToolResult } from '@modules/types';
 
 export interface ConfigToolInput {

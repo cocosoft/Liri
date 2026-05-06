@@ -4,7 +4,7 @@
  */
 
 import type { Message } from '@modules/chat/types/message';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
+import type { ToolUseContext } from '@modules/tools/types/ToolUseContext';
 
 /**
  * 系统提示类型

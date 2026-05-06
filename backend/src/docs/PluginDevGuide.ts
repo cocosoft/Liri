@@ -25,7 +25,7 @@ const pluginTemplates: PluginTemplate[] = [
  * 基础插件模板
  */
 
-import type { PluginDefinition, PluginContext } from '../../plugins/types';
+import type { PluginDefinition, PluginContext } from '@modules/plugins/types';
 
 export const plugin: PluginDefinition = {
   name: 'basic-plugin',
@@ -98,8 +98,8 @@ export default plugin;
  * 工具插件模板
  */
 
-import type { PluginDefinition, PluginContext } from '../../plugins/types';
-import type { ToolDefinition } from '../../tools/types';
+import type { PluginDefinition, PluginContext } from '@modules/plugins/types';
+import type { ToolDefinition } from '@modules/tools/types';
 
 const customTool: ToolDefinition = {
   name: 'custom-tool',
@@ -199,8 +199,8 @@ export default plugin;
  * 聊天插件模板
  */
 
-import type { PluginDefinition, PluginContext } from '../../plugins/types';
-import type { Message, ChatHandler } from '../../chat/types';
+import type { PluginDefinition, PluginContext } from '@modules/plugins/types';
+import type { Message, ChatHandler } from '@modules/chat/types';
 
 const chatHandler: ChatHandler = {
   name: 'custom-chat-handler',

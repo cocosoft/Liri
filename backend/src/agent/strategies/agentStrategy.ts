@@ -11,8 +11,8 @@ import type {
   BuiltInAgentDefinition
 } from '../models/types';
 import { AgentState } from '../models/types';
-import aiService from '../../ai';
-import { AIMessageRole } from '../../ai';
+import aiService from '@modules/ai';
+import { AIMessageRole } from '@modules/ai';
 
 /**
  * 基础代理策略

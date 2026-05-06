@@ -4,7 +4,7 @@
  * 按优先级合并各源配置：userSettings < projectSettings < localSettings < flagSettings < policySettings
  */
 
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 import { loadUserSettings } from './userSettings.js';
 import { loadProjectSettings } from './projectSettings.js';
 import { loadLocalSettings } from './localSettings.js';

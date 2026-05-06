@@ -8,9 +8,9 @@ import { metrics, Meter, Counter, Histogram, UpDownCounter, ObservableGauge } fr
 import { MeterProvider, PeriodicExportingMetricReader, ConsoleMetricExporter, View, Aggregation } from '@opentelemetry/sdk-metrics';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { logForDebugging } from '../../utils/debug.js';
-import { errorMessage } from '../../utils/errors.js';
-import { getPlatform, getWslVersion } from '../../utils/platform.js';
+import { logForDebugging } from '@modules/utils/debug.js';
+import { errorMessage } from '@modules/utils/errors.js';
+import { getPlatform, getWslVersion } from '@modules/utils/platform.js';
 
 /**
  * 指标配置

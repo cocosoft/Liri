@@ -5,7 +5,7 @@
  * 参考CC源码的多环境配置模式
  */
 
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 import { OAuthDiscovery, type OAuthMetadata } from '../services/OAuthDiscovery.js';
 import { TokenManager, type CachedToken } from '../services/TokenManager.js';
 

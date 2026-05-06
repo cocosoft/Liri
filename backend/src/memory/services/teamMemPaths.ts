@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { getPyAppConfigHomeDir } from '../../utils/envUtils.js';
+import { getPyAppConfigHomeDir } from '@modules/utils/envUtils.js';
 
 /**
  * Get the team memory directory path.

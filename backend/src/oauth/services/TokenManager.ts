@@ -5,7 +5,7 @@
  * 包括：Token缓存、自动刷新、过期缓冲、重试机制
  */
 
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 import { OAuthStorage, createOAuthStorage } from './OAuthStorage.js';
 
 /**

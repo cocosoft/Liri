@@ -15,8 +15,8 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { taskRegistry } from '../../tasks/TaskRegistry';
-import { TaskStatus, isTerminalTaskStatus } from '../../tasks/types';
+import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
 import type { BaseTask } from '../../tasks/BaseTask';
 
 /**

@@ -5,8 +5,8 @@
  */
 
 import os from 'os';
-import { logForDebugging } from '../../utils/debug.js';
-import { errorMessage } from '../../utils/errors.js';
+import { logForDebugging } from '@modules/utils/debug.js';
+import { errorMessage } from '@modules/utils/errors.js';
 
 /**
  * 系统信息

@@ -7,7 +7,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { AgentDefinition } from '../models/types';
-import { parseFrontmatter } from '../../utils/frontmatterParser';
+import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 
 /**

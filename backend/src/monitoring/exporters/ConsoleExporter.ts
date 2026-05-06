@@ -3,7 +3,7 @@
  * 提供指标和追踪数据的控制台输出
  */
 
-import { logForDebugging } from '../../utils/debug.js';
+import { logForDebugging } from '@modules/utils/debug.js';
 
 /**
  * 导出数据

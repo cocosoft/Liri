@@ -7,7 +7,7 @@
 import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents } from '@modules/plugins/PluginLoader';
-import { SettingSource } from '../../config/constants';
+import { SettingSource } from '@modules/config/constants';
 import { loadUserAgents, loadProjectAgents, loadManagedAgents, loadLocalAgents } from '../utils/agentLoader';
 import { DirectoryWatcher, WatchEvent } from '../utils/directoryWatcher';
 

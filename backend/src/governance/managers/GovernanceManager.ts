@@ -13,13 +13,13 @@ import {
 import {
   PermissionManager,
   createPermissionManager,
-} from '../../permission/PermissionManager';
-import { ToolHookManager } from '../../hooks/managers/ToolHookManager';
-import { SandboxManager } from '../../sandbox/managers/SandboxManager';
-import { ToolFilterManager } from '../../tools/ToolFilterManager';
-import { ToolRegistry, createToolRegistry } from '../../tools/ToolRegistry';
-import { Tool } from '../../tools/types/Tool';
-import { ToolHookContext } from '../../hooks/types/ToolHooks';
+} from '@modules/permission/PermissionManager';
+import { ToolHookManager } from '@modules/hooks/managers/ToolHookManager';
+import { SandboxManager } from '@modules/sandbox/managers/SandboxManager';
+import { ToolFilterManager } from '@modules/tools/ToolFilterManager';
+import { ToolRegistry, createToolRegistry } from '@modules/tools/ToolRegistry';
+import { Tool } from '@modules/tools/types/Tool';
+import { ToolHookContext } from '@modules/hooks/types/ToolHooks';
 import { GovernanceConfigManager, governanceConfigManager } from './GovernanceConfigManager';
 import { GovernanceAuditService, governanceAuditService } from './GovernanceAuditService';
 import { GovernanceStrategyManager, governanceStrategyManager } from './GovernanceStrategyManager';

@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { getFsImplementation } from '../../utils/fsOperations.js';
+import { getFsImplementation } from '@modules/utils/fsOperations.js';
 import {
   ENTRYPOINT_NAME,
   MAX_ENTRYPOINT_LINES,

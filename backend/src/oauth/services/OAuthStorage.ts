@@ -4,8 +4,8 @@
  * 提供Token的加密存储和读取功能
  */
 
-import { logger } from '../../utils/log.js';
-import { CryptoUtils } from '../../security/services/CryptoUtils.js';
+import { logger } from '@modules/utils/log.js';
+import { CryptoUtils } from '@modules/security/services/CryptoUtils.js';
 
 /**
  * OAuth Token数据结构

@@ -5,7 +5,7 @@
  * 参考CC源码的多环境配置模式
  */
 
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * OAuth授权服务器元数据

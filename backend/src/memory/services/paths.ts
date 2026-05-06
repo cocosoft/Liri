@@ -1,7 +1,7 @@
 import { join } from 'path';
-import { getOriginalCwd } from '../../bootstrap/state.js';
-import { getPyAppConfigHomeDir } from '../../utils/envUtils.js';
-import { getProjectDir } from '../../utils/sessionStorage.js';
+import { getOriginalCwd } from '@modules/bootstrap/state.js';
+import { getPyAppConfigHomeDir } from '@modules/utils/envUtils.js';
+import { getProjectDir } from '@modules/utils/sessionStorage.js';
 
 /**
  * Get the auto memory directory path.

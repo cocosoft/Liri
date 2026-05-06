@@ -7,7 +7,7 @@ import type {
   PostSamplingHook,
   PostSamplingHookContext,
 } from '../types/PostSampling';
-import { extractMemories, type MemoryType } from '../../services/extractMemories';
+import { extractMemories, type MemoryType } from '@modules/services/extractMemories';
 
 /**
  * 记忆提取选项

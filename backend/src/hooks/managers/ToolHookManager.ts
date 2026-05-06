@@ -12,7 +12,7 @@ import {
   createToolHookBlockingResult,
   createToolHookCancelledResult,
 } from '../types/ToolHooks';
-import { PermissionBehavior } from '../../permission/types/PermissionRule';
+import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
 import { HookManager } from './HookManager';
 import { HookEvent } from '../types';
 

@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { AgentConfig } from '../models/types';
-import { AIModelType } from '../../ai/models/types';
+import { AIModelType } from '@modules/ai/models/types';
 
 /**
  * Agent配置管理器

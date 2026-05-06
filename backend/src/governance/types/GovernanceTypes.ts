@@ -2,13 +2,13 @@
  * 治理闭环类型定义
  * 定义治理闭环的类型、接口和工具执行上下文
  */
-import { Tool } from '../../tools/types/Tool';
-import { PermissionDecision } from '../../permission/types/PermissionDecision';
-import { ToolHookResult } from '../../hooks/types/ToolHooks';
+import { Tool } from '@modules/tools/types/Tool';
+import { PermissionDecision } from '@modules/permission/types/PermissionDecision';
+import { ToolHookResult } from '@modules/hooks/types/ToolHooks';
 import {
   SandboxCheckResult,
   SandboxViolationEvent,
-} from '../../sandbox/types/SandboxTypes';
+} from '@modules/sandbox/types/SandboxTypes';
 
 /**
  * 工具执行状态

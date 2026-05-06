@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { mcpConnectionManager } from '../../services/mcp/MCPConnectionManager.js';
+import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
 
 export interface MCPHandlerOptions {
   verbose?: boolean;

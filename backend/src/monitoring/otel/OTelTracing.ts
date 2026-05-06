@@ -8,8 +8,8 @@ import { trace, Tracer, Span, SpanStatusCode, context, Context } from '@opentele
 import { NodeTracerProvider, BatchSpanProcessor, ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { logForDebugging } from '../../utils/debug.js';
-import { errorMessage } from '../../utils/errors.js';
+import { logForDebugging } from '@modules/utils/debug.js';
+import { errorMessage } from '@modules/utils/errors.js';
 
 /**
  * 追踪配置

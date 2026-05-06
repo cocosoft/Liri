@@ -6,7 +6,7 @@
  */
 
 import type { Message } from '@modules/chat/types/message.js';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext.js';
+import type { ToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 import { HookExecutor, HookExecutor } from './HookExecutor.js';
 import type {
   IndividualHookConfig,

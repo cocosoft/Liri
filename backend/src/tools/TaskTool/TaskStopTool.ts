@@ -14,8 +14,8 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { taskRegistry } from '../../tasks/TaskRegistry';
-import { TaskStatus } from '../../tasks/types';
+import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { TaskStatus } from '@modules/tasks/types';
 
 /**
  * 任务停止工具输入类型

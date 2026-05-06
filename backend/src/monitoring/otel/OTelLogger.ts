@@ -5,8 +5,8 @@
  */
 
 import { diag, DiagLogLevel } from '@opentelemetry/api';
-import { logForDebugging } from '../../utils/debug.js';
-import { errorMessage } from '../../utils/errors.js';
+import { logForDebugging } from '@modules/utils/debug.js';
+import { errorMessage } from '@modules/utils/errors.js';
 
 /**
  * OpenTelemetry诊断日志记录器

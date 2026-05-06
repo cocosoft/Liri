@@ -14,7 +14,7 @@ import {
   existsSync,
   mkdirSync,
 } from 'fs';
-import { AIModelType } from '../../ai/models/types';
+import { AIModelType } from '@modules/ai/models/types';
 
 /**
  * 代理服务类

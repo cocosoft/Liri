@@ -3,8 +3,8 @@
  * AI代理模型类型定义
  */
 
-import { AIModelType } from '../../ai/models/types';
-import { HooksSettings } from '../../hooks/types';
+import { AIModelType } from '@modules/ai/models/types';
+import { HooksSettings } from '@modules/hooks/types';
 
 /**
  * 代理状态

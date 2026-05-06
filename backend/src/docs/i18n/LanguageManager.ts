@@ -4,7 +4,7 @@
  * 支持多语言的语言包管理和切换
  */
 
-import { getConfig, setConfigValue } from '../../config/index.js';
+import { getConfig, setConfigValue } from '@modules/config/index.js';
 import { join } from 'path';
 import { readFileSync, existsSync } from 'fs';
 

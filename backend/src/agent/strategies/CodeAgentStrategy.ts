@@ -5,8 +5,8 @@
 import { BaseAgentStrategy } from './agentStrategy';
 import type { AgentTask, AgentResponse, AgentContext } from '../models/types';
 import { AgentState } from '../models/types';
-import aiService from '../../ai';
-import { AIMessageRole } from '../../ai/models/types';
+import aiService from '@modules/ai';
+import { AIMessageRole } from '@modules/ai/models/types';
 
 /**
  * 代码代理策略

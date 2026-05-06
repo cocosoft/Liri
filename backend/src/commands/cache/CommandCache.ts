@@ -1,4 +1,4 @@
-import type { Command } from '../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 export class CommandCache {
   private cache: Map<string, Command> = new Map();

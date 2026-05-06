@@ -4,8 +4,8 @@
  * 使用Commander.js实现命令解析和子命令系统
  */
 import { Command as CommanderCommand, Option } from 'commander';
-import type { Command, CommandContext, CommandResult } from '../types/index.js';
-import { getCommandManager } from '../manager/CommandManager.js';
+import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 
 /**
  * 命令解析器类

@@ -5,7 +5,7 @@
  * 参考CC源码 cc_code/backend/commands/mcp/index.ts 实现
  */
 
-import type { Command } from '../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * MCP命令实现

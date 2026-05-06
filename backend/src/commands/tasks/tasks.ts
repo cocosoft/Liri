@@ -8,7 +8,7 @@
  * - 批量操作（停止/清理）
  */
 
-import type { CommandContext, CommandResult } from '../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 import type { BackgroundTaskInfo, BackgroundTaskStatus } from '../../tools/AgentTool/BackgroundTaskManager.js';
 import { getBackgroundTaskManager } from '../../tools/AgentTool/BackgroundTaskManager.js';
 

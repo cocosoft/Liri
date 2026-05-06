@@ -9,7 +9,7 @@ import { bridgeStateStore, type BridgeState } from '../../bridge/state/BridgeSta
 import { readBridgeConfig } from '../../bridge/utils/bridgeConfig.js';
 import { createBridgeMain, type BridgeMain } from '../../bridge/BridgeMain.js';
 import { createDummySpawner } from '../../bridge/sessions/MultiSessionManager.js';
-import type { Command, CommandImplementation } from '../types/index.js';
+import type { Command, CommandImplementation } from '@modules/commands/types';
 
 const BRIDGE_CONFIG_PATH = './settings.json';
 

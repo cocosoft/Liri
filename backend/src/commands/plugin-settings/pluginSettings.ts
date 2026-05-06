@@ -4,7 +4,7 @@
  * 提供插件配置管理功能
  */
 
-import type { CommandContext, CommandResult } from '../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { pluginRegistry } from '../../plugins/PluginRegistry.js';
 import { getPluginSettings, savePluginSettings } from '../../plugins/utils/pluginSettings.js';
 import { validatePluginConfig, mergeWithDefaults } from '../../plugins/utils/pluginConfigSchema.js';

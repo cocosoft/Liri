@@ -5,7 +5,7 @@
  * 使用 ModelManager 作为唯一数据源
  */
 
-import type { CommandContext, CommandResult } from '../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { modelManager } from '../../ai/models/ModelManager.js';
 import { MODEL_ALIASES } from '../../ai/models/ModelAliases.js';
 

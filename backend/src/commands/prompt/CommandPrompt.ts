@@ -5,8 +5,8 @@
  */
 
 import readline from 'readline';
-import { getCommandManager } from '../manager/CommandManager.js';
-import { commandHistoryManager } from '../history/CommandHistoryManager.js';
+import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
+import { commandHistoryManager } from '@modules/commands/history/CommandHistoryManager.js';
 
 /**
  * 命令提示器选项

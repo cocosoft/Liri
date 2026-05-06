@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/commands/logout/index.ts 实现
  */
 
-import type { Command } from '../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * 检查环境变量是否为真值

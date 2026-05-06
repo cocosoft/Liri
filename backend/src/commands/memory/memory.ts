@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/commands/memory/memory.tsx 实现
  */
 
-import type { CommandContext, CommandResult } from '../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';

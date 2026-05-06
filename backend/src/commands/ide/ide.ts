@@ -3,7 +3,7 @@
  * 管理IDE集成
  */
 
-import type { CommandContext, CommandResult } from '../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { execSync } from 'child_process';
 import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';

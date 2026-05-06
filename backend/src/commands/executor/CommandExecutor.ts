@@ -2,8 +2,8 @@
  * 命令执行器
  * 处理命令字符串解析和执行
  */
-import type { CommandContext, CommandResult, ParsedCommand } from '../types/index.js';
-import { getCommandManager } from '../manager/CommandManager.js';
+import type { CommandContext, CommandResult, ParsedCommand } from '@modules/commands/types';
+import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 
 /**
  * 命令中间件类型

@@ -5,7 +5,7 @@
  * 参考CC源码 cc_code/backend/commands/plugin/ 目录实现
  */
 
-import type { Command, CommandContext, CommandResult } from '../types/index.js';
+import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
 import { pluginRegistry } from '../../plugins/PluginRegistry';
 import { getPluginSettings, savePluginSettings } from '../../plugins/utils/pluginSettings';
 import { validatePluginConfig, mergeWithDefaults } from '../../plugins/utils/pluginConfigSchema';

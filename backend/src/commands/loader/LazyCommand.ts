@@ -1,5 +1,5 @@
 // @ts-nocheck
-import type { Command, CommandImplementation } from '../types/index.js';
+import type { Command, CommandImplementation } from '@modules/commands/types';
 
 /**
  * 懒加载命令包装器

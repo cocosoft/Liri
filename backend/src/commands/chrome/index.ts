@@ -3,7 +3,7 @@
  * 与浏览器集成
  */
 
-import type { Command } from '../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Chrome命令

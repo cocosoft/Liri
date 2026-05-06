@@ -2,7 +2,7 @@
  * 命令加载器
  * 从不同源加载命令
  */
-import type { Command, CommandLoader, LoadResult, CommandLoadStatus } from '../types/index.js';
+import type { Command, CommandLoader, LoadResult, CommandLoadStatus } from '@modules/commands/types';
 import { feature } from '@modules/core';
 import { join } from 'path';
 

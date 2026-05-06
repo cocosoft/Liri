@@ -3,11 +3,11 @@
  * 命令管理器
  * 处理命令执行和管理
  */
-import type { Command, CommandContext, CommandResult } from '../types/index.js';
-import { commandRegistry } from '../registry/CommandRegistry.js';
-import { commandLoaderRegistry } from '../loader/CommandLoader.js';
-import { getCommandParser } from '../parser/CommandParser.js';
-import { REMOTE_SAFE_COMMANDS, BRIDGE_SAFE_COMMANDS } from '../constants/CommandConstants.js';
+import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import { commandRegistry } from '@modules/commands/registry/CommandRegistry.js';
+import { commandLoaderRegistry } from '@modules/commands/loader/CommandLoader.js';
+import { getCommandParser } from '@modules/commands/parser/CommandParser.js';
+import { REMOTE_SAFE_COMMANDS, BRIDGE_SAFE_COMMANDS } from '@modules/commands/constants/CommandConstants.js';
 
 /**
  * 命令管理器类

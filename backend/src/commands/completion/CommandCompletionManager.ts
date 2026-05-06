@@ -3,8 +3,8 @@
  * 负责提供命令自动补全功能
  */
 
-import { commandRegistry } from '../registry/CommandRegistry.js';
-import { commandHistoryManager } from '../history/CommandHistoryManager.js';
+import { commandRegistry } from '@modules/commands/registry/CommandRegistry.js';
+import { commandHistoryManager } from '@modules/commands/history/CommandHistoryManager.js';
 
 /**
  * 补全项类型

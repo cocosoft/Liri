@@ -5,8 +5,8 @@
  */
 
 import readline from 'readline';
-import { getCommandManager } from '../manager/CommandManager.js';
-import { getEnhancedCommandHistory } from '../history/EnhancedCommandHistory.js';
+import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
+import { getEnhancedCommandHistory } from '@modules/commands/history/EnhancedCommandHistory.js';
 
 /**
  * 交互式命令执行器选项

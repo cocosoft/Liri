@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/commands/login/index.ts 实现
  */
 
-import type { Command } from '../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * 检查是否有API Key认证

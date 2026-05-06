@@ -2,7 +2,7 @@
  * 命令注册表
  * 管理已注册的命令
  */
-import type { Command } from '../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * 命令注册表类

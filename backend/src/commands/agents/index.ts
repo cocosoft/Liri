@@ -2,7 +2,7 @@
  * subagent 命令
  * 对标 CC 源码的 agent 命令，支持多源 Agent 管理
  */
-import type { Command, CommandResult, CommandImplementation } from '../types/index.js';
+import type { Command, CommandResult, CommandImplementation } from '@modules/commands/types';
 import { readdir, readFile, writeFile, unlink, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, basename } from 'node:path';

@@ -7,19 +7,24 @@ import type { Session } from './models/Session.js';
 import type { SessionMessage } from './models/SessionMessage.js';
 import type { SessionMetadata } from './models/SessionMetadata.js';
 import type { SessionStorage } from './SessionStorage.js';
+import {
+  SessionType,
+  SessionStatus,
+} from './types/Session.js';
 import type {
   UnifiedSession,
   UnifiedMessage,
   SessionFilter,
   SessionStats,
-  SessionType,
-  SessionStatus,
 } from './types/Session.js';
-import type {
+import {
   MessageType,
   MessageRole,
-  ContentBlock,
 } from './types/Message.js';
+import type { ContentBlock } from './types/Message.js';
+import {
+  StorageType,
+} from './storage/UnifiedStorage.js';
 import type {
   UnifiedSessionStorage,
   UnifiedMessageQueryOptions,
@@ -35,9 +40,9 @@ function convertToUnifiedMessage(
 ): UnifiedMessage {
   return {
     id: sessionMessage.id,
-    sessionId: sessionMessage.sessionId,
-    type: (sessionMessage.type as MessageType) || MessageType.USER,
-    role: (sessionMessage.role as MessageRole) || MessageRole.USER,
+    sessionId: sessionMessage.id,
+    type: (sessionMessage.type as unknown as MessageType) || MessageType.USER,
+    role: MessageRole.USER,
     content: sessionMessage.content || '',
     parentUuid: sessionMessage.parentId,
     timestamp: sessionMessage.createdAt?.getTime() || Date.now(),
@@ -68,7 +73,7 @@ function convertToUnifiedSession(session: Session): UnifiedSession {
       tags: session.metadata?.tags,
       mode: session.metadata?.mode,
       worktreeState: session.metadata?.worktreeState,
-      prLink: session.metadata?.prLink,
+      prLink: session.metadata?.prLink?.url,
     },
   };
 }
@@ -296,7 +301,7 @@ export class StorageAdapter implements UnifiedSessionStorage {
 
   getStorageInfo(): StorageConfig {
     return {
-      type: 'memory',
+      type: StorageType.MEMORY,
     };
   }
 }

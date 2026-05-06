@@ -116,6 +116,7 @@ export interface ChatService {
     sessionId: string,
     options: Partial<ChatSessionOptions>
   ): ChatSession | undefined;
+  getSessionMessages(sessionId: string): any[];
   setDefaultModel(model: AIModelType): void;
   getDefaultModel(): AIModelType;
   updateConfig(config: Partial<ChatServiceConfig>): void;

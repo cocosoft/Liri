@@ -1,4 +1,5 @@
 import type { UnifiedMessage } from './Message.ts';
+export type { UnifiedMessage };
 
 /**
  * 会话类型枚举
@@ -85,6 +86,7 @@ export interface SessionFilter {
   type?: SessionType;
   status?: SessionStatus;
   tags?: string[];
+  mode?: string;
   startDate?: number;
   endDate?: number;
   userId?: string;

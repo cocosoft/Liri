@@ -48,23 +48,6 @@ export type ModelKey =
   | 'sonnet35'
   | 'haiku45'
   | 'haiku35'
-  | 'haiku30';
-
-/**
- * 模型键类型
- */
-export type ModelKey = 
-  | 'opus46'
-  | 'opus45'
-  | 'opus41'
-  | 'opus40'
-  | 'sonnet46'
-  | 'sonnet45'
-  | 'sonnet41'
-  | 'sonnet40'
-  | 'sonnet35'
-  | 'haiku45'
-  | 'haiku35'
   | 'haiku30'
   | 'deepseekChat'
   | 'deepseekReasoner';

@@ -6,7 +6,9 @@
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
-import { SkillSource, type SkillDefinition } from '../utils/skillParser';
+import { SkillSource } from '../utils/skillParser';
+import type { SkillDefinition as ParsedSkillDefinition } from '../utils/skillParser';
+import type { SkillDefinition } from '../models/types';
 import type { SkillService } from '../services/skillService';
 import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
 
@@ -183,7 +185,7 @@ export class BundledSkillsRegistry {
   /**
    * 转换为技能定义（基于CC源码）
    */
-  async toSkillDefinition(skill: BundledSkillDefinition): Promise<SkillDefinition> {
+  async toSkillDefinition(skill: BundledSkillDefinition): Promise<ParsedSkillDefinition> {
     const frontmatter: any = {
       name: skill.name,
       description: skill.description,

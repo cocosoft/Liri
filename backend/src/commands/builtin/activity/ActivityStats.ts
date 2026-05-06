@@ -198,7 +198,8 @@ export class ActivityStats {
   }> {
     try {
       const { createStorageAdapter } = await import('../../../session/StorageAdapter.js');
-      const storage = createStorageAdapter();
+      const { MemoryStorage } = await import('../../../session/storage/MemoryStorage.js');
+      const storage = createStorageAdapter(new MemoryStorage());
       const stats = await storage.getSessionStats();
       return {
         totalSessions: stats.totalSessions || 0,

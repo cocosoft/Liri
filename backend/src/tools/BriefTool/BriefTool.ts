@@ -311,7 +311,7 @@ export class BriefTool extends BaseTool<BriefToolInput> {
     return summary.substring(0, maxLength);
   }
 
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     return true;
   }
 }

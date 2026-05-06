@@ -6,7 +6,7 @@
 
 import { MCPServerManager } from './MCPServerManager.js';
 import { MCPServerConfig, MCPToolDefinition } from '../types';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 通道通知监听器

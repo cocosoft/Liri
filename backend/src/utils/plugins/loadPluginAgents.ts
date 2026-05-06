@@ -5,11 +5,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../../utils/log';
-import { PluginAgentDefinition } from '../../agent/models/types';
-import { parseAgentFromMarkdown, parseAgentsFromJson } from '../../services/agent/parseAgent';
-import { pluginLoader } from '../../plugins/PluginLoader';
-import type { LoadedPlugin } from '../../types/plugin';
+import { logger } from '@modules/utils/log';
+import { PluginAgentDefinition } from '@modules/agent/models/types';
+import { parseAgentFromMarkdown, parseAgentsFromJson } from '@modules/services/agent/parseAgent';
+import { pluginLoader } from '@modules/plugins/PluginLoader';
+import type { LoadedPlugin } from '@modules/types/plugin';
 
 // 缓存插件Agent
 let pluginAgentsCache: PluginAgentDefinition[] | null = null;

@@ -5,7 +5,7 @@
  * 参考CC源码 cc_code/backend/utils/swarm/permissionSync.ts 实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 权限更新类型

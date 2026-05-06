@@ -5,7 +5,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '../types';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 错误统计信息接口

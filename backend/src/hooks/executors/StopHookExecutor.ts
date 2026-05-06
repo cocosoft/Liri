@@ -5,7 +5,7 @@
  * 参考CC源码实现: cc_code/backend/query/stopHooks.ts
  */
 
-import type { Message } from '../../chat/types/message.js';
+import type { Message } from '@modules/chat/types/message.js';
 import type { ToolUseContext } from '../../tools/types/ToolUseContext.js';
 import { HookExecutor, HookExecutor } from './HookExecutor.js';
 import type {

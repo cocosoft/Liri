@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/utils/permissions/classifierShared.ts 和 autoModeState.ts 实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 自动模式状态

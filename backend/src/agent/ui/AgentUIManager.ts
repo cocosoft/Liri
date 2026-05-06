@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { AIAgent, AgentState, AgentConfig, AgentTask, AgentResponse } from '../models/types';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 interface AgentCommand {
   type: 'start' | 'stop' | 'pause' | 'resume' | 'configure' | 'execute';

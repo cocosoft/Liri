@@ -5,7 +5,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { Message, AssistantMessage, SystemMessage, UserMessage } from '../../chat/types/message.js';
+import type { Message, AssistantMessage, SystemMessage, UserMessage } from '@modules/chat/types/message.js';
 
 /**
  * SDK消息类型定义

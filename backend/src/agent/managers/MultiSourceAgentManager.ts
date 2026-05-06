@@ -3,7 +3,7 @@ import { AIAgent, AgentConfig, AgentState, AgentTask, AgentResponse, AgentSource
 import { AIAgentImpl } from '../agent';
 import { AgentSourceManager } from './AgentSourceManager';
 import { AgentConfigManager } from './AgentConfigManager';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 interface AgentPoolConfig {
   minSize: number;

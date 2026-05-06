@@ -4,7 +4,7 @@
  * 负责管理多个MCP服务器连接
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import {
   MCPServerConfig,
   MCPServerConnectionInfo,

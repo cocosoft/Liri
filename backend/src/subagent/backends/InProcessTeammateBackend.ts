@@ -6,8 +6,8 @@
  * 基于CC源码 cc_code/backend/utils/swarm/backends/InProcessTeammateBackend.ts 实现
  */
 
-import type { Message } from '../../chat/types/message';
-import type { SubAgent } from '../../subagent/types/SubAgent';
+import type { Message } from '@modules/chat/types/message';
+import type { SubAgent } from '@modules/subagent/types/SubAgent';
 import {
   BaseTeammateBackend,
   TeammateConfig,

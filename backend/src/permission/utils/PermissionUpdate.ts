@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/utils/permissions/permissionUpdate.ts 实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import type { PermissionRule } from '../types/PermissionRule.js';
 
 /**

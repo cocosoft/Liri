@@ -5,7 +5,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import {
   MCPServerConfig,
   MCPToolDefinition,

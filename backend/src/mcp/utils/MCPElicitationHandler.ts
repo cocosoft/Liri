@@ -9,7 +9,7 @@ import type {
   ElicitRequestURLParams,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { ElicitResult } from '@modelcontextprotocol/sdk/types.js';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * Elicit请求事件

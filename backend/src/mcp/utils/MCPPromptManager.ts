@@ -6,7 +6,7 @@
 
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import type { ListPromptsResult } from '@modelcontextprotocol/sdk/types.js';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * Prompt参数

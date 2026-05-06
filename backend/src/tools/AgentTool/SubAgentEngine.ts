@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import type { ChatMessage, ChatResponse, ToolDefinition } from '@modules/ai/models/types';
 import type { Tool } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
-import { DeepSeekClient } from '../../ai/clients/DeepSeekClient';
+import { DeepSeekClient } from '@modules/ai/clients/DeepSeekClient';
 
 /**
  * 子代理进度事件类型

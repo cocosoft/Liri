@@ -5,7 +5,7 @@
  * 参考CC源码 cc_code/backend/utils/permissions/denialTracking.ts 实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 拒绝记录

@@ -7,7 +7,7 @@
 import { watch, FSWatcher } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 记忆文件变化类型

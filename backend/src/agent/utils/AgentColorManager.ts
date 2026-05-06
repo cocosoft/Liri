@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/tools/AgentTool/agentColorManager.ts 实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * Agent颜色名称

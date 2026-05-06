@@ -5,7 +5,7 @@
 import { existsSync } from 'fs';
 import { stat } from 'fs/promises';
 import { extname, isAbsolute, resolve } from 'path';
-import { cwd } from '../../utils/process.js';
+import { cwd } from '@modules/utils/process.js';
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg']);
 

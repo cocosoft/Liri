@@ -7,8 +7,8 @@ import { Tool } from '../types/Tool';
 import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
-import { listAllCronTasks } from '../../chronos/CronTasks';
-import { cronToHuman } from '../../chronos/cron';
+import { listAllCronTasks } from '@modules/chronos/CronTasks';
+import { cronToHuman } from '@modules/chronos/cron';
 
 /**
  * 任务截断长度

@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/utils/permissions/shadowedRuleDetection.ts 实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { PermissionBehavior } from '../types/PermissionRule.js';
 import type { PermissionRule } from '../types/PermissionRule.js';
 

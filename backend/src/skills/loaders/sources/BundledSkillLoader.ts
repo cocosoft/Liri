@@ -3,7 +3,7 @@
  * 加载编程式的内置技能（类似CC源码中的bundled skills）
  */
 
-import { Skill, SkillSource } from '../../types';
+import { Skill, SkillSource } from '@modules/types';
 import { SkillLoader } from '../SkillLoader';
 
 /**

@@ -4,7 +4,7 @@
  * 参考CC源码的记忆年龄管理思路实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 遗忘策略配置

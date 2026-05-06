@@ -4,7 +4,7 @@
  */
 
 import type { HooksSettings } from '@modules/types/hooks.js';
-import type { PermissionMode } from '../../permission/PermissionMode.js';
+import type { PermissionMode } from '@modules/permission/PermissionMode.js';
 import type { EffortValue } from '@modules/utils/effort';
 import type { AgentMcpServerSpec } from './agentMcpServer';
 

@@ -11,7 +11,7 @@ import {
   RegisteredPermissionHook,
   PermissionHookMetadata,
 } from '../types/PermissionHook';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 权限钩子服务类

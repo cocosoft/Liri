@@ -1,11 +1,11 @@
 // @ts-nocheck
-import { Skill, SkillSource } from '../../types';
+import { Skill, SkillSource } from '@modules/types';
 import { SkillLoader } from '../SkillLoader';
 import {
   parseSkillFrontmatter,
   createSkillCommand,
-} from '../../utils/skillParser';
-import { validateSkillFrontmatter } from '../../utils/skillValidator';
+} from '@modules/skills/utils/skillParser';
+import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
 import { cwd } from 'process';

@@ -7,7 +7,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 团队目录配置

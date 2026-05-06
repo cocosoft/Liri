@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * Mailbox消息类型

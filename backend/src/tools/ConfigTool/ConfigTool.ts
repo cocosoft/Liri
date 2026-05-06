@@ -7,7 +7,7 @@
 
 import { BaseTool } from '../BaseTool';
 import { getConfig, getConfigValue, setConfigValue, resetConfigToDefaults } from '../../config';
-import type { ToolContext, ToolResult } from '../../types';
+import type { ToolContext, ToolResult } from '@modules/types';
 
 export interface ConfigToolInput {
   action: 'get' | 'set' | 'delete' | 'list';

@@ -1,6 +1,6 @@
-import { Skill, SkillSource } from '../../types';
+import { Skill, SkillSource } from '@modules/types';
 import { SkillLoader } from '../SkillLoader';
-import { createSkillCommand } from '../../utils/skillParser';
+import { createSkillCommand } from '@modules/skills/utils/skillParser';
 import { MCPServerManager } from '@modules/mcp/managers/MCPServerManager';
 
 /**

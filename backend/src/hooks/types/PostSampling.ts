@@ -3,7 +3,7 @@
  * 基于CC源码 cc_code/backend/utils/hooks/postSamplingHooks.ts 实现
  */
 
-import type { Message } from '../../chat/types/message';
+import type { Message } from '@modules/chat/types/message';
 import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 
 /**

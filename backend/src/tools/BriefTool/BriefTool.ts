@@ -5,10 +5,10 @@
  */
 
 import { BaseTool } from '../BaseTool';
-import chatService from '../../chat';
+import chatService from '@modules/chat';
 import type { ToolUseContext, ToolResult } from '../types';
 import { ToolParam } from '../types/Tool';
-import type { SessionMessage } from '../../session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session/models/SessionMessage';
 
 export interface BriefToolInput {
   sessionId?: string;

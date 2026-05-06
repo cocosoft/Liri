@@ -3,7 +3,7 @@
  * 管理记忆之间的关联关系，支持递归检索关联记忆
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 关联类型

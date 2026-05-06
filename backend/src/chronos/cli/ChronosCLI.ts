@@ -9,8 +9,8 @@ import {
   listAllCronTasks,
   addCronTask,
   removeCronTasks,
-} from '../../chronos/CronTasks';
-import { cronToHuman, parseCronExpression } from '../../chronos/cron';
+} from '@modules/chronos/CronTasks';
+import { cronToHuman, parseCronExpression } from '@modules/chronos/cron';
 
 /**
  * 注册Chronos CLI命令

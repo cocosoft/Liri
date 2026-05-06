@@ -7,7 +7,7 @@ import { Tool } from '../types/Tool';
 import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
-import { listAllCronTasks, removeCronTasks } from '../../chronos/CronTasks';
+import { listAllCronTasks, removeCronTasks } from '@modules/chronos/CronTasks';
 
 /**
  * Cron删除工具类

@@ -11,8 +11,8 @@ import {
   addCronTask,
   listAllCronTasks,
   nextCronRunMs,
-} from '../../chronos/CronTasks';
-import { cronToHuman, parseCronExpression } from '../../chronos/cron';
+} from '@modules/chronos/CronTasks';
+import { cronToHuman, parseCronExpression } from '@modules/chronos/cron';
 
 /**
  * 最大任务数量限制

@@ -4,7 +4,7 @@
  * 负责定义和处理MCP系统的错误
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * MCP错误类型

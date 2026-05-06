@@ -3,7 +3,7 @@
  * 基于CC源码设计原理实现
  */
 
-import type { Message } from '../../chat/types/message';
+import type { Message } from '@modules/chat/types/message';
 
 export interface CollapseCommit {
   id: string;

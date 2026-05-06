@@ -4,9 +4,9 @@
  * 将MCP服务器提供的序列化工具数据包装为符合Tool接口的实例
  */
 
-import type { Tool, ToolInfo, ToolParam } from '../../tools/types/Tool';
-import type { ToolUseContext } from '../../tools/types/ToolUseContext';
-import type { ToolResult } from '../../tools/types/ToolResult';
+import type { Tool, ToolInfo, ToolParam } from '@modules/tools/types/Tool';
+import type { ToolUseContext } from '@modules/tools/types/ToolUseContext';
+import type { ToolResult } from '@modules/tools/types/ToolResult';
 import type { SerializedTool } from './types';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 

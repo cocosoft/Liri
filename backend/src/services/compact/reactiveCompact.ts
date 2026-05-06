@@ -3,7 +3,7 @@
  * 支持自动触发压缩、阈值检测、断路器模式、进度通知
  */
 
-import type { SessionMessage } from '../../session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session/models/SessionMessage';
 import type { CompactionResult } from './types';
 import { roughTokenCountEstimationForMessages } from './utils';
 

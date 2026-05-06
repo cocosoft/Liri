@@ -6,13 +6,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { AgentDefinition, BuiltInAgentDefinition, CustomAgentDefinition, PluginAgentDefinition } from './types';
 import { getBuiltInAgents } from './builtInAgents';
-import { loadPluginAgents } from '../../utils/plugins/loadPluginAgents';
-import { loadMarkdownFilesForSubdir } from '../../utils/markdownConfigLoader';
+import { loadPluginAgents } from '@modules/utils/plugins/loadPluginAgents';
+import { loadMarkdownFilesForSubdir } from '@modules/utils/markdownConfigLoader';
 import { parseAgentFromMarkdown } from './parseAgent';
-import { getCwd } from '../../utils/cwd';
+import { getCwd } from '@modules/utils/cwd';
 
 export type SettingSource = 'userSettings' | 'projectSettings' | 'policySettings' | 'flagSettings' | 'plugin' | 'built-in';
 

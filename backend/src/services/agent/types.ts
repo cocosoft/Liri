@@ -3,9 +3,9 @@
  * Agent系统类型定义
  */
 
-import type { HooksSettings } from '../../types/hooks.js';
+import type { HooksSettings } from '@modules/types/hooks.js';
 import type { PermissionMode } from '../../permission/PermissionMode.js';
-import type { EffortValue } from '../../utils/effort';
+import type { EffortValue } from '@modules/utils/effort';
 import type { AgentMcpServerSpec } from './agentMcpServer';
 
 export type AgentMemoryScope = 'user' | 'project' | 'local';

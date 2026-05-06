@@ -3,7 +3,7 @@
  * 负责创建不同类型的传输层实例
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { WebSocketTransport } from './WebSocketTransport';
 import { SSETransport } from './SSETransport';
 import type { McpServerConfig } from './types';

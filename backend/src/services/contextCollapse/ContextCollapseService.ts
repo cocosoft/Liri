@@ -5,7 +5,7 @@
  * 通过折叠不重要的历史消息来减少token使用，同时保持细粒度
  */
 
-import type { Message } from '../../chat/types/message';
+import type { Message } from '@modules/chat/types/message';
 import type {
   CollapseCommit,
   CollapseOptions,

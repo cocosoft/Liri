@@ -4,7 +4,7 @@
  * 整合所有MCP系统模块
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { mcpToolBridge } from './MCPToolBridge';

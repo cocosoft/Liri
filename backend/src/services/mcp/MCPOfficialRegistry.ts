@@ -5,7 +5,7 @@
  * 基于CC源码 cc_code/backend/services/mcp/officialRegistry.ts 实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 interface RegistryServer {
   name: string;

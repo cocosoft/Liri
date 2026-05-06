@@ -7,7 +7,7 @@
 
 import { watch, type FSWatcher } from 'fs'
 import { join } from 'path'
-import { logEvent } from '../../analytics'
+import { logEvent } from '@modules/analytics'
 
 const DEBOUNCE_MS = 2000
 

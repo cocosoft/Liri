@@ -6,11 +6,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { CustomAgentDefinition, SettingSource } from './types';
 import { parseAgentsFromJson } from './parseAgent';
-import { getCwd } from '../../utils/cwd';
-import { getPyAppConfigHomeDir } from '../../utils/envUtils';
+import { getCwd } from '@modules/utils/cwd';
+import { getPyAppConfigHomeDir } from '@modules/utils/envUtils';
 
 /**
  * Agent配置管理器

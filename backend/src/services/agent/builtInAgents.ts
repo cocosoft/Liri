@@ -5,10 +5,10 @@
 import { BuiltInAgentDefinition } from './types';
 import {
   VERIFICATION_AGENT_DEFINITION,
-} from '../../tools/AgentTool/strategies/VerificationStrategy';
+} from '@modules/tools/AgentTool/strategies/VerificationStrategy';
 import {
   STATUSLINE_SETUP_AGENT_DEFINITION,
-} from '../../tools/AgentTool/strategies/StatuslineStrategy';
+} from '@modules/tools/AgentTool/strategies/StatuslineStrategy';
 
 /**
  * 获取内置Agent列表

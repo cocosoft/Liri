@@ -7,7 +7,7 @@
  * 基于CC源码 cc_code/backend/services/mcp/elicitationHandler.ts 实现
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import type { ScopedMcpServerConfig } from './types';
 
 export interface ElicitationPrompt {

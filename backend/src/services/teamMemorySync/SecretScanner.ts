@@ -5,7 +5,7 @@
  * 基于 gitleaks 的高置信度规则子集（MIT 许可证），仅包含具有特异性前缀、假阳性率极低的规则。
  */
 
-import { capitalize } from '../../common/utils.js';
+import { capitalize } from '@modules/common/utils.js';
 
 interface SecretRule {
   id: string

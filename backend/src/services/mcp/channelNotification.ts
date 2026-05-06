@@ -4,7 +4,7 @@
  * 负责处理Claude AI的通道消息通知
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import type { ConnectedMCPServer } from './types';
 
 // 通道权限方法名

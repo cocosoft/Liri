@@ -4,7 +4,7 @@
  * 支持压缩后注入计划/文件/MCP制品、记忆制品、技能制品
  */
 
-import type { SessionMessage } from '../../session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session/models/SessionMessage';
 
 /**
  * 制品类型（来自CC源码）

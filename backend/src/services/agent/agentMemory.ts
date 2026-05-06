@@ -5,9 +5,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { getProjectRoot } from '../../bootstrap/state';
-import { getPyAppConfigHomeDir } from '../../utils/envUtils';
-import { getCwd } from '../../utils/cwd';
+import { getProjectRoot } from '@modules/bootstrap/state';
+import { getPyAppConfigHomeDir } from '@modules/utils/envUtils';
+import { getCwd } from '@modules/utils/cwd';
 
 /**
  * 查找规范的Git根目录

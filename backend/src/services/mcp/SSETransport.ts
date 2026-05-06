@@ -4,7 +4,7 @@
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import type { McpSSEServerConfig } from './types';
 
 /**

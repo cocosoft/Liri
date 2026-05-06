@@ -9,8 +9,8 @@
  * 参考: cc_code/backend/services/SessionMemory/
  */
 
-import type { Session } from '../../session/models/Session'
-import type { SessionMessage } from '../../session/models/SessionMessage'
+import type { Session } from '@modules/session/models/Session'
+import type { SessionMessage } from '@modules/session/models/SessionMessage'
 import {
   SessionMemoryServiceImpl,
   type SessionMemoryService,

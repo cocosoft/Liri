@@ -4,11 +4,11 @@
  * 将MCP服务器的工具注册到主ToolManager中
  */
 
-import { logger } from '../../utils/log';
-import { getToolManager } from '../../tools/ToolManager';
+import { logger } from '@modules/utils/log';
+import { getToolManager } from '@modules/tools/ToolManager';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';
-import type { Tool } from '../../tools/types/Tool';
+import type { Tool } from '@modules/tools/types/Tool';
 
 /**
  * MCP工具桥接器

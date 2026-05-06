@@ -1,4 +1,4 @@
-import type { Memory } from '../../memory/types/Memory';
+import type { Memory } from '@modules/memory/types/Memory';
 
 /**
  * 团队记忆同步状态

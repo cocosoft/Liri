@@ -1,5 +1,5 @@
-import type { Session } from '../../session/models/Session';
-import type { SessionMessage } from '../../session/models/SessionMessage';
+import type { Session } from '@modules/session/models/Session';
+import type { SessionMessage } from '@modules/session/models/SessionMessage';
 
 /**
  * 会话记忆项

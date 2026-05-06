@@ -4,12 +4,12 @@
  */
 
 import * as path from 'path';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { CustomAgentDefinition, SettingSource } from './types';
-import { parseAgentToolsFromFrontmatter, parseSlashCommandToolsFromFrontmatter } from '../../utils/markdownConfigLoader';
-import { parsePositiveIntFromFrontmatter } from '../../utils/frontmatterParser';
-import { EFFORT_LEVELS, parseEffortValue } from '../../utils/effort';
-import { PermissionMode } from '../../permissions/PermissionMode';
+import { parseAgentToolsFromFrontmatter, parseSlashCommandToolsFromFrontmatter } from '@modules/utils/markdownConfigLoader';
+import { parsePositiveIntFromFrontmatter } from '@modules/utils/frontmatterParser';
+import { EFFORT_LEVELS, parseEffortValue } from '@modules/utils/effort';
+import { PermissionMode } from '@modules/permissions/PermissionMode';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';
 

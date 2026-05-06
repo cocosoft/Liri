@@ -4,7 +4,7 @@
  * 基于CC源码 cc_code/backend/services/toolUseSummary/toolUseSummaryGenerator.ts 实现
  */
 
-import type { Message } from '../../chat/types/message';
+import type { Message } from '@modules/chat/types/message';
 
 export interface ToolInfo {
   name: string;

@@ -4,7 +4,7 @@
  * 负责与Claude AI MCP服务器的集成
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { registerChannelNotificationHandler, removeChannelNotificationHandler } from './channelNotification';
 import { createChannelPermissionCallbacks } from './channelPermissions';

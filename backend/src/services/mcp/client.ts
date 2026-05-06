@@ -5,14 +5,14 @@
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import type { 
   MCPServerConnection, 
   ScopedMcpServerConfig, 
   ServerResource,
   SerializedTool
 } from './types';
-import type { Command } from '../../commands';
+import type { Command } from '@modules/commands';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;

@@ -8,7 +8,7 @@
  * 2. 可扩展的缓存微压缩路径（支持future cache-editing API）
  */
 
-import type { SessionMessage, MessageType } from '../../session/models/SessionMessage';
+import type { SessionMessage, MessageType } from '@modules/session/models/SessionMessage';
 import { roughTokenCountEstimation } from './utils';
 import { getTimeBasedMCConfig } from './timeBasedMCConfig';
 import {

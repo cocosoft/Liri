@@ -5,9 +5,9 @@
 
 import { type ChildProcess, spawn, spawnSync } from 'child_process';
 import { readFile } from 'fs/promises';
-import { getPlatform } from '../../../utils/platform';
-import { logError } from '../../../utils/logger';
-import { isEnvTruthy } from '../../../utils/envUtils';
+import { getPlatform } from '@modules/utils/platform';
+import { logError } from '@modules/utils/logger';
+import { isEnvTruthy } from '@modules/utils/envUtils';
 import type {
   RecordingAvailability,
   VoiceDependencies,

@@ -4,7 +4,7 @@
  * 负责处理MCP服务器的资源功能
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import type { ServerResource } from './types';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 

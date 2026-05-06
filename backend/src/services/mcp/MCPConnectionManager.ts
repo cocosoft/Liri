@@ -4,10 +4,10 @@
  * 负责管理MCP服务器连接，包括指数退避重连和批量更新
  */
 
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { getMcpToolsCommandsAndResources, reconnectMcpServerImpl } from './client';
 import type { MCPServerConnection, ScopedMcpServerConfig, ServerResource, SerializedTool } from './types';
-import type { Command } from '../../commands';
+import type { Command } from '@modules/commands';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;

@@ -3,8 +3,8 @@
  * 负责管理MCP服务器的缓存策略
  */
 
-import { logger } from '../../utils/log';
-import type { Command } from '../../commands';
+import { logger } from '@modules/utils/log';
+import type { Command } from '@modules/commands';
 import type { ServerResource, SerializedTool } from './types';
 
 /**

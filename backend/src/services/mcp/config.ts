@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 import { McpServerConfigSchema, McpJsonConfigSchema, ScopedMcpServerConfig, ConfigScope } from './types';
 
 /**

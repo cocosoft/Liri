@@ -2,7 +2,7 @@
  * 自动Compact系统（基于CC源码 autoCompact.ts 核心模式）
  * 智能阈值 + 连续失败熔断 + 压缩策略
  */
-import type { Message } from '../../chat/types/message';
+import type { Message } from '@modules/chat/types/message';
 
 export interface CompactConfig {
   model: string;

@@ -112,7 +112,9 @@
       "@modules/permissions": ["permissions"],
       "@modules/permissions/*": ["permissions/*"],
       "@modules/performance": ["core/performance"],
-      "@modules/performance/*": ["core/performance/*"]
+      "@modules/performance/*": ["core/performance/*"],
+      "@modules/common": ["common"],
+      "@modules/common/*": ["common/*"]
     }
   },
   "include": ["src/**/*"],

@@ -3,7 +3,7 @@
  * 基于CC源码 cc_code/backend/tools/FileEditTool 优化实现
  */
 import type { Command } from '../../types/index.js';
-import { getToolManager } from '../../../tools/ToolManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**
  * 编辑文件命令

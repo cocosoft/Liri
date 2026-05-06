@@ -4,7 +4,7 @@
  */
 
 import type { Command } from '../../types/index.js';
-import { getToolManager } from '../../../tools/ToolManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**
  * 写入文件命令

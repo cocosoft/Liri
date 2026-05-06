@@ -3,8 +3,8 @@
  * MCP（Model Context Protocol）管理和配置
  */
 import type { CommandImplementation } from '../../types/index.js';
-import { mcpConnectionManager } from '../../../services/mcp/MCPConnectionManager.js';
-import { getToolManager } from '../../../tools/ToolManager.js';
+import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**
  * MCP服务器数据定义

@@ -7,7 +7,7 @@
  */
 
 import type { Command } from '../../types/index.js';
-import { getToolManager } from '../../../tools/ToolManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**
  * Agents命令

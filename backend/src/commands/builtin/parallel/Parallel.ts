@@ -1,8 +1,8 @@
 import type { CommandContext } from '@modules/commands/types';
-import { createToolManager } from '../../../tools/ToolManager.js';
-import { createToolScheduler } from '../../../tools/scheduler/ToolScheduler.js';
-import { getEmptyToolUseContext } from '../../../tools/types/ToolUseContext.js';
-import type { ToolUseContext } from '../../../tools/types/ToolUseContext.js';
+import { createToolManager } from '@modules/tools/ToolManager.js';
+import { createToolScheduler } from '@modules/tools/scheduler/ToolScheduler.js';
+import { getEmptyToolUseContext } from '@modules/tools/types/ToolUseContext.js';
+import type { ToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 
 const toolManager = createToolManager();
 

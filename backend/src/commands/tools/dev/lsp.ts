@@ -5,7 +5,7 @@
  */
 
 import type { Command } from '../../types/index.js';
-import { getToolManager } from '../../../tools/ToolManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**
  * LSP操作定义：操作名、参数说明、示例

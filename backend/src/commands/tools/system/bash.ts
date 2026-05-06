@@ -4,7 +4,7 @@
  */
 
 import type { Command } from '../../types/index.js';
-import { getToolManager } from '../../../tools/ToolManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**
  * 解析命令行参数，提取 --timeout 和 --cwd 选项

@@ -7,9 +7,9 @@
  */
 
 import type { Command } from '../../types/index.js';
-import { getToolManager } from '../../../tools/ToolManager.js';
-import { AgentTool } from '../../../tools/AgentTool/AgentTool.js';
-import { getBackgroundTaskManager } from '../../../tools/AgentTool/BackgroundTaskManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
+import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
+import { getBackgroundTaskManager } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
 import { getSubAgentEngine } from '../../../tools/AgentTool/SubAgentEngine.js';
 
 /**

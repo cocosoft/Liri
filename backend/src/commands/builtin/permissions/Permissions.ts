@@ -3,8 +3,8 @@
  * 融合快速权限管理与细粒度权限控制
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { createFineGrainedPermissionManager } from '../../../permission/FineGrainedPermissionManager.js';
-import { PermissionAction, ResourceType, OperationType } from '../../../permission/models/Permission.js';
+import { createFineGrainedPermissionManager } from '@modules/permission/FineGrainedPermissionManager.js';
+import { PermissionAction, ResourceType, OperationType } from '@modules/permission/models/Permission.js';
 
 const COMMON_PERMISSIONS: Record<string, { description: string; enabled: boolean; scope: string }> = {
   'file.read': { description: '读取文件系统中的文件', enabled: true, scope: '文件系统' },

@@ -6,7 +6,7 @@
  */
 
 import type { Command, CommandContext, CommandType } from '@modules/commands/types';
-import voiceService from '../../../services/voice';
+import voiceService from '@modules/services/voice';
 
 export class VoiceCommand implements Command {
   type: CommandType = 'action';

@@ -4,22 +4,22 @@
  * 集成成本跟踪和多供应商模型支持
  */
 import type { CommandContext } from '@modules/commands/types';
-import { modelManager } from '../../../ai/models/ModelManager.js';
-import { getLLMClientFactory } from '../../../ai/clients/LLMClientFactory.js';
-import { costTracker } from '../../../cost/CostTracker.js';
-import { getConfig } from '../../../config/index.js';
-import { ToolRegistry } from '../../../tools/index.js';
-import { FileReadTool } from '../../../tools/filesystem/FileReadTool.js';
-import { FileWriteTool } from '../../../tools/filesystem/FileWriteTool.js';
-import { FileEditTool } from '../../../tools/filesystem/FileEditTool.js';
-import { BashTool } from '../../../tools/bash/BashTool.js';
-import { createPowerShellTool } from '../../../tools/PowerShellTool/PowerShellTool.js';
-import { GlobTool } from '../../../tools/search/GlobTool.js';
-import { GrepTool } from '../../../tools/search/GrepTool.js';
-import { createWebSearchTool } from '../../../tools/WebSearchTool/WebSearchTool.js';
-import { createWebFetchTool } from '../../../tools/WebFetchTool/WebFetchTool.js';
-import { TimeTool } from '../../../tools/TimeTool/TimeTool.js';
-import { ToolExecutor } from '../../../tools/ToolExecutor.js';
+import { modelManager } from '@modules/ai/models/ModelManager.js';
+import { getLLMClientFactory } from '@modules/ai/clients/LLMClientFactory.js';
+import { costTracker } from '@modules/cost/CostTracker.js';
+import { getConfig } from '@modules/config/index.js';
+import { ToolRegistry } from '@modules/tools/index.js';
+import { FileReadTool } from '@modules/tools/filesystem/FileReadTool.js';
+import { FileWriteTool } from '@modules/tools/filesystem/FileWriteTool.js';
+import { FileEditTool } from '@modules/tools/filesystem/FileEditTool.js';
+import { BashTool } from '@modules/tools/bash/BashTool.js';
+import { createPowerShellTool } from '@modules/tools/PowerShellTool/PowerShellTool.js';
+import { GlobTool } from '@modules/tools/search/GlobTool.js';
+import { GrepTool } from '@modules/tools/search/GrepTool.js';
+import { createWebSearchTool } from '@modules/tools/WebSearchTool/WebSearchTool.js';
+import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js';
+import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';
+import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
 
 interface ChatResult {
   type: 'text';

@@ -1,6 +1,6 @@
 import type { CommandContext } from '@modules/commands/types';
-import { createSecurityScanner } from '../../../security/scanners/SecurityScanner.js';
-import { inputValidator } from '../../../security/validators/InputValidator.js';
+import { createSecurityScanner } from '@modules/security/scanners/SecurityScanner.js';
+import { inputValidator } from '@modules/security/validators/InputValidator.js';
 
 /**
  * Security命令

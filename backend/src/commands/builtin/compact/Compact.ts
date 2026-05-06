@@ -6,7 +6,7 @@
  */
 
 import type { Command, CommandContext, CommandType, CommandResult } from '@modules/commands/types';
-import type { CompactArtifact } from '../../../services/compact/CompactService';
+import type { CompactArtifact } from '@modules/services/compact/CompactService';
 
 export interface CompactCommandOptions {
   preserveRecentMessages?: number;

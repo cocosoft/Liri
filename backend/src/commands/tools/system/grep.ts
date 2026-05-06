@@ -4,7 +4,7 @@
  */
 
 import type { Command } from '../../types/index.js';
-import { grep } from '../../../tools/GrepTool/GrepTool.js';
+import { grep } from '@modules/tools/GrepTool/GrepTool.js';
 
 /**
  * 解析grep命令参数，支持 --option value 格式

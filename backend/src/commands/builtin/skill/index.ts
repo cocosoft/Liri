@@ -3,12 +3,12 @@
  * 管理和查看技能
  */
 import type { Command, CommandContext } from '@modules/commands/types';
-import { skillManager } from '../../../skills/managers/SkillManager.js';
-import { UserSkillLoader } from '../../../skills/loaders/sources/UserSkillLoader.js';
-import { ProjectSkillLoader } from '../../../skills/loaders/sources/ProjectSkillLoader.js';
-import { PluginSkillLoader } from '../../../skills/loaders/sources/PluginSkillLoader.js';
-import { MCPSkillLoader } from '../../../skills/loaders/sources/MCPSkillLoader.js';
-import { BundledSkillLoader } from '../../../skills/loaders/sources/BundledSkillLoader.js';
+import { skillManager } from '@modules/skills/managers/SkillManager.js';
+import { UserSkillLoader } from '@modules/skills/loaders/sources/UserSkillLoader.js';
+import { ProjectSkillLoader } from '@modules/skills/loaders/sources/ProjectSkillLoader.js';
+import { PluginSkillLoader } from '@modules/skills/loaders/sources/PluginSkillLoader.js';
+import { MCPSkillLoader } from '@modules/skills/loaders/sources/MCPSkillLoader.js';
+import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader.js';
 
 /**
  * 技能命令

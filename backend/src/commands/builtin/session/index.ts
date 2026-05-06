@@ -3,7 +3,7 @@
  * 管理会话
  */
 import type { Command } from '@modules/commands/types';
-import { createChatManager } from '../../../chat/ChatManager.js';
+import { createChatManager } from '@modules/chat/ChatManager.js';
 
 function getChatManager(context: any) {
   if (context.chatManager) {

@@ -5,8 +5,8 @@
  */
 
 import type { Command } from '../../types/index.js';
-import { getToolManager } from '../../../tools/ToolManager.js';
-import { defaultTaskStorage } from '../../../tools/TaskTool/TaskStorage.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
+import { defaultTaskStorage } from '@modules/tools/TaskTool/TaskStorage.js';
 
 /**
  * Task命令

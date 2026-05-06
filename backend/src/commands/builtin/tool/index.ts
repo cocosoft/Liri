@@ -3,7 +3,7 @@
  * 管理工具
  */
 import type { Command } from '@modules/commands/types';
-import { getToolManager } from '../../../tools/ToolManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /**
  * 工具命令

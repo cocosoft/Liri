@@ -2,7 +2,7 @@
  * btw命令
  * 快速记录简短备注
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * btw 命令定义

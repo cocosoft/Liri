@@ -2,7 +2,7 @@
  * 插件重载命令
  * 重新加载插件
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * reload-plugins 命令定义

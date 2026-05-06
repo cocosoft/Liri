@@ -2,7 +2,7 @@
  * 清空命令
  * 清空终端
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * 清空命令

@@ -2,7 +2,7 @@
  * 速率限制选项命令
  * 管理API速率限制设置
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * rate-limit-options 命令定义

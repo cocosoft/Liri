@@ -3,7 +3,7 @@
  * 与LLM进行对话
  * 集成成本跟踪和多供应商模型支持
  */
-import type { CommandContext } from '../../types/index.js';
+import type { CommandContext } from '@modules/commands/types';
 import { modelManager } from '../../../ai/models/ModelManager.js';
 import { getLLMClientFactory } from '../../../ai/clients/LLMClientFactory.js';
 import { costTracker } from '../../../cost/CostTracker.js';

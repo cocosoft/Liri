@@ -2,7 +2,7 @@
  * Plugins命令实现
  * 插件管理和配置
  */
-import type { CommandImplementation } from '../../types/index.js';
+import type { CommandImplementation } from '@modules/commands/types';
 
 /**
  * 插件数据定义

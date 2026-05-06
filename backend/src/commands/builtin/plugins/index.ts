@@ -2,7 +2,7 @@
  * Plugins命令模块入口
  */
 import { Plugins } from './Plugins.js';
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Plugins命令定义

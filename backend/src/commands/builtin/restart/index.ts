@@ -2,7 +2,7 @@
  * 重启命令
  * 重启应用
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * restart 命令定义

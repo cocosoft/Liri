@@ -2,7 +2,7 @@
  * Hooks命令模块入口
  */
 import { Hooks } from './Hooks.js';
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Hooks命令定义

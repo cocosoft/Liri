@@ -2,7 +2,7 @@
  * 主题命令
  * 管理界面主题
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * theme 命令定义

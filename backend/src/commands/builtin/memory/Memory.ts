@@ -4,7 +4,7 @@
  */
 import { mkdir, writeFile, readdir, stat } from 'fs/promises';
 import { homedir } from 'os';
-import type { CommandImplementation } from '../../types/index.js';
+import type { CommandImplementation } from '@modules/commands/types';
 
 /**
  * 获取记忆文件目录

@@ -2,7 +2,7 @@
  * 工作活动统计命令实现
  * 收集真实的系统运行数据、任务数据、代码数据
  */
-import type { CommandContext, CommandResult } from '../../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { promises as fs } from 'fs';
 import { join, extname } from 'path';
 import { getCommandManager as getCmdMgr } from '../../manager/CommandManager.js';

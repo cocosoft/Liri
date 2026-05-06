@@ -2,7 +2,7 @@
  * 计时器命令
  * 管理计时器
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * timer 命令定义

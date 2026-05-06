@@ -2,7 +2,7 @@
  * 项目初始化命令
  * 初始化一个新的项目目录
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * init 命令定义

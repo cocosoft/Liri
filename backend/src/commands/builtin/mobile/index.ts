@@ -2,7 +2,7 @@
  * 移动端命令
  * 管理移动端连接
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * mobile 命令定义

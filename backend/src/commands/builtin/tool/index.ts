@@ -2,7 +2,7 @@
  * 工具命令
  * 管理工具
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { getToolManager } from '../../../tools/ToolManager.js';
 
 /**

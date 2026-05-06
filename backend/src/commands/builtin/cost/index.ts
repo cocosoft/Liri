@@ -2,7 +2,7 @@
  * Cost命令模块入口
  */
 import { CostCommand } from './Cost.js';
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Cost命令定义

@@ -1,7 +1,7 @@
 /**
  * 贴纸命令实现
  */
-import type { CommandContext, CommandResult } from '../../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 
 export default {
   /**

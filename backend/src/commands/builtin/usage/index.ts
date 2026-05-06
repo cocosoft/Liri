@@ -2,7 +2,7 @@
  * Usage命令模块入口
  */
 import { Usage } from './Usage.js';
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Usage命令定义

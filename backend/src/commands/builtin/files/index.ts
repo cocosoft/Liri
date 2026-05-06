@@ -2,7 +2,7 @@
  * 文件管理命令
  * 管理工作目录中的文件
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * files 命令定义

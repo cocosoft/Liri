@@ -2,7 +2,7 @@
  * Brief命令
  * 生成当前会话的摘要，提取关键信息和决策点
  */
-import type { CommandContext } from '../../types/index.js';
+import type { CommandContext } from '@modules/commands/types';
 import type { SessionMessage } from '../../../session/models/SessionMessage';
 
 interface AnalysisResult {

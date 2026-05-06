@@ -2,7 +2,7 @@
  * 颜色设置命令
  * 管理界面颜色配置
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * color 命令定义

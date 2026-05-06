@@ -1,4 +1,4 @@
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 const historyCommand: Command = {
   type: 'action',

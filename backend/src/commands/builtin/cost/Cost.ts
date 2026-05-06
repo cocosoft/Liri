@@ -2,7 +2,7 @@
  * Cost命令实现
  * 显示API调用成本和使用统计
  */
-import type { CommandContext, CommandResult, Command, CommandType } from '../../types/index.js';
+import type { CommandContext, CommandResult, Command, CommandType } from '@modules/commands/types';
 
 /**
  * 成本数据类型定义

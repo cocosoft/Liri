@@ -2,7 +2,7 @@
  * 配置命令
  * 管理配置
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * 配置命令

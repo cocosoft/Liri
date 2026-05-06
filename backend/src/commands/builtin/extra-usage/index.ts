@@ -2,7 +2,7 @@
  * 额外使用量命令
  * 管理额外Token购买和使用
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * extra-usage 命令定义

@@ -2,7 +2,7 @@
  * 添加工作目录命令
  * 将指定目录添加到工作区
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * add-dir 命令定义

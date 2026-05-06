@@ -2,7 +2,7 @@
  * 权限管理命令实现
  * 融合快速权限管理与细粒度权限控制
  */
-import type { CommandContext, CommandResult } from '../../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { createFineGrainedPermissionManager } from '../../../permission/FineGrainedPermissionManager.js';
 import { PermissionAction, ResourceType, OperationType } from '../../../permission/models/Permission.js';
 

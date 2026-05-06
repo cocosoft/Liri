@@ -2,7 +2,7 @@
  * Effort设置命令
  * 设置AI响应的详细程度
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * effort 命令定义

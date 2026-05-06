@@ -8,7 +8,7 @@
 
 import { join } from 'path';
 import { writeFileSync } from 'fs';
-import type { Command, CommandContext, CommandType } from '../../types';
+import type { Command, CommandContext, CommandType } from '@modules/commands/types';
 
 export class ShareCommand implements Command {
   type: CommandType = 'action';

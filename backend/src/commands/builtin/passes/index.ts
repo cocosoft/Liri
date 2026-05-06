@@ -2,7 +2,7 @@
  * Pass管理命令
  * 管理订阅Pass和功能权限
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * passes 命令定义

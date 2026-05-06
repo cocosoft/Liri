@@ -1,4 +1,4 @@
-import type { CommandContext } from '../../types/index.js';
+import type { CommandContext } from '@modules/commands/types';
 import { createSecurityScanner } from '../../../security/scanners/SecurityScanner.js';
 import { inputValidator } from '../../../security/validators/InputValidator.js';
 

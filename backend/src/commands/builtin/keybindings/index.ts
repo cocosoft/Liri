@@ -2,7 +2,7 @@
  * 快捷键管理命令
  * 管理和查看键盘快捷键配置
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * keybindings 命令定义

@@ -2,7 +2,7 @@
  * 堆转储命令
  * 生成堆内存快照
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * heapdump 命令定义

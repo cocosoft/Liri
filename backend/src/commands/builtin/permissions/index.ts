@@ -2,7 +2,7 @@
  * 权限管理命令
  * 融合快速权限管理与细粒度权限控制
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * permissions 命令定义

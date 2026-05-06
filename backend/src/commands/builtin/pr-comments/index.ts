@@ -2,7 +2,7 @@
  * PR评论命令
  * 管理PR评论
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * pr-comments 命令定义

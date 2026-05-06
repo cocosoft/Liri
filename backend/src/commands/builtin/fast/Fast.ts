@@ -2,7 +2,7 @@
  * Fast命令实现 - 快速模式切换
  * 根据 CC 源码实现
  */
-import type { CommandImplementation } from '../../types/index.js';
+import type { CommandImplementation } from '@modules/commands/types';
 
 /**
  * Fast命令实现类

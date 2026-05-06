@@ -2,7 +2,7 @@
  * 退出命令
  * 退出系统
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 const GOODBYE_MESSAGES = ['Goodbye!', 'See ya!', 'Bye!', 'Catch you later!', 'Farewell!'];
 

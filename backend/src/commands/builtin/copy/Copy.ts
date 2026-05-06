@@ -4,7 +4,7 @@
  * 将响应复制到剪贴板
  */
 
-import type { CommandContext } from '../../types/index.js';
+import type { CommandContext } from '@modules/commands/types';
 import clipboardy from 'clipboardy';
 
 interface CopyOptions {

@@ -2,7 +2,7 @@
  * Doctor命令模块入口
  */
 import { Doctor } from './Doctor.js';
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Doctor命令定义

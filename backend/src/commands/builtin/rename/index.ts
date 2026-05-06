@@ -2,7 +2,7 @@
  * 重命名会话命令
  * 重命名当前会话
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * rename 命令定义

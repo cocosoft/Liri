@@ -2,7 +2,7 @@
 /**
  * Branch命令导出
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Branch命令定义

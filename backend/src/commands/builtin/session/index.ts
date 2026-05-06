@@ -2,7 +2,7 @@
  * 会话命令
  * 管理会话
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { createChatManager } from '../../../chat/ChatManager.js';
 
 function getChatManager(context: any) {

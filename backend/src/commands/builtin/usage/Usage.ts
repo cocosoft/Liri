@@ -2,7 +2,7 @@
  * Usage命令实现
  * 显示详细的使用统计和趋势分析
  */
-import type { CommandImplementation } from '../../types/index.js';
+import type { CommandImplementation } from '@modules/commands/types';
 
 /**
  * 使用统计数据定义

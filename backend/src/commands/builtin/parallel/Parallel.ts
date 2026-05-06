@@ -1,4 +1,4 @@
-import type { CommandContext } from '../../types/index.js';
+import type { CommandContext } from '@modules/commands/types';
 import { createToolManager } from '../../../tools/ToolManager.js';
 import { createToolScheduler } from '../../../tools/scheduler/ToolScheduler.js';
 import { getEmptyToolUseContext } from '../../../tools/types/ToolUseContext.js';

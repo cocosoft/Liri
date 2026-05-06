@@ -2,7 +2,7 @@
  * 教程命令
  * 管理教程学习
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * tutorial 命令定义

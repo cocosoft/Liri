@@ -2,7 +2,7 @@
  * Cache命令
  * 管理工具执行缓存和其他类型的缓存
  */
-import type { CommandContext } from '../../types/index.js';
+import type { CommandContext } from '@modules/commands/types';
 import { toolCacheManager } from '../../../tools/cache/ToolCacheManager.js';
 
 interface CacheResult {

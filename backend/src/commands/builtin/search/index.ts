@@ -2,7 +2,7 @@
  * 搜索命令
  * 在应用内搜索
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * search 命令定义

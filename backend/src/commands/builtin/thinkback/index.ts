@@ -2,7 +2,7 @@
  * 思考回放命令
  * 回放AI思考过程
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * thinkback 命令定义

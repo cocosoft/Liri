@@ -2,7 +2,7 @@
  * 桌面模式命令
  * 管理桌面应用模式
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * desktop 命令定义

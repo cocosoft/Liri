@@ -2,8 +2,8 @@
  * tokens 命令
  * 显示 Token 使用统计
  */
-import type { CommandType, CommandResult } from '../../types/index.js';
-import type { Command, CommandContext, CommandImplementation } from '../../types/index.js';
+import type { CommandType, CommandResult } from '@modules/commands/types';
+import type { Command, CommandContext, CommandImplementation } from '@modules/commands/types';
 
 /**
  * 构建 Token 明细展示内容

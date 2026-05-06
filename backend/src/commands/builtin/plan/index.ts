@@ -2,7 +2,7 @@
  * 计划命令
  * 管理任务计划和执行
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * plan 命令定义

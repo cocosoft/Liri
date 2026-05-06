@@ -2,7 +2,7 @@
  * Memory命令模块入口
  */
 import { Memory } from './Memory.js';
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Memory命令定义

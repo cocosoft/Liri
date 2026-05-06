@@ -2,7 +2,7 @@
  * 工作活动统计命令
  * 显示代码、任务、会话等真实统计数据
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import { ActivityStats } from './ActivityStats.js';
 
 const activityInstance = new ActivityStats();

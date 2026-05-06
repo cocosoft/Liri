@@ -5,7 +5,7 @@
  * 基于CC源码 cc_code/backend/commands/compact.ts 实现
  */
 
-import type { Command, CommandContext, CommandType, CommandResult } from '../../types';
+import type { Command, CommandContext, CommandType, CommandResult } from '@modules/commands/types';
 import type { CompactArtifact } from '../../../services/compact/CompactService';
 
 export interface CompactCommandOptions {

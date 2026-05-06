@@ -2,7 +2,7 @@
  * 贴纸命令
  * 管理贴纸
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * stickers 命令定义

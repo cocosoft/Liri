@@ -2,7 +2,7 @@
  * 反馈命令
  * 提交用户反馈
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * feedback 命令定义

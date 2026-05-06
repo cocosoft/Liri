@@ -5,7 +5,7 @@
  * 基于CC源码 cc_code/backend/commands/voice/voice.ts 实现
  */
 
-import type { Command, CommandContext, CommandType } from '../../types';
+import type { Command, CommandContext, CommandType } from '@modules/commands/types';
 import voiceService from '../../../services/voice';
 
 export class VoiceCommand implements Command {

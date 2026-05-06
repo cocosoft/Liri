@@ -2,7 +2,7 @@
  * 输出风格命令
  * 管理输出格式和显示风格
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * output-style 命令定义

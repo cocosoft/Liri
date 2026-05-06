@@ -1,5 +1,5 @@
 // @ts-nocheck
-import type { CommandContext } from '../../types/index.js';
+import type { CommandContext } from '@modules/commands/types';
 import { getToolManager } from '../../../tools/ToolManager';
 
 const listConfig = async (): Promise<{ type: 'text'; value: string }> => {

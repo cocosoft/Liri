@@ -2,7 +2,7 @@
  * 调试命令
  * 管理调试功能
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * debug 命令定义

@@ -2,7 +2,7 @@
  * env 命令
  * 显示环境变量，默认聚焦应用配置，支持 --all 查看全部
  */
-import type { Command, CommandContext, CommandResult, CommandImplementation } from '../../types/index.js';
+import type { Command, CommandContext, CommandResult, CommandImplementation } from '@modules/commands/types';
 
 /**
  * 应用相关环境变量前缀列表

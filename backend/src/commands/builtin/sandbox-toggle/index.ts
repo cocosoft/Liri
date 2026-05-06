@@ -2,7 +2,7 @@
  * 沙箱模式切换命令
  * 控制代码执行的沙箱隔离
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * sandbox-toggle 命令定义

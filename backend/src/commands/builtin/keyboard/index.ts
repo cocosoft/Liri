@@ -2,7 +2,7 @@
  * 键盘快捷键命令
  * 管理键盘快捷键
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * keyboard 命令定义

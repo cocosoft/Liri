@@ -2,7 +2,7 @@
  * Doctor命令实现
  * 系统健康检查和问题诊断
  */
-import type { CommandImplementation } from '../../types/index.js';
+import type { CommandImplementation } from '@modules/commands/types';
 
 /**
  * 诊断检查结果定义

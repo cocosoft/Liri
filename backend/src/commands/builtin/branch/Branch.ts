@@ -3,7 +3,7 @@
  * Branch命令实现
  * 分支管理：创建/切换/删除分支
  */
-import type { CommandImplementation } from '../../types/index.js';
+import type { CommandImplementation } from '@modules/commands/types';
 
 /**
  * Branch命令实现类

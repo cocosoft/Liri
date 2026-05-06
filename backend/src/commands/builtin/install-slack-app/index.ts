@@ -2,7 +2,7 @@
  * Slack App安装命令
  * 安装Slack集成应用
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * install-slack-app 命令定义

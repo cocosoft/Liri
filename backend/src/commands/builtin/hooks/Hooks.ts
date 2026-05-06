@@ -2,7 +2,7 @@
  * Hooks命令实现
  * 钩子管理和执行
  */
-import type { CommandImplementation } from '../../types/index.js';
+import type { CommandImplementation } from '@modules/commands/types';
 
 /**
  * 钩子数据定义

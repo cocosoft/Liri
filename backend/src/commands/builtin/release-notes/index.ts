@@ -2,7 +2,7 @@
  * 发布说明命令
  * 查看版本发布说明
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * release-notes 命令定义

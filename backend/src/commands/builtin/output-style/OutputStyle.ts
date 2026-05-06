@@ -1,7 +1,7 @@
 /**
  * 输出风格命令实现
  */
-import type { CommandContext, CommandResult } from '../../types/index.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 
 export type OutputFormat = 'text' | 'json' | 'markdown' | 'compact';
 export type ColorMode = 'auto' | 'light' | 'dark';

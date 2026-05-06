@@ -2,7 +2,7 @@
  * GitHub App安装命令
  * 安装GitHub集成应用
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * install-github-app 命令定义

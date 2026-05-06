@@ -2,7 +2,7 @@
  * Fast命令模块入口
  */
 import { Fast } from './Fast.js';
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * Fast命令定义

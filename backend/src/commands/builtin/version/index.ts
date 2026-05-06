@@ -2,7 +2,7 @@
  * 版本命令
  * 显示系统版本信息
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 import * as fs from 'fs';
 import * as path from 'path';
 

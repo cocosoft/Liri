@@ -2,7 +2,7 @@
  * 上下文管理命令
  * 管理当前会话的上下文
  */
-import type { Command } from '../../types/index.js';
+import type { Command } from '@modules/commands/types';
 
 /**
  * context 命令定义

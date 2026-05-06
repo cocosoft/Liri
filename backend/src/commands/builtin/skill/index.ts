@@ -2,7 +2,7 @@
  * 技能命令
  * 管理和查看技能
  */
-import type { Command, CommandContext } from '../../types/index.js';
+import type { Command, CommandContext } from '@modules/commands/types';
 import { skillManager } from '../../../skills/managers/SkillManager.js';
 import { UserSkillLoader } from '../../../skills/loaders/sources/UserSkillLoader.js';
 import { ProjectSkillLoader } from '../../../skills/loaders/sources/ProjectSkillLoader.js';

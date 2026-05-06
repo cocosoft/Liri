@@ -8,7 +8,7 @@ import { execSync } from 'child_process';
 import { promisify } from 'util';
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
-import { logger } from '../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 
 const execFileAsync = promisify(execFile);
 

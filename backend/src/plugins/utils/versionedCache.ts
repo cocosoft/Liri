@@ -7,7 +7,7 @@
 import { readFile, writeFile, readdir, rm, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { createHash } from 'crypto';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 缓存条目信息

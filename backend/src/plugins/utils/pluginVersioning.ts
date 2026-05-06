@@ -8,7 +8,7 @@
 import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 版本信息

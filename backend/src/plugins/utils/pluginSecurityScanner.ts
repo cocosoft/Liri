@@ -6,7 +6,7 @@
 
 import { readFile, readdir } from 'fs/promises';
 import { join, relative } from 'path';
-import { logger } from '../../utils/log';
+import { logger } from '@modules/utils/log';
 
 /**
  * 危险模式类型

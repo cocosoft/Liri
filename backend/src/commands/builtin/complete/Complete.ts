@@ -2,8 +2,8 @@
  * Complete命令
  * 提供命令自动补全功能
  */
-import type { CommandContext } from '../../types/index.js';
-import { commandCompletionManager } from '../completion/CommandCompletionManager.js';
+import type { CommandContext } from '@modules/commands/types';
+import { commandCompletionManager } from '@modules/commands/completion/CommandCompletionManager.js';
 
 interface CompleteOptions {
   limit?: number;

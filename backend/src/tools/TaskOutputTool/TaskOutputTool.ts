@@ -17,7 +17,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
-import type { BaseTask } from '../../tasks/BaseTask';
+import type { BaseTask } from '@modules/tasks/BaseTask';
 
 /**
  * 任务输出数据类型

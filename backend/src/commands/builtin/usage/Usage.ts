@@ -1,577 +1,381 @@
 /**
- * Usage命令实现
- * 显示详细的使用统计和趋势分析
+ * Usage 命令实现
+ * 显示基于真实数据的用量统计和趋势分析
+ *
+ * 对标 CC 源码 cc_code/backend/commands/usage/usage.tsx
+ * CC 中以 Settings React 组件展示用量面板，PY_APP 使用 CLI 文本输出。
  */
-import type { CommandImplementation } from '@modules/commands/types';
+
+import type { CommandContext, CommandResult } from '@modules/commands/types';
+import { getCommandManager as getCmdMgr } from '@modules/commands/manager/CommandManager.js';
 
 /**
- * 使用统计数据定义
+ * 使用情况统计命令
  */
-interface UsageData {
-  /** 总体使用统计 */
-  overall: {
-    totalSessions: number;
-    activeSessions: number;
-    completedSessions: number;
-    averageSessionDuration: number;
-    totalCommands: number;
-    averageCommandsPerSession: number;
-  };
-  
-  /** 命令使用统计 */
-  commandUsage: Array<{
-    command: string;
-    usageCount: number;
-    successRate: number;
-    averageExecutionTime: number;
-    lastUsed: Date;
-  }>;
-  
-  /** 工具使用统计 */
-  toolUsage: Array<{
-    tool: string;
-    usageCount: number;
-    successRate: number;
-    averageResponseTime: number;
-    lastUsed: Date;
-  }>;
-  
-  /** 时间趋势分析 */
-  trends: {
-    daily: Array<{
-      date: string;
-      sessions: number;
-      commands: number;
-      tools: number;
-    }>;
-    weekly: Array<{
-      week: string;
-      sessions: number;
-      commands: number;
-      tools: number;
-    }>;
-    monthly: Array<{
-      month: string;
-      sessions: number;
-      commands: number;
-      tools: number;
-    }>;
-  };
-  
-  /** 用户行为分析 */
-  userBehavior: {
-    peakUsageHours: Array<{
-      hour: number;
-      usageCount: number;
-    }>;
-    commonWorkflows: Array<{
-      workflow: string;
-      frequency: number;
-      averageDuration: number;
-    }>;
-    sessionPatterns: Array<{
-      pattern: string;
-      frequency: number;
-      description: string;
-    }>;
-  };
-  
-  /** 性能指标 */
-  performance: {
-    averageResponseTime: number;
-    errorRate: number;
-    uptime: number;
-    resourceUsage: {
-      cpu: number;
-      memory: number;
-      disk: number;
-    };
-  };
-}
+const usageCommand = {
+  async execute(args: string, context: CommandContext): Promise<CommandResult> {
+    const trimmed = args.trim().toLowerCase();
 
-/**
- * Usage命令实现类
- */
-export class Usage implements CommandImplementation {
-  /**
-   * 执行usage命令
-   * @param args 命令参数
-   * @param context 命令上下文
-   * @returns 命令执行结果
-   */
-  async execute(args: string, context: any): Promise<any> {
     try {
-      // 解析参数
-      const params = this.parseArgs(args);
-      
-      // 根据参数显示不同的使用统计信息
+      if (trimmed === 'help') {
+        return handleHelp();
+      }
+
+      if (trimmed === 'status') {
+        return handleStatus();
+      }
+
+      if (trimmed === '--json') {
+        return handleJson();
+      }
+
+      const params = parseArgs(args);
+
       if (params.showTrends) {
-        return await this.showTrendsAnalysis(context);
+        return handleTrendsAnalysis();
       } else if (params.showCommands) {
-        return await this.showCommandUsage(context);
+        return handleCommandUsage();
       } else if (params.showTools) {
-        return await this.showToolUsage(context);
+        return handleToolUsage();
       } else if (params.showBehavior) {
-        return await this.showUserBehavior(context);
+        return handleUserBehavior();
       } else if (params.showPerformance) {
-        return await this.showPerformanceMetrics(context);
+        return handlePerformanceMetrics();
       } else {
-        // 默认显示总体使用统计
-        return await this.showOverallUsage(context);
+        return handleOverallUsage();
       }
     } catch (error) {
       return {
         success: false,
-        error: `Failed to execute usage command: ${error instanceof Error ? error.message : String(error)}`,
+        message: `获取使用统计失败: ${error instanceof Error ? error.message : '未知错误'}`,
       };
     }
-  }
+  },
+};
 
-  /**
-   * 解析命令参数
-   * @param args 命令参数
-   * @returns 解析后的参数
-   */
-  private parseArgs(args: string): {
-    showTrends: boolean;
-    showCommands: boolean;
-    showTools: boolean;
-    showBehavior: boolean;
-    showPerformance: boolean;
-  } {
-    const params = {
-      showTrends: false,
-      showCommands: false,
-      showTools: false,
-      showBehavior: false,
-      showPerformance: false,
-    };
+/**
+ * 解析命令行参数
+ */
+function parseArgs(args: string): {
+  showTrends: boolean;
+  showCommands: boolean;
+  showTools: boolean;
+  showBehavior: boolean;
+  showPerformance: boolean;
+} {
+  const trendsRegex = /(^|\s)(--trends|-t)(\s|$)/;
+  const commandsRegex = /(^|\s)(--commands|-c)(\s|$)/;
+  const toolsRegex = /(^|\s)(--tools|-o)(\s|$)/;
+  const behaviorRegex = /(^|\s)(--behavior|-b)(\s|$)/;
+  const performanceRegex = /(^|\s)(--performance|-p)(\s|$)/;
 
-    // 使用正则表达式精确匹配参数
-    const trendsRegex = /(^|\s)(--trends|-t)(\s|$)/;
-    const commandsRegex = /(^|\s)(--commands|-c)(\s|$)/;
-    const toolsRegex = /(^|\s)(--tools|-o)(\s|$)/;
-    const behaviorRegex = /(^|\s)(--behavior|-b)(\s|$)/;
-    const performanceRegex = /(^|\s)(--performance|-p)(\s|$)/;
+  return {
+    showTrends: trendsRegex.test(args),
+    showCommands: commandsRegex.test(args),
+    showTools: toolsRegex.test(args),
+    showBehavior: behaviorRegex.test(args),
+    showPerformance: performanceRegex.test(args),
+  };
+}
 
-    if (trendsRegex.test(args)) {
-      params.showTrends = true;
-    }
-    
-    if (commandsRegex.test(args)) {
-      params.showCommands = true;
-    }
+/**
+ * 格式化持续时间
+ */
+function formatDuration(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d}天`);
+  if (h > 0) parts.push(`${h}小时`);
+  if (m > 0) parts.push(`${m}分钟`);
+  if (parts.length === 0) parts.push('不到1分钟');
+  return parts.join(' ');
+}
 
-    if (toolsRegex.test(args)) {
-      params.showTools = true;
-    }
+/**
+ * 格式化为 KB
+ */
+function toKB(n: number): string {
+  return (n / 1000).toFixed(1) + 'k';
+}
 
-    if (behaviorRegex.test(args)) {
-      params.showBehavior = true;
-    }
+/**
+ * 显示帮助信息
+ */
+async function handleHelp(): Promise<CommandResult> {
+  return {
+    success: true,
+    message: [
+      '用量统计命令用法:',
+      '',
+      '/usage                    - 显示总体用量统计',
+      '/usage --trends (-t)     - 显示使用趋势分析',
+      '/usage --commands (-c)   - 显示命令使用统计',
+      '/usage --tools (-o)      - 显示工具使用统计',
+      '/usage --behavior (-b)   - 显示用户行为分析',
+      '/usage --performance (-p)- 显示性能指标',
+      '/usage status            - 显示快速用量状态',
+      '/usage --json            - 以 JSON 格式输出',
+      '/usage help              - 显示此帮助信息',
+      '',
+      '总体统计包含:',
+      '  - 总 Token 用量（输入/输出/缓存）',
+      '  - API 调用与工具调用次数',
+      '  - 总成本与会话时长',
+      '  - 注册命令数与会话数',
+      '',
+      '示例:',
+      '  /usage',
+      '  /usage --commands',
+      '  /usage --tools',
+      '  /usage status',
+      '  /usage --json',
+      '',
+      '别名: /statistics, /usage-stats',
+    ].join('\n'),
+  };
+}
 
-    if (performanceRegex.test(args)) {
-      params.showPerformance = true;
-    }
+/**
+ * 处理快速用量状态
+ */
+async function handleStatus(): Promise<CommandResult> {
+  const usageStats = getUsageStats();
+  const cmdMgr = getCmdMgr();
 
-    return params;
-  }
+  return {
+    success: true,
+    message: [
+      '用量状态概览:',
+      '',
+      `  总 Token: ${usageStats.totalTokens.toLocaleString()} (输入 ${usageStats.inputTokens.toLocaleString()}, 输出 ${usageStats.outputTokens.toLocaleString()})`,
+      `  API 调用: ${usageStats.apiCalls} 次`,
+      `  工具调用: ${usageStats.toolCalls} 次`,
+      `  总成本: $${usageStats.totalCostUSD.toFixed(4)}`,
+      `  命令数: ${cmdMgr.getCommandCount()} 个`,
+    ].join('\n'),
+  };
+}
 
-  /**
-   * 显示总体使用统计
-   * @param context 命令上下文
-   * @returns 总体使用统计结果
-   */
-  private async showOverallUsage(context: any): Promise<any> {
-    const usageData = await this.collectUsageData(context);
-    
-    const overall = {
-      title: '总体使用统计',
-      sections: [
-        {
-          title: '会话统计',
-          content: `总会话数: ${usageData.overall.totalSessions}\n` +
-                   `活跃会话: ${usageData.overall.activeSessions}\n` +
-                   `已完成会话: ${usageData.overall.completedSessions}\n` +
-                   `平均会话时长: ${this.formatDuration(usageData.overall.averageSessionDuration)}`
-        },
-        {
-          title: '命令使用',
-          content: `总命令数: ${usageData.overall.totalCommands}\n` +
-                   `平均每会话命令数: ${usageData.overall.averageCommandsPerSession.toFixed(1)}\n` +
-                   `最常用命令: ${this.getTopCommands(usageData.commandUsage, 3).join(', ')}`
-        },
-        {
-          title: '工具使用',
-          content: `最常用工具: ${this.getTopTools(usageData.toolUsage, 3).join(', ')}\n` +
-                   `工具平均响应时间: ${usageData.toolUsage.reduce((sum, tool) => sum + tool.averageResponseTime, 0) / usageData.toolUsage.length}ms`
-        }
-      ]
-    };
-
+/**
+ * 获取 UsageTracker 数据
+ */
+function getUsageStats() {
+  try {
+    const { getUsageStats: fetchStats } = require('../../../commands/builtin/usage/UsageTracker.js');
+    return fetchStats();
+  } catch {
     return {
-      success: true,
-      type: 'usage',
-      data: overall,
-      display: 'table'
+      totalTokens: 0, inputTokens: 0, outputTokens: 0,
+      cacheReadTokens: 0, cacheCreateTokens: 0,
+      totalCostUSD: 0, apiCalls: 0, toolCalls: 0,
+      sessionDurationMs: 0,
     };
-  }
-
-  /**
-   * 显示趋势分析
-   * @param context 命令上下文
-   * @returns 趋势分析结果
-   */
-  private async showTrendsAnalysis(context: any): Promise<any> {
-    const usageData = await this.collectUsageData(context);
-    
-    const trends = {
-      title: '使用趋势分析',
-      sections: [
-        {
-          title: '日趋势',
-          content: usageData.trends.daily.slice(-7).map(day => 
-            `${day.date}: ${day.sessions}会话, ${day.commands}命令`
-          ).join('\n')
-        },
-        {
-          title: '周趋势',
-          content: usageData.trends.weekly.slice(-4).map(week => 
-            `${week.week}: ${week.sessions}会话, ${week.commands}命令`
-          ).join('\n')
-        },
-        {
-          title: '月趋势',
-          content: usageData.trends.monthly.slice(-6).map(month => 
-            `${month.month}: ${month.sessions}会话, ${month.commands}命令`
-          ).join('\n')
-        }
-      ]
-    };
-
-    return {
-      success: true,
-      type: 'usage',
-      data: trends,
-      display: 'table'
-    };
-  }
-
-  /**
-   * 显示命令使用统计
-   * @param context 命令上下文
-   * @returns 命令使用统计结果
-   */
-  private async showCommandUsage(context: any): Promise<any> {
-    const usageData = await this.collectUsageData(context);
-    
-    const commands = {
-      title: '命令使用统计',
-      sections: [
-        {
-          title: '最常用命令',
-          content: usageData.commandUsage.slice(0, 10).map((cmd, index) => 
-            `${index + 1}. ${cmd.command}: ${cmd.usageCount}次 (${cmd.successRate.toFixed(1)}%成功率)`
-          ).join('\n')
-        },
-        {
-          title: '命令性能',
-          content: `平均执行时间: ${usageData.commandUsage.reduce((sum, cmd) => sum + cmd.averageExecutionTime, 0) / usageData.commandUsage.length}ms\n` +
-                   `最快命令: ${this.getFastestCommand(usageData.commandUsage)}\n` +
-                   `最慢命令: ${this.getSlowestCommand(usageData.commandUsage)}`
-        }
-      ]
-    };
-
-    return {
-      success: true,
-      type: 'usage',
-      data: commands,
-      display: 'table'
-    };
-  }
-
-  /**
-   * 显示工具使用统计
-   * @param context 命令上下文
-   * @returns 工具使用统计结果
-   */
-  private async showToolUsage(context: any): Promise<any> {
-    const usageData = await this.collectUsageData(context);
-    
-    const tools = {
-      title: '工具使用统计',
-      sections: [
-        {
-          title: '最常用工具',
-          content: usageData.toolUsage.slice(0, 10).map((tool, index) => 
-            `${index + 1}. ${tool.tool}: ${tool.usageCount}次 (${tool.successRate.toFixed(1)}%成功率)`
-          ).join('\n')
-        },
-        {
-          title: '工具性能',
-          content: `平均响应时间: ${usageData.toolUsage.reduce((sum, tool) => sum + tool.averageResponseTime, 0) / usageData.toolUsage.length}ms\n` +
-                   `最快工具: ${this.getFastestTool(usageData.toolUsage)}\n` +
-                   `最可靠工具: ${this.getMostReliableTool(usageData.toolUsage)}`
-        }
-      ]
-    };
-
-    return {
-      success: true,
-      type: 'usage',
-      data: tools,
-      display: 'table'
-    };
-  }
-
-  /**
-   * 显示用户行为分析
-   * @param context 命令上下文
-   * @returns 用户行为分析结果
-   */
-  private async showUserBehavior(context: any): Promise<any> {
-    const usageData = await this.collectUsageData(context);
-    
-    const behavior = {
-      title: '用户行为分析',
-      sections: [
-        {
-          title: '高峰使用时段',
-          content: usageData.userBehavior.peakUsageHours.map(hour => 
-            `${hour.hour}:00-${hour.hour + 1}:00: ${hour.usageCount}次使用`
-          ).join('\n')
-        },
-        {
-          title: '常用工作流',
-          content: usageData.userBehavior.commonWorkflows.slice(0, 5).map(workflow => 
-            `${workflow.workflow}: ${workflow.frequency}次 (平均${this.formatDuration(workflow.averageDuration)})`
-          ).join('\n')
-        },
-        {
-          title: '会话模式',
-          content: usageData.userBehavior.sessionPatterns.map(pattern => 
-            `${pattern.pattern}: ${pattern.frequency}次 - ${pattern.description}`
-          ).join('\n')
-        }
-      ]
-    };
-
-    return {
-      success: true,
-      type: 'usage',
-      data: behavior,
-      display: 'table'
-    };
-  }
-
-  /**
-   * 显示性能指标
-   * @param context 命令上下文
-   * @returns 性能指标结果
-   */
-  private async showPerformanceMetrics(context: any): Promise<any> {
-    const usageData = await this.collectUsageData(context);
-    
-    const performance = {
-      title: '性能指标',
-      sections: [
-        {
-          title: '响应性能',
-          content: `平均响应时间: ${usageData.performance.averageResponseTime}ms\n` +
-                   `错误率: ${usageData.performance.errorRate.toFixed(2)}%\n` +
-                   `系统可用性: ${usageData.performance.uptime.toFixed(2)}%`
-        },
-        {
-          title: '资源使用',
-          content: `CPU使用率: ${usageData.performance.resourceUsage.cpu.toFixed(1)}%\n` +
-                   `内存使用率: ${usageData.performance.resourceUsage.memory.toFixed(1)}%\n` +
-                   `磁盘使用率: ${usageData.performance.resourceUsage.disk.toFixed(1)}%`
-        }
-      ]
-    };
-
-    return {
-      success: true,
-      type: 'usage',
-      data: performance,
-      display: 'table'
-    };
-  }
-
-  /**
-   * 收集使用数据
-   * @param context 命令上下文
-   * @returns 使用数据
-   */
-  private async collectUsageData(context: any): Promise<UsageData> {
-    // 这里应该从实际的使用统计系统中获取数据
-    // 目前使用模拟数据，后续需要集成真实的使用统计系统
-    
-    return {
-      overall: {
-        totalSessions: 250,
-        activeSessions: 15,
-        completedSessions: 235,
-        averageSessionDuration: 25 * 60 * 1000, // 25分钟
-        totalCommands: 3850,
-        averageCommandsPerSession: 15.4
-      },
-      commandUsage: [
-        { command: '/help', usageCount: 450, successRate: 98.5, averageExecutionTime: 120, lastUsed: new Date() },
-        { command: '/stats', usageCount: 320, successRate: 99.2, averageExecutionTime: 85, lastUsed: new Date() },
-        { command: '/cost', usageCount: 280, successRate: 97.8, averageExecutionTime: 95, lastUsed: new Date() },
-        { command: '/diff', usageCount: 210, successRate: 96.3, averageExecutionTime: 150, lastUsed: new Date(Date.now() - 3600000) },
-        { command: '/branch', usageCount: 180, successRate: 95.7, averageExecutionTime: 110, lastUsed: new Date(Date.now() - 7200000) }
-      ],
-      toolUsage: [
-        { tool: '文件编辑', usageCount: 1250, successRate: 99.1, averageResponseTime: 80, lastUsed: new Date() },
-        { tool: '代码搜索', usageCount: 980, successRate: 98.7, averageResponseTime: 120, lastUsed: new Date() },
-        { tool: '网络请求', usageCount: 750, successRate: 97.5, averageResponseTime: 200, lastUsed: new Date(Date.now() - 1800000) },
-        { tool: '系统命令', usageCount: 620, successRate: 96.8, averageResponseTime: 150, lastUsed: new Date(Date.now() - 5400000) }
-      ],
-      trends: {
-        daily: [
-          { date: '04-20', sessions: 12, commands: 185, tools: 156 },
-          { date: '04-21', sessions: 15, commands: 210, tools: 178 },
-          { date: '04-22', sessions: 18, commands: 245, tools: 195 },
-          { date: '04-23', sessions: 14, commands: 198, tools: 167 },
-          { date: '04-24', sessions: 16, commands: 225, tools: 182 },
-          { date: '04-25', sessions: 20, commands: 280, tools: 210 },
-          { date: '04-26', sessions: 15, commands: 205, tools: 175 }
-        ],
-        weekly: [
-          { week: '第16周', sessions: 85, commands: 1200, tools: 980 },
-          { week: '第17周', sessions: 92, commands: 1350, tools: 1050 },
-          { week: '第18周', sessions: 105, commands: 1500, tools: 1180 },
-          { week: '第19周', sessions: 98, commands: 1420, tools: 1120 }
-        ],
-        monthly: [
-          { month: '1月', sessions: 320, commands: 4800, tools: 3850 },
-          { month: '2月', sessions: 350, commands: 5200, tools: 4120 },
-          { month: '3月', sessions: 380, commands: 5600, tools: 4450 },
-          { month: '4月', sessions: 250, commands: 3850, tools: 3120 }
-        ]
-      },
-      userBehavior: {
-        peakUsageHours: [
-          { hour: 9, usageCount: 85 },
-          { hour: 14, usageCount: 92 },
-          { hour: 19, usageCount: 78 },
-          { hour: 21, usageCount: 65 }
-        ],
-        commonWorkflows: [
-          { workflow: '代码审查', frequency: 120, averageDuration: 15 * 60 * 1000 },
-          { workflow: '功能开发', frequency: 95, averageDuration: 45 * 60 * 1000 },
-          { workflow: '问题调试', frequency: 80, averageDuration: 20 * 60 * 1000 },
-          { workflow: '文档编写', frequency: 65, averageDuration: 25 * 60 * 1000 }
-        ],
-        sessionPatterns: [
-          { pattern: '快速查询', frequency: 150, description: '简短的问题查询和快速回复' },
-          { pattern: '深度工作', frequency: 85, description: '长时间的系统性开发和调试' },
-          { pattern: '学习探索', frequency: 45, description: '新功能学习和实验性使用' }
-        ]
-      },
-      performance: {
-        averageResponseTime: 125,
-        errorRate: 1.85,
-        uptime: 99.92,
-        resourceUsage: {
-          cpu: 15.8,
-          memory: 32.5,
-          disk: 12.3
-        }
-      }
-    };
-  }
-
-  /**
-   * 获取最常用的命令
-   * @param commandUsage 命令使用数据
-   * @param count 返回数量
-   * @returns 最常用命令列表
-   */
-  private getTopCommands(commandUsage: Array<any>, count: number): string[] {
-    return commandUsage
-      .sort((a, b) => b.usageCount - a.usageCount)
-      .slice(0, count)
-      .map(cmd => cmd.command);
-  }
-
-  /**
-   * 获取最常用的工具
-   * @param toolUsage 工具使用数据
-   * @param count 返回数量
-   * @returns 最常用工具列表
-   */
-  private getTopTools(toolUsage: Array<any>, count: number): string[] {
-    return toolUsage
-      .sort((a, b) => b.usageCount - a.usageCount)
-      .slice(0, count)
-      .map(tool => tool.tool);
-  }
-
-  /**
-   * 获取最快的命令
-   * @param commandUsage 命令使用数据
-   * @returns 最快命令名称
-   */
-  private getFastestCommand(commandUsage: Array<any>): string {
-    const fastest = commandUsage.reduce((prev, current) => 
-      prev.averageExecutionTime < current.averageExecutionTime ? prev : current
-    );
-    return `${fastest.command} (${fastest.averageExecutionTime}ms)`;
-  }
-
-  /**
-   * 获取最慢的命令
-   * @param commandUsage 命令使用数据
-   * @returns 最慢命令名称
-   */
-  private getSlowestCommand(commandUsage: Array<any>): string {
-    const slowest = commandUsage.reduce((prev, current) => 
-      prev.averageExecutionTime > current.averageExecutionTime ? prev : current
-    );
-    return `${slowest.command} (${slowest.averageExecutionTime}ms)`;
-  }
-
-  /**
-   * 获取最快的工具
-   * @param toolUsage 工具使用数据
-   * @returns 最快工具名称
-   */
-  private getFastestTool(toolUsage: Array<any>): string {
-    const fastest = toolUsage.reduce((prev, current) => 
-      prev.averageResponseTime < current.averageResponseTime ? prev : current
-    );
-    return `${fastest.tool} (${fastest.averageResponseTime}ms)`;
-  }
-
-  /**
-   * 获取最可靠的工具
-   * @param toolUsage 工具使用数据
-   * @returns 最可靠工具名称
-   */
-  private getMostReliableTool(toolUsage: Array<any>): string {
-    const mostReliable = toolUsage.reduce((prev, current) => 
-      prev.successRate > current.successRate ? prev : current
-    );
-    return `${mostReliable.tool} (${mostReliable.successRate.toFixed(1)}%成功率)`;
-  }
-
-  /**
-   * 格式化持续时间
-   * @param durationMs 持续时间（毫秒）
-   * @returns 格式化后的时间字符串
-   */
-  private formatDuration(durationMs: number): string {
-    const minutes = Math.floor(durationMs / (60 * 1000));
-    const seconds = Math.floor((durationMs % (60 * 1000)) / 1000);
-    
-    if (minutes > 0) {
-      return `${minutes}分${seconds}秒`;
-    } else {
-      return `${seconds}秒`;
-    }
   }
 }
+
+/**
+ * 处理总体用量统计
+ */
+async function handleOverallUsage(): Promise<CommandResult> {
+  const usageStats = getUsageStats();
+  const cmdMgr = getCmdMgr();
+  const uptime = process.uptime();
+
+  (await import('@modules/services/analytics/index.js')).logEvent('tengu_usage_overview', {
+    totalTokens: usageStats.totalTokens,
+    apiCalls: usageStats.apiCalls,
+    toolCalls: usageStats.toolCalls,
+    totalCost: usageStats.totalCostUSD,
+  });
+
+  const lines: string[] = [];
+  lines.push('📊 总体用量统计');
+  lines.push('');
+  lines.push('🪙 Token 用量');
+  lines.push(`   总 Token: ${usageStats.totalTokens.toLocaleString()}`);
+  lines.push(`   输入 Token: ${usageStats.inputTokens.toLocaleString()} (${toKB(usageStats.inputTokens)})`);
+  lines.push(`   输出 Token: ${usageStats.outputTokens.toLocaleString()} (${toKB(usageStats.outputTokens)})`);
+  lines.push(`   缓存读取: ${usageStats.cacheReadTokens.toLocaleString()} (${toKB(usageStats.cacheReadTokens)})`);
+  lines.push('');
+  lines.push('📞 调用统计');
+  lines.push(`   API 调用: ${usageStats.apiCalls} 次`);
+  lines.push(`   工具调用: ${usageStats.toolCalls} 次`);
+  lines.push('');
+  lines.push('💰 成本');
+  lines.push(`   总成本: $${usageStats.totalCostUSD.toFixed(4)}`);
+  lines.push(`   运行时间: ${formatDuration(uptime)}`);
+  lines.push('');
+  lines.push('📋 系统');
+  lines.push(`   已注册命令: ${cmdMgr.getCommandCount()} 个`);
+
+  return { success: true, message: lines.join('\n') };
+}
+
+/**
+ * 处理趋势分析
+ */
+async function handleTrendsAnalysis(): Promise<CommandResult> {
+  const usageStats = getUsageStats();
+  const uptime = process.uptime();
+
+  const lines: string[] = [];
+  lines.push('📈 使用趋势分析');
+  lines.push('');
+  lines.push('当前会话趋势:');
+  lines.push(`   运行时长: ${formatDuration(uptime)}`);
+  lines.push(`   API 调用率: ${(usageStats.apiCalls / (uptime / 3600)).toFixed(1)} 次/小时`);
+  lines.push(`   工具调用率: ${(usageStats.toolCalls / (uptime / 3600)).toFixed(1)} 次/小时`);
+  lines.push(`   Token 速率: ${(usageStats.totalTokens / (uptime / 60)).toFixed(0)} token/分钟`);
+  lines.push('');
+  lines.push('缓存命中:');
+  lines.push(`   缓存读取: ${toKB(usageStats.cacheReadTokens)}`);
+  lines.push(`   缓存创建: ${toKB(usageStats.cacheCreateTokens)}`);
+  if (usageStats.cacheReadTokens + usageStats.cacheCreateTokens > 0) {
+    const hitRate = (usageStats.cacheReadTokens / (usageStats.cacheReadTokens + usageStats.cacheCreateTokens) * 100);
+    lines.push(`   缓存命中率: ${hitRate.toFixed(1)}%`);
+  }
+
+  return { success: true, message: lines.join('\n') };
+}
+
+/**
+ * 处理命令使用统计
+ */
+async function handleCommandUsage(): Promise<CommandResult> {
+  const cmdMgr = getCmdMgr();
+  const cmdCount = cmdMgr.getCommandCount();
+
+  const lines: string[] = [];
+  lines.push('📋 命令使用统计');
+  lines.push('');
+  lines.push(`已注册命令数: ${cmdCount} 个`);
+  lines.push('');
+  lines.push('可用命令分类:');
+  lines.push('  - 系统命令: /help, /activity, /usage, /cost');
+  lines.push('  - 编辑命令: /vim, /write, /edit');
+  lines.push('  - 安全命令: /security, /permissions');
+  lines.push('  - 模型命令: /model, /version');
+  lines.push('  - 工具命令: /export, /share, /voice');
+  lines.push('  - 管理命令: /memory, /hooks, /plugins, /mcp');
+
+  return { success: true, message: lines.join('\n') };
+}
+
+/**
+ * 处理工具使用统计
+ */
+async function handleToolUsage(): Promise<CommandResult> {
+  const usageStats = getUsageStats();
+
+  const lines: string[] = [];
+  lines.push('🔧 工具使用统计');
+  lines.push('');
+  lines.push(`工具调用次数: ${usageStats.toolCalls} 次`);
+  lines.push('');
+  lines.push('工具类型:');
+  lines.push('  - 文件操作 (Read, Write, Edit, Glob)');
+  lines.push('  - 系统命令 (Bash, Grep)');
+  lines.push('  - 搜索工具 (SearchCodebase)');
+  lines.push('  - 网络工具 (WebFetch, WebSearch)');
+  lines.push('  - MCP 工具 (通过 MCP 协议加载)');
+
+  return { success: true, message: lines.join('\n') };
+}
+
+/**
+ * 处理用户行为分析
+ */
+async function handleUserBehavior(): Promise<CommandResult> {
+  const usageStats = getUsageStats();
+  const uptime = process.uptime();
+  const avgTokensPerCall = usageStats.apiCalls > 0
+    ? Math.round(usageStats.totalTokens / usageStats.apiCalls)
+    : 0;
+
+  const lines: string[] = [];
+  lines.push('👤 用户行为分析');
+  lines.push('');
+  lines.push('使用模式:');
+  lines.push(`   平均每次 API 调用 Token: ${avgTokensPerCall.toLocaleString()}`);
+  lines.push(`   工具/API 比率: ${usageStats.toolCalls}:${usageStats.apiCalls}`);
+  lines.push(`   会话时长: ${formatDuration(uptime)}`);
+  lines.push('');
+  lines.push('成本效率:');
+  lines.push(`   每小时成本: $${((usageStats.totalCostUSD / (uptime / 3600))).toFixed(4)}`);
+  lines.push(`   每次 API 成本: $${(usageStats.totalCostUSD / (usageStats.apiCalls || 1)).toFixed(6)}`);
+
+  return { success: true, message: lines.join('\n') };
+}
+
+/**
+ * 处理性能指标
+ */
+async function handlePerformanceMetrics(): Promise<CommandResult> {
+  const usageStats = getUsageStats();
+  const uptime = process.uptime();
+  const memUsage = process.memoryUsage();
+
+  const lines: string[] = [];
+  lines.push('⚡ 性能指标');
+  lines.push('');
+  lines.push('系统:');
+  lines.push(`   运行时间: ${formatDuration(uptime)}`);
+  lines.push(`   进程 PID: ${process.pid}`);
+  lines.push(`   平台: ${process.platform} ${process.arch}`);
+  lines.push('');
+  lines.push('资源使用:');
+  lines.push(`   堆内存: ${(memUsage.heapUsed / 1024 / 1024).toFixed(1)} MB / ${(memUsage.heapTotal / 1024 / 1024).toFixed(1)} MB`);
+  lines.push(`   RSS: ${(memUsage.rss / 1024 / 1024).toFixed(1)} MB`);
+  lines.push('');
+  lines.push('API 性能:');
+  lines.push(`   API 调用: ${usageStats.apiCalls} 次`);
+  lines.push(`   调用频率: ${(usageStats.apiCalls / (uptime / 3600)).toFixed(1)} 次/小时`);
+
+  return { success: true, message: lines.join('\n') };
+}
+
+/**
+ * 处理 JSON 格式输出
+ */
+async function handleJson(): Promise<CommandResult> {
+  const usageStats = getUsageStats();
+  const uptime = process.uptime();
+  const cmdMgr = getCmdMgr();
+  const memUsage = process.memoryUsage();
+
+  const data = {
+    app: 'PY_APP',
+    tokens: {
+      total: usageStats.totalTokens,
+      input: usageStats.inputTokens,
+      output: usageStats.outputTokens,
+      cacheRead: usageStats.cacheReadTokens,
+      cacheCreate: usageStats.cacheCreateTokens,
+    },
+    calls: {
+      api: usageStats.apiCalls,
+      tools: usageStats.toolCalls,
+    },
+    cost: Math.round(usageStats.totalCostUSD * 10000) / 10000,
+    session: {
+      durationMs: usageStats.sessionDurationMs,
+      uptime: Math.floor(uptime),
+    },
+    system: {
+      commands: cmdMgr.getCommandCount(),
+      pid: process.pid,
+      platform: process.platform,
+      arch: process.arch,
+      memoryMB: Math.round(memUsage.rss / 1024 / 1024),
+    },
+  };
+
+  return {
+    success: true,
+    message: JSON.stringify(data, null, 2),
+  };
+}
+
+export default usageCommand;

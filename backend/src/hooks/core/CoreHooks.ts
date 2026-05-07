@@ -133,10 +133,11 @@ export class CoreHooksRegistry {
       version: '1.0.0',
       enabled: true,
       priority: 'high',
-      handler: async (context: CompressionHookContext): Promise<CompressionHookResult> => {
+      handler: async (context: HookContext): Promise<HookResult> => {
         console.log('📦 Pre-compression hook executed');
         
-        const { preCompressionContent, compressionConfig } = context;
+        const ctx = context as CompressionHookContext;
+        const { preCompressionContent, compressionConfig } = ctx;
         
         // 分析内容并生成压缩建议
         const compressionSuggestions = this.analyzeContentForCompression(preCompressionContent);
@@ -147,9 +148,11 @@ export class CoreHooksRegistry {
         return {
           success: true,
           message: 'Pre-compression analysis completed',
-          compressionSuggestions,
-          compressionOptimizations: optimizations,
           additionalContext: 'Content analyzed for optimal compression',
+          extensions: {
+            compressionSuggestions,
+            compressionOptimizations: optimizations,
+          },
         };
       },
     });
@@ -161,20 +164,21 @@ export class CoreHooksRegistry {
       version: '1.0.0',
       enabled: true,
       priority: 'high',
-      handler: async (context: CompressionHookContext): Promise<CompressionHookResult> => {
+      handler: async (context: HookContext): Promise<HookResult> => {
         console.log('✅ Post-compression hook executed');
         
-        const { preCompressionContent, postCompressionContent, compressionStats } = context;
+        const ctx = context as CompressionHookContext;
+        const { preCompressionContent, postCompressionContent, compressionStats } = ctx;
         
         // 验证压缩结果
         const validationResult = this.validateCompressionResult(
-          preCompressionContent,
-          postCompressionContent,
+          preCompressionContent!,
+          postCompressionContent!,
           compressionStats
         );
         
         // 生成压缩报告
-        const compressionReport = this.generateCompressionReport(compressionStats);
+        const compressionReport = this.generateCompressionReport(compressionStats!);
         
         return {
           success: validationResult.valid,

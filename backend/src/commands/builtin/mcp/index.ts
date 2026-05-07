@@ -1,37 +1,16 @@
 /**
- * MCP命令模块入口
+ * MCP 命令模块入口
  */
-import { MCP } from './MCP.js';
 import type { Command } from '@modules/commands/types';
+import mcpCommand from './MCP.js';
 
-/**
- * MCP命令定义
- */
-const mcpCommand: Command = {
+const command: Command = {
   type: 'local',
   name: 'mcp',
-  description: 'MCP（Model Context Protocol）管理和配置',
-  aliases: ['mcp-server', 'model-context'],
-  argumentHint: '[--list|-l] [--status|-s] [--manage|-m] [--resources|-r] [--tools|-t] [--test|-e] | run <action> [params]',
-  whenToUse: '查看MCP服务器状态、管理MCP资源和工具时使用',
-  version: '1.0.0',
-  userInvocable: true,
-  loadedFrom: 'builtin',
-  
-  /**
-   * 加载命令实现
-   */
-  async load(): Promise<any> {
-    return new MCP();
-  }
+  description: 'MCP（Model Context Protocol）服务器查看和管理（列出服务器、工具和连接状态）',
+  aliases: ['mcp-server', 'mcp-manager', 'model-context'],
+  argumentHint: '[--list|-l] [--status|-s] [--tools|-t] [--test|-e] [status] [--json] [help] | run <action>',
+  load: () => import('./MCP.js').then(m => m.default),
 };
 
-/**
- * 导出MCP命令实现
- */
-export { MCP };
-
-/**
- * 默认导出MCP命令定义
- */
-export { mcpCommand };
+export { command as mcpCommand };

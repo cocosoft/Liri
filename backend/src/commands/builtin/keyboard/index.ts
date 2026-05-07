@@ -14,6 +14,6 @@ export const keyboardCommand: Command = {
   aliases: ['shortcuts', 'keys'],
   argumentHint: '[list|show|customize|reset|help]',
   whenToUse: '当你需要管理键盘快捷键时',
-  load: async () => import('./Keyboard.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Keyboard.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

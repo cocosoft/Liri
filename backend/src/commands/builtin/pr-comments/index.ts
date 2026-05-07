@@ -14,7 +14,7 @@ export const prCommentsCommand: Command = {
   aliases: ['prc', 'comments'],
   argumentHint: '[list|show|add|resolve|help]',
   whenToUse: '当你需要管理PR评论时',
-  load: async () => import('./PRComments.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./PRComments.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 
 export default prCommentsCommand;

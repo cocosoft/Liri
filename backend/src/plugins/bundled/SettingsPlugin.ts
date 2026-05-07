@@ -4,6 +4,7 @@
  */
 
 import type { Plugin, PluginMetadata } from '../types';
+import { PluginStatus } from '../types/Plugin.js';
 
 export interface SettingsConfig {
   theme: 'light' | 'dark' | 'system';
@@ -26,6 +27,7 @@ export const SettingsPluginMetadata: PluginMetadata = {
 };
 
 export class SettingsPlugin implements Plugin {
+  status: PluginStatus = PluginStatus.ENABLED;
   private enabled = true;
   private settings: SettingsConfig = {
     theme: 'system',

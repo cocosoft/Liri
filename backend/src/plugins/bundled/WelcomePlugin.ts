@@ -4,6 +4,7 @@
  */
 
 import type { Plugin, PluginMetadata } from '../types';
+import { PluginStatus } from '../types/Plugin.js';
 
 export const WelcomePluginMetadata: PluginMetadata = {
   id: 'welcome',
@@ -17,6 +18,7 @@ export const WelcomePluginMetadata: PluginMetadata = {
 };
 
 export class WelcomePlugin implements Plugin {
+  status: PluginStatus = PluginStatus.ENABLED;
   private enabled = true;
 
   get metadata(): PluginMetadata {

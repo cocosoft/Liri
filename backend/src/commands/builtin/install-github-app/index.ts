@@ -14,5 +14,5 @@ export const installGithubAppCommand: Command = {
   aliases: ['github-app'],
   argumentHint: '',
   whenToUse: '当你需要安装GitHub集成时',
-  load: async () => import('./InstallGitHubApp.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./InstallGitHubApp.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };

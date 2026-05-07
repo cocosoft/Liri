@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Skill, SkillSource } from '@modules/types';
+import { Skill, SkillSource } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import {
   parseSkillFrontmatter,

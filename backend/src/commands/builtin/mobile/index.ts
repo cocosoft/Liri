@@ -14,5 +14,5 @@ export const mobileCommand: Command = {
   aliases: ['phone', 'device'],
   argumentHint: '[status|qr|pair|unpair|help]',
   whenToUse: '当你需要管理移动端连接时',
-  load: async () => import('./Mobile.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Mobile.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };

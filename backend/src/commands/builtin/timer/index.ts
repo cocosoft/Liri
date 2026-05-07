@@ -14,6 +14,6 @@ export const timerCommand: Command = {
   aliases: ['stopwatch', 'countdown'],
   argumentHint: '[start|stop|pause|resume|status|help]',
   whenToUse: '当你需要使用计时器时',
-  load: async () => import('./Timer.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Timer.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

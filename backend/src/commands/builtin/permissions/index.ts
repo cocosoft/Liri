@@ -1,19 +1,16 @@
 /**
- * 权限管理命令
- * 融合快速权限管理与细粒度权限控制
+ * Permissions命令模块入口
+ * 支持快速权限操作、权限模式切换、会话规则管理与细粒度权限控制
  */
 import type { Command } from '@modules/commands/types';
 
-/**
- * permissions 命令定义
- */
-export const permissionsCommand: Command = {
-  type: 'action',
+const permissionsCommand: Command = {
+  type: 'local',
   name: 'permissions',
-  description: '权限管理（含细粒度权限控制）',
-  aliases: ['perm', 'auth'],
-  argumentHint: '[list|show|grant|revoke|status|add|remove|resource|role|user|help]',
-  whenToUse: '当你需要管理应用权限时',
-  load: async () => import('./Permissions.js').then((m) => m.default),
+  description: '权限管理（权限模式切换、规则管理、细粒度控制）',
+  aliases: ['perm', 'auth', 'permission'],
+  argumentHint: '[list|show|grant|revoke|status|mode|rules|add|remove|resource|role|user|help]',
+  load: () => import('./Permissions.js').then(m => m.default),
 };
 
+export { permissionsCommand };

@@ -73,6 +73,10 @@ export interface PermissionRule {
   priority: number;
   createdAt: number;
   updatedAt: number;
+  name?: string;
+  toolName?: string;
+  behavior?: string;
+  contentPattern?: string;
 }
 
 /**

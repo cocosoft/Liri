@@ -7,8 +7,8 @@ import type {
   PostSamplingHook,
   PostSamplingHookContext,
 } from '../types/PostSampling';
-import { CostTracker } from '../../cost/CostTracker';
-import type { TokenUsage } from '../../cost/types';
+import { CostTracker } from '@modules/cost/CostTracker';
+import type { TokenUsage } from '@modules/cost/types';
 
 /**
  * 创建成本追踪Hook

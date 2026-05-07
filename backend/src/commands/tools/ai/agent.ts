@@ -1,7 +1,7 @@
 /**
  * subagent-run 命令
  *
- * 对标 CC 源码: src/commands/tools/ai/agent.ts (AgentTool)
+ * 对标 CC 源码: reference/cc_code/backend/tools/AgentTool/AgentTool.tsx
  * 功能: 通过工具系统执行/查看/停止子代理任务
  * 与 CC 差异: 精简为仅作任务运行器，配置管理归 /subagent
  */
@@ -11,6 +11,71 @@ import { getToolManager } from '@modules/tools/ToolManager.js';
 import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
 import { getBackgroundTaskManager } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
 import { getSubAgentEngine } from '@modules/tools/AgentTool/SubAgentEngine.js';
+
+/** 可用的 Agent 类型列表 */
+const AGENT_TYPES = [
+  'general',
+  'explore',
+  'plan',
+  'verification',
+  'claude-code-guide',
+  'statusline-setup',
+] as const;
+
+/** 可用子命令列表 */
+const SUBCOMMANDS = ['run', 'list', 'status', 'stop', 'bg-list'] as const;
+
+/**
+ * 构建帮助文本
+ */
+function buildHelpText(): string {
+  return [
+    '用法: /subagent-run <子命令> [参数]',
+    '',
+    '运行/查看/停止子代理的执行任务。',
+    '',
+    '子命令:',
+    '  run <type> <task>        运行新的子代理任务',
+    '    --background           在后台运行（不阻塞终端）',
+    '    --model <model>        指定模型（如 sonnet, opus, haiku）',
+    '  list                     列出所有活跃的子代理',
+    '    --json                 以 JSON 格式输出',
+    '  status <id>              查看子代理或后台任务状态',
+    '  stop <id>                停止运行中的子代理',
+    '  bg-list                  列出所有后台任务',
+    '    --json                 以 JSON 格式输出',
+    '',
+    '可用的 Agent 类型:',
+    ...AGENT_TYPES.map(t => `  ${t}`),
+    '',
+    '使用示例:',
+    '  /subagent-run run general "编写一个 Python 脚本"',
+    '  /subagent-run run explore "分析项目结构" --background',
+    '  /subagent-run run plan "制定实现计划" --model sonnet',
+    '  /subagent-run list',
+    '  /subagent-run status a-myagent-a1b2c3d4',
+    '  /subagent-run stop a-myagent-a1b2c3d4',
+    '  /subagent-run bg-list --json',
+    '',
+    '别名: /agent_tool',
+    '',
+    '━━━ 相关命令对比 ━━━',
+    '',
+    '  /subagent-run（当前） - 子代理任务执行器：',
+    '                         运行/查看/停止子代理的执行任务',
+    '',
+    '  /subagent            - 子代理配置管理器：',
+    '                         查看/创建/删除子代理定义（.md 配置文件）',
+    '',
+    '  /agent-instance      - Agent 实例管理器：',
+    '                         创建/删除命名的 Agent 实例，查看活跃子代理',
+    '',
+    '使用建议：',
+    '  - 日常运行子代理任务 → 使用 /subagent-run',
+    '  - 管理子代理配置     → 使用 /subagent',
+    '  - 管理 Agent 实例   → 使用 /agent-instance',
+  ].join('\n');
+}
 
 /**
  * 从工具管理器获取 AgentTool 实例
@@ -42,7 +107,7 @@ function formatDuration(ms: number): string {
 /**
  * 显示活跃Agent列表
  */
-async function handleAgentList(): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleAgentList(options: { json?: boolean } = {}): Promise<{ success: boolean; message?: string; error?: string }> {
   const agentTool = getAgentTool();
 
   if (!agentTool) {
@@ -55,11 +120,51 @@ async function handleAgentList(): Promise<{ success: boolean; message?: string; 
   const agents = agentTool.getActiveAgents();
   const engine = agentTool.getEngine();
   const engineAgents = engine.getActiveAgents();
+  const bgManager = getBackgroundTaskManager();
+  const activeBgTasks = bgManager.getActiveTasks();
+  const completedBgTasks = bgManager.getCompletedTasks();
+  const stats = bgManager.getStats();
+
+  if (options.json) {
+    const data = {
+      agents: agents.map(a => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        status: a.status,
+        duration: Date.now() - a.startTime,
+      })),
+      engineAgents: Array.from(engineAgents.keys()).map(id => ({ id })),
+      backgroundTasks: {
+        active: activeBgTasks.map(t => ({
+          taskId: t.taskId,
+          agentName: t.agentName,
+          agentType: t.agentType,
+          status: t.status,
+          startedAt: t.startedAt,
+        })),
+        completed: completedBgTasks.slice(-3).map(t => ({
+          taskId: t.taskId,
+          agentName: t.agentName,
+          status: t.status,
+          startedAt: t.startedAt,
+          completedAt: t.completedAt,
+        })),
+        stats: {
+          total: stats.total,
+          running: stats.running,
+          completed: stats.completed,
+          failed: stats.failed,
+        },
+      },
+    };
+    return { success: true, message: JSON.stringify(data, null, 2) };
+  }
 
   const lines: string[] = ['📋 **Agent List**\n'];
 
-  if (agents.length === 0 && engineAgents.length === 0) {
-    lines.push('  No active agents found.');
+  if (agents.length === 0 && engineAgents.length === 0 && activeBgTasks.length === 0) {
+    lines.push('  没有活跃的 Agent。');
   }
 
   if (agents.length > 0) {
@@ -73,23 +178,16 @@ async function handleAgentList(): Promise<{ success: boolean; message?: string; 
   }
 
   if (engineAgents.length > 0) {
-    const activeEngineAgents = Array.from(engineAgents.entries());
-    if (activeEngineAgents.length > 0) {
-      lines.push('**Engine Agents:**');
-      for (const [id] of activeEngineAgents) {
-        lines.push(`  🤖 [${id}] - running`);
-      }
-      lines.push('');
+    lines.push('**Engine Agents:**');
+    for (const agent of engineAgents) {
+      lines.push(`  🤖 [${agent.agentId}] - running`);
     }
+    lines.push('');
   }
 
-  const bgManager = getBackgroundTaskManager();
-  const activeTasks = bgManager.getActiveTasks();
-  const completedTasks = bgManager.getCompletedTasks();
-
-  if (activeTasks.length > 0) {
+  if (activeBgTasks.length > 0) {
     lines.push('**Background Tasks (active):**');
-    for (const task of activeTasks) {
+    for (const task of activeBgTasks) {
       const duration = task.startedAt
         ? formatDuration(Date.now() - task.startedAt)
         : 'pending';
@@ -98,8 +196,8 @@ async function handleAgentList(): Promise<{ success: boolean; message?: string; 
     lines.push('');
   }
 
-  if (completedTasks.length > 0) {
-    const recentTasks = completedTasks.slice(-3);
+  if (completedBgTasks.length > 0) {
+    const recentTasks = completedBgTasks.slice(-3);
     lines.push('**Recent Background Tasks:**');
     for (const task of recentTasks) {
       const duration = task.startedAt && task.completedAt
@@ -111,12 +209,7 @@ async function handleAgentList(): Promise<{ success: boolean; message?: string; 
     lines.push('');
   }
 
-  lines.push('**Usage:**');
-  lines.push('  /subagent-run run <type> <task>  -  Run a new agent task');
-  lines.push('  /subagent-run list              -  List active agents');
-  lines.push('  /subagent-run status <id>       -  Check agent or background task status');
-  lines.push('  /subagent-run stop <id>         -  Stop a running agent');
-  lines.push('  /subagent-run bg-list           -  List background tasks');
+  lines.push(`**Stats:** total=${stats.total} running=${stats.running} completed=${stats.completed} failed=${stats.failed}`);
 
   return { success: true, message: lines.join('\n') };
 }
@@ -141,7 +234,9 @@ async function handleAgentStatus(id: string): Promise<{ success: boolean; messag
 
   const engine = getSubAgentEngine();
   const activeAgents = engine.getActiveAgents();
-  const foundEngineAgent = activeAgents.find(a => a.agentId === id);
+  const foundEngineAgent = Array.isArray(activeAgents)
+    ? activeAgents.find(a => a.agentId === id)
+    : undefined;
 
   if (foundEngineAgent) {
     return {
@@ -184,7 +279,10 @@ async function handleAgentStatus(id: string): Promise<{ success: boolean; messag
     return { success: true, message: lines.join('\n') };
   }
 
-  return { success: false, error: `Agent or task not found: ${id}` };
+  return {
+    success: false,
+    error: `Agent or task not found: ${id}\n\n可能原因：\n  1. Agent ID 拼写错误 — 使用 /subagent-run list 查看正确 ID\n  2. Agent 已自然结束（不再在列表中）\n  3. 任务已完成被清理 — 使用 bg-list 查看已完成的任务`,
+  };
 }
 
 /**
@@ -204,25 +302,50 @@ async function handleAgentStop(id: string): Promise<{ success: boolean; message?
   }
 
   if (stopped) {
-    return { success: true, message: `Agent [${id}] has been stopped` };
+    return { success: true, message: `✅ Agent [${id}] has been stopped` };
   }
 
-  return { success: false, error: `Agent not found or already stopped: ${id}` };
+  return {
+    success: false,
+    error: `Agent not found or already stopped: ${id}`,
+  };
 }
 
 /**
  * 列出后台任务
  */
-async function handleBackgroundList(): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleBackgroundList(options: { json?: boolean } = {}): Promise<{ success: boolean; message?: string; error?: string }> {
   const bgManager = getBackgroundTaskManager();
-
   const tasks = bgManager.getAllTasks();
   const stats = bgManager.getStats();
+
+  if (options.json) {
+    const data = {
+      tasks: tasks.map(t => ({
+        taskId: t.taskId,
+        agentName: t.agentName,
+        agentType: t.agentType,
+        status: t.status,
+        description: t.description,
+        startedAt: t.startedAt,
+        completedAt: t.completedAt,
+        tokenUsage: t.tokenUsage,
+        error: t.error,
+      })),
+      stats: {
+        total: stats.total,
+        running: stats.running,
+        completed: stats.completed,
+        failed: stats.failed,
+      },
+    };
+    return { success: true, message: JSON.stringify(data, null, 2) };
+  }
 
   const lines: string[] = ['📊 **Background Task List**\n'];
 
   if (tasks.length === 0) {
-    lines.push('  No background tasks found.');
+    lines.push('  没有后台任务。');
   } else {
     for (const task of tasks) {
       const icon = task.status === 'completed' ? '✅'
@@ -252,29 +375,74 @@ async function handleBackgroundList(): Promise<{ success: boolean; message?: str
 /**
  * 运行Agent任务
  */
-async function handleAgentRun(agentType: string, task: string): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleAgentRun(
+  agentType: string,
+  task: string,
+  options: { background?: boolean; model?: string } = {},
+): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const toolManager = getToolManager();
-    const result = await toolManager.executeTool(
-      'Agent',
-      {
-        description: agentType,
-        prompt: task,
-        subagent_type: agentType,
-      },
-      {}
-    );
+    const params: Record<string, unknown> = {
+      description: agentType,
+      prompt: task,
+      subagent_type: agentType,
+    };
+
+    if (options.background) {
+      params.run_in_background = true;
+    }
+    if (options.model) {
+      params.model = options.model;
+    }
+
+    const result = await toolManager.executeTool('Agent', params, {});
+
+    const output = result.output || 'Agent task completed';
+    const bgNote = options.background
+      ? '\n\n任务已在后台运行，使用 /subagent-run bg-list 查看状态'
+      : '';
 
     return {
       success: true,
-      message: result.output || 'Agent task completed',
+      message: `${output}${bgNote}`,
     };
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      error: `Error running agent: ${error instanceof Error ? error.message : String(error)}`,
+      error: `Error running agent: ${msg}\n\n可能原因：\n  1. Agent 类型 "${agentType}" 不存在 — 使用 /subagent-run 查看可用类型\n  2. Agent 系统未初始化\n  3. 模型调用失败`,
     };
   }
+}
+
+/**
+ * 解析参数中的选项
+ */
+function parseRunOptions(parts: string[]): {
+  agentType: string;
+  task: string;
+  background: boolean;
+  model: string | undefined;
+} {
+  let background = false;
+  let model: string | undefined;
+  const filtered: string[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (p === '--background' || p === '--bg') {
+      background = true;
+    } else if (p === '--model' && i + 1 < parts.length) {
+      model = parts[++i];
+    } else {
+      filtered.push(p);
+    }
+  }
+
+  const agentType = filtered[0] || '';
+  const task = filtered.slice(1).join(' ').trim();
+
+  return { agentType, task, background, model };
 }
 
 /**
@@ -285,91 +453,126 @@ export const agentCommand: Command = {
   name: 'subagent-run',
   description: '运行/查看/停止子代理的执行任务',
   aliases: ['agent_tool'],
-  argumentHint: 'run <type> <task> | list | status <id> | stop <id> | bg-list',
-  whenToUse: '当你需要运行子代理执行复杂任务，或查看/管理运行中的子代理时',
+  argumentHint: 'run <type> <task> [--background] [--model <model>] | list [--json] | status <id> | stop <id> | bg-list [--json]',
+  whenToUse: [
+    '当你需要运行子代理执行复杂任务，或查看/管理运行中的子代理时',
+    '子代理可以并行执行独立任务（如代码探索、计划制定、验证检查）',
+    '长时间任务建议使用 --background 在后台运行',
+  ].join('\n'),
+  getPromptForCommand: (_args: string) => Promise.resolve([
+    {
+      type: 'text',
+      text: [
+        '# subagent-run 命令使用指南',
+        '',
+        '## 功能说明',
+        '运行/查看/停止子代理的执行任务。子代理是独立的 AI 工作进程，',
+        '可以并行执行复杂任务而不阻塞当前会话。',
+        '',
+        '## 子命令',
+        '',
+        '### run <type> <task> [--background] [--model <model>]',
+        '运行新的子代理任务。',
+        '- type: 代理类型（general, explore, plan, verification 等）',
+        '- task: 要执行的任务描述',
+        '- --background: 在后台运行，立即返回控制权',
+        '- --model: 指定模型（如 sonnet, opus, haiku）',
+        '',
+        '示例:',
+        '  /subagent-run run general "分析项目中的代码质量"',
+        '  /subagent-run run explore "搜索所有 TODO 注释" --background',
+        '  /subagent-run run plan "为重构制定计划" --model sonnet',
+        '',
+        '### list [--json]',
+        '列出所有活跃的子代理和后台任务。',
+        '--json 参数输出 JSON 格式供程序化处理。',
+        '',
+        '### status <id>',
+        '查看特定 Agent 或后台任务的详细状态。',
+        '',
+        '### stop <id>',
+        '停止运行中的子代理。',
+        '',
+        '### bg-list [--json]',
+        '列出所有后台任务（含统计信息）。',
+        '',
+        '## 使用场景',
+        '- 复杂代码库分析：使用 explore 代理搜索分析',
+        '- 任务规划：使用 plan 代理制定实施方案',
+        '- 代码审查：使用 verification 代理验证代码质量',
+        '- 多任务并行：使用 --background 同时运行多个独立任务',
+      ].join('\n'),
+    },
+  ]),
   load: async () => ({
     execute: async (args: string) => {
+      const trimmed = args.trim().toLowerCase();
+
+      if (!trimmed || trimmed === 'help' || trimmed === '-h' || trimmed === '--help') {
+        return { success: true, message: buildHelpText() };
+      }
+
       const parts = args.trim().split(/\s+/);
       const subcommand = parts[0]?.toLowerCase();
 
-      if (!subcommand || subcommand === 'help') {
-        return {
-          success: true,
-          message: [
-            'SubAgent-Run 命令帮助',
-            '═══════════════════════',
-            '',
-            '用法:',
-            '  /subagent-run run <type> <task>      - 运行新的子代理任务',
-            '  /subagent-run list                   - 列出所有活跃的子代理',
-            '  /subagent-run status <id>            - 查看子代理或后台任务状态',
-            '  /subagent-run stop <id>              - 停止运行中的子代理',
-            '  /subagent-run bg-list                - 列出所有后台任务',
-            '',
-            '可用的 Agent 类型:',
-            '  general          - 通用子代理，可执行大多数任务',
-            '  explore          - 专门用于代码探索和项目分析',
-            '  plan             - 用于制定执行计划和方案',
-            '  verification     - 用于验证实现是否正确',
-            '  claude-code-guide - Claude Code 使用指南',
-            '  statusline-setup - 状态栏设置',
-            '',
-            '使用示例:',
-            '  /subagent-run run general "编写一个 Python 脚本"',
-            '  /subagent-run list',
-            '  /subagent-run status a-myagent-a1b2c3d4',
-            '  /subagent-run stop a-myagent-a1b2c3d4',
-            '',
-            '别名: /agent_tool',
-            '',
-            '━━━ 相关命令对比 ━━━',
-            '',
-            '  /subagent-run（当前） - 子代理任务执行器：',
-            '                         运行/查看/停止子代理的执行任务',
-            '',
-            '  /subagent            - 子代理配置管理器：',
-            '                         查看/创建/删除子代理定义（.md 配置文件）',
-            '',
-            '  /agent-instance      - Agent 实例管理器：',
-            '                         创建/删除工具管理器中的 Agent 实例（非运行任务）',
-            '',
-            '使用建议：',
-            '  - 日常运行子代理任务 → 使用 /subagent-run',
-            '  - 管理子代理配置     → 使用 /subagent',
-            '  - 管理 Agent 实例   → 使用 /agent-instance',
-          ].join('\n'),
-        };
-      }
-
       switch (subcommand) {
-        case 'list':
-          return handleAgentList();
+        case 'list': {
+          const jsonFlag = parts.includes('--json');
+          return handleAgentList({ json: jsonFlag });
+        }
 
         case 'status':
           if (!parts[1]) {
-            return { success: false, error: '用法: /subagent-run status <agent_id>' };
+            return { success: false, error: '用法: /subagent-run status <agent_id>\n提示: 使用 /subagent-run list 查看所有活跃 Agent 的 ID' };
           }
           return handleAgentStatus(parts[1]);
 
         case 'stop':
           if (!parts[1]) {
-            return { success: false, error: '用法: /subagent-run stop <agent_id>' };
+            return { success: false, error: '用法: /subagent-run stop <agent_id>\n提示: 使用 /subagent-run list 查看可停止的 Agent' };
           }
           return handleAgentStop(parts[1]);
 
-        case 'bg-list':
-          return handleBackgroundList();
+        case 'bg-list': {
+          const jsonFlag = parts.includes('--json');
+          return handleBackgroundList({ json: jsonFlag });
+        }
 
         case 'run':
-          if (parts.length < 3) {
-            return { success: false, error: '用法: /subagent-run run <agent_type> <task>\n\n示例:\n  /subagent-run run general "编写一个简单的 Python 脚本"' };
+          if (parts.length < 2 || (parts.length === 2 && (parts[1].startsWith('--')))) {
+            return {
+              success: false,
+              error: [
+                '用法: /subagent-run run <agent_type> <task> [--background] [--model <model>]',
+                '',
+                '示例:',
+                '  /subagent-run run general "编写一个简单的 Python 脚本"',
+                '  /subagent-run run explore "分析项目结构" --background',
+                '  /subagent-run run plan "制定实现计划" --model sonnet',
+                '',
+                '可用 Agent 类型:',
+                ...AGENT_TYPES.map(t => `  ${t}`),
+              ].join('\n'),
+            };
           }
-          return handleAgentRun(parts[1], parts.slice(2).join(' '));
+          {
+            const opts = parseRunOptions(parts.slice(1));
+            if (!opts.task) {
+              return {
+                success: false,
+                error: `用法: /subagent-run run ${opts.agentType} "<task>"\n任务描述不能为空，请用引号包裹任务内容。`,
+              };
+            }
+            return handleAgentRun(opts.agentType, opts.task, {
+              background: opts.background,
+              model: opts.model,
+            });
+          }
 
         default:
           return {
             success: false,
-            error: `未知子命令 "${subcommand}"，可用子命令: run, list, status, stop, bg-list`,
+            error: `未知子命令 "${subcommand}"。可用子命令: ${SUBCOMMANDS.join(', ')}\n使用 /subagent-run help 查看详细帮助。`,
           };
       }
     },

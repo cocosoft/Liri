@@ -101,6 +101,8 @@
       "@modules/tasks/*": ["tasks/*"],
       "@modules/ui": ["ui"],
       "@modules/ui/*": ["ui/*"],
+      "@modules/models": ["models"],
+      "@modules/models/*": ["models/*"],
       "@modules/monitoring": ["monitoring"],
       "@modules/monitoring/*": ["monitoring/*"],
       "@modules/utils": ["utils"],

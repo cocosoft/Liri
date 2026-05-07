@@ -225,6 +225,13 @@ export interface GlobalConfig {
   cachedStatsigGates: { [gateName: string]: boolean };
   /** 迁移版本 */
   migrationVersion?: number;
+  /** 伙伴配置 */
+  companion?: {
+    name: string;
+    soul: string;
+  };
+  /** 伙伴是否静音 */
+  companionMuted?: boolean;
   /** AI 模块配置 */
   ai?: AIConfig;
   /** 自定义配置项 */
@@ -259,6 +266,7 @@ export function createDefaultGlobalConfig(): GlobalConfig {
     respectGitignore: true,
     copyFullResponse: false,
     cachedStatsigGates: {},
+    companionMuted: false,
     ai: {
       provider: 'deepseek',
       model: 'deepseek-chat',

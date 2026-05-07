@@ -50,6 +50,9 @@ py-app-client/src-tauri/target/
 *.zip
 
 # Development artifacts
+*.heapsnapshot
+backend/reports/
+backend/help/
 conversation-*.txt
 share-*.md
 test_write.txt
@@ -100,5 +103,5 @@ backend/config.json
 backend/settings.json
 
 # 参考 / 第三方代码（提取后的档案）
-openclaw-main/
 cc_code/
+reference/

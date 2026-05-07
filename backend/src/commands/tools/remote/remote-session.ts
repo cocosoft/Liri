@@ -14,6 +14,20 @@ import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
 import { logger } from '@modules/utils/log.js';
 
 /**
+ * 获取模型提示词（供 AI 理解远程会话能力）
+ */
+function getPromptForCommand(): string {
+  return [
+    '- Remote Session: 管理远程连接会话',
+    '  - SSH连接: connect ssh <host> [--port 22] [--username user] [--key path]',
+    '  - 直接连接: connect direct <url>',
+    '  - 关闭会话: close <sessionId>',
+    '  - 远程执行: exec <sessionId> <command>',
+    '  - 查看会话: sessions',
+  ].join('\n');
+}
+
+/**
  * CLI命令结果
  */
 export interface CLICommandResult {
@@ -336,6 +350,8 @@ export class RemoteSessionCLI {
 /**
  * 创建远程会话CLI处理器
  */
+export { getPromptForCommand };
+
 export function createRemoteSessionCLI(
   terminalUI?: TerminalUIIntegration
 ): RemoteSessionCLI {

@@ -6,7 +6,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { logger } from '../../../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 import {
   WINDOWS_REGISTRY_KEY_PATH_HKCU,
   WINDOWS_REGISTRY_KEY_PATH_HKLM,

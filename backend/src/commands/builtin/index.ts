@@ -31,8 +31,10 @@ export { exportCommand } from './export/index.js';
 export { shareCommand } from './share/index.js';
 export { activityCommand } from './activity/index.js';
 export { costCommand } from './cost/index.js';
+export { tokensCommand } from './tokens/index.js';
 export { usageCommand } from './usage/index.js';
 export { doctorCommand } from './doctor/index.js';
+export { envCommand } from './env/index.js';
 export { fastCommand } from './fast/index.js';
 export { memoryCommand } from './memory/index.js';
 export { hooksCommand } from './hooks/index.js';
@@ -93,3 +95,8 @@ export { themeCommand } from './theme/index.js';
 export { keyboardCommand } from './keyboard/index.js';
 export { workspaceCommand } from './workspace/index.js';
 export { timerCommand } from './timer/index.js';
+
+// 遗漏命令补充
+export { diffCommand } from './diff/index.js';
+export { reviewCommand } from './review/index.js';
+export { resumeCommand } from './resume/index.js';

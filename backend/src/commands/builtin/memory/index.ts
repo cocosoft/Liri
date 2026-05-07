@@ -1,37 +1,15 @@
 /**
- * Memory命令模块入口
+ * Memory 命令模块入口
  */
-import { Memory } from './Memory.js';
 import type { Command } from '@modules/commands/types';
 
-/**
- * Memory命令定义
- */
 const memoryCommand: Command = {
   type: 'local',
   name: 'memory',
-  description: '内存管理和监控',
-  aliases: ['mem', 'ram'],
-  argumentHint: '[--processes|-p] [--trends|-t] [--events|-e] [--leaks|-l] [--optimize|-o]',
-  whenToUse: '查看内存使用情况、监控内存泄漏和优化内存时使用',
-  version: '1.0.0',
-  userInvocable: true,
-  loadedFrom: 'builtin',
-  
-  /**
-   * 加载命令实现
-   */
-  async load(): Promise<any> {
-    return new Memory();
-  }
+  description: '记忆文件管理（查看、创建、编辑、删除 .md 记忆文件）',
+  aliases: ['mem', '记忆'],
+  argumentHint: '[--list|-l] [--create|-c <name>] [--show|-s <name>] [--edit|-e <name>] [--delete|-d <name>] [status] [--json] [help]',
+  load: () => import('./Memory.js').then(m => m.default),
 };
 
-/**
- * 导出Memory命令实现
- */
-export { Memory };
-
-/**
- * 默认导出Memory命令定义
- */
 export { memoryCommand };

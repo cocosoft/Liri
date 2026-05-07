@@ -1,37 +1,15 @@
 /**
- * Hooks命令模块入口
+ * Hooks 命令模块入口
  */
-import { Hooks } from './Hooks.js';
 import type { Command } from '@modules/commands/types';
 
-/**
- * Hooks命令定义
- */
 const hooksCommand: Command = {
   type: 'local',
   name: 'hooks',
-  description: '钩子管理和执行',
+  description: '钩子系统管理和查看（查看已注册的钩子、统计信息和执行测试）',
   aliases: ['hook', 'triggers'],
-  argumentHint: '[--list|-l] [--stats|-s] [--execute=钩子名] [--test|-t] [--manage|-m]',
-  whenToUse: '查看钩子状态、执行钩子测试和管理钩子时使用',
-  version: '1.0.0',
-  userInvocable: true,
-  loadedFrom: 'builtin',
-  
-  /**
-   * 加载命令实现
-   */
-  async load(): Promise<any> {
-    return new Hooks();
-  }
+  argumentHint: '[--list|-l] [--stats|-s] [--test|-t] [status] [--json] [help]',
+  load: () => import('./Hooks.js').then(m => m.default),
 };
 
-/**
- * 导出Hooks命令实现
- */
-export { Hooks };
-
-/**
- * 导出Hooks命令定义
- */
 export { hooksCommand };

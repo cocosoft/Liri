@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { getGlobalConfig } from '../utils/config'
+import { getGlobalConfig } from '@modules/config'
 import {
   type Companion,
   type CompanionBones,

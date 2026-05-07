@@ -2,4 +2,4 @@
  * Voice命令导出
  */
 
-export { VoiceCommand as voiceCommand } from './Voice';
+export { default as voiceCommand } from './Voice';

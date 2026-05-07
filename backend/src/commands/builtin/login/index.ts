@@ -14,6 +14,6 @@ export const loginCommand: Command = {
   aliases: ['signin'],
   argumentHint: '[provider]',
   whenToUse: '当你需要登录账户时',
-  load: async () => import('./Login.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Login.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

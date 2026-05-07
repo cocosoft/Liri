@@ -1,13 +1,13 @@
 import type {
   ContentReplacementState,
   ContentReplacementRecord,
-} from '../../services/toolResultStorage/types'
+} from './types'
 import {
   createContentReplacementState,
   applyContentReplacement,
   contentSize,
-} from '../../services/toolResultStorage/ContentReplacementStore'
-import { applyToolResultBudget } from '../../services/toolResultStorage/ToolResultBudget'
+} from './ContentReplacementStore'
+import { applyToolResultBudget } from './ToolResultBudget'
 
 export interface ToolExecutionWithStorage {
   beforeToolCall(toolName: string, args: Record<string, unknown>): void

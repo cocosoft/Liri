@@ -140,7 +140,8 @@ export async function main(): Promise<void> {
  */
 async function initializeConfig(): Promise<void> {
   // 导入新的配置系统
-  const { getConfig } = await import('./config/index.js');
+  const { getConfig, configManager } = await import('./config/index.js');
+  configManager.enableConfigs();
   const config = getConfig();
   console.log('Configuration initialized:', { version: config.version, app: config.app.name });
 }

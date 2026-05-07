@@ -25,5 +25,4 @@ export { taskCommand as task } from './task/task.js';
 
 // 开发工具命令
 export { default as lsp } from './dev/lsp.js';
-export { default as repl } from './dev/repl.js';
 export { default as notebook } from './dev/notebook.js';

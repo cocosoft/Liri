@@ -4,6 +4,7 @@
  */
 
 import type { Plugin, PluginMetadata } from '../types';
+import { PluginStatus } from '../types/Plugin.js';
 
 export const HelpPluginMetadata: PluginMetadata = {
   id: 'help',
@@ -17,6 +18,7 @@ export const HelpPluginMetadata: PluginMetadata = {
 };
 
 export class HelpPlugin implements Plugin {
+  status: PluginStatus = PluginStatus.ENABLED;
   private enabled = true;
 
   get metadata(): PluginMetadata {

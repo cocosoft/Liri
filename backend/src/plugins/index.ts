@@ -75,7 +75,7 @@ export class PluginSystem {
     // 配置管理器事件转发
     this.configManager.on('configUpdated', (data: any) => {
       const event: PluginEvent = {
-        type: 'configUpdated',
+        type: PluginEventType.CONFIG_UPDATED,
         pluginId: data.pluginId,
         data: data,
         timestamp: new Date()

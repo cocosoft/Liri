@@ -14,6 +14,6 @@ export const workspaceCommand: Command = {
   aliases: ['workspaces'],
   argumentHint: '[list|open|new|save|close|rename|help]',
   whenToUse: '当你需要管理工作区时',
-  load: async () => import('./Workspace.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Workspace.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

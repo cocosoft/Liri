@@ -1,66 +1,190 @@
 /**
- * Fast命令实现 - 快速模式切换
- * 根据 CC 源码实现
+ * Fast 命令实现 - 快速模式切换
+ *
+ * 对标 CC 源码 cc_code/backend/commands/fast/fast.tsx
+ * CC 中以 React FastModePicker 组件展示快速模式面板，
+ * PY_APP 使用 CLI 文本输出。
+ *
+ * 快速模式通过切换 AI 模型（如切换到更快更便宜的模型）来实现
+ * 更短的响应时间，状态持久化到 ConfigManager。
  */
-import type { CommandImplementation } from '@modules/commands/types';
+
+import { configManager } from '@modules/config/ConfigManager.js';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 
 /**
- * Fast命令实现类
+ * 快速模式状态缓存键
  */
-export class Fast implements CommandImplementation {
-  private fastModeEnabled = false;
+const FAST_MODE_KEY = 'fastMode';
+
+/**
+ * 快速模式命令实现
+ */
+const fastCommand = {
 
   /**
-   * 执行fast命令
-   * @param args 命令参数
+   * 执行 fast 命令
+   * @param args 子命令参数
    * @param context 命令上下文
-   * @returns 命令执行结果
+   * @returns 命令结果
    */
-  async execute(args: string, context: any): Promise<any> {
+  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+    const trimmed = args.trim().toLowerCase();
+
+    if (trimmed === 'help') {
+      return handleHelp();
+    }
+
+    if (trimmed === 'status') {
+      return handleStatus();
+    }
+
+    if (trimmed === '--json') {
+      return handleJson();
+    }
+
     try {
-      const arg = args?.trim().toLowerCase();
-      
-      // 如果提供了 on/off 参数，直接切换
-      if (arg === 'on') {
-        this.fastModeEnabled = true;
-        return {
-          success: true,
-          message: '⚡ Fast mode ON',
-        };
-      } else if (arg === 'off') {
-        this.fastModeEnabled = false;
-        return {
-          success: true,
-          message: 'Fast mode OFF',
-        };
+      const config = configManager.getGlobalConfig();
+      const isEnabled = (config as any)[FAST_MODE_KEY] === true;
+
+      if (trimmed === 'off' || trimmed === 'disable') {
+        if (!isEnabled) {
+          return { success: true, message: '快速模式已经是禁用状态。' };
+        }
+        return handleToggle(false, config);
       }
 
-      // 默认显示切换提示
+      if (trimmed === 'on' || trimmed === 'enable') {
+        if (isEnabled) {
+          return { success: true, message: '快速模式已经是启用状态。' };
+        }
+        return handleToggle(true, config);
+      }
+
+      if (!trimmed) {
+        const newMode = !isEnabled;
+        return handleToggle(newMode, config);
+      }
+
       return {
         success: true,
-        message: this.getFastModeStatus(),
+        message: `未知参数 "${args.trim()}"。\n用法: /fast [on|off|status|--json|help]`,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Failed to execute fast command: ${error instanceof Error ? error.message : String(error)}`,
+        message: `快速模式操作失败: ${error instanceof Error ? error.message : '未知错误'}`,
       };
     }
-  }
+  },
+};
 
-  /**
-   * 获取快速模式状态
-   */
-  private getFastModeStatus(): string {
-    const status = this.fastModeEnabled ? 'ON' : 'OFF';
-    
-    return `Fast mode is currently ${status}
-
-Use:
-  /fast on    - Enable fast mode
-  /fast off   - Disable fast mode
-  /fast       - Show current status
-
-High-speed mode for faster responses. Billed at a premium rate.`;
-  }
+/**
+ * 处理帮助子命令
+ */
+function handleHelp(): CommandResult {
+  return {
+    success: true,
+    message: [
+      '快速模式帮助',
+      '==============',
+      '',
+      '切换 AI 模型的快速模式。启用后使用专门优化模型提供更快的响应速度，',
+      '降低交互延迟，适用于对速度要求较高的场景。',
+      '',
+      '用法:',
+      '  /fast              - 切换快速模式开关',
+      '  /fast on (enable)  - 启用快速模式',
+      '  /fast off (disable)- 禁用快速模式',
+      '  /fast status       - 显示快速模式状态',
+      '  /fast --json       - 以 JSON 格式输出状态',
+      '  /fast help         - 显示本帮助',
+      '',
+      '功能说明:',
+      '  - 快速模式：启用后使用专门的快速响应模型，减少延迟',
+      '  - 状态持久化：快速模式状态自动保存，重启后保持',
+      '  - 实时查看：使用 /fast status 查看当前状态',
+      '',
+      '当前状态: ' + getFastStatusText(),
+    ].join('\n'),
+  };
 }
+
+/**
+ * 处理 status 子命令
+ */
+function handleStatus(): CommandResult {
+  return {
+    success: true,
+    message: [
+      '快速模式状态',
+      '==============',
+      '',
+      '状态: ' + getFastStatusText(),
+      'Node.js: ' + process.version,
+      '平台: ' + process.platform + ' ' + process.arch,
+      '',
+      '用法:',
+      '  /fast on  - 启用快速模式',
+      '  /fast off - 禁用快速模式',
+    ].join('\n'),
+  };
+}
+
+/**
+ * 处理 --json 子命令
+ */
+function handleJson(): CommandResult {
+  const config = configManager.getGlobalConfig();
+  const isEnabled = (config as any)[FAST_MODE_KEY] === true;
+
+  const data = {
+    command: 'fast',
+    fastMode: isEnabled,
+    status: isEnabled ? 'enabled' : 'disabled',
+    nodeVersion: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    timestamp: Date.now(),
+  };
+
+  return {
+    success: true,
+    message: JSON.stringify(data, null, 2),
+  };
+}
+
+/**
+ * 处理切换快速模式
+ * @param enabled 是否启用
+ * @param _config 当前配置
+ */
+async function handleToggle(enabled: boolean, _config: any): Promise<CommandResult> {
+  configManager.saveGlobalConfig((current: any) => ({
+    ...current,
+    [FAST_MODE_KEY]: enabled,
+  }));
+
+  (await import('@modules/services/analytics/index.js')).logEvent('tengu_fast_mode_toggled', {
+    enabled,
+    source: 'command',
+  });
+
+  const icon = enabled ? '⚡' : '';
+  const message = enabled
+    ? `${icon} 快速模式已启用。响应速度将更快，使用专门的快速响应模型。`
+    : '快速模式已禁用。恢复到标准响应模式。';
+
+  return { success: true, message };
+}
+
+/**
+ * 获取快速模式状态文本
+ */
+function getFastStatusText(): string {
+  const config = configManager.getGlobalConfig();
+  const isEnabled = (config as any)[FAST_MODE_KEY] === true;
+  return isEnabled ? '✅ 已启用' : '⬜ 已禁用';
+}
+
+export default fastCommand;

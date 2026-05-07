@@ -240,6 +240,11 @@ export interface HookResult {
   output?: any;
   
   /**
+   * 结果消息
+   */
+  message?: string;
+  
+  /**
    * 错误信息
    */
   error?: string;

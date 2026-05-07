@@ -1,25 +1,18 @@
 /**
- * IDE命令
- * 管理IDE集成和显示状态
- * 参考CC源码 cc_code/backend/commands/ide/index.ts 实现
+ * IDE 命令模块入口
+ * 检测系统上已安装的 IDE，支持在当前 IDE 中打开项目目录
  */
-
 import type { Command } from '@modules/commands/types';
 
-/**
- * IDE命令实现
- */
-const ide: Command = {
+const ideCommand: Command = {
   type: 'local',
   name: 'ide',
-  description: '管理IDE集成和显示状态',
-  argumentHint: '[open]',
-  load: async () => {
-    const { executeIDE } = await import('./ide.js');
-    return {
-      execute: executeIDE,
-    };
-  },
+  description: '检测已安装的 IDE，在当前 IDE 中打开项目',
+  aliases: ['editor'],
+  argumentHint: '[open|list|--json|help]',
+  whenToUse: '当你需要在系统上安装的 IDE 中打开当前项目目录时',
+  load: () => import('./ide.js').then(m => m.default),
 };
 
-export default ide;
+export { ideCommand };
+export default ideCommand;

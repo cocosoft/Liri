@@ -1,19 +1,16 @@
 /**
- * 调试命令
- * 管理调试功能
+ * Debug 命令模块入口
+ * 显示调试信息、系统状态和进程信息
  */
 import type { Command } from '@modules/commands/types';
 
-/**
- * debug 命令定义
- */
-export const debugCommand: Command = {
-  type: 'action',
+const debugCommand: Command = {
+  type: 'local',
   name: 'debug',
-  description: '调试工具',
+  description: '调试工具，显示系统状态和进程信息',
   aliases: ['dev', 'developer'],
-  argumentHint: '[status|logs|enable|disable|inspect|help]',
-  whenToUse: '当你需要调试应用时',
-  load: async () => import('./Debug.js').then((m) => m.default),
+  argumentHint: '[status|inspect|--json|help]',
+  load: () => import('./Debug.js').then(m => m.default),
 };
 
+export { debugCommand };

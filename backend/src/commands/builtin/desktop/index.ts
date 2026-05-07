@@ -14,6 +14,6 @@ export const desktopCommand: Command = {
   aliases: [],
   argumentHint: '[toggle|on|off|status|settings|help]',
   whenToUse: '当你需要管理桌面应用模式时',
-  load: async () => import('./Desktop.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Desktop.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

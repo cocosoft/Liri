@@ -14,6 +14,6 @@ export const feedbackCommand: Command = {
   aliases: ['report'],
   argumentHint: '[send|type|list|help]',
   whenToUse: '当你需要提交反馈或建议时',
-  load: async () => import('./Feedback.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Feedback.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

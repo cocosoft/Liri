@@ -4,7 +4,7 @@
  * 负责应用的初始化配置和系统设置
  */
 
-import { enableConfigs } from '../utils/config.js';
+import { enableConfigs } from '@modules/config';
 import { initializeCommands } from '../commands/index.js';
 import { getExtensibilityService } from '../core/extensibility/index.js';
 import { profileCheckpoint, profileReport } from '../utils/startupProfiler';
@@ -29,7 +29,7 @@ export async function init(): Promise<void> {
 
   // 1. 首先启用配置系统
   profileCheckpoint('load_settings_start');
-  await enableConfigs();
+  enableConfigs();
   profileCheckpoint('load_settings_end');
 
   // 2. 设置优雅关闭

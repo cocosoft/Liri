@@ -2,6 +2,7 @@
  * /review 命令 - 代码审查
  * 基于CC源码 commands/review.ts 模式
  */
+import type { CommandResult } from '@modules/commands/types';
 
 export interface ReviewResult {
   summary: string;
@@ -39,5 +40,34 @@ export function classifySeverity(
   return 'info';
 }
 
-const Review = { createReviewResult, classifySeverity };
+export async function execute(args: string): Promise<CommandResult> {
+  const files = args.trim().split(/\s+/).filter(Boolean);
+  if (files.length === 0 || files[0] === 'help') {
+    return {
+      success: true,
+      type: 'text',
+      message: [
+        '用法: /review <file1> [file2 ...]',
+        '',
+        '审查代码文件，检查潜在问题。',
+        '',
+        '参数:',
+        '  file(s)    要审查的文件路径（可指定多个）',
+      ].join('\n'),
+    };
+  }
+  const results = files.map((f) => {
+    const severity = classifySeverity(`Checking ${f}`);
+    return { file: f, line: 0, severity, message: `Reviewing ${f}...` };
+  });
+  const summary = createReviewResult(files, results, ['Consider adding more specific checks']);
+  return {
+    success: true,
+    type: 'text',
+    message: JSON.stringify(summary, null, 2),
+    data: summary,
+  };
+}
+
+const Review = { execute, createReviewResult, classifySeverity };
 export default Review;

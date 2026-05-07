@@ -14,7 +14,7 @@ export const privacySettingsCommand: Command = {
   aliases: ['privacy'],
   argumentHint: '[show|update <项> <值>|reset|help]',
   whenToUse: '当你需要管理隐私设置时',
-  load: async () => import('./PrivacySettings.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./PrivacySettings.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 
 export default privacySettingsCommand;

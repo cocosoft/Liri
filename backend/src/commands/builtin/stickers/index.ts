@@ -14,5 +14,5 @@ export const stickersCommand: Command = {
   aliases: ['emoji'],
   argumentHint: '[list|add|remove|help]',
   whenToUse: '当你需要管理贴纸时',
-  load: async () => import('./Stickers.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Stickers.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };

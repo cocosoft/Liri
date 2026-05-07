@@ -14,6 +14,6 @@ export const insightsCommand: Command = {
   aliases: ['analyze'],
   argumentHint: '[show|summary|suggestions|performance|help]',
   whenToUse: '当你需要获取会话分析和建议时',
-  load: async () => import('./Insights.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Insights.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

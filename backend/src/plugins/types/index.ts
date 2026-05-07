@@ -12,6 +12,7 @@ export type {
   PluginContext,
   Plugin,
   PluginManifest,
+  PluginMetadata,
 } from './Plugin.js';
 
 // 导出PluginMetadata.ts中的类型

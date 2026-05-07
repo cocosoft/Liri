@@ -1,4 +1,4 @@
-import { getGlobalConfig } from '../utils/config';
+import { getGlobalConfig } from '@modules/config';
 import { getCompanion } from './companion';
 
 export function companionIntroText(name: string, species: string): string {

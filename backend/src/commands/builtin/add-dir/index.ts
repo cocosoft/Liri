@@ -14,7 +14,7 @@ export const addDirCommand: Command = {
   aliases: ['add', 'cd'],
   argumentHint: '<目录路径>',
   whenToUse: '当你需要切换或添加工作目录时',
-  load: async () => import('./AddDir.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./AddDir.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 
 export default addDirCommand;

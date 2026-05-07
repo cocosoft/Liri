@@ -1,97 +1,239 @@
 /**
- * Model命令执行逻辑
- * 设置AI模型
- * 参考CC源码 cc_code/backend/commands/model/model.tsx 实现
+ * Model 命令实现
+ * 设置 AI 模型
+ * 对标 CC 源码 cc_code/backend/commands/model/model.tsx 实现
  * 使用 ModelManager 作为唯一数据源
  */
-
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { modelManager } from '@modules/ai/models/ModelManager.js';
 import { MODEL_ALIASES } from '@modules/ai/models/ModelAliases.js';
+import { ALL_MODEL_CONFIGS, getModelKeyByName, type ModelKey } from '@modules/ai/models/ModelConfigs.js';
 
 /**
- * 执行model命令
+ * 解析命令参数
  */
-export async function executeModel(
-  args: string,
-  _context: CommandContext
-): Promise<CommandResult> {
-  try {
-    const params = parseModelArgs(args);
+function parseFlags(args: string): { showJson: boolean; subcommand: string; modelArg: string } {
+  const trimmed = args.trim();
+  const showJson = /(^|\s)--json(\s|$)/.test(trimmed);
+  const cleaned = trimmed.replace(/--json\s*/g, '').trim();
+  const parts = cleaned.split(/\s+/);
+  const subcommand = parts[0]?.toLowerCase() || '';
+  const modelArg = parts.slice(1).join(' ') || parts[0] || '';
+  return { showJson, subcommand, modelArg };
+}
 
-    const currentModel = modelManager.getCurrentModel();
-    const availableModels = modelManager.getModelInfoList();
-    const aliasList = MODEL_ALIASES.join(', ');
+/**
+ * 显示帮助信息
+ */
+function showHelp(): CommandResult {
+  return {
+    success: true,
+    message: `Model 命令帮助
+==================
 
-    if (!params.model) {
-      const currentInfo = availableModels.find((m) => m.id === currentModel);
-      const currentName = currentInfo?.name || modelManager.getModelDisplayName(currentModel);
+用法:
+  /model                       显示当前模型和可用模型列表
+  /model <model-id|alias>      切换到指定模型（支持别名）
+  /model info <model-id>       查看模型详细信息
+  /model all                   列出所有提供商下的可用模型
+  /model --json                以 JSON 格式输出模型列表
+  /model help                  显示此帮助
 
-      const modelsList = availableModels
-        .map((m) => {
-          const marker = m.id === currentModel ? '●' : '○';
-          return `  ${marker} ${m.id}: ${m.name}`;
-        })
-        .join('\n');
+常用别名:
+  sonnet, sonnet[1m]        - Claude Sonnet 4.6
+  opus, opus[1m], best      - Claude Opus 4.6
+  haiku                     - Claude 3.5 Haiku
 
-      return {
-        type: 'text',
-        success: true,
-        message: `当前模型: ${currentName} (${currentModel})\n\n可用模型:\n${modelsList}\n\n别名: ${aliasList}\n使用 /model <model-id|alias> 切换模型`,
-      };
-    }
+示例:
+  /model
+  /model sonnet
+  /model info claude-sonnet-4-6
+  /model all
+  /model --json
 
-    const resolved = modelManager.resolveModel(params.model);
-    if (!resolved) {
-      const modelsList = availableModels
-        .map((m) => `  - ${m.id}: ${m.name}`)
-        .join('\n');
+别名: /models, /ml, /list-models`,
+  };
+}
 
-      return {
-        type: 'text',
-        success: false,
-        message: `未知模型: ${params.model}\n\n可用模型:\n${modelsList}\n\n别名: ${aliasList}`,
-      };
-    }
+/**
+ * 格式化模型列表为 JSON
+ */
+function modelsToJson(currentModel: string): Record<string, unknown> {
+  const availableModels = modelManager.getModelInfoList();
+  return {
+    currentModel,
+    availableModels: availableModels.map(m => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+      active: m.id === currentModel,
+    })),
+    aliases: [...MODEL_ALIASES],
+  };
+}
 
-    modelManager.setCurrentModel(resolved);
-    const modelInfo = availableModels.find((m) => m.id === resolved);
+/**
+ * 获取模型详细信息（上下文窗口、最大输出、定价）
+ */
+function getModelDetail(modelId: string): { id: string; displayName: string; contextWindow: number; maxOutputTokens: number; pricing: string } | null {
+  const modelKey = getModelKeyByName(modelId);
+  if (!modelKey) return null;
 
+  const config = ALL_MODEL_CONFIGS[modelKey];
+  const pricing = config.pricing
+    ? `输入: $${config.pricing.inputPer1K}/1K tokens, 输出: $${config.pricing.outputPer1K}/1K tokens`
+    : '定价信息不可用';
+
+  return {
+    id: config.firstParty,
+    displayName: config.displayName,
+    contextWindow: config.contextWindow,
+    maxOutputTokens: config.maxOutputTokens,
+    pricing,
+  };
+}
+
+/**
+ * 处理 info 子命令
+ */
+function handleInfo(modelArg: string): CommandResult {
+  if (!modelArg) {
     return {
-      type: 'text',
-      success: true,
-      message: `模型已切换为: ${modelInfo?.name || modelManager.getModelDisplayName(resolved)} (${resolved})`,
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return {
-      type: 'error',
       success: false,
-      message: `Model命令执行失败: ${errorMessage}`,
+      message: `用法: /model info <model-id>\n示例: /model info claude-sonnet-4-6`,
     };
   }
+
+  const resolved = modelManager.resolveModel(modelArg);
+  const targetId = resolved || modelArg;
+
+  const detail = getModelDetail(targetId);
+  if (!detail) {
+    return {
+      success: false,
+      message: `未知模型: ${modelArg}\n运行 /model 查看可用的模型列表。`,
+    };
+  }
+
+  return {
+    success: true,
+    message: `模型详情: ${detail.displayName} (${detail.id})
+  上下文窗口: ${detail.contextWindow.toLocaleString()} tokens
+  最大输出: ${detail.maxOutputTokens.toLocaleString()} tokens
+  定价: ${detail.pricing}`,
+  };
 }
 
 /**
- * 解析model命令参数
+ * 处理 all 子命令 - 显示所有提供商下的模型
  */
-function parseModelArgs(args: string): {
-  model?: string;
-} {
-  const params: {
-    model?: string;
-  } = {};
+function handleAll(): CommandResult {
+  const modelKeys = Object.keys(ALL_MODEL_CONFIGS) as ModelKey[];
+  const lines: string[] = ['所有可用模型（按提供商）:\n'];
 
-  if (!args) return params;
+  for (const key of modelKeys) {
+    const config = ALL_MODEL_CONFIGS[key];
+    const providers: string[] = [];
+    if (config.firstParty) providers.push(`firstParty: ${config.firstParty}`);
+    if (config.bedrock) providers.push(`bedrock: ${config.bedrock}`);
+    if (config.vertex) providers.push(`vertex: ${config.vertex}`);
+    if (config.azure) providers.push(`azure: ${config.azure}`);
 
-  const parts = args.trim().split(/\s+/);
-
-  for (const part of parts) {
-    if (!part.startsWith('-')) {
-      params.model = part;
-      break;
+    lines.push(`  ${config.displayName} (${key})`);
+    for (const p of providers) {
+      lines.push(`    ${p}`);
     }
+    if (config.pricing) {
+      lines.push(`    定价: 输入 $${config.pricing.inputPer1K}/1K, 输出 $${config.pricing.outputPer1K}/1K`);
+    }
+    lines.push('');
   }
 
-  return params;
+  return { success: true, message: lines.join('\n').trimEnd() };
 }
+
+/**
+ * 显示当前模型和可用模型列表
+ */
+function showCurrentModel(showJson: boolean): CommandResult {
+  const currentModel = modelManager.getCurrentModel();
+  const availableModels = modelManager.getModelInfoList();
+  const aliasList = [...MODEL_ALIASES].join(', ');
+
+  if (showJson) {
+    return { success: true, message: JSON.stringify(modelsToJson(currentModel), null, 2) };
+  }
+
+  const currentInfo = availableModels.find(m => m.id === currentModel);
+  const currentName = currentInfo?.name || modelManager.getModelDisplayName(currentModel);
+
+  const modelsList = availableModels
+    .map(m => {
+      const marker = m.id === currentModel ? '●' : '○';
+      return `  ${marker} ${m.id}: ${m.name}`;
+    })
+    .join('\n');
+
+  return {
+    success: true,
+    message: `当前模型: ${currentName} (${currentModel})\n\n可用模型:\n${modelsList}\n\n别名: ${aliasList}\n使用 /model <model-id|alias> 切换模型`,
+  };
+}
+
+/**
+ * 切换模型
+ */
+function switchModel(modelArg: string): CommandResult {
+  const resolved = modelManager.resolveModel(modelArg);
+  if (!resolved) {
+    const availableModels = modelManager.getModelInfoList();
+    const modelsList = availableModels
+      .map(m => `  - ${m.id}: ${m.name}`)
+      .join('\n');
+    const aliasList = [...MODEL_ALIASES].join(', ');
+
+    return {
+      success: false,
+      message: `未知模型: ${modelArg}\n\n可用模型:\n${modelsList}\n\n别名: ${aliasList}`,
+    };
+  }
+
+  modelManager.setCurrentModel(resolved);
+  const modelInfo = modelManager.getModelInfoList().find(m => m.id === resolved);
+  const displayName = modelInfo?.name || modelManager.getModelDisplayName(resolved);
+
+  return {
+    success: true,
+    message: `模型已切换为: ${displayName} (${resolved})`,
+  };
+}
+
+/**
+ * Model 命令实现
+ */
+const modelCommand = {
+  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+    try {
+      const { showJson, subcommand, modelArg } = parseFlags(args);
+
+      if (subcommand === 'help') return showHelp();
+
+      try {
+        const { logEvent } = await import('@modules/analytics/index.js');
+        logEvent('tengu_model_command_inline', { subcommand: subcommand || 'list', showJson, args: subcommand || '' });
+      } catch {}
+
+      if (subcommand === 'info') return handleInfo(modelArg);
+
+      if (subcommand === 'all') return handleAll();
+
+      if (subcommand && subcommand !== 'list') return switchModel(subcommand);
+
+      return showCurrentModel(showJson);
+    } catch (error) {
+      return { success: false, message: `Model 命令执行失败: ${error instanceof Error ? error.message : String(error)}` };
+    }
+  },
+};
+
+export default modelCommand;

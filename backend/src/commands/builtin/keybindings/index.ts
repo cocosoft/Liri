@@ -14,6 +14,6 @@ export const keybindingsCommand: Command = {
   aliases: ['kb', 'keys'],
   argumentHint: '[list|show <键>|reset|help]',
   whenToUse: '当你需要查看或管理键盘快捷键时',
-  load: async () => import('./Keybindings.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Keybindings.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

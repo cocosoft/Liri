@@ -25,10 +25,10 @@ export class LanguageManager {
   private static instance: LanguageManager | null = null;
   private languagePacks: Map<string, LanguagePack> = new Map();
   private currentLanguage: string = 'zh-CN';
+  private initialized = false;
 
   private constructor() {
     this.loadLanguagePacks();
-    this.loadCurrentLanguage();
   }
 
   static getInstance(): LanguageManager {
@@ -38,11 +38,18 @@ export class LanguageManager {
     return LanguageManager.instance;
   }
 
+  private lazyInit(): void {
+    if (this.initialized) return;
+    this.initialized = true;
+    this.loadCustomLanguagePacks();
+    this.loadCurrentLanguage();
+  }
+
   /**
    * 加载语言包
    */
   private loadLanguagePacks(): void {
-    // 内置语言包
+    // 内置语言包（纯数据，不依赖配置）
     this.languagePacks.set('zh-CN', {
       code: 'zh-CN',
       name: 'Chinese (Simplified)',
@@ -117,8 +124,7 @@ export class LanguageManager {
       }
     });
 
-    // 尝试加载自定义语言包
-    this.loadCustomLanguagePacks();
+    // 尝试加载自定义语言包（移至 lazyInit 延迟调用）
   }
 
   /**
@@ -128,13 +134,13 @@ export class LanguageManager {
     try {
       const config = getConfig();
       const languagePacksDir = join(process.cwd(), 'language-packs');
-      
+
       if (existsSync(languagePacksDir)) {
         // 这里可以实现从目录加载自定义语言包
         // 暂时跳过，因为我们使用内置语言包
       }
     } catch (error) {
-      console.error('Error loading custom language packs:', error);
+      // 忽略加载失败
     }
   }
 
@@ -160,6 +166,7 @@ export class LanguageManager {
    * @returns 当前语言代码
    */
   getCurrentLanguage(): string {
+    this.lazyInit();
     return this.currentLanguage;
   }
 
@@ -169,6 +176,7 @@ export class LanguageManager {
    * @returns 是否设置成功
    */
   setCurrentLanguage(languageCode: string): boolean {
+    this.lazyInit();
     if (this.languagePacks.has(languageCode)) {
       this.currentLanguage = languageCode;
       this.saveCurrentLanguage();
@@ -192,6 +200,7 @@ export class LanguageManager {
    * @returns 翻译后的文本
    */
   translate(key: string, variables: Record<string, string> = {}): string {
+    this.lazyInit();
     const languagePack = this.languagePacks.get(this.currentLanguage);
     let message = languagePack?.messages[key] || key;
 

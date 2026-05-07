@@ -1,7 +1,6 @@
 /**
  * Fast命令模块入口
  */
-import { Fast } from './Fast.js';
 import type { Command } from '@modules/commands/types';
 
 /**
@@ -10,28 +9,14 @@ import type { Command } from '@modules/commands/types';
 const fastCommand: Command = {
   type: 'local',
   name: 'fast',
-  description: '快速操作和性能优化',
-  aliases: ['optimize', 'speed-up'],
-  argumentHint: '[--optimize|-o] [--cleanup|-c] [--boost|-b] [--analyze|-a]',
-  whenToUse: '需要快速优化系统性能或清理系统时使用',
-  version: '1.0.0',
-  userInvocable: true,
-  loadedFrom: 'builtin',
-  
+  description: '快速模式切换',
+  aliases: ['fast-mode'],
+  argumentHint: '[on|off] [status] [--json] [help]',
+
   /**
-   * 加载命令实现
+   * 懒加载命令实现
    */
-  async load(): Promise<any> {
-    return new Fast();
-  }
+  load: () => import('./Fast.js').then(m => m.default),
 };
 
-/**
- * 导出Fast命令实现
- */
-export { Fast };
-
-/**
- * 默认导出Fast命令定义
- */
 export { fastCommand };

@@ -225,7 +225,7 @@ PY_APP 提供多种内置工具：
 - `file_write` - 写入文件内容
 - `file_edit` - 编辑文件内容（SearchReplace 模式）
 - `GlobTool` - 文件匹配
-- `grep` - 文本搜索
+- `grep` - 文本搜索（正则表达式文件内容搜索）
 
 ```bash
 # 编辑文件（替换首个匹配项）
@@ -249,8 +249,144 @@ PY_APP 提供多种内置工具：
 - **文件大小限制** — 最大支持 1 GiB 的文件编辑
 - **安全校验** — 当 `old_string` 与 `new_string` 完全相同时会拒绝执行
 
+---
+
+`/grep` 命令用于在文件中搜索文本内容，对标 CC 源码 `cc_code/backend/tools/GrepTool/GrepTool.ts`：
+
+```bash
+# 基本搜索
+/grep <pattern>
+
+# 忽略大小写搜索
+/grep -i <pattern>
+
+# 搜索指定目录
+/grep <pattern> <searchPath>
+
+# 仅显示匹配的文件名（默认模式）
+/grep --outputMode files_with_matches <pattern>
+
+# 显示匹配的具体内容
+/grep --outputMode content <pattern>
+
+# 显示匹配次数统计
+/grep --outputMode count <pattern>
+
+# 带上下文行显示
+/grep -C 3 <pattern>
+
+# 文件类型过滤
+/grep --type ts <pattern>
+
+# 文件通配符过滤
+/grep --include "*.ts" <pattern>
+
+# 分页遍历大量结果
+/grep --headLimit 50 --offset 0 <pattern>
+/grep --headLimit 50 --offset 50 <pattern>
+```
+
+**选项说明：**
+
+| 选项 | 短标志 | 说明 |
+|------|--------|------|
+| `--help` | `-h` | 显示帮助信息 |
+| `--caseInsensitive` | `-i` | 忽略大小写搜索 |
+| `--showLineNumbers` | `-n` | 显示行号（默认启用） |
+| `--multiline` | | 启用多行匹配模式 |
+| `--outputMode <mode>` | | 输出模式: `content` / `files_with_matches`(默认) / `count` |
+| `--searchPath <path>` | | 搜索目录路径（默认当前目录） |
+| `--include <pattern>` | | 文件通配符过滤（如 `*.ts`, `*.{ts,tsx}`） |
+| `--type <filetype>` | | 文件类型过滤（如 `ts`, `js`, `rs`, `py`） |
+| `--headLimit <num>` | | 最大返回结果数（默认 250，0=无限制） |
+| `--offset <num>` | | 结果偏移量，用于分页 |
+| `--context <num>` | `-C` | 匹配前后各显示的行数 |
+| `--contextBefore <num>` | `-B` | 匹配前显示的行数 |
+| `--contextAfter <num>` | `-A` | 匹配后显示的行数 |
+
+**输出模式：**
+| 模式 | 说明 |
+|------|------|
+| `content` | 显示匹配的具体内容行（含文件名和行号） |
+| `files_with_matches` | 仅显示包含匹配的文件名（默认） |
+| `count` | 显示每个文件的匹配次数统计 |
+
+**与 ripgrep 对标：**
+| PY_APP 选项 | ripgrep 对应 | 说明 |
+|-------------|--------------|------|
+| `-i` | `rg -i` | 忽略大小写 |
+| `-n` | `rg -n` | 显示行号 |
+| `-C <num>` | `rg -C <num>` | 上下文行 |
+| `-B <num>` | `rg -B <num>` | 前文行 |
+| `-A <num>` | `rg -A <num>` | 后文行 |
+| `--type ts` | `rg --type ts` | 文件类型 |
+| `--multiline` | `rg -U` | 多行匹配 |
+
+**别名：** `/search`, `/regex`
+
+---
+
 ### 系统工具
-- `bash` - 执行 shell 命令
+
+```bash
+# 执行 shell 命令
+/bash <command>
+```
+
+`/bash` 命令用于执行 shell 命令，对标 CC 源码 `cc_code/backend/tools/BashTool/bashSecurity.ts` 和 `bashPermissions.ts` 的安全体系：
+
+```bash
+# 带超时执行
+/bash --timeout 10000 npm install
+
+# 指定工作目录
+/bash --cwd /home/project git status
+
+# 设置环境变量
+/bash --env NODE_ENV=production npm run build
+
+# 多环境变量
+/bash --env VAR1=val1 --env VAR2=val2 echo $VAR1
+
+# 组合使用
+/bash --timeout 30000 --cwd /app --env DEBUG=true node server.js
+
+# 查看帮助
+/bash --help
+```
+
+**选项说明：**
+| 选项 | 说明 |
+|------|------|
+| `-h, --help` | 显示帮助信息 |
+| `--timeout <ms>` | 执行超时时间（默认 60000ms，最大 300000ms） |
+| `--cwd <path>` | 指定工作目录（默认当前目录） |
+| `--env <key=value>` | 设置环境变量（可重复使用） |
+| `--skip-security-check` | 跳过安全检查（危险，不推荐） |
+
+**安全特性：**
+`/bash` 命令集成了多层安全检查体系，参考自 CC 源码的 BashTool 安全实现：
+
+| 检查层 | 说明 | CC 参考实现 |
+|--------|------|-------------|
+| 危险命令检测 | 拦截 `rm -rf /`、`sudo`、系统管理命令等 | `bashSecurity.ts` - 20+ 验证器 |
+| 危险模式检测 | 检测命令替换、eval 调用、注入攻击等 | `bashPermissions.ts` - 权限规则 |
+| AST 级安全分析 | 解析命令结构检测深层风险 | `bashCommandHelpers.ts` - 管道分段检查 |
+| 敏感路径保护 | 禁止操作系统关键目录 | `bashPermissions.ts` - `BARE_SHELL_PREFIXES` |
+| 命令分类检查 | 按命令类别分级管控 | `bashClassifier.ts` - 分类器 |
+
+被安全系统拦截的命令会返回详细的拦截原因和安全检查报告。
+
+**输出格式：**
+- 成功时显示 stdout 输出
+- stderr 输出带 `[stderr]` 前缀
+- 命令失败时显示退出码 `[exit code: N]`
+- 显示执行耗时
+
+**别名：** `/sh`, `/shell`
+
+---
+
 - `SleepTool` - 延迟执行
 - `MonitorTool` - 系统监控
 
@@ -260,40 +396,136 @@ PY_APP 提供多种内置工具：
 
 ### 网络工具
 
-```bash
-# 获取网页内容
-/fetch <url>
-```
+`/fetch` 命令用于获取指定 URL 的网页内容或调用 HTTP API，对标 CC 源码 `cc_code/tools/WebFetchTool.ts`。
 
-`/fetch` 命令用于获取指定 URL 的网页内容，支持以下特性：
-- **内容截断** — 自动将返回内容截断至 1000 字符，避免信息过载
-- **错误处理** — 当无法访问目标 URL 时返回友好的错误提示
-
-示例：
 ```bash
 # 获取网页内容
 /fetch https://example.com
 
-# 获取 API 数据
-/fetch https://api.example.com/data
+# HTML→Markdown 转换（对标 CC htmlToMarkdown）
+/fetch https://example.com --md
+
+# 提示词提取（对标 CC applyPrompt）
+/fetch https://example.com --prompt "Extract the main content"
+
+# 获取 API 数据（JSON 自动格式化）
+/fetch https://api.github.com/repos/vercel/next.js
+
+# POST 请求
+/fetch https://httpbin.org/post -X POST -d '{"key":"value"}'
+
+# 自定义请求头
+/fetch https://api.example.com/data -H "Authorization: Bearer token123"
+
+# 查看完整内容（不截断）
+/fetch https://example.com --raw
+
+# 自定义超时
+/fetch https://slow-api.example.com --timeout 60000
+```
+
+#### 参数说明
+
+| 参数 | 说明 |
+|------|------|
+| `<url>` | 目标 URL（必填） |
+| `-X, --method <method>` | HTTP 方法（GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS，默认 GET） |
+| `-H, --header <"Key: Value">` | 请求头，可重复使用 |
+| `-d, --data <body>` | 请求体（自动切换为 POST） |
+| `--timeout <ms>` | 超时时间，默认 30000ms，最大 120000ms |
+| `--raw` | 显示完整内容，不截断（默认截断至 2000 字符） |
+| `--max-length <n>` | 自定义截断长度（字符数） |
+| `--md, --markdown` | HTML→Markdown 转换（对标 CC htmlToMarkdown） |
+| `--prompt, --extract <p>` | 提示词提取（对标 CC applyPrompt，默认 "Extract the main content"） |
+
+#### 输出格式
+
+成功时显示：
+```
+URL: https://example.com
+Duration: 1.2s
+Status: 200 OK
+Content-Type: text/html; charset=utf-8
+Content-Length: 45231 chars
+Processing: HTML→Markdown converted
+────────────────────────────────────────────────────────────
+... Markdown 格式内容 ...
+[Content truncated. Original length: 15231 chars. Use --raw to see full content.]
+```
+
+#### 别名
+
+`/web_fetch`
+
+---
+
+### `/websearch`
 
 ```bash
 # 执行网络搜索
-/websearch <query>
+/websearch <query> [-n count] [-l lang] [--allow domain] [--block domain]
 ```
 
-`/websearch` 命令用于执行网络搜索，通过 Bing 搜索引擎获取互联网信息。支持以下特性：
-- **结果格式化** — 自动以编号列表展示搜索结果（标题、链接、摘要）
-- **搜索语言** — 默认使用英文搜索，可根据需要调整查询词的语言
+`/websearch` 命令用于执行网络搜索，通过 Bing 搜索引擎获取互联网信息。
 
-示例：
+#### 特性
+- **结果元数据** — 显示搜索耗时、结果总数、域名过滤信息
+- **域名过滤** — 对标 CC 的 `allowed_domains`/`blocked_domains` 设计，支持指定/排除域名
+- **参数控制** — 支持指定结果数、语言、安全搜索开关、超时时间
+
+#### 参数
+
+| 参数 | 说明 |
+|------|------|
+| `-n, --count <count>` | 返回结果数（1-100，默认 10） |
+| `-l, --lang <lang>` | 搜索语言代码（如 `zh-CN`、`en-US`，默认 `zh-CN`） |
+| `--no-safe` | 关闭安全搜索（默认启用） |
+| `--timeout <ms>` | 超时时间（默认 30000，最大 120000） |
+| `--allow, --allow-domain <domain>` | 仅搜索指定域名（可重复使用） |
+| `--block, --block-domain <domain>` | 排除指定域名（可重复使用） |
+
+#### 示例
+
 ```bash
-# 搜索技术资料
-/websearch "Python programming"
+# 基本搜索
+/websearch Python 异步编程
 
-# 搜索最新资讯
-/websearch "最新人工智能进展"
+# 限制返回结果数
+/websearch "React server components" -n 5
+
+# 指定语言
+/websearch 最新 AI 新闻 -l zh-CN
+
+# 仅搜索指定域名
+/websearch TypeScript 教程 --allow github.io --allow typescriptlang.org
+
+# 排除指定域名
+/websearch "Node.js performance" --block medium.com --block dev.to
+
+# 关闭安全搜索
+/websearch "advanced hacking techniques" --no-safe
+
+# 设置超时
+/websearch "large dataset" --timeout 60000
 ```
+
+#### 输出格式
+
+```
+Search results for "Python 异步编程"
+Found: 10 results
+Duration: 1.35s
+──────────────────────────────────────────────────────────────
+1. Python 异步编程入门指南
+   URL: https://example.com/python-async
+   本文介绍 Python asyncio 库的基本用法和高级特性...
+
+2. ...
+```
+
+#### 别名
+
+`/web_search`
 
 - `web_fetch` - 获取网页内容（内部工具接口）
 - `web_search` - 网络搜索（内部工具接口）
@@ -593,61 +825,126 @@ PY_APP 提供多种内置工具：
 
 ## Agent 管理
 
+Agent 系统分为三个独立命令，职责分明：
+
+| 命令 | 职责 | 使用场景 |
+|------|------|----------|
+| `/subagent-run` | 子代理任务执行器 | 运行/查看/停止子代理的执行任务 |
+| `/subagent` | 子代理配置管理器 | 查看/创建/删除子代理定义（.md 配置文件） |
+| `/agent-instance` | Agent 实例管理器 | 创建/删除命名的 Agent 实例配置，查看活跃子代理 |
+
 ### 子代理任务执行
 
 ```bash
 # 运行一个新 Agent 任务
-/agent run general "编写一个 Python 脚本"
+/subagent-run run general "编写一个 Python 脚本"
 
 # 使用特定类型的 Agent
-/agent run explore "分析项目结构"
-/agent run plan "制定功能实现计划"
-/agent run verification "验证代码质量"
+/subagent-run run explore "分析项目结构"
+/subagent-run run plan "制定功能实现计划"
+/subagent-run run verification "验证代码质量"
 
 # 在后台运行 Agent 任务（不阻塞终端）
-/agent run general "长时间任务" --background
+/subagent-run run general "长时间任务" --background
+
+# 指定模型运行
+/subagent-run run plan "制定重构计划" --model sonnet
+
+# 以 JSON 格式列出所有 Agent
+/subagent-run list --json
 ```
 
 支持的 Agent 类型：`general`, `explore`, `plan`, `verification`, `claude-code-guide`, `statusline-setup`
+
+#### 参数说明
+
+| 参数 | 适用子命令 | 说明 |
+|------|------------|------|
+| `--background` / `--bg` | `run` | 在后台运行任务，立即返回控制权 |
+| `--model <model>` | `run` | 指定模型（如 sonnet, opus, haiku），覆盖 Agent 定义的默认模型 |
+| `--json` | `list`, `bg-list` | 以 JSON 格式输出，便于程序化处理 |
+
+### Agent 实例管理
+
+```bash
+# 列出所有已注册实例和活跃子代理
+/agent-instance list
+
+# 以 JSON 格式输出
+/agent-instance list --json
+
+# 创建命名 Agent 实例
+/agent-instance create my-code-reviewer
+
+# 创建指定类型的 Agent 实例
+/agent-instance create my-explorer --type explore
+
+# 删除 Agent 实例（或停止活跃子代理）
+/agent-instance delete my-code-reviewer
+
+# 显示帮助
+/agent-instance help
+/agent-instance -h
+```
+
+#### 参数说明
+
+| 参数 | 适用子命令 | 说明 |
+|------|------------|------|
+| `--type <type>` | `create` | 指定 Agent 类型（默认: general） |
+| `--json` | `list` | 以 JSON 格式输出已注册实例和活跃子代理 |
+
+可用类型：`general`, `explore`, `plan`, `verification`, `claude-code-guide`, `statusline-setup`
+
+别名: `/agents_tool`
 
 ### 子代理状态管理
 
 ```bash
 # 列出所有活跃的子代理、引擎任务和后台任务
-/agent list
+/subagent-run list
+
+# 以 JSON 格式查看（便于程序化处理）
+/subagent-run list --json
 
 # 查看特定 Agent 或后台任务的状态
-/agent status <agent_id>
+/subagent-run status <agent_id>
 
 # 停止运行中的 Agent
-/agent stop <agent_id>
+/subagent-run stop <agent_id>
 
 # 列出所有后台任务（含统计信息）
-/agent bg-list
+/subagent-run bg-list
+
+# 以 JSON 格式查看后台任务
+/subagent-run bg-list --json
 
 # 显示帮助
-/agent help
+/subagent-run help
+/subagent-run -h
 ```
 
-别名: `/agents`
+别名: `/agent_tool`
 
 ### Agent 定义管理
 
+> 以下命令属于 `/subagent` 配置管理器，并非 `/subagent-run`。
+
 ```bash
 # 列出所有已定义的 Agent（按来源分组显示）
-/agent list
+/subagent list
 
 # 查看 Agent 详情
-/agent info <名称>
+/subagent info <名称>
 
 # 创建新 Agent（支持 --tools 指定可用工具）
-/agent create <名称> <描述>
+/subagent create <名称> <描述>
 
 # 创建带工具限制的 Agent
-/agent create code-reviewer "代码审查助手" --tools "file_read,grep"
+/subagent create code-reviewer "代码审查助手" --tools "file_read,grep"
 
 # 删除自定义 Agent
-/agent delete <名称>
+/subagent delete <名称>
 ```
 
 ### Agent 来源说明
@@ -662,7 +959,7 @@ Agent 按来源分组，高优先级覆盖低优先级同名 Agent：
 
 ### 自定义 Agent 文件格式
 
-创建 Agent 后，编辑生成的 Markdown 文件可配置完整属性：
+通过 `/subagent create` 创建 Agent 后，编辑生成的 Markdown 文件可配置完整属性：
 
 ```yaml
 ---
@@ -685,7 +982,7 @@ color: blue
 - **后台运行**：将长时间任务提交到 BackgroundTaskManager 异步执行
 - **隐式 Fork**：当未指定 Agent 类型时，自动创建 Fork 子代理隔离执行
 - **并发控制**：限制最大并发 Agent 数量，防止资源耗尽
-- **可中断**：支持通过 `/agent stop` 中止运行中的 Agent
+- **可中断**：支持通过 `/subagent-run stop` 中止运行中的 Agent
 - **Token 统计**：记录每次执行的提示/补全 Token 用量
 
 ## 快捷键

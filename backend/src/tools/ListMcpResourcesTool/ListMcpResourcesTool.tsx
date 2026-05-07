@@ -4,10 +4,10 @@
  */
 
 import { z } from 'zod';
-import { Text, Box } from '../../components/index.js';
+import { Text, Box } from 'ink';
 import type { Tool } from '../types/index.js';
 import { buildTool, type ToolDef } from '../BaseTool.js';
-import { jsonStringify } from '../../utils/json.js';
+import { jsonStringify } from '@modules/utils/json.js';
 
 const LIST_MCP_RESOURCES_TOOL_NAME = 'ListMcpResources';
 

@@ -24,6 +24,12 @@ export enum PluginState {
   
   /** 失败 */
   FAILED = 'failed',
+  
+  /** 已禁用 */
+  DISABLED = 'disabled',
+  
+  /** 已启用 */
+  ENABLED = 'enabled',
 }
 
 /**
@@ -383,6 +389,21 @@ export enum PluginEventType {
   
   /** 状态变化 */
   STATE_CHANGED = 'stateChanged',
+  
+  /** 插件已加载 */
+  PLUGIN_LOADED = 'pluginLoaded',
+  
+  /** 插件已激活 */
+  PLUGIN_ACTIVATED = 'pluginActivated',
+  
+  /** 插件已停用 */
+  PLUGIN_DEACTIVATED = 'pluginDeactivated',
+  
+  /** 插件错误 */
+  PLUGIN_ERROR = 'pluginError',
+  
+  /** 配置更新 */
+  CONFIG_UPDATED = 'configUpdated',
 }
 
 /**

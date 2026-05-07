@@ -74,24 +74,24 @@ export interface LLMClientFactory {
 export class DefaultLLMClientFactory implements LLMClientFactory {
   private clients: Map<LLMClientType, LLMClient> = new Map();
   private defaultClient: LLMClient | null = null;
+  private defaultsRegistered = false;
 
-  constructor() {
-    this.registerDefaultClients();
-  }
+  private ensureDefaultClients(): void {
+    if (this.defaultsRegistered) return;
+    this.defaultsRegistered = true;
 
-  private registerDefaultClients(): void {
     try {
       // 从配置获取 DeepSeek 配置
       const config = getConfig();
       const aiConfig = config.ai;
-      
+
       // 创建 DeepSeek 客户端（默认）
       const deepseekConfig: DeepSeekConfig = {
         apiKey: aiConfig?.deepseek?.apiKey || process.env.DEEPSEEK_API_KEY || '',
         baseUrl: aiConfig?.deepseek?.baseUrl || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
         model: aiConfig?.deepseek?.model || 'deepseek-chat',
       };
-      
+
       if (deepseekConfig.apiKey) {
         const deepseekClient = new DeepSeekClient(deepseekConfig);
         this.clients.set('deepseek', deepseekClient);
@@ -167,6 +167,7 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
   }
 
   getClientForProvider(provider: string): LLMClient {
+    this.ensureDefaultClients();
     const type = provider.toLowerCase() as LLMClientType;
     
     // 如果已存在该类型的客户端，直接返回
@@ -215,6 +216,7 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
   }
 
   getDefaultClient(): LLMClient {
+    this.ensureDefaultClients();
     if (!this.defaultClient) {
       this.defaultClient = new DeepSeekClient();
       this.clients.set('deepseek', this.defaultClient);
@@ -223,10 +225,12 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
   }
 
   hasClient(type: LLMClientType): boolean {
+    this.ensureDefaultClients();
     return this.clients.has(type);
   }
 
   getClient(type: LLMClientType): LLMClient | undefined {
+    this.ensureDefaultClients();
     return this.clients.get(type);
   }
 
@@ -235,6 +239,7 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
   }
 
   getAvailableClients(): LLMClientType[] {
+    this.ensureDefaultClients();
     return Array.from(this.clients.keys());
   }
 }

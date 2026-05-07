@@ -14,6 +14,6 @@ export const heapdumpCommand: Command = {
   aliases: ['heap'],
   argumentHint: '',
   whenToUse: '当你需要调试内存问题时',
-  load: async () => import('./Heapdump.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Heapdump.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

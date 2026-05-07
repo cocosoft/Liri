@@ -5,7 +5,7 @@
  */
 
 import { BuiltinAgentStrategy, BuiltinAgentConfig } from './types';
-import { AgentTask, AgentResponse, AgentContext, AgentState } from '../../models/types';
+import { AgentTask, AgentResponse, AgentContext, AgentState } from '@modules/models/types';
 
 const VERIFICATION_AGENT_CONFIG: BuiltinAgentConfig = {
   type: 'py_app-verification',

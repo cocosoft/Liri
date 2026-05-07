@@ -47,6 +47,10 @@ export interface PluginDependency {
  */
 export interface PluginMetadata {
   /**
+   * 插件ID
+   */
+  id?: string;
+  /**
    * 插件名称
    */
   name: string;
@@ -79,7 +83,7 @@ export interface PluginMetadata {
    */
   type?: 'tool' | 'command' | 'service' | 'ui' | 'other';
   /**
-   * 插件入口点
+   * 插件主入口
    */
   main?: string;
   /**
@@ -90,6 +94,14 @@ export interface PluginMetadata {
    * 插件标签
    */
   tags?: string[];
+  /**
+   * 插件分类
+   */
+  category?: string;
+  /**
+   * 是否默认启用
+   */
+  enabledByDefault?: boolean;
 }
 
 /**

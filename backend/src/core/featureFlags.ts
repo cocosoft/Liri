@@ -79,6 +79,8 @@ export const FEATURE_FLAGS = {
   BROWSER: false,
   /** 计划工具 */
   PLAN: true,
+  /** 验证代理提示 */
+  VERIFICATION_AGENT: true,
   /** KAIROS GitHub Webhooks */
   KAIROS_GITHUB_WEBHOOKS: false,
   /** UDS 收件箱 */

@@ -9,7 +9,7 @@ import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
-import { getTeammateManager } from '../../subagent/TeammateManager';
+import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
 

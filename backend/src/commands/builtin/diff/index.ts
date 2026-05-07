@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Diff命令导出
  */
@@ -7,7 +6,7 @@ import type { Command } from '@modules/commands/types';
 /**
  * Diff命令定义
  */
-const diffCommand: Command = {
+export const diffCommand: Command = {
   type: 'local',
   name: 'diff',
   description: 'View uncommitted changes and per-turn diffs',
@@ -20,8 +19,40 @@ const diffCommand: Command = {
    * 加载命令实现
    */
   async load() {
-    const { Diff } = await import('./Diff.js');
-    return new Diff();
+    const diffModule = await import('./Diff.js');
+    return {
+      execute: async (args: string) => {
+        const parts = args.trim().split(/\s+/).filter(Boolean);
+        const subcmd = parts[0] || '';
+
+        if (subcmd === 'help' || subcmd === '-h' || subcmd === '--help') {
+          return {
+            success: true,
+            type: 'text',
+            message: [
+              '用法: /diff [--cached|-c]',
+              '',
+              '查看 Git 仓库中的未提交变更。',
+              '',
+              '选项:',
+              '  --cached, -c    查看已暂存（staged）的变更',
+              '  --help, -h       显示此帮助信息',
+            ].join('\n'),
+          };
+        }
+
+        const stagedOnly = parts.includes('--cached') || parts.includes('-c');
+        const result = await diffModule.getDiff(stagedOnly);
+        if (result.files.length === 0) {
+          return { success: true, type: 'text', message: '没有发现变更。' };
+        }
+        return {
+          success: true,
+          type: 'text',
+          message: `${result.files.join(', ')}\n+${result.additions} / -${result.deletions}`,
+        };
+      },
+    };
   },
 
   /**

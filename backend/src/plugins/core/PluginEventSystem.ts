@@ -278,7 +278,7 @@ export class PluginEventSystem extends EventEmitter {
       
       const routedEvent = rule.transform ? rule.transform(event) : {
         ...event,
-        type: rule.targetEventType
+        type: rule.targetEventType as PluginEventType,
       };
       
       routedEvents.push(routedEvent);

@@ -162,12 +162,27 @@ export {
 
 // 导出便捷函数
 import { configManager } from './ConfigManager.js';
+import type { GlobalConfig } from './types.js';
 
 /**
- * 获取配置管理器实例
+ * 启用配置系统
  */
-export function getConfig(): ConfigManager {
-  return configManager;
+export function enableConfigs(): void {
+  configManager.enableConfigs();
+}
+
+/**
+ * 获取全局配置对象
+ */
+export function getGlobalConfig(): GlobalConfig {
+  return configManager.getGlobalConfig();
+}
+
+/**
+ * 获取全局配置对象（别名）
+ */
+export function getConfig(): GlobalConfig {
+  return configManager.getGlobalConfig();
 }
 
 /**

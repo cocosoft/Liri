@@ -1,25 +1,19 @@
 /**
- * Tasks命令
+ * Tasks 命令模块入口
  * 列出和管理后台任务
- * 参考CC源码 cc_code/backend/commands/tasks/index.ts 实现
+ * 对标 CC BackgroundTasksDialog 实现
  */
-
 import type { Command } from '@modules/commands/types';
 
-/**
- * Tasks命令实现
- */
-const tasks: Command = {
+const tasksCommand: Command = {
   type: 'local',
   name: 'tasks',
   aliases: ['bashes'],
   description: '列出和管理后台任务',
-  load: async () => {
-    const { executeTasks } = await import('./tasks.js');
-    return {
-      execute: executeTasks,
-    };
-  },
+  argumentHint: '[list|running|pending|completed|failed|aborted|show|stop|clear|stats|--json|help]',
+  whenToUse: '当你需要查看或管理后台运行的任务时',
+  load: () => import('./tasks.js').then(m => m.default),
 };
 
-export default tasks;
+export { tasksCommand };
+export default tasksCommand;

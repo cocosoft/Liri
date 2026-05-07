@@ -188,6 +188,11 @@ export interface CommandContext {
   onDone?: (message: string, options?: any) => void;
 
   /**
+   * 消息列表（供命令访问当前会话消息）
+   */
+  messages?: any[];
+
+  /**
    * 命令选项（用于解析后的选项）
    */
   options?: Record<string, any>;

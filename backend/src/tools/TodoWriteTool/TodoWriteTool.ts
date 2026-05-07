@@ -9,6 +9,8 @@ import { Tool } from '../types/Tool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam } from '../types/Tool';
+import { feature } from '@modules/core/featureFlags';
+import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
 
 /**
  * Todo 项状态
@@ -17,11 +19,13 @@ type TodoStatus = 'pending' | 'in_progress' | 'completed';
 
 /**
  * Todo 项
+ * 对标 CC TodoItemSchema: content（祈使句）+ activeForm（现在进行时）
  */
 interface Todo {
   id: string;
   content: string;
   status: TodoStatus;
+  activeForm?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,12 +53,13 @@ class TodoManager {
   /**
    * 添加 todo
    */
-  addTodo(sessionId: string, content: string): Todo {
+  addTodo(sessionId: string, content: string, activeForm?: string): Todo {
     const todos = this.getTodos(sessionId);
     const todo: Todo = {
       id: `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       content,
       status: 'pending',
+      activeForm: activeForm || undefined,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -181,6 +186,13 @@ export class TodoWriteTool implements Tool {
       description: 'Array of todos for write action',
       required: false,
       default: [],
+    },
+    {
+      name: 'activeForm',
+      type: 'string',
+      description: 'Present continuous form of the task (e.g. "Fixing the login bug")',
+      required: false,
+      default: '',
     },
   ];
 
@@ -420,7 +432,11 @@ export class TodoWriteTool implements Tool {
                   ? '◐'
                   : '○';
             output += `${index + 1}. [${statusIcon}] ${todo.content}\n`;
-            output += `   ID: ${todo.id} | Status: ${todo.status}\n\n`;
+            output += `   ID: ${todo.id} | Status: ${todo.status}`;
+            if (todo.activeForm) {
+              output += ` | ActiveForm: ${todo.activeForm}`;
+            }
+            output += '\n\n';
           });
 
           return createToolResult(output, {
@@ -436,20 +452,23 @@ export class TodoWriteTool implements Tool {
         case 'add': {
           const todo = todoManager.addTodo(
             session_id as string,
-            content as string
+            content as string,
+            input.activeForm as string | undefined
           );
 
-          return createToolResult(
-            `Added todo:\n  ID: ${todo.id}\n  Content: ${todo.content}\n  Status: ${todo.status}`,
-            {
-              newMessages: [
-                {
-                  role: 'system',
-                  content: `Added todo: ${todo.id}`,
-                },
-              ],
-            }
-          );
+          let result = `Added todo:\n  ID: ${todo.id}\n  Content: ${todo.content}\n  Status: ${todo.status}`;
+          if (todo.activeForm) {
+            result += `\n  ActiveForm: ${todo.activeForm}`;
+          }
+
+          return createToolResult(result, {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Added todo: ${todo.id}`,
+              },
+            ],
+          });
         }
 
         case 'update': {
@@ -461,6 +480,9 @@ export class TodoWriteTool implements Tool {
           ) {
             updates.status = status as TodoStatus;
           }
+          if (input.activeForm !== undefined) {
+            updates.activeForm = input.activeForm as string;
+          }
 
           const todo = todoManager.updateTodo(
             session_id as string,
@@ -469,17 +491,19 @@ export class TodoWriteTool implements Tool {
           );
 
           if (todo) {
-            return createToolResult(
-              `Updated todo:\n  ID: ${todo.id}\n  Content: ${todo.content}\n  Status: ${todo.status}`,
-              {
-                newMessages: [
-                  {
-                    role: 'system',
-                    content: `Updated todo: ${todo.id}`,
-                  },
-                ],
-              }
-            );
+            let result = `Updated todo:\n  ID: ${todo.id}\n  Content: ${todo.content}\n  Status: ${todo.status}`;
+            if (todo.activeForm) {
+              result += `\n  ActiveForm: ${todo.activeForm}`;
+            }
+
+            return createToolResult(result, {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Updated todo: ${todo.id}`,
+                },
+              ],
+            });
           }
 
           return createToolResult(null, {
@@ -539,23 +563,33 @@ export class TodoWriteTool implements Tool {
               `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             content: t.content,
             status: t.status || 'pending',
+            activeForm: t.activeForm || undefined,
             createdAt: new Date(),
             updatedAt: new Date(),
           }));
 
           todoManager.setTodos(session_id as string, newTodos);
 
-          return createToolResult(
-            `Wrote ${newTodos.length} todo(s) to session: ${session_id}`,
-            {
-              newMessages: [
-                {
-                  role: 'system',
-                  content: `Wrote ${newTodos.length} todos to session: ${session_id}`,
-                },
-              ],
-            }
-          );
+          let resultMsg = `Wrote ${newTodos.length} todo(s) to session: ${session_id}`;
+
+          const allDone = newTodos.length > 0 && newTodos.every(t => t.status === 'completed');
+          if (
+            feature('VERIFICATION_AGENT') &&
+            allDone &&
+            newTodos.length >= 3 &&
+            !newTodos.some(t => /verif/i.test(t.content))
+          ) {
+            resultMsg += `\n\nNOTE: You just closed out 3+ tasks and none of them was a verification step. Before writing your final summary, spawn the verification agent (subagent_type="${VERIFICATION_AGENT_TYPE}"). You cannot self-assign PARTIAL by listing caveats in your summary — only the verifier issues a verdict.`;
+          }
+
+          return createToolResult(resultMsg, {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Wrote ${newTodos.length} todos to session: ${session_id}`,
+              },
+            ],
+          });
         }
 
         default:

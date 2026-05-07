@@ -4,6 +4,7 @@
  */
 
 import type { Plugin, PluginMetadata } from '../types';
+import { PluginStatus } from '../types/Plugin.js';
 
 export interface SystemStatus {
   cpuUsage: number;
@@ -28,6 +29,7 @@ export const StatusPluginMetadata: PluginMetadata = {
 };
 
 export class StatusPlugin implements Plugin {
+  status: PluginStatus = PluginStatus.ENABLED;
   private enabled = true;
   private startTime = Date.now();
 

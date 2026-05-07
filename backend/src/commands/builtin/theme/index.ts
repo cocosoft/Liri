@@ -14,6 +14,6 @@ export const themeCommand: Command = {
   aliases: ['appearance', 'look'],
   argumentHint: '[list|set|current|reset|help]',
   whenToUse: '当你需要更改界面主题时',
-  load: async () => import('./Theme.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Theme.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

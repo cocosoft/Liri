@@ -14,6 +14,6 @@ export const planCommand: Command = {
   aliases: [],
   argumentHint: '[show|create|add|remove|clear|execute|help]',
   whenToUse: '当你需要管理任务计划时',
-  load: async () => import('./Plan.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Plan.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 

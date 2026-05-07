@@ -14,5 +14,5 @@ export const initCommand: Command = {
   aliases: ['create'],
   argumentHint: '[项目名称]',
   whenToUse: '当你需要创建一个新的项目目录时',
-  load: async () => import('./Init.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./Init.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };

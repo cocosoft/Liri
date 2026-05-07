@@ -14,7 +14,7 @@ export const remoteEnvCommand: Command = {
   aliases: ['remote'],
   argumentHint: '[status|connect|disconnect|list|info|help]',
   whenToUse: '当你需要管理远程开发环境时',
-  load: async () => import('./RemoteEnv.js').then((m) => ({ execute: m.default.execute })),
+  load: async () => import('./RemoteEnv.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
 };
 
 export default remoteEnvCommand;

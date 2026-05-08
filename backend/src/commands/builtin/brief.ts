@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Brief命令
  * 用于切换brief-only模式

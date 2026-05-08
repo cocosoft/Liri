@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * FPS指标上下文（参考CC源码 cc_code/context/fpsMetrics.tsx）
  * 跟踪应用帧率性能指标

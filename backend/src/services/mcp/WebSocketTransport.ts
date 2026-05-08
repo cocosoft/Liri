@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * WebSocket传输层
  */

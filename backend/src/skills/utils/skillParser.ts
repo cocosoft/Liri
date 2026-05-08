@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * 技能解析器（基于CC源码增强）
  * 支持完整的Frontmatter解析、参数替换、Shell执行等功能

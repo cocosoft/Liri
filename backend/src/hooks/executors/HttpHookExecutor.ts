@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * HTTP类型Hook执行器
  * 负责执行HTTP类型的Hook

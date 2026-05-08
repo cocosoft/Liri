@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { fileURLToPath } from 'url'
 
 import type { Diagnostic, DiagnosticFile, DiagnosticSeverity } from './types.js'

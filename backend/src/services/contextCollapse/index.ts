@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * ContextCollapse 服务导出
  */

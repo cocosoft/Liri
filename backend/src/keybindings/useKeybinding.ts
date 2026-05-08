@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { useCallback, useMemo, useRef } from 'react'
 import { useInput } from '../ink/ink/hooks/use-input.js'
 import type { Key } from '../ink/ink/events/input-event.js'

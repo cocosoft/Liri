@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * 远程Agent执行器
  */

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Teammate Mailbox系统
  * 提供结构化的团队消息传递，支持shutdown、plan_approval等消息类型

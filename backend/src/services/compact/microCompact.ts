@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * 微压缩实现
  * 基于CC源码 cc_code/backend/services/compact/microCompact.ts 实现

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Chat Hook Executor
  * 处理 Chat 相关事件的 Hook 执行器

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Agent源管理器
  * 支持从多个源加载Agent定义

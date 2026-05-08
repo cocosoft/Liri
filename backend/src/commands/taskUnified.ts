@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Task 模块统一出口（架构优化 §6.1: task/ + tasks/ 双模块统一）
  *

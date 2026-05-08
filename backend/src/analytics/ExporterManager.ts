@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * 多导出器管理
  * 实现OTLP、Prometheus等导出器的配置和管理

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Azure客户端实现
  */

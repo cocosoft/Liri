@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { getLineWidth } from './line-width-cache.js'
 
 type Output = {

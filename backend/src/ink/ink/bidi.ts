@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Bidirectional text reordering for terminal rendering.
  *

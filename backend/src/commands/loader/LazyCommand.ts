@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import type { Command, CommandImplementation } from '@modules/commands/types';
 
 /**

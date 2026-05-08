@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * useApp Hook
  * 提供Ink应用的全局状态和生命周期管理

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @ts-nocheck
+//
 
 import React, { useState, useEffect } from 'react';
 import { render, Box, Text, Button, ScrollBox, AlternateScreen } from '../ink';

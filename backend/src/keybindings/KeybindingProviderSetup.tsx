@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * 按键绑定提供者设置
  * 用于将KeybindingProvider集成到应用中的设置工具

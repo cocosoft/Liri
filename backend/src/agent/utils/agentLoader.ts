@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Agent加载器
  * 负责从不同来源加载Agent定义

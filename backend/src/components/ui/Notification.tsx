@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Notification组件 - 通知
  */

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { EnhancedCommandRegistry, CommandCategory } from './registry/EnhancedCommandRegistry';
 import type { CommandMetadata } from './registry/EnhancedCommandRegistry';

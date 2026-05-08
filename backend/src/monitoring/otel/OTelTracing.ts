@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * OpenTelemetry 追踪系统
  * 基于CC源码实现，提供OTel追踪支持

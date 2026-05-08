@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Ink Spacer组件
  * 用于创建空间

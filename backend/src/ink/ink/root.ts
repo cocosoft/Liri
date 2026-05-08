@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import type { ReactNode } from 'react'
 import { logForDebugging } from 'src/utils/debug.js'
 import { Stream } from 'stream'

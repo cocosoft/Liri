@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 // Ink库入口文件
 export { default as Ink } from './ink';
 export { default as App } from './components/App';

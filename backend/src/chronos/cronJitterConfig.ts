@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * 增强的Cron抖动配置
  * 参考CC源码: cc_code/backend/utils/cronJitterConfig.ts

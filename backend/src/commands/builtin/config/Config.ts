@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import type { CommandContext } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager';
 

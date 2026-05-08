@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Ink Progress组件
  * 用于显示进度条

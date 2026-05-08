@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { createChatService } from './services/chatService';
 export { createChatService };
 export type { ChatService } from './services/chatService';

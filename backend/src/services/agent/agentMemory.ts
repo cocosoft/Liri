@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Agent内存管理
  */

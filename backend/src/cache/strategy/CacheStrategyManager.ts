@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 export enum StrategyType {
   LRU = 'LRU',
   LFU = 'LFU',

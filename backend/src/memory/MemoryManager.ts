@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 import { MemoryStoreImpl } from './stores/MemoryStore';

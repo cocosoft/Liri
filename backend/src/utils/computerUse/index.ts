@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * ComputerUse 模块入口
  *

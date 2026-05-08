@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Anthropic API 客户端（基于CC源码 claude.ts 模式）
  * 扩展 LLMClient 基类，添加生产级功能

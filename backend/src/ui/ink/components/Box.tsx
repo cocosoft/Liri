@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Ink Box组件
  * 用于布局和容器

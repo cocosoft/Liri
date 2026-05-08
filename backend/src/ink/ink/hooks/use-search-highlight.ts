@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { useContext, useMemo } from 'react'
 import StdinContext from '../components/StdinContext.js'
 import type { DOMElement } from '../dom.js'

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * MCP工具桥接器
  * 将MCP服务器的工具注册到主ToolManager中

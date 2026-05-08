@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * 终端UI集成模块
  * 将TerminalComponents与现有系统集成，提供统一的终端交互界面

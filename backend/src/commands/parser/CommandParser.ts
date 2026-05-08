@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * 命令解析器
  * 使用Commander.js实现命令解析和子命令系统

@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import React, { type PropsWithChildren, type Ref, useImperativeHandle, useRef, useState } from 'react';
 import type { DOMElement } from '../dom.js';
 import { markDirty, scheduleRenderFrom } from '../dom.js';

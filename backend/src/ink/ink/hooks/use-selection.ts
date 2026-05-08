@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { useContext, useMemo, useSyncExternalStore } from 'react'
 import StdinContext from '../components/StdinContext.js'
 import instances from '../instances.js'

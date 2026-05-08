@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import { nonAlphanumericKeys, type ParsedKey } from '../parse-keypress.js'
 import { Event } from './event.js'
 

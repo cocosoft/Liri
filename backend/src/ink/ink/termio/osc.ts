@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * OSC (Operating System Command) Types and Parser
  */

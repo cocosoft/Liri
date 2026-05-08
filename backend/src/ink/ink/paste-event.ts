@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import type { TerminalEvent } from './events/terminal-event.js';
 
 export interface PasteEvent extends TerminalEvent {

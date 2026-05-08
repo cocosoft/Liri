@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * InProcessTeammate后端
  * 在当前进程中运行teammate

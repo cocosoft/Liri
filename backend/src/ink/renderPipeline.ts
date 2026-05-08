@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 export { default as measureElement } from './ink/measure-element.js'
 export { lineWidth } from './ink/line-width-cache.js'
 

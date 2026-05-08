@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /* eslint-disable custom-rules/no-top-level-side-effects */
 
 import { appendFileSync } from 'fs'

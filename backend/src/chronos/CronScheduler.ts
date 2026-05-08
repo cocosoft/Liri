@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Cron调度器核心
  * 基于CC源码 cc_code/backend/utils/cronScheduler.ts 实现

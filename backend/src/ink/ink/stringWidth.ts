@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 import emojiRegex from 'emoji-regex'
 import { eastAsianWidth } from 'get-east-asian-width'
 import stripAnsi from 'strip-ansi'

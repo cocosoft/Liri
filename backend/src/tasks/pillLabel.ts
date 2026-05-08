@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * pillLabel - 后台任务状态UI标记生成
  *

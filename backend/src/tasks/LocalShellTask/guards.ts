@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * LocalShellTask 类型守卫和辅助类型
  * 从 LocalBashTask 中提取的纯类型 + 类型守卫，使非 React 模块

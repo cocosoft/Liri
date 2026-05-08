@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * REPL桥接（基于CC源码 bridge/replBridge.ts）
  */

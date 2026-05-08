@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Hooks命令
  * 查看工具事件的hook配置

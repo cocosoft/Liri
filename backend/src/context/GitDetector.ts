@@ -1,4 +1,4 @@
-// @ts-nocheck
+//
 /**
  * Git状态检测器（参考CC源码 context.ts getGitStatus）
  * 提供memoize缓存的Git状态查询，MAX_STATUS_CHARS=2000限制

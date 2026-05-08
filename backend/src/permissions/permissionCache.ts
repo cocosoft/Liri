@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 权限缓存和验证机制
  * 负责缓存权限检查结果和验证权限规则
@@ -247,7 +246,8 @@ export function generateInputHash(input: { [key: string]: unknown }): string {
     }
     return hash.toString(36);
   } catch (error) {
-    logger.error('Error generating input hash:', error);
+    const e = error instanceof Error ? error : new Error(String(error));
+    logger.error('Error generating input hash:', e);
     return Math.random().toString(36).substring(2, 15);
   }
 }

@@ -1,9 +1,9 @@
-// @ts-nocheck
 /**
  * 聊天模型类型定义
  */
 
 import { AIMessage, AIModelType } from '@modules/ai/models/types';
+import { ChatSession } from '../types/session';
 
 /**
  * 聊天消息类型

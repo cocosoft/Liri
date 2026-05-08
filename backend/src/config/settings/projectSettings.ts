@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 项目级设置管理
  * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的项目设置部分
@@ -41,7 +40,7 @@ export function loadProjectSettings(projectRoot?: string): Record<string, any> {
     const content = readFileSync(filePath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    logger.error('Failed to load project settings:', error);
+    logger.error('Failed to load project settings:', error instanceof Error ? error : new Error(String(error)));
     return {};
   }
 }
@@ -64,7 +63,7 @@ export function saveProjectSettings(
     writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
     logger.info('Project settings saved');
   } catch (error) {
-    logger.error('Failed to save project settings:', error);
+    logger.error('Failed to save project settings:', error instanceof Error ? error : new Error(String(error)));
     throw error;
   }
 }
@@ -80,4 +79,29 @@ export function updateProjectSettings(
   const merged = deepMerge(current, updates);
   saveProjectSettings(merged, projectRoot);
   return merged;
+}
+
+/**
+ * 深度合并对象
+ */
+function deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+  const result = { ...target };
+
+  for (const key of Object.keys(source)) {
+    if (
+      key in result &&
+      typeof result[key] === 'object' &&
+      result[key] !== null &&
+      typeof source[key] === 'object' &&
+      source[key] !== null &&
+      !Array.isArray(result[key]) &&
+      !Array.isArray(source[key])
+    ) {
+      result[key] = deepMerge(result[key], source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+
+  return result;
 }

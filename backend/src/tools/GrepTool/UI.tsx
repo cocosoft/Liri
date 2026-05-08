@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * Grep工具UI组件
  * 基于CC源码 cc_code/backend/tools/GrepTool/UI.tsx 实现
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink.js';
+import { Box, Text } from 'ink';
 
 export interface GrepMatch {
   filePath: string;

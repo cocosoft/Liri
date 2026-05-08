@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 增强版OAuth客户端
  * 集成OAuthDiscovery实现自动元数据发现
@@ -94,7 +93,7 @@ export class EnhancedOAuthClient {
       throw new Error('OAuth client not initialized. Call initialize() first.');
     }
 
-    const requestBody = {
+    const requestBody: Record<string, string> = {
       grant_type: 'authorization_code',
       code: params.code,
       redirect_uri: this.config.redirectUri,
@@ -134,7 +133,8 @@ export class EnhancedOAuthClient {
       logger.info('Token exchange successful');
       return token;
     } catch (error) {
-      logger.error('Token exchange failed:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Token exchange failed:', e);
       throw error;
     }
   }
@@ -148,7 +148,7 @@ export class EnhancedOAuthClient {
       throw new Error('OAuth client not initialized. Call initialize() first.');
     }
 
-    const requestBody = {
+    const requestBody: Record<string, string> = {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: this.config.clientId,
@@ -186,7 +186,8 @@ export class EnhancedOAuthClient {
       logger.info('Token refresh successful');
       return token;
     } catch (error) {
-      logger.error('Token refresh failed:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Token refresh failed:', e);
       throw error;
     }
   }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 退出计划模式工具
  * 用于退出计划模式，返回正常执行模式
@@ -39,39 +38,21 @@ export class ExitPlanModeTool extends BaseTool<void, ExitPlanModeOutput> {
    */
   params = [];
 
-  /**
-   * 搜索提示
-   */
-  searchHint = 'exit planning mode return to normal';
+  override searchHint = 'exit planning mode return to normal';
 
-  /**
-   * 最大结果大小
-   */
-  maxResultSizeChars = 100_000;
+  override maxResultSizeChars = 100_000;
 
-  /**
-   * 延迟加载
-   */
-  shouldDefer = false;
+  override shouldDefer = false;
 
-  /**
-   * 检查工具是否启用
-   */
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否破坏性操作
-   */
-  isDestructive(): boolean {
+  override isDestructive(): boolean {
     return false;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return true;
   }
 
@@ -100,17 +81,11 @@ export class ExitPlanModeTool extends BaseTool<void, ExitPlanModeOutput> {
     );
   }
 
-  /**
-   * 获取用户可见的名称
-   */
-  userFacingName(): string {
+  override userFacingName(): string {
     return '退出计划模式';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(): string | null {
+  override getActivityDescription(): string | null {
     return '退出计划模式';
   }
 }

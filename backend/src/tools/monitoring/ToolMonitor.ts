@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 工具监控器（基于CC源码）
  * 负责工具执行的监控、统计和告警
@@ -330,7 +329,7 @@ export class ToolMonitor {
     // 高失败率告警
     this.addAlert({
       name: 'high-failure-rate',
-      condition: (stats) => stats.successRate < 80,
+      condition: (stats) => (stats.successRate ?? 0) < 80,
       level: 'warning',
       message: '工具失败率过高',
       actions: [
@@ -342,7 +341,7 @@ export class ToolMonitor {
     // 执行时间过长告警
     this.addAlert({
       name: 'long-execution-time',
-      condition: (stats) => stats.averageExecutionTime > 10000,
+      condition: (stats) => (stats.averageExecutionTime ?? 0) > 10000,
       level: 'warning',
       message: '工具执行时间过长',
       actions: [
@@ -354,7 +353,7 @@ export class ToolMonitor {
     // 高并发执行告警
     this.addAlert({
       name: 'high-concurrency',
-      condition: (stats) => stats.concurrentExecutions > 50,
+      condition: (stats) => (stats.concurrentExecutions ?? 0) > 50,
       level: 'error',
       message: '工具并发执行数过高',
       actions: [

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 用户反馈模块
  * 实现用户反馈收集、处理和管理功能
@@ -90,7 +89,7 @@ export class FeedbackManager {
           this.cache.set(entry.id, entry);
         }
       } catch (error) {
-        logger.warn('Failed to load feedback data:', error);
+        logger.warn('Failed to load feedback data:', { error: String(error) });
       }
     }
   }

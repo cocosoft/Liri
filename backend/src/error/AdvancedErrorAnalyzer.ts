@@ -1,16 +1,15 @@
-// @ts-nocheck
 /**
  * 高级错误分析器
  * 提供深度错误分析、模式识别和预测功能
  */
 
 import { 
-  ErrorCategory 
+  ErrorCategory,
+  ErrorSeverity
 } from './types.js';
 
 import type { 
   TrackedError, 
-  ErrorSeverity,
   ErrorContext 
 } from './types.js';
 
@@ -63,7 +62,7 @@ export class AdvancedErrorAnalyzer {
         id: 'pattern-001',
         name: '资源耗尽',
         description: '系统资源（内存、CPU、磁盘）达到极限',
-        severity: 'HIGH',
+        severity: ErrorSeverity.HIGH,
         category: ErrorCategory.FILESYSTEM,
         frequency: 0.8,
         impact: 0.9,
@@ -74,7 +73,7 @@ export class AdvancedErrorAnalyzer {
         id: 'pattern-002',
         name: '网络连接问题',
         description: '网络连接失败或超时',
-        severity: 'MEDIUM',
+        severity: ErrorSeverity.MEDIUM,
         category: ErrorCategory.NETWORK,
         frequency: 0.6,
         impact: 0.7,
@@ -85,7 +84,7 @@ export class AdvancedErrorAnalyzer {
         id: 'pattern-003',
         name: '数据一致性错误',
         description: '数据不一致或损坏',
-        severity: 'HIGH',
+        severity: ErrorSeverity.HIGH,
         category: ErrorCategory.DATABASE,
         frequency: 0.4,
         impact: 0.8,
@@ -154,12 +153,12 @@ export class AdvancedErrorAnalyzer {
    */
   private doesErrorMatchPattern(error: TrackedError, pattern: ErrorPattern): boolean {
     // 检查类别和严重程度
-    if (error.category !== pattern.category || error.severity !== pattern.severity) {
+    if (error.error.category !== pattern.category || error.error.severity !== pattern.severity) {
       return false;
     }
 
     // 检查错误消息模式
-    const errorMessage = error.message.toLowerCase();
+    const errorMessage = error.error.message.toLowerCase();
     return pattern.patterns.some(patternText => 
       errorMessage.includes(patternText.toLowerCase())
     );
@@ -183,11 +182,11 @@ export class AdvancedErrorAnalyzer {
    * 获取严重程度权重
    */
   private getSeverityWeight(severity: ErrorSeverity): number {
-    const weights = {
-      'LOW': 0.3,
-      'MEDIUM': 0.6,
-      'HIGH': 0.8,
-      'CRITICAL': 1.0
+    const weights: Record<ErrorSeverity, number> = {
+      [ErrorSeverity.LOW]: 0.3,
+      [ErrorSeverity.MEDIUM]: 0.6,
+      [ErrorSeverity.HIGH]: 0.8,
+      [ErrorSeverity.CRITICAL]: 1.0
     };
     
     return weights[severity];
@@ -236,10 +235,10 @@ export class AdvancedErrorAnalyzer {
     const groups = new Map<ErrorCategory, TrackedError[]>();
     
     errors.forEach(error => {
-      if (!groups.has(error.category)) {
-        groups.set(error.category, []);
+      if (!groups.has(error.error.category)) {
+        groups.set(error.error.category, []);
       }
-      groups.get(error.category)!.push(error);
+      groups.get(error.error.category)!.push(error);
     });
     
     return groups;
@@ -252,10 +251,10 @@ export class AdvancedErrorAnalyzer {
     const groups = new Map<ErrorSeverity, TrackedError[]>();
     
     errors.forEach(error => {
-      if (!groups.has(error.severity)) {
-        groups.set(error.severity, []);
+      if (!groups.has(error.error.severity)) {
+        groups.set(error.error.severity, []);
       }
-      groups.get(error.severity)!.push(error);
+      groups.get(error.error.severity)!.push(error);
     });
     
     return groups;
@@ -291,14 +290,14 @@ export class AdvancedErrorAnalyzer {
     let similarity = 0;
     
     // 类别相似度
-    if (error1.category === error2.category) similarity += 0.4;
+    if (error1.error.category === error2.error.category) similarity += 0.4;
     
     // 严重程度相似度
-    if (error1.severity === error2.severity) similarity += 0.3;
+    if (error1.error.severity === error2.error.severity) similarity += 0.3;
     
     // 消息相似度（简化实现）
-    const message1 = error1.message.toLowerCase();
-    const message2 = error2.message.toLowerCase();
+    const message1 = error1.error.message.toLowerCase();
+    const message2 = error2.error.message.toLowerCase();
     
     if (message1 === message2) {
       similarity += 0.3;
@@ -313,15 +312,15 @@ export class AdvancedErrorAnalyzer {
    * 计算平均严重程度
    */
   private calculateAverageSeverity(errors: TrackedError[]): number {
-    const severityValues = {
-      'LOW': 1,
-      'MEDIUM': 2,
-      'HIGH': 3,
-      'CRITICAL': 4
+    const severityValues: Record<ErrorSeverity, number> = {
+      [ErrorSeverity.LOW]: 1,
+      [ErrorSeverity.MEDIUM]: 2,
+      [ErrorSeverity.HIGH]: 3,
+      [ErrorSeverity.CRITICAL]: 4
     };
     
     const total = errors.reduce((sum, error) => {
-      return sum + severityValues[error.severity];
+      return sum + severityValues[error.error.severity];
     }, 0);
     
     return errors.length > 0 ? total / errors.length : 0;
@@ -371,10 +370,10 @@ export class AdvancedErrorAnalyzer {
     const trends = new Map<ErrorCategory, { trendDirection: string; trendStrength: number }>();
     
     // 简化实现：随机生成趋势
-    const categories = [...new Set(errors.map(e => e.category))];
+    const categories = [...new Set(errors.map(e => e.error.category))];
     
     categories.forEach(category => {
-      const categoryErrors = errors.filter(e => e.category === category);
+      const categoryErrors = errors.filter(e => e.error.category === category);
       const halfWindow = this.analysisWindow / 2;
       
       const firstHalf = categoryErrors.filter(e => 
@@ -403,16 +402,16 @@ export class AdvancedErrorAnalyzer {
   private analyzeSeverityTrends(errors: TrackedError[]): Map<ErrorSeverity, number> {
     const trends = new Map<ErrorSeverity, number>();
     
-    const severityValues = {
-      'LOW': 1,
-      'MEDIUM': 2,
-      'HIGH': 3,
-      'CRITICAL': 4
-    };
+    const allSeverities: ErrorSeverity[] = [
+      ErrorSeverity.LOW,
+      ErrorSeverity.MEDIUM,
+      ErrorSeverity.HIGH,
+      ErrorSeverity.CRITICAL
+    ];
     
-    Object.keys(severityValues).forEach(severity => {
-      const count = errors.filter(e => e.severity === severity).length;
-      trends.set(severity as ErrorSeverity, count);
+    allSeverities.forEach(severity => {
+      const count = errors.filter(e => e.error.severity === severity).length;
+      trends.set(severity, count);
     });
     
     return trends;
@@ -426,7 +425,7 @@ export class AdvancedErrorAnalyzer {
     severityTrends: Map<ErrorSeverity, number>
   ): ErrorSeverity {
     // 简化实现：返回最常见的严重程度
-    let maxSeverity: ErrorSeverity = 'MEDIUM';
+    let maxSeverity: ErrorSeverity = ErrorSeverity.MEDIUM;
     let maxCount = 0;
     
     severityTrends.forEach((count, severity) => {
@@ -446,15 +445,15 @@ export class AdvancedErrorAnalyzer {
     const factors: string[] = [];
     
     switch (category) {
-      case 'RESOURCE':
+      case ErrorCategory.RESOURCE:
         factors.push('系统资源使用率持续上升');
         factors.push('内存泄漏迹象');
         break;
-      case 'NETWORK':
+      case ErrorCategory.NETWORK:
         factors.push('网络连接稳定性下降');
         factors.push('DNS解析延迟增加');
         break;
-      case 'DATA':
+      case ErrorCategory.DATA:
         factors.push('数据写入失败率上升');
         factors.push('数据校验错误增多');
         break;
@@ -472,17 +471,17 @@ export class AdvancedErrorAnalyzer {
     const recommendations: string[] = [];
     
     switch (category) {
-      case 'RESOURCE':
+      case ErrorCategory.RESOURCE:
         recommendations.push('监控系统资源使用情况');
         recommendations.push('优化内存使用和垃圾回收');
         recommendations.push('考虑增加系统资源');
         break;
-      case 'NETWORK':
+      case ErrorCategory.NETWORK:
         recommendations.push('检查网络连接配置');
         recommendations.push('实施连接重试机制');
         recommendations.push('监控网络延迟和丢包率');
         break;
-      case 'DATA':
+      case ErrorCategory.DATA:
         recommendations.push('加强数据验证机制');
         recommendations.push('实施数据备份策略');
         recommendations.push('优化数据库性能');

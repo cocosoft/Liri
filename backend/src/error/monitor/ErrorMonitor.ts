@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 错误监控器
  * 提供错误统计、报告和告警功能
@@ -85,7 +84,7 @@ export class ErrorMonitor {
 
     // 记录严重错误
     if (error.severity === ErrorSeverity.CRITICAL || error.severity === ErrorSeverity.HIGH) {
-      logger.warn(`High severity error detected: ${error.name}`, undefined, {
+      logger.warn(`High severity error detected: ${error.name}`, {
         category: error.category,
         severity: error.severity,
         code: error.code,

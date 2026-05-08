@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * WebSocket传输层
  * 基于WebSocket的传输方式
@@ -49,7 +48,7 @@ export class WebSocketTransport extends MCPTransport {
   /**
    * 连接
    */
-  async connect(): Promise<void> {
+  override async connect(): Promise<void> {
     if (this.socket && this.connected) {
       return;
     }
@@ -163,7 +162,7 @@ export class WebSocketTransport extends MCPTransport {
   /**
    * 断开连接
    */
-  disconnect(): void {
+  override disconnect(): void {
     if (this.socket) {
       this.socket.close();
       this.socket = null;

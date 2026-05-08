@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * OAuth Token安全存储服务
  * 提供Token的加密存储和读取功能
@@ -64,7 +63,8 @@ export class OAuthStorageImpl implements OAuthStorage {
       await this.writeToStorage(allTokens);
       logger.debug(`Token saved for ${serverKey}`);
     } catch (error) {
-      logger.error(`Failed to save token for ${serverKey}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to save token for ${serverKey}:`, e);
       throw error;
     }
   }
@@ -89,7 +89,8 @@ export class OAuthStorageImpl implements OAuthStorage {
       
       return JSON.parse(decryptedToken);
     } catch (error) {
-      logger.error(`Failed to load token for ${serverKey}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to load token for ${serverKey}:`, e);
       return null;
     }
   }
@@ -118,7 +119,8 @@ export class OAuthStorageImpl implements OAuthStorage {
       await this.writeToStorage(allTokens);
       logger.debug(`Token deleted for ${serverKey}`);
     } catch (error) {
-      logger.error(`Failed to delete token for ${serverKey}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to delete token for ${serverKey}:`, e);
       throw error;
     }
   }
@@ -131,7 +133,8 @@ export class OAuthStorageImpl implements OAuthStorage {
       await this.writeToStorage({});
       logger.debug('All tokens deleted');
     } catch (error) {
-      logger.error('Failed to delete all tokens:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to delete all tokens:', e);
       throw error;
     }
   }

@@ -1,9 +1,9 @@
 # PY_APP 项目规则文档
 
 **文件目的**: 为开发团队提供统一开发规范和指导原则
-**最后更新**: 2026-05-05
+**最后更新**: 2026-05-08
 **维护者**: PY_APP开发团队
-**版本**: 5.0.0
+**版本**: 6.0.0
 
 ---
 
@@ -38,6 +38,63 @@
 - 样式：TailwindCSS 工具类
 - 类型定义：后端 `backend/src/types/`，前端通过子模块引用
 - 通信：Tauri IPC，禁止直接 HTTP 调用
+
+### 1.6 日志规范
+- **禁止直接使用** `console.log` / `console.warn` / `console.error` 等方法
+- **必须使用** `Logger` 类（位于 `monitoring/logs/Logger.ts`）输出日志
+- 每个模块创建独立的 Logger 实例，命名空间与模块名一致
+- 日志级别：`DEBUG` < `INFO` < `WARN` < `ERROR` < `FATAL`
+- 生产环境日志必须可路由、可查询、可接入 OpenTelemetry
+
+```typescript
+// 正确示例
+const logger = new Logger('ToolExecutor');
+logger.info('工具执行完成', { toolName, duration: elapsedMs });
+logger.error('工具执行失败', error, { toolName });
+
+// 错误示例
+console.log(`Tool ${name} executed`);        // 禁止
+console.error('Failed:', err);                // 禁止
+```
+
+### 1.7 错误处理规范
+- **禁止吞异常**（空的 catch 块）
+- **必须使用** `AppError` 异常类（位于 `error/AppError.ts`）
+- **必须使用** `ErrorCodes` 错误码体系（位于 `error/ErrorCodes.ts`）
+- 错误信息规范：用户端中文展示、日志端英文记录
+
+```typescript
+// 正确示例
+try {
+  await executeTool();
+} catch (e) {
+  throw new AppError(ErrorCodes.TOOL_EXEC_FAILED, {
+    module: 'ToolExecutor',
+    cause: e instanceof Error ? e : undefined,
+    context: { toolName, input },
+  });
+}
+
+// 错误示例
+try { await executeTool(); } catch (e) {}                    // 禁止吞异常
+throw new Error('Something failed');                          // 禁止裸 Error
+console.error('Tool failed:', e);                             // 禁止 console 替代异常
+```
+
+### 1.8 入口与启动规范
+- **单入口原则**：所有运行模式通过 `launch()` 函数（`main.ts`）统一分发
+- 禁止直接调用 `main.tsx`、`main_with_modules.tsx`、`index.ts` 等历史入口
+- 启动序列必须经过模块系统（`ModuleInitializer`）统一调度
+- 启动模式枚举：`CLI | REPL | MCP | DAEMON | TEST`
+
+```typescript
+// 正确示例
+import { launch, LaunchMode } from './main';
+await launch({ mode: LaunchMode.REPL });
+
+// 错误示例
+import './main_with_modules.tsx';   // 禁止直接引用历史入口
+```
 
 ---
 
@@ -135,6 +192,27 @@
 ### 4.4 设计原则
 - 单一职责、依赖倒置、接口隔离、开闭原则
 
+### 4.5 状态管理统一
+- **`core/state/` 为唯一状态管理层**，禁止使用其他状态管理实现
+- 现有 `state/` 目录功能必须迁移到 `core/state/` 扩展
+- 所有状态相关导入必须从 `@modules/core/state/` 引入
+- 禁止新增 `Store` / `StateManager` 的独立实现
+
+### 4.6 代码复用收敛
+- 通用工具函数（`sleep`、`deepClone`、`deepMerge`、`formatDate` 等）必须集中在 `src/utils/common.ts`
+- 禁止在各模块中重复实现相同功能的工具函数
+- 发现重复代码立即整合到公共工具文件
+
+### 4.7 类型定义收敛
+- **`src/types/` 目录为所有公共类型的唯一来源**
+- 禁止在各模块中定义与 `src/types/` 重复的类型接口
+- 子模块特有类型定义在本模块 `types/` 目录下，但不得与全局类型冲突
+
+### 4.8 启动流程标准化
+- 所有初始化必须通过 `ModuleInitializer` 统一调度，遵循依赖顺序
+- 启动序列：环境检测 → 配置加载 → 模块系统初始化 → 强制功能初始化 → 可选功能初始化 → 启动完成回调
+- 禁止在模块初始化序列之外直接调用核心组件的初始化方法
+
 ---
 
 ## §5 工具验收标准
@@ -214,6 +292,22 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 - `ModelManager.ts` 提供统一查询 API
 - 禁止硬编码模型 ID
 
+### 8.6 后台守护进程设计原则
+- **ProcessManager** 负责进程生命周期管理（启动、停止、重启、保活）
+- **TaskQueue** 负责后台任务调度（提交、查询、取消、优先级）
+- **IPC 通信层** 支持 Unix Socket 和 HTTP 两种传输协议
+- 进程崩溃自动重启（不超过 5 次/分钟）
+- 支持优雅关闭（≤ 30 秒超时）
+- 后台任务必须支持取消（`AbortController`）
+- 任务进度必须可查询（0-100%）
+- 守护进程状态指标必须上报 `MonitoringService`
+- 集成 Chronos 定时任务调度能力
+
+### 8.7 测试先行原则
+- 修复 bug 前先编写可重现该 bug 的测试用例
+- 重构前确保已有测试通过，重构后补充新测试
+- 每个新功能必须有对应的测试用例
+
 ---
 
 ## §9 安全必做项
@@ -233,9 +327,15 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 |------|--------|------|
 | 会话持久化 | P0 | Checkpoint + Rollback |
 | 成本追踪 | P0 | 记录 token 消耗 |
+| 类型安全 | P0 | 零 @ts-nocheck，strict 模式全覆盖 |
+| 日志系统 | P1 | 统一 Logger API，禁止 console.* |
+| 错误处理 | P1 | 标准化 AppError + ErrorCodes 体系 |
+| 后台守护进程 | P1 | 进程管理 + 任务队列 + IPC |
 | 遥测系统 | P1 | OpenTelemetry 集成 |
 | Hook 系统 | P1 | 事件节点支持脚本拦截 |
 | MCP 协议 | P1 | 支持全协议 |
+| 启动入口统一 | P1 | 单入口 launch() 分发 |
+| 状态管理统一 | P2 | core/state/ 为唯一来源 |
 
 ---
 
@@ -249,6 +349,12 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 - [ ] 内置命令实现懒加载 + 独立文件 + UI 组件
 - [ ] 编写测试用例
 - [ ] 修改模块结构后运行 `modules:snapshot`
+- [ ] 使用 Logger 替代 console.*
+- [ ] 使用 AppError + ErrorCodes 处理异常
+- [ ] 通过 launch() 入口启动，不直接引用历史入口
+- [ ] 类型定义收敛到 src/types/，不重复定义
+- [ ] 工具函数检查是否已在 src/utils/common.ts 中存在
+- [ ] 状态管理从 core/state/ 引入
 
 ---
 
@@ -272,6 +378,7 @@ CC 源码中的 KAIROS 系统已被 Chronos 系统替换。
 ---
 
 **版本历史**:
+- **v6.0.0**: 新增§1.6日志规范、§1.7错误处理规范、§1.8入口与启动规范；新增§4.5状态管理统一、§4.6代码复用收敛、§4.7类型定义收敛、§4.8启动流程标准化；新增§8.6后台守护进程设计原则、§8.7测试先行原则；更新§10生产化Checklist、§11 LLM开发检查清单
 - **v5.1.0**: 新增§3.4对标完整性原则，禁止对标分析过程中提前裁剪
 - **v5.0.0**: 精简重构，修复章节编号，移除重复内容
 - **v4.4.0**: 新增模型数据唯一源架构

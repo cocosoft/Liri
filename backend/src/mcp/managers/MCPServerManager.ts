@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * MCP服务器管理器
  * 负责管理多个MCP服务器连接
@@ -307,7 +306,7 @@ export class MCPServerManager {
           try {
             await server.ping();
           } catch (error) {
-            logger.warn(`MCP server ${serverName} health check failed:`, error);
+            logger.warn(`MCP server ${serverName} health check failed`, { error });
             server.setStatus(MCPServerStatus.ERROR);
           }
         }

@@ -1,11 +1,8 @@
-// @ts-nocheck
 /**
  * Agent系统类型定义
  */
 
 import type { HooksSettings } from '@modules/types/hooks.js';
-import type { PermissionMode } from '@modules/permission/PermissionMode.js';
-import type { EffortValue } from '@modules/utils/effort';
 import type { AgentMcpServerSpec } from './agentMcpServer';
 
 export type AgentMemoryScope = 'user' | 'project' | 'local';
@@ -37,8 +34,8 @@ export interface BaseAgentDefinition {
   hooks?: HooksSettings;
   color?: AgentColorName;
   model?: string;
-  effort?: EffortValue;
-  permissionMode?: PermissionMode;
+  effort?: number | string;
+  permissionMode?: string;
   maxTurns?: number;
   filename?: string;
   baseDir?: string;
@@ -46,7 +43,7 @@ export interface BaseAgentDefinition {
   requiredMcpServers?: string[];
   background?: boolean;
   initialPrompt?: string;
-  memory?: AgentMemoryScope;
+  memory?: AgentMemoryScope | { enabled: boolean; retentionDays?: number };
   isolation?: 'worktree' | 'remote';
   pendingSnapshotUpdate?: { snapshotTimestamp: string };
   omitClaudeMd?: boolean;
@@ -95,9 +92,9 @@ export type AgentDefinition =
 /**
  * 解析后的Agent（包含覆盖信息）
  */
-export interface ResolvedAgent extends AgentDefinition {
+export type ResolvedAgent = AgentDefinition & {
   overriddenBy?: string;
-}
+};
 
 /**
  * Agent定义结果

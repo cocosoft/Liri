@@ -8,4 +8,12 @@ export interface Tool {
 export interface ToolPermissionContext {
   allowed: boolean;
   permissionLevel: string;
+  isBypassPermissionsModeAvailable?: boolean;
+  isBypassPermissionsModeEnabled?: boolean;
+  circuitBroken?: boolean;
+  circuitBrokenAt?: number;
+  alwaysAllowRules?: Record<string, unknown>;
+  alwaysDenyRules?: Record<string, unknown>;
+  alwaysAskRules?: Record<string, unknown>;
+  mode?: string;
 }

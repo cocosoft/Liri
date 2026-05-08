@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * MCP服务器连接
  * 负责管理与单个MCP服务器的连接
@@ -51,7 +50,7 @@ export class MCPServerConnection {
     try {
       this.status = MCPServerStatus.CONNECTING;
 
-      if (feature('MCP_OAUTH') && this.config.oauth) {
+      if (feature('MCP_OAUTH') && (this.config as any).oauth) {
         await this.handleOAuthAuthentication();
       }
 
@@ -91,7 +90,7 @@ export class MCPServerConnection {
 
     try {
       const accessToken = await mcpAuthManager.getAccessToken(serverKey, oauthConfig);
-      this.transport.setAuthHeader?.(`Bearer ${accessToken}`);
+      (this.transport as any).setAuthHeader?.(`Bearer ${accessToken}`);
       logger.info(`OAuth authentication successful for MCP server: ${this.name}`);
     } catch (error) {
       logger.error(`OAuth authentication failed for MCP server ${this.name}: ${error}`);
@@ -103,7 +102,7 @@ export class MCPServerConnection {
    * 构建OAuth配置
    */
   private buildOAuthConfig(): MCPOAuthConfig | null {
-    const oauth = this.config.oauth;
+    const oauth = (this.config as any).oauth;
     if (!oauth?.clientId || !oauth.authServerMetadataUrl) {
       return null;
     }
@@ -132,7 +131,7 @@ export class MCPServerConnection {
           logger.info(`Successfully reconnected to MCP server: ${this.name}`);
         }
       } catch (error) {
-        logger.error(`MCP server ${this.name} reconnect failed:`, error);
+        logger.error(`MCP server ${this.name} reconnect failed:`, error as Error);
       }
     }, delay);
   }
@@ -239,7 +238,7 @@ export class MCPServerConnection {
         try {
           await this.batchSendRequests(requests);
         } catch (error) {
-          logger.error('Batch update failed:', error);
+          logger.error('Batch update failed:', error as Error);
         }
       }
       this.batchUpdateTimer = null;
@@ -310,7 +309,7 @@ export class MCPServerConnection {
           result.set(connection.getName(), tools);
         }
       } catch (error) {
-        logger.error(`Failed to refresh tools for server ${connection.getName()}:`, error);
+        logger.error(`Failed to refresh tools for server ${connection.getName()}:`, error as Error);
       }
     });
 

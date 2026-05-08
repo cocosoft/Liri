@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 浏览器自动化工具
  * 参考CC源码 cc_code/backend/skills/bundled/claudeInChrome.ts 实现
@@ -99,29 +98,20 @@ export class BrowserTool extends BaseTool<
     },
   ];
 
-  aliases = ['chrome', 'browser_automation', 'web'];
-  searchHint = 'Automate Chrome browser to interact with web pages';
-  maxResultSizeChars = 100000;
+  override aliases = ['chrome', 'browser_automation', 'web'];
+  override searchHint = 'Automate Chrome browser to interact with web pages';
+  override maxResultSizeChars = 100000;
 
-  /**
-   * 检查工具是否只读
-   */
-  isReadOnly(input?: Record<string, unknown>): boolean {
+  override isReadOnly(input?: Record<string, unknown>): boolean {
     const action = (input?.action as string) || '';
     return action === 'get_tabs' || action === 'screenshot';
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return false;
   }
 
-  /**
-   * 验证输入
-   */
-  validateInput(input: BrowserToolInput): ValidationResult {
+  override validateInput(input: BrowserToolInput): ValidationResult {
     const validActions = ['open_tab', 'click', 'fill_form', 'navigate', 'screenshot', 'get_tabs'];
 
     if (!input.action || !validActions.includes(input.action)) {
@@ -151,10 +141,7 @@ export class BrowserTool extends BaseTool<
     return { result: true };
   }
 
-  /**
-   * 获取用户可见的工具名称
-   */
-  userFacingName(input?: Partial<BrowserToolInput>): string {
+  override userFacingName(input?: Partial<BrowserToolInput>): string {
     const action = input?.action || '';
     switch (action) {
       case 'open_tab':
@@ -174,10 +161,7 @@ export class BrowserTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取工具使用摘要
-   */
-  getToolUseSummary(input?: Partial<BrowserToolInput>): string | null {
+  override getToolUseSummary(input?: Partial<BrowserToolInput>): string | null {
     const action = input?.action || '';
     switch (action) {
       case 'open_tab':
@@ -197,10 +181,7 @@ export class BrowserTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<BrowserToolInput>): string | null {
+  override getActivityDescription(input?: Partial<BrowserToolInput>): string | null {
     const action = input?.action || '';
     switch (action) {
       case 'open_tab':
@@ -220,10 +201,7 @@ export class BrowserTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取工具用于自动分类器的输入
-   */
-  toAutoClassifierInput(input: BrowserToolInput): unknown {
+  override toAutoClassifierInput(input: BrowserToolInput): unknown {
     return `${input.action} ${input.url || input.selector || ''}`;
   }
 

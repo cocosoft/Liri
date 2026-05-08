@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 权限钩子服务
  * 负责管理和执行权限请求钩子
@@ -127,9 +126,10 @@ export class PermissionHookService {
           return decision;
         }
       } catch (error) {
+        const e = error instanceof Error ? error : new Error(String(error));
         logger.error(
           `Error executing permission hook '${registeredHook.metadata.name}':`,
-          error
+          e
         );
         // 钩子出错时继续执行其他钩子，而不是中断
       }

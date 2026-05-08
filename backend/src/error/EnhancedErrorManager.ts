@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 增强错误管理器
  * 提供高级错误处理、分析和生命周期管理功能
@@ -6,9 +5,12 @@
 
 import type { 
   AppError, 
-  ErrorCategory, 
-  ErrorSeverity,
+  ErrorCategory,
   ErrorContext 
+} from './types.js';
+
+import { 
+  ErrorSeverity 
 } from './types.js';
 
 import { 
@@ -28,6 +30,14 @@ import {
   ErrorAnalysis,
   TrackedError 
 } from './tracker/ErrorTracker.js';
+
+import type {
+  RecoveryResult
+} from './recovery/ErrorRecoverer';
+
+import type {
+  AlertEvent
+} from './warning/ErrorWarner';
 
 export interface EnhancedErrorManagerConfig extends ErrorManagerConfig {
   enableAdvancedAnalysis: boolean;
@@ -122,6 +132,7 @@ export class EnhancedErrorManager {
 
     return {
       ...baseResult,
+      trackedId: baseResult.trackedId!,
       correlation,
       lifecycle
     };
@@ -136,7 +147,13 @@ export class EnhancedErrorManager {
   ): Promise<{
     results: Array<{
       error: Error;
-      result: Awaited<ReturnType<typeof this.handleErrorEnhanced>>;
+      result: {
+        trackedId: string;
+        recoveryResult?: RecoveryResult;
+        alert?: AlertEvent;
+        correlation?: ErrorCorrelation;
+        lifecycle: ErrorLifecycle;
+      };
     }>;
     batchAnalysis: {
       totalErrors: number;
@@ -297,7 +314,7 @@ export class EnhancedErrorManager {
     
     if (errors.length > 0) {
       // 提取错误类别模式
-      const categories = [...new Set(errors.map(e => e.category))];
+      const categories = [...new Set(errors.map(e => e.error.category))];
       if (categories.length === 1) {
         patterns.push(`统一错误类别: ${categories[0]}`);
       }
@@ -324,13 +341,13 @@ export class EnhancedErrorManager {
     }
     
     // 简化实现：基于错误类别和严重程度分析
-    const commonCategory = correlatedErrors.every(e => e.category === targetError.category);
+    const commonCategory = correlatedErrors.every(e => e.error.category === targetError.error.category);
     const highSeverityCount = correlatedErrors.filter(e => 
-      e.severity === 'HIGH' || e.severity === 'CRITICAL'
+      e.error.severity === ErrorSeverity.HIGH || e.error.severity === ErrorSeverity.CRITICAL
     ).length;
     
     if (commonCategory && highSeverityCount > 0) {
-      return `系统性问题，可能与${targetError.category}相关的组件故障有关`;
+      return `系统性问题，可能与${targetError.error.category}相关的组件故障有关`;
     }
     
     return '需要进一步调查错误关联性';
@@ -341,14 +358,14 @@ export class EnhancedErrorManager {
    */
   private calculateSeverityDistribution(errors: TrackedError[]): Record<ErrorSeverity, number> {
     const distribution: Record<ErrorSeverity, number> = {
-      LOW: 0,
-      MEDIUM: 0,
-      HIGH: 0,
-      CRITICAL: 0
+      [ErrorSeverity.LOW]: 0,
+      [ErrorSeverity.MEDIUM]: 0,
+      [ErrorSeverity.HIGH]: 0,
+      [ErrorSeverity.CRITICAL]: 0
     };
     
     errors.forEach(error => {
-      distribution[error.severity]++;
+      distribution[error.error.severity]++;
     });
     
     return distribution;
@@ -361,7 +378,7 @@ export class EnhancedErrorManager {
     const distribution: Partial<Record<ErrorCategory, number>> = {};
     
     errors.forEach(error => {
-      distribution[error.category] = (distribution[error.category] || 0) + 1;
+      distribution[error.error.category] = (distribution[error.error.category] || 0) + 1;
     });
     
     return distribution as Record<ErrorCategory, number>;

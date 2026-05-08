@@ -5,7 +5,7 @@
 import { profileCheckpoint } from '../utils/startupProfiler';
 import { init } from '../entrypoints/init.js';
 import { commandExecutor } from '../commands/executor/index.js';
-import { initializeChatManager } from '../chat/index.js';
+import { initializeChatManager } from '../entrypoints/repl.js';
 import type { CommandContext } from '../commands/types';
 
 const TEST_COMMANDS = [

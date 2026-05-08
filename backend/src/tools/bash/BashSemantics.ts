@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Bash命令语义分析
  * 分析命令类型用于UI折叠和安全决策
@@ -77,7 +76,7 @@ export function splitCommandWithOperators(command: string): string[] {
         continue;
       }
 
-      if (char === '|' || char === '&' || char === ';' || char === '(' || char === ')') {
+      if (char === '|' || char === '&' || char === ';' || char === '(' || char === ')' || char === '>') {
         if (current.trim()) {
           parts.push(current.trim());
         }

@@ -1,7 +1,6 @@
-// @ts-nocheck
 /**
- * 权限管理器
- * 管理用户权限，控制工具和功能的访问
+ * 权限管理�?
+ * 管理用户权限，控制工具和功能的访�?
  */
 
 import { logger } from '../utils/log.js';
@@ -27,7 +26,7 @@ export enum PermissionType {
    */
   OPERATION = 'operation',
   /**
-   * 自定义权限
+   * 自定义权�?
    */
   CUSTOM = 'custom',
 }
@@ -71,7 +70,7 @@ export interface PermissionRule {
 }
 
 /**
- * 权限上下文
+ * 权限上下�?
  */
 export interface PermissionContext {
   /**
@@ -99,13 +98,13 @@ export interface PermissionContext {
    */
   operationName?: string;
   /**
-   * 自定义数据
+   * 自定义数�?
    */
   [key: string]: any;
 }
 
 /**
- * 权限管理器
+ * 权限管理�?
  */
 export class PermissionManager {
   private static instance: PermissionManager;
@@ -129,11 +128,12 @@ export class PermissionManager {
   async init(): Promise<void> {
     try {
       logger.info('Initializing permission manager');
-      // 可以从配置或数据库加载规则
+      // 可以从配置或数据库加载规�?
       this.loadDefaultRules();
       logger.info('Permission manager initialized');
     } catch (error) {
-      logger.error('Failed to initialize permission manager:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to initialize permission manager:', e);
       throw error;
     }
   }
@@ -185,17 +185,17 @@ export class PermissionManager {
   }
 
   /**
-   * 检查权限
+   * 检查权�?
    * @param type 权限类型
    * @param name 权限名称
-   * @param context 权限上下文
+   * @param context 权限上下�?
    */
   checkPermission(
     type: PermissionType,
     name: string,
     context: PermissionContext = {}
   ): boolean {
-    // 查找匹配的规则
+    // 查找匹配的规�?
     const matchingRules = Array.from(this.rules.values()).filter((rule) => {
       if (rule.type !== type) return false;
       if (rule.name !== '*' && rule.name !== name) return false;
@@ -204,7 +204,7 @@ export class PermissionManager {
       return true;
     });
 
-    // 按ID排序，确保规则的一致性
+    // 按ID排序，确保规则的一致�?
     matchingRules.sort((a, b) => a.id.localeCompare(b.id));
 
     // 如果有匹配的规则，返回最后一个规则的结果
@@ -216,7 +216,7 @@ export class PermissionManager {
       return lastRule.allowed;
     }
 
-    // 如果没有匹配的规则，返回默认值
+    // 如果没有匹配的规则，返回默认�?
     logger.debug(
       `Permission check for ${type}:${name} - ${this.defaultAllow ? 'allowed' : 'denied'} (default)`
     );
@@ -224,9 +224,9 @@ export class PermissionManager {
   }
 
   /**
-   * 检查工具权限
+   * 检查工具权�?
    * @param toolName 工具名称
-   * @param context 权限上下文
+   * @param context 权限上下�?
    */
   checkToolPermission(
     toolName: string,
@@ -236,9 +236,9 @@ export class PermissionManager {
   }
 
   /**
-   * 检查功能权限
+   * 检查功能权�?
    * @param featureName 功能名称
-   * @param context 权限上下文
+   * @param context 权限上下�?
    */
   checkFeaturePermission(
     featureName: string,
@@ -248,9 +248,9 @@ export class PermissionManager {
   }
 
   /**
-   * 检查资源权限
+   * 检查资源权�?
    * @param resourceName 资源名称
-   * @param context 权限上下文
+   * @param context 权限上下�?
    */
   checkResourcePermission(
     resourceName: string,
@@ -260,9 +260,9 @@ export class PermissionManager {
   }
 
   /**
-   * 检查操作权限
+   * 检查操作权�?
    * @param operationName 操作名称
-   * @param context 权限上下文
+   * @param context 权限上下�?
    */
   checkOperationPermission(
     operationName: string,
@@ -277,8 +277,8 @@ export class PermissionManager {
 
   /**
    * 检查自定义权限
-   * @param customName 自定义权限名称
-   * @param context 权限上下文
+   * @param customName 自定义权限名�?
+   * @param context 权限上下�?
    */
   checkCustomPermission(
     customName: string,
@@ -288,7 +288,7 @@ export class PermissionManager {
   }
 
   /**
-   * 获取所有规则
+   * 获取所有规�?
    */
   getRules(): PermissionRule[] {
     return Array.from(this.rules.values());
@@ -329,7 +329,7 @@ export class PermissionManager {
   }
 
   /**
-   * 清除所有规则
+   * 清除所有规�?
    */
   clearRules(): void {
     this.rules.clear();
@@ -355,7 +355,7 @@ export class PermissionManager {
   }
 
   /**
-   * 停止权限管理器
+   * 停止权限管理�?
    */
   async stop(): Promise<void> {
     try {
@@ -363,7 +363,8 @@ export class PermissionManager {
       this.clearRules();
       logger.info('Permission manager stopped');
     } catch (error) {
-      logger.error('Failed to stop permission manager:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to stop permission manager:', e);
       throw error;
     }
   }
@@ -386,7 +387,7 @@ export class PermissionManager {
 }
 
 /**
- * 创建权限管理器
+ * 创建权限管理�?
  */
 export function createPermissionManager(
   defaultAllow: boolean = false

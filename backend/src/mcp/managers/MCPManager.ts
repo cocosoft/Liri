@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * MCP管理器
  * 负责管理MCP系统的高级功能
@@ -151,7 +150,7 @@ export class MCPManager {
         try {
           listener(channel, message);
         } catch (error) {
-          logger.error(`Error in channel listener:`, error);
+          logger.error(`Error in channel listener:`, error as Error);
         }
       });
     }
@@ -259,7 +258,7 @@ export class MCPManager {
       
       return result;
     } catch (error) {
-      logger.error(`Failed to list resources on ${serverName}:`, error);
+      logger.error(`Failed to list resources on ${serverName}:`, error as Error);
       throw error;
     }
   }
@@ -273,7 +272,7 @@ export class MCPManager {
       logger.info(`Resource read successfully: ${path} on ${serverName}`);
       return result;
     } catch (error) {
-      logger.error(`Failed to read resource ${path} on ${serverName}:`, error);
+      logger.error(`Failed to read resource ${path} on ${serverName}:`, error as Error);
       throw error;
     }
   }
@@ -297,7 +296,7 @@ export class MCPManager {
       logger.info(`Resource written successfully: ${path} on ${serverName}`);
       return true;
     } catch (error) {
-      logger.error(`Failed to write resource ${path} on ${serverName}:`, error);
+      logger.error(`Failed to write resource ${path} on ${serverName}:`, error as Error);
       return false;
     }
   }
@@ -318,7 +317,7 @@ export class MCPManager {
       logger.info(`Resource deleted successfully: ${path} on ${serverName}`);
       return true;
     } catch (error) {
-      logger.error(`Failed to delete resource ${path} on ${serverName}:`, error);
+      logger.error(`Failed to delete resource ${path} on ${serverName}:`, error as Error);
       return false;
     }
   }
@@ -371,7 +370,7 @@ export class MCPManager {
       try {
         await this.serverManager.getServerTools(server);
       } catch (error) {
-        logger.error(`Failed to refresh tools for server ${server}:`, error);
+        logger.error(`Failed to refresh tools for server ${server}:`, error as Error);
       }
     }
   }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Glob 工具
  */
@@ -33,7 +32,7 @@ export class GlobTool extends BaseTool {
     },
   ];
 
-  aliases = ['find', 'files'];
+  override aliases = ['find', 'files'];
   searchTips = ['glob', 'find', 'files', 'pattern'];
 
   async execute(
@@ -72,24 +71,15 @@ export class GlobTool extends BaseTool {
     }
   }
 
-  /**
-   * 检查是否只读
-   */
-  isReadOnly(): boolean {
+  override isReadOnly(): boolean {
     return true;
   }
 
-  /**
-   * 检查是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return true;
   }
 
-  /**
-   * 验证输入
-   */
-  validateInput(input: Record<string, unknown>): ValidationResult {
+  override validateInput(input: Record<string, unknown>): ValidationResult {
     if (!input.pattern || typeof input.pattern !== 'string') {
       return {
         result: false,
@@ -99,10 +89,7 @@ export class GlobTool extends BaseTool {
     return { result: true };
   }
 
-  /**
-   * 检查权限
-   */
-  async checkPermissions(
+  override async checkPermissions(
     input: Record<string, unknown>,
     context: ToolUseContext
   ): Promise<PermissionResult> {

@@ -241,6 +241,18 @@ export interface ToolExecutionStats {
   
   /** 成功率（百分比） */
   successRate?: number;
+  
+  /** 成功执行次数 */
+  successfulExecutions?: number;
+  
+  /** 失败执行次数 */
+  failedExecutions?: number;
+  
+  /** 总执行时间（毫秒） */
+  totalExecutionTime?: number;
+  
+  /** 并发执行数 */
+  concurrentExecutions?: number;
 }
 
 /**

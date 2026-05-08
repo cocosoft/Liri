@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * MCP OAuth认证管理器
  * 集成OAuth Discovery和Token持久化功能
@@ -31,14 +30,13 @@ export class MCPAuthManager {
             accessToken: tokenData.accessToken,
             refreshToken: tokenData.refreshToken,
             expiresAt: tokenData.expiresAt,
-            tokenType: tokenData.tokenType,
             scopes: tokenData.scopes,
           });
           logger.debug(`Loaded persisted token for server: ${serverKey}`);
         }
       }
     } catch (error) {
-      logger.warn('Failed to load persisted OAuth tokens:', error);
+      logger.warn('Failed to load persisted OAuth tokens', { error });
     }
   }
 
@@ -151,7 +149,7 @@ export class MCPAuthManager {
     };
 
     this.tokens.set(serverKey, token);
-    
+
     await this.storage.saveToken(serverKey, {
       accessToken: token.accessToken,
       refreshToken: token.refreshToken || '',
@@ -160,8 +158,8 @@ export class MCPAuthManager {
       scopes: token.scopes,
       serverKey,
       savedAt: Date.now(),
-    });
-    
+    } as any);
+
     return token;
   }
 
@@ -207,7 +205,7 @@ export class MCPAuthManager {
       tokenType: token.tokenType || 'Bearer',
       serverKey,
       savedAt: Date.now(),
-    });
+    } as any);
     
     return token.accessToken;
   }
@@ -255,7 +253,7 @@ export class MCPAuthManager {
       tokenType: token.tokenType || 'Bearer',
       serverKey,
       savedAt: Date.now(),
-    });
+    } as any);
     
     return token.accessToken;
   }
@@ -317,7 +315,7 @@ export class MCPAuthManager {
 
   clearAllTokens(): void {
     this.tokens.clear();
-    this.storage.clearAllTokens().catch(err => {
+    this.storage.deleteAllTokens().catch((err: Error) => {
       logger.warn('Failed to clear all persisted tokens:', err);
     });
   }
@@ -328,7 +326,7 @@ export class MCPAuthManager {
       logger.info(`MCP OAuth discovery successful for ${authServerUrl}`);
       return result;
     } catch (error) {
-      logger.error(`MCP OAuth discovery failed for ${authServerUrl}:`, error);
+      logger.error(`MCP OAuth discovery failed for ${authServerUrl}:`, error as Error);
       throw error;
     }
   }

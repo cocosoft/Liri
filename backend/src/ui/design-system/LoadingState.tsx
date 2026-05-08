@@ -1,12 +1,11 @@
-// @ts-nocheck
 /**
  * 加载状态组件（基于CC源码）
  * 显示加载动画和状态信息
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text } from '../../ink';
-import { LoadingStateProps } from '../types/UITypes';
+import { Box, Text } from '../ink';
+import { LoadingStateProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
@@ -103,9 +102,9 @@ export function LoadingState({
   };
 
   return (
-    <Box flexDirection="row" alignItems="center" gap={1}>
+    <Box flexDirection="row" alignItems="center">
       {renderLoader()}
-      <Text color={theme.colors.text} fontSize={theme.typography.fontSize[size]}>
+      <Text color={theme.colors.text}>
         {text}
       </Text>
     </Box>
@@ -127,8 +126,6 @@ export function FullScreenLoadingState({
       flexDirection="column"
       justifyContent="center"
       alignItems="center"
-      height="100%"
-      gap={2}
     >
       <LoadingState text={text} color={color} type={type} size="lg" />
       <Text color={theme.colors.textSecondary}>
@@ -202,9 +199,9 @@ export function ProgressLoadingState({
   const displayText = text || `处理中... ${progress}/${total}`;
 
   return (
-    <Box flexDirection="column" gap={1}>
+    <Box flexDirection="column">
       <LoadingState text={displayText} color={color} type="bar" />
-      <Text color="textSecondary" fontSize="xs">
+      <Text color="textSecondary">
         进度: {percentage}%
       </Text>
     </Box>

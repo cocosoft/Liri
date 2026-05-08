@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 工具编排服务
  * 负责工具的编排、执行顺序控制和并发管理
@@ -174,11 +173,10 @@ export class ToolOrchestration {
         .then((result) => {
           clearTimeout(timeout);
           if (signal) signal.removeEventListener('abort', abortHandler);
-          resolve({
-            id: toolCall.id,
-            result: result.content,
+          resolve(createToolResult(result.content, {
+            executionId: toolCall.id,
             error: result.error,
-          });
+          }));
         })
         .catch((error) => {
           clearTimeout(timeout);
@@ -199,7 +197,8 @@ export class ToolOrchestration {
   private createErrorResult(id: string, error: string): ToolResult {
     return createToolResult(id, {
       content: `Error: ${error}`,
-      error: true,
+      error: `Error: ${error}`,
+      success: false,
     });
   }
 

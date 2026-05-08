@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 任务输出工具
  * 获取运行中或已完成任务的输出
@@ -177,27 +176,27 @@ export class TaskOutputTool extends BaseTool<TaskOutputToolInput, TaskOutputTool
     },
   ];
 
-  aliases = ['get_task_output', 'read_task_output'];
-  searchHint = 'get task output logs read';
-  maxResultSizeChars = 100000;
+  override aliases = ['get_task_output', 'read_task_output'];
+  override searchHint = 'get task output logs read';
+  override maxResultSizeChars = 100000;
 
-  isReadOnly(): boolean {
+  override isReadOnly(): boolean {
     return true;
   }
 
-  isDestructive(): boolean {
+  override isDestructive(): boolean {
     return false;
   }
 
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return true;
   }
 
-  interruptBehavior(): 'cancel' | 'block' {
+  override interruptBehavior(): 'cancel' | 'block' {
     return 'cancel';
   }
 
-  validateInput(input: TaskOutputToolInput): ValidationResult {
+  override validateInput(input: TaskOutputToolInput): ValidationResult {
     if (!input.task_id || typeof input.task_id !== 'string') {
       return {
         result: false,
@@ -208,25 +207,25 @@ export class TaskOutputTool extends BaseTool<TaskOutputToolInput, TaskOutputTool
     return { result: true };
   }
 
-  userFacingName(input?: Partial<TaskOutputToolInput>): string {
+  override userFacingName(input?: Partial<TaskOutputToolInput>): string {
     const taskId = input?.task_id || '';
     if (taskId) return `Task Output: ${taskId}`;
     return this.name;
   }
 
-  getToolUseSummary(input?: Partial<TaskOutputToolInput>): string | null {
+  override getToolUseSummary(input?: Partial<TaskOutputToolInput>): string | null {
     const taskId = input?.task_id || '';
     if (taskId) return `Get output for task ${taskId}`;
     return null;
   }
 
-  getActivityDescription(input?: Partial<TaskOutputToolInput>): string | null {
+  override getActivityDescription(input?: Partial<TaskOutputToolInput>): string | null {
     const taskId = input?.task_id || '';
     if (taskId) return `Getting output for task ${taskId}`;
     return null;
   }
 
-  toAutoClassifierInput(input: TaskOutputToolInput): unknown {
+  override toAutoClassifierInput(input: TaskOutputToolInput): unknown {
     return input.task_id;
   }
 

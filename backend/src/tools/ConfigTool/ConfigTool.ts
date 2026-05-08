@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ConfigTool
  *
@@ -7,7 +6,9 @@
 
 import { BaseTool } from '../BaseTool';
 import { getConfig, getConfigValue, setConfigValue, resetConfigToDefaults } from '@modules/config';
-import type { ToolContext, ToolResult } from '@modules/types';
+import type { ToolParam } from '../types';
+import type { ToolUseContext } from '../types/ToolUseContext';
+import type { ToolResult } from '../types/ToolResult';
 
 export interface ConfigToolInput {
   action: 'get' | 'set' | 'delete' | 'list';
@@ -19,9 +20,30 @@ export class ConfigTool extends BaseTool<ConfigToolInput> {
   name = 'config';
   description = 'Manage application configuration';
 
+  params: ToolParam[] = [
+    {
+      name: 'action',
+      type: 'string',
+      description: 'Action to perform: get, set, delete, list',
+      required: true,
+    },
+    {
+      name: 'key',
+      type: 'string',
+      description: 'Configuration key',
+      required: false,
+    },
+    {
+      name: 'value',
+      type: 'string',
+      description: 'Configuration value',
+      required: false,
+    },
+  ];
+
   async execute(
     input: ConfigToolInput,
-    context: ToolContext
+    context: ToolUseContext
   ): Promise<ToolResult> {
     switch (input.action) {
       case 'get':
@@ -100,10 +122,7 @@ export class ConfigTool extends BaseTool<ConfigToolInput> {
     }
   }
 
-  /**
-   * 检查工具是否启用
-   */
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     return true;
   }
 }

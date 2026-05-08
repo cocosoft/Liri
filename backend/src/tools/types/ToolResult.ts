@@ -30,6 +30,8 @@ export interface ToolResult<T = unknown> {
   executionId?: string;
   toolName?: string;
   timestamp?: number;
+  content?: string;
+  truncated?: boolean;
 }
 
 export function createToolResult<T = unknown>(

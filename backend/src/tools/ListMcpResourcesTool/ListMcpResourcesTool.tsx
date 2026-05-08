@@ -1,6 +1,5 @@
-// @ts-nocheck
 /**
- * ListMcpResourcesTool - 列出MCP服务器资源
+ * ListMcpResourcesTool - 列出MCP资源
  */
 
 import { z } from 'zod';
@@ -61,9 +60,7 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> = bu
   maxResultSizeChars: 100000,
   shouldDefer: true,
 
-  description() {
-    return DESCRIPTION;
-  },
+  description: DESCRIPTION,
 
   prompt() {
     return PROMPT;
@@ -72,7 +69,7 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> = bu
   get inputSchema() {
     return z.object({
       server: z.string().optional().describe('Optional server name to filter resources by'),
-    });
+    }) as any;
   },
 
   get outputSchema() {
@@ -103,7 +100,7 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> = bu
     return input.server ?? '';
   },
 
-  async call({ server: targetServer }, { mcpClients = [] }) {
+  async call({ server: targetServer }, { options: { mcpClients = [] } }) {
     const clientsToProcess = targetServer
       ? mcpClients.filter((client: MCPClient) => client.name === targetServer)
       : mcpClients;
@@ -136,7 +133,7 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> = bu
     return null;
   },
 
-  renderToolResultMessage(output, _toolUseId) {
+  renderToolResultMessage(output: MCPResource[], _toolUseId: string) {
     if (!output || output.length === 0) {
       return (
         <Box flexDirection="column" marginTop={1}>
@@ -148,7 +145,7 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> = bu
     return (
       <Box flexDirection="column" marginTop={1}>
         <Text color="cyan">MCP Resources:</Text>
-        {output.map((resource, index) => (
+        {output.map((resource: MCPResource, index: number) => (
           <Box key={index} flexDirection="column" marginTop={1}>
             <Text color="white">
               • {resource.name} ({resource.server})

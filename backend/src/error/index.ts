@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 错误处理模块索引
  * 统一导出所有错误处理相关功能
@@ -41,7 +40,22 @@ export * from './recovery/ErrorRecoverer';
 export * from './recovery/RetryStrategies';
 
 // 网络错误处理子模块
-export * from './network';
+export {
+  ConnectionErrorType,
+  ConnectionAnalysis,
+  analyzeConnectionError,
+  formatConnectionError,
+  SSL_ERROR_CODES,
+  getSSLErrorHint,
+  getSSLUserMessage,
+} from './network/ConnectionErrorAnalyzer';
+export {
+  SSLErrorType,
+  SSLAnalysisResult,
+  analyzeSSLError,
+  isSSLError,
+  formatSSLError,
+} from './network/SSLErrorHandler';
 
 // 错误上下文子模块
 export * from './context';
@@ -59,7 +73,12 @@ export * from './services/ErrorService';
 export * from './ErrorManager';
 
 // 增强错误管理器
-export * from './EnhancedErrorManager';
+export {
+  EnhancedErrorManagerConfig,
+  ErrorCorrelation,
+  ErrorLifecycle,
+  EnhancedErrorManager,
+} from './EnhancedErrorManager';
 
 // 高级错误分析器
 export * from './AdvancedErrorAnalyzer';

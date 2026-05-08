@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Bash 安全分析器
  *
@@ -581,15 +580,10 @@ export class BashSecurityAnalyzer {
     }
 
     const astResult = analyzeBashCommand(command)
-    if (astResult.kind === 'too-complex') {
-      warnings.push(`复杂命令结构: ${astResult.reason}`)
-    } else if (astResult.kind === 'simple') {
-      for (const cmd of astResult.commands) {
-        if (cmd.hasDangerousConstruct) {
-          const types = cmd.dangerousTypes.join(', ')
-          warnings.push(`检测到危险构造: ${types}`)
-        }
-      }
+    if (!astResult.isSimple) {
+      warnings.push('复杂命令结构')
+    } else if (astResult.isDangerous) {
+      warnings.push('检测到危险命令')
     }
 
     const parsedCmd = parseCommand(command)

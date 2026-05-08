@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 状态迁移管理器
  * 参考CC源码的状态管理模式，提供版本化的状态迁移机制
@@ -10,7 +9,7 @@ import { logger } from '@modules/utils/log.js';
 /**
  * 迁移函数类型
  */
-export type MigrationFn = (state: any) => Promise<any> | any;
+export type MigrationFn = (state: Record<string, unknown>) => Promise<Record<string, unknown>> | Record<string, unknown>;
 
 /**
  * 迁移定义
@@ -37,7 +36,7 @@ export interface MigrationResult {
   /** 到版本 */
   toVersion: number;
   /** 迁移的状态 */
-  state?: any;
+  state?: Record<string, unknown>;
   /** 错误信息 */
   error?: string;
 }
@@ -194,7 +193,7 @@ export class StateMigrator {
 
           logger.info(`Migration v${version} completed successfully`);
         } catch (error) {
-          logger.error(`Migration v${version} failed:`, error);
+          logger.error(`Migration v${version} failed:`, error as Error);
           
           // 记录失败的迁移
           migrationHistory.push({
@@ -211,7 +210,7 @@ export class StateMigrator {
               currentState = await migration.rollback(currentState);
               logger.info(`Rollback v${version} completed`);
             } catch (rollbackError) {
-              logger.error(`Rollback v${version} failed:`, rollbackError);
+              logger.error(`Rollback v${version} failed:`, rollbackError as Error);
             }
           }
 
@@ -243,7 +242,7 @@ export class StateMigrator {
         state: currentState,
       };
     } catch (error) {
-      logger.error('Migration process failed:', error);
+      logger.error('Migration process failed:', error as Error);
       return {
         success: false,
         fromVersion,

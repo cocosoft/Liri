@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 拒绝跟踪器
  * 记录拒绝历史，用于分析拒绝模式和建议退出自动模式
@@ -113,7 +112,8 @@ export class DenialTracker {
       try {
         listener(record);
       } catch (error) {
-        logger.error('DenialTracker: Listener error:', error);
+        const e = error instanceof Error ? error : new Error(String(error));
+        logger.error('DenialTracker: Listener error:', e);
       }
     }
 

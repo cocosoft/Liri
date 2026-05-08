@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 列出Peers工具
  * 用于发现本地peer（UDS）或远程会话（bridge）
@@ -69,52 +68,28 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
     },
   ];
 
-  /**
-   * 搜索提示
-   */
-  searchHint = 'discover local peers and remote sessions';
+  override searchHint = 'discover local peers and remote sessions';
 
-  /**
-   * 最大结果大小
-   */
-  maxResultSizeChars = 100_000;
+  override maxResultSizeChars = 100_000;
 
-  /**
-   * 延迟加载
-   */
-  shouldDefer = true;
+  override shouldDefer = true;
 
-  /**
-   * Socket目录
-   */
   private socketDir: string;
 
-  /**
-   * 构造函数
-   */
   constructor() {
     super();
     this.socketDir = join(process.cwd(), '.sockets');
   }
 
-  /**
-   * 检查工具是否启用
-   */
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否只读
-   */
-  isReadOnly(): boolean {
+  override isReadOnly(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return true;
   }
 
@@ -137,7 +112,7 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
         try {
           const stats = statSync(socketPath);
 
-          if (stats.isSocket || stats.isFIFO()) {
+          if (stats.isSocket() || stats.isFIFO()) {
             peers.push({
               id: entry,
               type: 'uds',
@@ -261,17 +236,11 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
     );
   }
 
-  /**
-   * 获取用户可见的名称
-   */
-  userFacingName(): string {
+  override userFacingName(): string {
     return '列出Peers';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(): string | null {
+  override getActivityDescription(): string | null {
     return '扫描peers';
   }
 }

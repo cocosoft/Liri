@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 启动优化器
  * 基于CC源码学习成果，实现并行加载和预取优化
@@ -145,7 +144,7 @@ export class StartupOptimizer {
       logger.info(`Startup optimization completed in ${this.metrics.totalTime}ms`);
       
     } catch (error) {
-      logger.error('Startup optimization failed:', error);
+      logger.error('Startup optimization failed:', error instanceof Error ? error : new Error(String(error)));
       this.metrics.totalTime = Date.now() - startTime;
     }
     
@@ -270,23 +269,24 @@ export class StartupOptimizer {
         };
         
       } catch (error) {
-        this.activeTasks.delete(task.id);
-        this.resourcePool.releaseResources();
-        
-        if (attempt === maxRetries) {
-          const duration = Date.now() - startTime;
-          this.failedTasks.set(task.id, attempt);
-          
-          logger.error(`Prefetch task ${task.id} failed after ${attempt} attempts:`, error);
-          
-          return {
-            taskId: task.id,
-            success: false,
-            duration,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            retryCount: attempt,
-          };
-        }
+          this.activeTasks.delete(task.id);
+          this.resourcePool.releaseResources();
+
+          if (attempt === maxRetries) {
+            const duration = Date.now() - startTime;
+            this.failedTasks.set(task.id, attempt);
+
+            const e = error instanceof Error ? error : new Error(String(error));
+            logger.error(`Prefetch task ${task.id} failed after ${attempt} attempts:`, e);
+
+            return {
+              taskId: task.id,
+              success: false,
+              duration,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              retryCount: attempt,
+            };
+          }
         
         // 重试前等待
         await this.waitForRetry(attempt);
@@ -339,7 +339,7 @@ export class StartupOptimizer {
       logger.debug(`Module loading completed in ${Date.now() - startTime}ms`);
       
     } catch (error) {
-      logger.error('Parallel module loading failed:', error);
+      logger.error('Parallel module loading failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

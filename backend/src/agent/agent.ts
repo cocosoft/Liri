@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * AI代理
  */
@@ -94,7 +93,7 @@ export class AIAgentImpl implements AIAgent {
     } catch (error) {
       // 增强错误处理
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`Agent ${this.name} failed to execute task ${task.name}:`, error);
+      logger.error(`Agent ${this.name} failed to execute task ${task.name}:`, error instanceof Error ? error : new Error(String(error)));
       
       const errorResponse: AgentResponse = {
         id: Date.now().toString(36),

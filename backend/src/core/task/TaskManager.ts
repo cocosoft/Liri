@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 任务管理器
  * 提供任务创建、状态更新、查询和生命周期管理
@@ -175,7 +174,7 @@ export class TaskManager {
       try {
         handle.cleanup();
       } catch (error) {
-        logger.error(`Task cleanup failed for ${taskId}:`, error);
+        logger.error(`Task cleanup failed for ${taskId}:`, error instanceof Error ? error : new Error(String(error)));
       }
     }
 

@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Skill, SkillSource } from '@modules/skills/types';
+import { Skill, SkillSource, SkillFrontmatter } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import {
   parseSkillFrontmatter,
@@ -12,7 +11,7 @@ import { cwd } from 'process';
 
 /**
  * 项目技能加载器
- * 加载项目目录下的技能
+ * 加载项目目录下的技�?
  */
 export class ProjectSkillLoader extends SkillLoader {
   private projectSkillsDir: string;
@@ -24,24 +23,24 @@ export class ProjectSkillLoader extends SkillLoader {
   }
 
   /**
-   * 加载项目技能
-   * @returns 技能列表
+   * 加载项目技�?
+   * @returns 技能列�?
    */
   async loadSkills(): Promise<Skill[]> {
     const skills: Skill[] = [];
     const fs = await import('fs/promises');
 
     try {
-      // 检查项目技能目录是否存在
+      // 检查项目技能目录是否存�?
       let entries: string[] = [];
       try {
         entries = await fs.readdir(this.projectSkillsDir);
       } catch {
-        // 目录不存在，返回空列表
+        // 目录不存在，返回空列�?
         return skills;
       }
 
-      // 并行处理技能文件
+      // 并行处理技能文�?
       const skillPromises = entries.map(async (entry) => {
         const skillDirPath = join(this.projectSkillsDir, entry);
         const skillFilePath = join(skillDirPath, 'SKILL.md');
@@ -60,12 +59,12 @@ export class ProjectSkillLoader extends SkillLoader {
             return null;
           }
 
-          // 读取技能文件内容
+          // 读取技能文件内�?
           const content = await fs.readFile(skillFilePath, 'utf-8');
 
-          // 解析技能frontmatter
-          const { frontmatter, content: markdownContent } =
-            parseSkillFrontmatter(content);
+          const parsed = parseSkillFrontmatter(content);
+          const frontmatter = parsed.frontmatter as SkillFrontmatter;
+          const markdownContent = parsed.content;
 
           // 验证技能frontmatter
           const validation = validateSkillFrontmatter(frontmatter, entry);
@@ -76,7 +75,7 @@ export class ProjectSkillLoader extends SkillLoader {
             return null;
           }
 
-          // 创建技能对象
+          // 创建技能对�?
           return createSkillCommand({
             skillName: entry,
             frontmatter,
@@ -90,10 +89,10 @@ export class ProjectSkillLoader extends SkillLoader {
         }
       });
 
-      // 等待所有技能处理完成
+      // 等待所有技能处理完�?
       const skillResults = await Promise.all(skillPromises);
 
-      // 过滤掉null值，添加有效技能
+      // 过滤掉null值，添加有效技�?
       for (const skill of skillResults) {
         if (skill) {
           skills.push(skill);
@@ -107,8 +106,8 @@ export class ProjectSkillLoader extends SkillLoader {
   }
 
   /**
-   * 获取技能来源
-   * @returns 技能来源
+   * 获取技能来�?
+   * @returns 技能来�?
    */
   getSource(): SkillSource {
     return SkillSource.PROJECT;

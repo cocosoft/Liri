@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 进入计划模式工具
  * 用于进入计划模式，让用户能够制定详细的执行计划
@@ -39,39 +38,36 @@ export class EnterPlanModeTool extends BaseTool<void, EnterPlanModeOutput> {
    */
   params = [];
 
-  /**
-   * 搜索提示
-   */
-  searchHint = 'enter planning mode to create detailed plan';
+  override searchHint = 'enter planning mode to create detailed plan';
 
   /**
    * 最大结果大小
    */
-  maxResultSizeChars = 100_000;
+  override maxResultSizeChars = 100_000;
 
   /**
    * 延迟加载
    */
-  shouldDefer = false;
+  override shouldDefer = false;
 
   /**
    * 检查工具是否启用
    */
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     return true;
   }
 
   /**
    * 检查工具是否破坏性操作
    */
-  isDestructive(): boolean {
+  override isDestructive(): boolean {
     return false;
   }
 
   /**
    * 检查工具是否并发安全
    */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return true;
   }
 
@@ -100,17 +96,11 @@ export class EnterPlanModeTool extends BaseTool<void, EnterPlanModeOutput> {
     );
   }
 
-  /**
-   * 获取用户可见的名称
-   */
-  userFacingName(): string {
+  override userFacingName(): string {
     return '进入计划模式';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(): string | null {
+  override getActivityDescription(): string | null {
     return '进入计划模式';
   }
 }

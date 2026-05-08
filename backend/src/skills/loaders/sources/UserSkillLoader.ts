@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Skill, SkillSource } from '@modules/skills/types';
+import { Skill, SkillSource, SkillFrontmatter } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import {
   parseSkillFrontmatter,
@@ -12,7 +11,7 @@ import { homedir } from 'os';
 
 /**
  * 用户技能加载器
- * 加载用户配置目录下的技能
+ * 加载用户配置目录下的技�?
  */
 export class UserSkillLoader extends SkillLoader {
   private userSkillsDir: string;
@@ -27,18 +26,18 @@ export class UserSkillLoader extends SkillLoader {
   }
 
   /**
-   * 加载用户技能
-   * @returns 技能列表
+   * 加载用户技�?
+   * @returns 技能列�?
    */
   async loadSkills(): Promise<Skill[]> {
     const skills: Skill[] = [];
     const fs = await import('fs/promises');
 
     try {
-      // 加载用户技能目录的技能
+      // 加载用户技能目录的技�?
       await this.loadSkillsFromDirectory(this.userSkillsDir, skills, fs);
 
-      // 加载测试目录的技能
+      // 加载测试目录的技�?
       await this.loadSkillsFromDirectory(this.testSkillsDir, skills, fs);
     } catch (error) {
       console.error('Error loading user skills:', error);
@@ -48,9 +47,9 @@ export class UserSkillLoader extends SkillLoader {
   }
 
   /**
-   * 从指定目录加载技能
+   * 从指定目录加载技�?
    * @param directory 目录路径
-   * @param skills 技能列表
+   * @param skills 技能列�?
    * @param fs 文件系统模块
    */
   private async loadSkillsFromDirectory(
@@ -59,7 +58,7 @@ export class UserSkillLoader extends SkillLoader {
     fs: any
   ): Promise<void> {
     try {
-      // 检查目录是否存在
+      // 检查目录是否存�?
       let entries: string[] = [];
       try {
         entries = await fs.readdir(directory);
@@ -68,17 +67,18 @@ export class UserSkillLoader extends SkillLoader {
         return;
       }
 
-      // 并行处理技能文件
+      // 并行处理技能文�?
       const skillPromises = entries.map(async (entry) => {
         // 对于测试目录，直接检查SKILL.md文件
         if (directory === this.testSkillsDir && entry === 'SKILL.md') {
           try {
-            // 读取技能文件内容
+            // 读取技能文件内�?
             const content = await fs.readFile(join(directory, entry), 'utf-8');
 
             // 解析技能frontmatter
-            const { frontmatter, content: markdownContent } =
-              parseSkillFrontmatter(content);
+            const parsed = parseSkillFrontmatter(content);
+            const frontmatter = parsed.frontmatter as SkillFrontmatter;
+            const markdownContent = parsed.content;
 
             // 验证技能frontmatter
             const validation = validateSkillFrontmatter(
@@ -92,7 +92,7 @@ export class UserSkillLoader extends SkillLoader {
               return null;
             }
 
-            // 创建技能对象
+            // 创建技能对�?
             return createSkillCommand({
               skillName: 'test-skill',
               frontmatter,
@@ -124,12 +124,13 @@ export class UserSkillLoader extends SkillLoader {
             return null;
           }
 
-          // 读取技能文件内容
+          // 读取技能文件内�?
           const content = await fs.readFile(skillFilePath, 'utf-8');
 
           // 解析技能frontmatter
-          const { frontmatter, content: markdownContent } =
-            parseSkillFrontmatter(content);
+          const parsed = parseSkillFrontmatter(content);
+          const frontmatter = parsed.frontmatter as SkillFrontmatter;
+          const markdownContent = parsed.content;
 
           // 验证技能frontmatter
           const validation = validateSkillFrontmatter(frontmatter, entry);
@@ -140,7 +141,7 @@ export class UserSkillLoader extends SkillLoader {
             return null;
           }
 
-          // 创建技能对象
+          // 创建技能对�?
           return createSkillCommand({
             skillName: entry,
             frontmatter,
@@ -154,10 +155,10 @@ export class UserSkillLoader extends SkillLoader {
         }
       });
 
-      // 等待所有技能处理完成
+      // 等待所有技能处理完�?
       const skillResults = await Promise.all(skillPromises);
 
-      // 过滤掉null值，添加有效技能
+      // 过滤掉null值，添加有效技�?
       for (const skill of skillResults) {
         if (skill) {
           skills.push(skill);
@@ -169,8 +170,8 @@ export class UserSkillLoader extends SkillLoader {
   }
 
   /**
-   * 获取技能来源
-   * @returns 技能来源
+   * 获取技能来�?
+   * @returns 技能来�?
    */
   getSource(): SkillSource {
     return SkillSource.USER;

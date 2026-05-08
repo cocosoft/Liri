@@ -15,6 +15,8 @@ export enum ErrorCategory {
   CONFIGURATION = 'configuration',
   API = 'api',
   DATABASE = 'database',
+  RESOURCE = 'resource',
+  DATA = 'data',
   UNKNOWN = 'unknown',
 }
 

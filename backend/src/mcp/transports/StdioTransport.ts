@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Stdio传输层
  * 基于标准输入输出与子进程通信
@@ -60,7 +59,7 @@ export class StdioTransport extends MCPTransport {
   /**
    * 连接
    */
-  async connect(): Promise<void> {
+  override async connect(): Promise<void> {
     if (this.process) {
       return;
     }
@@ -100,7 +99,7 @@ export class StdioTransport extends MCPTransport {
   /**
    * 断开连接
    */
-  disconnect(): void {
+  override disconnect(): void {
     if (this.process) {
       this.process.kill();
       this.process = null;

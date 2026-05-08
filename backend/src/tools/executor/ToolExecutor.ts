@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 工具执行器（基于CC源码）
  * 负责工具的实际执行、调度和性能优化
@@ -140,7 +139,7 @@ export class ToolExecutor {
    * 更新执行统计（基于CC源码）
    */
   private updateExecutionStats(toolName: string, executionTime: number, success: boolean): void {
-    const stats = this.executionStats.get(toolName) || {
+    const defaultStats: ToolExecutionStats = {
       executionCount: 0,
       averageExecutionTime: 0,
       successRate: 0,
@@ -148,20 +147,21 @@ export class ToolExecutor {
       successfulExecutions: 0,
       failedExecutions: 0
     };
+    const stats = this.executionStats.get(toolName) || { ...defaultStats };
     
-    stats.executionCount++;
-    stats.totalExecutionTime += executionTime;
-    stats.averageExecutionTime = stats.totalExecutionTime / stats.executionCount;
+    stats.executionCount!++;
+    stats.totalExecutionTime! += executionTime;
+    stats.averageExecutionTime = stats.totalExecutionTime! / stats.executionCount!;
     
     if (success) {
-      stats.successfulExecutions++;
+      stats.successfulExecutions!++;
     } else {
-      stats.failedExecutions++;
+      stats.failedExecutions!++;
     }
     
-    stats.successRate = (stats.successfulExecutions / stats.executionCount) * 100;
+    stats.successRate = (stats.successfulExecutions! / stats.executionCount!) * 100;
     
-    this.executionStats.set(toolName, stats);
+    this.executionStats.set(toolName, stats as ToolExecutionStats);
   }
 
   /**

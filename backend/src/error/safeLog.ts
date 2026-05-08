@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 安全日志工具
  * 提供安全的错误记录功能，自动清理敏感信息
@@ -17,7 +16,7 @@ export class SafeLogger {
    * @param error 错误对象
    * @param context 额外上下文
    */
-  static logError(error: Error, context?: Record<string, any>): void {
+  static logError(error: Error, context?: Record<string, unknown>): void {
     // 将错误转换为安全错误
     const safeError = this.toSafeError(error);
     
@@ -39,9 +38,9 @@ export class SafeLogger {
    * @param message 警告信息
    * @param context 额外上下文
    */
-  static logWarning(message: string, context?: Record<string, any>): void {
+  static logWarning(message: string, context?: Record<string, unknown>): void {
     const safeContext = context ? this.sanitizeContext(context) : undefined;
-    logger.warn(message, undefined, safeContext);
+    logger.warn(message, safeContext);
   }
 
   /**
@@ -49,9 +48,9 @@ export class SafeLogger {
    * @param message 信息
    * @param context 额外上下文
    */
-  static logInfo(message: string, context?: Record<string, any>): void {
+  static logInfo(message: string, context?: Record<string, unknown>): void {
     const safeContext = context ? this.sanitizeContext(context) : undefined;
-    logger.info(message, undefined, safeContext);
+    logger.info(message, safeContext);
   }
 
   /**
@@ -94,9 +93,9 @@ export class SafeLogger {
    * @param context 上下文
    * @returns 清理后的上下文
    */
-  private static sanitizeContext(context: Record<string, any>): Record<string, any> {
+  private static sanitizeContext(context: Record<string, unknown>): Record<string, unknown> {
     const sensitiveKeys = ['password', 'token', 'apiKey', 'secret', 'credential', 'auth', 'key'];
-    const safeContext: Record<string, any> = {};
+    const safeContext: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(context)) {
       if (sensitiveKeys.some(sensitiveKey => 
@@ -104,8 +103,8 @@ export class SafeLogger {
       )) {
         safeContext[key] = '***REDACTED***';
       } else if (typeof value === 'object' && value !== null) {
-        safeContext[key] = this.sanitizeContext(value as Record<string, any>);
-      } else {
+        safeContext[key] = this.sanitizeContext(value as Record<string, unknown>);
+      } else if (value !== undefined) {
         safeContext[key] = value;
       }
     }
@@ -119,7 +118,7 @@ export class SafeLogger {
    * @param operation 操作名称
    * @param context 额外上下文
    */
-  static logDetailedError(error: Error, operation: string, context?: Record<string, any>): void {
+  static logDetailedError(error: Error, operation: string, context?: Record<string, unknown>): void {
     const safeError = this.toSafeError(error);
     const errorInfo = ErrorUtils.extractErrorInfo(safeError);
 
@@ -145,7 +144,7 @@ export class SafeLogger {
     const safeError = this.toSafeError(error);
     const errorInfo = ErrorUtils.extractErrorInfo(safeError);
 
-    logger.warn(`${operation} encountered an error`, undefined, {
+    logger.warn(`${operation} encountered an error`, {
       operation,
       errorMessage: errorInfo.message,
       errorCategory: errorInfo.category,

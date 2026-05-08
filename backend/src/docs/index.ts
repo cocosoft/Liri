@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 文档系统入口
  * 提供文档管理的统一接口
@@ -41,7 +40,6 @@ export type {
 
 export type {
   ExampleCommand,
-  ExampleCategory,
   ReleaseNote,
   ErrorMessageEntry,
   LanguagePack,

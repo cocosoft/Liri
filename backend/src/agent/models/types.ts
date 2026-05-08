@@ -1,10 +1,9 @@
-// @ts-nocheck
 /**
  * AI代理模型类型定义
  */
 
 import { AIModelType } from '@modules/ai/models/types';
-import { HooksSettings } from '@modules/hooks/types';
+import type { HooksSettings } from '@modules/types/hooks.js';
 
 /**
  * 代理状态
@@ -169,7 +168,6 @@ export interface AIAgent {
   };
   updateConfig(config: Partial<AgentConfig>): void;
   serialize(): any;
-  static deserialize(data: any): AIAgent;
 }
 
 /**

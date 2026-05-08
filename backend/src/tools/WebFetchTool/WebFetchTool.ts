@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * WebFetch 工具
  *
@@ -14,6 +13,7 @@ import type {
   ToolParam,
   ToolCallProgress,
   InterruptBehavior,
+  ValidationResult,
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
 
@@ -79,19 +79,15 @@ export class WebFetchTool extends BaseTool {
     },
   ];
 
-  aliases = ['fetch', 'curl', 'wget', 'http_get'];
-  searchHint = 'Fetch content from a URL';
-  maxResultSizeChars = 500000;
+  override aliases = ['fetch', 'curl', 'wget', 'http_get'];
+  override searchHint = 'Fetch content from a URL';
+  override maxResultSizeChars = 500000;
 
   constructor() {
     super();
   }
 
-  /**
-   * 验证输入
-   * 使用Zod Schema进行运行时验证
-   */
-  validateInput(input: any): { result: boolean; message?: string } {
+  override validateInput(input: any): ValidationResult {
     const result = WebFetchInputSchema.safeParse(input);
     if (!result.success) {
       const errors = result.error.issues
@@ -102,36 +98,20 @@ export class WebFetchTool extends BaseTool {
     return { result: true };
   }
 
-  /**
-   * 检查工具是否只读
-   * WebFetch 是只读操作
-   */
-  isReadOnly(input?: Record<string, unknown>): boolean {
+  override isReadOnly(input?: Record<string, unknown>): boolean {
     const method = (input?.method as string)?.toUpperCase() || 'GET';
     return ['GET', 'HEAD', 'OPTIONS'].includes(method);
   }
 
-  /**
-   * 检查工具是否并发安全
-   * GET 请求可以并发
-   */
-  isConcurrencySafe(input?: Record<string, unknown>): boolean {
+  override isConcurrencySafe(input?: Record<string, unknown>): boolean {
     return this.isReadOnly(input);
   }
 
-  /**
-   * 中断行为策略
-   * WebFetch 可以被取消
-   */
-  interruptBehavior(): InterruptBehavior {
+  override interruptBehavior(): InterruptBehavior {
     return 'cancel';
   }
 
-  /**
-   * 获取工具操作的文件路径
-   * 返回 URL 作为路径标识
-   */
-  getPath(input: Record<string, unknown>): string {
+  override getPath(input: Record<string, unknown>): string {
     return (input?.url as string) || '';
   }
 
@@ -356,10 +336,7 @@ export class WebFetchTool extends BaseTool {
     }
   }
 
-  /**
-   * 获取用于自动分类器的输入
-   */
-  toAutoClassifierInput(input: Record<string, unknown>): unknown {
+  override toAutoClassifierInput(input: Record<string, unknown>): unknown {
     return {
       url: input.url,
       method: input.method || 'GET',

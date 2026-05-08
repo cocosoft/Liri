@@ -1,10 +1,10 @@
-// @ts-nocheck
 /**
  * 消息相关工具函数
  * 参考CC源码 utils/messages.ts 实现
  */
 
 import type { Message, UserMessage, AssistantMessage, SystemMessage } from '../chat/types/message.js';
+import { MessageRole, MessageType } from '../chat/types/message.js';
 
 /**
  * 生成短消息ID（6位base36字符串）
@@ -26,12 +26,11 @@ export function deriveShortMessageId(uuid: string): string {
 export function createAssistantMessage(content: { content: string }): AssistantMessage {
   return {
     id: `msg_${Date.now()}`,
-    role: 'assistant',
+    role: MessageRole.ASSISTANT,
     content: content.content,
-    type: 'normal',
-    timestamp: Date.now(),
-    isMeta: false,
-    isCompactSummary: false,
+    type: MessageType.NORMAL,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
@@ -47,12 +46,11 @@ export function createUserMessage(params: {
 }): UserMessage {
   return {
     id: params.uuid || `msg_${Date.now()}`,
-    role: 'user',
+    role: MessageRole.USER,
     content: params.content,
-    type: 'normal',
-    timestamp: Date.now(),
-    isMeta: params.isMeta || false,
-    isCompactSummary: false,
+    type: MessageType.NORMAL,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
@@ -65,14 +63,13 @@ export function createUserMessage(params: {
 export function createSystemMessage(content: string, subtype?: string): SystemMessage {
   return {
     id: `sys_${Date.now()}`,
-    role: 'system',
+    role: MessageRole.SYSTEM,
     content,
-    type: 'system',
+    type: MessageType.SYSTEM,
     subtype,
-    timestamp: Date.now(),
-    isMeta: false,
-    isCompactSummary: false,
-  };
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Message;
 }
 
 /**
@@ -120,12 +117,11 @@ export function createToolUseSummaryMessage(params: {
 }): Message {
   return {
     id: `tool_summary_${Date.now()}`,
-    role: 'system',
+    role: MessageRole.SYSTEM,
     content: `Tool: ${params.toolName}\nInput: ${JSON.stringify(params.input)}\nOutput: ${params.output}\nDuration: ${params.durationMs}ms`,
-    type: 'tool_use_summary',
-    timestamp: Date.now(),
-    isMeta: true,
-    isCompactSummary: false,
+    type: MessageType.TOOL_USE_SUMMARY,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
@@ -161,12 +157,11 @@ export function createProgressMessage<T extends Record<string, unknown>>(params:
 }): Message {
   return {
     id: `progress_${params.taskId}`,
-    role: 'system',
+    role: MessageRole.SYSTEM,
     content: params.message,
-    type: 'normal',
-    timestamp: Date.now(),
-    isMeta: true,
-    isCompactSummary: false,
+    type: MessageType.NORMAL,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     metadata: {
       taskId: params.taskId,
       progress: params.progress,
@@ -285,12 +280,11 @@ export function createApiMetricsMessage(metrics: {
 export function createAssistantAPIErrorMessage(error: string): AssistantMessage {
   return {
     id: `api_error_${Date.now()}`,
-    role: 'assistant',
+    role: MessageRole.ASSISTANT,
     content: `Error: ${error}`,
-    type: 'normal',
-    timestamp: Date.now(),
-    isMeta: true,
-    isCompactSummary: false,
+    type: MessageType.NORMAL,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
@@ -309,7 +303,7 @@ export function createToolResultStopMessage(toolName: string): SystemMessage {
  * @returns 是否是合成消息
  */
 export function isSyntheticMessage(message: Message): boolean {
-  return message.isMeta || message.isCompactSummary;
+  return !!(message as any).isMeta || !!(message as any).isCompactSummary;
 }
 
 /**
@@ -318,8 +312,9 @@ export function isSyntheticMessage(message: Message): boolean {
  * @returns 消息文本
  */
 export function getAssistantMessageText(message: Message): string {
-  if (message.role !== 'assistant') return '';
-  return message.content || '';
+  if (message.role !== MessageRole.ASSISTANT) return '';
+  if (typeof message.content === 'string') return message.content;
+  return '';
 }
 
 /**
@@ -328,7 +323,7 @@ export function getAssistantMessageText(message: Message): string {
  * @returns 工具调用次数
  */
 export function countToolCalls(messages: Message[]): number {
-  return messages.filter(m => m.type === 'tool_use').length;
+  return messages.filter(m => (m as any).type === 'tool_use').length;
 }
 
 /**

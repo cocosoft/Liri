@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Skill, SkillSource } from '@modules/skills/types';
+import { Skill, SkillSource, SkillFrontmatter } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import {
   parseSkillFrontmatter,
@@ -14,42 +13,43 @@ const pluginManager = PluginManager.getInstance();
 
 /**
  * 插件技能加载器
- * 从插件中加载技能
+ * 从插件中加载技�?
  */
 export class PluginSkillLoader extends SkillLoader {
   /**
-   * 加载插件技能
-   * @returns 技能列表
+   * 加载插件技�?
+   * @returns 技能列�?
    */
   async loadSkills(): Promise<Skill[]> {
     const skills: Skill[] = [];
 
     try {
-      // 获取所有插件
+      // 获取所有插�?
       const plugins = pluginManager.getAllPlugins();
 
       for (const plugin of plugins) {
         const pluginId = plugin.repository;
-        // 检查插件是否有技能
+        // 检查插件是否有技�?
         if (plugin.manifest && plugin.manifest.skills) {
           for (const skillPath of plugin.manifest.skills) {
             try {
               const skillFilePath = join(plugin.path, skillPath);
 
-              // 检查技能文件是否存在
+              // 检查技能文件是否存�?
               if (!existsSync(skillFilePath)) {
                 console.warn(`Skill file not found: ${skillFilePath}`);
                 continue;
               }
 
-              // 读取技能文件内容
+              // 读取技能文件内�?
               const content = await import('fs/promises').then((fs) =>
                 fs.readFile(skillFilePath, 'utf-8')
               );
 
               // 解析技能frontmatter
-              const { frontmatter, content: markdownContent } =
-                parseSkillFrontmatter(content);
+              const parsed = parseSkillFrontmatter(content);
+              const frontmatter = parsed.frontmatter as SkillFrontmatter;
+              const markdownContent = parsed.content;
 
               // 生成技能名称，添加插件前缀
               const skillName = `${pluginId}:${frontmatter.name || skillPath.replace(/\.md$/, '')}`;
@@ -66,7 +66,7 @@ export class PluginSkillLoader extends SkillLoader {
                 continue;
               }
 
-              // 创建技能对象
+              // 创建技能对�?
               const skill = createSkillCommand({
                 skillName,
                 frontmatter,
@@ -93,8 +93,8 @@ export class PluginSkillLoader extends SkillLoader {
   }
 
   /**
-   * 获取技能来源
-   * @returns 技能来源
+   * 获取技能来�?
+   * @returns 技能来�?
    */
   getSource(): SkillSource {
     return SkillSource.PLUGIN;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 工具调用摘要服务（参考CC源码 cc_code/backend/services/toolUseSummary/）
  * 在Token预算紧张时自动生成工具调用结果的摘要
@@ -80,7 +79,7 @@ export class ToolUseSummarizerImpl implements ToolUseSummarizer {
       ? result.result 
       : JSON.stringify(result.result);
 
-    return resultContent.length > this.config.summaryThresholdTokens;
+    return resultContent.length > (this.config.summaryThresholdTokens ?? 0);
   }
 
   private generateSummary(content: string, toolName: string): string {

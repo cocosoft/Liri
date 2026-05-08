@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * PowerShell 工具（Windows专用）
  *
@@ -10,7 +9,7 @@ import { z } from 'zod';
 import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { ToolParam, InterruptBehavior } from '../types/Tool';
+import { ToolParam, InterruptBehavior, ValidationResult } from '../types/Tool';
 import { createSuccessResult, createFailureResult } from '../utils/ToolUtils';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -84,9 +83,9 @@ export class PowerShellTool extends BaseTool {
     },
   ];
 
-  aliases = ['ps', 'pwsh', 'ps1'];
+  override aliases = ['ps', 'pwsh', 'ps1'];
   searchTips = ['powershell', 'windows', 'admin', 'registry', 'wmi'];
-  searchHint = 'windows administration powershell';
+  override searchHint = 'windows administration powershell';
 
   private securityAnalyzer: PowerShellSecurityAnalyzer;
 
@@ -95,11 +94,7 @@ export class PowerShellTool extends BaseTool {
     this.securityAnalyzer = new PowerShellSecurityAnalyzer();
   }
 
-  /**
-   * 验证输入
-   * 使用Zod Schema进行运行时验证
-   */
-  validateInput(input: any): { result: boolean; message?: string } {
+  override validateInput(input: any): ValidationResult {
     const result = PowerShellInputSchema.safeParse(input);
     if (!result.success) {
       const errors = result.error.issues
@@ -110,11 +105,7 @@ export class PowerShellTool extends BaseTool {
     return { result: true };
   }
 
-  /**
-   * 检查工具是否只读
-   * PowerShell 命令默认不安全，需要安全检查
-   */
-  isReadOnly(input?: Record<string, unknown>): boolean {
+  override isReadOnly(input?: Record<string, unknown>): boolean {
     const command = (input?.command as string)?.toLowerCase() || '';
     const readOnlyPatterns = [
       /^get-/,
@@ -126,26 +117,15 @@ export class PowerShellTool extends BaseTool {
     return readOnlyPatterns.some((pattern) => pattern.test(command));
   }
 
-  /**
-   * 检查工具是否并发安全
-   * 读操作可以并发，写操作不行
-   */
-  isConcurrencySafe(input?: Record<string, unknown>): boolean {
+  override isConcurrencySafe(input?: Record<string, unknown>): boolean {
     return this.isReadOnly(input);
   }
 
-  /**
-   * 中断行为策略
-   * PowerShell 命令默认可以被中断取消
-   */
-  interruptBehavior(): InterruptBehavior {
+  override interruptBehavior(): InterruptBehavior {
     return 'cancel';
   }
 
-  /**
-   * 获取工具操作的文件路径
-   */
-  getPath?(input: Record<string, unknown>): string {
+  override getPath(input: Record<string, unknown>): string {
     const command = (input?.command as string) || '';
     const pathPatterns = [
       /(?:[-\\/]path(?:Name)?\s+)?['"]?([^'"}\s]+)['"]?/gi,

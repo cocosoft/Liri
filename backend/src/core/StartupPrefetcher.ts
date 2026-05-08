@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 启动预读取模块
  * 基于CC源码 cc_code/backend/main.tsx 的 startDeferredPrefetches 设计
@@ -96,7 +95,7 @@ async function prefetchUserContext(): Promise<void> {
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));
-    logger.warn('Failed to prefetch user context:', error);
+    logger.warn('Failed to prefetch user context:', { error: String(error) });
   }
 }
 
@@ -115,7 +114,7 @@ async function prefetchMdmSettings(): Promise<void> {
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));
-    logger.warn('Failed to prefetch MDM settings:', error);
+    logger.warn('Failed to prefetch MDM settings:', { error: String(error) });
   }
 }
 
@@ -147,7 +146,7 @@ async function prefetchSafeEnvVariables(): Promise<void> {
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));
-    logger.warn('Failed to prefetch safe env variables:', error);
+    logger.warn('Failed to prefetch safe env variables:', { error: String(error) });
   }
 }
 
@@ -167,7 +166,7 @@ async function prefetchUnifiedConfig(): Promise<void> {
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));
-    logger.warn('Failed to prefetch unified config:', error);
+    logger.warn('Failed to prefetch unified config:', { error: String(error) });
   }
 }
 
@@ -185,7 +184,7 @@ async function prefetchModelCapabilities(): Promise<void> {
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));
-    logger.warn('Failed to prefetch model capabilities:', error);
+    logger.warn('Failed to prefetch model capabilities:', { error: String(error) });
   }
 }
 
@@ -202,7 +201,7 @@ async function prefetchFileStats(): Promise<void> {
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));
-    logger.warn('Failed to prefetch file stats:', error);
+    logger.warn('Failed to prefetch file stats:', { error: String(error) });
   }
 }
 

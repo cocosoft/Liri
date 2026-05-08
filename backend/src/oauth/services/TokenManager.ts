@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * OAuth Token管理器
  * 参考CC源码的Token管理实现，提供完整的Token生命周期管理
@@ -128,7 +127,8 @@ export class TokenManager {
       });
       logger.debug(`Token cached and persisted for ${serverKey}`);
     } catch (error) {
-      logger.error(`Failed to persist token for ${serverKey}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to persist token for ${serverKey}:`, e);
     }
 
     // 调度自动刷新
@@ -159,7 +159,8 @@ export class TokenManager {
       }
       logger.info(`Loaded ${Object.keys(tokens).length} tokens from storage`);
     } catch (error) {
-      logger.error('Failed to load tokens from storage:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to load tokens from storage:', e);
     }
   }
 
@@ -199,9 +200,10 @@ export class TokenManager {
       return newToken.accessToken;
     } catch (error) {
       this.refreshRetryCount++;
+      const e = error instanceof Error ? error : new Error(String(error));
       logger.error(
         `Token refresh failed for ${serverKey} (attempt ${this.refreshRetryCount}/${this.config.maxRetries}):`,
-        error
+        e
       );
 
       if (this.refreshRetryCount >= this.config.maxRetries) {
@@ -252,7 +254,8 @@ export class TokenManager {
           await this.cacheToken(serverKey, newToken);
           logger.debug(`Auto-refreshed token for ${serverKey}`);
         } catch (error) {
-          logger.error(`Auto-refresh failed for ${serverKey}:`, error);
+          const e = error instanceof Error ? error : new Error(String(error));
+          logger.error(`Auto-refresh failed for ${serverKey}:`, e);
         }
       },
       refreshTime
@@ -309,7 +312,8 @@ class RefreshScheduler {
       try {
         await refreshFn();
       } catch (error) {
-        logger.error(`Scheduled token refresh failed for ${serverKey}:`, error);
+        const e = error instanceof Error ? error : new Error(String(error));
+        logger.error(`Scheduled token refresh failed for ${serverKey}:`, e);
       }
     }, delay);
 

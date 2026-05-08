@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * LSP与Tool系统集成模块
  * 实现LSP工具与核心Tool系统的深度集成
@@ -6,7 +5,8 @@
 
 import { LSPToolImpl } from './LSPToolImpl';
 import { Position, Location, CompletionItem, Diagnostic } from './types';
-import type { Tool, ToolResult } from '@modules/tools';
+import type { Tool } from '../types/Tool';
+import type { ToolResult } from '../types/ToolResult';
 import { validatePosition, validateLocation, validateCompletionItem, validateDiagnostic } from '@modules/lsp';
 
 /**

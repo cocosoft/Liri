@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * TaskStopTool - 停止运行中的后台任务
  */
@@ -7,6 +6,7 @@ import { z } from 'zod';
 import { Text, Box } from 'ink';
 import type { Tool } from '../types/index.js';
 import { buildTool, type ToolDef } from '../BaseTool.js';
+import type { ValidationResult } from '../types/index.js';
 import { jsonStringify } from '@modules/utils/json.js';
 
 const TASK_STOP_TOOL_NAME = 'TaskStop';
@@ -114,20 +114,18 @@ export const TaskStopTool: Tool<InputSchema, OutputSchema> = buildTool({
   maxResultSizeChars: 100000,
   shouldDefer: true,
 
-  description() {
-    return 'Stop a running background task by ID';
-  },
+  description: 'Stop a running background task by ID',
 
   prompt() {
     return DESCRIPTION;
   },
 
   get inputSchema() {
-    return inputSchema;
+    return inputSchema as any;
   },
 
   get outputSchema() {
-    return outputSchema;
+    return outputSchema as any;
   },
 
   userFacingName() {
@@ -142,7 +140,8 @@ export const TaskStopTool: Tool<InputSchema, OutputSchema> = buildTool({
     return input.task_id ?? input.shell_id ?? '';
   },
 
-  async validateInput({ task_id, shell_id }) {
+  validateInput(input: InputSchema): ValidationResult {
+    const { task_id, shell_id } = input;
     const id = task_id ?? shell_id;
 
     if (!id) {
@@ -178,7 +177,7 @@ export const TaskStopTool: Tool<InputSchema, OutputSchema> = buildTool({
     return null;
   },
 
-  renderToolResultMessage({ message, task_id, task_type }, _toolUseId) {
+  renderToolResultMessage({ message, task_id, task_type }: { message: string; task_id: string; task_type: string; command?: string }, _toolUseId: string) {
     return (
       <Box flexDirection="column" marginTop={1}>
         <Text color="green">✓ {message}</Text>

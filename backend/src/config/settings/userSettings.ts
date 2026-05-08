@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 用户全局设置管理
  * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的用户设置部分
@@ -36,7 +35,7 @@ export function loadUserSettings(): Record<string, any> {
     const content = readFileSync(filePath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    logger.error('Failed to load user settings:', error);
+    logger.error('Failed to load user settings:', error instanceof Error ? error : new Error(String(error)));
     return {};
   }
 }
@@ -56,7 +55,7 @@ export function saveUserSettings(settings: Record<string, any>): void {
     writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
     logger.info('User settings saved');
   } catch (error) {
-    logger.error('Failed to save user settings:', error);
+    logger.error('Failed to save user settings:', error instanceof Error ? error : new Error(String(error)));
     throw error;
   }
 }

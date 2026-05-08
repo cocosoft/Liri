@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SSE传输层
  * 基于服务器发送事件的传输方式
@@ -38,7 +37,7 @@ export class SSETransport extends MCPTransport {
   /**
    * 连接
    */
-  async connect(): Promise<void> {
+  override async connect(): Promise<void> {
     if (this.eventSource) {
       return;
     }
@@ -82,7 +81,7 @@ export class SSETransport extends MCPTransport {
   /**
    * 断开连接
    */
-  disconnect(): void {
+  override disconnect(): void {
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;

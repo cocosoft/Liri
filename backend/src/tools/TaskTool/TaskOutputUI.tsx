@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * TaskOutput UI 组件
  *
@@ -8,7 +7,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink.js';
+import { Box, Text } from 'ink';
 
 export type TaskOutputData = {
   task_id: string;

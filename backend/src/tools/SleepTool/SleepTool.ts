@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Sleep工具
  * 用于延迟执行

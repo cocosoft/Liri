@@ -70,5 +70,3 @@ export const COMMON_INFO_ARGS = [
   'status',
   '?',
 ];
-
-export const NO_CONTENT_MESSAGE = '(no content)';

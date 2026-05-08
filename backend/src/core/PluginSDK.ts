@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 插件开发SDK
  * 为第三方插件开发者提供开发工具和接口
@@ -340,7 +339,7 @@ export class PluginSDK {
 
       config: {
         get: <T>(key: string, defaultValue?: T): T => {
-          return pluginConfig[key] !== undefined ? pluginConfig[key] : defaultValue;
+          return (pluginConfig[key] !== undefined ? pluginConfig[key] : defaultValue) as T;
         },
         set: <T>(key: string, value: T): void => {
           pluginConfig[key] = value;
@@ -390,7 +389,7 @@ export class PluginSDK {
         return JSON.parse(content);
       }
     } catch (error) {
-      logger.debug(`Failed to load config for plugin ${pluginId}:`, error);
+      logger.debug(`Failed to load config for plugin ${pluginId}:`, { error: String(error) });
     }
 
     return {};
@@ -414,7 +413,7 @@ export class PluginSDK {
       const configPath = path.join(this.configPath, `${pluginId}.json`);
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     } catch (error) {
-      logger.error(`Failed to save config for plugin ${pluginId}:`, error);
+      logger.error(`Failed to save config for plugin ${pluginId}:`, error instanceof Error ? error : new Error(String(error)));
     }
   }
 

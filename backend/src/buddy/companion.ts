@@ -1,4 +1,5 @@
-// @ts-nocheck
+declare const Bun: { hash: (s: string) => bigint };
+
 import { getGlobalConfig } from '@modules/config'
 import {
   type Companion,
@@ -123,5 +124,5 @@ export function getCompanion(): Companion | undefined {
   if (!stored) return undefined
   const { bones } = roll(companionUserId())
   // bones last so stale bones fields in old-format configs get overridden
-  return { ...stored, ...bones }
+  return { ...stored, ...bones } as unknown as Companion
 }

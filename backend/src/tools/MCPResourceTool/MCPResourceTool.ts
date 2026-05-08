@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * MCP资源工具
  * 参考CC源码 cc_code/backend/tools/MCPResourceTool/MCPResourceTool.ts 实现
@@ -99,28 +98,19 @@ export class MCPResourceTool extends BaseTool<
     },
   ];
 
-  aliases = ['mcp_resources', 'mcp_prompts'];
-  searchHint = 'List and read MCP resources and prompts';
-  maxResultSizeChars = 100000;
+  override aliases = ['mcp_resources', 'mcp_prompts'];
+  override searchHint = 'List and read MCP resources and prompts';
+  override maxResultSizeChars = 100000;
 
-  /**
-   * 检查工具是否只读
-   */
-  isReadOnly(): boolean {
+  override isReadOnly(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return true;
   }
 
-  /**
-   * 验证输入
-   */
-  validateInput(input: MCPResourceToolInput): ValidationResult {
+  override validateInput(input: MCPResourceToolInput): ValidationResult {
     const validActions = [
       'list_resources',
       'read_resource',
@@ -155,10 +145,7 @@ export class MCPResourceTool extends BaseTool<
     return { result: true };
   }
 
-  /**
-   * 获取用户可见的工具名称
-   */
-  userFacingName(input?: Partial<MCPResourceToolInput>): string {
+  override userFacingName(input?: Partial<MCPResourceToolInput>): string {
     const action = input?.action || 'list_resources';
     const serverName = input?.server_name || '';
 
@@ -180,10 +167,7 @@ export class MCPResourceTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取工具使用摘要
-   */
-  getToolUseSummary(input?: Partial<MCPResourceToolInput>): string | null {
+  override getToolUseSummary(input?: Partial<MCPResourceToolInput>): string | null {
     const action = input?.action || 'list_resources';
     const serverName = input?.server_name || '';
     const uri = input?.uri || '';
@@ -207,10 +191,7 @@ export class MCPResourceTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<MCPResourceToolInput>): string | null {
+  override getActivityDescription(input?: Partial<MCPResourceToolInput>): string | null {
     const action = input?.action || 'list_resources';
     const serverName = input?.server_name || '';
 
@@ -232,10 +213,7 @@ export class MCPResourceTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取工具用于自动分类器的输入
-   */
-  toAutoClassifierInput(input: MCPResourceToolInput): unknown {
+  override toAutoClassifierInput(input: MCPResourceToolInput): unknown {
     return `${input.action} ${input.server_name || ''} ${input.uri || input.prompt_name || ''}`;
   }
 

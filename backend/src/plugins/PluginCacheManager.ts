@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 插件缓存管理器
  * 负责管理插件的缓存，包括版本控制、缓存验证等
@@ -44,7 +43,7 @@ export class PluginCacheManager {
     try {
       this.ensureCacheDirs();
     } catch (error) {
-      logger.warn(`Failed to create cache dirs at ${this.cacheRoot}, falling back to local path:`, error);
+      logger.warn(`Failed to create cache dirs at ${this.cacheRoot}, falling back to local path:`, { error: String(error) });
       this.cacheRoot = join(process.cwd(), 'data', 'plugins', 'cache');
       this.versionedCacheDir = join(this.cacheRoot, 'versioned');
       this.zipCacheDir = join(this.cacheRoot, 'zip');
@@ -133,7 +132,8 @@ export class PluginCacheManager {
         const content = readFileSync(infoPath, 'utf8');
         return JSON.parse(content) as PluginCacheInfo;
       } catch (error) {
-        logger.error(`Failed to read cache info:`, error);
+        const e = error instanceof Error ? error : new Error(String(error));
+        logger.error(`Failed to read cache info:`, e);
       }
     }
     return undefined;
@@ -234,7 +234,8 @@ export class PluginCacheManager {
                   caches.push(info);
                   totalSize += info.size;
                 } catch (error) {
-                  logger.error(`Failed to read cache info:`, error);
+                  const e = error instanceof Error ? error : new Error(String(error));
+                  logger.error(`Failed to read cache info:`, e);
                 }
               }
             }
@@ -309,7 +310,8 @@ export class PluginCacheManager {
                     logger.info(`Cleaned up old cache for plugin: ${info.pluginName}`);
                   }
                 } catch (error) {
-                  logger.error(`Failed to check cache age:`, error);
+                  const e = error instanceof Error ? error : new Error(String(error));
+                  logger.error(`Failed to check cache age:`, e);
                 }
               }
             }
@@ -399,7 +401,8 @@ export class PluginCacheManager {
       }
       logger.info(`Compressed directory ${directory} to ${zipPath}`);
     } catch (error) {
-      logger.error(`Failed to compress directory:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to compress directory:`, e);
       throw error;
     }
   }
@@ -427,7 +430,8 @@ export class PluginCacheManager {
       }
       logger.info(`Extracted ${zipPath} to ${targetDir}`);
     } catch (error) {
-      logger.error(`Failed to extract zip file:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to extract zip file:`, e);
       throw error;
     }
   }

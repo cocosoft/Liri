@@ -1,6 +1,5 @@
-// @ts-nocheck
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Text } from '../ink.js';
+import { Box, Text } from '../components/ink.js';
 import { useAppState, useSetAppState } from '../state/AppState';
 import { getCompanion } from './companion';
 import { renderSprite, spriteFrameCount } from './sprites';
@@ -60,6 +59,8 @@ export function CompanionSprite(): React.ReactNode {
         setState({ companionReaction: undefined });
       }, BUBBLE_SHOW * TICK_MS);
       return () => clearTimeout(timeout);
+    } else {
+      return;
     }
   }, [companionReaction, setState]);
 

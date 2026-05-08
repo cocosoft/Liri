@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 响应式压缩服务（参考CC源码 cc_code/backend/services/compact/ 中ReactiveCompact）
  * 根据API响应动态压缩上下文
@@ -96,7 +95,7 @@ export class ReactiveCompactorImpl implements ReactiveCompactor {
       content: msg.content,
       createdAt: new Date(),
       updatedAt: new Date(),
-    }));
+    })) as unknown as SessionMessage[];
 
     return {
       collapsedMessages,

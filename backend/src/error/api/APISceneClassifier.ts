@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * API 场景化错误分类器
  *
@@ -7,7 +6,7 @@
  * 将 API 错误分类为具体场景，支持用户消息生成、重试决策和动作提示。
  */
 
-import { APIConnectionError, APIConnectionTimeoutError, APIError } from '@anthropic-ai/sdk';
+import { APIConnectionError, APIConnectionTimeoutError, APIError } from '@anthropic-ai/sdk/error.js';
 import { extractConnectionErrorDetails } from './errorUtils';
 
 /**
@@ -36,6 +35,7 @@ export enum APIScene {
   TOOL_USE_MISMATCH = 'tool_use_mismatch',
   UNEXPECTED_TOOL_RESULT = 'unexpected_tool_result',
   DUPLICATE_TOOL_USE_ID = 'duplicate_tool_use_id',
+  TOOL_USE_ERROR = 'tool_use_error',
   EXTRA_USAGE_REQUIRED = 'extra_usage_required',
   CONTEXT_OVERFLOW = 'context_overflow',
   FAST_MODE_NOT_ENABLED = 'fast_mode_not_enabled',
@@ -569,7 +569,7 @@ function formatSSLErrorMessage(code?: string): string {
 function parseRetryAfterHeader(error: APIError): number | undefined {
   const header =
     (error.headers as Record<string, string>)?.['retry-after'] ??
-    (error.headers as Headers)?.get?.('retry-after');
+    (error.headers as Record<string, string>)?.['Retry-After'];
 
   if (header) {
     const seconds = parseInt(header, 10);

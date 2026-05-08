@@ -40,7 +40,7 @@ const DEFAULT_CONFIG: REPLConfig = {
 /**
  * 初始化聊天管理器
  */
-function initializeChatManager(): ChatManager {
+export function initializeChatManager(): ChatManager {
   const chatManager = createChatManager();
 
   const toolManager = createToolManager();

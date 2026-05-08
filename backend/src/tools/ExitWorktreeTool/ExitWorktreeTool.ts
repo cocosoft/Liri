@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 退出Worktree工具
  * 用于退出worktree并返回原分支
@@ -72,25 +71,13 @@ export class ExitWorktreeTool extends BaseTool<
     },
   ];
 
-  /**
-   * 搜索提示
-   */
-  searchHint = 'exit git worktree and return to main branch';
+  override searchHint = 'exit git worktree and return to main branch';
 
-  /**
-   * 最大结果大小
-   */
-  maxResultSizeChars = 100_000;
+  override maxResultSizeChars = 100_000;
 
-  /**
-   * 延迟加载
-   */
-  shouldDefer = true;
+  override shouldDefer = true;
 
-  /**
-   * 检查工具是否启用
-   */
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     // 检查是否在git仓库中
     try {
       execSync('git rev-parse --git-dir', { stdio: 'pipe' });
@@ -100,17 +87,11 @@ export class ExitWorktreeTool extends BaseTool<
     }
   }
 
-  /**
-   * 检查工具是否破坏性操作
-   */
-  isDestructive(): boolean {
+  override isDestructive(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return false;
   }
 
@@ -268,17 +249,11 @@ export class ExitWorktreeTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取用户可见的名称
-   */
-  userFacingName(): string {
+  override userFacingName(): string {
     return '退出Worktree';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<ExitWorktreeInput>): string | null {
+  override getActivityDescription(input?: Partial<ExitWorktreeInput>): string | null {
     if (input?.slug) {
       return `退出worktree ${input.slug}`;
     }

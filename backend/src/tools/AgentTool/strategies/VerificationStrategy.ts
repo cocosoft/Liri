@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * VerificationAgent 策略定义
  *
@@ -10,7 +9,7 @@
  * - 输出 PASS/FAIL/PARTIAL 结论
  */
 
-import type { BuiltInAgentDefinition } from '@modules/agent';
+import type { BuiltInAgentDefinition } from '../../../agent/models/types';
 
 export const VERIFICATION_AGENT_TYPE = 'verification';
 

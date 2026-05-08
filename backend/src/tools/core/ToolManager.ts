@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 工具管理器（基于CC源码）
  * 负责工具的注册、管理、执行和监控
@@ -392,12 +391,16 @@ export class ToolManager extends EventEmitter {
   /**
    * 发出工具事件（基于CC源码）
    */
-  private emitEvent(eventType: ToolEventType, eventData: ToolEventData): void {
-    this.emit(eventType, eventData);
+  private emitEvent(eventType: ToolEventType, eventData: Omit<ToolEventData, 'timestamp'>): void {
+    const fullEvent: ToolEventData = {
+      ...eventData,
+      timestamp: new Date(),
+    };
+    this.emit(eventType, fullEvent);
     
     // 记录事件日志
     if (this.config.logging?.enabled) {
-      console.log(`[${eventType}] ${eventData.toolName}:`, eventData.data);
+      console.log(`[${eventType}] ${fullEvent.toolName}:`, fullEvent.data);
     }
   }
 

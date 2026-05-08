@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 团队创建工具
  * 用于创建多Agent swarm团队
@@ -102,62 +101,35 @@ export class TeamCreateTool extends BaseTool<TeamCreateInput, TeamCreateOutput> 
     },
   ];
 
-  /**
-   * 搜索提示
-   */
-  searchHint = 'create a multi-agent swarm team';
+  override searchHint = 'create a multi-agent swarm team';
 
-  /**
-   * 最大结果大小
-   */
-  maxResultSizeChars = 100_000;
+  override maxResultSizeChars = 100_000;
 
-  /**
-   * 延迟加载
-   */
-  shouldDefer = true;
+  override shouldDefer = true;
 
-  /**
-   * 团队文件目录
-   */
   private teamDir: string;
 
-  /**
-   * 构造函数
-   */
   constructor() {
     super();
     this.teamDir = join(process.cwd(), '.teams');
     this.ensureTeamDir();
   }
 
-  /**
-   * 确保团队目录存在
-   */
   private ensureTeamDir(): void {
     if (!existsSync(this.teamDir)) {
       mkdirSync(this.teamDir, { recursive: true });
     }
   }
 
-  /**
-   * 检查工具是否启用
-   */
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     return process.env.ENABLE_TEAMMATE !== 'false'; // 默认启用
   }
 
-  /**
-   * 检查工具是否破坏性操作
-   */
-  isDestructive(): boolean {
+  override isDestructive(): boolean {
     return false;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return false;
   }
 
@@ -286,24 +258,15 @@ export class TeamCreateTool extends BaseTool<TeamCreateInput, TeamCreateOutput> 
     }
   }
 
-  /**
-   * 获取自动分类器输入
-   */
-  toAutoClassifierInput(input: TeamCreateInput): string {
+  override toAutoClassifierInput(input: TeamCreateInput): string {
     return input.team_name;
   }
 
-  /**
-   * 获取用户可见的名称
-   */
-  userFacingName(): string {
+  override userFacingName(): string {
     return '创建团队';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<TeamCreateInput>): string | null {
+  override getActivityDescription(input?: Partial<TeamCreateInput>): string | null {
     if (input?.team_name) {
       return `创建团队 ${input.team_name}`;
     }

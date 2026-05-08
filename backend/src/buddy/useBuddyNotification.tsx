@@ -1,6 +1,5 @@
-// @ts-nocheck
 import React, { useEffect } from 'react';
-import { Text } from '../ink.js';
+import { Text } from '../components/ink.js';
 import { getRainbowColor } from '../utils/thinking';
 import { getGlobalConfig } from '@modules/config';
 

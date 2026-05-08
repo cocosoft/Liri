@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 安全模块集成服务
  * 负责协调Security、Sandbox、Permission三个模块的集成
@@ -28,11 +27,13 @@ export class SecurityIntegrationService {
   private securityAnalyzer: BashSecurityAnalyzer;
   private sandboxManager: SandboxManager;
   private permissionManager: PermissionManager;
+  private permissionMode: PermissionMode;
 
   constructor() {
     this.securityAnalyzer = new BashSecurityAnalyzer();
     this.sandboxManager = SandboxManager.getInstance();
     this.permissionManager = PermissionManager.getInstance();
+    this.permissionMode = 'default';
   }
 
   /**
@@ -69,24 +70,12 @@ export class SecurityIntegrationService {
     let permissionReason: string | undefined;
 
     if (toolName && input) {
-      const permissionDecision = await this.permissionManager.checkPermission(
-        toolName,
-        input
-      );
-      
-      switch (permissionDecision.type) {
-        case 'allow':
-          permissionBehavior = 'allow';
-          permissionReason = permissionDecision.reason;
-          break;
-        case 'deny':
-          permissionBehavior = 'deny';
-          permissionReason = permissionDecision.reason;
-          break;
-        case 'ask':
-          permissionBehavior = 'ask';
-          permissionReason = permissionDecision.reason;
-          break;
+      const allowed = this.permissionManager.checkToolPermission(toolName, input as Record<string, unknown>);
+      if (allowed) {
+        permissionBehavior = 'allow';
+      } else {
+        permissionBehavior = 'deny';
+        permissionReason = '权限拒绝';
       }
     }
 
@@ -97,13 +86,12 @@ export class SecurityIntegrationService {
     if (permissionBehavior === 'deny') {
       allowed = false;
       reason.push(permissionReason || '权限拒绝');
-    } else if (permissionBehavior === 'ask' || securityAnalysis.behavior === 'ask') {
+    }
+
+    if (securityAnalysis.behavior === 'ask') {
       allowed = false;
       if (securityAnalysis.message) {
         reason.push(securityAnalysis.message);
-      }
-      if (permissionReason) {
-        reason.push(permissionReason);
       }
     }
 
@@ -126,7 +114,7 @@ export class SecurityIntegrationService {
    * @param mode 权限模式
    */
   setPermissionMode(mode: PermissionMode): void {
-    this.permissionManager.setMode(mode);
+    this.permissionMode = mode;
   }
 
   /**
@@ -134,7 +122,7 @@ export class SecurityIntegrationService {
    * @returns 权限模式
    */
   getPermissionMode(): PermissionMode {
-    return this.permissionManager.getMode();
+    return this.permissionMode;
   }
 
   /**

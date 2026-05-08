@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 应用状态类型定义
  * 参考CC源码 cc_code/backend/state/AppStateStore.ts 实现
@@ -6,7 +5,7 @@
 
 import type { Tool, ToolPermissionContext } from '@modules/types/tool.js';
 import type { Command } from '@modules/types/command.js';
-import type { MCPServerConnection, ServerResource } from '@modules/mcp/types/index.js';
+import type { MCPServerConnectionInfo, ServerResource } from '@modules/mcp/types/index.js';
 import type { LoadedPlugin, PluginError } from '@modules/types/plugin.js';
 import type { TaskState } from '@modules/types/task.js';
 import type { AgentId } from '@modules/types/ids.js';
@@ -31,7 +30,7 @@ export type CompletionBoundary =
  * 推测结果
  */
 export type SpeculationResult = {
-  messages: any[]
+  messages: Record<string, unknown>[]
   boundary: CompletionBoundary | null
   timeSavedMs: number
 };
@@ -46,13 +45,13 @@ export type SpeculationState =
       id: string
       abort: () => void
       startTime: number
-      messagesRef: { current: any[] }
+      messagesRef: { current: Record<string, unknown>[] }
       writtenPathsRef: { current: Set<string> }
       boundary: CompletionBoundary | null
       suggestionLength: number
       toolUseCount: number
       isPipelined: boolean
-      contextRef: { current: any }
+      contextRef: { current: Record<string, unknown> }
       pipelinedSuggestion?: {
         text: string
         promptId: 'user_intent' | 'stated_intent'
@@ -163,7 +162,7 @@ export interface AppState {
   /** MCP状态 */
   mcp: {
     /** MCP客户端 */
-    clients: MCPServerConnection[];
+    clients: MCPServerConnectionInfo[];
     /** MCP工具 */
     tools: Tool[];
     /** MCP命令 */

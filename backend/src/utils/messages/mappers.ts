@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 消息格式转换工具
  * 参考CC源码 utils/messages/mappers.ts 实现
@@ -6,6 +5,7 @@
 
 import { randomUUID } from 'crypto';
 import type { Message, AssistantMessage, SystemMessage, UserMessage } from '@modules/chat/types/message.js';
+import { MessageRole, MessageType } from '@modules/chat/types/message.js';
 
 /**
  * SDK消息类型定义
@@ -62,24 +62,22 @@ export function toInternalMessages(messages: readonly SDKMessage[]): Message[] {
         return [
           {
             id: message.uuid || `msg_${Date.now()}`,
-            role: 'assistant',
+            role: MessageRole.ASSISTANT,
             content: message.message || '',
-            type: 'normal',
-            timestamp: message.timestamp ? new Date(message.timestamp).getTime() : Date.now(),
-            isMeta: false,
-            isCompactSummary: false,
+            type: MessageType.NORMAL,
+            createdAt: message.timestamp ? new Date(message.timestamp) : new Date(),
+            updatedAt: message.timestamp ? new Date(message.timestamp) : new Date(),
           } as AssistantMessage,
         ];
       case 'user':
         return [
           {
             id: message.uuid || `msg_${randomUUID()}`,
-            role: 'user',
+            role: MessageRole.USER,
             content: message.message || '',
-            type: 'normal',
-            timestamp: message.timestamp ? new Date(message.timestamp).getTime() : Date.now(),
-            isMeta: message.isSynthetic || false,
-            isCompactSummary: false,
+            type: MessageType.NORMAL,
+            createdAt: message.timestamp ? new Date(message.timestamp) : new Date(),
+            updatedAt: message.timestamp ? new Date(message.timestamp) : new Date(),
           } as UserMessage,
         ];
       case 'system':
@@ -88,13 +86,11 @@ export function toInternalMessages(messages: readonly SDKMessage[]): Message[] {
           return [
             {
               id: message.uuid || `sys_${Date.now()}`,
-              role: 'system',
+              role: MessageRole.SYSTEM,
               content: 'Conversation compacted',
-              type: 'system',
-              subtype: 'compact_boundary',
-              timestamp: Date.now(),
-              isMeta: false,
-              isCompactSummary: false,
+              type: MessageType.COMPACT_BOUNDARY,
+              createdAt: new Date(),
+              updatedAt: new Date(),
               metadata: {
                 compactMetadata: compactMsg.compact_metadata ? fromSDKCompactMetadata(compactMsg.compact_metadata) : undefined,
               },
@@ -117,37 +113,37 @@ export function toInternalMessages(messages: readonly SDKMessage[]): Message[] {
 export function toSDKMessages(messages: Message[], sessionId?: string): SDKMessage[] {
   return messages.flatMap((message): SDKMessage[] => {
     switch (message.role) {
-      case 'assistant':
+      case MessageRole.ASSISTANT:
         return [
           {
             type: 'assistant',
-            message: message.content,
+            message: typeof message.content === 'string' ? message.content : '',
             session_id: sessionId,
             parent_tool_use_id: null,
             uuid: message.id,
             error: undefined,
           },
         ];
-      case 'user':
+      case MessageRole.USER:
         return [
           {
             type: 'user',
-            message: message.content,
+            message: typeof message.content === 'string' ? message.content : '',
             session_id: sessionId,
             parent_tool_use_id: null,
             uuid: message.id,
-            timestamp: new Date(message.timestamp).toISOString(),
-            isSynthetic: message.isMeta || false,
+            timestamp: message.createdAt.toISOString(),
+            isSynthetic: message.metadata?.isSynthetic === true,
           },
         ];
-      case 'system':
-        if (message.subtype === 'compact_boundary' && message.metadata?.compactMetadata) {
+      case MessageRole.SYSTEM:
+        if (message.type === MessageType.COMPACT_BOUNDARY && message.metadata?.compactMetadata) {
           return [
             {
               type: 'system',
               subtype: 'compact_boundary',
               uuid: message.id,
-              compact_metadata: toSDKCompactMetadata(message.metadata.compactMetadata),
+              compact_metadata: toSDKCompactMetadata(message.metadata.compactMetadata as CompactMetadata),
             },
           ];
         }
@@ -204,7 +200,7 @@ export function fromSDKCompactMetadata(meta: SDKCompactMetadata): CompactMetadat
  * @returns 规范化的消息内容
  */
 export function normalizeAssistantMessageForSDK(message: AssistantMessage): string {
-  return message.content || '';
+  return typeof message.content === 'string' ? message.content : '';
 }
 
 /**

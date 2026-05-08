@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 插件版本检查器
  * 负责检查插件更新和管理版本历史
@@ -158,7 +157,8 @@ export class PluginVersionManager {
       }).trim();
       return sha.substring(0, 12);
     } catch (error) {
-      logger.error('Failed to get git version:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to get git version:', e);
       return 'unknown';
     }
   }
@@ -178,7 +178,8 @@ export class PluginVersionManager {
 
       return hash.digest('hex').substring(0, 12);
     } catch (error) {
-      logger.error('Failed to calculate version from content:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to calculate version from content:', e);
       return 'unknown';
     }
   }
@@ -207,7 +208,8 @@ export class PluginVersionManager {
         }
       }
     } catch (error) {
-      logger.error(`Failed to read directory ${dir}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to read directory ${dir}:`, e);
     }
 
     return files;

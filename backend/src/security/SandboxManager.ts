@@ -1,7 +1,6 @@
-// @ts-nocheck
 /**
- * 沙箱管理器
- * 提供沙箱环境，限制代码执行的权限和资源
+ * 沙箱管理�?
+ * 提供沙箱环境，限制代码执行的权限和资�?
  */
 
 import { logger } from '../utils/log.js';
@@ -11,49 +10,49 @@ import { logger } from '../utils/log.js';
  */
 export interface SandboxConfig {
   /**
-   * 允许的文件系统路径
+   * 允许的文件系统路�?
    */
   allowedPaths?: string[];
   /**
-   * 禁止的文件系统路径
+   * 禁止的文件系统路�?
    */
   forbiddenPaths?: string[];
   /**
-   * 允许的网络主机
+   * 允许的网络主�?
    */
   allowedHosts?: string[];
   /**
-   * 禁止的网络主机
+   * 禁止的网络主�?
    */
   forbiddenHosts?: string[];
   /**
-   * 最大执行时间（毫秒）
+   * 最大执行时间（毫秒�?
    */
   maxExecutionTime?: number;
   /**
-   * 最大内存使用（MB）
+   * 最大内存使用（MB�?
    */
   maxMemory?: number;
   /**
-   * 允许的环境变量
+   * 允许的环境变�?
    */
   allowedEnvVars?: string[];
   /**
-   * 禁止的环境变量
+   * 禁止的环境变�?
    */
   forbiddenEnvVars?: string[];
   /**
-   * 允许的系统命令
+   * 允许的系统命�?
    */
   allowedCommands?: string[];
   /**
-   * 禁止的系统命令
+   * 禁止的系统命�?
    */
   forbiddenCommands?: string[];
 }
 
 /**
- * 沙箱状态
+ * 沙箱状�?
  */
 export enum SandboxState {
   /**
@@ -61,15 +60,15 @@ export enum SandboxState {
    */
   UNINITIALIZED = 'uninitialized',
   /**
-   * 运行中
+   * 运行�?
    */
   RUNNING = 'running',
   /**
-   * 已暂停
+   * 已暂�?
    */
   PAUSED = 'paused',
   /**
-   * 已停止
+   * 已停�?
    */
   STOPPED = 'stopped',
   /**
@@ -79,7 +78,7 @@ export enum SandboxState {
 }
 
 /**
- * 沙箱管理器
+ * 沙箱管理�?
  */
 export class SandboxManager {
   private config: SandboxConfig;
@@ -111,7 +110,8 @@ export class SandboxManager {
       this.state = SandboxState.RUNNING;
       logger.info('Sandbox manager initialized');
     } catch (error) {
-      logger.error('Failed to initialize sandbox manager:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to initialize sandbox manager:', e);
       this.state = SandboxState.ERROR;
       throw error;
     }
@@ -136,7 +136,7 @@ export class SandboxManager {
       ...config,
     };
 
-    // 这里简化实现，实际应该创建真正的沙箱环境
+    // 这里简化实现，实际应该创建真正的沙箱环�?
     const sandbox = {
       id,
       config: sandboxConfig,
@@ -149,7 +149,7 @@ export class SandboxManager {
   }
 
   /**
-   * 销毁沙箱
+   * 销毁沙�?
    * @param id 沙箱ID
    */
   destroySandbox(id: string): void {
@@ -165,7 +165,7 @@ export class SandboxManager {
    * 执行代码
    * @param id 沙箱ID
    * @param code 要执行的代码
-   * @param context 执行上下文
+   * @param context 执行上下�?
    */
   async execute(id: string, code: string, context: any = {}): Promise<any> {
     if (this.state !== SandboxState.RUNNING) {
@@ -187,7 +187,8 @@ export class SandboxManager {
       logger.info(`Code executed successfully in sandbox ${id}`);
       return result;
     } catch (error) {
-      logger.error(`Failed to execute code in sandbox ${id}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to execute code in sandbox ${id}:`, e);
       throw error;
     }
   }
@@ -220,8 +221,8 @@ export class SandboxManager {
   }
 
   /**
-   * 检查网络访问权限
-   * @param host 主机名
+   * 检查网络访问权�?
+   * @param host 主机�?
    */
   checkNetworkAccess(host: string): boolean {
     // 检查禁止的主机
@@ -241,8 +242,8 @@ export class SandboxManager {
   }
 
   /**
-   * 检查命令执行权限
-   * @param command 命令名
+   * 检查命令执行权�?
+   * @param command 命令�?
    */
   checkCommandAccess(command: string): boolean {
     // 检查禁止的命令
@@ -262,8 +263,8 @@ export class SandboxManager {
   }
 
   /**
-   * 检查环境变量访问权限
-   * @param envVar 环境变量名
+   * 检查环境变量访问权�?
+   * @param envVar 环境变量�?
    */
   checkEnvironmentAccess(envVar: string): boolean {
     // 检查禁止的环境变量
@@ -283,7 +284,7 @@ export class SandboxManager {
   }
 
   /**
-   * 获取沙箱状态
+   * 获取沙箱状�?
    * @param id 沙箱ID
    */
   getSandboxState(id: string): SandboxState | undefined {
@@ -292,7 +293,7 @@ export class SandboxManager {
   }
 
   /**
-   * 获取所有沙箱
+   * 获取所有沙�?
    */
   getSandboxes(): Map<string, any> {
     return this.sandboxes;
@@ -330,13 +331,13 @@ export class SandboxManager {
   }
 
   /**
-   * 停止沙箱管理器
+   * 停止沙箱管理�?
    */
   async stop(): Promise<void> {
     try {
       logger.info('Stopping sandbox manager');
 
-      // 销毁所有沙箱
+      // 销毁所有沙�?
       for (const id of this.sandboxes.keys()) {
         this.destroySandbox(id);
       }
@@ -344,7 +345,8 @@ export class SandboxManager {
       this.state = SandboxState.STOPPED;
       logger.info('Sandbox manager stopped');
     } catch (error) {
-      logger.error('Failed to stop sandbox manager:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to stop sandbox manager:', e);
       this.state = SandboxState.ERROR;
       throw error;
     }
@@ -378,7 +380,7 @@ export class SandboxManager {
 }
 
 /**
- * 创建沙箱管理器
+ * 创建沙箱管理�?
  */
 export function createSandboxManager(
   config: SandboxConfig = {}

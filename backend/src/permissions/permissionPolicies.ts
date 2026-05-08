@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 权限策略限制
  * 实现危险命令检测、路径验证等权限策略
@@ -126,7 +125,8 @@ export function validatePath(
 
     return { isValid: true, reason: '' };
   } catch (error) {
-    logger.error('Error validating path:', error);
+    const e = error instanceof Error ? error : new Error(String(error));
+    logger.error('Error validating path:', e);
     return {
       isValid: false,
       reason: `Error validating path: ${(error as Error).message}`,

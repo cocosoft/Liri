@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 文件编辑工具（SearchReplace模式）
  * 基于CC源码 cc_code/backend/tools/FileEditTool 优化实现
@@ -152,20 +151,20 @@ export class FileEditTool extends BaseTool {
       const newLineCount = newString.split('\n').length;
       const linesChanged = Math.abs(newLineCount - oldLines);
 
-      return createToolResult(`File edited successfully: ${filePath}`, {
+      return createToolResult({
+        filePath,
+        linesChanged,
+        replaced: true,
+        oldStringFound: true,
+        replaceAll,
+      } as const, {
         newMessages: [
           {
             role: 'system',
             content: `Successfully edited file: ${filePath}${replaceAll ? ' (replaced all occurrences)' : ''}`,
           },
         ],
-        data: {
-          filePath,
-          linesChanged,
-          replaced: true,
-          oldStringFound: true,
-          replaceAll,
-        },
+        output: `File edited successfully: ${filePath}`,
       });
     } catch (error: any) {
       return createToolResult(error.message, {

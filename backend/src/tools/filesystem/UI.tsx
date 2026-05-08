@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Text } from '../../ink.js'
+import { Box, Text } from 'ink'
 
 export type FileEditOutput = {
   filePath?: string

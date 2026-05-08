@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Bash 工具
  *
@@ -143,9 +142,9 @@ export class BashTool extends BaseTool {
     },
   ];
 
-  aliases = ['sh', 'shell'];
-  searchHint = 'Execute shell commands with security checks';
-  maxResultSizeChars = 100000;
+  override aliases = ['sh', 'shell'];
+  override searchHint = 'Execute shell commands with security checks';
+  override maxResultSizeChars = 100000;
   searchTips = ['execute', 'command', 'shell', 'bash'];
 
   private securityAnalyzer: BashSecurityAnalyzer;
@@ -266,7 +265,9 @@ export class BashTool extends BaseTool {
       }
 
       // 执行命令
-      const { stdout, stderr } = await execAsync(command, execOptions);
+      const { stdout: rawStdout, stderr: rawStderr } = await execAsync(command, execOptions);
+      const stdout = rawStdout as string;
+      const stderr = rawStderr as string;
 
       const output = stdout + (stderr ? '\n' + stderr : '');
       const executionTime = ToolUtils.calculateExecutionTime(startTime);
@@ -324,7 +325,7 @@ export class BashTool extends BaseTool {
     options: ExecOptions
   ): Promise<{ stdout: string; stderr: string }> {
     const { stdout, stderr } = await execAsync(command, options);
-    return { stdout, stderr };
+    return { stdout: stdout as string, stderr: stderr as string };
   }
 
   /**
@@ -379,7 +380,7 @@ export class BashTool extends BaseTool {
   /**
    * 检查是否为只读命令
    */
-  isReadOnly(input?: Record<string, unknown>): boolean {
+  override isReadOnly(input?: Record<string, unknown>): boolean {
     const command = input?.command as string;
     return this.securityAnalyzer.isReadOnlyCommand(command);
   }
@@ -387,14 +388,14 @@ export class BashTool extends BaseTool {
   /**
    * 检查是否并发安全
    */
-  isConcurrencySafe(input?: Record<string, unknown>): boolean {
+  override isConcurrencySafe(input?: Record<string, unknown>): boolean {
     return false;
   }
 
   /**
    * 检查是否是搜索或读取命令
    */
-  isSearchOrReadCommand(input: Record<string, unknown>): {
+  override isSearchOrReadCommand(input: Record<string, unknown>): {
     isSearch: boolean;
     isRead: boolean;
     isList?: boolean;
@@ -415,7 +416,7 @@ export class BashTool extends BaseTool {
   /**
    * 准备权限匹配器
    */
-  async preparePermissionMatcher(
+  override async preparePermissionMatcher(
     input: Record<string, unknown>
   ): Promise<(pattern: string) => boolean> {
     const command = (input?.command as string) || '';
@@ -429,7 +430,7 @@ export class BashTool extends BaseTool {
   /**
    * 获取用户可见的工具名称
    */
-  userFacingName(input?: Partial<Record<string, unknown>>): string {
+  override userFacingName(input?: Partial<Record<string, unknown>>): string {
     const command = (input?.command as string) || '';
     if (command) {
       return `Bash: ${command}`;
@@ -440,14 +441,14 @@ export class BashTool extends BaseTool {
   /**
    * 获取工具用于自动分类器的输入
    */
-  toAutoClassifierInput(input: Record<string, unknown>): unknown {
+  override toAutoClassifierInput(input: Record<string, unknown>): unknown {
     return (input?.command as string) || '';
   }
 
   /**
    * 获取工具完整信息 - 对标CC源码 getInfo 实现
    */
-  getInfo(): {
+  override getInfo(): {
     name: string;
     description: string;
     params: ToolParam[];

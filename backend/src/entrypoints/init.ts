@@ -1,7 +1,6 @@
-// @ts-nocheck
 /**
- * 环境初始化入口
- * 负责应用的初始化配置和系统设置
+ * 环境初始化入�?
+ * 负责应用的初始化配置和系统设�?
  */
 
 import { enableConfigs } from '@modules/config';
@@ -14,7 +13,7 @@ const { gracefulShutdown, setupGracefulShutdown } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '../monitoring/index.js';
 
-// 记录入口点
+// 记录入口�?
 profileCheckpoint('cli_entry');
 
 // 记录导入完成
@@ -24,7 +23,7 @@ profileCheckpoint('main_imports_loaded');
 profileCheckpoint('env_vars_loaded');
 
 export async function init(): Promise<void> {
-  // 记录初始化开始
+  // 记录初始化开�?
   profileCheckpoint('init_function_start');
 
   // 1. 首先启用配置系统
@@ -40,7 +39,7 @@ export async function init(): Promise<void> {
   // 3. 并行初始化其他核心系统（优化：最大化并行度）
   const [toolsResult, pluginsResult, commandsResult, monitoringResult] =
     await Promise.all([
-      // 初始化工具系统
+      // 初始化工具系�?
       (async () => {
         profileCheckpoint('load_tools_start');
         const startTime = Date.now();
@@ -53,14 +52,14 @@ export async function init(): Promise<void> {
           }
           return { success: true, duration };
         } catch (error) {
-          console.warn('预加载工具系统失败:', error);
+          console.warn('预加载工具系统失�?', error);
           return { success: false, error };
         } finally {
           profileCheckpoint('load_tools_end');
         }
       })(),
 
-      // 初始化可扩展性服务（包含插件系统）
+      // 初始化可扩展性服务（包含插件系统�?
       (async () => {
         profileCheckpoint('load_plugins_start');
         const startTime = Date.now();
@@ -74,14 +73,14 @@ export async function init(): Promise<void> {
           }
           return { success: true, duration };
         } catch (error) {
-          console.warn('预加载插件系统失败:', error);
+          console.warn('预加载插件系统失�?', error);
           return { success: false, error };
         } finally {
           profileCheckpoint('load_plugins_end');
         }
       })(),
 
-      // 初始化命令系统
+      // 初始化命令系�?
       (async () => {
         profileCheckpoint('load_commands_start');
         const startTime = Date.now();
@@ -93,14 +92,14 @@ export async function init(): Promise<void> {
           }
           return { success: true, duration };
         } catch (error) {
-          console.warn('预加载命令系统失败:', error);
+          console.warn('预加载命令系统失�?', error);
           return { success: false, error };
         } finally {
           profileCheckpoint('load_commands_end');
         }
       })(),
 
-      // 初始化监控服务
+      // 初始化监控服�?
       (async () => {
         profileCheckpoint('load_monitoring_start');
         const startTime = Date.now();
@@ -113,7 +112,7 @@ export async function init(): Promise<void> {
           }
           return { success: true, duration };
         } catch (error) {
-          console.warn('预加载监控服务失败:', error);
+          console.warn('预加载监控服务失�?', error);
           return { success: false, error };
         } finally {
           profileCheckpoint('load_monitoring_end');
@@ -126,7 +125,7 @@ export async function init(): Promise<void> {
   startDeferredPrefetches();
   profileCheckpoint('start_deferred_prefetches_end');
 
-  // 记录初始化结束
+  // 记录初始化结�?
   profileCheckpoint('init_function_end');
 
   // 记录应用准备就绪
@@ -137,12 +136,12 @@ export async function init(): Promise<void> {
 }
 
 /**
- * 启动延迟预加载，不阻塞启动流程
+ * 启动延迟预加载，不阻塞启动流�?
  * 优化：将重量级模块的加载延迟到应用启动后执行
  */
 async function startDeferredPrefetches(): Promise<void> {
   try {
-    // 并行执行多个延迟预加载任务
+    // 并行执行多个延迟预加载任�?
     const prefetchTasks = [
       // 预加载系统上下文
       (async () => {
@@ -153,29 +152,28 @@ async function startDeferredPrefetches(): Promise<void> {
           void getSystemContext();
           void getUserContext();
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
-      // 预加载工具系统（如果尚未加载）
+      // 预加载工具系统（如果尚未加载�?
       (async () => {
         try {
-          const { getToolManager } = await import('../tools/index.js');
-          const toolManager = getToolManager();
-          if (toolManager) {
-            toolManager.getAllTools(); // 触发工具加载
+          const { globalToolManager } = await import('../tools/index.js');
+          if (globalToolManager) {
+            globalToolManager.getTools(); // 触发工具加载
           }
         } catch (error) {
           // 忽略预加载错误
         }
       })(),
 
-      // 预加载AI客户端
+      // 预加载AI客户�?
       (async () => {
         try {
           await import('../ai/clients/DeepSeekClient.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
@@ -184,7 +182,7 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           await import('../governance/managers/GovernanceManager.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
@@ -193,7 +191,7 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           await import('../sandbox/managers/SandboxManager.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
@@ -202,16 +200,16 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           await import('../utils/history.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
-      // 预加载UI增强器
+      // 预加载UI增强�?
       (async () => {
         try {
           await import('../ui/UIEnhancer.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
@@ -220,7 +218,7 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           await import('../session/SessionManager.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
@@ -229,7 +227,7 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           await import('../chat/ChatManager.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
@@ -238,16 +236,16 @@ async function startDeferredPrefetches(): Promise<void> {
         try {
           await import('../memory/MemoryManager.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
 
-      // 预加载文档系统
+      // 预加载文档系�?
       (async () => {
         try {
           await import('../docs/HelpSystem.js');
         } catch (error) {
-          // 忽略预加载错误
+          // 忽略预加载错�?
         }
       })(),
     ];
@@ -255,8 +253,8 @@ async function startDeferredPrefetches(): Promise<void> {
     // 并行执行所有预加载任务
     await Promise.allSettled(prefetchTasks);
   } catch (error) {
-    // 忽略预加载错误
-    console.warn('延迟预加载失败:', error);
+    // 忽略预加载错�?
+    console.warn('延迟预加载失�?', error);
   }
 }
 

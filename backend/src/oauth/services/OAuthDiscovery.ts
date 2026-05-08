@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * OAuth Discovery服务
  * 实现RFC 8414 OAuth 2.0授权服务器元数据发现
@@ -100,7 +99,8 @@ export class OAuthDiscovery {
       logger.info(`Successfully discovered OAuth metadata for ${issuer}`);
       return metadata;
     } catch (error) {
-      logger.error(`OAuth Discovery failed for ${issuer}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`OAuth Discovery failed for ${issuer}:`, e);
       throw new Error(
         `Failed to discover OAuth metadata: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

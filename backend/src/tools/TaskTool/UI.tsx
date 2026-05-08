@@ -1,6 +1,5 @@
-// @ts-nocheck
-import React from 'react'
-import { Box, Text } from '../../ink.js'
+// import React from 'react'
+import { Box, Text } from 'ink'
 
 export type TaskOutput = {
   taskId?: string

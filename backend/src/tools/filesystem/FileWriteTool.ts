@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 文件写入工具
  */
@@ -49,9 +48,9 @@ export class FileWriteTool extends BaseTool {
     },
   ];
 
-  aliases = ['write', 'echo'];
-  searchHint = 'Write content to a file';
-  maxResultSizeChars = 10000;
+  override aliases = ['write', 'echo'];
+  override searchHint = 'Write content to a file';
+  override maxResultSizeChars = 10000;
 
   async execute(
     input: Record<string, unknown>,
@@ -127,53 +126,34 @@ export class FileWriteTool extends BaseTool {
     }
   }
 
-  /**
-   * 检查是否为只读命令
-   */
-  isReadOnly(input?: Record<string, unknown>): boolean {
+  override isReadOnly(input?: Record<string, unknown>): boolean {
     return false; // 文件写入工具不是只读的
   }
 
-  /**
-   * 检查是否并发安全
-   */
-  isConcurrencySafe(input?: Record<string, unknown>): boolean {
+  override isConcurrencySafe(input?: Record<string, unknown>): boolean {
     return false; // 文件写入工具不是并发安全的
   }
 
-  /**
-   * 检查是否破坏性操作
-   */
-  isDestructive(input?: Record<string, unknown>): boolean {
+  override isDestructive(input?: Record<string, unknown>): boolean {
     return !input?.append; // 覆盖文件是破坏性操作，追加不是
   }
 
-  /**
-   * 获取工具操作的文件路径
-   */
-  getPath(input: Record<string, unknown>): string {
+  override getPath(input: Record<string, unknown>): string {
     return (input.file_path as string) || '';
   }
 
-  /**
-   * 准备权限匹配器
-   */
-  async preparePermissionMatcher(
+  override async preparePermissionMatcher(
     input: Record<string, unknown>
   ): Promise<(pattern: string) => boolean> {
     const filePath = (input?.file_path as string) || '';
     return (pattern: string) => {
-      // 简单的模式匹配，支持通配符
       const regexPattern = pattern.replace(/\*/g, '.*');
       const regex = new RegExp(`^${regexPattern}$`);
       return regex.test(filePath);
     };
   }
 
-  /**
-   * 获取用户可见的工具名称
-   */
-  userFacingName(input?: Partial<Record<string, unknown>>): string {
+  override userFacingName(input?: Partial<Record<string, unknown>>): string {
     const filePath = (input?.file_path as string) || '';
     if (filePath) {
       return `Write: ${filePath}`;
@@ -181,17 +161,11 @@ export class FileWriteTool extends BaseTool {
     return this.name;
   }
 
-  /**
-   * 获取工具用于自动分类器的输入
-   */
-  toAutoClassifierInput(input: Record<string, unknown>): unknown {
+  override toAutoClassifierInput(input: Record<string, unknown>): unknown {
     return (input?.file_path as string) || '';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(
+  override getActivityDescription(
     input?: Partial<Record<string, unknown>>
   ): string | null {
     const filePath = (input?.file_path as string) || '';
@@ -202,10 +176,7 @@ export class FileWriteTool extends BaseTool {
     return null;
   }
 
-  /**
-   * 获取工具使用摘要
-   */
-  getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
     const filePath = (input?.file_path as string) || '';
     const append = (input?.append as boolean) || false;
     if (filePath) {

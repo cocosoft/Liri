@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 延迟加载服务
  * 参考CC源码的延迟加载模式（如defer_loading工具、懒加载模块等）
@@ -285,7 +284,7 @@ export class LazyService {
       item.status = 'failed';
       item.error = (error as Error).message;
       
-      logger.error(`Lazy item failed: ${key}`, error);
+      logger.error(`Lazy item failed: ${key}`, error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -316,11 +315,14 @@ export class LazyService {
    * 检查是否过期
    */
   private isExpired<T>(item: LazyItem<T>): boolean {
-    if (!item.result || this.config.cacheExpiryMs === 0) {
+    if (!item.result) {
+      return false;
+    }
+    if (this.config.cacheExpiryMs === 0) {
       return false;
     }
 
-    return Date.now() - item.result.loadedAt > this.config.cacheExpiryMs;
+    return Date.now() - item.result!.loadedAt > (this.config.cacheExpiryMs ?? 0);
   }
 
   /**
@@ -342,9 +344,9 @@ export class LazyService {
       return;
     }
 
-    while (this.accessOrder.length > this.config.maxCacheSize) {
+    while (this.accessOrder.length > (this.config.maxCacheSize ?? 0)) {
       const oldestKey = this.accessOrder.shift();
-      if (oldestKey) {
+      if (oldestKey !== undefined) {
         this.invalidate(oldestKey);
       }
     }

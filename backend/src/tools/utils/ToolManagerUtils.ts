@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 工具管理工具
  * 提供函数式的工具管理方法
@@ -40,7 +39,7 @@ export function conditionalTool(condition: boolean, loader: ToolLoader): ToolLoa
 /**
  * 创建工具加载器
  */
-export function createToolLoader<T extends (...args: any[]) => Tool>(creator: T): ToolLoader {
+export function createToolLoader<T extends (...args: any[]) => Tool | null>(creator: T): ToolLoader {
   return (factory: ToolFactory) => {
     try {
       return creator.call(factory);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 多代理消息工具 SendMessageTool
  */
@@ -71,7 +70,7 @@ export class SendMessageTool extends BaseTool {
     },
   ];
 
-  isReadOnly(): boolean {
+  override isReadOnly(): boolean {
     return false;
   }
 

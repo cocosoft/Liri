@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * HTTP传输层
  * 基于HTTP的传输方式
@@ -34,7 +33,7 @@ export class HTTPTransport extends MCPTransport {
    * 连接
    * HTTP传输层不需要持久连接，直接返回成功
    */
-  async connect(): Promise<void> {
+  override async connect(): Promise<void> {
     await super.connect();
   }
 

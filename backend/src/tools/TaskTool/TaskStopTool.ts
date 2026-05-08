@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 任务停止工具
  * 参考CC源码 cc_code/backend/tools/TaskTool/TaskStopTool.ts 实现
@@ -70,42 +69,27 @@ export class TaskStopTool extends BaseTool<
     },
   ];
 
-  aliases = ['stop_task', 'kill_task'];
-  searchHint = 'Stop a running task by its ID';
-  maxResultSizeChars = 10000;
+  override aliases = ['stop_task', 'kill_task'];
+  override searchHint = 'Stop a running task by its ID';
+  override maxResultSizeChars = 10000;
 
-  /**
-   * 检查工具是否只读
-   */
-  isReadOnly(): boolean {
+  override isReadOnly(): boolean {
     return false;
   }
 
-  /**
-   * 检查工具是否破坏性操作
-   */
-  isDestructive(): boolean {
+  override isDestructive(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return false;
   }
 
-  /**
-   * 获取中断行为策略
-   */
-  interruptBehavior(): 'cancel' | 'block' {
+  override interruptBehavior(): 'cancel' | 'block' {
     return 'cancel';
   }
 
-  /**
-   * 验证输入
-   */
-  validateInput(input: TaskStopToolInput): ValidationResult {
+  override validateInput(input: TaskStopToolInput): ValidationResult {
     if (!input.task_id || typeof input.task_id !== 'string') {
       return {
         result: false,
@@ -117,10 +101,7 @@ export class TaskStopTool extends BaseTool<
     return { result: true };
   }
 
-  /**
-   * 获取用户可见的工具名称
-   */
-  userFacingName(input?: Partial<TaskStopToolInput>): string {
+  override userFacingName(input?: Partial<TaskStopToolInput>): string {
     const taskId = input?.task_id || '';
     if (taskId) {
       return `Task Stop: ${taskId}`;
@@ -128,10 +109,7 @@ export class TaskStopTool extends BaseTool<
     return this.name;
   }
 
-  /**
-   * 获取工具使用摘要
-   */
-  getToolUseSummary(input?: Partial<TaskStopToolInput>): string | null {
+  override getToolUseSummary(input?: Partial<TaskStopToolInput>): string | null {
     const taskId = input?.task_id || '';
     if (taskId) {
       return `Stop task ${taskId}`;
@@ -139,10 +117,7 @@ export class TaskStopTool extends BaseTool<
     return null;
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<TaskStopToolInput>): string | null {
+  override getActivityDescription(input?: Partial<TaskStopToolInput>): string | null {
     const taskId = input?.task_id || '';
     if (taskId) {
       return `Stopping task ${taskId}`;
@@ -150,10 +125,7 @@ export class TaskStopTool extends BaseTool<
     return null;
   }
 
-  /**
-   * 获取工具用于自动分类器的输入
-   */
-  toAutoClassifierInput(input: TaskStopToolInput): unknown {
+  override toAutoClassifierInput(input: TaskStopToolInput): unknown {
     return `stop ${input.task_id}`;
   }
 

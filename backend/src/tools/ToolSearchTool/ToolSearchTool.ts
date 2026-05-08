@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 工具搜索工具
  * 用于动态发现延迟加载的工具（MCP/shouldDefer）
@@ -250,27 +249,15 @@ export class ToolSearchTool extends BaseTool<ToolSearchInput, ToolSearchOutput> 
     },
   ];
 
-  /**
-   * 搜索提示
-   */
-  searchHint = 'search for deferred tools';
+  override searchHint = 'search for deferred tools';
 
-  /**
-   * 最大结果大小
-   */
-  maxResultSizeChars = 100_000;
+  override maxResultSizeChars = 100_000;
 
-  /**
-   * 检查工具是否只读
-   */
-  isReadOnly(): boolean {
+  override isReadOnly(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return true;
   }
 
@@ -352,17 +339,11 @@ export class ToolSearchTool extends BaseTool<ToolSearchInput, ToolSearchOutput> 
     );
   }
 
-  /**
-   * 获取用户可见的名称
-   */
-  userFacingName(): string {
+  override userFacingName(): string {
     return '工具搜索';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<ToolSearchInput>): string | null {
+  override getActivityDescription(input?: Partial<ToolSearchInput>): string | null {
     if (input?.query) {
       return `搜索工具: ${input.query}`;
     }

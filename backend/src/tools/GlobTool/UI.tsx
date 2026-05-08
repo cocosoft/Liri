@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * Glob工具UI组件
  * 基于CC源码 cc_code/backend/tools/GlobTool/UI.tsx 实现
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink.js';
+import { Box, Text } from 'ink';
 
 export interface GlobOutput {
   pattern: string;

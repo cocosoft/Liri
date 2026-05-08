@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 用户提问工具 AskUserQuestionTool
  */
@@ -81,7 +80,7 @@ export class AskUserQuestionTool extends BaseTool {
     },
   ];
 
-  isReadOnly(): boolean {
+  override isReadOnly(): boolean {
     return true;
   }
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 团队删除工具
  * 用于解散swarm团队并清理
@@ -71,52 +70,28 @@ export class TeamDeleteTool extends BaseTool<TeamDeleteInput, TeamDeleteOutput> 
     },
   ];
 
-  /**
-   * 搜索提示
-   */
-  searchHint = 'delete a swarm team';
+  override searchHint = 'delete a swarm team';
 
-  /**
-   * 最大结果大小
-   */
-  maxResultSizeChars = 100_000;
+  override maxResultSizeChars = 100_000;
 
-  /**
-   * 延迟加载
-   */
-  shouldDefer = true;
+  override shouldDefer = true;
 
-  /**
-   * 团队文件目录
-   */
   private teamDir: string;
 
-  /**
-   * 构造函数
-   */
   constructor() {
     super();
     this.teamDir = join(process.cwd(), '.teams');
   }
 
-  /**
-   * 检查工具是否启用
-   */
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     return process.env.ENABLE_TEAMMATE !== 'false'; // 默认启用
   }
 
-  /**
-   * 检查工具是否破坏性操作
-   */
-  isDestructive(): boolean {
+  override isDestructive(): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return false;
   }
 
@@ -235,17 +210,11 @@ export class TeamDeleteTool extends BaseTool<TeamDeleteInput, TeamDeleteOutput> 
     }
   }
 
-  /**
-   * 获取用户可见的名称
-   */
-  userFacingName(): string {
+  override userFacingName(): string {
     return '删除团队';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<TeamDeleteInput>): string | null {
+  override getActivityDescription(input?: Partial<TeamDeleteInput>): string | null {
     if (input?.team_name) {
       return `删除团队 ${input.team_name}`;
     }

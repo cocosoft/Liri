@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 插件组件加载器
  * 负责加载和管理插件中的各种组件
@@ -73,7 +72,8 @@ export class PluginComponentLoader {
 
       logger.info(`Loaded components for plugin: ${plugin.name}`);
     } catch (error) {
-      logger.error(`Failed to load components for plugin ${plugin.name}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to load components for plugin ${plugin.name}:`, e);
     }
   }
 
@@ -307,12 +307,13 @@ export class PluginComponentLoader {
         }
       }
     } catch (error) {
-      logger.error(`Failed to scan component directory ${directory}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to scan component directory ${directory}:`, e);
     }
   }
 
   /**
-   * 获取所有组件
+   * 加载组件文件
    */
   getAllComponents(): PluginComponentInfo[] {
     return Array.from(this.components.values());
@@ -360,7 +361,8 @@ export class PluginComponentLoader {
       component.loaded = true;
       return module;
     } catch (error) {
-      logger.error(`Failed to load component ${componentName}:`, error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error(`Failed to load component ${componentName}:`, e);
       throw error;
     }
   }
@@ -429,7 +431,8 @@ export class PluginComponentLoader {
         try {
           await this.loadComponent(component.pluginName, component.type, component.name);
         } catch (error) {
-          logger.error(`Failed to preload component ${component.name}:`, error);
+            const e = error instanceof Error ? error : new Error(String(error));
+            logger.error(`Failed to preload component ${component.name}:`, e);
         }
       }
     });

@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * 工具系统模块主入口（基于CC源码）
  * 导出所有工具系统组件和类型定义
  */
 
 // 导出类型定义
-export type { TOOL_SYSTEM_VERSION, ToolDefinition, ToolMetadata, ToolExecutionContext } from './types/ToolTypes';
+export type { ToolDefinition, ToolExecutionContext } from './types/ToolTypes';
 
 // 导入组件用于导出
 import { feature } from '@modules/core';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * StatuslineSetup 策略定义
  *
@@ -10,7 +9,7 @@
  * - 更新 ~/.claude/settings.json 中的 statusLine 设置
  */
 
-import type { BuiltInAgentDefinition } from '@modules/agent';
+import type { BuiltInAgentDefinition } from '../../../agent/models/types';
 
 export const STATUSLINE_SETUP_AGENT_TYPE = 'statusline-setup';
 

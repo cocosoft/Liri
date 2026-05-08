@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * QueryEngine核心
  * 基于现有ChatManager和其他组件实现查询引擎核心功能
@@ -44,8 +43,8 @@ import {
 import {
   TokenBudgetManager,
   TokenBudgetStatus,
-  getTokenCountFromUsage,
 } from '../services/tokenManagement/TokenBudgetManager.js';
+import { getTokenCountFromUsage } from '../services/tokenManagement/TokenCounter.js';
 import type { TokenUsage } from '../services/tokenManagement/TokenCounter.js';
 import {
   StopHookManager,
@@ -353,11 +352,11 @@ export class QueryEngine {
     const analyticsQueue = getGlobalAnalyticsQueue();
     this.costTracker = createCostAnalyticsTracker(analyticsQueue);
     setCostAnalyticsTracker(this.costTracker);
+    this.config = config;
     this.tokenBudgetManager = new TokenBudgetManager({
-      maxContextTokens: this.config.taskBudget?.total || 200_000,
+      maxContextTokens: config.taskBudget?.total || 200_000,
     });
     this.stopHookManager = createStopHookManager();
-    this.config = config;
   }
 
   /**

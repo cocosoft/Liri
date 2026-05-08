@@ -1,7 +1,6 @@
-// @ts-nocheck
 /**
  * MCP 服务器入口点
- * 实现 Model Context Protocol 服务器功能
+ * 实现 Model Context Protocol 服务器功�?
  */
 
 import { Server as McpServer } from '@modelcontextprotocol/sdk/server/index.js';
@@ -35,10 +34,10 @@ import { profileCheckpoint } from '../utils/startupProfiler';
 const MCP_COMMANDS: Command[] = [review];
 
 /**
- * 启动MCP服务器
+ * 启动MCP服务�?
  * @param cwd 工作目录
- * @param debug 是否开启调试模式
- * @param verbose 是否开启详细输出
+ * @param debug 是否开启调试模�?
+ * @param verbose 是否开启详细输�?
  */
 export async function startMCPServer(
   cwd: string,
@@ -47,8 +46,8 @@ export async function startMCPServer(
 ): Promise<void> {
   profileCheckpoint('mcp_start_server_start');
 
-  // 使用大小受限的LRU缓存来防止内存无限增长
-  // 100个文件和25MB限制应该足够MCP服务器操作
+  // 使用大小受限的LRU缓存来防止内存无限增�?
+  // 100个文件和25MB限制应该足够MCP服务器操�?
   const READ_FILE_STATE_CACHE_SIZE = 100;
   const readFileStateCache = createFileStateCacheWithSizeLimit(
     READ_FILE_STATE_CACHE_SIZE
@@ -60,7 +59,7 @@ export async function startMCPServer(
   // 创建工具管理器（只创建一次，避免重复初始化）
   const toolManager = createToolManager();
 
-  // 创建MCP服务器实例
+  // 创建MCP服务器实�?
   const server = new McpServer(
     {
       name: 'PY_APP/mcp',
@@ -73,7 +72,7 @@ export async function startMCPServer(
     }
   );
 
-  // 设置ListTools请求处理器
+  // 设置ListTools请求处理�?
   server.setRequestHandler(
     ListToolsRequestSchema,
     async (): Promise<ListToolsResult> => {
@@ -118,7 +117,8 @@ export async function startMCPServer(
           ),
         };
       } catch (error) {
-        logger.error('Error in ListTools handler:', error);
+        const e = error instanceof Error ? error : new Error(String(error));
+        logger.error('Error in ListTools handler:', e);
         return {
           tools: [],
         };
@@ -128,7 +128,7 @@ export async function startMCPServer(
     }
   );
 
-  // 设置CallTool请求处理器
+  // 设置CallTool请求处理�?
   server.setRequestHandler(
     CallToolRequestSchema,
     async ({ params: { name, arguments: args } }): Promise<CallToolResult> => {
@@ -149,7 +149,7 @@ export async function startMCPServer(
         };
       }
 
-      // 假设MCP服务器不会从工具调用参数中单独读取消息
+      // 假设MCP服务器不会从工具调用参数中单独读取消�?
       const toolUseContext: ToolUseContext = {
         abortController: createAbortController(),
         options: {
@@ -216,7 +216,8 @@ export async function startMCPServer(
           ],
         };
       } catch (error) {
-        logger.error(`Error executing tool ${name}:`, error);
+        const e = error instanceof Error ? error : new Error(String(error));
+        logger.error(`Error executing tool ${name}:`, e);
 
         const parts =
           error instanceof Error ? getErrorParts(error) : [String(error)];
@@ -238,13 +239,13 @@ export async function startMCPServer(
   );
 
   /**
-   * 运行MCP服务器
+   * 运行MCP服务�?
    */
   async function runServer() {
     profileCheckpoint('mcp_run_server_start');
     const transport = new StdioServerTransport();
 
-    // 处理服务器关闭
+    // 处理服务器关�?
     let exiting = false;
     const shutdownAndExit = async (): Promise<void> => {
       if (exiting) return;
@@ -272,7 +273,8 @@ export async function startMCPServer(
       logger.info('MCP server started successfully');
       profileCheckpoint('mcp_run_server_end');
     } catch (error) {
-      logger.error('Failed to start MCP server:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to start MCP server:', e);
       process.exit(1);
     }
   }

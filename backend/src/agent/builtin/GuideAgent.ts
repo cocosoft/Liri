@@ -1,11 +1,10 @@
-// @ts-nocheck
 /**
  * Guide内置Agent
  * 提供交互式学习指南
  */
 
 import { BuiltinAgentStrategy, BuiltinAgentConfig } from './types';
-import { AgentTask, AgentResponse, AgentContext, AgentState } from '@modules/models/types';
+import { AgentTask, AgentResponse, AgentContext, AgentState } from '@modules/agent/models/types';
 
 const GUIDE_AGENT_CONFIG: BuiltinAgentConfig = {
   type: 'py_app-guide',

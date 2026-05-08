@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 进入Worktree工具
  * 用于创建并切换到git worktree，为Agent创建隔离的工作区
@@ -74,25 +73,13 @@ export class EnterWorktreeTool extends BaseTool<
     },
   ];
 
-  /**
-   * 搜索提示
-   */
-  searchHint = 'create git worktree for isolated workspace';
+  override searchHint = 'create git worktree for isolated workspace';
 
-  /**
-   * 最大结果大小
-   */
-  maxResultSizeChars = 100_000;
+  override maxResultSizeChars = 100_000;
 
-  /**
-   * 延迟加载
-   */
-  shouldDefer = true;
+  override shouldDefer = true;
 
-  /**
-   * 检查工具是否启用
-   */
-  isEnabled(): boolean {
+  override isEnabled(): boolean {
     // 检查是否在git仓库中
     try {
       execSync('git rev-parse --git-dir', { stdio: 'pipe' });
@@ -102,17 +89,11 @@ export class EnterWorktreeTool extends BaseTool<
     }
   }
 
-  /**
-   * 检查工具是否破坏性操作
-   */
-  isDestructive(): boolean {
+  override isDestructive(): boolean {
     return false;
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return false;
   }
 
@@ -253,17 +234,11 @@ export class EnterWorktreeTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取用户可见的名称
-   */
-  userFacingName(): string {
+  override userFacingName(): string {
     return '进入Worktree';
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<EnterWorktreeInput>): string | null {
+  override getActivityDescription(input?: Partial<EnterWorktreeInput>): string | null {
     if (input?.slug) {
       return `创建worktree ${input.slug}`;
     }

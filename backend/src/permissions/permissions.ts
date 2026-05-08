@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 权限管理核心模块
  * 负责处理权限检查、规则匹配和自动模式决策
@@ -402,7 +401,8 @@ export async function checkRuleBasedPermissions(
     const parsedInput = tool.inputSchema.parse(input);
     toolPermissionResult = await tool.checkPermissions(parsedInput, context);
   } catch (error) {
-    logger.error('Error checking tool permissions:', error);
+    const e = error instanceof Error ? error : new Error(String(error));
+    logger.error('Error checking tool permissions:', e);
   }
 
   if (

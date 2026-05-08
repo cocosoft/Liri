@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ReadMcpResourceTool - 读取MCP服务器资源
  */
@@ -62,9 +61,7 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
   maxResultSizeChars: 100000,
   shouldDefer: true,
 
-  description() {
-    return DESCRIPTION;
-  },
+  description: DESCRIPTION,
 
   prompt() {
     return PROMPT;
@@ -74,7 +71,7 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
     return z.object({
       server: z.string().describe('The MCP server name'),
       uri: z.string().describe('The resource URI to read'),
-    });
+    }) as any;
   },
 
   get outputSchema() {
@@ -106,7 +103,7 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
     return `${input.server} ${input.uri}`;
   },
 
-  async call({ server: serverName, uri }, { mcpClients = [] }) {
+  async call({ server: serverName, uri }, { options: { mcpClients = [] } }) {
     const client = (mcpClients as MCPClient[]).find((c) => c.name === serverName);
 
     if (!client) {
@@ -139,7 +136,7 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
     return null;
   },
 
-  renderToolResultMessage({ contents }, _toolUseId) {
+  renderToolResultMessage({ contents }: { contents: ResourceContent[] }, _toolUseId: string) {
     if (!contents || contents.length === 0) {
       return (
         <Box flexDirection="column" marginTop={1}>
@@ -151,7 +148,7 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
     return (
       <Box flexDirection="column" marginTop={1}>
         <Text color="cyan">Resource Content:</Text>
-        {contents.map((content, index) => (
+        {contents.map((content: ResourceContent, index: number) => (
           <Box key={index} flexDirection="column" marginTop={1}>
             <Text color="white">URI: {content.uri}</Text>
             {content.mimeType && (
@@ -175,7 +172,7 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
     );
   },
 
-  mapToolResultToToolResultBlockParam(content, toolUseId) {
+  mapToolResultToToolResultBlockParam(content: Output, toolUseId: string) {
     return {
       tool_use_id: toolUseId,
       type: 'tool_result',

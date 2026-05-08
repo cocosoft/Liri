@@ -2,7 +2,7 @@
  * 内置Agent类型定义
  */
 
-import { AgentStrategy, AgentTask, AgentResponse, AgentContext } from '@modules/models/types';
+import { AgentStrategy, AgentResponse, AgentState, AgentTask, AgentContext } from '@modules/agent/models/types';
 
 export interface BuiltinAgentConfig {
   type: string;

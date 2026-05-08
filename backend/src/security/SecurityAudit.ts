@@ -1,7 +1,6 @@
-// @ts-nocheck
 /**
  * 安全审计
- * 记录安全事件和操作，便于后续分析和追踪
+ * 记录安全事件和操作，便于后续分析和追�?
  */
 
 import { logger } from '../utils/log.js';
@@ -23,7 +22,7 @@ export enum AuditEventType {
    */
   TOOL_EXECUTION = 'tool_execution',
   /**
-   * 权限检查
+   * 权限检�?
    */
   PERMISSION_CHECK = 'permission_check',
   /**
@@ -39,7 +38,7 @@ export enum AuditEventType {
    */
   INFO = 'info',
   /**
-   * 自定义
+   * 自定�?
    */
   CUSTOM = 'custom',
 }
@@ -85,7 +84,7 @@ export interface AuditEvent {
    */
   error?: string;
   /**
-   * 自定义数据
+   * 自定义数�?
    */
   data?: any;
   /**
@@ -111,14 +110,15 @@ export class SecurityAudit {
   }
 
   /**
-   * 初始化安全审计
+   * 初始化安全审�?
    */
   async init(): Promise<void> {
     try {
       logger.info('Initializing security audit');
       logger.info('Security audit initialized');
     } catch (error) {
-      logger.error('Failed to initialize security audit:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to initialize security audit:', e);
       throw error;
     }
   }
@@ -135,7 +135,7 @@ export class SecurityAudit {
       ...event,
     };
 
-    // 添加事件到列表
+    // 添加事件到列�?
     this.events.push(auditEvent);
 
     // 限制事件数量
@@ -143,7 +143,7 @@ export class SecurityAudit {
       this.events.shift();
     }
 
-    // 记录到日志
+    // 记录到日�?
     this.logToLogger(auditEvent);
 
     return eventId;
@@ -158,7 +158,7 @@ export class SecurityAudit {
   }
 
   /**
-   * 记录到日志
+   * 记录到日�?
    * @param event 审计事件
    */
   private logToLogger(event: AuditEvent): void {
@@ -178,7 +178,7 @@ export class SecurityAudit {
 
     switch (event.type) {
       case AuditEventType.ERROR:
-        logger.error(message, metadata);
+        logger.error(message, undefined, metadata);
         break;
       case AuditEventType.WARNING:
         logger.warn(message, metadata);
@@ -240,7 +240,7 @@ export class SecurityAudit {
    * @param toolName 工具名称
    * @param result 结果
    * @param error 错误信息
-   * @param data 自定义数据
+   * @param data 自定义数�?
    */
   logToolExecution(
     userId: string,
@@ -261,11 +261,11 @@ export class SecurityAudit {
   }
 
   /**
-   * 记录权限检查事件
+   * 记录权限检查事�?
    * @param userId 用户ID
    * @param permission 权限名称
    * @param result 结果
-   * @param data 自定义数据
+   * @param data 自定义数�?
    */
   logPermissionCheck(
     userId: string,
@@ -288,7 +288,7 @@ export class SecurityAudit {
    * @param description 描述
    * @param error 错误信息
    * @param userId 用户ID
-   * @param data 自定义数据
+   * @param data 自定义数�?
    */
   logError(
     description: string,
@@ -309,7 +309,7 @@ export class SecurityAudit {
    * 记录警告事件
    * @param description 描述
    * @param userId 用户ID
-   * @param data 自定义数据
+   * @param data 自定义数�?
    */
   logWarning(description: string, userId?: string, data?: any): string {
     return this.logEvent({
@@ -324,7 +324,7 @@ export class SecurityAudit {
    * 记录信息事件
    * @param description 描述
    * @param userId 用户ID
-   * @param data 自定义数据
+   * @param data 自定义数�?
    */
   logInfo(description: string, userId?: string, data?: any): string {
     return this.logEvent({
@@ -336,9 +336,9 @@ export class SecurityAudit {
   }
 
   /**
-   * 记录自定义事件
+   * 记录自定义事�?
    * @param description 描述
-   * @param data 自定义数据
+   * @param data 自定义数�?
    * @param userId 用户ID
    */
   logCustom(description: string, data?: any, userId?: string): string {
@@ -351,7 +351,7 @@ export class SecurityAudit {
   }
 
   /**
-   * 获取所有事件
+   * 获取所有事�?
    */
   getEvents(): AuditEvent[] {
     return [...this.events];
@@ -382,7 +382,7 @@ export class SecurityAudit {
 
   /**
    * 根据时间范围获取事件
-   * @param start 开始时间
+   * @param start 开始时�?
    * @param end 结束时间
    */
   getEventsByTimeRange(start: Date, end: Date): AuditEvent[] {
@@ -434,7 +434,7 @@ export class SecurityAudit {
 
   /**
    * 生成审计报告
-   * @param start 开始时间
+   * @param start 开始时�?
    * @param end 结束时间
    */
   generateReport(
@@ -458,13 +458,13 @@ export class SecurityAudit {
       topUsers: this.getTopUsers(events),
     };
 
-    // 按类型统计事件
+    // 按类型统计事�?
     for (const event of events) {
       report.eventsByType[event.type] =
         (report.eventsByType[event.type] || 0) + 1;
     }
 
-    // 按用户统计事件
+    // 按用户统计事�?
     for (const event of events) {
       if (event.userId) {
         report.eventsByUser[event.userId] =
@@ -522,7 +522,8 @@ export class SecurityAudit {
       this.clearEvents();
       logger.info('Security audit stopped');
     } catch (error) {
-      logger.error('Failed to stop security audit:', error);
+      const e = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to stop security audit:', e);
       throw error;
     }
   }
@@ -535,8 +536,8 @@ export class SecurityAudit {
   }
 
   /**
-   * 设置最大事件数量
-   * @param maxEvents 最大事件数量
+   * 设置最大事件数�?
+   * @param maxEvents 最大事件数�?
    */
   setMaxEvents(maxEvents: number): void {
     this.maxEvents = maxEvents;

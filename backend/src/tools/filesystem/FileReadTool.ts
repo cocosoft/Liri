@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 文件读取工具
  */
@@ -49,9 +48,9 @@ export class FileReadTool extends BaseTool {
     },
   ];
 
-  aliases = ['read', 'cat'];
-  searchHint = 'Read content from a file';
-  maxResultSizeChars = Infinity; // 读取工具不需要限制结果大小
+  override aliases = ['read', 'cat'];
+  override searchHint = 'Read content from a file';
+  override maxResultSizeChars = Infinity; // 读取工具不需要限制结果大小
 
   async execute(
     input: Record<string, unknown>,
@@ -141,24 +140,15 @@ export class FileReadTool extends BaseTool {
     }
   }
 
-  /**
-   * 检查是否为只读命令
-   */
-  isReadOnly(input?: Record<string, unknown>): boolean {
+  override isReadOnly(input?: Record<string, unknown>): boolean {
     return true; // 文件读取工具始终是只读的
   }
 
-  /**
-   * 检查是否并发安全
-   */
-  isConcurrencySafe(input?: Record<string, unknown>): boolean {
+  override isConcurrencySafe(input?: Record<string, unknown>): boolean {
     return true; // 文件读取工具是并发安全的
   }
 
-  /**
-   * 检查是否是搜索或读取命令
-   */
-  isSearchOrReadCommand(input: Record<string, unknown>): {
+  override isSearchOrReadCommand(input: Record<string, unknown>): {
     isSearch: boolean;
     isRead: boolean;
     isList?: boolean;
@@ -166,32 +156,22 @@ export class FileReadTool extends BaseTool {
     return { isSearch: false, isRead: true }; // 文件读取工具是读取命令
   }
 
-  /**
-   * 获取工具操作的文件路径
-   */
-  getPath(input: Record<string, unknown>): string {
+  override getPath(input: Record<string, unknown>): string {
     return (input.file_path as string) || '';
   }
 
-  /**
-   * 准备权限匹配器
-   */
-  async preparePermissionMatcher(
+  override async preparePermissionMatcher(
     input: Record<string, unknown>
   ): Promise<(pattern: string) => boolean> {
     const filePath = (input?.file_path as string) || '';
     return (pattern: string) => {
-      // 简单的模式匹配，支持通配符
       const regexPattern = pattern.replace(/\*/g, '.*');
       const regex = new RegExp(`^${regexPattern}$`);
       return regex.test(filePath);
     };
   }
 
-  /**
-   * 获取用户可见的工具名称
-   */
-  userFacingName(input?: Partial<Record<string, unknown>>): string {
+  override userFacingName(input?: Partial<Record<string, unknown>>): string {
     const filePath = (input?.file_path as string) || '';
     if (filePath) {
       return `Read: ${filePath}`;
@@ -199,10 +179,7 @@ export class FileReadTool extends BaseTool {
     return this.name;
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(
+  override getActivityDescription(
     input?: Partial<Record<string, unknown>>
   ): string | null {
     const filePath = (input?.file_path as string) || '';
@@ -212,10 +189,7 @@ export class FileReadTool extends BaseTool {
     return null;
   }
 
-  /**
-   * 获取工具使用摘要
-   */
-  getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
     const filePath = (input?.file_path as string) || '';
     if (filePath) {
       return `Read file: ${filePath}`;
@@ -223,10 +197,7 @@ export class FileReadTool extends BaseTool {
     return null;
   }
 
-  /**
-   * 获取工具用于自动分类器的输入
-   */
-  toAutoClassifierInput(input: Record<string, unknown>): unknown {
+  override toAutoClassifierInput(input: Record<string, unknown>): unknown {
     return (input?.file_path as string) || '';
   }
 }

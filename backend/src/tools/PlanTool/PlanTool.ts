@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * 计划模式工具
  * 参考CC源码 cc_code/backend/utils/planModeV2.ts 实现
@@ -147,34 +146,22 @@ export class PlanTool extends BaseTool<
     },
   ];
 
-  aliases = ['planning', 'schedule', 'project'];
-  searchHint = 'Create, manage, and execute plans';
-  maxResultSizeChars = 100000;
+  override aliases = ['planning', 'schedule', 'project'];
+  override searchHint = 'Create, manage, and execute plans';
+  override maxResultSizeChars = 100000;
 
-  /**
-   * 模拟计划存储
-   */
   private plans: Map<string, PlanData> = new Map();
 
-  /**
-   * 检查工具是否只读
-   */
-  isReadOnly(input?: Record<string, unknown>): boolean {
+  override isReadOnly(input?: Record<string, unknown>): boolean {
     const action = (input?.action as string) || '';
     return action === 'list' || action === 'get';
   }
 
-  /**
-   * 检查工具是否并发安全
-   */
-  isConcurrencySafe(): boolean {
+  override isConcurrencySafe(): boolean {
     return false;
   }
 
-  /**
-   * 验证输入
-   */
-  validateInput(input: PlanToolInput): ValidationResult {
+  override validateInput(input: PlanToolInput): ValidationResult {
     const validActions = ['create', 'list', 'get', 'update', 'delete', 'execute'];
 
     if (!input.action || !validActions.includes(input.action)) {
@@ -212,10 +199,7 @@ export class PlanTool extends BaseTool<
     return { result: true };
   }
 
-  /**
-   * 获取用户可见的工具名称
-   */
-  userFacingName(input?: Partial<PlanToolInput>): string {
+  override userFacingName(input?: Partial<PlanToolInput>): string {
     const action = input?.action || '';
     switch (action) {
       case 'create':
@@ -235,10 +219,7 @@ export class PlanTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取工具使用摘要
-   */
-  getToolUseSummary(input?: Partial<PlanToolInput>): string | null {
+  override getToolUseSummary(input?: Partial<PlanToolInput>): string | null {
     const action = input?.action || '';
     switch (action) {
       case 'create':
@@ -258,10 +239,7 @@ export class PlanTool extends BaseTool<
     }
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(input?: Partial<PlanToolInput>): string | null {
+  override getActivityDescription(input?: Partial<PlanToolInput>): string | null {
     const action = input?.action || '';
     switch (action) {
       case 'create':
@@ -312,10 +290,7 @@ export class PlanTool extends BaseTool<
     return sorted;
   }
 
-  /**
-   * 获取工具用于自动分类器的输入
-   */
-  toAutoClassifierInput(input: PlanToolInput): unknown {
+  override toAutoClassifierInput(input: PlanToolInput): unknown {
     return `${input.action} ${input.plan_id || input.name || ''}`;
   }
 

@@ -7,6 +7,8 @@ import type { ToolResult } from './ToolResult';
 import type { PermissionResult } from './PermissionResult';
 import type { ToolProgressData } from './ToolProgress';
 
+export type { ToolResult };
+
 /**
  * 验证结果类型
  */
@@ -34,6 +36,8 @@ export interface ToolParam {
   default?: any;
   enum?: string[];
   example?: any;
+  minimum?: number;
+  maximum?: number;
 }
 
 /**
@@ -350,6 +354,11 @@ export type ToolDef<
   | 'toAutoClassifierInput'
   | 'userFacingName'
   | 'getInfo'
+  | 'description'
+  | 'inputSchema'
+  | 'outputSchema'
+  | 'execute'
+  | 'params'
 > &
   Partial<
     Pick<
@@ -361,8 +370,19 @@ export type ToolDef<
       | 'checkPermissions'
       | 'toAutoClassifierInput'
       | 'userFacingName'
+      | 'description'
+      | 'inputSchema'
+      | 'outputSchema'
+      | 'execute'
+      | 'params'
     >
-  >;
+  > & {
+    prompt?: string | (() => string);
+    renderToolUseMessage?: () => any;
+    renderToolResultMessage?: (output: Output, toolUseId: string) => any;
+    renderToolUseRejectedMessage?: () => any;
+    renderToolUseErrorMessage?: () => any;
+  };
 
 /**
  * 工具默认值

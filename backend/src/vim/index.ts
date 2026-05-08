@@ -1,10 +1,9 @@
-// @ts-nocheck
 export { handleVimKey, createVimState } from './vimInput'
 export type { VimState, VimMode, VimOperator, VimContext } from './vimInput'
 export { useVimInput } from './useVimInput'
 export type { UseVimInputOptions, VimInputResult } from './useVimInput'
-export { VimRegisters, createVimRegisters, vimRegisters } from './registers'
-export type { Register, RegisterName } from './registers'
+export { Register as VimRegisters, createVimRegisters, registerManager as vimRegisters } from './registers'
+export type { RegisterType as RegisterName } from './registers'
 
 // 新增模块导出
 export { MacroManager, createMacroManager, macroManager } from './macros'

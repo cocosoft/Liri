@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * WebSearch 工具
  *
@@ -14,6 +13,7 @@ import type {
   ToolParam,
   ToolCallProgress,
   InterruptBehavior,
+  ValidationResult,
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
 
@@ -71,19 +71,15 @@ export class WebSearchTool extends BaseTool {
     },
   ];
 
-  aliases = ['search', 'google', 'ddg', 'duckduckgo', 'bing'];
-  searchHint = 'Search the web for information';
-  maxResultSizeChars = 100000;
+  override aliases = ['search', 'google', 'ddg', 'duckduckgo', 'bing'];
+  override searchHint = 'Search the web for information';
+  override maxResultSizeChars = 100000;
 
   constructor() {
     super();
   }
 
-  /**
-   * 验证输入
-   * 使用Zod Schema进行运行时验证
-   */
-  validateInput(input: any): { result: boolean; message?: string } {
+  override validateInput(input: any): ValidationResult {
     const result = WebSearchInputSchema.safeParse(input);
     if (!result.success) {
       const errors = result.error.issues
@@ -94,35 +90,19 @@ export class WebSearchTool extends BaseTool {
     return { result: true };
   }
 
-  /**
-   * 检查工具是否只读
-   * 搜索是只读操作
-   */
-  isReadOnly(input?: Record<string, unknown>): boolean {
+  override isReadOnly(input?: Record<string, unknown>): boolean {
     return true;
   }
 
-  /**
-   * 检查工具是否并发安全
-   * 搜索请求可以并发
-   */
-  isConcurrencySafe(input?: Record<string, unknown>): boolean {
+  override isConcurrencySafe(input?: Record<string, unknown>): boolean {
     return true;
   }
 
-  /**
-   * 中断行为策略
-   * 搜索可以被取消
-   */
-  interruptBehavior(): InterruptBehavior {
+  override interruptBehavior(): InterruptBehavior {
     return 'cancel';
   }
 
-  /**
-   * 获取工具操作的文件路径
-   * 返回查询字符串作为路径标识
-   */
-  getPath(input: Record<string, unknown>): string {
+  override getPath(input: Record<string, unknown>): string {
     return (input?.query as string) || '';
   }
 
@@ -479,20 +459,14 @@ export class WebSearchTool extends BaseTool {
     return text.length > 100 ? text.substring(0, 97) + '...' : text;
   }
 
-  /**
-   * 获取用于自动分类器的输入
-   */
-  toAutoClassifierInput(input: Record<string, unknown>): unknown {
+  override toAutoClassifierInput(input: Record<string, unknown>): unknown {
     return {
       query: input.query,
       maxResults: input.maxResults || 10,
     };
   }
 
-  /**
-   * 获取用户可见的工具名称
-   */
-  userFacingName(input?: Partial<Record<string, unknown>>): string {
+  override userFacingName(input?: Partial<Record<string, unknown>>): string {
     const query = (input?.query as string) || '';
     if (query) {
       return `Web Search: ${query}`;
@@ -500,10 +474,7 @@ export class WebSearchTool extends BaseTool {
     return this.name;
   }
 
-  /**
-   * 获取活动描述
-   */
-  getActivityDescription(
+  override getActivityDescription(
     input?: Partial<Record<string, unknown>>
   ): string | null {
     const query = (input?.query as string) || '';
@@ -513,10 +484,7 @@ export class WebSearchTool extends BaseTool {
     return null;
   }
 
-  /**
-   * 获取工具使用摘要
-   */
-  getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
     const query = (input?.query as string) || '';
     if (query) {
       return `Search web for: ${query}`;
@@ -532,10 +500,7 @@ export class WebSearchTool extends BaseTool {
     return `Searching for: ${query}`;
   }
 
-  /**
-   * 检查工具是否是搜索或读取命令
-   */
-  isSearchOrReadCommand(input: Record<string, unknown>): {
+  override isSearchOrReadCommand(input: Record<string, unknown>): {
     isSearch: boolean;
     isRead: boolean;
     isList?: boolean;

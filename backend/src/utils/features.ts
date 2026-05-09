@@ -74,8 +74,8 @@ export function isFeatureEnabled(flag: FeatureFlagName): boolean {
  * 获取所有功能开关状态
  * @returns 功能开关状态映射
  */
-export function getFeatureFlags(): Record<FeatureFlag, boolean> {
-  const flags: Record<FeatureFlag, boolean> = {} as Record<FeatureFlag, boolean>;
+export function getFeatureFlags(): Record<string, boolean> {
+  const flags: Record<string, boolean> = {};
   
   Object.values(FeatureFlag).forEach(feature => {
     flags[feature] = isFeatureEnabled(feature);
@@ -106,14 +106,11 @@ export function isTestMode(): boolean {
  * 如果功能启用则返回值，否则返回null
  * 类似于CC源码的feature()函数模式
  */
-export function conditionalTool<T>(flag: FeatureFlag, tool: T | null): T | null {
+export function conditionalTool<T>(flag: FeatureFlagName, tool: T | null): T | null {
   return isFeatureEnabled(flag) ? tool : null;
 }
 
-/**
- * 条件启用多个工具
- */
-export function conditionalTools<T>(flag: FeatureFlag, tools: T[]): T[] {
+export function conditionalTools<T>(flag: FeatureFlagName, tools: T[]): T[] {
   return isFeatureEnabled(flag) ? tools : [];
 }
 
@@ -135,14 +132,11 @@ export function isSimpleMode(): boolean {
  * 检查是否启用工作树模式
  */
 export function isWorktreeModeEnabled(): boolean {
-  return isFeatureEnabled(FeatureFlag.ENABLE_KAIROS);
+  return isFeatureEnabled(FeatureFlag.KAIROS);
 }
 
-/**
- * 检查是否启用Agent Swarms
- */
 export function isAgentSwarmsEnabled(): boolean {
-  return isFeatureEnabled(FeatureFlag.ENABLE_KAIROS);
+  return isFeatureEnabled(FeatureFlag.KAIROS);
 }
 
 /**
@@ -151,6 +145,44 @@ export function isAgentSwarmsEnabled(): boolean {
 export function isTodoV2Enabled(): boolean {
   return isFeatureEnabled(FeatureFlag.ENABLE_WORKFLOWS);
 }
+
+const FEATURE_DEFAULTS: Record<string, boolean> = {
+  ENABLE_PLUGINS: false,
+  ENABLE_SKILLS: false,
+  ENABLE_MCP: false,
+  ENABLE_WORKFLOWS: false,
+  ENABLE_ADVANCED_COMMANDS: false,
+  AGENT_TRIGGERS: false,
+  AGENT_TRIGGERS_REMOTE: false,
+  PROACTIVE: false,
+  KAIROS: false,
+  MONITOR_TOOL: false,
+  CONTEXT_COLLAPSE: false,
+  HISTORY_SNIP: false,
+  VOICE_MODE: false,
+  BRIDGE_MODE: false,
+  ENABLE_LSP_TOOL: false,
+  ENABLE_REPL: false,
+  ENABLE_VERIFY_PLAN: false,
+  ENABLE_TEST_MODE: false,
+  ENABLE_KAIROS_PUSH_NOTIFICATION: false,
+  ENABLE_KAIROS_GITHUB_WEBHOOKS: false,
+  ENABLE_TERMINAL_PANEL: false,
+  ENABLE_WEB_BROWSER_TOOL: false,
+  ENABLE_COORDINATOR_MODE: false,
+  ENABLE_UDS_INBOX: false,
+  ENABLE_WORKFLOW_SCRIPTS: false,
+  ENABLE_OVERFLOW_TEST_TOOL: false,
+  [FeatureFlag.ENABLE_SIMPLE_MODE]: false,
+  [FeatureFlag.USER_TYPE_ANT]: false,
+  ENABLE_CACHE: true,
+  ENABLE_MEMORY_MONITORING: true,
+  ENABLE_PERFORMANCE_TRACKING: true,
+  ENABLE_PERMISSION_CHECKS: true,
+  ENABLE_SECURITY_SCAN: true,
+  ENABLE_DEBUG_MODE: false,
+  ENABLE_DEV_FEATURES: false,
+};
 
 let growthBookIntegrationInitialized = false
 
@@ -186,7 +218,7 @@ export function getFeatureValueByGrowthBook<T>(feature: string, defaultValue: T)
   return mgr.getFlagCached<T>(feature, defaultValue)
 }
 
-export function evaluateFeatureFlag(feature: FeatureFlag): boolean {
+export function evaluateFeatureFlag(feature: FeatureFlagName): boolean {
   const envValue = process.env[feature]
   if (envValue !== undefined) {
     return envValue === 'true'

@@ -30,7 +30,7 @@ export function emptyFrame(
   return {
     screen: createScreen(0, 0, stylePool, charPool, hyperlinkPool),
     viewport: { width: columns, height: rows },
-    cursor: { x: 0, y: 0, visible: true },
+    cursor: { x: 0, y: 0, visible: true, save: () => {}, restore: () => {}, moveTo: (_x: number, _y: number) => {}, reset: () => {} },
   }
 }
 

@@ -13,6 +13,8 @@ import { PermissionMode } from '@modules/permissions/PermissionMode';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';
 
+type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
+
 /**
  * 工具名称常量
  */
@@ -40,7 +42,7 @@ export function parseAgentFromMarkdown(
   baseDir: string,
   frontmatter: Record<string, unknown>,
   content: string,
-  source: SettingSource
+  source: NonPluginSource
 ): CustomAgentDefinition | null {
   try {
     const agentType = frontmatter['name'];
@@ -222,7 +224,7 @@ export function parseAgentFromMarkdown(
 
     return agentDef;
   } catch (error) {
-    logger.error(`Error parsing agent from ${filePath}:`, error);
+    logger.error(`Error parsing agent from ${filePath}:`, error as Error);
     return null;
   }
 }
@@ -233,7 +235,7 @@ export function parseAgentFromMarkdown(
 export function parseAgentFromJson(
   name: string,
   definition: any,
-  source: SettingSource = 'flagSettings'
+  source: NonPluginSource = 'flagSettings'
 ): CustomAgentDefinition | null {
   try {
     const { description, tools, disallowedTools, prompt, model, effort, permissionMode, mcpServers, hooks, maxTurns, skills, initialPrompt, background, memory, isolation } = definition;
@@ -293,7 +295,7 @@ export function parseAgentFromJson(
 
     return agent;
   } catch (error) {
-    logger.error(`Error parsing agent '${name}' from JSON:`, error);
+    logger.error(`Error parsing agent '${name}' from JSON:`, error as Error);
     return null;
   }
 }
@@ -303,7 +305,7 @@ export function parseAgentFromJson(
  */
 export function parseAgentsFromJson(
   agentsJson: any,
-  source: SettingSource = 'flagSettings'
+  source: NonPluginSource = 'flagSettings'
 ): CustomAgentDefinition[] {
   try {
     if (typeof agentsJson !== 'object' || agentsJson === null) {
@@ -315,7 +317,7 @@ export function parseAgentsFromJson(
       .map(([name, def]) => parseAgentFromJson(name, def, source))
       .filter((agent): agent is CustomAgentDefinition => agent !== null);
   } catch (error) {
-    logger.error('Error parsing agents from JSON:', error);
+    logger.error('Error parsing agents from JSON:', error as Error);
     return [];
   }
 }

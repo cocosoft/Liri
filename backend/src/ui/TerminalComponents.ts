@@ -28,7 +28,7 @@ export class TerminalComponents {
   public static printHeader(
     title?: string,
     width?: number,
-    color: chalk.Chalk = chalk.cyan
+    color: typeof chalk = chalk.cyan
   ): void {
     const w = width || this.DEFAULT_WIDTH;
     const displayTitle = title || '';
@@ -43,7 +43,7 @@ export class TerminalComponents {
   public static printBox(
     content: string[],
     width?: number,
-    borderColor: chalk.Chalk = chalk.cyan
+    borderColor: typeof chalk = chalk.cyan
   ): void {
     const w = width || this.DEFAULT_WIDTH;
 
@@ -134,7 +134,7 @@ export class TerminalComponents {
 
   public static printList(
     items: string[],
-    options?: { bullet?: string; color?: chalk.Chalk; indent?: number }
+    options?: { bullet?: string; color?: typeof chalk; indent?: number }
   ): void {
     const bullet = options?.bullet || '•';
     const color = options?.color || chalk.white;
@@ -211,8 +211,8 @@ export class TerminalComponents {
   public static printKeyValue(
     data: Array<{ key: string; value: string } | [string, string]>,
     options?: {
-      keyColor?: chalk.Chalk;
-      valueColor?: chalk.Chalk;
+      keyColor?: typeof chalk;
+      valueColor?: typeof chalk;
       indent?: number;
     }
   ): void {
@@ -262,7 +262,7 @@ export class TerminalComponents {
 
   public static printBadge(
     text: string,
-    options?: { color?: chalk.Chalk; background?: chalk.Chalk }
+    options?: { color?: typeof chalk; background?: typeof chalk }
   ): void {
     const color = options?.color || chalk.white;
     const background = options?.background || chalk.bgBlue;
@@ -277,7 +277,7 @@ export class TerminalComponents {
 
   public static printInfo(
     message: string,
-    options?: { icon?: string; color?: chalk.Chalk }
+    options?: { icon?: string; color?: typeof chalk }
   ): void {
     const icon = options?.icon || 'ℹ';
     const color = options?.color || chalk.blue;

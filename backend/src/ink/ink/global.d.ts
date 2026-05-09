@@ -24,3 +24,34 @@ declare module './components/RawAnsi' {
 }
 
 // Add any other global type declarations here
+
+declare module 'lodash-es/noop.js' {
+  const noop: (...args: any[]) => any;
+  export default noop;
+}
+
+declare module 'lodash-es/throttle.js' {
+  import throttle from 'lodash-es';
+  export default throttle;
+}
+
+declare module 'react-reconciler' {
+  export interface FiberRoot {
+    [key: string]: any;
+  }
+  const createReconciler: (config: any) => any;
+  export default createReconciler;
+}
+
+declare module 'react-reconciler/constants.js' {
+  export const ConcurrentRoot: number;
+  export const LegacyRoot: number;
+  export const ContinuousEventPriority: number;
+  export const DefaultEventPriority: number;
+  export const DiscreteEventPriority: number;
+  export const NoEventPriority: number;
+}
+
+declare module 'react/compiler-runtime' {
+  export function c(size: number): any[];
+}

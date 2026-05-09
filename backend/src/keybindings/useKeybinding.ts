@@ -3,7 +3,7 @@ import { useCallback, useMemo, useRef } from 'react'
 import { useInput } from '../ink/ink/hooks/use-input.js'
 import type { Key } from '../ink/ink/events/input-event.js'
 
-import type { ParsedKeystroke, ParsedBinding } from './types.js'
+import type { ParsedKeystroke, ParsedBinding, KeybindingContextName, ChordResolveResult } from './types.js'
 import { resolveKeyWithChordState } from './resolver.js'
 import { keyToParsedKeystroke } from './match.js'
 
@@ -64,16 +64,22 @@ export function useKeybinding(
       const keystroke = keyToParsedKeystroke(key)
       if (!keystroke) return
 
+      const pendingChordArray = chordState.pendingChord ? [chordState.pendingChord] : null
       const result = resolveKeyWithChordState(
-        keystroke,
+        _input,
+        keystroke.key,
+        contextsToCheck as KeybindingContextName[],
         filteredBindings,
-        contextsToCheck,
-        chordState.pendingChord,
-        chordState.setPendingChord,
+        pendingChordArray,
       )
 
-      if (result === 'match') {
+      if (result.action !== null) {
+        chordState.setPendingChord(null)
         handlerRef.current()
+      } else if (result.pendingChord) {
+        chordState.setPendingChord(result.pendingChord[result.pendingChord.length - 1])
+      } else {
+        chordState.setPendingChord(null)
       }
     },
     [enabled, filteredBindings, contextsToCheck, chordState],
@@ -115,15 +121,16 @@ export function useKeybindings(
       const keystroke = keyToParsedKeystroke(key)
       if (!keystroke) return
 
+      const pendingChordArray = chordState.pendingChord ? [chordState.pendingChord] : null
       const result = resolveKeyWithChordState(
-        keystroke,
+        _input,
+        keystroke.key,
+        contextsToCheck as KeybindingContextName[],
         filteredBindings,
-        contextsToCheck,
-        chordState.pendingChord,
-        chordState.setPendingChord,
+        pendingChordArray,
       )
 
-      if (result === 'match') {
+      if (result.action !== null) {
         const matchingBinding = filteredBindings.find(b => {
           if (b.chord.chords.length === 0) return false
           return (

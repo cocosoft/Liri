@@ -19,6 +19,11 @@ export interface ParsedKey {
   shift: boolean;
   alt: boolean;
   value?: string;
+  fn?: boolean;
+  option?: boolean;
+  super?: boolean;
+  sequence?: string;
+  code?: string;
 }
 
 export interface ParsedMouse {

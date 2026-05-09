@@ -4,6 +4,7 @@
  * 将TerminalComponents与现有系统集成，提供统一的终端交互界面
  */
 
+import chalk from 'chalk';
 import { TerminalComponents } from '../ui/TerminalComponents.js';
 import { logger } from '../utils/log.js';
 import { StartupProfiler } from '../utils/startupProfiler.js';
@@ -78,9 +79,7 @@ export class TerminalUIIntegration {
    */
   showWelcomeScreen(): void {
     TerminalComponents.printHeader();
-    TerminalComponents.printBox('欢迎使用PY_APP', {
-      padding: 2,
-    });
+    TerminalComponents.printBox(['欢迎使用PY_APP']);
     TerminalComponents.printInfo('系统已就绪，输入help查看可用命令');
     TerminalComponents.printDivider();
   }
@@ -175,25 +174,36 @@ export class TerminalUIIntegration {
     TerminalComponents.printHeader('会话列表');
 
     const tableData = sessions.map((session) => {
-      const statusBadge = TerminalComponents.getBadgeText(
-        session.status,
-        session.status === 'connected'
-          ? 'green'
-          : session.status === 'error'
-            ? 'red'
-            : 'yellow'
-      );
+      const badgeColors: Record<string, typeof chalk> = {
+        connected: chalk.green,
+        error: chalk.red,
+        disconnected: chalk.yellow,
+        connecting: chalk.yellow,
+      };
+      const statusColor = badgeColors[session.status] || chalk.gray;
+      const statusBadge = statusColor(session.status);
 
-      const typeBadge = TerminalComponents.getBadgeText(session.type, 'blue');
+      const typeColors: Record<string, typeof chalk> = {
+        local: chalk.blue,
+        ssh: chalk.blue,
+        direct_connect: chalk.blue,
+      };
+      const typeColor = typeColors[session.type] || chalk.blue;
+      const typeBadge = typeColor(session.type);
 
       const duration = Math.floor((Date.now() - session.startTime) / 1000);
       const durationText = `${duration}s`;
 
-      return [session.id, typeBadge, statusBadge, durationText];
+      return { cells: [session.id, typeBadge, statusBadge, durationText] };
     });
 
     TerminalComponents.printTable(
-      ['ID', '类型', '状态', '运行时间'],
+      [
+        { header: 'ID', width: 20 },
+        { header: '类型', width: 15 },
+        { header: '状态', width: 15 },
+        { header: '运行时间', width: 15 },
+      ],
       tableData
     );
   }
@@ -221,9 +231,8 @@ export class TerminalUIIntegration {
     error?: string
   ): void {
     TerminalComponents.printDivider();
-    TerminalComponents.printBox(`执行命令: ${command}`, {
-      borderColor: success ? 'green' : 'red',
-    });
+    TerminalComponents.printBox([`执行命令: ${command}`]);
+    console.log('');
 
     if (output) {
       console.log(output);

@@ -16,7 +16,7 @@ export function djb2Hash(str: string): number {
 
 export function hashContent(content: string): string {
   try {
-    const hash = Bun.hash(content);
+    const hash = (globalThis as any).Bun.hash(content);
     return hash.toString();
   } catch {
     return createHash('sha256').update(content).digest('hex');
@@ -25,8 +25,9 @@ export function hashContent(content: string): string {
 
 export function hashPair(a: string, b: string): string {
   try {
-    const hashB = Bun.hash(b);
-    return Bun.hash(b, Bun.hash(a)).toString();
+    const hashA = (globalThis as any).Bun.hash(a);
+    const hashB = (globalThis as any).Bun.hash(b, hashA);
+    return hashB.toString();
   } catch {
     return createHash('sha256').update(a).update('\0').update(b).digest('hex');
   }

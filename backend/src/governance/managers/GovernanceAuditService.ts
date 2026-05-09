@@ -9,7 +9,7 @@ import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import type { GovernanceEvent, GovernanceExecutionResult } from '../types/GovernanceTypes';
+import type { GovernanceEvent, GovernanceExecutionResult, GovernanceEventType } from '../types/GovernanceTypes';
 
 /**
  * 审计事件
@@ -137,11 +137,11 @@ export class GovernanceAuditService extends EventEmitter {
   /**
    * 记录审计事件
    */
-  logEvent(event: Omit<AuditEvent, 'auditId' | 'timestamp'>): AuditEvent {
+  logEvent(event: Omit<AuditEvent, 'auditId'>): AuditEvent {
     const auditEvent: AuditEvent = {
       ...event,
       auditId: this.generateAuditId(),
-      timestamp: event.timestamp || new Date(),
+      timestamp: event.timestamp ?? new Date(),
     };
 
     this.pendingEvents.push(auditEvent);
@@ -155,18 +155,19 @@ export class GovernanceAuditService extends EventEmitter {
    * 记录执行结果
    */
   logExecutionResult(result: GovernanceExecutionResult, userId?: string, sessionId?: string): AuditEvent {
-    const event: Omit<AuditEvent, 'auditId' | 'timestamp'> = {
-      type: 'execution_completed',
-      toolName: result.toolName,
-      toolUseId: result.toolUseId,
-      executionId: result.executionId,
+    const event: Omit<AuditEvent, 'auditId'> = {
+      type: 'execution_completed' as GovernanceEventType,
+      toolName: (result as any).toolName,
+      toolUseId: (result as any).toolUseId,
+      executionId: (result as any).executionId,
       userId,
       sessionId,
+      timestamp: new Date(),
       data: {
         result: result,
         success: result.success,
         error: result.error,
-        executionTime: result.executionTime,
+        executionTime: (result as any).executionTime,
       },
     };
 
@@ -247,17 +248,17 @@ export class GovernanceAuditService extends EventEmitter {
       eventsByType[event.type] = (eventsByType[event.type] || 0) + 1;
       eventsByTool[event.toolName] = (eventsByTool[event.toolName] || 0) + 1;
 
-      if (event.type === 'execution_completed' && event.data) {
+      if ((event.type as string) === 'execution_completed' && event.data) {
         executionCount++;
-        const success = event.data.success;
+        const success = (event.data as any).success;
         eventsByStatus[success ? 'success' : 'failure'] = (eventsByStatus[success ? 'success' : 'failure'] || 0) + 1;
-        
+
         if (success) {
           successCount++;
         }
 
-        if (event.data.executionTime) {
-          totalExecutionTime += event.data.executionTime;
+        if ((event.data as any).executionTime) {
+          totalExecutionTime += (event.data as any).executionTime;
         }
       }
     }

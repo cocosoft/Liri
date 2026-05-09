@@ -85,7 +85,7 @@ export class RemoteSessionManagerUI {
       ['历史记录', this.history.length.toString()],
     ];
 
-    TerminalComponents.printKeyValue(stats);
+    TerminalComponents.printKeyValue(stats as [string, string][]);
     TerminalComponents.printDivider();
 
     this.showActiveSessions();
@@ -124,13 +124,13 @@ export class RemoteSessionManagerUI {
           : session.status === 'error'
             ? 'red'
             : 'yellow';
-      const statusBadge = TerminalComponents.getBadgeText(
+      const statusBadge = (TerminalComponents as any).getBadgeText(
         session.status,
         statusColor
       );
 
       const typeColor = session.type === 'ssh' ? 'blue' : 'cyan';
-      const typeBadge = TerminalComponents.getBadgeText(
+      const typeBadge = (TerminalComponents as any).getBadgeText(
         session.type,
         typeColor
       );
@@ -149,8 +149,8 @@ export class RemoteSessionManagerUI {
     });
 
     TerminalComponents.printTable(
-      ['#', '会话ID', '类型', '状态', '运行时间', '目标'],
-      rows
+      ['#', '会话ID', '类型', '状态', '运行时间', '目标'] as any,
+      rows as any
     );
   }
 
@@ -188,13 +188,13 @@ export class RemoteSessionManagerUI {
             : history.status === 'error'
               ? 'red'
               : 'yellow';
-        const statusBadge = TerminalComponents.getBadgeText(
+        const statusBadge = (TerminalComponents as any).getBadgeText(
           history.status,
           statusColor
         );
 
         const typeColor = history.type === 'ssh' ? 'blue' : 'cyan';
-        const typeBadge = TerminalComponents.getBadgeText(
+        const typeBadge = (TerminalComponents as any).getBadgeText(
           history.type,
           typeColor
         );
@@ -216,8 +216,8 @@ export class RemoteSessionManagerUI {
       });
 
     TerminalComponents.printTable(
-      ['#', '会话ID', '类型', '状态', '开始时间', '运行时间'],
-      rows
+      ['#', '会话ID', '类型', '状态', '开始时间', '运行时间'] as any,
+      rows as any
     );
   }
 
@@ -305,7 +305,7 @@ export class RemoteSessionManagerUI {
     this.history.push(historyEntry);
 
     // 限制历史记录数量
-    if (this.history.length > this.config.maxHistoryEntries) {
+    if (this.history.length > (this.config.maxHistoryEntries ?? 100)) {
       this.history.shift();
     }
 
@@ -329,7 +329,7 @@ export class RemoteSessionManagerUI {
 
       fs.writeFileSync(historyPath, JSON.stringify(this.history, null, 2));
     } catch (error) {
-      logger.error('Failed to save session history:', error);
+      logger.error('Failed to save session history:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

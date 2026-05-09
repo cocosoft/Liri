@@ -510,7 +510,7 @@ export class AdvancedMemorySystem {
           logger.info(`Memory consolidation: removed ${result.itemsRemoved}, archived ${result.itemsArchived}`);
         }
       } catch (error) {
-        logger.error('Memory consolidation failed:', error);
+        logger.error('Memory consolidation failed:', error as Error);
       }
     }, this.consolidationInterval);
   }

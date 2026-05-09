@@ -7,11 +7,6 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { logger } from './log.js';
-import {
-  securityAuditLogger,
-  SecurityEventType,
-  SecurityEventSeverity,
-} from './securityAudit.js';
 
 /**
  * 漏洞类型
@@ -465,9 +460,7 @@ export class SecurityScanner {
 
     // 记录扫描结果
     if (vulnerabilities.length > 0) {
-      securityAuditLogger.logEvent(
-        SecurityEventType.SECURITY_VIOLATION,
-        SecurityEventSeverity.WARNING,
+      logger.warn(
         `Security scan found ${vulnerabilities.length} vulnerabilities`,
         {
           scannedFiles,
@@ -483,9 +476,7 @@ export class SecurityScanner {
         }
       );
     } else {
-      securityAuditLogger.logEvent(
-        SecurityEventType.SECURITY_VIOLATION,
-        SecurityEventSeverity.INFO,
+      logger.info(
         `Security scan completed successfully, no vulnerabilities found`,
         {
           scannedFiles,

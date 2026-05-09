@@ -39,7 +39,7 @@ function parseKey(keypress: ParsedKey): [Key, string] {
     end: keypress.name === 'end',
     return: keypress.name === 'return',
     escape: keypress.name === 'escape',
-    fn: keypress.fn,
+    fn: keypress.fn ?? false,
     ctrl: keypress.ctrl,
     shift: keypress.shift,
     tab: keypress.name === 'tab',
@@ -49,11 +49,11 @@ function parseKey(keypress: ParsedKey): [Key, string] {
     // but with option = true, so we need to take this into account here
     // to avoid breaking changes in Ink.
     // TODO(vadimdemedes): consider removing this in the next major version.
-    meta: keypress.meta || keypress.name === 'escape' || keypress.option,
+    meta: keypress.meta || keypress.name === 'escape' || (keypress.option ?? false),
     // Super (Cmd on macOS / Win key) — only arrives via kitty keyboard
     // protocol CSI u sequences. Distinct from meta (Alt/Option) so
     // bindings like cmd+c can be expressed separately from opt+c.
-    super: keypress.super,
+    super: keypress.super ?? false,
   }
 
   let input = keypress.ctrl ? keypress.name : keypress.sequence
@@ -171,7 +171,7 @@ function parseKey(keypress: ParsedKey): [Key, string] {
   if (
     !processedAsSpecialSequence &&
     keypress.name &&
-    nonAlphanumericKeys.includes(keypress.name)
+    (nonAlphanumericKeys as any).includes(keypress.name)
   ) {
     input = ''
   }

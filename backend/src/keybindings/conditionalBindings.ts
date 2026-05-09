@@ -4,7 +4,7 @@
  * 支持基于条件的动态按键绑定
  */
 
-import { KeybindingsSchema } from './validation';
+import type { Keybinding, Keybindings } from './validation';
 
 export type ConditionType = 'filetype' | 'mode' | 'selection' | 'text' | 'config' | 'custom';
 
@@ -14,7 +14,7 @@ export interface Condition {
   operator?: 'equals' | 'not_equals' | 'contains' | 'matches' | 'starts_with' | 'ends_with';
 }
 
-export interface ConditionalKeybinding extends KeybindingsSchema[0] {
+export interface ConditionalKeybinding extends Keybinding {
   conditions?: Condition[];
 }
 
@@ -26,7 +26,7 @@ export class ConditionalBindingManager {
    * 添加条件绑定
    */
   addBinding(binding: ConditionalKeybinding): void {
-    const existingIndex = this.bindings.findIndex((b) => b.id === binding.id);
+    const existingIndex = this.bindings.findIndex((b: ConditionalKeybinding) => b.id === binding.id);
     if (existingIndex >= 0) {
       this.bindings[existingIndex] = binding;
     } else {
@@ -39,7 +39,7 @@ export class ConditionalBindingManager {
    */
   removeBinding(id: string): boolean {
     const initialLength = this.bindings.length;
-    this.bindings = this.bindings.filter((b) => b.id !== id);
+    this.bindings = this.bindings.filter((b: ConditionalKeybinding) => b.id !== id);
     return this.bindings.length !== initialLength;
   }
 
@@ -112,8 +112,8 @@ export class ConditionalBindingManager {
   /**
    * 获取满足条件的绑定
    */
-  getActiveBindings(): KeybindingsSchema {
-    return this.bindings.filter((b) => this.checkConditions(b.conditions || []));
+  getActiveBindings(): Keybindings {
+    return this.bindings.filter((b: ConditionalKeybinding) => this.checkConditions(b.conditions || []));
   }
 
   /**
@@ -122,13 +122,13 @@ export class ConditionalBindingManager {
   findBinding(key: string, modifier?: string[]): ConditionalKeybinding | undefined {
     const activeBindings = this.getActiveBindings();
     
-    return activeBindings.find((b) => {
+    return (activeBindings as ConditionalKeybinding[]).find((b: ConditionalKeybinding) => {
       const keyMatch = b.key === key;
       const modifierMatch = 
         (!modifier && !b.modifier) || 
         (modifier && b.modifier && 
           modifier.length === b.modifier.length && 
-          modifier.every((m) => b.modifier?.includes(m)));
+          modifier.every((m: string) => b.modifier?.includes(m)));
       
       return keyMatch && modifierMatch;
     });
@@ -138,53 +138,6 @@ export class ConditionalBindingManager {
    * 设置文件类型上下文
    */
   setFiletype(filetype: string): void {
-    this.setContext('filetype', filetype);
-  }
-
-  /**
-   * 设置模式上下文
-   */
-  setMode(mode: string): void {
-    this.setContext('mode', mode);
-  }
-
-  /**
-   * 设置选择状态上下文
-   */
-  setSelection(hasSelection: boolean): void {
-    this.setContext('selection', hasSelection);
-  }
-
-  /**
-   * 设置文本上下文
-   */
-  setText(text: string): void {
-    this.setContext('text', text);
-  }
-
-  /**
-   * 设置配置上下文
-   */
-  setConfig(key: string, value: unknown): void {
-    this.setContext(`config.${key}`, value);
-  }
-
-  /**
-   * 添加自定义条件检查器
-   */
-  addCustomCondition(name: string, check: () => boolean): void {
-    this.context[name] = check;
+    this.context['filetype'] = filetype;
   }
 }
-
-/**
- * 创建条件绑定管理器实例
- */
-export function createConditionalBindingManager(): ConditionalBindingManager {
-  return new ConditionalBindingManager();
-}
-
-/**
- * 全局条件绑定管理器实例
- */
-export const conditionalBindingManager = createConditionalBindingManager();

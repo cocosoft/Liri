@@ -136,8 +136,8 @@ export class TaskExecutionHistoryService {
 
     // 排序
     filteredRecords.sort((a, b) => {
-      const aValue = a[sortBy];
-      const bValue = b[sortBy];
+      const aValue = a[sortBy]!;
+      const bValue = b[sortBy]!;
 
       if (aValue < bValue) {
         return sortOrder === 'asc' ? -1 : 1;

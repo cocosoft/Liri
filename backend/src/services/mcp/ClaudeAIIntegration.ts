@@ -28,7 +28,7 @@ export class ClaudeAIIntegration {
       logger.info('Initializing Claude AI integration');
       // 这里可以添加初始化逻辑
     } catch (error) {
-      logger.error('Failed to initialize Claude AI integration:', error);
+      logger.error('Failed to initialize Claude AI integration:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -69,7 +69,7 @@ export class ClaudeAIIntegration {
       this.connectedServers.add(server.name);
       logger.info(`Claude AI server ${server.name} connected and configured`);
     } catch (error) {
-      logger.error(`Failed to setup Claude AI server ${server.name}:`, error);
+      logger.error(`Failed to setup Claude AI server ${server.name}:`, error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -91,7 +91,7 @@ export class ClaudeAIIntegration {
       this.connectedServers.delete(serverName);
       logger.info(`Claude AI server ${serverName} disconnected and cleaned up`);
     } catch (error) {
-      logger.error(`Failed to cleanup Claude AI server ${serverName}:`, error);
+      logger.error(`Failed to cleanup Claude AI server ${serverName}:`, error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -103,7 +103,7 @@ export class ClaudeAIIntegration {
       logger.info(`Received Claude AI channel message from ${serverName}: ${content.slice(0, 80)}`);
       // 这里可以添加消息处理逻辑
     } catch (error) {
-      logger.error('Failed to handle channel message:', error);
+      logger.error('Failed to handle channel message:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -113,10 +113,10 @@ export class ClaudeAIIntegration {
   private async loadClaudeAICommands(server: ConnectedMCPServer): Promise<void> {
     try {
       const commands = await getCommandManager().loadCommandsFromServer(server.client, server.name);
-      mcpCacheManager.setCommandCache(server.name, commands);
+      mcpCacheManager.setCommandCache(server.name, commands as any);
       logger.info(`Loaded ${commands.length} Claude AI commands from server ${server.name}`);
     } catch (error) {
-      logger.error(`Failed to load Claude AI commands:`, error);
+      logger.error(`Failed to load Claude AI commands:`, error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -129,7 +129,7 @@ export class ClaudeAIIntegration {
       mcpCacheManager.setResourceCache(server.name, resources);
       logger.info(`Loaded ${resources.length} Claude AI resources from server ${server.name}`);
     } catch (error) {
-      logger.error(`Failed to load Claude AI resources:`, error);
+      logger.error(`Failed to load Claude AI resources:`, error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -141,7 +141,7 @@ export class ClaudeAIIntegration {
       const fullCommandName = `${serverName}:${commandName}`;
       return await getCommandManager().executeCommand(fullCommandName, args);
     } catch (error) {
-      logger.error(`Failed to execute Claude AI command:`, error);
+      logger.error(`Failed to execute Claude AI command:`, error instanceof Error ? error : new Error(String(error)));
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }

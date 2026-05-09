@@ -8,7 +8,7 @@
 export { ModuleCategory, ModuleDefinition, moduleRegistry } from './ModuleRegistry';
 
 // 导出导入管理器
-export { ImportOptions, ImportResult, importManager, importModule, importFromRegistry } from './ImportManager';
+export { importManager, importModule, importFromRegistry } from './ImportManager';
 
 // 导出模块定义
 export { MODULE_DEFINITIONS, MODULE_INITIALIZATION_ORDER, getModuleDefinition, getAllModuleDefinitions } from './ModuleDefinitions';
@@ -56,9 +56,9 @@ export function getModuleStatistics() {
     registry: registryStats,
     initialization: {
       total: Object.keys(initializationStates).length,
-      initialized: Object.values(initializationStates).filter(s => s.status === 'initialized').length,
-      pending: Object.values(initializationStates).filter(s => s.status === 'pending').length,
-      error: Object.values(initializationStates).filter(s => s.status === 'error').length
+      initialized: Object.values(initializationStates).filter((s: any) => s.status === 'initialized').length,
+      pending: Object.values(initializationStates).filter((s: any) => s.status === 'pending').length,
+      error: Object.values(initializationStates).filter((s: any) => s.status === 'error').length
     }
   };
 }
@@ -144,7 +144,7 @@ export const ModuleUsageExamples = {
     console.log('模块初始化状态:');
     
     for (const [moduleId, state] of Object.entries(states)) {
-      console.log(`  ${moduleId}: ${state.status}`);
+      console.log(`  ${moduleId}: ${(state as any).status}`);
     }
     
     return { allInitialized, states };

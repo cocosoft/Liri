@@ -127,6 +127,8 @@ export class AutoMemoryService {
             description: `自动创建的记忆 - ${extraction.trigger}`,
             type: extraction.type,
             tags: extraction.tags,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
         });
         createdMemories.push(memory);
@@ -453,8 +455,8 @@ export class AutoMemoryService {
     const words2 = text2.toLowerCase().split(/\s+/);
     
     const wordSet = new Set([...words1, ...words2]);
-    const vector1 = Array.from(wordSet).map(word => words1.includes(word) ? 1 : 0);
-    const vector2 = Array.from(wordSet).map(word => words2.includes(word) ? 1 : 0);
+    const vector1: number[] = Array.from(wordSet).map(word => words1.includes(word) ? 1 : 0);
+    const vector2: number[] = Array.from(wordSet).map(word => words2.includes(word) ? 1 : 0);
     
     const dotProduct = vector1.reduce((sum, val, i) => sum + val * vector2[i], 0);
     const magnitude1 = Math.sqrt(vector1.reduce((sum, val) => sum + val * val, 0));

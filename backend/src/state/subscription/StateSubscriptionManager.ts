@@ -428,7 +428,7 @@ export class StateSubscriptionManager<T = any> {
       
       // 检查值是否变化
       if (subscription.lastSelectedValue !== undefined) {
-        if (subscription.equalityFn(value, subscription.lastSelectedValue)) {
+        if (subscription.equalityFn?.(value, subscription.lastSelectedValue)) {
           // 值没有变化，跳过通知
           return undefined;
         }

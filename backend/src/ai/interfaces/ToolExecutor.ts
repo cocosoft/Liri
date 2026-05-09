@@ -130,10 +130,10 @@ export class DefaultToolExecutor implements IToolExecutor {
       return await this.executeWithTimeout(tool, toolCall.input, context);
     } catch (error) {
       return {
-        id: toolCall.id,
         result: undefined,
         content: error instanceof Error ? error.message : String(error),
-        error: true,
+        error: error instanceof Error ? error.message : String(error),
+        success: false,
       };
     }
   }
@@ -192,17 +192,17 @@ export class DefaultToolExecutor implements IToolExecutor {
           this.executeWithTimeout(tool, input, context, attempt + 1)
             .then(resolve)
             .catch((e) => resolve({
-              id: '',
               result: undefined,
               content: e instanceof Error ? e.message : String(e),
-              error: true,
+              error: e instanceof Error ? e.message : String(e),
+              success: false,
             }));
         } else {
           resolve({
-            id: '',
             result: undefined,
             content: `工具执行超时: ${this.timeout}ms`,
-            error: true,
+            error: `工具执行超时: ${this.timeout}ms`,
+            success: false,
           });
         }
       }, this.timeout);
@@ -219,10 +219,10 @@ export class DefaultToolExecutor implements IToolExecutor {
               .then(resolve);
           } else {
             resolve({
-              id: '',
               result: undefined,
               content: error instanceof Error ? error.message : String(error),
-              error: true,
+              error: error instanceof Error ? error.message : String(error),
+              success: false,
             });
           }
         });

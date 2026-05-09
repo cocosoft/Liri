@@ -222,7 +222,8 @@ export function useKeybindingContext(): KeybindingContextValue {
  * 用于可能在提供者可用之前渲染的组件
  */
 export function useOptionalKeybindingContext(): KeybindingContextValue | undefined {
-  return useContext(KeybindingContext);
+  const ctx = useContext(KeybindingContext);
+  return ctx ?? undefined;
 }
 
 /**

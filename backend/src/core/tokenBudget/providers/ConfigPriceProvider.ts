@@ -51,6 +51,7 @@ export class ConfigPriceProvider implements IPriceProvider {
   }
 
   async getBatchPricing(models: string[]): Promise<PricingResult[]> {
-    return Promise.all(models.map(m => this.getPricing(m)));
+    const results = await Promise.all(models.map(m => this.getPricing(m)));
+    return results.filter((r): r is PricingResult => r !== null);
   }
 }

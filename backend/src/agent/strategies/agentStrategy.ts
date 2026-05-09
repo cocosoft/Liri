@@ -48,7 +48,7 @@ export abstract class BaseAgentStrategy implements AgentStrategy {
    * @param context 上下文
    * @returns 系统提示
    */
-  protected buildSystemPrompt(task: AgentTask, context: AgentContext): string {
+  public buildSystemPrompt(task: AgentTask, context: AgentContext): string {
     return (
       `你是一个AI代理，你的任务是：${task.description}\n\n` +
       `可用工具：\n${context.tools.map((tool) => `- ${tool.name}: ${tool.description}`).join('\n')}\n\n` +
@@ -65,7 +65,7 @@ export abstract class BaseAgentStrategy implements AgentStrategy {
    * @param task 任务
    * @returns 用户消息
    */
-  protected buildUserMessage(task: AgentTask): string {
+  public buildUserMessage(task: AgentTask): string {
     return (
       `任务：${task.name}\n` +
       `描述：${task.description}\n` +

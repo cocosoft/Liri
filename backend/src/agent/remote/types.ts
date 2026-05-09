@@ -50,3 +50,11 @@ export interface RemoteAgentConfig {
   url: string;
   options?: ProtocolOptions;
 }
+
+export interface RemoteAgentExecutor {
+  connect(): Promise<void>;
+  disconnect(): void;
+  execute(agentId: string, task: Omit<RemoteAgentTask, 'agentId'>): Promise<RemoteExecutionResult>;
+  getStatus(): SessionStatus;
+  getSessionId(): string;
+}

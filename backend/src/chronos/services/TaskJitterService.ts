@@ -221,7 +221,7 @@ export class TaskJitterService {
     const maxIterations = 366 * 24 * 60;
 
     for (let i = 0; i < maxIterations; i++) {
-      const candidate = new Date(year, targetMonth - 1, targetDayOfMonth, targetHour, targetMinute);
+      const candidate = new Date(year, targetMonth! - 1, targetDayOfMonth!, targetHour!, targetMinute!);
 
       if (candidate.getTime() <= fromTime) {
         this.advanceNextTime(candidate, minute, hour, dayOfMonth, month, dayOfWeek);
@@ -234,9 +234,9 @@ export class TaskJitterService {
         continue;
       }
 
-      if (this.matchesCronField(targetMonth, month, currentMonth, 1, 12) &&
-          this.matchesCronField(targetDayOfMonth, dayOfMonth, currentDayOfMonth, 1, 31) &&
-          this.matchesCronField(targetDayOfWeek, dayOfWeek, currentDayOfWeek, 0, 6)) {
+      if (this.matchesCronField(targetMonth!, month, currentMonth, 1, 12) &&
+          this.matchesCronField(targetDayOfMonth!, dayOfMonth, currentDayOfMonth, 1, 31) &&
+          this.matchesCronField(targetDayOfWeek!, dayOfWeek, currentDayOfWeek, 0, 6)) {
         return candidate.getTime();
       }
 

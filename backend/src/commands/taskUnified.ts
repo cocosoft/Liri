@@ -12,4 +12,5 @@ export { BaseTask } from '@modules/tasks/BaseTask';
 export { LocalBashTask, looksLikePrompt } from '@modules/tasks/LocalBashTask';
 export type { LocalBashTaskOptions } from '@modules/tasks/LocalBashTask';
 export { TaskRegistry } from '@modules/tasks/TaskRegistry';
-export type { Task, TaskConfig, TaskResult, TaskStatus } from '@modules/tasks/BaseTask';
+export { TaskStatus } from '@modules/tasks/types';
+export type { TaskState } from '@modules/tasks/types';

@@ -745,7 +745,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     const hotData: HotDataInfo[] = [];
     
     for (const [key, entry] of this.storage) {
-      if (entry.isHot || this.accessFrequency.get(key) >= this.config.hotThreshold) {
+      if (entry.isHot || (this.accessFrequency.get(key) ?? 0) >= this.config.hotThreshold) {
         hotData.push({
           key,
           accessCount: entry.accessCount,

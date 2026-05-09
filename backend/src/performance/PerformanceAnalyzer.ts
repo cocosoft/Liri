@@ -5,6 +5,7 @@
  */
 
 import { logForDebugging } from '../utils/debug.js';
+import os from 'os';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 import { getPhaseTimes } from './StartupProfiler.js';
 import { getSlowOperationStats } from './SlowOperations.js';
@@ -158,8 +159,8 @@ export class PerformanceAnalyzer {
 
     // 获取系统负载 (Windows 系统不支持 getloadavg)
     let loadAverage = [0, 0, 0];
-    if (typeof process.getloadavg === 'function') {
-      loadAverage = process.getloadavg();
+    if (typeof os.loadavg === 'function') {
+      loadAverage = os.loadavg();
     }
 
     // 计算平均响应时间

@@ -46,6 +46,18 @@ export class AIQueryEngine {
   }
 
   /**
+   * 映射stop_reason到QueryResult的finishReason
+   */
+  private mapStopReason(reason: string): 'end_turn' | 'stop_sequence' | 'max_tokens' | 'max_turns' | 'tool_use' | 'error' {
+    switch (reason) {
+      case 'stop': return 'end_turn';
+      case 'tool_calls': return 'tool_use';
+      case 'max_tokens': return 'max_tokens';
+      default: return 'end_turn';
+    }
+  }
+
+  /**
    * 执行查询
    */
   async query(params: QueryParams): Promise<QueryResult> {
@@ -85,7 +97,7 @@ export class AIQueryEngine {
           message: response,
           allMessages: accumulatedMessages,
           turns: this.currentTurn,
-          finishReason: response.stop_reason || 'end_turn',
+          finishReason: this.mapStopReason(response.stop_reason),
         };
       } catch (error) {
         return {
@@ -125,7 +137,7 @@ export class AIQueryEngine {
       };
 
       try {
-        for await (const event of this.config.client.stream(currentMessages, {
+        for await (const event of (this.config.client as any).stream(currentMessages, {
           model: params.model || this.config.defaultModel,
           tools: params.tools,
         })) {

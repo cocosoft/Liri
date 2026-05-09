@@ -107,7 +107,7 @@ function processDispatchQueue(
     try {
       handler(event)
     } catch (error) {
-      logError(error)
+      logError(error as string)
     }
 
     previousNode = node

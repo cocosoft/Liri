@@ -177,7 +177,7 @@ export function createDefaultPreloadTasks(): PreloadTask[] {
           await storage.loadAllTokens();
           logger.debug('OAuth tokens preloaded');
         } catch (error) {
-          logger.warn('Failed to preload OAuth tokens:', error);
+          logger.warn('Failed to preload OAuth tokens:', error as Error);
         }
       },
     },
@@ -188,7 +188,7 @@ export function createDefaultPreloadTasks(): PreloadTask[] {
         try {
           logger.debug('MCP configs preload task (placeholder)');
         } catch (error) {
-          logger.warn('Failed to preload MCP configs:', error);
+          logger.warn('Failed to preload MCP configs:', error as Error);
         }
       },
     },
@@ -199,7 +199,7 @@ export function createDefaultPreloadTasks(): PreloadTask[] {
         try {
           logger.debug('User settings preload task (placeholder)');
         } catch (error) {
-          logger.warn('Failed to preload user settings:', error);
+          logger.warn('Failed to preload user settings:', error as Error);
         }
       },
     },
@@ -213,7 +213,7 @@ export function createDefaultPreloadTasks(): PreloadTask[] {
           CryptoUtils.generateKey(32);
           logger.debug('Secure credentials preloaded');
         } catch (error) {
-          logger.warn('Failed to preload secure credentials:', error);
+          logger.warn('Failed to preload secure credentials:', error as Error);
         }
       },
     },

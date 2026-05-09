@@ -22,7 +22,7 @@ export interface CommandPromptOptions {
  */
 export class CommandPrompt {
   private rl: readline.Interface;
-  private prompt: string;
+  private promptText: string;
   private commandManager = getCommandManager();
   private history: string[] = [];
   private historyIndex = -1;
@@ -32,12 +32,12 @@ export class CommandPrompt {
    * @param options 选项
    */
   constructor(options: CommandPromptOptions = {}) {
-    this.prompt = options.prompt || 'PY_APP> ';
+    this.promptText = options.prompt || 'PY_APP> ';
     
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: this.prompt,
+      prompt: this.promptText,
       historySize: options.historySize || 1000,
       completer: options.autoComplete !== false ? this.completer.bind(this) : undefined,
     });
@@ -85,8 +85,8 @@ export class CommandPrompt {
    * @param callback 回调函数
    */
   private completer(line: string, callback: (err: any, result: [string[], string]) => void): void {
-    const commands = this.commandManager.getCommands();
-    const commandNames = Array.from(commands.keys());
+    const commands = this.commandManager.getAllCommands();
+    const commandNames = commands.map(c => c.name);
     
     // 按前缀过滤命令
     const matches = commandNames.filter((command) =>

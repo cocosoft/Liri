@@ -21,8 +21,8 @@ export interface ImageBlock {
   };
 }
 
-function isImageBlock(block: Record<string, unknown>): block is ImageBlock {
-  return block.type === 'image' && (block as ImageBlock).source?.type === 'base64';
+function isImageBlock(block: Record<string, unknown>): boolean {
+  return (block as any).type === 'image' && (block as any).source?.type === 'base64';
 }
 
 function detectImageFormatFromBase64(base64: string): string {
@@ -36,11 +36,11 @@ function detectImageFormatFromBase64(base64: string): string {
 
 function isMalformedImageBlock(block: Record<string, unknown>): boolean {
   if (!isImageBlock(block)) return false;
-  const source = (block as ImageBlock).source;
+  const source = (block as any).source;
   return !source.media_type && !source.mediaType;
 }
 
-function normalizeImageBlock(block: ImageBlock): ImageBlock {
+function normalizeImageBlock(block: ImageBlock): Record<string, unknown> {
   const source = block.source;
   const mediaType = source.mediaType || source.media_type || detectImageFormatFromBase64(source.data);
   return {
@@ -57,7 +57,7 @@ function normalizeImageBlocks(
   blocks: Array<Record<string, unknown>>,
 ): Array<Record<string, unknown>> {
   if (!blocks.some(isMalformedImageBlock)) return blocks;
-  return blocks.map(block => isMalformedImageBlock(block) ? normalizeImageBlock(block as ImageBlock) : block);
+  return blocks.map(block => isMalformedImageBlock(block) ? normalizeImageBlock(block as any) : block);
 }
 
 export interface SDKMessage {
@@ -108,5 +108,5 @@ export function extractImageData(msg: SDKMessage): string[] {
   if (!Array.isArray(content)) return [];
   return content
     .filter(isImageBlock)
-    .map(block => (block as ImageBlock).source.data);
+    .map(block => (block as any).source.data);
 }

@@ -286,6 +286,7 @@ export async function initializeTelemetry() {
       warn: (message, ...args) => logForDebugging(message, { level: 'warn' }),
       info: (message, ...args) => logForDebugging(message, { level: 'info' }),
       debug: (message, ...args) => logForDebugging(message, { level: 'debug' }),
+      verbose: (message, ...args) => logForDebugging(message, { level: 'debug' }),
     },
     DiagLogLevel.ERROR
   );
@@ -352,12 +353,12 @@ export async function initializeTelemetry() {
   process.on('beforeExit', async () => {
     // Flush traces - they use BatchSpanProcessor which needs explicit flush
     const tracerProvider = trace.getTracerProvider();
-    await tracerProvider?.forceFlush();
+    await (tracerProvider as any)?.forceFlush();
   });
 
   process.on('exit', () => {
     // Final attempt to flush traces
-    void trace.getTracerProvider()?.forceFlush();
+    void (trace.getTracerProvider() as any)?.forceFlush();
   });
 
   // Initialize tracing if enhanced telemetry is enabled
@@ -409,7 +410,7 @@ export async function flushTelemetry(): Promise<void> {
     const flushPromises = [meterProvider.forceFlush()];
     const tracerProvider = trace.getTracerProvider();
     if (tracerProvider) {
-      flushPromises.push(tracerProvider.forceFlush());
+      flushPromises.push((tracerProvider as any).forceFlush());
     }
 
     await Promise.race([

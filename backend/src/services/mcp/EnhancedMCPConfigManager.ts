@@ -33,7 +33,7 @@ export class EnhancedMCPConfigManager {
       this.configs = configs;
       return configs;
     } catch (error) {
-      logger.error('Failed to load MCP configs:', error);
+      logger.error('Failed to load MCP configs:', error instanceof Error ? error : new Error(String(error)));
       return {};
     }
   }
@@ -79,16 +79,16 @@ export class EnhancedMCPConfigManager {
       if (key.startsWith('MCP_SERVER_')) {
         const serverName = key.substring('MCP_SERVER_'.length).toLowerCase();
         try {
-          const config = JSON.parse(value);
+          const config = JSON.parse(value as string);
           if (McpServerConfigSchema.safeParse(config).success) {
             environmentConfig[serverName] = {
-              ...config,
-              scope: 'dynamic'
-            };
+            ...config,
+            scope: 'dynamic',
+          } as ScopedMcpServerConfig;
           }
         } catch (error) {
-          logger.error(`Failed to parse MCP server config from environment variable ${key}:`, error);
-        }
+      logger.error(`Failed to parse MCP server config from environment variable ${key}:`, error instanceof Error ? error : new Error(String(error)));
+    }
       }
     }
 
@@ -118,7 +118,7 @@ export class EnhancedMCPConfigManager {
 
       return scopedConfigs;
     } catch (error) {
-      logger.error(`Failed to load MCP config file ${path}:`, error);
+      logger.error(`Failed to load MCP config file ${path}:`, error instanceof Error ? error : new Error(String(error)));
       return {};
     }
   }
@@ -145,7 +145,7 @@ export class EnhancedMCPConfigManager {
       }
     });
 
-    this.watchers.set(path, watcher);
+    this.watchers.set(path, watcher as any);
   }
 
   /**
@@ -157,7 +157,7 @@ export class EnhancedMCPConfigManager {
       logger.info(`Reloaded MCP configs: ${Object.keys(newConfigs).length} servers`);
       // 这里可以触发配置更新事件
     } catch (error) {
-      logger.error('Failed to reload MCP configs:', error);
+      logger.error('Failed to reload MCP configs:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -248,7 +248,7 @@ export class EnhancedMCPConfigManager {
       logger.info(`Saved MCP server config: ${name} to ${configPath}`);
       return true;
     } catch (error) {
-      logger.error(`Failed to save MCP server config:`, error);
+      logger.error(`Failed to save MCP server config:`, error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -258,8 +258,8 @@ export class EnhancedMCPConfigManager {
    */
   cleanup(): void {
     // 取消所有文件监视
-    for (const [path, watcher] of this.watchers.entries()) {
-      unwatchFile(path, watcher as any);
+    for (const [watchPath, watcher] of this.watchers.entries()) {
+      fs.unwatchFile(watchPath, watcher as any);
     }
     this.watchers.clear();
   }

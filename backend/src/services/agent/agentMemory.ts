@@ -5,8 +5,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { getProjectRoot } from '@modules/bootstrap/state';
-import { getPyAppConfigHomeDir } from '@modules/utils/envUtils';
+import { getProjectRoot } from '../../bootstrap/state.js';
+import { getConfigHomeDir } from '@modules/utils/envUtils';
 import { getCwd } from '@modules/utils/cwd';
 
 /**
@@ -47,7 +47,7 @@ function ensureMemoryDirExists(dir: string): Promise<void> {
  * 获取内存基础目录
  */
 function getMemoryBaseDir(): string {
-  return getPyAppConfigHomeDir();
+  return getConfigHomeDir();
 }
 
 /**

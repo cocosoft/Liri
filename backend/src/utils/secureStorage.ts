@@ -5,12 +5,12 @@
  * 提供加密文件存储能力，基于 security/Crypto.ts 的加密实现。
  * 用于安全存储敏感配置和凭据。
  */
-import { readFile, writeFile, mkdir, readFileSync, writeFileSync, mkdirSync } from 'fs'
-import { join, dirname } from 'path'
-import { existsSync } from 'fs'
-import { homedir } from 'os'
-import { randomBytes } from 'crypto'
-import { encrypt, decrypt, generateEncryptionKey, ENCRYPTION_ALGORITHMS } from './security/Crypto'
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { homedir } from 'os';
+import { randomBytes } from 'crypto';
+import { encrypt, decrypt, generateEncryptionKey, ENCRYPTION_ALGORITHMS } from './security/Crypto';
 
 const STORAGE_DIR = join(homedir(), '.py_app', 'secure')
 const MASTER_KEY_FILE = join(STORAGE_DIR, '.master_key')

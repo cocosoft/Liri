@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Box, Text } from '../../ink';
-import { DialogProps } from '../types/UITypes';
+import { DialogProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 import { KeyboardShortcutHint } from './KeyboardShortcutHint';
 import { Byline } from './Byline';

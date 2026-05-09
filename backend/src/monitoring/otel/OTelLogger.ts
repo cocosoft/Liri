@@ -5,6 +5,7 @@
  */
 
 import { diag, DiagLogLevel } from '@opentelemetry/api';
+import type { DiagLogger } from '@opentelemetry/api';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/utils/errors.js';
 
@@ -12,7 +13,7 @@ import { errorMessage } from '@modules/utils/errors.js';
  * OpenTelemetry诊断日志记录器
  * 实现DiagLogger接口，用于OTel内部日志
  */
-export class PYAppDiagLogger implements diag.DiagLogger {
+export class PYAppDiagLogger implements DiagLogger {
   /**
    * 错误日志
    * @param message 日志消息

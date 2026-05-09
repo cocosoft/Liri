@@ -6,7 +6,7 @@
 
 import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
-import { loadPluginAgents } from '@modules/plugins/PluginLoader';
+import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/plugins/PluginLoader';
 import { SettingSource } from '@modules/config/constants';
 import { loadUserAgents, loadProjectAgents, loadManagedAgents, loadLocalAgents } from '../utils/agentLoader';
 import { DirectoryWatcher, WatchEvent } from '../utils/directoryWatcher';
@@ -235,7 +235,7 @@ export class AgentSourceManager {
     try {
       const localAgents = await loadLocalAgents();
       localAgents.forEach(agent => {
-        this.addAgent({ ...agent, source: 'local' as AgentSource });
+        this.addAgent({ ...agent, source: 'local' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({
@@ -252,7 +252,7 @@ export class AgentSourceManager {
     try {
       const managedAgents = await loadManagedAgents();
       managedAgents.forEach(agent => {
-        this.addAgent({ ...agent, source: 'managed' as AgentSource });
+        this.addAgent({ ...agent, source: 'managed' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({
@@ -269,7 +269,7 @@ export class AgentSourceManager {
     try {
       const projectAgents = await loadProjectAgents();
       projectAgents.forEach(agent => {
-        this.addAgent({ ...agent, source: 'project' as AgentSource });
+        this.addAgent({ ...agent, source: 'project' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({
@@ -286,7 +286,7 @@ export class AgentSourceManager {
     try {
       const userAgents = await loadUserAgents();
       userAgents.forEach(agent => {
-        this.addAgent({ ...agent, source: 'user' as AgentSource });
+        this.addAgent({ ...agent, source: 'user' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({
@@ -301,9 +301,9 @@ export class AgentSourceManager {
    */
   private async loadPluginAgents(): Promise<void> {
     try {
-      const pluginAgents = await loadPluginAgents();
-      pluginAgents.forEach(agent => {
-        this.addAgent({ ...agent, source: 'plugin' as AgentSource });
+      const pluginAgents = await loadPluginAgentsFromPlugins();
+      pluginAgents.forEach((agent: any) => {
+        this.addAgent({ ...agent, source: 'plugin' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({

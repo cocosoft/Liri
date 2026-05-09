@@ -48,7 +48,7 @@ export class McpToolWrapper implements Tool {
         name,
         type: prop.type || 'string',
         description: prop.description || '',
-        required: toolData.inputJSONSchema?.required?.includes(name) || false,
+        required: ((toolData.inputJSONSchema?.required as string[]) || []).includes(name) || false,
       }));
     }
   }
@@ -84,7 +84,7 @@ export class McpToolWrapper implements Tool {
     }
 
     try {
-      const result = await client.tools.call({
+      const result = await (client as any).tools.call({
         name: this.toolName,
         arguments: input,
       });

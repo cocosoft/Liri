@@ -1,14 +1,15 @@
-//
 /**
  * 插件设置命令实现
  * 提供插件配置管理功能
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import { pluginRegistry } from '@modules/plugins/PluginRegistry.js';
-import { getPluginSettings, savePluginSettings } from '@modules/plugins/utils/pluginSettings.js';
+import { PluginRegistry } from '@modules/plugins/PluginRegistry.js';
+import { readPluginConfig, writePluginConfig } from '@modules/plugins/utils/pluginSettings.js';
 import { validatePluginConfig, mergeWithDefaults } from '@modules/plugins/utils/pluginConfigSchema.js';
 import type { PluginConfigSchema } from '@modules/plugins/utils/pluginConfigSchema.js';
+
+const pluginRegistry = new PluginRegistry();
 
 /**
  * 执行插件设置命令
@@ -24,7 +25,7 @@ export async function executePluginSettings(
       return listAllPluginSettings();
     }
 
-    const plugin = pluginRegistry.getPlugin(params.plugin);
+    const plugin = pluginRegistry.get(params.plugin);
 
     if (!plugin) {
       return {
@@ -39,7 +40,7 @@ export async function executePluginSettings(
         return getPluginSetting(plugin.name, params.key);
 
       case 'set':
-        return setPluginSetting(plugin.name, params.key, params.value);
+        return setPluginSetting(plugin.name, params.key!, params.value);
 
       case 'list':
         return listPluginSettings(plugin.name);
@@ -64,7 +65,7 @@ export async function executePluginSettings(
  * 列出所有插件的设置
  */
 function listAllPluginSettings(): CommandResult {
-  const plugins = pluginRegistry.getAllPlugins();
+  const plugins = pluginRegistry.getAll();
 
   if (plugins.length === 0) {
     return {
@@ -77,8 +78,8 @@ function listAllPluginSettings(): CommandResult {
   const lines: string[] = ['已安装的插件及其设置状态:\n'];
 
   for (const plugin of plugins) {
-    const settings = getPluginSettings(plugin.name);
-    const configSchema = plugin.manifest.configSchema as PluginConfigSchema | undefined;
+    const settings = readPluginConfig();
+    const configSchema = (plugin.manifest as any).configSchema as PluginConfigSchema | undefined;
     const itemCount = configSchema?.items?.length || 0;
     const hasSettings = Object.keys(settings).length > 0;
 
@@ -100,8 +101,8 @@ function listAllPluginSettings(): CommandResult {
  * 获取插件的单个设置
  */
 function getPluginSetting(pluginName: string, key?: string): CommandResult {
-  const settings = getPluginSettings(pluginName);
-  const plugin = pluginRegistry.getPlugin(pluginName);
+  const settings = readPluginConfig();
+  const plugin = pluginRegistry.get(pluginName);
 
   if (!plugin) {
     return {
@@ -111,10 +112,11 @@ function getPluginSetting(pluginName: string, key?: string): CommandResult {
     };
   }
 
-  const configSchema = plugin.manifest.configSchema as PluginConfigSchema | undefined;
+  const configSchema = (plugin.manifest as any).configSchema as PluginConfigSchema | undefined;
 
   if (key) {
-    if (settings[key] === undefined) {
+    const settingValue = (settings as any)[key];
+    if (settingValue === undefined) {
       const defaultValue = configSchema?.items?.find(i => i.key === key)?.default;
       return {
         type: 'text',
@@ -126,14 +128,14 @@ function getPluginSetting(pluginName: string, key?: string): CommandResult {
     return {
       type: 'text',
       success: true,
-      message: `${pluginName}.${key} = ${JSON.stringify(settings[key])}`,
+      message: `${pluginName}.${key} = ${JSON.stringify(settingValue)}`,
     };
   }
 
   const output: string[] = [];
   if (configSchema?.items) {
     for (const item of configSchema.items) {
-      const value = settings[item.key] ?? item.default;
+      const value = (settings as any)[item.key] ?? item.default;
       output.push(`  ${item.key}: ${JSON.stringify(value)}`);
     }
   } else {
@@ -169,7 +171,7 @@ function setPluginSetting(pluginName: string, key: string, value?: string): Comm
     };
   }
 
-  const plugin = pluginRegistry.getPlugin(pluginName);
+  const plugin = pluginRegistry.get(pluginName);
 
   if (!plugin) {
     return {
@@ -179,7 +181,7 @@ function setPluginSetting(pluginName: string, key: string, value?: string): Comm
     };
   }
 
-  const configSchema = plugin.manifest.configSchema as PluginConfigSchema | undefined;
+  const configSchema = (plugin.manifest as any).configSchema as PluginConfigSchema | undefined;
   const configItem = configSchema?.items?.find(i => i.key === key);
 
   if (configSchema?.items && !configItem) {
@@ -218,7 +220,7 @@ function setPluginSetting(pluginName: string, key: string, value?: string): Comm
     };
   }
 
-  const settings = getPluginSettings(pluginName);
+  const settings = readPluginConfig();
   const mergedSettings = mergeWithDefaults(configSchema!, { ...settings, [key]: parsedValue });
 
   const validation = validatePluginConfig(configSchema!, mergedSettings);
@@ -230,7 +232,7 @@ function setPluginSetting(pluginName: string, key: string, value?: string): Comm
     };
   }
 
-  savePluginSettings(pluginName, mergedSettings);
+  writePluginConfig(undefined, mergedSettings as any);
 
   return {
     type: 'text',
@@ -243,7 +245,7 @@ function setPluginSetting(pluginName: string, key: string, value?: string): Comm
  * 列出插件的所有配置项
  */
 function listPluginSettings(pluginName: string): CommandResult {
-  const plugin = pluginRegistry.getPlugin(pluginName);
+  const plugin = pluginRegistry.get(pluginName);
 
   if (!plugin) {
     return {
@@ -253,8 +255,8 @@ function listPluginSettings(pluginName: string): CommandResult {
     };
   }
 
-  const settings = getPluginSettings(pluginName);
-  const configSchema = plugin.manifest.configSchema as PluginConfigSchema | undefined;
+  const settings = readPluginConfig();
+  const configSchema = (plugin.manifest as any).configSchema as PluginConfigSchema | undefined;
 
   if (!configSchema?.items || configSchema.items.length === 0) {
     return {
@@ -267,7 +269,7 @@ function listPluginSettings(pluginName: string): CommandResult {
   const lines: string[] = [`${pluginName} 配置项:\n`];
 
   for (const item of configSchema.items) {
-    const value = settings[item.key] ?? item.default;
+    const value = (settings as any)[item.key] ?? item.default;
     lines.push(`  ${item.key}`);
     lines.push(`    类型: ${item.type}`);
     lines.push(`    描述: ${item.description || '无'}`);
@@ -295,7 +297,7 @@ function listPluginSettings(pluginName: string): CommandResult {
  * 重置插件设置为默认值
  */
 function resetPluginSettings(pluginName: string): CommandResult {
-  const plugin = pluginRegistry.getPlugin(pluginName);
+  const plugin = pluginRegistry.get(pluginName);
 
   if (!plugin) {
     return {
@@ -305,7 +307,7 @@ function resetPluginSettings(pluginName: string): CommandResult {
     };
   }
 
-  savePluginSettings(pluginName, {});
+  writePluginConfig(undefined, { repositories: {}, enabled: [], disabled: [] });
 
   return {
     type: 'text',

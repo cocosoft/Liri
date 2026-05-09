@@ -58,6 +58,11 @@ export enum PermissionRuleSource {
   COMMAND = 'command',
 
   /**
+   * 系统
+   */
+  SYSTEM = 'system',
+
+  /**
    * 会话
    */
   SESSION = 'session',

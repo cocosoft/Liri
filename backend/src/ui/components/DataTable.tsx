@@ -146,7 +146,7 @@ export const DataTable = <T extends Record<string, unknown>>({
                 >
                   {column.render
                     ? column.render(row[column.id as keyof T], row)
-                    : row[column.id as keyof T]}
+                    : row[column.id as keyof T] as React.ReactNode}
                 </td>
               ))}
             </tr>

@@ -9,6 +9,7 @@ import {
   SandboxViolationEvent,
   SandboxFilesystemConfig,
   SandboxNetworkConfig,
+  SandboxExecuteResult,
   createDefaultSandboxSettings,
   createDefaultSandboxConstraints,
 } from '../types/SandboxTypes';
@@ -300,6 +301,64 @@ export class SandboxManager {
       DEFAULT_TIMEOUT_MS;
 
     return executeWithTimeout(fn, timeoutMs, options?.command);
+  }
+
+  /**
+   * 执行沙箱命令
+   * @param _sandboxId 沙箱ID
+   * @param command 命令字符串
+   * @param _options 执行选项
+   * @returns 执行结果
+   */
+  public async execute(
+    _sandboxId: string,
+    command: string,
+    _options?: any
+  ): Promise<SandboxExecuteResult> {
+    const startTime = Date.now();
+    const checkResult = this.checkCommand(command);
+
+    if (!checkResult.allowed) {
+      return {
+        success: false,
+        exitCode: 1,
+        stdout: '',
+        stderr: checkResult.reason || 'Command not allowed',
+        executionTime: Date.now() - startTime,
+        error: checkResult.reason,
+      };
+    }
+
+    try {
+      const result = await this.executeWithConstraints(
+        async () => {
+          const { exec } = await import('child_process');
+          const { promisify } = await import('util');
+          const execAsync = promisify(exec);
+          const { stdout, stderr } = await execAsync(command);
+          return { stdout, stderr };
+        },
+        { command }
+      );
+
+      return {
+        success: result.success,
+        exitCode: result.success ? 0 : 1,
+        stdout: result.data?.stdout || '',
+        stderr: result.data?.stderr || result.error || '',
+        executionTime: result.durationMs,
+        error: result.error,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        exitCode: 1,
+        stdout: '',
+        stderr: error instanceof Error ? error.message : String(error),
+        executionTime: Date.now() - startTime,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   /**

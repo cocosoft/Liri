@@ -57,7 +57,7 @@ export const MCPAuthDialog: React.FC<MCPAuthDialogProps> = ({
       {step === 'prompt' && (
         <Box flexDirection="column" marginTop={1}>
           <Text>This server requires OAuth authentication.</Text>
-          <Button label="Start Authentication" onClick={handleStartAuth} />
+          <Button onPress={handleStartAuth}>Start Authentication</Button>
         </Box>
       )}
 

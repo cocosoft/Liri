@@ -25,25 +25,21 @@ export class SSETransport {
     try {
       logger.info(`Connecting to SSE MCP server: ${this.config.url}`);
 
-      // 构建SSE客户端选项
       const options = {
         transport: 'sse',
         url: this.config.url,
         headers: this.config.headers || {},
       };
 
-      // 创建客户端
-      const client = new Client(options);
-
-      // 连接到服务器
-      await client.connect();
+      const client = new Client(options as any);
+      await (client as any).connect();
 
       logger.info(`Connected to SSE MCP server: ${this.config.url}`);
       this.client = client;
 
       return client;
     } catch (error) {
-      logger.error('SSE connection failed:', error);
+      logger.error('SSE connection failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -54,10 +50,10 @@ export class SSETransport {
   async disconnect(): Promise<void> {
     if (this.client) {
       try {
-        await this.client.disconnect();
+        await (this.client as any).close();
         logger.info(`Disconnected from SSE MCP server: ${this.config.url}`);
       } catch (error) {
-        logger.error('Error disconnecting from SSE server:', error);
+        logger.error('Error disconnecting from SSE server:', error instanceof Error ? error : new Error(String(error)));
       } finally {
         this.client = null;
       }

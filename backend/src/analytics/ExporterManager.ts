@@ -4,11 +4,9 @@
  * 实现OTLP、Prometheus等导出器的配置和管理
  */
 
-import { NodeTracerProvider, BatchSpanProcessor, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
+import { NodeTracerProvider, ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
 import { OTLPTraceExporter as OTLPTraceExporterHttp } from '@opentelemetry/exporter-trace-otlp-http';
-import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
-import { ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
+import { BatchSpanProcessor, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 
 /**
  * 导出器类型
@@ -59,7 +57,7 @@ export class ExporterManager {
   /**
    * 初始化导出器
    */
-  initializeExporters(tracerProvider: NodeTracerProvider): void {
+  async initializeExporters(tracerProvider: NodeTracerProvider): Promise<void> {
     // 初始化OTLP导出器
     if (this.config.otlp) {
       const otlpConfig = this.config.otlp;
@@ -68,39 +66,49 @@ export class ExporterManager {
           url: otlpConfig.endpoint || 'http://localhost:4318/v1/traces',
           headers: otlpConfig.headers,
         });
-        tracerProvider.addSpanProcessor(new BatchSpanProcessor(otlpExporter));
+        (tracerProvider as any).addSpanProcessor(new BatchSpanProcessor(otlpExporter));
         this.exporters.set('otlp-http', otlpExporter);
         console.log('OTLP HTTP exporter initialized');
       } else {
-        const otlpExporter = new OTLPTraceExporter({
-          url: otlpConfig.endpoint || 'http://localhost:4317',
-          headers: otlpConfig.headers,
-        });
-        tracerProvider.addSpanProcessor(new BatchSpanProcessor(otlpExporter));
-        this.exporters.set('otlp', otlpExporter);
-        console.log('OTLP gRPC exporter initialized');
+        try {
+          // @ts-expect-error - optional dependency, handled in try-catch
+          const { OTLPTraceExporter: OTLPGrpcExporter } = await import('@opentelemetry/exporter-trace-otlp-grpc');
+          const grpcExporter = new OTLPGrpcExporter({
+            url: otlpConfig.endpoint || 'http://localhost:4317',
+            headers: otlpConfig.headers,
+          });
+          (tracerProvider as any).addSpanProcessor(new BatchSpanProcessor(grpcExporter));
+          this.exporters.set('otlp', grpcExporter);
+          console.log('OTLP gRPC exporter initialized');
+        } catch {
+          console.warn('OTLP gRPC exporter not available');
+        }
       }
     }
 
     // 初始化Prometheus导出器
     if (this.config.prometheus) {
-      const prometheusConfig = this.config.prometheus;
-      const prometheusExporter = new PrometheusExporter({
-        port: prometheusConfig.port || 9464,
-        host: prometheusConfig.host || 'localhost',
-        endpoint: prometheusConfig.endpoint || '/metrics',
-      });
-      tracerProvider.addSpanProcessor(new SimpleSpanProcessor(prometheusExporter));
-      this.exporters.set('prometheus', prometheusExporter);
-      console.log(`Prometheus exporter initialized on ${prometheusConfig.host || 'localhost'}:${prometheusConfig.port || 9464}${prometheusConfig.endpoint || '/metrics'}`);
+      try {
+        // @ts-expect-error - optional dependency, handled in try-catch
+          const { PrometheusExporter } = await import('@opentelemetry/exporter-prometheus');
+        const prometheusConfig = this.config.prometheus;
+        const prometheusExporter = new PrometheusExporter({
+          port: prometheusConfig.port || 9464,
+          host: prometheusConfig.host || 'localhost',
+          endpoint: prometheusConfig.endpoint || '/metrics',
+        });
+        (tracerProvider as any).addSpanProcessor(new SimpleSpanProcessor(prometheusExporter));
+        this.exporters.set('prometheus', prometheusExporter);
+        console.log(`Prometheus exporter initialized on ${prometheusConfig.host || 'localhost'}:${prometheusConfig.port || 9464}${prometheusConfig.endpoint || '/metrics'}`);
+      } catch {
+        console.warn('Prometheus exporter not available');
+      }
     }
 
     // 初始化Console导出器
     if (this.config.console) {
-      const consoleExporter = new ConsoleSpanExporter({
-        verbose: this.config.console.verbose,
-      });
-      tracerProvider.addSpanProcessor(new SimpleSpanProcessor(consoleExporter));
+      const consoleExporter = new ConsoleSpanExporter();
+      (tracerProvider as any).addSpanProcessor(new SimpleSpanProcessor(consoleExporter));
       this.exporters.set('console', consoleExporter);
       console.log('Console exporter initialized');
     }

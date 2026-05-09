@@ -7,7 +7,8 @@
  */
 
 import type { Message } from '@modules/chat/types/message';
-import type { SubAgent } from '@modules/subagent/types/SubAgent';
+import type { SubAgent, InProcessSubAgentConfig } from '@modules/subagent/types/SubAgent';
+import { SubAgentType } from '@modules/subagent/types/SubAgent';
 import {
   BaseTeammateBackend,
   TeammateConfig,
@@ -20,21 +21,20 @@ export class InProcessTeammateBackend extends BaseTeammateBackend {
   protected async createAgent(config: TeammateConfig): Promise<SubAgent> {
     const { SubAgentFactory } = await import('../SubAgentFactory');
 
-    const subAgentConfig = {
+    const subAgentConfig: InProcessSubAgentConfig = {
       id: `inprocess-${config.name}-${Date.now()}`,
       name: config.name,
-      type: 'in_process' as const,
+      type: SubAgentType.IN_PROCESS,
       model: config.model,
       systemPrompt: config.systemPrompt,
-      capabilities: config.capabilities,
       memoryLimit: config.memoryLimit,
     };
 
     const factory = new SubAgentFactory();
     const agent = await factory.createInProcessSubAgent(subAgentConfig);
 
-    if (agent && typeof agent.onMessage === 'function') {
-      agent.onMessage((message: Message) => {
+    if (agent && typeof (agent as any).onMessage === 'function') {
+      (agent as any).onMessage((message: Message) => {
         const handle = this.getHandleByAgent(agent);
         if (handle) {
           this.notifyMessage(handle, message);
@@ -54,13 +54,13 @@ export class InProcessTeammateBackend extends BaseTeammateBackend {
     return undefined;
   }
 
-  async restart(handle: TeammateHandle): Promise<void> {
+  override async restart(handle: TeammateHandle): Promise<void> {
     const config = handle.config;
     await this.kill(handle);
     await this.spawn(config);
   }
 
-  async isHealthy(handle: TeammateHandle): Promise<boolean> {
+  override async isHealthy(handle: TeammateHandle): Promise<boolean> {
     if (handle.status !== 'running') {
       return false;
     }

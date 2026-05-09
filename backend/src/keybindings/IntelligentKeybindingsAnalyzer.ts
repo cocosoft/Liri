@@ -6,6 +6,92 @@
 
 import { EnhancedKeybindingsManager, KeybindingUsageStatistics, KeybindingPerformanceMetrics, KeybindingPatternAnalysis } from './EnhancedKeybindingsManager.js';
 
+// 以下类型仅在分析器结构中使用
+interface UsagePatternAnalysis {
+  temporalPatterns: string[];
+  contextualPatterns: string[];
+  sequentialPatterns: string[];
+  patternStrength: number;
+}
+
+interface UserBehaviorAnalysis {
+  userHabits: string[];
+  behaviorConsistency: number;
+  adaptationRate: number;
+  learningProgress: number;
+}
+
+interface ContextAnalysis {
+  contextUsage: Record<string, number>;
+  contextEffectiveness: number;
+  contextOptimization: number;
+}
+
+interface LearningEfficiencyAnalysis {
+  learningEfficiency: number;
+}
+
+interface MemoryEfficiencyAnalysis {
+  cognitiveEfficiency: number;
+}
+
+interface CognitiveEfficiencyAnalysis {
+  cognitiveEfficiency: number;
+}
+
+interface ExecutionPerformanceAnalysis {
+  executionReliability: number;
+}
+
+interface ReliabilityAnalysis {
+  reliabilityScore: number;
+}
+
+interface StabilityAnalysis {
+  overallStability: number;
+}
+
+type UsageDistribution = Record<string, unknown>;
+type ConflictTypeDistribution = Record<string, unknown>;
+
+interface ConflictImpactAnalysis {
+  userImpact: number;
+  systemImpact: number;
+  productivityImpact: number;
+}
+
+interface ConflictResolutionAnalysis {
+  resolutionEffectiveness: number;
+}
+
+interface ConflictPreventionAnalysis {
+  preventionEffectiveness: number;
+}
+
+interface HabitAnalysis {
+  habitEfficiency: number;
+}
+
+interface CustomizationAnalysis {
+  customizationEfficiency: number;
+}
+
+interface AdaptationAnalysis {
+  adaptationEfficiency: number;
+}
+
+interface EfficiencyPatternAnalysis {
+  patternStrength: number;
+}
+
+interface ConflictPatternAnalysis {
+  patternStrength: number;
+}
+
+interface PersonalizationPatternAnalysis {
+  patternStrength: number;
+}
+
 /**
  * 快捷键分析结果
  */
@@ -504,7 +590,7 @@ export class IntelligentKeybindingsAnalyzer {
           efficiencyScore: performance?.performanceScore || 0,
         },
         learning: {
-          learningTime: 2.5, // 天
+          learningTime: 2.5,
           learningCurve: 'moderate',
           retentionRate: 0.85,
           learningEfficiency: 0.75,
@@ -537,7 +623,7 @@ export class IntelligentKeybindingsAnalyzer {
         },
         reliability: {
           failureRate: performance?.errorRate || 0,
-          meanTimeBetweenFailures: 1000, // 次
+          meanTimeBetweenFailures: 1000,
           reliabilityScore: 0.9,
           faultTolerance: 0.85,
         },
@@ -568,7 +654,7 @@ export class IntelligentKeybindingsAnalyzer {
         },
         resolution: {
           resolutionRate: 0.8,
-          resolutionTime: 1.5, // 天
+          resolutionTime: 1.5,
           resolutionEffectiveness: 0.85,
           resolutionSatisfaction: 0.75,
         },
@@ -631,7 +717,7 @@ export class IntelligentKeybindingsAnalyzer {
           patternStrength: 0.68,
         },
       },
-    };
+    } as unknown as KeybindingAnalysisDetails;
   }
 
   /**

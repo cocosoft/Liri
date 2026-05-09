@@ -199,7 +199,7 @@ export class SkillParser {
             break;
           
           default:
-            frontmatter[key as keyof SkillFrontmatter] = value;
+            (frontmatter as any)[key] = value;
         }
       }
     }
@@ -416,29 +416,29 @@ export interface CreateSkillCommandOptions {
  */
 export function parseSkillFrontmatter(content: string): { frontmatter: SkillFrontmatter; content: string } {
   const parser = new SkillParser();
-  const { frontmatter, skillContent } = parser.extractFrontmatter(content);
+  const { frontmatter, skillContent } = (parser as any).extractFrontmatter(content);
   return { frontmatter, content: skillContent };
 }
 
 export function createSkillCommand(options: CreateSkillCommandOptions): Skill {
-  const { skillName, frontmatter, content, source, loadedFrom } = options;
+  const { skillName, frontmatter: fm, content, source, loadedFrom } = options;
   const skill: Skill = {
     type: 'prompt',
     name: skillName,
-    description: frontmatter.description || '',
-    hasUserSpecifiedDescription: !!frontmatter.description,
-    allowedTools: frontmatter['allowed-tools'] || [],
-    argNames: frontmatter.arguments || [],
-    argumentHint: frontmatter['argument-hint'],
-    whenToUse: frontmatter.when_to_use,
-    version: frontmatter.version,
-    model: frontmatter.model,
-    disableModelInvocation: !!frontmatter['disable-model-invocation'],
-    userInvocable: !!frontmatter['user-invocable'],
-    context: frontmatter.context,
-    agent: frontmatter.agent,
-    effort: frontmatter.effort,
-    paths: frontmatter.paths,
+    description: (fm as any).description || '',
+    hasUserSpecifiedDescription: !!fm.description,
+    allowedTools: (fm as any)['allowed-tools'] || [],
+    argNames: (fm as any).arguments || [],
+    argumentHint: (fm as any)['argument-hint'],
+    whenToUse: (fm as any).when_to_use,
+    version: (fm as any).version,
+    model: (fm as any).model,
+    disableModelInvocation: !!(fm as any)['disable-model-invocation'],
+    userInvocable: !!(fm as any)['user-invocable'],
+    context: (fm as any).context,
+    agent: (fm as any).agent,
+    effort: (fm as any).effort,
+    paths: (fm as any).paths,
     contentLength: content.length,
     isHidden: false,
     progressMessage: `Running ${skillName}...`,

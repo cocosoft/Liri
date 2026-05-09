@@ -12,8 +12,9 @@ import type {
   MiniAgentConfig,
   MiniAgentResult,
   CommandMatch,
+  IRuleEngine,
 } from './types.js';
-import { IRuleEngine, KeywordRuleEngine } from './KeywordRuleEngine.js';
+import { KeywordRuleEngine } from './KeywordRuleEngine.js';
 import { TaskRouterImpl } from './TaskRouter.js';
 import { OllamaProvider, createDefaultOllamaConfig } from './OllamaProvider.js';
 import { LocalCommandExecutor } from './CommandExecutor.js';

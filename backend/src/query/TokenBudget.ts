@@ -59,7 +59,7 @@ export interface TokenBudgetManager {
   getCurrentBudgetState(): TokenBudgetState;
   consumeTokens(tokens: number): void;
   resetBudget(): void;
-  checkBudget(): 'normal' | 'warning' | 'critical';
+  checkBudget(): TokenBudgetStatus;
   estimateMessageTokens(content: string): number;
   canSendMessage(content: string): boolean;
   getCompressionLevel(): 0 | 1 | 2 | 3;
@@ -146,16 +146,16 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
     this.resetAt = Date.now() + this.config.budgetRefreshIntervalMs;
   }
 
-  checkBudget(): 'normal' | 'warning' | 'critical' {
+  checkBudget(): TokenBudgetStatus {
     const percentUsed = this.currentUsage / this.config.maxTokens;
     
     if (percentUsed >= this.config.criticalThreshold) {
-      return 'critical';
+      return TokenBudgetStatus.CRITICAL;
     }
     if (percentUsed >= this.config.warningThreshold) {
-      return 'warning';
+      return TokenBudgetStatus.WARNING;
     }
-    return 'normal';
+    return TokenBudgetStatus.NORMAL;
   }
 
   estimateMessageTokens(content: string): number {

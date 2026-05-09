@@ -10,7 +10,9 @@ import { logger } from '@modules/utils/log';
 import { CustomAgentDefinition, SettingSource } from './types';
 import { parseAgentsFromJson } from './parseAgent';
 import { getCwd } from '@modules/utils/cwd';
-import { getPyAppConfigHomeDir } from '@modules/utils/envUtils';
+import { getConfigHomeDir } from '@modules/utils/envUtils';
+
+type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
 
 /**
  * Agent配置管理器
@@ -22,7 +24,7 @@ export class AgentConfigManager {
   /**
    * 加载指定源的Agent配置
    */
-  async loadConfigsFromSource(source: SettingSource): Promise<CustomAgentDefinition[]> {
+  async loadConfigsFromSource(source: NonPluginSource): Promise<CustomAgentDefinition[]> {
     const cacheKey = `config_${source}`;
     const configPath = this.getConfigPathForSource(source);
 
@@ -54,7 +56,7 @@ export class AgentConfigManager {
 
       return agents;
     } catch (error) {
-      logger.error(`Failed to load configs from ${source}:`, error);
+      logger.error(`Failed to load configs from ${source}:`, error as Error);
       return [];
     }
   }
@@ -103,7 +105,7 @@ export class AgentConfigManager {
 
       return true;
     } catch (error) {
-      logger.error(`Failed to save configs to ${source}:`, error);
+      logger.error(`Failed to save configs to ${source}:`, error as Error);
       return false;
     }
   }
@@ -112,7 +114,7 @@ export class AgentConfigManager {
    * 获取指定源的配置文件路径
    */
   private getConfigPathForSource(source: SettingSource): string {
-    const configHome = getPyAppConfigHomeDir();
+    const configHome = getConfigHomeDir();
     
     switch (source) {
       case 'userSettings':
@@ -185,7 +187,7 @@ export class AgentConfigManager {
 
       return true;
     } catch (error) {
-      logger.error('Error validating agent config:', error);
+      logger.error('Error validating agent config:', error as Error);
       return false;
     }
   }

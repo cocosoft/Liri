@@ -4,7 +4,7 @@
  * 消息发送工具，用于在teammates间发送消息
  */
 
-export { SendMessageTool, createSendMessageTool } from './SendMessageTool';
+export { SendMessageTool, sendMessage, getMessageHistory } from './SendMessageTool';
 export type {
   SendMessageInput,
   SendMessageOutput,

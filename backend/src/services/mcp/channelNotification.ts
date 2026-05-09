@@ -60,10 +60,10 @@ export function registerChannelNotificationHandler(
   try {
     // 注册通道消息通知处理器
     server.client.setNotificationHandler(
-      'notifications/claude/channel',
+      'notifications/claude/channel' as any,
       async notification => {
-        const { content, meta } = notification.params;
-        logger.info(`Received channel message from ${server.name}: ${content.slice(0, 80)}`);
+        const { content, meta } = (notification as any).params;
+        logger.info(`Received channel message from ${server.name}: ${(content as string).slice(0, 80)}`);
         onMessage(content, meta);
       }
     );
@@ -71,9 +71,9 @@ export function registerChannelNotificationHandler(
     // 注册通道权限通知处理器
     if (server.capabilities?.experimental?.['claude/channel/permission']) {
       server.client.setNotificationHandler(
-        CHANNEL_PERMISSION_METHOD,
+        CHANNEL_PERMISSION_METHOD as any,
         async notification => {
-          const { request_id, behavior } = notification.params;
+          const { request_id, behavior } = (notification as any).params;
           logger.info(`Received channel permission notification: ${request_id} → ${behavior}`);
           // 处理权限通知
         }
@@ -82,7 +82,7 @@ export function registerChannelNotificationHandler(
 
     logger.info(`Registered channel notification handlers for server ${server.name}`);
   } catch (error) {
-    logger.error(`Failed to register channel notification handlers:`, error);
+    logger.error(`Failed to register channel notification handlers:`, error instanceof Error ? error : new Error(String(error)));
   }
 }
 
@@ -95,6 +95,6 @@ export function removeChannelNotificationHandler(server: ConnectedMCPServer): vo
     server.client.removeNotificationHandler(CHANNEL_PERMISSION_METHOD);
     logger.info(`Removed channel notification handlers for server ${server.name}`);
   } catch (error) {
-    logger.error(`Failed to remove channel notification handlers:`, error);
+    logger.error(`Failed to remove channel notification handlers:`, error instanceof Error ? error : new Error(String(error)));
   }
 }

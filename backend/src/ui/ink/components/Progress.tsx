@@ -32,13 +32,13 @@ export const Progress: React.FC<ProgressProps> = ({
         <Text>{label}</Text>
       )}
       <Box flexDirection="row">
-        <Text color={barColor}>
+        <Text color={barColor as any}>
           {'='.repeat(filledWidth)}
         </Text>
-        <Text color="gray">
+        <Text color={'gray' as any}>
           {'-'.repeat(emptyWidth)}
         </Text>
-        <Text color="gray" style={{ marginLeft: 2 }}>
+        <Text color={'gray' as any}>
           {Math.round(percentage)}%
         </Text>
       </Box>

@@ -30,7 +30,7 @@ export class MCPConfigManager {
       this.configs = configs;
       return configs;
     } catch (error) {
-      logger.error('Failed to load MCP configs:', error);
+      logger.error('Failed to load MCP configs:', error instanceof Error ? error : new Error(String(error)));
       return {};
     }
   }
@@ -81,7 +81,7 @@ export class MCPConfigManager {
 
       return scopedConfigs;
     } catch (error) {
-      logger.error(`Failed to load MCP config file ${path}:`, error);
+      logger.error(`Failed to load MCP config file ${path}:`, error instanceof Error ? error : new Error(String(error)));
       return {};
     }
   }
@@ -122,7 +122,7 @@ export class MCPConfigManager {
       McpServerConfigSchema.parse(config);
       return true;
     } catch (error) {
-      logger.error('Invalid MCP config:', error);
+      logger.error('Invalid MCP config:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }

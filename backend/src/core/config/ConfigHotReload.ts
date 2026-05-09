@@ -44,7 +44,7 @@ export class ConfigHotReload extends EventEmitter {
   private static instance: ConfigHotReload;
 
   private watchers: Map<string, FSWatcher>;
-  private listeners: Set<ConfigChangeListener>;
+  private changeListeners: Set<ConfigChangeListener>;
   private config: Required<ConfigHotReloadConfig>;
   private internalWrites: Map<string, number>;
   private debounceTimers: Map<string, NodeJS.Timeout>;
@@ -53,7 +53,7 @@ export class ConfigHotReload extends EventEmitter {
   private constructor(config?: ConfigHotReloadConfig) {
     super();
     this.watchers = new Map();
-    this.listeners = new Set();
+    this.changeListeners = new Set();
     this.config = {
       debounceMs: config?.debounceMs ?? 1000,
       enableInternalWriteDetection: config?.enableInternalWriteDetection ?? true,
@@ -150,10 +150,10 @@ export class ConfigHotReload extends EventEmitter {
    * @param listener 监听器函数
    */
   subscribe(listener: ConfigChangeListener): () => void {
-    this.listeners.add(listener);
+    this.changeListeners.add(listener);
 
     return () => {
-      this.listeners.delete(listener);
+      this.changeListeners.delete(listener);
     };
   }
 
@@ -208,7 +208,7 @@ export class ConfigHotReload extends EventEmitter {
 
       this.watchers.set(filePath, watcher);
     } catch (error) {
-      logger.error(`Failed to watch file: ${filePath}`, error);
+      logger.error(`Failed to watch file: ${filePath}`, error as Error);
     }
   }
 
@@ -233,7 +233,7 @@ export class ConfigHotReload extends EventEmitter {
 
       this.watchers.set(targetFile, watcher);
     } catch (error) {
-      logger.error(`Failed to watch directory: ${dirPath}`, error);
+      logger.error(`Failed to watch directory: ${dirPath}`, error as Error);
     }
   }
 
@@ -281,11 +281,11 @@ export class ConfigHotReload extends EventEmitter {
     };
 
     // 通知订阅者
-    for (const listener of this.listeners) {
+    for (const listener of this.changeListeners) {
       try {
         listener(event);
       } catch (error) {
-        logger.error(`Error in config change listener:`, error);
+        logger.error(`Error in config change listener:`, error as Error);
       }
     }
 
@@ -306,7 +306,7 @@ export class ConfigHotReload extends EventEmitter {
    * 获取监听器数量
    */
   getListenerCount(): number {
-    return this.listeners.size;
+    return this.changeListeners.size;
   }
 
   /**

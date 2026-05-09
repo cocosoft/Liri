@@ -166,12 +166,12 @@ export class ImportManager {
       
       if (mergedOptions.lazy) {
         // 懒加载：返回一个代理对象
-        module = new Proxy({}, {
-          get: (target, prop) => {
+        module = new Proxy({} as Record<string, any>, {
+          get: (target: any, prop: string) => {
             if (!target['__module__']) {
               target['__module__'] = this.loadModule(resolvedPath);
             }
-            return target['__module__'].then(m => m[prop]);
+            return target['__module__'].then((m: any) => m[prop]);
           }
         });
       } else {
@@ -255,14 +255,7 @@ export class ImportManager {
    * 加载模块的具体实现
    */
   private async loadModule(path: string): Promise<any> {
-    // 这里使用动态导入，实际项目中可能需要根据环境调整
-    if (typeof Bun !== 'undefined') {
-      // Bun环境
-      return await import(path);
-    } else {
-      // Node.js环境
-      return await import(path);
-    }
+    return await import(path);
   }
   
   /**

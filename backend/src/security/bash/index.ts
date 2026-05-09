@@ -1,6 +1,5 @@
 //
 export {
-  ParsedCommand,
   parseCommand,
   type IParsedCommand,
   type CommandSegment,
@@ -15,7 +14,7 @@ export {
   type BashASTNode,
   type BashToken,
   type BashAnalysisResult,
-  type ParsedCommand as BashParsedCommand,
+  type BashParsedCommand,
   type CommandArg,
   type RedirectInfo,
   type EnvAssignment,

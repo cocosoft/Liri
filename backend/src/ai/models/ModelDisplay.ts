@@ -8,6 +8,7 @@
 import { modelManager } from './ModelManager.js';
 import { getModelKeyByName, ALL_MODEL_CONFIGS, type ModelKey } from './ModelConfigs.js';
 import { priceManager } from '@modules/core/tokenBudget/PriceManager';
+import { getCacheEfficiency as getCacheEfficiencyFromBudget } from '@modules/core/tokenBudget/CacheAwareBudget';
 
 /**
  * 格式化模型价格
@@ -228,5 +229,10 @@ export function getCacheEfficiencyFromPriceManager(
   cacheReadTokens: number,
   cacheCreationTokens: number
 ): { worthIt: boolean; ratio: number; description: string } {
-  return priceManager.getCacheEfficiency(modelName, cacheReadTokens, cacheCreationTokens);
+  const result = getCacheEfficiencyFromBudget(cacheReadTokens, cacheCreationTokens, modelName);
+  return {
+    worthIt: result.isWorthIt,
+    ratio: result.efficiency,
+    description: `缓存命中率 ${result.ratio}`,
+  };
 }

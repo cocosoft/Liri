@@ -68,6 +68,8 @@ export class WebSocketProtocol implements RemoteAgentProtocol {
       throw new Error('Not connected to remote agent');
     }
 
+    const socket = this.socket;
+
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
       const messageId = `${data.id}_${Date.now()}`;
@@ -81,21 +83,21 @@ export class WebSocketProtocol implements RemoteAgentProtocol {
           const result: RemoteExecutionResult = JSON.parse(event.data);
           if (result.taskId === data.id) {
             clearTimeout(timeout);
-            this.socket?.removeEventListener('message', handleMessage);
+            socket.removeEventListener('message', handleMessage);
             
             result.durationMs = Date.now() - startTime;
             resolve(result);
           }
         } catch (error) {
           clearTimeout(timeout);
-          this.socket?.removeEventListener('message', handleMessage);
+          socket.removeEventListener('message', handleMessage);
           reject(error);
         }
       };
 
-      this.socket.addEventListener('message', handleMessage);
+      socket.addEventListener('message', handleMessage);
 
-      this.socket.send(JSON.stringify({
+      socket.send(JSON.stringify({
         ...data,
         messageId,
       }));
@@ -125,17 +127,20 @@ export class HttpProtocol implements RemoteAgentProtocol {
 
   async send(data: RemoteAgentTask): Promise<RemoteExecutionResult> {
     const startTime = Date.now();
-    
-    for (let attempt = 1; attempt <= this.options.retryCount; attempt++) {
+    const timeoutValue = data.timeoutMs ?? this.options.timeout;
+    const timeoutMs = timeoutValue ?? 30000;
+    const retryCount = this.options.retryCount ?? 3;
+
+    for (let attempt = 1; attempt <= retryCount; attempt++) {
       try {
         const response = await fetch(`/api/agents/${data.agentId}/execute`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...this.options.headers,
+            ...(this.options.headers ?? {}),
           },
           body: JSON.stringify(data),
-          timeout: data.timeoutMs || this.options.timeout,
+          signal: AbortSignal.timeout(timeoutMs),
         });
 
         if (!response.ok) {
@@ -147,7 +152,7 @@ export class HttpProtocol implements RemoteAgentProtocol {
         
         return result;
       } catch (error) {
-        if (attempt === this.options.retryCount) {
+        if (attempt === retryCount) {
           throw error;
         }
         

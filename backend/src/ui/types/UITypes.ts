@@ -99,6 +99,7 @@ export interface DialogProps {
 export interface PaneProps {
   children: ReactNode;
   color?: keyof UITheme['colors'];
+  hideBorder?: boolean;
   padding?: number;
   margin?: number;
   flexDirection?: 'row' | 'column';
@@ -147,6 +148,7 @@ export interface InputProps {
   onFocus?: () => void;
   onBlur?: () => void;
   onKeyDown?: (event: any) => void;
+  onSubmit?: () => void;
 }
 
 /**

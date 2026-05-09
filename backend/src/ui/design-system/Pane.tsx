@@ -31,6 +31,7 @@ import { Divider } from './Divider';
 export function Pane({
   children,
   color = 'border',
+  hideBorder = false,
   padding = 1,
   margin = 0,
   flexDirection = 'column',
@@ -46,7 +47,7 @@ export function Pane({
       marginBottom={margin}
     >
       {/* 顶部边框线（基于CC源码） */}
-      <Divider color={color} orientation="horizontal" thickness={1} />
+      {!hideBorder && <Divider color={color} orientation="horizontal" thickness={1} />}
       
       {/* 内容区域（基于CC源码） */}
       <Box

@@ -50,7 +50,7 @@ type XtversionResponse = Extract<TerminalResponse, { type: 'xtversion' }>
 export function decrqm(mode: number): TerminalQuery<DecrpmResponse> {
   return {
     request: csi(`?${mode}$p`),
-    match: (r): r is DecrpmResponse => r.type === 'decrpm' && r.mode === mode,
+    match: (r: TerminalResponse): r is DecrpmResponse => (r as any).type === 'decrpm' && (r as any).mode === mode,
   }
 }
 
@@ -60,7 +60,7 @@ export function decrqm(mode: number): TerminalQuery<DecrpmResponse> {
 export function da1(): TerminalQuery<Da1Response> {
   return {
     request: csi('c'),
-    match: (r): r is Da1Response => r.type === 'da1',
+    match: (r: TerminalResponse): r is Da1Response => (r as any).type === 'da1',
   }
 }
 
@@ -68,7 +68,7 @@ export function da1(): TerminalQuery<Da1Response> {
 export function da2(): TerminalQuery<Da2Response> {
   return {
     request: csi('>c'),
-    match: (r): r is Da2Response => r.type === 'da2',
+    match: (r: TerminalResponse): r is Da2Response => (r as any).type === 'da2',
   }
 }
 
@@ -77,7 +77,7 @@ export function da2(): TerminalQuery<Da2Response> {
 export function kittyKeyboard(): TerminalQuery<KittyResponse> {
   return {
     request: csi('?u'),
-    match: (r): r is KittyResponse => r.type === 'kittyKeyboard',
+    match: (r: TerminalResponse): r is KittyResponse => (r as any).type === 'kittyKeyboard',
   }
 }
 
@@ -88,7 +88,7 @@ export function kittyKeyboard(): TerminalQuery<KittyResponse> {
 export function cursorPosition(): TerminalQuery<CursorPosResponse> {
   return {
     request: csi('?6n'),
-    match: (r): r is CursorPosResponse => r.type === 'cursorPosition',
+    match: (r: TerminalResponse): r is CursorPosResponse => (r as any).type === 'cursorPosition',
   }
 }
 
@@ -97,7 +97,7 @@ export function cursorPosition(): TerminalQuery<CursorPosResponse> {
 export function oscColor(code: number): TerminalQuery<OscResponse> {
   return {
     request: osc(code, '?'),
-    match: (r): r is OscResponse => r.type === 'osc' && r.code === code,
+    match: (r: TerminalResponse): r is OscResponse => (r as any).type === 'osc' && (r as any).code === code,
   }
 }
 
@@ -109,7 +109,7 @@ export function oscColor(code: number): TerminalQuery<OscResponse> {
 export function xtversion(): TerminalQuery<XtversionResponse> {
   return {
     request: csi('>0q'),
-    match: (r): r is XtversionResponse => r.type === 'xtversion',
+    match: (r: TerminalResponse): r is XtversionResponse => (r as any).type === 'xtversion',
   }
 }
 
@@ -201,7 +201,7 @@ export class TerminalQuerier {
       return
     }
 
-    if (r.type === 'da1') {
+    if ((r as any).type === 'da1') {
       const s = this.queue.findIndex(p => p.kind === 'sentinel')
       if (s === -1) return
       for (const p of this.queue.splice(0, s + 1)) {

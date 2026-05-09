@@ -23,7 +23,7 @@ export interface InteractiveCommandExecutorOptions {
  */
 export class InteractiveCommandExecutor {
   private rl: readline.Interface;
-  private prompt: string;
+  private promptPrefix: string;
   private commandManager = getCommandManager();
   private historyManager = getEnhancedCommandHistory();
   private options: InteractiveCommandExecutorOptions;
@@ -40,12 +40,12 @@ export class InteractiveCommandExecutor {
       maxSuggestions: options.maxSuggestions || 10,
     };
 
-    this.prompt = this.options.prompt || 'PY_APP> ';
+    this.promptPrefix = this.options.prompt || 'PY_APP> ';
 
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: this.prompt,
+      prompt: this.promptPrefix,
       completer: this.options.enableSuggestions ? this.completer.bind(this) : undefined,
     });
 
@@ -92,8 +92,8 @@ export class InteractiveCommandExecutor {
    * @param callback 回调函数
    */
   private completer(line: string, callback: (err: any, result: [string[], string]) => void): void {
-    const commands = this.commandManager.getCommands();
-    const commandNames = Array.from(commands.keys());
+    const commands = (this.commandManager as any).getCommands();
+    const commandNames: string[] = Array.from(commands.keys() as string[]);
     
     // 获取建议
     const suggestions = this.historyManager.getSuggestions(line, this.options.maxSuggestions || 10);
@@ -102,7 +102,7 @@ export class InteractiveCommandExecutor {
     const allSuggestions = [...new Set([...commandNames, ...suggestions])];
     
     // 按前缀过滤
-    const matches = allSuggestions.filter((command) =>
+    const matches = allSuggestions.filter((command: string) =>
       command.toLowerCase().startsWith(line.toLowerCase())
     );
     
@@ -157,11 +157,11 @@ export class InteractiveCommandExecutor {
     console.log('========================================');
     console.log('');
     console.log('可用命令:');
-    const commands = this.commandManager.getCommands();
-    const commandNames = Array.from(commands.keys()).slice(0, 10);
-    commandNames.forEach(name => {
+    const commands = (this.commandManager as any).getCommands();
+    const commandNames: string[] = Array.from(commands.keys() as string[]).slice(0, 10);
+    commandNames.forEach((name: any) => {
       const cmd = commands.get(name);
-      console.log(`  ${name.padEnd(20)} ${cmd?.description || ''}`);
+      console.log(`  ${String(name).padEnd(20)} ${cmd?.description || ''}`);
     });
     console.log('');
     console.log('提示:');

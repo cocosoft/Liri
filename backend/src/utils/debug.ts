@@ -14,7 +14,7 @@ export function isDebugMode(): boolean {
 /**
  * 调试日志
  */
-export function logForDebugging(message: string, options?: { level: 'debug' | 'info' | 'warn' | 'error' }): void {
+export function logForDebugging(message: string, options?: Record<string, any>): void {
   if (!isDebugMode()) {
     return;
   }

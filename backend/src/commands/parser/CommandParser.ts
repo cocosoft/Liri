@@ -4,7 +4,7 @@
  * 使用Commander.js实现命令解析和子命令系统
  */
 import { Command as CommanderCommand, Option } from 'commander';
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 
 /**
@@ -38,7 +38,7 @@ export class CommandParser {
    * 注册命令到Commander.js
    * @param command 命令对象
    */
-  registerCommand(command: Command): void {
+  registerCommand(command: any): void {
     const cmd = this.program.command(command.name)
       .description(command.description || '')
       .action(async (args: any[], options: any) => {
@@ -50,10 +50,10 @@ export class CommandParser {
       for (const option of command.options) {
         const opt = new Option(option.flags, option.description || '');
         if (option.required) {
-          opt.required(true);
+          opt.required = true;
         }
         if (option.default !== undefined) {
-          opt.default(option.default);
+          opt.default = option.default;
         }
         cmd.addOption(opt);
       }
@@ -72,7 +72,7 @@ export class CommandParser {
    * @param parentCommand 父命令
    * @param subcommand 子命令
    */
-  private registerSubcommand(parentCommand: CommanderCommand, subcommand: Command): void {
+  private registerSubcommand(parentCommand: CommanderCommand, subcommand: any): void {
     const cmd = parentCommand.command(subcommand.name)
       .description(subcommand.description || '')
       .action(async (args: any[], options: any) => {
@@ -85,10 +85,10 @@ export class CommandParser {
       for (const option of subcommand.options) {
         const opt = new Option(option.flags, option.description || '');
         if (option.required) {
-          opt.required(true);
+          opt.required = true;
         }
         if (option.default !== undefined) {
-          opt.default(option.default);
+          opt.default = option.default;
         }
         cmd.addOption(opt);
       }

@@ -24,11 +24,15 @@ export interface ToolPermissionContext {
 }
 
 export function getEmptyToolPermissionContext(): ToolPermissionContext {
+  const emptyRecord: Record<string, string[]> = {};
+  for (const source of RULE_SOURCES) {
+    emptyRecord[source] = [];
+  }
   return {
     mode: 'default',
-    alwaysAllowRules: {},
-    alwaysDenyRules: {},
-    alwaysAskRules: {},
+    alwaysAllowRules: emptyRecord as Record<PermissionRuleSource, string[]>,
+    alwaysDenyRules: emptyRecord as Record<PermissionRuleSource, string[]>,
+    alwaysAskRules: emptyRecord as Record<PermissionRuleSource, string[]>,
     isBypassPermissionsModeAvailable: false,
     additionalWorkingDirectories: [],
   };

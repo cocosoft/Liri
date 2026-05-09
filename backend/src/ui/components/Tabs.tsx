@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Box, Text } from '../../ink';
-import { TabsProps } from '../types/UITypes';
+import { TabsProps, TabItem, UITheme } from '../types/UITypes';
 import { useTheme } from '../design-system/ThemeProvider';
 
 /**
@@ -122,7 +122,7 @@ export function IconTabs({
 }: TabsProps & { tabs: Array<{ id: string; label: string; icon: string; content: React.ReactNode; disabled?: boolean }> }) {
   return (
     <Tabs
-      tabs={tabs.map(tab => ({
+      tabs={(tabs as any[]).map(tab => ({
         ...tab,
         label: (
           <Box flexDirection="row" alignItems="center" gap={1}>
@@ -294,7 +294,6 @@ export function StepTabs({
               <Text 
                 color={isActive || isCompleted ? theme.colors[color] : theme.colors.textSecondary}
                 bold={isActive}
-                fontSize="sm"
               >
                 {step.label}
               </Text>
@@ -303,8 +302,6 @@ export function StepTabs({
               {step.description && (
                 <Text 
                   color={theme.colors.textSecondary}
-                  fontSize="xs"
-                  textAlign="center"
                 >
                   {step.description}
                 </Text>

@@ -131,7 +131,7 @@ export class RemoteTaskScheduler {
    * 注册任务
    */
   public registerTask(config: Omit<RemoteTaskConfig, 'id'>): string {
-    const taskId = config.id || this.generateTaskId();
+    const taskId = this.generateTaskId();
 
     const taskInfo: RemoteTaskInfo = {
       config: {

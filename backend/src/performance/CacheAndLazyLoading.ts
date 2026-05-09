@@ -318,7 +318,7 @@ export const globalLazyLoadingManager = new LazyLoadingManager();
  * 获取缓存
  */
 export function getCache<T>(key: string): T | null {
-  return globalCacheManager.get(key);
+  return globalCacheManager.get(key) as T | null;
 }
 
 /**

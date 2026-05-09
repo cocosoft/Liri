@@ -22,7 +22,8 @@ export function Input({
   color = 'text',
   onFocus,
   onBlur,
-  onKeyDown
+  onKeyDown,
+  onSubmit,
 }: InputProps) {
   const { theme } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
@@ -82,6 +83,7 @@ export function Input({
     } else if (input === '\r' || input === '\n') {
       // Enter键
       onKeyDown?.({ key: 'Enter' } as any);
+      onSubmit?.();
     } else if (input.length === 1 && !input.match(/[\x00-\x1F]/)) {
       // 普通字符
       newValue = value.slice(0, cursorPosition) + input + value.slice(cursorPosition);

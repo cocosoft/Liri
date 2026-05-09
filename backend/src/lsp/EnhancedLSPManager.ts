@@ -6,7 +6,6 @@
 
 import type { 
   LSPClient, 
-  LSPServerInstance,
   LSPServerConfig,
   LSPConnection
 } from './types.js';
@@ -153,7 +152,7 @@ export class EnhancedLSPManager {
 
     try {
       // 建立连接
-      const connection = await this.baseManager.connect(language, serverConfig);
+      const connection = await (this.baseManager as any).connect(language, serverConfig);
       
       const connectionId = this.generateConnectionId(language);
       const connectionTime = Date.now() - startTime;
@@ -243,7 +242,7 @@ export class EnhancedLSPManager {
     
     try {
       // 获取基础补全
-      const baseCompletions = await this.baseManager.getCompletions(
+      const baseCompletions = await (this.baseManager as any).getCompletions(
         language, documentUri, position
       );
 
@@ -301,7 +300,7 @@ export class EnhancedLSPManager {
 
     try {
       // 获取基础诊断
-      const baseDiagnostics = await this.baseManager.getDiagnostics(
+      const baseDiagnostics = await (this.baseManager as any).getDiagnostics(
         language, documentUri
       );
 
@@ -406,7 +405,7 @@ export class EnhancedLSPManager {
         10: 1.0 // Property
       };
       
-      relevance += (kindWeights[completion.kind] || 0.1) * 0.2;
+      relevance += ((kindWeights as any)[completion.kind] || 0.1) * 0.2;
     }
 
     return Math.min(relevance, 1);
@@ -446,7 +445,7 @@ export class EnhancedLSPManager {
         5: '字段', 6: '变量', 7: '类', 8: '接口',
         9: '模块', 10: '属性'
       };
-      context.push(`种类: ${kindNames[completion.kind] || '未知'}`);
+      context.push(`种类: ${(kindNames as any)[completion.kind] || '未知'}`);
     }
     
     return context;
@@ -738,7 +737,7 @@ export class EnhancedLSPManager {
     if (this.completionCache.size >= this.config.cacheSize) {
       // 简单的LRU缓存淘汰
       const firstKey = this.completionCache.keys().next().value;
-      this.completionCache.delete(firstKey);
+      this.completionCache.delete(firstKey!);
     }
     this.completionCache.set(key, completions);
   }
@@ -749,7 +748,7 @@ export class EnhancedLSPManager {
   private cacheAnalysis(key: string, analysis: CodeAnalysisResult): void {
     if (this.analysisCache.size >= this.config.cacheSize) {
       const firstKey = this.analysisCache.keys().next().value;
-      this.analysisCache.delete(firstKey);
+      this.analysisCache.delete(firstKey!);
     }
     this.analysisCache.set(key, analysis);
   }

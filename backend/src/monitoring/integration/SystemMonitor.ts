@@ -5,6 +5,7 @@
  */
 
 import os from 'os';
+import type { NetworkInterfaceInfo } from 'os';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/utils/errors.js';
 
@@ -159,7 +160,7 @@ export class SystemMonitor {
       cpus: os.cpus().length,
       cpuModel: os.cpus()[0]?.model || 'unknown',
       cpuSpeed: os.cpus()[0]?.speed || 0,
-      networkInterfaces: this.config.includeNetworkInfo ? os.networkInterfaces() : {},
+      networkInterfaces: this.config.includeNetworkInfo ? (os.networkInterfaces() as Record<string, NetworkInterfaceInfo[]>) : {},
     };
   }
 

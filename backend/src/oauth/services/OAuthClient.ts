@@ -98,7 +98,7 @@ export class OAuthClient {
       this.config,
       params.code,
       params.codeVerifier,
-      params.redirectUri
+      params.redirectUri || params.redirectUrl || ''
     );
   }
 
@@ -128,19 +128,8 @@ export class OAuthClient {
   }
 
   /**
-   * 刷新Token（新API - 对象参数方式）
+   * 刷新Token
    */
-  async refreshToken(params: RefreshTokenParams): Promise<Record<string, unknown>>;
-  
-  /**
-   * 刷新Token（旧API - 兼容模式）
-   */
-  async refreshToken(
-    config: OAuthConfig,
-    refreshToken: string,
-    scopes?: string[]
-  ): Promise<Record<string, unknown>>;
-  
   async refreshToken(
     configOrParams: OAuthConfig | RefreshTokenParams,
     refreshToken?: string,
@@ -151,11 +140,24 @@ export class OAuthClient {
       if (!this.config) {
         throw new OAuthError('OAuthClient not configured', 'NO_CONFIG');
       }
-      return this.refreshToken(
-        this.config,
-        configOrParams.refreshToken,
-        configOrParams.scopes
-      );
+      const config = this.config;
+      const params = configOrParams;
+      const requestBody: Record<string, unknown> = {
+        grant_type: 'refresh_token',
+        refresh_token: params.refreshToken,
+        client_id: config.clientId,
+      };
+
+      if (params.scopes && params.scopes.length > 0) {
+        requestBody.scope = params.scopes.join(' ');
+      }
+
+      if (config.clientSecret) {
+        requestBody.client_secret = config.clientSecret;
+      }
+
+      logger.debug(`Refreshing token at ${config.tokenUrl}`);
+      return await this.httpPostJson(config.tokenUrl, requestBody);
     }
     
     // 旧API方式
@@ -179,49 +181,37 @@ export class OAuthClient {
   }
 
   /**
-   * 获取用户信息（新API - 简化方式）
+   * 获取用户信息
    */
-  async getUserInfo(accessToken: string): Promise<Record<string, unknown>> {
+  async getUserInfo(
+    userinfoUrlOrAccessToken: string,
+    accessToken?: string
+  ): Promise<Record<string, unknown>> {
+    if (accessToken) {
+      logger.debug(`Fetching user info from ${userinfoUrlOrAccessToken}`);
+      return await this.httpGetJson(userinfoUrlOrAccessToken, {
+        'Authorization': `Bearer ${accessToken}`,
+      });
+    }
     if (!this.config?.profileUrl) {
       throw new OAuthError('Profile URL not configured', 'NO_PROFILE_URL');
     }
-    return this.getUserInfo(this.config.profileUrl, accessToken);
-  }
-
-  /**
-   * 获取用户信息（旧API - 兼容模式）
-   */
-  async getUserInfo(
-    userinfoUrl: string,
-    accessToken: string
-  ): Promise<Record<string, unknown>> {
-    logger.debug(`Fetching user info from ${userinfoUrl}`);
-    return await this.httpGetJson(userinfoUrl, {
-      'Authorization': `Bearer ${accessToken}`,
+    logger.debug(`Fetching user info from ${this.config.profileUrl}`);
+    return await this.httpGetJson(this.config.profileUrl, {
+      'Authorization': `Bearer ${userinfoUrlOrAccessToken}`,
     });
   }
 
   /**
-   * 撤销Token（新API - 对象参数方式）
+   * 撤销Token
    */
-  async revokeToken(params: RevokeTokenParams): Promise<void>;
-  
-  /**
-   * 撤销Token（旧API - 兼容模式）
-   */
-  async revokeToken(
-    revocationUrl: string,
-    token: string,
-    tokenTypeHint?: string
-  ): Promise<void>;
-  
   async revokeToken(
     revocationUrlOrParams: string | RevokeTokenParams,
     token?: string,
     tokenTypeHint?: string
   ): Promise<void> {
     // 新API方式
-    if ('token' in revocationUrlOrParams) {
+    if (typeof revocationUrlOrParams !== 'string') {
       if (!this.config?.tokenUrl) {
         throw new OAuthError('Token URL not configured', 'NO_TOKEN_URL');
       }

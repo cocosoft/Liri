@@ -19,8 +19,8 @@ export class ResourceManager {
    */
   async loadResourcesFromServer(client: Client, serverName: string): Promise<ServerResource[]> {
     try {
-      const resources = await client.resources.list();
-      const serverResources = resources.map(resource => ({
+      const resources = await (client as any).resources.list();
+      const serverResources: ServerResource[] = (resources as any[]).map((resource: any) => ({
         ...resource,
         server: serverName
       }));
@@ -29,7 +29,7 @@ export class ResourceManager {
       logger.info(`Loaded ${serverResources.length} resources from server ${serverName}`);
       return serverResources;
     } catch (error) {
-      logger.error(`Failed to load resources from server ${serverName}:`, error);
+      logger.error(`Failed to load resources from server ${serverName}:`, error instanceof Error ? error : new Error(String(error)));
       return [];
     }
   }
@@ -51,9 +51,9 @@ export class ResourceManager {
   /**
    * 获取单个资源
    */
-  getResource(serverName: string, resourceId: string): ServerResource | undefined {
+  getResource(serverName: string, resourceUri: string): ServerResource | undefined {
     const resources = this.resources.get(serverName);
-    return resources?.find(r => r.id === resourceId);
+    return resources?.find(r => r.uri === resourceUri);
   }
 
   /**

@@ -11,7 +11,7 @@
 
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, resolve } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, type Dirent } from 'fs';
 
 const resolveGitDirCache = new Map<string, string | null>();
 
@@ -152,7 +152,7 @@ export async function listBranches(gitDir: string): Promise<string[]> {
   const branches: string[] = [];
 
   async function walk(dir: string, prefix: string) {
-    let entries: string[];
+    let entries: Dirent[];
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {

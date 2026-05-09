@@ -98,7 +98,7 @@ export class MemoryOptimizer {
       this.detectMemoryLeak(snapshots);
       
       // 优化内存使用
-      this.optimizeMemoryUsage(latestSnapshot, config);
+      this.optimizeMemoryUsage(latestSnapshot, snapshots, config);
       
       this.lastOptimizationTime = now;
     } catch (error) {
@@ -314,7 +314,7 @@ export class MemoryOptimizer {
   /**
    * 优化内存使用
    */
-  private optimizeMemoryUsage(snapshot: MemorySnapshot, config: any): void {
+  private optimizeMemoryUsage(snapshot: MemorySnapshot, snapshots: MemorySnapshot[], config: any): void {
     // 检查是否需要执行垃圾回收
     if (snapshot.heapUsagePercent > config.memoryManagement.gcThreshold) {
       this.forceGarbageCollection();

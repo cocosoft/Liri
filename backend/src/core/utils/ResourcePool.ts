@@ -349,7 +349,7 @@ export class ObjectPool<T> extends ResourcePool<T> {
   /**
    * 释放对象
    */
-  async release(obj: T): Promise<void> {
+  override async release(obj: T): Promise<void> {
     if (this.poolOptions.reset) {
       this.poolOptions.reset(obj);
     }

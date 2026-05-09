@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { ACTIONS, getActionById, type Action, type ActionType } from './actions';
+import { ACTIONS, getActionById, type Action, type CoreAction } from './actions';
 
 export interface Keybinding {
   key: string;
@@ -52,12 +52,12 @@ export class KeybindingManager {
    * 初始化默认键位绑定
    */
   private initializeDefaultBindings(): void {
-    ACTIONS.forEach(action => {
+    (ACTIONS as Array<CoreAction & { defaultKeybindings: string[] }>).forEach(action => {
       action.defaultKeybindings.forEach(key => {
         this.addBinding({
           key,
           actionId: action.id,
-          context: action.context,
+          context: action.context ? [action.context] : undefined,
           description: action.description,
         });
       });

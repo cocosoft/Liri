@@ -364,25 +364,3 @@ export interface StateManagementConfig {
     autoSnapshot?: boolean;
   };
 }
-
-export default {
-  StateChangeListener,
-  OnStateChange,
-  StateUpdater,
-  StateSelector,
-  StateSnapshot,
-  StatePersistenceAdapter,
-  StoreOptions,
-  StateMiddleware,
-  StateStore,
-  StateManager,
-  BatchUpdateConfig,
-  BatchUpdater,
-  StateChangeEvent,
-  SubscribeOptions,
-  StateSubscription,
-  StateValidator,
-  StateMigrator,
-  StateManagementStats,
-  StateManagementConfig,
-};

@@ -6,7 +6,7 @@
 import type { InkInstance } from './types';
 
 // 用于 root.ts 的默认导出
-const instancesMap = new Map<NodeJS.WriteStream, { cleanup: () => void }>();
+const instancesMap = new Map<NodeJS.WriteStream, any>();
 
 // 用于其他文件的实例集合
 const instances = new Set<InkInstance>();

@@ -5,7 +5,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import type { SkillDefinition, SkillSource } from '../utils/skillParser';
+import type { SkillDefinition } from '../utils/skillParser';
+import { SkillSource } from '../utils/skillParser';
 import type { SkillLoader } from '../utils/skillLoader';
 import type { SkillTool } from '../tools/SkillTool';
 

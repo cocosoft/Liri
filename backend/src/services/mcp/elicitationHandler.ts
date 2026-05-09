@@ -135,7 +135,7 @@ export function needsElicitation(serverName: string, config: ScopedMcpServerConf
   const prompts = getElicitationPrompts(serverName);
   if (prompts.length === 0) return false;
 
-  const envConfig = config.env || {};
+  const envConfig = (config as any).env || {};
   for (const prompt of prompts) {
     if (prompt.required && !envConfig[prompt.key]) {
       return true;
@@ -175,13 +175,14 @@ export function applyElicitationAnswers(
   config: ScopedMcpServerConfig,
   answers: Record<string, string>,
 ): ScopedMcpServerConfig {
+  const existingEnv = (config as any).env || {};
   return {
     ...config,
     env: {
-      ...config.env,
+      ...existingEnv,
       ...answers,
     },
-  };
+  } as ScopedMcpServerConfig;
 }
 
 export function registerElicitationPrompts(

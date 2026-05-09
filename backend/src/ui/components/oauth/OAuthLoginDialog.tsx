@@ -33,25 +33,28 @@ export const OAuthLoginDialog: React.FC<OAuthLoginDialogProps> = ({
         <Text>Select login mode:</Text>
         <Box marginTop={1} flexDirection="column">
           <Button
-            label="Automatic (Browser)"
-            selected={selectedMode === 'automatic'}
-            onClick={() => setSelectedMode('automatic')}
-          />
+            variant={selectedMode === 'automatic' ? 'primary' : 'outline'}
+            onPress={() => setSelectedMode('automatic')}
+          >
+            Automatic (Browser)
+          </Button>
           <Button
-            label="Manual (Copy URL)"
-            selected={selectedMode === 'manual'}
-            onClick={() => setSelectedMode('manual')}
-          />
+            variant={selectedMode === 'manual' ? 'primary' : 'outline'}
+            onPress={() => setSelectedMode('manual')}
+          >
+            Manual (Copy URL)
+          </Button>
         </Box>
       </Box>
       <Box marginTop={2}>
         <Button
-          label={isLoading ? 'Loading...' : 'Login'}
-          onClick={() => onLogin(selectedMode)}
+          onPress={() => onLogin(selectedMode)}
           disabled={isLoading}
-        />
+        >
+          {isLoading ? 'Loading...' : 'Login'}
+        </Button>
         <Box marginLeft={1}>
-          <Button label="Cancel" onClick={onCancel} />
+          <Button onPress={onCancel}>Cancel</Button>
         </Box>
       </Box>
     </Box>

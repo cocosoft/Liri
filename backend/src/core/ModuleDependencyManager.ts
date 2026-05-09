@@ -5,7 +5,23 @@
  */
 
 import { logger } from '../utils/log.js';
-import { TerminalComponents } from '../ui/TerminalComponents.js';
+import { TerminalComponents, type TableColumn, type TableRow } from '../ui/TerminalComponents.js';
+import chalk from 'chalk';
+
+/**
+ * 获取徽章文本
+ */
+function getBadgeText(text: string, color: string): string {
+  const colorMap: Record<string, chalk.Chalk> = {
+    green: chalk.green,
+    gray: chalk.gray,
+    blue: chalk.blue,
+    red: chalk.red,
+    yellow: chalk.yellow,
+  };
+  const styler = colorMap[color] || chalk.white;
+  return styler(` ${text} `);
+}
 
 /**
  * 模块定义
@@ -114,7 +130,7 @@ export class ModuleDependencyManager {
       try {
         await instance.definition.destroy();
       } catch (error) {
-        logger.error(`Error destroying module ${name}:`, error);
+        logger.error(`Error destroying module ${name}:`, error instanceof Error ? error : undefined);
       }
     }
 
@@ -267,13 +283,13 @@ export class ModuleDependencyManager {
         instance.initTime = Date.now() - startTime;
         instance.status = ModuleStatus.READY;
 
-        steps[i].status = 'completed';
+        steps[i].status = 'completed' as const;
         logger.info(`Initialized module: ${name} (${instance.initTime}ms)`);
       } catch (error) {
         instance.status = ModuleStatus.ERROR;
         instance.error = error instanceof Error ? error.message : String(error);
-        steps[i].status = 'error';
-        logger.error(`Failed to initialize module ${name}:`, error);
+        steps[i].status = 'error' as const;
+        logger.error(`Failed to initialize module ${name}:`, error instanceof Error ? error : undefined);
 
         // 检查是否是可选依赖
         const isOptional = this.isOptionalDependency(name);
@@ -418,10 +434,13 @@ export class ModuleDependencyManager {
             : s.status === ModuleStatus.ERROR
               ? 'red'
               : 'yellow';
-        return [s.name, TerminalComponents.getBadgeText(s.status, statusColor), s.error || '-'];
+        return [s.name, getBadgeText(s.status, statusColor), s.error || '-'];
       });
 
-      TerminalComponents.printTable(['模块', '状态', '错误'], rows);
+      TerminalComponents.printTable(
+        ['模块', '状态', '错误'].map(h => ({ header: h, width: 15 })),
+        rows.map(r => ({ cells: r }))
+      );
     }
   }
 }

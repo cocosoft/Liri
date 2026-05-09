@@ -43,10 +43,20 @@ export interface PerformanceConfig {
   
   // 内存管理配置
   memoryManagement: {
+    /** 是否启用内存优化 */
+    enabled: boolean;
     /** 内存阈值（MB） */
     thresholdMb: number;
     /** 检查间隔（毫秒） */
     checkIntervalMs: number;
+    /** 堆使用百分比阈值（%） */
+    heapUsageThreshold: number;
+    /** 内存增长率阈值（%） */
+    growthRateThreshold: number;
+    /** 自动垃圾回收阈值（%） */
+    gcThreshold: number;
+    /** 最大快照数量 */
+    maxSnapshots: number;
   };
   
   // 缓存配置
@@ -79,8 +89,13 @@ const DEFAULT_CONFIG: PerformanceConfig = {
     enabled: true,
   },
   memoryManagement: {
+    enabled: true,
     thresholdMb: getEnvNumber('PY_APP_MEMORY_THRESHOLD_MB', 512),
     checkIntervalMs: getEnvNumber('PY_APP_MEMORY_CHECK_INTERVAL_MS', 60000),
+    heapUsageThreshold: 85,
+    growthRateThreshold: 20,
+    gcThreshold: 90,
+    maxSnapshots: 100,
   },
   cache: {
     sizeLimitMb: getEnvNumber('PY_APP_CACHE_SIZE_LIMIT_MB', 100),
@@ -136,8 +151,13 @@ export class PerformanceConfigManager {
         enabled: true,
       },
       memoryManagement: {
+        enabled: true,
         thresholdMb: getEnvNumber('PY_APP_MEMORY_THRESHOLD_MB', 512),
         checkIntervalMs: getEnvNumber('PY_APP_MEMORY_CHECK_INTERVAL_MS', 60000),
+        heapUsageThreshold: 85,
+        growthRateThreshold: 20,
+        gcThreshold: 90,
+        maxSnapshots: 100,
       },
       cache: {
         sizeLimitMb: getEnvNumber('PY_APP_CACHE_SIZE_LIMIT_MB', 100),

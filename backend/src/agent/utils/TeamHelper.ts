@@ -147,7 +147,7 @@ export class TeamHelper {
       const content = readFileSync(configPath, 'utf-8');
       return JSON.parse(content) as TeamConfig;
     } catch (error) {
-      logger.error(`Failed to read team config from ${configPath}:`, error);
+      logger.error(`Failed to read team config from ${configPath}:`, error as Error);
       return null;
     }
   }
@@ -163,7 +163,7 @@ export class TeamHelper {
       writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
       logger.debug(`Saved team config to ${configPath}`);
     } catch (error) {
-      logger.error(`Failed to save team config to ${configPath}:`, error);
+      logger.error(`Failed to save team config to ${configPath}:`, error as Error);
     }
   }
 
@@ -345,7 +345,7 @@ export class TeamHelper {
 
     try {
       const entries = readdirSync(targetDir);
-      return entries.map(name => {
+      return entries.map((name: string) => {
         const fullPath = join(targetDir, name);
         const stat = statSync(fullPath);
         return {
@@ -356,7 +356,7 @@ export class TeamHelper {
         };
       });
     } catch (error) {
-      logger.error(`Failed to list files in ${targetDir}:`, error);
+      logger.error(`Failed to list files in ${targetDir}:`, error as Error);
       return [];
     }
   }
@@ -409,7 +409,7 @@ export function writeTeamFile(teamName: string, fileName: string, content: strin
     writeFileSync(filePath, content, 'utf-8');
     return true;
   } catch (error) {
-    logger.error(`Failed to write team file ${filePath}:`, error);
+    logger.error(`Failed to write team file ${filePath}:`, error as Error);
     return false;
   }
 }

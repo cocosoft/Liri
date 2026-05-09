@@ -797,7 +797,7 @@ export class OutputEncoder {
  * @param options 验证选项
  * @returns 验证结果
  */
-export function validateObject(obj: any, schema: Record<string, Record<string, unknown>>, options: any = {}): void {
+export function validateObject(obj: any, schema: Record<string, any>, options: any = {}): void {
   for (const [key, rules] of Object.entries(schema)) {
     const value = obj[key];
 

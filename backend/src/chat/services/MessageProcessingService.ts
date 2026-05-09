@@ -5,7 +5,7 @@
  * 参考CC源码: cc_code/backend/utils/messages.ts
  */
 
-import type { Message } from '../types/message.js';
+import type { ContentBlock, Message } from '../types/message.js';
 import { MessageRole } from '../types/message.js';
 
 /**
@@ -93,7 +93,7 @@ export class MessageProcessingService {
       });
       textContent = content;
     } else if (Array.isArray(content)) {
-      for (const block of content) {
+      for (const block of content as unknown as (string | MessageBlock)[]) {
         if (typeof block === 'string') {
           blocks.push({
             type: 'text',
@@ -158,8 +158,8 @@ export class MessageProcessingService {
       parts.push(`[${roleLabel}]`);
     }
 
-    if (includeTimestamp && message.timestamp) {
-      const timestamp = new Date(message.timestamp).toLocaleString();
+    if (includeTimestamp && message.createdAt) {
+      const timestamp = new Date(message.createdAt).toLocaleString();
       parts.push(`[${timestamp}]`);
     }
 
@@ -293,7 +293,7 @@ export class MessageProcessingService {
           return block.content;
         }
         return block;
-      });
+      }) as unknown as ContentBlock[];
     }
 
     return sanitized;
@@ -393,8 +393,7 @@ export class MessageProcessingService {
     return {
       type: 'tool_use',
       id,
-      name,
-      arguments: args,
+      content: { name, arguments: args } as Record<string, unknown>,
     };
   }
 
@@ -413,7 +412,7 @@ export class MessageProcessingService {
     return {
       type: 'tool_result',
       tool_use_id: toolUseId,
-      content: result,
+      content: result as Record<string, unknown>,
       is_error: isError,
     };
   }

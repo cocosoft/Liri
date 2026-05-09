@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Box, Text } from '../../ink';
-import { ProgressBarProps } from '../types/UITypes';
+import { ProgressBarProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
@@ -85,7 +85,7 @@ export function ProgressBar({
 
       {/* 数值显示（基于CC源码） */}
       <Box flexDirection="row" justifyContent="space-between">
-        <Text color={theme.colors.textSecondary} fontSize={theme.typography.fontSize.xs}>
+        <Text color={theme.colors.textSecondary}>
           {value}/{max}
         </Text>
       </Box>
@@ -170,12 +170,12 @@ export function StepProgressBar({
               alignItems="center"
             >
               {index < currentStep && (
-                <Text color={theme.colors[color]} fontSize={theme.typography.fontSize.xs}>
+                <Text color={theme.colors[color]}>
                   ✓
                 </Text>
               )}
               {index === currentStep && (
-                <Text color={theme.colors[color]} fontSize={theme.typography.fontSize.xs}>
+                <Text color={theme.colors[color]}>
                   ●
                 </Text>
               )}
@@ -185,7 +185,6 @@ export function StepProgressBar({
             <Text 
               color={index <= currentStep ? theme.colors[color] : theme.colors.textSecondary}
               bold={index === currentStep}
-              fontSize={theme.typography.fontSize[size]}
             >
               {step}
             </Text>

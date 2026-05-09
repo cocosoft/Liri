@@ -51,7 +51,7 @@ export class MCPSystem {
 
       // 预取官方MCP注册表
       prefetchOfficialMcpUrls().catch(err =>
-        logger.warn(`Failed to prefetch MCP registry: ${err.message}`)
+        logger.warn(`Failed to prefetch MCP registry: ${err instanceof Error ? err.message : String(err)}`)
       );
 
       // 监听服务器连接状态变化
@@ -60,7 +60,7 @@ export class MCPSystem {
       this.initialized = true;
       logger.info('MCP system initialized successfully');
     } catch (error) {
-      logger.error('Failed to initialize MCP system:', error);
+      logger.error('Failed to initialize MCP system:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -119,7 +119,7 @@ export class MCPSystem {
    * 获取所有资源
    */
   getResources() {
-    return getCommandManager().getResources();
+    return resourceManager.getResources();
   }
 
   /**
@@ -322,7 +322,7 @@ export class MCPSystem {
       this.initialized = false;
       logger.info('MCP system cleaned up successfully');
     } catch (error) {
-      logger.error('Failed to cleanup MCP system:', error);
+      logger.error('Failed to cleanup MCP system:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }

@@ -63,13 +63,13 @@ export async function getGitInfo(cwd: string = process.cwd()): Promise<GitInfo> 
   let branch: string | null = null;
   try {
     const result = await execFileNoThrow('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
-    branch = result.stdout?.trim() || null;
+    branch = result?.stdout?.trim() || null;
   } catch {}
 
   let status: string | null = null;
   try {
     const result = await execFileNoThrow('git', ['status', '--short'], { cwd: root });
-    const raw = result.stdout || '';
+    const raw = result?.stdout || '';
     status = raw.length > MAX_STATUS_CHARS
       ? raw.substring(0, MAX_STATUS_CHARS) + '\n...(truncated)'
       : raw || '(clean)';

@@ -136,7 +136,7 @@ export function DescriptionListItem({
     >
       <Box flexDirection="column" gap={0.5}>
         <Text bold={true}>{title}</Text>
-        <Text color={theme.colors.textSecondary} fontSize="sm">
+        <Text color={theme.colors.textSecondary}>
           {description}
         </Text>
       </Box>
@@ -157,7 +157,7 @@ export function ActionListItem({
   color = 'text',
   padding = 1,
   margin = 0
-}: ListItemProps & { actionText: string; onActionPress: () => void }) {
+}: ListItemProps & { text: string; actionText: string; onActionPress: () => void }) {
   const { theme } = useTheme();
 
   return (
@@ -171,13 +171,14 @@ export function ActionListItem({
     >
       <Box flexDirection="row" justifyContent="space-between" alignItems="center">
         <Text>{text}</Text>
-        <Text 
-          color={theme.colors.primary}
+        <Box
           onPress={onActionPress}
           focusable={!disabled}
         >
-          {actionText}
-        </Text>
+          <Text color={theme.colors.primary}>
+            {actionText}
+          </Text>
+        </Box>
       </Box>
     </ListItem>
   );
@@ -195,7 +196,7 @@ export function StatusListItem({
   color = 'text',
   padding = 1,
   margin = 0
-}: ListItemProps & { status: 'success' | 'warning' | 'error' | 'info' | 'loading' }) {
+}: ListItemProps & { text: string; status: 'success' | 'warning' | 'error' | 'info' | 'loading' }) {
   const { theme } = useTheme();
 
   const statusIcons = {
@@ -224,7 +225,7 @@ export function StatusListItem({
       margin={margin}
     >
       <Box flexDirection="row" alignItems="center" gap={1}>
-        <Text color={theme.colors[statusColors[status]]}>
+        <Text color={theme.colors[statusColors[status] as keyof typeof theme.colors]}>
           {statusIcons[status]}
         </Text>
         <Text>{text}</Text>
@@ -244,7 +245,7 @@ export function CheckboxListItem({
   color = 'text',
   padding = 1,
   margin = 0
-}: ListItemProps & { checked: boolean; onToggle: (checked: boolean) => void }) {
+}: ListItemProps & { text: string; checked: boolean; onToggle: (checked: boolean) => void }) {
   const { theme } = useTheme();
 
   return (
@@ -277,7 +278,7 @@ export function RadioListItem({
   color = 'text',
   padding = 1,
   margin = 0
-}: ListItemProps & { selected: boolean; onSelect: () => void }) {
+}: ListItemProps & { text: string; selected: boolean; onSelect: () => void }) {
   const { theme } = useTheme();
 
   return (

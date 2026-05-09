@@ -203,6 +203,7 @@ export class DataCollector {
 export interface EventStats {
   totalEvents: number;
   eventsByType: Map<string, number>;
+  eventsBySource: Map<string, number>;
   eventsByHour: Map<number, number>;
   eventsByDay: Map<string, number>;
   averageEventSize: number;

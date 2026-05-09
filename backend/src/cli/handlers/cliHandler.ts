@@ -263,10 +263,10 @@ export class CLIHandler {
 
     switch (subcommand) {
       case 'start':
-        await this.autoModeHandler.handleStart(subargs);
+        await (this.autoModeHandler as any).handleStart(subargs);
         break;
       case 'stop':
-        await this.autoModeHandler.handleStop();
+        await (this.autoModeHandler as any).handleStop();
         break;
       case 'status':
         await this.autoModeHandler.handleStatus();
@@ -286,25 +286,25 @@ export class CLIHandler {
   private async handleUtilCommand(command: string, args: string[]): Promise<void> {
     switch (command) {
       case 'help':
-        await this.utilHandler.showHelp(args);
+        await (this.utilHandler as any).showHelp(args);
         break;
       case 'version':
-        await this.utilHandler.showVersion();
+        await (this.utilHandler as any).showVersion();
         break;
       case 'clear':
-        await this.utilHandler.clearScreen();
+        await (this.utilHandler as any).clearScreen();
         break;
       case 'echo':
-        await this.utilHandler.echo(args);
+        await (this.utilHandler as any).echo(args);
         break;
       case 'which':
-        await this.utilHandler.which(args);
+        await (this.utilHandler as any).which(args);
         break;
       case 'env':
-        await this.utilHandler.showEnv(args);
+        await (this.utilHandler as any).showEnv(args);
         break;
       case 'debug':
-        await this.utilHandler.debug(args);
+        await (this.utilHandler as any).debug(args);
         break;
     }
   }

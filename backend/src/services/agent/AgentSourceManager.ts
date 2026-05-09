@@ -12,6 +12,7 @@ import { getBuiltInAgents } from './builtInAgents';
 import { loadPluginAgents } from '@modules/utils/plugins/loadPluginAgents';
 import { loadMarkdownFilesForSubdir } from '@modules/utils/markdownConfigLoader';
 import { parseAgentFromMarkdown } from './parseAgent';
+import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { getCwd } from '@modules/utils/cwd';
 
 export type SettingSource = 'userSettings' | 'projectSettings' | 'policySettings' | 'flagSettings' | 'plugin' | 'built-in';
@@ -56,7 +57,7 @@ export class AgentSourceManager {
 
       return allAgents;
     } catch (error) {
-      logger.error('Failed to load agents from all sources:', error);
+      logger.error('Failed to load agents from all sources:', error as Error);
       // 即使出错也要返回内置Agent
       return this.loadBuiltInAgents();
     }
@@ -76,7 +77,7 @@ export class AgentSourceManager {
     try {
       return await loadPluginAgents();
     } catch (error) {
-      logger.error('Failed to load plugin agents:', error);
+      logger.error('Failed to load plugin agents:', error as Error);
       return [];
     }
   }
@@ -89,13 +90,16 @@ export class AgentSourceManager {
       const markdownFiles = await loadMarkdownFilesForSubdir('agents', cwd);
       
       const customAgents = markdownFiles
-        .map(({ filePath, baseDir, frontmatter, content, source }) => {
+        .map((filePath: string) => {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const { frontmatter, content: bodyContent } = parseFrontmatter(content);
+          const baseDir = path.dirname(filePath);
           const agent = parseAgentFromMarkdown(
             filePath,
             baseDir,
             frontmatter,
-            content,
-            source as SettingSource
+            bodyContent,
+            'userSettings'
           );
           if (!agent) {
             // 跳过非Agent文件
@@ -111,7 +115,7 @@ export class AgentSourceManager {
 
       return customAgents;
     } catch (error) {
-      logger.error('Failed to load custom agents:', error);
+      logger.error('Failed to load custom agents:', error as Error);
       return [];
     }
   }

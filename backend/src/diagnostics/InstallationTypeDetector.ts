@@ -10,7 +10,7 @@ import { promisify } from 'util';
 import { platform, homedir } from 'os';
 import { delimiter, join, sep } from 'path';
 
-const execAsync = promisify(exec);
+const execAsync = promisify(exec) as (command: string, options?: Record<string, any>) => Promise<{ stdout: string; stderr: string }>;
 
 /**
  * 安装类型

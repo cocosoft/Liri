@@ -130,8 +130,8 @@ export class IntelligentLSPAnalyzer {
   ): Promise<LSPPerformanceAnalysis> {
     const analysis: LSPPerformanceAnalysis = {
       analysisId: `performance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      language: serverConfig.language || 'unknown',
-      serverType: serverConfig.serverType || 'unknown',
+      language: (serverConfig as any).language || 'unknown',
+      serverType: (serverConfig as any).serverType || 'unknown',
       performanceScore: 0,
       responseTime: 0,
       throughput: 0,
@@ -188,7 +188,7 @@ export class IntelligentLSPAnalyzer {
     features.push(refactoringAnalysis);
 
     // 存储功能分析
-    this.storeFeatureAnalysis(serverConfig.language || 'unknown', features);
+    this.storeFeatureAnalysis((serverConfig as any).language || 'unknown', features);
 
     return features;
   }
@@ -260,12 +260,12 @@ export class IntelligentLSPAnalyzer {
       name: '代码补全',
       type: 'completion',
       enabled: true,
-      performance: this.simulateFeaturePerformance('completion', serverConfig.language),
-      accuracy: this.simulateFeatureAccuracy('completion', serverConfig.language),
-      usage: this.simulateFeatureUsage('completion', serverConfig.language),
-      userSatisfaction: this.simulateUserSatisfaction('completion', serverConfig.language),
-      issues: this.analyzeCompletionIssues(serverConfig.language),
-      suggestions: this.generateCompletionSuggestions(serverConfig.language)
+      performance: this.simulateFeaturePerformance('completion', (serverConfig as any).language),
+      accuracy: this.simulateFeatureAccuracy('completion', (serverConfig as any).language),
+      usage: this.simulateFeatureUsage('completion', (serverConfig as any).language),
+      userSatisfaction: this.simulateUserSatisfaction('completion', (serverConfig as any).language),
+      issues: this.analyzeCompletionIssues((serverConfig as any).language),
+      suggestions: this.generateCompletionSuggestions((serverConfig as any).language)
     };
 
     return analysis;
@@ -283,12 +283,12 @@ export class IntelligentLSPAnalyzer {
       name: '语法诊断',
       type: 'diagnostics',
       enabled: true,
-      performance: this.simulateFeaturePerformance('diagnostics', serverConfig.language),
-      accuracy: this.simulateFeatureAccuracy('diagnostics', serverConfig.language),
-      usage: this.simulateFeatureUsage('diagnostics', serverConfig.language),
-      userSatisfaction: this.simulateUserSatisfaction('diagnostics', serverConfig.language),
-      issues: this.analyzeDiagnosticsIssues(serverConfig.language),
-      suggestions: this.generateDiagnosticsSuggestions(serverConfig.language)
+      performance: this.simulateFeaturePerformance('diagnostics', (serverConfig as any).language),
+      accuracy: this.simulateFeatureAccuracy('diagnostics', (serverConfig as any).language),
+      usage: this.simulateFeatureUsage('diagnostics', (serverConfig as any).language),
+      userSatisfaction: this.simulateUserSatisfaction('diagnostics', (serverConfig as any).language),
+      issues: this.analyzeDiagnosticsIssues((serverConfig as any).language),
+      suggestions: this.generateDiagnosticsSuggestions((serverConfig as any).language)
     };
 
     return analysis;
@@ -306,12 +306,12 @@ export class IntelligentLSPAnalyzer {
       name: '代码导航',
       type: 'navigation',
       enabled: true,
-      performance: this.simulateFeaturePerformance('navigation', serverConfig.language),
-      accuracy: this.simulateFeatureAccuracy('navigation', serverConfig.language),
-      usage: this.simulateFeatureUsage('navigation', serverConfig.language),
-      userSatisfaction: this.simulateUserSatisfaction('navigation', serverConfig.language),
-      issues: this.analyzeNavigationIssues(serverConfig.language),
-      suggestions: this.generateNavigationSuggestions(serverConfig.language)
+      performance: this.simulateFeaturePerformance('navigation', (serverConfig as any).language),
+      accuracy: this.simulateFeatureAccuracy('navigation', (serverConfig as any).language),
+      usage: this.simulateFeatureUsage('navigation', (serverConfig as any).language),
+      userSatisfaction: this.simulateUserSatisfaction('navigation', (serverConfig as any).language),
+      issues: this.analyzeNavigationIssues((serverConfig as any).language),
+      suggestions: this.generateNavigationSuggestions((serverConfig as any).language)
     };
 
     return analysis;
@@ -329,12 +329,12 @@ export class IntelligentLSPAnalyzer {
       name: '代码重构',
       type: 'refactoring',
       enabled: true,
-      performance: this.simulateFeaturePerformance('refactoring', serverConfig.language),
-      accuracy: this.simulateFeatureAccuracy('refactoring', serverConfig.language),
-      usage: this.simulateFeatureUsage('refactoring', serverConfig.language),
-      userSatisfaction: this.simulateUserSatisfaction('refactoring', serverConfig.language),
-      issues: this.analyzeRefactoringIssues(serverConfig.language),
-      suggestions: this.generateRefactoringSuggestions(serverConfig.language)
+      performance: this.simulateFeaturePerformance('refactoring', (serverConfig as any).language),
+      accuracy: this.simulateFeatureAccuracy('refactoring', (serverConfig as any).language),
+      usage: this.simulateFeatureUsage('refactoring', (serverConfig as any).language),
+      userSatisfaction: this.simulateUserSatisfaction('refactoring', (serverConfig as any).language),
+      issues: this.analyzeRefactoringIssues((serverConfig as any).language),
+      suggestions: this.generateRefactoringSuggestions((serverConfig as any).language)
     };
 
     return analysis;

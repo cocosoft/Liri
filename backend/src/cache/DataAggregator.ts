@@ -121,7 +121,7 @@ export class DataAggregator {
    * 合并多个聚合数据
    */
   async mergeAggregatedData(targetKey: string, sourceKeys: string[]): Promise<AggregatedData> {
-    let mergedData: AggregatedData = {
+    const mergedData: AggregatedData = {
       count: 0,
       sum: 0,
       lastUpdated: Date.now(),
@@ -135,8 +135,8 @@ export class DataAggregator {
     // 合并数据
     for (const sourceData of sourceDataList) {
       if (sourceData) {
-        mergedData.count += sourceData.count || 0;
-        mergedData.sum += sourceData.sum || 0;
+        mergedData.count = (mergedData.count || 0) + (sourceData.count || 0);
+        mergedData.sum = (mergedData.sum || 0) + (sourceData.sum || 0);
         
         // 更新最小值和最大值
         if (sourceData.min !== undefined) {
@@ -160,8 +160,8 @@ export class DataAggregator {
     }
     
     // 计算平均值
-    if (mergedData.count > 0) {
-      mergedData.average = mergedData.sum / mergedData.count;
+    if ((mergedData.count || 0) > 0) {
+      mergedData.average = (mergedData.sum || 0) / (mergedData.count || 0);
     }
     
     // 保存到缓存

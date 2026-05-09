@@ -37,9 +37,8 @@ export const Text: React.FC<TextProps> = ({
       underline={underline}
       strikethrough={strikethrough}
       inverse={inverse}
-      color={color}
-      backgroundColor={bgColor}
-      className={className}
+      color={color as any}
+      backgroundColor={bgColor as any}
     >
       {children}
     </InkText>

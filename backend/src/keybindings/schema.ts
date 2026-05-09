@@ -4,6 +4,7 @@
  * 用于验证和JSON schema生成
  */
 import { z } from 'zod';
+import type { KeybindingContextName } from './types.js';
 
 /**
  * 有效的按键绑定上下文名称

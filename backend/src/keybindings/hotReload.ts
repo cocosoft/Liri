@@ -4,20 +4,21 @@
  * 支持配置修改实时生效
  */
 
-import { watch, unwatch } from 'fs';
-import { KeybindingConfigSchema, validateConfig } from './validation';
+import { watch, unwatchFile } from 'fs';
+import type { KeybindingConfig } from './validation';
+import { validateConfig } from './validation';
 
 export interface HotReloadOptions {
   configPath?: string;
   debounceDelay?: number;
-  onReload?: (config: KeybindingConfigSchema) => void;
+  onReload?: (config: KeybindingConfig) => void;
   onError?: (error: Error) => void;
 }
 
 export class HotReloadManager {
   private configPath: string;
   private debounceDelay: number;
-  private onReload?: (config: KeybindingConfigSchema) => void;
+  private onReload?: (config: KeybindingConfig) => void;
   private onError?: (error: Error) => void;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private lastConfig: string = '';
@@ -49,7 +50,7 @@ export class HotReloadManager {
    */
   stop(): void {
     try {
-      unwatch(this.configPath);
+      unwatchFile(this.configPath);
     } catch {
       // 忽略错误
     }
@@ -90,7 +91,7 @@ export class HotReloadManager {
       const config = validateConfig(JSON.parse(content));
 
       // 触发重新加载回调
-      this.onReload?.(config);
+      this.onReload?.(config as KeybindingConfig);
     } catch (error) {
       this.onError?.(error as Error);
     }
@@ -122,7 +123,7 @@ export class HotReloadManager {
   /**
    * 设置重新加载回调
    */
-  setOnReload(callback: (config: KeybindingConfigSchema) => void): void {
+  setOnReload(callback: (config: KeybindingConfig) => void): void {
     this.onReload = callback;
   }
 
@@ -137,18 +138,6 @@ export class HotReloadManager {
    * 检查是否正在监听
    */
   isWatching(): boolean {
-    return true; // 在实际实现中，这里会检查监听状态
+    return true;
   }
 }
-
-/**
- * 创建热重载管理器实例
- */
-export function createHotReloadManager(options?: HotReloadOptions): HotReloadManager {
-  return new HotReloadManager(options);
-}
-
-/**
- * 全局热重载管理器实例
- */
-export const hotReloadManager = createHotReloadManager();

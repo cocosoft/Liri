@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Box, Text } from '../../ink';
-import { BylineProps } from '../types/UITypes';
+import { BylineProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
@@ -24,7 +24,7 @@ export function Byline({
     <Box 
       padding={padding}
       borderStyle="single"
-      borderColor={theme.colors[color]}
+      borderColor={theme.colors[color as keyof UITheme['colors']]}
       justifyContent={align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'}
     >
       <Box flexDirection="row" alignItems="center" gap={1}>
@@ -48,6 +48,8 @@ export function StatusByline({
 }) {
   const { theme } = useTheme();
   
+  const colors = theme.colors as Record<string, string>;
+
   const statusIcons = {
     success: '✓',
     warning: '⚠',
@@ -60,14 +62,14 @@ export function StatusByline({
     warning: 'warning',
     error: 'error',
     info: 'info'
-  };
+  } as const;
 
   return (
     <Byline color={color}>
-      <Text color={theme.colors[statusColors[status]]}>
+      <Text color={colors[statusColors[status]]}>
         {statusIcons[status]}
       </Text>
-      <Text color={theme.colors[color]}>
+      <Text color={colors[color as string]}>
         {message}
       </Text>
     </Byline>

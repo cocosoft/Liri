@@ -306,7 +306,7 @@ export class MultiSourceAgentManager {
       const agent = new AIAgentImpl(config);
       return { agent };
     } catch (error) {
-      logger.error(`Failed to create agent for pool ${source}:`, error);
+      logger.error(`Failed to create agent for pool ${source}:`, error as Error);
       return null;
     }
   }
@@ -336,7 +336,7 @@ export class MultiSourceAgentManager {
           this.balanceLoad();
         }
       } catch (error) {
-        logger.error('Health check failed:', error);
+        logger.error('Health check failed:', error as Error);
       }
     }, interval);
   }

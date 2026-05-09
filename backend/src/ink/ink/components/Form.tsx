@@ -5,7 +5,8 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Text } from './Box';
+import Box from './Box';
+import Text from './Text';
 import { Input } from '../Input';
 import { Select, SelectOption } from './Select';
 
@@ -70,7 +71,7 @@ export const Form: React.FC<FormProps> = ({
           {field.type === 'text' || field.type === 'password' ? (
             <Input
               placeholder={field.placeholder}
-              type={field.type}
+              password={field.type === 'password'}
               value={String(values[field.id] ?? '')}
               onChange={(value) => handleChange(field.id, value)}
             />
@@ -83,7 +84,6 @@ export const Form: React.FC<FormProps> = ({
           ) : field.type === 'number' ? (
             <Input
               placeholder={field.placeholder}
-              type="number"
               value={String(values[field.id] ?? '')}
               onChange={(value) => handleChange(field.id, parseInt(value) || 0)}
             />

@@ -5,7 +5,7 @@
  */
 
 import { metrics, Meter, Counter, Histogram, UpDownCounter, ObservableGauge } from '@opentelemetry/api';
-import { MeterProvider, PeriodicExportingMetricReader, ConsoleMetricExporter, View, Aggregation } from '@opentelemetry/sdk-metrics';
+import { MeterProvider, PeriodicExportingMetricReader, ConsoleMetricExporter } from '@opentelemetry/sdk-metrics';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { logForDebugging } from '@modules/utils/debug.js';
@@ -39,8 +39,6 @@ export class OTelMetrics {
    */
   constructor(config: OTelMetricsConfig) {
     this.config = {
-      serviceName: 'py-app',
-      serviceVersion: '1.0.0',
       exportInterval: 60000,
       enabled: true,
       ...config,
@@ -161,7 +159,10 @@ export class OTelMetrics {
 
     const gauge = this.meter.createObservableGauge(name, {
       description: description || `ObservableGauge for ${name}`,
-    }, callback);
+    });
+    if (callback) {
+      gauge.addCallback(callback);
+    }
 
     this.observableGauges.set(key, gauge);
     return gauge;

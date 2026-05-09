@@ -96,6 +96,11 @@ export const KeybindingConfigSchema = z.object({
   disabledBindings: z.array(z.string()).default([]),
 });
 
+export type Keybinding = z.infer<typeof KeybindingSchema>;
+export type Keybindings = z.infer<typeof KeybindingsSchema>;
+export type KeybindingTemplate = z.infer<typeof KeybindingTemplateSchema>;
+export type KeybindingConfig = z.infer<typeof KeybindingConfigSchema>;
+
 /**
  * 验证单个按键绑定
  */

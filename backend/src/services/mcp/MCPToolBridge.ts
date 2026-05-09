@@ -33,7 +33,7 @@ export class MCPToolBridge {
       this.initialized = true;
       logger.info(`MCP tool bridge initialized: ${this.registeredMcpTools.size} tools registered`);
     } catch (error) {
-      logger.error('Failed to initialize MCP tool bridge:', error);
+      logger.error('Failed to initialize MCP tool bridge:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

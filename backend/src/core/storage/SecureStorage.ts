@@ -136,7 +136,7 @@ export class SecureStorage extends EventEmitter {
 
       return data;
     } catch (error) {
-      logger.warn('Failed to read secure storage:', error);
+      logger.warn('Failed to read secure storage:', error as any);
       this.cache = null;
       this.cacheTimestamp = Date.now();
       return null;
@@ -167,7 +167,7 @@ export class SecureStorage extends EventEmitter {
 
       return { success: true };
     } catch (error) {
-      logger.error('Failed to update secure storage:', error);
+      logger.error('Failed to update secure storage:', error as Error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -248,7 +248,7 @@ export class SecureStorage extends EventEmitter {
     let encrypted = cipher.update(text, 'utf8');
     encrypted = Buffer.concat([encrypted, cipher.final()]);
 
-    const authTag = cipher.getAuthTag();
+    const authTag = (cipher as any).getAuthTag();
 
     return Buffer.concat([iv, authTag, encrypted]);
   }
@@ -265,7 +265,7 @@ export class SecureStorage extends EventEmitter {
     const encryptedText = encrypted.subarray(this.config.ivLength + this.config.authTagLength);
 
     const decipher = createDecipheriv(this.config.algorithm, key, iv);
-    decipher.setAuthTag(authTag);
+    (decipher as any).setAuthTag(authTag);
 
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);

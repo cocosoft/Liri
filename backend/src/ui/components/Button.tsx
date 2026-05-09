@@ -139,7 +139,7 @@ export function Button({
       onPress={handlePress}
       focusable={!disabled && !loading}
     >
-      <Text color={style.color} fontSize={style.fontSize[size]}>
+      <Text color={style.color}>
         {renderContent()}
       </Text>
     </Box>

@@ -40,6 +40,7 @@ export const Notification: React.FC<NotificationProps> = ({
 
       return () => clearTimeout(timer);
     }
+    return;
   }, [id, duration, onClose]);
 
   const handleClose = () => {

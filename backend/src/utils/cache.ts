@@ -207,7 +207,7 @@ export class TTLCache<T = any> {
       return undefined;
     }
 
-    if (Date.now() > item.expiresAt) {
+    if (item.expiresAt && Date.now() > item.expiresAt) {
       this.delete(key);
       return undefined;
     }
@@ -228,7 +228,7 @@ export class TTLCache<T = any> {
       return false;
     }
 
-    if (Date.now() > item.expiresAt) {
+    if (item.expiresAt && Date.now() > item.expiresAt) {
       this.delete(key);
       return false;
     }
@@ -291,7 +291,7 @@ export class TTLCache<T = any> {
     const expiredKeys: string[] = [];
 
     for (const [key, item] of this.cache.entries()) {
-      if (now > item.expiresAt) {
+      if (item.expiresAt && now > item.expiresAt) {
         expiredKeys.push(key);
       }
     }
@@ -469,7 +469,7 @@ export class PersistentCache<T = any> {
   private cache: Map<string, CacheItem<T>> = new Map();
   private filePath: string;
   private maxSize: number;
-  private size: number = 0;
+  private currentSize: number = 0;
 
   /**
    * 构造函数
@@ -493,16 +493,16 @@ export class PersistentCache<T = any> {
     
     // 如果键已存在，先删除旧值
     if (this.cache.has(key)) {
-      this.size--;
+      this.currentSize--;
     }
     
     // 检查是否超过最大容量
-    if (this.size >= this.maxSize) {
+    if (this.currentSize >= this.maxSize) {
       this.evict();
     }
     
     this.cache.set(key, { value, expiresAt });
-    this.size++;
+    this.currentSize++;
     
     // 保存到文件
     this.save();
@@ -536,7 +536,7 @@ export class PersistentCache<T = any> {
   delete(key: string): boolean {
     const deleted = this.cache.delete(key);
     if (deleted) {
-      this.size--;
+      this.currentSize--;
       this.save();
     }
     return deleted;
@@ -568,7 +568,7 @@ export class PersistentCache<T = any> {
    */
   clear(): void {
     this.cache.clear();
-    this.size = 0;
+    this.currentSize = 0;
     this.save();
   }
 
@@ -577,7 +577,7 @@ export class PersistentCache<T = any> {
    * @returns 缓存大小
    */
   size(): number {
-    return this.size;
+    return this.currentSize;
   }
 
   /**
@@ -627,7 +627,7 @@ export class PersistentCache<T = any> {
         const entries = JSON.parse(data) as [string, CacheItem<T>][];
         
         this.cache = new Map(entries);
-        this.size = entries.length;
+        this.currentSize = entries.length;
         
         // 清理过期项
         this.cleanup();

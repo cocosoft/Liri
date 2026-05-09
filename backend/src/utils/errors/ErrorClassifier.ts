@@ -13,6 +13,15 @@ export type ErrorKind =
   | 'system'
   | 'unknown';
 
+interface ShellErrorLike {
+  name: string;
+  message: string;
+  code?: string | number;
+  stdout?: string;
+  stderr?: string;
+  interrupted?: boolean;
+}
+
 export interface ClassifiedError {
   kind: ErrorKind;
   message: string;
@@ -38,12 +47,12 @@ export function classifyError(error: unknown): ClassifiedError {
       return {
         kind: 'system',
         message,
-        code: (error as ShellError).code?.toString(),
+        code: (error as ShellErrorLike).code?.toString(),
         retryable: false,
         details: {
-          stdout: (error as ShellError).stdout,
-          stderr: (error as ShellError).stderr,
-          interrupted: (error as ShellError).interrupted,
+          stdout: (error as ShellErrorLike).stdout,
+          stderr: (error as ShellErrorLike).stderr,
+          interrupted: (error as ShellErrorLike).interrupted,
         },
       };
     }

@@ -90,7 +90,7 @@ export class PersistedCacheService<T extends Record<string, any>> {
       enableLocking: config.enableLocking ?? true,
       lockTimeout: config.lockTimeout || 5000,
       saveInterval: config.saveInterval || 30000,
-      onFirstLoad: config.onFirstLoad,
+      onFirstLoad: config.onFirstLoad as (data: any) => any,
     };
 
     this.filePath = path.join(this.config.cacheDir, this.config.fileName);

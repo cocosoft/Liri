@@ -36,11 +36,11 @@ import {
   getAskRuleForTool,
   matchRules,
 } from './utils/RuleMatcher';
-import {
-  PermissionHookService,
+import { PermissionHookService } from './services/PermissionHookService';
+import type {
   PermissionHookContext,
   PermissionHookDecision,
-} from './services/PermissionHookService';
+} from './types/PermissionHook';
 import {
   ClassifierManager,
   classifierManager,
@@ -112,7 +112,7 @@ export class PermissionManager {
     this.ruleManager = new RuleManager();
     this.permissionChecker = new PermissionChecker(this.ruleManager);
     this.denialTracker = new DenialTracker();
-    this.permissionHookService = new PermissionHookService();
+    this.permissionHookService = PermissionHookService.getInstance();
     this.classifierManager = classifierManager;
     this.sandboxIntegrationService = sandboxIntegrationService;
 
@@ -169,16 +169,16 @@ export class PermissionManager {
     if (hookDecision) {
       if (hookDecision.behavior === 'allow') {
         return createAllowDecision(
-          hookDecision.reason || 'Allowed by permission hook'
+          hookDecision.message || 'Allowed by permission hook'
         );
       } else if (hookDecision.behavior === 'deny') {
         this.denialTracker.trackDenial(toolName);
         return createDenyDecision(
-          hookDecision.reason || 'Denied by permission hook'
+          hookDecision.message || 'Denied by permission hook'
         );
       } else if (hookDecision.behavior === 'ask') {
         return createAskDecision(
-          hookDecision.reason || 'Ask requested by permission hook'
+          hookDecision.message || 'Ask requested by permission hook'
         );
       }
     }
@@ -222,8 +222,9 @@ export class PermissionManager {
   ): Promise<PermissionHookDecision | null> {
     const hookContext: PermissionHookContext = {
       toolName,
+      toolUseID: '',
       input,
-      mode: this.mode,
+      permissionMode: this.mode,
       context,
       abortSignal: undefined,
     };

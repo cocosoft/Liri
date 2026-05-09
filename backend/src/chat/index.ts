@@ -19,8 +19,8 @@ export { ChatEcosystem, chatEcosystem } from './ecosystem/ChatEcosystem';
 export type { Extension, ExtensionPoint, ExtensionHandler, EcosystemEvent, EcosystemMetrics, EventListener, IChatEcosystem } from './ecosystem/ChatEcosystem';
 
 // 导出类型
-export type { MessageContent, MessageType, ChatMessage } from './types/message';
-export type { SessionConfig, SessionState } from './types/session';
+export type { Message, ContentBlock } from './types/message';
+export type { SessionState } from './types/session';
 export type { ToolCall, ToolResult } from './types/tool';
 export type { ToolUseBlock } from './types/ToolUseBlock';
 

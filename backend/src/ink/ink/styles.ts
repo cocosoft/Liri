@@ -34,7 +34,7 @@ export type AnsiColor =
   | 'ansi:whiteBright'
 
 /** Raw color value - not a theme key */
-export type Color = RGBColor | HexColor | Ansi256Color | AnsiColor
+export type Color = RGBColor | HexColor | Ansi256Color | AnsiColor | string
 
 /**
  * Structured text styling properties.

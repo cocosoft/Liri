@@ -27,14 +27,12 @@ class DefaultSwarmAgent implements ISwarmAgent {
   constructor(public id: string) {}
 
   async run(task: SwarmTask): Promise<SwarmResult> {
-    const payload = task.payload as Record<string, any>;
+    const payload = task.input ?? {};
     
-    // 模拟延迟
     if (payload.delayMs) {
       await new Promise(resolve => setTimeout(resolve, payload.delayMs));
     }
 
-    // 模拟失败
     if (payload.shouldFail) {
       throw new Error('Simulated failure');
     }
@@ -43,7 +41,7 @@ class DefaultSwarmAgent implements ISwarmAgent {
       taskId: task.id,
       agentId: this.id,
       success: true,
-      result: { response: `Processed: ${payload.prompt}` },
+      content: JSON.stringify({ response: `Processed: ${payload.prompt}` }),
       timestamp: Date.now(),
     };
   }
@@ -72,7 +70,8 @@ export class AgentSwarmManager {
    * 初始化默认代理
    */
   private initializeDefaultAgents(): void {
-    for (let i = 0; i < Math.min(3, this.config.maxAgents); i++) {
+    const maxAgents = this.config.maxAgents ?? 10;
+    for (let i = 0; i < Math.min(3, maxAgents); i++) {
       this.addAgent(new DefaultSwarmAgent(`agent_${i + 1}`));
     }
   }
@@ -81,8 +80,9 @@ export class AgentSwarmManager {
    * 添加Agent到群组
    */
   addAgent(agent: ISwarmAgent): void {
-    if (this.agents.size >= this.config.maxAgents) {
-      throw new Error(`Cannot add more than ${this.config.maxAgents} agents to swarm`);
+    const maxAgents = this.config.maxAgents ?? 10;
+    if (this.agents.size >= maxAgents) {
+      throw new Error(`Cannot add more than ${maxAgents} agents to swarm`);
     }
     this.agents.set(agent.id, agent);
   }
@@ -116,10 +116,8 @@ export class AgentSwarmManager {
     tasks: SwarmTask[],
     options: SwarmExecutionOptions = {}
   ): Promise<SwarmResult[]> {
-    const { 
-      parallel = this.config.defaultParallel, 
-      timeoutMs = this.config.defaultTimeoutMs 
-    } = options;
+    const parallel = options.parallel ?? this.config.defaultParallel ?? true;
+    const timeoutMs = options.timeoutMs ?? this.config.defaultTimeoutMs ?? 30000;
 
     this.activeSwarmId = `swarm_${randomUUID().substring(0, 8)}`;
 

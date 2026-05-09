@@ -32,18 +32,15 @@ export class WebSocketTransport {
         headers: this.config.headers || {},
       };
 
-      // 创建客户端
-      const client = new Client(options);
-
-      // 连接到服务器
-      await client.connect();
+      const client = new Client(options as any);
+      await (client as any).connect();
 
       logger.info(`Connected to WebSocket MCP server: ${this.config.url}`);
       this.client = client;
 
       return client;
     } catch (error) {
-      logger.error('WebSocket connection failed:', error);
+      logger.error('WebSocket connection failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -54,10 +51,10 @@ export class WebSocketTransport {
   async disconnect(): Promise<void> {
     if (this.client) {
       try {
-        await this.client.disconnect();
+        await (this.client as any).close();
         logger.info(`Disconnected from WebSocket MCP server: ${this.config.url}`);
       } catch (error) {
-        logger.error('Error disconnecting from WebSocket server:', error);
+        logger.error('Error disconnecting from WebSocket server:', error instanceof Error ? error : new Error(String(error)));
       } finally {
         this.client = null;
       }

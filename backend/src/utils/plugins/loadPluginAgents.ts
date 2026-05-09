@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '@modules/utils/log';
-import { PluginAgentDefinition } from '@modules/agent/models/types';
+import { PluginAgentDefinition } from '@modules/services/agent/types';
 import { parseAgentFromMarkdown, parseAgentsFromJson } from '@modules/services/agent/parseAgent';
 import { pluginLoader } from '@modules/plugins/PluginLoader';
 import type { LoadedPlugin } from '@modules/types/plugin';
@@ -37,7 +37,7 @@ export async function loadPluginAgents(): Promise<PluginAgentDefinition[]> {
     pluginAgentsCache = agents;
     return agents;
   } catch (error) {
-    logger.error('Failed to load plugin agents:', error);
+    logger.error('Failed to load plugin agents:', error as Error);
     return [];
   }
 }
@@ -96,7 +96,7 @@ async function loadAgentsFromPlugin(plugin: LoadedPlugin): Promise<PluginAgentDe
 
     return agents;
   } catch (error) {
-    logger.error(`Failed to load agents from plugin ${plugin.name}:`, error);
+    logger.error(`Failed to load agents from plugin ${plugin.name}:`, error as Error);
     return [];
   }
 }
@@ -130,7 +130,7 @@ async function loadAgentsFromDirectory(directory: string, plugin: LoadedPlugin):
 
     return agents;
   } catch (error) {
-    logger.error(`Failed to load agents from directory ${directory}:`, error);
+    logger.error(`Failed to load agents from directory ${directory}:`, error as Error);
     return [];
   }
 }
@@ -161,7 +161,7 @@ async function loadAgentFromMarkdownFile(filePath: string, plugin: LoadedPlugin)
       baseDir,
       frontmatter,
       agentContent,
-      'plugin'
+      'userSettings'
     );
 
     if (agent) {
@@ -177,7 +177,7 @@ async function loadAgentFromMarkdownFile(filePath: string, plugin: LoadedPlugin)
 
     return null;
   } catch (error) {
-    logger.error(`Failed to load agent from markdown file ${filePath}:`, error);
+    logger.error(`Failed to load agent from markdown file ${filePath}:`, error as Error);
     return null;
   }
 }
@@ -190,7 +190,7 @@ function loadAgentsFromJson(filePath: string, plugin: LoadedPlugin): PluginAgent
     const content = fs.readFileSync(filePath, 'utf8');
     const data = JSON.parse(content);
 
-    const agents = parseAgentsFromJson(data, 'plugin');
+    const agents = parseAgentsFromJson(data, 'plugin' as any);
 
     // 转换为PluginAgentDefinition
     return agents.map(agent => ({
@@ -199,7 +199,7 @@ function loadAgentsFromJson(filePath: string, plugin: LoadedPlugin): PluginAgent
       plugin: plugin.name
     }));
   } catch (error) {
-    logger.error(`Failed to load agents from json file ${filePath}:`, error);
+    logger.error(`Failed to load agents from json file ${filePath}:`, error as Error);
     return [];
   }
 }

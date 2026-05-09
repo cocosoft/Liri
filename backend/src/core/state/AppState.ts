@@ -91,6 +91,10 @@ export interface AppState {
   mainLoopModel: ModelSetting;
   /** 会话主循环模型 */
   mainLoopModelForSession: ModelSetting;
+  /** 当前模型 */
+  model: string;
+  /** 当前模型别名 */
+  modelAlias: string | null;
   /** 状态栏文本 */
   statusLineText: string | undefined;
   /** 展开视图 */

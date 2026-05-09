@@ -1,7 +1,7 @@
 //
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
-import { MemoryStoreImpl } from './stores/MemoryStore';
+import { MemoryStoreImpl, MemoryStore } from './stores/MemoryStore';
 import { MemoryScannerImpl } from './scanners/MemoryScanner';
 import { MemoryRetrieverImpl } from './retrievers/MemoryRetriever';
 import { MemoryType } from './types/MemoryType';
@@ -9,6 +9,8 @@ import { MemoryPromptService, MemoryPrompt } from './services/MemoryPromptServic
 import { AutoMemoryService, AutoMemoryConfig } from './services/AutoMemoryService';
 import { TeamMemoryService, TeamMemoryConfig, TeamMemorySyncStatus, TeamMemorySyncRecord } from './services/TeamMemoryService';
 import { PYAppIntegrationService, PYAppConfig, Rule, Preference } from './services/PYAppIntegrationService';
+import fsExtra from 'fs-extra';
+import { join } from 'path';
 
 /**
  * 记忆管理器接口
@@ -120,11 +122,13 @@ export interface MemoryManager {
 /**
  * 记忆管理器实现
  */
-export class MemoryManagerImpl implements MemoryManager {
+export class MemoryManagerImpl {
   /**
    * 记忆存储
    */
   private store: MemoryStoreImpl;
+
+  private storeDir: string;
 
   /**
    * 记忆扫描器
@@ -161,12 +165,13 @@ export class MemoryManagerImpl implements MemoryManager {
    * @param memoryDir 记忆目录路径
    */
   constructor(memoryDir: string = './data/memory') {
+    this.storeDir = memoryDir;
     this.store = new MemoryStoreImpl(memoryDir);
     this.scanner = new MemoryScannerImpl();
     this.retriever = new MemoryRetrieverImpl(memoryDir);
-    this.promptService = new MemoryPromptService(this);
-    this.autoMemoryService = new AutoMemoryService(this);
-    this.teamMemoryService = new TeamMemoryService(this);
+    this.promptService = new MemoryPromptService(this as any);
+    this.autoMemoryService = new AutoMemoryService(this as any);
+    this.teamMemoryService = new TeamMemoryService(this as any);
     this.pyAppIntegrationService = new PYAppIntegrationService();
   }
 

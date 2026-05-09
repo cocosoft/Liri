@@ -65,9 +65,11 @@ export function TextDivider({
           borderStyle="single"
           borderColor={theme.colors[color]}
         />
-        <Text color={theme.colors.textSecondary} marginLeft={1} marginRight={1}>
-          {text}
-        </Text>
+        <Box marginLeft={1} marginRight={1}>
+          <Text color={theme.colors.textSecondary}>
+            {text}
+          </Text>
+        </Box>
         <Box 
           flexGrow={1} 
           height={thickness}
@@ -87,9 +89,11 @@ export function TextDivider({
         borderStyle="single"
         borderColor={theme.colors[color]}
       />
-      <Text color={theme.colors.textSecondary} marginTop={1} marginBottom={1}>
-        {text}
-      </Text>
+      <Box marginTop={1} marginBottom={1}>
+        <Text color={theme.colors.textSecondary}>
+          {text}
+        </Text>
+      </Box>
       <Box 
         flexGrow={1} 
         width={thickness}

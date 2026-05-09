@@ -137,7 +137,7 @@ export class CacheStrategyFactory {
 /**
  * 带策略的缓存存储
  */
-export class StrategyCacheStorage implements CacheItem {
+export class StrategyCacheStorage {
   private storage: Map<string, CacheItem> = new Map();
   private strategy: CacheStrategy;
   private maxSize: number;

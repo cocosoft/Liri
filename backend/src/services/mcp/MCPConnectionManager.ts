@@ -7,7 +7,7 @@
 import { logger } from '@modules/utils/log';
 import { getMcpToolsCommandsAndResources, reconnectMcpServerImpl } from './client';
 import type { MCPServerConnection, ScopedMcpServerConfig, ServerResource, SerializedTool } from './types';
-import type { Command } from '@modules/commands';
+import type { McpCommand } from './commandManager';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -25,9 +25,9 @@ export class MCPConnectionManager {
   private serverTools: Map<string, SerializedTool[]> = new Map();
   private reconnectTimers: Map<string, NodeJS.Timeout> = new Map();
   private pendingUpdates: Array<{
-    client: MCPServerConnection;
+    connection: MCPServerConnection;
     tools?: SerializedTool[];
-    commands?: Command[];
+    commands?: McpCommand[];
     resources?: ServerResource[];
   }> = [];
   private flushTimer: NodeJS.Timeout | null = null;
@@ -39,18 +39,17 @@ export class MCPConnectionManager {
     try {
       // 批量更新回调
       const onConnectionAttempt = (result: {
-        client: MCPServerConnection;
+        connection: MCPServerConnection;
         tools: SerializedTool[];
-        commands: Command[];
+        commands: McpCommand[];
         resources?: ServerResource[];
       }) => {
         this.updateServer(result);
       };
 
-      // 连接所有服务器
       await getMcpToolsCommandsAndResources(onConnectionAttempt, configs);
     } catch (error) {
-      logger.error('Failed to initialize MCP connections:', error);
+      logger.error('Failed to initialize MCP connections:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -58,12 +57,11 @@ export class MCPConnectionManager {
    * 更新服务器状态
    */
   private updateServer(update: {
-    client: MCPServerConnection;
+    connection: MCPServerConnection;
     tools?: SerializedTool[];
-    commands?: Command[];
+    commands?: McpCommand[];
     resources?: ServerResource[];
   }): void {
-    // 添加到待更新队列
     this.pendingUpdates.push(update);
 
     // 启动批量更新定时器
@@ -87,18 +85,15 @@ export class MCPConnectionManager {
 
     // 处理每个更新
     for (const update of updates) {
-      const { client, tools } = update;
-      this.servers.set(client.name, client);
+      const { connection, tools } = update;
+      this.servers.set(connection.name, connection);
 
-      // 存储服务器工具
       if (tools && tools.length > 0) {
-        this.serverTools.set(client.name, tools);
+        this.serverTools.set(connection.name, tools);
       }
 
-      // 处理连接成功的服务器
-      if (client.type === 'connected') {
-        // 设置断开连接处理
-        client.client.onclose = () => this.handleDisconnect(client);
+      if (connection.type === 'connected') {
+        (connection as any).client.onclose = () => this.handleDisconnect(connection);
       }
     }
 
@@ -112,9 +107,8 @@ export class MCPConnectionManager {
   private handleDisconnect(client: MCPServerConnection): void {
     const configType = client.config.type ?? 'stdio';
 
-    // 跳过stdio和sdk类型的服务器，它们不支持重连
     if (configType === 'stdio' || configType === 'sdk') {
-      this.updateServer({ ...client, type: 'failed' });
+      this.updateServer({ connection: { ...client, type: 'failed' } as MCPServerConnection });
       return;
     }
 
@@ -136,17 +130,18 @@ export class MCPConnectionManager {
     for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
       // 更新为待连接状态
       this.updateServer({
-        ...client,
-        type: 'pending',
-        reconnectAttempt: attempt,
-        maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+        connection: {
+          ...client,
+          type: 'pending',
+          reconnectAttempt: attempt,
+          maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+        } as MCPServerConnection
       });
 
       try {
-        // 尝试重连
         const result = await reconnectMcpServerImpl(client.name, client.config);
 
-        if (result.client.type === 'connected') {
+        if (result.connection.type === 'connected') {
           logger.info(`Reconnection successful for server ${client.name} (attempt ${attempt})`);
           this.reconnectTimers.delete(client.name);
           this.updateServer(result);
@@ -161,16 +156,17 @@ export class MCPConnectionManager {
           return;
         }
       } catch (error) {
-        logger.error(`Reconnection attempt ${attempt} failed for server ${client.name}:`, error);
+        logger.error(`Reconnection attempt ${attempt} failed for server ${client.name}:`, error instanceof Error ? error : new Error(String(error)));
 
-        // 最后一次尝试失败，标记为失败
         if (attempt === MAX_RECONNECT_ATTEMPTS) {
           logger.warn(`Max reconnection attempts reached for server ${client.name}`);
           this.reconnectTimers.delete(client.name);
           this.updateServer({
-            ...client,
-            type: 'failed',
-            error: error instanceof Error ? error.message : 'Unknown error'
+            connection: {
+              ...client,
+              type: 'failed',
+              error: error instanceof Error ? error.message : 'Unknown error'
+            } as MCPServerConnection
           });
           return;
         }
@@ -210,8 +206,8 @@ export class MCPConnectionManager {
 
     // 尝试重连
     const result = await reconnectMcpServerImpl(serverName, server.config);
-    this.updateServer(result);
-    return result.client;
+    this.updateServer({ connection: result.connection, tools: result.tools, commands: result.commands, resources: result.resources });
+    return result.connection;
   }
 
   /**
@@ -281,7 +277,7 @@ export class MCPConnectionManager {
         try {
           await server.cleanup();
         } catch (error) {
-          logger.error(`Error closing server ${server.name}:`, error);
+          logger.error(`Error closing server ${server.name}:`, error instanceof Error ? error : new Error(String(error)));
         }
       }
     }

@@ -151,7 +151,7 @@ export class CostMonitor {
    */
   setConfig(config: Partial<CostMonitorConfig>): void {
     this.config = { ...this.config, ...config };
-    logForDebugging('成本监控配置已更新', this.config);
+    logForDebugging('成本监控配置已更新', { ...this.config });
   }
 
   /**

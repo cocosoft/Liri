@@ -48,7 +48,11 @@ import { TerminalWriteProvider } from './useTerminalNotification.js';
 const ALT_SCREEN_ANCHOR_CURSOR = Object.freeze({
   x: 0,
   y: 0,
-  visible: false
+  visible: false,
+  save: () => {},
+  restore: () => {},
+  moveTo: (_x: number, _y: number) => {},
+  reset: () => {},
 });
 const CURSOR_HOME_PATCH = Object.freeze({
   type: 'stdout' as const,
@@ -250,18 +254,16 @@ export default class Ink {
         const t0 = performance.now();
         this.rootNode.yogaNode.setWidth(this.terminalColumns);
         this.rootNode.yogaNode.calculateLayout(this.terminalColumns);
-        const ms = performance.now() - t0;
-        recordYogaMs(ms);
+        const elapsedMs = performance.now() - t0;
+        recordYogaMs(elapsedMs);
         const c = getYogaCounters();
         this.lastYogaCounters = {
-          ms,
-          ...c
+          ...c,
+          ms: elapsedMs,
         };
       }
     };
 
-    // @ts-expect-error @types/react-reconciler@0.32.3 declares 11 args with transitionCallbacks,
-    // but react-reconciler 0.33.0 source only accepts 10 args (no transitionCallbacks)
     this.container = reconciler.createContainer(this.rootNode, ConcurrentRoot, null, false, null, 'id', noop,
     // onUncaughtError
     noop,
@@ -270,7 +272,7 @@ export default class Ink {
     // onRecoverableError
     noop // onDefaultTransitionIndicator
     );
-    if ("production" === 'development') {
+    if ((process.env.NODE_ENV ?? 'production') === 'development') {
       reconciler.injectIntoDevTools({
         bundleType: 0,
         // Reporting React DOM's version, not Ink's
@@ -792,7 +794,6 @@ export default class Ink {
   }
   pause(): void {
     // Flush pending React updates and render before pausing.
-    // @ts-expect-error flushSyncFromReconciler exists in react-reconciler 0.31 but not in @types/react-reconciler
     reconciler.flushSyncFromReconciler();
     this.onRender();
     this.isPaused = true;
@@ -996,7 +997,11 @@ export default class Ink {
       cursor: {
         x: 0,
         y: 0,
-        visible: true
+        visible: true,
+        save: () => {},
+        restore: () => {},
+        moveTo: (_x: number, _y: number) => {},
+        reset: () => {},
       }
     });
     this.frontFrame = blank();
@@ -1450,9 +1455,7 @@ export default class Ink {
         </TerminalWriteProvider>
       </App>;
 
-    // @ts-expect-error updateContainerSync exists in react-reconciler but not in @types/react-reconciler
     reconciler.updateContainerSync(tree, this.container, null, noop);
-    // @ts-expect-error flushSyncWork exists in react-reconciler but not in @types/react-reconciler
     reconciler.flushSyncWork();
   }
   unmount(error?: Error | number | null): void {
@@ -1517,9 +1520,7 @@ export default class Ink {
       this.drainTimer = null;
     }
 
-    // @ts-expect-error updateContainerSync exists in react-reconciler but not in @types/react-reconciler
     reconciler.updateContainerSync(null, this.container, null, noop);
-    // @ts-expect-error flushSyncWork exists in react-reconciler but not in @types/react-reconciler
     reconciler.flushSyncWork();
     instances.delete(this.options.stdout);
 
@@ -1615,7 +1616,7 @@ export default class Ink {
       // don't stack-overflow.
       if (reentered) {
         const encoding = typeof encodingOrCb === 'string' ? encodingOrCb : undefined;
-        return originalWrite.call(stderr, chunk, encoding, callback);
+        return originalWrite.call(stderr, chunk, encoding, callback as (err?: Error | null) => void);
       }
       reentered = true;
       try {

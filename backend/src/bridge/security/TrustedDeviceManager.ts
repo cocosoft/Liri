@@ -228,6 +228,3 @@ export function getDeviceManager(options?: DeviceManagerOptions): DeviceManager 
 export function resetDeviceManager(): void {
   defaultManager = undefined;
 }
-
-export { getDeviceManager, resetDeviceManager };
-export type { DeviceManagerOptions };

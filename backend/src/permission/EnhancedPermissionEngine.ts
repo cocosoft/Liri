@@ -97,7 +97,7 @@ export class EnhancedPermissionEngine {
   constructor(config?: Partial<RuleEngineConfig>) {
     this.config = {
       enablePriority: true,
-      defaultBehavior: 'allow',
+      defaultBehavior: PermissionBehavior.ALLOW,
       enableRuleInheritance: true,
       enableEvaluationLogging: false,
       ...config,
@@ -122,7 +122,7 @@ export class EnhancedPermissionEngine {
           { type: 'tool_name', pattern: '^(rm|delete|format|sudo|su|exec|system|shell)$' },
         ],
         effect: { type: 'deny', reason: '危险工具已被拒绝' },
-        source: 'system',
+        source: PermissionRuleSource.SYSTEM,
         enabled: true,
       },
       // 允许安全工具
@@ -135,7 +135,7 @@ export class EnhancedPermissionEngine {
           { type: 'tool_name', pattern: '^(list|read|view|get|search|query)$' },
         ],
         effect: { type: 'allow', reason: '安全工具已允许' },
-        source: 'system',
+        source: PermissionRuleSource.SYSTEM,
         enabled: true,
       },
       // 限制敏感路径访问
@@ -148,7 +148,7 @@ export class EnhancedPermissionEngine {
           { type: 'input_pattern', field: 'path', pattern: '^(/etc/|/root/|/sys/|/proc/|C:\\\\Windows\\\\)' },
         ],
         effect: { type: 'deny', reason: '访问敏感路径已被拒绝' },
-        source: 'system',
+        source: PermissionRuleSource.SYSTEM,
         enabled: true,
       },
     ];
@@ -391,18 +391,18 @@ export class EnhancedPermissionEngine {
     let defaultBehavior: PermissionBehavior;
     switch (mode) {
       case PermissionMode.PLAN:
-        defaultBehavior = 'deny';
+        defaultBehavior = PermissionBehavior.DENY;
         break;
       case PermissionMode.DONT_ASK:
-        defaultBehavior = 'allow';
+        defaultBehavior = PermissionBehavior.ALLOW;
         break;
       case PermissionMode.BYPASS_PERMISSIONS:
         return createAllowDecision('Bypass mode: all permissions granted');
       case PermissionMode.ACCEPT_EDITS:
-        defaultBehavior = 'allow';
+        defaultBehavior = PermissionBehavior.ALLOW;
         break;
       default:
-        defaultBehavior = 'ask';
+        defaultBehavior = PermissionBehavior.ASK;
     }
 
     // 评估所有规则

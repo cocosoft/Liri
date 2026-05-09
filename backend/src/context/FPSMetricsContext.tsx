@@ -4,7 +4,7 @@
  * 跟踪应用帧率性能指标
  */
 
-import { createContext, useContext, useRef, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useRef, useEffect, useCallback, useState, type ReactNode } from 'react';
 
 export interface FPSMetrics {
   fps: number;
@@ -36,7 +36,7 @@ const initialMetrics: FPSMetrics = {
 const FPSMetricsContext = createContext<FPSMetricsContextType | undefined>(undefined);
 
 export const FPSMetricsProvider = ({ children }: { children: ReactNode }) => {
-  const [metrics, setMetrics] = React.useState<FPSMetrics>(initialMetrics);
+  const [metrics, setMetrics] = useState<FPSMetrics>(initialMetrics);
   const frameTimesRef = useRef<number[]>([]);
   const lastFrameTimeRef = useRef<number>(performance.now());
   const animationFrameIdRef = useRef<number | null>(null);

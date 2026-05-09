@@ -8,9 +8,12 @@ export {
   getContextCollapseService,
   isContextCollapseEnabled,
   resetContextCollapse,
-  type CollapseCommit,
-  type CollapseOptions,
-  type CollapseResult,
-  type CollapseStats,
-  type CollapseState,
 } from './ContextCollapseService';
+
+export type {
+  CollapseCommit,
+  CollapseOptions,
+  CollapseResult,
+  CollapseStats,
+  CollapseState,
+} from './types';

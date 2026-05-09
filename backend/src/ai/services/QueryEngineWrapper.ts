@@ -8,8 +8,8 @@
 import type { ChatMessage } from '../models/types.js';
 import type { LLMClient } from '../clients/LLMClient.js';
 import type { QueryParams, QueryResult } from '../interfaces/QueryInterfaces.js';
-import type { MiniAgent, MiniAgentResult } from '../miniAgent/types.js';
-import { createMiniAgent } from '../miniAgent/MiniAgent.js';
+import type { MiniAgentResult } from '../miniAgent/types.js';
+import { createMiniAgent, MiniAgent } from '../miniAgent/MiniAgent.js';
 import { QueryEngineIntegrationAdapter, createIntegrationAdapter } from '../miniAgent/QueryEngineIntegrationAdapter.js';
 
 export interface QueryEngineWrapperConfig {
@@ -31,7 +31,7 @@ export class QueryEngineWrapper {
     this.defaultModel = config.defaultModel;
     this.integrationAdapter = createIntegrationAdapter({
       enabled: config.miniAgentEnabled ?? false,
-      bypassRoutes: config.bypassRoutes,
+      bypassRoutes: config.bypassRoutes as any,
       enableMetrics: config.enableMetrics ?? false,
     });
   }
@@ -58,7 +58,7 @@ export class QueryEngineWrapper {
         },
         allMessages: messages,
         turns: 0,
-        finishReason: 'mini_agent_handled',
+        finishReason: 'mini_agent_handled' as any,
       };
     }
 
@@ -74,12 +74,6 @@ export class QueryEngineWrapper {
     if (lastMessage.role === 'user') {
       if (typeof lastMessage.content === 'string') {
         return lastMessage.content;
-      }
-      if (Array.isArray(lastMessage.content)) {
-        return lastMessage.content
-          .filter((block) => block.type === 'text')
-          .map((block) => block.text)
-          .join(' ');
       }
     }
 
@@ -123,7 +117,7 @@ export class QueryEngineWrapper {
           message: assistantMessage,
           allMessages: accumulatedMessages,
           turns: currentTurn,
-          finishReason: response.stop_reason || 'end_turn',
+          finishReason: ((response.stop_reason === 'stop' ? 'end_turn' : response.stop_reason === 'tool_calls' ? 'tool_use' : response.stop_reason) || 'end_turn') as any,
         };
       } catch (error) {
         return {
@@ -176,7 +170,7 @@ export class QueryEngineWrapper {
   enableMiniAgent(config?: { bypassRoutes?: string[]; enableMetrics?: boolean }): void {
     this.integrationAdapter = createIntegrationAdapter({
       enabled: true,
-      bypassRoutes: config?.bypassRoutes,
+      bypassRoutes: config?.bypassRoutes as any,
       enableMetrics: config?.enableMetrics ?? false,
     });
   }

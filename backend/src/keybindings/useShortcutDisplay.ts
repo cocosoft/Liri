@@ -1,7 +1,7 @@
 //
 import { useMemo } from 'react'
 
-import type { ParsedBinding } from './types.js'
+import type { ParsedBinding, KeybindingContextName } from './types.js'
 import { chordToDisplayString } from './parser.js'
 import { getBindingDisplayText } from './resolver.js'
 
@@ -14,8 +14,8 @@ export function useShortcutDisplay(
     const binding = bindings.find(b => b.action === action)
     if (!binding) return undefined
 
-    return chordToDisplayString(binding.chord, platform)
-  }, [action, bindings, platform])
+    return chordToDisplayString(binding.chord.chords)
+  }, [action, bindings])
 }
 
 export function getShortcutText(
@@ -26,12 +26,13 @@ export function getShortcutText(
   const binding = bindings.find(b => b.action === action)
   if (!binding) return undefined
 
-  return chordToDisplayString(binding.chord, platform)
+  return chordToDisplayString(binding.chord.chords)
 }
 
 export function getShortcutOriginal(
   action: string,
   bindings: ParsedBinding[],
 ): string | undefined {
-  return getBindingDisplayText(action, bindings)
+  const binding = bindings.find(b => b.action === action)
+  return binding?.chord.displayText
 }

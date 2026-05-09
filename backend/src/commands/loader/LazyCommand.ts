@@ -90,8 +90,8 @@ export class LazyCommand implements Command {
       }
 
       // 如果 command 是类（有 constructor），创建实例
-      let commandInstance: Command = command;
-      if (typeof command === 'function' && command.prototype && typeof command.prototype.execute === 'function') {
+      let commandInstance: any = command;
+      if (typeof command === 'function' && (command as any).prototype && typeof (command as any).prototype.execute === 'function') {
         commandInstance = new (command as any)();
       }
 

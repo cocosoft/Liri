@@ -10,7 +10,7 @@ import { TerminalUIIntegration } from '../ui/TerminalUIIntegration.js';
 import { ModuleDependencyManager, ModuleDefinition } from './ModuleDependencyManager.js';
 import { PluginEcosystem, EcosystemConfig } from './PluginEcosystem.js';
 import { PluginSDK, Plugin, PluginSDKConfig } from './PluginSDK.js';
-import { StartupProfiler } from '../utils/StartupProfiler.js';
+import { StartupProfiler } from '../utils/startupProfiler.js';
 import { StartupPreloader, initializeAndStartPreloading } from './performance/StartupPreloader.js';
 
 /**
@@ -115,7 +115,7 @@ export class AppCore {
       TerminalComponents.printSuccess(`${this.config.name} 初始化完成`);
       logger.info(`${this.config.name} v${this.config.version} initialized successfully`);
     } catch (error) {
-      logger.error('Failed to initialize AppCore:', error);
+      logger.error('Failed to initialize AppCore:', error as Error);
       throw error;
     }
   }
@@ -202,7 +202,7 @@ export class AppCore {
 
     TerminalComponents.printHeader('启动报告');
 
-    const stats = [
+    const stats: [string, string][] = [
       ['应用名称', this.config.name],
       ['版本', this.config.version],
       ['启动时间', `${report.totalDuration.toFixed(2)}ms`],
@@ -288,7 +288,7 @@ export class AppCore {
     TerminalComponents.clearScreen();
     TerminalComponents.printHeader('系统状态');
 
-    const status = [
+    const status: [string, string][] = [
       ['应用名称', this.config.name],
       ['版本', this.config.version],
       ['运行状态', this.initialized ? '已初始化' : '未初始化'],

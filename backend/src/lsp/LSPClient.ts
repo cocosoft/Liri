@@ -97,7 +97,7 @@ export function createLSPClient(
   onCrash?: (error: Error) => void,
 ): LSPClient {
   let childProcess: ChildProcess | undefined
-  let process: { pid: number; stdin: (data: string) => void; kill: () => void; onExit: (handler: (code: number | null) => void) => void } | undefined
+  let childProcHandle: { pid: number; stdin: (data: string) => void; kill: () => void; onExit: (handler: (code: number | null) => void) => void } | undefined
 
   let capabilities: Record<string, unknown> | undefined
   let isInitialized = false
@@ -159,7 +159,7 @@ export function createLSPClient(
 
           const requestHandler = requestHandlers.get(message.method)
           if (requestHandler) {
-            requestHandler(message.params).catch(() => {})
+            Promise.resolve(requestHandler(message.params)).catch(() => {})
           }
         }
       } catch {
@@ -169,10 +169,10 @@ export function createLSPClient(
   }
 
   function sendMessage(message: unknown): void {
-    if (!process) throw new Error('LSP client not started')
+    if (!childProcHandle) throw new Error('LSP client not started')
     const body = JSON.stringify(message)
     const header = `Content-Length: ${Buffer.byteLength(body, 'utf-8')}\r\n\r\n`
-    process.stdin(header + body)
+    childProcHandle.stdin(header + body)
   }
 
   return {
@@ -225,7 +225,7 @@ export function createLSPClient(
 
           childProcess = child
 
-          process = {
+          childProcHandle = {
             get pid() { return child.pid ?? 0 },
             stdin: (data: string) => { child.stdin?.write(data) },
             kill: () => { child.kill() },
@@ -317,7 +317,7 @@ export function createLSPClient(
         initializationOptions: {},
       })
 
-      capabilities = result?.capabilities as Record<string, unknown> | undefined
+      capabilities = (result as any)?.capabilities as Record<string, unknown> | undefined
 
       sendNotification('initialized', {})
       isInitialized = true
@@ -627,3 +627,5 @@ function detectLanguage(uri: string): string {
   }
   return languageMap[ext] || 'plaintext'
 }
+
+

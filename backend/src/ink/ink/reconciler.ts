@@ -223,22 +223,7 @@ export function resetProfileCounters(): void {
 }
 // --- END ---
 
-const reconciler = createReconciler<
-  ElementNames,
-  Props,
-  DOMElement,
-  DOMElement,
-  TextNode,
-  DOMElement,
-  unknown,
-  unknown,
-  DOMElement,
-  HostContext,
-  null, // UpdatePayload - not used in React 19
-  NodeJS.Timeout,
-  -1,
-  null
->({
+const reconciler: any = createReconciler({
   getRootHostContext: () => ({ isInsideText: false }),
   prepareForCommit: () => {
     if (COMMIT_LOG) _prepareAt = performance.now()
@@ -246,7 +231,7 @@ const reconciler = createReconciler<
   },
   preparePortalMount: () => null,
   clearContainer: () => false,
-  resetAfterCommit(rootNode) {
+  resetAfterCommit(rootNode: any) {
     _lastCommitMs = _commitStart > 0 ? performance.now() - _commitStart : 0
     _commitStart = 0
     if (COMMIT_LOG) {
@@ -373,19 +358,19 @@ const reconciler = createReconciler<
     return createTextNode(text)
   },
   resetTextContent() {},
-  hideTextInstance(node) {
+  hideTextInstance(node: TextNode) {
     setTextNodeValue(node, '')
   },
-  unhideTextInstance(node, text) {
+  unhideTextInstance(node: TextNode, text: string) {
     setTextNodeValue(node, text)
   },
-  getPublicInstance: (instance): DOMElement => instance as DOMElement,
-  hideInstance(node) {
+  getPublicInstance: (instance: DOMElement): DOMElement => instance,
+  hideInstance(node: DOMElement) {
     node.isHidden = true
     node.yogaNode?.setDisplay(LayoutDisplay.None)
     markDirty(node)
   },
-  unhideInstance(node) {
+  unhideInstance(node: DOMElement) {
     node.isHidden = false
     node.yogaNode?.setDisplay(LayoutDisplay.Flex)
     markDirty(node)
@@ -462,7 +447,7 @@ const reconciler = createReconciler<
   commitTextUpdate(node: TextNode, _oldText: string, newText: string): void {
     setTextNodeValue(node, newText)
   },
-  removeChild(node, removeNode) {
+  removeChild(node: DOMElement, removeNode: DOMElement | TextNode) {
     removeChildNode(node, removeNode)
     cleanupYogaNode(removeNode)
     if (removeNode.nodeName !== '#text') {

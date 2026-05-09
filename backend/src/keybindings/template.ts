@@ -134,7 +134,7 @@ export const DEFAULT_TEMPLATE: KeybindingTemplate = {
           '{ctrl}+k': 'app:clearScreen',
           '{ctrl}+l': 'app:redraw',
           '{ctrl}+p': 'app:quickOpen',
-          '{ctrl}+k': 'app:globalSearch',
+          '{ctrl}+shift+p': 'app:globalSearch',
           '{ctrl}+s': 'app:save',
           '{ctrl}+shift+c': 'app:copyAll',
         },
@@ -220,7 +220,7 @@ export function validateTemplate(template: KeybindingTemplate): {
     }
 
     for (const action of Object.values(block.bindings)) {
-      if (action !== null && !KEYBINDING_ACTIONS.includes(action)) {
+      if (action !== null && !(KEYBINDING_ACTIONS as readonly string[]).includes(action)) {
         errors.push(`Invalid action: ${action}`);
       }
     }

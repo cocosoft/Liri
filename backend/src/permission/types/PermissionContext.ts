@@ -18,6 +18,16 @@ export interface PermissionContext {
   toolName: string;
 
   /**
+   * 用户角色（可选）
+   */
+  userRole?: string;
+
+  /**
+   * 客户端IP（可选）
+   */
+  clientIp?: string;
+
+  /**
    * 工具输入
    */
   input: Record<string, any>;

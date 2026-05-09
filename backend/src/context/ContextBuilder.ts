@@ -5,7 +5,6 @@
  * 使用memoize进行缓存优化，支持缓存破坏机制
  */
 import * as path from 'path';
-import { memoize } from 'lodash-es';
 import { getGitInfo, type GitInfo } from './GitDetector';
 import { readProjectFiles, readUserPyAppMd, type ProjectFiles } from './ProjectFileReader';
 import {
@@ -14,6 +13,19 @@ import {
   buildSystemContext,
   type SystemPromptParts,
 } from './PromptTemplates';
+
+// 简单的 memoize 实现，避免 lodash-es 类型依赖
+function memoize<T extends (...args: any[]) => any>(fn: T, resolver: (...args: Parameters<T>) => string): T {
+  const cache = new Map<string, ReturnType<T>>();
+  const memoized = ((...args: any[]) => {
+    const key = resolver(...(args as Parameters<T>));
+    if (!cache.has(key)) {
+      cache.set(key, fn(...args));
+    }
+    return cache.get(key)!;
+  }) as T;
+  return memoized;
+}
 
 export class ContextBuilder {
   private cwd: string;
@@ -121,8 +133,8 @@ export class ContextBuilder {
       this.cwd,
       this.gitInfo?.status || null,
       combinedPyAppMd,
-      this.projectFiles?.memoryMd,
-      this.projectFiles?.readme,
+      this.projectFiles?.memoryMd ?? undefined,
+      this.projectFiles?.readme ?? undefined,
       this.cacheBuster
     );
   }

@@ -308,6 +308,39 @@ export class DenialTracker {
 
     return filtered.filter(r => r.userOverridden);
   }
+
+  /**
+   * 跟踪拒绝（兼容方法）
+   */
+  trackDenial(toolName: string): void {
+    this.recordDenial({
+      toolName,
+      toolInput: {},
+      reason: 'Denied by permission manager',
+      sessionId: 'default',
+    });
+  }
+
+  /**
+   * 跟踪成功（兼容方法）
+   */
+  trackSuccess(_toolName: string): void {
+    this.recordAllow();
+  }
+
+  /**
+   * 检查是否应该询问用户（兼容方法）
+   */
+  shouldAsk(_toolName: string): boolean {
+    return this.getConsecutiveCount() >= this.config.consecutiveThreshold;
+  }
+
+  /**
+   * 重置跟踪器（兼容方法）
+   */
+  reset(): void {
+    this.clear();
+  }
 }
 
 /**

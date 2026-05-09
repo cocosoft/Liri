@@ -118,7 +118,7 @@ export class UnifiedConfigManager {
       this.initialized = true;
       logger.info('UnifiedConfigManager initialized');
     } catch (error) {
-      logger.error('Failed to initialize UnifiedConfigManager:', error);
+      logger.error('Failed to initialize UnifiedConfigManager:', error as Error);
       throw error;
     }
   }
@@ -188,7 +188,7 @@ export class UnifiedConfigManager {
    */
   onReload(listener: ReloadListener): () => void {
     this.hotReloader.onReload(listener);
-    return () => this.hotReloader.offReload(listener);
+    return () => (this.hotReloader as any).offReload(listener);
   }
 
   /**
@@ -225,14 +225,14 @@ export class UnifiedConfigManager {
    * 获取版本信息
    */
   getVersionInfo(): VersionInfo {
-    return this.versionController.getInfo();
+    return this.versionController.getVersionInfo();
   }
 
   /**
    * 获取两个版本之间的差异
    */
   diff(v1: number, v2: number): ConfigDiff | null {
-    return this.versionController.diff(v1, v2);
+    return this.versionController.compareVersions(v1, v2);
   }
 
   /**
@@ -316,7 +316,7 @@ let globalUnifiedConfig: UnifiedConfigManager | null = null;
  * 获取全局统一配置管理器
  */
 export function getUnifiedConfigManager(
-  options?: Parameters<typeof UnifiedConfigManager>[0],
+  options?: ConstructorParameters<typeof UnifiedConfigManager>[0],
 ): UnifiedConfigManager {
   if (!globalUnifiedConfig) {
     globalUnifiedConfig = new UnifiedConfigManager(options);
@@ -328,7 +328,7 @@ export function getUnifiedConfigManager(
  * 重置全局统一配置管理器
  */
 export function resetUnifiedConfigManager(
-  options?: Parameters<typeof UnifiedConfigManager>[0],
+  options?: ConstructorParameters<typeof UnifiedConfigManager>[0],
 ): UnifiedConfigManager {
   globalUnifiedConfig = new UnifiedConfigManager(options);
   return globalUnifiedConfig;

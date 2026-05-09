@@ -5,7 +5,8 @@
  */
 
 import { appStateStore } from '../state/AppStateStore.js';
-import type { TaskState } from '../state/types.js';
+import type { AppState } from '../state/AppState.js';
+import type { TaskState } from '@modules/types/task.js';
 
 /**
  * 任务优先级
@@ -66,12 +67,12 @@ export interface Task {
   status: TaskStatus;
   dependencies: string[];
   createdAt: number;
+  updatedAt: number;
   startedAt?: number;
   completedAt?: number;
   result?: TaskResult;
   retries: number;
   maxRetries: number;
-  execute: TaskFunction;
 }
 
 /**
@@ -102,28 +103,27 @@ export class TaskService {
   create(options: TaskOptions): string {
     const id = options.id || `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    const task: TaskState = {
-      id,
-      name: options.name,
-      description: options.description,
-      priority: options.priority || TaskPriority.NORMAL,
-      status: TaskStatus.PENDING,
-      dependencies: options.dependencies || [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
+    this.store.setState((prev: AppState) => {
+      const newTask = {
+        id,
+        name: options.name,
+        description: options.description,
+        priority: options.priority || TaskPriority.NORMAL,
+        status: TaskStatus.PENDING,
+        dependencies: options.dependencies || [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        retries: 0,
+        maxRetries: options.retries || 0,
+      } as unknown as TaskState;
 
-    this.store.addTask(id, {
-      id,
-      name: options.name,
-      description: options.description,
-      priority: options.priority || TaskPriority.NORMAL,
-      status: TaskStatus.PENDING,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      dependencies: options.dependencies || [],
-      retries: 0,
-      maxRetries: options.retries || 0,
+      return {
+        ...prev,
+        tasks: {
+          ...prev.tasks,
+          [id]: newTask,
+        },
+      };
     });
 
     return id;
@@ -145,7 +145,7 @@ export class TaskService {
    */
   async execute(taskId: string): Promise<TaskResult> {
     const state = this.store.getState();
-    const task = state.tasks[taskId];
+    const task = state.tasks[taskId] as unknown as Task | undefined;
 
     if (!task) {
       throw new Error(`Task not found: ${taskId}`);
@@ -157,13 +157,13 @@ export class TaskService {
 
     const dependencies = task.dependencies || [];
     for (const depId of dependencies) {
-      const depTask = state.tasks[depId];
+      const depTask = state.tasks[depId] as unknown as Task | undefined;
       if (depTask && depTask.status !== TaskStatus.COMPLETED) {
         throw new Error(`Dependency task not completed: ${depId}`);
       }
     }
 
-    this.store.updateTask(taskId, {
+    this.updateTaskState(taskId, {
       status: TaskStatus.RUNNING,
       startedAt: Date.now(),
     });
@@ -176,7 +176,7 @@ export class TaskService {
         error: 'No executor registered for this task',
       };
 
-      this.store.updateTask(taskId, {
+      this.updateTaskState(taskId, {
         status: TaskStatus.FAILED,
         result,
         completedAt: Date.now(),
@@ -188,7 +188,7 @@ export class TaskService {
     try {
       const result = await executor();
 
-      this.store.updateTask(taskId, {
+      this.updateTaskState(taskId, {
         status: result.success ? TaskStatus.COMPLETED : TaskStatus.FAILED,
         result,
         completedAt: Date.now(),
@@ -201,12 +201,12 @@ export class TaskService {
         error: error instanceof Error ? error.message : String(error),
       };
 
-      const currentTask = this.store.getState().tasks[taskId];
-      const retries = (currentTask.retries || 0) + 1;
-      const maxRetries = currentTask.maxRetries || 0;
+      const currentTask = this.store.getState().tasks[taskId] as unknown as Task | undefined;
+      const retries = (currentTask?.retries || 0) + 1;
+      const maxRetries = currentTask?.maxRetries || 0;
 
       if (retries <= maxRetries) {
-        this.store.updateTask(taskId, {
+        this.updateTaskState(taskId, {
           retries,
           status: TaskStatus.PENDING,
         });
@@ -215,7 +215,7 @@ export class TaskService {
           this.execute(taskId);
         }, 1000 * retries);
       } else {
-        this.store.updateTask(taskId, {
+        this.updateTaskState(taskId, {
           status: TaskStatus.FAILED,
           result,
           completedAt: Date.now(),
@@ -231,7 +231,7 @@ export class TaskService {
    * @param taskId 任务ID
    */
   cancel(taskId: string): void {
-    const task = this.store.getState().tasks[taskId];
+    const task = this.store.getState().tasks[taskId] as unknown as Task | undefined;
 
     if (!task) {
       throw new Error(`Task not found: ${taskId}`);
@@ -241,7 +241,7 @@ export class TaskService {
       throw new Error(`Cannot cancel a running task: ${taskId}`);
     }
 
-    this.store.updateTask(taskId, {
+    this.updateTaskState(taskId, {
       status: TaskStatus.CANCELLED,
       completedAt: Date.now(),
     });
@@ -253,33 +253,34 @@ export class TaskService {
    * @returns 任务状态
    */
   getStatus(taskId: string): TaskStatus | undefined {
-    return this.store.getState().tasks[taskId]?.status;
+    const task = this.store.getState().tasks[taskId] as unknown as Task | undefined;
+    return task?.status;
   }
 
   /**
    * 获取所有任务
-   * @returns 任务状态映射
+   * @returns 任务映射
    */
-  getAllTasks(): Record<string, TaskState> {
-    return this.store.getState().tasks;
+  getAllTasks(): Record<string, Task> {
+    return this.store.getState().tasks as unknown as Record<string, Task>;
   }
 
   /**
    * 获取待处理任务
    * @returns 待处理任务列表
    */
-  getPendingTasks(): TaskState[] {
+  getPendingTasks(): Task[] {
     const tasks = this.store.getState().tasks;
-    return Object.values(tasks).filter((task) => task.status === TaskStatus.PENDING);
+    return Object.values(tasks).filter((task: any) => task.status === TaskStatus.PENDING) as unknown as Task[];
   }
 
   /**
    * 获取运行中的任务
    * @returns 运行中的任务列表
    */
-  getRunningTasks(): TaskState[] {
+  getRunningTasks(): Task[] {
     const tasks = this.store.getState().tasks;
-    return Object.values(tasks).filter((task) => task.status === TaskStatus.RUNNING);
+    return Object.values(tasks).filter((task: any) => task.status === TaskStatus.RUNNING) as unknown as Task[];
   }
 
   /**
@@ -288,7 +289,11 @@ export class TaskService {
    */
   remove(taskId: string): void {
     this.taskExecutors.delete(taskId);
-    this.store.removeTask(taskId);
+    this.store.setState((prev: AppState) => {
+      const newTasks = { ...prev.tasks };
+      delete newTasks[taskId];
+      return { ...prev, tasks: newTasks };
+    });
   }
 
   /**
@@ -317,6 +322,28 @@ export class TaskService {
    */
   async executeBatch(taskIds: string[]): Promise<TaskResult[]> {
     return Promise.all(taskIds.map((id) => this.execute(id)));
+  }
+
+  /**
+   * 更新任务状态
+   * @param taskId 任务ID
+   * @param partial 部分更新字段
+   */
+  private updateTaskState(taskId: string, partial: Partial<Task>): void {
+    this.store.setState((prev: AppState) => {
+      const existing = prev.tasks[taskId] as unknown as Task | undefined;
+      return {
+        ...prev,
+        tasks: {
+          ...prev.tasks,
+          [taskId]: {
+            ...(existing || {}),
+            ...partial,
+            updatedAt: Date.now(),
+          } as unknown as TaskState,
+        },
+      };
+    });
   }
 }
 

@@ -39,7 +39,7 @@ export function formatDiagnosticsForAttachment(params: {
 
   const diagnostics = params.diagnostics.map(diag => ({
     message: diag.message,
-    severity: mapLSPSeverity(diag.severity) as DiagnosticFile['diagnostics'][0]['severity'],
+    severity: mapLSPSeverity(diag.severity) as unknown as DiagnosticFile['diagnostics'][0]['severity'],
     range: {
       start: {
         line: diag.range.start.line,

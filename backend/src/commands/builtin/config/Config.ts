@@ -19,7 +19,7 @@ const listConfig = async (): Promise<{ type: 'text'; value: string }> => {
     if (result.success) {
       return {
         type: 'text',
-        value: result.output,
+        value: result.output!,
       };
     } else {
       return {
@@ -61,7 +61,7 @@ const getConfig = async (
     if (result.success) {
       return {
         type: 'text',
-        value: result.output,
+        value: result.output!,
       };
     } else {
       return {
@@ -104,7 +104,7 @@ const setConfig = async (
     if (result.success) {
       return {
         type: 'text',
-        value: result.output,
+        value: result.output!,
       };
     } else {
       return {
@@ -146,7 +146,7 @@ const resetConfig = async (
     if (result.success) {
       return {
         type: 'text',
-        value: result.output,
+        value: result.output!,
       };
     } else {
       return {

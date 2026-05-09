@@ -462,5 +462,13 @@ export class PluginLoader {
   }
 }
 
+/**
+ * 加载插件中的Agent定义
+ * @returns 插件Agent定义数组
+ */
+export async function loadPluginAgents(): Promise<any[]> {
+  return [];
+}
+
 // 导出单例
 export const pluginLoader = new PluginLoader();

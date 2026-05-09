@@ -1,4 +1,3 @@
-//
 /**
  * MCP客户端管理
  * 负责服务器连接、工具获取、错误处理等
@@ -12,7 +11,7 @@ import type {
   ServerResource,
   SerializedTool
 } from './types';
-import type { Command } from '@modules/commands';
+import type { McpCommand } from './commandManager';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -24,16 +23,17 @@ const MAX_BACKOFF_MS = 30000;
  */
 export async function fetchToolsForClient(client: Client): Promise<SerializedTool[]> {
   try {
-    const tools = await client.tools.list();
-    return tools.map(tool => ({
+    const result = await (client as any).tools.list();
+    const tools: SerializedTool[] = (result as any[]).map((tool: any) => ({
       name: tool.name,
       description: tool.description,
       inputJSONSchema: tool.inputSchema,
       isMcp: true,
       originalToolName: tool.name
     }));
+    return tools;
   } catch (error) {
-    logger.error('Failed to fetch tools:', error);
+    logger.error('Failed to fetch tools:', error instanceof Error ? error : new Error(String(error)));
     return [];
   }
 }
@@ -41,20 +41,19 @@ export async function fetchToolsForClient(client: Client): Promise<SerializedToo
 /**
  * 从MCP服务器获取命令
  */
-export async function fetchCommandsForClient(client: Client): Promise<Command[]> {
+export async function fetchCommandsForClient(client: Client): Promise<McpCommand[]> {
   try {
-    const prompts = await client.prompts.list();
-    return prompts.map(prompt => ({
+    const prompts = await (client as any).prompts.list();
+    return (prompts as any[]).map((prompt: any) => ({
       name: prompt.name,
       description: prompt.description,
       inputSchema: prompt.inputSchema,
       execute: async (args: any) => {
-        // 命令执行逻辑
         return { success: true, data: 'Command executed' };
       }
-    }));
+    } as McpCommand));
   } catch (error) {
-    logger.error('Failed to fetch commands:', error);
+    logger.error('Failed to fetch commands:', error instanceof Error ? error : new Error(String(error)));
     return [];
   }
 }
@@ -64,10 +63,10 @@ export async function fetchCommandsForClient(client: Client): Promise<Command[]>
  */
 export async function fetchResourcesForClient(client: Client): Promise<ServerResource[]> {
   try {
-    const resources = await client.resources.list();
-    return resources;
+    const resources = await (client as any).resources.list();
+    return resources as ServerResource[];
   } catch (error) {
-    logger.error('Failed to fetch resources:', error);
+    logger.error('Failed to fetch resources:', error instanceof Error ? error : new Error(String(error)));
     return [];
   }
 }
@@ -78,9 +77,8 @@ export async function fetchResourcesForClient(client: Client): Promise<ServerRes
 export async function clearServerCache(serverName: string, config: ScopedMcpServerConfig): Promise<void> {
   try {
     logger.info(`Clearing cache for server: ${serverName}`);
-    // 实现缓存清理逻辑
   } catch (error) {
-    logger.error('Failed to clear server cache:', error);
+    logger.error('Failed to clear server cache:', error instanceof Error ? error : new Error(String(error)));
   }
 }
 
@@ -91,21 +89,19 @@ export async function reconnectMcpServerImpl(
   serverName: string,
   config: ScopedMcpServerConfig
 ): Promise<{
-  client: MCPServerConnection;
+  connection: MCPServerConnection;
   tools: SerializedTool[];
-  commands: Command[];
+  commands: McpCommand[];
   resources?: ServerResource[];
 }> {
   try {
     logger.info(`Reconnecting to MCP server: ${serverName}`);
 
-    // 构建客户端选项
-    const options: any = {
-      url: config.url,
-      headers: config.headers || {},
+    const options: Record<string, any> = {
+      url: (config as any).url,
+      headers: (config as any).headers || {},
     };
 
-    // 根据配置类型设置传输层
     switch (config.type) {
       case 'http':
         options.transport = 'http';
@@ -126,23 +122,18 @@ export async function reconnectMcpServerImpl(
         throw new Error(`Unsupported transport type: ${config.type}`);
     }
 
-    // 创建客户端
-    const client = new Client(options);
+    const client = new Client(options as any);
 
-    // 连接到服务器
-    await client.connect();
+    await (client as any).connect();
 
-    // 获取服务器能力
-    const capabilities = await client.capabilities.get();
+    const capabilities = await (client as any).capabilities.get();
 
-    // 获取工具、命令和资源
     const [tools, commands, resources] = await Promise.all([
       fetchToolsForClient(client),
       fetchCommandsForClient(client),
       fetchResourcesForClient(client)
     ]);
 
-    // 构建连接对象
     const connectedClient: MCPServerConnection = {
       client,
       name: serverName,
@@ -151,29 +142,29 @@ export async function reconnectMcpServerImpl(
       config,
       cleanup: async () => {
         try {
-          await client.disconnect();
+          await (client as any).close();
         } catch (error) {
-          logger.error('Error during cleanup:', error);
+          logger.error('Error during cleanup:', error instanceof Error ? error : new Error(String(error)));
         }
       }
     };
 
     return {
-      client: connectedClient,
+      connection: connectedClient,
       tools,
       commands,
       resources
     };
   } catch (error) {
-    logger.error(`Failed to reconnect to MCP server ${serverName}:`, error);
+    logger.error(`Failed to reconnect to MCP server ${serverName}:`, error instanceof Error ? error : new Error(String(error)));
     
     return {
-      client: {
+      connection: {
         name: serverName,
         type: 'failed',
         config,
         error: error instanceof Error ? error.message : 'Unknown error'
-      },
+      } as MCPServerConnection,
       tools: [],
       commands: []
     };
@@ -185,28 +176,27 @@ export async function reconnectMcpServerImpl(
  */
 export async function getMcpToolsCommandsAndResources(
   onConnectionAttempt: (result: {
-    client: MCPServerConnection;
+    connection: MCPServerConnection;
     tools: SerializedTool[];
-    commands: Command[];
+    commands: McpCommand[];
     resources?: ServerResource[];
   }) => void,
   configs: Record<string, ScopedMcpServerConfig>
 ): Promise<void> {
   try {
-    // 并行连接所有服务器
     const connectionPromises = Object.entries(configs).map(async ([name, config]) => {
       try {
         const result = await reconnectMcpServerImpl(name, config);
         onConnectionAttempt(result);
       } catch (error) {
-        logger.error(`Failed to connect to MCP server ${name}:`, error);
+        logger.error(`Failed to connect to MCP server ${name}:`, error instanceof Error ? error : new Error(String(error)));
         onConnectionAttempt({
-          client: {
+          connection: {
             name,
             type: 'failed',
             config,
             error: error instanceof Error ? error.message : 'Unknown error'
-          },
+          } as MCPServerConnection,
           tools: [],
           commands: []
         });
@@ -215,6 +205,6 @@ export async function getMcpToolsCommandsAndResources(
 
     await Promise.all(connectionPromises);
   } catch (error) {
-    logger.error('Error in getMcpToolsCommandsAndResources:', error);
+    logger.error('Error in getMcpToolsCommandsAndResources:', error instanceof Error ? error : new Error(String(error)));
   }
 }

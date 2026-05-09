@@ -7,7 +7,7 @@
 import type { 
   CostData, 
   CostAnalysis, 
-  CostReport,
+  CostRecord,
   CostCategory,
   CostPeriod 
 } from './types.js';
@@ -94,11 +94,11 @@ export class EnhancedCostManager {
     optimizations: CostOptimization[];
   }> {
     // 获取基础成本数据
-    const costData = await this.costTracker.getCostData(period);
+    const costData = await (this.costTracker as any).getCostData(period);
     this.addToHistory(costData);
 
     // 基础分析
-    const basicAnalysis = await this.costReporter.generateReport(period);
+    const basicAnalysis = await (this.costReporter as any).generateReport(period) as unknown as CostAnalysis;
 
     // 高级分析
     const trendAnalysis = this.analyzeTrends(period);
@@ -258,7 +258,7 @@ export class EnhancedCostManager {
    */
   private calculatePotentialSavings(category: CostCategory, currentCost: number): number {
     // 基于类别的简化节省计算
-    const savingsRates: Record<CostCategory, number> = {
+    const savingsRates: Partial<Record<CostCategory, number>> = {
       'compute': 0.15, // 计算资源通常有15%优化空间
       'storage': 0.20, // 存储资源通常有20%优化空间
       'network': 0.10, // 网络资源通常有10%优化空间
@@ -308,7 +308,7 @@ export class EnhancedCostManager {
    * 估算实施难度
    */
   private estimateImplementationEffort(category: CostCategory): 'low' | 'medium' | 'high' {
-    const effortMap: Record<CostCategory, 'low' | 'medium' | 'high'> = {
+    const effortMap: Partial<Record<CostCategory, 'low' | 'medium' | 'high'>> = {
       'compute': 'medium',
       'storage': 'low',
       'network': 'high',
@@ -323,7 +323,7 @@ export class EnhancedCostManager {
    * 估算时间框架
    */
   private estimateTimeframe(category: CostCategory): string {
-    const timeframeMap: Record<CostCategory, string> = {
+    const timeframeMap: Partial<Record<CostCategory, string>> = {
       'compute': '2-4周',
       'storage': '1-2周',
       'network': '4-8周',
@@ -464,7 +464,8 @@ export class EnhancedCostManager {
     const result: Partial<Record<CostCategory, number>> = {};
     
     data.forEach(item => {
-      result[item.category] = (result[item.category] || 0) + item.amount;
+      const cat = item.category as CostCategory;
+      result[cat] = (result[cat] || 0) + item.amount;
     });
 
     return result as Record<CostCategory, number>;
@@ -555,12 +556,11 @@ export class EnhancedCostManager {
    * 获取历史数据
    */
   private getHistoricalData(period: CostPeriod): CostData[] {
-    const endDate = new Date(period.endDate || Date.now());
-    const startDate = new Date(endDate.getTime() - this.config.analysisWindow * 24 * 60 * 60 * 1000);
+    const endDate = Date.now();
+    const startDate = endDate - this.config.analysisWindow * 24 * 60 * 60 * 1000;
     
     return this.costHistory.filter(data => {
-      const dataDate = new Date(data.timestamp);
-      return dataDate >= startDate && dataDate <= endDate;
+      return data.timestamp >= startDate && data.timestamp <= endDate;
     });
   }
 
@@ -568,7 +568,7 @@ export class EnhancedCostManager {
    * 获取唯一类别
    */
   private getUniqueCategories(data: CostData[]): CostCategory[] {
-    return [...new Set(data.map(item => item.category))];
+    return [...new Set(data.map(item => item.category as CostCategory))];
   }
 
   /**

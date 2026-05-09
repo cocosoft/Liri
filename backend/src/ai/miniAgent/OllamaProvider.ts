@@ -151,7 +151,7 @@ export class OllamaProvider implements IOllamaProvider {
 
       const data = await response.json();
       this.cachedModels = (data.models || []).map((m: any) => m.name);
-      return this.cachedModels;
+      return this.cachedModels as string[];
     } catch (error) {
       return [];
     }

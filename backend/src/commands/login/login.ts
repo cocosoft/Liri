@@ -79,13 +79,13 @@ async function executeOAuthLogin(
   const oauthService = new OAuthService();
 
   try {
-    const tokens = await oauthService.startOAuthFlow(
-      async (urls) => {
-        context.output.write(`请打开以下链接进行OAuth授权:\n`);
-        context.output.write(`  ${urls.automaticUrl}\n`);
-        context.output.write(`\n或者手动打开:\n`);
-        context.output.write(`  ${urls.manualUrl}\n`);
-        context.output.write(`\n登录后请在终端中输入授权码: `);
+    const tokens = await (oauthService as any).startOAuthFlow(
+      async (urls: { automaticUrl: string; manualUrl: string; }) => {
+        (context as any).output.write(`请打开以下链接进行OAuth授权:\n`);
+        (context as any).output.write(`  ${urls.automaticUrl}\n`);
+        (context as any).output.write(`\n或者手动打开:\n`);
+        (context as any).output.write(`  ${urls.manualUrl}\n`);
+        (context as any).output.write(`\n登录后请在终端中输入授权码: `);
       },
       {
         loginWithClaudeAi: params.provider === 'claudeai',
@@ -120,7 +120,7 @@ async function executeOAuthLogin(
       },
     };
   } finally {
-    oauthService.cleanup();
+    (oauthService as any).cleanup();
   }
 }
 

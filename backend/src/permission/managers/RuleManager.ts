@@ -49,6 +49,7 @@ export class RuleManager {
    * 所有规则来源的优先级（数值越大优先级越高）
    */
   private static readonly SOURCE_PRIORITIES: Record<PermissionRuleSource, number> = {
+    [PermissionRuleSource.SYSTEM]: 9,
     [PermissionRuleSource.SESSION]: 8,
     [PermissionRuleSource.COMMAND]: 7,
     [PermissionRuleSource.CLI_ARG]: 6,

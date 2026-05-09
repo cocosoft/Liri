@@ -5,34 +5,41 @@
  */
 
 import { logger } from '@modules/utils/log';
-import type { Command } from '@modules/commands';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+
+/**
+ * MCP命令接口
+ */
+export interface McpCommand {
+  name: string;
+  description: string;
+  execute: (args: any) => Promise<{ success: boolean; data?: any; error?: string }>;
+}
 
 /**
  * 命令管理器
  */
 export class CommandManager {
-  private commands: Map<string, Command> = new Map();
+  private commands: Map<string, McpCommand> = new Map();
 
   /**
    * 从MCP服务器加载命令
    */
-  async loadCommandsFromServer(client: Client, serverName: string): Promise<Command[]> {
+  async loadCommandsFromServer(client: Client, serverName: string): Promise<McpCommand[]> {
     try {
-      const prompts = await client.prompts.list();
-      const commands: Command[] = [];
+      const prompts = await (client as any).prompts.list();
+      const commands: McpCommand[] = [];
 
       for (const prompt of prompts) {
-        const command: Command = {
+        const command: McpCommand = {
           name: `${serverName}:${prompt.name}`,
           description: prompt.description,
-          inputSchema: prompt.inputSchema,
           execute: async (args: any) => {
             try {
-              const result = await client.prompts.execute(prompt.name, args);
+              const result = await (client as any).prompts.execute(prompt.name, args);
               return { success: true, data: result };
             } catch (error) {
-              logger.error(`Failed to execute command ${prompt.name}:`, error);
+              logger.error(`Failed to execute command ${prompt.name}:`, error instanceof Error ? error : new Error(String(error)));
               return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
             }
           }
@@ -45,7 +52,7 @@ export class CommandManager {
       logger.info(`Loaded ${commands.length} commands from server ${serverName}`);
       return commands;
     } catch (error) {
-      logger.error(`Failed to load commands from server ${serverName}:`, error);
+      logger.error(`Failed to load commands from server ${serverName}:`, error instanceof Error ? error : new Error(String(error)));
       return [];
     }
   }
@@ -53,14 +60,14 @@ export class CommandManager {
   /**
    * 获取所有命令
    */
-  getCommands(): Command[] {
+  getCommands(): McpCommand[] {
     return Array.from(this.commands.values());
   }
 
   /**
    * 获取单个命令
    */
-  getCommand(name: string): Command | undefined {
+  getCommand(name: string): McpCommand | undefined {
     return this.commands.get(name);
   }
 
@@ -76,7 +83,7 @@ export class CommandManager {
     try {
       return await command.execute(args);
     } catch (error) {
-      logger.error(`Failed to execute command ${name}:`, error);
+      logger.error(`Failed to execute command ${name}:`, error instanceof Error ? error : new Error(String(error)));
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -100,20 +107,16 @@ export class CommandManager {
   }
 
   /**
-   * 清空所有命令
+   * 清除所有命令
    */
   clear(): void {
     this.commands.clear();
-    logger.info('Cleared all commands');
+    logger.info('All commands cleared');
   }
 }
 
-// 导出单例
-export const commandManager = new CommandManager();
+const commandManager = new CommandManager();
 
-/**
- * 获取命令管理器实例
- */
 export function getCommandManager(): CommandManager {
   return commandManager;
 }

@@ -25,6 +25,6 @@ export type { ReactiveCompactConfig, ReactiveCompactResult, ReactiveCompactor, A
 export { TokenBudgetManagerImpl, createTokenBudgetManager, TokenBudgetStatus } from './TokenBudget.js';
 export type { TokenBudgetConfig, TokenBudgetState, TokenBudgetManager } from './TokenBudget.js';
 export { QueryConfigManager, createQueryConfigManager, DEFAULT_QUERY_CONFIG } from './config.js';
-export type { QueryConfig, RetryConfig, CompactConfig, TokenBudgetConfig as TBConfig } from './config.js';
+export type { QueryConfig, CompactConfig, TokenBudgetConfig as TBConfig } from './config.js';
 export { QueryDepsManager, getGlobalDepsManager, createQueryDepsManager } from './deps.js';
 export type { QueryDependencies } from './deps.js';

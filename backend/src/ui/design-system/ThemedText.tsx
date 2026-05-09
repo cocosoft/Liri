@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Text } from '../../ink';
+import type { Styles } from '../../ink/ink/styles';
 import { TextProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
@@ -23,15 +24,19 @@ export function ThemedText({
 }: TextProps) {
   const { theme } = useTheme();
 
+  const wrapMap: Record<string, Styles['textWrap']> = {
+    'wrap': 'wrap',
+    'nowrap': 'truncate',
+    'truncate': 'truncate',
+  };
+
   return (
     <Text
       color={theme.colors[color]}
       bold={bold}
       italic={italic}
       underline={underline}
-      fontSize={theme.typography.fontSize[size]}
-      textAlign={align}
-      wrap={wrap}
+      wrap={wrapMap[wrap]}
     >
       {children}
     </Text>

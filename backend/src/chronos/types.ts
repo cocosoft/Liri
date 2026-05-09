@@ -215,6 +215,31 @@ export interface CronJitterConfig {
    * 循环任务最大存活时间 (毫秒)
    */
   recurringMaxAgeMs: number;
+
+  /**
+   * 一次性任务最大波动 (毫秒)
+   */
+  oneShotMaxMs: number;
+
+  /**
+   * 一次性任务最低波动 (毫秒)
+   */
+  oneShotFloorMs: number;
+
+  /**
+   * 一次性任务分钟取模
+   */
+  oneShotMinuteMod: number;
+
+  /**
+   * 循环任务抖动系数 (0-1)
+   */
+  recurringFrac: number;
+
+  /**
+   * 循环任务最大抖动上限 (毫秒)
+   */
+  recurringCapMs: number;
 }
 
 /**

@@ -4,7 +4,11 @@
  * 支持远程会话的实时输出和交互
  */
 
-import { TerminalComponents } from '../ui/TerminalComponents.js';
+import {
+  TerminalComponents,
+  type TableColumn,
+  type TableRow,
+} from '../ui/TerminalComponents.js';
 import { logger } from '../utils/log.js';
 
 /**
@@ -63,7 +67,7 @@ export class RealtimeTerminalOutput {
     this.buffer.push(line);
 
     // 限制缓冲区大小
-    if (this.buffer.length > this.config.maxBufferSize) {
+    if (this.buffer.length > (this.config.maxBufferSize ?? 1000)) {
       this.buffer.shift();
     }
 
@@ -183,7 +187,7 @@ export class RealtimeTerminalOutput {
     total: number,
     options?: { width?: number }
   ): void {
-    TerminalComponents.printProgressBar(label, current, total, options);
+    TerminalComponents.printProgressBar(current, total, options);
   }
 
   /**
@@ -201,7 +205,12 @@ export class RealtimeTerminalOutput {
     rows: string[][],
     options?: { maxWidth?: number }
   ): void {
-    TerminalComponents.printTable(headers, rows, options);
+    const columns: TableColumn[] = headers.map((h) => ({
+      header: h,
+      width: Math.max(h.length, 10),
+    }));
+    const tableRows: TableRow[] = rows.map((r) => ({ cells: r }));
+    TerminalComponents.printTable(columns, tableRows, options);
   }
 
   /**
@@ -234,7 +243,7 @@ export class RealtimeTerminalOutput {
     content: string,
     options?: { padding?: number; borderColor?: string }
   ): void {
-    TerminalComponents.printBox(content, options);
+    (TerminalComponents as any).printBox([content], options);
   }
 
   /**
@@ -258,14 +267,14 @@ export class RealtimeTerminalOutput {
     pairs: Array<[string, string]>,
     options?: { keyColor?: string; valueColor?: string; indent?: number }
   ): void {
-    TerminalComponents.printKeyValue(pairs, options);
+    (TerminalComponents as any).printKeyValue(pairs, options);
   }
 
   /**
    * 显示徽章
    */
   showBadge(text: string, color: string): void {
-    TerminalComponents.printBadge(text, color);
+    (TerminalComponents as any).printBadge(text, { color });
   }
 }
 

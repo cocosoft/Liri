@@ -258,7 +258,7 @@ export class AgentUIManager {
         try {
           subscription.callback(agentId, newState, data);
         } catch (error) {
-          logger.error(`State change callback failed for subscription ${subscription.id}:`, error);
+          logger.error(`State change callback failed for subscription ${subscription.id}:`, error as Error);
         }
       }
     }
@@ -290,7 +290,7 @@ export class AgentUIManager {
         try {
           listener(...args);
         } catch (error) {
-          logger.error(`Event listener failed for ${event}:`, error);
+          logger.error(`Event listener failed for ${event}:`, error as Error);
         }
       }
     }

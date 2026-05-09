@@ -43,8 +43,6 @@ export class OTelTracing {
    */
   constructor(config: OTelTracingConfig) {
     this.config = {
-      serviceName: 'py-app',
-      serviceVersion: '1.0.0',
       enabled: true,
       ...config,
     };

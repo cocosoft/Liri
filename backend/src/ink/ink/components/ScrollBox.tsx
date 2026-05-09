@@ -7,7 +7,6 @@ import type { Styles } from '../styles.js';
 import '../global.d.ts';
 import Box from './Box.js';
 
-// 替换缺失的导入
 const markScrollActivity = () => {};
 export type ScrollBoxHandle = {
   scrollTo: (y: number) => void;
@@ -62,7 +61,7 @@ export type ScrollBoxHandle = {
    */
   setClampBounds: (min: number | undefined, max: number | undefined) => void;
 };
-export type ScrollBoxProps = Except<Styles, 'textWrap' | 'overflow' | 'overflowX' | 'overflowY'> & {
+export type ScrollBoxProps = Omit<Styles, 'textWrap' | 'overflow' | 'overflowX' | 'overflowY'> & {
   ref?: Ref<ScrollBoxHandle>;
   /**
    * When true, automatically pins scroll position to the bottom when content
@@ -216,7 +215,7 @@ function ScrollBox({
   // stickyScroll is passed as a DOM attribute (via ink-box directly) so it's
   // available on the first render — ref callbacks fire after the initial
   // commit, which is too late for the first frame.
-  return <ink-box ref={el => {
+  return <ink-box ref={(el: DOMElement | null) => {
     domRef.current = el;
     if (el) el.scrollTop ??= 0;
   }} style={{

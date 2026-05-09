@@ -26,12 +26,19 @@ export * from './CodeOptimizer.js';
 export * from './ExtensibilityManager.js';
 
 // 导出性能报告生成器
-export * from './PerformanceReporter.js';
+export { PerformanceReporter, type PerformanceReport, type PerformanceReportOptions } from './PerformanceReporter.js';
 
 // 导出缓存和延迟加载管理
 export * from './CacheAndLazyLoading.js';
 
-export * from './EnhancedPerformanceManager.js';
+export {
+  EnhancedPerformanceManager,
+  type EnhancedPerformanceMetrics,
+  type PerformanceBottleneck,
+  type PerformanceTrend,
+  type PerformanceOptimizationRecommendation,
+  type EnhancedPerformanceManagerConfig,
+} from './EnhancedPerformanceManager.js';
 
 /**
  * 初始化性能优化系统

@@ -189,5 +189,4 @@ export function resetDebugger(): void {
   globalDebugger = undefined;
 }
 
-export { getDebugger, resetDebugger };
-export type { DebugOptions, ConnectionStatus, MessageTrace, DebugStats };
+

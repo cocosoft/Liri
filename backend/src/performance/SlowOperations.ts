@@ -125,7 +125,7 @@ class SlowLogger {
           `[慢操作检测] ${description} (${duration.toFixed(1)}ms) [类型: ${this.operationType}] [阈值: ${threshold}ms]`
         );
         
-        addSlowOperation(description, duration, this.operationType);
+        addSlowOperation(description, duration);
       } finally {
         isLogging = false;
       }
@@ -162,8 +162,8 @@ export const slowLogging: {
  * using _ = slowLoggingWithType('database', `query(${query})`)
  * const result = await db.query(query)
  */
-export function slowLoggingWithType(type: string, strings: TemplateStringsArray, ...values: unknown[]): Disposable {
-  const args = [strings, ...values] as IArguments;
+export function slowLoggingWithType(type: string, strings: string, ...values: unknown[]): Disposable {
+  const args = [strings, ...values] as unknown as IArguments;
   return new SlowLogger(args, type);
 }
 
@@ -376,7 +376,7 @@ export async function withSlowOperationDetection<T>(
           `[慢操作检测] ${description} (${duration.toFixed(1)}ms) [类型: ${operationType}] [阈值: ${threshold}ms]`
         );
         
-        addSlowOperation(description, duration, operationType);
+        addSlowOperation(description, duration);
       } finally {
         isLogging = false;
       }

@@ -398,7 +398,7 @@ export class StateStoreImpl<T> implements StateStore<T> {
           
           // 检查值是否变化
           if (subscription.lastSelectedValue !== undefined && 
-              subscription.equalityFn(value, subscription.lastSelectedValue)) {
+              subscription.equalityFn?.(value, subscription.lastSelectedValue)) {
             continue; // 值没有变化，跳过通知
           }
           

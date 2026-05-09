@@ -205,9 +205,9 @@ export class BridgeMessageSyncManager {
   /**
    * 检查消息是否适合桥接
    */
-  private isEligibleBridgeMessage(message: Message): boolean {
+  private isEligibleBridgeMessage(message: any): boolean {
     // 虚拟消息不适合桥接
-    if ((message.type === 'user' || message.type === 'assistant') && (message as any).isVirtual) {
+    if ((message.type === 'user' || message.type === 'assistant') && message.isVirtual) {
       return false;
     }
 
@@ -215,14 +215,14 @@ export class BridgeMessageSyncManager {
     return (
       message.type === 'user' ||
       message.type === 'assistant' ||
-      (message.type === 'system' && (message as any).subtype === 'local_command')
+      (message.type === 'system' && message.subtype === 'local_command')
     );
   }
 
   /**
    * 构建SDK消息
    */
-  private buildSDKMessage(message: Message, uuid: string): SDKMessage {
+  private buildSDKMessage(message: any, uuid: string): SDKMessage {
     const sdkMessage: SDKMessage = {
       type: message.type,
       uuid,

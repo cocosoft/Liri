@@ -4,7 +4,7 @@
  * 管理语音输入/输出功能
  */
 
-import { createContext, useContext, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useCallback, useState, type ReactNode } from 'react';
 
 export type VoiceState = 'idle' | 'listening' | 'speaking' | 'processing';
 
@@ -23,8 +23,8 @@ export interface VoiceContextType {
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
 
 export const VoiceProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = React.useState<VoiceState>('idle');
-  const [isMuted, setIsMuted] = React.useState(false);
+  const [state, setState] = useState<VoiceState>('idle');
+  const [isMuted, setIsMuted] = useState(false);
 
   const startListening = useCallback(() => {
     setState('listening');

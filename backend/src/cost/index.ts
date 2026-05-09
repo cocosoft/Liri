@@ -4,8 +4,9 @@
  * 提供成本跟踪、计算和报告功能
  */
 
-// 导出模型定价配置
-export * from './ModelPricing.js';
+// 导出模型定价配置（排除与EnhancedCostManager重复的导出）
+export { calculateModelCost, formatCost, getModelPricing, getCanonicalModelName, hasUnknownModel, resetUnknownModelFlag } from './ModelPricing.js';
+export type { ModelPricing } from './ModelPricing.js';
 
 // 导出成本跟踪器
 export * from './CostTracker.js';
@@ -17,7 +18,10 @@ export * from './BillingAccessControl.js';
 export * from './PricingManager.js';
 
 // 导出成本报告生成器
-export * from './CostReporter.js';
+export { CostReporter, CostTrend, CostReportOptions, addCostTrend, getCostTrends, analyzeCostTrend, predictCost, generateCostReport, costReporter } from './CostReporter.js';
+export type { CostPrediction as CostReportPrediction } from './CostReporter.js';
+
+export type { CostPrediction } from './EnhancedCostManager.js';
 
 // 导出成本缓存管理器
 export * from './CostCache.js';
@@ -43,18 +47,20 @@ export * from './CostPersistenceService.js';
 // 导出React Hooks
 export * from './useCostSummary.js';
 
+import { Logger } from '../monitoring/logs/Logger.js';
+
+const logger = new Logger();
+
 /**
  * 初始化成本跟踪系统
  */
 export async function initializeCostTrackingSystem(): Promise<void> {
   try {
-    const { billingAccessControlManager } = await import('./BillingAccessControl.js');
     const { pricingManager } = await import('./PricingManager.js');
     const { costCacheManager } = await import('./CostCache.js');
     const { costMonitor } = await import('./CostMonitor.js');
 
-    // 初始化账单访问控制
-    billingAccessControlManager.reloadFromEnvironment();
+    // 初始化账单访问控制已通过单例完成
 
     // 初始化定价管理器
     pricingManager.updatePricing({}, '成本跟踪系统初始化');
@@ -69,9 +75,9 @@ export async function initializeCostTrackingSystem(): Promise<void> {
       checkInterval: 60 * 1000,
     });
 
-    console.log('成本跟踪系统初始化完成');
+    logger.info('成本跟踪系统初始化完成');
   } catch (error) {
-    console.error('成本跟踪系统初始化失败:', error);
+    logger.error('成本跟踪系统初始化失败', error instanceof Error ? error : new Error(String(error)));
   }
 }
 
@@ -104,8 +110,8 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
     };
 
     await costPersistenceService.mergeAndSave(sessionData);
-    console.log('成本跟踪系统已关闭');
+    logger.info('成本跟踪系统已关闭');
   } catch (error) {
-    console.error('成本跟踪系统关闭失败:', error);
+    logger.error('成本跟踪系统关闭失败', error instanceof Error ? error : new Error(String(error)));
   }
 }

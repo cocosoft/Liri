@@ -306,7 +306,7 @@ export class PermissionSyncManager {
       try {
         listener(message);
       } catch (error) {
-        logger.error(`Error in permission listener for ${message.workerId}:`, error);
+        logger.error(`Error in permission listener for ${message.workerId}:`, error as Error);
       }
     }
   }

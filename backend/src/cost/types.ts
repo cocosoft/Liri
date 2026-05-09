@@ -52,6 +52,9 @@ export interface CostData {
   tokenByModel: Record<string, { input: number; output: number }>;
   periodStart: Date;
   periodEnd: Date;
+  amount: number;
+  category: string;
+  timestamp: number;
 }
 
 export enum CostCategory {
@@ -60,6 +63,9 @@ export enum CostCategory {
   CACHE = 'cache',
   STORAGE = 'storage',
   COMPUTE = 'compute',
+  NETWORK = 'network',
+  AI = 'ai',
+  OTHER = 'other',
 }
 
 export enum CostPeriod {
@@ -81,4 +87,7 @@ export interface CostAnalysis {
   endDate: string;
   projectedCost?: number;
   topModels: Array<{ model: string; cost: number }>;
+
+  /** 按类别成本（EnhancedCostManager使用） */
+  costByCategory?: Record<string, number>;
 }

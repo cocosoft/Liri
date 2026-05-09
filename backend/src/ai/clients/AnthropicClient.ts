@@ -139,6 +139,7 @@ export class AnthropicClient extends LLMClient {
     let finalResponse: ChatResponse = {
       content: '',
       model,
+      stop_reason: 'stop',
       usage: {
         prompt_tokens: 0,
         cache_read_input_tokens: 0,
@@ -175,7 +176,7 @@ export class AnthropicClient extends LLMClient {
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
-      tools: options?.tools?.map(t => ({
+      tools: options?.tools?.map((t: any) => ({
         name: t.name,
         description: t.description,
         input_schema: t.inputSchema || { type: 'object', properties: {} },
@@ -183,16 +184,16 @@ export class AnthropicClient extends LLMClient {
     });
 
     const content = response.content
-      .filter(c => c.type === 'text')
-      .map(c => (c as any).text)
+      .filter((c: any) => c.type === 'text')
+      .map((c: any) => c.text)
       .join('');
 
     const toolUseBlocks = response.content
-      .filter(c => c.type === 'tool_use')
-      .map(c => ({
-        name: (c as any).name,
-        input: (c as any).input,
-        id: (c as any).id,
+      .filter((c: any) => c.type === 'tool_use')
+      .map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        arguments: c.input || {},
       }));
 
     const stopReason = response.stop_reason === 'end_turn' ? 'stop'
@@ -230,11 +231,11 @@ export class AnthropicClient extends LLMClient {
       max_tokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
       system: systemPrompt || undefined,
-      messages: nonSystemMessages.map(m => ({
+      messages: nonSystemMessages.map((m: any) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
-      tools: options?.tools?.map(t => ({
+      tools: options?.tools?.map((t: any) => ({
         name: t.name,
         description: t.description,
         input_schema: t.inputSchema || { type: 'object', properties: {} },

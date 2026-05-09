@@ -8,4 +8,8 @@ export * from './providers';
 export * from './PriceManager';
 export * from './CacheAwareBudget';
 export * from './ContextStatsCollector';
-export * from './TokenBudgetController';
+export {
+  TokenBudgetController,
+  type TokenUsage,
+  type CacheAwareTokenUsage,
+} from './TokenBudgetController';

@@ -63,6 +63,8 @@ export class KeywordRuleEngine implements IRuleEngine {
       code_generation: 0,
       explanation: 0,
       simple_qa: 0,
+      skill: 0,
+      mcp: 0,
       general: 0,
     };
 

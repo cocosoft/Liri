@@ -4,7 +4,8 @@
  * 提供智能安全分析、性能优化、威胁检测等高级功能
  */
 
-import { SandboxManager, SandboxSettings, SandboxConstraints } from './managers/SandboxManager.js';
+import { SandboxManager } from './managers/SandboxManager.js';
+import { SandboxSettings, SandboxConstraints } from './types/SandboxTypes.js';
 import { SandboxPlatform, SandboxPermission, SandboxExecuteResult } from './types/SandboxTypes.js';
 
 /**

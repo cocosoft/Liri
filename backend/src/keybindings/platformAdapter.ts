@@ -4,7 +4,7 @@
  * 处理Windows和macOS之间的按键差异
  */
 import { platform } from 'os';
-import type { ParsedKeystroke } from './types.js';
+import type { ParsedKeystroke, ParsedBinding, KeybindingContextName } from './types.js';
 
 /**
  * 平台类型
@@ -119,7 +119,7 @@ export function adaptKeystrokeToPlatform(keystroke: ParsedKeystroke): ParsedKeys
   // 处理meta键的映射
   if (adapted.meta) {
     // 根据平台映射meta键
-    const mappedKey = platformMapping.meta;
+    const mappedKey: string = platformMapping.meta;
     if (mappedKey !== 'meta') {
       // 清除meta标志，设置对应的平台特定标志
       adapted.meta = undefined;
@@ -140,7 +140,7 @@ export function adaptKeystrokeToPlatform(keystroke: ParsedKeystroke): ParsedKeys
 
   // 处理command键的映射（macOS特定）
   if (adapted.command) {
-    const mappedKey = platformMapping.command;
+    const mappedKey: string = platformMapping.command;
     adapted.command = undefined;
     
     switch (mappedKey) {
@@ -340,8 +340,8 @@ export function detectKeybindingConflicts(
  * 平台适配的绑定加载器
  */
 export function loadPlatformAdaptedBindings(
-  defaultBindings: Array<{ chord: ParsedKeystroke[]; action: string; context: string }>
-): Array<{ chord: ParsedKeystroke[]; action: string; context: string }> {
+  defaultBindings: ParsedBinding[]
+): ParsedBinding[] {
   const adaptedBindings = [...defaultBindings];
   
   // 添加平台特定的绑定
@@ -350,10 +350,10 @@ export function loadPlatformAdaptedBindings(
     // 这里需要解析和弦字符串，但为了简化，我们假设已经解析好了
     // 在实际实现中，需要调用parseChord函数
     adaptedBindings.push({
-      chord: [], // 这里需要实际解析
+      chord: { chords: [], displayText: '' },
       action,
-      context: 'Global'
-    });
+      context: 'Global' as KeybindingContextName,
+    } as ParsedBinding);
   }
   
   return adaptedBindings;

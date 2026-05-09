@@ -4,7 +4,7 @@
  * 普适性架构 - 核心层必需组件
  */
 
-import type { ChatMessage } from './types.js';
+import type { ChatMessage } from '../models/types.js';
 
 export interface Intent {
   type: IntentType;
@@ -79,7 +79,9 @@ export type IntentClassifier = (input: string) => Intent;
 
 export type TaskRouter = (intent: Intent, context?: any) => RouteDecision;
 
-export type CommandExecutor = (match: CommandMatch, context?: any) => Promise<string>;
+export interface CommandExecutor {
+  execute(match: CommandMatch, context?: any): Promise<string>;
+}
 
 export interface IRuleEngine {
   classify(input: string): Intent;

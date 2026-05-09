@@ -122,7 +122,7 @@ export class PluginLoader {
       const loadTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.loadHistory.push({ success: false, error: errorMessage, loadTime });
-      logger.error(`Failed to load plugin from ${pluginPath}:`, errorMessage);
+      logger.error(`Failed to load plugin from ${pluginPath}: ${errorMessage}`);
       throw error;
     }
   }
@@ -140,7 +140,7 @@ export class PluginLoader {
       this.sandboxes.delete(pluginId);
       logger.info(`Unloaded plugin ${pluginId}`);
     } catch (error) {
-      logger.error(`Failed to unload plugin ${pluginId}:`, error);
+      logger.error(`Failed to unload plugin ${pluginId}:`, error as Error);
       throw error;
     }
   }

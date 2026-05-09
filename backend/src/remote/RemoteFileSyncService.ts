@@ -294,7 +294,7 @@ export class RemoteFileSyncService {
     for (const [relativePath, localFile] of localFiles) {
       processedPaths.add(relativePath);
 
-      if (this.shouldExclude(relativePath, config.excludePatterns)) {
+      if (this.shouldExclude(relativePath, config.excludePatterns || [])) {
         continue;
       }
 

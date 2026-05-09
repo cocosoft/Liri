@@ -5,10 +5,10 @@
  */
 
 import {
-  IndividualHookConfig,
   HookEvent,
-  HookExecutionResult,
-  HookExecutionContext,
+  HookResult,
+  HookContext,
+  HookDefinition,
 } from '../types';
 import { HookConfigManager } from './HookConfigManager';
 import { HookExecutor } from '../executors/HookExecutor';
@@ -22,7 +22,7 @@ export class HookManager {
   private static instance: HookManager;
   private hookConfigManager: HookConfigManager;
   private hookExecutor: HookExecutor;
-  private registeredHooks: Map<string, IndividualHookConfig[]> = new Map();
+  private registeredHooks: Map<string, any[]> = new Map();
   private sessionHookManager: SessionHookManager;
 
   private constructor() {
@@ -45,7 +45,7 @@ export class HookManager {
    * 注册Hook
    * @param hook Hook配置
    */
-  public registerHook(hook: IndividualHookConfig): void {
+  public registerHook(hook: any): void {
     const eventKey = hook.event;
     if (!this.registeredHooks.has(eventKey)) {
       this.registeredHooks.set(eventKey, []);
@@ -57,7 +57,7 @@ export class HookManager {
    * 注册多个Hook
    * @param hooks Hook配置列表
    */
-  public registerHooks(hooks: IndividualHookConfig[]): void {
+  public registerHooks(hooks: any[]): void {
     hooks.forEach((hook) => this.registerHook(hook));
   }
 
@@ -74,7 +74,7 @@ export class HookManager {
     data: any,
     toolNames: string[] = [],
     sessionId?: string
-  ): Promise<HookExecutionResult[]> {
+  ): Promise<HookResult[]> {
     // 获取配置的Hook
     const configHooks = this.hookConfigManager.getHooksByEvent(event);
     // 获取注册的Hook
@@ -87,7 +87,7 @@ export class HookManager {
       (a, b) => (b.config.priority || 0) - (a.config.priority || 0)
     );
 
-    const results: HookExecutionResult[] = [];
+    const results: HookResult[] = [];
 
     // 执行每个Hook
     for (const hook of allHooks) {
@@ -97,9 +97,8 @@ export class HookManager {
       }
 
       // 执行Hook
-      const context: HookExecutionContext = {
+      const context: HookContext = {
         event,
-        matcher: hook.matcher,
         data,
         toolNames,
         sessionId,
@@ -168,8 +167,8 @@ export class HookManager {
    * @returns 是否停止执行
    */
   private shouldStopExecution(
-    result: HookExecutionResult,
-    hook: IndividualHookConfig
+    result: HookResult,
+    hook: any
   ): boolean {
     // 根据Hook类型和执行结果决定是否停止执行
     // 例如，对于命令类型Hook，退出代码为2时可能需要停止执行
@@ -183,7 +182,7 @@ export class HookManager {
    * 获取所有Hook
    * @returns Hook配置列表
    */
-  public getAllHooks(): IndividualHookConfig[] {
+  public getAllHooks() {
     const configHooks = this.hookConfigManager.getAllHooks();
     const registeredHooks = Array.from(this.registeredHooks.values()).flat();
     return [...configHooks, ...registeredHooks];
@@ -194,7 +193,7 @@ export class HookManager {
    * @param event 事件类型
    * @returns Hook配置列表
    */
-  public getHooksByEvent(event: HookEvent): IndividualHookConfig[] {
+  public getHooksByEvent(event: HookEvent) {
     const configHooks = this.hookConfigManager.getHooksByEvent(event);
     const registeredHooks = this.registeredHooks.get(event) || [];
     return [...configHooks, ...registeredHooks];
@@ -290,7 +289,7 @@ export class HookManager {
    */
   public reset(): void {
     this.registeredHooks.clear();
-    this.hookConfigManager.reset();
+    (this.hookConfigManager as any).reset();
     this.hookExecutor.reset();
     this.sessionHookManager.reset();
   }
@@ -303,7 +302,7 @@ export class HookManager {
     data: any,
     toolNames: string[] = [],
     sessionId?: string
-  ): Promise<HookExecutionResult[]> {
+  ): Promise<HookResult[]> {
     // 获取配置的Hook
     const configHooks = this.hookConfigManager.getHooksByEvent(event);
     // 获取注册的Hook
@@ -322,7 +321,7 @@ export class HookManager {
     });
 
     // 执行上下文
-    const context: HookExecutionContext = {
+    const context: HookContext = {
       event,
       data,
       toolNames,
@@ -352,7 +351,7 @@ export class HookManager {
     toolNames: string[] = [],
     sessionId?: string,
     batchSize: number = 10
-  ): Promise<HookExecutionResult[]> {
+  ): Promise<HookResult[]> {
     // 获取配置的Hook
     const configHooks = this.hookConfigManager.getHooksByEvent(event);
     // 获取注册的Hook
@@ -371,7 +370,7 @@ export class HookManager {
     });
 
     // 执行上下文
-    const context: HookExecutionContext = {
+    const context: HookContext = {
       event,
       data,
       toolNames,

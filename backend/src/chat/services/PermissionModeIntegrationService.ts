@@ -5,7 +5,6 @@
  */
 
 import { EventEmitter } from 'events';
-import type { PermissionMode } from '@modules/permission/PermissionMode.js';
 import {
   sessionMetadataService,
   type PermissionModeListener,
@@ -16,8 +15,8 @@ import { eventNotificationService } from './EventNotificationService.js';
  * 权限模式变化事件
  */
 export interface PermissionModeChangedEvent {
-  previousMode: PermissionMode | null;
-  currentMode: PermissionMode;
+  previousMode: string | null;
+  currentMode: string;
   timestamp: number;
 }
 
@@ -26,7 +25,7 @@ export interface PermissionModeChangedEvent {
  */
 export class PermissionModeIntegrationService extends EventEmitter {
   private static instance: PermissionModeIntegrationService;
-  private currentMode: PermissionMode | null = null;
+  private currentMode: string | null = null;
   private modeHistory: PermissionModeChangedEvent[] = [];
   private maxHistorySize: number = 50;
 
@@ -63,7 +62,7 @@ export class PermissionModeIntegrationService extends EventEmitter {
   /**
    * 处理权限模式变化
    */
-  private handlePermissionModeChanged(mode: PermissionMode): void {
+  private handlePermissionModeChanged(mode: string): void {
     const previousMode = this.currentMode;
     this.currentMode = mode;
 
@@ -78,20 +77,20 @@ export class PermissionModeIntegrationService extends EventEmitter {
     this.emit('permissionModeChanged', event);
     this.emit('modeChanged', mode);
 
-    eventNotificationService.emitPermissionModeChanged(mode);
+    (eventNotificationService as any).emitPermissionModeChanged(mode);
   }
 
   /**
    * 设置权限模式
    */
-  setPermissionMode(mode: PermissionMode): void {
-    sessionMetadataService.setPermissionMode(mode);
+  setPermissionMode(mode: string): void {
+    (sessionMetadataService as any).setPermissionMode(mode);
   }
 
   /**
    * 获取当前权限模式
    */
-  getPermissionMode(): PermissionMode | null {
+  getPermissionMode(): string | null {
     return this.currentMode;
   }
 
@@ -140,7 +139,7 @@ export class PermissionModeIntegrationService extends EventEmitter {
   /**
    * 设置权限模式监听器
    */
-  setPermissionModeListener(listener: (mode: PermissionMode) => void): void {
+  setPermissionModeListener(listener: (mode: string) => void): void {
     this.on('modeChanged', listener);
   }
 
@@ -148,7 +147,7 @@ export class PermissionModeIntegrationService extends EventEmitter {
    * 移除权限模式监听器
    */
   removePermissionModeListener(
-    listener: (mode: PermissionMode) => void
+    listener: (mode: string) => void
   ): void {
     this.off('modeChanged', listener);
   }
@@ -179,7 +178,7 @@ export class PermissionModeIntegrationService extends EventEmitter {
   /**
    * 获取权限模式统计
    */
-  getModeStats(): Record<PermissionMode, number> {
+  getModeStats(): Record<string, number> {
     const stats: Record<string, number> = {
       default: 0,
       auto: 0,
@@ -193,7 +192,7 @@ export class PermissionModeIntegrationService extends EventEmitter {
       stats[mode] = (stats[mode] || 0) + 1;
     }
 
-    return stats as Record<PermissionMode, number>;
+    return stats;
   }
 
   /**

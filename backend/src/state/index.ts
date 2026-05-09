@@ -22,9 +22,9 @@ import {
 } from './persistence/StatePersistence.js';
 
 import { 
-  createStateEventSystem,
-  createBatchUpdater,
-  StateEventType
+  StateEventSystem,
+  StateEventType,
+  createBatchUpdater
 } from './events/StateEventSystem.js';
 
 import { 
@@ -42,10 +42,10 @@ import {
  */
 export class StateManagerImpl implements StateManager {
   private stores: Map<string, StateStore<any>>;
-  private eventSystem: ReturnType<typeof createStateEventSystem>;
+  private eventSystem: StateEventSystem;
   private subscriptionManager: ReturnType<typeof createStateSubscriptionManager>;
   private snapshotManager: ReturnType<typeof createStateSnapshotManager>;
-  private autoPersistenceManager: ReturnType<typeof createAutoPersistenceManager>;
+  private autoPersistenceManager!: ReturnType<typeof createAutoPersistenceManager>;
   private config: StateManagementConfig;
   private isDestroyed: boolean;
 
@@ -65,7 +65,7 @@ export class StateManagerImpl implements StateManager {
     this.isDestroyed = false;
 
     // 初始化组件
-    this.eventSystem = createStateEventSystem({
+    this.eventSystem = new StateEventSystem({
       maxHistorySize: 1000,
       enabled: true
     });
@@ -129,10 +129,11 @@ export class StateManagerImpl implements StateManager {
     this.stores.set(name, store);
 
     // 发布存储创建事件
-    this.eventSystem.publishEvent({
+    this.eventSystem.emit({
       type: StateEventType.STORE_CREATED,
-      source: 'state_manager',
-      data: { storeName: name }
+      key: 'state_manager',
+      timestamp: Date.now(),
+      metadata: { storeName: name }
     });
 
     console.log(`Store created: ${name}`);
@@ -176,10 +177,11 @@ export class StateManagerImpl implements StateManager {
     this.stores.delete(name);
 
     // 发布存储销毁事件
-    this.eventSystem.publishEvent({
+    this.eventSystem.emit({
       type: StateEventType.STORE_DESTROYED,
-      source: 'state_manager',
-      data: { storeName: name }
+      key: 'state_manager',
+      timestamp: Date.now(),
+      metadata: { storeName: name }
     });
 
     console.log(`Store deleted: ${name}`);
@@ -214,13 +216,14 @@ export class StateManagerImpl implements StateManager {
     const snapshot = this.snapshotManager.createSnapshot(storeName, state, description);
 
     // 发布快照创建事件
-    this.eventSystem.publishEvent({
+    this.eventSystem.emit({
       type: StateEventType.SNAPSHOT_CREATED,
-      source: 'state_manager',
-      data: { storeName, snapshotId: snapshot.id }
+      key: 'state_manager',
+      timestamp: Date.now(),
+      metadata: { storeName, snapshotId: snapshot.id }
     });
 
-    return snapshot;
+    return snapshot as unknown as StateSnapshot<T>;
   }
 
   /**
@@ -238,14 +241,15 @@ export class StateManagerImpl implements StateManager {
       throw new Error(`Store not found: ${storeName}`);
     }
 
-    const success = await this.snapshotManager.restoreSnapshot(store, snapshot);
+    const success = await this.snapshotManager.restoreSnapshot(store, snapshot as StateSnapshot<unknown>);
     
     if (success) {
       // 发布快照恢复事件
-      this.eventSystem.publishEvent({
+      this.eventSystem.emit({
         type: StateEventType.SNAPSHOT_RESTORED,
-        source: 'state_manager',
-        data: { storeName, snapshotId: snapshot.id }
+        key: 'state_manager',
+        timestamp: Date.now(),
+        metadata: { storeName, snapshotId: snapshot.id }
       });
     }
   }
@@ -258,7 +262,7 @@ export class StateManagerImpl implements StateManager {
       throw new Error('State manager has been destroyed');
     }
 
-    return this.snapshotManager.getSnapshots(storeName);
+    return this.snapshotManager.getSnapshots(storeName) as StateSnapshot<T>[];
   }
 
   /**
@@ -315,12 +319,12 @@ export class StateManagerImpl implements StateManager {
 
     const subscriptionStats = this.subscriptionManager.getStats();
     const snapshotStats = this.snapshotManager.getSnapshotStats();
-    const eventStats = this.eventSystem.getEventStats();
+    const eventStatus = this.eventSystem.getStatus();
 
     return {
       storeCount: this.stores.size,
       subscriptionCount: subscriptionStats.totalSubscriptions,
-      stateChangeCount: eventStats.total,
+      stateChangeCount: eventStatus.historySize,
       batchUpdateCount: 0, // 需要从事件系统获取
       snapshotCount: snapshotStats.totalSnapshots,
       averageChangeInterval: subscriptionStats.averageNotificationDelay,
@@ -448,7 +452,7 @@ export function destroyGlobalStateManager(): void {
 /**
  * 创建批量更新器（基于CC源码）
  */
-export { createBatchUpdater } from './events/StateEventSystem.js';
+export { createBatchUpdater };
 
 /**
  * 创建选择器优化器（基于CC源码）

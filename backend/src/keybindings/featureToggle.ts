@@ -4,6 +4,7 @@
  * 动态启用或禁用特定的按键绑定
  */
 import type { ParsedBinding, KeybindingContextName } from './types.js';
+import React from 'react';
 
 /**
  * 特性开关配置

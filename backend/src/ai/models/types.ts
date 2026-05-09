@@ -105,6 +105,11 @@ export interface ChatMessage {
   content: string;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
+  tool_result?: {
+    tool_call_id: string;
+    content: string;
+    is_error: boolean;
+  };
 }
 
 export interface ToolCall {
@@ -133,10 +138,13 @@ export interface ParsedToolCall {
 
 export interface ChatResponse {
   content: string;
+  model?: string;
   stop_reason: 'stop' | 'tool_calls' | 'max_tokens';
   tool_calls?: ParsedToolCall[];
   usage?: {
     prompt_tokens: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
     completion_tokens: number;
     total_tokens: number;
   };

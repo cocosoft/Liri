@@ -196,7 +196,9 @@ export class MCPErrorHandler {
   private static handleGenericError(error: Error, serverName?: string): void {
     const serverContext = serverName ? ` [Server: ${serverName}]` : '';
     logger.error(`MCP Generic Error${serverContext}: ${error.message}`);
-    logger.debug('Error stack:', error.stack);
+    if (error.stack) {
+      logger.debug('Error stack:', { stack: error.stack });
+    }
   }
 
   /**

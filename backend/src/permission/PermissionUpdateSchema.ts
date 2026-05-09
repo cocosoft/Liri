@@ -21,10 +21,10 @@ export function applyPermissionUpdate(
   update: PermissionUpdateOperation,
 ): Record<PermissionRuleSource, string[]> {
   const next = { ...currentRules };
-  const src = update.destination as PermissionRuleSource;
+  const src = 'destination' in update ? (update.destination as PermissionRuleSource) : null;
 
-  if (!next[src]) {
-    next[src] = [];
+  if (!src) {
+    return next;
   }
 
   switch (update.type) {
@@ -55,7 +55,7 @@ export function applyPermissionUpdate(
 export function persistPermissionUpdates(updates: PermissionUpdateOperation[]): boolean {
   try {
     for (const u of updates) {
-      applyPermissionUpdate({}, u);
+      applyPermissionUpdate({} as Record<PermissionRuleSource, string[]>, u);
     }
     return true;
   } catch {

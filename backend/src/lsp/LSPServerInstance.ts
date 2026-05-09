@@ -131,7 +131,7 @@ export function createLSPServerInstance(
 
     for (let attempt = 0; attempt <= MAX_RETRIES_FOR_TRANSIENT_ERRORS; attempt++) {
       try {
-        const result = await client.sendRequest(method, params)
+        const result = await (client as any).sendRequest(method, params)
         return result as T
       } catch (error) {
         const err = error as Error & { code?: number }
@@ -155,7 +155,7 @@ export function createLSPServerInstance(
     if (!client || state !== 'running') {
       return Promise.reject(new Error(`LSP server '${name}' is not running (state: ${state})`))
     }
-    return client.sendNotification(method, params)
+    return (client as any).sendNotification(method, params)
   }
 
   function onNotification(method: string, handler: (params: unknown) => void): void {

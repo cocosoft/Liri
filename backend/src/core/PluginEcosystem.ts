@@ -5,7 +5,23 @@
  */
 
 import { logger } from '../utils/log.js';
-import { TerminalComponents } from '../ui/TerminalComponents.js';
+import { TerminalComponents, type TableColumn, type TableRow } from '../ui/TerminalComponents.js';
+import chalk from 'chalk';
+
+/**
+ * 获取徽章文本（鉴于TerminalComponents没有getBadgeText方法，使用chalk直接创建）
+ */
+function getBadgeText(text: string, color: string): string {
+  const colorMap: Record<string, chalk.Chalk> = {
+    green: chalk.green,
+    gray: chalk.gray,
+    blue: chalk.blue,
+    red: chalk.red,
+    yellow: chalk.yellow,
+  };
+  const styler = colorMap[color] || chalk.white;
+  return styler(` ${text} `);
+}
 
 /**
  * 插件信息
@@ -322,7 +338,7 @@ export class PluginEcosystem {
     TerminalComponents.printHeader('已安装插件');
 
     const rows = plugins.map(p => {
-      const statusBadge = TerminalComponents.getBadgeText(
+      const statusBadge = getBadgeText(
         p.enabled ? '启用' : '禁用',
         p.enabled ? 'green' : 'gray'
       );
@@ -337,8 +353,8 @@ export class PluginEcosystem {
     });
 
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '状态'],
-      rows
+      ['名称', '版本', '作者', '类别', '状态'].map(h => ({ header: h, width: 12 })),
+      rows.map(r => ({ cells: r }))
     );
   }
 
@@ -356,7 +372,7 @@ export class PluginEcosystem {
     TerminalComponents.printHeader('已安装技能');
 
     const rows = skills.map(s => {
-      const statusBadge = TerminalComponents.getBadgeText(
+      const statusBadge = getBadgeText(
         s.enabled ? '启用' : '禁用',
         s.enabled ? 'green' : 'gray'
       );
@@ -371,8 +387,8 @@ export class PluginEcosystem {
     });
 
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '状态'],
-      rows
+      ['名称', '版本', '作者', '类别', '状态'].map(h => ({ header: h, width: 12 })),
+      rows.map(r => ({ cells: r }))
     );
   }
 
@@ -391,7 +407,7 @@ export class PluginEcosystem {
 
     const rows = entries.map(e => {
       const installed = this.plugins.has(e.plugin.id);
-      const statusBadge = TerminalComponents.getBadgeText(
+      const statusBadge = getBadgeText(
         installed ? '已安装' : '可安装',
         installed ? 'green' : 'blue'
       );
@@ -407,8 +423,8 @@ export class PluginEcosystem {
     });
 
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '技能数', '状态'],
-      rows
+      ['名称', '版本', '作者', '类别', '技能数', '状态'].map(h => ({ header: h, width: 10 })),
+      rows.map(r => ({ cells: r }))
     );
   }
 

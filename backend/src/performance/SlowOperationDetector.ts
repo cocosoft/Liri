@@ -353,8 +353,8 @@ export class SlowOperationDetector {
       threshold?: number;
       context?: Record<string, any>;
     }
-  ): (...args: Parameters<T>) => ReturnType<T> {
-    return (...args: Parameters<T>) => {
+  ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
+    return (...args: Parameters<T>): Promise<ReturnType<T>> => {
       return this.detect(operation, () => fn(...args), options);
     };
   }
@@ -366,7 +366,7 @@ export class SlowOperationDetector {
     value: any,
     replacer?: (key: string, value: any) => any,
     space?: string | number
-  ): string {
+  ): Promise<string> {
     return this.detect('JSON.stringify', () => {
       return JSON.stringify(value, replacer, space);
     }, {
@@ -439,7 +439,7 @@ export function wrapSlowOperation<T extends (...args: any[]) => any>(
     threshold?: number;
     context?: Record<string, any>;
   }
-): (...args: Parameters<T>) => ReturnType<T> {
+): (...args: Parameters<T>) => Promise<ReturnType<T>> {
   return slowOperationDetector.wrap(operation, fn, options);
 }
 
@@ -450,6 +450,6 @@ export function safeStringify(
   value: any,
   replacer?: (key: string, value: any) => any,
   space?: string | number
-): string {
+): Promise<string> {
   return slowOperationDetector.jsonStringify(value, replacer, space);
 }

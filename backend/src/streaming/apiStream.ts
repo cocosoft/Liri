@@ -31,7 +31,7 @@ export class ApiStream {
     },
     options?: {
       signal?: AbortSignal
-      onChunk?: (chunk: string) => void
+      onChunk?: (chunk: StreamChunk) => void
     },
   ): Promise<Stream<StreamChunk>> {
     const stream = new Stream<StreamChunk>()
@@ -47,7 +47,7 @@ export class ApiStream {
   private async startStreaming(
     body: Record<string, unknown>,
     stream: Stream<StreamChunk>,
-    options?: { signal?: AbortSignal; onChunk?: (chunk: string) => void },
+    options?: { signal?: AbortSignal; onChunk?: (chunk: StreamChunk) => void },
   ): Promise<void> {
     const controller = new AbortController()
     const signal = options?.signal

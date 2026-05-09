@@ -206,7 +206,7 @@ export class AgentMemoryImpl implements AgentMemory {
    */
   searchByTag(tag: string): Record<string, any> {
     return this.scan((key, value, item) => 
-      item.tags && item.tags.includes(tag)
+      !!(item.tags && item.tags.includes(tag))
     );
   }
 

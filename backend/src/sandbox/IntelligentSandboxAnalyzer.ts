@@ -715,7 +715,7 @@ export class IntelligentSandboxAnalyzer {
       resources: {
         memory: {
           usage: performance?.memoryUsage || 0,
-          leakRisk: performance?.memoryUsage > 80 ? 'high' : 'low',
+          leakRisk: (performance?.memoryUsage || 0) > 80 ? 'high' : 'low',
           allocationEfficiency: 75,
         },
         cpu: {

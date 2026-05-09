@@ -1,11 +1,11 @@
-//
 /**
  * Ink对话框组件
  * 用于在终端中显示模态对话框
  */
 
 import React from 'react';
-import { Box, Text } from './Box';
+import Box from './Box';
+import Text from './Text';
 
 export interface DialogProps {
   /** 是否显示对话框 */
@@ -81,7 +81,7 @@ export const Dialog: React.FC<DialogProps> = ({
               paddingX={2}
               paddingY={0.5}
               onClick={onCancel}
-              onKeyDown={(key) => key === 'enter' && onCancel?.()}
+              onKeyDown={(key: string) => key === 'enter' && onCancel?.()}
             >
               <Text>{cancelText}</Text>
             </Box>
@@ -92,7 +92,7 @@ export const Dialog: React.FC<DialogProps> = ({
             paddingY={0.5}
             backgroundColor="blue"
             onClick={onConfirm}
-            onKeyDown={(key) => key === 'enter' && onConfirm?.()}
+            onKeyDown={(key: string) => key === 'enter' && onConfirm?.()}
           >
             <Text color="white">{confirmText}</Text>
           </Box>

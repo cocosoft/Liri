@@ -104,7 +104,7 @@ export class AgentMemoryManager {
             };
             entries.push(entry);
           } catch (error) {
-            logger.debug(`Failed to read memory file ${file}:`, error);
+            logger.debug(`Failed to read memory file ${file}:`, error as Record<string, any>);
           }
         }
       }
@@ -120,7 +120,7 @@ export class AgentMemoryManager {
 
       return this.buildScanResult(entries);
     } catch (error) {
-      logger.error(`Failed to scan memory for agent ${agentType}:`, error);
+      logger.error(`Failed to scan memory for agent ${agentType}:`, error as Error);
       return {
         entries: [],
         totalSize: 0,
@@ -174,7 +174,7 @@ export class AgentMemoryManager {
 
       return deletedCount;
     } catch (error) {
-      logger.error(`Failed to manage memory age for agent ${agentType}:`, error);
+      logger.error(`Failed to manage memory age for agent ${agentType}:`, error as Error);
       return 0;
     }
   }
@@ -217,7 +217,7 @@ export class AgentMemoryManager {
 
       return true;
     } catch (error) {
-      logger.error(`Failed to optimize memory for agent ${agentType}:`, error);
+      logger.error(`Failed to optimize memory for agent ${agentType}:`, error as Error);
       return false;
     }
   }
@@ -249,7 +249,7 @@ export class AgentMemoryManager {
 
       return true;
     } catch (error) {
-      logger.error(`Failed to clean memory for agent ${agentType}:`, error);
+      logger.error(`Failed to clean memory for agent ${agentType}:`, error as Error);
       return false;
     }
   }
@@ -273,7 +273,7 @@ export class AgentMemoryManager {
         newestTimestamp: scanResult.newestEntry?.timestamp || null
       };
     } catch (error) {
-      logger.error(`Failed to get memory stats for agent ${agentType}:`, error);
+      logger.error(`Failed to get memory stats for agent ${agentType}:`, error as Error);
       return {
         totalEntries: 0,
         totalSize: 0,

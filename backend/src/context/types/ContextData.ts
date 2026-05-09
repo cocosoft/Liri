@@ -8,7 +8,6 @@ export interface ContextData {
 
 export function toContext(data: ContextData): Context {
   return {
-    type: data.type,
     createdAt: new Date(),
     ...data,
   } as Context;

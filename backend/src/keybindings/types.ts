@@ -34,6 +34,9 @@ export interface ParsedKeystroke {
   alt?: boolean;
   shift?: boolean;
   meta?: boolean;
+  win?: boolean;
+  cmd?: boolean;
+  command?: boolean;
 }
 
 /**
@@ -42,6 +45,7 @@ export interface ParsedKeystroke {
 export interface ParsedBinding {
   action: string;
   context: KeybindingContextName;
+  original?: string;
   chord: {
     chords: ParsedKeystroke[];
     displayText: string;
@@ -87,7 +91,7 @@ export interface KeybindingsConfig {
  * 按键绑定验证警告
  */
 export interface KeybindingWarning {
-  type: 'error' | 'warning';
+  type: 'error' | 'warning' | 'parse_error' | 'reserved' | 'invalid_context' | 'invalid_action' | 'duplicate' | 'unused';
   message: string;
   context?: string;
   action?: string;

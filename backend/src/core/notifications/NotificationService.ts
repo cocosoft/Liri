@@ -58,10 +58,11 @@ export class NotificationService {
       read: false,
     };
 
-    this.store.addNotification(notification);
+    (this.store as any).addNotification(notification);
 
-    const state = this.store.getState();
-    const latestNotification = state.notifications[state.notifications.length - 1];
+    const state = (this.store as any).getState();
+    const notifications: any[] = state.notifications || [];
+    const latestNotification = notifications[notifications.length - 1];
     const notificationId = latestNotification.id;
 
     if (!options.persistent && options.duration !== 0) {
@@ -131,7 +132,7 @@ export class NotificationService {
     }
 
     this.actionHandlers.delete(id);
-    this.store.removeNotification(id);
+    (this.store as any).removeNotification(id);
   }
 
   /**
@@ -143,7 +144,7 @@ export class NotificationService {
     }
     this.timers.clear();
     this.actionHandlers.clear();
-    this.store.clearNotifications();
+    (this.store as any).clearNotifications();
   }
 
   /**
@@ -151,7 +152,7 @@ export class NotificationService {
    * @returns 通知数组
    */
   getAll(): Notification[] {
-    return this.store.getState().notifications;
+    return (this.store as any).getState().notifications;
   }
 
   /**
@@ -159,7 +160,7 @@ export class NotificationService {
    * @returns 未读通知数量
    */
   getUnreadCount(): number {
-    return this.store.getState().notificationCount;
+    return (this.store as any).getState().notificationCount;
   }
 
   /**

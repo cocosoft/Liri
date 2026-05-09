@@ -172,7 +172,7 @@ export class TeammateMailbox {
       writeFileSync(mailboxPath, JSON.stringify(messages, null, 2), 'utf-8');
       logger.debug(`Wrote message to mailbox ${recipientId}: ${message.type}`);
     } catch (error) {
-      logger.error(`Failed to write to mailbox ${recipientId}:`, error);
+      logger.error(`Failed to write to mailbox ${recipientId}:`, error as Error);
     }
   }
 
@@ -192,7 +192,7 @@ export class TeammateMailbox {
 
       // 过滤过期消息
       const now = Date.now();
-      return messages.filter(m => now - m.timestamp < this.messageTtlMs);
+      return messages.filter((m: MailboxMessage) => now - m.timestamp < this.messageTtlMs);
     } catch {
       return [];
     }
@@ -218,7 +218,7 @@ export class TeammateMailbox {
         unlinkSync(mailboxPath);
       }
     } catch (error) {
-      logger.error(`Failed to clear mailbox ${recipientId}:`, error);
+      logger.error(`Failed to clear mailbox ${recipientId}:`, error as Error);
     }
   }
 
@@ -227,7 +227,7 @@ export class TeammateMailbox {
    */
   getMessagesByType(recipientId: string, type: MailboxMessageType): MailboxMessage[] {
     const messages = this.readMailbox(recipientId);
-    return messages.filter(m => m.type === type);
+    return messages.filter((m: MailboxMessage) => m.type === type);
   }
 
   /**
@@ -235,7 +235,7 @@ export class TeammateMailbox {
    */
   getMessagesFromSender(recipientId: string, senderId: string): MailboxMessage[] {
     const messages = this.readMailbox(recipientId);
-    return messages.filter(m => m.senderId === senderId);
+    return messages.filter((m: MailboxMessage) => m.senderId === senderId);
   }
 
   /**
@@ -404,7 +404,7 @@ export class TeammateMailbox {
           let messages = JSON.parse(content) as MailboxMessage[];
           const originalCount = messages.length;
 
-          messages = messages.filter(m => now - m.timestamp < this.messageTtlMs);
+          messages = messages.filter((m: MailboxMessage) => now - m.timestamp < this.messageTtlMs);
 
           if (messages.length < originalCount) {
             if (messages.length > 0) {
@@ -456,7 +456,7 @@ export class TeammateMailbox {
       }
 
       return {
-        mailboxCount: files.filter(f => f.endsWith('.json')).length,
+        mailboxCount: files.filter((f: string) => f.endsWith('.json')).length,
         totalMessages,
       };
     } catch {

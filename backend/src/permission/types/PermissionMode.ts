@@ -36,6 +36,11 @@ export enum PermissionMode {
    * 计划模式
    */
   PLAN = 'plan',
+
+  /**
+   * 接受编辑模式，自动批准编辑类操作
+   */
+  ACCEPT_EDITS = 'acceptEdits',
 }
 
 /**

@@ -38,6 +38,9 @@ export interface MCPConnectionStatus {
   /** 重试次数 */
   retryCount: number;
 
+  /** 错误计数 */
+  errorCount: number;
+
   /** 是否启用自动重连 */
   autoReconnect: boolean;
 }
@@ -123,6 +126,7 @@ export class MCPConnectionManager extends EventEmitter {
         stats: this.createInitialStats(),
         lastActivity: new Date(),
         retryCount: 0,
+        errorCount: 0,
         autoReconnect: connectionConfig?.autoReconnect ?? true,
       },
     };

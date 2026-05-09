@@ -9,8 +9,6 @@ import {
   StateStore,
 } from '../types/StateTypes.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-
-const logger = new Logger({ level: LogLevel.INFO });
 import { join } from 'path';
 import {
   existsSync,
@@ -21,7 +19,6 @@ import {
   unlinkSync,
   statSync,
 } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

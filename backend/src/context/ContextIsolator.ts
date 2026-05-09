@@ -35,7 +35,11 @@ export class ContextIsolator {
     this.maxStackDepth = options.maxStackDepth ?? 100;
   }
 
-  createScope(id: string, parentId?: string, level: IsolationLevel = 'inherited'): IsolationScope {
+  createScope(
+    id: string,
+    parentId?: string,
+    level: IsolationLevel = 'inherited'
+  ): IsolationScope {
     if (this.scopes.has(id)) {
       throw new Error(`Scope already exists: ${id}`);
     }
@@ -81,8 +85,8 @@ export class ContextIsolator {
 
   removeScope(id: string): void {
     const childScopes = Array.from(this.scopes.values())
-      .filter(s => s.parentId === id)
-      .map(s => s.id);
+      .filter((s) => s.parentId === id)
+      .map((s) => s.id);
 
     for (const childId of childScopes) {
       this.removeScope(childId);
@@ -140,7 +144,9 @@ export class ContextIsolator {
     }
 
     if (this.snapshots.size >= this.maxSnapshots) {
-      throw new Error(`Maximum number of snapshots reached: ${this.maxSnapshots}`);
+      throw new Error(
+        `Maximum number of snapshots reached: ${this.maxSnapshots}`
+      );
     }
 
     this.snapshots.set(scopeId, {
@@ -171,7 +177,11 @@ export class ContextIsolator {
     this.snapshots.clear();
   }
 
-  createChildScope(parentId: string, childId: string, level: IsolationLevel = 'inherited'): IsolationScope {
+  createChildScope(
+    parentId: string,
+    childId: string,
+    level: IsolationLevel = 'inherited'
+  ): IsolationScope {
     return this.createScope(childId, parentId, level);
   }
 
@@ -205,7 +215,9 @@ export class ContextIsolator {
       stackDepth: this.scopeStack.length,
       maxStackDepth: this.maxStackDepth,
       scopeUsagePercent: Math.round((this.scopes.size / this.maxScopes) * 100),
-      snapshotUsagePercent: Math.round((this.snapshots.size / this.maxSnapshots) * 100),
+      snapshotUsagePercent: Math.round(
+        (this.snapshots.size / this.maxSnapshots) * 100
+      ),
     };
   }
 

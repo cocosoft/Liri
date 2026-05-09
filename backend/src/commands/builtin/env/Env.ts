@@ -36,14 +36,14 @@ const SENSITIVE_KEYWORDS = ['KEY', 'SECRET', 'TOKEN', 'PASSWORD', 'PASS'];
  * 判断是否为应用相关环境变量
  */
 function isAppEnvVar(key: string): boolean {
-  return APP_ENV_PREFIXES.some(prefix => key.startsWith(prefix));
+  return APP_ENV_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
 /**
  * 判断是否为敏感键名
  */
 function isSensitiveKey(key: string): boolean {
-  return SENSITIVE_KEYWORDS.some(kw => key.includes(kw));
+  return SENSITIVE_KEYWORDS.some((kw) => key.includes(kw));
 }
 
 /**

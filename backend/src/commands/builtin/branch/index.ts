@@ -15,7 +15,7 @@ const branchCommand: Command = {
   whenToUse: 'Use this command to manage git branches in your repository',
   version: '1.0.0',
   userInvocable: true,
-  
+
   /**
    * 加载命令实现
    */

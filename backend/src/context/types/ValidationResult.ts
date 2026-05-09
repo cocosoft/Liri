@@ -8,6 +8,9 @@ export function createValidResult(): ValidationResult {
   return { valid: true, errors: [], warnings: [] };
 }
 
-export function createInvalidResult(errors: string[], warnings: string[] = []): ValidationResult {
+export function createInvalidResult(
+  errors: string[],
+  warnings: string[] = []
+): ValidationResult {
   return { valid: false, errors, warnings };
 }

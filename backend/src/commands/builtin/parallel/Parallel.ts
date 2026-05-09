@@ -148,7 +148,10 @@ const parallelCommand = {
         if (!tool) {
           return {
             success: false,
-            message: `错误: 工具 "${task.toolName}" 不存在。可用工具: ${toolManager.getAllTools().map(t => t.name).join(', ')}`,
+            message: `错误: 工具 "${task.toolName}" 不存在。可用工具: ${toolManager
+              .getAllTools()
+              .map((t) => t.name)
+              .join(', ')}`,
           };
         }
 
@@ -208,10 +211,17 @@ const parallelCommand = {
    * @param name 工具名
    * @param isError 是否错误
    */
-  printProgress(completed: number, total: number, name: string, isError: boolean = false): void {
+  printProgress(
+    completed: number,
+    total: number,
+    name: string,
+    isError: boolean = false
+  ): void {
     const icon = isError ? '✗' : '✓';
     const status = isError ? '失败' : '完成';
-    process.stderr.write(`\r[${completed}/${total}] ${icon} ${name} ${status}  `);
+    process.stderr.write(
+      `\r[${completed}/${total}] ${icon} ${name} ${status}  `
+    );
     if (completed === total) {
       process.stderr.write('\n');
     }
@@ -222,7 +232,10 @@ const parallelCommand = {
    * @param args 命令参数
    * @returns 解析结果
    */
-  parseOptions(toolManager: any, args: string): {
+  parseOptions(
+    toolManager: any,
+    args: string
+  ): {
     options: ParallelOptions;
     tasks: Array<{ toolName: string; input: string; priority?: number }>;
   } {
@@ -246,7 +259,11 @@ const parallelCommand = {
           options.showProgress = true;
         } else if (trimmed === '--compact') {
           options.compact = true;
-        } else if (trimmed === '-h' || trimmed === '--help' || trimmed === 'help') {
+        } else if (
+          trimmed === '-h' ||
+          trimmed === '--help' ||
+          trimmed === 'help'
+        ) {
           // 帮助标志会在上层处理
           continue;
         }
@@ -260,8 +277,10 @@ const parallelCommand = {
     const firstPart = taskParts[0] || '';
     const globalOptions = this.extractGlobalOptions(firstPart);
     if (globalOptions) {
-      if (globalOptions.concurrency !== undefined) options.concurrency = globalOptions.concurrency;
-      if (globalOptions.timeout !== undefined) options.timeout = globalOptions.timeout;
+      if (globalOptions.concurrency !== undefined)
+        options.concurrency = globalOptions.concurrency;
+      if (globalOptions.timeout !== undefined)
+        options.timeout = globalOptions.timeout;
       if (globalOptions.showProgress) options.showProgress = true;
       if (globalOptions.compact) options.compact = true;
     }
@@ -270,10 +289,12 @@ const parallelCommand = {
     const firstTask = taskParts[0] || '';
     const cleanedFirstTask = this.cleanGlobalOptions(firstTask);
 
-    const tasks: Array<{ toolName: string; input: string; priority?: number }> = [];
+    const tasks: Array<{ toolName: string; input: string; priority?: number }> =
+      [];
 
     for (let i = 0; i < taskParts.length; i++) {
-      const taskStr = i === 0 && cleanedFirstTask ? cleanedFirstTask : taskParts[i];
+      const taskStr =
+        i === 0 && cleanedFirstTask ? cleanedFirstTask : taskParts[i];
       if (!taskStr) continue;
 
       const parsed = this.splitTask(taskStr);
@@ -351,7 +372,11 @@ const parallelCommand = {
     // 尝试 JSON 解析
     try {
       const parsed = JSON.parse(input);
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
         return parsed as Record<string, unknown>;
       }
       return { value: parsed };
@@ -368,15 +393,20 @@ const parallelCommand = {
    * @returns 格式化后的文本
    */
   formatResults(
-    results: Array<{ toolName: string; result?: any; error?: string; executionTime: number }>,
+    results: Array<{
+      toolName: string;
+      result?: any;
+      error?: string;
+      executionTime: number;
+    }>,
     compact: boolean
   ): string {
     if (results.length === 0) {
       return '没有任务被执行。';
     }
 
-    const successCount = results.filter(r => !r.error).length;
-    const failCount = results.filter(r => r.error).length;
+    const successCount = results.filter((r) => !r.error).length;
+    const failCount = results.filter((r) => r.error).length;
 
     if (compact) {
       const lines = results.map((r) => {
@@ -384,9 +414,10 @@ const parallelCommand = {
           return `  ✗ ${r.toolName}: ${r.error}`;
         }
         const data = r.result?.data;
-        const summary = typeof data === 'object' && data !== null
-          ? JSON.stringify(data).substring(0, 80)
-          : String(data ?? '').substring(0, 80);
+        const summary =
+          typeof data === 'object' && data !== null
+            ? JSON.stringify(data).substring(0, 80)
+            : String(data ?? '').substring(0, 80);
         return `  ✓ ${r.toolName} (${r.executionTime}ms): ${summary}`;
       });
 
@@ -398,17 +429,16 @@ const parallelCommand = {
 
     const blocks = results.map((r) => {
       if (r.error) {
-        return [
-          `工具: ${r.toolName}`,
-          `状态: 失败`,
-          `错误: ${r.error}`,
-        ].join('\n');
+        return [`工具: ${r.toolName}`, `状态: 失败`, `错误: ${r.error}`].join(
+          '\n'
+        );
       }
 
       const data = r.result?.data;
-      const dataStr = typeof data === 'object' && data !== null
-        ? JSON.stringify(data, null, 2)
-        : String(data ?? '无输出');
+      const dataStr =
+        typeof data === 'object' && data !== null
+          ? JSON.stringify(data, null, 2)
+          : String(data ?? '无输出');
 
       return [
         `工具: ${r.toolName}`,
@@ -421,7 +451,7 @@ const parallelCommand = {
     return [
       `并行执行结果 (${results.length}个任务, ${successCount}成功, ${failCount}失败):`,
       '',
-      ...blocks.map(b => `---\n${b}`),
+      ...blocks.map((b) => `---\n${b}`),
     ].join('\n');
   },
 

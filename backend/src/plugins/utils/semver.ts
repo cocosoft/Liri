@@ -113,7 +113,7 @@ export function lte(a: string, b: string): boolean {
  * - ^1.0.0 || ^2.0.0: 或条件
  */
 export function satisfies(version: string, range: string): boolean {
-  const ranges = range.split('||').map(r => r.trim());
+  const ranges = range.split('||').map((r) => r.trim());
 
   for (const r of ranges) {
     if (satisfiesSingle(version, r)) {

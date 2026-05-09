@@ -24,25 +24,34 @@ export function editFile(input: FileEditInput): FileEditResult {
   const resolved = path.resolve(input.filePath);
 
   if (!fs.existsSync(resolved)) {
-    throw new Error(`File not found: ${resolved}. Use the Write tool to create new files.`);
+    throw new Error(
+      `File not found: ${resolved}. Use the Write tool to create new files.`
+    );
   }
 
   const stat = fs.statSync(resolved);
   if (stat.size > MAX_FILE_SIZE) {
-    throw new Error(`File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`);
+    throw new Error(
+      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`
+    );
   }
 
   const content = fs.readFileSync(resolved, 'utf-8');
 
   const count = countOccurrences(content, input.oldString);
   if (count === 0) {
-    return { filePath: resolved, linesChanged: 0, replaced: false, oldStringFound: false };
+    return {
+      filePath: resolved,
+      linesChanged: 0,
+      replaced: false,
+      oldStringFound: false,
+    };
   }
 
   if (count > 1) {
     throw new Error(
       `old_string is not unique in file (found ${count} occurrences). ` +
-      `Provide a larger string with more surrounding context to make it unique.`,
+        `Provide a larger string with more surrounding context to make it unique.`
     );
   }
 

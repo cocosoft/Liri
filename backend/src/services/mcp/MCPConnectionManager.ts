@@ -5,8 +5,16 @@
  */
 
 import { logger } from '@modules/utils/log';
-import { getMcpToolsCommandsAndResources, reconnectMcpServerImpl } from './client';
-import type { MCPServerConnection, ScopedMcpServerConfig, ServerResource, SerializedTool } from './types';
+import {
+  getMcpToolsCommandsAndResources,
+  reconnectMcpServerImpl,
+} from './client';
+import type {
+  MCPServerConnection,
+  ScopedMcpServerConfig,
+  ServerResource,
+  SerializedTool,
+} from './types';
 import type { McpCommand } from './commandManager';
 
 // 重连常量
@@ -35,7 +43,9 @@ export class MCPConnectionManager {
   /**
    * 初始化MCP服务器连接
    */
-  async initialize(configs: Record<string, ScopedMcpServerConfig>): Promise<void> {
+  async initialize(
+    configs: Record<string, ScopedMcpServerConfig>
+  ): Promise<void> {
     try {
       // 批量更新回调
       const onConnectionAttempt = (result: {
@@ -49,7 +59,10 @@ export class MCPConnectionManager {
 
       await getMcpToolsCommandsAndResources(onConnectionAttempt, configs);
     } catch (error) {
-      logger.error('Failed to initialize MCP connections:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to initialize MCP connections:',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -66,7 +79,10 @@ export class MCPConnectionManager {
 
     // 启动批量更新定时器
     if (!this.flushTimer) {
-      this.flushTimer = setTimeout(() => this.flushPendingUpdates(), MCP_BATCH_FLUSH_MS);
+      this.flushTimer = setTimeout(
+        () => this.flushPendingUpdates(),
+        MCP_BATCH_FLUSH_MS
+      );
     }
   }
 
@@ -93,7 +109,8 @@ export class MCPConnectionManager {
       }
 
       if (connection.type === 'connected') {
-        (connection as any).client.onclose = () => this.handleDisconnect(connection);
+        (connection as any).client.onclose = () =>
+          this.handleDisconnect(connection);
       }
     }
 
@@ -108,7 +125,9 @@ export class MCPConnectionManager {
     const configType = client.config.type ?? 'stdio';
 
     if (configType === 'stdio' || configType === 'sdk') {
-      this.updateServer({ connection: { ...client, type: 'failed' } as MCPServerConnection });
+      this.updateServer({
+        connection: { ...client, type: 'failed' } as MCPServerConnection,
+      });
       return;
     }
 
@@ -126,7 +145,9 @@ export class MCPConnectionManager {
   /**
    * 指数退避重连
    */
-  private async reconnectWithBackoff(client: MCPServerConnection): Promise<void> {
+  private async reconnectWithBackoff(
+    client: MCPServerConnection
+  ): Promise<void> {
     for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
       // 更新为待连接状态
       this.updateServer({
@@ -135,14 +156,16 @@ export class MCPConnectionManager {
           type: 'pending',
           reconnectAttempt: attempt,
           maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
-        } as MCPServerConnection
+        } as MCPServerConnection,
       });
 
       try {
         const result = await reconnectMcpServerImpl(client.name, client.config);
 
         if (result.connection.type === 'connected') {
-          logger.info(`Reconnection successful for server ${client.name} (attempt ${attempt})`);
+          logger.info(
+            `Reconnection successful for server ${client.name} (attempt ${attempt})`
+          );
           this.reconnectTimers.delete(client.name);
           this.updateServer(result);
           return;
@@ -150,23 +173,30 @@ export class MCPConnectionManager {
 
         // 最后一次尝试失败，更新状态
         if (attempt === MAX_RECONNECT_ATTEMPTS) {
-          logger.warn(`Max reconnection attempts reached for server ${client.name}`);
+          logger.warn(
+            `Max reconnection attempts reached for server ${client.name}`
+          );
           this.reconnectTimers.delete(client.name);
           this.updateServer(result);
           return;
         }
       } catch (error) {
-        logger.error(`Reconnection attempt ${attempt} failed for server ${client.name}:`, error instanceof Error ? error : new Error(String(error)));
+        logger.error(
+          `Reconnection attempt ${attempt} failed for server ${client.name}:`,
+          error instanceof Error ? error : new Error(String(error))
+        );
 
         if (attempt === MAX_RECONNECT_ATTEMPTS) {
-          logger.warn(`Max reconnection attempts reached for server ${client.name}`);
+          logger.warn(
+            `Max reconnection attempts reached for server ${client.name}`
+          );
           this.reconnectTimers.delete(client.name);
           this.updateServer({
             connection: {
               ...client,
               type: 'failed',
-              error: error instanceof Error ? error.message : 'Unknown error'
-            } as MCPServerConnection
+              error: error instanceof Error ? error.message : 'Unknown error',
+            } as MCPServerConnection,
           });
           return;
         }
@@ -178,10 +208,12 @@ export class MCPConnectionManager {
         MAX_BACKOFF_MS
       );
 
-      logger.info(`Scheduling reconnection attempt ${attempt + 1} for server ${client.name} in ${backoffMs}ms`);
+      logger.info(
+        `Scheduling reconnection attempt ${attempt + 1} for server ${client.name} in ${backoffMs}ms`
+      );
 
       // 等待退避时间
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve) => {
         const timer = setTimeout(resolve, backoffMs);
         this.reconnectTimers.set(client.name, timer);
       });
@@ -206,7 +238,12 @@ export class MCPConnectionManager {
 
     // 尝试重连
     const result = await reconnectMcpServerImpl(serverName, server.config);
-    this.updateServer({ connection: result.connection, tools: result.tools, commands: result.commands, resources: result.resources });
+    this.updateServer({
+      connection: result.connection,
+      tools: result.tools,
+      commands: result.commands,
+      resources: result.resources,
+    });
     return result.connection;
   }
 
@@ -248,7 +285,10 @@ export class MCPConnectionManager {
    * 获取所有服务器的序列化工具列表（扁平化）
    */
   getAllTools(): Map<string, { serverName: string; tools: SerializedTool[] }> {
-    const result = new Map<string, { serverName: string; tools: SerializedTool[] }>();
+    const result = new Map<
+      string,
+      { serverName: string; tools: SerializedTool[] }
+    >();
     for (const [name, tools] of this.serverTools.entries()) {
       result.set(name, { serverName: name, tools });
     }
@@ -277,7 +317,10 @@ export class MCPConnectionManager {
         try {
           await server.cleanup();
         } catch (error) {
-          logger.error(`Error closing server ${server.name}:`, error instanceof Error ? error : new Error(String(error)));
+          logger.error(
+            `Error closing server ${server.name}:`,
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
     }

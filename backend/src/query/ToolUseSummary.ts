@@ -22,7 +22,10 @@ export interface ToolUseSummary {
 
 export interface ToolUseSummarizer {
   summarize(toolCall: ToolCall, toolResult: ToolResult): ToolUseSummary;
-  summarizeBatch(toolCalls: ToolCall[], toolResults: ToolResult[]): ToolUseSummary[];
+  summarizeBatch(
+    toolCalls: ToolCall[],
+    toolResults: ToolResult[]
+  ): ToolUseSummary[];
   shouldSummarize(result: ToolResult): boolean;
 }
 
@@ -32,15 +35,19 @@ export class ToolUseSummarizerImpl implements ToolUseSummarizer {
   constructor(config: ToolUseSummaryConfig = {}) {
     this.config = {
       maxSummaryLength: config.maxSummaryLength || 500,
-      enableAutoSummary: config.enableAutoSummary !== undefined ? config.enableAutoSummary : true,
+      enableAutoSummary:
+        config.enableAutoSummary !== undefined
+          ? config.enableAutoSummary
+          : true,
       summaryThresholdTokens: config.summaryThresholdTokens || 2000,
     };
   }
 
   summarize(toolCall: ToolCall, toolResult: ToolResult): ToolUseSummary {
-    const resultContent = typeof toolResult.result === 'string' 
-      ? toolResult.result 
-      : JSON.stringify(toolResult.result);
+    const resultContent =
+      typeof toolResult.result === 'string'
+        ? toolResult.result
+        : JSON.stringify(toolResult.result);
 
     const originalLength = resultContent.length;
     let summary = this.generateSummary(resultContent, toolCall.name);
@@ -55,18 +62,21 @@ export class ToolUseSummarizerImpl implements ToolUseSummarizer {
     };
   }
 
-  summarizeBatch(toolCalls: ToolCall[], toolResults: ToolResult[]): ToolUseSummary[] {
+  summarizeBatch(
+    toolCalls: ToolCall[],
+    toolResults: ToolResult[]
+  ): ToolUseSummary[] {
     const summaries: ToolUseSummary[] = [];
-    
+
     for (let i = 0; i < toolCalls.length; i++) {
       const toolCall = toolCalls[i];
-      const toolResult = toolResults.find(r => r.toolCallId === toolCall.id);
-      
+      const toolResult = toolResults.find((r) => r.toolCallId === toolCall.id);
+
       if (toolResult && this.shouldSummarize(toolResult)) {
         summaries.push(this.summarize(toolCall, toolResult));
       }
     }
-    
+
     return summaries;
   }
 
@@ -75,23 +85,24 @@ export class ToolUseSummarizerImpl implements ToolUseSummarizer {
       return false;
     }
 
-    const resultContent = typeof result.result === 'string' 
-      ? result.result 
-      : JSON.stringify(result.result);
+    const resultContent =
+      typeof result.result === 'string'
+        ? result.result
+        : JSON.stringify(result.result);
 
     return resultContent.length > (this.config.summaryThresholdTokens ?? 0);
   }
 
   private generateSummary(content: string, toolName: string): string {
     const maxLength = this.config.maxSummaryLength || 500;
-    
+
     if (content.length <= maxLength) {
       return content;
     }
 
     const lines = content.split('\n');
     let summary = `[工具调用结果摘要 - ${toolName}]\n\n`;
-    
+
     // 提取关键信息
     const keySections = [
       { regex: /^(Error|Exception|Fail)/i, label: '错误信息' },
@@ -101,7 +112,7 @@ export class ToolUseSummarizerImpl implements ToolUseSummarizer {
     ];
 
     for (const section of keySections) {
-      const matchedLine = lines.find(line => section.regex.test(line));
+      const matchedLine = lines.find((line) => section.regex.test(line));
       if (matchedLine) {
         summary += `**${section.label}**: ${matchedLine.substring(0, 200)}\n`;
       }
@@ -118,6 +129,8 @@ export class ToolUseSummarizerImpl implements ToolUseSummarizer {
   }
 }
 
-export function createToolUseSummarizer(config?: ToolUseSummaryConfig): ToolUseSummarizer {
+export function createToolUseSummarizer(
+  config?: ToolUseSummaryConfig
+): ToolUseSummarizer {
   return new ToolUseSummarizerImpl(config);
 }

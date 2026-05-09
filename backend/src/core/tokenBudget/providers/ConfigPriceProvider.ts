@@ -8,7 +8,10 @@ import type { IPriceProvider, PricingResult } from './IPriceProvider';
 import type { ModelPricing } from '../types';
 
 export interface UserPricingConfig {
-  models?: Record<string, ModelPricing & { contextWindow?: number; supportsPromptCache?: boolean }>;
+  models?: Record<
+    string,
+    ModelPricing & { contextWindow?: number; supportsPromptCache?: boolean }
+  >;
   remoteUrl?: string;
 }
 
@@ -51,7 +54,7 @@ export class ConfigPriceProvider implements IPriceProvider {
   }
 
   async getBatchPricing(models: string[]): Promise<PricingResult[]> {
-    const results = await Promise.all(models.map(m => this.getPricing(m)));
+    const results = await Promise.all(models.map((m) => this.getPricing(m)));
     return results.filter((r): r is PricingResult => r !== null);
   }
 }

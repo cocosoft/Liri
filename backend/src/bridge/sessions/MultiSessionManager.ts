@@ -40,7 +40,10 @@ export interface SessionStats {
 export interface IMultiSessionManager {
   createSession(config: SessionConfig): Promise<BridgeSession>;
   getSession(sessionId: string): BridgeSession | undefined;
-  listSessions(filter?: { mode?: SessionMode; status?: SessionStatus }): BridgeSession[];
+  listSessions(filter?: {
+    mode?: SessionMode;
+    status?: SessionStatus;
+  }): BridgeSession[];
   updateSessionStatus(sessionId: string, status: SessionStatus): boolean;
   closeSession(sessionId: string): Promise<boolean>;
   getStats(): SessionStats;
@@ -72,10 +75,13 @@ export class MultiSessionManager implements IMultiSessionManager {
     return this.sessions.get(sessionId);
   }
 
-  listSessions(filter?: { mode?: SessionMode; status?: SessionStatus }): BridgeSession[] {
+  listSessions(filter?: {
+    mode?: SessionMode;
+    status?: SessionStatus;
+  }): BridgeSession[] {
     const all = Array.from(this.sessions.values());
     if (!filter) return all;
-    return all.filter(s => {
+    return all.filter((s) => {
       if (filter.mode && s.config.mode !== filter.mode) return false;
       if (filter.status && s.status !== filter.status) return false;
       return true;
@@ -102,19 +108,31 @@ export class MultiSessionManager implements IMultiSessionManager {
 
   getStats(): SessionStats {
     const activeCount = Array.from(this.sessions.values()).filter(
-      s => s.status === SessionStatus.ACTIVE || s.status === SessionStatus.CREATING
+      (s) =>
+        s.status === SessionStatus.ACTIVE || s.status === SessionStatus.CREATING
     ).length;
     const idleCount = Array.from(this.sessions.values()).filter(
-      s => s.status === SessionStatus.IDLE
+      (s) => s.status === SessionStatus.IDLE
     ).length;
-    const averageLifetime = this.totalClosed > 0
-      ? Math.round(this.lifetimeSum / this.totalClosed)
-      : 0;
-    return { totalCreated: this.totalCreated, totalClosed: this.totalClosed, activeCount, idleCount, averageLifetime };
+    const averageLifetime =
+      this.totalClosed > 0
+        ? Math.round(this.lifetimeSum / this.totalClosed)
+        : 0;
+    return {
+      totalCreated: this.totalCreated,
+      totalClosed: this.totalClosed,
+      activeCount,
+      idleCount,
+      averageLifetime,
+    };
   }
 }
 
-import type { SessionSpawner, SessionHandle, SessionSpawnOpts } from '../types/index.js';
+import type {
+  SessionSpawner,
+  SessionHandle,
+  SessionSpawnOpts,
+} from '../types/index.js';
 
 /**
  * 创建虚拟会话生成器（用于模拟模式）

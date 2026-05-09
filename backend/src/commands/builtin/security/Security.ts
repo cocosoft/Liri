@@ -7,14 +7,22 @@ import type { CommandContext } from '@modules/commands/types';
 import { securityIntegrationService } from '@modules/security/SecurityIntegration.js';
 import { createSecurityScanner } from '@modules/security/scanners/SecurityScanner.js';
 import { inputValidator } from '@modules/security/validators/InputValidator.js';
-import type { SecurityAnalysisResult, SecurityPattern } from '@modules/security/types';
+import type {
+  SecurityAnalysisResult,
+  SecurityPattern,
+} from '@modules/security/types';
 
 const securityCommand = {
   async execute(args: string, context: CommandContext) {
     const trimmed = args.trim();
 
     // 处理 -h/--help 标志
-    if (trimmed === '-h' || trimmed === '--help' || trimmed === 'help' || !trimmed) {
+    if (
+      trimmed === '-h' ||
+      trimmed === '--help' ||
+      trimmed === 'help' ||
+      !trimmed
+    ) {
       return this.showHelp();
     }
 
@@ -93,7 +101,8 @@ const securityCommand = {
     if (params.length === 0) {
       return {
         success: true,
-        message: '用法: /security check <命令>\n\n示例: /security check "rm -rf /"',
+        message:
+          '用法: /security check <命令>\n\n示例: /security check "rm -rf /"',
       };
     }
 
@@ -104,19 +113,33 @@ const securityCommand = {
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({
-          command,
-          safe: result.safe,
-          behavior: result.behavior,
-          riskLevel: result.riskLevel,
-          message: result.message || null,
-          matchedPatterns: result.matchedPatterns,
-        }, null, 2),
+        message: JSON.stringify(
+          {
+            command,
+            safe: result.safe,
+            behavior: result.behavior,
+            riskLevel: result.riskLevel,
+            message: result.message || null,
+            matchedPatterns: result.matchedPatterns,
+          },
+          null,
+          2
+        ),
       };
     }
 
-    const riskIcon = result.riskLevel === 'high' ? '🔴' : result.riskLevel === 'medium' ? '🟡' : '🟢';
-    const behaviorLabel = result.behavior === 'allow' ? '允许' : result.behavior === 'deny' ? '拒绝' : '询问';
+    const riskIcon =
+      result.riskLevel === 'high'
+        ? '🔴'
+        : result.riskLevel === 'medium'
+          ? '🟡'
+          : '🟢';
+    const behaviorLabel =
+      result.behavior === 'allow'
+        ? '允许'
+        : result.behavior === 'deny'
+          ? '拒绝'
+          : '询问';
 
     let output = `安全检查结果\n`;
     output += `================\n`;
@@ -143,7 +166,8 @@ const securityCommand = {
     if (params.length === 0) {
       return {
         success: true,
-        message: '用法: /security deep <命令>\n\n示例: /security deep "cat <<EOF\\nevil\\nEOF"',
+        message:
+          '用法: /security deep <命令>\n\n示例: /security deep "cat <<EOF\\nevil\\nEOF"',
       };
     }
 
@@ -154,19 +178,33 @@ const securityCommand = {
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({
-          command,
-          safe: result.safe,
-          behavior: result.behavior,
-          riskLevel: result.riskLevel,
-          message: result.message || null,
-          matchedPatterns: result.matchedPatterns,
-        }, null, 2),
+        message: JSON.stringify(
+          {
+            command,
+            safe: result.safe,
+            behavior: result.behavior,
+            riskLevel: result.riskLevel,
+            message: result.message || null,
+            matchedPatterns: result.matchedPatterns,
+          },
+          null,
+          2
+        ),
       };
     }
 
-    const riskIcon = result.riskLevel === 'high' ? '🔴' : result.riskLevel === 'medium' ? '🟡' : '🟢';
-    const behaviorLabel = result.behavior === 'allow' ? '允许' : result.behavior === 'deny' ? '拒绝' : '询问';
+    const riskIcon =
+      result.riskLevel === 'high'
+        ? '🔴'
+        : result.riskLevel === 'medium'
+          ? '🟡'
+          : '🟢';
+    const behaviorLabel =
+      result.behavior === 'allow'
+        ? '允许'
+        : result.behavior === 'deny'
+          ? '拒绝'
+          : '询问';
 
     let output = `深度安全检查结果\n`;
     output += `====================\n`;
@@ -213,18 +251,22 @@ const securityCommand = {
       if (useJson) {
         return {
           success: true,
-          message: JSON.stringify({
-            scanPath,
-            total: vulnerabilities.length,
-            vulnerabilities: vulnerabilities.map(v => ({
-              id: v.id,
-              type: v.type,
-              severity: v.severity,
-              location: v.location,
-              line: v.line,
-              description: v.description,
-            })),
-          }, null, 2),
+          message: JSON.stringify(
+            {
+              scanPath,
+              total: vulnerabilities.length,
+              vulnerabilities: vulnerabilities.map((v) => ({
+                id: v.id,
+                type: v.type,
+                severity: v.severity,
+                location: v.location,
+                line: v.line,
+                description: v.description,
+              })),
+            },
+            null,
+            2
+          ),
         };
       }
 
@@ -270,12 +312,16 @@ const securityCommand = {
       if (useJson) {
         return {
           success: true,
-          message: JSON.stringify({
-            type,
-            input,
-            valid: result.valid,
-            error: result.error || null,
-          }, null, 2),
+          message: JSON.stringify(
+            {
+              type,
+              input,
+              valid: result.valid,
+              error: result.error || null,
+            },
+            null,
+            2
+          ),
         };
       }
 
@@ -318,10 +364,14 @@ const securityCommand = {
       if (useJson) {
         return {
           success: true,
-          message: JSON.stringify({
-            original: input,
-            sanitized,
-          }, null, 2),
+          message: JSON.stringify(
+            {
+              original: input,
+              sanitized,
+            },
+            null,
+            2
+          ),
         };
       }
 
@@ -372,8 +422,12 @@ const securityCommand = {
 
     // 检测当前会话是否有规则
     try {
-      const permissionManager = securityIntegrationService.getPermissionManager();
-      if (permissionManager && typeof permissionManager.getRules === 'function') {
+      const permissionManager =
+        securityIntegrationService.getPermissionManager();
+      if (
+        permissionManager &&
+        typeof permissionManager.getRules === 'function'
+      ) {
         const rules = permissionManager.getRules();
         const rulesCount = Array.isArray(rules) ? rules.length : 0;
         output += `\n会话规则数: ${rulesCount}\n`;
@@ -398,32 +452,37 @@ const securityCommand = {
 
     let filteredPatterns = patterns;
     if (filter) {
-      filteredPatterns = patterns.filter(p =>
-        p.name.toLowerCase().includes(filter) ||
-        p.message.toLowerCase().includes(filter) ||
-        p.riskLevel.includes(filter)
+      filteredPatterns = patterns.filter(
+        (p) =>
+          p.name.toLowerCase().includes(filter) ||
+          p.message.toLowerCase().includes(filter) ||
+          p.riskLevel.includes(filter)
       );
     }
 
     // 按风险等级分组
     const grouped = {
-      high: filteredPatterns.filter(p => p.riskLevel === 'high'),
-      medium: filteredPatterns.filter(p => p.riskLevel === 'medium'),
-      low: filteredPatterns.filter(p => p.riskLevel === 'low'),
+      high: filteredPatterns.filter((p) => p.riskLevel === 'high'),
+      medium: filteredPatterns.filter((p) => p.riskLevel === 'medium'),
+      low: filteredPatterns.filter((p) => p.riskLevel === 'low'),
     };
 
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({
-          total: filteredPatterns.length,
-          patterns: filteredPatterns.map(p => ({
-            name: p.name,
-            riskLevel: p.riskLevel,
-            behavior: p.behavior,
-            message: p.message,
-          })),
-        }, null, 2),
+        message: JSON.stringify(
+          {
+            total: filteredPatterns.length,
+            patterns: filteredPatterns.map((p) => ({
+              name: p.name,
+              riskLevel: p.riskLevel,
+              behavior: p.behavior,
+              message: p.message,
+            })),
+          },
+          null,
+          2
+        ),
       };
     }
 
@@ -462,7 +521,8 @@ const securityCommand = {
     if (params.length === 0) {
       return {
         success: true,
-        message: '用法: /security classify <命令名>\n\n示例: /security classify rm\n示例: /security classify curl',
+        message:
+          '用法: /security classify <命令名>\n\n示例: /security classify rm\n示例: /security classify curl',
       };
     }
 
@@ -483,27 +543,32 @@ const securityCommand = {
     };
 
     // 额外检查危险命令模式
-    const isDangerous = !!result.matchedPatterns.find(p =>
-      p.includes('dangerous_base_command') ||
-      p.includes('zsh_dangerous_command') ||
-      p.includes('privilege_escalation')
+    const isDangerous = !!result.matchedPatterns.find(
+      (p) =>
+        p.includes('dangerous_base_command') ||
+        p.includes('zsh_dangerous_command') ||
+        p.includes('privilege_escalation')
     );
 
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({
-          command: commandName,
-          category,
-          categoryLabel: categoryLabels[category] || categoryLabels.unknown,
-          safetyResult: {
-            safe: result.safe,
-            behavior: result.behavior,
-            riskLevel: result.riskLevel,
-            message: result.message || null,
+        message: JSON.stringify(
+          {
+            command: commandName,
+            category,
+            categoryLabel: categoryLabels[category] || categoryLabels.unknown,
+            safetyResult: {
+              safe: result.safe,
+              behavior: result.behavior,
+              riskLevel: result.riskLevel,
+              message: result.message || null,
+            },
+            isDangerous,
           },
-          isDangerous,
-        }, null, 2),
+          null,
+          2
+        ),
       };
     }
 

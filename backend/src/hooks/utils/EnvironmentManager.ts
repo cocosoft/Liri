@@ -42,7 +42,7 @@ export class EnvironmentManager {
    */
   buildEnvironment(options: EnvOptions = {}): Record<string, string> {
     const cacheKey = this.generateCacheKey(options);
-    
+
     // 检查缓存
     if (this.envCache.has(cacheKey)) {
       return { ...this.envCache.get(cacheKey)! };
@@ -60,7 +60,9 @@ export class EnvironmentManager {
     // 添加插件选项
     if (options.pluginOptions) {
       for (const [key, value] of Object.entries(options.pluginOptions)) {
-        env[`PY_APP_PLUGIN_${key.toUpperCase().replace(/[^a-zA-Z0-9_]/g, '_')}`] = value;
+        env[
+          `PY_APP_PLUGIN_${key.toUpperCase().replace(/[^a-zA-Z0-9_]/g, '_')}`
+        ] = value;
       }
     }
 
@@ -118,13 +120,7 @@ export class EnvironmentManager {
    */
   private sanitizeEnvironment(env: Record<string, string>): void {
     // 移除敏感信息
-    const sensitiveKeys = [
-      'PASSWORD',
-      'TOKEN',
-      'SECRET',
-      'KEY',
-      'AUTH',
-    ];
+    const sensitiveKeys = ['PASSWORD', 'TOKEN', 'SECRET', 'KEY', 'AUTH'];
 
     for (const key of Object.keys(env)) {
       const upperKey = key.toUpperCase();

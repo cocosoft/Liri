@@ -20,7 +20,9 @@ export const PY_APP_OAUTH_SCOPES = [
   'user:file_upload',
 ];
 
-export const ALL_OAUTH_SCOPES = Array.from(new Set([...CONSOLE_OAUTH_SCOPES, ...PY_APP_OAUTH_SCOPES]));
+export const ALL_OAUTH_SCOPES = Array.from(
+  new Set([...CONSOLE_OAUTH_SCOPES, ...PY_APP_OAUTH_SCOPES])
+);
 
 export const SUCCESS_URL = 'https://pyapp.dev/auth/success';
 export const MANUAL_REDIRECT_URL = 'https://pyapp.dev/auth/manual';
@@ -58,9 +60,11 @@ function loadClientIdFromKeychain(): string | null {
  * 优先级：环境变量 > Keychain > 默认值
  */
 function getDefaultClientId(): string {
-  return process.env.PY_APP_OAUTH_CLIENT_ID || 
-         loadClientIdFromKeychain() || 
-         '00000000-0000-0000-0000-000000000000';
+  return (
+    process.env.PY_APP_OAUTH_CLIENT_ID ||
+    loadClientIdFromKeychain() ||
+    '00000000-0000-0000-0000-000000000000'
+  );
 }
 
 /**
@@ -97,13 +101,17 @@ export function validateOAuthConfig(config: OAuthConfig): ValidationResult {
     errors.push('scopes is required');
   }
 
-  if (!ALLOWED_OAUTH_BASE_URLS.some(url => config.authorizeUrl.startsWith(url))) {
-    errors.push(`authorizeUrl must start with one of: ${ALLOWED_OAUTH_BASE_URLS.join(', ')}`);
+  if (
+    !ALLOWED_OAUTH_BASE_URLS.some((url) => config.authorizeUrl.startsWith(url))
+  ) {
+    errors.push(
+      `authorizeUrl must start with one of: ${ALLOWED_OAUTH_BASE_URLS.join(', ')}`
+    );
   }
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
@@ -148,7 +156,7 @@ export function getOAuthProviders(): Map<string, OAuthProviderConfig> {
     providerName: 'PY_APP',
     ...defaultConfig,
     enabled: true,
-    priority: 1
+    priority: 1,
   });
 
   // 自定义提供商（如果启用）
@@ -159,7 +167,7 @@ export function getOAuthProviders(): Map<string, OAuthProviderConfig> {
       providerName: process.env.CUSTOM_OAUTH_PROVIDER_NAME || 'Custom OAuth',
       ...customConfig,
       enabled: true,
-      priority: 2
+      priority: 2,
     });
   }
 

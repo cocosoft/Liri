@@ -4,7 +4,11 @@ import { z } from 'zod';
  * MonitorTool 输入模式
  */
 export const MonitorInputSchema = z.strictObject({
-  metric: z.enum(['memory', 'cpu', 'disk', 'network']).optional().default('memory').describe('监控指标类型'),
+  metric: z
+    .enum(['memory', 'cpu', 'disk', 'network'])
+    .optional()
+    .default('memory')
+    .describe('监控指标类型'),
 });
 
 export type MonitorInputType = z.infer<typeof MonitorInputSchema>;
@@ -14,7 +18,9 @@ export type MonitorInputType = z.infer<typeof MonitorInputSchema>;
  */
 export const MonitorOutputSchema = z.object({
   metric: z.string().describe('监控指标类型'),
-  value: z.union([z.number(), z.string(), z.object({}).passthrough()]).describe('监控指标值'),
+  value: z
+    .union([z.number(), z.string(), z.object({}).passthrough()])
+    .describe('监控指标值'),
   unit: z.string().optional().describe('单位'),
   timestamp: z.number().int().nonnegative().describe('监控时间戳'),
 });

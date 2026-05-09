@@ -12,7 +12,7 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     context.onDone?.('已登出', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

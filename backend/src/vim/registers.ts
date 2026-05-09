@@ -136,7 +136,7 @@ export class RegisterManager {
    * 获取指定类型的寄存器
    */
   getRegistersByType(type: RegisterType): Register[] {
-    return Object.values(this.registers).filter(r => r.type === type);
+    return Object.values(this.registers).filter((r) => r.type === type);
   }
 
   /**

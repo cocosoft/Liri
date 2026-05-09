@@ -6,24 +6,24 @@
  * 检测管道：magic bytes → 读取 PNG 尺寸 → ImageMagick（可选）→ 回退验证。
  * 不使用第三方图片处理库，使用内置 API 和可选的系统工具。
  */
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import {
   API_IMAGE_MAX_BASE64_SIZE,
   IMAGE_MAX_WIDTH,
   IMAGE_MAX_HEIGHT,
   IMAGE_TARGET_RAW_SIZE,
-} from '../constants/apiLimits'
+} from '../constants/apiLimits';
 
-const execAsync = promisify(exec)
+const execAsync = promisify(exec);
 
 /**
  * 图片缩放错误
  */
 export class ImageResizeError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = 'ImageResizeError'
+    super(message);
+    this.name = 'ImageResizeError';
   }
 }
 
@@ -31,19 +31,19 @@ export class ImageResizeError extends Error {
  * 图片尺寸信息
  */
 export interface ImageDimensions {
-  originalWidth?: number
-  originalHeight?: number
-  displayWidth?: number
-  displayHeight?: number
+  originalWidth?: number;
+  originalHeight?: number;
+  displayWidth?: number;
+  displayHeight?: number;
 }
 
 /**
  * 缩放结果
  */
 export interface ResizeResult {
-  buffer: Buffer
-  mediaType: string
-  dimensions?: ImageDimensions
+  buffer: Buffer;
+  mediaType: string;
+  dimensions?: ImageDimensions;
 }
 
 /**
@@ -52,37 +52,35 @@ export interface ResizeResult {
  * 支持的格式：PNG, JPEG, GIF, WebP
  */
 export function detectImageFormatFromBuffer(buffer: Buffer): string {
-  if (buffer.length < 8) return 'image/png'
+  if (buffer.length < 8) return 'image/png';
 
   if (
-    buffer[0] === 0x89 && buffer[1] === 0x50 &&
-    buffer[2] === 0x4e && buffer[3] === 0x47
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
   ) {
-    return 'image/png'
+    return 'image/png';
+  }
+
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    return 'image/gif';
   }
 
   if (
-    buffer[0] === 0xff && buffer[1] === 0xd8 &&
-    buffer[2] === 0xff
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46
   ) {
-    return 'image/jpeg'
+    return 'image/webp';
   }
 
-  if (
-    buffer[0] === 0x47 && buffer[1] === 0x49 &&
-    buffer[2] === 0x46
-  ) {
-    return 'image/gif'
-  }
-
-  if (
-    buffer[0] === 0x52 && buffer[1] === 0x49 &&
-    buffer[2] === 0x46 && buffer[3] === 0x46
-  ) {
-    return 'image/webp'
-  }
-
-  return 'image/png'
+  return 'image/png';
 }
 
 /**
@@ -94,39 +92,41 @@ export function detectImageFormatFromBuffer(buffer: Buffer): string {
  *   - 宽（4字节大端序）: 偏移16
  *   - 高（4字节大端序）: 偏移20
  */
-export function readPNGDimensions(buffer: Buffer): { width: number; height: number } | null {
-  if (buffer.length < 24) return null
-  if (buffer[0] !== 0x89 || buffer[1] !== 0x50) return null
+export function readPNGDimensions(
+  buffer: Buffer
+): { width: number; height: number } | null {
+  if (buffer.length < 24) return null;
+  if (buffer[0] !== 0x89 || buffer[1] !== 0x50) return null;
 
-  const width = buffer.readUInt32BE(16)
-  const height = buffer.readUInt32BE(20)
+  const width = buffer.readUInt32BE(16);
+  const height = buffer.readUInt32BE(20);
 
-  if (width === 0 || height === 0) return null
+  if (width === 0 || height === 0) return null;
 
-  return { width, height }
+  return { width, height };
 }
 
 /**
  * 检测 ImageMagick 是否可用
  */
-let magickAvailable: boolean | null = null
+let magickAvailable: boolean | null = null;
 
 async function checkMagickAvailable(): Promise<boolean> {
-  if (magickAvailable !== null) return magickAvailable
+  if (magickAvailable !== null) return magickAvailable;
 
   try {
-    await execAsync('magick -version', { timeout: 3000 })
-    magickAvailable = true
+    await execAsync('magick -version', { timeout: 3000 });
+    magickAvailable = true;
   } catch {
     try {
-      await execAsync('convert -version', { timeout: 3000 })
-      magickAvailable = true
+      await execAsync('convert -version', { timeout: 3000 });
+      magickAvailable = true;
     } catch {
-      magickAvailable = false
+      magickAvailable = false;
     }
   }
 
-  return magickAvailable
+  return magickAvailable;
 }
 
 /**
@@ -134,10 +134,10 @@ async function checkMagickAvailable(): Promise<boolean> {
  */
 async function getMagickCommand(): Promise<string> {
   try {
-    await execAsync('magick -version', { timeout: 2000 })
-    return 'magick'
+    await execAsync('magick -version', { timeout: 2000 });
+    return 'magick';
   } catch {
-    return 'convert'
+    return 'convert';
   }
 }
 
@@ -145,7 +145,7 @@ async function getMagickCommand(): Promise<string> {
  * 计算 base64 编码大小
  */
 function base64Size(rawSize: number): number {
-  return Math.ceil((rawSize * 4) / 3)
+  return Math.ceil((rawSize * 4) / 3);
 }
 
 /**
@@ -153,12 +153,12 @@ function base64Size(rawSize: number): number {
  */
 function formatFileSize(bytes: number): string {
   if (bytes >= 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
   if (bytes >= 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1024).toFixed(1)} KB`;
   }
-  return `${bytes} B`
+  return `${bytes} B`;
 }
 
 /**
@@ -182,19 +182,21 @@ export async function maybeResizeAndDownsampleImageBuffer(
   ext: string
 ): Promise<ResizeResult> {
   if (imageBuffer.length === 0) {
-    throw new ImageResizeError('Image file is empty (0 bytes)')
+    throw new ImageResizeError('Image file is empty (0 bytes)');
   }
 
-  const mediaType = ext || 'png'
-  const normalizedMediaType = mediaType === 'jpg' ? 'jpeg' : mediaType
+  const mediaType = ext || 'png';
+  const normalizedMediaType = mediaType === 'jpg' ? 'jpeg' : mediaType;
 
-  const pngDims = readPNGDimensions(imageBuffer)
-  const width = pngDims?.width
-  const height = pngDims?.height
+  const pngDims = readPNGDimensions(imageBuffer);
+  const width = pngDims?.width;
+  const height = pngDims?.height;
 
-  if (originalSize <= IMAGE_TARGET_RAW_SIZE &&
-      (!width || width <= IMAGE_MAX_WIDTH) &&
-      (!height || height <= IMAGE_MAX_HEIGHT)) {
+  if (
+    originalSize <= IMAGE_TARGET_RAW_SIZE &&
+    (!width || width <= IMAGE_MAX_WIDTH) &&
+    (!height || height <= IMAGE_MAX_HEIGHT)
+  ) {
     return {
       buffer: imageBuffer,
       mediaType: normalizedMediaType,
@@ -204,26 +206,33 @@ export async function maybeResizeAndDownsampleImageBuffer(
         displayWidth: width,
         displayHeight: height,
       },
-    }
+    };
   }
 
   // Check if ImageMagick is available for actual resizing
-  const hasMagick = await checkMagickAvailable()
+  const hasMagick = await checkMagickAvailable();
 
   if (hasMagick) {
     try {
-      return await resizeWithMagick(imageBuffer, originalSize, normalizedMediaType, width, height)
+      return await resizeWithMagick(
+        imageBuffer,
+        originalSize,
+        normalizedMediaType,
+        width,
+        height
+      );
     } catch {
       // Fall through to size validation
     }
   }
 
   // Check base64 size: if within API limit, allow through uncompressed
-  const b64Size = base64Size(originalSize)
+  const b64Size = base64Size(originalSize);
 
   const overDim =
-    width !== undefined && height !== undefined &&
-    (width > IMAGE_MAX_WIDTH || height > IMAGE_MAX_HEIGHT)
+    width !== undefined &&
+    height !== undefined &&
+    (width > IMAGE_MAX_WIDTH || height > IMAGE_MAX_HEIGHT);
 
   if (b64Size <= API_IMAGE_MAX_BASE64_SIZE && !overDim) {
     return {
@@ -235,12 +244,12 @@ export async function maybeResizeAndDownsampleImageBuffer(
         displayWidth: width,
         displayHeight: height,
       },
-    }
+    };
   }
 
   const hint = hasMagick
     ? 'ImageMagick resize failed'
-    : 'Install ImageMagick (magick) for image resizing support'
+    : 'Install ImageMagick (magick) for image resizing support';
 
   throw new ImageResizeError(
     overDim
@@ -248,7 +257,7 @@ export async function maybeResizeAndDownsampleImageBuffer(
           `${hint}.`
       : `Unable to resize image (${formatFileSize(originalSize)} raw, ${formatFileSize(b64Size)} base64). ` +
           `${hint}.`
-  )
+  );
 }
 
 /**
@@ -261,23 +270,23 @@ async function resizeWithMagick(
   originalWidth?: number,
   originalHeight?: number
 ): Promise<ResizeResult> {
-  const cmd = await getMagickCommand()
+  const cmd = await getMagickCommand();
 
   // Calculate target dimensions
-  let targetWidth = originalWidth || IMAGE_MAX_WIDTH
-  let targetHeight = originalHeight || IMAGE_MAX_HEIGHT
+  let targetWidth = originalWidth || IMAGE_MAX_WIDTH;
+  let targetHeight = originalHeight || IMAGE_MAX_HEIGHT;
 
   if (targetWidth > IMAGE_MAX_WIDTH) {
-    targetHeight = Math.round((targetHeight * IMAGE_MAX_WIDTH) / targetWidth)
-    targetWidth = IMAGE_MAX_WIDTH
+    targetHeight = Math.round((targetHeight * IMAGE_MAX_WIDTH) / targetWidth);
+    targetWidth = IMAGE_MAX_WIDTH;
   }
 
   if (targetHeight > IMAGE_MAX_HEIGHT) {
-    targetWidth = Math.round((targetWidth * IMAGE_MAX_HEIGHT) / targetHeight)
-    targetHeight = IMAGE_MAX_HEIGHT
+    targetWidth = Math.round((targetWidth * IMAGE_MAX_HEIGHT) / targetHeight);
+    targetHeight = IMAGE_MAX_HEIGHT;
   }
 
-  const outputFormat = mediaType === 'png' ? 'png' : 'jpeg'
+  const outputFormat = mediaType === 'png' ? 'png' : 'jpeg';
 
   const { stdout } = await execAsync(
     `${cmd} - -resize ${targetWidth}x${targetHeight}> -quality 80 ${outputFormat}:-`,
@@ -286,9 +295,9 @@ async function resizeWithMagick(
       timeout: 10000,
       maxBuffer: 20 * 1024 * 1024,
     } as any
-  )
+  );
 
-  const resizedBuffer = Buffer.from(stdout)
+  const resizedBuffer = Buffer.from(stdout);
 
   return {
     buffer: resizedBuffer,
@@ -299,7 +308,7 @@ async function resizeWithMagick(
       displayWidth: targetWidth,
       displayHeight: targetHeight,
     },
-  }
+  };
 }
 
 /**
@@ -310,23 +319,24 @@ async function resizeWithMagick(
  * @param imageBlock - 图片内容块（需为 base64 类型）
  * @returns 缩放后的图片块
  */
-export async function maybeResizeAndDownsampleImageBlock(
-  imageBlock: { type: string; source: { type: string; data: string; media_type?: string } }
-): Promise<{ block: typeof imageBlock; dimensions?: ImageDimensions }> {
+export async function maybeResizeAndDownsampleImageBlock(imageBlock: {
+  type: string;
+  source: { type: string; data: string; media_type?: string };
+}): Promise<{ block: typeof imageBlock; dimensions?: ImageDimensions }> {
   if (imageBlock.source.type !== 'base64') {
-    return { block: imageBlock }
+    return { block: imageBlock };
   }
 
-  const imageBuffer = Buffer.from(imageBlock.source.data, 'base64')
-  const originalSize = imageBuffer.length
-  const mediaType = imageBlock.source.media_type || 'image/png'
-  const ext = mediaType.split('/')[1] || 'png'
+  const imageBuffer = Buffer.from(imageBlock.source.data, 'base64');
+  const originalSize = imageBuffer.length;
+  const mediaType = imageBlock.source.media_type || 'image/png';
+  const ext = mediaType.split('/')[1] || 'png';
 
   const resized = await maybeResizeAndDownsampleImageBuffer(
     imageBuffer,
     originalSize,
     ext
-  )
+  );
 
   return {
     block: {
@@ -338,7 +348,7 @@ export async function maybeResizeAndDownsampleImageBlock(
       },
     },
     dimensions: resized.dimensions,
-  }
+  };
 }
 
 /**
@@ -357,30 +367,29 @@ export async function compressImageBuffer(
   maxBytes: number = IMAGE_TARGET_RAW_SIZE,
   originalMediaType?: string
 ): Promise<{ base64: string; mediaType: string; originalSize: number }> {
-  const fallbackFormat = originalMediaType?.split('/')[1] || 'jpeg'
-  const normalizedFallback = fallbackFormat === 'jpg' ? 'jpeg' : fallbackFormat
-  const originalSize = imageBuffer.length
+  const fallbackFormat = originalMediaType?.split('/')[1] || 'jpeg';
+  const normalizedFallback = fallbackFormat === 'jpg' ? 'jpeg' : fallbackFormat;
+  const originalSize = imageBuffer.length;
 
   if (originalSize <= maxBytes) {
-    const detected = detectImageFormatFromBuffer(imageBuffer)
+    const detected = detectImageFormatFromBuffer(imageBuffer);
     return {
       base64: imageBuffer.toString('base64'),
       mediaType: detected,
       originalSize,
-    }
+    };
   }
 
-  const hasMagick = await checkMagickAvailable()
+  const hasMagick = await checkMagickAvailable();
 
   if (hasMagick) {
     try {
-      const cmd = await getMagickCommand()
-      const scalingFactors = [1.0, 0.75, 0.5, 0.25]
+      const cmd = await getMagickCommand();
+      const scalingFactors = [1.0, 0.75, 0.5, 0.25];
 
       for (const factor of scalingFactors) {
-        const resizeArg = factor < 1.0
-          ? `-resize ${Math.round(factor * 100)}%`
-          : ''
+        const resizeArg =
+          factor < 1.0 ? `-resize ${Math.round(factor * 100)}%` : '';
 
         const { stdout } = await execAsync(
           `${cmd} - ${resizeArg} -quality 80 jpeg:-`,
@@ -389,15 +398,15 @@ export async function compressImageBuffer(
             timeout: 15000,
             maxBuffer: 20 * 1024 * 1024,
           } as any
-        )
+        );
 
-        const compressed = Buffer.from(stdout)
+        const compressed = Buffer.from(stdout);
         if (compressed.length <= maxBytes) {
           return {
             base64: compressed.toString('base64'),
             mediaType: 'image/jpeg',
             originalSize,
-          }
+          };
         }
       }
 
@@ -408,37 +417,37 @@ export async function compressImageBuffer(
           timeout: 15000,
           maxBuffer: 20 * 1024 * 1024,
         } as any
-      )
+      );
 
-      const compressed = Buffer.from(stdout)
+      const compressed = Buffer.from(stdout);
       return {
         base64: compressed.toString('base64'),
         mediaType: 'image/jpeg',
         originalSize,
-      }
+      };
     } catch {
       // Fall through
     }
   }
 
   // If image is within API limit, allow through uncompressed
-  const b64Size = base64Size(originalSize)
+  const b64Size = base64Size(originalSize);
   if (b64Size <= API_IMAGE_MAX_BASE64_SIZE) {
-    const detected = detectImageFormatFromBuffer(imageBuffer)
+    const detected = detectImageFormatFromBuffer(imageBuffer);
     return {
       base64: imageBuffer.toString('base64'),
       mediaType: detected,
       originalSize,
-    }
+    };
   }
 
   const hint = hasMagick
     ? 'ImageMagick compression failed'
-    : 'Install ImageMagick (magick) for image compression support'
+    : 'Install ImageMagick (magick) for image compression support';
 
   throw new ImageResizeError(
     `Unable to compress image (${formatFileSize(originalSize)}) to fit within ${formatFileSize(maxBytes)}. ${hint}.`
-  )
+  );
 }
 
 /**
@@ -456,8 +465,8 @@ export async function compressImageBufferWithTokenLimit(
   maxTokens: number,
   originalMediaType?: string
 ): Promise<{ base64: string; mediaType: string; originalSize: number }> {
-  const maxBase64Chars = Math.floor(maxTokens / 0.125)
-  const maxBytes = Math.floor(maxBase64Chars * 0.75)
+  const maxBase64Chars = Math.floor(maxTokens / 0.125);
+  const maxBytes = Math.floor(maxBase64Chars * 0.75);
 
-  return compressImageBuffer(imageBuffer, maxBytes, originalMediaType)
+  return compressImageBuffer(imageBuffer, maxBytes, originalMediaType);
 }

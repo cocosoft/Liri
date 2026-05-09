@@ -1,7 +1,12 @@
 /**
  * 记忆访问级别
  */
-export type MemoryAccessLevel = 'public' | 'team' | 'project' | 'private' | 'protected';
+export type MemoryAccessLevel =
+  | 'public'
+  | 'team'
+  | 'project'
+  | 'private'
+  | 'protected';
 
 /**
  * 记忆元数据

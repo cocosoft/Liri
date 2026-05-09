@@ -7,7 +7,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '@modules/utils/log';
 import { PluginAgentDefinition } from '@modules/services/agent/types';
-import { parseAgentFromMarkdown, parseAgentsFromJson } from '@modules/services/agent/parseAgent';
+import {
+  parseAgentFromMarkdown,
+  parseAgentsFromJson,
+} from '@modules/services/agent/parseAgent';
 import { pluginLoader } from '@modules/plugins/PluginLoader';
 import type { LoadedPlugin } from '@modules/types/plugin';
 
@@ -54,31 +57,36 @@ async function getInstalledPlugins(): Promise<LoadedPlugin[]> {
 /**
  * 从单个插件加载Agent定义
  */
-async function loadAgentsFromPlugin(plugin: LoadedPlugin): Promise<PluginAgentDefinition[]> {
+async function loadAgentsFromPlugin(
+  plugin: LoadedPlugin
+): Promise<PluginAgentDefinition[]> {
   const agents: PluginAgentDefinition[] = [];
 
   try {
     // 检查插件的agentsPath和agentsPaths
     const agentPaths = [];
-    
+
     if (plugin.agentsPath) {
       agentPaths.push(plugin.agentsPath);
     }
-    
+
     if (plugin.agentsPaths) {
       agentPaths.push(...plugin.agentsPaths);
     }
 
     // 检查默认路径
     const defaultAgentPath = path.join(plugin.path, 'agents');
-    if (fs.existsSync(defaultAgentPath) && fs.statSync(defaultAgentPath).isDirectory()) {
+    if (
+      fs.existsSync(defaultAgentPath) &&
+      fs.statSync(defaultAgentPath).isDirectory()
+    ) {
       agentPaths.push(defaultAgentPath);
     }
 
     // 从每个路径加载Agent
     for (const agentPath of agentPaths) {
-      const absolutePath = path.isAbsolute(agentPath) 
-        ? agentPath 
+      const absolutePath = path.isAbsolute(agentPath)
+        ? agentPath
         : path.join(plugin.path, agentPath);
 
       if (fs.existsSync(absolutePath)) {
@@ -96,7 +104,10 @@ async function loadAgentsFromPlugin(plugin: LoadedPlugin): Promise<PluginAgentDe
 
     return agents;
   } catch (error) {
-    logger.error(`Failed to load agents from plugin ${plugin.name}:`, error as Error);
+    logger.error(
+      `Failed to load agents from plugin ${plugin.name}:`,
+      error as Error
+    );
     return [];
   }
 }
@@ -104,15 +115,18 @@ async function loadAgentsFromPlugin(plugin: LoadedPlugin): Promise<PluginAgentDe
 /**
  * 从目录加载Agent定义
  */
-async function loadAgentsFromDirectory(directory: string, plugin: LoadedPlugin): Promise<PluginAgentDefinition[]> {
+async function loadAgentsFromDirectory(
+  directory: string,
+  plugin: LoadedPlugin
+): Promise<PluginAgentDefinition[]> {
   const agents: PluginAgentDefinition[] = [];
 
   try {
     const files = fs.readdirSync(directory);
-    
+
     for (const file of files) {
       const filePath = path.join(directory, file);
-      
+
       if (fs.statSync(filePath).isFile()) {
         if (file.endsWith('.md')) {
           // 从Markdown文件加载
@@ -130,7 +144,10 @@ async function loadAgentsFromDirectory(directory: string, plugin: LoadedPlugin):
 
     return agents;
   } catch (error) {
-    logger.error(`Failed to load agents from directory ${directory}:`, error as Error);
+    logger.error(
+      `Failed to load agents from directory ${directory}:`,
+      error as Error
+    );
     return [];
   }
 }
@@ -138,10 +155,13 @@ async function loadAgentsFromDirectory(directory: string, plugin: LoadedPlugin):
 /**
  * 从Markdown文件加载Agent定义
  */
-async function loadAgentFromMarkdownFile(filePath: string, plugin: LoadedPlugin): Promise<PluginAgentDefinition | null> {
+async function loadAgentFromMarkdownFile(
+  filePath: string,
+  plugin: LoadedPlugin
+): Promise<PluginAgentDefinition | null> {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
-    
+
     // 解析frontmatter
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
     if (!frontmatterMatch) {
@@ -169,7 +189,7 @@ async function loadAgentFromMarkdownFile(filePath: string, plugin: LoadedPlugin)
       const pluginAgent: PluginAgentDefinition = {
         ...agent,
         source: 'plugin',
-        plugin: plugin.name
+        plugin: plugin.name,
       };
 
       return pluginAgent;
@@ -177,7 +197,10 @@ async function loadAgentFromMarkdownFile(filePath: string, plugin: LoadedPlugin)
 
     return null;
   } catch (error) {
-    logger.error(`Failed to load agent from markdown file ${filePath}:`, error as Error);
+    logger.error(
+      `Failed to load agent from markdown file ${filePath}:`,
+      error as Error
+    );
     return null;
   }
 }
@@ -185,7 +208,10 @@ async function loadAgentFromMarkdownFile(filePath: string, plugin: LoadedPlugin)
 /**
  * 从JSON文件加载Agent定义
  */
-function loadAgentsFromJson(filePath: string, plugin: LoadedPlugin): PluginAgentDefinition[] {
+function loadAgentsFromJson(
+  filePath: string,
+  plugin: LoadedPlugin
+): PluginAgentDefinition[] {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     const data = JSON.parse(content);
@@ -193,13 +219,16 @@ function loadAgentsFromJson(filePath: string, plugin: LoadedPlugin): PluginAgent
     const agents = parseAgentsFromJson(data, 'plugin' as any);
 
     // 转换为PluginAgentDefinition
-    return agents.map(agent => ({
+    return agents.map((agent) => ({
       ...agent,
       source: 'plugin',
-      plugin: plugin.name
+      plugin: plugin.name,
     }));
   } catch (error) {
-    logger.error(`Failed to load agents from json file ${filePath}:`, error as Error);
+    logger.error(
+      `Failed to load agents from json file ${filePath}:`,
+      error as Error
+    );
     return [];
   }
 }

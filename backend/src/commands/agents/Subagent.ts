@@ -11,7 +11,14 @@ import type { CommandContext, CommandResult } from '@modules/commands/types';
 /**
  * Agent 源类型
  */
-type AgentSource = 'built-in' | 'plugin' | 'userSettings' | 'projectSettings' | 'policySettings' | 'flagSettings' | 'localSettings';
+type AgentSource =
+  | 'built-in'
+  | 'plugin'
+  | 'userSettings'
+  | 'projectSettings'
+  | 'policySettings'
+  | 'flagSettings'
+  | 'localSettings';
 
 /**
  * Agent 源分组
@@ -114,13 +121,17 @@ const BUILT_IN_AGENTS: AgentInfo[] = [
 /**
  * 解析标志参数
  */
-function parseFlags(args: string): { showJson: boolean; subcommand: string; rest: string[] } {
+function parseFlags(args: string): {
+  showJson: boolean;
+  subcommand: string;
+  rest: string[];
+} {
   const trimmed = args.trim();
   const showJson = /(^|\s)--json(\s|$)/.test(trimmed);
   const cleaned = trimmed.replace(/--json\s*/g, '').trim();
   const parts = cleaned.split(/\s+/);
   const subcommand = parts[0]?.toLowerCase() || '';
-  const rest = parts.slice(1).filter(p => p.length > 0);
+  const rest = parts.slice(1).filter((p) => p.length > 0);
 
   return { showJson, subcommand, rest };
 }
@@ -187,7 +198,10 @@ function getAgentsDirs(): { source: AgentSource; dir: string }[] {
 /**
  * 解析 Markdown Agent 文件
  */
-async function parseAgentMarkdown(filePath: string, source: AgentSource): Promise<AgentInfo | null> {
+async function parseAgentMarkdown(
+  filePath: string,
+  source: AgentSource
+): Promise<AgentInfo | null> {
   try {
     const content = await readFile(filePath, 'utf-8');
     const fileName = basename(filePath, '.md');
@@ -203,7 +217,10 @@ async function parseAgentMarkdown(filePath: string, source: AgentSource): Promis
       const colonIdx = line.indexOf(':');
       if (colonIdx > 0) {
         const key = line.slice(0, colonIdx).trim();
-        const value = line.slice(colonIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+        const value = line
+          .slice(colonIdx + 1)
+          .trim()
+          .replace(/^['"]|['"]$/g, '');
         frontmatter[key] = value;
       }
     }
@@ -217,7 +234,9 @@ async function parseAgentMarkdown(filePath: string, source: AgentSource): Promis
       agentType,
       whenToUse: whenToUse.replace(/\\n/g, '\n'),
       source,
-      tools: frontmatter['tools'] ? frontmatter['tools'].split(',').map(t => t.trim()) : undefined,
+      tools: frontmatter['tools']
+        ? frontmatter['tools'].split(',').map((t) => t.trim())
+        : undefined,
       model: frontmatter['model'],
       memory: frontmatter['memory'],
       color: frontmatter['color'],
@@ -240,7 +259,7 @@ async function loadAllAgents(): Promise<AgentInfo[]> {
     try {
       if (!existsSync(dir)) continue;
       const files = await readdir(dir);
-      const mdFiles = files.filter(f => f.endsWith('.md'));
+      const mdFiles = files.filter((f) => f.endsWith('.md'));
 
       for (const file of mdFiles) {
         const agent = await parseAgentMarkdown(join(dir, file), source);
@@ -274,7 +293,9 @@ function getActiveAgents(allAgents: AgentInfo[]): AgentInfo[] {
 /**
  * 按源分组 Agent
  */
-function groupAgentsBySource(agents: AgentInfo[]): Map<AgentSource, AgentInfo[]> {
+function groupAgentsBySource(
+  agents: AgentInfo[]
+): Map<AgentSource, AgentInfo[]> {
   const groups = new Map<AgentSource, AgentInfo[]>();
 
   for (const group of AGENT_SOURCE_GROUPS) {
@@ -311,7 +332,9 @@ function formatAgentList(agents: AgentInfo[]): string[] {
       const modelInfo = agent.model ? ` · ${agent.model}` : '';
       const memoryInfo = agent.memory ? ` · ${agent.memory} memory` : '';
       const sourceInfo = agent.isBuiltIn ? '' : ` (${SOURCE_LABELS[source]})`;
-      lines.push(`    ${agent.agentType}${modelInfo}${memoryInfo}${sourceInfo}`);
+      lines.push(
+        `    ${agent.agentType}${modelInfo}${memoryInfo}${sourceInfo}`
+      );
       totalActive++;
     }
     lines.push('');
@@ -382,14 +405,18 @@ function agentToJson(agent: AgentInfo): Record<string, unknown> {
     model: agent.model || null,
     memory: agent.memory || null,
     filename: agent.filename || null,
-    path: agent.isBuiltIn ? null : (agent.baseDir || null),
+    path: agent.isBuiltIn ? null : agent.baseDir || null,
   };
 }
 
 /**
  * 创建 Agent 文件
  */
-async function createAgentFile(agentType: string, description: string, tools?: string): Promise<string> {
+async function createAgentFile(
+  agentType: string,
+  description: string,
+  tools?: string
+): Promise<string> {
   const cwd = process.cwd();
   const agentsDir = join(cwd, '.claude', 'agents');
 
@@ -405,7 +432,10 @@ async function createAgentFile(agentType: string, description: string, tools?: s
   }
 
   const toolsList = tools
-    ? tools.split(',').map(t => t.trim()).join(', ')
+    ? tools
+        .split(',')
+        .map((t) => t.trim())
+        .join(', ')
     : '';
 
   const content = `---
@@ -438,7 +468,7 @@ async function deleteAgentFile(agentType: string): Promise<string> {
     }
   }
 
-  const isBuiltIn = BUILT_IN_AGENTS.some(a => a.agentType === agentType);
+  const isBuiltIn = BUILT_IN_AGENTS.some((a) => a.agentType === agentType);
   if (isBuiltIn) {
     throw new Error(`'${agentType}' 是内置 Agent，无法删除`);
   }
@@ -449,9 +479,13 @@ async function deleteAgentFile(agentType: string): Promise<string> {
 /**
  * 从参数中提取 tools 标志
  */
-function extractTools(parts: string[]): { description: string; tools: string | undefined } {
+function extractTools(parts: string[]): {
+  description: string;
+  tools: string | undefined;
+} {
   const toolFlagIdx = parts.indexOf('--tools');
-  const tools = toolFlagIdx > 0 ? parts.slice(toolFlagIdx + 1).join(' ') : undefined;
+  const tools =
+    toolFlagIdx > 0 ? parts.slice(toolFlagIdx + 1).join(' ') : undefined;
   const descEndIdx = toolFlagIdx > 0 ? toolFlagIdx : parts.length;
   const description = parts.slice(0, descEndIdx).join(' ');
 
@@ -466,7 +500,10 @@ async function handleList(showJson: boolean): Promise<CommandResult> {
 
   if (showJson) {
     const activeAgents = getActiveAgents(allAgents);
-    return { success: true, message: JSON.stringify(activeAgents.map(agentToJson), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(activeAgents.map(agentToJson), null, 2),
+    };
   }
 
   return { success: true, message: formatAgentList(allAgents).join('\n') };
@@ -475,28 +512,38 @@ async function handleList(showJson: boolean): Promise<CommandResult> {
 /**
  * 处理 info 子命令
  */
-async function handleInfo(agentName: string, showJson: boolean): Promise<CommandResult> {
+async function handleInfo(
+  agentName: string,
+  showJson: boolean
+): Promise<CommandResult> {
   if (!agentName) {
-    return { success: false, message: '请指定 Agent 名称\n用法: /subagent info <名称>' };
+    return {
+      success: false,
+      message: '请指定 Agent 名称\n用法: /subagent info <名称>',
+    };
   }
 
   const allAgents = await loadAllAgents();
-  const agent = allAgents.find(a => a.agentType === agentName);
+  const agent = allAgents.find((a) => a.agentType === agentName);
 
   if (!agent) {
     const suggestions = allAgents
-      .filter(a => a.agentType.includes(agentName))
-      .map(a => `  - ${a.agentType}`);
+      .filter((a) => a.agentType.includes(agentName))
+      .map((a) => `  - ${a.agentType}`);
 
-    const hint = suggestions.length > 0
-      ? `\n\n您是不是想查找：\n${suggestions.join('\n')}`
-      : '';
+    const hint =
+      suggestions.length > 0
+        ? `\n\n您是不是想查找：\n${suggestions.join('\n')}`
+        : '';
 
     return { success: false, message: `Agent '${agentName}' 不存在${hint}` };
   }
 
   if (showJson) {
-    return { success: true, message: JSON.stringify(agentToJson(agent), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(agentToJson(agent), null, 2),
+    };
   }
 
   return { success: true, message: formatAgentDetail(agent).join('\n') };
@@ -509,17 +556,26 @@ async function handleCreate(parts: string[]): Promise<CommandResult> {
   const agentType = parts[0];
 
   if (!agentType || parts.length < 1) {
-    return { success: false, message: '请指定 Agent 名称和描述\n用法: /subagent create <名称> <描述>' };
+    return {
+      success: false,
+      message: '请指定 Agent 名称和描述\n用法: /subagent create <名称> <描述>',
+    };
   }
 
   const { description, tools } = extractTools(parts.slice(1));
 
   if (!description) {
-    return { success: false, message: '请指定 Agent 名称和描述\n用法: /subagent create <名称> <描述>' };
+    return {
+      success: false,
+      message: '请指定 Agent 名称和描述\n用法: /subagent create <名称> <描述>',
+    };
   }
 
   if (!/^[a-zA-Z0-9_-]+$/.test(agentType)) {
-    return { success: false, message: 'Agent 名称只能包含字母、数字、下划线和连字符' };
+    return {
+      success: false,
+      message: 'Agent 名称只能包含字母、数字、下划线和连字符',
+    };
   }
 
   const filePath = await createAgentFile(agentType, description, tools);
@@ -535,7 +591,7 @@ async function handleCreate(parts: string[]): Promise<CommandResult> {
       '编辑该文件完善系统提示词（System Prompt），',
       '然后重启应用即可使用。',
       '',
-      `命令: /subagent create ${agentType} "..."`
+      `命令: /subagent create ${agentType} "..."`,
     ].join('\n'),
   };
 }
@@ -545,7 +601,10 @@ async function handleCreate(parts: string[]): Promise<CommandResult> {
  */
 async function handleDelete(agentName: string): Promise<CommandResult> {
   if (!agentName) {
-    return { success: false, message: '请指定 Agent 名称\n用法: /subagent delete <名称>' };
+    return {
+      success: false,
+      message: '请指定 Agent 名称\n用法: /subagent delete <名称>',
+    };
   }
 
   const filePath = await deleteAgentFile(agentName);
@@ -595,7 +654,10 @@ const subagentCommand = {
         // analytics 非关键
       }
 
-      return { success: false, message: `未知子命令: ${subcommand}\n\n使用 /subagent help 查看帮助` };
+      return {
+        success: false,
+        message: `未知子命令: ${subcommand}\n\n使用 /subagent help 查看帮助`,
+      };
     } catch (error) {
       return {
         success: false,

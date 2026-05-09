@@ -38,7 +38,9 @@ export const OAuthCallbackHandler: React.FC<OAuthCallbackHandlerProps> = ({
         <Input
           value={authCode}
           onChange={setAuthCode}
-          onSubmit={() => { if (authCode) onSubmit(authCode); }}
+          onSubmit={() => {
+            if (authCode) onSubmit(authCode);
+          }}
           placeholder="Enter authorization code..."
         />
       </Box>

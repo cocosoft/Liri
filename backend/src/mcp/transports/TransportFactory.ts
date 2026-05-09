@@ -181,13 +181,16 @@ export class TransportFactory {
    * @param urlOrConfig URL或配置对象
    * @returns 传输层实例
    */
-  static createAutoTransport(urlOrConfig: string | MCPServerConfig): MCPTransport {
+  static createAutoTransport(
+    urlOrConfig: string | MCPServerConfig
+  ): MCPTransport {
     if (typeof urlOrConfig === 'string') {
       const type = this.detectTransportType(urlOrConfig);
       return this.createTransport({ type, url: urlOrConfig });
     }
 
-    const type = (urlOrConfig.type || this.detectTransportType(urlOrConfig.url || '')) as
+    const type = (urlOrConfig.type ||
+      this.detectTransportType(urlOrConfig.url || '')) as
       | 'stdio'
       | 'http'
       | 'ws'

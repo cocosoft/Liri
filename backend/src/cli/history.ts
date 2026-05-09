@@ -19,7 +19,10 @@ export class CommandHistory {
   constructor(options?: HistoryOptions) {
     this.options = {
       maxItems: 1000,
-      historyFile: join(process.env.HOME || process.env.USERPROFILE || '', '.pyapp_history'),
+      historyFile: join(
+        process.env.HOME || process.env.USERPROFILE || '',
+        '.pyapp_history'
+      ),
       ...options,
     };
     this.historyFile = this.options.historyFile!;
@@ -33,7 +36,10 @@ export class CommandHistory {
     try {
       if (existsSync(this.historyFile)) {
         const content = readFileSync(this.historyFile, 'utf-8');
-        this.history = content.split('\n').filter(line => line.trim()).slice(-this.options.maxItems!);
+        this.history = content
+          .split('\n')
+          .filter((line) => line.trim())
+          .slice(-this.options.maxItems!);
       }
     } catch {
       this.history = [];
@@ -57,17 +63,17 @@ export class CommandHistory {
    */
   add(command: string): void {
     if (!command.trim()) return;
-    
+
     // 避免重复连续命令
     if (this.history[this.history.length - 1] === command) return;
-    
+
     this.history.push(command);
-    
+
     // 保持历史记录在最大数量以内
     if (this.history.length > this.options.maxItems!) {
       this.history = this.history.slice(-this.options.maxItems!);
     }
-    
+
     this.saveHistory();
   }
 
@@ -97,7 +103,7 @@ export class CommandHistory {
    */
   search(pattern: string): string[] {
     const regex = new RegExp(pattern, 'i');
-    return this.history.filter(command => regex.test(command));
+    return this.history.filter((command) => regex.test(command));
   }
 
   /**
@@ -127,7 +133,7 @@ export class CommandHistory {
    */
   getSuggestions(prefix: string): string[] {
     const unique = this.getUniqueCommands();
-    return unique.filter(cmd => cmd.startsWith(prefix)).slice(0, 10);
+    return unique.filter((cmd) => cmd.startsWith(prefix)).slice(0, 10);
   }
 }
 

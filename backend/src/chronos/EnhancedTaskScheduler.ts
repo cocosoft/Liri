@@ -20,11 +20,11 @@ import {
  * 简单的cron解析和计算函数
  */
 function parseCronExpression(cron: string): number[] | null {
-  const parts = cron.split(' ').map(p => p.trim());
+  const parts = cron.split(' ').map((p) => p.trim());
   if (parts.length !== 5) {
     return null;
   }
-  return parts.map(p => p === '*' ? 0 : parseInt(p, 10));
+  return parts.map((p) => (p === '*' ? 0 : parseInt(p, 10)));
 }
 
 function computeNextCronRun(fields: number[], from: Date): Date | null {
@@ -61,13 +61,26 @@ export interface EnhancedSchedulerOptions {
     error?: string;
   }>;
   /** 任务状态变更回调 */
-  onTaskStatusChange?: (task: EnhancedCronTask, status: TaskExecutionStatus) => void;
+  onTaskStatusChange?: (
+    task: EnhancedCronTask,
+    status: TaskExecutionStatus
+  ) => void;
   /** 任务依赖失败回调 */
-  onDependencyFailure?: (task: EnhancedCronTask, failedDependencies: string[]) => void;
+  onDependencyFailure?: (
+    task: EnhancedCronTask,
+    failedDependencies: string[]
+  ) => void;
   /** 任务重试回调 */
-  onTaskRetry?: (task: EnhancedCronTask, retryCount: number, nextRetryAt: number) => void;
+  onTaskRetry?: (
+    task: EnhancedCronTask,
+    retryCount: number,
+    nextRetryAt: number
+  ) => void;
   /** 任务执行完成回调 */
-  onTaskComplete?: (task: EnhancedCronTask, status: 'success' | 'failed') => void;
+  onTaskComplete?: (
+    task: EnhancedCronTask,
+    status: 'success' | 'failed'
+  ) => void;
 }
 
 /**
@@ -153,7 +166,10 @@ export class EnhancedTaskScheduler {
   /**
    * 处理任务
    */
-  private async processTask(task: EnhancedCronTask, now: number): Promise<void> {
+  private async processTask(
+    task: EnhancedCronTask,
+    now: number
+  ): Promise<void> {
     // 检查是否正在执行
     if (this.taskExecutionPromises.has(task.id)) {
       return;
@@ -168,7 +184,10 @@ export class EnhancedTaskScheduler {
     }
 
     // 检查是否到了执行时间
-    const nextRun = nextCronRunMs(task.cron, task.lastFiredAt || task.createdAt);
+    const nextRun = nextCronRunMs(
+      task.cron,
+      task.lastFiredAt || task.createdAt
+    );
     if (nextRun === null) {
       return;
     }
@@ -190,26 +209,29 @@ export class EnhancedTaskScheduler {
    */
   private handleDependencyFailure(
     task: EnhancedCronTask,
-    dependencyCheck: ReturnType<typeof checkTaskDependencies>,
+    dependencyCheck: ReturnType<typeof checkTaskDependencies>
   ): void {
     if (this.options.onDependencyFailure) {
-      this.options.onDependencyFailure(task, dependencyCheck.failedDependencies);
+      this.options.onDependencyFailure(
+        task,
+        dependencyCheck.failedDependencies
+      );
     }
 
     // 根据依赖失败策略处理
     const strategy = task.dependencyFailureStrategy || 'fail';
-    
+
     if (strategy === 'fail') {
       // 标记任务为失败
       const updatedTask = recordTaskExecution(task, 'failed', {
         error: `Dependency failure: ${dependencyCheck.failedDependencies.join(', ')}`,
       });
       this.tasks.set(task.id, updatedTask);
-      
+
       if (this.options.onTaskStatusChange) {
         this.options.onTaskStatusChange(updatedTask, 'failed');
       }
-      
+
       if (this.options.onTaskComplete) {
         this.options.onTaskComplete(updatedTask, 'failed');
       }
@@ -223,18 +245,33 @@ export class EnhancedTaskScheduler {
     // 标记为执行中
     const runningTask = recordTaskExecution(task, 'running');
     this.tasks.set(task.id, runningTask);
-    
+
     if (this.options.onTaskStatusChange) {
       this.options.onTaskStatusChange(runningTask, 'running');
     }
 
     const startTime = Date.now();
-    let executionResult: { success: boolean; stdout?: string; stderr?: string; error?: string };
+    let executionResult: {
+      success: boolean;
+      stdout?: string;
+      stderr?: string;
+      error?: string;
+    };
 
     try {
       // 执行任务
-      this.taskExecutionPromises.set(task.id, this.executeTask(runningTask) as unknown as Promise<void>);
-      executionResult = await (this.taskExecutionPromises.get(task.id) as unknown as Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>);
+      this.taskExecutionPromises.set(
+        task.id,
+        this.executeTask(runningTask) as unknown as Promise<void>
+      );
+      executionResult = await (this.taskExecutionPromises.get(
+        task.id
+      ) as unknown as Promise<{
+        success: boolean;
+        stdout?: string;
+        stderr?: string;
+        error?: string;
+      }>);
     } catch (error) {
       executionResult = {
         success: false,
@@ -255,7 +292,7 @@ export class EnhancedTaskScheduler {
           duration,
           stdout: executionResult.stdout,
           stderr: executionResult.stderr,
-        },
+        }
       );
 
       // 更新上次执行时间
@@ -265,50 +302,46 @@ export class EnhancedTaskScheduler {
       };
 
       this.tasks.set(task.id, updatedTask);
-      
+
       if (this.options.onTaskStatusChange) {
         this.options.onTaskStatusChange(updatedTask, 'success');
       }
-      
+
       if (this.options.onTaskComplete) {
         this.options.onTaskComplete(updatedTask, 'success');
       }
     } else {
       // 执行失败
-      const failedTask = recordTaskExecution(
-        runningTask,
-        'failed',
-        {
-          duration,
-          stdout: executionResult.stdout,
-          stderr: executionResult.stderr,
-          error: executionResult.error,
-        },
-      );
+      const failedTask = recordTaskExecution(runningTask, 'failed', {
+        duration,
+        stdout: executionResult.stdout,
+        stderr: executionResult.stderr,
+        error: executionResult.error,
+      });
 
       // 检查是否可以重试
       if (canRetryTask(failedTask)) {
         const retryTask = incrementRetryCount(failedTask);
         this.tasks.set(task.id, retryTask);
-        
+
         if (this.options.onTaskStatusChange) {
           this.options.onTaskStatusChange(retryTask, 'retrying');
         }
-        
+
         if (this.options.onTaskRetry) {
           this.options.onTaskRetry(
             retryTask,
             retryTask.retryCount || 0,
-            retryTask.nextRetryAt || 0,
+            retryTask.nextRetryAt || 0
           );
         }
       } else {
         this.tasks.set(task.id, failedTask);
-        
+
         if (this.options.onTaskStatusChange) {
           this.options.onTaskStatusChange(failedTask, 'failed');
         }
-        
+
         if (this.options.onTaskComplete) {
           this.options.onTaskComplete(failedTask, 'failed');
         }
@@ -340,7 +373,7 @@ export class EnhancedTaskScheduler {
    */
   canExecuteTask(task: EnhancedCronTask): boolean {
     const now = Date.now();
-    
+
     // 检查依赖
     const dependencyCheck = checkTaskDependencies(task, this.tasks);
     if (!dependencyCheck.satisfied) {
@@ -348,7 +381,10 @@ export class EnhancedTaskScheduler {
     }
 
     // 检查执行时间
-    const nextRun = nextCronRunMs(task.cron, task.lastFiredAt || task.createdAt);
+    const nextRun = nextCronRunMs(
+      task.cron,
+      task.lastFiredAt || task.createdAt
+    );
     if (nextRun === null) {
       return false;
     }
@@ -386,7 +422,7 @@ export class EnhancedTaskScheduler {
 
     const cancelledTask = recordTaskExecution(task, 'cancelled');
     this.tasks.set(taskId, cancelledTask);
-    
+
     if (this.options.onTaskStatusChange) {
       this.options.onTaskStatusChange(cancelledTask, 'cancelled');
     }
@@ -399,7 +435,7 @@ export class EnhancedTaskScheduler {
  * 创建增强的任务调度器
  */
 export function createEnhancedTaskScheduler(
-  options: EnhancedSchedulerOptions,
+  options: EnhancedSchedulerOptions
 ): EnhancedTaskScheduler {
   return new EnhancedTaskScheduler(options);
 }

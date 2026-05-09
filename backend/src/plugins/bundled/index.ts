@@ -11,12 +11,7 @@ export * from './StatusPlugin.js';
 /**
  * 内置插件列表
  */
-export const bundledPlugins = [
-  'welcome',
-  'help',
-  'settings',
-  'status',
-];
+export const bundledPlugins = ['welcome', 'help', 'settings', 'status'];
 
 /**
  * 获取所有内置插件名称

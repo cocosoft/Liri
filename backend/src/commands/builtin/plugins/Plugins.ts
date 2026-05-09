@@ -25,16 +25,27 @@ const pluginsCommand = {
   /**
    * 执行 plugins 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     try {
       const cleanArgs = args.trim().toLowerCase();
       const useJson = cleanArgs.includes('--json');
 
-      if (cleanArgs === 'help' || cleanArgs === '--help' || cleanArgs === '-h') {
+      if (
+        cleanArgs === 'help' ||
+        cleanArgs === '--help' ||
+        cleanArgs === '-h'
+      ) {
         return this.showHelp();
       }
 
-      if (cleanArgs === 'status' || cleanArgs === '--status' || cleanArgs === '-s') {
+      if (
+        cleanArgs === 'status' ||
+        cleanArgs === '--status' ||
+        cleanArgs === '-s'
+      ) {
         return await this.showStatus(useJson);
       }
 
@@ -110,7 +121,11 @@ const pluginsCommand = {
 
     try {
       const { logEvent } = await import('@modules/services/analytics/index.js');
-      logEvent('tengu_plugins_status', { total: data.total, enabled: data.enabledCount, failed: data.errorCount });
+      logEvent('tengu_plugins_status', {
+        total: data.total,
+        enabled: data.enabledCount,
+        failed: data.errorCount,
+      });
     } catch {
       // analytics 非关键
     }
@@ -120,19 +135,23 @@ const pluginsCommand = {
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({
-          totalPlugins: total,
-          enabled: enabledCount,
-          disabled: disabledCount,
-          failed: errorCount,
-          plugins: data.plugins.map(p => ({
-            name: p.name,
-            version: p.version,
-            state: p.state,
-            path: p.path,
-            dependencies: p.dependencies,
-          })),
-        }, null, 2),
+        message: JSON.stringify(
+          {
+            totalPlugins: total,
+            enabled: enabledCount,
+            disabled: disabledCount,
+            failed: errorCount,
+            plugins: data.plugins.map((p) => ({
+              name: p.name,
+              version: p.version,
+              state: p.state,
+              path: p.path,
+              dependencies: p.dependencies,
+            })),
+          },
+          null,
+          2
+        ),
       };
     }
 
@@ -145,8 +164,9 @@ const pluginsCommand = {
       `  异常:     ${errorCount}`,
       '',
       '插件列表:',
-      ...data.plugins.map(p =>
-        `    ${this.getStateIcon(p.state)} ${p.name} v${p.version} - ${this.getStateText(p.state)}`
+      ...data.plugins.map(
+        (p) =>
+          `    ${this.getStateIcon(p.state)} ${p.name} v${p.version} - ${this.getStateText(p.state)}`
       ),
     ];
 
@@ -209,20 +229,24 @@ const pluginsCommand = {
       // analytics 非关键
     }
 
-    const results = data.plugins.map(p => ({
+    const results = data.plugins.map((p) => ({
       name: p.name,
       state: p.state,
       healthy: p.state === 'ACTIVATED' || p.state === 'LOADED',
       error: p.error || null,
     }));
 
-    const healthy = results.filter(r => r.healthy).length;
-    const failed = results.filter(r => !r.healthy).length;
+    const healthy = results.filter((r) => r.healthy).length;
+    const failed = results.filter((r) => !r.healthy).length;
 
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({ total: results.length, healthy, failed, results }, null, 2),
+        message: JSON.stringify(
+          { total: results.length, healthy, failed, results },
+          null,
+          2
+        ),
       };
     }
 
@@ -274,7 +298,8 @@ const pluginsCommand = {
     } catch {
       // 插件系统未初始化，使用插件管理器作为备选
       try {
-        const { pluginManager } = await import('@modules/plugins/PluginManager.js');
+        const { pluginManager } =
+          await import('@modules/plugins/PluginManager.js');
         const allPlugins = pluginManager.getAllPlugins() || [];
 
         for (const plugin of allPlugins) {
@@ -295,9 +320,13 @@ const pluginsCommand = {
     return {
       plugins,
       total: plugins.length,
-      enabledCount: plugins.filter(p => p.state === 'ACTIVATED' || p.state === 'LOADED').length,
-      disabledCount: plugins.filter(p => p.state === 'DEACTIVATED' || p.state === 'UNLOADED').length,
-      errorCount: plugins.filter(p => p.state === 'FAILED').length,
+      enabledCount: plugins.filter(
+        (p) => p.state === 'ACTIVATED' || p.state === 'LOADED'
+      ).length,
+      disabledCount: plugins.filter(
+        (p) => p.state === 'DEACTIVATED' || p.state === 'UNLOADED'
+      ).length,
+      errorCount: plugins.filter((p) => p.state === 'FAILED').length,
     };
   },
 
@@ -306,12 +335,18 @@ const pluginsCommand = {
    */
   getStateIcon(state: string): string {
     switch (state) {
-      case 'ACTIVATED': return '●';
-      case 'LOADED': return '◉';
-      case 'DEACTIVATED': return '○';
-      case 'FAILED': return '✕';
-      case 'UNLOADED': return '◎';
-      default: return '?';
+      case 'ACTIVATED':
+        return '●';
+      case 'LOADED':
+        return '◉';
+      case 'DEACTIVATED':
+        return '○';
+      case 'FAILED':
+        return '✕';
+      case 'UNLOADED':
+        return '◎';
+      default:
+        return '?';
     }
   },
 
@@ -320,12 +355,18 @@ const pluginsCommand = {
    */
   getStateText(state: string): string {
     switch (state) {
-      case 'ACTIVATED': return '已激活';
-      case 'LOADED': return '已加载';
-      case 'DEACTIVATED': return '已停用';
-      case 'FAILED': return '失败';
-      case 'UNLOADED': return '未加载';
-      default: return '未知';
+      case 'ACTIVATED':
+        return '已激活';
+      case 'LOADED':
+        return '已加载';
+      case 'DEACTIVATED':
+        return '已停用';
+      case 'FAILED':
+        return '失败';
+      case 'UNLOADED':
+        return '未加载';
+      default:
+        return '未知';
     }
   },
 };

@@ -5,7 +5,10 @@
 
 import { logger } from '../utils/log.js';
 import { PluginEcosystem, PluginInfo, SkillInfo } from './PluginEcosystem.js';
-import { ModuleDependencyManager, ModuleDefinition } from './ModuleDependencyManager.js';
+import {
+  ModuleDependencyManager,
+  ModuleDefinition,
+} from './ModuleDependencyManager.js';
 
 /**
  * 插件上下文
@@ -41,7 +44,10 @@ export interface PluginContext {
 
   // 工具接口
   utils: {
-    showNotification: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+    showNotification: (
+      message: string,
+      type?: 'info' | 'success' | 'warning' | 'error'
+    ) => void;
     showProgress: (label: string, current: number, total: number) => void;
   };
 }
@@ -253,7 +259,7 @@ export class PluginSDK {
       throw new Error(`Plugin ${pluginId} not found`);
     }
 
-    const skill = plugin.skills?.find(s => s.id === skillId);
+    const skill = plugin.skills?.find((s) => s.id === skillId);
 
     if (!skill) {
       throw new Error(`Skill ${skillId} not found in plugin ${pluginId}`);
@@ -339,7 +345,9 @@ export class PluginSDK {
 
       config: {
         get: <T>(key: string, defaultValue?: T): T => {
-          return (pluginConfig[key] !== undefined ? pluginConfig[key] : defaultValue) as T;
+          return (
+            pluginConfig[key] !== undefined ? pluginConfig[key] : defaultValue
+          ) as T;
         },
         set: <T>(key: string, value: T): void => {
           pluginConfig[key] = value;
@@ -352,7 +360,9 @@ export class PluginSDK {
       events: {
         on: (event: string, callback: (...args: any[]) => void): void => {
           // 实现事件监听
-          logger.debug(`[${plugin.id}] Registered event listener for: ${event}`);
+          logger.debug(
+            `[${plugin.id}] Registered event listener for: ${event}`
+          );
         },
         off: (event: string, callback: (...args: any[]) => void): void => {
           // 实现事件取消监听
@@ -365,7 +375,10 @@ export class PluginSDK {
       },
 
       utils: {
-        showNotification: (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info'): void => {
+        showNotification: (
+          message: string,
+          type: 'info' | 'success' | 'warning' | 'error' = 'info'
+        ): void => {
           logger.info(`[${plugin.id}] Notification (${type}): ${message}`);
         },
         showProgress: (label: string, current: number, total: number): void => {
@@ -389,7 +402,9 @@ export class PluginSDK {
         return JSON.parse(content);
       }
     } catch (error) {
-      logger.debug(`Failed to load config for plugin ${pluginId}:`, { error: String(error) });
+      logger.debug(`Failed to load config for plugin ${pluginId}:`, {
+        error: String(error),
+      });
     }
 
     return {};
@@ -413,7 +428,10 @@ export class PluginSDK {
       const configPath = path.join(this.configPath, `${pluginId}.json`);
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     } catch (error) {
-      logger.error(`Failed to save config for plugin ${pluginId}:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to save config for plugin ${pluginId}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 

@@ -90,13 +90,15 @@ export function createBridgeMessageFromMessage(
 ): BridgeMessage {
   const formatOptions = { ...DEFAULT_FORMAT_OPTIONS, ...options };
 
-  let content = typeof message.content === 'string'
-    ? message.content
-    : JSON.stringify(message.content);
+  let content =
+    typeof message.content === 'string'
+      ? message.content
+      : JSON.stringify(message.content);
 
   if (formatOptions.maxLength && content.length > formatOptions.maxLength) {
     if (formatOptions.truncateContent) {
-      content = content.substring(0, formatOptions.maxLength) + '...[truncated]';
+      content =
+        content.substring(0, formatOptions.maxLength) + '...[truncated]';
     }
   }
 
@@ -105,10 +107,12 @@ export function createBridgeMessageFromMessage(
     type: determineMessageType(message),
     content,
     timestamp: message.timestamp || Date.now(),
-    metadata: formatOptions.includeMetadata ? {
-      role: message.role,
-      ...message.metadata,
-    } : undefined,
+    metadata: formatOptions.includeMetadata
+      ? {
+          role: message.role,
+          ...message.metadata,
+        }
+      : undefined,
   };
 }
 
@@ -226,7 +230,10 @@ export function validateAttachment(
     return { valid: false, error: 'Attachments not allowed' };
   }
 
-  if (filterOptions.maxAttachmentSize && attachment.size > filterOptions.maxAttachmentSize) {
+  if (
+    filterOptions.maxAttachmentSize &&
+    attachment.size > filterOptions.maxAttachmentSize
+  ) {
     return {
       valid: false,
       error: `Attachment size exceeds limit: ${attachment.size} > ${filterOptions.maxAttachmentSize}`,

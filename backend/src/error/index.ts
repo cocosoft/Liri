@@ -3,8 +3,16 @@
  * 统一导出所有错误处理相关功能
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 // 错误类型
 export * from './types';
+
+// 标准错误码
+export { ErrorCodes } from './ErrorCodes';
+export type { ErrorCodeKey, ErrorCodeValue } from './ErrorCodes';
 
 // 错误 ID 追踪系统
 export * from './ErrorIds';
@@ -87,12 +95,12 @@ export * from './AdvancedErrorAnalyzer';
  * 初始化错误处理系统
  */
 export function initializeErrorSystem(): void {
-  console.log('错误处理系统初始化完成');
+  logger.info('错误处理系统初始化完成');
 }
 
 /**
  * 关闭错误处理系统
  */
 export function shutdownErrorSystem(): void {
-  console.log('错误处理系统已关闭');
+  logger.info('错误处理系统已关闭');
 }

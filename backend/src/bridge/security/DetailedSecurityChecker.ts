@@ -55,7 +55,12 @@ const CLASSIFICATIONS: Record<SecurityLevel, SecurityClassification> = {
   },
   [SecurityLevel.CRITICAL]: {
     level: SecurityLevel.CRITICAL,
-    requiredChecks: ['basic_auth', 'rate_limit', 'input_validation', 'audit_log'],
+    requiredChecks: [
+      'basic_auth',
+      'rate_limit',
+      'input_validation',
+      'audit_log',
+    ],
     maxSessionDuration: 1800000,
     allowedOperations: ['read', 'write', 'exec', 'admin'],
   },
@@ -63,9 +68,20 @@ const CLASSIFICATIONS: Record<SecurityLevel, SecurityClassification> = {
 
 export interface IDetailedSecurityChecker {
   classifySecurity(level: SecurityLevel): SecurityClassification;
-  performChecks(sessionId: string, level: SecurityLevel): Promise<SecurityCheckResult>;
-  logAction(sessionId: string, action: string, result: 'allowed' | 'denied' | 'flagged', details: string): void;
-  getSecurityLogs(filter?: { sessionId?: string; since?: number }): SecurityLog[];
+  performChecks(
+    sessionId: string,
+    level: SecurityLevel
+  ): Promise<SecurityCheckResult>;
+  logAction(
+    sessionId: string,
+    action: string,
+    result: 'allowed' | 'denied' | 'flagged',
+    details: string
+  ): void;
+  getSecurityLogs(filter?: {
+    sessionId?: string;
+    since?: number;
+  }): SecurityLog[];
 }
 
 export class DetailedSecurityChecker implements IDetailedSecurityChecker {
@@ -76,7 +92,10 @@ export class DetailedSecurityChecker implements IDetailedSecurityChecker {
     return { ...CLASSIFICATIONS[level] };
   }
 
-  async performChecks(sessionId: string, level: SecurityLevel): Promise<SecurityCheckResult> {
+  async performChecks(
+    sessionId: string,
+    level: SecurityLevel
+  ): Promise<SecurityCheckResult> {
     const classification = CLASSIFICATIONS[level];
     const issues: SecurityIssue[] = [];
 
@@ -95,30 +114,47 @@ export class DetailedSecurityChecker implements IDetailedSecurityChecker {
     const passed = issues.length === 0;
     const recommendations = passed
       ? ['安全检查全部通过']
-      : issues.map(i => `修复 ${i.type}: ${i.message}`);
+      : issues.map((i) => `修复 ${i.type}: ${i.message}`);
 
     return { passed, issues, recommendations, timestamp: Date.now() };
   }
 
-  logAction(sessionId: string, action: string, result: 'allowed' | 'denied' | 'flagged', details: string): void {
+  logAction(
+    sessionId: string,
+    action: string,
+    result: 'allowed' | 'denied' | 'flagged',
+    details: string
+  ): void {
     if (this.logs.length >= this.maxLogSize) {
       this.logs.shift();
     }
-    this.logs.push({ sessionId, action, result, details, timestamp: Date.now() });
+    this.logs.push({
+      sessionId,
+      action,
+      result,
+      details,
+      timestamp: Date.now(),
+    });
   }
 
-  getSecurityLogs(filter?: { sessionId?: string; since?: number }): SecurityLog[] {
+  getSecurityLogs(filter?: {
+    sessionId?: string;
+    since?: number;
+  }): SecurityLog[] {
     let filtered = this.logs;
     if (filter?.sessionId) {
-      filtered = filtered.filter(l => l.sessionId === filter.sessionId);
+      filtered = filtered.filter((l) => l.sessionId === filter.sessionId);
     }
     if (filter?.since) {
-      filtered = filtered.filter(l => l.timestamp >= filter.since!);
+      filtered = filtered.filter((l) => l.timestamp >= filter.since!);
     }
     return filtered;
   }
 
-  private async runCheck(check: string, sessionId: string): Promise<{ passed: boolean; message: string }> {
+  private async runCheck(
+    check: string,
+    sessionId: string
+  ): Promise<{ passed: boolean; message: string }> {
     switch (check) {
       case 'basic_auth':
         return { passed: true, message: '基础认证通过' };

@@ -7,7 +7,10 @@ import { logger } from '../utils/log.js';
 import { EnhancedModuleDependencyManager } from './EnhancedModuleDependencyManager.js';
 import { StartupOptimizer } from './StartupOptimizer.js';
 import { RemoteConfigManager } from './RemoteConfigManager.js';
-import { ModuleDependencyManager, ModuleDefinition } from './ModuleDependencyManager.js';
+import {
+  ModuleDependencyManager,
+  ModuleDefinition,
+} from './ModuleDependencyManager.js';
 
 /**
  * 兼容性测试结果
@@ -65,22 +68,22 @@ export class CompatibilityValidator {
     console.log('=== 开始兼容性验证 ===\n');
 
     // 1. API兼容性验证
-    results.push(...await this.validateAPICompatibility());
+    results.push(...(await this.validateAPICompatibility()));
 
     // 2. 功能兼容性验证
-    results.push(...await this.validateFunctionalCompatibility());
+    results.push(...(await this.validateFunctionalCompatibility()));
 
     // 3. 性能对比验证
-    results.push(...await this.validatePerformance());
+    results.push(...(await this.validatePerformance()));
 
     // 4. 集成兼容性验证
-    results.push(...await this.validateIntegration());
+    results.push(...(await this.validateIntegration()));
 
     // 5. 向后兼容性验证
-    results.push(...await this.validateBackwardCompatibility());
+    results.push(...(await this.validateBackwardCompatibility()));
 
     console.log('\n=== 兼容性验证完成 ===');
-    
+
     return results;
   }
 
@@ -96,7 +99,9 @@ export class CompatibilityValidator {
     const newMethods = this.getObjectMethods(this.newModuleManager);
 
     // 检查缺失的方法
-    const missingMethods = oldMethods.filter(method => !newMethods.includes(method));
+    const missingMethods = oldMethods.filter(
+      (method) => !newMethods.includes(method)
+    );
     if (missingMethods.length === 0) {
       results.push({
         component: 'ModuleDependencyManager API',
@@ -113,7 +118,9 @@ export class CompatibilityValidator {
     }
 
     // 检查新增的方法
-    const newMethodsAdded = newMethods.filter(method => !oldMethods.includes(method));
+    const newMethodsAdded = newMethods.filter(
+      (method) => !oldMethods.includes(method)
+    );
     if (newMethodsAdded.length > 0) {
       results.push({
         component: 'ModuleDependencyManager API',
@@ -129,7 +136,9 @@ export class CompatibilityValidator {
   /**
    * 验证功能兼容性
    */
-  private async validateFunctionalCompatibility(): Promise<CompatibilityResult[]> {
+  private async validateFunctionalCompatibility(): Promise<
+    CompatibilityResult[]
+  > {
     const results: CompatibilityResult[] = [];
     console.log('2. 验证功能兼容性...');
 
@@ -145,12 +154,12 @@ export class CompatibilityValidator {
 
     try {
       // 旧版本注册
-      testModules.forEach(module => {
+      testModules.forEach((module) => {
         this.oldModuleManager.registerModule(module);
       });
 
       // 新版本注册（需要转换接口）
-      testModules.forEach(module => {
+      testModules.forEach((module) => {
         this.newModuleManager.registerModule({
           ...module,
           preload: false,
@@ -168,7 +177,9 @@ export class CompatibilityValidator {
         component: '模块注册功能',
         status: 'fail',
         message: '模块注册功能不兼容',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
 
@@ -195,7 +206,9 @@ export class CompatibilityValidator {
         component: '依赖分析功能',
         status: 'fail',
         message: '依赖分析功能不兼容',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
 
@@ -211,7 +224,7 @@ export class CompatibilityValidator {
 
     // 测试模块加载性能
     const testIterations = 10;
-    
+
     try {
       // 旧版本性能测试
       const oldStartTime = Date.now();
@@ -257,7 +270,9 @@ export class CompatibilityValidator {
         component: '性能对比',
         status: 'fail',
         message: '性能测试失败',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
 
@@ -275,7 +290,7 @@ export class CompatibilityValidator {
     try {
       // 模拟AppCore集成测试
       const integrationTest = await this.testAppCoreIntegration();
-      
+
       if (integrationTest.success) {
         results.push({
           component: 'AppCore集成',
@@ -295,7 +310,9 @@ export class CompatibilityValidator {
         component: 'AppCore集成',
         status: 'fail',
         message: 'AppCore集成测试失败',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
 
@@ -308,7 +325,7 @@ export class CompatibilityValidator {
       });
 
       const value = this.configManager.getConfig<string>('compatibility_test');
-      
+
       if (value === 'test_value') {
         results.push({
           component: '配置管理集成',
@@ -327,7 +344,9 @@ export class CompatibilityValidator {
         component: '配置管理集成',
         status: 'fail',
         message: '配置管理集成异常',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
 
@@ -337,14 +356,16 @@ export class CompatibilityValidator {
   /**
    * 验证向后兼容性
    */
-  private async validateBackwardCompatibility(): Promise<CompatibilityResult[]> {
+  private async validateBackwardCompatibility(): Promise<
+    CompatibilityResult[]
+  > {
     const results: CompatibilityResult[] = [];
     console.log('5. 验证向后兼容性...');
 
     // 测试数据格式兼容性
     try {
       const compatibility = await this.testDataFormatCompatibility();
-      
+
       if (compatibility.success) {
         results.push({
           component: '数据格式兼容性',
@@ -364,14 +385,16 @@ export class CompatibilityValidator {
         component: '数据格式兼容性',
         status: 'fail',
         message: '数据格式兼容性测试失败',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
 
     // 测试错误处理兼容性
     try {
       const errorHandling = await this.testErrorHandlingCompatibility();
-      
+
       if (errorHandling.success) {
         results.push({
           component: '错误处理兼容性',
@@ -391,7 +414,9 @@ export class CompatibilityValidator {
         component: '错误处理兼容性',
         status: 'fail',
         message: '错误处理兼容性测试失败',
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       });
     }
 
@@ -401,7 +426,10 @@ export class CompatibilityValidator {
   /**
    * 模拟AppCore集成测试
    */
-  private async testAppCoreIntegration(): Promise<{ success: boolean; details?: any }> {
+  private async testAppCoreIntegration(): Promise<{
+    success: boolean;
+    details?: any;
+  }> {
     // 模拟AppCore的模块初始化流程
     try {
       // 注册核心模块（模拟AppCore的行为）
@@ -424,18 +452,20 @@ export class CompatibilityValidator {
         },
       ];
 
-      coreModules.forEach(module => {
+      coreModules.forEach((module) => {
         this.newModuleManager.registerModule(module);
       });
 
       // 分析依赖关系
       const analysis = this.newModuleManager.analyzeDependencies();
-      
+
       // 并行加载模块
-      const loadResults = await this.newModuleManager.loadModulesInParallel(analysis.loadOrder);
+      const loadResults = await this.newModuleManager.loadModulesInParallel(
+        analysis.loadOrder
+      );
 
       return {
-        success: loadResults.every(result => result.success),
+        success: loadResults.every((result) => result.success),
         details: {
           modulesRegistered: coreModules.length,
           loadResults: loadResults.length,
@@ -444,7 +474,9 @@ export class CompatibilityValidator {
     } catch (error) {
       return {
         success: false,
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       };
     }
   }
@@ -452,7 +484,10 @@ export class CompatibilityValidator {
   /**
    * 测试数据格式兼容性
    */
-  private async testDataFormatCompatibility(): Promise<{ success: boolean; details?: any }> {
+  private async testDataFormatCompatibility(): Promise<{
+    success: boolean;
+    details?: any;
+  }> {
     // 测试模块定义数据格式兼容性
     try {
       const oldModuleFormat: ModuleDefinition = {
@@ -477,7 +512,9 @@ export class CompatibilityValidator {
     } catch (error) {
       return {
         success: false,
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       };
     }
   }
@@ -485,7 +522,10 @@ export class CompatibilityValidator {
   /**
    * 测试错误处理兼容性
    */
-  private async testErrorHandlingCompatibility(): Promise<{ success: boolean; details?: any }> {
+  private async testErrorHandlingCompatibility(): Promise<{
+    success: boolean;
+    details?: any;
+  }> {
     // 测试错误处理机制
     try {
       // 测试不存在的模块（两种版本应该表现一致）
@@ -505,7 +545,9 @@ export class CompatibilityValidator {
     } catch (error) {
       return {
         success: false,
-        details: { error: error instanceof Error ? error.message : 'Unknown error' },
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
       };
     }
   }
@@ -515,11 +557,11 @@ export class CompatibilityValidator {
    */
   private getObjectMethods(obj: any): string[] {
     const methods: string[] = [];
-    
+
     // 获取原型链上的方法
     let current = obj;
     while (current && current !== Object.prototype) {
-      Object.getOwnPropertyNames(current).forEach(prop => {
+      Object.getOwnPropertyNames(current).forEach((prop) => {
         if (prop !== 'constructor' && typeof obj[prop] === 'function') {
           methods.push(prop);
         }
@@ -535,10 +577,10 @@ export class CompatibilityValidator {
    */
   generateReport(results: CompatibilityResult[]): string {
     const totalTests = results.length;
-    const passedTests = results.filter(r => r.status === 'pass').length;
-    const failedTests = results.filter(r => r.status === 'fail').length;
-    const warningTests = results.filter(r => r.status === 'warning').length;
-    
+    const passedTests = results.filter((r) => r.status === 'pass').length;
+    const failedTests = results.filter((r) => r.status === 'fail').length;
+    const warningTests = results.filter((r) => r.status === 'warning').length;
+
     const successRate = (passedTests / totalTests) * 100;
 
     let report = `=== Core模块兼容性验证报告 ===\n`;
@@ -550,20 +592,27 @@ export class CompatibilityValidator {
     report += `兼容性率: ${successRate.toFixed(1)}%\n\n`;
 
     // 按组件分组显示结果
-    const groupedResults = results.reduce((acc, result) => {
-      const component = result.component;
-      if (!acc[component]) acc[component] = [];
-      acc[component].push(result);
-      return acc;
-    }, {} as Record<string, CompatibilityResult[]>);
+    const groupedResults = results.reduce(
+      (acc, result) => {
+        const component = result.component;
+        if (!acc[component]) acc[component] = [];
+        acc[component].push(result);
+        return acc;
+      },
+      {} as Record<string, CompatibilityResult[]>
+    );
 
     Object.entries(groupedResults).forEach(([component, componentResults]) => {
       report += `${component}:\n`;
-      componentResults.forEach(result => {
-        const statusIcon = result.status === 'pass' ? '✅' : 
-                          result.status === 'warning' ? '⚠️' : '❌';
+      componentResults.forEach((result) => {
+        const statusIcon =
+          result.status === 'pass'
+            ? '✅'
+            : result.status === 'warning'
+              ? '⚠️'
+              : '❌';
         report += `  ${statusIcon} ${result.message}\n`;
-        
+
         if (result.details) {
           report += `     详情: ${JSON.stringify(result.details, null, 2)}\n`;
         }
@@ -589,21 +638,23 @@ export class CompatibilityValidator {
  */
 async function main(): Promise<void> {
   console.log('开始Core模块兼容性验证...\n');
-  
+
   try {
     const validator = new CompatibilityValidator();
     const results = await validator.validateCompatibility();
-    
+
     console.log(validator.generateReport(results));
-    
+
     // 总结
-    const passedTests = results.filter(r => r.status === 'pass').length;
+    const passedTests = results.filter((r) => r.status === 'pass').length;
     const totalTests = results.length;
-    
+
     if (passedTests === totalTests) {
       console.log('🎉 所有兼容性测试通过！重构后的Core模块可以安全集成。');
     } else {
-      console.log(`⚠️  ${passedTests}/${totalTests} 兼容性测试通过，需要关注不兼容的项目。`);
+      console.log(
+        `⚠️  ${passedTests}/${totalTests} 兼容性测试通过，需要关注不兼容的项目。`
+      );
     }
   } catch (error) {
     console.error('兼容性验证失败:', error);

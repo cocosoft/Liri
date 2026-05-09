@@ -4,16 +4,33 @@
  * 集成ContextStore、ContextInjector、LifecycleManager
  */
 
-import { GitContextService, getGitContextService } from './GitContextService.js';
-import { UserContextService, getUserContextService } from './UserContextService.js';
-import { ContextCacheService, getContextCacheService, ContextCacheKeys } from './ContextCacheService.js';
+import {
+  GitContextService,
+  getGitContextService,
+} from './GitContextService.js';
+import {
+  UserContextService,
+  getUserContextService,
+} from './UserContextService.js';
+import {
+  ContextCacheService,
+  getContextCacheService,
+  ContextCacheKeys,
+} from './ContextCacheService.js';
 import { ContextStore, contextStore } from './ContextStore';
 import { ContextInjector, contextInjector } from './ContextInjector';
 import { LifecycleManager, lifecycleManager } from './LifecycleManager';
 import { contextRegistry, type ContextTypeOptions } from './ContextRegistry';
-import { AsyncContextStorage, asyncContextStorage } from './AsyncContextStorage';
+import {
+  AsyncContextStorage,
+  asyncContextStorage,
+} from './AsyncContextStorage';
 import { ContextIsolator, contextIsolator } from './ContextIsolator';
-import { ContextSharingManager, contextSharingManager, type SharedContextEntry } from './ContextSharingManager';
+import {
+  ContextSharingManager,
+  contextSharingManager,
+  type SharedContextEntry,
+} from './ContextSharingManager';
 import type { ContextData } from './types/ContextData';
 import type { Context } from './types/Context';
 
@@ -96,9 +113,7 @@ export class ContextManager {
 
   private setupFileWatchers(): void {
     const gitPath = '.git';
-    this.cacheService.watchDirectory(gitPath, [
-      ContextCacheKeys.GIT_STATUS,
-    ]);
+    this.cacheService.watchDirectory(gitPath, [ContextCacheKeys.GIT_STATUS]);
 
     const userContextPath = 'PY_APP.md';
     this.cacheService.watchFile(userContextPath, [
@@ -106,9 +121,7 @@ export class ContextManager {
     ]);
 
     const claudeMdPath = 'CLAUDE.md';
-    this.cacheService.watchFile(claudeMdPath, [
-      ContextCacheKeys.USER_CONTEXT,
-    ]);
+    this.cacheService.watchFile(claudeMdPath, [ContextCacheKeys.USER_CONTEXT]);
   }
 
   async getGitStatus(): Promise<string | null> {
@@ -122,14 +135,22 @@ export class ContextManager {
     }
 
     const gitStatus = await this.gitService.getGitStatusAsSystemPrompt();
-    this.cacheService.set(ContextCacheKeys.GIT_STATUS, gitStatus, this.options.cacheTTL);
+    this.cacheService.set(
+      ContextCacheKeys.GIT_STATUS,
+      gitStatus,
+      this.options.cacheTTL
+    );
     return gitStatus;
   }
 
-  async getUserContext(): Promise<{ userContext: string | null; currentDate: string }> {
-    const cached = this.cacheService.get<{ userContext: string | null; currentDate: string }>(
-      ContextCacheKeys.USER_CONTEXT
-    );
+  async getUserContext(): Promise<{
+    userContext: string | null;
+    currentDate: string;
+  }> {
+    const cached = this.cacheService.get<{
+      userContext: string | null;
+      currentDate: string;
+    }>(ContextCacheKeys.USER_CONTEXT);
     if (cached !== null) {
       return cached;
     }
@@ -142,7 +163,11 @@ export class ContextManager {
     }
 
     const userContext = await this.userService.getUserContext();
-    this.cacheService.set(ContextCacheKeys.USER_CONTEXT, userContext, this.options.cacheTTL);
+    this.cacheService.set(
+      ContextCacheKeys.USER_CONTEXT,
+      userContext,
+      this.options.cacheTTL
+    );
     return userContext;
   }
 
@@ -257,7 +282,10 @@ export class ContextManager {
     contexts: Record<string, Context>,
     fn: () => T | Promise<T>
   ): Promise<T> {
-    const mergedContexts = this.sharingManager.applySharedContexts(contexts, scopeId);
+    const mergedContexts = this.sharingManager.applySharedContexts(
+      contexts,
+      scopeId
+    );
     return this.isolator.runIsolated(scopeId, mergedContexts, fn);
   }
 
@@ -273,7 +301,11 @@ export class ContextManager {
     this.isolator.removeScope(scopeId);
   }
 
-  shareContext(contextKey: string, context: Context, targetScopeId: string): void {
+  shareContext(
+    contextKey: string,
+    context: Context,
+    targetScopeId: string
+  ): void {
     this.sharingManager.shareToScope(contextKey, context, targetScopeId);
   }
 
@@ -322,7 +354,9 @@ export class ContextManager {
   }
 }
 
-export function getContextManager(options?: ContextManagerOptions): ContextManager {
+export function getContextManager(
+  options?: ContextManagerOptions
+): ContextManager {
   return ContextManager.getInstance(options);
 }
 

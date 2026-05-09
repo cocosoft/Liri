@@ -79,7 +79,7 @@ function parseBashArgs(args: string): BashParsedArgs {
   const parts = args.trim().split(/\s+/);
   while (i < parts.length) {
     const part = parts[i];
-    if ((part === '--help' || part === '-h')) {
+    if (part === '--help' || part === '-h') {
       return { command: '' };
     } else if (part === '--timeout' && i + 1 < parts.length) {
       const val = parseInt(parts[i + 1], 10);
@@ -144,7 +144,8 @@ const bashImplementation: CommandImplementation = {
     if (!parsed.command) {
       return {
         success: false,
-        error: '错误: 未指定要执行的命令\n用法: /bash [选项] <command>\n使用 /bash --help 查看详细帮助',
+        error:
+          '错误: 未指定要执行的命令\n用法: /bash [选项] <command>\n使用 /bash --help 查看详细帮助',
       };
     }
 
@@ -167,11 +168,7 @@ const bashImplementation: CommandImplementation = {
         toolInput.skipSecurityCheck = parsed.skipSecurityCheck;
       }
 
-      const result = await toolManager.executeTool(
-        'bash',
-        toolInput,
-        {}
-      );
+      const result = await toolManager.executeTool('bash', toolInput, {});
 
       const parts: string[] = [];
 
@@ -210,7 +207,11 @@ const bashImplementation: CommandImplementation = {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       // 尝试从错误中提取结构化信息
-      if (errorMsg.includes('stdout') || errorMsg.includes('stderr') || errorMsg.includes('exit code')) {
+      if (
+        errorMsg.includes('stdout') ||
+        errorMsg.includes('stderr') ||
+        errorMsg.includes('exit code')
+      ) {
         return {
           success: false,
           error: errorMsg,
@@ -234,28 +235,29 @@ export const bashCommand: Command = {
   aliases: ['sh', 'shell'],
   argumentHint: '[--timeout <ms>] [--cwd <path>] [--env <key=value>] <command>',
   whenToUse: '当你需要执行bash命令时',
-  getPromptForCommand: (_args: string) => Promise.resolve([
-    {
-      type: 'text',
-      text: [
-        '# Bash命令使用指南',
-        '',
-        '/bash 命令用于执行shell命令，支持以下选项：',
-        '',
-        '| 选项 | 说明 |',
-        '|------|------|',
-        '| `--timeout <ms>` | 执行超时时间（默认60000，最大300000） |',
-        '| `--cwd <path>` | 指定工作目录 |',
-        '| `--env <key=value>` | 设置环境变量（可重复使用） |',
-        '| `--skip-security-check` | 跳过安全检查（危险） |',
-        '',
-        '示例：',
-        '- `/bash ls -la`',
-        '- `/bash --timeout 10000 npm install`',
-        '- `/bash --cwd /app --env NODE_ENV=production npm run build`',
-      ].join('\n'),
-    },
-  ]),
+  getPromptForCommand: (_args: string) =>
+    Promise.resolve([
+      {
+        type: 'text',
+        text: [
+          '# Bash命令使用指南',
+          '',
+          '/bash 命令用于执行shell命令，支持以下选项：',
+          '',
+          '| 选项 | 说明 |',
+          '|------|------|',
+          '| `--timeout <ms>` | 执行超时时间（默认60000，最大300000） |',
+          '| `--cwd <path>` | 指定工作目录 |',
+          '| `--env <key=value>` | 设置环境变量（可重复使用） |',
+          '| `--skip-security-check` | 跳过安全检查（危险） |',
+          '',
+          '示例：',
+          '- `/bash ls -la`',
+          '- `/bash --timeout 10000 npm install`',
+          '- `/bash --cwd /app --env NODE_ENV=production npm run build`',
+        ].join('\n'),
+      },
+    ]),
   load: async () => bashImplementation,
 };
 

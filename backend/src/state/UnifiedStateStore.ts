@@ -103,7 +103,7 @@ export class UnifiedStateStore {
  * 获取统一状态存储实例
  */
 export function getUnifiedStateStore(
-  initialState?: Partial<AppState>,
+  initialState?: Partial<AppState>
 ): UnifiedStateStore {
   return UnifiedStateStore.getInstance(initialState);
 }
@@ -113,7 +113,7 @@ export function getUnifiedStateStore(
  * 同时初始化 core/state 的全局存储和统一存储
  */
 export function initializeUnifiedStateStore(
-  initialState?: Partial<AppState>,
+  initialState?: Partial<AppState>
 ): UnifiedStateStore {
   const state = { ...getDefaultAppState(), ...initialState };
 

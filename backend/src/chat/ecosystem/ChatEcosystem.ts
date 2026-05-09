@@ -58,22 +58,53 @@ export class ChatEcosystem implements IChatEcosystem {
   }
 
   private registerDefaultExtensionPoints(): void {
-    this.ensureExtensionPoint('beforeSendMessage', 'Called before a message is sent');
-    this.ensureExtensionPoint('afterSendMessage', 'Called after a message is sent');
-    this.ensureExtensionPoint('beforeProcessStream', 'Called before stream processing starts');
+    this.ensureExtensionPoint(
+      'beforeSendMessage',
+      'Called before a message is sent'
+    );
+    this.ensureExtensionPoint(
+      'afterSendMessage',
+      'Called after a message is sent'
+    );
+    this.ensureExtensionPoint(
+      'beforeProcessStream',
+      'Called before stream processing starts'
+    );
     this.ensureExtensionPoint('onStreamChunk', 'Called for each stream chunk');
-    this.ensureExtensionPoint('afterProcessStream', 'Called after stream processing completes');
-    this.ensureExtensionPoint('beforeToolExecute', 'Called before a tool execution');
-    this.ensureExtensionPoint('afterToolExecute', 'Called after a tool execution');
-    this.ensureExtensionPoint('beforeSecurityCheck', 'Called before security check');
-    this.ensureExtensionPoint('afterSecurityCheck', 'Called after security check');
-    this.ensureExtensionPoint('onSessionCreated', 'Called when a session is created');
+    this.ensureExtensionPoint(
+      'afterProcessStream',
+      'Called after stream processing completes'
+    );
+    this.ensureExtensionPoint(
+      'beforeToolExecute',
+      'Called before a tool execution'
+    );
+    this.ensureExtensionPoint(
+      'afterToolExecute',
+      'Called after a tool execution'
+    );
+    this.ensureExtensionPoint(
+      'beforeSecurityCheck',
+      'Called before security check'
+    );
+    this.ensureExtensionPoint(
+      'afterSecurityCheck',
+      'Called after security check'
+    );
+    this.ensureExtensionPoint(
+      'onSessionCreated',
+      'Called when a session is created'
+    );
     this.ensureExtensionPoint('onSessionEnded', 'Called when a session ends');
   }
 
   private ensureExtensionPoint(name: string, description: string): void {
     if (!this.extensionPoints.has(name)) {
-      this.extensionPoints.set(name, { name, description, handlers: new Set() });
+      this.extensionPoints.set(name, {
+        name,
+        description,
+        handlers: new Set(),
+      });
     }
   }
 
@@ -82,15 +113,23 @@ export class ChatEcosystem implements IChatEcosystem {
       throw new Error(`Extension already registered: ${extension.id}`);
     }
 
-    const sorted = [...this.extensions.values()].sort((a, b) => b.priority - a.priority);
+    const sorted = [...this.extensions.values()].sort(
+      (a, b) => b.priority - a.priority
+    );
     this.extensions.set(extension.id, extension);
 
     for (const [hookName, handler] of Object.entries(extension.hooks)) {
-      this.ensureExtensionPoint(hookName, `Hook from extension: ${extension.name}`);
+      this.ensureExtensionPoint(
+        hookName,
+        `Hook from extension: ${extension.name}`
+      );
       this.extensionPoints.get(hookName)!.handlers.add(handler);
     }
 
-    this.emitEvent('extension.registered', 'ecosystem', { extensionId: extension.id, name: extension.name });
+    this.emitEvent('extension.registered', 'ecosystem', {
+      extensionId: extension.id,
+      name: extension.name,
+    });
   }
 
   unregisterExtension(id: string): boolean {
@@ -137,12 +176,18 @@ export class ChatEcosystem implements IChatEcosystem {
           const result = await handler(context);
           results.push({ extensionId: ext.id, result });
         } catch (error) {
-          results.push({ extensionId: ext.id, error: (error as Error).message });
+          results.push({
+            extensionId: ext.id,
+            error: (error as Error).message,
+          });
         }
       }
     }
 
-    this.emitEvent('hook.executed', 'ecosystem', { hookName, resultCount: results.length });
+    this.emitEvent('hook.executed', 'ecosystem', {
+      hookName,
+      resultCount: results.length,
+    });
     return results;
   }
 
@@ -160,7 +205,11 @@ export class ChatEcosystem implements IChatEcosystem {
     }
 
     for (const listener of this.eventListeners) {
-      try { listener(event); } catch { /* ignore */ }
+      try {
+        listener(event);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -177,7 +226,10 @@ export class ChatEcosystem implements IChatEcosystem {
 
     return {
       totalExtensions: this.extensions.size,
-      totalHooks: [...this.extensionPoints.values()].reduce((sum, p) => sum + p.handlers.size, 0),
+      totalHooks: [...this.extensionPoints.values()].reduce(
+        (sum, p) => sum + p.handlers.size,
+        0
+      ),
       totalEvents: this.events.length,
       eventsByType,
       activeExtensions: this.extensions.size,

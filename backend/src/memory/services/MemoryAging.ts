@@ -64,12 +64,12 @@ export interface SecurityIntegration {
    * 检查记忆是否受保护
    */
   isMemoryProtected(memoryId: string): boolean;
-  
+
   /**
    * 获取记忆的访问级别
    */
   getMemoryAccessLevel(memoryId: string): string;
-  
+
   /**
    * 检查用户是否有删除记忆的权限
    */
@@ -160,12 +160,16 @@ export class MemoryAgingService {
   /**
    * 访问记忆（更新LRU状态）
    */
-  access(memoryId: string, accessType: 'read' | 'write' | 'query' = 'read', userRole?: string): void {
+  access(
+    memoryId: string,
+    accessType: 'read' | 'write' | 'query' = 'read',
+    userRole?: string
+  ): void {
     const entry = this.memoryEntries.get(memoryId);
     if (entry) {
       entry.lastAccessedAt = Date.now();
       entry.accessCount++;
-      
+
       // 记录访问历史（最多保留最近10条记录）
       entry.accessHistory.unshift({
         memoryId,
@@ -189,12 +193,16 @@ export class MemoryAgingService {
   /**
    * 获取记忆
    */
-  get(memoryId: string, accessType: 'read' | 'write' | 'query' = 'read', userRole?: string): Memory | undefined {
+  get(
+    memoryId: string,
+    accessType: 'read' | 'write' | 'query' = 'read',
+    userRole?: string
+  ): Memory | undefined {
     const entry = this.memoryEntries.get(memoryId);
     if (entry) {
       entry.lastAccessedAt = Date.now();
       entry.accessCount++;
-      
+
       // 记录访问历史（最多保留最近10条记录）
       entry.accessHistory.unshift({
         memoryId,
@@ -205,7 +213,7 @@ export class MemoryAgingService {
       if (entry.accessHistory.length > 10) {
         entry.accessHistory.pop();
       }
-      
+
       return entry.memory;
     }
     return undefined;
@@ -215,7 +223,7 @@ export class MemoryAgingService {
    * 获取所有记忆
    */
   getAll(): Memory[] {
-    return Array.from(this.memoryEntries.values()).map(e => e.memory);
+    return Array.from(this.memoryEntries.values()).map((e) => e.memory);
   }
 
   /**
@@ -240,10 +248,16 @@ export class MemoryAgingService {
    * 检查是否需要老化
    */
   needsAging(): boolean {
-    if (this.config.enableCountCheck && this.memoryEntries.size > this.config.maxEntries) {
+    if (
+      this.config.enableCountCheck &&
+      this.memoryEntries.size > this.config.maxEntries
+    ) {
       return true;
     }
-    if (this.config.enableSizeCheck && this.totalSize() > this.config.maxTotalSize) {
+    if (
+      this.config.enableSizeCheck &&
+      this.totalSize() > this.config.maxTotalSize
+    ) {
       return true;
     }
     return false;
@@ -284,9 +298,15 @@ export class MemoryAgingService {
         evictionReason = `age:${ageDays.toFixed(1)}d`;
       } else if (entry.accessCount < this.config.accessThreshold) {
         evictionReason = `low_access:${entry.accessCount}`;
-      } else if (this.config.enableCountCheck && this.memoryEntries.size > this.config.maxEntries) {
+      } else if (
+        this.config.enableCountCheck &&
+        this.memoryEntries.size > this.config.maxEntries
+      ) {
         evictionReason = 'count_overflow';
-      } else if (this.config.enableSizeCheck && this.totalSize() > this.config.maxTotalSize) {
+      } else if (
+        this.config.enableSizeCheck &&
+        this.totalSize() > this.config.maxTotalSize
+      ) {
         evictionReason = 'size_overflow';
       } else {
         evictionReason = `score:${score.toFixed(2)}`;
@@ -338,7 +358,10 @@ export class MemoryAgingService {
     } else if (entry.memory.metadata.isPinned) {
       protectedReason = 'pinned';
       isProtected = true;
-    } else if (entry.memory.metadata.priority && entry.memory.metadata.priority >= 8) {
+    } else if (
+      entry.memory.metadata.priority &&
+      entry.memory.metadata.priority >= 8
+    ) {
       protectedReason = 'high_priority';
       isProtected = true;
     }
@@ -384,15 +407,15 @@ export class MemoryAgingService {
     let priorityScore = 0;
     const priority = entry.memory.metadata.priority || 5;
     if (priority < 5) {
-      priorityScore = 0.3 * (5 - priority) / 5;
+      priorityScore = (0.3 * (5 - priority)) / 5;
     }
 
     // 综合评分（权重：年龄40%，访问频率20%，最近访问20%，大小10%，优先级10%）
-    let totalScore = 
-      ageScore * 0.4 + 
-      accessScore * 0.2 + 
-      recencyScore * 0.2 + 
-      sizeScore * 0.1 + 
+    let totalScore =
+      ageScore * 0.4 +
+      accessScore * 0.2 +
+      recencyScore * 0.2 +
+      sizeScore * 0.1 +
       priorityScore * 0.1;
 
     // 如果受保护，给最低分
@@ -401,12 +424,18 @@ export class MemoryAgingService {
     }
 
     // 应用数量和大小溢出惩罚
-    if (this.config.enableCountCheck && this.memoryEntries.size > this.config.maxEntries) {
+    if (
+      this.config.enableCountCheck &&
+      this.memoryEntries.size > this.config.maxEntries
+    ) {
       const countRatio = this.memoryEntries.size / this.config.maxEntries;
       totalScore = Math.min(1, totalScore * countRatio);
     }
 
-    if (this.config.enableSizeCheck && this.totalSize() > this.config.maxTotalSize) {
+    if (
+      this.config.enableSizeCheck &&
+      this.totalSize() > this.config.maxTotalSize
+    ) {
       const sizeRatio = this.totalSize() / this.config.maxTotalSize;
       totalScore = Math.min(1, totalScore * sizeRatio);
     }
@@ -434,7 +463,7 @@ export class MemoryAgingService {
 
     // 检查记忆的权限级别
     const memoryLevel = memory.metadata.accessLevel || 'default';
-    
+
     // 高权限记忆不被淘汰
     if (memoryLevel === 'protected' || memoryLevel === 'admin') {
       return true;
@@ -458,8 +487,12 @@ export class MemoryAgingService {
   /**
    * 获取所有记忆的老化评分详情
    */
-  getAllAgingScoreDetails(): Array<{ memoryId: string; scoreDetail: AgingScoreDetail }> {
-    const result: Array<{ memoryId: string; scoreDetail: AgingScoreDetail }> = [];
+  getAllAgingScoreDetails(): Array<{
+    memoryId: string;
+    scoreDetail: AgingScoreDetail;
+  }> {
+    const result: Array<{ memoryId: string; scoreDetail: AgingScoreDetail }> =
+      [];
     for (const [id, entry] of this.memoryEntries) {
       result.push({
         memoryId: id,
@@ -492,7 +525,9 @@ export class MemoryAgingService {
    */
   private estimateSize(memory: Memory): number {
     const contentSize = new TextEncoder().encode(memory.content).length;
-    const metadataSize = new TextEncoder().encode(JSON.stringify(memory.metadata)).length;
+    const metadataSize = new TextEncoder().encode(
+      JSON.stringify(memory.metadata)
+    ).length;
     return contentSize + metadataSize;
   }
 

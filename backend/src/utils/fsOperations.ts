@@ -14,11 +14,7 @@ import {
   open,
 } from 'fs/promises';
 
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync,
-} from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 
 /**
  * 获取文件系统操作对象

@@ -20,7 +20,7 @@ export class AuthHandler {
    * 处理登录命令
    */
   async handleLogin(args: string[]): Promise<void> {
-    const username = args[0] || await this.promptForInput('Username');
+    const username = args[0] || (await this.promptForInput('Username'));
     const password = await this.promptForPassword('Password');
 
     if (this.options.verbose) {
@@ -60,7 +60,7 @@ export class AuthHandler {
    */
   async handleStatus(): Promise<void> {
     const isAuthenticated = await this.checkAuthenticationStatus();
-    
+
     if (isAuthenticated) {
       console.log(chalk.green('✓'), 'Authenticated');
     } else {
@@ -89,10 +89,13 @@ export class AuthHandler {
   /**
    * 执行认证
    */
-  private async performAuthentication(username: string, password: string): Promise<void> {
+  private async performAuthentication(
+    username: string,
+    password: string
+  ): Promise<void> {
     // 模拟认证延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     // 简单的认证验证
     if (!username || !password) {
       throw new Error('Username and password are required');
@@ -103,14 +106,14 @@ export class AuthHandler {
    * 清除认证信息
    */
   private async clearAuthentication(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
   /**
    * 检查认证状态
    */
   private async checkAuthenticationStatus(): Promise<boolean> {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     return false; // 默认返回未认证状态
   }
 
@@ -118,7 +121,7 @@ export class AuthHandler {
    * 刷新令牌
    */
   private async refreshToken(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300));
   }
 
   /**

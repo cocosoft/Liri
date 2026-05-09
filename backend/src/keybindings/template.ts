@@ -5,7 +5,12 @@
  */
 
 import { z } from 'zod';
-import { KeybindingsSchema, KeybindingsSchemaType, KEYBINDING_CONTEXTS, KEYBINDING_ACTIONS } from './schema';
+import {
+  KeybindingsSchema,
+  KeybindingsSchemaType,
+  KEYBINDING_CONTEXTS,
+  KEYBINDING_ACTIONS,
+} from './schema';
 
 export interface TemplateVariable {
   name: string;
@@ -65,8 +70,8 @@ export const VI_MODE_TEMPLATE: KeybindingTemplate = {
       {
         context: 'Global',
         bindings: {
-          'j': 'chat:cycleMode',
-          'k': 'app:toggleTranscript',
+          j: 'chat:cycleMode',
+          k: 'app:toggleTranscript',
           '{leader}+p': 'app:quickOpen',
           '{leader}+g': 'app:globalSearch',
         },
@@ -74,8 +79,8 @@ export const VI_MODE_TEMPLATE: KeybindingTemplate = {
       {
         context: 'Chat',
         bindings: {
-          'escape': 'chat:cancel',
-          'i': 'chat:newline',
+          escape: 'chat:cancel',
+          i: 'chat:newline',
           '{ctrl}+c': 'app:interrupt',
           '{ctrl}+d': 'app:exit',
           '{ctrl}+r': 'history:search',
@@ -142,7 +147,7 @@ export const DEFAULT_TEMPLATE: KeybindingTemplate = {
       {
         context: 'Chat',
         bindings: {
-          'enter': 'chat:submit',
+          enter: 'chat:submit',
           '{ctrl}+enter': 'chat:newline',
           '{ctrl}+r': 'history:search',
           '{ctrl}+z': 'chat:undo',
@@ -152,7 +157,7 @@ export const DEFAULT_TEMPLATE: KeybindingTemplate = {
       {
         context: 'Autocomplete',
         bindings: {
-          'enter': 'autocomplete:accept',
+          enter: 'autocomplete:accept',
           '{ctrl}+n': 'autocomplete:next',
           '{ctrl}+p': 'autocomplete:previous',
           '{esc}': 'autocomplete:dismiss',
@@ -161,9 +166,9 @@ export const DEFAULT_TEMPLATE: KeybindingTemplate = {
       {
         context: 'Confirmation',
         bindings: {
-          'y': 'confirm:yes',
-          'n': 'confirm:no',
-          'enter': 'confirm:yes',
+          y: 'confirm:yes',
+          n: 'confirm:no',
+          enter: 'confirm:yes',
           '{esc}': 'confirm:no',
         },
       },
@@ -184,9 +189,7 @@ export function renderTemplate(
   variables?: Record<string, string>
 ): KeybindingsSchemaType {
   const resolvedVariables = {
-    ...Object.fromEntries(
-      template.variables.map((v) => [v.name, v.default])
-    ),
+    ...Object.fromEntries(template.variables.map((v) => [v.name, v.default])),
     ...variables,
   };
 
@@ -220,7 +223,10 @@ export function validateTemplate(template: KeybindingTemplate): {
     }
 
     for (const action of Object.values(block.bindings)) {
-      if (action !== null && !(KEYBINDING_ACTIONS as readonly string[]).includes(action)) {
+      if (
+        action !== null &&
+        !(KEYBINDING_ACTIONS as readonly string[]).includes(action)
+      ) {
         errors.push(`Invalid action: ${action}`);
       }
     }
@@ -232,7 +238,9 @@ export function validateTemplate(template: KeybindingTemplate): {
   };
 }
 
-export function getTemplateByName(name: string): KeybindingTemplate | undefined {
+export function getTemplateByName(
+  name: string
+): KeybindingTemplate | undefined {
   return TEMPLATES.find((t) => t.name === name);
 }
 

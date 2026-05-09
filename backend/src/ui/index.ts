@@ -4,32 +4,57 @@
  */
 
 // 导出类型定义
-export type { UITheme, ThemeName, ThemeSetting, ThemeContextValue, DialogProps, PaneProps, TextProps, ButtonProps, InputProps, SelectOption, SelectProps, TabItem, TabsProps, ProgressBarProps, LoadingStateProps, DividerProps, KeyboardShortcutHintProps, FuzzyPickerProps, ListItemProps, StatusIconProps, BylineProps, ComponentSize, ComponentVariant, ComponentState, LayoutDirection, Alignment, Distribution, Breakpoints, ResponsiveProp } from './types/UITypes';
+export type {
+  UITheme,
+  ThemeName,
+  ThemeSetting,
+  ThemeContextValue,
+  DialogProps,
+  PaneProps,
+  TextProps,
+  ButtonProps,
+  InputProps,
+  SelectOption,
+  SelectProps,
+  TabItem,
+  TabsProps,
+  ProgressBarProps,
+  LoadingStateProps,
+  DividerProps,
+  KeyboardShortcutHintProps,
+  FuzzyPickerProps,
+  ListItemProps,
+  StatusIconProps,
+  BylineProps,
+  ComponentSize,
+  ComponentVariant,
+  ComponentState,
+  LayoutDirection,
+  Alignment,
+  Distribution,
+  Breakpoints,
+  ResponsiveProp,
+} from './types/UITypes';
 
 // 导出设计系统组件
-export { 
-  ThemeProvider, 
-  useTheme, 
-  useThemeColor, 
-  useThemeSpacing, 
-  useThemeFontSize 
+export {
+  ThemeProvider,
+  useTheme,
+  useThemeColor,
+  useThemeSpacing,
+  useThemeFontSize,
 } from './design-system/ThemeProvider';
 
-export { 
-  Dialog, 
-  ConfirmDialog, 
-  AlertDialog, 
-  ErrorDialog 
+export {
+  Dialog,
+  ConfirmDialog,
+  AlertDialog,
+  ErrorDialog,
 } from './design-system/Dialog';
 
-export { 
-  Pane, 
-  CardPane, 
-  SidebarPane, 
-  ContentPane 
-} from './design-system/Pane';
+export { Pane, CardPane, SidebarPane, ContentPane } from './design-system/Pane';
 
-export { 
+export {
   ThemedText,
   HeadingText,
   SubtitleText,
@@ -40,75 +65,67 @@ export {
   WarningText,
   ErrorText,
   InfoText,
-  MutedText
+  MutedText,
 } from './design-system/ThemedText';
 
-export { 
-  KeyboardShortcutHint, 
-  KeyboardShortcutList 
+export {
+  KeyboardShortcutHint,
+  KeyboardShortcutList,
 } from './design-system/KeyboardShortcutHint';
 
-export { 
-  ProgressBar, 
-  IndeterminateProgressBar, 
-  StepProgressBar 
+export {
+  ProgressBar,
+  IndeterminateProgressBar,
+  StepProgressBar,
 } from './design-system/ProgressBar';
 
-export { 
+export {
   LoadingState,
   FullScreenLoadingState,
   InlineLoadingState,
   SkeletonLoadingState,
-  ProgressLoadingState
+  ProgressLoadingState,
 } from './design-system/LoadingState';
 
-export { 
-  Divider, 
-  TextDivider, 
-  DashedDivider, 
-  DoubleDivider 
+export {
+  Divider,
+  TextDivider,
+  DashedDivider,
+  DoubleDivider,
 } from './design-system/Divider';
 
-export { 
+export {
   Byline,
   StatusByline,
   ProgressByline,
   TimeByline,
   CountByline,
-  MultiInfoByline
+  MultiInfoByline,
 } from './design-system/Byline';
 
-export { 
+export {
   ListItem,
   IconListItem,
   DescriptionListItem,
   ActionListItem,
   StatusListItem,
   CheckboxListItem,
-  RadioListItem
+  RadioListItem,
 } from './design-system/ListItem';
 
 // 导出表单和输入组件
-export { 
+export {
   Button,
   IconButton,
   TextButton,
   IconTextButton,
-  ButtonGroup
+  ButtonGroup,
 } from './components/Button';
 
-export { 
-  Input, 
-  TextArea 
-} from './components/Input';
+export { Input, TextArea } from './components/Input';
 
 // 导出导航和交互组件
-export { 
-  Tabs,
-  IconTabs,
-  ScrollableTabs,
-  StepTabs
-} from './components/Tabs';
+export { Tabs, IconTabs, ScrollableTabs, StepTabs } from './components/Tabs';
 
 /**
  * 默认主题配置（基于CC源码）
@@ -126,7 +143,7 @@ export const defaultTheme = {
     background: '#FFFFFF',
     border: '#C6C6C8',
     accent: '#007AFF',
-    muted: '#F2F2F7'
+    muted: '#F2F2F7',
   },
   spacing: {
     xs: 4,
@@ -134,12 +151,12 @@ export const defaultTheme = {
     md: 16,
     lg: 24,
     xl: 32,
-    xxl: 48
+    xxl: 48,
   },
   borderRadius: {
     sm: 4,
     md: 8,
-    lg: 12
+    lg: 12,
   },
   typography: {
     fontSize: {
@@ -147,14 +164,14 @@ export const defaultTheme = {
       sm: 14,
       md: 16,
       lg: 18,
-      xl: 20
+      xl: 20,
     },
     fontWeight: {
       normal: 400,
       medium: 500,
-      bold: 700
-    }
-  }
+      bold: 700,
+    },
+  },
 };
 
 /**
@@ -174,8 +191,8 @@ export const darkTheme = {
     background: '#000000',
     border: '#38383A',
     accent: '#0A84FF',
-    muted: '#1C1C1E'
-  }
+    muted: '#1C1C1E',
+  },
 };
 
 /**
@@ -203,5 +220,5 @@ export default {
   Tabs,
   defaultTheme,
   darkTheme,
-  UI_VERSION
+  UI_VERSION,
 };

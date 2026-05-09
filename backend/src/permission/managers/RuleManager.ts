@@ -48,7 +48,10 @@ export class RuleManager {
   /**
    * 所有规则来源的优先级（数值越大优先级越高）
    */
-  private static readonly SOURCE_PRIORITIES: Record<PermissionRuleSource, number> = {
+  private static readonly SOURCE_PRIORITIES: Record<
+    PermissionRuleSource,
+    number
+  > = {
     [PermissionRuleSource.SYSTEM]: 9,
     [PermissionRuleSource.SESSION]: 8,
     [PermissionRuleSource.COMMAND]: 7,
@@ -63,7 +66,8 @@ export class RuleManager {
   /**
    * 所有规则来源列表
    */
-  private static readonly ALL_SOURCES: PermissionRuleSource[] = Object.values(PermissionRuleSource);
+  private static readonly ALL_SOURCES: PermissionRuleSource[] =
+    Object.values(PermissionRuleSource);
 
   /**
    * 加载权限规则
@@ -418,7 +422,9 @@ export class RuleManager {
     context?: RuleContext
   ): PermissionRule | null {
     const allowRules = this.getAllowRules(context);
-    return allowRules.find((rule) => this.toolMatchesRule(toolName, rule)) || null;
+    return (
+      allowRules.find((rule) => this.toolMatchesRule(toolName, rule)) || null
+    );
   }
 
   /**
@@ -432,7 +438,9 @@ export class RuleManager {
     context?: RuleContext
   ): PermissionRule | null {
     const denyRules = this.getDenyRules(context);
-    return denyRules.find((rule) => this.toolMatchesRule(toolName, rule)) || null;
+    return (
+      denyRules.find((rule) => this.toolMatchesRule(toolName, rule)) || null
+    );
   }
 
   /**
@@ -446,7 +454,9 @@ export class RuleManager {
     context?: RuleContext
   ): PermissionRule | null {
     const askRules = this.getAskRules(context);
-    return askRules.find((rule) => this.toolMatchesRule(toolName, rule)) || null;
+    return (
+      askRules.find((rule) => this.toolMatchesRule(toolName, rule)) || null
+    );
   }
 
   /**

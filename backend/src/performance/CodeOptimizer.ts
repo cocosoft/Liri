@@ -14,7 +14,10 @@ import { slowLogging } from './SlowOperations.js';
  * @param delay 延迟时间（毫秒）
  * @returns 节流后的函数
  */
-export function throttle<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void {
+export function throttle<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number
+): (...args: Parameters<T>) => void {
   let lastCall = 0;
   return (...args: Parameters<T>) => {
     const now = Date.now();
@@ -32,7 +35,10 @@ export function throttle<T extends (...args: any[]) => any>(fn: T, delay: number
  * @param delay 延迟时间（毫秒）
  * @returns 防抖后的函数
  */
-export function debounce<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void {
+export function debounce<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number
+): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
   return (...args: Parameters<T>) => {
     if (timeout) {
@@ -51,7 +57,9 @@ export function debounce<T extends (...args: any[]) => any>(fn: T, delay: number
  * @param fn 要记忆的函数
  * @returns 记忆后的函数
  */
-export function memoize<T extends (...args: any[]) => any>(fn: T): (...args: Parameters<T>) => ReturnType<T> {
+export function memoize<T extends (...args: any[]) => any>(
+  fn: T
+): (...args: Parameters<T>) => ReturnType<T> {
   const cache = new Map<string, ReturnType<T>>();
   return (...args: Parameters<T>) => {
     const key = JSON.stringify(args);
@@ -72,7 +80,11 @@ export function memoize<T extends (...args: any[]) => any>(fn: T): (...args: Par
  * @param processor 处理函数
  * @returns 处理结果
  */
-export async function batchProcess<T, R>(items: T[], batchSize: number, processor: (batch: T[]) => Promise<R[]>): Promise<R[]> {
+export async function batchProcess<T, R>(
+  items: T[],
+  batchSize: number,
+  processor: (batch: T[]) => Promise<R[]>
+): Promise<R[]> {
   const result: R[] = [];
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
@@ -89,7 +101,11 @@ export async function batchProcess<T, R>(items: T[], batchSize: number, processo
  * @param delay 延迟时间（毫秒）
  * @returns 定时器ID
  */
-export function delay<T extends (...args: any[]) => any>(fn: T, delay: number, ...args: Parameters<T>): NodeJS.Timeout {
+export function delay<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number,
+  ...args: Parameters<T>
+): NodeJS.Timeout {
   return setTimeout(() => fn(...args), delay);
 }
 
@@ -99,8 +115,10 @@ export function delay<T extends (...args: any[]) => any>(fn: T, delay: number, .
  * @param tasks 要执行的任务数组
  * @returns 任务结果数组
  */
-export async function parallel<T>(tasks: Array<() => Promise<T>>): Promise<T[]> {
-  return Promise.all(tasks.map(task => task()));
+export async function parallel<T>(
+  tasks: Array<() => Promise<T>>
+): Promise<T[]> {
+  return Promise.all(tasks.map((task) => task()));
 }
 
 /**
@@ -126,7 +144,11 @@ export async function series<T>(tasks: Array<() => Promise<T>>): Promise<T[]> {
  * @param message 超时消息
  * @returns 执行结果
  */
-export async function timeout<T>(promise: Promise<T>, timeout: number, message: string = '操作超时'): Promise<T> {
+export async function timeout<T>(
+  promise: Promise<T>,
+  timeout: number,
+  message: string = '操作超时'
+): Promise<T> {
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error(message)), timeout);
   });
@@ -141,7 +163,11 @@ export async function timeout<T>(promise: Promise<T>, timeout: number, message: 
  * @param delay 重试延迟（毫秒）
  * @returns 执行结果
  */
-export async function retry<T>(fn: () => Promise<T>, maxRetries: number = 3, delay: number = 1000): Promise<T> {
+export async function retry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  delay: number = 1000
+): Promise<T> {
   let lastError: Error = new Error('Unknown error');
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -149,8 +175,11 @@ export async function retry<T>(fn: () => Promise<T>, maxRetries: number = 3, del
     } catch (error) {
       lastError = error as Error;
       if (i < maxRetries - 1) {
-        logForDebugging(`操作失败，${delay}ms后重试 (${i + 1}/${maxRetries}): ${lastError.message}`, { level: 'warn' });
-        await new Promise(resolve => setTimeout(resolve, delay));
+        logForDebugging(
+          `操作失败，${delay}ms后重试 (${i + 1}/${maxRetries}): ${lastError.message}`,
+          { level: 'warn' }
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
@@ -172,7 +201,10 @@ export function unique<T>(array: T[]): T[] {
  * @param predicate 查找条件
  * @returns 找到的元素或undefined
  */
-export function find<T>(array: T[], predicate: (item: T) => boolean): T | undefined {
+export function find<T>(
+  array: T[],
+  predicate: (item: T) => boolean
+): T | undefined {
   for (const item of array) {
     if (predicate(item)) {
       return item;
@@ -187,7 +219,10 @@ export function find<T>(array: T[], predicate: (item: T) => boolean): T | undefi
  * @param mapper 映射函数
  * @returns 映射后的数组
  */
-export function map<T, R>(array: T[], mapper: (item: T, index: number) => R): R[] {
+export function map<T, R>(
+  array: T[],
+  mapper: (item: T, index: number) => R
+): R[] {
   const result: R[] = new Array(array.length);
   for (let i = 0; i < array.length; i++) {
     result[i] = mapper(array[i], i);
@@ -201,7 +236,10 @@ export function map<T, R>(array: T[], mapper: (item: T, index: number) => R): R[
  * @param predicate 过滤条件
  * @returns 过滤后的数组
  */
-export function filter<T>(array: T[], predicate: (item: T, index: number) => boolean): T[] {
+export function filter<T>(
+  array: T[],
+  predicate: (item: T, index: number) => boolean
+): T[] {
   const result: T[] = [];
   for (let i = 0; i < array.length; i++) {
     if (predicate(array[i], i)) {
@@ -218,7 +256,11 @@ export function filter<T>(array: T[], predicate: (item: T, index: number) => boo
  * @param initialValue 初始值
  * @returns 归约结果
  */
-export function reduce<T, R>(array: T[], reducer: (accumulator: R, currentValue: T, index: number) => R, initialValue: R): R {
+export function reduce<T, R>(
+  array: T[],
+  reducer: (accumulator: R, currentValue: T, index: number) => R,
+  initialValue: R
+): R {
   let accumulator = initialValue;
   for (let i = 0; i < array.length; i++) {
     accumulator = reducer(accumulator, array[i], i);
@@ -231,7 +273,10 @@ export function reduce<T, R>(array: T[], reducer: (accumulator: R, currentValue:
  * @param obj 要遍历的对象
  * @param callback 回调函数
  */
-export function forEachObject<T extends Record<string, any>>(obj: T, callback: (value: T[keyof T], key: keyof T) => void): void {
+export function forEachObject<T extends Record<string, any>>(
+  obj: T,
+  callback: (value: T[keyof T], key: keyof T) => void
+): void {
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       callback(obj[key], key);
@@ -260,7 +305,10 @@ export function copyObject<T extends Record<string, any>>(obj: T): T {
  * @param sources 源对象
  * @returns 合并后的对象
  */
-export function mergeObjects<T extends Record<string, any>>(target: T, ...sources: Partial<T>[]): T {
+export function mergeObjects<T extends Record<string, any>>(
+  target: T,
+  ...sources: Partial<T>[]
+): T {
   const result: Partial<T> = { ...target };
   for (const source of sources) {
     for (const key in source) {
@@ -298,7 +346,10 @@ export function optimizedJsonParse(json: string): any {
  * @param options 克隆选项
  * @returns 克隆后的值
  */
-export function optimizedClone<T>(value: T, options?: StructuredSerializeOptions): T {
+export function optimizedClone<T>(
+  value: T,
+  options?: StructuredSerializeOptions
+): T {
   using _ = slowLogging`optimizedClone(${value})`;
   return structuredClone(value, options);
 }

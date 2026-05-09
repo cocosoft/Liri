@@ -1,4 +1,4 @@
-import type { CompanionBones, Eye, Hat, Species } from './types.js'
+import type { CompanionBones, Eye, Hat, Species } from './types.js';
 import {
   axolotl,
   blob,
@@ -18,7 +18,7 @@ import {
   robot,
   snail,
   turtle,
-} from './types.js'
+} from './types.js';
 
 const BODIES: Record<Species, string[][]> = {
   [duck]: [
@@ -435,7 +435,7 @@ const BODIES: Record<Species, string[][]> = {
       '  `------´~ ',
     ],
   ],
-}
+};
 
 const HAT_LINES: Record<Hat, string> = {
   none: '',
@@ -446,62 +446,62 @@ const HAT_LINES: Record<Hat, string> = {
   wizard: '    /^\\     ',
   beanie: '   (___)    ',
   tinyduck: '    ,>      ',
-}
+};
 
 export function renderSprite(bones: CompanionBones, frame = 0): string[] {
-  const frames = BODIES[bones.species]
-  const body = frames[frame % frames.length]!.map(line =>
-    line.replaceAll('{E}', bones.eye),
-  )
-  const lines = [...body]
+  const frames = BODIES[bones.species];
+  const body = frames[frame % frames.length]!.map((line) =>
+    line.replaceAll('{E}', bones.eye)
+  );
+  const lines = [...body];
   if (bones.hat !== 'none' && !lines[0]!.trim()) {
-    lines[0] = HAT_LINES[bones.hat]
+    lines[0] = HAT_LINES[bones.hat];
   }
-  if (!lines[0]!.trim() && frames.every(f => !f[0]!.trim())) lines.shift()
-  return lines
+  if (!lines[0]!.trim() && frames.every((f) => !f[0]!.trim())) lines.shift();
+  return lines;
 }
 
 export function spriteFrameCount(species: Species): number {
-  return BODIES[species].length
+  return BODIES[species].length;
 }
 
 export function renderFace(bones: CompanionBones): string {
-  const eye: Eye = bones.eye
+  const eye: Eye = bones.eye;
   switch (bones.species) {
     case duck:
     case goose:
-      return `(${eye}>`
+      return `(${eye}>`;
     case blob:
-      return `(${eye}${eye})`
+      return `(${eye}${eye})`;
     case cat:
-      return `=${eye}ω${eye}=`
+      return `=${eye}ω${eye}=`;
     case dragon:
-      return `<${eye}~${eye}>`
+      return `<${eye}~${eye}>`;
     case octopus:
-      return `~(${eye}${eye})~`
+      return `~(${eye}${eye})~`;
     case owl:
-      return `(${eye})(${eye})`
+      return `(${eye})(${eye})`;
     case penguin:
-      return `(${eye}>)`
+      return `(${eye}>)`;
     case turtle:
-      return `[${eye}_${eye}]`
+      return `[${eye}_${eye}]`;
     case snail:
-      return `${eye}(@)`
+      return `${eye}(@)`;
     case ghost:
-      return `/${eye}${eye}\\`
+      return `/${eye}${eye}\\`;
     case axolotl:
-      return `}${eye}.${eye}{`
+      return `}${eye}.${eye}{`;
     case capybara:
-      return `(${eye}oo${eye})`
+      return `(${eye}oo${eye})`;
     case cactus:
-      return `|${eye}  ${eye}|`
+      return `|${eye}  ${eye}|`;
     case robot:
-      return `[${eye}${eye}]`
+      return `[${eye}${eye}]`;
     case rabbit:
-      return `(${eye}..${eye})`
+      return `(${eye}..${eye})`;
     case mushroom:
-      return `|${eye}  ${eye}|`
+      return `|${eye}  ${eye}|`;
     case chonk:
-      return `(${eye}.${eye})`
+      return `(${eye}.${eye})`;
   }
 }

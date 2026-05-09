@@ -189,7 +189,10 @@ export class MemorySnapshotService {
         fs.mkdirSync(this.config.snapshotPath, { recursive: true });
       }
 
-      const filePath = path.join(this.config.snapshotPath, `${snapshot.id}.json`);
+      const filePath = path.join(
+        this.config.snapshotPath,
+        `${snapshot.id}.json`
+      );
       const snapshotData = {
         ...snapshot,
         timestamp: new Date(snapshot.timestamp).toISOString(),
@@ -209,7 +212,9 @@ export class MemorySnapshotService {
     const heapTotal = (snapshot.memory.heapTotal / 1024 / 1024).toFixed(2);
     const rss = (snapshot.memory.rss / 1024 / 1024).toFixed(2);
 
-    console.info(`[MEMORY SNAPSHOT] ${snapshot.reason || 'manual'} - Heap: ${heapUsed}MB / ${heapTotal}MB, RSS: ${rss}MB`);
+    console.info(
+      `[MEMORY SNAPSHOT] ${snapshot.reason || 'manual'} - Heap: ${heapUsed}MB / ${heapTotal}MB, RSS: ${rss}MB`
+    );
   }
 
   /**
@@ -246,20 +251,25 @@ export class MemorySnapshotService {
       };
     }
 
-    const heapUsedValues = this.snapshots.map(s => s.memory.heapUsed);
-    const heapTotalValues = this.snapshots.map(s => s.memory.heapTotal);
-    const rssValues = this.snapshots.map(s => s.memory.rss);
+    const heapUsedValues = this.snapshots.map((s) => s.memory.heapUsed);
+    const heapTotalValues = this.snapshots.map((s) => s.memory.heapTotal);
+    const rssValues = this.snapshots.map((s) => s.memory.rss);
 
     const growthRate = this.initialMemory
-      ? ((heapUsedValues[heapUsedValues.length - 1] - this.initialMemory.heapUsed) / this.initialMemory.heapUsed) * 100
+      ? ((heapUsedValues[heapUsedValues.length - 1] -
+          this.initialMemory.heapUsed) /
+          this.initialMemory.heapUsed) *
+        100
       : 0;
 
     return {
       totalSnapshots: this.snapshots.length,
-      averageHeapUsed: heapUsedValues.reduce((a, b) => a + b, 0) / heapUsedValues.length,
+      averageHeapUsed:
+        heapUsedValues.reduce((a, b) => a + b, 0) / heapUsedValues.length,
       maxHeapUsed: Math.max(...heapUsedValues),
       minHeapUsed: Math.min(...heapUsedValues),
-      averageHeapTotal: heapTotalValues.reduce((a, b) => a + b, 0) / heapTotalValues.length,
+      averageHeapTotal:
+        heapTotalValues.reduce((a, b) => a + b, 0) / heapTotalValues.length,
       maxHeapTotal: Math.max(...heapTotalValues),
       minHeapTotal: Math.min(...heapTotalValues),
       averageRss: rssValues.reduce((a, b) => a + b, 0) / rssValues.length,
@@ -283,13 +293,27 @@ export class MemorySnapshotService {
 
     lines.push('STATISTICS:');
     lines.push(`  Total snapshots: ${stats.totalSnapshots}`);
-    lines.push(`  Average heap used: ${(stats.averageHeapUsed / 1024 / 1024).toFixed(2)} MB`);
-    lines.push(`  Max heap used: ${(stats.maxHeapUsed / 1024 / 1024).toFixed(2)} MB`);
-    lines.push(`  Min heap used: ${(stats.minHeapUsed / 1024 / 1024).toFixed(2)} MB`);
-    lines.push(`  Average heap total: ${(stats.averageHeapTotal / 1024 / 1024).toFixed(2)} MB`);
-    lines.push(`  Max heap total: ${(stats.maxHeapTotal / 1024 / 1024).toFixed(2)} MB`);
-    lines.push(`  Min heap total: ${(stats.minHeapTotal / 1024 / 1024).toFixed(2)} MB`);
-    lines.push(`  Average RSS: ${(stats.averageRss / 1024 / 1024).toFixed(2)} MB`);
+    lines.push(
+      `  Average heap used: ${(stats.averageHeapUsed / 1024 / 1024).toFixed(2)} MB`
+    );
+    lines.push(
+      `  Max heap used: ${(stats.maxHeapUsed / 1024 / 1024).toFixed(2)} MB`
+    );
+    lines.push(
+      `  Min heap used: ${(stats.minHeapUsed / 1024 / 1024).toFixed(2)} MB`
+    );
+    lines.push(
+      `  Average heap total: ${(stats.averageHeapTotal / 1024 / 1024).toFixed(2)} MB`
+    );
+    lines.push(
+      `  Max heap total: ${(stats.maxHeapTotal / 1024 / 1024).toFixed(2)} MB`
+    );
+    lines.push(
+      `  Min heap total: ${(stats.minHeapTotal / 1024 / 1024).toFixed(2)} MB`
+    );
+    lines.push(
+      `  Average RSS: ${(stats.averageRss / 1024 / 1024).toFixed(2)} MB`
+    );
     lines.push(`  Max RSS: ${(stats.maxRss / 1024 / 1024).toFixed(2)} MB`);
     lines.push(`  Min RSS: ${(stats.minRss / 1024 / 1024).toFixed(2)} MB`);
     lines.push(`  Memory growth rate: ${stats.growthRate.toFixed(2)}%`);
@@ -297,12 +321,14 @@ export class MemorySnapshotService {
 
     if (this.snapshots.length > 0) {
       lines.push('RECENT SNAPSHOTS:');
-      this.snapshots.slice(-5).forEach(snapshot => {
+      this.snapshots.slice(-5).forEach((snapshot) => {
         const heapUsed = (snapshot.memory.heapUsed / 1024 / 1024).toFixed(2);
         const heapTotal = (snapshot.memory.heapTotal / 1024 / 1024).toFixed(2);
         const rss = (snapshot.memory.rss / 1024 / 1024).toFixed(2);
-        
-        lines.push(`  [${new Date(snapshot.timestamp).toISOString()}] ${snapshot.reason || 'unknown'}`);
+
+        lines.push(
+          `  [${new Date(snapshot.timestamp).toISOString()}] ${snapshot.reason || 'unknown'}`
+        );
         lines.push(`    Heap: ${heapUsed}MB / ${heapTotal}MB, RSS: ${rss}MB`);
       });
       lines.push('');
@@ -368,9 +394,9 @@ export class MemorySnapshotService {
       };
     }
 
-    const heapUsedValues = this.snapshots.map(s => s.memory.heapUsed);
-    const heapTotalValues = this.snapshots.map(s => s.memory.heapTotal);
-    const rssValues = this.snapshots.map(s => s.memory.rss);
+    const heapUsedValues = this.snapshots.map((s) => s.memory.heapUsed);
+    const heapTotalValues = this.snapshots.map((s) => s.memory.heapTotal);
+    const rssValues = this.snapshots.map((s) => s.memory.rss);
 
     const heapUsedTrend = this.calculateTrend(heapUsedValues);
     const heapTotalTrend = this.calculateTrend(heapTotalValues);
@@ -387,7 +413,9 @@ export class MemorySnapshotService {
     }
 
     if (rssTrend === 'increasing') {
-      recommendations.push('RSS is increasing. Check for external memory usage.');
+      recommendations.push(
+        'RSS is increasing. Check for external memory usage.'
+      );
     }
 
     if (recommendations.length === 0) {
@@ -405,10 +433,12 @@ export class MemorySnapshotService {
   /**
    * 计算趋势
    */
-  private calculateTrend(values: number[]): 'increasing' | 'decreasing' | 'stable' {
+  private calculateTrend(
+    values: number[]
+  ): 'increasing' | 'decreasing' | 'stable' {
     const first = values[0];
     const last = values[values.length - 1];
-    const change = (last - first) / first * 100;
+    const change = ((last - first) / first) * 100;
 
     if (change > 10) {
       return 'increasing';

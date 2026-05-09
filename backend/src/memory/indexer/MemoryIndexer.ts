@@ -49,7 +49,8 @@ export class MemoryIndexer implements IMemoryIndexer {
       if (!this.tagIndex.has(tag)) this.tagIndex.set(tag, new Set());
       this.tagIndex.get(tag)!.add(entry.memoryId);
     }
-    if (!this.typeIndex.has(entry.type)) this.typeIndex.set(entry.type, new Set());
+    if (!this.typeIndex.has(entry.type))
+      this.typeIndex.set(entry.type, new Set());
     this.typeIndex.get(entry.type)!.add(entry.memoryId);
   }
 
@@ -65,7 +66,8 @@ export class MemoryIndexer implements IMemoryIndexer {
       if (this.tagIndex.get(tag)?.size === 0) this.tagIndex.delete(tag);
     }
     this.typeIndex.get(entry.type)?.delete(memoryId);
-    if (this.typeIndex.get(entry.type)?.size === 0) this.typeIndex.delete(entry.type);
+    if (this.typeIndex.get(entry.type)?.size === 0)
+      this.typeIndex.delete(entry.type);
     this.entries.delete(memoryId);
     return true;
   }
@@ -74,26 +76,29 @@ export class MemoryIndexer implements IMemoryIndexer {
     let results = Array.from(this.entries.values());
 
     if (query.tags && query.tags.length > 0) {
-      results = results.filter(e => query.tags!.some(t => e.tags.includes(t)));
+      results = results.filter((e) =>
+        query.tags!.some((t) => e.tags.includes(t))
+      );
     }
 
     if (query.type) {
-      results = results.filter(e => e.type === query.type);
+      results = results.filter((e) => e.type === query.type);
     }
 
     if (query.startTime !== undefined) {
-      results = results.filter(e => e.createdAt >= query.startTime!);
+      results = results.filter((e) => e.createdAt >= query.startTime!);
     }
 
     if (query.endTime !== undefined) {
-      results = results.filter(e => e.createdAt <= query.endTime!);
+      results = results.filter((e) => e.createdAt <= query.endTime!);
     }
 
     if (query.keyword) {
       const kw = query.keyword.toLowerCase();
-      results = results.filter(e =>
-        e.contentPreview.toLowerCase().includes(kw) ||
-        e.tags.some(t => t.toLowerCase().includes(kw))
+      results = results.filter(
+        (e) =>
+          e.contentPreview.toLowerCase().includes(kw) ||
+          e.tags.some((t) => t.toLowerCase().includes(kw))
       );
     }
 
@@ -106,25 +111,33 @@ export class MemoryIndexer implements IMemoryIndexer {
   getByTag(tag: string): IndexEntry[] {
     const ids = this.tagIndex.get(tag);
     if (!ids) return [];
-    return Array.from(ids).map(id => this.entries.get(id)!).filter(Boolean);
+    return Array.from(ids)
+      .map((id) => this.entries.get(id)!)
+      .filter(Boolean);
   }
 
   getByType(type: string): IndexEntry[] {
     const ids = this.typeIndex.get(type);
     if (!ids) return [];
-    return Array.from(ids).map(id => this.entries.get(id)!).filter(Boolean);
+    return Array.from(ids)
+      .map((id) => this.entries.get(id)!)
+      .filter(Boolean);
   }
 
   getByTimeRange(start: number, end: number): IndexEntry[] {
     return Array.from(this.entries.values())
-      .filter(e => e.createdAt >= start && e.createdAt <= end)
+      .filter((e) => e.createdAt >= start && e.createdAt <= end)
       .sort((a, b) => b.createdAt - a.createdAt);
   }
 
   searchByKeyword(keyword: string, limit: number = 20): IndexEntry[] {
     const kw = keyword.toLowerCase();
     return Array.from(this.entries.values())
-      .filter(e => e.contentPreview.toLowerCase().includes(kw) || e.tags.some(t => t.toLowerCase().includes(kw)))
+      .filter(
+        (e) =>
+          e.contentPreview.toLowerCase().includes(kw) ||
+          e.tags.some((t) => t.toLowerCase().includes(kw))
+      )
       .slice(0, limit);
   }
 
@@ -137,7 +150,7 @@ export class MemoryIndexer implements IMemoryIndexer {
         byTag[t] = (byTag[t] || 0) + 1;
       }
     }
-    const times = Array.from(this.entries.values()).map(e => e.createdAt);
+    const times = Array.from(this.entries.values()).map((e) => e.createdAt);
     return {
       totalEntries: this.entries.size,
       byType,

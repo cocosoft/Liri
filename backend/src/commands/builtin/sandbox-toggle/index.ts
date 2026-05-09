@@ -14,7 +14,10 @@ export const sandboxToggleCommand: Command = {
   aliases: ['sandbox'],
   argumentHint: '[on|off|toggle|status]',
   whenToUse: '当你需要控制代码执行的沙箱隔离时',
-  load: async () => import('./SandboxToggle.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./SandboxToggle.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
 
 export default sandboxToggleCommand;

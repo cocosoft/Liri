@@ -47,7 +47,8 @@ const SECRET_RULES: SecretRule[] = [
   },
   {
     id: 'azure-ad-client-secret',
-    source: '(?:^|[\\\\\'"\\x60\\s>=:(,)])([a-zA-Z0-9_~.]{3}\\dQ~[a-zA-Z0-9_~.-]{31,34})(?:$|[\\\\\'"\\x60\\s<),])',
+    source:
+      '(?:^|[\\\\\'"\\x60\\s>=:(,)])([a-zA-Z0-9_~.]{3}\\dQ~[a-zA-Z0-9_~.-]{31,34})(?:$|[\\\\\'"\\x60\\s<),])',
   },
   {
     id: 'digitalocean-pat',
@@ -57,7 +58,8 @@ const SECRET_RULES: SecretRule[] = [
   // AI API
   {
     id: 'openai-api-key',
-    source: '\\b(sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})(?:[\\x60\'"\\s;]|\\\\[nr]|$)',
+    source:
+      '\\b(sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})(?:[\\x60\'"\\s;]|\\\\[nr]|$)',
   },
 
   // GitHub
@@ -93,11 +95,13 @@ const SECRET_RULES: SecretRule[] = [
   // 通用
   {
     id: 'generic-api-key',
-    source: '\\b(?:api[_-]?key|apikey|api_secret|secret[_-]?key)["\']?\\s*[:=]\\s*["\']?[a-zA-Z0-9_\\-]{20,}["\']?',
+    source:
+      '\\b(?:api[_-]?key|apikey|api_secret|secret[_-]?key)["\']?\\s*[:=]\\s*["\']?[a-zA-Z0-9_\\-]{20,}["\']?',
   },
   {
     id: 'generic-secret',
-    source: '\\b(?:password|passwd|pwd|secret)["\']?\\s*[:=]\\s*["\']?[^\\s\'"]{8,}["\']?',
+    source:
+      '\\b(?:password|passwd|pwd|secret)["\']?\\s*[:=]\\s*["\']?[^\\s\'"]{8,}["\']?',
   },
   {
     id: 'bearer-token',
@@ -239,7 +243,10 @@ export function containsSecrets(content: string): boolean {
 /**
  * 脱敏内容
  */
-export function sanitizeSecrets(content: string, placeholder: string = '[REDACTED]'): string {
+export function sanitizeSecrets(
+  content: string,
+  placeholder: string = '[REDACTED]'
+): string {
   let sanitized = content;
 
   for (const rule of SECRET_RULES) {
@@ -247,7 +254,11 @@ export function sanitizeSecrets(content: string, placeholder: string = '[REDACTE
       const regex = compileRule(rule);
       sanitized = sanitized.replace(regex, (match) => {
         if (match.length <= 8) return placeholder;
-        return match.substring(0, 4) + placeholder + match.substring(match.length - 4);
+        return (
+          match.substring(0, 4) +
+          placeholder +
+          match.substring(match.length - 4)
+        );
       });
     } catch {
       // 忽略正则错误
@@ -272,14 +283,17 @@ export function scanMemoryContent(content: string): SecretScanResult {
 /**
  * 验证并报告秘密
  */
-export function validateMemoryContent(content: string): { valid: boolean; message?: string } {
+export function validateMemoryContent(content: string): {
+  valid: boolean;
+  message?: string;
+} {
   const matches = scanForSecrets(content);
 
   if (matches.length === 0) {
     return { valid: true };
   }
 
-  const labels = matches.map(m => m.label).join(', ');
+  const labels = matches.map((m) => m.label).join(', ');
   return {
     valid: false,
     message: `记忆内容包含敏感信息 (${labels})，无法保存或同步。请移除敏感内容后重试。`,
@@ -344,7 +358,11 @@ export class MemorySecretScanner {
         const regex = new RegExp(rule.source, rule.flags || 'gi');
         sanitized = sanitized.replace(regex, (match) => {
           if (match.length <= 8) return placeholder || '[REDACTED]';
-          return match.substring(0, 4) + (placeholder || '[REDACTED]') + match.substring(match.length - 4);
+          return (
+            match.substring(0, 4) +
+            (placeholder || '[REDACTED]') +
+            match.substring(match.length - 4)
+          );
         });
       } catch {
         // 忽略
@@ -364,7 +382,7 @@ export class MemorySecretScanner {
       return { valid: true };
     }
 
-    const labels = result.matches.map(m => m.label).join(', ');
+    const labels = result.matches.map((m) => m.label).join(', ');
     return {
       valid: false,
       message: `内容包含敏感信息 (${labels})，无法保存或同步。请移除敏感内容后重试。`,
@@ -396,7 +414,7 @@ export class MemorySecretScanner {
    * 移除规则
    */
   removeRule(ruleId: string): void {
-    this.rules = this.rules.filter(r => r.id !== ruleId);
+    this.rules = this.rules.filter((r) => r.id !== ruleId);
   }
 }
 

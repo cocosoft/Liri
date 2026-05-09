@@ -146,9 +146,7 @@ export class PermissionModeIntegrationService extends EventEmitter {
   /**
    * 移除权限模式监听器
    */
-  removePermissionModeListener(
-    listener: (mode: string) => void
-  ): void {
+  removePermissionModeListener(listener: (mode: string) => void): void {
     this.off('modeChanged', listener);
   }
 

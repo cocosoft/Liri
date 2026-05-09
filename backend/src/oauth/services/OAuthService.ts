@@ -2,7 +2,7 @@
 /**
  * OAuth统一服务
  * 作为OAuth模块的统一入口，协调所有OAuth操作
- * 
+ *
  * 设计原则：
  * - 单一职责：仅负责OAuth操作的协调和路由
  * - 依赖注入：通过构造函数注入依赖
@@ -11,7 +11,12 @@
 import { logger } from '@modules/infrastructure';
 import { OAuthTokenManager } from './OAuthTokenManager';
 import { OAuthDiscovery } from './OAuthDiscovery';
-import type { OAuthProvider, OAuthToken, OAuthTokenData, AuthorizeOptions } from '../types';
+import type {
+  OAuthProvider,
+  OAuthToken,
+  OAuthTokenData,
+  AuthorizeOptions,
+} from '../types';
 
 export class OAuthService {
   private tokenManager: OAuthTokenManager;
@@ -41,7 +46,10 @@ export class OAuthService {
    * @param scopes 所需权限范围
    * @returns Token对象或null
    */
-  async getToken(providerId: string, scopes?: string[]): Promise<OAuthTokenData | null> {
+  async getToken(
+    providerId: string,
+    scopes?: string[]
+  ): Promise<OAuthTokenData | null> {
     const provider = this.providers.get(providerId);
     if (!provider) {
       logger.error(`OAuth provider not found: ${providerId}`);
@@ -57,7 +65,10 @@ export class OAuthService {
    * @param options 授权选项
    * @returns Token对象
    */
-  async authorize(providerId: string, options: AuthorizeOptions): Promise<OAuthToken> {
+  async authorize(
+    providerId: string,
+    options: AuthorizeOptions
+  ): Promise<OAuthToken> {
     const provider = this.providers.get(providerId);
     if (!provider) {
       logger.error(`OAuth provider not found: ${providerId}`);

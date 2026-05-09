@@ -1,5 +1,12 @@
 //
-import { AIAgent, AgentConfig, AgentState, AgentTask, AgentResponse, AgentSource } from '../models/types';
+import {
+  AIAgent,
+  AgentConfig,
+  AgentState,
+  AgentTask,
+  AgentResponse,
+  AgentSource,
+} from '../models/types';
 import { AIAgentImpl } from '../agent';
 import { AgentSourceManager } from './AgentSourceManager';
 import { AgentConfigManager } from './AgentConfigManager';
@@ -46,13 +53,19 @@ interface PoolHealthInfo {
 }
 
 interface LoadBalanceStrategy {
-  selectAgent(pools: Map<string, AgentPool>, capability?: string): PooledAgent | null;
+  selectAgent(
+    pools: Map<string, AgentPool>,
+    capability?: string
+  ): PooledAgent | null;
 }
 
 class RoundRobinStrategy implements LoadBalanceStrategy {
   private index: number = 0;
 
-  selectAgent(pools: Map<string, AgentPool>, capability?: string): PooledAgent | null {
+  selectAgent(
+    pools: Map<string, AgentPool>,
+    capability?: string
+  ): PooledAgent | null {
     const poolArray = Array.from(pools.values());
     if (poolArray.length === 0) return null;
 
@@ -71,7 +84,10 @@ class RoundRobinStrategy implements LoadBalanceStrategy {
 }
 
 class LeastLoadedStrategy implements LoadBalanceStrategy {
-  selectAgent(pools: Map<string, AgentPool>, capability?: string): PooledAgent | null {
+  selectAgent(
+    pools: Map<string, AgentPool>,
+    capability?: string
+  ): PooledAgent | null {
     let bestPool: AgentPool | null = null;
     let lowestLoad = Infinity;
 
@@ -117,9 +133,10 @@ export class MultiSourceAgentManager {
   ) {
     this.sourceManager = sourceManager;
     this.configManager = configManager;
-    this.loadBalancer = strategy === 'round-robin'
-      ? new RoundRobinStrategy()
-      : new LeastLoadedStrategy();
+    this.loadBalancer =
+      strategy === 'round-robin'
+        ? new RoundRobinStrategy()
+        : new LeastLoadedStrategy();
   }
 
   async initialize(): Promise<void> {
@@ -133,7 +150,10 @@ export class MultiSourceAgentManager {
       logger.warn(`Pool ${source} already exists, updating config`);
     }
 
-    const poolConfig: AgentPoolConfig = { ...this.defaultPoolConfig, ...config };
+    const poolConfig: AgentPoolConfig = {
+      ...this.defaultPoolConfig,
+      ...config,
+    };
     const pool: AgentPool = {
       source,
       config: poolConfig,
@@ -270,15 +290,23 @@ export class MultiSourceAgentManager {
           maxLoadPool.agents.delete(agentId);
           maxLoadPool.inUse = Math.max(0, maxLoadPool.inUse - 1);
           minLoadPool.agents.set(agentId, pooledAgent);
-          logger.debug(`Moved agent ${agentId} from ${maxLoadPool.source} to ${minLoadPool.source}`);
+          logger.debug(
+            `Moved agent ${agentId} from ${maxLoadPool.source} to ${minLoadPool.source}`
+          );
           break;
         }
       }
     }
   }
 
-  getPoolStats(): Map<string, { total: number; inUse: number; available: number; healthy: number }> {
-    const stats = new Map<string, { total: number; inUse: number; available: number; healthy: number }>();
+  getPoolStats(): Map<
+    string,
+    { total: number; inUse: number; available: number; healthy: number }
+  > {
+    const stats = new Map<
+      string,
+      { total: number; inUse: number; available: number; healthy: number }
+    >();
     for (const [poolId, pool] of this.pools) {
       let healthy = 0;
       let available = 0;
@@ -286,7 +314,12 @@ export class MultiSourceAgentManager {
         if (agent.healthStatus === 'healthy') healthy++;
         if (!agent.inUse && agent.healthStatus === 'healthy') available++;
       }
-      stats.set(poolId, { total: pool.agents.size, inUse: pool.inUse, available, healthy });
+      stats.set(poolId, {
+        total: pool.agents.size,
+        inUse: pool.inUse,
+        available,
+        healthy,
+      });
     }
     return stats;
   }
@@ -306,7 +339,10 @@ export class MultiSourceAgentManager {
       const agent = new AIAgentImpl(config);
       return { agent };
     } catch (error) {
-      logger.error(`Failed to create agent for pool ${source}:`, error as Error);
+      logger.error(
+        `Failed to create agent for pool ${source}:`,
+        error as Error
+      );
       return null;
     }
   }

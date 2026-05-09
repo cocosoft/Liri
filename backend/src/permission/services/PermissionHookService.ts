@@ -86,7 +86,9 @@ export class PermissionHookService {
   private getEnabledHooks(): RegisteredPermissionHook[] {
     return this.getAllHooks()
       .filter((h) => h.metadata.enabled)
-      .sort((a, b) => (a.metadata.priority || 100) - (b.metadata.priority || 100));
+      .sort(
+        (a, b) => (a.metadata.priority || 100) - (b.metadata.priority || 100)
+      );
   }
 
   /**
@@ -104,7 +106,9 @@ export class PermissionHookService {
       return null;
     }
 
-    logger.debug(`Executing ${hooks.length} permission hooks for tool: ${context.toolName}`);
+    logger.debug(
+      `Executing ${hooks.length} permission hooks for tool: ${context.toolName}`
+    );
 
     for (const registeredHook of hooks) {
       try {
@@ -122,7 +126,9 @@ export class PermissionHookService {
         });
 
         if (decision && decision.behavior !== 'passthrough') {
-          logger.info(`Permission hook '${metadata.name}' made decision: ${decision.behavior}`);
+          logger.info(
+            `Permission hook '${metadata.name}' made decision: ${decision.behavior}`
+          );
           return decision;
         }
       } catch (error) {

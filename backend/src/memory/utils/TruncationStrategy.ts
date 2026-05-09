@@ -30,8 +30,10 @@ export function truncateMemoryContent(raw: string): TruncationResult {
   const lineCount = contentLines.length;
   const byteCount = trimmed.length;
 
-  const wasLineTruncated = lineCount > MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_LINES;
-  const wasByteTruncated = byteCount > MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_BYTES;
+  const wasLineTruncated =
+    lineCount > MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_LINES;
+  const wasByteTruncated =
+    byteCount > MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_BYTES;
 
   if (!wasLineTruncated && !wasByteTruncated) {
     return {
@@ -44,12 +46,20 @@ export function truncateMemoryContent(raw: string): TruncationResult {
   }
 
   let truncated = wasLineTruncated
-    ? contentLines.slice(0, MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_LINES).join('\n')
+    ? contentLines
+        .slice(0, MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_LINES)
+        .join('\n')
     : trimmed;
 
   if (truncated.length > MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_BYTES) {
-    const cutAt = truncated.lastIndexOf('\n', MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_BYTES);
-    truncated = truncated.slice(0, cutAt > 0 ? cutAt : MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_BYTES);
+    const cutAt = truncated.lastIndexOf(
+      '\n',
+      MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_BYTES
+    );
+    truncated = truncated.slice(
+      0,
+      cutAt > 0 ? cutAt : MEMORY_TRUNCATION_CONFIG.MAX_ENTRYPOINT_BYTES
+    );
   }
 
   const reason =

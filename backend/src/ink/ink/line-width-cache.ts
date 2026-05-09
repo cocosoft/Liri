@@ -16,22 +16,23 @@ const CACHE_TTL = 60000;
 
 export function getLineWidth(text: string): number {
   const now = Date.now();
-  
+
   const cached = cache.get(text);
   if (cached && now - cached.timestamp < CACHE_TTL) {
     return cached.width;
   }
 
   const width = stringWidth(text);
-  
+
   if (cache.size >= MAX_CACHE_SIZE) {
-    const oldestKey = Array.from(cache.entries())
-      .sort((a, b) => a[1].timestamp - b[1].timestamp)[0][0];
+    const oldestKey = Array.from(cache.entries()).sort(
+      (a, b) => a[1].timestamp - b[1].timestamp
+    )[0][0];
     cache.delete(oldestKey);
   }
 
   cache.set(text, { width, timestamp: now });
-  
+
   return width;
 }
 

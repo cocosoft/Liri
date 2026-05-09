@@ -41,7 +41,9 @@ export function readFile(input: FileReadInput): FileReadResult {
   }
 
   if (stat.size > MAX_FILE_SIZE) {
-    throw new Error(`File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB (max 10 MiB)`);
+    throw new Error(
+      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB (max 10 MiB)`
+    );
   }
 
   const content = fs.readFileSync(resolved, 'utf-8');
@@ -71,7 +73,8 @@ export function readFile(input: FileReadInput): FileReadResult {
 }
 
 export function addLineNumbers(content: string, startLine: number = 1): string {
-  return content.split('\n')
+  return content
+    .split('\n')
     .map((line, i) => `${String(startLine + i).padStart(6, ' ')}  ${line}`)
     .join('\n');
 }

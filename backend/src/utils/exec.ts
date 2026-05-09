@@ -11,7 +11,10 @@ import { execSync as cpExecSync } from 'child_process';
  * @param options 选项
  * @returns 命令输出
  */
-export function execSyncWithOutput(command: string, options: any = {}): { stdout: string; stderr: string } {
+export function execSyncWithOutput(
+  command: string,
+  options: any = {}
+): { stdout: string; stderr: string } {
   try {
     const stdout = cpExecSync(command, { ...options, encoding: 'utf8' });
     return { stdout, stderr: '' };

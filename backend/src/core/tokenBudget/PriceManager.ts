@@ -29,7 +29,7 @@ export class PriceManager {
   }
 
   registerProvider(provider: IPriceProvider): void {
-    const exists = this.providers.find(p => p.name === provider.name);
+    const exists = this.providers.find((p) => p.name === provider.name);
     if (exists) {
       return;
     }
@@ -52,14 +52,19 @@ export class PriceManager {
       if (provider.supports(model)) {
         const result = provider.getPricing(model);
         if (result) {
-          result.then(r => {
+          result.then((r) => {
             if (r) this.priceCache.set(model, r);
           });
           const idx = model.toLowerCase().indexOf('claude');
           if (idx >= 0) {
             return {
               model,
-              pricing: { inputPer1M: 3, outputPer1M: 15, cacheWritePer1M: 3.75, cacheReadPer1M: 0.3 },
+              pricing: {
+                inputPer1M: 3,
+                outputPer1M: 15,
+                cacheWritePer1M: 3.75,
+                cacheReadPer1M: 0.3,
+              },
               contextWindow: 200000,
               supportsPromptCache: true,
               source: 'builtin',
@@ -68,7 +73,12 @@ export class PriceManager {
           if (model.toLowerCase().indexOf('deepseek') >= 0) {
             return {
               model,
-              pricing: { inputPer1M: 0.27, outputPer1M: 1.1, cacheWritePer1M: 0, cacheReadPer1M: 0 },
+              pricing: {
+                inputPer1M: 0.27,
+                outputPer1M: 1.1,
+                cacheWritePer1M: 0,
+                cacheReadPer1M: 0,
+              },
               contextWindow: 100000,
               supportsPromptCache: false,
               source: 'builtin',
@@ -77,7 +87,12 @@ export class PriceManager {
           if (model.toLowerCase().indexOf('gpt-4o') >= 0) {
             return {
               model,
-              pricing: { inputPer1M: 2.5, outputPer1M: 10, cacheWritePer1M: 10, cacheReadPer1M: 1.25 },
+              pricing: {
+                inputPer1M: 2.5,
+                outputPer1M: 10,
+                cacheWritePer1M: 10,
+                cacheReadPer1M: 1.25,
+              },
               contextWindow: 128000,
               supportsPromptCache: true,
               source: 'builtin',
@@ -85,7 +100,12 @@ export class PriceManager {
           }
           return {
             model,
-            pricing: { inputPer1M: 3, outputPer1M: 15, cacheWritePer1M: 3.75, cacheReadPer1M: 0.3 },
+            pricing: {
+              inputPer1M: 3,
+              outputPer1M: 15,
+              cacheWritePer1M: 3.75,
+              cacheReadPer1M: 0.3,
+            },
             contextWindow: 200000,
             supportsPromptCache: true,
             source: 'builtin',
@@ -96,7 +116,12 @@ export class PriceManager {
 
     return {
       model,
-      pricing: { inputPer1M: 3, outputPer1M: 15, cacheWritePer1M: 3.75, cacheReadPer1M: 0.3 },
+      pricing: {
+        inputPer1M: 3,
+        outputPer1M: 15,
+        cacheWritePer1M: 3.75,
+        cacheReadPer1M: 0.3,
+      },
       contextWindow: 200000,
       supportsPromptCache: true,
       source: 'builtin',
@@ -146,8 +171,10 @@ export class PriceManager {
 
     const inputCost = (tokens.input / 1_000_000) * pricing.inputPer1M;
     const outputCost = (tokens.output / 1_000_000) * pricing.outputPer1M;
-    const cacheReadCost = ((tokens.cacheRead || 0) / 1_000_000) * pricing.cacheReadPer1M;
-    const cacheCreationCost = ((tokens.cacheCreation || 0) / 1_000_000) * pricing.cacheWritePer1M;
+    const cacheReadCost =
+      ((tokens.cacheRead || 0) / 1_000_000) * pricing.cacheReadPer1M;
+    const cacheCreationCost =
+      ((tokens.cacheCreation || 0) / 1_000_000) * pricing.cacheWritePer1M;
 
     return {
       cost: inputCost + outputCost + cacheReadCost + cacheCreationCost,

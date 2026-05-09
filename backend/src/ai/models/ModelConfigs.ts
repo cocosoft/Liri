@@ -6,7 +6,7 @@
 /**
  * API提供商类型
  */
-export type APIProvider = 
+export type APIProvider =
   | 'firstParty'
   | 'bedrock'
   | 'vertex'
@@ -36,7 +36,7 @@ export interface ModelConfig {
 /**
  * 模型键类型
  */
-export type ModelKey = 
+export type ModelKey =
   | 'opus46'
   | 'opus45'
   | 'opus41'

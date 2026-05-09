@@ -90,7 +90,10 @@ interface RemoteTaskInfo {
 export class RemoteTaskScheduler {
   private tasks: Map<string, RemoteTaskInfo> = new Map();
   private callbacks: RemoteTaskCallbacks;
-  private commandExecutor: (sessionId: string, command: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  private commandExecutor: (
+    sessionId: string,
+    command: string
+  ) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
 
   /**
    * 构造函数
@@ -99,7 +102,10 @@ export class RemoteTaskScheduler {
    */
   constructor(
     callbacks?: RemoteTaskCallbacks,
-    commandExecutor?: (sessionId: string, command: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+    commandExecutor?: (
+      sessionId: string,
+      command: string
+    ) => Promise<{ stdout: string; stderr: string; exitCode: number }>
   ) {
     this.callbacks = callbacks || {};
     this.commandExecutor = commandExecutor || this.defaultCommandExecutor;
@@ -112,7 +118,9 @@ export class RemoteTaskScheduler {
     sessionId: string,
     command: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    console.log(`[RemoteTaskScheduler] Executing command on ${sessionId}: ${command}`);
+    console.log(
+      `[RemoteTaskScheduler] Executing command on ${sessionId}: ${command}`
+    );
     return {
       stdout: '',
       stderr: '',
@@ -150,11 +158,20 @@ export class RemoteTaskScheduler {
 
     this.tasks.set(taskId, taskInfo);
 
-    if (taskInfo.config.type === RemoteTaskType.IMMEDIATE && taskInfo.config.enabled) {
+    if (
+      taskInfo.config.type === RemoteTaskType.IMMEDIATE &&
+      taskInfo.config.enabled
+    ) {
       this.scheduleTask(taskId);
-    } else if (taskInfo.config.type === RemoteTaskType.DELAYED && taskInfo.config.scheduledAt) {
+    } else if (
+      taskInfo.config.type === RemoteTaskType.DELAYED &&
+      taskInfo.config.scheduledAt
+    ) {
       this.scheduleTask(taskId);
-    } else if (taskInfo.config.type === RemoteTaskType.SCHEDULED && taskInfo.config.scheduledAt) {
+    } else if (
+      taskInfo.config.type === RemoteTaskType.SCHEDULED &&
+      taskInfo.config.scheduledAt
+    ) {
       this.scheduleTask(taskId);
     }
 
@@ -249,7 +266,10 @@ export class RemoteTaskScheduler {
           this.callbacks.onComplete?.(taskId, taskResult);
           this.callbacks.onStatusChange?.(taskId, RemoteTaskStatus.COMPLETED);
 
-          if (taskInfo.config.type === RemoteTaskType.RECURRING && taskInfo.config.interval) {
+          if (
+            taskInfo.config.type === RemoteTaskType.RECURRING &&
+            taskInfo.config.interval
+          ) {
             this.scheduleRecurringTask(taskId);
           }
 
@@ -265,7 +285,8 @@ export class RemoteTaskScheduler {
           const taskResult: RemoteTaskResult = {
             taskId,
             status: RemoteTaskStatus.FAILED,
-            error: result.stderr || `Command exited with code ${result.exitCode}`,
+            error:
+              result.stderr || `Command exited with code ${result.exitCode}`,
             exitCode: result.exitCode,
             startTime,
             endTime,
@@ -291,7 +312,8 @@ export class RemoteTaskScheduler {
         }
 
         const endTime = Date.now();
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
         const taskResult: RemoteTaskResult = {
           taskId,
           status: RemoteTaskStatus.FAILED,
@@ -401,7 +423,10 @@ export class RemoteTaskScheduler {
     taskInfo.config.enabled = true;
     taskInfo.updatedAt = Date.now();
 
-    if (taskInfo.status === RemoteTaskStatus.SCHEDULED || taskInfo.status === RemoteTaskStatus.PENDING) {
+    if (
+      taskInfo.status === RemoteTaskStatus.SCHEDULED ||
+      taskInfo.status === RemoteTaskStatus.PENDING
+    ) {
       this.scheduleTask(taskId);
     }
 
@@ -517,7 +542,10 @@ export class RemoteTaskScheduler {
  */
 export function createRemoteTaskScheduler(
   callbacks?: RemoteTaskCallbacks,
-  commandExecutor?: (sessionId: string, command: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>
+  commandExecutor?: (
+    sessionId: string,
+    command: string
+  ) => Promise<{ stdout: string; stderr: string; exitCode: number }>
 ): RemoteTaskScheduler {
   return new RemoteTaskScheduler(callbacks, commandExecutor);
 }

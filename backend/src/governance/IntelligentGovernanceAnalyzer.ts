@@ -3,7 +3,12 @@
  * 提供深度治理分析、模式识别、优化建议等高级功能
  */
 
-import { EnhancedGovernanceManager, GovernanceRiskAssessment, GovernancePerformanceMetrics, GovernanceTrendAnalysis } from './EnhancedGovernanceManager.js';
+import {
+  EnhancedGovernanceManager,
+  GovernanceRiskAssessment,
+  GovernancePerformanceMetrics,
+  GovernanceTrendAnalysis,
+} from './EnhancedGovernanceManager.js';
 
 /**
  * 治理分析结果
@@ -11,34 +16,34 @@ import { EnhancedGovernanceManager, GovernanceRiskAssessment, GovernancePerforma
 export interface GovernanceAnalysisResult {
   /** 治理域 */
   governanceDomain: string;
-  
+
   /** 总体评分（0-100） */
   overallScore: number;
-  
+
   /** 风险评分（0-100） */
   riskScore: number;
-  
+
   /** 合规评分（0-100） */
   complianceScore: number;
-  
+
   /** 性能评分（0-100） */
   performanceScore: number;
-  
+
   /** 成熟度评分（0-100） */
   maturityScore: number;
-  
+
   /** 效率评分（0-100） */
   efficiencyScore: number;
-  
+
   /** 分析时间 */
   analyzedAt: Date;
-  
+
   /** 分析详情 */
   details: GovernanceAnalysisDetails;
-  
+
   /** 优化建议 */
   recommendations: GovernanceOptimizationRecommendation[];
-  
+
   /** 风险提示 */
   riskWarnings: GovernanceRiskWarning[];
 }
@@ -49,19 +54,19 @@ export interface GovernanceAnalysisResult {
 export interface GovernanceAnalysisDetails {
   /** 风险分析 */
   risk: RiskAnalysis;
-  
+
   /** 合规分析 */
   compliance: ComplianceAnalysis;
-  
+
   /** 性能分析 */
   performance: PerformanceAnalysis;
-  
+
   /** 成熟度分析 */
   maturity: MaturityAnalysis;
-  
+
   /** 效率分析 */
   efficiency: EfficiencyAnalysis;
-  
+
   /** 趋势分析 */
   trends: TrendAnalysis;
 }
@@ -72,13 +77,13 @@ export interface GovernanceAnalysisDetails {
 export interface RiskAnalysis {
   /** 总体风险评估 */
   overallRisk: OverallRiskAssessment;
-  
+
   /** 风险因素分析 */
   riskFactors: RiskFactorAnalysis;
-  
+
   /** 风险控制分析 */
   riskControls: RiskControlAnalysis;
-  
+
   /** 风险缓解分析 */
   riskMitigation: RiskMitigationAnalysis;
 }
@@ -89,13 +94,13 @@ export interface RiskAnalysis {
 export interface ComplianceAnalysis {
   /** 合规状态分析 */
   complianceStatus: ComplianceStatusAnalysis;
-  
+
   /** 合规差距分析 */
   complianceGaps: ComplianceGapAnalysis;
-  
+
   /** 合规控制分析 */
   complianceControls: ComplianceControlAnalysis;
-  
+
   /** 合规改进分析 */
   complianceImprovement: ComplianceImprovementAnalysis;
 }
@@ -106,13 +111,13 @@ export interface ComplianceAnalysis {
 export interface PerformanceAnalysis {
   /** 规则执行分析 */
   ruleExecution: RuleExecutionAnalysis;
-  
+
   /** 合规检查分析 */
   complianceCheck: ComplianceCheckAnalysis;
-  
+
   /** 审计处理分析 */
   auditProcessing: AuditProcessingAnalysis;
-  
+
   /** 系统性能分析 */
   systemPerformance: SystemPerformanceAnalysis;
 }
@@ -123,13 +128,13 @@ export interface PerformanceAnalysis {
 export interface MaturityAnalysis {
   /** 成熟度等级分析 */
   maturityLevel: MaturityLevelAnalysis;
-  
+
   /** 成熟度维度分析 */
   maturityDimensions: MaturityDimensionAnalysis;
-  
+
   /** 成熟度改进分析 */
   maturityImprovement: MaturityImprovementAnalysis;
-  
+
   /** 成熟度基准分析 */
   maturityBenchmark: MaturityBenchmarkAnalysis;
 }
@@ -140,13 +145,13 @@ export interface MaturityAnalysis {
 export interface EfficiencyAnalysis {
   /** 流程效率分析 */
   processEfficiency: ProcessEfficiencyAnalysis;
-  
+
   /** 资源效率分析 */
   resourceEfficiency: ResourceEfficiencyAnalysis;
-  
+
   /** 成本效率分析 */
   costEfficiency: CostEfficiencyAnalysis;
-  
+
   /** 自动化效率分析 */
   automationEfficiency: AutomationEfficiencyAnalysis;
 }
@@ -157,13 +162,13 @@ export interface EfficiencyAnalysis {
 export interface TrendAnalysis {
   /** 风险趋势分析 */
   riskTrend: RiskTrendAnalysis;
-  
+
   /** 合规趋势分析 */
   complianceTrend: ComplianceTrendAnalysis;
-  
+
   /** 性能趋势分析 */
   performanceTrend: PerformanceTrendAnalysis;
-  
+
   /** 成熟度趋势分析 */
   maturityTrend: MaturityTrendAnalysis;
 }
@@ -174,13 +179,13 @@ export interface TrendAnalysis {
 export interface OverallRiskAssessment {
   /** 总体风险评分 */
   overallRiskScore: number;
-  
+
   /** 风险等级 */
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 风险趋势 */
   riskTrend: 'improving' | 'stable' | 'deteriorating';
-  
+
   /** 风险置信度 */
   confidence: number;
 }
@@ -191,16 +196,16 @@ export interface OverallRiskAssessment {
 export interface RiskFactorAnalysis {
   /** 风险因素数量 */
   totalFactors: number;
-  
+
   /** 高风险因素 */
   highRiskFactors: number;
-  
+
   /** 中等风险因素 */
   mediumRiskFactors: number;
-  
+
   /** 低风险因素 */
   lowRiskFactors: number;
-  
+
   /** 风险因素分布 */
   factorDistribution: RiskFactorDistribution;
 }
@@ -211,13 +216,13 @@ export interface RiskFactorAnalysis {
 export interface RiskControlAnalysis {
   /** 控制有效性 */
   controlEffectiveness: number;
-  
+
   /** 控制覆盖率 */
   controlCoverage: number;
-  
+
   /** 控制成熟度 */
   controlMaturity: number;
-  
+
   /** 控制改进建议 */
   improvementSuggestions: string[];
 }
@@ -228,13 +233,13 @@ export interface RiskControlAnalysis {
 export interface RiskMitigationAnalysis {
   /** 缓解措施有效性 */
   mitigationEffectiveness: number;
-  
+
   /** 缓解措施覆盖率 */
   mitigationCoverage: number;
-  
+
   /** 缓解措施优先级 */
   mitigationPriority: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 缓解措施实施状态 */
   implementationStatus: 'not_started' | 'in_progress' | 'completed';
 }
@@ -245,13 +250,13 @@ export interface RiskMitigationAnalysis {
 export interface ComplianceStatusAnalysis {
   /** 合规率 */
   complianceRate: number;
-  
+
   /** 违规数量 */
   violations: number;
-  
+
   /** 严重违规数量 */
   criticalViolations: number;
-  
+
   /** 合规趋势 */
   complianceTrend: 'improving' | 'stable' | 'deteriorating';
 }
@@ -262,16 +267,16 @@ export interface ComplianceStatusAnalysis {
 export interface ComplianceGapAnalysis {
   /** 总差距数量 */
   totalGaps: number;
-  
+
   /** 严重差距数量 */
   criticalGaps: number;
-  
+
   /** 中等差距数量 */
   mediumGaps: number;
-  
+
   /** 轻微差距数量 */
   minorGaps: number;
-  
+
   /** 差距修复优先级 */
   gapRepairPriority: 'low' | 'medium' | 'high' | 'critical';
 }
@@ -282,13 +287,13 @@ export interface ComplianceGapAnalysis {
 export interface RuleExecutionAnalysis {
   /** 执行时间 */
   executionTime: number;
-  
+
   /** 执行成功率 */
   successRate: number;
-  
+
   /** 执行稳定性 */
   stability: number;
-  
+
   /** 执行效率 */
   efficiency: number;
 }
@@ -298,14 +303,24 @@ export interface RuleExecutionAnalysis {
  */
 export interface MaturityLevelAnalysis {
   /** 当前成熟度等级 */
-  currentLevel: 'initial' | 'managed' | 'defined' | 'quantitatively managed' | 'optimizing';
-  
+  currentLevel:
+    | 'initial'
+    | 'managed'
+    | 'defined'
+    | 'quantitatively managed'
+    | 'optimizing';
+
   /** 目标成熟度等级 */
-  targetLevel: 'initial' | 'managed' | 'defined' | 'quantitatively managed' | 'optimizing';
-  
+  targetLevel:
+    | 'initial'
+    | 'managed'
+    | 'defined'
+    | 'quantitatively managed'
+    | 'optimizing';
+
   /** 成熟度差距 */
   maturityGap: number;
-  
+
   /** 成熟度提升路径 */
   improvementPath: string[];
 }
@@ -316,25 +331,25 @@ export interface MaturityLevelAnalysis {
 export interface GovernanceOptimizationRecommendation {
   /** 建议ID */
   id: string;
-  
+
   /** 建议类型 */
   type: 'risk' | 'compliance' | 'performance' | 'maturity' | 'efficiency';
-  
+
   /** 建议标题 */
   title: string;
-  
+
   /** 建议描述 */
   description: string;
-  
+
   /** 优先级 */
   priority: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 实施难度 */
   difficulty: 'easy' | 'medium' | 'hard';
-  
+
   /** 预期效果 */
   expectedImpact: 'minor' | 'moderate' | 'major';
-  
+
   /** 实施步骤 */
   implementationSteps: string[];
 }
@@ -345,22 +360,22 @@ export interface GovernanceOptimizationRecommendation {
 export interface GovernanceRiskWarning {
   /** 风险ID */
   id: string;
-  
+
   /** 风险类型 */
   type: 'risk' | 'compliance' | 'performance' | 'maturity' | 'efficiency';
-  
+
   /** 风险标题 */
   title: string;
-  
+
   /** 风险描述 */
   description: string;
-  
+
   /** 风险等级 */
   level: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 影响范围 */
   impactScope: 'domain' | 'system' | 'organization';
-  
+
   /** 缓解措施 */
   mitigationMeasures: string[];
 }
@@ -371,22 +386,22 @@ export interface GovernanceRiskWarning {
 export interface IntelligentGovernanceAnalyzerConfig {
   /** 启用深度分析 */
   enableDeepAnalysis: boolean;
-  
+
   /** 启用模式识别 */
   enablePatternRecognition: boolean;
-  
+
   /** 启用预测分析 */
   enablePredictiveAnalysis: boolean;
-  
+
   /** 启用趋势分析 */
   enableTrendAnalysis: boolean;
-  
+
   /** 分析深度 */
   analysisDepth: 'basic' | 'standard' | 'advanced' | 'expert';
-  
+
   /** 缓存大小 */
   cacheSize: number;
-  
+
   /** 分析超时时间（毫秒） */
   analysisTimeout: number;
 }
@@ -429,33 +444,35 @@ export class IntelligentGovernanceAnalyzer {
       'high-risk-concentration': {
         description: '高风险集中模式',
         indicators: ['riskScore > 80', 'highRiskFactors > 5'],
-        recommendations: ['风险分散', '加强控制']
+        recommendations: ['风险分散', '加强控制'],
       },
       'compliance-gap-cluster': {
         description: '合规差距集群模式',
         indicators: ['complianceGaps > 10', 'criticalGaps > 3'],
-        recommendations: ['系统修复', '流程优化']
-      }
+        recommendations: ['系统修复', '流程优化'],
+      },
     });
 
     this.patternDatabase.set('performance-patterns', {
       'slow-rule-execution': {
         description: '规则执行缓慢模式',
         indicators: ['executionTime > 500', 'successRate < 90'],
-        recommendations: ['优化规则引擎', '提高执行效率']
+        recommendations: ['优化规则引擎', '提高执行效率'],
       },
       'inefficient-compliance-check': {
         description: '合规检查低效模式',
         indicators: ['complianceCheckTime > 1000', 'accuracy < 85'],
-        recommendations: ['优化检查算法', '提高准确性']
-      }
+        recommendations: ['优化检查算法', '提高准确性'],
+      },
     });
   }
 
   /**
    * 分析治理域
    */
-  async analyzeGovernance(governanceDomain: string): Promise<GovernanceAnalysisResult> {
+  async analyzeGovernance(
+    governanceDomain: string
+  ): Promise<GovernanceAnalysisResult> {
     // 检查缓存
     const cachedResult = this.analysisCache.get(governanceDomain);
     if (cachedResult) {
@@ -464,40 +481,60 @@ export class IntelligentGovernanceAnalyzer {
 
     // 执行分析
     const result = await this.performAnalysis(governanceDomain);
-    
+
     // 缓存结果
     this.analysisCache.set(governanceDomain, result);
-    
+
     return result;
   }
 
   /**
    * 执行分析
    */
-  private async performAnalysis(governanceDomain: string): Promise<GovernanceAnalysisResult> {
+  private async performAnalysis(
+    governanceDomain: string
+  ): Promise<GovernanceAnalysisResult> {
     // 收集基础数据
     const risk = this.enhancedManager.getGovernanceRisk(governanceDomain);
-    const performance = this.enhancedManager.getGovernancePerformance(governanceDomain);
+    const performance =
+      this.enhancedManager.getGovernancePerformance(governanceDomain);
     const trends = this.enhancedManager.getGovernanceTrends(governanceDomain);
 
     // 执行深度分析
-    const analysisDetails = await this.performDeepAnalysis(governanceDomain, risk, performance, trends);
-    
+    const analysisDetails = await this.performDeepAnalysis(
+      governanceDomain,
+      risk,
+      performance,
+      trends
+    );
+
     // 计算总体评分
     const overallScore = this.calculateOverallScore(analysisDetails);
-    
+
     // 生成优化建议
-    const recommendations = this.generateOptimizationRecommendations(governanceDomain, analysisDetails);
-    
+    const recommendations = this.generateOptimizationRecommendations(
+      governanceDomain,
+      analysisDetails
+    );
+
     // 生成风险提示
-    const riskWarnings = this.generateRiskWarnings(governanceDomain, analysisDetails);
+    const riskWarnings = this.generateRiskWarnings(
+      governanceDomain,
+      analysisDetails
+    );
 
     return {
       governanceDomain,
       overallScore,
-      riskScore: analysisDetails.risk ? this.calculateRiskScore(analysisDetails.risk) : 0,
-      complianceScore: analysisDetails.compliance ? this.calculateComplianceScore(analysisDetails.compliance) : 0,
-      performanceScore: analysisDetails.performance ? this.calculatePerformanceScore(analysisDetails.performance) : 0,
+      riskScore: analysisDetails.risk
+        ? this.calculateRiskScore(analysisDetails.risk)
+        : 0,
+      complianceScore: analysisDetails.compliance
+        ? this.calculateComplianceScore(analysisDetails.compliance)
+        : 0,
+      performanceScore: analysisDetails.performance
+        ? this.calculatePerformanceScore(analysisDetails.performance)
+        : 0,
       maturityScore: risk ? risk.governanceMaturity.maturityScore : 0,
       efficiencyScore: 75, // 模拟效率评分
       analyzedAt: new Date(),
@@ -527,15 +564,30 @@ export class IntelligentGovernanceAnalyzer {
         },
         riskFactors: {
           totalFactors: risk?.riskFactors.length || 0,
-          highRiskFactors: risk?.riskFactors.filter(f => f.impact === 'high' || f.impact === 'critical').length || 0,
-          mediumRiskFactors: risk?.riskFactors.filter(f => f.impact === 'medium').length || 0,
-          lowRiskFactors: risk?.riskFactors.filter(f => f.impact === 'low').length || 0,
+          highRiskFactors:
+            risk?.riskFactors.filter(
+              (f) => f.impact === 'high' || f.impact === 'critical'
+            ).length || 0,
+          mediumRiskFactors:
+            risk?.riskFactors.filter((f) => f.impact === 'medium').length || 0,
+          lowRiskFactors:
+            risk?.riskFactors.filter((f) => f.impact === 'low').length || 0,
           factorDistribution: {
-            compliance: risk?.riskFactors.filter(f => f.factorType === 'compliance').length || 0,
-            security: risk?.riskFactors.filter(f => f.factorType === 'security').length || 0,
-            operational: risk?.riskFactors.filter(f => f.factorType === 'operational').length || 0,
-            financial: risk?.riskFactors.filter(f => f.factorType === 'financial').length || 0,
-            reputational: risk?.riskFactors.filter(f => f.factorType === 'reputational').length || 0,
+            compliance:
+              risk?.riskFactors.filter((f) => f.factorType === 'compliance')
+                .length || 0,
+            security:
+              risk?.riskFactors.filter((f) => f.factorType === 'security')
+                .length || 0,
+            operational:
+              risk?.riskFactors.filter((f) => f.factorType === 'operational')
+                .length || 0,
+            financial:
+              risk?.riskFactors.filter((f) => f.factorType === 'financial')
+                .length || 0,
+            reputational:
+              risk?.riskFactors.filter((f) => f.factorType === 'reputational')
+                .length || 0,
           },
         },
         riskControls: {
@@ -560,9 +612,16 @@ export class IntelligentGovernanceAnalyzer {
         },
         complianceGaps: {
           totalGaps: risk?.complianceStatus.gaps.length || 0,
-          criticalGaps: risk?.complianceStatus.gaps.filter(g => g.severity === 'critical').length || 0,
-          mediumGaps: risk?.complianceStatus.gaps.filter(g => g.severity === 'high' || g.severity === 'medium').length || 0,
-          minorGaps: risk?.complianceStatus.gaps.filter(g => g.severity === 'low').length || 0,
+          criticalGaps:
+            risk?.complianceStatus.gaps.filter((g) => g.severity === 'critical')
+              .length || 0,
+          mediumGaps:
+            risk?.complianceStatus.gaps.filter(
+              (g) => g.severity === 'high' || g.severity === 'medium'
+            ).length || 0,
+          minorGaps:
+            risk?.complianceStatus.gaps.filter((g) => g.severity === 'low')
+              .length || 0,
           gapRepairPriority: 'medium',
         },
         complianceControls: {
@@ -612,11 +671,26 @@ export class IntelligentGovernanceAnalyzer {
           improvementPath: ['建立基线', '实施控制', '持续改进'],
         },
         maturityDimensions: {
-          policy: risk?.governanceMaturity.dimensions.find(d => d.dimension === 'policy')?.score || 0,
-          process: risk?.governanceMaturity.dimensions.find(d => d.dimension === 'process')?.score || 0,
-          technology: risk?.governanceMaturity.dimensions.find(d => d.dimension === 'technology')?.score || 0,
-          people: risk?.governanceMaturity.dimensions.find(d => d.dimension === 'people')?.score || 0,
-          measurement: risk?.governanceMaturity.dimensions.find(d => d.dimension === 'measurement')?.score || 0,
+          policy:
+            risk?.governanceMaturity.dimensions.find(
+              (d) => d.dimension === 'policy'
+            )?.score || 0,
+          process:
+            risk?.governanceMaturity.dimensions.find(
+              (d) => d.dimension === 'process'
+            )?.score || 0,
+          technology:
+            risk?.governanceMaturity.dimensions.find(
+              (d) => d.dimension === 'technology'
+            )?.score || 0,
+          people:
+            risk?.governanceMaturity.dimensions.find(
+              (d) => d.dimension === 'people'
+            )?.score || 0,
+          measurement:
+            risk?.governanceMaturity.dimensions.find(
+              (d) => d.dimension === 'measurement'
+            )?.score || 0,
         },
         maturityImprovement: {
           improvementProgress: 40,
@@ -700,17 +774,21 @@ export class IntelligentGovernanceAnalyzer {
 
     const riskScore = this.calculateRiskScore(details.risk);
     const complianceScore = this.calculateComplianceScore(details.compliance);
-    const performanceScore = this.calculatePerformanceScore(details.performance);
-    const maturityScore = details.maturity.maturityLevel.maturityGap > 0 ? 
-      100 - details.maturity.maturityLevel.maturityGap : 100;
+    const performanceScore = this.calculatePerformanceScore(
+      details.performance
+    );
+    const maturityScore =
+      details.maturity.maturityLevel.maturityGap > 0
+        ? 100 - details.maturity.maturityLevel.maturityGap
+        : 100;
     const efficiencyScore = details.efficiency.processEfficiency.efficiency;
 
     return Math.round(
       riskScore * weights.risk +
-      complianceScore * weights.compliance +
-      performanceScore * weights.performance +
-      maturityScore * weights.maturity +
-      efficiencyScore * weights.efficiency
+        complianceScore * weights.compliance +
+        performanceScore * weights.performance +
+        maturityScore * weights.maturity +
+        efficiencyScore * weights.efficiency
     );
   }
 
@@ -718,12 +796,20 @@ export class IntelligentGovernanceAnalyzer {
    * 计算风险评分
    */
   private calculateRiskScore(risk: RiskAnalysis): number {
-    const overallRiskScore = Math.max(0, 100 - risk.overallRisk.overallRiskScore);
-    const factorScore = Math.max(0, 100 - risk.riskFactors.highRiskFactors * 10);
+    const overallRiskScore = Math.max(
+      0,
+      100 - risk.overallRisk.overallRiskScore
+    );
+    const factorScore = Math.max(
+      0,
+      100 - risk.riskFactors.highRiskFactors * 10
+    );
     const controlScore = risk.riskControls.controlEffectiveness;
     const mitigationScore = risk.riskMitigation.mitigationEffectiveness;
-    
-    return Math.round((overallRiskScore + factorScore + controlScore + mitigationScore) / 4);
+
+    return Math.round(
+      (overallRiskScore + factorScore + controlScore + mitigationScore) / 4
+    );
   }
 
   /**
@@ -731,23 +817,34 @@ export class IntelligentGovernanceAnalyzer {
    */
   private calculateComplianceScore(compliance: ComplianceAnalysis): number {
     const statusScore = compliance.complianceStatus.complianceRate;
-    const gapScore = Math.max(0, 100 - compliance.complianceGaps.criticalGaps * 15);
+    const gapScore = Math.max(
+      0,
+      100 - compliance.complianceGaps.criticalGaps * 15
+    );
     const controlScore = compliance.complianceControls.controlEffectiveness;
-    const improvementScore = compliance.complianceImprovement.improvementEffectiveness;
-    
-    return Math.round((statusScore + gapScore + controlScore + improvementScore) / 4);
+    const improvementScore =
+      compliance.complianceImprovement.improvementEffectiveness;
+
+    return Math.round(
+      (statusScore + gapScore + controlScore + improvementScore) / 4
+    );
   }
 
   /**
    * 计算性能评分
    */
   private calculatePerformanceScore(performance: PerformanceAnalysis): number {
-    const ruleScore = Math.max(0, 100 - performance.ruleExecution.executionTime / 10);
+    const ruleScore = Math.max(
+      0,
+      100 - performance.ruleExecution.executionTime / 10
+    );
     const complianceScore = performance.complianceCheck.successRate;
     const auditScore = performance.auditProcessing.successRate;
     const systemScore = performance.systemPerformance.overallScore;
-    
-    return Math.round((ruleScore + complianceScore + auditScore + systemScore) / 4);
+
+    return Math.round(
+      (ruleScore + complianceScore + auditScore + systemScore) / 4
+    );
   }
 
   /**

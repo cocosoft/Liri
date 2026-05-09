@@ -30,8 +30,11 @@ export function getTimeBasedMCConfig(): TimeBasedMCConfig {
       const parsed = JSON.parse(configStr);
       return {
         enabled: parsed.enabled ?? TIME_BASED_MC_CONFIG_DEFAULTS.enabled,
-        gapThresholdMinutes: parsed.gapThresholdMinutes ?? TIME_BASED_MC_CONFIG_DEFAULTS.gapThresholdMinutes,
-        keepRecent: parsed.keepRecent ?? TIME_BASED_MC_CONFIG_DEFAULTS.keepRecent,
+        gapThresholdMinutes:
+          parsed.gapThresholdMinutes ??
+          TIME_BASED_MC_CONFIG_DEFAULTS.gapThresholdMinutes,
+        keepRecent:
+          parsed.keepRecent ?? TIME_BASED_MC_CONFIG_DEFAULTS.keepRecent,
       };
     }
   } catch {

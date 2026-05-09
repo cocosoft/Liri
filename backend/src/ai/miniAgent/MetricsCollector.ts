@@ -76,11 +76,14 @@ export class MetricsCollector {
     }
 
     if (routeTarget in this.metrics.routeDistribution) {
-      this.metrics.routeDistribution[routeTarget as keyof typeof this.metrics.routeDistribution]++;
+      this.metrics.routeDistribution[
+        routeTarget as keyof typeof this.metrics.routeDistribution
+      ]++;
     }
 
     this.metrics.totalLatencyMs += latencyMs;
-    this.metrics.averageLatencyMs = this.metrics.totalLatencyMs / this.metrics.totalRequests;
+    this.metrics.averageLatencyMs =
+      this.metrics.totalLatencyMs / this.metrics.totalRequests;
 
     if (!success) {
       this.metrics.errors++;

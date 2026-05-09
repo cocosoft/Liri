@@ -90,7 +90,10 @@ export class PerformanceTimer {
     });
   }
 
-  stop(): { durationMs: number; logs: Array<{ timestamp: number; message: string }> } {
+  stop(): {
+    durationMs: number;
+    logs: Array<{ timestamp: number; message: string }>;
+  } {
     const duration = Date.now() - this.startTime;
     this.log(`Completed in ${duration}ms`);
     return { durationMs: duration, logs: this.logs };
@@ -108,8 +111,13 @@ export class DebugStatusChecker {
   /**
    * 检查Bridge配置
    */
-  static checkBridgeConfig(config: BridgeConfig): Array<{ type: 'error' | 'warning' | 'info'; message: string }> {
-    const issues: Array<{ type: 'error' | 'warning' | 'info'; message: string }> = [];
+  static checkBridgeConfig(
+    config: BridgeConfig
+  ): Array<{ type: 'error' | 'warning' | 'info'; message: string }> {
+    const issues: Array<{
+      type: 'error' | 'warning' | 'info';
+      message: string;
+    }> = [];
 
     if (!config.bridgeId) {
       issues.push({ type: 'error', message: 'bridgeId不能为空' });
@@ -141,8 +149,13 @@ export class DebugStatusChecker {
   /**
    * 检查轮询配置
    */
-  static checkPollConfig(config: PollConfig): Array<{ type: 'error' | 'warning' | 'info'; message: string }> {
-    const issues: Array<{ type: 'error' | 'warning' | 'info'; message: string }> = [];
+  static checkPollConfig(
+    config: PollConfig
+  ): Array<{ type: 'error' | 'warning' | 'info'; message: string }> {
+    const issues: Array<{
+      type: 'error' | 'warning' | 'info';
+      message: string;
+    }> = [];
 
     if (config.multisession_poll_interval_ms_at_capacity < 1000) {
       issues.push({ type: 'warning', message: '容量满时轮询间隔过短' });
@@ -158,15 +171,23 @@ export class DebugStatusChecker {
   /**
    * 检查退避配置
    */
-  static checkBackoffConfig(config: BackoffConfig): Array<{ type: 'error' | 'warning' | 'info'; message: string }> {
-    const issues: Array<{ type: 'error' | 'warning' | 'info'; message: string }> = [];
+  static checkBackoffConfig(
+    config: BackoffConfig
+  ): Array<{ type: 'error' | 'warning' | 'info'; message: string }> {
+    const issues: Array<{
+      type: 'error' | 'warning' | 'info';
+      message: string;
+    }> = [];
 
     if (config.connInitialMs > config.connCapMs) {
       issues.push({ type: 'error', message: 'connInitialMs不能大于connCapMs' });
     }
 
     if (config.generalInitialMs > config.generalCapMs) {
-      issues.push({ type: 'error', message: 'generalInitialMs不能大于generalCapMs' });
+      issues.push({
+        type: 'error',
+        message: 'generalInitialMs不能大于generalCapMs',
+      });
     }
 
     return issues;
@@ -175,7 +196,9 @@ export class DebugStatusChecker {
   /**
    * 检查网络连接
    */
-  static async checkNetwork(url: string): Promise<{ success: boolean; latencyMs: number; error?: string }> {
+  static async checkNetwork(
+    url: string
+  ): Promise<{ success: boolean; latencyMs: number; error?: string }> {
     const startTime = Date.now();
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -241,7 +264,9 @@ export class DebugInfoCollector {
     if (!this.info.errors) {
       this.info.errors = [];
     }
-    (this.info.errors as Array<{ message: string; stack: string | undefined }>).push({
+    (
+      this.info.errors as Array<{ message: string; stack: string | undefined }>
+    ).push({
       message: error.message,
       stack: error.stack,
     });
@@ -260,8 +285,14 @@ export class DebugInfoCollector {
  * 安全打印调试信息（隐藏敏感数据）
  */
 export function safeDebugLog(obj: unknown): string {
-  const sensitiveKeys = ['token', 'secret', 'password', 'accessToken', 'environmentSecret'];
-  
+  const sensitiveKeys = [
+    'token',
+    'secret',
+    'password',
+    'accessToken',
+    'environmentSecret',
+  ];
+
   function sanitize(value: unknown): unknown {
     if (typeof value === 'string') {
       for (const key of sensitiveKeys) {
@@ -271,14 +302,20 @@ export function safeDebugLog(obj: unknown): string {
       }
       // 检查是否看起来像token
       if (value.length > 20 && /^[a-zA-Z0-9_-]+$/.test(value)) {
-        return value.substring(0, 8) + '...' + value.substring(value.length - 4);
+        return (
+          value.substring(0, 8) + '...' + value.substring(value.length - 4)
+        );
       }
       return value;
     }
     if (value && typeof value === 'object') {
       const result: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(value)) {
-        if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk.toLowerCase()))) {
+        if (
+          sensitiveKeys.some((sk) =>
+            key.toLowerCase().includes(sk.toLowerCase())
+          )
+        ) {
           result[key] = '[REDACTED]';
         } else {
           result[key] = sanitize(val);
@@ -302,7 +339,7 @@ export function generateDebugReport(
   const collector = new DebugInfoCollector();
   collector.addConfig(config);
   collector.addEnvironment();
-  
+
   if (additionalInfo) {
     for (const [key, value] of Object.entries(additionalInfo)) {
       collector.add(key, value);

@@ -36,7 +36,7 @@ export interface ConfigHotReloadConfig {
 
 /**
  * 配置热更新服务
- * 
+ *
  * 基于CC源码的文件监听机制实现，提供配置文件变更检测和通知功能。
  * 支持防抖、内部写入检测、订阅/通知模式。
  */
@@ -56,7 +56,8 @@ export class ConfigHotReload extends EventEmitter {
     this.changeListeners = new Set();
     this.config = {
       debounceMs: config?.debounceMs ?? 1000,
-      enableInternalWriteDetection: config?.enableInternalWriteDetection ?? true,
+      enableInternalWriteDetection:
+        config?.enableInternalWriteDetection ?? true,
       internalWriteWindowMs: config?.internalWriteWindowMs ?? 5000,
     };
     this.internalWrites = new Map();
@@ -203,7 +204,10 @@ export class ConfigHotReload extends EventEmitter {
   private watchFile(filePath: string): void {
     try {
       const watcher = watch(filePath, (eventType: string) => {
-        this.handleFileChange(filePath, eventType === 'rename' ? 'delete' : 'change');
+        this.handleFileChange(
+          filePath,
+          eventType === 'rename' ? 'delete' : 'change'
+        );
       });
 
       this.watchers.set(filePath, watcher);
@@ -217,19 +221,25 @@ export class ConfigHotReload extends EventEmitter {
    */
   private watchDirectory(dirPath: string, targetFile: string): void {
     try {
-      const watcher = watch(dirPath, (eventType: string, filename: string | null) => {
-        if (!filename) {
-          return;
-        }
+      const watcher = watch(
+        dirPath,
+        (eventType: string, filename: string | null) => {
+          if (!filename) {
+            return;
+          }
 
-        const fullPath = resolve(dirPath, filename);
-        if (fullPath === targetFile) {
-          const changeType = eventType === 'rename'
-            ? (existsSync(fullPath) ? 'add' : 'delete')
-            : 'change';
-          this.handleFileChange(fullPath, changeType);
+          const fullPath = resolve(dirPath, filename);
+          if (fullPath === targetFile) {
+            const changeType =
+              eventType === 'rename'
+                ? existsSync(fullPath)
+                  ? 'add'
+                  : 'delete'
+                : 'change';
+            this.handleFileChange(fullPath, changeType);
+          }
         }
-      });
+      );
 
       this.watchers.set(targetFile, watcher);
     } catch (error) {
@@ -240,7 +250,10 @@ export class ConfigHotReload extends EventEmitter {
   /**
    * 处理文件变更
    */
-  private handleFileChange(filePath: string, changeType: 'change' | 'delete' | 'add'): void {
+  private handleFileChange(
+    filePath: string,
+    changeType: 'change' | 'delete' | 'add'
+  ): void {
     // 检查是否为内部写入
     if (this.isInternalWrite(filePath)) {
       logger.debug(`Ignoring internal write: ${filePath}`);
@@ -254,7 +267,10 @@ export class ConfigHotReload extends EventEmitter {
   /**
    * 防抖处理文件变更
    */
-  private debounceChange(filePath: string, changeType: 'change' | 'delete' | 'add'): void {
+  private debounceChange(
+    filePath: string,
+    changeType: 'change' | 'delete' | 'add'
+  ): void {
     // 清除之前的定时器
     const existingTimer = this.debounceTimers.get(filePath);
     if (existingTimer) {
@@ -273,7 +289,10 @@ export class ConfigHotReload extends EventEmitter {
   /**
    * 通知所有监听器
    */
-  private notifyListeners(filePath: string, changeType: 'change' | 'delete' | 'add'): void {
+  private notifyListeners(
+    filePath: string,
+    changeType: 'change' | 'delete' | 'add'
+  ): void {
     const event: ConfigChangeEvent = {
       filePath,
       changeType,

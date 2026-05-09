@@ -169,7 +169,9 @@ export function resetJitterConfig(): void {
  * @param config 配置对象
  * @returns 是否有效
  */
-export function validateJitterConfig(config: unknown): config is CronJitterConfig {
+export function validateJitterConfig(
+  config: unknown
+): config is CronJitterConfig {
   if (!config || typeof config !== 'object') {
     return false;
   }
@@ -184,11 +186,17 @@ export function validateJitterConfig(config: unknown): config is CronJitterConfi
     return false;
   }
 
-  if (c.oneShotMaxMs !== undefined && (typeof c.oneShotMaxMs !== 'number' || c.oneShotMaxMs < 0)) {
+  if (
+    c.oneShotMaxMs !== undefined &&
+    (typeof c.oneShotMaxMs !== 'number' || c.oneShotMaxMs < 0)
+  ) {
     return false;
   }
 
-  if (c.oneShotFloorMs !== undefined && (typeof c.oneShotFloorMs !== 'number' || c.oneShotFloorMs < 0)) {
+  if (
+    c.oneShotFloorMs !== undefined &&
+    (typeof c.oneShotFloorMs !== 'number' || c.oneShotFloorMs < 0)
+  ) {
     return false;
   }
 

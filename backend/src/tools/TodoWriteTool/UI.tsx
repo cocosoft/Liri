@@ -1,57 +1,57 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type TodoItem = {
-  content: string
-  status: 'pending' | 'in_progress' | 'completed'
-  priority: 'high' | 'medium' | 'low'
-}
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  priority: 'high' | 'medium' | 'low';
+};
 
 export type TodoWriteOutput = {
-  todos: TodoItem[]
-  updated: boolean
-}
+  todos: TodoItem[];
+  updated: boolean;
+};
 
 function getStatusIcon(status: string): string {
   switch (status) {
     case 'completed':
-      return '✅'
+      return '✅';
     case 'in_progress':
-      return '🔄'
+      return '🔄';
     case 'pending':
-      return '⏳'
+      return '⏳';
     default:
-      return '❓'
+      return '❓';
   }
 }
 
 function getPriorityColor(priority: string): string {
   switch (priority) {
     case 'high':
-      return 'red'
+      return 'red';
     case 'medium':
-      return 'yellow'
+      return 'yellow';
     case 'low':
-      return 'green'
+      return 'green';
     default:
-      return 'white'
+      return 'white';
   }
 }
 
 export function renderToolUseMessage(
   input: Partial<{ todos: TodoItem[] }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const count = input.todos?.length || 0
-  return <Text dimColor>更新任务列表 ({count} 项)...</Text>
+  const count = input.todos?.length || 0;
+  return <Text dimColor>更新任务列表 ({count} 项)...</Text>;
 }
 
 export function renderToolResultMessage(
   output: TodoWriteOutput,
   _progressMessages: any[],
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const { todos, updated } = output
+  const { todos, updated } = output;
 
   return (
     <Box flexDirection="column">
@@ -74,5 +74,5 @@ export function renderToolResultMessage(
         </Box>
       ) : null}
     </Box>
-  )
+  );
 }

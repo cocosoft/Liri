@@ -85,7 +85,10 @@ class GovernanceAuditService extends EventEmitter {
    */
   saveEvents() {
     try {
-      writeFileSync(this.auditPath, JSON.stringify(this.events, null, 2) + '\n');
+      writeFileSync(
+        this.auditPath,
+        JSON.stringify(this.events, null, 2) + '\n'
+      );
     } catch (error) {
       console.error('Failed to save audit events:', error);
     }
@@ -97,11 +100,11 @@ class GovernanceAuditService extends EventEmitter {
   flushPendingEvents() {
     if (this.pendingEvents.length > 0) {
       this.events = [...this.pendingEvents, ...this.events];
-      
+
       if (this.events.length > this.maxEvents) {
         this.events = this.events.slice(0, this.maxEvents);
       }
-      
+
       this.saveEvents();
       this.pendingEvents = [];
     }
@@ -160,37 +163,53 @@ class GovernanceAuditService extends EventEmitter {
     let filteredEvents = [...this.events];
 
     if (options.startDate) {
-      filteredEvents = filteredEvents.filter(event => {
-        const eventTime = event.timestamp instanceof Date ? event.timestamp.getTime() : new Date(event.timestamp).getTime();
+      filteredEvents = filteredEvents.filter((event) => {
+        const eventTime =
+          event.timestamp instanceof Date
+            ? event.timestamp.getTime()
+            : new Date(event.timestamp).getTime();
         return eventTime >= options.startDate;
       });
     }
 
     if (options.endDate) {
-      filteredEvents = filteredEvents.filter(event => {
-        const eventTime = event.timestamp instanceof Date ? event.timestamp.getTime() : new Date(event.timestamp).getTime();
+      filteredEvents = filteredEvents.filter((event) => {
+        const eventTime =
+          event.timestamp instanceof Date
+            ? event.timestamp.getTime()
+            : new Date(event.timestamp).getTime();
         return eventTime <= options.endDate;
       });
     }
 
     if (options.eventTypes && options.eventTypes.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.eventTypes.includes(event.type));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.eventTypes.includes(event.type)
+      );
     }
 
     if (options.toolNames && options.toolNames.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.toolNames.includes(event.toolName));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.toolNames.includes(event.toolName)
+      );
     }
 
     if (options.executionIds && options.executionIds.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.executionIds.includes(event.executionId));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.executionIds.includes(event.executionId)
+      );
     }
 
     if (options.userIds && options.userIds.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.userIds.includes(event.userId));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.userIds.includes(event.userId)
+      );
     }
 
     if (options.sessionIds && options.sessionIds.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.sessionIds.includes(event.sessionId));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.sessionIds.includes(event.sessionId)
+      );
     }
 
     if (options.offset) {
@@ -220,7 +239,7 @@ class GovernanceAuditService extends EventEmitter {
     for (const event of this.events) {
       eventsByType[event.type] = (eventsByType[event.type] || 0) + 1;
       eventsByTool[event.toolName] = (eventsByTool[event.toolName] || 0) + 1;
-      
+
       if (event.userId) {
         eventsByUser[event.userId] = (eventsByUser[event.userId] || 0) + 1;
       }
@@ -228,8 +247,9 @@ class GovernanceAuditService extends EventEmitter {
       if (event.type === 'execution_completed' && event.data) {
         executionCount++;
         const success = event.data.success;
-        eventsByStatus[success ? 'success' : 'failure'] = (eventsByStatus[success ? 'success' : 'failure'] || 0) + 1;
-        
+        eventsByStatus[success ? 'success' : 'failure'] =
+          (eventsByStatus[success ? 'success' : 'failure'] || 0) + 1;
+
         if (success) {
           successCount++;
         }
@@ -246,8 +266,10 @@ class GovernanceAuditService extends EventEmitter {
       eventsByTool,
       eventsByStatus,
       eventsByUser,
-      averageExecutionTime: executionCount > 0 ? totalExecutionTime / executionCount : 0,
-      successRate: executionCount > 0 ? (successCount / executionCount) * 100 : 0,
+      averageExecutionTime:
+        executionCount > 0 ? totalExecutionTime / executionCount : 0,
+      successRate:
+        executionCount > 0 ? (successCount / executionCount) * 100 : 0,
       recentEvents: this.events.slice(0, 10),
       executionCount,
       successCount,
@@ -261,9 +283,19 @@ class GovernanceAuditService extends EventEmitter {
     if (format === 'json') {
       return JSON.stringify(this.events, null, 2);
     } else if (format === 'csv') {
-      const headers = ['auditId', 'type', 'toolName', 'toolUseId', 'executionId', 'userId', 'sessionId', 'timestamp', 'data'];
+      const headers = [
+        'auditId',
+        'type',
+        'toolName',
+        'toolUseId',
+        'executionId',
+        'userId',
+        'sessionId',
+        'timestamp',
+        'data',
+      ];
       const rows = [headers.join(',')];
-      
+
       for (const event of this.events) {
         const row = [
           event.auditId,
@@ -273,12 +305,14 @@ class GovernanceAuditService extends EventEmitter {
           event.executionId || '',
           event.userId || '',
           event.sessionId || '',
-          event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date(event.timestamp).toISOString(),
+          event.timestamp instanceof Date
+            ? event.timestamp.toISOString()
+            : new Date(event.timestamp).toISOString(),
           JSON.stringify(event.data || {}),
         ];
-        rows.push(row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','));
+        rows.push(row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','));
       }
-      
+
       return rows.join('\n');
     } else if (format === 'summary') {
       const stats = this.getStatistics();
@@ -290,14 +324,17 @@ class GovernanceAuditService extends EventEmitter {
    * 清理审计事件
    */
   cleanupEvents(olderThanDays) {
-    const cutoffTime = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000);
+    const cutoffTime = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
     const beforeCount = this.events.length;
-    
-    this.events = this.events.filter(event => {
-      const eventTime = event.timestamp instanceof Date ? event.timestamp.getTime() : new Date(event.timestamp).getTime();
+
+    this.events = this.events.filter((event) => {
+      const eventTime =
+        event.timestamp instanceof Date
+          ? event.timestamp.getTime()
+          : new Date(event.timestamp).getTime();
       return eventTime >= cutoffTime;
     });
-    
+
     this.saveEvents();
     return beforeCount - this.events.length;
   }
@@ -342,8 +379,9 @@ class GovernanceAuditService extends EventEmitter {
     }
 
     // 分析事件分布
-    const mostFrequentTool = Object.entries(stats.eventsByTool)
-      .sort((a, b) => b[1] - a[1])[0];
+    const mostFrequentTool = Object.entries(stats.eventsByTool).sort(
+      (a, b) => b[1] - a[1]
+    )[0];
     if (mostFrequentTool) {
       insights.push({
         type: 'info',

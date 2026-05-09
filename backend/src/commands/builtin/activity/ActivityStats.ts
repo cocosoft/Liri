@@ -45,10 +45,19 @@ const LANGUAGE_MAP: Record<string, string> = {
  * 需要排除的目录
  */
 const EXCLUDE_DIRS = new Set([
-  'node_modules', '.git', '.svn', '.hg',
-  'dist', 'build', '.next', '.nuxt',
-  '__pycache__', '.cache', 'target',
-  'coverage', '.nyc_output',
+  'node_modules',
+  '.git',
+  '.svn',
+  '.hg',
+  'dist',
+  'build',
+  '.next',
+  '.nuxt',
+  '__pycache__',
+  '.cache',
+  'target',
+  'coverage',
+  '.nyc_output',
 ]);
 
 /**
@@ -107,7 +116,7 @@ async function walkDir(
   baseDir: string,
   currentDir: string,
   languageData: Record<string, { files: number; lines: number }>,
-  onProgress: (stats: { files: number; lines: number }) => void,
+  onProgress: (stats: { files: number; lines: number }) => void
 ): Promise<void> {
   let entries;
   try {
@@ -150,13 +159,20 @@ async function walkDir(
  * 获取后台任务统计
  */
 async function getTaskStats(): Promise<{
-  completed: number; running: number; pending: number; failed: number; total: number;
+  completed: number;
+  running: number;
+  pending: number;
+  failed: number;
+  total: number;
 }> {
   try {
-    const { getBackgroundTaskManager } = await import('../../../tools/AgentTool/BackgroundTaskManager.js');
+    const { getBackgroundTaskManager } =
+      await import('../../../tools/AgentTool/BackgroundTaskManager.js');
     const manager = getBackgroundTaskManager();
     const allTasks = manager.getAllTasks();
-    const completed = allTasks.filter((t: any) => t.status === 'completed').length;
+    const completed = allTasks.filter(
+      (t: any) => t.status === 'completed'
+    ).length;
     const running = allTasks.filter((t: any) => t.status === 'running').length;
     const pending = allTasks.filter((t: any) => t.status === 'pending').length;
     const failed = allTasks.filter((t: any) => t.status === 'failed').length;
@@ -171,11 +187,15 @@ async function getTaskStats(): Promise<{
  * 获取会话统计
  */
 async function getSessionStats(): Promise<{
-  totalSessions: number; totalMessages: number; activeSessions: number;
+  totalSessions: number;
+  totalMessages: number;
+  activeSessions: number;
 }> {
   try {
-    const { createStorageAdapter } = await import('../../../session/StorageAdapter.js');
-    const { MemoryStorage } = await import('../../../session/storage/MemoryStorage.js');
+    const { createStorageAdapter } =
+      await import('../../../session/StorageAdapter.js');
+    const { MemoryStorage } =
+      await import('../../../session/storage/MemoryStorage.js');
     const storage = createStorageAdapter(new MemoryStorage());
     const stats = await storage.getSessionStats();
     return {
@@ -313,12 +333,15 @@ async function handleSummary(): Promise<CommandResult> {
   const sessionStats = await getSessionStats();
   const codeStats = await scanProjectCode();
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_activity_summary', {
-    sessionCount: sessionStats.totalSessions,
-    messageCount: sessionStats.totalMessages,
-    codeFiles: codeStats.totalFiles,
-    codeLines: codeStats.totalLines,
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_activity_summary',
+    {
+      sessionCount: sessionStats.totalSessions,
+      messageCount: sessionStats.totalMessages,
+      codeFiles: codeStats.totalFiles,
+      codeLines: codeStats.totalLines,
+    }
+  );
 
   const message = [
     '📊 工作活动摘要',
@@ -356,9 +379,12 @@ async function handleCode(): Promise<CommandResult> {
     };
   }
 
-  const langRows = codeStats.languages.map(l =>
-    `${l.name.padEnd(18)} ${l.files.toString().padStart(6)} 个文件  ${l.lines.toLocaleString().padStart(10)} 行  ${l.percent}%`
-  ).join('\n');
+  const langRows = codeStats.languages
+    .map(
+      (l) =>
+        `${l.name.padEnd(18)} ${l.files.toString().padStart(6)} 个文件  ${l.lines.toLocaleString().padStart(10)} 行  ${l.percent}%`
+    )
+    .join('\n');
 
   const message = [
     '📝 代码统计',
@@ -410,9 +436,10 @@ async function handleTime(): Promise<CommandResult> {
   const now = new Date();
   const sessionStats = await getSessionStats();
 
-  const avgMsgPerSession = sessionStats.totalSessions > 0
-    ? (sessionStats.totalMessages / sessionStats.totalSessions).toFixed(1)
-    : '0';
+  const avgMsgPerSession =
+    sessionStats.totalSessions > 0
+      ? (sessionStats.totalMessages / sessionStats.totalSessions).toFixed(1)
+      : '0';
 
   const message = [
     '⏰ 时间统计',

@@ -29,7 +29,14 @@ export interface IConfigLoader {
 }
 
 export class ConfigLoader implements IConfigLoader {
-  private watchers: Map<string, { source: ConfigSource; callback: ConfigChangeCallback; interval?: ReturnType<typeof setInterval> }> = new Map();
+  private watchers: Map<
+    string,
+    {
+      source: ConfigSource;
+      callback: ConfigChangeCallback;
+      interval?: ReturnType<typeof setInterval>;
+    }
+  > = new Map();
   private defaultSources: ConfigSource[];
 
   constructor(sources?: ConfigSource[]) {
@@ -39,7 +46,13 @@ export class ConfigLoader implements IConfigLoader {
   private getDefaultSources(): ConfigSource[] {
     return [
       { type: 'env', prefix: 'PYAPP_', priority: 10, format: 'env' },
-      { type: 'file', path: this.getDefaultConfigPath(), priority: 20, format: 'json', required: false },
+      {
+        type: 'file',
+        path: this.getDefaultConfigPath(),
+        priority: 20,
+        format: 'json',
+        required: false,
+      },
     ];
   }
 
@@ -60,7 +73,9 @@ export class ConfigLoader implements IConfigLoader {
         merged = this.deepMerge(merged, result);
       } catch (error) {
         if (source.required !== false) {
-          throw new Error(`Failed to load config from ${this.describeSource(source)}: ${(error as Error).message}`);
+          throw new Error(
+            `Failed to load config from ${this.describeSource(source)}: ${(error as Error).message}`
+          );
         }
       }
     }
@@ -102,7 +117,9 @@ export class ConfigLoader implements IConfigLoader {
     for (const [key, value] of Object.entries(process.env)) {
       if (prefix && !key.startsWith(prefix)) continue;
 
-      const configKey = prefix ? key.slice(prefix.length).toLowerCase() : key.toLowerCase();
+      const configKey = prefix
+        ? key.slice(prefix.length).toLowerCase()
+        : key.toLowerCase();
       config[configKey] = this.parseEnvValue(value);
     }
 
@@ -205,18 +222,31 @@ export class ConfigLoader implements IConfigLoader {
   private detectFormat(filePath: string): ConfigFormat {
     const ext = extname(filePath).toLowerCase();
     switch (ext) {
-      case '.json': return 'json';
+      case '.json':
+        return 'json';
       case '.yaml':
-      case '.yml': return 'yaml';
-      case '.env': return 'env';
-      default: return 'json';
+      case '.yml':
+        return 'yaml';
+      case '.env':
+        return 'env';
+      default:
+        return 'json';
     }
   }
 
-  private deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+  private deepMerge(
+    target: Record<string, any>,
+    source: Record<string, any>
+  ): Record<string, any> {
     const result = { ...target };
     for (const [key, value] of Object.entries(source)) {
-      if (value !== null && typeof value === 'object' && !Array.isArray(value) && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+      if (
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        typeof result[key] === 'object' &&
+        !Array.isArray(result[key])
+      ) {
         result[key] = this.deepMerge(result[key], value);
       } else if (value !== undefined) {
         result[key] = value;
@@ -256,10 +286,14 @@ export class ConfigLoader implements IConfigLoader {
 
   private describeSource(source: ConfigSource): string {
     switch (source.type) {
-      case 'file': return `file:${source.path}`;
-      case 'env': return `env:${source.prefix || '*'}`;
-      case 'remote': return `remote:${source.url}`;
-      default: return source.type;
+      case 'file':
+        return `file:${source.path}`;
+      case 'env':
+        return `env:${source.prefix || '*'}`;
+      case 'remote':
+        return `remote:${source.url}`;
+      default:
+        return source.type;
     }
   }
 }

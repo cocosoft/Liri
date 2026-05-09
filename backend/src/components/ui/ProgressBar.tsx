@@ -5,7 +5,33 @@
 import React from 'react';
 import { Text, Box } from '../ink.js';
 
-type Color = 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white' | 'gray' | 'redBright' | 'greenBright' | 'yellowBright' | 'blueBright' | 'magentaBright' | 'cyanBright' | 'whiteBright' | 'hex' | 'bgBlack' | 'bgRed' | 'bgGreen' | 'bgYellow' | 'bgBlue' | 'bgMagenta' | 'bgCyan' | 'bgWhite' | 'bgHex';
+type Color =
+  | 'black'
+  | 'red'
+  | 'green'
+  | 'yellow'
+  | 'blue'
+  | 'magenta'
+  | 'cyan'
+  | 'white'
+  | 'gray'
+  | 'redBright'
+  | 'greenBright'
+  | 'yellowBright'
+  | 'blueBright'
+  | 'magentaBright'
+  | 'cyanBright'
+  | 'whiteBright'
+  | 'hex'
+  | 'bgBlack'
+  | 'bgRed'
+  | 'bgGreen'
+  | 'bgYellow'
+  | 'bgBlue'
+  | 'bgMagenta'
+  | 'bgCyan'
+  | 'bgWhite'
+  | 'bgHex';
 
 interface ProgressBarProps {
   percent: number;
@@ -89,7 +115,10 @@ export function ProgressBarEx({
         </Text>
       )}
       <Box>
-        <Text color={filledColor as Color} backgroundColor={emptyColor as Color}>
+        <Text
+          color={filledColor as Color}
+          backgroundColor={emptyColor as Color}
+        >
           {bar}
         </Text>
         {showLabel && <Text> {percent}%</Text>}

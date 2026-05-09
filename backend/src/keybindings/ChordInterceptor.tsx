@@ -1,7 +1,7 @@
 /**
  * 和弦拦截器
  * 全局和弦键拦截器，在所有子组件之前注册useInput
- * 
+ *
  * 这个组件在所有其他处理器之前拦截按键，确保和弦序列能够正确
  * 处理而不被其他组件拦截。这是和弦支持的关键组件。
  */
@@ -10,7 +10,7 @@ import { useKeybindingContext } from './KeybindingContext.js';
 
 /**
  * 和弦拦截器组件
- * 
+ *
  * 这个组件应该放在应用组件树的最顶层，确保在所有其他
  * 按键处理器之前处理按键事件。
  */
@@ -34,12 +34,16 @@ export function ChordInterceptor(): null {
           ctrl: event.ctrlKey,
           shift: event.shiftKey,
           alt: event.altKey,
-          meta: event.metaKey
+          meta: event.metaKey,
         };
 
         // 解析按键输入
         const activeContexts = Array.from(keybindingContext.activeContexts);
-        const result = keybindingContext.resolve(input, key.name, activeContexts);
+        const result = keybindingContext.resolve(
+          input,
+          key.name,
+          activeContexts
+        );
 
         if (result.action) {
           // 找到匹配的动作，调用处理器
@@ -61,18 +65,21 @@ export function ChordInterceptor(): null {
           event.preventDefault();
           event.stopPropagation();
         }
-
       } catch (error) {
         console.error('Error in chord interceptor:', error);
       }
     };
 
     // 注册全局事件监听器
-    document.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
+    document.addEventListener('keydown', handleGlobalKeyDown, {
+      capture: true,
+    });
 
     // 清理函数
     return () => {
-      document.removeEventListener('keydown', handleGlobalKeyDown, { capture: true });
+      document.removeEventListener('keydown', handleGlobalKeyDown, {
+        capture: true,
+      });
     };
   }, [keybindingContext]);
 
@@ -82,7 +89,7 @@ export function ChordInterceptor(): null {
 
 /**
  * 简化的和弦拦截器Hook
- * 
+ *
  * 用于函数组件中快速启用和弦拦截
  */
 export function useChordInterceptor(): void {
@@ -100,7 +107,7 @@ export function useChordInterceptor(): void {
       if (keybindingContext.pendingChord) {
         // 和弦超时，重置状态
         keybindingContext.setPendingChord(null);
-        
+
         // 可以在这里添加超时反馈
         // 例如：显示提示信息或声音反馈
       }
@@ -118,7 +125,7 @@ export function useChordInterceptor(): void {
 
 /**
  * 和弦状态指示器组件
- * 
+ *
  * 显示当前和弦状态，用于调试和用户反馈
  */
 export function ChordStatusIndicator(): React.JSX.Element | null {
@@ -129,7 +136,7 @@ export function ChordStatusIndicator(): React.JSX.Element | null {
   }
 
   const chordText = keybindingContext.pendingChord
-    .map(keystroke => {
+    .map((keystroke) => {
       const parts = [];
       if (keystroke.ctrl) parts.push('Ctrl');
       if (keystroke.alt) parts.push('Alt');
@@ -141,17 +148,19 @@ export function ChordStatusIndicator(): React.JSX.Element | null {
     .join(' → ');
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: '10px',
-      right: '10px',
-      background: 'rgba(0, 0, 0, 0.8)',
-      color: 'white',
-      padding: '5px 10px',
-      borderRadius: '4px',
-      fontSize: '12px',
-      zIndex: 1000
-    }}>
+    <div
+      style={{
+        position: 'fixed',
+        top: '10px',
+        right: '10px',
+        background: 'rgba(0, 0, 0, 0.8)',
+        color: 'white',
+        padding: '5px 10px',
+        borderRadius: '4px',
+        fontSize: '12px',
+        zIndex: 1000,
+      }}
+    >
       🎹 和弦: {chordText}
     </div>
   );
@@ -159,13 +168,13 @@ export function ChordStatusIndicator(): React.JSX.Element | null {
 
 /**
  * 和弦拦截器提供者
- * 
+ *
  * 包装应用并提供和弦拦截功能
  */
-export function ChordInterceptorProvider({ 
-  children 
-}: { 
-  children: React.ReactNode 
+export function ChordInterceptorProvider({
+  children,
+}: {
+  children: React.ReactNode;
 }): React.JSX.Element {
   return (
     <>
@@ -201,31 +210,50 @@ export function isValidChordSequence(sequence: string[]): boolean {
  * 获取和弦序列的显示名称
  */
 export function getChordDisplayName(sequence: string[]): string {
-  return sequence.map(keystroke => {
-    // 将按键格式化为可读形式
-    return keystroke
-      .split('+')
-      .map(part => {
-        switch (part.toLowerCase()) {
-          case 'ctrl': return 'Ctrl';
-          case 'alt': return 'Alt';
-          case 'shift': return 'Shift';
-          case 'meta': return 'Meta';
-          case 'cmd': return 'Cmd';
-          case 'command': return 'Cmd';
-          case 'escape': return 'Esc';
-          case 'enter': return 'Enter';
-          case 'tab': return 'Tab';
-          case 'space': return 'Space';
-          case 'backspace': return 'Backspace';
-          case 'delete': return 'Delete';
-          case 'up': return '↑';
-          case 'down': return '↓';
-          case 'left': return '←';
-          case 'right': return '→';
-          default: return part.toUpperCase();
-        }
-      })
-      .join('+');
-  }).join(' ');
+  return sequence
+    .map((keystroke) => {
+      // 将按键格式化为可读形式
+      return keystroke
+        .split('+')
+        .map((part) => {
+          switch (part.toLowerCase()) {
+            case 'ctrl':
+              return 'Ctrl';
+            case 'alt':
+              return 'Alt';
+            case 'shift':
+              return 'Shift';
+            case 'meta':
+              return 'Meta';
+            case 'cmd':
+              return 'Cmd';
+            case 'command':
+              return 'Cmd';
+            case 'escape':
+              return 'Esc';
+            case 'enter':
+              return 'Enter';
+            case 'tab':
+              return 'Tab';
+            case 'space':
+              return 'Space';
+            case 'backspace':
+              return 'Backspace';
+            case 'delete':
+              return 'Delete';
+            case 'up':
+              return '↑';
+            case 'down':
+              return '↓';
+            case 'left':
+              return '←';
+            case 'right':
+              return '→';
+            default:
+              return part.toUpperCase();
+          }
+        })
+        .join('+');
+    })
+    .join(' ');
 }

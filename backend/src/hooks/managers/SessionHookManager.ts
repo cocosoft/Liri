@@ -146,8 +146,8 @@ export class SessionHookManager extends EventEmitter {
 
     // 从所有匹配器中移除指定ID的钩子
     const updatedMatchers = eventMatchers
-      .map(matcher => {
-        const updatedHooks = matcher.hooks.filter(h => {
+      .map((matcher) => {
+        const updatedHooks = matcher.hooks.filter((h) => {
           if (h.hook.type !== 'function') return true;
           return h.hook.id !== hookId;
         });
@@ -158,11 +158,12 @@ export class SessionHookManager extends EventEmitter {
       })
       .filter((m): m is SessionHookMatcher => m !== null);
 
-    const newHooks = updatedMatchers.length > 0
-      ? { ...store.hooks, [event]: updatedMatchers }
-      : {
-          ...store.hooks,
-        };
+    const newHooks =
+      updatedMatchers.length > 0
+        ? { ...store.hooks, [event]: updatedMatchers }
+        : {
+            ...store.hooks,
+          };
 
     if (updatedMatchers.length === 0) {
       delete newHooks[event];
@@ -187,7 +188,7 @@ export class SessionHookManager extends EventEmitter {
     const eventMatchers = store.hooks[event] || [];
 
     // 查找现有匹配器
-    const existingMatcher = eventMatchers.find(m => m.matcher === matcher);
+    const existingMatcher = eventMatchers.find((m) => m.matcher === matcher);
 
     if (existingMatcher) {
       // 更新现有匹配器
@@ -216,7 +217,10 @@ export class SessionHookManager extends EventEmitter {
   /**
    * 获取指定事件的会话钩子
    */
-  getSessionHooksByEvent(sessionId: string, event: HookEvent): SessionHookMatcher[] {
+  getSessionHooksByEvent(
+    sessionId: string,
+    event: HookEvent
+  ): SessionHookMatcher[] {
     const store = this.sessionHooks.get(sessionId);
     return store?.hooks[event] || [];
   }
@@ -264,10 +268,10 @@ export class SessionHookManager extends EventEmitter {
 
       for (const hookEntry of matcher.hooks) {
         const hook = hookEntry.hook;
-        
+
         try {
           let result: any;
-          
+
           if (hook.type === 'function') {
             // 执行函数钩子
             result = await this.executeFunctionHook(hook, data, toolNames);
@@ -303,10 +307,16 @@ export class SessionHookManager extends EventEmitter {
     toolNames: string[]
   ): Promise<any> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), hook.timeout || 5000);
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      hook.timeout || 5000
+    );
 
     try {
-      const result = await hook.callback(data.messages || [], controller.signal);
+      const result = await hook.callback(
+        data.messages || [],
+        controller.signal
+      );
       clearTimeout(timeoutId);
       return {
         success: true,

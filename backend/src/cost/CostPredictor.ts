@@ -4,11 +4,7 @@
  * 提供多算法成本预测和风险评估功能
  */
 
-import type { 
-  CostData, 
-  CostCategory,
-  CostPeriod 
-} from './types.js';
+import type { CostData, CostCategory, CostPeriod } from './types.js';
 
 export interface CostPredictionResult {
   predictionId: string;
@@ -27,7 +23,7 @@ export interface PredictionAlgorithm {
   supportsSeasonality: boolean;
   supportsTrend: boolean;
   minDataPoints: number;
-  
+
   predict(data: CostData[], horizon: number): Promise<CostPredictionResult>;
   validate(data: CostData[]): boolean;
   getMetrics(data: CostData[]): Record<string, number>;
@@ -49,10 +45,10 @@ export class CostPredictor {
       new LinearRegressionAlgorithm(),
       new MovingAverageAlgorithm(),
       new ExponentialSmoothingAlgorithm(),
-      new SeasonalDecompositionAlgorithm()
+      new SeasonalDecompositionAlgorithm(),
     ];
 
-    algorithms.forEach(algorithm => {
+    algorithms.forEach((algorithm) => {
       this.algorithms.set(algorithm.name, algorithm);
     });
   }
@@ -61,7 +57,7 @@ export class CostPredictor {
    * 多算法成本预测
    */
   async predictCosts(
-    data: CostData[], 
+    data: CostData[],
     horizon: number = this.defaultHorizon
   ): Promise<{
     predictions: CostPredictionResult[];
@@ -88,19 +84,24 @@ export class CostPredictor {
     const ensemblePrediction = this.calculateEnsemblePrediction(predictions);
 
     // 算法性能比较
-    const algorithmComparison = this.compareAlgorithmPerformance(validAlgorithms, data);
+    const algorithmComparison = this.compareAlgorithmPerformance(
+      validAlgorithms,
+      data
+    );
 
     return {
       predictions,
       ensemblePrediction,
-      algorithmComparison
+      algorithmComparison,
     };
   }
 
   /**
    * 计算集成预测
    */
-  private calculateEnsemblePrediction(predictions: CostPredictionResult[]): CostPredictionResult {
+  private calculateEnsemblePrediction(
+    predictions: CostPredictionResult[]
+  ): CostPredictionResult {
     if (predictions.length === 0) {
       throw new Error('没有有效的预测结果');
     }
@@ -115,11 +116,11 @@ export class CostPredictor {
     let minCost = Infinity;
     let maxCost = -Infinity;
 
-    predictions.forEach(prediction => {
+    predictions.forEach((prediction) => {
       const weight = prediction.confidence;
       totalWeight += weight;
       weightedSum += prediction.predictedCost * weight;
-      
+
       minCost = Math.min(minCost, prediction.predictionRange.min);
       maxCost = Math.max(maxCost, prediction.predictionRange.max);
     });
@@ -135,40 +136,50 @@ export class CostPredictor {
       predictionRange: { min: minCost, max: maxCost },
       riskLevel: this.calculateEnsembleRisk(predictions),
       contributingFactors: this.extractContributingFactors(predictions),
-      algorithmMetrics: { ensembleWeight: totalWeight }
+      algorithmMetrics: { ensembleWeight: totalWeight },
     };
   }
 
   /**
    * 计算集成置信度
    */
-  private calculateEnsembleConfidence(predictions: CostPredictionResult[]): number {
-    const confidences = predictions.map(p => p.confidence);
-    const avgConfidence = confidences.reduce((a, b) => a + b, 0) / confidences.length;
-    
+  private calculateEnsembleConfidence(
+    predictions: CostPredictionResult[]
+  ): number {
+    const confidences = predictions.map((p) => p.confidence);
+    const avgConfidence =
+      confidences.reduce((a, b) => a + b, 0) / confidences.length;
+
     // 考虑预测结果的一致性
-    const costs = predictions.map(p => p.predictedCost);
+    const costs = predictions.map((p) => p.predictedCost);
     const costVariance = this.calculateVariance(costs);
     const consistencyPenalty = Math.min(0.2, costVariance / 1000);
-    
+
     return Math.max(0.5, avgConfidence - consistencyPenalty);
   }
 
   /**
    * 计算集成风险
    */
-  private calculateEnsembleRisk(predictions: CostPredictionResult[]): 'low' | 'medium' | 'high' {
-    const riskScores = predictions.map(p => {
+  private calculateEnsembleRisk(
+    predictions: CostPredictionResult[]
+  ): 'low' | 'medium' | 'high' {
+    const riskScores = predictions.map((p) => {
       switch (p.riskLevel) {
-        case 'low': return 1;
-        case 'medium': return 2;
-        case 'high': return 3;
-        default: return 2;
+        case 'low':
+          return 1;
+        case 'medium':
+          return 2;
+        case 'high':
+          return 3;
+        default:
+          return 2;
       }
     });
 
-    const avgRiskScore = riskScores.reduce((a, b) => a + b, 0) / riskScores.length;
-    
+    const avgRiskScore =
+      riskScores.reduce((a, b) => a + b, 0) / riskScores.length;
+
     if (avgRiskScore < 1.5) return 'low';
     if (avgRiskScore < 2.5) return 'medium';
     return 'high';
@@ -177,11 +188,13 @@ export class CostPredictor {
   /**
    * 提取影响因素
    */
-  private extractContributingFactors(predictions: CostPredictionResult[]): string[] {
+  private extractContributingFactors(
+    predictions: CostPredictionResult[]
+  ): string[] {
     const factors = new Set<string>();
-    
-    predictions.forEach(prediction => {
-      prediction.contributingFactors.forEach(factor => {
+
+    predictions.forEach((prediction) => {
+      prediction.contributingFactors.forEach((factor) => {
         factors.add(factor);
       });
     });
@@ -193,12 +206,12 @@ export class CostPredictor {
    * 比较算法性能
    */
   private compareAlgorithmPerformance(
-    algorithms: PredictionAlgorithm[], 
+    algorithms: PredictionAlgorithm[],
     data: CostData[]
   ): Record<string, number> {
     const comparison: Record<string, number> = {};
-    
-    algorithms.forEach(algorithm => {
+
+    algorithms.forEach((algorithm) => {
       const metrics = algorithm.getMetrics(data);
       // 使用MAE（平均绝对误差）作为性能指标
       comparison[algorithm.name] = metrics.mae || 0;
@@ -212,9 +225,9 @@ export class CostPredictor {
    */
   private calculateVariance(values: number[]): number {
     if (values.length === 0) return 0;
-    
+
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
+    const squaredDiffs = values.map((value) => Math.pow(value - mean, 2));
     return squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
   }
 
@@ -257,12 +270,18 @@ class LinearRegressionAlgorithm implements PredictionAlgorithm {
   supportsTrend = true;
   minDataPoints = 3;
 
-  async predict(data: CostData[], horizon: number): Promise<CostPredictionResult> {
-    const amounts = data.map(d => d.amount);
+  async predict(
+    data: CostData[],
+    horizon: number
+  ): Promise<CostPredictionResult> {
+    const amounts = data.map((d) => d.amount);
     const n = amounts.length;
-    
-    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-    
+
+    let sumX = 0,
+      sumY = 0,
+      sumXY = 0,
+      sumX2 = 0;
+
     amounts.forEach((y, x) => {
       sumX += x;
       sumY += y;
@@ -272,19 +291,23 @@ class LinearRegressionAlgorithm implements PredictionAlgorithm {
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     const intercept = (sumY - slope * sumX) / n;
-    
+
     const predictedCost = intercept + slope * (n + horizon - 1);
     const confidence = this.calculateConfidence(amounts, slope, intercept);
-    
+
     return {
       predictionId: `lr-${Date.now()}`,
       algorithm: this.name,
       predictedCost,
       confidence,
-      predictionRange: this.calculatePredictionRange(amounts, predictedCost, confidence),
+      predictionRange: this.calculatePredictionRange(
+        amounts,
+        predictedCost,
+        confidence
+      ),
       riskLevel: this.assessRisk(amounts, slope),
       contributingFactors: this.identifyFactors(slope, amounts),
-      algorithmMetrics: this.getMetrics(data)
+      algorithmMetrics: this.getMetrics(data),
     };
   }
 
@@ -293,12 +316,15 @@ class LinearRegressionAlgorithm implements PredictionAlgorithm {
   }
 
   getMetrics(data: CostData[]): Record<string, number> {
-    const amounts = data.map(d => d.amount);
+    const amounts = data.map((d) => d.amount);
     const n = amounts.length;
-    
+
     if (n < 2) return { mae: 0, mse: 0, rmse: 0 };
-    
-    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+
+    let sumX = 0,
+      sumY = 0,
+      sumXY = 0,
+      sumX2 = 0;
     amounts.forEach((y, x) => {
       sumX += x;
       sumY += y;
@@ -308,11 +334,11 @@ class LinearRegressionAlgorithm implements PredictionAlgorithm {
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     const intercept = (sumY - slope * sumX) / n;
-    
+
     // 计算拟合误差
     let sumSquaredErrors = 0;
     let sumAbsoluteErrors = 0;
-    
+
     amounts.forEach((y, x) => {
       const predicted = intercept + slope * x;
       const error = y - predicted;
@@ -323,14 +349,18 @@ class LinearRegressionAlgorithm implements PredictionAlgorithm {
     return {
       mae: sumAbsoluteErrors / n,
       mse: sumSquaredErrors / n,
-      rmse: Math.sqrt(sumSquaredErrors / n)
+      rmse: Math.sqrt(sumSquaredErrors / n),
     };
   }
 
-  private calculateConfidence(amounts: number[], slope: number, intercept: number): number {
+  private calculateConfidence(
+    amounts: number[],
+    slope: number,
+    intercept: number
+  ): number {
     const n = amounts.length;
     let sumSquaredErrors = 0;
-    
+
     amounts.forEach((y, x) => {
       const predicted = intercept + slope * x;
       const error = y - predicted;
@@ -340,24 +370,31 @@ class LinearRegressionAlgorithm implements PredictionAlgorithm {
     const variance = sumSquaredErrors / (n - 2);
     const baseConfidence = Math.min(0.95, 0.8 + (n / 30) * 0.15);
     const variancePenalty = Math.min(0.2, variance / 1000);
-    
+
     return Math.max(0.5, baseConfidence - variancePenalty);
   }
 
-  private calculatePredictionRange(amounts: number[], predictedCost: number, confidence: number): { min: number; max: number } {
+  private calculatePredictionRange(
+    amounts: number[],
+    predictedCost: number,
+    confidence: number
+  ): { min: number; max: number } {
     const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
     const range = avgAmount * 0.2 * (1 - confidence);
-    
+
     return {
       min: Math.max(0, predictedCost - range),
-      max: predictedCost + range
+      max: predictedCost + range,
     };
   }
 
-  private assessRisk(amounts: number[], slope: number): 'low' | 'medium' | 'high' {
+  private assessRisk(
+    amounts: number[],
+    slope: number
+  ): 'low' | 'medium' | 'high' {
     const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
     const slopePercentage = Math.abs(slope) / avgAmount;
-    
+
     if (slopePercentage < 0.05) return 'low';
     if (slopePercentage < 0.15) return 'medium';
     return 'high';
@@ -365,7 +402,7 @@ class LinearRegressionAlgorithm implements PredictionAlgorithm {
 
   private identifyFactors(slope: number, amounts: number[]): string[] {
     const factors: string[] = [];
-    
+
     if (slope > 0) {
       factors.push('成本呈上升趋势');
     } else if (slope < 0) {
@@ -385,7 +422,7 @@ class LinearRegressionAlgorithm implements PredictionAlgorithm {
   private calculateVariance(values: number[]): number {
     if (values.length === 0) return 0;
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
+    const squaredDiffs = values.map((value) => Math.pow(value - mean, 2));
     return squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
   }
 }
@@ -400,13 +437,16 @@ class MovingAverageAlgorithm implements PredictionAlgorithm {
   supportsTrend = false;
   minDataPoints = 5;
 
-  async predict(data: CostData[], horizon: number): Promise<CostPredictionResult> {
-    const amounts = data.map(d => d.amount);
+  async predict(
+    data: CostData[],
+    horizon: number
+  ): Promise<CostPredictionResult> {
+    const amounts = data.map((d) => d.amount);
     const windowSize = Math.min(7, Math.floor(amounts.length / 2));
-    
+
     const movingAverage = this.calculateMovingAverage(amounts, windowSize);
     const predictedCost = movingAverage[movingAverage.length - 1];
-    
+
     return {
       predictionId: `ma-${Date.now()}`,
       algorithm: this.name,
@@ -415,7 +455,7 @@ class MovingAverageAlgorithm implements PredictionAlgorithm {
       predictionRange: { min: predictedCost * 0.8, max: predictedCost * 1.2 },
       riskLevel: 'medium',
       contributingFactors: ['基于近期平均成本预测'],
-      algorithmMetrics: this.getMetrics(data)
+      algorithmMetrics: this.getMetrics(data),
     };
   }
 
@@ -427,15 +467,18 @@ class MovingAverageAlgorithm implements PredictionAlgorithm {
     return { mae: 0, mse: 0, rmse: 0 };
   }
 
-  private calculateMovingAverage(amounts: number[], windowSize: number): number[] {
+  private calculateMovingAverage(
+    amounts: number[],
+    windowSize: number
+  ): number[] {
     const result: number[] = [];
-    
+
     for (let i = windowSize - 1; i < amounts.length; i++) {
       const window = amounts.slice(i - windowSize + 1, i + 1);
       const average = window.reduce((a, b) => a + b, 0) / windowSize;
       result.push(average);
     }
-    
+
     return result;
   }
 }
@@ -450,17 +493,20 @@ class ExponentialSmoothingAlgorithm implements PredictionAlgorithm {
   supportsTrend = true;
   minDataPoints = 5;
 
-  async predict(data: CostData[], horizon: number): Promise<CostPredictionResult> {
-    const amounts = data.map(d => d.amount);
+  async predict(
+    data: CostData[],
+    horizon: number
+  ): Promise<CostPredictionResult> {
+    const amounts = data.map((d) => d.amount);
     const alpha = 0.3; // 平滑系数
-    
+
     let smoothed = amounts[0];
     for (let i = 1; i < amounts.length; i++) {
       smoothed = alpha * amounts[i] + (1 - alpha) * smoothed;
     }
-    
+
     const predictedCost = smoothed;
-    
+
     return {
       predictionId: `es-${Date.now()}`,
       algorithm: this.name,
@@ -469,7 +515,7 @@ class ExponentialSmoothingAlgorithm implements PredictionAlgorithm {
       predictionRange: { min: predictedCost * 0.85, max: predictedCost * 1.15 },
       riskLevel: 'low',
       contributingFactors: ['基于指数平滑的稳定预测'],
-      algorithmMetrics: this.getMetrics(data)
+      algorithmMetrics: this.getMetrics(data),
     };
   }
 
@@ -492,11 +538,14 @@ class SeasonalDecompositionAlgorithm implements PredictionAlgorithm {
   supportsTrend = true;
   minDataPoints = 14; // 至少2周数据
 
-  async predict(data: CostData[], horizon: number): Promise<CostPredictionResult> {
+  async predict(
+    data: CostData[],
+    horizon: number
+  ): Promise<CostPredictionResult> {
     // 简化实现：检测周末模式
-    const amounts = data.map(d => d.amount);
+    const amounts = data.map((d) => d.amount);
     const predictedCost = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-    
+
     return {
       predictionId: `sd-${Date.now()}`,
       algorithm: this.name,
@@ -505,7 +554,7 @@ class SeasonalDecompositionAlgorithm implements PredictionAlgorithm {
       predictionRange: { min: predictedCost * 0.7, max: predictedCost * 1.3 },
       riskLevel: 'medium',
       contributingFactors: ['考虑季节性模式'],
-      algorithmMetrics: this.getMetrics(data)
+      algorithmMetrics: this.getMetrics(data),
     };
   }
 

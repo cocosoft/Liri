@@ -5,16 +5,34 @@
  */
 
 // 导出模块注册表
-export { ModuleCategory, ModuleDefinition, moduleRegistry } from './ModuleRegistry';
+export {
+  ModuleCategory,
+  ModuleDefinition,
+  moduleRegistry,
+} from './ModuleRegistry';
 
 // 导出导入管理器
-export { importManager, importModule, importFromRegistry } from './ImportManager';
+export {
+  importManager,
+  importModule,
+  importFromRegistry,
+} from './ImportManager';
 
 // 导出模块定义
-export { MODULE_DEFINITIONS, MODULE_INITIALIZATION_ORDER, getModuleDefinition, getAllModuleDefinitions } from './ModuleDefinitions';
+export {
+  MODULE_DEFINITIONS,
+  MODULE_INITIALIZATION_ORDER,
+  getModuleDefinition,
+  getAllModuleDefinitions,
+} from './ModuleDefinitions';
 
 // 导出模块初始化器
-export { moduleInitializer, initializeModules, destroyModules, checkModuleInitialization } from './ModuleInitializer';
+export {
+  moduleInitializer,
+  initializeModules,
+  destroyModules,
+  checkModuleInitialization,
+} from './ModuleInitializer';
 
 /**
  * 模块管理工具函数
@@ -25,17 +43,17 @@ export { moduleInitializer, initializeModules, destroyModules, checkModuleInitia
  */
 export async function quickInitialize(): Promise<void> {
   console.log('快速初始化模块管理系统...');
-  
+
   try {
     // 注册所有模块
-    const moduleInitializer = (await import('./ModuleInitializer')).moduleInitializer;
+    const moduleInitializer = (await import('./ModuleInitializer'))
+      .moduleInitializer;
     moduleInitializer.registerAllModules();
-    
+
     // 初始化所有模块
     await moduleInitializer.initializeAllModules();
-    
+
     console.log('模块管理系统初始化完成');
-    
   } catch (error) {
     console.error('模块管理系统初始化失败:', error);
     throw error;
@@ -46,20 +64,26 @@ export async function quickInitialize(): Promise<void> {
  * 获取模块统计信息
  */
 export function getModuleStatistics() {
-  const moduleRegistry = (require('./ModuleRegistry')).moduleRegistry;
-  const moduleInitializer = (require('./ModuleInitializer')).moduleInitializer;
-  
+  const moduleRegistry = require('./ModuleRegistry').moduleRegistry;
+  const moduleInitializer = require('./ModuleInitializer').moduleInitializer;
+
   const registryStats = moduleRegistry.getStatistics();
   const initializationStates = moduleInitializer.getAllModuleStates();
-  
+
   return {
     registry: registryStats,
     initialization: {
       total: Object.keys(initializationStates).length,
-      initialized: Object.values(initializationStates).filter((s: any) => s.status === 'initialized').length,
-      pending: Object.values(initializationStates).filter((s: any) => s.status === 'pending').length,
-      error: Object.values(initializationStates).filter((s: any) => s.status === 'error').length
-    }
+      initialized: Object.values(initializationStates).filter(
+        (s: any) => s.status === 'initialized'
+      ).length,
+      pending: Object.values(initializationStates).filter(
+        (s: any) => s.status === 'pending'
+      ).length,
+      error: Object.values(initializationStates).filter(
+        (s: any) => s.status === 'error'
+      ).length,
+    },
   };
 }
 
@@ -73,80 +97,77 @@ export const ModuleUsageExamples = {
   async example1() {
     // 使用别名路径导入模块
     const { importModule } = await import('./ImportManager');
-    
+
     try {
       // 使用别名路径
       const agentModule = await importModule('@modules/agent');
       const aiModule = await importModule('@modules/ai');
-      
+
       console.log('模块导入成功');
       return { agentModule, aiModule };
-      
     } catch (error) {
       console.error('模块导入失败:', error);
       throw error;
     }
   },
-  
+
   /**
    * 示例2：从注册表导入模块
    */
   async example2() {
     const { importFromRegistry } = await import('./ImportManager');
-    
+
     try {
       // 从注册表导入模块
       const coreModule = await importFromRegistry('core');
       const configModule = await importFromRegistry('config');
-      
+
       console.log('从注册表导入模块成功');
       return { coreModule, configModule };
-      
     } catch (error) {
       console.error('从注册表导入模块失败:', error);
       throw error;
     }
   },
-  
+
   /**
    * 示例3：批量导入模块
    */
   async example3() {
     const { importManager } = await import('./ImportManager');
-    
+
     try {
       // 批量导入模块
       const modules = await importManager.importMultiple([
         '@modules/core',
         '@modules/ai',
         '@modules/agent',
-        '@modules/bridge'
+        '@modules/bridge',
       ]);
-      
+
       console.log('批量导入模块成功');
       return modules;
-      
     } catch (error) {
       console.error('批量导入模块失败:', error);
       throw error;
     }
   },
-  
+
   /**
    * 示例4：检查模块初始化状态
    */
   example4() {
     const { checkModuleInitialization } = require('./ModuleInitializer');
-    
+
     const { allInitialized, states } = checkModuleInitialization();
-    
+
     console.log('所有模块是否已初始化:', allInitialized);
     console.log('模块初始化状态:');
-    
+
     for (const [moduleId, state] of Object.entries(states)) {
       console.log(`  ${moduleId}: ${(state as any).status}`);
     }
-    
+
     return { allInitialized, states };
-  }
+  },
 };

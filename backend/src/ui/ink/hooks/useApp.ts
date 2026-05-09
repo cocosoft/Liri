@@ -27,14 +27,14 @@ export const useApp = (initialState?: Partial<AppState>): UseAppReturn => {
   });
 
   const setLoading = useCallback((loading: boolean) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isLoading: loading,
     }));
   }, []);
 
   const setError = useCallback((error: string | null) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
       isError: !!error,
       errorMessage: error || '',

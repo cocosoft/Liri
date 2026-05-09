@@ -99,16 +99,14 @@ class IntelligentAnalysisService {
    */
   analyzeSession(session) {
     // 分析会话持续时间
-    if (session.totalDuration > 3600000) { // 超过1小时
+    if (session.totalDuration > 3600000) {
+      // 超过1小时
       this.generateInsight('usage_pattern', {
         title: '长时间会话',
         description: `用户 ${session.user_id} 的会话持续时间超过1小时`,
         severity: 'medium',
         data: { session },
-        recommendations: [
-          '检查用户是否遇到了问题',
-          '考虑优化长时间运行的操作',
-        ],
+        recommendations: ['检查用户是否遇到了问题', '考虑优化长时间运行的操作'],
       });
     }
 
@@ -119,10 +117,7 @@ class IntelligentAnalysisService {
         description: `用户 ${session.user_id} 在单个会话中进行了 ${session.interactionCount} 次交互`,
         severity: 'low',
         data: { session },
-        recommendations: [
-          '分析用户行为模式',
-          '考虑提供批量操作功能',
-        ],
+        recommendations: ['分析用户行为模式', '考虑提供批量操作功能'],
       });
     }
   }
@@ -137,10 +132,7 @@ class IntelligentAnalysisService {
       description: `发生错误: ${event.name}`,
       severity: 'medium',
       data: { event },
-      recommendations: [
-        '检查错误原因',
-        '修复相关代码',
-      ],
+      recommendations: ['检查错误原因', '修复相关代码'],
     });
   }
 
@@ -156,10 +148,7 @@ class IntelligentAnalysisService {
         description: `操作 ${event.name} 执行时间过长: ${duration}ms`,
         severity: 'medium',
         data: { event },
-        recommendations: [
-          '优化操作性能',
-          '考虑缓存策略',
-        ],
+        recommendations: ['优化操作性能', '考虑缓存策略'],
       });
     }
   }
@@ -176,10 +165,7 @@ class IntelligentAnalysisService {
         description: anomaly.message,
         severity: anomaly.severity,
         data: { anomaly },
-        recommendations: [
-          '检查系统资源使用情况',
-          '优化系统配置',
-        ],
+        recommendations: ['检查系统资源使用情况', '优化系统配置'],
       });
     }
   }
@@ -194,10 +180,14 @@ class IntelligentAnalysisService {
     }
 
     // 分析平均会话持续时间
-    const totalDuration = sessions.reduce((sum, session) => sum + session.totalDuration, 0);
+    const totalDuration = sessions.reduce(
+      (sum, session) => sum + session.totalDuration,
+      0
+    );
     const averageDuration = totalDuration / sessions.length;
 
-    if (averageDuration > 300000) { // 超过5分钟
+    if (averageDuration > 300000) {
+      // 超过5分钟
       this.generateInsight('usage_pattern', {
         title: '平均会话时间过长',
         description: `平均会话时间为 ${(averageDuration / 60000).toFixed(2)} 分钟`,
@@ -206,10 +196,7 @@ class IntelligentAnalysisService {
           averageDuration,
           sessionCount: sessions.length,
         },
-        recommendations: [
-          '分析用户行为',
-          '优化用户体验',
-        ],
+        recommendations: ['分析用户行为', '优化用户体验'],
       });
     }
   }
@@ -232,10 +219,7 @@ class IntelligentAnalysisService {
           errorCount: errorEvents.length,
           errors: errorEvents,
         },
-        recommendations: [
-          '检查系统稳定性',
-          '修复高频错误',
-        ],
+        recommendations: ['检查系统稳定性', '修复高频错误'],
       });
     }
   }
@@ -276,19 +260,23 @@ class IntelligentAnalysisService {
     let result = [...this.insights];
 
     if (options.type) {
-      result = result.filter(insight => insight.type === options.type);
+      result = result.filter((insight) => insight.type === options.type);
     }
 
     if (options.severity) {
-      result = result.filter(insight => insight.severity === options.severity);
+      result = result.filter(
+        (insight) => insight.severity === options.severity
+      );
     }
 
     if (options.startTime) {
-      result = result.filter(insight => insight.timestamp >= options.startTime);
+      result = result.filter(
+        (insight) => insight.timestamp >= options.startTime
+      );
     }
 
     if (options.endTime) {
-      result = result.filter(insight => insight.timestamp <= options.endTime);
+      result = result.filter((insight) => insight.timestamp <= options.endTime);
     }
 
     result.sort((a, b) => b.timestamp - a.timestamp);
@@ -310,12 +298,18 @@ class IntelligentAnalysisService {
       limit: 10,
     });
 
-    const highSeverityInsights = recentInsights.filter(insight => insight.severity === 'high');
-    const mediumSeverityInsights = recentInsights.filter(insight => insight.severity === 'medium');
+    const highSeverityInsights = recentInsights.filter(
+      (insight) => insight.severity === 'high'
+    );
+    const mediumSeverityInsights = recentInsights.filter(
+      (insight) => insight.severity === 'medium'
+    );
 
     const cpuStats = performanceMonitoringService.getMetricStats('cpu_usage');
-    const memoryStats = performanceMonitoringService.getMetricStats('memory_usage');
-    const errorRateStats = performanceMonitoringService.getMetricStats('error_rate');
+    const memoryStats =
+      performanceMonitoringService.getMetricStats('memory_usage');
+    const errorRateStats =
+      performanceMonitoringService.getMetricStats('error_rate');
 
     let status = 'healthy';
     let message = '系统运行正常';
@@ -323,7 +317,11 @@ class IntelligentAnalysisService {
     if (highSeverityInsights.length > 0) {
       status = 'critical';
       message = `系统存在严重问题: ${highSeverityInsights.length} 个严重洞察`;
-    } else if (mediumSeverityInsights.length > 0 || cpuStats.average > 80 || memoryStats.average > 80) {
+    } else if (
+      mediumSeverityInsights.length > 0 ||
+      cpuStats.average > 80 ||
+      memoryStats.average > 80
+    ) {
       status = 'degraded';
       message = '系统性能下降';
     }
@@ -381,4 +379,5 @@ IntelligentAnalysisService.instance = new IntelligentAnalysisService();
  * 导出单例
  */
 export { IntelligentAnalysisService };
-export const intelligentAnalysisService = IntelligentAnalysisService.getInstance();
+export const intelligentAnalysisService =
+  IntelligentAnalysisService.getInstance();

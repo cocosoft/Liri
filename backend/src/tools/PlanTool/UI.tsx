@@ -1,18 +1,18 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type PlanOutput = {
-  planName?: string
-  steps?: Array<{ step: number; description: string; status?: string }>
-  result?: string
-}
+  planName?: string;
+  steps?: Array<{ step: number; description: string; status?: string }>;
+  result?: string;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ plan_name: string; description: string }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { plan_name, description } = input
-  const label = plan_name || 'Plan'
+  const { plan_name, description } = input;
+  const label = plan_name || 'Plan';
 
   if (verbose) {
     return (
@@ -27,7 +27,7 @@ export function renderToolUseMessage(
           </Box>
         ) : null}
       </Box>
-    )
+    );
   }
 
   return (
@@ -35,22 +35,25 @@ export function renderToolUseMessage(
       <Text dimColor>Plan: </Text>
       <Text bold>{label}</Text>
     </Box>
-  )
+  );
 }
 
 export function renderToolResultMessage(
   output: PlanOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { planName, steps, result } = output
+  const { planName, steps, result } = output;
 
   if (verbose && steps && steps.length > 0) {
     return (
       <Box flexDirection="column">
         <Box flexDirection="row">
           <Text color="green">✓ {planName || 'Plan'} created</Text>
-          <Text dimColor> ({steps.length} step{steps.length !== 1 ? 's' : ''})</Text>
+          <Text dimColor>
+            {' '}
+            ({steps.length} step{steps.length !== 1 ? 's' : ''})
+          </Text>
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
           {steps.map((s) => (
@@ -62,7 +65,7 @@ export function renderToolResultMessage(
           ))}
         </Box>
       </Box>
-    )
+    );
   }
 
   if (result) {
@@ -73,7 +76,7 @@ export function renderToolResultMessage(
           <Text>{result.slice(0, 200)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
@@ -81,12 +84,12 @@ export function renderToolResultMessage(
       <Text color="green">✓ </Text>
       <Text>{planName || 'Plan'} completed</Text>
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ plan_name: string }> | undefined,
+  input: Partial<{ plan_name: string }> | undefined
 ): string | null {
-  if (!input?.plan_name) return null
-  return `Plan: ${input.plan_name}`
+  if (!input?.plan_name) return null;
+  return `Plan: ${input.plan_name}`;
 }

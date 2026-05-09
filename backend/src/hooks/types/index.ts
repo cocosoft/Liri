@@ -7,7 +7,7 @@
 /**
  * Hook事件类型（基于CC源码）
  */
-export type HookEvent = 
+export type HookEvent =
   | 'system.startup'
   | 'system.shutdown'
   | 'session.start'
@@ -49,12 +49,12 @@ export interface HookDependency {
    * 依赖的Hook ID
    */
   hookId: string;
-  
+
   /**
    * 要求的版本
    */
   requiredVersion?: string;
-  
+
   /**
    * 是否必需
    */
@@ -69,57 +69,57 @@ export interface HookDefinition {
    * Hook名称
    */
   name: string;
-  
+
   /**
    * Hook事件类型
    */
   event: HookEvent;
-  
+
   /**
    * Hook描述
    */
   description: string;
-  
+
   /**
    * Hook版本
    */
   version?: string;
-  
+
   /**
    * 是否启用
    */
   enabled?: boolean;
-  
+
   /**
    * Hook优先级
    */
   priority?: HookPriority;
-  
+
   /**
    * 依赖关系
    */
   dependencies?: HookDependency[];
-  
+
   /**
    * 匹配器函数（可选）
    */
   matcher?: (context: HookContext) => boolean;
-  
+
   /**
    * Hook处理器函数
    */
   handler: (context: HookContext) => Promise<HookResult>;
-  
+
   /**
    * 超时时间（毫秒）
    */
   timeout?: number;
-  
+
   /**
    * 是否阻止后续Hook执行
    */
   preventContinuation?: boolean;
-  
+
   /**
    * 错误处理策略
    */
@@ -134,52 +134,52 @@ export interface HookContext {
    * Hook事件类型
    */
   event: HookEvent;
-  
+
   /**
    * 会话ID
    */
   sessionId?: string;
-  
+
   /**
    * 用户ID
    */
   userId?: string;
-  
+
   /**
    * 工作目录
    */
   workingDirectory?: string;
-  
+
   /**
    * 事件数据
    */
   data?: any;
-  
+
   /**
    * 工具名称列表
    */
   toolNames?: string[];
-  
+
   /**
    * 技能名称
    */
   skillName?: string;
-  
+
   /**
    * 命令名称
    */
   commandName?: string;
-  
+
   /**
    * 插件名称
    */
   pluginName?: string;
-  
+
   /**
    * 文件路径
    */
   filePath?: string;
-  
+
   /**
    * HTTP请求信息
    */
@@ -189,7 +189,7 @@ export interface HookContext {
     headers: Record<string, string>;
     body?: any;
   };
-  
+
   /**
    * HTTP响应信息
    */
@@ -198,37 +198,37 @@ export interface HookContext {
     headers: Record<string, string>;
     body?: any;
   };
-  
+
   /**
    * 错误信息
    */
   error?: Error;
-  
+
   /**
    * 环境变量
    */
   environment?: Record<string, string>;
-  
+
   /**
    * 安全配置
    */
   securityConfig?: any;
-  
+
   /**
    * 性能配置
    */
   performanceConfig?: any;
-  
+
   /**
    * 扩展数据
    */
   extensions?: Record<string, any>;
-  
+
   /**
    * 匹配器配置
    */
   matcher?: string;
-  
+
   /**
    * 额外属性
    */
@@ -243,67 +243,67 @@ export interface HookResult {
    * 执行是否成功
    */
   success: boolean;
-  
+
   /**
    * 输出数据
    */
   output?: any;
-  
+
   /**
    * 结果消息
    */
   message?: string;
-  
+
   /**
    * 错误信息
    */
   error?: string;
-  
+
   /**
    * 退出代码
    */
   exitCode?: number;
-  
+
   /**
    * 执行时间（毫秒）
    */
   durationMs?: number;
-  
+
   /**
    * 阻止后续Hook执行
    */
   preventContinuation?: boolean;
-  
+
   /**
    * 停止执行原因
    */
   stopReason?: string;
-  
+
   /**
    * 更新的输入数据
    */
   updatedInput?: Record<string, unknown>;
-  
+
   /**
    * 附加上下文
    */
   additionalContext?: string;
-  
+
   /**
    * 权限行为
    */
   permissionBehavior?: 'allow' | 'deny' | 'ask';
-  
+
   /**
    * Hook权限决策原因
    */
   hookPermissionDecisionReason?: string;
-  
+
   /**
    * 扩展数据
    */
   extensions?: Record<string, any>;
-  
+
   /**
    * 额外属性
    */
@@ -318,27 +318,27 @@ export interface HookExecutorConfig {
    * 默认超时时间（毫秒）
    */
   defaultTimeout?: number;
-  
+
   /**
    * 最大并发数
    */
   maxConcurrency?: number;
-  
+
   /**
    * 错误处理策略
    */
   errorHandling?: 'continue' | 'stop' | 'throw';
-  
+
   /**
    * 是否启用性能监控
    */
   enablePerformanceMonitoring?: boolean;
-  
+
   /**
    * 是否启用安全检查
    */
   enableSecurityCheck?: boolean;
-  
+
   /**
    * 是否启用诊断日志
    */
@@ -353,32 +353,32 @@ export interface HookExecutionStats {
    * Hook ID
    */
   hookId: string;
-  
+
   /**
    * 执行次数
    */
   executionCount: number;
-  
+
   /**
    * 成功次数
    */
   successCount: number;
-  
+
   /**
    * 失败次数
    */
   failureCount: number;
-  
+
   /**
    * 平均执行时间（毫秒）
    */
   averageDuration: number;
-  
+
   /**
    * 最后执行时间
    */
   lastExecutedAt?: Date;
-  
+
   /**
    * 最后执行结果
    */
@@ -393,27 +393,27 @@ export interface HookSystemConfig {
    * 是否启用Hook系统
    */
   enabled: boolean;
-  
+
   /**
    * 默认Hook配置
    */
   defaultHooks?: HookDefinition[];
-  
+
   /**
    * 执行器配置
    */
   executorConfig: HookExecutorConfig;
-  
+
   /**
    * 事件映射
    */
   eventMappings?: Record<string, HookEvent[]>;
-  
+
   /**
    * 安全配置
    */
   securityConfig?: any;
-  
+
   /**
    * 性能配置
    */
@@ -428,27 +428,27 @@ export interface ReactHookDefinition {
    * Hook名称
    */
   name: string;
-  
+
   /**
    * Hook描述
    */
   description: string;
-  
+
   /**
    * Hook依赖项
    */
   dependencies?: any[];
-  
+
   /**
    * Hook实现函数
    */
   implementation: (...args: any[]) => any;
-  
+
   /**
    * 是否启用
    */
   enabled?: boolean;
-  
+
   /**
    * 错误处理函数
    */
@@ -463,17 +463,17 @@ export interface PermissionHookContext extends HookContext {
    * 权限模式
    */
   permissionMode: string;
-  
+
   /**
    * 工具使用确认
    */
   toolUseConfirm?: any;
-  
+
   /**
    * 权限更新
    */
   permissionUpdates?: any[];
-  
+
   /**
    * 分类器检查结果
    */
@@ -488,17 +488,17 @@ export interface PermissionHookResult extends HookResult {
    * 权限决策
    */
   permissionDecision?: 'allow' | 'deny' | 'ask';
-  
+
   /**
    * 权限决策原因
    */
   permissionDecisionReason?: string;
-  
+
   /**
    * 需要确认
    */
   requiresConfirmation?: boolean;
-  
+
   /**
    * 确认消息
    */
@@ -513,17 +513,17 @@ export interface CompressionHookContext extends HookContext {
    * 压缩前内容
    */
   preCompressionContent: string;
-  
+
   /**
    * 压缩后内容
    */
   postCompressionContent?: string;
-  
+
   /**
    * 压缩配置
    */
   compressionConfig: any;
-  
+
   /**
    * 压缩统计
    */
@@ -538,12 +538,12 @@ export interface CompressionHookResult extends HookResult {
    * 修改后的内容
    */
   modifiedContent?: string;
-  
+
   /**
    * 压缩建议
    */
   compressionSuggestions?: string[];
-  
+
   /**
    * 压缩优化
    */

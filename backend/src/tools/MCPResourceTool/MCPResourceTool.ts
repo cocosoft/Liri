@@ -13,6 +13,9 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { getMCPServerManager } from '@modules/mcp/managers/MCPServerManager';
 
 /**
@@ -59,20 +62,23 @@ export class MCPResourceTool extends BaseTool<
   MCPResourceToolOutput
 > {
   name = 'mcp_resource';
-  description = 'List and read MCP (Model Context Protocol) resources and prompts from connected servers';
+  description =
+    'List and read MCP (Model Context Protocol) resources and prompts from connected servers';
 
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
-      description: 'Action to perform: list_resources, read_resource, list_prompts, get_prompt',
+      description:
+        'Action to perform: list_resources, read_resource, list_prompts, get_prompt',
       required: true,
       enum: ['list_resources', 'read_resource', 'list_prompts', 'get_prompt'],
     },
     {
       name: 'server_name',
       type: 'string',
-      description: 'MCP server name (required for read_resource, list_prompts, get_prompt)',
+      description:
+        'MCP server name (required for read_resource, list_prompts, get_prompt)',
       required: false,
       default: '',
     },
@@ -167,7 +173,9 @@ export class MCPResourceTool extends BaseTool<
     }
   }
 
-  override getToolUseSummary(input?: Partial<MCPResourceToolInput>): string | null {
+  override getToolUseSummary(
+    input?: Partial<MCPResourceToolInput>
+  ): string | null {
     const action = input?.action || 'list_resources';
     const serverName = input?.server_name || '';
     const uri = input?.uri || '';
@@ -191,7 +199,9 @@ export class MCPResourceTool extends BaseTool<
     }
   }
 
-  override getActivityDescription(input?: Partial<MCPResourceToolInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<MCPResourceToolInput>
+  ): string | null {
     const action = input?.action || 'list_resources';
     const serverName = input?.server_name || '';
 
@@ -280,16 +290,17 @@ export class MCPResourceTool extends BaseTool<
 
             for (const serverName of servers) {
               try {
-                const resources = await this.listResourcesFromServer(
-                  serverName
-                );
+                const resources =
+                  await this.listResourcesFromServer(serverName);
                 allResources.push(
                   ...resources.map((r) => ({ ...r, server: serverName }))
                 );
               } catch (error: any) {
-                console.warn(
-                  `Failed to list resources from ${serverName}:`,
-                  error.message
+                logger.warning(
+                  `Failed to list resources from ${serverName}`,
+                  error instanceof Error
+                    ? error
+                    : new Error(String(error.message))
                 );
               }
             }
@@ -337,9 +348,7 @@ export class MCPResourceTool extends BaseTool<
 
         case 'list_prompts': {
           if (input.server_name) {
-            const prompts = await this.listPromptsFromServer(
-              input.server_name
-            );
+            const prompts = await this.listPromptsFromServer(input.server_name);
             const output: MCPResourceToolOutput = {
               success: true,
               prompts,
@@ -360,9 +369,11 @@ export class MCPResourceTool extends BaseTool<
                   ...prompts.map((p) => ({ ...p, server: serverName }))
                 );
               } catch (error: any) {
-                console.warn(
-                  `Failed to list prompts from ${serverName}:`,
-                  error.message
+                logger.warning(
+                  `Failed to list prompts from ${serverName}`,
+                  error instanceof Error
+                    ? error
+                    : new Error(String(error.message))
                 );
               }
             }
@@ -471,10 +482,7 @@ export class MCPResourceTool extends BaseTool<
   /**
    * 读取资源
    */
-  private async readResource(
-    serverName: string,
-    uri: string
-  ): Promise<any> {
+  private async readResource(serverName: string, uri: string): Promise<any> {
     const mcpManager = getMCPServerManager();
     const server = mcpManager.getServer(serverName);
 
@@ -492,9 +500,7 @@ export class MCPResourceTool extends BaseTool<
       });
 
       if (response.type === 'error') {
-        throw new Error(
-          response.error?.message || 'Failed to read resource'
-        );
+        throw new Error(response.error?.message || 'Failed to read resource');
       }
 
       return response.result;
@@ -561,9 +567,7 @@ export class MCPResourceTool extends BaseTool<
 
       return response.result;
     } catch (error: any) {
-      throw new Error(
-        `Failed to get prompt ${promptName}: ${error.message}`
-      );
+      throw new Error(`Failed to get prompt ${promptName}: ${error.message}`);
     }
   }
 

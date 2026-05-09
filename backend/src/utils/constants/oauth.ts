@@ -23,7 +23,7 @@ export const PY_APP_OAUTH_SCOPES = [
 ] as const;
 
 export const ALL_OAUTH_SCOPES = Array.from(
-  new Set([...CONSOLE_OAUTH_SCOPES, ...PY_APP_OAUTH_SCOPES]),
+  new Set([...CONSOLE_OAUTH_SCOPES, ...PY_APP_OAUTH_SCOPES])
 );
 
 export function getOAuthConfigType(): 'prod' | 'staging' | 'local' {

@@ -13,7 +13,10 @@ import { GlobTool } from './search/GlobTool';
 import { NotebookEditTool } from './NotebookEditTool/NotebookEditTool';
 import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { CronListTool } from './ChronosTool/CronListTool';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { PowerShellTool } from './PowerShellTool/PowerShellTool';
 import { WebFetchTool } from './WebFetchTool/WebFetchTool';
 import { WebSearchTool } from './WebSearchTool/WebSearchTool';
@@ -77,61 +80,61 @@ interface ToolDefinitionInput {
  * 工具工厂类
  */
 export class ToolFactory {
-    /**
-     * 创建工具
-     * @param def 工具定义
-     * @returns 工具实例
-     */
-    createTool(def: ToolDefinitionInput): Tool {
-      // 构建基础工具对象，包含名称、描述及参数解析
-      const tool = {
-        name: def.name || '',
-        description: def.description || '',
-        // 将输入 schema 的属性转换为标准化的参数列表
-        params: def.inputSchema?.properties
-          ? Object.entries(def.inputSchema.properties).map(
-              ([name, prop]: [string, any]) => ({
-                name,
-                type: prop.type || 'string',
-                description: prop.description || '',
-                required: def.inputSchema?.required?.includes(name) || false,
-                default: prop.default,
-              })
-            )
-          : [],
-        aliases: def.aliases,
-        searchHint: def.searchTips?.[0],
-        maxResultSizeChars: 10000,
-        isEnabled: () => true,
-        isReadOnly: () => false,
-        isConcurrencySafe: () => true,
-        // 默认执行逻辑，返回空结果
-        execute: async (input: any, context: any, onProgress?: any) => {
-          return createToolResult(null, {
-            newMessages: [],
-          });
-        },
-        // 获取工具完整信息的方法
-        getInfo: function () {
-          return {
-            name: tool.name,
-            description: tool.description,
-            params: tool.params,
-            aliases: tool.aliases,
-            searchTips: tool.searchHint ? [tool.searchHint] : [],
-            enabled: true,
-            readOnly: false,
-            destructive: false,
-            concurrencySafe: true,
-            deferred: false,
-            alwaysLoad: false,
-            interruptBehavior: 'block' as const,
-            maxResultSizeChars: tool.maxResultSizeChars,
-          };
-        },
-      };
-      return tool;
-    }
+  /**
+   * 创建工具
+   * @param def 工具定义
+   * @returns 工具实例
+   */
+  createTool(def: ToolDefinitionInput): Tool {
+    // 构建基础工具对象，包含名称、描述及参数解析
+    const tool = {
+      name: def.name || '',
+      description: def.description || '',
+      // 将输入 schema 的属性转换为标准化的参数列表
+      params: def.inputSchema?.properties
+        ? Object.entries(def.inputSchema.properties).map(
+            ([name, prop]: [string, any]) => ({
+              name,
+              type: prop.type || 'string',
+              description: prop.description || '',
+              required: def.inputSchema?.required?.includes(name) || false,
+              default: prop.default,
+            })
+          )
+        : [],
+      aliases: def.aliases,
+      searchHint: def.searchTips?.[0],
+      maxResultSizeChars: 10000,
+      isEnabled: () => true,
+      isReadOnly: () => false,
+      isConcurrencySafe: () => true,
+      // 默认执行逻辑，返回空结果
+      execute: async (input: any, context: any, onProgress?: any) => {
+        return createToolResult(null, {
+          newMessages: [],
+        });
+      },
+      // 获取工具完整信息的方法
+      getInfo: function () {
+        return {
+          name: tool.name,
+          description: tool.description,
+          params: tool.params,
+          aliases: tool.aliases,
+          searchTips: tool.searchHint ? [tool.searchHint] : [],
+          enabled: true,
+          readOnly: false,
+          destructive: false,
+          concurrencySafe: true,
+          deferred: false,
+          alwaysLoad: false,
+          interruptBehavior: 'block' as const,
+          maxResultSizeChars: tool.maxResultSizeChars,
+        };
+      },
+    };
+    return tool;
+  }
 
   /**
    * 创建Bash工具
@@ -414,7 +417,10 @@ export class ToolFactory {
       const { SleepTool } = require('./SleepTool/SleepTool.js');
       return new SleepTool();
     } catch (error) {
-      console.error('Failed to create SleepTool:', error);
+      logger.error(
+        'Failed to create SleepTool',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }
@@ -436,7 +442,10 @@ export class ToolFactory {
       const { MonitorTool } = require('./MonitorTool/MonitorTool.js');
       return new MonitorTool();
     } catch (error) {
-      console.error('Failed to create MonitorTool:', error);
+      logger.error(
+        'Failed to create MonitorTool',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }
@@ -450,7 +459,10 @@ export class ToolFactory {
     try {
       return new SendMessageTool();
     } catch (error) {
-      console.error('Failed to create SendMessageTool:', error);
+      logger.error(
+        'Failed to create SendMessageTool',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }
@@ -464,7 +476,10 @@ export class ToolFactory {
     try {
       return new TeamCreateTool();
     } catch (error) {
-      console.error('Failed to create TeamCreateTool:', error);
+      logger.error(
+        'Failed to create TeamCreateTool',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }
@@ -478,7 +493,10 @@ export class ToolFactory {
     try {
       return new TeamDeleteTool();
     } catch (error) {
-      console.error('Failed to create TeamDeleteTool:', error);
+      logger.error(
+        'Failed to create TeamDeleteTool',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }
@@ -661,7 +679,10 @@ export function getAllBaseTools(): Tool[] {
     }
   }
 
-  if (isFeatureEnabled(FeatureFlag.PROACTIVE) || isFeatureEnabled(FeatureFlag.KAIROS)) {
+  if (
+    isFeatureEnabled(FeatureFlag.PROACTIVE) ||
+    isFeatureEnabled(FeatureFlag.KAIROS)
+  ) {
     const sleepTool = createSleepTool();
     if (sleepTool) {
       tools.push(sleepTool);
@@ -722,7 +743,9 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new NotebookToolAdapter() as any);
   tools.push(new BrowserTool() as any);
 
-  return tools.filter((tool): tool is Tool => tool !== null && tool !== undefined);
+  return tools.filter(
+    (tool): tool is Tool => tool !== null && tool !== undefined
+  );
 }
 
 function createSendMessageTool(): Tool | null {
@@ -800,7 +823,10 @@ function createTestingPermissionTool(): Tool {
   const tool = {
     name: 'testing_permission',
     description: 'Testing permission tool',
-    execute: async () => ({ success: true, output: 'Testing permission granted' }),
+    execute: async () => ({
+      success: true,
+      output: 'Testing permission granted',
+    }),
     isEnabled: () => true,
   };
   return tool as unknown as Tool;
@@ -824,13 +850,13 @@ export interface ToolPermissionContextInput {
  * @returns 过滤后的工具列表
  */
 export function filterToolsByDenyRules<
-  T extends { name: string; mcpInfo?: { serverName: string; toolName: string } }
->(
-  tools: readonly T[],
-  permissionContext: ToolPermissionContextInput
-): T[] {
+  T extends {
+    name: string;
+    mcpInfo?: { serverName: string; toolName: string };
+  },
+>(tools: readonly T[], permissionContext: ToolPermissionContextInput): T[] {
   const denyRules = getCompiledDenyRules(permissionContext);
-  return tools.filter(tool => !matchesDenyRule(tool, denyRules));
+  return tools.filter((tool) => !matchesDenyRule(tool, denyRules));
 }
 
 /**
@@ -897,7 +923,10 @@ function parseToolRule(ruleString: string): {
  * 检查工具是否匹配拒绝规则
  */
 function matchesDenyRule<
-  T extends { name: string; mcpInfo?: { serverName: string; toolName: string } }
+  T extends {
+    name: string;
+    mcpInfo?: { serverName: string; toolName: string };
+  },
 >(
   tool: T,
   denyRules: Array<{
@@ -925,7 +954,8 @@ function matchesDenyRule<
       }
       if (
         toolName.startsWith(`mcp__${rule.serverName}__`) &&
-        (rule.isWildcard || toolName === `mcp__${rule.serverName}__${rule.toolName}`)
+        (rule.isWildcard ||
+          toolName === `mcp__${rule.serverName}__${rule.toolName}`)
       ) {
         return true;
       }
@@ -943,12 +973,14 @@ function matchesDenyRule<
  * @param permissionContext 权限上下文
  * @returns 可用的工具列表
  */
-export function getTools(permissionContext: ToolPermissionContextInput): Tool[] {
+export function getTools(
+  permissionContext: ToolPermissionContextInput
+): Tool[] {
   const allTools = getAllBaseTools();
 
   const simpleModeActive = isSimpleMode();
   if (simpleModeActive) {
-    const simpleTools = allTools.filter(tool => {
+    const simpleTools = allTools.filter((tool) => {
       const name = (tool as any).name;
       return name === 'Bash' || name === 'Read' || name === 'Edit';
     });
@@ -957,7 +989,7 @@ export function getTools(permissionContext: ToolPermissionContextInput): Tool[] 
 
   const filteredTools = filterToolsByDenyRules(allTools, permissionContext);
 
-  return filteredTools.filter(tool => {
+  return filteredTools.filter((tool) => {
     if (typeof (tool as any).isEnabled === 'function') {
       return (tool as any).isEnabled();
     }
@@ -993,7 +1025,7 @@ export function assembleToolPool(
  */
 function uniqByTools(tools: Tool[]): Tool[] {
   const seen = new Set<string>();
-  return tools.filter(tool => {
+  return tools.filter((tool) => {
     if (seen.has(tool.name)) {
       return false;
     }

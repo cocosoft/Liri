@@ -12,12 +12,19 @@ import { OAuthError } from '../types/OAuthTypes';
  */
 export class OAuthTokenManager {
   private tokens: Map<string, OAuthTokenData> = new Map();
-  private refreshCallback: ((serverKey: string, refreshToken: string) => Promise<OAuthTokenData>) | null = null;
+  private refreshCallback:
+    | ((serverKey: string, refreshToken: string) => Promise<OAuthTokenData>)
+    | null = null;
 
   /**
    * 设置Token刷新回调
    */
-  setRefreshCallback(callback: (serverKey: string, refreshToken: string) => Promise<OAuthTokenData>): void {
+  setRefreshCallback(
+    callback: (
+      serverKey: string,
+      refreshToken: string
+    ) => Promise<OAuthTokenData>
+  ): void {
     this.refreshCallback = callback;
   }
 
@@ -36,7 +43,9 @@ export class OAuthTokenManager {
     }
 
     if (this.isTokenExpiringSoon(token)) {
-      logger.debug(`Token expiring soon for ${serverKey}, refreshing in background`);
+      logger.debug(
+        `Token expiring soon for ${serverKey}, refreshing in background`
+      );
       this.refreshTokenInBackground(serverKey, token);
     }
 
@@ -79,7 +88,10 @@ export class OAuthTokenManager {
   /**
    * 刷新Token
    */
-  private async refreshToken(serverKey: string, token: OAuthTokenData): Promise<OAuthTokenData | null> {
+  private async refreshToken(
+    serverKey: string,
+    token: OAuthTokenData
+  ): Promise<OAuthTokenData | null> {
     if (!this.refreshCallback) {
       logger.error(`No refresh callback set for ${serverKey}`);
       this.tokens.delete(serverKey);
@@ -87,7 +99,10 @@ export class OAuthTokenManager {
     }
 
     try {
-      const newToken = await this.refreshCallback(serverKey, token.refreshToken);
+      const newToken = await this.refreshCallback(
+        serverKey,
+        token.refreshToken
+      );
       this.tokens.set(serverKey, newToken);
       logger.info(`Token refreshed successfully for ${serverKey}`);
       return newToken;
@@ -104,10 +119,16 @@ export class OAuthTokenManager {
   /**
    * 后台刷新Token
    */
-  private async refreshTokenInBackground(serverKey: string, token: OAuthTokenData): Promise<void> {
+  private async refreshTokenInBackground(
+    serverKey: string,
+    token: OAuthTokenData
+  ): Promise<void> {
     try {
       if (this.refreshCallback) {
-        const newToken = await this.refreshCallback(serverKey, token.refreshToken);
+        const newToken = await this.refreshCallback(
+          serverKey,
+          token.refreshToken
+        );
         this.tokens.set(serverKey, newToken);
         logger.debug(`Token refreshed in background for ${serverKey}`);
       }

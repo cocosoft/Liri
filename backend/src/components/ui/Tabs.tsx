@@ -29,7 +29,9 @@ export function Tabs({
   activeColor = 'cyan',
   disabledColor = 'gray',
 }: TabsProps): React.ReactNode {
-  const [internalActive, setInternalActive] = useState(activeTab || tabs[0]?.id);
+  const [internalActive, setInternalActive] = useState(
+    activeTab || tabs[0]?.id
+  );
 
   const currentActive = activeTab || internalActive;
 
@@ -47,17 +49,13 @@ export function Tabs({
           const tabColor = tab.disabled
             ? disabledColor
             : isActive
-            ? activeColor
-            : color;
+              ? activeColor
+              : color;
 
           return (
             <Box key={tab.id}>
               {idx > 0 && <Text color={color}> │ </Text>}
-              <Text
-                color={tabColor}
-                bold={isActive}
-                underline={isActive}
-              >
+              <Text color={tabColor} bold={isActive} underline={isActive}>
                 {tab.label}
               </Text>
             </Box>

@@ -23,25 +23,31 @@ export const useStdin = ({
 }: UseStdinOptions = {}): UseStdinReturn => {
   const [input, setInput] = useState('');
 
-  const handleData = useCallback((data: Buffer) => {
-    const inputString = data.toString().trim();
-    
-    if (inputString === '') {
-      return;
-    }
+  const handleData = useCallback(
+    (data: Buffer) => {
+      const inputString = data.toString().trim();
 
-    setInput(inputString);
-    
-    if (onInput) {
-      onInput(inputString);
-    }
-  }, [onInput]);
+      if (inputString === '') {
+        return;
+      }
 
-  const handleKeyPress = useCallback((str: string) => {
-    if (onKeyDown) {
-      onKeyDown(str);
-    }
-  }, [onKeyDown]);
+      setInput(inputString);
+
+      if (onInput) {
+        onInput(inputString);
+      }
+    },
+    [onInput]
+  );
+
+  const handleKeyPress = useCallback(
+    (str: string) => {
+      if (onKeyDown) {
+        onKeyDown(str);
+      }
+    },
+    [onKeyDown]
+  );
 
   useEffect(() => {
     if (!enabled) {

@@ -12,7 +12,7 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const newName = args.trim();
-    
+
     if (!newName) {
       return {
         success: false,
@@ -42,11 +42,15 @@ export default {
 
     try {
       if (context.chatManager) {
-        const oldName = await context.chatManager.getSessionName(context.sessionId);
+        const oldName = await context.chatManager.getSessionName(
+          context.sessionId
+        );
         await context.chatManager.renameSession(context.sessionId, newName);
-        
-        context.onDone?.(`会话已重命名: ${oldName || '未命名'} -> ${newName}`, { display: 'system' });
-        
+
+        context.onDone?.(`会话已重命名: ${oldName || '未命名'} -> ${newName}`, {
+          display: 'system',
+        });
+
         return {
           success: true,
           type: 'text',
@@ -54,7 +58,7 @@ export default {
           data: { oldName, newName },
         };
       }
-      
+
       return {
         success: false,
         type: 'error',

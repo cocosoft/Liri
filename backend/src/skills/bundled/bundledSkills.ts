@@ -20,72 +20,72 @@ export interface BundledSkillDefinition {
    * 技能名称
    */
   name: string;
-  
+
   /**
    * 技能描述
    */
   description: string;
-  
+
   /**
    * 技能别名
    */
   aliases?: string[];
-  
+
   /**
    * 使用时机
    */
   whenToUse?: string;
-  
+
   /**
    * 参数提示
    */
   argumentHint?: string;
-  
+
   /**
    * 允许的工具
    */
   allowedTools?: string[];
-  
+
   /**
    * 模型配置
    */
   model?: string;
-  
+
   /**
    * 是否禁用模型调用
    */
   disableModelInvocation?: boolean;
-  
+
   /**
    * 是否用户可调用
    */
   userInvocable?: boolean;
-  
+
   /**
    * 是否启用
    */
   isEnabled?: () => boolean;
-  
+
   /**
    * Hook配置
    */
   hooks?: any;
-  
+
   /**
    * 执行上下文
    */
   context?: 'inline' | 'fork';
-  
+
   /**
    * 代理配置
    */
   agent?: string;
-  
+
   /**
    * 参考文件
    */
   files?: Record<string, string>;
-  
+
   /**
    * 生成命令提示词
    */
@@ -104,14 +104,14 @@ export class BundledSkillsRegistry {
    */
   registerBundledSkill(skill: BundledSkillDefinition): void {
     this.skills.set(skill.name, skill);
-    
+
     // 注册别名
     if (skill.aliases) {
-      skill.aliases.forEach(alias => {
+      skill.aliases.forEach((alias) => {
         this.skills.set(alias, skill);
       });
     }
-    
+
     console.log(`Registered bundled skill: ${skill.name}`);
   }
 
@@ -127,32 +127,35 @@ export class BundledSkillsRegistry {
    */
   getAllBundledSkills(): BundledSkillDefinition[] {
     const uniqueSkills = new Map<string, BundledSkillDefinition>();
-    
+
     for (const [name, skill] of this.skills.entries()) {
       if (!uniqueSkills.has(skill.name)) {
         uniqueSkills.set(skill.name, skill);
       }
     }
-    
+
     return Array.from(uniqueSkills.values())
-      .filter(skill => !skill.isEnabled || skill.isEnabled())
+      .filter((skill) => !skill.isEnabled || skill.isEnabled())
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /**
    * 提取参考文件（基于CC源码）
    */
-  async extractReferenceFiles(skill: BundledSkillDefinition, targetDir: string): Promise<void> {
+  async extractReferenceFiles(
+    skill: BundledSkillDefinition,
+    targetDir: string
+  ): Promise<void> {
     if (!skill.files) {
       return;
     }
 
     try {
       await mkdir(targetDir, { recursive: true });
-      
+
       for (const [fileName, content] of Object.entries(skill.files)) {
         const filePath = join(targetDir, fileName);
-        
+
         // 检查文件是否已提取
         if (this.extractedFiles.has(filePath)) {
           continue;
@@ -161,31 +164,41 @@ export class BundledSkillsRegistry {
         // 安全写入（基于CC源码的O_NOFOLLOW|O_EXCL防护）
         await this.safeWriteFile(filePath, content);
         this.extractedFiles.add(filePath);
-        
+
         console.log(`Extracted reference file: ${filePath}`);
       }
     } catch (error) {
-      console.error(`Failed to extract reference files for ${skill.name}:`, error);
+      console.error(
+        `Failed to extract reference files for ${skill.name}:`,
+        error
+      );
     }
   }
 
   /**
    * 安全写入文件（基于CC源码）
    */
-  private async safeWriteFile(filePath: string, content: string): Promise<void> {
+  private async safeWriteFile(
+    filePath: string,
+    content: string
+  ): Promise<void> {
     try {
       // 简化实现：直接写入文件
       // 实际实现应该使用O_NOFOLLOW|O_EXCL标志防止符号链接攻击
       await writeFile(filePath, content, 'utf-8');
     } catch (error) {
-      throw new Error(`Failed to write file ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to write file ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
   /**
    * 转换为技能定义（基于CC源码）
    */
-  async toSkillDefinition(skill: BundledSkillDefinition): Promise<ParsedSkillDefinition> {
+  async toSkillDefinition(
+    skill: BundledSkillDefinition
+  ): Promise<ParsedSkillDefinition> {
     const frontmatter: any = {
       name: skill.name,
       description: skill.description,
@@ -243,7 +256,7 @@ export class BundledSkillsRegistry {
  */
 export function createDefaultBundledSkillsRegistry(): BundledSkillsRegistry {
   const registry = new BundledSkillsRegistry();
-  
+
   // 注册20个内置技能（基于CC源码）
   registerDebugSkill(registry);
   registerRememberSkill(registry);
@@ -262,7 +275,7 @@ export function createDefaultBundledSkillsRegistry(): BundledSkillsRegistry {
   registerHunterSkill(registry);
   registerDreamSkill(registry);
   registerRunSkillGeneratorSkill(registry);
-  
+
   return registry;
 }
 
@@ -293,7 +306,7 @@ export async function registerBundledSkill(
     files: definition.files,
     getPromptForCommand: async (args: string, context: ToolUseContext) => {
       const lines = await definition.getPromptForCommand(args, context);
-      return lines.map(line => ({ type: 'text', text: line }));
+      return lines.map((line) => ({ type: 'text', text: line }));
     },
   };
 
@@ -594,7 +607,8 @@ function registerLoopSkill(registry: BundledSkillsRegistry): void {
 function registerUpdateConfigSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
     name: 'updateConfig',
-    description: '通过自然语言管理settings.json配置——权限、环境变量、钩子、模型等',
+    description:
+      '通过自然语言管理settings.json配置——权限、环境变量、钩子、模型等',
     aliases: ['update-config', 'config', 'settings', '配置'],
     whenToUse: '当用户想通过自然语言修改配置、权限、环境变量或钩子时使用',
     argumentHint: '输入配置更新需求（如"允许npm命令"、"设置DEBUG=true"）',
@@ -674,7 +688,8 @@ function registerKeybindingsSkill(registry: BundledSkillsRegistry): void {
     name: 'keybindings',
     description: '键盘快捷键自定义帮助——修改keybindings.json绑定按键',
     aliases: ['keybindings-help', 'shortcuts', '快捷键'],
-    whenToUse: '当用户想自定义键盘快捷键、重新绑定按键或修改keybindings配置时使用',
+    whenToUse:
+      '当用户想自定义键盘快捷键、重新绑定按键或修改keybindings配置时使用',
     argumentHint: '输入按键绑定需求（如"把ctrl+g改为ctrl+e"）',
     allowedTools: ['Read'],
     userInvocable: true,
@@ -818,7 +833,8 @@ function registerClaudeApiSkill(registry: BundledSkillsRegistry): void {
     name: 'claudeApi',
     description: '使用Claude API和Anthropic SDK构建应用程序',
     aliases: ['claude-api', 'api', 'anthropic', 'sdk'],
-    whenToUse: '当用户想使用Claude API、Anthropic SDK构建应用，或代码中导入anthropic时使用',
+    whenToUse:
+      '当用户想使用Claude API、Anthropic SDK构建应用，或代码中导入anthropic时使用',
     argumentHint: '输入API相关问题',
     allowedTools: ['Read', 'Grep', 'Glob', 'WebFetch'],
     userInvocable: true,
@@ -899,7 +915,8 @@ function registerClaudeInChromeSkill(registry: BundledSkillsRegistry): void {
     name: 'claudeInChrome',
     description: '在Chrome浏览器中与Claude Code集成的帮助',
     aliases: ['chrome', '浏览器'],
-    whenToUse: '当用户想在Chrome浏览器中使用Claude Code或需要浏览器集成帮助时使用',
+    whenToUse:
+      '当用户想在Chrome浏览器中使用Claude Code或需要浏览器集成帮助时使用',
     argumentHint: '输入Chrome集成相关问题',
     userInvocable: true,
     async getPromptForCommand(args: string, context: any): Promise<string[]> {
@@ -923,7 +940,9 @@ function registerClaudeInChromeSkill(registry: BundledSkillsRegistry): void {
 /**
  * 注册远程代理调度技能（基于CC源码）
  */
-function registerScheduleRemoteAgentsSkill(registry: BundledSkillsRegistry): void {
+function registerScheduleRemoteAgentsSkill(
+  registry: BundledSkillsRegistry
+): void {
   registry.registerBundledSkill({
     name: 'scheduleRemoteAgents',
     description: '调度远程代理执行任务——安排代理在后台或指定时间运行',
@@ -994,9 +1013,11 @@ function registerHunterSkill(registry: BundledSkillsRegistry): void {
 function registerDreamSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
     name: 'dream',
-    description: '进入梦境模式——一种实验性的沉浸式编码体验，增强创造力和心流状态',
+    description:
+      '进入梦境模式——一种实验性的沉浸式编码体验，增强创造力和心流状态',
     aliases: ['dream-mode', '梦境', '幻想'],
-    whenToUse: '当用户想进入实验性的梦境模式以增强创造力、头脑风暴或沉浸式编码时使用',
+    whenToUse:
+      '当用户想进入实验性的梦境模式以增强创造力、头脑风暴或沉浸式编码时使用',
     argumentHint: '[梦境场景或目标]',
     userInvocable: true,
     async getPromptForCommand(args: string, context: any): Promise<string[]> {

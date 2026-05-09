@@ -59,7 +59,9 @@ export class SlowOperationDetector {
   private constructor() {
     this.config = {
       enabled: true,
-      thresholdMs: parseInt(process.env.PY_APP_SLOW_OPERATION_THRESHOLD_MS || '100'),
+      thresholdMs: parseInt(
+        process.env.PY_APP_SLOW_OPERATION_THRESHOLD_MS || '100'
+      ),
       logLevel: 'warn',
       maxSlowOperations: 1000,
       logFilePath: path.join(process.cwd(), 'logs', 'slow_operations.log'),
@@ -221,7 +223,10 @@ export class SlowOperationDetector {
         timestamp: new Date(record.timestamp).toISOString(),
       };
 
-      fs.appendFileSync(this.config.logFilePath, JSON.stringify(logEntry) + '\n');
+      fs.appendFileSync(
+        this.config.logFilePath,
+        JSON.stringify(logEntry) + '\n'
+      );
     } catch (error) {
       // 忽略错误
     }
@@ -252,7 +257,7 @@ export class SlowOperationDetector {
       };
     }
 
-    const durations = this.slowOperations.map(op => op.duration);
+    const durations = this.slowOperations.map((op) => op.duration);
     const totalDuration = durations.reduce((a, b) => a + b, 0);
 
     return {
@@ -261,7 +266,8 @@ export class SlowOperationDetector {
       averageDuration: totalDuration / this.slowOperations.length,
       maxDuration: Math.max(...durations),
       minDuration: Math.min(...durations),
-      lastSlowOperation: this.slowOperations[this.slowOperations.length - 1].timestamp,
+      lastSlowOperation:
+        this.slowOperations[this.slowOperations.length - 1].timestamp,
     };
   }
 
@@ -291,13 +297,15 @@ export class SlowOperationDetector {
     lines.push(`  Average duration: ${stats.averageDuration.toFixed(2)}ms`);
     lines.push(`  Max duration: ${stats.maxDuration.toFixed(2)}ms`);
     lines.push(`  Min duration: ${stats.minDuration.toFixed(2)}ms`);
-    lines.push(`  Last slow operation: ${stats.lastSlowOperation ? new Date(stats.lastSlowOperation).toISOString() : 'Never'}`);
+    lines.push(
+      `  Last slow operation: ${stats.lastSlowOperation ? new Date(stats.lastSlowOperation).toISOString() : 'Never'}`
+    );
     lines.push('');
 
     if (Object.keys(stats.operationsByType).length > 0) {
       lines.push('OPERATIONS BY TYPE:');
       Object.entries(stats.operationsByType)
-        .sort(([,a], [,b]) => b - a)
+        .sort(([, a], [, b]) => b - a)
         .forEach(([operation, count]) => {
           lines.push(`  ${operation}: ${count} times`);
         });
@@ -306,8 +314,10 @@ export class SlowOperationDetector {
 
     if (this.slowOperations.length > 0) {
       lines.push('RECENT SLOW OPERATIONS:');
-      this.slowOperations.slice(-10).forEach(op => {
-        lines.push(`  [${new Date(op.timestamp).toISOString()}] ${op.operation}: ${op.duration.toFixed(2)}ms`);
+      this.slowOperations.slice(-10).forEach((op) => {
+        lines.push(
+          `  [${new Date(op.timestamp).toISOString()}] ${op.operation}: ${op.duration.toFixed(2)}ms`
+        );
         if (op.details) {
           lines.push(`    Details: ${JSON.stringify(op.details)}`);
         }
@@ -367,15 +377,19 @@ export class SlowOperationDetector {
     replacer?: (key: string, value: any) => any,
     space?: string | number
   ): Promise<string> {
-    return this.detect('JSON.stringify', () => {
-      return JSON.stringify(value, replacer, space);
-    }, {
-      details: {
-        valueType: typeof value,
-        valueLength: typeof value === 'string' ? value.length : undefined,
-        valueSize: Array.isArray(value) ? value.length : undefined,
+    return this.detect(
+      'JSON.stringify',
+      () => {
+        return JSON.stringify(value, replacer, space);
       },
-    });
+      {
+        details: {
+          valueType: typeof value,
+          valueLength: typeof value === 'string' ? value.length : undefined,
+          valueSize: Array.isArray(value) ? value.length : undefined,
+        },
+      }
+    );
   }
 
   /**
@@ -383,26 +397,51 @@ export class SlowOperationDetector {
    */
   public wrapArray<T>(array: T[]): T[] {
     const wrapped: T[] = [];
-    
+
     // 包装常用数组方法
     Object.defineProperty(wrapped, 'push', {
       value: this.wrap('Array.push', (...args: T[]) => array.push(...args)),
     });
 
     Object.defineProperty(wrapped, 'sort', {
-      value: this.wrap('Array.sort', (compareFn?: (a: T, b: T) => number) => array.sort(compareFn)),
+      value: this.wrap('Array.sort', (compareFn?: (a: T, b: T) => number) =>
+        array.sort(compareFn)
+      ),
     });
 
     Object.defineProperty(wrapped, 'filter', {
-      value: this.wrap('Array.filter', (callback: (value: T, index: number, array: T[]) => boolean, thisArg?: any) => array.filter(callback, thisArg)),
+      value: this.wrap(
+        'Array.filter',
+        (
+          callback: (value: T, index: number, array: T[]) => boolean,
+          thisArg?: any
+        ) => array.filter(callback, thisArg)
+      ),
     });
 
     Object.defineProperty(wrapped, 'map', {
-      value: this.wrap('Array.map', (callback: (value: T, index: number, array: T[]) => any, thisArg?: any) => array.map(callback, thisArg)),
+      value: this.wrap(
+        'Array.map',
+        (
+          callback: (value: T, index: number, array: T[]) => any,
+          thisArg?: any
+        ) => array.map(callback, thisArg)
+      ),
     });
 
     Object.defineProperty(wrapped, 'reduce', {
-      value: this.wrap('Array.reduce', (callback: (accumulator: any, currentValue: T, currentIndex: number, array: T[]) => any, initialValue?: any) => array.reduce(callback, initialValue)),
+      value: this.wrap(
+        'Array.reduce',
+        (
+          callback: (
+            accumulator: any,
+            currentValue: T,
+            currentIndex: number,
+            array: T[]
+          ) => any,
+          initialValue?: any
+        ) => array.reduce(callback, initialValue)
+      ),
     });
 
     return wrapped;

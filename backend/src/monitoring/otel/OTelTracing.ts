@@ -4,10 +4,24 @@
  * 基于CC源码实现，提供OTel追踪支持
  */
 
-import { trace, Tracer, Span, SpanStatusCode, context, Context } from '@opentelemetry/api';
-import { NodeTracerProvider, BatchSpanProcessor, ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
+import {
+  trace,
+  Tracer,
+  Span,
+  SpanStatusCode,
+  context,
+  Context,
+} from '@opentelemetry/api';
+import {
+  NodeTracerProvider,
+  BatchSpanProcessor,
+  ConsoleSpanExporter,
+} from '@opentelemetry/sdk-trace-node';
 import { resourceFromAttributes } from '@opentelemetry/resources';
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
+} from '@opentelemetry/semantic-conventions';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/utils/errors.js';
 
@@ -47,7 +61,10 @@ export class OTelTracing {
       ...config,
     };
 
-    this.tracer = trace.getTracer(this.config.serviceName, this.config.serviceVersion);
+    this.tracer = trace.getTracer(
+      this.config.serviceName,
+      this.config.serviceVersion
+    );
   }
 
   /**
@@ -56,7 +73,10 @@ export class OTelTracing {
    * @param attributes Span属性
    * @returns Span
    */
-  startSpan(name: string, attributes?: Record<string, string | number | boolean>): Span {
+  startSpan(
+    name: string,
+    attributes?: Record<string, string | number | boolean>
+  ): Span {
     const span = this.tracer.startSpan(name, {
       attributes,
     });
@@ -73,7 +93,11 @@ export class OTelTracing {
    * @param status 状态
    * @param message 消息
    */
-  endSpan(span: Span, status: SpanStatusCode = SpanStatusCode.OK, message?: string): void {
+  endSpan(
+    span: Span,
+    status: SpanStatusCode = SpanStatusCode.OK,
+    message?: string
+  ): void {
     if (status === SpanStatusCode.ERROR && message) {
       span.setStatus({ code: status, message });
     } else {
@@ -92,7 +116,11 @@ export class OTelTracing {
    * @param name 事件名称
    * @param attributes 事件属性
    */
-  recordEvent(span: Span, name: string, attributes?: Record<string, string | number | boolean>): void {
+  recordEvent(
+    span: Span,
+    name: string,
+    attributes?: Record<string, string | number | boolean>
+  ): void {
     span.addEvent(name, attributes);
   }
 
@@ -156,7 +184,10 @@ export class OTelTracing {
               return value;
             })
             .catch((error) => {
-              this.recordError(span, error instanceof Error ? error : new Error(String(error)));
+              this.recordError(
+                span,
+                error instanceof Error ? error : new Error(String(error))
+              );
               this.endSpan(span, SpanStatusCode.ERROR);
               throw error;
             }) as ReturnType<T>;
@@ -165,7 +196,10 @@ export class OTelTracing {
         this.endSpan(span, SpanStatusCode.OK);
         return result;
       } catch (error) {
-        this.recordError(span, error instanceof Error ? error : new Error(String(error)));
+        this.recordError(
+          span,
+          error instanceof Error ? error : new Error(String(error))
+        );
         this.endSpan(span, SpanStatusCode.ERROR);
         throw error;
       }
@@ -190,7 +224,10 @@ export class OTelTracing {
         this.endSpan(span, SpanStatusCode.OK);
         return result;
       } catch (error) {
-        this.recordError(span, error instanceof Error ? error : new Error(String(error)));
+        this.recordError(
+          span,
+          error instanceof Error ? error : new Error(String(error))
+        );
         this.endSpan(span, SpanStatusCode.ERROR);
         throw error;
       }
@@ -210,10 +247,12 @@ let otelTracing: OTelTracing | null = null;
  */
 export function getOTelTracing(config?: OTelTracingConfig): OTelTracing {
   if (!otelTracing) {
-    otelTracing = new OTelTracing(config || {
-      serviceName: 'py-app',
-      serviceVersion: '1.0.0',
-    });
+    otelTracing = new OTelTracing(
+      config || {
+        serviceName: 'py-app',
+        serviceVersion: '1.0.0',
+      }
+    );
   }
   return otelTracing;
 }

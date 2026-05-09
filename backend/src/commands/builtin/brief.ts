@@ -4,7 +4,11 @@
  * 用于切换brief-only模式
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { logger } from '@modules/utils/log.js';
 
 let isBriefOnly = false;
@@ -28,7 +32,8 @@ const briefCommand: Command = {
   description: 'Toggle brief-only mode',
   aliases: ['b'],
   argumentHint: '[on|off|toggle]',
-  whenToUse: 'Use this command to enable or disable brief-only mode. In brief-only mode, all output must use the Brief tool.',
+  whenToUse:
+    'Use this command to enable or disable brief-only mode. In brief-only mode, all output must use the Brief tool.',
   userInvocable: true,
   isHidden: false,
   load(): Promise<CommandImplementation> {
@@ -37,7 +42,10 @@ const briefCommand: Command = {
 };
 
 const briefCommandImpl: CommandImplementation = {
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const trimmedArgs = args.trim().toLowerCase();
 
     if (trimmedArgs === 'on') {
@@ -46,7 +54,8 @@ const briefCommandImpl: CommandImplementation = {
         type: 'system',
         value: 'Brief-only mode enabled',
         success: true,
-        message: 'Brief-only mode is now enabled. Use the Brief tool for all user-facing output.',
+        message:
+          'Brief-only mode is now enabled. Use the Brief tool for all user-facing output.',
       };
     }
 
@@ -56,7 +65,8 @@ const briefCommandImpl: CommandImplementation = {
         type: 'system',
         value: 'Brief-only mode disabled',
         success: true,
-        message: 'Brief-only mode is now disabled. You can now reply with plain text.',
+        message:
+          'Brief-only mode is now disabled. You can now reply with plain text.',
       };
     }
 
@@ -65,7 +75,9 @@ const briefCommandImpl: CommandImplementation = {
       setBriefOnly(newState);
       return {
         type: 'system',
-        value: newState ? 'Brief-only mode enabled' : 'Brief-only mode disabled',
+        value: newState
+          ? 'Brief-only mode enabled'
+          : 'Brief-only mode disabled',
         success: true,
         message: newState
           ? 'Brief-only mode is now enabled. Use the Brief tool for all user-facing output.'

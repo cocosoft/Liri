@@ -66,7 +66,11 @@ export class CacheMonitor {
   /**
    * 记录缓存访问
    */
-  async recordAccess(key: string, hit: boolean, accessTime: number): Promise<void> {
+  async recordAccess(
+    key: string,
+    hit: boolean,
+    accessTime: number
+  ): Promise<void> {
     if (!this.monitoringEnabled) return;
 
     this.accessCount++;
@@ -92,11 +96,11 @@ export class CacheMonitor {
   async getStats(includeItems = false): Promise<CacheStats> {
     const keys = await this.cache.keys();
     const keyCount = keys.length;
-    
+
     // 估计缓存大小
     let estimatedSize = 0;
     let items: CacheItem[] = [];
-    
+
     if (includeItems) {
       for (const key of keys) {
         const item = await this.cache.getItem(key);
@@ -112,8 +116,10 @@ export class CacheMonitor {
     const totalHits = this.hitCount;
     const totalMisses = this.missCount;
     const hitRate = totalAccesses > 0 ? (totalHits / totalAccesses) * 100 : 0;
-    const missRate = totalAccesses > 0 ? (totalMisses / totalAccesses) * 100 : 0;
-    const averageAccessTime = totalAccesses > 0 ? this.totalAccessTime / totalAccesses : 0;
+    const missRate =
+      totalAccesses > 0 ? (totalMisses / totalAccesses) * 100 : 0;
+    const averageAccessTime =
+      totalAccesses > 0 ? this.totalAccessTime / totalAccesses : 0;
 
     const stats: CacheStats = {
       keyCount,
@@ -139,7 +145,7 @@ export class CacheMonitor {
    */
   async generateReport(includeItems = false): Promise<string> {
     const stats = await this.getStats(includeItems);
-    
+
     let report = '\n==========================================\n';
     report += '            缓存监控报告\n';
     report += '==========================================\n';
@@ -155,7 +161,8 @@ export class CacheMonitor {
 
     if (includeItems && stats.items) {
       report += '\n缓存项详情:\n';
-      for (const item of stats.items.slice(0, 10)) { // 只显示前10个
+      for (const item of stats.items.slice(0, 10)) {
+        // 只显示前10个
         report += `\n键: ${item.key}\n`;
         report += `  类型: ${typeof item.value}\n`;
         report += `  大小: ${this.formatSize(JSON.stringify(item.value).length)}\n`;
@@ -230,17 +237,23 @@ export class CacheAlarm {
 
     // 检查键数量
     if (stats.keyCount > this.thresholds.maxKeyCount) {
-      this.alarms.push(`缓存键数量超过阈值: ${stats.keyCount} > ${this.thresholds.maxKeyCount}`);
+      this.alarms.push(
+        `缓存键数量超过阈值: ${stats.keyCount} > ${this.thresholds.maxKeyCount}`
+      );
     }
 
     // 检查缓存大小
     if (stats.estimatedSize > this.thresholds.maxSize) {
-      this.alarms.push(`缓存大小超过阈值: ${this.formatSize(stats.estimatedSize)} > ${this.formatSize(this.thresholds.maxSize)}`);
+      this.alarms.push(
+        `缓存大小超过阈值: ${this.formatSize(stats.estimatedSize)} > ${this.formatSize(this.thresholds.maxSize)}`
+      );
     }
 
     // 检查命中率
     if (stats.hitRate < this.thresholds.minHitRate) {
-      this.alarms.push(`缓存命中率低于阈值: ${stats.hitRate.toFixed(2)}% < ${this.thresholds.minHitRate}%`);
+      this.alarms.push(
+        `缓存命中率低于阈值: ${stats.hitRate.toFixed(2)}% < ${this.thresholds.minHitRate}%`
+      );
     }
 
     return this.alarms;
@@ -289,7 +302,7 @@ export async function monitorCacheOperation<T>(
 ): Promise<T> {
   const startTime = Date.now();
   let hit = false;
-  
+
   try {
     const result = await operation();
     hit = result !== undefined;

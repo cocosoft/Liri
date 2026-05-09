@@ -56,10 +56,12 @@ export class VersionController {
     return snapshot;
   }
 
-  rollback(version: number): { config: Record<string, any>; undone: ConfigSnapshot } | null {
+  rollback(
+    version: number
+  ): { config: Record<string, any>; undone: ConfigSnapshot } | null {
     if (version < 1 || version >= this.currentVersion) return null;
 
-    const targetIndex = this.snapshots.findIndex(s => s.version === version);
+    const targetIndex = this.snapshots.findIndex((s) => s.version === version);
     if (targetIndex === -1) return null;
 
     const currentSnapshot = this.snapshots[this.snapshots.length - 1];
@@ -83,15 +85,20 @@ export class VersionController {
       this.snapshots.splice(0, this.snapshots.length - this.maxSnapshots);
     }
 
-    return { config: JSON.parse(JSON.stringify(targetSnapshot.config)), undone: currentSnapshot };
+    return {
+      config: JSON.parse(JSON.stringify(targetSnapshot.config)),
+      undone: currentSnapshot,
+    };
   }
 
   getVersion(version: number): ConfigSnapshot | null {
-    return this.snapshots.find(s => s.version === version) || null;
+    return this.snapshots.find((s) => s.version === version) || null;
   }
 
   getLatestVersion(): ConfigSnapshot | null {
-    return this.snapshots.length > 0 ? this.snapshots[this.snapshots.length - 1] : null;
+    return this.snapshots.length > 0
+      ? this.snapshots[this.snapshots.length - 1]
+      : null;
   }
 
   getHistory(limit?: number, offset: number = 0): ConfigSnapshot[] {
@@ -105,9 +112,13 @@ export class VersionController {
     return {
       currentVersion: this.currentVersion,
       totalSnapshots: this.snapshots.length,
-      firstSnapshotTime: this.snapshots.length > 0 ? this.snapshots[0].timestamp : 0,
-      lastSnapshotTime: this.snapshots.length > 0 ? this.snapshots[this.snapshots.length - 1].timestamp : 0,
-      versions: this.snapshots.map(s => ({
+      firstSnapshotTime:
+        this.snapshots.length > 0 ? this.snapshots[0].timestamp : 0,
+      lastSnapshotTime:
+        this.snapshots.length > 0
+          ? this.snapshots[this.snapshots.length - 1].timestamp
+          : 0,
+      versions: this.snapshots.map((s) => ({
         version: s.version,
         label: s.label,
         timestamp: s.timestamp,
@@ -115,12 +126,18 @@ export class VersionController {
     };
   }
 
-  diff(oldConfig: Record<string, any>, newConfig: Record<string, any>): ConfigDiff {
+  diff(
+    oldConfig: Record<string, any>,
+    newConfig: Record<string, any>
+  ): ConfigDiff {
     const added: ConfigDiff['added'] = [];
     const removed: ConfigDiff['removed'] = [];
     const modified: ConfigDiff['modified'] = [];
 
-    const allKeys = new Set([...this.flattenKeys(oldConfig), ...this.flattenKeys(newConfig)]);
+    const allKeys = new Set([
+      ...this.flattenKeys(oldConfig),
+      ...this.flattenKeys(newConfig),
+    ]);
 
     for (const key of allKeys) {
       const oldVal = this.getNestedValue(oldConfig, key);
@@ -149,7 +166,11 @@ export class VersionController {
     const keys: string[] = [];
     for (const [key, value] of Object.entries(obj)) {
       const fullKey = prefix ? `${prefix}.${key}` : key;
-      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      if (
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value)
+      ) {
         keys.push(...this.flattenKeys(value, fullKey));
       } else {
         keys.push(fullKey);

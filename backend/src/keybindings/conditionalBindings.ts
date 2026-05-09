@@ -6,12 +6,24 @@
 
 import type { Keybinding, Keybindings } from './validation';
 
-export type ConditionType = 'filetype' | 'mode' | 'selection' | 'text' | 'config' | 'custom';
+export type ConditionType =
+  | 'filetype'
+  | 'mode'
+  | 'selection'
+  | 'text'
+  | 'config'
+  | 'custom';
 
 export interface Condition {
   type: ConditionType;
   value: string | string[];
-  operator?: 'equals' | 'not_equals' | 'contains' | 'matches' | 'starts_with' | 'ends_with';
+  operator?:
+    | 'equals'
+    | 'not_equals'
+    | 'contains'
+    | 'matches'
+    | 'starts_with'
+    | 'ends_with';
 }
 
 export interface ConditionalKeybinding extends Keybinding {
@@ -26,7 +38,9 @@ export class ConditionalBindingManager {
    * 添加条件绑定
    */
   addBinding(binding: ConditionalKeybinding): void {
-    const existingIndex = this.bindings.findIndex((b: ConditionalKeybinding) => b.id === binding.id);
+    const existingIndex = this.bindings.findIndex(
+      (b: ConditionalKeybinding) => b.id === binding.id
+    );
     if (existingIndex >= 0) {
       this.bindings[existingIndex] = binding;
     } else {
@@ -39,7 +53,9 @@ export class ConditionalBindingManager {
    */
   removeBinding(id: string): boolean {
     const initialLength = this.bindings.length;
-    this.bindings = this.bindings.filter((b: ConditionalKeybinding) => b.id !== id);
+    this.bindings = this.bindings.filter(
+      (b: ConditionalKeybinding) => b.id !== id
+    );
     return this.bindings.length !== initialLength;
   }
 
@@ -76,9 +92,11 @@ export class ConditionalBindingManager {
    */
   checkCondition(condition: Condition): boolean {
     const contextValue = this.context[condition.type];
-    
+
     const operator = condition.operator || 'equals';
-    const values = Array.isArray(condition.value) ? condition.value : [condition.value];
+    const values = Array.isArray(condition.value)
+      ? condition.value
+      : [condition.value];
 
     switch (operator) {
       case 'equals':
@@ -88,7 +106,9 @@ export class ConditionalBindingManager {
       case 'contains':
         return values.some((v) => String(contextValue).includes(String(v)));
       case 'matches':
-        return values.some((v) => new RegExp(String(v)).test(String(contextValue)));
+        return values.some((v) =>
+          new RegExp(String(v)).test(String(contextValue))
+        );
       case 'starts_with':
         return values.some((v) => String(contextValue).startsWith(String(v)));
       case 'ends_with':
@@ -105,7 +125,7 @@ export class ConditionalBindingManager {
     if (!conditions || conditions.length === 0) {
       return true;
     }
-    
+
     return conditions.every((c) => this.checkCondition(c));
   }
 
@@ -113,25 +133,33 @@ export class ConditionalBindingManager {
    * 获取满足条件的绑定
    */
   getActiveBindings(): Keybindings {
-    return this.bindings.filter((b: ConditionalKeybinding) => this.checkConditions(b.conditions || []));
+    return this.bindings.filter((b: ConditionalKeybinding) =>
+      this.checkConditions(b.conditions || [])
+    );
   }
 
   /**
    * 根据按键查找满足条件的绑定
    */
-  findBinding(key: string, modifier?: string[]): ConditionalKeybinding | undefined {
+  findBinding(
+    key: string,
+    modifier?: string[]
+  ): ConditionalKeybinding | undefined {
     const activeBindings = this.getActiveBindings();
-    
-    return (activeBindings as ConditionalKeybinding[]).find((b: ConditionalKeybinding) => {
-      const keyMatch = b.key === key;
-      const modifierMatch = 
-        (!modifier && !b.modifier) || 
-        (modifier && b.modifier && 
-          modifier.length === b.modifier.length && 
-          modifier.every((m: string) => b.modifier?.includes(m)));
-      
-      return keyMatch && modifierMatch;
-    });
+
+    return (activeBindings as ConditionalKeybinding[]).find(
+      (b: ConditionalKeybinding) => {
+        const keyMatch = b.key === key;
+        const modifierMatch =
+          (!modifier && !b.modifier) ||
+          (modifier &&
+            b.modifier &&
+            modifier.length === b.modifier.length &&
+            modifier.every((m: string) => b.modifier?.includes(m)));
+
+        return keyMatch && modifierMatch;
+      }
+    );
   }
 
   /**

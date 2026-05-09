@@ -1,7 +1,7 @@
 /**
  * 文本输入管理Hook
  * 基于CC源码 cc_code/backend/hooks/useTextInput.ts 实现
- * 
+ *
  * 支持：
  * - 多行输入
  * - 历史记录
@@ -97,32 +97,36 @@ export function useTextInput(
     setIsMultiline(multiline);
     if (!multiline) {
       // 单行模式下移除换行
-      setValue(prev => prev.replace(/\n/g, ' '));
+      setValue((prev) => prev.replace(/\n/g, ' '));
     }
   }, []);
 
   // 添加到历史记录
-  const addToHistory = useCallback((text: string) => {
-    if (!text.trim()) return;
+  const addToHistory = useCallback(
+    (text: string) => {
+      if (!text.trim()) return;
 
-    // 避免重复添加
-    if (history.length > 0 && history[0].text === text) return;
+      // 避免重复添加
+      if (history.length > 0 && history[0].text === text) return;
 
-    const newEntry: HistoryEntry = {
-      id: generateId(),
-      text,
-      timestamp: new Date(),
-    };
+      const newEntry: HistoryEntry = {
+        id: generateId(),
+        text,
+        timestamp: new Date(),
+      };
 
-    setHistory(prev => [newEntry, ...prev].slice(0, maxHistory));
-    setHistoryIndex(-1);
-  }, [history.length, maxHistory]);
+      setHistory((prev) => [newEntry, ...prev].slice(0, maxHistory));
+      setHistoryIndex(-1);
+    },
+    [history.length, maxHistory]
+  );
 
   // 上一条历史
   const previousHistory = useCallback(() => {
     if (history.length === 0) return;
 
-    const newIndex = historyIndex < history.length - 1 ? historyIndex + 1 : historyIndex;
+    const newIndex =
+      historyIndex < history.length - 1 ? historyIndex + 1 : historyIndex;
     setHistoryIndex(newIndex);
     setValue(history[newIndex].text);
   }, [history, historyIndex]);
@@ -147,14 +151,17 @@ export function useTextInput(
   }, []);
 
   // 获取行内容
-  const getLine = useCallback((lineIndex: number): string => {
-    const lines = value.split('\n');
-    return lines[lineIndex] || '';
-  }, [value]);
+  const getLine = useCallback(
+    (lineIndex: number): string => {
+      const lines = value.split('\n');
+      return lines[lineIndex] || '';
+    },
+    [value]
+  );
 
   // 插入文本
   const insertText = useCallback((text: string) => {
-    setValue(prev => prev + text);
+    setValue((prev) => prev + text);
   }, []);
 
   return {
@@ -179,7 +186,10 @@ export function useTextInput(
  */
 export function useSingleLineInput(
   initialValue: string = ''
-): Omit<UseTextInputResult, 'isMultiline' | 'setMultiline' | 'currentLine' | 'getLine'> {
+): Omit<
+  UseTextInputResult,
+  'isMultiline' | 'setMultiline' | 'currentLine' | 'getLine'
+> {
   const result = useTextInput(initialValue, { enableMultiline: false });
   const { isMultiline, setMultiline, currentLine, getLine, ...rest } = result;
   return rest;

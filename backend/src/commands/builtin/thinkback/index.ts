@@ -14,6 +14,8 @@ export const thinkbackCommand: Command = {
   aliases: ['thinking', 'thoughts'],
   argumentHint: '[list|play|show|delete|help]',
   whenToUse: '当你需要回放之前的思考过程时',
-  load: async () => import('./Thinkback.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Thinkback.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

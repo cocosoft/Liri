@@ -1,21 +1,21 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type TaskOutput = {
-  taskId?: string
-  taskType?: string
-  description?: string
-  status?: string
-  result?: string
-  error?: string
-}
+  taskId?: string;
+  taskType?: string;
+  description?: string;
+  status?: string;
+  result?: string;
+  error?: string;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ description: string; task_type: string }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { description, task_type } = input
-  const label = task_type || 'task'
+  const { description, task_type } = input;
+  const label = task_type || 'task';
 
   if (verbose && description) {
     return (
@@ -25,7 +25,7 @@ export function renderToolUseMessage(
           <Text bold>{description.slice(0, 80)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
@@ -33,15 +33,15 @@ export function renderToolUseMessage(
       <Text dimColor>Task: </Text>
       <Text bold>{description?.slice(0, 60) || label}</Text>
     </Box>
-  )
+  );
 }
 
 export function renderToolResultMessage(
   output: TaskOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { taskId, taskType, status, result, error } = output
+  const { taskId, taskType, status, result, error } = output;
 
   if (error) {
     return (
@@ -54,7 +54,7 @@ export function renderToolResultMessage(
           <Text color="red">{error.slice(0, 300)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   if (verbose && result) {
@@ -69,7 +69,7 @@ export function renderToolResultMessage(
           <Text dimColor>{result.slice(0, 500)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
@@ -78,11 +78,11 @@ export function renderToolResultMessage(
       <Text>Task {status || 'completed'}</Text>
       {taskId ? <Text dimColor> [{taskId}]</Text> : null}
     </Box>
-  )
+  );
 }
 
 export function renderToolUseProgressMessage(
-  data: Partial<{ message: string; progress: number }>,
+  data: Partial<{ message: string; progress: number }>
 ): React.ReactNode {
   return (
     <Box flexDirection="row">
@@ -91,12 +91,12 @@ export function renderToolUseProgressMessage(
         <Text dimColor> [{Math.round(data.progress * 100)}%]</Text>
       ) : null}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ description: string; task_type: string }> | undefined,
+  input: Partial<{ description: string; task_type: string }> | undefined
 ): string | null {
-  if (!input?.description) return null
-  return input.description.slice(0, 60)
+  if (!input?.description) return null;
+  return input.description.slice(0, 60);
 }

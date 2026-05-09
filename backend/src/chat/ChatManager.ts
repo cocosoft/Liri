@@ -1,4 +1,8 @@
 //
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 聊天管理器
  * 聊天功能的核心管理类，负责整合所有聊天相关的功能
@@ -43,8 +47,16 @@ import {
   validateInput,
 } from '../utils/sanitization.js';
 import { LLMClient } from '../ai/clients/LLMClient.js';
-import { QueryEngine, createQueryEngine, type QueryEngineConfig } from '../query/QueryEngine.js';
-import { CompactServiceImpl, type CompactBoundary, type CompactArtifact } from '../services/compact/CompactService.js';
+import {
+  QueryEngine,
+  createQueryEngine,
+  type QueryEngineConfig,
+} from '../query/QueryEngine.js';
+import {
+  CompactServiceImpl,
+  type CompactBoundary,
+  type CompactArtifact,
+} from '../services/compact/CompactService.js';
 
 /**
  * 聊天管理器接口
@@ -702,12 +714,10 @@ export class ChatManagerImpl implements ChatManager {
           >;
         }
 
-        console.log(
-          'Executing tool:',
-          normalizedToolCall.name,
-          'with arguments:',
-          parsedArguments
-        );
+        logger.debug('Executing tool', {
+          toolName: normalizedToolCall.name,
+          arguments: parsedArguments,
+        });
 
         const toolResult = await this.executeTool({
           id: normalizedToolCall.id,
@@ -715,7 +725,7 @@ export class ChatManagerImpl implements ChatManager {
           arguments: parsedArguments,
         });
 
-        console.log('Tool execution result:', toolResult);
+        logger.debug('Tool execution result', { result: toolResult });
 
         // 触发 ChatPostToolCall Hook
         if (this.chatHookExecutor) {
@@ -772,10 +782,9 @@ export class ChatManagerImpl implements ChatManager {
           },
         ];
 
-        console.log(
-          'Updated messages for tool result:',
-          JSON.stringify(updatedMessages, null, 2)
-        );
+        logger.debug('Updated messages for tool result', {
+          messages: updatedMessages,
+        });
 
         const toolResultResponse = await this.llmClient.sendMessage(
           updatedMessages,
@@ -785,7 +794,7 @@ export class ChatManagerImpl implements ChatManager {
           }
         );
 
-        console.log('Tool result response:', toolResultResponse);
+        logger.debug('Tool result response', { response: toolResultResponse });
 
         const toolResultAssistantContent =
           typeof toolResultResponse.content === 'string'
@@ -1169,9 +1178,7 @@ export class ChatManagerImpl implements ChatManager {
     } else if (this.toolIntegration) {
       return this.toolIntegration.executeTool(toolCall);
     } else {
-      throw new Error(
-        'No tool integration or tool registry initialized'
-      );
+      throw new Error('No tool integration or tool registry initialized');
     }
   }
 
@@ -1510,22 +1517,24 @@ export class ChatManagerImpl implements ChatManager {
     }
   ): AsyncGenerator<string, any, unknown> {
     const queryEngine = this.getQueryEngine();
-    
+
     // 构建配置
     const config: QueryEngineConfig = {
       maxTurns: options?.maxTurns || this.queryEngineConfig?.maxTurns,
-      maxBudgetUsd: options?.maxBudgetUsd || this.queryEngineConfig?.maxBudgetUsd,
+      maxBudgetUsd:
+        options?.maxBudgetUsd || this.queryEngineConfig?.maxBudgetUsd,
     };
-    
+
     // 更新配置
     this.setQueryEngineConfig(config);
-    
+
     // 创建或获取会话
-    const sessionId = options?.sessionId || this.createSession({ title: 'Query Session' }).id;
-    
+    const sessionId =
+      options?.sessionId || this.createSession({ title: 'Query Session' }).id;
+
     // 使用QueryEngine处理消息
     const messages = queryEngine.submitMessage(content, { sessionId });
-    
+
     for await (const message of messages) {
       if (message.type === 'text' && message.content) {
         yield message.content;
@@ -1567,29 +1576,35 @@ export class ChatManagerImpl implements ChatManager {
     }
   ): AsyncGenerator<string, any, unknown> {
     const queryEngine = this.getQueryEngine();
-    
+
     // 构建配置
     const config: QueryEngineConfig = {
       maxTurns: options?.maxTurns || this.queryEngineConfig?.maxTurns,
-      maxBudgetUsd: options?.maxBudgetUsd || this.queryEngineConfig?.maxBudgetUsd,
+      maxBudgetUsd:
+        options?.maxBudgetUsd || this.queryEngineConfig?.maxBudgetUsd,
     };
-    
+
     // 更新配置
     this.setQueryEngineConfig(config);
-    
+
     // 创建或获取会话
-    const sessionId = options?.sessionId || this.createSession({ title: 'Stream Query Session' }).id;
-    
+    const sessionId =
+      options?.sessionId ||
+      this.createSession({ title: 'Stream Query Session' }).id;
+
     // 使用QueryEngine处理消息
     const messages = queryEngine.submitMessage(content, { sessionId });
-    
+
     let accumulatedResult: any[] = [];
-    
+
     for await (const message of messages) {
       if (message.type === 'text' && message.content) {
         // 流式输出文本内容
         for (let i = 0; i < message.content.length; i += 10) {
-          const chunk = message.content.slice(i, Math.min(i + 10, message.content.length));
+          const chunk = message.content.slice(
+            i,
+            Math.min(i + 10, message.content.length)
+          );
           options?.onChunk?.(chunk);
           yield chunk;
         }
@@ -1603,19 +1618,22 @@ export class ChatManagerImpl implements ChatManager {
         const resultContent = `[工具结果: ${message.toolResult.content}]`;
         options?.onChunk?.(resultContent);
         yield resultContent;
-        accumulatedResult.push({ type: 'tool_result', toolResult: message.toolResult });
+        accumulatedResult.push({
+          type: 'tool_result',
+          toolResult: message.toolResult,
+        });
       } else if (message.type === 'error') {
         throw new Error(message.error || '查询错误');
       }
     }
-    
+
     // 调用完成回调
     options?.onComplete?.({
       sessionId,
       result: accumulatedResult,
       state: this.getQueryState(),
     });
-    
+
     return accumulatedResult;
   }
 
@@ -1624,8 +1642,11 @@ export class ChatManagerImpl implements ChatManager {
    * @param sessionId 会话ID
    * @returns 压缩边界信息或null
    */
-  async checkCompactBoundary(sessionId?: string): Promise<CompactBoundary | null> {
-    const targetSessionId = sessionId || this.sessionManager.getCurrentSession()?.id;
+  async checkCompactBoundary(
+    sessionId?: string
+  ): Promise<CompactBoundary | null> {
+    const targetSessionId =
+      sessionId || this.sessionManager.getCurrentSession()?.id;
     if (!targetSessionId) {
       return null;
     }
@@ -1639,12 +1660,18 @@ export class ChatManagerImpl implements ChatManager {
     const sessionMessages = session.messages.map((msg) => ({
       id: msg.id,
       type: msg.role,
-      content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+      content:
+        typeof msg.content === 'string'
+          ? msg.content
+          : JSON.stringify(msg.content),
       createdAt: msg.createdAt,
       updatedAt: msg.updatedAt,
     }));
 
-    return this.compactService.detectCompactBoundary(targetSessionId, sessionMessages as any);
+    return this.compactService.detectCompactBoundary(
+      targetSessionId,
+      sessionMessages as any
+    );
   }
 
   /**
@@ -1653,7 +1680,8 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 压缩产物列表
    */
   async compactSession(sessionId?: string): Promise<CompactArtifact[]> {
-    const targetSessionId = sessionId || this.sessionManager.getCurrentSession()?.id;
+    const targetSessionId =
+      sessionId || this.sessionManager.getCurrentSession()?.id;
     if (!targetSessionId) {
       return [];
     }
@@ -1667,12 +1695,18 @@ export class ChatManagerImpl implements ChatManager {
     const sessionMessages = session.messages.map((msg) => ({
       id: msg.id,
       type: msg.role,
-      content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+      content:
+        typeof msg.content === 'string'
+          ? msg.content
+          : JSON.stringify(msg.content),
       createdAt: msg.createdAt,
       updatedAt: msg.updatedAt,
     }));
 
-    const artifacts = await this.compactService.performCompact(targetSessionId, sessionMessages as any);
+    const artifacts = await this.compactService.performCompact(
+      targetSessionId,
+      sessionMessages as any
+    );
 
     // 如果有压缩产物，注入到会话中
     if (artifacts.length > 0) {

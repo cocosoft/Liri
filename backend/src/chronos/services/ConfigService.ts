@@ -6,6 +6,9 @@
  */
 
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 配置项
@@ -76,7 +79,7 @@ export class ConfigService extends EventEmitter {
    */
   registerConfig<T>(config: ConfigItem<T>): void {
     if (this.configs.has(config.key)) {
-      console.warn(`Config ${config.key} already registered, skipping`);
+      logger.warning(`Config ${config.key} already registered, skipping`);
       return;
     }
 
@@ -135,12 +138,12 @@ export class ConfigService extends EventEmitter {
   set<T>(key: string, value: T, emitChange: boolean = true): boolean {
     const config = this.configs.get(key);
     if (!config) {
-      console.warn(`Config ${key} not registered`);
+      logger.warning(`Config ${key} not registered`);
       return false;
     }
 
     if (config.validator && !config.validator(value)) {
-      console.warn(`Config ${key} validation failed`);
+      logger.warning(`Config ${key} validation failed`);
       return false;
     }
 
@@ -292,7 +295,11 @@ export class ConfigService extends EventEmitter {
    * @param oldValue 旧值
    * @param newValue 新值
    */
-  private recordChange(key: string, oldValue: unknown, newValue: unknown): void {
+  private recordChange(
+    key: string,
+    oldValue: unknown,
+    newValue: unknown
+  ): void {
     this.stats.changeCount++;
     this.stats.lastChangeTime = Date.now();
 
@@ -369,7 +376,9 @@ export class ConfigService extends EventEmitter {
    * @param format 导出格式
    * @returns 导出的配置
    */
-  exportConfigs(format: 'json' | 'object' = 'json'): string | Record<string, unknown> {
+  exportConfigs(
+    format: 'json' | 'object' = 'json'
+  ): string | Record<string, unknown> {
     const configObj: Record<string, unknown> = {};
 
     for (const [key, config] of this.configs) {
@@ -431,7 +440,10 @@ export class ConfigService extends EventEmitter {
    * @param callback 回调函数
    * @returns 取消订阅函数
    */
-  subscribe(key: string, callback: (value: unknown, oldValue: unknown) => void): () => void {
+  subscribe(
+    key: string,
+    callback: (value: unknown, oldValue: unknown) => void
+  ): () => void {
     const handler = (event: ConfigChangeEvent) => {
       if (event.key === key) {
         callback(event.newValue, event.oldValue);
@@ -452,7 +464,6 @@ export class ConfigService extends EventEmitter {
     this.configs.clear();
     this.emit('allConfigsCleared');
   }
-
 }
 
 /**

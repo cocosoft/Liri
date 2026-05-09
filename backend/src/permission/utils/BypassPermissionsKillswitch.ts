@@ -158,7 +158,9 @@ export class BypassPermissionsKillswitch {
     const event = this.createEvent('deactivate', reason);
     this.addEvent(event);
 
-    logger.info(`BypassKillswitch: Deactivated - ${reason}, duration: ${duration}ms`);
+    logger.info(
+      `BypassKillswitch: Deactivated - ${reason}, duration: ${duration}ms`
+    );
   }
 
   /**
@@ -215,7 +217,11 @@ export class BypassPermissionsKillswitch {
       return;
     }
 
-    const event = this.createEvent('operation', `Executed: ${operation}`, userId);
+    const event = this.createEvent(
+      'operation',
+      `Executed: ${operation}`,
+      userId
+    );
     event.operation = operation;
     event.toolName = toolName;
     event.toolInput = toolInput;
@@ -251,26 +257,29 @@ export class BypassPermissionsKillswitch {
    * 获取统计信息
    */
   getStats(): BypassStats {
-    const activationEvents = this.events.filter(e => e.action === 'activate');
-    const operationEvents = this.events.filter(e => e.action === 'operation');
+    const activationEvents = this.events.filter((e) => e.action === 'activate');
+    const operationEvents = this.events.filter((e) => e.action === 'operation');
 
     const durations = this.events
-      .filter(e => e.action === 'deactivate')
+      .filter((e) => e.action === 'deactivate')
       .map((_, i) => {
         const prevActivation = activationEvents[i];
         const deactEvent = this.events.find(
-          e => e.action === 'deactivate' && e.timestamp > (prevActivation?.timestamp || 0)
+          (e) =>
+            e.action === 'deactivate' &&
+            e.timestamp > (prevActivation?.timestamp || 0)
         );
         if (prevActivation && deactEvent) {
           return deactEvent.timestamp - prevActivation.timestamp;
         }
         return 0;
       })
-      .filter(d => d > 0);
+      .filter((d) => d > 0);
 
-    const averageDuration = durations.length > 0
-      ? durations.reduce((a, b) => a + b, 0) / durations.length
-      : 0;
+    const averageDuration =
+      durations.length > 0
+        ? durations.reduce((a, b) => a + b, 0) / durations.length
+        : 0;
 
     return {
       totalActivations: activationEvents.length,
@@ -278,7 +287,9 @@ export class BypassPermissionsKillswitch {
       averageDurationMs: averageDuration,
       lastActivation: activationEvents[activationEvents.length - 1],
       isActive: this.isActive(),
-      activeDurationMs: this.isActive() ? Date.now() - this.activationTime : undefined,
+      activeDurationMs: this.isActive()
+        ? Date.now() - this.activationTime
+        : undefined,
     };
   }
 
@@ -296,14 +307,14 @@ export class BypassPermissionsKillswitch {
    * 获取激活事件
    */
   getActivationHistory(): BypassEvent[] {
-    return this.events.filter(e => e.action === 'activate');
+    return this.events.filter((e) => e.action === 'activate');
   }
 
   /**
    * 获取操作历史
    */
   getOperationHistory(): BypassEvent[] {
-    return this.events.filter(e => e.action === 'operation');
+    return this.events.filter((e) => e.action === 'operation');
   }
 
   /**
@@ -345,7 +356,10 @@ export class BypassPermissionsKillswitch {
       case BypassState.INACTIVE:
         return '绕过开关未激活';
       case BypassState.ACTIVE:
-        const remaining = Math.max(0, this.config.maxDurationMs - (Date.now() - this.activationTime));
+        const remaining = Math.max(
+          0,
+          this.config.maxDurationMs - (Date.now() - this.activationTime)
+        );
         const remainingMin = Math.ceil(remaining / 60000);
         return `绕过开关已激活（剩余约 ${remainingMin} 分钟）`;
       case BypassState.DISABLED:

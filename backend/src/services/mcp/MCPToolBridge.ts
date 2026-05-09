@@ -31,9 +31,14 @@ export class MCPToolBridge {
       logger.info('Initializing MCP tool bridge');
       await this.syncTools();
       this.initialized = true;
-      logger.info(`MCP tool bridge initialized: ${this.registeredMcpTools.size} tools registered`);
+      logger.info(
+        `MCP tool bridge initialized: ${this.registeredMcpTools.size} tools registered`
+      );
     } catch (error) {
-      logger.error('Failed to initialize MCP tool bridge:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to initialize MCP tool bridge:',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -51,7 +56,10 @@ export class MCPToolBridge {
   /**
    * 注册单个服务器的工具
    */
-  private registerServerTools(serverName: string, serializedTools: any[]): void {
+  private registerServerTools(
+    serverName: string,
+    serializedTools: any[]
+  ): void {
     if (!serializedTools || serializedTools.length === 0) {
       return;
     }
@@ -64,23 +72,21 @@ export class MCPToolBridge {
     const client = (server as any).client;
 
     for (const toolData of serializedTools) {
-      const wrapper = new McpToolWrapper(
-        serverName,
-        toolData,
-        () => {
-          const srv = mcpConnectionManager.getServer(serverName);
-          if (srv && srv.type === 'connected') {
-            return (srv as any).client;
-          }
-          return undefined;
+      const wrapper = new McpToolWrapper(serverName, toolData, () => {
+        const srv = mcpConnectionManager.getServer(serverName);
+        if (srv && srv.type === 'connected') {
+          return (srv as any).client;
         }
-      );
+        return undefined;
+      });
 
       this.registeredMcpTools.set(wrapper.name, wrapper);
       getToolManager().registerTool(wrapper);
     }
 
-    logger.info(`Registered ${serializedTools.length} tools from MCP server: ${serverName}`);
+    logger.info(
+      `Registered ${serializedTools.length} tools from MCP server: ${serverName}`
+    );
   }
 
   /**
@@ -94,7 +100,9 @@ export class MCPToolBridge {
 
     await this.syncTools();
 
-    logger.info(`MCP tools refreshed: ${this.registeredMcpTools.size} tools registered`);
+    logger.info(
+      `MCP tools refreshed: ${this.registeredMcpTools.size} tools registered`
+    );
     return this.registeredMcpTools.size;
   }
 

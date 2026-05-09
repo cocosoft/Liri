@@ -1,6 +1,6 @@
 /**
  * 查询来源枚举
- * 
+ *
  * 用于区分错误处理时的前台/后台场景：
  * - 前台（用户等待）：需要积极重试，提供友好提示
  * - 后台（非用户等待）：保守重试，避免级联放大
@@ -18,7 +18,7 @@ export enum QuerySource {
 
 /**
  * 前台重试来源集合
- * 
+ *
  * 只有这些来源的错误才会被积极重试，
  * 后台任务不重试 529 等服务器过载错误，避免级联放大。
  */
@@ -29,7 +29,7 @@ export const FOREGROUND_RETRY_SOURCES = new Set<QuerySource>([
 
 /**
  * 判断是否应该在前台重试
- * 
+ *
  * @param source 查询来源
  * @returns 是否为前台来源
  */
@@ -39,19 +39,16 @@ export function isForegroundSource(source: QuerySource): boolean {
 
 /**
  * 判断是否应该在错误时重试
- * 
+ *
  * 核心逻辑：
  * - 后台任务不重试服务器过载错误（529），避免级联放大
  * - 前台任务总是重试可恢复错误
- * 
+ *
  * @param error 错误对象
  * @param source 查询来源
  * @returns 是否应该重试
  */
-export function shouldRetryOnError(
-  error: Error,
-  source: QuerySource
-): boolean {
+export function shouldRetryOnError(error: Error, source: QuerySource): boolean {
   // 后台任务不重试服务器过载错误
   if (isServerOverloadError(error) && !isForegroundSource(source)) {
     return false;
@@ -63,10 +60,7 @@ export function shouldRetryOnError(
  * 判断是否为服务器过载错误（529）
  */
 function isServerOverloadError(error: Error): boolean {
-  return (
-    'status' in error &&
-    (error as any).status === 529
-  );
+  return 'status' in error && (error as any).status === 529;
 }
 
 /**
@@ -89,7 +83,7 @@ export function getQuerySourceDescription(source: QuerySource): string {
 
 /**
  * 错误处理上下文
- * 
+ *
  * 用于 ErrorHandler.handleError() 方法，
  * 提供更丰富的错误处理决策信息。
  */

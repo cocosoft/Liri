@@ -15,6 +15,9 @@ import type { AgentDefinition, TaskState } from './types';
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 import { taskRegistry } from './TaskRegistry';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 主会话任务 ID 前缀
@@ -45,14 +48,19 @@ export interface LocalMainSessionTaskState extends TaskState {
  */
 export function registerMainSessionTask(
   description: string,
-  agentDefinition?: AgentDefinition,
+  agentDefinition?: AgentDefinition
 ): string {
   const taskId = generateMainSessionId();
-  const task = new LocalMainSessionTask(taskId, description, '', agentDefinition);
+  const task = new LocalMainSessionTask(
+    taskId,
+    description,
+    '',
+    agentDefinition
+  );
   task.markBackgrounded(true);
   taskRegistry.register(task);
   task.spawn().catch((error: Error) => {
-    console.error('Main session task spawn failed:', error.message);
+    logger.error('Main session task spawn failed', error);
   });
   return taskId;
 }
@@ -63,7 +71,7 @@ export function registerMainSessionTask(
 export function completeMainSessionTask(
   taskId: string,
   success: boolean,
-  summary?: string,
+  summary?: string
 ): void {
   const task = taskRegistry.getTask<LocalMainSessionTask>(taskId);
   if (!task) {
@@ -88,7 +96,9 @@ export function foregroundMainSessionTask(taskId: string): boolean {
 /**
  * 类型守卫：判断任务是否为主会话任务
  */
-export function isMainSessionTask(task: unknown): task is LocalMainSessionTaskState {
+export function isMainSessionTask(
+  task: unknown
+): task is LocalMainSessionTaskState {
   if (typeof task !== 'object' || task === null) {
     return false;
   }
@@ -105,7 +115,12 @@ export class LocalMainSessionTask extends BaseTask {
   private backgrounded: boolean;
   private completionSummary?: string;
 
-  constructor(id: string, description: string, outputFile: string, agentDefinition?: AgentDefinition) {
+  constructor(
+    id: string,
+    description: string,
+    outputFile: string,
+    agentDefinition?: AgentDefinition
+  ) {
     super(id, description, outputFile, TaskType.LOCAL_AGENT);
     this.agentDefinition = agentDefinition;
     this.backgrounded = false;

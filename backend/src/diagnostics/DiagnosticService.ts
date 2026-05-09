@@ -68,7 +68,10 @@ export type PackageManager =
  */
 function detectHomebrew(): boolean {
   try {
-    const result = execSync('which brew', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync('which brew', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result.includes('brew');
   } catch {
     return false;
@@ -83,7 +86,10 @@ function detectWinget(): boolean {
     return false;
   }
   try {
-    const result = execSync('where winget', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync('where winget', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result.includes('winget');
   } catch {
     return false;
@@ -95,7 +101,10 @@ function detectWinget(): boolean {
  */
 function detectMise(): boolean {
   try {
-    const result = execSync('which mise', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync('which mise', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result.includes('mise');
   } catch {
     return false;
@@ -107,7 +116,10 @@ function detectMise(): boolean {
  */
 function detectAsdf(): boolean {
   try {
-    const result = execSync('which asdf', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync('which asdf', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result.includes('asdf');
   } catch {
     return false;
@@ -122,7 +134,10 @@ async function detectPacman(): Promise<boolean> {
     return false;
   }
   try {
-    const result = execSync('which pacman', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync('which pacman', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result.includes('pacman');
   } catch {
     return false;
@@ -137,7 +152,10 @@ async function detectDeb(): Promise<boolean> {
     return false;
   }
   try {
-    const result = execSync('which dpkg', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync('which dpkg', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result.includes('dpkg');
   } catch {
     return false;
@@ -152,7 +170,10 @@ async function detectRpm(): Promise<boolean> {
     return false;
   }
   try {
-    const result = execSync('which rpm', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync('which rpm', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result.includes('rpm');
   } catch {
     return false;
@@ -167,7 +188,10 @@ async function detectApk(): Promise<boolean> {
     return false;
   }
   try {
-    const result = execSync('which apk', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync('which apk', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     return result.includes('apk');
   } catch {
     return false;
@@ -194,12 +218,15 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
     '/usr/local/bin',
   ];
 
-  if (npmGlobalPaths.some(p => invokedPath.includes(p))) {
+  if (npmGlobalPaths.some((p) => invokedPath.includes(p))) {
     return 'npm-global';
   }
 
   // 检查nvm安装
-  if (invokedPath.includes('/.nvm/versions/node/') || invokedPath.includes('/nvm/')) {
+  if (
+    invokedPath.includes('/.nvm/versions/node/') ||
+    invokedPath.includes('/nvm/')
+  ) {
     return 'npm-global';
   }
 
@@ -213,7 +240,8 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
   }
 
   // 检查是否在打包模式下运行
-  const isBundled = invokedPath.includes('bundle') || invokedPath.includes('dist');
+  const isBundled =
+    invokedPath.includes('bundle') || invokedPath.includes('dist');
 
   if (isBundled) {
     // 检查包管理器安装
@@ -222,10 +250,10 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
       detectWinget() ||
       detectMise() ||
       detectAsdf() ||
-      await detectPacman() ||
-      await detectDeb() ||
-      await detectRpm() ||
-      await detectApk()
+      (await detectPacman()) ||
+      (await detectDeb()) ||
+      (await detectRpm()) ||
+      (await detectApk())
     ) {
       return 'package-manager';
     }
@@ -281,7 +309,9 @@ export function getInvokedBinary(): string {
 /**
  * 检测多个安装实例
  */
-export async function detectMultipleInstallations(): Promise<InstallationInfo[]> {
+export async function detectMultipleInstallations(): Promise<
+  InstallationInfo[]
+> {
   const installations: InstallationInfo[] = [];
 
   // 检查本地npm安装
@@ -346,7 +376,7 @@ export async function detectConfigurationIssues(
     const pathDirectories = pathEnv.split(path.delimiter);
     const localBinPath = path.join(homedir(), '.local', 'bin');
 
-    const localBinInPath = pathDirectories.some(dir => {
+    const localBinInPath = pathDirectories.some((dir) => {
       const normalizedDir = dir.replace(/[/\\]+$/, '');
       const normalizedLocalBin = localBinPath.replace(/[/\\]+$/, '');
       return normalizedDir === normalizedLocalBin;

@@ -21,7 +21,10 @@ export interface EventSubscription {
  * 事件系统接口
  */
 export interface EventBus {
-  subscribe<T = any>(event: string, listener: EventListener<T>): EventSubscription;
+  subscribe<T = any>(
+    event: string,
+    listener: EventListener<T>
+  ): EventSubscription;
   publish<T = any>(event: string, data?: T): void;
   once<T = any>(event: string, listener: EventListener<T>): EventSubscription;
   unsubscribe(event: string, listener: EventListener): void;
@@ -47,7 +50,10 @@ export class EventBusImpl implements EventBus {
    * @param listener 事件监听器
    * @returns 订阅对象
    */
-  subscribe<T = any>(event: string, listener: EventListener<T>): EventSubscription {
+  subscribe<T = any>(
+    event: string,
+    listener: EventListener<T>
+  ): EventSubscription {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
@@ -83,11 +89,17 @@ export class EventBusImpl implements EventBus {
 
         if (result instanceof Promise) {
           result.catch((error) => {
-            console.error(`[EventBus] Error in async event listener for "${event}":`, error);
+            console.error(
+              `[EventBus] Error in async event listener for "${event}":`,
+              error
+            );
           });
         }
       } catch (error) {
-        console.error(`[EventBus] Error in event listener for "${event}":`, error);
+        console.error(
+          `[EventBus] Error in event listener for "${event}":`,
+          error
+        );
       }
     }
   }
@@ -136,7 +148,9 @@ export class EventBusImpl implements EventBus {
       if (eventListeners) {
         eventListeners.clear();
         this.listeners.delete(event);
-        this.logger?.(`[EventBus] Unsubscribed all listeners from event: ${event}`);
+        this.logger?.(
+          `[EventBus] Unsubscribed all listeners from event: ${event}`
+        );
       }
     } else {
       this.listeners.clear();
@@ -237,14 +251,20 @@ export class TypedEventBus<T extends Record<string, any>> {
   /**
    * 订阅事件
    */
-  on<K extends keyof T>(event: K, listener: EventListener<T[K]>): EventSubscription {
+  on<K extends keyof T>(
+    event: K,
+    listener: EventListener<T[K]>
+  ): EventSubscription {
     return this.bus.subscribe(event as string, listener);
   }
 
   /**
    * 订阅一次事件
    */
-  once<K extends keyof T>(event: K, listener: EventListener<T[K]>): EventSubscription {
+  once<K extends keyof T>(
+    event: K,
+    listener: EventListener<T[K]>
+  ): EventSubscription {
     return this.bus.once(event as string, listener);
   }
 

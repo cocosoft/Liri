@@ -1,39 +1,39 @@
-import { mkdir, readdir, unlink, stat, readFile } from 'fs/promises'
-import { join, extname } from 'path'
-import type { RecordedSession } from './SessionRecorder'
+import { mkdir, readdir, unlink, stat, readFile } from 'fs/promises';
+import { join, extname } from 'path';
+import type { RecordedSession } from './SessionRecorder';
 
 export interface VCRStorageEntry {
-  filename: string
-  filepath: string
-  sessionId: string
-  startTime: number
-  messageCount: number
-  sizeBytes: number
-  createdAt: Date
+  filename: string;
+  filepath: string;
+  sessionId: string;
+  startTime: number;
+  messageCount: number;
+  sizeBytes: number;
+  createdAt: Date;
 }
 
 export class VCRStorage {
-  private baseDir: string
+  private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir || join(process.cwd(), 'vcr_recordings')
+    this.baseDir = baseDir || join(process.cwd(), 'vcr_recordings');
   }
 
   async ensureDirectory(): Promise<void> {
-    await mkdir(this.baseDir, { recursive: true })
+    await mkdir(this.baseDir, { recursive: true });
   }
 
   async listRecordings(): Promise<VCRStorageEntry[]> {
     try {
-      await this.ensureDirectory()
-      const files = await readdir(this.baseDir)
-      const jsonFiles = files.filter(f => extname(f) === '.json')
+      await this.ensureDirectory();
+      const files = await readdir(this.baseDir);
+      const jsonFiles = files.filter((f) => extname(f) === '.json');
 
-      const entries: VCRStorageEntry[] = []
+      const entries: VCRStorageEntry[] = [];
       for (const file of jsonFiles) {
-        const filepath = join(this.baseDir, file)
+        const filepath = join(this.baseDir, file);
         try {
-          const fileStat = await stat(filepath)
+          const fileStat = await stat(filepath);
           entries.push({
             filename: file,
             filepath,
@@ -42,53 +42,55 @@ export class VCRStorage {
             messageCount: 0,
             sizeBytes: fileStat.size,
             createdAt: fileStat.birthtime,
-          })
+          });
         } catch {
-          continue
+          continue;
         }
       }
 
-      return entries.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      return entries.sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+      );
     } catch {
-      return []
+      return [];
     }
   }
 
   async readSession(filename: string): Promise<RecordedSession | null> {
-    const filepath = join(this.baseDir, filename)
+    const filepath = join(this.baseDir, filename);
     try {
-      const content = await readFile(filepath, { encoding: 'utf-8' })
-      return JSON.parse(content) as RecordedSession
+      const content = await readFile(filepath, { encoding: 'utf-8' });
+      return JSON.parse(content) as RecordedSession;
     } catch {
-      return null
+      return null;
     }
   }
 
   async deleteRecording(filename: string): Promise<boolean> {
-    const filepath = join(this.baseDir, filename)
+    const filepath = join(this.baseDir, filename);
     try {
-      await unlink(filepath)
-      return true
+      await unlink(filepath);
+      return true;
     } catch {
-      return false
+      return false;
     }
   }
 
   async getTotalSize(): Promise<number> {
-    const entries = await this.listRecordings()
-    return entries.reduce((sum, entry) => sum + entry.sizeBytes, 0)
+    const entries = await this.listRecordings();
+    return entries.reduce((sum, entry) => sum + entry.sizeBytes, 0);
   }
 
   async getRecordingCount(): Promise<number> {
     try {
-      const files = await readdir(this.baseDir)
-      return files.filter(f => extname(f) === '.json').length
+      const files = await readdir(this.baseDir);
+      return files.filter((f) => extname(f) === '.json').length;
     } catch {
-      return 0
+      return 0;
     }
   }
 
   getBaseDir(): string {
-    return this.baseDir
+    return this.baseDir;
   }
 }

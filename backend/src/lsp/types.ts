@@ -1,33 +1,33 @@
 export interface Position {
-  line: number
-  character: number
+  line: number;
+  character: number;
 }
 
 export interface Range {
-  start: Position
-  end: Position
+  start: Position;
+  end: Position;
 }
 
 export interface Location {
-  uri: string
-  range: Range
+  uri: string;
+  range: Range;
 }
 
 export interface LocationLink {
-  originSelectionRange?: Range
-  targetUri: string
-  targetRange: Range
-  targetSelectionRange: Range
+  originSelectionRange?: Range;
+  targetUri: string;
+  targetRange: Range;
+  targetSelectionRange: Range;
 }
 
 export interface Diagnostic {
-  range: Range
-  severity?: DiagnosticSeverity
-  code?: string | number
-  source?: string
-  message: string
-  tags?: DiagnosticTag[]
-  relatedInformation?: DiagnosticRelatedInformation[]
+  range: Range;
+  severity?: DiagnosticSeverity;
+  code?: string | number;
+  source?: string;
+  message: string;
+  tags?: DiagnosticTag[];
+  relatedInformation?: DiagnosticRelatedInformation[];
 }
 
 export enum DiagnosticSeverity {
@@ -43,28 +43,28 @@ export enum DiagnosticTag {
 }
 
 export interface DiagnosticRelatedInformation {
-  location: Location
-  message: string
+  location: Location;
+  message: string;
 }
 
 export interface DiagnosticFile {
-  uri: string
-  diagnostics: Diagnostic[]
+  uri: string;
+  diagnostics: Diagnostic[];
 }
 
 export interface CompletionItem {
-  label: string
-  kind?: CompletionItemKind
-  detail?: string
-  documentation?: string | MarkupContent
-  insertText?: string
-  insertTextFormat?: InsertTextFormat
-  filterText?: string
-  sortText?: string
-  textEdit?: TextEdit
-  additionalTextEdits?: TextEdit[]
-  command?: Command
-  data?: unknown
+  label: string;
+  kind?: CompletionItemKind;
+  detail?: string;
+  documentation?: string | MarkupContent;
+  insertText?: string;
+  insertTextFormat?: InsertTextFormat;
+  filterText?: string;
+  sortText?: string;
+  textEdit?: TextEdit;
+  additionalTextEdits?: TextEdit[];
+  command?: Command;
+  data?: unknown;
 }
 
 export enum CompletionItemKind {
@@ -101,13 +101,13 @@ export enum InsertTextFormat {
 }
 
 export interface TextEdit {
-  range: Range
-  newText: string
+  range: Range;
+  newText: string;
 }
 
 export interface MarkupContent {
-  kind: MarkupKind
-  value: string
+  kind: MarkupKind;
+  value: string;
 }
 
 export enum MarkupKind {
@@ -116,41 +116,41 @@ export enum MarkupKind {
 }
 
 export interface Hover {
-  contents: MarkupContent | string | MarkedString[]
-  range?: Range
+  contents: MarkupContent | string | MarkedString[];
+  range?: Range;
 }
 
 export interface MarkedString {
-  language: string
-  value: string
+  language: string;
+  value: string;
 }
 
 export interface SignatureHelp {
-  signatures: SignatureInformation[]
-  activeSignature?: number
-  activeParameter?: number
+  signatures: SignatureInformation[];
+  activeSignature?: number;
+  activeParameter?: number;
 }
 
 export interface SignatureInformation {
-  label: string
-  documentation?: string | MarkupContent
-  parameters?: ParameterInformation[]
+  label: string;
+  documentation?: string | MarkupContent;
+  parameters?: ParameterInformation[];
 }
 
 export interface ParameterInformation {
-  label: string
-  documentation?: string | MarkupContent
+  label: string;
+  documentation?: string | MarkupContent;
 }
 
 export interface DocumentLink {
-  range: Range
-  target?: string
-  tooltip?: string
+  range: Range;
+  target?: string;
+  tooltip?: string;
 }
 
 export interface DocumentHighlight {
-  range: Range
-  kind?: DocumentHighlightKind
+  range: Range;
+  kind?: DocumentHighlightKind;
 }
 
 export enum DocumentHighlightKind {
@@ -160,10 +160,10 @@ export enum DocumentHighlightKind {
 }
 
 export interface SymbolInformation {
-  name: string
-  kind: SymbolKind
-  location: Location
-  containerName?: string
+  name: string;
+  kind: SymbolKind;
+  location: Location;
+  containerName?: string;
 }
 
 export enum SymbolKind {
@@ -196,55 +196,60 @@ export enum SymbolKind {
 }
 
 export interface CodeAction {
-  title: string
-  kind?: CodeActionKind
-  diagnostics?: Diagnostic[]
-  edit?: WorkspaceEdit
-  command?: Command
+  title: string;
+  kind?: CodeActionKind;
+  diagnostics?: Diagnostic[];
+  edit?: WorkspaceEdit;
+  command?: Command;
 }
 
-export type CodeActionKind = string
+export type CodeActionKind = string;
 
 export interface WorkspaceEdit {
-  changes?: Record<string, TextEdit[]>
-  documentChanges?: TextDocumentEdit[]
+  changes?: Record<string, TextEdit[]>;
+  documentChanges?: TextDocumentEdit[];
 }
 
 export interface TextDocumentEdit {
-  textDocument: VersionedTextDocumentIdentifier
-  edits: TextEdit[]
+  textDocument: VersionedTextDocumentIdentifier;
+  edits: TextEdit[];
 }
 
 export interface VersionedTextDocumentIdentifier {
-  uri: string
-  version: number
+  uri: string;
+  version: number;
 }
 
 export interface Command {
-  title: string
-  command: string
-  arguments?: unknown[]
+  title: string;
+  command: string;
+  arguments?: unknown[];
 }
 
 export interface DocumentFormattingParams {
-  tabSize: number
-  insertSpaces: boolean
+  tabSize: number;
+  insertSpaces: boolean;
 }
 
 export interface ReferenceContext {
-  includeDeclaration: boolean
+  includeDeclaration: boolean;
 }
 
-export type LspServerState = 'stopped' | 'starting' | 'running' | 'error' | 'stopping'
+export type LspServerState =
+  | 'stopped'
+  | 'starting'
+  | 'running'
+  | 'error'
+  | 'stopping';
 
 export interface ScopedLspServerConfig {
-  command: string
-  args: string[]
-  env?: Record<string, string>
-  workspaceFolder?: string
-  initializationOptions?: Record<string, unknown>
-  maxRestarts?: number
-  startupTimeout?: number
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+  workspaceFolder?: string;
+  initializationOptions?: Record<string, unknown>;
+  maxRestarts?: number;
+  startupTimeout?: number;
 }
 
 export interface LSPClient {

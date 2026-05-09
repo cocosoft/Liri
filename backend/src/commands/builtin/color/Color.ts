@@ -45,7 +45,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `颜色设置:\n` +
+      message:
+        `颜色设置:\n` +
         `- 主题: ${settings.theme}\n` +
         `- 强调色: ${settings.accentColor}\n` +
         `- 文字颜色: ${settings.textColor}\n` +
@@ -58,9 +59,12 @@ export default {
   /**
    * 设置主题
    */
-  async handleTheme(theme: string, context: CommandContext): Promise<CommandResult> {
+  async handleTheme(
+    theme: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     const validThemes = ['dark', 'light', 'system'];
-    
+
     if (!theme || !validThemes.includes(theme.toLowerCase())) {
       return {
         success: false,
@@ -71,7 +75,7 @@ export default {
     }
 
     context.onDone?.(`主题已设置为: ${theme}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -83,7 +87,10 @@ export default {
   /**
    * 设置配色方案
    */
-  async handleScheme(scheme: string, context: CommandContext): Promise<CommandResult> {
+  async handleScheme(
+    scheme: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     const schemes: Record<string, { accent: string; name: string }> = {
       ocean: { accent: '#00d4ff', name: '海洋蓝' },
       forest: { accent: '#4ade80', name: '森林绿' },
@@ -93,7 +100,7 @@ export default {
     };
 
     const selected = schemes[scheme.toLowerCase()];
-    
+
     if (!selected) {
       return {
         success: false,
@@ -103,8 +110,10 @@ export default {
       };
     }
 
-    context.onDone?.(`配色方案已设置为: ${selected.name}`, { display: 'system' });
-    
+    context.onDone?.(`配色方案已设置为: ${selected.name}`, {
+      display: 'system',
+    });
+
     return {
       success: true,
       type: 'text',
@@ -118,7 +127,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('颜色设置已重置为默认值', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

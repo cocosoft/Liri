@@ -36,7 +36,10 @@ export class CacheEvictionManager {
   }
 
   selectEvictionCandidates<K, V>(
-    entries: Map<K, { value: V; timestamp: number; hits: number; size?: number }>
+    entries: Map<
+      K,
+      { value: V; timestamp: number; hits: number; size?: number }
+    >
   ): K[] {
     switch (this.options.policy) {
       case EvictionPolicy.LRU:
@@ -59,7 +62,10 @@ export class CacheEvictionManager {
   ): K[] {
     const candidates: K[] = [];
     for (const [key, entry] of entries) {
-      if (this.options.maxAge && Date.now() - entry.timestamp > this.options.maxAge) {
+      if (
+        this.options.maxAge &&
+        Date.now() - entry.timestamp > this.options.maxAge
+      ) {
         candidates.push(key);
       }
     }
@@ -106,7 +112,10 @@ export class CacheEvictionManager {
   }
 
   private selectBySize<K, V>(
-    entries: Map<K, { value: V; timestamp: number; hits: number; size?: number }>
+    entries: Map<
+      K,
+      { value: V; timestamp: number; hits: number; size?: number }
+    >
   ): K[] {
     const candidates: K[] = [];
     for (const [key, entry] of entries) {
@@ -125,7 +134,10 @@ export interface RefreshOptions {
 }
 
 export class StaleWhileRevalidate<V> {
-  private cache: Map<string, { value: V; timestamp: number; refreshing: boolean }> = new Map();
+  private cache: Map<
+    string,
+    { value: V; timestamp: number; refreshing: boolean }
+  > = new Map();
   private ttl: number;
   private refreshOptions: RefreshOptions;
 
@@ -165,7 +177,7 @@ export class StaleWhileRevalidate<V> {
 
     Promise.resolve()
       .then(() => fetchFn())
-      .then(newValue => {
+      .then((newValue) => {
         if (this.cache.get(key)?.refreshing) {
           this.cache.set(key, {
             value: newValue,

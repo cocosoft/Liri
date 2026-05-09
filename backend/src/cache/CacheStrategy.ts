@@ -14,12 +14,15 @@ export interface CacheStrategy {
    * 记录缓存访问
    */
   recordAccess(key: string): void;
-  
+
   /**
    * 选择要淘汰的缓存项
    */
-  selectVictim(keys: string[], items: Map<string, CacheItem>): string | undefined;
-  
+  selectVictim(
+    keys: string[],
+    items: Map<string, CacheItem>
+  ): string | undefined;
+
   /**
    * 清除策略状态
    */
@@ -42,7 +45,10 @@ export class LRUCacheStrategy implements CacheStrategy {
     this.accessOrder.push(key);
   }
 
-  selectVictim(keys: string[], items: Map<string, CacheItem>): string | undefined {
+  selectVictim(
+    keys: string[],
+    items: Map<string, CacheItem>
+  ): string | undefined {
     // 选择最早访问的项
     for (const key of this.accessOrder) {
       if (keys.includes(key)) {
@@ -68,7 +74,10 @@ export class LFUCacheStrategy implements CacheStrategy {
     this.accessCount.set(key, count + 1);
   }
 
-  selectVictim(keys: string[], items: Map<string, CacheItem>): string | undefined {
+  selectVictim(
+    keys: string[],
+    items: Map<string, CacheItem>
+  ): string | undefined {
     let minCount = Infinity;
     let victim: string | undefined;
 
@@ -98,7 +107,10 @@ export class FIFOCacheStrategy implements CacheStrategy {
     // FIFO 策略不关心访问顺序，只关心插入顺序
   }
 
-  selectVictim(keys: string[], items: Map<string, CacheItem>): string | undefined {
+  selectVictim(
+    keys: string[],
+    items: Map<string, CacheItem>
+  ): string | undefined {
     // 选择最早插入的项
     for (const key of this.insertionOrder) {
       if (keys.includes(key)) {

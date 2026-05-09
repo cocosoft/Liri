@@ -165,9 +165,11 @@ export class ContextCacheService {
   ): T {
     const cache = this;
 
-    const memoized = async function (...args: Parameters<T>): Promise<ReturnType<T>> {
+    const memoized = async function (
+      ...args: Parameters<T>
+    ): Promise<ReturnType<T>> {
       const key = keyGenerator ? keyGenerator(...args) : JSON.stringify(args);
-      
+
       const cached = cache.get<ReturnType<T>>(key);
       if (cached !== undefined) {
         return cached;
@@ -180,7 +182,7 @@ export class ContextCacheService {
 
     (memoized as any).cache = {
       clear: () => {
-        cache.keys().forEach(key => {
+        cache.keys().forEach((key) => {
           if (key.startsWith('memoize_')) {
             cache.delete(key);
           }

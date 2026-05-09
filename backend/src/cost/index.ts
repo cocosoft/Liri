@@ -5,7 +5,14 @@
  */
 
 // 导出模型定价配置（排除与EnhancedCostManager重复的导出）
-export { calculateModelCost, formatCost, getModelPricing, getCanonicalModelName, hasUnknownModel, resetUnknownModelFlag } from './ModelPricing.js';
+export {
+  calculateModelCost,
+  formatCost,
+  getModelPricing,
+  getCanonicalModelName,
+  hasUnknownModel,
+  resetUnknownModelFlag,
+} from './ModelPricing.js';
 export type { ModelPricing } from './ModelPricing.js';
 
 // 导出成本跟踪器
@@ -18,7 +25,17 @@ export * from './BillingAccessControl.js';
 export * from './PricingManager.js';
 
 // 导出成本报告生成器
-export { CostReporter, CostTrend, CostReportOptions, addCostTrend, getCostTrends, analyzeCostTrend, predictCost, generateCostReport, costReporter } from './CostReporter.js';
+export {
+  CostReporter,
+  CostTrend,
+  CostReportOptions,
+  addCostTrend,
+  getCostTrends,
+  analyzeCostTrend,
+  predictCost,
+  generateCostReport,
+  costReporter,
+} from './CostReporter.js';
 export type { CostPrediction as CostReportPrediction } from './CostReporter.js';
 
 export type { CostPrediction } from './EnhancedCostManager.js';
@@ -77,7 +94,10 @@ export async function initializeCostTrackingSystem(): Promise<void> {
 
     logger.info('成本跟踪系统初始化完成');
   } catch (error) {
-    logger.error('成本跟踪系统初始化失败', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      '成本跟踪系统初始化失败',
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
 
@@ -86,8 +106,10 @@ export async function initializeCostTrackingSystem(): Promise<void> {
  */
 export async function shutdownCostTrackingSystem(): Promise<void> {
   try {
-    const { costPersistenceService } = await import('./CostPersistenceService.js');
-    const { getCostAnalyticsTracker } = await import('../analytics/CostAnalyticsTracker.js');
+    const { costPersistenceService } =
+      await import('./CostPersistenceService.js');
+    const { getCostAnalyticsTracker } =
+      await import('../analytics/CostAnalyticsTracker.js');
 
     const tracker = getCostAnalyticsTracker();
     const sessionSummary = tracker.getSessionCost();
@@ -112,6 +134,9 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
     await costPersistenceService.mergeAndSave(sessionData);
     logger.info('成本跟踪系统已关闭');
   } catch (error) {
-    logger.error('成本跟踪系统关闭失败', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      '成本跟踪系统关闭失败',
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

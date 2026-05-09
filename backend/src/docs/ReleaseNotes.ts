@@ -13,33 +13,21 @@ const DEFAULT_RELEASE_NOTES: ReleaseNote[] = [
   {
     version: '1.0.0',
     releaseDate: '2024-01-01',
-    notes: [
-      '初始版本发布',
-      '支持基本的文件操作',
-      '支持代码分析和重构',
-    ],
+    notes: ['初始版本发布', '支持基本的文件操作', '支持代码分析和重构'],
     isImportant: true,
     type: 'feature',
   },
   {
     version: '1.1.0',
     releaseDate: '2024-02-01',
-    notes: [
-      '新增 Git 操作支持',
-      '优化代码分析功能',
-      '修复已知问题',
-    ],
+    notes: ['新增 Git 操作支持', '优化代码分析功能', '修复已知问题'],
     isImportant: false,
     type: 'improvement',
   },
   {
     version: '1.2.0',
     releaseDate: '2024-03-01',
-    notes: [
-      '新增测试生成功能',
-      '支持多语言',
-      '改进错误处理',
-    ],
+    notes: ['新增测试生成功能', '支持多语言', '改进错误处理'],
     isImportant: true,
     type: 'feature',
   },
@@ -220,7 +208,10 @@ export class ReleaseNotes {
         }
       }
     } catch (error) {
-      logger.error('解析变更日志失败', error instanceof Error ? error : undefined);
+      logger.error(
+        '解析变更日志失败',
+        error instanceof Error ? error : undefined
+      );
     }
 
     return notes;

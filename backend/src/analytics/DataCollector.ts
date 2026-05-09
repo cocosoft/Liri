@@ -22,7 +22,7 @@ export class DataCollector {
    */
   collectEvent(event: AnalyticsEvent): void {
     this.eventBuffer.push(event);
-    
+
     // 如果缓冲区满了，立即刷新
     if (this.eventBuffer.length >= this.bufferSize) {
       this.flushBuffer();
@@ -33,7 +33,7 @@ export class DataCollector {
    * 批量收集事件数据
    */
   collectEvents(events: AnalyticsEvent[]): void {
-    events.forEach(event => this.collectEvent(event));
+    events.forEach((event) => this.collectEvent(event));
   }
 
   /**
@@ -56,19 +56,19 @@ export class DataCollector {
       eventsByHour: new Map(),
       eventsByDay: new Map(),
       averageEventSize: 0,
-      peakHour: { hour: 0, count: 0 }
+      peakHour: { hour: 0, count: 0 },
     };
 
     let totalSize = 0;
     const hourlyCounts = new Map<number, number>();
 
-    allEvents.forEach(event => {
+    allEvents.forEach((event) => {
       // 按事件类型统计
       const typeCount = stats.eventsByType.get(event.eventName) || 0;
       stats.eventsByType.set(event.eventName, typeCount + 1);
 
       // 按事件源统计
-      const source = event.metadata.source as string || 'unknown';
+      const source = (event.metadata.source as string) || 'unknown';
       const sourceCount = stats.eventsBySource.get(source) || 0;
       stats.eventsBySource.set(source, sourceCount + 1);
 
@@ -88,7 +88,8 @@ export class DataCollector {
     });
 
     // 计算平均事件大小
-    stats.averageEventSize = allEvents.length > 0 ? totalSize / allEvents.length : 0;
+    stats.averageEventSize =
+      allEvents.length > 0 ? totalSize / allEvents.length : 0;
 
     // 找到峰值小时
     hourlyCounts.forEach((count, hour) => {
@@ -106,7 +107,9 @@ export class DataCollector {
   /**
    * 过滤事件数据
    */
-  filterEvents(predicate: (event: AnalyticsEvent) => boolean): AnalyticsEvent[] {
+  filterEvents(
+    predicate: (event: AnalyticsEvent) => boolean
+  ): AnalyticsEvent[] {
     const allEvents = [...this.events, ...this.eventBuffer];
     return allEvents.filter(predicate);
   }
@@ -116,8 +119,8 @@ export class DataCollector {
    */
   getEventsByTimeRange(startTime: number, endTime: number): AnalyticsEvent[] {
     const allEvents = [...this.events, ...this.eventBuffer];
-    return allEvents.filter(event => 
-      event.timestamp >= startTime && event.timestamp <= endTime
+    return allEvents.filter(
+      (event) => event.timestamp >= startTime && event.timestamp <= endTime
     );
   }
 
@@ -126,7 +129,7 @@ export class DataCollector {
    */
   getEventsByType(eventType: string): AnalyticsEvent[] {
     const allEvents = [...this.events, ...this.eventBuffer];
-    return allEvents.filter(event => event.eventName === eventType);
+    return allEvents.filter((event) => event.eventName === eventType);
   }
 
   /**
@@ -174,11 +177,15 @@ export class DataCollector {
    */
   exportData(): string {
     const allEvents = [...this.events, ...this.eventBuffer];
-    return JSON.stringify({
-      events: allEvents,
-      stats: this.getEventStats(),
-      exportedAt: Date.now()
-    }, null, 2);
+    return JSON.stringify(
+      {
+        events: allEvents,
+        stats: this.getEventStats(),
+        exportedAt: Date.now(),
+      },
+      null,
+      2
+    );
   }
 
   /**

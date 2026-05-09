@@ -71,7 +71,7 @@ export const APP_OAUTH_SCOPES = [
  * 所有OAuth作用域 - 登录时请求所有作用域
  */
 export const ALL_OAUTH_SCOPES = Array.from(
-  new Set([...CONSOLE_OAUTH_SCOPES, ...APP_OAUTH_SCOPES]),
+  new Set([...CONSOLE_OAUTH_SCOPES, ...APP_OAUTH_SCOPES])
 );
 
 /**
@@ -117,7 +117,8 @@ const STAGING_OAUTH_CONFIG: OauthConfig = {
   TOKEN_URL: 'https://platform-staging.pyapp.dev/v1/oauth/token',
   API_KEY_URL: 'https://api-staging.pyapp.dev/api/oauth/py_app/create_api_key',
   ROLES_URL: 'https://api-staging.pyapp.dev/api/oauth/py_app/roles',
-  SUCCESS_URL: 'https://platform-staging.pyapp.dev/oauth/code/success?app=py-app',
+  SUCCESS_URL:
+    'https://platform-staging.pyapp.dev/oauth/code/success?app=py-app',
   MANUAL_REDIRECT_URL: 'https://platform-staging.pyapp.dev/oauth/code/callback',
   CLIENT_ID: 'py-app-staging-client-id',
   OAUTH_FILE_SUFFIX: '-staging-oauth',
@@ -182,9 +183,7 @@ export function getOauthConfig(): OauthConfig {
   if (oauthBaseUrl) {
     const base = oauthBaseUrl.replace(/\/$/, '');
     if (!ALLOWED_OAUTH_BASE_URLS.includes(base)) {
-      throw new Error(
-        'PY_APP_CUSTOM_OAUTH_URL is not an approved endpoint.',
-      );
+      throw new Error('PY_APP_CUSTOM_OAUTH_URL is not an approved endpoint.');
     }
     config = {
       ...config,

@@ -196,19 +196,23 @@ export async function prefetchOfficialMcpUrls(): Promise<void> {
   try {
     const response = await fetch(
       'https://api.anthropic.com/mcp-registry/v0/servers?version=latest&visibility=commercial',
-      { signal: AbortSignal.timeout(5000) },
+      { signal: AbortSignal.timeout(5000) }
     );
 
     if (!response.ok) {
       if (response.status === 403) {
-        logger.debug('MCP registry access restricted (403) — expected in sandbox/network-restricted environments');
+        logger.debug(
+          'MCP registry access restricted (403) — expected in sandbox/network-restricted environments'
+        );
       } else {
         logger.warn(`Failed to fetch MCP registry: ${response.status}`);
       }
       return;
     }
 
-    const data = await response.json() as { servers: Array<{ server: { remotes?: Array<{ url: string }> } }> };
+    const data = (await response.json()) as {
+      servers: Array<{ server: { remotes?: Array<{ url: string }> } }>;
+    };
     const urls = new Set<string>();
 
     for (const entry of data.servers) {
@@ -236,16 +240,18 @@ export function getOfficialServers(): RegistryServer[] {
   return [...OFFICIAL_SERVERS];
 }
 
-export function getOfficialServersByCategory(category: string): RegistryServer[] {
-  return OFFICIAL_SERVERS.filter(s => s.category === category);
+export function getOfficialServersByCategory(
+  category: string
+): RegistryServer[] {
+  return OFFICIAL_SERVERS.filter((s) => s.category === category);
 }
 
 export function getOfficialServer(name: string): RegistryServer | undefined {
-  return OFFICIAL_SERVERS.find(s => s.name === name);
+  return OFFICIAL_SERVERS.find((s) => s.name === name);
 }
 
 export function getCategories(): string[] {
-  const categories = new Set(OFFICIAL_SERVERS.map(s => s.category));
+  const categories = new Set(OFFICIAL_SERVERS.map((s) => s.category));
   return Array.from(categories).sort();
 }
 

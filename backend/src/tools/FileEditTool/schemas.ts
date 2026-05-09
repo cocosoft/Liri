@@ -5,7 +5,10 @@ import { z } from 'zod';
  */
 export const FileEditInputSchema = z.strictObject({
   filePath: z.string().min(1, '文件路径不能为空').describe('要编辑的文件路径'),
-  oldString: z.string().min(1, '旧字符串不能为空').describe('需要被替换的旧字符串'),
+  oldString: z
+    .string()
+    .min(1, '旧字符串不能为空')
+    .describe('需要被替换的旧字符串'),
   newString: z.string().describe('替换后的新字符串'),
 });
 

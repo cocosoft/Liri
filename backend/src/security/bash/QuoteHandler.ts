@@ -1,75 +1,73 @@
 export type QuoteResult = {
-  quoted: string
-  success: boolean
-  error?: string
-}
+  quoted: string;
+  success: boolean;
+  error?: string;
+};
 
 export type UnquoteResult = {
-  text: string
-  success: boolean
-}
+  text: string;
+  success: boolean;
+};
 
-const UNSAFE_CHARS_RE = /[^\w@%+=:,./-]/
+const UNSAFE_CHARS_RE = /[^\w@%+=:,./-]/;
 
 export function quoteArg(arg: string): string {
   if (!arg) {
-    return "''"
+    return "''";
   }
 
   if (!UNSAFE_CHARS_RE.test(arg)) {
-    return arg
+    return arg;
   }
 
-  let hasSingle = arg.includes("'")
+  let hasSingle = arg.includes("'");
 
   if (!hasSingle) {
-    return `'${arg}'`
+    return `'${arg}'`;
   }
 
-  return `'${arg.replace(/'/g, "'\\''")}'`
+  return `'${arg.replace(/'/g, "'\\''")}'`;
 }
 
 export function quoteArgs(args: string[]): string {
-  return args.map(quoteArg).join(' ')
+  return args.map(quoteArg).join(' ');
 }
 
 export function tryQuoteArgs(args: unknown[]): QuoteResult {
   try {
     const validated: string[] = args.map((arg, index) => {
       if (arg === null || arg === undefined) {
-        return String(arg)
+        return String(arg);
       }
-      const type = typeof arg
+      const type = typeof arg;
       if (type === 'string' || type === 'number' || type === 'boolean') {
-        return String(arg)
+        return String(arg);
       }
-      throw new Error(
-        `无法引用参数 at index ${index}: 不支持的类型 ${type}`,
-      )
-    })
-    const quoted = validated.map(quoteArg).join(' ')
-    return { quoted, success: true }
+      throw new Error(`无法引用参数 at index ${index}: 不支持的类型 ${type}`);
+    });
+    const quoted = validated.map(quoteArg).join(' ');
+    return { quoted, success: true };
   } catch (error) {
     return {
       quoted: '',
       success: false,
       error: error instanceof Error ? error.message : '引用失败',
-    }
+    };
   }
 }
 
 export function unquoteArg(arg: string): UnquoteResult {
   if (!arg) {
-    return { text: '', success: true }
+    return { text: '', success: true };
   }
 
   if (arg.startsWith("'") && arg.endsWith("'")) {
-    const inner = arg.slice(1, -1)
-    return { text: inner.replace(/\\'/g, "'"), success: true }
+    const inner = arg.slice(1, -1);
+    return { text: inner.replace(/\\'/g, "'"), success: true };
   }
 
   if (arg.startsWith('"') && arg.endsWith('"')) {
-    const inner = arg.slice(1, -1)
+    const inner = arg.slice(1, -1);
     return {
       text: inner
         .replace(/\\n/g, '\n')
@@ -78,70 +76,70 @@ export function unquoteArg(arg: string): UnquoteResult {
         .replace(/\\"/g, '"')
         .replace(/\\\\/g, '\\'),
       success: true,
-    }
+    };
   }
 
-  return { text: arg, success: true }
+  return { text: arg, success: true };
 }
 
 export function hasUnterminatedQuote(command: string): boolean {
-  let inSingle = false
-  let inDouble = false
-  let escapeNext = false
+  let inSingle = false;
+  let inDouble = false;
+  let escapeNext = false;
 
   for (let i = 0; i < command.length; i++) {
-    const c = command[i]
+    const c = command[i];
 
     if (escapeNext) {
-      escapeNext = false
-      continue
+      escapeNext = false;
+      continue;
     }
 
     if (c === '\\' && !inSingle) {
-      escapeNext = true
-      continue
+      escapeNext = true;
+      continue;
     }
 
     if (c === "'" && !inDouble) {
-      inSingle = !inSingle
-      continue
+      inSingle = !inSingle;
+      continue;
     }
 
     if (c === '"' && !inSingle) {
-      inDouble = !inDouble
-      continue
+      inDouble = !inDouble;
+      continue;
     }
   }
 
-  return inSingle || inDouble
+  return inSingle || inDouble;
 }
 
 export function hasShellQuoteBug(command: string): boolean {
-  let inSingle = false
+  let inSingle = false;
 
   for (let i = 0; i < command.length; i++) {
-    const c = command[i]
+    const c = command[i];
 
     if (c === "'") {
-      inSingle = !inSingle
-      continue
+      inSingle = !inSingle;
+      continue;
     }
 
     if (c === '\\' && inSingle && i + 1 < command.length) {
-      const next = command[i + 1]
+      const next = command[i + 1];
       if (next === "'") {
-        return true
+        return true;
       }
     }
   }
 
-  return false
+  return false;
 }
 
 export function escapeForShell(text: string): string {
-  return text.replace(/[$`"\\!]/g, '\\$&')
+  return text.replace(/[$`"\\!]/g, '\\$&');
 }
 
 export function escapeForDoubleQuotes(text: string): string {
-  return text.replace(/[$`\\!"]/g, '\\$&')
+  return text.replace(/[$`\\!"]/g, '\\$&');
 }

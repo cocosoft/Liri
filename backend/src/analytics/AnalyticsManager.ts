@@ -3,7 +3,11 @@
  * 实现数据收集、分析和报告功能
  */
 
-import type { AnalyticsEvent, EventMetrics, SessionAnalytics } from './types.js';
+import type {
+  AnalyticsEvent,
+  EventMetrics,
+  SessionAnalytics,
+} from './types.js';
 
 export class AnalyticsManager {
   private events: AnalyticsEvent[] = [];
@@ -12,7 +16,7 @@ export class AnalyticsManager {
     totalEvents: 0,
     eventsByType: new Map(),
     eventsBySource: new Map(),
-    lastEventTime: undefined
+    lastEventTime: undefined,
   };
 
   /**
@@ -21,7 +25,7 @@ export class AnalyticsManager {
   async trackEvent(event: AnalyticsEvent): Promise<void> {
     this.events.push(event);
     this.updateMetrics(event);
-    
+
     // 如果是异步事件，确保异步处理完成
     if (event.async) {
       await this.processAsyncEvent(event);
@@ -39,11 +43,11 @@ export class AnalyticsManager {
       tokenUsage: {
         inputTokens: 0,
         outputTokens: 0,
-        totalTokens: 0
+        totalTokens: 0,
       },
       costUSD: 0,
       toolCalls: 0,
-      errors: 0
+      errors: 0,
     };
     this.sessions.set(sessionId, session);
   }
@@ -89,7 +93,7 @@ export class AnalyticsManager {
       totalEvents: 0,
       eventsByType: new Map(),
       eventsBySource: new Map(),
-      lastEventTime: undefined
+      lastEventTime: undefined,
     };
   }
 
@@ -98,16 +102,16 @@ export class AnalyticsManager {
    */
   private updateMetrics(event: AnalyticsEvent): void {
     this.metrics.totalEvents++;
-    
+
     // 更新事件类型统计
     const typeCount = this.metrics.eventsByType.get(event.eventName) || 0;
     this.metrics.eventsByType.set(event.eventName, typeCount + 1);
-    
+
     // 更新事件源统计
-    const source = event.metadata.source as string || 'unknown';
+    const source = (event.metadata.source as string) || 'unknown';
     const sourceCount = this.metrics.eventsBySource.get(source) || 0;
     this.metrics.eventsBySource.set(source, sourceCount + 1);
-    
+
     this.metrics.lastEventTime = event.timestamp;
   }
 
@@ -116,8 +120,8 @@ export class AnalyticsManager {
    */
   private async processAsyncEvent(event: AnalyticsEvent): Promise<void> {
     // 模拟异步处理
-    await new Promise(resolve => setTimeout(resolve, 10));
-    
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     // 这里可以添加异步事件处理逻辑
     console.log(`处理异步事件: ${event.eventName}`);
   }
@@ -128,7 +132,7 @@ export class AnalyticsManager {
   generateReport(): AnalyticsReport {
     const totalSessions = this.sessions.size;
     const activeSessions = Array.from(this.sessions.values()).filter(
-      session => !session.endTime
+      (session) => !session.endTime
     ).length;
 
     return {
@@ -140,7 +144,7 @@ export class AnalyticsManager {
       lastEventTime: this.metrics.lastEventTime,
       averageSessionDuration: this.calculateAverageSessionDuration(),
       totalTokenUsage: this.calculateTotalTokenUsage(),
-      totalCost: this.calculateTotalCost()
+      totalCost: this.calculateTotalCost(),
     };
   }
 
@@ -149,31 +153,35 @@ export class AnalyticsManager {
    */
   private calculateAverageSessionDuration(): number {
     const completedSessions = Array.from(this.sessions.values()).filter(
-      session => session.endTime
+      (session) => session.endTime
     );
-    
+
     if (completedSessions.length === 0) return 0;
-    
+
     const totalDuration = completedSessions.reduce((sum, session) => {
       return sum + ((session.endTime || 0) - session.startTime);
     }, 0);
-    
+
     return totalDuration / completedSessions.length;
   }
 
   /**
    * 计算总令牌使用量
    */
-  private calculateTotalTokenUsage(): { inputTokens: number; outputTokens: number; totalTokens: number } {
+  private calculateTotalTokenUsage(): {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  } {
     const totalUsage = Array.from(this.sessions.values()).reduce(
       (sum, session) => ({
         inputTokens: sum.inputTokens + session.tokenUsage.inputTokens,
         outputTokens: sum.outputTokens + session.tokenUsage.outputTokens,
-        totalTokens: sum.totalTokens + session.tokenUsage.totalTokens
+        totalTokens: sum.totalTokens + session.tokenUsage.totalTokens,
       }),
       { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
     );
-    
+
     return totalUsage;
   }
 
@@ -199,6 +207,10 @@ export interface AnalyticsReport {
   sourceDistribution: Record<string, number>;
   lastEventTime?: number;
   averageSessionDuration: number;
-  totalTokenUsage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  totalTokenUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
   totalCost: number;
 }

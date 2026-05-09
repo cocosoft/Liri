@@ -155,7 +155,10 @@ export function formatChord(chord: ParsedKeystroke[]): string {
  * @param b 第二个按键
  * @returns 是否相同
  */
-export function keystrokesEqual(a: ParsedKeystroke, b: ParsedKeystroke): boolean {
+export function keystrokesEqual(
+  a: ParsedKeystroke,
+  b: ParsedKeystroke
+): boolean {
   return (
     a.key === b.key &&
     !!a.ctrl === !!b.ctrl &&
@@ -171,7 +174,10 @@ export function keystrokesEqual(a: ParsedKeystroke, b: ParsedKeystroke): boolean
  * @param b 第二个和弦
  * @returns 是否相同
  */
-export function chordsEqual(a: ParsedKeystroke[], b: ParsedKeystroke[]): boolean {
+export function chordsEqual(
+  a: ParsedKeystroke[],
+  b: ParsedKeystroke[]
+): boolean {
   if (a.length !== b.length) {
     return false;
   }
@@ -191,7 +197,10 @@ export function chordsEqual(a: ParsedKeystroke[], b: ParsedKeystroke[]): boolean
  * @param binding 绑定的按键
  * @returns 是否匹配
  */
-export function keystrokeMatches(input: ParsedKeystroke, binding: ParsedKeystroke): boolean {
+export function keystrokeMatches(
+  input: ParsedKeystroke,
+  binding: ParsedKeystroke
+): boolean {
   return (
     input.key === binding.key &&
     (input.ctrl || false) === (binding.ctrl || false) &&
@@ -207,7 +216,10 @@ export function keystrokeMatches(input: ParsedKeystroke, binding: ParsedKeystrok
  * @param binding 绑定的序列
  * @returns 是否匹配
  */
-export function chordMatches(input: ParsedKeystroke[], binding: ParsedKeystroke[]): boolean {
+export function chordMatches(
+  input: ParsedKeystroke[],
+  binding: ParsedKeystroke[]
+): boolean {
   if (input.length < binding.length) {
     return false;
   }
@@ -227,7 +239,12 @@ export function chordMatches(input: ParsedKeystroke[], binding: ParsedKeystroke[
  * @returns 是否包含修饰符
  */
 export function hasModifiers(keystroke: ParsedKeystroke): boolean {
-  return !!(keystroke.ctrl || keystroke.alt || keystroke.shift || keystroke.meta);
+  return !!(
+    keystroke.ctrl ||
+    keystroke.alt ||
+    keystroke.shift ||
+    keystroke.meta
+  );
 }
 
 /**

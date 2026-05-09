@@ -66,7 +66,7 @@ export const Spinner: React.FC<SpinnerProps> = ({
           key={i}
           className="bar"
           style={{
-            height: `${20 + (frame + i) % 5 * 16}%`,
+            height: `${20 + ((frame + i) % 5) * 16}%`,
             animationDelay: `${i * 80}ms`,
           }}
         />
@@ -75,7 +75,9 @@ export const Spinner: React.FC<SpinnerProps> = ({
   );
 
   const renderCircle = () => (
-    <div className={`spinner-circle ${sizeClasses[size]} ${colorClasses[color]}`}>
+    <div
+      className={`spinner-circle ${sizeClasses[size]} ${colorClasses[color]}`}
+    >
       <svg viewBox="0 0 50 50">
         <circle
           className="circle-path"
@@ -98,7 +100,9 @@ export const Spinner: React.FC<SpinnerProps> = ({
   );
 
   const renderPulse = () => (
-    <div className={`spinner-pulse ${sizeClasses[size]} ${colorClasses[color]}`}>
+    <div
+      className={`spinner-pulse ${sizeClasses[size]} ${colorClasses[color]}`}
+    >
       <span className="pulse-ring" />
       <span className="pulse-ring delay-1" />
       <span className="pulse-ring delay-2" />
@@ -126,6 +130,8 @@ export const Spinner: React.FC<SpinnerProps> = ({
   );
 };
 
-export function createSpinner(props?: Partial<SpinnerProps>): React.ReactElement {
+export function createSpinner(
+  props?: Partial<SpinnerProps>
+): React.ReactElement {
   return <Spinner {...props} />;
 }

@@ -40,9 +40,12 @@ export default {
       { id: 'plugins', name: '插件系统', progress: 0, duration: '18分钟' },
     ];
 
-    const table = tutorials.map(t => 
-      `${t.id.padEnd(10)} ${t.name.padEnd(12)} ${t.progress}% ${t.duration}`
-    ).join('\n');
+    const table = tutorials
+      .map(
+        (t) =>
+          `${t.id.padEnd(10)} ${t.name.padEnd(12)} ${t.progress}% ${t.duration}`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -55,7 +58,10 @@ export default {
   /**
    * 开始教程
    */
-  async handleStart(id: string, context: CommandContext): Promise<CommandResult> {
+  async handleStart(
+    id: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!id) {
       return {
         success: false,
@@ -76,12 +82,11 @@ export default {
     const tutorialName = tutorials[id] || id;
 
     context.onDone?.(`正在开始教程: ${tutorialName}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
-      message: `正在开始教程: ${tutorialName}\n\n` +
-        '教程将在新窗口中打开。',
+      message: `正在开始教程: ${tutorialName}\n\n` + '教程将在新窗口中打开。',
       data: { id, name: tutorialName },
     };
   },
@@ -100,7 +105,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `📚 教程进度\n\n` +
+      message:
+        `📚 教程进度\n\n` +
         `总教程数: ${progress.totalTutorials}\n` +
         `已完成: ${progress.completed}\n` +
         `进行中: ${progress.inProgress}\n` +

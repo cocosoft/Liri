@@ -63,19 +63,21 @@ export class LogSink {
     const formatted = this.formatter.format(entry);
 
     await Promise.all(
-      Array.from(this.sinks.values()).map(sink => sink.write(entry, formatted))
+      Array.from(this.sinks.values()).map((sink) =>
+        sink.write(entry, formatted)
+      )
     );
   }
 
   async flush(): Promise<void> {
     await Promise.all(
-      Array.from(this.sinks.values()).map(sink => sink.flush())
+      Array.from(this.sinks.values()).map((sink) => sink.flush())
     );
   }
 
   async close(): Promise<void> {
     await Promise.all(
-      Array.from(this.sinks.values()).map(sink => sink.close())
+      Array.from(this.sinks.values()).map((sink) => sink.close())
     );
     this.sinks.clear();
   }
@@ -131,7 +133,11 @@ export class FileSink implements LogSinkInstance {
   async write(entry: LogEntry, formatted: string): Promise<void> {
     this.buffer.push(formatted);
 
-    if (this.buffer.length >= 100 || entry.level === LogLevel.ERROR || entry.level === LogLevel.FATAL) {
+    if (
+      this.buffer.length >= 100 ||
+      entry.level === LogLevel.ERROR ||
+      entry.level === LogLevel.FATAL
+    ) {
       await this.flushBuffer();
     }
   }
@@ -199,11 +205,11 @@ export class MemorySink implements LogSinkInstance {
   }
 
   getLogsByLevel(level: LogLevel): LogEntry[] {
-    return this.logs.filter(log => log.level === level);
+    return this.logs.filter((log) => log.level === level);
   }
 
   getLogsBySource(source: string): LogEntry[] {
-    return this.logs.filter(log => log.source === source);
+    return this.logs.filter((log) => log.source === source);
   }
 
   clearLogs(): void {
@@ -227,7 +233,10 @@ export function createFileSink(options: FileSinkOptions): FileSink {
   return new FileSink(options);
 }
 
-export function createMemorySink(maxLogs?: number, formatter?: LogFormatter): MemorySink {
+export function createMemorySink(
+  maxLogs?: number,
+  formatter?: LogFormatter
+): MemorySink {
   return new MemorySink(maxLogs, formatter);
 }
 

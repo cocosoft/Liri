@@ -43,7 +43,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `隐私设置:\n` +
+      message:
+        `隐私设置:\n` +
         `- 遥测数据: ${settings.telemetry ? '开启' : '关闭'}\n` +
         `- 使用追踪: ${settings.usageTracking ? '开启' : '关闭'}\n` +
         `- 崩溃报告: ${settings.crashReporting ? '开启' : '关闭'}\n` +
@@ -56,10 +57,13 @@ export default {
   /**
    * 更新隐私设置
    */
-  async handleUpdate(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleUpdate(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const key = args[0];
     const value = args[1];
-    
+
     if (!key || !value) {
       return {
         success: false,
@@ -69,8 +73,14 @@ export default {
       };
     }
 
-    const validKeys = ['telemetry', 'usageTracking', 'crashReporting', 'dataCollection', 'personalizedAds'];
-    
+    const validKeys = [
+      'telemetry',
+      'usageTracking',
+      'crashReporting',
+      'dataCollection',
+      'personalizedAds',
+    ];
+
     if (!validKeys.includes(key)) {
       return {
         success: false,
@@ -80,8 +90,10 @@ export default {
       };
     }
 
-    context.onDone?.(`隐私设置 ${key} 已更新为 ${value}`, { display: 'system' });
-    
+    context.onDone?.(`隐私设置 ${key} 已更新为 ${value}`, {
+      display: 'system',
+    });
+
     return {
       success: true,
       type: 'text',
@@ -95,7 +107,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('隐私设置已重置为默认值', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

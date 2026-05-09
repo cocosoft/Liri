@@ -32,7 +32,7 @@ export function createToken(payload: TokenPayload, secret: string): string {
   const header = base64Encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = base64Encode(JSON.stringify(payload));
   const signature = base64Encode(
-    `${header}.${body}.${secret.substring(0, 16)}`,
+    `${header}.${body}.${secret.substring(0, 16)}`
   );
   return `${header}.${body}.${signature}`;
 }
@@ -53,10 +53,13 @@ export function isTokenExpired(token: string): boolean {
   return Date.now() > payload.exp;
 }
 
-export function shouldRefreshToken(token: string, thresholdMs: number = REFRESH_THRESHOLD_MS): boolean {
+export function shouldRefreshToken(
+  token: string,
+  thresholdMs: number = REFRESH_THRESHOLD_MS
+): boolean {
   const payload = decodeToken(token);
   if (!payload) return true;
-  return (payload.exp - Date.now()) < thresholdMs;
+  return payload.exp - Date.now() < thresholdMs;
 }
 
 export class TokenRefreshScheduler {
@@ -80,14 +83,14 @@ export class TokenRefreshScheduler {
         iat: now,
         exp: now + this.config.expiresInMs,
       },
-      this.config.secret,
+      this.config.secret
     );
   }
 
   scheduleRefresh(
     token: string,
     onRefresh: (newToken: string) => void,
-    intervalMs: number = 60_000,
+    intervalMs: number = 60_000
   ): void {
     this.stop();
     this.timer = setInterval(() => {

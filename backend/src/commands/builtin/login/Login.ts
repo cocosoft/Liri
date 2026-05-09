@@ -14,12 +14,12 @@ export default {
     const provider = args.trim() || 'default';
 
     context.onDone?.('正在登录...', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
-      message: `正在通过 ${provider} 登录...\n\n` +
-        '请在浏览器中完成登录流程。',
+      message:
+        `正在通过 ${provider} 登录...\n\n` + '请在浏览器中完成登录流程。',
       data: { provider, loggingIn: true },
     };
   },

@@ -11,7 +11,7 @@ const TEST_COMMANDS = [
   { cmd: 'status', label: 'status' },
   { cmd: 'version', label: 'version' },
   { cmd: 'clear', label: 'clear' },
-  
+
   // B组: 此次修复的关键命令
   { cmd: 'stickers help', label: 'stickers' },
   { cmd: 'pr-comments help', label: 'pr-comments' },
@@ -26,7 +26,7 @@ const TEST_COMMANDS = [
   { cmd: 'diff help', label: 'diff' },
   { cmd: 'review help', label: 'review' },
   { cmd: 'resume list', label: 'resume' },
-  
+
   // C组: 工具命令
   { cmd: 'write help', label: 'write' },
   { cmd: 'edit help', label: 'edit' },
@@ -36,7 +36,7 @@ const TEST_COMMANDS = [
   { cmd: 'fetch help', label: 'fetch' },
   { cmd: 'todo help', label: 'todo' },
   { cmd: 'task help', label: 'task' },
-  
+
   // D组: 新增遗漏命令
   { cmd: 'copy help', label: 'copy' },
   { cmd: 'branch help', label: 'branch' },
@@ -46,7 +46,7 @@ const TEST_COMMANDS = [
   { cmd: 'debug help', label: 'debug' },
   { cmd: 'search help', label: 'search' },
   { cmd: 'tag help', label: 'tag' },
-  
+
   // E组: 配置与系统命令
   { cmd: 'config help', label: 'config' },
   { cmd: 'session help', label: 'session' },
@@ -67,18 +67,24 @@ let warnings: { label: string; err: string }[] = [];
 
 for (let i = 0; i < TEST_COMMANDS.length; i++) {
   const { cmd, label } = TEST_COMMANDS[i];
-  
+
   try {
     const start = Date.now();
     const result = await commandExecutor.execute(cmd, {});
     const elapsed = Date.now() - start;
-    
+
     if (result.success) {
       console.log(`✅ ${label.padEnd(20)} (${elapsed}ms)`);
       passed++;
     } else {
-      const errMsg = (result.error || result.message || 'unknown').substring(0, 60);
-      if (errMsg.toLowerCase().includes('not implement') || errMsg.toLowerCase().includes('not support')) {
+      const errMsg = (result.error || result.message || 'unknown').substring(
+        0,
+        60
+      );
+      if (
+        errMsg.toLowerCase().includes('not implement') ||
+        errMsg.toLowerCase().includes('not support')
+      ) {
         console.log(`⚠ ${label.padEnd(20)} ${errMsg}`);
         warnings.push({ label, err: errMsg });
       } else {
@@ -91,7 +97,7 @@ for (let i = 0; i < TEST_COMMANDS.length; i++) {
     console.log(`❌ ${label.padEnd(20)} ${msg}`);
     failed.push({ label, err: msg });
   }
-  
+
   process.stdout.write(`\r进度: ${i + 1}/${TEST_COMMANDS.length}`);
 }
 

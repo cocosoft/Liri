@@ -36,7 +36,8 @@ export interface TraceConfig {
  */
 export class AnalyticsSystem {
   private static instance: AnalyticsSystem;
-  private asyncLocalStorage: AsyncLocalStorage<TraceContext> = new AsyncLocalStorage();
+  private asyncLocalStorage: AsyncLocalStorage<TraceContext> =
+    new AsyncLocalStorage();
   private config: TraceConfig;
   private spans: Map<string, TraceContext> = new Map();
 
@@ -119,7 +120,11 @@ export class AnalyticsSystem {
   /**
    * 运行带追踪的函数
    */
-  runWithTrace<T>(name: string, fn: () => T, attributes?: Record<string, any>): T {
+  runWithTrace<T>(
+    name: string,
+    fn: () => T,
+    attributes?: Record<string, any>
+  ): T {
     if (!this.config.enabled) {
       return fn();
     }
@@ -134,7 +139,8 @@ export class AnalyticsSystem {
     try {
       return this.asyncLocalStorage.run(span, fn);
     } catch (error) {
-      span.attributes.error = error instanceof Error ? error.message : String(error);
+      span.attributes.error =
+        error instanceof Error ? error.message : String(error);
       throw error;
     } finally {
       this.endSpan(spanId);
@@ -144,7 +150,11 @@ export class AnalyticsSystem {
   /**
    * 运行带子追踪的函数
    */
-  runWithChildTrace<T>(name: string, fn: () => T, attributes?: Record<string, any>): T {
+  runWithChildTrace<T>(
+    name: string,
+    fn: () => T,
+    attributes?: Record<string, any>
+  ): T {
     if (!this.config.enabled) {
       return fn();
     }
@@ -159,7 +169,8 @@ export class AnalyticsSystem {
     try {
       return this.asyncLocalStorage.run(span, fn);
     } catch (error) {
-      span.attributes.error = error instanceof Error ? error.message : String(error);
+      span.attributes.error =
+        error instanceof Error ? error.message : String(error);
       throw error;
     } finally {
       this.endSpan(spanId);
@@ -225,7 +236,7 @@ export class AnalyticsSystem {
     if (span) {
       const duration = Date.now() - span.startTime;
       span.attributes.duration = duration;
-      
+
       // 打印span信息
       console.log('Span completed:', {
         spanId: span.spanId,
@@ -283,21 +294,33 @@ export function getAnalyticsSystem(config?: TraceConfig): AnalyticsSystem {
  * 创建追踪装饰器
  */
 export function traceable(name: string, attributes?: Record<string, any>) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
     const originalMethod = descriptor.value;
-    
+
     descriptor.value = function (...args: any[]) {
       const analytics = getAnalyticsSystem();
-      
+
       if (typeof originalMethod === 'function') {
         if (originalMethod.constructor.name === 'AsyncFunction') {
-          return analytics.runWithTrace(name, async () => {
-            return await originalMethod.apply(this, args);
-          }, attributes);
+          return analytics.runWithTrace(
+            name,
+            async () => {
+              return await originalMethod.apply(this, args);
+            },
+            attributes
+          );
         } else {
-          return analytics.runWithTrace(name, () => {
-            return originalMethod.apply(this, args);
-          }, attributes);
+          return analytics.runWithTrace(
+            name,
+            () => {
+              return originalMethod.apply(this, args);
+            },
+            attributes
+          );
         }
       }
     };
@@ -308,21 +331,33 @@ export function traceable(name: string, attributes?: Record<string, any>) {
  * 创建子追踪装饰器
  */
 export function childTraceable(name: string, attributes?: Record<string, any>) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ) {
     const originalMethod = descriptor.value;
-    
+
     descriptor.value = function (...args: any[]) {
       const analytics = getAnalyticsSystem();
-      
+
       if (typeof originalMethod === 'function') {
         if (originalMethod.constructor.name === 'AsyncFunction') {
-          return analytics.runWithChildTrace(name, async () => {
-            return await originalMethod.apply(this, args);
-          }, attributes);
+          return analytics.runWithChildTrace(
+            name,
+            async () => {
+              return await originalMethod.apply(this, args);
+            },
+            attributes
+          );
         } else {
-          return analytics.runWithChildTrace(name, () => {
-            return originalMethod.apply(this, args);
-          }, attributes);
+          return analytics.runWithChildTrace(
+            name,
+            () => {
+              return originalMethod.apply(this, args);
+            },
+            attributes
+          );
         }
       }
     };

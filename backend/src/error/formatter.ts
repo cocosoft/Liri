@@ -46,15 +46,15 @@ export class ErrorFormatter {
    */
   private static formatAppError(error: AppError): string {
     let message = `[${error.category.toUpperCase()}] ${error.message}`;
-    
+
     if (error.code) {
       message += ` (Code: ${error.code})`;
     }
-    
+
     if (error.context && Object.keys(error.context).length > 0) {
       message += `\nContext: ${JSON.stringify(error.context)}`;
     }
-    
+
     return message;
   }
 
@@ -65,19 +65,19 @@ export class ErrorFormatter {
    */
   private static formatValidationError(error: ValidationError): string {
     let message = `[VALIDATION] ${error.message}`;
-    
+
     if (error.code) {
       message += ` (Code: ${error.code})`;
     }
-    
+
     if (error.context) {
       message += `\nDetails:`;
-      
+
       // 处理Zod验证错误
       if (error.context.zodError) {
         message += this.formatZodError(error.context.zodError);
       }
-      
+
       // 处理其他验证错误
       for (const [key, value] of Object.entries(error.context)) {
         if (key !== 'zodError') {
@@ -85,7 +85,7 @@ export class ErrorFormatter {
         }
       }
     }
-    
+
     return message;
   }
 
@@ -96,13 +96,13 @@ export class ErrorFormatter {
    */
   private static formatZodError(zodError: any): string {
     let message = '';
-    
+
     if (zodError.errors && Array.isArray(zodError.errors)) {
       for (const error of zodError.errors) {
         message += `\n  - ${error.path?.join('.') || 'value'}: ${error.message}`;
       }
     }
-    
+
     return message;
   }
 
@@ -114,13 +114,13 @@ export class ErrorFormatter {
   private static formatGenericError(error: Error): string {
     const category = ErrorUtils.categorizeError(error);
     let message = `[${category.toUpperCase()}] ${error.message || 'Unknown error'}`;
-    
+
     if (error.stack) {
       // 只显示堆栈的前几行
       const stackLines = error.stack.split('\n').slice(0, 5);
       message += `\nStack: ${stackLines.join('\n')}`;
     }
-    
+
     return message;
   }
 
@@ -202,9 +202,11 @@ export class ErrorFormatter {
    * @param error 验证错误
    * @returns 用户友好的错误信息
    */
-  private static formatUserFriendlyValidationError(error: ValidationError): string {
+  private static formatUserFriendlyValidationError(
+    error: ValidationError
+  ): string {
     let message = '输入验证失败:';
-    
+
     if (error.context?.zodError) {
       const zodError = error.context.zodError;
       if (zodError.errors && Array.isArray(zodError.errors)) {
@@ -216,7 +218,7 @@ export class ErrorFormatter {
     } else {
       message += `\n- ${error.message}`;
     }
-    
+
     message += '\n请检查您的输入后重试。';
     return message;
   }
@@ -228,7 +230,7 @@ export class ErrorFormatter {
    */
   private static formatUserFriendlyNetworkError(error: NetworkError): string {
     let message = '网络连接失败';
-    
+
     if (error.code === 'ETIMEDOUT') {
       message = '连接超时';
     } else if (error.code === 'ECONNREFUSED') {
@@ -236,7 +238,7 @@ export class ErrorFormatter {
     } else if (error.code === 'ENOTFOUND') {
       message = '无法找到服务器';
     }
-    
+
     return `${message}: ${error.message}\n请检查您的网络连接和代理设置后重试。`;
   }
 
@@ -245,9 +247,11 @@ export class ErrorFormatter {
    * @param error 文件系统错误
    * @returns 用户友好的错误信息
    */
-  private static formatUserFriendlyFileSystemError(error: FileSystemError): string {
+  private static formatUserFriendlyFileSystemError(
+    error: FileSystemError
+  ): string {
     let message = '文件操作失败';
-    
+
     if (error.code === 'ENOENT') {
       message = '文件或目录不存在';
     } else if (error.code === 'EACCES') {
@@ -255,7 +259,7 @@ export class ErrorFormatter {
     } else if (error.code === 'EEXIST') {
       message = '文件已存在';
     }
-    
+
     return `${message}: ${error.message}\n请检查文件路径和权限后重试。`;
   }
 
@@ -264,7 +268,9 @@ export class ErrorFormatter {
    * @param error 权限错误
    * @returns 用户友好的错误信息
    */
-  private static formatUserFriendlyPermissionError(error: PermissionError): string {
+  private static formatUserFriendlyPermissionError(
+    error: PermissionError
+  ): string {
     return `权限不足: ${error.message}\n请确保您有执行此操作的权限，或联系管理员。`;
   }
 
@@ -275,7 +281,7 @@ export class ErrorFormatter {
    */
   private static formatUserFriendlyAPIError(error: APIError): string {
     let message = 'API请求失败';
-    
+
     if (error.status) {
       if (error.status === 401) {
         message = '认证失败，请重新登录';
@@ -289,7 +295,7 @@ export class ErrorFormatter {
         message = '服务器内部错误';
       }
     }
-    
+
     return `${message}: ${error.message}\n请稍后重试。`;
   }
 
@@ -300,11 +306,11 @@ export class ErrorFormatter {
    */
   private static formatUserFriendlyShellError(error: ShellError): string {
     let message = `命令执行失败 (退出码: ${error.exitCode})`;
-    
+
     if (error.stderr) {
       message += `\n错误输出: ${error.stderr}`;
     }
-    
+
     return `${message}\n请检查命令和参数后重试。`;
   }
 
@@ -313,7 +319,9 @@ export class ErrorFormatter {
    * @param error 配置错误
    * @returns 用户友好的错误信息
    */
-  private static formatUserFriendlyConfigError(error: ConfigParseError): string {
+  private static formatUserFriendlyConfigError(
+    error: ConfigParseError
+  ): string {
     return `配置解析失败: ${error.message}\n请检查配置文件的格式和内容。`;
   }
 
@@ -342,27 +350,27 @@ export class ErrorFormatter {
    */
   static formatDetailedReport(error: Error): string {
     const errorInfo = ErrorUtils.extractErrorInfo(error);
-    
+
     let report = `=== 错误报告 ===\n`;
     report += `错误类型: ${error.name}\n`;
     report += `错误信息: ${errorInfo.message}\n`;
     report += `错误分类: ${errorInfo.category}\n`;
     report += `严重程度: ${errorInfo.severity}\n`;
-    
+
     if (errorInfo.code) {
       report += `错误代码: ${errorInfo.code}\n`;
     }
-    
+
     if (errorInfo.context) {
       report += `错误上下文: ${JSON.stringify(errorInfo.context, null, 2)}\n`;
     }
-    
+
     if (errorInfo.stack) {
       report += `错误堆栈:\n${errorInfo.stack}\n`;
     }
-    
+
     report += `================`;
-    
+
     return report;
   }
 
@@ -373,7 +381,7 @@ export class ErrorFormatter {
    */
   static formatJSON(error: Error): object {
     const errorInfo = ErrorUtils.extractErrorInfo(error);
-    
+
     return {
       name: error.name,
       message: errorInfo.message,
@@ -394,7 +402,7 @@ export class ErrorFormatter {
   static formatLog(error: Error): string {
     const errorInfo = ErrorUtils.extractErrorInfo(error);
     const timestamp = new Date().toISOString();
-    
+
     return `[${timestamp}] [${errorInfo.severity.toUpperCase()}] [${errorInfo.category.toUpperCase()}] ${errorInfo.message}${errorInfo.code ? ` (${errorInfo.code})` : ''}`;
   }
 }

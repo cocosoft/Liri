@@ -19,13 +19,16 @@ export interface KeyboardOptions {
 export function useKeyboard(options: KeyboardOptions = {}): void {
   const { onKeyDown, onKeyUp, onKeyPress, target = process.stdin } = options;
 
-  const handleData = useCallback((data: Buffer) => {
-    const key = data.toString();
-    
-    if (onKeyDown) {
-      onKeyDown(key);
-    }
-  }, [onKeyDown]);
+  const handleData = useCallback(
+    (data: Buffer) => {
+      const key = data.toString();
+
+      if (onKeyDown) {
+        onKeyDown(key);
+      }
+    },
+    [onKeyDown]
+  );
 
   useEffect(() => {
     target.on('data', handleData);

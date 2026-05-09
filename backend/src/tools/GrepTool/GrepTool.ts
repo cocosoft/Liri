@@ -80,11 +80,13 @@ export function grep(options: GrepOptions): GrepResult {
   // 根据指定的输出模式格式化结果
   switch (outputMode) {
     case 'files_with_matches':
-      outputLines = matchedFiles.map(f => path.relative(searchPath, f));
+      outputLines = matchedFiles.map((f) => path.relative(searchPath, f));
       break;
     case 'count':
       for (const file of matchedFiles) {
-        outputLines.push(`${path.relative(searchPath, file)}: ${fileMatches.get(file)!.length}`);
+        outputLines.push(
+          `${path.relative(searchPath, file)}: ${fileMatches.get(file)!.length}`
+        );
       }
       break;
     case 'content':
@@ -126,7 +128,7 @@ function searchDir(
   regex: RegExp,
   options: GrepOptions,
   results: Map<string, string[]>,
-  maxTotal: number,
+  maxTotal: number
 ): void {
   let entries: fs.Dirent[];
   try {
@@ -154,7 +156,7 @@ function searchDir(
 
 /**
  * 在指定文件中搜索匹配正则表达式的行，并将结果存储到 results Map 中。
- * 
+ *
  * @param filePath - 要搜索的文件路径
  * @param regex - 用于匹配的正则表达式对象
  * @param options - grep 搜索选项配置
@@ -166,7 +168,7 @@ function searchFile(
   regex: RegExp,
   options: GrepOptions,
   results: Map<string, string[]>,
-  maxTotal: number,
+  maxTotal: number
 ): void {
   // 如果已收集的匹配总数达到上限，则直接返回以停止进一步搜索
   if (getTotalCount(results) >= maxTotal) return;
@@ -211,15 +213,15 @@ function searchFile(
 function getTotalCount(results: Map<string, string[]>): number {
   let total = 0;
   // 遍历 Map 中的所有值（字符串数组），累加每个数组的长度
-  for (const v of results.values()) total += v.length;/**
- * 对字符串中的正则表达式特殊字符进行转义，使其可以安全地用于构建正则表达式。
- *
- * @param str - 需要转义的原始字符串
- * @returns 转义后的字符串，其中所有正则表达式特殊字符前都添加了反斜杠
- */
-function escapeRegex(str: string): string {
+  for (const v of results.values()) total += v.length; /**
+   * 对字符串中的正则表达式特殊字符进行转义，使其可以安全地用于构建正则表达式。
+   *
+   * @param str - 需要转义的原始字符串
+   * @returns 转义后的字符串，其中所有正则表达式特殊字符前都添加了反斜杠
+   */
+  function escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+  }
   return total;
 }
 
@@ -230,17 +232,17 @@ function escapeRegex(str: string): string {
  * @returns 转义后的字符串，其中所有正则表达式特殊字符都被反斜杠转义
  */
 function escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
  * 检查文件名是否匹配给定的通配符模式。
- * 
+ *
  * 该函数将简单的通配符模式（支持 '*' 和 '.'）转换为正则表达式进行匹配。
  * - '*' 被解释为任意字符序列（等价于正则中的 .*）
  * - '.' 被转义为字面量点号
  * 匹配过程不区分大小写。
- * 
+ *
  * @param filename - 待匹配的文件名字符串
  * @param pattern - 通配符模式字符串，支持 '*' 作为通配符
  * @returns 如果文件名匹配模式则返回 true，否则返回 false；若正则表达式构建失败也返回 false

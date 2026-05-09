@@ -4,7 +4,13 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { registerInstance, unregisterInstance, getInstances, setActiveInstance, getInstanceById } from '../instances';
+import {
+  registerInstance,
+  unregisterInstance,
+  getInstances,
+  setActiveInstance,
+  getInstanceById,
+} from '../instances';
 import type { InkInstance } from '../types';
 
 export interface UseAppOptions {

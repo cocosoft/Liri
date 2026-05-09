@@ -3,7 +3,13 @@
  * 基于CC源码实现，提供分布式追踪支持
  */
 
-import { trace, Span, SpanStatusCode, context, Context } from '@opentelemetry/api';
+import {
+  trace,
+  Span,
+  SpanStatusCode,
+  context,
+  Context,
+} from '@opentelemetry/api';
 import { AsyncLocalStorage } from 'async_hooks';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/utils/errors.js';
@@ -100,7 +106,7 @@ export class SessionTracing {
    */
   private createSpanAttributes(
     spanType: SpanType,
-    customAttributes: Record<string, string | number | boolean> = {},
+    customAttributes: Record<string, string | number | boolean> = {}
   ): Record<string, string | number | boolean> {
     return {
       'span.type': spanType,
@@ -216,7 +222,7 @@ export class SessionTracing {
     options?: {
       querySource?: string;
       fastMode?: boolean;
-    },
+    }
   ): Span {
     if (!this.config.enabled) {
       return trace.getActiveSpan() || this.getTracer().startSpan('dummy');
@@ -266,7 +272,7 @@ export class SessionTracing {
       success?: boolean;
       error?: string;
       ttftMs?: number;
-    },
+    }
   ): void {
     const spanId = this.getSpanId(span);
     const spanContext = this.activeSpans.get(spanId);
@@ -321,7 +327,7 @@ export class SessionTracing {
     options?: {
       blockedOnUser?: boolean;
       execution?: boolean;
-    },
+    }
   ): Span {
     if (!this.config.enabled) {
       return trace.getActiveSpan() || this.getTracer().startSpan('dummy');
@@ -369,7 +375,7 @@ export class SessionTracing {
     metadata?: {
       success?: boolean;
       error?: string;
-    },
+    }
   ): void {
     const spanId = this.getSpanId(span);
     const spanContext = this.activeSpans.get(spanId);
@@ -458,7 +464,9 @@ let sessionTracing: SessionTracing | null = null;
  * @param config 配置
  * @returns 会话追踪实例
  */
-export function getSessionTracing(config?: Partial<SessionTracingConfig>): SessionTracing {
+export function getSessionTracing(
+  config?: Partial<SessionTracingConfig>
+): SessionTracing {
   if (!sessionTracing) {
     sessionTracing = new SessionTracing(config);
   }
@@ -470,6 +478,8 @@ export function getSessionTracing(config?: Partial<SessionTracingConfig>): Sessi
  * @param config 配置
  * @returns 会话追踪实例
  */
-export function createSessionTracing(config?: Partial<SessionTracingConfig>): SessionTracing {
+export function createSessionTracing(
+  config?: Partial<SessionTracingConfig>
+): SessionTracing {
   return new SessionTracing(config);
 }

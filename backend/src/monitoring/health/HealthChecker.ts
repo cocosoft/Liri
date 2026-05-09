@@ -28,11 +28,21 @@ export interface HealthCheckDefinition {
   interval: number;
   timeout: number;
   critical: boolean;
-  check: () => Promise<{ status: HealthStatus; details?: Record<string, unknown> }>;
+  check: () => Promise<{
+    status: HealthStatus;
+    details?: Record<string, unknown>;
+  }>;
 }
 
 export interface IHealthChecker {
-  registerCheck(name: string, check: () => Promise<{ status: HealthStatus; details?: Record<string, unknown> }>, options?: Partial<Omit<HealthCheckDefinition, 'name' | 'check'>>): void;
+  registerCheck(
+    name: string,
+    check: () => Promise<{
+      status: HealthStatus;
+      details?: Record<string, unknown>;
+    }>,
+    options?: Partial<Omit<HealthCheckDefinition, 'name' | 'check'>>
+  ): void;
   unregisterCheck(name: string): boolean;
   runCheck(name: string): Promise<HealthCheck | undefined>;
   runAllChecks(): Promise<HealthCheckResult>;
@@ -51,8 +61,11 @@ export class HealthChecker implements IHealthChecker {
 
   registerCheck(
     name: string,
-    check: () => Promise<{ status: HealthStatus; details?: Record<string, unknown> }>,
-    options?: Partial<Omit<HealthCheckDefinition, 'name' | 'check'>>,
+    check: () => Promise<{
+      status: HealthStatus;
+      details?: Record<string, unknown>;
+    }>,
+    options?: Partial<Omit<HealthCheckDefinition, 'name' | 'check'>>
   ): void {
     this.definitions.set(name, {
       name,
@@ -77,16 +90,31 @@ export class HealthChecker implements IHealthChecker {
       const result = await Promise.race([
         def.check(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`健康检查超时 (${def.timeout}ms)`)), def.timeout)
+          setTimeout(
+            () => reject(new Error(`健康检查超时 (${def.timeout}ms)`)),
+            def.timeout
+          )
         ),
       ]);
       const latency = Date.now() - start;
-      const check: HealthCheck = { name, status: result.status, latency, lastChecked: start, details: result.details };
+      const check: HealthCheck = {
+        name,
+        status: result.status,
+        latency,
+        lastChecked: start,
+        details: result.details,
+      };
       this.recordHistory(check);
       return check;
     } catch (error) {
       const latency = Date.now() - start;
-      const check: HealthCheck = { name, status: 'unhealthy', latency, lastChecked: start, error: error instanceof Error ? error.message : String(error) };
+      const check: HealthCheck = {
+        name,
+        status: 'unhealthy',
+        latency,
+        lastChecked: start,
+        error: error instanceof Error ? error.message : String(error),
+      };
       this.recordHistory(check);
       return check;
     }
@@ -94,7 +122,7 @@ export class HealthChecker implements IHealthChecker {
 
   async runAllChecks(): Promise<HealthCheckResult> {
     const checks = await Promise.all(
-      Array.from(this.definitions.keys()).map(name => this.runCheck(name))
+      Array.from(this.definitions.keys()).map((name) => this.runCheck(name))
     );
     const validChecks = checks.filter((c): c is HealthCheck => c !== undefined);
     const result = this.aggregateResults(validChecks);
@@ -112,7 +140,9 @@ export class HealthChecker implements IHealthChecker {
 
   startAutoCheck(intervalMs: number): void {
     this.stopAutoCheck();
-    this.autoTimer = setInterval(() => { this.runAllChecks(); }, intervalMs);
+    this.autoTimer = setInterval(() => {
+      this.runAllChecks();
+    }, intervalMs);
   }
 
   stopAutoCheck(): void {
@@ -134,10 +164,22 @@ export class HealthChecker implements IHealthChecker {
   }
 
   private aggregateResults(checks: HealthCheck[]): HealthCheckResult {
-    const statusOrder: Record<HealthStatus, number> = { healthy: 0, degraded: 1, unhealthy: 2, unknown: 3 };
+    const statusOrder: Record<HealthStatus, number> = {
+      healthy: 0,
+      degraded: 1,
+      unhealthy: 2,
+      unknown: 3,
+    };
     let worst: HealthStatus = 'healthy';
 
-    const summary = { total: checks.length, healthy: 0, degraded: 0, unhealthy: 0, unknown: 0, averageLatency: 0 };
+    const summary = {
+      total: checks.length,
+      healthy: 0,
+      degraded: 0,
+      unhealthy: 0,
+      unknown: 0,
+      averageLatency: 0,
+    };
 
     for (const c of checks) {
       summary[c.status]++;

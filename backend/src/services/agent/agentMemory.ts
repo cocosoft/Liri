@@ -59,21 +59,21 @@ function buildMemoryPrompt(options: {
   extraGuidelines?: string[];
 }): string {
   const { displayName, memoryDir, extraGuidelines = [] } = options;
-  
+
   let prompt = `# ${displayName}\n\n`;
   prompt += `This agent has access to persistent memory stored at: ${memoryDir}\n\n`;
   prompt += `## Memory Guidelines\n`;
   prompt += `- Store factual information, patterns, and insights that will be useful for future tasks\n`;
   prompt += `- Avoid storing transient or context-specific information\n`;
   prompt += `- Organize information in a clear, structured format\n`;
-  
+
   if (extraGuidelines.length > 0) {
     prompt += `\n## Additional Guidelines\n`;
-    extraGuidelines.forEach(guideline => {
+    extraGuidelines.forEach((guideline) => {
       prompt += `${guideline}\n`;
     });
   }
-  
+
   return prompt;
 }
 
@@ -95,15 +95,19 @@ function sanitizeAgentTypeForPath(agentType: string): string {
  */
 function getLocalAgentMemoryDir(dirName: string): string {
   if (process.env.PY_APP_REMOTE_MEMORY_DIR) {
-    return path.join(
-      process.env.PY_APP_REMOTE_MEMORY_DIR,
-      'projects',
-      findCanonicalGitRoot(getProjectRoot()) ?? getProjectRoot(),
-      'agent-memory-local',
-      dirName
-    ) + path.sep;
+    return (
+      path.join(
+        process.env.PY_APP_REMOTE_MEMORY_DIR,
+        'projects',
+        findCanonicalGitRoot(getProjectRoot()) ?? getProjectRoot(),
+        'agent-memory-local',
+        dirName
+      ) + path.sep
+    );
   }
-  return path.join(getCwd(), '.py_app', 'agent-memory-local', dirName) + path.sep;
+  return (
+    path.join(getCwd(), '.py_app', 'agent-memory-local', dirName) + path.sep
+  );
 }
 
 /**
@@ -132,12 +136,18 @@ export function isAgentMemoryPath(absolutePath: string): boolean {
   const memoryBase = getMemoryBaseDir();
 
   // 用户范围：检查内存基础目录
-  if (normalizedPath.startsWith(path.join(memoryBase, 'agent-memory') + path.sep)) {
+  if (
+    normalizedPath.startsWith(path.join(memoryBase, 'agent-memory') + path.sep)
+  ) {
     return true;
   }
 
   // 项目范围：基于当前工作目录
-  if (normalizedPath.startsWith(path.join(getCwd(), '.py_app', 'agent-memory') + path.sep)) {
+  if (
+    normalizedPath.startsWith(
+      path.join(getCwd(), '.py_app', 'agent-memory') + path.sep
+    )
+  ) {
     return true;
   }
 
@@ -201,13 +211,16 @@ export function loadAgentMemoryPrompt(
   let scopeNote: string;
   switch (scope) {
     case 'user':
-      scopeNote = '- Since this memory is user-scope, keep learnings general since they apply across all projects';
+      scopeNote =
+        '- Since this memory is user-scope, keep learnings general since they apply across all projects';
       break;
     case 'project':
-      scopeNote = '- Since this memory is project-scope and shared with your team via version control, tailor your memories to this project';
+      scopeNote =
+        '- Since this memory is project-scope and shared with your team via version control, tailor your memories to this project';
       break;
     case 'local':
-      scopeNote = '- Since this memory is local-scope (not checked into version control), tailor your memories to this project and machine';
+      scopeNote =
+        '- Since this memory is local-scope (not checked into version control), tailor your memories to this project and machine';
       break;
   }
 
@@ -220,8 +233,9 @@ export function loadAgentMemoryPrompt(
   return buildMemoryPrompt({
     displayName: 'Persistent Agent Memory',
     memoryDir,
-    extraGuidelines: extraGuidelines && extraGuidelines.trim().length > 0
-      ? [scopeNote, extraGuidelines]
-      : [scopeNote],
+    extraGuidelines:
+      extraGuidelines && extraGuidelines.trim().length > 0
+        ? [scopeNote, extraGuidelines]
+        : [scopeNote],
   });
 }

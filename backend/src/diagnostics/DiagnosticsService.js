@@ -161,9 +161,15 @@ class DiagnosticsService {
           name: '安装类型',
           level: DiagnosticLevel.INFO,
           message: `包管理器安装: ${process.env.PACKAGE_MANAGER}`,
-          details: { installType: this.installType, packageManager: process.env.PACKAGE_MANAGER },
+          details: {
+            installType: this.installType,
+            packageManager: process.env.PACKAGE_MANAGER,
+          },
         });
-      } else if (process.env.NODE_ENV === 'development' || process.argv.includes('--dev')) {
+      } else if (
+        process.env.NODE_ENV === 'development' ||
+        process.argv.includes('--dev')
+      ) {
         this.installType = InstallType.DEVELOPMENT;
         this.addResult({
           name: '安装类型',
@@ -188,7 +194,6 @@ class DiagnosticsService {
         message: `Node路径: ${nodePath}`,
         details: { nodePath, npmPrefix: npmGlobalPrefix },
       });
-
     } catch (error) {
       this.addResult({
         name: '安装类型',
@@ -269,7 +274,6 @@ class DiagnosticsService {
           details: instances,
         });
       }
-
     } catch (error) {
       this.addResult({
         name: '多安装实例检测',
@@ -593,7 +597,10 @@ class DiagnosticsService {
       } else {
         this.addResult({
           name: `配置文件-${config.name}`,
-          level: config.name === 'package.json' ? DiagnosticLevel.ERROR : DiagnosticLevel.INFO,
+          level:
+            config.name === 'package.json'
+              ? DiagnosticLevel.ERROR
+              : DiagnosticLevel.INFO,
           message: `${config.name} 不存在`,
         });
       }
@@ -663,7 +670,8 @@ class DiagnosticsService {
 
     for (const result of this.results) {
       byLevel[result.level] = (byLevel[result.level] || 0) + 1;
-      byCategory[result.name.split('-')[0]] = (byCategory[result.name.split('-')[0]] || 0) + 1;
+      byCategory[result.name.split('-')[0]] =
+        (byCategory[result.name.split('-')[0]] || 0) + 1;
     }
 
     return {

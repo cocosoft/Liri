@@ -5,24 +5,24 @@
  */
 
 import React from 'react';
-import { Box } from '../../ink';
+import { Box } from '@modules/ink';
 import { PaneProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 import { Divider } from './Divider';
 
 /**
  * 面板组件（基于CC源码）
- * 
+ *
  * 面板是一个终端区域，出现在REPL提示下方，
  * 由彩色顶部边框线界定，上方有一行间隙和水平内边距。
  * 用于所有斜杠命令屏幕：/config、/help、/plugins、/sandbox、/stats、/permissions。
- * 
+ *
  * 对于确认/取消对话框（Esc取消，Enter确认），使用<Dialog>代替 - 它注册自己的按键绑定。
  * 对于完整的圆角边框卡片，使用<Panel>。
- * 
+ *
  * 在面板内渲染的子菜单应在Dialog上使用hideBorder，
  * 以便面板的边框保持单一框架。
- * 
+ *
  * @example
  * <Pane color="permission">
  *   <Tabs title="Sandbox:">...</Tabs>
@@ -36,19 +36,17 @@ export function Pane({
   margin = 0,
   flexDirection = 'column',
   alignItems = 'flex-start',
-  justifyContent = 'flex-start'
+  justifyContent = 'flex-start',
 }: PaneProps) {
   const { theme } = useTheme();
 
   return (
-    <Box
-      flexDirection="column"
-      marginTop={margin}
-      marginBottom={margin}
-    >
+    <Box flexDirection="column" marginTop={margin} marginBottom={margin}>
       {/* 顶部边框线（基于CC源码） */}
-      {!hideBorder && <Divider color={color} orientation="horizontal" thickness={1} />}
-      
+      {!hideBorder && (
+        <Divider color={color} orientation="horizontal" thickness={1} />
+      )}
+
       {/* 内容区域（基于CC源码） */}
       <Box
         flexDirection={flexDirection}
@@ -71,7 +69,7 @@ export function CardPane({
   children,
   color = 'border',
   padding = 2,
-  margin = 1
+  margin = 1,
 }: PaneProps) {
   const { theme } = useTheme();
 
@@ -96,7 +94,7 @@ export function SidebarPane({
   children,
   color = 'border',
   width = 30,
-  padding = 1
+  padding = 1,
 }: PaneProps & { width?: number }) {
   const { theme } = useTheme();
 
@@ -122,16 +120,12 @@ export function ContentPane({
   children,
   color = 'border',
   padding = 2,
-  flexGrow = 1
+  flexGrow = 1,
 }: PaneProps & { flexGrow?: number }) {
   const { theme } = useTheme();
 
   return (
-    <Box
-      flexGrow={flexGrow}
-      padding={padding}
-      flexDirection="column"
-    >
+    <Box flexGrow={flexGrow} padding={padding} flexDirection="column">
       {children}
     </Box>
   );

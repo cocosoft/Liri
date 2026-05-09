@@ -4,13 +4,13 @@
  */
 
 import { EventEmitter } from 'events';
-import type { 
-  MCPClient, 
-  MCPClientState, 
-  MCPServerConfig, 
+import type {
+  MCPClient,
+  MCPClientState,
+  MCPServerConfig,
   ScopedMcpServerConfig,
   MCPConnectionConfig,
-  MCPConnectionStats
+  MCPConnectionStats,
 } from '../types/MCPTypes';
 import { MCPClientImpl } from '../client/MCPClient';
 import { globalMCPToolManager } from '../management/MCPToolManager';
@@ -21,19 +21,19 @@ import { globalMCPToolManager } from '../management/MCPToolManager';
 export interface MCPConnectionStatus {
   /** 连接状态 */
   state: MCPClientState;
-  
+
   /** 连接统计 */
   stats: MCPConnectionStats;
-  
+
   /** 最后活动时间 */
   lastActivity: Date;
-  
+
   /** 连接错误 */
   error?: string;
-  
+
   /** 重试次数 */
   retryCount: number;
-  
+
   /** 是否启用自动重连 */
   autoReconnect: boolean;
 }
@@ -44,19 +44,19 @@ export interface MCPConnectionStatus {
 export interface MCPConnectionInfo {
   /** 服务器名称 */
   name: string;
-  
+
   /** 服务器配置 */
   config: ScopedMcpServerConfig;
-  
+
   /** 连接状态 */
   status: MCPConnectionStatus;
-  
+
   /** MCP客户端实例 */
   client?: MCPClient;
-  
+
   /** 连接开始时间 */
   connectedAt?: Date;
-  
+
   /** 连接结束时间 */
   disconnectedAt?: Date;
 }
@@ -67,16 +67,16 @@ export interface MCPConnectionInfo {
 export interface MCPSessionInfo {
   /** 会话ID */
   id: string;
-  
+
   /** 会话开始时间 */
   startedAt: Date;
-  
+
   /** 会话结束时间 */
   endedAt?: Date;
-  
+
   /** 连接的服务器 */
   connectedServers: string[];
-  
+
   /** 会话统计 */
   stats: {
     totalToolCalls: number;
@@ -102,8 +102,8 @@ export class MCPConnectionManager extends EventEmitter {
    * 创建连接（基于CC源码）
    */
   async createConnection(
-    name: string, 
-    config: ScopedMcpServerConfig, 
+    name: string,
+    config: ScopedMcpServerConfig,
     connectionConfig?: MCPConnectionConfig
   ): Promise<MCPClient> {
     if (this.connections.has(name)) {
@@ -124,20 +124,20 @@ export class MCPConnectionManager extends EventEmitter {
     };
 
     this.connections.set(name, connectionInfo);
-    
+
     // 创建客户端实例
     const client = await this.createClient(name, config, connectionConfig);
     connectionInfo.client = client;
-    
+
     // 设置事件监听器
     this.setupClientListeners(name, client);
-    
+
     // 尝试连接
     await this.connect(name);
-    
+
     this.emit('connectionCreated', { name, connectionInfo });
     console.log(`✅ MCP connection created: ${name}`);
-    
+
     return client;
   }
 
@@ -146,7 +146,7 @@ export class MCPConnectionManager extends EventEmitter {
    */
   async connect(name: string): Promise<void> {
     const connectionInfo = this.connections.get(name);
-    
+
     if (!connectionInfo) {
       throw new Error(`Connection not found: ${name}`);
     }
@@ -159,34 +159,38 @@ export class MCPConnectionManager extends EventEmitter {
       // 更新连接状态
       connectionInfo.status.state = 'connecting';
       connectionInfo.connectedAt = new Date();
-      
+
       this.emit('connectionStateChanged', { name, state: 'connecting' });
-      
+
       // 建立连接
       await connectionInfo.client.connect();
-      
+
       // 更新连接状态
       connectionInfo.status.state = 'connected';
       connectionInfo.status.retryCount = 0;
-      
+
       this.emit('connectionStateChanged', { name, state: 'connected' });
-      
+
       // 注册工具和资源
       await this.registerServerTools(name, connectionInfo.client);
-      
+
       console.log(`✅ MCP connection established: ${name}`);
-      
     } catch (error) {
       // 更新连接状态
       connectionInfo.status.state = 'error';
-      connectionInfo.status.error = error instanceof Error ? error.message : String(error);
+      connectionInfo.status.error =
+        error instanceof Error ? error.message : String(error);
       connectionInfo.disconnectedAt = new Date();
-      
-      this.emit('connectionStateChanged', { name, state: 'error', error: connectionInfo.status.error });
-      
+
+      this.emit('connectionStateChanged', {
+        name,
+        state: 'error',
+        error: connectionInfo.status.error,
+      });
+
       // 处理重连
       this.handleReconnect(name, connectionInfo);
-      
+
       throw error;
     }
   }
@@ -196,7 +200,7 @@ export class MCPConnectionManager extends EventEmitter {
    */
   async disconnect(name: string): Promise<void> {
     const connectionInfo = this.connections.get(name);
-    
+
     if (!connectionInfo) {
       throw new Error(`Connection not found: ${name}`);
     }
@@ -208,33 +212,37 @@ export class MCPConnectionManager extends EventEmitter {
     try {
       // 取消重连定时器
       this.cancelReconnect(name);
-      
+
       // 更新连接状态
       connectionInfo.status.state = 'disconnecting';
-      
+
       this.emit('connectionStateChanged', { name, state: 'disconnecting' });
-      
+
       // 断开连接
       await connectionInfo.client.disconnect();
-      
+
       // 更新连接状态
       connectionInfo.status.state = 'disconnected';
       connectionInfo.disconnectedAt = new Date();
-      
+
       this.emit('connectionStateChanged', { name, state: 'disconnected' });
-      
+
       // 清理工具和资源注册
       this.cleanupServerRegistrations(name);
-      
+
       console.log(`✅ MCP connection disconnected: ${name}`);
-      
     } catch (error) {
       // 更新连接状态
       connectionInfo.status.state = 'error';
-      connectionInfo.status.error = error instanceof Error ? error.message : String(error);
-      
-      this.emit('connectionStateChanged', { name, state: 'error', error: connectionInfo.status.error });
-      
+      connectionInfo.status.error =
+        error instanceof Error ? error.message : String(error);
+
+      this.emit('connectionStateChanged', {
+        name,
+        state: 'error',
+        error: connectionInfo.status.error,
+      });
+
       throw error;
     }
   }
@@ -244,21 +252,21 @@ export class MCPConnectionManager extends EventEmitter {
    */
   async reconnect(name: string): Promise<void> {
     const connectionInfo = this.connections.get(name);
-    
+
     if (!connectionInfo) {
       throw new Error(`Connection not found: ${name}`);
     }
 
     // 取消现有的重连定时器
     this.cancelReconnect(name);
-    
+
     // 先断开连接
     try {
       await this.disconnect(name);
     } catch (error) {
       // 忽略断开连接的错误
     }
-    
+
     // 重新连接
     await this.connect(name);
   }
@@ -268,22 +276,25 @@ export class MCPConnectionManager extends EventEmitter {
    */
   async removeConnection(name: string): Promise<void> {
     const connectionInfo = this.connections.get(name);
-    
+
     if (!connectionInfo) {
       throw new Error(`Connection not found: ${name}`);
     }
 
     // 取消重连定时器
     this.cancelReconnect(name);
-    
+
     // 断开连接
-    if (connectionInfo.client && connectionInfo.status.state !== 'disconnected') {
+    if (
+      connectionInfo.client &&
+      connectionInfo.status.state !== 'disconnected'
+    ) {
       await this.disconnect(name);
     }
-    
+
     // 移除连接
     this.connections.delete(name);
-    
+
     this.emit('connectionRemoved', { name });
     console.log(`✅ MCP connection removed: ${name}`);
   }
@@ -293,7 +304,7 @@ export class MCPConnectionManager extends EventEmitter {
    */
   startSession(sessionId?: string): string {
     const id = sessionId || this.generateSessionId();
-    
+
     if (this.sessions.has(id)) {
       throw new Error(`Session already exists: ${id}`);
     }
@@ -313,10 +324,10 @@ export class MCPConnectionManager extends EventEmitter {
 
     this.sessions.set(id, sessionInfo);
     this.currentSessionId = id;
-    
+
     this.emit('sessionStarted', { sessionId: id, sessionInfo });
     console.log(`✅ MCP session started: ${id}`);
-    
+
     return id;
   }
 
@@ -325,24 +336,25 @@ export class MCPConnectionManager extends EventEmitter {
    */
   endSession(sessionId?: string): void {
     const id = sessionId || this.currentSessionId;
-    
+
     if (!id) {
       throw new Error('No active session');
     }
 
     const sessionInfo = this.sessions.get(id);
-    
+
     if (!sessionInfo) {
       throw new Error(`Session not found: ${id}`);
     }
 
     sessionInfo.endedAt = new Date();
-    sessionInfo.stats.totalDuration = sessionInfo.endedAt.getTime() - sessionInfo.startedAt.getTime();
-    
+    sessionInfo.stats.totalDuration =
+      sessionInfo.endedAt.getTime() - sessionInfo.startedAt.getTime();
+
     if (this.currentSessionId === id) {
       this.currentSessionId = undefined;
     }
-    
+
     this.emit('sessionEnded', { sessionId: id, sessionInfo });
     console.log(`✅ MCP session ended: ${id}`);
   }
@@ -372,7 +384,9 @@ export class MCPConnectionManager extends EventEmitter {
    * 获取当前会话（基于CC源码）
    */
   getCurrentSession(): MCPSessionInfo | undefined {
-    return this.currentSessionId ? this.sessions.get(this.currentSessionId) : undefined;
+    return this.currentSessionId
+      ? this.sessions.get(this.currentSessionId)
+      : undefined;
   }
 
   /**
@@ -395,14 +409,19 @@ export class MCPConnectionManager extends EventEmitter {
   } {
     const connections = Array.from(this.connections.values());
     const sessions = Array.from(this.sessions.values());
-    
+
     return {
       totalConnections: connections.length,
-      connectedConnections: connections.filter(c => c.status.state === 'connected').length,
-      disconnectedConnections: connections.filter(c => c.status.state === 'disconnected').length,
-      errorConnections: connections.filter(c => c.status.state === 'error').length,
+      connectedConnections: connections.filter(
+        (c) => c.status.state === 'connected'
+      ).length,
+      disconnectedConnections: connections.filter(
+        (c) => c.status.state === 'disconnected'
+      ).length,
+      errorConnections: connections.filter((c) => c.status.state === 'error')
+        .length,
       totalSessions: sessions.length,
-      activeSessions: sessions.filter(s => !s.endedAt).length,
+      activeSessions: sessions.filter((s) => !s.endedAt).length,
     };
   }
 
@@ -411,17 +430,17 @@ export class MCPConnectionManager extends EventEmitter {
    */
   setAutoReconnect(name: string, enabled: boolean): void {
     const connectionInfo = this.connections.get(name);
-    
+
     if (!connectionInfo) {
       throw new Error(`Connection not found: ${name}`);
     }
 
     connectionInfo.status.autoReconnect = enabled;
-    
+
     if (!enabled) {
       this.cancelReconnect(name);
     }
-    
+
     this.emit('autoReconnectChanged', { name, enabled });
   }
 
@@ -433,24 +452,26 @@ export class MCPConnectionManager extends EventEmitter {
     if (this.currentSessionId) {
       this.endSession(this.currentSessionId);
     }
-    
+
     // 断开所有连接
-    const disconnectPromises = Array.from(this.connections.keys()).map(async name => {
-      try {
-        await this.removeConnection(name);
-      } catch (error) {
-        console.warn(`Failed to remove connection ${name}:`, error);
+    const disconnectPromises = Array.from(this.connections.keys()).map(
+      async (name) => {
+        try {
+          await this.removeConnection(name);
+        } catch (error) {
+          console.warn(`Failed to remove connection ${name}:`, error);
+        }
       }
-    });
-    
+    );
+
     await Promise.all(disconnectPromises);
-    
+
     // 清理重连定时器
     for (const [name, timer] of this.reconnectTimers.entries()) {
       clearTimeout(timer);
       this.reconnectTimers.delete(name);
     }
-    
+
     this.emit('cleanupCompleted');
     console.log('✅ MCP connection manager cleanup completed');
   }
@@ -459,39 +480,39 @@ export class MCPConnectionManager extends EventEmitter {
    * 创建客户端实例（基于CC源码）
    */
   private async createClient(
-    name: string, 
-    config: ScopedMcpServerConfig, 
+    name: string,
+    config: ScopedMcpServerConfig,
     connectionConfig?: MCPConnectionConfig
   ): Promise<MCPClient> {
     // 这里应该根据配置创建具体的传输层
     // 目前返回一个模拟的客户端
-    
+
     const mockTransport = {
       name,
       state: 'disconnected' as MCPClientState,
-      
+
       async connect(): Promise<void> {
         this.state = 'connected';
       },
-      
+
       async disconnect(): Promise<void> {
         this.state = 'disconnected';
       },
-      
+
       async send(request: any): Promise<void> {
         // 模拟发送请求
       },
-      
+
       async *receive(): AsyncIterable<any> {
         // 模拟接收响应
         yield {};
       },
-      
+
       on(event: string, listener: (...args: any[]) => void): void {
         // 模拟事件监听
       },
     };
-    
+
     return new MCPClientImpl(mockTransport as any);
   }
 
@@ -502,27 +523,27 @@ export class MCPConnectionManager extends EventEmitter {
     client.on('event', (event) => {
       this.emit('clientEvent', { name, event });
     });
-    
+
     client.on('state_change', (event) => {
       const connectionInfo = this.connections.get(name);
       if (connectionInfo) {
         connectionInfo.status.state = event.data.newState;
         connectionInfo.status.lastActivity = new Date();
-        
-        this.emit('connectionStateChanged', { 
-          name, 
-          state: event.data.newState, 
-          oldState: event.data.oldState 
+
+        this.emit('connectionStateChanged', {
+          name,
+          state: event.data.newState,
+          oldState: event.data.oldState,
         });
       }
     });
-    
+
     client.on('error', (event) => {
       const connectionInfo = this.connections.get(name);
       if (connectionInfo) {
         connectionInfo.status.error = event.data.error.message;
         connectionInfo.status.lastActivity = new Date();
-        
+
         this.emit('connectionError', { name, error: event.data.error });
       }
     });
@@ -531,7 +552,10 @@ export class MCPConnectionManager extends EventEmitter {
   /**
    * 处理重连逻辑（基于CC源码）
    */
-  private handleReconnect(name: string, connectionInfo: MCPConnectionInfo): void {
+  private handleReconnect(
+    name: string,
+    connectionInfo: MCPConnectionInfo
+  ): void {
     if (!connectionInfo.status.autoReconnect) {
       return;
     }
@@ -542,11 +566,14 @@ export class MCPConnectionManager extends EventEmitter {
     }
 
     connectionInfo.status.retryCount++;
-    
-    const retryDelay = this.retryInterval * Math.pow(2, connectionInfo.status.retryCount - 1);
-    
-    console.log(`Scheduling reconnect for ${name} in ${retryDelay}ms (attempt ${connectionInfo.status.retryCount})`);
-    
+
+    const retryDelay =
+      this.retryInterval * Math.pow(2, connectionInfo.status.retryCount - 1);
+
+    console.log(
+      `Scheduling reconnect for ${name} in ${retryDelay}ms (attempt ${connectionInfo.status.retryCount})`
+    );
+
     const timer = setTimeout(async () => {
       try {
         await this.reconnect(name);
@@ -554,7 +581,7 @@ export class MCPConnectionManager extends EventEmitter {
         console.warn(`Reconnect failed for ${name}:`, error);
       }
     }, retryDelay);
-    
+
     this.reconnectTimers.set(name, timer);
   }
 
@@ -572,28 +599,32 @@ export class MCPConnectionManager extends EventEmitter {
   /**
    * 注册服务器工具（基于CC源码）
    */
-  private async registerServerTools(name: string, client: MCPClient): Promise<void> {
+  private async registerServerTools(
+    name: string,
+    client: MCPClient
+  ): Promise<void> {
     try {
       // 获取服务器工具
       const tools = await client.listTools();
-      
+
       // 注册工具
       globalMCPToolManager.registerTools(name, tools);
-      
+
       // 获取服务器资源
       const resources = await client.listResources();
-      
+
       // 注册资源
       globalMCPToolManager.registerResources(name, resources);
-      
+
       // 获取服务器提示
       const prompts = await client.listPrompts();
-      
+
       // 注册提示
       globalMCPToolManager.registerPrompts(name, prompts);
-      
-      console.log(`✅ Registered ${tools.length} tools, ${resources.length} resources, ${prompts.length} prompts for ${name}`);
-      
+
+      console.log(
+        `✅ Registered ${tools.length} tools, ${resources.length} resources, ${prompts.length} prompts for ${name}`
+      );
     } catch (error) {
       console.warn(`Failed to register tools for ${name}:`, error);
     }

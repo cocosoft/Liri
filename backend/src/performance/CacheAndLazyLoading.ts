@@ -38,7 +38,7 @@ export class CacheManager<T> {
     const config = getPerformanceConfig();
     this.maxSize = (config.cache.sizeLimitMb || maxSizeMb) * 1024 * 1024; // 转换为字节
     this.defaultExpiry = config.cache.expirationMs || defaultExpiryMs;
-    
+
     // 定期清理过期缓存
     setInterval(() => this.cleanup(), 60000); // 每分钟清理一次
   }
@@ -48,7 +48,7 @@ export class CacheManager<T> {
    */
   get(key: string): T | null {
     using _ = slowLogging`CacheManager.get(${key})`;
-    
+
     const item = this.cache.get(key);
     if (!item) {
       return null;
@@ -71,7 +71,7 @@ export class CacheManager<T> {
    */
   set(key: string, value: T, expiryMs?: number): void {
     using _ = slowLogging`CacheManager.set(${key})`;
-    
+
     const size = this.calculateSize(value);
     const expiry = Date.now() + (expiryMs || this.defaultExpiry);
     const accessed = Date.now();
@@ -97,7 +97,7 @@ export class CacheManager<T> {
    */
   delete(key: string): void {
     using _ = slowLogging`CacheManager.delete(${key})`;
-    
+
     const item = this.cache.get(key);
     if (item) {
       this.size -= item.size;
@@ -110,7 +110,7 @@ export class CacheManager<T> {
    */
   clear(): void {
     using _ = slowLogging`CacheManager.clear()`;
-    
+
     this.cache.clear();
     this.size = 0;
   }
@@ -134,7 +134,7 @@ export class CacheManager<T> {
    */
   cleanup(): void {
     using _ = slowLogging`CacheManager.cleanup()`;
-    
+
     const now = Date.now();
     let cleaned = 0;
 
@@ -213,11 +213,16 @@ export class LazyLoadingManager {
   /**
    * 延迟加载函数
    */
-  async lazyLoad<T>(key: string, loader: () => Promise<T>, options: LazyLoadingOptions = {}): Promise<T> {
+  async lazyLoad<T>(
+    key: string,
+    loader: () => Promise<T>,
+    options: LazyLoadingOptions = {}
+  ): Promise<T> {
     using _ = slowLogging`LazyLoadingManager.lazyLoad(${key})`;
-    
+
     const config = getPerformanceConfig();
-    const preloadThresholdMs = options.preloadThresholdMs || config.lazyLoading.preloadThresholdMs;
+    const preloadThresholdMs =
+      options.preloadThresholdMs || config.lazyLoading.preloadThresholdMs;
     const useCache = options.cache !== false;
     const cacheExpiryMs = options.cacheExpiryMs;
 
@@ -239,12 +244,12 @@ export class LazyLoadingManager {
     const loadPromise = (async () => {
       try {
         const result = await loader();
-        
+
         // 缓存结果
         if (useCache) {
           this.cache.set(key, result, cacheExpiryMs);
         }
-        
+
         return result;
       } finally {
         // 移除加载中的标记
@@ -261,9 +266,13 @@ export class LazyLoadingManager {
   /**
    * 预加载
    */
-  async preload<T>(key: string, loader: () => Promise<T>, options: LazyLoadingOptions = {}): Promise<void> {
+  async preload<T>(
+    key: string,
+    loader: () => Promise<T>,
+    options: LazyLoadingOptions = {}
+  ): Promise<void> {
     using _ = slowLogging`LazyLoadingManager.preload(${key})`;
-    
+
     // 检查缓存
     if (options.cache !== false && this.cache.get(key) !== null) {
       return;
@@ -345,13 +354,21 @@ export function clearCache(): void {
 /**
  * 延迟加载
  */
-export async function lazyLoad<T>(key: string, loader: () => Promise<T>, options: LazyLoadingOptions = {}): Promise<T> {
+export async function lazyLoad<T>(
+  key: string,
+  loader: () => Promise<T>,
+  options: LazyLoadingOptions = {}
+): Promise<T> {
   return globalLazyLoadingManager.lazyLoad(key, loader, options);
 }
 
 /**
  * 预加载
  */
-export async function preload<T>(key: string, loader: () => Promise<T>, options: LazyLoadingOptions = {}): Promise<void> {
+export async function preload<T>(
+  key: string,
+  loader: () => Promise<T>,
+  options: LazyLoadingOptions = {}
+): Promise<void> {
   return globalLazyLoadingManager.preload(key, loader, options);
 }

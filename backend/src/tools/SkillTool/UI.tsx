@@ -1,19 +1,19 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type SkillOutput = {
-  skillName?: string
-  skillType?: string
-  result?: string
-  error?: string
-}
+  skillName?: string;
+  skillType?: string;
+  result?: string;
+  error?: string;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ name: string; arguments?: Record<string, unknown> }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { name, arguments: args } = input
-  if (!name) return null
+  const { name, arguments: args } = input;
+  if (!name) return null;
 
   if (verbose && args) {
     return (
@@ -24,11 +24,13 @@ export function renderToolUseMessage(
         </Box>
         <Box marginTop={1} marginLeft={2}>
           <Text dimColor>
-            {Object.entries(args).map(([k, v]) => `${k}=${String(v).slice(0, 40)}`).join(', ')}
+            {Object.entries(args)
+              .map(([k, v]) => `${k}=${String(v).slice(0, 40)}`)
+              .join(', ')}
           </Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
@@ -36,15 +38,15 @@ export function renderToolUseMessage(
       <Text dimColor>Running skill: </Text>
       <Text bold>{name}</Text>
     </Box>
-  )
+  );
 }
 
 export function renderToolResultMessage(
   output: SkillOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { skillName, skillType, result, error } = output
+  const { skillName, skillType, result, error } = output;
 
   if (error) {
     return (
@@ -57,7 +59,7 @@ export function renderToolResultMessage(
           <Text color="red">{error.slice(0, 300)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   if (verbose && result) {
@@ -71,7 +73,7 @@ export function renderToolResultMessage(
           <Text dimColor>{result.slice(0, 500)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
@@ -80,12 +82,12 @@ export function renderToolResultMessage(
       <Text>{skillName || 'skill'} completed</Text>
       {skillType ? <Text dimColor> [{skillType}]</Text> : null}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ name: string }> | undefined,
+  input: Partial<{ name: string }> | undefined
 ): string | null {
-  if (!input?.name) return null
-  return `Skill: ${input.name}`
+  if (!input?.name) return null;
+  return `Skill: ${input.name}`;
 }

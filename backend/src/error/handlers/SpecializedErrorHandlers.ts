@@ -2,7 +2,14 @@
  * 专门错误处理类
  */
 
-import { AppError, ErrorCategory, NetworkError, FileSystemError, PermissionError, ValidationError } from '../types';
+import {
+  AppError,
+  ErrorCategory,
+  NetworkError,
+  FileSystemError,
+  PermissionError,
+  ValidationError,
+} from '../types';
 import { SafeLogger } from '../safeLog';
 import { ErrorFormatter } from '../formatter';
 
@@ -21,17 +28,17 @@ class NetworkErrorHandler implements ErrorHandlingStrategy {
   handle(error: NetworkError): void {
     SafeLogger.logError(error, {
       action: 'network_retry',
-      retryCount: error.context?.retryCount || 0
+      retryCount: error.context?.retryCount || 0,
     });
-    
+
     // 可以在这里实现网络错误的重试逻辑
     if ((error.context?.retryCount || 0) < 3) {
       SafeLogger.logInfo('Retrying network operation...', {
-        retryCount: (error.context?.retryCount || 0) + 1
+        retryCount: (error.context?.retryCount || 0) + 1,
       });
     }
   }
-  
+
   canHandle(error: AppError): boolean {
     return error.category === ErrorCategory.NETWORK;
   }
@@ -44,15 +51,15 @@ class FileSystemErrorHandler implements ErrorHandlingStrategy {
   handle(error: FileSystemError): void {
     SafeLogger.logError(error, {
       action: 'file_system_recovery',
-      path: error.context?.path
+      path: error.context?.path,
     });
-    
+
     // 可以在这里实现文件系统错误的恢复逻辑
     if (error.context?.path) {
       SafeLogger.logInfo(`Checking file path: ${error.context.path}`);
     }
   }
-  
+
   canHandle(error: AppError): boolean {
     return error.category === ErrorCategory.FILESYSTEM;
   }
@@ -65,15 +72,17 @@ class PermissionErrorHandler implements ErrorHandlingStrategy {
   handle(error: PermissionError): void {
     SafeLogger.logError(error, {
       action: 'permission_escalation',
-      resource: error.context?.resource
+      resource: error.context?.resource,
     });
-    
+
     // 可以在这里实现权限错误的处理逻辑
     if (error.context?.resource) {
-      SafeLogger.logInfo(`Checking permissions for resource: ${error.context.resource}`);
+      SafeLogger.logInfo(
+        `Checking permissions for resource: ${error.context.resource}`
+      );
     }
   }
-  
+
   canHandle(error: AppError): boolean {
     return error.category === ErrorCategory.PERMISSION;
   }
@@ -86,16 +95,16 @@ class ValidationErrorHandler implements ErrorHandlingStrategy {
   handle(error: ValidationError): void {
     SafeLogger.logError(error, {
       action: 'validation_correction',
-      fields: error.context?.fields
+      fields: error.context?.fields,
     });
-    
+
     // 可以在这里实现验证错误的处理逻辑
     const userFriendlyMessage = ErrorFormatter.formatUserFriendly(error);
     SafeLogger.logInfo('User-friendly validation error message:', {
-      message: userFriendlyMessage
+      message: userFriendlyMessage,
     });
   }
-  
+
   canHandle(error: AppError): boolean {
     return error.category === ErrorCategory.VALIDATION;
   }
@@ -108,15 +117,15 @@ class ExecutionErrorHandler implements ErrorHandlingStrategy {
   handle(error: AppError): void {
     SafeLogger.logError(error, {
       action: 'execution_recovery',
-      operation: error.context?.operation
+      operation: error.context?.operation,
     });
-    
+
     // 可以在这里实现执行错误的恢复逻辑
     if (error.context?.operation) {
       SafeLogger.logInfo(`Operation failed: ${error.context.operation}`);
     }
   }
-  
+
   canHandle(error: AppError): boolean {
     return error.category === ErrorCategory.EXECUTION;
   }
@@ -131,7 +140,7 @@ export class SpecializedErrorHandler {
     new FileSystemErrorHandler(),
     new PermissionErrorHandler(),
     new ValidationErrorHandler(),
-    new ExecutionErrorHandler()
+    new ExecutionErrorHandler(),
   ];
 
   /**
@@ -145,7 +154,7 @@ export class SpecializedErrorHandler {
         return;
       }
     }
-    
+
     // 默认处理
     this.handleDefault(error);
   }
@@ -156,7 +165,7 @@ export class SpecializedErrorHandler {
    */
   private handleDefault(error: AppError): void {
     SafeLogger.logError(error, {
-      action: 'default_error_handling'
+      action: 'default_error_handling',
     });
   }
 

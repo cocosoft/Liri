@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { MemoryIndexer } from './indexer/MemoryIndexer';
 import type { IndexEntry } from './indexer/MemoryIndexer';
-import { MemoryPriorityManager, PriorityTier, calculateScore, scoreToTier } from './priority/MemoryPriorityManager';
+import {
+  MemoryPriorityManager,
+  PriorityTier,
+  calculateScore,
+  scoreToTier,
+} from './priority/MemoryPriorityManager';
 import type { PriorityFactor } from './priority/MemoryPriorityManager';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import type { MergeCandidate } from './consolidation/MemoryConsolidator';
@@ -15,9 +20,13 @@ describe('MemoryIndexer', () => {
 
   it('indexes a single entry', () => {
     const entry: IndexEntry = {
-      memoryId: 'mem1', tags: ['tag1'], type: 'note',
-      createdAt: Date.now(), updatedAt: Date.now(),
-      contentHash: 'abc', contentPreview: 'hello world',
+      memoryId: 'mem1',
+      tags: ['tag1'],
+      type: 'note',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      contentHash: 'abc',
+      contentPreview: 'hello world',
     };
     indexer.index(entry);
     expect(indexer.getStats().totalEntries).toBe(1);
@@ -25,8 +34,24 @@ describe('MemoryIndexer', () => {
 
   it('batch indexes entries', () => {
     const entries: IndexEntry[] = [
-      { memoryId: 'a', tags: ['t1'], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'first' },
-      { memoryId: 'b', tags: ['t2'], type: 'task', createdAt: 200, updatedAt: 200, contentHash: 'h2', contentPreview: 'second' },
+      {
+        memoryId: 'a',
+        tags: ['t1'],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'first',
+      },
+      {
+        memoryId: 'b',
+        tags: ['t2'],
+        type: 'task',
+        createdAt: 200,
+        updatedAt: 200,
+        contentHash: 'h2',
+        contentPreview: 'second',
+      },
     ];
     indexer.batchIndex(entries);
     expect(indexer.getStats().totalEntries).toBe(2);
@@ -34,9 +59,13 @@ describe('MemoryIndexer', () => {
 
   it('removes an entry', () => {
     const entry: IndexEntry = {
-      memoryId: 'remove-me', tags: ['x'], type: 'note',
-      createdAt: Date.now(), updatedAt: Date.now(),
-      contentHash: 'x', contentPreview: 'remove',
+      memoryId: 'remove-me',
+      tags: ['x'],
+      type: 'note',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      contentHash: 'x',
+      contentPreview: 'remove',
     };
     indexer.index(entry);
     expect(indexer.remove('remove-me')).toBe(true);
@@ -49,8 +78,24 @@ describe('MemoryIndexer', () => {
 
   it('searches by tag', () => {
     indexer.batchIndex([
-      { memoryId: 'a', tags: ['important'], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'a' },
-      { memoryId: 'b', tags: ['normal'], type: 'note', createdAt: 200, updatedAt: 200, contentHash: 'h2', contentPreview: 'b' },
+      {
+        memoryId: 'a',
+        tags: ['important'],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'a',
+      },
+      {
+        memoryId: 'b',
+        tags: ['normal'],
+        type: 'note',
+        createdAt: 200,
+        updatedAt: 200,
+        contentHash: 'h2',
+        contentPreview: 'b',
+      },
     ]);
     const results = indexer.getByTag('important');
     expect(results.length).toBe(1);
@@ -59,8 +104,24 @@ describe('MemoryIndexer', () => {
 
   it('searches by type', () => {
     indexer.batchIndex([
-      { memoryId: 'a', tags: [], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'a' },
-      { memoryId: 'b', tags: [], type: 'task', createdAt: 200, updatedAt: 200, contentHash: 'h2', contentPreview: 'b' },
+      {
+        memoryId: 'a',
+        tags: [],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'a',
+      },
+      {
+        memoryId: 'b',
+        tags: [],
+        type: 'task',
+        createdAt: 200,
+        updatedAt: 200,
+        contentHash: 'h2',
+        contentPreview: 'b',
+      },
     ]);
     const results = indexer.getByType('task');
     expect(results.length).toBe(1);
@@ -69,8 +130,24 @@ describe('MemoryIndexer', () => {
 
   it('searches by time range', () => {
     indexer.batchIndex([
-      { memoryId: 'old', tags: [], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'old' },
-      { memoryId: 'new', tags: [], type: 'note', createdAt: 300, updatedAt: 300, contentHash: 'h2', contentPreview: 'new' },
+      {
+        memoryId: 'old',
+        tags: [],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'old',
+      },
+      {
+        memoryId: 'new',
+        tags: [],
+        type: 'note',
+        createdAt: 300,
+        updatedAt: 300,
+        contentHash: 'h2',
+        contentPreview: 'new',
+      },
     ]);
     const results = indexer.getByTimeRange(150, 400);
     expect(results.length).toBe(1);
@@ -79,8 +156,24 @@ describe('MemoryIndexer', () => {
 
   it('searches by keyword', () => {
     indexer.batchIndex([
-      { memoryId: 'a', tags: [], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'apple banana' },
-      { memoryId: 'b', tags: [], type: 'note', createdAt: 200, updatedAt: 200, contentHash: 'h2', contentPreview: 'cherry date' },
+      {
+        memoryId: 'a',
+        tags: [],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'apple banana',
+      },
+      {
+        memoryId: 'b',
+        tags: [],
+        type: 'note',
+        createdAt: 200,
+        updatedAt: 200,
+        contentHash: 'h2',
+        contentPreview: 'cherry date',
+      },
     ]);
     const results = indexer.searchByKeyword('apple');
     expect(results.length).toBe(1);
@@ -89,8 +182,24 @@ describe('MemoryIndexer', () => {
 
   it('supports compound search', () => {
     indexer.batchIndex([
-      { memoryId: 'a', tags: ['work'], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'project report' },
-      { memoryId: 'b', tags: ['personal'], type: 'note', createdAt: 200, updatedAt: 200, contentHash: 'h2', contentPreview: 'shopping list' },
+      {
+        memoryId: 'a',
+        tags: ['work'],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'project report',
+      },
+      {
+        memoryId: 'b',
+        tags: ['personal'],
+        type: 'note',
+        createdAt: 200,
+        updatedAt: 200,
+        contentHash: 'h2',
+        contentPreview: 'shopping list',
+      },
     ]);
     const results = indexer.search({ tags: ['work'], keyword: 'report' });
     expect(results.length).toBe(1);
@@ -99,8 +208,24 @@ describe('MemoryIndexer', () => {
 
   it('generates index stats', () => {
     indexer.batchIndex([
-      { memoryId: 'a', tags: ['urgent', 'work'], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'urgent note' },
-      { memoryId: 'b', tags: ['work'], type: 'task', createdAt: 200, updatedAt: 200, contentHash: 'h2', contentPreview: 'work task' },
+      {
+        memoryId: 'a',
+        tags: ['urgent', 'work'],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'urgent note',
+      },
+      {
+        memoryId: 'b',
+        tags: ['work'],
+        type: 'task',
+        createdAt: 200,
+        updatedAt: 200,
+        contentHash: 'h2',
+        contentPreview: 'work task',
+      },
     ]);
     const stats = indexer.getStats();
     expect(stats.totalEntries).toBe(2);
@@ -112,7 +237,15 @@ describe('MemoryIndexer', () => {
 
   it('clears all data', () => {
     indexer.batchIndex([
-      { memoryId: 'a', tags: [], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'a' },
+      {
+        memoryId: 'a',
+        tags: [],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'a',
+      },
     ]);
     indexer.clear();
     expect(indexer.getStats().totalEntries).toBe(0);
@@ -164,7 +297,9 @@ describe('MemoryPriorityManager', () => {
 
   it('updates existing priority', () => {
     manager.assignPriority('updatable', [{ name: 'w', weight: 1, value: 0.5 }]);
-    const updated = manager.updatePriority('updatable', [{ name: 'w', weight: 1, value: 0.95 }]);
+    const updated = manager.updatePriority('updatable', [
+      { name: 'w', weight: 1, value: 0.95 },
+    ]);
     expect(updated.tier).toBe(PriorityTier.CRITICAL);
     const retrieved = manager.getPriority('updatable');
     expect(retrieved!.tier).toBe(PriorityTier.CRITICAL);
@@ -253,8 +388,18 @@ describe('MemoryConsolidator', () => {
 
   it('finds merge candidates for similar memories', () => {
     const memories = [
-      { id: 'a', content: 'the quick brown fox jumps over the lazy dog', tags: ['animal'], createdAt: 100 },
-      { id: 'b', content: 'the quick brown fox jumps over the lazy cat', tags: ['pet'], createdAt: 200 },
+      {
+        id: 'a',
+        content: 'the quick brown fox jumps over the lazy dog',
+        tags: ['animal'],
+        createdAt: 100,
+      },
+      {
+        id: 'b',
+        content: 'the quick brown fox jumps over the lazy cat',
+        tags: ['pet'],
+        createdAt: 200,
+      },
     ];
     const candidates = consolidator.findMergeCandidates(memories);
     expect(candidates.length).toBeGreaterThan(0);
@@ -265,8 +410,18 @@ describe('MemoryConsolidator', () => {
   it('returns empty for dissimilar memories', () => {
     consolidator = new MemoryConsolidator({ similarityThreshold: 0.9 });
     const memories = [
-      { id: 'a', content: 'hello world this is a test', tags: [], createdAt: 100 },
-      { id: 'b', content: 'completely unrelated content here', tags: [], createdAt: 200 },
+      {
+        id: 'a',
+        content: 'hello world this is a test',
+        tags: [],
+        createdAt: 100,
+      },
+      {
+        id: 'b',
+        content: 'completely unrelated content here',
+        tags: [],
+        createdAt: 200,
+      },
     ];
     const candidates = consolidator.findMergeCandidates(memories);
     expect(candidates.length).toBe(0);
@@ -289,8 +444,16 @@ describe('MemoryConsolidator', () => {
 
   it('finds duplicates', () => {
     const memories = [
-      { id: 'a', content: 'the quick brown fox jumps over the lazy dog', createdAt: 100 },
-      { id: 'b', content: 'the quick brown fox jumps over the lazy dog', createdAt: 200 },
+      {
+        id: 'a',
+        content: 'the quick brown fox jumps over the lazy dog',
+        createdAt: 100,
+      },
+      {
+        id: 'b',
+        content: 'the quick brown fox jumps over the lazy dog',
+        createdAt: 200,
+      },
       { id: 'c', content: 'completely different content here', createdAt: 300 },
     ];
     const result = consolidator.findDuplicates(memories);
@@ -314,11 +477,29 @@ describe('MemoryConsolidator', () => {
   });
 
   it('respected max merge batch limit', () => {
-    consolidator = new MemoryConsolidator({ similarityThreshold: 1, maxMergeBatch: 1 });
+    consolidator = new MemoryConsolidator({
+      similarityThreshold: 1,
+      maxMergeBatch: 1,
+    });
     const memories = [
-      { id: 'a', content: 'exact same content for testing', tags: [], createdAt: 100 },
-      { id: 'b', content: 'exact same content for testing', tags: [], createdAt: 200 },
-      { id: 'c', content: 'exact same content for testing', tags: [], createdAt: 300 },
+      {
+        id: 'a',
+        content: 'exact same content for testing',
+        tags: [],
+        createdAt: 100,
+      },
+      {
+        id: 'b',
+        content: 'exact same content for testing',
+        tags: [],
+        createdAt: 200,
+      },
+      {
+        id: 'c',
+        content: 'exact same content for testing',
+        tags: [],
+        createdAt: 300,
+      },
     ];
     const candidates = consolidator.findMergeCandidates(memories);
     expect(candidates.length).toBeLessThanOrEqual(1);
@@ -330,15 +511,37 @@ describe('Memory Integration', () => {
     const indexer = new MemoryIndexer();
     const priorityManager = new MemoryPriorityManager();
 
-    priorityManager.assignPriority('m1', [{ name: 'importance', weight: 1, value: 0.95 }]);
-    priorityManager.assignPriority('m2', [{ name: 'importance', weight: 1, value: 0.3 }]);
-
-    indexer.batchIndex([
-      { memoryId: 'm1', tags: ['critical'], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: 'critical memory' },
-      { memoryId: 'm2', tags: ['low'], type: 'archive', createdAt: 200, updatedAt: 200, contentHash: 'h2', contentPreview: 'low priority' },
+    priorityManager.assignPriority('m1', [
+      { name: 'importance', weight: 1, value: 0.95 },
+    ]);
+    priorityManager.assignPriority('m2', [
+      { name: 'importance', weight: 1, value: 0.3 },
     ]);
 
-    const criticalIds = priorityManager.getMemoriesByTier(PriorityTier.CRITICAL);
+    indexer.batchIndex([
+      {
+        memoryId: 'm1',
+        tags: ['critical'],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: 'critical memory',
+      },
+      {
+        memoryId: 'm2',
+        tags: ['low'],
+        type: 'archive',
+        createdAt: 200,
+        updatedAt: 200,
+        contentHash: 'h2',
+        contentPreview: 'low priority',
+      },
+    ]);
+
+    const criticalIds = priorityManager.getMemoriesByTier(
+      PriorityTier.CRITICAL
+    );
     expect(criticalIds).toContain('m1');
 
     const urgentResults = indexer.getByTag('critical');
@@ -350,8 +553,18 @@ describe('Memory Integration', () => {
     const consolidator = new MemoryConsolidator({ similarityThreshold: 0.8 });
 
     const memories = [
-      { id: 'd1', content: 'duplicate content for merge testing purposes', tags: ['dup'], createdAt: 100 },
-      { id: 'd2', content: 'duplicate content for merge testing purposes', tags: ['dup'], createdAt: 200 },
+      {
+        id: 'd1',
+        content: 'duplicate content for merge testing purposes',
+        tags: ['dup'],
+        createdAt: 100,
+      },
+      {
+        id: 'd2',
+        content: 'duplicate content for merge testing purposes',
+        tags: ['dup'],
+        createdAt: 200,
+      },
     ];
 
     const dedup = consolidator.findDuplicates(memories);
@@ -359,7 +572,15 @@ describe('Memory Integration', () => {
 
     const keepId = memories[0].id;
     indexer.batchIndex([
-      { memoryId: keepId, tags: ['dup'], type: 'note', createdAt: 100, updatedAt: 100, contentHash: 'h1', contentPreview: memories[0].content },
+      {
+        memoryId: keepId,
+        tags: ['dup'],
+        type: 'note',
+        createdAt: 100,
+        updatedAt: 100,
+        contentHash: 'h1',
+        contentPreview: memories[0].content,
+      },
     ]);
     expect(indexer.getStats().totalEntries).toBe(1);
     expect(indexer.searchByKeyword('duplicate').length).toBe(1);

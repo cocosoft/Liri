@@ -5,9 +5,6 @@ export {
   type MemoryType,
   type MemoryExtractionResult,
   type ExtractionConfig,
-} from './ExtractMemories'
+} from './ExtractMemories';
 
-export {
-  buildExtractMemoryPrompt,
-  buildSummarizePrompt,
-} from './prompts'
+export { buildExtractMemoryPrompt, buildSummarizePrompt } from './prompts';

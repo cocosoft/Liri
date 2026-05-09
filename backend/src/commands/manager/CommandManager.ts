@@ -3,11 +3,21 @@
  * 命令管理器
  * 处理命令执行和管理
  */
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { commandRegistry } from '@modules/commands/registry/CommandRegistry.js';
 import { commandLoaderRegistry } from '@modules/commands/loader/CommandLoader.js';
 import { getCommandParser } from '@modules/commands/parser/CommandParser.js';
-import { REMOTE_SAFE_COMMANDS, BRIDGE_SAFE_COMMANDS } from '@modules/commands/constants/CommandConstants.js';
+import {
+  REMOTE_SAFE_COMMANDS,
+  BRIDGE_SAFE_COMMANDS,
+} from '@modules/commands/constants/CommandConstants.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 命令管理器类
@@ -52,7 +62,7 @@ export class CommandManager {
    * 初始化命令系统
    */
   async initialize(): Promise<void> {
-    console.log('Initializing command system...');
+    logger.info('Initializing command system...');
 
     try {
       // 加载所有命令
@@ -72,12 +82,15 @@ export class CommandManager {
         }
       }
 
-      console.log(`Loaded ${registeredCount} commands`);
+      logger.info(`Loaded ${registeredCount} commands`);
     } catch (error) {
-      console.error('Failed to initialize command system:', error);
+      logger.error(
+        'Failed to initialize command system',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
 
-    console.log('Command system initialized successfully');
+    logger.info('Command system initialized successfully');
   }
 
   /**
@@ -131,19 +144,35 @@ export class CommandManager {
       }
 
       // 执行命令
-      if (typeof implementation === 'object' && implementation !== null && implementation.execute) {
+      if (
+        typeof implementation === 'object' &&
+        implementation !== null &&
+        implementation.execute
+      ) {
         // 使用 bind 确保 this 正确绑定到实例
         return await implementation.execute.bind(implementation)(args, context);
-      } else if (typeof implementation === 'object' && implementation !== null && implementation.call) {
+      } else if (
+        typeof implementation === 'object' &&
+        implementation !== null &&
+        implementation.call
+      ) {
         // 支持 call 方法作为 execute 的别名
-        const result = await implementation.call.bind(implementation)(args, context);
+        const result = await implementation.call.bind(implementation)(
+          args,
+          context
+        );
         return {
           success: true,
           data: result,
         };
-      } else if (typeof implementation === 'object' && implementation !== null && implementation.getPromptForCommand) {
+      } else if (
+        typeof implementation === 'object' &&
+        implementation !== null &&
+        implementation.getPromptForCommand
+      ) {
         // 对于prompt类型命令，返回提示
-        const prompt = implementation.getPromptForCommand.bind(implementation)(args);
+        const prompt =
+          implementation.getPromptForCommand.bind(implementation)(args);
         return {
           success: true,
           data: { prompt },
@@ -155,7 +184,10 @@ export class CommandManager {
         };
       }
     } catch (error) {
-      console.error(`Failed to execute command ${name}:`, error);
+      logger.error(
+        `Failed to execute command ${name}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       return {
         success: false,
         error: `Failed to execute command: ${error instanceof Error ? error.message : String(error)}`,
@@ -269,7 +301,7 @@ export class CommandManager {
    */
   meetsAvailabilityRequirement(command: Command): boolean {
     if (!command.availability) return true;
-    
+
     // 检查auth/provider状态（简化实现，后续可根据实际需求扩展）
     for (const a of command.availability) {
       switch (a) {
@@ -325,8 +357,10 @@ export class CommandManager {
    */
   private checkMobileAvailability(): boolean {
     // 检查是否在移动端环境中运行
-    return process.env.MOBILE_ENV === 'true' || 
-           (typeof navigator !== 'undefined' && /mobile/i.test(navigator.userAgent));
+    return (
+      process.env.MOBILE_ENV === 'true' ||
+      (typeof navigator !== 'undefined' && /mobile/i.test(navigator.userAgent))
+    );
   }
 
   /**
@@ -343,9 +377,7 @@ export class CommandManager {
    * @returns 远程安全命令列表
    */
   filterCommandsForRemoteMode(commands: Command[]): Command[] {
-    return commands.filter(command => 
-      REMOTE_SAFE_COMMANDS.has(command.name)
-    );
+    return commands.filter((command) => REMOTE_SAFE_COMMANDS.has(command.name));
   }
 
   /**
@@ -364,7 +396,7 @@ export class CommandManager {
     this.clearCache();
     // 清除技能缓存（如果有）
     // 清除插件命令缓存（如果有）
-    console.log('Command cache cleared');
+    logger.info('Command cache cleared');
   }
 
   /**
@@ -380,7 +412,13 @@ export class CommandManager {
     query: string,
     options: {
       limit?: number;
-      searchFields?: ('name' | 'description' | 'aliases' | 'whenToUse' | 'argumentHint')[];
+      searchFields?: (
+        | 'name'
+        | 'description'
+        | 'aliases'
+        | 'whenToUse'
+        | 'argumentHint'
+      )[];
       includeHidden?: boolean;
     } = {}
   ): { command: Command; relevance: number }[] {
@@ -399,11 +437,14 @@ export class CommandManager {
    * 获取加载状态
    * @returns 加载状态信息
    */
-  getLoadStatus(): { loaded: string[]; failed: { name: string; error: string }[] } {
+  getLoadStatus(): {
+    loaded: string[];
+    failed: { name: string; error: string }[];
+  } {
     const status = this.loaderRegistry.getLoadStatus();
     const allCommands = this.registry.getAllCommands();
     return {
-      loaded: allCommands.map(c => c.name),
+      loaded: allCommands.map((c) => c.name),
       failed: status.failed,
     };
   }
@@ -450,9 +491,12 @@ const COMMAND_MANAGER_SYMBOL = Symbol.for('PY_APP_COMMAND_MANAGER');
  */
 export function getCommandManager(): CommandManager {
   const globalObj = globalThis as any;
-  
+
   if (!globalObj[COMMAND_MANAGER_SYMBOL]) {
-    globalObj[COMMAND_MANAGER_SYMBOL] = new CommandManager(commandRegistry, commandLoaderRegistry);
+    globalObj[COMMAND_MANAGER_SYMBOL] = new CommandManager(
+      commandRegistry,
+      commandLoaderRegistry
+    );
   }
   return globalObj[COMMAND_MANAGER_SYMBOL];
 }

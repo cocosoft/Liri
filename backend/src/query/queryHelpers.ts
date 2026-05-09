@@ -27,16 +27,12 @@ export function isResultSuccessful(
   if (!message) return false;
 
   if (message.role === 'assistant') {
-    const content = typeof message.content === 'string'
-      ? message.content
-      : '';
+    const content = typeof message.content === 'string' ? message.content : '';
     return content.length > 0;
   }
 
   if (message.role === 'user') {
-    const content = typeof message.content === 'string'
-      ? message.content
-      : '';
+    const content = typeof message.content === 'string' ? message.content : '';
     return content.length > 0;
   }
 
@@ -51,9 +47,10 @@ export function isResultSuccessful(
 export function normalizeMessage(message: Message): Message {
   return {
     ...message,
-    content: typeof message.content === 'string'
-      ? message.content
-      : JSON.stringify(message.content),
+    content:
+      typeof message.content === 'string'
+        ? message.content
+        : JSON.stringify(message.content),
   };
 }
 
@@ -72,9 +69,7 @@ export function normalizeMessages(messages: Message[]): Message[] {
  * @returns 是否非空
  */
 export function isNotEmptyMessage(message: Message): boolean {
-  const content = typeof message.content === 'string'
-    ? message.content
-    : '';
+  const content = typeof message.content === 'string' ? message.content : '';
   return content.trim().length > 0;
 }
 

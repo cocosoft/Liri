@@ -1,16 +1,20 @@
-import { DANGEROUS_BASE_COMMANDS } from '../patterns'
+import { DANGEROUS_BASE_COMMANDS } from '../patterns';
 
-export type CommandCategory = 'safe' | 'dangerous' | 'needs-confirmation' | 'unknown'
+export type CommandCategory =
+  | 'safe'
+  | 'dangerous'
+  | 'needs-confirmation'
+  | 'unknown';
 
 export type CommandEntry = {
-  name: string
-  category: CommandCategory
-  description: string
-  subcommands?: CommandEntry[]
-  options?: string[]
-}
+  name: string;
+  category: CommandCategory;
+  description: string;
+  subcommands?: CommandEntry[];
+  options?: string[];
+};
 
-const KNOWN_COMMANDS: Map<string, CommandEntry> = new Map()
+const KNOWN_COMMANDS: Map<string, CommandEntry> = new Map();
 
 const BUILTIN_COMMANDS: CommandEntry[] = [
   { name: 'ls', category: 'safe', description: '列出目录内容' },
@@ -71,20 +75,44 @@ const BUILTIN_COMMANDS: CommandEntry[] = [
   { name: 'gunzip', category: 'safe', description: '解压工具' },
   { name: 'zip', category: 'safe', description: 'ZIP压缩' },
   { name: 'unzip', category: 'safe', description: 'ZIP解压' },
-  { name: 'python', category: 'needs-confirmation', description: 'Python解释器' },
-  { name: 'python3', category: 'needs-confirmation', description: 'Python3解释器' },
-  { name: 'node', category: 'needs-confirmation', description: 'Node.js运行环境' },
+  {
+    name: 'python',
+    category: 'needs-confirmation',
+    description: 'Python解释器',
+  },
+  {
+    name: 'python3',
+    category: 'needs-confirmation',
+    description: 'Python3解释器',
+  },
+  {
+    name: 'node',
+    category: 'needs-confirmation',
+    description: 'Node.js运行环境',
+  },
   { name: 'npm', category: 'needs-confirmation', description: 'NPM包管理器' },
   { name: 'npx', category: 'needs-confirmation', description: 'NPM包执行器' },
-  { name: 'pip', category: 'needs-confirmation', description: 'Python包安装器' },
-  { name: 'pip3', category: 'needs-confirmation', description: 'Python3包安装器' },
+  {
+    name: 'pip',
+    category: 'needs-confirmation',
+    description: 'Python包安装器',
+  },
+  {
+    name: 'pip3',
+    category: 'needs-confirmation',
+    description: 'Python3包安装器',
+  },
   { name: 'git', category: 'safe', description: '版本控制工具' },
   { name: 'docker', category: 'needs-confirmation', description: '容器管理' },
   { name: 'make', category: 'safe', description: '构建工具' },
   { name: 'cmake', category: 'safe', description: '构建工具' },
   { name: 'gcc', category: 'safe', description: 'C编译器' },
   { name: 'g++', category: 'safe', description: 'C++编译器' },
-  { name: 'cargo', category: 'needs-confirmation', description: 'Rust构建/包管理' },
+  {
+    name: 'cargo',
+    category: 'needs-confirmation',
+    description: 'Rust构建/包管理',
+  },
   { name: 'rustc', category: 'safe', description: 'Rust编译器' },
   { name: 'go', category: 'needs-confirmation', description: 'Go工具链' },
   { name: 'java', category: 'needs-confirmation', description: 'Java运行环境' },
@@ -106,61 +134,83 @@ const BUILTIN_COMMANDS: CommandEntry[] = [
   { name: 'ip', category: 'safe', description: '网络管理' },
   { name: 'netstat', category: 'safe', description: '网络统计' },
   { name: 'ss', category: 'safe', description: 'Socket统计' },
-  { name: 'systemctl', category: 'needs-confirmation', description: '系统服务管理' },
+  {
+    name: 'systemctl',
+    category: 'needs-confirmation',
+    description: '系统服务管理',
+  },
   { name: 'journalctl', category: 'safe', description: '系统日志' },
   { name: 'crontab', category: 'needs-confirmation', description: '计划任务' },
   { name: 'service', category: 'needs-confirmation', description: '服务管理' },
-  { name: 'mount', category: 'needs-confirmation', description: '挂载文件系统' },
-  { name: 'umount', category: 'needs-confirmation', description: '卸载文件系统' },
+  {
+    name: 'mount',
+    category: 'needs-confirmation',
+    description: '挂载文件系统',
+  },
+  {
+    name: 'umount',
+    category: 'needs-confirmation',
+    description: '卸载文件系统',
+  },
   { name: 'fdisk', category: 'needs-confirmation', description: '磁盘分区' },
   { name: 'kill', category: 'needs-confirmation', description: '终止进程' },
-  { name: 'killall', category: 'needs-confirmation', description: '按名称终止进程' },
-  { name: 'pkill', category: 'needs-confirmation', description: '按模式终止进程' },
+  {
+    name: 'killall',
+    category: 'needs-confirmation',
+    description: '按名称终止进程',
+  },
+  {
+    name: 'pkill',
+    category: 'needs-confirmation',
+    description: '按模式终止进程',
+  },
   { name: 'reboot', category: 'needs-confirmation', description: '重启系统' },
   { name: 'shutdown', category: 'needs-confirmation', description: '关闭系统' },
   { name: 'su', category: 'needs-confirmation', description: '切换用户' },
-]
+];
 
 for (const cmd of BUILTIN_COMMANDS) {
-  KNOWN_COMMANDS.set(cmd.name, cmd)
+  KNOWN_COMMANDS.set(cmd.name, cmd);
 }
 
 export function classifyCommand(commandName: string): CommandCategory {
-  if (!commandName) return 'unknown'
+  if (!commandName) return 'unknown';
 
-  const baseName = commandName.split(/[/\\]/).pop() || commandName
+  const baseName = commandName.split(/[/\\]/).pop() || commandName;
 
   if (DANGEROUS_BASE_COMMANDS.has(baseName)) {
-    return 'dangerous'
+    return 'dangerous';
   }
 
-  const known = KNOWN_COMMANDS.get(baseName)
+  const known = KNOWN_COMMANDS.get(baseName);
   if (known) {
-    return known.category
+    return known.category;
   }
 
   if (baseName.startsWith('.')) {
-    return 'needs-confirmation'
+    return 'needs-confirmation';
   }
 
-  return 'unknown'
+  return 'unknown';
 }
 
 export function getCommandInfo(commandName: string): CommandEntry | null {
-  const baseName = commandName.split(/[/\\]/).pop() || commandName
-  return KNOWN_COMMANDS.get(baseName) || null
+  const baseName = commandName.split(/[/\\]/).pop() || commandName;
+  return KNOWN_COMMANDS.get(baseName) || null;
 }
 
 export function registerCommand(entry: CommandEntry): void {
-  KNOWN_COMMANDS.set(entry.name, entry)
+  KNOWN_COMMANDS.set(entry.name, entry);
 }
 
 export function getAllCommands(): CommandEntry[] {
-  return Array.from(KNOWN_COMMANDS.values())
+  return Array.from(KNOWN_COMMANDS.values());
 }
 
-export function getCommandsByCategory(category: CommandCategory): CommandEntry[] {
+export function getCommandsByCategory(
+  category: CommandCategory
+): CommandEntry[] {
   return Array.from(KNOWN_COMMANDS.values()).filter(
-    c => c.category === category,
-  )
+    (c) => c.category === category
+  );
 }

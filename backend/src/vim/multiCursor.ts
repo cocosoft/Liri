@@ -3,6 +3,10 @@
  * 支持多光标同时编辑
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 export interface CursorPosition {
   line: number;
   column: number;
@@ -39,11 +43,11 @@ export class MultiCursorManager {
    */
   addCursor(line: number, column: number): void {
     if (!this.isActive) return;
-    
+
     const exists = this.cursors.some(
       (c) => c.line === line && c.column === column
     );
-    
+
     if (!exists) {
       this.cursors.push({ line, column });
     }
@@ -97,7 +101,10 @@ export class MultiCursorManager {
   /**
    * 移动所有光标
    */
-  moveCursors(direction: 'up' | 'down' | 'left' | 'right', steps: number = 1): void {
+  moveCursors(
+    direction: 'up' | 'down' | 'left' | 'right',
+    steps: number = 1
+  ): void {
     this.cursors = this.cursors.map((cursor) => {
       switch (direction) {
         case 'up':
@@ -120,7 +127,7 @@ export class MultiCursorManager {
   insertText(text: string): void {
     // 在实际实现中，这里会在每个光标位置插入文本
     // 为了简化，我们只记录操作
-    console.log(`Inserting "${text}" at ${this.cursors.length} cursors`);
+    logger.debug(`Inserting "${text}" at ${this.cursors.length} cursors`);
   }
 
   /**
@@ -128,7 +135,9 @@ export class MultiCursorManager {
    */
   deleteChar(direction: 'left' | 'right'): void {
     // 在实际实现中，这里会删除每个光标位置的字符
-    console.log(`Deleting char ${direction} at ${this.cursors.length} cursors`);
+    logger.debug(
+      `Deleting char ${direction} at ${this.cursors.length} cursors`
+    );
   }
 
   /**
@@ -136,14 +145,16 @@ export class MultiCursorManager {
    */
   selectBetweenCursors(): void {
     if (this.cursors.length < 2) return;
-    
+
     const minLine = Math.min(...this.cursors.map((c) => c.line));
     const maxLine = Math.max(...this.cursors.map((c) => c.line));
     const minCol = Math.min(...this.cursors.map((c) => c.column));
     const maxCol = Math.max(...this.cursors.map((c) => c.column));
-    
+
     // 在实际实现中，这里会创建选择区域
-    console.log(`Selecting area from (${minLine}, ${minCol}) to (${maxLine}, ${maxCol})`);
+    logger.debug(
+      `Selecting area from (${minLine}, ${minCol}) to (${maxLine}, ${maxCol})`
+    );
   }
 
   /**
@@ -151,7 +162,7 @@ export class MultiCursorManager {
    */
   addCursorsToMatches(pattern: string): void {
     // 在实际实现中，这里会搜索匹配项并添加光标
-    console.log(`Adding cursors to matches for pattern: ${pattern}`);
+    logger.debug(`Adding cursors to matches for pattern: ${pattern}`);
   }
 
   /**
@@ -159,7 +170,7 @@ export class MultiCursorManager {
    */
   addCursorsToWord(word: string): void {
     // 在实际实现中，这里会查找所有出现的单词并添加光标
-    console.log(`Adding cursors to all occurrences of: ${word}`);
+    logger.debug(`Adding cursors to all occurrences of: ${word}`);
   }
 
   /**
@@ -169,7 +180,7 @@ export class MultiCursorManager {
     const exists = this.cursors.some(
       (c) => c.line === line && c.column === column
     );
-    
+
     if (exists) {
       this.removeCursor(line, column);
     } else {
@@ -182,12 +193,12 @@ export class MultiCursorManager {
    */
   getCursorRange(): { start: CursorPosition; end: CursorPosition } | null {
     if (this.cursors.length === 0) return null;
-    
+
     const minLine = Math.min(...this.cursors.map((c) => c.line));
     const maxLine = Math.max(...this.cursors.map((c) => c.line));
     const minCol = Math.min(...this.cursors.map((c) => c.column));
     const maxCol = Math.max(...this.cursors.map((c) => c.column));
-    
+
     return {
       start: { line: minLine, column: minCol },
       end: { line: maxLine, column: maxCol },

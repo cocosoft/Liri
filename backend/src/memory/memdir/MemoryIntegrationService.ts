@@ -4,9 +4,21 @@
  */
 
 import type { Memory, MemoryStats } from '../types/Memory';
-import type { MemoryFile, MemdirService, MemoryType, MemoryLayer } from './MemdirService';
+import type {
+  MemoryFile,
+  MemdirService,
+  MemoryType,
+  MemoryLayer,
+} from './MemdirService';
 import type { MemoryScanner, RelevantMemoryResult } from './MemoryScanner';
-import type { MemoryCommands, MemoryCommandOptions, MemoryCommandResult } from './MemoryCommands';
+import type {
+  MemoryCommands,
+  MemoryCommandOptions,
+  MemoryCommandResult,
+} from './MemoryCommands';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 集成记忆接口（结合文件化和数据库记忆）
@@ -16,42 +28,42 @@ export interface IntegratedMemory {
    * 记忆ID
    */
   id: string;
-  
+
   /**
    * 记忆内容
    */
   content: string;
-  
+
   /**
    * 记忆来源
    */
   source: 'file' | 'database';
-  
+
   /**
    * 文件路径（仅文件化记忆）
    */
   filePath?: string;
-  
+
   /**
    * 记忆类型
    */
   type: MemoryType;
-  
+
   /**
    * 记忆层级
    */
   layer: MemoryLayer;
-  
+
   /**
    * 创建时间
    */
   createdAt: Date;
-  
+
   /**
    * 更新时间
    */
   updatedAt: Date;
-  
+
   /**
    * 相关性分数（搜索时使用）
    */
@@ -66,27 +78,27 @@ export interface MemoryIntegrationConfig {
    * 是否启用文件化记忆系统
    */
   enableMemdir: boolean;
-  
+
   /**
    * 是否启用数据库记忆系统
    */
   enableDatabase: boolean;
-  
+
   /**
    * 记忆搜索优先级
    */
   searchPriority: ('file' | 'database')[];
-  
+
   /**
    * 最大搜索结果数量
    */
   maxSearchResults: number;
-  
+
   /**
    * 是否自动同步
    */
   autoSync: boolean;
-  
+
   /**
    * 同步间隔（毫秒）
    */
@@ -102,7 +114,7 @@ export class MemoryIntegrationService {
   private memoryCommands: MemoryCommands;
   private config: MemoryIntegrationConfig;
   private databaseMemories: Map<string, Memory> = new Map();
-  
+
   constructor(
     memdirService: MemdirService,
     memoryScanner: MemoryScanner,
@@ -112,7 +124,7 @@ export class MemoryIntegrationService {
     this.memdirService = memdirService;
     this.memoryScanner = memoryScanner;
     this.memoryCommands = memoryCommands;
-    
+
     this.config = {
       enableMemdir: true,
       enableDatabase: true,
@@ -133,15 +145,18 @@ export class MemoryIntegrationService {
       if (this.config.enableMemdir) {
         await this.memdirService.initialize();
       }
-      
+
       // 初始化自动同步
       if (this.config.autoSync) {
         this.startAutoSync();
       }
-      
+
       console.log('Memory integration service initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize memory integration service:', error);
+      logger.error(
+        'Failed to initialize memory integration service',
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -166,11 +181,11 @@ export class MemoryIntegrationService {
     } = options;
 
     const results: IntegratedMemory[] = [];
-    
+
     // 按优先级搜索不同来源的记忆
     for (const source of sources) {
       if (results.length >= limit) break;
-      
+
       switch (source) {
         case 'file':
           if (this.config.enableMemdir) {
@@ -182,7 +197,7 @@ export class MemoryIntegrationService {
             results.push(...fileResults);
           }
           break;
-          
+
         case 'database':
           if (this.config.enableDatabase) {
             const dbResults = await this.searchDatabaseMemories(query, {
@@ -195,9 +210,11 @@ export class MemoryIntegrationService {
           break;
       }
     }
-    
+
     // 按相关性排序
-    return results.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+    return results.sort(
+      (a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0)
+    );
   }
 
   /**
@@ -212,30 +229,32 @@ export class MemoryIntegrationService {
     }
   ): Promise<IntegratedMemory[]> {
     const { limit, types, layers } = options;
-    
+
     // 获取所有记忆文件
     const memoryFiles = this.memdirService.getAllMemoryFiles();
-    
+
     // 过滤记忆文件
     let filteredFiles = memoryFiles;
-    
+
     if (types && types.length > 0) {
-      filteredFiles = filteredFiles.filter(file => types.includes(file.type));
+      filteredFiles = filteredFiles.filter((file) => types.includes(file.type));
     }
-    
+
     if (layers && layers.length > 0) {
-      filteredFiles = filteredFiles.filter(file => layers.includes(file.layer));
+      filteredFiles = filteredFiles.filter((file) =>
+        layers.includes(file.layer)
+      );
     }
-    
+
     // 查找相关记忆
     const relevantMemories = await this.memoryScanner.findRelevantMemories(
       query,
       filteredFiles,
       { limit }
     );
-    
+
     // 转换为集成记忆格式
-    return relevantMemories.map(result => ({
+    return relevantMemories.map((result) => ({
       id: `file_${result.memoryFile.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
       content: result.memoryFile.content,
       source: 'file',
@@ -260,31 +279,32 @@ export class MemoryIntegrationService {
     }
   ): Promise<IntegratedMemory[]> {
     const { limit } = options;
-    
+
     // 简化实现：从内存中的数据库记忆搜索
     const memories = Array.from(this.databaseMemories.values());
-    
+
     // 简单关键词匹配
     const queryKeywords = query.toLowerCase().split(/\s+/);
-    
+
     const results = memories
-      .map(memory => {
+      .map((memory) => {
         const content = memory.content.toLowerCase();
-        const score = queryKeywords.reduce((sum, keyword) => {
-          return sum + (content.includes(keyword) ? 1 : 0);
-        }, 0) / queryKeywords.length;
-        
+        const score =
+          queryKeywords.reduce((sum, keyword) => {
+            return sum + (content.includes(keyword) ? 1 : 0);
+          }, 0) / queryKeywords.length;
+
         return {
           memory,
           score,
         };
       })
-      .filter(result => result.score > 0)
+      .filter((result) => result.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
-    
+
     // 转换为集成记忆格式
-    return results.map(result => ({
+    return results.map((result) => ({
       id: result.memory.id,
       content: result.memory.content,
       source: 'database',
@@ -301,36 +321,40 @@ export class MemoryIntegrationService {
    */
   async getAllMemories(): Promise<IntegratedMemory[]> {
     const results: IntegratedMemory[] = [];
-    
+
     // 获取文件化记忆
     if (this.config.enableMemdir) {
       const fileMemories = this.memdirService.getAllMemoryFiles();
-      results.push(...fileMemories.map(file => ({
-        id: `file_${file.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        content: file.content,
-        source: 'file',
-        filePath: file.path,
-        type: file.type,
-        layer: file.layer,
-        createdAt: file.createdAt,
-        updatedAt: file.modifiedAt,
-      })));
+      results.push(
+        ...fileMemories.map((file) => ({
+          id: `file_${file.path.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          content: file.content,
+          source: 'file',
+          filePath: file.path,
+          type: file.type,
+          layer: file.layer,
+          createdAt: file.createdAt,
+          updatedAt: file.modifiedAt,
+        }))
+      );
     }
-    
+
     // 获取数据库记忆
     if (this.config.enableDatabase) {
       const dbMemories = Array.from(this.databaseMemories.values());
-      results.push(...dbMemories.map(memory => ({
-        id: memory.id,
-        content: memory.content,
-        source: 'database',
-        type: MemoryType.USER, // 简化实现
-        layer: MemoryLayer.AUTOMEM, // 简化实现
-        createdAt: memory.createdAt,
-        updatedAt: memory.updatedAt,
-      })));
+      results.push(
+        ...dbMemories.map((memory) => ({
+          id: memory.id,
+          content: memory.content,
+          source: 'database',
+          type: MemoryType.USER, // 简化实现
+          layer: MemoryLayer.AUTOMEM, // 简化实现
+          createdAt: memory.createdAt,
+          updatedAt: memory.updatedAt,
+        }))
+      );
     }
-    
+
     return results;
   }
 
@@ -346,7 +370,9 @@ export class MemoryIntegrationService {
   /**
    * 添加数据库记忆
    */
-  async addDatabaseMemory(memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>): Promise<Memory> {
+  async addDatabaseMemory(
+    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<Memory> {
     const now = new Date();
     const newMemory: Memory = {
       id: `db_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -355,7 +381,7 @@ export class MemoryIntegrationService {
       createdAt: now,
       updatedAt: now,
     };
-    
+
     this.databaseMemories.set(newMemory.id, newMemory);
     return newMemory;
   }
@@ -379,14 +405,14 @@ export class MemoryIntegrationService {
     totalSize: number;
   }> {
     const allMemories = await this.getAllMemories();
-    
+
     const byType: Record<MemoryType, number> = {
       [MemoryType.USER]: 0,
       [MemoryType.FEEDBACK]: 0,
       [MemoryType.PROJECT]: 0,
       [MemoryType.REFERENCE]: 0,
     };
-    
+
     const byLayer: Record<MemoryLayer, number> = {
       [MemoryLayer.PROJECT]: 0,
       [MemoryLayer.LOCAL]: 0,
@@ -394,19 +420,20 @@ export class MemoryIntegrationService {
       [MemoryLayer.TEAMMEM]: 0,
       [MemoryLayer.USER]: 0,
     };
-    
+
     let totalSize = 0;
-    
+
     for (const memory of allMemories) {
       byType[memory.type] = (byType[memory.type] || 0) + 1;
       byLayer[memory.layer] = (byLayer[memory.layer] || 0) + 1;
       totalSize += memory.content.length;
     }
-    
+
     return {
       totalMemories: allMemories.length,
-      fileMemories: allMemories.filter(m => m.source === 'file').length,
-      databaseMemories: allMemories.filter(m => m.source === 'database').length,
+      fileMemories: allMemories.filter((m) => m.source === 'file').length,
+      databaseMemories: allMemories.filter((m) => m.source === 'database')
+        .length,
       byType,
       byLayer,
       totalSize,
@@ -421,7 +448,10 @@ export class MemoryIntegrationService {
       try {
         await this.syncMemories();
       } catch (error) {
-        console.error('Auto sync failed:', error);
+        logger.error(
+          'Auto sync failed',
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     }, this.config.syncInterval);
   }
@@ -434,13 +464,13 @@ export class MemoryIntegrationService {
       // 重新扫描文件化记忆
       await this.memdirService.rescanMemoryFiles();
     }
-    
+
     // 应用记忆老化
     const allMemories = await this.getAllMemories();
-    const fileMemories = allMemories.filter(m => m.source === 'file');
-    
+    const fileMemories = allMemories.filter((m) => m.source === 'file');
+
     // 转换为MemoryFile格式进行老化处理
-    const memoryFiles = fileMemories.map(memory => ({
+    const memoryFiles = fileMemories.map((memory) => ({
       path: memory.filePath || '',
       type: memory.type,
       layer: memory.layer,
@@ -450,10 +480,12 @@ export class MemoryIntegrationService {
       createdAt: memory.createdAt,
       enabled: true,
     }));
-    
+
     const keptMemories = await this.memoryScanner.applyMemoryAging(memoryFiles);
-    
-    console.log(`Memory sync completed. Kept ${keptMemories.length} file memories.`);
+
+    console.log(
+      `Memory sync completed. Kept ${keptMemories.length} file memories.`
+    );
   }
 
   /**
@@ -468,25 +500,31 @@ export class MemoryIntegrationService {
     } = {}
   ): Promise<void> {
     const memories = await this.getAllMemories();
-    
+
     // 过滤记忆
     let filteredMemories = memories;
-    
+
     if (options.types && options.types.length > 0) {
-      filteredMemories = filteredMemories.filter(m => options.types!.includes(m.type));
+      filteredMemories = filteredMemories.filter((m) =>
+        options.types!.includes(m.type)
+      );
     }
-    
+
     if (options.layers && options.layers.length > 0) {
-      filteredMemories = filteredMemories.filter(m => options.layers!.includes(m.layer));
+      filteredMemories = filteredMemories.filter((m) =>
+        options.layers!.includes(m.layer)
+      );
     }
-    
+
     if (options.sources && options.sources.length > 0) {
-      filteredMemories = filteredMemories.filter(m => options.sources!.includes(m.source));
+      filteredMemories = filteredMemories.filter((m) =>
+        options.sources!.includes(m.source)
+      );
     }
-    
+
     // 生成导出内容
     const exportContent = this.generateExportContent(filteredMemories);
-    
+
     // 写入文件（简化实现）
     console.log(`Exporting ${filteredMemories.length} memories to ${filePath}`);
     console.log('Export content preview:', exportContent.substring(0, 200));
@@ -499,7 +537,7 @@ export class MemoryIntegrationService {
     let content = '# Memory Export\n\n';
     content += `Exported: ${new Date().toISOString()}\n`;
     content += `Total memories: ${memories.length}\n\n`;
-    
+
     for (const memory of memories) {
       content += `## ${memory.type.toUpperCase()} Memory (${memory.source})\n`;
       content += `ID: ${memory.id}\n`;
@@ -507,14 +545,14 @@ export class MemoryIntegrationService {
       content += `Layer: ${memory.layer}\n`;
       content += `Created: ${memory.createdAt.toISOString()}\n`;
       content += `Updated: ${memory.updatedAt.toISOString()}\n`;
-      
+
       if (memory.filePath) {
         content += `File: ${memory.filePath}\n`;
       }
-      
+
       content += `\n${memory.content}\n\n---\n\n`;
     }
-    
+
     return content;
   }
 

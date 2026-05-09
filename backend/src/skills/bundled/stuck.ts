@@ -15,7 +15,8 @@ export default function registerStuckSkill(skillService: SkillService): void {
     name: 'stuck',
     description: '当你卡住时获得帮助——诊断卡住的原因并找到前进的路径',
     aliases: ['卡住', 'help'],
-    whenToUse: '当用户卡在某个问题上、不确定下一步怎么做或需要跳出思维定势时使用',
+    whenToUse:
+      '当用户卡在某个问题上、不确定下一步怎么做或需要跳出思维定势时使用',
     argumentHint: '[卡住问题的描述]',
     userInvocable: true,
     async getPromptForCommand(args, context) {

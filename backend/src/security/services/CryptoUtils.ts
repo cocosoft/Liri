@@ -4,7 +4,14 @@
  * 参考CC源码的crypto.ts实现
  */
 
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync, CipherGCM, DecipherGCM } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  scryptSync,
+  CipherGCM,
+  DecipherGCM,
+} from 'crypto';
 
 /**
  * 加密配置
@@ -43,16 +50,20 @@ export class CryptoUtils {
   static async encrypt(data: string, key: string): Promise<string> {
     const salt = randomBytes(this.config.saltLength);
     const iv = randomBytes(this.config.ivLength);
-    
+
     const derivedKey = this.deriveKey(key, salt);
-    
-    const cipher = createCipheriv(this.config.algorithm, derivedKey, iv) as CipherGCM;
-    
+
+    const cipher = createCipheriv(
+      this.config.algorithm,
+      derivedKey,
+      iv
+    ) as CipherGCM;
+
     let encrypted = cipher.update(data, 'utf8', 'base64');
     encrypted += cipher.final('base64');
-    
+
     const authTag = cipher.getAuthTag();
-    
+
     // 组合salt + iv + authTag + encrypted data
     const result = Buffer.concat([
       salt,
@@ -60,7 +71,7 @@ export class CryptoUtils {
       authTag,
       Buffer.from(encrypted, 'base64'),
     ]).toString('base64');
-    
+
     return result;
   }
 
@@ -72,7 +83,7 @@ export class CryptoUtils {
    */
   static async decrypt(encrypted: string, key: string): Promise<string> {
     const buffer = Buffer.from(encrypted, 'base64');
-    
+
     const salt = buffer.subarray(0, this.config.saltLength);
     const iv = buffer.subarray(
       this.config.saltLength,
@@ -85,15 +96,19 @@ export class CryptoUtils {
     const encryptedData = buffer.subarray(
       this.config.saltLength + this.config.ivLength + this.config.tagLength
     );
-    
+
     const derivedKey = this.deriveKey(key, salt);
-    
-    const decipher = createDecipheriv(this.config.algorithm, derivedKey, iv) as DecipherGCM;
+
+    const decipher = createDecipheriv(
+      this.config.algorithm,
+      derivedKey,
+      iv
+    ) as DecipherGCM;
     decipher.setAuthTag(authTag);
-    
+
     let decrypted = decipher.update(encryptedData, undefined, 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   }
 

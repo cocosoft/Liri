@@ -38,8 +38,8 @@ export default {
    */
   async handleShow(context: CommandContext): Promise<CommandResult> {
     const settings = {
-      format: context.environment?.OUTPUT_FORMAT || 'text' as OutputFormat,
-      colorMode: context.environment?.COLOR_MODE || 'auto' as ColorMode,
+      format: context.environment?.OUTPUT_FORMAT || ('text' as OutputFormat),
+      colorMode: context.environment?.COLOR_MODE || ('auto' as ColorMode),
       wordWrap: true,
       lineNumbers: false,
       compactMode: false,
@@ -48,7 +48,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `输出设置:\n` +
+      message:
+        `输出设置:\n` +
         `- 格式: ${settings.format}\n` +
         `- 颜色模式: ${settings.colorMode}\n` +
         `- 自动换行: ${settings.wordWrap ? '开启' : '关闭'}\n` +
@@ -61,9 +62,17 @@ export default {
   /**
    * 设置输出格式
    */
-  async handleFormat(format: string, context: CommandContext): Promise<CommandResult> {
-    const validFormats: OutputFormat[] = ['text', 'json', 'markdown', 'compact'];
-    
+  async handleFormat(
+    format: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
+    const validFormats: OutputFormat[] = [
+      'text',
+      'json',
+      'markdown',
+      'compact',
+    ];
+
     if (!format || !validFormats.includes(format as OutputFormat)) {
       return {
         success: false,
@@ -78,7 +87,7 @@ export default {
     }
 
     context.onDone?.(`输出格式已设置为: ${format}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -90,9 +99,12 @@ export default {
   /**
    * 设置颜色模式
    */
-  async handleColor(mode: string, context: CommandContext): Promise<CommandResult> {
+  async handleColor(
+    mode: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     const validModes: ColorMode[] = ['auto', 'light', 'dark'];
-    
+
     if (!mode || !validModes.includes(mode as ColorMode)) {
       return {
         success: false,
@@ -107,7 +119,7 @@ export default {
     }
 
     context.onDone?.(`颜色模式已设置为: ${mode}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -121,7 +133,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('输出设置已重置为默认值', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

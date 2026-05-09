@@ -4,42 +4,42 @@
  * 提供技能（Skills）的搜索、发现和过滤功能。
  * 技能是通过 SKILL.md 文件定义的提示命令，为模型提供专业化能力。
  */
-import { readdir, readFile, stat } from 'fs/promises'
-import { existsSync } from 'fs'
-import { join, basename, dirname } from 'path'
+import { readdir, readFile, stat } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join, basename, dirname } from 'path';
 
 /**
  * 技能定义
  */
 export interface SkillDefinition {
-  name: string
-  description: string
-  filePath: string
-  loadedFrom: 'skills' | 'bundled' | 'plugin' | 'mcp'
-  tags?: string[]
-  whenToUse?: string
-  hasUserSpecifiedDescription?: boolean
+  name: string;
+  description: string;
+  filePath: string;
+  loadedFrom: 'skills' | 'bundled' | 'plugin' | 'mcp';
+  tags?: string[];
+  whenToUse?: string;
+  hasUserSpecifiedDescription?: boolean;
 }
 
 /**
  * 技能搜索结果
  */
 export interface SkillSearchResult {
-  skills: SkillDefinition[]
-  totalCount: number
-  matchedCount: number
-  query: string
+  skills: SkillDefinition[];
+  totalCount: number;
+  matchedCount: number;
+  query: string;
 }
 
 /**
  * 技能搜索选项
  */
 export interface SkillSearchOptions {
-  query?: string
-  tags?: string[]
-  loadedFrom?: SkillDefinition['loadedFrom']
-  limit?: number
-  offset?: number
+  query?: string;
+  tags?: string[];
+  loadedFrom?: SkillDefinition['loadedFrom'];
+  limit?: number;
+  offset?: number;
 }
 
 /**
@@ -53,31 +53,31 @@ export interface SkillSearchOptions {
 export async function scanSkillsFromDirectory(
   dir: string
 ): Promise<SkillDefinition[]> {
-  if (!existsSync(dir)) return []
+  if (!existsSync(dir)) return [];
 
-  const skills: SkillDefinition[] = []
-  const entries = await readdir(dir, { withFileTypes: true })
+  const skills: SkillDefinition[] = [];
+  const entries = await readdir(dir, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue
+    if (!entry.isDirectory()) continue;
 
-    const skillDir = join(dir, entry.name)
-    const skillFile = join(skillDir, 'SKILL.md')
+    const skillDir = join(dir, entry.name);
+    const skillFile = join(skillDir, 'SKILL.md');
 
-    if (!existsSync(skillFile)) continue
+    if (!existsSync(skillFile)) continue;
 
     try {
-      const content = await readFile(skillFile, 'utf-8')
-      const skill = parseSkillFile(content, skillFile)
+      const content = await readFile(skillFile, 'utf-8');
+      const skill = parseSkillFile(content, skillFile);
       if (skill) {
-        skills.push(skill)
+        skills.push(skill);
       }
     } catch {
       // 跳过无法解析的技能文件
     }
   }
 
-  return skills
+  return skills;
 }
 
 /**
@@ -94,18 +94,18 @@ export function parseSkillFile(
   content: string,
   filePath: string
 ): SkillDefinition | null {
-  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?/)
+  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---\n?/);
 
-  if (!frontmatterMatch) return null
+  if (!frontmatterMatch) return null;
 
-  const frontmatter = frontmatterMatch[1]
-  const nameMatch = frontmatter.match(/name:\s*(.+)/)
-  const descMatch = frontmatter.match(/description:\s*(.+)/)
-  const tagsMatch = frontmatter.match(/tags:\s*\[([^\]]*)\]/)
+  const frontmatter = frontmatterMatch[1];
+  const nameMatch = frontmatter.match(/name:\s*(.+)/);
+  const descMatch = frontmatter.match(/description:\s*(.+)/);
+  const tagsMatch = frontmatter.match(/tags:\s*\[([^\]]*)\]/);
 
-  if (!nameMatch) return null
+  if (!nameMatch) return null;
 
-  const name = nameMatch[1].trim()
+  const name = nameMatch[1].trim();
 
   return {
     name,
@@ -113,9 +113,9 @@ export function parseSkillFile(
     filePath,
     loadedFrom: 'skills',
     tags: tagsMatch
-      ? tagsMatch[1].split(',').map(t => t.trim().replace(/['"]/g, ''))
+      ? tagsMatch[1].split(',').map((t) => t.trim().replace(/['"]/g, ''))
       : undefined,
-  }
+  };
 }
 
 /**
@@ -132,44 +132,46 @@ export function searchSkills(
   skills: SkillDefinition[],
   options: SkillSearchOptions = {}
 ): SkillSearchResult {
-  const { query, tags, loadedFrom, limit, offset } = options
-  let filtered = [...skills]
+  const { query, tags, loadedFrom, limit, offset } = options;
+  let filtered = [...skills];
 
   // 按来源过滤
   if (loadedFrom) {
-    filtered = filtered.filter(s => s.loadedFrom === loadedFrom)
+    filtered = filtered.filter((s) => s.loadedFrom === loadedFrom);
   }
 
   // 按标签过滤
   if (tags && tags.length > 0) {
-    filtered = filtered.filter(s => {
-      if (!s.tags || s.tags.length === 0) return false
-      return tags.some(t => s.tags!.includes(t))
-    })
+    filtered = filtered.filter((s) => {
+      if (!s.tags || s.tags.length === 0) return false;
+      return tags.some((t) => s.tags!.includes(t));
+    });
   }
 
   // 按文本搜索
   if (query) {
-    const lowerQuery = query.toLowerCase()
-    filtered = filtered.filter(s => {
-      const nameMatch = s.name.toLowerCase().includes(lowerQuery)
-      const descMatch = s.description.toLowerCase().includes(lowerQuery)
-      const tagMatch = s.tags?.some(t => t.toLowerCase().includes(lowerQuery))
-      return nameMatch || descMatch || tagMatch
-    })
+    const lowerQuery = query.toLowerCase();
+    filtered = filtered.filter((s) => {
+      const nameMatch = s.name.toLowerCase().includes(lowerQuery);
+      const descMatch = s.description.toLowerCase().includes(lowerQuery);
+      const tagMatch = s.tags?.some((t) =>
+        t.toLowerCase().includes(lowerQuery)
+      );
+      return nameMatch || descMatch || tagMatch;
+    });
   }
 
   // 分页
-  const totalCount = filtered.length
-  if (offset) filtered = filtered.slice(offset)
-  if (limit) filtered = filtered.slice(0, limit)
+  const totalCount = filtered.length;
+  if (offset) filtered = filtered.slice(offset);
+  if (limit) filtered = filtered.slice(0, limit);
 
   return {
     skills: filtered,
     totalCount: skills.length,
     matchedCount: totalCount,
     query: query ?? '',
-  }
+  };
 }
 
 /**
@@ -190,26 +192,26 @@ export function discoverSkillsForTask(
   const terms = taskDescription
     .toLowerCase()
     .split(/\s+/)
-    .filter(t => t.length > 3)
+    .filter((t) => t.length > 3);
 
-  const scored = skills.map(skill => {
-    let score = 0
+  const scored = skills.map((skill) => {
+    let score = 0;
 
     for (const term of terms) {
-      if (skill.name.toLowerCase().includes(term)) score += 3
-      if (skill.description.toLowerCase().includes(term)) score += 2
-      if (skill.whenToUse?.toLowerCase().includes(term)) score += 1
-      if (skill.tags?.some(t => t.toLowerCase().includes(term))) score += 1
+      if (skill.name.toLowerCase().includes(term)) score += 3;
+      if (skill.description.toLowerCase().includes(term)) score += 2;
+      if (skill.whenToUse?.toLowerCase().includes(term)) score += 1;
+      if (skill.tags?.some((t) => t.toLowerCase().includes(term))) score += 1;
     }
 
-    return { skill, score }
-  })
+    return { skill, score };
+  });
 
   return scored
-    .filter(s => s.score > 0)
+    .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map(s => s.skill)
+    .map((s) => s.skill);
 }
 
 /**
@@ -218,17 +220,17 @@ export function discoverSkillsForTask(
 export function mergeSkills(
   ...skillLists: SkillDefinition[][]
 ): SkillDefinition[] {
-  const seen = new Set<string>()
-  const result: SkillDefinition[] = []
+  const seen = new Set<string>();
+  const result: SkillDefinition[] = [];
 
   for (const list of skillLists) {
     for (const skill of list) {
       if (!seen.has(skill.name)) {
-        seen.add(skill.name)
-        result.push(skill)
+        seen.add(skill.name);
+        result.push(skill);
       }
     }
   }
 
-  return result
+  return result;
 }

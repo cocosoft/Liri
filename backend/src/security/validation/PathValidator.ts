@@ -6,7 +6,12 @@
 
 import { homedir } from 'os';
 import { isAbsolute, resolve, dirname } from 'path';
-import { PathValidationRule, ValidationResult, PathValidationConfig, FileOperationType } from './types.js';
+import {
+  PathValidationRule,
+  ValidationResult,
+  PathValidationConfig,
+  FileOperationType,
+} from './types.js';
 
 const WINDOWS_DRIVE_ROOT_REGEX = /^[a-zA-Z]:\\?$/;
 const WINDOWS_DRIVE_CHILD_REGEX = /^[a-zA-Z]:\\?[a-zA-Z0-9_]+$/;
@@ -64,8 +69,10 @@ export class PathValidator {
 
   constructor(config?: PathValidationConfig) {
     if (config) {
-      this.allowedPaths = config.allowedPaths.map(p => resolve(expandTilde(p)));
-      this.deniedPaths = config.deniedPaths.map(p => resolve(expandTilde(p)));
+      this.allowedPaths = config.allowedPaths.map((p) =>
+        resolve(expandTilde(p))
+      );
+      this.deniedPaths = config.deniedPaths.map((p) => resolve(expandTilde(p)));
     }
   }
 
@@ -101,12 +108,12 @@ export class PathValidator {
           operation === 'read'
             ? rule.allowRead
             : operation === 'write'
-            ? rule.allowWrite
-            : operation === 'execute'
-            ? rule.allowExecute
-            : operation === 'delete'
-            ? rule.allowDelete
-            : false;
+              ? rule.allowWrite
+              : operation === 'execute'
+                ? rule.allowExecute
+                : operation === 'delete'
+                  ? rule.allowDelete
+                  : false;
 
         return {
           allowed,
@@ -116,7 +123,7 @@ export class PathValidator {
       }
     }
 
-    const isInAllowedPath = this.allowedPaths.some(allowedPath =>
+    const isInAllowedPath = this.allowedPaths.some((allowedPath) =>
       absolutePath.startsWith(allowedPath)
     );
 
@@ -162,7 +169,9 @@ export class PathValidator {
   }
 }
 
-export function createDefaultPathValidator(config?: PathValidationConfig): PathValidator {
+export function createDefaultPathValidator(
+  config?: PathValidationConfig
+): PathValidator {
   const validator = new PathValidator(config);
 
   validator.addRule({

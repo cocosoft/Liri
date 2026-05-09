@@ -53,7 +53,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, isLoading }) => {
     return (
       <div key={message.id} className="message-wrapper">
         <MessageBubble {...bubbleProps} />
-        
+
         {message.toolCall && (
           <div className="tool-call-container">
             <div className="tool-call-header">
@@ -67,14 +67,20 @@ export const Messages: React.FC<MessagesProps> = ({ messages, isLoading }) => {
         )}
 
         {message.toolResult && (
-          <div className={`tool-result-container ${message.toolResult.success ? 'success' : 'error'}`}>
+          <div
+            className={`tool-result-container ${message.toolResult.success ? 'success' : 'error'}`}
+          >
             <div className="tool-result-header">
               <span className="tool-result-icon">
                 {message.toolResult.success ? '✓' : '✗'}
               </span>
-              <span className="tool-result-name">{message.toolResult.toolName}</span>
+              <span className="tool-result-name">
+                {message.toolResult.toolName}
+              </span>
             </div>
-            <pre className="tool-result-content">{message.toolResult.result}</pre>
+            <pre className="tool-result-content">
+              {message.toolResult.result}
+            </pre>
           </div>
         )}
       </div>
@@ -82,19 +88,12 @@ export const Messages: React.FC<MessagesProps> = ({ messages, isLoading }) => {
   };
 
   return (
-    <div
-      ref={scrollRef}
-      className="messages-container overflow-y-auto"
-    >
+    <div ref={scrollRef} className="messages-container overflow-y-auto">
       {messages.map(renderMessage)}
-      
+
       {isLoading && (
         <div className="loading-indicator">
-          <MessageBubble
-            content=""
-            sender="assistant"
-            isLoading={true}
-          />
+          <MessageBubble content="" sender="assistant" isLoading={true} />
         </div>
       )}
     </div>

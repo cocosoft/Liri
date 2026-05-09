@@ -9,7 +9,7 @@ const execFileAsync = promisify(execFile);
 export async function execFileNoThrow(
   command: string,
   args: string[],
-  options?: { cwd?: string },
+  options?: { cwd?: string }
 ): Promise<{ stdout: string; stderr: string } | null> {
   try {
     const { stdout, stderr } = await execFileAsync(command, args, {

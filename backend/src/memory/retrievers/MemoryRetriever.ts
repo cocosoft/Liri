@@ -2,6 +2,9 @@ import type { Memory } from '../types/Memory';
 import { MemoryScannerImpl } from '../scanners/MemoryScanner';
 import fs from 'fs';
 import path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 记忆检索器接口
@@ -97,7 +100,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     this.scanner = new MemoryScannerImpl();
     this.memoryIndex = new Map();
     this.stemMap = new Map();
-    
+
     // 尝试加载索引
     this.loadIndex().catch(() => {
       // 加载失败时不做处理，后续会重新构建
@@ -151,7 +154,9 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       updatedAt: memory.updatedAt,
       nameTokens: this.tokenize(memory.metadata.name),
       contentTokens: this.tokenize(memory.content),
-      tagTokens: memory.metadata.tags ? memory.metadata.tags.flatMap(tag => this.tokenize(tag)) : [],
+      tagTokens: memory.metadata.tags
+        ? memory.metadata.tags.flatMap((tag) => this.tokenize(tag))
+        : [],
     };
 
     this.memoryIndex.set(memory.id, indexItem);
@@ -183,7 +188,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       .toLowerCase()
       .replace(/[^a-zA-Z0-9\s]/g, ' ')
       .split(/\s+/)
-      .filter(token => token.length > 1);
+      .filter((token) => token.length > 1);
   }
 
   /**
@@ -191,8 +196,12 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * @param memory 记忆索引项
    */
   private updateStemMap(memory: MemoryIndexItem): void {
-    const allTokens = [...memory.nameTokens, ...memory.contentTokens, ...memory.tagTokens];
-    
+    const allTokens = [
+      ...memory.nameTokens,
+      ...memory.contentTokens,
+      ...memory.tagTokens,
+    ];
+
     for (const token of allTokens) {
       const stem = this.getStem(token);
       if (!this.stemMap.has(stem)) {
@@ -242,7 +251,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     score += descriptionScore * 2;
 
     // 检查内容
-    const contentScore = this.calculateTokenScore(memory.contentTokens, queryTokens);
+    const contentScore = this.calculateTokenScore(
+      memory.contentTokens,
+      queryTokens
+    );
     score += contentScore * 1;
 
     // 检查标签
@@ -258,7 +270,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
     // 时间衰减因子
     const now = new Date();
-    const ageInDays = 
+    const ageInDays =
       (now.getTime() - memory.updatedAt.getTime()) / (1000 * 60 * 60 * 24);
     const timeFactor = Math.max(0.1, 1 - ageInDays / 30); // 30天后衰减到10%
 
@@ -274,7 +286,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * @param queryTokens 查询 tokens
    * @returns 得分
    */
-  private calculateTokenScore(memoryTokens: string[], queryTokens: string[]): number {
+  private calculateTokenScore(
+    memoryTokens: string[],
+    queryTokens: string[]
+  ): number {
     if (queryTokens.length === 0) return 0;
 
     let matchedTokens = 0;
@@ -287,7 +302,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       } else {
         // 词干匹配
         const stem = this.getStem(token);
-        const memoryStems = new Set(memoryTokens.map(t => this.getStem(t)));
+        const memoryStems = new Set(memoryTokens.map((t) => this.getStem(t)));
         if (memoryStems.has(stem)) {
           matchedTokens += 0.7; // 词干匹配得分稍低
         }
@@ -433,7 +448,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
       fs.writeFileSync(this.indexFilePath, JSON.stringify(indexData, null, 2));
     } catch (error) {
-      console.error('Error saving memory index:', error);
+      logger.error(
+        'Error saving memory index',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -463,7 +481,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
         }
       }
     } catch (error) {
-      console.error('Error loading memory index:', error);
+      logger.error(
+        'Error loading memory index',
+        error instanceof Error ? error : new Error(String(error))
+      );
       this.indexLoaded = false;
     }
   }

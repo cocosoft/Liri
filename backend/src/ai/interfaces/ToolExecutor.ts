@@ -25,7 +25,10 @@ export interface IToolExecutor {
    * @param context 执行上下文
    * @returns 工具执行结果列表
    */
-  executeTools(toolCalls: ToolCall[], context: ToolContext): Promise<ToolResult[]>;
+  executeTools(
+    toolCalls: ToolCall[],
+    context: ToolContext
+  ): Promise<ToolResult[]>;
 
   /**
    * 检查工具是否存在
@@ -115,7 +118,10 @@ export class DefaultToolExecutor implements IToolExecutor {
     this.retries = config.retries || 3;
   }
 
-  async executeTool(toolCall: ToolCall, context: ToolContext): Promise<ToolResult> {
+  async executeTool(
+    toolCall: ToolCall,
+    context: ToolContext
+  ): Promise<ToolResult> {
     const tool = this.registry?.getTool(toolCall.name);
 
     if (!tool) {
@@ -138,7 +144,10 @@ export class DefaultToolExecutor implements IToolExecutor {
     }
   }
 
-  async executeTools(toolCalls: ToolCall[], context: ToolContext): Promise<ToolResult[]> {
+  async executeTools(
+    toolCalls: ToolCall[],
+    context: ToolContext
+  ): Promise<ToolResult[]> {
     const results: ToolResult[] = [];
     const chunks: ToolCall[][] = [];
 
@@ -191,12 +200,14 @@ export class DefaultToolExecutor implements IToolExecutor {
         if (attempt < this.retries) {
           this.executeWithTimeout(tool, input, context, attempt + 1)
             .then(resolve)
-            .catch((e) => resolve({
-              result: undefined,
-              content: e instanceof Error ? e.message : String(e),
-              error: e instanceof Error ? e.message : String(e),
-              success: false,
-            }));
+            .catch((e) =>
+              resolve({
+                result: undefined,
+                content: e instanceof Error ? e.message : String(e),
+                error: e instanceof Error ? e.message : String(e),
+                success: false,
+              })
+            );
         } else {
           resolve({
             result: undefined,
@@ -207,7 +218,8 @@ export class DefaultToolExecutor implements IToolExecutor {
         }
       }, this.timeout);
 
-      tool.execute(input, context)
+      tool
+        .execute(input, context)
         .then((result) => {
           clearTimeout(timeout);
           resolve(result);
@@ -215,8 +227,9 @@ export class DefaultToolExecutor implements IToolExecutor {
         .catch((error) => {
           clearTimeout(timeout);
           if (attempt < this.retries) {
-            this.executeWithTimeout(tool, input, context, attempt + 1)
-              .then(resolve);
+            this.executeWithTimeout(tool, input, context, attempt + 1).then(
+              resolve
+            );
           } else {
             resolve({
               result: undefined,

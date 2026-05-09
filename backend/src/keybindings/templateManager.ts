@@ -20,7 +20,7 @@ export class TemplateManager {
 
   constructor(options?: TemplateManagerOptions) {
     this.currentMode = options?.defaultMode || 'default';
-    
+
     if (options?.autoLoad) {
       this.loadFromStorage();
     }
@@ -48,13 +48,17 @@ export class TemplateManager {
     const template = getTemplate(this.currentMode);
     if (!template) return [];
 
-    const enabledTemplate = template.filter((b: Keybinding) => !this.disabledBindings.includes(b.id));
-    
+    const enabledTemplate = template.filter(
+      (b: Keybinding) => !this.disabledBindings.includes(b.id)
+    );
+
     const merged = [...enabledTemplate];
     const seenIds = new Set(template.map((b: Keybinding) => b.id));
 
     this.customBindings.forEach((custom: Keybinding) => {
-      const existingIndex = merged.findIndex((b: Keybinding) => b.id === custom.id);
+      const existingIndex = merged.findIndex(
+        (b: Keybinding) => b.id === custom.id
+      );
       if (existingIndex >= 0) {
         merged[existingIndex] = custom;
       } else if (!seenIds.has(custom.id)) {
@@ -69,7 +73,7 @@ export class TemplateManager {
    * 获取模板列表
    */
   getTemplateList(): KeybindingTemplate[] {
-    return Object.keys(templates).map(name => {
+    return Object.keys(templates).map((name) => {
       const template = getTemplateObject(name);
       return template!;
     });
@@ -80,15 +84,22 @@ export class TemplateManager {
    */
   addCustomBinding(binding: Keybinding): boolean {
     try {
-      validateTemplate({ bindings: [binding], id: 'custom', name: 'custom', mode: this.currentMode });
-      
-      const existingIndex = this.customBindings.findIndex((b: Keybinding) => b.id === binding.id);
+      validateTemplate({
+        bindings: [binding],
+        id: 'custom',
+        name: 'custom',
+        mode: this.currentMode,
+      });
+
+      const existingIndex = this.customBindings.findIndex(
+        (b: Keybinding) => b.id === binding.id
+      );
       if (existingIndex >= 0) {
         this.customBindings[existingIndex] = binding;
       } else {
         this.customBindings.push(binding);
       }
-      
+
       this.saveToStorage();
       return true;
     } catch {
@@ -101,13 +112,13 @@ export class TemplateManager {
    */
   removeCustomBinding(id: string): boolean {
     const initialLength = this.customBindings.length;
-    this.customBindings = this.customBindings.filter(b => b.id !== id);
+    this.customBindings = this.customBindings.filter((b) => b.id !== id);
     const removed = initialLength !== this.customBindings.length;
-    
+
     if (removed) {
       this.saveToStorage();
     }
-    
+
     return removed;
   }
 
@@ -150,11 +161,14 @@ export class TemplateManager {
    */
   private saveToStorage(): void {
     try {
-      localStorage.setItem('keybinding-config', JSON.stringify({
-        currentMode: this.currentMode,
-        customBindings: this.customBindings,
-        disabledBindings: this.disabledBindings,
-      }));
+      localStorage.setItem(
+        'keybinding-config',
+        JSON.stringify({
+          currentMode: this.currentMode,
+          customBindings: this.customBindings,
+          disabledBindings: this.disabledBindings,
+        })
+      );
     } catch {
       // 忽略保存错误
     }

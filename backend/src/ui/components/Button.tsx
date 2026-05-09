@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink';
+import { Box, Text } from '@modules/ink';
 import { ButtonProps } from '../types/UITypes';
 import { useTheme } from '../design-system/ThemeProvider';
 
@@ -19,7 +19,7 @@ export function Button({
   size = 'md',
   disabled = false,
   loading = false,
-  color = 'primary'
+  color = 'primary',
 }: ButtonProps) {
   const { theme } = useTheme();
 
@@ -41,14 +41,14 @@ export function Button({
         xs: { horizontal: 1, vertical: 0.5 },
         sm: { horizontal: 1.5, vertical: 0.75 },
         md: { horizontal: 2, vertical: 1 },
-        lg: { horizontal: 3, vertical: 1.5 }
+        lg: { horizontal: 3, vertical: 1.5 },
       },
       fontSize: {
         xs: theme.typography.fontSize.xs,
         sm: theme.typography.fontSize.sm,
         md: theme.typography.fontSize.md,
-        lg: theme.typography.fontSize.lg
-      }
+        lg: theme.typography.fontSize.lg,
+      },
     };
 
     if (disabled) {
@@ -56,7 +56,7 @@ export function Button({
         backgroundColor: theme.colors.muted,
         color: theme.colors.textSecondary,
         borderColor: theme.colors.border,
-        ...baseStyle
+        ...baseStyle,
       };
     }
 
@@ -65,7 +65,7 @@ export function Button({
         backgroundColor: theme.colors.muted,
         color: theme.colors.textSecondary,
         borderColor: theme.colors.border,
-        ...baseStyle
+        ...baseStyle,
       };
     }
 
@@ -75,35 +75,35 @@ export function Button({
           backgroundColor: theme.colors[color],
           color: theme.colors.background,
           borderColor: theme.colors[color],
-          ...baseStyle
+          ...baseStyle,
         };
       case 'secondary':
         return {
           backgroundColor: theme.colors.background,
           color: theme.colors[color],
           borderColor: theme.colors[color],
-          ...baseStyle
+          ...baseStyle,
         };
       case 'outline':
         return {
           backgroundColor: 'transparent',
           color: theme.colors[color],
           borderColor: theme.colors[color],
-          ...baseStyle
+          ...baseStyle,
         };
       case 'ghost':
         return {
           backgroundColor: 'transparent',
           color: theme.colors[color],
           borderColor: 'transparent',
-          ...baseStyle
+          ...baseStyle,
         };
       default:
         return {
           backgroundColor: theme.colors[color],
           color: theme.colors.background,
           borderColor: theme.colors[color],
-          ...baseStyle
+          ...baseStyle,
         };
     }
   };
@@ -139,9 +139,7 @@ export function Button({
       onPress={handlePress}
       focusable={!disabled && !loading}
     >
-      <Text color={style.color}>
-        {renderContent()}
-      </Text>
+      <Text color={style.color}>{renderContent()}</Text>
     </Box>
   );
 }
@@ -156,7 +154,7 @@ export function IconButton({
   size = 'md',
   disabled = false,
   loading = false,
-  color = 'primary'
+  color = 'primary',
 }: ButtonProps & { icon: string }) {
   return (
     <Button
@@ -182,7 +180,7 @@ export function TextButton({
   size = 'md',
   disabled = false,
   loading = false,
-  color = 'primary'
+  color = 'primary',
 }: ButtonProps & { text: string }) {
   return (
     <Button
@@ -209,7 +207,7 @@ export function IconTextButton({
   size = 'md',
   disabled = false,
   loading = false,
-  color = 'primary'
+  color = 'primary',
 }: ButtonProps & { icon: string; text: string }) {
   return (
     <Button
@@ -234,14 +232,17 @@ export function IconTextButton({
 export function ButtonGroup({
   children,
   direction = 'horizontal',
-  spacing = 1
+  spacing = 1,
 }: {
   children: React.ReactNode;
   direction?: 'horizontal' | 'vertical';
   spacing?: number;
 }) {
   return (
-    <Box flexDirection={direction === 'horizontal' ? 'row' : 'column'} gap={spacing}>
+    <Box
+      flexDirection={direction === 'horizontal' ? 'row' : 'column'}
+      gap={spacing}
+    >
       {children}
     </Box>
   );

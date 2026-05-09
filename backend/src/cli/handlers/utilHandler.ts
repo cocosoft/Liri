@@ -136,8 +136,21 @@ export class UtilHandler {
     }
 
     const command = args[0];
-    const handlers = ['auth', 'agent', 'mcp', 'plugin', 'auto', 'help', 'version', 'clear', 'echo', 'which', 'env', 'debug'];
-    
+    const handlers = [
+      'auth',
+      'agent',
+      'mcp',
+      'plugin',
+      'auto',
+      'help',
+      'version',
+      'clear',
+      'echo',
+      'which',
+      'env',
+      'debug',
+    ];
+
     if (handlers.includes(command)) {
       console.log(`命令 '${command}' 是内置命令`);
     } else {

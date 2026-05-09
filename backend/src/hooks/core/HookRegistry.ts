@@ -20,32 +20,32 @@ interface HookRegistration {
    * Hook定义
    */
   definition: HookDefinition;
-  
+
   /**
    * 启用状态
    */
   enabled: boolean;
-  
+
   /**
    * 优先级
    */
   priority: HookPriority;
-  
+
   /**
    * 依赖关系
    */
   dependencies: HookDependency[];
-  
+
   /**
    * 注册时间
    */
   registeredAt: Date;
-  
+
   /**
    * 最后执行时间
    */
   lastExecutedAt?: Date;
-  
+
   /**
    * 执行次数
    */
@@ -65,7 +65,7 @@ export class HookRegistry {
    */
   registerHook(definition: HookDefinition): void {
     const hookId = this.generateHookId(definition);
-    
+
     // 检查是否已注册
     if (this.hookIndex.has(hookId)) {
       throw new Error(`Hook already registered: ${hookId}`);
@@ -100,7 +100,7 @@ export class HookRegistry {
    * 批量注册Hooks（基于CC源码）
    */
   registerHooks(definitions: HookDefinition[]): void {
-    definitions.forEach(definition => this.registerHook(definition));
+    definitions.forEach((definition) => this.registerHook(definition));
   }
 
   /**
@@ -114,15 +114,15 @@ export class HookRegistry {
 
     const event = registration.definition.event;
     const eventHooks = this.hooks.get(event);
-    
+
     if (eventHooks) {
-      const index = eventHooks.findIndex(h => 
-        this.generateHookId(h.definition) === hookId
+      const index = eventHooks.findIndex(
+        (h) => this.generateHookId(h.definition) === hookId
       );
-      
+
       if (index >= 0) {
         eventHooks.splice(index, 1);
-        
+
         // 如果事件没有Hook了，删除事件映射
         if (eventHooks.length === 0) {
           this.hooks.delete(event);
@@ -142,9 +142,9 @@ export class HookRegistry {
    */
   getHooksForEvent(event: HookEvent): HookRegistration[] {
     const hooks = this.hooks.get(event) || [];
-    
+
     // 过滤启用的Hook
-    return hooks.filter(hook => hook.enabled);
+    return hooks.filter((hook) => hook.enabled);
   }
 
   /**
@@ -185,10 +185,10 @@ export class HookRegistry {
     }
 
     registration.priority = priority;
-    
+
     // 重新排序
     this.sortHooksByPriority(registration.definition.event);
-    
+
     console.log(`✅ Hook priority set: ${hookId} -> ${priority}`);
     return true;
   }
@@ -238,7 +238,7 @@ export class HookRegistry {
 
     for (const dependency of registration.dependencies) {
       const dependentHook = this.hookIndex.get(dependency.hookId);
-      
+
       if (!dependentHook) {
         missing.push(`Dependent hook not found: ${dependency.hookId}`);
         continue;
@@ -249,8 +249,10 @@ export class HookRegistry {
         continue;
       }
 
-      if (dependency.requiredVersion && 
-          dependentHook.definition.version !== dependency.requiredVersion) {
+      if (
+        dependency.requiredVersion &&
+        dependentHook.definition.version !== dependency.requiredVersion
+      ) {
         missing.push(`Version mismatch: ${dependency.hookId}`);
       }
     }
@@ -276,13 +278,13 @@ export class HookRegistry {
    */
   clearHooksForEvent(event: HookEvent): void {
     const hooks = this.hooks.get(event) || [];
-    
+
     for (const hook of hooks) {
       const hookId = this.generateHookId(hook.definition);
       this.hookIndex.delete(hookId);
       this.executionHistory.delete(hookId);
     }
-    
+
     this.hooks.delete(event);
     console.log(`✅ Hooks cleared for event: ${event}`);
   }
@@ -304,11 +306,11 @@ export class HookRegistry {
     }
 
     const priorityOrder: Record<HookPriority, number> = {
-      'highest': 100,
-      'high': 75,
-      'normal': 50,
-      'low': 25,
-      'lowest': 0,
+      highest: 100,
+      high: 75,
+      normal: 50,
+      low: 25,
+      lowest: 0,
     };
 
     hooks.sort((a, b) => {
@@ -328,11 +330,14 @@ export class HookRegistry {
     totalExecutions: number;
   } {
     const totalHooks = this.hookIndex.size;
-    const enabledHooks = Array.from(this.hookIndex.values())
-      .filter(hook => hook.enabled).length;
+    const enabledHooks = Array.from(this.hookIndex.values()).filter(
+      (hook) => hook.enabled
+    ).length;
     const events = this.hooks.size;
-    const totalExecutions = Array.from(this.hookIndex.values())
-      .reduce((sum, hook) => sum + hook.executionCount, 0);
+    const totalExecutions = Array.from(this.hookIndex.values()).reduce(
+      (sum, hook) => sum + hook.executionCount,
+      0
+    );
 
     return {
       totalHooks,
@@ -353,16 +358,16 @@ export const globalHookRegistry = new HookRegistry();
  */
 export function registerDefaultHooks(): void {
   console.log('🔧 Registering default hooks...');
-  
+
   // 注册核心Hook类型
   registerCoreHooks(globalHookRegistry);
-  
+
   // 注册压缩Hook
   registerCompressionHooks(globalHookRegistry);
-  
+
   // 注册会话Hook
   registerSessionHooks(globalHookRegistry);
-  
+
   console.log('✅ Default hooks registered');
 }
 

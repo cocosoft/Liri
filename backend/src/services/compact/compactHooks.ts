@@ -30,8 +30,10 @@ export function clearCompactHooks(): void {
   hooks.length = 0;
 }
 
-export async function executePreCompactHooks(context: CompactHookContext): Promise<void> {
-  const preHooks = hooks.filter(h => h.type === 'pre-compact');
+export async function executePreCompactHooks(
+  context: CompactHookContext
+): Promise<void> {
+  const preHooks = hooks.filter((h) => h.type === 'pre-compact');
   for (const hook of preHooks) {
     try {
       await hook.execute(context);
@@ -41,8 +43,10 @@ export async function executePreCompactHooks(context: CompactHookContext): Promi
   }
 }
 
-export async function executePostCompactHooks(context: CompactHookContext): Promise<void> {
-  const postHooks = hooks.filter(h => h.type === 'post-compact');
+export async function executePostCompactHooks(
+  context: CompactHookContext
+): Promise<void> {
+  const postHooks = hooks.filter((h) => h.type === 'post-compact');
   for (const hook of postHooks) {
     try {
       await hook.execute(context);

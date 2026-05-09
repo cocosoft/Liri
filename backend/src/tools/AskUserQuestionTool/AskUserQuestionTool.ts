@@ -17,11 +17,13 @@ export interface AskUserQuestionResult {
 
 const questions: AskUserQuestionResult[] = [];
 
-export function askUserQuestion(input: AskUserQuestionInput): AskUserQuestionResult {
+export function askUserQuestion(
+  input: AskUserQuestionInput
+): AskUserQuestionResult {
   const result: AskUserQuestionResult = {
     questionId: `q_${Date.now()}`,
     question: input.question,
-    answers: input.options.map(o => o.label),
+    answers: input.options.map((o) => o.label),
     timestamp: Date.now(),
   };
   questions.push(result);
@@ -32,7 +34,9 @@ export function getQuestionHistory(): AskUserQuestionResult[] {
   return [...questions];
 }
 
-export function validateOptions(options: { label: string; description: string }[]): {
+export function validateOptions(
+  options: { label: string; description: string }[]
+): {
   valid: boolean;
   reason?: string;
 } {
@@ -46,7 +50,12 @@ export function validateOptions(options: { label: string; description: string }[
 }
 
 import { BaseTool } from '../BaseTool';
-import type { ToolParam, ToolUseContext, ToolCallProgress, ToolResult } from '../types';
+import type {
+  ToolParam,
+  ToolUseContext,
+  ToolCallProgress,
+  ToolResult,
+} from '../types';
 import { createToolResult } from '../types/ToolResult';
 
 export class AskUserQuestionTool extends BaseTool {

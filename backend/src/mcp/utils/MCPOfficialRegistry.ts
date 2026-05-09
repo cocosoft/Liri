@@ -43,7 +43,7 @@ export async function prefetchOfficialMcpUrls(): Promise<void> {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const data = await response.json() as RegistryResponse;
+    const data = (await response.json()) as RegistryResponse;
     const urls = new Set<string>();
 
     for (const entry of data.servers) {

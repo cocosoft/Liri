@@ -4,9 +4,27 @@
  */
 export * from './types/GovernanceTypes';
 export { GovernanceManager } from './managers/GovernanceManager';
-export { GovernanceConfigManager, governanceConfigManager, type ConfigVersion, type ConfigEvent } from './managers/GovernanceConfigManager';
-export { GovernanceAuditService, governanceAuditService, type AuditEvent, type AuditQueryOptions, type AuditStatistics } from './managers/GovernanceAuditService';
-export { GovernanceStrategyManager, governanceStrategyManager, type GovernanceStrategy, type GovernanceRule, type GovernanceStrategyType, type StrategyEvent } from './managers/GovernanceStrategyManager';
+export {
+  GovernanceConfigManager,
+  governanceConfigManager,
+  type ConfigVersion,
+  type ConfigEvent,
+} from './managers/GovernanceConfigManager';
+export {
+  GovernanceAuditService,
+  governanceAuditService,
+  type AuditEvent,
+  type AuditQueryOptions,
+  type AuditStatistics,
+} from './managers/GovernanceAuditService';
+export {
+  GovernanceStrategyManager,
+  governanceStrategyManager,
+  type GovernanceStrategy,
+  type GovernanceRule,
+  type GovernanceStrategyType,
+  type StrategyEvent,
+} from './managers/GovernanceStrategyManager';
 
 // 导出增强功能
 export * from './EnhancedGovernanceManager.js';

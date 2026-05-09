@@ -115,6 +115,8 @@ export class QueryConfigManager {
   }
 }
 
-export function createQueryConfigManager(config?: Partial<QueryConfig>): QueryConfigManager {
+export function createQueryConfigManager(
+  config?: Partial<QueryConfig>
+): QueryConfigManager {
   return new QueryConfigManager(config);
 }

@@ -37,8 +37,8 @@ const conflictDetector = {
     const existing = bindings.get(key);
     if (!existing) return [];
     return existing
-      .filter(b => b.context === context)
-      .map(b => ({ key, context, actionId: b.actionId }));
+      .filter((b) => b.context === context)
+      .map((b) => ({ key, context, actionId: b.actionId }));
   },
 
   resolveConflicts(
@@ -83,7 +83,7 @@ export class KeybindingManager {
     priority: number = 0
   ): ConflictResult | null {
     const normalizedKey = this.normalizeKey(key);
-    
+
     // 检测冲突
     const conflicts = conflictDetector.detectConflicts(
       normalizedKey,
@@ -304,7 +304,7 @@ export class KeybindingManager {
    */
   private normalizeKey(key: string): string {
     const parts = key.split('+').map((part) => part.trim().toLowerCase());
-    
+
     // 按标准顺序排序修饰键
     const modifiers: string[] = [];
     const keys: string[] = [];

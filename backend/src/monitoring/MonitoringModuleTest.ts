@@ -13,8 +13,13 @@ describe('IncidentManager', () => {
 
   it('creates an incident with default fields', () => {
     const inc = manager.createIncident({
-      title: 'test', description: 'desc', severity: 'major',
-      status: 'firing', source: 'test-suite', relatedAlertIds: [], tags: [],
+      title: 'test',
+      description: 'desc',
+      severity: 'major',
+      status: 'firing',
+      source: 'test-suite',
+      relatedAlertIds: [],
+      tags: [],
     });
     expect(inc.id).toMatch(/^inc_/);
     expect(inc.title).toBe('test');
@@ -24,8 +29,13 @@ describe('IncidentManager', () => {
 
   it('retrieves an incident by id', () => {
     const inc = manager.createIncident({
-      title: 'find-me', description: '', severity: 'info',
-      status: 'firing', source: 'test', relatedAlertIds: [], tags: [],
+      title: 'find-me',
+      description: '',
+      severity: 'info',
+      status: 'firing',
+      source: 'test',
+      relatedAlertIds: [],
+      tags: [],
     });
     const found = manager.getIncident(inc.id);
     expect(found).toBeDefined();
@@ -38,10 +48,17 @@ describe('IncidentManager', () => {
 
   it('updates status to acknowledged', () => {
     const inc = manager.createIncident({
-      title: 'ack', description: '', severity: 'critical',
-      status: 'firing', source: 'test', relatedAlertIds: [], tags: [],
+      title: 'ack',
+      description: '',
+      severity: 'critical',
+      status: 'firing',
+      source: 'test',
+      relatedAlertIds: [],
+      tags: [],
     });
-    const result = manager.updateStatus(inc.id, 'acknowledged', { by: 'alice' });
+    const result = manager.updateStatus(inc.id, 'acknowledged', {
+      by: 'alice',
+    });
     expect(result).toBe(true);
     const updated = manager.getIncident(inc.id)!;
     expect(updated.status).toBe('acknowledged');
@@ -51,11 +68,19 @@ describe('IncidentManager', () => {
 
   it('updates status to resolved', () => {
     const inc = manager.createIncident({
-      title: 'resolve', description: '', severity: 'major',
-      status: 'firing', source: 'test', relatedAlertIds: [], tags: [],
+      title: 'resolve',
+      description: '',
+      severity: 'major',
+      status: 'firing',
+      source: 'test',
+      relatedAlertIds: [],
+      tags: [],
     });
     manager.updateStatus(inc.id, 'acknowledged', { by: 'bob' });
-    const result = manager.updateStatus(inc.id, 'resolved', { by: 'bob', resolution: 'fixed' });
+    const result = manager.updateStatus(inc.id, 'resolved', {
+      by: 'bob',
+      resolution: 'fixed',
+    });
     expect(result).toBe(true);
     const updated = manager.getIncident(inc.id)!;
     expect(updated.status).toBe('resolved');
@@ -68,9 +93,33 @@ describe('IncidentManager', () => {
   });
 
   it('lists incidents with filters', () => {
-    manager.createIncident({ title: 'a', description: '', severity: 'critical', status: 'firing', source: 'src1', relatedAlertIds: [], tags: ['db'] });
-    manager.createIncident({ title: 'b', description: '', severity: 'warning', status: 'resolved', source: 'src2', relatedAlertIds: [], tags: ['cache'] });
-    manager.createIncident({ title: 'c', description: '', severity: 'critical', status: 'firing', source: 'src1', relatedAlertIds: [], tags: ['db'] });
+    manager.createIncident({
+      title: 'a',
+      description: '',
+      severity: 'critical',
+      status: 'firing',
+      source: 'src1',
+      relatedAlertIds: [],
+      tags: ['db'],
+    });
+    manager.createIncident({
+      title: 'b',
+      description: '',
+      severity: 'warning',
+      status: 'resolved',
+      source: 'src2',
+      relatedAlertIds: [],
+      tags: ['cache'],
+    });
+    manager.createIncident({
+      title: 'c',
+      description: '',
+      severity: 'critical',
+      status: 'firing',
+      source: 'src1',
+      relatedAlertIds: [],
+      tags: ['db'],
+    });
 
     const criticals = manager.listIncidents({ severity: ['critical'] });
     expect(criticals.length).toBe(2);
@@ -87,8 +136,13 @@ describe('IncidentManager', () => {
 
   it('adds related alert to incident', () => {
     const inc = manager.createIncident({
-      title: 'alert-link', description: '', severity: 'minor',
-      status: 'firing', source: 'test', relatedAlertIds: [], tags: [],
+      title: 'alert-link',
+      description: '',
+      severity: 'minor',
+      status: 'firing',
+      source: 'test',
+      relatedAlertIds: [],
+      tags: [],
     });
     const result = manager.addRelatedAlert(inc.id, 'alert-1');
     expect(result).toBe(true);
@@ -96,9 +150,33 @@ describe('IncidentManager', () => {
   });
 
   it('generates stats correctly', () => {
-    manager.createIncident({ title: 'c1', description: '', severity: 'critical', status: 'firing', source: 's1', relatedAlertIds: [], tags: [] });
-    manager.createIncident({ title: 'c2', description: '', severity: 'critical', status: 'firing', source: 's1', relatedAlertIds: [], tags: [] });
-    manager.createIncident({ title: 'w1', description: '', severity: 'warning', status: 'resolved', source: 's2', relatedAlertIds: [], tags: [] });
+    manager.createIncident({
+      title: 'c1',
+      description: '',
+      severity: 'critical',
+      status: 'firing',
+      source: 's1',
+      relatedAlertIds: [],
+      tags: [],
+    });
+    manager.createIncident({
+      title: 'c2',
+      description: '',
+      severity: 'critical',
+      status: 'firing',
+      source: 's1',
+      relatedAlertIds: [],
+      tags: [],
+    });
+    manager.createIncident({
+      title: 'w1',
+      description: '',
+      severity: 'warning',
+      status: 'resolved',
+      source: 's2',
+      relatedAlertIds: [],
+      tags: [],
+    });
 
     const stats = manager.getStats();
     expect(stats.total).toBe(3);
@@ -110,8 +188,13 @@ describe('IncidentManager', () => {
 
   it('closes old incidents', () => {
     const inc = manager.createIncident({
-      title: 'old', description: '', severity: 'info',
-      status: 'firing', source: 'test', relatedAlertIds: [], tags: [],
+      title: 'old',
+      description: '',
+      severity: 'info',
+      status: 'firing',
+      source: 'test',
+      relatedAlertIds: [],
+      tags: [],
     });
     const count = manager.closeOldIncidents(0);
     expect(count).toBeGreaterThan(0);
@@ -148,8 +231,12 @@ describe('DashboardDataProvider', () => {
   it('generates widget snapshot', () => {
     provider.recordDataPoint('test.metric', 42);
     const snapshot = provider.getWidgetSnapshot({
-      id: 'w1', title: 'Test Widget', type: 'stat',
-      metric: 'test.metric', timeRange: 60000, refreshInterval: 5000,
+      id: 'w1',
+      title: 'Test Widget',
+      type: 'stat',
+      metric: 'test.metric',
+      timeRange: 60000,
+      refreshInterval: 5000,
     });
     expect(snapshot.widgetId).toBe('w1');
     expect(snapshot.title).toBe('Test Widget');
@@ -178,7 +265,9 @@ describe('DashboardDataProvider', () => {
     provider.recordDataPoint('m1', 1);
     provider.recordDataPoint('m2', 2);
     provider.clear();
-    expect(provider.getTimeRangeSummary(0, Date.now() + 1000).dataPoints).toBe(0);
+    expect(provider.getTimeRangeSummary(0, Date.now() + 1000).dataPoints).toBe(
+      0
+    );
   });
 
   it('supports different aggregation types', () => {
@@ -243,8 +332,12 @@ describe('HealthChecker', () => {
   });
 
   it('reports unhealthy when all checks fail', async () => {
-    checker.registerCheck('a', async () => { throw new Error('fail'); });
-    checker.registerCheck('b', async () => { throw new Error('fail'); });
+    checker.registerCheck('a', async () => {
+      throw new Error('fail');
+    });
+    checker.registerCheck('b', async () => {
+      throw new Error('fail');
+    });
     const result = await checker.runAllChecks();
     expect(result.overall).toBe('unhealthy');
     expect(result.summary.unhealthy).toBe(2);
@@ -259,7 +352,9 @@ describe('HealthChecker', () => {
   });
 
   it('maintains check history', async () => {
-    checker.registerCheck('history', async () => ({ status: 'healthy' as const }));
+    checker.registerCheck('history', async () => ({
+      status: 'healthy' as const,
+    }));
     await checker.runCheck('history');
     await checker.runCheck('history');
     const history = checker.getCheckHistory('history');
@@ -267,10 +362,14 @@ describe('HealthChecker', () => {
   });
 
   it('respects check timeout', async () => {
-    checker.registerCheck('slow', async () => {
-      await new Promise(r => setTimeout(r, 500));
-      return { status: 'healthy' as const };
-    }, { timeout: 10 });
+    checker.registerCheck(
+      'slow',
+      async () => {
+        await new Promise((r) => setTimeout(r, 500));
+        return { status: 'healthy' as const };
+      },
+      { timeout: 10 }
+    );
 
     const result = await checker.runCheck('slow');
     expect(result!.status).toBe('unhealthy');
@@ -280,7 +379,7 @@ describe('HealthChecker', () => {
   it('auto-check runs periodically', async () => {
     checker.registerCheck('auto', async () => ({ status: 'healthy' as const }));
     checker.startAutoCheck(50);
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise((r) => setTimeout(r, 120));
     checker.stopAutoCheck();
     const history = checker.getCheckHistory('auto');
     expect(history.length).toBeGreaterThanOrEqual(2);
@@ -325,8 +424,12 @@ describe('Monitoring Integration', () => {
     expect(healthSeries.dataPoints.length).toBeGreaterThan(0);
 
     const snapshot = dashboard.getWidgetSnapshot({
-      id: 'health-widget', title: '健康评分', type: 'line',
-      metric: 'health.score', timeRange: 60000, refreshInterval: 5000,
+      id: 'health-widget',
+      title: '健康评分',
+      type: 'line',
+      metric: 'health.score',
+      timeRange: 60000,
+      refreshInterval: 5000,
     });
     expect(snapshot.summary.average).toBeGreaterThan(0);
     expect(snapshot.summary.count).toBeGreaterThan(0);

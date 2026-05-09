@@ -3,7 +3,13 @@
  * 负责Agent配置的持久化存储和管理
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+} from 'fs';
 import { join } from 'path';
 import { AgentConfig } from '../models/types';
 import { AIModelType } from '@modules/ai/models/types';
@@ -20,7 +26,14 @@ export class AgentConfigManager {
    * 构造函数
    * @param configDir 配置目录
    */
-  constructor(configDir: string = join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'config', 'agents')) {
+  constructor(
+    configDir: string = join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.py_app',
+      'config',
+      'agents'
+    )
+  ) {
     this.configPath = configDir;
     this.ensureConfigDirExists();
   }
@@ -50,12 +63,16 @@ export class AgentConfigManager {
    */
   loadConfig(agentId: string): AgentConfig {
     const filePath = this.getConfigFilePath(agentId);
-    
+
     // 检查缓存是否有效
     if (this.configCache.has(agentId)) {
-      const fileStats = existsSync(filePath) ? readFileSync(filePath, 'utf8') : null;
+      const fileStats = existsSync(filePath)
+        ? readFileSync(filePath, 'utf8')
+        : null;
       if (fileStats) {
-        const mtime = new Date(JSON.parse(fileStats).lastModified || Date.now()).getTime();
+        const mtime = new Date(
+          JSON.parse(fileStats).lastModified || Date.now()
+        ).getTime();
         if (this.lastModified.get(agentId) === mtime) {
           return this.configCache.get(agentId)!;
         }
@@ -66,14 +83,14 @@ export class AgentConfigManager {
       if (existsSync(filePath)) {
         const content = readFileSync(filePath, 'utf8');
         const config = JSON.parse(content);
-        
+
         // 验证配置
         const validatedConfig = this.validateConfig(config);
-        
+
         // 更新缓存
         this.configCache.set(agentId, validatedConfig);
         this.lastModified.set(agentId, Date.now());
-        
+
         return validatedConfig;
       }
     } catch (error) {
@@ -94,14 +111,18 @@ export class AgentConfigManager {
   saveConfig(agentId: string, config: Partial<AgentConfig>): void {
     try {
       const currentConfig = this.loadConfig(agentId);
-      const updatedConfig = { ...currentConfig, ...config, lastModified: Date.now() };
-      
+      const updatedConfig = {
+        ...currentConfig,
+        ...config,
+        lastModified: Date.now(),
+      };
+
       // 验证配置
       const validatedConfig = this.validateConfig(updatedConfig);
-      
+
       const filePath = this.getConfigFilePath(agentId);
       writeFileSync(filePath, JSON.stringify(validatedConfig, null, 2));
-      
+
       // 更新缓存
       this.configCache.set(agentId, validatedConfig);
       this.lastModified.set(agentId, Date.now());
@@ -121,7 +142,7 @@ export class AgentConfigManager {
         // 这里可以使用fs.unlinkSync，但为了安全起见，我们暂时只清除缓存
         // unlinkSync(filePath);
       }
-      
+
       // 清除缓存
       this.configCache.delete(agentId);
       this.lastModified.delete(agentId);
@@ -137,12 +158,21 @@ export class AgentConfigManager {
    */
   private validateConfig(config: any): AgentConfig {
     const defaultConfig = this.getDefaultConfig();
-    
+
     return {
       model: config.model || defaultConfig.model,
-      temperature: typeof config.temperature === 'number' ? config.temperature : defaultConfig.temperature,
-      maxTokens: typeof config.maxTokens === 'number' ? config.maxTokens : defaultConfig.maxTokens,
-      timeout: typeof config.timeout === 'number' ? config.timeout : defaultConfig.timeout,
+      temperature:
+        typeof config.temperature === 'number'
+          ? config.temperature
+          : defaultConfig.temperature,
+      maxTokens:
+        typeof config.maxTokens === 'number'
+          ? config.maxTokens
+          : defaultConfig.maxTokens,
+      timeout:
+        typeof config.timeout === 'number'
+          ? config.timeout
+          : defaultConfig.timeout,
       memoryPath: config.memoryPath || defaultConfig.memoryPath,
       defaultStrategy: config.defaultStrategy || defaultConfig.defaultStrategy,
       tools: Array.isArray(config.tools) ? config.tools : defaultConfig.tools,
@@ -174,8 +204,8 @@ export class AgentConfigManager {
       if (existsSync(this.configPath)) {
         const files = readdirSync(this.configPath);
         return files
-          .filter(file => file.endsWith('.json'))
-          .map(file => file.replace('.json', ''));
+          .filter((file) => file.endsWith('.json'))
+          .map((file) => file.replace('.json', ''));
       }
     } catch (error) {
       console.error('列出Agent配置失败', error);

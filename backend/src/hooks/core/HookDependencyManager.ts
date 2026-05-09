@@ -3,11 +3,7 @@
  * 支持Hook依赖解析、循环依赖检测、优先级排序等功能
  */
 
-import type {
-  HookDefinition,
-  HookDependency,
-  HookPriority,
-} from '../types';
+import type { HookDefinition, HookDependency, HookPriority } from '../types';
 
 /**
  * 依赖关系节点（基于CC源码）
@@ -17,27 +13,27 @@ interface DependencyNode {
    * Hook ID
    */
   hookId: string;
-  
+
   /**
    * 依赖的Hook ID列表
    */
   dependencies: string[];
-  
+
   /**
    * 被依赖的Hook ID列表
    */
   dependents: string[];
-  
+
   /**
    * Hook优先级
    */
   priority: HookPriority;
-  
+
   /**
    * 是否已解析
    */
   resolved: boolean;
-  
+
   /**
    * 是否正在解析（用于循环依赖检测）
    */
@@ -52,22 +48,22 @@ interface DependencyResolutionResult {
    * 是否成功
    */
   success: boolean;
-  
+
   /**
    * 解析后的Hook ID列表（按执行顺序）
    */
   executionOrder: string[];
-  
+
   /**
    * 错误信息
    */
   error?: string;
-  
+
   /**
    * 循环依赖路径（如果存在）
    */
   cyclePath?: string[];
-  
+
   /**
    * 缺失的依赖项
    */
@@ -87,10 +83,10 @@ export class HookDependencyManager {
   addHookDefinition(hook: HookDefinition): void {
     const hookId = this.generateHookId(hook);
     this.hookDefinitions.set(hookId, hook);
-    
+
     // 创建依赖节点
-    const dependencies = hook.dependencies?.map(dep => dep.hookId) || [];
-    
+    const dependencies = hook.dependencies?.map((dep) => dep.hookId) || [];
+
     this.dependencyGraph.set(hookId, {
       hookId,
       dependencies,
@@ -99,7 +95,7 @@ export class HookDependencyManager {
       resolved: false,
       resolving: false,
     });
-    
+
     // 更新依赖关系
     this.updateDependencyRelationships();
   }
@@ -108,7 +104,7 @@ export class HookDependencyManager {
    * 批量添加Hook定义（基于CC源码）
    */
   addHookDefinitions(hooks: HookDefinition[]): void {
-    hooks.forEach(hook => this.addHookDefinition(hook));
+    hooks.forEach((hook) => this.addHookDefinition(hook));
   }
 
   /**
@@ -121,10 +117,10 @@ export class HookDependencyManager {
 
     this.hookDefinitions.delete(hookId);
     this.dependencyGraph.delete(hookId);
-    
+
     // 更新依赖关系
     this.updateDependencyRelationships();
-    
+
     return true;
   }
 
@@ -135,22 +131,27 @@ export class HookDependencyManager {
     const executionOrder: string[] = [];
     const visited: Set<string> = new Set();
     const resolving: Set<string> = new Set();
-    
+
     // 重置所有节点的状态
     this.resetNodeStates();
-    
+
     // 按优先级排序的Hook列表
     const hooksByPriority = this.getHooksByPriority();
-    
+
     for (const hookId of hooksByPriority) {
       if (!visited.has(hookId)) {
-        const result = this.depthFirstTraversal(hookId, visited, resolving, executionOrder);
+        const result = this.depthFirstTraversal(
+          hookId,
+          visited,
+          resolving,
+          executionOrder
+        );
         if (!result.success) {
           return result;
         }
       }
     }
-    
+
     return {
       success: true,
       executionOrder,
@@ -197,7 +198,12 @@ export class HookDependencyManager {
 
     // 先处理所有依赖项
     for (const dependencyId of node.dependencies) {
-      const result = this.depthFirstTraversal(dependencyId, visited, resolving, executionOrder);
+      const result = this.depthFirstTraversal(
+        dependencyId,
+        visited,
+        resolving,
+        executionOrder
+      );
       if (!result.success) {
         return result;
       }
@@ -218,20 +224,20 @@ export class HookDependencyManager {
    */
   private getHooksByPriority(): string[] {
     const priorityOrder: Record<HookPriority, number> = {
-      'highest': 100,
-      'high': 75,
-      'normal': 50,
-      'low': 25,
-      'lowest': 0,
+      highest: 100,
+      high: 75,
+      normal: 50,
+      low: 25,
+      lowest: 0,
     };
 
     return Array.from(this.dependencyGraph.keys()).sort((a, b) => {
       const nodeA = this.dependencyGraph.get(a)!;
       const nodeB = this.dependencyGraph.get(b)!;
-      
+
       const priorityA = priorityOrder[nodeA.priority] || 50;
       const priorityB = priorityOrder[nodeB.priority] || 50;
-      
+
       return priorityB - priorityA; // 高优先级在前
     });
   }
@@ -289,7 +295,7 @@ export class HookDependencyManager {
     // 检查循环依赖
     const visited: Set<string> = new Set();
     const resolving: Set<string> = new Set();
-    
+
     for (const hookId of this.dependencyGraph.keys()) {
       if (!visited.has(hookId)) {
         const cycle = this.detectCycle(hookId, visited, resolving, []);
@@ -300,7 +306,8 @@ export class HookDependencyManager {
     }
 
     return {
-      valid: missingDependencies.length === 0 && circularDependencies.length === 0,
+      valid:
+        missingDependencies.length === 0 && circularDependencies.length === 0,
       missingDependencies,
       circularDependencies,
     };
@@ -341,7 +348,7 @@ export class HookDependencyManager {
 
     resolving.delete(hookId);
     path.pop();
-    
+
     return null;
   }
 
@@ -351,31 +358,31 @@ export class HookDependencyManager {
   getDependencyChain(hookId: string): { chain: string[]; depth: number } {
     const chain: string[] = [];
     const visited: Set<string> = new Set();
-    
+
     const buildChain = (currentId: string): number => {
       if (visited.has(currentId)) {
         return 0;
       }
-      
+
       visited.add(currentId);
       chain.push(currentId);
-      
+
       const node = this.dependencyGraph.get(currentId);
       if (!node || node.dependencies.length === 0) {
         return 1;
       }
-      
+
       let maxDepth = 0;
       for (const dependencyId of node.dependencies) {
         const depth = buildChain(dependencyId);
         maxDepth = Math.max(maxDepth, depth);
       }
-      
+
       return maxDepth + 1;
     };
-    
+
     const depth = buildChain(hookId);
-    
+
     return { chain, depth };
   }
 
@@ -385,11 +392,11 @@ export class HookDependencyManager {
   getAffectedHooks(hookId: string): string[] {
     const affected: Set<string> = new Set();
     const queue: string[] = [hookId];
-    
+
     while (queue.length > 0) {
       const currentId = queue.shift()!;
       affected.add(currentId);
-      
+
       const node = this.dependencyGraph.get(currentId);
       if (node) {
         for (const dependentId of node.dependents) {
@@ -399,7 +406,7 @@ export class HookDependencyManager {
         }
       }
     }
-    
+
     return Array.from(affected);
   }
 
@@ -408,26 +415,26 @@ export class HookDependencyManager {
    */
   visualizeDependencies(): string {
     const lines: string[] = [];
-    
+
     for (const [hookId, node] of this.dependencyGraph.entries()) {
       const hookDefinition = this.hookDefinitions.get(hookId);
       const priority = node.priority;
-      
+
       lines.push(`${hookId} [${priority}]`);
-      
+
       if (node.dependencies.length > 0) {
         for (const dependencyId of node.dependencies) {
           lines.push(`  -> ${dependencyId}`);
         }
       }
-      
+
       if (node.dependents.length > 0) {
         lines.push(`  <- ${node.dependents.join(', ')}`);
       }
-      
+
       lines.push('');
     }
-    
+
     return lines.join('\n');
   }
 
@@ -450,16 +457,17 @@ export class HookDependencyManager {
     const totalHooks = this.dependencyGraph.size;
     let totalDependencies = 0;
     let maxDepth = 0;
-    
+
     for (const node of this.dependencyGraph.values()) {
       totalDependencies += node.dependencies.length;
-      
+
       const chain = this.getDependencyChain(node.hookId);
       maxDepth = Math.max(maxDepth, chain.depth);
     }
-    
-    const averageDependencies = totalHooks > 0 ? totalDependencies / totalHooks : 0;
-    
+
+    const averageDependencies =
+      totalHooks > 0 ? totalDependencies / totalHooks : 0;
+
     return {
       totalHooks,
       totalDependencies,

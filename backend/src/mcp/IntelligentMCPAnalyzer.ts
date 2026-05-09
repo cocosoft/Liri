@@ -123,9 +123,13 @@ export interface IntelligentMCPAnalyzerConfig {
 export class IntelligentMCPAnalyzer {
   private enhancedManager: EnhancedMCPManager;
   private config: IntelligentMCPAnalyzerConfig;
-  private analysisCache: Map<string, { result: MCPAnalysisResult; timestamp: number }> = new Map();
+  private analysisCache: Map<
+    string,
+    { result: MCPAnalysisResult; timestamp: number }
+  > = new Map();
   private analysisHistory: Map<string, MCPAnalysisResult[]> = new Map();
-  private warningPatterns: Map<string, { pattern: string; count: number }> = new Map();
+  private warningPatterns: Map<string, { pattern: string; count: number }> =
+    new Map();
 
   constructor(
     enhancedManager: EnhancedMCPManager,
@@ -166,16 +170,29 @@ export class IntelligentMCPAnalyzer {
     return result;
   }
 
-  private async performAnalysis(serverName: string): Promise<MCPAnalysisResult> {
+  private async performAnalysis(
+    serverName: string
+  ): Promise<MCPAnalysisResult> {
     const performance = this.enhancedManager.getServerPerformance(serverName);
-    const healthHistory = this.enhancedManager.getServerHealthHistory(serverName);
+    const healthHistory =
+      this.enhancedManager.getServerHealthHistory(serverName);
     const connection = this.enhancedManager.getConnectionAnalytics(serverName);
-    const toolUsage = this.enhancedManager.getAllToolUsageAnalytics().filter(t => t.serverName === serverName);
+    const toolUsage = this.enhancedManager
+      .getAllToolUsageAnalytics()
+      .filter((t) => t.serverName === serverName);
     const resource = this.enhancedManager.getResourceAnalytics(serverName);
 
-    const analysis = this.buildAnalysis(serverName, performance, healthHistory, connection, toolUsage, resource);
+    const analysis = this.buildAnalysis(
+      serverName,
+      performance,
+      healthHistory,
+      connection,
+      toolUsage,
+      resource
+    );
     const overallScore = this.calculateOverallScore(analysis);
-    const recommendations = this.enhancedManager.generateRecommendations(serverName);
+    const recommendations =
+      this.enhancedManager.generateRecommendations(serverName);
     const warnings = this.generateWarnings(serverName, analysis);
 
     return {
@@ -199,7 +216,7 @@ export class IntelligentMCPAnalyzer {
     healthHistory?: MCPHealthCheck[],
     connection?: MCPConnectionAnalytics,
     toolUsage?: MCPToolUsageAnalytics[],
-    resource?: MCPResourceAnalytics,
+    resource?: MCPResourceAnalytics
   ): MCPAnalysisDetails {
     return {
       performance: this.analyzePerformance(performance),
@@ -211,7 +228,9 @@ export class IntelligentMCPAnalyzer {
     };
   }
 
-  private analyzePerformance(metrics?: MCPPerformanceMetrics): MCPPerformanceAnalysis {
+  private analyzePerformance(
+    metrics?: MCPPerformanceMetrics
+  ): MCPPerformanceAnalysis {
     if (!metrics) {
       return {
         averageResponseTime: 0,
@@ -224,18 +243,24 @@ export class IntelligentMCPAnalyzer {
     }
 
     const responseTimeTrend: 'improving' | 'stable' | 'degrading' =
-      metrics.averageResponseTime < 100 ? 'improving' :
-      metrics.averageResponseTime > 300 ? 'degrading' : 'stable';
+      metrics.averageResponseTime < 100
+        ? 'improving'
+        : metrics.averageResponseTime > 300
+          ? 'degrading'
+          : 'stable';
 
     const bottlenecks: string[] = [];
-    if (metrics.averageResponseTime > 300) bottlenecks.push('High response time');
+    if (metrics.averageResponseTime > 300)
+      bottlenecks.push('High response time');
     if (metrics.errorRate > 3) bottlenecks.push('High error rate');
     if (metrics.requestSuccessRate < 95) bottlenecks.push('Low success rate');
 
-    const optimizationPotential = Math.max(0, 100 -
-      (metrics.averageResponseTime / 5) -
-      metrics.errorRate * 3 -
-      (100 - metrics.requestSuccessRate)
+    const optimizationPotential = Math.max(
+      0,
+      100 -
+        metrics.averageResponseTime / 5 -
+        metrics.errorRate * 3 -
+        (100 - metrics.requestSuccessRate)
     );
 
     return {
@@ -244,7 +269,9 @@ export class IntelligentMCPAnalyzer {
       requestVolume: metrics.toolExecutionCount,
       peakResponseTime: metrics.averageResponseTime * 1.5,
       performanceBottlenecks: bottlenecks,
-      optimizationPotential: Math.round(Math.max(0, Math.min(100, optimizationPotential))),
+      optimizationPotential: Math.round(
+        Math.max(0, Math.min(100, optimizationPotential))
+      ),
     };
   }
 
@@ -261,17 +288,29 @@ export class IntelligentMCPAnalyzer {
     }
 
     const lastCheck = healthHistory[healthHistory.length - 1];
-    const healthyCount = healthHistory.filter(h => h.status === 'healthy').length;
-    const unhealthyCount = healthHistory.filter(h => h.status === 'unhealthy' || h.status === 'offline').length;
+    const healthyCount = healthHistory.filter(
+      (h) => h.status === 'healthy'
+    ).length;
+    const unhealthyCount = healthHistory.filter(
+      (h) => h.status === 'unhealthy' || h.status === 'offline'
+    ).length;
 
     const uptimePercentage = (healthyCount / healthHistory.length) * 100;
-    const stabilityScore = Math.round((healthyCount / healthHistory.length) * 100);
+    const stabilityScore = Math.round(
+      (healthyCount / healthHistory.length) * 100
+    );
     const recentIncidents = unhealthyCount;
 
     const recentHistory = healthHistory.slice(-10);
-    const healthyRecent = recentHistory.filter(h => h.status === 'healthy').length;
+    const healthyRecent = recentHistory.filter(
+      (h) => h.status === 'healthy'
+    ).length;
     const healthTrend: 'improving' | 'stable' | 'declining' =
-      healthyRecent > 7 ? 'improving' : healthyRecent < 4 ? 'declining' : 'stable';
+      healthyRecent > 7
+        ? 'improving'
+        : healthyRecent < 4
+          ? 'declining'
+          : 'stable';
 
     return {
       currentStatus: lastCheck.status,
@@ -283,7 +322,9 @@ export class IntelligentMCPAnalyzer {
     };
   }
 
-  private analyzeConnections(analytics?: MCPConnectionAnalytics): MCPConnectionAnalysis {
+  private analyzeConnections(
+    analytics?: MCPConnectionAnalytics
+  ): MCPConnectionAnalysis {
     if (!analytics) {
       return {
         connectionSuccessRate: 0,
@@ -295,15 +336,22 @@ export class IntelligentMCPAnalyzer {
       };
     }
 
-    const connectionSuccessRate = analytics.totalConnections > 0
-      ? ((analytics.totalConnections - analytics.failedConnections) / analytics.totalConnections) * 100
-      : 100;
+    const connectionSuccessRate =
+      analytics.totalConnections > 0
+        ? ((analytics.totalConnections - analytics.failedConnections) /
+            analytics.totalConnections) *
+          100
+        : 100;
 
-    const reconnectionRate = analytics.totalConnections > 0
-      ? (analytics.reconnectionCount / analytics.totalConnections) * 100
-      : 0;
+    const reconnectionRate =
+      analytics.totalConnections > 0
+        ? (analytics.reconnectionCount / analytics.totalConnections) * 100
+        : 0;
 
-    const connectionStability = Math.max(0, 100 - reconnectionRate * 2 - (100 - connectionSuccessRate));
+    const connectionStability = Math.max(
+      0,
+      100 - reconnectionRate * 2 - (100 - connectionSuccessRate)
+    );
 
     return {
       connectionSuccessRate: Math.round(connectionSuccessRate),
@@ -329,21 +377,35 @@ export class IntelligentMCPAnalyzer {
     }
 
     const highErrorTools = toolUsage
-      .filter(t => t.errorCount > 0 && t.successRate < 90)
-      .map(t => t.toolName);
+      .filter((t) => t.errorCount > 0 && t.successRate < 90)
+      .map((t) => t.toolName);
 
-    const sortedByUsage = [...toolUsage].sort((a, b) => b.invocationCount - a.invocationCount);
-    const highUsageTools = sortedByUsage.slice(0, 5).map(t => t.toolName);
+    const sortedByUsage = [...toolUsage].sort(
+      (a, b) => b.invocationCount - a.invocationCount
+    );
+    const highUsageTools = sortedByUsage.slice(0, 5).map((t) => t.toolName);
 
-    const activeTools = toolUsage.filter(t => t.invocationCount > 0).length;
-    const toolDiversity = Math.min(100, (activeTools / Math.max(1, toolUsage.length)) * 100);
-    const averageExecutionTime = toolUsage.reduce((sum, t) => sum + t.averageExecutionTime, 0) / toolUsage.length;
+    const activeTools = toolUsage.filter((t) => t.invocationCount > 0).length;
+    const toolDiversity = Math.min(
+      100,
+      (activeTools / Math.max(1, toolUsage.length)) * 100
+    );
+    const averageExecutionTime =
+      toolUsage.reduce((sum, t) => sum + t.averageExecutionTime, 0) /
+      toolUsage.length;
 
     const executionTimeDistribution: Record<string, number> = {
-      'fast (<50ms)': toolUsage.filter(t => t.averageExecutionTime < 50).length,
-      'medium (50-200ms)': toolUsage.filter(t => t.averageExecutionTime >= 50 && t.averageExecutionTime < 200).length,
-      'slow (200-500ms)': toolUsage.filter(t => t.averageExecutionTime >= 200 && t.averageExecutionTime < 500).length,
-      'very slow (>500ms)': toolUsage.filter(t => t.averageExecutionTime >= 500).length,
+      'fast (<50ms)': toolUsage.filter((t) => t.averageExecutionTime < 50)
+        .length,
+      'medium (50-200ms)': toolUsage.filter(
+        (t) => t.averageExecutionTime >= 50 && t.averageExecutionTime < 200
+      ).length,
+      'slow (200-500ms)': toolUsage.filter(
+        (t) => t.averageExecutionTime >= 200 && t.averageExecutionTime < 500
+      ).length,
+      'very slow (>500ms)': toolUsage.filter(
+        (t) => t.averageExecutionTime >= 500
+      ).length,
     };
 
     return {
@@ -357,7 +419,9 @@ export class IntelligentMCPAnalyzer {
     };
   }
 
-  private analyzeResources(analytics?: MCPResourceAnalytics): MCPResourceAnalysis {
+  private analyzeResources(
+    analytics?: MCPResourceAnalytics
+  ): MCPResourceAnalysis {
     if (!analytics) {
       return {
         totalResources: 0,
@@ -373,7 +437,10 @@ export class IntelligentMCPAnalyzer {
       totalResources: analytics.totalResources,
       resourceUtilization: Math.round(50 + Math.random() * 40),
       cacheEfficiency: Math.round(analytics.cacheHitRate),
-      readWriteRatio: analytics.averageWriteTime > 0 ? analytics.averageReadTime / analytics.averageWriteTime : 0,
+      readWriteRatio:
+        analytics.averageWriteTime > 0
+          ? analytics.averageReadTime / analytics.averageWriteTime
+          : 0,
       largestResources: [],
       resourceTypeDistribution: analytics.resourceTypes,
     };
@@ -417,10 +484,10 @@ export class IntelligentMCPAnalyzer {
 
     return Math.round(
       analysis.performance.optimizationPotential * weights.performance +
-      analysis.health.stabilityScore * weights.health +
-      analysis.connections.connectionStability * weights.connections +
-      this.calculateToolScore(analysis.tools) * weights.tools +
-      analysis.resources.cacheEfficiency * weights.resources
+        analysis.health.stabilityScore * weights.health +
+        analysis.connections.connectionStability * weights.connections +
+        this.calculateToolScore(analysis.tools) * weights.tools +
+        analysis.resources.cacheEfficiency * weights.resources
     );
   }
 
@@ -429,12 +496,20 @@ export class IntelligentMCPAnalyzer {
 
     const errorPenalty = (tools.highErrorTools.length / tools.totalTools) * 30;
     const diversityBonus = tools.toolDiversity * 0.2;
-    const executionBonus = Math.max(0, 30 - (tools.averageExecutionTime / 20));
+    const executionBonus = Math.max(0, 30 - tools.averageExecutionTime / 20);
 
-    return Math.round(Math.max(0, Math.min(100, 60 + diversityBonus + executionBonus - errorPenalty)));
+    return Math.round(
+      Math.max(
+        0,
+        Math.min(100, 60 + diversityBonus + executionBonus - errorPenalty)
+      )
+    );
   }
 
-  private generateWarnings(serverName: string, analysis: MCPAnalysisDetails): MCPWarning[] {
+  private generateWarnings(
+    serverName: string,
+    analysis: MCPAnalysisDetails
+  ): MCPWarning[] {
     const warnings: MCPWarning[] = [];
 
     if (analysis.performance.optimizationPotential < 40) {

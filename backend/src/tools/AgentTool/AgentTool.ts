@@ -383,8 +383,15 @@ export class AgentTool implements Tool {
     input: AgentInput,
     agentId: string,
     systemPrompt: string,
-    isFork: boolean,
-  ): Promise<{ result: string; tokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number } }> {
+    isFork: boolean
+  ): Promise<{
+    result: string;
+    tokenUsage?: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
+  }> {
     const toolDefinitions = this.buildToolDefinitions();
 
     const engineInput = {
@@ -393,7 +400,7 @@ export class AgentTool implements Tool {
       messages: isFork
         ? [{ role: 'user' as const, content: input.prompt }]
         : [{ role: 'user' as const, content: input.prompt }],
-      tools: toolDefinitions.map(t => ({
+      tools: toolDefinitions.map((t) => ({
         type: 'function' as const,
         function: {
           name: t.name,
@@ -402,7 +409,9 @@ export class AgentTool implements Tool {
         },
       })),
       toolInstances: new Map(
-        getToolManager().getAllTools().map(t => [t.name, t])
+        getToolManager()
+          .getAllTools()
+          .map((t) => [t.name, t])
       ),
       maxTurns: 50,
       model: input.model,
@@ -422,12 +431,12 @@ export class AgentTool implements Tool {
   private async runDirectCall(
     input: AgentInput,
     agentId: string,
-    systemPrompt: string,
+    systemPrompt: string
   ): Promise<{ result: string }> {
     const { DeepSeekClient } = await import('../../ai/clients/DeepSeekClient');
     const llmClient = new DeepSeekClient();
 
-    const toolDefinitions = this.buildToolDefinitions().map(t => ({
+    const toolDefinitions = this.buildToolDefinitions().map((t) => ({
       type: 'function' as const,
       function: {
         name: t.name,
@@ -451,7 +460,8 @@ export class AgentTool implements Tool {
 
     if (toolCalls && toolCalls.length > 0) {
       return {
-        result: `Agent [${agentId}] completed task with tool calls:\n\n` +
+        result:
+          `Agent [${agentId}] completed task with tool calls:\n\n` +
           `Type: ${input.subagent_type || 'general'}\n` +
           `Prompt: ${input.prompt}\n\n` +
           `Tool Calls: ${JSON.stringify(toolCalls, null, 2)}\n\n` +
@@ -460,7 +470,8 @@ export class AgentTool implements Tool {
     }
 
     return {
-      result: `Agent [${agentId}] completed task:\n\n` +
+      result:
+        `Agent [${agentId}] completed task:\n\n` +
         `Type: ${input.subagent_type || 'general'}\n` +
         `Prompt: ${input.prompt}\n\n` +
         `Result: ${content}`,
@@ -497,7 +508,9 @@ export class AgentTool implements Tool {
     const agentType = this.getAgentType(agentInput.subagent_type);
 
     const isFork = !agentInput.subagent_type && isForkSubagentEnabled();
-    const effectiveType = isFork ? (FORK_SUBAGENT_TYPE as AgentType) : agentType;
+    const effectiveType = isFork
+      ? (FORK_SUBAGENT_TYPE as AgentType)
+      : agentType;
     const isBackground = agentInput.run_in_background === true;
 
     if (!this.checkConcurrencyLimit()) {
@@ -516,7 +529,10 @@ export class AgentTool implements Tool {
       };
     }
 
-    const agentId = this.createAgentId(isFork ? 'custom' : agentType, agentInput.name);
+    const agentId = this.createAgentId(
+      isFork ? 'custom' : agentType,
+      agentInput.name
+    );
     const startTime = Date.now();
 
     this.activeAgents.set(agentId, {
@@ -530,16 +546,22 @@ export class AgentTool implements Tool {
     try {
       const builtInAgent = this.getBuiltInAgent(effectiveType);
       let systemPrompt =
-        builtInAgent?.systemPrompt || this.getDefaultSystemPrompt(effectiveType);
+        builtInAgent?.systemPrompt ||
+        this.getDefaultSystemPrompt(effectiveType);
 
       if (isFork) {
-        const parentMessages: Array<{ role: 'user' | 'assistant'; content: string }> =
-          context?.messages
-            ? context.messages.map((m: { role: string; content: string }) => ({
-                role: m.role as 'user' | 'assistant',
-                content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-              }))
-            : [];
+        const parentMessages: Array<{
+          role: 'user' | 'assistant';
+          content: string;
+        }> = context?.messages
+          ? context.messages.map((m: { role: string; content: string }) => ({
+              role: m.role as 'user' | 'assistant',
+              content:
+                typeof m.content === 'string'
+                  ? m.content
+                  : JSON.stringify(m.content),
+            }))
+          : [];
 
         systemPrompt = buildForkSystemPrompt(systemPrompt, {
           renderedSystemPrompt: systemPrompt,
@@ -549,9 +571,10 @@ export class AgentTool implements Tool {
 
         const forkMessages = buildForkContextMessages(parentMessages);
         const childInstruction = buildChildMessage(agentInput.prompt);
-        agentInput.prompt = forkMessages
-          .map((m) => `${m.role}: ${m.content}`)
-          .join('\n\n') + '\n\n' + childInstruction;
+        agentInput.prompt =
+          forkMessages.map((m) => `${m.role}: ${m.content}`).join('\n\n') +
+          '\n\n' +
+          childInstruction;
       }
 
       if (isBackground) {
@@ -575,19 +598,23 @@ export class AgentTool implements Tool {
         const taskId = bgManager.createTask(
           agentInput.name || agentId,
           effectiveType,
-          agentInput.description || 'Background agent task',
+          agentInput.description || 'Background agent task'
         );
         bgManager.startTask(taskId);
 
         this.runWithEngine(agentInput, agentId, systemPrompt, isFork)
           .then((runResult) => {
-            bgManager.completeTask(taskId, runResult.result, runResult.tokenUsage);
+            bgManager.completeTask(
+              taskId,
+              runResult.result,
+              runResult.tokenUsage
+            );
             this.activeAgents.get(agentId)!.status = 'completed';
           })
           .catch((error) => {
             bgManager.failTask(
               taskId,
-              error instanceof Error ? error.message : String(error),
+              error instanceof Error ? error.message : String(error)
             );
             this.activeAgents.get(agentId)!.status = 'failed';
           });
@@ -613,16 +640,20 @@ export class AgentTool implements Tool {
         };
       }
 
-      const isSimpleTask = agentInput.prompt.length < 500 &&
-        !isFork &&
-        !agentInput.subagent_type;
+      const isSimpleTask =
+        agentInput.prompt.length < 500 && !isFork && !agentInput.subagent_type;
 
       let result: { result: string; tokenUsage?: any };
 
       if (isSimpleTask) {
         result = await this.runDirectCall(agentInput, agentId, systemPrompt);
       } else {
-        result = await this.runWithEngine(agentInput, agentId, systemPrompt, isFork);
+        result = await this.runWithEngine(
+          agentInput,
+          agentId,
+          systemPrompt,
+          isFork
+        );
       }
 
       this.activeAgents.get(agentId)!.status = 'completed';

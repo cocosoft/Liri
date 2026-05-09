@@ -31,9 +31,12 @@ export default {
   /**
    * 发送反馈
    */
-  async handleSend(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleSend(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const message = args.join(' ');
-    
+
     if (!message) {
       return {
         success: false,
@@ -44,7 +47,7 @@ export default {
     }
 
     context.onDone?.('感谢您的反馈！', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -56,9 +59,12 @@ export default {
   /**
    * 设置反馈类型
    */
-  async handleType(type: string, context: CommandContext): Promise<CommandResult> {
+  async handleType(
+    type: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     const validTypes = ['bug', 'feature', 'general'];
-    
+
     if (!type || !validTypes.includes(type.toLowerCase())) {
       return {
         success: false,
@@ -69,7 +75,7 @@ export default {
     }
 
     context.onDone?.(`反馈类型已设置为: ${type}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -83,14 +89,35 @@ export default {
    */
   async handleList(context: CommandContext): Promise<CommandResult> {
     const feedbackList = [
-      { id: 'FB-001', type: 'bug', message: '登录问题', status: 'resolved', date: '2024-01-10' },
-      { id: 'FB-002', type: 'feature', message: '深色模式', status: 'in_progress', date: '2024-01-12' },
-      { id: 'FB-003', type: 'general', message: '建议优化性能', status: 'pending', date: '2024-01-15' },
+      {
+        id: 'FB-001',
+        type: 'bug',
+        message: '登录问题',
+        status: 'resolved',
+        date: '2024-01-10',
+      },
+      {
+        id: 'FB-002',
+        type: 'feature',
+        message: '深色模式',
+        status: 'in_progress',
+        date: '2024-01-12',
+      },
+      {
+        id: 'FB-003',
+        type: 'general',
+        message: '建议优化性能',
+        status: 'pending',
+        date: '2024-01-15',
+      },
     ];
 
-    const table = feedbackList.map(f => 
-      `[${f.id}] ${f.type.padEnd(8)} ${f.status.padEnd(12)} ${f.message}`
-    ).join('\n');
+    const table = feedbackList
+      .map(
+        (f) =>
+          `[${f.id}] ${f.type.padEnd(8)} ${f.status.padEnd(12)} ${f.message}`
+      )
+      .join('\n');
 
     return {
       success: true,

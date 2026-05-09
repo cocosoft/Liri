@@ -1,5 +1,8 @@
 import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 文件系统适配器接口
@@ -43,7 +46,10 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       return await fs.readFile(filePath, 'utf-8');
     } catch (error) {
-      console.error(`Error reading file ${filePath}:`, error);
+      logger.error(
+        `Error reading file ${filePath}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -59,7 +65,10 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
       await this.ensureDirectoryExists(dirname(filePath));
       await fs.writeFile(filePath, content, 'utf-8');
     } catch (error) {
-      console.error(`Error writing file ${filePath}:`, error);
+      logger.error(
+        `Error writing file ${filePath}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -75,7 +84,10 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
         await fs.unlink(filePath);
       }
     } catch (error) {
-      console.error(`Error deleting file ${filePath}:`, error);
+      logger.error(
+        `Error deleting file ${filePath}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -103,7 +115,10 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     try {
       return await fs.readdir(directory);
     } catch (error) {
-      console.error(`Error reading directory ${directory}:`, error);
+      logger.error(
+        `Error reading directory ${directory}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -118,7 +133,10 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
     } catch (error) {
       // 忽略目录已存在的错误
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        console.error(`Error creating directory ${directory}:`, error);
+        logger.error(
+          `Error creating directory ${directory}`,
+          error instanceof Error ? error : new Error(String(error))
+        );
         throw error;
       }
     }
@@ -150,7 +168,10 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
         await fs.rm(directory, { recursive, force: true });
       }
     } catch (error) {
-      console.error(`Error deleting directory ${directory}:`, error);
+      logger.error(
+        `Error deleting directory ${directory}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -166,9 +187,9 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
       await this.ensureDirectoryExists(dirname(destination));
       await fs.copyFile(source, destination);
     } catch (error) {
-      console.error(
-        `Error copying file from ${source} to ${destination}:`,
-        error
+      logger.error(
+        `Error copying file from ${source} to ${destination}`,
+        error instanceof Error ? error : new Error(String(error))
       );
       throw error;
     }
@@ -185,9 +206,9 @@ export class FileSystemAdapterImpl implements FileSystemAdapter {
       await this.ensureDirectoryExists(dirname(destination));
       await fs.rename(source, destination);
     } catch (error) {
-      console.error(
-        `Error moving file from ${source} to ${destination}:`,
-        error
+      logger.error(
+        `Error moving file from ${source} to ${destination}`,
+        error instanceof Error ? error : new Error(String(error))
       );
       throw error;
     }

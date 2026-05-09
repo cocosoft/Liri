@@ -4,8 +4,14 @@
  * 参考CC源码: cc_code/backend/context.ts
  */
 
-import { systemContextService, type SystemContextInfo } from './SystemContextService.js';
-import { userContextService, type UserContextInfo } from './UserContextService.js';
+import {
+  systemContextService,
+  type SystemContextInfo,
+} from './SystemContextService.js';
+import {
+  userContextService,
+  type UserContextInfo,
+} from './UserContextService.js';
 import { contextCacheService } from './ContextCacheService.js';
 
 /**
@@ -56,7 +62,9 @@ export class ContextCollector {
    * @param options 收集选项
    * @returns 完整的上下文信息
    */
-  async collect(options: Partial<ContextCollectorOptions> = {}): Promise<FullContextInfo> {
+  async collect(
+    options: Partial<ContextCollectorOptions> = {}
+  ): Promise<FullContextInfo> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
 
     if (opts.useCache) {

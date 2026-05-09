@@ -46,7 +46,12 @@ const memoryCommand = {
   async execute(args: string, context: CommandContext) {
     const trimmed = args.trim();
 
-    if (trimmed === '-h' || trimmed === '--help' || trimmed === 'help' || !trimmed) {
+    if (
+      trimmed === '-h' ||
+      trimmed === '--help' ||
+      trimmed === 'help' ||
+      !trimmed
+    ) {
       return this.showHelp();
     }
 
@@ -176,13 +181,18 @@ const memoryCommand = {
 
     if (!existsSync(memoryDir)) {
       if (useJson) {
-        return { success: true, message: JSON.stringify({ files: [] }, null, 2) };
+        return {
+          success: true,
+          message: JSON.stringify({ files: [] }, null, 2),
+        };
       }
       return { success: true, message: '没有找到记忆文件。' };
     }
 
     const allFiles = await readdir(memoryDir);
-    const memoryFiles = allFiles.filter((f) => f.endsWith('.md')).map(stripExtension);
+    const memoryFiles = allFiles
+      .filter((f) => f.endsWith('.md'))
+      .map(stripExtension);
 
     if (useJson) {
       const fileDetails = await Promise.all(
@@ -195,11 +205,17 @@ const memoryCommand = {
           }
         })
       );
-      return { success: true, message: JSON.stringify({ files: fileDetails }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify({ files: fileDetails }, null, 2),
+      };
     }
 
     if (memoryFiles.length === 0) {
-      return { success: true, message: '没有找到记忆文件。使用 /memory --create <name> 创建。' };
+      return {
+        success: true,
+        message: '没有找到记忆文件。使用 /memory --create <name> 创建。',
+      };
     }
 
     let content = `📋 记忆文件列表 (${memoryFiles.length} 个):\n\n`;
@@ -219,7 +235,10 @@ const memoryCommand = {
 
   async createFile(name: string, useJson: boolean) {
     if (!name) {
-      return { success: false, message: '请提供记忆文件名称。用法: /memory --create <name>' };
+      return {
+        success: false,
+        message: '请提供记忆文件名称。用法: /memory --create <name>',
+      };
     }
 
     const filePath = getMemoryFilePath(name);
@@ -232,12 +251,22 @@ const memoryCommand = {
     const content = `# ${name}\n\n创建时间: ${new Date().toISOString()}\n\n`;
     await writeFile(filePath, content, 'utf8');
 
-    (await import('@modules/services/analytics/index.js')).logEvent('tengu_memory_created', {
-      name,
-    });
+    (await import('@modules/services/analytics/index.js')).logEvent(
+      'tengu_memory_created',
+      {
+        name,
+      }
+    );
 
     if (useJson) {
-      return { success: true, message: JSON.stringify({ created: true, name, path: filePath }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify(
+          { created: true, name, path: filePath },
+          null,
+          2
+        ),
+      };
     }
 
     return { success: true, message: `✅ 已创建记忆文件: ${name}` };
@@ -245,7 +274,10 @@ const memoryCommand = {
 
   async showFile(name: string, useJson: boolean) {
     if (!name) {
-      return { success: false, message: '请提供记忆文件名称。用法: /memory --show <name>' };
+      return {
+        success: false,
+        message: '请提供记忆文件名称。用法: /memory --show <name>',
+      };
     }
 
     const content = await readMemoryContent(name);
@@ -253,7 +285,11 @@ const memoryCommand = {
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({ name, content, exists: content !== '' }, null, 2),
+        message: JSON.stringify(
+          { name, content, exists: content !== '' },
+          null,
+          2
+        ),
       };
     }
 
@@ -266,7 +302,10 @@ const memoryCommand = {
 
   async editFile(name: string, useJson: boolean) {
     if (!name) {
-      return { success: false, message: '请提供记忆文件名称。用法: /memory --edit <name>' };
+      return {
+        success: false,
+        message: '请提供记忆文件名称。用法: /memory --edit <name>',
+      };
     }
 
     const filePath = getMemoryFilePath(name);
@@ -280,15 +319,28 @@ const memoryCommand = {
     const editor = process.env.VISUAL || process.env.EDITOR || 'notepad';
 
     if (useJson) {
-      return { success: true, message: JSON.stringify({ edited: true, name, path: filePath, editor }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify(
+          { edited: true, name, path: filePath, editor },
+          null,
+          2
+        ),
+      };
     }
 
-    return { success: true, message: `📝 正在用 ${editor} 打开 "${name}"\n\n如需更换编辑器，请设置 $EDITOR 或 $VISUAL 环境变量。` };
+    return {
+      success: true,
+      message: `📝 正在用 ${editor} 打开 "${name}"\n\n如需更换编辑器，请设置 $EDITOR 或 $VISUAL 环境变量。`,
+    };
   },
 
   async deleteFile(name: string, useJson: boolean) {
     if (!name) {
-      return { success: false, message: '请提供记忆文件名称。用法: /memory --delete <name>' };
+      return {
+        success: false,
+        message: '请提供记忆文件名称。用法: /memory --delete <name>',
+      };
     }
 
     const filePath = getMemoryFilePath(name);
@@ -299,12 +351,18 @@ const memoryCommand = {
 
     await unlink(filePath);
 
-    (await import('@modules/services/analytics/index.js')).logEvent('tengu_memory_deleted', {
-      name,
-    });
+    (await import('@modules/services/analytics/index.js')).logEvent(
+      'tengu_memory_deleted',
+      {
+        name,
+      }
+    );
 
     if (useJson) {
-      return { success: true, message: JSON.stringify({ deleted: true, name }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify({ deleted: true, name }, null, 2),
+      };
     }
 
     return { success: true, message: `🗑️ 已删除记忆文件: ${name}` };

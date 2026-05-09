@@ -74,7 +74,8 @@ export class ExitPlanModeTool extends BaseTool<void, ExitPlanModeOutput> {
         newMessages: [
           {
             role: 'system',
-            content: '✅ 已退出计划模式\n\n现在返回正常执行模式。您可以直接告诉我需要执行的操作，我会立即处理。',
+            content:
+              '✅ 已退出计划模式\n\n现在返回正常执行模式。您可以直接告诉我需要执行的操作，我会立即处理。',
           },
         ],
       }

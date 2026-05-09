@@ -52,9 +52,15 @@ export const Modal: React.FC<ModalProps> = ({
         width="max-content"
         marginTop={-1}
       >
-        <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+        <Box
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+        >
           {title && (
-            <Text bold color="white">{title}</Text>
+            <Text bold color="white">
+              {title}
+            </Text>
           )}
           {isClosable && (
             <Box

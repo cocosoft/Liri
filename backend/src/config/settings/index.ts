@@ -8,7 +8,10 @@ import { logger } from '@modules/utils/log.js';
 import { loadUserSettings } from './userSettings.js';
 import { loadProjectSettings } from './projectSettings.js';
 import { loadLocalSettings } from './localSettings.js';
-import { loadPolicySettings, isPolicySettingsAvailable } from './policySettings.js';
+import {
+  loadPolicySettings,
+  isPolicySettingsAvailable,
+} from './policySettings.js';
 import {
   SETTING_SOURCES,
   type SettingSource,
@@ -80,7 +83,7 @@ export class MultiSourceSettingsManager {
    * 返回值和来源
    */
   getSettingWithSource(
-    key: string,
+    key: string
   ): { value: any; source: SettingSource } | undefined {
     const sources = [...SETTING_SOURCES].reverse();
 
@@ -137,7 +140,10 @@ export class MultiSourceSettingsManager {
     sources.set('projectSettings', loadProjectSettings());
     sources.set('localSettings', loadLocalSettings());
     sources.set('flagSettings', this.flagSettings);
-    sources.set('policySettings', isPolicySettingsAvailable() ? loadPolicySettings() : {});
+    sources.set(
+      'policySettings',
+      isPolicySettingsAvailable() ? loadPolicySettings() : {}
+    );
 
     let merged: Record<string, any> = {};
     for (const source of SETTING_SOURCES) {
@@ -179,7 +185,7 @@ let globalSettingsManager: MultiSourceSettingsManager | null = null;
  * 获取全局多源设置管理器
  */
 export function getMultiSourceSettingsManager(
-  options?: ConstructorParameters<typeof MultiSourceSettingsManager>[0],
+  options?: ConstructorParameters<typeof MultiSourceSettingsManager>[0]
 ): MultiSourceSettingsManager {
   if (!globalSettingsManager) {
     globalSettingsManager = new MultiSourceSettingsManager(options);
@@ -195,7 +201,11 @@ function getNestedValue(obj: Record<string, any>, key: string): any {
   let current: any = obj;
 
   for (const k of keys) {
-    if (current === null || current === undefined || typeof current !== 'object') {
+    if (
+      current === null ||
+      current === undefined ||
+      typeof current !== 'object'
+    ) {
       return undefined;
     }
     current = current[k];
@@ -207,7 +217,10 @@ function getNestedValue(obj: Record<string, any>, key: string): any {
 /**
  * 深度合并对象
  */
-function deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+function deepMerge(
+  target: Record<string, any>,
+  source: Record<string, any>
+): Record<string, any> {
   const result = { ...target };
 
   for (const key of Object.keys(source)) {

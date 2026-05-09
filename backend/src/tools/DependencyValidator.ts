@@ -6,7 +6,11 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { MODULE_DEFINITIONS, MODULE_INITIALIZATION_ORDER, validateModuleDependencies } from '../modules/ModuleDefinitions';
+import {
+  MODULE_DEFINITIONS,
+  MODULE_INITIALIZATION_ORDER,
+  validateModuleDependencies,
+} from '../modules/ModuleDefinitions';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,7 +32,6 @@ interface DependencyValidationResult {
  * 依赖关系验证器类
  */
 export class DependencyValidator {
-  
   /**
    * 验证所有模块的依赖关系
    */
@@ -40,27 +43,28 @@ export class DependencyValidator {
       circularDependencies: [],
       missingDependencies: [],
       dependencyGraph: {},
-      topologicalOrder: []
+      topologicalOrder: [],
     };
-    
+
     // 构建依赖图
     this.buildDependencyGraph(result);
-    
+
     // 检查缺失依赖
     this.checkMissingDependencies(result);
-    
+
     // 检查循环依赖
     this.checkCircularDependencies(result);
-    
+
     // 计算拓扑排序
     this.calculateTopologicalOrder(result);
-    
+
     // 设置最终验证状态
-    result.valid = result.errors.length === 0 && result.circularDependencies.length === 0;
-    
+    result.valid =
+      result.errors.length === 0 && result.circularDependencies.length === 0;
+
     return result;
   }
-  
+
   /**
    * 构建依赖图
    */
@@ -69,12 +73,14 @@ export class DependencyValidator {
       result.dependencyGraph[moduleId] = [...definition.dependencies];
     }
   }
-  
+
   /**
    * 检查缺失依赖
    */
   private checkMissingDependencies(result: DependencyValidationResult): void {
-    for (const [moduleId, dependencies] of Object.entries(result.dependencyGraph)) {
+    for (const [moduleId, dependencies] of Object.entries(
+      result.dependencyGraph
+    )) {
       for (const depId of dependencies) {
         if (!MODULE_DEFINITIONS[depId]) {
           result.errors.push(`模块 ${moduleId} 依赖的模块 ${depId} 不存在`);
@@ -83,38 +89,38 @@ export class DependencyValidator {
       }
     }
   }
-  
+
   /**
    * 检查循环依赖
    */
   private checkCircularDependencies(result: DependencyValidationResult): void {
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
-    
+
     for (const moduleId of Object.keys(result.dependencyGraph)) {
       if (!visited.has(moduleId)) {
         this.detectCycle(moduleId, visited, recursionStack, [], result);
       }
     }
   }
-  
+
   /**
    * 检测循环依赖
    */
   private detectCycle(
-    moduleId: string, 
-    visited: Set<string>, 
-    recursionStack: Set<string>, 
-    path: string[], 
+    moduleId: string,
+    visited: Set<string>,
+    recursionStack: Set<string>,
+    path: string[],
     result: DependencyValidationResult
   ): void {
     visited.add(moduleId);
     recursionStack.add(moduleId);
-    
+
     const currentPath = [...path, moduleId];
-    
+
     const dependencies = result.dependencyGraph[moduleId] || [];
-    
+
     for (const depId of dependencies) {
       if (!visited.has(depId)) {
         this.detectCycle(depId, visited, recursionStack, currentPath, result);
@@ -125,10 +131,10 @@ export class DependencyValidator {
         result.errors.push(`检测到循环依赖: ${cyclePath.join(' -> ')}`);
       }
     }
-    
+
     recursionStack.delete(moduleId);
   }
-  
+
   /**
    * 提取循环路径
    */
@@ -136,7 +142,7 @@ export class DependencyValidator {
     const startIndex = path.indexOf(cycleStart);
     return path.slice(startIndex);
   }
-  
+
   /**
    * 计算拓扑排序
    */
@@ -145,36 +151,38 @@ export class DependencyValidator {
       result.warnings.push('存在循环依赖，无法计算有效的拓扑排序');
       return;
     }
-    
+
     const inDegree: Record<string, number> = {};
     const queue: string[] = [];
-    
+
     // 初始化入度
     for (const moduleId of Object.keys(result.dependencyGraph)) {
       inDegree[moduleId] = 0;
     }
-    
+
     // 计算入度
-    for (const [moduleId, dependencies] of Object.entries(result.dependencyGraph)) {
+    for (const [moduleId, dependencies] of Object.entries(
+      result.dependencyGraph
+    )) {
       for (const depId of dependencies) {
         inDegree[depId] = (inDegree[depId] || 0) + 1;
       }
     }
-    
+
     // 找到入度为0的节点
     for (const moduleId of Object.keys(inDegree)) {
       if (inDegree[moduleId] === 0) {
         queue.push(moduleId);
       }
     }
-    
+
     // 执行拓扑排序
     while (queue.length > 0) {
       const moduleId = queue.shift()!;
       result.topologicalOrder.push(moduleId);
-      
+
       const dependencies = result.dependencyGraph[moduleId] || [];
-      
+
       for (const depId of dependencies) {
         inDegree[depId]--;
         if (inDegree[depId] === 0) {
@@ -182,99 +190,105 @@ export class DependencyValidator {
         }
       }
     }
-    
+
     // 检查是否所有节点都被处理
-    if (result.topologicalOrder.length !== Object.keys(result.dependencyGraph).length) {
+    if (
+      result.topologicalOrder.length !==
+      Object.keys(result.dependencyGraph).length
+    ) {
       result.warnings.push('拓扑排序未包含所有模块，可能存在循环依赖');
     }
   }
-  
+
   /**
    * 生成依赖关系报告
    */
   generateDependencyReport(validation: DependencyValidationResult): string {
     let report = '# 模块依赖关系验证报告\n\n';
-    
+
     report += `## 验证结果\n`;
     report += `- **状态**: ${validation.valid ? '✅ 通过' : '❌ 失败'}\n`;
     report += `- **错误数量**: ${validation.errors.length}\n`;
     report += `- **警告数量**: ${validation.warnings.length}\n`;
     report += `- **循环依赖**: ${validation.circularDependencies.length}\n`;
     report += `- **缺失依赖**: ${validation.missingDependencies.length}\n\n`;
-    
+
     // 错误详情
     if (validation.errors.length > 0) {
       report += `## 错误详情\n`;
-      validation.errors.forEach(error => {
+      validation.errors.forEach((error) => {
         report += `- ❌ ${error}\n`;
       });
       report += `\n`;
     }
-    
+
     // 警告详情
     if (validation.warnings.length > 0) {
       report += `## 警告详情\n`;
-      validation.warnings.forEach(warning => {
+      validation.warnings.forEach((warning) => {
         report += `- ⚠️ ${warning}\n`;
       });
       report += `\n`;
     }
-    
+
     // 循环依赖详情
     if (validation.circularDependencies.length > 0) {
       report += `## 循环依赖\n`;
-      validation.circularDependencies.forEach(cycle => {
+      validation.circularDependencies.forEach((cycle) => {
         report += `- 🔄 ${cycle.join(' -> ')} -> ${cycle[0]}\n`;
       });
       report += `\n`;
     }
-    
+
     // 缺失依赖详情
     if (validation.missingDependencies.length > 0) {
       report += `## 缺失依赖\n`;
-      validation.missingDependencies.forEach(depId => {
+      validation.missingDependencies.forEach((depId) => {
         report += `- ❓ ${depId}\n`;
       });
       report += `\n`;
     }
-    
+
     // 依赖图
     report += `## 依赖关系图\n\n`;
     report += '```mermaid\n';
     report += 'graph TD\n';
-    
-    for (const [moduleId, dependencies] of Object.entries(validation.dependencyGraph)) {
+
+    for (const [moduleId, dependencies] of Object.entries(
+      validation.dependencyGraph
+    )) {
       for (const depId of dependencies) {
         report += `  ${depId} --> ${moduleId}\n`;
       }
     }
-    
+
     report += '```\n\n';
-    
+
     // 拓扑排序
     if (validation.topologicalOrder.length > 0) {
       report += `## 拓扑排序（初始化顺序）\n`;
       report += validation.topologicalOrder.join(' → ');
       report += `\n\n`;
     }
-    
+
     // 模块统计
     report += `## 模块统计\n`;
     report += `- **总模块数**: ${Object.keys(MODULE_DEFINITIONS).length}\n`;
-    
+
     const categories: Record<string, number> = {};
     for (const definition of Object.values(MODULE_DEFINITIONS)) {
-      categories[definition.category] = (categories[definition.category] || 0) + 1;
+      categories[definition.category] =
+        (categories[definition.category] || 0) + 1;
     }
-    
+
     report += `- **模块分类**:\n`;
     for (const [category, count] of Object.entries(categories)) {
       report += `  - ${category}: ${count}\n`;
     }
-    
+
     return report;
   }
-  
+
   /**
    * 可视化依赖关系
    */
@@ -282,10 +296,10 @@ export class DependencyValidator {
     // 生成Mermaid图表
     let mermaid = '```mermaid\n';
     mermaid += 'graph TD\n';
-    
+
     // 按分类分组
     const modulesByCategory: Record<string, string[]> = {};
-    
+
     for (const moduleId of Object.keys(validation.dependencyGraph)) {
       const category = MODULE_DEFINITIONS[moduleId]?.category || 'other';
       if (!modulesByCategory[category]) {
@@ -293,7 +307,7 @@ export class DependencyValidator {
       }
       modulesByCategory[category].push(moduleId);
     }
-    
+
     // 添加子图
     for (const [category, modules] of Object.entries(modulesByCategory)) {
       mermaid += `  subgraph ${category}\n`;
@@ -302,19 +316,21 @@ export class DependencyValidator {
       }
       mermaid += `  end\n`;
     }
-    
+
     // 添加依赖关系
-    for (const [moduleId, dependencies] of Object.entries(validation.dependencyGraph)) {
+    for (const [moduleId, dependencies] of Object.entries(
+      validation.dependencyGraph
+    )) {
       for (const depId of dependencies) {
         mermaid += `  ${depId} --> ${moduleId}\n`;
       }
     }
-    
+
     mermaid += '```';
-    
+
     return mermaid;
   }
-  
+
   /**
    * 导出依赖关系数据
    */
@@ -323,26 +339,29 @@ export class DependencyValidator {
       summary: {
         valid: validation.valid,
         totalModules: Object.keys(MODULE_DEFINITIONS).length,
-        totalDependencies: Object.values(validation.dependencyGraph).reduce((sum, deps) => sum + deps.length, 0),
+        totalDependencies: Object.values(validation.dependencyGraph).reduce(
+          (sum, deps) => sum + deps.length,
+          0
+        ),
         errors: validation.errors.length,
         warnings: validation.warnings.length,
         circularDependencies: validation.circularDependencies.length,
-        missingDependencies: validation.missingDependencies.length
+        missingDependencies: validation.missingDependencies.length,
       },
       dependencyGraph: validation.dependencyGraph,
       topologicalOrder: validation.topologicalOrder,
       modules: Object.fromEntries(
         Object.entries(MODULE_DEFINITIONS).map(([id, def]) => [
-          id, 
+          id,
           {
             name: def.name,
             displayName: def.displayName,
             category: def.category,
             dependencies: def.dependencies,
-            optionalDependencies: def.optionalDependencies
-          }
+            optionalDependencies: def.optionalDependencies,
+          },
         ])
-      )
+      ),
     };
   }
 }
@@ -431,11 +450,15 @@ function validateSnapshotConsistency(): SnapshotValidationResult {
 
     if (!snapshotModule || !currentModule) continue;
 
-    const snapshotDeps = JSON.stringify([...snapshotModule.dependencies].sort());
+    const snapshotDeps = JSON.stringify(
+      [...snapshotModule.dependencies].sort()
+    );
     const currentDeps = JSON.stringify([...currentModule.dependencies].sort());
 
     if (snapshotDeps !== currentDeps) {
-      errors.push(`[快照] 核心模块 "${moduleId}" 的依赖关系已变更: 基准=${snapshotDeps}, 当前=${currentDeps}`);
+      errors.push(
+        `[快照] 核心模块 "${moduleId}" 的依赖关系已变更: 基准=${snapshotDeps}, 当前=${currentDeps}`
+      );
     }
   }
 
@@ -451,7 +474,7 @@ function validateSnapshotConsistency(): SnapshotValidationResult {
 
   return {
     valid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
@@ -461,56 +484,58 @@ function validateSnapshotConsistency(): SnapshotValidationResult {
 async function runDependencyValidation(): Promise<void> {
   console.log('开始验证模块依赖关系...');
   let hasError = false;
-  
+
   try {
     // 1. 标准依赖检查
     const validator = new DependencyValidator();
     const validation = validator.validateAllDependencies();
-    
+
     console.log('依赖关系验证完成:');
     console.log(`- 状态: ${validation.valid ? '通过' : '失败'}`);
     console.log(`- 错误: ${validation.errors.length}`);
     console.log(`- 警告: ${validation.warnings.length}`);
     console.log(`- 循环依赖: ${validation.circularDependencies.length}`);
     console.log(`- 缺失依赖: ${validation.missingDependencies.length}`);
-    
+
     if (!validation.valid) {
       hasError = true;
       console.log('\n错误详情:');
-      validation.errors.forEach(error => console.log(`  - ${error}`));
+      validation.errors.forEach((error) => console.log(`  - ${error}`));
     }
-    
+
     if (validation.warnings.length > 0) {
       console.log('\n警告详情:');
-      validation.warnings.forEach(warning => console.log(`  - ${warning}`));
+      validation.warnings.forEach((warning) => console.log(`  - ${warning}`));
     }
-    
+
     // 2. 快照一致性检查
     console.log('\n检查依赖图快照一致性...');
     const snapshotResult = validateSnapshotConsistency();
-    
+
     if (snapshotResult.errors.length > 0) {
       hasError = true;
       console.log('快照检查失败:');
-      snapshotResult.errors.forEach(error => console.log(`  - ${error}`));
+      snapshotResult.errors.forEach((error) => console.log(`  - ${error}`));
     } else {
       console.log('快照检查通过');
     }
-    
+
     // 3. 生成报告
     const report = validator.generateDependencyReport(validation);
-    
+
     const fs = require('fs');
     const path = require('path');
-    const reportPath = path.join(process.cwd(), 'dependency_validation_report.md');
+    const reportPath = path.join(
+      process.cwd(),
+      'dependency_validation_report.md'
+    );
     fs.writeFileSync(reportPath, report);
-    
+
     console.log(`\n依赖关系报告已保存到: ${reportPath}`);
-    
+
     if (hasError) {
       process.exit(1);
     }
-    
   } catch (error) {
     console.error('依赖关系验证失败:', error);
     process.exit(1);

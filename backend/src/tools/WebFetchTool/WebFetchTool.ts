@@ -21,12 +21,34 @@ import { createToolResult } from '../types/ToolResult';
  * WebFetch 输入模式
  */
 const WebFetchInputSchema = z.strictObject({
-  url: z.string().url('URL格式无效').min(1, 'URL不能为空').describe('要获取内容的URL'),
-  method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']).optional().default('GET').describe('HTTP请求方法'),
+  url: z
+    .string()
+    .url('URL格式无效')
+    .min(1, 'URL不能为空')
+    .describe('要获取内容的URL'),
+  method: z
+    .enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
+    .optional()
+    .default('GET')
+    .describe('HTTP请求方法'),
   headers: z.record(z.string()).optional().default({}).describe('HTTP请求头'),
   body: z.string().optional().describe('POST/PUT请求体'),
-  timeout: z.number().int().positive().max(120000).optional().default(30000).describe('超时时间（毫秒）'),
-  maxContentLength: z.number().int().positive().max(5000000).optional().default(500000).describe('最大内容长度（字符数）'),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .max(120000)
+    .optional()
+    .default(30000)
+    .describe('超时时间（毫秒）'),
+  maxContentLength: z
+    .number()
+    .int()
+    .positive()
+    .max(5000000)
+    .optional()
+    .default(500000)
+    .describe('最大内容长度（字符数）'),
 });
 
 export class WebFetchTool extends BaseTool {

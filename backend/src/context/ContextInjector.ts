@@ -1,6 +1,9 @@
 import type { Context } from './types/Context';
 import type { ValidationResult } from './types/ValidationResult';
-import { createValidResult, createInvalidResult } from './types/ValidationResult';
+import {
+  createValidResult,
+  createInvalidResult,
+} from './types/ValidationResult';
 
 export interface IContextInjector {
   inject(context: Context, target: unknown): Promise<void>;
@@ -16,7 +19,9 @@ export class ContextInjector implements IContextInjector {
   async inject(context: Context, target: unknown): Promise<void> {
     const validation = this.validateInjection(context, target);
     if (!validation.valid) {
-      throw new Error(`Injection validation failed: ${validation.errors.join(', ')}`);
+      throw new Error(
+        `Injection validation failed: ${validation.errors.join(', ')}`
+      );
     }
 
     if (target && typeof target === 'object') {

@@ -1,6 +1,9 @@
 //
 import * as fs from 'fs';
 import * as path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * PY_APP.md规则类型
@@ -66,9 +69,13 @@ export class PYAppIntegrationService {
       if (await this.fileExists(this.filePath)) {
         const stats = await fs.promises.stat(this.filePath);
         this.lastFileModified = stats.mtime;
-        
+
         const content = await fs.promises.readFile(this.filePath, 'utf-8');
-        this.config = this.parsePYAppContent(content, this.filePath, this.lastFileModified);
+        this.config = this.parsePYAppContent(
+          content,
+          this.filePath,
+          this.lastFileModified
+        );
       } else {
         this.config = {
           rules: [],
@@ -78,7 +85,10 @@ export class PYAppIntegrationService {
         };
       }
     } catch (error) {
-      console.warn(`Failed to load PY_APP.md: ${error}`);
+      logger.warning(
+        `Failed to load PY_APP.md`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       this.config = {
         rules: [],
         preferences: [],
@@ -138,9 +148,11 @@ export class PYAppIntegrationService {
       // 检测列表项
       else if (line.startsWith('- ') || line.startsWith('* ')) {
         const itemContent = line.substring(2).trim();
-        
+
         // 尝试解析偏好设置（格式: key: value - description）
-        const preferenceMatch = itemContent.match(/^([^:]+):\s*([^-]+?)\s*(-\s*.+)?$/);
+        const preferenceMatch = itemContent.match(
+          /^([^:]+):\s*([^-]+?)\s*(-\s*.+)?$/
+        );
         if (preferenceMatch) {
           const key = preferenceMatch[1].trim();
           let value = preferenceMatch[2].trim();
@@ -152,7 +164,10 @@ export class PYAppIntegrationService {
             parsedValue = true;
           } else if (parsedValue.toLowerCase() === 'false') {
             parsedValue = false;
-          } else if (typeof parsedValue === 'string' && !isNaN(parseFloat(parsedValue))) {
+          } else if (
+            typeof parsedValue === 'string' &&
+            !isNaN(parseFloat(parsedValue))
+          ) {
             parsedValue = parseFloat(parsedValue);
           }
 
@@ -210,10 +225,18 @@ export class PYAppIntegrationService {
    * 根据内容确定优先级
    */
   private determinePriority(content: string): 'high' | 'medium' | 'low' {
-    if (content.includes('必须') || content.includes('严禁') || content.includes('重要')) {
+    if (
+      content.includes('必须') ||
+      content.includes('严禁') ||
+      content.includes('重要')
+    ) {
       return 'high';
     }
-    if (content.includes('建议') || content.includes('应该') || content.includes('推荐')) {
+    if (
+      content.includes('建议') ||
+      content.includes('应该') ||
+      content.includes('推荐')
+    ) {
       return 'medium';
     }
     return 'low';
@@ -245,7 +268,10 @@ export class PYAppIntegrationService {
         this.notifyChangeListeners();
       }
     } catch (error) {
-      console.warn(`Error handling PY_APP.md change: ${error}`);
+      logger.warning(
+        `Error handling PY_APP.md change`,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -275,7 +301,10 @@ export class PYAppIntegrationService {
         try {
           listener(this.config);
         } catch (error) {
-          console.warn(`Error in change listener: ${error}`);
+          logger.warning(
+            `Error in change listener`,
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
     }
@@ -335,7 +364,7 @@ export class PYAppIntegrationService {
    * 检查规则是否变更
    */
   async checkForChanges(): Promise<boolean> {
-    if (!await this.fileExists(this.filePath)) {
+    if (!(await this.fileExists(this.filePath))) {
       return false;
     }
 
@@ -363,7 +392,12 @@ export class PYAppIntegrationService {
     for (const [category, rules] of Object.entries(rulesByCategory)) {
       text += `## ${category}\n\n`;
       for (const rule of rules) {
-        const priorityMarker = rule.priority === 'high' ? '⚠️' : rule.priority === 'medium' ? 'ℹ️' : '💡';
+        const priorityMarker =
+          rule.priority === 'high'
+            ? '⚠️'
+            : rule.priority === 'medium'
+              ? 'ℹ️'
+              : '💡';
         text += `${priorityMarker} ${rule.content}\n\n`;
       }
     }

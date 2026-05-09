@@ -19,7 +19,11 @@ const FRAMES: Record<SpinnerType, string[]> = {
   dots12: ['⢀', '⣀', '⣠', '⣰', '⢤', '⢆', '⣄', '⣆', '⣇', '⡏', '⠏', '⠋'],
 };
 
-export function Spinner({ type = 'dots', color = 'yellow', text }: SpinnerProps): React.ReactNode {
+export function Spinner({
+  type = 'dots',
+  color = 'yellow',
+  text,
+}: SpinnerProps): React.ReactNode {
   const [frame, setFrame] = useState(0);
 
   useEffect(() => {
@@ -43,7 +47,10 @@ interface LoadingSpinnerProps {
   color?: string;
 }
 
-export function LoadingSpinner({ message = 'Loading...', color = 'cyan' }: LoadingSpinnerProps): React.ReactNode {
+export function LoadingSpinner({
+  message = 'Loading...',
+  color = 'cyan',
+}: LoadingSpinnerProps): React.ReactNode {
   return (
     <Box flexDirection="column">
       <Box>

@@ -44,12 +44,17 @@ export class McpToolWrapper implements Tool {
     this.getClient = getClient;
 
     if (toolData.inputJSONSchema?.properties) {
-      this.params = Object.entries(toolData.inputJSONSchema.properties).map(([name, prop]: [string, any]) => ({
-        name,
-        type: prop.type || 'string',
-        description: prop.description || '',
-        required: ((toolData.inputJSONSchema?.required as string[]) || []).includes(name) || false,
-      }));
+      this.params = Object.entries(toolData.inputJSONSchema.properties).map(
+        ([name, prop]: [string, any]) => ({
+          name,
+          type: prop.type || 'string',
+          description: prop.description || '',
+          required:
+            ((toolData.inputJSONSchema?.required as string[]) || []).includes(
+              name
+            ) || false,
+        })
+      );
     }
   }
 
@@ -89,8 +94,14 @@ export class McpToolWrapper implements Tool {
         arguments: input,
       });
 
-      const content = result.content as Array<{ type: string; text?: string; data?: any }> | undefined;
-      const textContent = content?.map(c => c.text).filter(Boolean).join('\n') || '';
+      const content = result.content as
+        | Array<{ type: string; text?: string; data?: any }>
+        | undefined;
+      const textContent =
+        content
+          ?.map((c) => c.text)
+          .filter(Boolean)
+          .join('\n') || '';
 
       return {
         success: !result.isError,

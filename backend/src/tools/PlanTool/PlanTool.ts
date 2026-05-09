@@ -92,10 +92,7 @@ export interface PlanData {
 /**
  * 计划模式工具
  */
-export class PlanTool extends BaseTool<
-  PlanToolInput,
-  PlanToolOutput
-> {
+export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
   name = 'plan';
   description = 'Create, manage, and execute plans';
 
@@ -103,7 +100,8 @@ export class PlanTool extends BaseTool<
     {
       name: 'action',
       type: 'string',
-      description: 'Action to perform: create, list, get, update, delete, execute',
+      description:
+        'Action to perform: create, list, get, update, delete, execute',
       required: true,
       enum: ['create', 'list', 'get', 'update', 'delete', 'execute'],
     },
@@ -162,7 +160,14 @@ export class PlanTool extends BaseTool<
   }
 
   override validateInput(input: PlanToolInput): ValidationResult {
-    const validActions = ['create', 'list', 'get', 'update', 'delete', 'execute'];
+    const validActions = [
+      'create',
+      'list',
+      'get',
+      'update',
+      'delete',
+      'execute',
+    ];
 
     if (!input.action || !validActions.includes(input.action)) {
       return {
@@ -172,10 +177,14 @@ export class PlanTool extends BaseTool<
       };
     }
 
-    if (['get', 'update', 'delete', 'execute'].includes(input.action) && !input.plan_id) {
+    if (
+      ['get', 'update', 'delete', 'execute'].includes(input.action) &&
+      !input.plan_id
+    ) {
       return {
         result: false,
-        message: 'plan_id is required for get, update, delete, or execute action',
+        message:
+          'plan_id is required for get, update, delete, or execute action',
         errorCode: 2,
       };
     }
@@ -239,7 +248,9 @@ export class PlanTool extends BaseTool<
     }
   }
 
-  override getActivityDescription(input?: Partial<PlanToolInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<PlanToolInput>
+  ): string | null {
     const action = input?.action || '';
     switch (action) {
       case 'create':
@@ -266,7 +277,7 @@ export class PlanTool extends BaseTool<
     const visited = new Set<string>();
     const visiting = new Set<string>();
     const sorted: PlanStep[] = [];
-    const stepMap = new Map(steps.map(s => [s.id, s]));
+    const stepMap = new Map(steps.map((s) => [s.id, s]));
 
     const visit = (stepId: string) => {
       if (visited.has(stepId)) return;
@@ -427,7 +438,10 @@ export class PlanTool extends BaseTool<
               if (onProgress) {
                 onProgress({
                   toolUseID: input.plan_id!,
-                  data: { type: 'text', value: `执行步骤: ${step.name}` } as any,
+                  data: {
+                    type: 'text',
+                    value: `执行步骤: ${step.name}`,
+                  } as any,
                 });
               }
 
@@ -437,11 +451,15 @@ export class PlanTool extends BaseTool<
                 if (step.type === 'tool') {
                   const toolName = step.params?.tool_name || step.name;
                   const toolArgs = step.params?.tool_args || {};
-                  const tool = tools.find(t => {
+                  const tool = tools.find((t) => {
                     const tName = (t as any).name?.toLowerCase();
-                    const tAliases: string[] = (t as any).aliases?.map((a: string) => a.toLowerCase()) || [];
+                    const tAliases: string[] =
+                      (t as any).aliases?.map((a: string) => a.toLowerCase()) ||
+                      [];
                     const searchName = toolName.toLowerCase();
-                    return tName === searchName || tAliases.includes(searchName);
+                    return (
+                      tName === searchName || tAliases.includes(searchName)
+                    );
                   });
 
                   if (tool) {
@@ -454,17 +472,23 @@ export class PlanTool extends BaseTool<
                   if (!command) {
                     throw new Error('命令步骤缺少 command 参数');
                   }
-                  const bashTool = tools.find(t => {
+                  const bashTool = tools.find((t) => {
                     const name = (t as any).name?.toLowerCase();
                     return name === 'bash';
                   });
                   if (bashTool) {
-                    stepResult = await bashTool.execute({ command, description: step.description || step.name }, context);
+                    stepResult = await bashTool.execute(
+                      { command, description: step.description || step.name },
+                      context
+                    );
                   } else {
                     throw new Error('Bash 工具未找到，无法执行命令');
                   }
                 } else {
-                  stepResult = { success: true, message: `步骤 ${step.name} (${step.type}) 已跳过` };
+                  stepResult = {
+                    success: true,
+                    message: `步骤 ${step.name} (${step.type}) 已跳过`,
+                  };
                 }
 
                 executionResults.push({

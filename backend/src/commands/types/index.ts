@@ -5,7 +5,13 @@
 /**
  * 命令类型
  */
-export type CommandType = 'prompt' | 'action' | 'tool' | 'chat' | 'local' | 'local-jsx';
+export type CommandType =
+  | 'prompt'
+  | 'action'
+  | 'tool'
+  | 'chat'
+  | 'local'
+  | 'local-jsx';
 
 /**
  * 命令接口
@@ -372,15 +378,16 @@ export interface ParsedCommand {
 // 扩展Command接口（添加CC源码中的关键字段）
 declare module './index' {
   interface Command {
-    isEnabled?: () => boolean;           // 条件启用
-    availability?: string[];             // 可用性要求
-    source?: string;                     // 来源
-    supportsNonInteractive?: boolean;    // 非交互支持
-    allowedTools?: string[];             // 允许的工具
-    progressMessage?: string;            // 进度消息
-    contentLength?: number;              // 内容长度
-    kind?: string;                       // 种类（如'workflow'）
-    pluginInfo?: {                       // 插件信息
+    isEnabled?: () => boolean; // 条件启用
+    availability?: string[]; // 可用性要求
+    source?: string; // 来源
+    supportsNonInteractive?: boolean; // 非交互支持
+    allowedTools?: string[]; // 允许的工具
+    progressMessage?: string; // 进度消息
+    contentLength?: number; // 内容长度
+    kind?: string; // 种类（如'workflow'）
+    pluginInfo?: {
+      // 插件信息
       pluginManifest: any;
       repository: string;
     };

@@ -73,7 +73,11 @@ export class PerformanceMonitor {
    * @param duration 持续时间（毫秒）
    * @param metadata 元数据
    */
-  recordMetric(name: string, duration: number, metadata?: Record<string, any>): void {
+  recordMetric(
+    name: string,
+    duration: number,
+    metadata?: Record<string, any>
+  ): void {
     if (!this.enabled) {
       return;
     }
@@ -368,7 +372,11 @@ export const performanceUtils = {
    * @param duration 持续时间
    * @param metadata 元数据
    */
-  recordMetric: (name: string, duration: number, metadata?: Record<string, any>) => {
+  recordMetric: (
+    name: string,
+    duration: number,
+    metadata?: Record<string, any>
+  ) => {
     const monitor = PerformanceMonitor.getInstance();
     monitor.recordMetric(name, duration, metadata);
   },

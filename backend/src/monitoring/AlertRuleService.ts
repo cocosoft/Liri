@@ -13,7 +13,11 @@ export type AlertLevel = 'info' | 'warning' | 'error' | 'critical';
 /**
  * 告警条件类型
  */
-export type AlertConditionType = 'threshold' | 'rate' | 'anomaly' | 'expression';
+export type AlertConditionType =
+  | 'threshold'
+  | 'rate'
+  | 'anomaly'
+  | 'expression';
 
 /**
  * 告警条件
@@ -117,7 +121,8 @@ export class AlertRuleService extends EventEmitter {
   private routes: Map<string, AlertRoute> = new Map();
   private activeAlerts: Map<string, AlertInstance> = new Map();
   private alertHistory: AlertInstance[] = [];
-  private metricCache: Map<string, { value: number; timestamp: number }[]> = new Map();
+  private metricCache: Map<string, { value: number; timestamp: number }[]> =
+    new Map();
   private maxHistory: number = 1000;
   private lastEvaluation: Map<string, number> = new Map();
 
@@ -189,7 +194,7 @@ export class AlertRuleService extends EventEmitter {
    * 获取启用的告警规则
    */
   public getEnabledRules(): AlertRule[] {
-    return this.getAllRules().filter(rule => rule.enabled);
+    return this.getAllRules().filter((rule) => rule.enabled);
   }
 
   /**
@@ -206,7 +211,7 @@ export class AlertRuleService extends EventEmitter {
 
     const maxAge = 3600000;
     const cutoff = now - maxAge;
-    const validEntries = cache.filter(entry => entry.timestamp > cutoff);
+    const validEntries = cache.filter((entry) => entry.timestamp > cutoff);
 
     if (validEntries.length > 100) {
       validEntries.splice(0, validEntries.length - 100);
@@ -262,27 +267,30 @@ export class AlertRuleService extends EventEmitter {
    * 评估单个规则
    */
   private evaluateRule(rule: AlertRule): boolean {
-    const results = rule.conditions.map(condition => {
+    const results = rule.conditions.map((condition) => {
       return this.evaluateCondition(condition, rule);
     });
 
     if (rule.conditionOperator === 'and') {
-      return results.every(r => r);
+      return results.every((r) => r);
     } else {
-      return results.some(r => r);
+      return results.some((r) => r);
     }
   }
 
   /**
    * 评估条件
    */
-  private evaluateCondition(condition: AlertCondition, rule: AlertRule): boolean {
+  private evaluateCondition(
+    condition: AlertCondition,
+    rule: AlertRule
+  ): boolean {
     const cache = this.metricCache.get(condition.metric) || [];
     const now = Date.now();
 
     if (condition.window) {
       const cutoff = now - condition.window;
-      const windowData = cache.filter(entry => entry.timestamp > cutoff);
+      const windowData = cache.filter((entry) => entry.timestamp > cutoff);
 
       if (windowData.length === 0) {
         return false;
@@ -315,22 +323,29 @@ export class AlertRuleService extends EventEmitter {
     switch (condition.type) {
       case 'threshold':
         const latestValue = data[data.length - 1].value;
-        return this.compareValues(latestValue, condition.operator, condition.value);
+        return this.compareValues(
+          latestValue,
+          condition.operator,
+          condition.value
+        );
 
       case 'rate':
         if (data.length < 2) return false;
         const firstValue = data[0].value;
         const lastValue = data[data.length - 1].value;
-        const timeDiff = (data[data.length - 1].timestamp - data[0].timestamp) / 1000;
+        const timeDiff =
+          (data[data.length - 1].timestamp - data[0].timestamp) / 1000;
         if (timeDiff === 0) return false;
         const rate = (lastValue - firstValue) / timeDiff;
         return this.compareValues(rate, condition.operator, condition.value);
 
       case 'anomaly':
         if (data.length < 3) return false;
-        const values = data.map(d => d.value);
+        const values = data.map((d) => d.value);
         const mean = values.reduce((a, b) => a + b, 0) / values.length;
-        const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+        const variance =
+          values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) /
+          values.length;
         const stdDev = Math.sqrt(variance);
         const lastVal = data[data.length - 1].value;
         return Math.abs(lastVal - mean) > condition.value * stdDev;
@@ -346,24 +361,38 @@ export class AlertRuleService extends EventEmitter {
   /**
    * 比较值
    */
-  private compareValues(value: number, operator: string, threshold: number): boolean {
+  private compareValues(
+    value: number,
+    operator: string,
+    threshold: number
+  ): boolean {
     switch (operator) {
-      case '>': return value > threshold;
-      case '<': return value < threshold;
-      case '>=': return value >= threshold;
-      case '<=': return value <= threshold;
-      case '==': return value === threshold;
-      case '!=': return value !== threshold;
-      default: return false;
+      case '>':
+        return value > threshold;
+      case '<':
+        return value < threshold;
+      case '>=':
+        return value >= threshold;
+      case '<=':
+        return value <= threshold;
+      case '==':
+        return value === threshold;
+      case '!=':
+        return value !== threshold;
+      default:
+        return false;
     }
   }
 
   /**
    * 评估表达式
    */
-  private evaluateExpression(expression: string, data: { value: number; timestamp: number }[]): boolean {
+  private evaluateExpression(
+    expression: string,
+    data: { value: number; timestamp: number }[]
+  ): boolean {
     const latestValue = data[data.length - 1].value;
-    const values = data.map(d => d.value);
+    const values = data.map((d) => d.value);
 
     const avg = values.reduce((a, b) => a + b, 0) / values.length;
     const sum = values.reduce((a, b) => a + b, 0);
@@ -372,9 +401,15 @@ export class AlertRuleService extends EventEmitter {
     const count = values.length;
 
     try {
-      const result = new Function('value', 'avg', 'sum', 'min', 'max', 'count', `return ${expression}`)(
-        latestValue, avg, sum, min, max, count
-      );
+      const result = new Function(
+        'value',
+        'avg',
+        'sum',
+        'min',
+        'max',
+        'count',
+        `return ${expression}`
+      )(latestValue, avg, sum, min, max, count);
       return Boolean(result);
     } catch {
       return false;
@@ -386,7 +421,8 @@ export class AlertRuleService extends EventEmitter {
    */
   private createAlertInstance(rule: AlertRule): AlertInstance {
     const latestData = this.metricCache.get(rule.conditions[0]?.metric) || [];
-    const latestValue = latestData.length > 0 ? latestData[latestData.length - 1].value : 0;
+    const latestValue =
+      latestData.length > 0 ? latestData[latestData.length - 1].value : 0;
 
     return {
       id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -475,7 +511,10 @@ export class AlertRuleService extends EventEmitter {
   /**
    * 发送告警通知
    */
-  private sendAlertNotification(alert: AlertInstance, channel: AlertChannel): void {
+  private sendAlertNotification(
+    alert: AlertInstance,
+    channel: AlertChannel
+  ): void {
     if (channel.severity && !channel.severity.includes(alert.level)) {
       return;
     }
@@ -499,7 +538,10 @@ export class AlertRuleService extends EventEmitter {
   /**
    * 发送日志通知
    */
-  private sendLogNotification(alert: AlertInstance, config: Record<string, any>): void {
+  private sendLogNotification(
+    alert: AlertInstance,
+    config: Record<string, any>
+  ): void {
     const message = `[${alert.level.toUpperCase()}] ${alert.message}`;
     console.log(message, {
       alertId: alert.id,
@@ -514,9 +556,14 @@ export class AlertRuleService extends EventEmitter {
    * 发送控制台通知
    */
   private sendConsoleNotification(alert: AlertInstance): void {
-    const color = alert.level === 'critical' ? '\x1b[31m' :
-                  alert.level === 'error' ? '\x1b[35m' :
-                  alert.level === 'warning' ? '\x1b[33m' : '\x1b[36m';
+    const color =
+      alert.level === 'critical'
+        ? '\x1b[31m'
+        : alert.level === 'error'
+          ? '\x1b[35m'
+          : alert.level === 'warning'
+            ? '\x1b[33m'
+            : '\x1b[36m';
     const reset = '\x1b[0m';
 
     console.log(`${color}[ALERT]${reset} ${alert.ruleName}: ${alert.message}`);
@@ -525,7 +572,10 @@ export class AlertRuleService extends EventEmitter {
   /**
    * 发送Webhook通知
    */
-  private sendWebhookNotification(alert: AlertInstance, config: Record<string, any>): void {
+  private sendWebhookNotification(
+    alert: AlertInstance,
+    config: Record<string, any>
+  ): void {
     console.log(`Webhook notification would be sent to: ${config.url}`, {
       alert,
       webhookConfig: config,
@@ -535,7 +585,10 @@ export class AlertRuleService extends EventEmitter {
   /**
    * 发送邮件通知
    */
-  private sendEmailNotification(alert: AlertInstance, config: Record<string, any>): void {
+  private sendEmailNotification(
+    alert: AlertInstance,
+    config: Record<string, any>
+  ): void {
     console.log(`Email notification would be sent to: ${config.to}`, {
       alert,
       emailConfig: config,
@@ -605,7 +658,10 @@ export class AlertRuleService extends EventEmitter {
   /**
    * 更新告警路由
    */
-  public updateRoute(id: string, updates: Partial<AlertRoute>): AlertRoute | null {
+  public updateRoute(
+    id: string,
+    updates: Partial<AlertRoute>
+  ): AlertRoute | null {
     const route = this.routes.get(id);
     if (!route) {
       return null;
@@ -634,20 +690,24 @@ export class AlertRuleService extends EventEmitter {
     const stats: AlertStatistics = {
       totalAlerts: this.alertHistory.length + this.activeAlerts.size,
       firingAlerts: this.activeAlerts.size,
-      resolvedAlerts: this.alertHistory.filter(a => a.status === 'resolved').length,
-      silencedAlerts: this.alertHistory.filter(a => a.status === 'silenced').length,
+      resolvedAlerts: this.alertHistory.filter((a) => a.status === 'resolved')
+        .length,
+      silencedAlerts: this.alertHistory.filter((a) => a.status === 'silenced')
+        .length,
       alertsByLevel: { info: 0, warning: 0, error: 0, critical: 0 },
       alertsByRule: {},
     };
 
     for (const alert of this.alertHistory) {
       stats.alertsByLevel[alert.level]++;
-      stats.alertsByRule[alert.ruleName] = (stats.alertsByRule[alert.ruleName] || 0) + 1;
+      stats.alertsByRule[alert.ruleName] =
+        (stats.alertsByRule[alert.ruleName] || 0) + 1;
     }
 
     for (const alert of this.activeAlerts.values()) {
       stats.alertsByLevel[alert.level]++;
-      stats.alertsByRule[alert.ruleName] = (stats.alertsByRule[alert.ruleName] || 0) + 1;
+      stats.alertsByRule[alert.ruleName] =
+        (stats.alertsByRule[alert.ruleName] || 0) + 1;
     }
 
     return stats;

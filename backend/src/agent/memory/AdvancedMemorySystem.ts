@@ -178,7 +178,7 @@ export class AdvancedMemorySystem {
     }
 
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, limit).map(s => s.entry);
+    return scored.slice(0, limit).map((s) => s.entry);
   }
 
   similaritySearch(vector: number[], limit: number = 10): MemoryEntry[] {
@@ -193,12 +193,14 @@ export class AdvancedMemorySystem {
     }
 
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, limit).map(s => s.entry);
+    return scored.slice(0, limit).map((s) => s.entry);
   }
 
   async compressMemory(): Promise<MemoryCompressionResult> {
     const startTime = Date.now();
-    const originalSize = this.shortTermMemory.getAll().length + this.longTermMemory.getAll().length;
+    const originalSize =
+      this.shortTermMemory.getAll().length +
+      this.longTermMemory.getAll().length;
 
     let itemsRemoved = 0;
     let itemsArchived = 0;
@@ -230,7 +232,9 @@ export class AdvancedMemorySystem {
       }
     }
 
-    const compressedSize = this.shortTermMemory.getAll().length + this.longTermMemory.getAll().length;
+    const compressedSize =
+      this.shortTermMemory.getAll().length +
+      this.longTermMemory.getAll().length;
     const duration = Date.now() - startTime;
 
     this.createVersion('compress');
@@ -282,7 +286,8 @@ export class AdvancedMemorySystem {
         totalItems: entries.length,
         oldestItem,
         newestItem,
-        averageImportance: entries.length > 0 ? totalImportance / entries.length : 0,
+        averageImportance:
+          entries.length > 0 ? totalImportance / entries.length : 0,
       },
     };
   }
@@ -310,7 +315,8 @@ export class AdvancedMemorySystem {
       shortTermCount,
       longTermCount,
       archivedCount,
-      averageImportance: entries.length > 0 ? totalImportance / entries.length : 0,
+      averageImportance:
+        entries.length > 0 ? totalImportance / entries.length : 0,
       memoryUsage: this.vectorIndex.size * 384,
       oldestItem,
       newestItem,
@@ -322,7 +328,7 @@ export class AdvancedMemorySystem {
   }
 
   async rollback(version: number): Promise<boolean> {
-    const target = this.versionHistory.find(v => v.version === version);
+    const target = this.versionHistory.find((v) => v.version === version);
     if (!target) {
       logger.warn(`Version ${version} not found for rollback`);
       return false;
@@ -380,14 +386,18 @@ export class AdvancedMemorySystem {
       const keys = Object.keys(value);
       const hasTimestamp = 'timestamp' in value || 'time' in value;
       const hasTags = 'tags' in value || 'category' in value;
-      return Math.min(1, (keys.length + (hasTimestamp ? 0.2 : 0) + (hasTags ? 0.2 : 0)) / 10);
+      return Math.min(
+        1,
+        (keys.length + (hasTimestamp ? 0.2 : 0) + (hasTags ? 0.2 : 0)) / 10
+      );
     }
     return 0.5;
   }
 
   private vectorize(content: any): number[] | null {
     try {
-      const str = typeof content === 'string' ? content : JSON.stringify(content);
+      const str =
+        typeof content === 'string' ? content : JSON.stringify(content);
       const hash = this.simpleHash(str);
       const vector: number[] = [];
       let seed = hash;
@@ -424,7 +434,7 @@ export class AdvancedMemorySystem {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return Math.abs(hash);
@@ -433,7 +443,10 @@ export class AdvancedMemorySystem {
   private getTimestamp(value: any): number | null {
     if (typeof value === 'object' && value !== null) {
       if (value.timestamp) return value.timestamp;
-      if (value.time) return typeof value.time === 'number' ? value.time : Date.parse(value.time);
+      if (value.time)
+        return typeof value.time === 'number'
+          ? value.time
+          : Date.parse(value.time);
     }
     return null;
   }
@@ -457,12 +470,15 @@ export class AdvancedMemorySystem {
 
   private matchesOptions(entry: MemoryEntry, options: SearchOptions): boolean {
     if (options.tags && options.tags.length > 0) {
-      const hasTag = options.tags.some(t => entry.tags.includes(t));
+      const hasTag = options.tags.some((t) => entry.tags.includes(t));
       if (!hasTag) return false;
     }
 
     if (options.timeRange) {
-      if (entry.timestamp < options.timeRange.start || entry.timestamp > options.timeRange.end) {
+      if (
+        entry.timestamp < options.timeRange.start ||
+        entry.timestamp > options.timeRange.end
+      ) {
         return false;
       }
     }
@@ -507,7 +523,9 @@ export class AdvancedMemorySystem {
       try {
         const result = await this.compressMemory();
         if (result.itemsRemoved > 0 || result.itemsArchived > 0) {
-          logger.info(`Memory consolidation: removed ${result.itemsRemoved}, archived ${result.itemsArchived}`);
+          logger.info(
+            `Memory consolidation: removed ${result.itemsRemoved}, archived ${result.itemsArchived}`
+          );
         }
       } catch (error) {
         logger.error('Memory consolidation failed:', error as Error);

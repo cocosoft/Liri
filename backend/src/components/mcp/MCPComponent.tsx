@@ -87,11 +87,7 @@ export const MCPComponent: React.FC<MCPComponentProps> = ({
         </div>
       </div>
 
-      {state.error && (
-        <div className="mcp-error">
-          ⚠️ {state.error}
-        </div>
-      )}
+      {state.error && <div className="mcp-error">⚠️ {state.error}</div>}
 
       <div className="mcp-model-info">
         <span className="model-label">模型:</span>
@@ -109,7 +105,9 @@ export const MCPComponent: React.FC<MCPComponentProps> = ({
             max="2"
             step="0.1"
             value={localSettings.temperature}
-            onChange={(e) => handleTemperatureChange(parseFloat(e.target.value))}
+            onChange={(e) =>
+              handleTemperatureChange(parseFloat(e.target.value))
+            }
             className="temperature-slider"
           />
         </div>
@@ -151,6 +149,8 @@ export const MCPComponent: React.FC<MCPComponentProps> = ({
   );
 };
 
-export function createMCPComponent(props?: Partial<MCPComponentProps>): React.ReactElement {
+export function createMCPComponent(
+  props?: Partial<MCPComponentProps>
+): React.ReactElement {
   return <MCPComponent {...props} />;
 }

@@ -4,12 +4,9 @@ export const NON_REBINDABLE: string[] = [
   'ctrl+m',
   'ctrl+z',
   'ctrl+\\',
-]
+];
 
-export const TERMINAL_RESERVED: string[] = [
-  'ctrl+z',
-  'ctrl+\\',
-]
+export const TERMINAL_RESERVED: string[] = ['ctrl+z', 'ctrl+\\'];
 
 export const MACOS_RESERVED: string[] = [
   'cmd+c',
@@ -19,7 +16,7 @@ export const MACOS_RESERVED: string[] = [
   'cmd+w',
   'cmd+tab',
   'cmd+space',
-]
+];
 
 export function normalizeKeyForComparison(input: string): string {
   return input
@@ -32,26 +29,31 @@ export function normalizeKeyForComparison(input: string): string {
     .replace(/cmd/g, 'meta')
     .replace(/super/g, 'meta')
     .replace(/win/g, 'meta')
-    .replace(/windows/g, 'meta')
+    .replace(/windows/g, 'meta');
 }
 
 export function isReservedShortcut(
   keystroke: string,
-  platform: NodeJS.Platform = process.platform,
+  platform: NodeJS.Platform = process.platform
 ): boolean {
-  const normalized = normalizeKeyForComparison(keystroke)
+  const normalized = normalizeKeyForComparison(keystroke);
 
-  if (NON_REBINDABLE.some(r => normalizeKeyForComparison(r) === normalized)) {
-    return true
+  if (NON_REBINDABLE.some((r) => normalizeKeyForComparison(r) === normalized)) {
+    return true;
   }
 
-  if (TERMINAL_RESERVED.some(r => normalizeKeyForComparison(r) === normalized)) {
-    return true
+  if (
+    TERMINAL_RESERVED.some((r) => normalizeKeyForComparison(r) === normalized)
+  ) {
+    return true;
   }
 
-  if (platform === 'darwin' && MACOS_RESERVED.some(r => normalizeKeyForComparison(r) === normalized)) {
-    return true
+  if (
+    platform === 'darwin' &&
+    MACOS_RESERVED.some((r) => normalizeKeyForComparison(r) === normalized)
+  ) {
+    return true;
   }
 
-  return false
+  return false;
 }

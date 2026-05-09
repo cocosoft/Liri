@@ -41,9 +41,11 @@ export default {
       { id: 6, name: '✅', category: 'emoji', used: true },
     ];
 
-    const table = stickers.map(s => 
-      `${s.name} ${s.category.padEnd(8)} ${s.used ? '常用' : '可用'}`
-    ).join('\n');
+    const table = stickers
+      .map(
+        (s) => `${s.name} ${s.category.padEnd(8)} ${s.used ? '常用' : '可用'}`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -56,9 +58,12 @@ export default {
   /**
    * 添加贴纸
    */
-  async handleAdd(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleAdd(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const sticker = args.join(' ');
-    
+
     if (!sticker) {
       return {
         success: false,
@@ -69,7 +74,7 @@ export default {
     }
 
     context.onDone?.(`贴纸 "${sticker}" 已添加`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -81,7 +86,10 @@ export default {
   /**
    * 移除贴纸
    */
-  async handleRemove(sticker: string, context: CommandContext): Promise<CommandResult> {
+  async handleRemove(
+    sticker: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!sticker) {
       return {
         success: false,
@@ -92,7 +100,7 @@ export default {
     }
 
     context.onDone?.(`贴纸 "${sticker}" 已移除`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

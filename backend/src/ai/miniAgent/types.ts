@@ -90,8 +90,14 @@ export interface IRuleEngine {
 
 export interface IOllamaProvider {
   isAvailable(): Promise<boolean>;
-  generate(prompt: string, options?: OllamaGenerateOptions): Promise<OllamaResponse>;
-  chat(messages: ChatMessage[], options?: OllamaChatOptions): Promise<OllamaChatResponse>;
+  generate(
+    prompt: string,
+    options?: OllamaGenerateOptions
+  ): Promise<OllamaResponse>;
+  chat(
+    messages: ChatMessage[],
+    options?: OllamaChatOptions
+  ): Promise<OllamaChatResponse>;
   listModels(): Promise<string[]>;
 }
 
@@ -128,10 +134,56 @@ export interface OllamaChatResponse {
 }
 
 export const ROUTING_KEYWORDS: Record<IntentType, string[]> = {
-  command: ['创建', '删除', '打开', '关闭', '执行', '运行', '新建', 'mkdir', 'rm', 'del', 'create', 'delete', 'open', 'close', 'execute', 'run', 'new'],
-  code_generation: ['写代码', '生成代码', '实现', '帮我写', 'create function', 'write code', 'generate code', 'implement'],
-  explanation: ['解释', '什么是', '讲讲', '为什么', '如何', 'explain', 'what is', 'how to', 'why'],
-  simple_qa: ['天气', '时间', '日期', '现在几点', '今天几号', 'weather', 'time', 'date'],
+  command: [
+    '创建',
+    '删除',
+    '打开',
+    '关闭',
+    '执行',
+    '运行',
+    '新建',
+    'mkdir',
+    'rm',
+    'del',
+    'create',
+    'delete',
+    'open',
+    'close',
+    'execute',
+    'run',
+    'new',
+  ],
+  code_generation: [
+    '写代码',
+    '生成代码',
+    '实现',
+    '帮我写',
+    'create function',
+    'write code',
+    'generate code',
+    'implement',
+  ],
+  explanation: [
+    '解释',
+    '什么是',
+    '讲讲',
+    '为什么',
+    '如何',
+    'explain',
+    'what is',
+    'how to',
+    'why',
+  ],
+  simple_qa: [
+    '天气',
+    '时间',
+    '日期',
+    '现在几点',
+    '今天几号',
+    'weather',
+    'time',
+    'date',
+  ],
   skill: ['skill', '技能', '使用技能'],
   mcp: ['mcp', 'tool', '工具', '文件系统', 'git', 'bash'],
   general: [],
@@ -176,11 +228,19 @@ export const DEFAULT_ROUTING_RULES: RuleMatch[] = [
   {
     pattern: '.*(skill|技能|使用技能).*',
     intent: { type: 'skill', confidence: 0.7 },
-    routeDecision: { target: 'rule_engine', handler: 'skill', reason: '技能调用' },
+    routeDecision: {
+      target: 'rule_engine',
+      handler: 'skill',
+      reason: '技能调用',
+    },
   },
   {
     pattern: '.*(mcp|tool|工具).*',
     intent: { type: 'mcp', confidence: 0.7 },
-    routeDecision: { target: 'rule_engine', handler: 'mcp', reason: 'MCP工具调用' },
+    routeDecision: {
+      target: 'rule_engine',
+      handler: 'mcp',
+      reason: 'MCP工具调用',
+    },
   },
 ];

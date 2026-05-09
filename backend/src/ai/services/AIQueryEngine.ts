@@ -7,7 +7,11 @@
 import type { ChatMessage } from '@modules/ai/models/types';
 import type { LLMClient } from '@modules/ai/clients/LLMClient';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
-import type { QueryParams, QueryResult, ToolContext } from '@modules/ai/interfaces/QueryInterfaces';
+import type {
+  QueryParams,
+  QueryResult,
+  ToolContext,
+} from '@modules/ai/interfaces/QueryInterfaces';
 import { ModuleError } from '@modules/errors';
 
 export interface AIQueryEngineConfig {
@@ -48,12 +52,24 @@ export class AIQueryEngine {
   /**
    * 映射stop_reason到QueryResult的finishReason
    */
-  private mapStopReason(reason: string): 'end_turn' | 'stop_sequence' | 'max_tokens' | 'max_turns' | 'tool_use' | 'error' {
+  private mapStopReason(
+    reason: string
+  ):
+    | 'end_turn'
+    | 'stop_sequence'
+    | 'max_tokens'
+    | 'max_turns'
+    | 'tool_use'
+    | 'error' {
     switch (reason) {
-      case 'stop': return 'end_turn';
-      case 'tool_calls': return 'tool_use';
-      case 'max_tokens': return 'max_tokens';
-      default: return 'end_turn';
+      case 'stop':
+        return 'end_turn';
+      case 'tool_calls':
+        return 'tool_use';
+      case 'max_tokens':
+        return 'max_tokens';
+      default:
+        return 'end_turn';
     }
   }
 
@@ -84,9 +100,15 @@ export class AIQueryEngine {
         currentMessages.push(assistantMessage);
 
         if (response.tool_calls && response.tool_calls.length > 0) {
-          const toolResults = await this.executeTools(response.tool_calls, params.toolContext);
+          const toolResults = await this.executeTools(
+            response.tool_calls,
+            params.toolContext
+          );
 
-          const toolResultMessages = this.createToolResultMessages(response.tool_calls, toolResults);
+          const toolResultMessages = this.createToolResultMessages(
+            response.tool_calls,
+            toolResults
+          );
           accumulatedMessages.push(...toolResultMessages);
           currentMessages.push(...toolResultMessages);
 
@@ -137,10 +159,13 @@ export class AIQueryEngine {
       };
 
       try {
-        for await (const event of (this.config.client as any).stream(currentMessages, {
-          model: params.model || this.config.defaultModel,
-          tools: params.tools,
-        })) {
+        for await (const event of (this.config.client as any).stream(
+          currentMessages,
+          {
+            model: params.model || this.config.defaultModel,
+            tools: params.tools,
+          }
+        )) {
           if (event.type === 'content_block_delta') {
             fullResponse.content.push(event.delta);
           } else if (event.type === 'tool_call') {
@@ -153,9 +178,15 @@ export class AIQueryEngine {
         currentMessages.push(assistantMessage);
 
         if (fullResponse.tool_calls && fullResponse.tool_calls.length > 0) {
-          const toolResults = await this.executeTools(fullResponse.tool_calls, params.toolContext);
+          const toolResults = await this.executeTools(
+            fullResponse.tool_calls,
+            params.toolContext
+          );
 
-          const toolResultMessages = this.createToolResultMessages(fullResponse.tool_calls, toolResults);
+          const toolResultMessages = this.createToolResultMessages(
+            fullResponse.tool_calls,
+            toolResults
+          );
           accumulatedMessages.push(...toolResultMessages);
           currentMessages.push(...toolResultMessages);
 
@@ -201,7 +232,10 @@ export class AIQueryEngine {
   /**
    * 执行工具调用
    */
-  private async executeTools(toolCalls: any[], context: ToolContext | undefined): Promise<any[]> {
+  private async executeTools(
+    toolCalls: any[],
+    context: ToolContext | undefined
+  ): Promise<any[]> {
     const results = [];
 
     for (const toolCall of toolCalls) {
@@ -263,7 +297,10 @@ export class AIQueryEngine {
   /**
    * 创建工具结果消息
    */
-  private createToolResultMessages(toolCalls: any[], toolResults: any[]): ChatMessage[] {
+  private createToolResultMessages(
+    toolCalls: any[],
+    toolResults: any[]
+  ): ChatMessage[] {
     const messages: ChatMessage[] = [];
 
     for (let i = 0; i < toolCalls.length; i++) {
@@ -275,9 +312,10 @@ export class AIQueryEngine {
         content: '',
         tool_result: {
           tool_call_id: toolCall.id,
-          content: typeof result.content === 'string'
-            ? result.content
-            : JSON.stringify(result.content),
+          content:
+            typeof result.content === 'string'
+              ? result.content
+              : JSON.stringify(result.content),
           is_error: result.error || false,
         },
       });

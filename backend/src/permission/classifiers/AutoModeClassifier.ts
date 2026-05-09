@@ -153,126 +153,403 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    */
   private readonly dangerousToolKeywords = new Set([
     // 文件系统危险操作
-    'rm', 'del', 'delete', 'format', 'mkfs', 'dd',
-    'chmod', 'chown', 'chgrp', 'truncate', 'fallocate',
-    'ln', 'mv', 'cp', 'rmdir', 'mkdir', 'touch',
+    'rm',
+    'del',
+    'delete',
+    'format',
+    'mkfs',
+    'dd',
+    'chmod',
+    'chown',
+    'chgrp',
+    'truncate',
+    'fallocate',
+    'ln',
+    'mv',
+    'cp',
+    'rmdir',
+    'mkdir',
+    'touch',
     // 系统操作
-    'shutdown', 'reboot', 'halt', 'poweroff', 'init',
-    'fdisk', 'parted', 'sfdisk', 'cfdisk',
-    'kill', 'killall', 'pkill', 'killall5',
+    'shutdown',
+    'reboot',
+    'halt',
+    'poweroff',
+    'init',
+    'fdisk',
+    'parted',
+    'sfdisk',
+    'cfdisk',
+    'kill',
+    'killall',
+    'pkill',
+    'killall5',
     // 权限提升
-    'sudo', 'su', 'doas', 'pkexec', 'setuid', 'setgid',
+    'sudo',
+    'su',
+    'doas',
+    'pkexec',
+    'setuid',
+    'setgid',
     // 网络操作
-    'iptables', 'ip6tables', 'ufw', 'firewalld', 'nft',
-    'mount', 'umount', 'swapoff', 'swapon',
-    'route', 'ip', 'ifconfig', 'netstat', 'ss',
+    'iptables',
+    'ip6tables',
+    'ufw',
+    'firewalld',
+    'nft',
+    'mount',
+    'umount',
+    'swapoff',
+    'swapon',
+    'route',
+    'ip',
+    'ifconfig',
+    'netstat',
+    'ss',
     // 命令执行
-    'eval', 'exec', 'source', 'command', 'builtin',
+    'eval',
+    'exec',
+    'source',
+    'command',
+    'builtin',
     // 远程获取/执行
-    'curl', 'wget', 'fetch', 'aria2', 'axel', 'lftp',
+    'curl',
+    'wget',
+    'fetch',
+    'aria2',
+    'axel',
+    'lftp',
     // 网络扫描
-    'nc', 'netcat', 'nmap', 'dig', 'host', 'traceroute', 'ping',
-    'hping', 'arping', 'tcping', 'mtr', 'whois',
+    'nc',
+    'netcat',
+    'nmap',
+    'dig',
+    'host',
+    'traceroute',
+    'ping',
+    'hping',
+    'arping',
+    'tcping',
+    'mtr',
+    'whois',
     // 加密/安全
-    'openssl', 'gpg', 'cryptsetup', 'keytool', 'keystore',
+    'openssl',
+    'gpg',
+    'cryptsetup',
+    'keytool',
+    'keystore',
     // 压缩/解压
-    'tar', 'zip', 'unzip', '7z', 'unrar', 'gzip', 'bzip2', 'xz',
+    'tar',
+    'zip',
+    'unzip',
+    '7z',
+    'unrar',
+    'gzip',
+    'bzip2',
+    'xz',
     // 脚本语言
-    'python', 'perl', 'php', 'ruby', 'node', 'lua', 'tcl', 'awk', 'sed',
+    'python',
+    'perl',
+    'php',
+    'ruby',
+    'node',
+    'lua',
+    'tcl',
+    'awk',
+    'sed',
     // 包管理器
-    'npm', 'yarn', 'pip', 'gem', 'cargo', 'composer', 'go', 'rustup',
+    'npm',
+    'yarn',
+    'pip',
+    'gem',
+    'cargo',
+    'composer',
+    'go',
+    'rustup',
     // 容器/虚拟化
-    'docker', 'podman', 'kubectl', 'helm', 'qemu', 'kvm', 'virsh', 'vboxmanage',
+    'docker',
+    'podman',
+    'kubectl',
+    'helm',
+    'qemu',
+    'kvm',
+    'virsh',
+    'vboxmanage',
     // 云服务
-    'aws', 'gcloud', 'azure', 'terraform', 'ansible', 'pulumi', 'cloudformation',
+    'aws',
+    'gcloud',
+    'azure',
+    'terraform',
+    'ansible',
+    'pulumi',
+    'cloudformation',
     // 系统服务
-    'systemctl', 'service', 'cron', 'at', 'anacron', 'crontab',
+    'systemctl',
+    'service',
+    'cron',
+    'at',
+    'anacron',
+    'crontab',
     // 网络服务
-    'sshd', 'httpd', 'nginx', 'apache', 'lighttpd', 'haproxy',
+    'sshd',
+    'httpd',
+    'nginx',
+    'apache',
+    'lighttpd',
+    'haproxy',
     // 数据库
-    'mysql', 'postgres', 'mariadb', 'redis', 'mongodb', 'sqlite3', 'oracle',
+    'mysql',
+    'postgres',
+    'mariadb',
+    'redis',
+    'mongodb',
+    'sqlite3',
+    'oracle',
     // 进程管理
-    'screen', 'tmux', 'nohup', 'disown', 'setsid', 'nice', 'renice',
+    'screen',
+    'tmux',
+    'nohup',
+    'disown',
+    'setsid',
+    'nice',
+    'renice',
     // 调试工具
-    'strace', 'ltrace', 'gdb', 'valgrind', 'perf', 'dtrace', 'lldb',
+    'strace',
+    'ltrace',
+    'gdb',
+    'valgrind',
+    'perf',
+    'dtrace',
+    'lldb',
     // 网络工具
-    'tcpdump', 'wireshark', 'tshark', 'socat', 'netcat-openbsd',
+    'tcpdump',
+    'wireshark',
+    'tshark',
+    'socat',
+    'netcat-openbsd',
     // SSH相关
-    'ssh', 'scp', 'rsync', 'sftp', 'ssh-keygen', 'ssh-agent',
+    'ssh',
+    'scp',
+    'rsync',
+    'sftp',
+    'ssh-keygen',
+    'ssh-agent',
     // 环境变量操作
-    'env', 'export', 'unset', 'declare',
+    'env',
+    'export',
+    'unset',
+    'declare',
     // 系统信息
-    'cat', 'head', 'tail', 'less', 'more', 'grep', 'find', 'which', 'whereis',
+    'cat',
+    'head',
+    'tail',
+    'less',
+    'more',
+    'grep',
+    'find',
+    'which',
+    'whereis',
     // 用户管理
-    'useradd', 'userdel', 'usermod', 'groupadd', 'groupdel', 'groupmod', 'passwd',
+    'useradd',
+    'userdel',
+    'usermod',
+    'groupadd',
+    'groupdel',
+    'groupmod',
+    'passwd',
     // 文件权限
-    'chattr', 'setfacl', 'getfacl',
+    'chattr',
+    'setfacl',
+    'getfacl',
     // 系统配置
-    'sysctl', 'modprobe', 'rmmod', 'insmod', 'depmod',
+    'sysctl',
+    'modprobe',
+    'rmmod',
+    'insmod',
+    'depmod',
     // 定时任务
-    'at', 'batch', 'cron', 'crontab',
+    'at',
+    'batch',
+    'cron',
+    'crontab',
     // 日志操作
-    'journalctl', 'dmesg', 'rsyslogd', 'syslogd',
+    'journalctl',
+    'dmesg',
+    'rsyslogd',
+    'syslogd',
     // 安全审计
-    'auditctl', 'auditd', 'ausearch', 'aureport',
+    'auditctl',
+    'auditd',
+    'ausearch',
+    'aureport',
     // SELinux/AppArmor
-    'setenforce', 'getenforce', 'sestatus', 'aa-status', 'aa-enforce',
+    'setenforce',
+    'getenforce',
+    'sestatus',
+    'aa-status',
+    'aa-enforce',
     // 网络配置
-    'nmcli', 'nmtui', 'networkctl', 'wpa_supplicant', 'dhclient',
+    'nmcli',
+    'nmtui',
+    'networkctl',
+    'wpa_supplicant',
+    'dhclient',
     // 时间同步
-    'ntpd', 'chronyd', 'timedatectl', 'ntpdate',
+    'ntpd',
+    'chronyd',
+    'timedatectl',
+    'ntpdate',
     // 硬件管理
-    'lspci', 'lsusb', 'dmidecode', 'hdparm', 'smartctl',
+    'lspci',
+    'lsusb',
+    'dmidecode',
+    'hdparm',
+    'smartctl',
     // 电源管理
-    'pm-suspend', 'pm-hibernate', 'pm-poweroff', 'acpi',
+    'pm-suspend',
+    'pm-hibernate',
+    'pm-poweroff',
+    'acpi',
     // 备份恢复
-    'rsync', 'cpio', 'dump', 'restore', 'tar',
+    'rsync',
+    'cpio',
+    'dump',
+    'restore',
+    'tar',
     // Web服务
-    'curl', 'wget', 'lynx', 'links', 'w3m',
+    'curl',
+    'wget',
+    'lynx',
+    'links',
+    'w3m',
     // 邮件
-    'sendmail', 'postfix', 'exim', 'dovecot', 'mail', 'mailx',
+    'sendmail',
+    'postfix',
+    'exim',
+    'dovecot',
+    'mail',
+    'mailx',
     // DNS
-    'dig', 'nslookup', 'host', 'dnsmasq', 'bind', 'named',
+    'dig',
+    'nslookup',
+    'host',
+    'dnsmasq',
+    'bind',
+    'named',
     // FTP
-    'ftp', 'vsftpd', 'proftpd', 'pure-ftpd', 'lftp',
+    'ftp',
+    'vsftpd',
+    'proftpd',
+    'pure-ftpd',
+    'lftp',
     // SMB/CIFS
-    'smbclient', 'smbd', 'nmbd', 'mount.cifs',
+    'smbclient',
+    'smbd',
+    'nmbd',
+    'mount.cifs',
     // NFS
-    'mount.nfs', 'exportfs', 'nfsd',
+    'mount.nfs',
+    'exportfs',
+    'nfsd',
     // LDAP
-    'ldapsearch', 'ldapadd', 'ldapmodify', 'slapd',
+    'ldapsearch',
+    'ldapadd',
+    'ldapmodify',
+    'slapd',
     // Kerberos
-    'kinit', 'kdestroy', 'klist', 'krb5kdc',
+    'kinit',
+    'kdestroy',
+    'klist',
+    'krb5kdc',
     // Samba
-    'smbpasswd', 'testparm', 'pdbedit',
+    'smbpasswd',
+    'testparm',
+    'pdbedit',
     // 虚拟化
-    'virt-install', 'virt-clone', 'virt-convert', 'virt-manager',
+    'virt-install',
+    'virt-clone',
+    'virt-convert',
+    'virt-manager',
     // 容器网络
-    'cni', 'flannel', 'calico', 'weave', 'cilium',
+    'cni',
+    'flannel',
+    'calico',
+    'weave',
+    'cilium',
     // Service Mesh
-    'istioctl', 'linkerd', 'consul', 'envoy',
+    'istioctl',
+    'linkerd',
+    'consul',
+    'envoy',
     // CI/CD
-    'git', 'gitlab-runner', 'jenkins', 'gh', 'gh-cli',
+    'git',
+    'gitlab-runner',
+    'jenkins',
+    'gh',
+    'gh-cli',
     // 监控
-    'prometheus', 'grafana-cli', 'influx', 'telegraf', 'collectd',
+    'prometheus',
+    'grafana-cli',
+    'influx',
+    'telegraf',
+    'collectd',
     // 日志
-    'fluentd', 'logstash', 'filebeat', 'journalctl',
+    'fluentd',
+    'logstash',
+    'filebeat',
+    'journalctl',
     // 安全扫描
-    'nmap', 'nessus', 'openvas', 'metasploit', 'sqlmap', 'burpsuite',
+    'nmap',
+    'nessus',
+    'openvas',
+    'metasploit',
+    'sqlmap',
+    'burpsuite',
     // 破解工具
-    'john', 'hashcat', 'hydra', 'medusa', 'crunch', 'wordlist',
+    'john',
+    'hashcat',
+    'hydra',
+    'medusa',
+    'crunch',
+    'wordlist',
     // 取证工具
-    'dd', 'strings', 'hexdump', 'xxd', 'foremost', 'testdisk',
+    'dd',
+    'strings',
+    'hexdump',
+    'xxd',
+    'foremost',
+    'testdisk',
     // 逆向工程
-    'objdump', 'readelf', 'nm', 'ld', 'strip', 'upx',
+    'objdump',
+    'readelf',
+    'nm',
+    'ld',
+    'strip',
+    'upx',
     // 漏洞利用
-    'msfconsole', 'exploit', 'payload', 'shellcode',
+    'msfconsole',
+    'exploit',
+    'payload',
+    'shellcode',
     // 代理/隧道
-    'proxychains', 'tor', 'sshuttle', 'chisel', 'frp', 'ngrok',
+    'proxychains',
+    'tor',
+    'sshuttle',
+    'chisel',
+    'frp',
+    'ngrok',
     // 钓鱼
-    'phishing', 'spoof', 'social-engineer', 'evilginx',
+    'phishing',
+    'spoof',
+    'social-engineer',
+    'evilginx',
     // 恶意软件
-    'virus', 'malware', 'ransomware', 'trojan', 'worm', 'botnet',
+    'virus',
+    'malware',
+    'ransomware',
+    'trojan',
+    'worm',
+    'botnet',
   ]);
 
   /**
@@ -496,7 +773,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     'DELETE ',
     'OR 1=1',
     'AND 1=1',
-    'OR \'x\'=\'x',
+    "OR 'x'='x",
     '<script>',
     '</script>',
     'javascript:',
@@ -998,7 +1275,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     'ransomware ',
     'trojan ',
     'worm ',
-    'botnet '
+    'botnet ',
   ];
 
   /**
@@ -1006,51 +1283,148 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    */
   private readonly sensitivePathPatterns = [
     // Unix/Linux系统目录
-    '/etc/', '/sys/', '/proc/', '/usr/bin/', '/usr/sbin/',
-    '/bin/', '/sbin/', '/var/', '/boot/', '/lib/', '/lib64/',
-    '/root/', '/home/', '/tmp/', '/var/tmp/', '/run/',
-    '/dev/', '/mnt/', '/media/', '/opt/', '/usr/local/',
-    '/srv/', '/kernel/', '/firmware/', '/etc/passwd', '/etc/shadow',
-    '/etc/group', '/etc/gshadow', '/etc/sudoers', '/etc/ssh/',
-    '/root/.ssh/', '/home/*/.ssh/', '/var/log/', '/var/log/auth.log',
-    '/var/log/syslog', '/var/log/secure', '/var/log/messages',
-    '/etc/resolv.conf', '/etc/hosts', '/etc/hostname', '/etc/fstab',
-    '/etc/crontab', '/etc/anacrontab', '/var/spool/cron/',
-    '/usr/lib/', '/usr/share/', '/usr/include/', '/usr/src/',
-    '/etc/profile', '/etc/bashrc', '/etc/zshrc', '/etc/profile.d/',
-    '/etc/security/', '/etc/pam.d/', '/etc/selinux/', '/etc/apparmor/',
-    '/etc/audit/', '/etc/rsyslog.conf', '/etc/systemd/',
-    '/var/run/', '/var/lock/', '/var/lib/', '/var/opt/',
-    '/var/spool/', '/var/mail/', '/var/cache/', '/var/log/',
-    '/tmp/', '/dev/shm/', '/run/shm/', '/run/user/',
-    '/proc/sys/', '/proc/kcore', '/proc/kmsg', '/proc/self/',
-    '/sys/kernel/', '/sys/devices/', '/sys/class/', '/sys/block/',
+    '/etc/',
+    '/sys/',
+    '/proc/',
+    '/usr/bin/',
+    '/usr/sbin/',
+    '/bin/',
+    '/sbin/',
+    '/var/',
+    '/boot/',
+    '/lib/',
+    '/lib64/',
+    '/root/',
+    '/home/',
+    '/tmp/',
+    '/var/tmp/',
+    '/run/',
+    '/dev/',
+    '/mnt/',
+    '/media/',
+    '/opt/',
+    '/usr/local/',
+    '/srv/',
+    '/kernel/',
+    '/firmware/',
+    '/etc/passwd',
+    '/etc/shadow',
+    '/etc/group',
+    '/etc/gshadow',
+    '/etc/sudoers',
+    '/etc/ssh/',
+    '/root/.ssh/',
+    '/home/*/.ssh/',
+    '/var/log/',
+    '/var/log/auth.log',
+    '/var/log/syslog',
+    '/var/log/secure',
+    '/var/log/messages',
+    '/etc/resolv.conf',
+    '/etc/hosts',
+    '/etc/hostname',
+    '/etc/fstab',
+    '/etc/crontab',
+    '/etc/anacrontab',
+    '/var/spool/cron/',
+    '/usr/lib/',
+    '/usr/share/',
+    '/usr/include/',
+    '/usr/src/',
+    '/etc/profile',
+    '/etc/bashrc',
+    '/etc/zshrc',
+    '/etc/profile.d/',
+    '/etc/security/',
+    '/etc/pam.d/',
+    '/etc/selinux/',
+    '/etc/apparmor/',
+    '/etc/audit/',
+    '/etc/rsyslog.conf',
+    '/etc/systemd/',
+    '/var/run/',
+    '/var/lock/',
+    '/var/lib/',
+    '/var/opt/',
+    '/var/spool/',
+    '/var/mail/',
+    '/var/cache/',
+    '/var/log/',
+    '/tmp/',
+    '/dev/shm/',
+    '/run/shm/',
+    '/run/user/',
+    '/proc/sys/',
+    '/proc/kcore',
+    '/proc/kmsg',
+    '/proc/self/',
+    '/sys/kernel/',
+    '/sys/devices/',
+    '/sys/class/',
+    '/sys/block/',
     // Windows系统目录
-    'C:\\', 'D:\\', 'E:\\', 'F:\\',
-    '\\\\.\\', '\\\\?\\',
-    'C:\\Windows\\', 'C:\\Windows\\System32\\', 'C:\\Windows\\SysWOW64\\',
-    'C:\\Program Files\\', 'C:\\Program Files (x86)\\',
-    'C:\\Users\\', 'C:\\Users\\Administrator\\', 'C:\\Users\\Default\\',
-    'C:\\Users\\Public\\', 'C:\\Documents and Settings\\',
-    'C:\\ProgramData\\', 'C:\\WINDOWS\\system32\\config\\',
-    'C:\\WINDOWS\\system32\\drivers\\', 'C:\\WINDOWS\\system32\\services\\',
-    'C:\\WINDOWS\\system32\\cmd.exe', 'C:\\WINDOWS\\system32\\powershell.exe',
-    'C:\\WINDOWS\\system32\\wscript.exe', 'C:\\WINDOWS\\system32\\cscript.exe',
-    'C:\\WINDOWS\\system32\\reg.exe', 'C:\\WINDOWS\\system32\\net.exe',
-    'C:\\WINDOWS\\system32\\sc.exe', 'C:\\WINDOWS\\system32\\tasklist.exe',
-    'C:\\WINDOWS\\system32\\taskkill.exe', 'C:\\WINDOWS\\system32\\at.exe',
-    'C:\\WINDOWS\\system32\\schtasks.exe', 'C:\\WINDOWS\\system32\\mshta.exe',
+    'C:\\',
+    'D:\\',
+    'E:\\',
+    'F:\\',
+    '\\\\.\\',
+    '\\\\?\\',
+    'C:\\Windows\\',
+    'C:\\Windows\\System32\\',
+    'C:\\Windows\\SysWOW64\\',
+    'C:\\Program Files\\',
+    'C:\\Program Files (x86)\\',
+    'C:\\Users\\',
+    'C:\\Users\\Administrator\\',
+    'C:\\Users\\Default\\',
+    'C:\\Users\\Public\\',
+    'C:\\Documents and Settings\\',
+    'C:\\ProgramData\\',
+    'C:\\WINDOWS\\system32\\config\\',
+    'C:\\WINDOWS\\system32\\drivers\\',
+    'C:\\WINDOWS\\system32\\services\\',
+    'C:\\WINDOWS\\system32\\cmd.exe',
+    'C:\\WINDOWS\\system32\\powershell.exe',
+    'C:\\WINDOWS\\system32\\wscript.exe',
+    'C:\\WINDOWS\\system32\\cscript.exe',
+    'C:\\WINDOWS\\system32\\reg.exe',
+    'C:\\WINDOWS\\system32\\net.exe',
+    'C:\\WINDOWS\\system32\\sc.exe',
+    'C:\\WINDOWS\\system32\\tasklist.exe',
+    'C:\\WINDOWS\\system32\\taskkill.exe',
+    'C:\\WINDOWS\\system32\\at.exe',
+    'C:\\WINDOWS\\system32\\schtasks.exe',
+    'C:\\WINDOWS\\system32\\mshta.exe',
     // 网络共享路径
-    '\\\\localhost\\', '\\\\127.0.0.1\\', '\\\\*\\',
-    'smb://', 'cifs://', 'nfs://', 'afp://',
+    '\\\\localhost\\',
+    '\\\\127.0.0.1\\',
+    '\\\\*\\',
+    'smb://',
+    'cifs://',
+    'nfs://',
+    'afp://',
     // 云存储路径
-    's3://', 'gs://', 'azure://', 'wasb://',
+    's3://',
+    'gs://',
+    'azure://',
+    'wasb://',
     // 特殊路径
-    '~/', '~/.ssh/', '~/.aws/', '~/.config/',
-    '/var/run/secrets/', '/run/secrets/', '/etc/secrets/',
-    '/var/lib/docker/', '/var/lib/kubelet/', '/etc/kubernetes/',
-    '/usr/local/bin/', '/usr/local/sbin/', '/opt/bin/',
-    '/snap/', '/var/snap/', '/srv/snap/',
+    '~/',
+    '~/.ssh/',
+    '~/.aws/',
+    '~/.config/',
+    '/var/run/secrets/',
+    '/run/secrets/',
+    '/etc/secrets/',
+    '/var/lib/docker/',
+    '/var/lib/kubelet/',
+    '/etc/kubernetes/',
+    '/usr/local/bin/',
+    '/usr/local/sbin/',
+    '/opt/bin/',
+    '/snap/',
+    '/var/snap/',
+    '/srv/snap/',
   ];
 
   /**
@@ -1058,59 +1432,170 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    */
   private readonly envPollutionPatterns = [
     // 路径变量
-    'PATH=', 'LD_PRELOAD=', 'LD_LIBRARY_PATH=', 'LD_AUDIT=',
-    'LD_SHOW_AUXV=', 'LD_DEBUG=', 'LD_TRACE_LOADED_OBJECTS=',
-    'LD_BIND_NOW=', 'LD_WARN=', 'LD_NOWARN=',
-    'LD_ORIGIN_PATH=', 'LD_USE_LOAD_BIAS=',
+    'PATH=',
+    'LD_PRELOAD=',
+    'LD_LIBRARY_PATH=',
+    'LD_AUDIT=',
+    'LD_SHOW_AUXV=',
+    'LD_DEBUG=',
+    'LD_TRACE_LOADED_OBJECTS=',
+    'LD_BIND_NOW=',
+    'LD_WARN=',
+    'LD_NOWARN=',
+    'LD_ORIGIN_PATH=',
+    'LD_USE_LOAD_BIAS=',
     // 语言路径变量
-    'PYTHONPATH=', 'PERL5LIB=', 'RUBYLIB=', 'NODE_PATH=',
-    'JAVA_HOME=', 'CLASSPATH=', 'GOPATH=', 'CARGO_HOME=',
-    'RUSTUP_HOME=', 'GO111MODULE=', 'PYTHONIOENCODING=',
+    'PYTHONPATH=',
+    'PERL5LIB=',
+    'RUBYLIB=',
+    'NODE_PATH=',
+    'JAVA_HOME=',
+    'CLASSPATH=',
+    'GOPATH=',
+    'CARGO_HOME=',
+    'RUSTUP_HOME=',
+    'GO111MODULE=',
+    'PYTHONIOENCODING=',
     // Shell变量
-    'IFS=', 'HOME=', 'USER=', 'SHELL=', 'LOGNAME=',
-    'TERM=', 'PS1=', 'PROMPT=', 'HISTFILE=',
-    'HISTSIZE=', 'HISTCONTROL=', 'HISTIGNORE=', 'HISTTIMEFORMAT=',
+    'IFS=',
+    'HOME=',
+    'USER=',
+    'SHELL=',
+    'LOGNAME=',
+    'TERM=',
+    'PS1=',
+    'PROMPT=',
+    'HISTFILE=',
+    'HISTSIZE=',
+    'HISTCONTROL=',
+    'HISTIGNORE=',
+    'HISTTIMEFORMAT=',
     // 系统变量
-    'USERNAME=', 'HOSTNAME=', 'DOMAINNAME=', 'MAIL=',
-    'TZ=', 'LANG=', 'LC_ALL=', 'LC_COLLATE=',
-    'LC_CTYPE=', 'LC_MESSAGES=', 'LC_MONETARY=', 'LC_NUMERIC=',
-    'LC_TIME=', 'PWD=', 'OLDPWD=', 'CDPATH=',
+    'USERNAME=',
+    'HOSTNAME=',
+    'DOMAINNAME=',
+    'MAIL=',
+    'TZ=',
+    'LANG=',
+    'LC_ALL=',
+    'LC_COLLATE=',
+    'LC_CTYPE=',
+    'LC_MESSAGES=',
+    'LC_MONETARY=',
+    'LC_NUMERIC=',
+    'LC_TIME=',
+    'PWD=',
+    'OLDPWD=',
+    'CDPATH=',
     // 网络变量
-    'http_proxy=', 'https_proxy=', 'ftp_proxy=', 'socks_proxy=',
-    'ALL_PROXY=', 'NO_PROXY=', 'PROXY=', 'SOCKS_SERVER=',
+    'http_proxy=',
+    'https_proxy=',
+    'ftp_proxy=',
+    'socks_proxy=',
+    'ALL_PROXY=',
+    'NO_PROXY=',
+    'PROXY=',
+    'SOCKS_SERVER=',
     // 安全变量
-    'SSH_AUTH_SOCK=', 'SSH_AGENT_PID=', 'GPG_AGENT_INFO=',
-    'KRB5CCNAME=', 'KRB5_CONFIG=', 'KRB5_KTNAME=',
+    'SSH_AUTH_SOCK=',
+    'SSH_AGENT_PID=',
+    'GPG_AGENT_INFO=',
+    'KRB5CCNAME=',
+    'KRB5_CONFIG=',
+    'KRB5_KTNAME=',
     // 云凭证变量
-    'AWS_ACCESS_KEY_ID=', 'AWS_SECRET_ACCESS_KEY=', 'AWS_SESSION_TOKEN=',
-    'AWS_PROFILE=', 'AWS_DEFAULT_REGION=', 'AWS_CONFIG_FILE=',
-    'GOOGLE_APPLICATION_CREDENTIALS=', 'GCLOUD_PROJECT=',
-    'AZURE_CLIENT_ID=', 'AZURE_CLIENT_SECRET=', 'AZURE_TENANT_ID=',
-    'AZURE_SUBSCRIPTION_ID=', 'ARM_CLIENT_ID=', 'ARM_CLIENT_SECRET=',
-    'ARM_TENANT_ID=', 'ARM_SUBSCRIPTION_ID=',
+    'AWS_ACCESS_KEY_ID=',
+    'AWS_SECRET_ACCESS_KEY=',
+    'AWS_SESSION_TOKEN=',
+    'AWS_PROFILE=',
+    'AWS_DEFAULT_REGION=',
+    'AWS_CONFIG_FILE=',
+    'GOOGLE_APPLICATION_CREDENTIALS=',
+    'GCLOUD_PROJECT=',
+    'AZURE_CLIENT_ID=',
+    'AZURE_CLIENT_SECRET=',
+    'AZURE_TENANT_ID=',
+    'AZURE_SUBSCRIPTION_ID=',
+    'ARM_CLIENT_ID=',
+    'ARM_CLIENT_SECRET=',
+    'ARM_TENANT_ID=',
+    'ARM_SUBSCRIPTION_ID=',
     // 容器变量
-    'DOCKER_HOST=', 'DOCKER_API_VERSION=', 'DOCKER_CERT_PATH=',
-    'DOCKER_TLS_VERIFY=', 'KUBECONFIG=', 'KUBE_CONFIG=',
+    'DOCKER_HOST=',
+    'DOCKER_API_VERSION=',
+    'DOCKER_CERT_PATH=',
+    'DOCKER_TLS_VERIFY=',
+    'KUBECONFIG=',
+    'KUBE_CONFIG=',
     // 编译变量
-    'CC=', 'CXX=', 'CFLAGS=', 'CXXFLAGS=', 'LDFLAGS=',
-    'CPPFLAGS=', 'MAKEFLAGS=', 'AUTOMAKE_FLAGS=', 'AUTOCONF_FLAGS=',
+    'CC=',
+    'CXX=',
+    'CFLAGS=',
+    'CXXFLAGS=',
+    'LDFLAGS=',
+    'CPPFLAGS=',
+    'MAKEFLAGS=',
+    'AUTOMAKE_FLAGS=',
+    'AUTOCONF_FLAGS=',
     // 调试变量
-    'DEBUG=', 'VERBOSE=', 'TRACE=', 'LOG_LEVEL=',
-    'NODE_ENV=', 'RAILS_ENV=', 'DJANGO_SETTINGS_MODULE=',
+    'DEBUG=',
+    'VERBOSE=',
+    'TRACE=',
+    'LOG_LEVEL=',
+    'NODE_ENV=',
+    'RAILS_ENV=',
+    'DJANGO_SETTINGS_MODULE=',
     // 临时目录变量
-    'TMPDIR=', 'TEMP=', 'TMP=', 'XDG_RUNTIME_DIR=',
+    'TMPDIR=',
+    'TEMP=',
+    'TMP=',
+    'XDG_RUNTIME_DIR=',
     // 其他危险变量
-    'LD_PRELOAD_=', '_=', 'SHLVL=', 'PPID=', 'PID=',
-    'UID=', 'GID=', 'EUID=', 'EGID=',
-    'TERMINFO=', 'INFOPATH=', 'MANPATH=', 'PAGER=',
-    'EDITOR=', 'VISUAL=', 'LESS=', 'MORE=',
-    'SHELLOPTS=', 'BASHOPTS=', 'POSIXLY_CORRECT=', 'POSIX_ME_HARDER=',
-    'CDPATH=', 'FIGNORE=', 'IGNOREEOF=', 'INPUTRC=',
-    'KEYTIMEOUT=', 'LANG=', 'LC_ALL=', 'LINES=',
-    'COLUMNS=', 'LS_COLORS=', 'LS_OPTIONS=', 'MAILCHECK=',
-    'PATH_DIRS=', 'POSIX_CORRECT=', 'PROMPT_COMMAND=', 'REPLY=',
-    'SECONDS=', 'SHELL=', 'SHLVL=', 'TIMEFORMAT=',
-    'TMOUT=', 'UID=', 'USER=', '_=',
+    'LD_PRELOAD_=',
+    '_=',
+    'SHLVL=',
+    'PPID=',
+    'PID=',
+    'UID=',
+    'GID=',
+    'EUID=',
+    'EGID=',
+    'TERMINFO=',
+    'INFOPATH=',
+    'MANPATH=',
+    'PAGER=',
+    'EDITOR=',
+    'VISUAL=',
+    'LESS=',
+    'MORE=',
+    'SHELLOPTS=',
+    'BASHOPTS=',
+    'POSIXLY_CORRECT=',
+    'POSIX_ME_HARDER=',
+    'CDPATH=',
+    'FIGNORE=',
+    'IGNOREEOF=',
+    'INPUTRC=',
+    'KEYTIMEOUT=',
+    'LANG=',
+    'LC_ALL=',
+    'LINES=',
+    'COLUMNS=',
+    'LS_COLORS=',
+    'LS_OPTIONS=',
+    'MAILCHECK=',
+    'PATH_DIRS=',
+    'POSIX_CORRECT=',
+    'PROMPT_COMMAND=',
+    'REPLY=',
+    'SECONDS=',
+    'SHELL=',
+    'SHLVL=',
+    'TIMEFORMAT=',
+    'TMOUT=',
+    'UID=',
+    'USER=',
+    '_=',
   ];
 
   /**
@@ -1118,43 +1603,189 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    */
   private readonly zeroWidthPatterns = [
     // 零宽空格
-    '\u200B', '\u200C', '\u200D', '\u200E', '\u200F',
+    '\u200B',
+    '\u200C',
+    '\u200D',
+    '\u200E',
+    '\u200F',
     // 双向控制字符
-    '\uFEFF', '\u202A', '\u202B', '\u202C', '\u202D', '\u202E',
+    '\uFEFF',
+    '\u202A',
+    '\u202B',
+    '\u202C',
+    '\u202D',
+    '\u202E',
     // 阿拉伯文双向字符
-    '\u061C', '\u200F', '\u202B', '\u202D',
+    '\u061C',
+    '\u200F',
+    '\u202B',
+    '\u202D',
     // 其他零宽字符
-    '\u180E', '\u200B', '\u200C', '\u200D', '\uFEFF',
+    '\u180E',
+    '\u200B',
+    '\u200C',
+    '\u200D',
+    '\uFEFF',
     // 不可见控制字符
-    '\u0000', '\u0001', '\u0002', '\u0003', '\u0004', '\u0005',
-    '\u0006', '\u0007', '\u0008', '\u000B', '\u000C', '\u000E',
-    '\u000F', '\u0010', '\u0011', '\u0012', '\u0013', '\u0014',
-    '\u0015', '\u0016', '\u0017', '\u0018', '\u0019', '\u001A',
-    '\u001B', '\u001C', '\u001D', '\u001E', '\u001F',
+    '\u0000',
+    '\u0001',
+    '\u0002',
+    '\u0003',
+    '\u0004',
+    '\u0005',
+    '\u0006',
+    '\u0007',
+    '\u0008',
+    '\u000B',
+    '\u000C',
+    '\u000E',
+    '\u000F',
+    '\u0010',
+    '\u0011',
+    '\u0012',
+    '\u0013',
+    '\u0014',
+    '\u0015',
+    '\u0016',
+    '\u0017',
+    '\u0018',
+    '\u0019',
+    '\u001A',
+    '\u001B',
+    '\u001C',
+    '\u001D',
+    '\u001E',
+    '\u001F',
     // 空格变体
-    '\u00A0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003',
-    '\u2004', '\u2005', '\u2006', '\u2007', '\u2008', '\u2009',
-    '\u200A', '\u202F', '\u205F', '\u3000',
+    '\u00A0',
+    '\u1680',
+    '\u2000',
+    '\u2001',
+    '\u2002',
+    '\u2003',
+    '\u2004',
+    '\u2005',
+    '\u2006',
+    '\u2007',
+    '\u2008',
+    '\u2009',
+    '\u200A',
+    '\u202F',
+    '\u205F',
+    '\u3000',
     // 组合标记
-    '\u0300', '\u0301', '\u0302', '\u0303', '\u0304', '\u0305',
-    '\u0306', '\u0307', '\u0308', '\u0309', '\u030A', '\u030B',
-    '\u030C', '\u030D', '\u030E', '\u030F', '\u0310', '\u0311',
-    '\u0312', '\u0313', '\u0314', '\u0315', '\u0316', '\u0317',
-    '\u0318', '\u0319', '\u031A', '\u031B', '\u031C', '\u031D',
-    '\u031E', '\u031F', '\u0320', '\u0321', '\u0322', '\u0323',
-    '\u0324', '\u0325', '\u0326', '\u0327', '\u0328', '\u0329',
-    '\u032A', '\u032B', '\u032C', '\u032D', '\u032E', '\u032F',
-    '\u0330', '\u0331', '\u0332', '\u0333', '\u0334', '\u0335',
-    '\u0336', '\u0337', '\u0338', '\u0339', '\u033A', '\u033B',
-    '\u033C', '\u033D', '\u033E', '\u033F', '\u0340', '\u0341',
-    '\u0342', '\u0343', '\u0344', '\u0345', '\u0346', '\u0347',
-    '\u0348', '\u0349', '\u034A', '\u034B', '\u034C', '\u034D',
-    '\u034E', '\u034F', '\u0350', '\u0351', '\u0352', '\u0353',
-    '\u0354', '\u0355', '\u0356', '\u0357', '\u0358', '\u0359',
-    '\u035A', '\u035B', '\u035C', '\u035D', '\u035E', '\u035F',
-    '\u0360', '\u0361', '\u0362', '\u0363', '\u0364', '\u0365',
-    '\u0366', '\u0367', '\u0368', '\u0369', '\u036A', '\u036B',
-    '\u036C', '\u036D', '\u036E', '\u036F',
+    '\u0300',
+    '\u0301',
+    '\u0302',
+    '\u0303',
+    '\u0304',
+    '\u0305',
+    '\u0306',
+    '\u0307',
+    '\u0308',
+    '\u0309',
+    '\u030A',
+    '\u030B',
+    '\u030C',
+    '\u030D',
+    '\u030E',
+    '\u030F',
+    '\u0310',
+    '\u0311',
+    '\u0312',
+    '\u0313',
+    '\u0314',
+    '\u0315',
+    '\u0316',
+    '\u0317',
+    '\u0318',
+    '\u0319',
+    '\u031A',
+    '\u031B',
+    '\u031C',
+    '\u031D',
+    '\u031E',
+    '\u031F',
+    '\u0320',
+    '\u0321',
+    '\u0322',
+    '\u0323',
+    '\u0324',
+    '\u0325',
+    '\u0326',
+    '\u0327',
+    '\u0328',
+    '\u0329',
+    '\u032A',
+    '\u032B',
+    '\u032C',
+    '\u032D',
+    '\u032E',
+    '\u032F',
+    '\u0330',
+    '\u0331',
+    '\u0332',
+    '\u0333',
+    '\u0334',
+    '\u0335',
+    '\u0336',
+    '\u0337',
+    '\u0338',
+    '\u0339',
+    '\u033A',
+    '\u033B',
+    '\u033C',
+    '\u033D',
+    '\u033E',
+    '\u033F',
+    '\u0340',
+    '\u0341',
+    '\u0342',
+    '\u0343',
+    '\u0344',
+    '\u0345',
+    '\u0346',
+    '\u0347',
+    '\u0348',
+    '\u0349',
+    '\u034A',
+    '\u034B',
+    '\u034C',
+    '\u034D',
+    '\u034E',
+    '\u034F',
+    '\u0350',
+    '\u0351',
+    '\u0352',
+    '\u0353',
+    '\u0354',
+    '\u0355',
+    '\u0356',
+    '\u0357',
+    '\u0358',
+    '\u0359',
+    '\u035A',
+    '\u035B',
+    '\u035C',
+    '\u035D',
+    '\u035E',
+    '\u035F',
+    '\u0360',
+    '\u0361',
+    '\u0362',
+    '\u0363',
+    '\u0364',
+    '\u0365',
+    '\u0366',
+    '\u0367',
+    '\u0368',
+    '\u0369',
+    '\u036A',
+    '\u036B',
+    '\u036C',
+    '\u036D',
+    '\u036E',
+    '\u036F',
   ];
 
   /**
@@ -1172,7 +1803,9 @@ export class AutoModeClassifier implements IAutoModeClassifier {
     // 检查危险工具关键词（使用完整单词匹配，避免子字符串误匹配）
     for (const dangerous of this.dangerousToolKeywords) {
       // 只匹配完整单词：工具名等于关键词，或以关键词开头后跟下划线/连字符，或包含关键词作为完整部分
-      const pattern = new RegExp(`(^${dangerous}$)|(^${dangerous}[_-])|([_-]${dangerous}$)|([_-]${dangerous}[_-])`);
+      const pattern = new RegExp(
+        `(^${dangerous}$)|(^${dangerous}[_-])|([_-]${dangerous}$)|([_-]${dangerous}[_-])`
+      );
       if (pattern.test(lowerToolName)) {
         return {
           shouldBlock: true,
@@ -1183,7 +1816,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
 
     // 检查输入中的危险命令模式
     const inputString = JSON.stringify(input).toLowerCase();
-    
+
     // 检查Unicode零宽字符注入
     const zeroWidthResult = this.detectZeroWidthCharacters(inputString);
     if (zeroWidthResult) {
@@ -1365,7 +1998,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains null byte injection',
       };
     }
-    
+
     // 检查URL编码的空字节
     if (input.includes('%00')) {
       return {
@@ -1373,7 +2006,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains URL-encoded null byte injection',
       };
     }
-    
+
     // 检查Unicode编码的空字节
     if (input.includes('\u0000')) {
       return {
@@ -1381,7 +2014,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains Unicode null byte injection',
       };
     }
-    
+
     return null;
   }
 
@@ -1392,12 +2025,40 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    */
   private detectZshEqualsExpansion(input: string): ClassifierDecision | null {
     // Zsh equals expansion模式：=command
-    const zshPatterns = ['=rm', '=sh', '=bash', '=cp', '=mv', '=cat', '=echo',
-                         '=kill', '=sudo', '=su', '=curl', '=wget', '=python',
-                         '=perl', '=ruby', '=node', '=gcc', '=make', '=docker',
-                         '=kubectl', '=ssh', '=scp', '=rsync', '=git', '=npm',
-                         '=pip', '=gem', '=cargo', '=go', '=rustup', '=composer'];
-    
+    const zshPatterns = [
+      '=rm',
+      '=sh',
+      '=bash',
+      '=cp',
+      '=mv',
+      '=cat',
+      '=echo',
+      '=kill',
+      '=sudo',
+      '=su',
+      '=curl',
+      '=wget',
+      '=python',
+      '=perl',
+      '=ruby',
+      '=node',
+      '=gcc',
+      '=make',
+      '=docker',
+      '=kubectl',
+      '=ssh',
+      '=scp',
+      '=rsync',
+      '=git',
+      '=npm',
+      '=pip',
+      '=gem',
+      '=cargo',
+      '=go',
+      '=rustup',
+      '=composer',
+    ];
+
     for (const pattern of zshPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1406,7 +2067,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1417,21 +2078,28 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    */
   private detectEncodingAttack(input: string): ClassifierDecision | null {
     // 检查Base64编码模式
-    if (input.includes('base64') && (input.includes('-d') || input.includes('--decode'))) {
+    if (
+      input.includes('base64') &&
+      (input.includes('-d') || input.includes('--decode'))
+    ) {
       return {
         shouldBlock: true,
         reason: 'Input contains Base64 decoding command',
       };
     }
-    
+
     // 检查URL编码模式
-    if (input.includes('%2e') || input.includes('%2f') || input.includes('%5c')) {
+    if (
+      input.includes('%2e') ||
+      input.includes('%2f') ||
+      input.includes('%5c')
+    ) {
       return {
         shouldBlock: true,
         reason: 'Input contains URL-encoded path traversal characters',
       };
     }
-    
+
     // 检查Unicode编码模式
     if (input.includes('%u') || input.includes('\\u')) {
       return {
@@ -1439,7 +2107,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains Unicode encoding attack',
       };
     }
-    
+
     // 检查十六进制编码模式
     if (input.includes('\\x') || input.includes('0x')) {
       return {
@@ -1447,7 +2115,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains hexadecimal encoding attack',
       };
     }
-    
+
     // 检查printf编码模式
     if (input.includes('printf') && input.includes('\\x')) {
       return {
@@ -1455,7 +2123,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains printf encoding attack',
       };
     }
-    
+
     return null;
   }
 
@@ -1467,18 +2135,34 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectPathTraversal(input: string): ClassifierDecision | null {
     // 标准路径遍历模式
     const traversalPatterns = [
-      '../', '..\\', '/../', '\\..\\', '..//', './/..',
-      '.../', '..../', '..\\..\\', '../..',
+      '../',
+      '..\\',
+      '/../',
+      '\\..\\',
+      '..//',
+      './/..',
+      '.../',
+      '..../',
+      '..\\..\\',
+      '../..',
       // URL编码版本
-      '%2e%2e/', '%2e%2e\\', '%2f%2e%2e', '%5c%2e%2e',
+      '%2e%2e/',
+      '%2e%2e\\',
+      '%2f%2e%2e',
+      '%5c%2e%2e',
       // Unicode编码版本
-      '%u002e%u002e/', '%u002e%u002e\\',
+      '%u002e%u002e/',
+      '%u002e%u002e\\',
       // 双重编码版本
-      '%252e%252e/', '%252e%252e\\',
+      '%252e%252e/',
+      '%252e%252e\\',
       // 其他变体
-      '.%2e/', '.%2e\\', '%2e./', '%2e.\\',
+      '.%2e/',
+      '.%2e\\',
+      '%2e./',
+      '%2e.\\',
     ];
-    
+
     for (const pattern of traversalPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1487,7 +2171,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1504,7 +2188,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains pipe operator',
       };
     }
-    
+
     // 重定向操作符
     if (input.includes('>') && !input.includes('=>')) {
       return {
@@ -1512,21 +2196,21 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains redirect operator',
       };
     }
-    
+
     if (input.includes('>>')) {
       return {
         shouldBlock: true,
         reason: 'Input contains append redirect operator',
       };
     }
-    
+
     if (input.includes('<')) {
       return {
         shouldBlock: true,
         reason: 'Input contains input redirect operator',
       };
     }
-    
+
     // 后台执行
     if (input.includes('&') && !input.includes('&&')) {
       return {
@@ -1534,7 +2218,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains background execution operator',
       };
     }
-    
+
     // 逻辑操作符
     if (input.includes('&&') || input.includes('||')) {
       return {
@@ -1542,7 +2226,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         reason: 'Input contains logical operator',
       };
     }
-    
+
     return null;
   }
 
@@ -1553,22 +2237,63 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    */
   private detectSqlInjection(input: string): ClassifierDecision | null {
     const sqlPatterns = [
-      'union select', 'drop table', 'insert into', 'update ', 'delete ',
-      'or 1=1', 'and 1=1', 'or \'x\'=\'x', 'and \'x\'=\'x',
-      'or 1=1--', 'and 1=1--', ';drop table', ';delete from',
-      ';insert into', ';update', 'select 1', 'select *',
-      'from users', 'from table', 'where 1=1', 'having 1=1',
-      'order by', 'group by', 'limit 1', 'offset 0',
-      'union all', 'union distinct', 'cross join', 'inner join',
-      'left join', 'right join', 'full join', 'natural join',
-      'exec sp_', 'execute sp_', 'xp_cmdshell', 'sp_configure',
-      'declare @', 'create table', 'alter table', 'truncate table',
-      'drop database', 'create database', 'backup database',
-      'restore database', 'grant all', 'revoke all', 'deny all',
-      'with encryption', 'waitfor delay', 'if exists', 'while 1=1',
-      'begin transaction', 'commit transaction', 'rollback transaction',
+      'union select',
+      'drop table',
+      'insert into',
+      'update ',
+      'delete ',
+      'or 1=1',
+      'and 1=1',
+      "or 'x'='x",
+      "and 'x'='x",
+      'or 1=1--',
+      'and 1=1--',
+      ';drop table',
+      ';delete from',
+      ';insert into',
+      ';update',
+      'select 1',
+      'select *',
+      'from users',
+      'from table',
+      'where 1=1',
+      'having 1=1',
+      'order by',
+      'group by',
+      'limit 1',
+      'offset 0',
+      'union all',
+      'union distinct',
+      'cross join',
+      'inner join',
+      'left join',
+      'right join',
+      'full join',
+      'natural join',
+      'exec sp_',
+      'execute sp_',
+      'xp_cmdshell',
+      'sp_configure',
+      'declare @',
+      'create table',
+      'alter table',
+      'truncate table',
+      'drop database',
+      'create database',
+      'backup database',
+      'restore database',
+      'grant all',
+      'revoke all',
+      'deny all',
+      'with encryption',
+      'waitfor delay',
+      'if exists',
+      'while 1=1',
+      'begin transaction',
+      'commit transaction',
+      'rollback transaction',
     ];
-    
+
     for (const pattern of sqlPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1577,7 +2302,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1588,18 +2313,43 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    */
   private detectXssAttack(input: string): ClassifierDecision | null {
     const xssPatterns = [
-      '<script>', '</script>', 'javascript:', 'onclick=', 'onload=',
-      'onmouseover=', 'onmousemove=', 'onkeydown=', 'onkeyup=',
-      'onfocus=', 'onblur=', 'onsubmit=', 'onreset=',
-      'alert(', 'prompt(', 'confirm(', 'eval(',
-      'document.cookie', 'document.write', 'window.location',
-      'document.location', 'document.createElement', 'innerHTML',
-      'outerHTML', 'appendChild', 'insertBefore', 'replaceChild',
-      'setTimeout(', 'setInterval(', 'new Function(',
-      'String.fromCharCode', 'unescape(', 'escape(',
-      'decodeURI(', 'decodeURIComponent(',
+      '<script>',
+      '</script>',
+      'javascript:',
+      'onclick=',
+      'onload=',
+      'onmouseover=',
+      'onmousemove=',
+      'onkeydown=',
+      'onkeyup=',
+      'onfocus=',
+      'onblur=',
+      'onsubmit=',
+      'onreset=',
+      'alert(',
+      'prompt(',
+      'confirm(',
+      'eval(',
+      'document.cookie',
+      'document.write',
+      'window.location',
+      'document.location',
+      'document.createElement',
+      'innerHTML',
+      'outerHTML',
+      'appendChild',
+      'insertBefore',
+      'replaceChild',
+      'setTimeout(',
+      'setInterval(',
+      'new Function(',
+      'String.fromCharCode',
+      'unescape(',
+      'escape(',
+      'decodeURI(',
+      'decodeURIComponent(',
     ];
-    
+
     for (const pattern of xssPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1608,7 +2358,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1620,37 +2370,65 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectCommandInjection(input: string): ClassifierDecision | null {
     const injectionPatterns = [
       // 命令替换
-      '$(', '`', '${', '${{',
+      '$(',
+      '`',
+      '${',
+      '${{',
       // 子shell
-      'bash -c', 'sh -c', 'zsh -c', 'ksh -c',
+      'bash -c',
+      'sh -c',
+      'zsh -c',
+      'ksh -c',
       // Python执行
-      'python -c', 'python3 -c', 'python2 -c',
+      'python -c',
+      'python3 -c',
+      'python2 -c',
       // Perl执行
-      'perl -e', 'perl -E',
+      'perl -e',
+      'perl -E',
       // Ruby执行
-      'ruby -e', 'ruby -E',
+      'ruby -e',
+      'ruby -E',
       // Node执行
-      'node -e', 'node --eval',
+      'node -e',
+      'node --eval',
       // PHP执行
-      'php -r', 'php -f',
+      'php -r',
+      'php -f',
       // Lua执行
-      'lua -e', 'lua -l',
+      'lua -e',
+      'lua -l',
       // Tcl执行
-      'tclsh -c', 'wish -c',
+      'tclsh -c',
+      'wish -c',
       // 远程执行
-      'curl ', 'wget ', 'nc ', 'netcat ',
+      'curl ',
+      'wget ',
+      'nc ',
+      'netcat ',
       // 管道执行
-      '| bash', '| sh', '| zsh', '| ksh',
+      '| bash',
+      '| sh',
+      '| zsh',
+      '| ksh',
       // Base64解码执行
-      'base64 -d |', 'echo | base64 -d',
+      'base64 -d |',
+      'echo | base64 -d',
       // 环境变量执行
-      '${IFS}', '${RANDOM}', '${UID}', '${USER}',
+      '${IFS}',
+      '${RANDOM}',
+      '${UID}',
+      '${USER}',
       // eval执行
-      'eval ', 'eval(', 'system(', 'exec(',
+      'eval ',
+      'eval(',
+      'system(',
+      'exec(',
       // 反射执行
-      'call_user_func', 'create_function',
+      'call_user_func',
+      'create_function',
     ];
-    
+
     for (const pattern of injectionPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1659,7 +2437,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1668,27 +2446,60 @@ export class AutoModeClassifier implements IAutoModeClassifier {
    * @param input 输入字符串
    * @returns 检测结果
    */
-  private detectDeserializationAttack(input: string): ClassifierDecision | null {
+  private detectDeserializationAttack(
+    input: string
+  ): ClassifierDecision | null {
     const deserializationPatterns = [
       // PHP反序列化（使用更具体的模式避免误报）
-      '"O":', '"C":', 'O:[0-9]+:', 'C:[0-9]+:', '"a":', '"s":', '"i":', '"d":', '"N";',
-      '__wakeup', '__destruct', '__construct', '__call',
-      '__callStatic', '__get', '__set', '__isset', '__unset',
-      '__sleep', '__toString', '__invoke', '__set_state',
+      '"O":',
+      '"C":',
+      'O:[0-9]+:',
+      'C:[0-9]+:',
+      '"a":',
+      '"s":',
+      '"i":',
+      '"d":',
+      '"N";',
+      '__wakeup',
+      '__destruct',
+      '__construct',
+      '__call',
+      '__callStatic',
+      '__get',
+      '__set',
+      '__isset',
+      '__unset',
+      '__sleep',
+      '__toString',
+      '__invoke',
+      '__set_state',
       // Java反序列化
-      'java.io.ObjectInputStream', 'readObject()',
-      'org.apache.commons.collections', 'InvokerTransformer',
-      'Runtime.exec', 'ProcessBuilder',
+      'java.io.ObjectInputStream',
+      'readObject()',
+      'org.apache.commons.collections',
+      'InvokerTransformer',
+      'Runtime.exec',
+      'ProcessBuilder',
       // Python反序列化
-      'pickle.load', 'pickle.loads', 'cPickle.load', 'cPickle.loads',
-      'marshal.load', 'marshal.loads',
+      'pickle.load',
+      'pickle.loads',
+      'cPickle.load',
+      'cPickle.loads',
+      'marshal.load',
+      'marshal.loads',
       // Node.js反序列化
-      'JSON.parse', 'Buffer.from', 'eval(',
+      'JSON.parse',
+      'Buffer.from',
+      'eval(',
       // 通用反序列化特征
-      'serialize(', 'unserialize(', 'deserialize(',
-      'base64_decode(', 'decodeBase64(', 'fromBase64(',
+      'serialize(',
+      'unserialize(',
+      'deserialize(',
+      'base64_decode(',
+      'decodeBase64(',
+      'fromBase64(',
     ];
-    
+
     for (const pattern of deserializationPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1697,7 +2508,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1709,19 +2520,33 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectReDoSAttack(input: string): ClassifierDecision | null {
     const redosPatterns = [
       // 灾难性回溯模式
-      '(a+)+', '(a++)+', '(a*)*', '(a+){1,}', '(a+){2,}',
-      '(a|aa)+', '(ab|a)+', '(a|b)*c', '([ab]+)+c',
+      '(a+)+',
+      '(a++)+',
+      '(a*)*',
+      '(a+){1,}',
+      '(a+){2,}',
+      '(a|aa)+',
+      '(ab|a)+',
+      '(a|b)*c',
+      '([ab]+)+c',
       // 嵌套量词
-      '.*.*', '.+.*', '.*.+', '.+.+',
+      '.*.*',
+      '.+.*',
+      '.*.+',
+      '.+.+',
       // 重复组
-      '(.+)+', '(.++)+', '([^@]+)+@',
+      '(.+)+',
+      '(.++)+',
+      '([^@]+)+@',
       // 高复杂度模式
-      '(?:a|b)*c', '(?:a|b)+c', '(a|b)+$',
+      '(?:a|b)*c',
+      '(?:a|b)+c',
+      '(a|b)+$',
       // 指数时间模式
       'a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?',
       '(a|aa|aaa|aaaa|aaaaa|aaaaaa)+',
     ];
-    
+
     for (const pattern of redosPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1730,7 +2555,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1742,26 +2567,61 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectSSRFAttack(input: string): ClassifierDecision | null {
     const ssrfPatterns = [
       // 本地IP地址
-      '127.0.0.1', 'localhost', '0.0.0.0',
-      '10.', '172.16.', '172.17.', '172.18.', '172.19.',
-      '172.20.', '172.21.', '172.22.', '172.23.',
-      '172.24.', '172.25.', '172.26.', '172.27.',
-      '172.28.', '172.29.', '172.30.', '172.31.',
-      '192.168.', '169.254.',
+      '127.0.0.1',
+      'localhost',
+      '0.0.0.0',
+      '10.',
+      '172.16.',
+      '172.17.',
+      '172.18.',
+      '172.19.',
+      '172.20.',
+      '172.21.',
+      '172.22.',
+      '172.23.',
+      '172.24.',
+      '172.25.',
+      '172.26.',
+      '172.27.',
+      '172.28.',
+      '172.29.',
+      '172.30.',
+      '172.31.',
+      '192.168.',
+      '169.254.',
       // IPv6本地地址
-      '::1', '::ffff:', 'fe80:', 'fc00:', 'fd00:',
+      '::1',
+      '::ffff:',
+      'fe80:',
+      'fc00:',
+      'fd00:',
       // 元字符绕过
-      '127。0。0。1', '127\\.0\\.0\\.1', '127%2E0%2E0%2E1',
-      '0177.000.000.001', '0x7f.0x0.0x0.0x1',
+      '127。0。0。1',
+      '127\\.0\\.0\\.1',
+      '127%2E0%2E0%2E1',
+      '0177.000.000.001',
+      '0x7f.0x0.0x0.0x1',
       // 云元数据端点
-      '169.254.169.254', 'instance-data', 'metadata.google.internal',
+      '169.254.169.254',
+      'instance-data',
+      'metadata.google.internal',
       '100.100.100.200', // Aliyun
       // URL协议
-      'http://', 'https://', 'ftp://', 'gopher://', 'file://',
-      'ldap://', 'ldaps://', 'mysql://', 'postgresql://',
-      'mongodb://', 'redis://', 'memcached://', 'socket://',
+      'http://',
+      'https://',
+      'ftp://',
+      'gopher://',
+      'file://',
+      'ldap://',
+      'ldaps://',
+      'mysql://',
+      'postgresql://',
+      'mongodb://',
+      'redis://',
+      'memcached://',
+      'socket://',
     ];
-    
+
     for (const pattern of ssrfPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1770,7 +2630,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1782,24 +2642,54 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectFileInclusion(input: string): ClassifierDecision | null {
     const fileInclusionPatterns = [
       // PHP文件包含
-      'include(', 'require(', 'include_once(', 'require_once(',
-      'file_get_contents(', 'file_put_contents(',
-      'fopen(', 'readfile(', 'highlight_file(',
-      'show_source(', 'parse_ini_file(',
+      'include(',
+      'require(',
+      'include_once(',
+      'require_once(',
+      'file_get_contents(',
+      'file_put_contents(',
+      'fopen(',
+      'readfile(',
+      'highlight_file(',
+      'show_source(',
+      'parse_ini_file(',
       // 路径遍历变体
-      '../', '..\\', '/../', '\\..\\',
-      '.../', '..../', '..\\..\\', '../..',
+      '../',
+      '..\\',
+      '/../',
+      '\\..\\',
+      '.../',
+      '..../',
+      '..\\..\\',
+      '../..',
       // 协议包装器
-      'php://', 'data://', 'glob://', 'phar://',
-      'zip://', 'zlib://', 'compress.zlib://', 'compress.bzip2://',
-      'rar://', 'ogg://', 'expect://', 'ssh2://',
-      'ftp://', 'ftps://', 'http://', 'https://',
+      'php://',
+      'data://',
+      'glob://',
+      'phar://',
+      'zip://',
+      'zlib://',
+      'compress.zlib://',
+      'compress.bzip2://',
+      'rar://',
+      'ogg://',
+      'expect://',
+      'ssh2://',
+      'ftp://',
+      'ftps://',
+      'http://',
+      'https://',
       // 编码绕过
-      '%2e%2e/', '%2e%2e\\', '%2f%2e%2e', '%5c%2e%2e',
-      '%u002e%u002e/', '%u002e%u002e\\',
-      '%c0%ae%c0%ae/', '%c0%ae%c0%ae\\',
+      '%2e%2e/',
+      '%2e%2e\\',
+      '%2f%2e%2e',
+      '%5c%2e%2e',
+      '%u002e%u002e/',
+      '%u002e%u002e\\',
+      '%c0%ae%c0%ae/',
+      '%c0%ae%c0%ae\\',
     ];
-    
+
     for (const pattern of fileInclusionPatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1808,7 +2698,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1820,19 +2710,38 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectLDAPInjection(input: string): ClassifierDecision | null {
     const ldapPatterns = [
       // LDAP特殊字符
-      '*', '(', ')', '&', '|', '=', '!', '~',
+      '*',
+      '(',
+      ')',
+      '&',
+      '|',
+      '=',
+      '!',
+      '~',
       // 逻辑操作符
-      '&', '|', '!',
+      '&',
+      '|',
+      '!',
       // LDAP过滤器注入
-      '(|', '(&', '(!', '))',
+      '(|',
+      '(&',
+      '(!',
+      '))',
       // 通配符攻击
-      '*', '**', '***',
+      '*',
+      '**',
+      '***',
       // 空值攻击
-      '\x00', '%00',
+      '\x00',
+      '%00',
       // 编码绕过
-      '\\2a', '\\28', '\\29', '\\26', '\\7c',
+      '\\2a',
+      '\\28',
+      '\\29',
+      '\\26',
+      '\\7c',
     ];
-    
+
     // 检查是否包含多个LDAP特殊字符
     let specialCharCount = 0;
     for (const char of ['*', '(', ')', '&', '|', '=']) {
@@ -1840,14 +2749,15 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         specialCharCount++;
       }
     }
-    
+
     if (specialCharCount >= 3) {
       return {
         shouldBlock: true,
-        reason: 'Input contains multiple LDAP special characters indicating potential LDAP injection',
+        reason:
+          'Input contains multiple LDAP special characters indicating potential LDAP injection',
       };
     }
-    
+
     // 检查特定模式
     for (const pattern of ldapPatterns) {
       if (input.includes(pattern)) {
@@ -1861,7 +2771,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1873,36 +2783,58 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectXXEAttack(input: string): ClassifierDecision | null {
     const xxePatterns = [
       // DOCTYPE声明
-      '<!DOCTYPE', '<!DOCTYPE ', '<!DOCTYPE\t',
+      '<!DOCTYPE',
+      '<!DOCTYPE ',
+      '<!DOCTYPE\t',
       // 外部实体声明
-      '<!ENTITY', '<!ENTITY ', '<!ENTITY\t',
+      '<!ENTITY',
+      '<!ENTITY ',
+      '<!ENTITY\t',
       // 外部引用
-      'SYSTEM ', 'SYSTEM\t', 'PUBLIC ', 'PUBLIC\t',
+      'SYSTEM ',
+      'SYSTEM\t',
+      'PUBLIC ',
+      'PUBLIC\t',
       // 协议处理程序
-      'file://', 'http://', 'https://', 'ftp://',
-      'gopher://', 'expect://', 'php://',
+      'file://',
+      'http://',
+      'https://',
+      'ftp://',
+      'gopher://',
+      'expect://',
+      'php://',
       // 内部实体
-      '&#', '&#x', '&amp;', '&lt;', '&gt;',
+      '&#',
+      '&#x',
+      '&amp;',
+      '&lt;',
+      '&gt;',
       // 实体引用
-      '&', ']]>',
+      '&',
+      ']]>',
     ];
-    
+
     // 检查DOCTYPE和ENTITY组合
     if (input.includes('<!DOCTYPE') && input.includes('<!ENTITY')) {
       return {
         shouldBlock: true,
-        reason: 'Input contains both DOCTYPE and ENTITY declarations indicating potential XXE attack',
+        reason:
+          'Input contains both DOCTYPE and ENTITY declarations indicating potential XXE attack',
       };
     }
-    
+
     // 检查外部实体引用
-    if (input.includes('<!ENTITY') && (input.includes('SYSTEM') || input.includes('PUBLIC'))) {
+    if (
+      input.includes('<!ENTITY') &&
+      (input.includes('SYSTEM') || input.includes('PUBLIC'))
+    ) {
       return {
         shouldBlock: true,
-        reason: 'Input contains external entity declaration indicating potential XXE attack',
+        reason:
+          'Input contains external entity declaration indicating potential XXE attack',
       };
     }
-    
+
     // 检查危险协议
     for (const protocol of ['file://', 'gopher://', 'expect://']) {
       if (input.includes(protocol)) {
@@ -1912,7 +2844,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1924,27 +2856,60 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectTemplateInjection(input: string): ClassifierDecision | null {
     const templatePatterns = [
       // Jinja2/Twig模板（使用成对模式避免误报）
-      '{{', '{%', '%}', '{%%', '%%}',
-      '{{ ', '{% ', ' %}',
+      '{{',
+      '{%',
+      '%}',
+      '{%%',
+      '%%}',
+      '{{ ',
+      '{% ',
+      ' %}',
       // Django模板
-      '{{', '{%', '%}', '{%=', '%}=',
+      '{{',
+      '{%',
+      '%}',
+      '{%=',
+      '%}=',
       // ERB模板
-      '<%', '%>', '<%=', '%=>', '<%==',
+      '<%',
+      '%>',
+      '<%=',
+      '%=>',
+      '<%==',
       // PHP模板
-      '<?php', '<?=', '<?', '?>',
+      '<?php',
+      '<?=',
+      '<?',
+      '?>',
       // ASP.NET模板
-      '<%', '%>', '<%=', '<%#', '#%>',
+      '<%',
+      '%>',
+      '<%=',
+      '<%#',
+      '#%>',
       // Handlebars/Mustache
-      '{{', '{{{', '}}}',
+      '{{',
+      '{{{',
+      '}}}',
       // EJS模板
-      '<%', '%>', '<%-', '<%=',
+      '<%',
+      '%>',
+      '<%-',
+      '<%=',
       // 表达式语言（使用左括号避免误报）
-      '${', '#{',
+      '${',
+      '#{',
       // 模板函数调用
-      '{% if ', '{% for ', '{% while ', '{% include ',
-      '{{ if ', '{{ for ', '{{ while ', '{{ include ',
+      '{% if ',
+      '{% for ',
+      '{% while ',
+      '{% include ',
+      '{{ if ',
+      '{{ for ',
+      '{{ while ',
+      '{{ include ',
     ];
-    
+
     for (const pattern of templatePatterns) {
       if (input.includes(pattern)) {
         return {
@@ -1953,7 +2918,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     return null;
   }
 
@@ -1965,38 +2930,51 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectRequestSmuggling(input: string): ClassifierDecision | null {
     const smugglingPatterns = [
       // Content-Length冲突
-      'Content-Length:', 'Transfer-Encoding:',
+      'Content-Length:',
+      'Transfer-Encoding:',
       // 双重Content-Length
-      'Content-Length:', 'Content-Length:',
+      'Content-Length:',
+      'Content-Length:',
       // CL.TE攻击
       'Transfer-Encoding: chunked',
       // TE.CL攻击
-      'Content-Length:', 'Transfer-Encoding:',
+      'Content-Length:',
+      'Transfer-Encoding:',
       // 换行注入
-      '\r\n\r\n', '\n\n', '\r\r',
+      '\r\n\r\n',
+      '\n\n',
+      '\r\r',
       // 分块编码攻击
-      '0\r\n\r\n', '0\n\n',
+      '0\r\n\r\n',
+      '0\n\n',
       // 模糊边界
-      'X-Forwarded-For:', 'X-Real-IP:',
-      'X-Original-URL:', 'X-Rewrite-URL:',
+      'X-Forwarded-For:',
+      'X-Real-IP:',
+      'X-Original-URL:',
+      'X-Rewrite-URL:',
     ];
-    
+
     // 检查是否同时包含Content-Length和Transfer-Encoding
-    if (input.includes('Content-Length:') && input.includes('Transfer-Encoding:')) {
+    if (
+      input.includes('Content-Length:') &&
+      input.includes('Transfer-Encoding:')
+    ) {
       return {
         shouldBlock: true,
-        reason: 'Input contains both Content-Length and Transfer-Encoding headers indicating potential request smuggling',
+        reason:
+          'Input contains both Content-Length and Transfer-Encoding headers indicating potential request smuggling',
       };
     }
-    
+
     // 检查分块编码模式
     if (input.includes('Transfer-Encoding: chunked')) {
       return {
         shouldBlock: true,
-        reason: 'Input contains Transfer-Encoding chunked header indicating potential request smuggling',
+        reason:
+          'Input contains Transfer-Encoding chunked header indicating potential request smuggling',
       };
     }
-    
+
     return null;
   }
 
@@ -2008,24 +2986,33 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectWebSocketAttack(input: string): ClassifierDecision | null {
     const websocketPatterns = [
       // WebSocket协议升级
-      'Upgrade: websocket', 'Connection: Upgrade',
-      'Sec-WebSocket-Key:', 'Sec-WebSocket-Version:',
+      'Upgrade: websocket',
+      'Connection: Upgrade',
+      'Sec-WebSocket-Key:',
+      'Sec-WebSocket-Version:',
       // WebSocket URL
-      'ws://', 'wss://',
+      'ws://',
+      'wss://',
       // WebSocket劫持
-      'Origin:', 'Host:',
+      'Origin:',
+      'Host:',
       // 协议切换攻击
-      'HTTP/1.1 101', 'Switching Protocols',
+      'HTTP/1.1 101',
+      'Switching Protocols',
     ];
-    
+
     // 检查WebSocket升级请求
-    if (input.includes('Upgrade: websocket') && input.includes('Connection: Upgrade')) {
+    if (
+      input.includes('Upgrade: websocket') &&
+      input.includes('Connection: Upgrade')
+    ) {
       return {
         shouldBlock: true,
-        reason: 'Input contains WebSocket upgrade headers indicating potential WebSocket attack',
+        reason:
+          'Input contains WebSocket upgrade headers indicating potential WebSocket attack',
       };
     }
-    
+
     return null;
   }
 
@@ -2037,15 +3024,25 @@ export class AutoModeClassifier implements IAutoModeClassifier {
   private detectDNSTunnel(input: string): ClassifierDecision | null {
     const dnsPatterns = [
       // DNS查询模式
-      'dig ', 'nslookup ', 'host ', 'dnsquery ',
+      'dig ',
+      'nslookup ',
+      'host ',
+      'dnsquery ',
       // DNS隧道工具
-      'iodine ', 'dnscat2 ', 'dns2tcp ', 'dns-exfiltrator ',
+      'iodine ',
+      'dnscat2 ',
+      'dns2tcp ',
+      'dns-exfiltrator ',
       // DNS协议
-      '_dns.', 'dns.', 'ns.', 'mx.', 'txt.',
+      '_dns.',
+      'dns.',
+      'ns.',
+      'mx.',
+      'txt.',
       // 长域名（可能包含编码数据）
       // 检测超过63个字符的域名部分
     ];
-    
+
     // 检查DNS隧道工具
     for (const tool of ['iodine', 'dnscat2', 'dns2tcp', 'dns-exfiltrator']) {
       if (input.includes(tool)) {
@@ -2055,7 +3052,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         };
       }
     }
-    
+
     // 检查是否有大量点分隔的短字符串（base32/base64编码特征）
     const parts = input.split('.');
     if (parts.length > 10) {
@@ -2068,11 +3065,12 @@ export class AutoModeClassifier implements IAutoModeClassifier {
       if (shortPartCount >= 5) {
         return {
           shouldBlock: true,
-          reason: 'Input contains pattern consistent with DNS tunneling (many short domain parts)',
+          reason:
+            'Input contains pattern consistent with DNS tunneling (many short domain parts)',
         };
       }
     }
-    
+
     return null;
   }
 
@@ -2227,7 +3225,10 @@ export class ClassifierManager {
    * @param input 工具输入
    * @returns 缓存键
    */
-  private getCacheKey(toolName: string, input: Record<string, unknown>): string {
+  private getCacheKey(
+    toolName: string,
+    input: Record<string, unknown>
+  ): string {
     return `${toolName}:${JSON.stringify(input)}`;
   }
 }

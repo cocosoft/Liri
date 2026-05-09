@@ -34,7 +34,9 @@ export interface IPriorityManager {
   assignPriority(memoryId: string, factors: PriorityFactor[]): MemoryPriority;
   getPriority(memoryId: string): MemoryPriority | undefined;
   updatePriority(memoryId: string, factors: PriorityFactor[]): MemoryPriority;
-  batchAssignPriorities(assignments: { memoryId: string; factors: PriorityFactor[] }[]): MemoryPriority[];
+  batchAssignPriorities(
+    assignments: { memoryId: string; factors: PriorityFactor[] }[]
+  ): MemoryPriority[];
   getMemoriesByTier(tier: PriorityTier): string[];
   getTierDistribution(): Record<PriorityTier, number>;
   recalculateAll(): number;
@@ -58,7 +60,10 @@ export function calculateScore(factors: PriorityFactor[]): number {
   return Math.min(1, Math.max(0, weightedSum / totalWeight));
 }
 
-export function scoreToTier(score: number, config: PriorityConfig = DEFAULT_CONFIG): PriorityTier {
+export function scoreToTier(
+  score: number,
+  config: PriorityConfig = DEFAULT_CONFIG
+): PriorityTier {
   if (score >= config.criticalThreshold) return PriorityTier.CRITICAL;
   if (score >= config.highThreshold) return PriorityTier.HIGH;
   if (score >= config.mediumThreshold) return PriorityTier.MEDIUM;
@@ -110,8 +115,10 @@ export class MemoryPriorityManager implements IPriorityManager {
     return priority;
   }
 
-  batchAssignPriorities(assignments: { memoryId: string; factors: PriorityFactor[] }[]): MemoryPriority[] {
-    return assignments.map(a => this.assignPriority(a.memoryId, a.factors));
+  batchAssignPriorities(
+    assignments: { memoryId: string; factors: PriorityFactor[] }[]
+  ): MemoryPriority[] {
+    return assignments.map((a) => this.assignPriority(a.memoryId, a.factors));
   }
 
   getMemoriesByTier(tier: PriorityTier): string[] {

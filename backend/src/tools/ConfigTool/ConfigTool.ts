@@ -5,7 +5,12 @@
  */
 
 import { BaseTool } from '../BaseTool';
-import { getConfig, getConfigValue, setConfigValue, resetConfigToDefaults } from '@modules/config';
+import {
+  getConfig,
+  getConfigValue,
+  setConfigValue,
+  resetConfigToDefaults,
+} from '@modules/config';
 import type { ToolParam } from '../types';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';

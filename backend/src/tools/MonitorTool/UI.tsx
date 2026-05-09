@@ -1,26 +1,26 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type MonitorOutput = {
-  type: string
-  data: Record<string, unknown>
-  timestamp: string
-}
+  type: string;
+  data: Record<string, unknown>;
+  timestamp: string;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ type: string; target: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const target = input.target || input.type || 'system'
-  return <Text dimColor>监控 {target}...</Text>
+  const target = input.target || input.type || 'system';
+  return <Text dimColor>监控 {target}...</Text>;
 }
 
 export function renderToolResultMessage(
   output: MonitorOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { type, data } = output
+  const { type, data } = output;
 
   return (
     <Box flexDirection="column">
@@ -29,7 +29,10 @@ export function renderToolResultMessage(
         <Box marginTop={1} flexDirection="column">
           {Object.entries(data).map(([key, value]) => (
             <Text key={key}>
-              {key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+              {key}:{' '}
+              {typeof value === 'object'
+                ? JSON.stringify(value)
+                : String(value)}
             </Text>
           ))}
         </Box>
@@ -39,5 +42,5 @@ export function renderToolResultMessage(
         </Box>
       )}
     </Box>
-  )
+  );
 }

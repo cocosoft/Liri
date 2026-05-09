@@ -181,7 +181,8 @@ export class DeepSeekClient extends LLMClient {
             completion_tokens: data.usage.completion_tokens || 0,
             total_tokens: data.usage.total_tokens || 0,
             cache_read_input_tokens: data.usage.prompt_cache_hit_tokens || 0,
-            cache_creation_input_tokens: data.usage.prompt_cache_miss_tokens || 0,
+            cache_creation_input_tokens:
+              data.usage.prompt_cache_miss_tokens || 0,
           }
         : undefined,
       stop_reason: choice?.finish_reason || 'stop',

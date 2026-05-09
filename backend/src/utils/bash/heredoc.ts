@@ -6,42 +6,42 @@
  */
 
 export interface HeredocInfo {
-  marker: string
-  content: string
-  indented: boolean
-  quoted: boolean
+  marker: string;
+  content: string;
+  indented: boolean;
+  quoted: boolean;
 }
 
 export function extractHeredocs(command: string): {
-  processedCommand: string
-  heredocs: HeredocInfo[]
+  processedCommand: string;
+  heredocs: HeredocInfo[];
 } {
-  const heredocs: HeredocInfo[] = []
-  const heredocPattern = /(<<[-]?)(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2\s*$/gm
-  const lines = command.split('\n')
-  const processedLines: string[] = []
-  let i = 0
+  const heredocs: HeredocInfo[] = [];
+  const heredocPattern = /(<<[-]?)(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2\s*$/gm;
+  const lines = command.split('\n');
+  const processedLines: string[] = [];
+  let i = 0;
 
   while (i < lines.length) {
-    const line = lines[i]!
-    const match = heredocPattern.exec(line)
+    const line = lines[i]!;
+    const match = heredocPattern.exec(line);
 
     if (match) {
-      const indented = match[1]!.includes('-')
-      const quoted = match[2]!.length > 0
-      const marker = match[3]!
-      const contentLines: string[] = []
-      i++
+      const indented = match[1]!.includes('-');
+      const quoted = match[2]!.length > 0;
+      const marker = match[3]!;
+      const contentLines: string[] = [];
+      i++;
 
       while (i < lines.length) {
-        const contentLine = lines[i]!
-        const trimmedLine = indented ? contentLine.trimStart() : contentLine
+        const contentLine = lines[i]!;
+        const trimmedLine = indented ? contentLine.trimStart() : contentLine;
         if (trimmedLine === marker) {
-          i++
-          break
+          i++;
+          break;
         }
-        contentLines.push(contentLine)
-        i++
+        contentLines.push(contentLine);
+        i++;
       }
 
       heredocs.push({
@@ -49,28 +49,34 @@ export function extractHeredocs(command: string): {
         content: contentLines.join('\n'),
         indented,
         quoted,
-      })
+      });
 
-      processedLines.push(line.replace(match[0], ''))
+      processedLines.push(line.replace(match[0], ''));
     } else {
-      processedLines.push(line)
-      i++
+      processedLines.push(line);
+      i++;
     }
   }
 
-  return { processedCommand: processedLines.join('\n'), heredocs }
+  return { processedCommand: processedLines.join('\n'), heredocs };
 }
 
-export function restoreHeredocs(command: string, heredocs: HeredocInfo[]): string {
-  let result = command
+export function restoreHeredocs(
+  command: string,
+  heredocs: HeredocInfo[]
+): string {
+  let result = command;
   for (const heredoc of heredocs) {
-    const delimiter = heredoc.indented ? '<<-' : '<<'
-    const quote = heredoc.quoted ? "'" : ''
-    const marker = heredoc.quoted ? `'${heredoc.marker}'` : heredoc.marker
+    const delimiter = heredoc.indented ? '<<-' : '<<';
+    const quote = heredoc.quoted ? "'" : '';
+    const marker = heredoc.quoted ? `'${heredoc.marker}'` : heredoc.marker;
     const body = heredoc.indented
-      ? heredoc.content.split('\n').map(l => '\t' + l).join('\n')
-      : heredoc.content
-    result += ` ${delimiter}${quote}${marker}${quote}\n${body}\n${heredoc.marker}`
+      ? heredoc.content
+          .split('\n')
+          .map((l) => '\t' + l)
+          .join('\n')
+      : heredoc.content;
+    result += ` ${delimiter}${quote}${marker}${quote}\n${body}\n${heredoc.marker}`;
   }
-  return result
+  return result;
 }

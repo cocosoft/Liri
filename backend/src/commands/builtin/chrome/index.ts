@@ -14,6 +14,8 @@ export const chromeCommand: Command = {
   aliases: [],
   argumentHint: '[status|connect|disconnect|tabs|screenshot|help]',
   whenToUse: '当你需要与Chrome浏览器交互时',
-  load: async () => import('./Chrome.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Chrome.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

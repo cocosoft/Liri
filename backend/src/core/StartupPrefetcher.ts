@@ -87,9 +87,8 @@ async function prefetchUserContext(): Promise<void> {
   markTaskRunning(task);
 
   try {
-    const { getMultiSourceSettingsManager } = await import(
-      '../config/settings/index.js'
-    );
+    const { getMultiSourceSettingsManager } =
+      await import('../config/settings/index.js');
     const settingsManager = getMultiSourceSettingsManager();
     settingsManager.getMergedSettings();
     markTaskCompleted(task);
@@ -107,9 +106,8 @@ async function prefetchMdmSettings(): Promise<void> {
   markTaskRunning(task);
 
   try {
-    const { ensureMdmSettingsLoaded } = await import(
-      '../config/settings/mdm/index.js'
-    );
+    const { ensureMdmSettingsLoaded } =
+      await import('../config/settings/mdm/index.js');
     await ensureMdmSettingsLoaded();
     markTaskCompleted(task);
   } catch (error) {
@@ -126,27 +124,30 @@ async function prefetchSafeEnvVariables(): Promise<void> {
   markTaskRunning(task);
 
   try {
-    const { applySafeConfigEnvironmentVariables } = await import(
-      '../config/managedEnv.js'
-    );
-    const { loadUserSettings } = await import(
-      '../config/settings/userSettings.js'
-    );
-    const { loadPolicySettings } = await import(
-      '../config/settings/policySettings.js'
-    );
+    const { applySafeConfigEnvironmentVariables } =
+      await import('../config/managedEnv.js');
+    const { loadUserSettings } =
+      await import('../config/settings/userSettings.js');
+    const { loadPolicySettings } =
+      await import('../config/settings/policySettings.js');
 
     const sources: Record<string, Record<string, string> | undefined> = {
-      userSettings: loadUserSettings()?.env as Record<string, string> | undefined,
+      userSettings: loadUserSettings()?.env as
+        | Record<string, string>
+        | undefined,
       flagSettings: undefined,
-      policySettings: loadPolicySettings()?.env as Record<string, string> | undefined,
+      policySettings: loadPolicySettings()?.env as
+        | Record<string, string>
+        | undefined,
     };
 
     applySafeConfigEnvironmentVariables(sources);
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));
-    logger.warn('Failed to prefetch safe env variables:', { error: String(error) });
+    logger.warn('Failed to prefetch safe env variables:', {
+      error: String(error),
+    });
   }
 }
 
@@ -158,9 +159,8 @@ async function prefetchUnifiedConfig(): Promise<void> {
   markTaskRunning(task);
 
   try {
-    const { getUnifiedConfigManager } = await import(
-      '../config/UnifiedConfigManager.js'
-    );
+    const { getUnifiedConfigManager } =
+      await import('../config/UnifiedConfigManager.js');
     const configManager = getUnifiedConfigManager();
     await configManager.initialize();
     markTaskCompleted(task);
@@ -184,7 +184,9 @@ async function prefetchModelCapabilities(): Promise<void> {
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));
-    logger.warn('Failed to prefetch model capabilities:', { error: String(error) });
+    logger.warn('Failed to prefetch model capabilities:', {
+      error: String(error),
+    });
   }
 }
 

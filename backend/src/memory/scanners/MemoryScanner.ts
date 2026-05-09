@@ -4,6 +4,9 @@ import matter from 'gray-matter';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { isValidMemoryType } from '../types/MemoryType';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 记忆扫描器接口
@@ -64,7 +67,10 @@ export class MemoryScannerImpl implements MemoryScanner {
         }
       }
     } catch (error) {
-      console.error('Error scanning memory directory:', error);
+      logger.error(
+        'Error scanning memory directory',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
 
     return memories;
@@ -78,7 +84,7 @@ export class MemoryScannerImpl implements MemoryScanner {
    */
   async scanByType(directory: string, type: string): Promise<Memory[]> {
     const allMemories = await this.scan(directory);
-    return allMemories.filter(memory => memory.metadata.type === type);
+    return allMemories.filter((memory) => memory.metadata.type === type);
   }
 
   /**
@@ -116,7 +122,10 @@ export class MemoryScannerImpl implements MemoryScanner {
 
       return memory;
     } catch (error) {
-      console.error(`Error parsing memory file ${filePath}:`, error);
+      logger.error(
+        `Error parsing memory file ${filePath}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }
@@ -175,7 +184,10 @@ export class MemoryScannerImpl implements MemoryScanner {
       const { data } = matter(content);
       return data;
     } catch (error) {
-      console.error('Error extracting metadata:', error);
+      logger.error(
+        'Error extracting metadata',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return {};
     }
   }

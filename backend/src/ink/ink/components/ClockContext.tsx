@@ -1,5 +1,5 @@
 //
-import { c as _c } from "react/compiler-runtime";
+import { c as _c } from 'react/compiler-runtime';
 import React, { createContext, useEffect, useState } from 'react';
 import { FRAME_INTERVAL_MS } from '../constants.js';
 import { useTerminalFocus } from '../hooks/use-terminal-focus.js';
@@ -64,7 +64,7 @@ export function createClock(tickIntervalMs: number): Clock {
       if (ms === currentTickIntervalMs) return;
       currentTickIntervalMs = ms;
       updateInterval();
-    }
+    },
   };
 }
 export const ClockContext = createContext<Clock | null>(null);
@@ -75,16 +75,16 @@ const BLURRED_TICK_INTERVAL_MS = FRAME_INTERVAL_MS * 2;
 // never causes consumer re-renders on its own.
 export function ClockProvider(t0: Record<string, any>) {
   const $ = _c(7);
-  const {
-    children
-  } = t0;
+  const { children } = t0;
   const [clock] = useState(_temp);
   const focused = useTerminalFocus();
   let t1;
   let t2;
   if ($[0] !== clock || $[1] !== focused) {
     t1 = () => {
-      clock.setTickInterval(focused ? FRAME_INTERVAL_MS : BLURRED_TICK_INTERVAL_MS);
+      clock.setTickInterval(
+        focused ? FRAME_INTERVAL_MS : BLURRED_TICK_INTERVAL_MS
+      );
     };
     t2 = [clock, focused];
     $[0] = clock;
@@ -98,7 +98,9 @@ export function ClockProvider(t0: Record<string, any>) {
   useEffect(t1, t2);
   let t3;
   if ($[4] !== children || $[5] !== clock) {
-    t3 = <ClockContext.Provider value={clock}>{children}</ClockContext.Provider>;
+    t3 = (
+      <ClockContext.Provider value={clock}>{children}</ClockContext.Provider>
+    );
     $[4] = children;
     $[5] = clock;
     $[6] = t3;

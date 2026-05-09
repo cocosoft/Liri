@@ -4,19 +4,19 @@
  */
 
 import { EventEmitter } from 'events';
-import type { 
-  MCPClient, 
-  MCPRequest, 
-  MCPResponse, 
-  MCPToolDefinition, 
-  MCPResourceDefinition, 
-  MCPPromptDefinition, 
-  MCPServerInfo, 
-  MCPConnectionStats, 
-  MCPEvent, 
+import type {
+  MCPClient,
+  MCPRequest,
+  MCPResponse,
+  MCPToolDefinition,
+  MCPResourceDefinition,
+  MCPPromptDefinition,
+  MCPServerInfo,
+  MCPConnectionStats,
+  MCPEvent,
   MCPEventType,
   MCPClientState,
-  MCPTransport
+  MCPTransport,
 } from '../types/MCPTypes';
 
 /**
@@ -27,11 +27,14 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   private state: MCPClientState = 'disconnected';
   private stats: MCPConnectionStats;
   private requestIdCounter = 0;
-  private pendingRequests = new Map<string, {
-    resolve: (value: any) => void;
-    reject: (error: Error) => void;
-    timeout: NodeJS.Timeout;
-  }>();
+  private pendingRequests = new Map<
+    string,
+    {
+      resolve: (value: any) => void;
+      reject: (error: Error) => void;
+      timeout: NodeJS.Timeout;
+    }
+  >();
 
   /**
    * 构造函数（基于CC源码）
@@ -40,7 +43,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     super();
     this.transport = transport;
     this.stats = this.createInitialStats();
-    
+
     // 监听传输层事件
     this.setupTransportListeners();
   }
@@ -55,24 +58,23 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
 
     try {
       this.setState('connecting');
-      
+
       // 建立传输层连接
       await this.transport.connect();
-      
+
       // 发送初始化请求
       await this.sendInitialHandshake();
-      
+
       this.setState('connected');
       this.emitEvent('connect', { serverName: this.transport.name });
-      
+
       // 开始心跳检测
       this.startHeartbeat();
-      
     } catch (error) {
       this.setState('error');
-      this.emitEvent('error', { 
-        serverName: this.transport.name, 
-        error: error instanceof Error ? error : new Error(String(error)) 
+      this.emitEvent('error', {
+        serverName: this.transport.name,
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -88,24 +90,23 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
 
     try {
       this.setState('disconnecting');
-      
+
       // 停止心跳检测
       this.stopHeartbeat();
-      
+
       // 关闭传输层连接
       await this.transport.close();
-      
+
       // 清理挂起的请求
       this.cleanupPendingRequests();
-      
+
       this.setState('disconnected');
       this.emitEvent('disconnect', { serverName: this.transport.name });
-      
     } catch (error) {
       this.setState('error');
-      this.emitEvent('error', { 
-        serverName: this.transport.name, 
-        error: error instanceof Error ? error : new Error(String(error)) 
+      this.emitEvent('error', {
+        serverName: this.transport.name,
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -127,26 +128,25 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     };
 
     const startTime = Date.now();
-    
+
     try {
       const result = await this.sendRequest(request);
-      
+
       // 更新统计信息
       this.updateStats('toolCalls', Date.now() - startTime);
-      this.emitEvent('tool_call', { 
-        serverName: this.transport.name, 
-        toolName: name, 
-        arguments, 
-        result 
+      this.emitEvent('tool_call', {
+        serverName: this.transport.name,
+        toolName: name,
+        arguments,
+        result,
       });
-      
+
       return result;
-      
     } catch (error) {
       this.updateStats('errors');
-      this.emitEvent('error', { 
-        serverName: this.transport.name, 
-        error: error instanceof Error ? error : new Error(String(error)) 
+      this.emitEvent('error', {
+        serverName: this.transport.name,
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -166,20 +166,19 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     };
 
     const startTime = Date.now();
-    
+
     try {
       const result = await this.sendRequest(request);
-      
+
       // 更新统计信息
       this.updateStats('toolCalls', Date.now() - startTime);
-      
+
       return result.tools || [];
-      
     } catch (error) {
       this.updateStats('errors');
-      this.emitEvent('error', { 
-        serverName: this.transport.name, 
-        error: error instanceof Error ? error : new Error(String(error)) 
+      this.emitEvent('error', {
+        serverName: this.transport.name,
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -199,20 +198,19 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     };
 
     const startTime = Date.now();
-    
+
     try {
       const result = await this.sendRequest(request);
-      
+
       // 更新统计信息
       this.updateStats('resourceReads', Date.now() - startTime);
-      
+
       return result.resources || [];
-      
     } catch (error) {
       this.updateStats('errors');
-      this.emitEvent('error', { 
-        serverName: this.transport.name, 
-        error: error instanceof Error ? error : new Error(String(error)) 
+      this.emitEvent('error', {
+        serverName: this.transport.name,
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -232,20 +230,19 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     };
 
     const startTime = Date.now();
-    
+
     try {
       const result = await this.sendRequest(request);
-      
+
       // 更新统计信息
       this.updateStats('promptGets', Date.now() - startTime);
-      
+
       return result.prompts || [];
-      
     } catch (error) {
       this.updateStats('errors');
-      this.emitEvent('error', { 
-        serverName: this.transport.name, 
-        error: error instanceof Error ? error : new Error(String(error)) 
+      this.emitEvent('error', {
+        serverName: this.transport.name,
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -265,24 +262,23 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     };
 
     const startTime = Date.now();
-    
+
     try {
       const result = await this.sendRequest(request);
-      
+
       // 更新统计信息
       this.updateStats('toolCalls', Date.now() - startTime);
-      
+
       return {
         name: result.name || 'unknown',
         version: result.version || '1.0.0',
         capabilities: result.capabilities || {},
       };
-      
     } catch (error) {
       this.updateStats('errors');
-      this.emitEvent('error', { 
-        serverName: this.transport.name, 
-        error: error instanceof Error ? error : new Error(String(error)) 
+      this.emitEvent('error', {
+        serverName: this.transport.name,
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -327,9 +323,11 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    */
   private handleResponse(response: MCPResponse): void {
     const pendingRequest = this.pendingRequests.get(response.request_id);
-    
+
     if (!pendingRequest) {
-      console.warn(`Received response for unknown request: ${response.request_id}`);
+      console.warn(
+        `Received response for unknown request: ${response.request_id}`
+      );
       return;
     }
 
@@ -366,9 +364,9 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
 
     // 监听错误
     this.transport.on('error', (error: Error) => {
-      this.emitEvent('error', { 
-        serverName: this.transport.name, 
-        error 
+      this.emitEvent('error', {
+        serverName: this.transport.name,
+        error,
       });
     });
   }
@@ -418,11 +416,11 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     if (this.state !== newState) {
       const oldState = this.state;
       this.state = newState;
-      
-      this.emitEvent('state_change', { 
-        serverName: this.transport.name, 
-        oldState, 
-        newState 
+
+      this.emitEvent('state_change', {
+        serverName: this.transport.name,
+        oldState,
+        newState,
       });
     }
   }
@@ -437,7 +435,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
       timestamp: new Date(),
       serverName: this.transport.name,
     };
-    
+
     this.emit('event', event);
     this.emit(type, event);
   }
@@ -447,7 +445,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    */
   private updateStats(type: keyof MCPConnectionStats, duration?: number): void {
     this.stats.lastActivity = new Date();
-    
+
     switch (type) {
       case 'toolCalls':
         this.stats.toolCalls++;
@@ -465,8 +463,17 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
 
     if (duration !== undefined) {
       // 更新平均响应时间
-      const totalTime = this.stats.averageResponseTime * (this.stats.toolCalls + this.stats.resourceReads + this.stats.promptGets - 1);
-      this.stats.averageResponseTime = (totalTime + duration) / (this.stats.toolCalls + this.stats.resourceReads + this.stats.promptGets);
+      const totalTime =
+        this.stats.averageResponseTime *
+        (this.stats.toolCalls +
+          this.stats.resourceReads +
+          this.stats.promptGets -
+          1);
+      this.stats.averageResponseTime =
+        (totalTime + duration) /
+        (this.stats.toolCalls +
+          this.stats.resourceReads +
+          this.stats.promptGets);
     }
   }
 

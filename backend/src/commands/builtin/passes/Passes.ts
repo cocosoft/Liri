@@ -37,14 +37,32 @@ export default {
    */
   async handleList(context: CommandContext): Promise<CommandResult> {
     const passes = [
-      { id: 'pro', name: 'Pro Pass', status: 'active', features: ['高级AI模型', '无限历史', '优先支持'] },
-      { id: 'team', name: 'Team Pass', status: 'available', features: ['团队协作', '共享工作区', '审计日志'] },
-      { id: 'enterprise', name: 'Enterprise Pass', status: 'available', features: ['私有化部署', '定制开发', '专属客服'] },
+      {
+        id: 'pro',
+        name: 'Pro Pass',
+        status: 'active',
+        features: ['高级AI模型', '无限历史', '优先支持'],
+      },
+      {
+        id: 'team',
+        name: 'Team Pass',
+        status: 'available',
+        features: ['团队协作', '共享工作区', '审计日志'],
+      },
+      {
+        id: 'enterprise',
+        name: 'Enterprise Pass',
+        status: 'available',
+        features: ['私有化部署', '定制开发', '专属客服'],
+      },
     ];
 
-    const table = passes.map(p => 
-      `${p.status === 'active' ? '[ACTIVE]' : '[AVAIL]'} ${p.name.padEnd(20)} - ${p.id}`
-    ).join('\n');
+    const table = passes
+      .map(
+        (p) =>
+          `${p.status === 'active' ? '[ACTIVE]' : '[AVAIL]'} ${p.name.padEnd(20)} - ${p.id}`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -57,9 +75,12 @@ export default {
   /**
    * 激活Pass
    */
-  async handleActivate(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleActivate(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const passId = args[0];
-    
+
     if (!passId) {
       return {
         success: false,
@@ -70,7 +91,7 @@ export default {
     }
 
     context.onDone?.(`Pass ${passId} 已激活`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -82,9 +103,12 @@ export default {
   /**
    * 停用Pass
    */
-  async handleDeactivate(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleDeactivate(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const passId = args[0];
-    
+
     if (!passId) {
       return {
         success: false,
@@ -95,7 +119,7 @@ export default {
     }
 
     context.onDone?.(`Pass ${passId} 已停用`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -118,12 +142,13 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `Pass状态:\n` +
+      message:
+        `Pass状态:\n` +
         `- 当前Pass: ${status.activePass}\n` +
         `- 订阅类型: ${status.subscriptionType}\n` +
         `- 到期时间: ${status.expiresAt}\n\n` +
         `可用功能:\n` +
-        `${status.features.map(f => `- ${f}`).join('\n')}`,
+        `${status.features.map((f) => `- ${f}`).join('\n')}`,
       data: status,
     };
   },
@@ -131,8 +156,14 @@ export default {
   /**
    * 显示Pass详情
    */
-  async handleInfo(passId: string, context: CommandContext): Promise<CommandResult> {
-    const passInfo: Record<string, { name: string; description: string; price: string; features: string[] }> = {
+  async handleInfo(
+    passId: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
+    const passInfo: Record<
+      string,
+      { name: string; description: string; price: string; features: string[] }
+    > = {
       pro: {
         name: 'Pro Pass',
         description: '专业版Pass，适合个人开发者',
@@ -154,16 +185,17 @@ export default {
     };
 
     const info = passInfo[passId];
-    
+
     if (info) {
       return {
         success: true,
         type: 'text',
-        message: `${info.name}\n` +
+        message:
+          `${info.name}\n` +
           `- 描述: ${info.description}\n` +
           `- 价格: ${info.price}\n\n` +
           `功能:\n` +
-          `${info.features.map(f => `- ${f}`).join('\n')}`,
+          `${info.features.map((f) => `- ${f}`).join('\n')}`,
         data: info,
       };
     }

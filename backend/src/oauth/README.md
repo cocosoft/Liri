@@ -60,11 +60,10 @@ const discovery = new OAuthDiscovery();
 const result = await discovery.discoverMetadata('https://auth.example.com');
 
 // 从元数据构建OAuth配置
-const config = discovery.buildOAuthConfig(
-  result.metadata,
-  'your-client-id',
-  ['openid', 'profile']
-);
+const config = discovery.buildOAuthConfig(result.metadata, 'your-client-id', [
+  'openid',
+  'profile',
+]);
 ```
 
 ### 3. Token持久化
@@ -144,6 +143,7 @@ new OAuthDiscovery(config?: OAuthDiscoveryConfig)
 ```
 
 **配置选项**:
+
 - `cacheEnabled`: 是否启用缓存（默认: true）
 - `cacheDuration`: 缓存时长（默认: 24小时）
 - `timeout`: 请求超时（默认: 10秒）
@@ -260,14 +260,14 @@ new DynamicClientReg(config: DynamicClientRegConfig)
 
 ### 环境变量
 
-| 变量名 | 描述 | 默认值 |
-|--------|------|--------|
-| `OAUTH_ENCRYPTION_KEY` | Token加密密钥 | 自动生成 |
-| `OAUTH_TOKEN_DIR` | Token存储目录 | `~/.pyapp/oauth/tokens` |
-| `OAUTH_CACHE_ENABLED` | 是否启用Discovery缓存 | `true` |
-| `OAUTH_CACHE_DURATION` | Discovery缓存时长（毫秒） | `86400000` (24小时) |
-| `OAUTH_TIMEOUT` | OAuth请求超时（毫秒） | `10000` |
-| `OAUTH_RETRIES` | OAuth请求重试次数 | `2` |
+| 变量名                 | 描述                      | 默认值                  |
+| ---------------------- | ------------------------- | ----------------------- |
+| `OAUTH_ENCRYPTION_KEY` | Token加密密钥             | 自动生成                |
+| `OAUTH_TOKEN_DIR`      | Token存储目录             | `~/.pyapp/oauth/tokens` |
+| `OAUTH_CACHE_ENABLED`  | 是否启用Discovery缓存     | `true`                  |
+| `OAUTH_CACHE_DURATION` | Discovery缓存时长（毫秒） | `86400000` (24小时)     |
+| `OAUTH_TIMEOUT`        | OAuth请求超时（毫秒）     | `10000`                 |
+| `OAUTH_RETRIES`        | OAuth请求重试次数         | `2`                     |
 
 ## 安全
 

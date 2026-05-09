@@ -137,13 +137,16 @@ export class EnhancedConfigService {
   /**
    * 构造函数
    */
-  constructor(configPath?: string, options?: {
-    lockTimeout?: number;
-    enableAtomicWrite?: boolean;
-    enableLocking?: boolean;
-    enableVersionMigration?: boolean;
-    validationLevel?: ConfigValidationLevel;
-  }) {
+  constructor(
+    configPath?: string,
+    options?: {
+      lockTimeout?: number;
+      enableAtomicWrite?: boolean;
+      enableLocking?: boolean;
+      enableVersionMigration?: boolean;
+      validationLevel?: ConfigValidationLevel;
+    }
+  ) {
     this.configPath = configPath || this.getDefaultConfigPath();
     this.lockPath = `${this.configPath}.lock`;
 
@@ -152,7 +155,8 @@ export class EnhancedConfigService {
       this.enableAtomicWrite = options.enableAtomicWrite ?? true;
       this.enableLocking = options.enableLocking ?? true;
       this.enableVersionMigration = options.enableVersionMigration ?? true;
-      this.validationLevel = options.validationLevel || ConfigValidationLevel.NORMAL;
+      this.validationLevel =
+        options.validationLevel || ConfigValidationLevel.NORMAL;
     }
 
     this.setupConfigDir();
@@ -276,14 +280,22 @@ export class EnhancedConfigService {
 
       let loadedData = persistedConfig.data;
 
-      if (this.enableVersionMigration && persistedConfig.version < CURRENT_CONFIG_VERSION) {
+      if (
+        this.enableVersionMigration &&
+        persistedConfig.version < CURRENT_CONFIG_VERSION
+      ) {
         loadedData = this.migrateConfig(loadedData, persistedConfig.version);
       }
 
       const validationResult = this.validate(loadedData);
 
-      if (!validationResult.valid && this.validationLevel === ConfigValidationLevel.STRICT) {
-        throw new Error(`Configuration validation failed: ${validationResult.errors.map(e => e.message).join(', ')}`);
+      if (
+        !validationResult.valid &&
+        this.validationLevel === ConfigValidationLevel.STRICT
+      ) {
+        throw new Error(
+          `Configuration validation failed: ${validationResult.errors.map((e) => e.message).join(', ')}`
+        );
       }
 
       if (validationResult.errors.length > 0) {
@@ -293,7 +305,6 @@ export class EnhancedConfigService {
       }
 
       this.isLoaded = true;
-
     } catch (error) {
       console.error('Failed to load config:', error);
       this.config = {};
@@ -316,7 +327,10 @@ export class EnhancedConfigService {
   /**
    * 迁移配置
    */
-  private migrateConfig(config: Record<string, any>, fromVersion: number): Record<string, any> {
+  private migrateConfig(
+    config: Record<string, any>,
+    fromVersion: number
+  ): Record<string, any> {
     let currentConfig = { ...config };
     let currentVersion = fromVersion;
 
@@ -348,7 +362,9 @@ export class EnhancedConfigService {
       if (rule.required && value === undefined) {
         if (rule.default !== undefined) {
           correctedConfig[key] = rule.default;
-          appliedCorrections.push(`Added default value for required field: ${key}`);
+          appliedCorrections.push(
+            `Added default value for required field: ${key}`
+          );
         } else {
           errors.push({
             key,
@@ -364,7 +380,9 @@ export class EnhancedConfigService {
           if (this.validationLevel !== ConfigValidationLevel.LENIENT) {
             errors.push({
               key,
-              message: rule.message || `Invalid type for ${key}: expected ${rule.type}, got ${typeof value}`,
+              message:
+                rule.message ||
+                `Invalid type for ${key}: expected ${rule.type}, got ${typeof value}`,
               value,
             });
           } else {
@@ -376,36 +394,57 @@ export class EnhancedConfigService {
           }
         }
 
-        if (rule.min !== undefined && typeof value === 'number' && value < rule.min) {
+        if (
+          rule.min !== undefined &&
+          typeof value === 'number' &&
+          value < rule.min
+        ) {
           if (this.validationLevel === ConfigValidationLevel.LENIENT) {
             correctedConfig[key] = rule.min;
-            appliedCorrections.push(`Corrected ${key} to minimum value: ${rule.min}`);
+            appliedCorrections.push(
+              `Corrected ${key} to minimum value: ${rule.min}`
+            );
           } else {
             errors.push({
               key,
-              message: rule.message || `Value for ${key} is below minimum: ${rule.min}`,
+              message:
+                rule.message ||
+                `Value for ${key} is below minimum: ${rule.min}`,
               value,
             });
           }
         }
 
-        if (rule.max !== undefined && typeof value === 'number' && value > rule.max) {
+        if (
+          rule.max !== undefined &&
+          typeof value === 'number' &&
+          value > rule.max
+        ) {
           if (this.validationLevel === ConfigValidationLevel.LENIENT) {
             correctedConfig[key] = rule.max;
-            appliedCorrections.push(`Corrected ${key} to maximum value: ${rule.max}`);
+            appliedCorrections.push(
+              `Corrected ${key} to maximum value: ${rule.max}`
+            );
           } else {
             errors.push({
               key,
-              message: rule.message || `Value for ${key} exceeds maximum: ${rule.max}`,
+              message:
+                rule.message || `Value for ${key} exceeds maximum: ${rule.max}`,
               value,
             });
           }
         }
 
-        if (rule.pattern && typeof value === 'string' && !rule.pattern.test(value)) {
+        if (
+          rule.pattern &&
+          typeof value === 'string' &&
+          !rule.pattern.test(value)
+        ) {
           errors.push({
             key,
-            message: rule.message || `Value for ${key} does not match required pattern`,
+            message:
+              rule.message ||
+              `Value for ${key} does not match required pattern`,
             value,
           });
         }
@@ -481,7 +520,6 @@ export class EnhancedConfigService {
 
       fs.writeFileSync(tempPath, content, 'utf8');
       fs.renameSync(tempPath, this.configPath);
-
     } catch (error) {
       if (fs.existsSync(tempPath)) {
         fs.unlinkSync(tempPath);
@@ -529,7 +567,9 @@ export class EnhancedConfigService {
       }
     }
 
-    throw new Error(`Failed to acquire config lock after ${this.lockTimeout}ms`);
+    throw new Error(
+      `Failed to acquire config lock after ${this.lockTimeout}ms`
+    );
   }
 
   /**
@@ -725,7 +765,11 @@ export class EnhancedConfigService {
       },
     };
 
-    fs.writeFileSync(backupPath, JSON.stringify(backupContent, null, 2), 'utf8');
+    fs.writeFileSync(
+      backupPath,
+      JSON.stringify(backupContent, null, 2),
+      'utf8'
+    );
     return backupPath;
   }
 

@@ -7,7 +7,15 @@ import { stat } from 'fs/promises';
 import { extname, isAbsolute, resolve } from 'path';
 import { cwd } from '@modules/utils/process.js';
 
-const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg']);
+const IMAGE_EXTENSIONS = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.bmp',
+  '.webp',
+  '.svg',
+]);
 
 export interface AttachmentResult {
   path: string;
@@ -23,7 +31,9 @@ export interface AttachmentOptions {
 /**
  * 验证附件路径
  */
-export async function validateAttachmentPaths(paths: string[]): Promise<{ result: boolean; message?: string }> {
+export async function validateAttachmentPaths(
+  paths: string[]
+): Promise<{ result: boolean; message?: string }> {
   if (!paths || paths.length === 0) {
     return { result: true };
   }

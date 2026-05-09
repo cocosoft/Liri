@@ -5,7 +5,10 @@
  */
 
 import { logger } from '@modules/utils/log.js';
-import { OAuthDiscovery, type OAuthMetadata } from '../services/OAuthDiscovery.js';
+import {
+  OAuthDiscovery,
+  type OAuthMetadata,
+} from '../services/OAuthDiscovery.js';
 import { TokenManager, type CachedToken } from '../services/TokenManager.js';
 
 /**
@@ -105,7 +108,9 @@ export class EnhancedOAuthClient {
       requestBody['client_secret'] = this.config.clientSecret;
     }
 
-    logger.info(`Exchanging authorization code for token at ${this.metadata.token_endpoint}`);
+    logger.info(
+      `Exchanging authorization code for token at ${this.metadata.token_endpoint}`
+    );
 
     try {
       const response = await fetch(this.metadata.token_endpoint, {
@@ -118,7 +123,9 @@ export class EnhancedOAuthClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Token exchange failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Token exchange failed: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -126,7 +133,7 @@ export class EnhancedOAuthClient {
       const token: CachedToken = {
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
-        expiresAt: Date.now() + (data.expires_in * 1000),
+        expiresAt: Date.now() + data.expires_in * 1000,
         scopes: data.scope?.split(' ') || [],
       };
 
@@ -171,7 +178,9 @@ export class EnhancedOAuthClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Token refresh failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Token refresh failed: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -179,7 +188,7 @@ export class EnhancedOAuthClient {
       const token: CachedToken = {
         accessToken: data.access_token,
         refreshToken: data.refresh_token || refreshToken,
-        expiresAt: Date.now() + (data.expires_in * 1000),
+        expiresAt: Date.now() + data.expires_in * 1000,
         scopes: data.scope?.split(' ') || [],
       };
 
@@ -235,6 +244,8 @@ export class EnhancedOAuthClient {
 /**
  * 创建增强版OAuth客户端实例
  */
-export function createEnhancedOAuthClient(config: EnhancedOAuthConfig): EnhancedOAuthClient {
+export function createEnhancedOAuthClient(
+  config: EnhancedOAuthConfig
+): EnhancedOAuthClient {
   return new EnhancedOAuthClient(config);
 }

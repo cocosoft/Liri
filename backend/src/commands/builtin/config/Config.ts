@@ -99,7 +99,10 @@ const setConfig = async (
       };
     }
 
-    const result = await configTool.execute({ action: 'set', key, value }, {} as any);
+    const result = await configTool.execute(
+      { action: 'set', key, value },
+      {} as any
+    );
 
     if (result.success) {
       return {

@@ -125,7 +125,7 @@ export class EnhancedCommandRegistry implements IEnhancedCommandRegistry {
       if (
         cmd.name.toLowerCase().includes(lower) ||
         cmd.description.toLowerCase().includes(lower) ||
-        cmd.tags?.some(t => t.toLowerCase().includes(lower)) ||
+        cmd.tags?.some((t) => t.toLowerCase().includes(lower)) ||
         cmd.author?.toLowerCase().includes(lower)
       ) {
         result.push(cmd);

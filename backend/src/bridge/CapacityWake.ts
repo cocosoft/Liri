@@ -24,7 +24,7 @@ export class CapacityWake {
           return true;
         }
       } catch {}
-      await new Promise(r => setTimeout(r, 1_000));
+      await new Promise((r) => setTimeout(r, 1_000));
     }
     return false;
   }

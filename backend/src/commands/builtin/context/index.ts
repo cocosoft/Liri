@@ -14,5 +14,8 @@ export const contextCommand: Command = {
   aliases: ['ctx'],
   argumentHint: '[show|clear|compact|info|trim <tokens>]',
   whenToUse: '当你需要管理会话上下文时',
-  load: async () => import('./Context.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Context.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };

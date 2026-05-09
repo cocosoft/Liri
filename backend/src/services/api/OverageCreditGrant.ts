@@ -7,26 +7,26 @@
 
 export interface OverageCreditGrant {
   /** 授予的额度（Token 数或美元） */
-  amount: number
+  amount: number;
   /** 授予时间 */
-  grantedAt: Date
+  grantedAt: Date;
   /** 有效期（毫秒），undefined 表示永不过期 */
-  expiresAt?: Date
+  expiresAt?: Date;
   /** 授予原因 */
-  reason: string
+  reason: string;
   /** 消耗的额度 */
-  consumed?: number
+  consumed?: number;
 }
 
 export interface OverageCreditLimit {
   /** 最大授予次数 */
-  maxGrants: number
+  maxGrants: number;
   /** 单次最大额度 */
-  maxAmountPerGrant: number
+  maxAmountPerGrant: number;
   /** 周期内最大额度（毫秒） */
-  maxAmountPerPeriod: number
+  maxAmountPerPeriod: number;
   /** 周期长度 */
-  periodMs: number
+  periodMs: number;
 }
 
 export const DEFAULT_CREDIT_LIMIT: OverageCreditLimit = {
@@ -34,38 +34,35 @@ export const DEFAULT_CREDIT_LIMIT: OverageCreditLimit = {
   maxAmountPerGrant: 100000, // 100K tokens
   maxAmountPerPeriod: 300000, // 300K tokens
   periodMs: 24 * 60 * 60 * 1000, // 24 hours
-}
+};
 
 export class OverageCreditGrantService {
-  private grants: OverageCreditGrant[] = []
-  private limit: OverageCreditLimit
+  private grants: OverageCreditGrant[] = [];
+  private limit: OverageCreditLimit;
 
   constructor(limit?: Partial<OverageCreditLimit>) {
-    this.limit = { ...DEFAULT_CREDIT_LIMIT, ...limit }
+    this.limit = { ...DEFAULT_CREDIT_LIMIT, ...limit };
   }
 
   requestGrant(amount: number, reason: string): OverageCreditGrant | null {
-    const now = new Date()
+    const now = new Date();
 
     // 检查授予次数限制
     const recentGrants = this.grants.filter(
-      (g) => g.grantedAt.getTime() > now.getTime() - this.limit.periodMs,
-    )
+      (g) => g.grantedAt.getTime() > now.getTime() - this.limit.periodMs
+    );
 
     if (recentGrants.length >= this.limit.maxGrants) {
-      return null
+      return null;
     }
 
     // 检查单次额度限制
-    const cappedAmount = Math.min(amount, this.limit.maxAmountPerGrant)
+    const cappedAmount = Math.min(amount, this.limit.maxAmountPerGrant);
 
     // 检查周期内总额度限制
-    const periodTotal = recentGrants.reduce(
-      (sum, g) => sum + g.amount,
-      0,
-    )
+    const periodTotal = recentGrants.reduce((sum, g) => sum + g.amount, 0);
     if (periodTotal + cappedAmount > this.limit.maxAmountPerPeriod) {
-      return null
+      return null;
     }
 
     const grant: OverageCreditGrant = {
@@ -73,42 +70,40 @@ export class OverageCreditGrantService {
       grantedAt: now,
       reason,
       consumed: 0,
-    }
+    };
 
-    this.grants.push(grant)
-    return grant
+    this.grants.push(grant);
+    return grant;
   }
 
   consumeCredit(grantIndex: number, amount: number): boolean {
-    const grant = this.grants[grantIndex]
-    if (!grant) return false
+    const grant = this.grants[grantIndex];
+    if (!grant) return false;
 
-    const consumed = (grant.consumed || 0) + amount
-    if (consumed > grant.amount) return false
+    const consumed = (grant.consumed || 0) + amount;
+    if (consumed > grant.amount) return false;
 
-    grant.consumed = consumed
-    return true
+    grant.consumed = consumed;
+    return true;
   }
 
   getRemainingCredits(): number {
     return this.grants.reduce(
       (sum, g) => sum + (g.amount - (g.consumed || 0)),
-      0,
-    )
+      0
+    );
   }
 
   getGrantHistory(): OverageCreditGrant[] {
-    return [...this.grants].reverse()
+    return [...this.grants].reverse();
   }
 
   clearExpired(): void {
-    const now = new Date()
-    this.grants = this.grants.filter(
-      (g) => !g.expiresAt || g.expiresAt > now,
-    )
+    const now = new Date();
+    this.grants = this.grants.filter((g) => !g.expiresAt || g.expiresAt > now);
   }
 
   reset(): void {
-    this.grants = []
+    this.grants = [];
   }
 }

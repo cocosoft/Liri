@@ -17,7 +17,8 @@ import {
 export const ENTRYPOINT_NAME = 'MEMORY.md';
 export const MAX_ENTRYPOINT_LINES = 200;
 export const MAX_ENTRYPOINT_BYTES = 25000;
-export const DIR_EXISTS_GUIDANCE = 'This directory already exists — write to it directly with the Write tool (do not run mkdir or check for its existence).';
+export const DIR_EXISTS_GUIDANCE =
+  'This directory already exists — write to it directly with the Write tool (do not run mkdir or check for its existence).';
 
 export interface EntrypointTruncation {
   content: string;
@@ -40,7 +41,13 @@ export function truncateEntrypointContent(raw: string): EntrypointTruncation {
   const wasByteTruncated = byteCount > MAX_ENTRYPOINT_BYTES;
 
   if (!wasLineTruncated && !wasByteTruncated) {
-    return { content: trimmed, lineCount, byteCount, wasLineTruncated, wasByteTruncated };
+    return {
+      content: trimmed,
+      lineCount,
+      byteCount,
+      wasLineTruncated,
+      wasByteTruncated,
+    };
   }
 
   let truncated = wasLineTruncated
@@ -52,15 +59,19 @@ export function truncateEntrypointContent(raw: string): EntrypointTruncation {
     truncated = truncated.slice(0, cutAt > 0 ? cutAt : MAX_ENTRYPOINT_BYTES);
   }
 
-  const reason = wasByteTruncated && !wasLineTruncated
-    ? `${byteCount} bytes (limit: ${MAX_ENTRYPOINT_BYTES}) — index entries are too long`
-    : wasLineTruncated && !wasByteTruncated
-      ? `${lineCount} lines (limit: ${MAX_ENTRYPOINT_LINES})`
-      : `${lineCount} lines and ${byteCount} bytes`;
+  const reason =
+    wasByteTruncated && !wasLineTruncated
+      ? `${byteCount} bytes (limit: ${MAX_ENTRYPOINT_BYTES}) — index entries are too long`
+      : wasLineTruncated && !wasByteTruncated
+        ? `${lineCount} lines (limit: ${MAX_ENTRYPOINT_LINES})`
+        : `${lineCount} lines and ${byteCount} bytes`;
 
   return {
     content: `${truncated}\n\n> WARNING: ${ENTRYPOINT_NAME} is ${reason}. Only part of it was loaded. Keep index entries to one line under ~200 chars; move detail into topic files.`,
-    lineCount, byteCount, wasLineTruncated, wasByteTruncated,
+    lineCount,
+    byteCount,
+    wasLineTruncated,
+    wasByteTruncated,
   };
 }
 
@@ -89,7 +100,7 @@ export function buildMemoryLines(
   displayName: string,
   memoryDir: string,
   extraGuidelines?: string[],
-  skipIndex = false,
+  skipIndex = false
 ): string[] {
   const howToSave = skipIndex
     ? [
@@ -178,7 +189,7 @@ export function buildMemoryPrompt(params: {
     lines.push(
       `## ${ENTRYPOINT_NAME}`,
       '',
-      `Your ${ENTRYPOINT_NAME} is currently empty. When you save new memories, they will appear here.`,
+      `Your ${ENTRYPOINT_NAME} is currently empty. When you save new memories, they will appear here.`
     );
   }
 
@@ -204,7 +215,10 @@ export class MemoryPromptBuilder {
    */
   buildSystemPrompt(memoryDir?: string): string {
     const dir = memoryDir || join(process.cwd(), 'memory');
-    return buildMemoryPrompt({ displayName: 'persistent memory', memoryDir: dir });
+    return buildMemoryPrompt({
+      displayName: 'persistent memory',
+      memoryDir: dir,
+    });
   }
 
   /**

@@ -78,7 +78,9 @@ export const Feedback: React.FC<FeedbackProps> = ({
     <div className="feedback-container">
       <div className="feedback-header">
         <h3>提交反馈</h3>
-        <button className="close-button" onClick={onCancel}>×</button>
+        <button className="close-button" onClick={onCancel}>
+          ×
+        </button>
       </div>
 
       <div className="feedback-body">
@@ -161,6 +163,8 @@ export const Feedback: React.FC<FeedbackProps> = ({
 /**
  * 创建反馈组件
  */
-export function createFeedback(props?: Partial<FeedbackProps>): React.ReactElement {
+export function createFeedback(
+  props?: Partial<FeedbackProps>
+): React.ReactElement {
   return <Feedback {...props} />;
 }

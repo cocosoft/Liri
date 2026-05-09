@@ -60,7 +60,12 @@ export * from './lifecycle';
 export { EnhancedCronScheduler } from './EnhancedCronScheduler';
 
 // 增强任务
-export type { EnhancedCronTask, TaskExecutionStatus, RetryPolicy, TaskExecutionRecord } from './EnhancedCronTask';
+export type {
+  EnhancedCronTask,
+  TaskExecutionStatus,
+  RetryPolicy,
+  TaskExecutionRecord,
+} from './EnhancedCronTask';
 export {
   createEnhancedCronTask,
   DEFAULT_RETRY_POLICY,

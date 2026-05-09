@@ -84,7 +84,9 @@ export function getNonDeferredTools(tools: readonly Tool[]): Tool[] {
  * @param tools 工具列表
  * @returns 延迟工具描述总字符数
  */
-export function calculateDeferredToolDescriptionChars(tools: readonly Tool[]): number {
+export function calculateDeferredToolDescriptionChars(
+  tools: readonly Tool[]
+): number {
   const deferredTools = getDeferredTools(tools);
 
   if (deferredTools.length === 0) {
@@ -173,7 +175,9 @@ export function isToolSearchEnabledOptimistic(): boolean {
  * @param tools 工具列表
  * @returns 是否可用
  */
-export function isToolSearchToolAvailable(tools: readonly { name: string }[]): boolean {
+export function isToolSearchToolAvailable(
+  tools: readonly { name: string }[]
+): boolean {
   return tools.some((tool) => tool.name === TOOL_SEARCH_TOOL_NAME);
 }
 
@@ -220,7 +224,10 @@ export function getAutoToolSearchCharThreshold(model: string): number {
  * @param tools 工具列表
  * @returns 是否启用
  */
-export function shouldEnableToolSearch(model: string, tools: readonly Tool[]): boolean {
+export function shouldEnableToolSearch(
+  model: string,
+  tools: readonly Tool[]
+): boolean {
   // 检查模式
   const mode = getToolSearchMode();
 

@@ -24,7 +24,7 @@ export interface RequiresActionDetails {
  */
 type SessionStateChangedListener = (
   state: SessionState,
-  details?: RequiresActionDetails,
+  details?: RequiresActionDetails
 ) => void;
 
 /**
@@ -58,11 +58,14 @@ export class ChatSessionStateManager {
   /**
    * 通知会话状态变更
    */
-  notifyStateChanged(state: SessionState, details?: RequiresActionDetails): void {
+  notifyStateChanged(
+    state: SessionState,
+    details?: RequiresActionDetails
+  ): void {
     this.currentState = state;
 
     // 通知所有监听器
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(state, details);
       } catch (error) {
@@ -136,7 +139,7 @@ export class ChatSessionStateManager {
   reset(): void {
     this.currentState = 'idle';
     this.hasPendingAction = false;
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener('idle');
       } catch (error) {
@@ -166,7 +169,7 @@ export function getSessionState(): SessionState {
  */
 export function notifySessionStateChanged(
   state: SessionState,
-  details?: RequiresActionDetails,
+  details?: RequiresActionDetails
 ): void {
   const manager = getChatSessionStateManager();
   manager.notifyStateChanged(state, details);

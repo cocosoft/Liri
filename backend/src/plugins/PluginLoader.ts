@@ -16,7 +16,13 @@ import { PluginErrorFactory, PluginErrorHandler } from './PluginErrorHandler';
 /**
  * 插件来源类型
  */
-export type PluginSourceType = 'local' | 'git' | 'github' | 'npm' | 'git-subdir' | 'url';
+export type PluginSourceType =
+  | 'local'
+  | 'git'
+  | 'github'
+  | 'npm'
+  | 'git-subdir'
+  | 'url';
 
 /**
  * 插件源配置
@@ -39,7 +45,12 @@ export class PluginLoader {
   private cacheDir: string;
 
   constructor() {
-    this.cacheDir = join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'plugins', 'cache');
+    this.cacheDir = join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.py_app',
+      'plugins',
+      'cache'
+    );
     if (!existsSync(this.cacheDir)) {
       mkdirSync(this.cacheDir, { recursive: true });
     }
@@ -70,7 +81,7 @@ export class PluginLoader {
       if (!existsSync(manifestPath)) {
         throw PluginErrorFactory.createManifestNotFoundError(manifestPath, {
           pluginName,
-          source
+          source,
         });
       }
 
@@ -102,25 +113,30 @@ export class PluginLoader {
         };
 
         // 解析插件依赖
-        const dependencyResult = await pluginDependencyManager.resolveDependencies(plugin);
-        
+        const dependencyResult =
+          await pluginDependencyManager.resolveDependencies(plugin);
+
         // 处理依赖解析结果
         if (dependencyResult.errors.length > 0) {
           logger.error(`Dependency resolution errors for ${plugin.name}:`);
-          dependencyResult.errors.forEach(error => logger.error(`- ${error}`));
+          dependencyResult.errors.forEach((error) =>
+            logger.error(`- ${error}`)
+          );
           // 对于必需依赖的错误，抛出异常
           throw PluginErrorFactory.createDependencyNotFoundError(
             'Dependencies',
             {
               pluginName: plugin.name,
-              cause: new Error(dependencyResult.errors[0])
+              cause: new Error(dependencyResult.errors[0]),
             }
           );
         }
-        
+
         if (dependencyResult.warnings.length > 0) {
           logger.warn(`Dependency resolution warnings for ${plugin.name}:`);
-          dependencyResult.warnings.forEach(warning => logger.warn(`- ${warning}`));
+          dependencyResult.warnings.forEach((warning) =>
+            logger.warn(`- ${warning}`)
+          );
         }
 
         return plugin;
@@ -131,7 +147,7 @@ export class PluginLoader {
             {
               pluginName,
               source,
-              details: error
+              details: error,
             }
           );
         }
@@ -148,7 +164,9 @@ export class PluginLoader {
    * @param pluginPaths 插件路径或源配置数组
    * @returns 加载的插件数组
    */
-  async loadAll(pluginPaths: Array<string | PluginSource>): Promise<LoadedPlugin[]> {
+  async loadAll(
+    pluginPaths: Array<string | PluginSource>
+  ): Promise<LoadedPlugin[]> {
     const plugins: LoadedPlugin[] = [];
     const errors: Error[] = [];
 
@@ -158,7 +176,10 @@ export class PluginLoader {
         const plugin = await this.load(path);
         plugins.push(plugin);
       } catch (error) {
-        logger.error(`Error loading plugin:`, error instanceof Error ? error : undefined);
+        logger.error(
+          `Error loading plugin:`,
+          error instanceof Error ? error : undefined
+        );
         errors.push(error as Error);
       }
     });
@@ -178,14 +199,14 @@ export class PluginLoader {
     switch (source.type) {
       case 'local':
         return source.url;
-      
+
       case 'git':
       case 'github':
       case 'npm':
       case 'git-subdir':
       case 'url':
         return this.fetchFromExternalSource(source);
-      
+
       default:
         throw new Error(`Unsupported plugin source type: ${source.type}`);
     }
@@ -199,7 +220,7 @@ export class PluginLoader {
     if (pluginCacheManager.isZipCached(source)) {
       const zipPath = pluginCacheManager.getZipCachePath(source);
       const cachePath = pluginCacheManager.getCachePath(source);
-      
+
       // 解压ZIP到缓存目录
       await pluginCacheManager.extractFromZip(zipPath, cachePath);
       logger.info(`Using ZIP cached plugin: ${source.url}`);
@@ -207,15 +228,20 @@ export class PluginLoader {
     }
 
     // 检查普通缓存是否有效
-    if (pluginCacheManager.isCached(source) && pluginCacheManager.validateCache(source)) {
+    if (
+      pluginCacheManager.isCached(source) &&
+      pluginCacheManager.validateCache(source)
+    ) {
       const cachePath = pluginCacheManager.getCachePath(source);
       const cacheInfo = pluginCacheManager.getCacheInfo(source);
-      logger.info(`Using cached plugin: ${cacheInfo?.pluginName || source.url}`);
+      logger.info(
+        `Using cached plugin: ${cacheInfo?.pluginName || source.url}`
+      );
       return cachePath;
     }
 
     let cachePath: string;
-    
+
     switch (source.type) {
       case 'git':
         cachePath = this.fetchFromGit(source);
@@ -238,11 +264,11 @@ export class PluginLoader {
 
     // 写入缓存信息
     pluginCacheManager.writeCacheInfo(source);
-    
+
     // 创建ZIP缓存
     const zipPath = pluginCacheManager.getZipCachePath(source);
     await pluginCacheManager.compressToZip(cachePath, zipPath);
-    
+
     return cachePath;
   }
 
@@ -250,11 +276,12 @@ export class PluginLoader {
    * 从Git仓库获取插件
    */
   private fetchFromGit(source: PluginSource): string {
-    const pluginName = source.name || basename(source.url).replace(/\.git$/, '');
+    const pluginName =
+      source.name || basename(source.url).replace(/\.git$/, '');
     const cachePath = pluginCacheManager.getCachePath(source);
 
     logger.info(`Cloning git plugin: ${source.url}`);
-    
+
     // 克隆仓库
     const tempPath = join(this.cacheDir, `${pluginName}_temp`);
     if (existsSync(tempPath)) {
@@ -263,33 +290,41 @@ export class PluginLoader {
 
     try {
       // 使用浅克隆减少下载时间
-      execSync(`git clone --depth 1 "${source.url}" "${tempPath}"`, { stdio: 'inherit' });
-      
+      execSync(`git clone --depth 1 "${source.url}" "${tempPath}"`, {
+        stdio: 'inherit',
+      });
+
       if (source.branch) {
-        execSync(`git -C "${tempPath}" checkout "${source.branch}"`, { stdio: 'inherit' });
+        execSync(`git -C "${tempPath}" checkout "${source.branch}"`, {
+          stdio: 'inherit',
+        });
       }
-      
+
       if (source.version) {
-        execSync(`git -C "${tempPath}" checkout "${source.version}"`, { stdio: 'inherit' });
+        execSync(`git -C "${tempPath}" checkout "${source.version}"`, {
+          stdio: 'inherit',
+        });
       }
-      
+
       if (source.sha) {
-        execSync(`git -C "${tempPath}" checkout "${source.sha}"`, { stdio: 'inherit' });
+        execSync(`git -C "${tempPath}" checkout "${source.sha}"`, {
+          stdio: 'inherit',
+        });
       }
-      
+
       // 移动到缓存路径
       if (existsSync(cachePath)) {
         execSync(`rm -rf "${cachePath}"`, { stdio: 'ignore' });
       }
-      
+
       // 确保父目录存在
       const parentDir = dirname(cachePath);
       if (!existsSync(parentDir)) {
         mkdirSync(parentDir, { recursive: true });
       }
-      
+
       execSync(`mv "${tempPath}" "${cachePath}"`, { stdio: 'ignore' });
-      
+
       return cachePath;
     } catch (error) {
       if (existsSync(tempPath)) {
@@ -306,9 +341,10 @@ export class PluginLoader {
     // 转换GitHub URL为Git URL
     let gitUrl = source.url;
     if (gitUrl.startsWith('https://github.com/')) {
-      gitUrl = gitUrl.replace('https://github.com/', 'git@github.com:') + '.git';
+      gitUrl =
+        gitUrl.replace('https://github.com/', 'git@github.com:') + '.git';
     }
-    
+
     return this.fetchFromGit({ ...source, url: gitUrl, type: 'git' });
   }
 
@@ -320,7 +356,7 @@ export class PluginLoader {
     const cachePath = pluginCacheManager.getCachePath(source);
 
     logger.info(`Installing NPM plugin: ${pluginName}`);
-    
+
     // 使用npm install安装到临时目录
     const tempPath = join(this.cacheDir, `${pluginName}_temp`);
     if (existsSync(tempPath)) {
@@ -329,36 +365,41 @@ export class PluginLoader {
 
     try {
       mkdirSync(tempPath, { recursive: true });
-      
+
       const versionSpec = source.version ? `@${source.version}` : '';
-      const registryFlag = source.registry ? `--registry ${source.registry}` : '';
-      execSync(`npm install "${pluginName}${versionSpec}" ${registryFlag} --prefix "${tempPath}"`, { 
-        stdio: 'inherit',
-        cwd: tempPath
-      });
-      
+      const registryFlag = source.registry
+        ? `--registry ${source.registry}`
+        : '';
+      execSync(
+        `npm install "${pluginName}${versionSpec}" ${registryFlag} --prefix "${tempPath}"`,
+        {
+          stdio: 'inherit',
+          cwd: tempPath,
+        }
+      );
+
       // 找到实际的插件目录
       const nodeModulesPath = join(tempPath, 'node_modules', pluginName);
       if (!existsSync(nodeModulesPath)) {
         throw new Error(`NPM package not found: ${pluginName}`);
       }
-      
+
       // 移动到缓存路径
       if (existsSync(cachePath)) {
         execSync(`rm -rf "${cachePath}"`, { stdio: 'ignore' });
       }
-      
+
       // 确保父目录存在
       const parentDir = dirname(cachePath);
       if (!existsSync(parentDir)) {
         mkdirSync(parentDir, { recursive: true });
       }
-      
+
       execSync(`mv "${nodeModulesPath}" "${cachePath}"`, { stdio: 'ignore' });
-      
+
       // 清理临时目录
       execSync(`rm -rf "${tempPath}"`, { stdio: 'ignore' });
-      
+
       return cachePath;
     } catch (error) {
       if (existsSync(tempPath)) {
@@ -376,15 +417,16 @@ export class PluginLoader {
       throw new Error('Git subdir source requires a path');
     }
 
-    const pluginName = source.name || basename(source.url).replace(/\.git$/, '');
+    const pluginName =
+      source.name || basename(source.url).replace(/\.git$/, '');
     const cachePath = pluginCacheManager.getCachePath(source);
 
     logger.info(`Cloning git subdir plugin: ${source.url}#${source.path}`);
-    
+
     // 克隆仓库到临时目录
     const tempPath = join(this.cacheDir, `${pluginName}_temp`);
     const subdirTempPath = join(tempPath, source.path);
-    
+
     if (existsSync(tempPath)) {
       execSync(`rm -rf "${tempPath}"`, { stdio: 'ignore' });
     }
@@ -392,36 +434,40 @@ export class PluginLoader {
     try {
       // 克隆仓库
       execSync(`git clone "${source.url}" "${tempPath}"`, { stdio: 'inherit' });
-      
+
       if (source.branch) {
-        execSync(`git -C "${tempPath}" checkout "${source.branch}"`, { stdio: 'inherit' });
+        execSync(`git -C "${tempPath}" checkout "${source.branch}"`, {
+          stdio: 'inherit',
+        });
       }
-      
+
       if (source.sha) {
-        execSync(`git -C "${tempPath}" checkout "${source.sha}"`, { stdio: 'inherit' });
+        execSync(`git -C "${tempPath}" checkout "${source.sha}"`, {
+          stdio: 'inherit',
+        });
       }
-      
+
       // 检查子目录是否存在
       if (!existsSync(subdirTempPath)) {
         throw new Error(`Subdirectory not found: ${source.path}`);
       }
-      
+
       // 移动子目录到缓存路径
       if (existsSync(cachePath)) {
         execSync(`rm -rf "${cachePath}"`, { stdio: 'ignore' });
       }
-      
+
       // 确保父目录存在
       const parentDir = dirname(cachePath);
       if (!existsSync(parentDir)) {
         mkdirSync(parentDir, { recursive: true });
       }
-      
+
       execSync(`mv "${subdirTempPath}" "${cachePath}"`, { stdio: 'ignore' });
-      
+
       // 清理临时目录
       execSync(`rm -rf "${tempPath}"`, { stdio: 'ignore' });
-      
+
       return cachePath;
     } catch (error) {
       if (existsSync(tempPath)) {

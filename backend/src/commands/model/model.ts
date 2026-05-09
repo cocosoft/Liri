@@ -7,12 +7,20 @@
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { modelManager } from '@modules/ai/models/ModelManager.js';
 import { MODEL_ALIASES } from '@modules/ai/models/ModelAliases.js';
-import { ALL_MODEL_CONFIGS, getModelKeyByName, type ModelKey } from '@modules/ai/models/ModelConfigs.js';
+import {
+  ALL_MODEL_CONFIGS,
+  getModelKeyByName,
+  type ModelKey,
+} from '@modules/ai/models/ModelConfigs.js';
 
 /**
  * 解析命令参数
  */
-function parseFlags(args: string): { showJson: boolean; subcommand: string; modelArg: string } {
+function parseFlags(args: string): {
+  showJson: boolean;
+  subcommand: string;
+  modelArg: string;
+} {
   const trimmed = args.trim();
   const showJson = /(^|\s)--json(\s|$)/.test(trimmed);
   const cleaned = trimmed.replace(/--json\s*/g, '').trim();
@@ -62,7 +70,7 @@ function modelsToJson(currentModel: string): Record<string, unknown> {
   const availableModels = modelManager.getModelInfoList();
   return {
     currentModel,
-    availableModels: availableModels.map(m => ({
+    availableModels: availableModels.map((m) => ({
       id: m.id,
       name: m.name,
       description: m.description,
@@ -75,7 +83,13 @@ function modelsToJson(currentModel: string): Record<string, unknown> {
 /**
  * 获取模型详细信息（上下文窗口、最大输出、定价）
  */
-function getModelDetail(modelId: string): { id: string; displayName: string; contextWindow: number; maxOutputTokens: number; pricing: string } | null {
+function getModelDetail(modelId: string): {
+  id: string;
+  displayName: string;
+  contextWindow: number;
+  maxOutputTokens: number;
+  pricing: string;
+} | null {
   const modelKey = getModelKeyByName(modelId);
   if (!modelKey) return null;
 
@@ -144,7 +158,9 @@ function handleAll(): CommandResult {
       lines.push(`    ${p}`);
     }
     if (config.pricing) {
-      lines.push(`    定价: 输入 $${config.pricing.inputPer1K}/1K, 输出 $${config.pricing.outputPer1K}/1K`);
+      lines.push(
+        `    定价: 输入 $${config.pricing.inputPer1K}/1K, 输出 $${config.pricing.outputPer1K}/1K`
+      );
     }
     lines.push('');
   }
@@ -161,14 +177,18 @@ function showCurrentModel(showJson: boolean): CommandResult {
   const aliasList = [...MODEL_ALIASES].join(', ');
 
   if (showJson) {
-    return { success: true, message: JSON.stringify(modelsToJson(currentModel), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(modelsToJson(currentModel), null, 2),
+    };
   }
 
-  const currentInfo = availableModels.find(m => m.id === currentModel);
-  const currentName = currentInfo?.name || modelManager.getModelDisplayName(currentModel);
+  const currentInfo = availableModels.find((m) => m.id === currentModel);
+  const currentName =
+    currentInfo?.name || modelManager.getModelDisplayName(currentModel);
 
   const modelsList = availableModels
-    .map(m => {
+    .map((m) => {
       const marker = m.id === currentModel ? '●' : '○';
       return `  ${marker} ${m.id}: ${m.name}`;
     })
@@ -188,7 +208,7 @@ function switchModel(modelArg: string): CommandResult {
   if (!resolved) {
     const availableModels = modelManager.getModelInfoList();
     const modelsList = availableModels
-      .map(m => `  - ${m.id}: ${m.name}`)
+      .map((m) => `  - ${m.id}: ${m.name}`)
       .join('\n');
     const aliasList = [...MODEL_ALIASES].join(', ');
 
@@ -199,8 +219,11 @@ function switchModel(modelArg: string): CommandResult {
   }
 
   modelManager.setCurrentModel(resolved);
-  const modelInfo = modelManager.getModelInfoList().find(m => m.id === resolved);
-  const displayName = modelInfo?.name || modelManager.getModelDisplayName(resolved);
+  const modelInfo = modelManager
+    .getModelInfoList()
+    .find((m) => m.id === resolved);
+  const displayName =
+    modelInfo?.name || modelManager.getModelDisplayName(resolved);
 
   return {
     success: true,
@@ -212,7 +235,10 @@ function switchModel(modelArg: string): CommandResult {
  * Model 命令实现
  */
 const modelCommand = {
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     try {
       const { showJson, subcommand, modelArg } = parseFlags(args);
 
@@ -220,7 +246,11 @@ const modelCommand = {
 
       try {
         const { logEvent } = await import('@modules/analytics/index.js');
-        logEvent('tengu_model_command_inline', { subcommand: subcommand || 'list', showJson, args: subcommand || '' });
+        logEvent('tengu_model_command_inline', {
+          subcommand: subcommand || 'list',
+          showJson,
+          args: subcommand || '',
+        });
       } catch {}
 
       if (subcommand === 'info') return handleInfo(modelArg);
@@ -231,7 +261,10 @@ const modelCommand = {
 
       return showCurrentModel(showJson);
     } catch (error) {
-      return { success: false, message: `Model 命令执行失败: ${error instanceof Error ? error.message : String(error)}` };
+      return {
+        success: false,
+        message: `Model 命令执行失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
     }
   },
 };

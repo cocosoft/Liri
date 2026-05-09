@@ -12,8 +12,8 @@
 
 ```typescript
 {
-  line: number      // 行号，从0开始，必须 >= 0
-  character: number // 字符位置，从0开始，必须 >= 0
+  line: number; // 行号，从0开始，必须 >= 0
+  character: number; // 字符位置，从0开始，必须 >= 0
 }
 ```
 
@@ -23,8 +23,8 @@
 
 ```typescript
 {
-  start: Position   // 起始位置
-  end: Position     // 结束位置
+  start: Position; // 起始位置
+  end: Position; // 结束位置
 }
 ```
 
@@ -34,8 +34,8 @@
 
 ```typescript
 {
-  uri: string       // 文件URI，必须是有效的URI格式
-  range: Range      // 位置范围
+  uri: string; // 文件URI，必须是有效的URI格式
+  range: Range; // 位置范围
 }
 ```
 
@@ -76,13 +76,15 @@
 验证位置对象。
 
 ```typescript
-function validatePosition(position: unknown): position is Position
+function validatePosition(position: unknown): position is Position;
 ```
 
 **参数:**
+
 - `position`: 待验证的位置对象
 
 **返回值:**
+
 - `true` 表示验证通过
 - `false` 表示验证失败
 
@@ -91,7 +93,7 @@ function validatePosition(position: unknown): position is Position
 验证范围对象。
 
 ```typescript
-function validateRange(range: unknown): range is Range
+function validateRange(range: unknown): range is Range;
 ```
 
 ### validateLocation
@@ -99,7 +101,7 @@ function validateRange(range: unknown): range is Range
 验证位置信息对象。
 
 ```typescript
-function validateLocation(location: unknown): location is Location
+function validateLocation(location: unknown): location is Location;
 ```
 
 ### validateDiagnostic
@@ -107,7 +109,7 @@ function validateLocation(location: unknown): location is Location
 验证诊断对象。
 
 ```typescript
-function validateDiagnostic(diagnostic: unknown): diagnostic is Diagnostic
+function validateDiagnostic(diagnostic: unknown): diagnostic is Diagnostic;
 ```
 
 ### validateCompletionItem
@@ -115,7 +117,7 @@ function validateDiagnostic(diagnostic: unknown): diagnostic is Diagnostic
 验证代码补全项。
 
 ```typescript
-function validateCompletionItem(item: unknown): item is CompletionItem
+function validateCompletionItem(item: unknown): item is CompletionItem;
 ```
 
 ## 请求验证函数
@@ -125,18 +127,20 @@ function validateCompletionItem(item: unknown): item is CompletionItem
 验证文档操作请求。
 
 ```typescript
-function validateDocumentOperationRequest(request: unknown): ValidationResult
+function validateDocumentOperationRequest(request: unknown): ValidationResult;
 ```
 
 **请求格式:**
+
 ```typescript
 {
-  uri: string              // 文件URI
-  position: Position       // 位置信息
+  uri: string; // 文件URI
+  position: Position; // 位置信息
 }
 ```
 
 **返回值:**
+
 ```typescript
 {
   valid: boolean           // 是否验证通过
@@ -149,16 +153,17 @@ function validateDocumentOperationRequest(request: unknown): ValidationResult
 验证格式化请求。
 
 ```typescript
-function validateFormattingRequest(request: unknown): ValidationResult
+function validateFormattingRequest(request: unknown): ValidationResult;
 ```
 
 **请求格式:**
+
 ```typescript
 {
-  uri: string              // 文件URI
+  uri: string; // 文件URI
   options: {
-    tabSize: number        // Tab大小，必须 >= 1
-    insertSpaces: boolean  // 是否插入空格
+    tabSize: number; // Tab大小，必须 >= 1
+    insertSpaces: boolean; // 是否插入空格
   }
 }
 ```
@@ -168,15 +173,16 @@ function validateFormattingRequest(request: unknown): ValidationResult
 验证重命名请求。
 
 ```typescript
-function validateRenameRequest(request: unknown): ValidationResult
+function validateRenameRequest(request: unknown): ValidationResult;
 ```
 
 **请求格式:**
+
 ```typescript
 {
-  uri: string              // 文件URI
-  position: Position       // 位置信息
-  newName: string          // 新名称，不能为空
+  uri: string; // 文件URI
+  position: Position; // 位置信息
+  newName: string; // 新名称，不能为空
 }
 ```
 
@@ -185,10 +191,11 @@ function validateRenameRequest(request: unknown): ValidationResult
 验证代码操作请求。
 
 ```typescript
-function validateCodeActionRequest(request: unknown): ValidationResult
+function validateCodeActionRequest(request: unknown): ValidationResult;
 ```
 
 **请求格式:**
+
 ```typescript
 {
   uri: string              // 文件URI
@@ -202,10 +209,10 @@ function validateCodeActionRequest(request: unknown): ValidationResult
 ## 使用示例
 
 ```typescript
-import { 
-  validatePosition, 
+import {
+  validatePosition,
   validateDocumentOperationRequest,
-  PositionSchema 
+  PositionSchema,
 } from './schemas';
 
 // 验证位置
@@ -217,7 +224,7 @@ if (validatePosition(position)) {
 // 验证请求
 const request = {
   uri: 'file:///path/to/file.ts',
-  position: { line: 10, character: 15 }
+  position: { line: 10, character: 15 },
 };
 
 const result = validateDocumentOperationRequest(request);

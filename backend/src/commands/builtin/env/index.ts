@@ -10,7 +10,7 @@ const envCommand: Command = {
   description: '显示应用环境配置，使用 --all 查看全部',
   aliases: ['environment'],
   argumentHint: '[--all|-a|--json|help]',
-  load: () => import('./Env.js').then(m => m.default),
+  load: () => import('./Env.js').then((m) => m.default),
 };
 
 export { envCommand };

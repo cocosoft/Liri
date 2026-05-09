@@ -15,6 +15,6 @@ export function getGraphemeSegmenter() {
         segments.push({ segment: text[i] });
       }
       return segments;
-    }
+    },
   };
 }

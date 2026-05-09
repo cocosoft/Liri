@@ -71,12 +71,17 @@ const voiceCommand = {
 
       return {
         success: true,
-        message: '未知参数 "' + subcommand + '"。\n用法: /voice [enable|disable|status|help]',
+        message:
+          '未知参数 "' +
+          subcommand +
+          '"。\n用法: /voice [enable|disable|status|help]',
       };
     } catch (error) {
       return {
         success: false,
-        message: '操作失败: ' + (error instanceof Error ? error.message : String(error)),
+        message:
+          '操作失败: ' +
+          (error instanceof Error ? error.message : String(error)),
       };
     }
   },
@@ -121,10 +126,13 @@ async function handleDisable(config: any) {
     voiceEnabled: false,
   }));
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_voice_toggled', {
-    enabled: false,
-    source: 'command',
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_voice_toggled',
+    {
+      enabled: false,
+      source: 'command',
+    }
+  );
 
   return {
     success: true,
@@ -147,7 +155,9 @@ async function handleEnable(config: any) {
   if (!availability.available) {
     return {
       success: false,
-      message: '语音模式不可用' + (availability.reason ? ': ' + availability.reason : '。'),
+      message:
+        '语音模式不可用' +
+        (availability.reason ? ': ' + availability.reason : '。'),
     };
   }
 
@@ -155,7 +165,9 @@ async function handleEnable(config: any) {
   if (!deps.available) {
     return {
       success: false,
-      message: '未找到录音工具。' + (deps.installCommand ? '\n安装: ' + deps.installCommand : ''),
+      message:
+        '未找到录音工具。' +
+        (deps.installCommand ? '\n安装: ' + deps.installCommand : ''),
     };
   }
 
@@ -164,10 +176,13 @@ async function handleEnable(config: any) {
     voiceEnabled: true,
   }));
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_voice_toggled', {
-    enabled: true,
-    source: 'command',
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_voice_toggled',
+    {
+      enabled: true,
+      source: 'command',
+    }
+  );
 
   return {
     success: true,

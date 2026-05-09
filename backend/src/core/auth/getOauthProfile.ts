@@ -8,7 +8,11 @@ import { request as httpsRequest } from 'https';
 import { request as httpRequest } from 'http';
 import type { OAuthConfig, OAuthProfileResponse } from './oauth-types.js';
 
-function httpGetJson(url: string, headers: Record<string, string> = {}, timeout: number = 10000): Promise<unknown> {
+function httpGetJson(
+  url: string,
+  headers: Record<string, string> = {},
+  timeout: number = 10000
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(url);
     const isHttps = parsedUrl.protocol === 'https:';
@@ -35,7 +39,9 @@ function httpGetJson(url: string, headers: Record<string, string> = {}, timeout:
             resolve(data);
           }
         } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage || data}`));
+          reject(
+            new Error(`HTTP ${res.statusCode}: ${res.statusMessage || data}`)
+          );
         }
       });
     });
@@ -52,12 +58,12 @@ function httpGetJson(url: string, headers: Record<string, string> = {}, timeout:
 
 export async function getOauthProfileFromOauthToken(
   config: OAuthConfig,
-  accessToken: string,
+  accessToken: string
 ): Promise<OAuthProfileResponse> {
   const response = await httpGetJson(
     config.profileUrl,
     { Authorization: `Bearer ${accessToken}` },
-    10000,
+    10000
   );
   return response as OAuthProfileResponse;
 }

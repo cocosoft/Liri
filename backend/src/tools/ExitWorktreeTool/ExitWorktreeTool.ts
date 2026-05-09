@@ -253,7 +253,9 @@ export class ExitWorktreeTool extends BaseTool<
     return '退出Worktree';
   }
 
-  override getActivityDescription(input?: Partial<ExitWorktreeInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<ExitWorktreeInput>
+  ): string | null {
     if (input?.slug) {
       return `退出worktree ${input.slug}`;
     }

@@ -14,6 +14,8 @@ export const statuslineCommand: Command = {
   aliases: ['statusline'],
   argumentHint: '[show|set|reset|help]',
   whenToUse: '当你需要配置状态栏显示时',
-  load: async () => import('./Statusline.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Statusline.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

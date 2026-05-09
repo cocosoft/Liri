@@ -41,17 +41,14 @@ export default {
       latestVersion: '1.2.0',
       updateAvailable: true,
       releaseDate: '2024-01-15',
-      changelog: [
-        '新增: 支持自定义主题',
-        '改进: 性能优化',
-        '修复: 已知bug',
-      ],
+      changelog: ['新增: 支持自定义主题', '改进: 性能优化', '修复: 已知bug'],
     };
 
     let message = `当前版本: ${updateInfo.currentVersion}\n`;
-    
+
     if (updateInfo.updateAvailable) {
-      message += `最新版本: ${updateInfo.latestVersion}\n` +
+      message +=
+        `最新版本: ${updateInfo.latestVersion}\n` +
         `发布日期: ${updateInfo.releaseDate}\n\n` +
         `更新内容:\n` +
         `${updateInfo.changelog.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\n` +
@@ -80,11 +77,12 @@ export default {
    */
   async handleUpgrade(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('升级开始', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
-      message: '正在下载并安装更新...\n\n' +
+      message:
+        '正在下载并安装更新...\n\n' +
         '升级过程中请不要关闭应用。\n' +
         '完成后将自动重启。',
       data: { status: 'in_progress' },
@@ -106,7 +104,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `版本信息:\n` +
+      message:
+        `版本信息:\n` +
         `- 应用版本: ${versionInfo.version}\n` +
         `- 构建号: ${versionInfo.build}\n` +
         `- Node.js版本: ${versionInfo.nodeVersion}\n` +
@@ -120,15 +119,26 @@ export default {
    */
   async handleChangelog(context: CommandContext): Promise<CommandResult> {
     const changelog = [
-      { version: '1.2.0', date: '2024-01-15', changes: ['新增自定义主题', '性能优化', 'bug修复'] },
-      { version: '1.1.0', date: '2024-01-01', changes: ['新增插件系统', '改进UI'] },
+      {
+        version: '1.2.0',
+        date: '2024-01-15',
+        changes: ['新增自定义主题', '性能优化', 'bug修复'],
+      },
+      {
+        version: '1.1.0',
+        date: '2024-01-01',
+        changes: ['新增插件系统', '改进UI'],
+      },
       { version: '1.0.0', date: '2023-12-01', changes: ['初始版本'] },
     ];
 
-    const changelogText = changelog.map(entry => 
-      `\n## ${entry.version} (${entry.date})\n` +
-      `${entry.changes.map(c => `- ${c}`).join('\n')}`
-    ).join('\n');
+    const changelogText = changelog
+      .map(
+        (entry) =>
+          `\n## ${entry.version} (${entry.date})\n` +
+          `${entry.changes.map((c) => `- ${c}`).join('\n')}`
+      )
+      .join('\n');
 
     return {
       success: true,

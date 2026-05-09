@@ -16,13 +16,19 @@ export function normalizeNameForMCP(name: string): string {
     .toLowerCase();
 }
 
-export function normalizeToolName(serverName: string, toolName: string): string {
+export function normalizeToolName(
+  serverName: string,
+  toolName: string
+): string {
   const normalizedServer = normalizeNameForMCP(serverName);
   const normalizedTool = normalizeNameForMCP(toolName);
   return `mcp__${normalizedServer}__${normalizedTool}`;
 }
 
-export function normalizeCommandName(serverName: string, commandName: string): string {
+export function normalizeCommandName(
+  serverName: string,
+  commandName: string
+): string {
   const normalizedServer = normalizeNameForMCP(serverName);
   const normalizedCommand = normalizeNameForMCP(commandName);
   return `mcp__${normalizedServer}__${normalizedCommand}`;
@@ -38,7 +44,9 @@ export function normalizeResourceUri(serverName: string, uri: string): string {
 }
 
 export function denormalizeMcpName(normalizedName: string): string {
-  return normalizedName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return normalizedName
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function isValidMcpName(name: string): boolean {

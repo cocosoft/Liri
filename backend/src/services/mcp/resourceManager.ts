@@ -17,19 +17,29 @@ export class ResourceManager {
   /**
    * 从MCP服务器加载资源
    */
-  async loadResourcesFromServer(client: Client, serverName: string): Promise<ServerResource[]> {
+  async loadResourcesFromServer(
+    client: Client,
+    serverName: string
+  ): Promise<ServerResource[]> {
     try {
       const resources = await (client as any).resources.list();
-      const serverResources: ServerResource[] = (resources as any[]).map((resource: any) => ({
-        ...resource,
-        server: serverName
-      }));
+      const serverResources: ServerResource[] = (resources as any[]).map(
+        (resource: any) => ({
+          ...resource,
+          server: serverName,
+        })
+      );
 
       this.resources.set(serverName, serverResources);
-      logger.info(`Loaded ${serverResources.length} resources from server ${serverName}`);
+      logger.info(
+        `Loaded ${serverResources.length} resources from server ${serverName}`
+      );
       return serverResources;
     } catch (error) {
-      logger.error(`Failed to load resources from server ${serverName}:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to load resources from server ${serverName}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       return [];
     }
   }
@@ -51,9 +61,12 @@ export class ResourceManager {
   /**
    * 获取单个资源
    */
-  getResource(serverName: string, resourceUri: string): ServerResource | undefined {
+  getResource(
+    serverName: string,
+    resourceUri: string
+  ): ServerResource | undefined {
     const resources = this.resources.get(serverName);
-    return resources?.find(r => r.uri === resourceUri);
+    return resources?.find((r) => r.uri === resourceUri);
   }
 
   /**

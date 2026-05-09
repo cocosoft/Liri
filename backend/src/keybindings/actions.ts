@@ -30,7 +30,8 @@ export const ACTION_CONTEXTS = {
   LIST: 'list',
 } as const;
 
-export type ActionContext = typeof ACTION_CONTEXTS[keyof typeof ACTION_CONTEXTS];
+export type ActionContext =
+  (typeof ACTION_CONTEXTS)[keyof typeof ACTION_CONTEXTS];
 
 /**
  * 核心动作定义
@@ -129,7 +130,7 @@ export const NAVIGATION_ACTIONS: CoreAction[] = [
     context: ACTION_CONTEXTS.GLOBAL,
     category: 'Navigation',
     shortcut: 'Alt+Home',
-    handler: () => window.location.href = '/',
+    handler: () => (window.location.href = '/'),
   },
 ];
 

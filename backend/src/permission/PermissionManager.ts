@@ -201,10 +201,20 @@ export class PermissionManager {
       case PermissionMode.PLAN:
         return this.handlePlan(toolOrName, input, permissionContext);
       case PermissionMode.AUTO:
-        return this.handleAuto(toolOrName, input, permissionContext, ruleContext);
+        return this.handleAuto(
+          toolOrName,
+          input,
+          permissionContext,
+          ruleContext
+        );
       case PermissionMode.DEFAULT:
       default:
-        return this.handleDefault(toolOrName, input, permissionContext, ruleContext);
+        return this.handleDefault(
+          toolOrName,
+          input,
+          permissionContext,
+          ruleContext
+        );
     }
   }
 
@@ -330,7 +340,10 @@ export class PermissionManager {
       return createAskDecision(`Asked by rule from ${askRule.source}`);
     }
 
-    const allowRule = this.ruleManager.toolAlwaysAllowedRule(toolName, ruleContext);
+    const allowRule = this.ruleManager.toolAlwaysAllowedRule(
+      toolName,
+      ruleContext
+    );
     if (allowRule) {
       return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
     }
@@ -344,7 +357,9 @@ export class PermissionManager {
     );
     if (matchingDenyRule) {
       this.denialTracker.trackDenial(toolName);
-      return createDenyDecision(`Denied by rule from ${matchingDenyRule.source}`);
+      return createDenyDecision(
+        `Denied by rule from ${matchingDenyRule.source}`
+      );
     }
 
     const matchingAskRule = this.ruleManager.getMatchingRule(
@@ -364,7 +379,9 @@ export class PermissionManager {
       ruleContext
     );
     if (matchingAllowRule) {
-      return createAllowDecision(`Allowed by rule from ${matchingAllowRule.source}`);
+      return createAllowDecision(
+        `Allowed by rule from ${matchingAllowRule.source}`
+      );
     }
 
     // 没有规则匹配，默认询问
@@ -414,11 +431,11 @@ export class PermissionManager {
     const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
     if (denyRule) {
       this.denialTracker.trackDenial(toolName);
-      
+
       if (this.denialTracker.shouldAsk(toolName)) {
         return createAskDecision('Too many denials, asking user');
       }
-      
+
       return createDenyDecision(`Denied by rule from ${denyRule.source}`);
     }
 
@@ -427,7 +444,10 @@ export class PermissionManager {
       return createAskDecision(`Asked by rule from ${askRule.source}`);
     }
 
-    const allowRule = this.ruleManager.toolAlwaysAllowedRule(toolName, ruleContext);
+    const allowRule = this.ruleManager.toolAlwaysAllowedRule(
+      toolName,
+      ruleContext
+    );
     if (allowRule) {
       this.denialTracker.trackSuccess(toolName);
       return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
@@ -443,13 +463,13 @@ export class PermissionManager {
 
       if (classifierDecision.shouldBlock) {
         this.denialTracker.trackDenial(toolName);
-        
+
         if (this.denialTracker.shouldAsk(toolName)) {
           return createAskDecision(
             `${classifierDecision.reason} - Too many denials, asking user`
           );
         }
-        
+
         return createDenyDecision(
           classifierDecision.reason || 'Blocked by auto classifier'
         );

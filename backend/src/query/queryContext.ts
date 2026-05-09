@@ -26,7 +26,7 @@ export async function fetchSystemPromptParts(options?: {
 
 export function isResultSuccessful(
   message: Message | undefined,
-  stopReason: string | null = null,
+  stopReason: string | null = null
 ): boolean {
   if (stopReason === 'end_turn' || stopReason === 'stop') return true;
   if (!message) return false;
@@ -40,15 +40,16 @@ export function isResultSuccessful(
 export function normalizeMessage(message: Message): Message {
   return {
     ...message,
-    content: typeof message.content === 'string'
-      ? message.content
-      : JSON.stringify(message.content),
+    content:
+      typeof message.content === 'string'
+        ? message.content
+        : JSON.stringify(message.content),
   };
 }
 
 export async function handleOrphanedPermission(
   _toolCall: ToolCall,
-  _context: { sessionId: string },
+  _context: { sessionId: string }
 ): Promise<{ handled: boolean; result?: string }> {
   return { handled: false };
 }

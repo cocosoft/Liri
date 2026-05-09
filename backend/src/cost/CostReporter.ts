@@ -148,7 +148,9 @@ export class CostReporter {
     const predictedCost = slope * (n + periods - 1) + intercept;
 
     // 计算置信区间
-    const residuals = trends.map((trend, i) => trend.cost - (slope * i + intercept));
+    const residuals = trends.map(
+      (trend, i) => trend.cost - (slope * i + intercept)
+    );
     const variance = residuals.reduce((sum, r) => sum + r * r, 0) / (n - 2);
     const stdError = Math.sqrt(variance);
     const margin = 1.96 * stdError; // 95% 置信区间
@@ -174,7 +176,7 @@ export class CostReporter {
     totalCacheCreationTokens: number,
     totalWebSearchRequests: number,
     modelUsage: Record<string, ModelUsage>,
-    options: Partial<CostReportOptions> = {},
+    options: Partial<CostReportOptions> = {}
   ): string {
     // 检查访问权限 - 使用默认用户ID进行权限检查
     const defaultUserId = 'system';
@@ -198,7 +200,7 @@ export class CostReporter {
         totalCacheCreationTokens,
         totalWebSearchRequests,
         modelUsage,
-        opts,
+        opts
       );
     }
 
@@ -211,7 +213,7 @@ export class CostReporter {
         totalCacheCreationTokens,
         totalWebSearchRequests,
         modelUsage,
-        opts,
+        opts
       );
     }
 
@@ -223,7 +225,7 @@ export class CostReporter {
       totalCacheCreationTokens,
       totalWebSearchRequests,
       modelUsage,
-      opts,
+      opts
     );
   }
 
@@ -238,7 +240,7 @@ export class CostReporter {
     totalCacheCreationTokens: number,
     totalWebSearchRequests: number,
     modelUsage: Record<string, ModelUsage>,
-    options: CostReportOptions,
+    options: CostReportOptions
   ): string {
     let report = '\n==========================================\n';
     report += '            成本报告\n';
@@ -301,7 +303,7 @@ export class CostReporter {
     totalCacheCreationTokens: number,
     totalWebSearchRequests: number,
     modelUsage: Record<string, ModelUsage>,
-    options: CostReportOptions,
+    options: CostReportOptions
   ): string {
     const report: any = {
       timestamp: Date.now(),
@@ -339,7 +341,7 @@ export class CostReporter {
     totalCacheCreationTokens: number,
     totalWebSearchRequests: number,
     modelUsage: Record<string, ModelUsage>,
-    options: CostReportOptions,
+    options: CostReportOptions
   ): string {
     let csv = 'metric,value\n';
     csv += `totalCost,${totalCost}\n`;
@@ -350,7 +352,8 @@ export class CostReporter {
     csv += `totalWebSearchRequests,${totalWebSearchRequests}\n`;
 
     if (options.includeModelDetails) {
-      csv += '\nmodel,inputTokens,outputTokens,cacheReadTokens,cacheCreationTokens,webSearchRequests,costUSD\n';
+      csv +=
+        '\nmodel,inputTokens,outputTokens,cacheReadTokens,cacheCreationTokens,webSearchRequests,costUSD\n';
       for (const [modelName, usage] of Object.entries(modelUsage)) {
         csv += `${modelName},${usage.inputTokens},${usage.outputTokens},${usage.cacheReadInputTokens},${usage.cacheCreationInputTokens},${usage.webSearchRequests},${usage.costUSD}\n`;
       }
@@ -362,7 +365,9 @@ export class CostReporter {
   /**
    * 获取趋势描述
    */
-  private getTrendDescription(trend: 'increasing' | 'decreasing' | 'stable'): string {
+  private getTrendDescription(
+    trend: 'increasing' | 'decreasing' | 'stable'
+  ): string {
     switch (trend) {
       case 'increasing':
         return '上升';
@@ -430,7 +435,7 @@ export function generateCostReport(
   totalCacheCreationTokens: number,
   totalWebSearchRequests: number,
   modelUsage: Record<string, ModelUsage>,
-  options?: Partial<CostReportOptions>,
+  options?: Partial<CostReportOptions>
 ): string {
   return costReporter.generateReport(
     totalCost,
@@ -440,6 +445,6 @@ export function generateCostReport(
     totalCacheCreationTokens,
     totalWebSearchRequests,
     modelUsage,
-    options,
+    options
   );
 }

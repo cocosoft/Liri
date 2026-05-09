@@ -10,7 +10,10 @@ interface LoadingDotsProps {
   text?: string;
 }
 
-export function LoadingDots({ color = 'cyan', text = 'Loading' }: LoadingDotsProps): React.ReactNode {
+export function LoadingDots({
+  color = 'cyan',
+  text = 'Loading',
+}: LoadingDotsProps): React.ReactNode {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -26,7 +29,9 @@ export function LoadingDots({ color = 'cyan', text = 'Loading' }: LoadingDotsPro
 
   return (
     <Text color={color}>
-      {text}{dots}{padding}
+      {text}
+      {dots}
+      {padding}
     </Text>
   );
 }

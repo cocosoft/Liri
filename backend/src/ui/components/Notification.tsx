@@ -6,7 +6,12 @@
 
 import React, { useState, useEffect } from 'react';
 
-export type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'loading';
+export type NotificationType =
+  | 'success'
+  | 'error'
+  | 'warning'
+  | 'info'
+  | 'loading';
 
 export interface NotificationProps {
   id: string;
@@ -52,8 +57,9 @@ export const Notification: React.FC<NotificationProps> = ({
   };
 
   const getStyles = () => {
-    const baseStyles = 'notification-container rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-md';
-    
+    const baseStyles =
+      'notification-container rounded-lg p-4 shadow-lg flex items-start gap-3 max-w-md';
+
     const typeStyles = {
       success: 'bg-green-50 border border-green-200',
       error: 'bg-red-50 border border-red-200',
@@ -91,19 +97,19 @@ export const Notification: React.FC<NotificationProps> = ({
 
   return (
     <div className={getStyles()}>
-      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg ${getIconColor()}`}>
+      <div
+        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg ${getIconColor()}`}
+      >
         {getIcon()}
       </div>
-      
+
       <div className="flex-1 min-w-0">
         {title && (
           <h4 className="font-semibold text-sm text-gray-800 truncate">
             {title}
           </h4>
         )}
-        <p className="text-sm text-gray-600 mt-1">
-          {message}
-        </p>
+        <p className="text-sm text-gray-600 mt-1">{message}</p>
       </div>
 
       <button
@@ -143,13 +149,17 @@ export const Notifications: React.FC<NotificationsProps> = ({
 /**
  * 创建通知组件
  */
-export function createNotification(props: NotificationProps): React.ReactElement {
+export function createNotification(
+  props: NotificationProps
+): React.ReactElement {
   return <Notification {...props} />;
 }
 
 /**
  * 创建通知列表组件
  */
-export function createNotifications(props: NotificationsProps): React.ReactElement {
+export function createNotifications(
+  props: NotificationsProps
+): React.ReactElement {
   return <Notifications {...props} />;
 }

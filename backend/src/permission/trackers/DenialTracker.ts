@@ -105,7 +105,9 @@ export class DenialTracker {
       this.records = this.records.slice(-this.config.maxRecords);
     }
 
-    logger.debug(`DenialTracker: Recorded denial for ${params.toolName}, consecutive: ${this.consecutiveCount}`);
+    logger.debug(
+      `DenialTracker: Recorded denial for ${params.toolName}, consecutive: ${this.consecutiveCount}`
+    );
 
     // 通知监听器
     for (const listener of this.listeners) {
@@ -146,8 +148,9 @@ export class DenialTracker {
     const windowStart = now - this.config.windowSizeMs;
 
     // 过滤窗口内的记录
-    const recentRecords = this.records.filter(r =>
-      r.timestamp >= windowStart && (!sessionId || r.sessionId === sessionId)
+    const recentRecords = this.records.filter(
+      (r) =>
+        r.timestamp >= windowStart && (!sessionId || r.sessionId === sessionId)
     );
 
     // 统计每个工具的拒绝次数
@@ -184,8 +187,9 @@ export class DenialTracker {
    * 获取特定工具的拒绝记录
    */
   getToolDenials(toolName: string, sessionId?: string): DenialRecord[] {
-    return this.records.filter(r =>
-      r.toolName === toolName && (!sessionId || r.sessionId === sessionId)
+    return this.records.filter(
+      (r) =>
+        r.toolName === toolName && (!sessionId || r.sessionId === sessionId)
     );
   }
 
@@ -193,7 +197,7 @@ export class DenialTracker {
    * 获取会话的拒绝记录
    */
   getSessionDenials(sessionId: string): DenialRecord[] {
-    return this.records.filter(r => r.sessionId === sessionId);
+    return this.records.filter((r) => r.sessionId === sessionId);
   }
 
   /**
@@ -201,7 +205,7 @@ export class DenialTracker {
    */
   getRecentDenials(count: number = 10, sessionId?: string): DenialRecord[] {
     const filtered = sessionId
-      ? this.records.filter(r => r.sessionId === sessionId)
+      ? this.records.filter((r) => r.sessionId === sessionId)
       : this.records;
 
     return filtered.slice(-count);
@@ -252,11 +256,12 @@ export class DenialTracker {
    * 清除会话记录
    */
   clearSession(sessionId: string): void {
-    this.records = this.records.filter(r => r.sessionId !== sessionId);
+    this.records = this.records.filter((r) => r.sessionId !== sessionId);
     if (this.consecutiveCount > 0) {
       // 重新计算连续计数
       const recent = this.getRecentDenials(1);
-      this.consecutiveCount = recent.length > 0 && recent[0].sessionId === sessionId ? 1 : 0;
+      this.consecutiveCount =
+        recent.length > 0 && recent[0].sessionId === sessionId ? 1 : 0;
     }
   }
 
@@ -303,10 +308,10 @@ export class DenialTracker {
    */
   getOverriddenDenials(sessionId?: string): DenialRecord[] {
     const filtered = sessionId
-      ? this.records.filter(r => r.sessionId === sessionId)
+      ? this.records.filter((r) => r.sessionId === sessionId)
       : this.records;
 
-    return filtered.filter(r => r.userOverridden);
+    return filtered.filter((r) => r.userOverridden);
   }
 
   /**

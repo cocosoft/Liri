@@ -14,6 +14,8 @@ export const terminalSetupCommand: Command = {
   aliases: ['term', 'terminal'],
   argumentHint: '[show|shell|theme|font|size|reset|help]',
   whenToUse: '当你需要配置终端设置时',
-  load: async () => import('./TerminalSetup.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./TerminalSetup.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

@@ -27,7 +27,10 @@ export class AzureClient extends LLMClient {
       thinking?: ThinkingConfig;
     }
   ): Promise<ChatResponse> {
-    const promptTokens = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+    const promptTokens = messages.reduce(
+      (sum, msg) => sum + msg.content.length,
+      0
+    );
     return {
       content: `Azure OpenAI response to: ${messages.map((m) => m.content).join(' ')}`,
       stop_reason: 'stop',
@@ -58,7 +61,10 @@ export class AzureClient extends LLMClient {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
-    const promptTokens = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+    const promptTokens = messages.reduce(
+      (sum, msg) => sum + msg.content.length,
+      0
+    );
     return {
       content: response,
       stop_reason: 'stop',

@@ -21,13 +21,16 @@ export interface PersistedCostData {
   totalRequests: number;
   successfulRequests: number;
   failedRequests: number;
-  modelBreakdown: Record<string, {
-    totalCost: number;
-    totalTokens: number;
-    requestCount: number;
-    inputTokens: number;
-    outputTokens: number;
-  }>;
+  modelBreakdown: Record<
+    string,
+    {
+      totalCost: number;
+      totalTokens: number;
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+    }
+  >;
 }
 
 /**
@@ -38,13 +41,16 @@ export interface SessionCostData {
   totalInputTokens: number;
   totalOutputTokens: number;
   totalRequests: number;
-  modelBreakdown: Record<string, {
-    totalCost: number;
-    totalTokens: number;
-    requestCount: number;
-    inputTokens: number;
-    outputTokens: number;
-  }>;
+  modelBreakdown: Record<
+    string,
+    {
+      totalCost: number;
+      totalTokens: number;
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+    }
+  >;
   successfulRequests: number;
   failedRequests: number;
 }
@@ -94,13 +100,18 @@ export class CostPersistenceService {
     if (this.initialized) return;
 
     try {
-      const dir = this.dataFilePath.substring(0, this.dataFilePath.lastIndexOf('\\'));
+      const dir = this.dataFilePath.substring(
+        0,
+        this.dataFilePath.lastIndexOf('\\')
+      );
       if (!existsSync(dir)) {
         await mkdir(dir, { recursive: true });
       }
 
       if (existsSync(this.dataFilePath)) {
-        const content = await readFile(this.dataFilePath, { encoding: 'utf-8' });
+        const content = await readFile(this.dataFilePath, {
+          encoding: 'utf-8',
+        });
         const parsed = JSON.parse(content) as PersistedCostData;
         if (parsed.version === CURRENT_VERSION) {
           this.accumulatedData = parsed;
@@ -159,11 +170,18 @@ export class CostPersistenceService {
    */
   async save(): Promise<void> {
     try {
-      const dir = this.dataFilePath.substring(0, this.dataFilePath.lastIndexOf('\\'));
+      const dir = this.dataFilePath.substring(
+        0,
+        this.dataFilePath.lastIndexOf('\\')
+      );
       if (!existsSync(dir)) {
         await mkdir(dir, { recursive: true });
       }
-      await writeFile(this.dataFilePath, JSON.stringify(this.accumulatedData, null, 2), { encoding: 'utf-8' });
+      await writeFile(
+        this.dataFilePath,
+        JSON.stringify(this.accumulatedData, null, 2),
+        { encoding: 'utf-8' }
+      );
     } catch (error) {
       console.error('保存成本数据失败:', error);
     }

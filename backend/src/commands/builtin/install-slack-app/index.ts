@@ -14,7 +14,10 @@ export const installSlackAppCommand: Command = {
   aliases: ['slack-app'],
   argumentHint: '',
   whenToUse: '当你需要安装Slack集成时',
-  load: async () => import('./InstallSlackApp.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./InstallSlackApp.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
 
 export default installSlackAppCommand;

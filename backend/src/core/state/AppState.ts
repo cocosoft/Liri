@@ -5,7 +5,10 @@
 
 import type { Tool, ToolPermissionContext } from '@modules/types/tool.js';
 import type { Command } from '@modules/types/command.js';
-import type { MCPServerConnectionInfo, ServerResource } from '@modules/mcp/types/index.js';
+import type {
+  MCPServerConnectionInfo,
+  ServerResource,
+} from '@modules/mcp/types/index.js';
 import type { LoadedPlugin, PluginError } from '@modules/types/plugin.js';
 import type { TaskState } from '@modules/types/task.js';
 import type { AgentId } from '@modules/types/ids.js';
@@ -20,19 +23,19 @@ export type CompletionBoundary =
   | { type: 'bash'; command: string; completedAt: number }
   | { type: 'edit'; toolName: string; filePath: string; completedAt: number }
   | {
-      type: 'denied_tool'
-      toolName: string
-      detail: string
-      completedAt: number
+      type: 'denied_tool';
+      toolName: string;
+      detail: string;
+      completedAt: number;
     };
 
 /**
  * 推测结果
  */
 export type SpeculationResult = {
-  messages: Record<string, unknown>[]
-  boundary: CompletionBoundary | null
-  timeSavedMs: number
+  messages: Record<string, unknown>[];
+  boundary: CompletionBoundary | null;
+  timeSavedMs: number;
 };
 
 /**
@@ -41,22 +44,22 @@ export type SpeculationResult = {
 export type SpeculationState =
   | { status: 'idle' }
   | {
-      status: 'active'
-      id: string
-      abort: () => void
-      startTime: number
-      messagesRef: { current: Record<string, unknown>[] }
-      writtenPathsRef: { current: Set<string> }
-      boundary: CompletionBoundary | null
-      suggestionLength: number
-      toolUseCount: number
-      isPipelined: boolean
-      contextRef: { current: Record<string, unknown> }
+      status: 'active';
+      id: string;
+      abort: () => void;
+      startTime: number;
+      messagesRef: { current: Record<string, unknown>[] };
+      writtenPathsRef: { current: Set<string> };
+      boundary: CompletionBoundary | null;
+      suggestionLength: number;
+      toolUseCount: number;
+      isPipelined: boolean;
+      contextRef: { current: Record<string, unknown> };
       pipelinedSuggestion?: {
-        text: string
-        promptId: 'user_intent' | 'stated_intent'
-        generationRequestId: string | null
-      } | null
+        text: string;
+        promptId: 'user_intent' | 'stated_intent';
+        generationRequestId: string | null;
+      } | null;
     };
 
 /**
@@ -228,8 +231,14 @@ export function getDefaultAppState(): AppState {
     verbose: false,
     model: 'claude-3-5-sonnet-20241022',
     modelAlias: null,
-    mainLoopModel: { model: 'claude-3-5-sonnet-20241022', temperature: 0.1 } as ModelSetting,
-    mainLoopModelForSession: { model: 'claude-3-5-sonnet-20241022', temperature: 0.1 } as ModelSetting,
+    mainLoopModel: {
+      model: 'claude-3-5-sonnet-20241022',
+      temperature: 0.1,
+    } as ModelSetting,
+    mainLoopModelForSession: {
+      model: 'claude-3-5-sonnet-20241022',
+      temperature: 0.1,
+    } as ModelSetting,
     statusLineText: undefined,
     expandedView: 'none',
     isBriefOnly: false,

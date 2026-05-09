@@ -3,19 +3,27 @@
  * 参考CC源码 cc_code/backend/state/store.ts 实现
  */
 
-import { AppState, AppStateStore, StateChangeListener, StateUpdater } from './AppState';
+import {
+  AppState,
+  AppStateStore,
+  StateChangeListener,
+  StateUpdater,
+} from './AppState';
 
 /**
  * 状态变更回调
  */
-type OnChangeCallback = (args: { newState: AppState; oldState: AppState }) => void;
+type OnChangeCallback = (args: {
+  newState: AppState;
+  oldState: AppState;
+}) => void;
 
 /**
  * 创建应用状态存储
  */
 export function createAppStateStore(
   initialState: AppState,
-  onChange?: OnChangeCallback,
+  onChange?: OnChangeCallback
 ): AppStateStore {
   let state = initialState;
   const listeners = new Set<StateChangeListener>();
@@ -28,7 +36,7 @@ export function createAppStateStore(
   const notifyListeners = (newState: AppState, oldState: AppState) => {
     // 调用 onChange 回调
     onChange?.({ newState, oldState });
-    
+
     // 通知所有监听器
     for (const listener of listeners) {
       try {
@@ -148,7 +156,7 @@ export function initializeGlobalStore(initialState: AppState): AppStateStore {
   if (globalStore) {
     throw new Error('AppStateStore already initialized');
   }
-  
+
   globalStore = createAppStateStore(initialState);
   return globalStore;
 }

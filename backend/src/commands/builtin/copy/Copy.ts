@@ -31,7 +31,10 @@ function truncateText(text: string, maxLines: number): string {
 }
 
 const copyCommand = {
-  async call(args: string, context: CommandContext): Promise<{ type: string; value: string }> {
+  async call(
+    args: string,
+    context: CommandContext
+  ): Promise<{ type: string; value: string }> {
     const params = args.trim().split(' ');
     const options: CopyOptions = {
       maxLines: 100,

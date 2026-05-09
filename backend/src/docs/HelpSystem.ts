@@ -636,7 +636,7 @@ ${this.getReleaseNotesContent()}
     results.sort((a, b) => b.score - a.score);
 
     // 返回前10个结果
-    return results.slice(0, 10).map(item => item.topic);
+    return results.slice(0, 10).map((item) => item.topic);
   }
 
   /**
@@ -665,7 +665,9 @@ ${this.getReleaseNotesContent()}
     // 关键词匹配 (中等权重)
     if (topic.keywords?.some((k) => k.toLowerCase().includes(query))) {
       score += 60;
-    } else if (topic.keywords?.some((k) => k.toLowerCase().includes(queryWords[0]))) {
+    } else if (
+      topic.keywords?.some((k) => k.toLowerCase().includes(queryWords[0]))
+    ) {
       score += 30;
     }
 
@@ -899,11 +901,15 @@ ${this.getReleaseNotesContent()}
    * 获取可用语言
    * @returns 可用语言列表
    */
-  getAvailableLanguages(): Array<{ code: string; name: string; nativeName: string }> {
-    return languageManager.getAvailableLanguages().map(pack => ({
+  getAvailableLanguages(): Array<{
+    code: string;
+    name: string;
+    nativeName: string;
+  }> {
+    return languageManager.getAvailableLanguages().map((pack) => ({
       code: pack.code,
       name: pack.name,
-      nativeName: pack.nativeName
+      nativeName: pack.nativeName,
     }));
   }
 
@@ -927,14 +933,16 @@ ${this.getReleaseNotesContent()}
       command: context.currentCommand,
       tool: context.currentTool,
       file: context.currentFile,
-      error: context.errorCode
+      error: context.errorCode,
     });
-    
+
     if (matchingHelp.length === 0) {
       return '没有找到相关的帮助内容。';
     }
-    
-    return matchingHelp.map(entry => contextHelp.formatHelpContent(entry)).join('\n\n');
+
+    return matchingHelp
+      .map((entry) => contextHelp.formatHelpContent(entry))
+      .join('\n\n');
   }
 
   /**
@@ -955,7 +963,7 @@ ${this.getReleaseNotesContent()}
       command: '',
       tool: '',
       file: '',
-      error: ''
+      error: '',
     };
     this.showContextHelp(context);
   }
@@ -970,14 +978,14 @@ ${this.getReleaseNotesContent()}
       command: context.currentCommand,
       tool: context.currentTool,
       file: context.currentFile,
-      error: context.errorCode
+      error: context.errorCode,
     });
-    
+
     const suggestedActions: string[] = [];
-    matchingHelp.forEach(entry => {
+    matchingHelp.forEach((entry) => {
       suggestedActions.push(...entry.relatedCommands);
     });
-    
+
     return [...new Set(suggestedActions)].slice(0, 5);
   }
 

@@ -6,9 +6,15 @@
 
 import { getOauthConfig } from './oauthConfig.js';
 import { oauthService } from '@modules/oauth';
-import type { OAuthTokens as OAuthTokensType, OAuthServiceOptions } from './oauth-types.js';
+import type {
+  OAuthTokens as OAuthTokensType,
+  OAuthServiceOptions,
+} from './oauth-types.js';
 import { logger } from '@modules/infrastructure';
-import { TokenManager, type CachedToken } from '@modules/oauth/services/TokenManager.js';
+import {
+  TokenManager,
+  type CachedToken,
+} from '@modules/oauth/services/TokenManager.js';
 
 export interface OAuthTokens {
   accessToken: string;
@@ -75,8 +81,11 @@ export class DefaultAuthManager implements AuthManager {
   }
 
   async startOAuthFlow(
-    authURLHandler: (urls: { automaticUrl: string; manualUrl: string }) => Promise<void>,
-    options: OAuthServiceOptions = {},
+    authURLHandler: (urls: {
+      automaticUrl: string;
+      manualUrl: string;
+    }) => Promise<void>,
+    options: OAuthServiceOptions = {}
   ): Promise<OAuthTokensType> {
     // 使用统一的OAuth服务
     const tokens = await oauthService.authorize('core', {
@@ -161,7 +170,10 @@ export class DefaultAuthManager implements AuthManager {
 
       this.scheduleTokenRefresh();
     } catch (error) {
-      logger.error(`OAuth token refresh failed (attempt ${this.refreshRetryCount}/${this.MAX_REFRESH_RETRIES}):`, error);
+      logger.error(
+        `OAuth token refresh failed (attempt ${this.refreshRetryCount}/${this.MAX_REFRESH_RETRIES}):`,
+        error
+      );
 
       if (this.refreshRetryCount >= this.MAX_REFRESH_RETRIES) {
         logger.error('Max refresh retries reached, clearing tokens');
@@ -173,9 +185,9 @@ export class DefaultAuthManager implements AuthManager {
 
       const delay = Math.min(1000 * Math.pow(2, this.refreshRetryCount), 30000);
       logger.info(`Retrying token refresh in ${delay}ms`);
-      
+
       setTimeout(() => {
-        this.refreshOAuthTokens().catch(err => {
+        this.refreshOAuthTokens().catch((err) => {
           logger.error('Retry token refresh failed:', err);
         });
       }, delay);
@@ -198,9 +210,9 @@ export class DefaultAuthManager implements AuthManager {
     if (expiresIn > refreshBefore) {
       const refreshIn = expiresIn - refreshBefore;
       logger.debug(`Scheduling token refresh in ${refreshIn}ms`);
-      
+
       this.refreshTimer = setTimeout(() => {
-        this.refreshOAuthTokens().catch(err => {
+        this.refreshOAuthTokens().catch((err) => {
           logger.error('Scheduled token refresh failed:', err);
         });
       }, refreshIn);
@@ -298,7 +310,7 @@ export class DefaultAuthManager implements AuthManager {
       expiresAt: tokens.expiresAt,
       scopes: (tokens as any).scopes || [],
     };
-    this.tokenManager.cacheToken('default', cachedToken).catch(err => {
+    this.tokenManager.cacheToken('default', cachedToken).catch((err) => {
       logger.error('Failed to cache OAuth tokens:', err);
     });
 

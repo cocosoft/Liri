@@ -55,7 +55,12 @@ export interface MCPResourceAnalytics {
 
 export interface MCPOptimizationRecommendation {
   id: string;
-  type: 'performance' | 'reliability' | 'security' | 'configuration' | 'resource';
+  type:
+    | 'performance'
+    | 'reliability'
+    | 'security'
+    | 'configuration'
+    | 'resource';
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
@@ -97,7 +102,8 @@ export class EnhancedMCPManager {
   private connectionAnalytics: Map<string, MCPConnectionAnalytics> = new Map();
   private toolUsage: Map<string, MCPToolUsageAnalytics> = new Map();
   private resourceAnalytics: Map<string, MCPResourceAnalytics> = new Map();
-  private recommendations: Map<string, MCPOptimizationRecommendation[]> = new Map();
+  private recommendations: Map<string, MCPOptimizationRecommendation[]> =
+    new Map();
   private monitoringIntervals: Map<string, NodeJS.Timeout> = new Map();
   private metricsHistory: Map<string, MCPPerformanceMetrics[]> = new Map();
 
@@ -185,7 +191,9 @@ export class EnhancedMCPManager {
 
       if (responseTime > 1000) {
         status = 'degraded';
-        recommendations.push('Response time is high, consider optimizing connection');
+        recommendations.push(
+          'Response time is high, consider optimizing connection'
+        );
       }
 
       if (serverStatus === 'NOT_FOUND' || serverStatus === 'ERROR') {
@@ -246,7 +254,12 @@ export class EnhancedMCPManager {
         averageConnectionTime: 100 + Math.random() * 400,
         reconnectionCount: Math.floor(Math.random() * 10),
         uptimePercentage: 95 + Math.random() * 5,
-        connectionTrend: Math.random() > 0.7 ? 'improving' : Math.random() > 0.3 ? 'stable' : 'degrading',
+        connectionTrend:
+          Math.random() > 0.7
+            ? 'improving'
+            : Math.random() > 0.3
+              ? 'stable'
+              : 'degrading',
       };
 
       this.connectionAnalytics.set(info.name, connectionAnalytics);
@@ -271,7 +284,12 @@ export class EnhancedMCPManager {
     }
   }
 
-  async trackToolUsage(serverName: string, toolName: string, executionTime: number, success: boolean): Promise<void> {
+  async trackToolUsage(
+    serverName: string,
+    toolName: string,
+    executionTime: number,
+    success: boolean
+  ): Promise<void> {
     const key = `${serverName}:${toolName}`;
     let analytics = this.toolUsage.get(key);
 
@@ -289,14 +307,20 @@ export class EnhancedMCPManager {
     }
 
     analytics.invocationCount++;
-    analytics.averageExecutionTime = (analytics.averageExecutionTime * (analytics.invocationCount - 1) + executionTime) / analytics.invocationCount;
+    analytics.averageExecutionTime =
+      (analytics.averageExecutionTime * (analytics.invocationCount - 1) +
+        executionTime) /
+      analytics.invocationCount;
     analytics.lastInvoked = new Date();
 
     if (!success) {
       analytics.errorCount++;
     }
 
-    analytics.successRate = ((analytics.invocationCount - analytics.errorCount) / analytics.invocationCount) * 100;
+    analytics.successRate =
+      ((analytics.invocationCount - analytics.errorCount) /
+        analytics.invocationCount) *
+      100;
     analytics.popularityScore = Math.min(100, analytics.invocationCount / 10);
 
     this.toolUsage.set(key, analytics);
@@ -314,14 +338,22 @@ export class EnhancedMCPManager {
     return this.healthChecks.get(serverName) || [];
   }
 
-  getConnectionAnalytics(serverName: string): MCPConnectionAnalytics | undefined {
+  getConnectionAnalytics(
+    serverName: string
+  ): MCPConnectionAnalytics | undefined {
     return this.connectionAnalytics.get(serverName);
   }
 
-  getToolUsageAnalytics(toolName: string, serverName?: string): MCPToolUsageAnalytics[] {
+  getToolUsageAnalytics(
+    toolName: string,
+    serverName?: string
+  ): MCPToolUsageAnalytics[] {
     const results: MCPToolUsageAnalytics[] = [];
     for (const analytics of this.toolUsage.values()) {
-      if (analytics.toolName === toolName && (!serverName || analytics.serverName === serverName)) {
+      if (
+        analytics.toolName === toolName &&
+        (!serverName || analytics.serverName === serverName)
+      ) {
         results.push(analytics);
       }
     }
@@ -356,7 +388,12 @@ export class EnhancedMCPManager {
           priority: 'high',
           serverName,
           expectedImpact: 'major',
-          implementationSteps: ['分析网络延迟', '优化连接池', '启用缓存', '批量处理请求'],
+          implementationSteps: [
+            '分析网络延迟',
+            '优化连接池',
+            '启用缓存',
+            '批量处理请求',
+          ],
         });
       }
 
@@ -369,14 +406,22 @@ export class EnhancedMCPManager {
           priority: 'medium',
           serverName,
           expectedImpact: 'moderate',
-          implementationSteps: ['分析错误日志', '实现重试机制', '添加熔断器', '优化错误处理'],
+          implementationSteps: [
+            '分析错误日志',
+            '实现重试机制',
+            '添加熔断器',
+            '优化错误处理',
+          ],
         });
       }
     }
 
     if (healthHistory && healthHistory.length > 0) {
       const lastHealth = healthHistory[healthHistory.length - 1];
-      if (lastHealth.status === 'degraded' || lastHealth.status === 'unhealthy') {
+      if (
+        lastHealth.status === 'degraded' ||
+        lastHealth.status === 'unhealthy'
+      ) {
         recommendations.push({
           id: `health-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           type: 'configuration',
@@ -385,7 +430,12 @@ export class EnhancedMCPManager {
           priority: 'critical',
           serverName,
           expectedImpact: 'major',
-          implementationSteps: ['检查服务器状态', '验证配置', '重启服务器', '查看错误日志'],
+          implementationSteps: [
+            '检查服务器状态',
+            '验证配置',
+            '重启服务器',
+            '查看错误日志',
+          ],
         });
       }
     }
@@ -399,19 +449,30 @@ export class EnhancedMCPManager {
     const allMetrics = Array.from(this.performanceMetrics.values());
     const allHealth = Array.from(this.healthChecks.values()).flat();
 
-    const activeServers = serverInfos.filter(s => s.status === 'connected' || s.status === 'ready').length;
-    const degradedServers = allMetrics.filter(m => m.healthScore < 60).length;
-    const offlineServers = serverInfos.filter(s => s.status === 'disconnected' || s.status === 'NOT_FOUND').length;
+    const activeServers = serverInfos.filter(
+      (s) => s.status === 'connected' || s.status === 'ready'
+    ).length;
+    const degradedServers = allMetrics.filter((m) => m.healthScore < 60).length;
+    const offlineServers = serverInfos.filter(
+      (s) => s.status === 'disconnected' || s.status === 'NOT_FOUND'
+    ).length;
 
-    const overallHealthScore = allMetrics.length > 0
-      ? allMetrics.reduce((sum, m) => sum + m.healthScore, 0) / allMetrics.length
-      : 0;
+    const overallHealthScore =
+      allMetrics.length > 0
+        ? allMetrics.reduce((sum, m) => sum + m.healthScore, 0) /
+          allMetrics.length
+        : 0;
 
-    const averageResponseTime = allMetrics.length > 0
-      ? allMetrics.reduce((sum, m) => sum + m.averageResponseTime, 0) / allMetrics.length
-      : 0;
+    const averageResponseTime =
+      allMetrics.length > 0
+        ? allMetrics.reduce((sum, m) => sum + m.averageResponseTime, 0) /
+          allMetrics.length
+        : 0;
 
-    const totalRequests = allMetrics.reduce((sum, m) => sum + m.toolExecutionCount, 0);
+    const totalRequests = allMetrics.reduce(
+      (sum, m) => sum + m.toolExecutionCount,
+      0
+    );
 
     return {
       totalServers: serverInfos.length,
@@ -471,7 +532,9 @@ export class EnhancedMCPManager {
       result = await this.baseManager.callTool(serverName, toolName, args);
     } catch (error) {
       success = false;
-      result = { error: error instanceof Error ? error.message : String(error) };
+      result = {
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
 
     const executionTime = Date.now() - startTime;

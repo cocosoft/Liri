@@ -32,7 +32,9 @@ const COMPACT_MAX_OUTPUT_TOKENS = 20_000;
 const MODEL_CONTEXT_WINDOW_DEFAULT = 200_000;
 
 export function getCompactConfig(model: string): CompactConfig {
-  const contextWindow = model.includes('[1m]') ? 1_000_000 : MODEL_CONTEXT_WINDOW_DEFAULT;
+  const contextWindow = model.includes('[1m]')
+    ? 1_000_000
+    : MODEL_CONTEXT_WINDOW_DEFAULT;
   const effectiveWindow = contextWindow - COMPACT_MAX_OUTPUT_TOKENS;
 
   return {
@@ -54,7 +56,7 @@ export function getManualCompactThreshold(model: string): number {
 
 export function shouldAutoCompact(
   estimatedTokens: number,
-  model: string,
+  model: string
 ): { shouldCompact: boolean; warning: boolean; error: boolean } {
   const config = getCompactConfig(model);
 
@@ -91,7 +93,11 @@ export class CompactCircuitBreaker {
     this.consecutiveFailures = 0;
   }
 
-  getStatus(): { consecutiveFailures: number; totalCompactCount: number; maxFailures: number } {
+  getStatus(): {
+    consecutiveFailures: number;
+    totalCompactCount: number;
+    maxFailures: number;
+  } {
     return {
       consecutiveFailures: this.consecutiveFailures,
       totalCompactCount: this.totalCompactCount,

@@ -223,16 +223,23 @@ export class CompactServiceImpl implements CompactService {
       { role: AIMessageRole.SYSTEM, content: prompt },
       {
         role: AIMessageRole.USER,
-        content: 'Please summarize the following conversation:\n\n' +
-          messages.map((msg) => `[${msg.type}] ${msg.content.substring(0, 2000)}`).join('\n\n'),
+        content:
+          'Please summarize the following conversation:\n\n' +
+          messages
+            .map((msg) => `[${msg.type}] ${msg.content.substring(0, 2000)}`)
+            .join('\n\n'),
       },
     ];
 
     try {
-      const response = await this.aiService.generate(aiMessages, DEFAULT_COMPACT_MODEL, {
-        max_tokens: SUMMARY_MAX_OUTPUT_TOKENS,
-        temperature: 0.3,
-      });
+      const response = await this.aiService.generate(
+        aiMessages,
+        DEFAULT_COMPACT_MODEL,
+        {
+          max_tokens: SUMMARY_MAX_OUTPUT_TOKENS,
+          temperature: 0.3,
+        }
+      );
       return response.content;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -261,7 +268,9 @@ export class CompactServiceImpl implements CompactService {
         summary += `Round ${index + 1} - User: ${text.substring(0, 300)}${text.length > 300 ? '...' : ''}\n`;
       }
       if (assistantMsgs.length > 0) {
-        const text = getMessageTextContent(assistantMsgs[assistantMsgs.length - 1]);
+        const text = getMessageTextContent(
+          assistantMsgs[assistantMsgs.length - 1]
+        );
         summary += `Round ${index + 1} - Assistant: ${text.substring(0, 300)}${text.length > 300 ? '...' : ''}\n`;
       }
     });
@@ -324,22 +333,26 @@ export class CompactServiceImpl implements CompactService {
   ): Promise<CompactionResult> {
     const preCompactTokenCount = roughTokenCountEstimationForMessages(messages);
 
-    const messagesToSummarize = direction === 'up_to'
-      ? messages.slice(0, pivotIndex)
-      : messages.slice(pivotIndex);
+    const messagesToSummarize =
+      direction === 'up_to'
+        ? messages.slice(0, pivotIndex)
+        : messages.slice(pivotIndex);
 
-    const messagesToKeepIndices = direction === 'up_to'
-      ? messages.slice(pivotIndex).map((m) => m.id)
-      : messages.slice(0, pivotIndex).map((m) => m.id);
+    const messagesToKeepIndices =
+      direction === 'up_to'
+        ? messages.slice(pivotIndex).map((m) => m.id)
+        : messages.slice(0, pivotIndex).map((m) => m.id);
 
     let summary: string;
     if (this.aiService) {
       summary = await this.generateAISummary(messagesToSummarize);
     } else {
       const basicSummary = 'Partial Session Summary:\n\n';
-      summary = basicSummary + messagesToSummarize
-        .map((msg) => `[${msg.type}] ${msg.content.substring(0, 200)}`)
-        .join('\n');
+      summary =
+        basicSummary +
+        messagesToSummarize
+          .map((msg) => `[${msg.type}] ${msg.content.substring(0, 200)}`)
+          .join('\n');
     }
 
     const boundaryMarker = `[Partial compaction boundary - ${direction} - ${new Date().toISOString()}]`;

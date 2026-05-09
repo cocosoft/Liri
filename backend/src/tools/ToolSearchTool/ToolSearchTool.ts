@@ -217,7 +217,10 @@ async function searchToolsWithKeywords(
  * 工具搜索工具
  * 支持关键词搜索和直接选择（"select:<tool_name>"）
  */
-export class ToolSearchTool extends BaseTool<ToolSearchInput, ToolSearchOutput> {
+export class ToolSearchTool extends BaseTool<
+  ToolSearchInput,
+  ToolSearchOutput
+> {
   /**
    * 工具名称
    */
@@ -343,7 +346,9 @@ export class ToolSearchTool extends BaseTool<ToolSearchInput, ToolSearchOutput> 
     return '工具搜索';
   }
 
-  override getActivityDescription(input?: Partial<ToolSearchInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<ToolSearchInput>
+  ): string | null {
     if (input?.query) {
       return `搜索工具: ${input.query}`;
     }

@@ -52,7 +52,9 @@ function extractFirstPrompt(context: CommandContext): string {
     return '';
   }
 
-  const firstUser = context.messages.find(m => m.type === 'user' || m.role === 'user');
+  const firstUser = context.messages.find(
+    (m) => m.type === 'user' || m.role === 'user'
+  );
   if (!firstUser) {
     return '';
   }
@@ -103,7 +105,10 @@ function renderMessages(context: CommandContext): string {
           if (typeof block.content === 'string') {
             lines.push(block.content);
           }
-        } else if (block.type === 'thinking' && typeof block.thinking === 'string') {
+        } else if (
+          block.type === 'thinking' &&
+          typeof block.thinking === 'string'
+        ) {
           lines.push(block.thinking);
         }
       }
@@ -189,9 +194,10 @@ async function handleHelp() {
  * 处理 status 子命令
  */
 async function handleStatus(context: CommandContext) {
-  const msgCount = context.messages && Array.isArray(context.messages)
-    ? context.messages.length
-    : 0;
+  const msgCount =
+    context.messages && Array.isArray(context.messages)
+      ? context.messages.length
+      : 0;
 
   return {
     success: true,
@@ -221,19 +227,24 @@ async function handleJsonExport(context: CommandContext) {
     app: 'PY_APP',
     exportTime: new Date().toISOString(),
     messageCount: context.messages?.length || 0,
-    messages: (context.messages || []).map(msg => ({
+    messages: (context.messages || []).map((msg) => ({
       role: msg.type === 'user' || msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content,
       timestamp: msg.timestamp,
     })),
   };
 
-  writeFileSync(filepath, JSON.stringify(exportData, null, 2), { encoding: 'utf-8' });
-
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_export_created', {
-    format: 'json',
-    messageCount: exportData.messageCount,
+  writeFileSync(filepath, JSON.stringify(exportData, null, 2), {
+    encoding: 'utf-8',
   });
+
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_export_created',
+    {
+      format: 'json',
+      messageCount: exportData.messageCount,
+    }
+  );
 
   return {
     success: true,
@@ -273,11 +284,14 @@ async function handleExport(filenameArg: string, context: CommandContext) {
 
   writeFileSync(filepath, content, { encoding: 'utf-8' });
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_export_created', {
-    format: 'text',
-    messageCount: context.messages?.length || 0,
-    hasCustomName: !!filenameArg,
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_export_created',
+    {
+      format: 'text',
+      messageCount: context.messages?.length || 0,
+      hasCustomName: !!filenameArg,
+    }
+  );
 
   return {
     success: true,

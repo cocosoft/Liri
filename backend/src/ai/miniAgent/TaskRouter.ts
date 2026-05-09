@@ -9,7 +9,10 @@ export class TaskRouterImpl {
   private strategy: RoutingStrategy;
   private fallbackEnabled: boolean;
 
-  constructor(strategy: RoutingStrategy = 'cloud-first', fallbackEnabled: boolean = true) {
+  constructor(
+    strategy: RoutingStrategy = 'cloud-first',
+    fallbackEnabled: boolean = true
+  ) {
     this.strategy = strategy;
     this.fallbackEnabled = fallbackEnabled;
   }

@@ -115,7 +115,7 @@ export class CostCacheManager {
     cacheReadTokens: number = 0,
     cacheCreationTokens: number = 0,
     webSearchRequests: number = 0,
-    isFastMode: boolean = false,
+    isFastMode: boolean = false
   ): number {
     const key: CostCacheKey = {
       modelName,
@@ -139,7 +139,7 @@ export class CostCacheManager {
       cacheReadTokens,
       cacheCreationTokens,
       webSearchRequests,
-      isFastMode,
+      isFastMode
     );
 
     this.cacheCost(key, cost);
@@ -182,8 +182,9 @@ export class CostCacheManager {
     }
 
     // 仍然过大，移除命中次数最少的缓存
-    const entries = Array.from(this.costCache.entries())
-      .sort((a, b) => a[1].hitCount - b[1].hitCount);
+    const entries = Array.from(this.costCache.entries()).sort(
+      (a, b) => a[1].hitCount - b[1].hitCount
+    );
 
     const toRemove = entries.slice(0, entries.length - this.maxCacheSize);
     for (const [key] of toRemove) {
@@ -254,7 +255,7 @@ export function getOrCalculateCost(
   cacheReadTokens: number = 0,
   cacheCreationTokens: number = 0,
   webSearchRequests: number = 0,
-  isFastMode: boolean = false,
+  isFastMode: boolean = false
 ): number {
   return costCacheManager.getOrCalculateCost(
     modelName,
@@ -263,7 +264,7 @@ export function getOrCalculateCost(
     cacheReadTokens,
     cacheCreationTokens,
     webSearchRequests,
-    isFastMode,
+    isFastMode
   );
 }
 

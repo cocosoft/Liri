@@ -3,14 +3,14 @@
  * 支持各种文本对象操作
  */
 
-export type TextObjectType = 
-  | 'word' 
-  | 'WORD' 
-  | 'sentence' 
-  | 'paragraph' 
-  | 'bracket' 
-  | 'quote' 
-  | 'tag' 
+export type TextObjectType =
+  | 'word'
+  | 'WORD'
+  | 'sentence'
+  | 'paragraph'
+  | 'bracket'
+  | 'quote'
+  | 'tag'
   | 'block';
 
 export interface TextObject {
@@ -136,7 +136,7 @@ export class TextObjectManager {
    */
   getBracketContent(): TextObject | null {
     const brackets = ['()', '[]', '{}', '<>'];
-    
+
     for (const pair of brackets) {
       const [open, close] = pair;
       const result = this.findBracketPair(open, close);
@@ -158,7 +158,7 @@ export class TextObjectManager {
    */
   getQuoteContent(): TextObject | null {
     const quotes = ['"', "'", '`'];
-    
+
     for (const quote of quotes) {
       const result = this.findQuotePair(quote);
       if (result) {
@@ -177,13 +177,16 @@ export class TextObjectManager {
   /**
    * 查找括号配对
    */
-  private findBracketPair(open: string, close: string): { start: number; end: number } | null {
+  private findBracketPair(
+    open: string,
+    close: string
+  ): { start: number; end: number } | null {
     let count = 0;
     let start = -1;
 
     for (let i = 0; i < this.text.length; i++) {
       const char = this.text[i];
-      
+
       if (char === open) {
         count++;
         if (start === -1) start = i;
@@ -207,12 +210,12 @@ export class TextObjectManager {
 
     for (let i = 0; i < this.text.length; i++) {
       const char = this.text[i];
-      
+
       if (char === '\\' && !escaped) {
         escaped = true;
         continue;
       }
-      
+
       if (char === quote && !escaped) {
         if (start === -1) {
           start = i;
@@ -220,7 +223,7 @@ export class TextObjectManager {
           return { start, end: i + 1 };
         }
       }
-      
+
       escaped = false;
     }
 

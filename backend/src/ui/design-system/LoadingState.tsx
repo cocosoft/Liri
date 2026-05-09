@@ -15,7 +15,7 @@ export function LoadingState({
   text = '加载中...',
   size = 'md',
   color = 'primary',
-  type = 'spinner'
+  type = 'spinner',
 }: LoadingStateProps) {
   const { theme } = useTheme();
 
@@ -28,17 +28,13 @@ export function LoadingState({
 
     useEffect(() => {
       const interval = setInterval(() => {
-        setFrameIndex(prev => (prev + 1) % spinnerFrames.length);
+        setFrameIndex((prev) => (prev + 1) % spinnerFrames.length);
       }, 100);
 
       return () => clearInterval(interval);
     }, []);
 
-    return (
-      <Text color={theme.colors[color]}>
-        {spinnerFrames[frameIndex]}
-      </Text>
-    );
+    return <Text color={theme.colors[color]}>{spinnerFrames[frameIndex]}</Text>;
   };
 
   /**
@@ -50,39 +46,38 @@ export function LoadingState({
 
     useEffect(() => {
       const interval = setInterval(() => {
-        setFrameIndex(prev => (prev + 1) % dotFrames.length);
+        setFrameIndex((prev) => (prev + 1) % dotFrames.length);
       }, 300);
 
       return () => clearInterval(interval);
     }, []);
 
-    return (
-      <Text color={theme.colors[color]}>
-        {dotFrames[frameIndex]}
-      </Text>
-    );
+    return <Text color={theme.colors[color]}>{dotFrames[frameIndex]}</Text>;
   };
 
   /**
    * 渲染进度条加载器（基于CC源码）
    */
   const renderBar = () => {
-    const barFrames = ['[=   ]', '[ =  ]', '[  = ]', '[   =]', '[  = ]', '[ =  ]'];
+    const barFrames = [
+      '[=   ]',
+      '[ =  ]',
+      '[  = ]',
+      '[   =]',
+      '[  = ]',
+      '[ =  ]',
+    ];
     const [frameIndex, setFrameIndex] = useState(0);
 
     useEffect(() => {
       const interval = setInterval(() => {
-        setFrameIndex(prev => (prev + 1) % barFrames.length);
+        setFrameIndex((prev) => (prev + 1) % barFrames.length);
       }, 200);
 
       return () => clearInterval(interval);
     }, []);
 
-    return (
-      <Text color={theme.colors[color]}>
-        {barFrames[frameIndex]}
-      </Text>
-    );
+    return <Text color={theme.colors[color]}>{barFrames[frameIndex]}</Text>;
   };
 
   /**
@@ -104,9 +99,7 @@ export function LoadingState({
   return (
     <Box flexDirection="row" alignItems="center">
       {renderLoader()}
-      <Text color={theme.colors.text}>
-        {text}
-      </Text>
+      <Text color={theme.colors.text}>{text}</Text>
     </Box>
   );
 }
@@ -117,20 +110,14 @@ export function LoadingState({
 export function FullScreenLoadingState({
   text = '加载中...',
   color = 'primary',
-  type = 'spinner'
+  type = 'spinner',
 }: Omit<LoadingStateProps, 'size'>) {
   const { theme } = useTheme();
 
   return (
-    <Box
-      flexDirection="column"
-      justifyContent="center"
-      alignItems="center"
-    >
+    <Box flexDirection="column" justifyContent="center" alignItems="center">
       <LoadingState text={text} color={color} type={type} size="lg" />
-      <Text color={theme.colors.textSecondary}>
-        请稍候...
-      </Text>
+      <Text color={theme.colors.textSecondary}>请稍候...</Text>
     </Box>
   );
 }
@@ -141,11 +128,9 @@ export function FullScreenLoadingState({
 export function InlineLoadingState({
   text,
   color = 'primary',
-  type = 'spinner'
+  type = 'spinner',
 }: Omit<LoadingStateProps, 'size'>) {
-  return (
-    <LoadingState text={text} color={color} type={type} size="sm" />
-  );
+  return <LoadingState text={text} color={color} type={type} size="sm" />;
 }
 
 /**
@@ -154,7 +139,7 @@ export function InlineLoadingState({
 export function SkeletonLoadingState({
   width = 20,
   height = 1,
-  color = 'border'
+  color = 'border',
 }: {
   width?: number;
   height?: number;
@@ -165,7 +150,7 @@ export function SkeletonLoadingState({
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setIsVisible(prev => !prev);
+      setIsVisible((prev) => !prev);
     }, 500);
 
     return () => clearInterval(interval);
@@ -188,7 +173,7 @@ export function ProgressLoadingState({
   progress,
   total,
   text,
-  color = 'primary'
+  color = 'primary',
 }: {
   progress: number;
   total: number;
@@ -201,9 +186,7 @@ export function ProgressLoadingState({
   return (
     <Box flexDirection="column">
       <LoadingState text={displayText} color={color} type="bar" />
-      <Text color="textSecondary">
-        进度: {percentage}%
-      </Text>
+      <Text color="textSecondary">进度: {percentage}%</Text>
     </Box>
   );
 }

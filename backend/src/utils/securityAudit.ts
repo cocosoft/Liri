@@ -35,7 +35,7 @@ export enum SecurityEventType {
   /** 系统启动 */
   SYSTEM_STARTUP = 'system_startup',
   /** 系统关闭 */
-  SYSTEM_SHUTDOWN = 'system_shutdown'
+  SYSTEM_SHUTDOWN = 'system_shutdown',
 }
 
 /**
@@ -49,7 +49,7 @@ export enum SecuritySeverity {
   /** 错误级别 */
   ERROR = 'error',
   /** 严重级别 */
-  CRITICAL = 'critical'
+  CRITICAL = 'critical',
 }
 
 /**
@@ -114,7 +114,7 @@ export class SecurityAuditor {
       retentionDays: 30,
       verbose: false,
       eventTypes: Object.values(SecurityEventType),
-      ...config
+      ...config,
     };
   }
 
@@ -141,10 +141,13 @@ export class SecurityAuditor {
       this.logEvent({
         type: SecurityEventType.SYSTEM_STARTUP,
         severity: SecuritySeverity.INFO,
-        details: { message: 'Security auditor initialized' }
+        details: { message: 'Security auditor initialized' },
       });
     } catch (error) {
-      logger.error('Failed to initialize security auditor:', error instanceof Error ? error : undefined);
+      logger.error(
+        'Failed to initialize security auditor:',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -163,7 +166,7 @@ export class SecurityAuditor {
     const event: SecurityEvent = {
       id: this.generateEventId(),
       timestamp: new Date(),
-      ...eventData
+      ...eventData,
     };
 
     this.events.push(event);
@@ -189,8 +192,8 @@ export class SecurityAuditor {
       details: {
         allowed: result.allowed,
         reason: result.reason,
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 
@@ -211,8 +214,8 @@ export class SecurityAuditor {
       toolName,
       details: {
         reason,
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 
@@ -235,8 +238,8 @@ export class SecurityAuditor {
       details: {
         input: this.config.verbose ? input : '[REDACTED]',
         errors,
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 
@@ -255,8 +258,8 @@ export class SecurityAuditor {
       sessionId,
       details: {
         command,
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 
@@ -277,8 +280,8 @@ export class SecurityAuditor {
       toolName,
       details: {
         input: this.config.verbose ? input : '[REDACTED]',
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 
@@ -300,8 +303,8 @@ export class SecurityAuditor {
       details: {
         error: error.message,
         stack: this.config.verbose ? error.stack : '[REDACTED]',
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 
@@ -321,29 +324,29 @@ export class SecurityAuditor {
     const eventsBySeverity = {} as Record<SecuritySeverity, number>;
 
     // 初始化统计对象
-    Object.values(SecurityEventType).forEach(type => {
+    Object.values(SecurityEventType).forEach((type) => {
       eventsByType[type] = 0;
     });
-    Object.values(SecuritySeverity).forEach(severity => {
+    Object.values(SecuritySeverity).forEach((severity) => {
       eventsBySeverity[severity] = 0;
     });
 
     // 统计事件
-    this.events.forEach(event => {
+    this.events.forEach((event) => {
       eventsByType[event.type]++;
       eventsBySeverity[event.severity]++;
     });
 
     // 获取最近24小时的事件
     const recentEvents = this.events.filter(
-      event => event.timestamp >= oneDayAgo
+      (event) => event.timestamp >= oneDayAgo
     );
 
     return {
       totalEvents: this.events.length,
       eventsByType,
       eventsBySeverity,
-      recentEvents
+      recentEvents,
     };
   }
 
@@ -365,8 +368,8 @@ export class SecurityAuditor {
     const cutoffDate = new Date(
       Date.now() - this.config.retentionDays * 24 * 60 * 60 * 1000
     );
-    
-    this.events = this.events.filter(event => event.timestamp >= cutoffDate);
+
+    this.events = this.events.filter((event) => event.timestamp >= cutoffDate);
   }
 
   /**
@@ -387,10 +390,13 @@ export class SecurityAuditor {
     try {
       const fs = await import('fs');
       const logEntry = JSON.stringify(event) + '\n';
-      
+
       fs.appendFileSync(this.config.logFile, logEntry, { encoding: 'utf8' });
     } catch (error) {
-      logger.error('Failed to write security audit log:', error instanceof Error ? error : undefined);
+      logger.error(
+        'Failed to write security audit log:',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -410,10 +416,10 @@ export class SecurityAuditor {
       'User ID',
       'Session ID',
       'Tool Name',
-      'Details'
+      'Details',
     ];
 
-    const rows = this.events.map(event => [
+    const rows = this.events.map((event) => [
       event.id,
       event.type,
       event.severity,
@@ -421,12 +427,12 @@ export class SecurityAuditor {
       event.userId || '',
       event.sessionId || '',
       event.toolName || '',
-      JSON.stringify(event.details)
+      JSON.stringify(event.details),
     ]);
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
     ].join('\n');
 
     return csvContent;
@@ -443,7 +449,7 @@ export class SecurityAuditor {
     this.logEvent({
       type: SecurityEventType.SYSTEM_SHUTDOWN,
       severity: SecuritySeverity.INFO,
-      details: { message: 'Security auditor shutdown' }
+      details: { message: 'Security auditor shutdown' },
     });
 
     this.isInitialized = false;
@@ -458,7 +464,9 @@ export const securityAuditor = new SecurityAuditor();
 /**
  * 初始化安全审计器
  */
-export async function initializeSecurityAudit(config?: Partial<SecurityAuditConfig>): Promise<void> {
+export async function initializeSecurityAudit(
+  config?: Partial<SecurityAuditConfig>
+): Promise<void> {
   if (config) {
     Object.assign(securityAuditor.config, config);
   }
@@ -468,6 +476,8 @@ export async function initializeSecurityAudit(config?: Partial<SecurityAuditConf
 /**
  * 记录安全事件的便捷函数
  */
-export function logSecurityEvent(eventData: Omit<SecurityEvent, 'id' | 'timestamp'>): void {
+export function logSecurityEvent(
+  eventData: Omit<SecurityEvent, 'id' | 'timestamp'>
+): void {
   securityAuditor.logEvent(eventData);
 }

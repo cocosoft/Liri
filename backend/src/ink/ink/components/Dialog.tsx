@@ -62,7 +62,9 @@ export const Dialog: React.FC<DialogProps> = ({
       >
         {title && (
           <Box paddingY={1} borderBottomStyle="single">
-            <Text bold color="white">{title}</Text>
+            <Text bold color="white">
+              {title}
+            </Text>
           </Box>
         )}
         <Box paddingY={2} paddingX={4}>

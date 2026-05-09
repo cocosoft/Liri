@@ -4,7 +4,12 @@
  * 支持同步和异步钩子，支持优先级排序
  */
 
-export type StopHookReason = 'completed' | 'aborted' | 'error' | 'timeout' | 'max_turns';
+export type StopHookReason =
+  | 'completed'
+  | 'aborted'
+  | 'error'
+  | 'timeout'
+  | 'max_turns';
 
 export interface StopHookContext {
   sessionId: string;

@@ -20,8 +20,16 @@ declare module 'semver';
 
 // Bun global declaration
 declare const Bun: {
-  stringWidth: ((str: string, opts?: { ambiguousIsNarrow?: boolean }) => number) | undefined;
-  wrapAnsi: ((input: string, columns: number, options?: { hard?: boolean; wordWrap?: boolean; trim?: boolean }) => string) | undefined;
+  stringWidth:
+    | ((str: string, opts?: { ambiguousIsNarrow?: boolean }) => number)
+    | undefined;
+  wrapAnsi:
+    | ((
+        input: string,
+        columns: number,
+        options?: { hard?: boolean; wordWrap?: boolean; trim?: boolean }
+      ) => string)
+    | undefined;
 };
 
 declare module 'lodash-es/noop.js' {

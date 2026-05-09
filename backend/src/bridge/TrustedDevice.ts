@@ -31,7 +31,7 @@ export function loadTrustedDevices(): TrustedDevice[] {
     if (!fs.existsSync(p)) return [];
     const devices = JSON.parse(fs.readFileSync(p, 'utf-8')) as TrustedDevice[];
     // 过滤过期设备
-    return devices.filter(d => !isDeviceExpired(d));
+    return devices.filter((d) => !isDeviceExpired(d));
   } catch {
     return [];
   }
@@ -56,7 +56,7 @@ export function isDeviceExpired(device: TrustedDevice): boolean {
  */
 export function getTrustedDeviceToken(deviceId: string): string | null {
   const devices = loadTrustedDevices();
-  const d = devices.find(x => x.deviceId === deviceId);
+  const d = devices.find((x) => x.deviceId === deviceId);
   if (!d) return null;
   if (isDeviceExpired(d)) return null;
   d.lastSeen = Date.now();
@@ -69,10 +69,10 @@ export function getTrustedDeviceToken(deviceId: string): string | null {
  */
 export function getDefaultTrustedDeviceToken(): string | null {
   const devices = loadTrustedDevices();
-  const defaultDevice = devices.find(d => d.isDefault && !isDeviceExpired(d));
+  const defaultDevice = devices.find((d) => d.isDefault && !isDeviceExpired(d));
   if (!defaultDevice) {
     // 如果没有默认设备，返回第一个未过期的设备
-    const firstValid = devices.find(d => !isDeviceExpired(d));
+    const firstValid = devices.find((d) => !isDeviceExpired(d));
     return firstValid ? firstValid.fingerprint : null;
   }
   defaultDevice.lastSeen = Date.now();
@@ -83,11 +83,14 @@ export function getDefaultTrustedDeviceToken(): string | null {
 /**
  * 注册信任设备
  */
-export function registerTrustedDevice(name: string, expiresAt?: number): TrustedDevice {
+export function registerTrustedDevice(
+  name: string,
+  expiresAt?: number
+): TrustedDevice {
   const devices = loadTrustedDevices();
   // 如果没有默认设备，设置新设备为默认设备
-  const hasDefault = devices.some(d => d.isDefault);
-  
+  const hasDefault = devices.some((d) => d.isDefault);
+
   const device: TrustedDevice = {
     deviceId: randomUUID(),
     deviceName: name || `device_${devices.length + 1}`,
@@ -107,11 +110,13 @@ export function registerTrustedDevice(name: string, expiresAt?: number): Trusted
  */
 export function setDefaultDevice(deviceId: string): boolean {
   const devices = loadTrustedDevices();
-  const device = devices.find(d => d.deviceId === deviceId);
+  const device = devices.find((d) => d.deviceId === deviceId);
   if (!device || isDeviceExpired(device)) return false;
-  
+
   // 清除其他设备的默认标记
-  devices.forEach(d => { d.isDefault = false; });
+  devices.forEach((d) => {
+    d.isDefault = false;
+  });
   device.isDefault = true;
   device.lastSeen = Date.now();
   saveTrustedDevices(devices);
@@ -124,7 +129,7 @@ export function setDefaultDevice(deviceId: string): boolean {
 export function removeTrustedDevice(deviceId: string): boolean {
   const devices = loadTrustedDevices();
   const initialLength = devices.length;
-  const filtered = devices.filter(d => d.deviceId !== deviceId);
+  const filtered = devices.filter((d) => d.deviceId !== deviceId);
   if (filtered.length === initialLength) return false;
   saveTrustedDevices(filtered);
   return true;
@@ -135,9 +140,9 @@ export function removeTrustedDevice(deviceId: string): boolean {
  */
 export function refreshDeviceToken(deviceId: string): string | null {
   const devices = loadTrustedDevices();
-  const device = devices.find(d => d.deviceId === deviceId);
+  const device = devices.find((d) => d.deviceId === deviceId);
   if (!device || isDeviceExpired(device)) return null;
-  
+
   // 生成新的fingerprint
   device.fingerprint = randomUUID().replace(/-/g, '');
   device.lastSeen = Date.now();
@@ -151,7 +156,7 @@ export function refreshDeviceToken(deviceId: string): string | null {
  */
 export function isDeviceTrusted(deviceId: string): boolean {
   const devices = loadTrustedDevices();
-  const device = devices.find(d => d.deviceId === deviceId);
+  const device = devices.find((d) => d.deviceId === deviceId);
   return !!device && !isDeviceExpired(device);
 }
 
@@ -159,17 +164,20 @@ export function isDeviceTrusted(deviceId: string): boolean {
  * 获取所有有效设备列表
  */
 export function getValidDevices(): TrustedDevice[] {
-  return loadTrustedDevices().filter(d => !isDeviceExpired(d));
+  return loadTrustedDevices().filter((d) => !isDeviceExpired(d));
 }
 
 /**
  * 更新设备信息
  */
-export function updateDevice(deviceId: string, updates: Partial<Pick<TrustedDevice, 'deviceName' | 'expiresAt'>>): boolean {
+export function updateDevice(
+  deviceId: string,
+  updates: Partial<Pick<TrustedDevice, 'deviceName' | 'expiresAt'>>
+): boolean {
   const devices = loadTrustedDevices();
-  const device = devices.find(d => d.deviceId === deviceId);
+  const device = devices.find((d) => d.deviceId === deviceId);
   if (!device || isDeviceExpired(device)) return false;
-  
+
   if (updates.deviceName !== undefined) {
     device.deviceName = updates.deviceName;
   }

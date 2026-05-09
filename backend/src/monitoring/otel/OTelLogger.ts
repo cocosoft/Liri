@@ -21,7 +21,9 @@ export class PYAppDiagLogger implements DiagLogger {
   error(message: string, ...args: unknown[]): void {
     logForDebugging(`[OTel] Error: ${message}`, { level: 'error' });
     if (args.length > 0) {
-      logForDebugging(`[OTel] Error args: ${JSON.stringify(args)}`, { level: 'error' });
+      logForDebugging(`[OTel] Error args: ${JSON.stringify(args)}`, {
+        level: 'error',
+      });
     }
   }
 
@@ -32,7 +34,9 @@ export class PYAppDiagLogger implements DiagLogger {
   warn(message: string, ...args: unknown[]): void {
     logForDebugging(`[OTel] Warn: ${message}`, { level: 'warn' });
     if (args.length > 0) {
-      logForDebugging(`[OTel] Warn args: ${JSON.stringify(args)}`, { level: 'warn' });
+      logForDebugging(`[OTel] Warn args: ${JSON.stringify(args)}`, {
+        level: 'warn',
+      });
     }
   }
 
@@ -43,7 +47,9 @@ export class PYAppDiagLogger implements DiagLogger {
   info(message: string, ...args: unknown[]): void {
     logForDebugging(`[OTel] Info: ${message}`, { level: 'info' });
     if (args.length > 0) {
-      logForDebugging(`[OTel] Info args: ${JSON.stringify(args)}`, { level: 'info' });
+      logForDebugging(`[OTel] Info args: ${JSON.stringify(args)}`, {
+        level: 'info',
+      });
     }
   }
 
@@ -54,7 +60,9 @@ export class PYAppDiagLogger implements DiagLogger {
   debug(message: string, ...args: unknown[]): void {
     logForDebugging(`[OTel] Debug: ${message}`, { level: 'debug' });
     if (args.length > 0) {
-      logForDebugging(`[OTel] Debug args: ${JSON.stringify(args)}`, { level: 'debug' });
+      logForDebugging(`[OTel] Debug args: ${JSON.stringify(args)}`, {
+        level: 'debug',
+      });
     }
   }
 
@@ -65,7 +73,9 @@ export class PYAppDiagLogger implements DiagLogger {
   verbose(message: string, ...args: unknown[]): void {
     logForDebugging(`[OTel] Verbose: ${message}`, { level: 'debug' });
     if (args.length > 0) {
-      logForDebugging(`[OTel] Verbose args: ${JSON.stringify(args)}`, { level: 'debug' });
+      logForDebugging(`[OTel] Verbose args: ${JSON.stringify(args)}`, {
+        level: 'debug',
+      });
     }
   }
 }
@@ -74,7 +84,9 @@ export class PYAppDiagLogger implements DiagLogger {
  * 设置OpenTelemetry诊断日志
  * @param logLevel 日志级别
  */
-export function setupOtelDiagnostics(logLevel: DiagLogLevel = DiagLogLevel.ERROR): void {
+export function setupOtelDiagnostics(
+  logLevel: DiagLogLevel = DiagLogLevel.ERROR
+): void {
   diag.setLogger(new PYAppDiagLogger(), logLevel);
 }
 

@@ -56,7 +56,7 @@ const DEFAULT_ENCRYPTION_CONFIG: EncryptionConfig = {
 
 /**
  * 安全存储服务
- * 
+ *
  * 基于CC源码的安全存储机制实现，提供：
  * - 多平台支持（macOS Keychain, Linux libsecret, Windows DPAPI）
  * - 降级策略（密钥链不可用时使用加密文件）
@@ -228,13 +228,20 @@ export class SecureStorage extends EventEmitter {
     const salt = Buffer.from('pyapp-secure-storage-salt');
 
     return new Promise((resolve, reject) => {
-      pbkdf2(key, salt, this.config.iterations, 32, 'sha256', (err, derivedKey) => {
-        if (err) reject(err);
-        else {
-          this.encryptionKey = derivedKey;
-          resolve(derivedKey);
+      pbkdf2(
+        key,
+        salt,
+        this.config.iterations,
+        32,
+        'sha256',
+        (err, derivedKey) => {
+          if (err) reject(err);
+          else {
+            this.encryptionKey = derivedKey;
+            resolve(derivedKey);
+          }
         }
-      });
+      );
     });
   }
 
@@ -262,7 +269,9 @@ export class SecureStorage extends EventEmitter {
       this.config.ivLength,
       this.config.ivLength + this.config.authTagLength
     );
-    const encryptedText = encrypted.subarray(this.config.ivLength + this.config.authTagLength);
+    const encryptedText = encrypted.subarray(
+      this.config.ivLength + this.config.authTagLength
+    );
 
     const decipher = createDecipheriv(this.config.algorithm, key, iv);
     (decipher as any).setAuthTag(authTag);
@@ -300,7 +309,7 @@ export class SecureStorage extends EventEmitter {
   }> {
     const exists = existsSync(this.storagePath);
     let fileStats = null;
-    
+
     if (exists) {
       fileStats = await stat(this.storagePath);
     }

@@ -54,6 +54,47 @@ export class AppError extends Error {
     super(message);
     this.name = 'AppError';
   }
+
+  /**
+   * 从标准错误码创建 AppError
+   * @param errorDef 错误码定义
+   * @param options 可选参数
+   */
+  static fromCode(
+    errorDef: { code: number; message: string; level: string },
+    options?: {
+      category?: ErrorCategory;
+      context?: Record<string, any>;
+      cause?: Error;
+    }
+  ): AppError {
+    const category = options?.category ?? ErrorCategory.UNKNOWN;
+    const severity = AppError.levelToSeverity(errorDef.level);
+    const error = new AppError(
+      errorDef.message,
+      category,
+      severity,
+      String(errorDef.code),
+      options?.context
+    );
+    if (options?.cause) {
+      error.cause = options.cause;
+    }
+    return error;
+  }
+
+  private static levelToSeverity(level: string): ErrorSeverity {
+    switch (level) {
+      case 'CRITICAL':
+        return ErrorSeverity.CRITICAL;
+      case 'ERROR':
+        return ErrorSeverity.HIGH;
+      case 'WARN':
+        return ErrorSeverity.MEDIUM;
+      default:
+        return ErrorSeverity.LOW;
+    }
+  }
 }
 
 /**
@@ -162,7 +203,11 @@ export class ConfigParseError extends AppError {
   /**
    * 以 CC 兼容签名构造（方便迁移）
    */
-  static ccCompatible(message: string, filePath: string, defaultConfig: unknown): ConfigParseError {
+  static ccCompatible(
+    message: string,
+    filePath: string,
+    defaultConfig: unknown
+  ): ConfigParseError {
     return new ConfigParseError(
       message,
       ErrorSeverity.HIGH,
@@ -324,7 +369,11 @@ export class FallbackTriggeredError extends Error {
   /**
    * 以 CC 兼容签名构造（model fallback 场景）
    */
-  static fromModelFallback(originalModel: string, fallbackModel: string, originalError?: Error): FallbackTriggeredError {
+  static fromModelFallback(
+    originalModel: string,
+    fallbackModel: string,
+    originalError?: Error
+  ): FallbackTriggeredError {
     return new FallbackTriggeredError(
       `Model fallback triggered: ${originalModel} -> ${fallbackModel}`,
       originalError,
@@ -349,7 +398,9 @@ export class TelemetrySafeError extends AppError {
     context?: Record<string, any>
   ) {
     // 移除上下文可能包含的敏感信息
-    const safeContext = context ? TelemetrySafeError.sanitizeContext(context) : undefined;
+    const safeContext = context
+      ? TelemetrySafeError.sanitizeContext(context)
+      : undefined;
     super(message, category, severity, code, safeContext);
     this.name = 'TelemetrySafeError';
     this.telemetryMessage = telemetryMessage || message;
@@ -359,13 +410,23 @@ export class TelemetrySafeError extends AppError {
    * 清理上下文，移除敏感信息
    */
   static sanitizeContext(context: Record<string, any>): Record<string, any> {
-    const sensitiveKeys = ['password', 'token', 'apiKey', 'secret', 'credential', 'auth', 'key'];
+    const sensitiveKeys = [
+      'password',
+      'token',
+      'apiKey',
+      'secret',
+      'credential',
+      'auth',
+      'key',
+    ];
     const safeContext: Record<string, any> = {};
 
     for (const [key, value] of Object.entries(context)) {
-      if (sensitiveKeys.some(sensitiveKey => 
-        key.toLowerCase().includes(sensitiveKey.toLowerCase())
-      )) {
+      if (
+        sensitiveKeys.some((sensitiveKey) =>
+          key.toLowerCase().includes(sensitiveKey.toLowerCase())
+        )
+      ) {
         safeContext[key] = '***REDACTED***';
       } else if (typeof value === 'object' && value !== null) {
         safeContext[key] = this.sanitizeContext(value as Record<string, any>);
@@ -380,11 +441,11 @@ export class TelemetrySafeError extends AppError {
 
 /**
  * 安全遥测错误类（双消息设计）
- * 
+ *
  * 显式分离用户消息和遥测消息：
  * - message: 完整消息，可包含路径等详细信息（用于日志和用户显示）
  * - telemetryMessage: 安全消息，不含敏感信息（用于遥测上报）
- * 
+ *
  * 使用示例:
  * throw new SafeTelemetryError(
  *   `文件 /home/user/.ssh/id_rsa 不存在`,  // 完整消息
@@ -394,10 +455,7 @@ export class TelemetrySafeError extends AppError {
 export class SafeTelemetryError extends Error {
   readonly telemetryMessage: string;
 
-  constructor(
-    message: string,
-    telemetryMessage?: string
-  ) {
+  constructor(message: string, telemetryMessage?: string) {
     super(message);
     this.name = 'SafeTelemetryError';
     this.telemetryMessage = telemetryMessage ?? message;
@@ -406,7 +464,10 @@ export class SafeTelemetryError extends Error {
   /**
    * 从现有错误创建安全遥测错误
    */
-  static fromError(error: Error, telemetryMessage?: string): SafeTelemetryError {
+  static fromError(
+    error: Error,
+    telemetryMessage?: string
+  ): SafeTelemetryError {
     return new SafeTelemetryError(error.message, telemetryMessage);
   }
 
@@ -438,7 +499,7 @@ export class MalformedCommandError extends Error {
 export class TeleportOperationError extends Error {
   constructor(
     message: string,
-    public readonly formattedMessage: string,
+    public readonly formattedMessage: string
   ) {
     super(message);
     this.name = 'TeleportOperationError';
@@ -447,7 +508,7 @@ export class TeleportOperationError extends Error {
 
 /**
  * 轻量级网络错误类
- * 
+ *
  * 相比 AppError 更轻量，不包含分类和严重程度字段，
  * 适用于性能敏感场景或简单错误处理。
  */
@@ -464,7 +525,7 @@ export class LightweightNetworkError extends Error {
 
 /**
  * 轻量级文件错误类
- * 
+ *
  * 相比 AppError 更轻量，专注于文件系统错误的核心信息。
  */
 export class LightweightFileError extends Error {
@@ -480,7 +541,7 @@ export class LightweightFileError extends Error {
 
 /**
  * 轻量级 API 错误类
- * 
+ *
  * 相比 AppError 更轻量，专注于 API 错误的核心信息。
  */
 export class LightweightAPIError extends Error {
@@ -496,7 +557,7 @@ export class LightweightAPIError extends Error {
 
 /**
  * 轻量级配置错误类
- * 
+ *
  * 相比 AppError 更轻量，专注于配置错误的核心信息。
  */
 export class LightweightConfigError extends Error {

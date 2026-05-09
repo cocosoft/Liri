@@ -46,7 +46,7 @@ export class VisualModeManager {
    */
   update(endLine: number, endColumn: number): void {
     if (!this.selection) return;
-    
+
     this.selection.endLine = endLine;
     this.selection.endColumn = endColumn;
   }
@@ -99,10 +99,10 @@ export class VisualModeManager {
    */
   getLineRange(): [number, number] | null {
     if (!this.selection) return null;
-    
+
     const start = Math.min(this.selection.startLine, this.selection.endLine);
     const end = Math.max(this.selection.startLine, this.selection.endLine);
-    
+
     return [start, end];
   }
 
@@ -111,10 +111,13 @@ export class VisualModeManager {
    */
   getColumnRange(): [number, number] | null {
     if (!this.selection) return null;
-    
-    const start = Math.min(this.selection.startColumn, this.selection.endColumn);
+
+    const start = Math.min(
+      this.selection.startColumn,
+      this.selection.endColumn
+    );
     const end = Math.max(this.selection.startColumn, this.selection.endColumn);
-    
+
     return [start, end];
   }
 }

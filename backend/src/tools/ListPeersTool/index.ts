@@ -4,4 +4,8 @@
  */
 
 export { ListPeersTool, createListPeersTool } from './ListPeersTool';
-export type { ListPeersInput, ListPeersOutput, PeerInfo } from './ListPeersTool';
+export type {
+  ListPeersInput,
+  ListPeersOutput,
+  PeerInfo,
+} from './ListPeersTool';

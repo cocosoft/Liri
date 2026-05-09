@@ -4,11 +4,11 @@
  */
 
 import { EventEmitter } from 'events';
-import type { 
-  MCPToolDefinition, 
-  MCPResourceDefinition, 
-  MCPPromptDefinition, 
-  MCPServerInfo 
+import type {
+  MCPToolDefinition,
+  MCPResourceDefinition,
+  MCPPromptDefinition,
+  MCPServerInfo,
 } from '../types/MCPTypes';
 
 /**
@@ -17,19 +17,19 @@ import type {
 export interface ToolCallContext {
   /** 服务器名称 */
   serverName: string;
-  
+
   /** 工具名称 */
   toolName: string;
-  
+
   /** 调用参数 */
   args?: Record<string, any>;
-  
+
   /** 调用时间 */
   timestamp: Date;
-  
+
   /** 会话ID */
   sessionId?: string;
-  
+
   /** 用户ID */
   userId?: string;
 }
@@ -40,16 +40,16 @@ export interface ToolCallContext {
 export interface ToolCallResult {
   /** 是否成功 */
   success: boolean;
-  
+
   /** 调用结果 */
   result?: any;
-  
+
   /** 错误信息 */
   error?: string;
-  
+
   /** 调用耗时（毫秒） */
   duration: number;
-  
+
   /** 调用时间戳 */
   timestamp: Date;
 }
@@ -60,13 +60,13 @@ export interface ToolCallResult {
 export interface ToolRegistration {
   /** 工具定义 */
   definition: MCPToolDefinition;
-  
+
   /** 服务器名称 */
   serverName: string;
-  
+
   /** 注册时间 */
   registeredAt: Date;
-  
+
   /** 调用统计 */
   stats: {
     totalCalls: number;
@@ -75,7 +75,7 @@ export interface ToolRegistration {
     totalDuration: number;
     lastCallAt?: Date;
   };
-  
+
   /** 是否启用 */
   enabled: boolean;
 }
@@ -86,13 +86,13 @@ export interface ToolRegistration {
 export interface ResourceRegistration {
   /** 资源定义 */
   definition: MCPResourceDefinition;
-  
+
   /** 服务器名称 */
   serverName: string;
-  
+
   /** 注册时间 */
   registeredAt: Date;
-  
+
   /** 访问统计 */
   stats: {
     totalAccesses: number;
@@ -106,13 +106,13 @@ export interface ResourceRegistration {
 export interface PromptRegistration {
   /** 提示定义 */
   definition: MCPPromptDefinition;
-  
+
   /** 服务器名称 */
   serverName: string;
-  
+
   /** 注册时间 */
   registeredAt: Date;
-  
+
   /** 使用统计 */
   stats: {
     totalUses: number;
@@ -134,7 +134,7 @@ export class MCPToolManager extends EventEmitter {
    */
   registerTool(serverName: string, tool: MCPToolDefinition): void {
     const toolId = this.generateToolId(serverName, tool.name);
-    
+
     if (this.tools.has(toolId)) {
       throw new Error(`Tool already registered: ${toolId}`);
     }
@@ -153,7 +153,7 @@ export class MCPToolManager extends EventEmitter {
     };
 
     this.tools.set(toolId, registration);
-    
+
     this.emit('toolRegistered', { toolId, registration });
     console.log(`✅ Tool registered: ${toolId}`);
   }
@@ -163,7 +163,7 @@ export class MCPToolManager extends EventEmitter {
    */
   registerResource(serverName: string, resource: MCPResourceDefinition): void {
     const resourceId = this.generateResourceId(serverName, resource.id);
-    
+
     if (this.resources.has(resourceId)) {
       throw new Error(`Resource already registered: ${resourceId}`);
     }
@@ -178,7 +178,7 @@ export class MCPToolManager extends EventEmitter {
     };
 
     this.resources.set(resourceId, registration);
-    
+
     this.emit('resourceRegistered', { resourceId, registration });
     console.log(`✅ Resource registered: ${resourceId}`);
   }
@@ -188,7 +188,7 @@ export class MCPToolManager extends EventEmitter {
    */
   registerPrompt(serverName: string, prompt: MCPPromptDefinition): void {
     const promptId = this.generatePromptId(serverName, prompt.id);
-    
+
     if (this.prompts.has(promptId)) {
       throw new Error(`Prompt already registered: ${promptId}`);
     }
@@ -203,7 +203,7 @@ export class MCPToolManager extends EventEmitter {
     };
 
     this.prompts.set(promptId, registration);
-    
+
     this.emit('promptRegistered', { promptId, registration });
     console.log(`✅ Prompt registered: ${promptId}`);
   }
@@ -212,7 +212,7 @@ export class MCPToolManager extends EventEmitter {
    * 批量注册工具（基于CC源码）
    */
   registerTools(serverName: string, tools: MCPToolDefinition[]): void {
-    tools.forEach(tool => {
+    tools.forEach((tool) => {
       try {
         this.registerTool(serverName, tool);
       } catch (error) {
@@ -224,8 +224,11 @@ export class MCPToolManager extends EventEmitter {
   /**
    * 批量注册资源（基于CC源码）
    */
-  registerResources(serverName: string, resources: MCPResourceDefinition[]): void {
-    resources.forEach(resource => {
+  registerResources(
+    serverName: string,
+    resources: MCPResourceDefinition[]
+  ): void {
+    resources.forEach((resource) => {
       try {
         this.registerResource(serverName, resource);
       } catch (error) {
@@ -238,7 +241,7 @@ export class MCPToolManager extends EventEmitter {
    * 批量注册提示（基于CC源码）
    */
   registerPrompts(serverName: string, prompts: MCPPromptDefinition[]): void {
-    prompts.forEach(prompt => {
+    prompts.forEach((prompt) => {
       try {
         this.registerPrompt(serverName, prompt);
       } catch (error) {
@@ -251,14 +254,14 @@ export class MCPToolManager extends EventEmitter {
    * 调用工具（基于CC源码）
    */
   async callTool(
-    serverName: string, 
-    toolName: string, 
+    serverName: string,
+    toolName: string,
     args?: Record<string, any>,
     context?: Partial<ToolCallContext>
   ): Promise<ToolCallResult> {
     const toolId = this.generateToolId(serverName, toolName);
     const registration = this.tools.get(toolId);
-    
+
     if (!registration) {
       throw new Error(`Tool not found: ${toolId}`);
     }
@@ -276,49 +279,48 @@ export class MCPToolManager extends EventEmitter {
     };
 
     const startTime = Date.now();
-    
+
     try {
       // 这里应该调用实际的工具执行逻辑
       // 目前先模拟一个成功的调用
       const result = await this.executeTool(registration, callContext);
-      
+
       const duration = Date.now() - startTime;
-      
+
       // 更新统计信息
       registration.stats.totalCalls++;
       registration.stats.successfulCalls++;
       registration.stats.totalDuration += duration;
       registration.stats.lastCallAt = new Date();
-      
+
       const callResult: ToolCallResult = {
         success: true,
         result,
         duration,
         timestamp: new Date(),
       };
-      
+
       this.emit('toolCalled', { toolId, callContext, callResult });
-      
+
       return callResult;
-      
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       // 更新统计信息
       registration.stats.totalCalls++;
       registration.stats.failedCalls++;
       registration.stats.totalDuration += duration;
       registration.stats.lastCallAt = new Date();
-      
+
       const callResult: ToolCallResult = {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         duration,
         timestamp: new Date(),
       };
-      
+
       this.emit('toolCallFailed', { toolId, callContext, callResult });
-      
+
       throw error;
     }
   }
@@ -327,7 +329,7 @@ export class MCPToolManager extends EventEmitter {
    * 执行工具（基于CC源码）
    */
   private async executeTool(
-    registration: ToolRegistration, 
+    registration: ToolRegistration,
     context: ToolCallContext
   ): Promise<any> {
     // 这里应该实现实际的工具执行逻辑
@@ -350,7 +352,10 @@ export class MCPToolManager extends EventEmitter {
   /**
    * 获取资源（基于CC源码）
    */
-  getResource(serverName: string, resourceId: string): ResourceRegistration | undefined {
+  getResource(
+    serverName: string,
+    resourceId: string
+  ): ResourceRegistration | undefined {
     const fullResourceId = this.generateResourceId(serverName, resourceId);
     return this.resources.get(fullResourceId);
   }
@@ -358,7 +363,10 @@ export class MCPToolManager extends EventEmitter {
   /**
    * 获取提示（基于CC源码）
    */
-  getPrompt(serverName: string, promptId: string): PromptRegistration | undefined {
+  getPrompt(
+    serverName: string,
+    promptId: string
+  ): PromptRegistration | undefined {
     const fullPromptId = this.generatePromptId(serverName, promptId);
     return this.prompts.get(fullPromptId);
   }
@@ -389,7 +397,7 @@ export class MCPToolManager extends EventEmitter {
    */
   getServerTools(serverName: string): ToolRegistration[] {
     return Array.from(this.tools.values()).filter(
-      tool => tool.serverName === serverName
+      (tool) => tool.serverName === serverName
     );
   }
 
@@ -398,7 +406,7 @@ export class MCPToolManager extends EventEmitter {
    */
   getServerResources(serverName: string): ResourceRegistration[] {
     return Array.from(this.resources.values()).filter(
-      resource => resource.serverName === serverName
+      (resource) => resource.serverName === serverName
     );
   }
 
@@ -407,7 +415,7 @@ export class MCPToolManager extends EventEmitter {
    */
   getServerPrompts(serverName: string): PromptRegistration[] {
     return Array.from(this.prompts.values()).filter(
-      prompt => prompt.serverName === serverName
+      (prompt) => prompt.serverName === serverName
     );
   }
 
@@ -417,13 +425,13 @@ export class MCPToolManager extends EventEmitter {
   setToolEnabled(serverName: string, toolName: string, enabled: boolean): void {
     const toolId = this.generateToolId(serverName, toolName);
     const registration = this.tools.get(toolId);
-    
+
     if (!registration) {
       throw new Error(`Tool not found: ${toolId}`);
     }
 
     registration.enabled = enabled;
-    
+
     this.emit('toolEnabledChanged', { toolId, enabled });
     console.log(`✅ Tool ${toolId} ${enabled ? 'enabled' : 'disabled'}`);
   }
@@ -434,12 +442,12 @@ export class MCPToolManager extends EventEmitter {
   removeTool(serverName: string, toolName: string): boolean {
     const toolId = this.generateToolId(serverName, toolName);
     const existed = this.tools.delete(toolId);
-    
+
     if (existed) {
       this.emit('toolRemoved', { toolId });
       console.log(`✅ Tool removed: ${toolId}`);
     }
-    
+
     return existed;
   }
 
@@ -449,12 +457,12 @@ export class MCPToolManager extends EventEmitter {
   removeResource(serverName: string, resourceId: string): boolean {
     const fullResourceId = this.generateResourceId(serverName, resourceId);
     const existed = this.resources.delete(fullResourceId);
-    
+
     if (existed) {
       this.emit('resourceRemoved', { resourceId: fullResourceId });
       console.log(`✅ Resource removed: ${fullResourceId}`);
     }
-    
+
     return existed;
   }
 
@@ -464,12 +472,12 @@ export class MCPToolManager extends EventEmitter {
   removePrompt(serverName: string, promptId: string): boolean {
     const fullPromptId = this.generatePromptId(serverName, promptId);
     const existed = this.prompts.delete(fullPromptId);
-    
+
     if (existed) {
       this.emit('promptRemoved', { promptId: fullPromptId });
       console.log(`✅ Prompt removed: ${fullPromptId}`);
     }
-    
+
     return existed;
   }
 
@@ -483,21 +491,21 @@ export class MCPToolManager extends EventEmitter {
         this.tools.delete(toolId);
       }
     }
-    
+
     // 清理资源
     for (const [resourceId, resource] of this.resources.entries()) {
       if (resource.serverName === serverName) {
         this.resources.delete(resourceId);
       }
     }
-    
+
     // 清理提示
     for (const [promptId, prompt] of this.prompts.entries()) {
       if (prompt.serverName === serverName) {
         this.prompts.delete(promptId);
       }
     }
-    
+
     this.emit('serverCleared', { serverName });
     console.log(`✅ Server cleared: ${serverName}`);
   }
@@ -518,18 +526,30 @@ export class MCPToolManager extends EventEmitter {
     const tools = Array.from(this.tools.values());
     const resources = Array.from(this.resources.values());
     const prompts = Array.from(this.prompts.values());
-    
-    const totalToolCalls = tools.reduce((sum, tool) => sum + tool.stats.totalCalls, 0);
-    const successfulToolCalls = tools.reduce((sum, tool) => sum + tool.stats.successfulCalls, 0);
-    const failedToolCalls = tools.reduce((sum, tool) => sum + tool.stats.failedCalls, 0);
-    const totalToolDuration = tools.reduce((sum, tool) => sum + tool.stats.totalDuration, 0);
-    
+
+    const totalToolCalls = tools.reduce(
+      (sum, tool) => sum + tool.stats.totalCalls,
+      0
+    );
+    const successfulToolCalls = tools.reduce(
+      (sum, tool) => sum + tool.stats.successfulCalls,
+      0
+    );
+    const failedToolCalls = tools.reduce(
+      (sum, tool) => sum + tool.stats.failedCalls,
+      0
+    );
+    const totalToolDuration = tools.reduce(
+      (sum, tool) => sum + tool.stats.totalDuration,
+      0
+    );
+
     const serverNames = new Set([
-      ...tools.map(t => t.serverName),
-      ...resources.map(r => r.serverName),
-      ...prompts.map(p => p.serverName),
+      ...tools.map((t) => t.serverName),
+      ...resources.map((r) => r.serverName),
+      ...prompts.map((p) => p.serverName),
     ]);
-    
+
     return {
       totalTools: tools.length,
       totalResources: resources.length,
@@ -538,7 +558,8 @@ export class MCPToolManager extends EventEmitter {
       toolCalls: totalToolCalls,
       successfulToolCalls,
       failedToolCalls,
-      averageToolCallDuration: totalToolCalls > 0 ? totalToolDuration / totalToolCalls : 0,
+      averageToolCallDuration:
+        totalToolCalls > 0 ? totalToolDuration / totalToolCalls : 0,
     };
   }
 

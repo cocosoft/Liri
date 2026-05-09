@@ -152,11 +152,14 @@ async function handleStatus(): Promise<CommandResult> {
 async function handleTotalCost(): Promise<CommandResult> {
   const costData = await collectCostData();
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_cost_overview', {
-    totalCost: costData.totalCost,
-    totalCalls: costData.usageStats.totalCalls,
-    sessionCost: costData.totalSessionCost,
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_cost_overview',
+    {
+      totalCost: costData.totalCost,
+      totalCalls: costData.usageStats.totalCalls,
+      sessionCost: costData.totalSessionCost,
+    }
+  );
 
   const lines: string[] = [];
   lines.push('📊 API 调用成本总览');
@@ -164,12 +167,16 @@ async function handleTotalCost(): Promise<CommandResult> {
   lines.push('💰 总成本');
   lines.push(`   总花费: $${costData.totalCost.toFixed(2)}`);
   lines.push(`   总调用次数: ${costData.usageStats.totalCalls}`);
-  lines.push(`   平均每次调用成本: $${costData.usageStats.averageCostPerCall.toFixed(4)}`);
+  lines.push(
+    `   平均每次调用成本: $${costData.usageStats.averageCostPerCall.toFixed(4)}`
+  );
   lines.push('');
   lines.push('📈 使用统计');
   lines.push(`   成功调用: ${costData.usageStats.successfulCalls}`);
   lines.push(`   失败调用: ${costData.usageStats.failedCalls}`);
-  lines.push(`   成功率: ${calcRate(costData.usageStats.successfulCalls, costData.usageStats.totalCalls)}`);
+  lines.push(
+    `   成功率: ${calcRate(costData.usageStats.successfulCalls, costData.usageStats.totalCalls)}`
+  );
   lines.push('');
   lines.push('🔄 当前会话');
   lines.push(`   本次会话调用: ${costData.usageStats.thisSession} 次`);
@@ -189,7 +196,9 @@ async function handleCostBreakdown(): Promise<CommandResult> {
   lines.push('');
   lines.push('🔍 模型成本明细:');
   for (const item of costData.costBreakdown) {
-    lines.push(`   ${item.service}: ${item.calls} 次调用, $${item.cost.toFixed(2)} (${item.percentage.toFixed(1)}%)`);
+    lines.push(
+      `   ${item.service}: ${item.calls} 次调用, $${item.cost.toFixed(2)} (${item.percentage.toFixed(1)}%)`
+    );
   }
   lines.push('');
   lines.push('📈 总成本汇总');
@@ -212,10 +221,14 @@ async function handleUsageStats(): Promise<CommandResult> {
   lines.push(`   总调用次数: ${costData.usageStats.totalCalls}`);
   lines.push(`   成功调用: ${costData.usageStats.successfulCalls}`);
   lines.push(`   失败调用: ${costData.usageStats.failedCalls}`);
-  lines.push(`   成功率: ${calcRate(costData.usageStats.successfulCalls, costData.usageStats.totalCalls)}`);
+  lines.push(
+    `   成功率: ${calcRate(costData.usageStats.successfulCalls, costData.usageStats.totalCalls)}`
+  );
   lines.push('');
   lines.push('💵 成本效率');
-  lines.push(`   平均每次调用成本: $${costData.usageStats.averageCostPerCall.toFixed(4)}`);
+  lines.push(
+    `   平均每次调用成本: $${costData.usageStats.averageCostPerCall.toFixed(4)}`
+  );
   lines.push(`   总成本: $${costData.totalCost.toFixed(2)}`);
   lines.push(`   本次会话成本: $${costData.totalSessionCost.toFixed(2)}`);
 
@@ -233,11 +246,15 @@ async function handleTimeRangeStats(): Promise<CommandResult> {
   lines.push('');
   lines.push('📚 历史累计');
   lines.push(`   累计调用次数: ${costData.timeRangeStats.accumulated.calls}`);
-  lines.push(`   累计成本: $${costData.timeRangeStats.accumulated.cost.toFixed(2)}`);
+  lines.push(
+    `   累计成本: $${costData.timeRangeStats.accumulated.cost.toFixed(2)}`
+  );
   lines.push('');
   lines.push('🔄 当前会话');
   lines.push(`   本次调用次数: ${costData.timeRangeStats.thisSession.calls}`);
-  lines.push(`   本次成本: $${costData.timeRangeStats.thisSession.cost.toFixed(2)}`);
+  lines.push(
+    `   本次成本: $${costData.timeRangeStats.thisSession.cost.toFixed(2)}`
+  );
 
   return { success: true, message: lines.join('\n') };
 }
@@ -265,9 +282,12 @@ async function handleJson(context: CommandContext): Promise<CommandResult> {
       sessionCalls: costData.usageStats.thisSession,
       successfulCalls: costData.usageStats.successfulCalls,
       failedCalls: costData.usageStats.failedCalls,
-      successRate: calcRate(costData.usageStats.successfulCalls, costData.usageStats.totalCalls),
+      successRate: calcRate(
+        costData.usageStats.successfulCalls,
+        costData.usageStats.totalCalls
+      ),
     },
-    breakdown: costData.costBreakdown.map(b => ({
+    breakdown: costData.costBreakdown.map((b) => ({
       model: b.service,
       calls: b.calls,
       cost: Math.round(b.cost * 100) / 100,
@@ -285,8 +305,10 @@ async function handleJson(context: CommandContext): Promise<CommandResult> {
  * 收集成本数据
  */
 async function collectCostData(): Promise<CostData> {
-  const { getCostAnalyticsTracker } = await import('../../../analytics/CostAnalyticsTracker.js');
-  const { costPersistenceService } = await import('../../../cost/CostPersistenceService.js');
+  const { getCostAnalyticsTracker } =
+    await import('../../../analytics/CostAnalyticsTracker.js');
+  const { costPersistenceService } =
+    await import('../../../cost/CostPersistenceService.js');
 
   await costPersistenceService.initialize();
 
@@ -302,7 +324,10 @@ async function collectCostData(): Promise<CostData> {
   const accumulatedCost = accumulatedData.totalCostUSD;
   const totalCost = accumulatedCost + sessionCost;
 
-  const breakdown = buildBreakdown(sessionSummary.modelBreakdown, accumulatedData.modelBreakdown);
+  const breakdown = buildBreakdown(
+    sessionSummary.modelBreakdown,
+    accumulatedData.modelBreakdown
+  );
 
   const successfulCalls = accumulatedData.successfulRequests + sessionRequests;
   const failedCalls = accumulatedData.failedRequests;
@@ -329,8 +354,26 @@ async function collectCostData(): Promise<CostData> {
  * 合并会话与累计的模型成本明细
  */
 function buildBreakdown(
-  sessionModels: Record<string, { totalCost: number; totalTokens: number; requestCount: number; inputTokens: number; outputTokens: number }>,
-  accumulatedModels: Record<string, { totalCost: number; totalTokens: number; requestCount: number; inputTokens: number; outputTokens: number }>,
+  sessionModels: Record<
+    string,
+    {
+      totalCost: number;
+      totalTokens: number;
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+    }
+  >,
+  accumulatedModels: Record<
+    string,
+    {
+      totalCost: number;
+      totalTokens: number;
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+    }
+  >
 ): Array<{ service: string; calls: number; cost: number; percentage: number }> {
   const merged: Record<string, { calls: number; cost: number }> = {};
 

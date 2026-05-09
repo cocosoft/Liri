@@ -3,7 +3,12 @@
  * 负责定期轮询获取工作任务，支持模拟和真实两种模式
  */
 
-import type { BridgeApiClient, WorkResponse, PollConfig, BackoffConfig } from '../types/index.js';
+import type {
+  BridgeApiClient,
+  WorkResponse,
+  PollConfig,
+  BackoffConfig,
+} from '../types/index.js';
 import { bridgeStateStore } from '../state/BridgeStateStore.js';
 
 /**
@@ -158,7 +163,7 @@ export class PollManager {
 
     this.shutdownRequested = false;
     this.state = 'running';
-    bridgeStateStore.setState(prev => ({
+    bridgeStateStore.setState((prev) => ({
       ...prev,
       bridgeState: 'ready',
     }));
@@ -178,9 +183,10 @@ export class PollManager {
       this.pollTimer = null;
     }
 
-    bridgeStateStore.setState(prev => ({
+    bridgeStateStore.setState((prev) => ({
       ...prev,
-      bridgeState: prev.bridgeState === 'connected' ? prev.bridgeState : 'ready',
+      bridgeState:
+        prev.bridgeState === 'connected' ? prev.bridgeState : 'ready',
     }));
   }
 
@@ -219,13 +225,19 @@ export class PollManager {
         const interval = this.calculatePollInterval();
         await this.sleep(interval);
 
-        if (this.shutdownRequested || this.signal?.aborted || this.state !== 'running') {
+        if (
+          this.shutdownRequested ||
+          this.signal?.aborted ||
+          this.state !== 'running'
+        ) {
           break;
         }
 
         await this.executePoll();
       } catch (error) {
-        this.handlePollError(error instanceof Error ? error : new Error(String(error)));
+        this.handlePollError(
+          error instanceof Error ? error : new Error(String(error))
+        );
         await this.sleep(this.calculateBackoffDelay());
       }
     }
@@ -255,7 +267,7 @@ export class PollManager {
         this.environmentId,
         this.environmentSecret,
         this.signal,
-        this.pollConfig.reclaim_older_than_ms,
+        this.pollConfig.reclaim_older_than_ms
       );
 
       this.lastPollTime = Date.now();
@@ -300,7 +312,7 @@ export class PollManager {
     const { generalInitialMs, generalCapMs } = this.backoffConfig;
     const delay = Math.min(
       generalInitialMs * Math.pow(2, this.consecutiveErrors),
-      generalCapMs,
+      generalCapMs
     );
     return delay + Math.random() * 100;
   }
@@ -312,7 +324,7 @@ export class PollManager {
     this.failedPolls++;
     this.consecutiveErrors++;
 
-    bridgeStateStore.setState(prev => ({
+    bridgeStateStore.setState((prev) => ({
       ...prev,
       error: error.message,
       bridgeState: 'reconnecting',
@@ -327,7 +339,7 @@ export class PollManager {
   private async sleep(ms: number): Promise<void> {
     if (ms <= 0) return;
 
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       this.pollTimer = setTimeout(resolve, ms);
 
       if (this.signal) {

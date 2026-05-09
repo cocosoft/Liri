@@ -217,8 +217,14 @@ export class MessageProcessingService {
    * @param message 消息对象
    * @returns 工具调用列表
    */
-  extractToolCalls(message: Message): Array<{ id: string; name: string; arguments: Record<string, unknown> }> {
-    const toolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
+  extractToolCalls(
+    message: Message
+  ): Array<{ id: string; name: string; arguments: Record<string, unknown> }> {
+    const toolCalls: Array<{
+      id: string;
+      name: string;
+      arguments: Record<string, unknown>;
+    }> = [];
     const parseResult = this.parseMessage(message);
 
     for (const block of parseResult.blocks) {
@@ -240,8 +246,14 @@ export class MessageProcessingService {
    * @param message 消息对象
    * @returns 工具结果列表
    */
-  extractToolResults(message: Message): Array<{ toolUseId: string; result: unknown; isError: boolean }> {
-    const toolResults: Array<{ toolUseId: string; result: unknown; isError: boolean }> = [];
+  extractToolResults(
+    message: Message
+  ): Array<{ toolUseId: string; result: unknown; isError: boolean }> {
+    const toolResults: Array<{
+      toolUseId: string;
+      result: unknown;
+      isError: boolean;
+    }> = [];
     const parseResult = this.parseMessage(message);
 
     for (const block of parseResult.blocks) {
@@ -265,7 +277,7 @@ export class MessageProcessingService {
    */
   hasBlockType(message: Message, blockType: MessageBlockType): boolean {
     const parseResult = this.parseMessage(message);
-    return parseResult.blocks.some(block => block.type === blockType);
+    return parseResult.blocks.some((block) => block.type === blockType);
   }
 
   /**
@@ -288,7 +300,7 @@ export class MessageProcessingService {
     const parseResult = this.parseMessage(message);
 
     if (Array.isArray(message.content)) {
-      sanitized.content = parseResult.blocks.map(block => {
+      sanitized.content = parseResult.blocks.map((block) => {
         if (block.type === 'text' && typeof block.content === 'string') {
           return block.content;
         }
@@ -313,7 +325,10 @@ export class MessageProcessingService {
       return false;
     }
 
-    if (typeof message.content !== 'string' && !Array.isArray(message.content)) {
+    if (
+      typeof message.content !== 'string' &&
+      !Array.isArray(message.content)
+    ) {
       return false;
     }
 

@@ -70,7 +70,7 @@ export class ErrorWarner {
   }
 
   removeThreshold(name: string): void {
-    this.thresholds = this.thresholds.filter(t => t.name !== name);
+    this.thresholds = this.thresholds.filter((t) => t.name !== name);
   }
 
   registerChannel(channel: NotificationChannel): void {
@@ -116,8 +116,10 @@ export class ErrorWarner {
   }
 
   private matchesFilter(error: AppError, threshold: AlertThreshold): boolean {
-    if (threshold.category && error.category !== threshold.category) return false;
-    if (threshold.severity && error.severity !== threshold.severity) return false;
+    if (threshold.category && error.category !== threshold.category)
+      return false;
+    if (threshold.severity && error.severity !== threshold.severity)
+      return false;
     if (threshold.code && error.code !== threshold.code) return false;
     return true;
   }
@@ -125,7 +127,7 @@ export class ErrorWarner {
   private evaluateCount(threshold: AlertThreshold): boolean {
     const cutoff = Date.now() - threshold.window;
     const matching = this.errorHistory.filter(
-      e => e.timestamp >= cutoff && this.matchesFilter(e.error, threshold)
+      (e) => e.timestamp >= cutoff && this.matchesFilter(e.error, threshold)
     );
     return matching.length >= threshold.value;
   }
@@ -133,7 +135,7 @@ export class ErrorWarner {
   private evaluateRate(threshold: AlertThreshold): boolean {
     const cutoff = Date.now() - threshold.window;
     const matching = this.errorHistory.filter(
-      e => e.timestamp >= cutoff && this.matchesFilter(e.error, threshold)
+      (e) => e.timestamp >= cutoff && this.matchesFilter(e.error, threshold)
     );
     const rate = matching.length / (threshold.window / 1000);
     return rate >= threshold.value;
@@ -141,7 +143,7 @@ export class ErrorWarner {
 
   private evaluateConsecutive(threshold: AlertThreshold): boolean {
     const recent = this.errorHistory
-      .filter(e => this.matchesFilter(e.error, threshold))
+      .filter((e) => this.matchesFilter(e.error, threshold))
       .slice(-threshold.value);
 
     if (recent.length < threshold.value) return false;
@@ -161,9 +163,9 @@ export class ErrorWarner {
       message: `Threshold "${threshold.name}" triggered: ${threshold.type} ${threshold.value} exceeded for ${threshold.category || 'any'} errors`,
       timestamp: Date.now(),
       triggeredBy: this.errorHistory
-        .filter(e => this.matchesFilter(e.error, threshold))
+        .filter((e) => this.matchesFilter(e.error, threshold))
         .slice(-10)
-        .map(e => e.error),
+        .map((e) => e.error),
       acknowledged: false,
     };
 
@@ -173,8 +175,14 @@ export class ErrorWarner {
   }
 
   private async dispatchAlert(alert: AlertEvent): Promise<void> {
-    const matchingLevel = this.escalationPolicy.levels.find(l =>
-      l.name === (alert.level === 'critical' ? 'level3' : alert.level === 'warning' ? 'level2' : 'level1')
+    const matchingLevel = this.escalationPolicy.levels.find(
+      (l) =>
+        l.name ===
+        (alert.level === 'critical'
+          ? 'level3'
+          : alert.level === 'warning'
+            ? 'level2'
+            : 'level1')
     );
     if (!matchingLevel) return;
 
@@ -184,14 +192,17 @@ export class ErrorWarner {
         try {
           await channel.send(alert);
         } catch (e) {
-          SafeLogger.logError(e as Error, { alertId: alert.id, channel: channelName });
+          SafeLogger.logError(e as Error, {
+            alertId: alert.id,
+            channel: channelName,
+          });
         }
       }
     }
   }
 
   acknowledgeAlert(id: string, by?: string): boolean {
-    const alert = this.events.find(a => a.id === id);
+    const alert = this.events.find((a) => a.id === id);
     if (!alert || alert.acknowledged) return false;
     alert.acknowledged = true;
     alert.acknowledgedAt = Date.now();
@@ -199,24 +210,32 @@ export class ErrorWarner {
     return true;
   }
 
-  getAlerts(filter?: { level?: AlertLevel; acknowledged?: boolean }): AlertEvent[] {
+  getAlerts(filter?: {
+    level?: AlertLevel;
+    acknowledged?: boolean;
+  }): AlertEvent[] {
     let result = [...this.events];
     if (filter?.level) {
-      result = result.filter(a => a.level === filter.level);
+      result = result.filter((a) => a.level === filter.level);
     }
     if (filter?.acknowledged !== undefined) {
-      result = result.filter(a => a.acknowledged === filter.acknowledged);
+      result = result.filter((a) => a.acknowledged === filter.acknowledged);
     }
     return result.sort((a, b) => b.timestamp - a.timestamp);
   }
 
-  getStats(): { totalAlerts: number; unacknowledged: number; criticalCount: number; warningCount: number } {
+  getStats(): {
+    totalAlerts: number;
+    unacknowledged: number;
+    criticalCount: number;
+    warningCount: number;
+  } {
     const all = this.getAlerts();
     return {
       totalAlerts: all.length,
-      unacknowledged: all.filter(a => !a.acknowledged).length,
-      criticalCount: all.filter(a => a.level === 'critical').length,
-      warningCount: all.filter(a => a.level === 'warning').length,
+      unacknowledged: all.filter((a) => !a.acknowledged).length,
+      criticalCount: all.filter((a) => a.level === 'critical').length,
+      warningCount: all.filter((a) => a.level === 'warning').length,
     };
   }
 

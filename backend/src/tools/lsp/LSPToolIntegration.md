@@ -17,6 +17,7 @@ new LSPToolIntegration(language?: string)
 ```
 
 **参数:**
+
 - `language`: 语言标识，默认值为 `'typescript'`
 
 **示例:**
@@ -32,7 +33,7 @@ const integration = new LSPToolIntegration('typescript');
 创建LSP工具集成实例。
 
 ```typescript
-function createLSPToolIntegration(language?: string): LSPToolIntegration
+function createLSPToolIntegration(language?: string): LSPToolIntegration;
 ```
 
 ## 方法
@@ -70,10 +71,12 @@ async executeTool(toolName: string, ...args: any[]): Promise<ToolResult>
 ```
 
 **参数:**
+
 - `toolName`: 工具名称
 - `...args`: 工具参数
 
 **返回值:**
+
 ```typescript
 {
   success: boolean     // 执行是否成功
@@ -129,7 +132,7 @@ async function getCompletions(
   document: string,
   position: Position,
   lspTool: LSPToolIntegration
-): Promise<CompletionItem[]>
+): Promise<CompletionItem[]>;
 ```
 
 ### getDefinition
@@ -141,7 +144,7 @@ async function getDefinition(
   document: string,
   position: Position,
   lspTool: LSPToolIntegration
-): Promise<Location[]>
+): Promise<Location[]>;
 ```
 
 ### getReferences
@@ -153,7 +156,7 @@ async function getReferences(
   document: string,
   position: Position,
   lspTool: LSPToolIntegration
-): Promise<Location[]>
+): Promise<Location[]>;
 ```
 
 ### getDiagnostics
@@ -164,7 +167,7 @@ async function getReferences(
 async function getDiagnostics(
   document: string,
   lspTool: LSPToolIntegration
-): Promise<Diagnostic[]>
+): Promise<Diagnostic[]>;
 ```
 
 ### formatDocument
@@ -175,16 +178,16 @@ async function getDiagnostics(
 async function formatDocument(
   document: string,
   lspTool: LSPToolIntegration
-): Promise<string>
+): Promise<string>;
 ```
 
 ## 使用示例
 
 ```typescript
-import { 
-  createLSPToolIntegration, 
+import {
+  createLSPToolIntegration,
   getCompletions,
-  type Position 
+  type Position,
 } from './LSPToolIntegration';
 
 // 创建集成实例
@@ -198,7 +201,11 @@ const position: Position = { line: 0, character: 5 };
 const completions = await getCompletions('const x = ', position, lspTool);
 
 // 或者使用executeTool方法
-const result = await lspTool.executeTool('lsp_get_completions', 'const x = ', position);
+const result = await lspTool.executeTool(
+  'lsp_get_completions',
+  'const x = ',
+  position
+);
 if (result.success) {
   console.log('补全结果:', result.data);
 } else {
@@ -232,7 +239,10 @@ await lspTool.stopServer();
 const result = await lspTool.executeTool('unknown_tool');
 // result = { success: false, error: 'Tool unknown_tool not found' }
 
-const result = await lspTool.executeTool('lsp_get_completions', '', { line: -1, character: 0 });
+const result = await lspTool.executeTool('lsp_get_completions', '', {
+  line: -1,
+  character: 0,
+});
 // result = { success: false, error: 'Invalid position' }
 ```
 

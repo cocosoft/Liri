@@ -83,15 +83,24 @@ export class DynamicClientReg {
       software_version: metadata.softwareVersion,
     };
 
-    const response = await (this.client as any)['httpPostJson'](registrationEndpoint, requestBody);
+    const response = await (this.client as any)['httpPostJson'](
+      registrationEndpoint,
+      requestBody
+    );
 
     const result: ClientRegistrationResponse = {
       clientId: response.client_id as string,
       clientSecret: response.client_secret as string | undefined,
-      registrationAccessToken: response.registration_access_token as string | undefined,
-      registrationClientUri: response.registration_client_uri as string | undefined,
+      registrationAccessToken: response.registration_access_token as
+        | string
+        | undefined,
+      registrationClientUri: response.registration_client_uri as
+        | string
+        | undefined,
       clientIdIssuedAt: response.client_id_issued_at as number | undefined,
-      clientSecretExpiresAt: response.client_secret_expires_at as number | undefined,
+      clientSecretExpiresAt: response.client_secret_expires_at as
+        | number
+        | undefined,
       redirectUris: response.redirect_uris as string[] | undefined,
       grantTypes: response.grant_types as string[] | undefined,
       responseTypes: response.response_types as string[] | undefined,
@@ -112,17 +121,26 @@ export class DynamicClientReg {
   ): Promise<ClientRegistrationResponse> {
     logger.debug(`Reading OAuth client info from ${registrationClientUri}`);
 
-    const response = await (this.client as any)['httpGetJson'](registrationClientUri, {
-      'Authorization': `Bearer ${registrationAccessToken}`,
-    });
+    const response = await (this.client as any)['httpGetJson'](
+      registrationClientUri,
+      {
+        Authorization: `Bearer ${registrationAccessToken}`,
+      }
+    );
 
     return {
       clientId: response.client_id as string,
       clientSecret: response.client_secret as string | undefined,
-      registrationAccessToken: response.registration_access_token as string | undefined,
-      registrationClientUri: response.registration_client_uri as string | undefined,
+      registrationAccessToken: response.registration_access_token as
+        | string
+        | undefined,
+      registrationClientUri: response.registration_client_uri as
+        | string
+        | undefined,
       clientIdIssuedAt: response.client_id_issued_at as number | undefined,
-      clientSecretExpiresAt: response.client_secret_expires_at as number | undefined,
+      clientSecretExpiresAt: response.client_secret_expires_at as
+        | number
+        | undefined,
       redirectUris: response.redirect_uris as string[] | undefined,
       grantTypes: response.grant_types as string[] | undefined,
       responseTypes: response.response_types as string[] | undefined,
@@ -159,18 +177,28 @@ export class DynamicClientReg {
       software_version: metadata.softwareVersion,
     };
 
-    const response = await (this.client as any)['httpPostJson'](registrationClientUri, requestBody, {
-      'Authorization': `Bearer ${registrationAccessToken}`,
-      'Content-Type': 'application/json',
-    });
+    const response = await (this.client as any)['httpPostJson'](
+      registrationClientUri,
+      requestBody,
+      {
+        Authorization: `Bearer ${registrationAccessToken}`,
+        'Content-Type': 'application/json',
+      }
+    );
 
     return {
       clientId: response.client_id as string,
       clientSecret: response.client_secret as string | undefined,
-      registrationAccessToken: response.registration_access_token as string | undefined,
-      registrationClientUri: response.registration_client_uri as string | undefined,
+      registrationAccessToken: response.registration_access_token as
+        | string
+        | undefined,
+      registrationClientUri: response.registration_client_uri as
+        | string
+        | undefined,
       clientIdIssuedAt: response.client_id_issued_at as number | undefined,
-      clientSecretExpiresAt: response.client_secret_expires_at as number | undefined,
+      clientSecretExpiresAt: response.client_secret_expires_at as
+        | number
+        | undefined,
       redirectUris: response.redirect_uris as string[] | undefined,
       grantTypes: response.grant_types as string[] | undefined,
       responseTypes: response.response_types as string[] | undefined,
@@ -189,7 +217,7 @@ export class DynamicClientReg {
     logger.info(`Deleting OAuth client at ${registrationClientUri}`);
 
     await (this.client as any)['httpDelete'](registrationClientUri, {
-      'Authorization': `Bearer ${registrationAccessToken}`,
+      Authorization: `Bearer ${registrationAccessToken}`,
     });
 
     logger.info('OAuth client deleted successfully');

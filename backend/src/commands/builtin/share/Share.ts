@@ -53,24 +53,27 @@ function extractTextFromContent(content: any): string {
   }
 
   if (Array.isArray(content)) {
-    return content.map(block => {
-      if (block.type === 'text' && typeof block.text === 'string') {
-        return block.text;
-      }
-      if (block.type === 'thinking' && typeof block.thinking === 'string') {
-        return block.thinking;
-      }
-      if (block.type === 'tool_use') {
-        return `[工具调用: ${block.name}]`;
-      }
-      if (block.type === 'tool_result') {
-        if (typeof block.content === 'string') {
-          return `[工具结果]\n${block.content}`;
+    return content
+      .map((block) => {
+        if (block.type === 'text' && typeof block.text === 'string') {
+          return block.text;
         }
-        return '[工具结果]';
-      }
-      return '';
-    }).filter(Boolean).join('\n');
+        if (block.type === 'thinking' && typeof block.thinking === 'string') {
+          return block.thinking;
+        }
+        if (block.type === 'tool_use') {
+          return `[工具调用: ${block.name}]`;
+        }
+        if (block.type === 'tool_result') {
+          if (typeof block.content === 'string') {
+            return `[工具结果]\n${block.content}`;
+          }
+          return '[工具结果]';
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n');
   }
 
   return '';
@@ -109,7 +112,7 @@ function renderShareContent(context: CommandContext): string {
  * 渲染分享内容为 JSON
  */
 function renderShareJson(context: CommandContext): string {
-  const messages = (context.messages || []).map(msg => ({
+  const messages = (context.messages || []).map((msg) => ({
     role: msg.type === 'user' || msg.role === 'user' ? 'user' : 'assistant',
     content: extractTextFromContent(msg.content),
     timestamp: msg.timestamp,
@@ -215,9 +218,10 @@ async function handleHelp() {
  * 处理 status 子命令
  */
 async function handleStatus(context: CommandContext) {
-  const msgCount = context.messages && Array.isArray(context.messages)
-    ? context.messages.length
-    : 0;
+  const msgCount =
+    context.messages && Array.isArray(context.messages)
+      ? context.messages.length
+      : 0;
 
   return {
     success: true,
@@ -249,10 +253,13 @@ async function handleJsonShare(context: CommandContext) {
   const mdPath = await saveToFile(mdContent, mdFilename);
   const jsonPath = await saveToFile(jsonContent, jsonFilename);
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_share_created', {
-    format: 'both',
-    messageCount: context.messages?.length || 0,
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_share_created',
+    {
+      format: 'both',
+      messageCount: context.messages?.length || 0,
+    }
+  );
 
   return {
     success: true,
@@ -279,11 +286,14 @@ async function handleShare(filenameArg: string, context: CommandContext) {
     filepath = await saveToFile(content, filename);
   }
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_share_created', {
-    format: 'markdown',
-    messageCount: context.messages?.length || 0,
-    hasCustomName: !!filenameArg,
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_share_created',
+    {
+      format: 'markdown',
+      messageCount: context.messages?.length || 0,
+      hasCustomName: !!filenameArg,
+    }
+  );
 
   return {
     success: true,

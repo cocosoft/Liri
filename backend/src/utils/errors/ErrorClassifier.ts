@@ -76,7 +76,11 @@ export function classifyError(error: unknown): ClassifiedError {
     }
 
     const code = getErrnoCode(error);
-    if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT') {
+    if (
+      code === 'ECONNREFUSED' ||
+      code === 'ENOTFOUND' ||
+      code === 'ETIMEDOUT'
+    ) {
       return {
         kind: 'network',
         message,
@@ -120,8 +124,7 @@ export function classifyError(error: unknown): ClassifiedError {
 
 export function isAbortError(e: unknown): boolean {
   return (
-    e instanceof Error &&
-    (e.name === 'AbortError' || e.name === 'CancelError')
+    e instanceof Error && (e.name === 'AbortError' || e.name === 'CancelError')
   );
 }
 
@@ -145,7 +148,12 @@ export function isFsInaccessible(e: unknown): boolean {
 }
 
 export function getErrnoCode(e: unknown): string | undefined {
-  if (e && typeof e === 'object' && 'code' in e && typeof (e as Record<string, unknown>).code === 'string') {
+  if (
+    e &&
+    typeof e === 'object' &&
+    'code' in e &&
+    typeof (e as Record<string, unknown>).code === 'string'
+  ) {
     return (e as Record<string, unknown>).code as string;
   }
   return undefined;

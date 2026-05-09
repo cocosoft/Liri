@@ -3,12 +3,12 @@
  * 远程Agent通信协议实现
  */
 
-import { 
-  RemoteAgentProtocol, 
-  ProtocolType, 
-  ProtocolOptions, 
-  RemoteAgentTask, 
-  RemoteExecutionResult 
+import {
+  RemoteAgentProtocol,
+  ProtocolType,
+  ProtocolOptions,
+  RemoteAgentTask,
+  RemoteExecutionResult,
 } from './types';
 
 const DEFAULT_OPTIONS: ProtocolOptions = {
@@ -29,7 +29,9 @@ export class WebSocketProtocol implements RemoteAgentProtocol {
   async connect(url: string): Promise<void> {
     this.url = url;
     return new Promise((resolve, reject) => {
-      const wsUrl = url.replace('http://', 'ws://').replace('https://', 'wss://');
+      const wsUrl = url
+        .replace('http://', 'ws://')
+        .replace('https://', 'wss://');
       this.socket = new WebSocket(wsUrl);
 
       this.socket.onopen = () => {
@@ -84,7 +86,7 @@ export class WebSocketProtocol implements RemoteAgentProtocol {
           if (result.taskId === data.id) {
             clearTimeout(timeout);
             socket.removeEventListener('message', handleMessage);
-            
+
             result.durationMs = Date.now() - startTime;
             resolve(result);
           }
@@ -97,10 +99,12 @@ export class WebSocketProtocol implements RemoteAgentProtocol {
 
       socket.addEventListener('message', handleMessage);
 
-      socket.send(JSON.stringify({
-        ...data,
-        messageId,
-      }));
+      socket.send(
+        JSON.stringify({
+          ...data,
+          messageId,
+        })
+      );
     });
   }
 
@@ -149,15 +153,15 @@ export class HttpProtocol implements RemoteAgentProtocol {
 
         const result: RemoteExecutionResult = await response.json();
         result.durationMs = Date.now() - startTime;
-        
+
         return result;
       } catch (error) {
         if (attempt === retryCount) {
           throw error;
         }
-        
+
         // 指数退避等待
-        await new Promise(resolve => 
+        await new Promise((resolve) =>
           setTimeout(resolve, Math.pow(2, attempt) * 1000)
         );
       }

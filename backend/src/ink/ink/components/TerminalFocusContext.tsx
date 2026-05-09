@@ -1,7 +1,12 @@
 //
-import { c as _c } from "react/compiler-runtime";
+import { c as _c } from 'react/compiler-runtime';
 import React, { createContext, useMemo, useSyncExternalStore } from 'react';
-import { getTerminalFocused, getTerminalFocusState, subscribeTerminalFocus, type TerminalFocusState } from '../terminal-focus-state.js';
+import {
+  getTerminalFocused,
+  getTerminalFocusState,
+  subscribeTerminalFocus,
+  type TerminalFocusState,
+} from '../terminal-focus-state.js';
 export type { TerminalFocusState };
 export type TerminalFocusContextProps = {
   readonly isTerminalFocused: boolean;
@@ -9,7 +14,7 @@ export type TerminalFocusContextProps = {
 };
 const TerminalFocusContext = createContext<TerminalFocusContextProps>({
   isTerminalFocused: true,
-  terminalFocusState: 'unknown'
+  terminalFocusState: 'unknown',
 });
 
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
@@ -20,16 +25,20 @@ TerminalFocusContext.displayName = 'TerminalFocusContext';
 // only components that consume the context will re-render.
 export function TerminalFocusProvider(t0: Record<string, any>) {
   const $ = _c(6);
-  const {
-    children
-  } = t0;
-  const isTerminalFocused = useSyncExternalStore(subscribeTerminalFocus, getTerminalFocused);
-  const terminalFocusState = useSyncExternalStore(subscribeTerminalFocus, getTerminalFocusState);
+  const { children } = t0;
+  const isTerminalFocused = useSyncExternalStore(
+    subscribeTerminalFocus,
+    getTerminalFocused
+  );
+  const terminalFocusState = useSyncExternalStore(
+    subscribeTerminalFocus,
+    getTerminalFocusState
+  );
   let t1;
   if ($[0] !== isTerminalFocused || $[1] !== terminalFocusState) {
     t1 = {
       isTerminalFocused,
-      terminalFocusState
+      terminalFocusState,
     };
     $[0] = isTerminalFocused;
     $[1] = terminalFocusState;
@@ -40,7 +49,11 @@ export function TerminalFocusProvider(t0: Record<string, any>) {
   const value = t1;
   let t2;
   if ($[3] !== children || $[4] !== value) {
-    t2 = <TerminalFocusContext.Provider value={value}>{children}</TerminalFocusContext.Provider>;
+    t2 = (
+      <TerminalFocusContext.Provider value={value}>
+        {children}
+      </TerminalFocusContext.Provider>
+    );
     $[3] = children;
     $[4] = value;
     $[5] = t2;

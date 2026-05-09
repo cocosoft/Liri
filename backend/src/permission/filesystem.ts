@@ -15,11 +15,7 @@ export const DANGEROUS_FILES = [
   '.mcp.json',
 ] as const;
 
-export const DANGEROUS_DIRECTORIES = [
-  '.git',
-  '.vscode',
-  '.idea',
-] as const;
+export const DANGEROUS_DIRECTORIES = ['.git', '.vscode', '.idea'] as const;
 
 export function isDangerousFile(filePath: string): boolean {
   const basename = path.basename(filePath);
@@ -28,21 +24,26 @@ export function isDangerousFile(filePath: string): boolean {
 
 export function isInDangerousDirectory(filePath: string): boolean {
   const parts = filePath.replace(/\\/g, '/').split('/');
-  return parts.some(p => (DANGEROUS_DIRECTORIES as readonly string[]).includes(p));
+  return parts.some((p) =>
+    (DANGEROUS_DIRECTORIES as readonly string[]).includes(p)
+  );
 }
 
 export function containsPathTraversal(filePath: string): boolean {
   return filePath.includes('..');
 }
 
-export function isWithinWorkingDirectory(filePath: string, cwd: string): boolean {
+export function isWithinWorkingDirectory(
+  filePath: string,
+  cwd: string
+): boolean {
   const resolved = path.resolve(cwd, filePath);
   return resolved.startsWith(path.resolve(cwd));
 }
 
 export function checkReadPermissionForTool(
   filePath: string,
-  cwd: string,
+  cwd: string
 ): PermissionResult {
   if (containsPathTraversal(filePath)) {
     return {
@@ -73,7 +74,7 @@ export function checkReadPermissionForTool(
 
 export function checkWritePermissionForTool(
   filePath: string,
-  cwd: string,
+  cwd: string
 ): PermissionResult {
   const readResult = checkReadPermissionForTool(filePath, cwd);
   if (readResult.behavior !== 'allow') {

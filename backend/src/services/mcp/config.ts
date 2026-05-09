@@ -7,7 +7,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '@modules/utils/log';
-import { McpServerConfigSchema, McpJsonConfigSchema, ScopedMcpServerConfig, ConfigScope } from './types';
+import {
+  McpServerConfigSchema,
+  McpJsonConfigSchema,
+  ScopedMcpServerConfig,
+  ConfigScope,
+} from './types';
 
 /**
  * MCP配置管理
@@ -30,7 +35,10 @@ export class MCPConfigManager {
       this.configs = configs;
       return configs;
     } catch (error) {
-      logger.error('Failed to load MCP configs:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to load MCP configs:',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return {};
     }
   }
@@ -39,7 +47,11 @@ export class MCPConfigManager {
    * 加载全局配置
    */
   private loadGlobalConfig(): Record<string, ScopedMcpServerConfig> {
-    const globalConfigPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'mcp.json');
+    const globalConfigPath = path.join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.py_app',
+      'mcp.json'
+    );
     return this.loadConfigFile(globalConfigPath, 'local');
   }
 
@@ -47,7 +59,12 @@ export class MCPConfigManager {
    * 加载用户配置
    */
   private loadUserConfig(): Record<string, ScopedMcpServerConfig> {
-    const userConfigPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'user', 'mcp.json');
+    const userConfigPath = path.join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.py_app',
+      'user',
+      'mcp.json'
+    );
     return this.loadConfigFile(userConfigPath, 'user');
   }
 
@@ -62,7 +79,10 @@ export class MCPConfigManager {
   /**
    * 加载配置文件
    */
-  private loadConfigFile(path: string, scope: ConfigScope): Record<string, ScopedMcpServerConfig> {
+  private loadConfigFile(
+    path: string,
+    scope: ConfigScope
+  ): Record<string, ScopedMcpServerConfig> {
     if (!fs.existsSync(path)) {
       return {};
     }
@@ -75,13 +95,16 @@ export class MCPConfigManager {
       for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
         scopedConfigs[name] = {
           ...serverConfig,
-          scope
+          scope,
         };
       }
 
       return scopedConfigs;
     } catch (error) {
-      logger.error(`Failed to load MCP config file ${path}:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to load MCP config file ${path}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       return {};
     }
   }
@@ -122,7 +145,10 @@ export class MCPConfigManager {
       McpServerConfigSchema.parse(config);
       return true;
     } catch (error) {
-      logger.error('Invalid MCP config:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Invalid MCP config:',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return false;
     }
   }

@@ -1,50 +1,61 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type TaskOutputResult = {
-  retrieval_status: 'success' | 'timeout' | 'not_ready'
+  retrieval_status: 'success' | 'timeout' | 'not_ready';
   task: {
-    task_id: string
-    task_type: string
-    status: string
-    description: string
-    output: string
-    exitCode?: number | null
-    error?: string
-    prompt?: string
-    result?: string
-  } | null
-}
+    task_id: string;
+    task_type: string;
+    status: string;
+    description: string;
+    output: string;
+    exitCode?: number | null;
+    error?: string;
+    prompt?: string;
+    result?: string;
+  } | null;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ task_id: string; block: boolean }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const { task_id, block } = input
-  return <Text dimColor>获取任务输出: {task_id}{block ? ' (阻塞模式)' : ''}</Text>
+  const { task_id, block } = input;
+  return (
+    <Text dimColor>
+      获取任务输出: {task_id}
+      {block ? ' (阻塞模式)' : ''}
+    </Text>
+  );
 }
 
 export function renderToolResultMessage(
   output: TaskOutputResult,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { retrieval_status, task } = output
+  const { retrieval_status, task } = output;
 
   if (!task) {
-    return <Text color="red">任务未找到</Text>
+    return <Text color="red">任务未找到</Text>;
   }
 
-  const statusColor = task.status === 'completed' || task.status === 'success' ? 'green'
-    : task.status === 'failed' || task.status === 'error' ? 'red'
-    : 'yellow'
+  const statusColor =
+    task.status === 'completed' || task.status === 'success'
+      ? 'green'
+      : task.status === 'failed' || task.status === 'error'
+        ? 'red'
+        : 'yellow';
 
   return (
     <Box flexDirection="column">
       <Box flexDirection="row">
         <Text color="green">✓ </Text>
         <Text>任务 {task.task_id}</Text>
-        <Text color={statusColor} bold> [{task.status}]</Text>
+        <Text color={statusColor} bold>
+          {' '}
+          [{task.status}]
+        </Text>
         {task.exitCode !== undefined && task.exitCode !== null ? (
           <Text dimColor> exit={task.exitCode}</Text>
         ) : null}
@@ -68,12 +79,12 @@ export function renderToolResultMessage(
         </Box>
       ) : null}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ task_id: string }> | undefined,
+  input: Partial<{ task_id: string }> | undefined
 ): string | null {
-  if (!input?.task_id) return null
-  return `Task output: ${input.task_id}`
+  if (!input?.task_id) return null;
+  return `Task output: ${input.task_id}`;
 }

@@ -5,7 +5,12 @@
  */
 
 import { BuiltinAgentStrategy, BuiltinAgentConfig } from './types';
-import { AgentTask, AgentResponse, AgentContext, AgentState } from '@modules/agent/models/types';
+import {
+  AgentTask,
+  AgentResponse,
+  AgentContext,
+  AgentState,
+} from '@modules/agent/models/types';
 
 const EXPLORE_AGENT_CONFIG: BuiltinAgentConfig = {
   type: 'py_app-explore',
@@ -27,7 +32,10 @@ export class ExploreAgentStrategy implements BuiltinAgentStrategy {
   readonly name = EXPLORE_AGENT_CONFIG.name;
   readonly description = EXPLORE_AGENT_CONFIG.description;
 
-  async execute(task: AgentTask, context: AgentContext): Promise<AgentResponse> {
+  async execute(
+    task: AgentTask,
+    context: AgentContext
+  ): Promise<AgentResponse> {
     return {
       id: Date.now().toString(36),
       taskId: task.id,

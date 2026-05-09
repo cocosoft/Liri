@@ -1,24 +1,24 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type PeersOutput = {
-  peers?: Array<{ name: string; team: string; status: string }>
-  count?: number
-}
+  peers?: Array<{ name: string; team: string; status: string }>;
+  count?: number;
+};
 
 export function renderToolUseMessage(
   _input: Record<string, unknown>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  return <Text dimColor>Listing peers...</Text>
+  return <Text dimColor>Listing peers...</Text>;
 }
 
 export function renderToolResultMessage(
   output: PeersOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { peers, count } = output
+  const { peers, count } = output;
 
   if (verbose && peers && peers.length > 0) {
     return (
@@ -37,7 +37,7 @@ export function renderToolResultMessage(
           ))}
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
@@ -45,11 +45,11 @@ export function renderToolResultMessage(
       <Text bold>{count ?? peers?.length ?? 0}</Text>
       <Text> peer{peers?.length !== 1 ? 's' : ''} connected</Text>
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  _input: Record<string, unknown> | undefined,
+  _input: Record<string, unknown> | undefined
 ): string | null {
-  return 'List peers'
+  return 'List peers';
 }

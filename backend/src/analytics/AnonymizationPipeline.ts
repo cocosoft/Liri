@@ -2,10 +2,10 @@ export {
   AnonymizationPipeline,
   createAnonymizationPipeline,
   PII_PATTERNS,
-} from './AnonymizationService'
+} from './AnonymizationService';
 
 export type {
   AnonymizationResult,
   PIIMatch,
   AnonymizationOptions,
-} from './AnonymizationService'
+} from './AnonymizationService';

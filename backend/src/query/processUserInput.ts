@@ -15,8 +15,15 @@ export interface ProcessedInput {
 const COMMAND_PREFIXES = ['/', '!'];
 
 const META_COMMANDS = new Set([
-  'clear', 'reset', 'help', 'exit', 'quit',
-  'status', 'skills', 'tools', 'buddy',
+  'clear',
+  'reset',
+  'help',
+  'exit',
+  'quit',
+  'status',
+  'skills',
+  'tools',
+  'buddy',
   'activity',
 ]);
 
@@ -86,7 +93,5 @@ export function processUserInput(input: string): ProcessedInput {
  * @returns 清理后的输入
  */
 export function sanitizeUserInput(input: string): string {
-  return input
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-    .trim();
+  return input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim();
 }

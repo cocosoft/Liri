@@ -18,7 +18,9 @@ export const OAuthLoginDialog: React.FC<OAuthLoginDialogProps> = ({
   onCancel,
   isLoading = false,
 }) => {
-  const [selectedMode, setSelectedMode] = useState<'automatic' | 'manual'>('automatic');
+  const [selectedMode, setSelectedMode] = useState<'automatic' | 'manual'>(
+    'automatic'
+  );
 
   useInput((input) => {
     if (input === 'escape') {
@@ -47,10 +49,7 @@ export const OAuthLoginDialog: React.FC<OAuthLoginDialogProps> = ({
         </Box>
       </Box>
       <Box marginTop={2}>
-        <Button
-          onPress={() => onLogin(selectedMode)}
-          disabled={isLoading}
-        >
+        <Button onPress={() => onLogin(selectedMode)} disabled={isLoading}>
           {isLoading ? 'Loading...' : 'Login'}
         </Button>
         <Box marginLeft={1}>

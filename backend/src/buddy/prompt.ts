@@ -10,7 +10,9 @@ When the user addresses ${name} directly (by name), its bubble will answer. Your
 }
 
 export function getCompanionIntroAttachment(
-  messages: Array<{ type: string; attachment?: { type: string; name: string } }> | undefined,
+  messages:
+    | Array<{ type: string; attachment?: { type: string; name: string } }>
+    | undefined
 ): Array<{ type: string; name: string; species: string }> {
   const companion = getCompanion();
   if (!companion || getGlobalConfig().companionMuted) return [];

@@ -91,7 +91,10 @@ export class SettingsPlugin implements Plugin {
   /**
    * 设置特定设置项
    */
-  setSetting<K extends keyof SettingsConfig>(key: K, value: SettingsConfig[K]): void {
+  setSetting<K extends keyof SettingsConfig>(
+    key: K,
+    value: SettingsConfig[K]
+  ): void {
     this.settings[key] = value;
     this.saveSettings();
   }

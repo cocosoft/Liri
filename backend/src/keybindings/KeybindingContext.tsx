@@ -4,12 +4,12 @@
  * 提供按键绑定系统的React上下文和API
  */
 import React, { createContext, useContext, useRef } from 'react';
-import type { 
-  KeybindingContextName, 
-  ParsedBinding, 
-  ParsedKeystroke, 
+import type {
+  KeybindingContextName,
+  ParsedBinding,
+  ParsedKeystroke,
   ChordResolveResult,
-  HandlerRegistration 
+  HandlerRegistration,
 } from './types.js';
 import { resolveKeyWithChordState, getBindingDisplayText } from './resolver.js';
 
@@ -18,32 +18,39 @@ import { resolveKeyWithChordState, getBindingDisplayText } from './resolver.js';
  */
 export interface KeybindingContextValue {
   /** 解析按键输入为动作名称（支持和弦） */
-  resolve: (input: string, key: string, activeContexts: KeybindingContextName[]) => ChordResolveResult;
-  
+  resolve: (
+    input: string,
+    key: string,
+    activeContexts: KeybindingContextName[]
+  ) => ChordResolveResult;
+
   /** 更新待处理的和弦状态 */
   setPendingChord: (pending: ParsedKeystroke[] | null) => void;
-  
+
   /** 获取动作的显示文本（如 "ctrl+t"） */
-  getDisplayText: (action: string, context: KeybindingContextName) => string | undefined;
-  
+  getDisplayText: (
+    action: string,
+    context: KeybindingContextName
+  ) => string | undefined;
+
   /** 所有解析后的绑定（用于帮助显示） */
   bindings: ParsedBinding[];
-  
+
   /** 当前待处理的和弦按键（null表示不在和弦中） */
   pendingChord: ParsedKeystroke[] | null;
-  
+
   /** 当前活跃的按键绑定上下文（用于优先级解析） */
   activeContexts: Set<KeybindingContextName>;
-  
+
   /** 注册上下文为活跃状态（在挂载时调用） */
   registerActiveContext: (context: KeybindingContextName) => void;
-  
+
   /** 注销上下文（在卸载时调用） */
   unregisterActiveContext: (context: KeybindingContextName) => void;
-  
+
   /** 为动作注册处理器（被useKeybinding使用） */
   registerHandler: (registration: HandlerRegistration) => () => void;
-  
+
   /** 调用动作的所有处理器（被ChordInterceptor使用） */
   invokeAction: (action: string) => boolean;
 }
@@ -54,28 +61,28 @@ export interface KeybindingContextValue {
 interface ProviderProps {
   /** 所有解析后的绑定 */
   bindings: ParsedBinding[];
-  
+
   /** 用于立即访问待处理和弦的引用（避免React状态延迟） */
   pendingChordRef: React.RefObject<ParsedKeystroke[] | null>;
-  
+
   /** 用于重新渲染的状态值（UI更新） */
   pendingChord: ParsedKeystroke[] | null;
-  
+
   /** 设置待处理和弦状态 */
   setPendingChord: (pending: ParsedKeystroke[] | null) => void;
-  
+
   /** 当前活跃的上下文 */
   activeContexts: Set<KeybindingContextName>;
-  
+
   /** 注册活跃上下文 */
   registerActiveContext: (context: KeybindingContextName) => void;
-  
+
   /** 注销活跃上下文 */
   unregisterActiveContext: (context: KeybindingContextName) => void;
-  
+
   /** 处理器注册表的引用（被ChordInterceptor使用） */
   handlerRegistryRef: React.RefObject<Map<string, Set<HandlerRegistration>>>;
-  
+
   /** 子组件 */
   children: React.ReactNode;
 }
@@ -97,22 +104,21 @@ export function KeybindingProvider({
   registerActiveContext,
   unregisterActiveContext,
   handlerRegistryRef,
-  children
+  children,
 }: ProviderProps): React.JSX.Element {
-  
   /**
    * 解析按键输入
    */
   const resolve = (
-    input: string, 
-    key: string, 
+    input: string,
+    key: string,
     activeContexts: KeybindingContextName[]
   ): ChordResolveResult => {
     return resolveKeyWithChordState(
-      input, 
-      key, 
-      activeContexts, 
-      bindings, 
+      input,
+      key,
+      activeContexts,
+      bindings,
       pendingChordRef.current
     );
   };
@@ -121,7 +127,7 @@ export function KeybindingProvider({
    * 获取显示文本
    */
   const getDisplayText = (
-    action: string, 
+    action: string,
     context: KeybindingContextName
   ): string | undefined => {
     return getBindingDisplayText(action, context, bindings);
@@ -194,7 +200,7 @@ export function KeybindingProvider({
     registerActiveContext,
     unregisterActiveContext,
     registerHandler,
-    invokeAction
+    invokeAction,
   };
 
   return (
@@ -211,7 +217,9 @@ export function KeybindingProvider({
 export function useKeybindingContext(): KeybindingContextValue {
   const ctx = useContext(KeybindingContext);
   if (!ctx) {
-    throw new Error('useKeybindingContext must be used within KeybindingProvider');
+    throw new Error(
+      'useKeybindingContext must be used within KeybindingProvider'
+    );
   }
   return ctx;
 }
@@ -221,7 +229,9 @@ export function useKeybindingContext(): KeybindingContextValue {
  * 在提供者不可用时返回undefined
  * 用于可能在提供者可用之前渲染的组件
  */
-export function useOptionalKeybindingContext(): KeybindingContextValue | undefined {
+export function useOptionalKeybindingContext():
+  | KeybindingContextValue
+  | undefined {
   const ctx = useContext(KeybindingContext);
   return ctx ?? undefined;
 }
@@ -229,13 +239,17 @@ export function useOptionalKeybindingContext(): KeybindingContextValue | undefin
 /**
  * 创建处理器注册表引用
  */
-export function useHandlerRegistryRef(): React.RefObject<Map<string, Set<HandlerRegistration>>> {
+export function useHandlerRegistryRef(): React.RefObject<
+  Map<string, Set<HandlerRegistration>>
+> {
   return useRef<Map<string, Set<HandlerRegistration>>>(new Map());
 }
 
 /**
  * 创建和弦状态引用
  */
-export function usePendingChordRef(): React.RefObject<ParsedKeystroke[] | null> {
+export function usePendingChordRef(): React.RefObject<
+  ParsedKeystroke[] | null
+> {
   return useRef<ParsedKeystroke[] | null>(null);
 }

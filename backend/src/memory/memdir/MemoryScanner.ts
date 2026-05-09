@@ -7,6 +7,9 @@ import { join } from 'path';
 import { readdir, stat, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import type { MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 记忆扫描结果（来自CC源码）
@@ -16,42 +19,42 @@ export interface MemoryScanResult {
    * 扫描的文件路径
    */
   filePath: string;
-  
+
   /**
    * 记忆类型
    */
   type: MemoryType;
-  
+
   /**
    * 记忆层级
    */
   layer: MemoryLayer;
-  
+
   /**
    * 文件大小
    */
   size: number;
-  
+
   /**
    * 修改时间
    */
   modifiedAt: Date;
-  
+
   /**
    * 创建时间
    */
   createdAt: Date;
-  
+
   /**
    * 扫描时间
    */
   scannedAt: Date;
-  
+
   /**
    * 是否有效
    */
   valid: boolean;
-  
+
   /**
    * 错误信息
    */
@@ -66,17 +69,17 @@ export interface RelevantMemoryResult {
    * 记忆文件
    */
   memoryFile: MemoryFile;
-  
+
   /**
    * 相关性分数
    */
   relevanceScore: number;
-  
+
   /**
    * 匹配的关键词
    */
   matchedKeywords: string[];
-  
+
   /**
    * 匹配的标签
    */
@@ -91,17 +94,17 @@ export interface MemoryAgingConfig {
    * 最大记忆数量
    */
   maxMemoryCount: number;
-  
+
   /**
    * 记忆存活时间（毫秒）
    */
   memoryTTL: number;
-  
+
   /**
    * 是否启用LRU淘汰
    */
   enableLRU: boolean;
-  
+
   /**
    * LRU淘汰阈值
    */
@@ -114,7 +117,7 @@ export interface MemoryAgingConfig {
 export class MemoryScanner {
   private scanResults: Map<string, MemoryScanResult> = new Map();
   private agingConfig: MemoryAgingConfig;
-  
+
   constructor(config?: Partial<MemoryAgingConfig>) {
     this.agingConfig = {
       maxMemoryCount: 1000,
@@ -130,22 +133,22 @@ export class MemoryScanner {
    */
   async scanMemoryDirectory(directory: string): Promise<MemoryScanResult[]> {
     const results: MemoryScanResult[] = [];
-    
+
     if (!existsSync(directory)) {
       return results;
     }
-    
+
     try {
       const files = await readdir(directory);
-      
+
       for (const fileName of files) {
         if (fileName.endsWith('.md')) {
           const filePath = join(directory, fileName);
-          
+
           try {
             const stats = await stat(filePath);
             const content = await readFile(filePath, 'utf-8');
-            
+
             const result: MemoryScanResult = {
               filePath,
               type: this.detectMemoryType(fileName, content),
@@ -156,7 +159,7 @@ export class MemoryScanner {
               scannedAt: new Date(),
               valid: true,
             };
-            
+
             results.push(result);
             this.scanResults.set(filePath, result);
           } catch (error) {
@@ -171,16 +174,19 @@ export class MemoryScanner {
               valid: false,
               error: error instanceof Error ? error.message : String(error),
             };
-            
+
             results.push(errorResult);
             this.scanResults.set(filePath, errorResult);
           }
         }
       }
     } catch (error) {
-      console.error(`Failed to scan memory directory ${directory}:`, error);
+      logger.error(
+        `Failed to scan memory directory ${directory}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
-    
+
     return results;
   }
 
@@ -203,26 +209,26 @@ export class MemoryScanner {
     } = options;
 
     const results: RelevantMemoryResult[] = [];
-    
+
     // 提取查询关键词
     const queryKeywords = this.extractKeywords(query);
-    
+
     for (const memoryFile of memoryFiles) {
       const relevanceScore = this.calculateRelevanceScore(
         memoryFile,
         queryKeywords,
         searchFields
       );
-      
+
       if (relevanceScore >= minRelevanceScore) {
         const matchedKeywords = this.findMatchedKeywords(
           memoryFile,
           queryKeywords,
           searchFields
         );
-        
+
         const matchedTags = this.extractTags(memoryFile.content);
-        
+
         results.push({
           memoryFile,
           relevanceScore,
@@ -231,7 +237,7 @@ export class MemoryScanner {
         });
       }
     }
-    
+
     // 按相关性排序并限制结果数量
     return results
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
@@ -244,32 +250,35 @@ export class MemoryScanner {
   async applyMemoryAging(memoryFiles: MemoryFile[]): Promise<MemoryFile[]> {
     const now = Date.now();
     const keptMemories: MemoryFile[] = [];
-    
+
     // 按使用频率和年龄排序
     const sortedMemories = memoryFiles.sort((a, b) => {
       // 优先保留最近修改的文件
       return b.modifiedAt.getTime() - a.modifiedAt.getTime();
     });
-    
+
     for (const memoryFile of sortedMemories) {
       const age = now - memoryFile.createdAt.getTime();
-      
+
       // 检查是否超过TTL
       if (age > this.agingConfig.memoryTTL) {
-        console.log(`Memory file ${memoryFile.path} expired (age: ${age}ms)`);
+        logger.info(`Memory file ${memoryFile.path} expired (age: ${age}ms)`);
         continue;
       }
-      
+
       // 检查LRU淘汰
-      if (this.agingConfig.enableLRU && 
-          keptMemories.length >= this.agingConfig.maxMemoryCount * this.agingConfig.lruThreshold) {
-        console.log(`Memory file ${memoryFile.path} removed by LRU`);
+      if (
+        this.agingConfig.enableLRU &&
+        keptMemories.length >=
+          this.agingConfig.maxMemoryCount * this.agingConfig.lruThreshold
+      ) {
+        logger.info(`Memory file ${memoryFile.path} removed by LRU`);
         continue;
       }
-      
+
       keptMemories.push(memoryFile);
     }
-    
+
     return keptMemories;
   }
 
@@ -278,19 +287,19 @@ export class MemoryScanner {
    */
   private detectMemoryType(fileName: string, content: string): MemoryType {
     const lowerContent = content.toLowerCase();
-    
+
     if (fileName.includes('feedback') || lowerContent.includes('feedback')) {
       return MemoryType.FEEDBACK;
     }
-    
+
     if (fileName.includes('project') || lowerContent.includes('project')) {
       return MemoryType.PROJECT;
     }
-    
+
     if (fileName.includes('reference') || lowerContent.includes('reference')) {
       return MemoryType.REFERENCE;
     }
-    
+
     return MemoryType.USER;
   }
 
@@ -304,11 +313,11 @@ export class MemoryScanner {
       }
       return MemoryLayer.USER;
     }
-    
+
     if (directory === process.cwd()) {
       return MemoryLayer.PROJECT;
     }
-    
+
     return MemoryLayer.LOCAL;
   }
 
@@ -317,15 +326,29 @@ export class MemoryScanner {
    */
   private extractKeywords(text: string): string[] {
     // 简化实现：按空格分割并过滤停用词
-    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']);
-    
+    const stopWords = new Set([
+      'the',
+      'a',
+      'an',
+      'and',
+      'or',
+      'but',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'by',
+    ]);
+
     return text
       .toLowerCase()
       .split(/\s+/)
-      .filter(word => 
-        word.length > 2 && 
-        !stopWords.has(word) &&
-        /^[a-z]+$/.test(word)
+      .filter(
+        (word) =>
+          word.length > 2 && !stopWords.has(word) && /^[a-z]+$/.test(word)
       );
   }
 
@@ -338,10 +361,10 @@ export class MemoryScanner {
     searchFields: string[]
   ): number {
     let score = 0;
-    
+
     for (const field of searchFields) {
       let fieldText = '';
-      
+
       switch (field) {
         case 'content':
           fieldText = memoryFile.content.toLowerCase();
@@ -356,14 +379,14 @@ export class MemoryScanner {
           fieldText = memoryFile.layer.toLowerCase();
           break;
       }
-      
+
       for (const keyword of queryKeywords) {
         if (fieldText.includes(keyword)) {
           score += 1;
         }
       }
     }
-    
+
     // 归一化分数
     const maxPossibleScore = queryKeywords.length * searchFields.length;
     return maxPossibleScore > 0 ? score / maxPossibleScore : 0;
@@ -378,10 +401,10 @@ export class MemoryScanner {
     searchFields: string[]
   ): string[] {
     const matchedKeywords: string[] = [];
-    
+
     for (const field of searchFields) {
       let fieldText = '';
-      
+
       switch (field) {
         case 'content':
           fieldText = memoryFile.content.toLowerCase();
@@ -396,14 +419,14 @@ export class MemoryScanner {
           fieldText = memoryFile.layer.toLowerCase();
           break;
       }
-      
+
       for (const keyword of queryKeywords) {
         if (fieldText.includes(keyword) && !matchedKeywords.includes(keyword)) {
           matchedKeywords.push(keyword);
         }
       }
     }
-    
+
     return matchedKeywords;
   }
 
@@ -414,11 +437,11 @@ export class MemoryScanner {
     // 简化实现：提取Markdown标签
     const tagMatches = content.matchAll(/\[([^\]]+)\]/g);
     const tags: string[] = [];
-    
+
     for (const match of tagMatches) {
       tags.push(match[1]);
     }
-    
+
     return tags;
   }
 
@@ -433,9 +456,9 @@ export class MemoryScanner {
     totalSize: number;
   } {
     const results = Array.from(this.scanResults.values());
-    const validFiles = results.filter(r => r.valid);
+    const validFiles = results.filter((r) => r.valid);
     const totalSize = validFiles.reduce((sum, r) => sum + r.size, 0);
-    
+
     return {
       totalScanned: results.length,
       validFiles: validFiles.length,

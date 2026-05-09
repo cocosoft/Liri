@@ -113,7 +113,9 @@ export class WebSocketTransport extends MCPTransport {
   private scheduleReconnect(): void {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    console.log(`Scheduling WebSocket reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    console.log(
+      `Scheduling WebSocket reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`
+    );
 
     setTimeout(async () => {
       try {

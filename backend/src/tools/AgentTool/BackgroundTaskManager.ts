@@ -13,7 +13,12 @@ import { randomUUID } from 'crypto';
 /**
  * 后台任务状态
  */
-export type BackgroundTaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'aborted';
+export type BackgroundTaskStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'aborted';
 
 /**
  * 后台任务信息
@@ -79,7 +84,11 @@ export class BackgroundTaskManager {
    * @param description 任务描述
    * @returns 任务 ID
    */
-  createTask(agentName: string, agentType: string, description: string): string {
+  createTask(
+    agentName: string,
+    agentType: string,
+    description: string
+  ): string {
     const taskId = `bg-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
     const now = Date.now();
 
@@ -140,7 +149,7 @@ export class BackgroundTaskManager {
   completeTask(
     taskId: string,
     result: string,
-    tokenUsage?: BackgroundTaskInfo['tokenUsage'],
+    tokenUsage?: BackgroundTaskInfo['tokenUsage']
   ): boolean {
     const task = this.tasks.get(taskId);
     if (!task) return false;
@@ -213,7 +222,7 @@ export class BackgroundTaskManager {
     const allTasks = Array.from(this.tasks.values());
 
     if (filterStatus) {
-      return allTasks.filter(t => t.status === filterStatus);
+      return allTasks.filter((t) => t.status === filterStatus);
     }
 
     return allTasks;
@@ -224,7 +233,7 @@ export class BackgroundTaskManager {
    */
   getActiveTasks(): BackgroundTaskInfo[] {
     return Array.from(this.tasks.values()).filter(
-      t => t.status === 'pending' || t.status === 'running',
+      (t) => t.status === 'pending' || t.status === 'running'
     );
   }
 
@@ -235,7 +244,12 @@ export class BackgroundTaskManager {
    */
   getCompletedTasks(limit = 10): BackgroundTaskInfo[] {
     return Array.from(this.tasks.values())
-      .filter(t => t.status === 'completed' || t.status === 'failed' || t.status === 'aborted')
+      .filter(
+        (t) =>
+          t.status === 'completed' ||
+          t.status === 'failed' ||
+          t.status === 'aborted'
+      )
       .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
       .slice(0, limit);
   }
@@ -290,11 +304,11 @@ export class BackgroundTaskManager {
 
     return {
       total: all.length,
-      pending: all.filter(t => t.status === 'pending').length,
-      running: all.filter(t => t.status === 'running').length,
-      completed: all.filter(t => t.status === 'completed').length,
-      failed: all.filter(t => t.status === 'failed').length,
-      aborted: all.filter(t => t.status === 'aborted').length,
+      pending: all.filter((t) => t.status === 'pending').length,
+      running: all.filter((t) => t.status === 'running').length,
+      completed: all.filter((t) => t.status === 'completed').length,
+      failed: all.filter((t) => t.status === 'failed').length,
+      aborted: all.filter((t) => t.status === 'aborted').length,
     };
   }
 
@@ -331,7 +345,12 @@ export class BackgroundTaskManager {
     if (recentCompleted.length > 0) {
       output += `### 最近完成的任务\n\n`;
       for (const task of recentCompleted) {
-        const statusIcon = task.status === 'completed' ? '✓' : task.status === 'failed' ? '✗' : '—';
+        const statusIcon =
+          task.status === 'completed'
+            ? '✓'
+            : task.status === 'failed'
+              ? '✗'
+              : '—';
         output += `- ${statusIcon} **${task.description}** [${task.agentType}]\n`;
         if (task.durationMs !== undefined) {
           output += `  - 耗时: ${(task.durationMs / 1000).toFixed(1)}s\n`;

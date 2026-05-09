@@ -66,12 +66,13 @@ export default {
     if (context.chatManager) {
       try {
         const contextInfo = await context.chatManager.getContextInfo();
-        const summary = `上下文信息:\n` +
+        const summary =
+          `上下文信息:\n` +
           `- 消息数量: ${contextInfo.messageCount || 0}\n` +
           `- Token数量: ${contextInfo.tokenCount || 0}\n` +
           `- 上下文长度: ${contextInfo.contextLength || 0} 字符\n` +
           `- 会话ID: ${context.sessionId || 'N/A'}`;
-        
+
         return {
           success: true,
           type: 'text',
@@ -100,11 +101,15 @@ export default {
     if (context.chatManager) {
       try {
         const result = await context.chatManager.compactContext();
-        context.onDone?.(`上下文已压缩，节省 ${result.savedTokens || 0} tokens`, { display: 'system' });
+        context.onDone?.(
+          `上下文已压缩，节省 ${result.savedTokens || 0} tokens`,
+          { display: 'system' }
+        );
         return {
           success: true,
           type: 'text',
-          message: `上下文压缩完成\n` +
+          message:
+            `上下文压缩完成\n` +
             `- 原始Token: ${result.originalTokens || 0}\n` +
             `- 压缩后Token: ${result.compactedTokens || 0}\n` +
             `- 节省Token: ${result.savedTokens || 0}`,
@@ -136,8 +141,9 @@ export default {
       cwd: context.cwd,
       environment: Object.keys(context.environment || {}).length,
     };
-    
-    const infoStr = `会话上下文信息:\n` +
+
+    const infoStr =
+      `会话上下文信息:\n` +
       `- 会话ID: ${info.sessionId || 'N/A'}\n` +
       `- 用户ID: ${info.userId || 'N/A'}\n` +
       `- 项目ID: ${info.projectId || 'N/A'}\n` +
@@ -155,9 +161,12 @@ export default {
   /**
    * 裁剪上下文到指定大小
    */
-  async handleTrim(options: string[], context: CommandContext): Promise<CommandResult> {
+  async handleTrim(
+    options: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const targetSize = parseInt(options[0]) || 1000;
-    
+
     if (context.chatManager) {
       try {
         const result = await context.chatManager.trimContext(targetSize);

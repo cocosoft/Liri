@@ -6,7 +6,5 @@ import Box from './Box.js';
  * It's useful as a shortcut for filling all the available spaces between elements.
  */
 export default function Spacer(): React.ReactNode {
-  return (
-    <Box flexGrow={1} />
-  );
+  return <Box flexGrow={1} />;
 }

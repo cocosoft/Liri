@@ -48,7 +48,12 @@ export type ParseForSecurityResult =
   | { kind: 'too-complex'; reason: string; nodeType?: string }
   | { kind: 'parse-unavailable' };
 
-const STRUCTURAL_TYPES = new Set(['program', 'list', 'pipeline', 'redirected_statement']);
+const STRUCTURAL_TYPES = new Set([
+  'program',
+  'list',
+  'pipeline',
+  'redirected_statement',
+]);
 const SEPARATOR_TYPES = new Set(['&&', '||', '|', ';', '&', '|&']);
 
 import { hasHeredoc, stripHeredocs } from './HeredocHandler';
@@ -67,16 +72,23 @@ export function parseForSecurity(command: string): ParseForSecurityResult {
       if (result && result.kind === 'simple') {
         return {
           kind: 'simple',
-          commands: [{
-            argv: result.args ? [result.command, ...result.args] : [result.command],
-            envVars: (result.env_vars || []).map((e: any) => ({ name: e.name, value: e.value })),
-            redirects: (result.redirects || []).map((r: any) => ({
-              op: r.op as Redirect['op'],
-              target: r.target,
-              fd: r.fd,
-            })),
-            text: trimmed,
-          }],
+          commands: [
+            {
+              argv: result.args
+                ? [result.command, ...result.args]
+                : [result.command],
+              envVars: (result.env_vars || []).map((e: any) => ({
+                name: e.name,
+                value: e.value,
+              })),
+              redirects: (result.redirects || []).map((r: any) => ({
+                op: r.op as Redirect['op'],
+                target: r.target,
+                fd: r.fd,
+              })),
+              text: trimmed,
+            },
+          ],
         };
       }
       if (result && result.error) {
@@ -97,7 +109,7 @@ export function parseForSecurity(command: string): ParseForSecurityResult {
     }
 
     const simpleCommands = commands.map(parseSimpleCommand);
-    const anyComplex = simpleCommands.some(c => c.argv.length === 0);
+    const anyComplex = simpleCommands.some((c) => c.argv.length === 0);
 
     if (anyComplex) {
       return { kind: 'parse-unavailable' };
@@ -126,7 +138,11 @@ function splitCommands(input: string): string[] {
     } else if (ch === '"' || ch === "'") {
       current += ch;
       inQuote = ch;
-    } else if ((ch === '|' && input[i + 1] !== '|') || ch === ';' || ch === '&') {
+    } else if (
+      (ch === '|' && input[i + 1] !== '|') ||
+      ch === ';' ||
+      ch === '&'
+    ) {
       if (current.trim()) commands.push(current.trim());
       current = '';
     } else {
@@ -210,14 +226,23 @@ export function extractCommandName(argv: string[]): string {
 export function isDangerousCommand(argv: string[]): boolean {
   const name = extractCommandName(argv).toLowerCase();
   const dangerous = new Set([
-    'rm', 'mkfs', 'dd', 'shutdown', 'reboot', 'halt',
-    'chmod', 'chown', 'fdisk', 'parted', ':(){ :|:& };:',
+    'rm',
+    'mkfs',
+    'dd',
+    'shutdown',
+    'reboot',
+    'halt',
+    'chmod',
+    'chown',
+    'fdisk',
+    'parted',
+    ':(){ :|:& };:',
   ]);
   return dangerous.has(name);
 }
 
 export function hasRedirects(commands: SimpleCommand[]): boolean {
-  return commands.some(c => c.redirects.length > 0);
+  return commands.some((c) => c.redirects.length > 0);
 }
 
 // ============ 向后兼容导出 (原 BashAST.ts 接口) ============
@@ -226,7 +251,11 @@ import type { IParsedCommand } from './ParsedCommand';
 export type CommandArg = string;
 export type RedirectInfo = Redirect;
 export type EnvAssignment = { name: string; value: string };
-export type BashASTNode = { type: string; text: string; children?: BashASTNode[] };
+export type BashASTNode = {
+  type: string;
+  text: string;
+  children?: BashASTNode[];
+};
 export type BashToken = { type: string; value: string };
 export type BashAnalysisResult = {
   command: string;
@@ -241,7 +270,14 @@ export { type IParsedCommand as BashParsedCommand } from './ParsedCommand';
 export function analyzeBashCommand(command: string): BashAnalysisResult {
   const result = parseForSecurity(command);
   if (result.kind !== 'simple' || result.commands.length === 0) {
-    return { command, name: '', args: [], isSimple: false, isDangerous: false, redirects: [] };
+    return {
+      command,
+      name: '',
+      args: [],
+      isSimple: false,
+      isDangerous: false,
+      redirects: [],
+    };
   }
   const cmd = result.commands[0];
   return {

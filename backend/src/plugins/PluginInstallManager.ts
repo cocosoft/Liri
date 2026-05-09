@@ -4,7 +4,14 @@
  */
 
 import { join } from 'path';
-import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+} from 'fs';
 import { logger } from '../utils/log';
 import { pluginLoader } from './PluginLoader';
 import { pluginCacheManager } from './PluginCacheManager';
@@ -46,7 +53,7 @@ export class PluginInstallManager {
     const homeDir = process.env.HOME || process.env.USERPROFILE || '';
     this.pluginsDir = join(homeDir, '.py_app', 'plugins', 'installed');
     this.configFile = join(homeDir, '.py_app', 'plugins', 'config.json');
-    
+
     // 确保目录存在
     this.ensureDirectories();
   }
@@ -58,7 +65,7 @@ export class PluginInstallManager {
     if (!existsSync(this.pluginsDir)) {
       mkdirSync(this.pluginsDir, { recursive: true });
     }
-    
+
     const configDir = join(this.pluginsDir, '..');
     if (!existsSync(configDir)) {
       mkdirSync(configDir, { recursive: true });
@@ -71,23 +78,26 @@ export class PluginInstallManager {
    * @param options 安装选项
    * @returns 安装结果
    */
-  async install(source: string | PluginSource, options: PluginInstallOptions = {}): Promise<PluginInstallResult> {
+  async install(
+    source: string | PluginSource,
+    options: PluginInstallOptions = {}
+  ): Promise<PluginInstallResult> {
     try {
       // 标准化插件源
       const pluginSource = this.normalizePluginSource(source, options);
-      
+
       // 检查是否已安装
       const existingPlugin = await this.getInstalledPlugin(pluginSource);
       if (existingPlugin && !options.force) {
         return {
           success: false,
-          error: `Plugin already installed: ${existingPlugin.name}`
+          error: `Plugin already installed: ${existingPlugin.name}`,
         };
       }
 
       // 加载插件
       const plugin = await pluginLoader.load(pluginSource);
-      
+
       // 保存插件信息
       if (options.save) {
         await this.savePluginConfig(plugin, pluginSource);
@@ -97,20 +107,23 @@ export class PluginInstallManager {
       await this.installPluginToDirectory(plugin);
 
       // 获取依赖
-      const dependencies = Array.from(pluginDependencyManager.getResolvedDependencies().values());
+      const dependencies = Array.from(
+        pluginDependencyManager.getResolvedDependencies().values()
+      );
 
       logger.info(`Successfully installed plugin: ${plugin.name}`);
-      
+
       return {
         success: true,
         plugin,
-        dependencies
+        dependencies,
       };
     } catch (error) {
       PluginErrorHandler.logError(error, logger);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to install plugin'
+        error:
+          error instanceof Error ? error.message : 'Failed to install plugin',
       };
     }
   }
@@ -125,7 +138,9 @@ export class PluginInstallManager {
       // 查找插件
       const pluginConfig = this.getPluginConfig(pluginName);
       if (!pluginConfig) {
-        throw PluginErrorFactory.createLoadError(`Plugin not found: ${pluginName}`);
+        throw PluginErrorFactory.createLoadError(
+          `Plugin not found: ${pluginName}`
+        );
       }
 
       // 删除插件目录
@@ -142,7 +157,7 @@ export class PluginInstallManager {
         type: pluginConfig.type,
         url: pluginConfig.url,
         version: pluginConfig.version,
-        branch: pluginConfig.branch
+        branch: pluginConfig.branch,
       };
       pluginCacheManager.clearCache(source);
       pluginCacheManager.clearZipCache(source);
@@ -161,12 +176,17 @@ export class PluginInstallManager {
    * @param options 更新选项
    * @returns 更新结果
    */
-  async update(pluginName: string, options: PluginInstallOptions = {}): Promise<PluginInstallResult> {
+  async update(
+    pluginName: string,
+    options: PluginInstallOptions = {}
+  ): Promise<PluginInstallResult> {
     try {
       // 查找插件配置
       const pluginConfig = this.getPluginConfig(pluginName);
       if (!pluginConfig) {
-        throw PluginErrorFactory.createLoadError(`Plugin not found: ${pluginName}`);
+        throw PluginErrorFactory.createLoadError(
+          `Plugin not found: ${pluginName}`
+        );
       }
 
       // 构建更新源
@@ -174,20 +194,21 @@ export class PluginInstallManager {
         type: pluginConfig.type,
         url: pluginConfig.url,
         version: options.version || pluginConfig.version,
-        branch: options.branch || pluginConfig.branch
+        branch: options.branch || pluginConfig.branch,
       };
 
       // 强制安装
       return await this.install(source, {
         ...options,
         force: true,
-        save: true
+        save: true,
       });
     } catch (error) {
       PluginErrorHandler.logError(error, logger);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to update plugin'
+        error:
+          error instanceof Error ? error.message : 'Failed to update plugin',
       };
     }
   }
@@ -198,7 +219,10 @@ export class PluginInstallManager {
    * @param options 安装选项
    * @returns 安装结果
    */
-  async installFromMarketplace(pluginId: string, options: PluginInstallOptions = {}): Promise<PluginInstallResult> {
+  async installFromMarketplace(
+    pluginId: string,
+    options: PluginInstallOptions = {}
+  ): Promise<PluginInstallResult> {
     try {
       // 延迟导入以避免循环依赖
       const { pluginMarketplace } = await import('./PluginMarketplace');
@@ -207,7 +231,10 @@ export class PluginInstallManager {
       PluginErrorHandler.logError(error, logger);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to install plugin from marketplace'
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to install plugin from marketplace',
       };
     }
   }
@@ -218,11 +245,13 @@ export class PluginInstallManager {
    */
   async listInstalledPlugins(): Promise<LoadedPlugin[]> {
     const plugins: LoadedPlugin[] = [];
-    
+
     try {
       if (existsSync(this.pluginsDir)) {
-        const pluginDirs = readdirSync(this.pluginsDir, { withFileTypes: true });
-        
+        const pluginDirs = readdirSync(this.pluginsDir, {
+          withFileTypes: true,
+        });
+
         for (const dir of pluginDirs) {
           if (dir.isDirectory()) {
             const pluginPath = join(this.pluginsDir, dir.name);
@@ -230,7 +259,10 @@ export class PluginInstallManager {
               const plugin = await pluginLoader.load(pluginPath);
               plugins.push(plugin);
             } catch (error) {
-              logger.warn(`Failed to load installed plugin ${dir.name}:`, error);
+              logger.warn(
+                `Failed to load installed plugin ${dir.name}:`,
+                error
+              );
             }
           }
         }
@@ -238,7 +270,7 @@ export class PluginInstallManager {
     } catch (error) {
       PluginErrorHandler.logError(error, logger);
     }
-    
+
     return plugins;
   }
 
@@ -263,7 +295,10 @@ export class PluginInstallManager {
   /**
    * 标准化插件源
    */
-  private normalizePluginSource(source: string | PluginSource, options: PluginInstallOptions): PluginSource {
+  private normalizePluginSource(
+    source: string | PluginSource,
+    options: PluginInstallOptions
+  ): PluginSource {
     if (typeof source === 'string') {
       // 从字符串解析插件源
       if (source.startsWith('git@') || source.endsWith('.git')) {
@@ -272,7 +307,7 @@ export class PluginInstallManager {
           url: source,
           version: options.version,
           branch: options.branch,
-          path: options.path
+          path: options.path,
         };
       } else if (source.includes('github.com')) {
         return {
@@ -280,7 +315,7 @@ export class PluginInstallManager {
           url: source,
           version: options.version,
           branch: options.branch,
-          path: options.path
+          path: options.path,
         };
       } else if (source.startsWith('http')) {
         return {
@@ -288,14 +323,14 @@ export class PluginInstallManager {
           url: source,
           version: options.version,
           branch: options.branch,
-          path: options.path
+          path: options.path,
         };
       } else {
         // 默认为npm
         return {
           type: 'npm',
           url: source,
-          version: options.version
+          version: options.version,
         };
       }
     }
@@ -305,12 +340,14 @@ export class PluginInstallManager {
   /**
    * 获取已安装的插件
    */
-  private async getInstalledPlugin(source: PluginSource): Promise<LoadedPlugin | null> {
+  private async getInstalledPlugin(
+    source: PluginSource
+  ): Promise<LoadedPlugin | null> {
     try {
       // 尝试从插件目录加载
       const pluginName = source.name || this.extractPluginName(source.url);
       const pluginDir = join(this.pluginsDir, pluginName);
-      
+
       if (existsSync(pluginDir)) {
         return await pluginLoader.load(pluginDir);
       }
@@ -340,9 +377,12 @@ export class PluginInstallManager {
   /**
    * 保存插件配置
    */
-  private async savePluginConfig(plugin: LoadedPlugin, source: PluginSource): Promise<void> {
+  private async savePluginConfig(
+    plugin: LoadedPlugin,
+    source: PluginSource
+  ): Promise<void> {
     const config = this.loadConfig();
-    
+
     config.plugins = config.plugins || {};
     config.plugins[plugin.name] = {
       name: plugin.name,
@@ -350,9 +390,9 @@ export class PluginInstallManager {
       url: source.url,
       version: source.version || plugin.manifest.version,
       branch: source.branch,
-      installedAt: new Date().toISOString()
+      installedAt: new Date().toISOString(),
     };
-    
+
     this.saveConfig(config);
   }
 
@@ -361,7 +401,7 @@ export class PluginInstallManager {
    */
   private removePluginConfig(pluginName: string): void {
     const config = this.loadConfig();
-    
+
     if (config.plugins && config.plugins[pluginName]) {
       delete config.plugins[pluginName];
       this.saveConfig(config);
@@ -403,15 +443,15 @@ export class PluginInstallManager {
    */
   private async installPluginToDirectory(plugin: LoadedPlugin): Promise<void> {
     const pluginDir = join(this.pluginsDir, plugin.name);
-    
+
     // 清理现有目录
     if (existsSync(pluginDir)) {
       rmSync(pluginDir, { recursive: true, force: true });
     }
-    
+
     // 创建目录
     mkdirSync(pluginDir, { recursive: true });
-    
+
     // 这里可以实现复制插件文件的逻辑
     // 目前简化处理，直接使用缓存中的文件
     logger.info(`Installed plugin ${plugin.name} to ${pluginDir}`);
@@ -436,11 +476,11 @@ export class PluginInstallManager {
   } {
     const stats = pluginCacheManager.getCacheStats();
     const installedCount = Object.keys(this.loadConfig().plugins || {}).length;
-    
+
     return {
       installedPlugins: installedCount,
       cacheSize: stats.totalSize,
-      zipCacheSize: 0 // 可以添加ZIP缓存大小计算
+      zipCacheSize: 0, // 可以添加ZIP缓存大小计算
     };
   }
 }

@@ -8,7 +8,10 @@ export type ProtocolType = 'websocket' | 'http';
 
 export interface RemoteSession {
   id: string;
-  execute(agentId: string, task: RemoteAgentTask): Promise<RemoteExecutionResult>;
+  execute(
+    agentId: string,
+    task: RemoteAgentTask
+  ): Promise<RemoteExecutionResult>;
   disconnect(): void;
   getStatus(): SessionStatus;
 }
@@ -54,7 +57,10 @@ export interface RemoteAgentConfig {
 export interface RemoteAgentExecutor {
   connect(): Promise<void>;
   disconnect(): void;
-  execute(agentId: string, task: Omit<RemoteAgentTask, 'agentId'>): Promise<RemoteExecutionResult>;
+  execute(
+    agentId: string,
+    task: Omit<RemoteAgentTask, 'agentId'>
+  ): Promise<RemoteExecutionResult>;
   getStatus(): SessionStatus;
   getSessionId(): string;
 }

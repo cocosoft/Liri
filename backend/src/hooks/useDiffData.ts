@@ -88,6 +88,8 @@ export function useDiffData(config: UseDiffDataConfig = {}): UseDiffDataResult {
     isLoading,
     error,
     refresh: fetchDiff,
-    hasChanges: diff !== null && (diff.files.length > 0 || diff.additions > 0 || diff.deletions > 0),
+    hasChanges:
+      diff !== null &&
+      (diff.files.length > 0 || diff.additions > 0 || diff.deletions > 0),
   };
 }

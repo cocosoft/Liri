@@ -342,4 +342,6 @@ export class SandboxIntegrationService {
 
 // 导出单例
 export const sandboxManager = new SandboxManager();
-export const sandboxIntegrationService = new SandboxIntegrationService(sandboxManager);
+export const sandboxIntegrationService = new SandboxIntegrationService(
+  sandboxManager
+);

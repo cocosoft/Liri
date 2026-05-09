@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink';
+import { Box, Text } from '@modules/ink';
 import { TabsProps, TabItem, UITheme } from '../types/UITypes';
 import { useTheme } from '../design-system/ThemeProvider';
 
@@ -18,7 +18,7 @@ export function Tabs({
   onChange,
   orientation = 'horizontal',
   size = 'md',
-  color = 'primary'
+  color = 'primary',
 }: TabsProps) {
   const { theme } = useTheme();
 
@@ -41,14 +41,14 @@ export function Tabs({
       return {
         backgroundColor: theme.colors[color],
         color: theme.colors.background,
-        borderColor: theme.colors[color]
+        borderColor: theme.colors[color],
       };
     }
 
     return {
       backgroundColor: theme.colors.background,
       color: theme.colors.text,
-      borderColor: theme.colors.border
+      borderColor: theme.colors.border,
     };
   };
 
@@ -60,7 +60,7 @@ export function Tabs({
       <Box flexDirection={orientation === 'vertical' ? 'column' : 'row'}>
         {tabs.map((tab) => {
           const style = getTabStyle(tab.id);
-          
+
           return (
             <Box
               key={tab.id}
@@ -74,9 +74,7 @@ export function Tabs({
               onPress={() => handleTabChange(tab.id)}
               focusable={!tab.disabled}
             >
-              <Text color={style.color}>
-                {tab.label}
-              </Text>
+              <Text color={style.color}>{tab.label}</Text>
             </Box>
           );
         })}
@@ -88,17 +86,13 @@ export function Tabs({
    * 渲染活动标签页内容（基于CC源码）
    */
   const renderActiveTabContent = () => {
-    const activeTabItem = tabs.find(tab => tab.id === activeTab);
-    
+    const activeTabItem = tabs.find((tab) => tab.id === activeTab);
+
     if (!activeTabItem) {
       return null;
     }
 
-    return (
-      <Box marginTop={1}>
-        {activeTabItem.content}
-      </Box>
-    );
+    return <Box marginTop={1}>{activeTabItem.content}</Box>;
   };
 
   return (
@@ -118,18 +112,26 @@ export function IconTabs({
   onChange,
   orientation = 'horizontal',
   size = 'md',
-  color = 'primary'
-}: TabsProps & { tabs: Array<{ id: string; label: string; icon: string; content: React.ReactNode; disabled?: boolean }> }) {
+  color = 'primary',
+}: TabsProps & {
+  tabs: Array<{
+    id: string;
+    label: string;
+    icon: string;
+    content: React.ReactNode;
+    disabled?: boolean;
+  }>;
+}) {
   return (
     <Tabs
-      tabs={(tabs as any[]).map(tab => ({
+      tabs={(tabs as any[]).map((tab) => ({
         ...tab,
         label: (
           <Box flexDirection="row" alignItems="center" gap={1}>
             <Text>{tab.icon}</Text>
             <Text>{tab.label}</Text>
           </Box>
-        )
+        ),
       }))}
       activeTab={activeTab}
       onChange={onChange}
@@ -150,7 +152,7 @@ export function ScrollableTabs({
   orientation = 'horizontal',
   size = 'md',
   color = 'primary',
-  maxWidth = 80
+  maxWidth = 80,
 }: TabsProps & { maxWidth?: number }) {
   const { theme } = useTheme();
 
@@ -167,7 +169,7 @@ export function ScrollableTabs({
         {tabs.map((tab) => {
           const isActive = tab.id === activeTab;
           const style = getTabStyle(tab.id);
-          
+
           return (
             <Box
               key={tab.id}
@@ -182,9 +184,7 @@ export function ScrollableTabs({
               focusable={!tab.disabled}
               flexShrink={0}
             >
-              <Text color={style.color}>
-                {tab.label}
-              </Text>
+              <Text color={style.color}>{tab.label}</Text>
             </Box>
           );
         })}
@@ -202,14 +202,14 @@ export function ScrollableTabs({
       return {
         backgroundColor: theme.colors[color],
         color: theme.colors.background,
-        borderColor: theme.colors[color]
+        borderColor: theme.colors[color],
       };
     }
 
     return {
       backgroundColor: theme.colors.background,
       color: theme.colors.text,
-      borderColor: theme.colors.border
+      borderColor: theme.colors.border,
     };
   };
 
@@ -226,17 +226,13 @@ export function ScrollableTabs({
    * 渲染活动标签页内容（基于CC源码）
    */
   const renderActiveTabContent = () => {
-    const activeTabItem = tabs.find(tab => tab.id === activeTab);
-    
+    const activeTabItem = tabs.find((tab) => tab.id === activeTab);
+
     if (!activeTabItem) {
       return null;
     }
 
-    return (
-      <Box marginTop={1}>
-        {activeTabItem.content}
-      </Box>
-    );
+    return <Box marginTop={1}>{activeTabItem.content}</Box>;
   };
 
   return (
@@ -254,7 +250,7 @@ export function StepTabs({
   steps,
   currentStep,
   onChange,
-  color = 'primary'
+  color = 'primary',
 }: {
   steps: Array<{ id: string; label: string; description?: string }>;
   currentStep: string;
@@ -266,33 +262,55 @@ export function StepTabs({
   return (
     <Box flexDirection="column" gap={1}>
       {/* 步骤指示器（基于CC源码） */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+      >
         {steps.map((step, index) => {
           const isActive = step.id === currentStep;
-          const isCompleted = steps.findIndex(s => s.id === currentStep) > index;
-          
+          const isCompleted =
+            steps.findIndex((s) => s.id === currentStep) > index;
+
           return (
-            <Box key={step.id} flexDirection="column" alignItems="center" gap={0.5}>
+            <Box
+              key={step.id}
+              flexDirection="column"
+              alignItems="center"
+              gap={0.5}
+            >
               {/* 步骤圆点（基于CC源码） */}
               <Box
                 width={3}
                 height={3}
                 borderStyle="round"
-                borderColor={isActive || isCompleted ? theme.colors[color] : theme.colors.border}
+                borderColor={
+                  isActive || isCompleted
+                    ? theme.colors[color]
+                    : theme.colors.border
+                }
                 backgroundColor={isActive ? theme.colors[color] : 'transparent'}
                 justifyContent="center"
                 alignItems="center"
                 onPress={() => onChange(step.id)}
                 focusable={true}
               >
-                <Text color={isActive ? theme.colors.background : theme.colors[color]}>
+                <Text
+                  color={
+                    isActive ? theme.colors.background : theme.colors[color]
+                  }
+                >
                   {isCompleted ? '✓' : index + 1}
                 </Text>
               </Box>
 
               {/* 步骤标签（基于CC源码） */}
-              <Text 
-                color={isActive || isCompleted ? theme.colors[color] : theme.colors.textSecondary}
+              <Text
+                color={
+                  isActive || isCompleted
+                    ? theme.colors[color]
+                    : theme.colors.textSecondary
+                }
                 bold={isActive}
               >
                 {step.label}
@@ -300,9 +318,7 @@ export function StepTabs({
 
               {/* 步骤描述（基于CC源码） */}
               {step.description && (
-                <Text 
-                  color={theme.colors.textSecondary}
-                >
+                <Text color={theme.colors.textSecondary}>
                   {step.description}
                 </Text>
               )}
@@ -312,7 +328,12 @@ export function StepTabs({
       </Box>
 
       {/* 连接线（基于CC源码） */}
-      <Box flexDirection="row" alignItems="center" paddingLeft={1} paddingRight={1}>
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        paddingLeft={1}
+        paddingRight={1}
+      >
         {steps.map((_, index) => (
           <React.Fragment key={index}>
             {index > 0 && (
@@ -320,7 +341,11 @@ export function StepTabs({
                 flexGrow={1}
                 height={1}
                 borderStyle="single"
-                borderColor={index <= steps.findIndex(s => s.id === currentStep) ? theme.colors[color] : theme.colors.border}
+                borderColor={
+                  index <= steps.findIndex((s) => s.id === currentStep)
+                    ? theme.colors[color]
+                    : theme.colors.border
+                }
                 marginLeft={0.5}
                 marginRight={0.5}
               />

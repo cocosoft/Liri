@@ -7,7 +7,10 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
 import { logger } from '@modules/infrastructure';
-import type { StoredTokenData, ITokenStorage } from '../types/OAuthStorageTypes';
+import type {
+  StoredTokenData,
+  ITokenStorage,
+} from '../types/OAuthStorageTypes';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
@@ -36,7 +39,10 @@ class OAuthTokenStorage implements ITokenStorage {
   /**
    * 保存Token
    */
-  async saveToken(serverKey: string, tokenData: StoredTokenData): Promise<void> {
+  async saveToken(
+    serverKey: string,
+    tokenData: StoredTokenData
+  ): Promise<void> {
     try {
       const filePath = this.getTokenFilePath(serverKey);
       const encryptionKey = await this.getEncryptionKey();
@@ -104,8 +110,8 @@ class OAuthTokenStorage implements ITokenStorage {
 
       const files = await readdir(this.storagePath);
       return files
-        .filter(file => file.endsWith('.token.enc'))
-        .map(file => file.replace('.token.enc', ''));
+        .filter((file) => file.endsWith('.token.enc'))
+        .map((file) => file.replace('.token.enc', ''));
     } catch {
       return [];
     }

@@ -17,7 +17,7 @@ export class DataAnalyzer {
       metadataPatterns: this.extractMetadataPatterns(events),
       correlationAnalysis: this.analyzeCorrelations(events),
       anomalyDetection: this.detectAnomalies(events),
-      trendAnalysis: this.analyzeTrends(events)
+      trendAnalysis: this.analyzeTrends(events),
     };
 
     return analysis;
@@ -33,7 +33,7 @@ export class DataAnalyzer {
       tokenUsage: this.analyzeTokenUsage(sessions),
       costAnalysis: this.analyzeCosts(sessions),
       errorRate: this.calculateErrorRate(sessions),
-      toolUsage: this.analyzeToolUsage(sessions)
+      toolUsage: this.analyzeToolUsage(sessions),
     };
 
     return analysis;
@@ -42,10 +42,12 @@ export class DataAnalyzer {
   /**
    * 计算事件频率
    */
-  private calculateEventFrequency(events: AnalyticsEvent[]): Map<string, number> {
+  private calculateEventFrequency(
+    events: AnalyticsEvent[]
+  ): Map<string, number> {
     const frequency = new Map<string, number>();
-    
-    events.forEach(event => {
+
+    events.forEach((event) => {
       const count = frequency.get(event.eventName) || 0;
       frequency.set(event.eventName, count + 1);
     });
@@ -61,17 +63,17 @@ export class DataAnalyzer {
     const daily = new Map<string, number>();
     const weekly = new Map<number, number>();
 
-    events.forEach(event => {
+    events.forEach((event) => {
       const date = new Date(event.timestamp);
-      
+
       // 按小时统计
       const hour = date.getHours();
       hourly.set(hour, (hourly.get(hour) || 0) + 1);
-      
+
       // 按日期统计
       const day = date.toDateString();
       daily.set(day, (daily.get(day) || 0) + 1);
-      
+
       // 按星期统计
       const weekDay = date.getDay();
       weekly.set(weekDay, (weekly.get(weekDay) || 0) + 1);
@@ -87,12 +89,12 @@ export class DataAnalyzer {
     const patterns: MetadataPatterns = {
       commonFields: new Map(),
       valueDistributions: new Map(),
-      fieldCorrelations: new Map()
+      fieldCorrelations: new Map(),
     };
 
     // 分析常见字段
-    events.forEach(event => {
-      Object.keys(event.metadata).forEach(field => {
+    events.forEach((event) => {
+      Object.keys(event.metadata).forEach((field) => {
         const count = patterns.commonFields.get(field) || 0;
         patterns.commonFields.set(field, count + 1);
 
@@ -117,7 +119,7 @@ export class DataAnalyzer {
     const correlations: CorrelationAnalysis = {
       eventSequences: this.findEventSequences(events),
       timeBasedCorrelations: this.analyzeTimeCorrelations(events),
-      metadataCorrelations: this.analyzeMetadataCorrelations(events)
+      metadataCorrelations: this.analyzeMetadataCorrelations(events),
     };
 
     return correlations;
@@ -130,7 +132,7 @@ export class DataAnalyzer {
     const anomalies: AnomalyDetection = {
       unusualFrequencies: this.detectFrequencyAnomalies(events),
       timingAnomalies: this.detectTimingAnomalies(events),
-      metadataAnomalies: this.detectMetadataAnomalies(events)
+      metadataAnomalies: this.detectMetadataAnomalies(events),
     };
 
     return anomalies;
@@ -143,7 +145,7 @@ export class DataAnalyzer {
     const trends: TrendAnalysis = {
       hourlyTrends: this.calculateHourlyTrends(events),
       dailyTrends: this.calculateDailyTrends(events),
-      weeklyTrends: this.calculateWeeklyTrends(events)
+      weeklyTrends: this.calculateWeeklyTrends(events),
     };
 
     return trends;
@@ -152,17 +154,23 @@ export class DataAnalyzer {
   /**
    * 分析会话时长
    */
-  private analyzeSessionDuration(sessions: SessionAnalytics[]): SessionDurationAnalysis {
-    const completedSessions = sessions.filter(s => s.endTime);
-    const durations = completedSessions.map(s => (s.endTime! - s.startTime) / 1000);
-    
+  private analyzeSessionDuration(
+    sessions: SessionAnalytics[]
+  ): SessionDurationAnalysis {
+    const completedSessions = sessions.filter((s) => s.endTime);
+    const durations = completedSessions.map(
+      (s) => (s.endTime! - s.startTime) / 1000
+    );
+
     return {
-      averageDuration: durations.length > 0 ? 
-        durations.reduce((a, b) => a + b, 0) / durations.length : 0,
+      averageDuration:
+        durations.length > 0
+          ? durations.reduce((a, b) => a + b, 0) / durations.length
+          : 0,
       minDuration: durations.length > 0 ? Math.min(...durations) : 0,
       maxDuration: durations.length > 0 ? Math.max(...durations) : 0,
       totalSessions: sessions.length,
-      completedSessions: completedSessions.length
+      completedSessions: completedSessions.length,
     };
   }
 
@@ -170,17 +178,23 @@ export class DataAnalyzer {
    * 分析令牌使用情况
    */
   private analyzeTokenUsage(sessions: SessionAnalytics[]): TokenUsageAnalysis {
-    const totalUsage = sessions.reduce((sum, session) => ({
-      inputTokens: sum.inputTokens + session.tokenUsage.inputTokens,
-      outputTokens: sum.outputTokens + session.tokenUsage.outputTokens,
-      totalTokens: sum.totalTokens + session.tokenUsage.totalTokens
-    }), { inputTokens: 0, outputTokens: 0, totalTokens: 0 });
+    const totalUsage = sessions.reduce(
+      (sum, session) => ({
+        inputTokens: sum.inputTokens + session.tokenUsage.inputTokens,
+        outputTokens: sum.outputTokens + session.tokenUsage.outputTokens,
+        totalTokens: sum.totalTokens + session.tokenUsage.totalTokens,
+      }),
+      { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+    );
 
     return {
       ...totalUsage,
-      averageInputTokens: sessions.length > 0 ? totalUsage.inputTokens / sessions.length : 0,
-      averageOutputTokens: sessions.length > 0 ? totalUsage.outputTokens / sessions.length : 0,
-      averageTotalTokens: sessions.length > 0 ? totalUsage.totalTokens / sessions.length : 0
+      averageInputTokens:
+        sessions.length > 0 ? totalUsage.inputTokens / sessions.length : 0,
+      averageOutputTokens:
+        sessions.length > 0 ? totalUsage.outputTokens / sessions.length : 0,
+      averageTotalTokens:
+        sessions.length > 0 ? totalUsage.totalTokens / sessions.length : 0,
     };
   }
 
@@ -188,13 +202,19 @@ export class DataAnalyzer {
    * 分析成本
    */
   private analyzeCosts(sessions: SessionAnalytics[]): CostAnalysis {
-    const totalCost = sessions.reduce((sum, session) => sum + session.costUSD, 0);
-    
+    const totalCost = sessions.reduce(
+      (sum, session) => sum + session.costUSD,
+      0
+    );
+
     return {
       totalCost,
       averageCost: sessions.length > 0 ? totalCost / sessions.length : 0,
-      costPerToken: sessions.length > 0 ? 
-        totalCost / sessions.reduce((sum, s) => sum + s.tokenUsage.totalTokens, 0) : 0
+      costPerToken:
+        sessions.length > 0
+          ? totalCost /
+            sessions.reduce((sum, s) => sum + s.tokenUsage.totalTokens, 0)
+          : 0,
     };
   }
 
@@ -202,13 +222,19 @@ export class DataAnalyzer {
    * 计算错误率
    */
   private calculateErrorRate(sessions: SessionAnalytics[]): ErrorRateAnalysis {
-    const totalErrors = sessions.reduce((sum, session) => sum + session.errors, 0);
-    const totalToolCalls = sessions.reduce((sum, session) => sum + session.toolCalls, 0);
-    
+    const totalErrors = sessions.reduce(
+      (sum, session) => sum + session.errors,
+      0
+    );
+    const totalToolCalls = sessions.reduce(
+      (sum, session) => sum + session.toolCalls,
+      0
+    );
+
     return {
       totalErrors,
       errorRate: totalToolCalls > 0 ? totalErrors / totalToolCalls : 0,
-      sessionsWithErrors: sessions.filter(s => s.errors > 0).length
+      sessionsWithErrors: sessions.filter((s) => s.errors > 0).length,
     };
   }
 
@@ -216,12 +242,16 @@ export class DataAnalyzer {
    * 分析工具使用情况
    */
   private analyzeToolUsage(sessions: SessionAnalytics[]): ToolUsageAnalysis {
-    const totalToolCalls = sessions.reduce((sum, session) => sum + session.toolCalls, 0);
-    
+    const totalToolCalls = sessions.reduce(
+      (sum, session) => sum + session.toolCalls,
+      0
+    );
+
     return {
       totalToolCalls,
-      averageToolCalls: sessions.length > 0 ? totalToolCalls / sessions.length : 0,
-      toolCallRate: sessions.length > 0 ? totalToolCalls / sessions.length : 0
+      averageToolCalls:
+        sessions.length > 0 ? totalToolCalls / sessions.length : 0,
+      toolCallRate: sessions.length > 0 ? totalToolCalls / sessions.length : 0,
     };
   }
 
@@ -236,12 +266,16 @@ export class DataAnalyzer {
     return [];
   }
 
-  private analyzeMetadataCorrelations(events: AnalyticsEvent[]): MetadataCorrelation[] {
+  private analyzeMetadataCorrelations(
+    events: AnalyticsEvent[]
+  ): MetadataCorrelation[] {
     // 简化实现：返回空数组
     return [];
   }
 
-  private detectFrequencyAnomalies(events: AnalyticsEvent[]): FrequencyAnomaly[] {
+  private detectFrequencyAnomalies(
+    events: AnalyticsEvent[]
+  ): FrequencyAnomaly[] {
     // 简化实现：返回空数组
     return [];
   }

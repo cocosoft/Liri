@@ -24,34 +24,39 @@ export const ScrollView: React.FC<ScrollViewProps> = ({
   const [scrollTop, setScrollTop] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
 
-  const handleKeyDown = useCallback((key: string) => {
-    const maxScroll = Math.max(0, contentHeight - height);
-    
-    switch (key) {
-      case 'arrowup':
-      case 'k':
-        setScrollTop((prev) => Math.max(0, prev - 1));
-        break;
-      case 'arrowdown':
-      case 'j':
-        setScrollTop((prev) => Math.min(maxScroll, prev + 1));
-        break;
-      case 'pageup':
-      case 'u':
-        setScrollTop((prev) => Math.max(0, prev - Math.floor(height / 2)));
-        break;
-      case 'pagedown':
-      case 'd':
-        setScrollTop((prev) => Math.min(maxScroll, prev + Math.floor(height / 2)));
-        break;
-      case 'home':
-        setScrollTop(0);
-        break;
-      case 'end':
-        setScrollTop(maxScroll);
-        break;
-    }
-  }, [contentHeight, height]);
+  const handleKeyDown = useCallback(
+    (key: string) => {
+      const maxScroll = Math.max(0, contentHeight - height);
+
+      switch (key) {
+        case 'arrowup':
+        case 'k':
+          setScrollTop((prev) => Math.max(0, prev - 1));
+          break;
+        case 'arrowdown':
+        case 'j':
+          setScrollTop((prev) => Math.min(maxScroll, prev + 1));
+          break;
+        case 'pageup':
+        case 'u':
+          setScrollTop((prev) => Math.max(0, prev - Math.floor(height / 2)));
+          break;
+        case 'pagedown':
+        case 'd':
+          setScrollTop((prev) =>
+            Math.min(maxScroll, prev + Math.floor(height / 2))
+          );
+          break;
+        case 'home':
+          setScrollTop(0);
+          break;
+        case 'end':
+          setScrollTop(maxScroll);
+          break;
+      }
+    },
+    [contentHeight, height]
+  );
 
   useEffect(() => {
     onScroll?.(scrollTop);
@@ -99,7 +104,10 @@ export const ScrollView: React.FC<ScrollViewProps> = ({
             width={1}
             height={Math.max(1, (height / contentHeight) * height)}
             backgroundColor="blue"
-            marginTop={scrollPercent / 100 * (height - (height / contentHeight) * height)}
+            marginTop={
+              (scrollPercent / 100) *
+              (height - (height / contentHeight) * height)
+            }
           />
         </Box>
       )}

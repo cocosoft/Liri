@@ -4,7 +4,11 @@
  */
 
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { hasPermissionsToUseTool, type ToolPermissionContext, type PermissionResult } from '@modules/permission';
+import {
+  hasPermissionsToUseTool,
+  type ToolPermissionContext,
+  type PermissionResult,
+} from '@modules/permission';
 
 /**
  * 工具权限检查结果
@@ -30,9 +34,11 @@ export interface UseCanUseToolResult {
 export function useCanUseTool(
   toolName: string,
   input: Record<string, unknown> = {},
-  context: ToolPermissionContext,
+  context: ToolPermissionContext
 ): UseCanUseToolResult {
-  const [result, setResult] = useState<PermissionResult<Record<string, unknown>> | null>(null);
+  const [result, setResult] = useState<PermissionResult<
+    Record<string, unknown>
+  > | null>(null);
 
   // 执行权限检查
   const checkPermission = useCallback(() => {
@@ -69,7 +75,10 @@ export function useCanUseTool(
 
   return {
     canUse,
-    permissionResult: result || { behavior: 'ask', decisionReason: { type: 'default' } },
+    permissionResult: result || {
+      behavior: 'ask',
+      decisionReason: { type: 'default' },
+    },
     denialReason,
     decisionReason,
   };
@@ -81,7 +90,7 @@ export function useCanUseTool(
 export function useCanUseToolSimple(
   toolName: string,
   input: Record<string, unknown> = {},
-  context: ToolPermissionContext,
+  context: ToolPermissionContext
 ): boolean {
   const { canUse } = useCanUseTool(toolName, input, context);
   return canUse;

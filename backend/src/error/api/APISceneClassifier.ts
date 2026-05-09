@@ -6,7 +6,11 @@
  * 将 API 错误分类为具体场景，支持用户消息生成、重试决策和动作提示。
  */
 
-import { APIConnectionError, APIConnectionTimeoutError, APIError } from '@anthropic-ai/sdk/error.js';
+import {
+  APIConnectionError,
+  APIConnectionTimeoutError,
+  APIError,
+} from '@anthropic-ai/sdk/error.js';
 import { extractConnectionErrorDetails } from './errorUtils';
 
 /**
@@ -122,7 +126,10 @@ export function classifyAPIScene(error: unknown): APISceneResult {
   }
 
   // API 错误分类（包括 SDK APIError 和带 status 的普通 Error）
-  if (error instanceof APIError || (error instanceof Error && 'status' in error)) {
+  if (
+    error instanceof APIError ||
+    (error instanceof Error && 'status' in error)
+  ) {
     return classifyAPIErrorByStatus(error as APIError);
   }
 
@@ -298,11 +305,7 @@ function classifyAuthError(error: APIError): APISceneResult {
  */
 function classifyBadRequestError(error: APIError): APISceneResult {
   // Prompt 过长
-  if (
-    error.message
-      .toLowerCase()
-      .includes('prompt is too long')
-  ) {
+  if (error.message.toLowerCase().includes('prompt is too long')) {
     return {
       scene: APIScene.PROMPT_TOO_LONG,
       userMessage: 'Prompt 过长，请减少输入或使用 /compact 清理上下文',

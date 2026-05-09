@@ -10,9 +10,12 @@ export function isAnalyticsDisabled(): boolean {
     process.env.NODE_ENV === 'test' ||
     process.env.ANALYTICS_DISABLED === 'true' ||
     process.env.PY_APP_TELEMETRY_DISABLED === 'true'
-  )
+  );
 }
 
 export function isFeedbackSurveyDisabled(): boolean {
-  return process.env.NODE_ENV === 'test' || process.env.PY_APP_TELEMETRY_DISABLED === 'true'
+  return (
+    process.env.NODE_ENV === 'test' ||
+    process.env.PY_APP_TELEMETRY_DISABLED === 'true'
+  );
 }

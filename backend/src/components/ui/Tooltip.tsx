@@ -22,9 +22,12 @@ export function Tooltip({
   bgColor = 'gray',
   visible: controlledVisible,
 }: TooltipProps): React.ReactNode {
-  const [internalVisible, setInternalVisible] = useState(controlledVisible ?? true);
+  const [internalVisible, setInternalVisible] = useState(
+    controlledVisible ?? true
+  );
 
-  const visible = controlledVisible !== undefined ? controlledVisible : internalVisible;
+  const visible =
+    controlledVisible !== undefined ? controlledVisible : internalVisible;
 
   const renderTooltip = (): React.ReactNode => {
     if (!visible) return null;
@@ -74,9 +77,5 @@ export function Tooltip({
     }
   };
 
-  return (
-    <Box>
-      {renderTooltip()}
-    </Box>
-  );
+  return <Box>{renderTooltip()}</Box>;
 }

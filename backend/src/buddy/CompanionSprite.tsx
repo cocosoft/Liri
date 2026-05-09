@@ -12,7 +12,12 @@ const PET_BURST_MS = 2500;
 
 const IDLE_SEQUENCE = [0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 2, 0, 0, 0];
 
-function SpeechBubble({ text, color, fading, tail }: {
+function SpeechBubble({
+  text,
+  color,
+  fading,
+  tail,
+}: {
   text: string;
   color: string;
   fading: boolean;
@@ -23,16 +28,31 @@ function SpeechBubble({ text, color, fading, tail }: {
   return (
     <Box flexDirection="column" alignItems="center" marginBottom={1}>
       <Box>
-        <Text color={color}>{' ┌'}{'─'.repeat(text.length + 2)}{'┐'}</Text>
+        <Text color={color}>
+          {' ┌'}
+          {'─'.repeat(text.length + 2)}
+          {'┐'}
+        </Text>
       </Box>
       <Box>
-        <Text color={color}>{' │ '}{text}{' │'}</Text>
+        <Text color={color}>
+          {' │ '}
+          {text}
+          {' │'}
+        </Text>
       </Box>
       <Box>
-        <Text color={color}>{' └'}{'─'.repeat(text.length + 2)}{'┘'}</Text>
+        <Text color={color}>
+          {' └'}
+          {'─'.repeat(text.length + 2)}
+          {'┘'}
+        </Text>
       </Box>
       <Box>
-        <Text color={color}>{'  '}{tailChar}</Text>
+        <Text color={color}>
+          {'  '}
+          {tailChar}
+        </Text>
       </Box>
     </Box>
   );

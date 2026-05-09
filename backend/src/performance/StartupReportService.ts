@@ -97,7 +97,7 @@ export class StartupReportService {
     this.startTime = Date.now();
     this.checkpoints = [];
     this.endTime = null;
-    
+
     if (this.config.includeMemory) {
       this.initialMemory = process.memoryUsage();
     }
@@ -108,7 +108,7 @@ export class StartupReportService {
    */
   public end(): void {
     this.endTime = Date.now();
-    
+
     if (this.config.includeMemory) {
       this.finalMemory = process.memoryUsage();
     }
@@ -175,7 +175,7 @@ export class StartupReportService {
           ...report,
           startTime: new Date(report.startTime).toISOString(),
           endTime: new Date(report.endTime).toISOString(),
-          checkpoints: report.checkpoints.map(cp => ({
+          checkpoints: report.checkpoints.map((cp) => ({
             ...cp,
             timestamp: new Date(cp.timestamp).toISOString(),
           })),
@@ -213,9 +213,15 @@ export class StartupReportService {
       lines.push('');
       lines.push('| 指标 | 初始值 | 最终值 | 变化 |');
       lines.push('|------|--------|--------|------|');
-      lines.push(`| 堆使用 | ${(report.memory.initial.heapUsed / 1024 / 1024).toFixed(2)}MB | ${(report.memory.final.heapUsed / 1024 / 1024).toFixed(2)}MB | ${((report.memory.final.heapUsed - report.memory.initial.heapUsed) / 1024 / 1024).toFixed(2)}MB |`);
-      lines.push(`| 堆总量 | ${(report.memory.initial.heapTotal / 1024 / 1024).toFixed(2)}MB | ${(report.memory.final.heapTotal / 1024 / 1024).toFixed(2)}MB | ${((report.memory.final.heapTotal - report.memory.initial.heapTotal) / 1024 / 1024).toFixed(2)}MB |`);
-      lines.push(`| RSS | ${(report.memory.initial.rss / 1024 / 1024).toFixed(2)}MB | ${(report.memory.final.rss / 1024 / 1024).toFixed(2)}MB | ${((report.memory.final.rss - report.memory.initial.rss) / 1024 / 1024).toFixed(2)}MB |`);
+      lines.push(
+        `| 堆使用 | ${(report.memory.initial.heapUsed / 1024 / 1024).toFixed(2)}MB | ${(report.memory.final.heapUsed / 1024 / 1024).toFixed(2)}MB | ${((report.memory.final.heapUsed - report.memory.initial.heapUsed) / 1024 / 1024).toFixed(2)}MB |`
+      );
+      lines.push(
+        `| 堆总量 | ${(report.memory.initial.heapTotal / 1024 / 1024).toFixed(2)}MB | ${(report.memory.final.heapTotal / 1024 / 1024).toFixed(2)}MB | ${((report.memory.final.heapTotal - report.memory.initial.heapTotal) / 1024 / 1024).toFixed(2)}MB |`
+      );
+      lines.push(
+        `| RSS | ${(report.memory.initial.rss / 1024 / 1024).toFixed(2)}MB | ${(report.memory.final.rss / 1024 / 1024).toFixed(2)}MB | ${((report.memory.final.rss - report.memory.initial.rss) / 1024 / 1024).toFixed(2)}MB |`
+      );
       lines.push('');
     }
 
@@ -225,9 +231,12 @@ export class StartupReportService {
       lines.push('| 阶段 | 时间点 | 耗时 |');
       lines.push('|------|--------|------|');
       report.checkpoints.forEach((cp, index) => {
-        const previousDuration = index > 0 ? report.checkpoints[index - 1].duration : 0;
+        const previousDuration =
+          index > 0 ? report.checkpoints[index - 1].duration : 0;
         const stageDuration = cp.duration - previousDuration;
-        lines.push(`| ${cp.name} | ${new Date(cp.timestamp).toISOString()} | ${stageDuration.toFixed(2)}ms |`);
+        lines.push(
+          `| ${cp.name} | ${new Date(cp.timestamp).toISOString()} | ${stageDuration.toFixed(2)}ms |`
+        );
       });
       lines.push('');
     }
@@ -241,7 +250,10 @@ export class StartupReportService {
       lines.push('');
     }
 
-    if (this.config.includeDependencies && Object.keys(report.dependencies).length > 0) {
+    if (
+      this.config.includeDependencies &&
+      Object.keys(report.dependencies).length > 0
+    ) {
       lines.push('## 依赖版本');
       lines.push('');
       Object.entries(report.dependencies).forEach(([name, version]) => {
@@ -273,7 +285,7 @@ export class StartupReportService {
       'HOST',
     ];
 
-    importantEnvVars.forEach(key => {
+    importantEnvVars.forEach((key) => {
       if (process.env[key]) {
         env[key] = process.env[key]!;
       }
@@ -291,18 +303,24 @@ export class StartupReportService {
     try {
       const packageJsonPath = path.join(process.cwd(), 'package.json');
       if (fs.existsSync(packageJsonPath)) {
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-        
+        const packageJson = JSON.parse(
+          fs.readFileSync(packageJsonPath, 'utf8')
+        );
+
         if (packageJson.dependencies) {
-          Object.entries(packageJson.dependencies).forEach(([name, version]) => {
-            deps[name] = String(version);
-          });
+          Object.entries(packageJson.dependencies).forEach(
+            ([name, version]) => {
+              deps[name] = String(version);
+            }
+          );
         }
-        
+
         if (packageJson.devDependencies) {
-          Object.entries(packageJson.devDependencies).forEach(([name, version]) => {
-            deps[name] = String(version);
-          });
+          Object.entries(packageJson.devDependencies).forEach(
+            ([name, version]) => {
+              deps[name] = String(version);
+            }
+          );
         }
       }
     } catch {
@@ -322,26 +340,37 @@ export class StartupReportService {
     console.log('='.repeat(80));
     console.log(`Total Duration: ${report.totalDuration.toFixed(2)}ms`);
     console.log('');
-    
+
     if (this.config.includeMemory) {
       console.log('MEMORY USAGE:');
-      console.log(`  Initial Heap: ${(report.memory.initial.heapUsed / 1024 / 1024).toFixed(2)}MB`);
-      console.log(`  Final Heap: ${(report.memory.final.heapUsed / 1024 / 1024).toFixed(2)}MB`);
-      console.log(`  Initial RSS: ${(report.memory.initial.rss / 1024 / 1024).toFixed(2)}MB`);
-      console.log(`  Final RSS: ${(report.memory.final.rss / 1024 / 1024).toFixed(2)}MB`);
+      console.log(
+        `  Initial Heap: ${(report.memory.initial.heapUsed / 1024 / 1024).toFixed(2)}MB`
+      );
+      console.log(
+        `  Final Heap: ${(report.memory.final.heapUsed / 1024 / 1024).toFixed(2)}MB`
+      );
+      console.log(
+        `  Initial RSS: ${(report.memory.initial.rss / 1024 / 1024).toFixed(2)}MB`
+      );
+      console.log(
+        `  Final RSS: ${(report.memory.final.rss / 1024 / 1024).toFixed(2)}MB`
+      );
       console.log('');
     }
-    
+
     if (this.config.includeCheckpoints && report.checkpoints.length > 0) {
       console.log('CHECKPOINTS:');
       report.checkpoints.forEach((cp, index) => {
-        const previousDuration = index > 0 ? report.checkpoints[index - 1].duration : 0;
+        const previousDuration =
+          index > 0 ? report.checkpoints[index - 1].duration : 0;
         const stageDuration = cp.duration - previousDuration;
-        console.log(`  ${cp.name}: ${stageDuration.toFixed(2)}ms (${cp.duration.toFixed(2)}ms total)`);
+        console.log(
+          `  ${cp.name}: ${stageDuration.toFixed(2)}ms (${cp.duration.toFixed(2)}ms total)`
+        );
       });
       console.log('');
     }
-    
+
     console.log('='.repeat(80));
   }
 
@@ -431,7 +460,10 @@ export function endStartupReport(): void {
 /**
  * 添加启动检查点
  */
-export function addStartupCheckpoint(name: string, details?: Record<string, any>): void {
+export function addStartupCheckpoint(
+  name: string,
+  details?: Record<string, any>
+): void {
   startupReportService.checkpoint(name, details);
 }
 

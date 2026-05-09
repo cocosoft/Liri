@@ -133,7 +133,10 @@ export class SystemContextService {
         this.getBranch(cwd),
         this.getDefaultBranch(cwd),
         this.execGitCommand(['--no-optional-locks', 'status', '--short'], cwd),
-        this.execGitCommand(['--no-optional-locks', 'log', '--oneline', '-n', '5'], cwd),
+        this.execGitCommand(
+          ['--no-optional-locks', 'log', '--oneline', '-n', '5'],
+          cwd
+        ),
         this.execGitCommand(['config', 'user.name'], cwd),
       ]);
 

@@ -119,17 +119,21 @@ export class MCPServerManager {
    * 连接到所有服务器
    */
   async connectAll(): Promise<void> {
-    const connectPromises = Array.from(this.servers.entries()).map(async ([name, connection]) => {
-      try {
-        const success = await connection.connect();
-        if (success) {
-          logger.info(`Connected to MCP server: ${name}`);
-          await this.refreshServerTools(name);
+    const connectPromises = Array.from(this.servers.entries()).map(
+      async ([name, connection]) => {
+        try {
+          const success = await connection.connect();
+          if (success) {
+            logger.info(`Connected to MCP server: ${name}`);
+            await this.refreshServerTools(name);
+          }
+        } catch (error: any) {
+          logger.error(
+            `Failed to connect to MCP server ${name}: ${error.message}`
+          );
         }
-      } catch (error: any) {
-        logger.error(`Failed to connect to MCP server ${name}: ${error.message}`);
       }
-    });
+    );
 
     await Promise.all(connectPromises);
   }
@@ -172,7 +176,7 @@ export class MCPServerManager {
       stats.successfulRequests++;
       stats.responseTime = Date.now() - startTime;
       stats.lastRequestTime = Date.now();
-      
+
       return result;
     } catch (error) {
       stats.failedRequests++;
@@ -185,14 +189,20 @@ export class MCPServerManager {
   /**
    * 批量调用工具
    */
-  async batchCallTools(calls: Array<{
-    serverName: string;
-    toolName: string;
-    args: Record<string, any>;
-  }>): Promise<Array<{ success: boolean; result?: any; error?: string }>> {
+  async batchCallTools(
+    calls: Array<{
+      serverName: string;
+      toolName: string;
+      args: Record<string, any>;
+    }>
+  ): Promise<Array<{ success: boolean; result?: any; error?: string }>> {
     const callPromises = calls.map(async (call) => {
       try {
-        const result = await this.callTool(call.serverName, call.toolName, call.args);
+        const result = await this.callTool(
+          call.serverName,
+          call.toolName,
+          call.args
+        );
         return { success: true, result };
       } catch (error) {
         return {
@@ -244,9 +254,13 @@ export class MCPServerManager {
           toolMap.set(tool.name, tool);
         });
       }
-      logger.debug(`Refreshed tools for server ${serverName}: ${tools.length} tools`);
+      logger.debug(
+        `Refreshed tools for server ${serverName}: ${tools.length} tools`
+      );
     } catch (error: any) {
-      logger.error(`Failed to refresh tools for server ${serverName}: ${error.message}`);
+      logger.error(
+        `Failed to refresh tools for server ${serverName}: ${error.message}`
+      );
     }
   }
 
@@ -254,9 +268,11 @@ export class MCPServerManager {
    * 批量刷新工具列表
    */
   async batchRefreshTools(): Promise<void> {
-    const refreshPromises = Array.from(this.servers.keys()).map(async (serverName) => {
-      await this.refreshServerTools(serverName);
-    });
+    const refreshPromises = Array.from(this.servers.keys()).map(
+      async (serverName) => {
+        await this.refreshServerTools(serverName);
+      }
+    );
 
     await Promise.all(refreshPromises);
   }
@@ -275,7 +291,9 @@ export class MCPServerManager {
   /**
    * 按工具名称搜索工具
    */
-  searchTools(toolName: string): Array<{ server: string; tool: MCPToolDefinition }> {
+  searchTools(
+    toolName: string
+  ): Array<{ server: string; tool: MCPToolDefinition }> {
     const results: Array<{ server: string; tool: MCPToolDefinition }> = [];
     this.servers.forEach((server, serverName) => {
       const tools = server.getTools();
@@ -306,7 +324,9 @@ export class MCPServerManager {
           try {
             await server.ping();
           } catch (error) {
-            logger.warn(`MCP server ${serverName} health check failed`, { error });
+            logger.warn(`MCP server ${serverName} health check failed`, {
+              error,
+            });
             server.setStatus(MCPServerStatus.ERROR);
           }
         }
@@ -321,28 +341,37 @@ export class MCPServerManager {
    */
   private startAutoReconnect(): void {
     this.autoReconnectInterval = setInterval(async () => {
-      const serversToReconnect = Array.from(this.servers.entries()).filter(([_, connection]) => {
-        const status = connection.getStatus();
-        return status === MCPServerStatus.DISCONNECTED || status === MCPServerStatus.ERROR;
-      });
+      const serversToReconnect = Array.from(this.servers.entries()).filter(
+        ([_, connection]) => {
+          const status = connection.getStatus();
+          return (
+            status === MCPServerStatus.DISCONNECTED ||
+            status === MCPServerStatus.ERROR
+          );
+        }
+      );
 
       if (serversToReconnect.length === 0) {
         return;
       }
 
       // 批量重连
-      const reconnectPromises = serversToReconnect.map(async ([name, connection]) => {
-        try {
-          logger.info(`Attempting to reconnect to MCP server: ${name}`);
-          const success = await connection.connect();
-          if (success) {
-            logger.info(`Successfully reconnected to MCP server: ${name}`);
-            await this.refreshServerTools(name);
+      const reconnectPromises = serversToReconnect.map(
+        async ([name, connection]) => {
+          try {
+            logger.info(`Attempting to reconnect to MCP server: ${name}`);
+            const success = await connection.connect();
+            if (success) {
+              logger.info(`Successfully reconnected to MCP server: ${name}`);
+              await this.refreshServerTools(name);
+            }
+          } catch (error: any) {
+            logger.error(
+              `Failed to reconnect to MCP server ${name}: ${error.message}`
+            );
           }
-        } catch (error: any) {
-          logger.error(`Failed to reconnect to MCP server ${name}: ${error.message}`);
         }
-      });
+      );
 
       await Promise.all(reconnectPromises);
     }, 60000); // 每60秒尝试重连一次
@@ -389,7 +418,8 @@ export class MCPServerManager {
     }
 
     // 轮询策略
-    this.lastLoadBalancerIndex = (this.lastLoadBalancerIndex + 1) % healthyServers.length;
+    this.lastLoadBalancerIndex =
+      (this.lastLoadBalancerIndex + 1) % healthyServers.length;
     return healthyServers[this.lastLoadBalancerIndex];
   }
 
@@ -437,7 +467,7 @@ export class MCPServerManager {
 
     this.servers.forEach((server, name) => {
       const stats = this.serverStats.get(name);
-      if (stats && (now - stats.lastRequestTime) > this.connectionTimeout) {
+      if (stats && now - stats.lastRequestTime > this.connectionTimeout) {
         serversToCleanup.push(name);
       }
     });

@@ -30,7 +30,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
 
   async loadClaudeMd(cwd: string): Promise<ClaudeMdConfig | null> {
     const filePath = join(cwd, this.CLAUDE_MD_FILENAME);
-    
+
     if (!existsSync(filePath)) {
       return null;
     }
@@ -38,7 +38,7 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
     try {
       const content = readFileSync(filePath, 'utf-8');
       const rules = this.parseClaudeMd(content);
-      
+
       return {
         enabled: true,
         path: filePath,
@@ -51,25 +51,31 @@ export class ClaudeMdIntegrationImpl implements ClaudeMdIntegration {
 
   parseClaudeMd(content: string): ClaudeMdRules {
     return {
-      behavioralGuidelines: this.extractRulesBySection(content, 'Behavioral Guidelines'),
+      behavioralGuidelines: this.extractRulesBySection(
+        content,
+        'Behavioral Guidelines'
+      ),
       codingStandards: this.extractRulesBySection(content, 'Coding Standards'),
       reviewChecklist: this.extractRulesBySection(content, 'Review Checklist'),
-      stylePreferences: this.extractRulesBySection(content, 'Style Preferences'),
+      stylePreferences: this.extractRulesBySection(
+        content,
+        'Style Preferences'
+      ),
     };
   }
 
   extractRulesBySection(content: string, section: string): string[] {
     const sectionRegex = new RegExp(`##\\s*${section}[^#]*`, 'i');
     const match = content.match(sectionRegex);
-    
+
     if (!match) {
       return [];
     }
 
     const sectionContent = match[0];
     const bulletPoints = sectionContent.match(/[-*+]\s+.+/g) || [];
-    
-    return bulletPoints.map(point => point.replace(/^[-*+]\s+/, '').trim());
+
+    return bulletPoints.map((point) => point.replace(/^[-*+]\s+/, '').trim());
   }
 }
 

@@ -6,6 +6,9 @@
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 import type { CompactionResult } from './types';
 import { roughTokenCountEstimationForMessages } from './utils';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 反应式压缩状态（来自CC源码）
@@ -15,12 +18,12 @@ export interface ReactiveCompactState {
    * 是否启用反应式压缩
    */
   enabled: boolean;
-  
+
   /**
    * 连续失败次数
    */
   consecutiveFailures: number;
-  
+
   /**
    * 断路器状态
    */
@@ -29,12 +32,12 @@ export interface ReactiveCompactState {
     tripTime?: Date;
     tripReason?: string;
   };
-  
+
   /**
    * 最后压缩时间
    */
   lastCompactTime?: Date;
-  
+
   /**
    * 压缩统计
    */
@@ -64,22 +67,22 @@ export interface ReactiveCompactOptions {
    * 压缩阈值（token数）
    */
   threshold: number;
-  
+
   /**
    * 断路器阈值（连续失败次数）
    */
   circuitBreakerThreshold: number;
-  
+
   /**
    * 断路器重置时间（毫秒）
    */
   circuitBreakerResetTime: number;
-  
+
   /**
    * 最小压缩间隔（毫秒）
    */
   minCompactInterval: number;
-  
+
   /**
    * 进度回调
    */
@@ -111,7 +114,7 @@ export class ReactiveCompactService {
   ): { shouldCompact: boolean; reason: string; tokenCount: number } {
     const mergedOptions = { ...this.defaultOptions, ...options };
     const state = this.getOrCreateState(sessionId);
-    
+
     // 检查断路器状态
     if (this.isCircuitBreakerTripped(state, mergedOptions)) {
       return {
@@ -120,7 +123,7 @@ export class ReactiveCompactService {
         tokenCount: 0,
       };
     }
-    
+
     // 检查最小压缩间隔
     if (this.isWithinMinInterval(state, mergedOptions)) {
       return {
@@ -129,10 +132,10 @@ export class ReactiveCompactService {
         tokenCount: 0,
       };
     }
-    
+
     // 计算token数量
     const tokenCount = roughTokenCountEstimationForMessages(messages);
-    
+
     // 检查是否超过阈值
     if (tokenCount <= mergedOptions.threshold) {
       return {
@@ -141,7 +144,7 @@ export class ReactiveCompactService {
         tokenCount,
       };
     }
-    
+
     return {
       shouldCompact: true,
       reason: 'Above threshold',
@@ -160,14 +163,14 @@ export class ReactiveCompactService {
   ): Promise<{ success: boolean; result?: CompactionResult; error?: string }> {
     const mergedOptions = { ...this.defaultOptions, ...options };
     const state = this.getOrCreateState(sessionId);
-    
+
     // 通知压缩开始
     mergedOptions.onProgress?.({
       type: 'analysis',
       stage: 'start',
       message: 'Starting reactive compaction analysis',
     });
-    
+
     try {
       // 分析上下文
       mergedOptions.onProgress?.({
@@ -176,72 +179,71 @@ export class ReactiveCompactService {
         progress: 0.2,
         message: 'Analyzing conversation context',
       });
-      
+
       const analysisResult = this.analyzeContext(messages, model);
-      
+
       mergedOptions.onProgress?.({
         type: 'analysis',
         stage: 'complete',
         progress: 1.0,
         message: 'Context analysis completed',
       });
-      
+
       // 生成摘要
       mergedOptions.onProgress?.({
         type: 'summary_generation',
         stage: 'start',
         message: 'Generating conversation summary',
       });
-      
+
       const compactResult = await this.compactService.compactConversation(
         messages,
         { isAutoCompact: true, model }
       );
-      
+
       mergedOptions.onProgress?.({
         type: 'summary_generation',
         stage: 'complete',
         progress: 1.0,
         message: 'Summary generation completed',
       });
-      
+
       // 注入制品
       mergedOptions.onProgress?.({
         type: 'artifact_injection',
         stage: 'start',
         message: 'Injecting artifacts',
       });
-      
+
       await this.injectArtifacts(sessionId, compactResult);
-      
+
       mergedOptions.onProgress?.({
         type: 'artifact_injection',
         stage: 'complete',
         progress: 1.0,
         message: 'Artifact injection completed',
       });
-      
+
       // 更新状态
       this.updateStateOnSuccess(state, compactResult);
-      
+
       mergedOptions.onProgress?.({
         type: 'hooks',
         stage: 'complete',
         message: 'Reactive compaction completed successfully',
       });
-      
+
       return { success: true, result: compactResult };
-      
     } catch (error) {
       // 更新失败状态
       this.updateStateOnFailure(state, error);
-      
+
       mergedOptions.onProgress?.({
         type: 'hooks',
         stage: 'error',
         message: `Reactive compaction failed: ${error instanceof Error ? error.message : String(error)}`,
       });
-      
+
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -254,7 +256,7 @@ export class ReactiveCompactService {
    */
   private analyzeContext(messages: SessionMessage[], model: string): any {
     const tokenCount = roughTokenCountEstimationForMessages(messages);
-    
+
     return {
       tokenCount,
       messageCount: messages.length,
@@ -269,23 +271,26 @@ export class ReactiveCompactService {
    */
   private estimateCompressionRatio(messages: SessionMessage[]): number {
     // 简化实现：基于消息数量和类型估计压缩比率
-    const userMessages = messages.filter(m => m.type === 'user');
-    const assistantMessages = messages.filter(m => m.type === 'assistant');
-    
+    const userMessages = messages.filter((m) => m.type === 'user');
+    const assistantMessages = messages.filter((m) => m.type === 'assistant');
+
     const baseRatio = 0.3; // 基础压缩比率
     const userRatio = userMessages.length > 10 ? 0.2 : 0.1;
     const assistantRatio = assistantMessages.length > 10 ? 0.4 : 0.2;
-    
+
     return Math.min(baseRatio + userRatio + assistantRatio, 0.8);
   }
 
   /**
    * 注入制品（来自CC源码）
    */
-  private async injectArtifacts(sessionId: string, compactResult: CompactionResult): Promise<void> {
+  private async injectArtifacts(
+    sessionId: string,
+    compactResult: CompactionResult
+  ): Promise<void> {
     // 简化实现：记录制品注入
     // 实际实现应该注入计划、文件、MCP制品等
-    console.log(`Injecting artifacts for session ${sessionId}`);
+    logger.info(`Injecting artifacts for session ${sessionId}`);
   }
 
   /**
@@ -298,10 +303,11 @@ export class ReactiveCompactService {
     if (!state.circuitBreaker.tripped) {
       return false;
     }
-    
+
     // 检查是否应该重置断路器
     if (state.circuitBreaker.tripTime) {
-      const timeSinceTrip = Date.now() - state.circuitBreaker.tripTime.getTime();
+      const timeSinceTrip =
+        Date.now() - state.circuitBreaker.tripTime.getTime();
       if (timeSinceTrip >= options.circuitBreakerResetTime) {
         // 重置断路器
         state.circuitBreaker.tripped = false;
@@ -310,7 +316,7 @@ export class ReactiveCompactService {
         return false;
       }
     }
-    
+
     return true;
   }
 
@@ -324,7 +330,7 @@ export class ReactiveCompactService {
     if (!state.lastCompactTime) {
       return false;
     }
-    
+
     const timeSinceLastCompact = Date.now() - state.lastCompactTime.getTime();
     return timeSinceLastCompact < options.minCompactInterval;
   }
@@ -332,21 +338,26 @@ export class ReactiveCompactService {
   /**
    * 成功时更新状态（来自CC源码）
    */
-  private updateStateOnSuccess(state: ReactiveCompactState, result: CompactionResult): void {
+  private updateStateOnSuccess(
+    state: ReactiveCompactState,
+    result: CompactionResult
+  ): void {
     state.consecutiveFailures = 0;
     state.lastCompactTime = new Date();
-    
+
     // 更新统计
     state.stats.totalCompactions++;
     state.stats.successfulCompactions++;
-    
+
     if (result.preCompactTokenCount && result.postCompactTokenCount) {
       const ratio = result.postCompactTokenCount / result.preCompactTokenCount;
-      state.stats.averageCompressionRatio = 
-        (state.stats.averageCompressionRatio * (state.stats.successfulCompactions - 1) + ratio) / 
+      state.stats.averageCompressionRatio =
+        (state.stats.averageCompressionRatio *
+          (state.stats.successfulCompactions - 1) +
+          ratio) /
         state.stats.successfulCompactions;
     }
-    
+
     // 重置断路器
     state.circuitBreaker.tripped = false;
     state.circuitBreaker.tripTime = undefined;
@@ -360,9 +371,11 @@ export class ReactiveCompactService {
     state.consecutiveFailures++;
     state.stats.totalCompactions++;
     state.stats.failedCompactions++;
-    
+
     // 检查是否触发断路器
-    if (state.consecutiveFailures >= this.defaultOptions.circuitBreakerThreshold) {
+    if (
+      state.consecutiveFailures >= this.defaultOptions.circuitBreakerThreshold
+    ) {
       state.circuitBreaker.tripped = true;
       state.circuitBreaker.tripTime = new Date();
       state.circuitBreaker.tripReason = `Consecutive failures: ${state.consecutiveFailures}`;

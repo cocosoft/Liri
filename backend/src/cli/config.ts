@@ -17,45 +17,57 @@ export interface ConfigOptions {
  */
 const ConfigSchema = z.object({
   // 应用配置
-  app: z.object({
-    name: z.string().default('pyapp'),
-    version: z.string().default('1.0.0'),
-    debug: z.boolean().default(false),
-    logLevel: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
-  }).default({}),
+  app: z
+    .object({
+      name: z.string().default('pyapp'),
+      version: z.string().default('1.0.0'),
+      debug: z.boolean().default(false),
+      logLevel: z
+        .enum(['trace', 'debug', 'info', 'warn', 'error'])
+        .default('info'),
+    })
+    .default({}),
 
   // CLI配置
-  cli: z.object({
-    prompt: z.string().default('pyapp> '),
-    historySize: z.number().int().positive().default(1000),
-    autoUpdate: z.boolean().default(true),
-    autoUpdateInterval: z.number().int().positive().default(24),
-    color: z.boolean().default(true),
-  }).default({}),
+  cli: z
+    .object({
+      prompt: z.string().default('pyapp> '),
+      historySize: z.number().int().positive().default(1000),
+      autoUpdate: z.boolean().default(true),
+      autoUpdateInterval: z.number().int().positive().default(24),
+      color: z.boolean().default(true),
+    })
+    .default({}),
 
   // 编辑器配置
-  editor: z.object({
-    defaultEditor: z.string().default('vim'),
-    lineNumbers: z.boolean().default(true),
-    tabSize: z.number().int().positive().default(4),
-    autoSave: z.boolean().default(false),
-  }).default({}),
+  editor: z
+    .object({
+      defaultEditor: z.string().default('vim'),
+      lineNumbers: z.boolean().default(true),
+      tabSize: z.number().int().positive().default(4),
+      autoSave: z.boolean().default(false),
+    })
+    .default({}),
 
   // 别名配置
   aliases: z.record(z.string(), z.string()).default({}),
 
   // 插件配置
-  plugins: z.object({
-    enabled: z.array(z.string()).default([]),
-    disabled: z.array(z.string()).default([]),
-  }).default({}),
+  plugins: z
+    .object({
+      enabled: z.array(z.string()).default([]),
+      disabled: z.array(z.string()).default([]),
+    })
+    .default({}),
 
   // 代理配置
-  agent: z.object({
-    defaultAgent: z.string().default('default'),
-    timeout: z.number().int().positive().default(30),
-    maxRetries: z.number().int().nonnegative().default(3),
-  }).default({}),
+  agent: z
+    .object({
+      defaultAgent: z.string().default('default'),
+      timeout: z.number().int().positive().default(30),
+      maxRetries: z.number().int().nonnegative().default(3),
+    })
+    .default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -65,9 +77,11 @@ export class ConfigManager {
   private configPath: string;
 
   constructor(options?: ConfigOptions) {
-    const configDir = options?.configDir || join(process.env.HOME || process.env.USERPROFILE || '', '.pyapp');
+    const configDir =
+      options?.configDir ||
+      join(process.env.HOME || process.env.USERPROFILE || '', '.pyapp');
     const configName = options?.configName || 'config.json';
-    
+
     this.configPath = join(configDir, configName);
     this.config = this.loadConfig();
   }
@@ -85,7 +99,7 @@ export class ConfigManager {
     } catch (error) {
       console.warn(`Failed to load config: ${(error as Error).message}`);
     }
-    
+
     return ConfigSchema.parse({});
   }
 
@@ -98,7 +112,11 @@ export class ConfigManager {
       if (!existsSync(dir)) {
         require('fs').mkdirSync(dir, { recursive: true });
       }
-      writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), 'utf-8');
+      writeFileSync(
+        this.configPath,
+        JSON.stringify(this.config, null, 2),
+        'utf-8'
+      );
     } catch (error) {
       console.error(`Failed to save config: ${(error as Error).message}`);
     }
@@ -235,7 +253,7 @@ export class ConfigManager {
     }
     return {
       valid: false,
-      errors: result.error.errors.map(e => e.message),
+      errors: result.error.errors.map((e) => e.message),
     };
   }
 

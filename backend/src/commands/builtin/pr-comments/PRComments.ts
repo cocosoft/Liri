@@ -35,14 +35,35 @@ export default {
    */
   async handleList(context: CommandContext): Promise<CommandResult> {
     const comments = [
-      { id: 'PRC-001', pr: '#123', author: 'user1', state: 'open', date: '2024-01-15' },
-      { id: 'PRC-002', pr: '#123', author: 'user2', state: 'resolved', date: '2024-01-14' },
-      { id: 'PRC-003', pr: '#124', author: 'user1', state: 'open', date: '2024-01-13' },
+      {
+        id: 'PRC-001',
+        pr: '#123',
+        author: 'user1',
+        state: 'open',
+        date: '2024-01-15',
+      },
+      {
+        id: 'PRC-002',
+        pr: '#123',
+        author: 'user2',
+        state: 'resolved',
+        date: '2024-01-14',
+      },
+      {
+        id: 'PRC-003',
+        pr: '#124',
+        author: 'user1',
+        state: 'open',
+        date: '2024-01-13',
+      },
     ];
 
-    const table = comments.map(c => 
-      `[${c.id}] ${c.pr.padEnd(6)} ${c.state.padEnd(10)} ${c.author} (${c.date})`
-    ).join('\n');
+    const table = comments
+      .map(
+        (c) =>
+          `[${c.id}] ${c.pr.padEnd(6)} ${c.state.padEnd(10)} ${c.author} (${c.date})`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -55,7 +76,10 @@ export default {
   /**
    * 显示评论详情
    */
-  async handleShow(id: string, context: CommandContext): Promise<CommandResult> {
+  async handleShow(
+    id: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!id) {
       return {
         success: false,
@@ -79,7 +103,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `评论详情: ${id}\n\n` +
+      message:
+        `评论详情: ${id}\n\n` +
         `- PR: ${comment.pr}\n` +
         `- 作者: ${comment.author}\n` +
         `- 日期: ${comment.date}\n` +
@@ -93,9 +118,12 @@ export default {
   /**
    * 添加评论
    */
-  async handleAdd(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleAdd(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const content = args.join(' ');
-    
+
     if (!content) {
       return {
         success: false,
@@ -106,7 +134,7 @@ export default {
     }
 
     context.onDone?.('PR评论已添加', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -118,7 +146,10 @@ export default {
   /**
    * 解决评论
    */
-  async handleResolve(id: string, context: CommandContext): Promise<CommandResult> {
+  async handleResolve(
+    id: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!id) {
       return {
         success: false,
@@ -129,7 +160,7 @@ export default {
     }
 
     context.onDone?.(`评论 ${id} 已解决`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

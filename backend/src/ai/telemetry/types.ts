@@ -5,21 +5,21 @@
 export interface APIUsageMetrics {
   requestId: string;
   model: string;
-  latency: number;        // 耗时(ms)
-  promptTokens: number;   // 输入Token数
+  latency: number; // 耗时(ms)
+  promptTokens: number; // 输入Token数
   completionTokens: number; // 输出Token数
-  totalTokens: number;    // 总Token数
-  error?: string;         // 错误信息
-  statusCode?: number;    // HTTP状态码
-  timestamp: number;      // 时间戳
-  requestType: string;    // 请求类型
+  totalTokens: number; // 总Token数
+  error?: string; // 错误信息
+  statusCode?: number; // HTTP状态码
+  timestamp: number; // 时间戳
+  requestType: string; // 请求类型
 }
 
 export interface TelemetryConfig {
   enabled: boolean;
-  samplingRate: number;   // 采样率 0-1
+  samplingRate: number; // 采样率 0-1
   exportMetrics: boolean; // 是否导出指标
-  exportTraces: boolean;  // 是否导出追踪
+  exportTraces: boolean; // 是否导出追踪
 }
 
 export interface SpanContext {

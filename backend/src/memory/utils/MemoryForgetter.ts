@@ -109,7 +109,11 @@ export class MemoryForgetter {
   /**
    * 更新记忆访问信息
    */
-  updateAccess(memoryId: string, accessCount: number, lastAccessedAt: number): void {
+  updateAccess(
+    memoryId: string,
+    accessCount: number,
+    lastAccessedAt: number
+  ): void {
     const memory = this.memoryStore.get(memoryId);
     if (memory) {
       memory.accessCount = accessCount;
@@ -158,7 +162,11 @@ export class MemoryForgetter {
     let score = 0;
     const reasons: string[] = [];
 
-    const ageFactor = Math.min((ageDays - this.config.minAgeDays) / (this.config.maxAgeDays - this.config.minAgeDays), 1);
+    const ageFactor = Math.min(
+      (ageDays - this.config.minAgeDays) /
+        (this.config.maxAgeDays - this.config.minAgeDays),
+      1
+    );
     score += ageFactor * 0.4;
     reasons.push(`年龄因子: ${ageFactor.toFixed(2)}`);
 
@@ -166,7 +174,13 @@ export class MemoryForgetter {
     score += importanceFactor * 0.3;
     reasons.push(`重要性因子: ${importanceFactor.toFixed(2)}`);
 
-    const accessFactor = memory.accessCount < this.config.minAccessCount ? 1 : Math.max(0, 1 - (memory.accessCount - this.config.minAccessCount) / 10);
+    const accessFactor =
+      memory.accessCount < this.config.minAccessCount
+        ? 1
+        : Math.max(
+            0,
+            1 - (memory.accessCount - this.config.minAccessCount) / 10
+          );
     score += accessFactor * 0.3;
     reasons.push(`访问因子: ${accessFactor.toFixed(2)}`);
 
@@ -196,9 +210,14 @@ export class MemoryForgetter {
         continue;
       }
 
-      if (evaluation.shouldForget && forgotten.length < this.config.maxForgetPerRun) {
+      if (
+        evaluation.shouldForget &&
+        forgotten.length < this.config.maxForgetPerRun
+      ) {
         forgotten.push(memoryId);
-        logger.debug(`Memory ${memoryId} will be forgotten: ${evaluation.reason} (score: ${evaluation.score.toFixed(2)})`);
+        logger.debug(
+          `Memory ${memoryId} will be forgotten: ${evaluation.reason} (score: ${evaluation.score.toFixed(2)})`
+        );
       } else {
         preserved.push(memoryId);
       }
@@ -333,6 +352,8 @@ export const memoryForgetter = new MemoryForgetter();
 /**
  * 创建遗忘器工厂函数
  */
-export function createForgetter(config?: Partial<ForgetterConfig>): MemoryForgetter {
+export function createForgetter(
+  config?: Partial<ForgetterConfig>
+): MemoryForgetter {
   return new MemoryForgetter(config);
 }

@@ -4,9 +4,9 @@
  */
 
 export interface RetryConfig {
-  maxRetries: number;           // 最大重试次数
-  baseDelay: number;            // 基础延迟(ms)
-  maxDelay: number;             // 最大延迟(ms)
+  maxRetries: number; // 最大重试次数
+  baseDelay: number; // 基础延迟(ms)
+  maxDelay: number; // 最大延迟(ms)
   retryOnStatusCodes: number[]; // 重试状态码列表
   retryOnNetworkErrors: boolean; // 是否重试网络错误
 }
@@ -47,7 +47,7 @@ function calculateDelay(config: RetryConfig, attempt: number): number {
  * 等待指定时间
  */
 function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -66,8 +66,13 @@ function shouldRetry(
   }
 
   // 检查网络错误
-  const networkErrorTypes = ['ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND', 'ECONNREFUSED'];
-  const isNetworkError = networkErrorTypes.some(type => 
+  const networkErrorTypes = [
+    'ETIMEDOUT',
+    'ECONNRESET',
+    'ENOTFOUND',
+    'ECONNREFUSED',
+  ];
+  const isNetworkError = networkErrorTypes.some((type) =>
     error.message.includes(type)
   );
 
@@ -119,7 +124,7 @@ export async function withRetry<T>(
 
       retryCount++;
       const waitTime = calculateDelay(retryConfig, attempt);
-      
+
       // 发布重试事件
       publishRetryEvent({
         attempt,

@@ -69,7 +69,10 @@ src/tools/
 **文件**: `src/tools/utils/ToolFeatureFlags.ts`
 
 ```typescript
-import { isToolEnabled, TOOL_FEATURE_FLAGS } from '@modules/tools/utils/ToolFeatureFlags';
+import {
+  isToolEnabled,
+  TOOL_FEATURE_FLAGS,
+} from '@modules/tools/utils/ToolFeatureFlags';
 
 // 检查工具是否启用
 if (isToolEnabled('ENABLE_SEND_MESSAGE')) {
@@ -79,18 +82,18 @@ if (isToolEnabled('ENABLE_SEND_MESSAGE')) {
 
 ### 3.2 可用标志
 
-| 标志名 | 默认值 | 描述 |
-|--------|--------|------|
-| `ENABLE_SEND_MESSAGE` | `false` | 消息发送工具 |
-| `ENABLE_TEAM_CREATE` | `false` | 团队创建工具 |
-| `ENABLE_TEAM_DELETE` | `false` | 团队删除工具 |
-| `ENABLE_SLEEP` | `false` | 延迟工具 |
-| `ENABLE_MONITOR` | `false` | 监控工具 |
-| `ENABLE_SEND_USER_FILE` | `false` | 用户文件发送工具 |
-| `ENABLE_PUSH_NOTIFICATION` | `false` | 推送通知工具 |
-| `ENABLE_SUBSCRIBE_PR` | `false` | PR 订阅工具 |
-| `ENABLE_SNIP` | `false` | 历史快照工具 |
-| `ENABLE_TOOL_SEARCH` | `true` | 工具搜索工具 |
+| 标志名                     | 默认值  | 描述             |
+| -------------------------- | ------- | ---------------- |
+| `ENABLE_SEND_MESSAGE`      | `false` | 消息发送工具     |
+| `ENABLE_TEAM_CREATE`       | `false` | 团队创建工具     |
+| `ENABLE_TEAM_DELETE`       | `false` | 团队删除工具     |
+| `ENABLE_SLEEP`             | `false` | 延迟工具         |
+| `ENABLE_MONITOR`           | `false` | 监控工具         |
+| `ENABLE_SEND_USER_FILE`    | `false` | 用户文件发送工具 |
+| `ENABLE_PUSH_NOTIFICATION` | `false` | 推送通知工具     |
+| `ENABLE_SUBSCRIBE_PR`      | `false` | PR 订阅工具      |
+| `ENABLE_SNIP`              | `false` | 历史快照工具     |
+| `ENABLE_TOOL_SEARCH`       | `true`  | 工具搜索工具     |
 
 ---
 
@@ -168,11 +171,7 @@ import { ModuleError } from '@modules/errors';
 try {
   const tool = toolRegistry.get(toolName);
   if (!tool) {
-    throw new ModuleError(
-      `工具不存在: ${toolName}`,
-      'tools',
-      'TOOL_NOT_FOUND'
-    );
+    throw new ModuleError(`工具不存在: ${toolName}`, 'tools', 'TOOL_NOT_FOUND');
   }
 } catch (error) {
   if (error instanceof ModuleError) {

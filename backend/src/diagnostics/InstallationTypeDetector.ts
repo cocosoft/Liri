@@ -10,7 +10,10 @@ import { promisify } from 'util';
 import { platform, homedir } from 'os';
 import { delimiter, join, sep } from 'path';
 
-const execAsync = promisify(exec) as (command: string, options?: Record<string, any>) => Promise<{ stdout: string; stderr: string }>;
+const execAsync = promisify(exec) as (
+  command: string,
+  options?: Record<string, any>
+) => Promise<{ stdout: string; stderr: string }>;
 
 /**
  * 安装类型
@@ -88,7 +91,10 @@ export class InstallationTypeDetector {
    * 确定安装类型
    */
   private async determineInstallationType(): Promise<InstallationType> {
-    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    if (
+      process.env.NODE_ENV === 'development' ||
+      process.env.NODE_ENV === 'test'
+    ) {
       return 'development';
     }
 
@@ -157,7 +163,10 @@ export class InstallationTypeDetector {
       return true;
     }
 
-    if (invokedPath.includes(join(sep, 'npm' + sep)) || invokedPath.includes(join(sep, 'nvm' + sep))) {
+    if (
+      invokedPath.includes(join(sep, 'npm' + sep)) ||
+      invokedPath.includes(join(sep, 'nvm' + sep))
+    ) {
       return true;
     }
 

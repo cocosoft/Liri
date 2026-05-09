@@ -23,7 +23,14 @@ const SIZE_CONFIG: Record<AvatarSize, { width: number; height: number }> = {
 };
 
 const COLORS = [
-  'red', 'green', 'blue', 'yellow', 'purple', 'cyan', 'magenta', 'orange',
+  'red',
+  'green',
+  'blue',
+  'yellow',
+  'purple',
+  'cyan',
+  'magenta',
+  'orange',
 ];
 
 function getColorFromName(name: string): string {

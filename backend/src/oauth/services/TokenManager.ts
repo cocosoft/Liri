@@ -80,7 +80,10 @@ export class TokenManager {
    * @param serverKey 服务器标识
    * @param refreshFn Token刷新函数
    */
-  async getToken(serverKey: string, refreshFn: TokenRefreshFn): Promise<string> {
+  async getToken(
+    serverKey: string,
+    refreshFn: TokenRefreshFn
+  ): Promise<string> {
     const cached = this.tokenCache.get(serverKey);
 
     // 如果Token未过期且不在刷新缓冲期内，直接返回
@@ -91,7 +94,11 @@ export class TokenManager {
 
     // Token即将过期或已过期，需要刷新
     logger.info(`Token for ${serverKey} is expiring soon, refreshing...`);
-    return this.refreshTokenWithRetry(serverKey, cached?.refreshToken || '', refreshFn);
+    return this.refreshTokenWithRetry(
+      serverKey,
+      cached?.refreshToken || '',
+      refreshFn
+    );
   }
 
   /**
@@ -207,9 +214,13 @@ export class TokenManager {
       );
 
       if (this.refreshRetryCount >= this.config.maxRetries) {
-        logger.error(`Max refresh retries reached for ${serverKey}, clearing token`);
+        logger.error(
+          `Max refresh retries reached for ${serverKey}, clearing token`
+        );
         this.clearToken(serverKey);
-        throw new Error(`Token refresh failed after ${this.config.maxRetries} retries`);
+        throw new Error(
+          `Token refresh failed after ${this.config.maxRetries} retries`
+        );
       }
 
       // 指数退避重试
@@ -219,8 +230,13 @@ export class TokenManager {
       );
       logger.info(`Retrying token refresh in ${delay}ms`);
 
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return this.refreshTokenWithRetry(serverKey, refreshToken, refreshFn, retryCount + 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return this.refreshTokenWithRetry(
+        serverKey,
+        refreshToken,
+        refreshFn,
+        retryCount + 1
+      );
     }
   }
 
@@ -234,14 +250,18 @@ export class TokenManager {
     refreshFn: TokenRefreshFn
   ): void {
     // 计算刷新时间（过期前缓冲时间）
-    const refreshTime = token.expiresAt - this.config.refreshBufferMs - Date.now();
+    const refreshTime =
+      token.expiresAt - this.config.refreshBufferMs - Date.now();
 
     if (refreshTime <= 0) {
       // Token已经过期或即将过期，立即刷新
-      this.refreshTokenWithRetry(serverKey, token.refreshToken, refreshFn)
-        .catch(error => {
-          logger.error(`Immediate token refresh failed for ${serverKey}:`, error);
-        });
+      this.refreshTokenWithRetry(
+        serverKey,
+        token.refreshToken,
+        refreshFn
+      ).catch((error) => {
+        logger.error(`Immediate token refresh failed for ${serverKey}:`, error);
+      });
       return;
     }
 
@@ -305,7 +325,11 @@ class RefreshScheduler {
    * @param refreshFn 刷新函数
    * @param delay 延迟时间（毫秒）
    */
-  schedule(serverKey: string, refreshFn: () => Promise<void>, delay: number): void {
+  schedule(
+    serverKey: string,
+    refreshFn: () => Promise<void>,
+    delay: number
+  ): void {
     this.clear(serverKey);
 
     const timer = setTimeout(async () => {
@@ -354,6 +378,8 @@ class RefreshScheduler {
 /**
  * 创建Token管理器实例
  */
-export function createTokenManager(config?: Partial<TokenRefreshConfig>): TokenManager {
+export function createTokenManager(
+  config?: Partial<TokenRefreshConfig>
+): TokenManager {
   return TokenManager.getInstance(config);
 }

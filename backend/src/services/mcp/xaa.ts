@@ -97,21 +97,58 @@ const knownPermissions: XAAPermission[] = [
 /**
  * 创建XAA错误对象
  */
-function createXAAError(type: XAAErrorType, details?: Record<string, unknown>): XAAError {
-  const errorMessages: Record<XAAErrorType, { message: string; code: number }> = {
-    [XAAErrorType.DISABLED]: { message: 'XAA authentication is disabled', code: 403 },
-    [XAAErrorType.INVALID_TOKEN_FORMAT]: { message: 'Invalid token format', code: 401 },
-    [XAAErrorType.MISSING_REQUIRED_FIELDS]: { message: 'Missing required fields in token', code: 401 },
-    [XAAErrorType.TOKEN_EXPIRED]: { message: 'Token has expired', code: 401 },
-    [XAAErrorType.INVALID_ISSUE_TIME]: { message: 'Token issue time is invalid (future timestamp)', code: 401 },
-    [XAAErrorType.INVALID_ORIGIN]: { message: 'Origin is not allowed', code: 403 },
-    [XAAErrorType.INSUFFICIENT_PERMISSIONS]: { message: 'Insufficient permissions', code: 403 },
-    [XAAErrorType.INVALID_REFRESH_TOKEN]: { message: 'Invalid refresh token', code: 401 },
-    [XAAErrorType.REFRESH_TOKEN_EXPIRED]: { message: 'Refresh token has expired', code: 401 },
-    [XAAErrorType.MISSING_CLIENT_ID]: { message: 'Client ID is required but not configured', code: 500 },
-    [XAAErrorType.INVALID_SERVER_NAME]: { message: 'Server name is invalid or empty', code: 400 },
-    [XAAErrorType.PERMISSION_NOT_FOUND]: { message: 'Permission not found', code: 404 },
-  };
+function createXAAError(
+  type: XAAErrorType,
+  details?: Record<string, unknown>
+): XAAError {
+  const errorMessages: Record<XAAErrorType, { message: string; code: number }> =
+    {
+      [XAAErrorType.DISABLED]: {
+        message: 'XAA authentication is disabled',
+        code: 403,
+      },
+      [XAAErrorType.INVALID_TOKEN_FORMAT]: {
+        message: 'Invalid token format',
+        code: 401,
+      },
+      [XAAErrorType.MISSING_REQUIRED_FIELDS]: {
+        message: 'Missing required fields in token',
+        code: 401,
+      },
+      [XAAErrorType.TOKEN_EXPIRED]: { message: 'Token has expired', code: 401 },
+      [XAAErrorType.INVALID_ISSUE_TIME]: {
+        message: 'Token issue time is invalid (future timestamp)',
+        code: 401,
+      },
+      [XAAErrorType.INVALID_ORIGIN]: {
+        message: 'Origin is not allowed',
+        code: 403,
+      },
+      [XAAErrorType.INSUFFICIENT_PERMISSIONS]: {
+        message: 'Insufficient permissions',
+        code: 403,
+      },
+      [XAAErrorType.INVALID_REFRESH_TOKEN]: {
+        message: 'Invalid refresh token',
+        code: 401,
+      },
+      [XAAErrorType.REFRESH_TOKEN_EXPIRED]: {
+        message: 'Refresh token has expired',
+        code: 401,
+      },
+      [XAAErrorType.MISSING_CLIENT_ID]: {
+        message: 'Client ID is required but not configured',
+        code: 500,
+      },
+      [XAAErrorType.INVALID_SERVER_NAME]: {
+        message: 'Server name is invalid or empty',
+        code: 400,
+      },
+      [XAAErrorType.PERMISSION_NOT_FOUND]: {
+        message: 'Permission not found',
+        code: 404,
+      },
+    };
 
   const { message, code } = errorMessages[type];
   return { type, message, code, details };
@@ -132,7 +169,7 @@ export function getXAAConfig(): XAAConfig {
 export function isOriginAllowed(origin: string): boolean {
   if (!xaaConfig.enabled) return false;
   if (xaaConfig.allowedOrigins.length === 0) return true;
-  return xaaConfig.allowedOrigins.some(allowed => {
+  return xaaConfig.allowedOrigins.some((allowed) => {
     if (allowed === '*') return true;
     if (allowed.endsWith('/*')) {
       return origin.startsWith(allowed.replace('/*', ''));
@@ -148,28 +185,43 @@ export function isOriginAllowed(origin: string): boolean {
 /**
  * 检查Origin是否允许（带详细错误信息）
  */
-export function checkOriginAllowed(origin: string): { allowed: boolean; error?: XAAError } {
+export function checkOriginAllowed(origin: string): {
+  allowed: boolean;
+  error?: XAAError;
+} {
   if (!xaaConfig.enabled) {
     return { allowed: false, error: createXAAError(XAAErrorType.DISABLED) };
   }
-  
+
   if (!origin || typeof origin !== 'string') {
-    return { allowed: false, error: createXAAError(XAAErrorType.INVALID_ORIGIN, { origin }) };
+    return {
+      allowed: false,
+      error: createXAAError(XAAErrorType.INVALID_ORIGIN, { origin }),
+    };
   }
-  
+
   if (xaaConfig.allowedOrigins.length === 0) {
     return { allowed: true };
   }
-  
+
   const isAllowed = isOriginAllowed(origin);
   if (!isAllowed) {
-    return { allowed: false, error: createXAAError(XAAErrorType.INVALID_ORIGIN, { origin, allowedOrigins: xaaConfig.allowedOrigins }) };
+    return {
+      allowed: false,
+      error: createXAAError(XAAErrorType.INVALID_ORIGIN, {
+        origin,
+        allowedOrigins: xaaConfig.allowedOrigins,
+      }),
+    };
   }
-  
+
   return { allowed: true };
 }
 
-export function createXAAToken(serverName: string, permissions: string[]): string {
+export function createXAAToken(
+  serverName: string,
+  permissions: string[]
+): string {
   const expiryMinutes = xaaConfig.tokenExpiryMinutes || 60;
   const payload: XAATokenPayload = {
     server: serverName,
@@ -185,21 +237,40 @@ export function createXAAToken(serverName: string, permissions: string[]): strin
 /**
  * 创建XAA Token（带验证）
  */
-export function createXAATokenSafe(serverName: string, permissions: string[]): { token?: string; error?: XAAError } {
-  if (!serverName || typeof serverName !== 'string' || serverName.trim() === '') {
-    return { error: createXAAError(XAAErrorType.INVALID_SERVER_NAME, { serverName }) };
+export function createXAATokenSafe(
+  serverName: string,
+  permissions: string[]
+): { token?: string; error?: XAAError } {
+  if (
+    !serverName ||
+    typeof serverName !== 'string' ||
+    serverName.trim() === ''
+  ) {
+    return {
+      error: createXAAError(XAAErrorType.INVALID_SERVER_NAME, { serverName }),
+    };
   }
-  
+
   if (!Array.isArray(permissions) || permissions.length === 0) {
-    return { error: createXAAError(XAAErrorType.INSUFFICIENT_PERMISSIONS, { permissions }) };
+    return {
+      error: createXAAError(XAAErrorType.INSUFFICIENT_PERMISSIONS, {
+        permissions,
+      }),
+    };
   }
-  
+
   // 验证权限是否存在
-  const invalidPermissions = permissions.filter(p => !knownPermissions.some(kp => kp.name === p));
+  const invalidPermissions = permissions.filter(
+    (p) => !knownPermissions.some((kp) => kp.name === p)
+  );
   if (invalidPermissions.length > 0) {
-    return { error: createXAAError(XAAErrorType.PERMISSION_NOT_FOUND, { invalidPermissions }) };
+    return {
+      error: createXAAError(XAAErrorType.PERMISSION_NOT_FOUND, {
+        invalidPermissions,
+      }),
+    };
   }
-  
+
   const token = createXAAToken(serverName, permissions);
   return { token };
 }
@@ -217,25 +288,42 @@ export function decodeXAAToken(token: string): XAATokenPayload | null {
 /**
  * 解码XAA Token（带详细错误信息）
  */
-export function decodeXAATokenSafe(token: string): { payload?: XAATokenPayload; error?: XAAError } {
+export function decodeXAATokenSafe(token: string): {
+  payload?: XAATokenPayload;
+  error?: XAAError;
+} {
   if (!token || typeof token !== 'string') {
-    return { error: createXAAError(XAAErrorType.INVALID_TOKEN_FORMAT, { token }) };
+    return {
+      error: createXAAError(XAAErrorType.INVALID_TOKEN_FORMAT, { token }),
+    };
   }
-  
+
   if (!token.startsWith('xaa_')) {
-    return { error: createXAAError(XAAErrorType.INVALID_TOKEN_FORMAT, { reason: 'Missing xaa_ prefix' }) };
+    return {
+      error: createXAAError(XAAErrorType.INVALID_TOKEN_FORMAT, {
+        reason: 'Missing xaa_ prefix',
+      }),
+    };
   }
-  
+
   try {
     const payloadStr = Buffer.from(token.slice(4), 'base64url').toString();
     const payload = JSON.parse(payloadStr) as XAATokenPayload;
     return { payload };
   } catch (err) {
-    return { error: createXAAError(XAAErrorType.INVALID_TOKEN_FORMAT, { reason: err instanceof Error ? err.message : 'Parse error' }) };
+    return {
+      error: createXAAError(XAAErrorType.INVALID_TOKEN_FORMAT, {
+        reason: err instanceof Error ? err.message : 'Parse error',
+      }),
+    };
   }
 }
 
-export function validateXAAToken(token: string): { valid: boolean; reason?: string; payload?: XAATokenPayload } {
+export function validateXAAToken(token: string): {
+  valid: boolean;
+  reason?: string;
+  payload?: XAATokenPayload;
+} {
   const payload = decodeXAAToken(token);
   if (!payload) {
     return { valid: false, reason: 'Invalid token format' };
@@ -263,54 +351,63 @@ export function validateXAATokenDetailed(token: string): XAAValidationResult {
   if (!xaaConfig.enabled) {
     return { valid: false, error: createXAAError(XAAErrorType.DISABLED) };
   }
-  
+
   if (!token || typeof token !== 'string') {
-    return { valid: false, error: createXAAError(XAAErrorType.INVALID_TOKEN_FORMAT, { token }) };
+    return {
+      valid: false,
+      error: createXAAError(XAAErrorType.INVALID_TOKEN_FORMAT, { token }),
+    };
   }
-  
+
   const decodeResult = decodeXAATokenSafe(token);
   if (decodeResult.error) {
     return { valid: false, error: decodeResult.error };
   }
-  
+
   const payload = decodeResult.payload!;
-  
+
   // 检查必需字段
   const missingFields: string[] = [];
   if (!payload.server) missingFields.push('server');
-  if (!payload.permissions || !Array.isArray(payload.permissions)) missingFields.push('permissions');
+  if (!payload.permissions || !Array.isArray(payload.permissions))
+    missingFields.push('permissions');
   if (!payload.iat) missingFields.push('iat');
   if (!payload.exp) missingFields.push('exp');
-  
+
   if (missingFields.length > 0) {
-    return { valid: false, error: createXAAError(XAAErrorType.MISSING_REQUIRED_FIELDS, { missingFields }) };
+    return {
+      valid: false,
+      error: createXAAError(XAAErrorType.MISSING_REQUIRED_FIELDS, {
+        missingFields,
+      }),
+    };
   }
-  
+
   // 检查过期时间
   const now = Date.now();
   if (now > payload.exp) {
     const timeUntilExpiry = Math.floor((payload.exp - now) / 1000);
-    return { 
-      valid: false, 
-      error: createXAAError(XAAErrorType.TOKEN_EXPIRED, { 
+    return {
+      valid: false,
+      error: createXAAError(XAAErrorType.TOKEN_EXPIRED, {
         expiresAt: payload.exp,
         timeUntilExpiry,
-        server: payload.server
-      }) 
+        server: payload.server,
+      }),
     };
   }
-  
+
   // 检查签发时间
   if (now < payload.iat) {
-    return { 
-      valid: false, 
-      error: createXAAError(XAAErrorType.INVALID_ISSUE_TIME, { 
+    return {
+      valid: false,
+      error: createXAAError(XAAErrorType.INVALID_ISSUE_TIME, {
         issuedAt: payload.iat,
-        currentTime: now
-      }) 
+        currentTime: now,
+      }),
     };
   }
-  
+
   return { valid: true, payload };
 }
 
@@ -322,75 +419,96 @@ export function hasPermission(token: string, permission: string): boolean {
   return validation.payload.permissions.includes(permission);
 }
 
-export function hasAllPermissions(token: string, permissions: string[]): boolean {
+export function hasAllPermissions(
+  token: string,
+  permissions: string[]
+): boolean {
   const validation = validateXAAToken(token);
   if (!validation.valid || !validation.payload) {
     return false;
   }
-  return permissions.every(p => validation.payload!.permissions.includes(p));
+  return permissions.every((p) => validation.payload!.permissions.includes(p));
 }
 
-export function hasAnyPermission(token: string, permissions: string[]): boolean {
+export function hasAnyPermission(
+  token: string,
+  permissions: string[]
+): boolean {
   const validation = validateXAAToken(token);
   if (!validation.valid || !validation.payload) {
     return false;
   }
-  return permissions.some(p => validation.payload!.permissions.includes(p));
+  return permissions.some((p) => validation.payload!.permissions.includes(p));
 }
 
 /**
  * 检查权限（带详细错误信息）
  */
-export function checkPermissions(token: string, requiredPermissions: string[], requireAll: boolean = true): XAAPermissionCheckResult {
+export function checkPermissions(
+  token: string,
+  requiredPermissions: string[],
+  requireAll: boolean = true
+): XAAPermissionCheckResult {
   const validation = validateXAATokenDetailed(token);
   if (!validation.valid) {
     return { allowed: false, error: validation.error };
   }
-  
+
   const payload = validation.payload!;
   const userPermissions = payload.permissions;
-  
-  const missingPermissions = requiredPermissions.filter(p => !userPermissions.includes(p));
-  
+
+  const missingPermissions = requiredPermissions.filter(
+    (p) => !userPermissions.includes(p)
+  );
+
   if (requireAll && missingPermissions.length > 0) {
-    return { 
-      allowed: false, 
-      error: createXAAError(XAAErrorType.INSUFFICIENT_PERMISSIONS, { 
+    return {
+      allowed: false,
+      error: createXAAError(XAAErrorType.INSUFFICIENT_PERMISSIONS, {
         required: requiredPermissions,
         missing: missingPermissions,
-        current: userPermissions
+        current: userPermissions,
       }),
-      missingPermissions
+      missingPermissions,
     };
   }
-  
-  if (!requireAll && !requiredPermissions.some(p => userPermissions.includes(p))) {
-    return { 
-      allowed: false, 
-      error: createXAAError(XAAErrorType.INSUFFICIENT_PERMISSIONS, { 
+
+  if (
+    !requireAll &&
+    !requiredPermissions.some((p) => userPermissions.includes(p))
+  ) {
+    return {
+      allowed: false,
+      error: createXAAError(XAAErrorType.INSUFFICIENT_PERMISSIONS, {
         required: requiredPermissions,
         current: userPermissions,
-        requireAll: false
+        requireAll: false,
       }),
-      missingPermissions: requiredPermissions
+      missingPermissions: requiredPermissions,
     };
   }
-  
+
   return { allowed: true };
 }
 
 /**
  * 检查单个权限（带详细错误信息）
  */
-export function checkPermission(token: string, permission: string): XAAPermissionCheckResult {
+export function checkPermission(
+  token: string,
+  permission: string
+): XAAPermissionCheckResult {
   return checkPermissions(token, [permission], true);
 }
 
-export function createTokenPair(serverName: string, permissions: string[]): XAATokenPair {
+export function createTokenPair(
+  serverName: string,
+  permissions: string[]
+): XAATokenPair {
   const accessToken = createXAAToken(serverName, permissions);
   const refreshToken = createRefreshToken();
   const expiryMinutes = xaaConfig.tokenExpiryMinutes || 60;
-  
+
   return {
     accessToken,
     refreshToken,
@@ -401,59 +519,92 @@ export function createTokenPair(serverName: string, permissions: string[]): XAAT
 /**
  * 创建Token Pair（带验证）
  */
-export function createTokenPairSafe(serverName: string, permissions: string[]): { tokenPair?: XAATokenPair; error?: XAAError } {
+export function createTokenPairSafe(
+  serverName: string,
+  permissions: string[]
+): { tokenPair?: XAATokenPair; error?: XAAError } {
   const tokenResult = createXAATokenSafe(serverName, permissions);
   if (tokenResult.error) {
     return { error: tokenResult.error };
   }
-  
+
   const tokenPair = createTokenPair(serverName, permissions);
   return { tokenPair };
 }
 
-export function refreshAccessToken(refreshToken: string, serverName: string): XAATokenPair | null {
+export function refreshAccessToken(
+  refreshToken: string,
+  serverName: string
+): XAATokenPair | null {
   if (!isValidRefreshToken(refreshToken)) {
     return null;
   }
-  
-  const permissions = extractPermissionsFromRefreshToken(refreshToken) || ['read'];
+
+  const permissions = extractPermissionsFromRefreshToken(refreshToken) || [
+    'read',
+  ];
   return createTokenPair(serverName, permissions);
 }
 
 /**
  * 刷新访问令牌（带详细错误信息）
  */
-export function refreshAccessTokenSafe(refreshToken: string, serverName: string): { tokenPair?: XAATokenPair; error?: XAAError } {
+export function refreshAccessTokenSafe(
+  refreshToken: string,
+  serverName: string
+): { tokenPair?: XAATokenPair; error?: XAAError } {
   if (!xaaConfig.enabled) {
     return { error: createXAAError(XAAErrorType.DISABLED) };
   }
-  
+
   if (!refreshToken || typeof refreshToken !== 'string') {
-    return { error: createXAAError(XAAErrorType.INVALID_REFRESH_TOKEN, { refreshToken }) };
+    return {
+      error: createXAAError(XAAErrorType.INVALID_REFRESH_TOKEN, {
+        refreshToken,
+      }),
+    };
   }
-  
+
   if (!refreshToken.startsWith('xar_')) {
-    return { error: createXAAError(XAAErrorType.INVALID_REFRESH_TOKEN, { reason: 'Missing xar_ prefix' }) };
+    return {
+      error: createXAAError(XAAErrorType.INVALID_REFRESH_TOKEN, {
+        reason: 'Missing xar_ prefix',
+      }),
+    };
   }
-  
+
   try {
-    const payloadStr = Buffer.from(refreshToken.slice(4), 'base64url').toString();
+    const payloadStr = Buffer.from(
+      refreshToken.slice(4),
+      'base64url'
+    ).toString();
     const payload = JSON.parse(payloadStr);
-    
+
     if (payload.type !== 'refresh') {
-      return { error: createXAAError(XAAErrorType.INVALID_REFRESH_TOKEN, { reason: 'Invalid token type' }) };
+      return {
+        error: createXAAError(XAAErrorType.INVALID_REFRESH_TOKEN, {
+          reason: 'Invalid token type',
+        }),
+      };
     }
-    
+
     if (Date.now() > payload.exp) {
-      return { error: createXAAError(XAAErrorType.REFRESH_TOKEN_EXPIRED, { expiresAt: payload.exp }) };
+      return {
+        error: createXAAError(XAAErrorType.REFRESH_TOKEN_EXPIRED, {
+          expiresAt: payload.exp,
+        }),
+      };
     }
-    
+
     const permissions = payload.permissions || ['read'];
     const tokenPair = createTokenPair(serverName, permissions);
     return { tokenPair };
-    
   } catch (err) {
-    return { error: createXAAError(XAAErrorType.INVALID_REFRESH_TOKEN, { reason: err instanceof Error ? err.message : 'Parse error' }) };
+    return {
+      error: createXAAError(XAAErrorType.INVALID_REFRESH_TOKEN, {
+        reason: err instanceof Error ? err.message : 'Parse error',
+      }),
+    };
   }
 }
 
@@ -462,7 +613,7 @@ export function getKnownPermissions(): XAAPermission[] {
 }
 
 export function registerPermission(permission: XAAPermission): void {
-  if (!knownPermissions.find(p => p.name === permission.name)) {
+  if (!knownPermissions.find((p) => p.name === permission.name)) {
     knownPermissions.push(permission);
   }
 }
@@ -470,34 +621,63 @@ export function registerPermission(permission: XAAPermission): void {
 /**
  * 注册权限（带验证）
  */
-export function registerPermissionSafe(permission: XAAPermission): { success: boolean; error?: XAAError } {
-  if (!permission.name || typeof permission.name !== 'string' || permission.name.trim() === '') {
-    return { success: false, error: createXAAError(XAAErrorType.INVALID_SERVER_NAME, { permission }) };
+export function registerPermissionSafe(permission: XAAPermission): {
+  success: boolean;
+  error?: XAAError;
+} {
+  if (
+    !permission.name ||
+    typeof permission.name !== 'string' ||
+    permission.name.trim() === ''
+  ) {
+    return {
+      success: false,
+      error: createXAAError(XAAErrorType.INVALID_SERVER_NAME, { permission }),
+    };
   }
-  
+
   if (!permission.description || typeof permission.description !== 'string') {
-    return { success: false, error: createXAAError(XAAErrorType.MISSING_REQUIRED_FIELDS, { reason: 'description is required' }) };
+    return {
+      success: false,
+      error: createXAAError(XAAErrorType.MISSING_REQUIRED_FIELDS, {
+        reason: 'description is required',
+      }),
+    };
   }
-  
-  if (knownPermissions.find(p => p.name === permission.name)) {
-    return { success: false, error: createXAAError(XAAErrorType.PERMISSION_NOT_FOUND, { reason: `Permission '${permission.name}' already exists` }) };
+
+  if (knownPermissions.find((p) => p.name === permission.name)) {
+    return {
+      success: false,
+      error: createXAAError(XAAErrorType.PERMISSION_NOT_FOUND, {
+        reason: `Permission '${permission.name}' already exists`,
+      }),
+    };
   }
-  
+
   knownPermissions.push(permission);
   return { success: true };
 }
 
-export function getPermissionDescription(permissionName: string): string | undefined {
-  return knownPermissions.find(p => p.name === permissionName)?.description;
+export function getPermissionDescription(
+  permissionName: string
+): string | undefined {
+  return knownPermissions.find((p) => p.name === permissionName)?.description;
 }
 
 /**
  * 获取权限详情（带详细错误信息）
  */
-export function getPermissionSafe(permissionName: string): { permission?: XAAPermission; error?: XAAError } {
-  const permission = knownPermissions.find(p => p.name === permissionName);
+export function getPermissionSafe(permissionName: string): {
+  permission?: XAAPermission;
+  error?: XAAError;
+} {
+  const permission = knownPermissions.find((p) => p.name === permissionName);
   if (!permission) {
-    return { error: createXAAError(XAAErrorType.PERMISSION_NOT_FOUND, { permissionName }) };
+    return {
+      error: createXAAError(XAAErrorType.PERMISSION_NOT_FOUND, {
+        permissionName,
+      }),
+    };
   }
   return { permission };
 }
@@ -520,7 +700,10 @@ function createRefreshToken(): string {
 function isValidRefreshToken(refreshToken: string): boolean {
   try {
     if (!refreshToken.startsWith('xar_')) return false;
-    const payloadStr = Buffer.from(refreshToken.slice(4), 'base64url').toString();
+    const payloadStr = Buffer.from(
+      refreshToken.slice(4),
+      'base64url'
+    ).toString();
     const payload = JSON.parse(payloadStr);
     if (payload.type !== 'refresh') return false;
     if (Date.now() > payload.exp) return false;
@@ -530,10 +713,15 @@ function isValidRefreshToken(refreshToken: string): boolean {
   }
 }
 
-function extractPermissionsFromRefreshToken(refreshToken: string): string[] | null {
+function extractPermissionsFromRefreshToken(
+  refreshToken: string
+): string[] | null {
   try {
     if (!refreshToken.startsWith('xar_')) return null;
-    const payloadStr = Buffer.from(refreshToken.slice(4), 'base64url').toString();
+    const payloadStr = Buffer.from(
+      refreshToken.slice(4),
+      'base64url'
+    ).toString();
     const payload = JSON.parse(payloadStr);
     return payload.permissions || ['read'];
   } catch {

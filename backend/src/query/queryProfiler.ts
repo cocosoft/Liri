@@ -4,8 +4,8 @@
  * 提供查询性能分析和检查点记录功能
  */
 
-const ENABLED = typeof process !== 'undefined' &&
-  process.env?.PY_APP_PROFILE_QUERY === '1';
+const ENABLED =
+  typeof process !== 'undefined' && process.env?.PY_APP_PROFILE_QUERY === '1';
 
 const checkpoints: Array<{ name: string; time: number }> = [];
 let queryCount = 0;
@@ -55,7 +55,8 @@ function printProfileReport(): void {
     const cp = checkpoints[i];
     const relativeTime = cp.time - baseline;
     const deltaMs = cp.time - prevTime;
-    const warning = deltaMs > 1000 ? ' ⚠️ VERY SLOW' : deltaMs > 100 ? ' ⚠️ SLOW' : '';
+    const warning =
+      deltaMs > 1000 ? ' ⚠️ VERY SLOW' : deltaMs > 100 ? ' ⚠️ SLOW' : '';
     lines.push(
       `  [+${relativeTime.toFixed(0)}ms] ${cp.name} (Δ${deltaMs.toFixed(0)}ms)${warning}`
     );

@@ -146,14 +146,16 @@ function getPromptForCommand(): Promise<Array<{ type: 'text'; text: string }>> {
 /**
  * 处理 list 子命令
  */
-async function handleList(options: { json?: boolean } = {}): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleList(
+  options: { json?: boolean } = {}
+): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const agentTool = getAgentTool();
     const activeAgents = agentTool?.getActiveAgents() || [];
     const toolManager = getToolManager();
 
     const allTools = toolManager.getAllTools();
-    const agentTools = allTools.filter(t =>
+    const agentTools = allTools.filter((t) =>
       t.name.toLowerCase().includes('agent')
     );
 
@@ -161,7 +163,7 @@ async function handleList(options: { json?: boolean } = {}): Promise<{ success: 
       const data = {
         registeredInstances: Array.from(agentInstances.values()),
         activeAgents,
-        agentTools: agentTools.map(t => ({
+        agentTools: agentTools.map((t) => ({
           name: t.name,
           description: t.description,
         })),
@@ -178,7 +180,9 @@ async function handleList(options: { json?: boolean } = {}): Promise<{ success: 
       lines.push('已注册实例:');
       for (const [name, instance] of agentInstances) {
         const age = formatDuration(Date.now() - instance.createdAt);
-        lines.push(`  ${name}  type=${instance.type}  status=${instance.status}  created=${age} ago`);
+        lines.push(
+          `  ${name}  type=${instance.type}  status=${instance.status}  created=${age} ago`
+        );
       }
       lines.push('');
     }
@@ -195,15 +199,23 @@ async function handleList(options: { json?: boolean } = {}): Promise<{ success: 
       lines.push('运行中的子代理:');
       for (const agent of activeAgents) {
         const duration = formatDuration(Date.now() - agent.startTime);
-        lines.push(`  ${agent.id}  ${agent.name}  type=${agent.type}  status=${agent.status}  running=${duration}`);
+        lines.push(
+          `  ${agent.id}  ${agent.name}  type=${agent.type}  status=${agent.status}  running=${duration}`
+        );
       }
       lines.push('');
     }
 
-    if (agentInstances.size === 0 && agentTools.length === 0 && activeAgents.length === 0) {
+    if (
+      agentInstances.size === 0 &&
+      agentTools.length === 0 &&
+      activeAgents.length === 0
+    ) {
       lines.push('暂无 Agent 实例');
       lines.push('');
-      lines.push('使用 /agent-instance create <name> [--type <type>] 创建新实例');
+      lines.push(
+        '使用 /agent-instance create <name> [--type <type>] 创建新实例'
+      );
     }
 
     return { success: true, message: lines.join('\n') };
@@ -218,15 +230,18 @@ async function handleList(options: { json?: boolean } = {}): Promise<{ success: 
 /**
  * 处理 create 子命令
  */
-async function handleCreate(args: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleCreate(
+  args: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const typeIndex = args.indexOf('--type');
   const name = typeIndex >= 0 ? args[1] : args[1];
-  const agentType = typeIndex >= 0 ? args[typeIndex + 1] : (args[2] || 'general');
+  const agentType = typeIndex >= 0 ? args[typeIndex + 1] : args[2] || 'general';
 
   if (!name) {
     return {
       success: false,
-      error: '请指定 Agent 实例名称\n用法: /agent-instance create <name> [--type <type>]',
+      error:
+        '请指定 Agent 实例名称\n用法: /agent-instance create <name> [--type <type>]',
     };
   }
 
@@ -268,13 +283,16 @@ async function handleCreate(args: string[]): Promise<{ success: boolean; message
 /**
  * 处理 delete 子命令
  */
-async function handleDelete(args: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleDelete(
+  args: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const name = args[1];
 
   if (!name) {
     return {
       success: false,
-      error: '请指定 Agent 实例名称或 ID\n用法: /agent-instance delete <name|id>',
+      error:
+        '请指定 Agent 实例名称或 ID\n用法: /agent-instance delete <name|id>',
     };
   }
 
@@ -312,14 +330,20 @@ export const agentsCommand: Command = {
   description: '管理多个Agent实例（通过工具管理器）',
   aliases: ['agents_tool'],
   argumentHint: '[list|create|delete|help] [args]',
-  whenToUse: '当你需要管理命名 Agent 实例时，例如注册特定类型的 Agent 供后续使用',
+  whenToUse:
+    '当你需要管理命名 Agent 实例时，例如注册特定类型的 Agent 供后续使用',
   getPromptForCommand,
   load: async () => ({
     execute: async (args: string) => {
       const parts = args.trim().split(/\s+/);
       const subcommand = parts[0]?.toLowerCase();
 
-      if (!subcommand || subcommand === 'help' || subcommand === '-h' || subcommand === '--help') {
+      if (
+        !subcommand ||
+        subcommand === 'help' ||
+        subcommand === '-h' ||
+        subcommand === '--help'
+      ) {
         return { success: true, message: buildHelpText() };
       }
 

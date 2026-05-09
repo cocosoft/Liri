@@ -12,7 +12,7 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const query = args.trim();
-    
+
     if (!query) {
       return {
         success: false,
@@ -30,9 +30,9 @@ export default {
       { type: 'file', name: 'src/types/index.ts', description: '类型定义' },
     ];
 
-    const resultList = results.map(r => 
-      `[${r.type}] ${r.name}: ${r.description}`
-    ).join('\n');
+    const resultList = results
+      .map((r) => `[${r.type}] ${r.name}: ${r.description}`)
+      .join('\n');
 
     return {
       success: true,

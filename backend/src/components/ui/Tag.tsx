@@ -5,7 +5,13 @@
 import React from 'react';
 import { Text, Box } from '../ink.js';
 
-type TagVariant = 'default' | 'primary' | 'success' | 'warning' | 'error' | 'info';
+type TagVariant =
+  | 'default'
+  | 'primary'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'info';
 
 export interface TagProps {
   text: string;
@@ -33,16 +39,8 @@ export function Tag({
 
   return (
     <Box>
-      <Text color={colors.text}>
-        {' '}
-        {text}
-        {' '}
-      </Text>
-      {closable && onClose && (
-        <Text color={colors.text}>
-          ✕ 
-        </Text>
-      )}
+      <Text color={colors.text}> {text} </Text>
+      {closable && onClose && <Text color={colors.text}>✕</Text>}
     </Box>
   );
 }
@@ -53,7 +51,11 @@ export interface TagGroupProps {
   onClose?: (id: string) => void;
 }
 
-export function TagGroup({ tags, closable, onClose }: TagGroupProps): React.ReactNode {
+export function TagGroup({
+  tags,
+  closable,
+  onClose,
+}: TagGroupProps): React.ReactNode {
   return (
     <Box>
       {tags.map((tag) => (

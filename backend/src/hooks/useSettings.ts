@@ -17,7 +17,7 @@ const settingsChangeListeners = new Set<SettingsChangeListener>();
  * 触发设置变更通知
  */
 function notifySettingsChange(key: string, value: unknown): void {
-  settingsChangeListeners.forEach(listener => listener(key, value));
+  settingsChangeListeners.forEach((listener) => listener(key, value));
 }
 
 /**
@@ -25,14 +25,14 @@ function notifySettingsChange(key: string, value: unknown): void {
  * @returns 设置管理对象
  */
 export function useSettings() {
-  const [settings, setSettings] = useState<GlobalConfig>(() => 
+  const [settings, setSettings] = useState<GlobalConfig>(() =>
     configManager.getGlobalConfig()
   );
 
   // 监听配置变化
   useEffect(() => {
     const handleConfigChange: SettingsChangeListener = (key, value) => {
-      setSettings(prev => ({
+      setSettings((prev) => ({
         ...prev,
         [key]: value,
       }));
@@ -50,9 +50,12 @@ export function useSettings() {
    * @param key 设置键
    * @returns 设置值
    */
-  const get = useCallback(<T = unknown>(key: string): T | undefined => {
-    return settings[key] as T;
-  }, [settings]);
+  const get = useCallback(
+    <T = unknown>(key: string): T | undefined => {
+      return settings[key] as T;
+    },
+    [settings]
+  );
 
   /**
    * 设置配置值
@@ -61,7 +64,7 @@ export function useSettings() {
    */
   const set = useCallback(<T = unknown>(key: string, value: T): void => {
     configManager.setConfigValue(key, value);
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       [key]: value,
     }));
@@ -73,11 +76,11 @@ export function useSettings() {
    * @param updates 设置更新对象
    */
   const update = useCallback((updates: Partial<GlobalConfig>): void => {
-    configManager.saveGlobalConfig(prev => ({
+    configManager.saveGlobalConfig((prev) => ({
       ...prev,
       ...updates,
     }));
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       ...updates,
     }));
@@ -102,14 +105,17 @@ export function useSettings() {
     setSettings(configManager.getGlobalConfig());
   }, []);
 
-  return useMemo(() => ({
-    settings,
-    get,
-    set,
-    update,
-    reset,
-    reload,
-  }), [settings, get, set, update, reset, reload]);
+  return useMemo(
+    () => ({
+      settings,
+      get,
+      set,
+      update,
+      reset,
+      reload,
+    }),
+    [settings, get, set, update, reset, reload]
+  );
 }
 
 /**

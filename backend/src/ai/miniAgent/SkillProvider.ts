@@ -68,7 +68,10 @@ export class SkillProvider {
     return this.registry;
   }
 
-  async executeSkill(skillName: string, context: SkillContext): Promise<SkillResult> {
+  async executeSkill(
+    skillName: string,
+    context: SkillContext
+  ): Promise<SkillResult> {
     if (!this.enabled) {
       return {
         success: false,
@@ -147,6 +150,8 @@ export function getGlobalSkillProvider(): SkillProvider {
   return globalSkillProvider;
 }
 
-export function createSkillProvider(config?: SkillProviderConfig): SkillProvider {
+export function createSkillProvider(
+  config?: SkillProviderConfig
+): SkillProvider {
   return new SkillProvider(config || { enabled: false });
 }

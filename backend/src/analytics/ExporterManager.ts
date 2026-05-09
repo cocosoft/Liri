@@ -4,9 +4,18 @@
  * 实现OTLP、Prometheus等导出器的配置和管理
  */
 
-import { NodeTracerProvider, ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
+import {
+  NodeTracerProvider,
+  ConsoleSpanExporter,
+} from '@opentelemetry/sdk-trace-node';
 import { OTLPTraceExporter as OTLPTraceExporterHttp } from '@opentelemetry/exporter-trace-otlp-http';
-import { BatchSpanProcessor, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import {
+  BatchSpanProcessor,
+  SimpleSpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 导出器类型
@@ -66,22 +75,27 @@ export class ExporterManager {
           url: otlpConfig.endpoint || 'http://localhost:4318/v1/traces',
           headers: otlpConfig.headers,
         });
-        (tracerProvider as any).addSpanProcessor(new BatchSpanProcessor(otlpExporter));
+        (tracerProvider as any).addSpanProcessor(
+          new BatchSpanProcessor(otlpExporter)
+        );
         this.exporters.set('otlp-http', otlpExporter);
-        console.log('OTLP HTTP exporter initialized');
+        logger.info('OTLP HTTP exporter initialized');
       } else {
         try {
-          // @ts-expect-error - optional dependency, handled in try-catch
-          const { OTLPTraceExporter: OTLPGrpcExporter } = await import('@opentelemetry/exporter-trace-otlp-grpc');
+          const { OTLPTraceExporter: OTLPGrpcExporter } =
+            // @ts-expect-error - optional dependency, handled in try-catch
+            await import('@opentelemetry/exporter-trace-otlp-grpc');
           const grpcExporter = new OTLPGrpcExporter({
             url: otlpConfig.endpoint || 'http://localhost:4317',
             headers: otlpConfig.headers,
           });
-          (tracerProvider as any).addSpanProcessor(new BatchSpanProcessor(grpcExporter));
+          (tracerProvider as any).addSpanProcessor(
+            new BatchSpanProcessor(grpcExporter)
+          );
           this.exporters.set('otlp', grpcExporter);
-          console.log('OTLP gRPC exporter initialized');
+          logger.info('OTLP gRPC exporter initialized');
         } catch {
-          console.warn('OTLP gRPC exporter not available');
+          logger.warning('OTLP gRPC exporter not available');
         }
       }
     }
@@ -89,28 +103,35 @@ export class ExporterManager {
     // 初始化Prometheus导出器
     if (this.config.prometheus) {
       try {
-        // @ts-expect-error - optional dependency, handled in try-catch
-          const { PrometheusExporter } = await import('@opentelemetry/exporter-prometheus');
+        const { PrometheusExporter } =
+          // @ts-expect-error - optional dependency, handled in try-catch
+          await import('@opentelemetry/exporter-prometheus');
         const prometheusConfig = this.config.prometheus;
         const prometheusExporter = new PrometheusExporter({
           port: prometheusConfig.port || 9464,
           host: prometheusConfig.host || 'localhost',
           endpoint: prometheusConfig.endpoint || '/metrics',
         });
-        (tracerProvider as any).addSpanProcessor(new SimpleSpanProcessor(prometheusExporter));
+        (tracerProvider as any).addSpanProcessor(
+          new SimpleSpanProcessor(prometheusExporter)
+        );
         this.exporters.set('prometheus', prometheusExporter);
-        console.log(`Prometheus exporter initialized on ${prometheusConfig.host || 'localhost'}:${prometheusConfig.port || 9464}${prometheusConfig.endpoint || '/metrics'}`);
+        logger.info(
+          `Prometheus exporter initialized on ${prometheusConfig.host || 'localhost'}:${prometheusConfig.port || 9464}${prometheusConfig.endpoint || '/metrics'}`
+        );
       } catch {
-        console.warn('Prometheus exporter not available');
+        logger.warning('Prometheus exporter not available');
       }
     }
 
     // 初始化Console导出器
     if (this.config.console) {
       const consoleExporter = new ConsoleSpanExporter();
-      (tracerProvider as any).addSpanProcessor(new SimpleSpanProcessor(consoleExporter));
+      (tracerProvider as any).addSpanProcessor(
+        new SimpleSpanProcessor(consoleExporter)
+      );
       this.exporters.set('console', consoleExporter);
-      console.log('Console exporter initialized');
+      logger.info('Console exporter initialized');
     }
   }
 
@@ -143,9 +164,12 @@ export class ExporterManager {
       if (exporter.shutdown) {
         try {
           await exporter.shutdown();
-          console.log(`Exporter ${type} shutdown`);
+          logger.info(`Exporter ${type} shutdown`);
         } catch (error) {
-          console.error(`Failed to shutdown exporter ${type}:`, error);
+          logger.error(
+            `Failed to shutdown exporter ${type}`,
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
     }
@@ -210,7 +234,9 @@ export class ExporterUtils {
     if (process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
       config.otlp = {
         endpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-        protocol: process.env.OTEL_EXPORTER_OTLP_PROTOCOL as 'grpc' | 'http' || 'grpc',
+        protocol:
+          (process.env.OTEL_EXPORTER_OTLP_PROTOCOL as 'grpc' | 'http') ||
+          'grpc',
       };
     }
 
@@ -239,15 +265,23 @@ export class ExporterUtils {
   static validateConfig(config: ExporterConfig): boolean {
     // 简单验证
     if (config.otlp) {
-      if (config.otlp.protocol && !['grpc', 'http'].includes(config.otlp.protocol)) {
-        console.error('Invalid OTLP protocol');
+      if (
+        config.otlp.protocol &&
+        !['grpc', 'http'].includes(config.otlp.protocol)
+      ) {
+        logger.error('Invalid OTLP protocol');
         return false;
       }
     }
 
     if (config.prometheus) {
-      if (config.prometheus.port && (isNaN(config.prometheus.port) || config.prometheus.port < 1 || config.prometheus.port > 65535)) {
-        console.error('Invalid Prometheus port');
+      if (
+        config.prometheus.port &&
+        (isNaN(config.prometheus.port) ||
+          config.prometheus.port < 1 ||
+          config.prometheus.port > 65535)
+      ) {
+        logger.error('Invalid Prometheus port');
         return false;
       }
     }

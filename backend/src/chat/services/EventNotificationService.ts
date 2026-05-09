@@ -5,8 +5,14 @@
  */
 
 import { EventEmitter } from 'events';
-import type { SessionStateType, RequiresActionDetails } from './SessionStateService.js';
-import type { PermissionMode, SessionExternalMetadata } from './SessionMetadataService.js';
+import type {
+  SessionStateType,
+  RequiresActionDetails,
+} from './SessionStateService.js';
+import type {
+  PermissionMode,
+  SessionExternalMetadata,
+} from './SessionMetadataService.js';
 
 /**
  * 事件类型

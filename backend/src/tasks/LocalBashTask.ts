@@ -7,7 +7,10 @@
 import { spawn, ChildProcess } from 'child_process';
 import { createWriteStream, WriteStream } from 'fs';
 import { stat } from 'fs/promises';
-import type { BashTaskKind, LocalShellTaskState } from './LocalShellTask/guards';
+import type {
+  BashTaskKind,
+  LocalShellTaskState,
+} from './LocalShellTask/guards';
 import { isLocalShellTask } from './LocalShellTask/guards';
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
@@ -45,7 +48,7 @@ const PROMPT_PATTERNS: RegExp[] = [
  */
 export function looksLikePrompt(tail: string): boolean {
   const lastLine = tail.trimEnd().split('\n').pop() ?? '';
-  return PROMPT_PATTERNS.some(p => p.test(lastLine));
+  return PROMPT_PATTERNS.some((p) => p.test(lastLine));
 }
 
 /**
@@ -192,7 +195,11 @@ export class LocalBashTask extends BaseTask {
       }
     }, STALL_CHECK_INTERVAL_MS);
 
-    if (this.stallWatchdogTimer && typeof this.stallWatchdogTimer === 'object' && 'unref' in this.stallWatchdogTimer) {
+    if (
+      this.stallWatchdogTimer &&
+      typeof this.stallWatchdogTimer === 'object' &&
+      'unref' in this.stallWatchdogTimer
+    ) {
       this.stallWatchdogTimer.unref();
     }
   }
@@ -283,9 +290,10 @@ export class LocalBashTask extends BaseTask {
           });
           resolve();
         } else {
-          const errorMsg = code !== null
-            ? `Command exited with code ${code}`
-            : `Command terminated by signal ${sig}`;
+          const errorMsg =
+            code !== null
+              ? `Command exited with code ${code}`
+              : `Command terminated by signal ${sig}`;
           this.setStatus(TaskStatus.FAILED, errorMsg);
           this.emit('bashExited', {
             taskId: this.id,
@@ -307,7 +315,9 @@ export class LocalBashTask extends BaseTask {
       if (this.options.timeout) {
         setTimeout(() => {
           this.kill();
-          reject(new Error(`Command timed out after ${this.options.timeout}ms`));
+          reject(
+            new Error(`Command timed out after ${this.options.timeout}ms`)
+          );
         }, this.options.timeout);
       }
 
@@ -324,7 +334,7 @@ export class LocalBashTask extends BaseTask {
     if (this.subprocess && !this.subprocess.killed) {
       this.subprocess.kill('SIGTERM');
 
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve) => {
         setTimeout(() => {
           if (!this.subprocess?.killed) {
             this.subprocess?.kill('SIGKILL');
@@ -394,10 +404,12 @@ export class LocalBashTask extends BaseTask {
   static hasForegroundTasks(): boolean {
     const tasks = taskRegistry.getTaskByType(TaskType.LOCAL_BASH);
 
-    return tasks.some(task => {
+    return tasks.some((task) => {
       if (!(task instanceof LocalBashTask)) return false;
       const state = task.taskState;
-      return task._isBackgrounded === false && state.status === TaskStatus.RUNNING;
+      return (
+        task._isBackgrounded === false && state.status === TaskStatus.RUNNING
+      );
     });
   }
 }

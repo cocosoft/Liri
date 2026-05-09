@@ -74,7 +74,8 @@ export async function executeMCP(
         return {
           type: 'text',
           success: true,
-          message: '没有配置MCP服务器。使用 /mcp add <name> <command> 添加服务器。',
+          message:
+            '没有配置MCP服务器。使用 /mcp add <name> <command> 添加服务器。',
         };
       }
 
@@ -255,7 +256,11 @@ function parseMCPArgs(args: string): {
     params.name = parts[1];
     params.command = parts[2];
     params.args = parts.slice(3);
-  } else if (params.subcommand === 'remove' || params.subcommand === 'enable' || params.subcommand === 'disable') {
+  } else if (
+    params.subcommand === 'remove' ||
+    params.subcommand === 'enable' ||
+    params.subcommand === 'disable'
+  ) {
     params.name = parts[1];
   }
 

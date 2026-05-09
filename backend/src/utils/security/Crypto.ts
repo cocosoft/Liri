@@ -40,7 +40,11 @@ export function generateIV(length: number = 16): Buffer {
   return randomBytes(length);
 }
 
-export function deriveKey(password: string, salt: Buffer, keyLength: number = 32): Buffer {
+export function deriveKey(
+  password: string,
+  salt: Buffer,
+  keyLength: number = 32
+): Buffer {
   return createHash('sha256').update(password).update(salt).digest();
 }
 
@@ -54,7 +58,10 @@ export function encrypt(
 
   let ciphertext: Buffer;
   if (options.algorithm.includes('gcm')) {
-    const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+    const encrypted = Buffer.concat([
+      cipher.update(plaintext, 'utf8'),
+      cipher.final(),
+    ]);
     const authTag = (cipher as any).getAuthTag();
     return {
       ciphertext: encrypted.toString('base64'),
@@ -62,7 +69,10 @@ export function encrypt(
       authTag: authTag.toString('base64'),
     };
   } else {
-    ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+    ciphertext = Buffer.concat([
+      cipher.update(plaintext, 'utf8'),
+      cipher.final(),
+    ]);
     return {
       ciphertext: ciphertext.toString('base64'),
       iv: iv.toString('base64'),
@@ -83,10 +93,16 @@ export function decrypt(
   if (options.algorithm.includes('gcm') && authTag) {
     const decipher = createDecipheriv(options.algorithm, key, ivBuffer);
     (decipher as any).setAuthTag(Buffer.from(authTag, 'base64'));
-    return decipher.update(ciphertextBuffer).toString('utf8') + decipher.final('utf8');
+    return (
+      decipher.update(ciphertextBuffer).toString('utf8') +
+      decipher.final('utf8')
+    );
   } else {
     const decipher = createDecipheriv(options.algorithm, key, ivBuffer);
-    return decipher.update(ciphertextBuffer).toString('utf8') + decipher.final('utf8');
+    return (
+      decipher.update(ciphertextBuffer).toString('utf8') +
+      decipher.final('utf8')
+    );
   }
 }
 
@@ -137,17 +153,30 @@ export function constantTimeCompare(a: string, b: string): boolean {
   return result === 0;
 }
 
-export function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
+export function hashPassword(
+  password: string,
+  salt?: string
+): { hash: string; salt: string } {
   const saltBuffer = salt ? Buffer.from(salt, 'base64') : randomBytes(16);
-  const hash = createHash('sha256').update(password).update(saltBuffer).digest('base64');
+  const hash = createHash('sha256')
+    .update(password)
+    .update(saltBuffer)
+    .digest('base64');
   return {
     hash,
     salt: saltBuffer.toString('base64'),
   };
 }
 
-export function verifyPassword(password: string, hash: string, salt: string): boolean {
+export function verifyPassword(
+  password: string,
+  hash: string,
+  salt: string
+): boolean {
   const saltBuffer = Buffer.from(salt, 'base64');
-  const computedHash = createHash('sha256').update(password).update(saltBuffer).digest('base64');
+  const computedHash = createHash('sha256')
+    .update(password)
+    .update(saltBuffer)
+    .digest('base64');
   return constantTimeCompare(computedHash, hash);
 }

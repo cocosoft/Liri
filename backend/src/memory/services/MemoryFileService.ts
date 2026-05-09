@@ -1,5 +1,8 @@
 import { join } from 'path';
 import { getFsImplementation } from '@modules/utils/fsOperations.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   ENTRYPOINT_NAME,
   MAX_ENTRYPOINT_LINES,
@@ -19,9 +22,7 @@ export async function ensureMemoryDirExists(memoryDir: string): Promise<void> {
   } catch (e) {
     // fs.mkdir already handles EEXIST internally. Anything reaching here is
     // a real problem (EACCES/EPERM/EROFS) — log so --debug shows why.
-    console.debug(
-      `ensureMemoryDirExists failed for ${memoryDir}: ${String(e)}`
-    );
+    logger.debug(`ensureMemoryDirExists failed for ${memoryDir}: ${String(e)}`);
   }
 }
 
@@ -45,7 +46,7 @@ export function logMemoryDirCounts(
           subdirCount++;
         }
       }
-      console.log('Memory directory stats:', {
+      logger.info('Memory directory stats:', {
         ...baseMetadata,
         total_file_count: fileCount,
         total_subdir_count: subdirCount,
@@ -53,7 +54,7 @@ export function logMemoryDirCounts(
     },
     () => {
       // Directory unreadable — log without counts
-      console.log('Memory directory stats:', baseMetadata);
+      logger.info('Memory directory stats:', baseMetadata);
     }
   );
 }

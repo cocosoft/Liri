@@ -46,9 +46,14 @@ export class AgentHandler {
       } else {
         this.agents.forEach((agent, index) => {
           const statusIcon = this.getStatusIcon(agent.status);
-          console.log(chalk.green(`${String(index + 1).padStart(2)}.`), agent.name);
+          console.log(
+            chalk.green(`${String(index + 1).padStart(2)}.`),
+            agent.name
+          );
           console.log(`   ${chalk.gray('Type:')} ${agent.type}`);
-          console.log(`   ${chalk.gray('Status:')} ${statusIcon} ${agent.status}`);
+          console.log(
+            `   ${chalk.gray('Status:')} ${statusIcon} ${agent.status}`
+          );
           if (agent.model) {
             console.log(`   ${chalk.gray('Model:')} ${agent.model}`);
           }
@@ -82,7 +87,7 @@ export class AgentHandler {
     }
 
     try {
-      const agent = this.agents.find(a => a.name === agentName);
+      const agent = this.agents.find((a) => a.name === agentName);
       if (!agent) {
         throw new Error(`Agent not found: ${agentName}`);
       }
@@ -113,7 +118,7 @@ export class AgentHandler {
     }
 
     try {
-      const agent = this.agents.find(a => a.name === agentName);
+      const agent = this.agents.find((a) => a.name === agentName);
       if (!agent) {
         throw new Error(`Agent not found: ${agentName}`);
       }
@@ -208,7 +213,7 @@ export class AgentHandler {
    * 获取Agent列表
    */
   private async fetchAgents(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     // 返回模拟数据
     if (this.agents.length === 0) {
       this.agents = [
@@ -227,27 +232,29 @@ export class AgentHandler {
    * 启动Agent进程
    */
   private async startAgentProcess(agent: AgentInfo): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   /**
    * 停止Agent进程
    */
   private async stopAgentProcess(agent: AgentInfo): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300));
   }
 
   /**
    * 创建Agent进程
    */
   private async createAgentProcess(agent: AgentInfo): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await new Promise((resolve) => setTimeout(resolve, 400));
   }
 }
 
 /**
  * 创建Agent处理器
  */
-export function createAgentHandler(options?: AgentHandlerOptions): AgentHandler {
+export function createAgentHandler(
+  options?: AgentHandlerOptions
+): AgentHandler {
   return new AgentHandler(options);
 }

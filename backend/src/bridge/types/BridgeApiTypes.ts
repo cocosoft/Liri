@@ -10,7 +10,9 @@ export interface IBridgeApiClient {
   /**
    * 注册Bridge环境
    */
-  registerBridgeEnvironment(config: BridgeApiConfig): Promise<BridgeEnvironmentInfo>;
+  registerBridgeEnvironment(
+    config: BridgeApiConfig
+  ): Promise<BridgeEnvironmentInfo>;
 
   /**
    * 轮询工作任务

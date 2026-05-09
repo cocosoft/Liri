@@ -77,7 +77,11 @@ export class ConsoleExporter {
    * @param value 指标值
    * @param attributes 属性
    */
-  exportMetric(name: string, value: any, attributes?: Record<string, any>): void {
+  exportMetric(
+    name: string,
+    value: any,
+    attributes?: Record<string, any>
+  ): void {
     this.export({
       timestamp: Date.now(),
       type: 'metric',
@@ -93,7 +97,11 @@ export class ConsoleExporter {
    * @param value 追踪值
    * @param attributes 属性
    */
-  exportTrace(name: string, value: any, attributes?: Record<string, any>): void {
+  exportTrace(
+    name: string,
+    value: any,
+    attributes?: Record<string, any>
+  ): void {
     this.export({
       timestamp: Date.now(),
       type: 'trace',
@@ -125,7 +133,11 @@ export class ConsoleExporter {
    * @param value 事件值
    * @param attributes 属性
    */
-  exportEvent(name: string, value: any, attributes?: Record<string, any>): void {
+  exportEvent(
+    name: string,
+    value: any,
+    attributes?: Record<string, any>
+  ): void {
     this.export({
       timestamp: Date.now(),
       type: 'event',
@@ -176,6 +188,8 @@ export function getConsoleExporter(): ConsoleExporter {
  * @param config 配置
  * @returns 控制台导出器实例
  */
-export function createConsoleExporter(config?: Partial<ConsoleExporterConfig>): ConsoleExporter {
+export function createConsoleExporter(
+  config?: Partial<ConsoleExporterConfig>
+): ConsoleExporter {
   return new ConsoleExporter(config);
 }

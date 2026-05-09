@@ -22,8 +22,15 @@ export function calculateCacheAwareUsage(
 ): TokenUsageDetail {
   const priceResult = priceManager.getPriceSync(model);
   const pricing = priceResult.pricing;
-  const totalTokens = inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens;
-  const estimatedCost = calculateCost(inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, pricing);
+  const totalTokens =
+    inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens;
+  const estimatedCost = calculateCost(
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheCreationTokens,
+    pricing
+  );
 
   return {
     inputTokens,
@@ -45,7 +52,8 @@ export function calculateCost(
   const inputCost = (inputTokens / 1_000_000) * pricing.inputPer1M;
   const outputCost = (outputTokens / 1_000_000) * pricing.outputPer1M;
   const cacheReadCost = (cacheReadTokens / 1_000_000) * pricing.cacheReadPer1M;
-  const cacheCreationCost = (cacheCreationTokens / 1_000_000) * pricing.cacheWritePer1M;
+  const cacheCreationCost =
+    (cacheCreationTokens / 1_000_000) * pricing.cacheWritePer1M;
 
   return inputCost + outputCost + cacheReadCost + cacheCreationCost;
 }
@@ -71,8 +79,10 @@ export function getCacheEfficiency(
   if (model) {
     try {
       const priceResult = priceManager.getPriceSync(model);
-      const fullCost = (cacheReadTokens / 1_000_000) * priceResult.pricing.inputPer1M;
-      const cacheCost = (cacheReadTokens / 1_000_000) * priceResult.pricing.cacheReadPer1M;
+      const fullCost =
+        (cacheReadTokens / 1_000_000) * priceResult.pricing.inputPer1M;
+      const cacheCost =
+        (cacheReadTokens / 1_000_000) * priceResult.pricing.cacheReadPer1M;
       totalSavings = fullCost - cacheCost;
     } catch {
       // ignore
@@ -93,8 +103,10 @@ export function estimateSavings(
 ): number {
   try {
     const priceResult = priceManager.getPriceSync(model);
-    const fullCost = (cacheReadTokens / 1_000_000) * priceResult.pricing.inputPer1M;
-    const cacheCost = (cacheReadTokens / 1_000_000) * priceResult.pricing.cacheReadPer1M;
+    const fullCost =
+      (cacheReadTokens / 1_000_000) * priceResult.pricing.inputPer1M;
+    const cacheCost =
+      (cacheReadTokens / 1_000_000) * priceResult.pricing.cacheReadPer1M;
     return fullCost - cacheCost;
   } catch {
     return 0;

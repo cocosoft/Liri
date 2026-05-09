@@ -133,7 +133,9 @@ export class ConfigManager extends EventEmitter {
 
     this.layers.set(layer.name, layer);
     this.invalidateCache();
-    logger.debug(`Registered config layer: ${layer.name} (priority: ${layer.priority})`);
+    logger.debug(
+      `Registered config layer: ${layer.name} (priority: ${layer.priority})`
+    );
   }
 
   /**
@@ -163,7 +165,7 @@ export class ConfigManager extends EventEmitter {
    */
   set(key: string, value: any, source: ConfigSource = 'runtime'): void {
     const layer = this.layers.get(source);
-    
+
     if (!layer || !layer.set) {
       logger.warn(`Config layer ${source} does not support setting values`);
       return;
@@ -192,7 +194,7 @@ export class ConfigManager extends EventEmitter {
     }
 
     const merged = this.mergeLayers();
-    
+
     if (this.config.enableCache) {
       this.mergedCache = merged;
       this.cacheTimestamp = Date.now();
@@ -271,15 +273,19 @@ export class ConfigManager extends EventEmitter {
       return false;
     }
 
-    return Date.now() - (this.cacheTimestamp ?? 0) < (this.config?.cacheTtlMs ?? 60000);
+    return (
+      Date.now() - (this.cacheTimestamp ?? 0) <
+      (this.config?.cacheTtlMs ?? 60000)
+    );
   }
 
   /**
    * 合并所有配置层
    */
   private mergeLayers(): Record<string, any> {
-    const sortedLayers = Array.from(this.layers.values())
-      .sort((a, b) => a.priority - b.priority);
+    const sortedLayers = Array.from(this.layers.values()).sort(
+      (a, b) => a.priority - b.priority
+    );
 
     let merged: Record<string, any> = {};
 
@@ -294,7 +300,10 @@ export class ConfigManager extends EventEmitter {
   /**
    * 深度合并两个对象
    */
-  private deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+  private deepMerge(
+    target: Record<string, any>,
+    source: Record<string, any>
+  ): Record<string, any> {
     const result = { ...target };
 
     for (const key of Object.keys(source)) {
@@ -381,7 +390,7 @@ export class EnvConfigLayer implements ConfigLayer {
     if (value === 'true') return true;
     if (value === 'false') return false;
     if (value === 'null') return null;
-    
+
     const num = Number(value);
     if (!isNaN(num)) return num;
 
@@ -420,7 +429,10 @@ export class FileConfigLayer implements ConfigLayer {
       this.cache = config;
       return config;
     } catch (error) {
-      logger.warn(`Failed to load config from ${this.filePath}:`, error instanceof Error ? error : undefined);
+      logger.warn(
+        `Failed to load config from ${this.filePath}:`,
+        error instanceof Error ? error : undefined
+      );
       return {};
     }
   }
@@ -438,7 +450,10 @@ export class FileConfigLayer implements ConfigLayer {
       writeFileSync(this.filePath, JSON.stringify(config, null, 2), 'utf-8');
       this.cache = config;
     } catch (error) {
-      logger.error(`Failed to save config to ${this.filePath}:`, error instanceof Error ? error : undefined);
+      logger.error(
+        `Failed to save config to ${this.filePath}:`,
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -458,7 +473,11 @@ export function getConfig<T = any>(key: string): T | undefined {
 /**
  * 便捷函数：设置配置值
  */
-export function setConfig(key: string, value: any, source?: ConfigSource): void {
+export function setConfig(
+  key: string,
+  value: any,
+  source?: ConfigSource
+): void {
   ConfigManager.getInstance().set(key, value, source);
 }
 

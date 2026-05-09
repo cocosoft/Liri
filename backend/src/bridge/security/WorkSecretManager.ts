@@ -5,6 +5,9 @@
  */
 
 import * as crypto from 'crypto';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface WorkSecret {
   sessionIngressToken: string;
@@ -47,7 +50,8 @@ class WorkSecretManager {
     this.storagePath =
       options.storagePath ||
       `${process.env.HOME || process.env.USERPROFILE || ''}/.py_app/work_keys.json`;
-    this.rotationPeriodMs = options.rotationPeriodMs || DEFAULT_ROTATION_PERIOD_MS;
+    this.rotationPeriodMs =
+      options.rotationPeriodMs || DEFAULT_ROTATION_PERIOD_MS;
     this.algorithm = options.algorithm || DEFAULT_ALGORITHM;
     this.keyLength = options.keyLength || DEFAULT_KEY_LENGTH;
   }
@@ -69,7 +73,11 @@ class WorkSecretManager {
       this.encryptionKey = this.generateEncryptionKey();
     }
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(this.algorithm, this.encryptionKey, iv);
+    const cipher = crypto.createCipheriv(
+      this.algorithm,
+      this.encryptionKey,
+      iv
+    );
     let encrypted = cipher.update(plaintext, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     const authTag = (cipher as any).getAuthTag();
@@ -83,7 +91,11 @@ class WorkSecretManager {
     const [ivHex, authTagHex, encrypted] = ciphertext.split(':');
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
-    const decipher = crypto.createDecipheriv(this.algorithm, this.encryptionKey, iv);
+    const decipher = crypto.createDecipheriv(
+      this.algorithm,
+      this.encryptionKey,
+      iv
+    );
     (decipher as any).setAuthTag(authTag);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
@@ -172,7 +184,10 @@ class WorkSecretManager {
       const data = JSON.stringify(this.currentKey, null, 2);
       fs.writeFileSync(this.storagePath, data, 'utf-8');
     } catch (error) {
-      console.error('Failed to save work secret:', error);
+      logger.error(
+        'Failed to save work secret',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -229,7 +244,9 @@ class WorkSecretManager {
 
 let globalManager: WorkSecretManager | undefined;
 
-export function getWorkSecretManager(options?: WorkSecretManagerOptions): WorkSecretManager {
+export function getWorkSecretManager(
+  options?: WorkSecretManagerOptions
+): WorkSecretManager {
   if (!globalManager) {
     globalManager = new WorkSecretManager(options);
   }

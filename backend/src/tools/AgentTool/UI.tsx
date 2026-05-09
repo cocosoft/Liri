@@ -1,23 +1,23 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type AgentOutput = {
-  agentType?: string
-  agentName?: string
-  description?: string
-  result?: string
-  error?: string
-  tokenUsage?: { input: number; output: number }
-  duration?: number
-  completed?: boolean
-}
+  agentType?: string;
+  agentName?: string;
+  description?: string;
+  result?: string;
+  error?: string;
+  tokenUsage?: { input: number; output: number };
+  duration?: number;
+  completed?: boolean;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ description: string; subagent_type: string; name: string }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { description, subagent_type, name } = input
-  const label = name || subagent_type || 'Agent'
+  const { description, subagent_type, name } = input;
+  const label = name || subagent_type || 'Agent';
 
   if (verbose) {
     return (
@@ -33,7 +33,7 @@ export function renderToolUseMessage(
           </Box>
         ) : null}
       </Box>
-    )
+    );
   }
 
   return (
@@ -42,16 +42,24 @@ export function renderToolUseMessage(
       <Text bold>{label}</Text>
       {subagent_type ? <Text dimColor> [{subagent_type}]</Text> : null}
     </Box>
-  )
+  );
 }
 
 export function renderToolResultMessage(
   output: AgentOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { agentType, agentName, error, result, tokenUsage, duration, completed } = output
-  const label = agentName || agentType || 'Agent'
+  const {
+    agentType,
+    agentName,
+    error,
+    result,
+    tokenUsage,
+    duration,
+    completed,
+  } = output;
+  const label = agentName || agentType || 'Agent';
 
   if (error) {
     return (
@@ -64,7 +72,7 @@ export function renderToolResultMessage(
           <Text color="red">{error.slice(0, 300)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   if (verbose && result) {
@@ -75,7 +83,8 @@ export function renderToolResultMessage(
           {duration ? <Text dimColor> ({formatMs(duration)})</Text> : null}
           {tokenUsage ? (
             <Text dimColor>
-              {' '}Tokens: {tokenUsage.input}↑ {tokenUsage.output}↓
+              {' '}
+              Tokens: {tokenUsage.input}↑ {tokenUsage.output}↓
             </Text>
           ) : null}
         </Box>
@@ -83,7 +92,7 @@ export function renderToolResultMessage(
           <Text dimColor>{result.slice(0, 500)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
@@ -93,17 +102,18 @@ export function renderToolResultMessage(
       {duration ? <Text dimColor> ({formatMs(duration)})</Text> : null}
       {tokenUsage ? (
         <Text dimColor>
-          {' '}Tokens: {tokenUsage.input}↑ {tokenUsage.output}↓
+          {' '}
+          Tokens: {tokenUsage.input}↑ {tokenUsage.output}↓
         </Text>
       ) : null}
     </Box>
-  )
+  );
 }
 
 export function renderToolUseProgressMessage(
-  data: Partial<{ message: string; progress: number }>,
+  data: Partial<{ message: string; progress: number }>
 ): React.ReactNode {
-  const { message, progress } = data
+  const { message, progress } = data;
   return (
     <Box flexDirection="row">
       <Text dimColor>Agent working</Text>
@@ -112,21 +122,25 @@ export function renderToolUseProgressMessage(
       ) : null}
       {message ? <Text dimColor> - {message.slice(0, 80)}</Text> : null}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ description: string; subagent_type: string; name: string }> | undefined,
+  input:
+    | Partial<{ description: string; subagent_type: string; name: string }>
+    | undefined
 ): string | null {
-  if (!input) return null
-  const label = input.name || input.subagent_type || 'Agent'
-  return input.description ? `${label}: ${input.description.slice(0, 60)}` : label
+  if (!input) return null;
+  const label = input.name || input.subagent_type || 'Agent';
+  return input.description
+    ? `${label}: ${input.description.slice(0, 60)}`
+    : label;
 }
 
 function formatMs(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-  const mins = Math.floor(ms / 60000)
-  const secs = Math.round((ms % 60000) / 1000)
-  return `${mins}m ${secs}s`
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.round((ms % 60000) / 1000);
+  return `${mins}m ${secs}s`;
 }

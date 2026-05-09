@@ -47,7 +47,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `洞察概览:\n` +
+      message:
+        `洞察概览:\n` +
         `- 总命令数: ${insights.totalCommands}\n` +
         `- 成功命令: ${insights.successfulCommands}\n` +
         `- 失败命令: ${insights.failedCommands}\n` +
@@ -75,12 +76,15 @@ export default {
       ],
     };
 
-    const suggestionsList = summary.suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n');
+    const suggestionsList = summary.suggestions
+      .map((s, i) => `${i + 1}. ${s}`)
+      .join('\n');
 
     return {
       success: true,
       type: 'text',
-      message: `会话摘要:\n` +
+      message:
+        `会话摘要:\n` +
         `- 完成任务: ${summary.tasksCompleted}\n` +
         `- 修改文件: ${summary.filesModified}\n` +
         `- 生成代码: ${summary.codeGenerated} 行\n` +
@@ -95,15 +99,34 @@ export default {
    */
   async handleSuggestions(context: CommandContext): Promise<CommandResult> {
     const suggestions = [
-      { type: 'performance', message: '上下文大小已超过推荐阈值，建议压缩', priority: 'high' },
-      { type: 'security', message: '检测到潜在的敏感信息泄露风险', priority: 'medium' },
-      { type: 'efficiency', message: '可以使用 /fast 命令加速响应', priority: 'low' },
-      { type: 'memory', message: '记忆缓存可优化，建议清理过期记录', priority: 'medium' },
+      {
+        type: 'performance',
+        message: '上下文大小已超过推荐阈值，建议压缩',
+        priority: 'high',
+      },
+      {
+        type: 'security',
+        message: '检测到潜在的敏感信息泄露风险',
+        priority: 'medium',
+      },
+      {
+        type: 'efficiency',
+        message: '可以使用 /fast 命令加速响应',
+        priority: 'low',
+      },
+      {
+        type: 'memory',
+        message: '记忆缓存可优化，建议清理过期记录',
+        priority: 'medium',
+      },
     ];
 
-    const table = suggestions.map(s => 
-      `[${s.priority.toUpperCase()}] ${s.type.padEnd(12)} - ${s.message}`
-    ).join('\n');
+    const table = suggestions
+      .map(
+        (s) =>
+          `[${s.priority.toUpperCase()}] ${s.type.padEnd(12)} - ${s.message}`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -125,20 +148,24 @@ export default {
         cpuUsage: { value: '32%', status: 'good' },
         networkLatency: { value: '23ms', status: 'excellent' },
       },
-      improvements: [
-        '优化提示词可减少Token消耗',
-        '启用缓存可提高重复查询速度',
-      ],
+      improvements: ['优化提示词可减少Token消耗', '启用缓存可提高重复查询速度'],
     };
 
-    const metricsTable = Object.entries(performance.metrics).map(([name, metric]) => 
-      `${name.replace(/([A-Z])/g, ' $1').trim().padEnd(15)} ${metric.value.padEnd(10)} [${metric.status}]`
-    ).join('\n');
+    const metricsTable = Object.entries(performance.metrics)
+      .map(
+        ([name, metric]) =>
+          `${name
+            .replace(/([A-Z])/g, ' $1')
+            .trim()
+            .padEnd(15)} ${metric.value.padEnd(10)} [${metric.status}]`
+      )
+      .join('\n');
 
     return {
       success: true,
       type: 'text',
-      message: `性能洞察:\n` +
+      message:
+        `性能洞察:\n` +
         `- 综合评分: ${performance.overallScore}/100\n\n` +
         `指标:\n${metricsTable}\n\n` +
         `优化建议:\n` +

@@ -22,7 +22,9 @@ export function useFocusManager(initialFocusId?: string): {
   currentFocusId: string | null;
 } {
   const [focusables, setFocusables] = useState<FocusableElement[]>([]);
-  const [currentFocusId, setCurrentFocusId] = useState<string | null>(initialFocusId || null);
+  const [currentFocusId, setCurrentFocusId] = useState<string | null>(
+    initialFocusId || null
+  );
   const initialized = useRef(false);
 
   // 注册可聚焦元素
@@ -37,12 +39,15 @@ export function useFocusManager(initialFocusId?: string): {
   }, []);
 
   // 注销可聚焦元素
-  const unregisterFocusable = useCallback((id: string) => {
-    setFocusables((prev) => prev.filter((f) => f.id !== id));
-    if (currentFocusId === id) {
-      setCurrentFocusId(null);
-    }
-  }, [currentFocusId]);
+  const unregisterFocusable = useCallback(
+    (id: string) => {
+      setFocusables((prev) => prev.filter((f) => f.id !== id));
+      if (currentFocusId === id) {
+        setCurrentFocusId(null);
+      }
+    },
+    [currentFocusId]
+  );
 
   // 聚焦下一个元素
   const focusNext = useCallback(() => {
@@ -69,7 +74,8 @@ export function useFocusManager(initialFocusId?: string): {
       ? focusables.findIndex((f) => f.id === currentFocusId)
       : -1;
 
-    const prevIndex = (currentIndex - 1 + focusables.length) % focusables.length;
+    const prevIndex =
+      (currentIndex - 1 + focusables.length) % focusables.length;
     const prevElement = focusables[prevIndex];
 
     if (prevElement) {
@@ -79,13 +85,16 @@ export function useFocusManager(initialFocusId?: string): {
   }, [focusables, currentFocusId]);
 
   // 根据ID聚焦元素
-  const focusById = useCallback((id: string) => {
-    const element = focusables.find((f) => f.id === id);
-    if (element) {
-      element.focus();
-      setCurrentFocusId(id);
-    }
-  }, [focusables]);
+  const focusById = useCallback(
+    (id: string) => {
+      const element = focusables.find((f) => f.id === id);
+      if (element) {
+        element.focus();
+        setCurrentFocusId(id);
+      }
+    },
+    [focusables]
+  );
 
   // 初始化聚焦
   useEffect(() => {

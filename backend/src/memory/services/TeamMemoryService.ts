@@ -9,6 +9,9 @@ import { MemoryType } from '../types/MemoryType';
 import { MemoryManager } from '../MemoryManager';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 记忆路径类型枚举
@@ -85,12 +88,12 @@ export interface TeamMemoryConfig {
   teamMemoryDir: string;
   syncInterval: number; // 秒
   conflictResolution: 'local_wins' | 'remote_wins' | 'manual';
-  
+
   /**
    * 是否启用加密存储
    */
   enableEncryption: boolean;
-  
+
   /**
    * 默认访问级别
    */
@@ -151,23 +154,27 @@ export interface SecurityIntegration {
   /**
    * 检查用户是否有权限访问记忆
    */
-  hasAccess(memoryId: string, userId?: string, accessLevel?: MemoryAccessLevel): boolean;
-  
+  hasAccess(
+    memoryId: string,
+    userId?: string,
+    accessLevel?: MemoryAccessLevel
+  ): boolean;
+
   /**
    * 检查用户是否有权限创建记忆
    */
   canCreateMemory(userId?: string): boolean;
-  
+
   /**
    * 检查用户是否有权限删除记忆
    */
   canDeleteMemory(memoryId: string, userId?: string): boolean;
-  
+
   /**
    * 加密记忆内容
    */
   encrypt(content: string): string;
-  
+
   /**
    * 解密记忆内容
    */
@@ -289,7 +296,10 @@ export class TeamMemoryService {
       const remoteTeamMemories = this.readRemoteTeamMemories();
 
       // 3. 检测冲突
-      const conflicts = this.detectConflicts(localTeamMemories, remoteTeamMemories);
+      const conflicts = this.detectConflicts(
+        localTeamMemories,
+        remoteTeamMemories
+      );
 
       // 4. 解决冲突
       const resolvedMemories = this.resolveConflicts(conflicts);
@@ -309,7 +319,10 @@ export class TeamMemoryService {
 
       const record: TeamMemorySyncRecord = {
         timestamp: new Date(),
-        status: conflicts.length > 0 ? TeamMemorySyncStatus.CONFLICT : TeamMemorySyncStatus.SYNCED,
+        status:
+          conflicts.length > 0
+            ? TeamMemorySyncStatus.CONFLICT
+            : TeamMemorySyncStatus.SYNCED,
         syncedMemories: mergedMemories.length,
         conflicts,
       };
@@ -341,7 +354,7 @@ export class TeamMemoryService {
    */
   private async getLocalTeamMemories(): Promise<Memory[]> {
     const allMemories = await this.memoryManager.getAllMemories();
-    return allMemories.filter(memory => 
+    return allMemories.filter((memory) =>
       memory.metadata.tags?.includes(`team:${this.config.teamId}`)
     );
   }
@@ -367,7 +380,10 @@ export class TeamMemoryService {
           const memory = JSON.parse(content);
           memories.push(memory);
         } catch (error) {
-          console.error(`Error reading team memory file ${file}:`, error);
+          logger.error(
+            `Error reading team memory file ${file}`,
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
     }
@@ -408,7 +424,7 @@ export class TeamMemoryService {
   private async updateLocalTeamMemories(memories: Memory[]): Promise<void> {
     // 获取现有本地团队记忆
     const existingMemories = await this.getLocalTeamMemories();
-    const existingMemoryIds = new Set(existingMemories.map(m => m.id));
+    const existingMemoryIds = new Set(existingMemories.map((m) => m.id));
 
     // 新增或更新记忆
     for (const memory of memories) {
@@ -425,7 +441,7 @@ export class TeamMemoryService {
     }
 
     // 删除本地有但远程没有的记忆
-    const remoteMemoryIds = new Set(memories.map(m => m.id));
+    const remoteMemoryIds = new Set(memories.map((m) => m.id));
     for (const memory of existingMemories) {
       if (!remoteMemoryIds.has(memory.id)) {
         await this.memoryManager.deleteMemory(memory.id);
@@ -444,14 +460,15 @@ export class TeamMemoryService {
     remoteMemories: Memory[]
   ): TeamMemoryConflict[] {
     const conflicts: TeamMemoryConflict[] = [];
-    const localMemoryMap = new Map(localMemories.map(m => [m.id, m]));
+    const localMemoryMap = new Map(localMemories.map((m) => [m.id, m]));
 
     for (const remoteMemory of remoteMemories) {
       const localMemory = localMemoryMap.get(remoteMemory.id);
       if (localMemory) {
         // 检查是否有冲突
         if (
-          localMemory.updatedAt.getTime() !== remoteMemory.updatedAt.getTime() &&
+          localMemory.updatedAt.getTime() !==
+            remoteMemory.updatedAt.getTime() &&
           localMemory.content !== remoteMemory.content
         ) {
           conflicts.push({
@@ -540,7 +557,10 @@ export class TeamMemoryService {
     memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Memory> {
     // 确保标签包含团队ID
-    const tags = [...(memory.metadata.tags || []), `team:${this.config.teamId}`];
+    const tags = [
+      ...(memory.metadata.tags || []),
+      `team:${this.config.teamId}`,
+    ];
 
     const createdMemory = await this.memoryManager.createMemory({
       ...memory,
@@ -582,7 +602,10 @@ export class TeamMemoryService {
    * @param updates 更新数据
    * @returns 更新后的记忆
    */
-  async updateTeamMemory(id: string, updates: Partial<Memory>): Promise<Memory> {
+  async updateTeamMemory(
+    id: string,
+    updates: Partial<Memory>
+  ): Promise<Memory> {
     const updatedMemory = await this.memoryManager.updateMemory(id, updates);
 
     // 立即同步
@@ -656,14 +679,18 @@ export class TeamMemoryService {
    * @param memoryId 记忆ID
    * @returns 记忆路径配置
    */
-  async getMemoryPathConfig(memoryId: string): Promise<MemoryPathConfig | null> {
+  async getMemoryPathConfig(
+    memoryId: string
+  ): Promise<MemoryPathConfig | null> {
     const memory = await this.memoryManager.getMemory(memoryId);
     if (!memory) {
       return null;
     }
 
     const tags = memory.metadata.tags || [];
-    const accessLevel = memory.metadata.accessLevel as MemoryAccessLevel || this.config.defaultAccessLevel;
+    const accessLevel =
+      (memory.metadata.accessLevel as MemoryAccessLevel) ||
+      this.config.defaultAccessLevel;
 
     // 解析路径类型和相关ID
     let pathType = MemoryPathType.TEAM;
@@ -738,29 +765,43 @@ export class TeamMemoryService {
     userId?: string
   ): Promise<Memory[]> {
     const allMemories = await this.memoryManager.getAllMemories();
-    
-    return allMemories.filter(memory => {
+
+    return allMemories.filter((memory) => {
       const tags = memory.metadata.tags || [];
       const accessLevel = memory.metadata.accessLevel as MemoryAccessLevel;
 
       // 根据路径类型过滤
       switch (pathType) {
         case MemoryPathType.PUBLIC:
-          return accessLevel === MemoryAccessLevel.PUBLIC || tags.includes('path:public');
+          return (
+            accessLevel === MemoryAccessLevel.PUBLIC ||
+            tags.includes('path:public')
+          );
         case MemoryPathType.PROJECT:
-          return tags.some(tag => 
-            tag.startsWith('path:project:') && 
-            (projectId ? tag === `path:project:${projectId}` : true)
-          ) || accessLevel === MemoryAccessLevel.PROJECT;
+          return (
+            tags.some(
+              (tag) =>
+                tag.startsWith('path:project:') &&
+                (projectId ? tag === `path:project:${projectId}` : true)
+            ) || accessLevel === MemoryAccessLevel.PROJECT
+          );
         case MemoryPathType.TEAM:
-          const teamTag = teamId ? `path:team:${teamId}` : `path:team:${this.config.teamId}`;
-          return tags.includes(teamTag) || tags.includes(`team:${teamId || this.config.teamId}`) || 
-                 accessLevel === MemoryAccessLevel.TEAM;
+          const teamTag = teamId
+            ? `path:team:${teamId}`
+            : `path:team:${this.config.teamId}`;
+          return (
+            tags.includes(teamTag) ||
+            tags.includes(`team:${teamId || this.config.teamId}`) ||
+            accessLevel === MemoryAccessLevel.TEAM
+          );
         case MemoryPathType.USER:
-          return tags.some(tag => 
-            tag.startsWith('path:user:') && 
-            (userId ? tag === `path:user:${userId}` : true)
-          ) || accessLevel === MemoryAccessLevel.PRIVATE;
+          return (
+            tags.some(
+              (tag) =>
+                tag.startsWith('path:user:') &&
+                (userId ? tag === `path:user:${userId}` : true)
+            ) || accessLevel === MemoryAccessLevel.PRIVATE
+          );
         default:
           return true;
       }
@@ -788,7 +829,7 @@ export class TeamMemoryService {
 
     // 构建标签
     const tags = [...(memory.metadata.tags || [])];
-    
+
     // 添加路径标签
     switch (pathConfig.type) {
       case MemoryPathType.PUBLIC:
@@ -813,8 +854,12 @@ export class TeamMemoryService {
 
     // 如果启用加密，加密内容
     let content = memory.content;
-    if (this.config.enableEncryption && this.securityIntegration && 
-        (accessLevel === MemoryAccessLevel.PRIVATE || accessLevel === MemoryAccessLevel.PROTECTED)) {
+    if (
+      this.config.enableEncryption &&
+      this.securityIntegration &&
+      (accessLevel === MemoryAccessLevel.PRIVATE ||
+        accessLevel === MemoryAccessLevel.PROTECTED)
+    ) {
       content = this.securityIntegration.encrypt(content);
     }
 
@@ -826,8 +871,10 @@ export class TeamMemoryService {
         tags,
         accessLevel,
         type: memory.metadata.type || MemoryType.PROJECT,
-        encrypted: this.config.enableEncryption && 
-          (accessLevel === MemoryAccessLevel.PRIVATE || accessLevel === MemoryAccessLevel.PROTECTED),
+        encrypted:
+          this.config.enableEncryption &&
+          (accessLevel === MemoryAccessLevel.PRIVATE ||
+            accessLevel === MemoryAccessLevel.PROTECTED),
       },
     });
 
@@ -859,20 +906,25 @@ export class TeamMemoryService {
     const tags = memory.metadata.tags || [];
 
     // 公开记忆所有人都可以访问
-    if (accessLevel === MemoryAccessLevel.PUBLIC || tags.includes('path:public')) {
+    if (
+      accessLevel === MemoryAccessLevel.PUBLIC ||
+      tags.includes('path:public')
+    ) {
       return true;
     }
 
     // 团队记忆检查
-    if (accessLevel === MemoryAccessLevel.TEAM || 
-        tags.some(tag => tag.startsWith('team:'))) {
+    if (
+      accessLevel === MemoryAccessLevel.TEAM ||
+      tags.some((tag) => tag.startsWith('team:'))
+    ) {
       return true; // 假设已认证用户都是团队成员
     }
 
     // 私有记忆只有所有者可以访问
     if (accessLevel === MemoryAccessLevel.PRIVATE) {
       // 检查用户标签
-      return tags.some(tag => tag === `user:${userId}`);
+      return tags.some((tag) => tag === `user:${userId}`);
     }
 
     return false;
@@ -884,7 +936,7 @@ export class TeamMemoryService {
    */
   async getStats(): Promise<TeamMemoryStats> {
     const allMemories = await this.getAllMemories();
-    
+
     let publicMemories = 0;
     let teamMemories = 0;
     let projectMemories = 0;
@@ -893,7 +945,7 @@ export class TeamMemoryService {
 
     for (const memory of allMemories) {
       const accessLevel = memory.metadata.accessLevel as MemoryAccessLevel;
-      
+
       switch (accessLevel) {
         case MemoryAccessLevel.PUBLIC:
           publicMemories++;
@@ -932,10 +984,10 @@ export class TeamMemoryService {
    */
   async getAllMemories(): Promise<Memory[]> {
     const memories = await this.memoryManager.getAllMemories();
-    
+
     // 如果有安全集成且启用加密，解密受保护的记忆
     if (this.securityIntegration && this.config.enableEncryption) {
-      return memories.map(memory => {
+      return memories.map((memory) => {
         if (memory.metadata.encrypted) {
           try {
             return {

@@ -10,17 +10,25 @@ import { feature } from '@modules/core/featureFlags.js';
 import { notebookManager } from '@modules/tools/notebook/NotebookManager.js';
 
 const SUBCOMMANDS = new Set([
-  'create', 'open', 'save', 'add-code', 'add-md',
-  'execute', 'export', 'list', 'read', 'help',
+  'create',
+  'open',
+  'save',
+  'add-code',
+  'add-md',
+  'execute',
+  'export',
+  'list',
+  'read',
+  'help',
 ]);
 
 /** 兼容旧命令名映射 */
 const ALIAS_MAP: Record<string, { action: string; hint: string }> = {
-  add:      { action: 'add-code', hint: '使用 add-code 或 add-md 替代 add' },
-  run:      { action: 'execute', hint: '使用 execute 替代 run' },
-  replace:  { action: 'open',    hint: '编辑单元格请使用 open + add-code/add-md' },
-  insert:   { action: 'open',    hint: '插入单元格请使用 open + add-code/add-md' },
-  delete:   { action: 'open',    hint: '删除操作暂不支持，请使用 open + 手动编辑' },
+  add: { action: 'add-code', hint: '使用 add-code 或 add-md 替代 add' },
+  run: { action: 'execute', hint: '使用 execute 替代 run' },
+  replace: { action: 'open', hint: '编辑单元格请使用 open + add-code/add-md' },
+  insert: { action: 'open', hint: '插入单元格请使用 open + add-code/add-md' },
+  delete: { action: 'open', hint: '删除操作暂不支持，请使用 open + 手动编辑' },
 };
 
 function hasJsonFlag(args: string): boolean {
@@ -34,10 +42,17 @@ function stripFlags(args: string): string {
 /**
  * 调用 NotebookToolAdapter
  */
-async function callAdapter(action: string, params: Record<string, any>): Promise<{ success: boolean; message?: string; error?: string }> {
+async function callAdapter(
+  action: string,
+  params: Record<string, any>
+): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const toolManager = getToolManager();
-    const result = await toolManager.executeTool('notebook', { action, ...params }, {});
+    const result = await toolManager.executeTool(
+      'notebook',
+      { action, ...params },
+      {}
+    );
 
     if (result.success === false) {
       return { success: false, error: result.error || '操作失败' };
@@ -62,10 +77,14 @@ function handleList(): { success: boolean; message?: string; error?: string } {
     if (notebooks.length === 0) {
       return { success: true, message: '当前没有打开的 Notebook' };
     }
-    const lines = notebooks.map((nb, i) =>
-      `  ${i + 1}. ${nb.name} (ID: ${nb.id})${nb.path ? ` | ${nb.path}` : ''} | 单元格: ${nb.cells.length}`
+    const lines = notebooks.map(
+      (nb, i) =>
+        `  ${i + 1}. ${nb.name} (ID: ${nb.id})${nb.path ? ` | ${nb.path}` : ''} | 单元格: ${nb.cells.length}`
     );
-    return { success: true, message: `Notebook 列表 (${notebooks.length} 个):\n${lines.join('\n')}` };
+    return {
+      success: true,
+      message: `Notebook 列表 (${notebooks.length} 个):\n${lines.join('\n')}`,
+    };
   } catch (error) {
     return {
       success: false,
@@ -77,7 +96,11 @@ function handleList(): { success: boolean; message?: string; error?: string } {
 /**
  * 处理 read 子命令
  */
-function handleRead(idOrPath: string): { success: boolean; message?: string; error?: string } {
+function handleRead(idOrPath: string): {
+  success: boolean;
+  message?: string;
+  error?: string;
+} {
   try {
     let notebook = notebookManager.getNotebook(idOrPath);
     if (!notebook) {
@@ -103,12 +126,20 @@ function handleRead(idOrPath: string): { success: boolean; message?: string; err
       if (cell.type === 'code') {
         const codeCell = cell as any;
         lines.push(`  语言: ${codeCell.language || 'python'}`);
-        const preview = (codeCell.code || '').substring(0, 120).replace(/\n/g, '↵');
-        lines.push(`  代码: ${preview}${(codeCell.code || '').length > 120 ? '…' : ''}`);
+        const preview = (codeCell.code || '')
+          .substring(0, 120)
+          .replace(/\n/g, '↵');
+        lines.push(
+          `  代码: ${preview}${(codeCell.code || '').length > 120 ? '…' : ''}`
+        );
       } else {
         const mdCell = cell as any;
-        const preview = (mdCell.content || '').substring(0, 120).replace(/\n/g, '↵');
-        lines.push(`  内容: ${preview}${(mdCell.content || '').length > 120 ? '…' : ''}`);
+        const preview = (mdCell.content || '')
+          .substring(0, 120)
+          .replace(/\n/g, '↵');
+        lines.push(
+          `  内容: ${preview}${(mdCell.content || '').length > 120 ? '…' : ''}`
+        );
       }
       lines.push('');
     });
@@ -211,17 +242,28 @@ function getPromptForCommand(): string {
 export const notebookCommand: Command = {
   type: 'action',
   name: 'notebook',
-  description: '创建、编辑和管理Jupyter笔记本（create/open/save/add-code/add-md/execute/export/list/read）',
+  description:
+    '创建、编辑和管理Jupyter笔记本（create/open/save/add-code/add-md/execute/export/list/read）',
   aliases: [],
-  argumentHint: '[create|open|save|add-code|add-md|execute|export|list|read|help] [args]',
-  whenToUse: '当你需要创建、编辑或管理Jupyter笔记本时，例如创建数据分析Notebook、添加代码单元格、执行代码、导出为不同格式',
+  argumentHint:
+    '[create|open|save|add-code|add-md|execute|export|list|read|help] [args]',
+  whenToUse:
+    '当你需要创建、编辑或管理Jupyter笔记本时，例如创建数据分析Notebook、添加代码单元格、执行代码、导出为不同格式',
 
   load: async () => ({
-    execute: async (args: string): Promise<{ success: boolean; message?: string; error?: string; data?: any }> => {
+    execute: async (
+      args: string
+    ): Promise<{
+      success: boolean;
+      message?: string;
+      error?: string;
+      data?: any;
+    }> => {
       if (!feature('NOTEBOOK')) {
         return {
           success: false,
-          error: 'Notebook 功能未启用。请在 featureFlags.ts 中设置 NOTEBOOK: true',
+          error:
+            'Notebook 功能未启用。请在 featureFlags.ts 中设置 NOTEBOOK: true',
         };
       }
 
@@ -237,7 +279,10 @@ export const notebookCommand: Command = {
       // 处理旧命令别名
       if (ALIAS_MAP[subcommand]) {
         const { action, hint } = ALIAS_MAP[subcommand];
-        return { success: false, error: `不支持的子命令 "${subcommand}" — ${hint}\n使用 /notebook help 查看支持的命令` };
+        return {
+          success: false,
+          error: `不支持的子命令 "${subcommand}" — ${hint}\n使用 /notebook help 查看支持的命令`,
+        };
       }
 
       if (!SUBCOMMANDS.has(subcommand)) {
@@ -247,13 +292,18 @@ export const notebookCommand: Command = {
         };
       }
 
-      let result: { success: boolean; message?: string; error?: string } | undefined;
+      let result:
+        | { success: boolean; message?: string; error?: string }
+        | undefined;
 
       switch (subcommand) {
         case 'create': {
           const name = parts.slice(1).join(' ');
           if (!name) {
-            return { success: false, error: '请指定 Notebook 名称\n用法: /notebook create <name>' };
+            return {
+              success: false,
+              error: '请指定 Notebook 名称\n用法: /notebook create <name>',
+            };
           }
           result = await callAdapter('create', { name });
           break;
@@ -262,7 +312,10 @@ export const notebookCommand: Command = {
         case 'open': {
           const path = parts[1];
           if (!path) {
-            return { success: false, error: '请指定 Notebook 路径\n用法: /notebook open <path>' };
+            return {
+              success: false,
+              error: '请指定 Notebook 路径\n用法: /notebook open <path>',
+            };
           }
           result = await callAdapter('open', { path });
           break;
@@ -271,7 +324,10 @@ export const notebookCommand: Command = {
         case 'save': {
           const id = parts[1];
           if (!id) {
-            return { success: false, error: '请指定 Notebook ID\n用法: /notebook save <id>' };
+            return {
+              success: false,
+              error: '请指定 Notebook ID\n用法: /notebook save <id>',
+            };
           }
           result = await callAdapter('save', { notebookId: id });
           break;
@@ -281,13 +337,23 @@ export const notebookCommand: Command = {
           const id = parts[1];
           const code = parts.slice(2).join(' ');
           const langIndex = code.lastIndexOf(' ');
-          const language = langIndex > 0 ? code.substring(langIndex + 1).trim() : 'python';
-          const codeContent = langIndex > 0 ? code.substring(0, langIndex).trim() : code;
+          const language =
+            langIndex > 0 ? code.substring(langIndex + 1).trim() : 'python';
+          const codeContent =
+            langIndex > 0 ? code.substring(0, langIndex).trim() : code;
 
           if (!id || !codeContent) {
-            return { success: false, error: '请指定 Notebook ID 和代码内容\n用法: /notebook add-code <id> <code> [language]' };
+            return {
+              success: false,
+              error:
+                '请指定 Notebook ID 和代码内容\n用法: /notebook add-code <id> <code> [language]',
+            };
           }
-          result = await callAdapter('addCodeCell', { notebookId: id, code: codeContent, language });
+          result = await callAdapter('addCodeCell', {
+            notebookId: id,
+            code: codeContent,
+            language,
+          });
           break;
         }
 
@@ -295,16 +361,26 @@ export const notebookCommand: Command = {
           const id = parts[1];
           const content = parts.slice(2).join(' ');
           if (!id || !content) {
-            return { success: false, error: '请指定 Notebook ID 和 Markdown 内容\n用法: /notebook add-md <id> <content>' };
+            return {
+              success: false,
+              error:
+                '请指定 Notebook ID 和 Markdown 内容\n用法: /notebook add-md <id> <content>',
+            };
           }
-          result = await callAdapter('addMarkdownCell', { notebookId: id, content });
+          result = await callAdapter('addMarkdownCell', {
+            notebookId: id,
+            content,
+          });
           break;
         }
 
         case 'execute': {
           const cellId = parts[1];
           if (!cellId) {
-            return { success: false, error: '请指定 Cell ID\n用法: /notebook execute <cellId>' };
+            return {
+              success: false,
+              error: '请指定 Cell ID\n用法: /notebook execute <cellId>',
+            };
           }
           result = await callAdapter('executeCell', { cellId });
           break;
@@ -314,10 +390,17 @@ export const notebookCommand: Command = {
           const id = parts[1];
           const format = parts[2];
           if (!id || !format) {
-            return { success: false, error: '请指定 Notebook ID 和导出格式\n用法: /notebook export <id> <format>' };
+            return {
+              success: false,
+              error:
+                '请指定 Notebook ID 和导出格式\n用法: /notebook export <id> <format>',
+            };
           }
           if (!['html', 'pdf', 'markdown'].includes(format)) {
-            return { success: false, error: `不支持的导出格式: ${format}（支持: html, pdf, markdown）` };
+            return {
+              success: false,
+              error: `不支持的导出格式: ${format}（支持: html, pdf, markdown）`,
+            };
           }
           result = await callAdapter('export', { notebookId: id, format });
           break;
@@ -331,7 +414,11 @@ export const notebookCommand: Command = {
         case 'read': {
           const idOrPath = parts.slice(1).join(' ');
           if (!idOrPath) {
-            return { success: false, error: '请指定 Notebook ID 或路径\n用法: /notebook read <id|path>' };
+            return {
+              success: false,
+              error:
+                '请指定 Notebook ID 或路径\n用法: /notebook read <id|path>',
+            };
           }
           result = handleRead(idOrPath);
           break;
@@ -339,7 +426,10 @@ export const notebookCommand: Command = {
       }
 
       if (!result) {
-        return { success: false, error: `内部错误: 未处理的子命令 "${subcommand}"` };
+        return {
+          success: false,
+          error: `内部错误: 未处理的子命令 "${subcommand}"`,
+        };
       }
 
       if (isJson) {

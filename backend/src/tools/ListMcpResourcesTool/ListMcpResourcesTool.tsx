@@ -47,138 +47,148 @@ function getMCPClients(): MCPClient[] {
 /**
  * 获取MCP资源
  */
-async function fetchResourcesForClient(_client: MCPClient): Promise<MCPResource[]> {
+async function fetchResourcesForClient(
+  _client: MCPClient
+): Promise<MCPResource[]> {
   return [];
 }
 
 /**
  * ListMcpResourcesTool
  */
-export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> = buildTool({
-  name: LIST_MCP_RESOURCES_TOOL_NAME,
-  searchHint: 'list resources from connected MCP servers',
-  maxResultSizeChars: 100000,
-  shouldDefer: true,
+export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> =
+  buildTool({
+    name: LIST_MCP_RESOURCES_TOOL_NAME,
+    searchHint: 'list resources from connected MCP servers',
+    maxResultSizeChars: 100000,
+    shouldDefer: true,
 
-  description: DESCRIPTION,
+    description: DESCRIPTION,
 
-  prompt() {
-    return PROMPT;
-  },
+    prompt() {
+      return PROMPT;
+    },
 
-  get inputSchema() {
-    return z.object({
-      server: z.string().optional().describe('Optional server name to filter resources by'),
-    }) as any;
-  },
+    get inputSchema() {
+      return z.object({
+        server: z
+          .string()
+          .optional()
+          .describe('Optional server name to filter resources by'),
+      }) as any;
+    },
 
-  get outputSchema() {
-    return z.array(
-      z.object({
-        uri: z.string().describe('Resource URI'),
-        name: z.string().describe('Resource name'),
-        mimeType: z.string().optional().describe('MIME type of the resource'),
-        description: z.string().optional().describe('Resource description'),
-        server: z.string().describe('Server that provides this resource'),
-      })
-    );
-  },
-
-  userFacingName() {
-    return 'listMcpResources';
-  },
-
-  isConcurrencySafe() {
-    return true;
-  },
-
-  isReadOnly() {
-    return true;
-  },
-
-  toAutoClassifierInput(input) {
-    return input.server ?? '';
-  },
-
-  async call({ server: targetServer }, { options: { mcpClients = [] } }) {
-    const clientsToProcess = targetServer
-      ? mcpClients.filter((client: MCPClient) => client.name === targetServer)
-      : mcpClients;
-
-    if (targetServer && clientsToProcess.length === 0) {
-      throw new Error(
-        `Server "${targetServer}" not found. Available servers: ${mcpClients.map((c: MCPClient) => c.name).join(', ')}`
+    get outputSchema() {
+      return z.array(
+        z.object({
+          uri: z.string().describe('Resource URI'),
+          name: z.string().describe('Resource name'),
+          mimeType: z.string().optional().describe('MIME type of the resource'),
+          description: z.string().optional().describe('Resource description'),
+          server: z.string().describe('Server that provides this resource'),
+        })
       );
-    }
+    },
 
-    const results = await Promise.all(
-      clientsToProcess.map(async (client: MCPClient) => {
-        if (client.type !== 'connected') {
-          return [];
-        }
-        try {
-          return await fetchResourcesForClient(client);
-        } catch (error) {
-          return [];
-        }
-      })
-    );
+    userFacingName() {
+      return 'listMcpResources';
+    },
 
-    return {
-      data: results.flat(),
-    };
-  },
+    isConcurrencySafe() {
+      return true;
+    },
 
-  renderToolUseMessage() {
-    return null;
-  },
+    isReadOnly() {
+      return true;
+    },
 
-  renderToolResultMessage(output: MCPResource[], _toolUseId: string) {
-    if (!output || output.length === 0) {
+    toAutoClassifierInput(input) {
+      return input.server ?? '';
+    },
+
+    async call({ server: targetServer }, { options: { mcpClients = [] } }) {
+      const clientsToProcess = targetServer
+        ? mcpClients.filter((client: MCPClient) => client.name === targetServer)
+        : mcpClients;
+
+      if (targetServer && clientsToProcess.length === 0) {
+        throw new Error(
+          `Server "${targetServer}" not found. Available servers: ${mcpClients.map((c: MCPClient) => c.name).join(', ')}`
+        );
+      }
+
+      const results = await Promise.all(
+        clientsToProcess.map(async (client: MCPClient) => {
+          if (client.type !== 'connected') {
+            return [];
+          }
+          try {
+            return await fetchResourcesForClient(client);
+          } catch (error) {
+            return [];
+          }
+        })
+      );
+
+      return {
+        data: results.flat(),
+      };
+    },
+
+    renderToolUseMessage() {
+      return null;
+    },
+
+    renderToolResultMessage(output: MCPResource[], _toolUseId: string) {
+      if (!output || output.length === 0) {
+        return (
+          <Box flexDirection="column" marginTop={1}>
+            <Text color="inactive">
+              No resources found. MCP servers may still provide tools even if
+              they have no resources.
+            </Text>
+          </Box>
+        );
+      }
+
       return (
         <Box flexDirection="column" marginTop={1}>
-          <Text color="inactive">No resources found. MCP servers may still provide tools even if they have no resources.</Text>
+          <Text color="cyan">MCP Resources:</Text>
+          {output.map((resource: MCPResource, index: number) => (
+            <Box key={index} flexDirection="column" marginTop={1}>
+              <Text color="white">
+                • {resource.name} ({resource.server})
+              </Text>
+              <Text color="inactive" dimColor>
+                URI: {resource.uri}
+              </Text>
+              {resource.description && (
+                <Text color="inactive" dimColor>
+                  {resource.description}
+                </Text>
+              )}
+            </Box>
+          ))}
         </Box>
       );
-    }
+    },
 
-    return (
-      <Box flexDirection="column" marginTop={1}>
-        <Text color="cyan">MCP Resources:</Text>
-        {output.map((resource: MCPResource, index: number) => (
-          <Box key={index} flexDirection="column" marginTop={1}>
-            <Text color="white">
-              • {resource.name} ({resource.server})
-            </Text>
-            <Text color="inactive" dimColor>
-              URI: {resource.uri}
-            </Text>
-            {resource.description && (
-              <Text color="inactive" dimColor>
-                {resource.description}
-              </Text>
-            )}
-          </Box>
-        ))}
-      </Box>
-    );
-  },
-
-  mapToolResultToToolResultBlockParam(content, toolUseId) {
-    if (!content || content.length === 0) {
+    mapToolResultToToolResultBlockParam(content, toolUseId) {
+      if (!content || content.length === 0) {
+        return {
+          tool_use_id: toolUseId,
+          type: 'tool_result',
+          content:
+            'No resources found. MCP servers may still provide tools even if they have no resources.',
+        };
+      }
       return {
         tool_use_id: toolUseId,
         type: 'tool_result',
-        content: 'No resources found. MCP servers may still provide tools even if they have no resources.',
+        content: jsonStringify(content),
       };
-    }
-    return {
-      tool_use_id: toolUseId,
-      type: 'tool_result',
-      content: jsonStringify(content),
-    };
-  },
-});
+    },
+  });
 
 export { LIST_MCP_RESOURCES_TOOL_NAME };
 export type { MCPResource, MCPClient };

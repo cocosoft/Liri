@@ -14,14 +14,28 @@ declare class AnalyticsService {
 
   constructor();
 
-  trackEvent(type: string, name: string, metadata?: Record<string, any>): string;
+  trackEvent(
+    type: string,
+    name: string,
+    metadata?: Record<string, any>
+  ): string;
   logEvent(eventName: string, metadata?: Record<string, any>): void;
   startSession(userId: string): string;
   endSession(sessionId: string): void;
-  updateSessionActivity(sessionId: string, operationType: string, duration: number): void;
+  updateSessionActivity(
+    sessionId: string,
+    operationType: string,
+    duration: number
+  ): void;
   getSession(sessionId: string): any;
   getAllSessions(): any[];
-  getEvents(options?: { type?: string; name?: string; startTime?: number; endTime?: number; limit?: number }): any[];
+  getEvents(options?: {
+    type?: string;
+    name?: string;
+    startTime?: number;
+    endTime?: number;
+    limit?: number;
+  }): any[];
   cleanupInactiveSessions(): number;
   getStats(): {
     totalEvents: number;

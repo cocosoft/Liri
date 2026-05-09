@@ -3,14 +3,9 @@
  * 提供配置管理的统一接口
  */
 
-export {
-  ConfigManager,
-  configManager,
-} from './ConfigManager.js';
+export { ConfigManager, configManager } from './ConfigManager.js';
 
-export {
-  ConfigValidator,
-} from './ConfigValidator.js';
+export { ConfigValidator } from './ConfigValidator.js';
 
 export {
   ConfigMigration,
@@ -43,10 +38,7 @@ export {
 } from './types.js';
 
 // 导出 ConfigLoader
-export {
-  ConfigLoader,
-  configLoader,
-} from './loader/ConfigLoader.js';
+export { ConfigLoader, configLoader } from './loader/ConfigLoader.js';
 
 export type {
   ConfigSource as LoaderConfigSource,
@@ -57,10 +49,7 @@ export type {
 } from './loader/ConfigLoader.js';
 
 // 导出 HotReloader
-export {
-  HotReloader,
-  hotReloader,
-} from './hotreload/HotReloader.js';
+export { HotReloader, hotReloader } from './hotreload/HotReloader.js';
 
 export type {
   ReloadStrategy,

@@ -307,19 +307,19 @@ export class MemoryStoreImpl implements MemoryStore {
     indexContent += 'This file contains an index of all memories.\n\n';
     indexContent += '## Statistics\n\n';
     indexContent += `- Total memories: ${memories.length}\n`;
-    
+
     // 按类型统计
     const typeStats: Record<string, number> = {};
     for (const memory of memories) {
       const type = memory.metadata.type || 'unknown';
       typeStats[type] = (typeStats[type] || 0) + 1;
     }
-    
+
     indexContent += '- Memories by type:\n';
     for (const [type, count] of Object.entries(typeStats)) {
       indexContent += `  - ${type}: ${count}\n`;
     }
-    
+
     indexContent += '\n## Memories\n\n';
 
     // 为每个记忆添加索引项
@@ -353,7 +353,10 @@ export class MemoryStoreImpl implements MemoryStore {
    * @param exportDir 导出目录
    * @returns 导出文件路径
    */
-  async exportMemoryAsMarkdown(id: string, exportDir: string = './exports'): Promise<string> {
+  async exportMemoryAsMarkdown(
+    id: string,
+    exportDir: string = './exports'
+  ): Promise<string> {
     const memory = await this.readMemory(id);
     if (!memory) {
       throw new Error(`Memory with id ${id} not found`);
@@ -403,7 +406,9 @@ export class MemoryStoreImpl implements MemoryStore {
       const { data, content: memoryContent } = matter(content);
 
       // 生成新的记忆ID（如果文件中没有）
-      const id = data.id || `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const id =
+        data.id ||
+        `memory_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // 构建记忆对象
       const memory: Memory = {
@@ -430,7 +435,9 @@ export class MemoryStoreImpl implements MemoryStore {
 
       return id;
     } catch (error) {
-      throw new Error(`Failed to import memory from Markdown: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to import memory from Markdown: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -449,11 +456,11 @@ export class MemoryStoreImpl implements MemoryStore {
     let preview = `# ${memory.metadata.name}\n\n`;
     preview += `**Type**: ${memory.metadata.type || 'unknown'}\n`;
     preview += `**Updated**: ${memory.updatedAt.toISOString()}\n\n`;
-    
+
     if (memory.metadata.description) {
       preview += `## Description\n${memory.metadata.description}\n\n`;
     }
-    
+
     preview += `## Content\n${memory.content}\n`;
 
     return preview;

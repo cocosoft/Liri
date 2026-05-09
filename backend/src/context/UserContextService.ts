@@ -65,7 +65,9 @@ export class UserContextService {
       // 检查文件大小
       const stats = fs.statSync(filePath);
       if (stats.size > MAX_CONTEXT_FILE_SIZE) {
-        console.warn(`Context file ${filePath} exceeds max size, reading truncated`);
+        console.warn(
+          `Context file ${filePath} exceeds max size, reading truncated`
+        );
       }
 
       // 读取文件内容
@@ -148,10 +150,7 @@ export class UserContextService {
    * 注入当前日期到上下文
    */
   injectCurrentDate(context: string): string {
-    return context.replace(
-      /\{\{current_date\}\}/g,
-      this.getCurrentDate()
-    );
+    return context.replace(/\{\{current_date\}\}/g, this.getCurrentDate());
   }
 
   /**

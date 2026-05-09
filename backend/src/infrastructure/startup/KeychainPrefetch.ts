@@ -16,8 +16,11 @@ interface SpawnResult {
   timedOut: boolean;
 }
 
-function spawnSecurity(serviceName: string, username: string): Promise<SpawnResult> {
-  return new Promise(resolve => {
+function spawnSecurity(
+  serviceName: string,
+  username: string
+): Promise<SpawnResult> {
+  return new Promise((resolve) => {
     execFile(
       'security',
       ['find-generic-password', '-a', username, '-w', '-s', serviceName],
@@ -25,19 +28,28 @@ function spawnSecurity(serviceName: string, username: string): Promise<SpawnResu
       (err, stdout) => {
         resolve({
           stdout: err ? null : stdout?.trim() || null,
-          timedOut: Boolean(err && 'killed' in err && (err as NodeJS.ErrnoException).code === 'ETIMEDOUT'),
+          timedOut: Boolean(
+            err &&
+            'killed' in err &&
+            (err as NodeJS.ErrnoException).code === 'ETIMEDOUT'
+          ),
         });
-      },
+      }
     );
   });
 }
 
-export function startKeychainPrefetch(serviceNames: string[], username: string): void {
+export function startKeychainPrefetch(
+  serviceNames: string[],
+  username: string
+): void {
   if (process.platform !== 'darwin' || prefetchPromise) return;
 
-  const spawnPromises = serviceNames.map(name => spawnSecurity(name, username));
+  const spawnPromises = serviceNames.map((name) =>
+    spawnSecurity(name, username)
+  );
 
-  prefetchPromise = Promise.all(spawnPromises).then(results => {
+  prefetchPromise = Promise.all(spawnPromises).then((results) => {
     results.forEach((result, index) => {
       if (!result.timedOut && index === 0) {
         legacyApiKeyPrefetch = { stdout: result.stdout };
@@ -50,7 +62,9 @@ export async function ensureKeychainPrefetchCompleted(): Promise<void> {
   if (prefetchPromise) await prefetchPromise;
 }
 
-export function getLegacyApiKeyPrefetchResult(): { stdout: string | null } | null {
+export function getLegacyApiKeyPrefetchResult(): {
+  stdout: string | null;
+} | null {
   return legacyApiKeyPrefetch;
 }
 

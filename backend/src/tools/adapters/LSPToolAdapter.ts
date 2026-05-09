@@ -25,7 +25,10 @@ import type { ReferenceResult } from '../lsp/ReferenceFinder.js';
 import { HoverProvider } from '../lsp/HoverProvider.js';
 import type { HoverResult } from '../lsp/HoverProvider.js';
 import { CallHierarchy } from '../lsp/CallHierarchy.js';
-import type { CallHierarchyItem, CallHierarchyNode } from '../lsp/CallHierarchy.js';
+import type {
+  CallHierarchyItem,
+  CallHierarchyNode,
+} from '../lsp/CallHierarchy.js';
 import { SymbolContext as SymbolContextProvider } from '../lsp/SymbolContext.js';
 import type { SymbolContextResult } from '../lsp/SymbolContext.js';
 
@@ -334,19 +337,19 @@ export class LSPToolAdapter implements Tool {
         }
         case 'documentSymbol':
           result = await this.symbolSearch.getDocumentSymbols(
-            params.uri || `file://${document}`,
+            params.uri || `file://${document}`
           );
           break;
         case 'callHierarchy': {
           const items = await this.callHierarchy.prepareCallHierarchy(
             params.uri || `file://${document}`,
             params.line ?? position?.line ?? 0,
-            params.character ?? position?.character ?? 0,
+            params.character ?? position?.character ?? 0
           );
           result = await this.callHierarchy.buildCallHierarchy(
             params.uri || `file://${document}`,
             params.line ?? position?.line ?? 0,
-            params.character ?? position?.character ?? 0,
+            params.character ?? position?.character ?? 0
           );
           break;
         }
@@ -355,7 +358,7 @@ export class LSPToolAdapter implements Tool {
             document,
             params.line ?? position?.line ?? 0,
             params.character ?? position?.character ?? 0,
-            params.filePath || '',
+            params.filePath || ''
           );
           break;
         }

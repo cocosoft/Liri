@@ -10,13 +10,26 @@ export * from './tasks/TaskService';
 
 export { AppCore, createAppCore, type AppCoreConfig } from './AppCore';
 export { DIContainer } from './DIContainer';
-export { ModuleDependencyManager, type ModuleDefinition } from './ModuleDependencyManager';
+export {
+  ModuleDependencyManager,
+  type ModuleDefinition,
+} from './ModuleDependencyManager';
 export { PluginEcosystem, type EcosystemConfig } from './PluginEcosystem';
 export { PluginSDK, type Plugin, type PluginSDKConfig } from './PluginSDK';
 export { Coordinator, type CoordinatorConfig } from './Coordinator';
 export { ContextManager, type ContextData } from './context/index';
 export type { AuthManager, AuthConfig } from './auth/AuthManager';
 
-export { NotificationService, notificationService, createNotificationService, type NotificationOptions } from './notifications/NotificationService';
+export {
+  NotificationService,
+  notificationService,
+  createNotificationService,
+  type NotificationOptions,
+} from './notifications/NotificationService';
 
-export { FEATURE_FLAGS, feature, isFeatureEnabled, type FeatureFlag } from './featureFlags';
+export {
+  FEATURE_FLAGS,
+  feature,
+  isFeatureEnabled,
+  type FeatureFlag,
+} from './featureFlags';

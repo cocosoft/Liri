@@ -10,13 +10,33 @@ export type {
 } from './types/index.js';
 
 export { commandRegistry } from './registry/index.js';
-export { EnhancedCommandRegistry, enhancedCommandRegistry, CommandCategory } from './registry/index.js';
-export type { CommandPermission, CommandDependency, CommandMetadata, DependencyGraph, IEnhancedCommandRegistry } from './registry/index.js';
+export {
+  EnhancedCommandRegistry,
+  enhancedCommandRegistry,
+  CommandCategory,
+} from './registry/index.js';
+export type {
+  CommandPermission,
+  CommandDependency,
+  CommandMetadata,
+  DependencyGraph,
+  IEnhancedCommandRegistry,
+} from './registry/index.js';
 
 export { CommandExecutor, commandExecutor } from './executor/index.js';
 
-export { CommandPipeline, commandPipeline, PipelineStage } from './pipeline/index.js';
-export type { PipelineContext, PipelineHandler, PipelineMiddleware, PipelineExecutionResult, IPipeline } from './pipeline/index.js';
+export {
+  CommandPipeline,
+  commandPipeline,
+  PipelineStage,
+} from './pipeline/index.js';
+export type {
+  PipelineContext,
+  PipelineHandler,
+  PipelineMiddleware,
+  PipelineExecutionResult,
+  IPipeline,
+} from './pipeline/index.js';
 
 export {
   commandLoaderRegistry,
@@ -33,8 +53,17 @@ export {
   initializeCommands,
 } from './manager/CommandManager.js';
 
-export { AdvancedCommandHistory, advancedCommandHistory } from './history/index.js';
-export type { HistoryEntry, HistoryQuery, CommandStats, HistoryTrend, IAdvancedCommandHistory } from './history/index.js';
+export {
+  AdvancedCommandHistory,
+  advancedCommandHistory,
+} from './history/index.js';
+export type {
+  HistoryEntry,
+  HistoryQuery,
+  CommandStats,
+  HistoryTrend,
+  IAdvancedCommandHistory,
+} from './history/index.js';
 
 // 导出内置命令（不使用 export * 以避免与 export default 冲突）
 export { helpCommand } from './builtin/help/index.js';

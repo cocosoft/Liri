@@ -55,9 +55,15 @@ interface GitRootResult {
   worktreePath?: string;
 }
 
-function findGitRootImpl(startPath: string): string | typeof GIT_ROOT_NOT_FOUND {
+function findGitRootImpl(
+  startPath: string
+): string | typeof GIT_ROOT_NOT_FOUND {
   let current = resolve(startPath);
-  const root = current.substring(0, current.indexOf(process.platform === 'win32' ? '\\' : '/') + 1) || '\\';
+  const root =
+    current.substring(
+      0,
+      current.indexOf(process.platform === 'win32' ? '\\' : '/') + 1
+    ) || '\\';
   const sep = process.platform === 'win32' ? '\\' : '/';
 
   while (current !== root) {
@@ -68,8 +74,7 @@ function findGitRootImpl(startPath: string): string | typeof GIT_ROOT_NOT_FOUND 
       if (stat.isDirectory() || stat.isFile()) {
         return current;
       }
-    } catch {
-    }
+    } catch {}
     const parent = dirname(current);
     if (parent === current) {
       break;
@@ -84,8 +89,7 @@ function findGitRootImpl(startPath: string): string | typeof GIT_ROOT_NOT_FOUND 
     if (stat.isDirectory() || stat.isFile()) {
       return root;
     }
-  } catch {
-  }
+  } catch {}
 
   return GIT_ROOT_NOT_FOUND;
 }
@@ -102,7 +106,7 @@ function isSafeRefName(name: string): boolean {
   if (name.includes('..')) {
     return false;
   }
-  if (name.split('/').some(c => c === '.' || c === '')) {
+  if (name.split('/').some((c) => c === '.' || c === '')) {
     return false;
   }
   if (!/^[a-zA-Z0-9/._+@-]+$/.test(name)) {
@@ -180,7 +184,6 @@ export class GitCommand {
             value: `未知子命令: ${subcommand}\n\n输入 /git 查看所有可用子命令`,
           };
       }
-
     } catch (error) {
       return {
         type: 'error',
@@ -189,7 +192,10 @@ export class GitCommand {
     }
   }
 
-  private parseArgs(args: string): { subcommand: string; options: Record<string, string> } {
+  private parseArgs(args: string): {
+    subcommand: string;
+    options: Record<string, string>;
+  } {
     const parts = args.trim().split(/\s+/);
     const subcommand = parts[0] || '';
     const options: Record<string, string> = {};
@@ -212,7 +218,10 @@ export class GitCommand {
     return { subcommand, options };
   }
 
-  private async execGit(command: string, cwd?: string): Promise<{ stdout: string; stderr: string }> {
+  private async execGit(
+    command: string,
+    cwd?: string
+  ): Promise<{ stdout: string; stderr: string }> {
     try {
       const { stdout, stderr } = await execAsync(command, {
         cwd: cwd || this.gitRoot || process.cwd(),
@@ -221,20 +230,30 @@ export class GitCommand {
       });
       return { stdout: stdout.trim(), stderr: stderr.trim() };
     } catch (error: any) {
-      return { stdout: '', stderr: error.message || error.stderr || '命令执行失败' };
+      return {
+        stdout: '',
+        stderr: error.message || error.stderr || '命令执行失败',
+      };
     }
   }
 
-  private async getGitStatus(options: Record<string, string>): Promise<GitStatus> {
-    const [branchResult, statusResult, diffResult, logResult] = await Promise.all([
-      this.execGit('git branch --show-current'),
-      this.execGit('git status --porcelain'),
-      this.execGit('git diff --stat'),
-      this.execGit('git log --oneline -1 --format="%H"'),
-    ]);
+  private async getGitStatus(
+    options: Record<string, string>
+  ): Promise<GitStatus> {
+    const [branchResult, statusResult, diffResult, logResult] =
+      await Promise.all([
+        this.execGit('git branch --show-current'),
+        this.execGit('git status --porcelain'),
+        this.execGit('git diff --stat'),
+        this.execGit('git log --oneline -1 --format="%H"'),
+      ]);
 
-    const isDetached = branchResult.stderr.includes('fatal: not a git repository');
-    const branch = isDetached ? '( detached )' : (branchResult.stdout || 'unknown');
+    const isDetached = branchResult.stderr.includes(
+      'fatal: not a git repository'
+    );
+    const branch = isDetached
+      ? '( detached )'
+      : branchResult.stdout || 'unknown';
     const sha = logResult.stdout || undefined;
 
     const staged: string[] = [];
@@ -263,17 +282,30 @@ export class GitCommand {
       }
     }
 
-    const branchInfoResult = await this.execGit(`git rev-list --left-right --count ${branch}...@{upstream}`);
+    const branchInfoResult = await this.execGit(
+      `git rev-list --left-right --count ${branch}...@{upstream}`
+    );
     if (branchInfoResult.stdout) {
       const [a, b] = branchInfoResult.stdout.split('\t').map(Number);
       ahead = a || 0;
       behind = b || 0;
     }
 
-    return { branch, isDetached, staged, modified, untracked, ahead, behind, sha };
+    return {
+      branch,
+      isDetached,
+      staged,
+      modified,
+      untracked,
+      ahead,
+      behind,
+      sha,
+    };
   }
 
-  private async showStatus(options: Record<string, string>): Promise<GitResult> {
+  private async showStatus(
+    options: Record<string, string>
+  ): Promise<GitResult> {
     const status = await this.getGitStatus(options);
     const isShort = options.short || options.s;
 
@@ -323,14 +355,18 @@ export class GitCommand {
         output += '\n';
       }
 
-      if (status.staged.length === 0 && status.modified.length === 0 && status.untracked.length === 0) {
+      if (
+        status.staged.length === 0 &&
+        status.modified.length === 0 &&
+        status.untracked.length === 0
+      ) {
         output += '✅ 工作区干净，没有变更\n';
       }
     } else {
       const lines: string[] = [];
-      status.staged.forEach(f => lines.push(`A  ${f}`));
-      status.modified.forEach(f => lines.push(` M ${f}`));
-      status.untracked.forEach(f => lines.push(`?? ${f}`));
+      status.staged.forEach((f) => lines.push(`A  ${f}`));
+      status.modified.forEach((f) => lines.push(` M ${f}`));
+      status.untracked.forEach((f) => lines.push(`?? ${f}`));
       if (lines.length > 0) {
         output += '\n' + lines.join('\n') + '\n';
       } else {
@@ -341,7 +377,9 @@ export class GitCommand {
     return { type: 'text', value: output };
   }
 
-  private async showBranches(options: Record<string, string>): Promise<GitResult> {
+  private async showBranches(
+    options: Record<string, string>
+  ): Promise<GitResult> {
     const isList = !options.a && !options.d && !options.r && !options.v;
     const isAll = options.a || options.all;
     const isRemote = options.r || isAll;
@@ -358,24 +396,27 @@ export class GitCommand {
     }
 
     const branches = result.stdout.split('\n').filter(Boolean);
-    const currentBranch = (await this.execGit('git branch --show-current')).stdout;
+    const currentBranch = (await this.execGit('git branch --show-current'))
+      .stdout;
 
     let output = '## Git 分支\n\n';
 
     if (isRemote) {
       output += '### 远程分支\n\n';
-      branches.filter(b => b.startsWith('  remotes/')).forEach(branch => {
-        const isCurrent = branch.includes(`->`);
-        const displayName = branch.replace('  remotes/origin/', '');
-        if (isCurrent) {
-          output += `* ${displayName} (current)\n`;
-        } else {
-          output += `  ${displayName}\n`;
-        }
-      });
+      branches
+        .filter((b) => b.startsWith('  remotes/'))
+        .forEach((branch) => {
+          const isCurrent = branch.includes(`->`);
+          const displayName = branch.replace('  remotes/origin/', '');
+          if (isCurrent) {
+            output += `* ${displayName} (current)\n`;
+          } else {
+            output += `  ${displayName}\n`;
+          }
+        });
     } else {
       output += '### 本地分支\n\n';
-      branches.forEach(branch => {
+      branches.forEach((branch) => {
         const name = branch.replace(/^\*?\s*/, '');
         const isCurrent = branch.startsWith('*');
 
@@ -445,7 +486,7 @@ export class GitCommand {
 
     if (isStat) {
       const stats = result.stdout.split('\n').filter(Boolean);
-      stats.forEach(stat => {
+      stats.forEach((stat) => {
         output += `  ${stat}\n`;
       });
     } else {
@@ -460,8 +501,11 @@ export class GitCommand {
     return { type: 'text', value: output };
   }
 
-  private async handleStash(options: Record<string, string>): Promise<GitResult> {
-    const isList = !options.save && !options.pop && !options.apply && !options.drop;
+  private async handleStash(
+    options: Record<string, string>
+  ): Promise<GitResult> {
+    const isList =
+      !options.save && !options.pop && !options.apply && !options.drop;
     const isSave = options.save;
     const isPop = options.pop;
     const isApply = options.apply;
@@ -475,7 +519,7 @@ export class GitCommand {
         output += '没有保存的stash\n';
       } else {
         const stashes = result.stdout.split('\n').filter(Boolean);
-        stashes.forEach(stash => {
+        stashes.forEach((stash) => {
           output += `  ${stash}\n`;
         });
       }
@@ -502,7 +546,9 @@ export class GitCommand {
 
     if (isApply) {
       const stashIndex = options.apply === 'true' ? '0' : options.apply;
-      const result = await this.execGit(`git stash apply stash@{${stashIndex}}`);
+      const result = await this.execGit(
+        `git stash apply stash@{${stashIndex}}`
+      );
       if (result.stderr && !result.stdout) {
         return { type: 'error', value: result.stderr };
       }
@@ -521,18 +567,26 @@ export class GitCommand {
     return this.showHelp();
   }
 
-  private async showRemote(options: Record<string, string>): Promise<GitResult> {
+  private async showRemote(
+    options: Record<string, string>
+  ): Promise<GitResult> {
     const isList = !options.add && !options.remove && !options.rename;
     const isVerbose = options.v || options.verbose;
 
     if (isList) {
-      const result = await this.execGit(isVerbose ? 'git remote -v' : 'git remote');
+      const result = await this.execGit(
+        isVerbose ? 'git remote -v' : 'git remote'
+      );
       let output = '## Git 远程仓库\n\n';
 
       if (!result.stdout) {
         output += '没有配置远程仓库\n';
       } else {
-        output += result.stdout.split('\n').map(line => `  ${line}`).join('\n') + '\n';
+        output +=
+          result.stdout
+            .split('\n')
+            .map((line) => `  ${line}`)
+            .join('\n') + '\n';
       }
 
       return { type: 'text', value: output };
@@ -541,7 +595,9 @@ export class GitCommand {
     return this.showHelp();
   }
 
-  private async handleWorktree(options: Record<string, string>): Promise<GitResult> {
+  private async handleWorktree(
+    options: Record<string, string>
+  ): Promise<GitResult> {
     const isList = !options.add && !options.remove && !options.prune;
     const isAdd = options.add;
     const isRemove = options.remove;
@@ -551,7 +607,7 @@ export class GitCommand {
       let output = '## Git Worktree\n\n';
 
       const trees = result.stdout.split('\n').filter(Boolean);
-      trees.forEach(tree => {
+      trees.forEach((tree) => {
         output += `  ${tree}\n`;
       });
 
@@ -561,24 +617,36 @@ export class GitCommand {
     return this.showHelp();
   }
 
-  private async handleSubmodule(options: Record<string, string>): Promise<GitResult> {
+  private async handleSubmodule(
+    options: Record<string, string>
+  ): Promise<GitResult> {
     const isStatus = !options.add && !options.update && !options.sync;
     const isInit = options.init;
     const isUpdate = options.update;
 
     if (isStatus || isInit || isUpdate) {
-      const command = isStatus ? 'git submodule status' :
-                     isInit ? 'git submodule init' : 'git submodule update';
+      const command = isStatus
+        ? 'git submodule status'
+        : isInit
+          ? 'git submodule init'
+          : 'git submodule update';
       const result = await this.execGit(command);
 
       if (result.stderr && !result.stdout) {
         return { type: 'error', value: result.stderr };
       }
 
-      let output = isStatus ? '## 子模块状态\n\n' :
-                   isInit ? '## 初始化子模块\n\n' : '## 更新子模块\n\n';
+      let output = isStatus
+        ? '## 子模块状态\n\n'
+        : isInit
+          ? '## 初始化子模块\n\n'
+          : '## 更新子模块\n\n';
 
-      output += result.stdout.split('\n').map(line => `  ${line}`).join('\n') + '\n';
+      output +=
+        result.stdout
+          .split('\n')
+          .map((line) => `  ${line}`)
+          .join('\n') + '\n';
 
       return { type: 'text', value: output };
     }
@@ -610,9 +678,12 @@ export class GitCommand {
       if (!result.stdout) {
         output += '没有标签\n';
       } else {
-        result.stdout.split('\n').filter(Boolean).forEach(tag => {
-          output += `  ${tag}\n`;
-        });
+        result.stdout
+          .split('\n')
+          .filter(Boolean)
+          .forEach((tag) => {
+            output += `  ${tag}\n`;
+          });
       }
 
       return { type: 'text', value: output };

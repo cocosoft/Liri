@@ -22,7 +22,14 @@ export const ConfigScopeSchema = z.enum([
 export type ConfigScope = z.infer<typeof ConfigScopeSchema>;
 
 // 传输层类型
-export const TransportSchema = z.enum(['stdio', 'sse', 'sse-ide', 'http', 'ws', 'sdk']);
+export const TransportSchema = z.enum([
+  'stdio',
+  'sse',
+  'sse-ide',
+  'http',
+  'ws',
+  'sdk',
+]);
 export type Transport = z.infer<typeof TransportSchema>;
 
 // Stdio服务器配置
@@ -79,7 +86,9 @@ export const McpWebSocketServerConfigSchema = z.object({
   headersHelper: z.string().optional(),
 });
 
-export type McpWebSocketServerConfig = z.infer<typeof McpWebSocketServerConfigSchema>;
+export type McpWebSocketServerConfig = z.infer<
+  typeof McpWebSocketServerConfigSchema
+>;
 
 // SDK服务器配置
 export const McpSdkServerConfigSchema = z.object({
@@ -96,7 +105,9 @@ export const McpClaudeAIProxyServerConfigSchema = z.object({
   id: z.string(),
 });
 
-export type McpClaudeAIProxyServerConfig = z.infer<typeof McpClaudeAIProxyServerConfigSchema>;
+export type McpClaudeAIProxyServerConfig = z.infer<
+  typeof McpClaudeAIProxyServerConfigSchema
+>;
 
 // 服务器配置联合类型
 export const McpServerConfigSchema = z.union([
@@ -165,7 +176,7 @@ export type DisabledMCPServer = {
   config: ScopedMcpServerConfig;
 };
 
-export type MCPServerConnection = 
+export type MCPServerConnection =
   | ConnectedMCPServer
   | FailedMCPServer
   | NeedsAuthMCPServer

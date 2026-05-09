@@ -10,7 +10,7 @@ export const EFFORT_LEVELS = ['low', 'medium', 'high'] as const;
 /**
  * Effort值类型
  */
-export type EffortValue = typeof EFFORT_LEVELS[number] | number;
+export type EffortValue = (typeof EFFORT_LEVELS)[number] | number;
 
 /**
  * 解析effort值
@@ -29,10 +29,10 @@ export function parseEffortValue(value: unknown): EffortValue | undefined {
 
   if (typeof value === 'string') {
     const trimmed = value.trim().toLowerCase();
-    if (EFFORT_LEVELS.includes(trimmed as typeof EFFORT_LEVELS[number])) {
-      return trimmed as typeof EFFORT_LEVELS[number];
+    if (EFFORT_LEVELS.includes(trimmed as (typeof EFFORT_LEVELS)[number])) {
+      return trimmed as (typeof EFFORT_LEVELS)[number];
     }
-    
+
     const parsed = parseInt(trimmed, 10);
     if (!isNaN(parsed) && Number.isInteger(parsed) && parsed > 0) {
       return parsed;

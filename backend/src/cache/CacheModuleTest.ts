@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { CacheStrategyManager, StrategyType } from './strategy/CacheStrategyManager';
+import {
+  CacheStrategyManager,
+  StrategyType,
+} from './strategy/CacheStrategyManager';
 import type { StrategyConfig } from './strategy/CacheStrategyManager';
 import { CachePerformanceOptimizer } from './performance/CachePerformanceOptimizer';
 import type { BatchOperation } from './performance/CachePerformanceOptimizer';
@@ -10,7 +13,11 @@ describe('CacheStrategyManager', () => {
   let manager: CacheStrategyManager;
 
   beforeEach(() => {
-    manager = new CacheStrategyManager({ maxSize: 100, ttl: 5000, monitorInterval: 600000 });
+    manager = new CacheStrategyManager({
+      maxSize: 100,
+      ttl: 5000,
+      monitorInterval: 600000,
+    });
   });
 
   it('stores and retrieves values', async () => {
@@ -27,7 +34,7 @@ describe('CacheStrategyManager', () => {
   it('respects TTL expiry', async () => {
     await manager.set('temp', 'data', 10);
     expect(await manager.get('temp')).toBe('data');
-    await new Promise(r => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 20));
     expect(await manager.get('temp')).toBeUndefined();
   });
 
@@ -58,7 +65,12 @@ describe('CacheStrategyManager', () => {
   });
 
   it('starts with specified strategy', () => {
-    const lru = new CacheStrategyManager({ type: StrategyType.LRU, maxSize: 50, ttl: 5000, monitorInterval: 600000 });
+    const lru = new CacheStrategyManager({
+      type: StrategyType.LRU,
+      maxSize: 50,
+      ttl: 5000,
+      monitorInterval: 600000,
+    });
     expect(lru.getStrategy()).toBe(StrategyType.LRU);
   });
 
@@ -68,7 +80,7 @@ describe('CacheStrategyManager', () => {
     await manager.get('miss');
     const eff = manager.getEffectiveness();
     expect(eff.length).toBe(3);
-    eff.forEach(e => {
+    eff.forEach((e) => {
       expect(e.type).toBeDefined();
       expect(e.score).toBeGreaterThanOrEqual(0);
     });
@@ -107,7 +119,10 @@ describe('CachePerformanceOptimizer', () => {
   });
 
   it('deletes batch of keys', async () => {
-    await optimizer.setBatch([{ key: 'd1', value: 1 }, { key: 'd2', value: 2 }]);
+    await optimizer.setBatch([
+      { key: 'd1', value: 1 },
+      { key: 'd2', value: 2 },
+    ]);
     const deleted = await optimizer.deleteBatch(['d1', 'd2', 'nonexistent']);
     expect(deleted).toBe(2);
   });
@@ -123,11 +138,15 @@ describe('CachePerformanceOptimizer', () => {
     const result = await optimizer.executeBatch(ops);
     expect(result.success).toBe(false);
     expect(result.results.length).toBe(5);
-    const setResult = result.results.find(r => r.key === 'batch1' && r.value !== undefined);
+    const setResult = result.results.find(
+      (r) => r.key === 'batch1' && r.value !== undefined
+    );
     expect(setResult?.value).toBe('hello');
-    const delResult = result.results.find(r => r.key === 'batch2' && r.success === true);
+    const delResult = result.results.find(
+      (r) => r.key === 'batch2' && r.success === true
+    );
     expect(delResult?.success).toBe(true);
-    const missResult = result.results.find(r => r.key === 'nonexistent');
+    const missResult = result.results.find((r) => r.key === 'nonexistent');
     expect(missResult?.success).toBe(false);
   });
 
@@ -148,7 +167,7 @@ describe('CachePerformanceOptimizer', () => {
 
   it('performs optimization', async () => {
     await optimizer.setBatch([{ key: 'stale', value: 'old', ttl: 1 }]);
-    await new Promise(r => setTimeout(r, 5));
+    await new Promise((r) => setTimeout(r, 5));
     const result = await optimizer.optimize(true);
     expect(result.performed).toBe(true);
     expect(result.freedBytes).toBeGreaterThan(0);
@@ -184,7 +203,13 @@ describe('EnhancedCacheMonitor', () => {
   });
 
   it('records trend samples', () => {
-    monitor.recordSample({ hitRate: 0.9, missRate: 0.1, avgLatency: 10, memoryUsage: 1000, itemCount: 50 });
+    monitor.recordSample({
+      hitRate: 0.9,
+      missRate: 0.1,
+      avgLatency: 10,
+      memoryUsage: 1000,
+      itemCount: 50,
+    });
     const report = monitor.generateReport(60000);
     expect(report.metrics.avgHitRate).toBe(0.9);
   });
@@ -193,8 +218,8 @@ describe('EnhancedCacheMonitor', () => {
     const now = Date.now();
     for (let i = 0; i < 20; i++) {
       monitor.recordSample({
-        hitRate: 0.8 + (i * 0.01),
-        missRate: 0.2 - (i * 0.01),
+        hitRate: 0.8 + i * 0.01,
+        missRate: 0.2 - i * 0.01,
         avgLatency: 10 - i * 0.2,
         memoryUsage: 1000 + i * 10,
         itemCount: 50 + i,
@@ -213,22 +238,34 @@ describe('EnhancedCacheMonitor', () => {
     const now = Date.now();
     for (let i = 0; i < 10; i++) {
       monitor.recordSample({
-        hitRate: 0.9, missRate: 0.1, avgLatency: 5,
-        memoryUsage: 1000, itemCount: 50,
+        hitRate: 0.9,
+        missRate: 0.1,
+        avgLatency: 5,
+        memoryUsage: 1000,
+        itemCount: 50,
       });
     }
     monitor.recordSample({
-      hitRate: 0.5, missRate: 0.5, avgLatency: 5,
-      memoryUsage: 1000, itemCount: 50,
+      hitRate: 0.5,
+      missRate: 0.5,
+      avgLatency: 5,
+      memoryUsage: 1000,
+      itemCount: 50,
     });
     const anomalies = monitor.detectAnomalies(60000);
-    const hitRateAnomaly = anomalies.find(a => a.type === 'hit_rate_drop');
+    const hitRateAnomaly = anomalies.find((a) => a.type === 'hit_rate_drop');
     expect(hitRateAnomaly).toBeDefined();
   });
 
   it('generates comprehensive report', () => {
     for (let i = 0; i < 10; i++) {
-      monitor.recordSample({ hitRate: 0.85, missRate: 0.15, avgLatency: 8, memoryUsage: 2000, itemCount: 100 });
+      monitor.recordSample({
+        hitRate: 0.85,
+        missRate: 0.15,
+        avgLatency: 8,
+        memoryUsage: 2000,
+        itemCount: 100,
+      });
     }
     const report = monitor.generateReport(60000);
     expect(report.generatedAt).toBeGreaterThan(0);
@@ -241,14 +278,26 @@ describe('EnhancedCacheMonitor', () => {
 
   it('calculates health score', () => {
     for (let i = 0; i < 10; i++) {
-      monitor.recordSample({ hitRate: 0.95, missRate: 0.05, avgLatency: 2, memoryUsage: 500, itemCount: 30 });
+      monitor.recordSample({
+        hitRate: 0.95,
+        missRate: 0.05,
+        avgLatency: 2,
+        memoryUsage: 500,
+        itemCount: 30,
+      });
     }
     const score = monitor.getHealthScore();
     expect(score).toBeGreaterThan(80);
   });
 
   it('clears all data', () => {
-    monitor.recordSample({ hitRate: 0.9, missRate: 0.1, avgLatency: 5, memoryUsage: 100, itemCount: 10 });
+    monitor.recordSample({
+      hitRate: 0.9,
+      missRate: 0.1,
+      avgLatency: 5,
+      memoryUsage: 100,
+      itemCount: 10,
+    });
     monitor.clear();
     const report = monitor.generateReport(60000);
     expect(report.metrics.totalOperations).toBe(0);
@@ -257,7 +306,11 @@ describe('EnhancedCacheMonitor', () => {
 
 describe('Cache Integration', () => {
   it('integrates strategy manager with optimizer and monitor', async () => {
-    const manager = new CacheStrategyManager({ maxSize: 50, ttl: 60000, monitorInterval: 600000 });
+    const manager = new CacheStrategyManager({
+      maxSize: 50,
+      ttl: 60000,
+      monitorInterval: 600000,
+    });
     const optimizer = new CachePerformanceOptimizer();
     const monitor = new EnhancedCacheMonitor();
 
@@ -285,9 +338,21 @@ describe('Cache Integration', () => {
     expect(managerEff.length).toBe(3);
 
     const managerStrategy = manager.getStrategy();
-    expect([StrategyType.LRU, StrategyType.LFU, StrategyType.FIFO, StrategyType.ADAPTIVE, StrategyType.HYBRID]).toContain(managerStrategy);
+    expect([
+      StrategyType.LRU,
+      StrategyType.LFU,
+      StrategyType.FIFO,
+      StrategyType.ADAPTIVE,
+      StrategyType.HYBRID,
+    ]).toContain(managerStrategy);
 
-    monitor.recordSample({ hitRate: 0.9, missRate: 0.1, avgLatency: 5, memoryUsage: memReport.totalSizeBytes, itemCount: memReport.totalItems });
+    monitor.recordSample({
+      hitRate: 0.9,
+      missRate: 0.1,
+      avgLatency: 5,
+      memoryUsage: memReport.totalSizeBytes,
+      itemCount: memReport.totalItems,
+    });
     const report = monitor.generateReport(60000);
     expect(report.healthScore).toBeGreaterThanOrEqual(0);
     expect(report.anomalies).toBeDefined();

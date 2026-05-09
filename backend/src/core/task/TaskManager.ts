@@ -43,13 +43,17 @@ export class TaskManager {
   /**
    * 创建新任务
    */
-  createTask(type: TaskType, description: string, toolUseId?: string): TaskStateBase {
+  createTask(
+    type: TaskType,
+    description: string,
+    toolUseId?: string
+  ): TaskStateBase {
     const id = generateTaskId(type);
     const taskState = createTaskStateBase(id, type, description, toolUseId);
-    
+
     this.tasks.set(id, taskState);
     logger.info(`Task created: ${id} (${type}) - ${description}`);
-    
+
     return taskState;
   }
 
@@ -65,12 +69,14 @@ export class TaskManager {
 
     // 防止终态任务再次转换
     if (isTerminalTaskStatus(task.status)) {
-      logger.warn(`Task ${taskId} is already in terminal state: ${task.status}`);
+      logger.warn(
+        `Task ${taskId} is already in terminal state: ${task.status}`
+      );
       return task;
     }
 
     task.status = status;
-    
+
     if (isTerminalTaskStatus(status)) {
       task.endTime = Date.now();
     }
@@ -97,14 +103,16 @@ export class TaskManager {
    * 按类型获取任务
    */
   getTasksByType(type: TaskType): TaskStateBase[] {
-    return this.getAllTasks().filter(task => task.type === type);
+    return this.getAllTasks().filter((task) => task.type === type);
   }
 
   /**
    * 获取活跃任务（非终态）
    */
   getActiveTasks(): TaskStateBase[] {
-    return this.getAllTasks().filter(task => !isTerminalTaskStatus(task.status));
+    return this.getAllTasks().filter(
+      (task) => !isTerminalTaskStatus(task.status)
+    );
   }
 
   /**
@@ -118,10 +126,10 @@ export class TaskManager {
 
     // 清理关联资源
     this.cleanupTask(taskId);
-    
+
     this.tasks.delete(taskId);
     logger.info(`Task deleted: ${taskId}`);
-    
+
     return true;
   }
 
@@ -174,7 +182,10 @@ export class TaskManager {
       try {
         handle.cleanup();
       } catch (error) {
-        logger.error(`Task cleanup failed for ${taskId}:`, error instanceof Error ? error : new Error(String(error)));
+        logger.error(
+          `Task cleanup failed for ${taskId}:`,
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     }
 
@@ -186,7 +197,7 @@ export class TaskManager {
 
     this.updateTaskStatus(taskId, 'killed');
     this.cleanupTask(taskId);
-    
+
     logger.info(`Task killed: ${taskId}`);
     return true;
   }
@@ -233,14 +244,21 @@ export class TaskManager {
 /**
  * 便捷函数：创建任务
  */
-export function createTask(type: TaskType, description: string, toolUseId?: string): TaskStateBase {
+export function createTask(
+  type: TaskType,
+  description: string,
+  toolUseId?: string
+): TaskStateBase {
   return TaskManager.getInstance().createTask(type, description, toolUseId);
 }
 
 /**
  * 便捷函数：更新任务状态
  */
-export function updateTaskStatus(taskId: string, status: TaskStatus): TaskStateBase | null {
+export function updateTaskStatus(
+  taskId: string,
+  status: TaskStatus
+): TaskStateBase | null {
   return TaskManager.getInstance().updateTaskStatus(taskId, status);
 }
 

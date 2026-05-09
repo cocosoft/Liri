@@ -91,7 +91,10 @@ export interface LocalShellSpawnInput {
 export interface Task {
   name: string;
   type: TaskType;
-  kill(taskId: string, setAppState: (updater: (prev: any) => any) => void): Promise<void>;
+  kill(
+    taskId: string,
+    setAppState: (updater: (prev: any) => any) => void
+  ): Promise<void>;
 }
 
 /**
@@ -143,7 +146,7 @@ export function createTaskStateBase(
   id: string,
   type: TaskType,
   description: string,
-  toolUseId?: string,
+  toolUseId?: string
 ): TaskStateBase {
   return {
     id,

@@ -14,7 +14,10 @@ export const releaseNotesCommand: Command = {
   aliases: ['changelog', 'releases'],
   argumentHint: '[latest|all|version|search|help]',
   whenToUse: '当你需要查看版本更新历史时',
-  load: async () => import('./ReleaseNotes.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./ReleaseNotes.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
 
 export default releaseNotesCommand;

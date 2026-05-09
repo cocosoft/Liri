@@ -13,9 +13,11 @@ import type { SkillService } from '../services/skillService';
 export default function registerVerifySkill(skillService: SkillService): void {
   registerBundledSkill(skillService, {
     name: 'verify',
-    description: '验证代码变更的正确性——运行测试、检查边界条件、确认行为符合预期',
+    description:
+      '验证代码变更的正确性——运行测试、检查边界条件、确认行为符合预期',
     aliases: ['验证', 'check'],
-    whenToUse: '当用户需要验证代码变更是否正确、测试是否通过或行为是否符合预期时使用',
+    whenToUse:
+      '当用户需要验证代码变更是否正确、测试是否通过或行为是否符合预期时使用',
     argumentHint: '[要验证的变更或结果描述]',
     userInvocable: true,
     async getPromptForCommand(args, context) {

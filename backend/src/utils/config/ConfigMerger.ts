@@ -28,7 +28,11 @@ export interface ConfigLayer {
 export class ConfigMerger {
   private layers: ConfigLayer[] = [];
 
-  addLayer(source: string, config: Record<string, unknown>, priority?: number): void {
+  addLayer(
+    source: string,
+    config: Record<string, unknown>,
+    priority?: number
+  ): void {
     const layer: ConfigLayer = {
       source,
       priority: priority ?? this.layers.length,
@@ -39,7 +43,7 @@ export class ConfigMerger {
   }
 
   removeLayer(source: string): void {
-    this.layers = this.layers.filter(l => l.source !== source);
+    this.layers = this.layers.filter((l) => l.source !== source);
   }
 
   getLayers(): ConfigLayer[] {
@@ -54,7 +58,7 @@ export class ConfigMerger {
     const result: Record<string, unknown> = {};
 
     for (const layer of this.layers) {
-      result
+      result;
     }
 
     return result;
@@ -113,7 +117,7 @@ export class ConfigMerger {
     }
 
     if (Array.isArray(value)) {
-      return value.map(item => this.cloneDeep(item)) as T;
+      return value.map((item) => this.cloneDeep(item)) as T;
     }
 
     const result: Record<string, unknown> = {};
@@ -125,7 +129,8 @@ export class ConfigMerger {
 }
 
 export class ConfigOverrideManager {
-  private overrides: Map<string, { value: unknown; source: string }> = new Map();
+  private overrides: Map<string, { value: unknown; source: string }> =
+    new Map();
   private originalValues: Map<string, unknown> = new Map();
 
   setOverride(key: string, value: unknown, source: string = 'runtime'): void {

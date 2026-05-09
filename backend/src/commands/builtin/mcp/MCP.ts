@@ -22,13 +22,21 @@ interface ServerInfo {
  */
 async function getServers(): Promise<ServerInfo[]> {
   try {
-    const { mcpConnectionManager } = await import('@modules/services/mcp/MCPConnectionManager.js');
+    const { mcpConnectionManager } =
+      await import('@modules/services/mcp/MCPConnectionManager.js');
     const connections = mcpConnectionManager.getServers();
 
     return connections.map((conn: any) => ({
       name: conn.name,
       type: conn.type,
-      status: conn.type === 'connected' ? '已连接' : conn.type === 'failed' ? '错误' : conn.type === 'disabled' ? '禁用' : '待连接',
+      status:
+        conn.type === 'connected'
+          ? '已连接'
+          : conn.type === 'failed'
+            ? '错误'
+            : conn.type === 'disabled'
+              ? '禁用'
+              : '待连接',
       toolsCount: 0,
       toolNames: [],
       error: conn.type === 'failed' ? conn.error : undefined,
@@ -43,7 +51,8 @@ async function getServers(): Promise<ServerInfo[]> {
  */
 async function getServerTools(serverName: string): Promise<string[]> {
   try {
-    const { mcpConnectionManager } = await import('@modules/services/mcp/MCPConnectionManager.js');
+    const { mcpConnectionManager } =
+      await import('@modules/services/mcp/MCPConnectionManager.js');
     const tools = mcpConnectionManager.getServerTools(serverName);
     return tools.map((t: any) => t.name);
   } catch {
@@ -88,7 +97,12 @@ const mcpCommand = {
   async execute(args: string, _context: CommandContext) {
     const trimmed = args.trim();
 
-    if (trimmed === '-h' || trimmed === '--help' || trimmed === 'help' || !trimmed) {
+    if (
+      trimmed === '-h' ||
+      trimmed === '--help' ||
+      trimmed === 'help' ||
+      !trimmed
+    ) {
       return this.showHelp();
     }
 
@@ -200,7 +214,11 @@ const mcpCommand = {
     }
 
     if (data.servers.length === 0) {
-      return { success: true, message: '当前没有注册的 MCP 服务器。\n提示: MCP 服务器由配置文件加载或在系统初始化时注册。' };
+      return {
+        success: true,
+        message:
+          '当前没有注册的 MCP 服务器。\n提示: MCP 服务器由配置文件加载或在系统初始化时注册。',
+      };
     }
 
     const lines: string[] = [];
@@ -208,7 +226,14 @@ const mcpCommand = {
     lines.push('');
 
     for (const s of data.servers) {
-      const icon = s.type === 'connected' ? '✅' : s.type === 'failed' ? '❌' : s.type === 'disabled' ? '⭕' : '🔄';
+      const icon =
+        s.type === 'connected'
+          ? '✅'
+          : s.type === 'failed'
+            ? '❌'
+            : s.type === 'disabled'
+              ? '⭕'
+              : '🔄';
       lines.push(`  ${icon} ${s.name}`);
       lines.push(`     状态: ${s.status}`);
       lines.push(`     工具: ${s.toolsCount} 个`);
@@ -217,10 +242,13 @@ const mcpCommand = {
       }
     }
 
-    (await import('@modules/services/analytics/index.js')).logEvent('tengu_mcp_list', {
-      total: data.servers.length,
-      connected: data.connectedCount,
-    });
+    (await import('@modules/services/analytics/index.js')).logEvent(
+      'tengu_mcp_list',
+      {
+        total: data.servers.length,
+        connected: data.connectedCount,
+      }
+    );
 
     return { success: true, message: lines.join('\n') };
   },
@@ -248,9 +276,12 @@ const mcpCommand = {
       }
     }
 
-    (await import('@modules/services/analytics/index.js')).logEvent('tengu_mcp_tools', {
-      total: data.totalTools,
-    });
+    (await import('@modules/services/analytics/index.js')).logEvent(
+      'tengu_mcp_tools',
+      {
+        total: data.totalTools,
+      }
+    );
 
     return { success: true, message: lines.join('\n') };
   },
@@ -266,16 +297,28 @@ const mcpCommand = {
 
     const passed = results.filter((r) => r.status === '通过').length;
 
-    (await import('@modules/services/analytics/index.js')).logEvent('tengu_mcp_test', {
-      total: results.length,
-      passed,
-    });
+    (await import('@modules/services/analytics/index.js')).logEvent(
+      'tengu_mcp_test',
+      {
+        total: results.length,
+        passed,
+      }
+    );
 
     if (useJson) {
-      return { success: true, message: JSON.stringify({ results, total: results.length, passed }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify(
+          { results, total: results.length, passed },
+          null,
+          2
+        ),
+      };
     }
 
-    const lines = results.map((r) => `  ${r.status === '通过' ? '✅' : '❌'} ${r.name}: ${r.status}`);
+    const lines = results.map(
+      (r) => `  ${r.status === '通过' ? '✅' : '❌'} ${r.name}: ${r.status}`
+    );
 
     return {
       success: true,
@@ -292,7 +335,10 @@ const mcpCommand = {
 
   async runToolAction(args: string) {
     if (!args) {
-      return { success: false, message: '请指定要执行的 MCP 操作。用法: /mcp run <操作名> [参数]' };
+      return {
+        success: false,
+        message: '请指定要执行的 MCP 操作。用法: /mcp run <操作名> [参数]',
+      };
     }
 
     try {
@@ -302,7 +348,11 @@ const mcpCommand = {
       const params = parts.slice(1).join(' ');
 
       const toolManager = getToolManager();
-      const result = await toolManager.executeTool('mcp', { action, params }, {});
+      const result = await toolManager.executeTool(
+        'mcp',
+        { action, params },
+        {}
+      );
 
       return {
         success: true,

@@ -43,7 +43,9 @@ export default {
       { key: 'Esc', action: '取消输入' },
     ];
 
-    const table = keybindings.map(k => `${k.key.padEnd(12)} - ${k.action}`).join('\n');
+    const table = keybindings
+      .map((k) => `${k.key.padEnd(12)} - ${k.action}`)
+      .join('\n');
 
     return {
       success: true,
@@ -56,23 +58,31 @@ export default {
   /**
    * 显示特定快捷键详情
    */
-  async handleShow(key: string, context: CommandContext): Promise<CommandResult> {
-    const keybindings: Record<string, { action: string; description: string }> = {
-      'ctrl+c': { action: '中断当前操作', description: '立即停止正在执行的命令或操作' },
-      'ctrl+d': { action: '退出', description: '退出当前会话或程序' },
-      'ctrl+l': { action: '清屏', description: '清空终端屏幕' },
-      'ctrl+p': { action: '命令历史', description: '显示命令历史记录' },
-      'tab': { action: '自动补全', description: '自动补全命令或路径' },
-      'esc': { action: '取消输入', description: '取消当前输入' },
-    };
+  async handleShow(
+    key: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
+    const keybindings: Record<string, { action: string; description: string }> =
+      {
+        'ctrl+c': {
+          action: '中断当前操作',
+          description: '立即停止正在执行的命令或操作',
+        },
+        'ctrl+d': { action: '退出', description: '退出当前会话或程序' },
+        'ctrl+l': { action: '清屏', description: '清空终端屏幕' },
+        'ctrl+p': { action: '命令历史', description: '显示命令历史记录' },
+        tab: { action: '自动补全', description: '自动补全命令或路径' },
+        esc: { action: '取消输入', description: '取消当前输入' },
+      };
 
     const info = keybindings[key.toLowerCase()];
-    
+
     if (info) {
       return {
         success: true,
         type: 'text',
-        message: `${key}\n` +
+        message:
+          `${key}\n` +
           `- 操作: ${info.action}\n` +
           `- 描述: ${info.description}`,
         data: info,
@@ -91,7 +101,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('快捷键配置已重置为默认值', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

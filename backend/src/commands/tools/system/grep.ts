@@ -64,7 +64,10 @@ function buildHelpText(): string {
  * @param args 原始参数字符串
  * @returns 解析后的搜索选项
  */
-function parseGrepArgs(args: string): { options: Record<string, any>; showHelp: boolean } {
+function parseGrepArgs(args: string): {
+  options: Record<string, any>;
+  showHelp: boolean;
+} {
   const options: Record<string, any> = {};
   const tokens: string[] = [];
   let i = 0;
@@ -151,8 +154,14 @@ function parseGrepArgs(args: string): { options: Record<string, any>; showHelp: 
           break;
 
         case 'outputMode':
-          if (val !== undefined && ['content', 'files_with_matches', 'count'].includes(val)) {
-            options.outputMode = val as 'content' | 'files_with_matches' | 'count';
+          if (
+            val !== undefined &&
+            ['content', 'files_with_matches', 'count'].includes(val)
+          ) {
+            options.outputMode = val as
+              | 'content'
+              | 'files_with_matches'
+              | 'count';
           }
           i += val !== undefined ? 2 : 1;
           break;
@@ -235,10 +244,16 @@ function parseGrepArgs(args: string): { options: Record<string, any>; showHelp: 
  * 对标CC源码 GrepTool.mapToolResultToToolResultBlockParam 格式
  */
 function formatResult(
-  result: { matches: string[]; matchCount: number; fileCount: number; truncated: boolean; durationMs: number },
+  result: {
+    matches: string[];
+    matchCount: number;
+    fileCount: number;
+    truncated: boolean;
+    durationMs: number;
+  },
   outputMode: string,
   headLimit: number | undefined,
-  offset: number | undefined,
+  offset: number | undefined
 ): string {
   const parts: string[] = [];
 
@@ -247,18 +262,26 @@ function formatResult(
   }
 
   if (outputMode === 'content') {
-    parts.push(`\n--- ${result.matchCount} matches in ${result.fileCount} files (${result.durationMs}ms)`);
+    parts.push(
+      `\n--- ${result.matchCount} matches in ${result.fileCount} files (${result.durationMs}ms)`
+    );
   } else if (outputMode === 'files_with_matches') {
-    parts.push(`\n--- Found ${result.fileCount} files with matches (${result.durationMs}ms)`);
+    parts.push(
+      `\n--- Found ${result.fileCount} files with matches (${result.durationMs}ms)`
+    );
   } else if (outputMode === 'count') {
-    parts.push(`\n--- ${result.matchCount} total occurrences across ${result.fileCount} files (${result.durationMs}ms)`);
+    parts.push(
+      `\n--- ${result.matchCount} total occurrences across ${result.fileCount} files (${result.durationMs}ms)`
+    );
   }
 
   if (result.truncated) {
     const limitInfo = [];
     if (headLimit) limitInfo.push(`limit: ${headLimit}`);
     if (offset) limitInfo.push(`offset: ${offset}`);
-    parts.push(`(结果已截断，Showing results with pagination = ${limitInfo.join(', ')})`);
+    parts.push(
+      `(结果已截断，Showing results with pagination = ${limitInfo.join(', ')})`
+    );
     parts.push('使用 --headLimit <num> 和 --offset <num> 分页查看更多结果');
   }
 
@@ -289,7 +312,8 @@ const grepImplementation: CommandImplementation = {
     if (!options.pattern) {
       return {
         success: false,
-        error: '错误: 必须指定搜索模式 pattern\n用法: /grep [选项] <pattern> [searchPath]\n使用 /grep --help 查看详细帮助',
+        error:
+          '错误: 必须指定搜索模式 pattern\n用法: /grep [选项] <pattern> [searchPath]\n使用 /grep --help 查看详细帮助',
       };
     }
 
@@ -313,7 +337,12 @@ const grepImplementation: CommandImplementation = {
       if (result.matchCount > 0) {
         return {
           success: true,
-          message: formatResult(result, options.outputMode || 'files_with_matches', options.headLimit ?? 250, options.offset),
+          message: formatResult(
+            result,
+            options.outputMode || 'files_with_matches',
+            options.headLimit ?? 250,
+            options.offset
+          ),
         };
       } else {
         return {
@@ -344,37 +373,38 @@ export const grepCommand: Command = {
     '优先使用此命令而非终端 grep/rg，它更快且遵循 .gitignore',
     '支持完整的正则表达式语法和文件类型过滤',
   ].join('\n'),
-  getPromptForCommand: (_args: string) => Promise.resolve([
-    {
-      type: 'text',
-      text: [
-        '# Grep命令使用指南',
-        '',
-        '/grep 命令用于在文件中搜索文本内容，支持丰富的选项：',
-        '',
-        '| 选项 | 说明 |',
-        '|------|------|',
-        '| `-i` | 忽略大小写 |',
-        '| `-n` | 显示行号（默认启用） |',
-        '| `-C <num>` | 匹配前后各显示的行数 |',
-        '| `-B <num>` | 匹配前显示的行数 |',
-        '| `-A <num>` | 匹配后显示的行数 |',
-        '| `--outputMode <mode>` | 输出模式: content/files_with_matches/count |',
-        '| `--include <pattern>` | 文件通配符过滤 |',
-        '| `--type <filetype>` | 文件类型过滤（ts, js, rs, py 等） |',
-        '| `--headLimit <num>` | 最大结果数（默认 250） |',
-        '| `--offset <num>` | 分页偏移量 |',
-        '| `--multiline` | 多行匹配模式 |',
-        '',
-        '示例：',
-        '- `/grep function`',
-        '- `/grep -i "error" src/`',
-        '- `/grep -C 3 "TODO"`',
-        '- `/grep --type ts "interface.*Props"`',
-        '- `/grep --outputMode count --include "*.ts" export`',
-      ].join('\n'),
-    },
-  ]),
+  getPromptForCommand: (_args: string) =>
+    Promise.resolve([
+      {
+        type: 'text',
+        text: [
+          '# Grep命令使用指南',
+          '',
+          '/grep 命令用于在文件中搜索文本内容，支持丰富的选项：',
+          '',
+          '| 选项 | 说明 |',
+          '|------|------|',
+          '| `-i` | 忽略大小写 |',
+          '| `-n` | 显示行号（默认启用） |',
+          '| `-C <num>` | 匹配前后各显示的行数 |',
+          '| `-B <num>` | 匹配前显示的行数 |',
+          '| `-A <num>` | 匹配后显示的行数 |',
+          '| `--outputMode <mode>` | 输出模式: content/files_with_matches/count |',
+          '| `--include <pattern>` | 文件通配符过滤 |',
+          '| `--type <filetype>` | 文件类型过滤（ts, js, rs, py 等） |',
+          '| `--headLimit <num>` | 最大结果数（默认 250） |',
+          '| `--offset <num>` | 分页偏移量 |',
+          '| `--multiline` | 多行匹配模式 |',
+          '',
+          '示例：',
+          '- `/grep function`',
+          '- `/grep -i "error" src/`',
+          '- `/grep -C 3 "TODO"`',
+          '- `/grep --type ts "interface.*Props"`',
+          '- `/grep --outputMode count --include "*.ts" export`',
+        ].join('\n'),
+      },
+    ]),
   load: async () => grepImplementation,
 };
 

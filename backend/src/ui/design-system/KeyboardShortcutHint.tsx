@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink';
+import { Box, Text } from '@modules/ink';
 import { KeyboardShortcutHintProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
@@ -16,15 +16,15 @@ export function KeyboardShortcutHint({
   keys,
   description,
   color = 'textSecondary',
-  size = 'md'
+  size = 'md',
 }: KeyboardShortcutHintProps) {
   const { theme } = useTheme();
 
   return (
     <Box flexDirection="row" alignItems="center" gap={1}>
       {/* 快捷键键位显示（基于CC源码） */}
-      <Box 
-        flexDirection="row" 
+      <Box
+        flexDirection="row"
         gap={0.5}
         paddingLeft={0.5}
         paddingRight={0.5}
@@ -33,24 +33,16 @@ export function KeyboardShortcutHint({
       >
         {keys.map((key, index) => (
           <React.Fragment key={key}>
-            <Text 
-              color={theme.colors[color]}
-            >
-              {key}
-            </Text>
+            <Text color={theme.colors[color]}>{key}</Text>
             {index < keys.length - 1 && (
-              <Text color={theme.colors[color]}>
-                +
-              </Text>
+              <Text color={theme.colors[color]}>+</Text>
             )}
           </React.Fragment>
         ))}
       </Box>
 
       {/* 描述文本（基于CC源码） */}
-      <Text color={theme.colors[color]}>
-        {description}
-      </Text>
+      <Text color={theme.colors[color]}>{description}</Text>
     </Box>
   );
 }
@@ -61,7 +53,7 @@ export function KeyboardShortcutHint({
 export function KeyboardShortcutList({
   shortcuts,
   color = 'textSecondary',
-  size = 'md'
+  size = 'md',
 }: {
   shortcuts: Array<{ keys: string[]; description: string }>;
   color?: keyof UITheme['colors'];

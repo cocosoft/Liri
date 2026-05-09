@@ -9,7 +9,13 @@ import type { LoadedPlugin, PluginManifest } from '../types/plugin';
 import type { PluginSource } from './PluginLoader';
 import { pluginLoader } from './PluginLoader';
 import { satisfies, gte, lt } from './utils/semver';
-import { qualifyDependency, resolveDependencyClosure, verifyAndDemote, topologicalSort, detectCycle } from './utils/dependencyResolver';
+import {
+  qualifyDependency,
+  resolveDependencyClosure,
+  verifyAndDemote,
+  topologicalSort,
+  detectCycle,
+} from './utils/dependencyResolver';
 
 /**
  * 依赖项配置
@@ -42,11 +48,13 @@ export class PluginDependencyManager {
    * @param plugin 要解析依赖的插件
    * @returns 依赖解析结果
    */
-  async resolveDependencies(plugin: LoadedPlugin): Promise<DependencyResolutionResult> {
+  async resolveDependencies(
+    plugin: LoadedPlugin
+  ): Promise<DependencyResolutionResult> {
     const result: DependencyResolutionResult = {
       dependencies: [],
       errors: [],
-      warnings: []
+      warnings: [],
     };
 
     try {
@@ -70,7 +78,9 @@ export class PluginDependencyManager {
 
     // 检查循环依赖
     if (visited.has(pluginKey)) {
-      result.errors.push(`Circular dependency detected: ${Array.from(visited).join(' -> ')} -> ${pluginKey}`);
+      result.errors.push(
+        `Circular dependency detected: ${Array.from(visited).join(' -> ')} -> ${pluginKey}`
+      );
       return;
     }
 
@@ -78,7 +88,9 @@ export class PluginDependencyManager {
 
     // 解析插件的依赖
     if (plugin.manifest.dependencies) {
-      for (const [depName, depConfig] of Object.entries(plugin.manifest.dependencies)) {
+      for (const [depName, depConfig] of Object.entries(
+        plugin.manifest.dependencies
+      )) {
         const dependency = this.normalizeDependency(depName, depConfig);
         await this.resolveSingleDependency(dependency, result, visited);
       }
@@ -102,8 +114,15 @@ export class PluginDependencyManager {
       const existingDep = this.resolvedDependencies.get(depKey);
       // 检查版本兼容性
       if (dependency.version && existingDep) {
-        if (!this.isVersionCompatible(existingDep.manifest.version || '1.0.0', dependency.version)) {
-          result.warnings.push(`Version conflict for ${depKey}: existing ${existingDep.manifest.version}, requested ${dependency.version}`);
+        if (
+          !this.isVersionCompatible(
+            existingDep.manifest.version || '1.0.0',
+            dependency.version
+          )
+        ) {
+          result.warnings.push(
+            `Version conflict for ${depKey}: existing ${existingDep.manifest.version}, requested ${dependency.version}`
+          );
         }
       }
       return;
@@ -114,12 +133,15 @@ export class PluginDependencyManager {
       const source: PluginSource = {
         type: 'npm', // 默认使用npm
         url: dependency.name,
-        version: dependency.version
+        version: dependency.version,
       };
 
       if (dependency.source) {
         // 解析自定义源
-        if (dependency.source.startsWith('git@') || dependency.source.endsWith('.git')) {
+        if (
+          dependency.source.startsWith('git@') ||
+          dependency.source.endsWith('.git')
+        ) {
           source.type = 'git';
           source.url = dependency.source;
         } else if (dependency.source.includes('github.com')) {
@@ -133,7 +155,7 @@ export class PluginDependencyManager {
 
       // 加载依赖插件
       const depPlugin = await pluginLoader.load(source);
-      
+
       // 递归解析依赖的依赖
       await this.resolveDependencyTree(depPlugin, result, visited);
 
@@ -145,12 +167,15 @@ export class PluginDependencyManager {
       if (!this.dependencyGraph.has(depKey)) {
         this.dependencyGraph.set(depKey, []);
       }
-
     } catch (error) {
       if (dependency.optional) {
-        result.warnings.push(`Optional dependency ${dependency.name} not found: ${error}`);
+        result.warnings.push(
+          `Optional dependency ${dependency.name} not found: ${error}`
+        );
       } else {
-        result.errors.push(`Required dependency ${dependency.name} not found: ${error}`);
+        result.errors.push(
+          `Required dependency ${dependency.name} not found: ${error}`
+        );
       }
     }
   }
@@ -158,34 +183,47 @@ export class PluginDependencyManager {
   /**
    * 标准化依赖配置
    */
-  private normalizeDependency(name: string, config: string | Dependency): Dependency {
+  private normalizeDependency(
+    name: string,
+    config: string | Dependency
+  ): Dependency {
     if (typeof config === 'string') {
       return {
         name,
-        version: config
+        version: config,
       };
     }
     return {
       name,
-      ...config
+      ...config,
     };
   }
 
   /**
    * 检查版本兼容性
    */
-  private isVersionCompatible(actualVersion: string, requiredVersion: string): boolean {
+  private isVersionCompatible(
+    actualVersion: string,
+    requiredVersion: string
+  ): boolean {
     if (requiredVersion === '*') {
       return true;
     }
 
-    if (requiredVersion.startsWith('^') || requiredVersion.startsWith('~') ||
-        requiredVersion.includes('||') || requiredVersion.includes(' - ') ||
-        requiredVersion.includes('>=') || requiredVersion.includes('<=')) {
+    if (
+      requiredVersion.startsWith('^') ||
+      requiredVersion.startsWith('~') ||
+      requiredVersion.includes('||') ||
+      requiredVersion.includes(' - ') ||
+      requiredVersion.includes('>=') ||
+      requiredVersion.includes('<=')
+    ) {
       return satisfies(actualVersion, requiredVersion);
     }
 
-    return actualVersion === requiredVersion || gte(actualVersion, requiredVersion);
+    return (
+      actualVersion === requiredVersion || gte(actualVersion, requiredVersion)
+    );
   }
 
   /**
@@ -230,7 +268,9 @@ export class PluginDependencyManager {
         if (depPlugin.manifest.dependencies?.includes(otherName)) {
           const cycle = detectCycle([depPlugin, otherPlugin]);
           if (cycle) {
-            conflicts.push(`Circular dependency detected: ${cycle.join(' -> ')}`);
+            conflicts.push(
+              `Circular dependency detected: ${cycle.join(' -> ')}`
+            );
           }
         }
       }
@@ -256,7 +296,16 @@ export class PluginDependencyManager {
   /**
    * 验证并降级有问题的插件
    */
-  validateAndDemote(plugins: readonly LoadedPlugin[]): { demoted: Set<string>; errors: Array<{ type: string; source: string; plugin: string; dependency: string; reason: string }> } {
+  validateAndDemote(plugins: readonly LoadedPlugin[]): {
+    demoted: Set<string>;
+    errors: Array<{
+      type: string;
+      source: string;
+      plugin: string;
+      dependency: string;
+      reason: string;
+    }>;
+  } {
     return verifyAndDemote(plugins);
   }
 
@@ -266,13 +315,17 @@ export class PluginDependencyManager {
   generateDependencyReport(plugin: LoadedPlugin): string {
     const report: string[] = [];
     report.push(`Dependency report for ${plugin.name}:`);
-    
+
     if (plugin.manifest.dependencies) {
-      for (const [name, config] of Object.entries(plugin.manifest.dependencies)) {
+      for (const [name, config] of Object.entries(
+        plugin.manifest.dependencies
+      )) {
         const dep = this.normalizeDependency(name, config);
         const resolved = this.resolvedDependencies.get(name);
         if (resolved) {
-          report.push(`- ${name}@${dep.version || 'latest'} (resolved: ${resolved.manifest.version || 'unknown'})`);
+          report.push(
+            `- ${name}@${dep.version || 'latest'} (resolved: ${resolved.manifest.version || 'unknown'})`
+          );
         } else {
           report.push(`- ${name}@${dep.version || 'latest'} (not resolved)`);
         }

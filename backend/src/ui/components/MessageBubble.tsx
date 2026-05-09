@@ -23,7 +23,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isLoading = false,
 }) => {
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const getSenderStyle = () => {
@@ -56,9 +59,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (isLoading) {
       return (
         <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div
+            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+            style={{ animationDelay: '0ms' }}
+          />
+          <div
+            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+            style={{ animationDelay: '150ms' }}
+          />
+          <div
+            className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+            style={{ animationDelay: '300ms' }}
+          />
         </div>
       );
     }
@@ -75,9 +87,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
     if (type === 'markdown') {
       return (
-        <div className="markdown-content whitespace-pre-wrap">
-          {content}
-        </div>
+        <div className="markdown-content whitespace-pre-wrap">{content}</div>
       );
     }
 
@@ -85,10 +95,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   };
 
   return (
-    <div className={`flex flex-col ${sender === 'user' ? 'items-end' : 'items-start'} mb-4`}>
+    <div
+      className={`flex flex-col ${sender === 'user' ? 'items-end' : 'items-start'} mb-4`}
+    >
       <div className={`px-4 py-3 max-w-[75%] ${getSenderStyle()}`}>
         {sender !== 'system' && (
-          <div className={`text-xs font-semibold mb-1 ${sender === 'user' ? 'text-blue-200' : 'text-gray-500'}`}>
+          <div
+            className={`text-xs font-semibold mb-1 ${sender === 'user' ? 'text-blue-200' : 'text-gray-500'}`}
+          >
             {getSenderLabel()}
           </div>
         )}

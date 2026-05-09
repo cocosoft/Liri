@@ -62,7 +62,10 @@ export class ShadowedRuleDetector {
             shadowingRule: earlierRule,
             reason: this.getShadowReason(earlierRule, rule),
             shadowingIndex: j,
-            severity: earlierRule.behavior === PermissionBehavior.DENY ? 'error' : 'warning',
+            severity:
+              earlierRule.behavior === PermissionBehavior.DENY
+                ? 'error'
+                : 'warning',
           });
         }
       }
@@ -74,7 +77,7 @@ export class ShadowedRuleDetector {
       shadowedRules,
       totalRules: rules.length,
       shadowedCount: shadowedRules.length,
-      isValid: shadowedRules.filter(s => s.severity === 'error').length === 0,
+      isValid: shadowedRules.filter((s) => s.severity === 'error').length === 0,
       suggestions,
     };
   }
@@ -82,8 +85,14 @@ export class ShadowedRuleDetector {
   /**
    * 检测一个规则是否覆盖另一个
    */
-  private doesShadow(shadowing: PermissionRule, shadowed: PermissionRule): boolean {
-    if (shadowing.toolName !== shadowed.toolName && shadowing.toolName !== '*') {
+  private doesShadow(
+    shadowing: PermissionRule,
+    shadowed: PermissionRule
+  ): boolean {
+    if (
+      shadowing.toolName !== shadowed.toolName &&
+      shadowing.toolName !== '*'
+    ) {
       return false;
     }
 
@@ -91,11 +100,16 @@ export class ShadowedRuleDetector {
       return false;
     }
 
-    if (shadowing.toolName === '*' && shadowing.behavior !== shadowed.behavior) {
+    if (
+      shadowing.toolName === '*' &&
+      shadowing.behavior !== shadowed.behavior
+    ) {
       return true;
     }
 
-    if (this.isPatternBroader(shadowing.contentPattern, shadowed.contentPattern)) {
+    if (
+      this.isPatternBroader(shadowing.contentPattern, shadowed.contentPattern)
+    ) {
       return true;
     }
 
@@ -133,7 +147,10 @@ export class ShadowedRuleDetector {
   /**
    * 获取覆盖原因
    */
-  private getShadowReason(shadowing: PermissionRule, shadowed: PermissionRule): string {
+  private getShadowReason(
+    shadowing: PermissionRule,
+    shadowed: PermissionRule
+  ): string {
     const reasons: string[] = [];
 
     if (shadowing.toolName === '*') {
@@ -141,16 +158,23 @@ export class ShadowedRuleDetector {
     }
 
     if (!shadowing.contentPattern && shadowed.contentPattern) {
-      reasons.push('shadowing rule has no content pattern (matches all inputs)');
+      reasons.push(
+        'shadowing rule has no content pattern (matches all inputs)'
+      );
     }
 
     if (shadowing.contentPattern && shadowed.contentPattern) {
-      if (shadowing.contentPattern.includes('*') && !shadowed.contentPattern.includes('*')) {
+      if (
+        shadowing.contentPattern.includes('*') &&
+        !shadowed.contentPattern.includes('*')
+      ) {
         reasons.push('shadowing rule uses wildcard pattern');
       }
     }
 
-    reasons.push(`shadowing behavior (${shadowing.behavior}) takes precedence over shadowed behavior (${shadowed.behavior})`);
+    reasons.push(
+      `shadowing behavior (${shadowing.behavior}) takes precedence over shadowed behavior (${shadowed.behavior})`
+    );
 
     return reasons.join('; ');
   }
@@ -165,20 +189,28 @@ export class ShadowedRuleDetector {
       return ['No shadowed rules detected. All rules are effective.'];
     }
 
-    suggestions.push(`Found ${shadowedRules.length} shadowed rule(s). Consider removing or reordering.`);
+    suggestions.push(
+      `Found ${shadowedRules.length} shadowed rule(s). Consider removing or reordering.`
+    );
 
-    const errors = shadowedRules.filter(s => s.severity === 'error');
-    const warnings = shadowedRules.filter(s => s.severity === 'warning');
+    const errors = shadowedRules.filter((s) => s.severity === 'error');
+    const warnings = shadowedRules.filter((s) => s.severity === 'warning');
 
     if (errors.length > 0) {
-      suggestions.push(`ERROR: ${errors.length} rule(s) are completely ineffective due to being blocked by earlier rules.`);
+      suggestions.push(
+        `ERROR: ${errors.length} rule(s) are completely ineffective due to being blocked by earlier rules.`
+      );
       for (const shadow of errors.slice(0, 3)) {
-        suggestions.push(`  - Rule '${shadow.shadowedRule.id}' at index ${shadow.shadowedRule.priority} is shadowed by '${shadow.shadowingRule.id}'`);
+        suggestions.push(
+          `  - Rule '${shadow.shadowedRule.id}' at index ${shadow.shadowedRule.priority} is shadowed by '${shadow.shadowingRule.id}'`
+        );
       }
     }
 
     if (warnings.length > 0) {
-      suggestions.push(`WARNING: ${warnings.length} rule(s) may not be applied as expected.`);
+      suggestions.push(
+        `WARNING: ${warnings.length} rule(s) may not be applied as expected.`
+      );
     }
 
     return suggestions;
@@ -196,7 +228,7 @@ export class ShadowedRuleDetector {
    */
   getShadowedRules(rules: PermissionRule[]): PermissionRule[] {
     const result = this.detect(rules);
-    return result.shadowedRules.map(s => s.shadowedRule);
+    return result.shadowedRules.map((s) => s.shadowedRule);
   }
 
   /**
@@ -205,22 +237,29 @@ export class ShadowedRuleDetector {
   getInvalidRules(rules: PermissionRule[]): PermissionRule[] {
     const result = this.detect(rules);
     return result.shadowedRules
-      .filter(s => s.severity === 'error')
-      .map(s => s.shadowedRule);
+      .filter((s) => s.severity === 'error')
+      .map((s) => s.shadowedRule);
   }
 
   /**
    * 清除规则列表中的影子规则
    */
-  cleanRules(rules: PermissionRule[], keepShadowing: boolean = true): PermissionRule[] {
+  cleanRules(
+    rules: PermissionRule[],
+    keepShadowing: boolean = true
+  ): PermissionRule[] {
     const result = this.detect(rules);
 
     if (keepShadowing) {
-      const shadowingIds = new Set(result.shadowedRules.map(s => s.shadowingRule.id));
-      return rules.filter(r => !shadowingIds.has(r.id));
+      const shadowingIds = new Set(
+        result.shadowedRules.map((s) => s.shadowingRule.id)
+      );
+      return rules.filter((r) => !shadowingIds.has(r.id));
     } else {
-      const shadowedIds = new Set(result.shadowedRules.map(s => s.shadowedRule.id));
-      return rules.filter(r => !shadowedIds.has(r.id));
+      const shadowedIds = new Set(
+        result.shadowedRules.map((s) => s.shadowedRule.id)
+      );
+      return rules.filter((r) => !shadowedIds.has(r.id));
     }
   }
 

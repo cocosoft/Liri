@@ -4,7 +4,11 @@
  * 处理Windows和macOS之间的按键差异
  */
 import { platform } from 'os';
-import type { ParsedKeystroke, ParsedBinding, KeybindingContextName } from './types.js';
+import type {
+  ParsedKeystroke,
+  ParsedBinding,
+  KeybindingContextName,
+} from './types.js';
 
 /**
  * 平台类型
@@ -33,20 +37,20 @@ export const PLATFORM_KEY_MAPPINGS = {
   windows: {
     meta: 'win',
     command: 'win',
-    cmd: 'win'
+    cmd: 'win',
   },
   macos: {
     meta: 'cmd',
     command: 'cmd',
     win: 'cmd',
-    ctrl: 'ctrl' // macOS上ctrl键通常用于特殊功能
+    ctrl: 'ctrl', // macOS上ctrl键通常用于特殊功能
   },
   linux: {
     meta: 'meta',
     command: 'meta',
     cmd: 'meta',
-    win: 'meta'
-  }
+    win: 'meta',
+  },
 } as const;
 
 /**
@@ -59,7 +63,7 @@ export const PLATFORM_DISPLAY_NAMES = {
     shift: 'Shift',
     meta: 'Win',
     command: 'Win',
-    cmd: 'Win'
+    cmd: 'Win',
   },
   macos: {
     ctrl: 'Ctrl',
@@ -67,7 +71,7 @@ export const PLATFORM_DISPLAY_NAMES = {
     shift: 'Shift',
     meta: 'Cmd',
     command: 'Cmd',
-    cmd: 'Cmd'
+    cmd: 'Cmd',
   },
   linux: {
     ctrl: 'Ctrl',
@@ -75,8 +79,8 @@ export const PLATFORM_DISPLAY_NAMES = {
     shift: 'Shift',
     meta: 'Meta',
     command: 'Meta',
-    cmd: 'Meta'
-  }
+    cmd: 'Meta',
+  },
 } as const;
 
 /**
@@ -85,34 +89,36 @@ export const PLATFORM_DISPLAY_NAMES = {
 export const PLATFORM_RESERVED_SHORTCUTS = {
   windows: [
     'ctrl+alt+delete', // 系统安全选项
-    'alt+f4',          // 关闭窗口
-    'win',             // 开始菜单
-    'win+r',           // 运行对话框
-    'win+e',           // 文件资源管理器
-    'win+d',           // 显示桌面
-    'win+l',           // 锁定计算机
+    'alt+f4', // 关闭窗口
+    'win', // 开始菜单
+    'win+r', // 运行对话框
+    'win+e', // 文件资源管理器
+    'win+d', // 显示桌面
+    'win+l', // 锁定计算机
   ],
   macos: [
-    'cmd+space',       // Spotlight搜索
-    'cmd+tab',         // 应用切换器
-    'cmd+q',           // 退出应用
-    'cmd+w',           // 关闭窗口
-    'cmd+h',           // 隐藏应用
-    'cmd+option+esc',  // 强制退出
-    'ctrl+cmd+q',      // 锁定屏幕
+    'cmd+space', // Spotlight搜索
+    'cmd+tab', // 应用切换器
+    'cmd+q', // 退出应用
+    'cmd+w', // 关闭窗口
+    'cmd+h', // 隐藏应用
+    'cmd+option+esc', // 强制退出
+    'ctrl+cmd+q', // 锁定屏幕
   ],
   linux: [
-    'ctrl+alt+f1',     // 切换到TTY1
+    'ctrl+alt+f1', // 切换到TTY1
     'ctrl+alt+delete', // 系统菜单
-    'alt+tab',         // 应用切换
-    'super',           // 应用启动器
-  ]
+    'alt+tab', // 应用切换
+    'super', // 应用启动器
+  ],
 } as const;
 
 /**
  * 将按键适配到当前平台
  */
-export function adaptKeystrokeToPlatform(keystroke: ParsedKeystroke): ParsedKeystroke {
+export function adaptKeystrokeToPlatform(
+  keystroke: ParsedKeystroke
+): ParsedKeystroke {
   const platformMapping = PLATFORM_KEY_MAPPINGS[CURRENT_PLATFORM];
   const adapted: ParsedKeystroke = { ...keystroke };
 
@@ -123,7 +129,7 @@ export function adaptKeystrokeToPlatform(keystroke: ParsedKeystroke): ParsedKeys
     if (mappedKey !== 'meta') {
       // 清除meta标志，设置对应的平台特定标志
       adapted.meta = undefined;
-      
+
       switch (mappedKey) {
         case 'win':
           adapted.win = true;
@@ -142,7 +148,7 @@ export function adaptKeystrokeToPlatform(keystroke: ParsedKeystroke): ParsedKeys
   if (adapted.command) {
     const mappedKey: string = platformMapping.command;
     adapted.command = undefined;
-    
+
     switch (mappedKey) {
       case 'win':
         adapted.win = true;
@@ -172,24 +178,24 @@ export function getPlatformDisplayName(key: string): string {
  */
 export function formatKeystrokeForPlatform(keystroke: ParsedKeystroke): string {
   const parts: string[] = [];
-  
+
   // 按特定顺序添加修饰键
   if (keystroke.ctrl) parts.push(getPlatformDisplayName('ctrl'));
   if (keystroke.alt) parts.push(getPlatformDisplayName('alt'));
   if (keystroke.shift) parts.push(getPlatformDisplayName('shift'));
-  
+
   // 平台特定的修饰键
   if (keystroke.meta) parts.push(getPlatformDisplayName('meta'));
   if (keystroke.win) parts.push(getPlatformDisplayName('win'));
   if (keystroke.cmd) parts.push(getPlatformDisplayName('cmd'));
   if (keystroke.command) parts.push(getPlatformDisplayName('command'));
-  
+
   // 添加主键
   if (keystroke.key) {
     const displayKey = getKeyDisplayName(keystroke.key);
     parts.push(displayKey);
   }
-  
+
   return parts.join('+');
 }
 
@@ -198,47 +204,49 @@ export function formatKeystrokeForPlatform(keystroke: ParsedKeystroke): string {
  */
 function getKeyDisplayName(key: string): string {
   const keyMappings: Record<string, string> = {
-    'escape': 'Esc',
-    'enter': 'Enter',
-    'tab': 'Tab',
-    'space': 'Space',
-    'backspace': 'Backspace',
-    'delete': 'Delete',
-    'insert': 'Insert',
-    'home': 'Home',
-    'end': 'End',
-    'pageup': 'Page Up',
-    'pagedown': 'Page Down',
-    'up': '↑',
-    'down': '↓',
-    'left': '←',
-    'right': '→',
-    'f1': 'F1',
-    'f2': 'F2',
-    'f3': 'F3',
-    'f4': 'F4',
-    'f5': 'F5',
-    'f6': 'F6',
-    'f7': 'F7',
-    'f8': 'F8',
-    'f9': 'F9',
-    'f10': 'F10',
-    'f11': 'F11',
-    'f12': 'F12',
+    escape: 'Esc',
+    enter: 'Enter',
+    tab: 'Tab',
+    space: 'Space',
+    backspace: 'Backspace',
+    delete: 'Delete',
+    insert: 'Insert',
+    home: 'Home',
+    end: 'End',
+    pageup: 'Page Up',
+    pagedown: 'Page Down',
+    up: '↑',
+    down: '↓',
+    left: '←',
+    right: '→',
+    f1: 'F1',
+    f2: 'F2',
+    f3: 'F3',
+    f4: 'F4',
+    f5: 'F5',
+    f6: 'F6',
+    f7: 'F7',
+    f8: 'F8',
+    f9: 'F9',
+    f10: 'F10',
+    f11: 'F11',
+    f12: 'F12',
   };
-  
+
   return keyMappings[key.toLowerCase()] || key.toUpperCase();
 }
 
 /**
  * 检查是否为平台保留的快捷键
  */
-export function isPlatformReservedShortcut(keystroke: ParsedKeystroke): boolean {
+export function isPlatformReservedShortcut(
+  keystroke: ParsedKeystroke
+): boolean {
   const platformShortcuts = PLATFORM_RESERVED_SHORTCUTS[CURRENT_PLATFORM];
   const keystrokeText = formatKeystrokeForPlatform(keystroke).toLowerCase();
-  
-  return platformShortcuts.some(shortcut => 
-    shortcut.toLowerCase() === keystrokeText
+
+  return platformShortcuts.some(
+    (shortcut) => shortcut.toLowerCase() === keystrokeText
   );
 }
 
@@ -247,7 +255,7 @@ export function isPlatformReservedShortcut(keystroke: ParsedKeystroke): boolean 
  */
 export function getPlatformKeybindingSuggestions(): Record<string, string> {
   const suggestions: Record<string, string> = {};
-  
+
   switch (CURRENT_PLATFORM) {
     case 'windows':
       suggestions['ctrl+shift+esc'] = '任务管理器';
@@ -255,14 +263,14 @@ export function getPlatformKeybindingSuggestions(): Record<string, string> {
       suggestions['win+v'] = '剪贴板历史';
       suggestions['win+i'] = '设置';
       break;
-      
+
     case 'macos':
       suggestions['cmd+shift+3'] = '全屏截图';
       suggestions['cmd+shift+4'] = '区域截图';
       suggestions['cmd+space'] = 'Spotlight搜索';
       suggestions['cmd+option+esc'] = '强制退出';
       break;
-      
+
     case 'linux':
       suggestions['ctrl+alt+t'] = '打开终端';
       suggestions['super'] = '应用启动器';
@@ -270,7 +278,7 @@ export function getPlatformKeybindingSuggestions(): Record<string, string> {
       suggestions['printscreen'] = '截图';
       break;
   }
-  
+
   return suggestions;
 }
 
@@ -279,7 +287,7 @@ export function getPlatformKeybindingSuggestions(): Record<string, string> {
  */
 export function getPlatformSpecificBindings(): Record<string, string> {
   const bindings: Record<string, string> = {};
-  
+
   switch (CURRENT_PLATFORM) {
     case 'windows':
       // Windows特定的绑定
@@ -287,21 +295,21 @@ export function getPlatformSpecificBindings(): Record<string, string> {
       bindings['win+1'] = 'app:quickAccess1';
       bindings['win+2'] = 'app:quickAccess2';
       break;
-      
+
     case 'macos':
       // macOS特定的绑定
       bindings['cmd+`'] = 'app:switchWindow';
       bindings['cmd+option+space'] = 'app:emojiPicker';
       bindings['ctrl+cmd+space'] = 'app:characterViewer';
       break;
-      
+
     case 'linux':
       // Linux特定的绑定
       bindings['super+tab'] = 'app:switchWindow';
       bindings['ctrl+alt+l'] = 'app:lockScreen';
       break;
   }
-  
+
   return bindings;
 }
 
@@ -313,26 +321,26 @@ export function detectKeybindingConflicts(
 ): Array<{ conflict: string; actions: string[] }> {
   const conflicts: Array<{ conflict: string; actions: string[] }> = [];
   const chordMap = new Map<string, string[]>();
-  
+
   // 收集所有和弦序列
   for (const binding of bindings) {
-    const chordKey = binding.chord.map(k => JSON.stringify(k)).join('|');
+    const chordKey = binding.chord.map((k) => JSON.stringify(k)).join('|');
     if (!chordMap.has(chordKey)) {
       chordMap.set(chordKey, []);
     }
     chordMap.get(chordKey)!.push(`${binding.action} (${binding.context})`);
   }
-  
+
   // 检查冲突
   for (const [chordKey, actions] of chordMap.entries()) {
     if (actions.length > 1) {
       conflicts.push({
         conflict: chordKey,
-        actions: actions
+        actions: actions,
       });
     }
   }
-  
+
   return conflicts;
 }
 
@@ -343,7 +351,7 @@ export function loadPlatformAdaptedBindings(
   defaultBindings: ParsedBinding[]
 ): ParsedBinding[] {
   const adaptedBindings = [...defaultBindings];
-  
+
   // 添加平台特定的绑定
   const platformBindings = getPlatformSpecificBindings();
   for (const [chordString, action] of Object.entries(platformBindings)) {
@@ -355,7 +363,7 @@ export function loadPlatformAdaptedBindings(
       context: 'Global' as KeybindingContextName,
     } as ParsedBinding);
   }
-  
+
   return adaptedBindings;
 }
 
@@ -367,6 +375,6 @@ export function getPlatformInfo() {
     platform: CURRENT_PLATFORM,
     displayNames: PLATFORM_DISPLAY_NAMES[CURRENT_PLATFORM],
     reservedShortcuts: PLATFORM_RESERVED_SHORTCUTS[CURRENT_PLATFORM],
-    suggestions: getPlatformKeybindingSuggestions()
+    suggestions: getPlatformKeybindingSuggestions(),
   };
 }

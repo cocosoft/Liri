@@ -6,86 +6,94 @@
  */
 
 export type AnalyticsSink = {
-  logEvent: (eventName: string, metadata: Record<string, boolean | number | string | undefined>) => void
-  logEventAsync: (eventName: string, metadata: Record<string, boolean | number | string | undefined>) => Promise<void>
-}
+  logEvent: (
+    eventName: string,
+    metadata: Record<string, boolean | number | string | undefined>
+  ) => void;
+  logEventAsync: (
+    eventName: string,
+    metadata: Record<string, boolean | number | string | undefined>
+  ) => Promise<void>;
+};
 
 type QueuedEvent = {
-  eventName: string
-  metadata: Record<string, boolean | number | string | undefined>
-  async: boolean
-}
+  eventName: string;
+  metadata: Record<string, boolean | number | string | undefined>;
+  async: boolean;
+};
 
-const eventQueue: QueuedEvent[] = []
-let sink: AnalyticsSink | null = null
+const eventQueue: QueuedEvent[] = [];
+let sink: AnalyticsSink | null = null;
 
 export function attachAnalyticsSink(newSink: AnalyticsSink): void {
-  if (sink !== null) return
-  sink = newSink
+  if (sink !== null) return;
+  sink = newSink;
 
   queueMicrotask(() => {
     while (eventQueue.length > 0) {
-      const event = eventQueue.shift()
+      const event = eventQueue.shift();
       if (event) {
         try {
           if (event.async) {
-            sink!.logEventAsync(event.eventName, event.metadata).catch(() => {})
+            sink!
+              .logEventAsync(event.eventName, event.metadata)
+              .catch(() => {});
           } else {
-            sink!.logEvent(event.eventName, event.metadata)
+            sink!.logEvent(event.eventName, event.metadata);
           }
         } catch {
           // 静默处理，防止分析异常影响主流程
         }
       }
     }
-  })
+  });
 }
 
 export function detachAnalyticsSink(): void {
-  sink = null
+  sink = null;
 }
 
 export function logEvent(
   eventName: string,
-  metadata: Record<string, boolean | number | string | undefined> = {},
+  metadata: Record<string, boolean | number | string | undefined> = {}
 ): void {
   if (sink) {
     try {
-      sink.logEvent(eventName, metadata)
+      sink.logEvent(eventName, metadata);
     } catch {
       // 静默处理
     }
   } else {
-    eventQueue.push({ eventName, metadata, async: false })
+    eventQueue.push({ eventName, metadata, async: false });
   }
 }
 
 export async function logEventAsync(
   eventName: string,
-  metadata: Record<string, boolean | number | string | undefined> = {},
+  metadata: Record<string, boolean | number | string | undefined> = {}
 ): Promise<void> {
   if (sink) {
     try {
-      await sink.logEventAsync(eventName, metadata)
+      await sink.logEventAsync(eventName, metadata);
     } catch {
       // 静默处理
     }
   } else {
-    eventQueue.push({ eventName, metadata, async: true })
+    eventQueue.push({ eventName, metadata, async: true });
   }
 }
 
 export function getQueuedEventCount(): number {
-  return eventQueue.length
+  return eventQueue.length;
 }
 
 export function flushQueue(): void {
-  if (!sink) return
+  if (!sink) return;
   while (eventQueue.length > 0) {
-    const event = eventQueue.shift()
+    const event = eventQueue.shift();
     if (event) {
       try {
-        sink.logEvent(event.eventName, event.metadata)
+        sink.logEvent(event.eventName, event.metadata);
       } catch {
         // 静默处理
       }

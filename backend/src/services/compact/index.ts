@@ -30,7 +30,10 @@ export {
   roughTokenCountEstimationForMessages,
 } from './utils';
 
-export { AutoCompactService, createAutoCompactService } from './AutoCompactService';
+export {
+  AutoCompactService,
+  createAutoCompactService,
+} from './AutoCompactService';
 export type { AutoCompactTrackingState } from './AutoCompactService';
 
 export { CompactServiceImpl } from './CompactService';

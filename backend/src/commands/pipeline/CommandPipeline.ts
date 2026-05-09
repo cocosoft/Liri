@@ -22,7 +22,10 @@ export interface PipelineContext {
   abortReason?: string;
 }
 
-export type PipelineHandler = (ctx: PipelineContext, next: () => Promise<void>) => Promise<void>;
+export type PipelineHandler = (
+  ctx: PipelineContext,
+  next: () => Promise<void>
+) => Promise<void>;
 
 export interface PipelineMiddleware {
   id: string;
@@ -43,7 +46,11 @@ export interface PipelineExecutionResult {
 export interface IPipeline {
   use(middleware: PipelineMiddleware): void;
   remove(id: string): boolean;
-  execute(commandName: string, args: string, parsedArgs?: Record<string, any>): Promise<PipelineExecutionResult>;
+  execute(
+    commandName: string,
+    args: string,
+    parsedArgs?: Record<string, any>
+  ): Promise<PipelineExecutionResult>;
   getMiddlewares(stage?: PipelineStage): PipelineMiddleware[];
   clear(): void;
 }
@@ -68,7 +75,7 @@ export class CommandPipeline implements IPipeline {
   use(middleware: PipelineMiddleware): void {
     const list = this.middlewares.get(middleware.stage);
     if (!list) throw new Error(`Unknown pipeline stage: ${middleware.stage}`);
-    if (list.find(m => m.id === middleware.id)) {
+    if (list.find((m) => m.id === middleware.id)) {
       throw new Error(`Middleware already registered: ${middleware.id}`);
     }
     list.push(middleware);
@@ -77,7 +84,7 @@ export class CommandPipeline implements IPipeline {
 
   remove(id: string): boolean {
     for (const [, list] of this.middlewares) {
-      const idx = list.findIndex(m => m.id === id);
+      const idx = list.findIndex((m) => m.id === id);
       if (idx !== -1) {
         list.splice(idx, 1);
         return true;
@@ -86,7 +93,11 @@ export class CommandPipeline implements IPipeline {
     return false;
   }
 
-  async execute(commandName: string, args: string, parsedArgs?: Record<string, any>): Promise<PipelineExecutionResult> {
+  async execute(
+    commandName: string,
+    args: string,
+    parsedArgs?: Record<string, any>
+  ): Promise<PipelineExecutionResult> {
     const ctx: PipelineContext = {
       commandName,
       args,
@@ -95,7 +106,8 @@ export class CommandPipeline implements IPipeline {
       stage: PipelineStage.PRE_VALIDATE,
     };
 
-    const stageDurations: Array<{ stage: PipelineStage; duration: number }> = [];
+    const stageDurations: Array<{ stage: PipelineStage; duration: number }> =
+      [];
 
     try {
       for (const stage of this.stageOrder) {

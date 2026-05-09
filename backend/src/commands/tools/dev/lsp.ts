@@ -58,16 +58,20 @@ const OPERATION_MAP: Record<string, string> = {
  * 需要文件位置的类操作（需 file + line + col）
  */
 const FILE_POSITION_OPS = new Set([
-  'definition', 'references', 'hover', 'completion',
-  'implementation', 'callHierarchy', 'rename', 'typeDefinition',
+  'definition',
+  'references',
+  'hover',
+  'completion',
+  'implementation',
+  'callHierarchy',
+  'rename',
+  'typeDefinition',
 ]);
 
 /**
  * 仅需文件路径的操作
  */
-const FILE_ONLY_OPS = new Set([
-  'documentSymbol', 'diagnostics', 'format',
-]);
+const FILE_ONLY_OPS = new Set(['documentSymbol', 'diagnostics', 'format']);
 
 /**
  * 需要查询词的操作
@@ -87,7 +91,7 @@ function hasJsonFlag(parts: string[]): boolean {
 }
 
 function stripFlags(parts: string[]): string[] {
-  return parts.filter(p => !p.startsWith('-'));
+  return parts.filter((p) => !p.startsWith('-'));
 }
 
 function getPromptForCommand(): string {
@@ -193,7 +197,11 @@ Best Practices:
 /**
  * 读取文件内容并检测语言
  */
-function readFileContent(filePath: string): { content: string; language: string; absolutePath: string } | { error: string } {
+function readFileContent(
+  filePath: string
+):
+  | { content: string; language: string; absolutePath: string }
+  | { error: string } {
   const absolutePath = resolve(process.cwd(), filePath);
 
   if (!existsSync(absolutePath)) {
@@ -205,7 +213,9 @@ function readFileContent(filePath: string): { content: string; language: string;
     const language = detectLanguage(absolutePath);
     return { content, language, absolutePath };
   } catch (error) {
-    return { error: `Error reading file: ${error instanceof Error ? error.message : String(error)}` };
+    return {
+      error: `Error reading file: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 }
 
@@ -218,7 +228,7 @@ async function executePositionOperation(
   file: string,
   line: number,
   col: number,
-  extraParams: Record<string, unknown> = {},
+  extraParams: Record<string, unknown> = {}
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   if (!file) {
     return {
@@ -242,13 +252,17 @@ async function executePositionOperation(
   const adapterAction = OPERATION_MAP[operation];
 
   try {
-    const result = await toolManager.executeTool('lsp', {
-      action: adapterAction,
-      document: fileInfo.content,
-      language: fileInfo.language,
-      position: { line: line, character: col },
-      ...extraParams,
-    }, {});
+    const result = await toolManager.executeTool(
+      'lsp',
+      {
+        action: adapterAction,
+        document: fileInfo.content,
+        language: fileInfo.language,
+        position: { line: line, character: col },
+        ...extraParams,
+      },
+      {}
+    );
 
     return {
       success: true,
@@ -268,7 +282,7 @@ async function executePositionOperation(
 async function executeFileOnlyOperation(
   toolManager: ReturnType<typeof getToolManager>,
   operation: string,
-  file: string,
+  file: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   if (!file) {
     return {
@@ -285,11 +299,15 @@ async function executeFileOnlyOperation(
   const adapterAction = OPERATION_MAP[operation];
 
   try {
-    const result = await toolManager.executeTool('lsp', {
-      action: adapterAction,
-      document: fileInfo.content,
-      language: fileInfo.language,
-    }, {});
+    const result = await toolManager.executeTool(
+      'lsp',
+      {
+        action: adapterAction,
+        document: fileInfo.content,
+        language: fileInfo.language,
+      },
+      {}
+    );
 
     return {
       success: true,
@@ -309,16 +327,19 @@ async function executeFileOnlyOperation(
 export const lspCommand: Command = {
   type: 'action',
   name: 'lsp',
-  description: '执行语言服务器协议操作（定义跳转、引用查找、悬停提示、代码补全、实现查找、符号搜索、调用层次等）',
+  description:
+    '执行语言服务器协议操作（定义跳转、引用查找、悬停提示、代码补全、实现查找、符号搜索、调用层次等）',
   aliases: [],
   argumentHint: '[operation] [args]',
-  whenToUse: '当你需要代码智能提示、定义跳转、引用查找、实现查找、文档符号、工作区符号搜索或调用层次分析时',
+  whenToUse:
+    '当你需要代码智能提示、定义跳转、引用查找、实现查找、文档符号、工作区符号搜索或调用层次分析时',
   load: async () => ({
     execute: async (args: string) => {
       if (!feature('LSP')) {
         return {
           success: true,
-          message: 'LSP 功能未启用。请在 featureFlags.ts 中设置 LSP: true 以启用语言服务器协议支持。',
+          message:
+            'LSP 功能未启用。请在 featureFlags.ts 中设置 LSP: true 以启用语言服务器协议支持。',
         };
       }
 
@@ -346,18 +367,24 @@ export const lspCommand: Command = {
         const file = stripped[0];
         const line = parseInt(stripped[1], 10);
         const col = parseInt(stripped[2], 10);
-        const newName = subcommand === 'rename' ? stripped.slice(3).join(' ') : undefined;
+        const newName =
+          subcommand === 'rename' ? stripped.slice(3).join(' ') : undefined;
 
         if (subcommand === 'rename' && !newName) {
           return {
             success: false,
-            error: 'Error: Please specify new name\nUsage: /lsp rename <file> <line> <col> <newName>',
+            error:
+              'Error: Please specify new name\nUsage: /lsp rename <file> <line> <col> <newName>',
           };
         }
 
         return await executePositionOperation(
-          toolManager, subcommand, file, line, col,
-          subcommand === 'rename' ? { newName } : {},
+          toolManager,
+          subcommand,
+          file,
+          line,
+          col,
+          subcommand === 'rename' ? { newName } : {}
         );
       }
 
@@ -376,15 +403,20 @@ export const lspCommand: Command = {
         if (!query) {
           return {
             success: false,
-            error: 'Error: Please specify search query\nUsage: /lsp workspaceSymbol <query>',
+            error:
+              'Error: Please specify search query\nUsage: /lsp workspaceSymbol <query>',
           };
         }
 
         try {
-          const result = await toolManager.executeTool('lsp', {
-            action: 'workspaceSymbol',
-            query,
-          }, {});
+          const result = await toolManager.executeTool(
+            'lsp',
+            {
+              action: 'workspaceSymbol',
+              query,
+            },
+            {}
+          );
 
           return {
             success: true,

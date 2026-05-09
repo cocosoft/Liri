@@ -22,7 +22,7 @@ export class HookExecutor {
   constructor(config: HookExecutorConfig = {}) {
     this.config = {
       defaultTimeout: 5000, // 5秒默认超时
-      maxConcurrency: 10,   // 最大并发数
+      maxConcurrency: 10, // 最大并发数
       errorHandling: 'continue',
       enablePerformanceMonitoring: true,
       enableSecurityCheck: true,
@@ -40,7 +40,7 @@ export class HookExecutor {
   ): Promise<HookResult> {
     const hookId = this.generateHookId(hook);
     const startTime = Date.now();
-    
+
     // 检查并发限制
     if (this.activeExecutions.size >= this.config.maxConcurrency!) {
       return {
@@ -51,7 +51,7 @@ export class HookExecutor {
     }
 
     this.activeExecutions.add(hookId);
-    
+
     try {
       // 安全检查
       if (this.config.enableSecurityCheck) {
@@ -88,7 +88,10 @@ export class HookExecutor {
       this.recordExecutionStats(hookId, errorResult, durationMs);
 
       // 错误处理策略
-      if (hook.errorHandling === 'throw' || this.config.errorHandling === 'throw') {
+      if (
+        hook.errorHandling === 'throw' ||
+        this.config.errorHandling === 'throw'
+      ) {
         throw error;
       }
 
@@ -109,7 +112,7 @@ export class HookExecutor {
 
     for (const hook of hooks) {
       // 检查是否阻止后续执行
-      if (results.some(result => result.preventContinuation)) {
+      if (results.some((result) => result.preventContinuation)) {
         break;
       }
 
@@ -132,7 +135,7 @@ export class HookExecutor {
     hooks: HookDefinition[],
     context: HookContext
   ): Promise<HookResult[]> {
-    const executions = hooks.map(hook => this.executeHook(hook, context));
+    const executions = hooks.map((hook) => this.executeHook(hook, context));
     return Promise.all(executions);
   }
 
@@ -144,7 +147,7 @@ export class HookExecutor {
     context: HookContext
   ): Promise<HookResult> {
     const timeout = hook.timeout || this.config.defaultTimeout!;
-    
+
     if (timeout <= 0) {
       return hook.handler(context);
     }
@@ -210,7 +213,8 @@ export class HookExecutor {
     try {
       // 检查数据大小（防止内存耗尽）
       const dataSize = JSON.stringify(data).length;
-      if (dataSize > 10 * 1024 * 1024) { // 10MB限制
+      if (dataSize > 10 * 1024 * 1024) {
+        // 10MB限制
         return false;
       }
 
@@ -265,7 +269,7 @@ export class HookExecutor {
     };
 
     existingStats.executionCount++;
-    
+
     if (result.success) {
       existingStats.successCount++;
     } else {
@@ -273,8 +277,9 @@ export class HookExecutor {
     }
 
     // 更新平均执行时间
-    existingStats.averageDuration = 
-      (existingStats.averageDuration * (existingStats.executionCount - 1) + durationMs) / 
+    existingStats.averageDuration =
+      (existingStats.averageDuration * (existingStats.executionCount - 1) +
+        durationMs) /
       existingStats.executionCount;
 
     existingStats.lastExecutedAt = new Date();
@@ -295,15 +300,19 @@ export class HookExecutor {
   /**
    * 获取执行统计（基于CC源码）
    */
-  getExecutionStats(hookId?: string): HookExecutionStats | HookExecutionStats[] {
+  getExecutionStats(
+    hookId?: string
+  ): HookExecutionStats | HookExecutionStats[] {
     if (hookId) {
-      return this.stats.get(hookId) || {
-        hookId,
-        executionCount: 0,
-        successCount: 0,
-        failureCount: 0,
-        averageDuration: 0,
-      };
+      return (
+        this.stats.get(hookId) || {
+          hookId,
+          executionCount: 0,
+          successCount: 0,
+          failureCount: 0,
+          averageDuration: 0,
+        }
+      );
     }
 
     return Array.from(this.stats.values());

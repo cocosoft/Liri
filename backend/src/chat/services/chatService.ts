@@ -19,6 +19,9 @@ import {
   mkdirSync,
 } from 'fs';
 import { AIModelType } from '@modules/ai/models/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 聊天服务类
@@ -153,7 +156,7 @@ export class ChatServiceImpl implements ChatService {
     if (!session) {
       return [];
     }
-    
+
     return session.getHistory().getMessages();
   }
 
@@ -173,7 +176,10 @@ export class ChatServiceImpl implements ChatService {
         'utf-8'
       );
     } catch (error) {
-      console.error('Failed to save session:', error);
+      logger.error(
+        'Failed to save session',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -185,12 +191,14 @@ export class ChatServiceImpl implements ChatService {
     const sessionPath = join(this.config.storagePath, `${sessionId}.json`);
     try {
       if (existsSync(sessionPath)) {
-        // 这里应该使用fs.unlinkSync，但为了安全起见，我们先检查文件是否存在
         const fs = require('fs');
         fs.unlinkSync(sessionPath);
       }
     } catch (error) {
-      console.error('Failed to delete session file:', error);
+      logger.error(
+        'Failed to delete session file',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -210,7 +218,10 @@ export class ChatServiceImpl implements ChatService {
         }
       }
     } catch (error) {
-      console.error('Failed to load sessions:', error);
+      logger.error(
+        'Failed to load sessions',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 }

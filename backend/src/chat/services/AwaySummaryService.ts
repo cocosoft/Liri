@@ -29,7 +29,9 @@ export interface AwaySummaryResult {
 /**
  * 检查消息列表中是否有自上次用户消息以来的摘要
  */
-export function hasSummarySinceLastUserTurn(messages: readonly Message[]): boolean {
+export function hasSummarySinceLastUserTurn(
+  messages: readonly Message[]
+): boolean {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
     if (m.role === 'user' && !m.isMeta && !m.isCompactSummary) {
@@ -57,7 +59,7 @@ function buildAwaySummaryPrompt(memory: string | null): string {
  */
 export function getRecentMessagesForSummary(
   messages: Message[],
-  windowSize: number = DEFAULT_CONFIG.recentMessageWindow,
+  windowSize: number = DEFAULT_CONFIG.recentMessageWindow
 ): Message[] {
   return messages.slice(-windowSize);
 }
@@ -157,7 +159,7 @@ export class AwaySummaryService {
    */
   async generateSummary(
     messages: Message[],
-    sessionMemory: string | null = null,
+    sessionMemory: string | null = null
   ): Promise<AwaySummaryResult | null> {
     if (!this.config.enabled) {
       return null;

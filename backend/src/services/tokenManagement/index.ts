@@ -1,7 +1,4 @@
-export type {
-  TokenUsage,
-  TokenCountResult,
-} from './TokenCounter';
+export type { TokenUsage, TokenCountResult } from './TokenCounter';
 
 export {
   CHARS_PER_TOKEN,

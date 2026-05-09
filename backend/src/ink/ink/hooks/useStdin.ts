@@ -35,31 +35,34 @@ export function useStdin(options: UseStdinOptions = {}): UseStdinReturn {
   const { listenOnMount = true, onInput, onKeyPress } = options;
   const [input, setInputState] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const handlerRef = useCallback((data: Buffer) => {
-    const inputString = data.toString();
-    
-    for (const char of inputString) {
-      if (char === '\n' || char === '\r') {
-        // 回车键，提交输入
-        if (input) {
-          onInput?.(input);
-        }
-        setInputState('');
-      } else if (char === '\b' || char === '\x7f') {
-        // 退格键
-        setInputState((prev) => prev.slice(0, -1));
-      } else {
-        // 普通字符
-        setInputState((prev) => prev + char);
-        
-        if (onKeyPress) {
-          // 尝试解析特殊键
-          const parsedKey = parseKey(char);
-          onKeyPress(parsedKey || char, { char });
+  const handlerRef = useCallback(
+    (data: Buffer) => {
+      const inputString = data.toString();
+
+      for (const char of inputString) {
+        if (char === '\n' || char === '\r') {
+          // 回车键，提交输入
+          if (input) {
+            onInput?.(input);
+          }
+          setInputState('');
+        } else if (char === '\b' || char === '\x7f') {
+          // 退格键
+          setInputState((prev) => prev.slice(0, -1));
+        } else {
+          // 普通字符
+          setInputState((prev) => prev + char);
+
+          if (onKeyPress) {
+            // 尝试解析特殊键
+            const parsedKey = parseKey(char);
+            onKeyPress(parsedKey || char, { char });
+          }
         }
       }
-    }
-  }, [input, onInput, onKeyPress]);
+    },
+    [input, onInput, onKeyPress]
+  );
 
   const startListening = useCallback(() => {
     if (!isListening) {

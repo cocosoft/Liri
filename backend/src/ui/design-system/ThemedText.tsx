@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import { Text } from '../../ink';
-import type { Styles } from '../../ink/ink/styles';
+import { Text } from '@modules/ink';
+import type { Styles } from '@modules/ink/ink/styles';
 import { TextProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
@@ -20,14 +20,14 @@ export function ThemedText({
   underline = false,
   size = 'md',
   align = 'left',
-  wrap = 'wrap'
+  wrap = 'wrap',
 }: TextProps) {
   const { theme } = useTheme();
 
   const wrapMap: Record<string, Styles['textWrap']> = {
-    'wrap': 'wrap',
-    'nowrap': 'truncate',
-    'truncate': 'truncate',
+    wrap: 'wrap',
+    nowrap: 'truncate',
+    truncate: 'truncate',
   };
 
   return (
@@ -56,12 +56,7 @@ export function HeadingText({
   const size = sizes[level - 1] || 'md';
 
   return (
-    <ThemedText
-      color={color}
-      size={size}
-      bold={true}
-      {...props}
-    >
+    <ThemedText color={color} size={size} bold={true} {...props}>
       {children}
     </ThemedText>
   );
@@ -76,12 +71,7 @@ export function SubtitleText({
   ...props
 }: TextProps) {
   return (
-    <ThemedText
-      color={color}
-      size="sm"
-      italic={true}
-      {...props}
-    >
+    <ThemedText color={color} size="sm" italic={true} {...props}>
       {children}
     </ThemedText>
   );
@@ -96,11 +86,7 @@ export function EmphasisText({
   ...props
 }: TextProps) {
   return (
-    <ThemedText
-      color={color}
-      bold={true}
-      {...props}
-    >
+    <ThemedText color={color} bold={true} {...props}>
       {children}
     </ThemedText>
   );
@@ -109,17 +95,9 @@ export function EmphasisText({
 /**
  * 代码文本组件（基于CC源码）
  */
-export function CodeText({
-  children,
-  color = 'text',
-  ...props
-}: TextProps) {
+export function CodeText({ children, color = 'text', ...props }: TextProps) {
   return (
-    <ThemedText
-      color={color}
-      size="sm"
-      {...props}
-    >
+    <ThemedText color={color} size="sm" {...props}>
       {children}
     </ThemedText>
   );
@@ -135,11 +113,7 @@ export function LinkText({
   ...props
 }: TextProps & { onPress?: () => void }) {
   return (
-    <ThemedText
-      color={color}
-      underline={true}
-      {...props}
-    >
+    <ThemedText color={color} underline={true} {...props}>
       {children}
     </ThemedText>
   );
@@ -154,11 +128,7 @@ export function SuccessText({
   ...props
 }: TextProps) {
   return (
-    <ThemedText
-      color={color}
-      bold={true}
-      {...props}
-    >
+    <ThemedText color={color} bold={true} {...props}>
       {children}
     </ThemedText>
   );
@@ -173,11 +143,7 @@ export function WarningText({
   ...props
 }: TextProps) {
   return (
-    <ThemedText
-      color={color}
-      bold={true}
-      {...props}
-    >
+    <ThemedText color={color} bold={true} {...props}>
       {children}
     </ThemedText>
   );
@@ -186,17 +152,9 @@ export function WarningText({
 /**
  * 错误文本组件（基于CC源码）
  */
-export function ErrorText({
-  children,
-  color = 'error',
-  ...props
-}: TextProps) {
+export function ErrorText({ children, color = 'error', ...props }: TextProps) {
   return (
-    <ThemedText
-      color={color}
-      bold={true}
-      {...props}
-    >
+    <ThemedText color={color} bold={true} {...props}>
       {children}
     </ThemedText>
   );
@@ -205,17 +163,9 @@ export function ErrorText({
 /**
  * 信息文本组件（基于CC源码）
  */
-export function InfoText({
-  children,
-  color = 'info',
-  ...props
-}: TextProps) {
+export function InfoText({ children, color = 'info', ...props }: TextProps) {
   return (
-    <ThemedText
-      color={color}
-      bold={true}
-      {...props}
-    >
+    <ThemedText color={color} bold={true} {...props}>
       {children}
     </ThemedText>
   );
@@ -230,11 +180,7 @@ export function MutedText({
   ...props
 }: TextProps) {
   return (
-    <ThemedText
-      color={color}
-      size="sm"
-      {...props}
-    >
+    <ThemedText color={color} size="sm" {...props}>
       {children}
     </ThemedText>
   );

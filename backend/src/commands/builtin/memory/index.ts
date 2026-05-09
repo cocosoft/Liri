@@ -8,8 +8,9 @@ const memoryCommand: Command = {
   name: 'memory',
   description: '记忆文件管理（查看、创建、编辑、删除 .md 记忆文件）',
   aliases: ['mem', '记忆'],
-  argumentHint: '[--list|-l] [--create|-c <name>] [--show|-s <name>] [--edit|-e <name>] [--delete|-d <name>] [status] [--json] [help]',
-  load: () => import('./Memory.js').then(m => m.default),
+  argumentHint:
+    '[--list|-l] [--create|-c <name>] [--show|-s <name>] [--edit|-e <name>] [--delete|-d <name>] [status] [--json] [help]',
+  load: () => import('./Memory.js').then((m) => m.default),
 };
 
 export { memoryCommand };

@@ -72,7 +72,9 @@ export class SettingsCache {
   async setSetting(key: string, value: any): Promise<void> {
     const data = await this.getAllSettings();
     data[key] = value;
-    await this.cache.set(this.cacheKey, data, { expiry: Date.now() + this.ttl });
+    await this.cache.set(this.cacheKey, data, {
+      expiry: Date.now() + this.ttl,
+    });
     logForDebugging(`设置已缓存: ${key}`);
   }
 
@@ -98,7 +100,9 @@ export class SettingsCache {
   async clearSetting(key: string): Promise<void> {
     const data = await this.getAllSettings();
     delete data[key];
-    await this.cache.set(this.cacheKey, data, { expiry: Date.now() + this.ttl });
+    await this.cache.set(this.cacheKey, data, {
+      expiry: Date.now() + this.ttl,
+    });
     logForDebugging(`设置已清除: ${key}`);
   }
 
@@ -128,7 +132,11 @@ export class PluginCache {
   /**
    * 设置插件数据
    */
-  async setPluginData(pluginName: string, key: string, value: any): Promise<void> {
+  async setPluginData(
+    pluginName: string,
+    key: string,
+    value: any
+  ): Promise<void> {
     const cacheKey = `${this.cacheKeyPrefix}${pluginName}`;
     const data = await this.getPluginData(pluginName);
     data[key] = value;
@@ -187,7 +195,11 @@ export class SessionCache {
   /**
    * 设置会话数据
    */
-  async setSessionData(sessionId: string, key: string, value: any): Promise<void> {
+  async setSessionData(
+    sessionId: string,
+    key: string,
+    value: any
+  ): Promise<void> {
     const cacheKey = `${this.cacheKeyPrefix}${sessionId}`;
     const data = await this.getSessionData(sessionId);
     data[key] = value;
@@ -253,7 +265,11 @@ export class ToolResultCache {
   /**
    * 缓存工具结果
    */
-  async cacheToolResult(toolName: string, args: any, result: any): Promise<string> {
+  async cacheToolResult(
+    toolName: string,
+    args: any,
+    result: any
+  ): Promise<string> {
     const key = this.generateKey(toolName, args);
     const cacheKey = `${this.cacheKeyPrefix}${key}`;
     await this.cache.set(cacheKey, result, { expiry: Date.now() + this.ttl });
@@ -324,7 +340,7 @@ export class ToolResultCache {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // 转换为32位整数
     }
     return Math.abs(hash);

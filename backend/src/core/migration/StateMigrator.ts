@@ -4,7 +4,10 @@
  */
 
 import { AppState, getDefaultAppState } from '../state/AppState.js';
-import { getGlobalStore, initializeGlobalStore } from '../state/AppStateStore.js';
+import {
+  getGlobalStore,
+  initializeGlobalStore,
+} from '../state/AppStateStore.js';
 
 /**
  * 状态迁移选项
@@ -28,16 +31,19 @@ export class StateMigrator {
   static initializeAppState(initialState?: Partial<AppState>): void {
     const defaultState = getDefaultAppState();
     const mergedState = { ...defaultState, ...initialState };
-    
+
     // 确保嵌套对象正确合并
     if (initialState?.mcp) {
       mergedState.mcp = { ...defaultState.mcp, ...initialState.mcp };
     }
-    
+
     if (initialState?.plugins) {
-      mergedState.plugins = { ...defaultState.plugins, ...initialState.plugins };
+      mergedState.plugins = {
+        ...defaultState.plugins,
+        ...initialState.plugins,
+      };
     }
-    
+
     if (initialState?.plugins?.installationStatus) {
       mergedState.plugins.installationStatus = {
         ...defaultState.plugins.installationStatus,
@@ -67,23 +73,26 @@ export class StateMigrator {
         case 'mcp':
           newState.mcp = { ...newState.mcp, ...state };
           break;
-        
+
         case 'plugins':
           newState.plugins = { ...newState.plugins, ...state };
           break;
-        
+
         case 'tasks':
           newState.tasks = { ...newState.tasks, ...state };
           break;
-        
+
         case 'settings':
           newState.settings = { ...newState.settings, ...state };
           break;
-        
+
         case 'permissions':
-          newState.toolPermissionContext = { ...newState.toolPermissionContext, ...state };
+          newState.toolPermissionContext = {
+            ...newState.toolPermissionContext,
+            ...state,
+          };
           break;
-        
+
         default:
           console.warn(`Unknown module: ${moduleName}`);
           return false;
@@ -122,21 +131,24 @@ export class StateMigrator {
           case 'mcp':
             newState.mcp = { ...newState.mcp, ...state };
             break;
-          
+
           case 'plugins':
             newState.plugins = { ...newState.plugins, ...state };
             break;
-          
+
           case 'tasks':
             newState.tasks = { ...newState.tasks, ...state };
             break;
-          
+
           case 'settings':
             newState.settings = { ...newState.settings, ...state };
             break;
-          
+
           case 'permissions':
-            newState.toolPermissionContext = { ...newState.toolPermissionContext, ...state };
+            newState.toolPermissionContext = {
+              ...newState.toolPermissionContext,
+              ...state,
+            };
             break;
         }
       }
@@ -190,7 +202,10 @@ export class StateMigrator {
   /**
    * 导入状态
    */
-  static importState(state: AppState, options: StateMigrationOptions = {}): boolean {
+  static importState(
+    state: AppState,
+    options: StateMigrationOptions = {}
+  ): boolean {
     try {
       const store = getGlobalStore();
 
@@ -257,7 +272,10 @@ export function exportState(): AppState {
 /**
  * 便捷函数：导入状态
  */
-export function importState(state: AppState, options?: StateMigrationOptions): boolean {
+export function importState(
+  state: AppState,
+  options?: StateMigrationOptions
+): boolean {
   return StateMigrator.importState(state, options);
 }
 

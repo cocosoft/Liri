@@ -6,7 +6,11 @@
  */
 import * as path from 'path';
 import { getGitInfo, type GitInfo } from './GitDetector';
-import { readProjectFiles, readUserPyAppMd, type ProjectFiles } from './ProjectFileReader';
+import {
+  readProjectFiles,
+  readUserPyAppMd,
+  type ProjectFiles,
+} from './ProjectFileReader';
 import {
   buildBasePrompt,
   buildUserContext,
@@ -15,7 +19,10 @@ import {
 } from './PromptTemplates';
 
 // 简单的 memoize 实现，避免 lodash-es 类型依赖
-function memoize<T extends (...args: any[]) => any>(fn: T, resolver: (...args: Parameters<T>) => string): T {
+function memoize<T extends (...args: any[]) => any>(
+  fn: T,
+  resolver: (...args: Parameters<T>) => string
+): T {
   const cache = new Map<string, ReturnType<T>>();
   const memoized = ((...args: any[]) => {
     const key = resolver(...(args as Parameters<T>));
@@ -33,13 +40,28 @@ export class ContextBuilder {
   private projectFiles: ProjectFiles | null = null;
   private cacheBuster: number = 0;
 
-  private getUserContextMemoized: (cwd: string, branch: string | null, cacheBuster: number) => Promise<Record<string, string>>;
-  private getSystemContextMemoized: (cwd: string, gitStatus: string | null, pyAppMd: string, memoryMd: string | undefined, readme: string | undefined, cacheBuster: number) => Promise<Record<string, string>>;
-  private buildSystemPromptMemoized: (toolNames: string[], cwd: string, cacheBuster: number) => Promise<SystemPromptParts>;
+  private getUserContextMemoized: (
+    cwd: string,
+    branch: string | null,
+    cacheBuster: number
+  ) => Promise<Record<string, string>>;
+  private getSystemContextMemoized: (
+    cwd: string,
+    gitStatus: string | null,
+    pyAppMd: string,
+    memoryMd: string | undefined,
+    readme: string | undefined,
+    cacheBuster: number
+  ) => Promise<Record<string, string>>;
+  private buildSystemPromptMemoized: (
+    toolNames: string[],
+    cwd: string,
+    cacheBuster: number
+  ) => Promise<SystemPromptParts>;
 
   constructor(cwd?: string) {
     this.cwd = cwd || process.cwd();
-    
+
     this.getUserContextMemoized = memoize(
       async (cwd: string, branch: string | null, _cacheBuster: number) => {
         return buildUserContext({
@@ -52,7 +74,14 @@ export class ContextBuilder {
     );
 
     this.getSystemContextMemoized = memoize(
-      async (cwd: string, gitStatus: string | null, pyAppMd: string, memoryMd: string | undefined, readme: string | undefined, _cacheBuster: number) => {
+      async (
+        cwd: string,
+        gitStatus: string | null,
+        pyAppMd: string,
+        memoryMd: string | undefined,
+        readme: string | undefined,
+        _cacheBuster: number
+      ) => {
         const projectName = path.basename(cwd);
         return buildSystemContext({
           gitStatus,
@@ -62,7 +91,7 @@ export class ContextBuilder {
           projectName,
         });
       },
-      (cwd, gitStatus, pyAppMd, memoryMd, readme, cacheBuster) => 
+      (cwd, gitStatus, pyAppMd, memoryMd, readme, cacheBuster) =>
         `${cwd}:${gitStatus}:${pyAppMd.length}:${memoryMd?.length || 0}:${readme?.length || 0}:${cacheBuster}`
     );
 
@@ -96,7 +125,8 @@ export class ContextBuilder {
 
         return { basePrompt, userContext, systemContext };
       },
-      (toolNames, cwd, cacheBuster) => `${toolNames.join(',')}:${cwd}:${cacheBuster}`
+      (toolNames, cwd, cacheBuster) =>
+        `${toolNames.join(',')}:${cwd}:${cacheBuster}`
     );
   }
 
@@ -115,7 +145,11 @@ export class ContextBuilder {
 
   async getUserContext(): Promise<Record<string, string>> {
     if (!this.gitInfo) await this.initialize();
-    return this.getUserContextMemoized(this.cwd, this.gitInfo?.branch || null, this.cacheBuster);
+    return this.getUserContextMemoized(
+      this.cwd,
+      this.gitInfo?.branch || null,
+      this.cacheBuster
+    );
   }
 
   async getSystemContext(): Promise<Record<string, string>> {
@@ -139,8 +173,14 @@ export class ContextBuilder {
     );
   }
 
-  async buildSystemPrompt(toolNames: string[] = []): Promise<SystemPromptParts> {
-    return this.buildSystemPromptMemoized(toolNames, this.cwd, this.cacheBuster);
+  async buildSystemPrompt(
+    toolNames: string[] = []
+  ): Promise<SystemPromptParts> {
+    return this.buildSystemPromptMemoized(
+      toolNames,
+      this.cwd,
+      this.cacheBuster
+    );
   }
 
   getContextWindowForModel(model: string): number {

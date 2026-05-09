@@ -155,7 +155,10 @@ function getMachineName(): string {
 /**
  * 获取Bridge相关的所有环境变量
  */
-export function getBridgeEnvironmentVariables(): Record<string, string | undefined> {
+export function getBridgeEnvironmentVariables(): Record<
+  string,
+  string | undefined
+> {
   const result: Record<string, string | undefined> = {};
   for (const [_, envKey] of Object.entries(ENV_CONFIG_MAP)) {
     result[envKey] = process.env[envKey];

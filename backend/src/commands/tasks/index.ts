@@ -10,9 +10,10 @@ const tasksCommand: Command = {
   name: 'tasks',
   aliases: ['bashes'],
   description: '列出和管理后台任务',
-  argumentHint: '[list|running|pending|completed|failed|aborted|show|stop|clear|stats|--json|help]',
+  argumentHint:
+    '[list|running|pending|completed|failed|aborted|show|stop|clear|stats|--json|help]',
   whenToUse: '当你需要查看或管理后台运行的任务时',
-  load: () => import('./tasks.js').then(m => m.default),
+  load: () => import('./tasks.js').then((m) => m.default),
 };
 
 export { tasksCommand };

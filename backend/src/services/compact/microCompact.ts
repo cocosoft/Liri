@@ -8,7 +8,10 @@
  * 2. 可扩展的缓存微压缩路径（支持future cache-editing API）
  */
 
-import type { SessionMessage, MessageType } from '@modules/session/models/SessionMessage';
+import type {
+  SessionMessage,
+  MessageType,
+} from '@modules/session/models/SessionMessage';
 import { roughTokenCountEstimation } from './utils';
 import { getTimeBasedMCConfig } from './timeBasedMCConfig';
 import {
@@ -16,7 +19,8 @@ import {
   suppressCompactWarning,
 } from './compactWarningState';
 
-export const TIME_BASED_MC_CLEARED_MESSAGE = '[Old tool result content cleared]';
+export const TIME_BASED_MC_CLEARED_MESSAGE =
+  '[Old tool result content cleared]';
 
 const IMAGE_MAX_TOKEN_SIZE = 2000;
 
@@ -64,9 +68,10 @@ function calculateToolResultTokens(msg: SessionMessage): number {
     return 0;
   }
 
-  const content = typeof msg.toolResult === 'string'
-    ? msg.toolResult
-    : JSON.stringify(msg.toolResult);
+  const content =
+    typeof msg.toolResult === 'string'
+      ? msg.toolResult
+      : JSON.stringify(msg.toolResult);
 
   return roughTokenCountEstimation(content);
 }
@@ -75,7 +80,11 @@ function collectCompactableToolIds(messages: SessionMessage[]): string[] {
   const ids: string[] = [];
   for (const msg of messages) {
     const toolName = getToolNameFromToolResult(msg);
-    if (isToolResultMessage(msg) && toolName && COMPACTABLE_TOOLS.has(toolName)) {
+    if (
+      isToolResultMessage(msg) &&
+      toolName &&
+      COMPACTABLE_TOOLS.has(toolName)
+    ) {
       ids.push(msg.id);
     }
   }
@@ -88,20 +97,24 @@ function isMainThreadSource(querySource?: string): boolean {
 
 export function evaluateTimeBasedTrigger(
   messages: SessionMessage[],
-  querySource?: string,
-): { gapMinutes: number; config: ReturnType<typeof getTimeBasedMCConfig> } | null {
+  querySource?: string
+): {
+  gapMinutes: number;
+  config: ReturnType<typeof getTimeBasedMCConfig>;
+} | null {
   const config = getTimeBasedMCConfig();
   if (!config.enabled || !querySource || !isMainThreadSource(querySource)) {
     return null;
   }
 
-  const lastAssistant = [...messages].reverse().find((m) => m.type === 'assistant');
+  const lastAssistant = [...messages]
+    .reverse()
+    .find((m) => m.type === 'assistant');
   if (!lastAssistant) {
     return null;
   }
 
-  const gapMinutes =
-    (Date.now() - lastAssistant.createdAt.getTime()) / 60_000;
+  const gapMinutes = (Date.now() - lastAssistant.createdAt.getTime()) / 60_000;
   if (!Number.isFinite(gapMinutes) || gapMinutes < config.gapThresholdMinutes) {
     return null;
   }
@@ -111,7 +124,7 @@ export function evaluateTimeBasedTrigger(
 
 function maybeTimeBasedMicrocompact(
   messages: SessionMessage[],
-  querySource?: string,
+  querySource?: string
 ): MicrocompactResult | null {
   const trigger = evaluateTimeBasedTrigger(messages, querySource);
   if (!trigger) {
@@ -158,7 +171,7 @@ function maybeTimeBasedMicrocompact(
 
 export function microcompactMessages(
   messages: SessionMessage[],
-  querySource?: string,
+  querySource?: string
 ): MicrocompactResult {
   clearCompactWarningSuppression();
 

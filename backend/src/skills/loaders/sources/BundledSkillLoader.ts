@@ -17,7 +17,10 @@ interface BundledSkillDefinition {
   argumentHint?: string;
   allowedTools?: string[];
   userInvocable?: boolean;
-  getPromptForCommand: (args: string, context: any) => Promise<{ type: string; text: string }[]>;
+  getPromptForCommand: (
+    args: string,
+    context: any
+  ) => Promise<{ type: string; text: string }[]>;
 }
 
 /**
@@ -26,14 +29,16 @@ interface BundledSkillDefinition {
 const bundledSkills: BundledSkillDefinition[] = [
   {
     name: 'debug',
-    description: 'Enable debug logging for this session and help diagnose issues',
+    description:
+      'Enable debug logging for this session and help diagnose issues',
     allowedTools: ['Read', 'Grep', 'Glob'],
     argumentHint: '[issue description]',
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Debug Skill
+      return [
+        {
+          type: 'text',
+          text: `# Debug Skill
 
 Help the user debug an issue they're encountering in this session.
 
@@ -47,22 +52,26 @@ ${args || 'The user did not describe a specific issue.'}
 2. Check the debug log for errors and warnings
 3. Explain what you found in plain language
 4. Suggest concrete fixes or next steps
-`
-      }];
+`,
+        },
+      ];
     },
   },
   {
     name: 'loop',
-    description: 'Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo)',
-    whenToUse: 'When the user wants to set up a recurring task, poll for status, or run something repeatedly on an interval',
+    description:
+      'Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo)',
+    whenToUse:
+      'When the user wants to set up a recurring task, poll for status, or run something repeatedly on an interval',
     argumentHint: '[interval] <prompt>',
     userInvocable: true,
     async getPromptForCommand(args) {
       const trimmed = args.trim();
       if (!trimmed) {
-        return [{
-          type: 'text',
-          text: `Usage: /loop [interval] <prompt>
+        return [
+          {
+            type: 'text',
+            text: `Usage: /loop [interval] <prompt>
 
 Run a prompt or slash command on a recurring interval.
 
@@ -74,12 +83,14 @@ Examples:
   /loop 30m check the deploy
   /loop 1h /standup 1
   /loop check the deploy          (defaults to 10m)
-  /loop check the deploy every 20m`
-        }];
+  /loop check the deploy every 20m`,
+          },
+        ];
       }
-      return [{
-        type: 'text',
-        text: `# /loop — schedule a recurring prompt
+      return [
+        {
+          type: 'text',
+          text: `# /loop — schedule a recurring prompt
 
 Parse the input below into \`[interval] <prompt…>\`.
 
@@ -91,8 +102,9 @@ ${trimmed}
 
 1. Parse the interval and prompt from the input
 2. Schedule the prompt to run on the specified interval
-3. Execute the prompt immediately as well`
-      }];
+3. Execute the prompt immediately as well`,
+        },
+      ];
     },
   },
   {
@@ -102,9 +114,10 @@ ${trimmed}
     argumentHint: '<code or code description>',
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Simplify Skill
+      return [
+        {
+          type: 'text',
+          text: `# Simplify Skill
 
 Help the user understand and simplify complex code.
 
@@ -117,8 +130,9 @@ ${args || 'No code provided.'}
 1. Analyze the code structure and logic
 2. Simplify complex patterns and reduce boilerplate
 3. Explain the simplified version clearly
-4. Provide the simplified code with comments`
-      }];
+4. Provide the simplified code with comments`,
+        },
+      ];
     },
   },
   {
@@ -128,9 +142,10 @@ ${args || 'No code provided.'}
     argumentHint: '<information to remember>',
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Remember Skill
+      return [
+        {
+          type: 'text',
+          text: `# Remember Skill
 
 Store the following information for future reference.
 
@@ -142,20 +157,23 @@ ${args || 'No information provided.'}
 
 1. Store this information in memory
 2. Summarize the key points
-3. Confirm to the user that the information has been stored`
-      }];
+3. Confirm to the user that the information has been stored`,
+        },
+      ];
     },
   },
   {
     name: 'verify',
     description: 'Verify code changes and suggest improvements',
-    whenToUse: 'When the user wants to verify code correctness or get improvement suggestions',
+    whenToUse:
+      'When the user wants to verify code correctness or get improvement suggestions',
     argumentHint: '<code or file path>',
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Verify Skill
+      return [
+        {
+          type: 'text',
+          text: `# Verify Skill
 
 Verify code changes and suggest improvements.
 
@@ -168,20 +186,23 @@ ${args || 'No code provided.'}
 1. Review the code for correctness
 2. Check for potential bugs and issues
 3. Suggest improvements and best practices
-4. Provide specific recommendations`
-      }];
+4. Provide specific recommendations`,
+        },
+      ];
     },
   },
   {
     name: 'batch',
     description: 'Process multiple files or tasks in batch',
-    whenToUse: 'When the user wants to perform the same operation on multiple files',
+    whenToUse:
+      'When the user wants to perform the same operation on multiple files',
     argumentHint: '<operation> <files>',
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Batch Skill
+      return [
+        {
+          type: 'text',
+          text: `# Batch Skill
 
 Process multiple files or tasks in batch.
 
@@ -193,8 +214,9 @@ ${args || 'No operation specified.'}
 
 1. Parse the operation and target files
 2. Execute the operation on each file
-3. Provide a summary of results`
-      }];
+3. Provide a summary of results`,
+        },
+      ];
     },
   },
   {
@@ -204,9 +226,10 @@ ${args || 'No operation specified.'}
     argumentHint: '<problem description>',
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Stuck Skill
+      return [
+        {
+          type: 'text',
+          text: `# Stuck Skill
 
 Help the user when they feel stuck on a problem.
 
@@ -219,22 +242,26 @@ ${args || 'No problem description provided.'}
 1. Understand the user's problem
 2. Ask clarifying questions if needed
 3. Brainstorm possible approaches
-4. Provide actionable suggestions to move forward`
-      }];
+4. Provide actionable suggestions to move forward`,
+        },
+      ];
     },
   },
   {
     name: 'update-config',
-    description: 'Use natural language to manage settings.json configuration — permissions, environment variables, hooks, and more',
+    description:
+      'Use natural language to manage settings.json configuration — permissions, environment variables, hooks, and more',
     aliases: ['config', 'settings', '配置'],
-    whenToUse: 'When the user wants to configure settings, permissions, hooks, or environment variables using natural language',
+    whenToUse:
+      'When the user wants to configure settings, permissions, hooks, or environment variables using natural language',
     argumentHint: '<configuration request>',
     allowedTools: ['Read'],
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Update Config Skill
+      return [
+        {
+          type: 'text',
+          text: `# Update Config Skill
 
 Modify configuration by updating settings.json files using natural language.
 
@@ -302,22 +329,25 @@ Hooks run commands at specific lifecycle events:
 - **Merge arrays** — Add to existing arrays, never replace them
 - **Ask when ambiguous** — Use AskUserQuestion to clarify scope and values
 
-${args ? `\n## User Request\n\n${args}` : ''}`
-      }];
+${args ? `\n## User Request\n\n${args}` : ''}`,
+        },
+      ];
     },
   },
   {
     name: 'keybindings-help',
     description: 'Help with customizing keyboard shortcuts and key bindings',
     aliases: ['keybindings', 'shortcuts', '快捷键'],
-    whenToUse: 'When the user wants to customize keyboard shortcuts, rebind keys, or modify keybindings configuration',
+    whenToUse:
+      'When the user wants to customize keyboard shortcuts, rebind keys, or modify keybindings configuration',
     argumentHint: '<shortcut customization request>',
     allowedTools: ['Read'],
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Keybindings Help
+      return [
+        {
+          type: 'text',
+          text: `# Keybindings Help
 
 Create or modify keybindings configuration to customize keyboard shortcuts.
 
@@ -396,40 +426,48 @@ Set a key to \`null\` to remove its default binding:
 3. Warn about conflicts with terminal reserved shortcuts (e.g. \`ctrl+c\`, \`ctrl+z\`)
 4. When adding a new binding for an existing action, the new binding is additive (existing default still works unless explicitly unbound)
 
-${args ? `\n## User Request\n\n${args}` : ''}`
-      }];
+${args ? `\n## User Request\n\n${args}` : ''}`,
+        },
+      ];
     },
   },
   {
     name: 'lorem-ipsum',
-    description: 'Generate filler text for testing — specify token count as argument',
+    description:
+      'Generate filler text for testing — specify token count as argument',
     aliases: ['lorem', 'filler', '填充文本'],
-    whenToUse: 'When the user needs placeholder/filler text for testing layouts, templates, or long context scenarios',
+    whenToUse:
+      'When the user needs placeholder/filler text for testing layouts, templates, or long context scenarios',
     argumentHint: '[token_count]',
     userInvocable: true,
     async getPromptForCommand(args) {
       const targetTokens = parseInt(args);
       if (args && (isNaN(targetTokens) || targetTokens <= 0)) {
-        return [{
-          type: 'text',
-          text: 'Invalid token count. Please provide a positive number (e.g., /lorem-ipsum 10000).'
-        }];
+        return [
+          {
+            type: 'text',
+            text: 'Invalid token count. Please provide a positive number (e.g., /lorem-ipsum 10000).',
+          },
+        ];
       }
       if (!args) {
-        return [{
-          type: 'text',
-          text: `Usage: /lorem-ipsum [token_count]
+        return [
+          {
+            type: 'text',
+            text: `Usage: /lorem-ipsum [token_count]
 
 Generate filler text for testing. Specify the approximate number of tokens needed.
 
 Examples:
   /lorem-ipsum 1000    — generates ~1000 tokens
-  /lorem-ipsum 50000   — generates ~50000 tokens (good for context testing)`
-        }];
+  /lorem-ipsum 50000   — generates ~50000 tokens (good for context testing)`,
+          },
+        ];
       }
-      return [{
-        type: 'text',
-        text: `# Lorem Ipsum Generator
+      return [
+        {
+          type: 'text',
+          text: `# Lorem Ipsum Generator
 
 Generate approximately ${targetTokens} tokens of filler text for testing.
 
@@ -440,22 +478,26 @@ Generate coherent filler text with the following constraints:
 2. Use a mix of sentence structures and vocabulary
 3. Organize into paragraphs (5-8 sentences each, separated by blank lines)
 4. The text should be grammatically correct but semantically meaningless
-5. Do not include any explanatory text — only output the generated text`
-      }];
+5. Do not include any explanatory text — only output the generated text`,
+        },
+      ];
     },
   },
   {
     name: 'skillify',
-    description: 'Capture a repeatable process from this session into a reusable skill',
+    description:
+      'Capture a repeatable process from this session into a reusable skill',
     aliases: ['capture', 'makeskill', '创建技能'],
-    whenToUse: 'When the user has performed a repeatable process and wants to save it as a reusable skill',
+    whenToUse:
+      'When the user has performed a repeatable process and wants to save it as a reusable skill',
     argumentHint: '[description of the process to capture]',
     allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'AskUserQuestion'],
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Skillify — Capture Process as Skill
+      return [
+        {
+          type: 'text',
+          text: `# Skillify — Capture Process as Skill
 
 Capture a repeatable process from this session into a reusable SKILL.md skill file.
 
@@ -513,22 +555,25 @@ What to do in this step.
 
 ### Step 4: Save and Confirm
 
-Before writing, output the SKILL.md content for review. Ask user to confirm using AskUserQuestion.`
-      }];
+Before writing, output the SKILL.md content for review. Ask user to confirm using AskUserQuestion.`,
+        },
+      ];
     },
   },
   {
     name: 'claude-api',
     description: 'Build applications with the Claude API and Anthropic SDKs',
     aliases: ['api', 'anthropic', 'sdk'],
-    whenToUse: 'When the user wants to build apps using the Claude API, Anthropic SDKs, or when code imports anthropic/ claude_agent_sdk',
+    whenToUse:
+      'When the user wants to build apps using the Claude API, Anthropic SDKs, or when code imports anthropic/ claude_agent_sdk',
     argumentHint: '<question about Claude API or SDK usage>',
     allowedTools: ['Read', 'Grep', 'Glob', 'WebFetch'],
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Claude API Skill
+      return [
+        {
+          type: 'text',
+          text: `# Claude API Skill
 
 Help the user build applications with the Claude API or Anthropic SDK.
 
@@ -589,21 +634,25 @@ response = client.messages.create(
 - SDK Documentation: Refer to the language-specific SDK docs
 - Status: https://status.anthropic.com
 
-${args ? `\n## User Request\n\n${args}` : ''}`
-      }];
+${args ? `\n## User Request\n\n${args}` : ''}`,
+        },
+      ];
     },
   },
   {
     name: 'dream',
-    description: 'Enter dream mode — an experimental immersive coding experience with enhanced creativity and flow',
+    description:
+      'Enter dream mode — an experimental immersive coding experience with enhanced creativity and flow',
     aliases: ['梦境', 'dream-mode'],
-    whenToUse: 'When the user wants to enter an experimental dream mode for enhanced creativity, brainstorming, or immersive coding sessions',
+    whenToUse:
+      'When the user wants to enter an experimental dream mode for enhanced creativity, brainstorming, or immersive coding sessions',
     argumentHint: '[dream scenario or goal]',
     userInvocable: true,
     async getPromptForCommand(args) {
-      return [{
-        type: 'text',
-        text: `# Dream Mode
+      return [
+        {
+          type: 'text',
+          text: `# Dream Mode
 
 Enter an experimental dream mode for enhanced creativity and immersive exploration.
 
@@ -628,8 +677,9 @@ ${args ? `Dream Scenario: ${args}\n\n` : ''}1. **Set the atmosphere** — Use wa
 - Dream mode is experimental and may produce unconventional results
 - Ideas generated can be refined later with standard tools
 - The goal is to unlock creative potential, not to produce production-ready code
-- Use this mode when feeling stuck, needing inspiration, or exploring greenfield ideas`
-      }];
+- Use this mode when feeling stuck, needing inspiration, or exploring greenfield ideas`,
+        },
+      ];
     },
   },
 ];
@@ -639,25 +689,27 @@ ${args ? `Dream Scenario: ${args}\n\n` : ''}1. **Set the atmosphere** — Use wa
  */
 export class BundledSkillLoader extends SkillLoader {
   async loadSkills(): Promise<Skill[]> {
-    return bundledSkills.map((def): Skill => ({
-      type: 'prompt',
-      name: def.name,
-      description: def.description,
-      aliases: def.aliases,
-      hasUserSpecifiedDescription: true,
-      allowedTools: def.allowedTools || [],
-      argumentHint: def.argumentHint,
-      whenToUse: def.whenToUse,
-      userInvocable: def.userInvocable ?? true,
-      disableModelInvocation: false,
-      contentLength: 0,
-      progressMessage: '',
-      source: SkillSource.BUNDLED,
-      loadedFrom: 'bundled',
-      isHidden: !(def.userInvocable ?? true),
-      userFacingName: () => def.name,
-      getPromptForCommand: def.getPromptForCommand,
-    }));
+    return bundledSkills.map(
+      (def): Skill => ({
+        type: 'prompt',
+        name: def.name,
+        description: def.description,
+        aliases: def.aliases,
+        hasUserSpecifiedDescription: true,
+        allowedTools: def.allowedTools || [],
+        argumentHint: def.argumentHint,
+        whenToUse: def.whenToUse,
+        userInvocable: def.userInvocable ?? true,
+        disableModelInvocation: false,
+        contentLength: 0,
+        progressMessage: '',
+        source: SkillSource.BUNDLED,
+        loadedFrom: 'bundled',
+        isHidden: !(def.userInvocable ?? true),
+        userFacingName: () => def.name,
+        getPromptForCommand: def.getPromptForCommand,
+      })
+    );
   }
 
   getSource(): SkillSource {

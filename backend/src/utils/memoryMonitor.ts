@@ -38,7 +38,10 @@ export class MemoryMonitor {
    * @param memoryThreshold 内存阈值（MB）
    * @param checkInterval 检查间隔（毫秒）
    */
-  private constructor(memoryThreshold: number = 512, checkInterval: number = 60000) {
+  private constructor(
+    memoryThreshold: number = 512,
+    checkInterval: number = 60000
+  ) {
     this.memoryThreshold = memoryThreshold;
     this.checkInterval = checkInterval;
   }
@@ -68,7 +71,7 @@ export class MemoryMonitor {
    */
   setCheckInterval(interval: number): void {
     this.checkInterval = interval;
-    
+
     // 如果正在监控，重启监控
     if (this.intervalId) {
       this.stop();
@@ -255,7 +258,8 @@ export class MemoryMonitor {
  */
 export class ResourceManager {
   private static instance: ResourceManager;
-  private resources: Map<string, { resource: any; cleanup: CleanupCallback }> = new Map();
+  private resources: Map<string, { resource: any; cleanup: CleanupCallback }> =
+    new Map();
 
   /**
    * 私有构造函数
@@ -279,7 +283,11 @@ export class ResourceManager {
    * @param resource 资源对象
    * @param cleanup 清理回调
    */
-  registerResource(name: string, resource: any, cleanup: CleanupCallback): void {
+  registerResource(
+    name: string,
+    resource: any,
+    cleanup: CleanupCallback
+  ): void {
     this.resources.set(name, { resource, cleanup });
     logger.debug('Resource registered', { name });
   }
@@ -324,15 +332,19 @@ export class ResourceManager {
           try {
             const result = entry.cleanup();
             if (result instanceof Promise) {
-              result.then(() => resolve()).catch((error) => {
-                logger.error('Failed to cleanup resource', error, { name });
-                resolve();
-              });
+              result
+                .then(() => resolve())
+                .catch((error) => {
+                  logger.error('Failed to cleanup resource', error, { name });
+                  resolve();
+                });
             } else {
               resolve();
             }
           } catch (error) {
-            logger.error('Failed to cleanup resource', error as Error, { name });
+            logger.error('Failed to cleanup resource', error as Error, {
+              name,
+            });
             resolve();
           }
         })

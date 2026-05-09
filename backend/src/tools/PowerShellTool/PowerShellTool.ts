@@ -20,10 +20,25 @@ import * as path from 'path';
  */
 const PowerShellInputSchema = z.strictObject({
   command: z.string().min(1, '命令不能为空').describe('要执行的PowerShell命令'),
-  timeout: z.number().int().positive().max(300000).optional().default(60000).describe('超时时间（毫秒）'),
-  skipSecurityCheck: z.boolean().optional().default(false).describe('跳过安全检查（危险）'),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .max(300000)
+    .optional()
+    .default(60000)
+    .describe('超时时间（毫秒）'),
+  skipSecurityCheck: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe('跳过安全检查（危险）'),
   workingDirectory: z.string().optional().describe('命令工作目录'),
-  executionPolicy: z.string().optional().default('Bypass').describe('PowerShell执行策略'),
+  executionPolicy: z
+    .string()
+    .optional()
+    .default('Bypass')
+    .describe('PowerShell执行策略'),
 });
 
 /**

@@ -3,7 +3,12 @@
  * 参考CC源码 utils/messages.ts 实现
  */
 
-import type { Message, UserMessage, AssistantMessage, SystemMessage } from '../chat/types/message.js';
+import type {
+  Message,
+  UserMessage,
+  AssistantMessage,
+  SystemMessage,
+} from '../chat/types/message.js';
 import { MessageRole, MessageType } from '../chat/types/message.js';
 
 /**
@@ -13,7 +18,7 @@ export function deriveShortMessageId(uuid: string): string {
   const hash = uuid.replace(/-/g, '');
   let num = 0;
   for (let i = 0; i < Math.min(hash.length, 12); i++) {
-    num = (num * 16 + parseInt(hash[i], 16)) % (36 ** 6);
+    num = (num * 16 + parseInt(hash[i], 16)) % 36 ** 6;
   }
   return num.toString(36).padStart(6, '0');
 }
@@ -23,7 +28,9 @@ export function deriveShortMessageId(uuid: string): string {
  * @param content 消息内容
  * @returns 助手消息对象
  */
-export function createAssistantMessage(content: { content: string }): AssistantMessage {
+export function createAssistantMessage(content: {
+  content: string;
+}): AssistantMessage {
   return {
     id: `msg_${Date.now()}`,
     role: MessageRole.ASSISTANT,
@@ -60,7 +67,10 @@ export function createUserMessage(params: {
  * @param subtype 子类型
  * @returns 系统消息对象
  */
-export function createSystemMessage(content: string, subtype?: string): SystemMessage {
+export function createSystemMessage(
+  content: string,
+  subtype?: string
+): SystemMessage {
   return {
     id: `sys_${Date.now()}`,
     role: MessageRole.SYSTEM,
@@ -91,7 +101,9 @@ export function createCompactBoundaryMessage(params: {
   direction?: string;
   isMicro?: boolean;
 }): SystemMessage {
-  const subtype = params.isMicro ? 'micro_compact_boundary' : 'compact_boundary';
+  const subtype = params.isMicro
+    ? 'micro_compact_boundary'
+    : 'compact_boundary';
   return createSystemMessage(params.summary, subtype);
 }
 
@@ -100,7 +112,9 @@ export function createCompactBoundaryMessage(params: {
  * @param summary 摘要内容
  * @returns 系统消息对象
  */
-export function createMicrocompactBoundaryMessage(summary: string): SystemMessage {
+export function createMicrocompactBoundaryMessage(
+  summary: string
+): SystemMessage {
   return createCompactBoundaryMessage({ summary, isMicro: true });
 }
 
@@ -131,8 +145,14 @@ export function createToolUseSummaryMessage(params: {
  * @param memoryId 内存ID
  * @returns 系统消息对象
  */
-export function createMemorySavedMessage(memoryType: string, memoryId: string): SystemMessage {
-  return createSystemMessage(`Memory saved: ${memoryType} (${memoryId})`, 'memory_saved');
+export function createMemorySavedMessage(
+  memoryType: string,
+  memoryId: string
+): SystemMessage {
+  return createSystemMessage(
+    `Memory saved: ${memoryType} (${memoryId})`,
+    'memory_saved'
+  );
 }
 
 /**
@@ -149,7 +169,9 @@ export function createSystemAPIErrorMessage(error: string): SystemMessage {
  * @param params 进度参数
  * @returns 进度消息对象
  */
-export function createProgressMessage<T extends Record<string, unknown>>(params: {
+export function createProgressMessage<
+  T extends Record<string, unknown>,
+>(params: {
   taskId: string;
   progress: number;
   message: string;
@@ -215,8 +237,13 @@ export function createAgentsKilledMessage(): SystemMessage {
  * @param permissionType 权限类型
  * @returns 系统消息对象
  */
-export function createPermissionRetryMessage(permissionType: string): SystemMessage {
-  return createSystemMessage(`Retrying permission check for: ${permissionType}`, 'permission_retry');
+export function createPermissionRetryMessage(
+  permissionType: string
+): SystemMessage {
+  return createSystemMessage(
+    `Retrying permission check for: ${permissionType}`,
+    'permission_retry'
+  );
 }
 
 /**
@@ -224,8 +251,13 @@ export function createPermissionRetryMessage(permissionType: string): SystemMess
  * @param status 状态信息
  * @returns 系统消息对象
  */
-export function createBridgeStatusMessage(status: Record<string, unknown>): SystemMessage {
-  return createSystemMessage(`Bridge status: ${JSON.stringify(status)}`, 'bridge_status');
+export function createBridgeStatusMessage(
+  status: Record<string, unknown>
+): SystemMessage {
+  return createSystemMessage(
+    `Bridge status: ${JSON.stringify(status)}`,
+    'bridge_status'
+  );
 }
 
 /**
@@ -234,7 +266,10 @@ export function createBridgeStatusMessage(status: Record<string, unknown>): Syst
  * @returns 系统消息对象
  */
 export function createScheduledTaskFireMessage(taskId: string): SystemMessage {
-  return createSystemMessage(`Scheduled task fired: ${taskId}`, 'scheduled_task_fire');
+  return createSystemMessage(
+    `Scheduled task fired: ${taskId}`,
+    'scheduled_task_fire'
+  );
 }
 
 /**
@@ -242,8 +277,13 @@ export function createScheduledTaskFireMessage(taskId: string): SystemMessage {
  * @param info 钩子信息
  * @returns 系统消息对象
  */
-export function createStopHookSummaryMessage(info: Record<string, unknown>): SystemMessage {
-  return createSystemMessage(`Stop hook summary: ${JSON.stringify(info)}`, 'stop_hook_summary');
+export function createStopHookSummaryMessage(
+  info: Record<string, unknown>
+): SystemMessage {
+  return createSystemMessage(
+    `Stop hook summary: ${JSON.stringify(info)}`,
+    'stop_hook_summary'
+  );
 }
 
 /**
@@ -277,7 +317,9 @@ export function createApiMetricsMessage(metrics: {
  * @param error 错误信息
  * @returns 助手消息对象
  */
-export function createAssistantAPIErrorMessage(error: string): AssistantMessage {
+export function createAssistantAPIErrorMessage(
+  error: string
+): AssistantMessage {
   return {
     id: `api_error_${Date.now()}`,
     role: MessageRole.ASSISTANT,
@@ -294,7 +336,10 @@ export function createAssistantAPIErrorMessage(error: string): AssistantMessage 
  * @returns 系统消息对象
  */
 export function createToolResultStopMessage(toolName: string): SystemMessage {
-  return createSystemMessage(`Tool result stopped: ${toolName}`, 'tool_result_stop');
+  return createSystemMessage(
+    `Tool result stopped: ${toolName}`,
+    'tool_result_stop'
+  );
 }
 
 /**
@@ -323,7 +368,7 @@ export function getAssistantMessageText(message: Message): string {
  * @returns 工具调用次数
  */
 export function countToolCalls(messages: Message[]): number {
-  return messages.filter(m => (m as any).type === 'tool_use').length;
+  return messages.filter((m) => (m as any).type === 'tool_use').length;
 }
 
 /**

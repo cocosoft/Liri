@@ -5,6 +5,9 @@
  */
 
 import { jsonStringify } from './json.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 缓存项
@@ -64,7 +67,12 @@ export class LRUCache<T = any> {
       this.evict();
     }
 
-    const expiresAt = ttl !== undefined ? Date.now() + ttl : this.defaultTtl > 0 ? Date.now() + this.defaultTtl : undefined;
+    const expiresAt =
+      ttl !== undefined
+        ? Date.now() + ttl
+        : this.defaultTtl > 0
+          ? Date.now() + this.defaultTtl
+          : undefined;
     this.cache.set(key, { value, lastAccess: Date.now() });
   }
 
@@ -181,7 +189,8 @@ export class TTLCache<T = any> {
    * @param ttl 过期时间（毫秒）
    */
   set(key: string, value: T, ttl?: number): void {
-    const expiresAt = ttl !== undefined ? Date.now() + ttl : Date.now() + this.defaultTtl;
+    const expiresAt =
+      ttl !== undefined ? Date.now() + ttl : Date.now() + this.defaultTtl;
 
     if (this.cache.has(key)) {
       this.delete(key);
@@ -490,20 +499,20 @@ export class PersistentCache<T = any> {
    */
   set(key: string, value: T, ttl?: number): void {
     const expiresAt = ttl ? Date.now() + ttl : undefined;
-    
+
     // 如果键已存在，先删除旧值
     if (this.cache.has(key)) {
       this.currentSize--;
     }
-    
+
     // 检查是否超过最大容量
     if (this.currentSize >= this.maxSize) {
       this.evict();
     }
-    
+
     this.cache.set(key, { value, expiresAt });
     this.currentSize++;
-    
+
     // 保存到文件
     this.save();
   }
@@ -515,17 +524,17 @@ export class PersistentCache<T = any> {
    */
   get(key: string): T | undefined {
     const item = this.cache.get(key);
-    
+
     if (!item) {
       return undefined;
     }
-    
+
     // 检查是否过期
     if (item.expiresAt && Date.now() > item.expiresAt) {
       this.delete(key);
       return undefined;
     }
-    
+
     return item.value;
   }
 
@@ -549,17 +558,17 @@ export class PersistentCache<T = any> {
    */
   has(key: string): boolean {
     const item = this.cache.get(key);
-    
+
     if (!item) {
       return false;
     }
-    
+
     // 检查是否过期
     if (item.expiresAt && Date.now() > item.expiresAt) {
       this.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
@@ -595,7 +604,7 @@ export class PersistentCache<T = any> {
    */
   cleanup(): void {
     const now = Date.now();
-    
+
     for (const [key, item] of this.cache.entries()) {
       if (item.expiresAt && now > item.expiresAt) {
         this.delete(key);
@@ -612,7 +621,10 @@ export class PersistentCache<T = any> {
       const data = Array.from(this.cache.entries());
       fs.writeFileSync(this.filePath, JSON.stringify(data));
     } catch (error) {
-      console.error('Failed to save cache:', error);
+      logger.error(
+        'Failed to save cache',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -625,15 +637,18 @@ export class PersistentCache<T = any> {
       if (fs.existsSync(this.filePath)) {
         const data = fs.readFileSync(this.filePath, 'utf-8');
         const entries = JSON.parse(data) as [string, CacheItem<T>][];
-        
+
         this.cache = new Map(entries);
         this.currentSize = entries.length;
-        
+
         // 清理过期项
         this.cleanup();
       }
     } catch (error) {
-      console.error('Failed to load cache:', error);
+      logger.error(
+        'Failed to load cache',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 }
@@ -657,9 +672,12 @@ export class MultiLevelCache<T = any> {
     persistentSize: number = 10000
   ) {
     this.memoryCache = new MemoryCache<T>(memorySize);
-    
+
     if (persistentFile) {
-      this.persistentCache = new PersistentCache<T>(persistentFile, persistentSize);
+      this.persistentCache = new PersistentCache<T>(
+        persistentFile,
+        persistentSize
+      );
     }
   }
 
@@ -673,7 +691,7 @@ export class MultiLevelCache<T = any> {
   set(key: string, value: T, ttl?: number, persistent: boolean = false): void {
     // 总是设置到内存缓存
     this.memoryCache.set(key, value, ttl);
-    
+
     // 如果需要持久化且持久化缓存存在
     if (persistent && this.persistentCache) {
       this.persistentCache.set(key, value, ttl);
@@ -688,17 +706,17 @@ export class MultiLevelCache<T = any> {
   get(key: string): T | undefined {
     // 先从内存缓存获取
     let value = this.memoryCache.get(key);
-    
+
     // 如果内存缓存中没有，从持久化缓存获取
     if (value === undefined && this.persistentCache) {
       value = this.persistentCache.get(key);
-      
+
       // 如果持久化缓存中有，回填到内存缓存
       if (value !== undefined) {
         this.memoryCache.set(key, value);
       }
     }
-    
+
     return value;
   }
 
@@ -708,7 +726,7 @@ export class MultiLevelCache<T = any> {
    */
   delete(key: string): void {
     this.memoryCache.delete(key);
-    
+
     if (this.persistentCache) {
       this.persistentCache.delete(key);
     }
@@ -720,8 +738,9 @@ export class MultiLevelCache<T = any> {
    * @returns 是否存在
    */
   has(key: string): boolean {
-    return this.memoryCache.has(key) || 
-           (this.persistentCache?.has(key) ?? false);
+    return (
+      this.memoryCache.has(key) || (this.persistentCache?.has(key) ?? false)
+    );
   }
 
   /**
@@ -729,7 +748,7 @@ export class MultiLevelCache<T = any> {
    */
   clear(): void {
     this.memoryCache.clear();
-    
+
     if (this.persistentCache) {
       this.persistentCache.clear();
     }
@@ -740,7 +759,7 @@ export class MultiLevelCache<T = any> {
    */
   cleanup(): void {
     this.memoryCache.cleanup();
-    
+
     if (this.persistentCache) {
       this.persistentCache.cleanup();
     }

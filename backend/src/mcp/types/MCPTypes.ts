@@ -11,19 +11,25 @@ export const MCP_PROTOCOL_VERSION = '2024-11-05';
 /**
  * 配置作用域（基于CC源码）
  */
-export type ConfigScope = 'local' | 'user' | 'project' | 'dynamic' | 'enterprise' | 'claudeai';
+export type ConfigScope =
+  | 'local'
+  | 'user'
+  | 'project'
+  | 'dynamic'
+  | 'enterprise'
+  | 'claudeai';
 
 /**
  * MCP服务器类型（基于CC源码）
  */
-export type MCPServerType = 
-  | 'stdio' 
-  | 'sse' 
-  | 'http' 
-  | 'ws' 
-  | 'sse-ide' 
-  | 'ws-ide' 
-  | 'sdk' 
+export type MCPServerType =
+  | 'stdio'
+  | 'sse'
+  | 'http'
+  | 'ws'
+  | 'sse-ide'
+  | 'ws-ide'
+  | 'sdk'
   | 'claudeai-proxy';
 
 /**
@@ -32,40 +38,40 @@ export type MCPServerType =
 export interface MCPServerConfig {
   /** 服务器类型 */
   type?: MCPServerType;
-  
+
   /** 命令路径（stdio类型） */
   command?: string;
-  
+
   /** 命令参数（stdio类型） */
   args?: string[];
-  
+
   /** 环境变量（stdio类型） */
   env?: Record<string, string>;
-  
+
   /** URL（sse、http、ws类型） */
   url?: string;
-  
+
   /** 头部信息（sse、http、ws类型） */
   headers?: Record<string, string>;
-  
+
   /** 头部助手（sse类型） */
   headersHelper?: string;
-  
+
   /** OAuth配置 */
   oauth?: McpOAuthConfig;
-  
+
   /** 作用域 */
   scope?: ConfigScope;
-  
+
   /** 插件来源 */
   pluginSource?: string;
-  
+
   /** 是否启用 */
   enabled?: boolean;
-  
+
   /** 描述信息 */
   description?: string;
-  
+
   /** 版本信息 */
   version?: string;
 }
@@ -76,7 +82,7 @@ export interface MCPServerConfig {
 export interface ScopedMcpServerConfig extends MCPServerConfig {
   /** 作用域 */
   scope: ConfigScope;
-  
+
   /** 插件来源 */
   pluginSource?: string;
 }
@@ -87,13 +93,13 @@ export interface ScopedMcpServerConfig extends MCPServerConfig {
 export interface McpOAuthConfig {
   /** 客户端ID */
   clientId?: string;
-  
+
   /** 回调端口 */
   callbackPort?: number;
-  
+
   /** 授权服务器元数据URL */
   authServerMetadataUrl?: string;
-  
+
   /** 是否启用XAA跨应用访问 */
   xaa?: boolean;
 }
@@ -104,19 +110,19 @@ export interface McpOAuthConfig {
 export interface MCPToolDefinition {
   /** 工具名称 */
   name: string;
-  
+
   /** 工具描述 */
   description: string;
-  
+
   /** 输入参数schema */
   inputSchema: Record<string, any>;
-  
+
   /** 输出参数schema */
   outputSchema?: Record<string, any>;
-  
+
   /** 工具类型 */
   type?: string;
-  
+
   /** 工具版本 */
   version?: string;
 }
@@ -127,19 +133,19 @@ export interface MCPToolDefinition {
 export interface MCPResourceDefinition {
   /** 资源ID */
   id: string;
-  
+
   /** 资源名称 */
   name: string;
-  
+
   /** 资源描述 */
   description?: string;
-  
+
   /** 资源类型 */
   type: string;
-  
+
   /** 资源URI */
   uri: string;
-  
+
   /** 资源元数据 */
   metadata?: Record<string, any>;
 }
@@ -150,16 +156,16 @@ export interface MCPResourceDefinition {
 export interface MCPPromptDefinition {
   /** 提示ID */
   id: string;
-  
+
   /** 提示名称 */
   name: string;
-  
+
   /** 提示描述 */
   description?: string;
-  
+
   /** 提示内容 */
   content: string;
-  
+
   /** 提示参数 */
   arguments?: Record<string, any>;
 }
@@ -170,22 +176,22 @@ export interface MCPPromptDefinition {
 export interface MCPRequest {
   /** 请求ID */
   id: string;
-  
+
   /** 请求类型 */
   type: 'call' | 'list_tools' | 'list_resources' | 'list_prompts' | 'ping';
-  
+
   /** 工具名称（call类型） */
   tool_name?: string;
-  
+
   /** 工具参数（call类型） */
   tool_arguments?: Record<string, any>;
-  
+
   /** 资源URI（read_resource类型） */
   uri?: string;
-  
+
   /** 提示ID（get_prompt类型） */
   prompt_id?: string;
-  
+
   /** 提示参数（get_prompt类型） */
   prompt_arguments?: Record<string, any>;
 }
@@ -196,23 +202,23 @@ export interface MCPRequest {
 export interface MCPResponse {
   /** 响应ID */
   id: string;
-  
+
   /** 请求ID */
   request_id: string;
-  
+
   /** 响应类型 */
   type: 'result' | 'error' | 'progress';
-  
+
   /** 响应结果（result类型） */
   result?: any;
-  
+
   /** 错误信息（error类型） */
   error?: {
     code: string;
     message: string;
     data?: any;
   };
-  
+
   /** 进度信息（progress类型） */
   progress?: {
     progress: number;
@@ -224,13 +230,13 @@ export interface MCPResponse {
 /**
  * MCP客户端状态（基于CC源码）
  */
-export type MCPClientState = 
-  | 'disconnected' 
-  | 'connecting' 
-  | 'connected' 
-  | 'authenticating' 
-  | 'ready' 
-  | 'error' 
+export type MCPClientState =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'authenticating'
+  | 'ready'
+  | 'error'
   | 'disconnecting';
 
 /**
@@ -239,10 +245,10 @@ export type MCPClientState =
 export interface MCPClientInfo {
   /** 客户端名称 */
   name: string;
-  
+
   /** 客户端版本 */
   version: string;
-  
+
   /** 客户端能力 */
   capabilities: {
     tools?: boolean;
@@ -257,10 +263,10 @@ export interface MCPClientInfo {
 export interface MCPServerInfo {
   /** 服务器名称 */
   name: string;
-  
+
   /** 服务器版本 */
   version: string;
-  
+
   /** 服务器能力 */
   capabilities: {
     tools?: boolean;
@@ -275,19 +281,19 @@ export interface MCPServerInfo {
 export interface MCPConnectionConfig {
   /** 连接超时时间（毫秒） */
   timeout?: number;
-  
+
   /** 最大重试次数 */
   maxRetries?: number;
-  
+
   /** 重试间隔（毫秒） */
   retryInterval?: number;
-  
+
   /** 心跳间隔（毫秒） */
   heartbeatInterval?: number;
-  
+
   /** 是否启用自动重连 */
   autoReconnect?: boolean;
-  
+
   /** 是否启用调试模式 */
   debug?: boolean;
 }
@@ -298,22 +304,22 @@ export interface MCPConnectionConfig {
 export interface MCPConnectionStats {
   /** 连接开始时间 */
   connectedAt: Date;
-  
+
   /** 工具调用次数 */
   toolCalls: number;
-  
+
   /** 资源读取次数 */
   resourceReads: number;
-  
+
   /** 提示获取次数 */
   promptGets: number;
-  
+
   /** 错误次数 */
   errors: number;
-  
+
   /** 最后活动时间 */
   lastActivity: Date;
-  
+
   /** 平均响应时间（毫秒） */
   averageResponseTime: number;
 }
@@ -321,13 +327,13 @@ export interface MCPConnectionStats {
 /**
  * MCP事件类型（基于CC源码）
  */
-export type MCPEventType = 
-  | 'connect' 
-  | 'disconnect' 
-  | 'error' 
-  | 'tool_call' 
-  | 'resource_read' 
-  | 'prompt_get' 
+export type MCPEventType =
+  | 'connect'
+  | 'disconnect'
+  | 'error'
+  | 'tool_call'
+  | 'resource_read'
+  | 'prompt_get'
   | 'state_change';
 
 /**
@@ -336,13 +342,13 @@ export type MCPEventType =
 export interface MCPEvent {
   /** 事件类型 */
   type: MCPEventType;
-  
+
   /** 事件数据 */
   data?: any;
-  
+
   /** 事件时间戳 */
   timestamp: Date;
-  
+
   /** 服务器名称 */
   serverName: string;
 }
@@ -353,13 +359,13 @@ export interface MCPEvent {
 export interface MCPTransport {
   /** 发送请求 */
   send(request: MCPRequest): Promise<void>;
-  
+
   /** 接收响应 */
   receive(): AsyncIterable<MCPResponse>;
-  
+
   /** 关闭连接 */
   close(): Promise<void>;
-  
+
   /** 连接状态 */
   readonly state: MCPClientState;
 }
@@ -370,34 +376,34 @@ export interface MCPTransport {
 export interface MCPClient {
   /** 连接服务器 */
   connect(): Promise<void>;
-  
+
   /** 断开连接 */
   disconnect(): Promise<void>;
-  
+
   /** 调用工具 */
   callTool(name: string, arguments?: Record<string, any>): Promise<any>;
-  
+
   /** 列出工具 */
   listTools(): Promise<MCPToolDefinition[]>;
-  
+
   /** 列出资源 */
   listResources(): Promise<MCPResourceDefinition[]>;
-  
+
   /** 列出提示 */
   listPrompts(): Promise<MCPPromptDefinition[]>;
-  
+
   /** 获取服务器信息 */
   getServerInfo(): Promise<MCPServerInfo>;
-  
+
   /** 连接状态 */
   readonly state: MCPClientState;
-  
+
   /** 连接统计 */
   readonly stats: MCPConnectionStats;
-  
+
   /** 事件监听器 */
   on(event: MCPEventType, listener: (event: MCPEvent) => void): void;
-  
+
   /** 移除事件监听器 */
   off(event: MCPEventType, listener: (event: MCPEvent) => void): void;
 }

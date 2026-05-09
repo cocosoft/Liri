@@ -1,5 +1,5 @@
 //
-import { c as _c } from "react/compiler-runtime";
+import { c as _c } from 'react/compiler-runtime';
 import React from 'react';
 export type Props = {
   /**
@@ -15,13 +15,11 @@ export type Props = {
  */
 export default function Newline(t0: Props) {
   const $ = _c(4);
-  const {
-    count: t1
-  } = t0;
+  const { count: t1 } = t0;
   const count = t1 === undefined ? 1 : t1;
   let t2;
   if ($[0] !== count) {
-    t2 = "\n".repeat(count);
+    t2 = '\n'.repeat(count);
     $[0] = count;
     $[1] = t2;
   } else {

@@ -101,7 +101,7 @@ export class SessionHookService {
     const eventMatchers = session.hooks[event] || [];
 
     const existingMatcherIndex = eventMatchers.findIndex(
-      m => m.matcher === matcher && m.skillRoot === skillRoot
+      (m) => m.matcher === matcher && m.skillRoot === skillRoot
     );
 
     if (existingMatcherIndex >= 0) {
@@ -132,7 +132,9 @@ export class SessionHookService {
       id?: string;
     }
   ): string {
-    const id = options?.id || `function-hook-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id =
+      options?.id ||
+      `function-hook-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const hook: SessionFunctionHook = {
       type: 'function',
@@ -169,7 +171,7 @@ export class SessionHookService {
 
     for (const matcher of eventMatchers) {
       const originalLength = matcher.hooks.length;
-      matcher.hooks = matcher.hooks.filter(h => {
+      matcher.hooks = matcher.hooks.filter((h) => {
         if (h.hook.type !== 'function') return true;
         return (h.hook as SessionFunctionHook).id !== hookId;
       });
@@ -204,7 +206,7 @@ export class SessionHookService {
 
     for (const matcher of eventMatchers) {
       const originalLength = matcher.hooks.length;
-      matcher.hooks = matcher.hooks.filter(h => {
+      matcher.hooks = matcher.hooks.filter((h) => {
         if (h.hook.type === 'function') return true;
         return !this.isHookEqual(h.hook as IndividualHookConfig, hook);
       });
@@ -220,7 +222,10 @@ export class SessionHookService {
   /**
    * 比较两个钩子是否相等
    */
-  private isHookEqual(a: IndividualHookConfig, b: IndividualHookConfig): boolean {
+  private isHookEqual(
+    a: IndividualHookConfig,
+    b: IndividualHookConfig
+  ): boolean {
     if (a.event !== b.event) return false;
     if (a.matcher !== b.matcher) return false;
     if (a.config.type !== b.config.type) return false;
@@ -278,7 +283,9 @@ export class SessionHookService {
       if (!matchers) return;
 
       for (const matcher of matchers) {
-        const functionHooks = matcher.hooks.filter(h => h.hook.type === 'function');
+        const functionHooks = matcher.hooks.filter(
+          (h) => h.hook.type === 'function'
+        );
         if (functionHooks.length > 0) {
           const entry: SessionHookMatcher = {
             matcher: matcher.matcher,
@@ -313,7 +320,12 @@ export class SessionHookService {
     event: HookEvent,
     matcher: string,
     hook: IndividualHookConfig | SessionFunctionHook
-  ): { hook: IndividualHookConfig | SessionFunctionHook; onHookSuccess?: (result: any) => void } | undefined {
+  ):
+    | {
+        hook: IndividualHookConfig | SessionFunctionHook;
+        onHookSuccess?: (result: any) => void;
+      }
+    | undefined {
     const session = this.getSession(sessionId);
     if (!session) {
       return undefined;
@@ -326,11 +338,17 @@ export class SessionHookService {
 
     for (const matcherEntry of eventMatchers) {
       if (matcherEntry.matcher === matcher || matcher === '') {
-        const hookEntry = matcherEntry.hooks.find(h => {
+        const hookEntry = matcherEntry.hooks.find((h) => {
           if (h.hook.type === 'function') {
-            return (h.hook as SessionFunctionHook).id === (hook as SessionFunctionHook).id;
+            return (
+              (h.hook as SessionFunctionHook).id ===
+              (hook as SessionFunctionHook).id
+            );
           }
-          return this.isHookEqual(h.hook as IndividualHookConfig, hook as IndividualHookConfig);
+          return this.isHookEqual(
+            h.hook as IndividualHookConfig,
+            hook as IndividualHookConfig
+          );
         });
 
         if (hookEntry) {
@@ -367,10 +385,14 @@ export class SessionHookService {
       return;
     }
 
-    const sessionsArray = Array.from(this.sessions.entries())
-      .sort((a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt);
+    const sessionsArray = Array.from(this.sessions.entries()).sort(
+      (a, b) => a[1].lastAccessedAt - b[1].lastAccessedAt
+    );
 
-    const sessionsToRemove = sessionsArray.slice(0, this.sessions.size - this.maxSessions);
+    const sessionsToRemove = sessionsArray.slice(
+      0,
+      this.sessions.size - this.maxSessions
+    );
 
     for (const [sessionId] of sessionsToRemove) {
       this.sessions.delete(sessionId);
@@ -401,7 +423,9 @@ export class SessionHookService {
       for (const [event, matchers] of Object.entries(session.hooks)) {
         if (matchers && matchers.length > 0) {
           hasHooks = true;
-          stats.hooksByEvent[event] = (stats.hooksByEvent[event] || 0) + matchers.reduce((sum, m) => sum + m.hooks.length, 0);
+          stats.hooksByEvent[event] =
+            (stats.hooksByEvent[event] || 0) +
+            matchers.reduce((sum, m) => sum + m.hooks.length, 0);
         }
       }
 
@@ -411,7 +435,9 @@ export class SessionHookService {
     }
 
     if (this.sessions.size > 0) {
-      const timestamps = Array.from(this.sessions.values()).map(s => s.createdAt);
+      const timestamps = Array.from(this.sessions.values()).map(
+        (s) => s.createdAt
+      );
       stats.oldestSession = Math.min(...timestamps);
       stats.newestSession = Math.max(...timestamps);
     }

@@ -75,7 +75,10 @@ export class PerformanceManager extends EventEmitter {
     // 更新并发计数
     this.activeExecutions.add(hookId);
     this.metrics.concurrencyLevel = this.activeExecutions.size;
-    this.maxConcurrency = Math.max(this.maxConcurrency, this.metrics.concurrencyLevel);
+    this.maxConcurrency = Math.max(
+      this.maxConcurrency,
+      this.metrics.concurrencyLevel
+    );
 
     // 记录内存使用
     this.metrics.memoryUsage = process.memoryUsage().heapUsed;
@@ -93,9 +96,15 @@ export class PerformanceManager extends EventEmitter {
   /**
    * 记录Hook执行完成
    */
-  endExecution(hookId: string, hookName: string, hookType: string, success: boolean, error?: string): void {
+  endExecution(
+    hookId: string,
+    hookName: string,
+    hookType: string,
+    success: boolean,
+    error?: string
+  ): void {
     const endTime = Date.now();
-    const record = this.records.find(r => r.hookId === hookId && !r.endTime);
+    const record = this.records.find((r) => r.hookId === hookId && !r.endTime);
 
     if (record) {
       record.endTime = endTime;
@@ -112,9 +121,16 @@ export class PerformanceManager extends EventEmitter {
       }
 
       this.metrics.totalExecutionTime += record.duration;
-      this.metrics.averageExecutionTime = this.metrics.totalExecutionTime / this.metrics.hookExecutions;
-      this.metrics.maxExecutionTime = Math.max(this.metrics.maxExecutionTime, record.duration);
-      this.metrics.minExecutionTime = Math.min(this.metrics.minExecutionTime, record.duration);
+      this.metrics.averageExecutionTime =
+        this.metrics.totalExecutionTime / this.metrics.hookExecutions;
+      this.metrics.maxExecutionTime = Math.max(
+        this.metrics.maxExecutionTime,
+        record.duration
+      );
+      this.metrics.minExecutionTime = Math.min(
+        this.metrics.minExecutionTime,
+        record.duration
+      );
 
       // 触发事件
       this.emit('executionEnded', {
@@ -162,7 +178,10 @@ export class PerformanceManager extends EventEmitter {
   /**
    * 并行执行Hook
    */
-  async executeParallel<T>(tasks: Array<() => Promise<T>>, maxConcurrency: number = 5): Promise<T[]> {
+  async executeParallel<T>(
+    tasks: Array<() => Promise<T>>,
+    maxConcurrency: number = 5
+  ): Promise<T[]> {
     const results: T[] = [];
     const executing: Promise<void>[] = [];
     const taskQueue = [...tasks];
@@ -173,7 +192,7 @@ export class PerformanceManager extends EventEmitter {
         const task = taskQueue.shift();
         if (task) {
           const promise = task()
-            .then(result => {
+            .then((result) => {
               results.push(result);
             })
             .finally(() => {
@@ -198,12 +217,15 @@ export class PerformanceManager extends EventEmitter {
   /**
    * 批量执行Hook
    */
-  async executeBatch<T>(tasks: Array<() => Promise<T>>, batchSize: number = 10): Promise<T[]> {
+  async executeBatch<T>(
+    tasks: Array<() => Promise<T>>,
+    batchSize: number = 10
+  ): Promise<T[]> {
     const results: T[] = [];
 
     for (let i = 0; i < tasks.length; i += batchSize) {
       const batch = tasks.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch.map(task => task()));
+      const batchResults = await Promise.all(batch.map((task) => task()));
       results.push(...batchResults);
     }
 

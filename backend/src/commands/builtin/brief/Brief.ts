@@ -60,7 +60,9 @@ export class BriefCommand {
         };
       }
 
-      const messages = context.chatManager.getSessionMessages(options.sessionId!) as unknown as SessionMessage[];
+      const messages = context.chatManager.getSessionMessages(
+        options.sessionId!
+      ) as unknown as SessionMessage[];
 
       const summary = this.generateSummary(
         messages,
@@ -91,7 +93,7 @@ export class BriefCommand {
     summaryType: 'concise' | 'detailed' | 'actionable'
   ): string {
     const recentMessages = messages.slice(-messageCount);
-    
+
     if (recentMessages.length === 0) {
       return '## 会话摘要\n\n当前会话暂无消息。';
     }
@@ -227,8 +229,14 @@ export class BriefCommand {
     const lastMessages = messages.slice(-3);
     summary += `**最近消息:**\n`;
     for (const msg of lastMessages) {
-      const preview = msg.content.substring(0, 50) + (msg.content.length > 50 ? '...' : '');
-      const roleName = msg.type === 'user' ? '用户' : msg.type === 'assistant' ? '助手' : msg.type;
+      const preview =
+        msg.content.substring(0, 50) + (msg.content.length > 50 ? '...' : '');
+      const roleName =
+        msg.type === 'user'
+          ? '用户'
+          : msg.type === 'assistant'
+            ? '助手'
+            : msg.type;
       summary += `${roleName}: ${preview}\n`;
     }
 

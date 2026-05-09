@@ -32,7 +32,10 @@ export class MCPServerConnection {
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 1000;
   private lastConnectedTime: number = 0;
-  private pendingRequests: Map<string, { resolve: (response: MCPResponse) => void; reject: (error: Error) => void }> = new Map();
+  private pendingRequests: Map<
+    string,
+    { resolve: (response: MCPResponse) => void; reject: (error: Error) => void }
+  > = new Map();
   private batchUpdateTimer: NodeJS.Timeout | null = null;
   private batchRequests: MCPRequest[] = [];
   private batchInterval: number = 100; // 批量更新间隔（毫秒）
@@ -66,12 +69,14 @@ export class MCPServerConnection {
     } catch (error) {
       this.status = MCPServerStatus.ERROR;
       this.error = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to connect to MCP server ${this.name}: ${this.error}`);
-      
+      logger.error(
+        `Failed to connect to MCP server ${this.name}: ${this.error}`
+      );
+
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.scheduleReconnect();
       }
-      
+
       return false;
     }
   }
@@ -89,11 +94,18 @@ export class MCPServerConnection {
     const serverKey = this.name;
 
     try {
-      const accessToken = await mcpAuthManager.getAccessToken(serverKey, oauthConfig);
+      const accessToken = await mcpAuthManager.getAccessToken(
+        serverKey,
+        oauthConfig
+      );
       (this.transport as any).setAuthHeader?.(`Bearer ${accessToken}`);
-      logger.info(`OAuth authentication successful for MCP server: ${this.name}`);
+      logger.info(
+        `OAuth authentication successful for MCP server: ${this.name}`
+      );
     } catch (error) {
-      logger.error(`OAuth authentication failed for MCP server ${this.name}: ${error}`);
+      logger.error(
+        `OAuth authentication failed for MCP server ${this.name}: ${error}`
+      );
       throw error;
     }
   }
@@ -110,7 +122,10 @@ export class MCPServerConnection {
     return {
       clientId: oauth.clientId,
       authUrl: oauth.authServerMetadataUrl,
-      tokenUrl: oauth.authServerMetadataUrl.replace('/.well-known/oauth-authorization-server', '/token'),
+      tokenUrl: oauth.authServerMetadataUrl.replace(
+        '/.well-known/oauth-authorization-server',
+        '/token'
+      ),
       redirectUri: `http://localhost:${oauth.callbackPort || 3000}/callback`,
       scopes: ['read', 'write'],
     };
@@ -122,7 +137,9 @@ export class MCPServerConnection {
   private scheduleReconnect(): void {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    logger.info(`Scheduling MCP server ${this.name} reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    logger.info(
+      `Scheduling MCP server ${this.name} reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`
+    );
 
     setTimeout(async () => {
       try {
@@ -131,7 +148,10 @@ export class MCPServerConnection {
           logger.info(`Successfully reconnected to MCP server: ${this.name}`);
         }
       } catch (error) {
-        logger.error(`MCP server ${this.name} reconnect failed:`, error as Error);
+        logger.error(
+          `MCP server ${this.name} reconnect failed:`,
+          error as Error
+        );
       }
     }, delay);
   }
@@ -144,20 +164,20 @@ export class MCPServerConnection {
     this.status = MCPServerStatus.DISCONNECTED;
     this.tools = [];
     this.reconnectAttempts = 0;
-    
+
     // 拒绝所有未完成的请求
     for (const [id, { reject }] of this.pendingRequests) {
       reject(new Error('Connection disconnected'));
     }
     this.pendingRequests.clear();
-    
+
     // 清理批量更新定时器
     if (this.batchUpdateTimer) {
       clearTimeout(this.batchUpdateTimer);
       this.batchUpdateTimer = null;
     }
     this.batchRequests = [];
-    
+
     logger.info(`Disconnected from MCP server: ${this.name}`);
   }
 
@@ -176,14 +196,17 @@ export class MCPServerConnection {
       this.pendingRequests.set(request.id, { resolve, reject });
 
       try {
-        this.transport.send(request).then((response) => {
-          this.pendingRequests.delete(request.id);
-          resolve(response);
-        }).catch((error) => {
-          this.pendingRequests.delete(request.id);
-          this.handleTransportError(error);
-          reject(error);
-        });
+        this.transport
+          .send(request)
+          .then((response) => {
+            this.pendingRequests.delete(request.id);
+            resolve(response);
+          })
+          .catch((error) => {
+            this.pendingRequests.delete(request.id);
+            this.handleTransportError(error);
+            reject(error);
+          });
       } catch (error) {
         this.pendingRequests.delete(request.id);
         this.handleTransportError(error as Error);
@@ -219,7 +242,7 @@ export class MCPServerConnection {
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(request.id, { resolve, reject });
       this.batchRequests.push(request);
-      
+
       if (!this.batchUpdateTimer) {
         this.scheduleBatchUpdate();
       }
@@ -234,7 +257,7 @@ export class MCPServerConnection {
       if (this.batchRequests.length > 0) {
         const requests = [...this.batchRequests];
         this.batchRequests = [];
-        
+
         try {
           await this.batchSendRequests(requests);
         } catch (error) {
@@ -251,7 +274,7 @@ export class MCPServerConnection {
   private handleTransportError(error: Error): void {
     this.status = MCPServerStatus.ERROR;
     this.error = error.message;
-    
+
     // 尝试重连
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.scheduleReconnect();
@@ -300,7 +323,9 @@ export class MCPServerConnection {
   /**
    * 批量刷新工具列表（用于多个服务器）
    */
-  static async batchRefreshTools(connections: MCPServerConnection[]): Promise<Map<string, MCPToolDefinition[]>> {
+  static async batchRefreshTools(
+    connections: MCPServerConnection[]
+  ): Promise<Map<string, MCPToolDefinition[]>> {
     const result = new Map<string, MCPToolDefinition[]>();
     const refreshPromises = connections.map(async (connection) => {
       try {
@@ -309,7 +334,10 @@ export class MCPServerConnection {
           result.set(connection.getName(), tools);
         }
       } catch (error) {
-        logger.error(`Failed to refresh tools for server ${connection.getName()}:`, error as Error);
+        logger.error(
+          `Failed to refresh tools for server ${connection.getName()}:`,
+          error as Error
+        );
       }
     });
 
@@ -402,7 +430,9 @@ export class MCPServerConnection {
    * 检查是否正在重连
    */
   isReconnecting(): boolean {
-    return this.reconnectAttempts > 0 && this.status !== MCPServerStatus.CONNECTED;
+    return (
+      this.reconnectAttempts > 0 && this.status !== MCPServerStatus.CONNECTED
+    );
   }
 
   /**

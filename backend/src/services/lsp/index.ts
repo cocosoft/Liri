@@ -7,7 +7,7 @@ export {
   type DiagnosticFile,
   type DiagnosticEntry,
   type PendingDiagnostic,
-} from './DiagnosticRegistry'
+} from './DiagnosticRegistry';
 
 export {
   PassiveFeedback,
@@ -15,4 +15,4 @@ export {
   type FeedbackEvent,
   type FeedbackListener,
   type DiagnosticSummary,
-} from './PassiveFeedback'
+} from './PassiveFeedback';

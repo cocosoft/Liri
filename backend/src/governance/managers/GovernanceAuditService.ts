@@ -9,7 +9,11 @@ import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import type { GovernanceEvent, GovernanceExecutionResult, GovernanceEventType } from '../types/GovernanceTypes';
+import type {
+  GovernanceEvent,
+  GovernanceExecutionResult,
+  GovernanceEventType,
+} from '../types/GovernanceTypes';
 
 /**
  * 审计事件
@@ -82,11 +86,11 @@ export class GovernanceAuditService extends EventEmitter {
   private getAuditPath(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const auditDir = join(__dirname, '..', '..', '..', 'logs', 'audit');
-    
+
     if (!existsSync(auditDir)) {
       mkdirSync(auditDir, { recursive: true });
     }
-    
+
     return join(auditDir, 'governance_audit.json');
   }
 
@@ -112,7 +116,10 @@ export class GovernanceAuditService extends EventEmitter {
    */
   private saveEvents(): void {
     try {
-      writeFileSync(this.auditPath, JSON.stringify(this.events, null, 2) + '\n');
+      writeFileSync(
+        this.auditPath,
+        JSON.stringify(this.events, null, 2) + '\n'
+      );
     } catch (error) {
       console.error('Failed to save audit events:', error);
     }
@@ -124,11 +131,11 @@ export class GovernanceAuditService extends EventEmitter {
   private flushPendingEvents(): void {
     if (this.pendingEvents.length > 0) {
       this.events = [...this.pendingEvents, ...this.events];
-      
+
       if (this.events.length > this.maxEvents) {
         this.events = this.events.slice(0, this.maxEvents);
       }
-      
+
       this.saveEvents();
       this.pendingEvents = [];
     }
@@ -154,7 +161,11 @@ export class GovernanceAuditService extends EventEmitter {
   /**
    * 记录执行结果
    */
-  logExecutionResult(result: GovernanceExecutionResult, userId?: string, sessionId?: string): AuditEvent {
+  logExecutionResult(
+    result: GovernanceExecutionResult,
+    userId?: string,
+    sessionId?: string
+  ): AuditEvent {
     const event: Omit<AuditEvent, 'auditId'> = {
       type: 'execution_completed' as GovernanceEventType,
       toolName: (result as any).toolName,
@@ -188,37 +199,53 @@ export class GovernanceAuditService extends EventEmitter {
     let filteredEvents = [...this.events];
 
     if (options.startDate) {
-      filteredEvents = filteredEvents.filter(event => {
-        const eventTime = event.timestamp instanceof Date ? event.timestamp.getTime() : new Date(event.timestamp).getTime();
+      filteredEvents = filteredEvents.filter((event) => {
+        const eventTime =
+          event.timestamp instanceof Date
+            ? event.timestamp.getTime()
+            : new Date(event.timestamp).getTime();
         return eventTime >= options.startDate!;
       });
     }
 
     if (options.endDate) {
-      filteredEvents = filteredEvents.filter(event => {
-        const eventTime = event.timestamp instanceof Date ? event.timestamp.getTime() : new Date(event.timestamp).getTime();
+      filteredEvents = filteredEvents.filter((event) => {
+        const eventTime =
+          event.timestamp instanceof Date
+            ? event.timestamp.getTime()
+            : new Date(event.timestamp).getTime();
         return eventTime <= options.endDate!;
       });
     }
 
     if (options.eventTypes && options.eventTypes.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.eventTypes!.includes(event.type));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.eventTypes!.includes(event.type)
+      );
     }
 
     if (options.toolNames && options.toolNames.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.toolNames!.includes(event.toolName));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.toolNames!.includes(event.toolName)
+      );
     }
 
     if (options.executionIds && options.executionIds.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.executionIds!.includes(event.executionId!));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.executionIds!.includes(event.executionId!)
+      );
     }
 
     if (options.userIds && options.userIds.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.userIds!.includes(event.userId!));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.userIds!.includes(event.userId!)
+      );
     }
 
     if (options.sessionIds && options.sessionIds.length > 0) {
-      filteredEvents = filteredEvents.filter(event => options.sessionIds!.includes(event.sessionId!));
+      filteredEvents = filteredEvents.filter((event) =>
+        options.sessionIds!.includes(event.sessionId!)
+      );
     }
 
     if (options.offset) {
@@ -251,7 +278,8 @@ export class GovernanceAuditService extends EventEmitter {
       if ((event.type as string) === 'execution_completed' && event.data) {
         executionCount++;
         const success = (event.data as any).success;
-        eventsByStatus[success ? 'success' : 'failure'] = (eventsByStatus[success ? 'success' : 'failure'] || 0) + 1;
+        eventsByStatus[success ? 'success' : 'failure'] =
+          (eventsByStatus[success ? 'success' : 'failure'] || 0) + 1;
 
         if (success) {
           successCount++;
@@ -268,8 +296,10 @@ export class GovernanceAuditService extends EventEmitter {
       eventsByType,
       eventsByTool,
       eventsByStatus,
-      averageExecutionTime: executionCount > 0 ? totalExecutionTime / executionCount : 0,
-      successRate: executionCount > 0 ? (successCount / executionCount) * 100 : 0,
+      averageExecutionTime:
+        executionCount > 0 ? totalExecutionTime / executionCount : 0,
+      successRate:
+        executionCount > 0 ? (successCount / executionCount) * 100 : 0,
       recentEvents: this.events.slice(0, 10),
     };
   }
@@ -281,9 +311,19 @@ export class GovernanceAuditService extends EventEmitter {
     if (format === 'json') {
       return JSON.stringify(this.events, null, 2);
     } else {
-      const headers = ['auditId', 'type', 'toolName', 'toolUseId', 'executionId', 'userId', 'sessionId', 'timestamp', 'data'];
+      const headers = [
+        'auditId',
+        'type',
+        'toolName',
+        'toolUseId',
+        'executionId',
+        'userId',
+        'sessionId',
+        'timestamp',
+        'data',
+      ];
       const rows = [headers.join(',')];
-      
+
       for (const event of this.events) {
         const row = [
           event.auditId,
@@ -293,12 +333,14 @@ export class GovernanceAuditService extends EventEmitter {
           event.executionId || '',
           event.userId || '',
           event.sessionId || '',
-          event.timestamp instanceof Date ? event.timestamp.toISOString() : new Date(event.timestamp).toISOString(),
+          event.timestamp instanceof Date
+            ? event.timestamp.toISOString()
+            : new Date(event.timestamp).toISOString(),
           JSON.stringify(event.data || {}),
         ];
-        rows.push(row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','));
+        rows.push(row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(','));
       }
-      
+
       return rows.join('\n');
     }
   }
@@ -307,14 +349,17 @@ export class GovernanceAuditService extends EventEmitter {
    * 清理审计事件
    */
   cleanupEvents(olderThanDays: number): number {
-    const cutoffTime = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000);
+    const cutoffTime = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
     const beforeCount = this.events.length;
-    
-    this.events = this.events.filter(event => {
-      const eventTime = event.timestamp instanceof Date ? event.timestamp.getTime() : new Date(event.timestamp).getTime();
+
+    this.events = this.events.filter((event) => {
+      const eventTime =
+        event.timestamp instanceof Date
+          ? event.timestamp.getTime()
+          : new Date(event.timestamp).getTime();
       return eventTime >= cutoffTime;
     });
-    
+
     this.saveEvents();
     return beforeCount - this.events.length;
   }

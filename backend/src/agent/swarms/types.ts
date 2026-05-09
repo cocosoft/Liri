@@ -2,7 +2,12 @@
  * Agent群组类型定义
  */
 
-export type SwarmTaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type SwarmTaskStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 
 export interface SwarmTask {
   id: string;

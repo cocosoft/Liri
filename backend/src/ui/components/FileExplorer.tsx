@@ -63,7 +63,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
             onClick={() => handleSelect(item)}
             onDoubleClick={() => handleDoubleClick(item)}
             className={`flex items-center gap-2 px-2 py-1 cursor-pointer transition-colors ${
-              isSelected ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'
+              isSelected
+                ? 'bg-blue-50 text-blue-700'
+                : 'hover:bg-gray-50 text-gray-700'
             }`}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
           >
@@ -79,26 +81,26 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               </button>
             )}
             {item.type === 'file' && <span className="w-4" />}
-            
+
             <span className="text-sm">
               {item.type === 'directory' ? '📁' : '📄'}
             </span>
-            
+
             <span className="flex-1 truncate text-sm">{item.name}</span>
-            
+
             {item.type === 'file' && item.size && (
               <span className="text-xs text-gray-400">
                 {formatFileSize(item.size)}
               </span>
             )}
-            
+
             {item.modifiedAt && (
               <span className="text-xs text-gray-400">
                 {formatDate(item.modifiedAt)}
               </span>
             )}
           </div>
-          
+
           {item.type === 'directory' && isExpanded && item.children && (
             <div>{renderTree(item.children, depth + 1)}</div>
           )}
@@ -112,9 +114,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
         <h3 className="text-sm font-semibold text-gray-700">Files</h3>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        {renderTree([root])}
-      </div>
+      <div className="flex-1 overflow-y-auto">{renderTree([root])}</div>
     </div>
   );
 };
@@ -138,7 +138,8 @@ function formatDate(date: Date): string {
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-  if (days === 0) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (days === 0)
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   if (days === 1) return 'Yesterday';
   if (days < 7) return date.toLocaleDateString([], { weekday: 'short' });
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
@@ -147,6 +148,8 @@ function formatDate(date: Date): string {
 /**
  * 创建文件浏览器组件
  */
-export function createFileExplorer(props: FileExplorerProps): React.ReactElement {
+export function createFileExplorer(
+  props: FileExplorerProps
+): React.ReactElement {
   return <FileExplorer {...props} />;
 }

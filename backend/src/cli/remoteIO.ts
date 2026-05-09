@@ -8,7 +8,10 @@
  * Bridge接口定义
  */
 interface Bridge {
-  requestInput(options: { prompt: string; type: string }): Promise<{ value: string }>;
+  requestInput(options: {
+    prompt: string;
+    type: string;
+  }): Promise<{ value: string }>;
 }
 
 /**
@@ -83,7 +86,10 @@ export class RemoteIO {
    * @param message 消息内容
    * @param type 消息类型
    */
-  write(message: string, type: 'info' | 'error' | 'success' | 'warning' = 'info'): void {
+  write(
+    message: string,
+    type: 'info' | 'error' | 'success' | 'warning' = 'info'
+  ): void {
     if (!this.isRemote()) {
       this.writeLocal(message, type);
       return;
@@ -157,7 +163,10 @@ export class RemoteIO {
   /**
    * 本地输出
    */
-  private writeLocal(message: string, type: 'info' | 'error' | 'success' | 'warning'): void {
+  private writeLocal(
+    message: string,
+    type: 'info' | 'error' | 'success' | 'warning'
+  ): void {
     const chalk = require('chalk');
     switch (type) {
       case 'error':

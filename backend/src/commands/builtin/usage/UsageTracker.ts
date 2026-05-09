@@ -32,8 +32,10 @@ const sessionStartTime = Date.now();
 export function recordUsage(usage: Partial<UsageStats>): void {
   if (usage.inputTokens) sessionUsage.inputTokens += usage.inputTokens;
   if (usage.outputTokens) sessionUsage.outputTokens += usage.outputTokens;
-  if (usage.cacheReadTokens) sessionUsage.cacheReadTokens += usage.cacheReadTokens;
-  if (usage.cacheCreateTokens) sessionUsage.cacheCreateTokens += usage.cacheCreateTokens;
+  if (usage.cacheReadTokens)
+    sessionUsage.cacheReadTokens += usage.cacheReadTokens;
+  if (usage.cacheCreateTokens)
+    sessionUsage.cacheCreateTokens += usage.cacheCreateTokens;
   if (usage.totalCostUSD) sessionUsage.totalCostUSD += usage.totalCostUSD;
   if (usage.apiCalls) sessionUsage.apiCalls += usage.apiCalls;
   if (usage.toolCalls) sessionUsage.toolCalls += usage.toolCalls;

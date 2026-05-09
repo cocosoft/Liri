@@ -14,6 +14,8 @@ export const searchCommand: Command = {
   aliases: ['find'],
   argumentHint: '<关键词>',
   whenToUse: '当你需要搜索内容时',
-  load: async () => import('./Search.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Search.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

@@ -12,17 +12,18 @@ const gitCommand: Command = {
   argumentHint: '<子命令> [选项]',
   type: 'local' as const,
   whenToUse: '当你需要执行Git操作时，如查看状态、管理分支、查看历史等',
-  load: () => Promise.resolve({
-    call: async (args: string, context: CommandContext) => {
-      const result = await GitCommand.call(args, context);
-      return {
-        success: result.type === 'text',
-        message: result.value,
-        type: result.type,
-        value: result.value,
-      };
-    },
-  }),
+  load: () =>
+    Promise.resolve({
+      call: async (args: string, context: CommandContext) => {
+        const result = await GitCommand.call(args, context);
+        return {
+          success: result.type === 'text',
+          message: result.value,
+          type: result.type,
+          value: result.value,
+        };
+      },
+    }),
 
   isEnabled: () => {
     try {

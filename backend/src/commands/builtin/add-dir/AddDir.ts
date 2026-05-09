@@ -12,7 +12,7 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const path = args.trim();
-    
+
     if (!path) {
       return {
         success: false,
@@ -25,8 +25,10 @@ export default {
     try {
       // 验证路径
       const fs = await import('fs');
-      const fullPath = path.startsWith('/') ? path : `${context.cwd || process.cwd()}/${path}`;
-      
+      const fullPath = path.startsWith('/')
+        ? path
+        : `${context.cwd || process.cwd()}/${path}`;
+
       if (!fs.existsSync(fullPath)) {
         return {
           success: false,

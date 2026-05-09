@@ -21,27 +21,27 @@
  *   // sync and grapheme are DECRPM responses or undefined if unsupported
  */
 
-import type { TerminalResponse } from './parse-keypress.js'
-import { csi } from './termio/csi.js'
-import { osc } from './termio/osc.js'
+import type { TerminalResponse } from './parse-keypress.js';
+import { csi } from './termio/csi.js';
+import { osc } from './termio/osc.js';
 
 /** A terminal query: an outbound request sequence paired with a matcher
  *  that recognizes the expected inbound response. Built by `decrqm()`,
  *  `oscColor()`, `kittyKeyboard()`, etc. */
 export type TerminalQuery<T extends TerminalResponse = TerminalResponse> = {
   /** Escape sequence to write to stdout */
-  request: string
+  request: string;
   /** Recognizes the expected response in the inbound stream */
-  match: (r: TerminalResponse) => r is T
-}
+  match: (r: TerminalResponse) => r is T;
+};
 
-type DecrpmResponse = Extract<TerminalResponse, { type: 'decrpm' }>
-type Da1Response = Extract<TerminalResponse, { type: 'da1' }>
-type Da2Response = Extract<TerminalResponse, { type: 'da2' }>
-type KittyResponse = Extract<TerminalResponse, { type: 'kittyKeyboard' }>
-type CursorPosResponse = Extract<TerminalResponse, { type: 'cursorPosition' }>
-type OscResponse = Extract<TerminalResponse, { type: 'osc' }>
-type XtversionResponse = Extract<TerminalResponse, { type: 'xtversion' }>
+type DecrpmResponse = Extract<TerminalResponse, { type: 'decrpm' }>;
+type Da1Response = Extract<TerminalResponse, { type: 'da1' }>;
+type Da2Response = Extract<TerminalResponse, { type: 'da2' }>;
+type KittyResponse = Extract<TerminalResponse, { type: 'kittyKeyboard' }>;
+type CursorPosResponse = Extract<TerminalResponse, { type: 'cursorPosition' }>;
+type OscResponse = Extract<TerminalResponse, { type: 'osc' }>;
+type XtversionResponse = Extract<TerminalResponse, { type: 'xtversion' }>;
 
 // -- Query builders --
 
@@ -50,8 +50,9 @@ type XtversionResponse = Extract<TerminalResponse, { type: 'xtversion' }>
 export function decrqm(mode: number): TerminalQuery<DecrpmResponse> {
   return {
     request: csi(`?${mode}$p`),
-    match: (r: TerminalResponse): r is DecrpmResponse => (r as any).type === 'decrpm' && (r as any).mode === mode,
-  }
+    match: (r: TerminalResponse): r is DecrpmResponse =>
+      (r as any).type === 'decrpm' && (r as any).mode === mode,
+  };
 }
 
 /** Primary Device Attributes query (CSI c). Every terminal answers this —
@@ -61,7 +62,7 @@ export function da1(): TerminalQuery<Da1Response> {
   return {
     request: csi('c'),
     match: (r: TerminalResponse): r is Da1Response => (r as any).type === 'da1',
-  }
+  };
 }
 
 /** Secondary Device Attributes query (CSI > c). Returns terminal version. */
@@ -69,7 +70,7 @@ export function da2(): TerminalQuery<Da2Response> {
   return {
     request: csi('>c'),
     match: (r: TerminalResponse): r is Da2Response => (r as any).type === 'da2',
-  }
+  };
 }
 
 /** Query current Kitty keyboard protocol flags (CSI ? u).
@@ -77,8 +78,9 @@ export function da2(): TerminalQuery<Da2Response> {
 export function kittyKeyboard(): TerminalQuery<KittyResponse> {
   return {
     request: csi('?u'),
-    match: (r: TerminalResponse): r is KittyResponse => (r as any).type === 'kittyKeyboard',
-  }
+    match: (r: TerminalResponse): r is KittyResponse =>
+      (r as any).type === 'kittyKeyboard',
+  };
 }
 
 /** DECXCPR: request cursor position with DEC-private marker (CSI ? 6 n).
@@ -88,8 +90,9 @@ export function kittyKeyboard(): TerminalQuery<KittyResponse> {
 export function cursorPosition(): TerminalQuery<CursorPosResponse> {
   return {
     request: csi('?6n'),
-    match: (r: TerminalResponse): r is CursorPosResponse => (r as any).type === 'cursorPosition',
-  }
+    match: (r: TerminalResponse): r is CursorPosResponse =>
+      (r as any).type === 'cursorPosition',
+  };
 }
 
 /** OSC dynamic color query (e.g. OSC 11 for bg color, OSC 10 for fg).
@@ -97,8 +100,9 @@ export function cursorPosition(): TerminalQuery<CursorPosResponse> {
 export function oscColor(code: number): TerminalQuery<OscResponse> {
   return {
     request: osc(code, '?'),
-    match: (r: TerminalResponse): r is OscResponse => (r as any).type === 'osc' && (r as any).code === code,
-  }
+    match: (r: TerminalResponse): r is OscResponse =>
+      (r as any).type === 'osc' && (r as any).code === code,
+  };
 }
 
 /** XTVERSION: request terminal name/version (CSI > 0 q).
@@ -109,22 +113,23 @@ export function oscColor(code: number): TerminalQuery<OscResponse> {
 export function xtversion(): TerminalQuery<XtversionResponse> {
   return {
     request: csi('>0q'),
-    match: (r: TerminalResponse): r is XtversionResponse => (r as any).type === 'xtversion',
-  }
+    match: (r: TerminalResponse): r is XtversionResponse =>
+      (r as any).type === 'xtversion',
+  };
 }
 
 // -- Querier --
 
 /** Sentinel request sequence (DA1). Kept internal; flush() writes it. */
-const SENTINEL = csi('c')
+const SENTINEL = csi('c');
 
 type Pending =
   | {
-      kind: 'query'
-      match: (r: TerminalResponse) => boolean
-      resolve: (r: TerminalResponse | undefined) => void
+      kind: 'query';
+      match: (r: TerminalResponse) => boolean;
+      resolve: (r: TerminalResponse | undefined) => void;
     }
-  | { kind: 'sentinel'; resolve: () => void }
+  | { kind: 'sentinel'; resolve: () => void };
 
 export class TerminalQuerier {
   /**
@@ -132,7 +137,7 @@ export class TerminalQuerier {
    * respond in order, so each flush() barrier only drains queries queued
    * before it — concurrent batches from independent callers stay isolated.
    */
-  private queue: Pending[] = []
+  private queue: Pending[] = [];
 
   constructor(private stdout: NodeJS.WriteStream) {}
 
@@ -147,16 +152,16 @@ export class TerminalQuerier {
    * and the terminal doesn't respond, the promise remains pending.
    */
   send<T extends TerminalResponse>(
-    query: TerminalQuery<T>,
+    query: TerminalQuery<T>
   ): Promise<T | undefined> {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       this.queue.push({
         kind: 'query',
         match: query.match,
-        resolve: r => resolve(r as T | undefined),
-      })
-      this.stdout.write(query.request)
-    })
+        resolve: (r) => resolve(r as T | undefined),
+      });
+      this.stdout.write(query.request);
+    });
   }
 
   /**
@@ -169,10 +174,10 @@ export class TerminalQuerier {
    * Safe to call with no pending queries — still waits for a round-trip.
    */
   flush(): Promise<void> {
-    return new Promise(resolve => {
-      this.queue.push({ kind: 'sentinel', resolve })
-      this.stdout.write(SENTINEL)
-    })
+    return new Promise((resolve) => {
+      this.queue.push({ kind: 'sentinel', resolve });
+      this.stdout.write(SENTINEL);
+    });
   }
 
   /**
@@ -194,19 +199,19 @@ export class TerminalQuerier {
    * - Unsolicited responses (no match, no sentinel) are silently dropped.
    */
   onResponse(r: TerminalResponse): void {
-    const idx = this.queue.findIndex(p => p.kind === 'query' && p.match(r))
+    const idx = this.queue.findIndex((p) => p.kind === 'query' && p.match(r));
     if (idx !== -1) {
-      const [q] = this.queue.splice(idx, 1)
-      if (q?.kind === 'query') q.resolve(r)
-      return
+      const [q] = this.queue.splice(idx, 1);
+      if (q?.kind === 'query') q.resolve(r);
+      return;
     }
 
     if ((r as any).type === 'da1') {
-      const s = this.queue.findIndex(p => p.kind === 'sentinel')
-      if (s === -1) return
+      const s = this.queue.findIndex((p) => p.kind === 'sentinel');
+      if (s === -1) return;
       for (const p of this.queue.splice(0, s + 1)) {
-        if (p.kind === 'query') p.resolve(undefined)
-        else p.resolve()
+        if (p.kind === 'query') p.resolve(undefined);
+        else p.resolve();
       }
     }
   }

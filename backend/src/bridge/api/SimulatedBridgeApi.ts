@@ -4,7 +4,13 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { BridgeConfig, BridgeApiClient, WorkResponse, WorkSecret, PollConfig } from '../types/index.js';
+import type {
+  BridgeConfig,
+  BridgeApiClient,
+  WorkResponse,
+  WorkSecret,
+  PollConfig,
+} from '../types/index.js';
 
 /**
  * 模拟 API 客户端选项
@@ -27,7 +33,9 @@ export interface SimulatedBridgeApiOptions {
 /**
  * 创建模拟 Bridge API 客户端
  */
-export function createSimulatedBridgeApi(options?: SimulatedBridgeApiOptions): BridgeApiClient {
+export function createSimulatedBridgeApi(
+  options?: SimulatedBridgeApiOptions
+): BridgeApiClient {
   const {
     simulateRegisterFailure = false,
     simulatePollFailure = false,
@@ -46,14 +54,16 @@ export function createSimulatedBridgeApi(options?: SimulatedBridgeApiOptions): B
   }
 
   return {
-    async registerBridgeEnvironment(_config: BridgeConfig): Promise<{ environment_id: string; environment_secret: string }> {
+    async registerBridgeEnvironment(
+      _config: BridgeConfig
+    ): Promise<{ environment_id: string; environment_secret: string }> {
       debug('[sim-api] 注册环境...（模拟）');
 
       if (simulateRegisterFailure) {
         throw new Error('[sim-api] 模拟注册失败');
       }
 
-      await new Promise(resolve => setTimeout(resolve, registerDelayMs));
+      await new Promise((resolve) => setTimeout(resolve, registerDelayMs));
 
       environmentId = `sim-env-${randomUUID().slice(0, 8)}`;
       environmentSecret = `sim-secret-${randomUUID().slice(0, 16)}`;
@@ -69,7 +79,7 @@ export function createSimulatedBridgeApi(options?: SimulatedBridgeApiOptions): B
       _envId: string,
       _envSecret: string,
       _signal?: AbortSignal,
-      _reclaimOlderThanMs?: number,
+      _reclaimOlderThanMs?: number
     ): Promise<WorkResponse | null> {
       pollCount++;
 
@@ -77,7 +87,7 @@ export function createSimulatedBridgeApi(options?: SimulatedBridgeApiOptions): B
         throw new Error('[sim-api] 模拟轮询失败');
       }
 
-      await new Promise(resolve => setTimeout(resolve, pollDelayMs));
+      await new Promise((resolve) => setTimeout(resolve, pollDelayMs));
 
       // 如果设置了自定义轮询回调，使用它返回工作任务
       if (onPoll) {
@@ -95,42 +105,42 @@ export function createSimulatedBridgeApi(options?: SimulatedBridgeApiOptions): B
     async acknowledgeWork(
       _envId: string,
       workId: string,
-      _sessionToken: string,
+      _sessionToken: string
     ): Promise<void> {
       debug(`[sim-api] 确认工作任务: ${workId}`);
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
     },
 
     async stopWork(
       _envId: string,
       workId: string,
-      _force: boolean,
+      _force: boolean
     ): Promise<void> {
       debug(`[sim-api] 停止工作任务: ${workId}`);
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
     },
 
     async deregisterEnvironment(envId: string): Promise<void> {
       debug(`[sim-api] 注销环境: ${envId}`);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       environmentId = null;
       environmentSecret = null;
     },
 
     async archiveSession(sessionId: string): Promise<void> {
       debug(`[sim-api] 归档会话: ${sessionId}`);
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
     },
 
     async reconnectSession(_envId: string, sessionId: string): Promise<void> {
       debug(`[sim-api] 重新连接会话: ${sessionId}`);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     },
 
     async heartbeatWork(
       _envId: string,
       workId: string,
-      _sessionToken: string,
+      _sessionToken: string
     ): Promise<{ lease_extended: boolean; state: string }> {
       debug(`[sim-api] 发送心跳: ${workId}`);
       return { lease_extended: true, state: 'active' };
@@ -139,10 +149,10 @@ export function createSimulatedBridgeApi(options?: SimulatedBridgeApiOptions): B
     async sendPermissionResponseEvent(
       _sessionId: string,
       _event: any,
-      _sessionToken: string,
+      _sessionToken: string
     ): Promise<void> {
       debug('[sim-api] 发送权限响应事件');
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
     },
   };
 }

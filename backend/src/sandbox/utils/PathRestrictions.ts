@@ -304,9 +304,9 @@ export function validatePathSafety(
   for (const sensitiveDir of SENSITIVE_DIRECTORIES) {
     if (normalized.startsWith(sensitiveDir)) {
       if (
-        (sensitiveDir === '/etc' && 
-         (normalized.startsWith('/etc/passwd') || 
-          normalized.startsWith('/etc/group')))
+        sensitiveDir === '/etc' &&
+        (normalized.startsWith('/etc/passwd') ||
+          normalized.startsWith('/etc/group'))
       ) {
         continue;
       }

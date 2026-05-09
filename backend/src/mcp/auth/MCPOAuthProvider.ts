@@ -3,7 +3,13 @@
  * 实现统一的OAuthProvider接口
  */
 
-import { OAuthProvider, OAuthProviderConfig, AuthorizeOptions, OAuthToken, UserInfo } from '@modules/oauth';
+import {
+  OAuthProvider,
+  OAuthProviderConfig,
+  AuthorizeOptions,
+  OAuthToken,
+  UserInfo,
+} from '@modules/oauth';
 import { OAuthClient } from '@modules/oauth';
 
 export class MCPOAuthProvider implements OAuthProvider {
@@ -41,12 +47,12 @@ export class MCPOAuthProvider implements OAuthProvider {
       codeVerifier: options.codeVerifier,
       redirectUri: options.redirectUri || this.config.redirectUri,
     });
-    
+
     return {
       accessToken: result.access_token as string,
       refreshToken: result.refresh_token as string,
       expiresAt: Date.now() + ((result.expires_in as number) || 3600) * 1000,
-      tokenType: result.token_type as string || 'Bearer',
+      tokenType: (result.token_type as string) || 'Bearer',
       scopes: (result.scope as string)?.split(' ') || this.config.scopes,
     };
   }
@@ -56,12 +62,12 @@ export class MCPOAuthProvider implements OAuthProvider {
    */
   async refreshToken(refreshToken: string): Promise<OAuthToken> {
     const result = await this.client.refreshToken({ refreshToken });
-    
+
     return {
       accessToken: result.access_token as string,
       refreshToken: result.refresh_token as string,
       expiresAt: Date.now() + ((result.expires_in as number) || 3600) * 1000,
-      tokenType: result.token_type as string || 'Bearer',
+      tokenType: (result.token_type as string) || 'Bearer',
       scopes: (result.scope as string)?.split(' ') || this.config.scopes,
     };
   }
@@ -90,9 +96,9 @@ export class MCPOAuthProvider implements OAuthProvider {
     }
     const result = await this.client.getUserInfo(accessToken);
     return {
-      id: result.sub as string || '',
-      name: result.name as string || '',
-      email: result.email as string || '',
+      id: (result.sub as string) || '',
+      name: (result.name as string) || '',
+      email: (result.email as string) || '',
       ...result,
     };
   }
@@ -101,6 +107,9 @@ export class MCPOAuthProvider implements OAuthProvider {
 /**
  * 创建MCP OAuth提供者工厂函数
  */
-export function createMCPOAuthProvider(serverId: string, config: OAuthProviderConfig): MCPOAuthProvider {
+export function createMCPOAuthProvider(
+  serverId: string,
+  config: OAuthProviderConfig
+): MCPOAuthProvider {
   return new MCPOAuthProvider(serverId, config);
 }

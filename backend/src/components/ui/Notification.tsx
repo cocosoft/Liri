@@ -22,7 +22,10 @@ export interface NotificationProps {
   placement?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
 }
 
-const NOTIFICATION_CONFIG: Record<NotificationType, { icon: string; color: string }> = {
+const NOTIFICATION_CONFIG: Record<
+  NotificationType,
+  { icon: string; color: string }
+> = {
   info: { icon: 'ℹ', color: 'cyan' },
   success: { icon: '✓', color: 'green' },
   warning: { icon: '⚠', color: 'yellow' },
@@ -56,11 +59,16 @@ function NotificationCard({
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
-        <Text color={config.color} bold>{config.icon} </Text>
-        <Text color={config.color} bold>{notification.title}</Text>
+        <Text color={config.color} bold>
+          {config.icon}{' '}
+        </Text>
+        <Text color={config.color} bold>
+          {notification.title}
+        </Text>
         {onDismiss && (
           <Text dimColor onMouseDown={() => onDismiss(notification.id)}>
-            {' '}[✕]
+            {' '}
+            [✕]
           </Text>
         )}
       </Box>

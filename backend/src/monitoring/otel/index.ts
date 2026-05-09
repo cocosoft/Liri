@@ -14,9 +14,7 @@ export {
   createOTelMetrics,
 } from './OTelMetrics.js';
 
-export type {
-  OTelMetricsConfig,
-} from './OTelMetrics.js';
+export type { OTelMetricsConfig } from './OTelMetrics.js';
 
 export {
   OTelTracing,
@@ -24,7 +22,4 @@ export {
   createOTelTracing,
 } from './OTelTracing.js';
 
-export type {
-  OTelTracingConfig,
-  TraceWrapperOptions,
-} from './OTelTracing.js';
+export type { OTelTracingConfig, TraceWrapperOptions } from './OTelTracing.js';

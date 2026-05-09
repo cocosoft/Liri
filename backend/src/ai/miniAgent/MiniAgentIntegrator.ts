@@ -38,7 +38,10 @@ export class MiniAgentIntegrator {
     return this.config.enabled && this.miniAgent !== null;
   }
 
-  async process(input: string, messages?: ChatMessage[]): Promise<IntegrationResult> {
+  async process(
+    input: string,
+    messages?: ChatMessage[]
+  ): Promise<IntegrationResult> {
     if (!this.isEnabled()) {
       return { handled: false, shouldContinueToCloud: true };
     }
@@ -87,7 +90,9 @@ export class MiniAgentIntegrator {
   }
 }
 
-export function createMiniAgentIntegrator(config?: Partial<MiniAgentIntegrationConfig>): MiniAgentIntegrator {
+export function createMiniAgentIntegrator(
+  config?: Partial<MiniAgentIntegrationConfig>
+): MiniAgentIntegrator {
   const fullConfig: MiniAgentIntegrationConfig = {
     enabled: config?.enabled ?? false,
     miniAgentConfig: config?.miniAgentConfig,

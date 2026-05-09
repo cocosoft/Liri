@@ -2,7 +2,10 @@ export interface Tool {
   name: string;
   description: string;
   parameters?: Record<string, unknown>;
-  execute?(input: Record<string, unknown>, context: ToolPermissionContext): Promise<unknown>;
+  execute?(
+    input: Record<string, unknown>,
+    context: ToolPermissionContext
+  ): Promise<unknown>;
 }
 
 export interface ToolPermissionContext {

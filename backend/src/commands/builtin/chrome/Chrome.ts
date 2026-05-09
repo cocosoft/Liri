@@ -47,7 +47,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `Chrome集成状态:\n\n` +
+      message:
+        `Chrome集成状态:\n\n` +
         `- 连接状态: ${status.connected ? '已连接' : '未连接'}\n` +
         `- 浏览器: ${status.browser} ${status.version}\n` +
         `- 扩展安装: ${status.extensionInstalled ? '是' : '否'}\n` +
@@ -61,7 +62,7 @@ export default {
    */
   async handleConnect(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('正在连接Chrome...', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -75,7 +76,7 @@ export default {
    */
   async handleDisconnect(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('已断开Chrome连接', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -89,14 +90,29 @@ export default {
    */
   async handleTabs(context: CommandContext): Promise<CommandResult> {
     const tabs = [
-      { id: 1, title: 'GitHub - PY_APP', url: 'https://github.com/example', active: true },
-      { id: 2, title: 'Stack Overflow', url: 'https://stackoverflow.com', active: false },
-      { id: 3, title: 'Google Docs', url: 'https://docs.google.com', active: false },
+      {
+        id: 1,
+        title: 'GitHub - PY_APP',
+        url: 'https://github.com/example',
+        active: true,
+      },
+      {
+        id: 2,
+        title: 'Stack Overflow',
+        url: 'https://stackoverflow.com',
+        active: false,
+      },
+      {
+        id: 3,
+        title: 'Google Docs',
+        url: 'https://docs.google.com',
+        active: false,
+      },
     ];
 
-    const table = tabs.map(t => 
-      `[${t.id}] ${t.active ? '*' : ' '} ${t.title}\n    ${t.url}`
-    ).join('\n');
+    const table = tabs
+      .map((t) => `[${t.id}] ${t.active ? '*' : ' '} ${t.title}\n    ${t.url}`)
+      .join('\n');
 
     return {
       success: true,
@@ -109,9 +125,12 @@ export default {
   /**
    * 截图
    */
-  async handleScreenshot(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleScreenshot(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const tabId = args[0] ? parseInt(args[0]) : null;
-    
+
     if (tabId) {
       return {
         success: true,
@@ -120,7 +139,7 @@ export default {
         data: { tabId },
       };
     }
-    
+
     return {
       success: true,
       type: 'text',

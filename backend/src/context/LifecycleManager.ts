@@ -125,7 +125,7 @@ export class LifecycleManager {
   }
 
   async destroyAll(): Promise<void> {
-    const destroyPromises = Array.from(this.entries.values()).map(entry =>
+    const destroyPromises = Array.from(this.entries.values()).map((entry) =>
       this.destroy(entry.context)
     );
     await Promise.all(destroyPromises);
@@ -139,7 +139,9 @@ export class LifecycleManager {
 
   isInitialized(context: Context): boolean {
     const state = this.getState(context);
-    return state === LifecycleState.INITIALIZED || state === LifecycleState.ACTIVE;
+    return (
+      state === LifecycleState.INITIALIZED || state === LifecycleState.ACTIVE
+    );
   }
 
   isActive(context: Context): boolean {
@@ -152,7 +154,7 @@ export class LifecycleManager {
 
   getActiveCount(): number {
     return Array.from(this.entries.values()).filter(
-      e => e.state === LifecycleState.ACTIVE
+      (e) => e.state === LifecycleState.ACTIVE
     ).length;
   }
 

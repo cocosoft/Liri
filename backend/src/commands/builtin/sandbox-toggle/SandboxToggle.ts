@@ -12,10 +12,10 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const param = args.trim().toLowerCase() || 'toggle';
-    
+
     let newState: boolean;
     let action: string;
-    
+
     switch (param) {
       case 'on':
         newState = true;
@@ -43,7 +43,7 @@ export default {
    */
   async handleStatus(context: CommandContext): Promise<CommandResult> {
     const enabled = context.environment?.SANDBOX_ENABLED === 'true';
-    
+
     return {
       success: true,
       type: 'text',
@@ -55,12 +55,16 @@ export default {
   /**
    * 切换沙箱模式
    */
-  async handleToggle(enabled: boolean, action: string, context: CommandContext): Promise<CommandResult> {
+  async handleToggle(
+    enabled: boolean,
+    action: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (context.environment) {
       context.environment.SANDBOX_ENABLED = enabled.toString();
     }
 
-    const message = enabled 
+    const message = enabled
       ? '沙箱模式已启用。所有代码执行将在隔离环境中运行。'
       : '沙箱模式已禁用。代码将在当前环境中执行。';
 

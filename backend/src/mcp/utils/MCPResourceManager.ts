@@ -46,7 +46,10 @@ export interface MCPTextResource {
 /**
  * 统一资源格式
  */
-export type MCPResource = MCPImageResource | MCPBinaryResource | MCPTextResource;
+export type MCPResource =
+  | MCPImageResource
+  | MCPBinaryResource
+  | MCPTextResource;
 
 /**
  * 资源处理配置
@@ -108,8 +111,10 @@ export class MCPResourceManager {
     const trimmed = data.trim();
 
     // JSON检测
-    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    if (
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))
+    ) {
       try {
         JSON.parse(trimmed);
         return { type: 'json', mimeType: 'application/json' };
@@ -139,10 +144,7 @@ export class MCPResourceManager {
   /**
    * 处理资源数据
    */
-  async processResource(
-    data: string,
-    mimeType?: string
-  ): Promise<MCPResource> {
+  async processResource(data: string, mimeType?: string): Promise<MCPResource> {
     const detection = this.detectResourceType(data, mimeType);
 
     switch (detection.type) {
@@ -164,7 +166,10 @@ export class MCPResourceManager {
   /**
    * 处理图片资源
    */
-  async processImageResource(data: string, mimeType: string): Promise<MCPImageResource> {
+  async processImageResource(
+    data: string,
+    mimeType: string
+  ): Promise<MCPImageResource> {
     let imageData = data;
 
     // 移除可能的data URI前缀
@@ -177,7 +182,9 @@ export class MCPResourceManager {
 
     // 检查是否需要压缩
     if (this.config.enableAutoResize && size > this.config.maxImageSizeBytes) {
-      logger.warn(`Image size ${size} exceeds max ${this.config.maxImageSizeBytes}, but auto-resize not fully implemented`);
+      logger.warn(
+        `Image size ${size} exceeds max ${this.config.maxImageSizeBytes}, but auto-resize not fully implemented`
+      );
     }
 
     return {
@@ -235,7 +242,10 @@ export class MCPResourceManager {
   /**
    * 验证资源大小
    */
-  validateResourceSize(data: string, type: MCPResourceType): { valid: boolean; error?: string } {
+  validateResourceSize(
+    data: string,
+    type: MCPResourceType
+  ): { valid: boolean; error?: string } {
     const size = this.getBase64Size(data);
 
     switch (type) {
@@ -337,15 +347,9 @@ export class MCPResourceManager {
       return false;
     }
 
-    const patterns = [
-      /^data:image\//,
-      /^iVBOR/,
-      /^\/9j\//,
-      /^R0lGO/,
-      /^UklGR/,
-    ];
+    const patterns = [/^data:image\//, /^iVBOR/, /^\/9j\//, /^R0lGO/, /^UklGR/];
 
-    return patterns.some(p => p.test(data));
+    return patterns.some((p) => p.test(data));
   }
 
   /**

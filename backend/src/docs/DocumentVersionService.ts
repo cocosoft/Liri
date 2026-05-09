@@ -88,7 +88,8 @@ const DEFAULT_CONFIG: DocumentVersionConfig = {
  */
 export class DocumentVersionService {
   private config: DocumentVersionConfig;
-  private versions: Map<string, Map<number, DocumentVersionMetadata>> = new Map();
+  private versions: Map<string, Map<number, DocumentVersionMetadata>> =
+    new Map();
   private documentCurrentVersion: Map<string, number> = new Map();
 
   /**
@@ -134,7 +135,10 @@ export class DocumentVersionService {
    * 获取版本文件路径
    */
   private getVersionFilePath(documentId: string, version: number): string {
-    return path.join(this.config.storageDir, `${this.generateVersionId(documentId, version)}.json`);
+    return path.join(
+      this.config.storageDir,
+      `${this.generateVersionId(documentId, version)}.json`
+    );
   }
 
   /**
@@ -147,7 +151,11 @@ export class DocumentVersionService {
   /**
    * 保存版本内容
    */
-  private saveVersionContent(documentId: string, version: number, content: string): void {
+  private saveVersionContent(
+    documentId: string,
+    version: number,
+    content: string
+  ): void {
     const versionContent: DocumentVersionContent = {
       metadata: {
         id: this.generateVersionId(documentId, version),
@@ -156,7 +164,9 @@ export class DocumentVersionService {
         status: DocumentVersionStatus.ACTIVE,
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        checksum: this.config.enableChecksum ? this.calculateChecksum(content) : '',
+        checksum: this.config.enableChecksum
+          ? this.calculateChecksum(content)
+          : '',
         size: content.length,
       },
       content,
@@ -169,7 +179,10 @@ export class DocumentVersionService {
   /**
    * 加载版本内容
    */
-  private loadVersionContent(documentId: string, version: number): DocumentVersionContent | null {
+  private loadVersionContent(
+    documentId: string,
+    version: number
+  ): DocumentVersionContent | null {
     const filePath = this.getVersionFilePath(documentId, version);
 
     if (!fs.existsSync(filePath)) {
@@ -180,7 +193,10 @@ export class DocumentVersionService {
       const content = fs.readFileSync(filePath, 'utf8');
       return JSON.parse(content);
     } catch (error) {
-      console.error(`Failed to load version ${version} for document ${documentId}:`, error);
+      console.error(
+        `Failed to load version ${version} for document ${documentId}:`,
+        error
+      );
       return null;
     }
   }
@@ -195,7 +211,11 @@ export class DocumentVersionService {
     const metadataFilePath = this.getMetadataFilePath(documentId);
     const metadata = Array.from(versions.values());
 
-    fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 2), 'utf8');
+    fs.writeFileSync(
+      metadataFilePath,
+      JSON.stringify(metadata, null, 2),
+      'utf8'
+    );
   }
 
   /**
@@ -219,10 +239,13 @@ export class DocumentVersionService {
 
       this.versions.set(documentId, versionsMap);
 
-      const currentVersion = Math.max(...metadataList.map(m => m.version));
+      const currentVersion = Math.max(...metadataList.map((m) => m.version));
       this.documentCurrentVersion.set(documentId, currentVersion);
     } catch (error) {
-      console.error(`Failed to load metadata for document ${documentId}:`, error);
+      console.error(
+        `Failed to load metadata for document ${documentId}:`,
+        error
+      );
     }
   }
 
@@ -258,7 +281,9 @@ export class DocumentVersionService {
       updatedAt: Date.now(),
       createdBy: options?.createdBy,
       description: options?.description,
-      checksum: this.config.enableChecksum ? this.calculateChecksum(content) : '',
+      checksum: this.config.enableChecksum
+        ? this.calculateChecksum(content)
+        : '',
       size: content.length,
     };
 
@@ -278,7 +303,10 @@ export class DocumentVersionService {
   /**
    * 获取文档版本
    */
-  public getVersion(documentId: string, version: number): DocumentVersionContent | null {
+  public getVersion(
+    documentId: string,
+    version: number
+  ): DocumentVersionContent | null {
     if (!this.versions.has(documentId)) {
       this.versions.set(documentId, new Map());
       this.loadDocumentMetadata(documentId);
@@ -315,7 +343,7 @@ export class DocumentVersionService {
 
     const versionsMap = this.versions.get(documentId)!;
     const versions = Array.from(versionsMap.values())
-      .filter(v => v.status !== DocumentVersionStatus.DELETED)
+      .filter((v) => v.status !== DocumentVersionStatus.DELETED)
       .sort((a, b) => b.version - a.version);
 
     return {
@@ -328,20 +356,19 @@ export class DocumentVersionService {
   /**
    * 回滚到指定版本
    */
-  public rollback(documentId: string, targetVersion: number): DocumentVersionMetadata | null {
+  public rollback(
+    documentId: string,
+    targetVersion: number
+  ): DocumentVersionMetadata | null {
     const targetContent = this.loadVersionContent(documentId, targetVersion);
     if (!targetContent) {
       return null;
     }
 
-    return this.createVersion(
-      documentId,
-      targetContent.content,
-      {
-        createdBy: targetContent.metadata.createdBy,
-        description: `Rollback to version ${targetVersion}`,
-      }
-    );
+    return this.createVersion(documentId, targetContent.content, {
+      createdBy: targetContent.metadata.createdBy,
+      description: `Rollback to version ${targetVersion}`,
+    });
   }
 
   /**
@@ -371,7 +398,10 @@ export class DocumentVersionService {
 
     for (const line of toLines) {
       if (!fromSet.has(line)) {
-        if (fromSet.size > 0 && fromLines.some(f => f.includes(line) || line.includes(f))) {
+        if (
+          fromSet.size > 0 &&
+          fromLines.some((f) => f.includes(line) || line.includes(f))
+        ) {
           modifications.push(line);
         } else {
           additions.push(line);
@@ -451,7 +481,7 @@ export class DocumentVersionService {
     if (!versionsMap) return;
 
     const versions = Array.from(versionsMap.values())
-      .filter(v => v.status === DocumentVersionStatus.ACTIVE)
+      .filter((v) => v.status === DocumentVersionStatus.ACTIVE)
       .sort((a, b) => b.version - a.version);
 
     if (versions.length > this.config.maxVersions) {
@@ -516,7 +546,11 @@ export class DocumentVersionService {
   /**
    * 导出文档到指定版本
    */
-  public exportVersion(documentId: string, version: number, outputPath: string): boolean {
+  public exportVersion(
+    documentId: string,
+    version: number,
+    outputPath: string
+  ): boolean {
     const content = this.loadVersionContent(documentId, version);
     if (!content) {
       return false;

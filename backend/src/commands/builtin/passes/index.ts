@@ -14,6 +14,8 @@ export const passesCommand: Command = {
   aliases: ['subscription'],
   argumentHint: '[list|activate|deactivate|status|info|help]',
   whenToUse: '当你需要管理订阅Pass时',
-  load: async () => import('./Passes.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Passes.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

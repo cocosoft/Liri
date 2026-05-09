@@ -78,7 +78,7 @@ export const defaultSecurityConfig: SecurityConfig = {
   securityHstsEnabled: true,
   securityXFrameOptionsEnabled: true,
   securityXContentTypeOptionsEnabled: true,
-  securityReferrerPolicyEnabled: true
+  securityReferrerPolicyEnabled: true,
 };
 
 /**
@@ -101,60 +101,82 @@ export class SecurityConfigManager {
   private loadFromEnvironment(): void {
     // 安全审计配置
     if (process.env.SECURITY_AUDIT_ENABLED) {
-      this.config.securityAuditEnabled = process.env.SECURITY_AUDIT_ENABLED === 'true';
+      this.config.securityAuditEnabled =
+        process.env.SECURITY_AUDIT_ENABLED === 'true';
     }
     if (process.env.SECURITY_AUDIT_LOG_FILE) {
       this.config.securityAuditLogFile = process.env.SECURITY_AUDIT_LOG_FILE;
     }
     if (process.env.SECURITY_AUDIT_RETENTION_DAYS) {
-      this.config.securityAuditRetentionDays = parseInt(process.env.SECURITY_AUDIT_RETENTION_DAYS);
+      this.config.securityAuditRetentionDays = parseInt(
+        process.env.SECURITY_AUDIT_RETENTION_DAYS
+      );
     }
     if (process.env.SECURITY_AUDIT_MAX_LOG_SIZE) {
-      this.config.securityAuditMaxLogSize = parseInt(process.env.SECURITY_AUDIT_MAX_LOG_SIZE);
+      this.config.securityAuditMaxLogSize = parseInt(
+        process.env.SECURITY_AUDIT_MAX_LOG_SIZE
+      );
     }
     if (process.env.SECURITY_AUDIT_VERBOSE) {
-      this.config.securityAuditVerbose = process.env.SECURITY_AUDIT_VERBOSE === 'true';
+      this.config.securityAuditVerbose =
+        process.env.SECURITY_AUDIT_VERBOSE === 'true';
     }
 
     // 安全功能配置
     if (process.env.SECURITY_INPUT_VALIDATION_ENABLED) {
-      this.config.securityInputValidationEnabled = process.env.SECURITY_INPUT_VALIDATION_ENABLED === 'true';
+      this.config.securityInputValidationEnabled =
+        process.env.SECURITY_INPUT_VALIDATION_ENABLED === 'true';
     }
     if (process.env.SECURITY_OUTPUT_ENCODING_ENABLED) {
-      this.config.securityOutputEncodingEnabled = process.env.SECURITY_OUTPUT_ENCODING_ENABLED === 'true';
+      this.config.securityOutputEncodingEnabled =
+        process.env.SECURITY_OUTPUT_ENCODING_ENABLED === 'true';
     }
     if (process.env.SECURITY_DANGEROUS_COMMAND_CHECK) {
-      this.config.securityDangerousCommandCheck = process.env.SECURITY_DANGEROUS_COMMAND_CHECK === 'true';
+      this.config.securityDangerousCommandCheck =
+        process.env.SECURITY_DANGEROUS_COMMAND_CHECK === 'true';
     }
     if (process.env.SECURITY_PATH_TRAVERSAL_CHECK) {
-      this.config.securityPathTraversalCheck = process.env.SECURITY_PATH_TRAVERSAL_CHECK === 'true';
+      this.config.securityPathTraversalCheck =
+        process.env.SECURITY_PATH_TRAVERSAL_CHECK === 'true';
     }
     if (process.env.SECURITY_XSS_PROTECTION_ENABLED) {
-      this.config.securityXssProtectionEnabled = process.env.SECURITY_XSS_PROTECTION_ENABLED === 'true';
+      this.config.securityXssProtectionEnabled =
+        process.env.SECURITY_XSS_PROTECTION_ENABLED === 'true';
     }
     if (process.env.SECURITY_UNICODE_SANITIZATION_ENABLED) {
-      this.config.securityUnicodeSanitizationEnabled = process.env.SECURITY_UNICODE_SANITIZATION_ENABLED === 'true';
+      this.config.securityUnicodeSanitizationEnabled =
+        process.env.SECURITY_UNICODE_SANITIZATION_ENABLED === 'true';
     }
     if (process.env.SECURITY_PERMISSION_ENFORCEMENT) {
-      this.config.securityPermissionEnforcement = process.env.SECURITY_PERMISSION_ENFORCEMENT === 'true';
+      this.config.securityPermissionEnforcement =
+        process.env.SECURITY_PERMISSION_ENFORCEMENT === 'true';
     }
 
     // 安全限制配置
     if (process.env.SECURITY_MAX_INPUT_LENGTH) {
-      this.config.securityMaxInputLength = parseInt(process.env.SECURITY_MAX_INPUT_LENGTH);
+      this.config.securityMaxInputLength = parseInt(
+        process.env.SECURITY_MAX_INPUT_LENGTH
+      );
     }
     if (process.env.SECURITY_MAX_FILE_PATH_LENGTH) {
-      this.config.securityMaxFilePathLength = parseInt(process.env.SECURITY_MAX_FILE_PATH_LENGTH);
+      this.config.securityMaxFilePathLength = parseInt(
+        process.env.SECURITY_MAX_FILE_PATH_LENGTH
+      );
     }
     if (process.env.SECURITY_ALLOWED_PROTOCOLS) {
-      this.config.securityAllowedProtocols = process.env.SECURITY_ALLOWED_PROTOCOLS.split(',');
+      this.config.securityAllowedProtocols =
+        process.env.SECURITY_ALLOWED_PROTOCOLS.split(',');
     }
 
     // 日志配置
     if (process.env.SECURITY_LOG_LEVEL) {
       const level = process.env.SECURITY_LOG_LEVEL.toLowerCase();
       if (['debug', 'info', 'warn', 'error'].includes(level)) {
-        this.config.securityLogLevel = level as 'debug' | 'info' | 'warn' | 'error';
+        this.config.securityLogLevel = level as
+          | 'debug'
+          | 'info'
+          | 'warn'
+          | 'error';
       }
     }
   }
@@ -195,7 +217,9 @@ export class SecurityConfigManager {
 
     // 验证协议列表
     if (this.config.securityAllowedProtocols.length === 0) {
-      errors.push('SECURITY_ALLOWED_PROTOCOLS must contain at least one protocol');
+      errors.push(
+        'SECURITY_ALLOWED_PROTOCOLS must contain at least one protocol'
+      );
     }
 
     // 验证日志文件路径
@@ -205,7 +229,7 @@ export class SecurityConfigManager {
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -217,22 +241,46 @@ export class SecurityConfigManager {
 
     envVars.push(`SECURITY_AUDIT_ENABLED=${this.config.securityAuditEnabled}`);
     envVars.push(`SECURITY_AUDIT_LOG_FILE=${this.config.securityAuditLogFile}`);
-    envVars.push(`SECURITY_AUDIT_RETENTION_DAYS=${this.config.securityAuditRetentionDays}`);
-    envVars.push(`SECURITY_AUDIT_MAX_LOG_SIZE=${this.config.securityAuditMaxLogSize}`);
+    envVars.push(
+      `SECURITY_AUDIT_RETENTION_DAYS=${this.config.securityAuditRetentionDays}`
+    );
+    envVars.push(
+      `SECURITY_AUDIT_MAX_LOG_SIZE=${this.config.securityAuditMaxLogSize}`
+    );
     envVars.push(`SECURITY_AUDIT_VERBOSE=${this.config.securityAuditVerbose}`);
-    
-    envVars.push(`SECURITY_INPUT_VALIDATION_ENABLED=${this.config.securityInputValidationEnabled}`);
-    envVars.push(`SECURITY_OUTPUT_ENCODING_ENABLED=${this.config.securityOutputEncodingEnabled}`);
-    envVars.push(`SECURITY_DANGEROUS_COMMAND_CHECK=${this.config.securityDangerousCommandCheck}`);
-    envVars.push(`SECURITY_PATH_TRAVERSAL_CHECK=${this.config.securityPathTraversalCheck}`);
-    envVars.push(`SECURITY_XSS_PROTECTION_ENABLED=${this.config.securityXssProtectionEnabled}`);
-    envVars.push(`SECURITY_UNICODE_SANITIZATION_ENABLED=${this.config.securityUnicodeSanitizationEnabled}`);
-    envVars.push(`SECURITY_PERMISSION_ENFORCEMENT=${this.config.securityPermissionEnforcement}`);
-    
-    envVars.push(`SECURITY_MAX_INPUT_LENGTH=${this.config.securityMaxInputLength}`);
-    envVars.push(`SECURITY_MAX_FILE_PATH_LENGTH=${this.config.securityMaxFilePathLength}`);
-    envVars.push(`SECURITY_ALLOWED_PROTOCOLS=${this.config.securityAllowedProtocols.join(',')}`);
-    
+
+    envVars.push(
+      `SECURITY_INPUT_VALIDATION_ENABLED=${this.config.securityInputValidationEnabled}`
+    );
+    envVars.push(
+      `SECURITY_OUTPUT_ENCODING_ENABLED=${this.config.securityOutputEncodingEnabled}`
+    );
+    envVars.push(
+      `SECURITY_DANGEROUS_COMMAND_CHECK=${this.config.securityDangerousCommandCheck}`
+    );
+    envVars.push(
+      `SECURITY_PATH_TRAVERSAL_CHECK=${this.config.securityPathTraversalCheck}`
+    );
+    envVars.push(
+      `SECURITY_XSS_PROTECTION_ENABLED=${this.config.securityXssProtectionEnabled}`
+    );
+    envVars.push(
+      `SECURITY_UNICODE_SANITIZATION_ENABLED=${this.config.securityUnicodeSanitizationEnabled}`
+    );
+    envVars.push(
+      `SECURITY_PERMISSION_ENFORCEMENT=${this.config.securityPermissionEnforcement}`
+    );
+
+    envVars.push(
+      `SECURITY_MAX_INPUT_LENGTH=${this.config.securityMaxInputLength}`
+    );
+    envVars.push(
+      `SECURITY_MAX_FILE_PATH_LENGTH=${this.config.securityMaxFilePathLength}`
+    );
+    envVars.push(
+      `SECURITY_ALLOWED_PROTOCOLS=${this.config.securityAllowedProtocols.join(',')}`
+    );
+
     envVars.push(`SECURITY_LOG_LEVEL=${this.config.securityLogLevel}`);
 
     return envVars.join('\n');
@@ -254,32 +302,88 @@ export class SecurityConfigManager {
     }>;
   } {
     const securityFeatures = [
-      { feature: '安全审计', enabled: this.config.securityAuditEnabled, description: '记录安全事件和操作' },
-      { feature: '输入验证', enabled: this.config.securityInputValidationEnabled, description: '验证用户输入的合法性' },
-      { feature: '输出编码', enabled: this.config.securityOutputEncodingEnabled, description: '防止XSS攻击' },
-      { feature: '危险命令检查', enabled: this.config.securityDangerousCommandCheck, description: '检测和阻止危险命令' },
-      { feature: '路径遍历检查', enabled: this.config.securityPathTraversalCheck, description: '防止路径遍历攻击' },
-      { feature: 'XSS防护', enabled: this.config.securityXssProtectionEnabled, description: '防止跨站脚本攻击' },
-      { feature: 'Unicode清理', enabled: this.config.securityUnicodeSanitizationEnabled, description: '清理隐藏字符攻击' },
-      { feature: '权限强制执行', enabled: this.config.securityPermissionEnforcement, description: '强制执行权限控制' },
-      { feature: 'HTTPS重定向', enabled: this.config.securityHttpsRedirect, description: '强制使用HTTPS' },
-      { feature: 'CSP头', enabled: this.config.securityCspEnabled, description: '内容安全策略' },
-      { feature: 'HSTS', enabled: this.config.securityHstsEnabled, description: 'HTTP严格传输安全' },
-      { feature: 'X-Frame-Options', enabled: this.config.securityXFrameOptionsEnabled, description: '防止点击劫持' },
-      { feature: 'X-Content-Type-Options', enabled: this.config.securityXContentTypeOptionsEnabled, description: '防止MIME类型嗅探' },
-      { feature: 'Referrer-Policy', enabled: this.config.securityReferrerPolicyEnabled, description: '控制Referrer信息泄露' }
+      {
+        feature: '安全审计',
+        enabled: this.config.securityAuditEnabled,
+        description: '记录安全事件和操作',
+      },
+      {
+        feature: '输入验证',
+        enabled: this.config.securityInputValidationEnabled,
+        description: '验证用户输入的合法性',
+      },
+      {
+        feature: '输出编码',
+        enabled: this.config.securityOutputEncodingEnabled,
+        description: '防止XSS攻击',
+      },
+      {
+        feature: '危险命令检查',
+        enabled: this.config.securityDangerousCommandCheck,
+        description: '检测和阻止危险命令',
+      },
+      {
+        feature: '路径遍历检查',
+        enabled: this.config.securityPathTraversalCheck,
+        description: '防止路径遍历攻击',
+      },
+      {
+        feature: 'XSS防护',
+        enabled: this.config.securityXssProtectionEnabled,
+        description: '防止跨站脚本攻击',
+      },
+      {
+        feature: 'Unicode清理',
+        enabled: this.config.securityUnicodeSanitizationEnabled,
+        description: '清理隐藏字符攻击',
+      },
+      {
+        feature: '权限强制执行',
+        enabled: this.config.securityPermissionEnforcement,
+        description: '强制执行权限控制',
+      },
+      {
+        feature: 'HTTPS重定向',
+        enabled: this.config.securityHttpsRedirect,
+        description: '强制使用HTTPS',
+      },
+      {
+        feature: 'CSP头',
+        enabled: this.config.securityCspEnabled,
+        description: '内容安全策略',
+      },
+      {
+        feature: 'HSTS',
+        enabled: this.config.securityHstsEnabled,
+        description: 'HTTP严格传输安全',
+      },
+      {
+        feature: 'X-Frame-Options',
+        enabled: this.config.securityXFrameOptionsEnabled,
+        description: '防止点击劫持',
+      },
+      {
+        feature: 'X-Content-Type-Options',
+        enabled: this.config.securityXContentTypeOptionsEnabled,
+        description: '防止MIME类型嗅探',
+      },
+      {
+        feature: 'Referrer-Policy',
+        enabled: this.config.securityReferrerPolicyEnabled,
+        description: '控制Referrer信息泄露',
+      },
     ];
 
-    const enabledChecks = securityFeatures.filter(f => f.enabled).length;
+    const enabledChecks = securityFeatures.filter((f) => f.enabled).length;
     const totalChecks = securityFeatures.length;
 
     return {
       summary: {
         totalChecks,
         enabledChecks,
-        disabledChecks: totalChecks - enabledChecks
+        disabledChecks: totalChecks - enabledChecks,
       },
-      details: securityFeatures
+      details: securityFeatures,
     };
   }
 }

@@ -12,12 +12,12 @@ export type ChannelPermissionResponse = {
 export type ChannelPermissionCallbacks = {
   onResponse(
     requestId: string,
-    handler: (response: ChannelPermissionResponse) => void,
+    handler: (response: ChannelPermissionResponse) => void
   ): () => void;
   resolve(
     requestId: string,
     behavior: 'allow' | 'deny',
-    fromServer: string,
+    fromServer: string
   ): boolean;
 };
 
@@ -33,7 +33,7 @@ export class ChannelPermissionRelay implements ChannelPermissionCallbacks {
 
   onResponse(
     requestId: string,
-    handler: (response: ChannelPermissionResponse) => void,
+    handler: (response: ChannelPermissionResponse) => void
   ): () => void {
     this.handlers.set(requestId, handler);
     return () => {
@@ -44,7 +44,7 @@ export class ChannelPermissionRelay implements ChannelPermissionCallbacks {
   resolve(
     requestId: string,
     behavior: 'allow' | 'deny',
-    fromServer: string,
+    fromServer: string
   ): boolean {
     const handler = this.handlers.get(requestId);
     if (!handler) return false;

@@ -54,7 +54,9 @@ export class MemoryOptimizer {
     this.optimizationInterval = setInterval(() => {
       this.optimize();
     }, config.memoryManagement.checkIntervalMs);
-    logForDebugging('内存优化已启动', { interval: config.memoryManagement.checkIntervalMs });
+    logForDebugging('内存优化已启动', {
+      interval: config.memoryManagement.checkIntervalMs,
+    });
   }
 
   /**
@@ -81,28 +83,31 @@ export class MemoryOptimizer {
     try {
       const config = getPerformanceConfig();
       const snapshots = memoryManager.getSnapshots();
-      
+
       if (snapshots.length === 0) {
         return;
       }
 
       const latestSnapshot = snapshots[snapshots.length - 1];
-      
+
       // 检查内存使用情况
       this.checkMemoryUsage(latestSnapshot, config);
-      
+
       // 执行清理任务
       await this.executeCleanupTasks();
-      
+
       // 检测内存泄漏
       this.detectMemoryLeak(snapshots);
-      
+
       // 优化内存使用
       this.optimizeMemoryUsage(latestSnapshot, snapshots, config);
-      
+
       this.lastOptimizationTime = now;
     } catch (error) {
-      logForDebugging(`内存优化执行失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+      logForDebugging(
+        `内存优化执行失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'error' }
+      );
     }
   }
 
@@ -112,25 +117,39 @@ export class MemoryOptimizer {
   private checkMemoryUsage(snapshot: MemorySnapshot, config: any): void {
     // 更新内存使用峰值
     this.updateMemoryPeaks(snapshot);
-    
+
     // 更新内存使用趋势
     this.updateMemoryTrends(snapshot);
-    
+
     // 检查内存使用是否超过阈值
     if (snapshot.memory.rss > config.memoryManagement.thresholdMb) {
-      logForDebugging(`内存使用超过阈值: ${snapshot.memory.rss.toFixed(2)}MB > ${config.memoryManagement.thresholdMb}MB`, { level: 'warn' });
+      logForDebugging(
+        `内存使用超过阈值: ${snapshot.memory.rss.toFixed(2)}MB > ${config.memoryManagement.thresholdMb}MB`,
+        { level: 'warn' }
+      );
       this.performEmergencyCleanup();
     }
-    
+
     // 检查堆使用百分比是否过高
-    if (snapshot.heapUsagePercent > config.memoryManagement.heapUsageThreshold) {
-      logForDebugging(`堆使用百分比过高: ${snapshot.heapUsagePercent.toFixed(2)}% > ${config.memoryManagement.heapUsageThreshold}%`, { level: 'warn' });
+    if (
+      snapshot.heapUsagePercent > config.memoryManagement.heapUsageThreshold
+    ) {
+      logForDebugging(
+        `堆使用百分比过高: ${snapshot.heapUsagePercent.toFixed(2)}% > ${config.memoryManagement.heapUsageThreshold}%`,
+        { level: 'warn' }
+      );
       this.forceGarbageCollection();
     }
-    
+
     // 检查内存增长率是否异常
-    if (Math.abs(snapshot.growthRate) > config.memoryManagement.growthRateThreshold) {
-      logForDebugging(`内存增长率异常: ${snapshot.growthRate.toFixed(2)}% > ${config.memoryManagement.growthRateThreshold}%`, { level: 'warn' });
+    if (
+      Math.abs(snapshot.growthRate) >
+      config.memoryManagement.growthRateThreshold
+    ) {
+      logForDebugging(
+        `内存增长率异常: ${snapshot.growthRate.toFixed(2)}% > ${config.memoryManagement.growthRateThreshold}%`,
+        { level: 'warn' }
+      );
       this.analyzeMemoryGrowth();
     }
   }
@@ -140,19 +159,19 @@ export class MemoryOptimizer {
    */
   private updateMemoryPeaks(snapshot: MemorySnapshot): void {
     const memory = snapshot.memory;
-    
+
     // 更新RSS峰值
     const currentRssPeak = this.memoryUsagePeaks.get('rss') || 0;
     if (memory.rss > currentRssPeak) {
       this.memoryUsagePeaks.set('rss', memory.rss);
     }
-    
+
     // 更新堆使用峰值
     const currentHeapUsedPeak = this.memoryUsagePeaks.get('heapUsed') || 0;
     if (memory.heapUsed > currentHeapUsedPeak) {
       this.memoryUsagePeaks.set('heapUsed', memory.heapUsed);
     }
-    
+
     // 更新外部内存峰值
     const currentExternalPeak = this.memoryUsagePeaks.get('external') || 0;
     if (memory.external > currentExternalPeak) {
@@ -166,13 +185,13 @@ export class MemoryOptimizer {
   private updateMemoryTrends(snapshot: MemorySnapshot): void {
     const memory = snapshot.memory;
     const maxTrendPoints = 100;
-    
+
     // 更新RSS趋势
     this.updateTrend('rss', memory.rss, maxTrendPoints);
-    
+
     // 更新堆使用趋势
     this.updateTrend('heapUsed', memory.heapUsed, maxTrendPoints);
-    
+
     // 更新外部内存趋势
     this.updateTrend('external', memory.external, maxTrendPoints);
   }
@@ -184,10 +203,10 @@ export class MemoryOptimizer {
     if (!this.memoryUsageTrends.has(key)) {
       this.memoryUsageTrends.set(key, []);
     }
-    
+
     const trend = this.memoryUsageTrends.get(key)!;
     trend.push(value);
-    
+
     if (trend.length > maxPoints) {
       trend.shift();
     }
@@ -197,7 +216,7 @@ export class MemoryOptimizer {
    * 执行清理任务
    */
   private async executeCleanupTasks(): Promise<void> {
-    const cleanupPromises = Array.from(this.cleanupTasks).map(task => task());
+    const cleanupPromises = Array.from(this.cleanupTasks).map((task) => task());
     await Promise.allSettled(cleanupPromises);
   }
 
@@ -220,13 +239,13 @@ export class MemoryOptimizer {
    */
   private performEmergencyCleanup(): void {
     logForDebugging('执行紧急内存清理', { level: 'warn' });
-    
+
     // 强制垃圾回收
     this.forceGarbageCollection();
-    
+
     // 清理历史数据
     memoryManager.cleanupHistory();
-    
+
     // 清理内存使用趋势数据
     this.memoryUsageTrends.clear();
   }
@@ -241,7 +260,9 @@ export class MemoryOptimizer {
       memoryManager.checkMemory();
       logForDebugging('强制垃圾回收完成');
     } else {
-      logForDebugging('垃圾回收未启用，请使用 --expose-gc 标志启动应用', { level: 'warn' });
+      logForDebugging('垃圾回收未启用，请使用 --expose-gc 标志启动应用', {
+        level: 'warn',
+      });
     }
   }
 
@@ -250,32 +271,39 @@ export class MemoryOptimizer {
    */
   private analyzeMemoryGrowth(): void {
     logForDebugging('分析内存增长趋势');
-    
+
     // 分析RSS趋势
     const rssTrend = this.memoryUsageTrends.get('rss');
     if (rssTrend && rssTrend.length > 10) {
       const recentRss = rssTrend.slice(-10);
-      const averageRss = recentRss.reduce((sum, value) => sum + value, 0) / recentRss.length;
+      const averageRss =
+        recentRss.reduce((sum, value) => sum + value, 0) / recentRss.length;
       const firstRss = recentRss[0];
       const lastRss = recentRss[recentRss.length - 1];
       const growthRate = ((lastRss - firstRss) / firstRss) * 100;
-      
+
       if (growthRate > 20) {
-        logForDebugging(`RSS内存持续增长: ${growthRate.toFixed(2)}%`, { level: 'warn' });
+        logForDebugging(`RSS内存持续增长: ${growthRate.toFixed(2)}%`, {
+          level: 'warn',
+        });
       }
     }
-    
+
     // 分析堆使用趋势
     const heapUsedTrend = this.memoryUsageTrends.get('heapUsed');
     if (heapUsedTrend && heapUsedTrend.length > 10) {
       const recentHeapUsed = heapUsedTrend.slice(-10);
-      const averageHeapUsed = recentHeapUsed.reduce((sum, value) => sum + value, 0) / recentHeapUsed.length;
+      const averageHeapUsed =
+        recentHeapUsed.reduce((sum, value) => sum + value, 0) /
+        recentHeapUsed.length;
       const firstHeapUsed = recentHeapUsed[0];
       const lastHeapUsed = recentHeapUsed[recentHeapUsed.length - 1];
       const growthRate = ((lastHeapUsed - firstHeapUsed) / firstHeapUsed) * 100;
-      
+
       if (growthRate > 20) {
-        logForDebugging(`堆内存持续增长: ${growthRate.toFixed(2)}%`, { level: 'warn' });
+        logForDebugging(`堆内存持续增长: ${growthRate.toFixed(2)}%`, {
+          level: 'warn',
+        });
       }
     }
   }
@@ -305,8 +333,12 @@ export class MemoryOptimizer {
       previousHeapUsed = currentHeapUsed;
     }
 
-    if (isLeaking && totalGrowth > 10) { // 增长超过10MB
-      logForDebugging(`检测到可能的内存泄漏，10个快照内内存增长了 ${totalGrowth.toFixed(2)}MB`, { level: 'error' });
+    if (isLeaking && totalGrowth > 10) {
+      // 增长超过10MB
+      logForDebugging(
+        `检测到可能的内存泄漏，10个快照内内存增长了 ${totalGrowth.toFixed(2)}MB`,
+        { level: 'error' }
+      );
       this.performEmergencyCleanup();
     }
   }
@@ -314,17 +346,21 @@ export class MemoryOptimizer {
   /**
    * 优化内存使用
    */
-  private optimizeMemoryUsage(snapshot: MemorySnapshot, snapshots: MemorySnapshot[], config: any): void {
+  private optimizeMemoryUsage(
+    snapshot: MemorySnapshot,
+    snapshots: MemorySnapshot[],
+    config: any
+  ): void {
     // 检查是否需要执行垃圾回收
     if (snapshot.heapUsagePercent > config.memoryManagement.gcThreshold) {
       this.forceGarbageCollection();
     }
-    
+
     // 清理历史数据
     if (snapshots.length > config.memoryManagement.maxSnapshots) {
       memoryManager.cleanupHistory();
     }
-    
+
     // 清理内存使用趋势数据
     for (const [key, trend] of this.memoryUsageTrends.entries()) {
       if (trend.length > 50) {
@@ -351,9 +387,20 @@ export class MemoryOptimizer {
     const externalTrend = this.memoryUsageTrends.get('external') || [];
 
     // 计算平均值
-    const avgRss = rssTrend.length > 0 ? rssTrend.reduce((sum, value) => sum + value, 0) / rssTrend.length : 0;
-    const avgHeapUsed = heapUsedTrend.length > 0 ? heapUsedTrend.reduce((sum, value) => sum + value, 0) / heapUsedTrend.length : 0;
-    const avgExternal = externalTrend.length > 0 ? externalTrend.reduce((sum, value) => sum + value, 0) / externalTrend.length : 0;
+    const avgRss =
+      rssTrend.length > 0
+        ? rssTrend.reduce((sum, value) => sum + value, 0) / rssTrend.length
+        : 0;
+    const avgHeapUsed =
+      heapUsedTrend.length > 0
+        ? heapUsedTrend.reduce((sum, value) => sum + value, 0) /
+          heapUsedTrend.length
+        : 0;
+    const avgExternal =
+      externalTrend.length > 0
+        ? externalTrend.reduce((sum, value) => sum + value, 0) /
+          externalTrend.length
+        : 0;
 
     // 获取峰值
     const rssPeak = this.memoryUsagePeaks.get('rss') || 0;
@@ -402,11 +449,17 @@ export class MemoryOptimizer {
       suggestions.push('内存使用超过阈值，建议检查内存泄漏或增加内存限制');
     }
 
-    if (latestSnapshot.heapUsagePercent > config.memoryManagement.heapUsageThreshold) {
+    if (
+      latestSnapshot.heapUsagePercent >
+      config.memoryManagement.heapUsageThreshold
+    ) {
       suggestions.push('堆使用百分比过高，建议优化内存使用或增加堆大小');
     }
 
-    if (Math.abs(latestSnapshot.growthRate) > config.memoryManagement.growthRateThreshold) {
+    if (
+      Math.abs(latestSnapshot.growthRate) >
+      config.memoryManagement.growthRateThreshold
+    ) {
       suggestions.push('内存增长率异常，建议检查内存泄漏');
     }
 
@@ -417,7 +470,7 @@ export class MemoryOptimizer {
       const firstRss = recentRss[0];
       const lastRss = recentRss[recentRss.length - 1];
       const growthRate = ((lastRss - firstRss) / firstRss) * 100;
-      
+
       if (growthRate > 20) {
         suggestions.push('RSS内存持续增长，可能存在内存泄漏');
       }
@@ -430,7 +483,7 @@ export class MemoryOptimizer {
       const firstHeapUsed = recentHeapUsed[0];
       const lastHeapUsed = recentHeapUsed[recentHeapUsed.length - 1];
       const growthRate = ((lastHeapUsed - firstHeapUsed) / firstHeapUsed) * 100;
-      
+
       if (growthRate > 20) {
         suggestions.push('堆内存持续增长，可能存在内存泄漏');
       }

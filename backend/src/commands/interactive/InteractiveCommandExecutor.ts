@@ -46,7 +46,9 @@ export class InteractiveCommandExecutor {
       input: process.stdin,
       output: process.stdout,
       prompt: this.promptPrefix,
-      completer: this.options.enableSuggestions ? this.completer.bind(this) : undefined,
+      completer: this.options.enableSuggestions
+        ? this.completer.bind(this)
+        : undefined,
     });
 
     this.setupEventHandlers();
@@ -59,11 +61,11 @@ export class InteractiveCommandExecutor {
     // 处理行输入
     this.rl.on('line', async (line) => {
       line = line.trim();
-      
+
       if (line) {
         await this.handleCommand(line);
       }
-      
+
       this.rl.prompt();
     });
 
@@ -91,21 +93,27 @@ export class InteractiveCommandExecutor {
    * @param line 当前输入行
    * @param callback 回调函数
    */
-  private completer(line: string, callback: (err: any, result: [string[], string]) => void): void {
+  private completer(
+    line: string,
+    callback: (err: any, result: [string[], string]) => void
+  ): void {
     const commands = (this.commandManager as any).getCommands();
     const commandNames: string[] = Array.from(commands.keys() as string[]);
-    
+
     // 获取建议
-    const suggestions = this.historyManager.getSuggestions(line, this.options.maxSuggestions || 10);
-    
+    const suggestions = this.historyManager.getSuggestions(
+      line,
+      this.options.maxSuggestions || 10
+    );
+
     // 合并命令名称和历史建议
     const allSuggestions = [...new Set([...commandNames, ...suggestions])];
-    
+
     // 按前缀过滤
     const matches = allSuggestions.filter((command: string) =>
       command.toLowerCase().startsWith(line.toLowerCase())
     );
-    
+
     callback(null, [matches, line]);
   }
 
@@ -121,16 +129,24 @@ export class InteractiveCommandExecutor {
       const args = parts.slice(1).join(' ');
 
       // 执行命令
-      const result = await this.commandManager.executeCommand(commandName, args, {});
-      
+      const result = await this.commandManager.executeCommand(
+        commandName,
+        args,
+        {}
+      );
+
       // 记录命令历史
       this.historyManager.addHistory(commandName, args, result.success);
-      
+
       // 显示结果
       if (result.value) {
         console.log(result.value);
       } else if (result.data) {
-        if (typeof result.data === 'object' && result.data !== null && result.data.type === 'text') {
+        if (
+          typeof result.data === 'object' &&
+          result.data !== null &&
+          result.data.type === 'text'
+        ) {
           console.log(result.data.value);
         } else {
           console.log(JSON.stringify(result.data, null, 2));
@@ -138,7 +154,7 @@ export class InteractiveCommandExecutor {
       }
     } catch (error) {
       console.error('命令执行错误:', error);
-      
+
       // 记录失败的命令
       const parts = line.split(' ');
       const commandName = parts[0];
@@ -158,7 +174,9 @@ export class InteractiveCommandExecutor {
     console.log('');
     console.log('可用命令:');
     const commands = (this.commandManager as any).getCommands();
-    const commandNames: string[] = Array.from(commands.keys() as string[]).slice(0, 10);
+    const commandNames: string[] = Array.from(
+      commands.keys() as string[]
+    ).slice(0, 10);
     commandNames.forEach((name: any) => {
       const cmd = commands.get(name);
       console.log(`  ${String(name).padEnd(20)} ${cmd?.description || ''}`);
@@ -229,6 +247,8 @@ export class InteractiveCommandExecutor {
  * @param options 选项
  * @returns 交互式命令执行器实例
  */
-export function createInteractiveCommandExecutor(options: InteractiveCommandExecutorOptions = {}): InteractiveCommandExecutor {
+export function createInteractiveCommandExecutor(
+  options: InteractiveCommandExecutorOptions = {}
+): InteractiveCommandExecutor {
   return new InteractiveCommandExecutor(options);
 }

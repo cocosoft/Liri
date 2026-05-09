@@ -8,10 +8,7 @@ export {
   createConsoleExporter,
 } from './ConsoleExporter.js';
 
-export type {
-  ConsoleExporterConfig,
-  ExportData,
-} from './ConsoleExporter.js';
+export type { ConsoleExporterConfig, ExportData } from './ConsoleExporter.js';
 
 export {
   FileExporter,
@@ -19,7 +16,4 @@ export {
   createFileExporter,
 } from './FileExporter.js';
 
-export type {
-  FileExporterConfig,
-  FileExportData,
-} from './FileExporter.js';
+export type { FileExporterConfig, FileExportData } from './FileExporter.js';

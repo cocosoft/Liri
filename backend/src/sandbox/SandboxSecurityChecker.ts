@@ -46,39 +46,105 @@ export interface SecurityCheckerConfig {
  */
 export class SandboxSecurityChecker {
   private config: SecurityCheckerConfig;
-  
+
   /**
    * 危险命令模式列表
    */
   private readonly dangerousCommands = new Set([
     // 文件系统破坏命令
-    'rm -rf', 'rm -fr', 'rm -rf /', 'rm -rf *', 'rm -rf /*',
-    'del /s /q', 'erase /f /s', 'rd /s /q',
-    'format', 'mkfs', 'mkfs.ext', 'mkfs.xfs',
-    'dd if=', 'dd of=/dev/', 'dd of=/dev/sd', 'dd of=/dev/hd',
-    'chmod 777', 'chmod -R 777', 'chmod a+rwx',
-    'chown -R', 'chgrp -R', 'chown root', 'chgrp root',
-    'truncate -s 0', 'fallocate -l 0',
+    'rm -rf',
+    'rm -fr',
+    'rm -rf /',
+    'rm -rf *',
+    'rm -rf /*',
+    'del /s /q',
+    'erase /f /s',
+    'rd /s /q',
+    'format',
+    'mkfs',
+    'mkfs.ext',
+    'mkfs.xfs',
+    'dd if=',
+    'dd of=/dev/',
+    'dd of=/dev/sd',
+    'dd of=/dev/hd',
+    'chmod 777',
+    'chmod -R 777',
+    'chmod a+rwx',
+    'chown -R',
+    'chgrp -R',
+    'chown root',
+    'chgrp root',
+    'truncate -s 0',
+    'fallocate -l 0',
     // Fork炸弹
-    ':(){ :|:& };:', 'forkbomb', '(){ :|:& };:',
+    ':(){ :|:& };:',
+    'forkbomb',
+    '(){ :|:& };:',
     // 权限提升
-    'sudo', 'su root', 'pkexec', 'doas', 'su -', 'sudo -i',
+    'sudo',
+    'su root',
+    'pkexec',
+    'doas',
+    'su -',
+    'sudo -i',
     // 远程代码执行
-    'curl | bash', 'wget | bash', 'curl | sh', 'wget | sh',
-    'curl | sudo', 'wget | sudo', 'curl | su', 'wget | su',
-    'base64 -d |', 'echo ... | base64', 'echo | base64 -d',
-    'python -c', 'python3 -c', 'perl -e', 'ruby -e', 'node -e',
-    'bash -c', 'sh -c', 'zsh -c', 'ksh -c',
-    'curl -sL', 'curl -s', 'wget -q', 'wget -qO-',
+    'curl | bash',
+    'wget | bash',
+    'curl | sh',
+    'wget | sh',
+    'curl | sudo',
+    'wget | sudo',
+    'curl | su',
+    'wget | su',
+    'base64 -d |',
+    'echo ... | base64',
+    'echo | base64 -d',
+    'python -c',
+    'python3 -c',
+    'perl -e',
+    'ruby -e',
+    'node -e',
+    'bash -c',
+    'sh -c',
+    'zsh -c',
+    'ksh -c',
+    'curl -sL',
+    'curl -s',
+    'wget -q',
+    'wget -qO-',
     // 命令注入
-    'eval ', 'exec ', 'source ', '. ',
+    'eval ',
+    'exec ',
+    'source ',
+    '. ',
     // Zsh equals expansion
-    '=rm', '=sh', '=bash', '=cp', '=mv', '=cat', '=echo',
-    '=kill', '=sudo', '=su', '=curl', '=wget', '=python',
+    '=rm',
+    '=sh',
+    '=bash',
+    '=cp',
+    '=mv',
+    '=cat',
+    '=echo',
+    '=kill',
+    '=sudo',
+    '=su',
+    '=curl',
+    '=wget',
+    '=python',
     // 环境变量污染
-    'PATH=', 'LD_PRELOAD=', 'LD_LIBRARY_PATH=',
-    'PYTHONPATH=', 'PERL5LIB=', 'RUBYLIB=', 'NODE_PATH=',
-    'IFS=', 'HOME=', 'USER=', 'SHELL=', 'LOGNAME=',
+    'PATH=',
+    'LD_PRELOAD=',
+    'LD_LIBRARY_PATH=',
+    'PYTHONPATH=',
+    'PERL5LIB=',
+    'RUBYLIB=',
+    'NODE_PATH=',
+    'IFS=',
+    'HOME=',
+    'USER=',
+    'SHELL=',
+    'LOGNAME=',
   ]);
 
   /**
@@ -86,30 +152,67 @@ export class SandboxSecurityChecker {
    */
   private readonly sensitivePaths = new Set([
     // Unix/Linux系统目录（系统关键目录）
-    '/etc/', '/sys/', '/proc/', '/usr/bin/', '/usr/sbin/',
-    '/bin/', '/sbin/', '/var/', '/boot/', '/lib/', '/lib64/',
-    '/root/', '/tmp/', '/var/tmp/', '/run/',
+    '/etc/',
+    '/sys/',
+    '/proc/',
+    '/usr/bin/',
+    '/usr/sbin/',
+    '/bin/',
+    '/sbin/',
+    '/var/',
+    '/boot/',
+    '/lib/',
+    '/lib64/',
+    '/root/',
+    '/tmp/',
+    '/var/tmp/',
+    '/run/',
     // Windows系统目录
-    'C:\\', 'D:\\', '\\\\.\\', '\\\\?\\',
+    'C:\\',
+    'D:\\',
+    '\\\\.\\',
+    '\\\\?\\',
     // 敏感文件
-    '/etc/passwd', '/etc/shadow', '/etc/group', '/etc/gshadow',
-    '/etc/hosts', '/etc/resolv.conf', '/etc/ssh/', '/etc/sudoers',
-    '/root/.ssh/', '/var/log/', '/var/log/auth.log',
-    'cat /root/.ssh/id_rsa', 'cat /home/*/.ssh/id_rsa',
+    '/etc/passwd',
+    '/etc/shadow',
+    '/etc/group',
+    '/etc/gshadow',
+    '/etc/hosts',
+    '/etc/resolv.conf',
+    '/etc/ssh/',
+    '/etc/sudoers',
+    '/root/.ssh/',
+    '/var/log/',
+    '/var/log/auth.log',
+    'cat /root/.ssh/id_rsa',
+    'cat /home/*/.ssh/id_rsa',
   ]);
 
   /**
    * 路径遍历模式
    */
   private readonly pathTraversalPatterns = new Set([
-    '../', '..\\', '/../', '\\..\\', '..//', './/..',
-    '.../', '..../', '..\\..\\', '../..',
+    '../',
+    '..\\',
+    '/../',
+    '\\..\\',
+    '..//',
+    './/..',
+    '.../',
+    '..../',
+    '..\\..\\',
+    '../..',
     // URL编码版本
-    '%2e%2e/', '%2e%2e\\', '%2f%2e%2e', '%5c%2e%2e',
+    '%2e%2e/',
+    '%2e%2e\\',
+    '%2f%2e%2e',
+    '%5c%2e%2e',
     // Unicode编码版本
-    '%u002e%u002e/', '%u002e%u002e\\',
+    '%u002e%u002e/',
+    '%u002e%u002e\\',
     // 双重编码版本
-    '%252e%252e/', '%252e%252e\\',
+    '%252e%252e/',
+    '%252e%252e\\',
   ]);
 
   /**
@@ -117,21 +220,39 @@ export class SandboxSecurityChecker {
    */
   private readonly commandInjectionPatterns = new Set([
     // 命令替换
-    '$(', '`', '${', '${{',
+    '$(',
+    '`',
+    '${',
+    '${{',
     // 管道操作符
-    ' | ', ' || ', ' && ', ' ; ',
+    ' | ',
+    ' || ',
+    ' && ',
+    ' ; ',
     // 重定向
-    ' > ', ' >> ', ' 2> ', ' 2>> ',
+    ' > ',
+    ' >> ',
+    ' 2> ',
+    ' 2>> ',
     // 后台执行
-    ' & ', ' &',
+    ' & ',
+    ' &',
   ]);
 
   /**
    * Unicode零宽字符
    */
   private readonly zeroWidthCharacters = new Set([
-    '\u200B', '\u200C', '\u200D', '\u2060', '\uFEFF',
-    '\u2028', '\u2029', '\u180E', '\u200E', '\u200F',
+    '\u200B',
+    '\u200C',
+    '\u200D',
+    '\u2060',
+    '\uFEFF',
+    '\u2028',
+    '\u2029',
+    '\u180E',
+    '\u200E',
+    '\u200F',
   ]);
 
   constructor(config?: Partial<SecurityCheckerConfig>) {
@@ -154,10 +275,13 @@ export class SandboxSecurityChecker {
    * @param config 沙箱配置
    * @returns 安全检查结果
    */
-  check(options: SandboxExecuteOptions, config: SandboxConfig): SecurityCheckResult {
+  check(
+    options: SandboxExecuteOptions,
+    config: SandboxConfig
+  ): SecurityCheckResult {
     // 检查命令参数
     const argsString = options.args.join(' ');
-    
+
     // 检查危险命令
     if (this.config.enableDangerousCommandDetection) {
       const dangerousCheck = this.checkDangerousCommands(argsString);
@@ -243,7 +367,7 @@ export class SandboxSecurityChecker {
    */
   checkDangerousCommands(command: string): SecurityCheckResult {
     const lowerCommand = command.toLowerCase();
-    
+
     for (const dangerous of this.dangerousCommands) {
       if (lowerCommand.includes(dangerous)) {
         return {
@@ -268,7 +392,7 @@ export class SandboxSecurityChecker {
    */
   checkPathTraversal(command: string): SecurityCheckResult {
     const lowerCommand = command.toLowerCase();
-    
+
     for (const pattern of this.pathTraversalPatterns) {
       if (lowerCommand.includes(pattern)) {
         return {
@@ -293,7 +417,7 @@ export class SandboxSecurityChecker {
    */
   checkSensitivePaths(command: string): SecurityCheckResult {
     const lowerCommand = command.toLowerCase();
-    
+
     for (const path of this.sensitivePaths) {
       if (lowerCommand.includes(path.toLowerCase())) {
         return {
@@ -318,7 +442,7 @@ export class SandboxSecurityChecker {
    */
   checkCommandInjection(command: string): SecurityCheckResult {
     const lowerCommand = command.toLowerCase();
-    
+
     for (const pattern of this.commandInjectionPatterns) {
       if (lowerCommand.includes(pattern)) {
         return {
@@ -395,13 +519,34 @@ export class SandboxSecurityChecker {
    */
   checkZshEqualsExpansion(command: string): SecurityCheckResult {
     const lowerCommand = command.toLowerCase();
-    
+
     // 检查=command模式
     const zshPatterns = [
-      '=rm', '=sh', '=bash', '=cp', '=mv', '=cat', '=echo',
-      '=kill', '=sudo', '=su', '=curl', '=wget', '=python',
-      '=perl', '=ruby', '=node', '=gcc', '=make', '=docker',
-      '=kubectl', '=ssh', '=scp', '=rsync', '=git', '=npm',
+      '=rm',
+      '=sh',
+      '=bash',
+      '=cp',
+      '=mv',
+      '=cat',
+      '=echo',
+      '=kill',
+      '=sudo',
+      '=su',
+      '=curl',
+      '=wget',
+      '=python',
+      '=perl',
+      '=ruby',
+      '=node',
+      '=gcc',
+      '=make',
+      '=docker',
+      '=kubectl',
+      '=ssh',
+      '=scp',
+      '=rsync',
+      '=git',
+      '=npm',
     ];
 
     for (const pattern of zshPatterns) {
@@ -428,7 +573,7 @@ export class SandboxSecurityChecker {
    */
   checkEnvironmentPollution(env: Record<string, string>): SecurityCheckResult {
     const dangerousVars = ['PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH', 'IFS'];
-    
+
     for (const key of dangerousVars) {
       if (key in env) {
         return {
@@ -451,7 +596,10 @@ export class SandboxSecurityChecker {
    * @param config 沙箱配置
    * @returns 检查结果
    */
-  checkWorkingDirectory(cwd: string, config: SandboxConfig): SecurityCheckResult {
+  checkWorkingDirectory(
+    cwd: string,
+    config: SandboxConfig
+  ): SecurityCheckResult {
     // 检查工作目录是否在白名单中
     if (config.filesystemWhitelist.length > 0) {
       const lowerCwd = cwd.toLowerCase();
@@ -459,7 +607,10 @@ export class SandboxSecurityChecker {
 
       for (const allowedPath of config.filesystemWhitelist) {
         const lowerAllowed = allowedPath.toLowerCase();
-        if (lowerCwd.startsWith(lowerAllowed) || lowerAllowed.startsWith(lowerCwd)) {
+        if (
+          lowerCwd.startsWith(lowerAllowed) ||
+          lowerAllowed.startsWith(lowerCwd)
+        ) {
           isWhitelisted = true;
           break;
         }

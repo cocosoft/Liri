@@ -83,7 +83,10 @@ export class BridgeMain {
   private readonly config: BridgeConfig;
   private readonly spawner: SessionSpawner;
   private readonly logger: BridgeMainOptions['logger'];
-  private readonly getAccessToken?: () => string | undefined | Promise<string | undefined>;
+  private readonly getAccessToken?: () =>
+    | string
+    | undefined
+    | Promise<string | undefined>;
   private readonly backoffConfig: BackoffConfig;
   private readonly pollConfig: PollConfig;
   private readonly initialSessionId?: string;
@@ -95,8 +98,10 @@ export class BridgeMain {
   private environmentSecret: string | null = null;
   private pollManager: ReturnType<typeof createPollManager> | null = null;
   private sessionManager: ReturnType<typeof createSessionManager> | null = null;
-  private heartbeatManager: ReturnType<typeof createHeartbeatManager> | null = null;
-  private worktreeManager: ReturnType<typeof createWorktreeManager> | null = null;
+  private heartbeatManager: ReturnType<typeof createHeartbeatManager> | null =
+    null;
+  private worktreeManager: ReturnType<typeof createWorktreeManager> | null =
+    null;
   private abortController: AbortController | null = null;
   private isRunning = false;
 
@@ -159,7 +164,8 @@ export class BridgeMain {
       this.heartbeatManager = createHeartbeatManager({
         api: this.api,
         environmentId: this.environmentId,
-        heartbeatIntervalMs: this.pollConfig.non_exclusive_heartbeat_interval_ms,
+        heartbeatIntervalMs:
+          this.pollConfig.non_exclusive_heartbeat_interval_ms,
         onError: (error) => this.logger.logError(`心跳错误: ${error.message}`),
         onSessionExpired: (sessionId, workId) => {
           this.logger.logError(`会话 ${sessionId} (工作 ${workId}) 心跳过期`);
@@ -187,7 +193,8 @@ export class BridgeMain {
         environmentId: this.environmentId,
         environmentSecret: this.environmentSecret,
         pollConfig: this.pollConfig,
-        getActiveSessionCount: () => this.sessionManager?.getActiveSessionCount() ?? 0,
+        getActiveSessionCount: () =>
+          this.sessionManager?.getActiveSessionCount() ?? 0,
         maxSessions: this.config.maxSessions,
         onWork: (work) => this.handleWork(work),
         onError: (error) => this.logger.logError(`轮询错误: ${error.message}`),
@@ -288,7 +295,7 @@ export class BridgeMain {
           await this.api!.acknowledgeWork(
             this.environmentId!,
             work.id,
-            work.secret,
+            work.secret
           );
           break;
 
@@ -317,14 +324,18 @@ export class BridgeMain {
 
     if (this.sessionManager!.hasSession(sessionId)) {
       this.heartbeatManager!.addSession(sessionId, work.id, work.secret);
-      await this.api!.acknowledgeWork(this.environmentId!, work.id, work.secret);
+      await this.api!.acknowledgeWork(
+        this.environmentId!,
+        work.id,
+        work.secret
+      );
       return;
     }
 
-    if (this.sessionManager!.getActiveSessionCount() >= this.config.maxSessions) {
-      this.logger.logError(
-        `已达容量上限，无法为工作 ${work.id} 创建新会话`
-      );
+    if (
+      this.sessionManager!.getActiveSessionCount() >= this.config.maxSessions
+    ) {
+      this.logger.logError(`已达容量上限，无法为工作 ${work.id} 创建新会话`);
       return;
     }
 
@@ -334,7 +345,8 @@ export class BridgeMain {
 
     if (this.config.spawnMode === 'worktree') {
       try {
-        const worktreeInfo = await this.worktreeManager!.createWorktree(sessionId);
+        const worktreeInfo =
+          await this.worktreeManager!.createWorktree(sessionId);
         sessionDir = worktreeInfo.worktreePath;
       } catch (error) {
         this.logger.logError(
@@ -350,7 +362,7 @@ export class BridgeMain {
         this.config.sessionIngressUrl,
         work.secret,
         work.id,
-        sessionDir,
+        sessionDir
       );
 
       this.heartbeatManager!.addSession(sessionId, work.id, work.secret);
@@ -372,7 +384,10 @@ export class BridgeMain {
   /**
    * 处理会话完成
    */
-  private async onSessionDone(sessionId: string, status: string): Promise<void> {
+  private async onSessionDone(
+    sessionId: string,
+    status: string
+  ): Promise<void> {
     this.heartbeatManager?.removeSession(sessionId);
 
     await this.worktreeManager?.removeWorktree(sessionId);

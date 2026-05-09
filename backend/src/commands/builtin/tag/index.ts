@@ -14,6 +14,8 @@ export const tagCommand: Command = {
   aliases: [],
   argumentHint: '[list|add|remove|sessions|help]',
   whenToUse: '当你需要管理会话标签时',
-  load: async () => import('./Tag.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Tag.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

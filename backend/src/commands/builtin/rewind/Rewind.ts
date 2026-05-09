@@ -13,7 +13,7 @@ export default {
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const arg = args.trim();
     let steps = 1; // 默认回退1步
-    
+
     if (arg) {
       const parsed = parseInt(arg);
       if (!isNaN(parsed) && parsed > 0) {
@@ -30,11 +30,17 @@ export default {
   /**
    * 按步数回退
    */
-  async handleRewindSteps(steps: number, context: CommandContext): Promise<CommandResult> {
+  async handleRewindSteps(
+    steps: number,
+    context: CommandContext
+  ): Promise<CommandResult> {
     try {
       if (context.chatManager) {
-        const result = await context.chatManager.rewindSession(context.sessionId, steps);
-        
+        const result = await context.chatManager.rewindSession(
+          context.sessionId,
+          steps
+        );
+
         if (result.success) {
           context.onDone?.(`会话已回退 ${steps} 步`, { display: 'system' });
           return {
@@ -51,7 +57,7 @@ export default {
           };
         }
       }
-      
+
       return {
         success: false,
         type: 'error',
@@ -69,13 +75,21 @@ export default {
   /**
    * 回退到指定消息
    */
-  async handleRewindToMessage(messageId: string, context: CommandContext): Promise<CommandResult> {
+  async handleRewindToMessage(
+    messageId: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     try {
       if (context.chatManager) {
-        const result = await context.chatManager.rewindToMessage(context.sessionId, messageId);
-        
+        const result = await context.chatManager.rewindToMessage(
+          context.sessionId,
+          messageId
+        );
+
         if (result.success) {
-          context.onDone?.(`会话已回退到消息 ${messageId}`, { display: 'system' });
+          context.onDone?.(`会话已回退到消息 ${messageId}`, {
+            display: 'system',
+          });
           return {
             success: true,
             type: 'text',
@@ -90,7 +104,7 @@ export default {
           };
         }
       }
-      
+
       return {
         success: false,
         type: 'error',

@@ -73,11 +73,14 @@ const vimCommand = {
       } else {
         return {
           success: false,
-          message: '未知参数 "' + subcommand + '"。\n用法: /vim [normal|enable|disable|status|help]',
+          message:
+            '未知参数 "' +
+            subcommand +
+            '"。\n用法: /vim [normal|enable|disable|status|help]',
         };
       }
 
-    if (newMode === currentMode && !shouldToggle) {
+      if (newMode === currentMode && !shouldToggle) {
         return {
           success: true,
           message: '编辑模式已经是 ' + newMode + '。',
@@ -89,10 +92,13 @@ const vimCommand = {
         editorMode: newMode,
       }));
 
-      (await import('@modules/services/analytics/index.js')).logEvent('tengu_editor_mode_changed', {
-        mode: newMode,
-        source: 'command',
-      });
+      (await import('@modules/services/analytics/index.js')).logEvent(
+        'tengu_editor_mode_changed',
+        {
+          mode: newMode,
+          source: 'command',
+        }
+      );
 
       return {
         success: true,
@@ -106,7 +112,9 @@ const vimCommand = {
     } catch (error) {
       return {
         success: false,
-        message: '切换编辑模式失败: ' + (error instanceof Error ? error.message : String(error)),
+        message:
+          '切换编辑模式失败: ' +
+          (error instanceof Error ? error.message : String(error)),
       };
     }
   },

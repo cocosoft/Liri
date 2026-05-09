@@ -1,16 +1,16 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type BriefOutput = {
-  fileCount?: number
-  contentSummary?: string
-  attachments?: Array<{ name: string; type: string }>
-  result?: string
-}
+  fileCount?: number;
+  contentSummary?: string;
+  attachments?: Array<{ name: string; type: string }>;
+  result?: string;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ description: string; include_patterns: string[] }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
   if (verbose) {
     return (
@@ -18,22 +18,25 @@ export function renderToolUseMessage(
         <Box flexDirection="row">
           <Text dimColor>Preparing brief</Text>
           {input.include_patterns?.length ? (
-            <Text dimColor> (patterns: {input.include_patterns.join(', ')})</Text>
+            <Text dimColor>
+              {' '}
+              (patterns: {input.include_patterns.join(', ')})
+            </Text>
           ) : null}
         </Box>
       </Box>
-    )
+    );
   }
 
-  return <Text dimColor>Preparing brief...</Text>
+  return <Text dimColor>Preparing brief...</Text>;
 }
 
 export function renderToolResultMessage(
   output: BriefOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { fileCount, contentSummary, attachments, result } = output
+  const { fileCount, contentSummary, attachments, result } = output;
 
   if (verbose) {
     return (
@@ -41,7 +44,10 @@ export function renderToolResultMessage(
         <Box flexDirection="row">
           <Text color="green">✓ Brief ready</Text>
           {fileCount !== undefined ? (
-            <Text dimColor> ({fileCount} file{fileCount !== 1 ? 's' : ''})</Text>
+            <Text dimColor>
+              {' '}
+              ({fileCount} file{fileCount !== 1 ? 's' : ''})
+            </Text>
           ) : null}
         </Box>
         {attachments?.length ? (
@@ -61,7 +67,7 @@ export function renderToolResultMessage(
           </Box>
         ) : null}
       </Box>
-    )
+    );
   }
 
   return (
@@ -69,15 +75,18 @@ export function renderToolResultMessage(
       <Text color="green">✓ </Text>
       <Text>Brief ready</Text>
       {fileCount !== undefined ? (
-        <Text dimColor> ({fileCount} file{fileCount !== 1 ? 's' : ''})</Text>
+        <Text dimColor>
+          {' '}
+          ({fileCount} file{fileCount !== 1 ? 's' : ''})
+        </Text>
       ) : null}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ description: string }> | undefined,
+  input: Partial<{ description: string }> | undefined
 ): string | null {
-  if (!input?.description) return 'Brief'
-  return input.description.slice(0, 60)
+  if (!input?.description) return 'Brief';
+  return input.description.slice(0, 60);
 }

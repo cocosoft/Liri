@@ -1,33 +1,35 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type VoiceInputResult = {
-  action: string
-  text?: string
-  message: string
-  duration?: number
-}
+  action: string;
+  text?: string;
+  message: string;
+  duration?: number;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ action: string; language: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const { action, language } = input
+  const { action, language } = input;
   if (action === 'start') {
-    return <Text dimColor>开始语音识别{language ? ` (${language})` : ''}...</Text>
+    return (
+      <Text dimColor>开始语音识别{language ? ` (${language})` : ''}...</Text>
+    );
   }
   if (action === 'stop') {
-    return <Text dimColor>停止语音识别...</Text>
+    return <Text dimColor>停止语音识别...</Text>;
   }
-  return <Text dimColor>检查语音识别状态...</Text>
+  return <Text dimColor>检查语音识别状态...</Text>;
 }
 
 export function renderToolResultMessage(
   output: VoiceInputResult,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { action, text, message } = output
+  const { action, text, message } = output;
 
   if (action === 'stop' && text) {
     return (
@@ -42,11 +44,14 @@ export function renderToolResultMessage(
           </Box>
         ) : (
           <Box marginTop={1} marginLeft={2}>
-            <Text dimColor>{text.slice(0, 100)}{text.length > 100 ? '...' : ''}</Text>
+            <Text dimColor>
+              {text.slice(0, 100)}
+              {text.length > 100 ? '...' : ''}
+            </Text>
           </Box>
         )}
       </Box>
-    )
+    );
   }
 
   return (
@@ -54,12 +59,12 @@ export function renderToolResultMessage(
       <Text color="green">✓ </Text>
       <Text dimColor>{message}</Text>
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ action: string }> | undefined,
+  input: Partial<{ action: string }> | undefined
 ): string | null {
-  if (!input?.action) return null
-  return `语音 ${input.action}`
+  if (!input?.action) return null;
+  return `语音 ${input.action}`;
 }

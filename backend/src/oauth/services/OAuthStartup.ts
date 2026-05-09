@@ -28,7 +28,7 @@ export interface OAuthStartupResult {
 
 /**
  * OAuth启动预加载管理器
- * 
+ *
  * 启动时序：
  * T0: 立即返回启动进度
  * T1: 并行预加载：OAuth Token预取 + API预连接
@@ -64,16 +64,19 @@ export class OAuthStartupManager {
     ]);
 
     const result: OAuthStartupResult = {
-      tokensLoaded: tokensLoaded.status === 'fulfilled' ? tokensLoaded.value : 0,
+      tokensLoaded:
+        tokensLoaded.status === 'fulfilled' ? tokensLoaded.value : 0,
       prefetchSuccess: tokensLoaded.status === 'fulfilled',
-      apiPreconnectSuccess: apiPreconnectSuccess.status === 'fulfilled' && apiPreconnectSuccess.value,
+      apiPreconnectSuccess:
+        apiPreconnectSuccess.status === 'fulfilled' &&
+        apiPreconnectSuccess.value,
       elapsedMs: Date.now() - startTime,
     };
 
     logger.info(
       `OAuth startup prefetch completed in ${result.elapsedMs}ms: ` +
-      `${result.tokensLoaded} tokens loaded, ` +
-      `API preconnect: ${result.apiPreconnectSuccess}`
+        `${result.tokensLoaded} tokens loaded, ` +
+        `API preconnect: ${result.apiPreconnectSuccess}`
     );
 
     return result;

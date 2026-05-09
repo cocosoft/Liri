@@ -62,7 +62,10 @@ export const nonAlphanumericKeys: Record<string, string> = {
   space: 'space',
 };
 
-export function parseMultipleKeypresses(data: string, callback: (key: ParsedKey) => void): void {
+export function parseMultipleKeypresses(
+  data: string,
+  callback: (key: ParsedKey) => void
+): void {
   for (const char of data) {
     callback({
       name: char,
@@ -95,13 +98,13 @@ const KEY_MAP: Record<string, string> = {
 };
 
 const CSI_MAP: Record<string, string> = {
-  'A': 'up',
-  'B': 'down',
-  'C': 'right',
-  'D': 'left',
-  'H': 'home',
-  'F': 'end',
-  'P': 'delete',
+  A: 'up',
+  B: 'down',
+  C: 'right',
+  D: 'left',
+  H: 'home',
+  F: 'end',
+  P: 'delete',
   '5': 'pageup',
   '6': 'pagedown',
 };
@@ -123,7 +126,7 @@ export function parseKeyPress(input: string): KeyPress {
 
   if (input.startsWith('\x1b[')) {
     const csiCode = input.slice(2);
-    
+
     if (csiCode.length === 1 && CSI_MAP[csiCode]) {
       result.key = CSI_MAP[csiCode];
       return result;
@@ -132,7 +135,7 @@ export function parseKeyPress(input: string): KeyPress {
     if (csiCode.startsWith('1;')) {
       const modifier = csiCode[2];
       const keyCode = csiCode[3];
-      
+
       if (modifier === '5' && CSI_MAP[keyCode]) {
         result.ctrl = true;
         result.key = CSI_MAP[keyCode];
@@ -156,7 +159,7 @@ export function parseKeyPress(input: string): KeyPress {
 
   if (input.length === 1) {
     const charCode = input.charCodeAt(0);
-    
+
     if (charCode >= 1 && charCode <= 26) {
       result.ctrl = true;
       result.key = String.fromCharCode(charCode + 64).toLowerCase();
@@ -166,7 +169,7 @@ export function parseKeyPress(input: string): KeyPress {
     if (input === input.toUpperCase() && input !== input.toLowerCase()) {
       result.shift = true;
     }
-    
+
     result.key = input.toLowerCase();
     return result;
   }
@@ -177,22 +180,34 @@ export function parseKeyPress(input: string): KeyPress {
 
 export function isSpecialKey(key: string): boolean {
   const specialKeys = [
-    'escape', 'return', 'tab', 'backspace', 'delete',
-    'up', 'down', 'left', 'right', 'home', 'end',
-    'pageup', 'pagedown', 'enter', 'space',
+    'escape',
+    'return',
+    'tab',
+    'backspace',
+    'delete',
+    'up',
+    'down',
+    'left',
+    'right',
+    'home',
+    'end',
+    'pageup',
+    'pagedown',
+    'enter',
+    'space',
   ];
   return specialKeys.includes(key);
 }
 
 export function formatKeyPress(keyPress: KeyPress): string {
   const parts: string[] = [];
-  
+
   if (keyPress.ctrl) parts.push('ctrl');
   if (keyPress.meta) parts.push('meta');
   if (keyPress.shift) parts.push('shift');
   if (keyPress.alt) parts.push('alt');
-  
+
   parts.push(keyPress.key);
-  
+
   return parts.join('+');
 }

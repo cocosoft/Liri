@@ -3,20 +3,45 @@ import { z } from 'zod';
 /**
  * GrepTool 输出模式枚举
  */
-export const GrepOutputModeSchema = z.enum(['content', 'files_with_matches', 'count']);
+export const GrepOutputModeSchema = z.enum([
+  'content',
+  'files_with_matches',
+  'count',
+]);
 export type GrepOutputModeType = z.infer<typeof GrepOutputModeSchema>;
 
 /**
  * GrepTool 输入模式
  */
 export const GrepInputSchema = z.strictObject({
-  pattern: z.string().min(1, '搜索模式不能为空').describe('用于匹配的正则表达式模式'),
-  searchPath: z.string().optional().describe('搜索的根目录路径，默认为当前工作目录'),
+  pattern: z
+    .string()
+    .min(1, '搜索模式不能为空')
+    .describe('用于匹配的正则表达式模式'),
+  searchPath: z
+    .string()
+    .optional()
+    .describe('搜索的根目录路径，默认为当前工作目录'),
   include: z.string().optional().describe('文件包含模式'),
   outputMode: GrepOutputModeSchema.optional().describe('输出模式'),
-  contextBefore: z.number().int().nonnegative().optional().describe('匹配前显示的行数'),
-  contextAfter: z.number().int().nonnegative().optional().describe('匹配后显示的行数'),
-  contextAround: z.number().int().nonnegative().optional().describe('匹配前后显示的行数'),
+  contextBefore: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe('匹配前显示的行数'),
+  contextAfter: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe('匹配后显示的行数'),
+  contextAround: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe('匹配前后显示的行数'),
   showLineNumbers: z.boolean().optional().describe('是否显示行号'),
   caseInsensitive: z.boolean().optional().describe('是否忽略大小写'),
   type: z.string().optional().describe('文件类型过滤器'),

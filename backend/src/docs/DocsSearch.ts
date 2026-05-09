@@ -10,15 +10,84 @@ import { ErrorMessages } from './ErrorMessages.js';
 import { ContextHelp } from './ContextHelp.js';
 
 const COMMON_WORDS = new Set([
-  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
-  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
-  'before', 'after', 'above', 'below', 'between', 'and', 'but', 'or',
-  'nor', 'not', 'so', 'yet', 'both', 'either', 'neither', 'each', 'every',
-  'all', 'any', 'few', 'more', 'most', 'other', 'some', 'such', 'no',
-  'only', 'own', 'same', 'than', 'too', 'very', 'just', 'because',
-  'about', 'this', 'that', 'these', 'those', 'it', 'its',
+  'the',
+  'a',
+  'an',
+  'is',
+  'are',
+  'was',
+  'were',
+  'be',
+  'been',
+  'being',
+  'have',
+  'has',
+  'had',
+  'do',
+  'does',
+  'did',
+  'will',
+  'would',
+  'could',
+  'should',
+  'may',
+  'might',
+  'can',
+  'shall',
+  'to',
+  'of',
+  'in',
+  'for',
+  'on',
+  'with',
+  'at',
+  'by',
+  'from',
+  'as',
+  'into',
+  'through',
+  'during',
+  'before',
+  'after',
+  'above',
+  'below',
+  'between',
+  'and',
+  'but',
+  'or',
+  'nor',
+  'not',
+  'so',
+  'yet',
+  'both',
+  'either',
+  'neither',
+  'each',
+  'every',
+  'all',
+  'any',
+  'few',
+  'more',
+  'most',
+  'other',
+  'some',
+  'such',
+  'no',
+  'only',
+  'own',
+  'same',
+  'than',
+  'too',
+  'very',
+  'just',
+  'because',
+  'about',
+  'this',
+  'that',
+  'these',
+  'those',
+  'it',
+  'its',
 ]);
 
 function tokenize(text: string): string[] {
@@ -26,7 +95,7 @@ function tokenize(text: string): string[] {
     .toLowerCase()
     .replace(/[^a-z0-9\u4e00-\u9fff\s]/g, ' ')
     .split(/\s+/)
-    .filter(t => t.length > 0 && !COMMON_WORDS.has(t));
+    .filter((t) => t.length > 0 && !COMMON_WORDS.has(t));
 }
 
 function ngrams(tokens: string[], n: number): string[] {
@@ -39,17 +108,17 @@ function ngrams(tokens: string[], n: number): string[] {
 }
 
 export interface SearchQueryRecord {
-  query: string
-  count: number
-  lastSearchedAt: number
-  resultCount: number
+  query: string;
+  count: number;
+  lastSearchedAt: number;
+  resultCount: number;
 }
 
 export interface SearchAnalyticsData {
-  totalSearches: number
-  uniqueQueries: number
-  topQueries: SearchQueryRecord[]
-  recentQueries: SearchQueryRecord[]
+  totalSearches: number;
+  uniqueQueries: number;
+  topQueries: SearchQueryRecord[];
+  recentQueries: SearchQueryRecord[];
 }
 
 /**
@@ -117,8 +186,12 @@ export class DocsSearch {
 
   getSearchAnalytics(): SearchAnalyticsData {
     const records = Array.from(this.queryRecords.values());
-    const topQueries = [...records].sort((a, b) => b.count - a.count).slice(0, 10);
-    const recentQueries = [...records].sort((a, b) => b.lastSearchedAt - a.lastSearchedAt).slice(0, 10);
+    const topQueries = [...records]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+    const recentQueries = [...records]
+      .sort((a, b) => b.lastSearchedAt - a.lastSearchedAt)
+      .slice(0, 10);
     return {
       totalSearches: this.searchCount,
       uniqueQueries: this.queryRecords.size,
@@ -176,10 +249,7 @@ export class DocsSearch {
 
     for (const note of notes) {
       const content = note.notes.join(' ');
-      const relevance = this.calculateRelevance(query, [
-        note.version,
-        content,
-      ]);
+      const relevance = this.calculateRelevance(query, [note.version, content]);
 
       if (relevance > 0) {
         results.push({
@@ -271,16 +341,21 @@ export class DocsSearch {
     const queryTokens = tokenize(query);
     if (queryTokens.length === 0) return 0;
 
-    const textTokensList = texts.map(t => tokenize(t));
+    const textTokensList = texts.map((t) => tokenize(t));
     const allTextTokens = textTokensList.flat();
 
-    const totalDocs = textTokensList.filter(t => t.length > 0).length;
+    const totalDocs = textTokensList.filter((t) => t.length > 0).length;
     if (totalDocs === 0) return 0;
 
     const idfScores = new Map<string, number>();
     for (const qt of queryTokens) {
-      const docFreq = textTokensList.filter(tokens => tokens.includes(qt)).length;
-      idfScores.set(qt, Math.log(1 + (totalDocs - docFreq + 0.5) / (docFreq + 0.5)));
+      const docFreq = textTokensList.filter((tokens) =>
+        tokens.includes(qt)
+      ).length;
+      idfScores.set(
+        qt,
+        Math.log(1 + (totalDocs - docFreq + 0.5) / (docFreq + 0.5))
+      );
     }
 
     let maxScore = 0;
@@ -304,7 +379,8 @@ export class DocsSearch {
           }
         }
       }
-      const bigramBonus = tokens.length > 0 ? Math.min(bigramMatches / tokens.length, 0.3) : 0;
+      const bigramBonus =
+        tokens.length > 0 ? Math.min(bigramMatches / tokens.length, 0.3) : 0;
 
       let textScore = 0;
       let possibleScore = 0;

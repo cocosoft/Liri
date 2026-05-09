@@ -79,7 +79,7 @@ export function parseModelAlias(alias: ModelAlias): string {
  */
 export function getModelFamily(modelName: string): ModelFamilyAlias | null {
   const lowerModel = modelName.toLowerCase();
-  
+
   if (lowerModel.includes('opus')) {
     return 'opus';
   }
@@ -89,7 +89,7 @@ export function getModelFamily(modelName: string): ModelFamilyAlias | null {
   if (lowerModel.includes('haiku')) {
     return 'haiku';
   }
-  
+
   return null;
 }
 

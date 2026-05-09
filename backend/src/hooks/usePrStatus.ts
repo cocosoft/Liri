@@ -1,7 +1,7 @@
 /**
  * PR状态Hook
  * 基于CC源码 cc_code/backend/hooks/usePrStatus.ts 实现
- * 
+ *
  * 用于获取和监控GitHub Pull Request状态
  */
 
@@ -10,11 +10,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 /**
  * PR状态枚举
  */
-export type PRStatus = 
-  | 'pending' 
-  | 'success' 
-  | 'failure' 
-  | 'error' 
+export type PRStatus =
+  | 'pending'
+  | 'success'
+  | 'failure'
+  | 'error'
   | 'in_progress'
   | 'unknown';
 
@@ -89,9 +89,24 @@ const mockPRData: PRInfo = {
   branch: 'feature/voice-input',
   targetBranch: 'main',
   checks: [
-    { name: 'CI/CD', status: 'success', conclusion: 'success', completedAt: new Date() },
-    { name: 'Lint', status: 'success', conclusion: 'success', completedAt: new Date() },
-    { name: 'Tests', status: 'success', conclusion: 'success', completedAt: new Date() },
+    {
+      name: 'CI/CD',
+      status: 'success',
+      conclusion: 'success',
+      completedAt: new Date(),
+    },
+    {
+      name: 'Lint',
+      status: 'success',
+      conclusion: 'success',
+      completedAt: new Date(),
+    },
+    {
+      name: 'Tests',
+      status: 'success',
+      conclusion: 'success',
+      completedAt: new Date(),
+    },
   ],
   reviews: [
     { author: 'reviewer1', state: 'approved', submittedAt: new Date() },
@@ -119,9 +134,9 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
       // 实际应用中应调用GitHub API
       // const response = await fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}`);
       // const data = await response.json();
-      
+
       // 模拟API响应
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       setPr({ ...mockPRData, number: prNumber });
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取PR状态失败');
@@ -180,16 +195,22 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
 export function getPRCombinedStatus(pr: PRInfo): PRStatus {
   // 检查检查状态
   if (pr.checks) {
-    const failedCheck = pr.checks.find(c => c.status === 'failure' || c.status === 'error');
+    const failedCheck = pr.checks.find(
+      (c) => c.status === 'failure' || c.status === 'error'
+    );
     if (failedCheck) return failedCheck.status;
-    
-    const pendingCheck = pr.checks.find(c => c.status === 'pending' || c.status === 'in_progress');
+
+    const pendingCheck = pr.checks.find(
+      (c) => c.status === 'pending' || c.status === 'in_progress'
+    );
     if (pendingCheck) return pendingCheck.status;
   }
 
   // 检查评审状态
   if (pr.reviews) {
-    const changesRequested = pr.reviews.find(r => r.state === 'changes_requested');
+    const changesRequested = pr.reviews.find(
+      (r) => r.state === 'changes_requested'
+    );
     if (changesRequested) return 'failure';
   }
 
@@ -201,7 +222,7 @@ export function getPRCombinedStatus(pr: PRInfo): PRStatus {
  */
 export function canMergePR(pr: PRInfo): boolean {
   const status = getPRCombinedStatus(pr);
-  const hasApproval = pr.reviews?.some(r => r.state === 'approved');
-  
+  const hasApproval = pr.reviews?.some((r) => r.state === 'approved');
+
   return status === 'success' && hasApproval && pr.state === 'open';
 }

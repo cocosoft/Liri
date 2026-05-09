@@ -23,7 +23,12 @@ const commands = [
   { cmd: '/tool', args: 'list --json', label: '/tool list --json' },
 ];
 
-const results: { label: string; success: boolean; output: string; error?: string }[] = [];
+const results: {
+  label: string;
+  success: boolean;
+  output: string;
+  error?: string;
+}[] = [];
 
 for (const { cmd, args, label } of commands) {
   try {

@@ -12,7 +12,10 @@ import { logger } from '@modules/utils/log.js';
 
 const execFileAsync = promisify(execFile);
 
-async function execFileNoThrow(command: string, args: string[]): Promise<{ stdout: string; stderr: string; error?: Error }> {
+async function execFileNoThrow(
+  command: string,
+  args: string[]
+): Promise<{ stdout: string; stderr: string; error?: Error }> {
   try {
     const { stdout, stderr } = await execFileAsync(command, args);
     return { stdout, stderr };
@@ -127,7 +130,12 @@ export async function cloneGitRepo(
   }
 
   if (commit) {
-    const { error: checkoutError } = await execFileNoThrow('git', ['-C', targetDir, 'checkout', commit]);
+    const { error: checkoutError } = await execFileNoThrow('git', [
+      '-C',
+      targetDir,
+      'checkout',
+      commit,
+    ]);
     if (checkoutError) {
       logger.error('Git checkout failed:', checkoutError);
       return { success: false, error: String(checkoutError) };
@@ -136,7 +144,12 @@ export async function cloneGitRepo(
 
   let commitSha: string | undefined;
   if (source.shallow === false || depth === 0) {
-    const { stdout } = await execFileNoThrow('git', ['-C', targetDir, 'rev-parse', 'HEAD']);
+    const { stdout } = await execFileNoThrow('git', [
+      '-C',
+      targetDir,
+      'rev-parse',
+      'HEAD',
+    ]);
     commitSha = stdout.trim();
   }
 
@@ -186,7 +199,11 @@ export async function deepClone(
  * 获取远程仓库的分支列表
  */
 export async function getRemoteBranches(url: string): Promise<string[]> {
-  const { stdout, error } = await execFileNoThrow('git', ['ls-remote', '--heads', url]);
+  const { stdout, error } = await execFileNoThrow('git', [
+    'ls-remote',
+    '--heads',
+    url,
+  ]);
 
   if (error) {
     logger.error('Failed to get remote branches:', error);
@@ -210,7 +227,11 @@ export async function getRemoteBranches(url: string): Promise<string[]> {
  * 获取远程仓库的标签列表
  */
 export async function getRemoteTags(url: string): Promise<string[]> {
-  const { stdout, error } = await execFileNoThrow('git', ['ls-remote', '--tags', url]);
+  const { stdout, error } = await execFileNoThrow('git', [
+    'ls-remote',
+    '--tags',
+    url,
+  ]);
 
   if (error) {
     logger.error('Failed to get remote tags:', error);
@@ -249,7 +270,10 @@ export async function refExists(url: string, ref: string): Promise<boolean> {
 /**
  * 获取最新提交的SHA
  */
-export async function getLatestCommitSha(url: string, branch?: string): Promise<string | undefined> {
+export async function getLatestCommitSha(
+  url: string,
+  branch?: string
+): Promise<string | undefined> {
   const args = ['ls-remote', url];
   if (branch) {
     args.push(branch);
@@ -299,7 +323,9 @@ export function normalizeGitUrl(url: string): string {
 /**
  * 从Git URL提取仓库信息
  */
-export function extractRepoInfo(url: string): { owner: string; repo: string } | null {
+export function extractRepoInfo(
+  url: string
+): { owner: string; repo: string } | null {
   const normalized = normalizeGitUrl(url);
   const match = normalized.match(/https:\/\/[^\/]+\/([^\/]+)\/([^\/]+)/);
 

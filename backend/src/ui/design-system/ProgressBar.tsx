@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink';
+import { Box, Text } from '@modules/ink';
 import { ProgressBarProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
@@ -18,10 +18,10 @@ export function ProgressBar({
   color = 'primary',
   size = 'md',
   showPercentage = true,
-  label
+  label,
 }: ProgressBarProps) {
   const { theme } = useTheme();
-  
+
   const percentage = Math.min(100, Math.max(0, (value / max) * 100));
   const barWidth = 20; // 进度条宽度
   const filledWidth = Math.round((percentage / 100) * barWidth);
@@ -39,9 +39,7 @@ export function ProgressBar({
         <Text color={theme.colors[color]}>
           {filledChar.repeat(filledWidth)}
         </Text>
-        <Text color={theme.colors.border}>
-          {emptyChar.repeat(emptyWidth)}
-        </Text>
+        <Text color={theme.colors.border}>{emptyChar.repeat(emptyWidth)}</Text>
       </Box>
     );
   };
@@ -53,9 +51,7 @@ export function ProgressBar({
     if (!showPercentage) return null;
 
     return (
-      <Text color={theme.colors.textSecondary}>
-        {Math.round(percentage)}%
-      </Text>
+      <Text color={theme.colors.textSecondary}>{Math.round(percentage)}%</Text>
     );
   };
 
@@ -75,7 +71,11 @@ export function ProgressBar({
   return (
     <Box flexDirection="column" gap={0.5}>
       {/* 标签和进度信息（基于CC源码） */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+      >
         {renderLabel()}
         {renderPercentage()}
       </Box>
@@ -99,7 +99,7 @@ export function ProgressBar({
 export function IndeterminateProgressBar({
   color = 'primary',
   size = 'md',
-  label
+  label,
 }: Omit<ProgressBarProps, 'value' | 'max' | 'showPercentage'>) {
   const { theme } = useTheme();
 
@@ -116,9 +116,7 @@ export function IndeterminateProgressBar({
         <Text color={theme.colors[color]}>
           {animationChars[animationIndex]}
         </Text>
-        <Text color={theme.colors.border}>
-          {'░'.repeat(barWidth)}
-        </Text>
+        <Text color={theme.colors.border}>{'░'.repeat(barWidth)}</Text>
       </Box>
     );
   };
@@ -145,7 +143,7 @@ export function StepProgressBar({
   steps,
   currentStep,
   color = 'primary',
-  size = 'md'
+  size = 'md',
 }: {
   steps: string[];
   currentStep: number;
@@ -157,7 +155,11 @@ export function StepProgressBar({
   return (
     <Box flexDirection="column" gap={1}>
       {/* 步骤指示器（基于CC源码） */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+      >
         {steps.map((step, index) => (
           <Box key={index} flexDirection="row" alignItems="center" gap={0.5}>
             {/* 步骤圆点（基于CC源码） */}
@@ -165,25 +167,27 @@ export function StepProgressBar({
               width={2}
               height={2}
               borderStyle="round"
-              borderColor={index <= currentStep ? theme.colors[color] : theme.colors.border}
+              borderColor={
+                index <= currentStep ? theme.colors[color] : theme.colors.border
+              }
               justifyContent="center"
               alignItems="center"
             >
               {index < currentStep && (
-                <Text color={theme.colors[color]}>
-                  ✓
-                </Text>
+                <Text color={theme.colors[color]}>✓</Text>
               )}
               {index === currentStep && (
-                <Text color={theme.colors[color]}>
-                  ●
-                </Text>
+                <Text color={theme.colors[color]}>●</Text>
               )}
             </Box>
 
             {/* 步骤标签（基于CC源码） */}
-            <Text 
-              color={index <= currentStep ? theme.colors[color] : theme.colors.textSecondary}
+            <Text
+              color={
+                index <= currentStep
+                  ? theme.colors[color]
+                  : theme.colors.textSecondary
+              }
               bold={index === currentStep}
             >
               {step}
@@ -193,7 +197,12 @@ export function StepProgressBar({
       </Box>
 
       {/* 连接线（基于CC源码） */}
-      <Box flexDirection="row" alignItems="center" paddingLeft={1} paddingRight={1}>
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        paddingLeft={1}
+        paddingRight={1}
+      >
         {steps.map((_, index) => (
           <React.Fragment key={index}>
             {index > 0 && (
@@ -201,7 +210,11 @@ export function StepProgressBar({
                 flexGrow={1}
                 height={1}
                 borderStyle="single"
-                borderColor={index <= currentStep ? theme.colors[color] : theme.colors.border}
+                borderColor={
+                  index <= currentStep
+                    ? theme.colors[color]
+                    : theme.colors.border
+                }
                 marginLeft={0.5}
                 marginRight={0.5}
               />

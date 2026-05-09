@@ -6,7 +6,10 @@
 import * as path from 'path';
 import { logger } from '@modules/utils/log';
 import { CustomAgentDefinition, SettingSource } from './types';
-import { parseAgentToolsFromFrontmatter, parseSlashCommandToolsFromFrontmatter } from '@modules/utils/markdownConfigLoader';
+import {
+  parseAgentToolsFromFrontmatter,
+  parseSlashCommandToolsFromFrontmatter,
+} from '@modules/utils/markdownConfigLoader';
 import { parsePositiveIntFromFrontmatter } from '@modules/utils/frontmatterParser';
 import { EFFORT_LEVELS, parseEffortValue } from '@modules/utils/effort';
 import { PermissionMode } from '@modules/permissions/PermissionMode';
@@ -25,7 +28,13 @@ const FILE_WRITE_TOOL_NAME = 'file_write';
 /**
  * 权限模式列表
  */
-export const PERMISSION_MODES = ['default', 'auto', 'acceptEdits', 'dontAsk', 'plan'] as const;
+export const PERMISSION_MODES = [
+  'default',
+  'auto',
+  'acceptEdits',
+  'dontAsk',
+  'plan',
+] as const;
 
 /**
  * 检查是否启用自动内存
@@ -53,7 +62,9 @@ export function parseAgentFromMarkdown(
       return null;
     }
     if (!whenToUse || typeof whenToUse !== 'string') {
-      logger.debug(`Agent file ${filePath} is missing required 'description' in frontmatter`);
+      logger.debug(
+        `Agent file ${filePath} is missing required 'description' in frontmatter`
+      );
       return null;
     }
 
@@ -82,7 +93,8 @@ export function parseAgentFromMarkdown(
       );
     }
 
-    const background = backgroundRaw === 'true' || backgroundRaw === true ? true : undefined;
+    const background =
+      backgroundRaw === 'true' || backgroundRaw === true ? true : undefined;
 
     // 解析内存范围
     const VALID_MEMORY_SCOPES = ['user', 'project', 'local'] as const;
@@ -118,7 +130,8 @@ export function parseAgentFromMarkdown(
 
     // 解析effort
     const effortRaw = frontmatter['effort'];
-    const parsedEffort = effortRaw !== undefined ? parseEffortValue(effortRaw) : undefined;
+    const parsedEffort =
+      effortRaw !== undefined ? parseEffortValue(effortRaw) : undefined;
 
     if (effortRaw !== undefined && parsedEffort === undefined) {
       logger.debug(
@@ -127,8 +140,11 @@ export function parseAgentFromMarkdown(
     }
 
     // 解析permissionMode
-    const permissionModeRaw = frontmatter['permissionMode'] as string | undefined;
-    const isValidPermissionMode = permissionModeRaw && 
+    const permissionModeRaw = frontmatter['permissionMode'] as
+      | string
+      | undefined;
+    const isValidPermissionMode =
+      permissionModeRaw &&
       (PERMISSION_MODES as readonly string[]).includes(permissionModeRaw);
 
     if (permissionModeRaw && !isValidPermissionMode) {
@@ -155,7 +171,11 @@ export function parseAgentFromMarkdown(
     // 如果启用了内存，注入Write/Edit/Read工具
     if (isAutoMemoryEnabled() && memory && tools !== undefined) {
       const toolSet = new Set(tools);
-      for (const tool of [FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME]) {
+      for (const tool of [
+        FILE_WRITE_TOOL_NAME,
+        FILE_EDIT_TOOL_NAME,
+        FILE_READ_TOOL_NAME,
+      ]) {
         if (!toolSet.has(tool)) {
           tools = [...tools, tool];
         }
@@ -164,27 +184,32 @@ export function parseAgentFromMarkdown(
 
     // 解析disallowedTools
     const disallowedToolsRaw = frontmatter['disallowedTools'];
-    const disallowedTools = disallowedToolsRaw !== undefined 
-      ? parseAgentToolsFromFrontmatter(disallowedToolsRaw)
-      : undefined;
+    const disallowedTools =
+      disallowedToolsRaw !== undefined
+        ? parseAgentToolsFromFrontmatter(disallowedToolsRaw)
+        : undefined;
 
     // 解析skills
     const skills = parseSlashCommandToolsFromFrontmatter(frontmatter['skills']);
 
     // 解析initialPrompt
     const initialPromptRaw = frontmatter['initialPrompt'];
-    const initialPrompt = typeof initialPromptRaw === 'string' && initialPromptRaw.trim() 
-      ? initialPromptRaw 
-      : undefined;
+    const initialPrompt =
+      typeof initialPromptRaw === 'string' && initialPromptRaw.trim()
+        ? initialPromptRaw
+        : undefined;
 
     // 解析mcpServers
     const mcpServersRaw = frontmatter['mcpServers'];
     let mcpServers: AgentMcpServerSpec[] | undefined;
     if (Array.isArray(mcpServersRaw)) {
       mcpServers = mcpServersRaw
-        .map(item => {
+        .map((item) => {
           // 简单验证：字符串或对象
-          if (typeof item === 'string' || (typeof item === 'object' && item !== null)) {
+          if (
+            typeof item === 'string' ||
+            (typeof item === 'object' && item !== null)
+          ) {
             return item as AgentMcpServerSpec;
           }
           logger.debug(`Invalid mcpServers item in ${filePath}`);
@@ -202,7 +227,9 @@ export function parseAgentFromMarkdown(
       ...(disallowedTools !== undefined ? { disallowedTools } : {}),
       ...(skills !== undefined ? { skills } : {}),
       ...(initialPrompt !== undefined ? { initialPrompt } : {}),
-      ...(mcpServers !== undefined && mcpServers.length > 0 ? { mcpServers } : {}),
+      ...(mcpServers !== undefined && mcpServers.length > 0
+        ? { mcpServers }
+        : {}),
       getSystemPrompt: () => {
         if (isAutoMemoryEnabled() && memory) {
           const memoryPrompt = loadAgentMemoryPrompt(agentType, memory);
@@ -215,7 +242,9 @@ export function parseAgentFromMarkdown(
       ...(color ? { color: color as any } : {}),
       ...(model !== undefined ? { model } : {}),
       ...(parsedEffort !== undefined ? { effort: parsedEffort } : {}),
-      ...(isValidPermissionMode ? { permissionMode: permissionModeRaw as PermissionMode } : {}),
+      ...(isValidPermissionMode
+        ? { permissionMode: permissionModeRaw as PermissionMode }
+        : {}),
       ...(maxTurns !== undefined ? { maxTurns } : {}),
       ...(background ? { background } : {}),
       ...(memory ? { memory } : {}),
@@ -238,7 +267,23 @@ export function parseAgentFromJson(
   source: NonPluginSource = 'flagSettings'
 ): CustomAgentDefinition | null {
   try {
-    const { description, tools, disallowedTools, prompt, model, effort, permissionMode, mcpServers, hooks, maxTurns, skills, initialPrompt, background, memory, isolation } = definition;
+    const {
+      description,
+      tools,
+      disallowedTools,
+      prompt,
+      model,
+      effort,
+      permissionMode,
+      mcpServers,
+      hooks,
+      maxTurns,
+      skills,
+      initialPrompt,
+      background,
+      memory,
+      isolation,
+    } = definition;
 
     // 验证必需字段
     if (!description || typeof description !== 'string') {
@@ -255,16 +300,21 @@ export function parseAgentFromJson(
     // 如果启用了内存，注入Write/Edit/Read工具
     if (isAutoMemoryEnabled() && memory && parsedTools !== undefined) {
       const toolSet = new Set(parsedTools);
-      for (const tool of [FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME, FILE_READ_TOOL_NAME]) {
+      for (const tool of [
+        FILE_WRITE_TOOL_NAME,
+        FILE_EDIT_TOOL_NAME,
+        FILE_READ_TOOL_NAME,
+      ]) {
         if (!toolSet.has(tool)) {
           parsedTools = [...parsedTools, tool];
         }
       }
     }
 
-    const parsedDisallowedTools = disallowedTools !== undefined 
-      ? parseAgentToolsFromFrontmatter(disallowedTools)
-      : undefined;
+    const parsedDisallowedTools =
+      disallowedTools !== undefined
+        ? parseAgentToolsFromFrontmatter(disallowedTools)
+        : undefined;
 
     const systemPrompt = prompt;
 
@@ -272,7 +322,9 @@ export function parseAgentFromJson(
       agentType: name,
       whenToUse: description,
       ...(parsedTools !== undefined ? { tools: parsedTools } : {}),
-      ...(parsedDisallowedTools !== undefined ? { disallowedTools: parsedDisallowedTools } : {}),
+      ...(parsedDisallowedTools !== undefined
+        ? { disallowedTools: parsedDisallowedTools }
+        : {}),
       getSystemPrompt: () => {
         if (isAutoMemoryEnabled() && memory) {
           return systemPrompt + '\n\n' + loadAgentMemoryPrompt(name, memory);

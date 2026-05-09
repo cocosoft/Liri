@@ -187,7 +187,10 @@ export class PluginVersionManager {
   /**
    * 获取目录下的所有文件
    */
-  private async getDirectoryFiles(dir: string, base: string = ''): Promise<string[]> {
+  private async getDirectoryFiles(
+    dir: string,
+    base: string = ''
+  ): Promise<string[]> {
     const files: string[] = [];
     const { readdir, stat } = await import('fs/promises');
     const { join } = await import('path');
@@ -200,7 +203,10 @@ export class PluginVersionManager {
 
         if (entry.isDirectory()) {
           if (entry.name !== '.git') {
-            const subFiles = await this.getDirectoryFiles(fullPath, relativePath);
+            const subFiles = await this.getDirectoryFiles(
+              fullPath,
+              relativePath
+            );
             files.push(...subFiles);
           }
         } else {
@@ -221,15 +227,19 @@ export class PluginVersionManager {
   isCompatible(version: string, requiredVersion: string): boolean {
     if (requiredVersion.startsWith('^')) {
       const required = requiredVersion.substring(1);
-      return this.compareVersions(version, required) >= 0 &&
-             this.parseMajor(version) === this.parseMajor(required);
+      return (
+        this.compareVersions(version, required) >= 0 &&
+        this.parseMajor(version) === this.parseMajor(required)
+      );
     }
 
     if (requiredVersion.startsWith('~')) {
       const required = requiredVersion.substring(1);
-      return this.compareVersions(version, required) >= 0 &&
-             this.parseMajor(version) === this.parseMajor(required) &&
-             this.parseMinor(version) === this.parseMinor(required);
+      return (
+        this.compareVersions(version, required) >= 0 &&
+        this.parseMajor(version) === this.parseMajor(required) &&
+        this.parseMinor(version) === this.parseMinor(required)
+      );
     }
 
     if (requiredVersion.startsWith('>=')) {

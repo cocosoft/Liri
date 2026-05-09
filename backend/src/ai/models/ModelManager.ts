@@ -23,7 +23,7 @@ import {
 /**
  * 用户订阅类型
  */
-export type SubscriptionType = 
+export type SubscriptionType =
   | 'free'
   | 'pro'
   | 'max'
@@ -128,7 +128,9 @@ export class ModelManager {
    * 获取小型快速模型
    */
   getSmallFastModel(): string {
-    return process.env.ANTHROPIC_SMALL_FAST_MODEL || this.getDefaultHaikuModel();
+    return (
+      process.env.ANTHROPIC_SMALL_FAST_MODEL || this.getDefaultHaikuModel()
+    );
   }
 
   /**
@@ -139,8 +141,10 @@ export class ModelManager {
       return this.parseModel(this.config.modelOverride);
     }
 
-    if (this.config.subscriptionType === 'max' || 
-        this.config.subscriptionType === 'team_premium') {
+    if (
+      this.config.subscriptionType === 'max' ||
+      this.config.subscriptionType === 'team_premium'
+    ) {
       const opusModel = this.getDefaultOpusModel();
       return this.config.enable1MContext && supports1MContext(opusModel)
         ? `${opusModel}[1m]`
@@ -204,7 +208,9 @@ export class ModelManager {
   /**
    * 获取模型定价信息
    */
-  getModelPricing(modelName: string): { inputPer1K: number; outputPer1K: number } | null {
+  getModelPricing(
+    modelName: string
+  ): { inputPer1K: number; outputPer1K: number } | null {
     const modelKey = getModelKeyByName(modelName);
     if (modelKey) {
       return ALL_MODEL_CONFIGS[modelKey].pricing || null;
@@ -234,7 +240,7 @@ export class ModelManager {
    * 获取所有可用模型
    */
   getAvailableModels(): string[] {
-    return Object.values(this.modelStrings).filter(s => s.length > 0);
+    return Object.values(this.modelStrings).filter((s) => s.length > 0);
   }
 
   /**
@@ -250,8 +256,8 @@ export class ModelManager {
   getModelInfoList(): Array<{ id: string; name: string; description: string }> {
     const modelKeys = Object.keys(ALL_MODEL_CONFIGS) as ModelKey[];
     return modelKeys
-      .filter(key => ALL_MODEL_CONFIGS[key].firstParty.length > 0)
-      .map(key => {
+      .filter((key) => ALL_MODEL_CONFIGS[key].firstParty.length > 0)
+      .map((key) => {
         const config = ALL_MODEL_CONFIGS[key];
         const id = config.firstParty;
         const pricing = config.pricing

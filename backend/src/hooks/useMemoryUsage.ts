@@ -61,14 +61,17 @@ function getCurrentMemoryUsage(): MemoryUsageData {
     heapTotal: usage.heapTotal,
     rss: usage.rss,
     external: usage.external || 0,
-    heapUsagePercent: usage.heapTotal > 0 ? (usage.heapUsed / usage.heapTotal) * 100 : 0,
+    heapUsagePercent:
+      usage.heapTotal > 0 ? (usage.heapUsed / usage.heapTotal) * 100 : 0,
   };
 }
 
 /**
  * 内存使用量Hook
  */
-export function useMemoryUsage(config: UseMemoryUsageConfig = {}): UseMemoryUsageResult {
+export function useMemoryUsage(
+  config: UseMemoryUsageConfig = {}
+): UseMemoryUsageResult {
   const { interval = 5000, autoStart = true } = config;
   const [memoryUsage, setMemoryUsage] = useState<MemoryUsageData | null>(null);
   const [isMonitoring, setIsMonitoring] = useState(autoStart);
@@ -82,7 +85,7 @@ export function useMemoryUsage(config: UseMemoryUsageConfig = {}): UseMemoryUsag
     try {
       const data = getCurrentMemoryUsage();
       setMemoryUsage(data);
-      setHistory(prev => {
+      setHistory((prev) => {
         const next = [...prev, data];
         return next.length > 100 ? next.slice(-100) : next;
       });

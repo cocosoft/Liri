@@ -14,19 +14,23 @@ export interface GlobOutput {
 
 export function renderToolUseMessage(
   input: Partial<{ pattern: string; cwd?: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
   const { pattern, cwd } = input;
   if (!pattern) return null;
-  
+
   const cwdDisplay = cwd ? ` in ${cwd}` : '';
-  return <Text dimColor>Finding files matching: "{pattern}"{cwdDisplay}</Text>;
+  return (
+    <Text dimColor>
+      Finding files matching: "{pattern}"{cwdDisplay}
+    </Text>
+  );
 }
 
 export function renderToolResultMessage(
   output: GlobOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
   const { files, totalCount, pattern } = output;
 
@@ -35,13 +39,17 @@ export function renderToolResultMessage(
   }
 
   const displayFiles = verbose ? files : files.slice(0, 20);
-  
+
   return (
     <Box flexDirection="column">
-      <Text color="green">✓ Found {totalCount} file{totalCount !== 1 ? 's' : ''}:</Text>
+      <Text color="green">
+        ✓ Found {totalCount} file{totalCount !== 1 ? 's' : ''}:
+      </Text>
       <Box marginTop={1} flexDirection="column">
         {displayFiles.map((file, index) => (
-          <Text key={index} color="blue">{file}</Text>
+          <Text key={index} color="blue">
+            {file}
+          </Text>
         ))}
       </Box>
       {!verbose && files.length > 20 && (
@@ -58,7 +66,7 @@ export function renderToolUseProgressMessage(): React.ReactNode {
 }
 
 export function getToolUseSummary(
-  input: Partial<{ pattern: string }> | undefined,
+  input: Partial<{ pattern: string }> | undefined
 ): string | null {
   if (!input?.pattern) return null;
   return `Glob: "${input.pattern}"`;

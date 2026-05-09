@@ -16,7 +16,7 @@ const fastCommand: Command = {
   /**
    * 懒加载命令实现
    */
-  load: () => import('./Fast.js').then(m => m.default),
+  load: () => import('./Fast.js').then((m) => m.default),
 };
 
 export { fastCommand };

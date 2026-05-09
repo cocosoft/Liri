@@ -4,16 +4,16 @@
  * 提供状态存储、变更通知、订阅管理等功能
  */
 
-import { 
-  StateStore, 
-  StateChangeListener, 
-  StateUpdater, 
+import {
+  StateStore,
+  StateChangeListener,
+  StateUpdater,
   OnStateChange,
   StateSubscription,
   SubscribeOptions,
   StateValidator,
   StateMigrator,
-  StateMiddleware
+  StateMiddleware,
 } from '../types/StateTypes.js';
 
 /**
@@ -34,7 +34,7 @@ export class StateStoreImpl<T> implements StateStore<T> {
    * 构造函数（基于CC源码）
    */
   constructor(
-    initialState: T, 
+    initialState: T,
     options: {
       name?: string;
       onChange?: OnStateChange<T>;
@@ -109,7 +109,7 @@ export class StateStoreImpl<T> implements StateStore<T> {
    * 订阅状态变更（基于CC源码）
    */
   subscribe(
-    listener: StateChangeListener<T>, 
+    listener: StateChangeListener<T>,
     options: SubscribeOptions<T> = {}
   ): () => void {
     if (this.isDestroyed) {
@@ -123,14 +123,16 @@ export class StateStoreImpl<T> implements StateStore<T> {
       selector: options.selector,
       equalityFn: options.equalityFn || Object.is,
       priority: options.priority || 0,
-      active: true
+      active: true,
     };
 
     this.listeners.set(id, subscription);
 
     // 如果要求立即触发，调用监听器
     if (options.fireImmediately) {
-      const selectedValue = options.selector ? options.selector(this.state) : this.state;
+      const selectedValue = options.selector
+        ? options.selector(this.state)
+        : this.state;
       subscription.lastSelectedValue = selectedValue;
       listener(selectedValue);
     }
@@ -289,12 +291,17 @@ export class StateStoreImpl<T> implements StateStore<T> {
     }
 
     // 按优先级排序验证器
-    const sortedValidators = [...this.validators].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    const sortedValidators = [...this.validators].sort(
+      (a, b) => (b.priority || 0) - (a.priority || 0)
+    );
 
     for (const validator of sortedValidators) {
       const result = validator.validate(state);
       if (!result.valid) {
-        console.error(`State validation failed by ${validator.name}:`, result.errors);
+        console.error(
+          `State validation failed by ${validator.name}:`,
+          result.errors
+        );
         return false;
       }
     }
@@ -319,7 +326,9 @@ export class StateStoreImpl<T> implements StateStore<T> {
     for (const migrator of sortedMigrators) {
       try {
         migratedState = migrator.migrate(migratedState);
-        console.log(`Applied migration: ${migrator.name} (${migrator.fromVersion} -> ${migrator.toVersion})`);
+        console.log(
+          `Applied migration: ${migrator.name} (${migrator.fromVersion} -> ${migrator.toVersion})`
+        );
       } catch (error) {
         console.error(`Migration failed: ${migrator.name}`, error);
         throw error;
@@ -343,7 +352,7 @@ export class StateStoreImpl<T> implements StateStore<T> {
         const next = (updater: StateUpdater<T>) => {
           state = updater(state);
         };
-        
+
         const middlewareHandler = middleware.handler(next);
         middlewareHandler(() => state);
       } catch (error) {
@@ -385,29 +394,31 @@ export class StateStoreImpl<T> implements StateStore<T> {
 
     // 按优先级排序监听器
     const sortedSubscriptions = Array.from(this.listeners.values())
-      .filter(sub => sub.active)
+      .filter((sub) => sub.active)
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
     for (const subscription of sortedSubscriptions) {
       try {
         let value: any;
-        
+
         if (subscription.selector) {
           // 使用选择器
           value = subscription.selector(newState);
-          
+
           // 检查值是否变化
-          if (subscription.lastSelectedValue !== undefined && 
-              subscription.equalityFn?.(value, subscription.lastSelectedValue)) {
+          if (
+            subscription.lastSelectedValue !== undefined &&
+            subscription.equalityFn?.(value, subscription.lastSelectedValue)
+          ) {
             continue; // 值没有变化，跳过通知
           }
-          
+
           subscription.lastSelectedValue = value;
         } else {
           // 不使用选择器，直接传递状态
           value = newState;
         }
-        
+
         subscription.listener(value);
       } catch (error) {
         console.error(`Listener ${subscription.id} failed:`, error);
@@ -419,21 +430,25 @@ export class StateStoreImpl<T> implements StateStore<T> {
    * 获取变更的键（基于CC源码）
    */
   private getChangedKeys(newState: T, oldState: T): string[] {
-    if (typeof newState !== 'object' || newState === null ||
-        typeof oldState !== 'object' || oldState === null) {
+    if (
+      typeof newState !== 'object' ||
+      newState === null ||
+      typeof oldState !== 'object' ||
+      oldState === null
+    ) {
       return [];
     }
 
     const changedKeys: string[] = [];
     const allKeys = new Set([
       ...Object.keys(newState as any),
-      ...Object.keys(oldState as any)
+      ...Object.keys(oldState as any),
     ]);
 
     for (const key of allKeys) {
       const newValue = (newState as any)[key];
       const oldValue = (oldState as any)[key];
-      
+
       if (!Object.is(newValue, oldValue)) {
         changedKeys.push(key);
       }

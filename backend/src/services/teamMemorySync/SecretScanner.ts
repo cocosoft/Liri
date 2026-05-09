@@ -8,14 +8,14 @@
 import { capitalize } from '@modules/common/utils.js';
 
 interface SecretRule {
-  id: string
-  source: string
-  flags?: string
+  id: string;
+  source: string;
+  flags?: string;
 }
 
 export interface SecretMatch {
-  ruleId: string
-  label: string
+  ruleId: string;
+  label: string;
 }
 
 const SECRET_RULES: SecretRule[] = [
@@ -65,20 +65,21 @@ const SECRET_RULES: SecretRule[] = [
   },
   {
     id: 'generic-secret',
-    source: '(?i)(?:secret|password|token|key|credential)[\x27"]?\\s*[:=]\\s*[\x27"][^\\s]{8,}[\x27"]',
+    source:
+      '(?i)(?:secret|password|token|key|credential)[\x27"]?\\s*[:=]\\s*[\x27"][^\\s]{8,}[\x27"]',
   },
-]
+];
 
-let compiledRules: Array<{ regex: RegExp; ruleId: string }> | null = null
+let compiledRules: Array<{ regex: RegExp; ruleId: string }> | null = null;
 
 function getCompiledRules(): Array<{ regex: RegExp; ruleId: string }> {
   if (!compiledRules) {
     compiledRules = SECRET_RULES.map((rule) => ({
       regex: new RegExp(rule.source, rule.flags || 'g'),
       ruleId: rule.id,
-    }))
+    }));
   }
-  return compiledRules
+  return compiledRules;
 }
 
 function ruleIdToLabel(ruleId: string): string {
@@ -90,25 +91,25 @@ function ruleIdToLabel(ruleId: string): string {
     .replace('Aws', 'AWS')
     .replace('Openai', 'OpenAI')
     .replace('Jwt', 'JWT')
-    .replace('Url', 'URL')
+    .replace('Url', 'URL');
 }
 
 export function scanForSecrets(content: string): SecretMatch[] {
-  const matches: SecretMatch[] = []
-  const rules = getCompiledRules()
-  const seen = new Set<string>()
+  const matches: SecretMatch[] = [];
+  const rules = getCompiledRules();
+  const seen = new Set<string>();
 
   for (const rule of rules) {
-    rule.regex.lastIndex = 0
-    const result = rule.regex.exec(content)
+    rule.regex.lastIndex = 0;
+    const result = rule.regex.exec(content);
     if (result && !seen.has(rule.ruleId)) {
-      seen.add(rule.ruleId)
+      seen.add(rule.ruleId);
       matches.push({
         ruleId: rule.ruleId,
         label: ruleIdToLabel(rule.ruleId),
-      })
+      });
     }
   }
 
-  return matches
+  return matches;
 }

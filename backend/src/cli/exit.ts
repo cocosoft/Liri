@@ -49,9 +49,9 @@ export class ExitHandler {
 
     try {
       await this.executeExitHandlers();
-      
+
       console.log(chalk.green('✓'), 'Goodbye!');
-      
+
       process.exit(0);
     } catch (error) {
       console.error(chalk.red('✗'), `Error during exit: ${error}`);
@@ -85,10 +85,15 @@ export class ExitHandler {
         input: process.stdin,
         output: process.stdout,
       });
-      readline.question(chalk.yellow('Are you sure you want to exit? (y/n): '), (answer: string) => {
-        readline.close();
-        resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
-      });
+      readline.question(
+        chalk.yellow('Are you sure you want to exit? (y/n): '),
+        (answer: string) => {
+          readline.close();
+          resolve(
+            answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes'
+          );
+        }
+      );
     });
   }
 

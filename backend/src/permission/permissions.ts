@@ -49,40 +49,42 @@ const RULE_SOURCES: PermissionRuleSource[] = [
   'session',
 ];
 
-export function getAllowRules(context: ToolPermissionContext): PermissionRule[] {
-  return RULE_SOURCES.flatMap(source =>
-    (context.alwaysAllowRules[source] || []).map(ruleString => ({
+export function getAllowRules(
+  context: ToolPermissionContext
+): PermissionRule[] {
+  return RULE_SOURCES.flatMap((source) =>
+    (context.alwaysAllowRules[source] || []).map((ruleString) => ({
       source,
       ruleBehavior: 'allow' as PermissionBehavior,
       ruleValue: permissionRuleValueFromString(ruleString),
-    })),
+    }))
   );
 }
 
 export function getDenyRules(context: ToolPermissionContext): PermissionRule[] {
-  return RULE_SOURCES.flatMap(source =>
-    (context.alwaysDenyRules[source] || []).map(ruleString => ({
+  return RULE_SOURCES.flatMap((source) =>
+    (context.alwaysDenyRules[source] || []).map((ruleString) => ({
       source,
       ruleBehavior: 'deny' as PermissionBehavior,
       ruleValue: permissionRuleValueFromString(ruleString),
-    })),
+    }))
   );
 }
 
 export function getAskRules(context: ToolPermissionContext): PermissionRule[] {
-  return RULE_SOURCES.flatMap(source =>
-    (context.alwaysAskRules[source] || []).map(ruleString => ({
+  return RULE_SOURCES.flatMap((source) =>
+    (context.alwaysAskRules[source] || []).map((ruleString) => ({
       source,
       ruleBehavior: 'ask' as PermissionBehavior,
       ruleValue: permissionRuleValueFromString(ruleString),
-    })),
+    }))
   );
 }
 
 function matchRuleValue(
   ruleValue: { toolName: string; ruleContent?: string },
   toolName: string,
-  input?: Record<string, unknown>,
+  input?: Record<string, unknown>
 ): boolean {
   if (ruleValue.toolName === '*' || ruleValue.toolName === toolName) {
     return true;
@@ -98,18 +100,21 @@ function matchRuleValue(
 export function getRuleByContentsForToolName(
   rules: PermissionRule[],
   toolName: string,
-  input?: Record<string, unknown>,
+  input?: Record<string, unknown>
 ): PermissionRule | undefined {
-  return rules.find(r => matchRuleValue(r.ruleValue, toolName, input));
+  return rules.find((r) => matchRuleValue(r.ruleValue, toolName, input));
 }
 
 export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
   toolName: string,
   input: Input,
-  context: ToolPermissionContext,
+  context: ToolPermissionContext
 ): PermissionResult<Input> {
   if (context.mode === 'bypass' && context.isBypassPermissionsModeAvailable) {
-    return { behavior: 'allow', decisionReason: { type: 'config', source: 'bypass' } };
+    return {
+      behavior: 'allow',
+      decisionReason: { type: 'config', source: 'bypass' },
+    };
   }
 
   const denyRules = getDenyRules(context);
@@ -117,18 +122,30 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
   if (matchedDeny) {
     return {
       behavior: 'deny',
-      decisionReason: { type: 'rule', rule: matchedDeny, source: matchedDeny.source },
+      decisionReason: {
+        type: 'rule',
+        rule: matchedDeny,
+        source: matchedDeny.source,
+      },
       message: `${toolName} is denied by ${matchedDeny.source}`,
     };
   }
 
   const allowRules = getAllowRules(context);
-  const matchedAllow = getRuleByContentsForToolName(allowRules, toolName, input);
+  const matchedAllow = getRuleByContentsForToolName(
+    allowRules,
+    toolName,
+    input
+  );
   if (matchedAllow && context.mode !== 'plan') {
     return {
       behavior: 'allow',
       updatedInput: input,
-      decisionReason: { type: 'rule', rule: matchedAllow, source: matchedAllow.source },
+      decisionReason: {
+        type: 'rule',
+        rule: matchedAllow,
+        source: matchedAllow.source,
+      },
     };
   }
 
@@ -137,16 +154,26 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
   if (matchedAsk) {
     return {
       behavior: 'ask',
-      decisionReason: { type: 'rule', rule: matchedAsk, source: matchedAsk.source },
+      decisionReason: {
+        type: 'rule',
+        rule: matchedAsk,
+        source: matchedAsk.source,
+      },
     };
   }
 
   if (context.mode === 'acceptEdits') {
-    return { behavior: 'allow', decisionReason: { type: 'config', source: 'acceptEdits' } };
+    return {
+      behavior: 'allow',
+      decisionReason: { type: 'config', source: 'acceptEdits' },
+    };
   }
 
   if (context.mode === 'plan') {
-    return { behavior: 'ask', decisionReason: { type: 'config', source: 'plan' } };
+    return {
+      behavior: 'ask',
+      decisionReason: { type: 'config', source: 'plan' },
+    };
   }
 
   return { behavior: 'ask', decisionReason: { type: 'default' } };

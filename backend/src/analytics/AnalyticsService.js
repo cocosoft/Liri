@@ -125,7 +125,7 @@ class AnalyticsService extends EventEmitter {
     session.interactionCount++;
     session.totalDuration = session.lastActivity - session.startTime;
 
-    let operation = session.operations.find(op => op.type === operationType);
+    let operation = session.operations.find((op) => op.type === operationType);
     if (!operation) {
       operation = { type: operationType, count: 0, totalDuration: 0 };
       session.operations.push(operation);
@@ -163,19 +163,19 @@ class AnalyticsService extends EventEmitter {
     let result = [...this.events];
 
     if (options.type) {
-      result = result.filter(event => event.type === options.type);
+      result = result.filter((event) => event.type === options.type);
     }
 
     if (options.name) {
-      result = result.filter(event => event.name === options.name);
+      result = result.filter((event) => event.name === options.name);
     }
 
     if (options.startTime) {
-      result = result.filter(event => event.timestamp >= options.startTime);
+      result = result.filter((event) => event.timestamp >= options.startTime);
     }
 
     if (options.endTime) {
-      result = result.filter(event => event.timestamp <= options.endTime);
+      result = result.filter((event) => event.timestamp <= options.endTime);
     }
 
     result.sort((a, b) => b.timestamp - a.timestamp);
@@ -223,8 +223,12 @@ class AnalyticsService extends EventEmitter {
     }
 
     const sessions = this.getAllSessions();
-    const totalSessionDuration = sessions.reduce((sum, session) => sum + (session.lastActivity - session.startTime), 0);
-    const averageSessionDuration = sessions.length > 0 ? totalSessionDuration / sessions.length : 0;
+    const totalSessionDuration = sessions.reduce(
+      (sum, session) => sum + (session.lastActivity - session.startTime),
+      0
+    );
+    const averageSessionDuration =
+      sessions.length > 0 ? totalSessionDuration / sessions.length : 0;
 
     return {
       totalEvents: this.events.length,

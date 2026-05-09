@@ -11,12 +11,17 @@
 import { randomUUID } from 'crypto';
 import type { ChatMessage } from '@modules/ai/models/types';
 import { getSubAgentEngine } from './SubAgentEngine';
-import type { SubAgentEngine, SubAgentProgressEvent, SubAgentResult } from './SubAgentEngine';
+import type {
+  SubAgentEngine,
+  SubAgentProgressEvent,
+  SubAgentResult,
+} from './SubAgentEngine';
 
 export const FORK_SUBAGENT_TYPE = 'fork';
 export const FORK_DIRECTIVE_PREFIX = 'FORK:';
 export const FORK_BOILERPLATE_TAG = '[fork-subagent]';
-export const FORK_PLACEHOLDER_RESULT = 'Fork started - processing in background';
+export const FORK_PLACEHOLDER_RESULT =
+  'Fork started - processing in background';
 
 export interface ForkSubagentOptions {
   /** 父代理的系统提示词字节 */
@@ -53,18 +58,16 @@ export function isForkSubagentEnabled(): boolean {
 }
 
 export function isInForkChild(
-  messages: Array<{ role: string; content: string }>,
+  messages: Array<{ role: string; content: string }>
 ): boolean {
   return messages.some(
-    (m) =>
-      m.role === 'user' &&
-      m.content.includes(FORK_BOILERPLATE_TAG),
+    (m) => m.role === 'user' && m.content.includes(FORK_BOILERPLATE_TAG)
   );
 }
 
 export function buildForkSystemPrompt(
   parentSystemPrompt: string,
-  options: ForkSubagentOptions,
+  options: ForkSubagentOptions
 ): string {
   const prompt = [parentSystemPrompt];
 
@@ -74,15 +77,20 @@ export function buildForkSystemPrompt(
   }
 
   prompt.push('');
-  prompt.push('[You are a forked sub-agent operating in the same session context as the parent agent.]');
+  prompt.push(
+    '[You are a forked sub-agent operating in the same session context as the parent agent.]'
+  );
 
   return prompt.join('\n');
 }
 
 export function buildForkContextMessages(
-  parentMessages: ForkSubagentOptions['parentMessages'],
+  parentMessages: ForkSubagentOptions['parentMessages']
 ): Array<{ role: 'user' | 'assistant'; content: string }> {
-  const contextMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  const contextMessages: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+  }> = [];
 
   const recent = parentMessages.slice(-30);
 
@@ -142,7 +150,7 @@ ${FORK_DIRECTIVE_PREFIX}${directive}`;
  */
 export function buildWorktreeNotice(
   parentCwd: string,
-  worktreeCwd: string,
+  worktreeCwd: string
 ): string {
   return `You've inherited the conversation context above from a parent agent working in ${parentCwd}. You are operating in an isolated git worktree at ${worktreeCwd}. Paths in the inherited context refer to the parent's working directory; translate them to your worktree root. Re-read files before editing if the parent may have modified them. Your changes stay in this worktree.`;
 }
@@ -163,7 +171,7 @@ export async function executeForkSubagent(
   directive: string,
   engine: SubAgentEngine,
   options: ForkSubagentOptions,
-  onProgress?: (event: SubAgentProgressEvent) => void,
+  onProgress?: (event: SubAgentProgressEvent) => void
 ): Promise<ForkSubagentResult> {
   const taskId = `fork-${randomUUID().replace(/-/g, '').substring(0, 8)}`;
   const startTime = Date.now();
@@ -178,7 +186,7 @@ export async function executeForkSubagent(
 
     const childDirective = buildChildMessage(directive);
 
-    const messages: ChatMessage[] = contextMessages.map(m => ({
+    const messages: ChatMessage[] = contextMessages.map((m) => ({
       role: m.role,
       content: m.content,
     }));
@@ -188,7 +196,7 @@ export async function executeForkSubagent(
       content: childDirective,
     });
 
-    const toolDefinitions = (options.tools || []).map(t => ({
+    const toolDefinitions = (options.tools || []).map((t) => ({
       type: 'function' as const,
       function: {
         name: t.name,
@@ -206,7 +214,7 @@ export async function executeForkSubagent(
         toolInstances: new Map(),
         maxTurns: options.maxTurns || 50,
       },
-      onProgress,
+      onProgress
     );
 
     return {

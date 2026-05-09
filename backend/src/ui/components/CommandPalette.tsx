@@ -39,13 +39,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     );
   });
 
-  const groupedCommands = filteredCommands.reduce((acc, cmd) => {
-    if (!acc[cmd.category]) {
-      acc[cmd.category] = [];
-    }
-    acc[cmd.category].push(cmd);
-    return acc;
-  }, {} as Record<string, CommandItem[]>);
+  const groupedCommands = filteredCommands.reduce(
+    (acc, cmd) => {
+      if (!acc[cmd.category]) {
+        acc[cmd.category] = [];
+      }
+      acc[cmd.category].push(cmd);
+      return acc;
+    },
+    {} as Record<string, CommandItem[]>
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -111,7 +114,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             placeholder="Search commands..."
             className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-400"
           />
-          <kbd className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded">ESC</kbd>
+          <kbd className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded">
+            ESC
+          </kbd>
         </div>
 
         <div className="max-h-[400px] overflow-y-auto">
@@ -142,9 +147,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             : 'hover:bg-gray-50 text-gray-700'
                         }`}
                       >
-                        <span className="mr-3 text-gray-400">{cmd.icon || '◉'}</span>
+                        <span className="mr-3 text-gray-400">
+                          {cmd.icon || '◉'}
+                        </span>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{cmd.label}</div>
+                          <div className="font-medium truncate">
+                            {cmd.label}
+                          </div>
                           {cmd.description && (
                             <div className="text-xs text-gray-500 truncate">
                               {cmd.description}
@@ -168,7 +177,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         <div className="px-4 py-2 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-gray-100 rounded">↑↓</kbd> Navigate
+              <kbd className="px-1.5 py-0.5 bg-gray-100 rounded">↑↓</kbd>{' '}
+              Navigate
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-gray-100 rounded">↵</kbd> Select
@@ -187,6 +197,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 /**
  * 创建命令面板组件
  */
-export function createCommandPalette(props: CommandPaletteProps): React.ReactElement {
+export function createCommandPalette(
+  props: CommandPaletteProps
+): React.ReactElement {
   return <CommandPalette {...props} />;
 }

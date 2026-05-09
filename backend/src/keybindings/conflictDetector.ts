@@ -42,7 +42,10 @@ export class ConflictDetector {
     const warnings: Conflict[] = [];
 
     // 创建按键到动作的映射
-    const keystrokeMap = new Map<string, Array<{ action: string; context: string }>>();
+    const keystrokeMap = new Map<
+      string,
+      Array<{ action: string; context: string }>
+    >();
 
     for (const block of this.config.bindings) {
       for (const [keystroke, action] of Object.entries(block.bindings)) {
@@ -58,12 +61,12 @@ export class ConflictDetector {
     // 检查冲突
     for (const [keystroke, entries] of keystrokeMap) {
       if (entries.length > 1) {
-        const contexts = entries.map(e => e.context);
-        const actions = entries.map(e => e.action);
-        
+        const contexts = entries.map((e) => e.context);
+        const actions = entries.map((e) => e.action);
+
         // 检查是否在相同上下文
         const hasSameContext = this.hasDuplicateContexts(contexts);
-        
+
         if (hasSameContext) {
           conflicts.push({
             keystroke,
@@ -110,7 +113,7 @@ export class ConflictDetector {
    */
   getConflictDetails(keystroke: string): Conflict | undefined {
     const result = this.detect();
-    return result.conflicts.find(c => c.keystroke === keystroke);
+    return result.conflicts.find((c) => c.keystroke === keystroke);
   }
 
   /**
@@ -148,7 +151,7 @@ export class ConflictDetector {
     newKeystroke?: string
   ): ConflictResolution | null {
     const result = this.detect();
-    const conflict = result.conflicts.find(c => c.keystroke === keystroke);
+    const conflict = result.conflicts.find((c) => c.keystroke === keystroke);
 
     if (!conflict) return null;
 
@@ -157,7 +160,10 @@ export class ConflictDetector {
       const firstAction = conflict.actions[0];
       for (let i = 0; i < this.config.bindings.length; i++) {
         const block = this.config.bindings[i];
-        if (block.bindings[keystroke] && block.bindings[keystroke] !== firstAction) {
+        if (
+          block.bindings[keystroke] &&
+          block.bindings[keystroke] !== firstAction
+        ) {
           block.bindings[keystroke] = null;
         }
       }
@@ -196,7 +202,10 @@ export class ConflictDetector {
 
       for (let i = 0; i < this.config.bindings.length; i++) {
         const block = this.config.bindings[i];
-        if (block.bindings[keystroke] && block.bindings[keystroke] !== firstAction) {
+        if (
+          block.bindings[keystroke] &&
+          block.bindings[keystroke] !== firstAction
+        ) {
           block.bindings[newKeystroke] = block.bindings[keystroke];
           block.bindings[keystroke] = null;
         }
@@ -219,7 +228,7 @@ export class ConflictDetector {
    */
   hasConflict(keystroke: string): boolean {
     const result = this.detect();
-    return result.conflicts.some(c => c.keystroke === keystroke);
+    return result.conflicts.some((c) => c.keystroke === keystroke);
   }
 
   /**
@@ -227,7 +236,7 @@ export class ConflictDetector {
    */
   getConflictingKeystrokes(): string[] {
     const result = this.detect();
-    return result.conflicts.map(c => c.keystroke);
+    return result.conflicts.map((c) => c.keystroke);
   }
 
   /**
@@ -261,14 +270,18 @@ export class ConflictDetector {
 /**
  * 创建冲突检测器
  */
-export function createConflictDetector(config: KeybindingsSchemaType): ConflictDetector {
+export function createConflictDetector(
+  config: KeybindingsSchemaType
+): ConflictDetector {
   return new ConflictDetector(config);
 }
 
 /**
  * 验证按键绑定配置是否有冲突
  */
-export function validateKeybindingsForConflicts(config: KeybindingsSchemaType): ConflictDetectionResult {
+export function validateKeybindingsForConflicts(
+  config: KeybindingsSchemaType
+): ConflictDetectionResult {
   const detector = new ConflictDetector(config);
   return detector.detect();
 }
@@ -284,11 +297,12 @@ export function checkBindingConflict(
 ): Conflict | undefined {
   const detector = new ConflictDetector(config);
   const result = detector.detect();
-  
-  return result.conflicts.find(c => 
-    c.keystroke === keystroke && 
-    c.contexts.includes(context) && 
-    c.actions.includes(action)
+
+  return result.conflicts.find(
+    (c) =>
+      c.keystroke === keystroke &&
+      c.contexts.includes(context) &&
+      c.actions.includes(action)
   );
 }
 

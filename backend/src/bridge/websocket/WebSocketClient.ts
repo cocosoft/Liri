@@ -20,7 +20,12 @@ export interface WebSocketClientConfig {
 /**
  * WebSocket客户端状态
  */
-export type WebSocketState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'failed';
+export type WebSocketState =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'disconnected'
+  | 'failed';
 
 /**
  * WebSocket消息接口
@@ -99,7 +104,10 @@ export class WebSocketClient extends EventEmitter {
               this.emit('pong', message);
             }
           } catch (error) {
-            this.emit('error', new Error(`Failed to parse message: ${event.data}`));
+            this.emit(
+              'error',
+              new Error(`Failed to parse message: ${event.data}`)
+            );
           }
         };
 
@@ -154,10 +162,16 @@ export class WebSocketClient extends EventEmitter {
     const messageWithMeta = {
       ...message,
       timestamp: message.timestamp || Date.now(),
-      id: message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id:
+        message.id ||
+        `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     };
 
-    if (this.state !== 'connected' || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (
+      this.state !== 'connected' ||
+      !this.ws ||
+      this.ws.readyState !== WebSocket.OPEN
+    ) {
       this.messageQueue.push(messageWithMeta);
       return;
     }
@@ -198,7 +212,10 @@ export class WebSocketClient extends EventEmitter {
   private handleDisconnect(event: CloseEvent): void {
     this.emit('disconnected', event);
 
-    if (this.config.reconnect && this.reconnectAttempts < this.config.maxReconnectAttempts) {
+    if (
+      this.config.reconnect &&
+      this.reconnectAttempts < this.config.maxReconnectAttempts
+    ) {
       this.scheduleReconnect();
     } else {
       this.setState('failed');
@@ -299,6 +316,8 @@ export class WebSocketClient extends EventEmitter {
  * @param config 配置
  * @returns WebSocket客户端实例
  */
-export function createWebSocketClient(config: WebSocketClientConfig): WebSocketClient {
+export function createWebSocketClient(
+  config: WebSocketClientConfig
+): WebSocketClient {
   return new WebSocketClient(config);
 }

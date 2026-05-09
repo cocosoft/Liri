@@ -39,7 +39,10 @@ const DEFAULT_BACKOFF_CONFIG: BackoffConfig = {
 /**
  * 执行指数退避等待
  */
-async function backoffWait(retryCount: number, config: BackoffConfig): Promise<void> {
+async function backoffWait(
+  retryCount: number,
+  config: BackoffConfig
+): Promise<void> {
   const delay = Math.min(
     config.initialMs * Math.pow(config.multiplier, retryCount),
     config.maxMs
@@ -156,7 +159,11 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
     context: string
   ): Promise<T> {
     let lastError: unknown;
-    for (let retryCount = 0; retryCount <= backoffConfig.maxRetries; retryCount++) {
+    for (
+      let retryCount = 0;
+      retryCount <= backoffConfig.maxRetries;
+      retryCount++
+    ) {
       try {
         return await fn();
       } catch (error) {
@@ -165,7 +172,9 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
           throw error;
         }
         if (retryCount >= backoffConfig.maxRetries) {
-          debug(`[bridge:api] ${context}: Max retries (${backoffConfig.maxRetries}) exceeded`);
+          debug(
+            `[bridge:api] ${context}: Max retries (${backoffConfig.maxRetries}) exceeded`
+          );
           throw error;
         }
         debug(

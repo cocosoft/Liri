@@ -4,6 +4,9 @@
  */
 
 import type { PermissionUpdate } from './utils/permissions/PermissionUpdateSchema.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 桥接权限响应
@@ -26,13 +29,13 @@ export interface BridgePermissionCallbacks {
     toolUseId: string,
     description: string,
     permissionSuggestions?: PermissionUpdate[],
-    blockedPath?: string,
+    blockedPath?: string
   ): void;
   sendResponse(requestId: string, response: BridgePermissionResponse): void;
   cancelRequest(requestId: string): void;
   onResponse(
     requestId: string,
-    handler: (response: BridgePermissionResponse) => void,
+    handler: (response: BridgePermissionResponse) => void
   ): () => void;
 }
 
@@ -62,7 +65,10 @@ export interface BridgePermissionManagerOptions {
   /** 发送权限请求的回调 */
   onSendRequest?: (request: PermissionRequest) => void;
   /** 接收权限响应的回调 */
-  onReceiveResponse?: (requestId: string, response: BridgePermissionResponse) => void;
+  onReceiveResponse?: (
+    requestId: string,
+    response: BridgePermissionResponse
+  ) => void;
 }
 
 /**
@@ -71,7 +77,10 @@ export interface BridgePermissionManagerOptions {
 export class BridgePermissionManager implements BridgePermissionCallbacks {
   private options: BridgePermissionManagerOptions;
   private pendingRequests: Map<string, PermissionRequest>;
-  private responseHandlers: Map<string, Set<(response: BridgePermissionResponse) => void>>;
+  private responseHandlers: Map<
+    string,
+    Set<(response: BridgePermissionResponse) => void>
+  >;
 
   constructor(options: BridgePermissionManagerOptions = {}) {
     this.options = {
@@ -93,11 +102,11 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
     toolUseId: string,
     description: string,
     permissionSuggestions?: PermissionUpdate[],
-    blockedPath?: string,
+    blockedPath?: string
   ): void {
     // 检查并发限制
     if (this.pendingRequests.size >= this.options.maxConcurrentRequests!) {
-      console.warn('[bridge] Max concurrent permission requests reached');
+      logger.warning('[bridge] Max concurrent permission requests reached');
       return;
     }
 
@@ -117,7 +126,7 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
     // 设置超时
     setTimeout(() => {
       if (this.pendingRequests.has(requestId)) {
-        console.warn(`[bridge] Permission request timed out: ${requestId}`);
+        logger.warning(`[bridge] Permission request timed out: ${requestId}`);
         this.pendingRequests.delete(requestId);
         this.notifyHandlers(requestId, {
           behavior: 'deny',
@@ -129,7 +138,9 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
     // 通知发送回调
     this.options.onSendRequest?.(request);
 
-    console.log(`[bridge] Sent permission request: ${requestId} for tool ${toolName}`);
+    logger.info(
+      `[bridge] Sent permission request: ${requestId} for tool ${toolName}`
+    );
   }
 
   /**
@@ -137,7 +148,9 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
    */
   sendResponse(requestId: string, response: BridgePermissionResponse): void {
     if (!this.pendingRequests.has(requestId)) {
-      console.warn(`[bridge] Received response for unknown request: ${requestId}`);
+      logger.warning(
+        `[bridge] Received response for unknown request: ${requestId}`
+      );
       return;
     }
 
@@ -150,7 +163,9 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
     // 通知接收回调
     this.options.onReceiveResponse?.(requestId, response);
 
-    console.log(`[bridge] Sent permission response: ${requestId} - ${response.behavior}`);
+    logger.info(
+      `[bridge] Sent permission response: ${requestId} - ${response.behavior}`
+    );
   }
 
   /**
@@ -163,7 +178,7 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
         behavior: 'deny',
         message: 'Permission request cancelled',
       });
-      console.log(`[bridge] Cancelled permission request: ${requestId}`);
+      logger.info(`[bridge] Cancelled permission request: ${requestId}`);
     }
   }
 
@@ -172,7 +187,7 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
    */
   onResponse(
     requestId: string,
-    handler: (response: BridgePermissionResponse) => void,
+    handler: (response: BridgePermissionResponse) => void
   ): () => void {
     if (!this.responseHandlers.has(requestId)) {
       this.responseHandlers.set(requestId, new Set());
@@ -193,14 +208,20 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
   /**
    * 通知处理程序
    */
-  private notifyHandlers(requestId: string, response: BridgePermissionResponse): void {
+  private notifyHandlers(
+    requestId: string,
+    response: BridgePermissionResponse
+  ): void {
     const handlers = this.responseHandlers.get(requestId);
     if (handlers) {
-      handlers.forEach(handler => {
+      handlers.forEach((handler) => {
         try {
           handler(response);
         } catch (error) {
-          console.error('[bridge] Error in permission response handler:', error);
+          logger.error(
+            '[bridge] Error in permission response handler',
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       });
       this.responseHandlers.delete(requestId);
@@ -247,7 +268,7 @@ export class BridgePermissionManager implements BridgePermissionCallbacks {
  * 验证桥接权限响应
  */
 export function isBridgePermissionResponse(
-  value: unknown,
+  value: unknown
 ): value is BridgePermissionResponse {
   if (!value || typeof value !== 'object') return false;
   return (

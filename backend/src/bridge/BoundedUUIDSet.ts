@@ -24,17 +24,17 @@ export class BoundedUUIDSet {
    */
   add(uuid: string): void {
     if (this.set.has(uuid)) return;
-    
+
     // 移除当前写入位置的条目（如果存在）
     const evicted = this.ring[this.writeIdx];
     if (evicted !== undefined) {
       this.set.delete(evicted);
     }
-    
+
     // 添加新UUID
     this.ring[this.writeIdx] = uuid;
     this.set.add(uuid);
-    
+
     // 更新写入索引
     this.writeIdx = (this.writeIdx + 1) % this.capacity;
   }

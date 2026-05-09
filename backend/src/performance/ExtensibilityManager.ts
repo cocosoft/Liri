@@ -62,7 +62,7 @@ export class ExtensibilityManager {
     }
 
     logForDebugging('初始化扩展性管理器');
-    
+
     // 初始化扩展点映射
     for (const extensionPoint of Object.values(ExtensionPoint)) {
       this.extensionPoints.set(extensionPoint, new Set());
@@ -80,14 +80,18 @@ export class ExtensibilityManager {
     }
 
     if (this.extensions.has(extension.name)) {
-      logForDebugging(`扩展 ${extension.name} 已存在，将覆盖`, { level: 'warn' });
+      logForDebugging(`扩展 ${extension.name} 已存在，将覆盖`, {
+        level: 'warn',
+      });
     }
 
     // 注册扩展
     this.extensions.set(extension.name, extension);
-    
+
     // 将扩展添加到对应的扩展点
-    const extensionPointSet = this.extensionPoints.get(extension.extensionPoint);
+    const extensionPointSet = this.extensionPoints.get(
+      extension.extensionPoint
+    );
     if (extensionPointSet) {
       extensionPointSet.add(extension.name);
     }
@@ -97,7 +101,10 @@ export class ExtensibilityManager {
       await extension.initialize();
       logForDebugging(`扩展 ${extension.name} 已注册并初始化`);
     } catch (error) {
-      logForDebugging(`扩展 ${extension.name} 初始化失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+      logForDebugging(
+        `扩展 ${extension.name} 初始化失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'error' }
+      );
       // 移除失败的扩展
       this.extensions.delete(extension.name);
       if (extensionPointSet) {
@@ -121,11 +128,16 @@ export class ExtensibilityManager {
       await extension.destroy();
       logForDebugging(`扩展 ${name} 已销毁`);
     } catch (error) {
-      logForDebugging(`扩展 ${name} 销毁失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+      logForDebugging(
+        `扩展 ${name} 销毁失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'error' }
+      );
     }
 
     // 从扩展点中移除
-    const extensionPointSet = this.extensionPoints.get(extension.extensionPoint);
+    const extensionPointSet = this.extensionPoints.get(
+      extension.extensionPoint
+    );
     if (extensionPointSet) {
       extensionPointSet.delete(name);
     }
@@ -151,13 +163,18 @@ export class ExtensibilityManager {
       return [];
     }
 
-    return Array.from(extensionPointSet).map(name => this.extensions.get(name)!).filter(Boolean);
+    return Array.from(extensionPointSet)
+      .map((name) => this.extensions.get(name)!)
+      .filter(Boolean);
   }
 
   /**
    * 执行扩展点
    */
-  async executeExtensionPoint(extensionPoint: ExtensionPoint, ...args: any[]): Promise<any[]> {
+  async executeExtensionPoint(
+    extensionPoint: ExtensionPoint,
+    ...args: any[]
+  ): Promise<any[]> {
     const extensions = this.getExtensionsByPoint(extensionPoint);
     const results: any[] = [];
 
@@ -166,7 +183,10 @@ export class ExtensibilityManager {
         const result = await extension.execute(...args);
         results.push(result);
       } catch (error) {
-        logForDebugging(`扩展 ${extension.name} 执行失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+        logForDebugging(
+          `扩展 ${extension.name} 执行失败: ${error instanceof Error ? error.message : String(error)}`,
+          { level: 'error' }
+        );
       }
     }
 
@@ -187,7 +207,10 @@ export class ExtensibilityManager {
       try {
         await extension.destroy();
       } catch (error) {
-        logForDebugging(`扩展 ${extension.name} 销毁失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+        logForDebugging(
+          `扩展 ${extension.name} 销毁失败: ${error instanceof Error ? error.message : String(error)}`,
+          { level: 'error' }
+        );
       }
     }
 
@@ -222,7 +245,10 @@ export async function unregisterExtension(name: string): Promise<void> {
 /**
  * 执行扩展点
  */
-export async function executeExtensionPoint(extensionPoint: ExtensionPoint, ...args: any[]): Promise<any[]> {
+export async function executeExtensionPoint(
+  extensionPoint: ExtensionPoint,
+  ...args: any[]
+): Promise<any[]> {
   return extensibilityManager.executeExtensionPoint(extensionPoint, ...args);
 }
 
@@ -236,6 +262,8 @@ export function getExtensions(): Extension[] {
 /**
  * 获取指定扩展点的扩展
  */
-export function getExtensionsByPoint(extensionPoint: ExtensionPoint): Extension[] {
+export function getExtensionsByPoint(
+  extensionPoint: ExtensionPoint
+): Extension[] {
   return extensibilityManager.getExtensionsByPoint(extensionPoint);
 }

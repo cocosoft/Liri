@@ -126,9 +126,14 @@ export class BridgeStateStore {
       ...prev,
       bridgeState: state,
       error: state === 'failed' ? detail : prev.error,
-      lastConnectedAt: state === 'connected' ? Date.now() : prev.lastConnectedAt,
-      lastDisconnectedAt: state !== 'connected' && state !== 'ready' ? Date.now() : prev.lastDisconnectedAt,
-      reconnectAttempts: state === 'reconnecting' ? prev.reconnectAttempts + 1 : 0,
+      lastConnectedAt:
+        state === 'connected' ? Date.now() : prev.lastConnectedAt,
+      lastDisconnectedAt:
+        state !== 'connected' && state !== 'ready'
+          ? Date.now()
+          : prev.lastDisconnectedAt,
+      reconnectAttempts:
+        state === 'reconnecting' ? prev.reconnectAttempts + 1 : 0,
     }));
   }
 

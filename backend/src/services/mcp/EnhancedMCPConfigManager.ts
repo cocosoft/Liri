@@ -7,7 +7,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '@modules/utils/log';
-import { McpServerConfigSchema, McpJsonConfigSchema, ScopedMcpServerConfig, ConfigScope } from './types';
+import {
+  McpServerConfigSchema,
+  McpJsonConfigSchema,
+  ScopedMcpServerConfig,
+  ConfigScope,
+} from './types';
 
 /**
  * 增强的MCP配置管理
@@ -33,7 +38,10 @@ export class EnhancedMCPConfigManager {
       this.configs = configs;
       return configs;
     } catch (error) {
-      logger.error('Failed to load MCP configs:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to load MCP configs:',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return {};
     }
   }
@@ -42,7 +50,11 @@ export class EnhancedMCPConfigManager {
    * 加载全局配置
    */
   private loadGlobalConfig(): Record<string, ScopedMcpServerConfig> {
-    const globalConfigPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'mcp.json');
+    const globalConfigPath = path.join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.py_app',
+      'mcp.json'
+    );
     const configs = this.loadConfigFile(globalConfigPath, 'local');
     this.watchConfigFile(globalConfigPath, 'local');
     return configs;
@@ -52,7 +64,12 @@ export class EnhancedMCPConfigManager {
    * 加载用户配置
    */
   private loadUserConfig(): Record<string, ScopedMcpServerConfig> {
-    const userConfigPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'user', 'mcp.json');
+    const userConfigPath = path.join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.py_app',
+      'user',
+      'mcp.json'
+    );
     const configs = this.loadConfigFile(userConfigPath, 'user');
     this.watchConfigFile(userConfigPath, 'user');
     return configs;
@@ -73,7 +90,7 @@ export class EnhancedMCPConfigManager {
    */
   private loadEnvironmentConfig(): Record<string, ScopedMcpServerConfig> {
     const environmentConfig: Record<string, ScopedMcpServerConfig> = {};
-    
+
     // 从环境变量加载配置
     for (const [key, value] of Object.entries(process.env)) {
       if (key.startsWith('MCP_SERVER_')) {
@@ -82,13 +99,16 @@ export class EnhancedMCPConfigManager {
           const config = JSON.parse(value as string);
           if (McpServerConfigSchema.safeParse(config).success) {
             environmentConfig[serverName] = {
-            ...config,
-            scope: 'dynamic',
-          } as ScopedMcpServerConfig;
+              ...config,
+              scope: 'dynamic',
+            } as ScopedMcpServerConfig;
           }
         } catch (error) {
-      logger.error(`Failed to parse MCP server config from environment variable ${key}:`, error instanceof Error ? error : new Error(String(error)));
-    }
+          logger.error(
+            `Failed to parse MCP server config from environment variable ${key}:`,
+            error instanceof Error ? error : new Error(String(error))
+          );
+        }
       }
     }
 
@@ -99,7 +119,10 @@ export class EnhancedMCPConfigManager {
   /**
    * 加载配置文件
    */
-  private loadConfigFile(path: string, scope: ConfigScope): Record<string, ScopedMcpServerConfig> {
+  private loadConfigFile(
+    path: string,
+    scope: ConfigScope
+  ): Record<string, ScopedMcpServerConfig> {
     if (!fs.existsSync(path)) {
       return {};
     }
@@ -112,13 +135,16 @@ export class EnhancedMCPConfigManager {
       for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
         scopedConfigs[name] = {
           ...serverConfig,
-          scope
+          scope,
         };
       }
 
       return scopedConfigs;
     } catch (error) {
-      logger.error(`Failed to load MCP config file ${path}:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to load MCP config file ${path}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       return {};
     }
   }
@@ -154,10 +180,15 @@ export class EnhancedMCPConfigManager {
   async reloadConfigs(): Promise<void> {
     try {
       const newConfigs = await this.loadConfigs();
-      logger.info(`Reloaded MCP configs: ${Object.keys(newConfigs).length} servers`);
+      logger.info(
+        `Reloaded MCP configs: ${Object.keys(newConfigs).length} servers`
+      );
       // 这里可以触发配置更新事件
     } catch (error) {
-      logger.error('Failed to reload MCP configs:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to reload MCP configs:',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -200,27 +231,45 @@ export class EnhancedMCPConfigManager {
       if (result.success) {
         return { valid: true };
       } else {
-        const errors = result.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`);
+        const errors = result.error.issues.map(
+          (issue) => `${issue.path.join('.')}: ${issue.message}`
+        );
         return { valid: false, errors };
       }
     } catch (error) {
-      return { valid: false, errors: [error instanceof Error ? error.message : 'Unknown error'] };
+      return {
+        valid: false,
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
+      };
     }
   }
 
   /**
    * 保存配置到文件
    */
-  saveConfig(name: string, config: ScopedMcpServerConfig, scope: ConfigScope = 'user'): boolean {
+  saveConfig(
+    name: string,
+    config: ScopedMcpServerConfig,
+    scope: ConfigScope = 'user'
+  ): boolean {
     try {
       let configPath: string;
-      
+
       switch (scope) {
         case 'local':
-          configPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'mcp.json');
+          configPath = path.join(
+            process.env.HOME || process.env.USERPROFILE || '',
+            '.py_app',
+            'mcp.json'
+          );
           break;
         case 'user':
-          configPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'user', 'mcp.json');
+          configPath = path.join(
+            process.env.HOME || process.env.USERPROFILE || '',
+            '.py_app',
+            'user',
+            'mcp.json'
+          );
           break;
         case 'project':
           configPath = path.join(process.cwd(), '.mcp.json');
@@ -236,8 +285,10 @@ export class EnhancedMCPConfigManager {
       }
 
       // 读取现有配置
-      const existingConfig = fs.existsSync(configPath) 
-        ? McpJsonConfigSchema.parse(JSON.parse(fs.readFileSync(configPath, 'utf8')))
+      const existingConfig = fs.existsSync(configPath)
+        ? McpJsonConfigSchema.parse(
+            JSON.parse(fs.readFileSync(configPath, 'utf8'))
+          )
         : { mcpServers: {} };
 
       // 更新配置
@@ -248,7 +299,10 @@ export class EnhancedMCPConfigManager {
       logger.info(`Saved MCP server config: ${name} to ${configPath}`);
       return true;
     } catch (error) {
-      logger.error(`Failed to save MCP server config:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to save MCP server config:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       return false;
     }
   }

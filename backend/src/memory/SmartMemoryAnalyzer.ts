@@ -3,11 +3,7 @@
  * 提供深度记忆分析、模式识别和知识图谱构建功能
  */
 
-import type { 
-  Memory, 
-  MemoryMetadata,
-  MemoryQuery 
-} from './types/Memory.js';
+import type { Memory, MemoryMetadata, MemoryQuery } from './types/Memory.js';
 
 export interface MemoryPattern {
   patternId: string;
@@ -93,7 +89,7 @@ export class SmartMemoryAnalyzer {
         confidence: 0.8,
         frequency: 0.6,
         examples: ['技能学习记录', '知识积累过程'],
-        implications: ['学习效率分析', '技能提升建议']
+        implications: ['学习效率分析', '技能提升建议'],
       },
       {
         patternId: 'pattern-002',
@@ -103,7 +99,7 @@ export class SmartMemoryAnalyzer {
         confidence: 0.7,
         frequency: 0.5,
         examples: ['故障排除记录', '问题解决方案'],
-        implications: ['问题解决效率', '方法论优化']
+        implications: ['问题解决效率', '方法论优化'],
       },
       {
         patternId: 'pattern-003',
@@ -113,11 +109,11 @@ export class SmartMemoryAnalyzer {
         confidence: 0.75,
         frequency: 0.4,
         examples: ['概念关联记录', '知识网络构建'],
-        implications: ['知识整合', '学习路径优化']
-      }
+        implications: ['知识整合', '学习路径优化'],
+      },
     ];
 
-    defaultPatterns.forEach(pattern => {
+    defaultPatterns.forEach((pattern) => {
       this.memoryPatterns.set(pattern.patternId, pattern);
     });
   }
@@ -139,22 +135,24 @@ export class SmartMemoryAnalyzer {
   }> {
     const patterns = this.analyzePatterns(memories);
     const insights = await this.generateInsights(memories, patterns);
-    const knowledgeGraph = memories.length >= 5 ? 
-      await this.buildKnowledgeGraph(memories) : undefined;
+    const knowledgeGraph =
+      memories.length >= 5
+        ? await this.buildKnowledgeGraph(memories)
+        : undefined;
 
     const summary = {
       totalMemories: memories.length,
       patternMatches: patterns.length,
       insightCount: insights.length,
       averageComplexity: this.calculateAverageComplexity(memories),
-      knowledgeDensity: knowledgeGraph ? knowledgeGraph.density : 0
+      knowledgeDensity: knowledgeGraph ? knowledgeGraph.density : 0,
     };
 
     return {
       patterns,
       insights,
       knowledgeGraph,
-      summary
+      summary,
     };
   }
 
@@ -163,7 +161,7 @@ export class SmartMemoryAnalyzer {
    */
   private analyzePatterns(memories: Memory[]): MemoryPattern[] {
     const matchedPatterns: MemoryPattern[] = [];
-    
+
     if (memories.length < 3) return matchedPatterns;
 
     // 分析时间模式
@@ -186,14 +184,14 @@ export class SmartMemoryAnalyzer {
    */
   private analyzeTemporalPatterns(memories: Memory[]): MemoryPattern[] {
     const patterns: MemoryPattern[] = [];
-    
+
     // 检查学习曲线模式
     if (this.detectLearningCurve(memories)) {
       const pattern = this.memoryPatterns.get('pattern-001');
       if (pattern) {
         patterns.push({
           ...pattern,
-          confidence: this.calculatePatternConfidence(memories, pattern)
+          confidence: this.calculatePatternConfidence(memories, pattern),
         });
       }
     }
@@ -212,21 +210,21 @@ export class SmartMemoryAnalyzer {
    */
   private detectLearningCurve(memories: Memory[]): boolean {
     if (memories.length < 5) return false;
-    
+
     // 按时间排序
     const sortedMemories = [...memories].sort((a, b) => a.created - b.created);
-    
+
     // 检查复杂度是否随时间增加
     let complexityIncrease = 0;
     for (let i = 1; i < sortedMemories.length; i++) {
       const prevComplexity = this.assessMemoryComplexity(sortedMemories[i - 1]);
       const currComplexity = this.assessMemoryComplexity(sortedMemories[i]);
-      
+
       if (currComplexity > prevComplexity) {
         complexityIncrease++;
       }
     }
-    
+
     return complexityIncrease >= sortedMemories.length * 0.6; // 60%以上复杂度增加
   }
 
@@ -235,13 +233,14 @@ export class SmartMemoryAnalyzer {
    */
   private detectPeriodicPattern(memories: Memory[]): MemoryPattern | null {
     if (memories.length < 7) return null;
-    
+
     // 简化实现：检测每周模式
     const weeklyCount = this.countMemoriesByDayOfWeek(memories);
     const maxCount = Math.max(...Object.values(weeklyCount));
     const minCount = Math.min(...Object.values(weeklyCount));
-    
-    if (maxCount > minCount * 2) { // 最大数量是最小数量的2倍以上
+
+    if (maxCount > minCount * 2) {
+      // 最大数量是最小数量的2倍以上
       return {
         patternId: `periodic-${Date.now()}`,
         name: '周期性活动模式',
@@ -250,10 +249,10 @@ export class SmartMemoryAnalyzer {
         confidence: 0.6,
         frequency: 0.3,
         examples: ['每周固定活动记录'],
-        implications: ['活动规划优化', '时间管理建议']
+        implications: ['活动规划优化', '时间管理建议'],
       };
     }
-    
+
     return null;
   }
 
@@ -261,13 +260,21 @@ export class SmartMemoryAnalyzer {
    * 按星期统计记忆数量
    */
   private countMemoriesByDayOfWeek(memories: Memory[]): Record<number, number> {
-    const counts: Record<number, number> = {0:0,1:0,2:0,3:0,4:0,5:0,6:0};
-    
-    memories.forEach(memory => {
+    const counts: Record<number, number> = {
+      0: 0,
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+      6: 0,
+    };
+
+    memories.forEach((memory) => {
       const dayOfWeek = new Date(memory.created).getDay();
       counts[dayOfWeek]++;
     });
-    
+
     return counts;
   }
 
@@ -276,14 +283,14 @@ export class SmartMemoryAnalyzer {
    */
   private analyzeSemanticPatterns(memories: Memory[]): MemoryPattern[] {
     const patterns: MemoryPattern[] = [];
-    
+
     // 检查知识关联模式
     if (this.detectKnowledgeAssociation(memories)) {
       const pattern = this.memoryPatterns.get('pattern-003');
       if (pattern) {
         patterns.push({
           ...pattern,
-          confidence: this.calculatePatternConfidence(memories, pattern)
+          confidence: this.calculatePatternConfidence(memories, pattern),
         });
       }
     }
@@ -302,7 +309,7 @@ export class SmartMemoryAnalyzer {
    */
   private detectKnowledgeAssociation(memories: Memory[]): boolean {
     if (memories.length < 3) return false;
-    
+
     // 检查记忆之间是否有共同主题
     const commonThemes = this.findCommonThemes(memories);
     return commonThemes.length >= 2; // 至少2个共同主题
@@ -311,14 +318,18 @@ export class SmartMemoryAnalyzer {
   /**
    * 检测主题集中
    */
-  private detectThematicConcentration(memories: Memory[]): MemoryPattern | null {
+  private detectThematicConcentration(
+    memories: Memory[]
+  ): MemoryPattern | null {
     const themes = this.extractAllThemes(memories);
     const themeCounts = this.countThemeOccurrences(themes);
-    
-    const dominantTheme = Object.entries(themeCounts)
-      .sort((a, b) => b[1] - a[1])[0];
-    
-    if (dominantTheme && dominantTheme[1] >= memories.length * 0.7) { // 70%以上
+
+    const dominantTheme = Object.entries(themeCounts).sort(
+      (a, b) => b[1] - a[1]
+    )[0];
+
+    if (dominantTheme && dominantTheme[1] >= memories.length * 0.7) {
+      // 70%以上
       return {
         patternId: `thematic-${Date.now()}`,
         name: '主题集中模式',
@@ -327,10 +338,10 @@ export class SmartMemoryAnalyzer {
         confidence: 0.7,
         frequency: 0.4,
         examples: ['特定主题的密集学习记录'],
-        implications: ['主题深度挖掘', '知识扩展建议']
+        implications: ['主题深度挖掘', '知识扩展建议'],
       };
     }
-    
+
     return null;
   }
 
@@ -339,14 +350,14 @@ export class SmartMemoryAnalyzer {
    */
   private analyzeBehavioralPatterns(memories: Memory[]): MemoryPattern[] {
     const patterns: MemoryPattern[] = [];
-    
+
     // 检查问题解决模式
     if (this.detectProblemSolving(memories)) {
       const pattern = this.memoryPatterns.get('pattern-002');
       if (pattern) {
         patterns.push({
           ...pattern,
-          confidence: this.calculatePatternConfidence(memories, pattern)
+          confidence: this.calculatePatternConfidence(memories, pattern),
         });
       }
     }
@@ -360,17 +371,17 @@ export class SmartMemoryAnalyzer {
   private detectProblemSolving(memories: Memory[]): boolean {
     const problemKeywords = ['问题', '解决', '故障', '修复', '调试'];
     let problemCount = 0;
-    
-    memories.forEach(memory => {
+
+    memories.forEach((memory) => {
       if (memory.content) {
-        problemKeywords.forEach(keyword => {
+        problemKeywords.forEach((keyword) => {
           if (memory.content!.includes(keyword)) {
             problemCount++;
           }
         });
       }
     });
-    
+
     return problemCount >= memories.length * 0.5; // 50%以上包含问题关键词
   }
 
@@ -378,13 +389,13 @@ export class SmartMemoryAnalyzer {
    * 生成洞察
    */
   private async generateInsights(
-    memories: Memory[], 
+    memories: Memory[],
     patterns: MemoryPattern[]
   ): Promise<MemoryInsight[]> {
     const insights: MemoryInsight[] = [];
-    
+
     // 基于模式生成洞察
-    patterns.forEach(pattern => {
+    patterns.forEach((pattern) => {
       const insight = this.generatePatternInsight(pattern, memories);
       if (insight) {
         insights.push(insight);
@@ -410,7 +421,7 @@ export class SmartMemoryAnalyzer {
    * 生成模式洞察
    */
   private generatePatternInsight(
-    pattern: MemoryPattern, 
+    pattern: MemoryPattern,
     memories: Memory[]
   ): MemoryInsight | null {
     if (pattern.confidence < 0.6) return null;
@@ -421,10 +432,15 @@ export class SmartMemoryAnalyzer {
       title: `发现"${pattern.name}"模式`,
       description: pattern.description,
       confidence: pattern.confidence,
-      impact: pattern.confidence > 0.8 ? 'high' : pattern.confidence > 0.6 ? 'medium' : 'low',
+      impact:
+        pattern.confidence > 0.8
+          ? 'high'
+          : pattern.confidence > 0.6
+            ? 'medium'
+            : 'low',
       evidence: pattern.examples.slice(0, 3),
       recommendations: pattern.implications,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
   }
 
@@ -433,10 +449,10 @@ export class SmartMemoryAnalyzer {
    */
   private generateTrendInsight(memories: Memory[]): MemoryInsight | null {
     if (memories.length < 5) return null;
-    
+
     const sortedMemories = [...memories].sort((a, b) => a.created - b.created);
     const complexityTrend = this.analyzeComplexityTrend(sortedMemories);
-    
+
     if (complexityTrend.direction !== 'stable') {
       return {
         insightId: `trend-${Date.now()}`,
@@ -447,13 +463,14 @@ export class SmartMemoryAnalyzer {
         impact: complexityTrend.strength > 0.7 ? 'medium' : 'low',
         evidence: ['时间序列分析', '复杂度评估'],
         recommendations: [
-          complexityTrend.direction === 'increasing' ? 
-            '考虑知识巩固和复习' : '可能需要挑战更复杂的内容'
+          complexityTrend.direction === 'increasing'
+            ? '考虑知识巩固和复习'
+            : '可能需要挑战更复杂的内容',
         ],
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     }
-    
+
     return null;
   }
 
@@ -462,7 +479,7 @@ export class SmartMemoryAnalyzer {
    */
   private generateAnomalyInsight(memories: Memory[]): MemoryInsight | null {
     const anomalies = this.detectAnomalies(memories);
-    
+
     if (anomalies.length > 0) {
       return {
         insightId: `anomaly-${Date.now()}`,
@@ -471,31 +488,35 @@ export class SmartMemoryAnalyzer {
         description: '发现记忆模式中的异常点，可能需要特别关注',
         confidence: 0.7,
         impact: 'medium',
-        evidence: anomalies.slice(0, 3).map(anomaly => `异常记忆: ${anomaly.memoryId}`),
+        evidence: anomalies
+          .slice(0, 3)
+          .map((anomaly) => `异常记忆: ${anomaly.memoryId}`),
         recommendations: ['检查异常记忆的上下文', '分析异常原因'],
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
     }
-    
+
     return null;
   }
 
   /**
    * 构建知识图谱
    */
-  private async buildKnowledgeGraph(memories: Memory[]): Promise<KnowledgeGraph> {
+  private async buildKnowledgeGraph(
+    memories: Memory[]
+  ): Promise<KnowledgeGraph> {
     const nodes: KnowledgeNode[] = [];
     const edges: KnowledgeEdge[] = [];
-    
+
     // 创建记忆节点
-    memories.forEach(memory => {
+    memories.forEach((memory) => {
       const node: KnowledgeNode = {
         nodeId: `node-${memory.id}`,
         memoryId: memory.id,
         type: 'memory',
         label: this.extractMemoryLabel(memory),
         weight: this.calculateNodeWeight(memory),
-        centrality: 0
+        centrality: 0,
       };
       nodes.push(node);
     });
@@ -503,9 +524,13 @@ export class SmartMemoryAnalyzer {
     // 创建关联边
     for (let i = 0; i < memories.length; i++) {
       for (let j = i + 1; j < memories.length; j++) {
-        const similarity = this.calculateMemorySimilarity(memories[i], memories[j]);
-        
-        if (similarity > 0.3) { // 相似度阈值
+        const similarity = this.calculateMemorySimilarity(
+          memories[i],
+          memories[j]
+        );
+
+        if (similarity > 0.3) {
+          // 相似度阈值
           const edge: KnowledgeEdge = {
             edgeId: `edge-${memories[i].id}-${memories[j].id}`,
             sourceId: `node-${memories[i].id}`,
@@ -513,7 +538,7 @@ export class SmartMemoryAnalyzer {
             type: this.determineEdgeType(similarity),
             weight: similarity,
             confidence: similarity * 0.8,
-            description: `记忆关联 (相似度: ${similarity.toFixed(2)})`
+            description: `记忆关联 (相似度: ${similarity.toFixed(2)})`,
           };
           edges.push(edge);
         }
@@ -522,10 +547,10 @@ export class SmartMemoryAnalyzer {
 
     // 计算中心性
     const centrality = this.calculateCentrality(nodes, edges);
-    
+
     // 识别聚类
     const clusters = this.identifyClusters(nodes, edges);
-    
+
     // 计算密度
     const density = this.calculateGraphDensity(nodes, edges);
 
@@ -535,7 +560,7 @@ export class SmartMemoryAnalyzer {
       edges,
       centrality,
       clusters,
-      density
+      density,
     };
   }
 
@@ -544,17 +569,23 @@ export class SmartMemoryAnalyzer {
    */
   private calculateMemorySimilarity(memory1: Memory, memory2: Memory): number {
     let similarity = 0;
-    
+
     if (memory1.content && memory2.content) {
-      const contentSimilarity = this.calculateTextSimilarity(memory1.content, memory2.content);
+      const contentSimilarity = this.calculateTextSimilarity(
+        memory1.content,
+        memory2.content
+      );
       similarity += contentSimilarity * 0.6;
     }
-    
+
     if (memory1.metadata && memory2.metadata) {
-      const metadataSimilarity = this.calculateMetadataSimilarity(memory1.metadata, memory2.metadata);
+      const metadataSimilarity = this.calculateMetadataSimilarity(
+        memory1.metadata,
+        memory2.metadata
+      );
       similarity += metadataSimilarity * 0.4;
     }
-    
+
     return Math.min(similarity, 1);
   }
 
@@ -564,23 +595,28 @@ export class SmartMemoryAnalyzer {
   private calculateTextSimilarity(text1: string, text2: string): number {
     const words1 = new Set(text1.toLowerCase().split(/\s+/));
     const words2 = new Set(text2.toLowerCase().split(/\s+/));
-    
-    const intersection = new Set([...words1].filter(word => words2.has(word)));
+
+    const intersection = new Set(
+      [...words1].filter((word) => words2.has(word))
+    );
     const union = new Set([...words1, ...words2]);
-    
+
     return union.size > 0 ? intersection.size / union.size : 0;
   }
 
   /**
    * 计算元数据相似度
    */
-  private calculateMetadataSimilarity(metadata1: MemoryMetadata, metadata2: MemoryMetadata): number {
+  private calculateMetadataSimilarity(
+    metadata1: MemoryMetadata,
+    metadata2: MemoryMetadata
+  ): number {
     let similarity = 0;
     let comparisonCount = 0;
-    
+
     const fields = ['type', 'category', 'tags', 'priority'] as const;
-    
-    fields.forEach(field => {
+
+    fields.forEach((field) => {
       if (metadata1[field] && metadata2[field]) {
         if (metadata1[field] === metadata2[field]) {
           similarity += 0.25;
@@ -588,7 +624,7 @@ export class SmartMemoryAnalyzer {
         comparisonCount++;
       }
     });
-    
+
     return comparisonCount > 0 ? similarity / comparisonCount : 0;
   }
 
@@ -607,21 +643,22 @@ export class SmartMemoryAnalyzer {
    */
   private calculateNodeWeight(memory: Memory): number {
     let weight = 0.5; // 基础权重
-    
+
     if (memory.content) {
       const complexity = this.assessMemoryComplexity(memory);
       weight += complexity * 0.3;
     }
-    
+
     if (memory.metadata?.priority) {
-      const priorityWeight = {
-        'low': 0.1,
-        'medium': 0.3,
-        'high': 0.5
-      }[memory.metadata.priority] || 0.1;
+      const priorityWeight =
+        {
+          low: 0.1,
+          medium: 0.3,
+          high: 0.5,
+        }[memory.metadata.priority] || 0.1;
       weight += priorityWeight;
     }
-    
+
     return Math.min(weight, 1);
   }
 
@@ -632,45 +669,60 @@ export class SmartMemoryAnalyzer {
     if (memory.metadata?.title) {
       return memory.metadata.title;
     }
-    
+
     if (memory.content) {
       const firstSentence = memory.content.split(/[.!?]/)[0];
-      return firstSentence.length > 50 ? firstSentence.substring(0, 47) + '...' : firstSentence;
+      return firstSentence.length > 50
+        ? firstSentence.substring(0, 47) + '...'
+        : firstSentence;
     }
-    
+
     return `记忆-${memory.id.substring(0, 8)}`;
   }
 
   /**
    * 计算中心性
    */
-  private calculateCentrality(nodes: KnowledgeNode[], edges: KnowledgeEdge[]): Record<string, number> {
+  private calculateCentrality(
+    nodes: KnowledgeNode[],
+    edges: KnowledgeEdge[]
+  ): Record<string, number> {
     const centrality: Record<string, number> = {};
-    
-    nodes.forEach(node => {
-      const connectedEdges = edges.filter(edge => 
-        edge.sourceId === node.nodeId || edge.targetId === node.nodeId
+
+    nodes.forEach((node) => {
+      const connectedEdges = edges.filter(
+        (edge) => edge.sourceId === node.nodeId || edge.targetId === node.nodeId
       );
-      
-      centrality[node.nodeId] = connectedEdges.reduce((sum, edge) => sum + edge.weight, 0);
+
+      centrality[node.nodeId] = connectedEdges.reduce(
+        (sum, edge) => sum + edge.weight,
+        0
+      );
     });
-    
+
     return centrality;
   }
 
   /**
    * 识别聚类
    */
-  private identifyClusters(nodes: KnowledgeNode[], edges: KnowledgeEdge[]): KnowledgeCluster[] {
+  private identifyClusters(
+    nodes: KnowledgeNode[],
+    edges: KnowledgeEdge[]
+  ): KnowledgeCluster[] {
     const clusters: KnowledgeCluster[] = [];
-    
+
     // 简化实现：基于强连接识别聚类
     const visited = new Set<string>();
-    
-    nodes.forEach(node => {
+
+    nodes.forEach((node) => {
       if (!visited.has(node.nodeId)) {
-        const clusterNodes = this.findConnectedNodes(node.nodeId, edges, visited);
-        
+        const clusterNodes = this.findConnectedNodes(
+          node.nodeId,
+          edges,
+          visited
+        );
+
         if (clusterNodes.length >= 2) {
           const cluster: KnowledgeCluster = {
             clusterId: `cluster-${clusters.length + 1}`,
@@ -679,13 +731,13 @@ export class SmartMemoryAnalyzer {
             nodes: clusterNodes,
             centroid: this.findCentroid(clusterNodes, edges),
             cohesion: this.calculateClusterCohesion(clusterNodes, edges),
-            size: clusterNodes.length
+            size: clusterNodes.length,
           };
           clusters.push(cluster);
         }
       }
     });
-    
+
     return clusters;
   }
 
@@ -693,23 +745,28 @@ export class SmartMemoryAnalyzer {
    * 查找连通节点
    */
   private findConnectedNodes(
-    startNodeId: string, 
-    edges: KnowledgeEdge[], 
+    startNodeId: string,
+    edges: KnowledgeEdge[],
     visited: Set<string>
   ): string[] {
     const connected: string[] = [startNodeId];
     visited.add(startNodeId);
-    
+
     const queue = [startNodeId];
-    
+
     while (queue.length > 0) {
       const currentNodeId = queue.shift()!;
-      
-      edges.forEach(edge => {
-        if (edge.weight > 0.5) { // 强连接阈值
-          const neighborId = edge.sourceId === currentNodeId ? edge.targetId : 
-                           edge.targetId === currentNodeId ? edge.sourceId : null;
-          
+
+      edges.forEach((edge) => {
+        if (edge.weight > 0.5) {
+          // 强连接阈值
+          const neighborId =
+            edge.sourceId === currentNodeId
+              ? edge.targetId
+              : edge.targetId === currentNodeId
+                ? edge.sourceId
+                : null;
+
           if (neighborId && !visited.has(neighborId)) {
             connected.push(neighborId);
             visited.add(neighborId);
@@ -718,7 +775,7 @@ export class SmartMemoryAnalyzer {
         }
       });
     }
-    
+
     return connected;
   }
 
@@ -728,90 +785,113 @@ export class SmartMemoryAnalyzer {
   private findCentroid(nodeIds: string[], edges: KnowledgeEdge[]): string {
     let maxCentrality = -1;
     let centroid = nodeIds[0];
-    
-    nodeIds.forEach(nodeId => {
-      const centrality = edges.filter(edge => 
-        edge.sourceId === nodeId || edge.targetId === nodeId
+
+    nodeIds.forEach((nodeId) => {
+      const centrality = edges.filter(
+        (edge) => edge.sourceId === nodeId || edge.targetId === nodeId
       ).length;
-      
+
       if (centrality > maxCentrality) {
         maxCentrality = centrality;
         centroid = nodeId;
       }
     });
-    
+
     return centroid;
   }
 
   /**
    * 计算聚类内聚度
    */
-  private calculateClusterCohesion(nodeIds: string[], edges: KnowledgeEdge[]): number {
-    const internalEdges = edges.filter(edge => 
-      nodeIds.includes(edge.sourceId) && nodeIds.includes(edge.targetId)
+  private calculateClusterCohesion(
+    nodeIds: string[],
+    edges: KnowledgeEdge[]
+  ): number {
+    const internalEdges = edges.filter(
+      (edge) =>
+        nodeIds.includes(edge.sourceId) && nodeIds.includes(edge.targetId)
     );
-    
-    const maxPossibleEdges = nodeIds.length * (nodeIds.length - 1) / 2;
-    
+
+    const maxPossibleEdges = (nodeIds.length * (nodeIds.length - 1)) / 2;
+
     return maxPossibleEdges > 0 ? internalEdges.length / maxPossibleEdges : 0;
   }
 
   /**
    * 计算图密度
    */
-  private calculateGraphDensity(nodes: KnowledgeNode[], edges: KnowledgeEdge[]): number {
+  private calculateGraphDensity(
+    nodes: KnowledgeNode[],
+    edges: KnowledgeEdge[]
+  ): number {
     const n = nodes.length;
-    const maxPossibleEdges = n * (n - 1) / 2;
-    
+    const maxPossibleEdges = (n * (n - 1)) / 2;
+
     return maxPossibleEdges > 0 ? edges.length / maxPossibleEdges : 0;
   }
 
   /**
    * 分析复杂度趋势
    */
-  private analyzeComplexityTrend(memories: Memory[]): { direction: 'increasing' | 'decreasing' | 'stable'; strength: number } {
+  private analyzeComplexityTrend(memories: Memory[]): {
+    direction: 'increasing' | 'decreasing' | 'stable';
+    strength: number;
+  } {
     if (memories.length < 3) return { direction: 'stable', strength: 0 };
-    
-    const complexities = memories.map(memory => this.assessMemoryComplexity(memory));
+
+    const complexities = memories.map((memory) =>
+      this.assessMemoryComplexity(memory)
+    );
     let increasingCount = 0;
     let decreasingCount = 0;
-    
+
     for (let i = 1; i < complexities.length; i++) {
       if (complexities[i] > complexities[i - 1]) increasingCount++;
       if (complexities[i] < complexities[i - 1]) decreasingCount++;
     }
-    
+
     const totalComparisons = complexities.length - 1;
     const increasingRatio = increasingCount / totalComparisons;
     const decreasingRatio = decreasingCount / totalComparisons;
-    
-    if (increasingRatio > 0.6) return { direction: 'increasing', strength: increasingRatio };
-    if (decreasingRatio > 0.6) return { direction: 'decreasing', strength: decreasingRatio };
-    return { direction: 'stable', strength: Math.max(increasingRatio, decreasingRatio) };
+
+    if (increasingRatio > 0.6)
+      return { direction: 'increasing', strength: increasingRatio };
+    if (decreasingRatio > 0.6)
+      return { direction: 'decreasing', strength: decreasingRatio };
+    return {
+      direction: 'stable',
+      strength: Math.max(increasingRatio, decreasingRatio),
+    };
   }
 
   /**
    * 检测异常
    */
-  private detectAnomalies(memories: Memory[]): Array<{ memoryId: string; reason: string }> {
+  private detectAnomalies(
+    memories: Memory[]
+  ): Array<{ memoryId: string; reason: string }> {
     const anomalies: Array<{ memoryId: string; reason: string }> = [];
-    
+
     if (memories.length < 3) return anomalies;
-    
-    const complexities = memories.map(memory => this.assessMemoryComplexity(memory));
-    const avgComplexity = complexities.reduce((sum, c) => sum + c, 0) / complexities.length;
-    
+
+    const complexities = memories.map((memory) =>
+      this.assessMemoryComplexity(memory)
+    );
+    const avgComplexity =
+      complexities.reduce((sum, c) => sum + c, 0) / complexities.length;
+
     memories.forEach((memory, index) => {
       const complexity = complexities[index];
-      
-      if (Math.abs(complexity - avgComplexity) > 0.3) { // 异常阈值
+
+      if (Math.abs(complexity - avgComplexity) > 0.3) {
+        // 异常阈值
         anomalies.push({
           memoryId: memory.id,
-          reason: `复杂度异常 (${complexity.toFixed(2)} vs 平均 ${avgComplexity.toFixed(2)})`
+          reason: `复杂度异常 (${complexity.toFixed(2)} vs 平均 ${avgComplexity.toFixed(2)})`,
         });
       }
     });
-    
+
     return anomalies;
   }
 
@@ -820,15 +900,15 @@ export class SmartMemoryAnalyzer {
    */
   private assessMemoryComplexity(memory: Memory): number {
     if (!memory.content) return 0;
-    
+
     const contentLength = memory.content.length;
     const wordCount = memory.content.split(/\s+/).length;
-    
+
     // 基于长度和词汇量的复杂度评估
     const lengthComplexity = Math.min(contentLength / 1000, 1);
     const wordComplexity = Math.min(wordCount / 200, 1);
-    
-    return (lengthComplexity * 0.6 + wordComplexity * 0.4);
+
+    return lengthComplexity * 0.6 + wordComplexity * 0.4;
   }
 
   /**
@@ -836,21 +916,25 @@ export class SmartMemoryAnalyzer {
    */
   private calculateAverageComplexity(memories: Memory[]): number {
     if (memories.length === 0) return 0;
-    
-    const totalComplexity = memories.reduce((sum, memory) => 
-      sum + this.assessMemoryComplexity(memory), 0
+
+    const totalComplexity = memories.reduce(
+      (sum, memory) => sum + this.assessMemoryComplexity(memory),
+      0
     );
-    
+
     return totalComplexity / memories.length;
   }
 
   /**
    * 计算模式置信度
    */
-  private calculatePatternConfidence(memories: Memory[], pattern: MemoryPattern): number {
+  private calculatePatternConfidence(
+    memories: Memory[],
+    pattern: MemoryPattern
+  ): number {
     const baseConfidence = pattern.confidence;
     const memoryCountFactor = Math.min(memories.length / 10, 1);
-    
+
     return Math.min(0.95, baseConfidence * 0.7 + memoryCountFactor * 0.3);
   }
 
@@ -860,7 +944,7 @@ export class SmartMemoryAnalyzer {
   private findCommonThemes(memories: Memory[]): string[] {
     const allThemes = this.extractAllThemes(memories);
     const themeCounts = this.countThemeOccurrences(allThemes);
-    
+
     return Object.entries(themeCounts)
       .filter(([_, count]) => count >= memories.length * 0.5) // 50%以上记忆共享
       .map(([theme]) => theme);
@@ -871,14 +955,14 @@ export class SmartMemoryAnalyzer {
    */
   private extractAllThemes(memories: Memory[]): string[] {
     const themes: string[] = [];
-    
-    memories.forEach(memory => {
+
+    memories.forEach((memory) => {
       if (memory.content) {
         const memoryThemes = this.extractKeyThemes(memory.content);
         themes.push(...memoryThemes);
       }
     });
-    
+
     return themes;
   }
 
@@ -888,8 +972,8 @@ export class SmartMemoryAnalyzer {
   private extractKeyThemes(text: string): string[] {
     // 简化实现：提取名词性词汇作为主题
     const words = text.toLowerCase().split(/\s+/);
-    const nouns = words.filter(word => word.length > 2); // 简单的名词过滤
-    
+    const nouns = words.filter((word) => word.length > 2); // 简单的名词过滤
+
     return [...new Set(nouns)].slice(0, 5); // 最多返回5个主题
   }
 
@@ -898,11 +982,11 @@ export class SmartMemoryAnalyzer {
    */
   private countThemeOccurrences(themes: string[]): Record<string, number> {
     const counts: Record<string, number> = {};
-    
-    themes.forEach(theme => {
+
+    themes.forEach((theme) => {
       counts[theme] = (counts[theme] || 0) + 1;
     });
-    
+
     return counts;
   }
 
@@ -920,7 +1004,7 @@ export class SmartMemoryAnalyzer {
     const patternId = `custom-${Date.now()}`;
     this.memoryPatterns.set(patternId, {
       patternId,
-      ...pattern
+      ...pattern,
     });
   }
 

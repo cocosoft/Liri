@@ -3,18 +3,28 @@
  * 提供状态持久化、加载、备份、恢复等功能
  */
 
-import { 
-  StatePersistenceAdapter, 
+import {
+  StatePersistenceAdapter,
   StateSnapshot,
-  StateStore
+  StateStore,
 } from '../types/StateTypes.js';
 import { join } from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  unlinkSync,
+  statSync,
+} from 'fs';
 
 /**
  * 文件系统持久化适配器（基于CC源码）
  */
-export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAdapter<T> {
+export class FileSystemPersistenceAdapter<
+  T = any,
+> implements StatePersistenceAdapter<T> {
   private basePath: string;
   private encoding: BufferEncoding;
 
@@ -24,7 +34,7 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
   constructor(options: { basePath?: string; encoding?: BufferEncoding } = {}) {
     this.basePath = options.basePath || join(process.cwd(), 'data', 'state');
     this.encoding = options.encoding || 'utf8';
-    
+
     // 确保目录存在
     this.ensureDirectoryExists();
   }
@@ -35,14 +45,14 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
   async load(key: string): Promise<T | undefined> {
     try {
       const filePath = this.getFilePath(key);
-      
+
       if (!existsSync(filePath)) {
         return undefined;
       }
 
       const content = readFileSync(filePath, this.encoding);
       const data = JSON.parse(content);
-      
+
       // 验证数据完整性
       if (!this.validateData(data)) {
         console.warn(`Invalid data format for key: ${key}`);
@@ -66,12 +76,12 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
         _version: '1.0.0',
         _timestamp: new Date().toISOString(),
         _checksum: this.generateChecksum(state),
-        data: state
+        data: state,
       };
 
       const content = JSON.stringify(data, null, 2);
       writeFileSync(filePath, content, this.encoding);
-      
+
       console.log(`State saved for key: ${key}`);
     } catch (error) {
       console.error(`Failed to save state for key: ${key}`, error);
@@ -85,7 +95,7 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
   async delete(key: string): Promise<void> {
     try {
       const filePath = this.getFilePath(key);
-      
+
       if (existsSync(filePath)) {
         unlinkSync(filePath);
         console.log(`State deleted for key: ${key}`);
@@ -107,8 +117,8 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
 
       const files = readdirSync(this.basePath);
       return files
-        .filter(file => file.endsWith('.json'))
-        .map(file => file.replace('.json', ''));
+        .filter((file) => file.endsWith('.json'))
+        .map((file) => file.replace('.json', ''));
     } catch (error) {
       console.error('Failed to list state keys:', error);
       return [];
@@ -121,7 +131,7 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
   async backup(key: string, backupPath?: string): Promise<string> {
     try {
       const filePath = this.getFilePath(key);
-      
+
       if (!existsSync(filePath)) {
         throw new Error(`State file not found: ${key}`);
       }
@@ -176,7 +186,7 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
    */
   private ensureDirectoryExists(path?: string): void {
     const targetPath = path || this.basePath;
-    
+
     if (!existsSync(targetPath)) {
       mkdirSync(targetPath, { recursive: true });
     }
@@ -205,13 +215,13 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
   private generateChecksum(data: any): string {
     const content = JSON.stringify(data);
     let hash = 0;
-    
+
     for (let i = 0; i < content.length; i++) {
       const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // 转换为32位整数
     }
-    
+
     return Math.abs(hash).toString(36);
   }
 }
@@ -219,7 +229,9 @@ export class FileSystemPersistenceAdapter<T = any> implements StatePersistenceAd
 /**
  * 内存持久化适配器（基于CC源码）
  */
-export class MemoryPersistenceAdapter<T = any> implements StatePersistenceAdapter<T> {
+export class MemoryPersistenceAdapter<
+  T = any,
+> implements StatePersistenceAdapter<T> {
   private storage: Map<string, T>;
 
   /**
@@ -291,8 +303,8 @@ export class SnapshotManager<T = any> {
    * 创建快照（基于CC源码）
    */
   createSnapshot(
-    storeName: string, 
-    state: T, 
+    storeName: string,
+    state: T,
     description?: string
   ): StateSnapshot<T> {
     const snapshot: StateSnapshot<T> = {
@@ -302,8 +314,8 @@ export class SnapshotManager<T = any> {
       description,
       metadata: {
         storeName,
-        size: this.calculateSize(state)
-      }
+        size: this.calculateSize(state),
+      },
     };
 
     if (!this.snapshots.has(storeName)) {
@@ -332,16 +344,19 @@ export class SnapshotManager<T = any> {
   /**
    * 获取快照（基于CC源码）
    */
-  getSnapshot(storeName: string, snapshotId: string): StateSnapshot<T> | undefined {
+  getSnapshot(
+    storeName: string,
+    snapshotId: string
+  ): StateSnapshot<T> | undefined {
     const snapshots = this.snapshots.get(storeName);
-    return snapshots?.find(snapshot => snapshot.id === snapshotId);
+    return snapshots?.find((snapshot) => snapshot.id === snapshotId);
   }
 
   /**
    * 恢复快照（基于CC源码）
    */
   async restoreSnapshot(
-    store: StateStore<T>, 
+    store: StateStore<T>,
     snapshot: StateSnapshot<T>
   ): Promise<void> {
     try {
@@ -362,7 +377,7 @@ export class SnapshotManager<T = any> {
       return false;
     }
 
-    const index = snapshots.findIndex(snapshot => snapshot.id === snapshotId);
+    const index = snapshots.findIndex((snapshot) => snapshot.id === snapshotId);
     if (index === -1) {
       return false;
     }
@@ -383,20 +398,26 @@ export class SnapshotManager<T = any> {
   /**
    * 获取快照统计（基于CC源码）
    */
-  getSnapshotStats(): { storeCount: number; totalSnapshots: number; averageSize: number } {
+  getSnapshotStats(): {
+    storeCount: number;
+    totalSnapshots: number;
+    averageSize: number;
+  } {
     let totalSnapshots = 0;
     let totalSize = 0;
 
     for (const snapshots of this.snapshots.values()) {
       totalSnapshots += snapshots.length;
-      totalSize += snapshots.reduce((sum, snapshot) => 
-        sum + (snapshot.metadata?.size || 0), 0);
+      totalSize += snapshots.reduce(
+        (sum, snapshot) => sum + (snapshot.metadata?.size || 0),
+        0
+      );
     }
 
     return {
       storeCount: this.snapshots.size,
       totalSnapshots,
-      averageSize: totalSnapshots > 0 ? totalSize / totalSnapshots : 0
+      averageSize: totalSnapshots > 0 ? totalSize / totalSnapshots : 0,
     };
   }
 
@@ -420,7 +441,7 @@ export class SnapshotManager<T = any> {
     }
 
     if (obj instanceof Array) {
-      return obj.map(item => this.deepClone(item)) as any;
+      return obj.map((item) => this.deepClone(item)) as any;
     }
 
     if (typeof obj === 'object') {
@@ -476,7 +497,7 @@ export class AutoPersistenceManager<T = any> {
    */
   registerStore(storeName: string, store: StateStore<T>): void {
     this.stores.set(storeName, store);
-    
+
     // 加载初始状态
     this.loadStoreState(storeName, store);
   }
@@ -551,7 +572,7 @@ export class AutoPersistenceManager<T = any> {
     }
 
     this.intervalId = setInterval(() => {
-      this.saveAll().catch(error => {
+      this.saveAll().catch((error) => {
         console.error('Auto-save failed:', error);
       });
     }, this.saveInterval);
@@ -570,7 +591,10 @@ export class AutoPersistenceManager<T = any> {
   /**
    * 加载存储状态（基于CC源码）
    */
-  private async loadStoreState(storeName: string, store: StateStore<T>): Promise<void> {
+  private async loadStoreState(
+    storeName: string,
+    store: StateStore<T>
+  ): Promise<void> {
     try {
       const savedState = await this.adapter.load(storeName);
       if (savedState !== undefined) {
@@ -586,9 +610,10 @@ export class AutoPersistenceManager<T = any> {
 /**
  * 创建文件系统持久化适配器（基于CC源码）
  */
-export function createFileSystemPersistence<T>(
-  options?: { basePath?: string; encoding?: BufferEncoding }
-): FileSystemPersistenceAdapter<T> {
+export function createFileSystemPersistence<T>(options?: {
+  basePath?: string;
+  encoding?: BufferEncoding;
+}): FileSystemPersistenceAdapter<T> {
   return new FileSystemPersistenceAdapter(options);
 }
 
@@ -602,9 +627,9 @@ export function createMemoryPersistence<T>(): MemoryPersistenceAdapter<T> {
 /**
  * 创建快照管理器（基于CC源码）
  */
-export function createSnapshotManager<T>(
-  options?: { maxSnapshots?: number }
-): SnapshotManager<T> {
+export function createSnapshotManager<T>(options?: {
+  maxSnapshots?: number;
+}): SnapshotManager<T> {
   return new SnapshotManager(options);
 }
 

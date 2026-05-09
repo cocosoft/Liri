@@ -67,7 +67,7 @@ export class LogFormatter {
   }
 
   formatBatch(entries: LogEntry[]): string {
-    return entries.map(e => this.format(e)).join('\n');
+    return entries.map((e) => this.format(e)).join('\n');
   }
 
   private formatSimple(entry: LogEntry): string {
@@ -87,7 +87,11 @@ export class LogFormatter {
 
     parts.push(this.truncateMessage(entry.message));
 
-    if (this.options.showContext && entry.context && Object.keys(entry.context).length > 0) {
+    if (
+      this.options.showContext &&
+      entry.context &&
+      Object.keys(entry.context).length > 0
+    ) {
       parts.push(JSON.stringify(entry.context));
     }
 
@@ -141,7 +145,9 @@ export class LogFormatter {
     }
 
     if (entry.error) {
-      parts.push(`"error":"${this.escapeString(entry.stack || entry.error.message)}"`);
+      parts.push(
+        `"error":"${this.escapeString(entry.stack || entry.error.message)}"`
+      );
     }
 
     return `{${parts.join(' ')}}`;
@@ -150,7 +156,12 @@ export class LogFormatter {
   private formatPretty(entry: LogEntry): string {
     const lines: string[] = [];
 
-    lines.push(this.colorizeText(`${entry.level.toUpperCase()} - ${this.formatTimestamp(entry.timestamp)}`, entry.level));
+    lines.push(
+      this.colorizeText(
+        `${entry.level.toUpperCase()} - ${this.formatTimestamp(entry.timestamp)}`,
+        entry.level
+      )
+    );
 
     if (entry.source) {
       lines.push(`  Source: ${entry.source}`);
@@ -158,7 +169,11 @@ export class LogFormatter {
 
     lines.push(`  Message: ${this.truncateMessage(entry.message)}`);
 
-    if (this.options.showContext && entry.context && Object.keys(entry.context).length > 0) {
+    if (
+      this.options.showContext &&
+      entry.context &&
+      Object.keys(entry.context).length > 0
+    ) {
       lines.push(`  Context: ${JSON.stringify(entry.context, null, 2)}`);
     }
 
@@ -191,7 +206,11 @@ export class LogFormatter {
   }
 
   private escapeString(str: string): string {
-    return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+    return str
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r');
   }
 
   private colorizeText(text: string, level: LogLevel): string {

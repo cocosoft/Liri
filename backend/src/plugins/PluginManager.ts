@@ -81,9 +81,14 @@ export class PluginManager {
         }
       }
 
-      logger.info(`Loaded ${plugins.length} plugins with ${this.componentLoader.getComponentCount()} components`);
+      logger.info(
+        `Loaded ${plugins.length} plugins with ${this.componentLoader.getComponentCount()} components`
+      );
     } catch (error) {
-      logger.error('Failed to load plugins:', error instanceof Error ? error : undefined);
+      logger.error(
+        'Failed to load plugins:',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -180,7 +185,8 @@ export class PluginManager {
    */
   async getCommands(): Promise<Command[]> {
     const commands: Command[] = [];
-    const commandComponents = this.componentLoader.getComponentsByType('commands');
+    const commandComponents =
+      this.componentLoader.getComponentsByType('commands');
 
     for (const component of commandComponents) {
       const plugin = this.registry.get(component.pluginName);
@@ -189,7 +195,9 @@ export class PluginManager {
       const command: Command = {
         type: 'prompt',
         name: component.name,
-        description: component.metadata?.description || `Plugin command from ${component.pluginName}`,
+        description:
+          component.metadata?.description ||
+          `Plugin command from ${component.pluginName}`,
         aliases: component.metadata?.aliases || [],
         loadedFrom: 'plugin',
         isHidden: false,
@@ -204,7 +212,10 @@ export class PluginManager {
               validate: impl.validate,
             };
           } catch (err) {
-            logger.error(`Failed to load plugin command ${component.name}:`, err instanceof Error ? err : undefined);
+            logger.error(
+              `Failed to load plugin command ${component.name}:`,
+              err instanceof Error ? err : undefined
+            );
             return {};
           }
         },

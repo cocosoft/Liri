@@ -2,7 +2,7 @@
  * Todo命令
  * 调用TodoWriteTool来管理待办事项
  * 基于CC源码 cc_code/backend/tools/TodoWriteTool 实现
- * 
+ *
  * CC 的 TodoWriteTool 采用 replace-all 模式（每次传入完整 todo 列表替换整个状态），
  * 并支持 activeForm（现在进行时）字段和验证代理提示。
  * 本命令层提供人性化的 CRUD 接口，同时保持与 CC 工具的兼容。
@@ -13,7 +13,7 @@ import { getToolManager } from '@modules/tools/ToolManager.js';
 
 /** 有效的 todo 状态 */
 const VALID_STATUSES = ['pending', 'in_progress', 'completed'] as const;
-type TodoStatus = typeof VALID_STATUSES[number];
+type TodoStatus = (typeof VALID_STATUSES)[number];
 
 /** 解析 --json 标志 */
 function hasJsonFlag(parts: string[]): boolean {
@@ -22,7 +22,7 @@ function hasJsonFlag(parts: string[]): boolean {
 
 /** 去除 flags 后的参数列表 */
 function stripFlags(parts: string[]): string[] {
-  return parts.filter(p => !p.startsWith('--') && !p.startsWith('-'));
+  return parts.filter((p) => !p.startsWith('--') && !p.startsWith('-'));
 }
 
 /**
@@ -111,7 +111,8 @@ async function handleAdd(parts: string[]): Promise<CommandResult> {
   if (!content) {
     return {
       success: false,
-      error: '错误: 请指定任务内容\n用法: /todo add <content> [--activeForm <form>]',
+      error:
+        '错误: 请指定任务内容\n用法: /todo add <content> [--activeForm <form>]',
     };
   }
 
@@ -163,13 +164,24 @@ async function handleList(parts: string[]): Promise<CommandResult> {
 
   try {
     const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool('todo_write', { action: 'list' }, {});
+    const rawResult = await toolManager.executeTool(
+      'todo_write',
+      { action: 'list' },
+      {}
+    );
 
     const output = rawResult.data as string;
 
-    if (!output || typeof output !== 'string' || output.startsWith('No todos')) {
+    if (
+      !output ||
+      typeof output !== 'string' ||
+      output.startsWith('No todos')
+    ) {
       if (showJson) {
-        return { success: true, message: JSON.stringify({ todos: [], count: 0 }) };
+        return {
+          success: true,
+          message: JSON.stringify({ todos: [], count: 0 }),
+        };
       }
       return { success: true, message: '暂无待办事项' };
     }
@@ -177,8 +189,13 @@ async function handleList(parts: string[]): Promise<CommandResult> {
     if (showJson) {
       // 从格式化输出解析出结构化数据
       const lines = output.split('\n');
-      const todos: Array<{ id: string; content: string; status: TodoStatus }> = [];
-      let currentTodo: Partial<{ id: string; content: string; status: string }> = {};
+      const todos: Array<{ id: string; content: string; status: TodoStatus }> =
+        [];
+      let currentTodo: Partial<{
+        id: string;
+        content: string;
+        status: string;
+      }> = {};
 
       for (const line of lines) {
         const idMatch = line.match(/ID:\s*(\S+)/);
@@ -190,23 +207,29 @@ async function handleList(parts: string[]): Promise<CommandResult> {
         if (contentMatch) currentTodo.content = contentMatch[1].trim();
 
         if (currentTodo.id && currentTodo.status) {
-          todos.push(currentTodo as { id: string; content: string; status: TodoStatus });
+          todos.push(
+            currentTodo as { id: string; content: string; status: TodoStatus }
+          );
           currentTodo = {};
         }
       }
 
       const filtered = statusFilter
-        ? todos.filter(t => t.status === statusFilter)
+        ? todos.filter((t) => t.status === statusFilter)
         : todos;
 
       return {
         success: true,
-        message: JSON.stringify({
-          todos: filtered,
-          count: filtered.length,
-          total: todos.length,
-          filter: statusFilter || null,
-        }, null, 2),
+        message: JSON.stringify(
+          {
+            todos: filtered,
+            count: filtered.length,
+            total: todos.length,
+            filter: statusFilter || null,
+          },
+          null,
+          2
+        ),
       };
     }
 
@@ -230,7 +253,11 @@ async function handleList(parts: string[]): Promise<CommandResult> {
           // 包含前一行（内容行）
           if (filteredLines.length > 0) {
             const prevLine = filteredLines[filteredLines.length - 1];
-            if (prevLine.trim() !== '' && !prevLine.startsWith('Todo List') && !prevLine.startsWith('=')) {
+            if (
+              prevLine.trim() !== '' &&
+              !prevLine.startsWith('Todo List') &&
+              !prevLine.startsWith('=')
+            ) {
               // 保留内容行
             }
           }
@@ -243,7 +270,11 @@ async function handleList(parts: string[]): Promise<CommandResult> {
         }
       }
 
-      return { success: true, message: filteredLines.join('\n') || `没有 ${statusFilter} 状态的待办事项` };
+      return {
+        success: true,
+        message:
+          filteredLines.join('\n') || `没有 ${statusFilter} 状态的待办事项`,
+      };
     }
 
     return { success: true, message: output };
@@ -263,18 +294,34 @@ async function handleStats(parts: string[]): Promise<CommandResult> {
 
   try {
     const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool('todo_write', { action: 'list' }, {});
+    const rawResult = await toolManager.executeTool(
+      'todo_write',
+      { action: 'list' },
+      {}
+    );
 
     const output = rawResult.data as string;
 
-    if (!output || typeof output !== 'string' || output.startsWith('No todos')) {
+    if (
+      !output ||
+      typeof output !== 'string' ||
+      output.startsWith('No todos')
+    ) {
       if (showJson) {
         return {
           success: true,
-          message: JSON.stringify({ total: 0, pending: 0, inProgress: 0, completed: 0 }),
+          message: JSON.stringify({
+            total: 0,
+            pending: 0,
+            inProgress: 0,
+            completed: 0,
+          }),
         };
       }
-      return { success: true, message: '待办统计: 总计 0 | 待处理 0 | 进行中 0 | 已完成 0' };
+      return {
+        success: true,
+        message: '待办统计: 总计 0 | 待处理 0 | 进行中 0 | 已完成 0',
+      };
     }
 
     // 从格式化输出解析统计信息
@@ -291,7 +338,11 @@ async function handleStats(parts: string[]): Promise<CommandResult> {
     if (showJson) {
       return {
         success: true,
-        message: JSON.stringify({ total, pending, inProgress, completed }, null, 2),
+        message: JSON.stringify(
+          { total, pending, inProgress, completed },
+          null,
+          2
+        ),
       };
     }
 
@@ -328,7 +379,8 @@ async function handleUpdate(parts: string[]): Promise<CommandResult> {
   if (!todoId || !status) {
     return {
       success: false,
-      error: '错误: 请指定待办 ID 和状态\n用法: /todo update <id> <status> [content] [--activeForm <form>]',
+      error:
+        '错误: 请指定待办 ID 和状态\n用法: /todo update <id> <status> [content] [--activeForm <form>]',
     };
   }
 
@@ -386,7 +438,11 @@ async function handleDelete(parts: string[]): Promise<CommandResult> {
 
   try {
     const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool('todo_write', { action: 'delete', todo_id: todoId }, {});
+    const rawResult = await toolManager.executeTool(
+      'todo_write',
+      { action: 'delete', todo_id: todoId },
+      {}
+    );
 
     if (rawResult.success && rawResult.data) {
       return { success: true, message: rawResult.data as string };
@@ -407,7 +463,11 @@ async function handleDelete(parts: string[]): Promise<CommandResult> {
 async function handleClearCompleted(): Promise<CommandResult> {
   try {
     const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool('todo_write', { action: 'clear_completed' }, {});
+    const rawResult = await toolManager.executeTool(
+      'todo_write',
+      { action: 'clear_completed' },
+      {}
+    );
 
     if (rawResult.success && rawResult.data) {
       return { success: true, message: rawResult.data as string };
@@ -433,7 +493,8 @@ async function handleWrite(parts: string[]): Promise<CommandResult> {
   if (!joined) {
     return {
       success: false,
-      error: '错误: 请指定任务列表\n用法: /todo write <content1> | <content2> | ...',
+      error:
+        '错误: 请指定任务列表\n用法: /todo write <content1> | <content2> | ...',
     };
   }
 
@@ -443,14 +504,19 @@ async function handleWrite(parts: string[]): Promise<CommandResult> {
   if (items.length === 0) {
     return {
       success: false,
-      error: '错误: 未解析到有效任务\n用法: /todo write <content1> | <content2> | ...',
+      error:
+        '错误: 未解析到有效任务\n用法: /todo write <content1> | <content2> | ...',
     };
   }
 
   try {
     const toolManager = getToolManager();
-    const todos = items.map(content => ({ content, status: 'pending' }));
-    const rawResult = await toolManager.executeTool('todo_write', { action: 'write', todos }, {});
+    const todos = items.map((content) => ({ content, status: 'pending' }));
+    const rawResult = await toolManager.executeTool(
+      'todo_write',
+      { action: 'write', todos },
+      {}
+    );
 
     if (rawResult.success && rawResult.data) {
       return { success: true, message: rawResult.data as string };
@@ -473,7 +539,8 @@ export const todoCommand: Command = {
   name: 'todo',
   description: '管理待办事项',
   aliases: [],
-  argumentHint: '[add|list|stats|update|delete|clear-completed|write|help] [args]',
+  argumentHint:
+    '[add|list|stats|update|delete|clear-completed|write|help] [args]',
   whenToUse: '当你需要管理待办事项、跟踪多步骤任务进度时',
   load: async () => ({
     execute: async (args: string) => {

@@ -488,7 +488,9 @@ export class ToolRegistry {
    * @returns 延迟工具描述总字符数
    */
   getDeferredToolDescriptionChars(): number {
-    return calculateDeferredToolDescriptionChars(Array.from(this.tools.values()));
+    return calculateDeferredToolDescriptionChars(
+      Array.from(this.tools.values())
+    );
   }
 
   /**

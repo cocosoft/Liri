@@ -13,7 +13,11 @@ import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 /**
  * 将新格式的Agent定义转换为内部格式
  */
-function convertToAgentDefinition(fileDef: AgentDefinitionFile, filePath: string, source: string): AgentDefinition {
+function convertToAgentDefinition(
+  fileDef: AgentDefinitionFile,
+  filePath: string,
+  source: string
+): AgentDefinition {
   return {
     agentType: fileDef.type,
     whenToUse: fileDef.description,
@@ -54,9 +58,12 @@ function convertToAgentDefinition(fileDef: AgentDefinitionFile, filePath: string
  * @param filePath 文件路径
  * @returns Agent定义
  */
-function loadAgentFromFile(filePath: string, source: string = 'user'): AgentDefinition {
+function loadAgentFromFile(
+  filePath: string,
+  source: string = 'user'
+): AgentDefinition {
   const content = readFileSync(filePath, 'utf8');
-  
+
   // 尝试按扩展名解析
   if (filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
     const def = parseYAML(content);
@@ -85,7 +92,8 @@ function loadAgentFromFile(filePath: string, source: string = 'user'): AgentDefi
       maxTurns: frontmatter.maxTurns,
       filename: filePath,
       baseDir: join(filePath, '..'),
-      criticalSystemReminder_EXPERIMENTAL: frontmatter.criticalSystemReminder_EXPERIMENTAL,
+      criticalSystemReminder_EXPERIMENTAL:
+        frontmatter.criticalSystemReminder_EXPERIMENTAL,
       requiredMcpServers: frontmatter.requiredMcpServers,
       background: frontmatter.background,
       initialPrompt: frontmatter.initialPrompt,
@@ -106,7 +114,10 @@ function loadAgentFromFile(filePath: string, source: string = 'user'): AgentDefi
  * @param source 来源标识
  * @returns Agent定义数组
  */
-function loadAgentsFromDir(dirPath: string, source: string = 'user'): AgentDefinition[] {
+function loadAgentsFromDir(
+  dirPath: string,
+  source: string = 'user'
+): AgentDefinition[] {
   if (!existsSync(dirPath)) {
     return [];
   }
@@ -114,9 +125,9 @@ function loadAgentsFromDir(dirPath: string, source: string = 'user'): AgentDefin
   const agents: AgentDefinition[] = [];
   const files = readdirSync(dirPath);
 
-  files.forEach(file => {
+  files.forEach((file) => {
     const filePath = join(dirPath, file);
-    
+
     // 跳过目录
     try {
       const stats = statSync(filePath);
@@ -128,7 +139,12 @@ function loadAgentsFromDir(dirPath: string, source: string = 'user'): AgentDefin
     }
 
     // 支持的文件格式
-    if (file.endsWith('.md') || file.endsWith('.yaml') || file.endsWith('.yml') || file.endsWith('.json')) {
+    if (
+      file.endsWith('.md') ||
+      file.endsWith('.yaml') ||
+      file.endsWith('.yml') ||
+      file.endsWith('.json')
+    ) {
       try {
         const agent = loadAgentFromFile(filePath, source);
         agents.push(agent);
@@ -146,7 +162,11 @@ function loadAgentsFromDir(dirPath: string, source: string = 'user'): AgentDefin
  * @returns Agent定义数组
  */
 export async function loadUserAgents(): Promise<AgentDefinition[]> {
-  const userAgentsDir = join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'agents');
+  const userAgentsDir = join(
+    process.env.HOME || process.env.USERPROFILE || '',
+    '.py_app',
+    'agents'
+  );
   return loadAgentsFromDir(userAgentsDir);
 }
 
@@ -164,7 +184,14 @@ export async function loadProjectAgents(): Promise<AgentDefinition[]> {
  * @returns Agent定义数组
  */
 export async function loadManagedAgents(): Promise<AgentDefinition[]> {
-  const managedAgentsDir = join(__dirname, '..', '..', '..', 'agents', 'managed');
+  const managedAgentsDir = join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'agents',
+    'managed'
+  );
   return loadAgentsFromDir(managedAgentsDir);
 }
 

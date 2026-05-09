@@ -27,4 +27,9 @@ export interface AgentContext {
   history: AgentTask[];
 }
 
-export type AgentState = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type AgentState =
+  | 'idle'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';

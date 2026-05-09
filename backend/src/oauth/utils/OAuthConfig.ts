@@ -21,7 +21,8 @@ export function createOAuthConfig(options: {
     tokenUrl: options.tokenUrl,
     profileUrl: options.profileUrl || '',
     successUrl: options.successUrl || 'https://pyapp.dev/auth/success',
-    manualRedirectUrl: options.manualRedirectUrl || 'https://pyapp.dev/auth/manual',
+    manualRedirectUrl:
+      options.manualRedirectUrl || 'https://pyapp.dev/auth/manual',
     clientId: options.clientId,
     scopes: options.scopes,
   };

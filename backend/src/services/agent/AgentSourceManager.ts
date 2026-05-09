@@ -7,7 +7,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '@modules/utils/log';
-import { AgentDefinition, BuiltInAgentDefinition, CustomAgentDefinition, PluginAgentDefinition } from './types';
+import {
+  AgentDefinition,
+  BuiltInAgentDefinition,
+  CustomAgentDefinition,
+  PluginAgentDefinition,
+} from './types';
 import { getBuiltInAgents } from './builtInAgents';
 import { loadPluginAgents } from '@modules/utils/plugins/loadPluginAgents';
 import { loadMarkdownFilesForSubdir } from '@modules/utils/markdownConfigLoader';
@@ -15,7 +20,13 @@ import { parseAgentFromMarkdown } from './parseAgent';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { getCwd } from '@modules/utils/cwd';
 
-export type SettingSource = 'userSettings' | 'projectSettings' | 'policySettings' | 'flagSettings' | 'plugin' | 'built-in';
+export type SettingSource =
+  | 'userSettings'
+  | 'projectSettings'
+  | 'policySettings'
+  | 'flagSettings'
+  | 'plugin'
+  | 'built-in';
 
 export type AgentSourceGroup = {
   label: string;
@@ -46,13 +57,13 @@ export class AgentSourceManager {
       const [builtInAgents, pluginAgents, customAgents] = await Promise.all([
         this.loadBuiltInAgents(),
         this.loadPluginAgents(),
-        this.loadCustomAgents(cwd)
+        this.loadCustomAgents(cwd),
       ]);
 
       const allAgents: AgentDefinition[] = [
         ...builtInAgents,
         ...pluginAgents,
-        ...customAgents
+        ...customAgents,
       ];
 
       return allAgents;
@@ -85,14 +96,17 @@ export class AgentSourceManager {
   /**
    * 加载自定义Agent（用户、项目、管理）
    */
-  private async loadCustomAgents(cwd: string): Promise<CustomAgentDefinition[]> {
+  private async loadCustomAgents(
+    cwd: string
+  ): Promise<CustomAgentDefinition[]> {
     try {
       const markdownFiles = await loadMarkdownFilesForSubdir('agents', cwd);
-      
+
       const customAgents = markdownFiles
         .map((filePath: string) => {
           const content = fs.readFileSync(filePath, 'utf-8');
-          const { frontmatter, content: bodyContent } = parseFrontmatter(content);
+          const { frontmatter, content: bodyContent } =
+            parseFrontmatter(content);
           const baseDir = path.dirname(filePath);
           const agent = parseAgentFromMarkdown(
             filePath,
@@ -124,12 +138,16 @@ export class AgentSourceManager {
    * 获取活跃的Agent列表（基于优先级）
    */
   getActiveAgents(allAgents: AgentDefinition[]): AgentDefinition[] {
-    const builtInAgents = allAgents.filter(a => a.source === 'built-in');
-    const pluginAgents = allAgents.filter(a => a.source === 'plugin');
-    const userAgents = allAgents.filter(a => a.source === 'userSettings');
-    const projectAgents = allAgents.filter(a => a.source === 'projectSettings');
-    const managedAgents = allAgents.filter(a => a.source === 'policySettings');
-    const flagAgents = allAgents.filter(a => a.source === 'flagSettings');
+    const builtInAgents = allAgents.filter((a) => a.source === 'built-in');
+    const pluginAgents = allAgents.filter((a) => a.source === 'plugin');
+    const userAgents = allAgents.filter((a) => a.source === 'userSettings');
+    const projectAgents = allAgents.filter(
+      (a) => a.source === 'projectSettings'
+    );
+    const managedAgents = allAgents.filter(
+      (a) => a.source === 'policySettings'
+    );
+    const flagAgents = allAgents.filter((a) => a.source === 'flagSettings');
 
     // 按优先级排序：内置 < 插件 < 用户 < 项目 < 标志 < 管理
     const agentGroups = [
@@ -138,7 +156,7 @@ export class AgentSourceManager {
       userAgents,
       projectAgents,
       flagAgents,
-      managedAgents
+      managedAgents,
     ];
 
     const agentMap = new Map<string, AgentDefinition>();

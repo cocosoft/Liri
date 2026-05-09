@@ -74,9 +74,12 @@ class NotificationManager {
    * 启动自动清理
    */
   private startAutoClear(): void {
-    this.autoClearInterval = setInterval(() => {
-      this.clearOldNotifications();
-    }, 60 * 60 * 1000); // 每小时清理一次
+    this.autoClearInterval = setInterval(
+      () => {
+        this.clearOldNotifications();
+      },
+      60 * 60 * 1000
+    ); // 每小时清理一次
   }
 
   /**
@@ -96,7 +99,9 @@ class NotificationManager {
   /**
    * 添加通知
    */
-  addNotification(notification: Omit<BuddyNotification, 'id' | 'timestamp' | 'read'>): string {
+  addNotification(
+    notification: Omit<BuddyNotification, 'id' | 'timestamp' | 'read'>
+  ): string {
     const id = `buddy-notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newNotification: BuddyNotification = {
       ...notification,
@@ -109,7 +114,10 @@ class NotificationManager {
 
     // 限制通知数量
     if (this.notifications.length > this.config.maxNotifications) {
-      this.notifications = this.notifications.slice(0, this.config.maxNotifications);
+      this.notifications = this.notifications.slice(
+        0,
+        this.config.maxNotifications
+      );
     }
 
     this.notifyListeners();
@@ -181,7 +189,9 @@ class NotificationManager {
   /**
    * 按优先级获取通知
    */
-  getNotificationsByPriority(priority: NotificationPriority): BuddyNotification[] {
+  getNotificationsByPriority(
+    priority: NotificationPriority
+  ): BuddyNotification[] {
     return this.notifications.filter((n) => n.priority === priority);
   }
 
@@ -233,7 +243,9 @@ export function getNotificationManager(): NotificationManager {
 /**
  * 创建孵化通知
  */
-export function createHatchedNotification(companion: Companion): string | undefined {
+export function createHatchedNotification(
+  companion: Companion
+): string | undefined {
   return ifNotificationsEnabled(() => {
     return getNotificationManager().addNotification({
       type: 'hatched',
@@ -310,7 +322,9 @@ export function createAchievementNotification(
 /**
  * 创建每日签到通知
  */
-export function createDailyCheckinNotification(companion: Companion): string | undefined {
+export function createDailyCheckinNotification(
+  companion: Companion
+): string | undefined {
   return ifNotificationsEnabled(() => {
     return getNotificationManager().addNotification({
       type: 'daily_checkin',
@@ -360,7 +374,10 @@ export function createWarningNotification(message: string): string | undefined {
 /**
  * 创建信息通知
  */
-export function createInfoNotification(title: string, message: string): string | undefined {
+export function createInfoNotification(
+  title: string,
+  message: string
+): string | undefined {
   return ifNotificationsEnabled(() => {
     return getNotificationManager().addNotification({
       type: 'info',

@@ -10,7 +10,12 @@ export interface BoxProps {
   children?: React.ReactNode;
   flexDirection?: 'row' | 'column';
   alignItems?: 'flex-start' | 'flex-end' | 'center' | 'stretch';
-  justifyContent?: 'flex-start' | 'flex-end' | 'center' | 'space-between' | 'space-around';
+  justifyContent?:
+    | 'flex-start'
+    | 'flex-end'
+    | 'center'
+    | 'space-between'
+    | 'space-around';
   padding?: number;
   margin?: number;
   borderStyle?: 'single' | 'double' | 'round' | 'bold' | 'none';

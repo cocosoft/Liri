@@ -14,18 +14,43 @@ import type {
   ToolCallProgress,
   InterruptBehavior,
   ValidationResult,
-} from '../types/index';
+} from '../types';
 import { createToolResult } from '../types/ToolResult';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * WebSearch 输入模式
  */
 const WebSearchInputSchema = z.strictObject({
   query: z.string().min(1, '搜索查询不能为空').describe('搜索查询关键词'),
-  maxResults: z.number().int().positive().max(100).optional().default(10).describe('最大返回结果数'),
-  language: z.string().optional().default('en-US').describe('语言代码（如 "en-US", "zh-CN"）'),
-  safeSearch: z.boolean().optional().default(true).describe('启用安全搜索过滤成人内容'),
-  timeout: z.number().int().positive().max(120000).optional().default(30000).describe('超时时间（毫秒）'),
+  maxResults: z
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .optional()
+    .default(10)
+    .describe('最大返回结果数'),
+  language: z
+    .string()
+    .optional()
+    .default('en-US')
+    .describe('语言代码（如 "en-US", "zh-CN"）'),
+  safeSearch: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe('启用安全搜索过滤成人内容'),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .max(120000)
+    .optional()
+    .default(30000)
+    .describe('超时时间（毫秒）'),
 });
 
 export class WebSearchTool extends BaseTool {
@@ -149,8 +174,8 @@ export class WebSearchTool extends BaseTool {
       // 使用 Bing 搜索 API
       const apiUrl = `https://www.bing.com/search?q=${encodedQuery}&count=${maxResults}&setlang=${language}`;
 
-      console.log(`Searching with query: ${query}`);
-      console.log(`API URL: ${apiUrl}`);
+      logger.debug(`Searching with query: ${query}`);
+      logger.debug(`API URL: ${apiUrl}`);
 
       try {
         const response = await fetch(apiUrl, {
@@ -164,7 +189,7 @@ export class WebSearchTool extends BaseTool {
 
         clearTimeout(timeoutId);
 
-        console.log(`Response status: ${response.status}`);
+        logger.debug(`Response status: ${response.status}`);
 
         if (!response.ok) {
           // 报告执行错误
@@ -190,11 +215,11 @@ export class WebSearchTool extends BaseTool {
         }
 
         const html = await response.text();
-        console.log('Response received, parsing HTML...');
+        logger.debug('Response received, parsing HTML...');
 
         // 解析 Bing 搜索结果
         const results = this.parseBingResults(html, maxResults);
-        console.log(`Total results found: ${results.length}`);
+        logger.debug(`Total results found: ${results.length}`);
 
         if (results.length === 0) {
           // 报告执行完成
@@ -247,8 +272,8 @@ export class WebSearchTool extends BaseTool {
           },
         });
 
-        console.log(
-          'Returning search results:',
+        logger.debug(
+          'Returning search results',
           JSON.stringify(result, null, 2)
         );
 
@@ -262,7 +287,12 @@ export class WebSearchTool extends BaseTool {
         });
       } catch (networkError: any) {
         clearTimeout(timeoutId);
-        console.error('Network error:', networkError);
+        logger.error(
+          'Network error',
+          networkError instanceof Error
+            ? networkError
+            : new Error(String(networkError))
+        );
 
         // 报告执行错误
         onProgress?.({
@@ -322,7 +352,10 @@ export class WebSearchTool extends BaseTool {
         });
       }
     } catch (error: any) {
-      console.error('Search error:', error);
+      logger.error(
+        'Search error',
+        error instanceof Error ? error : new Error(String(error))
+      );
 
       // 报告执行错误
       onProgress?.({
@@ -484,7 +517,9 @@ export class WebSearchTool extends BaseTool {
     return null;
   }
 
-  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
     const query = (input?.query as string) || '';
     if (query) {
       return `Search web for: ${query}`;

@@ -1,10 +1,31 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, mock, afterEach } from 'bun:test';
-import { AdvancedStreamingProcessor, StreamState } from './streaming/AdvancedStreamingProcessor';
-import type { StreamChunk, StreamSession } from './streaming/AdvancedStreamingProcessor';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  mock,
+  afterEach,
+} from 'bun:test';
+import {
+  AdvancedStreamingProcessor,
+  StreamState,
+} from './streaming/AdvancedStreamingProcessor';
+import type {
+  StreamChunk,
+  StreamSession,
+} from './streaming/AdvancedStreamingProcessor';
 import { SmartToolIntegrator } from './tool/SmartToolIntegrator';
 import type { SmartTool, ToolContext } from './tool/SmartToolIntegrator';
-import { CompleteSecuritySystem, SecurityLevel } from './security/CompleteSecuritySystem';
-import type { AuditRecord, SecurityCheckResult } from './security/CompleteSecuritySystem';
+import {
+  CompleteSecuritySystem,
+  SecurityLevel,
+} from './security/CompleteSecuritySystem';
+import type {
+  AuditRecord,
+  SecurityCheckResult,
+} from './security/CompleteSecuritySystem';
 import { ChatEcosystem } from './ecosystem/ChatEcosystem';
 import type { Extension } from './ecosystem/ChatEcosystem';
 
@@ -71,7 +92,9 @@ describe('AdvancedStreamingProcessor', () => {
   it('completes stream and notifies listeners', () => {
     const id = processor.createSession();
     let completed = false;
-    processor.onComplete((session) => { completed = true; });
+    processor.onComplete((session) => {
+      completed = true;
+    });
     processor.processChunk(id, 'data');
     expect(processor['completeStream'](id)).toBe(true);
     expect(completed).toBe(true);
@@ -84,7 +107,7 @@ describe('AdvancedStreamingProcessor', () => {
     const id = processor.createSession();
     processor.processChunk(id, 'Hello World');
     processor.processChunk(id, 'Foo Bar');
-    await new Promise(r => setTimeout(r, 5));
+    await new Promise((r) => setTimeout(r, 5));
     processor['completeStream'](id);
     const metrics = processor.getSessionMetrics(id)!;
     expect(metrics.totalChunks).toBe(2);
@@ -148,7 +171,7 @@ describe('SmartToolIntegrator', () => {
       version: '1.0.0',
       parameters: { message: { type: 'string', required: true } },
       execute: async (args) => ({ echoed: args.message }),
-      validate: (args) => args.message ? null : 'message is required',
+      validate: (args) => (args.message ? null : 'message is required'),
       timeout: 1000,
     };
   });
@@ -167,12 +190,18 @@ describe('SmartToolIntegrator', () => {
 
   it('throws on duplicate registration', () => {
     integrator.registerTool(testTool);
-    expect(() => integrator.registerTool(testTool)).toThrow('already registered');
+    expect(() => integrator.registerTool(testTool)).toThrow(
+      'already registered'
+    );
   });
 
   it('executes tool successfully', async () => {
     integrator.registerTool(testTool);
-    const result = await integrator.executeTool('echo', { message: 'hello' }, { sessionId: 's1' });
+    const result = await integrator.executeTool(
+      'echo',
+      { message: 'hello' },
+      { sessionId: 's1' }
+    );
     expect(result.success).toBe(true);
     expect(result.result.echoed).toBe('hello');
     expect(result.executionTime).toBeGreaterThanOrEqual(0);
@@ -197,7 +226,9 @@ describe('SmartToolIntegrator', () => {
       description: 'Flaky tool',
       version: '1.0.0',
       parameters: {},
-      execute: async () => { throw new Error('temporary'); },
+      execute: async () => {
+        throw new Error('temporary');
+      },
       timeout: 100,
     };
     integrator.registerTool(flakyTool);
@@ -210,7 +241,10 @@ describe('SmartToolIntegrator', () => {
   it('executes multiple tools sequentially', async () => {
     integrator.registerTool(testTool);
     const results = await integrator.executeMultiple(
-      [{ name: 'echo', args: { message: 'a' } }, { name: 'echo', args: { message: 'b' } }],
+      [
+        { name: 'echo', args: { message: 'a' } },
+        { name: 'echo', args: { message: 'b' } },
+      ],
       {}
     );
     expect(results.length).toBe(2);
@@ -235,7 +269,9 @@ describe('SmartToolIntegrator', () => {
       requiredContext: ['userId', 'token'],
     };
     integrator.registerTool(ctxTool);
-    const report = integrator.validateCompatibility('ctx_tool', { sessionId: 's1' });
+    const report = integrator.validateCompatibility('ctx_tool', {
+      sessionId: 's1',
+    });
     expect(report.compatible).toBe(false);
     expect(report.missingContext).toContain('userId');
     expect(report.missingContext).toContain('token');
@@ -270,8 +306,16 @@ describe('SmartToolIntegrator', () => {
 
   it('caches tool results', async () => {
     integrator.registerTool(testTool);
-    const r1 = await integrator.executeTool('echo', { message: 'cache' }, { sessionId: 's1' });
-    const r2 = await integrator.executeTool('echo', { message: 'cache' }, { sessionId: 's1' });
+    const r1 = await integrator.executeTool(
+      'echo',
+      { message: 'cache' },
+      { sessionId: 's1' }
+    );
+    const r2 = await integrator.executeTool(
+      'echo',
+      { message: 'cache' },
+      { sessionId: 's1' }
+    );
     expect(r1.success).toBe(true);
     expect(r2.success).toBe(true);
   });
@@ -287,7 +331,11 @@ describe('CompleteSecuritySystem', () => {
   let security: CompleteSecuritySystem;
 
   beforeEach(() => {
-    security = new CompleteSecuritySystem({ enabled: true, enableAuditLog: true, enableContentFilter: true }, 100, 100);
+    security = new CompleteSecuritySystem(
+      { enabled: true, enableAuditLog: true, enableContentFilter: true },
+      100,
+      100
+    );
   });
 
   it('passes clean messages', async () => {
@@ -297,7 +345,9 @@ describe('CompleteSecuritySystem', () => {
   });
 
   it('blocks malicious content', async () => {
-    const result = await security.checkMessageSecurity('<script>alert("xss")</script>');
+    const result = await security.checkMessageSecurity(
+      '<script>alert("xss")</script>'
+    );
     expect(result.passed).toBe(false);
     expect(result.details.length).toBeGreaterThan(0);
   });
@@ -324,14 +374,32 @@ describe('CompleteSecuritySystem', () => {
   });
 
   it('detects dangerous tool commands', async () => {
-    const result = await security.checkToolSecurity('shell', { cmd: 'rm -rf /' });
+    const result = await security.checkToolSecurity('shell', {
+      cmd: 'rm -rf /',
+    });
     expect(result.passed).toBe(false);
     expect(result.level).toBe(SecurityLevel.CRITICAL);
   });
 
   it('audits actions and retrieves logs', () => {
-    security.auditAction({ sessionId: 's1', action: 'send', actor: 'user1', target: 'msg1', result: 'allowed', level: SecurityLevel.LOW, details: 'OK' });
-    security.auditAction({ sessionId: 's1', action: 'delete', actor: 'user1', target: 'msg2', result: 'blocked', level: SecurityLevel.HIGH, details: 'Blocked' });
+    security.auditAction({
+      sessionId: 's1',
+      action: 'send',
+      actor: 'user1',
+      target: 'msg1',
+      result: 'allowed',
+      level: SecurityLevel.LOW,
+      details: 'OK',
+    });
+    security.auditAction({
+      sessionId: 's1',
+      action: 'delete',
+      actor: 'user1',
+      target: 'msg2',
+      result: 'blocked',
+      level: SecurityLevel.HIGH,
+      details: 'Blocked',
+    });
     const logs = security.getAuditLogs();
     expect(logs.length).toBe(2);
     const blocked = security.getAuditLogs({ result: 'blocked' });
@@ -342,7 +410,15 @@ describe('CompleteSecuritySystem', () => {
     const sessionId = 'rate_test_session';
     expect(security.isRateLimited(sessionId)).toBe(false);
     for (let i = 0; i < 100; i++) {
-      security.auditAction({ sessionId, action: 'send', actor: 'u', target: 't', result: 'blocked', level: SecurityLevel.HIGH, details: '' });
+      security.auditAction({
+        sessionId,
+        action: 'send',
+        actor: 'u',
+        target: 't',
+        result: 'blocked',
+        level: SecurityLevel.HIGH,
+        details: '',
+      });
     }
     expect(security.isRateLimited(sessionId)).toBe(true);
   });
@@ -382,7 +458,11 @@ describe('ChatEcosystem', () => {
       name: 'Logger',
       version: '1.0.0',
       description: 'Logs messages',
-      hooks: { beforeSendMessage: async (ctx: any) => { console.log(ctx); } },
+      hooks: {
+        beforeSendMessage: async (ctx: any) => {
+          console.log(ctx);
+        },
+      },
       priority: 10,
     };
     ecosystem.registerExtension(ext);
@@ -393,15 +473,27 @@ describe('ChatEcosystem', () => {
 
   it('throws on duplicate extension', () => {
     const ext: Extension = {
-      id: 'dup', name: 'Dup', version: '1.0.0', description: '', hooks: {}, priority: 0,
+      id: 'dup',
+      name: 'Dup',
+      version: '1.0.0',
+      description: '',
+      hooks: {},
+      priority: 0,
     };
     ecosystem.registerExtension(ext);
-    expect(() => ecosystem.registerExtension(ext)).toThrow('already registered');
+    expect(() => ecosystem.registerExtension(ext)).toThrow(
+      'already registered'
+    );
   });
 
   it('unregisters extension and removes hooks', () => {
     const ext: Extension = {
-      id: 'ext2', name: 'Temp', version: '1.0.0', description: '', hooks: { beforeSendMessage: async () => {} }, priority: 0,
+      id: 'ext2',
+      name: 'Temp',
+      version: '1.0.0',
+      description: '',
+      hooks: { beforeSendMessage: async () => {} },
+      priority: 0,
     };
     ecosystem.registerExtension(ext);
     expect(ecosystem.unregisterExtension('ext2')).toBe(true);
@@ -412,10 +504,28 @@ describe('ChatEcosystem', () => {
   it('executes hooks in priority order', async () => {
     const results: number[] = [];
     const extLow: Extension = {
-      id: 'low', name: 'Low', version: '1.0.0', description: '', hooks: { testHook: async () => { results.push(1); } }, priority: 1,
+      id: 'low',
+      name: 'Low',
+      version: '1.0.0',
+      description: '',
+      hooks: {
+        testHook: async () => {
+          results.push(1);
+        },
+      },
+      priority: 1,
     };
     const extHigh: Extension = {
-      id: 'high', name: 'High', version: '1.0.0', description: '', hooks: { testHook: async () => { results.push(10); } }, priority: 10,
+      id: 'high',
+      name: 'High',
+      version: '1.0.0',
+      description: '',
+      hooks: {
+        testHook: async () => {
+          results.push(10);
+        },
+      },
+      priority: 10,
     };
     ecosystem.registerExtension(extLow);
     ecosystem.registerExtension(extHigh);
@@ -426,8 +536,15 @@ describe('ChatEcosystem', () => {
 
   it('finds extensions by hook', () => {
     const ext: Extension = {
-      id: 'ext3', name: 'HookTest', version: '1.0.0', description: '',
-      hooks: { beforeSendMessage: async () => {}, afterSendMessage: async () => {} }, priority: 0,
+      id: 'ext3',
+      name: 'HookTest',
+      version: '1.0.0',
+      description: '',
+      hooks: {
+        beforeSendMessage: async () => {},
+        afterSendMessage: async () => {},
+      },
+      priority: 0,
     };
     ecosystem.registerExtension(ext);
     const found = ecosystem.getExtensionsByHook('beforeSendMessage');
@@ -448,10 +565,14 @@ describe('ChatEcosystem', () => {
   });
 
   it('tracks ecosystem metrics', async () => {
-    await new Promise(r => setTimeout(r, 5));
+    await new Promise((r) => setTimeout(r, 5));
     const ext: Extension = {
-      id: 'metric_ext', name: 'Metric', version: '1.0.0', description: '',
-      hooks: { beforeSendMessage: async () => {} }, priority: 0,
+      id: 'metric_ext',
+      name: 'Metric',
+      version: '1.0.0',
+      description: '',
+      hooks: { beforeSendMessage: async () => {} },
+      priority: 0,
     };
     ecosystem.registerExtension(ext);
     ecosystem.emitEvent('msg.sent', 'user1', {});
@@ -464,8 +585,16 @@ describe('ChatEcosystem', () => {
 
   it('handles hook execution errors gracefully', async () => {
     const ext: Extension = {
-      id: 'err_ext', name: 'ErrorProne', version: '1.0.0', description: '',
-      hooks: { beforeSendMessage: async () => { throw new Error('hook error'); } }, priority: 0,
+      id: 'err_ext',
+      name: 'ErrorProne',
+      version: '1.0.0',
+      description: '',
+      hooks: {
+        beforeSendMessage: async () => {
+          throw new Error('hook error');
+        },
+      },
+      priority: 0,
     };
     ecosystem.registerExtension(ext);
     const results = await ecosystem.executeHook('beforeSendMessage', {});
@@ -482,7 +611,9 @@ describe('Chat Module Integration', () => {
 
     const sessionId = processor.createSession({ role: 'assistant' });
 
-    const secCheck = await security.checkMessageSecurity('Hello, calculate 2+2');
+    const secCheck = await security.checkMessageSecurity(
+      'Hello, calculate 2+2'
+    );
     expect(secCheck.passed).toBe(true);
 
     const calcTool: SmartTool = {
@@ -496,7 +627,11 @@ describe('Chat Module Integration', () => {
     integrator.registerTool(calcTool);
 
     processor.processChunk(sessionId, 'Calculating...');
-    const toolResult = await integrator.executeTool('calculator', { expr: '2+2' }, { sessionId });
+    const toolResult = await integrator.executeTool(
+      'calculator',
+      { expr: '2+2' },
+      { sessionId }
+    );
     expect(toolResult.success).toBe(true);
     expect(toolResult.result.result).toBe(4);
 
@@ -520,7 +655,9 @@ describe('Chat Module Integration', () => {
       priority: 5,
     };
     ecosystem.registerExtension(plugin);
-    const results = await ecosystem.executeHook('beforeProcessStream', { data: 'test' });
+    const results = await ecosystem.executeHook('beforeProcessStream', {
+      data: 'test',
+    });
     expect(results.length).toBe(1);
     expect(ecosystem.getExtensionsByHook('onStreamChunk').length).toBe(1);
   });

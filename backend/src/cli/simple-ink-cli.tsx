@@ -7,23 +7,37 @@ import { Box, Text, Newline, Spacer, render } from '../ink';
 /**
  * 主菜单组件
  */
-const MainMenu = ({ onMenuChange }: { onMenuChange: (menu: string) => void }) => {
+const MainMenu = ({
+  onMenuChange,
+}: {
+  onMenuChange: (menu: string) => void;
+}) => {
   return (
     <Box flexDirection="column" padding={1}>
-      <Text bold color="green">PY_APP Command Line Interface</Text>
+      <Text bold color="green">
+        PY_APP Command Line Interface
+      </Text>
       <Text color="gray">Welcome to PY_APP CLI. Select an option below:</Text>
       <Newline />
 
-      <Text color="cyan" onPress={() => onMenuChange('skills')}>[S] Manage Skills</Text>
+      <Text color="cyan" onPress={() => onMenuChange('skills')}>
+        [S] Manage Skills
+      </Text>
       <Newline />
 
-      <Text color="cyan" onPress={() => onMenuChange('tools')}>[T] Manage Tools</Text>
+      <Text color="cyan" onPress={() => onMenuChange('tools')}>
+        [T] Manage Tools
+      </Text>
       <Newline />
 
-      <Text color="cyan" onPress={() => onMenuChange('profile')}>[P] View Startup Profile</Text>
+      <Text color="cyan" onPress={() => onMenuChange('profile')}>
+        [P] View Startup Profile
+      </Text>
       <Newline />
 
-      <Text color="red" onPress={() => process.exit(0)}>[E] Exit</Text>
+      <Text color="red" onPress={() => process.exit(0)}>
+        [E] Exit
+      </Text>
     </Box>
   );
 };
@@ -32,19 +46,25 @@ const MainMenu = ({ onMenuChange }: { onMenuChange: (menu: string) => void }) =>
  * 技能菜单组件
  */
 const SkillsMenu = ({
-  onMenuChange
+  onMenuChange,
 }: {
   onMenuChange: (menu: string) => void;
 }) => {
   return (
     <Box flexDirection="column" padding={1}>
-      <Text bold color="green">Skills Menu</Text>
+      <Text bold color="green">
+        Skills Menu
+      </Text>
       <Newline />
 
-      <Text color="cyan" onPress={() => onMenuChange('list_skills')}>[L] List Skills</Text>
+      <Text color="cyan" onPress={() => onMenuChange('list_skills')}>
+        [L] List Skills
+      </Text>
       <Newline />
 
-      <Text color="cyan" onPress={() => onMenuChange('main')}>[B] Back to Main Menu</Text>
+      <Text color="cyan" onPress={() => onMenuChange('main')}>
+        [B] Back to Main Menu
+      </Text>
     </Box>
   );
 };
@@ -53,19 +73,25 @@ const SkillsMenu = ({
  * 工具菜单组件
  */
 const ToolsMenu = ({
-  onMenuChange
+  onMenuChange,
 }: {
   onMenuChange: (menu: string) => void;
 }) => {
   return (
     <Box flexDirection="column" padding={1}>
-      <Text bold color="green">Tools Menu</Text>
+      <Text bold color="green">
+        Tools Menu
+      </Text>
       <Newline />
 
-      <Text color="cyan" onPress={() => onMenuChange('list_tools')}>[L] List Tools</Text>
+      <Text color="cyan" onPress={() => onMenuChange('list_tools')}>
+        [L] List Tools
+      </Text>
       <Newline />
 
-      <Text color="cyan" onPress={() => onMenuChange('main')}>[B] Back to Main Menu</Text>
+      <Text color="cyan" onPress={() => onMenuChange('main')}>
+        [B] Back to Main Menu
+      </Text>
     </Box>
   );
 };
@@ -75,14 +101,16 @@ const ToolsMenu = ({
  */
 const SkillsList = ({
   skills,
-  onMenuChange
+  onMenuChange,
 }: {
   skills: Map<string, any>;
   onMenuChange: (menu: string) => void;
 }) => {
   return (
     <Box flexDirection="column" padding={1}>
-      <Text bold color="green">Available Skills</Text>
+      <Text bold color="green">
+        Available Skills
+      </Text>
       <Newline />
 
       {skills.size === 0 ? (
@@ -105,7 +133,9 @@ const SkillsList = ({
       )}
 
       <Newline />
-      <Text color="cyan" onPress={() => onMenuChange('skills')}>[B] Back to Skills Menu</Text>
+      <Text color="cyan" onPress={() => onMenuChange('skills')}>
+        [B] Back to Skills Menu
+      </Text>
     </Box>
   );
 };
@@ -115,14 +145,16 @@ const SkillsList = ({
  */
 const ToolsList = ({
   tools,
-  onMenuChange
+  onMenuChange,
 }: {
   tools: any[];
   onMenuChange: (menu: string) => void;
 }) => {
   return (
     <Box flexDirection="column" padding={1}>
-      <Text bold color="green">Available Tools</Text>
+      <Text bold color="green">
+        Available Tools
+      </Text>
       <Newline />
 
       {tools.length === 0 ? (
@@ -138,7 +170,9 @@ const ToolsList = ({
       )}
 
       <Newline />
-      <Text color="cyan" onPress={() => onMenuChange('tools')}>[B] Back to Tools Menu</Text>
+      <Text color="cyan" onPress={() => onMenuChange('tools')}>
+        [B] Back to Tools Menu
+      </Text>
     </Box>
   );
 };
@@ -146,16 +180,24 @@ const ToolsList = ({
 /**
  * 启动分析报告组件
  */
-const ProfileReport = ({ onMenuChange }: { onMenuChange: (menu: string) => void }) => {
+const ProfileReport = ({
+  onMenuChange,
+}: {
+  onMenuChange: (menu: string) => void;
+}) => {
   return (
     <Box flexDirection="column" padding={1}>
-      <Text bold color="green">Startup Profile Report</Text>
+      <Text bold color="green">
+        Startup Profile Report
+      </Text>
       <Newline />
 
       <Text color="gray">Loading profile report...</Text>
 
       <Newline />
-      <Text color="cyan" onPress={() => onMenuChange('main')}>[B] Back to Main Menu</Text>
+      <Text color="cyan" onPress={() => onMenuChange('main')}>
+        [B] Back to Main Menu
+      </Text>
     </Box>
   );
 };
@@ -205,34 +247,19 @@ const App = () => {
 
   return (
     <Box flexDirection="column" width="100%">
-      {currentMenu === 'main' && (
-        <MainMenu onMenuChange={handleMenuChange} />
-      )}
+      {currentMenu === 'main' && <MainMenu onMenuChange={handleMenuChange} />}
       {currentMenu === 'skills' && (
-        <SkillsMenu
-          onMenuChange={handleMenuChange}
-        />
+        <SkillsMenu onMenuChange={handleMenuChange} />
       )}
-      {currentMenu === 'tools' && (
-        <ToolsMenu
-          onMenuChange={handleMenuChange}
-        />
-      )}
+      {currentMenu === 'tools' && <ToolsMenu onMenuChange={handleMenuChange} />}
       {currentMenu === 'list_skills' && (
-        <SkillsList
-          skills={skills}
-          onMenuChange={handleMenuChange}
-        />
+        <SkillsList skills={skills} onMenuChange={handleMenuChange} />
       )}
       {currentMenu === 'list_tools' && (
-        <ToolsList
-          tools={tools}
-          onMenuChange={handleMenuChange}
-        />
+        <ToolsList tools={tools} onMenuChange={handleMenuChange} />
       )}
       {currentMenu === 'profile' && (
-        <ProfileReport onMenuChange={handleMenuChange}
-        />
+        <ProfileReport onMenuChange={handleMenuChange} />
       )}
     </Box>
   );

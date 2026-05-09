@@ -130,7 +130,10 @@ export class VersionedCacheManager {
    */
   generateCacheKey(pluginId: string, version: string): string {
     const input = `${pluginId}:${version}`;
-    const hash = createHash('sha256').update(input).digest('hex').substring(0, 16);
+    const hash = createHash('sha256')
+      .update(input)
+      .digest('hex')
+      .substring(0, 16);
     return `${pluginId}-${hash}`;
   }
 
@@ -182,7 +185,12 @@ export class VersionedCacheManager {
   /**
    * 设置缓存
    */
-  async set(key: string, version: string, path: string, metadata?: Record<string, unknown>): Promise<void> {
+  async set(
+    key: string,
+    version: string,
+    path: string,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
     await this.initialize();
 
     const cacheKey = this.generateCacheKey(key, version);
@@ -267,17 +275,25 @@ export class VersionedCacheManager {
 
     switch (this.config.evictionPolicy) {
       case 'lru':
-        entries.sort((a, b) => (this.accessLog.get(a[0]) || 0) - (this.accessLog.get(b[0]) || 0));
+        entries.sort(
+          (a, b) =>
+            (this.accessLog.get(a[0]) || 0) - (this.accessLog.get(b[0]) || 0)
+        );
         break;
 
       case 'fifo':
-        entries.sort((a, b) =>
-          new Date(a[1].createdAt).getTime() - new Date(b[1].createdAt).getTime()
+        entries.sort(
+          (a, b) =>
+            new Date(a[1].createdAt).getTime() -
+            new Date(b[1].createdAt).getTime()
         );
         break;
 
       case 'lfu':
-        entries.sort((a, b) => (this.accessLog.get(a[0]) || 0) - (this.accessLog.get(b[0]) || 0));
+        entries.sort(
+          (a, b) =>
+            (this.accessLog.get(a[0]) || 0) - (this.accessLog.get(b[0]) || 0)
+        );
         break;
 
       case 'size':
@@ -377,6 +393,6 @@ export class VersionedCacheManager {
   async getByVersion(version: string): Promise<CacheEntry[]> {
     await this.initialize();
     const entries = Array.from(this.index.values());
-    return entries.filter(e => e.version === version);
+    return entries.filter((e) => e.version === version);
   }
 }

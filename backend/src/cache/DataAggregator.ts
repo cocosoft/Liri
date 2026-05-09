@@ -30,19 +30,23 @@ export class DataAggregator {
   /**
    * 增量更新聚合数据
    */
-  async incrementData(aggregationKey: string, field: string, value: number): Promise<AggregatedData> {
+  async incrementData(
+    aggregationKey: string,
+    field: string,
+    value: number
+  ): Promise<AggregatedData> {
     const cacheKey = `${this.cacheKeyPrefix}${aggregationKey}`;
-    const existingData = await this.cache.get<AggregatedData>(cacheKey) || {};
-    
+    const existingData = (await this.cache.get<AggregatedData>(cacheKey)) || {};
+
     // 初始化聚合数据
     if (!existingData.count) existingData.count = 0;
     if (!existingData.sum) existingData.sum = 0;
-    
+
     // 更新聚合数据
     existingData.count++;
     existingData.sum += value;
     existingData.average = existingData.sum / existingData.count;
-    
+
     // 更新最小值和最大值
     if (existingData.min === undefined || value < existingData.min) {
       existingData.min = value;
@@ -50,13 +54,13 @@ export class DataAggregator {
     if (existingData.max === undefined || value > existingData.max) {
       existingData.max = value;
     }
-    
+
     // 更新最后更新时间
     existingData.lastUpdated = Date.now();
-    
+
     // 保存到缓存
     await this.cache.set(cacheKey, existingData);
-    
+
     logForDebugging(`数据已增量更新: ${aggregationKey}.${field} += ${value}`);
     return existingData;
   }
@@ -64,20 +68,23 @@ export class DataAggregator {
   /**
    * 批量增量更新聚合数据
    */
-  async batchIncrementData(aggregationKey: string, data: Record<string, number>): Promise<AggregatedData> {
+  async batchIncrementData(
+    aggregationKey: string,
+    data: Record<string, number>
+  ): Promise<AggregatedData> {
     const cacheKey = `${this.cacheKeyPrefix}${aggregationKey}`;
-    const existingData = await this.cache.get<AggregatedData>(cacheKey) || {};
-    
+    const existingData = (await this.cache.get<AggregatedData>(cacheKey)) || {};
+
     // 初始化聚合数据
     if (!existingData.count) existingData.count = 0;
     if (!existingData.sum) existingData.sum = 0;
-    
+
     // 批量更新
     for (const [field, value] of Object.entries(data)) {
       existingData[field] = (existingData[field] || 0) + value;
       existingData.sum += value;
       existingData.count++;
-      
+
       // 更新最小值和最大值
       if (existingData.min === undefined || value < existingData.min) {
         existingData.min = value;
@@ -86,16 +93,16 @@ export class DataAggregator {
         existingData.max = value;
       }
     }
-    
+
     // 更新平均值
     existingData.average = existingData.sum / existingData.count;
-    
+
     // 更新最后更新时间
     existingData.lastUpdated = Date.now();
-    
+
     // 保存到缓存
     await this.cache.set(cacheKey, existingData);
-    
+
     logForDebugging(`数据已批量更新: ${aggregationKey}`);
     return existingData;
   }
@@ -103,7 +110,9 @@ export class DataAggregator {
   /**
    * 获取聚合数据
    */
-  async getAggregatedData(aggregationKey: string): Promise<AggregatedData | undefined> {
+  async getAggregatedData(
+    aggregationKey: string
+  ): Promise<AggregatedData | undefined> {
     const cacheKey = `${this.cacheKeyPrefix}${aggregationKey}`;
     return await this.cache.get<AggregatedData>(cacheKey);
   }
@@ -120,24 +129,27 @@ export class DataAggregator {
   /**
    * 合并多个聚合数据
    */
-  async mergeAggregatedData(targetKey: string, sourceKeys: string[]): Promise<AggregatedData> {
+  async mergeAggregatedData(
+    targetKey: string,
+    sourceKeys: string[]
+  ): Promise<AggregatedData> {
     const mergedData: AggregatedData = {
       count: 0,
       sum: 0,
       lastUpdated: Date.now(),
     };
-    
+
     // 收集所有源数据
     const sourceDataList = await Promise.all(
-      sourceKeys.map(key => this.getAggregatedData(key))
+      sourceKeys.map((key) => this.getAggregatedData(key))
     );
-    
+
     // 合并数据
     for (const sourceData of sourceDataList) {
       if (sourceData) {
         mergedData.count = (mergedData.count || 0) + (sourceData.count || 0);
         mergedData.sum = (mergedData.sum || 0) + (sourceData.sum || 0);
-        
+
         // 更新最小值和最大值
         if (sourceData.min !== undefined) {
           if (mergedData.min === undefined || sourceData.min < mergedData.min) {
@@ -149,25 +161,29 @@ export class DataAggregator {
             mergedData.max = sourceData.max;
           }
         }
-        
+
         // 合并其他字段
         for (const [field, value] of Object.entries(sourceData)) {
-          if (!['count', 'sum', 'average', 'min', 'max', 'lastUpdated'].includes(field)) {
+          if (
+            !['count', 'sum', 'average', 'min', 'max', 'lastUpdated'].includes(
+              field
+            )
+          ) {
             mergedData[field] = (mergedData[field] || 0) + (value as number);
           }
         }
       }
     }
-    
+
     // 计算平均值
     if ((mergedData.count || 0) > 0) {
       mergedData.average = (mergedData.sum || 0) / (mergedData.count || 0);
     }
-    
+
     // 保存到缓存
     const cacheKey = `${this.cacheKeyPrefix}${targetKey}`;
     await this.cache.set(cacheKey, mergedData);
-    
+
     logForDebugging(`聚合数据已合并: ${targetKey}`);
     return mergedData;
   }
@@ -178,8 +194,8 @@ export class DataAggregator {
   async getAllAggregatedKeys(): Promise<string[]> {
     const keys = await this.cache.keys();
     return keys
-      .filter(key => key.startsWith(this.cacheKeyPrefix))
-      .map(key => key.replace(this.cacheKeyPrefix, ''));
+      .filter((key) => key.startsWith(this.cacheKeyPrefix))
+      .map((key) => key.replace(this.cacheKeyPrefix, ''));
   }
 
   /**
@@ -203,14 +219,24 @@ export class StatsAggregator extends DataAggregator {
   /**
    * 记录工具执行时间
    */
-  async recordToolExecutionTime(toolName: string, durationMs: number): Promise<AggregatedData> {
-    return this.incrementData(`tool_execution_${toolName}`, 'duration', durationMs);
+  async recordToolExecutionTime(
+    toolName: string,
+    durationMs: number
+  ): Promise<AggregatedData> {
+    return this.incrementData(
+      `tool_execution_${toolName}`,
+      'duration',
+      durationMs
+    );
   }
 
   /**
    * 记录API调用次数
    */
-  async recordApiCall(apiName: string, durationMs: number): Promise<AggregatedData> {
+  async recordApiCall(
+    apiName: string,
+    durationMs: number
+  ): Promise<AggregatedData> {
     return this.incrementData(`api_call_${apiName}`, 'duration', durationMs);
   }
 
@@ -231,7 +257,9 @@ export class StatsAggregator extends DataAggregator {
   /**
    * 获取工具执行统计
    */
-  async getToolExecutionStats(toolName: string): Promise<AggregatedData | undefined> {
+  async getToolExecutionStats(
+    toolName: string
+  ): Promise<AggregatedData | undefined> {
     return this.getAggregatedData(`tool_execution_${toolName}`);
   }
 

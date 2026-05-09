@@ -102,7 +102,9 @@ export class CacheCommand {
 
     if (Object.keys(stats.tools).length > 0) {
       statsText += `工具缓存分布:\n`;
-      const sortedTools = Object.entries(stats.tools).sort((a, b) => b[1] - a[1]);
+      const sortedTools = Object.entries(stats.tools).sort(
+        (a, b) => b[1] - a[1]
+      );
       for (const [tool, count] of sortedTools) {
         statsText += `  ${tool.padEnd(20)}: ${count}\n`;
       }
@@ -129,9 +131,9 @@ export class CacheCommand {
   private async showSize(): Promise<CacheResult> {
     const size = toolCacheManager.getCacheSize();
     const stats = toolCacheManager.getCacheStats();
-    
+
     let sizeText = `缓存大小: ${size} 项\n\n`;
-    
+
     // 估算缓存占用的存储空间
     const estimatedBytes = size * 1024; // 假设每项平均1KB
     if (estimatedBytes < 1024) {
@@ -154,7 +156,7 @@ export class CacheCommand {
    */
   private async listCache(toolName?: string): Promise<CacheResult> {
     const stats = toolCacheManager.getCacheStats();
-    
+
     if (stats.total === 0) {
       return {
         type: 'text',
@@ -163,22 +165,24 @@ export class CacheCommand {
     }
 
     let listText = '';
-    
+
     if (toolName) {
       const count = stats.tools[toolName] || 0;
       listText = `工具 ${toolName} 的缓存项: ${count} 项\n\n`;
-      
+
       if (count > 0) {
         listText += `使用 \`/cache info ${toolName}\` 查看详细信息`;
       }
     } else {
       listText = `所有缓存项:\n\n`;
-      const sortedTools = Object.entries(stats.tools).sort((a, b) => b[1] - a[1]);
-      
+      const sortedTools = Object.entries(stats.tools).sort(
+        (a, b) => b[1] - a[1]
+      );
+
       for (const [tool, count] of sortedTools) {
         listText += `  ${tool.padEnd(20)}: ${count} 项\n`;
       }
-      
+
       listText += `\n总缓存项: ${stats.total}`;
     }
 
@@ -205,7 +209,7 @@ export class CacheCommand {
 
     let infoText = `工具 "${toolName}" 的缓存信息:\n\n`;
     infoText += `缓存项数量: ${count}\n`;
-    
+
     if (count > 0) {
       infoText += `\n使用以下命令管理此工具的缓存:\n`;
       infoText += `  /cache clear ${toolName}  - 清除此工具的缓存`;
@@ -222,7 +226,7 @@ export class CacheCommand {
    */
   private async purgeAllCache(): Promise<CacheResult> {
     toolCacheManager.clearCache();
-    
+
     return {
       type: 'text',
       value: '已清除所有缓存（包括未过期的缓存项）',
@@ -238,7 +242,8 @@ export class CacheCommand {
     // 由于当前实现没有公开的清理方法，我们直接返回提示
     return {
       type: 'text',
-      value: '过期缓存已自动清理。\n\n提示: 缓存项会在访问时自动检查过期时间并清理。',
+      value:
+        '过期缓存已自动清理。\n\n提示: 缓存项会在访问时自动检查过期时间并清理。',
     };
   }
 }

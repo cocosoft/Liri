@@ -14,6 +14,8 @@ export const filesCommand: Command = {
   aliases: ['ls', 'dir'],
   argumentHint: '[list|find|view|tree|clean|help]',
   whenToUse: '当你需要管理或查看文件时',
-  load: async () => import('./Files.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Files.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

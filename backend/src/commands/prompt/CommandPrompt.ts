@@ -33,13 +33,14 @@ export class CommandPrompt {
    */
   constructor(options: CommandPromptOptions = {}) {
     this.promptText = options.prompt || 'PY_APP> ';
-    
+
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       prompt: this.promptText,
       historySize: options.historySize || 1000,
-      completer: options.autoComplete !== false ? this.completer.bind(this) : undefined,
+      completer:
+        options.autoComplete !== false ? this.completer.bind(this) : undefined,
     });
 
     this.setupEventHandlers();
@@ -84,15 +85,16 @@ export class CommandPrompt {
    * @param line 当前输入行
    * @param callback 回调函数
    */
-  private completer(line: string, callback: (err: any, result: [string[], string]) => void): void {
+  private completer(
+    line: string,
+    callback: (err: any, result: [string[], string]) => void
+  ): void {
     const commands = this.commandManager.getAllCommands();
-    const commandNames = commands.map(c => c.name);
-    
+    const commandNames = commands.map((c) => c.name);
+
     // 按前缀过滤命令
-    const matches = commandNames.filter((command) =>
-      command.startsWith(line)
-    );
-    
+    const matches = commandNames.filter((command) => command.startsWith(line));
+
     callback(null, [matches, line]);
   }
 
@@ -108,11 +110,15 @@ export class CommandPrompt {
       const args = parts.slice(1).join(' ');
 
       // 执行命令
-      const result = await this.commandManager.executeCommand(commandName, args, {});
-      
+      const result = await this.commandManager.executeCommand(
+        commandName,
+        args,
+        {}
+      );
+
       // 记录命令历史
       commandHistoryManager.addHistory(commandName, args, result.success);
-      
+
       // 显示结果
       if (result.data) {
         console.log(JSON.stringify(result.data, null, 2));
@@ -158,6 +164,8 @@ export class CommandPrompt {
  * @param options 选项
  * @returns 命令提示器实例
  */
-export function createCommandPrompt(options: CommandPromptOptions = {}): CommandPrompt {
+export function createCommandPrompt(
+  options: CommandPromptOptions = {}
+): CommandPrompt {
   return new CommandPrompt(options);
 }

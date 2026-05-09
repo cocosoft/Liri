@@ -93,7 +93,11 @@ interface FileInfo {
  */
 export interface SyncProgressCallback {
   onStart?: (totalFiles: number) => void;
-  onProgress?: (completedFiles: number, totalFiles: number, currentFile: string) => void;
+  onProgress?: (
+    completedFiles: number,
+    totalFiles: number,
+    currentFile: string
+  ) => void;
   onFileComplete?: (file: string, success: boolean) => void;
   onComplete?: (result: SyncResult) => void;
   onError?: (error: string, file?: string) => void;
@@ -223,7 +227,10 @@ export class RemoteFileSyncService {
   /**
    * 扫描本地目录
    */
-  private async scanLocalDirectory(dirPath: string, basePath: string): Promise<Map<string, FileInfo>> {
+  private async scanLocalDirectory(
+    dirPath: string,
+    basePath: string
+  ): Promise<Map<string, FileInfo>> {
     const files = new Map<string, FileInfo>();
 
     const scan = (currentPath: string) => {
@@ -232,7 +239,13 @@ export class RemoteFileSyncService {
       for (const entry of entries) {
         const relativePath = this.getRelativePath(entry.path, basePath);
 
-        if (this.shouldExclude(relativePath, ['node_modules/**', '.git/**', '*.log'])) {
+        if (
+          this.shouldExclude(relativePath, [
+            'node_modules/**',
+            '.git/**',
+            '*.log',
+          ])
+        ) {
           continue;
         }
 
@@ -251,7 +264,10 @@ export class RemoteFileSyncService {
   /**
    * 扫描远程目录
    */
-  private async scanRemoteDirectory(dirPath: string, basePath: string): Promise<Map<string, FileInfo>> {
+  private async scanRemoteDirectory(
+    dirPath: string,
+    basePath: string
+  ): Promise<Map<string, FileInfo>> {
     const files = new Map<string, FileInfo>();
 
     const scan = async (currentPath: string) => {
@@ -261,7 +277,13 @@ export class RemoteFileSyncService {
         for (const entry of entries) {
           const relativePath = this.getRelativePath(entry.path, basePath);
 
-          if (this.shouldExclude(relativePath, ['node_modules/**', '.git/**', '*.log'])) {
+          if (
+            this.shouldExclude(relativePath, [
+              'node_modules/**',
+              '.git/**',
+              '*.log',
+            ])
+          ) {
             continue;
           }
 
@@ -284,8 +306,14 @@ export class RemoteFileSyncService {
    * 比较文件差异
    */
   public async compareFiles(config: SyncConfig): Promise<FileDiff[]> {
-    const localFiles = await this.scanLocalDirectory(config.localPath, config.localPath);
-    const remoteFiles = await this.scanRemoteDirectory(config.remotePath, config.remotePath);
+    const localFiles = await this.scanLocalDirectory(
+      config.localPath,
+      config.localPath
+    );
+    const remoteFiles = await this.scanRemoteDirectory(
+      config.remotePath,
+      config.remotePath
+    );
 
     const diffs: FileDiff[] = [];
 
@@ -301,7 +329,10 @@ export class RemoteFileSyncService {
       const remoteFile = remoteFiles.get(relativePath);
 
       if (!remoteFile) {
-        if (config.direction === SyncDirection.UPLOAD || config.direction === SyncDirection.BIDIRECTIONAL) {
+        if (
+          config.direction === SyncDirection.UPLOAD ||
+          config.direction === SyncDirection.BIDIRECTIONAL
+        ) {
           diffs.push({
             path: relativePath,
             type: DiffType.ADDED,
@@ -315,7 +346,10 @@ export class RemoteFileSyncService {
           path: relativePath,
           type: DiffType.UNCHANGED,
         });
-      } else if (config.useChecksum && localFile.checksum !== remoteFile.checksum) {
+      } else if (
+        config.useChecksum &&
+        localFile.checksum !== remoteFile.checksum
+      ) {
         diffs.push({
           path: relativePath,
           type: DiffType.MODIFIED,
@@ -336,9 +370,15 @@ export class RemoteFileSyncService {
       }
     }
 
-    if (config.deleteOrphans || config.direction === SyncDirection.BIDIRECTIONAL) {
+    if (
+      config.deleteOrphans ||
+      config.direction === SyncDirection.BIDIRECTIONAL
+    ) {
       for (const [relativePath, remoteFile] of remoteFiles) {
-        if (!processedPaths.has(relativePath) && !this.shouldExclude(relativePath, config.excludePatterns || [])) {
+        if (
+          !processedPaths.has(relativePath) &&
+          !this.shouldExclude(relativePath, config.excludePatterns || [])
+        ) {
           diffs.push({
             path: relativePath,
             type: DiffType.DELETED,
@@ -376,9 +416,7 @@ export class RemoteFileSyncService {
       const diffs = await this.compareFiles(config);
       result.fileDiffs = diffs;
 
-      const filesToSync = diffs.filter(
-        (d) => d.type !== DiffType.UNCHANGED
-      );
+      const filesToSync = diffs.filter((d) => d.type !== DiffType.UNCHANGED);
 
       this.progressCallback?.onStart?.(filesToSync.length);
 
@@ -387,7 +425,10 @@ export class RemoteFileSyncService {
       for (const diff of filesToSync) {
         try {
           if (diff.type === DiffType.ADDED || diff.type === DiffType.MODIFIED) {
-            if (config.direction === SyncDirection.UPLOAD || config.direction === SyncDirection.BIDIRECTIONAL) {
+            if (
+              config.direction === SyncDirection.UPLOAD ||
+              config.direction === SyncDirection.BIDIRECTIONAL
+            ) {
               await this.uploadFile(diff, config);
               result.uploaded++;
               result.totalBytes += diff.size || 0;
@@ -407,18 +448,22 @@ export class RemoteFileSyncService {
           }
         } catch (error) {
           result.failed++;
-          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
           result.errors.push(`${diff.path}: ${errorMsg}`);
           this.progressCallback?.onError?.(errorMsg, diff.path);
         }
 
         completed++;
-        this.progressCallback?.onProgress?.(completed, filesToSync.length, diff.path);
+        this.progressCallback?.onProgress?.(
+          completed,
+          filesToSync.length,
+          diff.path
+        );
         this.progressCallback?.onFileComplete?.(diff.path, result.failed === 0);
       }
 
       result.success = result.failed === 0;
-
     } catch (error) {
       result.success = false;
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -456,7 +501,10 @@ export class RemoteFileSyncService {
   /**
    * 下载文件
    */
-  private async downloadFile(diff: FileDiff, config: SyncConfig): Promise<void> {
+  private async downloadFile(
+    diff: FileDiff,
+    config: SyncConfig
+  ): Promise<void> {
     const localPath = `${config.localPath}/${diff.path}`;
     const remotePath = `${config.remotePath}/${diff.path}`;
 
@@ -467,7 +515,10 @@ export class RemoteFileSyncService {
   /**
    * 删除远程文件
    */
-  private async deleteRemoteFile(diff: FileDiff, config: SyncConfig): Promise<void> {
+  private async deleteRemoteFile(
+    diff: FileDiff,
+    config: SyncConfig
+  ): Promise<void> {
     const remotePath = `${config.remotePath}/${diff.path}`;
     await this.remoteOps.delete(remotePath);
   }

@@ -1,6 +1,16 @@
-export type IncidentSeverity = 'critical' | 'major' | 'minor' | 'warning' | 'info';
+export type IncidentSeverity =
+  | 'critical'
+  | 'major'
+  | 'minor'
+  | 'warning'
+  | 'info';
 
-export type IncidentStatus = 'firing' | 'acknowledged' | 'investigating' | 'resolved' | 'closed';
+export type IncidentStatus =
+  | 'firing'
+  | 'acknowledged'
+  | 'investigating'
+  | 'resolved'
+  | 'closed';
 
 export interface Incident {
   id: string;
@@ -41,7 +51,11 @@ export interface IncidentStats {
 export interface IIncidentManager {
   createIncident(incident: Omit<Incident, 'id' | 'createdAt'>): Incident;
   getIncident(id: string): Incident | undefined;
-  updateStatus(id: string, status: IncidentStatus, meta?: { by?: string; resolution?: string }): boolean;
+  updateStatus(
+    id: string,
+    status: IncidentStatus,
+    meta?: { by?: string; resolution?: string }
+  ): boolean;
   listIncidents(filter?: IncidentFilter): Incident[];
   addRelatedAlert(incidentId: string, alertId: string): boolean;
   getStats(): IncidentStats;
@@ -72,7 +86,11 @@ export class IncidentManager implements IIncidentManager {
     return this.incidents.get(id);
   }
 
-  updateStatus(id: string, status: IncidentStatus, meta?: { by?: string; resolution?: string }): boolean {
+  updateStatus(
+    id: string,
+    status: IncidentStatus,
+    meta?: { by?: string; resolution?: string }
+  ): boolean {
     const incident = this.incidents.get(id);
     if (!incident) return false;
 
@@ -94,22 +112,24 @@ export class IncidentManager implements IIncidentManager {
     let results = Array.from(this.incidents.values());
 
     if (filter?.severity && filter.severity.length > 0) {
-      results = results.filter(i => filter.severity!.includes(i.severity));
+      results = results.filter((i) => filter.severity!.includes(i.severity));
     }
     if (filter?.status && filter.status.length > 0) {
-      results = results.filter(i => filter.status!.includes(i.status));
+      results = results.filter((i) => filter.status!.includes(i.status));
     }
     if (filter?.source) {
-      results = results.filter(i => i.source === filter.source);
+      results = results.filter((i) => i.source === filter.source);
     }
     if (filter?.startTime !== undefined) {
-      results = results.filter(i => i.createdAt >= filter.startTime!);
+      results = results.filter((i) => i.createdAt >= filter.startTime!);
     }
     if (filter?.endTime !== undefined) {
-      results = results.filter(i => i.createdAt <= filter.endTime!);
+      results = results.filter((i) => i.createdAt <= filter.endTime!);
     }
     if (filter?.tags && filter.tags.length > 0) {
-      results = results.filter(i => filter.tags!.some(t => i.tags.includes(t)));
+      results = results.filter((i) =>
+        filter.tags!.some((t) => i.tags.includes(t))
+      );
     }
 
     results.sort((a, b) => b.createdAt - a.createdAt);
@@ -130,8 +150,20 @@ export class IncidentManager implements IIncidentManager {
   }
 
   getStats(): IncidentStats {
-    const severities: IncidentSeverity[] = ['critical', 'major', 'minor', 'warning', 'info'];
-    const statuses: IncidentStatus[] = ['firing', 'acknowledged', 'investigating', 'resolved', 'closed'];
+    const severities: IncidentSeverity[] = [
+      'critical',
+      'major',
+      'minor',
+      'warning',
+      'info',
+    ];
+    const statuses: IncidentStatus[] = [
+      'firing',
+      'acknowledged',
+      'investigating',
+      'resolved',
+      'closed',
+    ];
 
     const bySeverity: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
@@ -149,7 +181,11 @@ export class IncidentManager implements IIncidentManager {
         totalResolutionTime += inc.resolvedAt - inc.acknowledgedAt;
         resolvedCount++;
       }
-      if (inc.severity === 'critical' && inc.status !== 'resolved' && inc.status !== 'closed') {
+      if (
+        inc.severity === 'critical' &&
+        inc.status !== 'resolved' &&
+        inc.status !== 'closed'
+      ) {
         openCriticalCount++;
       }
     }
@@ -158,7 +194,8 @@ export class IncidentManager implements IIncidentManager {
       total: this.incidents.size,
       bySeverity: bySeverity as Record<IncidentSeverity, number>,
       byStatus: byStatus as Record<IncidentStatus, number>,
-      averageResolutionTime: resolvedCount > 0 ? Math.round(totalResolutionTime / resolvedCount) : 0,
+      averageResolutionTime:
+        resolvedCount > 0 ? Math.round(totalResolutionTime / resolvedCount) : 0,
       openCriticalCount,
     };
   }

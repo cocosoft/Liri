@@ -5,7 +5,11 @@
  */
 
 import { logger } from '../utils/log.js';
-import { TerminalComponents, type TableColumn, type TableRow } from '../ui/TerminalComponents.js';
+import {
+  TerminalComponents,
+  type TableColumn,
+  type TableRow,
+} from '../ui/TerminalComponents.js';
 import chalk from 'chalk';
 
 /**
@@ -130,7 +134,10 @@ export class ModuleDependencyManager {
       try {
         await instance.definition.destroy();
       } catch (error) {
-        logger.error(`Error destroying module ${name}:`, error instanceof Error ? error : undefined);
+        logger.error(
+          `Error destroying module ${name}:`,
+          error instanceof Error ? error : undefined
+        );
       }
     }
 
@@ -203,7 +210,9 @@ export class ModuleDependencyManager {
       }
 
       if (visiting.has(name)) {
-        throw new Error(`Circular dependency detected involving module: ${name}`);
+        throw new Error(
+          `Circular dependency detected involving module: ${name}`
+        );
       }
 
       visiting.add(name);
@@ -214,7 +223,9 @@ export class ModuleDependencyManager {
           if (this.modules.has(dep)) {
             visit(dep);
           } else {
-            logger.warn(`Dependency ${dep} of module ${name} is not registered`);
+            logger.warn(
+              `Dependency ${dep} of module ${name} is not registered`
+            );
           }
         }
       }
@@ -248,16 +259,18 @@ export class ModuleDependencyManager {
     const cycles = this.detectCircularDependencies();
     if (cycles.length > 0) {
       throw new Error(
-        `Circular dependencies detected: ${cycles.map(c => c.join(' -> ')).join(', ')}`
+        `Circular dependencies detected: ${cycles.map((c) => c.join(' -> ')).join(', ')}`
       );
     }
 
     const order = this.calculateLoadOrder();
 
     TerminalComponents.printHeader('模块初始化');
-    TerminalComponents.printInfo(`发现 ${order.length} 个模块，按依赖顺序初始化...`);
+    TerminalComponents.printInfo(
+      `发现 ${order.length} 个模块，按依赖顺序初始化...`
+    );
 
-    const steps = order.map(name => ({
+    const steps = order.map((name) => ({
       title: name,
       status: 'pending' as const,
     }));
@@ -289,7 +302,10 @@ export class ModuleDependencyManager {
         instance.status = ModuleStatus.ERROR;
         instance.error = error instanceof Error ? error.message : String(error);
         (steps[i] as any).status = 'error';
-        logger.error(`Failed to initialize module ${name}:`, error instanceof Error ? error : undefined);
+        logger.error(
+          `Failed to initialize module ${name}:`,
+          error instanceof Error ? error : undefined
+        );
 
         // 检查是否是可选依赖
         const isOptional = this.isOptionalDependency(name);
@@ -313,7 +329,11 @@ export class ModuleDependencyManager {
   /**
    * 获取所有模块状态
    */
-  getAllModuleStatus(): Array<{ name: string; status: ModuleStatus; error?: string }> {
+  getAllModuleStatus(): Array<{
+    name: string;
+    status: ModuleStatus;
+    error?: string;
+  }> {
     return Array.from(this.modules.entries()).map(([name, instance]) => ({
       name,
       status: instance.status,
@@ -413,10 +433,12 @@ export class ModuleDependencyManager {
     TerminalComponents.printHeader('模块状态概览');
 
     const status = this.getAllModuleStatus();
-    const ready = status.filter(s => s.status === ModuleStatus.READY).length;
-    const error = status.filter(s => s.status === ModuleStatus.ERROR).length;
+    const ready = status.filter((s) => s.status === ModuleStatus.READY).length;
+    const error = status.filter((s) => s.status === ModuleStatus.ERROR).length;
     const loading = status.filter(
-      s => s.status === ModuleStatus.LOADING || s.status === ModuleStatus.INITIALIZING
+      (s) =>
+        s.status === ModuleStatus.LOADING ||
+        s.status === ModuleStatus.INITIALIZING
     ).length;
 
     TerminalComponents.printKeyValue([
@@ -427,7 +449,7 @@ export class ModuleDependencyManager {
     ]);
 
     if (status.length > 0) {
-      const rows = status.map(s => {
+      const rows = status.map((s) => {
         const statusColor =
           s.status === ModuleStatus.READY
             ? 'green'
@@ -438,8 +460,8 @@ export class ModuleDependencyManager {
       });
 
       TerminalComponents.printTable(
-        ['模块', '状态', '错误'].map(h => ({ header: h, width: 15 })),
-        rows.map(r => ({ cells: r }))
+        ['模块', '状态', '错误'].map((h) => ({ header: h, width: 15 })),
+        rows.map((r) => ({ cells: r }))
       );
     }
   }

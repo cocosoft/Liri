@@ -54,7 +54,7 @@ export class AIStateSyncService {
     const availableModels = this.modelManager.getAvailableModels();
     const modelAliases = this.modelManager.getModelAliases();
 
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       model: resolvedModel,
       modelAlias: model !== resolvedModel ? model : null,
@@ -67,9 +67,11 @@ export class AIStateSyncService {
    */
   getAIState(): AIState {
     const state = this.store.getState();
-    const currentModel = state.model || this.modelStringService.getDefaultMainLoopModel();
-    const resolvedModel = this.modelManager.parseUserSpecifiedModel(currentModel);
-    
+    const currentModel =
+      state.model || this.modelStringService.getDefaultMainLoopModel();
+    const resolvedModel =
+      this.modelManager.parseUserSpecifiedModel(currentModel);
+
     return {
       currentModel: resolvedModel,
       modelAlias: state.modelAlias,

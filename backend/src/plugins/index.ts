@@ -9,16 +9,16 @@ import PluginLifecycleManager from './core/PluginLifecycleManager';
 import PluginDependencyManager from './management/PluginDependencyManager';
 import PluginConfigManager from './management/PluginConfigManager';
 import PluginEventSystem from './core/PluginEventSystem';
-import { 
-  PluginState, 
-  PluginType, 
-  PluginMetadata, 
-  PluginConfig, 
-  LoadedPlugin, 
-  PluginLoaderOptions, 
+import {
+  PluginState,
+  PluginType,
+  PluginMetadata,
+  PluginConfig,
+  LoadedPlugin,
+  PluginLoaderOptions,
   PluginLoadResult,
   PluginEventType,
-  PluginEvent
+  PluginEvent,
 } from './types/PluginTypes';
 
 /**
@@ -43,7 +43,7 @@ export class PluginSystem {
     this.dependencyManager = new PluginDependencyManager();
     this.configManager = new PluginConfigManager();
     this.eventSystem = new PluginEventSystem();
-    
+
     this.setupEventForwarding();
   }
 
@@ -67,7 +67,7 @@ export class PluginSystem {
         type: PluginEventType.STATE_CHANGED,
         pluginId: data.context.plugin?.id,
         data: data,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
       this.eventSystem.publishEvent(event);
     });
@@ -78,7 +78,7 @@ export class PluginSystem {
         type: PluginEventType.CONFIG_UPDATED,
         pluginId: data.pluginId,
         data: data,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
       this.eventSystem.publishEvent(event);
     });
@@ -102,18 +102,19 @@ export class PluginSystem {
     try {
       // 初始化加载器
       await this.loader.initialize();
-      
+
       // 注册已加载的插件
       const plugins = this.loader.getAllPlugins();
-      
+
       for (const plugin of plugins) {
         await this.registerPlugin(plugin);
       }
-      
+
       this.isInitialized = true;
-      
-      console.log(`✅ Plugin system initialized with ${plugins.length} plugins`);
-      
+
+      console.log(
+        `✅ Plugin system initialized with ${plugins.length} plugins`
+      );
     } catch (error) {
       console.error('❌ Failed to initialize plugin system:', error);
       throw error;
@@ -135,7 +136,7 @@ export class PluginSystem {
         registeredAt: new Date(),
         enabled: true,
         dependencies: [],
-        dependents: []
+        dependents: [],
       });
 
       // 添加到生命周期管理器
@@ -148,12 +149,11 @@ export class PluginSystem {
         version: plugin.version,
         description: 'Auto-generated metadata',
         author: 'System',
-        type: PluginType.TOOL
+        type: PluginType.TOOL,
       };
       this.dependencyManager.addPlugin(metadata);
 
       console.log(`✅ Plugin registered: ${plugin.id}`);
-      
     } catch (error) {
       console.error(`❌ Failed to register plugin ${plugin.id}:`, error);
       throw error;
@@ -169,11 +169,11 @@ export class PluginSystem {
     }
 
     const result = await this.loader.loadPlugin(pluginId);
-    
+
     if (result.success && result.plugin) {
       await this.registerPlugin(result.plugin);
     }
-    
+
     return result;
   }
 
@@ -187,16 +187,16 @@ export class PluginSystem {
 
     // 先停止插件
     await this.lifecycleManager.stopPlugin(pluginId);
-    
+
     // 然后卸载
     const result = await this.loader.unloadPlugin(pluginId);
-    
+
     if (result.success) {
       this.registry.unregisterPlugin(pluginId);
       this.lifecycleManager.unregisterPlugin(pluginId);
       this.dependencyManager.removePlugin(pluginId);
     }
-    
+
     return result;
   }
 
@@ -339,16 +339,16 @@ export class PluginSystem {
         total: pluginStats.total,
         activated: pluginStats.activated,
         deactivated: pluginStats.deactivated,
-        failed: pluginStats.failed
+        failed: pluginStats.failed,
       },
       events: {
         total: eventStats.totalEvents,
-        recent: eventStats.recentEvents
+        recent: eventStats.recentEvents,
       },
       configs: {
         configured: configStats.configuredPlugins,
-        total: configStats.totalPlugins
-      }
+        total: configStats.totalPlugins,
+      },
     };
   }
 
@@ -361,7 +361,7 @@ export class PluginSystem {
     try {
       // 停止所有插件
       await this.stopAllPlugins();
-      
+
       // 销毁所有组件
       await this.loader.destroy();
       this.registry.clear();
@@ -369,11 +369,10 @@ export class PluginSystem {
       this.dependencyManager.clear();
       this.configManager.clear();
       this.eventSystem.destroy();
-      
+
       this.isInitialized = false;
-      
+
       console.log('✅ Plugin system destroyed');
-      
     } catch (error) {
       console.error('❌ Failed to destroy plugin system:', error);
       throw error;
@@ -427,7 +426,17 @@ export class PluginSystem {
 export const pluginSystem = new PluginSystem();
 
 // 导出类型
-export type { PluginState, PluginType, PluginMetadata, PluginConfig, LoadedPlugin, PluginLoaderOptions, PluginLoadResult, PluginEventType, PluginEvent } from './types/PluginTypes';
+export type {
+  PluginState,
+  PluginType,
+  PluginMetadata,
+  PluginConfig,
+  LoadedPlugin,
+  PluginLoaderOptions,
+  PluginLoadResult,
+  PluginEventType,
+  PluginEvent,
+} from './types/PluginTypes';
 export { default as PluginLoader } from './core/PluginLoader';
 export { default as PluginRegistry } from './core/PluginRegistry';
 export { default as PluginLifecycleManager } from './core/PluginLifecycleManager';

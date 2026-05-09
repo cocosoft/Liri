@@ -32,13 +32,16 @@ export class ErrorHandler {
    * @param error 应用错误
    * @param context 额外上下文
    */
-  private static handleAppError(error: AppError, context?: Record<string, any>): void {
+  private static handleAppError(
+    error: AppError,
+    context?: Record<string, any>
+  ): void {
     // 记录错误到监控器
     errorMonitor.recordError(error);
 
     // 根据错误严重程度选择日志级别
     const logLevel = this.getLogLevelFromSeverity(error.severity);
-    
+
     // 使用错误格式化器格式化错误消息
     const formattedMessage = ErrorFormatter.format(error);
 
@@ -61,13 +64,16 @@ export class ErrorHandler {
    * @param error 未知错误
    * @param context 额外上下文
    */
-  private static handleUnknownError(error: Error, context?: Record<string, any>): void {
+  private static handleUnknownError(
+    error: Error,
+    context?: Record<string, any>
+  ): void {
     // 将未知错误转换为AppError
     const appError = ErrorUtils.toAppError(error);
-    
+
     // 记录到监控器
     errorMonitor.recordError(appError);
-    
+
     // 格式化并记录
     const formattedMessage = ErrorFormatter.format(error);
     logger.error(formattedMessage, error, {
@@ -103,7 +109,12 @@ export class ErrorHandler {
    * @param error 错误对象
    * @param context 上下文
    */
-  private static logError(level: LogLevel, message: string, error: Error, context?: Record<string, any>): void {
+  private static logError(
+    level: LogLevel,
+    message: string,
+    error: Error,
+    context?: Record<string, any>
+  ): void {
     switch (level) {
       case LogLevel.FATAL:
         logger.fatal(message, error, context);
@@ -130,9 +141,10 @@ export class ErrorHandler {
    */
   static handleSafely(error: Error, context?: Record<string, any>): void {
     SafeLogger.logError(error, context);
-    
+
     // 同时记录到监控器
-    const appError = error instanceof AppError ? error : ErrorUtils.toAppError(error);
+    const appError =
+      error instanceof AppError ? error : ErrorUtils.toAppError(error);
     errorMonitor.recordError(appError);
   }
 

@@ -66,24 +66,37 @@ export class AdvancedCommandHistory implements IAdvancedCommandHistory {
     }
   }
 
-  query(q: HistoryQuery, limit: number = 50, offset: number = 0): HistoryEntry[] {
+  query(
+    q: HistoryQuery,
+    limit: number = 50,
+    offset: number = 0
+  ): HistoryEntry[] {
     let filtered = [...this.entries];
 
     if (q.command) {
       const lower = q.command.toLowerCase();
-      filtered = filtered.filter(e => e.command.toLowerCase().includes(lower));
+      filtered = filtered.filter((e) =>
+        e.command.toLowerCase().includes(lower)
+      );
     }
-    if (q.fromDate) filtered = filtered.filter(e => e.timestamp >= q.fromDate!);
-    if (q.toDate) filtered = filtered.filter(e => e.timestamp <= q.toDate!);
-    if (q.success !== undefined) filtered = filtered.filter(e => e.success === q.success);
+    if (q.fromDate)
+      filtered = filtered.filter((e) => e.timestamp >= q.fromDate!);
+    if (q.toDate) filtered = filtered.filter((e) => e.timestamp <= q.toDate!);
+    if (q.success !== undefined)
+      filtered = filtered.filter((e) => e.success === q.success);
     if (q.tags && q.tags.length > 0) {
-      filtered = filtered.filter(e => e.tags && q.tags!.some(t => e.tags!.includes(t)));
+      filtered = filtered.filter(
+        (e) => e.tags && q.tags!.some((t) => e.tags!.includes(t))
+      );
     }
-    if (q.sessionId) filtered = filtered.filter(e => e.sessionId === q.sessionId);
+    if (q.sessionId)
+      filtered = filtered.filter((e) => e.sessionId === q.sessionId);
     if (q.text) {
       const lower = q.text.toLowerCase();
-      filtered = filtered.filter(e =>
-        e.command.toLowerCase().includes(lower) || e.args.toLowerCase().includes(lower)
+      filtered = filtered.filter(
+        (e) =>
+          e.command.toLowerCase().includes(lower) ||
+          e.args.toLowerCase().includes(lower)
       );
     }
 
@@ -102,8 +115,11 @@ export class AdvancedCommandHistory implements IAdvancedCommandHistory {
 
     const stats: CommandStats[] = [];
     for (const [cmd, entries] of groups) {
-      const successful = entries.filter(e => e.success);
-      const totalDuration = entries.reduce((sum, e) => sum + (e.duration || 0), 0);
+      const successful = entries.filter((e) => e.success);
+      const totalDuration = entries.reduce(
+        (sum, e) => sum + (e.duration || 0),
+        0
+      );
       stats.push({
         command: cmd,
         totalExecutions: entries.length,
@@ -111,8 +127,8 @@ export class AdvancedCommandHistory implements IAdvancedCommandHistory {
         failedExecutions: entries.length - successful.length,
         avgDuration: entries.length > 0 ? totalDuration / entries.length : 0,
         totalDuration,
-        lastUsed: Math.max(...entries.map(e => e.timestamp)),
-        firstUsed: Math.min(...entries.map(e => e.timestamp)),
+        lastUsed: Math.max(...entries.map((e) => e.timestamp)),
+        firstUsed: Math.min(...entries.map((e) => e.timestamp)),
         favorite: this.favorites.has(cmd),
       });
     }
@@ -127,11 +143,16 @@ export class AdvancedCommandHistory implements IAdvancedCommandHistory {
     for (let i = intervals - 1; i >= 0; i--) {
       const start = now - (i + 1) * periodMs;
       const end = now - i * periodMs;
-      const periodEntries = this.entries.filter(e => e.timestamp >= start && e.timestamp < end);
+      const periodEntries = this.entries.filter(
+        (e) => e.timestamp >= start && e.timestamp < end
+      );
 
-      const uniqueCommands = new Set(periodEntries.map(e => e.command));
-      const successful = periodEntries.filter(e => e.success);
-      const totalDuration = periodEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+      const uniqueCommands = new Set(periodEntries.map((e) => e.command));
+      const successful = periodEntries.filter((e) => e.success);
+      const totalDuration = periodEntries.reduce(
+        (sum, e) => sum + (e.duration || 0),
+        0
+      );
 
       const startDate = new Date(start);
       const period = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
@@ -140,8 +161,12 @@ export class AdvancedCommandHistory implements IAdvancedCommandHistory {
         period,
         totalCommands: periodEntries.length,
         uniqueCommands: uniqueCommands.size,
-        successRate: periodEntries.length > 0 ? successful.length / periodEntries.length : 1,
-        avgDuration: periodEntries.length > 0 ? totalDuration / periodEntries.length : 0,
+        successRate:
+          periodEntries.length > 0
+            ? successful.length / periodEntries.length
+            : 1,
+        avgDuration:
+          periodEntries.length > 0 ? totalDuration / periodEntries.length : 0,
       });
     }
 
@@ -149,7 +174,7 @@ export class AdvancedCommandHistory implements IAdvancedCommandHistory {
   }
 
   getFavorites(): HistoryEntry[] {
-    return this.entries.filter(e => this.favorites.has(e.command));
+    return this.entries.filter((e) => this.favorites.has(e.command));
   }
 
   toggleFavorite(command: string): boolean {
@@ -163,7 +188,7 @@ export class AdvancedCommandHistory implements IAdvancedCommandHistory {
   }
 
   getReplaySequence(from: number, to: number): HistoryEntry[] {
-    return this.entries.filter(e => e.timestamp >= from && e.timestamp <= to);
+    return this.entries.filter((e) => e.timestamp >= from && e.timestamp <= to);
   }
 
   clear(): number {

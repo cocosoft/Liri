@@ -4,42 +4,43 @@
  * 管理 AWS 凭证的获取、缓存和验证。
  * 无第三方 SDK 依赖，通过 child_process 调用 AWS CLI 获取凭证。
  */
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import { readFileSync, existsSync } from 'fs'
-import { homedir } from 'os'
-import { join } from 'path'
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { readFileSync, existsSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 
-const execAsync = promisify(exec)
+const execAsync = promisify(exec);
 
 /**
  * AWS 短期凭证格式
  */
 export interface AwsCredentials {
-  AccessKeyId: string
-  SecretAccessKey: string
-  SessionToken: string
-  Expiration?: string
+  AccessKeyId: string;
+  SecretAccessKey: string;
+  SessionToken: string;
+  Expiration?: string;
 }
 
 /**
  * AWS STS 输出格式
  */
 export interface AwsStsOutput {
-  Credentials: AwsCredentials
+  Credentials: AwsCredentials;
 }
 
 /**
  * 验证 AWS STS assume-role 输出
  */
 export function isValidAwsStsOutput(obj: unknown): obj is AwsStsOutput {
-  if (!obj || typeof obj !== 'object') return false
+  if (!obj || typeof obj !== 'object') return false;
 
-  const output = obj as Record<string, unknown>
+  const output = obj as Record<string, unknown>;
 
-  if (!output.Credentials || typeof output.Credentials !== 'object') return false
+  if (!output.Credentials || typeof output.Credentials !== 'object')
+    return false;
 
-  const credentials = output.Credentials as Record<string, unknown>
+  const credentials = output.Credentials as Record<string, unknown>;
 
   return (
     typeof credentials.AccessKeyId === 'string' &&
@@ -48,14 +49,16 @@ export function isValidAwsStsOutput(obj: unknown): obj is AwsStsOutput {
     credentials.AccessKeyId.length > 0 &&
     credentials.SecretAccessKey.length > 0 &&
     credentials.SessionToken.length > 0
-  )
+  );
 }
 
 /**
  * 检查错误是否为凭证提供者错误
  */
 export function isAwsCredentialsProviderError(err: unknown): boolean {
-  return (err as { name?: string } | undefined)?.name === 'CredentialsProviderError'
+  return (
+    (err as { name?: string } | undefined)?.name === 'CredentialsProviderError'
+  );
 }
 
 /**
@@ -69,53 +72,53 @@ export function isAwsCredentialsProviderError(err: unknown): boolean {
 export function parseAwsCredentialsFile(
   profile: string = 'default'
 ): AwsCredentials | null {
-  const credPath = join(homedir(), '.aws', 'credentials')
+  const credPath = join(homedir(), '.aws', 'credentials');
 
-  if (!existsSync(credPath)) return null
+  if (!existsSync(credPath)) return null;
 
   try {
-    const content = readFileSync(credPath, 'utf-8')
-    const lines = content.split('\n')
+    const content = readFileSync(credPath, 'utf-8');
+    const lines = content.split('\n');
 
-    let currentProfile: string | null = null
-    let accessKeyId = ''
-    let secretAccessKey = ''
-    let sessionToken = ''
-    let inTargetProfile = false
+    let currentProfile: string | null = null;
+    let accessKeyId = '';
+    let secretAccessKey = '';
+    let sessionToken = '';
+    let inTargetProfile = false;
 
     for (const line of lines) {
-      const trimmed = line.trim()
+      const trimmed = line.trim();
 
       // 空行或注释
-      if (!trimmed || trimmed.startsWith('#')) continue
+      if (!trimmed || trimmed.startsWith('#')) continue;
 
       // Profile 头
-      const profileMatch = trimmed.match(/^\[(.+)\]$/)
+      const profileMatch = trimmed.match(/^\[(.+)\]$/);
       if (profileMatch) {
-        currentProfile = profileMatch[1]
-        inTargetProfile = currentProfile === profile
-        continue
+        currentProfile = profileMatch[1];
+        inTargetProfile = currentProfile === profile;
+        continue;
       }
 
-      if (!inTargetProfile) continue
+      if (!inTargetProfile) continue;
 
       // Key=Value 行
-      const kvMatch = trimmed.match(/^([a-zA-Z_]+)\s*=\s*(.+)$/)
-      if (!kvMatch) continue
+      const kvMatch = trimmed.match(/^([a-zA-Z_]+)\s*=\s*(.+)$/);
+      if (!kvMatch) continue;
 
-      const key = kvMatch[1]
-      const value = kvMatch[2]
+      const key = kvMatch[1];
+      const value = kvMatch[2];
 
       switch (key) {
         case 'aws_access_key_id':
-          accessKeyId = value
-          break
+          accessKeyId = value;
+          break;
         case 'aws_secret_access_key':
-          secretAccessKey = value
-          break
+          secretAccessKey = value;
+          break;
         case 'aws_session_token':
-          sessionToken = value
-          break
+          sessionToken = value;
+          break;
       }
     }
 
@@ -124,12 +127,12 @@ export function parseAwsCredentialsFile(
         AccessKeyId: accessKeyId,
         SecretAccessKey: secretAccessKey,
         SessionToken: sessionToken,
-      }
+      };
     }
 
-    return null
+    return null;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -144,16 +147,16 @@ export async function checkStsCallerIdentity(): Promise<void> {
   try {
     const { stdout } = await execAsync('aws sts get-caller-identity', {
       timeout: 10000,
-    })
-    const result = JSON.parse(stdout)
+    });
+    const result = JSON.parse(stdout);
     if (!result.Arn) {
-      throw new Error('Unable to retrieve caller identity')
+      throw new Error('Unable to retrieve caller identity');
     }
   } catch (error) {
     throw new Error(
       `AWS STS caller identity check failed: ` +
-      `${error instanceof Error ? error.message : String(error)}`
-    )
+        `${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -170,13 +173,13 @@ export async function getAwsCredentials(): Promise<AwsCredentials> {
     const { stdout } = await execAsync(
       'aws configure export-credentials --format json',
       { timeout: 10000 }
-    )
-    return JSON.parse(stdout) as AwsCredentials
+    );
+    return JSON.parse(stdout) as AwsCredentials;
   } catch (error) {
     throw new Error(
       `Failed to get AWS credentials: ` +
-      `${error instanceof Error ? error.message : String(error)}`
-    )
+        `${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -189,10 +192,10 @@ export async function getAwsCredentials(): Promise<AwsCredentials> {
  */
 export async function hasAwsCredentials(): Promise<boolean> {
   try {
-    await getAwsCredentials()
-    return true
+    await getAwsCredentials();
+    return true;
   } catch {
-    const creds = parseAwsCredentialsFile()
-    return creds !== null
+    const creds = parseAwsCredentialsFile();
+    return creds !== null;
   }
 }

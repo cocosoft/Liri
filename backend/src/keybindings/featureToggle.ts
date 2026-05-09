@@ -48,21 +48,22 @@ export interface FeatureToggleState {
 export class FeatureToggleManager {
   private features: Map<string, FeatureToggleConfig> = new Map();
   private states: Map<string, FeatureToggleState> = new Map();
-  private listeners: Set<(feature: string, enabled: boolean) => void> = new Set();
+  private listeners: Set<(feature: string, enabled: boolean) => void> =
+    new Set();
 
   /**
    * 注册特性
    */
   registerFeature(config: FeatureToggleConfig): void {
     this.features.set(config.name, config);
-    
+
     // 初始化状态
     if (!this.states.has(config.name)) {
       this.states.set(config.name, {
         name: config.name,
         enabled: config.enabledByDefault,
         enableCount: config.enabledByDefault ? 1 : 0,
-        enabledAt: config.enabledByDefault ? new Date() : undefined
+        enabledAt: config.enabledByDefault ? new Date() : undefined,
       });
     }
   }
@@ -78,7 +79,7 @@ export class FeatureToggleManager {
     }
 
     const state = this.states.get(name)!;
-    
+
     // 检查依赖
     if (config.dependencies) {
       for (const dep of config.dependencies) {
@@ -123,7 +124,7 @@ export class FeatureToggleManager {
     }
 
     const state = this.states.get(name)!;
-    
+
     // 检查是否有特性依赖此特性
     for (const [otherName, otherConfig] of this.features) {
       if (otherConfig.dependencies?.includes(name)) {
@@ -217,14 +218,14 @@ export class FeatureToggleManager {
    * 根据特性过滤绑定
    */
   filterBindingsByFeatures(bindings: ParsedBinding[]): ParsedBinding[] {
-    return bindings.filter(binding => {
+    return bindings.filter((binding) => {
       // 检查绑定是否属于某个特性
       for (const [featureName, config] of this.features) {
         if (config.actions.includes(binding.action)) {
           return this.isFeatureEnabled(featureName);
         }
       }
-      
+
       // 不属于任何特性的绑定默认启用
       return true;
     });
@@ -261,7 +262,7 @@ export class FeatureToggleManager {
       name: config.name,
       enabled: config.enabledByDefault,
       enableCount: config.enabledByDefault ? 1 : 0,
-      enabledAt: config.enabledByDefault ? new Date() : undefined
+      enabledAt: config.enabledByDefault ? new Date() : undefined,
     });
 
     this.notifyListeners(name, config.enabledByDefault);
@@ -318,8 +319,8 @@ export const DEFAULT_FEATURE_CONFIGS: FeatureToggleConfig[] = [
       'app:quickOpen',
       'app:globalSearch',
       'history:search',
-      'app:switchWindow'
-    ]
+      'app:switchWindow',
+    ],
   },
   {
     name: 'productivity',
@@ -331,19 +332,14 @@ export const DEFAULT_FEATURE_CONFIGS: FeatureToggleConfig[] = [
       'app:clearAll',
       'app:reload',
       'app:undo',
-      'app:copy'
-    ]
+      'app:copy',
+    ],
   },
   {
     name: 'developerTools',
     description: '开发者工具',
     enabledByDefault: false,
-    actions: [
-      'dev:debug',
-      'dev:profile',
-      'dev:inspect',
-      'dev:console'
-    ]
+    actions: ['dev:debug', 'dev:profile', 'dev:inspect', 'dev:console'],
   },
   {
     name: 'accessibility',
@@ -353,20 +349,16 @@ export const DEFAULT_FEATURE_CONFIGS: FeatureToggleConfig[] = [
       'access:highContrast',
       'access:screenReader',
       'access:zoom',
-      'access:voiceControl'
-    ]
+      'access:voiceControl',
+    ],
   },
   {
     name: 'experimental',
     description: '实验性功能',
     enabledByDefault: false,
     dependencies: ['developerTools'],
-    actions: [
-      'exp:aiAssist',
-      'exp:autoComplete',
-      'exp:smartSuggest'
-    ]
-  }
+    actions: ['exp:aiAssist', 'exp:autoComplete', 'exp:smartSuggest'],
+  },
 ];
 
 /**
@@ -374,11 +366,11 @@ export const DEFAULT_FEATURE_CONFIGS: FeatureToggleConfig[] = [
  */
 export function createDefaultFeatureManager(): FeatureToggleManager {
   const manager = new FeatureToggleManager();
-  
+
   for (const config of DEFAULT_FEATURE_CONFIGS) {
     manager.registerFeature(config);
   }
-  
+
   return manager;
 }
 
@@ -395,17 +387,22 @@ export function createFeatureAwareKeybindingProvider(
 /**
  * 特性状态钩子
  */
-export function useFeatureToggle(featureManager: FeatureToggleManager, featureName: string) {
-  const [enabled, setEnabled] = React.useState(() => 
+export function useFeatureToggle(
+  featureManager: FeatureToggleManager,
+  featureName: string
+) {
+  const [enabled, setEnabled] = React.useState(() =>
     featureManager.isFeatureEnabled(featureName)
   );
 
   React.useEffect(() => {
-    const unsubscribe = featureManager.subscribe((changedFeature, isEnabled) => {
-      if (changedFeature === featureName) {
-        setEnabled(isEnabled);
+    const unsubscribe = featureManager.subscribe(
+      (changedFeature, isEnabled) => {
+        if (changedFeature === featureName) {
+          setEnabled(isEnabled);
+        }
       }
-    });
+    );
 
     return unsubscribe;
   }, [featureManager, featureName]);
@@ -427,32 +424,36 @@ export function useFeatureToggle(featureManager: FeatureToggleManager, featureNa
     enable,
     disable,
     toggle,
-    state: featureManager.getFeatureState(featureName)
+    state: featureManager.getFeatureState(featureName),
   };
 }
 
 /**
  * 特性切换命令
  */
-export function createFeatureToggleCommands(featureManager: FeatureToggleManager) {
+export function createFeatureToggleCommands(
+  featureManager: FeatureToggleManager
+) {
   return {
     /** 启用特性 */
     enable: (featureName: string) => featureManager.enableFeature(featureName),
-    
+
     /** 禁用特性 */
-    disable: (featureName: string) => featureManager.disableFeature(featureName),
-    
+    disable: (featureName: string) =>
+      featureManager.disableFeature(featureName),
+
     /** 切换特性 */
     toggle: (featureName: string) => featureManager.toggleFeature(featureName),
-    
+
     /** 检查特性状态 */
-    status: (featureName: string) => featureManager.isFeatureEnabled(featureName),
-    
+    status: (featureName: string) =>
+      featureManager.isFeatureEnabled(featureName),
+
     /** 列出所有特性 */
     list: () => featureManager.getAllFeatureStates(),
-    
+
     /** 重置特性 */
-    reset: (featureName: string) => featureManager.resetFeature(featureName)
+    reset: (featureName: string) => featureManager.resetFeature(featureName),
   };
 }
 
@@ -461,18 +462,23 @@ export function createFeatureToggleCommands(featureManager: FeatureToggleManager
  */
 export function getFeatureStatistics(featureManager: FeatureToggleManager) {
   const states = featureManager.getAllFeatureStates();
-  
+
   return {
     totalFeatures: states.length,
-    enabledFeatures: states.filter(s => s.enabled).length,
-    disabledFeatures: states.filter(s => !s.enabled).length,
+    enabledFeatures: states.filter((s) => s.enabled).length,
+    disabledFeatures: states.filter((s) => !s.enabled).length,
     totalEnableCount: states.reduce((sum, s) => sum + s.enableCount, 0),
-    mostUsedFeature: states.reduce((most, current) => 
-      current.enableCount > (most?.enableCount || 0) ? current : most
-    , undefined as FeatureToggleState | undefined),
+    mostUsedFeature: states.reduce(
+      (most, current) =>
+        current.enableCount > (most?.enableCount || 0) ? current : most,
+      undefined as FeatureToggleState | undefined
+    ),
     recentlyUsedFeatures: states
-      .filter(s => s.lastUsedAt)
-      .sort((a, b) => new Date(b.lastUsedAt!).getTime() - new Date(a.lastUsedAt!).getTime())
-      .slice(0, 5)
+      .filter((s) => s.lastUsedAt)
+      .sort(
+        (a, b) =>
+          new Date(b.lastUsedAt!).getTime() - new Date(a.lastUsedAt!).getTime()
+      )
+      .slice(0, 5),
   };
 }

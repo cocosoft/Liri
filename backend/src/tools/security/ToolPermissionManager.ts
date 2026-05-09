@@ -3,12 +3,12 @@
  * 负责工具权限的验证和管理
  */
 
-import { 
-  ToolPermission, 
+import {
+  ToolPermission,
   ToolExecutionContext,
   ToolPermissionConfig,
   ToolPermissionRule,
-  ToolErrorCode
+  ToolErrorCode,
 } from '../types/ToolTypes';
 
 /**
@@ -17,16 +17,16 @@ import {
 export interface PermissionValidationResult {
   /** 是否允许 */
   allowed: boolean;
-  
+
   /** 拒绝原因 */
   reason?: string;
-  
+
   /** 需要的权限 */
   requiredPermissions: ToolPermission[];
-  
+
   /** 授予的权限 */
   grantedPermissions: ToolPermission[];
-  
+
   /** 拒绝的权限 */
   deniedPermissions: ToolPermission[];
 }
@@ -46,9 +46,9 @@ export class ToolPermissionManager {
       mode: 'strict',
       defaultLevel: 'read',
       rules: [],
-      ...config
+      ...config,
     };
-    
+
     // 初始化默认权限规则
     this.initializeDefaultRules();
   }
@@ -65,7 +65,7 @@ export class ToolPermissionManager {
       allowed: true,
       requiredPermissions,
       grantedPermissions: [],
-      deniedPermissions: []
+      deniedPermissions: [],
     };
 
     // 根据配置模式处理
@@ -74,7 +74,7 @@ export class ToolPermissionManager {
         // 宽松模式：允许所有权限
         result.grantedPermissions = requiredPermissions;
         break;
-        
+
       case 'strict':
         // 严格模式：验证所有权限
         for (const permission of requiredPermissions) {
@@ -83,7 +83,7 @@ export class ToolPermissionManager {
             context,
             permission
           );
-          
+
           if (ruleResult.allowed) {
             result.grantedPermissions.push(permission);
           } else {
@@ -93,7 +93,7 @@ export class ToolPermissionManager {
           }
         }
         break;
-        
+
       case 'custom':
         // 自定义模式：使用自定义规则
         const customResult = await this.validateWithCustomRules(
@@ -101,7 +101,7 @@ export class ToolPermissionManager {
           context,
           requiredPermissions
         );
-        
+
         result.allowed = customResult.allowed;
         result.grantedPermissions = customResult.grantedPermissions;
         result.deniedPermissions = customResult.deniedPermissions;
@@ -125,12 +125,14 @@ export class ToolPermissionManager {
    */
   removePermissionRule(ruleName: string): boolean {
     const exists = this.permissionRules.has(ruleName);
-    
+
     if (exists) {
       this.permissionRules.delete(ruleName);
-      this.config.rules = this.config.rules.filter(rule => rule.name !== ruleName);
+      this.config.rules = this.config.rules.filter(
+        (rule) => rule.name !== ruleName
+      );
     }
-    
+
     return exists;
   }
 
@@ -153,36 +155,41 @@ export class ToolPermissionManager {
     for (const rule of this.permissionRules.values()) {
       if (await rule.condition(context)) {
         // 检查允许的权限
-        const allowedPermission = rule.allowedPermissions.find(p => 
+        const allowedPermission = rule.allowedPermissions.find((p) =>
           this.permissionMatches(p, permission)
         );
-        
+
         if (allowedPermission) {
           return { allowed: true };
         }
-        
+
         // 检查拒绝的权限
-        const deniedPermission = rule.deniedPermissions.find(p => 
+        const deniedPermission = rule.deniedPermissions.find((p) =>
           this.permissionMatches(p, permission)
         );
-        
+
         if (deniedPermission) {
-          return { 
-            allowed: false, 
-            reason: `权限被规则拒绝: ${rule.name}` 
+          return {
+            allowed: false,
+            reason: `权限被规则拒绝: ${rule.name}`,
           };
         }
       }
     }
-    
+
     // 默认情况下，根据默认级别决定
-    if (this.isPermissionLevelSufficient(permission.level, this.config.defaultLevel)) {
+    if (
+      this.isPermissionLevelSufficient(
+        permission.level,
+        this.config.defaultLevel
+      )
+    ) {
       return { allowed: true };
     }
-    
-    return { 
-      allowed: false, 
-      reason: `权限级别不足: ${permission.level} < ${this.config.defaultLevel}` 
+
+    return {
+      allowed: false,
+      reason: `权限级别不足: ${permission.level} < ${this.config.defaultLevel}`,
     };
   }
 
@@ -198,7 +205,7 @@ export class ToolPermissionManager {
       allowed: true,
       requiredPermissions,
       grantedPermissions: [],
-      deniedPermissions: []
+      deniedPermissions: [],
     };
 
     // 应用所有自定义规则
@@ -206,14 +213,14 @@ export class ToolPermissionManager {
       if (await rule.condition(context)) {
         // 检查每个需要的权限
         for (const permission of requiredPermissions) {
-          const allowedPermission = rule.allowedPermissions.find(p => 
+          const allowedPermission = rule.allowedPermissions.find((p) =>
             this.permissionMatches(p, permission)
           );
-          
-          const deniedPermission = rule.deniedPermissions.find(p => 
+
+          const deniedPermission = rule.deniedPermissions.find((p) =>
             this.permissionMatches(p, permission)
           );
-          
+
           if (allowedPermission && !deniedPermission) {
             result.grantedPermissions.push(permission);
           } else if (deniedPermission) {
@@ -231,11 +238,16 @@ export class ToolPermissionManager {
   /**
    * 检查权限是否匹配（基于CC源码）
    */
-  private permissionMatches(permission1: ToolPermission, permission2: ToolPermission): boolean {
+  private permissionMatches(
+    permission1: ToolPermission,
+    permission2: ToolPermission
+  ): boolean {
     return (
       permission1.type === permission2.type &&
       permission1.level === permission2.level &&
-      (permission1.scope === permission2.scope || !permission1.scope || !permission2.scope)
+      (permission1.scope === permission2.scope ||
+        !permission1.scope ||
+        !permission2.scope)
     );
   }
 
@@ -249,7 +261,7 @@ export class ToolPermissionManager {
     const levels = ['read', 'write', 'execute', 'admin'];
     const requiredIndex = levels.indexOf(requiredLevel);
     const grantedIndex = levels.indexOf(grantedLevel);
-    
+
     return grantedIndex >= requiredIndex;
   }
 
@@ -266,9 +278,9 @@ export class ToolPermissionManager {
       },
       allowedPermissions: [
         { type: 'file', description: '文件读取', level: 'read' },
-        { type: 'file', description: '文件列表', level: 'read' }
+        { type: 'file', description: '文件列表', level: 'read' },
       ],
-      deniedPermissions: []
+      deniedPermissions: [],
     });
 
     // 网络权限规则
@@ -280,9 +292,9 @@ export class ToolPermissionManager {
       },
       allowedPermissions: [
         { type: 'network', description: 'HTTP请求', level: 'execute' },
-        { type: 'network', description: 'WebSocket连接', level: 'execute' }
+        { type: 'network', description: 'WebSocket连接', level: 'execute' },
       ],
-      deniedPermissions: []
+      deniedPermissions: [],
     });
 
     // 系统权限规则
@@ -294,9 +306,9 @@ export class ToolPermissionManager {
       },
       allowedPermissions: [
         { type: 'system', description: '进程管理', level: 'execute' },
-        { type: 'system', description: '系统信息', level: 'read' }
+        { type: 'system', description: '系统信息', level: 'read' },
       ],
-      deniedPermissions: []
+      deniedPermissions: [],
     });
   }
 
@@ -313,7 +325,7 @@ export class ToolPermissionManager {
   updateConfig(newConfig: Partial<ToolPermissionConfig>): void {
     this.config = {
       ...this.config,
-      ...newConfig
+      ...newConfig,
     };
   }
 }

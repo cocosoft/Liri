@@ -2,7 +2,11 @@
  * 命令执行器
  * 处理命令字符串解析和执行
  */
-import type { CommandContext, CommandResult, ParsedCommand } from '@modules/commands/types';
+import type {
+  CommandContext,
+  CommandResult,
+  ParsedCommand,
+} from '@modules/commands/types';
 import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 
 /**
@@ -83,7 +87,9 @@ export class CommandExecutor {
         }
       }
       if (optionParts.length > 0) {
-        fullArgs = args ? `${args} ${optionParts.join(' ')}` : optionParts.join(' ');
+        fullArgs = args
+          ? `${args} ${optionParts.join(' ')}`
+          : optionParts.join(' ');
       }
     }
 
@@ -122,7 +128,11 @@ export class CommandExecutor {
       }
     }
 
-    return await this.commandManager.executeCommand(name, fullArgs.join(' '), context);
+    return await this.commandManager.executeCommand(
+      name,
+      fullArgs.join(' '),
+      context
+    );
   }
 
   /**
@@ -169,7 +179,10 @@ export class CommandExecutor {
    */
   private createTimeout(ms: number): Promise<never> {
     return new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`Command execution timeout (${ms}ms)`)), ms);
+      setTimeout(
+        () => reject(new Error(`Command execution timeout (${ms}ms)`)),
+        ms
+      );
     });
   }
 
@@ -199,7 +212,9 @@ export class CommandExecutor {
 /**
  * 创建命令执行器实例
  */
-export function createCommandExecutor(config?: CommandExecutorConfig): CommandExecutor {
+export function createCommandExecutor(
+  config?: CommandExecutorConfig
+): CommandExecutor {
   return new CommandExecutor(config);
 }
 

@@ -10,7 +10,7 @@ export interface MCPServerPolicy {
 
 export function filterMcpServersByPolicy(
   serverNames: string[],
-  policy?: MCPServerPolicy,
+  policy?: MCPServerPolicy
 ): string[] {
   if (!policy || policy.allowAll) return serverNames;
 
@@ -18,12 +18,12 @@ export function filterMcpServersByPolicy(
 
   if (policy.allowedServers && policy.allowedServers.length > 0) {
     const allowed = new Set(policy.allowedServers);
-    filtered = filtered.filter(n => allowed.has(n));
+    filtered = filtered.filter((n) => allowed.has(n));
   }
 
   if (policy.blockedServers && policy.blockedServers.length > 0) {
     const blocked = new Set(policy.blockedServers);
-    filtered = filtered.filter(n => !blocked.has(n));
+    filtered = filtered.filter((n) => !blocked.has(n));
   }
 
   return filtered;
@@ -36,19 +36,19 @@ export function doesEnterpriseMcpConfigExist(): boolean {
 export function excludeCommandsByServer(
   serverName: string,
   commands: string[],
-  excluded: Record<string, string[]>,
+  excluded: Record<string, string[]>
 ): string[] {
   const exclusions = excluded[serverName] || [];
   const excludeSet = new Set(exclusions);
-  return commands.filter(c => !excludeSet.has(c));
+  return commands.filter((c) => !excludeSet.has(c));
 }
 
 export function excludeResourcesByServer(
   serverName: string,
   resources: string[],
-  excluded: Record<string, string[]>,
+  excluded: Record<string, string[]>
 ): string[] {
   const exclusions = excluded[serverName] || [];
   const excludeSet = new Set(exclusions);
-  return resources.filter(r => !excludeSet.has(r));
+  return resources.filter((r) => !excludeSet.has(r));
 }

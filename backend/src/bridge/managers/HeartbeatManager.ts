@@ -77,7 +77,10 @@ export class HeartbeatManager {
   private readonly environmentId: string;
   private readonly heartbeatIntervalMs: number;
   private readonly onError: (error: Error) => void;
-  private readonly onSessionExpired?: (sessionId: string, workId: string) => void;
+  private readonly onSessionExpired?: (
+    sessionId: string,
+    workId: string
+  ) => void;
   private readonly signal?: AbortSignal;
   private readonly maxConsecutiveFailures: number;
 
@@ -96,7 +99,8 @@ export class HeartbeatManager {
     this.onError = options.onError;
     this.onSessionExpired = options.onSessionExpired;
     this.signal = options.signal;
-    this.maxConsecutiveFailures = options.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES;
+    this.maxConsecutiveFailures =
+      options.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES;
   }
 
   /**
@@ -215,7 +219,8 @@ export class HeartbeatManager {
   getSessionHealth(sessionId: string): 'healthy' | 'unhealthy' | 'unknown' {
     const info = this.sessions.get(sessionId);
     if (!info) return 'unknown';
-    if (info.consecutiveFailures >= this.maxConsecutiveFailures) return 'unhealthy';
+    if (info.consecutiveFailures >= this.maxConsecutiveFailures)
+      return 'unhealthy';
     if (info.consecutiveSuccesses > 0) return 'healthy';
     return 'unknown';
   }
@@ -231,10 +236,14 @@ export class HeartbeatManager {
     }, this.heartbeatIntervalMs);
 
     if (this.signal) {
-      this.signal.addEventListener('abort', () => {
-        this.clearHeartbeatTimer();
-        this.state = 'idle';
-      }, { once: true });
+      this.signal.addEventListener(
+        'abort',
+        () => {
+          this.clearHeartbeatTimer();
+          this.state = 'idle';
+        },
+        { once: true }
+      );
     }
   }
 
@@ -256,44 +265,48 @@ export class HeartbeatManager {
 
     const sessionIds = Array.from(this.sessions.keys());
 
-    await Promise.all(sessionIds.map(async (sessionId) => {
-      const info = this.sessions.get(sessionId);
-      if (!info) return;
+    await Promise.all(
+      sessionIds.map(async (sessionId) => {
+        const info = this.sessions.get(sessionId);
+        if (!info) return;
 
-      try {
-        const result = await this.api.heartbeatWork(
-          this.environmentId,
-          info.workId,
-          info.sessionToken,
-        );
+        try {
+          const result = await this.api.heartbeatWork(
+            this.environmentId,
+            info.workId,
+            info.sessionToken
+          );
 
-        this.totalHeartbeatsSent++;
-        this.successfulHeartbeats++;
-        info.lastHeartbeatTime = Date.now();
-        info.consecutiveSuccesses++;
-        info.consecutiveFailures = 0;
-        info.leaseExtended = result.lease_extended;
-        info.serverState = result.state;
+          this.totalHeartbeatsSent++;
+          this.successfulHeartbeats++;
+          info.lastHeartbeatTime = Date.now();
+          info.consecutiveSuccesses++;
+          info.consecutiveFailures = 0;
+          info.leaseExtended = result.lease_extended;
+          info.serverState = result.state;
 
-        // 更新状态存储
-        bridgeStateStore.setState(prev => ({
-          ...prev,
-          bridgeState: 'connected',
-        }));
-      } catch (error) {
-        this.totalHeartbeatsSent++;
-        this.failedHeartbeats++;
-        info.consecutiveFailures++;
-        info.consecutiveSuccesses = 0;
+          // 更新状态存储
+          bridgeStateStore.setState((prev) => ({
+            ...prev,
+            bridgeState: 'connected',
+          }));
+        } catch (error) {
+          this.totalHeartbeatsSent++;
+          this.failedHeartbeats++;
+          info.consecutiveFailures++;
+          info.consecutiveSuccesses = 0;
 
-        this.onError(error instanceof Error ? error : new Error(String(error)));
+          this.onError(
+            error instanceof Error ? error : new Error(String(error))
+          );
 
-        if (info.consecutiveFailures >= this.maxConsecutiveFailures) {
-          this.onSessionExpired?.(sessionId, info.workId);
-          this.sessions.delete(sessionId);
+          if (info.consecutiveFailures >= this.maxConsecutiveFailures) {
+            this.onSessionExpired?.(sessionId, info.workId);
+            this.sessions.delete(sessionId);
+          }
         }
-      }
-    }));
+      })
+    );
   }
 
   /**
@@ -313,6 +326,8 @@ export class HeartbeatManager {
 /**
  * 创建心跳管理器
  */
-export function createHeartbeatManager(options: HeartbeatManagerOptions): HeartbeatManager {
+export function createHeartbeatManager(
+  options: HeartbeatManagerOptions
+): HeartbeatManager {
   return new HeartbeatManager(options);
 }

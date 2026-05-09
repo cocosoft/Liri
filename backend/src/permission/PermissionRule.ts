@@ -49,7 +49,9 @@ export type PermissionUpdate =
       toolNames: string[];
     };
 
-export function permissionRuleValueFromString(ruleString: string): PermissionRuleValue {
+export function permissionRuleValueFromString(
+  ruleString: string
+): PermissionRuleValue {
   const matches = ruleString.match(/^([^(]+)(?:\(([^)]+)\))?$/);
   if (!matches) {
     return { toolName: ruleString };
@@ -60,7 +62,9 @@ export function permissionRuleValueFromString(ruleString: string): PermissionRul
   };
 }
 
-export function permissionRuleValueToString(ruleValue: PermissionRuleValue): string {
+export function permissionRuleValueToString(
+  ruleValue: PermissionRuleValue
+): string {
   if (ruleValue.ruleContent) {
     return `${ruleValue.toolName}(${ruleValue.ruleContent})`;
   }

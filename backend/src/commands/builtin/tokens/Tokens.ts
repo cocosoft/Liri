@@ -8,10 +8,31 @@ import type { CommandContext, CommandResult } from '@modules/commands/types';
  * 构建 Token 明细展示内容
  */
 function buildTokenBreakdown(
-  sessionModels: Record<string, { totalCost: number; totalTokens: number; requestCount: number; inputTokens: number; outputTokens: number }>,
-  accumulatedModels: Record<string, { totalCost: number; totalTokens: number; requestCount: number; inputTokens: number; outputTokens: number }>,
+  sessionModels: Record<
+    string,
+    {
+      totalCost: number;
+      totalTokens: number;
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+    }
+  >,
+  accumulatedModels: Record<
+    string,
+    {
+      totalCost: number;
+      totalTokens: number;
+      requestCount: number;
+      inputTokens: number;
+      outputTokens: number;
+    }
+  >
 ): string {
-  const merged: Record<string, { input: number; output: number; count: number }> = {};
+  const merged: Record<
+    string,
+    { input: number; output: number; count: number }
+  > = {};
 
   for (const [model, usage] of Object.entries(sessionModels)) {
     if (!merged[model]) merged[model] = { input: 0, output: 0, count: 0 };
@@ -33,7 +54,9 @@ function buildTokenBreakdown(
   lines.push('');
   lines.push('各模型Token用量:');
 
-  const sorted = Object.entries(merged).sort((a, b) => (b[1].input + b[1].output) - (a[1].input + a[1].output));
+  const sorted = Object.entries(merged).sort(
+    (a, b) => b[1].input + b[1].output - (a[1].input + a[1].output)
+  );
 
   for (const [model, data] of sorted) {
     const total = data.input + data.output;
@@ -50,7 +73,12 @@ function buildTokenBreakdown(
 /**
  * 解析参数并提取标志
  */
-function parseFlags(args: string): { showJson: boolean; showBreakdown: boolean; isReset: boolean; subcommand: string } {
+function parseFlags(args: string): {
+  showJson: boolean;
+  showBreakdown: boolean;
+  isReset: boolean;
+  subcommand: string;
+} {
   const trimmed = args.trim();
   const parts = trimmed.split(/\s+/).filter(Boolean);
 
@@ -59,7 +87,7 @@ function parseFlags(args: string): { showJson: boolean; showBreakdown: boolean; 
   const isReset = parts.includes('--reset');
 
   const flags = new Set(['--json', '--breakdown', '-b', '--reset']);
-  const subcommand = parts.find(p => !flags.has(p)) || '';
+  const subcommand = parts.find((p) => !flags.has(p)) || '';
 
   return { showJson, showBreakdown, isReset, subcommand };
 }
@@ -99,8 +127,10 @@ function showHelp(): CommandResult {
  * 处理 --breakdown 模式
  */
 async function handleBreakdown(): Promise<CommandResult> {
-  const { costPersistenceService } = await import('@modules/cost/CostPersistenceService.js');
-  const { getCostAnalyticsTracker } = await import('@modules/analytics/CostAnalyticsTracker.js');
+  const { costPersistenceService } =
+    await import('@modules/cost/CostPersistenceService.js');
+  const { getCostAnalyticsTracker } =
+    await import('@modules/analytics/CostAnalyticsTracker.js');
 
   await costPersistenceService.initialize();
   const tracker = getCostAnalyticsTracker();
@@ -109,7 +139,10 @@ async function handleBreakdown(): Promise<CommandResult> {
 
   return {
     success: true,
-    message: buildTokenBreakdown(sessionSummary.modelBreakdown, accumulatedData.modelBreakdown),
+    message: buildTokenBreakdown(
+      sessionSummary.modelBreakdown,
+      accumulatedData.modelBreakdown
+    ),
   };
 }
 
@@ -117,8 +150,10 @@ async function handleBreakdown(): Promise<CommandResult> {
  * 处理 --json 模式
  */
 async function handleJson(): Promise<CommandResult> {
-  const { costPersistenceService } = await import('@modules/cost/CostPersistenceService.js');
-  const { getCostAnalyticsTracker } = await import('@modules/analytics/CostAnalyticsTracker.js');
+  const { costPersistenceService } =
+    await import('@modules/cost/CostPersistenceService.js');
+  const { getCostAnalyticsTracker } =
+    await import('@modules/analytics/CostAnalyticsTracker.js');
 
   await costPersistenceService.initialize();
   const tracker = getCostAnalyticsTracker();
@@ -143,7 +178,8 @@ async function handleJson(): Promise<CommandResult> {
     accumulated: {
       inputTokens: accumulatedData.totalInputTokens,
       outputTokens: accumulatedData.totalOutputTokens,
-      totalTokens: accumulatedData.totalInputTokens + accumulatedData.totalOutputTokens,
+      totalTokens:
+        accumulatedData.totalInputTokens + accumulatedData.totalOutputTokens,
       totalRequests: accumulatedData.totalRequests,
       cacheReadTokens: accumulatedData.totalCacheReadTokens,
       cacheCreationTokens: accumulatedData.totalCacheCreationTokens,
@@ -153,8 +189,13 @@ async function handleJson(): Promise<CommandResult> {
     combined: {
       inputTokens: sessionInput + accumulatedData.totalInputTokens,
       outputTokens: sessionOutput + accumulatedData.totalOutputTokens,
-      totalTokens: sessionInput + sessionOutput + accumulatedData.totalInputTokens + accumulatedData.totalOutputTokens,
-      totalRequests: sessionSummary.totalRequests + accumulatedData.totalRequests,
+      totalTokens:
+        sessionInput +
+        sessionOutput +
+        accumulatedData.totalInputTokens +
+        accumulatedData.totalOutputTokens,
+      totalRequests:
+        sessionSummary.totalRequests + accumulatedData.totalRequests,
     },
   };
 
@@ -165,7 +206,8 @@ async function handleJson(): Promise<CommandResult> {
  * 处理 --reset 模式
  */
 async function handleReset(): Promise<CommandResult> {
-  const { costPersistenceService } = await import('@modules/cost/CostPersistenceService.js');
+  const { costPersistenceService } =
+    await import('@modules/cost/CostPersistenceService.js');
   await costPersistenceService.initialize();
   await costPersistenceService.reset();
 
@@ -176,8 +218,10 @@ async function handleReset(): Promise<CommandResult> {
  * 处理默认模式 — 显示汇总概览
  */
 async function handleOverview(): Promise<CommandResult> {
-  const { costPersistenceService } = await import('@modules/cost/CostPersistenceService.js');
-  const { getCostAnalyticsTracker } = await import('@modules/analytics/CostAnalyticsTracker.js');
+  const { costPersistenceService } =
+    await import('@modules/cost/CostPersistenceService.js');
+  const { getCostAnalyticsTracker } =
+    await import('@modules/analytics/CostAnalyticsTracker.js');
 
   await costPersistenceService.initialize();
 
@@ -204,7 +248,9 @@ async function handleOverview(): Promise<CommandResult> {
   lines.push('总用量');
   lines.push(`  总输入Tokens: ${combinedInput.toLocaleString()}`);
   lines.push(`  总输出Tokens: ${combinedOutput.toLocaleString()}`);
-  lines.push(`  总Tokens: ${(combinedInput + combinedOutput).toLocaleString()}`);
+  lines.push(
+    `  总Tokens: ${(combinedInput + combinedOutput).toLocaleString()}`
+  );
   lines.push('');
   lines.push('当前会话');
   lines.push(`  本次输入Tokens: ${sessionInput.toLocaleString()}`);
@@ -216,15 +262,24 @@ async function handleOverview(): Promise<CommandResult> {
   lines.push(`  之前输出Tokens: ${accumulatedOutput.toLocaleString()}`);
   lines.push('');
 
-  if (accumulatedData.totalCacheReadTokens > 0 || accumulatedData.totalCacheCreationTokens > 0) {
+  if (
+    accumulatedData.totalCacheReadTokens > 0 ||
+    accumulatedData.totalCacheCreationTokens > 0
+  ) {
     lines.push('缓存Token');
-    lines.push(`  缓存读取: ${accumulatedData.totalCacheReadTokens.toLocaleString()}`);
-    lines.push(`  缓存创建: ${accumulatedData.totalCacheCreationTokens.toLocaleString()}`);
+    lines.push(
+      `  缓存读取: ${accumulatedData.totalCacheReadTokens.toLocaleString()}`
+    );
+    lines.push(
+      `  缓存创建: ${accumulatedData.totalCacheCreationTokens.toLocaleString()}`
+    );
     lines.push('');
   }
 
   lines.push('请求统计');
-  lines.push(`  总请求次数: ${(accumulatedData.totalRequests + sessionSummary.totalRequests).toLocaleString()}`);
+  lines.push(
+    `  总请求次数: ${(accumulatedData.totalRequests + sessionSummary.totalRequests).toLocaleString()}`
+  );
   lines.push(`  本次会话请求: ${sessionSummary.totalRequests}`);
 
   return { success: true, message: lines.join('\n') };
@@ -235,7 +290,11 @@ const tokensCommand = {
     try {
       const { showJson, showBreakdown, isReset, subcommand } = parseFlags(args);
 
-      if (subcommand === 'help' || args.trim() === '-h' || args.trim() === '--help') {
+      if (
+        subcommand === 'help' ||
+        args.trim() === '-h' ||
+        args.trim() === '--help'
+      ) {
         return showHelp();
       }
 

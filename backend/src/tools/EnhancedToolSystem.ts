@@ -8,6 +8,9 @@ import { ChatManagerImpl } from '../chat/ChatManager.js';
 import { QueryEngine, type QueryEngineConfig } from '../query/QueryEngine.js';
 import { MessageServiceImpl } from '../chat/services/MessageService.js';
 import { ErrorHandler } from '../core/utils/ErrorHandler.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   PerformanceProfiler,
   createPerformanceProfiler,
@@ -103,16 +106,16 @@ export class EnhancedToolSystem {
   private registerEventListeners(): void {
     // 监听系统事件
     this.eventBus.on(EventType.SYSTEM_START, (event) => {
-      console.log('Enhanced tool system started');
+      logger.info('Enhanced tool system started');
     });
 
     this.eventBus.on(EventType.SYSTEM_STOP, (event) => {
-      console.log('Enhanced tool system stopped');
+      logger.info('Enhanced tool system stopped');
     });
 
     // 监听错误事件
     this.eventBus.on(EventType.ERROR, (event) => {
-      console.error('Enhanced tool system error:', event.data);
+      logger.error('Enhanced tool system error', event.data);
     });
   }
 
@@ -205,7 +208,7 @@ export class EnhancedToolSystem {
    */
   start(): void {
     this.eventBus.emit(EventType.SYSTEM_START);
-    console.log('Enhanced tool system started');
+    logger.info('Enhanced tool system started');
   }
 
   /**
@@ -222,7 +225,7 @@ export class EnhancedToolSystem {
     this.performanceProfiler.destroy();
     this.memoryCache.destroy();
 
-    console.log('Enhanced tool system stopped');
+    logger.info('Enhanced tool system stopped');
   }
 }
 

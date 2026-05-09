@@ -28,9 +28,13 @@ const DEFAULT_COMPACT_CONFIG: SessionMemoryCompactConfig = {
   minTextBlockMessages: 5,
 };
 
-let sessionMemoryCompactConfig: SessionMemoryCompactConfig = { ...DEFAULT_COMPACT_CONFIG };
+let sessionMemoryCompactConfig: SessionMemoryCompactConfig = {
+  ...DEFAULT_COMPACT_CONFIG,
+};
 
-export function setSessionMemoryCompactConfig(config: Partial<SessionMemoryCompactConfig>): void {
+export function setSessionMemoryCompactConfig(
+  config: Partial<SessionMemoryCompactConfig>
+): void {
   sessionMemoryCompactConfig = { ...sessionMemoryCompactConfig, ...config };
 }
 
@@ -50,18 +54,21 @@ export function shouldUseSessionMemoryCompaction(): boolean {
 
 export function trySessionMemoryCompaction(
   sessionId: string,
-  messages: { content?: string; type?: string }[],
+  messages: { content?: string; type?: string }[]
 ): SessionMemoryCompactionResult | null {
   const config = getSessionMemoryCompactConfig();
-  const estimatedTokens = messages.reduce((sum, msg) => sum + (msg.content?.length ?? 0) / 4, 0);
+  const estimatedTokens = messages.reduce(
+    (sum, msg) => sum + (msg.content?.length ?? 0) / 4,
+    0
+  );
 
   if (estimatedTokens < config.minTokens) {
     return null;
   }
 
   const summary = compactSessionMemory(
-    messages.map(m => m.content || ''),
-    config.maxTokens,
+    messages.map((m) => m.content || ''),
+    config.maxTokens
   );
 
   return {
@@ -73,7 +80,7 @@ export function trySessionMemoryCompaction(
 
 export function calculateMessagesToKeepIndex(
   messages: { content?: string; type?: string }[],
-  lastSummarizedIndex: number,
+  lastSummarizedIndex: number
 ): number {
   if (messages.length === 0) return 0;
 
@@ -96,7 +103,7 @@ export function calculateMessagesToKeepIndex(
 
 export function adjustIndexToPreserveAPIInvariants(
   messages: { type?: string; parentId?: string; id?: string }[],
-  index: number,
+  index: number
 ): number {
   if (index < 0) return index;
 
@@ -105,7 +112,9 @@ export function adjustIndexToPreserveAPIInvariants(
   for (let i = adjustedIndex; i < messages.length; i++) {
     const msg = messages[i];
     if (msg.parentId) {
-      const parentExists = messages.slice(0, adjustedIndex).some(m => m.id === msg.parentId);
+      const parentExists = messages
+        .slice(0, adjustedIndex)
+        .some((m) => m.id === msg.parentId);
       if (parentExists) {
         return i + 1;
       }
@@ -126,22 +135,35 @@ export function adjustIndexToPreserveAPIInvariants(
 
 export function compactSessionMemory(
   messages: string[],
-  maxTokens: number = 4000,
+  maxTokens: number = 4000
 ): SessionMemoryCompactResult {
   const joined = messages.join('\n');
   const estimatedTokens = joined.length / 4;
   const summaryTokens = maxTokens;
-  const compressionRatio = estimatedTokens > 0 ? summaryTokens / estimatedTokens : 1;
+  const compressionRatio =
+    estimatedTokens > 0 ? summaryTokens / estimatedTokens : 1;
 
   let summary: string;
   if (joined.length <= maxTokens * 4) {
     summary = joined;
-    return { summary, originalTokens: estimatedTokens, summaryTokens: estimatedTokens, compressionRatio: 1, truncated: false };
+    return {
+      summary,
+      originalTokens: estimatedTokens,
+      summaryTokens: estimatedTokens,
+      compressionRatio: 1,
+      truncated: false,
+    };
   }
 
   if (messages.length <= 3) {
     summary = joined.substring(0, maxTokens * 4);
-    return { summary, originalTokens: estimatedTokens, summaryTokens: maxTokens, compressionRatio, truncated: true };
+    return {
+      summary,
+      originalTokens: estimatedTokens,
+      summaryTokens: maxTokens,
+      compressionRatio,
+      truncated: true,
+    };
   }
 
   const recentMessages = messages.slice(-Math.min(messages.length, 5));

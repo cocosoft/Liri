@@ -18,32 +18,32 @@ interface SkillsMenuProps {
    * 技能加载器实例
    */
   skillLoader: SkillLoader;
-  
+
   /**
    * 技能工具实例
    */
   skillTool: SkillTool;
-  
+
   /**
    * 是否显示
    */
   visible: boolean;
-  
+
   /**
    * 关闭回调
    */
   onClose: () => void;
-  
+
   /**
    * 技能选择回调
    */
   onSkillSelect: (skill: SkillDefinition) => void;
-  
+
   /**
    * 当前工作目录
    */
   currentDirectory: string;
-  
+
   /**
    * 允许的工具列表
    */
@@ -58,17 +58,17 @@ interface SkillGroup {
    * 来源类型
    */
   source: SkillSource;
-  
+
   /**
    * 显示名称
    */
   displayName: string;
-  
+
   /**
    * 技能列表
    */
   skills: SkillDefinition[];
-  
+
   /**
    * 是否展开
    */
@@ -83,27 +83,27 @@ interface SkillsMenuState {
    * 技能分组
    */
   groups: SkillGroup[];
-  
+
   /**
    * 搜索关键词
    */
   searchQuery: string;
-  
+
   /**
    * 加载状态
    */
   loading: boolean;
-  
+
   /**
    * 错误信息
    */
   error?: string;
-  
+
   /**
    * 选中的技能
    */
   selectedSkill?: SkillDefinition;
-  
+
   /**
    * 技能详情是否显示
    */
@@ -139,25 +139,25 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   }, [visible]);
 
   const loadSkills = async () => {
-    setState(prev => ({ ...prev, loading: true, error: undefined }));
-    
+    setState((prev) => ({ ...prev, loading: true, error: undefined }));
+
     try {
       const result = await skillLoader.loadAllSkills();
-      
+
       if (result.errors.length > 0) {
         console.warn('Skill loading warnings:', result.errors);
       }
-      
+
       // 分组技能（基于CC源码）
       const groups = createSkillGroups(result.skills);
-      
-      setState(prev => ({
+
+      setState((prev) => ({
         ...prev,
         groups,
         loading: false,
       }));
     } catch (error) {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         loading: false,
         error: error instanceof Error ? error.message : String(error),
@@ -177,12 +177,12 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
       [SkillSource.PLUGIN]: [],
       [SkillSource.MCP]: [],
     };
-    
+
     // 按来源分组
-    skills.forEach(skill => {
+    skills.forEach((skill) => {
       sourceGroups[skill.source].push(skill);
     });
-    
+
     // 转换为UI分组
     return Object.entries(sourceGroups)
       .filter(([_, skills]) => skills.length > 0)
@@ -192,7 +192,9 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
         skills: skills.sort((a, b) => a.name.localeCompare(b.name)),
         expanded: true,
       }))
-      .sort((a, b) => getSourcePriority(b.source) - getSourcePriority(a.source));
+      .sort(
+        (a, b) => getSourcePriority(b.source) - getSourcePriority(a.source)
+      );
   };
 
   /**
@@ -207,7 +209,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
       [SkillSource.PLUGIN]: '插件技能',
       [SkillSource.MCP]: 'MCP技能',
     };
-    
+
     return names[source];
   };
 
@@ -223,7 +225,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
       [SkillSource.BUNDLED]: 60,
       [SkillSource.MCP]: 50,
     };
-    
+
     return priorities[source] || 0;
   };
 
@@ -231,9 +233,9 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
    * 切换分组展开状态（基于CC源码）
    */
   const toggleGroup = (source: SkillSource) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      groups: prev.groups.map(group =>
+      groups: prev.groups.map((group) =>
         group.source === source
           ? { ...group, expanded: !group.expanded }
           : group
@@ -245,7 +247,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
    * 处理搜索（基于CC源码）
    */
   const handleSearch = (query: string) => {
-    setState(prev => ({ ...prev, searchQuery: query }));
+    setState((prev) => ({ ...prev, searchQuery: query }));
   };
 
   /**
@@ -253,30 +255,32 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
    */
   const getFilteredSkills = (): SkillGroup[] => {
     const { groups, searchQuery } = state;
-    
+
     if (!searchQuery.trim()) {
       return groups;
     }
-    
+
     const query = searchQuery.toLowerCase();
-    
+
     return groups
-      .map(group => ({
+      .map((group) => ({
         ...group,
-        skills: group.skills.filter(skill =>
-          skill.name.toLowerCase().includes(query) ||
-          skill.description.toLowerCase().includes(query) ||
-          (skill.frontmatter['when-to-use']?.toLowerCase().includes(query) ?? false)
+        skills: group.skills.filter(
+          (skill) =>
+            skill.name.toLowerCase().includes(query) ||
+            skill.description.toLowerCase().includes(query) ||
+            (skill.frontmatter['when-to-use']?.toLowerCase().includes(query) ??
+              false)
         ),
       }))
-      .filter(group => group.skills.length > 0);
+      .filter((group) => group.skills.length > 0);
   };
 
   /**
    * 选择技能（基于CC源码）
    */
   const handleSkillSelect = (skill: SkillDefinition) => {
-    setState(prev => ({ ...prev, selectedSkill: skill, showDetails: true }));
+    setState((prev) => ({ ...prev, selectedSkill: skill, showDetails: true }));
   };
 
   /**
@@ -296,20 +300,15 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
    */
   const renderSkillGroup = (group: SkillGroup) => (
     <div key={group.source} className="skill-group">
-      <div 
-        className="group-header"
-        onClick={() => toggleGroup(group.source)}
-      >
+      <div className="group-header" onClick={() => toggleGroup(group.source)}>
         <span className="group-name">{group.displayName}</span>
         <span className="group-count">({group.skills.length})</span>
-        <span className="group-toggle">
-          {group.expanded ? '▼' : '▶'}
-        </span>
+        <span className="group-toggle">{group.expanded ? '▼' : '▶'}</span>
       </div>
-      
+
       {group.expanded && (
         <div className="group-skills">
-          {group.skills.map(skill => (
+          {group.skills.map((skill) => (
             <div
               key={skill.name}
               className="skill-item"
@@ -329,30 +328,37 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
    */
   const renderSkillDetails = () => {
     const { selectedSkill } = state;
-    
+
     if (!selectedSkill) {
       return null;
     }
-    
+
     return (
       <div className="skill-details">
         <div className="details-header">
           <h3>{selectedSkill.name}</h3>
-          <button 
+          <button
             className="close-details"
-            onClick={() => setState(prev => ({ ...prev, showDetails: false }))}
+            onClick={() =>
+              setState((prev) => ({ ...prev, showDetails: false }))
+            }
           >
             ×
           </button>
         </div>
-        
+
         <div className="details-content">
-          <p><strong>描述:</strong> {selectedSkill.description}</p>
-          
+          <p>
+            <strong>描述:</strong> {selectedSkill.description}
+          </p>
+
           {selectedSkill.frontmatter['when-to-use'] && (
-            <p><strong>使用时机:</strong> {selectedSkill.frontmatter['when-to-use']}</p>
+            <p>
+              <strong>使用时机:</strong>{' '}
+              {selectedSkill.frontmatter['when-to-use']}
+            </p>
           )}
-          
+
           {selectedSkill.frontmatter.arguments && (
             <div>
               <strong>参数:</strong>
@@ -366,14 +372,14 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
               </ul>
             </div>
           )}
-          
+
           {selectedSkill.frontmatter['allowed-tools'] && (
             <p>
               <strong>允许的工具:</strong>{' '}
               {selectedSkill.frontmatter['allowed-tools'].join(', ')}
             </p>
           )}
-          
+
           <div className="details-actions">
             <button
               className="execute-button"
@@ -409,9 +415,11 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
       <div className="skills-menu">
         <div className="menu-header">
           <h2>技能菜单</h2>
-          <button className="close-button" onClick={onClose}>×</button>
+          <button className="close-button" onClick={onClose}>
+            ×
+          </button>
         </div>
-        
+
         <div className="menu-search">
           <input
             type="text"
@@ -420,7 +428,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
             onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
-        
+
         <div className="menu-content">
           {state.loading ? (
             <div className="loading-state">加载中...</div>
@@ -440,10 +448,15 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
             </div>
           )}
         </div>
-        
+
         <div className="menu-footer">
           <span className="footer-info">
-            共 {filteredGroups.reduce((sum, group) => sum + group.skills.length, 0)} 个技能
+            共{' '}
+            {filteredGroups.reduce(
+              (sum, group) => sum + group.skills.length,
+              0
+            )}{' '}
+            个技能
           </span>
         </div>
       </div>

@@ -32,7 +32,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     <div className="flex items-center bg-gray-100 border-b border-gray-200 overflow-x-auto">
       {tabs.map((tab) => {
         const isActive = activeTabId === tab.id;
-        
+
         return (
           <div
             key={tab.id}
@@ -43,19 +43,17 @@ export const TabBar: React.FC<TabBarProps> = ({
             }`}
             onClick={() => onTabChange(tab.id)}
           >
-            {tab.icon && (
-              <span className="text-sm">{tab.icon}</span>
-            )}
+            {tab.icon && <span className="text-sm">{tab.icon}</span>}
             <span className="text-sm font-medium">{tab.label}</span>
-            
+
             {tab.isModified && (
               <span className="w-2 h-2 bg-blue-500 rounded-full" />
             )}
-            
+
             {tab.hasError && (
               <span className="w-2 h-2 bg-red-500 rounded-full" />
             )}
-            
+
             {onTabClose && (
               <button
                 onClick={(e) => {

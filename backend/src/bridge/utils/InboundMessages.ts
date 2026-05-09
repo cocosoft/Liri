@@ -22,7 +22,9 @@ export interface ImageBlock {
 }
 
 function isImageBlock(block: Record<string, unknown>): boolean {
-  return (block as any).type === 'image' && (block as any).source?.type === 'base64';
+  return (
+    (block as any).type === 'image' && (block as any).source?.type === 'base64'
+  );
 }
 
 function detectImageFormatFromBase64(base64: string): string {
@@ -42,7 +44,10 @@ function isMalformedImageBlock(block: Record<string, unknown>): boolean {
 
 function normalizeImageBlock(block: ImageBlock): Record<string, unknown> {
   const source = block.source;
-  const mediaType = source.mediaType || source.media_type || detectImageFormatFromBase64(source.data);
+  const mediaType =
+    source.mediaType ||
+    source.media_type ||
+    detectImageFormatFromBase64(source.data);
   return {
     ...block,
     source: {
@@ -54,10 +59,12 @@ function normalizeImageBlock(block: ImageBlock): Record<string, unknown> {
 }
 
 function normalizeImageBlocks(
-  blocks: Array<Record<string, unknown>>,
+  blocks: Array<Record<string, unknown>>
 ): Array<Record<string, unknown>> {
   if (!blocks.some(isMalformedImageBlock)) return blocks;
-  return blocks.map(block => isMalformedImageBlock(block) ? normalizeImageBlock(block as any) : block);
+  return blocks.map((block) =>
+    isMalformedImageBlock(block) ? normalizeImageBlock(block as any) : block
+  );
 }
 
 export interface SDKMessage {
@@ -75,7 +82,7 @@ export interface SDKMessage {
  * @returns 提取的字段，或undefined如果消息应被跳过
  */
 export function extractInboundMessageFields(
-  msg: SDKMessage,
+  msg: SDKMessage
 ): InboundMessageFields | undefined {
   if (msg.type !== 'user') return undefined;
 
@@ -97,7 +104,7 @@ export function extractInboundMessageFields(
 export function hasImageBlocks(msg: SDKMessage): boolean {
   const content = msg.message?.content;
   if (!Array.isArray(content)) return false;
-  return content.some(block => isImageBlock(block));
+  return content.some((block) => isImageBlock(block));
 }
 
 /**
@@ -108,5 +115,5 @@ export function extractImageData(msg: SDKMessage): string[] {
   if (!Array.isArray(content)) return [];
   return content
     .filter(isImageBlock)
-    .map(block => (block as any).source.data);
+    .map((block) => (block as any).source.data);
 }

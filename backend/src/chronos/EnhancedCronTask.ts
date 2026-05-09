@@ -8,7 +8,13 @@ import { randomUUID } from 'crypto';
 /**
  * 任务执行状态
  */
-export type TaskExecutionStatus = 'pending' | 'running' | 'success' | 'failed' | 'retrying' | 'cancelled';
+export type TaskExecutionStatus =
+  | 'pending'
+  | 'running'
+  | 'success'
+  | 'failed'
+  | 'retrying'
+  | 'cancelled';
 
 /**
  * 任务重试策略
@@ -68,19 +74,19 @@ export interface EnhancedCronTask {
   durable?: boolean;
   /** 代理ID（由内进程代理创建的任务） */
   agentId?: string;
-  
+
   /** 任务重试策略 */
   retryPolicy?: RetryPolicy;
   /** 已尝试的重试次数 */
   retryCount?: number;
   /** 下次重试时间（时间戳） */
   nextRetryAt?: number;
-  
+
   /** 依赖的任务ID列表 */
   dependsOn?: string[];
   /** 依赖失败时的处理策略 */
   dependencyFailureStrategy?: 'skip' | 'fail' | 'retry';
-  
+
   /** 执行历史记录 */
   executionHistory?: TaskExecutionRecord[];
   /** 最大历史记录数 */
@@ -111,7 +117,7 @@ export function createEnhancedCronTask(
     dependsOn?: string[];
     dependencyFailureStrategy?: 'skip' | 'fail' | 'retry';
     maxHistory?: number;
-  } = {},
+  } = {}
 ): EnhancedCronTask {
   const task: EnhancedCronTask = {
     id: randomUUID().slice(0, 8),
@@ -121,16 +127,20 @@ export function createEnhancedCronTask(
     ...(recurring ? { recurring: true } : {}),
     ...(options.durable !== undefined ? { durable: options.durable } : {}),
     ...(options.agentId ? { agentId: options.agentId } : {}),
-    ...(options.retryPolicy ? {
-      retryPolicy: {
-        ...DEFAULT_RETRY_POLICY,
-        ...options.retryPolicy,
-      },
-    } : {}),
+    ...(options.retryPolicy
+      ? {
+          retryPolicy: {
+            ...DEFAULT_RETRY_POLICY,
+            ...options.retryPolicy,
+          },
+        }
+      : {}),
     ...(options.dependsOn ? { dependsOn: options.dependsOn } : {}),
-    ...(options.dependencyFailureStrategy ? {
-      dependencyFailureStrategy: options.dependencyFailureStrategy,
-    } : {}),
+    ...(options.dependencyFailureStrategy
+      ? {
+          dependencyFailureStrategy: options.dependencyFailureStrategy,
+        }
+      : {}),
     ...(options.maxHistory ? { maxHistory: options.maxHistory } : {}),
   };
 
@@ -142,7 +152,7 @@ export function createEnhancedCronTask(
  */
 export function calculateNextRetryTime(
   task: EnhancedCronTask,
-  currentTime: number = Date.now(),
+  currentTime: number = Date.now()
 ): number {
   if (!task.retryPolicy) {
     return currentTime;
@@ -150,11 +160,11 @@ export function calculateNextRetryTime(
 
   const retryCount = task.retryCount || 0;
   const policy = task.retryPolicy;
-  
+
   // 指数退避算法
   const interval = Math.min(
     policy.initialInterval * Math.pow(policy.backoffMultiplier, retryCount),
-    policy.maxInterval,
+    policy.maxInterval
   );
 
   return currentTime + interval;
@@ -177,7 +187,7 @@ export function canRetryTask(task: EnhancedCronTask): boolean {
  */
 export function checkTaskDependencies(
   task: EnhancedCronTask,
-  allTasks: Map<string, EnhancedCronTask>,
+  allTasks: Map<string, EnhancedCronTask>
 ): {
   satisfied: boolean;
   missingDependencies: string[];
@@ -195,7 +205,8 @@ export function checkTaskDependencies(
     if (!depTask) {
       missing.push(depId);
     } else if (depTask.executionHistory) {
-      const lastExecution = depTask.executionHistory[depTask.executionHistory.length - 1];
+      const lastExecution =
+        depTask.executionHistory[depTask.executionHistory.length - 1];
       if (lastExecution && lastExecution.status === 'failed') {
         failed.push(depId);
       }
@@ -220,7 +231,7 @@ export function recordTaskExecution(
     stdout?: string;
     stderr?: string;
     error?: string;
-  } = {},
+  } = {}
 ): EnhancedCronTask {
   const record: TaskExecutionRecord = {
     executionId: randomUUID(),
@@ -234,7 +245,7 @@ export function recordTaskExecution(
   };
 
   const executionHistory = [...(task.executionHistory || []), record];
-  
+
   // 限制历史记录数量
   if (task.maxHistory && executionHistory.length > task.maxHistory) {
     executionHistory.splice(0, executionHistory.length - task.maxHistory);

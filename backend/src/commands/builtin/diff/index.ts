@@ -14,7 +14,7 @@ export const diffCommand: Command = {
   whenToUse: 'Use this command to view git changes and commit history',
   version: '1.0.0',
   userInvocable: true,
-  
+
   /**
    * 加载命令实现
    */

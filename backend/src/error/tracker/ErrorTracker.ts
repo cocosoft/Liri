@@ -86,27 +86,36 @@ export class ErrorTracker {
     let results = [...this.errors.values()];
 
     if (query.categories?.length) {
-      results = results.filter(e => query.categories!.includes(e.error.category));
+      results = results.filter((e) =>
+        query.categories!.includes(e.error.category)
+      );
     }
     if (query.severities?.length) {
-      results = results.filter(e => query.severities!.includes(e.error.severity));
+      results = results.filter((e) =>
+        query.severities!.includes(e.error.severity)
+      );
     }
     if (query.timeRange) {
-      results = results.filter(e =>
-        e.timestamp >= query.timeRange!.start && e.timestamp <= query.timeRange!.end
+      results = results.filter(
+        (e) =>
+          e.timestamp >= query.timeRange!.start &&
+          e.timestamp <= query.timeRange!.end
       );
     }
     if (query.code) {
-      results = results.filter(e => e.error.code === query.code);
+      results = results.filter((e) => e.error.code === query.code);
     }
     if (query.resolved !== undefined) {
-      results = results.filter(e => query.resolved ? e.resolvedAt !== undefined : e.resolvedAt === undefined);
+      results = results.filter((e) =>
+        query.resolved ? e.resolvedAt !== undefined : e.resolvedAt === undefined
+      );
     }
     if (query.text) {
       const lower = query.text.toLowerCase();
-      results = results.filter(e =>
-        e.error.message.toLowerCase().includes(lower) ||
-        (e.error.code && e.error.code.toLowerCase().includes(lower))
+      results = results.filter(
+        (e) =>
+          e.error.message.toLowerCase().includes(lower) ||
+          (e.error.code && e.error.code.toLowerCase().includes(lower))
       );
     }
 
@@ -120,12 +129,12 @@ export class ErrorTracker {
   analyze(timeRange?: { start: number; end: number }): ErrorAnalysis {
     let relevant = [...this.errors.values()];
     if (timeRange) {
-      relevant = relevant.filter(e =>
-        e.timestamp >= timeRange.start && e.timestamp <= timeRange.end
+      relevant = relevant.filter(
+        (e) => e.timestamp >= timeRange.start && e.timestamp <= timeRange.end
       );
     }
 
-    const resolved = relevant.filter(e => e.resolvedAt !== undefined);
+    const resolved = relevant.filter((e) => e.resolvedAt !== undefined);
     const categoryMap = new Map<string, number>();
     const codeMap = new Map<string, number>();
     let totalResolutionTime = 0;
@@ -151,7 +160,8 @@ export class ErrorTracker {
       totalTracked: relevant.length,
       resolved: resolved.length,
       unresolved: relevant.length - resolved.length,
-      resolutionRate: relevant.length > 0 ? resolved.length / relevant.length : 0,
+      resolutionRate:
+        relevant.length > 0 ? resolved.length / relevant.length : 0,
       topCategories: [...categoryMap.entries()]
         .sort(([, a], [, b]) => b - a)
         .slice(0, 10)
@@ -161,24 +171,42 @@ export class ErrorTracker {
         .slice(0, 10)
         .map(([code, count]) => ({ code, count })),
       trends,
-      avgResolutionTime: resolutionCount > 0 ? totalResolutionTime / resolutionCount : 0,
+      avgResolutionTime:
+        resolutionCount > 0 ? totalResolutionTime / resolutionCount : 0,
     };
   }
 
   private computeTrends(errors: TrackedError[]): ErrorTrend[] {
-    const periods = new Map<string, { count: number; categories: Map<string, number>; severities: Map<string, number> }>();
+    const periods = new Map<
+      string,
+      {
+        count: number;
+        categories: Map<string, number>;
+        severities: Map<string, number>;
+      }
+    >();
 
     for (const e of errors) {
       const date = new Date(e.timestamp);
       const period = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
       if (!periods.has(period)) {
-        periods.set(period, { count: 0, categories: new Map(), severities: new Map() });
+        periods.set(period, {
+          count: 0,
+          categories: new Map(),
+          severities: new Map(),
+        });
       }
       const p = periods.get(period)!;
       p.count++;
-      p.categories.set(e.error.category, (p.categories.get(e.error.category) || 0) + 1);
-      p.severities.set(e.error.severity, (p.severities.get(e.error.severity) || 0) + 1);
+      p.categories.set(
+        e.error.category,
+        (p.categories.get(e.error.category) || 0) + 1
+      );
+      p.severities.set(
+        e.error.severity,
+        (p.severities.get(e.error.severity) || 0) + 1
+      );
     }
 
     return [...periods.entries()]
@@ -193,7 +221,7 @@ export class ErrorTracker {
   }
 
   getUnresolvedCount(): number {
-    return [...this.errors.values()].filter(e => !e.resolvedAt).length;
+    return [...this.errors.values()].filter((e) => !e.resolvedAt).length;
   }
 
   clear(): void {

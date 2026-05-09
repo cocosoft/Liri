@@ -84,7 +84,11 @@ export function createBridgeApiClient(deps: {
     context: string
   ): Promise<T> {
     let lastError: unknown;
-    for (let retryCount = 0; retryCount <= backoffConfig.maxRetries; retryCount++) {
+    for (
+      let retryCount = 0;
+      retryCount <= backoffConfig.maxRetries;
+      retryCount++
+    ) {
       try {
         return await fn();
       } catch (error) {
@@ -96,7 +100,9 @@ export function createBridgeApiClient(deps: {
           debug(`[bridge:api] ${context}: Max retries exceeded`);
           throw error;
         }
-        debug(`[bridge:api] ${context}: Retry ${retryCount + 1}/${backoffConfig.maxRetries}`);
+        debug(
+          `[bridge:api] ${context}: Retry ${retryCount + 1}/${backoffConfig.maxRetries}`
+        );
         await backoffWait(retryCount);
       }
     }
@@ -477,7 +483,11 @@ export function createBridgeApiClient(deps: {
         'SendPermissionResponseEvent'
       );
 
-      handleErrorStatus(response.status, response.data, 'SendPermissionResponseEvent');
+      handleErrorStatus(
+        response.status,
+        response.data,
+        'SendPermissionResponseEvent'
+      );
     },
   };
 }
@@ -485,4 +495,12 @@ export function createBridgeApiClient(deps: {
 /**
  * 导出类型
  */
-export type { IBridgeApiClient, BridgeApiConfig, BridgeEnvironmentInfo, WorkItem, HeartbeatResult, PermissionEvent, BackoffConfig } from '../types/BridgeApiTypes';
+export type {
+  IBridgeApiClient,
+  BridgeApiConfig,
+  BridgeEnvironmentInfo,
+  WorkItem,
+  HeartbeatResult,
+  PermissionEvent,
+  BackoffConfig,
+} from '../types/BridgeApiTypes';

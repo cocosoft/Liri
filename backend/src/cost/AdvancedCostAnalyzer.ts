@@ -79,7 +79,7 @@ export class AdvancedCostAnalyzer {
   analyzeTrend(): TrendAnalysis {
     const modelUsage = this.state.modelUsage;
     const models = Object.keys(modelUsage);
-    
+
     if (models.length === 0) {
       return {
         direction: 'stable',
@@ -90,14 +90,16 @@ export class AdvancedCostAnalyzer {
     }
 
     // 计算总令牌数变化（简化实现）
-    const totalTokens = this.state.totalInputTokens + this.state.totalOutputTokens;
-    
+    const totalTokens =
+      this.state.totalInputTokens + this.state.totalOutputTokens;
+
     // 基于成本增长率判断趋势
     const avgCostPerToken = this.state.totalCostUSD / Math.max(1, totalTokens);
     const baselineCostPerToken = 0.00002; // 假设基准成本
-    
-    const rate = ((avgCostPerToken - baselineCostPerToken) / baselineCostPerToken) * 100;
-    
+
+    const rate =
+      ((avgCostPerToken - baselineCostPerToken) / baselineCostPerToken) * 100;
+
     let direction: TrendDirection = 'stable';
     if (rate > 10) direction = 'increasing';
     else if (rate < -10) direction = 'decreasing';
@@ -131,7 +133,8 @@ export class AdvancedCostAnalyzer {
     }
 
     // 检测令牌使用异常
-    const totalTokens = this.state.totalInputTokens + this.state.totalOutputTokens;
+    const totalTokens =
+      this.state.totalInputTokens + this.state.totalOutputTokens;
     if (totalTokens > 1000000) {
       anomalies.push({
         isAnomaly: true,
@@ -143,7 +146,8 @@ export class AdvancedCostAnalyzer {
     }
 
     // 检测缓存使用异常
-    const cacheRatio = this.state.totalCacheReadInputTokens / 
+    const cacheRatio =
+      this.state.totalCacheReadInputTokens /
       Math.max(1, this.state.totalInputTokens);
     if (cacheRatio < 0.1 && this.state.totalInputTokens > 1000) {
       anomalies.push({
@@ -184,9 +188,12 @@ export class AdvancedCostAnalyzer {
    */
   calculateEfficiency(): EfficiencyMetrics {
     const modelUsage = this.state.modelUsage;
-    const totalTokens = this.state.totalInputTokens + this.state.totalOutputTokens;
-    const totalRequests = Object.values(modelUsage).reduce((sum, usage) => 
-      sum + Math.max(1, Math.floor(usage.inputTokens / 100)), 0);
+    const totalTokens =
+      this.state.totalInputTokens + this.state.totalOutputTokens;
+    const totalRequests = Object.values(modelUsage).reduce(
+      (sum, usage) => sum + Math.max(1, Math.floor(usage.inputTokens / 100)),
+      0
+    );
 
     // 计算每个模型的成本效率
     let optimalModel = '';
@@ -209,14 +216,17 @@ export class AdvancedCostAnalyzer {
       }
     }
 
-    const cacheHitRate = this.state.totalInputTokens > 0
-      ? this.state.totalCacheReadInputTokens / this.state.totalInputTokens
-      : 0;
+    const cacheHitRate =
+      this.state.totalInputTokens > 0
+        ? this.state.totalCacheReadInputTokens / this.state.totalInputTokens
+        : 0;
 
     return {
       costPerToken: totalTokens > 0 ? this.state.totalCostUSD / totalTokens : 0,
-      costPerRequest: totalRequests > 0 ? this.state.totalCostUSD / totalRequests : 0,
-      tokensPerDollar: this.state.totalCostUSD > 0 ? totalTokens / this.state.totalCostUSD : 0,
+      costPerRequest:
+        totalRequests > 0 ? this.state.totalCostUSD / totalRequests : 0,
+      tokensPerDollar:
+        this.state.totalCostUSD > 0 ? totalTokens / this.state.totalCostUSD : 0,
       cacheHitRate,
       optimalModel: optimalModel || 'N/A',
       worstModel: worstModel || 'N/A',
@@ -272,17 +282,23 @@ export class AdvancedCostAnalyzer {
 
   private getTrendLabel(direction: TrendDirection): string {
     switch (direction) {
-      case 'increasing': return '📈 上升';
-      case 'decreasing': return '📉 下降';
-      case 'stable': return '➡️ 稳定';
+      case 'increasing':
+        return '📈 上升';
+      case 'decreasing':
+        return '📉 下降';
+      case 'stable':
+        return '➡️ 稳定';
     }
   }
 
   private getSeverityLabel(severity: AnomalyDetection['severity']): string {
     switch (severity) {
-      case 'high': return '严重';
-      case 'medium': return '警告';
-      case 'low': return '信息';
+      case 'high':
+        return '严重';
+      case 'medium':
+        return '警告';
+      case 'low':
+        return '信息';
     }
   }
 
@@ -300,15 +316,18 @@ export class AdvancedCostAnalyzer {
     }
 
     // 基于模型效率的建议
-    if (efficiency.optimalModel && efficiency.worstModel && 
-        efficiency.optimalModel !== efficiency.worstModel) {
+    if (
+      efficiency.optimalModel &&
+      efficiency.worstModel &&
+      efficiency.optimalModel !== efficiency.worstModel
+    ) {
       recommendations.push(
         `💡 考虑将 ${efficiency.worstModel} 替换为 ${efficiency.optimalModel}，可降低成本`
       );
     }
 
     // 基于异常检测的建议
-    const highCostAnomaly = anomalies.find(a => a.severity === 'high');
+    const highCostAnomaly = anomalies.find((a) => a.severity === 'high');
     if (highCostAnomaly) {
       recommendations.push('🚨 当前存在高成本异常，请检查相关模型使用');
     }

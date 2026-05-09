@@ -28,12 +28,12 @@ export class AutoModeHandler {
 
     try {
       this.isAutoModeEnabled = true;
-      
+
       // 解析额外参数
       const config = this.parseArgs(args);
-      
+
       console.log(chalk.green('✓'), 'Auto mode enabled');
-      
+
       if (this.options.verbose) {
         console.log(chalk.gray('  Configuration:'));
         console.log(chalk.gray(`    Auto-save: ${config.autoSave}`));
@@ -102,7 +102,10 @@ export class AutoModeHandler {
     console.log(chalk.cyan('═'.repeat(40)));
     console.log();
     console.log(chalk.green('Enabled:'), this.isAutoModeEnabled ? 'Yes' : 'No');
-    console.log(chalk.green('Auto-save:'), this.options.autoSave ? 'Yes' : 'No');
+    console.log(
+      chalk.green('Auto-save:'),
+      this.options.autoSave ? 'Yes' : 'No'
+    );
     console.log(chalk.cyan('═'.repeat(40)));
   }
 
@@ -150,6 +153,8 @@ export class AutoModeHandler {
 /**
  * 创建自动模式处理器
  */
-export function createAutoModeHandler(options?: AutoModeHandlerOptions): AutoModeHandler {
+export function createAutoModeHandler(
+  options?: AutoModeHandlerOptions
+): AutoModeHandler {
   return new AutoModeHandler(options);
 }

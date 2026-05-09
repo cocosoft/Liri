@@ -54,7 +54,11 @@ export namespace StringUtils {
   /**
    * 截断字符串
    */
-  export function truncate(str: string, maxLength: number, suffix: string = '...'): string {
+  export function truncate(
+    str: string,
+    maxLength: number,
+    suffix: string = '...'
+  ): string {
     if (str.length <= maxLength) return str;
     return str.substring(0, maxLength - suffix.length) + suffix;
   }
@@ -83,7 +87,11 @@ export namespace StringUtils {
   /**
    * 替换所有匹配项
    */
-  export function replaceAll(str: string, search: string, replacement: string): string {
+  export function replaceAll(
+    str: string,
+    search: string,
+    replacement: string
+  ): string {
     return str.split(search).join(replacement);
   }
 
@@ -112,13 +120,19 @@ export namespace StringUtils {
       '&quot;': '"',
       '&#39;': "'",
     };
-    return str.replace(/&amp;|&lt;|&gt;|&quot;|&#39;/g, (entity) => unescapeMap[entity]);
+    return str.replace(
+      /&amp;|&lt;|&gt;|&quot;|&#39;/g,
+      (entity) => unescapeMap[entity]
+    );
   }
 
   /**
    * 生成随机字符串
    */
-  export function random(length: number, charset: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'): string {
+  export function random(
+    length: number,
+    charset: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  ): string {
     let result = '';
     for (let i = 0; i < length; i++) {
       result += charset.charAt(Math.floor(Math.random() * charset.length));
@@ -172,21 +186,32 @@ export namespace ArrayUtils {
    * 扁平化数组
    */
   export function flatten<T>(arr: any[]): T[] {
-    return arr.reduce((acc, val) => (Array.isArray(val) ? acc.concat(flatten(val)) : acc.concat(val)), [] as T[]);
+    return arr.reduce(
+      (acc, val) =>
+        Array.isArray(val) ? acc.concat(flatten(val)) : acc.concat(val),
+      [] as T[]
+    );
   }
 
   /**
    * 按分组
    */
-  export function groupBy<T>(arr: T[], key: keyof T | ((item: T) => string | number)): Record<string, T[]> {
-    return arr.reduce((result, item) => {
-      const groupKey = typeof key === 'function' ? String(key(item)) : String(item[key]);
-      if (!result[groupKey]) {
-        result[groupKey] = [];
-      }
-      result[groupKey].push(item);
-      return result;
-    }, {} as Record<string, T[]>);
+  export function groupBy<T>(
+    arr: T[],
+    key: keyof T | ((item: T) => string | number)
+  ): Record<string, T[]> {
+    return arr.reduce(
+      (result, item) => {
+        const groupKey =
+          typeof key === 'function' ? String(key(item)) : String(item[key]);
+        if (!result[groupKey]) {
+          result[groupKey] = [];
+        }
+        result[groupKey].push(item);
+        return result;
+      },
+      {} as Record<string, T[]>
+    );
   }
 
   /**
@@ -265,7 +290,9 @@ export namespace ObjectUtils {
   /**
    * 判断对象是否为空
    */
-  export function isEmpty(obj: Record<string, any> | null | undefined): boolean {
+  export function isEmpty(
+    obj: Record<string, any> | null | undefined
+  ): boolean {
     if (obj === null || obj === undefined) return true;
     return Object.keys(obj).length === 0;
   }
@@ -295,14 +322,21 @@ export namespace ObjectUtils {
   /**
    * 合并对象
    */
-  export function merge<T extends Record<string, any>>(target: T, ...sources: Partial<T>[]): T {
+  export function merge<T extends Record<string, any>>(
+    target: T,
+    ...sources: Partial<T>[]
+  ): T {
     return Object.assign({}, target, ...sources);
   }
 
   /**
    * 获取对象指定路径的值
    */
-  export function get(obj: Record<string, any>, path: string, defaultValue?: any): any {
+  export function get(
+    obj: Record<string, any>,
+    path: string,
+    defaultValue?: any
+  ): any {
     const keys = path.split('.');
     let result = obj;
     for (const key of keys) {
@@ -315,12 +349,20 @@ export namespace ObjectUtils {
   /**
    * 设置对象指定路径的值
    */
-  export function set(obj: Record<string, any>, path: string, value: any): void {
+  export function set(
+    obj: Record<string, any>,
+    path: string,
+    value: any
+  ): void {
     const keys = path.split('.');
     const lastKey = keys.pop()!;
     let current = obj;
     for (const key of keys) {
-      if (!(key in current) || current[key] === null || typeof current[key] !== 'object') {
+      if (
+        !(key in current) ||
+        current[key] === null ||
+        typeof current[key] !== 'object'
+      ) {
         current[key] = {};
       }
       current = current[key];
@@ -336,7 +378,11 @@ export namespace ObjectUtils {
     const lastKey = keys.pop()!;
     let current = obj;
     for (const key of keys) {
-      if (!(key in current) || current[key] === null || typeof current[key] !== 'object') {
+      if (
+        !(key in current) ||
+        current[key] === null ||
+        typeof current[key] !== 'object'
+      ) {
         return false;
       }
       current = current[key];
@@ -372,7 +418,10 @@ export namespace ObjectUtils {
   /**
    * 对象键值映射
    */
-  export function mapKeys<T>(obj: Record<string, T>, fn: (key: string, value: T) => string): Record<string, T> {
+  export function mapKeys<T>(
+    obj: Record<string, T>,
+    fn: (key: string, value: T) => string
+  ): Record<string, T> {
     const result: Record<string, T> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[fn(key, value)] = value;
@@ -383,7 +432,10 @@ export namespace ObjectUtils {
   /**
    * 对象值映射
    */
-  export function mapValues<T, R>(obj: Record<string, T>, fn: (value: T, key: string) => R): Record<string, R> {
+  export function mapValues<T, R>(
+    obj: Record<string, T>,
+    fn: (value: T, key: string) => R
+  ): Record<string, R> {
     const result: Record<string, R> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = fn(value, key);

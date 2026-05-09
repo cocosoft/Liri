@@ -92,7 +92,9 @@ export class AsyncHookRegistry extends EventEmitter {
     const timeout = asyncResponse.asyncTimeout || 15000; // 默认15秒
     const asyncRewake = asyncResponse.asyncRewake || false;
 
-    console.log(`Hooks: Registering async hook ${processId} (${hookName}) with timeout ${timeout}ms, asyncRewake: ${asyncRewake}`);
+    console.log(
+      `Hooks: Registering async hook ${processId} (${hookName}) with timeout ${timeout}ms, asyncRewake: ${asyncRewake}`
+    );
 
     // 记录异步钩子注册
     diagnosticManager.logEvent('async_hook_registered', {
@@ -112,7 +114,8 @@ export class AsyncHookRegistry extends EventEmitter {
       hookName,
       hookEvent,
       getOutput: async () => {
-        const taskOutput = this.pendingHooks.get(processId)?.shellCommand?.taskOutput;
+        const taskOutput =
+          this.pendingHooks.get(processId)?.shellCommand?.taskOutput;
         if (!taskOutput) {
           return { stdout: '', stderr: '', output: '' };
         }
@@ -144,7 +147,7 @@ export class AsyncHookRegistry extends EventEmitter {
    */
   getPendingAsyncHooks(): PendingAsyncHook[] {
     return Array.from(this.pendingHooks.values()).filter(
-      hook => !hook.responseAttachmentSent
+      (hook) => !hook.responseAttachmentSent
     );
   }
 
@@ -185,7 +188,7 @@ export class AsyncHookRegistry extends EventEmitter {
     const hooks = Array.from(this.pendingHooks.values());
 
     const settled = await Promise.allSettled(
-      hooks.map(async hook => {
+      hooks.map(async (hook) => {
         const stdout = (await hook.shellCommand?.taskOutput.getStdout()) ?? '';
         const stderr = hook.shellCommand?.taskOutput.getStderr() ?? '';
         console.log(
@@ -194,7 +197,11 @@ export class AsyncHookRegistry extends EventEmitter {
 
         if (hook.shellCommand?.isComplete()) {
           const exitCode = hook.shellCommand?.exitCode;
-          await this.finalizeHook(hook, exitCode || 0, exitCode === 0 ? 'success' : 'error');
+          await this.finalizeHook(
+            hook,
+            exitCode || 0,
+            exitCode === 0 ? 'success' : 'error'
+          );
 
           // 解析JSON输出
           let response: SyncHookJSONOutput = {};
@@ -296,16 +303,20 @@ export class AsyncHookRegistry extends EventEmitter {
   /**
    * 启动钩子进度间隔
    */
-  private startHookProgressInterval({ 
-    hookId, 
-    hookName, 
-    hookEvent, 
-    getOutput 
+  private startHookProgressInterval({
+    hookId,
+    hookName,
+    hookEvent,
+    getOutput,
   }: {
     hookId: string;
     hookName: string;
     hookEvent: HookEvent | 'StatusLine' | 'FileSuggestion';
-    getOutput: () => Promise<{ stdout: string; stderr: string; output: string }>;
+    getOutput: () => Promise<{
+      stdout: string;
+      stderr: string;
+      output: string;
+    }>;
   }): () => void {
     const interval = setInterval(async () => {
       try {

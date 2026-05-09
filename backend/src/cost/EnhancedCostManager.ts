@@ -4,19 +4,19 @@
  * 提供高级成本分析、预测和优化建议功能
  */
 
-import type { 
-  CostData, 
-  CostAnalysis, 
+import type {
+  CostData,
+  CostAnalysis,
   CostRecord,
   CostCategory,
-  CostPeriod 
+  CostPeriod,
 } from './types.js';
 
-import { 
+import {
   CostTracker,
   CostReporter,
   CostMonitor,
-  PricingManager 
+  PricingManager,
 } from './index.js';
 
 export interface EnhancedCostManagerConfig {
@@ -77,7 +77,7 @@ export class EnhancedCostManager {
       optimizationThreshold: 10, // 10%优化阈值
       ...config,
     };
-    
+
     this.costTracker = new CostTracker();
     this.costReporter = new CostReporter();
     this.costMonitor = new CostMonitor();
@@ -98,24 +98,28 @@ export class EnhancedCostManager {
     this.addToHistory(costData);
 
     // 基础分析
-    const basicAnalysis = await (this.costReporter as any).generateReport(period) as unknown as CostAnalysis;
+    const basicAnalysis = (await (this.costReporter as any).generateReport(
+      period
+    )) as unknown as CostAnalysis;
 
     // 高级分析
     const trendAnalysis = this.analyzeTrends(period);
-    
+
     // 预测
-    const predictions = this.config.enableCostPrediction ? 
-      await this.predictCosts(period) : [];
+    const predictions = this.config.enableCostPrediction
+      ? await this.predictCosts(period)
+      : [];
 
     // 优化建议
-    const optimizations = this.config.enableOptimizationSuggestions ? 
-      await this.identifyOptimizations(basicAnalysis) : [];
+    const optimizations = this.config.enableOptimizationSuggestions
+      ? await this.identifyOptimizations(basicAnalysis)
+      : [];
 
     return {
       basicAnalysis,
       trendAnalysis,
       predictions,
-      optimizations
+      optimizations,
     };
   }
 
@@ -124,7 +128,7 @@ export class EnhancedCostManager {
    */
   private analyzeTrends(period: CostPeriod): CostTrendAnalysis {
     const historicalData = this.getHistoricalData(period);
-    
+
     const trendAnalysis: CostTrendAnalysis = {
       period,
       totalCost: this.calculateTotalCost(historicalData),
@@ -132,17 +136,18 @@ export class EnhancedCostManager {
       costTrend: 'stable',
       trendStrength: 0,
       anomalyDetections: [],
-      seasonalPatterns: []
+      seasonalPatterns: [],
     };
 
     // 计算趋势
     this.calculateTrend(trendAnalysis, historicalData);
-    
+
     // 检测异常
     trendAnalysis.anomalyDetections = this.detectAnomalies(historicalData);
-    
+
     // 识别季节性模式
-    trendAnalysis.seasonalPatterns = this.identifySeasonalPatterns(historicalData);
+    trendAnalysis.seasonalPatterns =
+      this.identifySeasonalPatterns(historicalData);
 
     return trendAnalysis;
   }
@@ -160,12 +165,18 @@ export class EnhancedCostManager {
 
     // 按类别预测
     const categories = this.getUniqueCategories(historicalData);
-    
+
     for (const category of categories) {
-      const categoryData = historicalData.filter(data => data.category === category);
-      
-      if (categoryData.length >= 7) { // 至少7天数据
-        const prediction = await this.predictCategoryCost(category, categoryData);
+      const categoryData = historicalData.filter(
+        (data) => data.category === category
+      );
+
+      if (categoryData.length >= 7) {
+        // 至少7天数据
+        const prediction = await this.predictCategoryCost(
+          category,
+          categoryData
+        );
         if (prediction) {
           predictions.push(prediction);
         }
@@ -179,25 +190,36 @@ export class EnhancedCostManager {
    * 按类别预测成本
    */
   private async predictCategoryCost(
-    category: CostCategory, 
+    category: CostCategory,
     data: CostData[]
   ): Promise<CostPrediction | null> {
     try {
       // 简化实现：基于历史数据的线性趋势预测
       const trend = this.calculateLinearTrend(data);
       const lastCost = data[data.length - 1].amount;
-      
-      const predictedCost = lastCost + (trend.slope * this.config.predictionHorizon);
+
+      const predictedCost =
+        lastCost + trend.slope * this.config.predictionHorizon;
       const confidence = this.calculatePredictionConfidence(data, trend);
-      
+
       return {
         predictionId: `pred-${category}-${Date.now()}`,
         predictedCost,
         confidence,
-        predictionDate: new Date(Date.now() + this.config.predictionHorizon * 24 * 60 * 60 * 1000),
-        trendDirection: trend.slope > 0 ? 'increasing' : trend.slope < 0 ? 'decreasing' : 'stable',
+        predictionDate: new Date(
+          Date.now() + this.config.predictionHorizon * 24 * 60 * 60 * 1000
+        ),
+        trendDirection:
+          trend.slope > 0
+            ? 'increasing'
+            : trend.slope < 0
+              ? 'decreasing'
+              : 'stable',
         riskFactors: this.identifyRiskFactors(category, data),
-        optimizationOpportunities: this.identifyOptimizationOpportunities(category, data)
+        optimizationOpportunities: this.identifyOptimizationOpportunities(
+          category,
+          data
+        ),
       };
     } catch (error) {
       console.error(`预测类别 ${category} 成本失败:`, error);
@@ -208,35 +230,47 @@ export class EnhancedCostManager {
   /**
    * 识别优化机会
    */
-  private async identifyOptimizations(analysis: CostAnalysis): Promise<CostOptimization[]> {
+  private async identifyOptimizations(
+    analysis: CostAnalysis
+  ): Promise<CostOptimization[]> {
     const optimizations: CostOptimization[] = [];
-    
+
     // 分析每个类别的优化潜力
-    for (const [category, cost] of Object.entries(analysis.costByCategory || {})) {
+    for (const [category, cost] of Object.entries(
+      analysis.costByCategory || {}
+    )) {
       const optimization = await this.analyzeCategoryOptimization(
-        category as CostCategory, 
+        category as CostCategory,
         cost as number
       );
-      
-      if (optimization && optimization.savingsPercentage >= this.config.optimizationThreshold) {
+
+      if (
+        optimization &&
+        optimization.savingsPercentage >= this.config.optimizationThreshold
+      ) {
         optimizations.push(optimization);
       }
     }
 
-    return optimizations.sort((a, b) => b.savingsPercentage - a.savingsPercentage);
+    return optimizations.sort(
+      (a, b) => b.savingsPercentage - a.savingsPercentage
+    );
   }
 
   /**
    * 分析类别优化潜力
    */
   private async analyzeCategoryOptimization(
-    category: CostCategory, 
+    category: CostCategory,
     currentCost: number
   ): Promise<CostOptimization | null> {
     if (currentCost <= 0) return null;
 
     // 基于类别和成本的简化优化分析
-    const potentialSavings = this.calculatePotentialSavings(category, currentCost);
+    const potentialSavings = this.calculatePotentialSavings(
+      category,
+      currentCost
+    );
     const savingsPercentage = (potentialSavings / currentCost) * 100;
 
     if (savingsPercentage < 1) return null; // 忽略小于1%的优化
@@ -249,21 +283,24 @@ export class EnhancedCostManager {
       savingsPercentage,
       recommendations: this.generateRecommendations(category, currentCost),
       implementationEffort: this.estimateImplementationEffort(category),
-      estimatedTimeframe: this.estimateTimeframe(category)
+      estimatedTimeframe: this.estimateTimeframe(category),
     };
   }
 
   /**
    * 计算潜在节省
    */
-  private calculatePotentialSavings(category: CostCategory, currentCost: number): number {
+  private calculatePotentialSavings(
+    category: CostCategory,
+    currentCost: number
+  ): number {
     // 基于类别的简化节省计算
     const savingsRates: Partial<Record<CostCategory, number>> = {
-      'compute': 0.15, // 计算资源通常有15%优化空间
-      'storage': 0.20, // 存储资源通常有20%优化空间
-      'network': 0.10, // 网络资源通常有10%优化空间
-      'ai': 0.25, // AI资源通常有25%优化空间
-      'other': 0.05  // 其他资源通常有5%优化空间
+      compute: 0.15, // 计算资源通常有15%优化空间
+      storage: 0.2, // 存储资源通常有20%优化空间
+      network: 0.1, // 网络资源通常有10%优化空间
+      ai: 0.25, // AI资源通常有25%优化空间
+      other: 0.05, // 其他资源通常有5%优化空间
     };
 
     return currentCost * (savingsRates[category] || 0.05);
@@ -272,9 +309,12 @@ export class EnhancedCostManager {
   /**
    * 生成优化建议
    */
-  private generateRecommendations(category: CostCategory, currentCost: number): string[] {
+  private generateRecommendations(
+    category: CostCategory,
+    currentCost: number
+  ): string[] {
     const recommendations: string[] = [];
-    
+
     switch (category) {
       case 'compute':
         recommendations.push('优化实例类型选择');
@@ -307,14 +347,17 @@ export class EnhancedCostManager {
   /**
    * 估算实施难度
    */
-  private estimateImplementationEffort(category: CostCategory): 'low' | 'medium' | 'high' {
-    const effortMap: Partial<Record<CostCategory, 'low' | 'medium' | 'high'>> = {
-      'compute': 'medium',
-      'storage': 'low',
-      'network': 'high',
-      'ai': 'medium',
-      'other': 'low'
-    };
+  private estimateImplementationEffort(
+    category: CostCategory
+  ): 'low' | 'medium' | 'high' {
+    const effortMap: Partial<Record<CostCategory, 'low' | 'medium' | 'high'>> =
+      {
+        compute: 'medium',
+        storage: 'low',
+        network: 'high',
+        ai: 'medium',
+        other: 'low',
+      };
 
     return effortMap[category] || 'medium';
   }
@@ -324,11 +367,11 @@ export class EnhancedCostManager {
    */
   private estimateTimeframe(category: CostCategory): string {
     const timeframeMap: Partial<Record<CostCategory, string>> = {
-      'compute': '2-4周',
-      'storage': '1-2周',
-      'network': '4-8周',
-      'ai': '2-6周',
-      'other': '1-3周'
+      compute: '2-4周',
+      storage: '1-2周',
+      network: '4-8周',
+      ai: '2-6周',
+      other: '1-3周',
     };
 
     return timeframeMap[category] || '2-4周';
@@ -337,9 +380,15 @@ export class EnhancedCostManager {
   /**
    * 计算线性趋势
    */
-  private calculateLinearTrend(data: CostData[]): { slope: number; intercept: number } {
+  private calculateLinearTrend(data: CostData[]): {
+    slope: number;
+    intercept: number;
+  } {
     const n = data.length;
-    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    let sumX = 0,
+      sumY = 0,
+      sumXY = 0,
+      sumX2 = 0;
 
     data.forEach((point, index) => {
       const x = index;
@@ -359,24 +408,30 @@ export class EnhancedCostManager {
   /**
    * 计算预测置信度
    */
-  private calculatePredictionConfidence(data: CostData[], trend: { slope: number; intercept: number }): number {
+  private calculatePredictionConfidence(
+    data: CostData[],
+    trend: { slope: number; intercept: number }
+  ): number {
     // 基于数据点数量和趋势稳定性的简化置信度计算
     const n = data.length;
     const variance = this.calculateVariance(data, trend);
-    
+
     // 数据点越多，方差越小，置信度越高
     const baseConfidence = Math.min(0.95, 0.7 + (n / 30) * 0.25);
     const variancePenalty = Math.max(0, variance / 1000) * 0.1;
-    
+
     return Math.max(0.5, baseConfidence - variancePenalty);
   }
 
   /**
    * 计算方差
    */
-  private calculateVariance(data: CostData[], trend: { slope: number; intercept: number }): number {
+  private calculateVariance(
+    data: CostData[],
+    trend: { slope: number; intercept: number }
+  ): number {
     let sumSquaredErrors = 0;
-    
+
     data.forEach((point, index) => {
       const predicted = trend.intercept + trend.slope * index;
       const error = point.amount - predicted;
@@ -389,19 +444,24 @@ export class EnhancedCostManager {
   /**
    * 识别风险因素
    */
-  private identifyRiskFactors(category: CostCategory, data: CostData[]): string[] {
+  private identifyRiskFactors(
+    category: CostCategory,
+    data: CostData[]
+  ): string[] {
     const factors: string[] = [];
-    
+
     // 基于数据特征识别风险
     if (data.length > 0) {
       const lastCost = data[data.length - 1].amount;
       const avgCost = this.calculateAverageCost(data);
-      
+
       if (lastCost > avgCost * 1.5) {
         factors.push('近期成本显著上升');
       }
-      
-      if (this.calculateVariance(data, this.calculateLinearTrend(data)) > 1000) {
+
+      if (
+        this.calculateVariance(data, this.calculateLinearTrend(data)) > 1000
+      ) {
         factors.push('成本波动较大');
       }
     }
@@ -425,9 +485,12 @@ export class EnhancedCostManager {
   /**
    * 识别优化机会
    */
-  private identifyOptimizationOpportunities(category: CostCategory, data: CostData[]): string[] {
+  private identifyOptimizationOpportunities(
+    category: CostCategory,
+    data: CostData[]
+  ): string[] {
     const opportunities: string[] = [];
-    
+
     switch (category) {
       case 'compute':
         opportunities.push('考虑使用spot实例');
@@ -460,10 +523,12 @@ export class EnhancedCostManager {
   /**
    * 按类别计算成本
    */
-  private calculateCostByCategory(data: CostData[]): Record<CostCategory, number> {
+  private calculateCostByCategory(
+    data: CostData[]
+  ): Record<CostCategory, number> {
     const result: Partial<Record<CostCategory, number>> = {};
-    
-    data.forEach(item => {
+
+    data.forEach((item) => {
       const cat = item.category as CostCategory;
       result[cat] = (result[cat] || 0) + item.amount;
     });
@@ -479,13 +544,13 @@ export class EnhancedCostManager {
 
     const firstHalf = data.slice(0, Math.floor(data.length / 2));
     const secondHalf = data.slice(Math.floor(data.length / 2));
-    
+
     const firstCost = this.calculateTotalCost(firstHalf);
     const secondCost = this.calculateTotalCost(secondHalf);
-    
+
     const avgFirst = firstCost / firstHalf.length;
     const avgSecond = secondCost / secondHalf.length;
-    
+
     if (avgSecond > avgFirst * 1.1) {
       analysis.costTrend = 'increasing';
       analysis.trendStrength = (avgSecond - avgFirst) / avgFirst;
@@ -503,12 +568,14 @@ export class EnhancedCostManager {
    */
   private detectAnomalies(data: CostData[]): string[] {
     const anomalies: string[] = [];
-    
+
     if (data.length >= 3) {
-      const amounts = data.map(d => d.amount);
+      const amounts = data.map((d) => d.amount);
       const avg = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-      const std = Math.sqrt(amounts.reduce((sq, n) => sq + Math.pow(n - avg, 2), 0) / amounts.length);
-      
+      const std = Math.sqrt(
+        amounts.reduce((sq, n) => sq + Math.pow(n - avg, 2), 0) / amounts.length
+      );
+
       data.forEach((item, index) => {
         if (Math.abs(item.amount - avg) > 2 * std) {
           anomalies.push(`第${index + 1}天成本异常: ${item.amount}`);
@@ -524,12 +591,12 @@ export class EnhancedCostManager {
    */
   private identifySeasonalPatterns(data: CostData[]): string[] {
     const patterns: string[] = [];
-    
+
     // 简化实现：检测周末模式
     if (data.length >= 7) {
       const weekdayCosts: number[] = [];
       const weekendCosts: number[] = [];
-      
+
       data.forEach((item, index) => {
         const dayOfWeek = new Date(item.timestamp).getDay();
         if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -538,11 +605,13 @@ export class EnhancedCostManager {
           weekdayCosts.push(item.amount);
         }
       });
-      
+
       if (weekendCosts.length > 0 && weekdayCosts.length > 0) {
-        const avgWeekday = weekdayCosts.reduce((a, b) => a + b, 0) / weekdayCosts.length;
-        const avgWeekend = weekendCosts.reduce((a, b) => a + b, 0) / weekendCosts.length;
-        
+        const avgWeekday =
+          weekdayCosts.reduce((a, b) => a + b, 0) / weekdayCosts.length;
+        const avgWeekend =
+          weekendCosts.reduce((a, b) => a + b, 0) / weekendCosts.length;
+
         if (Math.abs(avgWeekday - avgWeekend) / avgWeekday > 0.2) {
           patterns.push('检测到周末/工作日成本差异模式');
         }
@@ -557,9 +626,10 @@ export class EnhancedCostManager {
    */
   private getHistoricalData(period: CostPeriod): CostData[] {
     const endDate = Date.now();
-    const startDate = endDate - this.config.analysisWindow * 24 * 60 * 60 * 1000;
-    
-    return this.costHistory.filter(data => {
+    const startDate =
+      endDate - this.config.analysisWindow * 24 * 60 * 60 * 1000;
+
+    return this.costHistory.filter((data) => {
       return data.timestamp >= startDate && data.timestamp <= endDate;
     });
   }
@@ -568,7 +638,7 @@ export class EnhancedCostManager {
    * 获取唯一类别
    */
   private getUniqueCategories(data: CostData[]): CostCategory[] {
-    return [...new Set(data.map(item => item.category as CostCategory))];
+    return [...new Set(data.map((item) => item.category as CostCategory))];
   }
 
   /**
@@ -584,10 +654,12 @@ export class EnhancedCostManager {
    */
   private addToHistory(data: CostData[]): void {
     this.costHistory.push(...data);
-    
+
     // 限制历史记录大小（保留最近1年的数据）
     const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
-    this.costHistory = this.costHistory.filter(item => item.timestamp >= oneYearAgo);
+    this.costHistory = this.costHistory.filter(
+      (item) => item.timestamp >= oneYearAgo
+    );
   }
 
   /**

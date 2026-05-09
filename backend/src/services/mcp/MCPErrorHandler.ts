@@ -14,28 +14,28 @@ export enum MCPErrorType {
   CONNECTION_FAILED = 'CONNECTION_FAILED',
   RECONNECTION_FAILED = 'RECONNECTION_FAILED',
   SERVER_DISCONNECTED = 'SERVER_DISCONNECTED',
-  
+
   // 认证错误
   AUTHENTICATION_REQUIRED = 'AUTHENTICATION_REQUIRED',
   AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED',
-  
+
   // 工具错误
   TOOL_FETCH_FAILED = 'TOOL_FETCH_FAILED',
   TOOL_EXECUTION_FAILED = 'TOOL_EXECUTION_FAILED',
-  
+
   // 命令错误
   COMMAND_FETCH_FAILED = 'COMMAND_FETCH_FAILED',
   COMMAND_EXECUTION_FAILED = 'COMMAND_EXECUTION_FAILED',
-  
+
   // 资源错误
   RESOURCE_FETCH_FAILED = 'RESOURCE_FETCH_FAILED',
-  
+
   // 配置错误
   INVALID_CONFIG = 'INVALID_CONFIG',
   CONFIG_NOT_FOUND = 'CONFIG_NOT_FOUND',
-  
+
   // 其他错误
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR'
+  UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
 /**
@@ -67,57 +67,129 @@ export class MCPErrorFactory {
   /**
    * 创建连接错误
    */
-  static createConnectionError(message: string, serverName?: string, details?: any): MCPError {
-    return new MCPError(message, MCPErrorType.CONNECTION_FAILED, serverName, details);
+  static createConnectionError(
+    message: string,
+    serverName?: string,
+    details?: any
+  ): MCPError {
+    return new MCPError(
+      message,
+      MCPErrorType.CONNECTION_FAILED,
+      serverName,
+      details
+    );
   }
 
   /**
    * 创建重连错误
    */
-  static createReconnectionError(message: string, serverName?: string, details?: any): MCPError {
-    return new MCPError(message, MCPErrorType.RECONNECTION_FAILED, serverName, details);
+  static createReconnectionError(
+    message: string,
+    serverName?: string,
+    details?: any
+  ): MCPError {
+    return new MCPError(
+      message,
+      MCPErrorType.RECONNECTION_FAILED,
+      serverName,
+      details
+    );
   }
 
   /**
    * 创建认证错误
    */
-  static createAuthError(message: string, serverName?: string, details?: any): MCPError {
-    return new MCPError(message, MCPErrorType.AUTHENTICATION_REQUIRED, serverName, details);
+  static createAuthError(
+    message: string,
+    serverName?: string,
+    details?: any
+  ): MCPError {
+    return new MCPError(
+      message,
+      MCPErrorType.AUTHENTICATION_REQUIRED,
+      serverName,
+      details
+    );
   }
 
   /**
    * 创建工具错误
    */
-  static createToolError(message: string, serverName?: string, details?: any): MCPError {
-    return new MCPError(message, MCPErrorType.TOOL_FETCH_FAILED, serverName, details);
+  static createToolError(
+    message: string,
+    serverName?: string,
+    details?: any
+  ): MCPError {
+    return new MCPError(
+      message,
+      MCPErrorType.TOOL_FETCH_FAILED,
+      serverName,
+      details
+    );
   }
 
   /**
    * 创建命令错误
    */
-  static createCommandError(message: string, serverName?: string, details?: any): MCPError {
-    return new MCPError(message, MCPErrorType.COMMAND_FETCH_FAILED, serverName, details);
+  static createCommandError(
+    message: string,
+    serverName?: string,
+    details?: any
+  ): MCPError {
+    return new MCPError(
+      message,
+      MCPErrorType.COMMAND_FETCH_FAILED,
+      serverName,
+      details
+    );
   }
 
   /**
    * 创建资源错误
    */
-  static createResourceError(message: string, serverName?: string, details?: any): MCPError {
-    return new MCPError(message, MCPErrorType.RESOURCE_FETCH_FAILED, serverName, details);
+  static createResourceError(
+    message: string,
+    serverName?: string,
+    details?: any
+  ): MCPError {
+    return new MCPError(
+      message,
+      MCPErrorType.RESOURCE_FETCH_FAILED,
+      serverName,
+      details
+    );
   }
 
   /**
    * 创建配置错误
    */
-  static createConfigError(message: string, serverName?: string, details?: any): MCPError {
-    return new MCPError(message, MCPErrorType.INVALID_CONFIG, serverName, details);
+  static createConfigError(
+    message: string,
+    serverName?: string,
+    details?: any
+  ): MCPError {
+    return new MCPError(
+      message,
+      MCPErrorType.INVALID_CONFIG,
+      serverName,
+      details
+    );
   }
 
   /**
    * 创建未知错误
    */
-  static createUnknownError(message: string, serverName?: string, details?: any): MCPError {
-    return new MCPError(message, MCPErrorType.UNKNOWN_ERROR, serverName, details);
+  static createUnknownError(
+    message: string,
+    serverName?: string,
+    details?: any
+  ): MCPError {
+    return new MCPError(
+      message,
+      MCPErrorType.UNKNOWN_ERROR,
+      serverName,
+      details
+    );
   }
 }
 
@@ -142,38 +214,56 @@ export class MCPErrorHandler {
    * 处理MCP错误
    */
   private static handleMCPError(error: MCPError): void {
-    const serverContext = error.serverName ? ` [Server: ${error.serverName}]` : '';
-    
+    const serverContext = error.serverName
+      ? ` [Server: ${error.serverName}]`
+      : '';
+
     switch (error.type) {
       case MCPErrorType.CONNECTION_FAILED:
         logger.error(`MCP Connection Failed${serverContext}: ${error.message}`);
         break;
       case MCPErrorType.RECONNECTION_FAILED:
-        logger.error(`MCP Reconnection Failed${serverContext}: ${error.message}`);
+        logger.error(
+          `MCP Reconnection Failed${serverContext}: ${error.message}`
+        );
         break;
       case MCPErrorType.SERVER_DISCONNECTED:
-        logger.warn(`MCP Server Disconnected${serverContext}: ${error.message}`);
+        logger.warn(
+          `MCP Server Disconnected${serverContext}: ${error.message}`
+        );
         break;
       case MCPErrorType.AUTHENTICATION_REQUIRED:
-        logger.warn(`MCP Authentication Required${serverContext}: ${error.message}`);
+        logger.warn(
+          `MCP Authentication Required${serverContext}: ${error.message}`
+        );
         break;
       case MCPErrorType.AUTHENTICATION_FAILED:
-        logger.error(`MCP Authentication Failed${serverContext}: ${error.message}`);
+        logger.error(
+          `MCP Authentication Failed${serverContext}: ${error.message}`
+        );
         break;
       case MCPErrorType.TOOL_FETCH_FAILED:
         logger.error(`MCP Tool Fetch Failed${serverContext}: ${error.message}`);
         break;
       case MCPErrorType.TOOL_EXECUTION_FAILED:
-        logger.error(`MCP Tool Execution Failed${serverContext}: ${error.message}`);
+        logger.error(
+          `MCP Tool Execution Failed${serverContext}: ${error.message}`
+        );
         break;
       case MCPErrorType.COMMAND_FETCH_FAILED:
-        logger.error(`MCP Command Fetch Failed${serverContext}: ${error.message}`);
+        logger.error(
+          `MCP Command Fetch Failed${serverContext}: ${error.message}`
+        );
         break;
       case MCPErrorType.COMMAND_EXECUTION_FAILED:
-        logger.error(`MCP Command Execution Failed${serverContext}: ${error.message}`);
+        logger.error(
+          `MCP Command Execution Failed${serverContext}: ${error.message}`
+        );
         break;
       case MCPErrorType.RESOURCE_FETCH_FAILED:
-        logger.error(`MCP Resource Fetch Failed${serverContext}: ${error.message}`);
+        logger.error(
+          `MCP Resource Fetch Failed${serverContext}: ${error.message}`
+        );
         break;
       case MCPErrorType.INVALID_CONFIG:
         logger.error(`MCP Invalid Config${serverContext}: ${error.message}`);

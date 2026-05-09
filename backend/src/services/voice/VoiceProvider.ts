@@ -3,7 +3,8 @@
  * 由 VOICE_MODE feature flag 控制加载
  */
 import { FEATURE_FLAGS } from '@modules/core/featureFlags';
-const feature = (name: keyof typeof FEATURE_FLAGS) => FEATURE_FLAGS[name] ?? false;
+const feature = (name: keyof typeof FEATURE_FLAGS) =>
+  FEATURE_FLAGS[name] ?? false;
 
 export interface VoiceConfig {
   enabled: boolean;
@@ -50,7 +51,12 @@ export function getVoiceState(): VoiceState {
 
 export function startListening(): void {
   if (!isVoiceModeEnabled()) return;
-  voiceState = { ...voiceState, isListening: true, error: null, transcript: '' };
+  voiceState = {
+    ...voiceState,
+    isListening: true,
+    error: null,
+    transcript: '',
+  };
 }
 
 export function stopListening(): void {

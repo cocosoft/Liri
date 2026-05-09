@@ -24,7 +24,8 @@ export function Switch({
 }: SwitchProps): React.ReactNode {
   const [internalChecked, setInternalChecked] = useState(false);
 
-  const isChecked = controlledChecked !== undefined ? controlledChecked : internalChecked;
+  const isChecked =
+    controlledChecked !== undefined ? controlledChecked : internalChecked;
 
   const handleToggle = () => {
     if (disabled) return;
@@ -39,10 +40,7 @@ export function Switch({
 
   return (
     <Box>
-      <Text
-        color={switchColor}
-        dimColor={disabled}
-      >
+      <Text color={switchColor} dimColor={disabled}>
         {isChecked ? switchOn : switchOff}
       </Text>
       {label && (

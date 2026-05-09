@@ -83,7 +83,11 @@ export class NotificationService {
    * @param options 其他选项
    * @returns 通知ID
    */
-  info(title: string, message: string, options?: Partial<NotificationOptions>): string {
+  info(
+    title: string,
+    message: string,
+    options?: Partial<NotificationOptions>
+  ): string {
     return this.show({ type: 'info', title, message, ...options });
   }
 
@@ -94,7 +98,11 @@ export class NotificationService {
    * @param options 其他选项
    * @returns 通知ID
    */
-  success(title: string, message: string, options?: Partial<NotificationOptions>): string {
+  success(
+    title: string,
+    message: string,
+    options?: Partial<NotificationOptions>
+  ): string {
     return this.show({ type: 'success', title, message, ...options });
   }
 
@@ -105,8 +113,18 @@ export class NotificationService {
    * @param options 其他选项
    * @returns 通知ID
    */
-  warn(title: string, message: string, options?: Partial<NotificationOptions>): string {
-    return this.show({ type: 'warning', title, message, priority: 'high', ...options });
+  warn(
+    title: string,
+    message: string,
+    options?: Partial<NotificationOptions>
+  ): string {
+    return this.show({
+      type: 'warning',
+      title,
+      message,
+      priority: 'high',
+      ...options,
+    });
   }
 
   /**
@@ -116,8 +134,18 @@ export class NotificationService {
    * @param options 其他选项
    * @returns 通知ID
    */
-  error(title: string, message: string, options?: Partial<NotificationOptions>): string {
-    return this.show({ type: 'error', title, message, priority: 'high', ...options });
+  error(
+    title: string,
+    message: string,
+    options?: Partial<NotificationOptions>
+  ): string {
+    return this.show({
+      type: 'error',
+      title,
+      message,
+      priority: 'high',
+      ...options,
+    });
   }
 
   /**

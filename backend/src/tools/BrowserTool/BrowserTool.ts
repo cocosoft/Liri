@@ -19,7 +19,13 @@ import { createToolResult } from '../types/ToolResult';
  */
 export interface BrowserToolInput {
   /** 操作类型 */
-  action: 'open_tab' | 'click' | 'fill_form' | 'navigate' | 'screenshot' | 'get_tabs';
+  action:
+    | 'open_tab'
+    | 'click'
+    | 'fill_form'
+    | 'navigate'
+    | 'screenshot'
+    | 'get_tabs';
   /** URL地址 */
   url?: string;
   /** 标签页ID */
@@ -51,10 +57,7 @@ export interface BrowserToolOutput {
 /**
  * 浏览器自动化工具
  */
-export class BrowserTool extends BaseTool<
-  BrowserToolInput,
-  BrowserToolOutput
-> {
+export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
   name = 'browser';
   description = 'Automate Chrome browser to interact with web pages';
 
@@ -62,9 +65,17 @@ export class BrowserTool extends BaseTool<
     {
       name: 'action',
       type: 'string',
-      description: 'Action to perform: open_tab, click, fill_form, navigate, screenshot, get_tabs',
+      description:
+        'Action to perform: open_tab, click, fill_form, navigate, screenshot, get_tabs',
       required: true,
-      enum: ['open_tab', 'click', 'fill_form', 'navigate', 'screenshot', 'get_tabs'],
+      enum: [
+        'open_tab',
+        'click',
+        'fill_form',
+        'navigate',
+        'screenshot',
+        'get_tabs',
+      ],
     },
     {
       name: 'url',
@@ -112,7 +123,14 @@ export class BrowserTool extends BaseTool<
   }
 
   override validateInput(input: BrowserToolInput): ValidationResult {
-    const validActions = ['open_tab', 'click', 'fill_form', 'navigate', 'screenshot', 'get_tabs'];
+    const validActions = [
+      'open_tab',
+      'click',
+      'fill_form',
+      'navigate',
+      'screenshot',
+      'get_tabs',
+    ];
 
     if (!input.action || !validActions.includes(input.action)) {
       return {
@@ -122,7 +140,10 @@ export class BrowserTool extends BaseTool<
       };
     }
 
-    if ((input.action === 'open_tab' || input.action === 'navigate') && !input.url) {
+    if (
+      (input.action === 'open_tab' || input.action === 'navigate') &&
+      !input.url
+    ) {
       return {
         result: false,
         message: 'url is required for open_tab or navigate action',
@@ -130,7 +151,10 @@ export class BrowserTool extends BaseTool<
       };
     }
 
-    if ((input.action === 'click' || input.action === 'fill_form') && !input.selector) {
+    if (
+      (input.action === 'click' || input.action === 'fill_form') &&
+      !input.selector
+    ) {
       return {
         result: false,
         message: 'selector is required for click or fill_form action',
@@ -181,7 +205,9 @@ export class BrowserTool extends BaseTool<
     }
   }
 
-  override getActivityDescription(input?: Partial<BrowserToolInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<BrowserToolInput>
+  ): string | null {
     const action = input?.action || '';
     switch (action) {
       case 'open_tab':
@@ -282,7 +308,8 @@ export class BrowserTool extends BaseTool<
           result = {
             success: true,
             message: `Took screenshot of tab ${input.tab_id || 'current'}`,
-            screenshot: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFeAJ6ME3L9UAAAAABJRU5ErkJggg==',
+            screenshot:
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFeAJ6ME3L9UAAAAABJRU5ErkJggg==',
           };
           break;
 

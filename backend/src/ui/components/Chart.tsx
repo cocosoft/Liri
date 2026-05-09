@@ -31,7 +31,7 @@ export const Chart: React.FC<ChartProps> = ({
 }) => {
   // 计算最大值
   const maxValue = useMemo(() => {
-    return Math.max(...data.map(d => d.value), 1);
+    return Math.max(...data.map((d) => d.value), 1);
   }, [data]);
 
   // 获取颜色
@@ -54,9 +54,9 @@ export const Chart: React.FC<ChartProps> = ({
       label: d.label,
     }));
 
-    const linePath = points.map((p, i) => 
-      `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-    ).join(' ');
+    const linePath = points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+      .join(' ');
 
     const areaPath = `${linePath} L ${points[points.length - 1].x} ${padding + chartHeight} L ${padding} ${padding + chartHeight} Z`;
 
@@ -76,11 +76,7 @@ export const Chart: React.FC<ChartProps> = ({
         ))}
 
         {/* 区域填充 */}
-        <path
-          d={areaPath}
-          fill="url(#areaGradient)"
-          opacity="0.3"
-        />
+        <path d={areaPath} fill="url(#areaGradient)" opacity="0.3" />
 
         {/* 渐变定义 */}
         <defs>
@@ -91,12 +87,7 @@ export const Chart: React.FC<ChartProps> = ({
         </defs>
 
         {/* 折线 */}
-        <path
-          d={linePath}
-          fill="none"
-          stroke={getColor(0)}
-          strokeWidth="2"
-        />
+        <path d={linePath} fill="none" stroke={getColor(0)} strokeWidth="2" />
 
         {/* 数据点 */}
         {points.map((p, i) => (
@@ -308,7 +299,9 @@ export const Chart: React.FC<ChartProps> = ({
                   style={{ backgroundColor: slice.color }}
                 />
                 <span className="text-sm text-gray-600">{slice.label}</span>
-                <span className="text-sm font-medium text-gray-800">{slice.value}</span>
+                <span className="text-sm font-medium text-gray-800">
+                  {slice.value}
+                </span>
               </div>
             ))}
           </div>
@@ -327,7 +320,7 @@ export const Chart: React.FC<ChartProps> = ({
       {title && (
         <h3 className="text-lg font-semibold text-gray-800 mb-4">{title}</h3>
       )}
-      
+
       {type === 'line' && renderLineChart()}
       {type === 'bar' && renderBarChart()}
       {type === 'pie' && renderPieChart()}

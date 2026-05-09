@@ -3,8 +3,19 @@
  * 提供主题上下文和主题管理功能
  */
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { ThemeName, ThemeSetting, ThemeContextValue, UITheme } from '../types/UITypes';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import {
+  ThemeName,
+  ThemeSetting,
+  ThemeContextValue,
+  UITheme,
+} from '../types/UITypes';
 
 /**
  * 默认主题配置（基于CC源码）
@@ -22,7 +33,7 @@ const defaultTheme: UITheme = {
     background: '#FFFFFF',
     border: '#C6C6C8',
     accent: '#007AFF',
-    muted: '#F2F2F7'
+    muted: '#F2F2F7',
   },
   spacing: {
     xs: 4,
@@ -30,12 +41,12 @@ const defaultTheme: UITheme = {
     md: 16,
     lg: 24,
     xl: 32,
-    xxl: 48
+    xxl: 48,
   },
   borderRadius: {
     sm: 4,
     md: 8,
-    lg: 12
+    lg: 12,
   },
   typography: {
     fontSize: {
@@ -43,14 +54,14 @@ const defaultTheme: UITheme = {
       sm: 14,
       md: 16,
       lg: 18,
-      xl: 20
+      xl: 20,
     },
     fontWeight: {
       normal: 400,
       medium: 500,
-      bold: 700
-    }
-  }
+      bold: 700,
+    },
+  },
 };
 
 /**
@@ -70,8 +81,8 @@ const darkTheme: UITheme = {
     background: '#000000',
     border: '#38383A',
     accent: '#0A84FF',
-    muted: '#1C1C1E'
-  }
+    muted: '#1C1C1E',
+  },
 };
 
 /**
@@ -80,7 +91,7 @@ const darkTheme: UITheme = {
 const themeMap: Record<ThemeName, UITheme> = {
   light: defaultTheme,
   dark: darkTheme,
-  auto: defaultTheme // 自动模式根据系统设置决定
+  auto: defaultTheme, // 自动模式根据系统设置决定
 };
 
 /**
@@ -92,7 +103,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   setPreviewTheme: () => {},
   savePreview: () => {},
   cancelPreview: () => {},
-  currentTheme: 'light'
+  currentTheme: 'light',
 });
 
 /**
@@ -107,10 +118,10 @@ interface ThemeProviderProps {
 /**
  * 主题提供者组件（基于CC源码）
  */
-export function ThemeProvider({ 
-  children, 
+export function ThemeProvider({
+  children,
   initialTheme = 'light',
-  onThemeChange 
+  onThemeChange,
 }: ThemeProviderProps) {
   const [themeSetting, setThemeSetting] = useState<ThemeSetting>(initialTheme);
   const [previewTheme, setPreviewTheme] = useState<ThemeSetting | null>(null);
@@ -122,13 +133,13 @@ export function ThemeProvider({
     if (previewTheme && previewTheme !== 'auto') {
       return previewTheme;
     }
-    
+
     if (themeSetting === 'auto') {
       // 自动模式：根据系统设置决定
       // 这里简化处理，实际应该检测系统主题
       return 'light';
     }
-    
+
     return themeSetting;
   }, [themeSetting, previewTheme]);
 
@@ -180,7 +191,7 @@ export function ThemeProvider({
     setPreviewTheme: handleSetPreviewTheme,
     savePreview,
     cancelPreview,
-    currentTheme
+    currentTheme,
   };
 
   return (
@@ -195,16 +206,16 @@ export function ThemeProvider({
  */
 export function useTheme(): { theme: UITheme } & ThemeContextValue {
   const context = useContext(ThemeContext);
-  
+
   if (!context) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
 
   const theme = themeMap[context.currentTheme];
-  
+
   return {
     ...context,
-    theme
+    theme,
   };
 }
 
@@ -227,7 +238,9 @@ export function useThemeSpacing(size: keyof UITheme['spacing']): number {
 /**
  * 使用主题字体大小Hook（基于CC源码）
  */
-export function useThemeFontSize(size: keyof UITheme['typography']['fontSize']): number {
+export function useThemeFontSize(
+  size: keyof UITheme['typography']['fontSize']
+): number {
   const { theme } = useTheme();
   return theme.typography.fontSize[size];
 }

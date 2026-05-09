@@ -30,13 +30,16 @@ export const DataTable = <T extends Record<string, unknown>>({
   onRowDoubleClick,
   pageSize = 10,
 }: DataTableProps<T>) => {
-  const [sortConfig, setSortConfig] = useState<{ key: keyof T; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof T;
+    direction: 'asc' | 'desc';
+  } | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
 
   // 筛选数据
   const filteredData = useMemo(() => {
-    return data.filter(row => {
+    return data.filter((row) => {
       return Object.entries(filters).every(([key, value]) => {
         if (!value) return true;
         const rowValue = row[key as keyof T];
@@ -51,7 +54,7 @@ export const DataTable = <T extends Record<string, unknown>>({
     return [...filteredData].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
-      
+
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -67,7 +70,7 @@ export const DataTable = <T extends Record<string, unknown>>({
 
   // 处理排序
   const handleSort = (key: keyof T) => {
-    setSortConfig(prev => {
+    setSortConfig((prev) => {
       if (prev?.key === key) {
         return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
       }
@@ -77,7 +80,7 @@ export const DataTable = <T extends Record<string, unknown>>({
 
   // 处理筛选
   const handleFilterChange = (columnId: string, value: string) => {
-    setFilters(prev => ({ ...prev, [columnId]: value }));
+    setFilters((prev) => ({ ...prev, [columnId]: value }));
     setCurrentPage(1);
   };
 
@@ -92,7 +95,7 @@ export const DataTable = <T extends Record<string, unknown>>({
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            {columns.map(column => (
+            {columns.map((column) => (
               <th
                 key={column.id}
                 className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
@@ -106,21 +109,25 @@ export const DataTable = <T extends Record<string, unknown>>({
                     >
                       {column.label}
                       {sortConfig?.key === column.id && (
-                        <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                        <span>
+                          {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
                       )}
                     </button>
                   ) : (
                     <span>{column.label}</span>
                   )}
                 </div>
-                
+
                 {/* 筛选输入框 */}
                 {column.filterable && (
                   <input
                     type="text"
                     placeholder="Filter..."
                     value={filters[column.id] || ''}
-                    onChange={(e) => handleFilterChange(column.id, e.target.value)}
+                    onChange={(e) =>
+                      handleFilterChange(column.id, e.target.value)
+                    }
                     className="mt-1 w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 )}
@@ -128,7 +135,7 @@ export const DataTable = <T extends Record<string, unknown>>({
             ))}
           </tr>
         </thead>
-        
+
         {/* 表体 */}
         <tbody className="divide-y divide-gray-200">
           {paginatedData.map((row, index) => (
@@ -138,7 +145,7 @@ export const DataTable = <T extends Record<string, unknown>>({
               onClick={() => onRowClick?.(row)}
               onDoubleClick={() => onRowDoubleClick?.(row)}
             >
-              {columns.map(column => (
+              {columns.map((column) => (
                 <td
                   key={column.id}
                   className="px-4 py-3 text-sm text-gray-700"
@@ -146,7 +153,7 @@ export const DataTable = <T extends Record<string, unknown>>({
                 >
                   {column.render
                     ? column.render(row[column.id as keyof T], row)
-                    : row[column.id as keyof T] as React.ReactNode}
+                    : (row[column.id as keyof T] as React.ReactNode)}
                 </td>
               ))}
             </tr>
@@ -158,19 +165,21 @@ export const DataTable = <T extends Record<string, unknown>>({
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200">
           <div className="text-sm text-gray-600">
-            Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length} entries
+            Showing {(currentPage - 1) * pageSize + 1} to{' '}
+            {Math.min(currentPage * pageSize, sortedData.length)} of{' '}
+            {sortedData.length} entries
           </div>
-          
+
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={!hasPrevPage}
               className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
-            
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
@@ -183,9 +192,9 @@ export const DataTable = <T extends Record<string, unknown>>({
                 {page}
               </button>
             ))}
-            
+
             <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={!hasNextPage}
               className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -201,6 +210,8 @@ export const DataTable = <T extends Record<string, unknown>>({
 /**
  * 创建数据表格组件
  */
-export function createDataTable<T extends Record<string, unknown>>(props: DataTableProps<T>): React.ReactElement {
+export function createDataTable<T extends Record<string, unknown>>(
+  props: DataTableProps<T>
+): React.ReactElement {
   return <DataTable {...props} />;
 }

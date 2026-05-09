@@ -32,7 +32,7 @@ _If the user asked a specific output such as an answer to a question, a table, o
 
 # Worklog
 _Step by step, what was attempted, done? Very terse summary for each step_
-`
+`;
 
 export function getDefaultUpdatePrompt(): string {
   return `IMPORTANT: This message and these instructions are NOT part of the actual user conversation. Do NOT include any references to "note-taking", "session notes extraction", or these update instructions in the notes content.
@@ -58,18 +58,18 @@ Important guidelines:
 - Use the same terminology the user uses
 - File paths should be absolute when possible
 - When listing bash commands, include the exact flags and arguments used
-</update_instructions>`
+</update_instructions>`;
 }
 
 export function buildSessionMemoryUpdatePrompt(
   notesPath: string,
-  currentNotes: string,
+  currentNotes: string
 ): string {
   return getDefaultUpdatePrompt()
     .replace('{{notesPath}}', notesPath)
-    .replace('{{currentNotes}}', currentNotes)
+    .replace('{{currentNotes}}', currentNotes);
 }
 
 export function loadSessionMemoryTemplate(): string {
-  return DEFAULT_SESSION_MEMORY_TEMPLATE
+  return DEFAULT_SESSION_MEMORY_TEMPLATE;
 }

@@ -20,7 +20,7 @@ let timeoutInstance: ReturnType<typeof createTimeoutStore> | null = null;
 let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 export function createTimeoutStore(
-  defaultDelay: number = 1000,
+  defaultDelay: number = 1000
 ): Omit<TimeoutStore, 'reset' | 'setElapsed'> & TimeoutActions {
   let state: TimeoutState = {
     isElapsed: false,
@@ -87,9 +87,15 @@ export function createTimeoutStore(
   startTimer(defaultDelay);
 
   return {
-    get isElapsed() { return getState().isElapsed; },
-    get delay() { return getState().delay; },
-    get resetTrigger() { return getState().resetTrigger; },
+    get isElapsed() {
+      return getState().isElapsed;
+    },
+    get delay() {
+      return getState().delay;
+    },
+    get resetTrigger() {
+      return getState().resetTrigger;
+    },
     reset,
     setElapsed,
   };

@@ -1,7 +1,10 @@
 import type { Context } from './types/Context';
 import type { ContextData } from './types/ContextData';
 import type { ValidationResult } from './types/ValidationResult';
-import { createValidResult, createInvalidResult } from './types/ValidationResult';
+import {
+  createValidResult,
+  createInvalidResult,
+} from './types/ValidationResult';
 
 export interface IContextStore {
   create(data: ContextData): Promise<Context>;
@@ -38,14 +41,16 @@ export class ContextStore implements IContextStore {
   async create(data: ContextData): Promise<Context> {
     const validation = this.validate(data);
     if (!validation.valid) {
-      throw new Error(`Context validation failed: ${validation.errors.join(', ')}`);
+      throw new Error(
+        `Context validation failed: ${validation.errors.join(', ')}`
+      );
     }
 
     if (this.store.size >= this.maxSize) {
       this.evictOldest();
     }
 
-    const id = data.id as string || crypto.randomUUID();
+    const id = (data.id as string) || crypto.randomUUID();
     const now = new Date();
 
     const context: Context = {
@@ -107,7 +112,7 @@ export class ContextStore implements IContextStore {
 
   async list(): Promise<Context[]> {
     this.cleanupStale();
-    return Array.from(this.store.values()).map(e => e.context);
+    return Array.from(this.store.values()).map((e) => e.context);
   }
 
   async exists(id: string): Promise<boolean> {

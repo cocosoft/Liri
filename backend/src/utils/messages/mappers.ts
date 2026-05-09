@@ -4,7 +4,12 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { Message, AssistantMessage, SystemMessage, UserMessage } from '@modules/chat/types/message.js';
+import type {
+  Message,
+  AssistantMessage,
+  SystemMessage,
+  UserMessage,
+} from '@modules/chat/types/message.js';
 import { MessageRole, MessageType } from '@modules/chat/types/message.js';
 
 /**
@@ -65,8 +70,12 @@ export function toInternalMessages(messages: readonly SDKMessage[]): Message[] {
             role: MessageRole.ASSISTANT,
             content: message.message || '',
             type: MessageType.NORMAL,
-            createdAt: message.timestamp ? new Date(message.timestamp) : new Date(),
-            updatedAt: message.timestamp ? new Date(message.timestamp) : new Date(),
+            createdAt: message.timestamp
+              ? new Date(message.timestamp)
+              : new Date(),
+            updatedAt: message.timestamp
+              ? new Date(message.timestamp)
+              : new Date(),
           } as AssistantMessage,
         ];
       case 'user':
@@ -76,13 +85,19 @@ export function toInternalMessages(messages: readonly SDKMessage[]): Message[] {
             role: MessageRole.USER,
             content: message.message || '',
             type: MessageType.NORMAL,
-            createdAt: message.timestamp ? new Date(message.timestamp) : new Date(),
-            updatedAt: message.timestamp ? new Date(message.timestamp) : new Date(),
+            createdAt: message.timestamp
+              ? new Date(message.timestamp)
+              : new Date(),
+            updatedAt: message.timestamp
+              ? new Date(message.timestamp)
+              : new Date(),
           } as UserMessage,
         ];
       case 'system':
         if (message.subtype === 'compact_boundary') {
-          const compactMsg = message as SDKMessage & { compact_metadata?: SDKCompactMetadata };
+          const compactMsg = message as SDKMessage & {
+            compact_metadata?: SDKCompactMetadata;
+          };
           return [
             {
               id: message.uuid || `sys_${Date.now()}`,
@@ -92,7 +107,9 @@ export function toInternalMessages(messages: readonly SDKMessage[]): Message[] {
               createdAt: new Date(),
               updatedAt: new Date(),
               metadata: {
-                compactMetadata: compactMsg.compact_metadata ? fromSDKCompactMetadata(compactMsg.compact_metadata) : undefined,
+                compactMetadata: compactMsg.compact_metadata
+                  ? fromSDKCompactMetadata(compactMsg.compact_metadata)
+                  : undefined,
               },
             } as SystemMessage,
           ];
@@ -110,7 +127,10 @@ export function toInternalMessages(messages: readonly SDKMessage[]): Message[] {
  * @param sessionId 会话ID
  * @returns SDK消息列表
  */
-export function toSDKMessages(messages: Message[], sessionId?: string): SDKMessage[] {
+export function toSDKMessages(
+  messages: Message[],
+  sessionId?: string
+): SDKMessage[] {
   return messages.flatMap((message): SDKMessage[] => {
     switch (message.role) {
       case MessageRole.ASSISTANT:
@@ -137,13 +157,18 @@ export function toSDKMessages(messages: Message[], sessionId?: string): SDKMessa
           },
         ];
       case MessageRole.SYSTEM:
-        if (message.type === MessageType.COMPACT_BOUNDARY && message.metadata?.compactMetadata) {
+        if (
+          message.type === MessageType.COMPACT_BOUNDARY &&
+          message.metadata?.compactMetadata
+        ) {
           return [
             {
               type: 'system',
               subtype: 'compact_boundary',
               uuid: message.id,
-              compact_metadata: toSDKCompactMetadata(message.metadata.compactMetadata as CompactMetadata),
+              compact_metadata: toSDKCompactMetadata(
+                message.metadata.compactMetadata as CompactMetadata
+              ),
             },
           ];
         }
@@ -159,7 +184,9 @@ export function toSDKMessages(messages: Message[], sessionId?: string): SDKMessa
  * @param meta 内部压缩元数据
  * @returns SDK压缩元数据
  */
-export function toSDKCompactMetadata(meta: CompactMetadata): SDKCompactMetadata {
+export function toSDKCompactMetadata(
+  meta: CompactMetadata
+): SDKCompactMetadata {
   const seg = meta.preservedSegment;
   return {
     trigger: meta.trigger,
@@ -179,7 +206,9 @@ export function toSDKCompactMetadata(meta: CompactMetadata): SDKCompactMetadata 
  * @param meta SDK压缩元数据
  * @returns 内部压缩元数据
  */
-export function fromSDKCompactMetadata(meta: SDKCompactMetadata): CompactMetadata {
+export function fromSDKCompactMetadata(
+  meta: SDKCompactMetadata
+): CompactMetadata {
   const seg = meta.preserved_segment;
   return {
     trigger: meta.trigger,
@@ -199,7 +228,9 @@ export function fromSDKCompactMetadata(meta: SDKCompactMetadata): CompactMetadat
  * @param message 助手消息
  * @returns 规范化的消息内容
  */
-export function normalizeAssistantMessageForSDK(message: AssistantMessage): string {
+export function normalizeAssistantMessageForSDK(
+  message: AssistantMessage
+): string {
   return typeof message.content === 'string' ? message.content : '';
 }
 
@@ -216,7 +247,9 @@ export function localCommandOutputToSDKAssistantMessage(
   const content = [
     stdout ? `<local_command_stdout>${stdout}</local_command_stdout>` : '',
     stderr ? `<local_command_stderr>${stderr}</local_command_stderr>` : '',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return {
     type: 'assistant',

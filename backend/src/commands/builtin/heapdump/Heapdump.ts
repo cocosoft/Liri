@@ -12,16 +12,19 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     context.onDone?.('正在生成堆转储...', { display: 'system' });
-    
+
     const fs = await import('fs');
     const path = await import('path');
-    
-    const dumpPath = path.join(context.cwd || process.cwd(), `heap-${Date.now()}.heapsnapshot`);
-    
+
+    const dumpPath = path.join(
+      context.cwd || process.cwd(),
+      `heap-${Date.now()}.heapsnapshot`
+    );
+
     try {
       // 模拟生成堆转储文件
       fs.writeFileSync(dumpPath, '{}');
-      
+
       return {
         success: true,
         type: 'text',

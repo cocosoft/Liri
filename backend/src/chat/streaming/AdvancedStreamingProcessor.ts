@@ -39,11 +39,19 @@ export interface StreamSession {
 export type ChunkCallback = (chunk: StreamChunk) => void;
 export type CompleteCallback = (session: StreamSession) => void;
 export type ErrorCallback = (error: Error, sessionId: string) => void;
-export type StateChangeCallback = (sessionId: string, oldState: StreamState, newState: StreamState) => void;
+export type StateChangeCallback = (
+  sessionId: string,
+  oldState: StreamState,
+  newState: StreamState
+) => void;
 
 export interface IAdvancedStreamingProcessor {
   createSession(metadata?: Record<string, any>): string;
-  processChunk(sessionId: string, content: string, type?: StreamChunk['type']): void;
+  processChunk(
+    sessionId: string,
+    content: string,
+    type?: StreamChunk['type']
+  ): void;
   pauseStream(sessionId: string): boolean;
   resumeStream(sessionId: string): boolean;
   cancelStream(sessionId: string): boolean;
@@ -73,7 +81,9 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
 
   createSession(metadata?: Record<string, any>): string {
     if (this.sessions.size >= this.maxSessions) {
-      const oldest = [...this.sessions.entries()].sort(([, a], [, b]) => a.createdAt - b.createdAt)[0];
+      const oldest = [...this.sessions.entries()].sort(
+        ([, a], [, b]) => a.createdAt - b.createdAt
+      )[0];
       if (oldest) this.sessions.delete(oldest[0]);
     }
 
@@ -103,10 +113,18 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     return id;
   }
 
-  processChunk(sessionId: string, content: string, type: StreamChunk['type'] = 'text'): void {
+  processChunk(
+    sessionId: string,
+    content: string,
+    type: StreamChunk['type'] = 'text'
+  ): void {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error(`Stream session not found: ${sessionId}`);
-    if (session.state === StreamState.CANCELLED || session.state === StreamState.COMPLETED) return;
+    if (
+      session.state === StreamState.CANCELLED ||
+      session.state === StreamState.COMPLETED
+    )
+      return;
     if (session.state === StreamState.PAUSED) {
       session.buffer.push({
         id: `chunk_${++this.chunkCounter}`,
@@ -140,7 +158,11 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     }
 
     for (const listener of this.chunkListeners) {
-      try { listener(chunk); } catch { /* ignore */ }
+      try {
+        listener(chunk);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -164,7 +186,11 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
       session.metrics.totalChunks++;
       session.metrics.totalBytes += buffered.content.length;
       for (const listener of this.chunkListeners) {
-        try { listener(buffered); } catch { /* ignore */ }
+        try {
+          listener(buffered);
+        } catch {
+          /* ignore */
+        }
       }
     }
     session.buffer = [];
@@ -175,7 +201,12 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
 
   cancelStream(sessionId: string): boolean {
     const session = this.sessions.get(sessionId);
-    if (!session || session.state === StreamState.COMPLETED || session.state === StreamState.CANCELLED) return false;
+    if (
+      !session ||
+      session.state === StreamState.COMPLETED ||
+      session.state === StreamState.CANCELLED
+    )
+      return false;
     const oldState = session.state;
     session.state = StreamState.CANCELLED;
     session.buffer = [];
@@ -186,17 +217,24 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
 
   private finalizeMetrics(session: StreamSession): void {
     session.metrics.endTime = Date.now();
-    session.metrics.duration = session.metrics.endTime - session.metrics.startTime;
+    session.metrics.duration =
+      session.metrics.endTime - session.metrics.startTime;
     const elapsedSec = session.metrics.duration / 1000;
     if (elapsedSec > 0) {
-      session.metrics.chunksPerSecond = session.metrics.totalChunks / elapsedSec;
+      session.metrics.chunksPerSecond =
+        session.metrics.totalChunks / elapsedSec;
       session.metrics.bytesPerSecond = session.metrics.totalBytes / elapsedSec;
     }
   }
 
   completeStream(sessionId: string): boolean {
     const session = this.sessions.get(sessionId);
-    if (!session || session.state === StreamState.COMPLETED || session.state === StreamState.CANCELLED) return false;
+    if (
+      !session ||
+      session.state === StreamState.COMPLETED ||
+      session.state === StreamState.CANCELLED
+    )
+      return false;
     const oldState = session.state;
     session.state = StreamState.COMPLETED;
 
@@ -211,7 +249,11 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     this.notifyStateChange(sessionId, oldState, StreamState.COMPLETED);
 
     for (const listener of this.completeListeners) {
-      try { listener(session); } catch { /* ignore */ }
+      try {
+        listener(session);
+      } catch {
+        /* ignore */
+      }
     }
 
     return true;
@@ -250,9 +292,17 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     return () => this.stateChangeListeners.delete(callback);
   }
 
-  private notifyStateChange(sessionId: string, oldState: StreamState, newState: StreamState): void {
+  private notifyStateChange(
+    sessionId: string,
+    oldState: StreamState,
+    newState: StreamState
+  ): void {
     for (const listener of this.stateChangeListeners) {
-      try { listener(sessionId, oldState, newState); } catch { /* ignore */ }
+      try {
+        listener(sessionId, oldState, newState);
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -263,7 +313,11 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
   clearCompletedSessions(): number {
     let count = 0;
     for (const [id, session] of this.sessions) {
-      if (session.state === StreamState.COMPLETED || session.state === StreamState.CANCELLED || session.state === StreamState.ERROR) {
+      if (
+        session.state === StreamState.COMPLETED ||
+        session.state === StreamState.CANCELLED ||
+        session.state === StreamState.ERROR
+      ) {
         this.sessions.delete(id);
         count++;
       }

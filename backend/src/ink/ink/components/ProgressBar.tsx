@@ -42,14 +42,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
   return (
     <Box style={style} flexDirection="column" gap={1}>
-      {label && (
-        <Text bold>{label}</Text>
-      )}
+      {label && <Text bold>{label}</Text>}
       <Box flexDirection="row" alignItems="center" gap={2}>
         <Text>{bar}</Text>
-        {showPercent && (
-          <Text bold>{Math.round(clampedValue)}%</Text>
-        )}
+        {showPercent && <Text bold>{Math.round(clampedValue)}%</Text>}
       </Box>
     </Box>
   );

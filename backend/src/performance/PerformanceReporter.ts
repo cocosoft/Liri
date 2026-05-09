@@ -109,7 +109,7 @@ export class PerformanceReporter {
     let formattedReport = '\n==========================================\n';
     formattedReport += '            性能报告\n';
     formattedReport += '==========================================\n';
-    
+
     // 基本信息
     formattedReport += '\n[基本信息]\n';
     formattedReport += `时间: ${new Date(report.timestamp).toISOString()}\n`;
@@ -126,7 +126,7 @@ export class PerformanceReporter {
     formattedReport += `  Heap Total: ${report.metrics.memory.heapTotal.toFixed(2)}MB\n`;
     formattedReport += `  Heap Used: ${report.metrics.memory.heapUsed.toFixed(2)}MB\n`;
     formattedReport += `  External: ${report.metrics.memory.external.toFixed(2)}MB\n`;
-    formattedReport += `系统负载: ${report.metrics.loadAverage.map(v => v.toFixed(2)).join(', ')}\n`;
+    formattedReport += `系统负载: ${report.metrics.loadAverage.map((v) => v.toFixed(2)).join(', ')}\n`;
     formattedReport += `事件循环延迟: ${report.metrics.eventLoopDelay.toFixed(2)}ms\n`;
     formattedReport += `平均响应时间: ${report.metrics.responseTime.toFixed(2)}ms\n`;
 
@@ -171,12 +171,15 @@ export class PerformanceReporter {
   async saveReportToFile(filePath: string): Promise<void> {
     const fs = await import('fs/promises');
     const report = this.generateJsonReport();
-    
+
     try {
       await fs.writeFile(filePath, report, 'utf8');
       logForDebugging(`性能报告已保存到 ${filePath}`);
     } catch (error) {
-      logForDebugging(`保存性能报告失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+      logForDebugging(
+        `保存性能报告失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'error' }
+      );
       throw error;
     }
   }
@@ -201,13 +204,17 @@ export class PerformanceReporter {
     // CPU使用率分析
     if (report.metrics.cpuUsage > 80) {
       analysis += '\n[CPU使用率过高]\n';
-      analysis += '建议: 检查是否有计算密集型操作，考虑使用异步处理或优化算法\n';
+      analysis +=
+        '建议: 检查是否有计算密集型操作，考虑使用异步处理或优化算法\n';
     }
 
     // 内存使用分析
-    if (report.metrics.memory.rss > report.config.memoryManagement.thresholdMb) {
+    if (
+      report.metrics.memory.rss > report.config.memoryManagement.thresholdMb
+    ) {
       analysis += '\n[内存使用过高]\n';
-      analysis += '建议: 检查是否有内存泄漏，考虑使用内存分析工具，优化数据结构\n';
+      analysis +=
+        '建议: 检查是否有内存泄漏，考虑使用内存分析工具，优化数据结构\n';
     }
 
     // 事件循环延迟分析

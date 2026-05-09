@@ -5,7 +5,12 @@
  * 基于CC源码 cc_code/backend/commands/compact.ts 实现
  */
 
-import type { Command, CommandContext, CommandType, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandType,
+  CommandResult,
+} from '@modules/commands/types';
 import type { CompactArtifact } from '@modules/services/compact/CompactService';
 
 export interface CompactCommandOptions {
@@ -29,7 +34,7 @@ export class CompactCommand implements Command {
     try {
       // 获取chatManager并执行压缩
       const { chatManager, sessionId } = context;
-      
+
       if (!chatManager) {
         return {
           success: false,
@@ -43,12 +48,16 @@ export class CompactCommand implements Command {
 
       // 构建返回消息
       let message = '对话历史已压缩';
-      
-      const hasSummary = artifacts.some((a: CompactArtifact) => a.type === 'summary');
-      const hasKeyInfo = artifacts.some((a: CompactArtifact) => 
-        ['key_point', 'code_snippet', 'decision', 'action_item'].includes(a.type)
+
+      const hasSummary = artifacts.some(
+        (a: CompactArtifact) => a.type === 'summary'
       );
-      
+      const hasKeyInfo = artifacts.some((a: CompactArtifact) =>
+        ['key_point', 'code_snippet', 'decision', 'action_item'].includes(
+          a.type
+        )
+      );
+
       if (options.summarize && hasSummary) {
         message += '，摘要已生成';
       }

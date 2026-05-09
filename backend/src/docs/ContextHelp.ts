@@ -252,7 +252,13 @@ SubAgent 命令帮助:
 
 别名: /agent, /agents
     `.trim(),
-    relatedCommands: ['subagent', 'agent', 'agents', 'subagent-run', 'agent-instance'],
+    relatedCommands: [
+      'subagent',
+      'agent',
+      'agents',
+      'subagent-run',
+      'agent-instance',
+    ],
     relatedTools: ['AgentTool'],
     matchConditions: [
       { type: 'command', value: 'subagent', matchType: 'startsWith' },
@@ -1707,11 +1713,7 @@ export class ContextHelp {
    * @returns 格式化字符串
    */
   formatHelpContent(entry: ContextHelpEntry): string {
-    const lines = [
-      `=== ${entry.description} ===`,
-      '',
-      entry.helpContent,
-    ];
+    const lines = [`=== ${entry.description} ===`, '', entry.helpContent];
 
     if (entry.relatedCommands.length > 0) {
       lines.push('', '相关命令:');

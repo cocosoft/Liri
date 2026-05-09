@@ -48,7 +48,9 @@ export interface AlertNotification {
 /**
  * 告警处理器
  */
-export type AlertHandler = (notification: AlertNotification) => void | Promise<void>;
+export type AlertHandler = (
+  notification: AlertNotification
+) => void | Promise<void>;
 
 /**
  * 告警管理器配置
@@ -250,9 +252,12 @@ export class AlertManager extends EventEmitter {
           this.triggerAlert(rule, metrics);
         }
       } catch (error) {
-        logForDebugging(`评估告警规则失败: ${rule.name} - ${errorMessage(error)}`, {
-          level: 'error',
-        });
+        logForDebugging(
+          `评估告警规则失败: ${rule.name} - ${errorMessage(error)}`,
+          {
+            level: 'error',
+          }
+        );
       }
     }
   }
@@ -262,7 +267,10 @@ export class AlertManager extends EventEmitter {
    * @param rule 规则
    * @param metrics 指标数据
    */
-  private triggerAlert(rule: AlertRule, metrics: Record<string, number[]>): void {
+  private triggerAlert(
+    rule: AlertRule,
+    metrics: Record<string, number[]>
+  ): void {
     rule.lastTriggered = Date.now();
 
     const notification: AlertNotification = {
@@ -291,15 +299,21 @@ export class AlertManager extends EventEmitter {
         const result = handler(notification);
         if (result instanceof Promise) {
           result.catch((error) => {
-            logForDebugging(`告警处理器失败: ${errorMessage(error)}`, { level: 'error' });
+            logForDebugging(`告警处理器失败: ${errorMessage(error)}`, {
+              level: 'error',
+            });
           });
         }
       } catch (error) {
-        logForDebugging(`告警处理器失败: ${errorMessage(error)}`, { level: 'error' });
+        logForDebugging(`告警处理器失败: ${errorMessage(error)}`, {
+          level: 'error',
+        });
       }
     }
 
-    logForDebugging(`触发告警: ${rule.name} - ${rule.message}`, { level: 'warn' });
+    logForDebugging(`触发告警: ${rule.name} - ${rule.message}`, {
+      level: 'warn',
+    });
   }
 
   /**
@@ -367,7 +381,8 @@ export class AlertManager extends EventEmitter {
     return {
       totalAlerts: this.alerts.length,
       alertsByLevel,
-      activeRules: Array.from(this.rules.values()).filter((r) => r.enabled).length,
+      activeRules: Array.from(this.rules.values()).filter((r) => r.enabled)
+        .length,
       totalRules: this.rules.size,
     };
   }
@@ -383,7 +398,9 @@ let alertManager: AlertManager | null = null;
  * @param config 配置
  * @returns 告警管理器实例
  */
-export function getAlertManager(config?: Partial<AlertManagerConfig>): AlertManager {
+export function getAlertManager(
+  config?: Partial<AlertManagerConfig>
+): AlertManager {
   if (!alertManager) {
     alertManager = new AlertManager(config);
   }
@@ -395,6 +412,8 @@ export function getAlertManager(config?: Partial<AlertManagerConfig>): AlertMana
  * @param config 配置
  * @returns 告警管理器实例
  */
-export function createAlertManager(config?: Partial<AlertManagerConfig>): AlertManager {
+export function createAlertManager(
+  config?: Partial<AlertManagerConfig>
+): AlertManager {
   return new AlertManager(config);
 }

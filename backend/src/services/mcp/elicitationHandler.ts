@@ -52,7 +52,10 @@ const ELICITATION_PROMPTS: Record<string, ElicitationPrompt[]> = {
       description: '例如: postgresql://user:password@localhost:5432/dbname',
       required: true,
       validate: (value: string) => {
-        if (!value.startsWith('postgresql://') && !value.startsWith('postgres://')) {
+        if (
+          !value.startsWith('postgresql://') &&
+          !value.startsWith('postgres://')
+        ) {
           return '连接字符串应以postgresql://或postgres://开头';
         }
         return null;
@@ -131,7 +134,10 @@ export function getElicitationPrompts(serverName: string): ElicitationPrompt[] {
   return ELICITATION_PROMPTS[serverName] || [];
 }
 
-export function needsElicitation(serverName: string, config: ScopedMcpServerConfig): boolean {
+export function needsElicitation(
+  serverName: string,
+  config: ScopedMcpServerConfig
+): boolean {
   const prompts = getElicitationPrompts(serverName);
   if (prompts.length === 0) return false;
 
@@ -147,7 +153,7 @@ export function needsElicitation(serverName: string, config: ScopedMcpServerConf
 
 export function validateElicitationAnswers(
   serverName: string,
-  answers: Record<string, string>,
+  answers: Record<string, string>
 ): Record<string, string | null> {
   const prompts = getElicitationPrompts(serverName);
   const errors: Record<string, string | null> = {};
@@ -173,7 +179,7 @@ export function validateElicitationAnswers(
 
 export function applyElicitationAnswers(
   config: ScopedMcpServerConfig,
-  answers: Record<string, string>,
+  answers: Record<string, string>
 ): ScopedMcpServerConfig {
   const existingEnv = (config as any).env || {};
   return {
@@ -187,7 +193,7 @@ export function applyElicitationAnswers(
 
 export function registerElicitationPrompts(
   serverName: string,
-  prompts: ElicitationPrompt[],
+  prompts: ElicitationPrompt[]
 ): void {
   ELICITATION_PROMPTS[serverName] = prompts;
   logger.info(`Registered elicitation prompts for MCP server: ${serverName}`);

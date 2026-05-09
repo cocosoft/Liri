@@ -33,7 +33,7 @@ export class LogFilter {
   }
 
   filter(logs: LogEntry[]): LogEntry[] {
-    return logs.filter(log => this.matches(log));
+    return logs.filter((log) => this.matches(log));
   }
 
   matches(log: LogEntry): boolean {
@@ -57,17 +57,26 @@ export class LogFilter {
       }
     }
 
-    if (this.options.excludePatterns && this.options.excludePatterns.length > 0) {
+    if (
+      this.options.excludePatterns &&
+      this.options.excludePatterns.length > 0
+    ) {
       if (this.matchesExcludePatterns(log.message)) {
         return false;
       }
     }
 
-    if (this.options.startTime && new Date(log.timestamp) < this.options.startTime) {
+    if (
+      this.options.startTime &&
+      new Date(log.timestamp) < this.options.startTime
+    ) {
       return false;
     }
 
-    if (this.options.endTime && new Date(log.timestamp) > this.options.endTime) {
+    if (
+      this.options.endTime &&
+      new Date(log.timestamp) > this.options.endTime
+    ) {
       return false;
     }
 
@@ -75,12 +84,24 @@ export class LogFilter {
   }
 
   private meetsMinLevel(level: LogLevel): boolean {
-    const levels = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR, LogLevel.FATAL];
+    const levels = [
+      LogLevel.DEBUG,
+      LogLevel.INFO,
+      LogLevel.WARN,
+      LogLevel.ERROR,
+      LogLevel.FATAL,
+    ];
     return levels.indexOf(level) >= levels.indexOf(this.options.minLevel!);
   }
 
   private meetsMaxLevel(level: LogLevel): boolean {
-    const levels = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR, LogLevel.FATAL];
+    const levels = [
+      LogLevel.DEBUG,
+      LogLevel.INFO,
+      LogLevel.WARN,
+      LogLevel.ERROR,
+      LogLevel.FATAL,
+    ];
     return levels.indexOf(level) <= levels.indexOf(this.options.maxLevel!);
   }
 
@@ -90,11 +111,13 @@ export class LogFilter {
   }
 
   private matchesPatterns(message: string): boolean {
-    return this.options.patterns!.some(pattern => pattern.test(message));
+    return this.options.patterns!.some((pattern) => pattern.test(message));
   }
 
   private matchesExcludePatterns(message: string): boolean {
-    return this.options.excludePatterns!.some(pattern => pattern.test(message));
+    return this.options.excludePatterns!.some((pattern) =>
+      pattern.test(message)
+    );
   }
 
   static levelToNumber(level: LogLevel): number {
@@ -109,7 +132,13 @@ export class LogFilter {
   }
 
   static numberToLevel(num: number): LogLevel {
-    const levels = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR, LogLevel.FATAL];
+    const levels = [
+      LogLevel.DEBUG,
+      LogLevel.INFO,
+      LogLevel.WARN,
+      LogLevel.ERROR,
+      LogLevel.FATAL,
+    ];
     return levels[Math.min(Math.max(0, num), levels.length - 1)];
   }
 

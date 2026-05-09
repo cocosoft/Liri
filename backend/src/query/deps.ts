@@ -31,12 +31,36 @@ export class QueryDepsManager {
 
   private registerDefaultAliases(): void {
     this.aliases.set('chatManager', ['chat', 'chatManager', 'ChatManager']);
-    this.aliases.set('analyticsService', ['analytics', 'analyticsService', 'AnalyticsService']);
-    this.aliases.set('costTracker', ['cost', 'costTracker', 'CostAnalyticsTracker']);
-    this.aliases.set('postSamplingHookManager', ['hooks', 'postSamplingHookManager', 'PostSamplingHookManager']);
-    this.aliases.set('tokenBudgetManager', ['budget', 'tokenBudgetManager', 'TokenBudgetManager']);
-    this.aliases.set('stopHookManager', ['stopHooks', 'stopHookManager', 'StopHookManager']);
-    this.aliases.set('configManager', ['config', 'configManager', 'QueryConfigManager']);
+    this.aliases.set('analyticsService', [
+      'analytics',
+      'analyticsService',
+      'AnalyticsService',
+    ]);
+    this.aliases.set('costTracker', [
+      'cost',
+      'costTracker',
+      'CostAnalyticsTracker',
+    ]);
+    this.aliases.set('postSamplingHookManager', [
+      'hooks',
+      'postSamplingHookManager',
+      'PostSamplingHookManager',
+    ]);
+    this.aliases.set('tokenBudgetManager', [
+      'budget',
+      'tokenBudgetManager',
+      'TokenBudgetManager',
+    ]);
+    this.aliases.set('stopHookManager', [
+      'stopHooks',
+      'stopHookManager',
+      'StopHookManager',
+    ]);
+    this.aliases.set('configManager', [
+      'config',
+      'configManager',
+      'QueryConfigManager',
+    ]);
   }
 
   register<T>(key: string, instance: T): void {
@@ -89,7 +113,10 @@ export class QueryDepsManager {
   }
 
   registerAlias(canonical: string, aliases: string[]): void {
-    this.aliases.set(canonical, [...(this.aliases.get(canonical) || []), ...aliases]);
+    this.aliases.set(canonical, [
+      ...(this.aliases.get(canonical) || []),
+      ...aliases,
+    ]);
   }
 
   createResolver<T>(key: string): () => T {

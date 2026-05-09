@@ -48,10 +48,21 @@ export interface BadgeStyle {
 
 export function statusBadge(status: string): BadgeStyle {
   switch (status) {
-    case 'success': case 'ok': return { label: 'OK', bg: color('success'), fg: '#fff' };
-    case 'warning': return { label: 'WARN', bg: color('warning'), fg: '#000' };
-    case 'error': case 'fail': return { label: 'ERR', bg: color('error'), fg: '#fff' };
-    case 'info': return { label: 'INFO', bg: color('info'), fg: '#fff' };
-    default: return { label: status.toUpperCase(), bg: color('border'), fg: color('fg') };
+    case 'success':
+    case 'ok':
+      return { label: 'OK', bg: color('success'), fg: '#fff' };
+    case 'warning':
+      return { label: 'WARN', bg: color('warning'), fg: '#000' };
+    case 'error':
+    case 'fail':
+      return { label: 'ERR', bg: color('error'), fg: '#fff' };
+    case 'info':
+      return { label: 'INFO', bg: color('info'), fg: '#fff' };
+    default:
+      return {
+        label: status.toUpperCase(),
+        bg: color('border'),
+        fg: color('fg'),
+      };
   }
 }

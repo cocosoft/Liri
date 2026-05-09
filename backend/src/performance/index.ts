@@ -4,6 +4,10 @@
  * 提供性能分析、监控和优化功能
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 // 导出启动性能分析
 export * from './StartupProfiler.js';
 
@@ -26,7 +30,10 @@ export * from './CodeOptimizer.js';
 export * from './ExtensibilityManager.js';
 
 // 导出性能报告生成器
-export { PerformanceReporter, type PerformanceReport } from './PerformanceReporter.js';
+export {
+  PerformanceReporter,
+  type PerformanceReport,
+} from './PerformanceReporter.js';
 
 // 导出缓存和延迟加载管理
 export * from './CacheAndLazyLoading.js';
@@ -62,9 +69,12 @@ export async function initializePerformanceSystem(): Promise<void> {
     // 初始化扩展性管理器
     await extensibilityManager.initialize();
 
-    console.log('性能优化系统初始化完成');
+    logger.info('性能优化系统初始化完成');
   } catch (error) {
-    console.error('性能优化系统初始化失败:', error);
+    logger.error(
+      '性能优化系统初始化失败',
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }
 
@@ -86,8 +96,11 @@ export async function shutdownPerformanceSystem(): Promise<void> {
     // 销毁扩展性管理器
     await extensibilityManager.destroy();
 
-    console.log('性能优化系统已关闭');
+    logger.info('性能优化系统已关闭');
   } catch (error) {
-    console.error('性能优化系统关闭失败:', error);
+    logger.error(
+      '性能优化系统关闭失败',
+      error instanceof Error ? error : new Error(String(error))
+    );
   }
 }

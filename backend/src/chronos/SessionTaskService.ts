@@ -80,10 +80,7 @@ export class SessionTaskService extends EventEmitter {
    * @param updates 更新内容
    * @returns 是否成功
    */
-  updateSessionTask(
-    id: string,
-    updates: Partial<ScheduledTask>
-  ): boolean {
+  updateSessionTask(id: string, updates: Partial<ScheduledTask>): boolean {
     const task = this.sessionTasks.get(id);
     if (!task) {
       return false;
@@ -153,7 +150,9 @@ export class SessionTaskService extends EventEmitter {
    * @param predicate 条件函数
    * @returns 任务数组
    */
-  findSessionTasks(predicate: (task: ScheduledTask) => boolean): ScheduledTask[] {
+  findSessionTasks(
+    predicate: (task: ScheduledTask) => boolean
+  ): ScheduledTask[] {
     const results: ScheduledTask[] = [];
     for (const task of this.sessionTasks.values()) {
       if (predicate(task)) {

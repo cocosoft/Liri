@@ -196,12 +196,17 @@ export class EnhancedPerformanceManager {
       newBottlenecks.push({
         id: `cpu-${Date.now()}`,
         type: 'cpu',
-        severity: latestMetrics.cpu.usagePercentage > 95 ? 'critical' :
-                  latestMetrics.cpu.usagePercentage > 90 ? 'high' : 'medium',
+        severity:
+          latestMetrics.cpu.usagePercentage > 95
+            ? 'critical'
+            : latestMetrics.cpu.usagePercentage > 90
+              ? 'high'
+              : 'medium',
         description: `CPU usage at ${latestMetrics.cpu.usagePercentage.toFixed(1)}%`,
         currentValue: latestMetrics.cpu.usagePercentage,
         threshold: this.config.cpuThreshold,
-        recommendation: 'Consider reducing concurrent operations or optimizing CPU-intensive code',
+        recommendation:
+          'Consider reducing concurrent operations or optimizing CPU-intensive code',
         detectedAt: new Date(),
       });
     }
@@ -210,12 +215,17 @@ export class EnhancedPerformanceManager {
       newBottlenecks.push({
         id: `memory-${Date.now()}`,
         type: 'memory',
-        severity: latestMetrics.memory.usagePercentage > 95 ? 'critical' :
-                  latestMetrics.memory.usagePercentage > 90 ? 'high' : 'medium',
+        severity:
+          latestMetrics.memory.usagePercentage > 95
+            ? 'critical'
+            : latestMetrics.memory.usagePercentage > 90
+              ? 'high'
+              : 'medium',
         description: `Memory usage at ${latestMetrics.memory.usagePercentage.toFixed(1)}% (${(latestMetrics.memory.heapUsed / 1024 / 1024).toFixed(1)}MB/${(latestMetrics.memory.heapTotal / 1024 / 1024).toFixed(1)}MB)`,
         currentValue: latestMetrics.memory.usagePercentage,
         threshold: this.config.memoryThreshold,
-        recommendation: 'Consider implementing memory pooling, reducing object allocations, or checking for memory leaks',
+        recommendation:
+          'Consider implementing memory pooling, reducing object allocations, or checking for memory leaks',
         detectedAt: new Date(),
       });
     }
@@ -224,12 +234,17 @@ export class EnhancedPerformanceManager {
       newBottlenecks.push({
         id: `eventloop-${Date.now()}`,
         type: 'event_loop',
-        severity: latestMetrics.eventLoop.lag > 100 ? 'critical' :
-                  latestMetrics.eventLoop.lag > 75 ? 'high' : 'medium',
+        severity:
+          latestMetrics.eventLoop.lag > 100
+            ? 'critical'
+            : latestMetrics.eventLoop.lag > 75
+              ? 'high'
+              : 'medium',
         description: `Event loop lag at ${latestMetrics.eventLoop.lag.toFixed(1)}ms`,
         currentValue: latestMetrics.eventLoop.lag,
         threshold: this.config.eventLoopThreshold,
-        recommendation: 'Check for blocking operations, reduce synchronous I/O, or break up long-running tasks',
+        recommendation:
+          'Check for blocking operations, reduce synchronous I/O, or break up long-running tasks',
         detectedAt: new Date(),
       });
     }
@@ -246,23 +261,32 @@ export class EnhancedPerformanceManager {
 
     const cpuTrend = this.calculateTrend(
       'cpu_usage',
-      recentMetrics.map(m => ({ value: m.cpu.usagePercentage, timestamp: m.timestamp }))
+      recentMetrics.map((m) => ({
+        value: m.cpu.usagePercentage,
+        timestamp: m.timestamp,
+      }))
     );
     trends.push(cpuTrend);
 
     const memoryTrend = this.calculateTrend(
       'memory_usage',
-      recentMetrics.map(m => ({ value: m.memory.usagePercentage, timestamp: m.timestamp }))
+      recentMetrics.map((m) => ({
+        value: m.memory.usagePercentage,
+        timestamp: m.timestamp,
+      }))
     );
     trends.push(memoryTrend);
 
     const eventLoopTrend = this.calculateTrend(
       'event_loop_lag',
-      recentMetrics.map(m => ({ value: m.eventLoop.lag, timestamp: m.timestamp }))
+      recentMetrics.map((m) => ({
+        value: m.eventLoop.lag,
+        timestamp: m.timestamp,
+      }))
     );
     trends.push(eventLoopTrend);
 
-    trends.forEach(t => this.trends.set(t.metric, t));
+    trends.forEach((t) => this.trends.set(t.metric, t));
     return trends;
   }
 
@@ -283,7 +307,8 @@ export class EnhancedPerformanceManager {
 
     const firstValue = dataPoints[0].value;
     const lastValue = dataPoints[dataPoints.length - 1].value;
-    const changePercent = firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
+    const changePercent =
+      firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
 
     let direction: 'improving' | 'stable' | 'degrading';
     if (Math.abs(changePercent) < 5) {
@@ -294,7 +319,8 @@ export class EnhancedPerformanceManager {
       direction = 'improving';
     }
 
-    const prediction = lastValue + (lastValue - firstValue) / dataPoints.length * 5;
+    const prediction =
+      lastValue + ((lastValue - firstValue) / dataPoints.length) * 5;
 
     return {
       metric,
@@ -309,7 +335,9 @@ export class EnhancedPerformanceManager {
   generateRecommendations(): PerformanceOptimizationRecommendation[] {
     const recommendations: PerformanceOptimizationRecommendation[] = [];
 
-    const criticalBottlenecks = this.bottlenecks.filter(b => b.severity === 'critical' || b.severity === 'high');
+    const criticalBottlenecks = this.bottlenecks.filter(
+      (b) => b.severity === 'critical' || b.severity === 'high'
+    );
     const latest = this.metricsHistory[this.metricsHistory.length - 1];
 
     for (const bottleneck of criticalBottlenecks) {
@@ -385,13 +413,32 @@ export class EnhancedPerformanceManager {
     this.generateRecommendations();
 
     const allBottlenecks = this.bottlenecks;
-    const criticalBottlenecks = allBottlenecks.filter(b => b.severity === 'critical');
+    const criticalBottlenecks = allBottlenecks.filter(
+      (b) => b.severity === 'critical'
+    );
 
-    const cpuHealth = Math.max(0, 100 - (this.metricsHistory[this.metricsHistory.length - 1]?.cpu.usagePercentage || 0));
-    const memoryHealth = Math.max(0, 100 - (this.metricsHistory[this.metricsHistory.length - 1]?.memory.usagePercentage || 0));
-    const eventLoopHealth = Math.max(0, 100 - (this.metricsHistory[this.metricsHistory.length - 1]?.eventLoop.lag || 0));
+    const cpuHealth = Math.max(
+      0,
+      100 -
+        (this.metricsHistory[this.metricsHistory.length - 1]?.cpu
+          .usagePercentage || 0)
+    );
+    const memoryHealth = Math.max(
+      0,
+      100 -
+        (this.metricsHistory[this.metricsHistory.length - 1]?.memory
+          .usagePercentage || 0)
+    );
+    const eventLoopHealth = Math.max(
+      0,
+      100 -
+        (this.metricsHistory[this.metricsHistory.length - 1]?.eventLoop.lag ||
+          0)
+    );
 
-    const overallScore = Math.round((cpuHealth + memoryHealth + eventLoopHealth) / 3);
+    const overallScore = Math.round(
+      (cpuHealth + memoryHealth + eventLoopHealth) / 3
+    );
 
     return {
       id: `report-${Date.now()}`,

@@ -35,7 +35,7 @@ export interface UseAwaySummaryReturn {
 export function useAwaySummary(
   messages: readonly Message[],
   isLoading: boolean,
-  options: UseAwaySummaryOptions = {},
+  options: UseAwaySummaryOptions = {}
 ): UseAwaySummaryReturn {
   const serviceRef = useRef<AwaySummaryService | null>(null);
   const pendingRef = useRef(false);

@@ -45,42 +45,42 @@ export interface SkillDefinition {
    * 技能名称
    */
   name: string;
-  
+
   /**
    * 技能描述
    */
   description: string;
-  
+
   /**
    * 技能内容
    */
   content: string;
-  
+
   /**
    * 技能文件路径
    */
   filePath: string;
-  
+
   /**
    * Frontmatter配置
    */
   frontmatter: SkillFrontmatter;
-  
+
   /**
    * 技能来源
    */
   source: SkillSource;
-  
+
   /**
    * 是否启用
    */
   enabled: boolean;
-  
+
   /**
    * 最后修改时间
    */
   lastModified: Date;
-  
+
   /**
    * 文件大小
    */
@@ -103,13 +103,17 @@ export enum SkillSource {
  * 技能解析器类（基于CC源码实现）
  */
 export class SkillParser {
-  private static readonly FRONTMATTER_REGEX = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
+  private static readonly FRONTMATTER_REGEX =
+    /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/;
   private static readonly YAML_REGEX = /^([^:]+):\s*(.*)$/;
 
   /**
    * 解析技能文件（基于CC源码）
    */
-  async parseSkillFile(filePath: string, source: SkillSource): Promise<SkillDefinition> {
+  async parseSkillFile(
+    filePath: string,
+    source: SkillSource
+  ): Promise<SkillDefinition> {
     try {
       if (!existsSync(filePath)) {
         throw new Error(`Skill file not found: ${filePath}`);
@@ -141,16 +145,21 @@ export class SkillParser {
         fileSize: stats.size,
       };
     } catch (error) {
-      throw new Error(`Failed to parse skill file ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to parse skill file ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
   /**
    * 提取Frontmatter（基于CC源码）
    */
-  private extractFrontmatter(content: string): { frontmatter: SkillFrontmatter; skillContent: string } {
+  private extractFrontmatter(content: string): {
+    frontmatter: SkillFrontmatter;
+    skillContent: string;
+  } {
     const match = content.match(SkillParser.FRONTMATTER_REGEX);
-    
+
     if (!match) {
       // 没有Frontmatter，返回默认配置
       return {
@@ -172,7 +181,7 @@ export class SkillParser {
    */
   private parseYamlFrontmatter(yamlText: string): SkillFrontmatter {
     const frontmatter: SkillFrontmatter = {};
-    const lines = yamlText.split('\n').filter(line => line.trim());
+    const lines = yamlText.split('\n').filter((line) => line.trim());
 
     for (const line of lines) {
       const match = line.match(SkillParser.YAML_REGEX);
@@ -187,17 +196,17 @@ export class SkillParser {
           case 'paths':
             frontmatter[key] = this.parseArrayValue(value);
             break;
-          
+
           case 'disable-model-invocation':
           case 'user-invocable':
           case 'shell':
             frontmatter[key] = this.parseBooleanValue(value);
             break;
-          
+
           case 'effort':
             frontmatter[key] = this.parseNumberValue(value);
             break;
-          
+
           default:
             (frontmatter as any)[key] = value;
         }
@@ -223,8 +232,8 @@ export class SkillParser {
     // 简单分割格式
     return value
       .split(',')
-      .map(item => item.trim())
-      .filter(item => item.length > 0);
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
   }
 
   /**
@@ -246,7 +255,10 @@ export class SkillParser {
   /**
    * 验证技能定义（基于CC源码）
    */
-  validateSkillDefinition(skill: SkillDefinition): { valid: boolean; errors: string[] } {
+  validateSkillDefinition(skill: SkillDefinition): {
+    valid: boolean;
+    errors: string[];
+  } {
     const errors: string[] = [];
 
     // 验证必需字段
@@ -264,10 +276,10 @@ export class SkillParser {
 
     // 验证Frontmatter字段
     if (skill.frontmatter.arguments) {
-      const args = Array.isArray(skill.frontmatter.arguments) 
-        ? skill.frontmatter.arguments 
+      const args = Array.isArray(skill.frontmatter.arguments)
+        ? skill.frontmatter.arguments
         : [skill.frontmatter.arguments];
-      
+
       for (const arg of args) {
         if (typeof arg !== 'string' || arg.trim().length === 0) {
           errors.push(`Invalid argument: ${arg}`);
@@ -280,7 +292,7 @@ export class SkillParser {
       const paths = Array.isArray(skill.frontmatter.paths)
         ? skill.frontmatter.paths
         : [skill.frontmatter.paths];
-      
+
       for (const path of paths) {
         if (typeof path !== 'string' || path.trim().length === 0) {
           errors.push(`Invalid path: ${path}`);
@@ -310,9 +322,8 @@ export class SkillParser {
 
     // 替换 ${CLAUDE_SKILL_DIR}
     if (baseDir) {
-      const skillDir = process.platform === 'win32' 
-        ? baseDir.replace(/\\/g, '/') 
-        : baseDir;
+      const skillDir =
+        process.platform === 'win32' ? baseDir.replace(/\\/g, '/') : baseDir;
       result = result.replace(/\$\{CLAUDE_SKILL_DIR\}/g, skillDir);
     }
 
@@ -321,12 +332,15 @@ export class SkillParser {
 
     // 替换命名参数 {{argName}}
     if (argumentNames && args) {
-      const argValues = args.split(' ').filter(arg => arg.trim().length > 0);
-      
+      const argValues = args.split(' ').filter((arg) => arg.trim().length > 0);
+
       for (let i = 0; i < argumentNames.length && i < argValues.length; i++) {
         const argName = argumentNames[i];
         const argValue = argValues[i];
-        result = result.replace(new RegExp(`\\{\\{${argName}\\}\\}`, 'g'), argValue);
+        result = result.replace(
+          new RegExp(`\\{\\{${argName}\\}\\}`, 'g'),
+          argValue
+        );
       }
     }
 
@@ -341,14 +355,16 @@ export class SkillParser {
 
     // 匹配 !command 格式
     const inlineCommands = content.match(/!\s*([^\n]+)/g) || [];
-    commands.push(...inlineCommands.map(cmd => cmd.replace(/^!\s*/, '')));
+    commands.push(...inlineCommands.map((cmd) => cmd.replace(/^!\s*/, '')));
 
     // 匹配 ```! 代码块格式
     const codeBlockRegex = /```!\s*\n([\s\S]*?)\n```/g;
     const codeBlockMatches = content.matchAll(codeBlockRegex);
-    
+
     for (const match of codeBlockMatches) {
-      const commandsInBlock = match[1].split('\n').filter(cmd => cmd.trim().length > 0);
+      const commandsInBlock = match[1]
+        .split('\n')
+        .filter((cmd) => cmd.trim().length > 0);
       commands.push(...commandsInBlock);
     }
 
@@ -384,7 +400,7 @@ export class SkillParser {
       const args = Array.isArray(skill.frontmatter.arguments)
         ? skill.frontmatter.arguments
         : [skill.frontmatter.arguments];
-      
+
       args.forEach((arg, index) => {
         summary.push(`${index + 1}. ${arg}`);
       });
@@ -393,7 +409,7 @@ export class SkillParser {
 
     if (skill.frontmatter['allowed-tools']) {
       summary.push('## 允许的工具');
-      skill.frontmatter['allowed-tools'].forEach(tool => {
+      skill.frontmatter['allowed-tools'].forEach((tool) => {
         summary.push(`- ${tool}`);
       });
       summary.push('');
@@ -414,9 +430,14 @@ export interface CreateSkillCommandOptions {
 /**
  * 解析技能Frontmatter（为兼容旧API而导出）
  */
-export function parseSkillFrontmatter(content: string): { frontmatter: SkillFrontmatter; content: string } {
+export function parseSkillFrontmatter(content: string): {
+  frontmatter: SkillFrontmatter;
+  content: string;
+} {
   const parser = new SkillParser();
-  const { frontmatter, skillContent } = (parser as any).extractFrontmatter(content);
+  const { frontmatter, skillContent } = (parser as any).extractFrontmatter(
+    content
+  );
   return { frontmatter, content: skillContent };
 }
 

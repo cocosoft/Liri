@@ -80,12 +80,12 @@ export const KEYBINDING_ACTIONS = [
   'app:copyAll',
   'app:clearAll',
   'app:reload',
-  
+
   // 历史导航
   'history:search',
   'history:previous',
   'history:next',
-  
+
   // 聊天输入动作
   'chat:cancel',
   'chat:killAgents',
@@ -100,34 +100,34 @@ export const KEYBINDING_ACTIONS = [
   'chat:stash',
   'chat:imagePaste',
   'chat:messageActions',
-  
+
   // 自动完成菜单动作
   'autocomplete:accept',
   'autocomplete:dismiss',
   'autocomplete:previous',
   'autocomplete:next',
-  
+
   // 确认对话框动作
   'confirm:yes',
   'confirm:no',
-  
+
   // 帮助覆盖层动作
   'help:close',
-  
+
   // 对话记录动作
   'transcript:exit',
   'transcript:toggleShowAll',
-  
+
   // 设置菜单动作
   'settings:close',
   'settings:search',
-  
+
   // 选择/列表动作
   'select:accept',
   'select:cancel',
   'select:previous',
   'select:next',
-  
+
   // 其他动作
   'task:background',
   'theme:toggleSyntaxHighlighting',
@@ -188,7 +188,7 @@ export function validateKeybindings(config: unknown): {
 } {
   try {
     const result = KeybindingsSchema.safeParse(config);
-    
+
     if (result.success) {
       return {
         success: true,
@@ -272,7 +272,7 @@ export function getAllContextsWithDescriptions(): Array<{
   context: KeybindingContextName;
   description: string;
 }> {
-  return KEYBINDING_CONTEXTS.map(context => ({
+  return KEYBINDING_CONTEXTS.map((context) => ({
     context,
     description: getContextDescription(context),
   }));
@@ -281,21 +281,29 @@ export function getAllContextsWithDescriptions(): Array<{
 /**
  * 检查上下文是否有效
  */
-export function isValidContext(context: string): context is KeybindingContextName {
+export function isValidContext(
+  context: string
+): context is KeybindingContextName {
   return KEYBINDING_CONTEXTS.includes(context as KeybindingContextName);
 }
 
 /**
  * 检查动作是否有效
  */
-export function isValidAction(action: string): action is (typeof KEYBINDING_ACTIONS)[number] {
-  return KEYBINDING_ACTIONS.includes(action as (typeof KEYBINDING_ACTIONS)[number]);
+export function isValidAction(
+  action: string
+): action is (typeof KEYBINDING_ACTIONS)[number] {
+  return KEYBINDING_ACTIONS.includes(
+    action as (typeof KEYBINDING_ACTIONS)[number]
+  );
 }
 
 /**
  * 获取动作的默认上下文
  */
-export function getDefaultContextForAction(action: string): KeybindingContextName | undefined {
+export function getDefaultContextForAction(
+  action: string
+): KeybindingContextName | undefined {
   const contextMap: Record<string, KeybindingContextName> = {
     // 应用级动作
     'app:interrupt': 'Global',
@@ -304,41 +312,41 @@ export function getDefaultContextForAction(action: string): KeybindingContextNam
     'app:redraw': 'Global',
     'app:globalSearch': 'Global',
     'app:quickOpen': 'Global',
-    
+
     // 聊天动作
     'chat:submit': 'Chat',
     'chat:newline': 'Chat',
     'chat:externalEditor': 'Chat',
     'chat:imagePaste': 'Chat',
-    
+
     // 自动完成动作
     'autocomplete:accept': 'Autocomplete',
     'autocomplete:dismiss': 'Autocomplete',
     'autocomplete:previous': 'Autocomplete',
     'autocomplete:next': 'Autocomplete',
-    
+
     // 确认动作
     'confirm:yes': 'Confirmation',
     'confirm:no': 'Confirmation',
-    
+
     // 帮助动作
     'help:close': 'Help',
-    
+
     // 对话记录动作
     'transcript:exit': 'Transcript',
     'transcript:toggleShowAll': 'Transcript',
-    
+
     // 设置动作
     'settings:close': 'Settings',
     'settings:search': 'Settings',
-    
+
     // 选择动作
     'select:accept': 'Select',
     'select:cancel': 'Select',
     'select:previous': 'Select',
     'select:next': 'Select',
   };
-  
+
   return contextMap[action];
 }
 
@@ -346,9 +354,13 @@ export function getDefaultContextForAction(action: string): KeybindingContextNam
  * 生成TypeScript类型定义
  */
 export function generateTypeScriptDefinitions(): string {
-  const contexts = KEYBINDING_CONTEXTS.map(context => `  | '${context}'`).join('\n');
-  const actions = KEYBINDING_ACTIONS.map(action => `  | '${action}'`).join('\n');
-  
+  const contexts = KEYBINDING_CONTEXTS.map(
+    (context) => `  | '${context}'`
+  ).join('\n');
+  const actions = KEYBINDING_ACTIONS.map((action) => `  | '${action}'`).join(
+    '\n'
+  );
+
   return `
 /**
  * 按键绑定上下文名称

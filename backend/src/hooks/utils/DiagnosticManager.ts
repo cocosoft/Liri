@@ -12,7 +12,7 @@ import { mkdirSync, writeFileSync, existsSync } from 'fs';
 /**
  * 诊断事件类型
  */
-export type DiagnosticEvent = 
+export type DiagnosticEvent =
   | 'hook_executed'
   | 'hook_error'
   | 'hook_started'
@@ -47,13 +47,17 @@ export class DiagnosticManager extends EventEmitter {
   private logDirectory: string;
   private logFile: string;
   private eventBuffer: DiagnosticEventData[] = [];
-  private bufferFlushInterval: NodeJS.Timeout = null as unknown as NodeJS.Timeout;
+  private bufferFlushInterval: NodeJS.Timeout =
+    null as unknown as NodeJS.Timeout;
   private enabled: boolean = true;
 
   private constructor() {
     super();
     this.logDirectory = this.getLogDirectory();
-    this.logFile = join(this.logDirectory, `hooks-diagnostic-${new Date().toISOString().split('T')[0]}.log`);
+    this.logFile = join(
+      this.logDirectory,
+      `hooks-diagnostic-${new Date().toISOString().split('T')[0]}.log`
+    );
     this.ensureLogDirectory();
     this.setupBufferFlush();
   }
@@ -98,7 +102,10 @@ export class DiagnosticManager extends EventEmitter {
   /**
    * 记录诊断事件
    */
-  logEvent(event: DiagnosticEvent, data: Omit<DiagnosticEventData, 'event' | 'timestamp'>): void {
+  logEvent(
+    event: DiagnosticEvent,
+    data: Omit<DiagnosticEventData, 'event' | 'timestamp'>
+  ): void {
     if (!this.enabled) {
       return;
     }
@@ -124,12 +131,16 @@ export class DiagnosticManager extends EventEmitter {
    */
   private logToConsole(eventData: DiagnosticEventData): void {
     const timestamp = new Date(eventData.timestamp).toISOString();
-    const sessionInfo = eventData.sessionId ? `[Session: ${eventData.sessionId}]` : '';
+    const sessionInfo = eventData.sessionId
+      ? `[Session: ${eventData.sessionId}]`
+      : '';
     const hookInfo = eventData.hookName ? `[Hook: ${eventData.hookName}]` : '';
     const durationInfo = eventData.duration ? `[${eventData.duration}ms]` : '';
     const errorInfo = eventData.error ? `[Error: ${eventData.error}]` : '';
 
-    console.log(`[${timestamp}] ${eventData.event} ${sessionInfo} ${hookInfo} ${durationInfo} ${errorInfo}`);
+    console.log(
+      `[${timestamp}] ${eventData.event} ${sessionInfo} ${hookInfo} ${durationInfo} ${errorInfo}`
+    );
   }
 
   /**
@@ -141,7 +152,9 @@ export class DiagnosticManager extends EventEmitter {
     }
 
     try {
-      const logContent = this.eventBuffer.map(event => JSON.stringify(event)).join('\n') + '\n';
+      const logContent =
+        this.eventBuffer.map((event) => JSON.stringify(event)).join('\n') +
+        '\n';
       writeFileSync(this.logFile, logContent, { flag: 'a' });
       this.eventBuffer = [];
     } catch (error) {

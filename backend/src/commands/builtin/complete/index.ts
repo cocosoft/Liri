@@ -12,18 +12,19 @@ const completeCommand: Command = {
   argumentHint: '<子命令> [选项]',
   type: 'local' as const,
   whenToUse: '当你需要查看命令补全、历史记录或常用命令统计时',
-  load: () => Promise.resolve({
-    call: async (args: string, context: CommandContext) => {
-      const command = new CompleteCommand();
-      const result = await command.call(args, context);
-      return {
-        success: result.type === 'text',
-        message: result.value,
-        type: result.type,
-        value: result.value,
-      };
-    },
-  }),
+  load: () =>
+    Promise.resolve({
+      call: async (args: string, context: CommandContext) => {
+        const command = new CompleteCommand();
+        const result = await command.call(args, context);
+        return {
+          success: result.type === 'text',
+          message: result.value,
+          type: result.type,
+          value: result.value,
+        };
+      },
+    }),
 
   isEnabled: () => true,
 

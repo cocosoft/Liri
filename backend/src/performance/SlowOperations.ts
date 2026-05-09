@@ -108,23 +108,29 @@ class SlowLogger {
   [Symbol.dispose](): void {
     const duration = performance.now() - this.startTime;
     const threshold = getSlowOperationThreshold();
-    
+
     if (duration > threshold && !isLogging) {
       isLogging = true;
       try {
-        const description = buildDescription(this.args) + callerFrame(this.err.stack);
+        const description =
+          buildDescription(this.args) + callerFrame(this.err.stack);
         const durationCategory = categorizeDuration(duration);
-        
+
         // 更新统计信息
         slowOperationStats.total++;
-        slowOperationStats.byType.set(this.operationType, (slowOperationStats.byType.get(this.operationType) || 0) + 1);
-        slowOperationStats.byDuration[durationCategory as keyof typeof slowOperationStats.byDuration]++;
-        
+        slowOperationStats.byType.set(
+          this.operationType,
+          (slowOperationStats.byType.get(this.operationType) || 0) + 1
+        );
+        slowOperationStats.byDuration[
+          durationCategory as keyof typeof slowOperationStats.byDuration
+        ]++;
+
         // 记录详细日志
         logForDebugging(
           `[慢操作检测] ${description} (${duration.toFixed(1)}ms) [类型: ${this.operationType}] [阈值: ${threshold}ms]`
         );
-        
+
         addSlowOperation(description, duration);
       } finally {
         isLogging = false;
@@ -152,7 +158,7 @@ function slowLoggingImpl(
  * const result = structuredClone(value)
  */
 export const slowLogging: {
-  (strings: TemplateStringsArray, ...values: unknown[]): Disposable
+  (strings: TemplateStringsArray, ...values: unknown[]): Disposable;
 } = slowLoggingImpl;
 
 /**
@@ -162,7 +168,11 @@ export const slowLogging: {
  * using _ = slowLoggingWithType('database', `query(${query})`)
  * const result = await db.query(query)
  */
-export function slowLoggingWithType(type: string, strings: string, ...values: unknown[]): Disposable {
+export function slowLoggingWithType(
+  type: string,
+  strings: string,
+  ...values: unknown[]
+): Disposable {
   const args = [strings, ...values] as unknown as IArguments;
   return new SlowLogger(args, type);
 }
@@ -181,26 +191,26 @@ export function slowLoggingWithType(type: string, strings: string, ...values: un
 export function jsonStringify(
   value: unknown,
   replacer?: (this: unknown, key: string, value: unknown) => unknown,
-  space?: string | number,
-): string
+  space?: string | number
+): string;
 export function jsonStringify(
   value: unknown,
   replacer?: (number | string)[] | null,
-  space?: string | number,
-): string
+  space?: string | number
+): string;
 export function jsonStringify(
   value: unknown,
   replacer?:
     | ((this: unknown, key: string, value: unknown) => unknown)
     | (number | string)[]
     | null,
-  space?: string | number,
+  space?: string | number
 ): string {
   using _ = slowLoggingWithType('json', `JSON.stringify(${value})`);
   return JSON.stringify(
     value,
     replacer as Parameters<typeof JSON.stringify>[1],
-    space,
+    space
   );
 }
 
@@ -250,7 +260,10 @@ export function setTimeoutWithLogging(
   description: string,
   ...args: unknown[]
 ): NodeJS.Timeout {
-  using _ = slowLoggingWithType('timeout', `setTimeout(${description}, ${delay}ms)`);
+  using _ = slowLoggingWithType(
+    'timeout',
+    `setTimeout(${description}, ${delay}ms)`
+  );
   return setTimeout(callback, delay, ...args);
 }
 
@@ -270,7 +283,10 @@ export function setIntervalWithLogging(
   description: string,
   ...args: unknown[]
 ): NodeJS.Timeout {
-  using _ = slowLoggingWithType('interval', `setInterval(${description}, ${delay}ms)`);
+  using _ = slowLoggingWithType(
+    'interval',
+    `setInterval(${description}, ${delay}ms)`
+  );
   return setInterval(callback, delay, ...args);
 }
 
@@ -359,23 +375,28 @@ export async function withSlowOperationDetection<T>(
   } finally {
     const duration = performance.now() - startTime;
     const threshold = getSlowOperationThreshold();
-    
+
     if (duration > threshold && !isLogging) {
       isLogging = true;
       try {
         const description = `Function execution [${operationType}]`;
         const durationCategory = categorizeDuration(duration);
-        
+
         // 更新统计信息
         slowOperationStats.total++;
-        slowOperationStats.byType.set(operationType, (slowOperationStats.byType.get(operationType) || 0) + 1);
-        slowOperationStats.byDuration[durationCategory as keyof typeof slowOperationStats.byDuration]++;
-        
+        slowOperationStats.byType.set(
+          operationType,
+          (slowOperationStats.byType.get(operationType) || 0) + 1
+        );
+        slowOperationStats.byDuration[
+          durationCategory as keyof typeof slowOperationStats.byDuration
+        ]++;
+
         // 记录详细日志
         logForDebugging(
           `[慢操作检测] ${description} (${duration.toFixed(1)}ms) [类型: ${operationType}] [阈值: ${threshold}ms]`
         );
-        
+
         addSlowOperation(description, duration);
       } finally {
         isLogging = false;
@@ -383,4 +404,3 @@ export async function withSlowOperationDetection<T>(
     }
   }
 }
-

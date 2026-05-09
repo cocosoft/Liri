@@ -38,7 +38,9 @@ export class AIModelManager {
 
   private constructor() {
     this.defaultThinkingEffort = DEFAULT_THINKING_EFFORT;
-    this.thinkingEnabled = process.env.DISABLE_THINKING !== 'true' && process.env.DISABLE_THINKING !== '1';
+    this.thinkingEnabled =
+      process.env.DISABLE_THINKING !== 'true' &&
+      process.env.DISABLE_THINKING !== '1';
     // 构造函数中验证 modelManager 可用性，避免运行时委托调用失败
     this.ensureModelManager();
   }
@@ -51,13 +53,13 @@ export class AIModelManager {
     if (!modelManager) {
       throw new Error(
         'AIModelManager: modelManager is not available. ' +
-        'Ensure ModelManager is initialized before using AIModelManager.'
+          'Ensure ModelManager is initialized before using AIModelManager.'
       );
     }
     if (typeof modelManager.getModelContextWindow !== 'function') {
       throw new Error(
         'AIModelManager: modelManager instance is invalid. ' +
-        'Expected ModelManager with getModelContextWindow method.'
+          'Expected ModelManager with getModelContextWindow method.'
       );
     }
   }
@@ -215,7 +217,8 @@ export class AIModelManager {
     }
 
     const effectiveEffort = effort ?? this.getDefaultThinkingEffort();
-    const budgetTokens = EFFORT_TO_BUDGET[effectiveEffort] ?? DEFAULT_THINKING_BUDGET_TOKENS;
+    const budgetTokens =
+      EFFORT_TO_BUDGET[effectiveEffort] ?? DEFAULT_THINKING_BUDGET_TOKENS;
 
     return buildThinkingConfig({
       effort: effectiveEffort,
@@ -276,7 +279,10 @@ export function getModelPricingString(model: string): string {
   return manager.getModelPricingString(model);
 }
 
-export function getThinkingConfig(model?: string, effort?: ThinkingEffort): ThinkingConfig {
+export function getThinkingConfig(
+  model?: string,
+  effort?: ThinkingEffort
+): ThinkingConfig {
   const manager = getAIModelManager();
   return manager.getThinkingConfig(model, effort);
 }

@@ -5,7 +5,11 @@
  */
 
 import { logger } from '../utils/log.js';
-import { TerminalComponents, type TableColumn, type TableRow } from '../ui/TerminalComponents.js';
+import {
+  TerminalComponents,
+  type TableColumn,
+  type TableRow,
+} from '../ui/TerminalComponents.js';
 import chalk from 'chalk';
 
 /**
@@ -261,7 +265,7 @@ export class PluginEcosystem {
    */
   getPluginSkills(pluginId: string): SkillInfo[] {
     return Array.from(this.skills.values()).filter(
-      skill => skill.pluginId === pluginId
+      (skill) => skill.pluginId === pluginId
     );
   }
 
@@ -272,13 +276,11 @@ export class PluginEcosystem {
     let results = this.getAllPlugins();
 
     if (category) {
-      results = results.filter(p => p.category === category);
+      results = results.filter((p) => p.category === category);
     }
 
     if (tags && tags.length > 0) {
-      results = results.filter(p =>
-        tags.some(tag => p.tags.includes(tag))
-      );
+      results = results.filter((p) => tags.some((tag) => p.tags.includes(tag)));
     }
 
     return results;
@@ -291,13 +293,11 @@ export class PluginEcosystem {
     let results = this.getAllSkills();
 
     if (category) {
-      results = results.filter(s => s.category === category);
+      results = results.filter((s) => s.category === category);
     }
 
     if (tags && tags.length > 0) {
-      results = results.filter(s =>
-        tags.some(tag => s.tags.includes(tag))
-      );
+      results = results.filter((s) => tags.some((tag) => s.tags.includes(tag)));
     }
 
     return results;
@@ -337,24 +337,21 @@ export class PluginEcosystem {
 
     TerminalComponents.printHeader('已安装插件');
 
-    const rows = plugins.map(p => {
+    const rows = plugins.map((p) => {
       const statusBadge = getBadgeText(
         p.enabled ? '启用' : '禁用',
         p.enabled ? 'green' : 'gray'
       );
 
-      return [
-        p.name,
-        p.version,
-        p.author,
-        p.category,
-        statusBadge,
-      ];
+      return [p.name, p.version, p.author, p.category, statusBadge];
     });
 
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '状态'].map(h => ({ header: h, width: 12 })),
-      rows.map(r => ({ cells: r }))
+      ['名称', '版本', '作者', '类别', '状态'].map((h) => ({
+        header: h,
+        width: 12,
+      })),
+      rows.map((r) => ({ cells: r }))
     );
   }
 
@@ -371,24 +368,21 @@ export class PluginEcosystem {
 
     TerminalComponents.printHeader('已安装技能');
 
-    const rows = skills.map(s => {
+    const rows = skills.map((s) => {
       const statusBadge = getBadgeText(
         s.enabled ? '启用' : '禁用',
         s.enabled ? 'green' : 'gray'
       );
 
-      return [
-        s.name,
-        s.version,
-        s.author,
-        s.category,
-        statusBadge,
-      ];
+      return [s.name, s.version, s.author, s.category, statusBadge];
     });
 
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '状态'].map(h => ({ header: h, width: 12 })),
-      rows.map(r => ({ cells: r }))
+      ['名称', '版本', '作者', '类别', '状态'].map((h) => ({
+        header: h,
+        width: 12,
+      })),
+      rows.map((r) => ({ cells: r }))
     );
   }
 
@@ -405,7 +399,7 @@ export class PluginEcosystem {
 
     TerminalComponents.printHeader('插件市场');
 
-    const rows = entries.map(e => {
+    const rows = entries.map((e) => {
       const installed = this.plugins.has(e.plugin.id);
       const statusBadge = getBadgeText(
         installed ? '已安装' : '可安装',
@@ -423,8 +417,11 @@ export class PluginEcosystem {
     });
 
     TerminalComponents.printTable(
-      ['名称', '版本', '作者', '类别', '技能数', '状态'].map(h => ({ header: h, width: 10 })),
-      rows.map(r => ({ cells: r }))
+      ['名称', '版本', '作者', '类别', '技能数', '状态'].map((h) => ({
+        header: h,
+        width: 10,
+      })),
+      rows.map((r) => ({ cells: r }))
     );
   }
 
@@ -454,7 +451,7 @@ export class PluginEcosystem {
     const skills = this.getPluginSkills(pluginId);
     if (skills.length > 0) {
       TerminalComponents.printInfo(`包含 ${skills.length} 个技能:`);
-      TerminalComponents.printList(skills.map(s => s.name));
+      TerminalComponents.printList(skills.map((s) => s.name));
     }
   }
 
@@ -480,13 +477,17 @@ export class PluginEcosystem {
       this.registerSkill(skill);
     }
 
-    logger.info(`Imported ${config.plugins.length} plugins and ${config.skills.length} skills`);
+    logger.info(
+      `Imported ${config.plugins.length} plugins and ${config.skills.length} skills`
+    );
   }
 }
 
 /**
  * 创建插件生态系统
  */
-export function createPluginEcosystem(config?: EcosystemConfig): PluginEcosystem {
+export function createPluginEcosystem(
+  config?: EcosystemConfig
+): PluginEcosystem {
   return new PluginEcosystem(config);
 }

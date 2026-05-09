@@ -6,50 +6,50 @@
  */
 
 export interface ApiLogEntry {
-  requestId: string
-  method: string
-  path: string
-  statusCode: number
-  latencyMs: number
+  requestId: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  latencyMs: number;
   tokenUsage?: {
-    input: number
-    output: number
-    cacheRead?: number
-    cacheWrite?: number
-  }
-  provider: string
-  model: string
-  error?: string
-  retryCount?: number
-  timestamp: Date
+    input: number;
+    output: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+  };
+  provider: string;
+  model: string;
+  error?: string;
+  retryCount?: number;
+  timestamp: Date;
 }
 
 export interface ApiLogStats {
-  totalRequests: number
-  totalErrors: number
-  totalLatencyMs: number
-  totalTokens: { input: number; output: number }
-  byProvider: Record<string, number>
-  byStatus: Record<string, number>
+  totalRequests: number;
+  totalErrors: number;
+  totalLatencyMs: number;
+  totalTokens: { input: number; output: number };
+  byProvider: Record<string, number>;
+  byStatus: Record<string, number>;
 }
 
 export class ApiLoggingService {
-  private entries: ApiLogEntry[] = []
-  private maxEntries: number
+  private entries: ApiLogEntry[] = [];
+  private maxEntries: number;
 
   constructor(maxEntries: number = 10000) {
-    this.maxEntries = maxEntries
+    this.maxEntries = maxEntries;
   }
 
   logRequest(entry: ApiLogEntry): void {
-    this.entries.push(entry)
+    this.entries.push(entry);
     if (this.entries.length > this.maxEntries) {
-      this.entries = this.entries.slice(-this.maxEntries)
+      this.entries = this.entries.slice(-this.maxEntries);
     }
   }
 
   getRecentEntries(limit: number = 100): ApiLogEntry[] {
-    return this.entries.slice(-limit).reverse()
+    return this.entries.slice(-limit).reverse();
   }
 
   getStats(): ApiLogStats {
@@ -60,47 +60,46 @@ export class ApiLoggingService {
       totalTokens: { input: 0, output: 0 },
       byProvider: {},
       byStatus: {},
-    }
+    };
 
     for (const entry of this.entries) {
-      stats.totalRequests++
-      stats.totalLatencyMs += entry.latencyMs
-      stats.totalTokens.input += entry.tokenUsage?.input || 0
-      stats.totalTokens.output += entry.tokenUsage?.output || 0
+      stats.totalRequests++;
+      stats.totalLatencyMs += entry.latencyMs;
+      stats.totalTokens.input += entry.tokenUsage?.input || 0;
+      stats.totalTokens.output += entry.tokenUsage?.output || 0;
 
       stats.byProvider[entry.provider] =
-        (stats.byProvider[entry.provider] || 0) + 1
+        (stats.byProvider[entry.provider] || 0) + 1;
 
-      const statusGroup = `${Math.floor(entry.statusCode / 100)}xx`
-      stats.byStatus[statusGroup] =
-        (stats.byStatus[statusGroup] || 0) + 1
+      const statusGroup = `${Math.floor(entry.statusCode / 100)}xx`;
+      stats.byStatus[statusGroup] = (stats.byStatus[statusGroup] || 0) + 1;
 
       if (entry.error) {
-        stats.totalErrors++
+        stats.totalErrors++;
       }
     }
 
-    return stats
+    return stats;
   }
 
   getErrors(limit: number = 50): ApiLogEntry[] {
     return this.entries
       .filter((e) => e.error)
       .slice(-limit)
-      .reverse()
+      .reverse();
   }
 
   getAvgLatency(): number {
-    if (this.entries.length === 0) return 0
+    if (this.entries.length === 0) return 0;
     return (
       this.entries.reduce((sum, e) => sum + e.latencyMs, 0) /
       this.entries.length
-    )
+    );
   }
 
   clear(): void {
-    this.entries = []
+    this.entries = [];
   }
 }
 
-export const apiLoggingService = new ApiLoggingService()
+export const apiLoggingService = new ApiLoggingService();

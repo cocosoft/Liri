@@ -38,7 +38,7 @@ export function parseYAML(content: string): AgentDefinitionFile | null {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      
+
       // 跳过注释和空行
       if (trimmed.startsWith('#') || trimmed === '') {
         continue;
@@ -83,7 +83,12 @@ export function parseYAML(content: string): AgentDefinitionFile | null {
     }
 
     // 验证必要字段
-    if (!result.name || !result.type || !result.version || !result.config?.model) {
+    if (
+      !result.name ||
+      !result.type ||
+      !result.version ||
+      !result.config?.model
+    ) {
       return null;
     }
 
@@ -99,9 +104,14 @@ export function parseYAML(content: string): AgentDefinitionFile | null {
 export function parseJSON(content: string): AgentDefinitionFile | null {
   try {
     const parsed = JSON.parse(content);
-    
+
     // 验证必要字段
-    if (!parsed.name || !parsed.type || !parsed.version || !parsed.config?.model) {
+    if (
+      !parsed.name ||
+      !parsed.type ||
+      !parsed.version ||
+      !parsed.config?.model
+    ) {
       return null;
     }
 
@@ -133,8 +143,10 @@ function parseValue(value: string): string | number | boolean {
   }
 
   // 移除引号
-  if ((value.startsWith('"') && value.endsWith('"')) || 
-      (value.startsWith("'") && value.endsWith("'"))) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
     return value.substring(1, value.length - 1);
   }
 
@@ -144,7 +156,10 @@ function parseValue(value: string): string | number | boolean {
 /**
  * 验证Agent定义文件
  */
-export function validateAgentDefinition(def: AgentDefinitionFile): { valid: boolean; errors: string[] } {
+export function validateAgentDefinition(def: AgentDefinitionFile): {
+  valid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
 
   if (!def.name) {
@@ -165,7 +180,10 @@ export function validateAgentDefinition(def: AgentDefinitionFile): { valid: bool
     errors.push('config.model is required');
   }
 
-  if (def.config.temperature !== undefined && (def.config.temperature < 0 || def.config.temperature > 1)) {
+  if (
+    def.config.temperature !== undefined &&
+    (def.config.temperature < 0 || def.config.temperature > 1)
+  ) {
     errors.push('temperature must be between 0 and 1');
   }
 

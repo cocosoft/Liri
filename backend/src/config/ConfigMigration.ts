@@ -35,14 +35,20 @@ export class ConfigMigration {
     let migratedConfig = { ...config };
 
     // 执行迁移
-    for (let version = currentVersion + 1; version <= CURRENT_MIGRATION_VERSION; version++) {
+    for (
+      let version = currentVersion + 1;
+      version <= CURRENT_MIGRATION_VERSION;
+      version++
+    ) {
       migratedConfig = this.runMigration(migratedConfig, version);
     }
 
     // 更新迁移版本
     migratedConfig.migrationVersion = CURRENT_MIGRATION_VERSION;
 
-    logger.info(`配置已从版本 ${currentVersion} 迁移到版本 ${CURRENT_MIGRATION_VERSION}`);
+    logger.info(
+      `配置已从版本 ${currentVersion} 迁移到版本 ${CURRENT_MIGRATION_VERSION}`
+    );
 
     return migratedConfig as GlobalConfig;
   }

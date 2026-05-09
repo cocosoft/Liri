@@ -10,14 +10,18 @@ export function isBuddyTeaserWindow(): boolean {
 
 export function isBuddyLive(): boolean {
   const d = new Date();
-  return d.getFullYear() > 2026 || (d.getFullYear() === 2026 && d.getMonth() >= 3);
+  return (
+    d.getFullYear() > 2026 || (d.getFullYear() === 2026 && d.getMonth() >= 3)
+  );
 }
 
 function RainbowText({ text }: { text: string }): React.ReactNode {
   return (
     <>
       {[...text].map((ch, i) => (
-        <Text key={i} color={getRainbowColor(i)}>{ch}</Text>
+        <Text key={i} color={getRainbowColor(i)}>
+          {ch}
+        </Text>
       ))}
     </>
   );

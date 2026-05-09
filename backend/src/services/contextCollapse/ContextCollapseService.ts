@@ -50,10 +50,8 @@ export class ContextCollapseService {
       };
     }
 
-    const { messagesToCollapse, messagesToKeep } = this.selectMessagesToCollapse(
-      messages,
-      currentState
-    );
+    const { messagesToCollapse, messagesToKeep } =
+      this.selectMessagesToCollapse(messages, currentState);
 
     if (messagesToCollapse.length < this.options.minMessagesToCollapse) {
       return {

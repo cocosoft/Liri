@@ -131,7 +131,14 @@ const CODE_EXTENSIONS = ['.ts', '.js', '.tsx', '.jsx', '.mjs', '.cjs'];
 /**
  * 可跳过的目录
  */
-const SKIP_DIRS = ['node_modules', '.git', 'dist', 'build', 'coverage', '.cache'];
+const SKIP_DIRS = [
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'coverage',
+  '.cache',
+];
 
 /**
  * 插件安全扫描器
@@ -270,7 +277,9 @@ export class PluginSecurityScanner {
       lines.push('## 详细问题\n');
       for (const issue of result.issues) {
         lines.push(`### ${issue.type} (${issue.riskLevel})`);
-        lines.push(`- 文件: ${issue.file}${issue.line ? `:${issue.line}` : ''}`);
+        lines.push(
+          `- 文件: ${issue.file}${issue.line ? `:${issue.line}` : ''}`
+        );
         if (issue.code) {
           lines.push(`- 代码: \`${issue.code}\``);
         }

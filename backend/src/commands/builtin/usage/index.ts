@@ -11,12 +11,13 @@ const usageCommand: Command = {
   name: 'usage',
   description: '显示详细的使用统计和趋势分析',
   aliases: ['statistics', 'usage-stats'],
-  argumentHint: '[--trends|-t] [--commands|-c] [--tools|-o] [--behavior|-b] [--performance|-p] [status] [--json] [help]',
+  argumentHint:
+    '[--trends|-t] [--commands|-c] [--tools|-o] [--behavior|-b] [--performance|-p] [status] [--json] [help]',
 
   /**
    * 懒加载命令实现
    */
-  load: () => import('./Usage.js').then(m => m.default),
+  load: () => import('./Usage.js').then((m) => m.default),
 };
 
 export { usageCommand };

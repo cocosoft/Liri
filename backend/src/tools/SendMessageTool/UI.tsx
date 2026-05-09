@@ -1,18 +1,18 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type SendMessageOutput = {
-  targetTeam?: string
-  targetAgent?: string
-  message?: string
-  delivered?: boolean
-}
+  targetTeam?: string;
+  targetAgent?: string;
+  message?: string;
+  delivered?: boolean;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ team_name: string; agent_name: string; message: string }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { team_name, agent_name, message } = input
+  const { team_name, agent_name, message } = input;
 
   if (verbose) {
     return (
@@ -28,7 +28,7 @@ export function renderToolUseMessage(
           </Box>
         ) : null}
       </Box>
-    )
+    );
   }
 
   return (
@@ -36,15 +36,15 @@ export function renderToolUseMessage(
       <Text dimColor>→ </Text>
       <Text>{team_name || agent_name || 'peer'}</Text>
     </Box>
-  )
+  );
 }
 
 export function renderToolResultMessage(
   output: SendMessageOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { delivered } = output
+  const { delivered } = output;
 
   if (delivered) {
     return (
@@ -52,19 +52,19 @@ export function renderToolResultMessage(
         <Text color="green">✓ </Text>
         <Text dimColor>Message delivered</Text>
       </Box>
-    )
+    );
   }
 
   return (
     <Box flexDirection="row">
       <Text dimColor>Message sent</Text>
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ team_name: string; message: string }> | undefined,
+  input: Partial<{ team_name: string; message: string }> | undefined
 ): string | null {
-  if (!input) return 'Message'
-  return input.message?.slice(0, 40) || `→ ${input.team_name || 'peer'}`
+  if (!input) return 'Message';
+  return input.message?.slice(0, 40) || `→ ${input.team_name || 'peer'}`;
 }

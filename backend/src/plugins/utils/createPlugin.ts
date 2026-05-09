@@ -55,6 +55,6 @@ export function createPlugin(definition: PluginDefinition): Plugin {
       if (unload) {
         await unload.call(this);
       }
-    }
+    },
   };
 }

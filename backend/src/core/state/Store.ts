@@ -164,10 +164,7 @@ export function composeMiddlewares<T>(
   middlewares: StoreMiddleware<T>[]
 ): StoreMiddleware<T> {
   return (next) =>
-    middlewares.reduceRight(
-      (acc, middleware) => middleware(acc),
-      next
-    );
+    middlewares.reduceRight((acc, middleware) => middleware(acc), next);
 }
 
 /**

@@ -3,12 +3,12 @@
  * 远程Agent执行器
  */
 
-import { 
-  RemoteAgentExecutor, 
-  RemoteAgentTask, 
-  RemoteExecutionResult, 
+import {
+  RemoteAgentExecutor,
+  RemoteAgentTask,
+  RemoteExecutionResult,
   RemoteAgentConfig,
-  SessionStatus
+  SessionStatus,
 } from './types';
 import { WebSocketProtocol, HttpProtocol } from './RemoteAgentProtocol';
 import { RemoteAgentProtocol, ProtocolType } from './types';
@@ -51,7 +51,10 @@ export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
     this.sessionId = '';
   }
 
-  async execute(agentId: string, task: Omit<RemoteAgentTask, 'agentId'>): Promise<RemoteExecutionResult> {
+  async execute(
+    agentId: string,
+    task: Omit<RemoteAgentTask, 'agentId'>
+  ): Promise<RemoteExecutionResult> {
     if (this.sessionStatus !== 'connected') {
       throw new Error('Not connected to remote agent');
     }
@@ -82,7 +85,7 @@ export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
           throw reconnectError;
         }
       }
-      
+
       throw error;
     }
   }
@@ -99,6 +102,8 @@ export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
 /**
  * 创建远程Agent执行器
  */
-export function createRemoteAgentExecutor(config: RemoteAgentConfig): RemoteAgentExecutor {
+export function createRemoteAgentExecutor(
+  config: RemoteAgentConfig
+): RemoteAgentExecutor {
   return new RemoteAgentExecutorImpl(config);
 }

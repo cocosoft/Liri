@@ -4,8 +4,14 @@ import { z } from 'zod';
  * GlobTool 输入模式
  */
 export const GlobInputSchema = z.strictObject({
-  pattern: z.string().min(1, 'glob模式不能为空').describe('用于匹配文件名的通配符模式'),
-  searchPath: z.string().optional().describe('搜索的起始目录路径，默认为当前工作目录'),
+  pattern: z
+    .string()
+    .min(1, 'glob模式不能为空')
+    .describe('用于匹配文件名的通配符模式'),
+  searchPath: z
+    .string()
+    .optional()
+    .describe('搜索的起始目录路径，默认为当前工作目录'),
 });
 
 export type GlobInputType = z.infer<typeof GlobInputSchema>;

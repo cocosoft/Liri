@@ -51,7 +51,7 @@ export function startMdmSettingsLoad(): void {
 
     if (Object.keys(mdm.settings).length > 0) {
       logger.info(
-        `MDM settings found: ${Object.keys(mdm.settings).join(', ')}`,
+        `MDM settings found: ${Object.keys(mdm.settings).join(', ')}`
       );
     }
   })();
@@ -117,7 +117,7 @@ export async function refreshMdmSettings(): Promise<{
  */
 export function parseCommandOutputAsSettings(
   stdout: string,
-  sourcePath: string,
+  sourcePath: string
 ): MdmResult {
   try {
     const data = JSON.parse(stdout);
@@ -138,14 +138,11 @@ export function parseCommandOutputAsSettings(
  */
 export function parseRegQueryStdout(
   stdout: string,
-  valueName = 'Settings',
+  valueName = 'Settings'
 ): string | null {
   const lines = stdout.split(/\r?\n/);
   const escaped = valueName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(
-    `^\\s+${escaped}\\s+REG_(?:EXPAND_)?SZ\\s+(.*)$`,
-    'i',
-  );
+  const re = new RegExp(`^\\s+${escaped}\\s+REG_(?:EXPAND_)?SZ\\s+(.*)$`, 'i');
   for (const line of lines) {
     const match = line.match(re);
     if (match && match[1]) {
@@ -176,7 +173,7 @@ function consumeRawReadResult(raw: RawReadResult): {
     if (jsonString) {
       const result = parseCommandOutputAsSettings(
         jsonString,
-        `Registry: ${WINDOWS_REGISTRY_KEY_PATH_HKLM}\\${WINDOWS_REGISTRY_VALUE_NAME}`,
+        `Registry: ${WINDOWS_REGISTRY_KEY_PATH_HKLM}\\${WINDOWS_REGISTRY_VALUE_NAME}`
       );
       if (Object.keys(result.settings).length > 0) {
         return { mdm: result, hkcu: EMPTY_RESULT };
@@ -193,7 +190,7 @@ function consumeRawReadResult(raw: RawReadResult): {
     if (jsonString) {
       const result = parseCommandOutputAsSettings(
         jsonString,
-        `Registry: ${WINDOWS_REGISTRY_KEY_PATH_HKCU}\\${WINDOWS_REGISTRY_VALUE_NAME}`,
+        `Registry: ${WINDOWS_REGISTRY_KEY_PATH_HKCU}\\${WINDOWS_REGISTRY_VALUE_NAME}`
       );
       return { mdm: EMPTY_RESULT, hkcu: result };
     }

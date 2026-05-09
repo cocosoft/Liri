@@ -37,7 +37,8 @@ export function runDoctorChecks(): DoctorCheck[] {
     name: 'Memory',
     status: heapMB > 500 ? 'warning' : 'ok',
     message: `${heapMB} MB heap used`,
-    suggestion: heapMB > 500 ? 'Consider increasing --max-old-space-size' : undefined,
+    suggestion:
+      heapMB > 500 ? 'Consider increasing --max-old-space-size' : undefined,
   });
 
   const uptimeMin = Math.round(process.uptime() / 60);
@@ -54,7 +55,7 @@ export function formatDoctorReport(checks: DoctorCheck[]): string {
   const statusIcon = { ok: '✓', warning: '⚠', error: '✗' };
 
   return checks
-    .map(c => {
+    .map((c) => {
       const line = `${statusIcon[c.status]} ${c.name}: ${c.message}`;
       return c.suggestion ? `${line}\n   → ${c.suggestion}` : line;
     })

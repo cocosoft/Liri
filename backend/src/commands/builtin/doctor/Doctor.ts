@@ -29,7 +29,12 @@ interface DiagnosisResult {
 interface SystemDiagnosis {
   overallHealth: 'healthy' | 'warning' | 'critical';
   checks: DiagnosisResult[];
-  stats: { totalChecks: number; passedChecks: number; warningChecks: number; failedChecks: number };
+  stats: {
+    totalChecks: number;
+    passedChecks: number;
+    warningChecks: number;
+    failedChecks: number;
+  };
   recommendations: string[];
 }
 
@@ -137,10 +142,14 @@ async function handleHelp(): Promise<CommandResult> {
  */
 function getStatusIcon(status: string): string {
   switch (status) {
-    case 'pass': return '✅';
-    case 'warning': return '⚠️';
-    case 'fail': return '❌';
-    default: return '❓';
+    case 'pass':
+      return '✅';
+    case 'warning':
+      return '⚠️';
+    case 'fail':
+      return '❌';
+    default:
+      return '❓';
   }
 }
 
@@ -149,10 +158,14 @@ function getStatusIcon(status: string): string {
  */
 function getHealthStatusText(status: string): string {
   switch (status) {
-    case 'healthy': return '健康';
-    case 'warning': return '警告';
-    case 'critical': return '严重';
-    default: return '未知';
+    case 'healthy':
+      return '健康';
+    case 'warning':
+      return '警告';
+    case 'critical':
+      return '严重';
+    default:
+      return '未知';
   }
 }
 
@@ -171,13 +184,15 @@ function formatDiagnosisOverview(diagnosis: SystemDiagnosis): string {
  * 生成详细结果文本
  */
 function formatDetailedResults(checks: DiagnosisResult[]): string {
-  return checks.map(check => {
-    const line = `${getStatusIcon(check.status)} ${check.check}: ${check.message}`;
-    if (check.suggestion) {
-      return line + `\n   建议: ${check.suggestion}`;
-    }
-    return line;
-  }).join('\n');
+  return checks
+    .map((check) => {
+      const line = `${getStatusIcon(check.status)} ${check.check}: ${check.message}`;
+      if (check.suggestion) {
+        return line + `\n   建议: ${check.suggestion}`;
+      }
+      return line;
+    })
+    .join('\n');
 }
 
 /**
@@ -186,9 +201,9 @@ function formatDetailedResults(checks: DiagnosisResult[]): string {
 function analyzeDiagnosisResults(checks: DiagnosisResult[]): SystemDiagnosis {
   const stats = {
     totalChecks: checks.length,
-    passedChecks: checks.filter(c => c.status === 'pass').length,
-    warningChecks: checks.filter(c => c.status === 'warning').length,
-    failedChecks: checks.filter(c => c.status === 'fail').length,
+    passedChecks: checks.filter((c) => c.status === 'pass').length,
+    warningChecks: checks.filter((c) => c.status === 'warning').length,
+    failedChecks: checks.filter((c) => c.status === 'fail').length,
   };
 
   let overallHealth: 'healthy' | 'warning' | 'critical' = 'healthy';
@@ -199,8 +214,8 @@ function analyzeDiagnosisResults(checks: DiagnosisResult[]): SystemDiagnosis {
   }
 
   const recommendations = checks
-    .filter(c => c.status !== 'pass' && c.suggestion)
-    .map(c => c.suggestion!);
+    .filter((c) => c.status !== 'pass' && c.suggestion)
+    .map((c) => c.suggestion!);
 
   return { overallHealth, checks, stats, recommendations };
 }
@@ -211,7 +226,12 @@ function analyzeDiagnosisResults(checks: DiagnosisResult[]): SystemDiagnosis {
 function getDoctorCheckResults(): DiagnosisResult[] {
   return runDoctorChecks().map((check: DoctorCheck) => ({
     check: check.name,
-    status: check.status === 'ok' ? 'pass' : check.status === 'warning' ? 'warning' : 'fail',
+    status:
+      check.status === 'ok'
+        ? 'pass'
+        : check.status === 'warning'
+          ? 'warning'
+          : 'fail',
     message: check.message,
     suggestion: check.suggestion,
   }));
@@ -237,7 +257,7 @@ async function handleStatus(): Promise<CommandResult> {
       `  工作目录:  ${process.cwd()}`,
       `  堆内存:    ${heapMB} MB`,
       `  运行时间:  ${uptimeMin} 分钟`,
-      `  健康状态:  ${checks.every(c => c.status === 'pass') ? '✅ 良好' : checks.some(c => c.status === 'fail') ? '❌ 异常' : '⚠️ 需要注意'}`,
+      `  健康状态:  ${checks.every((c) => c.status === 'pass') ? '✅ 良好' : checks.some((c) => c.status === 'fail') ? '❌ 异常' : '⚠️ 需要注意'}`,
     ].join('\n'),
   };
 }
@@ -264,9 +284,18 @@ async function checkNetworkConnectivity(): Promise<DiagnosisResult[]> {
 
   checks.push({
     check: 'API 服务连接',
-    status: process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY ? 'pass' : 'warning',
-    message: process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY ? 'API 密钥已配置' : '未配置 API 密钥',
-    suggestion: process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY ? undefined : '请配置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY',
+    status:
+      process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+        ? 'pass'
+        : 'warning',
+    message:
+      process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+        ? 'API 密钥已配置'
+        : '未配置 API 密钥',
+    suggestion:
+      process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+        ? undefined
+        : '请配置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY',
   });
 
   return checks;
@@ -328,8 +357,12 @@ async function checkConfiguration(): Promise<DiagnosisResult[]> {
   checks.push({
     check: '安全配置检查',
     status: securityStatus,
-    message: securityStatus === 'pass' ? '安全配置符合要求' :
-             securityStatus === 'warning' ? '安全配置需要改进' : '安全配置存在漏洞',
+    message:
+      securityStatus === 'pass'
+        ? '安全配置符合要求'
+        : securityStatus === 'warning'
+          ? '安全配置需要改进'
+          : '安全配置存在漏洞',
     suggestion: securityStatus === 'pass' ? '保持安全配置' : '更新安全配置',
     fixCommand: securityStatus !== 'pass' ? '/doctor --fix' : undefined,
   });
@@ -362,7 +395,10 @@ async function checkPerformance(): Promise<DiagnosisResult[]> {
     {
       check: '内存使用检查',
       status: heapMB > 500 ? 'warning' : 'pass',
-      message: heapMB > 500 ? `内存使用率较高 (${heapMB}/${heapTotalMB} MB)` : `内存使用正常 (${heapMB}/${heapTotalMB} MB)`,
+      message:
+        heapMB > 500
+          ? `内存使用率较高 (${heapMB}/${heapTotalMB} MB)`
+          : `内存使用正常 (${heapMB}/${heapTotalMB} MB)`,
       suggestion: heapMB > 500 ? '考虑优化内存使用或增加内存' : undefined,
       fixCommand: heapMB > 500 ? '/doctor --fix' : undefined,
     },
@@ -392,8 +428,12 @@ async function checkSecurity(): Promise<DiagnosisResult[]> {
   checks.push({
     check: '敏感信息检查',
     status: hasHardcodedSecrets ? 'fail' : 'pass',
-    message: hasHardcodedSecrets ? '发现硬编码敏感信息' : '未发现硬编码敏感信息',
-    suggestion: hasHardcodedSecrets ? '移除硬编码敏感信息' : '保持良好的安全实践',
+    message: hasHardcodedSecrets
+      ? '发现硬编码敏感信息'
+      : '未发现硬编码敏感信息',
+    suggestion: hasHardcodedSecrets
+      ? '移除硬编码敏感信息'
+      : '保持良好的安全实践',
     fixCommand: hasHardcodedSecrets ? '/doctor --fix' : undefined,
   });
 
@@ -411,7 +451,12 @@ async function checkSecurity(): Promise<DiagnosisResult[]> {
  * 检测硬编码敏感信息
  */
 function detectHardcodedSecrets(): boolean {
-  const sensitiveKeys = ['DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'DATABASE_PASSWORD'];
+  const sensitiveKeys = [
+    'DEEPSEEK_API_KEY',
+    'OPENAI_API_KEY',
+    'ANTHROPIC_API_KEY',
+    'DATABASE_PASSWORD',
+  ];
 
   for (const key of sensitiveKeys) {
     const value = process.env[key];
@@ -461,7 +506,9 @@ async function checkBasicNetwork(): Promise<DiagnosisResult[]> {
     {
       check: 'API 服务连接',
       status: process.env.DEEPSEEK_API_KEY ? 'pass' : 'warning',
-      message: process.env.DEEPSEEK_API_KEY ? 'API 密钥已配置' : '未配置 API 密钥',
+      message: process.env.DEEPSEEK_API_KEY
+        ? 'API 密钥已配置'
+        : '未配置 API 密钥',
     },
   ];
 }
@@ -479,7 +526,10 @@ async function checkCoreConfiguration(): Promise<DiagnosisResult[]> {
     {
       check: '安全配置',
       status: checkSecurityConfiguration(),
-      message: checkSecurityConfiguration() === 'pass' ? '安全配置正确' : '安全配置问题',
+      message:
+        checkSecurityConfiguration() === 'pass'
+          ? '安全配置正确'
+          : '安全配置问题',
     },
   ];
 }
@@ -536,7 +586,10 @@ async function checkResourceUsage(): Promise<DiagnosisResult[]> {
     {
       check: '堆内存使用',
       status: heapMB > 500 ? 'warning' : 'pass',
-      message: heapMB > 500 ? `堆内存使用偏高 (${heapMB} MB)` : `堆内存使用正常 (${heapMB} MB)`,
+      message:
+        heapMB > 500
+          ? `堆内存使用偏高 (${heapMB} MB)`
+          : `堆内存使用正常 (${heapMB} MB)`,
     },
   ];
 }
@@ -546,12 +599,12 @@ async function checkResourceUsage(): Promise<DiagnosisResult[]> {
  */
 async function runDiagnosticChecks(): Promise<SystemDiagnosis> {
   const checks: DiagnosisResult[] = [
-    ...await checkSystemBasics(),
-    ...await checkNetworkConnectivity(),
-    ...await checkFileSystem(),
-    ...await checkConfiguration(),
-    ...await checkPerformance(),
-    ...await checkSecurity(),
+    ...(await checkSystemBasics()),
+    ...(await checkNetworkConnectivity()),
+    ...(await checkFileSystem()),
+    ...(await checkConfiguration()),
+    ...(await checkPerformance()),
+    ...(await checkSecurity()),
   ];
 
   return analyzeDiagnosisResults(checks);
@@ -562,9 +615,9 @@ async function runDiagnosticChecks(): Promise<SystemDiagnosis> {
  */
 async function runQuickDiagnosticChecks(): Promise<SystemDiagnosis> {
   const checks: DiagnosisResult[] = [
-    ...await checkCriticalSystem(),
-    ...await checkBasicNetwork(),
-    ...await checkCoreConfiguration(),
+    ...(await checkCriticalSystem()),
+    ...(await checkBasicNetwork()),
+    ...(await checkCoreConfiguration()),
   ];
 
   return analyzeDiagnosisResults(checks);
@@ -576,9 +629,9 @@ async function runQuickDiagnosticChecks(): Promise<SystemDiagnosis> {
 async function runDetailedDiagnosticChecks(): Promise<SystemDiagnosis> {
   const basicChecks = await runDiagnosticChecks();
   const advancedChecks: DiagnosisResult[] = [
-    ...await checkAdvancedMetrics(),
-    ...await checkIntegrationPoints(),
-    ...await checkResourceUsage(),
+    ...(await checkAdvancedMetrics()),
+    ...(await checkIntegrationPoints()),
+    ...(await checkResourceUsage()),
   ];
 
   const allChecks = [...basicChecks.checks, ...advancedChecks];
@@ -591,13 +644,16 @@ async function runDetailedDiagnosticChecks(): Promise<SystemDiagnosis> {
 async function handleFullDiagnosis(): Promise<CommandResult> {
   const diagnosis = await runDiagnosticChecks();
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_doctor_full', {
-    totalChecks: diagnosis.stats.totalChecks,
-    passed: diagnosis.stats.passedChecks,
-    warnings: diagnosis.stats.warningChecks,
-    failed: diagnosis.stats.failedChecks,
-    overallHealth: diagnosis.overallHealth,
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_doctor_full',
+    {
+      totalChecks: diagnosis.stats.totalChecks,
+      passed: diagnosis.stats.passedChecks,
+      warnings: diagnosis.stats.warningChecks,
+      failed: diagnosis.stats.failedChecks,
+      overallHealth: diagnosis.overallHealth,
+    }
+  );
 
   const lines: string[] = [];
   lines.push('🏥 系统完整诊断报告');
@@ -635,11 +691,15 @@ async function handleQuickDiagnosis(): Promise<CommandResult> {
   lines.push('📋 快速检查结果');
   lines.push('');
   for (const check of diagnosis.checks) {
-    lines.push(`  ${getStatusIcon(check.status)} ${check.check}: ${check.message}`);
+    lines.push(
+      `  ${getStatusIcon(check.status)} ${check.check}: ${check.message}`
+    );
   }
   lines.push('');
 
-  const failedChecks = diagnosis.checks.filter(check => check.status === 'fail');
+  const failedChecks = diagnosis.checks.filter(
+    (check) => check.status === 'fail'
+  );
   if (failedChecks.length > 0) {
     lines.push('❌ 关键问题');
     lines.push('');
@@ -681,13 +741,17 @@ async function handleDetailedDiagnosis(): Promise<CommandResult> {
 /**
  * 尝试修复问题
  */
-async function attemptFixes(checks: DiagnosisResult[]): Promise<DiagnosisResult[]> {
-  const fixableChecks = checks.filter(c => c.fixCommand);
+async function attemptFixes(
+  checks: DiagnosisResult[]
+): Promise<DiagnosisResult[]> {
+  const fixableChecks = checks.filter((c) => c.fixCommand);
 
-  return fixableChecks.map(check => ({
+  return fixableChecks.map((check) => ({
     check: check.check,
     status: 'pass' as const,
-    message: check.fixCommand ? `请执行 ${check.fixCommand} 手动修复` : '无需修复',
+    message: check.fixCommand
+      ? `请执行 ${check.fixCommand} 手动修复`
+      : '无需修复',
   }));
 }
 
@@ -706,7 +770,9 @@ async function handleFixIssues(): Promise<CommandResult> {
   lines.push('📋 修复结果');
   lines.push('');
   for (const result of fixResults) {
-    lines.push(`  ${getStatusIcon(result.status)} ${result.check}: ${result.message}`);
+    lines.push(
+      `  ${getStatusIcon(result.status)} ${result.check}: ${result.message}`
+    );
   }
 
   if (diagnosis.recommendations.length > 0) {
@@ -733,7 +799,7 @@ async function handleJson(): Promise<CommandResult> {
     timestamp: new Date().toISOString(),
     overallHealth: diagnosis.overallHealth,
     stats: diagnosis.stats,
-    checks: diagnosis.checks.map(c => ({
+    checks: diagnosis.checks.map((c) => ({
       check: c.check,
       status: c.status,
       message: c.message,

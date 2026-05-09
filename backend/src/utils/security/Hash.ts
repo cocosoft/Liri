@@ -101,7 +101,11 @@ export interface HashVerificationResult {
   actual: string;
 }
 
-export function verifyHash(data: string, expectedHash: string, algorithm: string = 'sha256'): HashVerificationResult {
+export function verifyHash(
+  data: string,
+  expectedHash: string,
+  algorithm: string = 'sha256'
+): HashVerificationResult {
   let actualHash: string;
 
   switch (algorithm.toLowerCase()) {

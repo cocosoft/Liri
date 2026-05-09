@@ -7,7 +7,10 @@
 
 import type { OAuthTokens } from './oauth-types.js';
 import { getAuthManager } from './AuthManager.js';
-import { clearTrustedDeviceToken, enrollTrustedDevice } from './trusted-device.js';
+import {
+  clearTrustedDeviceToken,
+  enrollTrustedDevice,
+} from './trusted-device.js';
 
 export interface PostLoginOptions {
   onAuthChanged?: () => void;
@@ -21,7 +24,7 @@ export interface PostLoginOptions {
  */
 export async function executePostLogin(
   tokens: OAuthTokens,
-  options: PostLoginOptions = {},
+  options: PostLoginOptions = {}
 ): Promise<void> {
   const authManager = getAuthManager();
 

@@ -12,10 +12,33 @@ import { claudeAIIntegration } from './ClaudeAIIntegration';
 import { getCommandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
 import { mcpCacheManager } from './MCPCacheManager';
-import { prefetchOfficialMcpUrls, getOfficialServers, getOfficialServersByCategory, getOfficialServer, getCategories } from './MCPOfficialRegistry';
-import { normalizeNameForMCP, normalizeToolName, isValidMcpName } from './normalization';
-import { needsElicitation, getElicitationPrompts, validateElicitationAnswers, applyElicitationAnswers, registerElicitationPrompts } from './elicitationHandler';
-import { setChannelPermissionConfig, getChannelPermissionConfig, checkResourcePermission, checkToolPermission, isResourceAccessAllowed, isToolAccessAllowed } from './channelPermissions';
+import {
+  prefetchOfficialMcpUrls,
+  getOfficialServers,
+  getOfficialServersByCategory,
+  getOfficialServer,
+  getCategories,
+} from './MCPOfficialRegistry';
+import {
+  normalizeNameForMCP,
+  normalizeToolName,
+  isValidMcpName,
+} from './normalization';
+import {
+  needsElicitation,
+  getElicitationPrompts,
+  validateElicitationAnswers,
+  applyElicitationAnswers,
+  registerElicitationPrompts,
+} from './elicitationHandler';
+import {
+  setChannelPermissionConfig,
+  getChannelPermissionConfig,
+  checkResourcePermission,
+  checkToolPermission,
+  isResourceAccessAllowed,
+  isToolAccessAllowed,
+} from './channelPermissions';
 import type { ScopedMcpServerConfig } from './types';
 
 /**
@@ -50,8 +73,10 @@ export class MCPSystem {
       await claudeAIIntegration.initialize();
 
       // 预取官方MCP注册表
-      prefetchOfficialMcpUrls().catch(err =>
-        logger.warn(`Failed to prefetch MCP registry: ${err instanceof Error ? err.message : String(err)}`)
+      prefetchOfficialMcpUrls().catch((err) =>
+        logger.warn(
+          `Failed to prefetch MCP registry: ${err instanceof Error ? err.message : String(err)}`
+        )
       );
 
       // 监听服务器连接状态变化
@@ -60,7 +85,10 @@ export class MCPSystem {
       this.initialized = true;
       logger.info('MCP system initialized successfully');
     } catch (error) {
-      logger.error('Failed to initialize MCP system:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to initialize MCP system:',
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -153,8 +181,16 @@ export class MCPSystem {
   /**
    * 执行Claude AI命令
    */
-  async executeClaudeAICommand(serverName: string, commandName: string, args: any) {
-    return await claudeAIIntegration.executeClaudeAICommand(serverName, commandName, args);
+  async executeClaudeAICommand(
+    serverName: string,
+    commandName: string,
+    args: any
+  ) {
+    return await claudeAIIntegration.executeClaudeAICommand(
+      serverName,
+      commandName,
+      args
+    );
   }
 
   /**
@@ -251,7 +287,10 @@ export class MCPSystem {
   /**
    * 应用引导答案到配置
    */
-  applyElicitation(config: ScopedMcpServerConfig, answers: Record<string, string>) {
+  applyElicitation(
+    config: ScopedMcpServerConfig,
+    answers: Record<string, string>
+  ) {
     return applyElicitationAnswers(config, answers);
   }
 
@@ -268,8 +307,14 @@ export class MCPSystem {
   setChannelPermission(config: {
     serverName: string;
     defaultBehavior: 'always_allow' | 'always_deny' | 'ask_each_time';
-    resourcePermissions?: Array<{ resourceUri: string; behavior: 'always_allow' | 'always_deny' | 'ask_each_time' }>;
-    toolPermissions?: Array<{ toolName: string; behavior: 'always_allow' | 'always_deny' | 'ask_each_time' }>;
+    resourcePermissions?: Array<{
+      resourceUri: string;
+      behavior: 'always_allow' | 'always_deny' | 'ask_each_time';
+    }>;
+    toolPermissions?: Array<{
+      toolName: string;
+      behavior: 'always_allow' | 'always_deny' | 'ask_each_time';
+    }>;
   }) {
     setChannelPermissionConfig({
       serverName: config.serverName,
@@ -322,7 +367,10 @@ export class MCPSystem {
       this.initialized = false;
       logger.info('MCP system cleaned up successfully');
     } catch (error) {
-      logger.error('Failed to cleanup MCP system:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to cleanup MCP system:',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 }
@@ -332,8 +380,30 @@ export const mcpSystem = new MCPSystem();
 
 // 导出新模块
 export { MCPOfficialRegistry } from './MCPOfficialRegistry';
-export { normalizeNameForMCP, normalizeToolName, normalizeCommandName, normalizeResourceUri, denormalizeMcpName, isValidMcpName } from './normalization';
-export { elicitationHandler, getElicitationPrompts, needsElicitation, validateElicitationAnswers, applyElicitationAnswers, registerElicitationPrompts } from './elicitationHandler';
-export { channelPermissions, setChannelPermissionConfig, getChannelPermissionConfig, checkResourcePermission, checkToolPermission, isResourceAccessAllowed, isToolAccessAllowed } from './channelPermissions';
+export {
+  normalizeNameForMCP,
+  normalizeToolName,
+  normalizeCommandName,
+  normalizeResourceUri,
+  denormalizeMcpName,
+  isValidMcpName,
+} from './normalization';
+export {
+  elicitationHandler,
+  getElicitationPrompts,
+  needsElicitation,
+  validateElicitationAnswers,
+  applyElicitationAnswers,
+  registerElicitationPrompts,
+} from './elicitationHandler';
+export {
+  channelPermissions,
+  setChannelPermissionConfig,
+  getChannelPermissionConfig,
+  checkResourcePermission,
+  checkToolPermission,
+  isResourceAccessAllowed,
+  isToolAccessAllowed,
+} from './channelPermissions';
 export { mcpToolBridge, MCPToolBridge } from './MCPToolBridge';
 export { McpToolWrapper } from './McpToolWrapper';

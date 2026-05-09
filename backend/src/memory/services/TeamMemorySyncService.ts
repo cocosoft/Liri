@@ -5,7 +5,10 @@
  */
 
 import { logger } from '@modules/utils/log';
-import { MemorySecretScanner, defaultMemorySecretScanner } from '../scanners/MemorySecretScanner';
+import {
+  MemorySecretScanner,
+  defaultMemorySecretScanner,
+} from '../scanners/MemorySecretScanner';
 
 /**
  * 同步方向
@@ -15,7 +18,11 @@ export type SyncDirection = 'upload' | 'download' | 'bidirectional' | 'skip';
 /**
  * 冲突解决策略
  */
-export type ConflictResolution = 'local_wins' | 'remote_wins' | 'manual' | 'newest_wins';
+export type ConflictResolution =
+  | 'local_wins'
+  | 'remote_wins'
+  | 'manual'
+  | 'newest_wins';
 
 /**
  * 同步状态
@@ -37,7 +44,13 @@ export interface MemorySyncState {
   remoteEtag: string | null;
   localModified: number;
   remoteModified: number;
-  status: 'synced' | 'local_newer' | 'remote_newer' | 'local_only' | 'remote_only' | 'conflict';
+  status:
+    | 'synced'
+    | 'local_newer'
+    | 'remote_newer'
+    | 'local_only'
+    | 'remote_only'
+    | 'conflict';
 }
 
 /**
@@ -109,7 +122,8 @@ export class TeamMemorySyncService {
   private memoryStates: Map<string, MemorySyncState> = new Map();
   private syncTimer: NodeJS.Timeout | null = null;
   private lastSyncTime: number = 0;
-  private listeners: Array<(status: SyncStatus, result?: SyncResult) => void> = [];
+  private listeners: Array<(status: SyncStatus, result?: SyncResult) => void> =
+    [];
 
   constructor(config: Partial<TeamMemorySyncConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -126,12 +140,14 @@ export class TeamMemorySyncService {
     }
 
     this.syncTimer = setInterval(() => {
-      this.sync().catch(error => {
+      this.sync().catch((error) => {
         logger.error('Auto sync failed:', error);
       });
     }, this.config.syncInterval);
 
-    logger.info(`TeamMemorySyncService started with interval ${this.config.syncInterval}ms`);
+    logger.info(
+      `TeamMemorySyncService started with interval ${this.config.syncInterval}ms`
+    );
   }
 
   /**
@@ -196,7 +212,7 @@ export class TeamMemorySyncService {
         }
       }
 
-      const uploadTasks = syncTasks.filter(t => t.direction === 'upload');
+      const uploadTasks = syncTasks.filter((t) => t.direction === 'upload');
       for (const task of uploadTasks) {
         try {
           await this.uploadMemory(task.memoryId, task.content);
@@ -206,7 +222,7 @@ export class TeamMemorySyncService {
         }
       }
 
-      const downloadTasks = syncTasks.filter(t => t.direction === 'download');
+      const downloadTasks = syncTasks.filter((t) => t.direction === 'download');
       for (const task of downloadTasks) {
         try {
           await this.downloadMemory(task.memoryId, task.content);
@@ -216,11 +232,10 @@ export class TeamMemorySyncService {
         }
       }
 
-      result.skipped = syncTasks.filter(t => t.direction === 'skip').length;
+      result.skipped = syncTasks.filter((t) => t.direction === 'skip').length;
 
       result.success = result.errors.length === 0;
       this.status = result.success ? SyncStatus.SUCCESS : SyncStatus.ERROR;
-
     } catch (error) {
       logger.error('Sync failed:', error);
       result.success = false;
@@ -238,8 +253,13 @@ export class TeamMemorySyncService {
   /**
    * 获取本地记忆列表
    */
-  private async getLocalMemories(): Promise<Map<string, { content: string; modified: number; etag: string }>> {
-    const memories = new Map<string, { content: string; modified: number; etag: string }>();
+  private async getLocalMemories(): Promise<
+    Map<string, { content: string; modified: number; etag: string }>
+  > {
+    const memories = new Map<
+      string,
+      { content: string; modified: number; etag: string }
+    >();
     return memories;
   }
 
@@ -257,12 +277,15 @@ export class TeamMemorySyncService {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), this.config.timeout);
 
-      const response = await fetch(`${this.config.serverUrl}/teams/${this.config.teamId}/memories`, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `${this.config.serverUrl}/teams/${this.config.teamId}/memories`,
+        {
+          signal: controller.signal,
+          headers: {
+            Accept: 'application/json',
+          },
+        }
+      );
 
       clearTimeout(timeout);
 
@@ -281,7 +304,6 @@ export class TeamMemorySyncService {
       if (etag) {
         this.updateEtagCache(memories, etag);
       }
-
     } catch (error) {
       logger.error('Failed to fetch remote memories:', error);
     }
@@ -293,7 +315,10 @@ export class TeamMemorySyncService {
    * 比较本地和远程记忆
    */
   private compareMemories(
-    localMemories: Map<string, { content: string; modified: number; etag: string }>,
+    localMemories: Map<
+      string,
+      { content: string; modified: number; etag: string }
+    >,
     remoteMemories: Map<string, ServerMemoryEntry>
   ): void {
     this.memoryStates.clear();
@@ -307,14 +332,18 @@ export class TeamMemorySyncService {
         localEtag: local.etag,
         localModified: local.modified,
         remoteEtag: remote?.metadata.etag || null,
-        remoteModified: remote ? new Date(remote.metadata.modifiedAt).getTime() : 0,
+        remoteModified: remote
+          ? new Date(remote.metadata.modifiedAt).getTime()
+          : 0,
         status: 'local_only',
       };
 
       if (remote) {
         if (local.etag === remote.metadata.etag) {
           state.status = 'synced';
-        } else if (local.modified > new Date(remote.metadata.modifiedAt).getTime()) {
+        } else if (
+          local.modified > new Date(remote.metadata.modifiedAt).getTime()
+        ) {
           state.status = 'local_newer';
         } else {
           state.status = 'remote_newer';
@@ -342,8 +371,16 @@ export class TeamMemorySyncService {
   /**
    * 构建同步任务
    */
-  private buildSyncTasks(): Array<{ memoryId: string; direction: SyncDirection; content?: string }> {
-    const tasks: Array<{ memoryId: string; direction: SyncDirection; content?: string }> = [];
+  private buildSyncTasks(): Array<{
+    memoryId: string;
+    direction: SyncDirection;
+    content?: string;
+  }> {
+    const tasks: Array<{
+      memoryId: string;
+      direction: SyncDirection;
+      content?: string;
+    }> = [];
 
     const stateEntries = Array.from(this.memoryStates.entries());
     for (const [memoryId, state] of stateEntries) {
@@ -374,7 +411,10 @@ export class TeamMemorySyncService {
   /**
    * 解决冲突
    */
-  private async resolveConflict(memoryId: string, state: MemorySyncState): Promise<boolean> {
+  private async resolveConflict(
+    memoryId: string,
+    state: MemorySyncState
+  ): Promise<boolean> {
     switch (this.config.conflictResolution) {
       case 'local_wins':
         await this.uploadMemory(memoryId);
@@ -403,7 +443,10 @@ export class TeamMemorySyncService {
   /**
    * 上传记忆
    */
-  private async uploadMemory(memoryId: string, content?: string): Promise<void> {
+  private async uploadMemory(
+    memoryId: string,
+    content?: string
+  ): Promise<void> {
     if (!this.config.serverUrl) {
       throw new Error('Server URL not configured');
     }
@@ -451,7 +494,10 @@ export class TeamMemorySyncService {
   /**
    * 下载记忆
    */
-  private async downloadMemory(memoryId: string, content?: string): Promise<void> {
+  private async downloadMemory(
+    memoryId: string,
+    content?: string
+  ): Promise<void> {
     if (!this.config.serverUrl) {
       throw new Error('Server URL not configured');
     }
@@ -464,7 +510,7 @@ export class TeamMemorySyncService {
       {
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
       }
     );
@@ -486,7 +532,10 @@ export class TeamMemorySyncService {
   /**
    * 更新ETag缓存
    */
-  private updateEtagCache(memories: Map<string, ServerMemoryEntry>, _baseEtag: string): void {
+  private updateEtagCache(
+    memories: Map<string, ServerMemoryEntry>,
+    _baseEtag: string
+  ): void {
     const entries = Array.from(memories.entries());
     for (const [memoryId, entry] of entries) {
       if (entry.metadata.etag) {
@@ -519,14 +568,18 @@ export class TeamMemorySyncService {
   /**
    * 添加监听器
    */
-  addListener(listener: (status: SyncStatus, result?: SyncResult) => void): void {
+  addListener(
+    listener: (status: SyncStatus, result?: SyncResult) => void
+  ): void {
     this.listeners.push(listener);
   }
 
   /**
    * 移除监听器
    */
-  removeListener(listener: (status: SyncStatus, result?: SyncResult) => void): void {
+  removeListener(
+    listener: (status: SyncStatus, result?: SyncResult) => void
+  ): void {
     const index = this.listeners.indexOf(listener);
     if (index > -1) {
       this.listeners.splice(index, 1);

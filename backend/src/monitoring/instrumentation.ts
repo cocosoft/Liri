@@ -49,7 +49,7 @@ function telemetryTimeout(ms: number, message: string): Promise<never> {
         rej(new TelemetryTimeoutError(msg)),
       ms,
       reject,
-      message,
+      message
     ).unref();
   });
 }
@@ -67,13 +67,16 @@ export function bootstrapTelemetry() {
       process.env.OTEL_TRACES_EXPORTER = process.env.ANT_OTEL_TRACES_EXPORTER;
     }
     if (process.env.ANT_OTEL_EXPORTER_OTLP_PROTOCOL) {
-      process.env.OTEL_EXPORTER_OTLP_PROTOCOL = process.env.ANT_OTEL_EXPORTER_OTLP_PROTOCOL;
+      process.env.OTEL_EXPORTER_OTLP_PROTOCOL =
+        process.env.ANT_OTEL_EXPORTER_OTLP_PROTOCOL;
     }
     if (process.env.ANT_OTEL_EXPORTER_OTLP_ENDPOINT) {
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = process.env.ANT_OTEL_EXPORTER_OTLP_ENDPOINT;
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
+        process.env.ANT_OTEL_EXPORTER_OTLP_ENDPOINT;
     }
     if (process.env.ANT_OTEL_EXPORTER_OTLP_HEADERS) {
-      process.env.OTEL_EXPORTER_OTLP_HEADERS = process.env.ANT_OTEL_EXPORTER_OTLP_HEADERS;
+      process.env.OTEL_EXPORTER_OTLP_HEADERS =
+        process.env.ANT_OTEL_EXPORTER_OTLP_HEADERS;
     }
   }
 
@@ -89,15 +92,15 @@ export function parseExporterTypes(value: string | undefined): string[] {
     .trim()
     .split(',')
     .filter(Boolean)
-    .map(t => t.trim())
-    .filter(t => t !== 'none');
+    .map((t) => t.trim())
+    .filter((t) => t !== 'none');
 }
 
 async function getOtlpReaders() {
   const exporterTypes = parseExporterTypes(process.env.OTEL_METRICS_EXPORTER);
   const exportInterval = parseInt(
     process.env.OTEL_METRIC_EXPORT_INTERVAL ||
-      DEFAULT_METRICS_EXPORT_INTERVAL_MS.toString(),
+      DEFAULT_METRICS_EXPORT_INTERVAL_MS.toString()
   );
 
   const exporters = [];
@@ -120,35 +123,38 @@ async function getOtlpReaders() {
 
       exporters.push(consoleExporter);
     } else if (exporterType === 'otlp') {
-      const protocol = process.env.OTEL_EXPORTER_OTLP_METRICS_PROTOCOL?.trim() ||
+      const protocol =
+        process.env.OTEL_EXPORTER_OTLP_METRICS_PROTOCOL?.trim() ||
         process.env.OTEL_EXPORTER_OTLP_PROTOCOL?.trim();
 
       const httpConfig = getOTLPExporterConfig();
 
       switch (protocol) {
         case 'http/json': {
-          const { OTLPMetricExporter } = await import('@opentelemetry/exporter-metrics-otlp-http');
+          const { OTLPMetricExporter } =
+            await import('@opentelemetry/exporter-metrics-otlp-http');
           exporters.push(new OTLPMetricExporter(httpConfig));
           break;
         }
         case 'http/protobuf': {
-          const { OTLPMetricExporter } = await import('@opentelemetry/exporter-metrics-otlp-proto');
+          const { OTLPMetricExporter } =
+            await import('@opentelemetry/exporter-metrics-otlp-proto');
           exporters.push(new OTLPMetricExporter(httpConfig));
           break;
         }
         default:
           throw new Error(
-            `Unknown protocol set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`,
+            `Unknown protocol set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`
           );
       }
     } else {
       throw new Error(
-        `Unknown exporter type set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${exporterType}`,
+        `Unknown exporter type set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${exporterType}`
       );
     }
   }
 
-  return exporters.map(exporter => {
+  return exporters.map((exporter) => {
     if ('export' in exporter) {
       return new PeriodicExportingMetricReader({
         exporter,
@@ -159,8 +165,6 @@ async function getOtlpReaders() {
   });
 }
 
-
-
 async function getOtlpTraceExporters() {
   const exporterTypes = parseExporterTypes(process.env.OTEL_TRACES_EXPORTER);
 
@@ -169,30 +173,33 @@ async function getOtlpTraceExporters() {
     if (exporterType === 'console') {
       exporters.push(new ConsoleSpanExporter());
     } else if (exporterType === 'otlp') {
-      const protocol = process.env.OTEL_EXPORTER_OTLP_TRACES_PROTOCOL?.trim() ||
+      const protocol =
+        process.env.OTEL_EXPORTER_OTLP_TRACES_PROTOCOL?.trim() ||
         process.env.OTEL_EXPORTER_OTLP_PROTOCOL?.trim();
 
       const httpConfig = getOTLPExporterConfig();
 
       switch (protocol) {
         case 'http/json': {
-          const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
+          const { OTLPTraceExporter } =
+            await import('@opentelemetry/exporter-trace-otlp-http');
           exporters.push(new OTLPTraceExporter(httpConfig));
           break;
         }
         case 'http/protobuf': {
-          const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-proto');
+          const { OTLPTraceExporter } =
+            await import('@opentelemetry/exporter-trace-otlp-proto');
           exporters.push(new OTLPTraceExporter(httpConfig));
           break;
         }
         default:
           throw new Error(
-            `Unknown protocol set in OTEL_EXPORTER_OTLP_TRACES_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`,
+            `Unknown protocol set in OTEL_EXPORTER_OTLP_TRACES_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`
           );
       }
     } else {
       throw new Error(
-        `Unknown exporter type set in OTEL_TRACES_EXPORTER env var: ${exporterType}`,
+        `Unknown exporter type set in OTEL_TRACES_EXPORTER env var: ${exporterType}`
       );
     }
   }
@@ -255,16 +262,17 @@ function getOTLPExporterConfig() {
   const caCerts = getCACertificates();
   const agentFactory = (_protocol: string) => {
     // Create and return the proxy agent with mTLS and CA cert config
-    const proxyAgent = mtlsConfig || caCerts
-      ? new HttpsProxyAgent(proxyUrl, {
-          ...(mtlsConfig && {
-            cert: mtlsConfig.cert,
-            key: mtlsConfig.key,
-            passphrase: mtlsConfig.passphrase,
-          }),
-          ...(caCerts && { ca: caCerts }),
-        })
-      : new HttpsProxyAgent(proxyUrl);
+    const proxyAgent =
+      mtlsConfig || caCerts
+        ? new HttpsProxyAgent(proxyUrl, {
+            ...(mtlsConfig && {
+              cert: mtlsConfig.cert,
+              key: mtlsConfig.key,
+              passphrase: mtlsConfig.passphrase,
+            }),
+            ...(caCerts && { ca: caCerts }),
+          })
+        : new HttpsProxyAgent(proxyUrl);
 
     return proxyAgent;
   };
@@ -286,7 +294,8 @@ export async function initializeTelemetry() {
       warn: (message, ...args) => logForDebugging(message, { level: 'warn' }),
       info: (message, ...args) => logForDebugging(message, { level: 'info' }),
       debug: (message, ...args) => logForDebugging(message, { level: 'debug' }),
-      verbose: (message, ...args) => logForDebugging(message, { level: 'debug' }),
+      verbose: (message, ...args) =>
+        logForDebugging(message, { level: 'debug' }),
     },
     DiagLogLevel.ERROR
   );
@@ -296,7 +305,7 @@ export async function initializeTelemetry() {
   // Add customer exporters (if enabled)
   const telemetryEnabled = isTelemetryEnabled();
   logForDebugging(
-    `[3P telemetry] isTelemetryEnabled=${telemetryEnabled} (PY_APP_ENABLE_TELEMETRY=${process.env.PY_APP_ENABLE_TELEMETRY})`,
+    `[3P telemetry] isTelemetryEnabled=${telemetryEnabled} (PY_APP_ENABLE_TELEMETRY=${process.env.PY_APP_ENABLE_TELEMETRY})`
   );
   if (telemetryEnabled) {
     readers.push(...(await getOtlpReaders()));
@@ -321,7 +330,7 @@ export async function initializeTelemetry() {
 
   // Use OpenTelemetry detectors
   const osResource = resourceFromAttributes(
-    osDetector.detect().attributes || {},
+    osDetector.detect().attributes || {}
   );
 
   // Extract only host.arch from hostDetector
@@ -334,7 +343,7 @@ export async function initializeTelemetry() {
   const hostArchResource = resourceFromAttributes(hostArchAttributes);
 
   const envResource = resourceFromAttributes(
-    envDetector.detect().attributes || {},
+    envDetector.detect().attributes || {}
   );
 
   // Merge resources - later resources take precedence
@@ -367,13 +376,13 @@ export async function initializeTelemetry() {
     if (traceExporters.length > 0) {
       // Create span processors for each exporter
       const spanProcessors = traceExporters.map(
-        exporter =>
+        (exporter) =>
           new BatchSpanProcessor(exporter, {
             scheduledDelayMillis: parseInt(
               process.env.OTEL_TRACES_EXPORT_INTERVAL ||
-                DEFAULT_TRACES_EXPORT_INTERVAL_MS.toString(),
+                DEFAULT_TRACES_EXPORT_INTERVAL_MS.toString()
             ),
-          }),
+          })
       );
 
       const tracerProvider = new BasicTracerProvider({
@@ -388,8 +397,10 @@ export async function initializeTelemetry() {
 
   return {
     meterProvider,
-    getMeter: (name: string, version: string) => meterProvider.getMeter(name, version),
-    getTracer: (name: string, version: string) => trace.getTracer(name, version),
+    getMeter: (name: string, version: string) =>
+      meterProvider.getMeter(name, version),
+    getTracer: (name: string, version: string) =>
+      trace.getTracer(name, version),
   };
 }
 
@@ -403,7 +414,7 @@ export async function flushTelemetry(): Promise<void> {
   }
 
   const timeoutMs = parseInt(
-    process.env.PY_APP_OTEL_FLUSH_TIMEOUT_MS || '5000',
+    process.env.PY_APP_OTEL_FLUSH_TIMEOUT_MS || '5000'
   );
 
   try {
@@ -423,7 +434,7 @@ export async function flushTelemetry(): Promise<void> {
     if (error instanceof TelemetryTimeoutError) {
       logForDebugging(
         `Telemetry flush timed out after ${timeoutMs}ms. Some metrics may not be exported.`,
-        { level: 'warn' },
+        { level: 'warn' }
       );
     } else {
       logForDebugging(`Telemetry flush failed: ${errorMessage(error)}`, {

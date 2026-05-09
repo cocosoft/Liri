@@ -87,8 +87,12 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
 
       // 创建 DeepSeek 客户端（默认）
       const deepseekConfig: DeepSeekConfig = {
-        apiKey: aiConfig?.deepseek?.apiKey || process.env.DEEPSEEK_API_KEY || '',
-        baseUrl: aiConfig?.deepseek?.baseUrl || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+        apiKey:
+          aiConfig?.deepseek?.apiKey || process.env.DEEPSEEK_API_KEY || '',
+        baseUrl:
+          aiConfig?.deepseek?.baseUrl ||
+          process.env.DEEPSEEK_BASE_URL ||
+          'https://api.deepseek.com',
         model: aiConfig?.deepseek?.model || 'deepseek-chat',
       };
 
@@ -109,25 +113,34 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
     if (!config) {
       const systemConfig = getConfig();
       const aiConfig = systemConfig.ai;
-      
+
       switch (type) {
         case 'deepseek':
           config = {
-            apiKey: aiConfig?.deepseek?.apiKey || process.env.DEEPSEEK_API_KEY || '',
-            baseUrl: aiConfig?.deepseek?.baseUrl || process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+            apiKey:
+              aiConfig?.deepseek?.apiKey || process.env.DEEPSEEK_API_KEY || '',
+            baseUrl:
+              aiConfig?.deepseek?.baseUrl ||
+              process.env.DEEPSEEK_BASE_URL ||
+              'https://api.deepseek.com',
             model: aiConfig?.deepseek?.model || 'deepseek-chat',
           };
           break;
         case 'openai':
           config = {
-            apiKey: aiConfig?.openai?.apiKey || process.env.OPENAI_API_KEY || '',
+            apiKey:
+              aiConfig?.openai?.apiKey || process.env.OPENAI_API_KEY || '',
             baseUrl: aiConfig?.openai?.baseUrl || 'https://api.openai.com/v1',
           };
           break;
         case 'anthropic':
           config = {
-            apiKey: aiConfig?.anthropic?.apiKey || process.env.ANTHROPIC_API_KEY || '',
-            baseUrl: aiConfig?.anthropic?.baseUrl || 'https://api.anthropic.com',
+            apiKey:
+              aiConfig?.anthropic?.apiKey ||
+              process.env.ANTHROPIC_API_KEY ||
+              '',
+            baseUrl:
+              aiConfig?.anthropic?.baseUrl || 'https://api.anthropic.com',
           };
           break;
         case 'azure':
@@ -169,12 +182,12 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
   getClientForProvider(provider: string): LLMClient {
     this.ensureDefaultClients();
     const type = provider.toLowerCase() as LLMClientType;
-    
+
     // 如果已存在该类型的客户端，直接返回
     if (this.clients.has(type)) {
       return this.clients.get(type)!;
     }
-    
+
     // 否则创建新的客户端
     return this.createClient(type);
   }

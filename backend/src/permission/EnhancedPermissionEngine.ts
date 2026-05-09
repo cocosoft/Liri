@@ -4,20 +4,38 @@
  * 提供细粒度权限控制、动态规则评估、规则组合等高级功能
  */
 
-import { PermissionBehavior, PermissionRuleSource } from './types/PermissionRule';
+import {
+  PermissionBehavior,
+  PermissionRuleSource,
+} from './types/PermissionRule';
 import { PermissionContext } from './types/PermissionContext';
-import { PermissionDecision, createAllowDecision, createDenyDecision, createAskDecision } from './types/PermissionDecision';
+import {
+  PermissionDecision,
+  createAllowDecision,
+  createDenyDecision,
+  createAskDecision,
+} from './types/PermissionDecision';
 import { PermissionMode } from './types/PermissionMode';
 
 /**
  * 规则条件类型
  */
-export type RuleCondition = 
+export type RuleCondition =
   | { type: 'always' }
   | { type: 'tool_name'; pattern: string; caseSensitive?: boolean }
   | { type: 'input_pattern'; field: string; pattern: string }
-  | { type: 'input_value'; field: string; value: unknown; operator?: 'equals' | 'contains' | 'startsWith' | 'endsWith' }
-  | { type: 'context_field'; field: string; value: unknown; operator?: 'equals' | 'contains' }
+  | {
+      type: 'input_value';
+      field: string;
+      value: unknown;
+      operator?: 'equals' | 'contains' | 'startsWith' | 'endsWith';
+    }
+  | {
+      type: 'context_field';
+      field: string;
+      value: unknown;
+      operator?: 'equals' | 'contains';
+    }
   | { type: 'role'; roles: string[] }
   | { type: 'time_range'; start: string; end: string }
   | { type: 'ip_address'; allowedIps: string[] }
@@ -26,7 +44,7 @@ export type RuleCondition =
 /**
  * 规则效果类型
  */
-export type RuleEffect = 
+export type RuleEffect =
   | { type: 'allow'; reason?: string }
   | { type: 'deny'; reason?: string }
   | { type: 'ask'; reason?: string };
@@ -119,7 +137,10 @@ export class EnhancedPermissionEngine {
         description: '拒绝执行具有潜在危险的工具',
         priority: 100,
         conditions: [
-          { type: 'tool_name', pattern: '^(rm|delete|format|sudo|su|exec|system|shell)$' },
+          {
+            type: 'tool_name',
+            pattern: '^(rm|delete|format|sudo|su|exec|system|shell)$',
+          },
         ],
         effect: { type: 'deny', reason: '危险工具已被拒绝' },
         source: PermissionRuleSource.SYSTEM,
@@ -145,7 +166,11 @@ export class EnhancedPermissionEngine {
         description: '拒绝访问系统敏感路径',
         priority: 90,
         conditions: [
-          { type: 'input_pattern', field: 'path', pattern: '^(/etc/|/root/|/sys/|/proc/|C:\\\\Windows\\\\)' },
+          {
+            type: 'input_pattern',
+            field: 'path',
+            pattern: '^(/etc/|/root/|/sys/|/proc/|C:\\\\Windows\\\\)',
+          },
         ],
         effect: { type: 'deny', reason: '访问敏感路径已被拒绝' },
         source: PermissionRuleSource.SYSTEM,
@@ -159,7 +184,7 @@ export class EnhancedPermissionEngine {
    * @param rule 规则对象
    */
   addRule(rule: EnhancedPermissionRule): void {
-    const existingIndex = this.rules.findIndex(r => r.id === rule.id);
+    const existingIndex = this.rules.findIndex((r) => r.id === rule.id);
     if (existingIndex >= 0) {
       this.rules[existingIndex] = rule;
     } else {
@@ -176,7 +201,7 @@ export class EnhancedPermissionEngine {
    * @param ruleId 规则ID
    */
   removeRule(ruleId: string): void {
-    this.rules = this.rules.filter(r => r.id !== ruleId);
+    this.rules = this.rules.filter((r) => r.id !== ruleId);
   }
 
   /**
@@ -193,7 +218,7 @@ export class EnhancedPermissionEngine {
    * @returns 规则对象
    */
   getRuleById(ruleId: string): EnhancedPermissionRule | undefined {
-    return this.rules.find(r => r.id === ruleId);
+    return this.rules.find((r) => r.id === ruleId);
   }
 
   /**
@@ -202,7 +227,7 @@ export class EnhancedPermissionEngine {
    * @param enabled 是否启用
    */
   setRuleEnabled(ruleId: string, enabled: boolean): void {
-    const rule = this.rules.find(r => r.id === ruleId);
+    const rule = this.rules.find((r) => r.id === ruleId);
     if (rule) {
       rule.enabled = enabled;
     }
@@ -214,14 +239,21 @@ export class EnhancedPermissionEngine {
    * @param context 权限上下文
    * @returns 是否匹配
    */
-  private evaluateCondition(condition: RuleCondition, context: PermissionContext): boolean {
+  private evaluateCondition(
+    condition: RuleCondition,
+    context: PermissionContext
+  ): boolean {
     switch (condition.type) {
       case 'always':
         return true;
 
       case 'tool_name': {
-        const pattern = condition.caseSensitive ? condition.pattern : condition.pattern.toLowerCase();
-        const toolName = condition.caseSensitive ? context.toolName : context.toolName.toLowerCase();
+        const pattern = condition.caseSensitive
+          ? condition.pattern
+          : condition.pattern.toLowerCase();
+        const toolName = condition.caseSensitive
+          ? context.toolName
+          : context.toolName.toLowerCase();
         return new RegExp(pattern).test(toolName);
       }
 
@@ -234,7 +266,7 @@ export class EnhancedPermissionEngine {
       case 'input_value': {
         const value = context.input?.[condition.field];
         if (value === undefined) return false;
-        
+
         const operator = condition.operator || 'equals';
         const stringValue = String(value);
         const stringConditionValue = String(condition.value);
@@ -256,7 +288,7 @@ export class EnhancedPermissionEngine {
       case 'context_field': {
         const value = (context as any)?.[condition.field];
         if (value === undefined) return false;
-        
+
         const operator = condition.operator || 'equals';
         const stringValue = String(value);
         const stringConditionValue = String(condition.value);
@@ -285,7 +317,7 @@ export class EnhancedPermissionEngine {
       case 'ip_address': {
         const clientIp = context.clientIp;
         if (!clientIp) return false;
-        
+
         for (const allowedIp of condition.allowedIps) {
           if (this.matchesIpPattern(clientIp, allowedIp)) {
             return true;
@@ -319,23 +351,24 @@ export class EnhancedPermissionEngine {
       const regexPattern = pattern.replace(/\./g, '\\.').replace(/\*/g, '\\d+');
       return new RegExp(`^${regexPattern}$`).test(ip);
     }
-    
+
     // 支持CIDR表示法（简化实现）
     if (pattern.includes('/')) {
       const [network, prefix] = pattern.split('/');
       const prefixNum = parseInt(prefix, 10);
-      
-      const ipToBinary = (ipStr: string) => 
-        ipStr.split('.').map(octet => 
-          parseInt(octet, 10).toString(2).padStart(8, '0')
-        ).join('');
-      
+
+      const ipToBinary = (ipStr: string) =>
+        ipStr
+          .split('.')
+          .map((octet) => parseInt(octet, 10).toString(2).padStart(8, '0'))
+          .join('');
+
       const ipBinary = ipToBinary(ip);
       const networkBinary = ipToBinary(network);
-      
+
       return ipBinary.startsWith(networkBinary.slice(0, prefixNum));
     }
-    
+
     // 精确匹配
     return ip === pattern;
   }
@@ -346,7 +379,10 @@ export class EnhancedPermissionEngine {
    * @param context 权限上下文
    * @returns 评估结果
    */
-  evaluateRule(rule: EnhancedPermissionRule, context: PermissionContext): RuleEvaluationResult {
+  evaluateRule(
+    rule: EnhancedPermissionRule,
+    context: PermissionContext
+  ): RuleEvaluationResult {
     // 检查规则是否启用
     if (!rule.enabled) {
       return {
@@ -357,7 +393,7 @@ export class EnhancedPermissionEngine {
     }
 
     // 评估所有条件（所有条件都必须满足）
-    const allConditionsMet = rule.conditions.every(condition => 
+    const allConditionsMet = rule.conditions.every((condition) =>
       this.evaluateCondition(condition, context)
     );
 
@@ -384,9 +420,12 @@ export class EnhancedPermissionEngine {
    * @param permissionMode 权限模式
    * @returns 权限决策
    */
-  evaluate(context: PermissionContext, permissionMode?: PermissionMode): PermissionDecision {
+  evaluate(
+    context: PermissionContext,
+    permissionMode?: PermissionMode
+  ): PermissionDecision {
     const mode = permissionMode || PermissionMode.DEFAULT;
-    
+
     // 根据权限模式设置默认行为
     let defaultBehavior: PermissionBehavior;
     switch (mode) {
@@ -432,7 +471,9 @@ export class EnhancedPermissionEngine {
         case 'deny':
           return createDenyDecision(matchedRule.reason || 'Denied by rule');
         case 'ask':
-          return createAskDecision(matchedRule.reason || 'Requires user approval');
+          return createAskDecision(
+            matchedRule.reason || 'Requires user approval'
+          );
         default:
           break;
       }
@@ -456,7 +497,7 @@ export class EnhancedPermissionEngine {
    * @returns 所有规则的评估结果
    */
   evaluateAllRules(context: PermissionContext): RuleEvaluationResult[] {
-    return this.rules.map(rule => this.evaluateRule(rule, context));
+    return this.rules.map((rule) => this.evaluateRule(rule, context));
   }
 
   /**
@@ -473,11 +514,11 @@ export class EnhancedPermissionEngine {
   } {
     return {
       totalRules: this.rules.length,
-      enabledRules: this.rules.filter(r => r.enabled).length,
-      disabledRules: this.rules.filter(r => !r.enabled).length,
-      allowRules: this.rules.filter(r => r.effect.type === 'allow').length,
-      denyRules: this.rules.filter(r => r.effect.type === 'deny').length,
-      askRules: this.rules.filter(r => r.effect.type === 'ask').length,
+      enabledRules: this.rules.filter((r) => r.enabled).length,
+      disabledRules: this.rules.filter((r) => !r.enabled).length,
+      allowRules: this.rules.filter((r) => r.effect.type === 'allow').length,
+      denyRules: this.rules.filter((r) => r.effect.type === 'deny').length,
+      askRules: this.rules.filter((r) => r.effect.type === 'ask').length,
     };
   }
 

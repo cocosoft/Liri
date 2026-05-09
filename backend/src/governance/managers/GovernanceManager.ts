@@ -20,9 +20,18 @@ import { ToolFilterManager } from '@modules/tools/ToolFilterManager';
 import { ToolRegistry, createToolRegistry } from '@modules/tools/ToolRegistry';
 import { Tool } from '@modules/tools/types/Tool';
 import { ToolHookContext } from '@modules/hooks/types/ToolHooks';
-import { GovernanceConfigManager, governanceConfigManager } from './GovernanceConfigManager';
-import { GovernanceAuditService, governanceAuditService } from './GovernanceAuditService';
-import { GovernanceStrategyManager, governanceStrategyManager } from './GovernanceStrategyManager';
+import {
+  GovernanceConfigManager,
+  governanceConfigManager,
+} from './GovernanceConfigManager';
+import {
+  GovernanceAuditService,
+  governanceAuditService,
+} from './GovernanceAuditService';
+import {
+  GovernanceStrategyManager,
+  governanceStrategyManager,
+} from './GovernanceStrategyManager';
 
 /**
  * 治理闭环管理器
@@ -45,7 +54,7 @@ export class GovernanceManager {
     this.configManager = governanceConfigManager;
     this.auditService = governanceAuditService;
     this.strategyManager = governanceStrategyManager;
-    
+
     this.config = this.configManager.getConfig();
     this.state = {
       config: this.config,
@@ -58,7 +67,7 @@ export class GovernanceManager {
     this.sandboxManager = SandboxManager.getInstance();
     this.toolRegistry = createToolRegistry();
     this.toolFilterManager = new ToolFilterManager(this.toolRegistry);
-    
+
     // 监听配置变化
     this.configManager.on('configEvent', (event) => {
       this.config = this.configManager.getConfig();
@@ -79,7 +88,10 @@ export class GovernanceManager {
   /**
    * 更新治理配置
    */
-  public updateConfig(config: Partial<GovernanceConfig>, reason?: string): void {
+  public updateConfig(
+    config: Partial<GovernanceConfig>,
+    reason?: string
+  ): void {
     this.configManager.updateConfig(config, reason);
     this.config = this.configManager.getConfig();
     this.state.config = this.config;
@@ -204,10 +216,10 @@ export class GovernanceManager {
             source: 'permission',
           },
         };
-        
+
         this.auditService.logExecutionResult(result);
         await this.executeGovernanceAudit(tool, context, result);
-        
+
         this.state.completedExecutions.set(context.toolUseId, result);
         return result;
       }
@@ -502,7 +514,7 @@ export class GovernanceManager {
     this.configManager.reset();
     this.auditService.reset();
     this.strategyManager.reset();
-    
+
     this.config = this.configManager.getConfig();
     this.state = {
       config: this.config,

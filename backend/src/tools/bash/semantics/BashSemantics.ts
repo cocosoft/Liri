@@ -7,27 +7,78 @@
 import { BashCommandType, BashCommandClassification } from './types';
 
 export const BASH_SEARCH_COMMANDS = new Set([
-  'find', 'grep', 'rg', 'ag', 'ack', 'locate', 'which', 'whereis',
-  'sqlite3', 'mysql', 'psql', 'mongosh',
+  'find',
+  'grep',
+  'rg',
+  'ag',
+  'ack',
+  'locate',
+  'which',
+  'whereis',
+  'sqlite3',
+  'mysql',
+  'psql',
+  'mongosh',
 ]);
 
 export const BASH_READ_COMMANDS = new Set([
-  'cat', 'head', 'tail', 'less', 'more', 'wc', 'stat', 'file', 'strings',
-  'xxd', 'hexdump', 'od', 'base64', 'md5sum', 'sha256sum',
-  'jq', 'awk', 'cut', 'sort', 'uniq', 'tr',
+  'cat',
+  'head',
+  'tail',
+  'less',
+  'more',
+  'wc',
+  'stat',
+  'file',
+  'strings',
+  'xxd',
+  'hexdump',
+  'od',
+  'base64',
+  'md5sum',
+  'sha256sum',
+  'jq',
+  'awk',
+  'cut',
+  'sort',
+  'uniq',
+  'tr',
 ]);
 
 export const BASH_LIST_COMMANDS = new Set([
-  'ls', 'tree', 'du', 'df', 'mount', 'jobs', 'ps', 'pgrep',
+  'ls',
+  'tree',
+  'du',
+  'df',
+  'mount',
+  'jobs',
+  'ps',
+  'pgrep',
 ]);
 
 export const BASH_SEMANTIC_NEUTRAL_COMMANDS = new Set([
-  'echo', 'printf', 'true', 'false', ':',
+  'echo',
+  'printf',
+  'true',
+  'false',
+  ':',
 ]);
 
 export const BASH_SILENT_COMMANDS = new Set([
-  'mv', 'cp', 'rm', 'mkdir', 'rmdir', 'chmod', 'chown', 'chgrp',
-  'touch', 'ln', 'cd', 'export', 'unset', 'wait',
+  'mv',
+  'cp',
+  'rm',
+  'mkdir',
+  'rmdir',
+  'chmod',
+  'chown',
+  'chgrp',
+  'touch',
+  'ln',
+  'cd',
+  'export',
+  'unset',
+  'wait',
 ]);
 
 function classifyCommand(firstPart: string): BashCommandType {
@@ -39,7 +90,9 @@ function classifyCommand(firstPart: string): BashCommandType {
   return 'other';
 }
 
-export function analyzeBashCommandType(command: string): BashCommandClassification {
+export function analyzeBashCommandType(
+  command: string
+): BashCommandClassification {
   const normalizedCommand = command.trim().toLowerCase();
   const parts = normalizedCommand.split(/\s+/);
   const firstPart = parts[0];
@@ -96,7 +149,10 @@ export function isBashCommandSemanticNeutral(command: string): boolean {
   return BASH_SEMANTIC_NEUTRAL_COMMANDS.has(firstPart);
 }
 
-export function generateCommandSummary(classification: BashCommandClassification, outputLines?: number): string {
+export function generateCommandSummary(
+  classification: BashCommandClassification,
+  outputLines?: number
+): string {
   if (classification.isSearch) return `Searched with command`;
   if (classification.isList) return `Listed ${outputLines ?? 0} directories`;
   if (classification.isRead) return `Read ${outputLines ?? 0} files`;

@@ -1,6 +1,12 @@
 //
-import { c as _c } from "react/compiler-runtime";
-import React, { type Ref, useCallback, useEffect, useRef, useState } from 'react';
+import { c as _c } from 'react/compiler-runtime';
+import React, {
+  type Ref,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { Except } from 'type-fest';
 import type { DOMElement } from '../dom.js';
 import type { ClickEvent } from '../events/click-event.js';
@@ -46,14 +52,7 @@ function Button(t0: any) {
   let style: any;
   let t1: number | undefined;
   if ($[0] !== t0) {
-    ({
-      onAction,
-      tabIndex: t1,
-      autoFocus,
-      children,
-      ref,
-      ...style
-    } = t0);
+    ({ onAction, tabIndex: t1, autoFocus, children, ref, ...style } = t0);
     $[0] = t0;
     $[1] = autoFocus;
     $[2] = children;
@@ -76,7 +75,7 @@ function Button(t0: any) {
   const activeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   let t2;
   let t3: any[];
-  if ($[7] === Symbol.for("react.memo_cache_sentinel")) {
+  if ($[7] === Symbol.for('react.memo_cache_sentinel')) {
     t2 = () => () => {
       if (activeTimer.current) {
         clearTimeout(activeTimer.current);
@@ -93,7 +92,7 @@ function Button(t0: any) {
   let t4;
   if ($[9] !== onAction) {
     t4 = (e: any) => {
-      if (e.key === "return" || e.key === " ") {
+      if (e.key === 'return' || e.key === ' ') {
         e.preventDefault();
         setIsActive(true);
         onAction();
@@ -121,7 +120,7 @@ function Button(t0: any) {
   }
   const handleClick = t5;
   let t6;
-  if ($[13] === Symbol.for("react.memo_cache_sentinel")) {
+  if ($[13] === Symbol.for('react.memo_cache_sentinel')) {
     t6 = (_e_0: any) => setIsFocused(true);
     $[13] = t6;
   } else {
@@ -129,7 +128,7 @@ function Button(t0: any) {
   }
   const handleFocus = t6;
   let t7;
-  if ($[14] === Symbol.for("react.memo_cache_sentinel")) {
+  if ($[14] === Symbol.for('react.memo_cache_sentinel')) {
     t7 = (_e_1: any) => setIsFocused(false);
     $[14] = t7;
   } else {
@@ -137,7 +136,7 @@ function Button(t0: any) {
   }
   const handleBlur = t7;
   let t8;
-  if ($[15] === Symbol.for("react.memo_cache_sentinel")) {
+  if ($[15] === Symbol.for('react.memo_cache_sentinel')) {
     t8 = () => setIsHovered(true);
     $[15] = t8;
   } else {
@@ -145,7 +144,7 @@ function Button(t0: any) {
   }
   const handleMouseEnter = t8;
   let t9;
-  if ($[16] === Symbol.for("react.memo_cache_sentinel")) {
+  if ($[16] === Symbol.for('react.memo_cache_sentinel')) {
     t9 = () => setIsHovered(false);
     $[16] = t9;
   } else {
@@ -153,13 +152,18 @@ function Button(t0: any) {
   }
   const handleMouseLeave = t9;
   let t10;
-  if ($[17] !== children || $[18] !== isActive || $[19] !== isFocused || $[20] !== isHovered) {
+  if (
+    $[17] !== children ||
+    $[18] !== isActive ||
+    $[19] !== isFocused ||
+    $[20] !== isHovered
+  ) {
     const state = {
       focused: isFocused,
       hovered: isHovered,
-      active: isActive
+      active: isActive,
     };
-    t10 = typeof children === "function" ? children(state) : children;
+    t10 = typeof children === 'function' ? children(state) : children;
     $[17] = children;
     $[18] = isActive;
     $[19] = isFocused;
@@ -170,8 +174,31 @@ function Button(t0: any) {
   }
   const content = t10;
   let t11;
-  if ($[22] !== autoFocus || $[23] !== content || $[24] !== handleClick || $[25] !== handleKeyDown || $[26] !== ref || $[27] !== style || $[28] !== tabIndex) {
-    t11 = <Box ref={ref} tabIndex={tabIndex} autoFocus={autoFocus} onKeyDown={handleKeyDown} onClick={handleClick} onFocus={handleFocus} onBlur={handleBlur} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} {...style}>{content}</Box>;
+  if (
+    $[22] !== autoFocus ||
+    $[23] !== content ||
+    $[24] !== handleClick ||
+    $[25] !== handleKeyDown ||
+    $[26] !== ref ||
+    $[27] !== style ||
+    $[28] !== tabIndex
+  ) {
+    t11 = (
+      <Box
+        ref={ref}
+        tabIndex={tabIndex}
+        autoFocus={autoFocus}
+        onKeyDown={handleKeyDown}
+        onClick={handleClick}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        {...style}
+      >
+        {content}
+      </Box>
+    );
     $[22] = autoFocus;
     $[23] = content;
     $[24] = handleClick;

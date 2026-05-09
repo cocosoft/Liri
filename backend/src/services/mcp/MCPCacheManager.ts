@@ -31,13 +31,19 @@ export class MCPCacheManager {
   /**
    * 设置工具缓存
    */
-  setToolCache(serverName: string, tools: SerializedTool[], ttl?: number): void {
+  setToolCache(
+    serverName: string,
+    tools: SerializedTool[],
+    ttl?: number
+  ): void {
     this.toolCache.set(serverName, {
       data: tools,
       timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL
+      ttl: ttl || this.defaultTTL,
     });
-    logger.debug(`Set tool cache for server ${serverName}: ${tools.length} tools`);
+    logger.debug(
+      `Set tool cache for server ${serverName}: ${tools.length} tools`
+    );
   }
 
   /**
@@ -64,9 +70,11 @@ export class MCPCacheManager {
     this.commandCache.set(serverName, {
       data: commands,
       timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL
+      ttl: ttl || this.defaultTTL,
     });
-    logger.debug(`Set command cache for server ${serverName}: ${commands.length} commands`);
+    logger.debug(
+      `Set command cache for server ${serverName}: ${commands.length} commands`
+    );
   }
 
   /**
@@ -89,13 +97,19 @@ export class MCPCacheManager {
   /**
    * 设置资源缓存
    */
-  setResourceCache(serverName: string, resources: ServerResource[], ttl?: number): void {
+  setResourceCache(
+    serverName: string,
+    resources: ServerResource[],
+    ttl?: number
+  ): void {
     this.resourceCache.set(serverName, {
       data: resources,
       timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL
+      ttl: ttl || this.defaultTTL,
     });
-    logger.debug(`Set resource cache for server ${serverName}: ${resources.length} resources`);
+    logger.debug(
+      `Set resource cache for server ${serverName}: ${resources.length} resources`
+    );
   }
 
   /**
@@ -118,11 +132,15 @@ export class MCPCacheManager {
   /**
    * 设置能力缓存
    */
-  setCapabilitiesCache(serverName: string, capabilities: any, ttl?: number): void {
+  setCapabilitiesCache(
+    serverName: string,
+    capabilities: any,
+    ttl?: number
+  ): void {
     this.capabilitiesCache.set(serverName, {
       data: capabilities,
       timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL
+      ttl: ttl || this.defaultTTL,
     });
     logger.debug(`Set capabilities cache for server ${serverName}`);
   }
@@ -179,7 +197,7 @@ export class MCPCacheManager {
       toolCacheSize: this.toolCache.size,
       commandCacheSize: this.commandCache.size,
       resourceCacheSize: this.resourceCache.size,
-      capabilitiesCacheSize: this.capabilitiesCache.size
+      capabilitiesCacheSize: this.capabilitiesCache.size,
     };
   }
 }

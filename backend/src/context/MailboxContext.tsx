@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+} from 'react';
 
 export interface MailboxItem {
   id: string;
@@ -24,15 +30,18 @@ const MailboxContext = createContext<MailboxContextType | undefined>(undefined);
 export function MailboxProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<MailboxItem[]>([]);
 
-  const addItem = useCallback((item: Omit<MailboxItem, 'id' | 'timestamp' | 'read'>) => {
-    const newItem: MailboxItem = {
-      ...item,
-      id: `mailbox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now(),
-      read: false,
-    };
-    setItems((prev) => [newItem, ...prev]);
-  }, []);
+  const addItem = useCallback(
+    (item: Omit<MailboxItem, 'id' | 'timestamp' | 'read'>) => {
+      const newItem: MailboxItem = {
+        ...item,
+        id: `mailbox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: Date.now(),
+        read: false,
+      };
+      setItems((prev) => [newItem, ...prev]);
+    },
+    []
+  );
 
   const markAsRead = useCallback((id: string) => {
     setItems((prev) =>

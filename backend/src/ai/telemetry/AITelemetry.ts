@@ -3,11 +3,17 @@
  * 集成OpenTelemetry进行API调用追踪和指标采集
  */
 
-import { TelemetryConfig, APIUsageMetrics, AITraceData, SpanContext, TraceEvent } from './types';
+import {
+  TelemetryConfig,
+  APIUsageMetrics,
+  AITraceData,
+  SpanContext,
+  TraceEvent,
+} from './types';
 
 const DEFAULT_CONFIG: TelemetryConfig = {
   enabled: true,
-  samplingRate: 0.1,      // 10%采样率
+  samplingRate: 0.1, // 10%采样率
   exportMetrics: true,
   exportTraces: true,
 };
@@ -56,7 +62,9 @@ export class AITelemetry {
    * 生成追踪ID
    */
   private generateTraceId(): string {
-    return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    return (
+      Math.random().toString(36).substring(2, 10) + Date.now().toString(36)
+    );
   }
 
   /**
@@ -107,14 +115,19 @@ export class AITelemetry {
   /**
    * 向Span添加事件
    */
-  addEvent(spanContext: SpanContext, eventName: string, attributes?: Record<string, any>): void {
+  addEvent(
+    spanContext: SpanContext,
+    eventName: string,
+    attributes?: Record<string, any>
+  ): void {
     if (!spanContext.isSampled) {
       return;
     }
 
-    const trace = this.traces.find(t => 
-      t.spanContext.traceId === spanContext.traceId && 
-      t.spanContext.spanId === spanContext.spanId
+    const trace = this.traces.find(
+      (t) =>
+        t.spanContext.traceId === spanContext.traceId &&
+        t.spanContext.spanId === spanContext.spanId
     );
 
     if (trace) {
@@ -138,14 +151,15 @@ export class AITelemetry {
       return;
     }
 
-    const trace = this.traces.find(t => 
-      t.spanContext.traceId === spanContext.traceId && 
-      t.spanContext.spanId === spanContext.spanId
+    const trace = this.traces.find(
+      (t) =>
+        t.spanContext.traceId === spanContext.traceId &&
+        t.spanContext.spanId === spanContext.spanId
     );
 
     if (trace) {
       trace.endTime = Date.now();
-      
+
       // 计算延迟
       const latency = trace.endTime - trace.startTime;
 
@@ -186,28 +200,41 @@ export class AITelemetry {
     const lines: string[] = [];
 
     // 按模型分组统计
-    const modelStats = this.metrics.reduce((acc, m) => {
-      if (!acc[m.model]) {
-        acc[m.model] = {
-          count: 0,
-          totalLatency: 0,
-          totalTokens: 0,
-          errorCount: 0,
-        };
-      }
-      acc[m.model].count++;
-      acc[m.model].totalLatency += m.latency;
-      acc[m.model].totalTokens += m.totalTokens;
-      if (m.error) {
-        acc[m.model].errorCount++;
-      }
-      return acc;
-    }, {} as Record<string, { count: number; totalLatency: number; totalTokens: number; errorCount: number }>);
+    const modelStats = this.metrics.reduce(
+      (acc, m) => {
+        if (!acc[m.model]) {
+          acc[m.model] = {
+            count: 0,
+            totalLatency: 0,
+            totalTokens: 0,
+            errorCount: 0,
+          };
+        }
+        acc[m.model].count++;
+        acc[m.model].totalLatency += m.latency;
+        acc[m.model].totalTokens += m.totalTokens;
+        if (m.error) {
+          acc[m.model].errorCount++;
+        }
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          count: number;
+          totalLatency: number;
+          totalTokens: number;
+          errorCount: number;
+        }
+      >
+    );
 
     for (const [model, stats] of Object.entries(modelStats)) {
       const modelLabel = `model="${model}"`;
       lines.push(`ai_requests_total{${modelLabel}} ${stats.count}`);
-      lines.push(`ai_latency_seconds{${modelLabel}} ${stats.totalLatency / 1000}`);
+      lines.push(
+        `ai_latency_seconds{${modelLabel}} ${stats.totalLatency / 1000}`
+      );
       lines.push(`ai_tokens_total{${modelLabel}} ${stats.totalTokens}`);
       lines.push(`ai_errors_total{${modelLabel}} ${stats.errorCount}`);
     }

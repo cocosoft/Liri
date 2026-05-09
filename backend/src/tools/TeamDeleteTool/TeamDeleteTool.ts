@@ -11,6 +11,9 @@ import type { ToolCallProgress } from '../types/Tool';
 import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 团队删除输入
@@ -40,7 +43,10 @@ export interface TeamDeleteOutput {
 /**
  * 团队删除工具
  */
-export class TeamDeleteTool extends BaseTool<TeamDeleteInput, TeamDeleteOutput> {
+export class TeamDeleteTool extends BaseTool<
+  TeamDeleteInput,
+  TeamDeleteOutput
+> {
   /**
    * 工具名称
    */
@@ -166,7 +172,10 @@ export class TeamDeleteTool extends BaseTool<TeamDeleteInput, TeamDeleteOutput> 
           await manager.killTeammate(teammate.id);
           terminatedTeammates.push(teammate.name);
         } catch (error) {
-          console.error(`Failed to terminate teammate ${teammate.name}:`, error);
+          logger.error(
+            `Failed to terminate teammate ${teammate.name}`,
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
 
@@ -214,7 +223,9 @@ export class TeamDeleteTool extends BaseTool<TeamDeleteInput, TeamDeleteOutput> 
     return '删除团队';
   }
 
-  override getActivityDescription(input?: Partial<TeamDeleteInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<TeamDeleteInput>
+  ): string | null {
     if (input?.team_name) {
       return `删除团队 ${input.team_name}`;
     }

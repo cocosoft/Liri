@@ -55,7 +55,10 @@ function findMCPClient(name: string): MCPClient | undefined {
 /**
  * ReadMcpResourceTool
  */
-export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> = buildTool({
+export const ReadMcpResourceTool: Tool<
+  { server: string; uri: string },
+  Output
+> = buildTool({
   name: READ_MCP_RESOURCE_TOOL_NAME,
   searchHint: 'read a specific MCP resource by URI',
   maxResultSizeChars: 100000,
@@ -81,7 +84,10 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
           uri: z.string().describe('Resource URI'),
           mimeType: z.string().optional().describe('MIME type of the content'),
           text: z.string().optional().describe('Text content of the resource'),
-          blobSavedTo: z.string().optional().describe('Path where binary blob content was saved'),
+          blobSavedTo: z
+            .string()
+            .optional()
+            .describe('Path where binary blob content was saved'),
         })
       ),
     });
@@ -104,7 +110,9 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
   },
 
   async call({ server: serverName, uri }, { options: { mcpClients = [] } }) {
-    const client = (mcpClients as MCPClient[]).find((c) => c.name === serverName);
+    const client = (mcpClients as MCPClient[]).find(
+      (c) => c.name === serverName
+    );
 
     if (!client) {
       throw new Error(
@@ -136,7 +144,10 @@ export const ReadMcpResourceTool: Tool<{ server: string; uri: string }, Output> 
     return null;
   },
 
-  renderToolResultMessage({ contents }: { contents: ResourceContent[] }, _toolUseId: string) {
+  renderToolResultMessage(
+    { contents }: { contents: ResourceContent[] },
+    _toolUseId: string
+  ) {
     if (!contents || contents.length === 0) {
       return (
         <Box flexDirection="column" marginTop={1}>

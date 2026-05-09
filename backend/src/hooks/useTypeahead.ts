@@ -1,7 +1,7 @@
 /**
  * 自动补全Hook
  * 基于CC源码 cc_code/backend/hooks/useTypeahead.tsx 实现
- * 
+ *
  * 支持：
  * - 命令补全
  * - 文件补全
@@ -84,14 +84,62 @@ export interface CompletionSource {
  * 默认命令补全源
  */
 const defaultCommands: CompletionItem[] = [
-  { text: 'ls', displayText: 'ls', description: '列出目录内容', type: 'command', icon: '📁' },
-  { text: 'cd', displayText: 'cd', description: '切换目录', type: 'command', icon: '📂' },
-  { text: 'cat', displayText: 'cat', description: '查看文件内容', type: 'command', icon: '📄' },
-  { text: 'grep', displayText: 'grep', description: '搜索文本', type: 'command', icon: '🔍' },
-  { text: 'git', displayText: 'git', description: 'Git命令', type: 'command', icon: '📦' },
-  { text: 'help', displayText: 'help', description: '显示帮助', type: 'command', icon: '❓' },
-  { text: 'clear', displayText: 'clear', description: '清屏', type: 'command', icon: '🧹' },
-  { text: 'exit', displayText: 'exit', description: '退出', type: 'command', icon: '🚪' },
+  {
+    text: 'ls',
+    displayText: 'ls',
+    description: '列出目录内容',
+    type: 'command',
+    icon: '📁',
+  },
+  {
+    text: 'cd',
+    displayText: 'cd',
+    description: '切换目录',
+    type: 'command',
+    icon: '📂',
+  },
+  {
+    text: 'cat',
+    displayText: 'cat',
+    description: '查看文件内容',
+    type: 'command',
+    icon: '📄',
+  },
+  {
+    text: 'grep',
+    displayText: 'grep',
+    description: '搜索文本',
+    type: 'command',
+    icon: '🔍',
+  },
+  {
+    text: 'git',
+    displayText: 'git',
+    description: 'Git命令',
+    type: 'command',
+    icon: '📦',
+  },
+  {
+    text: 'help',
+    displayText: 'help',
+    description: '显示帮助',
+    type: 'command',
+    icon: '❓',
+  },
+  {
+    text: 'clear',
+    displayText: 'clear',
+    description: '清屏',
+    type: 'command',
+    icon: '🧹',
+  },
+  {
+    text: 'exit',
+    displayText: 'exit',
+    description: '退出',
+    type: 'command',
+    icon: '🚪',
+  },
 ];
 
 /**
@@ -123,53 +171,66 @@ export function useTypeahead(
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 合并所有补全源并过滤排序
-  const getCompletions = useCallback(async (query: string): Promise<CompletionItem[]> => {
-    if (query.length < minLength) return [];
+  const getCompletions = useCallback(
+    async (query: string): Promise<CompletionItem[]> => {
+      if (query.length < minLength) return [];
 
-    const results: CompletionItem[] = [];
+      const results: CompletionItem[] = [];
 
-    // 添加默认命令
-    const commandMatches = defaultCommands.filter(cmd =>
-      cmd.text.toLowerCase().startsWith(query.toLowerCase())
-    );
-    results.push(...commandMatches.map(cmd => ({ ...cmd, priority: cmd.priority || 100 })));
+      // 添加默认命令
+      const commandMatches = defaultCommands.filter((cmd) =>
+        cmd.text.toLowerCase().startsWith(query.toLowerCase())
+      );
+      results.push(
+        ...commandMatches.map((cmd) => ({
+          ...cmd,
+          priority: cmd.priority || 100,
+        }))
+      );
 
-    // 添加自定义数据源
-    for (const source of sources) {
-      try {
-        const items = await source.getCompletions(query);
-        results.push(...items.map(item => ({
-          ...item,
-          priority: item.priority || source.priority || 50,
-        })));
-      } catch (error) {
-        console.warn(`加载补全源 ${source.name} 失败:`, error);
+      // 添加自定义数据源
+      for (const source of sources) {
+        try {
+          const items = await source.getCompletions(query);
+          results.push(
+            ...items.map((item) => ({
+              ...item,
+              priority: item.priority || source.priority || 50,
+            }))
+          );
+        } catch (error) {
+          console.warn(`加载补全源 ${source.name} 失败:`, error);
+        }
       }
-    }
 
-    // 过滤和排序
-    return results
-      .sort((a, b) => (b.priority || 0) - (a.priority || 0))
-      .slice(0, maxResults);
-  }, [minLength, maxResults, sources]);
+      // 过滤和排序
+      return results
+        .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+        .slice(0, maxResults);
+    },
+    [minLength, maxResults, sources]
+  );
 
   // 处理输入变化
-  const onChange = useCallback((newValue: string) => {
-    setValue(newValue);
-    setSelectedIndex(0);
+  const onChange = useCallback(
+    (newValue: string) => {
+      setValue(newValue);
+      setSelectedIndex(0);
 
-    // 清除之前的防抖
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
+      // 清除之前的防抖
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
 
-    // 防抖获取补全
-    debounceRef.current = setTimeout(async () => {
-      const results = await getCompletions(newValue);
-      setCompletions(results);
-      setIsOpen(results.length > 0);
-    }, debounceMs);
-  }, [getCompletions, debounceMs]);
+      // 防抖获取补全
+      debounceRef.current = setTimeout(async () => {
+        const results = await getCompletions(newValue);
+        setCompletions(results);
+        setIsOpen(results.length > 0);
+      }, debounceMs);
+    },
+    [getCompletions, debounceMs]
+  );
 
   // 清理防抖
   useEffect(() => {
@@ -189,16 +250,12 @@ export function useTypeahead(
 
   // 选择下一项
   const selectNext = useCallback(() => {
-    setSelectedIndex(prev =>
-      prev < completions.length - 1 ? prev + 1 : 0
-    );
+    setSelectedIndex((prev) => (prev < completions.length - 1 ? prev + 1 : 0));
   }, [completions.length]);
 
   // 选择上一项
   const selectPrevious = useCallback(() => {
-    setSelectedIndex(prev =>
-      prev > 0 ? prev - 1 : completions.length - 1
-    );
+    setSelectedIndex((prev) => (prev > 0 ? prev - 1 : completions.length - 1));
   }, [completions.length]);
 
   // 关闭补全
@@ -209,7 +266,7 @@ export function useTypeahead(
   // 切换补全显示
   const toggle = useCallback(() => {
     if (completions.length > 0) {
-      setIsOpen(prev => !prev);
+      setIsOpen((prev) => !prev);
     }
   }, [completions.length]);
 
@@ -238,8 +295,8 @@ export function useCommandCompletion(
     name: 'commands',
     getCompletions: async (query) => {
       return commands
-        .filter(cmd => cmd.toLowerCase().startsWith(query.toLowerCase()))
-        .map(cmd => ({
+        .filter((cmd) => cmd.toLowerCase().startsWith(query.toLowerCase()))
+        .map((cmd) => ({
           text: cmd,
           displayText: cmd,
           type: 'command' as const,

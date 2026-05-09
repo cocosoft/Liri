@@ -4,7 +4,15 @@
  * 跟踪应用帧率性能指标
  */
 
-import { createContext, useContext, useRef, useEffect, useCallback, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  type ReactNode,
+} from 'react';
 
 export interface FPSMetrics {
   fps: number;
@@ -33,7 +41,9 @@ const initialMetrics: FPSMetrics = {
   isSmooth: true,
 };
 
-const FPSMetricsContext = createContext<FPSMetricsContextType | undefined>(undefined);
+const FPSMetricsContext = createContext<FPSMetricsContextType | undefined>(
+  undefined
+);
 
 export const FPSMetricsProvider = ({ children }: { children: ReactNode }) => {
   const [metrics, setMetrics] = useState<FPSMetrics>(initialMetrics);
@@ -49,7 +59,7 @@ export const FPSMetricsProvider = ({ children }: { children: ReactNode }) => {
 
     // 计算FPS
     const fps = frameTime > 0 ? 1000 / frameTime : 0;
-    
+
     // 存储最近60帧的时间用于计算平均值
     frameTimesRef.current.push(frameTime);
     if (frameTimesRef.current.length > 60) {
@@ -62,10 +72,16 @@ export const FPSMetricsProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // 计算统计数据
-    const avgFrameTime = frameTimesRef.current.reduce((a, b) => a + b, 0) / frameTimesRef.current.length;
+    const avgFrameTime =
+      frameTimesRef.current.reduce((a, b) => a + b, 0) /
+      frameTimesRef.current.length;
     const avgFps = avgFrameTime > 0 ? 1000 / avgFrameTime : 0;
-    const minFps = Math.min(...frameTimesRef.current.map(t => t > 0 ? 1000 / t : 0));
-    const maxFps = Math.max(...frameTimesRef.current.map(t => t > 0 ? 1000 / t : 0));
+    const minFps = Math.min(
+      ...frameTimesRef.current.map((t) => (t > 0 ? 1000 / t : 0))
+    );
+    const maxFps = Math.max(
+      ...frameTimesRef.current.map((t) => (t > 0 ? 1000 / t : 0))
+    );
 
     setMetrics({
       fps: Math.round(fps),
@@ -80,19 +96,19 @@ export const FPSMetricsProvider = ({ children }: { children: ReactNode }) => {
 
   const trackFrame = useCallback(() => {
     if (!isTrackingRef.current) return;
-    
+
     calculateMetrics(performance.now());
     animationFrameIdRef.current = requestAnimationFrame(trackFrame);
   }, [calculateMetrics]);
 
   const startTracking = useCallback(() => {
     if (isTrackingRef.current) return;
-    
+
     isTrackingRef.current = true;
     lastFrameTimeRef.current = performance.now();
     frameTimesRef.current = [];
     droppedFramesRef.current = 0;
-    
+
     animationFrameIdRef.current = requestAnimationFrame(trackFrame);
   }, [trackFrame]);
 
@@ -111,12 +127,14 @@ export const FPSMetricsProvider = ({ children }: { children: ReactNode }) => {
   }, [stopTracking]);
 
   return (
-    <FPSMetricsContext.Provider value={{
-      metrics,
-      startTracking,
-      stopTracking,
-      isTracking: isTrackingRef.current,
-    }}>
+    <FPSMetricsContext.Provider
+      value={{
+        metrics,
+        startTracking,
+        stopTracking,
+        isTracking: isTrackingRef.current,
+      }}
+    >
       {children}
     </FPSMetricsContext.Provider>
   );

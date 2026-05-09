@@ -8,8 +8,14 @@ import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { defaultTaskStorage } from '@modules/tools/TaskTool/TaskStorage.js';
 
-const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'failed', 'cancelled'] as const;
-type TaskStatus = typeof VALID_STATUSES[number];
+const VALID_STATUSES = [
+  'pending',
+  'in_progress',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
+type TaskStatus = (typeof VALID_STATUSES)[number];
 
 function hasJsonFlag(parts: string[]): boolean {
   return parts.includes('--json') || parts.includes('-j');
@@ -28,7 +34,7 @@ function getFlagValue(parts: string[], flag: string): string | undefined {
 }
 
 function stripFlags(parts: string[]): string[] {
-  return parts.filter(p => !p.startsWith('-'));
+  return parts.filter((p) => !p.startsWith('-'));
 }
 
 function getPromptForCommand(): string {
@@ -130,7 +136,9 @@ Best Practices:
   };
 }
 
-async function handleCreate(parts: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleCreate(
+  parts: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const stripped = stripFlags(parts.slice(1));
   const subject = stripped[0];
   const description = stripped.slice(1).join(' ');
@@ -139,7 +147,8 @@ async function handleCreate(parts: string[]): Promise<{ success: boolean; messag
   if (!subject || !description) {
     return {
       success: false,
-      error: 'Error: Please specify subject and description\nUsage: /task create <subject> <description> [--activeForm <form>]',
+      error:
+        'Error: Please specify subject and description\nUsage: /task create <subject> <description> [--activeForm <form>]',
     };
   }
 
@@ -153,9 +162,15 @@ async function handleCreate(parts: string[]): Promise<{ success: boolean; messag
       createInput.activeForm = activeForm;
     }
 
-    const rawResult = await toolManager.executeTool('TaskCreate', createInput, {});
+    const rawResult = await toolManager.executeTool(
+      'TaskCreate',
+      createInput,
+      {}
+    );
 
-    const data = JSON.parse(rawResult.data as string) as { task: { id: string; subject: string } };
+    const data = JSON.parse(rawResult.data as string) as {
+      task: { id: string; subject: string };
+    };
 
     let msg = `Task created successfully:\n  ID: ${data.task.id}\n  Subject: ${data.task.subject}`;
     if (activeForm) {
@@ -171,7 +186,9 @@ async function handleCreate(parts: string[]): Promise<{ success: boolean; messag
   }
 }
 
-async function handleList(parts: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleList(
+  parts: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const useJson = hasJsonFlag(parts);
   const stripped = stripFlags(parts.slice(1));
   const statusFilter = stripped[0] as TaskStatus | undefined;
@@ -188,7 +205,12 @@ async function handleList(parts: string[]): Promise<{ success: boolean; message?
     const rawResult = await toolManager.executeTool('TaskList', {}, {});
 
     const data = JSON.parse(rawResult.data as string) as {
-      tasks: Array<{ id: string; subject: string; status: string; owner?: string }>;
+      tasks: Array<{
+        id: string;
+        subject: string;
+        status: string;
+        owner?: string;
+      }>;
     };
 
     let tasks = data.tasks || [];
@@ -208,10 +230,15 @@ async function handleList(parts: string[]): Promise<{ success: boolean; message?
       const formattedTasks = tasks
         .map((task) => {
           const statusIcon =
-            task.status === 'completed' ? '✓' :
-            task.status === 'failed' ? '✗' :
-            task.status === 'in_progress' ? '▶' :
-            task.status === 'cancelled' ? '■' : '○';
+            task.status === 'completed'
+              ? '✓'
+              : task.status === 'failed'
+                ? '✗'
+                : task.status === 'in_progress'
+                  ? '▶'
+                  : task.status === 'cancelled'
+                    ? '■'
+                    : '○';
           let line = `${tasks.indexOf(task) + 1}. [${statusIcon}] ${task.subject}\n   ID: ${task.id} | Status: ${task.status}`;
           if (task.owner) {
             line += ` | Owner: ${task.owner}`;
@@ -240,15 +267,21 @@ async function handleList(parts: string[]): Promise<{ success: boolean; message?
   }
 }
 
-async function handleStats(): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleStats(): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
   try {
     const allTasks = await defaultTaskStorage.list();
 
-    const pending = allTasks.filter(t => t.status === 'pending').length;
-    const inProgress = allTasks.filter(t => t.status === 'in_progress').length;
-    const completed = allTasks.filter(t => t.status === 'completed').length;
-    const failed = allTasks.filter(t => t.status === 'failed').length;
-    const cancelled = allTasks.filter(t => t.status === 'cancelled').length;
+    const pending = allTasks.filter((t) => t.status === 'pending').length;
+    const inProgress = allTasks.filter(
+      (t) => t.status === 'in_progress'
+    ).length;
+    const completed = allTasks.filter((t) => t.status === 'completed').length;
+    const failed = allTasks.filter((t) => t.status === 'failed').length;
+    const cancelled = allTasks.filter((t) => t.status === 'cancelled').length;
     const total = allTasks.length;
 
     let output = `Task Stats (${total} total):\n\n`;
@@ -276,7 +309,9 @@ async function handleStats(): Promise<{ success: boolean; message?: string; erro
   }
 }
 
-async function handleGet(parts: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleGet(
+  parts: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const useJson = hasJsonFlag(parts);
   const stripped = stripFlags(parts.slice(1));
   const id = stripped[0];
@@ -336,7 +371,9 @@ async function handleGet(parts: string[]): Promise<{ success: boolean; message?:
   }
 }
 
-async function handleUpdate(parts: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleUpdate(
+  parts: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const stripped = stripFlags(parts.slice(1));
   const id = stripped[0];
   const status = stripped[1] as TaskStatus;
@@ -351,7 +388,8 @@ async function handleUpdate(parts: string[]): Promise<{ success: boolean; messag
   if (!id || !status) {
     return {
       success: false,
-      error: 'Error: Please specify task ID and status\nUsage: /task update <id> <status> [subject] [options]',
+      error:
+        'Error: Please specify task ID and status\nUsage: /task update <id> <status> [subject] [options]',
     };
   }
 
@@ -395,9 +433,15 @@ async function handleUpdate(parts: string[]): Promise<{ success: boolean; messag
       }
     }
 
-    const rawResult = await toolManager.executeTool('TaskUpdate', updateInput, {});
+    const rawResult = await toolManager.executeTool(
+      'TaskUpdate',
+      updateInput,
+      {}
+    );
 
-    const data = JSON.parse(rawResult.data as string) as { task: { id: string; subject: string; status: string } };
+    const data = JSON.parse(rawResult.data as string) as {
+      task: { id: string; subject: string; status: string };
+    };
 
     if (data && data.task) {
       let msg = `Task updated successfully:\n  ID: ${data.task.id}\n  Subject: ${data.task.subject}\n  Status: ${data.task.status}`;
@@ -416,7 +460,9 @@ async function handleUpdate(parts: string[]): Promise<{ success: boolean; messag
   }
 }
 
-async function handleDelete(parts: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleDelete(
+  parts: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const stripped = stripFlags(parts.slice(1));
   const id = stripped[0];
 
@@ -438,7 +484,9 @@ async function handleDelete(parts: string[]): Promise<{ success: boolean; messag
   }
 }
 
-async function handleStop(parts: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleStop(
+  parts: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const stripped = stripFlags(parts.slice(1));
   const id = stripped[0];
 
@@ -451,10 +499,16 @@ async function handleStop(parts: string[]): Promise<{ success: boolean; message?
 
   try {
     const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool('TaskStop', { task_id: id }, {});
+    const rawResult = await toolManager.executeTool(
+      'TaskStop',
+      { task_id: id },
+      {}
+    );
 
     const data = rawResult?.data
-      ? (typeof rawResult.data === 'string' ? JSON.parse(rawResult.data) : rawResult.data)
+      ? typeof rawResult.data === 'string'
+        ? JSON.parse(rawResult.data)
+        : rawResult.data
       : null;
 
     const taskId = data?.task_id || id;
@@ -467,14 +521,17 @@ async function handleStop(parts: string[]): Promise<{ success: boolean; message?
   }
 }
 
-async function handleOutput(parts: string[]): Promise<{ success: boolean; message?: string; error?: string }> {
+async function handleOutput(
+  parts: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const stripped = stripFlags(parts.slice(1));
   const id = stripped[0];
 
   if (!id) {
     return {
       success: false,
-      error: 'Error: Please specify task ID\nUsage: /task output <id> [--block] [--timeout ms]',
+      error:
+        'Error: Please specify task ID\nUsage: /task output <id> [--block] [--timeout ms]',
     };
   }
 
@@ -484,10 +541,16 @@ async function handleOutput(parts: string[]): Promise<{ success: boolean; messag
 
   try {
     const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool('TaskOutput', { task_id: id, block: useBlock, timeout }, {});
+    const rawResult = await toolManager.executeTool(
+      'TaskOutput',
+      { task_id: id, block: useBlock, timeout },
+      {}
+    );
 
     const data = rawResult?.data
-      ? (typeof rawResult.data === 'string' ? JSON.parse(rawResult.data) : rawResult.data)
+      ? typeof rawResult.data === 'string'
+        ? JSON.parse(rawResult.data)
+        : rawResult.data
       : null;
 
     const task = data?.task;
@@ -502,7 +565,10 @@ async function handleOutput(parts: string[]): Promise<{ success: boolean; messag
 
     return {
       success: true,
-      message: rawResult?.output || rawResult?.message || 'No output available for this task',
+      message:
+        rawResult?.output ||
+        rawResult?.message ||
+        'No output available for this task',
     };
   } catch (error) {
     return {

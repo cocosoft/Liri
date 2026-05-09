@@ -1,36 +1,41 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type WebFetchOutput = {
-  url?: string
-  statusCode?: number
-  statusText?: string
-  contentLength?: number
-  contentType?: string
-  title?: string
-  content?: string
-  error?: string
-}
+  url?: string;
+  statusCode?: number;
+  statusText?: string;
+  contentLength?: number;
+  contentType?: string;
+  title?: string;
+  content?: string;
+  error?: string;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ url: string; prompt: string }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { url } = input
-  if (!url) return null
-  return verbose ? <Text dimColor>Fetching: {url}</Text> : <Text dimColor>{url}</Text>
+  const { url } = input;
+  if (!url) return null;
+  return verbose ? (
+    <Text dimColor>Fetching: {url}</Text>
+  ) : (
+    <Text dimColor>{url}</Text>
+  );
 }
 
 export function renderToolUseProgressMessage(): React.ReactNode {
-  return <Text dimColor>Fetching...</Text>
+  return <Text dimColor>Fetching...</Text>;
 }
 
 export function renderToolResultMessage(
   output: WebFetchOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { statusCode, statusText, contentLength, title, error, content } = output
+  const { statusCode, statusText, contentLength, title, error, content } =
+    output;
 
   if (error) {
     return (
@@ -38,7 +43,7 @@ export function renderToolResultMessage(
         <Text color="red">Fetch failed</Text>
         <Text dimColor>{error}</Text>
       </Box>
-    )
+    );
   }
 
   const sizeStr = contentLength
@@ -47,14 +52,20 @@ export function renderToolResultMessage(
       : contentLength > 1024
         ? `${(contentLength / 1024).toFixed(1)} KB`
         : `${contentLength} B`
-    : 'unknown size'
+    : 'unknown size';
 
   if (verbose) {
     return (
       <Box flexDirection="column">
         <Text>
           Received <Text bold>{sizeStr}</Text>
-          {statusCode ? <Text> (HTTP {statusCode}{statusText ? ` ${statusText}` : ''})</Text> : null}
+          {statusCode ? (
+            <Text>
+              {' '}
+              (HTTP {statusCode}
+              {statusText ? ` ${statusText}` : ''})
+            </Text>
+          ) : null}
           {title ? <Text dimColor> — {title}</Text> : null}
         </Text>
         {content ? (
@@ -63,7 +74,7 @@ export function renderToolResultMessage(
           </Box>
         ) : null}
       </Box>
-    )
+    );
   }
 
   return (
@@ -72,12 +83,12 @@ export function renderToolResultMessage(
       {statusCode ? <Text> (HTTP {statusCode})</Text> : null}
       {title ? <Text dimColor> — {title}</Text> : null}
     </Text>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ url: string }> | undefined,
+  input: Partial<{ url: string }> | undefined
 ): string | null {
-  if (!input?.url) return null
-  return input.url.slice(0, 80)
+  if (!input?.url) return null;
+  return input.url.slice(0, 80);
 }

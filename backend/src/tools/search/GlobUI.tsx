@@ -1,20 +1,20 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type GlobOutput = {
-  pattern?: string
-  path?: string
-  files?: string[]
-  fileCount?: number
-  truncated?: boolean
-}
+  pattern?: string;
+  path?: string;
+  files?: string[];
+  fileCount?: number;
+  truncated?: boolean;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ pattern: string; path: string }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { pattern, path } = input
-  if (!pattern) return null
+  const { pattern, path } = input;
+  if (!pattern) return null;
 
   if (verbose) {
     return (
@@ -23,7 +23,7 @@ export function renderToolUseMessage(
         <Text bold>{pattern}</Text>
         {path ? <Text dimColor> in {path}</Text> : null}
       </Box>
-    )
+    );
   }
 
   return (
@@ -31,90 +31,91 @@ export function renderToolUseMessage(
       <Text dimColor>Searching </Text>
       <Text bold>{pattern.slice(0, 60)}</Text>
     </Text>
-  )
+  );
 }
 
 export function renderToolResultMessage(
   output: GlobOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { fileCount, files } = output
+  const { fileCount, files } = output;
 
   if (verbose && files && files.length > 0) {
-    const tree = buildFileTree(files)
+    const tree = buildFileTree(files);
     return (
       <Box flexDirection="column">
         <Text>
-          Found <Text bold>{fileCount ?? files.length}</Text> file{files.length !== 1 ? 's' : ''}
+          Found <Text bold>{fileCount ?? files.length}</Text> file
+          {files.length !== 1 ? 's' : ''}
         </Text>
         <Box marginTop={1} marginLeft={2}>
           <Text dimColor>{renderFileTree(tree, '')}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
     <Text>
       Found <Text bold>{fileCount ?? files?.length ?? 0}</Text> file
-      {((fileCount ?? files?.length) ?? 0) !== 1 ? 's' : ''}
+      {(fileCount ?? files?.length ?? 0) !== 1 ? 's' : ''}
     </Text>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ pattern: string; path: string }> | undefined,
+  input: Partial<{ pattern: string; path: string }> | undefined
 ): string | null {
-  if (!input?.pattern) return null
-  return `glob ${input.pattern.slice(0, 40)}`
+  if (!input?.pattern) return null;
+  return `glob ${input.pattern.slice(0, 40)}`;
 }
 
-type FileTree = Map<string, FileTree | string>
+type FileTree = Map<string, FileTree | string>;
 
 function buildFileTree(paths: string[]): FileTree {
-  const root: FileTree = new Map()
+  const root: FileTree = new Map();
 
   for (const path of paths) {
-    const parts = path.replace(/\\/g, '/').split('/')
-    let current = root
+    const parts = path.replace(/\\/g, '/').split('/');
+    let current = root;
 
     for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]
+      const part = parts[i];
       if (i === parts.length - 1) {
-        current.set(part, part)
+        current.set(part, part);
       } else {
         if (!current.has(part)) {
-          current.set(part, new Map())
+          current.set(part, new Map());
         }
-        const next = current.get(part)
+        const next = current.get(part);
         if (next instanceof Map) {
-          current = next
+          current = next;
         }
       }
     }
   }
 
-  return root
+  return root;
 }
 
 function renderFileTree(tree: FileTree, prefix: string): string {
-  const entries = [...tree.entries()]
-  const lines: string[] = []
+  const entries = [...tree.entries()];
+  const lines: string[] = [];
 
   for (let i = 0; i < entries.length; i++) {
-    const [name, value] = entries[i]
-    const isLast = i === entries.length - 1
-    const connector = isLast ? '└── ' : '├── '
-    const nextPrefix = prefix + (isLast ? '    ' : '│   ')
+    const [name, value] = entries[i];
+    const isLast = i === entries.length - 1;
+    const connector = isLast ? '└── ' : '├── ';
+    const nextPrefix = prefix + (isLast ? '    ' : '│   ');
 
     if (value instanceof Map) {
-      lines.push(`${prefix}${connector}${name}/`)
-      lines.push(renderFileTree(value, nextPrefix))
+      lines.push(`${prefix}${connector}${name}/`);
+      lines.push(renderFileTree(value, nextPrefix));
     } else {
-      lines.push(`${prefix}${connector}${name}`)
+      lines.push(`${prefix}${connector}${name}`);
     }
   }
 
-  return lines.join('\n')
+  return lines.join('\n');
 }

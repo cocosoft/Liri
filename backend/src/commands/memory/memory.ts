@@ -85,7 +85,8 @@ export async function executeMemory(
         return {
           type: 'text',
           success: true,
-          message: '没有找到记忆文件。使用 /memory <filename> 创建或编辑记忆文件。',
+          message:
+            '没有找到记忆文件。使用 /memory <filename> 创建或编辑记忆文件。',
         };
       }
 

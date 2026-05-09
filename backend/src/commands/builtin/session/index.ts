@@ -61,7 +61,11 @@ Examples:
   /session current`;
 }
 
-function formatSessionInfo(chatManager: any, session: any, isCurrent: boolean): string {
+function formatSessionInfo(
+  chatManager: any,
+  session: any,
+  isCurrent: boolean
+): string {
   let output = `Session Info: ${session.id}\n`;
   output += '==================\n\n';
   output += `Title: ${getSessionTitle(session)}\n`;
@@ -110,21 +114,35 @@ const sessionCommand: Command = {
         case 'create': {
           const title = parts.slice(1).join(' ');
           if (!title) {
-            return { success: false, error: 'Please specify a session title.\nUsage: /session create <title>' };
+            return {
+              success: false,
+              error:
+                'Please specify a session title.\nUsage: /session create <title>',
+            };
           }
           const session = chatManager.createSession({ title });
-          return { success: true, message: `Session created successfully!\nID: ${session.id}\nTitle: ${getSessionTitle(session)}` };
+          return {
+            success: true,
+            message: `Session created successfully!\nID: ${session.id}\nTitle: ${getSessionTitle(session)}`,
+          };
         }
 
         case 'switch': {
           const sessionId = parts[1];
           if (!sessionId) {
-            return { success: false, error: 'Please specify a session ID.\nUsage: /session switch <session_id>' };
+            return {
+              success: false,
+              error:
+                'Please specify a session ID.\nUsage: /session switch <session_id>',
+            };
           }
           try {
             chatManager.switchSession(sessionId);
             const session = chatManager.getCurrentSession();
-            return { success: true, message: `Switched to session:\nID: ${sessionId}\nTitle: ${session ? getSessionTitle(session) : 'Untitled'}` };
+            return {
+              success: true,
+              message: `Switched to session:\nID: ${sessionId}\nTitle: ${session ? getSessionTitle(session) : 'Untitled'}`,
+            };
           } catch {
             return { success: false, error: `Session not found: ${sessionId}` };
           }
@@ -133,11 +151,18 @@ const sessionCommand: Command = {
         case 'delete': {
           const sessionId = parts[1];
           if (!sessionId) {
-            return { success: false, error: 'Please specify a session ID.\nUsage: /session delete <session_id>' };
+            return {
+              success: false,
+              error:
+                'Please specify a session ID.\nUsage: /session delete <session_id>',
+            };
           }
           try {
             chatManager.deleteSession(sessionId);
-            return { success: true, message: `Session ${sessionId} deleted successfully!` };
+            return {
+              success: true,
+              message: `Session ${sessionId} deleted successfully!`,
+            };
           } catch {
             return { success: false, error: `Session not found: ${sessionId}` };
           }
@@ -147,11 +172,18 @@ const sessionCommand: Command = {
           const sessionId = parts[1];
           const title = parts.slice(2).join(' ');
           if (!sessionId || !title) {
-            return { success: false, error: 'Please specify session ID and new title.\nUsage: /session rename <session_id> <new_title>' };
+            return {
+              success: false,
+              error:
+                'Please specify session ID and new title.\nUsage: /session rename <session_id> <new_title>',
+            };
           }
           const renamed = chatManager.renameSession(sessionId, title);
           if (renamed) {
-            return { success: true, message: `Renamed session ${sessionId} to: ${title}` };
+            return {
+              success: true,
+              message: `Renamed session ${sessionId} to: ${title}`,
+            };
           }
           return { success: false, error: `Session not found: ${sessionId}` };
         }
@@ -159,7 +191,11 @@ const sessionCommand: Command = {
         case 'info': {
           const sessionId = parts[1];
           if (!sessionId) {
-            return { success: false, error: 'Please specify a session ID.\nUsage: /session info <session_id>' };
+            return {
+              success: false,
+              error:
+                'Please specify a session ID.\nUsage: /session info <session_id>',
+            };
           }
           const sessions = chatManager.getSessions();
           const session = sessions.find((s: any) => s.id === sessionId);
@@ -167,19 +203,32 @@ const sessionCommand: Command = {
             return { success: false, error: `Session not found: ${sessionId}` };
           }
           const currentSession = chatManager.getCurrentSession();
-          return { success: true, message: formatSessionInfo(chatManager, session, currentSession?.id === session.id) };
+          return {
+            success: true,
+            message: formatSessionInfo(
+              chatManager,
+              session,
+              currentSession?.id === session.id
+            ),
+          };
         }
 
         case 'current': {
           const session = chatManager.getCurrentSession();
           if (!session) {
-            return { success: false, error: 'No current session. Use /session create to create one.' };
+            return {
+              success: false,
+              error: 'No current session. Use /session create to create one.',
+            };
           }
           return { success: true, message: formatCurrentSession(session) };
         }
 
         default:
-          return { success: false, error: `Unknown subcommand: ${subcommand}\n\n${getHelpText()}` };
+          return {
+            success: false,
+            error: `Unknown subcommand: ${subcommand}\n\n${getHelpText()}`,
+          };
       }
     },
   }),

@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink';
+import { Box, Text } from '@modules/ink';
 import { ListItemProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
@@ -19,7 +19,7 @@ export function ListItem({
   disabled = false,
   color = 'text',
   padding = 1,
-  margin = 0
+  margin = 0,
 }: ListItemProps) {
   const { theme } = useTheme();
 
@@ -40,7 +40,7 @@ export function ListItem({
       return {
         backgroundColor: theme.colors.muted,
         color: theme.colors.textSecondary,
-        borderColor: theme.colors.border
+        borderColor: theme.colors.border,
       };
     }
 
@@ -48,14 +48,14 @@ export function ListItem({
       return {
         backgroundColor: theme.colors.primary,
         color: theme.colors.background,
-        borderColor: theme.colors.primary
+        borderColor: theme.colors.primary,
       };
     }
 
     return {
       backgroundColor: theme.colors.background,
       color: theme.colors[color],
-      borderColor: theme.colors.border
+      borderColor: theme.colors.border,
     };
   };
 
@@ -71,9 +71,7 @@ export function ListItem({
       onPress={handlePress}
       focusable={!disabled}
     >
-      <Text color={style.color}>
-        {children}
-      </Text>
+      <Text color={style.color}>{children}</Text>
     </Box>
   );
 }
@@ -89,7 +87,7 @@ export function IconListItem({
   disabled = false,
   color = 'text',
   padding = 1,
-  margin = 0
+  margin = 0,
 }: ListItemProps & { icon: string; text: string }) {
   const { theme } = useTheme();
 
@@ -121,7 +119,7 @@ export function DescriptionListItem({
   disabled = false,
   color = 'text',
   padding = 1,
-  margin = 0
+  margin = 0,
 }: ListItemProps & { title: string; description: string }) {
   const { theme } = useTheme();
 
@@ -136,9 +134,7 @@ export function DescriptionListItem({
     >
       <Box flexDirection="column" gap={0.5}>
         <Text bold={true}>{title}</Text>
-        <Text color={theme.colors.textSecondary}>
-          {description}
-        </Text>
+        <Text color={theme.colors.textSecondary}>{description}</Text>
       </Box>
     </ListItem>
   );
@@ -156,8 +152,12 @@ export function ActionListItem({
   disabled = false,
   color = 'text',
   padding = 1,
-  margin = 0
-}: ListItemProps & { text: string; actionText: string; onActionPress: () => void }) {
+  margin = 0,
+}: ListItemProps & {
+  text: string;
+  actionText: string;
+  onActionPress: () => void;
+}) {
   const { theme } = useTheme();
 
   return (
@@ -169,15 +169,14 @@ export function ActionListItem({
       padding={padding}
       margin={margin}
     >
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+      >
         <Text>{text}</Text>
-        <Box
-          onPress={onActionPress}
-          focusable={!disabled}
-        >
-          <Text color={theme.colors.primary}>
-            {actionText}
-          </Text>
+        <Box onPress={onActionPress} focusable={!disabled}>
+          <Text color={theme.colors.primary}>{actionText}</Text>
         </Box>
       </Box>
     </ListItem>
@@ -195,8 +194,11 @@ export function StatusListItem({
   disabled = false,
   color = 'text',
   padding = 1,
-  margin = 0
-}: ListItemProps & { text: string; status: 'success' | 'warning' | 'error' | 'info' | 'loading' }) {
+  margin = 0,
+}: ListItemProps & {
+  text: string;
+  status: 'success' | 'warning' | 'error' | 'info' | 'loading';
+}) {
   const { theme } = useTheme();
 
   const statusIcons = {
@@ -204,7 +206,7 @@ export function StatusListItem({
     warning: '⚠',
     error: '✗',
     info: 'ℹ',
-    loading: '…'
+    loading: '…',
   };
 
   const statusColors = {
@@ -212,7 +214,7 @@ export function StatusListItem({
     warning: 'warning',
     error: 'error',
     info: 'info',
-    loading: 'textSecondary'
+    loading: 'textSecondary',
   };
 
   return (
@@ -225,7 +227,11 @@ export function StatusListItem({
       margin={margin}
     >
       <Box flexDirection="row" alignItems="center" gap={1}>
-        <Text color={theme.colors[statusColors[status] as keyof typeof theme.colors]}>
+        <Text
+          color={
+            theme.colors[statusColors[status] as keyof typeof theme.colors]
+          }
+        >
           {statusIcons[status]}
         </Text>
         <Text>{text}</Text>
@@ -244,8 +250,12 @@ export function CheckboxListItem({
   disabled = false,
   color = 'text',
   padding = 1,
-  margin = 0
-}: ListItemProps & { text: string; checked: boolean; onToggle: (checked: boolean) => void }) {
+  margin = 0,
+}: ListItemProps & {
+  text: string;
+  checked: boolean;
+  onToggle: (checked: boolean) => void;
+}) {
   const { theme } = useTheme();
 
   return (
@@ -277,7 +287,7 @@ export function RadioListItem({
   disabled = false,
   color = 'text',
   padding = 1,
-  margin = 0
+  margin = 0,
 }: ListItemProps & { text: string; selected: boolean; onSelect: () => void }) {
   const { theme } = useTheme();
 

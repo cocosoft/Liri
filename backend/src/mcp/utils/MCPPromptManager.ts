@@ -62,7 +62,10 @@ export class MCPPromptManager {
   /**
    * 注册服务器的Prompt能力
    */
-  registerServer(serverName: string, capabilities?: { prompts?: boolean }): void {
+  registerServer(
+    serverName: string,
+    capabilities?: { prompts?: boolean }
+  ): void {
     this.serverCapabilities.set(serverName, capabilities || {});
     if (!capabilities?.prompts) {
       logger.debug(`Server ${serverName} does not support prompts`);
@@ -82,7 +85,9 @@ export class MCPPromptManager {
    */
   setPrompts(serverName: string, prompts: MCPPrompt[]): void {
     this.prompts.set(serverName, prompts);
-    logger.debug(`Updated prompts for ${serverName}: ${prompts.length} prompts`);
+    logger.debug(
+      `Updated prompts for ${serverName}: ${prompts.length} prompts`
+    );
   }
 
   /**
@@ -118,14 +123,17 @@ export class MCPPromptManager {
   /**
    * 处理Prompt列表响应
    */
-  handleListPromptsResponse(serverName: string, response: ListPromptsResult): void {
+  handleListPromptsResponse(
+    serverName: string,
+    response: ListPromptsResult
+  ): void {
     const prompts: MCPPrompt[] = [];
 
     for (const item of response.prompts) {
       prompts.push({
         name: item.name,
         description: item.description,
-        arguments: item.arguments?.map(arg => ({
+        arguments: item.arguments?.map((arg) => ({
           name: arg.name,
           description: arg.description,
           required: arg.required,

@@ -27,9 +27,7 @@ function isEnvTruthy(value: string | undefined): boolean {
 export default (): Command => ({
   type: 'local',
   name: 'login',
-  description: hasApiKeyAuth()
-    ? '切换PY_APP账户'
-    : '登录您的PY_APP账户',
+  description: hasApiKeyAuth() ? '切换PY_APP账户' : '登录您的PY_APP账户',
   isEnabled: () => !isEnvTruthy(process.env.DISABLE_LOGIN_COMMAND),
   load: async () => {
     const { executeLogin } = await import('./login.js');

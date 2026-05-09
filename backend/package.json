@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "description": "基于 TypeScript + Rust 架构的 AI Agent 项目",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "src/main.ts",
   "bin": {
-    "PY_APP": "./src/index.ts",
+    "PY_APP": "./src/main.ts",
     "py-memory": "./src/cli.ts",
     "py-ink": "./src/cli/simple-ink-cli.tsx"
   },
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "start": "bun build src/index.ts --target=bun --outfile=dist/app.js && bun dist/app.js",
-    "build": "bun build src/index.ts --outdir=dist --target=bun",
+    "dev": "bun run --watch src/main.ts",
+    "start": "bun build src/main.ts --target=bun --outfile=dist/app.js && bun dist/app.js",
+    "build": "bun build src/main.ts --outdir=dist --target=bun",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch",

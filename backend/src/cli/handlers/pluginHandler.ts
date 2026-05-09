@@ -45,11 +45,18 @@ export class PluginHandler {
         console.log(chalk.yellow('⚠'), 'No plugins installed');
       } else {
         this.plugins.forEach((plugin, index) => {
-          const enabledIcon = plugin.enabled ? chalk.green('✓') : chalk.red('✗');
-          console.log(chalk.green(`${String(index + 1).padStart(2)}.`), plugin.name);
+          const enabledIcon = plugin.enabled
+            ? chalk.green('✓')
+            : chalk.red('✗');
+          console.log(
+            chalk.green(`${String(index + 1).padStart(2)}.`),
+            plugin.name
+          );
           console.log(`   ${chalk.gray('Version:')} ${plugin.version}`);
           console.log(`   ${chalk.gray('Description:')} ${plugin.description}`);
-          console.log(`   ${chalk.gray('Enabled:')} ${enabledIcon} ${plugin.enabled ? 'Yes' : 'No'}`);
+          console.log(
+            `   ${chalk.gray('Enabled:')} ${enabledIcon} ${plugin.enabled ? 'Yes' : 'No'}`
+          );
           if (plugin.author) {
             console.log(`   ${chalk.gray('Author:')} ${plugin.author}`);
           }
@@ -80,7 +87,7 @@ export class PluginHandler {
     }
 
     try {
-      const plugin = this.plugins.find(p => p.name === pluginName);
+      const plugin = this.plugins.find((p) => p.name === pluginName);
       if (!plugin) {
         throw new Error(`Plugin not found: ${pluginName}`);
       }
@@ -111,7 +118,7 @@ export class PluginHandler {
     }
 
     try {
-      const plugin = this.plugins.find(p => p.name === pluginName);
+      const plugin = this.plugins.find((p) => p.name === pluginName);
       if (!plugin) {
         throw new Error(`Plugin not found: ${pluginName}`);
       }
@@ -175,7 +182,7 @@ export class PluginHandler {
     }
 
     try {
-      const index = this.plugins.findIndex(p => p.name === pluginName);
+      const index = this.plugins.findIndex((p) => p.name === pluginName);
       if (index === -1) {
         throw new Error(`Plugin not found: ${pluginName}`);
       }
@@ -194,7 +201,7 @@ export class PluginHandler {
    * 加载插件列表
    */
   private async loadPlugins(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     // 返回模拟数据
     if (this.plugins.length === 0) {
       this.plugins = [
@@ -213,27 +220,29 @@ export class PluginHandler {
    * 保存插件状态
    */
   private async savePluginState(plugin: PluginInfo): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
   /**
    * 下载插件
    */
   private async downloadPlugin(plugin: PluginInfo): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   /**
    * 移除插件文件
    */
   private async removePluginFiles(pluginName: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 }
 
 /**
  * 创建插件处理器
  */
-export function createPluginHandler(options?: PluginHandlerOptions): PluginHandler {
+export function createPluginHandler(
+  options?: PluginHandlerOptions
+): PluginHandler {
   return new PluginHandler(options);
 }

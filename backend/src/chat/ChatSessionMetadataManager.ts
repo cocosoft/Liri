@@ -22,7 +22,7 @@ export interface SessionExternalMetadata {
  * 会话元数据变更监听器
  */
 type SessionMetadataChangedListener = (
-  metadata: Partial<SessionExternalMetadata>,
+  metadata: Partial<SessionExternalMetadata>
 ) => void;
 
 /**
@@ -37,7 +37,8 @@ export class ChatSessionMetadataManager {
   private static instance: ChatSessionMetadataManager;
   private metadata: SessionExternalMetadata;
   private metadataListeners: Set<SessionMetadataChangedListener> = new Set();
-  private permissionModeListeners: Set<PermissionModeChangedListener> = new Set();
+  private permissionModeListeners: Set<PermissionModeChangedListener> =
+    new Set();
 
   private constructor() {
     this.metadata = this.getDefaultMetadata();
@@ -78,7 +79,7 @@ export class ChatSessionMetadataManager {
    * 获取特定元数据字段
    */
   getMetadataField<K extends keyof SessionExternalMetadata>(
-    key: K,
+    key: K
   ): SessionExternalMetadata[K] {
     return this.metadata[key];
   }
@@ -93,7 +94,7 @@ export class ChatSessionMetadataManager {
     };
 
     // 通知所有监听器
-    this.metadataListeners.forEach(listener => {
+    this.metadataListeners.forEach((listener) => {
       try {
         listener(updates);
       } catch (error) {
@@ -115,7 +116,7 @@ export class ChatSessionMetadataManager {
   setPermissionMode(mode: PermissionMode): void {
     this.metadata.permission_mode = mode;
 
-    this.metadataListeners.forEach(listener => {
+    this.metadataListeners.forEach((listener) => {
       try {
         listener({ permission_mode: mode });
       } catch (error) {
@@ -124,7 +125,7 @@ export class ChatSessionMetadataManager {
     });
 
     // 通知权限模式变更监听器
-    this.permissionModeListeners.forEach(listener => {
+    this.permissionModeListeners.forEach((listener) => {
       try {
         listener(mode);
       } catch (error) {
@@ -220,7 +221,9 @@ export class ChatSessionMetadataManager {
   /**
    * 添加权限模式变更监听器
    */
-  addPermissionModeListener(listener: PermissionModeChangedListener): () => void {
+  addPermissionModeListener(
+    listener: PermissionModeChangedListener
+  ): () => void {
     this.permissionModeListeners.add(listener);
     return () => {
       this.permissionModeListeners.delete(listener);
@@ -270,7 +273,7 @@ export function getSessionMetadata(): SessionExternalMetadata {
  * 通知会话元数据变更（便捷函数）
  */
 export function notifySessionMetadataChanged(
-  metadata: Partial<SessionExternalMetadata>,
+  metadata: Partial<SessionExternalMetadata>
 ): void {
   const manager = getChatSessionMetadataManager();
   manager.notifyMetadataChanged(metadata);

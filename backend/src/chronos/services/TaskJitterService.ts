@@ -79,15 +79,24 @@ export class TaskJitterService {
       throw new Error('recurringFrac must be between 0 and 1');
     }
 
-    if (this.config.recurringCapMs < 0 || this.config.recurringCapMs > HALF_HOUR_MS) {
+    if (
+      this.config.recurringCapMs < 0 ||
+      this.config.recurringCapMs > HALF_HOUR_MS
+    ) {
       throw new Error('recurringCapMs must be between 0 and 1800000');
     }
 
-    if (this.config.oneShotMaxMs < 0 || this.config.oneShotMaxMs > HALF_HOUR_MS) {
+    if (
+      this.config.oneShotMaxMs < 0 ||
+      this.config.oneShotMaxMs > HALF_HOUR_MS
+    ) {
       throw new Error('oneShotMaxMs must be between 0 and 1800000');
     }
 
-    if (this.config.oneShotFloorMs < 0 || this.config.oneShotFloorMs > HALF_HOUR_MS) {
+    if (
+      this.config.oneShotFloorMs < 0 ||
+      this.config.oneShotFloorMs > HALF_HOUR_MS
+    ) {
       throw new Error('oneShotFloorMs must be between 0 and 1800000');
     }
 
@@ -95,7 +104,10 @@ export class TaskJitterService {
       throw new Error('oneShotMinuteMod must be between 1 and 60');
     }
 
-    if (this.config.recurringMaxAgeMs < 0 || this.config.recurringMaxAgeMs > THIRTY_DAYS_MS) {
+    if (
+      this.config.recurringMaxAgeMs < 0 ||
+      this.config.recurringMaxAgeMs > THIRTY_DAYS_MS
+    ) {
       throw new Error('recurringMaxAgeMs must be between 0 and 2592000000');
     }
 
@@ -113,7 +125,7 @@ export class TaskJitterService {
     let hash = this.hashSeed;
     for (let i = 0; i < taskId.length; i++) {
       const char = taskId.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return Math.abs(hash) / 2147483647;
@@ -153,7 +165,10 @@ export class TaskJitterService {
     lastFireTime: number,
     taskId: string
   ): number | null {
-    const nextFireTime = this.calculateNextCronRun(cronExpression, lastFireTime);
+    const nextFireTime = this.calculateNextCronRun(
+      cronExpression,
+      lastFireTime
+    );
     if (nextFireTime === null) {
       return null;
     }
@@ -190,13 +205,18 @@ export class TaskJitterService {
    * @param fromTime 起始时间
    * @returns 下一次执行时间（毫秒）
    */
-  private calculateNextCronRun(cronExpression: string, fromTime: number): number | null {
+  private calculateNextCronRun(
+    cronExpression: string,
+    fromTime: number
+  ): number | null {
     const parts = cronExpression.split(' ');
     if (parts.length !== 5) {
       return null;
     }
 
-    const [minute, hour, dayOfMonth, month, dayOfWeek] = parts.map(p => p.trim());
+    const [minute, hour, dayOfMonth, month, dayOfWeek] = parts.map((p) =>
+      p.trim()
+    );
 
     const fromDate = new Date(fromTime);
     const currentMinute = fromDate.getMinutes();
@@ -207,13 +227,27 @@ export class TaskJitterService {
 
     let targetMinute = this.parseCronField(minute, currentMinute, 0, 59);
     let targetHour = this.parseCronField(hour, currentHour, 0, 23);
-    let targetDayOfMonth = this.parseCronField(dayOfMonth, currentDayOfMonth, 1, 31);
+    let targetDayOfMonth = this.parseCronField(
+      dayOfMonth,
+      currentDayOfMonth,
+      1,
+      31
+    );
     let targetMonth = this.parseCronField(month, currentMonth, 1, 12);
-    let targetDayOfWeek = this.parseCronField(dayOfWeek, currentDayOfWeek, 0, 6);
+    let targetDayOfWeek = this.parseCronField(
+      dayOfWeek,
+      currentDayOfWeek,
+      0,
+      6
+    );
 
-    if (targetMinute === null || targetHour === null ||
-        targetDayOfMonth === null || targetMonth === null ||
-        targetDayOfWeek === null) {
+    if (
+      targetMinute === null ||
+      targetHour === null ||
+      targetDayOfMonth === null ||
+      targetMonth === null ||
+      targetDayOfWeek === null
+    ) {
       return null;
     }
 
@@ -221,31 +255,95 @@ export class TaskJitterService {
     const maxIterations = 366 * 24 * 60;
 
     for (let i = 0; i < maxIterations; i++) {
-      const candidate = new Date(year, targetMonth! - 1, targetDayOfMonth!, targetHour!, targetMinute!);
+      const candidate = new Date(
+        year,
+        targetMonth! - 1,
+        targetDayOfMonth!,
+        targetHour!,
+        targetMinute!
+      );
 
       if (candidate.getTime() <= fromTime) {
-        this.advanceNextTime(candidate, minute, hour, dayOfMonth, month, dayOfWeek);
-        targetMinute = this.parseCronField(minute, candidate.getMinutes(), 0, 59);
+        this.advanceNextTime(
+          candidate,
+          minute,
+          hour,
+          dayOfMonth,
+          month,
+          dayOfWeek
+        );
+        targetMinute = this.parseCronField(
+          minute,
+          candidate.getMinutes(),
+          0,
+          59
+        );
         targetHour = this.parseCronField(hour, candidate.getHours(), 0, 23);
-        targetDayOfMonth = this.parseCronField(dayOfMonth, candidate.getDate(), 1, 31);
-        targetMonth = this.parseCronField(month, candidate.getMonth() + 1, 1, 12);
-        targetDayOfWeek = this.parseCronField(dayOfWeek, candidate.getDay(), 0, 6);
+        targetDayOfMonth = this.parseCronField(
+          dayOfMonth,
+          candidate.getDate(),
+          1,
+          31
+        );
+        targetMonth = this.parseCronField(
+          month,
+          candidate.getMonth() + 1,
+          1,
+          12
+        );
+        targetDayOfWeek = this.parseCronField(
+          dayOfWeek,
+          candidate.getDay(),
+          0,
+          6
+        );
         year = candidate.getFullYear();
         continue;
       }
 
-      if (this.matchesCronField(targetMonth!, month, currentMonth, 1, 12) &&
-          this.matchesCronField(targetDayOfMonth!, dayOfMonth, currentDayOfMonth, 1, 31) &&
-          this.matchesCronField(targetDayOfWeek!, dayOfWeek, currentDayOfWeek, 0, 6)) {
+      if (
+        this.matchesCronField(targetMonth!, month, currentMonth, 1, 12) &&
+        this.matchesCronField(
+          targetDayOfMonth!,
+          dayOfMonth,
+          currentDayOfMonth,
+          1,
+          31
+        ) &&
+        this.matchesCronField(
+          targetDayOfWeek!,
+          dayOfWeek,
+          currentDayOfWeek,
+          0,
+          6
+        )
+      ) {
         return candidate.getTime();
       }
 
-      this.advanceNextTime(candidate, minute, hour, dayOfMonth, month, dayOfWeek);
+      this.advanceNextTime(
+        candidate,
+        minute,
+        hour,
+        dayOfMonth,
+        month,
+        dayOfWeek
+      );
       targetMinute = this.parseCronField(minute, candidate.getMinutes(), 0, 59);
       targetHour = this.parseCronField(hour, candidate.getHours(), 0, 23);
-      targetDayOfMonth = this.parseCronField(dayOfMonth, candidate.getDate(), 1, 31);
+      targetDayOfMonth = this.parseCronField(
+        dayOfMonth,
+        candidate.getDate(),
+        1,
+        31
+      );
       targetMonth = this.parseCronField(month, candidate.getMonth() + 1, 1, 12);
-      targetDayOfWeek = this.parseCronField(dayOfWeek, candidate.getDay(), 0, 6);
+      targetDayOfWeek = this.parseCronField(
+        dayOfWeek,
+        candidate.getDay(),
+        0,
+        6
+      );
       year = candidate.getFullYear();
     }
 
@@ -255,7 +353,12 @@ export class TaskJitterService {
   /**
    * 解析cron字段
    */
-  private parseCronField(field: string, current: number, min: number, max: number): number | null {
+  private parseCronField(
+    field: string,
+    current: number,
+    min: number,
+    max: number
+  ): number | null {
     if (field === '*') {
       return current;
     }
@@ -266,13 +369,13 @@ export class TaskJitterService {
       if (range === '*') {
         return Math.floor(current / stepNum) * stepNum;
       }
-      const [start, end] = range.split('-').map(n => parseInt(n, 10));
+      const [start, end] = range.split('-').map((n) => parseInt(n, 10));
       const adjustedCurrent = Math.max(current, start);
       return Math.floor((adjustedCurrent - start) / stepNum) * stepNum + start;
     }
 
     if (field.includes('-')) {
-      const [start, end] = field.split('-').map(n => parseInt(n, 10));
+      const [start, end] = field.split('-').map((n) => parseInt(n, 10));
       if (current < start || current > end) {
         return start;
       }
@@ -280,7 +383,7 @@ export class TaskJitterService {
     }
 
     if (field.includes(',')) {
-      const values = field.split(',').map(n => parseInt(n, 10));
+      const values = field.split(',').map((n) => parseInt(n, 10));
       for (const v of values.sort((a, b) => a - b)) {
         if (v >= current) {
           return v;
@@ -300,7 +403,13 @@ export class TaskJitterService {
   /**
    * 检查字段是否匹配
    */
-  private matchesCronField(value: number, field: string, current: number, min: number, max: number): boolean {
+  private matchesCronField(
+    value: number,
+    field: string,
+    current: number,
+    min: number,
+    max: number
+  ): boolean {
     if (field === '*') {
       return true;
     }
@@ -311,17 +420,17 @@ export class TaskJitterService {
       if (range === '*') {
         return value % stepNum === 0;
       }
-      const [start] = range.split('-').map(n => parseInt(n, 10));
+      const [start] = range.split('-').map((n) => parseInt(n, 10));
       return value >= start && (value - start) % stepNum === 0;
     }
 
     if (field.includes('-')) {
-      const [start, end] = field.split('-').map(n => parseInt(n, 10));
+      const [start, end] = field.split('-').map((n) => parseInt(n, 10));
       return value >= start && value <= end;
     }
 
     if (field.includes(',')) {
-      const values = field.split(',').map(n => parseInt(n, 10));
+      const values = field.split(',').map((n) => parseInt(n, 10));
       return values.includes(value);
     }
 
@@ -331,7 +440,14 @@ export class TaskJitterService {
   /**
    * 推进到下一个匹配时间
    */
-  private advanceNextTime(date: Date, minute: string, hour: string, dayOfMonth: string, month: string, dayOfWeek: string): void {
+  private advanceNextTime(
+    date: Date,
+    minute: string,
+    hour: string,
+    dayOfMonth: string,
+    month: string,
+    dayOfWeek: string
+  ): void {
     date.setMinutes(date.getMinutes() + 1);
 
     if (date.getMinutes() !== 0) {
@@ -366,7 +482,11 @@ export class TaskJitterService {
    * @param isPermanent 是否为永久任务
    * @returns 是否过期
    */
-  isTaskExpired(createdAt: number, isRecurring: boolean, isPermanent: boolean): boolean {
+  isTaskExpired(
+    createdAt: number,
+    isRecurring: boolean,
+    isPermanent: boolean
+  ): boolean {
     if (!isRecurring || isPermanent) {
       return false;
     }

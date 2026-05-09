@@ -40,7 +40,10 @@ export function loadLocalSettings(projectRoot?: string): Record<string, any> {
     const content = readFileSync(filePath, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    logger.error('Failed to load local settings:', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      'Failed to load local settings:',
+      error instanceof Error ? error : new Error(String(error))
+    );
     return {};
   }
 }
@@ -50,7 +53,7 @@ export function loadLocalSettings(projectRoot?: string): Record<string, any> {
  */
 export function saveLocalSettings(
   settings: Record<string, any>,
-  projectRoot?: string,
+  projectRoot?: string
 ): void {
   const filePath = getLocalSettingsPath(projectRoot);
 
@@ -63,7 +66,10 @@ export function saveLocalSettings(
     writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
     logger.info('Local settings saved');
   } catch (error) {
-    logger.error('Failed to save local settings:', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      'Failed to save local settings:',
+      error instanceof Error ? error : new Error(String(error))
+    );
     throw error;
   }
 }
@@ -73,7 +79,7 @@ export function saveLocalSettings(
  */
 export function updateLocalSettings(
   updates: Record<string, any>,
-  projectRoot?: string,
+  projectRoot?: string
 ): Record<string, any> {
   const current = loadLocalSettings(projectRoot);
   const merged = deepMerge(current, updates);
@@ -84,7 +90,10 @@ export function updateLocalSettings(
 /**
  * 深度合并对象
  */
-function deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+function deepMerge(
+  target: Record<string, any>,
+  source: Record<string, any>
+): Record<string, any> {
   const result = { ...target };
 
   for (const key of Object.keys(source)) {

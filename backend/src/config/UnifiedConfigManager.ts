@@ -7,9 +7,23 @@
  */
 
 import { logger } from '../utils/log.js';
-import { ConfigLoader, type ConfigSource, type ConfigLoadResult } from './loader/ConfigLoader.js';
-import { HotReloader, type ReloadEvent, type ReloadListener, type HotReloadConfig } from './hotreload/HotReloader.js';
-import { VersionController, type ConfigSnapshot, type ConfigDiff, type VersionInfo } from './version/VersionController.js';
+import {
+  ConfigLoader,
+  type ConfigSource,
+  type ConfigLoadResult,
+} from './loader/ConfigLoader.js';
+import {
+  HotReloader,
+  type ReloadEvent,
+  type ReloadListener,
+  type HotReloadConfig,
+} from './hotreload/HotReloader.js';
+import {
+  VersionController,
+  type ConfigSnapshot,
+  type ConfigDiff,
+  type VersionInfo,
+} from './version/VersionController.js';
 import { ConfigManager } from './ConfigManager.js';
 
 /**
@@ -56,7 +70,7 @@ export function getSettingSourceName(source: SettingSource): string {
  * 获取设置源的大写显示名称
  */
 export function getSourceDisplayName(
-  source: SettingSource | 'plugin' | 'built-in',
+  source: SettingSource | 'plugin' | 'built-in'
 ): string {
   switch (source) {
     case 'userSettings':
@@ -118,7 +132,10 @@ export class UnifiedConfigManager {
       this.initialized = true;
       logger.info('UnifiedConfigManager initialized');
     } catch (error) {
-      logger.error('Failed to initialize UnifiedConfigManager:', error as Error);
+      logger.error(
+        'Failed to initialize UnifiedConfigManager:',
+        error as Error
+      );
       throw error;
     }
   }
@@ -140,7 +157,10 @@ export class UnifiedConfigManager {
   /**
    * 设置指定源的配置
    */
-  setSourceConfig(source: EditableSettingSource, config: Record<string, any>): void {
+  setSourceConfig(
+    source: EditableSettingSource,
+    config: Record<string, any>
+  ): void {
     this.sourceConfigs.set(source, config);
     this.rebuildMergedConfig();
   }
@@ -153,7 +173,11 @@ export class UnifiedConfigManager {
     let current: any = this.mergedConfig;
 
     for (const k of keys) {
-      if (current === null || current === undefined || typeof current !== 'object') {
+      if (
+        current === null ||
+        current === undefined ||
+        typeof current !== 'object'
+      ) {
         return defaultValue as T;
       }
       current = current[k];
@@ -165,7 +189,11 @@ export class UnifiedConfigManager {
   /**
    * 设置配置值
    */
-  setValue(key: string, value: any, source: EditableSettingSource = 'userSettings'): void {
+  setValue(
+    key: string,
+    value: any,
+    source: EditableSettingSource = 'userSettings'
+  ): void {
     const config = this.sourceConfigs.get(source) ?? {};
     const keys = key.split('.');
     let current: any = config;
@@ -284,7 +312,10 @@ export class UnifiedConfigManager {
   /**
    * 深度合并两个配置对象
    */
-  private deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+  private deepMerge(
+    target: Record<string, any>,
+    source: Record<string, any>
+  ): Record<string, any> {
     const result = { ...target };
 
     for (const key of Object.keys(source)) {
@@ -316,7 +347,7 @@ let globalUnifiedConfig: UnifiedConfigManager | null = null;
  * 获取全局统一配置管理器
  */
 export function getUnifiedConfigManager(
-  options?: ConstructorParameters<typeof UnifiedConfigManager>[0],
+  options?: ConstructorParameters<typeof UnifiedConfigManager>[0]
 ): UnifiedConfigManager {
   if (!globalUnifiedConfig) {
     globalUnifiedConfig = new UnifiedConfigManager(options);
@@ -328,7 +359,7 @@ export function getUnifiedConfigManager(
  * 重置全局统一配置管理器
  */
 export function resetUnifiedConfigManager(
-  options?: ConstructorParameters<typeof UnifiedConfigManager>[0],
+  options?: ConstructorParameters<typeof UnifiedConfigManager>[0]
 ): UnifiedConfigManager {
   globalUnifiedConfig = new UnifiedConfigManager(options);
   return globalUnifiedConfig;

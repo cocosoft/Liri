@@ -4,57 +4,57 @@
  * 追踪文件变更历史，创建快照和备份。
  * 用于回滚和差异比较。不依赖第三方 diff 库。
  */
-import { stat, readFile, mkdir, copyFile, unlink } from 'fs/promises'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
-import { join, dirname, relative, isAbsolute, resolve } from 'path'
-import { createHash, randomUUID } from 'crypto'
-import { homedir } from 'os'
+import { stat, readFile, mkdir, copyFile, unlink } from 'fs/promises';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { join, dirname, relative, isAbsolute, resolve } from 'path';
+import { createHash, randomUUID } from 'crypto';
+import { homedir } from 'os';
 
 /**
  * 文件历史备份信息
  */
 export interface FileHistoryBackup {
-  backupFileName: string | null
-  version: number
-  backupTime: Date
+  backupFileName: string | null;
+  version: number;
+  backupTime: Date;
 }
 
 /**
  * 文件历史快照
  */
 export interface FileHistorySnapshot {
-  messageId: string
-  trackedFileBackups: Record<string, FileHistoryBackup>
-  timestamp: Date
+  messageId: string;
+  trackedFileBackups: Record<string, FileHistoryBackup>;
+  timestamp: Date;
 }
 
 /**
  * 文件历史状态
  */
 export interface FileHistoryState {
-  snapshots: FileHistorySnapshot[]
-  trackedFiles: string[]
-  snapshotSequence: number
+  snapshots: FileHistorySnapshot[];
+  trackedFiles: string[];
+  snapshotSequence: number;
 }
 
 /**
  * 差异统计
  */
 export interface DiffStats {
-  filesChanged?: string[]
-  insertions: number
-  deletions: number
+  filesChanged?: string[];
+  insertions: number;
+  deletions: number;
 }
 
-const MAX_SNAPSHOTS = 100
-const BACKUP_DIR = join(homedir(), '.py_app', 'file_history')
+const MAX_SNAPSHOTS = 100;
+const BACKUP_DIR = join(homedir(), '.py_app', 'file_history');
 
 /**
  * 确保备份目录存在
  */
 function ensureBackupDir(): void {
   if (!existsSync(BACKUP_DIR)) {
-    mkdirSync(BACKUP_DIR, { recursive: true })
+    mkdirSync(BACKUP_DIR, { recursive: true });
   }
 }
 
@@ -62,14 +62,14 @@ function ensureBackupDir(): void {
  * 生成文件内容的哈希
  */
 function hashContent(content: string): string {
-  return createHash('sha256').update(content).digest('hex').slice(0, 16)
+  return createHash('sha256').update(content).digest('hex').slice(0, 16);
 }
 
 /**
  * 从文件路径生成跟踪键
  */
 function trackingKey(filePath: string): string {
-  return filePath.replace(/\\/g, '/')
+  return filePath.replace(/\\/g, '/');
 }
 
 /**
@@ -86,28 +86,28 @@ async function createBackup(
   filePath: string,
   version: number
 ): Promise<FileHistoryBackup> {
-  ensureBackupDir()
+  ensureBackupDir();
 
-  const contentHash = hashContent(filePath)
+  const contentHash = hashContent(filePath);
 
   try {
-    const content = await readFile(filePath, 'utf-8')
-    const backupName = `${contentHash}@v${version}.bak`
-    const backupPath = join(BACKUP_DIR, backupName)
-    await copyFile(filePath, backupPath)
+    const content = await readFile(filePath, 'utf-8');
+    const backupName = `${contentHash}@v${version}.bak`;
+    const backupPath = join(BACKUP_DIR, backupName);
+    await copyFile(filePath, backupPath);
 
     return {
       backupFileName: backupName,
       version,
       backupTime: new Date(),
-    }
+    };
   } catch {
     // 文件不存在（新文件）
     return {
       backupFileName: null,
       version,
       backupTime: new Date(),
-    }
+    };
   }
 }
 
@@ -125,38 +125,41 @@ export async function fileHistoryTrackEdit(
   filePath: string,
   messageId: string
 ): Promise<void> {
-  const trackPath = trackingKey(filePath)
+  const trackPath = trackingKey(filePath);
 
   // 检查最新快照中是否已追踪此文件
-  let captured: FileHistoryState | undefined
-  updateState(state => {
-    captured = state
-    return state
-  })
+  let captured: FileHistoryState | undefined;
+  updateState((state) => {
+    captured = state;
+    return state;
+  });
 
-  if (!captured) return
+  if (!captured) return;
 
-  const mostRecent = captured.snapshots.at(-1)
-  if (mostRecent?.trackedFileBackups[trackPath]) return
+  const mostRecent = captured.snapshots.at(-1);
+  if (mostRecent?.trackedFileBackups[trackPath]) return;
 
   // 创建备份
-  let backup: FileHistoryBackup
+  let backup: FileHistoryBackup;
   try {
-    backup = await createBackup(filePath, 1)
+    backup = await createBackup(filePath, 1);
   } catch {
-    return
+    return;
   }
 
   // 更新状态
   updateState((state: FileHistoryState) => {
-    const mostRecentSnapshot = state.snapshots.at(-1)
-    if (!mostRecentSnapshot || mostRecentSnapshot.trackedFileBackups[trackPath]) {
-      return state
+    const mostRecentSnapshot = state.snapshots.at(-1);
+    if (
+      !mostRecentSnapshot ||
+      mostRecentSnapshot.trackedFileBackups[trackPath]
+    ) {
+      return state;
     }
 
     const updatedTrackedFiles = state.trackedFiles.includes(trackPath)
       ? state.trackedFiles
-      : [...state.trackedFiles, trackPath]
+      : [...state.trackedFiles, trackPath];
 
     const updatedSnapshot = {
       ...mostRecentSnapshot,
@@ -164,17 +167,17 @@ export async function fileHistoryTrackEdit(
         ...mostRecentSnapshot.trackedFileBackups,
         [trackPath]: backup,
       },
-    }
+    };
 
-    const updatedSnapshots = state.snapshots.slice()
-    updatedSnapshots[updatedSnapshots.length - 1] = updatedSnapshot
+    const updatedSnapshots = state.snapshots.slice();
+    updatedSnapshots[updatedSnapshots.length - 1] = updatedSnapshot;
 
     return {
       ...state,
       snapshots: updatedSnapshots,
       trackedFiles: updatedTrackedFiles,
-    }
-  })
+    };
+  });
 }
 
 /**
@@ -192,11 +195,11 @@ export async function fileHistoryMakeSnapshot(
   messageId: string,
   trackedFiles: string[]
 ): Promise<void> {
-  const backups: Record<string, FileHistoryBackup> = {}
+  const backups: Record<string, FileHistoryBackup> = {};
 
   for (const filePath of trackedFiles) {
     try {
-      backups[filePath] = await createBackup(filePath, 1)
+      backups[filePath] = await createBackup(filePath, 1);
     } catch {
       // 跳过无法备份的文件
     }
@@ -207,17 +210,17 @@ export async function fileHistoryMakeSnapshot(
       messageId,
       trackedFileBackups: backups,
       timestamp: new Date(),
-    }
+    };
 
-    const snapshots = [...state.snapshots, snapshot]
+    const snapshots = [...state.snapshots, snapshot];
     if (snapshots.length > MAX_SNAPSHOTS) {
-      const removed = snapshots.shift()
+      const removed = snapshots.shift();
       if (removed) {
         // 清理被移除快照的备份文件
         for (const backup of Object.values(removed.trackedFileBackups)) {
           if (backup.backupFileName) {
-            const backupPath = join(BACKUP_DIR, backup.backupFileName)
-            unlink(backupPath).catch(() => {})
+            const backupPath = join(BACKUP_DIR, backup.backupFileName);
+            unlink(backupPath).catch(() => {});
           }
         }
       }
@@ -227,8 +230,8 @@ export async function fileHistoryMakeSnapshot(
       snapshots,
       trackedFiles: state.trackedFiles,
       snapshotSequence: state.snapshotSequence + 1,
-    }
-  })
+    };
+  });
 }
 
 /**
@@ -247,21 +250,21 @@ export async function restoreFileFromHistory(
   if (!backup.backupFileName) {
     // 新文件，删除当前版本
     try {
-      await unlink(filePath)
-      return true
+      await unlink(filePath);
+      return true;
     } catch {
-      return false
+      return false;
     }
   }
 
-  const backupPath = join(BACKUP_DIR, backup.backupFileName)
-  if (!existsSync(backupPath)) return false
+  const backupPath = join(BACKUP_DIR, backup.backupFileName);
+  if (!existsSync(backupPath)) return false;
 
   try {
-    await copyFile(backupPath, filePath)
-    return true
+    await copyFile(backupPath, filePath);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -274,5 +277,5 @@ export async function restoreFileFromHistory(
 export function getFileHistorySnapshots(
   snapshots: FileHistorySnapshot[]
 ): FileHistorySnapshot[] {
-  return snapshots.filter(s => Object.keys(s.trackedFileBackups).length > 0)
+  return snapshots.filter((s) => Object.keys(s.trackedFileBackups).length > 0);
 }

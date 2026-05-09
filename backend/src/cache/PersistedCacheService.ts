@@ -44,7 +44,11 @@ interface PersistedCacheData {
 /**
  * 迁移函数类型
  */
-export type MigrationFunction = (data: any, fromVersion: number, toVersion: number) => any;
+export type MigrationFunction = (
+  data: any,
+  fromVersion: number,
+  toVersion: number
+) => any;
 
 /**
  * 迁移记录
@@ -151,7 +155,6 @@ export class PersistedCacheService<T extends Record<string, any>> {
 
       this.data = loadedData;
       this.isLoaded = true;
-
     } catch (error) {
       console.error('Failed to load persisted cache:', error);
       this.data = {};
@@ -169,7 +172,11 @@ export class PersistedCacheService<T extends Record<string, any>> {
     while (currentVersion < CURRENT_CACHE_VERSION) {
       const migration = this.migrations.get(currentVersion);
       if (migration) {
-        currentData = migration.migrate(currentData, currentVersion, migration.toVersion);
+        currentData = migration.migrate(
+          currentData,
+          currentVersion,
+          migration.toVersion
+        );
         currentVersion = migration.toVersion;
       } else {
         break;
@@ -226,7 +233,6 @@ export class PersistedCacheService<T extends Record<string, any>> {
 
       fs.writeFileSync(tempPath, content, 'utf8');
       fs.renameSync(tempPath, this.filePath);
-
     } catch (error) {
       if (fs.existsSync(tempPath)) {
         fs.unlinkSync(tempPath);
@@ -274,7 +280,9 @@ export class PersistedCacheService<T extends Record<string, any>> {
       }
     }
 
-    throw new Error(`Failed to acquire lock after ${this.config.lockTimeout}ms`);
+    throw new Error(
+      `Failed to acquire lock after ${this.config.lockTimeout}ms`
+    );
   }
 
   /**
@@ -489,7 +497,11 @@ export function createMigrationFunction(
  * 创建版本迁移链
  */
 export function createMigrationChain(
-  migrations: Array<{ fromVersion: number; toVersion: number; transform: (data: any) => any }>
+  migrations: Array<{
+    fromVersion: number;
+    toVersion: number;
+    transform: (data: any) => any;
+  }>
 ): Map<number, MigrationRecord> {
   const migrationMap = new Map<number, MigrationRecord>();
 

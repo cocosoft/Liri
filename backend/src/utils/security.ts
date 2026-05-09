@@ -209,13 +209,16 @@ export class InputValidator {
    * @param options 验证选项
    * @returns 验证结果
    */
-  static validateString(input: string, options: {
-    maxLength?: number;
-    minLength?: number;
-    pattern?: RegExp;
-    allowedChars?: string;
-    disallowedChars?: string;
-  } = {}): {
+  static validateString(
+    input: string,
+    options: {
+      maxLength?: number;
+      minLength?: number;
+      pattern?: RegExp;
+      allowedChars?: string;
+      disallowedChars?: string;
+    } = {}
+  ): {
     valid: boolean;
     errors: string[];
     sanitized?: string;
@@ -238,25 +241,30 @@ export class InputValidator {
 
     // 允许字符验证
     if (options.allowedChars) {
-      const invalidChars = input.split('').filter(char => 
-        !options.allowedChars!.includes(char)
-      );
+      const invalidChars = input
+        .split('')
+        .filter((char) => !options.allowedChars!.includes(char));
       if (invalidChars.length > 0) {
-        errors.push(`Input contains disallowed characters: ${invalidChars.join(', ')}`);
+        errors.push(
+          `Input contains disallowed characters: ${invalidChars.join(', ')}`
+        );
       }
     }
 
     // 禁止字符验证
     if (options.disallowedChars) {
-      const invalidChars = input.split('').filter(char => 
-        options.disallowedChars!.includes(char)
-      );
+      const invalidChars = input
+        .split('')
+        .filter((char) => options.disallowedChars!.includes(char));
       if (invalidChars.length > 0) {
-        errors.push(`Input contains forbidden characters: ${invalidChars.join(', ')}`);
+        errors.push(
+          `Input contains forbidden characters: ${invalidChars.join(', ')}`
+        );
         // 移除禁止字符
-        sanitized = input.split('').filter(char => 
-          !options.disallowedChars!.includes(char)
-        ).join('');
+        sanitized = input
+          .split('')
+          .filter((char) => !options.disallowedChars!.includes(char))
+          .join('');
       }
     }
 
@@ -266,7 +274,7 @@ export class InputValidator {
     return {
       valid: errors.length === 0,
       errors,
-      sanitized
+      sanitized,
     };
   }
 
@@ -281,7 +289,7 @@ export class InputValidator {
     sanitized?: string;
   } {
     const errors: string[] = [];
-    
+
     // 路径遍历检查
     if (isPathTraversal(path)) {
       errors.push('Path traversal detected');
@@ -289,7 +297,7 @@ export class InputValidator {
 
     // 危险字符检查
     const dangerousChars = [';', '|', '&', '`', '$', '>', '<'];
-    const foundChars = dangerousChars.filter(char => path.includes(char));
+    const foundChars = dangerousChars.filter((char) => path.includes(char));
     if (foundChars.length > 0) {
       errors.push(`Dangerous characters detected: ${foundChars.join(', ')}`);
     }
@@ -305,7 +313,7 @@ export class InputValidator {
     return {
       valid: errors.length === 0,
       errors,
-      sanitized
+      sanitized,
     };
   }
 
@@ -323,22 +331,22 @@ export class InputValidator {
 
     // 首先检查危险协议
     const dangerousProtocols = ['javascript:', 'vbscript:', 'data:'];
-    const hasDangerousProtocol = dangerousProtocols.some(protocol => 
+    const hasDangerousProtocol = dangerousProtocols.some((protocol) =>
       url.toLowerCase().startsWith(protocol)
     );
-    
+
     if (hasDangerousProtocol) {
       errors.push(`Dangerous protocol detected: ${url.split(':')[0]}`);
       return {
         valid: false,
         errors,
-        sanitized: ''
+        sanitized: '',
       };
     }
 
     try {
       const parsedUrl = new URL(url);
-      
+
       // 协议验证
       const allowedProtocols = ['http:', 'https:', 'ftp:'];
       if (!allowedProtocols.includes(parsedUrl.protocol)) {
@@ -354,7 +362,6 @@ export class InputValidator {
       if (isPathTraversal(parsedUrl.pathname)) {
         errors.push('Path traversal detected in URL');
       }
-
     } catch (error) {
       errors.push('Invalid URL format');
     }
@@ -362,7 +369,7 @@ export class InputValidator {
     return {
       valid: errors.length === 0,
       errors,
-      sanitized: url
+      sanitized: url,
     };
   }
 
@@ -372,11 +379,14 @@ export class InputValidator {
    * @param options 验证选项
    * @returns 验证结果
    */
-  static validateNumber(input: number, options: {
-    min?: number;
-    max?: number;
-    integerOnly?: boolean;
-  } = {}): {
+  static validateNumber(
+    input: number,
+    options: {
+      min?: number;
+      max?: number;
+      integerOnly?: boolean;
+    } = {}
+  ): {
     valid: boolean;
     errors: string[];
   } {
@@ -397,7 +407,7 @@ export class InputValidator {
 
     return {
       valid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -407,17 +417,20 @@ export class InputValidator {
    * @param schema 验证模式
    * @returns 验证结果
    */
-  static validateObject(obj: Record<string, any>, schema: {
-    [key: string]: {
-      type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-      required?: boolean;
-      pattern?: RegExp;
-      min?: number;
-      max?: number;
-      maxLength?: number;
-      minLength?: number;
-    };
-  }): {
+  static validateObject(
+    obj: Record<string, any>,
+    schema: {
+      [key: string]: {
+        type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+        required?: boolean;
+        pattern?: RegExp;
+        min?: number;
+        max?: number;
+        maxLength?: number;
+        minLength?: number;
+      };
+    }
+  ): {
     valid: boolean;
     errors: string[];
     sanitized?: Record<string, any>;
@@ -429,7 +442,10 @@ export class InputValidator {
       const value = obj[key];
 
       // 必填字段检查
-      if (rule.required && (value === undefined || value === null || value === '')) {
+      if (
+        rule.required &&
+        (value === undefined || value === null || value === '')
+      ) {
         errors.push(`Field '${key}' is required`);
         continue;
       }
@@ -465,19 +481,23 @@ export class InputValidator {
           const stringValidation = this.validateString(value, {
             maxLength: rule.maxLength,
             minLength: rule.minLength,
-            pattern: rule.pattern
+            pattern: rule.pattern,
           });
           if (!stringValidation.valid) {
-            errors.push(...stringValidation.errors.map(err => `Field '${key}': ${err}`));
+            errors.push(
+              ...stringValidation.errors.map((err) => `Field '${key}': ${err}`)
+            );
           }
           sanitized[key] = stringValidation.sanitized || value;
         } else if (rule.type === 'number' && typeof value === 'number') {
           const numberValidation = this.validateNumber(value, {
             min: rule.min,
-            max: rule.max
+            max: rule.max,
           });
           if (!numberValidation.valid) {
-            errors.push(...numberValidation.errors.map(err => `Field '${key}': ${err}`));
+            errors.push(
+              ...numberValidation.errors.map((err) => `Field '${key}': ${err}`)
+            );
           }
           sanitized[key] = value;
         } else {
@@ -489,7 +509,7 @@ export class InputValidator {
     return {
       valid: errors.length === 0,
       errors,
-      sanitized
+      sanitized,
     };
   }
 
@@ -500,15 +520,19 @@ export class InputValidator {
    * @param options 验证选项
    * @returns 验证结果
    */
-  static validateArray<T>(array: T[], itemValidator: (item: T) => {
-    valid: boolean;
-    errors: string[];
-    sanitized?: T;
-  }, options: {
-    maxLength?: number;
-    minLength?: number;
-    unique?: boolean;
-  } = {}): {
+  static validateArray<T>(
+    array: T[],
+    itemValidator: (item: T) => {
+      valid: boolean;
+      errors: string[];
+      sanitized?: T;
+    },
+    options: {
+      maxLength?: number;
+      minLength?: number;
+      unique?: boolean;
+    } = {}
+  ): {
     valid: boolean;
     errors: string[];
     sanitized?: T[];
@@ -536,11 +560,11 @@ export class InputValidator {
     for (let i = 0; i < array.length; i++) {
       const item = array[i];
       const validation = itemValidator(item);
-      
+
       if (!validation.valid) {
-        errors.push(...validation.errors.map(err => `Item ${i}: ${err}`));
+        errors.push(...validation.errors.map((err) => `Item ${i}: ${err}`));
       }
-      
+
       if (validation.sanitized !== undefined) {
         sanitized.push(validation.sanitized);
       } else {
@@ -551,7 +575,7 @@ export class InputValidator {
     return {
       valid: errors.length === 0,
       errors,
-      sanitized
+      sanitized,
     };
   }
 
@@ -560,11 +584,17 @@ export class InputValidator {
    * @param validations 验证配置
    * @returns 总体验证结果
    */
-  static validateBatch(validations: Array<{
-    name: string;
-    value: any;
-    validator: (value: any) => { valid: boolean; errors: string[]; sanitized?: any };
-  }>): {
+  static validateBatch(
+    validations: Array<{
+      name: string;
+      value: any;
+      validator: (value: any) => {
+        valid: boolean;
+        errors: string[];
+        sanitized?: any;
+      };
+    }>
+  ): {
     valid: boolean;
     errors: string[];
     sanitized: Record<string, any>;
@@ -574,18 +604,21 @@ export class InputValidator {
 
     for (const validation of validations) {
       const result = validation.validator(validation.value);
-      
+
       if (!result.valid) {
-        errors.push(...result.errors.map(err => `${validation.name}: ${err}`));
+        errors.push(
+          ...result.errors.map((err) => `${validation.name}: ${err}`)
+        );
       }
-      
-      sanitized[validation.name] = result.sanitized !== undefined ? result.sanitized : validation.value;
+
+      sanitized[validation.name] =
+        result.sanitized !== undefined ? result.sanitized : validation.value;
     }
 
     return {
       valid: errors.length === 0,
       errors,
-      sanitized
+      sanitized,
     };
   }
 }
@@ -682,7 +715,10 @@ export class OutputEncoder {
       // 移除危险事件属性
       .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
       // 移除危险协议
-      .replace(/(href|src|action)=\s*["'](javascript|vbscript|data):[^"']*["']/gi, '');
+      .replace(
+        /(href|src|action)=\s*["'](javascript|vbscript|data):[^"']*["']/gi,
+        ''
+      );
 
     return sanitized;
   }
@@ -714,7 +750,7 @@ export class OutputEncoder {
     }
 
     if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizeObjectForJson(item));
+      return obj.map((item) => this.sanitizeObjectForJson(item));
     }
 
     if (typeof obj === 'object') {
@@ -761,7 +797,11 @@ export class OutputEncoder {
    * @param attribute 属性名
    * @param value 属性值
    */
-  static safeSetAttribute(element: Element, attribute: string, value: string): void {
+  static safeSetAttribute(
+    element: Element,
+    attribute: string,
+    value: string
+  ): void {
     const safeAttribute = this.encodeAttribute(attribute);
     const safeValue = this.encodeAttribute(value);
     element.setAttribute(safeAttribute, safeValue);
@@ -783,7 +823,11 @@ export class OutputEncoder {
    * @param property 样式属性
    * @param value 样式值
    */
-  static safeSetStyle(element: HTMLElement, property: string, value: string): void {
+  static safeSetStyle(
+    element: HTMLElement,
+    property: string,
+    value: string
+  ): void {
     const safeProperty = this.encodeCss(property);
     const safeValue = this.encodeCss(value);
     element.style.setProperty(safeProperty, safeValue);
@@ -797,7 +841,11 @@ export class OutputEncoder {
  * @param options 验证选项
  * @returns 验证结果
  */
-export function validateObject(obj: any, schema: Record<string, any>, options: any = {}): void {
+export function validateObject(
+  obj: any,
+  schema: Record<string, any>,
+  options: any = {}
+): void {
   for (const [key, rules] of Object.entries(schema)) {
     const value = obj[key];
 

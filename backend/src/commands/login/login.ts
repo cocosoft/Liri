@@ -38,12 +38,13 @@ interface LoginParams {
  */
 export async function executeLogin(
   args: string,
-  context: CommandContext,
+  context: CommandContext
 ): Promise<CommandResult> {
   try {
     const params = parseLoginArgs(args);
 
-    const existingToken = process.env.PY_APP_API_KEY || process.env.ANTHROPIC_API_KEY;
+    const existingToken =
+      process.env.PY_APP_API_KEY || process.env.ANTHROPIC_API_KEY;
 
     if (existingToken && !params.force) {
       return {
@@ -74,13 +75,13 @@ export async function executeLogin(
  */
 async function executeOAuthLogin(
   params: LoginParams,
-  context: CommandContext,
+  context: CommandContext
 ): Promise<CommandResult> {
   const oauthService = new OAuthService();
 
   try {
     const tokens = await (oauthService as any).startOAuthFlow(
-      async (urls: { automaticUrl: string; manualUrl: string; }) => {
+      async (urls: { automaticUrl: string; manualUrl: string }) => {
         (context as any).output.write(`请打开以下链接进行OAuth授权:\n`);
         (context as any).output.write(`  ${urls.automaticUrl}\n`);
         (context as any).output.write(`\n或者手动打开:\n`);
@@ -89,7 +90,7 @@ async function executeOAuthLogin(
       },
       {
         loginWithClaudeAi: params.provider === 'claudeai',
-      },
+      }
     );
 
     await executePostLogin(tokens, {
@@ -100,9 +101,10 @@ async function executeOAuthLogin(
       },
     });
 
-    const name = tokens.profile?.displayName
-      || tokens.profile?.rawProfile?.account?.email
-      || 'OAuth User';
+    const name =
+      tokens.profile?.displayName ||
+      tokens.profile?.rawProfile?.account?.email ||
+      'OAuth User';
 
     return {
       type: 'text',
@@ -127,9 +129,7 @@ async function executeOAuthLogin(
 /**
  * 执行API Key登录
  */
-async function executeApiKeyLogin(
-  params: LoginParams,
-): Promise<CommandResult> {
+async function executeApiKeyLogin(params: LoginParams): Promise<CommandResult> {
   const loginResult = await performLogin(params);
 
   if (loginResult.success) {

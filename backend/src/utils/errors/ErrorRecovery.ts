@@ -49,7 +49,10 @@ export class CircuitBreaker {
 
   getState(): CircuitState {
     if (this.state === CircuitState.OPEN) {
-      if (this.lastFailureTime && Date.now() - this.lastFailureTime >= this.timeout) {
+      if (
+        this.lastFailureTime &&
+        Date.now() - this.lastFailureTime >= this.timeout
+      ) {
         this.state = CircuitState.HALF_OPEN;
       }
     }
@@ -96,10 +99,7 @@ export class CircuitBreaker {
 export class RetryManager {
   private retryCount: Map<string, number> = new Map();
 
-  calculateDelay(
-    attempt: number,
-    options: Required<RetryOptions>
-  ): number {
+  calculateDelay(attempt: number, options: Required<RetryOptions>): number {
     const delay = Math.min(
       options.baseDelay * Math.pow(options.backoffMultiplier, attempt - 1),
       options.maxDelay
@@ -121,7 +121,7 @@ export class RetryManager {
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return options.retryableErrors.some(pattern => {
+    return options.retryableErrors.some((pattern) => {
       return errorMessage.includes(pattern);
     });
   }
@@ -180,7 +180,7 @@ export class RetryManager {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
@@ -188,7 +188,10 @@ export class ErrorRecoveryManager {
   private circuitBreakers: Map<string, CircuitBreaker> = new Map();
   private retryManager: RetryManager = new RetryManager();
 
-  getOrCreateCircuitBreaker(key: string, options?: CircuitBreakerOptions): CircuitBreaker {
+  getOrCreateCircuitBreaker(
+    key: string,
+    options?: CircuitBreakerOptions
+  ): CircuitBreaker {
     let breaker = this.circuitBreakers.get(key);
     if (!breaker) {
       breaker = new CircuitBreaker(options);

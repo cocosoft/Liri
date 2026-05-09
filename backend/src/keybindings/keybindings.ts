@@ -5,7 +5,12 @@
  */
 
 import { z } from 'zod';
-import { ACTIONS, getActionById, type Action, type CoreAction } from './actions';
+import {
+  ACTIONS,
+  getActionById,
+  type Action,
+  type CoreAction,
+} from './actions';
 
 export interface Keybinding {
   key: string;
@@ -52,16 +57,18 @@ export class KeybindingManager {
    * 初始化默认键位绑定
    */
   private initializeDefaultBindings(): void {
-    (ACTIONS as Array<CoreAction & { defaultKeybindings: string[] }>).forEach(action => {
-      action.defaultKeybindings.forEach(key => {
-        this.addBinding({
-          key,
-          actionId: action.id,
-          context: action.context ? [action.context] : undefined,
-          description: action.description,
+    (ACTIONS as Array<CoreAction & { defaultKeybindings: string[] }>).forEach(
+      (action) => {
+        action.defaultKeybindings.forEach((key) => {
+          this.addBinding({
+            key,
+            actionId: action.id,
+            context: action.context ? [action.context] : undefined,
+            description: action.description,
+          });
         });
-      });
-    });
+      }
+    );
   }
 
   /**
@@ -79,15 +86,18 @@ export class KeybindingManager {
    */
   removeBinding(key: string, actionId?: string): void {
     const bindings = this.keyMap.get(key) || [];
-    
+
     if (actionId) {
-      this.keyMap.set(key, bindings.filter(b => b.actionId !== actionId));
+      this.keyMap.set(
+        key,
+        bindings.filter((b) => b.actionId !== actionId)
+      );
       this.config.bindings = this.config.bindings.filter(
-        b => !(b.key === key && b.actionId === actionId)
+        (b) => !(b.key === key && b.actionId === actionId)
       );
     } else {
       this.keyMap.delete(key);
-      this.config.bindings = this.config.bindings.filter(b => b.key !== key);
+      this.config.bindings = this.config.bindings.filter((b) => b.key !== key);
     }
   }
 
@@ -96,12 +106,12 @@ export class KeybindingManager {
    */
   getBinding(key: string, context?: string): Keybinding | undefined {
     const bindings = this.keyMap.get(key) || [];
-    
+
     if (!context) {
       return bindings[0];
     }
 
-    return bindings.find(b => {
+    return bindings.find((b) => {
       if (!b.context) return true;
       return b.context.includes(context);
     });
@@ -118,14 +128,14 @@ export class KeybindingManager {
    * 获取动作的所有绑定
    */
   getBindingsForAction(actionId: string): Keybinding[] {
-    return this.config.bindings.filter(b => b.actionId === actionId);
+    return this.config.bindings.filter((b) => b.actionId === actionId);
   }
 
   /**
    * 获取上下文相关的绑定
    */
   getBindingsForContext(context: string): Keybinding[] {
-    return this.config.bindings.filter(b => {
+    return this.config.bindings.filter((b) => {
       if (!b.context) return true;
       return b.context.includes(context);
     });
@@ -179,15 +189,15 @@ export class KeybindingManager {
     try {
       const config = JSON.parse(configJson);
       const result = KeybindingConfigSchema.safeParse(config);
-      
+
       if (!result.success) {
         return false;
       }
 
       this.config = result.data;
       this.keyMap.clear();
-      
-      this.config.bindings.forEach(binding => {
+
+      this.config.bindings.forEach((binding) => {
         const existing = this.keyMap.get(binding.key) || [];
         existing.push(binding);
         this.keyMap.set(binding.key, existing);
@@ -231,7 +241,9 @@ export class KeybindingManager {
 /**
  * 创建快捷键管理器实例
  */
-export function createKeybindingManager(config?: Partial<KeybindingConfig>): KeybindingManager {
+export function createKeybindingManager(
+  config?: Partial<KeybindingConfig>
+): KeybindingManager {
   return new KeybindingManager(config);
 }
 

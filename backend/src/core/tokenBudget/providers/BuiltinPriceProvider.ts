@@ -9,7 +9,10 @@ import type { ModelPricing } from '../types';
 
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 
-const BUILTIN_PRICES: Record<string, ModelPricing & { contextWindow: number; supportsPromptCache: boolean }> = {
+const BUILTIN_PRICES: Record<
+  string,
+  ModelPricing & { contextWindow: number; supportsPromptCache: boolean }
+> = {
   'claude-opus-4-6': {
     inputPer1M: 15,
     outputPer1M: 75,
@@ -180,7 +183,7 @@ export class BuiltinPriceProvider implements IPriceProvider {
   }
 
   async getBatchPricing(models: string[]): Promise<PricingResult[]> {
-    const results = await Promise.all(models.map(m => this.getPricing(m)));
+    const results = await Promise.all(models.map((m) => this.getPricing(m)));
     return results.filter((r): r is PricingResult => r !== null);
   }
 
@@ -201,7 +204,8 @@ export class BuiltinPriceProvider implements IPriceProvider {
 
     if (lower.includes('deepseek-chat')) return 'deepseek-chat';
     if (lower.includes('deepseek-coder')) return 'deepseek-coder';
-    if (lower.includes('deepseek-v3') || lower.includes('deepseek-v2')) return 'deepseek-v3';
+    if (lower.includes('deepseek-v3') || lower.includes('deepseek-v2'))
+      return 'deepseek-v3';
 
     if (lower.includes('gpt-4o-mini')) return 'gpt-4o-mini';
     if (lower.includes('gpt-4o')) return 'gpt-4o';

@@ -32,7 +32,7 @@ export interface PerformanceConfig {
     /** 采样率（0-1） */
     sampleRate: number;
   };
-  
+
   // 慢操作检测配置
   slowOperations: {
     /** 慢操作阈值（毫秒） */
@@ -40,7 +40,7 @@ export interface PerformanceConfig {
     /** 是否启用慢操作检测 */
     enabled: boolean;
   };
-  
+
   // 内存管理配置
   memoryManagement: {
     /** 是否启用内存优化 */
@@ -58,7 +58,7 @@ export interface PerformanceConfig {
     /** 最大快照数量 */
     maxSnapshots: number;
   };
-  
+
   // 缓存配置
   cache: {
     /** 缓存大小限制（MB） */
@@ -66,7 +66,7 @@ export interface PerformanceConfig {
     /** 缓存过期时间（毫秒） */
     expirationMs: number;
   };
-  
+
   // 延迟加载配置
   lazyLoading: {
     /** 是否启用延迟加载 */
@@ -85,7 +85,10 @@ const DEFAULT_CONFIG: PerformanceConfig = {
     sampleRate: process.env.USER_TYPE === 'ant' ? 1.0 : 0.005,
   },
   slowOperations: {
-    thresholdMs: getEnvNumber('PY_APP_SLOW_OPERATION_THRESHOLD_MS', process.env.NODE_ENV === 'development' ? 20 : 300),
+    thresholdMs: getEnvNumber(
+      'PY_APP_SLOW_OPERATION_THRESHOLD_MS',
+      process.env.NODE_ENV === 'development' ? 20 : 300
+    ),
     enabled: true,
   },
   memoryManagement: {
@@ -147,7 +150,10 @@ export class PerformanceConfigManager {
         sampleRate: process.env.USER_TYPE === 'ant' ? 1.0 : 0.005,
       },
       slowOperations: {
-        thresholdMs: getEnvNumber('PY_APP_SLOW_OPERATION_THRESHOLD_MS', process.env.NODE_ENV === 'development' ? 20 : 300),
+        thresholdMs: getEnvNumber(
+          'PY_APP_SLOW_OPERATION_THRESHOLD_MS',
+          process.env.NODE_ENV === 'development' ? 20 : 300
+        ),
         enabled: true,
       },
       memoryManagement: {
@@ -178,25 +184,34 @@ export class PerformanceConfigManager {
    */
   private validateConfig(): void {
     // 验证启动性能分析配置
-    if (this.config.startupProfiling.sampleRate < 0 || this.config.startupProfiling.sampleRate > 1) {
-      logForDebugging('无效的启动性能分析采样率，使用默认值', { level: 'warn' });
-      this.config.startupProfiling.sampleRate = DEFAULT_CONFIG.startupProfiling.sampleRate;
+    if (
+      this.config.startupProfiling.sampleRate < 0 ||
+      this.config.startupProfiling.sampleRate > 1
+    ) {
+      logForDebugging('无效的启动性能分析采样率，使用默认值', {
+        level: 'warn',
+      });
+      this.config.startupProfiling.sampleRate =
+        DEFAULT_CONFIG.startupProfiling.sampleRate;
     }
 
     // 验证慢操作检测配置
     if (this.config.slowOperations.thresholdMs < 0) {
       logForDebugging('无效的慢操作阈值，使用默认值', { level: 'warn' });
-      this.config.slowOperations.thresholdMs = DEFAULT_CONFIG.slowOperations.thresholdMs;
+      this.config.slowOperations.thresholdMs =
+        DEFAULT_CONFIG.slowOperations.thresholdMs;
     }
 
     // 验证内存管理配置
     if (this.config.memoryManagement.thresholdMb < 0) {
       logForDebugging('无效的内存阈值，使用默认值', { level: 'warn' });
-      this.config.memoryManagement.thresholdMb = DEFAULT_CONFIG.memoryManagement.thresholdMb;
+      this.config.memoryManagement.thresholdMb =
+        DEFAULT_CONFIG.memoryManagement.thresholdMb;
     }
     if (this.config.memoryManagement.checkIntervalMs < 0) {
       logForDebugging('无效的内存检查间隔，使用默认值', { level: 'warn' });
-      this.config.memoryManagement.checkIntervalMs = DEFAULT_CONFIG.memoryManagement.checkIntervalMs;
+      this.config.memoryManagement.checkIntervalMs =
+        DEFAULT_CONFIG.memoryManagement.checkIntervalMs;
     }
 
     // 验证缓存配置
@@ -212,7 +227,8 @@ export class PerformanceConfigManager {
     // 验证延迟加载配置
     if (this.config.lazyLoading.preloadThresholdMs < 0) {
       logForDebugging('无效的预加载阈值，使用默认值', { level: 'warn' });
-      this.config.lazyLoading.preloadThresholdMs = DEFAULT_CONFIG.lazyLoading.preloadThresholdMs;
+      this.config.lazyLoading.preloadThresholdMs =
+        DEFAULT_CONFIG.lazyLoading.preloadThresholdMs;
     }
   }
 
@@ -238,7 +254,10 @@ export class PerformanceConfigManager {
       try {
         listener();
       } catch (error) {
-        logForDebugging(`配置变更监听器执行失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+        logForDebugging(
+          `配置变更监听器执行失败: ${error instanceof Error ? error.message : String(error)}`,
+          { level: 'error' }
+        );
       }
     }
   }
@@ -259,7 +278,9 @@ export function getPerformanceConfig(): PerformanceConfig {
 /**
  * 更新性能配置
  */
-export function updatePerformanceConfig(updates: Partial<PerformanceConfig>): void {
+export function updatePerformanceConfig(
+  updates: Partial<PerformanceConfig>
+): void {
   performanceConfigManager.updateConfig(updates);
 }
 

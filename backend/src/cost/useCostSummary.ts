@@ -1,7 +1,7 @@
 /**
  * 成本摘要Hook
  * 基于CC源码 cc_code/backend/costHook.ts 实现
- * 
+ *
  * 在进程退出时输出成本摘要
  */
 
@@ -66,7 +66,7 @@ export function useCostSummary(): UseCostSummaryResult {
   // 获取成本摘要
   const summary = useMemo((): CostSummary => {
     const state = costTracker.getSessionCostState();
-    
+
     return {
       totalCostUSD: state.totalCostUSD,
       totalInputTokens: state.totalInputTokens,
@@ -86,7 +86,7 @@ export function useCostSummary(): UseCostSummaryResult {
 
   // 刷新摘要
   const refresh = useCallback(() => {
-    setRefreshTrigger(prev => prev + 1);
+    setRefreshTrigger((prev) => prev + 1);
   }, []);
 
   // 重置成本跟踪

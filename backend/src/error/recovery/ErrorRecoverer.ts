@@ -1,7 +1,12 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '../types';
 import { SafeLogger } from '../safeLog';
 
-export type RecoveryStrategy = 'retry' | 'fallback' | 'compensate' | 'skip' | 'abort';
+export type RecoveryStrategy =
+  | 'retry'
+  | 'fallback'
+  | 'compensate'
+  | 'skip'
+  | 'abort';
 
 export interface RecoveryConfig {
   maxRetries: number;
@@ -27,7 +32,11 @@ export interface RecoveryPlan {
 export interface RecoveryResult {
   planId: string;
   success: boolean;
-  executedActions: Array<{ strategy: RecoveryStrategy; success: boolean; duration: number }>;
+  executedActions: Array<{
+    strategy: RecoveryStrategy;
+    success: boolean;
+    duration: number;
+  }>;
   finalError?: Error;
   duration: number;
 }
@@ -50,8 +59,12 @@ const defaultConfig: RecoveryConfig = {
 export class ErrorRecoverer {
   private config: RecoveryConfig;
   private plans: Map<string, RecoveryPlan> = new Map();
-  private fallbackHandlers: Map<string, (error: AppError) => Promise<boolean>> = new Map();
-  private compensationHandlers: Map<string, (error: AppError) => Promise<boolean>> = new Map();
+  private fallbackHandlers: Map<string, (error: AppError) => Promise<boolean>> =
+    new Map();
+  private compensationHandlers: Map<
+    string,
+    (error: AppError) => Promise<boolean>
+  > = new Map();
 
   constructor(config?: Partial<RecoveryConfig>) {
     this.config = { ...defaultConfig, ...config };
@@ -61,11 +74,17 @@ export class ErrorRecoverer {
     Object.assign(this.config, config);
   }
 
-  registerFallback(handlerId: string, handler: (error: AppError) => Promise<boolean>): void {
+  registerFallback(
+    handlerId: string,
+    handler: (error: AppError) => Promise<boolean>
+  ): void {
     this.fallbackHandlers.set(handlerId, handler);
   }
 
-  registerCompensation(handlerId: string, handler: (error: AppError) => Promise<boolean>): void {
+  registerCompensation(
+    handlerId: string,
+    handler: (error: AppError) => Promise<boolean>
+  ): void {
     this.compensationHandlers.set(handlerId, handler);
   }
 
@@ -77,7 +96,11 @@ export class ErrorRecoverer {
     this.compensationHandlers.delete(handlerId);
   }
 
-  async recover(errorId: string, error: AppError, retryOptions?: Partial<RetryOptions>): Promise<RecoveryResult> {
+  async recover(
+    errorId: string,
+    error: AppError,
+    retryOptions?: Partial<RetryOptions>
+  ): Promise<RecoveryResult> {
     const opts: RetryOptions = {
       maxRetries: retryOptions?.maxRetries ?? this.config.maxRetries,
       retryDelay: retryOptions?.retryDelay ?? this.config.retryDelay,
@@ -87,10 +110,13 @@ export class ErrorRecoverer {
     };
 
     if (!this.isRecoverable(error, opts)) {
-      SafeLogger.logInfo(`Error ${errorId} is not recoverable, skipping recovery`, {
-        category: error.category,
-        code: error.code,
-      });
+      SafeLogger.logInfo(
+        `Error ${errorId} is not recoverable, skipping recovery`,
+        {
+          category: error.category,
+          code: error.code,
+        }
+      );
       return {
         planId: errorId,
         success: false,
@@ -108,13 +134,18 @@ export class ErrorRecoverer {
     if (!opts.retryableErrors || opts.retryableErrors.length === 0) {
       return error.severity !== ErrorSeverity.CRITICAL;
     }
-    return opts.retryableErrors.some(r =>
-      (!r.category || r.category === error.category) &&
-      (!r.code || r.code === error.code)
+    return opts.retryableErrors.some(
+      (r) =>
+        (!r.category || r.category === error.category) &&
+        (!r.code || r.code === error.code)
     );
   }
 
-  private buildRecoveryPlan(errorId: string, error: AppError, opts: RetryOptions): RecoveryPlan {
+  private buildRecoveryPlan(
+    errorId: string,
+    error: AppError,
+    opts: RetryOptions
+  ): RecoveryPlan {
     const actions: RecoveryAction[] = [];
 
     actions.push({
@@ -131,7 +162,9 @@ export class ErrorRecoverer {
           for (const [id, handler] of this.fallbackHandlers) {
             try {
               if (await handler(error)) {
-                SafeLogger.logInfo(`Fallback handler ${id} succeeded`, { errorId });
+                SafeLogger.logInfo(`Fallback handler ${id} succeeded`, {
+                  errorId,
+                });
                 return true;
               }
             } catch (e) {
@@ -154,7 +187,9 @@ export class ErrorRecoverer {
           for (const [id, handler] of this.compensationHandlers) {
             try {
               if (await handler(error)) {
-                SafeLogger.logInfo(`Compensation handler ${id} executed`, { errorId });
+                SafeLogger.logInfo(`Compensation handler ${id} executed`, {
+                  errorId,
+                });
                 return true;
               }
             } catch (e) {
@@ -178,7 +213,10 @@ export class ErrorRecoverer {
     };
   }
 
-  private async executePlan(plan: RecoveryPlan, opts: RetryOptions): Promise<RecoveryResult> {
+  private async executePlan(
+    plan: RecoveryPlan,
+    opts: RetryOptions
+  ): Promise<RecoveryResult> {
     const startTime = Date.now();
     plan.status = 'in_progress';
     const executedActions: RecoveryResult['executedActions'] = [];
@@ -189,7 +227,10 @@ export class ErrorRecoverer {
       try {
         success = await action.execute();
       } catch (e) {
-        SafeLogger.logError(e as Error, { planId: plan.errorId, strategy: action.strategy });
+        SafeLogger.logError(e as Error, {
+          planId: plan.errorId,
+          strategy: action.strategy,
+        });
       }
 
       const duration = Date.now() - actionStart;
@@ -215,7 +256,10 @@ export class ErrorRecoverer {
     };
   }
 
-  private async executeWithRetry(error: AppError, opts: RetryOptions): Promise<boolean> {
+  private async executeWithRetry(
+    error: AppError,
+    opts: RetryOptions
+  ): Promise<boolean> {
     for (let attempt = 1; attempt <= opts.maxRetries; attempt++) {
       try {
         SafeLogger.logInfo(`Retry attempt ${attempt}/${opts.maxRetries}`, {
@@ -229,7 +273,9 @@ export class ErrorRecoverer {
           error: (e as Error).message,
         });
         if (attempt < opts.maxRetries) {
-          await this.delay(opts.retryDelay * Math.pow(opts.backoffFactor, attempt - 1));
+          await this.delay(
+            opts.retryDelay * Math.pow(opts.backoffFactor, attempt - 1)
+          );
         }
       }
     }
@@ -237,20 +283,27 @@ export class ErrorRecoverer {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   getPlan(errorId: string): RecoveryPlan | undefined {
     return this.plans.get(errorId);
   }
 
-  getStats(): { totalPlans: number; succeeded: number; failed: number; pending: number } {
+  getStats(): {
+    totalPlans: number;
+    succeeded: number;
+    failed: number;
+    pending: number;
+  } {
     const plans = [...this.plans.values()];
     return {
       totalPlans: plans.length,
-      succeeded: plans.filter(p => p.status === 'succeeded').length,
-      failed: plans.filter(p => p.status === 'failed').length,
-      pending: plans.filter(p => p.status === 'pending' || p.status === 'in_progress').length,
+      succeeded: plans.filter((p) => p.status === 'succeeded').length,
+      failed: plans.filter((p) => p.status === 'failed').length,
+      pending: plans.filter(
+        (p) => p.status === 'pending' || p.status === 'in_progress'
+      ).length,
     };
   }
 

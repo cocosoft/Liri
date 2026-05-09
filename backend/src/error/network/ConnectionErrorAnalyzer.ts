@@ -1,6 +1,6 @@
 /**
  * 连接错误分析器
- * 
+ *
  * 支持 15+ 种 SSL 错误码识别，遍历 cause 链提取根错误
  * 参考 CC_CODE cc_code/backend/services/api/errorUtils.ts
  */
@@ -69,7 +69,7 @@ export interface ConnectionErrorDetails {
 
 /**
  * 从错误 cause 链中提取连接错误详情
- * 
+ *
  * Anthropic SDK 会将底层错误包装在 cause 属性中，
  * 此函数遍历 cause 链找到根错误码/消息。
  */
@@ -116,7 +116,7 @@ export function extractConnectionErrorDetails(
 
 /**
  * 获取 SSL 错误的操作提示
- * 
+ *
  * 适用于企业 TLS 拦截代理（Zscaler 等）场景，
  * 帮助用户快速定位问题。
  */
@@ -160,7 +160,7 @@ export function getSSLUserMessage(code: string): string {
 
 /**
  * 分析连接错误
- * 
+ *
  * 遍历 cause 链，识别错误类型，返回用户友好的提示。
  */
 export function analyzeConnectionError(error: Error): ConnectionAnalysis {

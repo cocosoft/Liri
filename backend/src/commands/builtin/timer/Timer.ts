@@ -35,7 +35,10 @@ export default {
   /**
    * 启动计时器
    */
-  async handleStart(duration: string, context: CommandContext): Promise<CommandResult> {
+  async handleStart(
+    duration: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!duration) {
       return {
         success: false,
@@ -46,9 +49,9 @@ export default {
     }
 
     const parsed = this.parseDuration(duration);
-    
+
     context.onDone?.(`计时器已启动 (${duration})`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -62,7 +65,7 @@ export default {
    */
   async handleStop(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('计时器已停止', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -76,7 +79,7 @@ export default {
    */
   async handlePause(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('计时器已暂停', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -90,7 +93,7 @@ export default {
    */
   async handleResume(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('计时器已恢复', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -113,7 +116,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `⏱️ 计时器状态\n\n` +
+      message:
+        `⏱️ 计时器状态\n\n` +
         `运行中: ${status.running ? '是' : '否'}\n` +
         `剩余时间: ${status.remaining}\n` +
         `已用时间: ${status.elapsed}\n` +
@@ -128,15 +132,19 @@ export default {
   parseDuration(duration: string): number {
     const match = duration.match(/(\d+)([mhs])/);
     if (!match) return parseInt(duration) * 60;
-    
+
     const value = parseInt(match[1]);
     const unit = match[2];
-    
+
     switch (unit) {
-      case 'h': return value * 3600;
-      case 'm': return value * 60;
-      case 's': return value;
-      default: return value * 60;
+      case 'h':
+        return value * 3600;
+      case 'm':
+        return value * 60;
+      case 's':
+        return value;
+      default:
+        return value * 60;
     }
   },
 

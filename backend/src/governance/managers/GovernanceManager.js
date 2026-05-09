@@ -69,7 +69,11 @@ class GovernanceManager extends EventEmitter {
     }
 
     // 检查执行时间限制
-    if (this.config.maxExecutionTimeMs && context.timeout && context.timeout > this.config.maxExecutionTimeMs) {
+    if (
+      this.config.maxExecutionTimeMs &&
+      context.timeout &&
+      context.timeout > this.config.maxExecutionTimeMs
+    ) {
       return {
         allowed: false,
         reason: `Execution time exceeds maximum allowed time (${this.config.maxExecutionTimeMs}ms)`,
@@ -78,7 +82,10 @@ class GovernanceManager extends EventEmitter {
     }
 
     // 检查并发执行限制
-    if (!this.config.allowParallelExecution && this.state.activeExecutions.size > 0) {
+    if (
+      !this.config.allowParallelExecution &&
+      this.state.activeExecutions.size > 0
+    ) {
       return {
         allowed: false,
         reason: 'Parallel execution not allowed',
@@ -87,7 +94,10 @@ class GovernanceManager extends EventEmitter {
     }
 
     // 检查最大并发执行数
-    if (this.config.maxConcurrentExecutions && this.state.activeExecutions.size >= this.config.maxConcurrentExecutions) {
+    if (
+      this.config.maxConcurrentExecutions &&
+      this.state.activeExecutions.size >= this.config.maxConcurrentExecutions
+    ) {
       return {
         allowed: false,
         reason: `Maximum concurrent executions reached (${this.config.maxConcurrentExecutions})`,
@@ -96,7 +106,10 @@ class GovernanceManager extends EventEmitter {
     }
 
     // 应用策略规则
-    const strategyAction = governanceStrategyManager.applyStrategyRules(tool.name, context);
+    const strategyAction = governanceStrategyManager.applyStrategyRules(
+      tool.name,
+      context
+    );
     if (strategyAction === 'deny') {
       return {
         allowed: false,
@@ -118,7 +131,7 @@ class GovernanceManager extends EventEmitter {
   async executeWithGovernance(tool, context, executeFn) {
     const startTime = Date.now();
     this.state.activeExecutions.set(context.toolUseId, 'validating');
-    
+
     try {
       // 检查是否可以执行
       const canExecuteResult = await this.canExecute(tool, context);
@@ -142,7 +155,7 @@ class GovernanceManager extends EventEmitter {
 
         this.state.activeExecutions.delete(context.toolUseId);
         this.state.completedExecutions.set(context.toolUseId, result);
-        
+
         return result;
       }
 
@@ -169,7 +182,7 @@ class GovernanceManager extends EventEmitter {
 
       this.state.activeExecutions.delete(context.toolUseId);
       this.state.completedExecutions.set(context.toolUseId, result);
-      
+
       return result;
     } catch (error) {
       const result = {
@@ -195,7 +208,7 @@ class GovernanceManager extends EventEmitter {
 
       this.state.activeExecutions.delete(context.toolUseId);
       this.state.completedExecutions.set(context.toolUseId, result);
-      
+
       return result;
     }
   }
@@ -222,7 +235,8 @@ class GovernanceManager extends EventEmitter {
       activeExecutions: this.state.activeExecutions.size,
       completedExecutions: this.state.completedExecutions.size,
       config: this.config,
-      activeStrategy: governanceStrategyManager.getActiveStrategy()?.name || 'None',
+      activeStrategy:
+        governanceStrategyManager.getActiveStrategy()?.name || 'None',
     };
   }
 
@@ -232,7 +246,7 @@ class GovernanceManager extends EventEmitter {
   analyzeGovernanceData() {
     const auditAnalysis = governanceAuditService.analyzeAuditData();
     const stats = this.getStatistics();
-    
+
     return {
       stats,
       auditInsights: auditAnalysis.insights,

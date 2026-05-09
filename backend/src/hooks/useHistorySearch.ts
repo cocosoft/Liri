@@ -33,9 +33,20 @@ export interface HistorySearchActions {
 
 export type HistorySearchStore = HistorySearchState & HistorySearchActions;
 
-let historySearchInstance: ReturnType<typeof createHistorySearchStore> | null = null;
+let historySearchInstance: ReturnType<typeof createHistorySearchStore> | null =
+  null;
 
-export function createHistorySearchStore(): Omit<HistorySearchStore, 'startSearch' | 'stopSearch' | 'setQuery' | 'nextMatch' | 'prevMatch' | 'acceptMatch' | 'reset'> & HistorySearchActions {
+export function createHistorySearchStore(): Omit<
+  HistorySearchStore,
+  | 'startSearch'
+  | 'stopSearch'
+  | 'setQuery'
+  | 'nextMatch'
+  | 'prevMatch'
+  | 'acceptMatch'
+  | 'reset'
+> &
+  HistorySearchActions {
   let state: HistorySearchState = {
     query: '',
     isSearching: false,
@@ -93,7 +104,8 @@ export function createHistorySearchStore(): Omit<HistorySearchStore, 'startSearc
     if (currentState.matches.length === 0) {
       return;
     }
-    const newIndex = (currentState.matchIndex + 1) % currentState.matches.length;
+    const newIndex =
+      (currentState.matchIndex + 1) % currentState.matches.length;
     state = {
       ...currentState,
       matchIndex: newIndex,
@@ -106,9 +118,10 @@ export function createHistorySearchStore(): Omit<HistorySearchStore, 'startSearc
     if (currentState.matches.length === 0) {
       return;
     }
-    const newIndex = currentState.matchIndex <= 0
-      ? currentState.matches.length - 1
-      : currentState.matchIndex - 1;
+    const newIndex =
+      currentState.matchIndex <= 0
+        ? currentState.matches.length - 1
+        : currentState.matchIndex - 1;
     state = {
       ...currentState,
       matchIndex: newIndex,
@@ -118,7 +131,10 @@ export function createHistorySearchStore(): Omit<HistorySearchStore, 'startSearc
 
   const acceptMatch = (): HistoryEntry | undefined => {
     const currentState = getState();
-    if (currentState.matchIndex >= 0 && currentState.matchIndex < currentState.matches.length) {
+    if (
+      currentState.matchIndex >= 0 &&
+      currentState.matchIndex < currentState.matches.length
+    ) {
       return currentState.matches[currentState.matchIndex];
     }
     return undefined;
@@ -138,13 +154,27 @@ export function createHistorySearchStore(): Omit<HistorySearchStore, 'startSearc
   };
 
   return {
-    get query() { return getState().query; },
-    get isSearching() { return getState().isSearching; },
-    get matchIndex() { return getState().matchIndex; },
-    get matches() { return getState().matches; },
-    get failedMatch() { return getState().failedMatch; },
-    get originalInput() { return getState().originalInput; },
-    get originalCursorOffset() { return getState().originalCursorOffset; },
+    get query() {
+      return getState().query;
+    },
+    get isSearching() {
+      return getState().isSearching;
+    },
+    get matchIndex() {
+      return getState().matchIndex;
+    },
+    get matches() {
+      return getState().matches;
+    },
+    get failedMatch() {
+      return getState().failedMatch;
+    },
+    get originalInput() {
+      return getState().originalInput;
+    },
+    get originalCursorOffset() {
+      return getState().originalCursorOffset;
+    },
     startSearch,
     stopSearch,
     setQuery,
@@ -155,7 +185,9 @@ export function createHistorySearchStore(): Omit<HistorySearchStore, 'startSearc
   };
 }
 
-export function getDefaultHistorySearch(): ReturnType<typeof createHistorySearchStore> {
+export function getDefaultHistorySearch(): ReturnType<
+  typeof createHistorySearchStore
+> {
   if (!historySearchInstance) {
     historySearchInstance = createHistorySearchStore();
   }

@@ -6,17 +6,32 @@
  * 远程安全命令列表（可在远程模式下使用的命令）
  */
 export const REMOTE_SAFE_COMMANDS = new Set<string>([
-  'session', 'exit', 'clear', 'help', 'theme',
-  'color', 'vim', 'cost', 'usage', 'copy',
-  'btw', 'feedback', 'plan', 'keybindings',
+  'session',
+  'exit',
+  'clear',
+  'help',
+  'theme',
+  'color',
+  'vim',
+  'cost',
+  'usage',
+  'copy',
+  'btw',
+  'feedback',
+  'plan',
+  'keybindings',
 ]);
 
 /**
  * Bridge安全命令列表（可在Bridge模式下使用的命令）
  */
 export const BRIDGE_SAFE_COMMANDS = new Set<string>([
-  'compact', 'clear', 'cost', 'summary',
-  'releaseNotes', 'files',
+  'compact',
+  'clear',
+  'cost',
+  'summary',
+  'releaseNotes',
+  'files',
 ]);
 
 /**

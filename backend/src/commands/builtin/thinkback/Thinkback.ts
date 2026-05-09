@@ -35,20 +35,41 @@ export default {
    */
   async handleList(context: CommandContext): Promise<CommandResult> {
     const history = [
-      { id: 'TB-001', date: '2024-01-15 14:30', duration: '3m', summary: '分析API设计问题' },
-      { id: 'TB-002', date: '2024-01-15 13:20', duration: '5m', summary: '解决登录bug' },
-      { id: 'TB-003', date: '2024-01-14 16:45', duration: '2m', summary: '优化数据库查询' },
-      { id: 'TB-004', date: '2024-01-14 11:00', duration: '4m', summary: '代码审查分析' },
+      {
+        id: 'TB-001',
+        date: '2024-01-15 14:30',
+        duration: '3m',
+        summary: '分析API设计问题',
+      },
+      {
+        id: 'TB-002',
+        date: '2024-01-15 13:20',
+        duration: '5m',
+        summary: '解决登录bug',
+      },
+      {
+        id: 'TB-003',
+        date: '2024-01-14 16:45',
+        duration: '2m',
+        summary: '优化数据库查询',
+      },
+      {
+        id: 'TB-004',
+        date: '2024-01-14 11:00',
+        duration: '4m',
+        summary: '代码审查分析',
+      },
     ];
 
-    const table = history.map(h => 
-      `[${h.id}] ${h.date}  ${h.duration.padEnd(4)}  ${h.summary}`
-    ).join('\n');
+    const table = history
+      .map((h) => `[${h.id}] ${h.date}  ${h.duration.padEnd(4)}  ${h.summary}`)
+      .join('\n');
 
     return {
       success: true,
       type: 'text',
-      message: `思考历史:\n\nID         日期                时长  摘要\n${table}\n\n` +
+      message:
+        `思考历史:\n\nID         日期                时长  摘要\n${table}\n\n` +
         `使用 /thinkback play <ID> 回放思考过程`,
       data: history,
     };
@@ -57,7 +78,10 @@ export default {
   /**
    * 回放思考过程
    */
-  async handlePlay(id: string, context: CommandContext): Promise<CommandResult> {
+  async handlePlay(
+    id: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!id) {
       return {
         success: false,
@@ -71,22 +95,31 @@ export default {
       id,
       steps: [
         { time: '0:00', action: '接收问题', thinking: '用户报告了API设计问题' },
-        { time: '0:15', action: '分析需求', thinking: '需要考虑可扩展性和一致性' },
-        { time: '0:45', action: '制定方案', thinking: '考虑REST vs GraphQL的权衡' },
+        {
+          time: '0:15',
+          action: '分析需求',
+          thinking: '需要考虑可扩展性和一致性',
+        },
+        {
+          time: '0:45',
+          action: '制定方案',
+          thinking: '考虑REST vs GraphQL的权衡',
+        },
         { time: '1:30', action: '代码实现', thinking: '开始编写示例代码' },
         { time: '2:30', action: '验证方案', thinking: '检查是否符合最佳实践' },
         { time: '3:00', action: '完成', thinking: '提供最终建议' },
       ],
     };
 
-    const stepsList = recording.steps.map(s => 
-      `[${s.time}] ${s.action}\n      └─ ${s.thinking}`
-    ).join('\n\n');
+    const stepsList = recording.steps
+      .map((s) => `[${s.time}] ${s.action}\n      └─ ${s.thinking}`)
+      .join('\n\n');
 
     return {
       success: true,
       type: 'text',
-      message: `回放思考过程: ${id}\n\n${stepsList}\n\n` +
+      message:
+        `回放思考过程: ${id}\n\n${stepsList}\n\n` +
         `总时长: ${recording.steps[recording.steps.length - 1].time}`,
       data: recording,
     };
@@ -95,7 +128,10 @@ export default {
   /**
    * 显示思考详情
    */
-  async handleShow(id: string, context: CommandContext): Promise<CommandResult> {
+  async handleShow(
+    id: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!id) {
       return {
         success: false,
@@ -119,7 +155,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `思考详情: ${id}\n\n` +
+      message:
+        `思考详情: ${id}\n\n` +
         `- 日期: ${details.date}\n` +
         `- 时长: ${details.duration}\n` +
         `- 模型: ${details.model}\n` +
@@ -134,7 +171,10 @@ export default {
   /**
    * 删除思考记录
    */
-  async handleDelete(id: string, context: CommandContext): Promise<CommandResult> {
+  async handleDelete(
+    id: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!id) {
       return {
         success: false,
@@ -145,7 +185,7 @@ export default {
     }
 
     context.onDone?.(`思考记录 ${id} 已删除`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

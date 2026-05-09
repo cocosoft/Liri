@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { MultiSessionManager, SessionMode, SessionStatus } from './sessions/MultiSessionManager';
+import {
+  MultiSessionManager,
+  SessionMode,
+  SessionStatus,
+} from './sessions/MultiSessionManager';
 import { SmartCapacityManager } from './capacity/SmartCapacityManager';
-import { DetailedSecurityChecker, SecurityLevel } from './security/DetailedSecurityChecker';
+import {
+  DetailedSecurityChecker,
+  SecurityLevel,
+} from './security/DetailedSecurityChecker';
 
 describe('MultiSessionManager', () => {
   let manager: MultiSessionManager;
@@ -11,14 +18,20 @@ describe('MultiSessionManager', () => {
   });
 
   it('creates a session', async () => {
-    const session = await manager.createSession({ id: 's1', mode: SessionMode.DEDICATED });
+    const session = await manager.createSession({
+      id: 's1',
+      mode: SessionMode.DEDICATED,
+    });
     expect(session.config.id).toBe('s1');
     expect(session.config.mode).toBe(SessionMode.DEDICATED);
     expect(session.status).toBe(SessionStatus.ACTIVE);
   });
 
   it('creates session with default timeout', async () => {
-    const session = await manager.createSession({ id: 's2', mode: SessionMode.SHARED });
+    const session = await manager.createSession({
+      id: 's2',
+      mode: SessionMode.SHARED,
+    });
     expect(session.config.timeoutMs).toBe(300000);
   });
 
@@ -57,7 +70,10 @@ describe('MultiSessionManager', () => {
   });
 
   it('updates session status', async () => {
-    await manager.createSession({ id: 'updatable', mode: SessionMode.DEDICATED });
+    await manager.createSession({
+      id: 'updatable',
+      mode: SessionMode.DEDICATED,
+    });
     const result = manager.updateSessionStatus('updatable', SessionStatus.IDLE);
     expect(result).toBe(true);
     expect(manager.getSession('updatable')!.status).toBe(SessionStatus.IDLE);
@@ -69,7 +85,10 @@ describe('MultiSessionManager', () => {
   });
 
   it('closes a session', async () => {
-    await manager.createSession({ id: 'close-me', mode: SessionMode.DEDICATED });
+    await manager.createSession({
+      id: 'close-me',
+      mode: SessionMode.DEDICATED,
+    });
     const closed = await manager.closeSession('close-me');
     expect(closed).toBe(true);
     expect(manager.getSession('close-me')!.status).toBe(SessionStatus.CLOSED);
@@ -81,7 +100,10 @@ describe('MultiSessionManager', () => {
   });
 
   it('provides session stats', async () => {
-    const s1 = await manager.createSession({ id: 'stat1', mode: SessionMode.DEDICATED });
+    const s1 = await manager.createSession({
+      id: 'stat1',
+      mode: SessionMode.DEDICATED,
+    });
     await manager.createSession({ id: 'stat2', mode: SessionMode.SHARED });
     await manager.closeSession(s1.config.id);
     const stats = manager.getStats();
@@ -154,11 +176,17 @@ describe('SmartCapacityManager', () => {
     capacity.updateSessionLoad('low1', 0.1);
     const actions = await capacity.balanceLoad();
     expect(actions.length).toBeGreaterThan(0);
-    expect(actions.some(a => a.action === 'redirect' || a.action === 'throttle')).toBe(true);
+    expect(
+      actions.some((a) => a.action === 'redirect' || a.action === 'throttle')
+    ).toBe(true);
   });
 
   it('sets custom thresholds', () => {
-    capacity.setThresholds({ cpuPercent: 60, memoryPercent: 70, slotPercent: 80 });
+    capacity.setThresholds({
+      cpuPercent: 60,
+      memoryPercent: 70,
+      slotPercent: 80,
+    });
     capacity.registerSession('heavy');
     capacity.updateSessionLoad('heavy', 0.7);
     const metrics = capacity.getMetrics();
@@ -196,7 +224,10 @@ describe('DetailedSecurityChecker', () => {
 
   it('performs checks with all levels', async () => {
     for (const level of Object.values(SecurityLevel)) {
-      const result = await checker.performChecks('sessX', level as SecurityLevel);
+      const result = await checker.performChecks(
+        'sessX',
+        level as SecurityLevel
+      );
       expect(result.passed).toBe(true);
     }
   });
@@ -220,9 +251,9 @@ describe('DetailedSecurityChecker', () => {
 
   it('filters logs by time', async () => {
     checker.logAction('s1', 'old_action', 'allowed', '旧操作');
-    await new Promise(r => setTimeout(r, 5));
+    await new Promise((r) => setTimeout(r, 5));
     const since = Date.now();
-    await new Promise(r => setTimeout(r, 5));
+    await new Promise((r) => setTimeout(r, 5));
     checker.logAction('s1', 'new_action', 'denied', '新操作');
     const filtered = checker.getSecurityLogs({ since });
     expect(filtered.length).toBe(1);
@@ -248,7 +279,10 @@ describe('Bridge Integration', () => {
     const sm = new MultiSessionManager();
     const cm = new SmartCapacityManager();
 
-    const s1 = await sm.createSession({ id: 'int1', mode: SessionMode.DEDICATED });
+    const s1 = await sm.createSession({
+      id: 'int1',
+      mode: SessionMode.DEDICATED,
+    });
     const s2 = await sm.createSession({ id: 'int2', mode: SessionMode.SHARED });
 
     cm.registerSession(s1.config.id);
@@ -268,11 +302,22 @@ describe('Bridge Integration', () => {
     const sm = new MultiSessionManager();
     const sc = new DetailedSecurityChecker();
 
-    const session = await sm.createSession({ id: 'secure1', mode: SessionMode.DEDICATED });
-    const checkResult = await sc.performChecks(session.config.id, SecurityLevel.HIGH);
+    const session = await sm.createSession({
+      id: 'secure1',
+      mode: SessionMode.DEDICATED,
+    });
+    const checkResult = await sc.performChecks(
+      session.config.id,
+      SecurityLevel.HIGH
+    );
     expect(checkResult.passed).toBe(true);
 
-    sc.logAction(session.config.id, 'session_create', 'allowed', '安全会话已创建');
+    sc.logAction(
+      session.config.id,
+      'session_create',
+      'allowed',
+      '安全会话已创建'
+    );
 
     const logs = sc.getSecurityLogs({ sessionId: 'secure1' });
     expect(logs.length).toBe(1);
@@ -299,9 +344,9 @@ describe('Bridge Integration', () => {
     expect(status.availableResources.sessionSlots).toBe(3);
 
     const checks = await Promise.all(
-      sessions.map(s => sc.performChecks(s.config.id, SecurityLevel.MEDIUM))
+      sessions.map((s) => sc.performChecks(s.config.id, SecurityLevel.MEDIUM))
     );
-    expect(checks.every(c => c.passed)).toBe(true);
+    expect(checks.every((c) => c.passed)).toBe(true);
 
     const logs = sc.getSecurityLogs();
     expect(logs.length).toBe(3);

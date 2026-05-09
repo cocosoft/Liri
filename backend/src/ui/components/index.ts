@@ -19,4 +19,9 @@ export { Tabs } from './Tabs';
 
 export type { MessageBubbleProps } from './MessageBubble';
 export type { Message, MessagesProps } from './Messages';
-export type { InputProps, ButtonProps, TabsProps, TabItem } from '../types/UITypes';
+export type {
+  InputProps,
+  ButtonProps,
+  TabsProps,
+  TabItem,
+} from '../types/UITypes';

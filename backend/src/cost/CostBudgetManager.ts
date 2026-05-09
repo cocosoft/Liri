@@ -267,7 +267,7 @@ export class CostBudgetManager {
    */
   private getPeriodEnd(budget: BudgetConfig): Date {
     const start = new Date(this.periodStartTimes.get(budget.id) || Date.now());
-    
+
     switch (budget.period) {
       case 'daily':
         return new Date(start.getTime() + 24 * 60 * 60 * 1000);
@@ -276,7 +276,10 @@ export class CostBudgetManager {
       case 'monthly':
         return new Date(start.getFullYear(), start.getMonth() + 1, 1);
       case 'custom':
-        return budget.customPeriodEnd || new Date(start.getTime() + 24 * 60 * 60 * 1000);
+        return (
+          budget.customPeriodEnd ||
+          new Date(start.getTime() + 24 * 60 * 60 * 1000)
+        );
     }
   }
 
@@ -300,7 +303,9 @@ export class CostBudgetManager {
       };
     }
 
-    const periodStart = new Date(this.periodStartTimes.get(budgetId) || Date.now());
+    const periodStart = new Date(
+      this.periodStartTimes.get(budgetId) || Date.now()
+    );
     const periodEnd = this.getPeriodEnd(budget);
     const currentCost = this.getPeriodCost(budgetId);
     const remaining = budget.limit - currentCost;
@@ -314,10 +319,20 @@ export class CostBudgetManager {
     }
 
     const now = new Date();
-    const daysRemaining = Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
-    const elapsedDays = Math.max(1, Math.floor((now.getTime() - periodStart.getTime()) / (24 * 60 * 60 * 1000)));
+    const daysRemaining = Math.max(
+      0,
+      Math.ceil((periodEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+    );
+    const elapsedDays = Math.max(
+      1,
+      Math.floor(
+        (now.getTime() - periodStart.getTime()) / (24 * 60 * 60 * 1000)
+      )
+    );
     const dailyRate = currentCost / elapsedDays;
-    const estimatedEndCost = dailyRate * ((periodEnd.getTime() - periodStart.getTime()) / (24 * 60 * 60 * 1000));
+    const estimatedEndCost =
+      dailyRate *
+      ((periodEnd.getTime() - periodStart.getTime()) / (24 * 60 * 60 * 1000));
 
     return {
       budgetId,
@@ -341,7 +356,7 @@ export class CostBudgetManager {
    */
   getAllBudgetStatuses(): BudgetStatusInfo[] {
     const statuses: BudgetStatusInfo[] = [];
-    
+
     for (const budget of this.budgets.values()) {
       const status = this.getBudgetStatus(budget.id);
       if (status) {
@@ -371,7 +386,7 @@ export class CostBudgetManager {
   isOverHardLimit(): boolean {
     for (const budget of this.budgets.values()) {
       if (!budget.enabled || !budget.hardLimit) continue;
-      
+
       const status = this.getBudgetStatus(budget.id);
       if (status && status.status === 'exceeded') {
         return true;
@@ -384,14 +399,14 @@ export class CostBudgetManager {
    * 获取预算警告列表
    */
   getBudgetWarnings(): BudgetStatusInfo[] {
-    return this.getAllBudgetStatuses().filter(s => s.status === 'warning');
+    return this.getAllBudgetStatuses().filter((s) => s.status === 'warning');
   }
 
   /**
    * 获取已超额的预算列表
    */
   getExceededBudgets(): BudgetStatusInfo[] {
-    return this.getAllBudgetStatuses().filter(s => s.status === 'exceeded');
+    return this.getAllBudgetStatuses().filter((s) => s.status === 'exceeded');
   }
 
   /**
@@ -413,7 +428,7 @@ export class CostBudgetManager {
     };
 
     this.budgetHistory.push(entry);
-    
+
     // 保持历史记录不超过100条
     if (this.budgetHistory.length > 100) {
       this.budgetHistory = this.budgetHistory.slice(-100);
@@ -425,7 +440,7 @@ export class CostBudgetManager {
    */
   getBudgetHistory(budgetId?: string): BudgetHistoryEntry[] {
     if (budgetId) {
-      return this.budgetHistory.filter(h => h.budgetId === budgetId);
+      return this.budgetHistory.filter((h) => h.budgetId === budgetId);
     }
     return [...this.budgetHistory];
   }
@@ -435,7 +450,7 @@ export class CostBudgetManager {
    */
   generateBudgetReport(): string {
     const statuses = this.getAllBudgetStatuses();
-    
+
     let report = '\n========================================\n';
     report += '          预算状态报告\n';
     report += '========================================\n\n';
@@ -447,29 +462,29 @@ export class CostBudgetManager {
       report += `  当前成本: ${formatCost(status.currentCost)} / ${formatCost(status.limit)}\n`;
       report += `  已使用: ${status.percentageUsed.toFixed(1)}%\n`;
       report += `  剩余: ${formatCost(status.remaining)}\n`;
-      
+
       if (status.daysRemaining !== undefined) {
         report += `  剩余天数: ${status.daysRemaining}天\n`;
       }
-      
+
       if (status.dailyRate !== undefined) {
         report += `  日均消耗: ${formatCost(status.dailyRate)}/天\n`;
       }
-      
+
       if (status.estimatedEndCost !== undefined) {
         report += `  预计期末成本: ${formatCost(status.estimatedEndCost)}\n`;
       }
-      
+
       report += '\n';
     }
 
     const warnings = this.getBudgetWarnings();
     const exceeded = this.getExceededBudgets();
-    
+
     if (warnings.length > 0) {
       report += `⚠️  ${warnings.length} 个预算接近阈值\n`;
     }
-    
+
     if (exceeded.length > 0) {
       report += `🚨  ${exceeded.length} 个预算已超额\n`;
     }
@@ -481,19 +496,27 @@ export class CostBudgetManager {
 
   private getPeriodLabel(period: BudgetPeriod): string {
     switch (period) {
-      case 'daily': return '每日';
-      case 'weekly': return '每周';
-      case 'monthly': return '每月';
-      case 'custom': return '自定义';
+      case 'daily':
+        return '每日';
+      case 'weekly':
+        return '每周';
+      case 'monthly':
+        return '每月';
+      case 'custom':
+        return '自定义';
     }
   }
 
   private getStatusLabel(status: BudgetStatus): string {
     switch (status) {
-      case 'ok': return '✅ 正常';
-      case 'warning': return '⚠️ 警告';
-      case 'exceeded': return '🚨 超额';
-      case 'disabled': return '🔒 禁用';
+      case 'ok':
+        return '✅ 正常';
+      case 'warning':
+        return '⚠️ 警告';
+      case 'exceeded':
+        return '🚨 超额';
+      case 'disabled':
+        return '🔒 禁用';
     }
   }
 }
@@ -513,7 +536,10 @@ export function addBudget(config: BudgetConfig): void {
 /**
  * 更新预算配置
  */
-export function updateBudget(budgetId: string, updates: Partial<BudgetConfig>): boolean {
+export function updateBudget(
+  budgetId: string,
+  updates: Partial<BudgetConfig>
+): boolean {
   return costBudgetManager.updateBudget(budgetId, updates);
 }
 
@@ -534,7 +560,9 @@ export function getBudgets(): BudgetConfig[] {
 /**
  * 获取预算状态
  */
-export function getBudgetStatus(budgetId: string): BudgetStatusInfo | undefined {
+export function getBudgetStatus(
+  budgetId: string
+): BudgetStatusInfo | undefined {
   return costBudgetManager.getBudgetStatus(budgetId);
 }
 

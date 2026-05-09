@@ -109,16 +109,10 @@ export const ExitFlow: React.FC<ExitFlowProps> = ({
               </div>
             </div>
           ) : (
-            <div className="exit-message">
-              确定要退出应用吗？
-            </div>
+            <div className="exit-message">确定要退出应用吗？</div>
           )}
 
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
+          {error && <div className="error-message">{error}</div>}
         </div>
 
         <div className="exit-flow-footer">
@@ -142,7 +136,9 @@ export const ExitFlow: React.FC<ExitFlowProps> = ({
 /**
  * 创建退出流程组件
  */
-export function createExitFlow(props?: Partial<ExitFlowProps>): React.ReactElement {
+export function createExitFlow(
+  props?: Partial<ExitFlowProps>
+): React.ReactElement {
   return <ExitFlow {...props} />;
 }
 

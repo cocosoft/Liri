@@ -6,35 +6,37 @@
  */
 
 export interface CommandPrefixResult {
-  command: string
-  subcommand?: string
+  command: string;
+  subcommand?: string;
 }
 
-export function createCommandPrefixExtractor(knownCommands: Set<string>): (argv: string[]) => CommandPrefixResult | null {
+export function createCommandPrefixExtractor(
+  knownCommands: Set<string>
+): (argv: string[]) => CommandPrefixResult | null {
   return (argv: string[]): CommandPrefixResult | null => {
-    if (argv.length === 0) return null
+    if (argv.length === 0) return null;
 
-    const cmd = argv[0]!
+    const cmd = argv[0]!;
     if (knownCommands.has(cmd)) {
-      return { command: cmd }
+      return { command: cmd };
     }
 
-    return null
-  }
+    return null;
+  };
 }
 
 export function createSubcommandPrefixExtractor(
   commandPrefixExtractor: (argv: string[]) => CommandPrefixResult | null,
-  knownSubcommands: Set<string>,
+  knownSubcommands: Set<string>
 ): (argv: string[]) => CommandPrefixResult | null {
   return (argv: string[]): CommandPrefixResult | null => {
-    const result = commandPrefixExtractor(argv)
-    if (!result) return null
+    const result = commandPrefixExtractor(argv);
+    if (!result) return null;
 
     if (argv.length > 1 && knownSubcommands.has(argv[1]!)) {
-      result.subcommand = argv[1]
+      result.subcommand = argv[1];
     }
 
-    return result
-  }
+    return result;
+  };
 }

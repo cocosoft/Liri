@@ -189,7 +189,9 @@ export class FileReadTool extends BaseTool {
     return null;
   }
 
-  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
     const filePath = (input?.file_path as string) || '';
     if (filePath) {
       return `Read file: ${filePath}`;

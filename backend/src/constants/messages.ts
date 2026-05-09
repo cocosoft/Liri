@@ -27,7 +27,8 @@ export const TOOL_TIMEOUT_MESSAGE = 'Tool execution timeout';
 
 export const CONFIG_NOT_FOUND_MESSAGE = 'Configuration not found';
 export const CONFIG_INVALID_MESSAGE = 'Invalid configuration';
-export const CONFIG_RELOAD_SUCCESS_MESSAGE = 'Configuration reloaded successfully';
+export const CONFIG_RELOAD_SUCCESS_MESSAGE =
+  'Configuration reloaded successfully';
 
 export const LOGIN_SUCCESS_MESSAGE = 'Login successful';
 export const LOGIN_FAILED_MESSAGE = 'Login failed';

@@ -4,7 +4,11 @@
  */
 
 import type { SessionMessage } from '../session/models/SessionMessage';
-import { createContextCollapser, type ContextCollapser, type CollapseResult } from './ContextCollapse';
+import {
+  createContextCollapser,
+  type ContextCollapser,
+  type CollapseResult,
+} from './ContextCollapse';
 import { roughTokenCountEstimationForMessages } from '../services/compact/utils';
 
 export interface ReactiveCompactConfig {
@@ -23,8 +27,13 @@ export interface ReactiveCompactResult {
 }
 
 export interface ReactiveCompactor {
-  compactIfNeeded(messages: SessionMessage[], apiResponse?: ApiResponseInfo): Promise<ReactiveCompactResult>;
-  getCompressionLevel(messages: SessionMessage[]): 'none' | 'light' | 'medium' | 'heavy';
+  compactIfNeeded(
+    messages: SessionMessage[],
+    apiResponse?: ApiResponseInfo
+  ): Promise<ReactiveCompactResult>;
+  getCompressionLevel(
+    messages: SessionMessage[]
+  ): 'none' | 'light' | 'medium' | 'heavy';
 }
 
 export interface ApiResponseInfo {
@@ -48,12 +57,21 @@ export class ReactiveCompactorImpl implements ReactiveCompactor {
     this.contextCollapser = createContextCollapser();
   }
 
-  async compactIfNeeded(messages: SessionMessage[], apiResponse?: ApiResponseInfo): Promise<ReactiveCompactResult> {
+  async compactIfNeeded(
+    messages: SessionMessage[],
+    apiResponse?: ApiResponseInfo
+  ): Promise<ReactiveCompactResult> {
     const originalTokenCount = roughTokenCountEstimationForMessages(messages);
-    const effectiveMaxTokens = this.config.maxTokens * (1 - this.config.safetyMargin);
+    const effectiveMaxTokens =
+      this.config.maxTokens * (1 - this.config.safetyMargin);
 
     // 检查是否需要压缩
-    const needsCompression = this.needsCompression(messages, apiResponse, originalTokenCount, effectiveMaxTokens);
+    const needsCompression = this.needsCompression(
+      messages,
+      apiResponse,
+      originalTokenCount,
+      effectiveMaxTokens
+    );
 
     if (!needsCompression) {
       return {
@@ -67,7 +85,7 @@ export class ReactiveCompactorImpl implements ReactiveCompactor {
 
     // 确定压缩级别
     const compressionLevel = this.getCompressionLevel(messages);
-    
+
     // 根据压缩级别确定目标Token数
     let targetTokens = originalTokenCount;
     switch (compressionLevel) {
@@ -85,17 +103,25 @@ export class ReactiveCompactorImpl implements ReactiveCompactor {
     // 执行压缩
     const collapseResult = await this.contextCollapser.collapse(messages, {
       maxTokens: Math.min(targetTokens, effectiveMaxTokens),
-      preserveRecentMessages: compressionLevel === 'heavy' ? 1 : compressionLevel === 'medium' ? 2 : 3,
+      preserveRecentMessages:
+        compressionLevel === 'heavy'
+          ? 1
+          : compressionLevel === 'medium'
+            ? 2
+            : 3,
     });
 
     // 转换回SessionMessage格式
-    const collapsedMessages = collapseResult.collapsedMessages.map((msg, index) => ({
-      id: index === 0 ? `collapsed_summary_${Date.now()}` : `msg_${index}`,
-      type: index === 0 ? 'system' : (msg.role === 'user' ? 'user' : 'assistant'),
-      content: msg.content,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })) as unknown as SessionMessage[];
+    const collapsedMessages = collapseResult.collapsedMessages.map(
+      (msg, index) => ({
+        id: index === 0 ? `collapsed_summary_${Date.now()}` : `msg_${index}`,
+        type:
+          index === 0 ? 'system' : msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    ) as unknown as SessionMessage[];
 
     return {
       collapsedMessages,
@@ -106,9 +132,12 @@ export class ReactiveCompactorImpl implements ReactiveCompactor {
     };
   }
 
-  getCompressionLevel(messages: SessionMessage[]): 'none' | 'light' | 'medium' | 'heavy' {
+  getCompressionLevel(
+    messages: SessionMessage[]
+  ): 'none' | 'light' | 'medium' | 'heavy' {
     const tokenCount = roughTokenCountEstimationForMessages(messages);
-    const effectiveMaxTokens = this.config.maxTokens * (1 - this.config.safetyMargin);
+    const effectiveMaxTokens =
+      this.config.maxTokens * (1 - this.config.safetyMargin);
     const usageRatio = tokenCount / effectiveMaxTokens;
 
     if (usageRatio < 0.6) return 'none';
@@ -129,10 +158,12 @@ export class ReactiveCompactorImpl implements ReactiveCompactor {
     }
 
     // 如果API响应指示上下文超限，强制压缩
-    if (apiResponse?.contextLimitExceeded || 
-        apiResponse?.statusCode === 413 || 
-        (apiResponse?.errorMessage?.toLowerCase().includes('context') && 
-         apiResponse?.errorMessage?.toLowerCase().includes('limit'))) {
+    if (
+      apiResponse?.contextLimitExceeded ||
+      apiResponse?.statusCode === 413 ||
+      (apiResponse?.errorMessage?.toLowerCase().includes('context') &&
+        apiResponse?.errorMessage?.toLowerCase().includes('limit'))
+    ) {
       return true;
     }
 
@@ -145,6 +176,8 @@ export class ReactiveCompactorImpl implements ReactiveCompactor {
   }
 }
 
-export function createReactiveCompactor(config?: Partial<ReactiveCompactConfig>): ReactiveCompactor {
+export function createReactiveCompactor(
+  config?: Partial<ReactiveCompactConfig>
+): ReactiveCompactor {
   return new ReactiveCompactorImpl(config);
 }

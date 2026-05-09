@@ -13,10 +13,13 @@ import { GovernanceManager } from '../governance/managers/GovernanceManager';
 import { ToolHookManager } from '../hooks/managers/ToolHookManager';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
 import { v4 as uuidv4 } from 'uuid';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   SandboxManagerImpl,
   createSandboxManager,
 } from '../sandbox/SandboxImpl';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   SandboxPlatform,
   createDefaultSandboxConfig,
@@ -132,7 +135,7 @@ export class ToolExecutor {
 
       // 显示安全警告
       if (securityCheck.warnings.length > 0) {
-        console.warn('Security warnings:', securityCheck.warnings);
+        logger.warning('Security warnings', securityCheck.warnings);
       }
 
       if (this.useHooks) {
@@ -242,7 +245,10 @@ export class ToolExecutor {
         }
       }
     } catch (error) {
-      console.error('Error executing PreToolUse hooks:', error);
+      logger.error(
+        'Error executing PreToolUse hooks',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
 
     return result;
@@ -270,7 +276,10 @@ export class ToolExecutor {
         }
       }
     } catch (error) {
-      console.error('Error executing PostToolUse hooks:', error);
+      logger.error(
+        'Error executing PostToolUse hooks',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 

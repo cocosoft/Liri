@@ -81,13 +81,13 @@ function spawnCaffeinate(): void {
   }
 
   try {
-    caffeinateProcess = spawn('caffeinate', [
-      '-dim',
-      '-t',
-      String(CAFFEINATE_TIMEOUT_SECONDS),
-    ], {
-      stdio: 'ignore',
-    });
+    caffeinateProcess = spawn(
+      'caffeinate',
+      ['-dim', '-t', String(CAFFEINATE_TIMEOUT_SECONDS)],
+      {
+        stdio: 'ignore',
+      }
+    );
 
     caffeinateProcess.unref();
 

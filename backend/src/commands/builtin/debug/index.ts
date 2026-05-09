@@ -10,7 +10,7 @@ const debugCommand: Command = {
   description: '调试工具，显示系统状态和进程信息',
   aliases: ['dev', 'developer'],
   argumentHint: '[status|inspect|--json|help]',
-  load: () => import('./Debug.js').then(m => m.default),
+  load: () => import('./Debug.js').then((m) => m.default),
 };
 
 export { debugCommand };

@@ -145,7 +145,8 @@ export class EnterWorktreeTool extends BaseTool<
           newMessages: [
             {
               role: 'system',
-              content: '错误: slug 格式无效。只允许字母、数字、连字符和下划线。',
+              content:
+                '错误: slug 格式无效。只允许字母、数字、连字符和下划线。',
             },
           ],
         }
@@ -238,7 +239,9 @@ export class EnterWorktreeTool extends BaseTool<
     return '进入Worktree';
   }
 
-  override getActivityDescription(input?: Partial<EnterWorktreeInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<EnterWorktreeInput>
+  ): string | null {
     if (input?.slug) {
       return `创建worktree ${input.slug}`;
     }

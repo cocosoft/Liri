@@ -1,59 +1,68 @@
-import { pathToFileURL } from 'url'
+import { pathToFileURL } from 'url';
 
-import type { ScopedLspServerConfig, Diagnostic } from './types.js'
-import { createLSPServerInstance, type LSPServerInstance } from './LSPServerInstance.js'
+import type { ScopedLspServerConfig, Diagnostic } from './types.js';
+import {
+  createLSPServerInstance,
+  type LSPServerInstance,
+} from './LSPServerInstance.js';
 
 export type LSPServerManager = {
-  initialize(configs: ScopedLspServerConfig[]): Promise<void>
-  shutdown(): Promise<void>
-  getServerForFile(filePath: string): LSPServerInstance | undefined
-  ensureServerStarted(name: string): Promise<void>
-  getAllServers(): Map<string, LSPServerInstance>
-  getServer(name: string): LSPServerInstance | undefined
-  isReady(): boolean
-  openFile(filePath: string, text: string): Promise<void>
-  changeFile(filePath: string, text: string): Promise<void>
-  saveFile(filePath: string): Promise<void>
-  closeFile(filePath: string): Promise<void>
-  isFileOpen(filePath: string): boolean
-  sendRequest<T>(filePath: string, method: string, params: unknown): Promise<T>
-  onNotification(method: string, handler: (params: unknown) => void): void
-}
+  initialize(configs: ScopedLspServerConfig[]): Promise<void>;
+  shutdown(): Promise<void>;
+  getServerForFile(filePath: string): LSPServerInstance | undefined;
+  ensureServerStarted(name: string): Promise<void>;
+  getAllServers(): Map<string, LSPServerInstance>;
+  getServer(name: string): LSPServerInstance | undefined;
+  isReady(): boolean;
+  openFile(filePath: string, text: string): Promise<void>;
+  changeFile(filePath: string, text: string): Promise<void>;
+  saveFile(filePath: string): Promise<void>;
+  closeFile(filePath: string): Promise<void>;
+  isFileOpen(filePath: string): boolean;
+  sendRequest<T>(filePath: string, method: string, params: unknown): Promise<T>;
+  onNotification(method: string, handler: (params: unknown) => void): void;
+};
 
 export function createLSPServerManager(): LSPServerManager {
-  const serverInstances = new Map<string, LSPServerInstance>()
-  const openedFiles = new Map<string, string>()
-  const notificationHandlers = new Map<string, Set<(params: unknown) => void>>()
-  let initialized = false
+  const serverInstances = new Map<string, LSPServerInstance>();
+  const openedFiles = new Map<string, string>();
+  const notificationHandlers = new Map<
+    string,
+    Set<(params: unknown) => void>
+  >();
+  let initialized = false;
 
   function getExtension(filePath: string): string {
-    const parts = filePath.split('.')
-    return parts.length > 1 ? `.${parts[parts.length - 1].toLowerCase()}` : ''
+    const parts = filePath.split('.');
+    return parts.length > 1 ? `.${parts[parts.length - 1].toLowerCase()}` : '';
   }
 
   function findServerForExtension(ext: string): LSPServerInstance | undefined {
     for (const server of serverInstances.values()) {
-      const serverExts = server.config.command === 'typescript-language-server'
-        ? ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
-        : server.config.command === 'rust-analyzer'
-          ? ['.rs']
-          : server.config.command === 'gopls'
-            ? ['.go']
-            : server.config.command === 'pylsp'
-              ? ['.py']
-              : server.config.command === 'clangd'
-                ? ['.c', '.cpp', '.h', '.hpp', '.cxx', '.cc']
-                : server.config.command === 'jdtls'
-                  ? ['.java']
-                  : []
+      const serverExts =
+        server.config.command === 'typescript-language-server'
+          ? ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
+          : server.config.command === 'rust-analyzer'
+            ? ['.rs']
+            : server.config.command === 'gopls'
+              ? ['.go']
+              : server.config.command === 'pylsp'
+                ? ['.py']
+                : server.config.command === 'clangd'
+                  ? ['.c', '.cpp', '.h', '.hpp', '.cxx', '.cc']
+                  : server.config.command === 'jdtls'
+                    ? ['.java']
+                    : [];
 
-      if (serverExts.includes(ext)) return server
+      if (serverExts.includes(ext)) return server;
     }
-    return undefined
+    return undefined;
   }
 
-  function detectServerConfig(filePath: string): ScopedLspServerConfig | undefined {
-    const ext = getExtension(filePath)
+  function detectServerConfig(
+    filePath: string
+  ): ScopedLspServerConfig | undefined {
+    const ext = getExtension(filePath);
 
     const extToConfig: Record<string, ScopedLspServerConfig> = {
       '.ts': { command: 'typescript-language-server', args: ['--stdio'] },
@@ -70,90 +79,88 @@ export function createLSPServerManager(): LSPServerManager {
       '.h': { command: 'clangd', args: ['--background-index'] },
       '.hpp': { command: 'clangd', args: ['--background-index'] },
       '.java': { command: 'jdtls', args: [] },
-    }
+    };
 
-    return extToConfig[ext]
+    return extToConfig[ext];
   }
 
   function getServerName(config: ScopedLspServerConfig): string {
-    return `${config.command}-${(config.args || []).join('-')}`
+    return `${config.command}-${(config.args || []).join('-')}`;
   }
 
   return {
     async initialize(configs: ScopedLspServerConfig[]): Promise<void> {
       for (const config of configs) {
-        const name = getServerName(config)
+        const name = getServerName(config);
         if (!serverInstances.has(name)) {
-          const instance = createLSPServerInstance(name, config)
-          serverInstances.set(name, instance)
+          const instance = createLSPServerInstance(name, config);
+          serverInstances.set(name, instance);
         }
       }
-      initialized = true
+      initialized = true;
     },
 
     async shutdown(): Promise<void> {
-      const promises: Promise<void>[] = []
+      const promises: Promise<void>[] = [];
       for (const [name, instance] of serverInstances) {
-        promises.push(
-          instance.stop().catch(() => {}),
-        )
+        promises.push(instance.stop().catch(() => {}));
       }
-      await Promise.all(promises)
-      serverInstances.clear()
-      openedFiles.clear()
-      initialized = false
+      await Promise.all(promises);
+      serverInstances.clear();
+      openedFiles.clear();
+      initialized = false;
     },
 
     getServerForFile(filePath: string): LSPServerInstance | undefined {
-      const ext = getExtension(filePath)
-      let server = findServerForExtension(ext)
+      const ext = getExtension(filePath);
+      let server = findServerForExtension(ext);
 
       if (!server) {
-        const config = detectServerConfig(filePath)
+        const config = detectServerConfig(filePath);
         if (config) {
-          const name = getServerName(config)
+          const name = getServerName(config);
           if (!serverInstances.has(name)) {
-            server = createLSPServerInstance(name, config)
-            serverInstances.set(name, server)
+            server = createLSPServerInstance(name, config);
+            serverInstances.set(name, server);
           } else {
-            server = serverInstances.get(name)!
+            server = serverInstances.get(name)!;
           }
         }
       }
 
-      return server
+      return server;
     },
 
     async ensureServerStarted(name: string): Promise<void> {
-      const server = serverInstances.get(name)
+      const server = serverInstances.get(name);
       if (!server) {
-        throw new Error(`LSP server '${name}' not found`)
+        throw new Error(`LSP server '${name}' not found`);
       }
 
       if (!server.isHealthy() && server.state !== 'starting') {
-        await server.start()
+        await server.start();
       }
     },
 
     getAllServers(): Map<string, LSPServerInstance> {
-      return new Map(serverInstances)
+      return new Map(serverInstances);
     },
 
     getServer(name: string): LSPServerInstance | undefined {
-      return serverInstances.get(name)
+      return serverInstances.get(name);
     },
 
     isReady(): boolean {
-      return initialized && serverInstances.size > 0
+      return initialized && serverInstances.size > 0;
     },
 
     async openFile(filePath: string, text: string): Promise<void> {
-      const server = this.getServerForFile(filePath)
-      if (!server) return
+      const server = this.getServerForFile(filePath);
+      if (!server) return;
 
-      await this.ensureServerStarted(server.name)
+      await this.ensureServerStarted(server.name);
 
-      const uri = pathToFileURL(filePath).href
+      const uri = pathToFileURL(filePath).href;
       await server.sendNotification('textDocument/didOpen', {
         textDocument: {
           uri,
@@ -161,69 +168,76 @@ export function createLSPServerManager(): LSPServerManager {
           version: 1,
           text,
         },
-      })
+      });
 
-      openedFiles.set(filePath, server.name)
+      openedFiles.set(filePath, server.name);
     },
 
     async changeFile(filePath: string, text: string): Promise<void> {
-      const server = this.getServerForFile(filePath)
-      if (!server) return
+      const server = this.getServerForFile(filePath);
+      if (!server) return;
 
       await server.sendNotification('textDocument/didChange', {
-        textDocument: { uri: pathToFileURL(filePath).href, version: Date.now() },
+        textDocument: {
+          uri: pathToFileURL(filePath).href,
+          version: Date.now(),
+        },
         contentChanges: [{ text }],
-      })
+      });
     },
 
     async saveFile(filePath: string): Promise<void> {
-      const server = this.getServerForFile(filePath)
-      if (!server) return
+      const server = this.getServerForFile(filePath);
+      if (!server) return;
 
       await server.sendNotification('textDocument/didSave', {
         textDocument: { uri: pathToFileURL(filePath).href },
-      })
+      });
     },
 
     async closeFile(filePath: string): Promise<void> {
-      const serverName = openedFiles.get(filePath)
-      if (!serverName) return
+      const serverName = openedFiles.get(filePath);
+      if (!serverName) return;
 
-      const server = serverInstances.get(serverName)
+      const server = serverInstances.get(serverName);
       if (server) {
         await server.sendNotification('textDocument/didClose', {
           textDocument: { uri: pathToFileURL(filePath).href },
-        })
+        });
       }
 
-      openedFiles.delete(filePath)
+      openedFiles.delete(filePath);
     },
 
     isFileOpen(filePath: string): boolean {
-      return openedFiles.has(filePath)
+      return openedFiles.has(filePath);
     },
 
-    async sendRequest<T>(filePath: string, method: string, params: unknown): Promise<T> {
-      const server = this.getServerForFile(filePath)
+    async sendRequest<T>(
+      filePath: string,
+      method: string,
+      params: unknown
+    ): Promise<T> {
+      const server = this.getServerForFile(filePath);
       if (!server) {
-        throw new Error(`No LSP server available for file: ${filePath}`)
+        throw new Error(`No LSP server available for file: ${filePath}`);
       }
 
-      await this.ensureServerStarted(server.name)
-      return server.sendRequest<T>(method, params)
+      await this.ensureServerStarted(server.name);
+      return server.sendRequest<T>(method, params);
     },
 
     onNotification(method: string, handler: (params: unknown) => void): void {
-      const existing = notificationHandlers.get(method)
+      const existing = notificationHandlers.get(method);
       if (existing) {
-        existing.add(handler)
+        existing.add(handler);
       } else {
-        notificationHandlers.set(method, new Set([handler]))
+        notificationHandlers.set(method, new Set([handler]));
       }
 
       for (const server of serverInstances.values()) {
-        server.onNotification(method, handler)
+        server.onNotification(method, handler);
       }
     },
-  }
+  };
 }

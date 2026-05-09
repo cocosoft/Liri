@@ -46,15 +46,19 @@ export default {
       ],
     };
 
-    const changesList = latestRelease.changes.map(c => {
-      const icon = c.type === 'new' ? '✨' : c.type === 'improved' ? '⚡' : '🐛';
-      return `${icon} ${c.text}`;
-    }).join('\n');
+    const changesList = latestRelease.changes
+      .map((c) => {
+        const icon =
+          c.type === 'new' ? '✨' : c.type === 'improved' ? '⚡' : '🐛';
+        return `${icon} ${c.text}`;
+      })
+      .join('\n');
 
     return {
       success: true,
       type: 'text',
-      message: `最新发布: v${latestRelease.version} (${latestRelease.date})\n\n` +
+      message:
+        `最新发布: v${latestRelease.version} (${latestRelease.date})\n\n` +
         `${latestRelease.title}\n\n` +
         `更新内容:\n${changesList}\n\n` +
         `使用 /release-notes all 查看所有版本`,
@@ -73,14 +77,15 @@ export default {
       { version: '0.9.0', date: '2023-11-15', title: 'Beta测试版本' },
     ];
 
-    const table = releases.map(r => 
-      `v${r.version.padEnd(8)} ${r.date}  ${r.title}`
-    ).join('\n');
+    const table = releases
+      .map((r) => `v${r.version.padEnd(8)} ${r.date}  ${r.title}`)
+      .join('\n');
 
     return {
       success: true,
       type: 'text',
-      message: `发布历史:\n\n${table}\n\n` +
+      message:
+        `发布历史:\n\n${table}\n\n` +
         `使用 /release-notes version <版本号> 查看详情`,
       data: releases,
     };
@@ -89,7 +94,10 @@ export default {
   /**
    * 显示指定版本发布说明
    */
-  async handleVersion(version: string, context: CommandContext): Promise<CommandResult> {
+  async handleVersion(
+    version: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!version) {
       return {
         success: false,
@@ -99,7 +107,10 @@ export default {
       };
     }
 
-    const releaseNotes: Record<string, { date: string; changes: { type: string; text: string }[] }> = {
+    const releaseNotes: Record<
+      string,
+      { date: string; changes: { type: string; text: string }[] }
+    > = {
       '1.2.0': {
         date: '2024-01-15',
         changes: [
@@ -127,7 +138,7 @@ export default {
     };
 
     const release = releaseNotes[version];
-    
+
     if (!release) {
       return {
         success: false,
@@ -136,10 +147,13 @@ export default {
       };
     }
 
-    const changesList = release.changes.map(c => {
-      const icon = c.type === 'new' ? '✨' : c.type === 'improved' ? '⚡' : '🐛';
-      return `${icon} ${c.text}`;
-    }).join('\n');
+    const changesList = release.changes
+      .map((c) => {
+        const icon =
+          c.type === 'new' ? '✨' : c.type === 'improved' ? '⚡' : '🐛';
+        return `${icon} ${c.text}`;
+      })
+      .join('\n');
 
     return {
       success: true,
@@ -152,9 +166,12 @@ export default {
   /**
    * 搜索发布说明
    */
-  async handleSearch(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleSearch(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const query = args.join(' ').toLowerCase();
-    
+
     if (!query) {
       return {
         success: false,
@@ -165,14 +182,30 @@ export default {
     }
 
     const allReleases = [
-      { version: '1.2.0', date: '2024-01-15', title: '性能优化与新功能', matches: ['主题', '沙箱'] },
-      { version: '1.1.0', date: '2024-01-01', title: '插件系统上线', matches: ['插件', 'MCP'] },
-      { version: '1.0.0', date: '2023-12-01', title: '初始版本发布', matches: ['基础', '会话'] },
+      {
+        version: '1.2.0',
+        date: '2024-01-15',
+        title: '性能优化与新功能',
+        matches: ['主题', '沙箱'],
+      },
+      {
+        version: '1.1.0',
+        date: '2024-01-01',
+        title: '插件系统上线',
+        matches: ['插件', 'MCP'],
+      },
+      {
+        version: '1.0.0',
+        date: '2023-12-01',
+        title: '初始版本发布',
+        matches: ['基础', '会话'],
+      },
     ];
 
-    const results = allReleases.filter(r => 
-      r.title.toLowerCase().includes(query) || 
-      r.matches.some(m => m.toLowerCase().includes(query))
+    const results = allReleases.filter(
+      (r) =>
+        r.title.toLowerCase().includes(query) ||
+        r.matches.some((m) => m.toLowerCase().includes(query))
     );
 
     if (results.length === 0) {
@@ -183,9 +216,9 @@ export default {
       };
     }
 
-    const table = results.map(r => 
-      `v${r.version.padEnd(8)} ${r.date}  ${r.title}`
-    ).join('\n');
+    const table = results
+      .map((r) => `v${r.version.padEnd(8)} ${r.date}  ${r.title}`)
+      .join('\n');
 
     return {
       success: true,

@@ -138,7 +138,7 @@ export type TrustedSettingSource = (typeof TRUSTED_SETTING_SOURCES)[number];
  * 当 PY_APP_UNIX_SOCKET 设置时，从设置源的环境变量中移除相关认证变量
  */
 function withoutSSHTunnelVars(
-  env: Record<string, string> | undefined,
+  env: Record<string, string> | undefined
 ): Record<string, string> {
   if (!env || !process.env.PY_APP_UNIX_SOCKET) return env || {};
   const {
@@ -157,7 +157,7 @@ function withoutSSHTunnelVars(
  * 当 PY_APP_PROVIDER_MANAGED_BY_HOST 启用时，移除提供商选择/模型默认变量
  */
 function withoutHostManagedProviderVars(
-  env: Record<string, string> | undefined,
+  env: Record<string, string> | undefined
 ): Record<string, string> {
   if (!env) return {};
   if (!isEnvTruthy(process.env.PY_APP_PROVIDER_MANAGED_BY_HOST)) {
@@ -179,7 +179,7 @@ function withoutHostManagedProviderVars(
 let ccdSpawnEnvKeys: Set<string> | null | undefined;
 
 function withoutCcdSpawnEnvKeys(
-  env: Record<string, string> | undefined,
+  env: Record<string, string> | undefined
 ): Record<string, string> {
   if (!env || !ccdSpawnEnvKeys) return env || {};
   const out: Record<string, string> = {};
@@ -193,10 +193,10 @@ function withoutCcdSpawnEnvKeys(
  * 组合所有过滤规则
  */
 function filterSettingsEnv(
-  env: Record<string, string> | undefined,
+  env: Record<string, string> | undefined
 ): Record<string, string> {
   return withoutCcdSpawnEnvKeys(
-    withoutHostManagedProviderVars(withoutSSHTunnelVars(env)),
+    withoutHostManagedProviderVars(withoutSSHTunnelVars(env))
   );
 }
 
@@ -205,7 +205,7 @@ function filterSettingsEnv(
  * 在信任对话框之前调用，仅应用受信任源的环境变量
  */
 export function applySafeConfigEnvironmentVariables(
-  sources: Record<string, Record<string, string> | undefined>,
+  sources: Record<string, Record<string, string> | undefined>
 ): void {
   if (ccdSpawnEnvKeys === undefined) {
     ccdSpawnEnvKeys =
@@ -227,7 +227,7 @@ export function applySafeConfigEnvironmentVariables(
  * 项目范围的设置可能包含恶意配置，只允许安全变量
  */
 export function applyProjectScopedEnvVariables(
-  env: Record<string, string> | undefined,
+  env: Record<string, string> | undefined
 ): void {
   if (!env) return;
 

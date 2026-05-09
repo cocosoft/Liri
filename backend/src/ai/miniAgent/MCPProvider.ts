@@ -52,7 +52,10 @@ export class MCPProvider {
     return this.client;
   }
 
-  async callTool(toolName: string, args: Record<string, any>): Promise<MCPToolResult> {
+  async callTool(
+    toolName: string,
+    args: Record<string, any>
+  ): Promise<MCPToolResult> {
     if (!this.enabled) {
       return {
         success: false,
@@ -101,8 +104,16 @@ export class MCPProvider {
     const lowerInput = input.toLowerCase();
 
     const commonTools = [
-      'filesystem', 'git', 'bash', 'shell', 'search',
-      'web', 'http', 'api', 'database', 'sql',
+      'filesystem',
+      'git',
+      'bash',
+      'shell',
+      'search',
+      'web',
+      'http',
+      'api',
+      'database',
+      'sql',
     ];
 
     for (const tool of commonTools) {

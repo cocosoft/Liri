@@ -76,7 +76,7 @@ export class MemoryCache<K = string, V = unknown> {
     if (entry) {
       this.options.onEvict(key as string, entry.value);
       this.cache.delete(key);
-      this.accessOrder = this.accessOrder.filter(k => k !== key);
+      this.accessOrder = this.accessOrder.filter((k) => k !== key);
       return true;
     }
     return false;
@@ -117,7 +117,7 @@ export class MemoryCache<K = string, V = unknown> {
   }
 
   private updateAccessOrder(key: K): void {
-    this.accessOrder = this.accessOrder.filter(k => k !== key);
+    this.accessOrder = this.accessOrder.filter((k) => k !== key);
     this.accessOrder.push(key);
   }
 
@@ -161,7 +161,7 @@ export class LRUCache<K = string, V = unknown> {
   }
 
   private moveToEnd(key: K): void {
-    this.accessOrder = this.accessOrder.filter(k => k !== key);
+    this.accessOrder = this.accessOrder.filter((k) => k !== key);
     this.accessOrder.push(key);
   }
 
@@ -189,7 +189,7 @@ export class LRUCache<K = string, V = unknown> {
   set(key: K, value: V): this {
     if (this.cache.has(key)) {
       this.cache.delete(key);
-      this.accessOrder = this.accessOrder.filter(k => k !== key);
+      this.accessOrder = this.accessOrder.filter((k) => k !== key);
     } else if (this.cache.size >= this.maxSize) {
       this.evictLRU();
     }
@@ -213,7 +213,7 @@ export class LRUCache<K = string, V = unknown> {
     if (entry && this.onEvict) {
       this.onEvict(key, entry.value);
     }
-    this.accessOrder = this.accessOrder.filter(k => k !== key);
+    this.accessOrder = this.accessOrder.filter((k) => k !== key);
     return this.cache.delete(key);
   }
 
@@ -276,7 +276,10 @@ export class TTLCache<K = string, V = unknown> {
     };
 
     if (this.options.checkInterval > 0) {
-      this.intervalId = setInterval(() => this.cleanExpired(), this.options.checkInterval);
+      this.intervalId = setInterval(
+        () => this.cleanExpired(),
+        this.options.checkInterval
+      );
     }
   }
 

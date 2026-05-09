@@ -4,9 +4,16 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { truncateMemoryContent, MAX_MEMORY_LINES, MAX_MEMORY_BYTES } from '@modules/memory/MemoryTruncation';
+import {
+  truncateMemoryContent,
+  MAX_MEMORY_LINES,
+  MAX_MEMORY_BYTES,
+} from '@modules/memory/MemoryTruncation';
 import { getMemoryFreshness } from '@modules/memory/MemoryFreshness';
-import { isAutoMemoryEnabled, getAutoMemPath } from '@modules/memory/AutoMemory';
+import {
+  isAutoMemoryEnabled,
+  getAutoMemPath,
+} from '@modules/memory/AutoMemory';
 
 export interface MemoryCommandResult {
   success: boolean;
@@ -62,7 +69,10 @@ export function readMemoryFile(cwd?: string): MemoryCommandResult {
   }
 }
 
-export function updateMemoryFile(content: string, cwd?: string): MemoryCommandResult {
+export function updateMemoryFile(
+  content: string,
+  cwd?: string
+): MemoryCommandResult {
   const filePath = getAutoMemPath(cwd);
   const dir = path.dirname(filePath);
 
@@ -100,5 +110,7 @@ export function formatMemoryReport(result: MemoryCommandResult): string {
     `Auto:  ${isAutoMemoryEnabled() ? 'enabled' : 'disabled'}`,
     `Fresh: ${result.freshness || 'unknown'}`,
     result.truncated ? `⚠ Truncated: exceeds limits` : '',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }

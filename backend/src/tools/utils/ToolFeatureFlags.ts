@@ -71,7 +71,16 @@ export function getDisabledTools(): string[] {
 
 export function resetToolFlags(): void {
   Object.keys(TOOL_FEATURE_FLAGS).forEach((key) => {
-    const defaultValue = key.startsWith('ENABLE_') && !key.includes('TEAM') && !key.includes('SLEEP') && !key.includes('MONITOR') && !key.includes('BROWSER') && !key.includes('VOICE') && !key.includes('CODE_ANALYSIS') && !key.includes('REPL') && !key.includes('SEND_MESSAGE');
+    const defaultValue =
+      key.startsWith('ENABLE_') &&
+      !key.includes('TEAM') &&
+      !key.includes('SLEEP') &&
+      !key.includes('MONITOR') &&
+      !key.includes('BROWSER') &&
+      !key.includes('VOICE') &&
+      !key.includes('CODE_ANALYSIS') &&
+      !key.includes('REPL') &&
+      !key.includes('SEND_MESSAGE');
     TOOL_FEATURE_FLAGS[key] = defaultValue;
   });
 }

@@ -14,6 +14,8 @@ export const renameCommand: Command = {
   aliases: ['rn'],
   argumentHint: '<新名称>',
   whenToUse: '当你需要重命名当前会话时',
-  load: async () => import('./Rename.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Rename.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

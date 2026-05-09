@@ -4,7 +4,12 @@ import { z } from 'zod';
  * SleepTool 输入模式
  */
 export const SleepInputSchema = z.strictObject({
-  milliseconds: z.number().int().positive().max(300000).describe('延迟的毫秒数（上限5分钟）'),
+  milliseconds: z
+    .number()
+    .int()
+    .positive()
+    .max(300000)
+    .describe('延迟的毫秒数（上限5分钟）'),
 });
 
 export type SleepInputType = z.infer<typeof SleepInputSchema>;

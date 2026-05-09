@@ -7,7 +7,10 @@
  */
 
 import type { Message } from '@modules/chat/types/message';
-import type { SubAgent, InProcessSubAgentConfig } from '@modules/subagent/types/SubAgent';
+import type {
+  SubAgent,
+  InProcessSubAgentConfig,
+} from '@modules/subagent/types/SubAgent';
 import { SubAgentType } from '@modules/subagent/types/SubAgent';
 import {
   BaseTeammateBackend,

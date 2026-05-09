@@ -82,7 +82,10 @@ export class FileExporter {
    */
   private getCurrentFilePath(): string {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    return path.join(this.config.outputDir, `telemetry-${timestamp}-${this.fileIndex}.jsonl`);
+    return path.join(
+      this.config.outputDir,
+      `telemetry-${timestamp}-${this.fileIndex}.jsonl`
+    );
   }
 
   /**
@@ -120,7 +123,9 @@ export class FileExporter {
     try {
       const files = fs
         .readdirSync(this.config.outputDir)
-        .filter((file) => file.startsWith('telemetry-') && file.endsWith('.jsonl'))
+        .filter(
+          (file) => file.startsWith('telemetry-') && file.endsWith('.jsonl')
+        )
         .map((file) => ({
           name: file,
           path: path.join(this.config.outputDir, file),
@@ -176,7 +181,9 @@ export class FileExporter {
       fs.appendFileSync(this.currentFile, line);
       this.currentSize += lineSize;
     } catch (error) {
-      logForDebugging(`文件导出失败: ${errorMessage(error)}`, { level: 'error' });
+      logForDebugging(`文件导出失败: ${errorMessage(error)}`, {
+        level: 'error',
+      });
     }
   }
 
@@ -186,7 +193,11 @@ export class FileExporter {
    * @param value 指标值
    * @param attributes 属性
    */
-  exportMetric(name: string, value: any, attributes?: Record<string, any>): void {
+  exportMetric(
+    name: string,
+    value: any,
+    attributes?: Record<string, any>
+  ): void {
     this.export({
       timestamp: Date.now(),
       type: 'metric',
@@ -202,7 +213,11 @@ export class FileExporter {
    * @param value 追踪值
    * @param attributes 属性
    */
-  exportTrace(name: string, value: any, attributes?: Record<string, any>): void {
+  exportTrace(
+    name: string,
+    value: any,
+    attributes?: Record<string, any>
+  ): void {
     this.export({
       timestamp: Date.now(),
       type: 'trace',
@@ -234,7 +249,11 @@ export class FileExporter {
    * @param value 事件值
    * @param attributes 属性
    */
-  exportEvent(name: string, value: any, attributes?: Record<string, any>): void {
+  exportEvent(
+    name: string,
+    value: any,
+    attributes?: Record<string, any>
+  ): void {
     this.export({
       timestamp: Date.now(),
       type: 'event',
@@ -285,6 +304,8 @@ export function getFileExporter(): FileExporter {
  * @param config 配置
  * @returns 文件导出器实例
  */
-export function createFileExporter(config?: Partial<FileExporterConfig>): FileExporter {
+export function createFileExporter(
+  config?: Partial<FileExporterConfig>
+): FileExporter {
   return new FileExporter(config);
 }

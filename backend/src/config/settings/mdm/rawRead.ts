@@ -32,7 +32,7 @@ let rawReadPromise: Promise<RawReadResult> | null = null;
  */
 function execFilePromise(
   cmd: string,
-  args: string[],
+  args: string[]
 ): Promise<{ stdout: string; code: number | null }> {
   return new Promise((resolve) => {
     execFile(
@@ -41,7 +41,7 @@ function execFilePromise(
       { encoding: 'utf-8', timeout: MDM_SUBPROCESS_TIMEOUT_MS },
       (err, stdout) => {
         resolve({ stdout: stdout ?? '', code: err ? 1 : 0 });
-      },
+      }
     );
   });
 }
@@ -67,7 +67,7 @@ export function fireRawRead(): Promise<RawReadResult> {
             path,
           ]);
           return { stdout, label, ok: code === 0 && !!stdout };
-        }),
+        })
       );
 
       const winner = allResults.find((r) => r.ok);

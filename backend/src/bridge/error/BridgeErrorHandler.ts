@@ -1,3 +1,7 @@
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 桥接错误处理和重试机制
  * 提供详细的错误处理、自动重试机制和用户通知功能
@@ -170,7 +174,8 @@ export class RetryHandler {
    */
   calculateDelay(attempt: number): number {
     const delay = Math.min(
-      this.config.initialDelayMs * Math.pow(this.config.backoffMultiplier, attempt - 1),
+      this.config.initialDelayMs *
+        Math.pow(this.config.backoffMultiplier, attempt - 1),
       this.config.maxDelayMs
     );
 
@@ -282,7 +287,9 @@ export class BridgeErrorHandler {
   private static instance: BridgeErrorHandler;
   private errorLogs: ErrorLogEntry[] = [];
   private maxLogs: number = 100;
-  private listeners: Set<(error: BridgeError, notification: ErrorNotificationOptions) => void> = new Set();
+  private listeners: Set<
+    (error: BridgeError, notification: ErrorNotificationOptions) => void
+  > = new Set();
 
   private constructor() {}
 
@@ -301,7 +308,10 @@ export class BridgeErrorHandler {
    * @param error 错误
    * @param options 通知选项
    */
-  handle(error: BridgeError, options?: Partial<ErrorNotificationOptions>): void {
+  handle(
+    error: BridgeError,
+    options?: Partial<ErrorNotificationOptions>
+  ): void {
     const notificationOptions: ErrorNotificationOptions = {
       showToUser: options?.showToUser ?? false,
       notificationTitle: options?.notificationTitle ?? 'Bridge Error',
@@ -322,7 +332,10 @@ export class BridgeErrorHandler {
    * @param error 错误
    * @param options 通知选项
    */
-  private logError(error: BridgeError, options: ErrorNotificationOptions): void {
+  private logError(
+    error: BridgeError,
+    options: ErrorNotificationOptions
+  ): void {
     const entry: ErrorLogEntry = {
       timestamp: Date.now(),
       level: options.logLevel,
@@ -344,7 +357,9 @@ export class BridgeErrorHandler {
   /**
    * 获取日志方法
    */
-  private getLogMethod(level: ErrorLogLevel): (message: string, ...args: any[]) => void {
+  private getLogMethod(
+    level: ErrorLogLevel
+  ): (message: string, ...args: any[]) => void {
     switch (level) {
       case ErrorLogLevel.DEBUG:
         return console.debug;
@@ -362,12 +377,18 @@ export class BridgeErrorHandler {
   /**
    * 通知监听器
    */
-  private notifyListeners(error: BridgeError, options: ErrorNotificationOptions): void {
+  private notifyListeners(
+    error: BridgeError,
+    options: ErrorNotificationOptions
+  ): void {
     for (const listener of this.listeners) {
       try {
         listener(error, options);
       } catch (e) {
-        console.error('Error in error handler listener:', e);
+        logger.error(
+          'Error in error handler listener',
+          e instanceof Error ? e : new Error(String(e))
+        );
       }
     }
   }
@@ -375,14 +396,24 @@ export class BridgeErrorHandler {
   /**
    * 添加错误监听器
    */
-  addListener(listener: (error: BridgeError, notification: ErrorNotificationOptions) => void): void {
+  addListener(
+    listener: (
+      error: BridgeError,
+      notification: ErrorNotificationOptions
+    ) => void
+  ): void {
     this.listeners.add(listener);
   }
 
   /**
    * 移除错误监听器
    */
-  removeListener(listener: (error: BridgeError, notification: ErrorNotificationOptions) => void): void {
+  removeListener(
+    listener: (
+      error: BridgeError,
+      notification: ErrorNotificationOptions
+    ) => void
+  ): void {
     this.listeners.delete(listener);
   }
 

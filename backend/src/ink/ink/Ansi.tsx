@@ -1,10 +1,15 @@
 //
-import { c as _c } from "react/compiler-runtime";
+import { c as _c } from 'react/compiler-runtime';
 import React from 'react';
 import Link from './components/Link.js';
 import Text from './components/Text.js';
 import type { Color } from './styles.js';
-import { type NamedColor, Parser, type Color as TermioColor, type TextStyle } from './termio.js';
+import {
+  type NamedColor,
+  Parser,
+  type Color as TermioColor,
+  type TextStyle,
+} from './termio.js';
 type Props = {
   children: string;
   /** When true, force all text to be rendered with dim styling */
@@ -32,14 +37,15 @@ type SpanProps = {
  */
 export const Ansi = React.memo(function Ansi(t0: any) {
   const $ = _c(12);
-  const {
-    children,
-    dimColor
-  } = t0;
-  if (typeof children !== "string") {
+  const { children, dimColor } = t0;
+  if (typeof children !== 'string') {
     let t1;
     if ($[0] !== children || $[1] !== dimColor) {
-      t1 = dimColor ? <Text dim={true}>{String(children)}</Text> : <Text>{String(children)}</Text>;
+      t1 = dimColor ? (
+        <Text dim={true}>{String(children)}</Text>
+      ) : (
+        <Text>{String(children)}</Text>
+      );
       $[0] = children;
       $[1] = dimColor;
       $[2] = t1;
@@ -48,13 +54,13 @@ export const Ansi = React.memo(function Ansi(t0: any) {
     }
     return t1;
   }
-  if (children === "") {
+  if (children === '') {
     return null;
   }
   let t1;
   let t2;
   if ($[3] !== children || $[4] !== dimColor) {
-    t2 = Symbol.for("react.early_return_sentinel");
+    t2 = Symbol.for('react.early_return_sentinel');
     bb0: {
       const spans = parseToSpans(children);
       if (spans.length === 0) {
@@ -62,7 +68,11 @@ export const Ansi = React.memo(function Ansi(t0: any) {
         break bb0;
       }
       if (spans.length === 1 && !hasAnyProps(spans[0].props)) {
-        t2 = dimColor ? <Text dim={true}>{spans[0].text}</Text> : <Text>{spans[0].text}</Text>;
+        t2 = dimColor ? (
+          <Text dim={true}>{spans[0].text}</Text>
+        ) : (
+          <Text>{spans[0].text}</Text>
+        );
         break bb0;
       }
       let t3;
@@ -74,9 +84,44 @@ export const Ansi = React.memo(function Ansi(t0: any) {
           }
           const hasTextProps = hasAnyTextProps(span.props);
           if (hyperlink) {
-            return hasTextProps ? <Link key={i} url={hyperlink}><StyledText color={span.props.color} backgroundColor={span.props.backgroundColor} dim={span.props.dim} bold={span.props.bold} italic={span.props.italic} underline={span.props.underline} strikethrough={span.props.strikethrough} inverse={span.props.inverse}>{span.text}</StyledText></Link> : <Link key={i} url={hyperlink}>{span.text}</Link>;
+            return hasTextProps ? (
+              <Link key={i} url={hyperlink}>
+                <StyledText
+                  color={span.props.color}
+                  backgroundColor={span.props.backgroundColor}
+                  dim={span.props.dim}
+                  bold={span.props.bold}
+                  italic={span.props.italic}
+                  underline={span.props.underline}
+                  strikethrough={span.props.strikethrough}
+                  inverse={span.props.inverse}
+                >
+                  {span.text}
+                </StyledText>
+              </Link>
+            ) : (
+              <Link key={i} url={hyperlink}>
+                {span.text}
+              </Link>
+            );
           }
-          return hasTextProps ? <StyledText key={i} color={span.props.color} backgroundColor={span.props.backgroundColor} dim={span.props.dim} bold={span.props.bold} italic={span.props.italic} underline={span.props.underline} strikethrough={span.props.strikethrough} inverse={span.props.inverse}>{span.text}</StyledText> : span.text;
+          return hasTextProps ? (
+            <StyledText
+              key={i}
+              color={span.props.color}
+              backgroundColor={span.props.backgroundColor}
+              dim={span.props.dim}
+              bold={span.props.bold}
+              italic={span.props.italic}
+              underline={span.props.underline}
+              strikethrough={span.props.strikethrough}
+              inverse={span.props.inverse}
+            >
+              {span.text}
+            </StyledText>
+          ) : (
+            span.text
+          );
         };
         $[7] = dimColor;
         $[8] = t3;
@@ -93,7 +138,7 @@ export const Ansi = React.memo(function Ansi(t0: any) {
     t1 = $[5];
     t2 = $[6];
   }
-  if (t2 !== Symbol.for("react.early_return_sentinel")) {
+  if (t2 !== Symbol.for('react.early_return_sentinel')) {
     return t2;
   }
   const content = t1;
@@ -131,7 +176,7 @@ function parseToSpans(input: string): Span[] {
       continue;
     }
     if (action.type === 'text') {
-      const text = action.graphemes.map(g => g.value).join('');
+      const text = action.graphemes.map((g) => g.value).join('');
       if (!text) continue;
       const props = textStyleToSpanProps(action.style);
       if (currentHyperlink) {
@@ -145,7 +190,7 @@ function parseToSpans(input: string): Span[] {
       } else {
         spans.push({
           text,
-          props
+          props,
         });
       }
     }
@@ -188,7 +233,7 @@ const NAMED_COLOR_MAP: Record<NamedColor, string> = {
   brightBlue: 'ansi:blueBright',
   brightMagenta: 'ansi:magentaBright',
   brightCyan: 'ansi:cyanBright',
-  brightWhite: 'ansi:whiteBright'
+  brightWhite: 'ansi:whiteBright',
 };
 
 /**
@@ -211,13 +256,42 @@ function colorToString(color: TermioColor): Color | undefined {
  * Check if two SpanProps are equal for merging.
  */
 function propsEqual(a: SpanProps, b: SpanProps): boolean {
-  return a.color === b.color && a.backgroundColor === b.backgroundColor && a.bold === b.bold && a.dim === b.dim && a.italic === b.italic && a.underline === b.underline && a.strikethrough === b.strikethrough && a.inverse === b.inverse && a.hyperlink === b.hyperlink;
+  return (
+    a.color === b.color &&
+    a.backgroundColor === b.backgroundColor &&
+    a.bold === b.bold &&
+    a.dim === b.dim &&
+    a.italic === b.italic &&
+    a.underline === b.underline &&
+    a.strikethrough === b.strikethrough &&
+    a.inverse === b.inverse &&
+    a.hyperlink === b.hyperlink
+  );
 }
 function hasAnyProps(props: SpanProps): boolean {
-  return props.color !== undefined || props.backgroundColor !== undefined || props.dim === true || props.bold === true || props.italic === true || props.underline === true || props.strikethrough === true || props.inverse === true || props.hyperlink !== undefined;
+  return (
+    props.color !== undefined ||
+    props.backgroundColor !== undefined ||
+    props.dim === true ||
+    props.bold === true ||
+    props.italic === true ||
+    props.underline === true ||
+    props.strikethrough === true ||
+    props.inverse === true ||
+    props.hyperlink !== undefined
+  );
 }
 function hasAnyTextProps(props: SpanProps): boolean {
-  return props.color !== undefined || props.backgroundColor !== undefined || props.dim === true || props.bold === true || props.italic === true || props.underline === true || props.strikethrough === true || props.inverse === true;
+  return (
+    props.color !== undefined ||
+    props.backgroundColor !== undefined ||
+    props.dim === true ||
+    props.bold === true ||
+    props.italic === true ||
+    props.underline === true ||
+    props.strikethrough === true ||
+    props.inverse === true
+  );
 }
 
 // Text style props without weight (bold/dim) - these are handled separately
@@ -238,12 +312,7 @@ function StyledText(t0: any) {
   let dim;
   let rest;
   if ($[0] !== t0) {
-    ({
-      bold,
-      dim,
-      children,
-      ...rest
-    } = t0);
+    ({ bold, dim, children, ...rest } = t0);
     $[0] = t0;
     $[1] = bold;
     $[2] = children;
@@ -258,7 +327,11 @@ function StyledText(t0: any) {
   if (dim) {
     let t1;
     if ($[5] !== children || $[6] !== rest) {
-      t1 = <Text {...rest} dim={true}>{children}</Text>;
+      t1 = (
+        <Text {...rest} dim={true}>
+          {children}
+        </Text>
+      );
       $[5] = children;
       $[6] = rest;
       $[7] = t1;
@@ -270,7 +343,11 @@ function StyledText(t0: any) {
   if (bold) {
     let t1;
     if ($[8] !== children || $[9] !== rest) {
-      t1 = <Text {...rest} bold={true}>{children}</Text>;
+      t1 = (
+        <Text {...rest} bold={true}>
+          {children}
+        </Text>
+      );
       $[8] = children;
       $[9] = rest;
       $[10] = t1;

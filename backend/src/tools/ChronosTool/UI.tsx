@@ -1,20 +1,24 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type ChronosOutput = {
-  cronExpression?: string
-  command?: string
-  jobId?: string
-  nextRunAt?: string
-  status?: string
-  error?: string
-}
+  cronExpression?: string;
+  command?: string;
+  jobId?: string;
+  nextRunAt?: string;
+  status?: string;
+  error?: string;
+};
 
 export function renderToolUseMessage(
-  input: Partial<{ cron_expression: string; command: string; description: string }>,
-  { verbose }: { verbose: boolean },
+  input: Partial<{
+    cron_expression: string;
+    command: string;
+    description: string;
+  }>,
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { cron_expression, command, description } = input
+  const { cron_expression, command, description } = input;
 
   if (verbose) {
     return (
@@ -29,7 +33,7 @@ export function renderToolUseMessage(
           </Box>
         ) : null}
       </Box>
-    )
+    );
   }
 
   return (
@@ -37,15 +41,15 @@ export function renderToolUseMessage(
       <Text dimColor>Cron: </Text>
       <Text bold>{cron_expression || 'scheduled'}</Text>
     </Box>
-  )
+  );
 }
 
 export function renderToolResultMessage(
   output: ChronosOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { jobId, cronExpression, nextRunAt, status, error } = output
+  const { jobId, cronExpression, nextRunAt, status, error } = output;
 
   if (error) {
     return (
@@ -57,7 +61,7 @@ export function renderToolResultMessage(
           <Text color="red">{error.slice(0, 300)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   if (status === 'deleted') {
@@ -67,7 +71,7 @@ export function renderToolResultMessage(
         <Text>Cron job deleted</Text>
         {jobId ? <Text dimColor> [{jobId}]</Text> : null}
       </Box>
-    )
+    );
   }
 
   if (verbose) {
@@ -89,7 +93,7 @@ export function renderToolResultMessage(
           </Box>
         ) : null}
       </Box>
-    )
+    );
   }
 
   return (
@@ -98,12 +102,16 @@ export function renderToolResultMessage(
       <Text>Scheduled</Text>
       {jobId ? <Text dimColor> [{jobId}]</Text> : null}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ cron_expression: string; command: string; description: string }> | undefined,
+  input:
+    | Partial<{ cron_expression: string; command: string; description: string }>
+    | undefined
 ): string | null {
-  if (!input) return 'Cron job'
-  return input.description?.slice(0, 50) || input.command?.slice(0, 50) || 'Cron job'
+  if (!input) return 'Cron job';
+  return (
+    input.description?.slice(0, 50) || input.command?.slice(0, 50) || 'Cron job'
+  );
 }

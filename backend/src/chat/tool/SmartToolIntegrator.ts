@@ -34,12 +34,15 @@ export interface ToolUsageMetrics {
   failedExecutions: number;
   avgExecutionTime: number;
   totalExecutionTime: number;
-  byTool: Record<string, {
-    total: number;
-    success: number;
-    fail: number;
-    avgTime: number;
-  }>;
+  byTool: Record<
+    string,
+    {
+      total: number;
+      success: number;
+      fail: number;
+      avgTime: number;
+    }
+  >;
   cacheHits: number;
   cacheMisses: number;
 }
@@ -55,9 +58,19 @@ export interface ISmartToolIntegrator {
   registerTool(tool: SmartTool): void;
   unregisterTool(name: string): boolean;
   getTool(name: string): SmartTool | null;
-  executeTool(name: string, args: Record<string, any>, context: ToolContext): Promise<ToolExecutionResult>;
-  executeMultiple(tools: Array<{ name: string; args: Record<string, any> }>, context: ToolContext): Promise<ToolExecutionResult[]>;
-  validateCompatibility(toolName: string, context: ToolContext): ToolCompatibilityReport;
+  executeTool(
+    name: string,
+    args: Record<string, any>,
+    context: ToolContext
+  ): Promise<ToolExecutionResult>;
+  executeMultiple(
+    tools: Array<{ name: string; args: Record<string, any> }>,
+    context: ToolContext
+  ): Promise<ToolExecutionResult[]>;
+  validateCompatibility(
+    toolName: string,
+    context: ToolContext
+  ): ToolCompatibilityReport;
   getRecommendedTools(context: ToolContext, limit?: number): string[];
   getToolUsageMetrics(): ToolUsageMetrics;
   clearCache(): number;
@@ -66,12 +79,17 @@ export interface ISmartToolIntegrator {
 export class SmartToolIntegrator implements ISmartToolIntegrator {
   private tools: Map<string, SmartTool> = new Map();
   private executionHistory: ToolExecutionResult[] = [];
-  private resultCache: Map<string, { result: any; expiresAt: number }> = new Map();
+  private resultCache: Map<string, { result: any; expiresAt: number }> =
+    new Map();
   private maxHistorySize: number;
   private cacheTTL: number;
   private maxRetries: number;
 
-  constructor(maxHistorySize: number = 1000, cacheTTL: number = 30000, maxRetries: number = 2) {
+  constructor(
+    maxHistorySize: number = 1000,
+    cacheTTL: number = 30000,
+    maxRetries: number = 2
+  ) {
     this.maxHistorySize = maxHistorySize;
     this.cacheTTL = cacheTTL;
     this.maxRetries = maxRetries;
@@ -92,7 +110,11 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
     return this.tools.get(name) || null;
   }
 
-  async executeTool(name: string, args: Record<string, any>, context: ToolContext): Promise<ToolExecutionResult> {
+  async executeTool(
+    name: string,
+    args: Record<string, any>,
+    context: ToolContext
+  ): Promise<ToolExecutionResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       return {
@@ -145,7 +167,10 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
         const result = await tool.execute(args, context);
 
         if (this.cacheTTL > 0) {
-          this.resultCache.set(cacheKey, { result, expiresAt: Date.now() + this.cacheTTL });
+          this.resultCache.set(cacheKey, {
+            result,
+            expiresAt: Date.now() + this.cacheTTL,
+          });
           this.cleanupCache();
         }
 
@@ -163,7 +188,7 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
       } catch (error) {
         lastError = (error as Error).message;
         if (attempt < this.maxRetries) {
-          await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 100));
+          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 100));
         }
       }
     }
@@ -182,7 +207,10 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
     return executionResult;
   }
 
-  async executeMultiple(tools: Array<{ name: string; args: Record<string, any> }>, context: ToolContext): Promise<ToolExecutionResult[]> {
+  async executeMultiple(
+    tools: Array<{ name: string; args: Record<string, any> }>,
+    context: ToolContext
+  ): Promise<ToolExecutionResult[]> {
     const results: ToolExecutionResult[] = [];
     for (const { name, args } of tools) {
       const result = await this.executeTool(name, args, context);
@@ -191,7 +219,10 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
     return results;
   }
 
-  validateCompatibility(toolName: string, context: ToolContext): ToolCompatibilityReport {
+  validateCompatibility(
+    toolName: string,
+    context: ToolContext
+  ): ToolCompatibilityReport {
     const tool = this.tools.get(toolName);
     if (!tool) {
       return {
@@ -231,7 +262,9 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
     for (const [, tool] of this.tools) {
       let score = 0;
       if (tool.requiredContext) {
-        const matched = tool.requiredContext.filter(ctx => ctx in context).length;
+        const matched = tool.requiredContext.filter(
+          (ctx) => ctx in context
+        ).length;
         score += (matched / tool.requiredContext.length) * 50;
       }
       const report = this.validateCompatibility(tool.name, context);
@@ -243,7 +276,10 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
       scored.push({ name: tool.name, score });
     }
 
-    return scored.sort((a, b) => b.score - a.score).slice(0, limit).map(s => s.name);
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((s) => s.name);
   }
 
   getToolUsageMetrics(): ToolUsageMetrics {
@@ -265,7 +301,12 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
       else metrics.failedExecutions++;
 
       if (!metrics.byTool[exec.toolName]) {
-        metrics.byTool[exec.toolName] = { total: 0, success: 0, fail: 0, avgTime: 0 };
+        metrics.byTool[exec.toolName] = {
+          total: 0,
+          success: 0,
+          fail: 0,
+          avgTime: 0,
+        };
       }
       metrics.byTool[exec.toolName].total++;
       metrics.byTool[exec.toolName].avgTime += exec.executionTime;
@@ -274,7 +315,8 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
     }
 
     if (metrics.totalExecutions > 0) {
-      metrics.avgExecutionTime = metrics.totalExecutionTime / metrics.totalExecutions;
+      metrics.avgExecutionTime =
+        metrics.totalExecutionTime / metrics.totalExecutions;
     }
 
     for (const [, toolMetrics] of Object.entries(metrics.byTool)) {
@@ -292,7 +334,11 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
     return count;
   }
 
-  private buildCacheKey(name: string, args: Record<string, any>, context: ToolContext): string {
+  private buildCacheKey(
+    name: string,
+    args: Record<string, any>,
+    context: ToolContext
+  ): string {
     return `${name}_${JSON.stringify(args)}_${context.sessionId || ''}`;
   }
 

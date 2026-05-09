@@ -4,7 +4,13 @@
  * 管理语音输入/输出功能
  */
 
-import { createContext, useContext, useCallback, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useState,
+  type ReactNode,
+} from 'react';
 
 export type VoiceState = 'idle' | 'listening' | 'speaking' | 'processing';
 
@@ -43,21 +49,23 @@ export const VoiceProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const toggleMute = useCallback(() => {
-    setIsMuted(prev => !prev);
+    setIsMuted((prev) => !prev);
   }, []);
 
   return (
-    <VoiceContext.Provider value={{
-      state,
-      isListening: state === 'listening',
-      isSpeaking: state === 'speaking',
-      startListening,
-      stopListening,
-      startSpeaking,
-      stopSpeaking,
-      toggleMute,
-      isMuted,
-    }}>
+    <VoiceContext.Provider
+      value={{
+        state,
+        isListening: state === 'listening',
+        isSpeaking: state === 'speaking',
+        startListening,
+        stopListening,
+        startSpeaking,
+        stopSpeaking,
+        toggleMute,
+        isMuted,
+      }}
+    >
       {children}
     </VoiceContext.Provider>
   );

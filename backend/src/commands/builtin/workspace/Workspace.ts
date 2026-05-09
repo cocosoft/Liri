@@ -45,9 +45,12 @@ export default {
       { id: 'ws-4', name: '实验项目', active: false, files: 3 },
     ];
 
-    const table = workspaces.map(w => 
-      `${w.id.padEnd(10)} ${w.name.padEnd(12)} ${w.active ? '✓' : ' '} ${w.files}文件`
-    ).join('\n');
+    const table = workspaces
+      .map(
+        (w) =>
+          `${w.id.padEnd(10)} ${w.name.padEnd(12)} ${w.active ? '✓' : ' '} ${w.files}文件`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -60,7 +63,10 @@ export default {
   /**
    * 打开工作区
    */
-  async handleOpen(id: string, context: CommandContext): Promise<CommandResult> {
+  async handleOpen(
+    id: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!id) {
       return {
         success: false,
@@ -71,7 +77,7 @@ export default {
     }
 
     context.onDone?.(`工作区 "${id}" 已打开`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -83,7 +89,10 @@ export default {
   /**
    * 新建工作区
    */
-  async handleNew(name: string, context: CommandContext): Promise<CommandResult> {
+  async handleNew(
+    name: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!name) {
       return {
         success: false,
@@ -94,7 +103,7 @@ export default {
     }
 
     context.onDone?.(`工作区 "${name}" 已创建`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -108,7 +117,7 @@ export default {
    */
   async handleSave(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('工作区已保存', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -122,7 +131,7 @@ export default {
    */
   async handleClose(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('工作区已关闭', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -134,7 +143,10 @@ export default {
   /**
    * 重命名工作区
    */
-  async handleRename(name: string, context: CommandContext): Promise<CommandResult> {
+  async handleRename(
+    name: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!name) {
       return {
         success: false,
@@ -145,7 +157,7 @@ export default {
     }
 
     context.onDone?.(`工作区已重命名为 "${name}"`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

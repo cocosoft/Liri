@@ -1,7 +1,7 @@
 //
 /**
  * 认证模块
- * 
+ *
  * @deprecated Use @modules/oauth for OAuth functionality
  */
 
@@ -17,9 +17,7 @@ export {
   type AuthManager,
 } from './AuthManager.js';
 
-export {
-  AuthCodeListener,
-} from './auth-code-listener.js';
+export { AuthCodeListener } from './auth-code-listener.js';
 
 // 从统一的OAuth模块导出
 export {
@@ -40,18 +38,11 @@ export {
   generateState,
 } from '@modules/oauth/utils/OAuthCrypto';
 
-export {
-  getOauthConfig,
-} from './oauthConfig.js';
+export { getOauthConfig } from './oauthConfig.js';
 
-export {
-  getOauthProfileFromOauthToken,
-} from './getOauthProfile.js';
+export { getOauthProfileFromOauthToken } from './getOauthProfile.js';
 
-export {
-  executePostLogin,
-  type PostLoginOptions,
-} from './post-login.js';
+export { executePostLogin, type PostLoginOptions } from './post-login.js';
 
 export {
   getTrustedDeviceToken,
@@ -60,10 +51,7 @@ export {
   enrollTrustedDevice,
 } from './trusted-device.js';
 
-export {
-  CoreOAuthProvider,
-  coreOAuthProvider,
-} from './CoreOAuthProvider.js';
+export { CoreOAuthProvider, coreOAuthProvider } from './CoreOAuthProvider.js';
 
 export type {
   OAuthTokens as OAuthTokensType,

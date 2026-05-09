@@ -5,8 +5,14 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { PluginRegistry } from '@modules/plugins/PluginRegistry.js';
-import { readPluginConfig, writePluginConfig } from '@modules/plugins/utils/pluginSettings.js';
-import { validatePluginConfig, mergeWithDefaults } from '@modules/plugins/utils/pluginConfigSchema.js';
+import {
+  readPluginConfig,
+  writePluginConfig,
+} from '@modules/plugins/utils/pluginSettings.js';
+import {
+  validatePluginConfig,
+  mergeWithDefaults,
+} from '@modules/plugins/utils/pluginConfigSchema.js';
 import type { PluginConfigSchema } from '@modules/plugins/utils/pluginConfigSchema.js';
 
 const pluginRegistry = new PluginRegistry();
@@ -79,7 +85,9 @@ function listAllPluginSettings(): CommandResult {
 
   for (const plugin of plugins) {
     const settings = readPluginConfig();
-    const configSchema = (plugin.manifest as any).configSchema as PluginConfigSchema | undefined;
+    const configSchema = (plugin.manifest as any).configSchema as
+      | PluginConfigSchema
+      | undefined;
     const itemCount = configSchema?.items?.length || 0;
     const hasSettings = Object.keys(settings).length > 0;
 
@@ -112,12 +120,16 @@ function getPluginSetting(pluginName: string, key?: string): CommandResult {
     };
   }
 
-  const configSchema = (plugin.manifest as any).configSchema as PluginConfigSchema | undefined;
+  const configSchema = (plugin.manifest as any).configSchema as
+    | PluginConfigSchema
+    | undefined;
 
   if (key) {
     const settingValue = (settings as any)[key];
     if (settingValue === undefined) {
-      const defaultValue = configSchema?.items?.find(i => i.key === key)?.default;
+      const defaultValue = configSchema?.items?.find(
+        (i) => i.key === key
+      )?.default;
       return {
         type: 'text',
         success: true,
@@ -154,7 +166,11 @@ function getPluginSetting(pluginName: string, key?: string): CommandResult {
 /**
  * 设置插件的单个配置
  */
-function setPluginSetting(pluginName: string, key: string, value?: string): CommandResult {
+function setPluginSetting(
+  pluginName: string,
+  key: string,
+  value?: string
+): CommandResult {
   if (!key) {
     return {
       type: 'text',
@@ -181,14 +197,16 @@ function setPluginSetting(pluginName: string, key: string, value?: string): Comm
     };
   }
 
-  const configSchema = (plugin.manifest as any).configSchema as PluginConfigSchema | undefined;
-  const configItem = configSchema?.items?.find(i => i.key === key);
+  const configSchema = (plugin.manifest as any).configSchema as
+    | PluginConfigSchema
+    | undefined;
+  const configItem = configSchema?.items?.find((i) => i.key === key);
 
   if (configSchema?.items && !configItem) {
     return {
       type: 'text',
       success: false,
-      message: `配置项 "${key}" 不存在，可用配置项: ${configSchema.items.map(i => i.key).join(', ')}`,
+      message: `配置项 "${key}" 不存在，可用配置项: ${configSchema.items.map((i) => i.key).join(', ')}`,
     };
   }
 
@@ -221,14 +239,17 @@ function setPluginSetting(pluginName: string, key: string, value?: string): Comm
   }
 
   const settings = readPluginConfig();
-  const mergedSettings = mergeWithDefaults(configSchema!, { ...settings, [key]: parsedValue });
+  const mergedSettings = mergeWithDefaults(configSchema!, {
+    ...settings,
+    [key]: parsedValue,
+  });
 
   const validation = validatePluginConfig(configSchema!, mergedSettings);
   if (!validation.valid) {
     return {
       type: 'text',
       success: false,
-      message: `配置验证失败: ${validation.errors.map(e => e.message).join(', ')}`,
+      message: `配置验证失败: ${validation.errors.map((e) => e.message).join(', ')}`,
     };
   }
 
@@ -256,7 +277,9 @@ function listPluginSettings(pluginName: string): CommandResult {
   }
 
   const settings = readPluginConfig();
-  const configSchema = (plugin.manifest as any).configSchema as PluginConfigSchema | undefined;
+  const configSchema = (plugin.manifest as any).configSchema as
+    | PluginConfigSchema
+    | undefined;
 
   if (!configSchema?.items || configSchema.items.length === 0) {
     return {
@@ -277,7 +300,9 @@ function listPluginSettings(pluginName: string): CommandResult {
       lines.push(`    必填: 是`);
     }
     if (item.options) {
-      lines.push(`    选项: ${item.options.map(o => `${o.label}(${o.value})`).join(', ')}`);
+      lines.push(
+        `    选项: ${item.options.map((o) => `${o.label}(${o.value})`).join(', ')}`
+      );
     }
     lines.push(`    当前值: ${JSON.stringify(value)}`);
     if (item.default !== undefined) {

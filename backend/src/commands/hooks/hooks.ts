@@ -93,13 +93,16 @@ export async function executeHooks(
     }
 
     // 按工具分组显示
-    const grouped = configs.reduce((acc, hook) => {
-      if (!acc[hook.tool]) {
-        acc[hook.tool] = [];
-      }
-      acc[hook.tool].push(hook);
-      return acc;
-    }, {} as Record<string, HookConfig[]>);
+    const grouped = configs.reduce(
+      (acc, hook) => {
+        if (!acc[hook.tool]) {
+          acc[hook.tool] = [];
+        }
+        acc[hook.tool].push(hook);
+        return acc;
+      },
+      {} as Record<string, HookConfig[]>
+    );
 
     const output = Object.entries(grouped)
       .map(([tool, hooks]) => {

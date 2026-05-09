@@ -46,7 +46,11 @@ export class ContextStatsCollector {
     this.items.push({ name, tokens, type: 'deferred', isDeferred: true });
   }
 
-  addCustom(tokens: number, name: string, type: ContextType = 'messages'): void {
+  addCustom(
+    tokens: number,
+    name: string,
+    type: ContextType = 'messages'
+  ): void {
     this.items.push({ name, tokens, type });
   }
 
@@ -62,7 +66,7 @@ export class ContextStatsCollector {
     }
 
     const totalTokens = this.items.reduce((sum, item) => sum + item.tokens, 0);
-    const categories: ContextCategory[] = this.items.map(item => ({
+    const categories: ContextCategory[] = this.items.map((item) => ({
       name: item.name,
       tokens: item.tokens,
       percentage: totalTokens > 0 ? (item.tokens / totalTokens) * 100 : 0,

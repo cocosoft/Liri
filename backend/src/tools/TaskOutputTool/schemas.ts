@@ -6,7 +6,14 @@ import { z } from 'zod';
 export const TaskOutputInputSchema = z.strictObject({
   task_id: z.string().min(1, '任务ID不能为空').describe('要获取输出的任务ID'),
   block: z.boolean().optional().default(false).describe('是否阻塞等待任务完成'),
-  timeout: z.number().int().positive().max(300000).optional().default(30000).describe('超时时间（毫秒）'),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .max(300000)
+    .optional()
+    .default(30000)
+    .describe('超时时间（毫秒）'),
 });
 
 export type TaskOutputInputType = z.infer<typeof TaskOutputInputSchema>;
@@ -30,7 +37,9 @@ const TaskOutputDataSchema = z.object({
  * TaskOutputTool 输出模式
  */
 export const TaskOutputOutputSchema = z.object({
-  retrieval_status: z.enum(['success', 'timeout', 'not_ready']).describe('获取状态'),
+  retrieval_status: z
+    .enum(['success', 'timeout', 'not_ready'])
+    .describe('获取状态'),
   task: TaskOutputDataSchema.nullable().describe('任务输出数据'),
 });
 

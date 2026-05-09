@@ -230,35 +230,35 @@ export async function executeAutoDream(context?: any): Promise<void> {
 
 export function abortAutoDream(): void {
   if (currentAbortController) {
-    currentAbortController.abort()
-    currentAbortController = null
-    console.log('[autoDream] aborted')
+    currentAbortController.abort();
+    currentAbortController = null;
+    console.log('[autoDream] aborted');
   }
 }
 
 export function isAutoDreamRunning(): boolean {
-  return currentAbortController !== null
+  return currentAbortController !== null;
 }
 
 export function getAutoDreamStatus(): {
-  isRunning: boolean
-  taskCount: number
-  pendingTasks: number
-  completedTasks: number
-  failedTasks: number
+  isRunning: boolean;
+  taskCount: number;
+  pendingTasks: number;
+  completedTasks: number;
+  failedTasks: number;
 } {
-  const tasks = getAllDreamTasks()
+  const tasks = getAllDreamTasks();
   return {
     isRunning: currentAbortController !== null,
     taskCount: tasks.length,
-    pendingTasks: tasks.filter(t => t.status === 'pending').length,
-    completedTasks: tasks.filter(t => t.status === 'completed').length,
-    failedTasks: tasks.filter(t => t.status === 'failed').length,
-  }
+    pendingTasks: tasks.filter((t) => t.status === 'pending').length,
+    completedTasks: tasks.filter((t) => t.status === 'completed').length,
+    failedTasks: tasks.filter((t) => t.status === 'failed').length,
+  };
 }
 
 export function getLastSessionScanAt(): number {
-  return lastSessionScanAt
+  return lastSessionScanAt;
 }
 
 export {

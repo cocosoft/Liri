@@ -38,7 +38,8 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
 
       const rect = containerRef.current.getBoundingClientRect();
       const totalSize = direction === 'vertical' ? rect.width : rect.height;
-      const position = direction === 'vertical' ? e.clientX - rect.left : e.clientY - rect.top;
+      const position =
+        direction === 'vertical' ? e.clientX - rect.left : e.clientY - rect.top;
       const newSplit = position / totalSize;
 
       setSplit(Math.max(minLeft, Math.min(1 - minRight, newSplit)));
@@ -83,7 +84,9 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
           [direction === 'vertical' ? 'height' : 'width']: '100%',
         }}
       >
-        <div className={`flex flex-col gap-0.5 ${direction === 'horizontal' ? 'rotate-90' : ''}`}>
+        <div
+          className={`flex flex-col gap-0.5 ${direction === 'horizontal' ? 'rotate-90' : ''}`}
+        >
           <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
           <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
           <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
@@ -93,7 +96,8 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
       <div
         className="overflow-hidden"
         style={{
-          [direction === 'vertical' ? 'width' : 'height']: `${(1 - split) * 100}%`,
+          [direction === 'vertical' ? 'width' : 'height']:
+            `${(1 - split) * 100}%`,
         }}
       >
         {right}

@@ -21,9 +21,13 @@ export type Constructor<T = any> = new (...args: any[]) => T;
 /**
  * 函数类型别名
  */
-export type AsyncFunction<T = any, Args extends any[] = any[]> = (...args: Args) => Promise<T>;
+export type AsyncFunction<T = any, Args extends any[] = any[]> = (
+  ...args: Args
+) => Promise<T>;
 
-export type SyncFunction<T = any, Args extends any[] = any[]> = (...args: Args) => T;
+export type SyncFunction<T = any, Args extends any[] = any[]> = (
+  ...args: Args
+) => T;
 
 export type VoidFunction = () => void;
 
@@ -42,14 +46,19 @@ export type Supplier<T = any> = () => T;
 
 export type Mapper<T = any, R = any> = (value: T) => R;
 
-export type Reducer<T = any, R = any> = (accumulator: R, value: T, index?: number) => R;
+export type Reducer<T = any, R = any> = (
+  accumulator: R,
+  value: T,
+  index?: number
+) => R;
 
 /**
  * Promise类型别名
  */
 export type PromiseOr<T> = T | Promise<T>;
 
-export type ResolvedPromise<T> = Promise<T> extends Promise<infer R> ? R : never;
+export type ResolvedPromise<T> =
+  Promise<T> extends Promise<infer R> ? R : never;
 
 /**
  * 结果类型
@@ -90,7 +99,11 @@ export interface PaginationOptions {
   sortOrder?: 'asc' | 'desc';
 }
 
-export function createPage<T>(items: T[], total: number, options: PaginationOptions = {}): Page<T> {
+export function createPage<T>(
+  items: T[],
+  total: number,
+  options: PaginationOptions = {}
+): Page<T> {
   const { page = 1, pageSize = 10 } = options;
   const totalPages = Math.ceil(total / pageSize);
   return {
@@ -166,7 +179,14 @@ export interface ConfigOptions {
  * 验证规则类型
  */
 export interface ValidationRule {
-  type: 'required' | 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'custom';
+  type:
+    | 'required'
+    | 'min'
+    | 'max'
+    | 'minLength'
+    | 'maxLength'
+    | 'pattern'
+    | 'custom';
   message?: string;
   value?: any;
   validator?: (value: any) => boolean;

@@ -20,8 +20,17 @@ export * from './error/BridgeErrorHandler';
 
 // 工具类
 export { FlushGate } from './utils/FlushGate';
-export { createCapacityWake, type CapacityWake, type CapacitySignal } from './utils/CapacityWake';
-export { extractInboundMessageFields, hasImageBlocks, extractImageData, type SDKMessage } from './utils/InboundMessages';
+export {
+  createCapacityWake,
+  type CapacityWake,
+  type CapacitySignal,
+} from './utils/CapacityWake';
+export {
+  extractInboundMessageFields,
+  hasImageBlocks,
+  extractImageData,
+  type SDKMessage,
+} from './utils/InboundMessages';
 
 // Manager导出
 export { BridgeMain } from './BridgeMain';

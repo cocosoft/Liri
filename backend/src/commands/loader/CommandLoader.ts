@@ -2,7 +2,12 @@
  * 命令加载器
  * 从不同源加载命令
  */
-import type { Command, CommandLoader, LoadResult, CommandLoadStatus } from '@modules/commands/types';
+import type {
+  Command,
+  CommandLoader,
+  LoadResult,
+  CommandLoadStatus,
+} from '@modules/commands/types';
 import { feature } from '@modules/core';
 import { join } from 'path';
 
@@ -77,7 +82,11 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/tokens/index.js', name: 'tokens' },
       { path: '../builtin/env/index.js', name: 'env' },
       { path: '../builtin/debug/index.js', name: 'debug' },
-      { path: '../agents/index.js', name: 'subagent', aliases: ['agent', 'agents'] },
+      {
+        path: '../agents/index.js',
+        name: 'subagent',
+        aliases: ['agent', 'agents'],
+      },
       { path: '../bridge/index.js', name: 'bridge' },
       { path: '../ide/index.js', name: 'ide' },
       { path: '../tasks/index.js', name: 'tasks' },
@@ -87,8 +96,16 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../tools/file/glob.js', name: 'glob' },
       { path: '../tools/system/bash.js', name: 'bash' },
       { path: '../tools/system/grep.js', name: 'grep' },
-      { path: '../tools/ai/agent.js', name: 'subagent-run', aliases: ['agent_tool'] },
-      { path: '../tools/ai/agents.js', name: 'agent-instance', aliases: ['agents_tool'] },
+      {
+        path: '../tools/ai/agent.js',
+        name: 'subagent-run',
+        aliases: ['agent_tool'],
+      },
+      {
+        path: '../tools/ai/agents.js',
+        name: 'agent-instance',
+        aliases: ['agents_tool'],
+      },
       { path: '../tools/network/fetch.js', name: 'fetch' },
       { path: '../tools/network/websearch.js', name: 'websearch' },
       { path: '../tools/task/todo.js', name: 'todo' },
@@ -98,14 +115,25 @@ export class BuiltinCommandLoader implements CommandLoader {
       // 基础命令（从 builtin/index.ts 补充）
       { path: '../builtin/copy/index.js', name: 'copy', aliases: ['cp'] },
       { path: '../builtin/branch/index.js', name: 'branch' },
-      { path: '../builtin/add-dir/index.js', name: 'add-dir', aliases: ['add', 'cd'] },
-      { path: '../builtin/context/index.js', name: 'context', aliases: ['ctx'] },
+      {
+        path: '../builtin/add-dir/index.js',
+        name: 'add-dir',
+        aliases: ['add', 'cd'],
+      },
+      {
+        path: '../builtin/context/index.js',
+        name: 'context',
+        aliases: ['ctx'],
+      },
       { path: '../builtin/rename/index.js', name: 'rename', aliases: ['rn'] },
       { path: '../builtin/rewind/index.js', name: 'rewind', aliases: ['undo'] },
       { path: '../builtin/init/index.js', name: 'init', aliases: ['create'] },
       { path: '../builtin/effort/index.js', name: 'effort' },
       { path: '../builtin/keybindings/index.js', name: 'keybindings' },
-      { path: '../builtin/privacy-settings/index.js', name: 'privacy-settings' },
+      {
+        path: '../builtin/privacy-settings/index.js',
+        name: 'privacy-settings',
+      },
       { path: '../builtin/output-style/index.js', name: 'output-style' },
       { path: '../builtin/files/index.js', name: 'files' },
       { path: '../builtin/sandbox-toggle/index.js', name: 'sandbox-toggle' },
@@ -115,13 +143,20 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/upgrade/index.js', name: 'upgrade' },
       { path: '../builtin/passes/index.js', name: 'passes' },
       { path: '../builtin/reload-plugins/index.js', name: 'reload-plugins' },
-      { path: '../builtin/terminalSetup/index.js', name: 'terminalSetup', aliases: ['term', 'terminal'] },
+      {
+        path: '../builtin/terminalSetup/index.js',
+        name: 'terminalSetup',
+        aliases: ['term', 'terminal'],
+      },
       { path: '../builtin/feedback/index.js', name: 'feedback' },
       { path: '../builtin/extra-usage/index.js', name: 'extra-usage' },
       { path: '../builtin/release-notes/index.js', name: 'release-notes' },
       { path: '../builtin/thinkback/index.js', name: 'thinkback' },
       { path: '../builtin/statusline/index.js', name: 'statusline' },
-      { path: '../builtin/rate-limit-options/index.js', name: 'rate-limit-options' },
+      {
+        path: '../builtin/rate-limit-options/index.js',
+        name: 'rate-limit-options',
+      },
       { path: '../builtin/chrome/index.js', name: 'chrome' },
       { path: '../builtin/btw/index.js', name: 'btw' },
       { path: '../builtin/tag/index.js', name: 'tag' },
@@ -130,8 +165,14 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/mobile/index.js', name: 'mobile' },
       { path: '../builtin/login/index.js', name: 'login' },
       { path: '../builtin/logout/index.js', name: 'logout' },
-      { path: '../builtin/install-github-app/index.js', name: 'install-github-app' },
-      { path: '../builtin/install-slack-app/index.js', name: 'install-slack-app' },
+      {
+        path: '../builtin/install-github-app/index.js',
+        name: 'install-github-app',
+      },
+      {
+        path: '../builtin/install-slack-app/index.js',
+        name: 'install-slack-app',
+      },
       { path: '../builtin/stickers/index.js', name: 'stickers' },
       { path: '../builtin/heapdump/index.js', name: 'heapdump' },
       { path: '../builtin/pr-comments/index.js', name: 'pr-comments' },
@@ -156,7 +197,12 @@ export class BuiltinCommandLoader implements CommandLoader {
         // 移除路径开头的 ../ 前缀
         const normalizedPath = entry.path.replace(/^\.\.\//, '');
         // 构建完整的绝对路径
-        const absolutePath = join(projectRoot, 'src', 'commands', normalizedPath);
+        const absolutePath = join(
+          projectRoot,
+          'src',
+          'commands',
+          normalizedPath
+        );
         const lazyCmd = new LazyCommand({
           type: 'prompt',
           name: entry.name,
@@ -185,7 +231,10 @@ export class BuiltinCommandLoader implements CommandLoader {
   getLoadStatus(): CommandLoadStatus {
     return {
       loaded: Array.from(this.loadedCommands.keys()),
-      failed: Array.from(this.loadErrors.entries()).map(([name, error]) => ({ name, error })),
+      failed: Array.from(this.loadErrors.entries()).map(([name, error]) => ({
+        name,
+        error,
+      })),
     };
   }
 
@@ -379,7 +428,10 @@ export class CommandLoaderRegistry {
   getLoadStatus(): CommandLoadStatus {
     return {
       loaded: [],
-      failed: Array.from(this.loadErrors.entries()).map(([name, error]) => ({ name, error })),
+      failed: Array.from(this.loadErrors.entries()).map(([name, error]) => ({
+        name,
+        error,
+      })),
     };
   }
 }

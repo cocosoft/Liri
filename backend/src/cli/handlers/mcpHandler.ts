@@ -46,9 +46,14 @@ export class MCPHandler {
       } else {
         this.servers.forEach((server, index) => {
           const statusIcon = this.getStatusIcon(server.status);
-          console.log(chalk.green(`${String(index + 1).padStart(2)}.`), server.name);
+          console.log(
+            chalk.green(`${String(index + 1).padStart(2)}.`),
+            server.name
+          );
           console.log(`   ${chalk.gray('URL:')} ${server.url}`);
-          console.log(`   ${chalk.gray('Status:')} ${statusIcon} ${server.status}`);
+          console.log(
+            `   ${chalk.gray('Status:')} ${statusIcon} ${server.status}`
+          );
           if (server.version) {
             console.log(`   ${chalk.gray('Version:')} ${server.version}`);
           }
@@ -88,7 +93,9 @@ export class MCPHandler {
         version: '1.0.0',
       };
 
-      const existingIndex = this.servers.findIndex(s => s.name === serverName);
+      const existingIndex = this.servers.findIndex(
+        (s) => s.name === serverName
+      );
       if (existingIndex >= 0) {
         this.servers[existingIndex] = server;
       } else {
@@ -151,10 +158,15 @@ export class MCPHandler {
    */
   private async fetchServerList(): Promise<void> {
     const realServers = mcpConnectionManager.getServers();
-    this.servers = realServers.map(conn => ({
+    this.servers = realServers.map((conn) => ({
       name: conn.name,
       url: ((conn as any).config?.url || '') as string,
-      status: conn.type === 'connected' ? 'connected' : conn.type === 'pending' ? 'connecting' : 'disconnected',
+      status:
+        conn.type === 'connected'
+          ? 'connected'
+          : conn.type === 'pending'
+            ? 'connecting'
+            : 'disconnected',
       version: (conn as any).serverInfo?.version || undefined,
     }));
   }

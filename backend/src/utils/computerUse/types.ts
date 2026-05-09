@@ -9,75 +9,79 @@
  */
 
 export interface ComputerUseCapabilities {
-  screenshot: boolean
-  mouseControl: boolean
-  keyboardControl: boolean
-  clipboardAccess: boolean
-  appManagement: boolean
-  platform: 'darwin' | 'win32' | 'linux' | 'unknown'
+  screenshot: boolean;
+  mouseControl: boolean;
+  keyboardControl: boolean;
+  clipboardAccess: boolean;
+  appManagement: boolean;
+  platform: 'darwin' | 'win32' | 'linux' | 'unknown';
 }
 
 export interface ScreenshotOptions {
-  quality?: number // JPEG quality 0-1, default 0.75
-  maxWidth?: number
-  maxHeight?: number
-  region?: { x: number; y: number; width: number; height: number }
+  quality?: number; // JPEG quality 0-1, default 0.75
+  maxWidth?: number;
+  maxHeight?: number;
+  region?: { x: number; y: number; width: number; height: number };
 }
 
 export interface ScreenshotResult {
-  data: Buffer
-  format: 'jpeg' | 'png'
-  width: number
-  height: number
+  data: Buffer;
+  format: 'jpeg' | 'png';
+  width: number;
+  height: number;
 }
 
 export interface MousePosition {
-  x: number
-  y: number
+  x: number;
+  y: number;
 }
 
 export interface MouseAction {
-  type: 'move' | 'click' | 'doubleClick' | 'rightClick' | 'scroll'
-  x?: number
-  y?: number
-  deltaX?: number
-  deltaY?: number
+  type: 'move' | 'click' | 'doubleClick' | 'rightClick' | 'scroll';
+  x?: number;
+  y?: number;
+  deltaX?: number;
+  deltaY?: number;
 }
 
 export interface KeyboardAction {
-  type: 'type' | 'keyPress' | 'keyDown' | 'keyUp'
-  text?: string
-  key?: string
-  modifiers?: string[]
+  type: 'type' | 'keyPress' | 'keyDown' | 'keyUp';
+  text?: string;
+  key?: string;
+  modifiers?: string[];
 }
 
 export interface AppInfo {
-  name: string
-  bundleId?: string
-  pid?: number
-  isFrontmost?: boolean
+  name: string;
+  bundleId?: string;
+  pid?: number;
+  isFrontmost?: boolean;
 }
 
 export interface ComputerUseAdapter {
-  readonly capabilities: ComputerUseCapabilities
+  readonly capabilities: ComputerUseCapabilities;
 
-  isSupported(): boolean
+  isSupported(): boolean;
 
-  takeScreenshot(options?: ScreenshotOptions): Promise<ScreenshotResult>
-  getDisplayGeometry(): Promise<{ width: number; height: number; scaleFactor: number }>
+  takeScreenshot(options?: ScreenshotOptions): Promise<ScreenshotResult>;
+  getDisplayGeometry(): Promise<{
+    width: number;
+    height: number;
+    scaleFactor: number;
+  }>;
 
-  mouseAction(action: MouseAction): Promise<void>
-  getMousePosition(): Promise<MousePosition>
+  mouseAction(action: MouseAction): Promise<void>;
+  getMousePosition(): Promise<MousePosition>;
 
-  keyboardAction(action: KeyboardAction): Promise<void>
+  keyboardAction(action: KeyboardAction): Promise<void>;
 
-  getClipboard(): Promise<string>
-  setClipboard(text: string): Promise<void>
+  getClipboard(): Promise<string>;
+  setClipboard(text: string): Promise<void>;
 
-  getRunningApps(): Promise<AppInfo[]>
-  getFrontmostApp(): Promise<AppInfo | null>
-  launchApp(bundleIdOrPath: string): Promise<boolean>
-  activateApp(bundleId: string): Promise<boolean>
+  getRunningApps(): Promise<AppInfo[]>;
+  getFrontmostApp(): Promise<AppInfo | null>;
+  launchApp(bundleIdOrPath: string): Promise<boolean>;
+  activateApp(bundleId: string): Promise<boolean>;
 
-  destroy(): Promise<void>
+  destroy(): Promise<void>;
 }

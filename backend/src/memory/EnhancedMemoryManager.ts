@@ -3,18 +3,18 @@
  * 提供高级记忆分析、关联和智能检索功能
  */
 
-import type { 
-  Memory, 
+import type {
+  Memory,
   MemoryMetadata,
   MemoryQuery,
-  MemorySearchResult
+  MemorySearchResult,
 } from './types/Memory.js';
 
-import { 
+import {
   MemoryManager,
   MemoryStore,
   MemoryIndexer,
-  MemoryRetriever 
+  MemoryRetriever,
 } from './index.js';
 
 export interface EnhancedMemoryManagerConfig {
@@ -91,7 +91,7 @@ export class EnhancedMemoryManager {
       retentionPeriod: 365, // 默认1年
       ...config,
     };
-    
+
     this.baseManager = new MemoryManager();
     this.memoryStore = new MemoryStore();
     this.memoryIndexer = new MemoryIndexer();
@@ -109,7 +109,7 @@ export class EnhancedMemoryManager {
   }> {
     // 使用基础管理器存储记忆
     const memoryId = await this.baseManager.store(memory);
-    
+
     // 高级分析
     let analysis: MemoryAnalysis | undefined;
     if (this.config.enableAdvancedAnalysis) {
@@ -129,7 +129,7 @@ export class EnhancedMemoryManager {
       memoryId,
       analysis,
       associations,
-      lifecycle
+      lifecycle,
     };
   }
 
@@ -141,19 +141,19 @@ export class EnhancedMemoryManager {
     context?: Record<string, any>
   ): Promise<SmartRetrievalResult> {
     const startTime = Date.now();
-    
+
     // 基础检索
     const memories = await this.memoryRetriever.retrieve(query);
-    
+
     // 高级分析
     const analysis: MemoryAnalysis[] = [];
     const associations: MemoryAssociation[] = [];
-    
+
     if (this.config.enableAdvancedAnalysis) {
       for (const memory of memories) {
         const memoryAnalysis = await this.analyzeMemory(memory);
         analysis.push(memoryAnalysis);
-        
+
         // 获取关联记忆
         if (this.config.enableMemoryAssociation) {
           const memoryAssociations = this.getMemoryAssociations(memory.id);
@@ -163,16 +163,27 @@ export class EnhancedMemoryManager {
     }
 
     // 生成推荐
-    const recommendations = this.generateRecommendations(memories, analysis, context);
-    
+    const recommendations = this.generateRecommendations(
+      memories,
+      analysis,
+      context
+    );
+
     // 计算置信度
-    const confidence = this.calculateRetrievalConfidence(memories, analysis, query);
-    
+    const confidence = this.calculateRetrievalConfidence(
+      memories,
+      analysis,
+      query
+    );
+
     // 确定检索策略
-    const retrievalStrategy = this.determineRetrievalStrategy(query, memories.length);
+    const retrievalStrategy = this.determineRetrievalStrategy(
+      query,
+      memories.length
+    );
 
     // 更新生命周期访问记录
-    memories.forEach(memory => {
+    memories.forEach((memory) => {
       this.updateLifecycleAccess(memory.id);
     });
 
@@ -185,7 +196,7 @@ export class EnhancedMemoryManager {
       associations,
       recommendations,
       confidence,
-      retrievalStrategy: `${retrievalStrategy} (${retrievalTime}ms)`
+      retrievalStrategy: `${retrievalStrategy} (${retrievalTime}ms)`,
     };
   }
 
@@ -203,7 +214,7 @@ export class EnhancedMemoryManager {
       overallScore: 0,
       keyTopics: this.extractKeyTopics(memory),
       sentiment: this.analyzeSentiment(memory),
-      complexity: this.assessComplexity(memory)
+      complexity: this.assessComplexity(memory),
     };
 
     // 计算综合分数
@@ -215,19 +226,26 @@ export class EnhancedMemoryManager {
   /**
    * 记忆关联
    */
-  private async associateMemory(memoryId: string, memory: Memory): Promise<MemoryAssociation[]> {
+  private async associateMemory(
+    memoryId: string,
+    memory: Memory
+  ): Promise<MemoryAssociation[]> {
     const associations: MemoryAssociation[] = [];
-    
+
     // 获取现有记忆进行关联分析
     const existingMemories = await this.getAllMemories();
-    
+
     for (const existingMemory of existingMemories) {
       if (existingMemory.id === memoryId) continue;
-      
+
       const similarity = this.calculateMemorySimilarity(memory, existingMemory);
-      
+
       if (similarity >= this.config.similarityThreshold) {
-        const association = this.createAssociation(memoryId, existingMemory.id, similarity);
+        const association = this.createAssociation(
+          memoryId,
+          existingMemory.id,
+          similarity
+        );
         associations.push(association);
       }
     }
@@ -243,23 +261,32 @@ export class EnhancedMemoryManager {
    */
   private calculateMemorySimilarity(memory1: Memory, memory2: Memory): number {
     let similarity = 0;
-    
+
     // 内容相似度
     if (memory1.content && memory2.content) {
-      const contentSimilarity = this.calculateTextSimilarity(memory1.content, memory2.content);
+      const contentSimilarity = this.calculateTextSimilarity(
+        memory1.content,
+        memory2.content
+      );
       similarity += contentSimilarity * 0.4;
     }
-    
+
     // 元数据相似度
     if (memory1.metadata && memory2.metadata) {
-      const metadataSimilarity = this.calculateMetadataSimilarity(memory1.metadata, memory2.metadata);
+      const metadataSimilarity = this.calculateMetadataSimilarity(
+        memory1.metadata,
+        memory2.metadata
+      );
       similarity += metadataSimilarity * 0.3;
     }
-    
+
     // 时间相似度
-    const timeSimilarity = this.calculateTimeSimilarity(memory1.created, memory2.created);
+    const timeSimilarity = this.calculateTimeSimilarity(
+      memory1.created,
+      memory2.created
+    );
     similarity += timeSimilarity * 0.3;
-    
+
     return Math.min(similarity, 1);
   }
 
@@ -270,24 +297,29 @@ export class EnhancedMemoryManager {
     // 简化实现：基于共同词汇的相似度
     const words1 = new Set(text1.toLowerCase().split(/\s+/));
     const words2 = new Set(text2.toLowerCase().split(/\s+/));
-    
-    const intersection = new Set([...words1].filter(word => words2.has(word)));
+
+    const intersection = new Set(
+      [...words1].filter((word) => words2.has(word))
+    );
     const union = new Set([...words1, ...words2]);
-    
+
     return union.size > 0 ? intersection.size / union.size : 0;
   }
 
   /**
    * 计算元数据相似度
    */
-  private calculateMetadataSimilarity(metadata1: MemoryMetadata, metadata2: MemoryMetadata): number {
+  private calculateMetadataSimilarity(
+    metadata1: MemoryMetadata,
+    metadata2: MemoryMetadata
+  ): number {
     let similarity = 0;
     let comparisonCount = 0;
-    
+
     // 比较共同字段
     const fields = ['type', 'category', 'tags', 'priority'] as const;
-    
-    fields.forEach(field => {
+
+    fields.forEach((field) => {
       if (metadata1[field] && metadata2[field]) {
         if (metadata1[field] === metadata2[field]) {
           similarity += 0.25;
@@ -295,7 +327,7 @@ export class EnhancedMemoryManager {
         comparisonCount++;
       }
     });
-    
+
     return comparisonCount > 0 ? similarity / comparisonCount : 0;
   }
 
@@ -305,7 +337,7 @@ export class EnhancedMemoryManager {
   private calculateTimeSimilarity(time1: number, time2: number): number {
     const timeDiff = Math.abs(time1 - time2);
     const oneDay = 24 * 60 * 60 * 1000;
-    
+
     // 时间差越小，相似度越高
     return Math.max(0, 1 - timeDiff / (30 * oneDay)); // 30天内的时间相似度
   }
@@ -314,8 +346,8 @@ export class EnhancedMemoryManager {
    * 创建关联关系
    */
   private createAssociation(
-    sourceId: string, 
-    targetId: string, 
+    sourceId: string,
+    targetId: string,
     strength: number
   ): MemoryAssociation {
     return {
@@ -325,15 +357,21 @@ export class EnhancedMemoryManager {
       associationType: this.determineAssociationType(strength),
       strength,
       confidence: strength * 0.8 + 0.2, // 基于强度计算置信度
-      description: this.generateAssociationDescription(sourceId, targetId, strength),
-      created: Date.now()
+      description: this.generateAssociationDescription(
+        sourceId,
+        targetId,
+        strength
+      ),
+      created: Date.now(),
     };
   }
 
   /**
    * 确定关联类型
    */
-  private determineAssociationType(strength: number): MemoryAssociation['associationType'] {
+  private determineAssociationType(
+    strength: number
+  ): MemoryAssociation['associationType'] {
     if (strength > 0.8) return 'semantic';
     if (strength > 0.6) return 'contextual';
     if (strength > 0.4) return 'temporal';
@@ -344,12 +382,12 @@ export class EnhancedMemoryManager {
    * 生成关联描述
    */
   private generateAssociationDescription(
-    sourceId: string, 
-    targetId: string, 
+    sourceId: string,
+    targetId: string,
     strength: number
   ): string {
     const type = this.determineAssociationType(strength);
-    
+
     switch (type) {
       case 'semantic':
         return `高度相关的语义关联（强度: ${strength.toFixed(2)}）`;
@@ -370,16 +408,16 @@ export class EnhancedMemoryManager {
   private calculateSemanticSimilarity(memory: Memory): number {
     // 简化实现：基于关键词匹配
     if (!memory.content) return 0;
-    
+
     const keywords = ['重要', '关键', '核心', '主要', '重点'];
     let keywordCount = 0;
-    
-    keywords.forEach(keyword => {
+
+    keywords.forEach((keyword) => {
       if (memory.content.includes(keyword)) {
         keywordCount++;
       }
     });
-    
+
     return Math.min(keywordCount / keywords.length, 1);
   }
 
@@ -389,14 +427,15 @@ export class EnhancedMemoryManager {
   private calculateContextualRelevance(memory: Memory): number {
     // 简化实现：基于元数据完整性
     let relevance = 0;
-    
+
     if (memory.metadata) {
       if (memory.metadata.type) relevance += 0.3;
       if (memory.metadata.category) relevance += 0.3;
-      if (memory.metadata.tags && memory.metadata.tags.length > 0) relevance += 0.2;
+      if (memory.metadata.tags && memory.metadata.tags.length > 0)
+        relevance += 0.2;
       if (memory.metadata.priority) relevance += 0.2;
     }
-    
+
     return Math.min(relevance, 1);
   }
 
@@ -407,7 +446,7 @@ export class EnhancedMemoryManager {
     const now = Date.now();
     const memoryAge = now - memory.created;
     const oneDay = 24 * 60 * 60 * 1000;
-    
+
     // 记忆越新，接近度越高
     return Math.max(0, 1 - memoryAge / (30 * oneDay)); // 30天内的时间接近度
   }
@@ -417,10 +456,13 @@ export class EnhancedMemoryManager {
    */
   private calculateAssociationStrength(memory: Memory): number {
     const associations = this.getMemoryAssociations(memory.id);
-    
+
     if (associations.length === 0) return 0;
-    
-    const totalStrength = associations.reduce((sum, assoc) => sum + assoc.strength, 0);
+
+    const totalStrength = associations.reduce(
+      (sum, assoc) => sum + assoc.strength,
+      0
+    );
     return totalStrength / associations.length;
   }
 
@@ -429,25 +471,26 @@ export class EnhancedMemoryManager {
    */
   private extractKeyTopics(memory: Memory): string[] {
     const topics: string[] = [];
-    
+
     if (!memory.content) return topics;
-    
+
     // 简化实现：提取高频词汇
     const words = memory.content.toLowerCase().split(/\s+/);
     const wordCount = new Map<string, number>();
-    
-    words.forEach(word => {
-      if (word.length > 2) { // 忽略短词
+
+    words.forEach((word) => {
+      if (word.length > 2) {
+        // 忽略短词
         wordCount.set(word, (wordCount.get(word) || 0) + 1);
       }
     });
-    
+
     // 取频率最高的3个词
     const sortedWords = [...wordCount.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([word]) => word);
-    
+
     return sortedWords;
   }
 
@@ -456,21 +499,21 @@ export class EnhancedMemoryManager {
    */
   private analyzeSentiment(memory: Memory): MemoryAnalysis['sentiment'] {
     if (!memory.content) return 'neutral';
-    
+
     const positiveWords = ['好', '优秀', '成功', '满意', '高兴'];
     const negativeWords = ['坏', '失败', '问题', '困难', '失望'];
-    
+
     let positiveCount = 0;
     let negativeCount = 0;
-    
-    positiveWords.forEach(word => {
+
+    positiveWords.forEach((word) => {
       if (memory.content!.includes(word)) positiveCount++;
     });
-    
-    negativeWords.forEach(word => {
+
+    negativeWords.forEach((word) => {
       if (memory.content!.includes(word)) negativeCount++;
     });
-    
+
     if (positiveCount > negativeCount) return 'positive';
     if (negativeCount > positiveCount) return 'negative';
     return 'neutral';
@@ -481,10 +524,10 @@ export class EnhancedMemoryManager {
    */
   private assessComplexity(memory: Memory): MemoryAnalysis['complexity'] {
     if (!memory.content) return 'simple';
-    
+
     const contentLength = memory.content.length;
     const wordCount = memory.content.split(/\s+/).length;
-    
+
     if (contentLength > 500 || wordCount > 100) return 'complex';
     if (contentLength > 200 || wordCount > 50) return 'medium';
     return 'simple';
@@ -498,9 +541,9 @@ export class EnhancedMemoryManager {
       semanticSimilarity: 0.3,
       contextualRelevance: 0.25,
       temporalProximity: 0.2,
-      associationStrength: 0.25
+      associationStrength: 0.25,
     };
-    
+
     return (
       analysis.semanticSimilarity * weights.semanticSimilarity +
       analysis.contextualRelevance * weights.contextualRelevance +
@@ -518,28 +561,30 @@ export class EnhancedMemoryManager {
     context?: Record<string, any>
   ): string[] {
     const recommendations: string[] = [];
-    
+
     if (memories.length === 0) {
       recommendations.push('未找到相关记忆，建议扩展搜索条件');
       return recommendations;
     }
-    
+
     // 基于分析结果生成推荐
-    const highScoreMemories = analysis.filter(a => a.overallScore > 0.8);
+    const highScoreMemories = analysis.filter((a) => a.overallScore > 0.8);
     if (highScoreMemories.length > 0) {
       recommendations.push(`发现 ${highScoreMemories.length} 个高相关度记忆`);
     }
-    
-    const complexMemories = analysis.filter(a => a.complexity === 'complex');
+
+    const complexMemories = analysis.filter((a) => a.complexity === 'complex');
     if (complexMemories.length > 0) {
-      recommendations.push(`有 ${complexMemories.length} 个复杂记忆，可能需要详细分析`);
+      recommendations.push(
+        `有 ${complexMemories.length} 个复杂记忆，可能需要详细分析`
+      );
     }
-    
+
     // 基于上下文生成推荐
     if (context?.searchType === 'learning') {
       recommendations.push('建议关注关联记忆以建立知识网络');
     }
-    
+
     return recommendations;
   }
 
@@ -552,18 +597,22 @@ export class EnhancedMemoryManager {
     query: MemoryQuery
   ): number {
     if (memories.length === 0) return 0;
-    
+
     // 基于记忆数量和质量计算置信度
-    const avgScore = analysis.reduce((sum, a) => sum + a.overallScore, 0) / analysis.length;
+    const avgScore =
+      analysis.reduce((sum, a) => sum + a.overallScore, 0) / analysis.length;
     const quantityFactor = Math.min(memories.length / 10, 1); // 数量因子
-    
+
     return Math.min(0.95, avgScore * 0.7 + quantityFactor * 0.3);
   }
 
   /**
    * 确定检索策略
    */
-  private determineRetrievalStrategy(query: MemoryQuery, resultCount: number): string {
+  private determineRetrievalStrategy(
+    query: MemoryQuery,
+    resultCount: number
+  ): string {
     if (resultCount === 0) return '无结果策略';
     if (resultCount <= 3) return '精确匹配策略';
     if (resultCount <= 10) return '标准检索策略';
@@ -583,9 +632,9 @@ export class EnhancedMemoryManager {
       relevanceScore: 0.5, // 初始分数
       lifecycleStage: 'active',
       retentionScore: 1.0, // 初始保留分数
-      nextReviewDate: now + 7 * 24 * 60 * 60 * 1000 // 7天后复查
+      nextReviewDate: now + 7 * 24 * 60 * 60 * 1000, // 7天后复查
     };
-    
+
     this.memoryLifecycles.set(memoryId, lifecycle);
     return lifecycle;
   }
@@ -598,9 +647,12 @@ export class EnhancedMemoryManager {
     if (lifecycle) {
       lifecycle.lastAccessed = Date.now();
       lifecycle.accessCount++;
-      
+
       // 基于访问频率更新相关性分数
-      lifecycle.relevanceScore = Math.min(1.0, 0.5 + (lifecycle.accessCount * 0.1));
+      lifecycle.relevanceScore = Math.min(
+        1.0,
+        0.5 + lifecycle.accessCount * 0.1
+      );
     }
   }
 

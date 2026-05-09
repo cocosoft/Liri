@@ -112,7 +112,9 @@ export class StructuredIO {
     }
 
     const headers = Object.keys(data[0] as Record<string, unknown>);
-    const rows = data.map((item) => headers.map((h) => String((item as Record<string, unknown>)[h] ?? '')));
+    const rows = data.map((item) =>
+      headers.map((h) => String((item as Record<string, unknown>)[h] ?? ''))
+    );
 
     // 计算每列的最大宽度
     const columnWidths = headers.map((_, colIndex) => {
@@ -127,21 +129,23 @@ export class StructuredIO {
     let result = '';
 
     // 表头
-    result += headers
-      .map((header, i) => this.padRight(header, columnWidths[i]))
-      .join(' | ') + '\n';
+    result +=
+      headers
+        .map((header, i) => this.padRight(header, columnWidths[i]))
+        .join(' | ') + '\n';
 
     // 分隔线
     result += columnWidths.map((w) => '-'.repeat(w)).join('-+-') + '\n';
 
     // 数据行
     rows.forEach((row) => {
-      result += row
-        .map((cell, i) => {
-          const padded = this.padRight(cell, columnWidths[i]);
-          return chalk ? chalk.gray(padded) : padded;
-        })
-        .join(' | ') + '\n';
+      result +=
+        row
+          .map((cell, i) => {
+            const padded = this.padRight(cell, columnWidths[i]);
+            return chalk ? chalk.gray(padded) : padded;
+          })
+          .join(' | ') + '\n';
     });
 
     return result.trim();
@@ -154,14 +158,17 @@ export class StructuredIO {
     if (data === null) return 'null';
     if (data === undefined) return 'undefined';
     if (typeof data === 'string') return data;
-    if (typeof data === 'number' || typeof data === 'boolean') return String(data);
+    if (typeof data === 'number' || typeof data === 'boolean')
+      return String(data);
     if (Array.isArray(data)) {
       return data.map((item) => this.formatText(item)).join('\n');
     }
     if (typeof data === 'object') {
       const chalk = this.config.colorize ? require('chalk') : null;
       let result = '';
-      for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      for (const [key, value] of Object.entries(
+        data as Record<string, unknown>
+      )) {
         const keyPart = chalk ? chalk.bold(key) : key;
         result += `${keyPart}: ${this.formatText(value)}\n`;
       }
@@ -200,7 +207,8 @@ export class StructuredIO {
     if (data === null) return 'null';
     if (data === undefined) return '';
     if (typeof data === 'string') return `"${data}"`;
-    if (typeof data === 'number' || typeof data === 'boolean') return String(data);
+    if (typeof data === 'number' || typeof data === 'boolean')
+      return String(data);
 
     if (Array.isArray(data)) {
       return data
@@ -210,7 +218,9 @@ export class StructuredIO {
 
     if (typeof data === 'object') {
       let result = '';
-      for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      for (const [key, value] of Object.entries(
+        data as Record<string, unknown>
+      )) {
         const valueStr = this.convertToYaml(value, indent + 1);
         if (valueStr) {
           result += `${indentStr}${key}:\n${valueStr}\n`;
@@ -233,6 +243,8 @@ export class StructuredIO {
 /**
  * 创建结构化IO实例
  */
-export function createStructuredIO(config?: Partial<StructuredOutputConfig>): StructuredIO {
+export function createStructuredIO(
+  config?: Partial<StructuredOutputConfig>
+): StructuredIO {
   return new StructuredIO(config);
 }

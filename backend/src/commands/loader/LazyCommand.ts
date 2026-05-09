@@ -64,10 +64,10 @@ export class LazyCommand implements Command {
 
     try {
       const module = await import(this.modulePath);
-      
+
       // 尝试多种方式获取命令对象
       let command: Command | undefined;
-      
+
       // 1. 首先尝试默认导出
       if (module.default) {
         command = module.default;
@@ -78,12 +78,14 @@ export class LazyCommand implements Command {
       }
       // 3. 尝试查找名称包含 'Command' 的导出
       else {
-        const commandKeys = Object.keys(module).filter(key => key.includes('Command'));
+        const commandKeys = Object.keys(module).filter((key) =>
+          key.includes('Command')
+        );
         if (commandKeys.length > 0) {
           command = module[commandKeys[0]];
         }
       }
-      
+
       // 如果还是找不到，使用模块本身（适用于某些特殊情况）
       if (!command) {
         command = module as unknown as Command;
@@ -91,12 +93,17 @@ export class LazyCommand implements Command {
 
       // 如果 command 是类（有 constructor），创建实例
       let commandInstance: any = command;
-      if (typeof command === 'function' && (command as any).prototype && typeof (command as any).prototype.execute === 'function') {
+      if (
+        typeof command === 'function' &&
+        (command as any).prototype &&
+        typeof (command as any).prototype.execute === 'function'
+      ) {
         commandInstance = new (command as any)();
       }
 
       this.loadedImpl = {
-        getPromptForCommand: commandInstance.getPromptForCommand?.bind(commandInstance),
+        getPromptForCommand:
+          commandInstance.getPromptForCommand?.bind(commandInstance),
         execute: commandInstance.execute?.bind(commandInstance),
         call: commandInstance.call?.bind(commandInstance),
         validate: commandInstance.validate?.bind(commandInstance),
@@ -106,7 +113,9 @@ export class LazyCommand implements Command {
         const impl = await commandInstance.load();
         if (impl.execute) this.loadedImpl.execute = impl.execute.bind(impl);
         if (impl.call) this.loadedImpl.call = impl.call.bind(impl);
-        if (impl.getPromptForCommand) this.loadedImpl.getPromptForCommand = impl.getPromptForCommand.bind(impl);
+        if (impl.getPromptForCommand)
+          this.loadedImpl.getPromptForCommand =
+            impl.getPromptForCommand.bind(impl);
       }
 
       return this.loadedImpl;

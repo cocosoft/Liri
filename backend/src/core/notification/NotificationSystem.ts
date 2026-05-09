@@ -99,7 +99,7 @@ export class NotificationManager {
    */
   private getNext(queue: Notification[]): Notification | null {
     if (queue.length === 0) return null;
-    
+
     // 按优先级排序，优先级高的在前
     const sortedQueue = [...queue].sort((a, b) => {
       const priorityOrder = {
@@ -124,25 +124,25 @@ export class NotificationManager {
     if (!next) return;
 
     // 从队列中移除
-    this.state.queue = this.state.queue.filter(n => n !== next);
+    this.state.queue = this.state.queue.filter((n) => n !== next);
     this.state.current = next;
     this.notifyListeners();
 
     // 设置超时
     this.currentTimeoutId = setTimeout(() => {
       this.currentTimeoutId = null;
-      
+
       // 检查是否还是当前通知
       if (this.state.current?.key === next.key) {
         this.state.current = null;
-        
+
         // 使相关通知失效
         if (next.invalidates) {
           this.state.queue = this.state.queue.filter(
-            n => !next.invalidates?.includes(n.key)
+            (n) => !next.invalidates?.includes(n.key)
           );
         }
-        
+
         this.notifyListeners();
         this.processQueue();
       }
@@ -164,19 +164,21 @@ export class NotificationManager {
       // 使相关通知失效
       if (notification.invalidates) {
         this.state.queue = this.state.queue.filter(
-          n => !notification.invalidates?.includes(n.key)
+          (n) => !notification.invalidates?.includes(n.key)
         );
       }
 
       // 设置为当前通知
       this.state.current = notification;
-      this.state.queue = this.state.queue.filter(n => n.key !== notification.key);
+      this.state.queue = this.state.queue.filter(
+        (n) => n.key !== notification.key
+      );
       this.notifyListeners();
 
       // 设置超时
       this.currentTimeoutId = setTimeout(() => {
         this.currentTimeoutId = null;
-        
+
         // 检查是否还是当前通知
         if (this.state.current?.key === notification.key) {
           this.state.current = null;
@@ -187,7 +189,7 @@ export class NotificationManager {
     } else {
       // 检查是否已存在相同键的通知
       const existingIndex = this.state.queue.findIndex(
-        n => n.key === notification.key
+        (n) => n.key === notification.key
       );
 
       if (existingIndex >= 0) {
@@ -225,7 +227,7 @@ export class NotificationManager {
 
     // 从队列中移除
     const originalLength = this.state.queue.length;
-    this.state.queue = this.state.queue.filter(n => n.key !== key);
+    this.state.queue = this.state.queue.filter((n) => n.key !== key);
 
     if (this.state.queue.length !== originalLength) {
       this.notifyListeners();

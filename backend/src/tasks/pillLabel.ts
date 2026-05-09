@@ -30,7 +30,7 @@ export function getPillLabel(tasks: TaskState[]): string {
     return '';
   }
 
-  const allSameType = tasks.every(t => t.type === tasks[0]!.type);
+  const allSameType = tasks.every((t) => t.type === tasks[0]!.type);
 
   if (!allSameType) {
     return `${n} background ${n === 1 ? 'task' : 'tasks'}`;
@@ -41,7 +41,7 @@ export function getPillLabel(tasks: TaskState[]): string {
       const shellTasks = tasks as unknown as LocalShellTaskState[];
       const monitors = count(
         shellTasks,
-        t => t.type === 'local_bash' && t.kind === 'monitor',
+        (t) => t.type === 'local_bash' && t.kind === 'monitor'
       );
       const shells = n - monitors;
       const parts: string[] = [];
@@ -56,9 +56,8 @@ export function getPillLabel(tasks: TaskState[]): string {
 
     case 'in_process_teammate': {
       const teammateTasks = tasks as unknown as InProcessTeammateTaskState[];
-      const teamCount = new Set(
-        teammateTasks.map(t => t.identity.teamName),
-      ).size;
+      const teamCount = new Set(teammateTasks.map((t) => t.identity.teamName))
+        .size;
       return teamCount === 1 ? '1 team' : `${teamCount} teams`;
     }
 
@@ -94,7 +93,5 @@ export function pillNeedsCta(tasks: TaskState[]): boolean {
   }
 
   const t = tasks[0]!;
-  return (
-    t.type === 'remote_agent'
-  );
+  return t.type === 'remote_agent';
 }

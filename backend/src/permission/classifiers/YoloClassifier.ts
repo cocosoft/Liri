@@ -61,8 +61,39 @@ const DEFAULT_CONFIG: YoloClassifierConfig = {
   temperature: 0.1,
   maxTokens: 1024,
   cacheTtlMs: 60000,
-  readonlyTools: ['read', 'View', 'search', 'list', 'cat', 'pwd', 'echo', 'help', 'info', 'status', 'version', 'whoami', 'ls', 'dir', 'find', 'grep', 'head', 'tail'],
-  dangerousTools: ['Write', 'edit', 'delete', 'remove', 'exec', 'run', 'shell', 'bash', 'sudo', 'chmod', 'chown'],
+  readonlyTools: [
+    'read',
+    'View',
+    'search',
+    'list',
+    'cat',
+    'pwd',
+    'echo',
+    'help',
+    'info',
+    'status',
+    'version',
+    'whoami',
+    'ls',
+    'dir',
+    'find',
+    'grep',
+    'head',
+    'tail',
+  ],
+  dangerousTools: [
+    'Write',
+    'edit',
+    'delete',
+    'remove',
+    'exec',
+    'run',
+    'shell',
+    'bash',
+    'sudo',
+    'chmod',
+    'chown',
+  ],
 };
 
 /**
@@ -103,17 +134,32 @@ export class YoloClassifier {
     messages: Array<{ role: string; content: string | unknown }> = []
   ): Promise<YoloClassifierResult> {
     if (!this.config.enabled) {
-      return this.createDefaultResult(toolName, toolInput, true, 'classifier_disabled');
+      return this.createDefaultResult(
+        toolName,
+        toolInput,
+        true,
+        'classifier_disabled'
+      );
     }
 
     // 检查只读工具白名单
     if (this.isReadonlyTool(toolName)) {
-      return this.createDefaultResult(toolName, toolInput, true, 'readonly_tool');
+      return this.createDefaultResult(
+        toolName,
+        toolInput,
+        true,
+        'readonly_tool'
+      );
     }
 
     // 检查危险工具黑名单
     if (this.isDangerousTool(toolName)) {
-      return this.createDefaultResult(toolName, toolInput, false, 'dangerous_tool');
+      return this.createDefaultResult(
+        toolName,
+        toolInput,
+        false,
+        'dangerous_tool'
+      );
     }
 
     // 检查缓存
@@ -127,7 +173,11 @@ export class YoloClassifier {
     // 执行分类
     const startTime = Date.now();
     try {
-      const result = await this.performClassification(toolName, toolInput, messages);
+      const result = await this.performClassification(
+        toolName,
+        toolInput,
+        messages
+      );
       result.durationMs = Date.now() - startTime;
 
       // 缓存结果
@@ -145,7 +195,7 @@ export class YoloClassifier {
    */
   isReadonlyTool(toolName: string): boolean {
     const lowerName = toolName.toLowerCase();
-    return this.config.readonlyTools.some(t => lowerName === t.toLowerCase());
+    return this.config.readonlyTools.some((t) => lowerName === t.toLowerCase());
   }
 
   /**
@@ -153,7 +203,9 @@ export class YoloClassifier {
    */
   isDangerousTool(toolName: string): boolean {
     const lowerName = toolName.toLowerCase();
-    return this.config.dangerousTools.some(t => lowerName === t.toLowerCase());
+    return this.config.dangerousTools.some(
+      (t) => lowerName === t.toLowerCase()
+    );
   }
 
   /**
@@ -172,12 +224,19 @@ export class YoloClassifier {
   /**
    * 哈希消息
    */
-  private hashMessages(messages: Array<{ role: string; content: string | unknown }>): string {
-    const content = messages.map(m => `${m.role}:${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`).join('|');
+  private hashMessages(
+    messages: Array<{ role: string; content: string | unknown }>
+  ): string {
+    const content = messages
+      .map(
+        (m) =>
+          `${m.role}:${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`
+      )
+      .join('|');
     let hash = 0;
     for (let i = 0; i < content.length; i++) {
       const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return Math.abs(hash).toString(36);
@@ -245,11 +304,16 @@ export class YoloClassifier {
   /**
    * 构建转录内容
    */
-  private buildTranscript(messages: Array<{ role: string; content: string | unknown }>): string {
-    return messages.map(m => {
-      const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-      return `[${m.role}]: ${content}`;
-    }).join('\n');
+  private buildTranscript(
+    messages: Array<{ role: string; content: string | unknown }>
+  ): string {
+    return messages
+      .map((m) => {
+        const content =
+          typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+        return `[${m.role}]: ${content}`;
+      })
+      .join('\n');
   }
 
   /**
@@ -281,7 +345,9 @@ Respond in JSON format:
   private async callModel(prompt: string): Promise<string> {
     // 这里需要集成LLMClient进行实际调用
     // 简化实现返回默认结果
-    logger.warn('YoloClassifier: LLM client not integrated, using rule-based fallback');
+    logger.warn(
+      'YoloClassifier: LLM client not integrated, using rule-based fallback'
+    );
 
     return JSON.stringify({
       decision: 'allow',

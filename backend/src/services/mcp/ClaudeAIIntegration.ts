@@ -6,7 +6,10 @@
 
 import { logger } from '@modules/utils/log';
 import { mcpConnectionManager } from './MCPConnectionManager';
-import { registerChannelNotificationHandler, removeChannelNotificationHandler } from './channelNotification';
+import {
+  registerChannelNotificationHandler,
+  removeChannelNotificationHandler,
+} from './channelNotification';
 import { createChannelPermissionCallbacks } from './channelPermissions';
 import { getCommandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
@@ -28,7 +31,10 @@ export class ClaudeAIIntegration {
       logger.info('Initializing Claude AI integration');
       // 这里可以添加初始化逻辑
     } catch (error) {
-      logger.error('Failed to initialize Claude AI integration:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to initialize Claude AI integration:',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -69,7 +75,10 @@ export class ClaudeAIIntegration {
       this.connectedServers.add(server.name);
       logger.info(`Claude AI server ${server.name} connected and configured`);
     } catch (error) {
-      logger.error(`Failed to setup Claude AI server ${server.name}:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to setup Claude AI server ${server.name}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -91,58 +100,100 @@ export class ClaudeAIIntegration {
       this.connectedServers.delete(serverName);
       logger.info(`Claude AI server ${serverName} disconnected and cleaned up`);
     } catch (error) {
-      logger.error(`Failed to cleanup Claude AI server ${serverName}:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to cleanup Claude AI server ${serverName}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
   /**
    * 处理通道消息
    */
-  private handleChannelMessage(serverName: string, content: string, meta?: any): void {
+  private handleChannelMessage(
+    serverName: string,
+    content: string,
+    meta?: any
+  ): void {
     try {
-      logger.info(`Received Claude AI channel message from ${serverName}: ${content.slice(0, 80)}`);
+      logger.info(
+        `Received Claude AI channel message from ${serverName}: ${content.slice(0, 80)}`
+      );
       // 这里可以添加消息处理逻辑
     } catch (error) {
-      logger.error('Failed to handle channel message:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to handle channel message:',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
   /**
    * 加载Claude AI命令
    */
-  private async loadClaudeAICommands(server: ConnectedMCPServer): Promise<void> {
+  private async loadClaudeAICommands(
+    server: ConnectedMCPServer
+  ): Promise<void> {
     try {
-      const commands = await getCommandManager().loadCommandsFromServer(server.client, server.name);
+      const commands = await getCommandManager().loadCommandsFromServer(
+        server.client,
+        server.name
+      );
       mcpCacheManager.setCommandCache(server.name, commands as any);
-      logger.info(`Loaded ${commands.length} Claude AI commands from server ${server.name}`);
+      logger.info(
+        `Loaded ${commands.length} Claude AI commands from server ${server.name}`
+      );
     } catch (error) {
-      logger.error(`Failed to load Claude AI commands:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to load Claude AI commands:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
   /**
    * 加载Claude AI资源
    */
-  private async loadClaudeAIResources(server: ConnectedMCPServer): Promise<void> {
+  private async loadClaudeAIResources(
+    server: ConnectedMCPServer
+  ): Promise<void> {
     try {
-      const resources = await resourceManager.loadResourcesFromServer(server.client, server.name);
+      const resources = await resourceManager.loadResourcesFromServer(
+        server.client,
+        server.name
+      );
       mcpCacheManager.setResourceCache(server.name, resources);
-      logger.info(`Loaded ${resources.length} Claude AI resources from server ${server.name}`);
+      logger.info(
+        `Loaded ${resources.length} Claude AI resources from server ${server.name}`
+      );
     } catch (error) {
-      logger.error(`Failed to load Claude AI resources:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to load Claude AI resources:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
   /**
    * 执行Claude AI命令
    */
-  async executeClaudeAICommand(serverName: string, commandName: string, args: any): Promise<{ success: boolean; data?: any; error?: string }> {
+  async executeClaudeAICommand(
+    serverName: string,
+    commandName: string,
+    args: any
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       const fullCommandName = `${serverName}:${commandName}`;
       return await getCommandManager().executeCommand(fullCommandName, args);
     } catch (error) {
-      logger.error(`Failed to execute Claude AI command:`, error instanceof Error ? error : new Error(String(error)));
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      logger.error(
+        `Failed to execute Claude AI command:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 
@@ -165,7 +216,8 @@ export class ClaudeAIIntegration {
         servers.push({
           name: server.name,
           connected: server.type === 'connected',
-          capabilities: server.type === 'connected' ? server.capabilities : undefined
+          capabilities:
+            server.type === 'connected' ? server.capabilities : undefined,
         });
       }
     }

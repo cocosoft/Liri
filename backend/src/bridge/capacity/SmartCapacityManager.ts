@@ -39,7 +39,8 @@ export class SmartCapacityManager implements ICapacityManager {
     memoryPercent: 85,
     slotPercent: 90,
   };
-  private sessions: Map<string, { load: number; lastActive: number }> = new Map();
+  private sessions: Map<string, { load: number; lastActive: number }> =
+    new Map();
 
   registerSession(sessionId: string): void {
     this.sessions.set(sessionId, { load: 0, lastActive: Date.now() });
@@ -60,9 +61,13 @@ export class SmartCapacityManager implements ICapacityManager {
   async analyze(): Promise<CapacityStatus> {
     const totalSlots = 100;
     const usedSlots = this.sessions.size;
-    const avgLoad = usedSlots > 0
-      ? Array.from(this.sessions.values()).reduce((sum, s) => sum + s.load, 0) / usedSlots
-      : 0;
+    const avgLoad =
+      usedSlots > 0
+        ? Array.from(this.sessions.values()).reduce(
+            (sum, s) => sum + s.load,
+            0
+          ) / usedSlots
+        : 0;
 
     const cpuUsage = avgLoad * 100;
     const memoryUsage = (usedSlots / totalSlots) * 100;
@@ -97,7 +102,9 @@ export class SmartCapacityManager implements ICapacityManager {
 
   async balanceLoad(): Promise<LoadBalanceAction[]> {
     const actions: LoadBalanceAction[] = [];
-    const sorted = Array.from(this.sessions.entries()).sort((a, b) => b[1].load - a[1].load);
+    const sorted = Array.from(this.sessions.entries()).sort(
+      (a, b) => b[1].load - a[1].load
+    );
 
     if (sorted.length >= 2) {
       const highest = sorted[0];
@@ -127,9 +134,13 @@ export class SmartCapacityManager implements ICapacityManager {
 
   getMetrics(): ResourceMetrics {
     const usedSlots = this.sessions.size;
-    const avgLoad = usedSlots > 0
-      ? Array.from(this.sessions.values()).reduce((sum, s) => sum + s.load, 0) / usedSlots
-      : 0;
+    const avgLoad =
+      usedSlots > 0
+        ? Array.from(this.sessions.values()).reduce(
+            (sum, s) => sum + s.load,
+            0
+          ) / usedSlots
+        : 0;
     return {
       cpuUsage: Math.round(avgLoad * 100),
       memoryUsage: Math.round((usedSlots / 100) * 100),

@@ -1,30 +1,31 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type PowerShellOutput = {
-  command?: string
-  stdout?: string
-  stderr?: string
-  exitCode?: number
-}
+  command?: string;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ command: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  if (!input.command) return null
-  const display = input.command.length > 100
-    ? input.command.slice(0, 97) + '...'
-    : input.command
-  return <Text dimColor>{display}</Text>
+  if (!input.command) return null;
+  const display =
+    input.command.length > 100
+      ? input.command.slice(0, 97) + '...'
+      : input.command;
+  return <Text dimColor>{display}</Text>;
 }
 
 export function renderToolResultMessage(
   output: PowerShellOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { exitCode, stdout, stderr } = output
+  const { exitCode, stdout, stderr } = output;
 
   if (exitCode !== undefined && exitCode !== 0) {
     return (
@@ -36,13 +37,13 @@ export function renderToolResultMessage(
           </Box>
         ) : null}
       </Box>
-    )
+    );
   }
 
   if (verbose && stdout) {
-    const lines = stdout.split('\n')
-    const preview = lines.slice(0, 20).join('\n')
-    const truncated = lines.length > 20
+    const lines = stdout.split('\n');
+    const preview = lines.slice(0, 20).join('\n');
+    const truncated = lines.length > 20;
     return (
       <Box flexDirection="column">
         <Text>{preview}</Text>
@@ -50,20 +51,20 @@ export function renderToolResultMessage(
           <Text dimColor>... ({lines.length - 20} more lines)</Text>
         ) : null}
       </Box>
-    )
+    );
   }
 
   if (stdout) {
-    const firstLine = stdout.split('\n')[0] || ''
-    return <Text>{firstLine.slice(0, 200)}</Text>
+    const firstLine = stdout.split('\n')[0] || '';
+    return <Text>{firstLine.slice(0, 200)}</Text>;
   }
 
-  return <Text dimColor>Command completed</Text>
+  return <Text dimColor>Command completed</Text>;
 }
 
 export function getToolUseSummary(
-  input: Partial<{ command: string }> | undefined,
+  input: Partial<{ command: string }> | undefined
 ): string | null {
-  if (!input?.command) return null
-  return input.command.slice(0, 80)
+  if (!input?.command) return null;
+  return input.command.slice(0, 80);
 }

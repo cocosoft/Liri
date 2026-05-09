@@ -101,7 +101,9 @@ export class TaskService {
    * @returns 任务ID
    */
   create(options: TaskOptions): string {
-    const id = options.id || `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id =
+      options.id ||
+      `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     this.store.setState((prev: AppState) => {
       const newTask = {
@@ -201,7 +203,9 @@ export class TaskService {
         error: error instanceof Error ? error.message : String(error),
       };
 
-      const currentTask = this.store.getState().tasks[taskId] as unknown as Task | undefined;
+      const currentTask = this.store.getState().tasks[taskId] as unknown as
+        | Task
+        | undefined;
       const retries = (currentTask?.retries || 0) + 1;
       const maxRetries = currentTask?.maxRetries || 0;
 
@@ -231,7 +235,9 @@ export class TaskService {
    * @param taskId 任务ID
    */
   cancel(taskId: string): void {
-    const task = this.store.getState().tasks[taskId] as unknown as Task | undefined;
+    const task = this.store.getState().tasks[taskId] as unknown as
+      | Task
+      | undefined;
 
     if (!task) {
       throw new Error(`Task not found: ${taskId}`);
@@ -253,7 +259,9 @@ export class TaskService {
    * @returns 任务状态
    */
   getStatus(taskId: string): TaskStatus | undefined {
-    const task = this.store.getState().tasks[taskId] as unknown as Task | undefined;
+    const task = this.store.getState().tasks[taskId] as unknown as
+      | Task
+      | undefined;
     return task?.status;
   }
 
@@ -271,7 +279,9 @@ export class TaskService {
    */
   getPendingTasks(): Task[] {
     const tasks = this.store.getState().tasks;
-    return Object.values(tasks).filter((task: any) => task.status === TaskStatus.PENDING) as unknown as Task[];
+    return Object.values(tasks).filter(
+      (task: any) => task.status === TaskStatus.PENDING
+    ) as unknown as Task[];
   }
 
   /**
@@ -280,7 +290,9 @@ export class TaskService {
    */
   getRunningTasks(): Task[] {
     const tasks = this.store.getState().tasks;
-    return Object.values(tasks).filter((task: any) => task.status === TaskStatus.RUNNING) as unknown as Task[];
+    return Object.values(tasks).filter(
+      (task: any) => task.status === TaskStatus.RUNNING
+    ) as unknown as Task[];
   }
 
   /**

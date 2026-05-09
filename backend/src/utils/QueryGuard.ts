@@ -16,10 +16,7 @@ const DEFAULT_CONFIG: QueryGuardConfig = {
   maxContextLength: 200_000,
   maxToolCallsPerTurn: 50,
   maxConsecutiveErrors: 5,
-  blockedPatterns: [
-    /[^\x00-\x7F]{100,}/,
-    /\0/g,
-  ],
+  blockedPatterns: [/[^\x00-\x7F]{100,}/, /\0/g],
 };
 
 export class QueryGuard {
@@ -33,21 +30,33 @@ export class QueryGuard {
 
   validatePrompt(prompt: string): { valid: boolean; reason?: string } {
     if (prompt.length > this.config.maxPromptLength) {
-      return { valid: false, reason: `Prompt too long (${prompt.length} chars, max ${this.config.maxPromptLength})` };
+      return {
+        valid: false,
+        reason: `Prompt too long (${prompt.length} chars, max ${this.config.maxPromptLength})`,
+      };
     }
 
     for (const pattern of this.config.blockedPatterns) {
       if (pattern.test(prompt)) {
-        return { valid: false, reason: `Prompt matches blocked pattern: ${pattern}` };
+        return {
+          valid: false,
+          reason: `Prompt matches blocked pattern: ${pattern}`,
+        };
       }
     }
 
     return { valid: true };
   }
 
-  checkToolCallLimit(currentCount: number): { allowed: boolean; reason?: string } {
+  checkToolCallLimit(currentCount: number): {
+    allowed: boolean;
+    reason?: string;
+  } {
     if (currentCount >= this.config.maxToolCallsPerTurn) {
-      return { allowed: false, reason: `Tool call limit reached: ${this.config.maxToolCallsPerTurn}` };
+      return {
+        allowed: false,
+        reason: `Tool call limit reached: ${this.config.maxToolCallsPerTurn}`,
+      };
     }
     return { allowed: true };
   }

@@ -22,7 +22,7 @@ export interface InputBufferActions {
   pushToBuffer: (
     text: string,
     cursorOffset: number,
-    pastedContents?: Record<number, { content: string; timestamp: number }>,
+    pastedContents?: Record<number, { content: string; timestamp: number }>
   ) => void;
   undo: () => BufferEntry | undefined;
   canUndo: () => boolean;
@@ -37,8 +37,12 @@ let lastPushTime = 0;
 
 export function createInputBufferStore(
   maxBufferSize: number = 100,
-  debounceMs: number = 100,
-): Omit<InputBufferStore, 'pushToBuffer' | 'undo' | 'canUndo' | 'clearBuffer' | 'reset'> & InputBufferActions {
+  debounceMs: number = 100
+): Omit<
+  InputBufferStore,
+  'pushToBuffer' | 'undo' | 'canUndo' | 'clearBuffer' | 'reset'
+> &
+  InputBufferActions {
   let state: InputBufferState = {
     entries: [],
     currentIndex: -1,
@@ -57,7 +61,7 @@ export function createInputBufferStore(
   const pushToBuffer = (
     text: string,
     cursorOffset: number,
-    pastedContents: Record<number, { content: string; timestamp: number }> = {},
+    pastedContents: Record<number, { content: string; timestamp: number }> = {}
   ) => {
     const now = Date.now();
 
@@ -98,7 +102,10 @@ export function createInputBufferStore(
       newEntries = updatedBuffer;
     }
 
-    const newIndex = currentState.currentIndex >= 0 ? currentState.currentIndex + 1 : currentState.entries.length;
+    const newIndex =
+      currentState.currentIndex >= 0
+        ? currentState.currentIndex + 1
+        : currentState.entries.length;
 
     state = {
       ...currentState,
@@ -150,10 +157,18 @@ export function createInputBufferStore(
   };
 
   return {
-    get entries() { return getState().entries; },
-    get currentIndex() { return getState().currentIndex; },
-    get maxBufferSize() { return getState().maxBufferSize; },
-    get debounceMs() { return getState().debounceMs; },
+    get entries() {
+      return getState().entries;
+    },
+    get currentIndex() {
+      return getState().currentIndex;
+    },
+    get maxBufferSize() {
+      return getState().maxBufferSize;
+    },
+    get debounceMs() {
+      return getState().debounceMs;
+    },
     pushToBuffer,
     undo,
     canUndo,
@@ -162,9 +177,13 @@ export function createInputBufferStore(
   };
 }
 
-let defaultInputBufferInstance: ReturnType<typeof createInputBufferStore> | null = null;
+let defaultInputBufferInstance: ReturnType<
+  typeof createInputBufferStore
+> | null = null;
 
-export function getDefaultInputBuffer(): ReturnType<typeof createInputBufferStore> {
+export function getDefaultInputBuffer(): ReturnType<
+  typeof createInputBufferStore
+> {
   if (!defaultInputBufferInstance) {
     defaultInputBufferInstance = createInputBufferStore();
   }

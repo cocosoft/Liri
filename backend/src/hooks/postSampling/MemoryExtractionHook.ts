@@ -7,7 +7,10 @@ import type {
   PostSamplingHook,
   PostSamplingHookContext,
 } from '../types/PostSampling';
-import { extractMemories, type MemoryType } from '@modules/services/extractMemories';
+import {
+  extractMemories,
+  type MemoryType,
+} from '@modules/services/extractMemories';
 
 /**
  * 记忆提取选项
@@ -74,13 +77,13 @@ export function createMemoryExtractionHook(
         const messages = context.messages.map((m: any) => ({
           role: m.role || 'unknown',
           content: m.content || '',
-        }))
+        }));
 
-        const result = await extractMemories.extract(messages, sessionId)
+        const result = await extractMemories.extract(messages, sessionId);
 
         if (result.stats.newCount > 0 && memoryManager) {
           for (const memory of result.memories) {
-            if (extractedCount >= maxMemories) break
+            if (extractedCount >= maxMemories) break;
             await saveToMemory(
               {
                 name: 'ExtractMemories',
@@ -92,9 +95,9 @@ export function createMemoryExtractionHook(
                 },
               },
               sessionId,
-              memoryManager,
-            )
-            extractedCount++
+              memoryManager
+            );
+            extractedCount++;
           }
         }
       } catch {

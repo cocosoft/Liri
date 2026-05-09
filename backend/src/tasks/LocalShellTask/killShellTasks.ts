@@ -11,6 +11,9 @@ import { TaskStatus } from '../types';
 import { taskRegistry } from '../TaskRegistry';
 import { isLocalShellTask } from './guards';
 import type { LocalShellTaskState } from './guards';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 终止指定 ID 的 shell 任务
@@ -28,7 +31,7 @@ export function killTask(taskId: string): void {
   }
 
   task.kill().catch((error: Error) => {
-    console.error(`killTask: failed to kill shell task ${taskId}:`, error.message);
+    logger.error(`killTask: failed to kill shell task ${taskId}`, error);
   });
 }
 
@@ -48,9 +51,9 @@ export function killShellTasksForAgent(agentId: string): void {
       state.agentId === agentId &&
       state.status === TaskStatus.RUNNING
     ) {
-      console.log(
+      logger.info(
         `killShellTasksForAgent: killing orphaned shell task ${task.id} ` +
-        `(agent ${agentId} exiting)`
+          `(agent ${agentId} exiting)`
       );
       killTask(task.id);
     }

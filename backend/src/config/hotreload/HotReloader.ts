@@ -19,7 +19,10 @@ export interface ReloadResult {
 }
 
 export type ReloadListener = (event: ReloadEvent) => void;
-export type ReloadErrorListener = (error: Error, previousConfig: Record<string, any>) => void;
+export type ReloadErrorListener = (
+  error: Error,
+  previousConfig: Record<string, any>
+) => void;
 
 export interface HotReloadConfig {
   strategy: ReloadStrategy;
@@ -85,10 +88,14 @@ export class HotReloader {
     this.watchPaths.add(filePath);
 
     if (this.config.strategy === 'watch' && this.config.enableRollback) {
-      watchFile(filePath, { interval: this.config.pollInterval, persistent: false }, (curr: Stats, prev: Stats) => {
-        if (curr.mtimeMs <= prev.mtimeMs) return;
-        this.scheduleReload(filePath);
-      });
+      watchFile(
+        filePath,
+        { interval: this.config.pollInterval, persistent: false },
+        (curr: Stats, prev: Stats) => {
+          if (curr.mtimeMs <= prev.mtimeMs) return;
+          this.scheduleReload(filePath);
+        }
+      );
     }
   }
 
@@ -109,7 +116,11 @@ export class HotReloader {
 
   async triggerReload(source: string): Promise<ReloadResult> {
     if (this.isReloading) {
-      return { success: false, error: 'Reload already in progress', duration: 0 };
+      return {
+        success: false,
+        error: 'Reload already in progress',
+        duration: 0,
+      };
     }
 
     const startTime = Date.now();
@@ -147,7 +158,10 @@ export class HotReloader {
       this.isReloading = false;
       return { success: true, event, duration: Date.now() - startTime };
     } catch (error) {
-      if (this.config.enableRollback && Object.keys(this.previousConfig).length > 0) {
+      if (
+        this.config.enableRollback &&
+        Object.keys(this.previousConfig).length > 0
+      ) {
         this.currentConfig = { ...this.previousConfig };
         this.rollbackCount++;
         this.notifyError(error as Error, this.previousConfig);
@@ -162,7 +176,11 @@ export class HotReloader {
     }
   }
 
-  private detectChanges(oldCfg: Record<string, any>, newCfg: Record<string, any>, prefix = ''): string[] {
+  private detectChanges(
+    oldCfg: Record<string, any>,
+    newCfg: Record<string, any>,
+    prefix = ''
+  ): string[] {
     const changes: string[] = [];
     const allKeys = new Set([...Object.keys(oldCfg), ...Object.keys(newCfg)]);
 
@@ -175,7 +193,14 @@ export class HotReloader {
         changes.push(fullKey);
       } else if (newVal === undefined && oldVal !== undefined) {
         changes.push(fullKey);
-      } else if (typeof oldVal === 'object' && typeof newVal === 'object' && oldVal !== null && newVal !== null && !Array.isArray(oldVal) && !Array.isArray(newVal)) {
+      } else if (
+        typeof oldVal === 'object' &&
+        typeof newVal === 'object' &&
+        oldVal !== null &&
+        newVal !== null &&
+        !Array.isArray(oldVal) &&
+        !Array.isArray(newVal)
+      ) {
         changes.push(...this.detectChanges(oldVal, newVal, fullKey));
       } else if (oldVal !== newVal) {
         changes.push(fullKey);

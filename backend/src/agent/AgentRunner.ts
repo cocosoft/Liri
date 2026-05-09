@@ -6,13 +6,23 @@ import { randomUUID } from 'crypto';
 import { AgentSwarmManager, SwarmTask, SwarmResult } from './swarms';
 import { feature } from '../core/featureFlags';
 
-export type SubagentType = 'general-purpose' | 'code-review' | 'test-writer' | 'custom';
+export type SubagentType =
+  | 'general-purpose'
+  | 'code-review'
+  | 'test-writer'
+  | 'custom';
 
 export type AgentModel = 'sonnet' | 'opus' | 'haiku';
 
 export type AgentIsolation = 'worktree' | 'remote' | 'none';
 
-export type AgentState = 'pending' | 'running' | 'completed' | 'failed' | 'aborted' | 'background';
+export type AgentState =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'aborted'
+  | 'background';
 
 export interface AgentTaskInput {
   description: string;
@@ -76,7 +86,10 @@ export class AgentRunner {
     }
   }
 
-  createProgress(agentId: string, message: string = 'Starting...'): AgentProgress {
+  createProgress(
+    agentId: string,
+    message: string = 'Starting...'
+  ): AgentProgress {
     const progress: AgentProgress = {
       agentId,
       state: 'pending',
@@ -88,7 +101,10 @@ export class AgentRunner {
     return progress;
   }
 
-  updateProgress(agentId: string, update: Partial<AgentProgress>): AgentProgress | null {
+  updateProgress(
+    agentId: string,
+    update: Partial<AgentProgress>
+  ): AgentProgress | null {
     const p = this.activeAgents.get(agentId);
     if (!p) return null;
     Object.assign(p, update);
@@ -101,7 +117,7 @@ export class AgentRunner {
     result: string,
     tokensUsed: number = 0,
     costUSD: number = 0,
-    state: AgentState = 'completed',
+    state: AgentState = 'completed'
   ): AgentSummary {
     const progress = this.activeAgents.get(agentId);
     const durationMs = progress ? Date.now() - progress.startTime : 0;
@@ -123,7 +139,7 @@ export class AgentRunner {
   shouldAutoBackground(agentId: string): boolean {
     const p = this.activeAgents.get(agentId);
     if (!p || p.state !== 'running') return false;
-    return (Date.now() - p.startTime) > AUTO_BACKGROUND_MS;
+    return Date.now() - p.startTime > AUTO_BACKGROUND_MS;
   }
 
   isBackgroundTasksDisabled(): boolean {
@@ -160,8 +176,8 @@ export class AgentRunner {
     const results = await this.swarmManager.execute(tasks, options);
     const totalDurationMs = Date.now() - startTime;
 
-    const completedTasks = results.filter(r => r.success).length;
-    const failedTasks = results.filter(r => !r.success).length;
+    const completedTasks = results.filter((r) => r.success).length;
+    const failedTasks = results.filter((r) => !r.success).length;
 
     return {
       results,

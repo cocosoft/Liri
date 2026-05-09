@@ -6,6 +6,9 @@
 
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole, ContentBlockType } from '@modules/chat/types/message';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface ToolInfo {
   name: string;
@@ -40,7 +43,8 @@ export class ToolUseSummaryService {
   async generateToolUseSummary(
     params: GenerateToolUseSummaryParams
   ): Promise<string | null> {
-    const { tools, signal, isNonInteractiveSession, lastAssistantText } = params;
+    const { tools, signal, isNonInteractiveSession, lastAssistantText } =
+      params;
 
     if (tools.length === 0) {
       return null;
@@ -74,15 +78,22 @@ export class ToolUseSummaryService {
       });
 
       const summary = response.message.content
-        .filter((block: { type: string; text?: string }) => block.type === 'text')
-        .map((block: { type: string; text?: string }) => (block.type === 'text' ? block.text : ''))
+        .filter(
+          (block: { type: string; text?: string }) => block.type === 'text'
+        )
+        .map((block: { type: string; text?: string }) =>
+          block.type === 'text' ? block.text : ''
+        )
         .join('')
         .trim();
 
       return summary || null;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[ToolUseSummaryService] Failed to generate summary: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(
+        `[ToolUseSummaryService] Failed to generate summary: ${errorMessage}`
+      );
       return null;
     }
   }
@@ -115,10 +126,7 @@ export class ToolUseSummaryService {
     }
   }
 
-  createToolUseSummaryMessage(
-    summary: string,
-    toolUseIds: string[]
-  ): Message {
+  createToolUseSummaryMessage(summary: string, toolUseIds: string[]): Message {
     return {
       id: `tool_use_summary_${Date.now()}`,
       role: MessageRole.USER,

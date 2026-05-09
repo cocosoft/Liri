@@ -8,7 +8,10 @@ import type { MiniAgentResult, RouteTarget } from './types.js';
 import { MiniAgent } from './MiniAgent.js';
 import type { MiniAgentConfig } from './types.js';
 import { createMiniAgent } from './MiniAgent.js';
-import { createMetricsCollector, type MetricsCollector } from './MetricsCollector.js';
+import {
+  createMetricsCollector,
+  type MetricsCollector,
+} from './MetricsCollector.js';
 import { createSkillProvider, type SkillProvider } from './SkillProvider.js';
 
 export interface QueryEngineIntegrationConfig {
@@ -69,7 +72,10 @@ export class QueryEngineIntegrationAdapter {
     return this.enabled && this.miniAgent !== null;
   }
 
-  async process(input: string, messages?: ChatMessage[]): Promise<IntegrationResult> {
+  async process(
+    input: string,
+    messages?: ChatMessage[]
+  ): Promise<IntegrationResult> {
     if (!this.isEnabled()) {
       return { handled: false, shouldContinueToQueryEngine: true };
     }
@@ -118,7 +124,12 @@ export class QueryEngineIntegrationAdapter {
       const latencyMs = Date.now() - startTime;
 
       if (this.config.enableMetrics) {
-        this.metricsCollector.recordRequest('cloud', latencyMs, false, input.length);
+        this.metricsCollector.recordRequest(
+          'cloud',
+          latencyMs,
+          false,
+          input.length
+        );
       }
 
       return {
@@ -162,7 +173,11 @@ export class QueryEngineIntegrationAdapter {
     this.metricsCollector.reset();
   }
 
-  getMetrics(): { totalRequests: number; averageLatencyMs: number; routeEfficiency: number } {
+  getMetrics(): {
+    totalRequests: number;
+    averageLatencyMs: number;
+    routeEfficiency: number;
+  } {
     const metrics = this.metricsCollector.getMetrics();
     const efficiency = this.metricsCollector.getRouteEfficiency();
     return {
@@ -177,7 +192,9 @@ let globalIntegrationAdapter: QueryEngineIntegrationAdapter | null = null;
 
 export function getGlobalIntegrationAdapter(): QueryEngineIntegrationAdapter {
   if (!globalIntegrationAdapter) {
-    globalIntegrationAdapter = new QueryEngineIntegrationAdapter({ enabled: false });
+    globalIntegrationAdapter = new QueryEngineIntegrationAdapter({
+      enabled: false,
+    });
   }
   return globalIntegrationAdapter;
 }

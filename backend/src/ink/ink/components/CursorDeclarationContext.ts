@@ -1,14 +1,14 @@
-import { createContext } from 'react'
-import type { DOMElement } from '../dom.js'
+import { createContext } from 'react';
+import type { DOMElement } from '../dom.js';
 
 export type CursorDeclaration = {
   /** Display column (terminal cell width) within the declared node */
-  readonly relativeX: number
+  readonly relativeX: number;
   /** Line number within the declared node */
-  readonly relativeY: number
+  readonly relativeY: number;
   /** The ink-box DOMElement whose yoga layout provides the absolute origin */
-  readonly node: DOMElement
-}
+  readonly node: DOMElement;
+};
 
 /**
  * Setter for the declared cursor position.
@@ -22,11 +22,11 @@ export type CursorDeclaration = {
  */
 export type CursorDeclarationSetter = (
   declaration: CursorDeclaration | null,
-  clearIfNode?: DOMElement | null,
-) => void
+  clearIfNode?: DOMElement | null
+) => void;
 
 const CursorDeclarationContext = createContext<CursorDeclarationSetter>(
-  () => {},
-)
+  () => {}
+);
 
-export default CursorDeclarationContext
+export default CursorDeclarationContext;

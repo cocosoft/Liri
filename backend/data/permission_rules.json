@@ -295,5 +295,41 @@
     "priority": 1,
     "createdAt": "2026-05-03T23:00:25.359Z",
     "updatedAt": "2026-05-03T23:00:25.359Z"
+  },
+  {
+    "id": "rule_1778298788659_lmbq85tvp",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T03:53:08.659Z",
+    "updatedAt": "2026-05-09T03:53:08.659Z"
+  },
+  {
+    "id": "rule_1778298797756_9rggneom3",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T03:53:17.756Z",
+    "updatedAt": "2026-05-09T03:53:17.756Z"
+  },
+  {
+    "id": "rule_1778299085616_624n4sir3",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T03:58:05.616Z",
+    "updatedAt": "2026-05-09T03:58:05.616Z"
+  },
+  {
+    "id": "rule_1778299103619_lnpa6znrl",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T03:58:23.619Z",
+    "updatedAt": "2026-05-09T03:58:23.619Z"
   }
 ]

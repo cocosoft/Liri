@@ -1,4 +1,7 @@
 import type { Memory } from '@modules/memory/types/Memory';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 团队记忆同步状态
@@ -65,7 +68,7 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
    */
   async syncTeamMemory(): Promise<boolean> {
     try {
-      console.log('[TeamMemorySync] Starting sync...');
+      logger.info('[TeamMemorySync] Starting sync...');
 
       // 模拟同步过程
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -76,10 +79,13 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
       this.syncState.pendingSync = [];
       this.syncState.failedSync = [];
 
-      console.log('[TeamMemorySync] Sync completed successfully');
+      logger.info('[TeamMemorySync] Sync completed successfully');
       return true;
     } catch (error) {
-      console.error('[TeamMemorySync] Sync failed:', error);
+      logger.error(
+        '[TeamMemorySync] Sync failed',
+        error instanceof Error ? error : new Error(String(error))
+      );
       this.syncState.lastError = (error as Error).message;
       return false;
     }
@@ -112,7 +118,7 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
     resolution: 'keep_local' | 'keep_remote'
   ): Promise<boolean> {
     try {
-      console.log(
+      logger.info(
         `[TeamMemorySync] Resolving conflict for memory ${memoryId} with resolution: ${resolution}`
       );
 
@@ -127,7 +133,10 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
 
       return true;
     } catch (error) {
-      console.error('[TeamMemorySync] Conflict resolution failed:', error);
+      logger.error(
+        '[TeamMemorySync] Conflict resolution failed',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return false;
     }
   }
@@ -147,7 +156,7 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
    */
   async shareMemoryToTeam(memoryId: string): Promise<boolean> {
     try {
-      console.log(`[TeamMemorySync] Sharing memory ${memoryId} to team`);
+      logger.info(`[TeamMemorySync] Sharing memory ${memoryId} to team`);
 
       // 模拟分享过程
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -157,7 +166,10 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
 
       return true;
     } catch (error) {
-      console.error('[TeamMemorySync] Share to team failed:', error);
+      logger.error(
+        '[TeamMemorySync] Share to team failed',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return false;
     }
   }
@@ -169,7 +181,7 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
    */
   async getMemoryFromTeam(memoryId: string): Promise<Memory | null> {
     try {
-      console.log(`[TeamMemorySync] Getting memory ${memoryId} from team`);
+      logger.info(`[TeamMemorySync] Getting memory ${memoryId} from team`);
 
       // 模拟获取过程
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -179,7 +191,10 @@ export class TeamMemorySyncServiceImpl implements TeamMemorySyncService {
 
       return memory || null;
     } catch (error) {
-      console.error('[TeamMemorySync] Get from team failed:', error);
+      logger.error(
+        '[TeamMemorySync] Get from team failed',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   }

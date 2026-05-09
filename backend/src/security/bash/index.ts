@@ -4,7 +4,7 @@ export {
   type IParsedCommand,
   type CommandSegment,
   type OutputRedirection,
-} from './ParsedCommand'
+} from './ParsedCommand';
 
 export {
   analyzeBashCommand,
@@ -18,7 +18,7 @@ export {
   type CommandArg,
   type RedirectInfo,
   type EnvAssignment,
-} from './BashAST'
+} from './BashAST';
 
 export {
   extractHeredocs,
@@ -27,7 +27,7 @@ export {
   isHeredocSafe,
   type HeredocInfo,
   type HeredocExtractionResult,
-} from './HeredocHandler'
+} from './HeredocHandler';
 
 export {
   classifyCommand,
@@ -37,7 +37,7 @@ export {
   getCommandsByCategory,
   type CommandCategory,
   type CommandEntry,
-} from './CommandRegistry'
+} from './CommandRegistry';
 
 export {
   parseCompletionContext,
@@ -47,7 +47,7 @@ export {
   type CompletionType,
   type CompletionContext,
   type CompletionItem,
-} from './ShellCompletion'
+} from './ShellCompletion';
 
 export {
   quoteArg,
@@ -60,7 +60,7 @@ export {
   escapeForDoubleQuotes,
   type QuoteResult,
   type UnquoteResult,
-} from './QuoteHandler'
+} from './QuoteHandler';
 
 // 新增：安全分析（基于CC源码 AST模式）
 export {
@@ -71,4 +71,4 @@ export {
   type SimpleCommand,
   type Redirect,
   type ParseForSecurityResult,
-} from './BashAST'
+} from './BashAST';

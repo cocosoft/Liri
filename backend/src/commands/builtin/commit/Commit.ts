@@ -83,7 +83,6 @@ export class CommitCommand {
       }
 
       return await this.executeCommit(message, options);
-
     } catch (error) {
       return {
         type: 'text',
@@ -147,8 +146,15 @@ export class CommitCommand {
    */
   private async getGitInfo(): Promise<GitInfo> {
     try {
-      const [branchResult, stagedResult, modifiedResult, untrackedResult,
-             stagedDiffResult, fullDiffResult, recentResult] = await Promise.all([
+      const [
+        branchResult,
+        stagedResult,
+        modifiedResult,
+        untrackedResult,
+        stagedDiffResult,
+        fullDiffResult,
+        recentResult,
+      ] = await Promise.all([
         this.execGit('git branch --show-current'),
         this.execGit('git diff --cached --name-only'),
         this.execGit('git diff --name-only'),
@@ -160,12 +166,20 @@ export class CommitCommand {
 
       return {
         branch: branchResult || 'unknown',
-        stagedFiles: stagedResult ? stagedResult.split('\n').filter(Boolean) : [],
-        modifiedFiles: modifiedResult ? modifiedResult.split('\n').filter(Boolean) : [],
-        untrackedFiles: untrackedResult ? untrackedResult.split('\n').filter(Boolean) : [],
+        stagedFiles: stagedResult
+          ? stagedResult.split('\n').filter(Boolean)
+          : [],
+        modifiedFiles: modifiedResult
+          ? modifiedResult.split('\n').filter(Boolean)
+          : [],
+        untrackedFiles: untrackedResult
+          ? untrackedResult.split('\n').filter(Boolean)
+          : [],
         stagedDiff: stagedDiffResult || '',
         fullDiff: fullDiffResult || '',
-        recentCommits: recentResult ? recentResult.split('\n').filter(Boolean) : [],
+        recentCommits: recentResult
+          ? recentResult.split('\n').filter(Boolean)
+          : [],
       };
     } catch (error) {
       throw new Error('无法获取Git信息，请确保在Git仓库中');
@@ -220,7 +234,11 @@ export class CommitCommand {
       output += '\n';
     }
 
-    if (info.stagedFiles.length === 0 && info.modifiedFiles.length === 0 && info.untrackedFiles.length === 0) {
+    if (
+      info.stagedFiles.length === 0 &&
+      info.modifiedFiles.length === 0 &&
+      info.untrackedFiles.length === 0
+    ) {
       output += '没有发现任何变更。\n';
     }
 
@@ -238,10 +256,15 @@ export class CommitCommand {
   private async showInteractiveMode(): Promise<CommitResult> {
     const info = await this.getGitInfo();
 
-    if (info.stagedFiles.length === 0 && info.modifiedFiles.length === 0 && info.untrackedFiles.length === 0) {
+    if (
+      info.stagedFiles.length === 0 &&
+      info.modifiedFiles.length === 0 &&
+      info.untrackedFiles.length === 0
+    ) {
       return {
         type: 'text',
-        value: '没有发现任何变更。请先使用 git add 添加文件。\n\n提示：\n  /commit --status    - 查看详细状态\n  /commit --all       - 暂存所有已跟踪文件的变更',
+        value:
+          '没有发现任何变更。请先使用 git add 添加文件。\n\n提示：\n  /commit --status    - 查看详细状态\n  /commit --all       - 暂存所有已跟踪文件的变更',
       };
     }
 
@@ -344,13 +367,17 @@ export class CommitCommand {
   /**
    * 执行提交
    */
-  private async executeCommit(message: string, options: CommitOptions): Promise<CommitResult> {
+  private async executeCommit(
+    message: string,
+    options: CommitOptions
+  ): Promise<CommitResult> {
     const info = await this.getGitInfo();
 
     if (info.stagedFiles.length === 0 && !options.all) {
       return {
         type: 'text',
-        value: '没有已暂存的文件。请先使用 git add 添加文件。\n\n提示：\n  /commit --all "提交信息"  - 暂存所有已跟踪文件的变更并提交',
+        value:
+          '没有已暂存的文件。请先使用 git add 添加文件。\n\n提示：\n  /commit --all "提交信息"  - 暂存所有已跟踪文件的变更并提交',
       };
     }
 
@@ -385,14 +412,14 @@ export class CommitCommand {
       }
 
       return { type: 'text', value: output };
-
     } catch (error: any) {
       const errorMessage = error.stderr || error.message;
 
       if (errorMessage.includes('nothing to commit')) {
         return {
           type: 'text',
-          value: '没有变更需要提交。\n\n提示：\n  /commit --status    - 查看当前状态\n  /commit --all       - 暂存所有变更',
+          value:
+            '没有变更需要提交。\n\n提示：\n  /commit --status    - 查看当前状态\n  /commit --all       - 暂存所有变更',
         };
       }
 
@@ -406,7 +433,8 @@ export class CommitCommand {
       if (errorMessage.includes('please tell me who you are')) {
         return {
           type: 'text',
-          value: 'Git用户信息未配置。请先配置：\n\n  git config --global user.name "你的名字"\n  git config --global user.email "your.email@example.com"',
+          value:
+            'Git用户信息未配置。请先配置：\n\n  git config --global user.name "你的名字"\n  git config --global user.email "your.email@example.com"',
         };
       }
 

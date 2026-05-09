@@ -36,25 +36,47 @@ export class ErrorUtils {
 
     // 根据错误信息判断分类
     const errorMessage = error.message.toLowerCase();
-    if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('connection')) {
+    if (
+      errorMessage.includes('network') ||
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('connection')
+    ) {
       return ErrorCategory.NETWORK;
     }
-    if (errorMessage.includes('file') || errorMessage.includes('fs') || errorMessage.includes('path')) {
+    if (
+      errorMessage.includes('file') ||
+      errorMessage.includes('fs') ||
+      errorMessage.includes('path')
+    ) {
       return ErrorCategory.FILESYSTEM;
     }
-    if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+    if (
+      errorMessage.includes('permission') ||
+      errorMessage.includes('access')
+    ) {
       return ErrorCategory.PERMISSION;
     }
-    if (errorMessage.includes('validation') || errorMessage.includes('invalid') || errorMessage.includes('required')) {
+    if (
+      errorMessage.includes('validation') ||
+      errorMessage.includes('invalid') ||
+      errorMessage.includes('required')
+    ) {
       return ErrorCategory.VALIDATION;
     }
-    if (errorMessage.includes('config') || errorMessage.includes('configuration')) {
+    if (
+      errorMessage.includes('config') ||
+      errorMessage.includes('configuration')
+    ) {
       return ErrorCategory.CONFIGURATION;
     }
     if (errorMessage.includes('api') || errorMessage.includes('http')) {
       return ErrorCategory.API;
     }
-    if (errorMessage.includes('database') || errorMessage.includes('db') || errorMessage.includes('sql')) {
+    if (
+      errorMessage.includes('database') ||
+      errorMessage.includes('db') ||
+      errorMessage.includes('sql')
+    ) {
       return ErrorCategory.DATABASE;
     }
 
@@ -80,13 +102,16 @@ export class ErrorUtils {
    * @param maxFrames 最大帧数
    * @returns 错误堆栈
    */
-  static extractErrorStack(error: Error, maxFrames: number = 5): string | undefined {
+  static extractErrorStack(
+    error: Error,
+    maxFrames: number = 5
+  ): string | undefined {
     if (!error.stack) return undefined;
-    
+
     const lines = error.stack.split('\n');
     const header = lines[0] ?? error.message;
-    const frames = lines.slice(1).filter(l => l.trim().startsWith('at '));
-    
+    const frames = lines.slice(1).filter((l) => l.trim().startsWith('at '));
+
     if (frames.length <= maxFrames) return error.stack;
     return [header, ...frames.slice(0, maxFrames)].join('\n');
   }
@@ -169,13 +194,23 @@ export class ErrorUtils {
    * @returns 清理后的上下文
    */
   static sanitizeContext(context: Record<string, any>): Record<string, any> {
-    const sensitiveKeys = ['password', 'token', 'apiKey', 'secret', 'credential', 'auth', 'key'];
+    const sensitiveKeys = [
+      'password',
+      'token',
+      'apiKey',
+      'secret',
+      'credential',
+      'auth',
+      'key',
+    ];
     const safeContext: Record<string, any> = {};
 
     for (const [key, value] of Object.entries(context)) {
-      if (sensitiveKeys.some(sensitiveKey => 
-        key.toLowerCase().includes(sensitiveKey.toLowerCase())
-      )) {
+      if (
+        sensitiveKeys.some((sensitiveKey) =>
+          key.toLowerCase().includes(sensitiveKey.toLowerCase())
+        )
+      ) {
         safeContext[key] = '***REDACTED***';
       } else if (typeof value === 'object' && value !== null) {
         safeContext[key] = this.sanitizeContext(value as Record<string, any>);
@@ -218,7 +253,7 @@ export class ErrorUtils {
    * @returns 合并后的错误信息
    */
   static mergeErrors(errors: Error[]): string {
-    return errors.map(error => this.formatError(error)).join('; ');
+    return errors.map((error) => this.formatError(error)).join('; ');
   }
 
   /**
@@ -241,7 +276,7 @@ export class ErrorUtils {
         category: error.category,
         severity: error.severity,
         code: error.code,
-        context: error.context
+        context: error.context,
       };
     }
 
@@ -249,7 +284,7 @@ export class ErrorUtils {
       message: error.message || 'Unknown error',
       stack: error.stack,
       category: this.categorizeError(error),
-      severity: this.getErrorSeverity(error)
+      severity: this.getErrorSeverity(error),
     };
   }
 
@@ -259,7 +294,12 @@ export class ErrorUtils {
    * @returns 错误代码
    */
   static getErrnoCode(error: unknown): string | undefined {
-    if (error && typeof error === 'object' && 'code' in error && typeof (error as any).code === 'string') {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      typeof (error as any).code === 'string'
+    ) {
       return (error as any).code;
     }
     return undefined;
@@ -336,7 +376,12 @@ export class ErrorUtils {
    * @returns 路径
    */
   static getErrnoPath(error: unknown): string | undefined {
-    if (error && typeof error === 'object' && 'path' in error && typeof (error as any).path === 'string') {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'path' in error &&
+      typeof (error as any).path === 'string'
+    ) {
       return (error as any).path;
     }
     return undefined;
@@ -349,7 +394,11 @@ export class ErrorUtils {
    * @param context 上下文
    * @returns NetworkError
    */
-  static createNetworkError(message: string, code?: string, context?: Record<string, any>): NetworkError {
+  static createNetworkError(
+    message: string,
+    code?: string,
+    context?: Record<string, any>
+  ): NetworkError {
     return new NetworkError(message, ErrorSeverity.MEDIUM, code, context);
   }
 
@@ -360,7 +409,11 @@ export class ErrorUtils {
    * @param context 上下文
    * @returns FileSystemError
    */
-  static createFileSystemError(message: string, code?: string, context?: Record<string, any>): FileSystemError {
+  static createFileSystemError(
+    message: string,
+    code?: string,
+    context?: Record<string, any>
+  ): FileSystemError {
     return new FileSystemError(message, ErrorSeverity.MEDIUM, code, context);
   }
 
@@ -371,7 +424,11 @@ export class ErrorUtils {
    * @param context 上下文
    * @returns PermissionError
    */
-  static createPermissionError(message: string, code?: string, context?: Record<string, any>): PermissionError {
+  static createPermissionError(
+    message: string,
+    code?: string,
+    context?: Record<string, any>
+  ): PermissionError {
     return new PermissionError(message, ErrorSeverity.HIGH, code, context);
   }
 
@@ -382,7 +439,11 @@ export class ErrorUtils {
    * @param context 上下文
    * @returns ValidationError
    */
-  static createValidationError(message: string, code?: string, context?: Record<string, any>): ValidationError {
+  static createValidationError(
+    message: string,
+    code?: string,
+    context?: Record<string, any>
+  ): ValidationError {
     return new ValidationError(message, ErrorSeverity.LOW, code, context);
   }
 
@@ -393,7 +454,11 @@ export class ErrorUtils {
    * @param context 上下文
    * @returns ConfigParseError
    */
-  static createConfigParseError(message: string, code?: string, context?: Record<string, any>): ConfigParseError {
+  static createConfigParseError(
+    message: string,
+    code?: string,
+    context?: Record<string, any>
+  ): ConfigParseError {
     return new ConfigParseError(message, ErrorSeverity.HIGH, code, context);
   }
 
@@ -415,7 +480,15 @@ export class ErrorUtils {
     code?: string,
     context?: Record<string, any>
   ): ShellError {
-    return new ShellError(message, stdout, stderr, exitCode, ErrorSeverity.MEDIUM, code, context);
+    return new ShellError(
+      message,
+      stdout,
+      stderr,
+      exitCode,
+      ErrorSeverity.MEDIUM,
+      code,
+      context
+    );
   }
 
   /**
@@ -434,7 +507,14 @@ export class ErrorUtils {
     code?: string,
     context?: Record<string, any>
   ): APIError {
-    return new APIError(message, status, response, ErrorSeverity.MEDIUM, code, context);
+    return new APIError(
+      message,
+      status,
+      response,
+      ErrorSeverity.MEDIUM,
+      code,
+      context
+    );
   }
 
   /**
@@ -444,7 +524,11 @@ export class ErrorUtils {
    * @param context 上下文
    * @returns DatabaseError
    */
-  static createDatabaseError(message: string, code?: string, context?: Record<string, any>): DatabaseError {
+  static createDatabaseError(
+    message: string,
+    code?: string,
+    context?: Record<string, any>
+  ): DatabaseError {
     return new DatabaseError(message, ErrorSeverity.HIGH, code, context);
   }
 
@@ -466,6 +550,13 @@ export class ErrorUtils {
     code?: string,
     context?: Record<string, any>
   ): TelemetrySafeError {
-    return new TelemetrySafeError(message, category, severity, telemetryMessage, code, context);
+    return new TelemetrySafeError(
+      message,
+      category,
+      severity,
+      telemetryMessage,
+      code,
+      context
+    );
   }
 }

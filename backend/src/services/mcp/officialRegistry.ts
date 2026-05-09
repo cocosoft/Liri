@@ -50,14 +50,16 @@ export function getOfficialServers(): OfficialMCPServer[] {
   return cachedUrls || [];
 }
 
-export function getOfficialServersByCategory(category: string): OfficialMCPServer[] {
-  return (cachedUrls || []).filter(s => s.category === category);
+export function getOfficialServersByCategory(
+  category: string
+): OfficialMCPServer[] {
+  return (cachedUrls || []).filter((s) => s.category === category);
 }
 
 export function getOfficialServer(name: string): OfficialMCPServer | undefined {
-  return (cachedUrls || []).find(s => s.name === name);
+  return (cachedUrls || []).find((s) => s.name === name);
 }
 
 export function getCategories(): string[] {
-  return [...new Set((cachedUrls || []).map(s => s.category))];
+  return [...new Set((cachedUrls || []).map((s) => s.category))];
 }

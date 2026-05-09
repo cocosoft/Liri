@@ -1,6 +1,6 @@
 /**
  * API 错误消息管理
- * 
+ *
  * 集中管理所有 API 错误场景的用户友好消息，
  * 支持多语言扩展和消息模板。
  */
@@ -9,7 +9,7 @@ import { APIScene } from '../api/APISceneClassifier';
 
 /**
  * API 错误消息映射
- * 
+ *
  * 每个场景对应：
  * - userMessage: 面向用户的友好消息
  * - actionHint: 建议的操作提示
@@ -171,7 +171,7 @@ export const API_ERROR_MESSAGES: Record<APIScene, APIErrorMessage> = {
 
 /**
  * 获取 API 错误的用户友好消息
- * 
+ *
  * @param scene API 错误场景
  * @returns 错误消息对象
  */
@@ -181,7 +181,7 @@ export function getAPIErrorMessage(scene: APIScene): APIErrorMessage {
 
 /**
  * 获取 API 错误的用户消息文本
- * 
+ *
  * @param scene API 错误场景
  * @returns 用户消息文本
  */
@@ -191,7 +191,7 @@ export function getAPIUserMessage(scene: APIScene): string {
 
 /**
  * 获取 API 错误的操作提示
- * 
+ *
  * @param scene API 错误场景
  * @returns 操作提示文本，如果没有则返回空字符串
  */
@@ -201,7 +201,7 @@ export function getAPIActionHint(scene: APIScene): string {
 
 /**
  * 获取 API 错误的重试提示
- * 
+ *
  * @param scene API 错误场景
  * @returns 重试提示文本，如果没有则返回空字符串
  */
@@ -211,9 +211,9 @@ export function getAPIRetryHint(scene: APIScene): string {
 
 /**
  * 自定义 API 错误消息
- * 
+ *
  * 允许在运行时覆盖默认消息，支持多语言或品牌定制。
- * 
+ *
  * @param scene API 错误场景
  * @param message 自定义消息
  */
@@ -230,7 +230,7 @@ export function customizeAPIErrorMessage(
 
 /**
  * 批量自定义 API 错误消息
- * 
+ *
  * @param messages 消息映射
  */
 export function customizeAPIErrorMessages(

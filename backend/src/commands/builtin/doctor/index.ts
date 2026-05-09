@@ -11,12 +11,13 @@ const doctorCommand: Command = {
   name: 'doctor',
   description: '系统健康检查和问题诊断',
   aliases: ['diagnose', 'health-check'],
-  argumentHint: '[--quick|-q] [--detailed|-d] [--fix|-f] [status] [--json] [help]',
+  argumentHint:
+    '[--quick|-q] [--detailed|-d] [--fix|-f] [status] [--json] [help]',
 
   /**
    * 懒加载命令实现
    */
-  load: () => import('./Doctor.js').then(m => m.default),
+  load: () => import('./Doctor.js').then((m) => m.default),
 };
 
 export { doctorCommand };

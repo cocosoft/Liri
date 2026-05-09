@@ -23,8 +23,10 @@ export class AuthCodeListener {
 
   async start(port?: number): Promise<number> {
     return new Promise((resolve, reject) => {
-      this.localServer.once('error', err => {
-        reject(new Error(`Failed to start OAuth callback server: ${err.message}`));
+      this.localServer.once('error', (err) => {
+        reject(
+          new Error(`Failed to start OAuth callback server: ${err.message}`)
+        );
       });
 
       this.localServer.listen(port ?? 0, 'localhost', () => {
@@ -43,7 +45,10 @@ export class AuthCodeListener {
     return this.pendingResponse !== null;
   }
 
-  async waitForAuthorization(state: string, onReady: () => Promise<void>): Promise<string> {
+  async waitForAuthorization(
+    state: string,
+    onReady: () => Promise<void>
+  ): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       this.promiseResolver = resolve;
       this.promiseRejecter = reject;
@@ -72,8 +77,14 @@ export class AuthCodeListener {
     void onReady();
   }
 
-  private handleRedirect(req: import('http').IncomingMessage, res: import('http').ServerResponse): void {
-    const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+  private handleRedirect(
+    req: import('http').IncomingMessage,
+    res: import('http').ServerResponse
+  ): void {
+    const parsedUrl = new URL(
+      req.url || '',
+      `http://${req.headers.host || 'localhost'}`
+    );
 
     if (parsedUrl.pathname !== this.callbackPath) {
       res.writeHead(404);
@@ -89,7 +100,7 @@ export class AuthCodeListener {
   private validateAndRespond(
     authCode: string | undefined,
     state: string | undefined,
-    res: import('http').ServerResponse,
+    res: import('http').ServerResponse
   ): void {
     if (!authCode) {
       res.writeHead(400);

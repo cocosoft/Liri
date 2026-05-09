@@ -4,20 +4,54 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { createFineGrainedPermissionManager } from '@modules/permission/FineGrainedPermissionManager.js';
-import { PermissionAction, ResourceType, OperationType } from '@modules/permission/models/Permission.js';
-import { PERMISSION_MODES, PERMISSION_MODE_NAMES } from '@modules/permission/PermissionMode.js';
+import {
+  PermissionAction,
+  ResourceType,
+  OperationType,
+} from '@modules/permission/models/Permission.js';
+import {
+  PERMISSION_MODES,
+  PERMISSION_MODE_NAMES,
+} from '@modules/permission/PermissionMode.js';
 import { permissionModeIntegrationService } from '@modules/chat/services/PermissionModeIntegrationService.js';
 import { securityIntegrationService } from '@modules/security/SecurityIntegration.js';
 
-const COMMON_PERMISSIONS: Record<string, { description: string; enabled: boolean; scope: string }> = {
-  'file.read': { description: '读取文件系统中的文件', enabled: true, scope: '文件系统' },
-  'file.write': { description: '写入文件到文件系统', enabled: true, scope: '文件系统' },
-  'file.delete': { description: '删除文件系统中的文件', enabled: true, scope: '文件系统' },
-  'shell.execute': { description: '执行Shell命令', enabled: true, scope: '系统' },
-  'network.request': { description: '发起网络请求', enabled: true, scope: '网络' },
+const COMMON_PERMISSIONS: Record<
+  string,
+  { description: string; enabled: boolean; scope: string }
+> = {
+  'file.read': {
+    description: '读取文件系统中的文件',
+    enabled: true,
+    scope: '文件系统',
+  },
+  'file.write': {
+    description: '写入文件到文件系统',
+    enabled: true,
+    scope: '文件系统',
+  },
+  'file.delete': {
+    description: '删除文件系统中的文件',
+    enabled: true,
+    scope: '文件系统',
+  },
+  'shell.execute': {
+    description: '执行Shell命令',
+    enabled: true,
+    scope: '系统',
+  },
+  'network.request': {
+    description: '发起网络请求',
+    enabled: true,
+    scope: '网络',
+  },
   'mcp.connect': { description: '连接MCP服务', enabled: true, scope: '插件' },
   'plugin.install': { description: '安装新插件', enabled: true, scope: '插件' },
-  'system.modify': { description: '修改系统级设置', enabled: false, scope: '系统' },
+  'system.modify': {
+    description: '修改系统级设置',
+    enabled: false,
+    scope: '系统',
+  },
 };
 
 const permissionsCommand = {
@@ -121,8 +155,9 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
   }
 
   const simpleList = Object.entries(COMMON_PERMISSIONS)
-    .map(([name, info]) =>
-      `${name.padEnd(20)} ${info.enabled ? '[✓]' : '[✗]'} ${info.description}`
+    .map(
+      ([name, info]) =>
+        `${name.padEnd(20)} ${info.enabled ? '[✓]' : '[✗]'} ${info.description}`
     )
     .join('\n');
 
@@ -138,7 +173,9 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
         if (rules.length > 0) {
           parts.push(`资源: ${resource.name} (${resource.type})`);
           for (const rule of rules) {
-            parts.push(`  - ${rule.action} ${rule.operation} (优先级: ${rule.priority})`);
+            parts.push(
+              `  - ${rule.action} ${rule.operation} (优先级: ${rule.priority})`
+            );
           }
         }
       }
@@ -151,7 +188,9 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
   }
 
   const mode = permissionModeIntegrationService.getPermissionMode();
-  const modeInfo = mode ? `\n当前权限模式: ${(PERMISSION_MODE_NAMES as Record<string, string>)[mode] || mode}` : '';
+  const modeInfo = mode
+    ? `\n当前权限模式: ${(PERMISSION_MODE_NAMES as Record<string, string>)[mode] || mode}`
+    : '';
 
   return {
     success: true,
@@ -162,7 +201,10 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
 /**
  * 显示特定权限详情
  */
-async function handleShow(permissionName?: string, _context?: CommandContext): Promise<CommandResult> {
+async function handleShow(
+  permissionName?: string,
+  _context?: CommandContext
+): Promise<CommandResult> {
   if (!permissionName) {
     return { success: false, message: '用法: /permissions show <权限名>' };
   }
@@ -171,7 +213,8 @@ async function handleShow(permissionName?: string, _context?: CommandContext): P
   if (info) {
     return {
       success: true,
-      message: `${permissionName}\n` +
+      message:
+        `${permissionName}\n` +
         `- 描述: ${info.description}\n` +
         `- 范围: ${info.scope}\n` +
         `- 状态: ${info.enabled ? '已启用' : '已禁用'}`,
@@ -187,7 +230,10 @@ async function handleShow(permissionName?: string, _context?: CommandContext): P
 /**
  * 授予权限
  */
-async function handleGrant(args: string[], context: CommandContext): Promise<CommandResult> {
+async function handleGrant(
+  args: string[],
+  context: CommandContext
+): Promise<CommandResult> {
   const permissionName = args[0];
 
   if (!permissionName) {
@@ -203,7 +249,8 @@ async function handleGrant(args: string[], context: CommandContext): Promise<Com
   }
 
   try {
-    const permissionManager = securityIntegrationService.getPermissionManager() as any;
+    const permissionManager =
+      securityIntegrationService.getPermissionManager() as any;
     permissionManager.addRule('allow', permissionName);
   } catch {
     // 忽略管理器调用失败
@@ -217,7 +264,10 @@ async function handleGrant(args: string[], context: CommandContext): Promise<Com
 /**
  * 撤销权限
  */
-async function handleRevoke(args: string[], context: CommandContext): Promise<CommandResult> {
+async function handleRevoke(
+  args: string[],
+  context: CommandContext
+): Promise<CommandResult> {
   const permissionName = args[0];
 
   if (!permissionName) {
@@ -233,7 +283,8 @@ async function handleRevoke(args: string[], context: CommandContext): Promise<Co
   }
 
   try {
-    const permissionManager = securityIntegrationService.getPermissionManager() as any;
+    const permissionManager =
+      securityIntegrationService.getPermissionManager() as any;
     const rules = permissionManager.getRules();
     for (const rule of rules) {
       if (rule.toolName === permissionName || rule.name === permissionName) {
@@ -252,8 +303,13 @@ async function handleRevoke(args: string[], context: CommandContext): Promise<Co
 /**
  * 显示权限状态
  */
-async function handleStatus(_context: CommandContext, useJson: boolean = false): Promise<CommandResult> {
-  const enabledCount = Object.values(COMMON_PERMISSIONS).filter(p => p.enabled).length;
+async function handleStatus(
+  _context: CommandContext,
+  useJson: boolean = false
+): Promise<CommandResult> {
+  const enabledCount = Object.values(COMMON_PERMISSIONS).filter(
+    (p) => p.enabled
+  ).length;
   const totalCount = Object.keys(COMMON_PERMISSIONS).length;
   const currentMode = permissionModeIntegrationService.getPermissionMode();
   const status = {
@@ -266,7 +322,10 @@ async function handleStatus(_context: CommandContext, useJson: boolean = false):
 
   try {
     const { logEvent } = await import('@modules/services/analytics/index.js');
-    logEvent('tengu_permissions_status', { total: totalCount, enabled: enabledCount });
+    logEvent('tengu_permissions_status', {
+      total: totalCount,
+      enabled: enabledCount,
+    });
   } catch {
     // analytics 非关键
   }
@@ -277,7 +336,8 @@ async function handleStatus(_context: CommandContext, useJson: boolean = false):
 
   return {
     success: true,
-    message: `权限状态:\n` +
+    message:
+      `权限状态:\n` +
       `- 总权限数: ${status.totalPermissions}\n` +
       `- 已启用: ${status.enabledPermissions}\n` +
       `- 已禁用: ${status.disabledPermissions}\n` +
@@ -289,18 +349,25 @@ async function handleStatus(_context: CommandContext, useJson: boolean = false):
 /**
  * 管理权限模式
  */
-async function handleMode(args: string[], useJson: boolean = false): Promise<CommandResult> {
+async function handleMode(
+  args: string[],
+  useJson: boolean = false
+): Promise<CommandResult> {
   const currentMode = permissionModeIntegrationService.getPermissionMode();
 
   if (args.length === 0 || args[0] === 'show') {
-    const validModes = PERMISSION_MODES.map(m =>
+    const validModes = PERMISSION_MODES.map((m) =>
       m === currentMode ? `  * ${m} (当前)` : `    ${m}`
     ).join('\n');
 
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({ currentMode, availableModes: PERMISSION_MODES }, null, 2),
+        message: JSON.stringify(
+          { currentMode, availableModes: PERMISSION_MODES },
+          null,
+          2
+        ),
       };
     }
 
@@ -337,7 +404,8 @@ async function handleMode(args: string[], useJson: boolean = false): Promise<Com
 
   return {
     success: false,
-    message: '用法: /permissions mode [show|set <模式>]\n\n示例:\n  /permissions mode          显示当前模式\n  /permissions mode show     显示当前模式\n  /permissions mode set plan 切换到计划模式',
+    message:
+      '用法: /permissions mode [show|set <模式>]\n\n示例:\n  /permissions mode          显示当前模式\n  /permissions mode show     显示当前模式\n  /permissions mode set plan 切换到计划模式',
   };
 }
 
@@ -346,26 +414,36 @@ async function handleMode(args: string[], useJson: boolean = false): Promise<Com
  */
 async function handleRules(useJson: boolean = false): Promise<CommandResult> {
   try {
-    const permissionManager = securityIntegrationService.getPermissionManager() as any;
+    const permissionManager =
+      securityIntegrationService.getPermissionManager() as any;
     const mode = permissionManager.getMode();
     const rules = permissionManager.getRules();
 
     if (useJson) {
       return {
         success: true,
-        message: JSON.stringify({ mode, rules, ruleCount: rules.length }, null, 2),
+        message: JSON.stringify(
+          { mode, rules, ruleCount: rules.length },
+          null,
+          2
+        ),
       };
     }
 
     const rulesList = rules as any[];
-    const sorted = rulesList.reduce((acc: Record<string, string[]>, rule: any) => {
-      const behavior = rule.behavior || rule.action || 'unknown';
-      const name = rule.toolName || rule.name || rule.id;
-      if (!acc[behavior]) acc[behavior] = [];
-      const detail = rule.contentPattern ? `${name}(${rule.contentPattern})` : name;
-      acc[behavior].push(`  - ${detail}`);
-      return acc;
-    }, {} as Record<string, string[]>);
+    const sorted = rulesList.reduce(
+      (acc: Record<string, string[]>, rule: any) => {
+        const behavior = rule.behavior || rule.action || 'unknown';
+        const name = rule.toolName || rule.name || rule.id;
+        if (!acc[behavior]) acc[behavior] = [];
+        const detail = rule.contentPattern
+          ? `${name}(${rule.contentPattern})`
+          : name;
+        acc[behavior].push(`  - ${detail}`);
+        return acc;
+      },
+      {} as Record<string, string[]>
+    );
 
     const parts: string[] = [`会话权限规则 (模式: ${mode}):\n`];
     if (sorted.allow?.length) {
@@ -403,7 +481,8 @@ async function handleAdd(params: string[]): Promise<CommandResult> {
   if (params.length < 4) {
     return {
       success: false,
-      message: '用法: /permissions add <action> <resourceType> <resourceName> <operation>\n\n示例: /permissions add allow tool bash execute',
+      message:
+        '用法: /permissions add <action> <resourceType> <resourceName> <operation>\n\n示例: /permissions add allow tool bash execute',
     };
   }
 
@@ -412,7 +491,10 @@ async function handleAdd(params: string[]): Promise<CommandResult> {
   try {
     const manager = createFineGrainedPermissionManager();
 
-    let resource = await manager.getResourceByPath(resourceName, resourceType as ResourceType);
+    let resource = await manager.getResourceByPath(
+      resourceName,
+      resourceType as ResourceType
+    );
     if (!resource) {
       resource = {
         id: `resource_${Date.now()}`,
@@ -438,7 +520,8 @@ async function handleAdd(params: string[]): Promise<CommandResult> {
     const ruleId = await manager.addRule(rule);
 
     try {
-      const permissionManager = securityIntegrationService.getPermissionManager() as any;
+      const permissionManager =
+        securityIntegrationService.getPermissionManager() as any;
       permissionManager.addRule(action as any, resourceName, operation);
     } catch {
       // 可选同步失败不影响主要结果
@@ -488,7 +571,8 @@ async function handleResource(params: string[]): Promise<CommandResult> {
     default:
       return {
         success: false,
-        message: '用法: /permissions resource <命令> [参数]\n\n命令列表:\n  add  - 添加资源\n  list - 列出所有资源\n\n示例: /permissions resource add file /path/to/file',
+        message:
+          '用法: /permissions resource <命令> [参数]\n\n命令列表:\n  add  - 添加资源\n  list - 列出所有资源\n\n示例: /permissions resource add file /path/to/file',
       };
   }
 }
@@ -498,7 +582,10 @@ async function handleResource(params: string[]): Promise<CommandResult> {
  */
 async function handleResourceAdd(params: string[]): Promise<CommandResult> {
   if (params.length < 2) {
-    return { success: false, message: '用法: /permissions resource add <类型> <路径>' };
+    return {
+      success: false,
+      message: '用法: /permissions resource add <类型> <路径>',
+    };
   }
 
   const [type, path] = params;
@@ -568,7 +655,8 @@ async function handleRole(params: string[]): Promise<CommandResult> {
     default:
       return {
         success: false,
-        message: '用法: /permissions role <命令> [参数]\n\n命令列表:\n  list - 列出所有角色\n\n示例: /permissions role list',
+        message:
+          '用法: /permissions role <命令> [参数]\n\n命令列表:\n  list - 列出所有角色\n\n示例: /permissions role list',
       };
   }
 }
@@ -615,7 +703,8 @@ async function handleUser(params: string[]): Promise<CommandResult> {
     default:
       return {
         success: false,
-        message: '用法: /permissions user <命令> [参数]\n\n命令列表:\n  list - 列出所有用户\n\n示例: /permissions user list',
+        message:
+          '用法: /permissions user <命令> [参数]\n\n命令列表:\n  list - 列出所有用户\n\n示例: /permissions user list',
       };
   }
 }

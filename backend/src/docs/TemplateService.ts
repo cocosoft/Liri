@@ -6,7 +6,13 @@
 /**
  * 模板变量类型
  */
-export type TemplateVariableType = 'string' | 'number' | 'boolean' | 'date' | 'array' | 'object';
+export type TemplateVariableType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'date'
+  | 'array'
+  | 'object';
 
 /**
  * 模板变量
@@ -59,7 +65,10 @@ export interface TemplateSearchFilter {
 /**
  * 内置模板
  */
-const BUILT_IN_TEMPLATES: Omit<TemplateDefinition, 'createdAt' | 'updatedAt'>[] = [
+const BUILT_IN_TEMPLATES: Omit<
+  TemplateDefinition,
+  'createdAt' | 'updatedAt'
+>[] = [
   {
     id: 'api-doc',
     name: 'API 文档',
@@ -103,13 +112,28 @@ const BUILT_IN_TEMPLATES: Omit<TemplateDefinition, 'createdAt' | 'updatedAt'>[] 
 \`\`\`
 `,
     variables: [
-      { name: 'apiName', type: 'string', required: true, description: 'API 名称' },
+      {
+        name: 'apiName',
+        type: 'string',
+        required: true,
+        description: 'API 名称',
+      },
       { name: 'description', type: 'string', description: 'API 描述' },
-      { name: 'version', type: 'string', defaultValue: '1.0.0', description: '版本号' },
+      {
+        name: 'version',
+        type: 'string',
+        defaultValue: '1.0.0',
+        description: '版本号',
+      },
       { name: 'author', type: 'string', description: '作者' },
       { name: 'createdDate', type: 'date', description: '创建日期' },
       { name: 'endpoints', type: 'array', description: '端点列表' },
-      { name: 'exampleLanguage', type: 'string', defaultValue: 'javascript', description: '示例语言' },
+      {
+        name: 'exampleLanguage',
+        type: 'string',
+        defaultValue: 'javascript',
+        description: '示例语言',
+      },
       { name: 'exampleCode', type: 'string', description: '示例代码' },
     ],
     tags: ['api', 'documentation', 'standard'],
@@ -159,16 +183,31 @@ npm install {{packageName}}
 本项目采用 [{{license}}]({{licenseUrl}}) 许可证。
 `,
     variables: [
-      { name: 'projectName', type: 'string', required: true, description: '项目名称' },
+      {
+        name: 'projectName',
+        type: 'string',
+        required: true,
+        description: '项目名称',
+      },
       { name: 'badges', type: 'string', description: '徽章' },
       { name: 'description', type: 'string', description: '项目描述' },
       { name: 'features', type: 'array', description: '项目特性' },
       { name: 'packageName', type: 'string', description: '包名称' },
-      { name: 'codeLanguage', type: 'string', defaultValue: 'javascript', description: '代码语言' },
+      {
+        name: 'codeLanguage',
+        type: 'string',
+        defaultValue: 'javascript',
+        description: '代码语言',
+      },
       { name: 'quickStartCode', type: 'string', description: '快速开始代码' },
       { name: 'docsUrl', type: 'string', description: '文档链接' },
       { name: 'contributorsUrl', type: 'string', description: '贡献者链接' },
-      { name: 'license', type: 'string', defaultValue: 'MIT', description: '许可证' },
+      {
+        name: 'license',
+        type: 'string',
+        defaultValue: 'MIT',
+        description: '许可证',
+      },
       { name: 'licenseUrl', type: 'string', description: '许可证链接' },
     ],
     tags: ['readme', 'documentation', 'project'],
@@ -201,9 +240,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 {{/each}}
 `,
     variables: [
-      { name: 'version', type: 'string', required: true, description: '版本号' },
+      {
+        name: 'version',
+        type: 'string',
+        required: true,
+        description: '版本号',
+      },
       { name: 'releaseDate', type: 'date', description: '发布日期' },
-      { name: 'changeType', type: 'string', defaultValue: 'Added', description: '变更类型' },
+      {
+        name: 'changeType',
+        type: 'string',
+        defaultValue: 'Added',
+        description: '变更类型',
+      },
       { name: 'changes', type: 'array', description: '变更列表' },
       { name: 'additionalType', type: 'string', description: '附加类型' },
       { name: 'additional', type: 'array', description: '附加列表' },
@@ -266,7 +315,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 {{acknowledgements}}
 `,
     variables: [
-      { name: 'releaseVersion', type: 'string', required: true, description: '发布版本' },
+      {
+        name: 'releaseVersion',
+        type: 'string',
+        required: true,
+        description: '发布版本',
+      },
       { name: 'releaseType', type: 'string', description: '发布类型' },
       { name: 'releaseDate', type: 'date', description: '发布日期' },
       { name: 'downloadUrl', type: 'string', description: '下载链接' },
@@ -302,7 +356,8 @@ export class TemplateService {
     this.variablePatterns = {
       simple: /\{\{(\w+)\}\}/g,
       block: /\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g,
-      conditional: /\{\{(\w+)\?\}\}([\s\S]*?)(?:\{\{:\}\}([\s\S]*?))?\{\{\/\1\}\}/g,
+      conditional:
+        /\{\{(\w+)\?\}\}([\s\S]*?)(?:\{\{:\}\}([\s\S]*?))?\{\{\/\1\}\}/g,
     };
 
     this.loadBuiltInTemplates();
@@ -328,7 +383,9 @@ export class TemplateService {
   /**
    * 注册模板
    */
-  public registerTemplate(template: Omit<TemplateDefinition, 'createdAt' | 'updatedAt'>): void {
+  public registerTemplate(
+    template: Omit<TemplateDefinition, 'createdAt' | 'updatedAt'>
+  ): void {
     const now = Date.now();
     const definition: TemplateDefinition = {
       ...template,
@@ -367,21 +424,22 @@ export class TemplateService {
     let results = Array.from(this.templates.values());
 
     if (filter.category) {
-      results = results.filter(t => t.category === filter.category);
+      results = results.filter((t) => t.category === filter.category);
     }
 
     if (filter.tags && filter.tags.length > 0) {
-      results = results.filter(t =>
-        filter.tags!.some(tag => t.tags.includes(tag))
+      results = results.filter((t) =>
+        filter.tags!.some((tag) => t.tags.includes(tag))
       );
     }
 
     if (filter.keyword) {
       const keyword = filter.keyword.toLowerCase();
-      results = results.filter(t =>
-        t.name.toLowerCase().includes(keyword) ||
-        t.description.toLowerCase().includes(keyword) ||
-        t.tags.some(tag => tag.toLowerCase().includes(keyword))
+      results = results.filter(
+        (t) =>
+          t.name.toLowerCase().includes(keyword) ||
+          t.description.toLowerCase().includes(keyword) ||
+          t.tags.some((tag) => tag.toLowerCase().includes(keyword))
       );
     }
 
@@ -404,7 +462,10 @@ export class TemplateService {
   /**
    * 渲染模板
    */
-  public render(templateId: string, variables: Record<string, any>): TemplateRenderResult {
+  public render(
+    templateId: string,
+    variables: Record<string, any>
+  ): TemplateRenderResult {
     const template = this.templates.get(templateId);
 
     if (!template) {
@@ -423,13 +484,15 @@ export class TemplateService {
     const usedVariables: string[] = [];
     const missingVariables: string[] = [];
 
-    const requiredVars = template.variables.filter(v => v.required);
+    const requiredVars = template.variables.filter((v) => v.required);
 
     for (const varDef of requiredVars) {
       if (variables[varDef.name] === undefined) {
         if (varDef.defaultValue !== undefined) {
           variables[varDef.name] = varDef.defaultValue;
-          warnings.push(`Using default value for required variable: ${varDef.name}`);
+          warnings.push(
+            `Using default value for required variable: ${varDef.name}`
+          );
         } else {
           errors.push(`Missing required variable: ${varDef.name}`);
           missingVariables.push(varDef.name);
@@ -485,31 +548,38 @@ export class TemplateService {
     variables: Record<string, any>,
     usedVariables: string[]
   ): string {
-    content = content.replace(this.variablePatterns.block, (match, helperName, blockContent) => {
-      usedVariables.push(helperName);
+    content = content.replace(
+      this.variablePatterns.block,
+      (match, helperName, blockContent) => {
+        usedVariables.push(helperName);
 
-      const arrayValue = variables[helperName];
+        const arrayValue = variables[helperName];
 
-      if (!Array.isArray(arrayValue)) {
-        return '';
-      }
-
-      let result = '';
-
-      for (const item of arrayValue) {
-        let itemContent = blockContent;
-
-        if (typeof item === 'object' && item !== null) {
-          itemContent = this.renderSimpleVariables(itemContent, { ...variables, ...item }, usedVariables);
-        } else {
-          itemContent = itemContent.replace(/\{\{this\}\}/g, String(item));
+        if (!Array.isArray(arrayValue)) {
+          return '';
         }
 
-        result += itemContent;
-      }
+        let result = '';
 
-      return result;
-    });
+        for (const item of arrayValue) {
+          let itemContent = blockContent;
+
+          if (typeof item === 'object' && item !== null) {
+            itemContent = this.renderSimpleVariables(
+              itemContent,
+              { ...variables, ...item },
+              usedVariables
+            );
+          } else {
+            itemContent = itemContent.replace(/\{\{this\}\}/g, String(item));
+          }
+
+          result += itemContent;
+        }
+
+        return result;
+      }
+    );
 
     return content;
   }

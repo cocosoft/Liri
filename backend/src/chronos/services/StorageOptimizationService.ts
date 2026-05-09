@@ -4,7 +4,14 @@
  * 参考CC源码: cc_code/backend/utils/cronTasks.ts
  */
 
-import { readFile, writeFile, mkdir, access, readdir, unlink } from 'fs/promises';
+import {
+  readFile,
+  writeFile,
+  mkdir,
+  access,
+  readdir,
+  unlink,
+} from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 
@@ -304,7 +311,9 @@ export class StorageOptimizationService {
    * @param filePath 文件路径
    * @returns 任务数组
    */
-  async readTaskFile<T extends { id: string }>(filePath?: string): Promise<T[]> {
+  async readTaskFile<T extends { id: string }>(
+    filePath?: string
+  ): Promise<T[]> {
     const path = filePath || this.config.fileStoragePath;
     const data = await this.readFromFile<T[]>(path);
     return data || [];
@@ -316,7 +325,10 @@ export class StorageOptimizationService {
    * @param filePath 文件路径
    * @returns 是否成功
    */
-  async writeTaskFile<T extends { id: string }>(tasks: T[], filePath?: string): Promise<boolean> {
+  async writeTaskFile<T extends { id: string }>(
+    tasks: T[],
+    filePath?: string
+  ): Promise<boolean> {
     const path = filePath || this.config.fileStoragePath;
     return this.writeToFile(path, tasks);
   }
@@ -445,7 +457,9 @@ export class StorageOptimizationService {
    * @param files 文件数据数组
    * @returns 是否全部成功
    */
-  async batchWriteFiles<T>(files: { path: string; data: T }[]): Promise<boolean[]> {
+  async batchWriteFiles<T>(
+    files: { path: string; data: T }[]
+  ): Promise<boolean[]> {
     const results: boolean[] = [];
 
     for (const file of files) {
@@ -468,4 +482,5 @@ export class StorageOptimizationService {
 /**
  * 导出单例
  */
-export const storageOptimizationService = StorageOptimizationService.getInstance();
+export const storageOptimizationService =
+  StorageOptimizationService.getInstance();

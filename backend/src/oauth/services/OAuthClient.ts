@@ -89,11 +89,13 @@ export class OAuthClient {
   /**
    * 交换授权码获取Token（新API - 对象参数方式）
    */
-  async exchangeCodeForToken(params: ExchangeCodeParams): Promise<Record<string, unknown>> {
+  async exchangeCodeForToken(
+    params: ExchangeCodeParams
+  ): Promise<Record<string, unknown>> {
     if (!this.config) {
       throw new OAuthError('OAuthClient not configured', 'NO_CONFIG');
     }
-    
+
     return this.exchangeCodeForTokens(
       this.config,
       params.code,
@@ -120,10 +122,13 @@ export class OAuthClient {
     };
 
     if (config.clientSecret) {
-      (requestBody as Record<string, unknown>).client_secret = config.clientSecret;
+      (requestBody as Record<string, unknown>).client_secret =
+        config.clientSecret;
     }
 
-    logger.debug(`Exchanging authorization code for tokens at ${config.tokenUrl}`);
+    logger.debug(
+      `Exchanging authorization code for tokens at ${config.tokenUrl}`
+    );
     return await this.httpPostJson(config.tokenUrl, requestBody);
   }
 
@@ -159,7 +164,7 @@ export class OAuthClient {
       logger.debug(`Refreshing token at ${config.tokenUrl}`);
       return await this.httpPostJson(config.tokenUrl, requestBody);
     }
-    
+
     // 旧API方式
     const config = configOrParams;
     const requestBody: Record<string, unknown> = {
@@ -190,7 +195,7 @@ export class OAuthClient {
     if (accessToken) {
       logger.debug(`Fetching user info from ${userinfoUrlOrAccessToken}`);
       return await this.httpGetJson(userinfoUrlOrAccessToken, {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       });
     }
     if (!this.config?.profileUrl) {
@@ -198,7 +203,7 @@ export class OAuthClient {
     }
     logger.debug(`Fetching user info from ${this.config.profileUrl}`);
     return await this.httpGetJson(this.config.profileUrl, {
-      'Authorization': `Bearer ${userinfoUrlOrAccessToken}`,
+      Authorization: `Bearer ${userinfoUrlOrAccessToken}`,
     });
   }
 
@@ -221,7 +226,7 @@ export class OAuthClient {
         revocationUrlOrParams.tokenTypeHint
       );
     }
-    
+
     // 旧API方式
     const revocationUrl = revocationUrlOrParams;
     const requestBody: Record<string, unknown> = {
@@ -239,7 +244,11 @@ export class OAuthClient {
   /**
    * HTTP POST请求
    */
-  private async httpPostJson(url: string, body: Record<string, unknown>, headers: Record<string, string> = {}): Promise<Record<string, unknown>> {
+  private async httpPostJson(
+    url: string,
+    body: Record<string, unknown>,
+    headers: Record<string, string> = {}
+  ): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
       const parsedUrl = new URL(url);
       const isHttps = parsedUrl.protocol === 'https:';
@@ -266,24 +275,38 @@ export class OAuthClient {
             try {
               resolve(JSON.parse(data));
             } catch {
-              reject(new OAuthError(`Invalid JSON response from ${url}`, 'INVALID_RESPONSE'));
+              reject(
+                new OAuthError(
+                  `Invalid JSON response from ${url}`,
+                  'INVALID_RESPONSE'
+                )
+              );
             }
           } else {
-            reject(new OAuthError(
-              `HTTP ${res.statusCode}: ${data}`,
-              'HTTP_ERROR',
-              res.statusCode
-            ));
+            reject(
+              new OAuthError(
+                `HTTP ${res.statusCode}: ${data}`,
+                'HTTP_ERROR',
+                res.statusCode
+              )
+            );
           }
         });
       });
 
       req.on('error', (error) => {
-        reject(new OAuthError(`Request failed: ${error.message}`, 'REQUEST_FAILED'));
+        reject(
+          new OAuthError(`Request failed: ${error.message}`, 'REQUEST_FAILED')
+        );
       });
       req.on('timeout', () => {
         req.destroy();
-        reject(new OAuthError(`Request timeout (${this.defaultTimeout}ms)`, 'TIMEOUT'));
+        reject(
+          new OAuthError(
+            `Request timeout (${this.defaultTimeout}ms)`,
+            'TIMEOUT'
+          )
+        );
       });
 
       req.write(JSON.stringify(body));
@@ -294,7 +317,10 @@ export class OAuthClient {
   /**
    * HTTP GET请求
    */
-  private async httpGetJson(url: string, headers: Record<string, string> = {}): Promise<Record<string, unknown>> {
+  private async httpGetJson(
+    url: string,
+    headers: Record<string, string> = {}
+  ): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
       const parsedUrl = new URL(url);
       const isHttps = parsedUrl.protocol === 'https:';
@@ -318,24 +344,38 @@ export class OAuthClient {
             try {
               resolve(JSON.parse(data));
             } catch {
-              reject(new OAuthError(`Invalid JSON response from ${url}`, 'INVALID_RESPONSE'));
+              reject(
+                new OAuthError(
+                  `Invalid JSON response from ${url}`,
+                  'INVALID_RESPONSE'
+                )
+              );
             }
           } else {
-            reject(new OAuthError(
-              `HTTP ${res.statusCode}: ${data}`,
-              'HTTP_ERROR',
-              res.statusCode
-            ));
+            reject(
+              new OAuthError(
+                `HTTP ${res.statusCode}: ${data}`,
+                'HTTP_ERROR',
+                res.statusCode
+              )
+            );
           }
         });
       });
 
       req.on('error', (error) => {
-        reject(new OAuthError(`Request failed: ${error.message}`, 'REQUEST_FAILED'));
+        reject(
+          new OAuthError(`Request failed: ${error.message}`, 'REQUEST_FAILED')
+        );
       });
       req.on('timeout', () => {
         req.destroy();
-        reject(new OAuthError(`Request timeout (${this.defaultTimeout}ms)`, 'TIMEOUT'));
+        reject(
+          new OAuthError(
+            `Request timeout (${this.defaultTimeout}ms)`,
+            'TIMEOUT'
+          )
+        );
       });
 
       req.end();
@@ -345,7 +385,10 @@ export class OAuthClient {
   /**
    * HTTP DELETE请求
    */
-  private async httpDelete(url: string, headers: Record<string, string> = {}): Promise<void> {
+  private async httpDelete(
+    url: string,
+    headers: Record<string, string> = {}
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       const parsedUrl = new URL(url);
       const isHttps = parsedUrl.protocol === 'https:';
@@ -368,21 +411,30 @@ export class OAuthClient {
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
             resolve();
           } else {
-            reject(new OAuthError(
-              `HTTP ${res.statusCode}: ${data}`,
-              'HTTP_ERROR',
-              res.statusCode
-            ));
+            reject(
+              new OAuthError(
+                `HTTP ${res.statusCode}: ${data}`,
+                'HTTP_ERROR',
+                res.statusCode
+              )
+            );
           }
         });
       });
 
       req.on('error', (error) => {
-        reject(new OAuthError(`Request failed: ${error.message}`, 'REQUEST_FAILED'));
+        reject(
+          new OAuthError(`Request failed: ${error.message}`, 'REQUEST_FAILED')
+        );
       });
       req.on('timeout', () => {
         req.destroy();
-        reject(new OAuthError(`Request timeout (${this.defaultTimeout}ms)`, 'TIMEOUT'));
+        reject(
+          new OAuthError(
+            `Request timeout (${this.defaultTimeout}ms)`,
+            'TIMEOUT'
+          )
+        );
       });
 
       req.end();

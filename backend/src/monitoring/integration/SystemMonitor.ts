@@ -134,7 +134,9 @@ export class SystemMonitor {
         this.diskInfo = this.getDiskInfo();
       }
     } catch (error) {
-      logForDebugging(`收集系统信息失败: ${errorMessage(error)}`, { level: 'error' });
+      logForDebugging(`收集系统信息失败: ${errorMessage(error)}`, {
+        level: 'error',
+      });
     }
   }
 
@@ -160,7 +162,9 @@ export class SystemMonitor {
       cpus: os.cpus().length,
       cpuModel: os.cpus()[0]?.model || 'unknown',
       cpuSpeed: os.cpus()[0]?.speed || 0,
-      networkInterfaces: this.config.includeNetworkInfo ? (os.networkInterfaces() as Record<string, NetworkInterfaceInfo[]>) : {},
+      networkInterfaces: this.config.includeNetworkInfo
+        ? (os.networkInterfaces() as Record<string, NetworkInterfaceInfo[]>)
+        : {},
     };
   }
 
@@ -290,7 +294,9 @@ let systemMonitor: SystemMonitor | null = null;
  * @param config 配置
  * @returns 系统监控实例
  */
-export function getSystemMonitor(config?: Partial<SystemMonitorConfig>): SystemMonitor {
+export function getSystemMonitor(
+  config?: Partial<SystemMonitorConfig>
+): SystemMonitor {
   if (!systemMonitor) {
     systemMonitor = new SystemMonitor(config);
   }
@@ -302,6 +308,8 @@ export function getSystemMonitor(config?: Partial<SystemMonitorConfig>): SystemM
  * @param config 配置
  * @returns 系统监控实例
  */
-export function createSystemMonitor(config?: Partial<SystemMonitorConfig>): SystemMonitor {
+export function createSystemMonitor(
+  config?: Partial<SystemMonitorConfig>
+): SystemMonitor {
   return new SystemMonitor(config);
 }

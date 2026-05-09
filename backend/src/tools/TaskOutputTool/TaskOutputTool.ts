@@ -74,7 +74,7 @@ async function waitForTaskCompletion(
 
     if (isTerminalTaskStatus(task.status)) return task;
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
   return taskRegistry.getTask(taskId) ?? null;
@@ -149,7 +149,10 @@ async function getTaskOutputData(task: BaseTask): Promise<TaskOutputData> {
  * 允许获取正在运行或已完成任务的输出、状态和详细数据
  * 支持阻塞模式等待任务完成
  */
-export class TaskOutputTool extends BaseTool<TaskOutputToolInput, TaskOutputToolOutput> {
+export class TaskOutputTool extends BaseTool<
+  TaskOutputToolInput,
+  TaskOutputToolOutput
+> {
   name = 'task_output';
   description = 'Get output from a running or completed task by its ID';
 
@@ -213,13 +216,17 @@ export class TaskOutputTool extends BaseTool<TaskOutputToolInput, TaskOutputTool
     return this.name;
   }
 
-  override getToolUseSummary(input?: Partial<TaskOutputToolInput>): string | null {
+  override getToolUseSummary(
+    input?: Partial<TaskOutputToolInput>
+  ): string | null {
     const taskId = input?.task_id || '';
     if (taskId) return `Get output for task ${taskId}`;
     return null;
   }
 
-  override getActivityDescription(input?: Partial<TaskOutputToolInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<TaskOutputToolInput>
+  ): string | null {
     const taskId = input?.task_id || '';
     if (taskId) return `Getting output for task ${taskId}`;
     return null;
@@ -271,7 +278,9 @@ export class TaskOutputTool extends BaseTool<TaskOutputToolInput, TaskOutputTool
         const output = await getTaskOutputData(task);
         return createToolResult(
           {
-            retrieval_status: isTerminalTaskStatus(task.status) ? 'success' : 'not_ready',
+            retrieval_status: isTerminalTaskStatus(task.status)
+              ? 'success'
+              : 'not_ready',
             task: output,
           },
           { success: true }

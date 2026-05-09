@@ -61,7 +61,8 @@ export class MonitorTool extends BaseTool {
         default:
           return {
             success: false,
-            error: 'Invalid metric type. Must be one of: memory, cpu, disk, network.',
+            error:
+              'Invalid metric type. Must be one of: memory, cpu, disk, network.',
           };
       }
 

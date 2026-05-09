@@ -18,20 +18,25 @@ type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
  * Agent配置管理器
  */
 export class AgentConfigManager {
-  private configCache: Map<string, { configs: CustomAgentDefinition[]; timestamp: number }> = new Map();
+  private configCache: Map<
+    string,
+    { configs: CustomAgentDefinition[]; timestamp: number }
+  > = new Map();
   private configWatchers: Map<string, fs.FSWatcher> = new Map();
 
   /**
    * 加载指定源的Agent配置
    */
-  async loadConfigsFromSource(source: NonPluginSource): Promise<CustomAgentDefinition[]> {
+  async loadConfigsFromSource(
+    source: NonPluginSource
+  ): Promise<CustomAgentDefinition[]> {
     const cacheKey = `config_${source}`;
     const configPath = this.getConfigPathForSource(source);
 
     // 检查缓存
     const cached = this.configCache.get(cacheKey);
     const fileStat = fs.existsSync(configPath) ? fs.statSync(configPath) : null;
-    
+
     if (cached && fileStat && cached.timestamp >= fileStat.mtimeMs) {
       return cached.configs;
     }
@@ -48,7 +53,7 @@ export class AgentConfigManager {
       // 更新缓存
       this.configCache.set(cacheKey, {
         configs: agents,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       // 设置文件监视器
@@ -64,10 +69,13 @@ export class AgentConfigManager {
   /**
    * 保存Agent配置到指定源
    */
-  async saveConfigsToSource(source: SettingSource, agents: CustomAgentDefinition[]): Promise<boolean> {
+  async saveConfigsToSource(
+    source: SettingSource,
+    agents: CustomAgentDefinition[]
+  ): Promise<boolean> {
     try {
       const configPath = this.getConfigPathForSource(source);
-      
+
       // 确保目录存在
       const dir = path.dirname(configPath);
       if (!fs.existsSync(dir)) {
@@ -75,26 +83,29 @@ export class AgentConfigManager {
       }
 
       // 转换Agent定义为可序列化的格式
-      const configData = agents.reduce((acc, agent) => {
-        acc[agent.agentType] = {
-          description: agent.whenToUse,
-          tools: agent.tools,
-          disallowedTools: agent.disallowedTools,
-          prompt: agent.getSystemPrompt(),
-          model: agent.model,
-          effort: agent.effort,
-          permissionMode: agent.permissionMode,
-          mcpServers: agent.mcpServers,
-          hooks: agent.hooks,
-          maxTurns: agent.maxTurns,
-          skills: agent.skills,
-          initialPrompt: agent.initialPrompt,
-          background: agent.background,
-          memory: agent.memory,
-          isolation: agent.isolation
-        };
-        return acc;
-      }, {} as Record<string, any>);
+      const configData = agents.reduce(
+        (acc, agent) => {
+          acc[agent.agentType] = {
+            description: agent.whenToUse,
+            tools: agent.tools,
+            disallowedTools: agent.disallowedTools,
+            prompt: agent.getSystemPrompt(),
+            model: agent.model,
+            effort: agent.effort,
+            permissionMode: agent.permissionMode,
+            mcpServers: agent.mcpServers,
+            hooks: agent.hooks,
+            maxTurns: agent.maxTurns,
+            skills: agent.skills,
+            initialPrompt: agent.initialPrompt,
+            background: agent.background,
+            memory: agent.memory,
+            isolation: agent.isolation,
+          };
+          return acc;
+        },
+        {} as Record<string, any>
+      );
 
       // 写入文件
       fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf8');
@@ -115,7 +126,7 @@ export class AgentConfigManager {
    */
   private getConfigPathForSource(source: SettingSource): string {
     const configHome = getConfigHomeDir();
-    
+
     switch (source) {
       case 'userSettings':
         return path.join(configHome, 'agents.json');
@@ -166,7 +177,10 @@ export class AgentConfigManager {
         logger.debug('Invalid agent: missing or invalid whenToUse');
         return false;
       }
-      if (!agent.getSystemPrompt || typeof agent.getSystemPrompt !== 'function') {
+      if (
+        !agent.getSystemPrompt ||
+        typeof agent.getSystemPrompt !== 'function'
+      ) {
         logger.debug('Invalid agent: missing or invalid getSystemPrompt');
         return false;
       }

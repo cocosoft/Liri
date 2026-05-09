@@ -8,14 +8,16 @@
 
 import { modelManager } from '@modules/ai/models/ModelManager.js';
 
-let nativeEstimateTokens: ((text: string, model?: string) => number) | null = null;
+let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
+  null;
 
 function lazyInitNative() {
   if (nativeEstimateTokens === undefined) {
     try {
       const native = require('../../../native');
       if (native && typeof native.estimateTokens === 'function') {
-        nativeEstimateTokens = (text, model) => native.estimateTokens(text, model);
+        nativeEstimateTokens = (text, model) =>
+          native.estimateTokens(text, model);
       } else {
         nativeEstimateTokens = null;
       }
@@ -54,7 +56,11 @@ const MAX_OUTPUT_TOKENS_MAP: Record<string, number> = {
 };
 
 export function getContextWindowForModel(model: string): number {
-  return CONTEXT_WINDOW_MAP[model] || modelManager.getModelContextWindow(model) || 100000;
+  return (
+    CONTEXT_WINDOW_MAP[model] ||
+    modelManager.getModelContextWindow(model) ||
+    100000
+  );
 }
 
 export function getMaxOutputTokensForModel(model: string): number {

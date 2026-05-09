@@ -93,9 +93,17 @@ export class ToolOrchestration {
           try {
             const tool = toolRegistry.get(toolCall.name);
             if (!tool) {
-              return this.createErrorResult(toolCall.id, `Tool not found: ${toolCall.name}`);
+              return this.createErrorResult(
+                toolCall.id,
+                `Tool not found: ${toolCall.name}`
+              );
             }
-            return await this.executeWithTimeout(tool, toolCall, context, signal);
+            return await this.executeWithTimeout(
+              tool,
+              toolCall,
+              context,
+              signal
+            );
           } catch (error) {
             return this.createErrorResult(
               toolCall.id,
@@ -111,10 +119,20 @@ export class ToolOrchestration {
           try {
             const tool = toolRegistry.get(toolCall.name);
             if (!tool) {
-              results.push(this.createErrorResult(toolCall.id, `Tool not found: ${toolCall.name}`));
+              results.push(
+                this.createErrorResult(
+                  toolCall.id,
+                  `Tool not found: ${toolCall.name}`
+                )
+              );
               continue;
             }
-            const result = await this.executeWithTimeout(tool, toolCall, context, signal);
+            const result = await this.executeWithTimeout(
+              tool,
+              toolCall,
+              context,
+              signal
+            );
             results.push(result);
           } catch (error) {
             results.push(
@@ -134,7 +152,10 @@ export class ToolOrchestration {
   /**
    * 获取工具依赖
    */
-  private getDependencies(toolCall: ToolCall, toolRegistry: Map<string, Tool>): string[] {
+  private getDependencies(
+    toolCall: ToolCall,
+    toolRegistry: Map<string, Tool>
+  ): string[] {
     const tool = toolRegistry.get(toolCall.name);
     if (!tool) return [];
 
@@ -152,7 +173,10 @@ export class ToolOrchestration {
     signal?: AbortSignal
   ): Promise<ToolResult> {
     if (!tool) {
-      return this.createErrorResult(toolCall.id, `Tool not found: ${toolCall.name}`);
+      return this.createErrorResult(
+        toolCall.id,
+        `Tool not found: ${toolCall.name}`
+      );
     }
 
     return new Promise((resolve) => {
@@ -169,14 +193,17 @@ export class ToolOrchestration {
         signal.addEventListener('abort', abortHandler);
       }
 
-      tool.execute(toolCall.input, context)
+      tool
+        .execute(toolCall.input, context)
         .then((result) => {
           clearTimeout(timeout);
           if (signal) signal.removeEventListener('abort', abortHandler);
-          resolve(createToolResult(result.content, {
-            executionId: toolCall.id,
-            error: result.error,
-          }));
+          resolve(
+            createToolResult(result.content, {
+              executionId: toolCall.id,
+              error: result.error,
+            })
+          );
         })
         .catch((error) => {
           clearTimeout(timeout);

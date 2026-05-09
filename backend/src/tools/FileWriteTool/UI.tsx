@@ -14,19 +14,24 @@ export interface FileWriteOutput {
 
 export function renderToolUseMessage(
   input: Partial<{ filePath: string; content?: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
   const { filePath, content } = input;
   if (!filePath) return null;
-  
+
   const contentPreview = content ? ` (${content.length} chars)` : '';
-  return <Text dimColor>Writing: {filePath}{contentPreview}</Text>;
+  return (
+    <Text dimColor>
+      Writing: {filePath}
+      {contentPreview}
+    </Text>
+  );
 }
 
 export function renderToolResultMessage(
   output: FileWriteOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
   const { filePath, sizeBytes, success } = output;
 
@@ -52,7 +57,7 @@ export function renderToolUseProgressMessage(): React.ReactNode {
 }
 
 export function getToolUseSummary(
-  input: Partial<{ filePath: string }> | undefined,
+  input: Partial<{ filePath: string }> | undefined
 ): string | null {
   if (!input?.filePath) return null;
   return `Write file: ${input.filePath}`;

@@ -44,7 +44,11 @@ export class SleepTool extends BaseTool {
       const { milliseconds } = input;
 
       // 验证参数
-      if (typeof milliseconds !== 'number' || milliseconds < 1 || milliseconds > 300000) {
+      if (
+        typeof milliseconds !== 'number' ||
+        milliseconds < 1 ||
+        milliseconds > 300000
+      ) {
         return {
           success: false,
           error: 'Invalid milliseconds value. Must be between 1 and 300000.',

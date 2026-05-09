@@ -30,7 +30,8 @@ class PerformanceMonitoringService {
    */
   static getInstance() {
     if (!PerformanceMonitoringService.instance) {
-      PerformanceMonitoringService.instance = new PerformanceMonitoringService();
+      PerformanceMonitoringService.instance =
+        new PerformanceMonitoringService();
     }
     return PerformanceMonitoringService.instance;
   }
@@ -84,7 +85,9 @@ class PerformanceMonitoringService {
   collectCPUMetrics() {
     // 模拟CPU使用率数据
     const cpuUsage = Math.random() * 100;
-    this.recordMetric('cpu_usage', 'system_cpu_usage', cpuUsage, { source: 'system' });
+    this.recordMetric('cpu_usage', 'system_cpu_usage', cpuUsage, {
+      source: 'system',
+    });
   }
 
   /**
@@ -93,13 +96,30 @@ class PerformanceMonitoringService {
   collectMemoryMetrics() {
     // 获取系统内存使用情况
     const memoryUsage = process.memoryUsage();
-    const totalMemory = process.env.TOTAL_MEMORY ? parseInt(process.env.TOTAL_MEMORY) : 8 * 1024 * 1024 * 1024; // 默认8GB
+    const totalMemory = process.env.TOTAL_MEMORY
+      ? parseInt(process.env.TOTAL_MEMORY)
+      : 8 * 1024 * 1024 * 1024; // 默认8GB
     const usedMemory = memoryUsage.rss;
     const memoryUsagePercent = (usedMemory / totalMemory) * 100;
 
-    this.recordMetric('memory_usage', 'system_memory_usage', memoryUsagePercent, { source: 'system' });
-    this.recordMetric('memory_usage', 'process_heap_used', memoryUsage.heapUsed / 1024 / 1024, { source: 'process' });
-    this.recordMetric('memory_usage', 'process_heap_total', memoryUsage.heapTotal / 1024 / 1024, { source: 'process' });
+    this.recordMetric(
+      'memory_usage',
+      'system_memory_usage',
+      memoryUsagePercent,
+      { source: 'system' }
+    );
+    this.recordMetric(
+      'memory_usage',
+      'process_heap_used',
+      memoryUsage.heapUsed / 1024 / 1024,
+      { source: 'process' }
+    );
+    this.recordMetric(
+      'memory_usage',
+      'process_heap_total',
+      memoryUsage.heapTotal / 1024 / 1024,
+      { source: 'process' }
+    );
   }
 
   /**
@@ -108,7 +128,9 @@ class PerformanceMonitoringService {
   collectDiskMetrics() {
     // 模拟磁盘使用率数据
     const diskUsage = Math.random() * 100;
-    this.recordMetric('disk_usage', 'system_disk_usage', diskUsage, { source: 'system' });
+    this.recordMetric('disk_usage', 'system_disk_usage', diskUsage, {
+      source: 'system',
+    });
   }
 
   /**
@@ -117,7 +139,12 @@ class PerformanceMonitoringService {
   collectNetworkMetrics() {
     // 模拟网络流量数据
     const networkTraffic = Math.random() * 10000;
-    this.recordMetric('network_traffic', 'system_network_traffic', networkTraffic, { source: 'system' });
+    this.recordMetric(
+      'network_traffic',
+      'system_network_traffic',
+      networkTraffic,
+      { source: 'system' }
+    );
   }
 
   /**
@@ -203,19 +230,19 @@ class PerformanceMonitoringService {
     let result = [...this.metrics];
 
     if (options.type) {
-      result = result.filter(metric => metric.type === options.type);
+      result = result.filter((metric) => metric.type === options.type);
     }
 
     if (options.name) {
-      result = result.filter(metric => metric.name === options.name);
+      result = result.filter((metric) => metric.name === options.name);
     }
 
     if (options.startTime) {
-      result = result.filter(metric => metric.timestamp >= options.startTime);
+      result = result.filter((metric) => metric.timestamp >= options.startTime);
     }
 
     if (options.endTime) {
-      result = result.filter(metric => metric.timestamp <= options.endTime);
+      result = result.filter((metric) => metric.timestamp <= options.endTime);
     }
 
     result.sort((a, b) => b.timestamp - a.timestamp);
@@ -248,7 +275,7 @@ class PerformanceMonitoringService {
       };
     }
 
-    const values = metrics.map(metric => metric.value);
+    const values = metrics.map((metric) => metric.value);
     return {
       average: values.reduce((sum, val) => sum + val, 0) / values.length,
       min: Math.min(...values),
@@ -367,4 +394,5 @@ PerformanceMonitoringService.instance = new PerformanceMonitoringService();
  * 导出单例
  */
 export { PerformanceMonitoringService };
-export const performanceMonitoringService = PerformanceMonitoringService.getInstance();
+export const performanceMonitoringService =
+  PerformanceMonitoringService.getInstance();

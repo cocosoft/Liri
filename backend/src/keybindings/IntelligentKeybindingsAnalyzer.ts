@@ -4,7 +4,12 @@
  * 提供深度快捷键分析、模式识别、优化建议等高级功能
  */
 
-import { EnhancedKeybindingsManager, KeybindingUsageStatistics, KeybindingPerformanceMetrics, KeybindingPatternAnalysis } from './EnhancedKeybindingsManager.js';
+import {
+  EnhancedKeybindingsManager,
+  KeybindingUsageStatistics,
+  KeybindingPerformanceMetrics,
+  KeybindingPatternAnalysis,
+} from './EnhancedKeybindingsManager.js';
 
 // 以下类型仅在分析器结构中使用
 interface UsagePatternAnalysis {
@@ -98,34 +103,34 @@ interface PersonalizationPatternAnalysis {
 export interface KeybindingAnalysisResult {
   /** 快捷键ID */
   bindingId: string;
-  
+
   /** 总体评分（0-100） */
   overallScore: number;
-  
+
   /** 效率评分（0-100） */
   efficiencyScore: number;
-  
+
   /** 可用性评分（0-100） */
   usabilityScore: number;
-  
+
   /** 性能评分（0-100） */
   performanceScore: number;
-  
+
   /** 满意度评分（0-100） */
   satisfactionScore: number;
-  
+
   /** 冲突评分（0-100） */
   conflictScore: number;
-  
+
   /** 分析时间 */
   analyzedAt: Date;
-  
+
   /** 分析详情 */
   details: KeybindingAnalysisDetails;
-  
+
   /** 优化建议 */
   recommendations: KeybindingOptimizationRecommendation[];
-  
+
   /** 风险提示 */
   riskWarnings: KeybindingRiskWarning[];
 }
@@ -136,19 +141,19 @@ export interface KeybindingAnalysisResult {
 export interface KeybindingAnalysisDetails {
   /** 使用分析 */
   usage: UsageAnalysis;
-  
+
   /** 效率分析 */
   efficiency: EfficiencyAnalysis;
-  
+
   /** 性能分析 */
   performance: PerformanceAnalysis;
-  
+
   /** 冲突分析 */
   conflicts: ConflictAnalysis;
-  
+
   /** 个性化分析 */
   personalization: PersonalizationAnalysis;
-  
+
   /** 模式分析 */
   patterns: PatternAnalysis;
 }
@@ -159,13 +164,13 @@ export interface KeybindingAnalysisDetails {
 export interface UsageAnalysis {
   /** 使用频率分析 */
   frequency: FrequencyAnalysis;
-  
+
   /** 使用模式分析 */
   patterns: UsagePatternAnalysis;
-  
+
   /** 用户行为分析 */
   behavior: UserBehaviorAnalysis;
-  
+
   /** 上下文分析 */
   context: ContextAnalysis;
 }
@@ -176,13 +181,13 @@ export interface UsageAnalysis {
 export interface EfficiencyAnalysis {
   /** 执行效率分析 */
   execution: ExecutionEfficiencyAnalysis;
-  
+
   /** 学习效率分析 */
   learning: LearningEfficiencyAnalysis;
-  
+
   /** 记忆效率分析 */
   memory: MemoryEfficiencyAnalysis;
-  
+
   /** 认知效率分析 */
   cognitive: CognitiveEfficiencyAnalysis;
 }
@@ -193,13 +198,13 @@ export interface EfficiencyAnalysis {
 export interface PerformanceAnalysis {
   /** 响应性能分析 */
   response: ResponsePerformanceAnalysis;
-  
+
   /** 执行性能分析 */
   execution: ExecutionPerformanceAnalysis;
-  
+
   /** 可靠性分析 */
   reliability: ReliabilityAnalysis;
-  
+
   /** 稳定性分析 */
   stability: StabilityAnalysis;
 }
@@ -210,13 +215,13 @@ export interface PerformanceAnalysis {
 export interface ConflictAnalysis {
   /** 冲突检测分析 */
   detection: ConflictDetectionAnalysis;
-  
+
   /** 冲突影响分析 */
   impact: ConflictImpactAnalysis;
-  
+
   /** 冲突解决分析 */
   resolution: ConflictResolutionAnalysis;
-  
+
   /** 冲突预防分析 */
   prevention: ConflictPreventionAnalysis;
 }
@@ -227,13 +232,13 @@ export interface ConflictAnalysis {
 export interface PersonalizationAnalysis {
   /** 用户偏好分析 */
   preferences: UserPreferenceAnalysis;
-  
+
   /** 习惯分析 */
   habits: HabitAnalysis;
-  
+
   /** 定制化分析 */
   customization: CustomizationAnalysis;
-  
+
   /** 适应性分析 */
   adaptation: AdaptationAnalysis;
 }
@@ -244,13 +249,13 @@ export interface PersonalizationAnalysis {
 export interface PatternAnalysis {
   /** 使用模式分析 */
   usage: UsagePatternAnalysis;
-  
+
   /** 效率模式分析 */
   efficiency: EfficiencyPatternAnalysis;
-  
+
   /** 冲突模式分析 */
   conflict: ConflictPatternAnalysis;
-  
+
   /** 个性化模式分析 */
   personalization: PersonalizationPatternAnalysis;
 }
@@ -261,13 +266,13 @@ export interface PatternAnalysis {
 export interface FrequencyAnalysis {
   /** 平均使用频率 */
   averageFrequency: number;
-  
+
   /** 使用峰值 */
   peakUsage: number;
-  
+
   /** 使用趋势 */
   usageTrend: 'increasing' | 'stable' | 'decreasing';
-  
+
   /** 使用分布 */
   usageDistribution: UsageDistribution;
 }
@@ -278,13 +283,13 @@ export interface FrequencyAnalysis {
 export interface ExecutionEfficiencyAnalysis {
   /** 执行时间 */
   executionTime: number;
-  
+
   /** 执行成功率 */
   successRate: number;
-  
+
   /** 错误率 */
   errorRate: number;
-  
+
   /** 效率评分 */
   efficiencyScore: number;
 }
@@ -295,13 +300,13 @@ export interface ExecutionEfficiencyAnalysis {
 export interface ResponsePerformanceAnalysis {
   /** 平均响应时间 */
   averageResponseTime: number;
-  
+
   /** 响应一致性 */
   responseConsistency: number;
-  
+
   /** 响应稳定性 */
   responseStability: number;
-  
+
   /** 性能评分 */
   performanceScore: number;
 }
@@ -312,13 +317,13 @@ export interface ResponsePerformanceAnalysis {
 export interface ConflictDetectionAnalysis {
   /** 冲突数量 */
   conflictCount: number;
-  
+
   /** 冲突类型分布 */
   conflictTypeDistribution: ConflictTypeDistribution;
-  
+
   /** 检测准确率 */
   detectionAccuracy: number;
-  
+
   /** 检测及时性 */
   detectionTimeliness: number;
 }
@@ -329,13 +334,13 @@ export interface ConflictDetectionAnalysis {
 export interface UserPreferenceAnalysis {
   /** 偏好强度 */
   preferenceStrength: number;
-  
+
   /** 偏好稳定性 */
   preferenceStability: number;
-  
+
   /** 偏好一致性 */
   preferenceConsistency: number;
-  
+
   /** 个性化评分 */
   personalizationScore: number;
 }
@@ -346,25 +351,30 @@ export interface UserPreferenceAnalysis {
 export interface KeybindingOptimizationRecommendation {
   /** 建议ID */
   id: string;
-  
+
   /** 建议类型 */
-  type: 'efficiency' | 'usability' | 'performance' | 'conflict' | 'personalization';
-  
+  type:
+    | 'efficiency'
+    | 'usability'
+    | 'performance'
+    | 'conflict'
+    | 'personalization';
+
   /** 建议标题 */
   title: string;
-  
+
   /** 建议描述 */
   description: string;
-  
+
   /** 优先级 */
   priority: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 实施难度 */
   difficulty: 'easy' | 'medium' | 'hard';
-  
+
   /** 预期效果 */
   expectedImpact: 'minor' | 'moderate' | 'major';
-  
+
   /** 实施步骤 */
   implementationSteps: string[];
 }
@@ -375,22 +385,22 @@ export interface KeybindingOptimizationRecommendation {
 export interface KeybindingRiskWarning {
   /** 风险ID */
   id: string;
-  
+
   /** 风险类型 */
   type: 'conflict' | 'performance' | 'usability' | 'security' | 'accessibility';
-  
+
   /** 风险标题 */
   title: string;
-  
+
   /** 风险描述 */
   description: string;
-  
+
   /** 风险等级 */
   level: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 影响范围 */
   impactScope: 'user' | 'context' | 'system';
-  
+
   /** 缓解措施 */
   mitigationMeasures: string[];
 }
@@ -401,22 +411,22 @@ export interface KeybindingRiskWarning {
 export interface IntelligentKeybindingsAnalyzerConfig {
   /** 启用深度分析 */
   enableDeepAnalysis: boolean;
-  
+
   /** 启用模式识别 */
   enablePatternRecognition: boolean;
-  
+
   /** 启用预测分析 */
   enablePredictiveAnalysis: boolean;
-  
+
   /** 启用趋势分析 */
   enableTrendAnalysis: boolean;
-  
+
   /** 分析深度 */
   analysisDepth: 'basic' | 'standard' | 'advanced' | 'expert';
-  
+
   /** 缓存大小 */
   cacheSize: number;
-  
+
   /** 分析超时时间（毫秒） */
   analysisTimeout: number;
 }
@@ -459,33 +469,35 @@ export class IntelligentKeybindingsAnalyzer {
       'high-frequency-low-efficiency': {
         description: '高频低效模式',
         indicators: ['usageFrequency > 5', 'efficiencyScore < 60'],
-        recommendations: ['优化快捷键序列', '提高执行效率']
+        recommendations: ['优化快捷键序列', '提高执行效率'],
       },
       'complex-sequence': {
         description: '复杂序列模式',
         indicators: ['sequenceLength > 3', 'errorRate > 10'],
-        recommendations: ['简化序列', '减少错误']
-      }
+        recommendations: ['简化序列', '减少错误'],
+      },
     });
 
     this.patternDatabase.set('conflict-patterns', {
       'high-conflict-frequency': {
         description: '高频冲突模式',
         indicators: ['conflictCount > 5', 'conflictFrequency > 0.5'],
-        recommendations: ['重新分配快捷键', '解决冲突']
+        recommendations: ['重新分配快捷键', '解决冲突'],
       },
       'context-overlap': {
         description: '上下文重叠模式',
         indicators: ['contextOverlap > 0.7', 'conflictSeverity = high'],
-        recommendations: ['分离上下文', '明确边界']
-      }
+        recommendations: ['分离上下文', '明确边界'],
+      },
     });
   }
 
   /**
    * 分析快捷键
    */
-  async analyzeKeybinding(bindingId: string): Promise<KeybindingAnalysisResult> {
+  async analyzeKeybinding(
+    bindingId: string
+  ): Promise<KeybindingAnalysisResult> {
     // 检查缓存
     const cachedResult = this.analysisCache.get(bindingId);
     if (cachedResult) {
@@ -494,42 +506,59 @@ export class IntelligentKeybindingsAnalyzer {
 
     // 执行分析
     const result = await this.performAnalysis(bindingId);
-    
+
     // 缓存结果
     this.analysisCache.set(bindingId, result);
-    
+
     return result;
   }
 
   /**
    * 执行分析
    */
-  private async performAnalysis(bindingId: string): Promise<KeybindingAnalysisResult> {
+  private async performAnalysis(
+    bindingId: string
+  ): Promise<KeybindingAnalysisResult> {
     // 收集基础数据
     const usage = this.enhancedManager.getKeybindingUsage(bindingId);
-    const performance = this.enhancedManager.getKeybindingPerformance(bindingId);
+    const performance =
+      this.enhancedManager.getKeybindingPerformance(bindingId);
     const patterns = this.enhancedManager.getKeybindingPatterns(bindingId);
 
     // 执行深度分析
-    const analysisDetails = await this.performDeepAnalysis(bindingId, usage, performance, patterns);
-    
+    const analysisDetails = await this.performDeepAnalysis(
+      bindingId,
+      usage,
+      performance,
+      patterns
+    );
+
     // 计算总体评分
     const overallScore = this.calculateOverallScore(analysisDetails);
-    
+
     // 生成优化建议
-    const recommendations = this.generateOptimizationRecommendations(bindingId, analysisDetails);
-    
+    const recommendations = this.generateOptimizationRecommendations(
+      bindingId,
+      analysisDetails
+    );
+
     // 生成风险提示
     const riskWarnings = this.generateRiskWarnings(bindingId, analysisDetails);
 
     return {
       bindingId,
       overallScore,
-      efficiencyScore: analysisDetails.efficiency ? this.calculateEfficiencyScore(analysisDetails.efficiency) : 0,
+      efficiencyScore: analysisDetails.efficiency
+        ? this.calculateEfficiencyScore(analysisDetails.efficiency)
+        : 0,
       usabilityScore: 75, // 模拟可用性评分
-      performanceScore: analysisDetails.performance ? this.calculatePerformanceScore(analysisDetails.performance) : 0,
+      performanceScore: analysisDetails.performance
+        ? this.calculatePerformanceScore(analysisDetails.performance)
+        : 0,
       satisfactionScore: usage ? usage.userRating * 20 : 0,
-      conflictScore: analysisDetails.conflicts ? this.calculateConflictScore(analysisDetails.conflicts) : 0,
+      conflictScore: analysisDetails.conflicts
+        ? this.calculateConflictScore(analysisDetails.conflicts)
+        : 0,
       analyzedAt: new Date(),
       details: analysisDetails,
       recommendations,
@@ -706,7 +735,10 @@ export class IntelligentKeybindingsAnalyzer {
         },
         conflict: {
           commonConflictPatterns: ['navigation-overlap', 'context-confusion'],
-          conflictResolutionPatterns: ['context-separation', 'sequence-modification'],
+          conflictResolutionPatterns: [
+            'context-separation',
+            'sequence-modification',
+          ],
           conflictTrend: 'decreasing',
           patternStrength: 0.65,
         },
@@ -734,16 +766,20 @@ export class IntelligentKeybindingsAnalyzer {
 
     const usageScore = this.calculateUsageScore(details.usage);
     const efficiencyScore = this.calculateEfficiencyScore(details.efficiency);
-    const performanceScore = this.calculatePerformanceScore(details.performance);
+    const performanceScore = this.calculatePerformanceScore(
+      details.performance
+    );
     const conflictScore = this.calculateConflictScore(details.conflicts);
-    const personalizationScore = this.calculatePersonalizationScore(details.personalization);
+    const personalizationScore = this.calculatePersonalizationScore(
+      details.personalization
+    );
 
     return Math.round(
       usageScore * weights.usage +
-      efficiencyScore * weights.efficiency +
-      performanceScore * weights.performance +
-      conflictScore * weights.conflicts +
-      personalizationScore * weights.personalization
+        efficiencyScore * weights.efficiency +
+        performanceScore * weights.performance +
+        conflictScore * weights.conflicts +
+        personalizationScore * weights.personalization
     );
   }
 
@@ -755,32 +791,44 @@ export class IntelligentKeybindingsAnalyzer {
     const patternScore = usage.patterns.patternStrength * 100;
     const behaviorScore = usage.behavior.learningProgress * 100;
     const contextScore = usage.context.contextEffectiveness * 100;
-    
-    return Math.round((frequencyScore + patternScore + behaviorScore + contextScore) / 4);
+
+    return Math.round(
+      (frequencyScore + patternScore + behaviorScore + contextScore) / 4
+    );
   }
 
   /**
    * 计算效率评分
    */
   private calculateEfficiencyScore(efficiency: EfficiencyAnalysis): number {
-    const executionScore = Math.max(0, 100 - efficiency.execution.executionTime / 2);
+    const executionScore = Math.max(
+      0,
+      100 - efficiency.execution.executionTime / 2
+    );
     const learningScore = efficiency.learning.learningEfficiency * 100;
     const memoryScore = efficiency.memory.cognitiveEfficiency * 100;
     const cognitiveScore = efficiency.cognitive.cognitiveEfficiency * 100;
-    
-    return Math.round((executionScore + learningScore + memoryScore + cognitiveScore) / 4);
+
+    return Math.round(
+      (executionScore + learningScore + memoryScore + cognitiveScore) / 4
+    );
   }
 
   /**
    * 计算性能评分
    */
   private calculatePerformanceScore(performance: PerformanceAnalysis): number {
-    const responseScore = Math.max(0, 100 - performance.response.averageResponseTime / 2);
+    const responseScore = Math.max(
+      0,
+      100 - performance.response.averageResponseTime / 2
+    );
     const executionScore = performance.execution.executionReliability * 100;
     const reliabilityScore = performance.reliability.reliabilityScore * 100;
     const stabilityScore = performance.stability.overallStability * 100;
-    
-    return Math.round((responseScore + executionScore + reliabilityScore + stabilityScore) / 4);
+
+    return Math.round(
+      (responseScore + executionScore + reliabilityScore + stabilityScore) / 4
+    );
   }
 
   /**
@@ -791,20 +839,29 @@ export class IntelligentKeybindingsAnalyzer {
     const impactScore = Math.max(0, 100 - conflicts.impact.userImpact * 100);
     const resolutionScore = conflicts.resolution.resolutionEffectiveness * 100;
     const preventionScore = conflicts.prevention.preventionEffectiveness * 100;
-    
-    return Math.round((detectionScore + impactScore + resolutionScore + preventionScore) / 4);
+
+    return Math.round(
+      (detectionScore + impactScore + resolutionScore + preventionScore) / 4
+    );
   }
 
   /**
    * 计算个性化评分
    */
-  private calculatePersonalizationScore(personalization: PersonalizationAnalysis): number {
-    const preferenceScore = personalization.preferences.personalizationScore * 100;
+  private calculatePersonalizationScore(
+    personalization: PersonalizationAnalysis
+  ): number {
+    const preferenceScore =
+      personalization.preferences.personalizationScore * 100;
     const habitScore = personalization.habits.habitEfficiency * 100;
-    const customizationScore = personalization.customization.customizationEfficiency * 100;
-    const adaptationScore = personalization.adaptation.adaptationEfficiency * 100;
-    
-    return Math.round((preferenceScore + habitScore + customizationScore + adaptationScore) / 4);
+    const customizationScore =
+      personalization.customization.customizationEfficiency * 100;
+    const adaptationScore =
+      personalization.adaptation.adaptationEfficiency * 100;
+
+    return Math.round(
+      (preferenceScore + habitScore + customizationScore + adaptationScore) / 4
+    );
   }
 
   /**

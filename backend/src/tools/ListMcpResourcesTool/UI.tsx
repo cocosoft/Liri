@@ -1,25 +1,29 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type ListMcpResourcesOutput = Array<{
-  uri: string
-  name: string
-  mimeType?: string
-  description?: string
-  server: string
-}>
+  uri: string;
+  name: string;
+  mimeType?: string;
+  description?: string;
+  server: string;
+}>;
 
 export function renderToolUseMessage(
   input: Partial<{ server: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  return <Text dimColor>列出MCP资源{input.server ? ` (${input.server})` : ''}...</Text>
+  return (
+    <Text dimColor>
+      列出MCP资源{input.server ? ` (${input.server})` : ''}...
+    </Text>
+  );
 }
 
 export function renderToolResultMessage(
   output: ListMcpResourcesOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
   if (!output || output.length === 0) {
     return (
@@ -27,7 +31,7 @@ export function renderToolResultMessage(
         <Text color="yellow">⚠ </Text>
         <Text dimColor>没有可用的MCP资源</Text>
       </Box>
-    )
+    );
   }
 
   return (
@@ -44,19 +48,21 @@ export function renderToolResultMessage(
           </Box>
           {verbose && (
             <>
-              <Text dimColor>  URI: {r.uri}</Text>
-              {r.mimeType ? <Text dimColor>  类型: {r.mimeType}</Text> : null}
-              {r.description ? <Text dimColor>  描述: {r.description}</Text> : null}
+              <Text dimColor> URI: {r.uri}</Text>
+              {r.mimeType ? <Text dimColor> 类型: {r.mimeType}</Text> : null}
+              {r.description ? (
+                <Text dimColor> 描述: {r.description}</Text>
+              ) : null}
             </>
           )}
         </Box>
       ))}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  _input: Partial<{ server: string }> | undefined,
+  _input: Partial<{ server: string }> | undefined
 ): string | null {
-  return 'MCP Resources'
+  return 'MCP Resources';
 }

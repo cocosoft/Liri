@@ -263,7 +263,10 @@ export class TaskScheduler extends EventEmitter {
         );
       }
     } else {
-      nextFireTime = this.calculateBasicNextFireTime(task.cron, task.lastFiredAt || task.createdAt);
+      nextFireTime = this.calculateBasicNextFireTime(
+        task.cron,
+        task.lastFiredAt || task.createdAt
+      );
     }
 
     if (nextFireTime !== null) {
@@ -281,7 +284,10 @@ export class TaskScheduler extends EventEmitter {
    * @param fromTime 起始时间
    * @returns 下一次执行时间
    */
-  private calculateBasicNextFireTime(cronExpression: string, fromTime: number): number | null {
+  private calculateBasicNextFireTime(
+    cronExpression: string,
+    fromTime: number
+  ): number | null {
     const parts = cronExpression.split(' ');
     if (parts.length !== 5) {
       return null;
@@ -290,13 +296,32 @@ export class TaskScheduler extends EventEmitter {
     const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
     const fromDate = new Date(fromTime);
-    let targetMinute = this.parseCronField(minute, fromDate.getMinutes(), 0, 59);
+    let targetMinute = this.parseCronField(
+      minute,
+      fromDate.getMinutes(),
+      0,
+      59
+    );
     let targetHour = this.parseCronField(hour, fromDate.getHours(), 0, 23);
-    let targetDayOfMonth = this.parseCronField(dayOfMonth, fromDate.getDate(), 1, 31);
-    let targetMonth = this.parseCronField(month, fromDate.getMonth() + 1, 1, 12);
+    let targetDayOfMonth = this.parseCronField(
+      dayOfMonth,
+      fromDate.getDate(),
+      1,
+      31
+    );
+    let targetMonth = this.parseCronField(
+      month,
+      fromDate.getMonth() + 1,
+      1,
+      12
+    );
 
-    if (targetMinute === null || targetHour === null ||
-        targetDayOfMonth === null || targetMonth === null) {
+    if (
+      targetMinute === null ||
+      targetHour === null ||
+      targetDayOfMonth === null ||
+      targetMonth === null
+    ) {
       return null;
     }
 
@@ -318,7 +343,12 @@ export class TaskScheduler extends EventEmitter {
   /**
    * 解析cron字段
    */
-  private parseCronField(field: string, current: number, min: number, max: number): number | null {
+  private parseCronField(
+    field: string,
+    current: number,
+    min: number,
+    max: number
+  ): number | null {
     if (field === '*') {
       return current;
     }
@@ -329,13 +359,13 @@ export class TaskScheduler extends EventEmitter {
       if (range === '*') {
         return Math.floor(current / stepNum) * stepNum;
       }
-      const [start] = range.split('-').map(n => parseInt(n, 10));
+      const [start] = range.split('-').map((n) => parseInt(n, 10));
       const adjustedCurrent = Math.max(current, start);
       return Math.floor((adjustedCurrent - start) / stepNum) * stepNum + start;
     }
 
     if (field.includes('-')) {
-      const [start, end] = field.split('-').map(n => parseInt(n, 10));
+      const [start, end] = field.split('-').map((n) => parseInt(n, 10));
       if (current < start || current > end) {
         return start;
       }
@@ -343,7 +373,7 @@ export class TaskScheduler extends EventEmitter {
     }
 
     if (field.includes(',')) {
-      const values = field.split(',').map(n => parseInt(n, 10));
+      const values = field.split(',').map((n) => parseInt(n, 10));
       for (const v of values.sort((a, b) => a - b)) {
         if (v >= current) {
           return v;

@@ -4,8 +4,16 @@
  * 提供深度沙箱分析、模式识别、优化建议等高级功能
  */
 
-import { SandboxPlatform, SandboxPermission, SandboxExecuteResult } from './types/SandboxTypes.js';
-import { EnhancedSandboxManager, SandboxSecurityAssessment, SandboxPerformanceMetrics } from './EnhancedSandboxManager.js';
+import {
+  SandboxPlatform,
+  SandboxPermission,
+  SandboxExecuteResult,
+} from './types/SandboxTypes.js';
+import {
+  EnhancedSandboxManager,
+  SandboxSecurityAssessment,
+  SandboxPerformanceMetrics,
+} from './EnhancedSandboxManager.js';
 
 /**
  * 沙箱分析结果
@@ -13,34 +21,34 @@ import { EnhancedSandboxManager, SandboxSecurityAssessment, SandboxPerformanceMe
 export interface SandboxAnalysisResult {
   /** 沙箱ID */
   sandboxId: string;
-  
+
   /** 总体评分（0-100） */
   overallScore: number;
-  
+
   /** 安全评分（0-100） */
   securityScore: number;
-  
+
   /** 性能评分（0-100） */
   performanceScore: number;
-  
+
   /** 稳定性评分（0-100） */
   stabilityScore: number;
-  
+
   /** 兼容性评分（0-100） */
   compatibilityScore: number;
-  
+
   /** 资源效率评分（0-100） */
   resourceEfficiencyScore: number;
-  
+
   /** 分析时间 */
   analyzedAt: Date;
-  
+
   /** 分析详情 */
   details: SandboxAnalysisDetails;
-  
+
   /** 优化建议 */
   recommendations: SandboxOptimizationRecommendation[];
-  
+
   /** 风险提示 */
   riskWarnings: SandboxRiskWarning[];
 }
@@ -51,16 +59,16 @@ export interface SandboxAnalysisResult {
 export interface SandboxAnalysisDetails {
   /** 安全分析 */
   security: SecurityAnalysis;
-  
+
   /** 性能分析 */
   performance: PerformanceAnalysis;
-  
+
   /** 资源分析 */
   resources: ResourceAnalysis;
-  
+
   /** 隔离度分析 */
   isolation: IsolationAnalysis;
-  
+
   /** 配置分析 */
   configuration: ConfigurationAnalysis;
 }
@@ -71,13 +79,13 @@ export interface SandboxAnalysisDetails {
 export interface SecurityAnalysis {
   /** 漏洞分析 */
   vulnerabilities: VulnerabilityAnalysis;
-  
+
   /** 权限分析 */
   permissions: PermissionAnalysis;
-  
+
   /** 威胁分析 */
   threats: ThreatAnalysis;
-  
+
   /** 访问控制分析 */
   accessControl: AccessControlAnalysis;
 }
@@ -88,13 +96,13 @@ export interface SecurityAnalysis {
 export interface PerformanceAnalysis {
   /** 启动性能 */
   startup: StartupAnalysis;
-  
+
   /** 执行性能 */
   execution: ExecutionAnalysis;
-  
+
   /** 资源性能 */
   resource: ResourcePerformanceAnalysis;
-  
+
   /** 扩展性能 */
   scalability: ScalabilityAnalysis;
 }
@@ -105,13 +113,13 @@ export interface PerformanceAnalysis {
 export interface ResourceAnalysis {
   /** 内存使用分析 */
   memory: MemoryAnalysis;
-  
+
   /** CPU使用分析 */
   cpu: CPUAnalysis;
-  
+
   /** 存储使用分析 */
   storage: StorageAnalysis;
-  
+
   /** 网络使用分析 */
   network: NetworkAnalysis;
 }
@@ -122,13 +130,13 @@ export interface ResourceAnalysis {
 export interface IsolationAnalysis {
   /** 文件系统隔离 */
   filesystem: FilesystemIsolationAnalysis;
-  
+
   /** 进程隔离 */
   process: ProcessIsolationAnalysis;
-  
+
   /** 网络隔离 */
   network: NetworkIsolationAnalysis;
-  
+
   /** 环境隔离 */
   environment: EnvironmentIsolationAnalysis;
 }
@@ -139,13 +147,13 @@ export interface IsolationAnalysis {
 export interface ConfigurationAnalysis {
   /** 配置合理性 */
   reasonableness: ReasonablenessAnalysis;
-  
+
   /** 配置一致性 */
   consistency: ConsistencyAnalysis;
-  
+
   /** 配置安全性 */
   security: ConfigurationSecurityAnalysis;
-  
+
   /** 配置优化性 */
   optimization: OptimizationAnalysis;
 }
@@ -156,19 +164,19 @@ export interface ConfigurationAnalysis {
 export interface VulnerabilityAnalysis {
   /** 总漏洞数 */
   total: number;
-  
+
   /** 严重漏洞数 */
   critical: number;
-  
+
   /** 高危漏洞数 */
   high: number;
-  
+
   /** 中危漏洞数 */
   medium: number;
-  
+
   /** 低危漏洞数 */
   low: number;
-  
+
   /** 修复率 */
   fixRate: number;
 }
@@ -179,13 +187,13 @@ export interface VulnerabilityAnalysis {
 export interface PermissionAnalysis {
   /** 所需权限 */
   required: SandboxPermission[];
-  
+
   /** 敏感权限 */
   sensitive: SandboxPermission[];
-  
+
   /** 权限合理性 */
   reasonableness: 'reasonable' | 'excessive' | 'insufficient';
-  
+
   /** 权限风险 */
   risk: 'low' | 'medium' | 'high';
 }
@@ -196,19 +204,19 @@ export interface PermissionAnalysis {
 export interface ThreatAnalysis {
   /** 总威胁数 */
   total: number;
-  
+
   /** 严重威胁数 */
   critical: number;
-  
+
   /** 高危威胁数 */
   high: number;
-  
+
   /** 中危威胁数 */
   medium: number;
-  
+
   /** 低危威胁数 */
   low: number;
-  
+
   /** 威胁趋势 */
   trend: 'increasing' | 'stable' | 'decreasing';
 }
@@ -219,10 +227,10 @@ export interface ThreatAnalysis {
 export interface AccessControlAnalysis {
   /** 访问控制强度 */
   strength: number;
-  
+
   /** 访问控制覆盖率 */
   coverage: number;
-  
+
   /** 访问控制有效性 */
   effectiveness: number;
 }
@@ -233,10 +241,10 @@ export interface AccessControlAnalysis {
 export interface StartupAnalysis {
   /** 启动时间 */
   time: number;
-  
+
   /** 启动稳定性 */
   stability: number;
-  
+
   /** 启动成功率 */
   successRate: number;
 }
@@ -247,13 +255,13 @@ export interface StartupAnalysis {
 export interface ExecutionAnalysis {
   /** 执行时间 */
   time: number;
-  
+
   /** 执行成功率 */
   successRate: number;
-  
+
   /** 执行稳定性 */
   stability: number;
-  
+
   /** 执行吞吐量 */
   throughput: number;
 }
@@ -264,10 +272,10 @@ export interface ExecutionAnalysis {
 export interface ResourcePerformanceAnalysis {
   /** 资源使用效率 */
   efficiency: number;
-  
+
   /** 资源分配合理性 */
   allocation: number;
-  
+
   /** 资源回收效率 */
   reclamation: number;
 }
@@ -278,10 +286,10 @@ export interface ResourcePerformanceAnalysis {
 export interface ScalabilityAnalysis {
   /** 水平扩展能力 */
   horizontal: number;
-  
+
   /** 垂直扩展能力 */
   vertical: number;
-  
+
   /** 负载均衡能力 */
   loadBalancing: number;
 }
@@ -292,10 +300,10 @@ export interface ScalabilityAnalysis {
 export interface MemoryAnalysis {
   /** 内存使用量 */
   usage: number;
-  
+
   /** 内存泄漏风险 */
   leakRisk: 'low' | 'medium' | 'high';
-  
+
   /** 内存分配效率 */
   allocationEfficiency: number;
 }
@@ -306,10 +314,10 @@ export interface MemoryAnalysis {
 export interface CPUAnalysis {
   /** CPU使用率 */
   usage: number;
-  
+
   /** CPU负载均衡 */
   loadBalance: number;
-  
+
   /** CPU调度效率 */
   schedulingEfficiency: number;
 }
@@ -320,10 +328,10 @@ export interface CPUAnalysis {
 export interface StorageAnalysis {
   /** 存储使用量 */
   usage: number;
-  
+
   /** 存储IO性能 */
   ioPerformance: number;
-  
+
   /** 存储可靠性 */
   reliability: number;
 }
@@ -334,10 +342,10 @@ export interface StorageAnalysis {
 export interface NetworkAnalysis {
   /** 网络带宽使用 */
   bandwidthUsage: number;
-  
+
   /** 网络延迟 */
   latency: number;
-  
+
   /** 网络可靠性 */
   reliability: number;
 }
@@ -348,10 +356,10 @@ export interface NetworkAnalysis {
 export interface FilesystemIsolationAnalysis {
   /** 文件访问隔离 */
   accessIsolation: number;
-  
+
   /** 文件权限隔离 */
   permissionIsolation: number;
-  
+
   /** 文件内容隔离 */
   contentIsolation: number;
 }
@@ -362,10 +370,10 @@ export interface FilesystemIsolationAnalysis {
 export interface ProcessIsolationAnalysis {
   /** 进程空间隔离 */
   spaceIsolation: number;
-  
+
   /** 进程资源隔离 */
   resourceIsolation: number;
-  
+
   /** 进程通信隔离 */
   communicationIsolation: number;
 }
@@ -376,10 +384,10 @@ export interface ProcessIsolationAnalysis {
 export interface NetworkIsolationAnalysis {
   /** 网络访问隔离 */
   accessIsolation: number;
-  
+
   /** 网络流量隔离 */
   trafficIsolation: number;
-  
+
   /** 网络安全隔离 */
   securityIsolation: number;
 }
@@ -390,10 +398,10 @@ export interface NetworkIsolationAnalysis {
 export interface EnvironmentIsolationAnalysis {
   /** 环境变量隔离 */
   variableIsolation: number;
-  
+
   /** 环境配置隔离 */
   configurationIsolation: number;
-  
+
   /** 环境依赖隔离 */
   dependencyIsolation: number;
 }
@@ -404,10 +412,10 @@ export interface EnvironmentIsolationAnalysis {
 export interface ReasonablenessAnalysis {
   /** 配置合理性 */
   reasonableness: number;
-  
+
   /** 配置必要性 */
   necessity: number;
-  
+
   /** 配置优化性 */
   optimization: number;
 }
@@ -418,10 +426,10 @@ export interface ReasonablenessAnalysis {
 export interface ConsistencyAnalysis {
   /** 配置一致性 */
   consistency: number;
-  
+
   /** 配置标准化 */
   standardization: number;
-  
+
   /** 配置兼容性 */
   compatibility: number;
 }
@@ -432,10 +440,10 @@ export interface ConsistencyAnalysis {
 export interface ConfigurationSecurityAnalysis {
   /** 配置安全性 */
   security: number;
-  
+
   /** 配置完整性 */
   integrity: number;
-  
+
   /** 配置保密性 */
   confidentiality: number;
 }
@@ -446,10 +454,10 @@ export interface ConfigurationSecurityAnalysis {
 export interface OptimizationAnalysis {
   /** 配置优化度 */
   optimization: number;
-  
+
   /** 配置效率 */
   efficiency: number;
-  
+
   /** 配置可维护性 */
   maintainability: number;
 }
@@ -460,25 +468,25 @@ export interface OptimizationAnalysis {
 export interface SandboxOptimizationRecommendation {
   /** 建议ID */
   id: string;
-  
+
   /** 建议类型 */
   type: 'security' | 'performance' | 'resource' | 'isolation' | 'configuration';
-  
+
   /** 建议标题 */
   title: string;
-  
+
   /** 建议描述 */
   description: string;
-  
+
   /** 优先级 */
   priority: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 实施难度 */
   difficulty: 'easy' | 'medium' | 'hard';
-  
+
   /** 预期效果 */
   expectedImpact: 'minor' | 'moderate' | 'major';
-  
+
   /** 实施步骤 */
   implementationSteps: string[];
 }
@@ -489,22 +497,22 @@ export interface SandboxOptimizationRecommendation {
 export interface SandboxRiskWarning {
   /** 风险ID */
   id: string;
-  
+
   /** 风险类型 */
   type: 'security' | 'performance' | 'resource' | 'isolation' | 'configuration';
-  
+
   /** 风险标题 */
   title: string;
-  
+
   /** 风险描述 */
   description: string;
-  
+
   /** 风险等级 */
   level: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 影响范围 */
   impactScope: 'sandbox' | 'system' | 'user';
-  
+
   /** 缓解措施 */
   mitigationMeasures: string[];
 }
@@ -515,22 +523,22 @@ export interface SandboxRiskWarning {
 export interface IntelligentSandboxAnalyzerConfig {
   /** 启用深度分析 */
   enableDeepAnalysis: boolean;
-  
+
   /** 启用模式识别 */
   enablePatternRecognition: boolean;
-  
+
   /** 启用预测分析 */
   enablePredictiveAnalysis: boolean;
-  
+
   /** 启用趋势分析 */
   enableTrendAnalysis: boolean;
-  
+
   /** 分析深度 */
   analysisDepth: 'basic' | 'standard' | 'advanced' | 'expert';
-  
+
   /** 缓存大小 */
   cacheSize: number;
-  
+
   /** 分析超时时间（毫秒） */
   analysisTimeout: number;
 }
@@ -573,26 +581,26 @@ export class IntelligentSandboxAnalyzer {
       'high-risk-permissions': {
         description: '高风险权限模式',
         indicators: ['sensitivePermissions > 3', 'permissionRisk = high'],
-        recommendations: ['最小权限原则', '权限审查']
+        recommendations: ['最小权限原则', '权限审查'],
       },
       'isolation-weakness': {
         description: '隔离弱点模式',
         indicators: ['overallIsolation < 70', 'vulnerabilities > 5'],
-        recommendations: ['加强隔离配置', '安全加固']
-      }
+        recommendations: ['加强隔离配置', '安全加固'],
+      },
     });
 
     this.patternDatabase.set('performance-patterns', {
       'high-memory-usage': {
         description: '高内存使用模式',
         indicators: ['memoryUsage > 80', 'memoryLeakDetected'],
-        recommendations: ['优化内存管理', '减少内存泄漏']
+        recommendations: ['优化内存管理', '减少内存泄漏'],
       },
       'slow-startup': {
         description: '启动缓慢模式',
         indicators: ['startupTime > 1000', 'resourceAllocationInefficient'],
-        recommendations: ['优化启动流程', '资源预分配']
-      }
+        recommendations: ['优化启动流程', '资源预分配'],
+      },
     });
   }
 
@@ -608,38 +616,51 @@ export class IntelligentSandboxAnalyzer {
 
     // 执行分析
     const result = await this.performAnalysis(sandboxId);
-    
+
     // 缓存结果
     this.analysisCache.set(sandboxId, result);
-    
+
     return result;
   }
 
   /**
    * 执行分析
    */
-  private async performAnalysis(sandboxId: string): Promise<SandboxAnalysisResult> {
+  private async performAnalysis(
+    sandboxId: string
+  ): Promise<SandboxAnalysisResult> {
     // 收集基础数据
     const security = this.enhancedManager.getSandboxSecurity(sandboxId);
     const performance = this.enhancedManager.getSandboxPerformance(sandboxId);
 
     // 执行深度分析
-    const analysisDetails = await this.performDeepAnalysis(sandboxId, security, performance);
-    
+    const analysisDetails = await this.performDeepAnalysis(
+      sandboxId,
+      security,
+      performance
+    );
+
     // 计算总体评分
     const overallScore = this.calculateOverallScore(analysisDetails);
-    
+
     // 生成优化建议
-    const recommendations = this.generateOptimizationRecommendations(sandboxId, analysisDetails);
-    
+    const recommendations = this.generateOptimizationRecommendations(
+      sandboxId,
+      analysisDetails
+    );
+
     // 生成风险提示
     const riskWarnings = this.generateRiskWarnings(sandboxId, analysisDetails);
 
     return {
       sandboxId,
       overallScore,
-      securityScore: analysisDetails.security ? this.calculateSecurityScore(analysisDetails.security) : 0,
-      performanceScore: analysisDetails.performance ? this.calculatePerformanceScore(analysisDetails.performance) : 0,
+      securityScore: analysisDetails.security
+        ? this.calculateSecurityScore(analysisDetails.security)
+        : 0,
+      performanceScore: analysisDetails.performance
+        ? this.calculatePerformanceScore(analysisDetails.performance)
+        : 0,
       stabilityScore: performance ? performance.stabilityScore : 0,
       compatibilityScore: 85, // 模拟兼容性评分
       resourceEfficiencyScore: 75, // 模拟资源效率评分
@@ -663,16 +684,25 @@ export class IntelligentSandboxAnalyzer {
       security: {
         vulnerabilities: {
           total: security?.vulnerabilities.length || 0,
-          critical: security?.vulnerabilities.filter(v => v.severity === 'critical').length || 0,
-          high: security?.vulnerabilities.filter(v => v.severity === 'high').length || 0,
-          medium: security?.vulnerabilities.filter(v => v.severity === 'medium').length || 0,
-          low: security?.vulnerabilities.filter(v => v.severity === 'low').length || 0,
+          critical:
+            security?.vulnerabilities.filter((v) => v.severity === 'critical')
+              .length || 0,
+          high:
+            security?.vulnerabilities.filter((v) => v.severity === 'high')
+              .length || 0,
+          medium:
+            security?.vulnerabilities.filter((v) => v.severity === 'medium')
+              .length || 0,
+          low:
+            security?.vulnerabilities.filter((v) => v.severity === 'low')
+              .length || 0,
           fixRate: 60,
         },
         permissions: {
           required: security?.permissionAssessment.sensitivePermissions || [],
           sensitive: security?.permissionAssessment.sensitivePermissions || [],
-          reasonableness: security?.permissionAssessment.reasonableness || 'reasonable',
+          reasonableness:
+            security?.permissionAssessment.reasonableness || 'reasonable',
           risk: security?.permissionAssessment.risk || 'low',
         },
         threats: {
@@ -736,7 +766,8 @@ export class IntelligentSandboxAnalyzer {
       },
       isolation: {
         filesystem: {
-          accessIsolation: security?.isolationAssessment.filesystemIsolation || 0,
+          accessIsolation:
+            security?.isolationAssessment.filesystemIsolation || 0,
           permissionIsolation: 85,
           contentIsolation: 90,
         },
@@ -751,7 +782,8 @@ export class IntelligentSandboxAnalyzer {
           securityIsolation: 80,
         },
         environment: {
-          variableIsolation: security?.isolationAssessment.environmentIsolation || 0,
+          variableIsolation:
+            security?.isolationAssessment.environmentIsolation || 0,
           configurationIsolation: 75,
           dependencyIsolation: 70,
         },
@@ -794,17 +826,21 @@ export class IntelligentSandboxAnalyzer {
     };
 
     const securityScore = this.calculateSecurityScore(details.security);
-    const performanceScore = this.calculatePerformanceScore(details.performance);
+    const performanceScore = this.calculatePerformanceScore(
+      details.performance
+    );
     const resourceScore = this.calculateResourceScore(details.resources);
     const isolationScore = this.calculateIsolationScore(details.isolation);
-    const configurationScore = this.calculateConfigurationScore(details.configuration);
+    const configurationScore = this.calculateConfigurationScore(
+      details.configuration
+    );
 
     return Math.round(
       securityScore * weights.security +
-      performanceScore * weights.performance +
-      resourceScore * weights.resources +
-      isolationScore * weights.isolation +
-      configurationScore * weights.configuration
+        performanceScore * weights.performance +
+        resourceScore * weights.resources +
+        isolationScore * weights.isolation +
+        configurationScore * weights.configuration
     );
   }
 
@@ -812,12 +848,22 @@ export class IntelligentSandboxAnalyzer {
    * 计算安全评分
    */
   private calculateSecurityScore(security: SecurityAnalysis): number {
-    const vulnerabilityScore = Math.max(0, 100 - security.vulnerabilities.total * 10);
-    const permissionScore = security.permissions.reasonableness === 'reasonable' ? 90 : 60;
+    const vulnerabilityScore = Math.max(
+      0,
+      100 - security.vulnerabilities.total * 10
+    );
+    const permissionScore =
+      security.permissions.reasonableness === 'reasonable' ? 90 : 60;
     const threatScore = Math.max(0, 100 - security.threats.total * 15);
     const accessControlScore = security.accessControl.strength;
-    
-    return Math.round((vulnerabilityScore + permissionScore + threatScore + accessControlScore) / 4);
+
+    return Math.round(
+      (vulnerabilityScore +
+        permissionScore +
+        threatScore +
+        accessControlScore) /
+        4
+    );
   }
 
   /**
@@ -828,8 +874,10 @@ export class IntelligentSandboxAnalyzer {
     const executionScore = performance.execution.successRate;
     const resourceScore = performance.resource.efficiency;
     const scalabilityScore = performance.scalability.horizontal;
-    
-    return Math.round((startupScore + executionScore + resourceScore + scalabilityScore) / 4);
+
+    return Math.round(
+      (startupScore + executionScore + resourceScore + scalabilityScore) / 4
+    );
   }
 
   /**
@@ -840,8 +888,10 @@ export class IntelligentSandboxAnalyzer {
     const cpuScore = Math.max(0, 100 - resources.cpu.usage / 2);
     const storageScore = resources.storage.reliability;
     const networkScore = resources.network.reliability;
-    
-    return Math.round((memoryScore + cpuScore + storageScore + networkScore) / 4);
+
+    return Math.round(
+      (memoryScore + cpuScore + storageScore + networkScore) / 4
+    );
   }
 
   /**
@@ -852,20 +902,30 @@ export class IntelligentSandboxAnalyzer {
     const processScore = isolation.process.spaceIsolation;
     const networkScore = isolation.network.accessIsolation;
     const environmentScore = isolation.environment.variableIsolation;
-    
-    return Math.round((filesystemScore + processScore + networkScore + environmentScore) / 4);
+
+    return Math.round(
+      (filesystemScore + processScore + networkScore + environmentScore) / 4
+    );
   }
 
   /**
    * 计算配置评分
    */
-  private calculateConfigurationScore(configuration: ConfigurationAnalysis): number {
+  private calculateConfigurationScore(
+    configuration: ConfigurationAnalysis
+  ): number {
     const reasonablenessScore = configuration.reasonableness.reasonableness;
     const consistencyScore = configuration.consistency.consistency;
     const securityScore = configuration.security.security;
     const optimizationScore = configuration.optimization.optimization;
-    
-    return Math.round((reasonablenessScore + consistencyScore + securityScore + optimizationScore) / 4);
+
+    return Math.round(
+      (reasonablenessScore +
+        consistencyScore +
+        securityScore +
+        optimizationScore) /
+        4
+    );
   }
 
   /**

@@ -10,7 +10,7 @@ import { getEmptyToolPermissionContext } from './permissions';
 export function loadPermissionsFromSettings(
   settingsPath: string,
   source: PermissionRuleSource,
-  context: ToolPermissionContext = getEmptyToolPermissionContext(),
+  context: ToolPermissionContext = getEmptyToolPermissionContext()
 ): ToolPermissionContext {
   try {
     if (!fs.existsSync(settingsPath)) {
@@ -45,7 +45,10 @@ export function loadPermissionsFromSettings(
       }
     }
 
-    if (settings?.additionalDirectories && Array.isArray(settings.additionalDirectories)) {
+    if (
+      settings?.additionalDirectories &&
+      Array.isArray(settings.additionalDirectories)
+    ) {
       context.additionalWorkingDirectories = [
         ...context.additionalWorkingDirectories,
         ...settings.additionalDirectories,
@@ -67,8 +70,16 @@ export function loadAllPermissionSettings(cwd: string): ToolPermissionContext {
   const localSettings = path.join(cwd, '.py_app', 'local_settings.json');
 
   context = loadPermissionsFromSettings(userSettings, 'userSettings', context);
-  context = loadPermissionsFromSettings(projectSettings, 'projectSettings', context);
-  context = loadPermissionsFromSettings(localSettings, 'localSettings', context);
+  context = loadPermissionsFromSettings(
+    projectSettings,
+    'projectSettings',
+    context
+  );
+  context = loadPermissionsFromSettings(
+    localSettings,
+    'localSettings',
+    context
+  );
 
   return context;
 }

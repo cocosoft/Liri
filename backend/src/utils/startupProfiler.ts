@@ -12,7 +12,11 @@ export * from '../performance/StartupProfiler.js';
  * @deprecated 请使用新的性能分析系统
  */
 export class StartupProfiler {
-  private checkpoints: Array<{ name: string; timestamp: number; duration: number }> = [];
+  private checkpoints: Array<{
+    name: string;
+    timestamp: number;
+    duration: number;
+  }> = [];
   private startTime: number;
   private stopped: boolean = false;
 
@@ -53,7 +57,11 @@ export class StartupProfiler {
   /**
    * 获取所有检查点
    */
-  getCheckpoints(): Array<{ name: string; timestamp: number; duration: number }> {
+  getCheckpoints(): Array<{
+    name: string;
+    timestamp: number;
+    duration: number;
+  }> {
     return [...this.checkpoints];
   }
 

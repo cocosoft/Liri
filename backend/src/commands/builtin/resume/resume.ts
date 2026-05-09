@@ -24,9 +24,10 @@ export function listSessions(): SessionManifest[] {
   if (!fs.existsSync(dir)) return [];
 
   try {
-    return fs.readdirSync(dir)
-      .filter(f => f.endsWith('.json'))
-      .map(f => {
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => {
         const filePath = path.join(dir, f);
         try {
           const raw = fs.readFileSync(filePath, 'utf-8');
@@ -36,7 +37,9 @@ export function listSessions(): SessionManifest[] {
             title: data.title,
             createdAt: data.createdAt || 0,
             lastActivityAt: data.lastActivityAt || 0,
-            messageCount: Array.isArray(data.messages) ? data.messages.length : 0,
+            messageCount: Array.isArray(data.messages)
+              ? data.messages.length
+              : 0,
             filePath,
           };
         } catch {

@@ -5,7 +5,11 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { LLMClient } from './LLMClient';
-import type { ChatMessage, ChatResponse, ToolDefinition } from '../models/types';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ToolDefinition,
+} from '../models/types';
 import type { ThinkingConfig } from './thinking';
 import {
   withRetry,
@@ -73,10 +77,13 @@ export class AnthropicClient extends LLMClient {
     this.retryConfig.maxRetries = 2;
     this.retryConfig.initialDelayMs = 100;
     try {
-      const response = await fetch(this.config.baseUrl || 'https://api.anthropic.com', {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000),
-      });
+      const response = await fetch(
+        this.config.baseUrl || 'https://api.anthropic.com',
+        {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(5000),
+        }
+      );
     } catch {
       // 预连接失败不影响主流程
     }
@@ -102,7 +109,7 @@ export class AnthropicClient extends LLMClient {
       maxTokens?: number;
       temperature?: number;
       thinking?: ThinkingConfig;
-    },
+    }
   ): Promise<ChatResponse> {
     const model = options?.model || this.config.model || 'claude-sonnet-4-6';
 
@@ -121,7 +128,7 @@ export class AnthropicClient extends LLMClient {
         if (is529Error(error)) {
           this.consecutive529Errors++;
         }
-      },
+      }
     );
   }
 
@@ -133,7 +140,7 @@ export class AnthropicClient extends LLMClient {
       maxTokens?: number;
       temperature?: number;
       thinking?: ThinkingConfig;
-    },
+    }
   ): AsyncGenerator<string, ChatResponse, unknown> {
     const model = options?.model || this.config.model || 'claude-sonnet-4-6';
     let finalResponse: ChatResponse = {
@@ -160,19 +167,19 @@ export class AnthropicClient extends LLMClient {
   private async sendRequest(
     model: string,
     messages: ChatMessage[],
-    options?: any,
+    options?: any
   ): Promise<ChatResponse> {
-    const systemMessages = messages.filter(m => m.role === 'system');
-    const nonSystemMessages = messages.filter(m => m.role !== 'system');
+    const systemMessages = messages.filter((m) => m.role === 'system');
+    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 
-    const systemPrompt = systemMessages.map(m => m.content).join('\n');
+    const systemPrompt = systemMessages.map((m) => m.content).join('\n');
 
     const response = await this.anthropic.messages.create({
       model,
       max_tokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
       system: systemPrompt || undefined,
-      messages: nonSystemMessages.map(m => ({
+      messages: nonSystemMessages.map((m) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
@@ -196,10 +203,14 @@ export class AnthropicClient extends LLMClient {
         arguments: c.input || {},
       }));
 
-    const stopReason = response.stop_reason === 'end_turn' ? 'stop'
-      : response.stop_reason === 'tool_use' ? 'tool_calls'
-      : response.stop_reason === 'max_tokens' ? 'max_tokens'
-      : 'stop';
+    const stopReason =
+      response.stop_reason === 'end_turn'
+        ? 'stop'
+        : response.stop_reason === 'tool_use'
+          ? 'tool_calls'
+          : response.stop_reason === 'max_tokens'
+            ? 'max_tokens'
+            : 'stop';
 
     return {
       content,
@@ -207,10 +218,14 @@ export class AnthropicClient extends LLMClient {
       stop_reason: stopReason,
       usage: {
         prompt_tokens: response.usage?.input_tokens || 0,
-        cache_read_input_tokens: (response.usage as any)?.cache_read_input_tokens || 0,
-        cache_creation_input_tokens: (response.usage as any)?.cache_creation_input_tokens || 0,
+        cache_read_input_tokens:
+          (response.usage as any)?.cache_read_input_tokens || 0,
+        cache_creation_input_tokens:
+          (response.usage as any)?.cache_creation_input_tokens || 0,
         completion_tokens: response.usage?.output_tokens || 0,
-        total_tokens: (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0),
+        total_tokens:
+          (response.usage?.input_tokens || 0) +
+          (response.usage?.output_tokens || 0),
       },
       tool_calls: toolUseBlocks.length > 0 ? toolUseBlocks : undefined,
     };
@@ -219,12 +234,12 @@ export class AnthropicClient extends LLMClient {
   private async *streamRequest(
     model: string,
     messages: ChatMessage[],
-    options?: any,
+    options?: any
   ): AsyncGenerator<string> {
-    const systemMessages = messages.filter(m => m.role === 'system');
-    const nonSystemMessages = messages.filter(m => m.role !== 'system');
+    const systemMessages = messages.filter((m) => m.role === 'system');
+    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 
-    const systemPrompt = systemMessages.map(m => m.content).join('\n');
+    const systemPrompt = systemMessages.map((m) => m.content).join('\n');
 
     const stream = await this.anthropic.messages.create({
       model,
@@ -244,7 +259,10 @@ export class AnthropicClient extends LLMClient {
     });
 
     for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+      if (
+        event.type === 'content_block_delta' &&
+        event.delta?.type === 'text_delta'
+      ) {
         yield event.delta.text;
       }
     }

@@ -9,8 +9,9 @@ const permissionsCommand: Command = {
   name: 'permissions',
   description: '权限管理（权限模式切换、规则管理、细粒度控制）',
   aliases: ['perm', 'auth', 'permission'],
-  argumentHint: '[list|show|grant|revoke|status|mode|rules|add|remove|resource|role|user|help]',
-  load: () => import('./Permissions.js').then(m => m.default),
+  argumentHint:
+    '[list|show|grant|revoke|status|mode|rules|add|remove|resource|role|user|help]',
+  load: () => import('./Permissions.js').then((m) => m.default),
 };
 
 export { permissionsCommand };

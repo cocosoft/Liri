@@ -98,7 +98,9 @@ export interface AgentMemory {
   getAll(): Record<string, any>;
   save(): void;
   load(): void;
-  scan(predicate: (key: string, value: any, item: any) => boolean): Record<string, any>;
+  scan(
+    predicate: (key: string, value: any, item: any) => boolean
+  ): Record<string, any>;
   searchByTag(tag: string): Record<string, any>;
   filterByScope(scope: AgentMemoryScope): Record<string, any>;
   getStats(): {
@@ -187,7 +189,13 @@ export interface AgentHistory {
 /**
  * Agent来源类型
  */
-export type AgentSource = 'built-in' | 'user' | 'project' | 'local' | 'managed' | 'plugin';
+export type AgentSource =
+  | 'built-in'
+  | 'user'
+  | 'project'
+  | 'local'
+  | 'managed'
+  | 'plugin';
 
 /**
  * Agent内存作用域
@@ -197,7 +205,15 @@ export type AgentMemoryScope = 'user' | 'project' | 'local';
 /**
  * Agent颜色名称
  */
-export type AgentColorName = 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'cyan' | 'orange' | 'pink';
+export type AgentColorName =
+  | 'blue'
+  | 'green'
+  | 'red'
+  | 'yellow'
+  | 'purple'
+  | 'cyan'
+  | 'orange'
+  | 'pink';
 
 /**
  * Agent配置详情
@@ -271,7 +287,10 @@ export interface PluginAgentDefinition extends BaseAgentDefinition {
 /**
  * Agent定义联合类型
  */
-export type AgentDefinition = BuiltInAgentDefinition | CustomAgentDefinition | PluginAgentDefinition;
+export type AgentDefinition =
+  | BuiltInAgentDefinition
+  | CustomAgentDefinition
+  | PluginAgentDefinition;
 
 /**
  * Agent定义结果

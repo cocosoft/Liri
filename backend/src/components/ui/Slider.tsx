@@ -32,7 +32,8 @@ export function Slider({
 }: SliderProps): React.ReactNode {
   const [internalValue, setInternalValue] = useState(min);
 
-  const currentValue = controlledValue !== undefined ? controlledValue : internalValue;
+  const currentValue =
+    controlledValue !== undefined ? controlledValue : internalValue;
   const percentage = ((currentValue - min) / (max - min)) * 100;
   const filledWidth = Math.round((width * percentage) / 100);
 
@@ -64,7 +65,9 @@ export function Slider({
       </Box>
       {showValue && (
         <Box marginLeft={2}>
-          <Text color={fillColor} bold>{currentValue}</Text>
+          <Text color={fillColor} bold>
+            {currentValue}
+          </Text>
         </Box>
       )}
     </Box>

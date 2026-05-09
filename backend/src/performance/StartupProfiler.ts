@@ -21,7 +21,7 @@ const DETAILED_PROFILING = isEnvTruthy(process.env.PY_APP_PROFILE_STARTUP);
 
 // 采样率：100% 内部用户，0.5% 外部用户
 const STATSIG_SAMPLE_RATE = 0.005;
-const STATSIG_LOGGING_SAMPLED = 
+const STATSIG_LOGGING_SAMPLED =
   process.env.USER_TYPE === 'ant' || Math.random() < STATSIG_SAMPLE_RATE;
 
 // 启动阶段定义
@@ -64,12 +64,12 @@ function formatTimelineLine(
 ): string {
   const timeStr = formatMs(duration).padStart(timeWidth);
   let memStr = '';
-  
+
   if (memory) {
     const heapUsedMB = Math.round((memory.heapUsed / 1024 / 1024) * 10) / 10;
     memStr = `${heapUsedMB}MB`.padStart(memWidth);
   }
-  
+
   return `${timeStr}ms ${memStr} ${name}`;
 }
 
@@ -87,7 +87,7 @@ function getPerformance() {
 export function profileCheckpoint(name: string): void {
   const perf = getPerformance();
   perf.mark(name);
-  
+
   // 记录内存快照（仅在详细分析模式下）
   if (DETAILED_PROFILING) {
     memorySnapshots.push(process.memoryUsage());
@@ -101,7 +101,7 @@ export function profileCheckpoint(name: string): void {
 export function profilePhaseStart(phase: string): void {
   const perf = getPerformance();
   perf.mark(`${phase}_start`);
-  
+
   // 记录内存快照（仅在详细分析模式下）
   if (DETAILED_PROFILING) {
     memorySnapshots.push(process.memoryUsage());
@@ -116,20 +116,21 @@ export function profilePhaseEnd(phase: string): number {
   const perf = getPerformance();
   const endMark = `${phase}_end`;
   const startMark = `${phase}_start`;
-  
+
   perf.mark(endMark);
   perf.measure(phase, startMark, endMark);
-  
+
   // 获取阶段时间
   const measures = perf.getEntriesByName(phase, 'measure');
-  const duration = measures.length > 0 ? measures[measures.length - 1].duration : 0;
+  const duration =
+    measures.length > 0 ? measures[measures.length - 1].duration : 0;
   phaseTimes[phase] = duration;
-  
+
   // 记录内存快照（仅在详细分析模式下）
   if (DETAILED_PROFILING) {
     memorySnapshots.push(process.memoryUsage());
   }
-  
+
   return duration;
 }
 
@@ -145,7 +146,7 @@ export function profileReport(): string {
   const perf = getPerformance();
   const marks = perf.getEntriesByType('mark');
   const measures = perf.getEntriesByType('measure');
-  
+
   if (marks.length === 0 && measures.length === 0) {
     return '未记录任何检查点或阶段';
   }
@@ -178,11 +179,9 @@ export function profileReport(): string {
   if (measures.length > 0) {
     lines.push('阶段时间:');
     for (const measure of measures) {
-      lines.push(formatTimelineLine(
-        measure.startTime,
-        measure.duration,
-        measure.name
-      ));
+      lines.push(
+        formatTimelineLine(measure.startTime, measure.duration, measure.name)
+      );
     }
     lines.push('');
   }
@@ -200,43 +199,51 @@ export function profileReport(): string {
   const lastMark = marks[marks.length - 1];
   const totalTime = lastMark?.startTime ?? 0;
   lines.push(`总启动时间: ${formatMs(totalTime)}ms`);
-  
+
   // 输出内存使用情况
   if (memorySnapshots.length > 0) {
     const firstMemory = memorySnapshots[0];
     const lastMemory = memorySnapshots[memorySnapshots.length - 1];
     lines.push('');
     lines.push('内存使用变化:');
-    lines.push(`  开始: ${Math.round((firstMemory.heapUsed / 1024 / 1024) * 10) / 10}MB`);
-    lines.push(`  结束: ${Math.round((lastMemory.heapUsed / 1024 / 1024) * 10) / 10}MB`);
-    lines.push(`  增长: ${Math.round(((lastMemory.heapUsed - firstMemory.heapUsed) / 1024 / 1024) * 10) / 10}MB`);
+    lines.push(
+      `  开始: ${Math.round((firstMemory.heapUsed / 1024 / 1024) * 10) / 10}MB`
+    );
+    lines.push(
+      `  结束: ${Math.round((lastMemory.heapUsed / 1024 / 1024) * 10) / 10}MB`
+    );
+    lines.push(
+      `  增长: ${Math.round(((lastMemory.heapUsed - firstMemory.heapUsed) / 1024 / 1024) * 10) / 10}MB`
+    );
   }
 
   lines.push('='.repeat(80));
 
   const report = lines.join('\n');
-  
+
   // 记录到调试日志
   logForDebugging(report);
-  
+
   // 写入文件（仅在详细分析模式下）
   if (DETAILED_PROFILING) {
     try {
       const logPath = getStartupPerfLogPath();
       const logDir = dirname(logPath);
-      
+
       // 确保目录存在
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
       }
-      
+
       fs.writeFileSync(logPath, report);
       logForDebugging(`启动性能报告已写入: ${logPath}`);
     } catch (error) {
-      logForDebugging(`写入启动性能报告失败: ${error instanceof Error ? error.message : String(error)}`);
+      logForDebugging(
+        `写入启动性能报告失败: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
-  
+
   return report;
 }
 
@@ -273,7 +280,7 @@ export function logStartupPerf(): void {
   const perf = getPerformance();
   const marks = perf.getEntriesByType('mark');
   const measures = perf.getEntriesByType('measure');
-  
+
   if (marks.length === 0 && measures.length === 0) return;
 
   // 构建检查点查找表

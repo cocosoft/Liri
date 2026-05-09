@@ -24,6 +24,9 @@ import {
   jitteredNextCronRunMs,
 } from './cronJitterConfig';
 import { cronToHuman } from './cron';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const CHECK_INTERVAL_MS = 1000;
 const LOCK_PROBE_INTERVAL_MS = 5000;
@@ -92,7 +95,7 @@ export function createCronScheduler(
         nextFireAt.set(t.id, Infinity);
       }
 
-      console.log(
+      logger.info(
         `[Chronos] surfaced ${missed.length} missed one-shot task(s)`
       );
 
@@ -106,7 +109,10 @@ export function createCronScheduler(
         missed.map((t) => t.id),
         dir
       ).catch((e) =>
-        console.error(`[Chronos] failed to remove missed tasks: ${e}`)
+        logger.error(
+          `[Chronos] failed to remove missed tasks`,
+          e instanceof Error ? e : new Error(String(e))
+        )
       );
     }
   }
@@ -137,14 +143,14 @@ export function createCronScheduler(
           : (nextCronRunMs(t.cron, t.createdAt) ?? Infinity);
 
         nextFireAt.set(t.id, next);
-        console.log(
+        logger.info(
           `[Chronos] scheduled ${t.id} for ${next === Infinity ? 'never' : new Date(next).toISOString()}`
         );
       }
 
       if (now < next) return;
 
-      console.log(
+      logger.info(
         `[Chronos] firing ${t.id}${t.recurring ? ' (recurring)' : ''}`
       );
 
@@ -157,7 +163,7 @@ export function createCronScheduler(
       const aged = isRecurringTaskAged(t, now, jitterCfg.recurringMaxAgeMs);
       if (aged) {
         const ageHours = Math.floor((now - t.createdAt) / 1000 / 60 / 60);
-        console.log(
+        logger.info(
           `[Chronos] recurring task ${t.id} aged out (${ageHours}h since creation), deleting after final fire`
         );
       }
@@ -174,7 +180,10 @@ export function createCronScheduler(
         inFlight.add(t.id);
         void removeCronTasks([t.id], dir)
           .catch((e) =>
-            console.error(`[Chronos] failed to remove task ${t.id}: ${e}`)
+            logger.error(
+              `[Chronos] failed to remove task ${t.id}`,
+              e instanceof Error ? e : new Error(String(e))
+            )
           )
           .finally(() => inFlight.delete(t.id));
         nextFireAt.delete(t.id);
@@ -193,7 +202,7 @@ export function createCronScheduler(
             nextFireAt.set(t.id, Infinity);
           }
 
-          console.log(
+          logger.info(
             `[Chronos] surfaced ${missed.length} missed one-shot task(s)`
           );
 
@@ -207,7 +216,10 @@ export function createCronScheduler(
             missed.map((t) => t.id),
             dir
           ).catch((e) =>
-            console.error(`[Chronos] failed to remove missed tasks: ${e}`)
+            logger.error(
+              `[Chronos] failed to remove missed tasks`,
+              e instanceof Error ? e : new Error(String(e))
+            )
           );
         }
 
@@ -218,7 +230,10 @@ export function createCronScheduler(
             for (const id of firedFileRecurring) inFlight.add(id);
             void markCronTasksFired(firedFileRecurring, now, dir)
               .catch((e) =>
-                console.error(`[Chronos] failed to persist lastFiredAt: ${e}`)
+                logger.error(
+                  `[Chronos] failed to persist lastFiredAt`,
+                  e instanceof Error ? e : new Error(String(e))
+                )
               )
               .finally(() => {
                 for (const id of firedFileRecurring) inFlight.delete(id);
@@ -242,7 +257,10 @@ export function createCronScheduler(
           if (!seen.has(id)) nextFireAt.delete(id);
         }
       } catch (error) {
-        console.error(`[Chronos] Error in check: ${error}`);
+        logger.error(
+          `[Chronos] Error in check`,
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     })();
   }
@@ -295,14 +313,14 @@ export function createCronScheduler(
       stopped = false;
 
       if (dir !== undefined) {
-        console.log(
+        logger.info(
           `[Chronos] scheduler start() — dir=${dir}, hasTasks=${hasCronTasksSync(dir)}`
         );
         void enable();
         return;
       }
 
-      console.log(
+      logger.info(
         `[Chronos] scheduler start() — hasTasks=${hasCronTasksSync()}`
       );
 

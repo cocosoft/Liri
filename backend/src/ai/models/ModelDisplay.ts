@@ -6,7 +6,11 @@
  */
 
 import { modelManager } from './ModelManager.js';
-import { getModelKeyByName, ALL_MODEL_CONFIGS, type ModelKey } from './ModelConfigs.js';
+import {
+  getModelKeyByName,
+  ALL_MODEL_CONFIGS,
+  type ModelKey,
+} from './ModelConfigs.js';
 import { priceManager } from '@modules/core/tokenBudget/PriceManager';
 import { getCacheEfficiency as getCacheEfficiencyFromBudget } from '@modules/core/tokenBudget/CacheAwareBudget';
 
@@ -53,9 +57,10 @@ export function getModelInfoDisplay(modelName: string): string {
   const maxOutput = modelManager.getModelMaxOutputTokens(modelName);
   const pricing = getModelPriceDisplay(modelName);
 
-  const contextDisplay = contextWindow >= 1000000
-    ? `${contextWindow / 1000000}M`
-    : `${contextWindow / 1000}K`;
+  const contextDisplay =
+    contextWindow >= 1000000
+      ? `${contextWindow / 1000000}M`
+      : `${contextWindow / 1000}K`;
 
   return `${displayName}\n  Context: ${contextDisplay} tokens\n  Max Output: ${maxOutput} tokens\n  Pricing: ${pricing}`;
 }
@@ -88,8 +93,12 @@ export function compareModels(
   const context1 = modelManager.getModelContextWindow(model1);
   const context2 = modelManager.getModelContextWindow(model2);
 
-  const avgPrice1 = pricing1 ? (pricing1.inputPer1K + pricing1.outputPer1K) / 2 : Infinity;
-  const avgPrice2 = pricing2 ? (pricing2.inputPer1K + pricing2.outputPer1K) / 2 : Infinity;
+  const avgPrice1 = pricing1
+    ? (pricing1.inputPer1K + pricing1.outputPer1K) / 2
+    : Infinity;
+  const avgPrice2 = pricing2
+    ? (pricing2.inputPer1K + pricing2.outputPer1K) / 2
+    : Infinity;
 
   return {
     fasterModel: avgPrice1 < avgPrice2 ? model1 : model2,
@@ -229,7 +238,11 @@ export function getCacheEfficiencyFromPriceManager(
   cacheReadTokens: number,
   cacheCreationTokens: number
 ): { worthIt: boolean; ratio: number; description: string } {
-  const result = getCacheEfficiencyFromBudget(cacheReadTokens, cacheCreationTokens, modelName);
+  const result = getCacheEfficiencyFromBudget(
+    cacheReadTokens,
+    cacheCreationTokens,
+    modelName
+  );
   return {
     worthIt: result.isWorthIt,
     ratio: result.efficiency,

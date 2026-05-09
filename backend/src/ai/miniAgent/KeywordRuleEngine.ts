@@ -88,7 +88,8 @@ export class KeywordRuleEngine implements IRuleEngine {
       }
     }
 
-    const confidence = maxScore > 0 ? Math.min(0.5 + maxScore * 0.15, 0.95) : 0.5;
+    const confidence =
+      maxScore > 0 ? Math.min(0.5 + maxScore * 0.15, 0.95) : 0.5;
 
     return {
       type: detectedIntent,

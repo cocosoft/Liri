@@ -5,13 +5,13 @@
  */
 
 import { randomUUID } from 'crypto';
-import { 
-  SwarmTask, 
-  SwarmResult, 
-  ISwarmAgent, 
-  SwarmConfig, 
+import {
+  SwarmTask,
+  SwarmResult,
+  ISwarmAgent,
+  SwarmConfig,
   SwarmExecutionOptions,
-  AgentStatus
+  AgentStatus,
 } from './types';
 
 const DEFAULT_CONFIG: SwarmConfig = {
@@ -28,9 +28,9 @@ class DefaultSwarmAgent implements ISwarmAgent {
 
   async run(task: SwarmTask): Promise<SwarmResult> {
     const payload = task.input ?? {};
-    
+
     if (payload.delayMs) {
-      await new Promise(resolve => setTimeout(resolve, payload.delayMs));
+      await new Promise((resolve) => setTimeout(resolve, payload.delayMs));
     }
 
     if (payload.shouldFail) {
@@ -117,7 +117,8 @@ export class AgentSwarmManager {
     options: SwarmExecutionOptions = {}
   ): Promise<SwarmResult[]> {
     const parallel = options.parallel ?? this.config.defaultParallel ?? true;
-    const timeoutMs = options.timeoutMs ?? this.config.defaultTimeoutMs ?? 30000;
+    const timeoutMs =
+      options.timeoutMs ?? this.config.defaultTimeoutMs ?? 30000;
 
     this.activeSwarmId = `swarm_${randomUUID().substring(0, 8)}`;
 
@@ -145,7 +146,10 @@ export class AgentSwarmManager {
     }
 
     const timeoutPromise = new Promise<SwarmResult[]>((_, reject) => {
-      setTimeout(() => reject(new Error('Swarm execution timed out')), timeoutMs);
+      setTimeout(
+        () => reject(new Error('Swarm execution timed out')),
+        timeoutMs
+      );
     });
 
     const taskPromises = tasks.map((task, index) => {
@@ -153,10 +157,7 @@ export class AgentSwarmManager {
       return this.executeWithAgent(agent, task);
     });
 
-    return Promise.race([
-      Promise.all(taskPromises),
-      timeoutPromise
-    ]);
+    return Promise.race([Promise.all(taskPromises), timeoutPromise]);
   }
 
   /**
@@ -247,11 +248,11 @@ export class AgentSwarmManager {
     failedTasks: number;
     totalDurationMs: number;
   } {
-    const completedTasks = results.filter(r => r.success).length;
-    const failedTasks = results.filter(r => !r.success).length;
-    
+    const completedTasks = results.filter((r) => r.success).length;
+    const failedTasks = results.filter((r) => !r.success).length;
+
     // 计算总耗时（从最早开始到最晚结束）
-    const timestamps = results.map(r => r.timestamp);
+    const timestamps = results.map((r) => r.timestamp);
     const minTime = Math.min(...timestamps);
     const maxTime = Math.max(...timestamps);
     const totalDurationMs = maxTime - minTime;

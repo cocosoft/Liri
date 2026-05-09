@@ -78,7 +78,7 @@ export class UserContextService {
    */
   private async findClaudeMd(startDir: string): Promise<string | null> {
     const claudeMdNames = ['CLAUDE.md', 'claude.md', 'Claude.md'];
-    
+
     for (const name of claudeMdNames) {
       const filePath = join(startDir, name);
       if (await this.fileExists(filePath)) {
@@ -96,7 +96,7 @@ export class UserContextService {
    */
   async getClaudeMdContent(cwd?: string): Promise<string | null> {
     const workingDir = cwd || process.cwd();
-    
+
     if (process.env.CLAUDE_CODE_DISABLE_CLAUDE_MDS === 'true') {
       return null;
     }

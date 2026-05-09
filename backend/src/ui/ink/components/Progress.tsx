@@ -28,19 +28,11 @@ export const Progress: React.FC<ProgressProps> = ({
 
   return (
     <Box flexDirection="column">
-      {label && (
-        <Text>{label}</Text>
-      )}
+      {label && <Text>{label}</Text>}
       <Box flexDirection="row">
-        <Text color={barColor as any}>
-          {'='.repeat(filledWidth)}
-        </Text>
-        <Text color={'gray' as any}>
-          {'-'.repeat(emptyWidth)}
-        </Text>
-        <Text color={'gray' as any}>
-          {Math.round(percentage)}%
-        </Text>
+        <Text color={barColor as any}>{'='.repeat(filledWidth)}</Text>
+        <Text color={'gray' as any}>{'-'.repeat(emptyWidth)}</Text>
+        <Text color={'gray' as any}>{Math.round(percentage)}%</Text>
       </Box>
     </Box>
   );

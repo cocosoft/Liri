@@ -126,7 +126,10 @@ export function isPolicySettingsAvailable(): boolean {
 /**
  * 深度合并对象
  */
-function deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+function deepMerge(
+  target: Record<string, any>,
+  source: Record<string, any>
+): Record<string, any> {
   const result = { ...target };
 
   for (const key of Object.keys(source)) {

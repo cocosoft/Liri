@@ -60,13 +60,13 @@ export class ToolManager {
    */
   loadBuiltinTools(): void {
     profileCheckpoint('tool_manager_load_builtin_tools_start');
-    
+
     // 使用函数式方法加载内置工具
     const builtinTools = loadBuiltinToolsUtil(this.factory);
-    
+
     // 注册所有工具
     this.registry.registerTools(builtinTools);
-    
+
     profileCheckpoint('tool_manager_load_builtin_tools_end');
   }
 
@@ -134,7 +134,12 @@ export class ToolManager {
     }
 
     try {
-      const result = await optimizedExecuteTool(tool, input, context, onProgress);
+      const result = await optimizedExecuteTool(
+        tool,
+        input,
+        context,
+        onProgress
+      );
       profileCheckpoint(`tool_execute_${name}_end`);
       return result;
     } catch (error) {
@@ -243,7 +248,12 @@ export async function executeTool(
   context: any,
   onProgress?: any
 ): Promise<any> {
-  return await getOrCreateToolManager().executeTool(name, input, context, onProgress);
+  return await getOrCreateToolManager().executeTool(
+    name,
+    input,
+    context,
+    onProgress
+  );
 }
 
 /**

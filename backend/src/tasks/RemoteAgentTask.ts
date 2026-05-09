@@ -94,7 +94,10 @@ export class RemoteAgentTask extends BaseTask {
       },
       disconnect: async () => {},
       execute: async (definition: AgentDefinition) => {
-        this.emit('output', { type: 'info', message: `Executing remote agent: ${definition.name}` });
+        this.emit('output', {
+          type: 'info',
+          message: `Executing remote agent: ${definition.name}`,
+        });
         return { success: true };
       },
     };
@@ -103,11 +106,14 @@ export class RemoteAgentTask extends BaseTask {
   private async executeRemoteTask(): Promise<void> {
     if (this.remoteSession) {
       const result = await this.remoteSession.execute(this.agentDefinition);
-      
+
       if (result.success) {
         this.setStatus(TaskStatus.COMPLETED);
       } else {
-        this.setStatus(TaskStatus.FAILED, result.error || 'Remote execution failed');
+        this.setStatus(
+          TaskStatus.FAILED,
+          result.error || 'Remote execution failed'
+        );
       }
     }
   }

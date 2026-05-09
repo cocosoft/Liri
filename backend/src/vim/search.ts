@@ -65,7 +65,8 @@ export class SearchManager {
       return null;
     }
 
-    this.searchResults.currentIndex = (this.searchResults.currentIndex + 1) % this.searchResults.matches.length;
+    this.searchResults.currentIndex =
+      (this.searchResults.currentIndex + 1) % this.searchResults.matches.length;
     return this.searchResults.matches[this.searchResults.currentIndex];
   }
 
@@ -77,8 +78,11 @@ export class SearchManager {
       return null;
     }
 
-    this.searchResults.currentIndex = 
-      (this.searchResults.currentIndex - 1 + this.searchResults.matches.length) % this.searchResults.matches.length;
+    this.searchResults.currentIndex =
+      (this.searchResults.currentIndex -
+        1 +
+        this.searchResults.matches.length) %
+      this.searchResults.matches.length;
     return this.searchResults.matches[this.searchResults.currentIndex];
   }
 
@@ -96,7 +100,11 @@ export class SearchManager {
   /**
    * 简单替换
    */
-  replace(pattern: string, replacement: string, flags: string = 'g'): ReplaceResult {
+  replace(
+    pattern: string,
+    replacement: string,
+    flags: string = 'g'
+  ): ReplaceResult {
     const regex = new RegExp(pattern, flags);
     const newText = this.text.replace(regex, replacement);
     const replacedCount = (this.text.match(regex) || []).length;
@@ -123,7 +131,9 @@ export class SearchManager {
    */
   repeatSearch(forward: boolean = true): SearchResult | null {
     if (!this.lastPattern) return null;
-    return forward ? this.searchForward(this.lastPattern, this.lastFlags) : this.searchBackward(this.lastPattern, this.lastFlags);
+    return forward
+      ? this.searchForward(this.lastPattern, this.lastFlags)
+      : this.searchBackward(this.lastPattern, this.lastFlags);
   }
 
   /**

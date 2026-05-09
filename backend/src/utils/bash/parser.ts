@@ -5,7 +5,7 @@
  * 参考 CC源码 cc_code/backend/utils/bash/parser.ts
  */
 
-import { extractHeredocs } from './heredoc'
+import { extractHeredocs } from './heredoc';
 import {
   createSimpleCommand,
   extractEnvVars,
@@ -13,9 +13,9 @@ import {
   type ParseForSecurityResult,
   type SimpleCommand,
   SHELL_KEYWORDS,
-} from './ast'
+} from './ast';
 
-const MAX_COMMAND_LENGTH = 10000
+const MAX_COMMAND_LENGTH = 10000;
 
 const COMPLEX_PATTERNS = [
   /&&/,
@@ -27,119 +27,119 @@ const COMPLEX_PATTERNS = [
   /\(\(/,
   /\b(if|then|else|elif|fi|case|esac|for|while|until|do|done|function)\b/,
   /\bselect\b/,
-]
+];
 
 export function splitPipeChain(command: string): string[] {
-  const parts: string[] = []
-  let current = ''
-  let inSingleQuote = false
-  let inDoubleQuote = false
-  let escapeNext = false
+  const parts: string[] = [];
+  let current = '';
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let escapeNext = false;
 
   const processChar = (ch: string, i: number) => {
     if (escapeNext) {
-      current += ch
-      escapeNext = false
-      return
+      current += ch;
+      escapeNext = false;
+      return;
     }
     if (ch === '\\') {
-      current += ch
-      escapeNext = true
-      return
+      current += ch;
+      escapeNext = true;
+      return;
     }
     if (ch === "'" && !inDoubleQuote) {
-      inSingleQuote = !inSingleQuote
-      current += ch
-      return
+      inSingleQuote = !inSingleQuote;
+      current += ch;
+      return;
     }
     if (ch === '"' && !inSingleQuote) {
-      inDoubleQuote = !inDoubleQuote
-      current += ch
-      return
+      inDoubleQuote = !inDoubleQuote;
+      current += ch;
+      return;
     }
     if (ch === '|' && !inSingleQuote && !inDoubleQuote) {
-      parts.push(current.trim())
-      current = ''
-      return
+      parts.push(current.trim());
+      current = '';
+      return;
     }
-    current += ch
-  }
+    current += ch;
+  };
 
   for (let i = 0; i < command.length; i++) {
-    processChar(command[i]!, i)
+    processChar(command[i]!, i);
   }
-  const last = current.trim()
-  if (last) parts.push(last)
+  const last = current.trim();
+  if (last) parts.push(last);
 
-  return parts
+  return parts;
 }
 
 export function tokenize(command: string): string[] {
-  const tokens: string[] = []
-  let current = ''
-  let inSingleQuote = false
-  let inDoubleQuote = false
-  let escapeNext = false
+  const tokens: string[] = [];
+  let current = '';
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let escapeNext = false;
 
   for (let i = 0; i < command.length; i++) {
-    const ch = command[i]!
+    const ch = command[i]!;
 
     if (escapeNext) {
-      current += ch
-      escapeNext = false
-      continue
+      current += ch;
+      escapeNext = false;
+      continue;
     }
 
     if (ch === '\\') {
-      current += ch
-      escapeNext = true
-      continue
+      current += ch;
+      escapeNext = true;
+      continue;
     }
 
     if (ch === "'" && !inDoubleQuote) {
-      inSingleQuote = !inSingleQuote
-      current += ch
-      continue
+      inSingleQuote = !inSingleQuote;
+      current += ch;
+      continue;
     }
 
     if (ch === '"' && !inSingleQuote) {
-      inDoubleQuote = !inDoubleQuote
-      current += ch
-      continue
+      inDoubleQuote = !inDoubleQuote;
+      current += ch;
+      continue;
     }
 
     if (/\s/.test(ch) && !inSingleQuote && !inDoubleQuote) {
       if (current) {
-        tokens.push(current)
-        current = ''
+        tokens.push(current);
+        current = '';
       }
-      continue
+      continue;
     }
 
-    current += ch
+    current += ch;
   }
 
   if (current) {
-    tokens.push(current)
+    tokens.push(current);
   }
 
-  return tokens
+  return tokens;
 }
 
 function isAllowedCommand(cmd: string): boolean {
-  if (SHELL_KEYWORDS.has(cmd)) return false
-  if (cmd.startsWith('-')) return false
-  if (cmd.includes('/')) return false
-  return /^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(cmd)
+  if (SHELL_KEYWORDS.has(cmd)) return false;
+  if (cmd.startsWith('-')) return false;
+  if (cmd.includes('/')) return false;
+  return /^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(cmd);
 }
 
 function checkCommandSafety(commands: SimpleCommand[]): boolean {
   for (const cmd of commands) {
-    if (cmd.argv.length === 0) continue
-    const commandName = cmd.argv[0]!
-    if (!isAllowedCommand(commandName)) return false
+    if (cmd.argv.length === 0) continue;
+    const commandName = cmd.argv[0]!;
+    if (!isAllowedCommand(commandName)) return false;
   }
-  return true
+  return true;
 }
 
 export interface ParseResult {
@@ -149,10 +149,15 @@ export interface ParseResult {
   commandNode?: string;
 }
 
-export async function parseCommand(command: string): Promise<{ envVars: Record<string, string>; commandNode: string } | null> {
+export async function parseCommand(
+  command: string
+): Promise<{ envVars: Record<string, string>; commandNode: string } | null> {
   const envMatch = command.match(/^([A-Za-z_][A-Za-z0-9_]*=[^\s]*)\s+/);
   if (envMatch) {
-    return { envVars: { [envMatch[1].split('=')[0]]: envMatch[1].split('=')[1] }, commandNode: command.slice(envMatch[0].length) };
+    return {
+      envVars: { [envMatch[1].split('=')[0]]: envMatch[1].split('=')[1] },
+      commandNode: command.slice(envMatch[0].length),
+    };
   }
   const trimmed = command.trim();
   if (!trimmed) return null;
@@ -164,48 +169,54 @@ export function extractCommandArguments(node: string): string[] {
 }
 
 export function parseForSecurity(command: string): ParseForSecurityResult {
-  const trimmed = command.trim()
+  const trimmed = command.trim();
 
   if (trimmed.length === 0 || trimmed.startsWith('#')) {
-    return { kind: 'simple', commandText: command, commands: [] }
+    return { kind: 'simple', commandText: command, commands: [] };
   }
 
   if (trimmed.length > MAX_COMMAND_LENGTH) {
-    return { kind: 'too-complex', reason: 'Command exceeds maximum length' }
+    return { kind: 'too-complex', reason: 'Command exceeds maximum length' };
   }
 
   for (const pattern of COMPLEX_PATTERNS) {
     if (pattern.test(trimmed)) {
-      return { kind: 'too-complex', reason: `Contains complex construct: ${pattern.source}` }
+      return {
+        kind: 'too-complex',
+        reason: `Contains complex construct: ${pattern.source}`,
+      };
     }
   }
 
-  const { processedCommand } = extractHeredocs(trimmed)
-  const pipeline = splitPipeChain(processedCommand)
-  const commands: SimpleCommand[] = []
+  const { processedCommand } = extractHeredocs(trimmed);
+  const pipeline = splitPipeChain(processedCommand);
+  const commands: SimpleCommand[] = [];
 
   for (const segment of pipeline) {
-    const tokens = tokenize(segment)
-    const { cmdTokens, redirects } = extractRedirections(tokens)
-    const cmd = createSimpleCommand(segment)
+    const tokens = tokenize(segment);
+    const { cmdTokens, redirects } = extractRedirections(tokens);
+    const cmd = createSimpleCommand(segment);
 
-    cmd.redirects = redirects
+    cmd.redirects = redirects;
 
     for (const token of cmdTokens) {
-      const envVar = extractEnvVars(token)
+      const envVar = extractEnvVars(token);
       if (envVar) {
-        cmd.envVars.set(envVar.name, envVar.value)
+        cmd.envVars.set(envVar.name, envVar.value);
       } else {
-        cmd.argv.push(token)
+        cmd.argv.push(token);
       }
     }
 
-    commands.push(cmd)
+    commands.push(cmd);
   }
 
   if (!checkCommandSafety(commands)) {
-    return { kind: 'too-complex', reason: 'Contains unsafe or complex command pattern' }
+    return {
+      kind: 'too-complex',
+      reason: 'Contains unsafe or complex command pattern',
+    };
   }
 
-  return { kind: 'simple', commandText: command, commands }
+  return { kind: 'simple', commandText: command, commands };
 }

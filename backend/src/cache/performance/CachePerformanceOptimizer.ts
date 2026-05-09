@@ -14,7 +14,12 @@ export interface BatchOperation {
 
 export interface BatchResult {
   success: boolean;
-  results: Array<{ key: string; success: boolean; value?: any; error?: string }>;
+  results: Array<{
+    key: string;
+    success: boolean;
+    value?: any;
+    error?: string;
+  }>;
   totalDuration: number;
 }
 
@@ -44,7 +49,9 @@ export interface MemoryUsageReport {
 
 export interface ICachePerformanceOptimizer {
   getBatch(keys: string[]): Promise<Map<string, any>>;
-  setBatch(entries: Array<{ key: string; value: any; ttl?: number }>): Promise<number>;
+  setBatch(
+    entries: Array<{ key: string; value: any; ttl?: number }>
+  ): Promise<number>;
   deleteBatch(keys: string[]): Promise<number>;
   executeBatch(operations: BatchOperation[]): Promise<BatchResult>;
   analyzeMemoryUsage(): MemoryUsageReport;
@@ -71,7 +78,10 @@ interface OperationRecord {
 }
 
 export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
-  private storage: Map<string, { value: any; timestamp: number; ttl?: number; size: number }> = new Map();
+  private storage: Map<
+    string,
+    { value: any; timestamp: number; ttl?: number; size: number }
+  > = new Map();
   private operationLog: OperationRecord[] = [];
   private maxOperationLogSize = 10000;
   private totalOperations = 0;
@@ -107,12 +117,15 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
 
     this.totalLatency += Date.now() - start;
     this.latencies.push(...latencies);
-    if (this.latencies.length > 10000) this.latencies = this.latencies.slice(-5000);
+    if (this.latencies.length > 10000)
+      this.latencies = this.latencies.slice(-5000);
 
     return results;
   }
 
-  async setBatch(entries: Array<{ key: string; value: any; ttl?: number }>): Promise<number> {
+  async setBatch(
+    entries: Array<{ key: string; value: any; ttl?: number }>
+  ): Promise<number> {
     const start = Date.now();
     let successCount = 0;
 
@@ -149,8 +162,13 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
         switch (op.type) {
           case 'get': {
             const entry = this.storage.get(op.key);
-            const hit = entry && (!entry.ttl || entry.timestamp + entry.ttl > Date.now());
-            results.push({ key: op.key, success: !!hit, value: hit ? entry!.value : undefined });
+            const hit =
+              entry && (!entry.ttl || entry.timestamp + entry.ttl > Date.now());
+            results.push({
+              key: op.key,
+              success: !!hit,
+              value: hit ? entry!.value : undefined,
+            });
             if (hit) this.totalHits++;
             else this.totalMisses++;
             break;
@@ -169,12 +187,16 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
             break;
         }
       } catch (error) {
-        results.push({ key: op.key, success: false, error: (error as Error).message });
+        results.push({
+          key: op.key,
+          success: false,
+          error: (error as Error).message,
+        });
       }
     }
 
     return {
-      success: results.every(r => r.success),
+      success: results.every((r) => r.success),
       results,
       totalDuration: Date.now() - start,
     };
@@ -194,19 +216,28 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
       strategySizes[strategy] = (strategySizes[strategy] || 0) + entry.size;
     }
 
-    const avgItemSize = this.storage.size > 0 ? totalSize / this.storage.size : 0;
-    const fragmentationRatio = maxItemSize > 0 && minItemSize < Infinity
-      ? 1 - (minItemSize / maxItemSize) : 0;
+    const avgItemSize =
+      this.storage.size > 0 ? totalSize / this.storage.size : 0;
+    const fragmentationRatio =
+      maxItemSize > 0 && minItemSize < Infinity
+        ? 1 - minItemSize / maxItemSize
+        : 0;
 
     const recommendations: string[] = [];
     if (totalSize > this.targets.maxMemoryUsage * 0.8) {
-      recommendations.push('Memory usage exceeds 80% of target, consider increasing maxMemoryUsage or enabling stricter eviction');
+      recommendations.push(
+        'Memory usage exceeds 80% of target, consider increasing maxMemoryUsage or enabling stricter eviction'
+      );
     }
     if (fragmentationRatio > 0.5) {
-      recommendations.push('High memory fragmentation detected, consider defragmentation');
+      recommendations.push(
+        'High memory fragmentation detected, consider defragmentation'
+      );
     }
     if (this.storage.size > 0 && avgItemSize < 50) {
-      recommendations.push('Many small items detected, consider batching for efficiency');
+      recommendations.push(
+        'Many small items detected, consider batching for efficiency'
+      );
     }
 
     const pool: MemoryPool = {
@@ -230,7 +261,10 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
 
   async optimize(force: boolean = false): Promise<OptimizationResult> {
     const now = Date.now();
-    if (!force && (now - this.lastOptimizationTime) < this.minOptimizationInterval) {
+    if (
+      !force &&
+      now - this.lastOptimizationTime < this.minOptimizationInterval
+    ) {
       return { performed: false, actions: [], freedBytes: 0, duration: 0 };
     }
 
@@ -250,19 +284,27 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
       this.storage.delete(key);
     }
     if (expiredKeys.length > 0) {
-      actions.push(`Removed ${expiredKeys.length} expired entries (freed ${freedBytes} bytes)`);
+      actions.push(
+        `Removed ${expiredKeys.length} expired entries (freed ${freedBytes} bytes)`
+      );
     }
 
     const opLogCount = this.operationLog.length;
     if (opLogCount > this.maxOperationLogSize) {
-      this.operationLog = this.operationLog.slice(-Math.floor(this.maxOperationLogSize * 0.5));
-      actions.push(`Trimmed operation log: ${opLogCount} → ${this.operationLog.length}`);
+      this.operationLog = this.operationLog.slice(
+        -Math.floor(this.maxOperationLogSize * 0.5)
+      );
+      actions.push(
+        `Trimmed operation log: ${opLogCount} → ${this.operationLog.length}`
+      );
     }
 
     const latCount = this.latencies.length;
     if (latCount > 5000) {
       this.latencies = this.latencies.slice(-2500);
-      actions.push(`Trimmed latency samples: ${latCount} → ${this.latencies.length}`);
+      actions.push(
+        `Trimmed latency samples: ${latCount} → ${this.latencies.length}`
+      );
     }
 
     const report = this.analyzeMemoryUsage();
@@ -274,7 +316,9 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
         if (entry) freedBytes += entry.size;
         this.storage.delete(key);
       }
-      actions.push(`Emergency eviction: removed ${toRemove} entries (freed ${report.totalSizeBytes > 0 ? freedBytes : 0} bytes)`);
+      actions.push(
+        `Emergency eviction: removed ${toRemove} entries (freed ${report.totalSizeBytes > 0 ? freedBytes : 0} bytes)`
+      );
     }
 
     this.lastOptimizationTime = now;
@@ -290,8 +334,10 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
     const totalOps = this.totalHits + this.totalMisses;
     const hitRate = totalOps > 0 ? this.totalHits / totalOps : 0;
     const sorted = [...this.latencies].sort((a, b) => a - b);
-    const p99 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.99)] : 0;
-    const avgLat = this.totalOperations > 0 ? this.totalLatency / this.totalOperations : 0;
+    const p99 =
+      sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.99)] : 0;
+    const avgLat =
+      this.totalOperations > 0 ? this.totalLatency / this.totalOperations : 0;
 
     return {
       hitRate,
@@ -315,7 +361,9 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
     this.latencies.push(duration);
     this.operationLog.push({ duration, success, timestamp: Date.now() });
     if (this.operationLog.length > this.maxOperationLogSize) {
-      this.operationLog = this.operationLog.slice(-Math.floor(this.maxOperationLogSize * 0.5));
+      this.operationLog = this.operationLog.slice(
+        -Math.floor(this.maxOperationLogSize * 0.5)
+      );
     }
   }
 }

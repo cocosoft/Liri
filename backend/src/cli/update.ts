@@ -45,8 +45,14 @@ export class UpdateHandler {
       console.log(chalk.cyan('═'.repeat(60)));
       console.log();
 
-      console.log(chalk.green('Current version:'), this.updateInfo.currentVersion);
-      console.log(chalk.green('Latest version:'), this.updateInfo.latestVersion);
+      console.log(
+        chalk.green('Current version:'),
+        this.updateInfo.currentVersion
+      );
+      console.log(
+        chalk.green('Latest version:'),
+        this.updateInfo.latestVersion
+      );
 
       if (this.updateInfo.updateAvailable) {
         console.log(chalk.yellow('⚠'), 'Update available!');
@@ -55,7 +61,9 @@ export class UpdateHandler {
           console.log(this.updateInfo.releaseNotes);
         }
         console.log();
-        console.log(chalk.gray('Run "update install" to install the latest version'));
+        console.log(
+          chalk.gray('Run "update install" to install the latest version')
+        );
       } else {
         console.log(chalk.green('✓'), 'You are running the latest version');
       }
@@ -87,14 +95,19 @@ export class UpdateHandler {
         return;
       }
 
-      console.log(chalk.yellow('⚠'), `Updating from ${this.updateInfo.currentVersion} to ${this.updateInfo.latestVersion}`);
+      console.log(
+        chalk.yellow('⚠'),
+        `Updating from ${this.updateInfo.currentVersion} to ${this.updateInfo.latestVersion}`
+      );
       console.log(chalk.gray('This may take a few moments...'));
 
       await this.downloadUpdate();
       await this.installUpdate();
 
       console.log(chalk.green('✓'), 'Update installed successfully');
-      console.log(chalk.gray('Please restart the application to apply the update'));
+      console.log(
+        chalk.gray('Please restart the application to apply the update')
+      );
     } catch (error) {
       console.error(chalk.red('✗'), `Failed to install update: ${error}`);
       process.exit(1);
@@ -112,7 +125,10 @@ export class UpdateHandler {
     try {
       const info = await this.checkForUpdates();
       if (info.updateAvailable) {
-        console.log(chalk.yellow('⚠'), `Update available: ${info.latestVersion}`);
+        console.log(
+          chalk.yellow('⚠'),
+          `Update available: ${info.latestVersion}`
+        );
         console.log(chalk.gray('Run "update check" for details'));
       }
       return info;
@@ -125,7 +141,7 @@ export class UpdateHandler {
    * 检查更新
    */
   private async checkForUpdates(): Promise<UpdateInfo> {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 模拟版本信息
     return {
@@ -142,8 +158,10 @@ export class UpdateHandler {
   private async downloadUpdate(): Promise<void> {
     console.log(chalk.blue('ℹ'), 'Downloading update...');
     for (let i = 0; i <= 100; i += 10) {
-      process.stdout.write(`\r${chalk.blue(`[${'█'.repeat(i / 10)}${' '.repeat(10 - i / 10)}] ${i}%`)}`);
-      await new Promise(resolve => setTimeout(resolve, 100));
+      process.stdout.write(
+        `\r${chalk.blue(`[${'█'.repeat(i / 10)}${' '.repeat(10 - i / 10)}] ${i}%`)}`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
     console.log();
   }
@@ -153,13 +171,15 @@ export class UpdateHandler {
    */
   private async installUpdate(): Promise<void> {
     console.log(chalk.blue('ℹ'), 'Installing update...');
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
 
 /**
  * 创建更新处理器
  */
-export function createUpdateHandler(options?: UpdateHandlerOptions): UpdateHandler {
+export function createUpdateHandler(
+  options?: UpdateHandlerOptions
+): UpdateHandler {
   return new UpdateHandler(options);
 }

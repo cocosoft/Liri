@@ -12,13 +12,16 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const projectName = args.trim() || 'my-project';
-    
+
     try {
       const fs = await import('fs');
       const path = await import('path');
-      
-      const projectPath = path.resolve(context.cwd || process.cwd(), projectName);
-      
+
+      const projectPath = path.resolve(
+        context.cwd || process.cwd(),
+        projectName
+      );
+
       // 检查项目目录是否已存在
       if (fs.existsSync(projectPath)) {
         return {
@@ -30,7 +33,7 @@ export default {
 
       // 创建项目目录结构
       fs.mkdirSync(projectPath, { recursive: true });
-      
+
       // 创建基本文件
       const filesToCreate = [
         {
@@ -40,36 +43,40 @@ dist/
 .build/
 .env
 .DS_Store
-`
+`,
         },
         {
           path: path.join(projectPath, 'README.md'),
           content: `# ${projectName}
 
 项目描述
-`
+`,
         },
         {
           path: path.join(projectPath, 'package.json'),
-          content: JSON.stringify({
-            name: projectName,
-            version: '1.0.0',
-            description: '',
-            main: 'index.js',
-            scripts: {
-              start: 'node index.js',
-              test: 'echo "Error: no test specified" && exit 1'
+          content: JSON.stringify(
+            {
+              name: projectName,
+              version: '1.0.0',
+              description: '',
+              main: 'index.js',
+              scripts: {
+                start: 'node index.js',
+                test: 'echo "Error: no test specified" && exit 1',
+              },
+              keywords: [],
+              author: '',
+              license: 'MIT',
             },
-            keywords: [],
-            author: '',
-            license: 'MIT'
-          }, null, 2)
+            null,
+            2
+          ),
         },
         {
           path: path.join(projectPath, 'index.js'),
           content: `console.log('Hello, World!');
-`
-        }
+`,
+        },
       ];
 
       for (const file of filesToCreate) {
@@ -81,12 +88,13 @@ dist/
       return {
         success: true,
         type: 'text',
-        message: `项目初始化完成!\n\n已创建目录: ${projectPath}\n\n创建的文件:\n` +
+        message:
+          `项目初始化完成!\n\n已创建目录: ${projectPath}\n\n创建的文件:\n` +
           `- .gitignore\n` +
           `- README.md\n` +
           `- package.json\n` +
           `- index.js`,
-        data: { projectPath, files: filesToCreate.map(f => f.path) },
+        data: { projectPath, files: filesToCreate.map((f) => f.path) },
       };
     } catch (error) {
       return {

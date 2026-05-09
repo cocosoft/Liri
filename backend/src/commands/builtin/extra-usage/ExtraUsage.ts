@@ -46,7 +46,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `使用量统计:\n` +
+      message:
+        `使用量统计:\n` +
         `- 总Token: ${usage.totalTokens.toLocaleString()}\n` +
         `- 已使用: ${usage.usedTokens.toLocaleString()}\n` +
         `- 包含量: ${usage.includedTokens.toLocaleString()}\n` +
@@ -60,9 +61,12 @@ export default {
   /**
    * 购买额外使用量
    */
-  async handlePurchase(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handlePurchase(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const amount = parseInt(args[0]) || 10000;
-    
+
     if (amount < 1000) {
       return {
         success: false,
@@ -74,11 +78,12 @@ export default {
     const cost = (amount / 1000) * 0.003;
 
     context.onDone?.(`已购买 ${amount} tokens`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
-      message: `购买成功!\n\n` +
+      message:
+        `购买成功!\n\n` +
         `- 购买量: ${amount.toLocaleString()} tokens\n` +
         `- 费用: $${cost.toFixed(2)}\n` +
         `- 状态: 已添加到账户`,
@@ -98,9 +103,11 @@ export default {
       { date: '2024-01-11', tokens: 3000, type: 'other' },
     ];
 
-    const table = history.map(h => 
-      `${h.date}  ${h.tokens.toLocaleString().padEnd(10)} ${h.type}`
-    ).join('\n');
+    const table = history
+      .map(
+        (h) => `${h.date}  ${h.tokens.toLocaleString().padEnd(10)} ${h.type}`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -127,7 +134,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `订阅状态:\n` +
+      message:
+        `订阅状态:\n` +
         `- 计划: ${status.plan}\n` +
         `- 包含Token: ${status.includedTokens.toLocaleString()}\n` +
         `- 已使用: ${status.usedTokens.toLocaleString()}\n` +

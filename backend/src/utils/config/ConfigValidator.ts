@@ -158,7 +158,9 @@ export class ConfigValidator {
   }
 }
 
-export function createConfigValidator(rules?: ConfigValidationRule[]): ConfigValidator {
+export function createConfigValidator(
+  rules?: ConfigValidationRule[]
+): ConfigValidator {
   const validator = new ConfigValidator();
   if (rules) {
     validator.addRules(rules);

@@ -1,5 +1,11 @@
 //
-import { AIAgent, AgentState, AgentConfig, AgentTask, AgentResponse } from '../models/types';
+import {
+  AIAgent,
+  AgentState,
+  AgentConfig,
+  AgentTask,
+  AgentResponse,
+} from '../models/types';
 import { logger } from '@modules/utils/log';
 
 interface AgentCommand {
@@ -64,7 +70,8 @@ export class AgentUIManager {
   private commandHistory: AgentCommand[] = [];
   private maxAlerts: number = 100;
   private maxCommandHistory: number = 1000;
-  private eventListeners: Map<string, Set<(...args: any[]) => void>> = new Map();
+  private eventListeners: Map<string, Set<(...args: any[]) => void>> =
+    new Map();
 
   registerAgent(agent: AIAgent): void {
     this.agents.set(agent.id, agent);
@@ -233,7 +240,7 @@ export class AgentUIManager {
 
   getCommandHistory(agentId?: string): AgentCommand[] {
     if (agentId) {
-      return this.commandHistory.filter(c => c.agentId === agentId);
+      return this.commandHistory.filter((c) => c.agentId === agentId);
     }
     return [...this.commandHistory];
   }
@@ -258,7 +265,10 @@ export class AgentUIManager {
         try {
           subscription.callback(agentId, newState, data);
         } catch (error) {
-          logger.error(`State change callback failed for subscription ${subscription.id}:`, error as Error);
+          logger.error(
+            `State change callback failed for subscription ${subscription.id}:`,
+            error as Error
+          );
         }
       }
     }

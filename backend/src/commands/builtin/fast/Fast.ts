@@ -21,14 +21,16 @@ const FAST_MODE_KEY = 'fastMode';
  * 快速模式命令实现
  */
 const fastCommand = {
-
   /**
    * 执行 fast 命令
    * @param args 子命令参数
    * @param context 命令上下文
    * @returns 命令结果
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const trimmed = args.trim().toLowerCase();
 
     if (trimmed === 'help') {
@@ -159,16 +161,22 @@ function handleJson(): CommandResult {
  * @param enabled 是否启用
  * @param _config 当前配置
  */
-async function handleToggle(enabled: boolean, _config: any): Promise<CommandResult> {
+async function handleToggle(
+  enabled: boolean,
+  _config: any
+): Promise<CommandResult> {
   configManager.saveGlobalConfig((current: any) => ({
     ...current,
     [FAST_MODE_KEY]: enabled,
   }));
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_fast_mode_toggled', {
-    enabled,
-    source: 'command',
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_fast_mode_toggled',
+    {
+      enabled,
+      source: 'command',
+    }
+  );
 
   const icon = enabled ? '⚡' : '';
   const message = enabled

@@ -23,8 +23,14 @@ export class ContextSharingManager {
     this.maxSharesPerScope = options.maxSharesPerScope ?? 500;
   }
 
-  shareToScope(contextKey: string, context: Context, targetScopeId: string, sourceScopeId?: string): void {
-    const sourceId = sourceScopeId || contextIsolator.getCurrentScopeId() || 'global';
+  shareToScope(
+    contextKey: string,
+    context: Context,
+    targetScopeId: string,
+    sourceScopeId?: string
+  ): void {
+    const sourceId =
+      sourceScopeId || contextIsolator.getCurrentScopeId() || 'global';
     const scope = contextIsolator.getScope(targetScopeId);
 
     if (!scope) {
@@ -33,8 +39,13 @@ export class ContextSharingManager {
 
     const entryKey = `${targetScopeId}:${contextKey}`;
 
-    if (this.scopeShares.has(targetScopeId) && this.scopeShares.get(targetScopeId)!.size >= this.maxSharesPerScope) {
-      throw new Error(`Maximum shares per scope reached: ${this.maxSharesPerScope}`);
+    if (
+      this.scopeShares.has(targetScopeId) &&
+      this.scopeShares.get(targetScopeId)!.size >= this.maxSharesPerScope
+    ) {
+      throw new Error(
+        `Maximum shares per scope reached: ${this.maxSharesPerScope}`
+      );
     }
 
     if (this.sharedContexts.size >= this.maxSharedContexts) {
@@ -53,8 +64,13 @@ export class ContextSharingManager {
     this.scopeShares.get(targetScopeId)!.add(contextKey);
   }
 
-  shareToAllScopes(contextKey: string, context: Context, sourceScopeId?: string): void {
-    const sourceId = sourceScopeId || contextIsolator.getCurrentScopeId() || 'global';
+  shareToAllScopes(
+    contextKey: string,
+    context: Context,
+    sourceScopeId?: string
+  ): void {
+    const sourceId =
+      sourceScopeId || contextIsolator.getCurrentScopeId() || 'global';
     const allScopeIds = contextIsolator.getAllScopeIds();
 
     for (const scopeId of allScopeIds) {
@@ -62,7 +78,10 @@ export class ContextSharingManager {
     }
   }
 
-  getSharedContext(contextKey: string, scopeId?: string): SharedContextEntry | undefined {
+  getSharedContext(
+    contextKey: string,
+    scopeId?: string
+  ): SharedContextEntry | undefined {
     const sid = scopeId || contextIsolator.getCurrentScopeId();
     if (!sid) {
       return undefined;
@@ -93,7 +112,10 @@ export class ContextSharingManager {
     return result;
   }
 
-  applySharedContexts(targetContexts: Record<string, Context>, scopeId?: string): Record<string, Context> {
+  applySharedContexts(
+    targetContexts: Record<string, Context>,
+    scopeId?: string
+  ): Record<string, Context> {
     const sid = scopeId || contextIsolator.getCurrentScopeId();
     if (!sid) {
       return targetContexts;
@@ -157,7 +179,9 @@ export class ContextSharingManager {
       maxSharedContexts: this.maxSharedContexts,
       totalScopesWithShares: this.scopeShares.size,
       maxSharesPerScope: this.maxSharesPerScope,
-      usagePercent: Math.round((this.sharedContexts.size / this.maxSharedContexts) * 100),
+      usagePercent: Math.round(
+        (this.sharedContexts.size / this.maxSharedContexts) * 100
+      ),
     };
   }
 

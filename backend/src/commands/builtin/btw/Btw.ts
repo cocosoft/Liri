@@ -12,7 +12,7 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const message = args.trim();
-    
+
     const responses = [
       '好的，记住了！',
       '收到！',
@@ -22,7 +22,7 @@ export default {
     ];
 
     const response = responses[Math.floor(Math.random() * responses.length)];
-    
+
     if (message) {
       context.onDone?.(`已记录: ${message}`, { display: 'system' });
     }

@@ -102,7 +102,11 @@ export class ExecutionHistoryService extends EventEmitter {
    * @param metadata 元数据
    * @returns 记录ID
    */
-  addRecord(taskId: string, firedAt: number, metadata?: Record<string, unknown>): number {
+  addRecord(
+    taskId: string,
+    firedAt: number,
+    metadata?: Record<string, unknown>
+  ): number {
     const id = this.nextId++;
 
     const record: ExecutionHistoryRecord = {
@@ -130,7 +134,7 @@ export class ExecutionHistoryService extends EventEmitter {
    * @param updates 更新内容
    */
   updateRecord(id: number, updates: Partial<ExecutionHistoryRecord>): void {
-    const index = this.history.findIndex(r => r.id === id);
+    const index = this.history.findIndex((r) => r.id === id);
     if (index === -1) {
       return;
     }
@@ -188,7 +192,7 @@ export class ExecutionHistoryService extends EventEmitter {
    * @returns 记录
    */
   getRecord(id: number): ExecutionHistoryRecord | undefined {
-    return this.history.find(r => r.id === id);
+    return this.history.find((r) => r.id === id);
   }
 
   /**
@@ -199,7 +203,7 @@ export class ExecutionHistoryService extends EventEmitter {
    */
   getTaskHistory(taskId: string, limit?: number): ExecutionHistoryRecord[] {
     const records = this.history
-      .filter(r => r.taskId === taskId)
+      .filter((r) => r.taskId === taskId)
       .sort((a, b) => b.firedAt - a.firedAt);
 
     return limit ? records.slice(0, limit) : records;
@@ -214,19 +218,19 @@ export class ExecutionHistoryService extends EventEmitter {
     let results = [...this.history];
 
     if (query.taskId) {
-      results = results.filter(r => r.taskId === query.taskId);
+      results = results.filter((r) => r.taskId === query.taskId);
     }
 
     if (query.status) {
-      results = results.filter(r => r.status === query.status);
+      results = results.filter((r) => r.status === query.status);
     }
 
     if (query.startTime !== undefined) {
-      results = results.filter(r => r.firedAt >= query.startTime!);
+      results = results.filter((r) => r.firedAt >= query.startTime!);
     }
 
     if (query.endTime !== undefined) {
-      results = results.filter(r => r.firedAt <= query.endTime!);
+      results = results.filter((r) => r.firedAt <= query.endTime!);
     }
 
     const sortBy = query.sortBy || 'firedAt';
@@ -274,20 +278,27 @@ export class ExecutionHistoryService extends EventEmitter {
    * @returns 统计信息
    */
   getStats(): ExecutionHistoryStats {
-    const completedRecords = this.history.filter(r => r.status === 'completed');
-    const totalDuration = completedRecords.reduce((sum, r) => sum + (r.duration || 0), 0);
-    const averageDuration = completedRecords.length > 0 ? totalDuration / completedRecords.length : 0;
+    const completedRecords = this.history.filter(
+      (r) => r.status === 'completed'
+    );
+    const totalDuration = completedRecords.reduce(
+      (sum, r) => sum + (r.duration || 0),
+      0
+    );
+    const averageDuration =
+      completedRecords.length > 0 ? totalDuration / completedRecords.length : 0;
 
-    const lastRecord = this.history.length > 0
-      ? Math.max(...this.history.map(r => r.firedAt))
-      : 0;
+    const lastRecord =
+      this.history.length > 0
+        ? Math.max(...this.history.map((r) => r.firedAt))
+        : 0;
 
     return {
       totalRecords: this.history.length,
-      pendingCount: this.history.filter(r => r.status === 'pending').length,
-      runningCount: this.history.filter(r => r.status === 'running').length,
+      pendingCount: this.history.filter((r) => r.status === 'pending').length,
+      runningCount: this.history.filter((r) => r.status === 'running').length,
       completedCount: completedRecords.length,
-      failedCount: this.history.filter(r => r.status === 'failed').length,
+      failedCount: this.history.filter((r) => r.status === 'failed').length,
       averageDuration,
       totalDuration,
       lastRecordTime: lastRecord,
@@ -301,7 +312,7 @@ export class ExecutionHistoryService extends EventEmitter {
    */
   deleteTaskHistory(taskId: string): number {
     const initialLength = this.history.length;
-    this.history = this.history.filter(r => r.taskId !== taskId);
+    this.history = this.history.filter((r) => r.taskId !== taskId);
     const deletedCount = initialLength - this.history.length;
 
     if (deletedCount > 0) {
@@ -318,7 +329,7 @@ export class ExecutionHistoryService extends EventEmitter {
    */
   deleteHistoryBefore(beforeTime: number): number {
     const initialLength = this.history.length;
-    this.history = this.history.filter(r => r.firedAt >= beforeTime);
+    this.history = this.history.filter((r) => r.firedAt >= beforeTime);
     const deletedCount = initialLength - this.history.length;
 
     if (deletedCount > 0) {
@@ -333,9 +344,11 @@ export class ExecutionHistoryService extends EventEmitter {
    * @param status 状态
    * @returns 删除的记录数量
    */
-  deleteHistoryByStatus(status: 'pending' | 'running' | 'completed' | 'failed'): number {
+  deleteHistoryByStatus(
+    status: 'pending' | 'running' | 'completed' | 'failed'
+  ): number {
     const initialLength = this.history.length;
-    this.history = this.history.filter(r => r.status !== status);
+    this.history = this.history.filter((r) => r.status !== status);
     const deletedCount = initialLength - this.history.length;
 
     if (deletedCount > 0) {
@@ -355,21 +368,28 @@ export class ExecutionHistoryService extends EventEmitter {
 
     if (this.cleanupConfig.maxAgeMs > 0) {
       const initialLength = this.history.length;
-      this.history = this.history.filter(r => now - r.firedAt < this.cleanupConfig.maxAgeMs);
+      this.history = this.history.filter(
+        (r) => now - r.firedAt < this.cleanupConfig.maxAgeMs
+      );
       deletedCount += initialLength - this.history.length;
     }
 
-    if (this.cleanupConfig.maxRecords > 0 && this.history.length > this.cleanupConfig.maxRecords) {
+    if (
+      this.cleanupConfig.maxRecords > 0 &&
+      this.history.length > this.cleanupConfig.maxRecords
+    ) {
       const initialLength = this.history.length;
       this.trimHistory();
       deletedCount += initialLength - this.history.length;
     }
 
     if (this.cleanupConfig.maxAgeByStatus) {
-      for (const [status, maxAge] of Object.entries(this.cleanupConfig.maxAgeByStatus)) {
+      for (const [status, maxAge] of Object.entries(
+        this.cleanupConfig.maxAgeByStatus
+      )) {
         if (maxAge && maxAge > 0) {
           const initialLength = this.history.length;
-          this.history = this.history.filter(r => {
+          this.history = this.history.filter((r) => {
             if (r.status !== status) return true;
             return now - r.firedAt < maxAge;
           });
@@ -483,7 +503,9 @@ export class ExecutionHistoryService extends EventEmitter {
       return 0;
     }
 
-    const completedCount = taskHistory.filter(r => r.status === 'completed').length;
+    const completedCount = taskHistory.filter(
+      (r) => r.status === 'completed'
+    ).length;
     return completedCount / taskHistory.length;
   }
 
@@ -494,13 +516,18 @@ export class ExecutionHistoryService extends EventEmitter {
    */
   getTaskAverageDuration(taskId: string): number {
     const taskHistory = this.getTaskHistory(taskId);
-    const completedRecords = taskHistory.filter(r => r.status === 'completed' && r.duration !== undefined);
+    const completedRecords = taskHistory.filter(
+      (r) => r.status === 'completed' && r.duration !== undefined
+    );
 
     if (completedRecords.length === 0) {
       return 0;
     }
 
-    const totalDuration = completedRecords.reduce((sum, r) => sum + (r.duration || 0), 0);
+    const totalDuration = completedRecords.reduce(
+      (sum, r) => sum + (r.duration || 0),
+      0
+    );
     return totalDuration / completedRecords.length;
   }
 
@@ -525,17 +552,28 @@ export class ExecutionHistoryService extends EventEmitter {
     }
 
     if (format === 'csv') {
-      const headers = ['id', 'taskId', 'firedAt', 'completedAt', 'status', 'result', 'error', 'duration'];
-      const rows = this.history.map(r => [
-        r.id,
-        r.taskId,
-        r.firedAt,
-        r.completedAt || '',
-        r.status,
-        r.result || '',
-        r.error || '',
-        r.duration || '',
-      ].join(','));
+      const headers = [
+        'id',
+        'taskId',
+        'firedAt',
+        'completedAt',
+        'status',
+        'result',
+        'error',
+        'duration',
+      ];
+      const rows = this.history.map((r) =>
+        [
+          r.id,
+          r.taskId,
+          r.firedAt,
+          r.completedAt || '',
+          r.status,
+          r.result || '',
+          r.error || '',
+          r.duration || '',
+        ].join(',')
+      );
 
       return [headers.join(','), ...rows].join('\n');
     }

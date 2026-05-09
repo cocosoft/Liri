@@ -6,7 +6,13 @@ import { z } from 'zod';
 export const FileReadInputSchema = z.strictObject({
   filePath: z.string().min(1, '文件路径不能为空').describe('要读取的文件路径'),
   offset: z.number().int().positive().optional().describe('起始行号，从1开始'),
-  limit: z.number().int().positive().max(10000).optional().describe('最大读取行数'),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(10000)
+    .optional()
+    .describe('最大读取行数'),
 });
 
 export type FileReadInputType = z.infer<typeof FileReadInputSchema>;

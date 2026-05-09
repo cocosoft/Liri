@@ -9,6 +9,7 @@ export const costCommand: Command = {
   name: 'cost',
   description: '显示 API 调用成本和使用统计',
   aliases: ['costs', 'usage-cost'],
-  argumentHint: '[--breakdown|-b] [--usage|-u] [--time|-t] [status] [--json] [help]',
-  load: () => import('./Cost.js').then(m => m.default),
+  argumentHint:
+    '[--breakdown|-b] [--usage|-u] [--time|-t] [status] [--json] [help]',
+  load: () => import('./Cost.js').then((m) => m.default),
 };

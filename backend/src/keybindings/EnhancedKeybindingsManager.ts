@@ -3,7 +3,11 @@
  * 提供智能快捷键分析、使用统计、冲突检测、优化建议等高级功能
  */
 
-import { KeybindingContextName, ParsedBinding, KeybindingWarning } from './types.js';
+import {
+  KeybindingContextName,
+  ParsedBinding,
+  KeybindingWarning,
+} from './types.js';
 
 /**
  * 快捷键使用统计
@@ -11,31 +15,31 @@ import { KeybindingContextName, ParsedBinding, KeybindingWarning } from './types
 export interface KeybindingUsageStatistics {
   /** 快捷键ID */
   bindingId: string;
-  
+
   /** 快捷键动作 */
   action: string;
-  
+
   /** 上下文 */
   context: KeybindingContextName;
-  
+
   /** 使用次数 */
   usageCount: number;
-  
+
   /** 最近使用时间 */
   lastUsed: Date;
-  
+
   /** 平均使用频率（次/天） */
   averageFrequency: number;
-  
+
   /** 使用趋势 */
   usageTrend: 'increasing' | 'stable' | 'decreasing';
-  
+
   /** 用户满意度评分（0-5） */
   userRating: number;
-  
+
   /** 错误使用次数 */
   errorCount: number;
-  
+
   /** 成功率（%） */
   successRate: number;
 }
@@ -46,25 +50,25 @@ export interface KeybindingUsageStatistics {
 export interface KeybindingConflict {
   /** 冲突ID */
   conflictId: string;
-  
+
   /** 冲突类型 */
   conflictType: 'exact' | 'partial' | 'context' | 'priority';
-  
+
   /** 冲突描述 */
   description: string;
-  
+
   /** 冲突的快捷键列表 */
   conflictingBindings: string[];
-  
+
   /** 冲突严重程度 */
   severity: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 影响范围 */
   impactScope: 'user' | 'context' | 'global';
-  
+
   /** 解决建议 */
   resolutionSuggestions: string[];
-  
+
   /** 是否已解决 */
   resolved: boolean;
 }
@@ -75,25 +79,25 @@ export interface KeybindingConflict {
 export interface KeybindingEfficiencyAnalysis {
   /** 快捷键ID */
   bindingId: string;
-  
+
   /** 效率评分（0-100） */
   efficiencyScore: number;
-  
+
   /** 易用性评分（0-100） */
   usabilityScore: number;
-  
+
   /** 记忆难度 */
   memorizationDifficulty: 'easy' | 'medium' | 'hard';
-  
+
   /** 执行时间（毫秒） */
   executionTime: number;
-  
+
   /** 错误率（%） */
   errorRate: number;
-  
+
   /** 学习曲线 */
   learningCurve: 'flat' | 'moderate' | 'steep';
-  
+
   /** 优化建议 */
   optimizationSuggestions: string[];
 }
@@ -104,28 +108,32 @@ export interface KeybindingEfficiencyAnalysis {
 export interface KeybindingPersonalizationRecommendation {
   /** 推荐ID */
   recommendationId: string;
-  
+
   /** 推荐类型 */
-  recommendationType: 'efficiency' | 'usability' | 'customization' | 'optimization';
-  
+  recommendationType:
+    | 'efficiency'
+    | 'usability'
+    | 'customization'
+    | 'optimization';
+
   /** 推荐标题 */
   title: string;
-  
+
   /** 推荐描述 */
   description: string;
-  
+
   /** 优先级 */
   priority: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 实施难度 */
   implementationDifficulty: 'easy' | 'medium' | 'hard';
-  
+
   /** 预期效果 */
   expectedImpact: 'minor' | 'moderate' | 'major';
-  
+
   /** 实施步骤 */
   implementationSteps: string[];
-  
+
   /** 预期收益 */
   expectedBenefits: string[];
 }
@@ -136,25 +144,25 @@ export interface KeybindingPersonalizationRecommendation {
 export interface KeybindingPerformanceMetrics {
   /** 快捷键ID */
   bindingId: string;
-  
+
   /** 响应时间（毫秒） */
   responseTime: number;
-  
+
   /** 执行成功率（%） */
   executionSuccessRate: number;
-  
+
   /** 用户满意度（0-100） */
   userSatisfaction: number;
-  
+
   /** 使用频率（次/天） */
   usageFrequency: number;
-  
+
   /** 错误率（%） */
   errorRate: number;
-  
+
   /** 性能评分（0-100） */
   performanceScore: number;
-  
+
   /** 最后更新时间 */
   lastUpdated: Date;
 }
@@ -165,16 +173,16 @@ export interface KeybindingPerformanceMetrics {
 export interface KeybindingPatternAnalysis {
   /** 分析周期 */
   analysisPeriod: 'daily' | 'weekly' | 'monthly';
-  
+
   /** 使用模式 */
   usagePatterns: UsagePattern[];
-  
+
   /** 效率模式 */
   efficiencyPatterns: EfficiencyPattern[];
-  
+
   /** 冲突模式 */
   conflictPatterns: ConflictPattern[];
-  
+
   /** 个性化模式 */
   personalizationPatterns: PersonalizationPattern[];
 }
@@ -185,19 +193,19 @@ export interface KeybindingPatternAnalysis {
 export interface UsagePattern {
   /** 模式ID */
   patternId: string;
-  
+
   /** 模式类型 */
   patternType: 'frequent' | 'sequential' | 'contextual' | 'temporal';
-  
+
   /** 模式描述 */
   description: string;
-  
+
   /** 模式强度 */
   strength: number;
-  
+
   /** 置信度 */
   confidence: number;
-  
+
   /** 优化机会 */
   optimizationOpportunities: string[];
 }
@@ -208,16 +216,16 @@ export interface UsagePattern {
 export interface EfficiencyPattern {
   /** 模式ID */
   patternId: string;
-  
+
   /** 效率类型 */
   efficiencyType: 'high' | 'medium' | 'low';
-  
+
   /** 模式描述 */
   description: string;
-  
+
   /** 平均效率 */
   averageEfficiency: number;
-  
+
   /** 改进建议 */
   improvementSuggestions: string[];
 }
@@ -228,16 +236,16 @@ export interface EfficiencyPattern {
 export interface ConflictPattern {
   /** 模式ID */
   patternId: string;
-  
+
   /** 冲突类型 */
   conflictType: 'common' | 'recurring' | 'systemic';
-  
+
   /** 模式描述 */
   description: string;
-  
+
   /** 冲突频率 */
   conflictFrequency: number;
-  
+
   /** 解决策略 */
   resolutionStrategies: string[];
 }
@@ -248,16 +256,16 @@ export interface ConflictPattern {
 export interface PersonalizationPattern {
   /** 模式ID */
   patternId: string;
-  
+
   /** 个性化类型 */
   personalizationType: 'preference' | 'habit' | 'efficiency' | 'accessibility';
-  
+
   /** 模式描述 */
   description: string;
-  
+
   /** 个性化强度 */
   personalizationStrength: number;
-  
+
   /** 推荐设置 */
   recommendedSettings: string[];
 }
@@ -268,31 +276,31 @@ export interface PersonalizationPattern {
 export interface EnhancedKeybindingsManagerConfig {
   /** 启用使用统计 */
   enableUsageStatistics: boolean;
-  
+
   /** 启用冲突检测 */
   enableConflictDetection: boolean;
-  
+
   /** 启用效率分析 */
   enableEfficiencyAnalysis: boolean;
-  
+
   /** 启用个性化推荐 */
   enablePersonalization: boolean;
-  
+
   /** 启用模式分析 */
   enablePatternAnalysis: boolean;
-  
+
   /** 统计收集间隔（毫秒） */
   statisticsCollectionInterval: number;
-  
+
   /** 冲突检测间隔（毫秒） */
   conflictDetectionInterval: number;
-  
+
   /** 模式分析间隔（毫秒） */
   patternAnalysisInterval: number;
-  
+
   /** 最大快捷键数量 */
   maxKeybindings: number;
-  
+
   /** 缓存大小 */
   cacheSize: number;
 }
@@ -304,9 +312,14 @@ export class EnhancedKeybindingsManager {
   private config: EnhancedKeybindingsManagerConfig;
   private usageStatistics: Map<string, KeybindingUsageStatistics> = new Map();
   private conflicts: Map<string, KeybindingConflict[]> = new Map();
-  private efficiencyAnalyses: Map<string, KeybindingEfficiencyAnalysis> = new Map();
-  private recommendations: Map<string, KeybindingPersonalizationRecommendation[]> = new Map();
-  private performanceMetrics: Map<string, KeybindingPerformanceMetrics> = new Map();
+  private efficiencyAnalyses: Map<string, KeybindingEfficiencyAnalysis> =
+    new Map();
+  private recommendations: Map<
+    string,
+    KeybindingPersonalizationRecommendation[]
+  > = new Map();
+  private performanceMetrics: Map<string, KeybindingPerformanceMetrics> =
+    new Map();
   private patternAnalyses: Map<string, KeybindingPatternAnalysis> = new Map();
   private analysisCache: Map<string, any> = new Map();
   private monitoringIntervals: Map<string, NodeJS.Timeout> = new Map();
@@ -362,7 +375,7 @@ export class EnhancedKeybindingsManager {
     try {
       // 模拟收集使用统计数据
       const bindingIds = this.getAllBindingIds();
-      
+
       for (const bindingId of bindingIds) {
         await this.updateUsageStatistics(bindingId);
       }
@@ -378,7 +391,7 @@ export class EnhancedKeybindingsManager {
     try {
       // 模拟冲突检测
       const bindingIds = this.getAllBindingIds();
-      
+
       for (const bindingId of bindingIds) {
         await this.detectBindingConflicts(bindingId);
       }
@@ -394,7 +407,7 @@ export class EnhancedKeybindingsManager {
     try {
       // 模拟模式分析
       const bindingIds = this.getAllBindingIds();
-      
+
       for (const bindingId of bindingIds) {
         await this.analyzeBindingPatterns(bindingId);
       }
@@ -424,7 +437,10 @@ export class EnhancedKeybindingsManager {
 
       this.usageStatistics.set(bindingId, statistics);
     } catch (error) {
-      console.error(`Failed to update usage statistics for binding ${bindingId}:`, error);
+      console.error(
+        `Failed to update usage statistics for binding ${bindingId}:`,
+        error
+      );
     }
   }
 
@@ -449,7 +465,10 @@ export class EnhancedKeybindingsManager {
 
       this.conflicts.set(bindingId, conflicts);
     } catch (error) {
-      console.error(`Failed to detect conflicts for binding ${bindingId}:`, error);
+      console.error(
+        `Failed to detect conflicts for binding ${bindingId}:`,
+        error
+      );
     }
   }
 
@@ -502,7 +521,10 @@ export class EnhancedKeybindingsManager {
 
       this.patternAnalyses.set(bindingId, patternAnalysis);
     } catch (error) {
-      console.error(`Failed to analyze patterns for binding ${bindingId}:`, error);
+      console.error(
+        `Failed to analyze patterns for binding ${bindingId}:`,
+        error
+      );
     }
   }
 
@@ -525,7 +547,10 @@ export class EnhancedKeybindingsManager {
 
       this.performanceMetrics.set(bindingId, metrics);
     } catch (error) {
-      console.error(`Failed to collect performance metrics for binding ${bindingId}:`, error);
+      console.error(
+        `Failed to collect performance metrics for binding ${bindingId}:`,
+        error
+      );
     }
   }
 
@@ -539,16 +564,29 @@ export class EnhancedKeybindingsManager {
         bindingId,
         efficiencyScore: 75 + Math.random() * 25,
         usabilityScore: 70 + Math.random() * 30,
-        memorizationDifficulty: Math.random() > 0.7 ? 'hard' : Math.random() > 0.3 ? 'medium' : 'easy',
+        memorizationDifficulty:
+          Math.random() > 0.7
+            ? 'hard'
+            : Math.random() > 0.3
+              ? 'medium'
+              : 'easy',
         executionTime: Math.random() * 200,
         errorRate: Math.random() * 5,
-        learningCurve: Math.random() > 0.7 ? 'steep' : Math.random() > 0.3 ? 'moderate' : 'flat',
+        learningCurve:
+          Math.random() > 0.7
+            ? 'steep'
+            : Math.random() > 0.3
+              ? 'moderate'
+              : 'flat',
         optimizationSuggestions: ['Simplify key sequence', 'Improve feedback'],
       };
 
       this.efficiencyAnalyses.set(bindingId, analysis);
     } catch (error) {
-      console.error(`Failed to analyze efficiency for binding ${bindingId}:`, error);
+      console.error(
+        `Failed to analyze efficiency for binding ${bindingId}:`,
+        error
+      );
     }
   }
 
@@ -567,7 +605,11 @@ export class EnhancedKeybindingsManager {
           priority: 'medium',
           implementationDifficulty: 'easy',
           expectedImpact: 'moderate',
-          implementationSteps: ['Analyze current sequence', 'Test alternatives', 'Implement changes'],
+          implementationSteps: [
+            'Analyze current sequence',
+            'Test alternatives',
+            'Implement changes',
+          ],
           expectedBenefits: ['Faster execution', 'Reduced errors'],
         },
         {
@@ -578,14 +620,21 @@ export class EnhancedKeybindingsManager {
           priority: 'low',
           implementationDifficulty: 'medium',
           expectedImpact: 'minor',
-          implementationSteps: ['Design feedback mechanisms', 'Implement feedback', 'Test usability'],
+          implementationSteps: [
+            'Design feedback mechanisms',
+            'Implement feedback',
+            'Test usability',
+          ],
           expectedBenefits: ['Better user experience', 'Reduced confusion'],
         },
       ];
 
       this.recommendations.set(bindingId, recommendations);
     } catch (error) {
-      console.error(`Failed to generate recommendations for binding ${bindingId}:`, error);
+      console.error(
+        `Failed to generate recommendations for binding ${bindingId}:`,
+        error
+      );
     }
   }
 
@@ -594,7 +643,13 @@ export class EnhancedKeybindingsManager {
    */
   private getAllBindingIds(): string[] {
     // 模拟获取绑定ID列表
-    return ['binding-001', 'binding-002', 'binding-003', 'binding-004', 'binding-005'];
+    return [
+      'binding-001',
+      'binding-002',
+      'binding-003',
+      'binding-004',
+      'binding-005',
+    ];
   }
 
   /**
@@ -628,7 +683,9 @@ export class EnhancedKeybindingsManager {
   /**
    * 获取快捷键效率分析
    */
-  getKeybindingEfficiency(bindingId: string): KeybindingEfficiencyAnalysis | undefined {
+  getKeybindingEfficiency(
+    bindingId: string
+  ): KeybindingEfficiencyAnalysis | undefined {
     return this.efficiencyAnalyses.get(bindingId);
   }
 
@@ -642,7 +699,9 @@ export class EnhancedKeybindingsManager {
   /**
    * 获取快捷键性能指标
    */
-  getKeybindingPerformance(bindingId: string): KeybindingPerformanceMetrics | undefined {
+  getKeybindingPerformance(
+    bindingId: string
+  ): KeybindingPerformanceMetrics | undefined {
     return this.performanceMetrics.get(bindingId);
   }
 
@@ -656,7 +715,9 @@ export class EnhancedKeybindingsManager {
   /**
    * 获取快捷键模式分析
    */
-  getKeybindingPatterns(bindingId: string): KeybindingPatternAnalysis | undefined {
+  getKeybindingPatterns(
+    bindingId: string
+  ): KeybindingPatternAnalysis | undefined {
     return this.patternAnalyses.get(bindingId);
   }
 
@@ -670,7 +731,9 @@ export class EnhancedKeybindingsManager {
   /**
    * 获取快捷键推荐
    */
-  getKeybindingRecommendations(bindingId: string): KeybindingPersonalizationRecommendation[] {
+  getKeybindingRecommendations(
+    bindingId: string
+  ): KeybindingPersonalizationRecommendation[] {
     return this.recommendations.get(bindingId) || [];
   }
 
@@ -687,7 +750,7 @@ export class EnhancedKeybindingsManager {
     const statistics = this.getAllUsageStatistics();
     const conflicts = this.getAllConflicts();
     const totalKeybindings = statistics.length;
-    
+
     if (totalKeybindings === 0) {
       return {
         totalKeybindings: 0,
@@ -698,10 +761,16 @@ export class EnhancedKeybindingsManager {
       };
     }
 
-    const averageUsageFrequency = statistics.reduce((sum, s) => sum + s.averageFrequency, 0) / totalKeybindings;
-    const highUsageBindings = statistics.filter(s => s.averageFrequency > 5).length;
+    const averageUsageFrequency =
+      statistics.reduce((sum, s) => sum + s.averageFrequency, 0) /
+      totalKeybindings;
+    const highUsageBindings = statistics.filter(
+      (s) => s.averageFrequency > 5
+    ).length;
     const totalConflicts = conflicts.length;
-    const criticalConflicts = conflicts.filter(c => c.severity === 'critical').length;
+    const criticalConflicts = conflicts.filter(
+      (c) => c.severity === 'critical'
+    ).length;
 
     return {
       totalKeybindings,
@@ -724,7 +793,7 @@ export class EnhancedKeybindingsManager {
   } {
     const metrics = this.getAllPerformanceMetrics();
     const totalKeybindings = metrics.length;
-    
+
     if (totalKeybindings === 0) {
       return {
         totalKeybindings: 0,
@@ -735,10 +804,17 @@ export class EnhancedKeybindingsManager {
       };
     }
 
-    const averagePerformanceScore = metrics.reduce((sum, m) => sum + m.performanceScore, 0) / totalKeybindings;
-    const averageResponseTime = metrics.reduce((sum, m) => sum + m.responseTime, 0) / totalKeybindings;
-    const averageSuccessRate = metrics.reduce((sum, m) => sum + m.executionSuccessRate, 0) / totalKeybindings;
-    const criticalPerformanceIssues = metrics.filter(m => m.performanceScore < 60).length;
+    const averagePerformanceScore =
+      metrics.reduce((sum, m) => sum + m.performanceScore, 0) /
+      totalKeybindings;
+    const averageResponseTime =
+      metrics.reduce((sum, m) => sum + m.responseTime, 0) / totalKeybindings;
+    const averageSuccessRate =
+      metrics.reduce((sum, m) => sum + m.executionSuccessRate, 0) /
+      totalKeybindings;
+    const criticalPerformanceIssues = metrics.filter(
+      (m) => m.performanceScore < 60
+    ).length;
 
     return {
       totalKeybindings,
@@ -805,28 +881,28 @@ export class EnhancedKeybindingsManager {
   }> {
     // 执行基础快捷键操作
     const result = { success: true, message: 'Shortcut executed successfully' };
-    
+
     // 收集性能指标
     await this.collectPerformanceMetrics(bindingId);
-    
+
     // 分析效率
     await this.analyzeEfficiency(bindingId);
-    
+
     // 生成推荐
     await this.generateRecommendations(bindingId);
-    
+
     // 获取使用统计
     const usageStatistics = this.usageStatistics.get(bindingId);
-    
+
     // 获取性能指标
     const performanceMetrics = this.performanceMetrics.get(bindingId);
-    
+
     // 获取冲突
     const conflicts = this.conflicts.get(bindingId) || [];
-    
+
     // 获取推荐
     const recommendations = this.recommendations.get(bindingId) || [];
-    
+
     return {
       result,
       usageStatistics,

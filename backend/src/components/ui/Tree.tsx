@@ -27,7 +27,13 @@ interface RenderNodeProps {
   parentPrefixes: boolean[];
 }
 
-function RenderNode({ node, depth, showLines, isLast, parentPrefixes }: RenderNodeProps): React.ReactNode {
+function RenderNode({
+  node,
+  depth,
+  showLines,
+  isLast,
+  parentPrefixes,
+}: RenderNodeProps): React.ReactNode {
   const [expanded, setExpanded] = React.useState(node.expanded !== false);
 
   const prefix = parentPrefixes
@@ -38,9 +44,8 @@ function RenderNode({ node, depth, showLines, isLast, parentPrefixes }: RenderNo
     .join('');
 
   const connector = isLast ? '└─ ' : '├─ ';
-  const expandIcon = node.children && node.children.length > 0
-    ? (expanded ? '▼ ' : '▶ ')
-    : '  ';
+  const expandIcon =
+    node.children && node.children.length > 0 ? (expanded ? '▼ ' : '▶ ') : '  ';
 
   const nodeColor = node.color || 'white';
 
@@ -49,10 +54,7 @@ function RenderNode({ node, depth, showLines, isLast, parentPrefixes }: RenderNo
       <Box>
         <Text dimColor>{prefix}</Text>
         <Text dimColor>{showLines ? connector : '  '}</Text>
-        <Text
-          color={nodeColor}
-          bold
-        >
+        <Text color={nodeColor} bold>
           {expandIcon}
           {node.icon && <Text>{node.icon} </Text>}
           {node.label}
@@ -76,7 +78,11 @@ function RenderNode({ node, depth, showLines, isLast, parentPrefixes }: RenderNo
   );
 }
 
-export function Tree({ nodes, showLines = true, indentSize = 2 }: TreeProps): React.ReactNode {
+export function Tree({
+  nodes,
+  showLines = true,
+  indentSize = 2,
+}: TreeProps): React.ReactNode {
   return (
     <Box flexDirection="column">
       {nodes.map((node, idx) => (

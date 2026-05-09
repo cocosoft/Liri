@@ -14,7 +14,10 @@ export const outputStyleCommand: Command = {
   aliases: ['output', 'style'],
   argumentHint: '[show|format|color|reset|help]',
   whenToUse: '当你需要调整输出格式或显示风格时',
-  load: async () => import('./OutputStyle.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./OutputStyle.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
 
 export default outputStyleCommand;

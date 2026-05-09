@@ -90,7 +90,9 @@ export class TaskExecutionHistoryService {
   /**
    * 查询执行历史
    */
-  queryExecutionHistory(options: ExecutionHistoryQueryOptions = {}): ExecutionHistoryQueryResult {
+  queryExecutionHistory(
+    options: ExecutionHistoryQueryOptions = {}
+  ): ExecutionHistoryQueryResult {
     const {
       taskId,
       status,
@@ -117,7 +119,7 @@ export class TaskExecutionHistoryService {
     }
 
     // 筛选
-    let filteredRecords = allRecords.filter(record => {
+    let filteredRecords = allRecords.filter((record) => {
       // 状态筛选
       if (status && record.status !== status) {
         return false;
@@ -174,9 +176,9 @@ export class TaskExecutionHistoryService {
     }
 
     // 按时间戳降序排序，返回第一条
-    return records
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .find(() => true) || null;
+    return (
+      records.sort((a, b) => b.timestamp - a.timestamp).find(() => true) || null
+    );
   }
 
   /**
@@ -189,17 +191,19 @@ export class TaskExecutionHistoryService {
     averageDuration: number | null;
   } {
     const records = this.executionRecords.get(taskId) || [];
-    
+
     const total = records.length;
-    const success = records.filter(r => r.status === 'success').length;
-    const failed = records.filter(r => r.status === 'failed').length;
-    
+    const success = records.filter((r) => r.status === 'success').length;
+    const failed = records.filter((r) => r.status === 'failed').length;
+
     const durations = records
-      .filter(r => r.duration !== undefined)
-      .map(r => r.duration!);
-    const averageDuration = durations.length > 0
-      ? durations.reduce((sum, duration) => sum + duration, 0) / durations.length
-      : null;
+      .filter((r) => r.duration !== undefined)
+      .map((r) => r.duration!);
+    const averageDuration =
+      durations.length > 0
+        ? durations.reduce((sum, duration) => sum + duration, 0) /
+          durations.length
+        : null;
 
     return {
       total,

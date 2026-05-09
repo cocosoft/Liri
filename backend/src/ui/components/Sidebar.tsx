@@ -40,16 +40,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!collapsed && (
           <span className="text-xl font-bold text-blue-400">PY_APP</span>
         )}
-        {collapsed && (
-          <span className="text-xl">🚀</span>
-        )}
+        {collapsed && <span className="text-xl">🚀</span>}
       </div>
 
       {/* Navigation Items */}
       <nav className="flex-1 py-4 overflow-y-auto">
         {items.map((item) => {
           const isActive = activeItemId === item.id;
-          
+
           return (
             <button
               key={item.id}
@@ -64,15 +62,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {isActive && (
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400" />
               )}
-              
+
               {/* Icon */}
               <span className="text-lg flex-shrink-0">{item.icon}</span>
-              
+
               {/* Label */}
               {!collapsed && (
-                <span className="text-sm font-medium truncate">{item.label}</span>
+                <span className="text-sm font-medium truncate">
+                  {item.label}
+                </span>
               )}
-              
+
               {/* Badge */}
               {item.badge !== undefined && (
                 <span
@@ -85,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {item.badge > 99 ? '99+' : item.badge}
                 </span>
               )}
-              
+
               {/* Tooltip when collapsed */}
               {collapsed && (
                 <span className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">

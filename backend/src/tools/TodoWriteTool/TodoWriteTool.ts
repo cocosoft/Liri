@@ -190,7 +190,8 @@ export class TodoWriteTool implements Tool {
     {
       name: 'activeForm',
       type: 'string',
-      description: 'Present continuous form of the task (e.g. "Fixing the login bug")',
+      description:
+        'Present continuous form of the task (e.g. "Fixing the login bug")',
       required: false,
       default: '',
     },
@@ -572,12 +573,14 @@ export class TodoWriteTool implements Tool {
 
           let resultMsg = `Wrote ${newTodos.length} todo(s) to session: ${session_id}`;
 
-          const allDone = newTodos.length > 0 && newTodos.every(t => t.status === 'completed');
+          const allDone =
+            newTodos.length > 0 &&
+            newTodos.every((t) => t.status === 'completed');
           if (
             feature('VERIFICATION_AGENT') &&
             allDone &&
             newTodos.length >= 3 &&
-            !newTodos.some(t => /verif/i.test(t.content))
+            !newTodos.some((t) => /verif/i.test(t.content))
           ) {
             resultMsg += `\n\nNOTE: You just closed out 3+ tasks and none of them was a verification step. Before writing your final summary, spawn the verification agent (subagent_type="${VERIFICATION_AGENT_TYPE}"). You cannot self-assign PARTIAL by listing caveats in your summary — only the verifier issues a verdict.`;
           }

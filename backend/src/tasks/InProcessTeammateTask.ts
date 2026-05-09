@@ -104,9 +104,8 @@ export class InProcessTeammateTask extends BaseTask {
     this.setStatus(TaskStatus.RUNNING);
 
     try {
-      const { InProcessTeammateBackend } = await import(
-        '../subagent/backends/InProcessTeammateBackend'
-      );
+      const { InProcessTeammateBackend } =
+        await import('../subagent/backends/InProcessTeammateBackend');
 
       const backend = new InProcessTeammateBackend();
       const handle = await backend.spawn({
@@ -152,9 +151,8 @@ export class InProcessTeammateTask extends BaseTask {
 
     if (this.teammateBackendHandle) {
       try {
-        const { InProcessTeammateBackend } = await import(
-          '../subagent/backends/InProcessTeammateBackend'
-        );
+        const { InProcessTeammateBackend } =
+          await import('../subagent/backends/InProcessTeammateBackend');
 
         const backend = new InProcessTeammateBackend();
         await backend.kill(this.teammateBackendHandle);
@@ -170,7 +168,10 @@ export class InProcessTeammateTask extends BaseTask {
    * 请求队友关闭
    */
   requestShutdown(): void {
-    if (this.status !== TaskStatus.RUNNING || this.teammateState.shutdownRequested) {
+    if (
+      this.status !== TaskStatus.RUNNING ||
+      this.teammateState.shutdownRequested
+    ) {
       return;
     }
     this.teammateState.shutdownRequested = true;

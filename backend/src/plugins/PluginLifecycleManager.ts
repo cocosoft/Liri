@@ -48,11 +48,14 @@ export class PluginLifecycleManager extends EventEmitter {
       );
     });
 
-    this.on(PluginLifecycleEvent.STATUS_CHANGED, (context: LifecycleContext) => {
-      console.log(
-        `[PluginLifecycle] Plugin ${context.plugin.name} status changed`
-      );
-    });
+    this.on(
+      PluginLifecycleEvent.STATUS_CHANGED,
+      (context: LifecycleContext) => {
+        console.log(
+          `[PluginLifecycle] Plugin ${context.plugin.name} status changed`
+        );
+      }
+    );
   }
 
   public registerHook(event: PluginLifecycleEvent, hook: LifecycleHook): void {
@@ -62,10 +65,7 @@ export class PluginLifecycleManager extends EventEmitter {
     this.hooks.set(event, hooks);
   }
 
-  public unregisterHook(
-    event: PluginLifecycleEvent,
-    hookName: string
-  ): void {
+  public unregisterHook(event: PluginLifecycleEvent, hookName: string): void {
     const hooks = this.hooks.get(event) || [];
     const filtered = hooks.filter((h) => h.name !== hookName);
     this.hooks.set(event, filtered);
@@ -114,9 +114,7 @@ export class PluginLifecycleManager extends EventEmitter {
     return this.pluginStates.get(pluginName) || [];
   }
 
-  public async initializePlugin(
-    plugin: LoadedPlugin
-  ): Promise<void> {
+  public async initializePlugin(plugin: LoadedPlugin): Promise<void> {
     await this.emitLifecycleEvent(
       PluginLifecycleEvent.BEFORE_INITIALIZE,
       plugin

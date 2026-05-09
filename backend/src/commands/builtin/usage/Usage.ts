@@ -163,13 +163,20 @@ async function handleStatus(): Promise<CommandResult> {
  */
 function getUsageStats() {
   try {
-    const { getUsageStats: fetchStats } = require('../../../commands/builtin/usage/UsageTracker.js');
+    const {
+      getUsageStats: fetchStats,
+    } = require('../../../commands/builtin/usage/UsageTracker.js');
     return fetchStats();
   } catch {
     return {
-      totalTokens: 0, inputTokens: 0, outputTokens: 0,
-      cacheReadTokens: 0, cacheCreateTokens: 0,
-      totalCostUSD: 0, apiCalls: 0, toolCalls: 0,
+      totalTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreateTokens: 0,
+      totalCostUSD: 0,
+      apiCalls: 0,
+      toolCalls: 0,
       sessionDurationMs: 0,
     };
   }
@@ -183,21 +190,30 @@ async function handleOverallUsage(): Promise<CommandResult> {
   const cmdMgr = getCmdMgr();
   const uptime = process.uptime();
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_usage_overview', {
-    totalTokens: usageStats.totalTokens,
-    apiCalls: usageStats.apiCalls,
-    toolCalls: usageStats.toolCalls,
-    totalCost: usageStats.totalCostUSD,
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_usage_overview',
+    {
+      totalTokens: usageStats.totalTokens,
+      apiCalls: usageStats.apiCalls,
+      toolCalls: usageStats.toolCalls,
+      totalCost: usageStats.totalCostUSD,
+    }
+  );
 
   const lines: string[] = [];
   lines.push('📊 总体用量统计');
   lines.push('');
   lines.push('🪙 Token 用量');
   lines.push(`   总 Token: ${usageStats.totalTokens.toLocaleString()}`);
-  lines.push(`   输入 Token: ${usageStats.inputTokens.toLocaleString()} (${toKB(usageStats.inputTokens)})`);
-  lines.push(`   输出 Token: ${usageStats.outputTokens.toLocaleString()} (${toKB(usageStats.outputTokens)})`);
-  lines.push(`   缓存读取: ${usageStats.cacheReadTokens.toLocaleString()} (${toKB(usageStats.cacheReadTokens)})`);
+  lines.push(
+    `   输入 Token: ${usageStats.inputTokens.toLocaleString()} (${toKB(usageStats.inputTokens)})`
+  );
+  lines.push(
+    `   输出 Token: ${usageStats.outputTokens.toLocaleString()} (${toKB(usageStats.outputTokens)})`
+  );
+  lines.push(
+    `   缓存读取: ${usageStats.cacheReadTokens.toLocaleString()} (${toKB(usageStats.cacheReadTokens)})`
+  );
   lines.push('');
   lines.push('📞 调用统计');
   lines.push(`   API 调用: ${usageStats.apiCalls} 次`);
@@ -225,15 +241,24 @@ async function handleTrendsAnalysis(): Promise<CommandResult> {
   lines.push('');
   lines.push('当前会话趋势:');
   lines.push(`   运行时长: ${formatDuration(uptime)}`);
-  lines.push(`   API 调用率: ${(usageStats.apiCalls / (uptime / 3600)).toFixed(1)} 次/小时`);
-  lines.push(`   工具调用率: ${(usageStats.toolCalls / (uptime / 3600)).toFixed(1)} 次/小时`);
-  lines.push(`   Token 速率: ${(usageStats.totalTokens / (uptime / 60)).toFixed(0)} token/分钟`);
+  lines.push(
+    `   API 调用率: ${(usageStats.apiCalls / (uptime / 3600)).toFixed(1)} 次/小时`
+  );
+  lines.push(
+    `   工具调用率: ${(usageStats.toolCalls / (uptime / 3600)).toFixed(1)} 次/小时`
+  );
+  lines.push(
+    `   Token 速率: ${(usageStats.totalTokens / (uptime / 60)).toFixed(0)} token/分钟`
+  );
   lines.push('');
   lines.push('缓存命中:');
   lines.push(`   缓存读取: ${toKB(usageStats.cacheReadTokens)}`);
   lines.push(`   缓存创建: ${toKB(usageStats.cacheCreateTokens)}`);
   if (usageStats.cacheReadTokens + usageStats.cacheCreateTokens > 0) {
-    const hitRate = (usageStats.cacheReadTokens / (usageStats.cacheReadTokens + usageStats.cacheCreateTokens) * 100);
+    const hitRate =
+      (usageStats.cacheReadTokens /
+        (usageStats.cacheReadTokens + usageStats.cacheCreateTokens)) *
+      100;
     lines.push(`   缓存命中率: ${hitRate.toFixed(1)}%`);
   }
 
@@ -290,21 +315,30 @@ async function handleToolUsage(): Promise<CommandResult> {
 async function handleUserBehavior(): Promise<CommandResult> {
   const usageStats = getUsageStats();
   const uptime = process.uptime();
-  const avgTokensPerCall = usageStats.apiCalls > 0
-    ? Math.round(usageStats.totalTokens / usageStats.apiCalls)
-    : 0;
+  const avgTokensPerCall =
+    usageStats.apiCalls > 0
+      ? Math.round(usageStats.totalTokens / usageStats.apiCalls)
+      : 0;
 
   const lines: string[] = [];
   lines.push('👤 用户行为分析');
   lines.push('');
   lines.push('使用模式:');
-  lines.push(`   平均每次 API 调用 Token: ${avgTokensPerCall.toLocaleString()}`);
-  lines.push(`   工具/API 比率: ${usageStats.toolCalls}:${usageStats.apiCalls}`);
+  lines.push(
+    `   平均每次 API 调用 Token: ${avgTokensPerCall.toLocaleString()}`
+  );
+  lines.push(
+    `   工具/API 比率: ${usageStats.toolCalls}:${usageStats.apiCalls}`
+  );
   lines.push(`   会话时长: ${formatDuration(uptime)}`);
   lines.push('');
   lines.push('成本效率:');
-  lines.push(`   每小时成本: $${((usageStats.totalCostUSD / (uptime / 3600))).toFixed(4)}`);
-  lines.push(`   每次 API 成本: $${(usageStats.totalCostUSD / (usageStats.apiCalls || 1)).toFixed(6)}`);
+  lines.push(
+    `   每小时成本: $${(usageStats.totalCostUSD / (uptime / 3600)).toFixed(4)}`
+  );
+  lines.push(
+    `   每次 API 成本: $${(usageStats.totalCostUSD / (usageStats.apiCalls || 1)).toFixed(6)}`
+  );
 
   return { success: true, message: lines.join('\n') };
 }
@@ -326,12 +360,16 @@ async function handlePerformanceMetrics(): Promise<CommandResult> {
   lines.push(`   平台: ${process.platform} ${process.arch}`);
   lines.push('');
   lines.push('资源使用:');
-  lines.push(`   堆内存: ${(memUsage.heapUsed / 1024 / 1024).toFixed(1)} MB / ${(memUsage.heapTotal / 1024 / 1024).toFixed(1)} MB`);
+  lines.push(
+    `   堆内存: ${(memUsage.heapUsed / 1024 / 1024).toFixed(1)} MB / ${(memUsage.heapTotal / 1024 / 1024).toFixed(1)} MB`
+  );
   lines.push(`   RSS: ${(memUsage.rss / 1024 / 1024).toFixed(1)} MB`);
   lines.push('');
   lines.push('API 性能:');
   lines.push(`   API 调用: ${usageStats.apiCalls} 次`);
-  lines.push(`   调用频率: ${(usageStats.apiCalls / (uptime / 3600)).toFixed(1)} 次/小时`);
+  lines.push(
+    `   调用频率: ${(usageStats.apiCalls / (uptime / 3600)).toFixed(1)} 次/小时`
+  );
 
   return { success: true, message: lines.join('\n') };
 }

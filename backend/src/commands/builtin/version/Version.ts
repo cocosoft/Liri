@@ -114,11 +114,14 @@ const versionCommand = {
 async function handleVersion() {
   const info = getVersionInfo();
 
-  (await import('@modules/services/analytics/index.js')).logEvent('tengu_version_checked', {
-    version: info.version,
-    platform: info.platform,
-    arch: info.arch,
-  });
+  (await import('@modules/services/analytics/index.js')).logEvent(
+    'tengu_version_checked',
+    {
+      version: info.version,
+      platform: info.platform,
+      arch: info.arch,
+    }
+  );
 
   return {
     success: true,
@@ -128,7 +131,9 @@ async function handleVersion() {
       `Node.js: ${info.nodeVersion}`,
       `Platform: ${info.platform} ${info.arch}`,
       `PID: ${info.pid}`,
-    ].filter(Boolean).join('\n'),
+    ]
+      .filter(Boolean)
+      .join('\n'),
   };
 }
 

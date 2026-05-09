@@ -150,8 +150,8 @@ export default {
   normalizeArgs,
   parseEffortCliArg,
   parseVCRCliArg,
-    parseManagedCliArg,
-  };
+  parseManagedCliArg,
+};
 
 export function parseEffortCliArg(argv: string[] = process.argv): {
   effort?: ThinkingEffort;
@@ -173,7 +173,11 @@ export function parseEffortCliArg(argv: string[] = process.argv): {
     const normalized = thinkingArg.toLowerCase().trim();
     if (normalized === 'on' || normalized === 'true' || normalized === '1') {
       result.thinkingEnabled = true;
-    } else if (normalized === 'off' || normalized === 'false' || normalized === '0') {
+    } else if (
+      normalized === 'off' ||
+      normalized === 'false' ||
+      normalized === '0'
+    ) {
       result.thinkingEnabled = false;
     }
   }
@@ -190,11 +194,11 @@ export function parseVCRCliArg(argv: string[] = process.argv): {
   const play = eagerParseCliFlag('--vcr-play', argv);
   const speedArg = eagerParseCliFlag('--vcr-speed', argv);
 
-  let vcrSpeed: number | undefined
+  let vcrSpeed: number | undefined;
   if (speedArg) {
-    const parsed = parseFloat(speedArg)
+    const parsed = parseFloat(speedArg);
     if (!isNaN(parsed) && parsed > 0) {
-      vcrSpeed = parsed
+      vcrSpeed = parsed;
     }
   }
 
@@ -202,21 +206,29 @@ export function parseVCRCliArg(argv: string[] = process.argv): {
     vcrRecord: record,
     vcrPlay: play,
     vcrSpeed,
-  }
+  };
 }
 
 export function parseManagedCliArg(argv: string[] = process.argv): {
-  managed: boolean
-  managedEndpoint?: string
+  managed: boolean;
+  managedEndpoint?: string;
 } {
-  const managed = eagerParseCliFlag('--managed', argv)
-  const endpoint = eagerParseCliFlag('--managed-endpoint', argv)
+  const managed = eagerParseCliFlag('--managed', argv);
+  const endpoint = eagerParseCliFlag('--managed-endpoint', argv);
 
   if (managed !== undefined) {
-    if (managed === 'true' || managed === '1' || managed === 'on' || managed === '') {
-      return { managed: true, managedEndpoint: endpoint }
+    if (
+      managed === 'true' ||
+      managed === '1' ||
+      managed === 'on' ||
+      managed === ''
+    ) {
+      return { managed: true, managedEndpoint: endpoint };
     }
   }
 
-  return { managed: !!eagerParseCliFlag('--managed', argv), managedEndpoint: endpoint }
+  return {
+    managed: !!eagerParseCliFlag('--managed', argv),
+    managedEndpoint: endpoint,
+  };
 }

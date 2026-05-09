@@ -117,7 +117,10 @@ export class AliasManager {
    * 列出所有别名
    */
   list(): Array<{ name: string; command: string }> {
-    return Object.entries(this.aliases).map(([name, command]) => ({ name, command }));
+    return Object.entries(this.aliases).map(([name, command]) => ({
+      name,
+      command,
+    }));
   }
 
   /**
@@ -163,7 +166,7 @@ export class AliasManager {
   reset(): void {
     this.aliases = {};
     // 清除配置中的别名
-    Object.keys(configManager.getAliases()).forEach(name => {
+    Object.keys(configManager.getAliases()).forEach((name) => {
       configManager.removeAlias(name);
     });
   }

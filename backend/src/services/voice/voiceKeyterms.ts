@@ -34,8 +34,8 @@ export function splitIdentifier(name: string): string[] {
   return name
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .split(/[-_./\s]+/)
-    .map(w => w.trim())
-    .filter(w => w.length > 2 && w.length <= 20);
+    .map((w) => w.trim())
+    .filter((w) => w.length > 2 && w.length <= 20);
 }
 
 /**
@@ -43,7 +43,7 @@ export function splitIdentifier(name: string): string[] {
  * @param recentFiles 最近打开的文件列表
  */
 export async function getVoiceKeyterms(
-  recentFiles?: ReadonlySet<string>,
+  recentFiles?: ReadonlySet<string>
 ): Promise<string[]> {
   const terms = new Set<string>(GLOBAL_KEYTERMS);
 

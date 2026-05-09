@@ -21,7 +21,10 @@ const MAX_FILES = 100;
  * @param searchPath - 搜索的起始目录路径，默认为当前工作目录
  * @returns 包含搜索结果统计信息和文件列表的对象
  */
-export function glob(pattern: string, searchPath: string = process.cwd()): GlobResult {
+export function glob(
+  pattern: string,
+  searchPath: string = process.cwd()
+): GlobResult {
   const startTime = Date.now();
   const results: string[] = [];
 
@@ -51,7 +54,12 @@ export function glob(pattern: string, searchPath: string = process.cwd()): GlobR
  * @param results - 用于存储匹配到的文件路径的数组（会直接修改此数组）
  * @param limit - 限制收集的最大文件数量，达到该数量后停止遍历
  */
-function walkDir(dir: string, pattern: string, results: string[], limit: number): void {
+function walkDir(
+  dir: string,
+  pattern: string,
+  results: string[],
+  limit: number
+): void {
   // 如果已收集的结果数量达到上限，则提前返回
   if (results.length >= limit) return;
 
@@ -84,12 +92,12 @@ function walkDir(dir: string, pattern: string, results: string[], limit: number)
 
 /**
  * 检查文件名或路径是否匹配给定的 glob 模式。
- * 
+ *
  * 支持以下通配符：
  * - `*`: 匹配任意非路径分隔符字符（不包括 `/` 和 `\`）
  * - `**`: 匹配任意字符（包括路径分隔符）
  * - `?`: 匹配单个任意字符
- * 
+ *
  * @param name - 要检查的文件名或路径字符串
  * @param pattern - glob 模式字符串
  * @returns 如果名称匹配模式则返回 true，否则返回 false

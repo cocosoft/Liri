@@ -120,7 +120,9 @@ class DeviceManager {
 
   getDefaultToken(): string | null {
     const devices = this.loadDevices();
-    const defaultDevice = devices.find((d) => d.isDefault && !this.isExpired(d));
+    const defaultDevice = devices.find(
+      (d) => d.isDefault && !this.isExpired(d)
+    );
     if (defaultDevice) {
       defaultDevice.lastSeen = Date.now();
       this.saveDevices(devices);
@@ -218,7 +220,9 @@ class DeviceManager {
 
 let defaultManager: DeviceManager | undefined;
 
-export function getDeviceManager(options?: DeviceManagerOptions): DeviceManager {
+export function getDeviceManager(
+  options?: DeviceManagerOptions
+): DeviceManager {
   if (!defaultManager) {
     defaultManager = new DeviceManager(options);
   }

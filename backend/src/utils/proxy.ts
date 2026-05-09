@@ -38,7 +38,7 @@ export function shouldBypassProxy(url: string): boolean {
     return false;
   }
 
-  const noProxyList = noProxy.split(',').map(item => item.trim());
+  const noProxyList = noProxy.split(',').map((item) => item.trim());
   for (const pattern of noProxyList) {
     if (matchesNoProxyPattern(host, pattern)) {
       return true;
@@ -123,8 +123,13 @@ function matchesCidrPattern(ip: string, cidr: string): boolean {
     const mask = (0xffffffff << (32 - prefix)) >>> 0;
 
     // 将IP地址转换为32位整数
-    const ipInt = (ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3];
-    const cidrInt = (cidrBytes[0] << 24) | (cidrBytes[1] << 16) | (cidrBytes[2] << 8) | cidrBytes[3];
+    const ipInt =
+      (ipBytes[0] << 24) | (ipBytes[1] << 16) | (ipBytes[2] << 8) | ipBytes[3];
+    const cidrInt =
+      (cidrBytes[0] << 24) |
+      (cidrBytes[1] << 16) |
+      (cidrBytes[2] << 8) |
+      cidrBytes[3];
 
     // 检查是否在同一网络
     return (ipInt & mask) === (cidrInt & mask);

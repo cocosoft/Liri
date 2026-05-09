@@ -1,8 +1,8 @@
 /**
  * 外部错误监控器
- * 
+ *
  * 为未来集成 Datadog/Prometheus 等外部监控系统预留接口。
- * 
+ *
  * 设计原则：
  * 1. 外部监控失败不影响主流程
  * 2. 支持多报告器并行上报
@@ -33,7 +33,7 @@ export interface ErrorContext {
 
 /**
  * 外部错误报告器接口
- * 
+ *
  * 实现此接口以集成不同的监控系统：
  * - Datadog
  * - Prometheus
@@ -63,7 +63,7 @@ export interface ExternalErrorReporter {
 
 /**
  * 外部错误监控器
- * 
+ *
  * 管理多个外部错误报告器，提供统一的上报接口。
  */
 export class ExternalErrorMonitor {
@@ -82,9 +82,7 @@ export class ExternalErrorMonitor {
    * 注销报告器
    */
   unregisterReporter(name: string): void {
-    this.reporters = this.reporters.filter(
-      (r) => r.getName() !== name
-    );
+    this.reporters = this.reporters.filter((r) => r.getName() !== name);
     console.log(`[ExternalErrorMonitor] 注销报告器: ${name}`);
   }
 
@@ -104,7 +102,7 @@ export class ExternalErrorMonitor {
 
   /**
    * 报告错误到所有已注册的报告器
-   * 
+   *
    * 注意：报告器失败不会影响主流程
    */
   async reportError(
@@ -133,9 +131,7 @@ export class ExternalErrorMonitor {
       })
     );
 
-    const failed = results.filter(
-      (r) => r.status === 'rejected'
-    ).length;
+    const failed = results.filter((r) => r.status === 'rejected').length;
 
     if (failed > 0) {
       console.warn(
@@ -190,7 +186,7 @@ export class ExternalErrorMonitor {
 
 /**
  * 示例报告器实现（Datadog）
- * 
+ *
  * 使用时需要安装 datadog-metrics 包并配置 API Key
  */
 export class DatadogReporter implements ExternalErrorReporter {
@@ -216,7 +212,7 @@ export class DatadogReporter implements ExternalErrorReporter {
 
 /**
  * 示例报告器实现（Prometheus）
- * 
+ *
  * 使用时需要安装 prom-client 包
  */
 export class PrometheusReporter implements ExternalErrorReporter {
@@ -242,7 +238,7 @@ export class PrometheusReporter implements ExternalErrorReporter {
 
 /**
  * 示例报告器实现（Sentry）
- * 
+ *
  * 使用时需要安装 @sentry/node 包
  */
 export class SentryReporter implements ExternalErrorReporter {

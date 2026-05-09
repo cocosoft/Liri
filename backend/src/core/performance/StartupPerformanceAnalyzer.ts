@@ -121,7 +121,11 @@ export class StartupPerformanceAnalyzer {
   /**
    * 记录性能指标
    */
-  recordMetric(name: string, duration: number, data?: Record<string, any>): void {
+  recordMetric(
+    name: string,
+    duration: number,
+    data?: Record<string, any>
+  ): void {
     if (!this.isRunning) return;
 
     const now = Date.now();
@@ -190,11 +194,13 @@ export class StartupPerformanceAnalyzer {
     const totalTime = endTime - this.startTime;
 
     // 构建模块加载信息
-    const moduleLoadInfo = Array.from(this.moduleLoadTimes.entries()).map(([name, loadTime]) => ({
-      name,
-      loadTime,
-      size: 0, // 暂时设为0，实际应用中可以获取模块大小
-    }));
+    const moduleLoadInfo = Array.from(this.moduleLoadTimes.entries()).map(
+      ([name, loadTime]) => ({
+        name,
+        loadTime,
+        size: 0, // 暂时设为0，实际应用中可以获取模块大小
+      })
+    );
 
     return {
       startTime: this.startTime,
@@ -242,19 +248,28 @@ export class StartupPerformanceAnalyzer {
     console.log(`Total startup time: ${report.totalTime.toFixed(2)}ms`);
     console.log('');
     console.log('Top metrics:');
-    
+
     // 按持续时间排序，显示前10个
-    const topMetrics = [...report.metrics].sort((a, b) => b.duration - a.duration).slice(0, 10);
+    const topMetrics = [...report.metrics]
+      .sort((a, b) => b.duration - a.duration)
+      .slice(0, 10);
     topMetrics.forEach((metric, index) => {
-      console.log(`${index + 1}. ${metric.name}: ${metric.duration.toFixed(2)}ms`);
+      console.log(
+        `${index + 1}. ${metric.name}: ${metric.duration.toFixed(2)}ms`
+      );
     });
 
     console.log('');
     console.log('Memory usage:');
-    const finalSnapshot = report.memorySnapshots[report.memorySnapshots.length - 1];
+    const finalSnapshot =
+      report.memorySnapshots[report.memorySnapshots.length - 1];
     if (finalSnapshot) {
-      console.log(`  Heap used: ${(finalSnapshot.heapUsed / 1024 / 1024).toFixed(2)}MB`);
-      console.log(`  Heap total: ${(finalSnapshot.heapTotal / 1024 / 1024).toFixed(2)}MB`);
+      console.log(
+        `  Heap used: ${(finalSnapshot.heapUsed / 1024 / 1024).toFixed(2)}MB`
+      );
+      console.log(
+        `  Heap total: ${(finalSnapshot.heapTotal / 1024 / 1024).toFixed(2)}MB`
+      );
       console.log(`  RSS: ${(finalSnapshot.rss / 1024 / 1024).toFixed(2)}MB`);
     }
 
@@ -289,7 +304,11 @@ export function resetStartupAnalyzer(): StartupPerformanceAnalyzer {
 /**
  * 便捷函数：记录模块加载时间
  */
-export function recordModuleLoad(name: string, loadTime: number, size?: number): void {
+export function recordModuleLoad(
+  name: string,
+  loadTime: number,
+  size?: number
+): void {
   getStartupAnalyzer().recordModuleLoad(name, loadTime, size);
 }
 
@@ -303,7 +322,11 @@ export function startMetric(name: string): () => void {
 /**
  * 便捷函数：记录性能指标
  */
-export function recordMetric(name: string, duration: number, data?: Record<string, any>): void {
+export function recordMetric(
+  name: string,
+  duration: number,
+  data?: Record<string, any>
+): void {
   getStartupAnalyzer().recordMetric(name, duration, data);
 }
 

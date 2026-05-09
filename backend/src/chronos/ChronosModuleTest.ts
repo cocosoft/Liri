@@ -12,8 +12,13 @@ describe('ExecutionEngine', () => {
 
   it('executes a valid task successfully', async () => {
     const task: ExecutableTask = {
-      id: 'task1', type: 'test', payload: 'hello', priority: 10,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'task1',
+      type: 'test',
+      payload: 'hello',
+      priority: 10,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     const result = await engine.execute(task);
     expect(result.success).toBe(true);
@@ -23,8 +28,13 @@ describe('ExecutionEngine', () => {
 
   it('fails on empty id', async () => {
     const task: ExecutableTask = {
-      id: '', type: 'test', payload: 'data', priority: 0,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: '',
+      type: 'test',
+      payload: 'data',
+      priority: 0,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     const result = await engine.execute(task);
     expect(result.success).toBe(false);
@@ -33,8 +43,13 @@ describe('ExecutionEngine', () => {
 
   it('fails on empty payload', async () => {
     const task: ExecutableTask = {
-      id: 'no-payload', type: 'test', payload: '', priority: 0,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'no-payload',
+      type: 'test',
+      payload: '',
+      priority: 0,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     const result = await engine.execute(task);
     expect(result.success).toBe(false);
@@ -42,8 +57,13 @@ describe('ExecutionEngine', () => {
 
   it('fails on negative maxRetries', async () => {
     const task: ExecutableTask = {
-      id: 'bad-retry', type: 'test', payload: 'data', priority: 0,
-      createdAt: Date.now(), retryCount: 0, maxRetries: -1,
+      id: 'bad-retry',
+      type: 'test',
+      payload: 'data',
+      priority: 0,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: -1,
     };
     const validation = engine.validateTask(task);
     expect(validation.valid).toBe(false);
@@ -51,8 +71,13 @@ describe('ExecutionEngine', () => {
 
   it('fails on invalid priority', async () => {
     const task: ExecutableTask = {
-      id: 'bad-priority', type: 'test', payload: 'data', priority: 200,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'bad-priority',
+      type: 'test',
+      payload: 'data',
+      priority: 200,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     const validation = engine.validateTask(task);
     expect(validation.valid).toBe(false);
@@ -60,8 +85,13 @@ describe('ExecutionEngine', () => {
 
   it('cancels a task before execution', async () => {
     const task: ExecutableTask = {
-      id: 'cancel-me', type: 'test', payload: 'data', priority: 0,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'cancel-me',
+      type: 'test',
+      payload: 'data',
+      priority: 0,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     engine.cancelExecution(task.id);
     const result = await engine.execute(task);
@@ -71,8 +101,13 @@ describe('ExecutionEngine', () => {
 
   it('retrieves execution result', async () => {
     const task: ExecutableTask = {
-      id: 'findable', type: 'test', payload: 'data', priority: 5,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'findable',
+      type: 'test',
+      payload: 'data',
+      priority: 5,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     await engine.execute(task);
     const result = engine.getExecution('findable');
@@ -87,8 +122,24 @@ describe('ExecutionEngine', () => {
 
   it('tracks execution metrics', async () => {
     const tasks: ExecutableTask[] = [
-      { id: 'm1', type: 'test', payload: 'a', priority: 1, createdAt: Date.now(), retryCount: 0, maxRetries: 0 },
-      { id: 'm2', type: 'test', payload: 'b', priority: 2, createdAt: Date.now(), retryCount: 0, maxRetries: 0 },
+      {
+        id: 'm1',
+        type: 'test',
+        payload: 'a',
+        priority: 1,
+        createdAt: Date.now(),
+        retryCount: 0,
+        maxRetries: 0,
+      },
+      {
+        id: 'm2',
+        type: 'test',
+        payload: 'b',
+        priority: 2,
+        createdAt: Date.now(),
+        retryCount: 0,
+        maxRetries: 0,
+      },
     ];
     for (const t of tasks) await engine.execute(t);
     const metrics = engine.getMetrics();
@@ -98,8 +149,13 @@ describe('ExecutionEngine', () => {
 
   it('tracks failed metrics', async () => {
     const task: ExecutableTask = {
-      id: 'fail-metric', type: 'test', payload: '', priority: 0,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'fail-metric',
+      type: 'test',
+      payload: '',
+      priority: 0,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     await engine.execute(task);
     const metrics = engine.getMetrics();
@@ -108,8 +164,13 @@ describe('ExecutionEngine', () => {
 
   it('clears history', async () => {
     const task: ExecutableTask = {
-      id: 'clearable', type: 'test', payload: 'data', priority: 5,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'clearable',
+      type: 'test',
+      payload: 'data',
+      priority: 5,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     await engine.execute(task);
     engine.clearHistory();
@@ -178,7 +239,7 @@ describe('LifecycleManager', () => {
     manager.createTask('t1');
     manager.transitionTo('t1', 'scheduled');
     manager.transitionTo('t1', 'executing');
-    await new Promise(r => setTimeout(r, 5));
+    await new Promise((r) => setTimeout(r, 5));
     manager.transitionTo('t1', 'completed');
     expect(manager.getStatus('t1')!.totalRuntime).toBeGreaterThan(0);
   });
@@ -202,7 +263,7 @@ describe('LifecycleManager', () => {
     manager.createTask('old2');
     manager.transitionTo('old1', 'scheduled');
     manager.transitionTo('old2', 'scheduled');
-    await new Promise(r => setTimeout(r, 5));
+    await new Promise((r) => setTimeout(r, 5));
     const expired = await manager.cleanupExpiredTasks(1);
     expect(expired.length).toBe(2);
     expect(manager.getStatus('old1')!.currentPhase).toBe('expired');
@@ -233,8 +294,13 @@ describe('Chronos Integration', () => {
     lifecycle.transitionTo('int1', 'executing');
 
     const task: ExecutableTask = {
-      id: 'int1', type: 'test', payload: 'integrated', priority: 5,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'int1',
+      type: 'test',
+      payload: 'integrated',
+      priority: 5,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     const result = await engine.execute(task);
     expect(result.success).toBe(true);
@@ -257,8 +323,13 @@ describe('Chronos Integration', () => {
     lifecycle.transitionTo('fail1', 'executing');
 
     const task: ExecutableTask = {
-      id: 'fail1', type: 'test', payload: '', priority: 0,
-      createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+      id: 'fail1',
+      type: 'test',
+      payload: '',
+      priority: 0,
+      createdAt: Date.now(),
+      retryCount: 0,
+      maxRetries: 0,
     };
     const result = await engine.execute(task);
     expect(result.success).toBe(false);
@@ -277,8 +348,13 @@ describe('Chronos Integration', () => {
     for (let i = 0; i < 3; i++) {
       lifecycle.transitionTo('recur', 'executing');
       const task: ExecutableTask = {
-        id: `recur-${i}`, type: 'recurring', payload: `run-${i}`, priority: 1,
-        createdAt: Date.now(), retryCount: 0, maxRetries: 0,
+        id: `recur-${i}`,
+        type: 'recurring',
+        payload: `run-${i}`,
+        priority: 1,
+        createdAt: Date.now(),
+        retryCount: 0,
+        maxRetries: 0,
       };
       const result = await engine.execute(task);
       expect(result.success).toBe(true);

@@ -41,10 +41,10 @@ export const skillCommand: Command = {
           // 没有子命令，显示技能概览
           const skills = skillManager.getSkills({ userInvocable: true });
           const loadedCount = skills.length;
-          
+
           let content = `🧰 技能概览\n\n`;
           content += `总技能数: ${loadedCount}\n\n`;
-          
+
           if (skills.length > 0) {
             content += `可用技能:\n`;
             skills.forEach((skill) => {
@@ -53,14 +53,14 @@ export const skillCommand: Command = {
           } else {
             content += `暂无可用技能\n`;
           }
-          
+
           content += `\n命令用法:\n`;
           content += `  /skill list          - 列出所有技能（详细）\n`;
           content += `  /skill info <技能名>  - 查看技能详情\n`;
           content += `  /skill enable <技能名> - 启用技能\n`;
           content += `  /skill disable <技能名> - 禁用技能\n`;
           content += `  /skill reload        - 重新加载技能\n`;
-          
+
           return {
             success: true,
             type: 'text',
@@ -79,7 +79,7 @@ export const skillCommand: Command = {
               message: '没有找到可用的技能',
             };
           }
-          
+
           let content = `📋 所有技能 (${skills.length})\n\n`;
           skills.forEach((skill) => {
             content += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
@@ -94,7 +94,7 @@ export const skillCommand: Command = {
               content += `使用场景: ${skill.whenToUse}\n`;
             }
           });
-          
+
           return {
             success: true,
             type: 'text',
@@ -119,7 +119,7 @@ export const skillCommand: Command = {
               message: `未找到技能: ${restArgs}`,
             };
           }
-          
+
           let content = `📄 ${skill.name}\n\n`;
           content += `描述:     ${skill.description || 'No description'}\n`;
           content += `来源:     ${skill.source}\n`;
@@ -136,7 +136,7 @@ export const skillCommand: Command = {
           if (skill.allowedTools && skill.allowedTools.length > 0) {
             content += `允许的工具: ${skill.allowedTools.join(', ')}\n`;
           }
-          
+
           return {
             success: true,
             type: 'text',
@@ -209,7 +209,7 @@ export const skillCommand: Command = {
             if (skill.whenToUse) {
               content += `使用场景: ${skill.whenToUse}\n`;
             }
-            
+
             return {
               success: true,
               type: 'text',
@@ -217,7 +217,7 @@ export const skillCommand: Command = {
               message: content,
             };
           }
-          
+
           return {
             success: false,
             type: 'error',

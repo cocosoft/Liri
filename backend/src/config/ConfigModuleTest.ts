@@ -1,5 +1,13 @@
 //
-import { describe, it, expect, beforeAll, afterAll, beforeEach, mock } from 'bun:test';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  mock,
+} from 'bun:test';
 import { ConfigLoader } from './loader/ConfigLoader';
 import { HotReloader } from './hotreload/HotReloader';
 import { VersionController } from './version/VersionController';
@@ -24,12 +32,28 @@ function cleanupTestDir() {
 }
 
 describe('ConfigLoader', () => {
-
   beforeAll(() => {
     setupTestDir();
-    writeFileSync(TEST_CONFIG_PATH, JSON.stringify({ appName: 'TestApp', version: 1, debug: true, nested: { key: 'value' } }), 'utf-8');
-    writeFileSync(TEST_ENV_PATH, 'PYAPP_MODE=production\nPYAPP_PORT=3000\nPYAPP_DEBUG=false\n', 'utf-8');
-    writeFileSync(TEST_YAML_PATH, 'app:\n  name: YamlApp\n  port: 8080\n', 'utf-8');
+    writeFileSync(
+      TEST_CONFIG_PATH,
+      JSON.stringify({
+        appName: 'TestApp',
+        version: 1,
+        debug: true,
+        nested: { key: 'value' },
+      }),
+      'utf-8'
+    );
+    writeFileSync(
+      TEST_ENV_PATH,
+      'PYAPP_MODE=production\nPYAPP_PORT=3000\nPYAPP_DEBUG=false\n',
+      'utf-8'
+    );
+    writeFileSync(
+      TEST_YAML_PATH,
+      'app:\n  name: YamlApp\n  port: 8080\n',
+      'utf-8'
+    );
     process.env['PYAPP_MODE'] = 'production';
     process.env['PYAPP_PORT'] = '3000';
     process.env['PYAPP_DEBUG'] = 'false';
@@ -77,7 +101,13 @@ describe('ConfigLoader', () => {
   it('handles missing optional file gracefully', async () => {
     const loader = new ConfigLoader();
     const config = await loader.load([
-      { type: 'file', path: '/nonexistent/config.json', format: 'json', priority: 10, required: false },
+      {
+        type: 'file',
+        path: '/nonexistent/config.json',
+        format: 'json',
+        priority: 10,
+        required: false,
+      },
     ]);
     expect(Object.keys(config).length).toBe(0);
   });
@@ -86,7 +116,13 @@ describe('ConfigLoader', () => {
     const loader = new ConfigLoader();
     expect(
       loader.load([
-        { type: 'file', path: '/nonexistent/config.json', format: 'json', priority: 10, required: true },
+        {
+          type: 'file',
+          path: '/nonexistent/config.json',
+          format: 'json',
+          priority: 10,
+          required: true,
+        },
       ])
     ).rejects.toThrow();
   });
@@ -117,29 +153,35 @@ describe('ConfigLoader', () => {
 
   it('deep merges nested objects correctly', async () => {
     const loader = new ConfigLoader();
-    writeFileSync(TEST_CONFIG_PATH, JSON.stringify({ database: { host: 'localhost', port: 5432 } }), 'utf-8');
+    writeFileSync(
+      TEST_CONFIG_PATH,
+      JSON.stringify({ database: { host: 'localhost', port: 5432 } }),
+      'utf-8'
+    );
     const config = await loader.load([
       { type: 'file', path: TEST_CONFIG_PATH, format: 'json', priority: 20 },
       { type: 'env', prefix: 'PYAPP_DATABASE_', priority: 10 },
     ]);
     expect(config.database).toBeDefined();
   });
-
 });
 
 describe('HotReloader', () => {
-
   let reloader: HotReloader;
   const initialConfig = { app: 'test', version: 1, features: { a: true } };
 
   beforeEach(() => {
-    reloader = new HotReloader({ strategy: 'manual', enableRollback: true, debounceMs: 0 });
+    reloader = new HotReloader({
+      strategy: 'manual',
+      enableRollback: true,
+      debounceMs: 0,
+    });
     reloader.setInitialConfig(initialConfig);
   });
 
   it('detects added keys', () => {
     reloader.setLoadFn(async () => ({ ...initialConfig, newKey: 'added' }));
-    return reloader.triggerReload('test').then(result => {
+    return reloader.triggerReload('test').then((result) => {
       expect(result.success).toBe(true);
       expect(result.event!.changedKeys).toContain('newKey');
     });
@@ -147,7 +189,7 @@ describe('HotReloader', () => {
 
   it('detects modified keys', () => {
     reloader.setLoadFn(async () => ({ ...initialConfig, version: 2 }));
-    return reloader.triggerReload('test').then(result => {
+    return reloader.triggerReload('test').then((result) => {
       expect(result.success).toBe(true);
       expect(result.event!.changedKeys).toContain('version');
     });
@@ -155,7 +197,7 @@ describe('HotReloader', () => {
 
   it('detects removed keys', () => {
     reloader.setLoadFn(async () => ({ app: 'test' }));
-    return reloader.triggerReload('test').then(result => {
+    return reloader.triggerReload('test').then((result) => {
       expect(result.success).toBe(true);
       expect(result.event!.changedKeys).toContain('version');
       expect(result.event!.changedKeys).toContain('features');
@@ -164,7 +206,7 @@ describe('HotReloader', () => {
 
   it('returns empty changes when config is unchanged', () => {
     reloader.setLoadFn(async () => ({ ...initialConfig }));
-    return reloader.triggerReload('test').then(result => {
+    return reloader.triggerReload('test').then((result) => {
       expect(result.success).toBe(true);
       expect(result.event).toBeUndefined();
     });
@@ -177,10 +219,10 @@ describe('HotReloader', () => {
       if (callCount > 1) throw new Error('Load failed');
       return { app: 'test', version: 2 };
     });
-    return reloader.triggerReload('test').then(firstResult => {
+    return reloader.triggerReload('test').then((firstResult) => {
       expect(firstResult.success).toBe(true);
       expect(firstResult.event!.changedKeys).toContain('version');
-      return reloader.triggerReload('test').then(secondResult => {
+      return reloader.triggerReload('test').then((secondResult) => {
         expect(secondResult.success).toBe(false);
         expect(secondResult.error).toBe('Load failed');
         const current = reloader.getCurrentConfig();
@@ -191,7 +233,9 @@ describe('HotReloader', () => {
 
   it('notifies listeners on reload', () => {
     let notified = false;
-    reloader.onReload(() => { notified = true; });
+    reloader.onReload(() => {
+      notified = true;
+    });
     reloader.setLoadFn(async () => ({ app: 'test', version: 2 }));
     return reloader.triggerReload('test').then(() => {
       expect(notified).toBe(true);
@@ -200,16 +244,23 @@ describe('HotReloader', () => {
 
   it('notifies error listeners on failure', () => {
     let notified = false;
-    reloader.onError(() => { notified = true; });
-    reloader.setLoadFn(async () => { throw new Error('Fail'); });
+    reloader.onError(() => {
+      notified = true;
+    });
+    reloader.setLoadFn(async () => {
+      throw new Error('Fail');
+    });
     return reloader.triggerReload('test').then(() => {
       expect(notified).toBe(true);
     });
   });
 
   it('detects nested object changes', () => {
-    reloader.setLoadFn(async () => ({ ...initialConfig, features: { a: false, b: true } }));
-    return reloader.triggerReload('test').then(result => {
+    reloader.setLoadFn(async () => ({
+      ...initialConfig,
+      features: { a: false, b: true },
+    }));
+    return reloader.triggerReload('test').then((result) => {
       expect(result.success).toBe(true);
       expect(result.event!.changedKeys).toContain('features.a');
       expect(result.event!.changedKeys).toContain('features.b');
@@ -227,7 +278,7 @@ describe('HotReloader', () => {
 
   it('rejects concurrent reloads', () => {
     reloader.setLoadFn(async () => {
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 100));
       return { app: 'test', version: 2 };
     });
     const p1 = reloader.triggerReload('test');
@@ -240,23 +291,30 @@ describe('HotReloader', () => {
 
   it('supports unsubscribe from reload events', () => {
     let count = 0;
-    const unsubscribe = reloader.onReload(() => { count++; });
-    reloader.setLoadFn(async () => ({ app: 'test', version: 2 }));
-    return reloader.triggerReload('test').then(() => {
-      unsubscribe();
-      reloader.setLoadFn(async () => ({ app: 'test', version: 3 }));
-      return reloader.triggerReload('test');
-    }).then(() => {
-      expect(count).toBe(1);
+    const unsubscribe = reloader.onReload(() => {
+      count++;
     });
+    reloader.setLoadFn(async () => ({ app: 'test', version: 2 }));
+    return reloader
+      .triggerReload('test')
+      .then(() => {
+        unsubscribe();
+        reloader.setLoadFn(async () => ({ app: 'test', version: 3 }));
+        return reloader.triggerReload('test');
+      })
+      .then(() => {
+        expect(count).toBe(1);
+      });
   });
-
 });
 
 describe('VersionController', () => {
-
   let vc: VersionController;
-  const baseConfig = { app: 'test', version: 1, features: { a: true, b: false } };
+  const baseConfig = {
+    app: 'test',
+    version: 1,
+    features: { a: true, b: false },
+  };
 
   beforeEach(() => {
     vc = new VersionController(10);
@@ -279,7 +337,11 @@ describe('VersionController', () => {
 
   it('computes diff between snapshots', () => {
     vc.snapshot(baseConfig);
-    const snap2 = vc.snapshot({ ...baseConfig, version: 2, features: { a: false, b: false, c: true } });
+    const snap2 = vc.snapshot({
+      ...baseConfig,
+      version: 2,
+      features: { a: false, b: false, c: true },
+    });
     expect(snap2.changes).toBeDefined();
     expect(snap2.changes!.modified.length).toBeGreaterThan(0);
     expect(snap2.changes!.added.length).toBeGreaterThan(0);
@@ -344,8 +406,8 @@ describe('VersionController', () => {
     vc.snapshot({ ...baseConfig, version: 2, newField: 'x' });
     const diff = vc.compareVersions(1, 2);
     expect(diff).not.toBeNull();
-    expect(diff!.modified.some(m => m.key === 'version')).toBe(true);
-    expect(diff!.added.some(a => a.key === 'newField')).toBe(true);
+    expect(diff!.modified.some((m) => m.key === 'version')).toBe(true);
+    expect(diff!.added.some((a) => a.key === 'newField')).toBe(true);
   });
 
   it('enforces max snapshots limit', () => {
@@ -370,17 +432,15 @@ describe('VersionController', () => {
     const oldCfg = { a: 1, b: 2, c: 3 };
     const newCfg = { b: 22, c: 3, d: 4 };
     const diff = vc.diff(oldCfg, newCfg);
-    expect(diff.removed.some(r => r.key === 'a')).toBe(true);
-    expect(diff.modified.some(m => m.key === 'b')).toBe(true);
+    expect(diff.removed.some((r) => r.key === 'a')).toBe(true);
+    expect(diff.modified.some((m) => m.key === 'b')).toBe(true);
     expect(diff.modified[0].oldValue).toBe(2);
     expect(diff.modified[0].newValue).toBe(22);
-    expect(diff.added.some(a => a.key === 'd')).toBe(true);
+    expect(diff.added.some((a) => a.key === 'd')).toBe(true);
   });
-
 });
 
 describe('Config Module Integration', () => {
-
   let configLoader: ConfigLoader;
   let hotReloader: HotReloader;
   let versionController: VersionController;
@@ -395,12 +455,20 @@ describe('Config Module Integration', () => {
 
   beforeEach(() => {
     configLoader = new ConfigLoader();
-    hotReloader = new HotReloader({ strategy: 'manual', enableRollback: true, debounceMs: 0 });
+    hotReloader = new HotReloader({
+      strategy: 'manual',
+      enableRollback: true,
+      debounceMs: 0,
+    });
     versionController = new VersionController(20);
   });
 
   it('loads config, snapshots version, and detects changes on reload', async () => {
-    writeFileSync(TEST_CONFIG_PATH, JSON.stringify({ app: 'integration', version: 1 }), 'utf-8');
+    writeFileSync(
+      TEST_CONFIG_PATH,
+      JSON.stringify({ app: 'integration', version: 1 }),
+      'utf-8'
+    );
 
     const config = await configLoader.load([
       { type: 'file', path: TEST_CONFIG_PATH, format: 'json', priority: 10 },
@@ -424,12 +492,16 @@ describe('Config Module Integration', () => {
 
     const diff = versionController.compareVersions(1, 2);
     expect(diff).not.toBeNull();
-    expect(diff!.modified.some(m => m.key === 'version')).toBe(true);
-    expect(diff!.added.some(a => a.key === 'newFeature')).toBe(true);
+    expect(diff!.modified.some((m) => m.key === 'version')).toBe(true);
+    expect(diff!.added.some((a) => a.key === 'newFeature')).toBe(true);
   });
 
   it('loads from multiple sources and tracks changes via version control', async () => {
-    writeFileSync(TEST_CONFIG_PATH, JSON.stringify({ database: { host: 'localhost', port: 5432 } }), 'utf-8');
+    writeFileSync(
+      TEST_CONFIG_PATH,
+      JSON.stringify({ database: { host: 'localhost', port: 5432 } }),
+      'utf-8'
+    );
 
     const config = await configLoader.load([
       { type: 'file', path: TEST_CONFIG_PATH, format: 'json', priority: 10 },
@@ -440,8 +512,8 @@ describe('Config Module Integration', () => {
     versionController.snapshot(updated, 'updated');
 
     const diff = versionController.compareVersions(1, 2);
-    expect(diff!.modified.some(m => m.key === 'database.host')).toBe(true);
-    expect(diff!.added.some(a => a.key === 'database.pool')).toBe(true);
+    expect(diff!.modified.some((m) => m.key === 'database.host')).toBe(true);
+    expect(diff!.added.some((a) => a.key === 'database.pool')).toBe(true);
 
     const rollback = versionController.rollback(1);
     expect(rollback!.config.database.host).toBe('localhost');
@@ -458,7 +530,9 @@ describe('Config Module Integration', () => {
     expect(r1.success).toBe(true);
     versionController.snapshot(hotReloader.getCurrentConfig(), 'after_reload');
 
-    hotReloader.setLoadFn(async () => { throw new Error('corrupted config'); });
+    hotReloader.setLoadFn(async () => {
+      throw new Error('corrupted config');
+    });
     const r2 = await hotReloader.triggerReload('corrupt');
     expect(r2.success).toBe(false);
 
@@ -471,7 +545,11 @@ describe('Config Module Integration', () => {
   });
 
   it('handles concurrent load, reload, and version tracking flow', async () => {
-    writeFileSync(TEST_CONFIG_PATH, JSON.stringify({ mode: 'dev', logging: 'info' }), 'utf-8');
+    writeFileSync(
+      TEST_CONFIG_PATH,
+      JSON.stringify({ mode: 'dev', logging: 'info' }),
+      'utf-8'
+    );
 
     const loadResult = await configLoader.load([
       { type: 'file', path: TEST_CONFIG_PATH, format: 'json', priority: 10 },
@@ -481,7 +559,11 @@ describe('Config Module Integration', () => {
     hotReloader.setInitialConfig(loadResult);
     versionController.snapshot(loadResult, 'loaded');
 
-    hotReloader.setLoadFn(async () => ({ mode: 'prod', logging: 'debug', metrics: true }));
+    hotReloader.setLoadFn(async () => ({
+      mode: 'prod',
+      logging: 'debug',
+      metrics: true,
+    }));
     const reloadResult = await hotReloader.triggerReload('source');
     expect(reloadResult.success).toBe(true);
     expect(reloadResult.event!.changedKeys.length).toBe(3);
@@ -499,7 +581,6 @@ describe('Config Module Integration', () => {
     original.settings.debug = false;
     expect(snap.config.settings.debug).toBe(true);
   });
-
 });
 
 function runTests() {
@@ -517,11 +598,21 @@ function runTests() {
   describe('VersionController', () => it('suite', () => {}));
   describe('Integration', () => it('suite', () => {}));
 
-  const totalPass = results.configLoader.pass + results.hotReloader.pass + results.versionController.pass + results.integration.pass;
-  const totalFail = results.configLoader.fail + results.hotReloader.fail + results.versionController.fail + results.integration.fail;
+  const totalPass =
+    results.configLoader.pass +
+    results.hotReloader.pass +
+    results.versionController.pass +
+    results.integration.pass;
+  const totalFail =
+    results.configLoader.fail +
+    results.hotReloader.fail +
+    results.versionController.fail +
+    results.integration.fail;
   const total = totalPass + totalFail;
 
-  console.log(`\nConfigLoader: ${results.configLoader.pass} ✓ | HotReloader: ${results.hotReloader.pass} ✓ | VersionController: ${results.versionController.pass} ✓ | Integration: ${results.integration.pass} ✓ | Total: ${totalPass}/${total} ✅`);
+  console.log(
+    `\nConfigLoader: ${results.configLoader.pass} ✓ | HotReloader: ${results.hotReloader.pass} ✓ | VersionController: ${results.versionController.pass} ✓ | Integration: ${results.integration.pass} ✓ | Total: ${totalPass}/${total} ✅`
+  );
 
   if (totalFail > 0) {
     process.exit(1);

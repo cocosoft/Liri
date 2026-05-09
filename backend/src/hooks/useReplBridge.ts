@@ -1,12 +1,16 @@
 /**
  * REPL桥接Hook
  * 基于CC源码 cc_code/backend/hooks/useReplBridge.tsx 实现
- * 
+ *
  * 与Bridge模块集成，支持远程会话的输入输出
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BridgeMain, type BridgeSession, type BridgeMessage } from '@modules/bridge';
+import {
+  BridgeMain,
+  type BridgeSession,
+  type BridgeMessage,
+} from '@modules/bridge';
 
 /**
  * REPL状态
@@ -64,60 +68,69 @@ export function useReplBridge(): UseReplBridgeResult {
   const bridgeRef = useRef<BridgeMain | null>(null);
 
   // 添加消息
-  const addMessage = useCallback((content: string, type: ReplMessage['type']) => {
-    const message: ReplMessage = {
-      id: generateId(),
-      content,
-      type,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, message]);
-  }, []);
+  const addMessage = useCallback(
+    (content: string, type: ReplMessage['type']) => {
+      const message: ReplMessage = {
+        id: generateId(),
+        content,
+        type,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, message]);
+    },
+    []
+  );
 
   // 消息处理
-  const handleMessage = useCallback((message: BridgeMessage) => {
-    switch (message.type) {
-      case 'output':
-        addMessage(message.content, 'output');
-        break;
-      case 'error':
-        addMessage(message.content, 'error');
-        break;
-      case 'system':
-        addMessage(message.content, 'system');
-        break;
-      case 'input':
-        addMessage(message.content, 'input');
-        break;
-    }
-  }, [addMessage]);
+  const handleMessage = useCallback(
+    (message: BridgeMessage) => {
+      switch (message.type) {
+        case 'output':
+          addMessage(message.content, 'output');
+          break;
+        case 'error':
+          addMessage(message.content, 'error');
+          break;
+        case 'system':
+          addMessage(message.content, 'system');
+          break;
+        case 'input':
+          addMessage(message.content, 'input');
+          break;
+      }
+    },
+    [addMessage]
+  );
 
   // 连接会话
-  const connect = useCallback(async (sessionId?: string) => {
-    setState('connecting');
-    try {
-      bridgeRef.current = new BridgeMain();
-      
-      const newSession = await bridgeRef.current.connect(sessionId);
-      setSession(newSession);
-      setState('connected');
-      addMessage('已连接到REPL会话', 'system');
+  const connect = useCallback(
+    async (sessionId?: string) => {
+      setState('connecting');
+      try {
+        bridgeRef.current = new BridgeMain();
 
-      // 设置消息处理器
-      newSession.on('message', handleMessage);
-      newSession.on('error', (error) => {
-        addMessage(`错误: ${error.message}`, 'error');
+        const newSession = await bridgeRef.current.connect(sessionId);
+        setSession(newSession);
+        setState('connected');
+        addMessage('已连接到REPL会话', 'system');
+
+        // 设置消息处理器
+        newSession.on('message', handleMessage);
+        newSession.on('error', (error) => {
+          addMessage(`错误: ${error.message}`, 'error');
+          setState('error');
+        });
+        newSession.on('disconnect', () => {
+          setState('disconnected');
+          addMessage('会话已断开', 'system');
+        });
+      } catch (error) {
         setState('error');
-      });
-      newSession.on('disconnect', () => {
-        setState('disconnected');
-        addMessage('会话已断开', 'system');
-      });
-    } catch (error) {
-      setState('error');
-      addMessage(`连接失败: ${(error as Error).message}`, 'error');
-    }
-  }, [addMessage, handleMessage]);
+        addMessage(`连接失败: ${(error as Error).message}`, 'error');
+      }
+    },
+    [addMessage, handleMessage]
+  );
 
   // 断开连接
   const disconnect = useCallback(() => {
@@ -131,23 +144,26 @@ export function useReplBridge(): UseReplBridgeResult {
   }, [addMessage]);
 
   // 发送命令
-  const send = useCallback(async (command: string) => {
-    if (!session || state !== 'connected') {
-      addMessage('未连接到会话', 'error');
-      return;
-    }
+  const send = useCallback(
+    async (command: string) => {
+      if (!session || state !== 'connected') {
+        addMessage('未连接到会话', 'error');
+        return;
+      }
 
-    setIsExecuting(true);
-    addMessage(command, 'input');
+      setIsExecuting(true);
+      addMessage(command, 'input');
 
-    try {
-      await session.send(command);
-    } catch (error) {
-      addMessage(`执行失败: ${(error as Error).message}`, 'error');
-    } finally {
-      setIsExecuting(false);
-    }
-  }, [session, state, addMessage]);
+      try {
+        await session.send(command);
+      } catch (error) {
+        addMessage(`执行失败: ${(error as Error).message}`, 'error');
+      } finally {
+        setIsExecuting(false);
+      }
+    },
+    [session, state, addMessage]
+  );
 
   // 清除消息
   const clear = useCallback(() => {

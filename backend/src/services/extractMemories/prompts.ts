@@ -1,10 +1,10 @@
 export function buildExtractMemoryPrompt(
   messageCount: number,
-  existingMemories: string,
+  existingMemories: string
 ): string {
   const manifest = existingMemories
     ? `\n\n## Existing Memories\n\n${existingMemories}\n\nCheck this list before writing — update existing memories rather than creating duplicates.`
-    : ''
+    : '';
 
   return [
     `You are a memory extraction agent. Analyze the most recent ${messageCount} messages and extract durable memories.`,
@@ -38,12 +38,10 @@ export function buildExtractMemoryPrompt(
     'CONTENT: <key information, 1-3 sentences>',
     'CONFIDENCE: <0.0-1.0>',
     '```',
-  ].join('\n')
+  ].join('\n');
 }
 
-export function buildSummarizePrompt(
-  conversationSummary: string,
-): string {
+export function buildSummarizePrompt(conversationSummary: string): string {
   return [
     'Summarize the key facts and decisions from this conversation fragment.',
     'Focus on information that would be valuable to remember for future interactions.',
@@ -52,5 +50,5 @@ export function buildSummarizePrompt(
     conversationSummary,
     '',
     'Provide a concise summary in 3-5 bullet points.',
-  ].join('\n')
+  ].join('\n');
 }

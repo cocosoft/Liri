@@ -65,9 +65,9 @@ export class AgentMemoryImpl implements AgentMemory {
       timestamp: Date.now(),
       accessedAt: Date.now(),
       scope: this.scope,
-      tags
+      tags,
     };
-    
+
     this.enforceSizeLimit();
     this.save();
   }
@@ -162,7 +162,7 @@ export class AgentMemoryImpl implements AgentMemory {
       }
     }
 
-    keysToDelete.forEach(key => delete this.data[key]);
+    keysToDelete.forEach((key) => delete this.data[key]);
     if (keysToDelete.length > 0) {
       this.save();
     }
@@ -176,9 +176,11 @@ export class AgentMemoryImpl implements AgentMemory {
     if (entries.length > this.maxSize) {
       // 按访问时间排序，删除最久未访问的
       entries.sort((a, b) => a[1].accessedAt - b[1].accessedAt);
-      const keysToDelete = entries.slice(0, entries.length - this.maxSize).map(entry => entry[0]);
-      
-      keysToDelete.forEach(key => delete this.data[key]);
+      const keysToDelete = entries
+        .slice(0, entries.length - this.maxSize)
+        .map((entry) => entry[0]);
+
+      keysToDelete.forEach((key) => delete this.data[key]);
     }
   }
 
@@ -187,15 +189,17 @@ export class AgentMemoryImpl implements AgentMemory {
    * @param predicate 过滤函数
    * @returns 匹配的内存项
    */
-  scan(predicate: (key: string, value: any, item: MemoryItem) => boolean): Record<string, any> {
+  scan(
+    predicate: (key: string, value: any, item: MemoryItem) => boolean
+  ): Record<string, any> {
     const result: Record<string, any> = {};
-    
+
     for (const [key, item] of Object.entries(this.data)) {
       if (predicate(key, item.value, item)) {
         result[key] = item.value;
       }
     }
-    
+
     return result;
   }
 
@@ -205,8 +209,8 @@ export class AgentMemoryImpl implements AgentMemory {
    * @returns 匹配的内存项
    */
   searchByTag(tag: string): Record<string, any> {
-    return this.scan((key, value, item) => 
-      !!(item.tags && item.tags.includes(tag))
+    return this.scan(
+      (key, value, item) => !!(item.tags && item.tags.includes(tag))
     );
   }
 
@@ -231,26 +235,27 @@ export class AgentMemoryImpl implements AgentMemory {
   } {
     const now = Date.now();
     const items = Object.values(this.data);
-    
+
     if (items.length === 0) {
       return {
         totalItems: 0,
         oldestItem: null,
         newestItem: null,
-        averageAge: null
+        averageAge: null,
       };
     }
 
-    const timestamps = items.map(item => item.timestamp);
+    const timestamps = items.map((item) => item.timestamp);
     const oldest = Math.min(...timestamps);
     const newest = Math.max(...timestamps);
-    const averageAge = timestamps.reduce((sum, ts) => sum + (now - ts), 0) / items.length;
+    const averageAge =
+      timestamps.reduce((sum, ts) => sum + (now - ts), 0) / items.length;
 
     return {
       totalItems: items.length,
       oldestItem: oldest,
       newestItem: newest,
-      averageAge
+      averageAge,
     };
   }
 
@@ -287,7 +292,10 @@ export class AgentMemoryImpl implements AgentMemory {
  * @param scope 内存作用域
  * @returns 代理内存实例
  */
-export function createAgentMemory(memoryPath?: string, scope: AgentMemoryScope = 'local'): AgentMemory {
+export function createAgentMemory(
+  memoryPath?: string,
+  scope: AgentMemoryScope = 'local'
+): AgentMemory {
   return new AgentMemoryImpl(memoryPath, scope);
 }
 

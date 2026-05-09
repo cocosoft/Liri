@@ -23,48 +23,48 @@ interface MigrationAnalysis {
  */
 export class ModuleMigrationTool {
   private projectRoot: string;
-  
+
   constructor(projectRoot: string = process.cwd()) {
     this.projectRoot = projectRoot;
   }
-  
+
   /**
    * 分析所有模块的迁移状态
    */
   analyzeAllModules(): MigrationAnalysis[] {
     const modules = this.discoverModules();
     const analysis: MigrationAnalysis[] = [];
-    
+
     for (const module of modules) {
       analysis.push(this.analyzeModule(module));
     }
-    
+
     return analysis;
   }
-  
+
   /**
    * 发现项目中的所有模块
    */
   private discoverModules(): string[] {
     const modules: string[] = [];
     const srcDir = path.join(this.projectRoot, 'src');
-    
+
     if (!fs.existsSync(srcDir)) {
       throw new Error(`源码目录不存在: ${srcDir}`);
     }
-    
+
     // 遍历src目录下的所有子目录
     const items = fs.readdirSync(srcDir, { withFileTypes: true });
-    
+
     for (const item of items) {
       if (item.isDirectory()) {
         modules.push(item.name);
       }
     }
-    
+
     return modules;
   }
-  
+
   /**
    * 分析单个模块的迁移状态
    */
@@ -76,16 +76,16 @@ export class ModuleMigrationTool {
       status: 'not_found',
       issues: [],
       suggestions: [],
-      estimatedEffort: 5
+      estimatedEffort: 5,
     };
-    
+
     // 检查模块目录是否存在
     if (!fs.existsSync(modulePath)) {
       analysis.status = 'not_found';
       analysis.issues.push(`模块目录不存在: ${modulePath}`);
       return analysis;
     }
-    
+
     // 检查是否有index.ts文件
     const indexPath = path.join(modulePath, 'index.ts');
     if (!fs.existsSync(indexPath)) {
@@ -97,7 +97,7 @@ export class ModuleMigrationTool {
       // 分析index.ts文件
       const indexContent = fs.readFileSync(indexPath, 'utf-8');
       const hasExports = this.hasExports(indexContent);
-      
+
       if (hasExports) {
         analysis.status = 'ready';
         analysis.suggestions.push('模块已准备好迁移');
@@ -109,14 +109,14 @@ export class ModuleMigrationTool {
         analysis.estimatedEffort = 2;
       }
     }
-    
+
     // 检查模块依赖
     const dependencies = this.analyzeDependencies(modulePath);
     if (dependencies.length > 0) {
       analysis.suggestions.push(`需要处理依赖关系: ${dependencies.join(', ')}`);
       analysis.estimatedEffort = Math.max(analysis.estimatedEffort, 3);
     }
-    
+
     // 检查导入路径
     const importIssues = this.analyzeImports(modulePath);
     if (importIssues.length > 0) {
@@ -124,36 +124,34 @@ export class ModuleMigrationTool {
       analysis.suggestions.push('需要统一导入路径');
       analysis.estimatedEffort = Math.max(analysis.estimatedEffort, 4);
     }
-    
+
     return analysis;
   }
-  
+
   /**
    * 检查文件是否有导出
    */
   private hasExports(content: string): boolean {
-    const exportPatterns = [
-      /export\s+/,
-      /module\.exports/,
-      /export\s+default/
-    ];
-    
-    return exportPatterns.some(pattern => pattern.test(content));
+    const exportPatterns = [/export\s+/, /module\.exports/, /export\s+default/];
+
+    return exportPatterns.some((pattern) => pattern.test(content));
   }
-  
+
   /**
    * 分析模块依赖
    */
   private analyzeDependencies(modulePath: string): string[] {
     const dependencies: string[] = [];
-    
+
     // 检查package.json中的依赖
     const packageJsonPath = path.join(modulePath, 'package.json');
     if (fs.existsSync(packageJsonPath)) {
       try {
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        const packageJson = JSON.parse(
+          fs.readFileSync(packageJsonPath, 'utf-8')
+        );
         if (packageJson.dependencies) {
-          Object.keys(packageJson.dependencies).forEach(dep => {
+          Object.keys(packageJson.dependencies).forEach((dep) => {
             if (dep.startsWith('@modules/')) {
               dependencies.push(dep);
             }
@@ -163,16 +161,16 @@ export class ModuleMigrationTool {
         // 忽略解析错误
       }
     }
-    
+
     return dependencies;
   }
-  
+
   /**
    * 分析导入路径问题
    */
   private analyzeImports(modulePath: string): string[] {
     const issues: string[] = [];
-    
+
     // 遍历所有TypeScript文件
     this.walkDirectory(modulePath, (filePath) => {
       if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
@@ -181,46 +179,49 @@ export class ModuleMigrationTool {
         issues.push(...importIssues);
       }
     });
-    
+
     return issues;
   }
-  
+
   /**
    * 查找导入路径问题
    */
   private findImportIssues(content: string, filePath: string): string[] {
     const issues: string[] = [];
     const importPattern = /import\s+.*from\s+['"]([^'"]+)['"]/g;
-    
+
     let match;
     while ((match = importPattern.exec(content)) !== null) {
       const importPath = match[1];
-      
+
       // 检查相对路径问题
       if (importPath.startsWith('../') && importPath.split('../').length > 3) {
         issues.push(`文件 ${filePath} 使用了深度相对路径: ${importPath}`);
       }
-      
+
       // 检查绝对路径问题
       if (importPath.startsWith('/') || importPath.startsWith('src/')) {
         issues.push(`文件 ${filePath} 使用了绝对路径: ${importPath}`);
       }
     }
-    
+
     return issues;
   }
-  
+
   /**
    * 遍历目录
    */
-  private walkDirectory(dirPath: string, callback: (filePath: string) => void): void {
+  private walkDirectory(
+    dirPath: string,
+    callback: (filePath: string) => void
+  ): void {
     if (!fs.existsSync(dirPath)) return;
-    
+
     const items = fs.readdirSync(dirPath, { withFileTypes: true });
-    
+
     for (const item of items) {
       const fullPath = path.join(dirPath, item.name);
-      
+
       if (item.isDirectory()) {
         this.walkDirectory(fullPath, callback);
       } else {
@@ -228,60 +229,64 @@ export class ModuleMigrationTool {
       }
     }
   }
-  
+
   /**
    * 生成迁移报告
    */
   generateMigrationReport(analysis: MigrationAnalysis[]): string {
     let report = '# 模块迁移分析报告\n\n';
-    
+
     // 统计信息
     const totalModules = analysis.length;
-    const readyModules = analysis.filter(a => a.status === 'ready').length;
-    const needsWorkModules = analysis.filter(a => a.status === 'needs_work').length;
-    const notFoundModules = analysis.filter(a => a.status === 'not_found').length;
-    
+    const readyModules = analysis.filter((a) => a.status === 'ready').length;
+    const needsWorkModules = analysis.filter(
+      (a) => a.status === 'needs_work'
+    ).length;
+    const notFoundModules = analysis.filter(
+      (a) => a.status === 'not_found'
+    ).length;
+
     report += `## 统计信息\n`;
     report += `- 总模块数: ${totalModules}\n`;
     report += `- 已就绪: ${readyModules}\n`;
     report += `- 需要修改: ${needsWorkModules}\n`;
     report += `- 未找到: ${notFoundModules}\n\n`;
-    
+
     // 详细分析
     report += `## 详细分析\n`;
-    
+
     for (const item of analysis) {
       report += `### ${item.moduleName}\n`;
       report += `- 状态: ${this.getStatusText(item.status)}\n`;
       report += `- 预估工作量: ${item.estimatedEffort}/5\n`;
-      
+
       if (item.issues.length > 0) {
         report += `- 问题:\n`;
-        item.issues.forEach(issue => {
+        item.issues.forEach((issue) => {
           report += `  - ${issue}\n`;
         });
       }
-      
+
       if (item.suggestions.length > 0) {
         report += `- 建议:\n`;
-        item.suggestions.forEach(suggestion => {
+        item.suggestions.forEach((suggestion) => {
           report += `  - ${suggestion}\n`;
         });
       }
-      
+
       report += `\n`;
     }
-    
+
     // 迁移建议
     report += `## 迁移建议\n`;
     report += `1. 优先迁移状态为"ready"的模块\n`;
     report += `2. 然后处理预估工作量较低的模块\n`;
     report += `3. 最后解决复杂模块的依赖问题\n`;
     report += `4. 建议分批次迁移，每次迁移2-3个模块\n`;
-    
+
     return report;
   }
-  
+
   /**
    * 获取状态文本
    */
@@ -297,7 +302,7 @@ export class ModuleMigrationTool {
         return '❓ 未知';
     }
   }
-  
+
   /**
    * 创建模块迁移脚本
    */
@@ -350,7 +355,7 @@ function capitalizeFirst(str: string): string {
 // migrate${this.capitalizeFirst(moduleName)}Module().catch(console.error);
 `;
   }
-  
+
   /**
    * 首字母大写
    */
@@ -365,34 +370,38 @@ function capitalizeFirst(str: string): string {
 export async function migrateAllModules(): Promise<void> {
   const tool = new ModuleMigrationTool();
   const analysis = tool.analyzeAllModules();
-  
+
   console.log('开始迁移所有模块...');
-  
+
   // 生成迁移报告
   const report = tool.generateMigrationReport(analysis);
   const reportPath = path.join(process.cwd(), 'module_migration_report.md');
   fs.writeFileSync(reportPath, report);
   console.log(`迁移报告已生成: ${reportPath}`);
-  
+
   // 按优先级排序（工作量从低到高）
   const sortedAnalysis = analysis
-    .filter(a => a.status === 'ready' || a.status === 'needs_work')
+    .filter((a) => a.status === 'ready' || a.status === 'needs_work')
     .sort((a, b) => a.estimatedEffort - b.estimatedEffort);
-  
+
   // 生成迁移脚本
   for (const item of sortedAnalysis) {
     const script = tool.generateMigrationScript(item.moduleName);
-    const scriptPath = path.join(process.cwd(), 'migration', `${item.moduleName}_migration.ts`);
-    
+    const scriptPath = path.join(
+      process.cwd(),
+      'migration',
+      `${item.moduleName}_migration.ts`
+    );
+
     // 确保目录存在
     const scriptDir = path.dirname(scriptPath);
     if (!fs.existsSync(scriptDir)) {
       fs.mkdirSync(scriptDir, { recursive: true });
     }
-    
+
     fs.writeFileSync(scriptPath, script);
     console.log(`迁移脚本已生成: ${scriptPath}`);
   }
-  
+
   console.log('模块迁移准备完成，请查看迁移报告和脚本');
 }

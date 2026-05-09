@@ -5,7 +5,11 @@
 import { readFileSync, existsSync, watch } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import type { KeybindingsLoadResult, ParsedBinding, KeybindingWarning } from './types.js';
+import type {
+  KeybindingsLoadResult,
+  ParsedBinding,
+  KeybindingWarning,
+} from './types.js';
 import { validateKeybindings } from './schema.js';
 import { parseChord, formatChord } from './parser.js';
 import type { KeybindingContextName } from './types.js';
@@ -13,7 +17,11 @@ import type { KeybindingContextName } from './types.js';
 /**
  * 用户绑定文件路径
  */
-export const USER_BINDINGS_PATH = join(homedir(), '.py_app', 'keybindings.json');
+export const USER_BINDINGS_PATH = join(
+  homedir(),
+  '.py_app',
+  'keybindings.json'
+);
 
 /**
  * 用户绑定文件是否存在的标志
@@ -44,7 +52,7 @@ export function loadUserBindingsSync(): KeybindingsLoadResult {
   const result: KeybindingsLoadResult = {
     bindings: [],
     warnings: [],
-    hasErrors: false
+    hasErrors: false,
   };
 
   try {
@@ -53,7 +61,7 @@ export function loadUserBindingsSync(): KeybindingsLoadResult {
       userBindingsFileExists = false;
       result.warnings.push({
         type: 'warning',
-        message: '用户绑定文件不存在，使用默认绑定'
+        message: '用户绑定文件不存在，使用默认绑定',
       });
       return result;
     }
@@ -62,11 +70,11 @@ export function loadUserBindingsSync(): KeybindingsLoadResult {
 
     // 读取文件内容
     const fileContent = readFileSync(USER_BINDINGS_PATH, 'utf-8');
-    
+
     if (!fileContent.trim()) {
       result.warnings.push({
         type: 'warning',
-        message: '用户绑定文件为空'
+        message: '用户绑定文件为空',
       });
       return result;
     }
@@ -78,7 +86,7 @@ export function loadUserBindingsSync(): KeybindingsLoadResult {
     } catch (jsonError) {
       result.warnings.push({
         type: 'error',
-        message: `JSON解析错误: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`
+        message: `JSON解析错误: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`,
       });
       result.hasErrors = true;
       return result;
@@ -90,20 +98,20 @@ export function loadUserBindingsSync(): KeybindingsLoadResult {
       result.warnings.push({
         type: 'error',
         message: '配置验证失败',
-        context: 'schema'
+        context: 'schema',
       });
-      
+
       // 添加详细的验证错误
       if (validationResult.errors) {
         for (const error of validationResult.errors) {
           result.warnings.push({
             type: 'error',
             message: `验证错误: ${error.message}`,
-            context: 'schema'
+            context: 'schema',
           });
         }
       }
-      
+
       result.hasErrors = true;
       return result;
     }
@@ -112,20 +120,19 @@ export function loadUserBindingsSync(): KeybindingsLoadResult {
     const parsedBindings = parseUserBindings(validationResult.data!);
     result.bindings = parsedBindings.bindings;
     result.warnings.push(...parsedBindings.warnings);
-    result.hasErrors = parsedBindings.warnings.some(w => w.type === 'error');
+    result.hasErrors = parsedBindings.warnings.some((w) => w.type === 'error');
 
     // 添加成功加载的消息
     if (!result.hasErrors) {
       result.warnings.push({
         type: 'warning',
-        message: `成功加载 ${result.bindings.length} 个用户绑定`
+        message: `成功加载 ${result.bindings.length} 个用户绑定`,
       });
     }
-
   } catch (error) {
     result.warnings.push({
       type: 'error',
-      message: `加载用户绑定失败: ${error instanceof Error ? error.message : String(error)}`
+      message: `加载用户绑定失败: ${error instanceof Error ? error.message : String(error)}`,
     });
     result.hasErrors = true;
   }
@@ -136,13 +143,16 @@ export function loadUserBindingsSync(): KeybindingsLoadResult {
 /**
  * 解析用户绑定配置
  */
-function parseUserBindings(config: any): { bindings: ParsedBinding[]; warnings: KeybindingWarning[] } {
+function parseUserBindings(config: any): {
+  bindings: ParsedBinding[];
+  warnings: KeybindingWarning[];
+} {
   const bindings: ParsedBinding[] = [];
   const warnings: KeybindingWarning[] = [];
 
   for (const block of config.bindings) {
     const context = block.context as KeybindingContextName;
-    
+
     for (const [keystrokeString, action] of Object.entries(block.bindings)) {
       // 处理取消绑定（null值）
       if (action === null) {
@@ -151,7 +161,7 @@ function parseUserBindings(config: any): { bindings: ParsedBinding[]; warnings: 
           type: 'warning',
           message: `取消绑定: ${keystrokeString}`,
           context: context,
-          key: keystrokeString
+          key: keystrokeString,
         });
         continue;
       }
@@ -163,7 +173,7 @@ function parseUserBindings(config: any): { bindings: ParsedBinding[]; warnings: 
           type: 'error',
           message: `无效的按键序列: ${keystrokeString}`,
           context: context,
-          key: keystrokeString
+          key: keystrokeString,
         });
         continue;
       }
@@ -174,8 +184,8 @@ function parseUserBindings(config: any): { bindings: ParsedBinding[]; warnings: 
         context: context,
         chord: {
           chords: chord,
-          displayText: formatChord(chord)
-        }
+          displayText: formatChord(chord),
+        },
       });
     }
   }
@@ -197,7 +207,7 @@ export function subscribeToKeybindingChanges(callback: () => void): () => void {
   // 返回取消订阅函数
   return () => {
     changeListeners.delete(callback);
-    
+
     // 如果没有监听器了，停止文件观察
     if (changeListeners.size === 0 && fileWatcher) {
       fileWatcher.close();
@@ -215,25 +225,28 @@ function startFileWatching(): void {
   }
 
   try {
-    fileWatcher = watch(USER_BINDINGS_PATH, { persistent: false }, (eventType) => {
-      if (eventType === 'change') {
-        // 文件变更，通知所有监听器
-        for (const listener of changeListeners) {
-          try {
-            listener();
-          } catch (error) {
-            console.error('Error in keybindings change listener:', error);
+    fileWatcher = watch(
+      USER_BINDINGS_PATH,
+      { persistent: false },
+      (eventType) => {
+        if (eventType === 'change') {
+          // 文件变更，通知所有监听器
+          for (const listener of changeListeners) {
+            try {
+              listener();
+            } catch (error) {
+              console.error('Error in keybindings change listener:', error);
+            }
           }
         }
       }
-    });
+    );
 
     // 处理观察器错误
     fileWatcher.on('error', (error) => {
       console.error('Keybindings file watcher error:', error);
       fileWatcher = null;
     });
-
   } catch (error) {
     console.error('Failed to start keybindings file watcher:', error);
   }
@@ -246,7 +259,7 @@ export function initializeKeybindingWatcher(): void {
   // 检查文件是否存在
   if (existsSync(USER_BINDINGS_PATH)) {
     userBindingsFileExists = true;
-    
+
     // 如果有监听器，启动文件观察
     if (changeListeners.size > 0) {
       startFileWatching();
@@ -267,7 +280,7 @@ export function getUserBindingsStatus(): {
     exists: userBindingsFileExists,
     path: USER_BINDINGS_PATH,
     listenerCount: changeListeners.size,
-    watching: fileWatcher !== null
+    watching: fileWatcher !== null,
   };
 }
 
@@ -297,7 +310,7 @@ export function reloadUserBindings(): KeybindingsLoadResult {
  */
 export function loadUserBindingsSyncWithWarnings(): KeybindingsLoadResult {
   const result = loadUserBindingsSync();
-  
+
   // 显示警告信息
   if (result.warnings.length > 0) {
     console.log('Keybinding warnings:');
@@ -323,7 +336,7 @@ export function createDefaultUserBindingsFile(): boolean {
   try {
     const fs = require('fs');
     const { join, dirname } = require('path');
-    
+
     // 确保目录存在
     const dir = dirname(USER_BINDINGS_PATH);
     if (!existsSync(dir)) {
@@ -340,14 +353,17 @@ export function createDefaultUserBindingsFile(): boolean {
           bindings: {
             // 在这里添加你的自定义绑定
             // 'ctrl+p': 'app:quickOpen'
-          }
-        }
-      ]
+          },
+        },
+      ],
     };
 
-    fs.writeFileSync(USER_BINDINGS_PATH, JSON.stringify(defaultConfig, null, 2));
+    fs.writeFileSync(
+      USER_BINDINGS_PATH,
+      JSON.stringify(defaultConfig, null, 2)
+    );
     userBindingsFileExists = true;
-    
+
     return true;
   } catch (error) {
     console.error('Failed to create default user bindings file:', error);

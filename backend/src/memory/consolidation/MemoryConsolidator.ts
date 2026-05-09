@@ -28,9 +28,18 @@ export interface ConsolidationConfig {
 }
 
 export interface IConsolidator {
-  findMergeCandidates(memories: { id: string; content: string; tags: string[]; createdAt: number }[]): MergeCandidate[];
+  findMergeCandidates(
+    memories: {
+      id: string;
+      content: string;
+      tags: string[];
+      createdAt: number;
+    }[]
+  ): MergeCandidate[];
   merge(candidate: MergeCandidate): ConsolidationResult;
-  findDuplicates(memories: { id: string; content: string; createdAt: number }[]): DedupResult;
+  findDuplicates(
+    memories: { id: string; content: string; createdAt: number }[]
+  ): DedupResult;
   getStats(): ConsolidationStats;
 }
 
@@ -49,8 +58,18 @@ const DEFAULT_CONFIG: ConsolidationConfig = {
 };
 
 function jaccardSimilarity(a: string, b: string): number {
-  const aWords = new Set(a.toLowerCase().split(/\s+/).filter(w => w.length > 2));
-  const bWords = new Set(b.toLowerCase().split(/\s+/).filter(w => w.length > 2));
+  const aWords = new Set(
+    a
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
+  const bWords = new Set(
+    b
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
   if (aWords.size === 0 && bWords.size === 0) return 1;
   if (aWords.size === 0 || bWords.size === 0) return 0;
   let intersection = 0;
@@ -74,7 +93,14 @@ export class MemoryConsolidator implements IConsolidator {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  findMergeCandidates(memories: { id: string; content: string; tags: string[]; createdAt: number }[]): MergeCandidate[] {
+  findMergeCandidates(
+    memories: {
+      id: string;
+      content: string;
+      tags: string[];
+      createdAt: number;
+    }[]
+  ): MergeCandidate[] {
     const candidates: MergeCandidate[] = [];
     const processed = new Set<string>();
 
@@ -83,14 +109,26 @@ export class MemoryConsolidator implements IConsolidator {
       for (let j = i + 1; j < memories.length; j++) {
         if (processed.has(memories[j].id)) continue;
 
-        const similarity = jaccardSimilarity(memories[i].content, memories[j].content);
+        const similarity = jaccardSimilarity(
+          memories[i].content,
+          memories[j].content
+        );
         if (similarity >= this.config.similarityThreshold) {
-          const older = memories[i].createdAt <= memories[j].createdAt ? memories[i] : memories[j];
-          const newer = memories[i].createdAt <= memories[j].createdAt ? memories[j] : memories[i];
+          const older =
+            memories[i].createdAt <= memories[j].createdAt
+              ? memories[i]
+              : memories[j];
+          const newer =
+            memories[i].createdAt <= memories[j].createdAt
+              ? memories[j]
+              : memories[i];
           const mergedTags = [...new Set([...older.tags, ...newer.tags])];
           candidates.push({
             sourceIds: [older.id, newer.id],
-            targetContent: `${older.content}\n\n${newer.content}`.substring(0, 2000),
+            targetContent: `${older.content}\n\n${newer.content}`.substring(
+              0,
+              2000
+            ),
             mergedTags,
             confidence: similarity,
             reason: `内容相似度 ${(similarity * 100).toFixed(0)}%`,
@@ -108,7 +146,8 @@ export class MemoryConsolidator implements IConsolidator {
 
   merge(candidate: MergeCandidate): ConsolidationResult {
     const createdId = `merged_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const spaceSaved = candidate.sourceIds.length > 0 ? candidate.sourceIds.length * 100 : 0;
+    const spaceSaved =
+      candidate.sourceIds.length > 0 ? candidate.sourceIds.length * 100 : 0;
 
     this.stats.totalMerged++;
     this.stats.totalRemoved += candidate.sourceIds.length;
@@ -124,7 +163,9 @@ export class MemoryConsolidator implements IConsolidator {
     };
   }
 
-  findDuplicates(memories: { id: string; content: string; createdAt: number }[]): DedupResult {
+  findDuplicates(
+    memories: { id: string; content: string; createdAt: number }[]
+  ): DedupResult {
     const groups: string[][] = [];
     const processed = new Set<string>();
 

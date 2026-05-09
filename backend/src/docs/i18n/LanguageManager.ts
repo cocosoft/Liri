@@ -84,7 +84,7 @@ export class LanguageManager {
         'example.command.create-util': 'create a util logging.py that...',
         'release-notes.title': '释放说明',
         'release-notes.view-full': '查看完整释放说明',
-      }
+      },
     });
 
     this.languagePacks.set('en-US', {
@@ -95,15 +95,18 @@ export class LanguageManager {
         'help.quickstart.title': 'Quick Start',
         'help.quickstart.description': 'Learn the basic usage of PY_APP',
         'help.commands.title': 'Command Reference',
-        'help.commands.description': 'Detailed explanation of all available commands',
+        'help.commands.description':
+          'Detailed explanation of all available commands',
         'help.shortcuts.title': 'Keyboard Shortcuts',
         'help.shortcuts.description': 'List of keyboard shortcuts',
         'help.tools.title': 'Tool List',
         'help.tools.description': 'Detailed explanation of all available tools',
         'help.skills.title': 'Skill List',
-        'help.skills.description': 'Detailed explanation of all available skills',
+        'help.skills.description':
+          'Detailed explanation of all available skills',
         'help.examples.title': 'Example Commands',
-        'help.examples.description': 'Common example commands to help you get started',
+        'help.examples.description':
+          'Common example commands to help you get started',
         'help.release-notes.title': 'Release Notes',
         'help.release-notes.description': 'Release notes for version updates',
         'error.network.timeout': 'Network request timeout',
@@ -121,7 +124,7 @@ export class LanguageManager {
         'example.command.create-util': 'create a util logging.py that...',
         'release-notes.title': 'Release Notes',
         'release-notes.view-full': 'View full release notes',
-      }
+      },
     });
 
     // 尝试加载自定义语言包（移至 lazyInit 延迟调用）

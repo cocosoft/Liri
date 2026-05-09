@@ -22,8 +22,11 @@ graph TD
   infrastructure --> bridge
   oauth --> bridge
   error --> bridge
+  core --> ink
+  infrastructure --> ink
   core --> ui
   infrastructure --> ui
+  ink --> ui
   core --> cli
   infrastructure --> cli
   core --> tools
@@ -69,6 +72,8 @@ graph TD
   infrastructure --> cost
   core --> docs
   infrastructure --> docs
+  core --> daemon
+  monitoring --> daemon
   core --> error
   core --> hooks
   infrastructure --> hooks
@@ -97,17 +102,17 @@ graph TD
 ```
 
 ## 拓扑排序（初始化顺序）
-agent → bridge → tools → commands → memory → cache → permission → performance → monitoring → analytics → buddy → chat → chronos → context → cost → docs → hooks → lsp → mcp → plugins → query → sandbox → streaming → utils → keybindings → cli → ui → ai → oauth → security → featureflags → services → config → error → infrastructure → core
+agent → bridge → tools → commands → memory → cache → permission → performance → analytics → buddy → chat → chronos → context → cost → docs → daemon → hooks → lsp → mcp → plugins → query → sandbox → streaming → utils → keybindings → cli → ui → ai → monitoring → oauth → security → featureflags → services → ink → config → error → infrastructure → core
 
 ## 模块统计
-- **总模块数**: 36
+- **总模块数**: 38
 - **模块分类**:
   - core: 1
-  - infrastructure: 2
+  - infrastructure: 3
   - ai: 1
   - agent: 1
   - bridge: 1
-  - ui: 1
+  - ui: 2
   - cli: 1
   - tools: 1
   - commands: 1

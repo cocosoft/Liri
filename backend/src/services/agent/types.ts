@@ -7,18 +7,24 @@ import type { AgentMcpServerSpec } from './agentMcpServer';
 
 export type AgentMemoryScope = 'user' | 'project' | 'local';
 
-export type SettingSource = 'userSettings' | 'projectSettings' | 'policySettings' | 'flagSettings' | 'plugin' | 'built-in';
+export type SettingSource =
+  | 'userSettings'
+  | 'projectSettings'
+  | 'policySettings'
+  | 'flagSettings'
+  | 'plugin'
+  | 'built-in';
 
-export type AgentColorName = 
-  | 'blue' 
-  | 'green' 
-  | 'yellow' 
-  | 'red' 
-  | 'purple' 
-  | 'pink' 
-  | 'orange' 
-  | 'teal' 
-  | 'cyan' 
+export type AgentColorName =
+  | 'blue'
+  | 'green'
+  | 'yellow'
+  | 'red'
+  | 'purple'
+  | 'pink'
+  | 'orange'
+  | 'teal'
+  | 'cyan'
   | 'indigo';
 
 /**
@@ -56,9 +62,7 @@ export interface BuiltInAgentDefinition extends BaseAgentDefinition {
   source: 'built-in';
   baseDir: 'built-in';
   callback?: () => void;
-  getSystemPrompt: (params: {
-    toolUseContext: any;
-  }) => string;
+  getSystemPrompt: (params: { toolUseContext: any }) => string;
 }
 
 /**
@@ -84,9 +88,9 @@ export interface PluginAgentDefinition extends BaseAgentDefinition {
 /**
  * 所有Agent类型的联合类型
  */
-export type AgentDefinition = 
-  | BuiltInAgentDefinition 
-  | CustomAgentDefinition 
+export type AgentDefinition =
+  | BuiltInAgentDefinition
+  | CustomAgentDefinition
   | PluginAgentDefinition;
 
 /**

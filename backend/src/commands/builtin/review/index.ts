@@ -11,5 +11,8 @@ export const reviewCommand: Command = {
   whenToUse: 'Use this command to review your code for potential issues',
   version: '1.0.0',
   userInvocable: true,
-  load: async () => import('./Review.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Review.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };

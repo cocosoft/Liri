@@ -1,4 +1,10 @@
-import { ErrorCategory, ErrorSeverity, AppError, NetworkError, ValidationError } from './types';
+import {
+  ErrorCategory,
+  ErrorSeverity,
+  AppError,
+  NetworkError,
+  ValidationError,
+} from './types';
 import { errorTracker, ErrorTracker } from './tracker/ErrorTracker';
 import { errorRecoverer, ErrorRecoverer } from './recovery/ErrorRecoverer';
 import { errorWarner, ErrorWarner } from './warning/ErrorWarner';
@@ -15,7 +21,9 @@ function assert(condition: boolean, message: string): void {
 
 function assertEqual(actual: any, expected: any, message: string): void {
   if (actual !== expected) {
-    console.error(`  ✗ FAIL: ${message} (expected: ${expected}, actual: ${actual})`);
+    console.error(
+      `  ✗ FAIL: ${message} (expected: ${expected}, actual: ${actual})`
+    );
     process.exitCode = 1;
   } else {
     console.log(`  ✓ ${message}`);
@@ -31,7 +39,11 @@ function assertNotEqual(actual: any, expected: any, message: string): void {
   }
 }
 
-function makeError(category: ErrorCategory = ErrorCategory.NETWORK, severity: ErrorSeverity = ErrorSeverity.MEDIUM, code?: string): AppError {
+function makeError(
+  category: ErrorCategory = ErrorCategory.NETWORK,
+  severity: ErrorSeverity = ErrorSeverity.MEDIUM,
+  code?: string
+): AppError {
   return new AppError(`Test ${category} error`, category, severity, code);
 }
 
@@ -41,8 +53,16 @@ async function trackerTests(): Promise<void> {
   const tracker = new ErrorTracker();
 
   const err1 = makeError(ErrorCategory.NETWORK, ErrorSeverity.HIGH, 'NET_001');
-  const err2 = makeError(ErrorCategory.FILESYSTEM, ErrorSeverity.MEDIUM, 'FS_001');
-  const err3 = makeError(ErrorCategory.VALIDATION, ErrorSeverity.LOW, 'VAL_001');
+  const err2 = makeError(
+    ErrorCategory.FILESYSTEM,
+    ErrorSeverity.MEDIUM,
+    'FS_001'
+  );
+  const err3 = makeError(
+    ErrorCategory.VALIDATION,
+    ErrorSeverity.LOW,
+    'VAL_001'
+  );
 
   const id1 = tracker.track(err1, { requestId: 'req1' });
   const id2 = tracker.track(err2, { requestId: 'req2' });
@@ -53,13 +73,25 @@ async function trackerTests(): Promise<void> {
 
   const retrieved = tracker.get(id1);
   assert(retrieved !== undefined, 'get returns tracked error');
-  assertEqual(retrieved!.error.category, ErrorCategory.NETWORK, 'tracked error has correct category');
-  assertEqual(retrieved!.context?.requestId, 'req1', 'tracked error has context');
+  assertEqual(
+    retrieved!.error.category,
+    ErrorCategory.NETWORK,
+    'tracked error has correct category'
+  );
+  assertEqual(
+    retrieved!.context?.requestId,
+    'req1',
+    'tracked error has context'
+  );
 
   tracker.resolve(id1, 'Fixed by retrying');
   const resolved = tracker.get(id1);
   assert(resolved!.resolvedAt !== undefined, 'resolve sets resolvedAt');
-  assertEqual(resolved!.resolution, 'Fixed by retrying', 'resolve stores resolution');
+  assertEqual(
+    resolved!.resolution,
+    'Fixed by retrying',
+    'resolve stores resolution'
+  );
 
   const searchAll = tracker.search({});
   assertEqual(searchAll.length, 3, 'search returns all tracked errors');
@@ -80,7 +112,11 @@ async function trackerTests(): Promise<void> {
   assertEqual(analysis.totalTracked, 3, 'analyze returns total tracked');
   assertEqual(analysis.resolved, 1, 'analyze counts resolved');
 
-  assertEqual(tracker.getUnresolvedCount(), 2, 'getUnresolvedCount returns correct count');
+  assertEqual(
+    tracker.getUnresolvedCount(),
+    2,
+    'getUnresolvedCount returns correct count'
+  );
 
   tracker.clear();
   assertEqual(tracker.search({}).length, 0, 'clear removes all tracked errors');
@@ -113,10 +149,16 @@ async function recovererTests(): Promise<void> {
   });
 
   assert(result.success, 'recover succeeds for recoverable error');
-  assert(result.executedActions.length > 0, 'recovery executes at least one action');
+  assert(
+    result.executedActions.length > 0,
+    'recovery executes at least one action'
+  );
   assert(result.duration >= 0, 'recovery measures duration');
 
-  assert(!fallbackExecuted, 'recovery does not execute fallback when retry succeeds');
+  assert(
+    !fallbackExecuted,
+    'recovery does not execute fallback when retry succeeds'
+  );
 
   const plan = recoverer.getPlan('test1');
   assert(plan !== undefined, 'getPlan returns stored plan');
@@ -124,7 +166,11 @@ async function recovererTests(): Promise<void> {
   const stats = recoverer.getStats();
   assertEqual(stats.succeeded, 1, 'recovery stats count successes');
 
-  const nonRecoverable = makeError(ErrorCategory.FILESYSTEM, ErrorSeverity.CRITICAL, 'CRIT_001');
+  const nonRecoverable = makeError(
+    ErrorCategory.FILESYSTEM,
+    ErrorSeverity.CRITICAL,
+    'CRIT_001'
+  );
   const critResult = await recoverer.recover('test2', nonRecoverable);
   assert(!critResult.success, 'recovery skips non-recoverable errors');
 
@@ -172,20 +218,35 @@ async function warnerTests(): Promise<void> {
   let alert3 = warner.evaluate(err4);
   assert(alert3 !== null, 'alert triggered when threshold exceeded');
   if (alert3) {
-    assertEqual(alert3.threshold, 'high_network_count', 'alert references correct threshold');
+    assertEqual(
+      alert3.threshold,
+      'high_network_count',
+      'alert references correct threshold'
+    );
     assertEqual(alert3.level, 'warning', 'alert has correct level');
   }
 
-  const criticalErr = makeError(ErrorCategory.PERMISSION, ErrorSeverity.CRITICAL, 'CRIT_001');
+  const criticalErr = makeError(
+    ErrorCategory.PERMISSION,
+    ErrorSeverity.CRITICAL,
+    'CRIT_001'
+  );
   const criticalAlert = warner.evaluate(criticalErr);
   assert(criticalAlert !== null, 'critical severity triggers immediate alert');
   if (criticalAlert) {
-    assertEqual(criticalAlert.level, 'critical', 'critical alert has critical level');
+    assertEqual(
+      criticalAlert.level,
+      'critical',
+      'critical alert has critical level'
+    );
   }
 
   warner.acknowledgeAlert(alert3!.id, 'test_user');
   const acknowledged = warner.getAlerts({ acknowledged: true });
-  assert(acknowledged.length >= 1, 'acknowledgeAlert marks alert as acknowledged');
+  assert(
+    acknowledged.length >= 1,
+    'acknowledgeAlert marks alert as acknowledged'
+  );
 
   const stats = warner.getStats();
   assert(stats.totalAlerts >= 2, 'getStats returns total alerts');
@@ -227,7 +288,10 @@ async function integrationTests(): Promise<void> {
   const err = makeError(ErrorCategory.NETWORK, ErrorSeverity.HIGH, 'NET_INT');
   const result = await mgr.handleError(err, { source: 'integration_test' });
 
-  assert(result.trackedId !== undefined, 'integration handleError tracks error');
+  assert(
+    result.trackedId !== undefined,
+    'integration handleError tracks error'
+  );
 
   const tracker = mgr.getTracker();
   const tracked = tracker.get(result.trackedId!);
@@ -239,7 +303,10 @@ async function integrationTests(): Promise<void> {
   assert(stats.tracker.totalTracked >= 1, 'getStats includes tracker data');
 
   const summary = mgr.getSummary();
-  assert(summary.includes('Error Manager Summary'), 'getSummary returns formatted summary');
+  assert(
+    summary.includes('Error Manager Summary'),
+    'getSummary returns formatted summary'
+  );
 
   mgr.reset();
   assertEqual(mgr.getStats().tracker.totalTracked, 0, 'reset clears all data');
@@ -251,7 +318,11 @@ async function integrationTests(): Promise<void> {
   });
 
   const wrappedResult = await wrappedFn();
-  assertEqual(wrappedResult, 'success', 'wrapAsync returns function result on success');
+  assertEqual(
+    wrappedResult,
+    'success',
+    'wrapAsync returns function result on success'
+  );
   assert(wrappedCalled, 'wrapAsync executes wrapped function');
 
   console.log('  --- Integration tests passed ---');

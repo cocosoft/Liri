@@ -36,13 +36,18 @@ export function sendMessage(input: SendMessageInput): SendMessageResult {
 
 export function getMessageHistory(toFilter?: string): SendMessageResult[] {
   if (toFilter) {
-    return messageHistory.filter(m => m.to === toFilter);
+    return messageHistory.filter((m) => m.to === toFilter);
   }
   return [...messageHistory];
 }
 
 import { BaseTool } from '../BaseTool';
-import type { ToolParam, ToolUseContext, ToolCallProgress, ToolResult } from '../types';
+import type {
+  ToolParam,
+  ToolUseContext,
+  ToolCallProgress,
+  ToolResult,
+} from '../types';
 import { createToolResult } from '../types/ToolResult';
 
 export class SendMessageTool extends BaseTool {

@@ -9,7 +9,9 @@ import { logger } from '@modules/utils/log.js';
 /**
  * 迁移函数类型
  */
-export type MigrationFn = (state: Record<string, unknown>) => Promise<Record<string, unknown>> | Record<string, unknown>;
+export type MigrationFn = (
+  state: Record<string, unknown>
+) => Promise<Record<string, unknown>> | Record<string, unknown>;
 
 /**
  * 迁移定义
@@ -100,12 +102,16 @@ export class StateMigrator {
    */
   registerMigration(migration: Migration): void {
     if (this.migrations.has(migration.version)) {
-      throw new Error(`Migration version ${migration.version} already registered`);
+      throw new Error(
+        `Migration version ${migration.version} already registered`
+      );
     }
 
     this.migrations.set(migration.version, migration);
     this.targetVersion = Math.max(this.targetVersion, migration.version);
-    logger.debug(`Registered migration v${migration.version}: ${migration.description}`);
+    logger.debug(
+      `Registered migration v${migration.version}: ${migration.description}`
+    );
   }
 
   /**
@@ -146,12 +152,17 @@ export class StateMigrator {
    * @param state 当前状态
    * @param stateMetadata 状态元数据（可选）
    */
-  async migrate(state: any, stateMetadata?: StateMetadata): Promise<MigrationResult> {
+  async migrate(
+    state: any,
+    stateMetadata?: StateMetadata
+  ): Promise<MigrationResult> {
     const fromVersion = stateMetadata?.version ?? 0;
     const toVersion = this.targetVersion;
 
     if (fromVersion >= toVersion) {
-      logger.info(`No migration needed (current: v${fromVersion}, target: v${toVersion})`);
+      logger.info(
+        `No migration needed (current: v${fromVersion}, target: v${toVersion})`
+      );
       return {
         success: true,
         fromVersion,
@@ -162,7 +173,7 @@ export class StateMigrator {
 
     logger.info(`Starting migration: v${fromVersion} -> v${toVersion}`);
     let currentState = state;
-    
+
     // 确保migrationHistory存在
     if (stateMetadata && !stateMetadata.migrationHistory) {
       stateMetadata.migrationHistory = [];
@@ -173,16 +184,18 @@ export class StateMigrator {
       // 按版本顺序执行迁移
       for (let version = fromVersion + 1; version <= toVersion; version++) {
         const migration = this.migrations.get(version);
-        
+
         if (!migration) {
           throw new Error(`Migration v${version} not found`);
         }
 
-        logger.info(`Executing migration v${version}: ${migration.description}`);
-        
+        logger.info(
+          `Executing migration v${version}: ${migration.description}`
+        );
+
         try {
           currentState = await migration.migrate(currentState);
-          
+
           // 记录迁移历史
           migrationHistory.push({
             version,
@@ -194,7 +207,7 @@ export class StateMigrator {
           logger.info(`Migration v${version} completed successfully`);
         } catch (error) {
           logger.error(`Migration v${version} failed:`, error as Error);
-          
+
           // 记录失败的迁移
           migrationHistory.push({
             version,
@@ -210,7 +223,10 @@ export class StateMigrator {
               currentState = await migration.rollback(currentState);
               logger.info(`Rollback v${version} completed`);
             } catch (rollbackError) {
-              logger.error(`Rollback v${version} failed:`, rollbackError as Error);
+              logger.error(
+                `Rollback v${version} failed:`,
+                rollbackError as Error
+              );
             }
           }
 
@@ -226,13 +242,13 @@ export class StateMigrator {
 
       // 所有迁移成功完成
       this.currentVersion = toVersion;
-      
+
       // 更新元数据
       if (stateMetadata) {
         stateMetadata.version = toVersion;
         stateMetadata.updatedAt = Date.now();
       }
-      
+
       logger.info(`Migration completed: v${fromVersion} -> v${toVersion}`);
 
       return {
@@ -270,12 +286,17 @@ export class StateMigrator {
    * @param metadata 现有元数据
    * @param result 迁移结果
    */
-  updateMetadata(metadata: StateMetadata, result: MigrationResult): StateMetadata {
+  updateMetadata(
+    metadata: StateMetadata,
+    result: MigrationResult
+  ): StateMetadata {
     return {
       ...metadata,
       version: result.toVersion,
       updatedAt: Date.now(),
-      migrationHistory: result.state ? metadata.migrationHistory : metadata.migrationHistory,
+      migrationHistory: result.state
+        ? metadata.migrationHistory
+        : metadata.migrationHistory,
     };
   }
 
@@ -283,7 +304,9 @@ export class StateMigrator {
    * 获取已注册的迁移列表
    */
   getRegisteredMigrations(): Migration[] {
-    return Array.from(this.migrations.values()).sort((a, b) => a.version - b.version);
+    return Array.from(this.migrations.values()).sort(
+      (a, b) => a.version - b.version
+    );
   }
 
   /**
@@ -308,6 +331,9 @@ export function createStateMetadata(): StateMetadata {
  * @param state 当前状态
  * @param metadata 状态元数据
  */
-export async function migrateState(state: any, metadata?: StateMetadata): Promise<MigrationResult> {
+export async function migrateState(
+  state: any,
+  metadata?: StateMetadata
+): Promise<MigrationResult> {
   return StateMigrator.getInstance().migrate(state, metadata);
 }

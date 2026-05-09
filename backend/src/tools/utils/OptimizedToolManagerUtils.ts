@@ -7,6 +7,9 @@ import { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { profileCheckpoint } from '@modules/utils/startupProfiler.js';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 延迟加载工具模块
@@ -18,7 +21,10 @@ async function lazyLoadToolModule(modulePath: string): Promise<any> {
     const module = await import(modulePath);
     return module;
   } catch (error) {
-    console.warn(`Failed to load tool module ${modulePath}:`, error);
+    logger.warning(
+      `Failed to load tool module ${modulePath}`,
+      error instanceof Error ? error : new Error(String(error))
+    );
     return null;
   }
 }
@@ -115,21 +121,21 @@ export async function optimizedExecuteTool(
 ): Promise<any> {
   // 生成缓存键
   const cacheKey = `${tool.name}:${JSON.stringify(input)}`;
-  
+
   // 检查缓存
   const cachedResult = toolExecutionCache.get(cacheKey);
   if (cachedResult) {
     return cachedResult;
   }
-  
+
   // 执行工具
   const result = await tool.execute(input, context, onProgress);
-  
+
   // 缓存结果（仅缓存成功的结果）
   if (result && !result.error) {
     toolExecutionCache.set(cacheKey, result);
   }
-  
+
   return result;
 }
 
@@ -175,7 +181,7 @@ export class ToolLoadStateManager {
   markToolLoaded(toolName: string, tool: Tool): void {
     this.loadedTools.add(toolName);
     this.loadingTools.delete(toolName);
-    
+
     // 触发回调
     const callbacks = this.loadCallbacks.get(toolName);
     if (callbacks) {

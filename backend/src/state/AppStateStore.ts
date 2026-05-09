@@ -1,14 +1,16 @@
-/**
- * 应用状态存储
- */
+// 重新导出 core/state 的核心功能，同时保持向后兼容
+export {
+  appStateStore,
+  getGlobalStore,
+  initializeGlobalStore,
+} from '../core/state/AppStateStore';
+
+export type { AppStateStore as CoreAppStateStore } from '../core/state/AppState';
 
 /**
- * 应用状态接口
+ * 简单应用状态接口（用于 buddy/companion 组件）
  */
 export interface AppState {
-  /**
-   * 伙伴系统相关状态
-   */
   companionReaction?: string;
   companionPetAt?: number;
   footerSelection?: string;
@@ -16,7 +18,6 @@ export interface AppState {
 
 /**
  * 获取默认应用状态
- * @returns 默认应用状态
  */
 export function getDefaultAppState(): AppState {
   return {

@@ -22,9 +22,12 @@ export function Checkbox({
   color = 'white',
   checkedColor = 'green',
 }: CheckboxProps): React.ReactNode {
-  const [internalChecked, setInternalChecked] = useState(controlledChecked || false);
+  const [internalChecked, setInternalChecked] = useState(
+    controlledChecked || false
+  );
 
-  const isChecked = controlledChecked !== undefined ? controlledChecked : internalChecked;
+  const isChecked =
+    controlledChecked !== undefined ? controlledChecked : internalChecked;
 
   const handleToggle = () => {
     if (disabled) return;
@@ -38,11 +41,7 @@ export function Checkbox({
 
   return (
     <Box>
-      <Text
-        color={checkboxColor}
-        bold={isChecked}
-        dimColor={disabled}
-      >
+      <Text color={checkboxColor} bold={isChecked} dimColor={disabled}>
         {checkboxIcon} {label}
       </Text>
     </Box>
@@ -66,7 +65,8 @@ export function CheckboxGroup({
 }: CheckboxGroupProps): React.ReactNode {
   const [internalValues, setInternalValues] = useState<string[]>([]);
 
-  const values = controlledValues !== undefined ? controlledValues : internalValues;
+  const values =
+    controlledValues !== undefined ? controlledValues : internalValues;
 
   const handleItemChange = (id: string, checked: boolean) => {
     const newValues = checked

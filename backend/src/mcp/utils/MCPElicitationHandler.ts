@@ -63,7 +63,10 @@ export interface ElicitationWaitingState {
  */
 export interface MCPElicitHandler {
   onElicitRequest: (event: ElicitationRequestEvent) => void;
-  onElicitResponse: (event: ElicitationRequestEvent, response: MCPElicitResponse) => void;
+  onElicitResponse: (
+    event: ElicitationRequestEvent,
+    response: MCPElicitResponse
+  ) => void;
 }
 
 /**
@@ -102,7 +105,7 @@ export class MCPElicitationQueue {
    * 出队请求
    */
   dequeue(requestId: string | number): ElicitationRequestEvent | undefined {
-    const index = this.queue.findIndex(e => e.requestId === requestId);
+    const index = this.queue.findIndex((e) => e.requestId === requestId);
     if (index > -1) {
       return this.queue.splice(index, 1)[0];
     }
@@ -113,7 +116,7 @@ export class MCPElicitationQueue {
    * 获取请求
    */
   get(requestId: string | number): ElicitationRequestEvent | undefined {
-    return this.queue.find(e => e.requestId === requestId);
+    return this.queue.find((e) => e.requestId === requestId);
   }
 
   /**
@@ -127,7 +130,7 @@ export class MCPElicitationQueue {
    * 按服务器获取请求
    */
   getByServer(serverName: string): ElicitationRequestEvent[] {
-    return this.queue.filter(e => e.serverName === serverName);
+    return this.queue.filter((e) => e.serverName === serverName);
   }
 
   /**
@@ -196,7 +199,9 @@ export function buildElicitResponse(
 /**
  * 从请求参数判断输入类型
  */
-export function getElicitInputType(params: ElicitRequestFormParams | ElicitRequestURLParams): ElicitInputType {
+export function getElicitInputType(
+  params: ElicitRequestFormParams | ElicitRequestURLParams
+): ElicitInputType {
   if (params.mode === 'url') {
     return 'url';
   }
@@ -205,7 +210,7 @@ export function getElicitInputType(params: ElicitRequestFormParams | ElicitReque
     const schema = params.requestedSchema;
     if (schema.type === 'object' && schema.properties) {
       const propValues = Object.values(schema.properties);
-      if (propValues.some(p => 'enum' in (p as Record<string, unknown>))) {
+      if (propValues.some((p) => 'enum' in (p as Record<string, unknown>))) {
         return 'select';
       }
     }
@@ -217,7 +222,9 @@ export function getElicitInputType(params: ElicitRequestFormParams | ElicitReque
 /**
  * 验证Elicit参数
  */
-export function validateElicitParams(params: ElicitRequestFormParams | ElicitRequestURLParams): string[] {
+export function validateElicitParams(
+  params: ElicitRequestFormParams | ElicitRequestURLParams
+): string[] {
   const errors: string[] = [];
 
   if (!params.message) {
@@ -246,8 +253,15 @@ export class DefaultMCPElicitHandler implements MCPElicitHandler {
     logger.debug(`Elicitation request from ${event.serverName}:`, event.params);
   }
 
-  onElicitResponse(event: ElicitationRequestEvent, response: MCPElicitResponse): void {
-    const result = buildElicitResponse(response.action, response.values, response.message);
+  onElicitResponse(
+    event: ElicitationRequestEvent,
+    response: MCPElicitResponse
+  ): void {
+    const result = buildElicitResponse(
+      response.action,
+      response.values,
+      response.message
+    );
     event.respond(result);
     this.queue.dequeue(event.requestId);
   }

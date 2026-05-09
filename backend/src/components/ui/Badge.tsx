@@ -20,7 +20,10 @@ const VARIANT_COLORS: Record<BadgeVariant, string> = {
   default: 'white',
 };
 
-export function Badge({ text, variant = 'default' }: BadgeProps): React.ReactNode {
+export function Badge({
+  text,
+  variant = 'default',
+}: BadgeProps): React.ReactNode {
   const color = VARIANT_COLORS[variant];
 
   return (

@@ -4,8 +4,15 @@ import { z } from 'zod';
  * TimeTool 输入模式
  */
 export const TimeInputSchema = z.strictObject({
-  format: z.enum(['iso', 'local', 'unix']).optional().default('local').describe('时间格式'),
-  timezone: z.string().optional().describe('时区（如 "Asia/Shanghai", "America/New_York"）'),
+  format: z
+    .enum(['iso', 'local', 'unix'])
+    .optional()
+    .default('local')
+    .describe('时间格式'),
+  timezone: z
+    .string()
+    .optional()
+    .describe('时区（如 "Asia/Shanghai", "America/New_York"）'),
 });
 
 export type TimeInputType = z.infer<typeof TimeInputSchema>;

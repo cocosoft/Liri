@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink';
+import { Box, Text } from '@modules/ink';
 import { BylineProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
@@ -16,16 +16,22 @@ export function Byline({
   children,
   color = 'textSecondary',
   align = 'left',
-  padding = 1
+  padding = 1,
 }: BylineProps) {
   const { theme } = useTheme();
 
   return (
-    <Box 
+    <Box
       padding={padding}
       borderStyle="single"
       borderColor={theme.colors[color as keyof UITheme['colors']]}
-      justifyContent={align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'}
+      justifyContent={
+        align === 'center'
+          ? 'center'
+          : align === 'right'
+            ? 'flex-end'
+            : 'flex-start'
+      }
     >
       <Box flexDirection="row" alignItems="center" gap={1}>
         {children}
@@ -40,38 +46,34 @@ export function Byline({
 export function StatusByline({
   status,
   message,
-  color = 'textSecondary'
+  color = 'textSecondary',
 }: {
   status: 'success' | 'warning' | 'error' | 'info';
   message: string;
   color?: keyof UITheme['colors'];
 }) {
   const { theme } = useTheme();
-  
+
   const colors = theme.colors as Record<string, string>;
 
   const statusIcons = {
     success: '✓',
     warning: '⚠',
     error: '✗',
-    info: 'ℹ'
+    info: 'ℹ',
   };
 
   const statusColors = {
     success: 'success',
     warning: 'warning',
     error: 'error',
-    info: 'info'
+    info: 'info',
   } as const;
 
   return (
     <Byline color={color}>
-      <Text color={colors[statusColors[status]]}>
-        {statusIcons[status]}
-      </Text>
-      <Text color={colors[color as string]}>
-        {message}
-      </Text>
+      <Text color={colors[statusColors[status]]}>{statusIcons[status]}</Text>
+      <Text color={colors[color as string]}>{message}</Text>
     </Byline>
   );
 }
@@ -83,7 +85,7 @@ export function ProgressByline({
   current,
   total,
   label,
-  color = 'textSecondary'
+  color = 'textSecondary',
 }: {
   current: number;
   total: number;
@@ -109,7 +111,7 @@ export function TimeByline({
   startTime,
   endTime,
   label,
-  color = 'textSecondary'
+  color = 'textSecondary',
 }: {
   startTime: Date;
   endTime?: Date;
@@ -117,7 +119,9 @@ export function TimeByline({
   color?: keyof UITheme['colors'];
 }) {
   const { theme } = useTheme();
-  const duration = endTime ? endTime.getTime() - startTime.getTime() : Date.now() - startTime.getTime();
+  const duration = endTime
+    ? endTime.getTime() - startTime.getTime()
+    : Date.now() - startTime.getTime();
   const durationText = formatDuration(duration);
 
   return (
@@ -152,7 +156,7 @@ function formatDuration(duration: number): string {
 export function CountByline({
   count,
   label,
-  color = 'textSecondary'
+  color = 'textSecondary',
 }: {
   count: number;
   label: string;
@@ -174,7 +178,7 @@ export function CountByline({
  */
 export function MultiInfoByline({
   infos,
-  color = 'textSecondary'
+  color = 'textSecondary',
 }: {
   infos: Array<{ label: string; value: string | number }>;
   color?: keyof UITheme['colors'];
@@ -189,9 +193,7 @@ export function MultiInfoByline({
             {info.label}: {info.value}
           </Text>
           {index < infos.length - 1 && (
-            <Text color={theme.colors[color]}>
-              |
-            </Text>
+            <Text color={theme.colors[color]}>|</Text>
           )}
         </React.Fragment>
       ))}

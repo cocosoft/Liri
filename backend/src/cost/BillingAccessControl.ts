@@ -152,7 +152,10 @@ export class BillingAccessControlService extends EventEmitter {
   /**
    * 设置自定义权限
    */
-  public setCustomPermissions(userId: string, config: Partial<BillingAccessConfig>): void {
+  public setCustomPermissions(
+    userId: string,
+    config: Partial<BillingAccessConfig>
+  ): void {
     const role = this.getUserRole(userId);
     const baseConfig = ROLE_PERMISSIONS[role];
 
@@ -161,7 +164,10 @@ export class BillingAccessControlService extends EventEmitter {
       ...config,
     });
 
-    this.emit('permissionsChanged', { userId, config: this.customPermissions.get(userId) });
+    this.emit('permissionsChanged', {
+      userId,
+      config: this.customPermissions.get(userId),
+    });
   }
 
   /**
@@ -178,7 +184,13 @@ export class BillingAccessControlService extends EventEmitter {
     const permissions = this.getUserPermissions(userId);
 
     if (permissions.permissionLevel === 'none') {
-      this.recordAccess(userId, 'view', targetUserId || 'self', false, 'No permission');
+      this.recordAccess(
+        userId,
+        'view',
+        targetUserId || 'self',
+        false,
+        'No permission'
+      );
       return false;
     }
 
@@ -187,7 +199,13 @@ export class BillingAccessControlService extends EventEmitter {
         this.recordAccess(userId, 'view', targetUserId || 'self', true);
         return true;
       }
-      this.recordAccess(userId, 'view', targetUserId || 'self', false, 'Cannot view own costs');
+      this.recordAccess(
+        userId,
+        'view',
+        targetUserId || 'self',
+        false,
+        'Cannot view own costs'
+      );
       return false;
     }
 
@@ -201,7 +219,13 @@ export class BillingAccessControlService extends EventEmitter {
       return true;
     }
 
-    this.recordAccess(userId, 'view', targetUserId, false, 'No access to target costs');
+    this.recordAccess(
+      userId,
+      'view',
+      targetUserId,
+      false,
+      'No access to target costs'
+    );
     return false;
   }
 
@@ -227,7 +251,13 @@ export class BillingAccessControlService extends EventEmitter {
     const permissions = this.getUserPermissions(userId);
 
     if (!permissions.canManageBudgets) {
-      this.recordAccess(userId, 'manage', 'budgets', false, 'No budget management permission');
+      this.recordAccess(
+        userId,
+        'manage',
+        'budgets',
+        false,
+        'No budget management permission'
+      );
       return false;
     }
 
@@ -238,7 +268,10 @@ export class BillingAccessControlService extends EventEmitter {
   /**
    * 检查预算限制
    */
-  public checkBudgetLimit(userId: string, amount: number): { allowed: boolean; reason?: string } {
+  public checkBudgetLimit(
+    userId: string,
+    amount: number
+  ): { allowed: boolean; reason?: string } {
     const permissions = this.getUserPermissions(userId);
 
     if (permissions.permissionLevel === 'admin') {
@@ -247,7 +280,13 @@ export class BillingAccessControlService extends EventEmitter {
 
     if (permissions.budgetLimit !== undefined) {
       if (amount > permissions.budgetLimit) {
-        this.recordAccess(userId, 'manage', 'budget', false, `Amount ${amount} exceeds limit ${permissions.budgetLimit}`);
+        this.recordAccess(
+          userId,
+          'manage',
+          'budget',
+          false,
+          `Amount ${amount} exceeds limit ${permissions.budgetLimit}`
+        );
         return {
           allowed: false,
           reason: `Amount ${amount} exceeds your budget limit of ${permissions.budgetLimit}`,
@@ -291,9 +330,12 @@ export class BillingAccessControlService extends EventEmitter {
   /**
    * 获取访问记录
    */
-  public getAccessRecords(userId?: string, limit?: number): BillingAccessRecord[] {
+  public getAccessRecords(
+    userId?: string,
+    limit?: number
+  ): BillingAccessRecord[] {
     let records = userId
-      ? this.accessRecords.filter(r => r.userId === userId)
+      ? this.accessRecords.filter((r) => r.userId === userId)
       : [...this.accessRecords];
 
     if (limit) {
@@ -309,8 +351,8 @@ export class BillingAccessControlService extends EventEmitter {
   public getAccessStats(): BillingAccessStats {
     const stats: BillingAccessStats = {
       totalAccessAttempts: this.accessRecords.length,
-      successfulAccess: this.accessRecords.filter(r => r.success).length,
-      deniedAccess: this.accessRecords.filter(r => !r.success).length,
+      successfulAccess: this.accessRecords.filter((r) => r.success).length,
+      deniedAccess: this.accessRecords.filter((r) => !r.success).length,
       accessByRole: { admin: 0, manager: 0, user: 0, guest: 0 },
       accessByAction: { view: 0, export: 0, manage: 0 },
     };
@@ -377,7 +419,10 @@ export function getBillingUserRole(userId: string): UserRole {
 /**
  * 便捷函数：检查是否可以查看成本
  */
-export function canViewBillingCosts(userId: string, targetUserId?: string): boolean {
+export function canViewBillingCosts(
+  userId: string,
+  targetUserId?: string
+): boolean {
   return billingAccessControl.canViewCosts(userId, targetUserId);
 }
 
@@ -398,7 +443,10 @@ export function canManageBillingBudgets(userId: string): boolean {
 /**
  * 便捷函数：检查预算限制
  */
-export function checkBillingBudgetLimit(userId: string, amount: number): { allowed: boolean; reason?: string } {
+export function checkBillingBudgetLimit(
+  userId: string,
+  amount: number
+): { allowed: boolean; reason?: string } {
   return billingAccessControl.checkBudgetLimit(userId, amount);
 }
 

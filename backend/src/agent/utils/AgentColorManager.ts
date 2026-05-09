@@ -9,7 +9,15 @@ import { logger } from '@modules/utils/log';
 /**
  * Agent颜色名称
  */
-export type AgentColorName = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange' | 'pink' | 'cyan';
+export type AgentColorName =
+  | 'red'
+  | 'blue'
+  | 'green'
+  | 'yellow'
+  | 'purple'
+  | 'orange'
+  | 'pink'
+  | 'cyan';
 
 /**
  * Agent颜色列表
@@ -85,7 +93,10 @@ export class AgentColorManager {
    * @param preferredColor 首选颜色（可选）
    * @returns 分配的颜色信息
    */
-  allocateColor(agentId: string, preferredColor?: AgentColorName): AgentColorInfo {
+  allocateColor(
+    agentId: string,
+    preferredColor?: AgentColorName
+  ): AgentColorInfo {
     let color: AgentColorName;
 
     // 如果已有颜色，直接返回
@@ -127,7 +138,9 @@ export class AgentColorManager {
       this.colorMap.delete(agentId);
 
       // 从分配顺序中移除
-      this.allocationOrder = this.allocationOrder.filter(a => a.agentId !== agentId);
+      this.allocationOrder = this.allocationOrder.filter(
+        (a) => a.agentId !== agentId
+      );
 
       logger.debug(`Released color ${color} from agent ${agentId}`);
     }
@@ -173,7 +186,7 @@ export class AgentColorManager {
    * @returns 可用的颜色列表
    */
   getAvailableColors(): AgentColorName[] {
-    return AGENT_COLORS.filter(c => !this.usedColors.has(c));
+    return AGENT_COLORS.filter((c) => !this.usedColors.has(c));
   }
 
   /**
@@ -197,7 +210,9 @@ export class AgentColorManager {
         const oldColor = oldest.color;
         this.colorMap.delete(oldest.agentId);
         this.allocationOrder.shift();
-        logger.debug(`Reclaiming oldest color ${oldColor} from agent ${oldest.agentId}`);
+        logger.debug(
+          `Reclaiming oldest color ${oldColor} from agent ${oldest.agentId}`
+        );
         return oldColor;
       }
     }
@@ -233,9 +248,9 @@ export class AgentColorManager {
     // 根据Agent类型返回固定的默认颜色
     const defaults: Record<string, AgentColorName> = {
       'general-purpose': 'blue',
-      'plan': 'yellow',
-      'explore': 'green',
-      'verification': 'cyan',
+      plan: 'yellow',
+      explore: 'green',
+      verification: 'cyan',
     };
 
     return defaults[agentType];
@@ -266,7 +281,10 @@ export function getAgentColor(agentId: string): AgentColorInfo | undefined {
 /**
  * 便捷函数：分配Agent颜色
  */
-export function allocateAgentColor(agentId: string, preferredColor?: AgentColorName): AgentColorInfo {
+export function allocateAgentColor(
+  agentId: string,
+  preferredColor?: AgentColorName
+): AgentColorInfo {
   return agentColorManager.allocateColor(agentId, preferredColor);
 }
 

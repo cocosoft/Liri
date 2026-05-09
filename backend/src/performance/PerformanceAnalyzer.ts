@@ -81,11 +81,14 @@ export class PerformanceAnalyzer {
     this.eventLoopDelay = 0;
     this.responseTimeHistory = [];
     this.events = [];
-    
+
     // 计算启动时间
     const phaseTimes = getPhaseTimes();
-    this.startupTime = Object.values(phaseTimes).reduce((sum, time) => sum + time, 0);
-    
+    this.startupTime = Object.values(phaseTimes).reduce(
+      (sum, time) => sum + time,
+      0
+    );
+
     logForDebugging('性能分析器已启动');
   }
 
@@ -103,20 +106,26 @@ export class PerformanceAnalyzer {
   recordResponseTime(time: number): void {
     this.responseTimeHistory.push(time);
     if (this.responseTimeHistory.length > this.maxResponseTimeHistory) {
-      this.responseTimeHistory = this.responseTimeHistory.slice(-this.maxResponseTimeHistory);
+      this.responseTimeHistory = this.responseTimeHistory.slice(
+        -this.maxResponseTimeHistory
+      );
     }
   }
 
   /**
    * 记录性能事件
    */
-  recordEvent(name: string, type: string, attributes?: Record<string, any>): (() => void) {
+  recordEvent(
+    name: string,
+    type: string,
+    attributes?: Record<string, any>
+  ): () => void {
     const startTime = performance.now();
-    
+
     return () => {
       const endTime = performance.now();
       const duration = endTime - startTime;
-      
+
       const event: PerformanceEvent = {
         name,
         type,
@@ -125,7 +134,7 @@ export class PerformanceAnalyzer {
         duration,
         attributes: attributes || {},
       };
-      
+
       this.events.push(event);
       if (this.events.length > this.maxEvents) {
         this.events = this.events.slice(-this.maxEvents);
@@ -143,7 +152,12 @@ export class PerformanceAnalyzer {
       const currentCpuUsage = process.cpuUsage();
       const elapsedTime = Date.now() - this.lastEventLoopCheck;
       if (elapsedTime > 0) {
-        const cpuTime = (currentCpuUsage.user - this.lastCpuUsage.user + currentCpuUsage.system - this.lastCpuUsage.system) / 1000;
+        const cpuTime =
+          (currentCpuUsage.user -
+            this.lastCpuUsage.user +
+            currentCpuUsage.system -
+            this.lastCpuUsage.system) /
+          1000;
         cpuUsage = Math.min(100, (cpuTime / elapsedTime) * 100);
       }
       this.lastCpuUsage = currentCpuUsage;
@@ -166,7 +180,9 @@ export class PerformanceAnalyzer {
     // 计算平均响应时间
     let responseTime = 0;
     if (this.responseTimeHistory.length > 0) {
-      responseTime = this.responseTimeHistory.reduce((sum, time) => sum + time, 0) / this.responseTimeHistory.length;
+      responseTime =
+        this.responseTimeHistory.reduce((sum, time) => sum + time, 0) /
+        this.responseTimeHistory.length;
     }
 
     // 获取慢操作统计
@@ -206,7 +222,7 @@ export class PerformanceAnalyzer {
     report += `  Heap Total: ${metrics.memory.heapTotal.toFixed(2)}MB\n`;
     report += `  Heap Used: ${metrics.memory.heapUsed.toFixed(2)}MB\n`;
     report += `  External: ${metrics.memory.external.toFixed(2)}MB\n`;
-    report += `系统负载: ${metrics.loadAverage.map(v => v.toFixed(2)).join(', ')}\n`;
+    report += `系统负载: ${metrics.loadAverage.map((v) => v.toFixed(2)).join(', ')}\n`;
     report += `事件循环延迟: ${metrics.eventLoopDelay.toFixed(2)}ms\n`;
     report += `平均响应时间: ${metrics.responseTime.toFixed(2)}ms\n`;
     report += `启动时间: ${metrics.startupTime.toFixed(2)}ms\n`;
@@ -240,7 +256,7 @@ export class PerformanceAnalyzer {
     report += `  Heap Total: ${metrics.memory.heapTotal.toFixed(2)}MB\n`;
     report += `  Heap Used: ${metrics.memory.heapUsed.toFixed(2)}MB\n`;
     report += `  External: ${metrics.memory.external.toFixed(2)}MB\n`;
-    report += `系统负载: ${metrics.loadAverage.map(v => v.toFixed(2)).join(', ')}\n`;
+    report += `系统负载: ${metrics.loadAverage.map((v) => v.toFixed(2)).join(', ')}\n`;
     report += `事件循环延迟: ${metrics.eventLoopDelay.toFixed(2)}ms\n`;
     report += `平均响应时间: ${metrics.responseTime.toFixed(2)}ms\n`;
     report += `启动时间: ${metrics.startupTime.toFixed(2)}ms\n`;
@@ -252,7 +268,7 @@ export class PerformanceAnalyzer {
     if (Object.keys(metrics.slowOperations.byDuration).length > 0) {
       report += `  按持续时间: ${JSON.stringify(metrics.slowOperations.byDuration, null, 2).replace(/^/gm, '    ')}\n`;
     }
-    
+
     // 输出事件统计
     if (this.events.length > 0) {
       report += `事件统计:\n`;
@@ -261,7 +277,7 @@ export class PerformanceAnalyzer {
         report += `  ${type}: ${count}\n`;
       }
     }
-    
+
     report += `内存阈值: ${config.memoryManagement.thresholdMb}MB\n`;
     report += `慢操作阈值: ${config.slowOperations.thresholdMs}ms\n`;
     report += '==================\n';
@@ -291,37 +307,51 @@ export class PerformanceAnalyzer {
 
     // 检查内存使用
     if (metrics.memory.rss > config.memoryManagement.thresholdMb) {
-      logForDebugging(`内存使用超过阈值: ${metrics.memory.rss.toFixed(2)}MB > ${config.memoryManagement.thresholdMb}MB`, { level: 'warn' });
+      logForDebugging(
+        `内存使用超过阈值: ${metrics.memory.rss.toFixed(2)}MB > ${config.memoryManagement.thresholdMb}MB`,
+        { level: 'warn' }
+      );
       isNormal = false;
     }
 
     // 检查CPU使用率
     if (metrics.cpuUsage > 90) {
-      logForDebugging(`CPU使用率过高: ${metrics.cpuUsage.toFixed(2)}%`, { level: 'warn' });
+      logForDebugging(`CPU使用率过高: ${metrics.cpuUsage.toFixed(2)}%`, {
+        level: 'warn',
+      });
       isNormal = false;
     }
 
     // 检查事件循环延迟
     if (metrics.eventLoopDelay > 100) {
-      logForDebugging(`事件循环延迟过高: ${metrics.eventLoopDelay.toFixed(2)}ms`, { level: 'warn' });
+      logForDebugging(
+        `事件循环延迟过高: ${metrics.eventLoopDelay.toFixed(2)}ms`,
+        { level: 'warn' }
+      );
       isNormal = false;
     }
 
     // 检查响应时间
     if (metrics.responseTime > 500) {
-      logForDebugging(`响应时间过长: ${metrics.responseTime.toFixed(2)}ms`, { level: 'warn' });
+      logForDebugging(`响应时间过长: ${metrics.responseTime.toFixed(2)}ms`, {
+        level: 'warn',
+      });
       isNormal = false;
     }
 
     // 检查启动时间
     if (metrics.startupTime > 5000) {
-      logForDebugging(`启动时间过长: ${metrics.startupTime.toFixed(2)}ms`, { level: 'warn' });
+      logForDebugging(`启动时间过长: ${metrics.startupTime.toFixed(2)}ms`, {
+        level: 'warn',
+      });
       isNormal = false;
     }
 
     // 检查慢操作数量
     if (metrics.slowOperations.total > 10) {
-      logForDebugging(`慢操作数量过多: ${metrics.slowOperations.total}`, { level: 'warn' });
+      logForDebugging(`慢操作数量过多: ${metrics.slowOperations.total}`, {
+        level: 'warn',
+      });
       isNormal = false;
     }
 
@@ -353,7 +383,9 @@ export class PerformanceAnalyzer {
     }
 
     if (metrics.startupTime > 5000) {
-      suggestions.push('启动时间过长，建议优化模块加载或减少启动时的初始化操作');
+      suggestions.push(
+        '启动时间过长，建议优化模块加载或减少启动时的初始化操作'
+      );
     }
 
     if (metrics.slowOperations.total > 10) {
@@ -425,7 +457,11 @@ export function recordResponseTime(time: number): void {
 /**
  * 记录性能事件
  */
-export function recordEvent(name: string, type: string, attributes?: Record<string, any>): (() => void) {
+export function recordEvent(
+  name: string,
+  type: string,
+  attributes?: Record<string, any>
+): () => void {
   return performanceAnalyzer.recordEvent(name, type, attributes);
 }
 

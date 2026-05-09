@@ -7,8 +7,24 @@ export interface PrintOptions {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
-  color?: 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white';
-  bgColor?: 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white';
+  color?:
+    | 'black'
+    | 'red'
+    | 'green'
+    | 'yellow'
+    | 'blue'
+    | 'magenta'
+    | 'cyan'
+    | 'white';
+  bgColor?:
+    | 'black'
+    | 'red'
+    | 'green'
+    | 'yellow'
+    | 'blue'
+    | 'magenta'
+    | 'cyan'
+    | 'white';
   prefix?: string;
   suffix?: string;
   indent?: number;
@@ -105,8 +121,11 @@ export function printTable(headers: string[], rows: string[][]): void {
   if (rows.length === 0) return;
 
   const colWidths = headers.map((_, colIndex) => {
-    const columnValues = [headers[colIndex], ...rows.map(row => row[colIndex])];
-    return Math.max(...columnValues.map(v => v.length));
+    const columnValues = [
+      headers[colIndex],
+      ...rows.map((row) => row[colIndex]),
+    ];
+    return Math.max(...columnValues.map((v) => v.length));
   });
 
   const formatRow = (row: string[]) => {
@@ -114,8 +133,8 @@ export function printTable(headers: string[], rows: string[][]): void {
   };
 
   console.log(formatText(formatRow(headers), { bold: true }));
-  console.log(colWidths.map(w => '-'.repeat(w)).join('-+-'));
-  
+  console.log(colWidths.map((w) => '-'.repeat(w)).join('-+-'));
+
   for (const row of rows) {
     console.log(formatRow(row));
   }
@@ -127,7 +146,10 @@ export function printList(items: string[], bullet = '-'): void {
   }
 }
 
-export function printKeyValue(key: string, value: string | number | boolean): void {
+export function printKeyValue(
+  key: string,
+  value: string | number | boolean
+): void {
   console.log(formatText(`${key}:`, { bold: true }) + ` ${value}`);
 }
 
@@ -141,9 +163,9 @@ export function printProgress(message: string, progress: number): void {
   const empty = barLength - filled;
   const bar = '█'.repeat(filled) + '░'.repeat(empty);
   const percent = Math.round(progress * 100);
-  
+
   process.stdout.write(`\r${message}: [${bar}] ${percent}%`);
-  
+
   if (progress >= 1) {
     console.log();
   }

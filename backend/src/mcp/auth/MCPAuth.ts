@@ -40,7 +40,10 @@ export class MCPAuthManager {
     }
   }
 
-  async getAccessToken(serverKey: string, config: MCPOAuthConfig): Promise<string> {
+  async getAccessToken(
+    serverKey: string,
+    config: MCPOAuthConfig
+  ): Promise<string> {
     if (!feature('MCP_OAUTH')) {
       throw new Error('MCP OAuth feature is not enabled');
     }
@@ -57,10 +60,14 @@ export class MCPAuthManager {
     return this.obtainNewToken(serverKey, config);
   }
 
-  async initiateAuth(config: MCPOAuthConfig): Promise<{ authUrl: string; state: string }> {
+  async initiateAuth(
+    config: MCPOAuthConfig
+  ): Promise<{ authUrl: string; state: string }> {
     const state = randomBytes(16).toString('hex');
     const codeVerifier = randomBytes(32).toString('base64url');
-    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+    const codeChallenge = createHash('sha256')
+      .update(codeVerifier)
+      .digest('base64url');
 
     const oauthState: MCPOAuthState = {
       state,
@@ -107,7 +114,12 @@ export class MCPAuthManager {
 
     this.states.delete(state);
 
-    const token = await this.exchangeCodeForToken(serverKey, code, oauthState, config);
+    const token = await this.exchangeCodeForToken(
+      serverKey,
+      code,
+      oauthState,
+      config
+    );
     return token;
   }
 
@@ -163,7 +175,10 @@ export class MCPAuthManager {
     return token;
   }
 
-  private async obtainNewToken(serverKey: string, config: MCPOAuthConfig): Promise<string> {
+  private async obtainNewToken(
+    serverKey: string,
+    config: MCPOAuthConfig
+  ): Promise<string> {
     if (!config.clientSecret) {
       throw new Error('Client credentials flow requires clientSecret');
     }
@@ -197,7 +212,7 @@ export class MCPAuthManager {
     };
 
     this.tokens.set(serverKey, token);
-    
+
     await this.storage.saveToken(serverKey, {
       accessToken: token.accessToken,
       refreshToken: token.refreshToken || '',
@@ -206,7 +221,7 @@ export class MCPAuthManager {
       serverKey,
       savedAt: Date.now(),
     } as any);
-    
+
     return token.accessToken;
   }
 
@@ -245,7 +260,7 @@ export class MCPAuthManager {
     };
 
     this.tokens.set(serverKey, token);
-    
+
     await this.storage.saveToken(serverKey, {
       accessToken: token.accessToken,
       refreshToken: token.refreshToken || '',
@@ -254,7 +269,7 @@ export class MCPAuthManager {
       serverKey,
       savedAt: Date.now(),
     } as any);
-    
+
     return token.accessToken;
   }
 
@@ -265,10 +280,20 @@ export class MCPAuthManager {
     const revocationUrl = config.tokenUrl.replace('/token', '/revoke');
 
     if (token.refreshToken) {
-      await this.revokeSingleToken(revocationUrl, token.refreshToken, 'refresh_token', config);
+      await this.revokeSingleToken(
+        revocationUrl,
+        token.refreshToken,
+        'refresh_token',
+        config
+      );
     }
 
-    await this.revokeSingleToken(revocationUrl, token.accessToken, 'access_token', config);
+    await this.revokeSingleToken(
+      revocationUrl,
+      token.accessToken,
+      'access_token',
+      config
+    );
 
     this.tokens.delete(serverKey);
     await this.storage.deleteToken(serverKey);
@@ -303,7 +328,7 @@ export class MCPAuthManager {
 
   invalidateToken(serverKey: string): void {
     this.tokens.delete(serverKey);
-    this.storage.deleteToken(serverKey).catch(err => {
+    this.storage.deleteToken(serverKey).catch((err) => {
       logger.warn(`Failed to delete persisted token for ${serverKey}:`, err);
     });
   }
@@ -326,7 +351,10 @@ export class MCPAuthManager {
       logger.info(`MCP OAuth discovery successful for ${authServerUrl}`);
       return result;
     } catch (error) {
-      logger.error(`MCP OAuth discovery failed for ${authServerUrl}:`, error as Error);
+      logger.error(
+        `MCP OAuth discovery failed for ${authServerUrl}:`,
+        error as Error
+      );
       throw error;
     }
   }

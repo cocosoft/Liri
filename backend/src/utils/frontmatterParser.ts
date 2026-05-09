@@ -7,7 +7,10 @@
  * @param content Markdown文件内容
  * @returns 解析后的frontmatter对象和正文内容
  */
-export function parseFrontmatter(content: string): { frontmatter: Record<string, any>; content: string } {
+export function parseFrontmatter(content: string): {
+  frontmatter: Record<string, any>;
+  content: string;
+} {
   const frontmatter: Record<string, any> = {};
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 
@@ -34,7 +37,10 @@ export function parseFrontmatter(content: string): { frontmatter: Record<string,
         try {
           value = JSON.parse(value.replace(/'/g, '"'));
         } catch {
-          value = value.slice(1, -1).split(',').map((s: string) => s.trim().replace(/['"]/g, ''));
+          value = value
+            .slice(1, -1)
+            .split(',')
+            .map((s: string) => s.trim().replace(/['"]/g, ''));
         }
       }
 
@@ -48,7 +54,9 @@ export function parseFrontmatter(content: string): { frontmatter: Record<string,
 /**
  * 从frontmatter解析正整数
  */
-export function parsePositiveIntFromFrontmatter(value: unknown): number | undefined {
+export function parsePositiveIntFromFrontmatter(
+  value: unknown
+): number | undefined {
   if (value === undefined || value === null) {
     return undefined;
   }

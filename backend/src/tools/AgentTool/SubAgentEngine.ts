@@ -10,7 +10,11 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { ChatMessage, ChatResponse, ToolDefinition } from '@modules/ai/models/types';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ToolDefinition,
+} from '@modules/ai/models/types';
 import type { Tool } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import { DeepSeekClient } from '@modules/ai/clients/DeepSeekClient';
@@ -22,7 +26,13 @@ export interface SubAgentProgressEvent {
   /** 子代理 ID */
   agentId: string;
   /** 事件类型 */
-  type: 'thinking' | 'tool_use' | 'tool_result' | 'progress' | 'complete' | 'error';
+  type:
+    | 'thinking'
+    | 'tool_use'
+    | 'tool_result'
+    | 'progress'
+    | 'complete'
+    | 'error';
   /** 事件消息 */
   message: string;
   /** 工具调用 ID（工具调用时） */
@@ -104,10 +114,13 @@ export interface SubAgentResult {
  */
 export class SubAgentEngine {
   private config: SubAgentEngineConfig;
-  private activeAgents: Map<string, {
-    abortController: AbortController;
-    startTime: number;
-  }> = new Map();
+  private activeAgents: Map<
+    string,
+    {
+      abortController: AbortController;
+      startTime: number;
+    }
+  > = new Map();
 
   /**
    * @param config 引擎配置
@@ -129,9 +142,10 @@ export class SubAgentEngine {
    */
   async execute(
     request: SubAgentRequest,
-    onProgress?: (event: SubAgentProgressEvent) => void,
+    onProgress?: (event: SubAgentProgressEvent) => void
   ): Promise<SubAgentResult> {
-    const agentId = request.agentId || `sa-${randomUUID().replace(/-/g, '').substring(0, 8)}`;
+    const agentId =
+      request.agentId || `sa-${randomUUID().replace(/-/g, '').substring(0, 8)}`;
     const abortController = new AbortController();
     const startTime = Date.now();
 
@@ -174,7 +188,12 @@ export class SubAgentEngine {
           maxTurns,
         });
 
-        const response = await this.callLLM(llmClient, messages, request.tools, request.model);
+        const response = await this.callLLM(
+          llmClient,
+          messages,
+          request.tools,
+          request.model
+        );
 
         if (response.usage) {
           totalPromptTokens += response.usage.prompt_tokens || 0;
@@ -185,7 +204,7 @@ export class SubAgentEngine {
           const assistantMsg: ChatMessage = {
             role: 'assistant',
             content: response.content || '',
-            tool_calls: response.tool_calls.map(tc => ({
+            tool_calls: response.tool_calls.map((tc) => ({
               id: tc.id,
               type: 'function' as const,
               function: {
@@ -210,11 +229,17 @@ export class SubAgentEngine {
               maxTurns,
             });
 
-            const toolResult = await this.executeToolCall(toolCall, request.toolInstances);
+            const toolResult = await this.executeToolCall(
+              toolCall,
+              request.toolInstances
+            );
 
             messages.push({
               role: 'tool',
-              content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+              content:
+                typeof toolResult === 'string'
+                  ? toolResult
+                  : JSON.stringify(toolResult),
               tool_call_id: toolCall.id,
             });
 
@@ -273,7 +298,8 @@ export class SubAgentEngine {
     } catch (error) {
       this.activeAgents.delete(agentId);
 
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       onProgress?.({
         agentId,
@@ -329,7 +355,7 @@ export class SubAgentEngine {
     client: DeepSeekClient,
     messages: ChatMessage[],
     tools: ToolDefinition[],
-    model?: string,
+    model?: string
   ): Promise<ChatResponse> {
     return client.chat(messages, {
       tools: tools.length > 0 ? tools : undefined,
@@ -342,7 +368,7 @@ export class SubAgentEngine {
    */
   private async executeToolCall(
     toolCall: { id: string; name: string; arguments: Record<string, any> },
-    toolInstances: Map<string, Tool>,
+    toolInstances: Map<string, Tool>
   ): Promise<string> {
     const tool = toolInstances.get(toolCall.name);
     if (!tool) {
@@ -353,9 +379,10 @@ export class SubAgentEngine {
     }
 
     try {
-      const parsedArgs = typeof toolCall.arguments === 'string'
-        ? JSON.parse(toolCall.arguments)
-        : (toolCall.arguments as Record<string, unknown>);
+      const parsedArgs =
+        typeof toolCall.arguments === 'string'
+          ? JSON.parse(toolCall.arguments)
+          : (toolCall.arguments as Record<string, unknown>);
       const result = await tool.execute(parsedArgs, { messages: [] } as any);
       const output = result.output || result.result || JSON.stringify(result);
 
@@ -381,9 +408,13 @@ export class SubAgentEngine {
       output: string;
       toolCallCount: number;
       turnsUsed: number;
-      tokenUsage: { promptTokens: number; completionTokens: number; totalTokens: number };
+      tokenUsage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      };
       error?: string;
-    },
+    }
   ): SubAgentResult {
     return {
       agentId,

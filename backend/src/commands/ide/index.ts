@@ -11,7 +11,7 @@ const ideCommand: Command = {
   aliases: ['editor'],
   argumentHint: '[open|list|--json|help]',
   whenToUse: '当你需要在系统上安装的 IDE 中打开当前项目目录时',
-  load: () => import('./ide.js').then(m => m.default),
+  load: () => import('./ide.js').then((m) => m.default),
 };
 
 export { ideCommand };

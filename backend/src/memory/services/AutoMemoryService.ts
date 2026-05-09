@@ -98,7 +98,8 @@ export class AutoMemoryService {
     );
 
     // 检查对话记忆数量限制
-    const existingMemories = this.conversationMemories.get(conversationId) || [];
+    const existingMemories =
+      this.conversationMemories.get(conversationId) || [];
     if (existingMemories.length >= this.config.maxMemoriesPerConversation) {
       return [];
     }
@@ -163,23 +164,39 @@ export class AutoMemoryService {
       const message = messages[i];
 
       // 检查用户更正
-      if (this.config.triggerTypes.includes(AutoMemoryTriggerType.USER_CORRECTION)) {
-        const correctionResult = this.detectUserCorrection(message, messages.slice(0, i));
+      if (
+        this.config.triggerTypes.includes(AutoMemoryTriggerType.USER_CORRECTION)
+      ) {
+        const correctionResult = this.detectUserCorrection(
+          message,
+          messages.slice(0, i)
+        );
         if (correctionResult) {
           results.push(correctionResult);
         }
       }
 
       // 检查重复问题
-      if (this.config.triggerTypes.includes(AutoMemoryTriggerType.REPEATED_QUESTION)) {
-        const repeatedResult = this.detectRepeatedQuestion(message, messages.slice(0, i));
+      if (
+        this.config.triggerTypes.includes(
+          AutoMemoryTriggerType.REPEATED_QUESTION
+        )
+      ) {
+        const repeatedResult = this.detectRepeatedQuestion(
+          message,
+          messages.slice(0, i)
+        );
         if (repeatedResult) {
           results.push(repeatedResult);
         }
       }
 
       // 检查偏好声明
-      if (this.config.triggerTypes.includes(AutoMemoryTriggerType.PREFERENCE_STATEMENT)) {
+      if (
+        this.config.triggerTypes.includes(
+          AutoMemoryTriggerType.PREFERENCE_STATEMENT
+        )
+      ) {
         const preferenceResult = this.detectPreferenceStatement(message);
         if (preferenceResult) {
           results.push(preferenceResult);
@@ -187,7 +204,11 @@ export class AutoMemoryService {
       }
 
       // 检查重要信息
-      if (this.config.triggerTypes.includes(AutoMemoryTriggerType.IMPORTANT_INFORMATION)) {
+      if (
+        this.config.triggerTypes.includes(
+          AutoMemoryTriggerType.IMPORTANT_INFORMATION
+        )
+      ) {
         const importantResult = this.detectImportantInformation(message);
         if (importantResult) {
           results.push(importantResult);
@@ -195,7 +216,9 @@ export class AutoMemoryService {
       }
 
       // 检查项目上下文
-      if (this.config.triggerTypes.includes(AutoMemoryTriggerType.PROJECT_CONTEXT)) {
+      if (
+        this.config.triggerTypes.includes(AutoMemoryTriggerType.PROJECT_CONTEXT)
+      ) {
         const contextResult = this.detectProjectContext(message);
         if (contextResult) {
           results.push(contextResult);
@@ -203,7 +226,11 @@ export class AutoMemoryService {
       }
 
       // 检查明确请求
-      if (this.config.triggerTypes.includes(AutoMemoryTriggerType.EXPLICIT_REQUEST)) {
+      if (
+        this.config.triggerTypes.includes(
+          AutoMemoryTriggerType.EXPLICIT_REQUEST
+        )
+      ) {
         const requestResult = this.detectExplicitRequest(message);
         if (requestResult) {
           results.push(requestResult);
@@ -231,11 +258,24 @@ export class AutoMemoryService {
 
     // 检测更正关键词
     const correctionKeywords = [
-      '不是', '不对', '错误', '纠正', '应该是', '实际上', '其实', '准确来说',
-      'No', 'not', 'incorrect', 'wrong', 'actually', 'correction', 'should be'
+      '不是',
+      '不对',
+      '错误',
+      '纠正',
+      '应该是',
+      '实际上',
+      '其实',
+      '准确来说',
+      'No',
+      'not',
+      'incorrect',
+      'wrong',
+      'actually',
+      'correction',
+      'should be',
     ];
 
-    const hasCorrectionKeyword = correctionKeywords.some(keyword => 
+    const hasCorrectionKeyword = correctionKeywords.some((keyword) =>
       message.content.toLowerCase().includes(keyword.toLowerCase())
     );
 
@@ -244,7 +284,9 @@ export class AutoMemoryService {
     }
 
     // 查找相关的助手回复
-    const assistantReplies = previousMessages.filter(msg => msg.role === 'assistant');
+    const assistantReplies = previousMessages.filter(
+      (msg) => msg.role === 'assistant'
+    );
     if (assistantReplies.length === 0) {
       return null;
     }
@@ -276,18 +318,20 @@ export class AutoMemoryService {
     }
 
     // 只处理问题
-    if (!message.content.endsWith('?') && 
-        !message.content.toLowerCase().includes('如何') &&
-        !message.content.toLowerCase().includes('怎么') &&
-        !message.content.toLowerCase().includes('what') &&
-        !message.content.toLowerCase().includes('how')) {
+    if (
+      !message.content.endsWith('?') &&
+      !message.content.toLowerCase().includes('如何') &&
+      !message.content.toLowerCase().includes('怎么') &&
+      !message.content.toLowerCase().includes('what') &&
+      !message.content.toLowerCase().includes('how')
+    ) {
       return null;
     }
 
     // 查找类似的问题
-    const similarQuestions = previousMessages.filter(msg => {
+    const similarQuestions = previousMessages.filter((msg) => {
       if (msg.role !== 'user') return false;
-      
+
       // 简单的相似度检测
       const similarity = this.calculateSimilarity(message.content, msg.content);
       return similarity > 0.6;
@@ -312,20 +356,33 @@ export class AutoMemoryService {
    * @param message 当前消息
    * @returns 记忆提取结果
    */
-  private detectPreferenceStatement(
-    message: { role: string; content: string; timestamp: Date }
-  ): MemoryExtractionResult | null {
+  private detectPreferenceStatement(message: {
+    role: string;
+    content: string;
+    timestamp: Date;
+  }): MemoryExtractionResult | null {
     if (message.role !== 'user') {
       return null;
     }
 
     // 检测偏好关键词
     const preferenceKeywords = [
-      '喜欢', '偏好', '希望', '想要', '不要', '避免', '更喜欢',
-      'like', 'prefer', 'want', 'don\'t want', 'avoid', 'would like'
+      '喜欢',
+      '偏好',
+      '希望',
+      '想要',
+      '不要',
+      '避免',
+      '更喜欢',
+      'like',
+      'prefer',
+      'want',
+      "don't want",
+      'avoid',
+      'would like',
     ];
 
-    const hasPreferenceKeyword = preferenceKeywords.some(keyword => 
+    const hasPreferenceKeyword = preferenceKeywords.some((keyword) =>
       message.content.toLowerCase().includes(keyword.toLowerCase())
     );
 
@@ -348,16 +405,28 @@ export class AutoMemoryService {
    * @param message 当前消息
    * @returns 记忆提取结果
    */
-  private detectImportantInformation(
-    message: { role: string; content: string; timestamp: Date }
-  ): MemoryExtractionResult | null {
+  private detectImportantInformation(message: {
+    role: string;
+    content: string;
+    timestamp: Date;
+  }): MemoryExtractionResult | null {
     // 检测重要性关键词
     const importantKeywords = [
-      '重要', '关键', '注意', '记住', '务必', '必须',
-      'important', 'key', 'note', 'remember', 'must', 'critical'
+      '重要',
+      '关键',
+      '注意',
+      '记住',
+      '务必',
+      '必须',
+      'important',
+      'key',
+      'note',
+      'remember',
+      'must',
+      'critical',
     ];
 
-    const hasImportantKeyword = importantKeywords.some(keyword => 
+    const hasImportantKeyword = importantKeywords.some((keyword) =>
       message.content.toLowerCase().includes(keyword.toLowerCase())
     );
 
@@ -380,16 +449,28 @@ export class AutoMemoryService {
    * @param message 当前消息
    * @returns 记忆提取结果
    */
-  private detectProjectContext(
-    message: { role: string; content: string; timestamp: Date }
-  ): MemoryExtractionResult | null {
+  private detectProjectContext(message: {
+    role: string;
+    content: string;
+    timestamp: Date;
+  }): MemoryExtractionResult | null {
     // 检测项目相关关键词
     const projectKeywords = [
-      '项目', '任务', '目标', '计划', '截止日期', '里程碑',
-      'project', 'task', 'goal', 'plan', 'deadline', 'milestone'
+      '项目',
+      '任务',
+      '目标',
+      '计划',
+      '截止日期',
+      '里程碑',
+      'project',
+      'task',
+      'goal',
+      'plan',
+      'deadline',
+      'milestone',
     ];
 
-    const hasProjectKeyword = projectKeywords.some(keyword => 
+    const hasProjectKeyword = projectKeywords.some((keyword) =>
       message.content.toLowerCase().includes(keyword.toLowerCase())
     );
 
@@ -412,20 +493,28 @@ export class AutoMemoryService {
    * @param message 当前消息
    * @returns 记忆提取结果
    */
-  private detectExplicitRequest(
-    message: { role: string; content: string; timestamp: Date }
-  ): MemoryExtractionResult | null {
+  private detectExplicitRequest(message: {
+    role: string;
+    content: string;
+    timestamp: Date;
+  }): MemoryExtractionResult | null {
     if (message.role !== 'user') {
       return null;
     }
 
     // 检测明确请求关键词
     const requestKeywords = [
-      '记住', '保存', '记录', '存储',
-      'remember', 'save', 'record', 'store'
+      '记住',
+      '保存',
+      '记录',
+      '存储',
+      'remember',
+      'save',
+      'record',
+      'store',
     ];
 
-    const hasRequestKeyword = requestKeywords.some(keyword => 
+    const hasRequestKeyword = requestKeywords.some((keyword) =>
       message.content.toLowerCase().includes(keyword.toLowerCase())
     );
 
@@ -453,19 +542,30 @@ export class AutoMemoryService {
     // 简单的余弦相似度实现
     const words1 = text1.toLowerCase().split(/\s+/);
     const words2 = text2.toLowerCase().split(/\s+/);
-    
+
     const wordSet = new Set([...words1, ...words2]);
-    const vector1: number[] = Array.from(wordSet).map(word => words1.includes(word) ? 1 : 0);
-    const vector2: number[] = Array.from(wordSet).map(word => words2.includes(word) ? 1 : 0);
-    
-    const dotProduct = vector1.reduce((sum, val, i) => sum + val * vector2[i], 0);
-    const magnitude1 = Math.sqrt(vector1.reduce((sum, val) => sum + val * val, 0));
-    const magnitude2 = Math.sqrt(vector2.reduce((sum, val) => sum + val * val, 0));
-    
+    const vector1: number[] = Array.from(wordSet).map((word) =>
+      words1.includes(word) ? 1 : 0
+    );
+    const vector2: number[] = Array.from(wordSet).map((word) =>
+      words2.includes(word) ? 1 : 0
+    );
+
+    const dotProduct = vector1.reduce(
+      (sum, val, i) => sum + val * vector2[i],
+      0
+    );
+    const magnitude1 = Math.sqrt(
+      vector1.reduce((sum, val) => sum + val * val, 0)
+    );
+    const magnitude2 = Math.sqrt(
+      vector2.reduce((sum, val) => sum + val * val, 0)
+    );
+
     if (magnitude1 === 0 || magnitude2 === 0) {
       return 0;
     }
-    
+
     return dotProduct / (magnitude1 * magnitude2);
   }
 
@@ -474,7 +574,9 @@ export class AutoMemoryService {
    * @param results 提取结果列表
    * @returns 去重和排序后的结果
    */
-  private deduplicateAndSort(results: MemoryExtractionResult[]): MemoryExtractionResult[] {
+  private deduplicateAndSort(
+    results: MemoryExtractionResult[]
+  ): MemoryExtractionResult[] {
     // 去重
     const uniqueResults = new Map<string, MemoryExtractionResult>();
     for (const result of results) {
@@ -485,7 +587,9 @@ export class AutoMemoryService {
     }
 
     // 按置信度排序
-    return Array.from(uniqueResults.values()).sort((a, b) => b.confidence - a.confidence);
+    return Array.from(uniqueResults.values()).sort(
+      (a, b) => b.confidence - a.confidence
+    );
   }
 
   /**

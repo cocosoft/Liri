@@ -35,15 +35,18 @@ export default {
   /**
    * 列出文件
    */
-  async handleList(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleList(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const path = args.join(' ') || '.';
-    
+
     try {
       const fs = await import('fs');
       const pathModule = await import('path');
-      
+
       const targetPath = pathModule.resolve(context.cwd || process.cwd(), path);
-      
+
       if (!fs.existsSync(targetPath)) {
         return {
           success: false,
@@ -53,7 +56,7 @@ export default {
       }
 
       const files = fs.readdirSync(targetPath);
-      const fileInfo = files.map(file => {
+      const fileInfo = files.map((file) => {
         const fullPath = pathModule.join(targetPath, file);
         const stat = fs.statSync(fullPath);
         return {
@@ -64,9 +67,12 @@ export default {
         };
       });
 
-      const table = fileInfo.map(f => 
-        `${f.type === 'directory' ? '[DIR]' : '[FILE]'} ${f.name.padEnd(30)} ${(f.size + '').padEnd(10)} ${f.mtime}`
-      ).join('\n');
+      const table = fileInfo
+        .map(
+          (f) =>
+            `${f.type === 'directory' ? '[DIR]' : '[FILE]'} ${f.name.padEnd(30)} ${(f.size + '').padEnd(10)} ${f.mtime}`
+        )
+        .join('\n');
 
       return {
         success: true,
@@ -86,9 +92,12 @@ export default {
   /**
    * 查找文件
    */
-  async handleFind(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleFind(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const pattern = args.join(' ') || '';
-    
+
     if (!pattern) {
       return {
         success: false,
@@ -99,29 +108,29 @@ export default {
     }
 
     const foundFiles: string[] = [];
-    
+
     try {
       const fs = await import('fs');
       const pathModule = await import('path');
-      
+
       const searchDir = context.cwd || process.cwd();
-      
+
       const search = (dir: string) => {
         const files = fs.readdirSync(dir);
         for (const file of files) {
           const fullPath = pathModule.join(dir, file);
           const stat = fs.statSync(fullPath);
-          
+
           if (file.includes(pattern)) {
             foundFiles.push(fullPath);
           }
-          
+
           if (stat.isDirectory()) {
             search(fullPath);
           }
         }
       };
-      
+
       search(searchDir);
 
       if (foundFiles.length === 0) {
@@ -150,9 +159,12 @@ export default {
   /**
    * 查看文件内容
    */
-  async handleView(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleView(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const filePath = args.join(' ');
-    
+
     if (!filePath) {
       return {
         success: false,
@@ -165,9 +177,12 @@ export default {
     try {
       const fs = await import('fs');
       const pathModule = await import('path');
-      
-      const fullPath = pathModule.resolve(context.cwd || process.cwd(), filePath);
-      
+
+      const fullPath = pathModule.resolve(
+        context.cwd || process.cwd(),
+        filePath
+      );
+
       if (!fs.existsSync(fullPath)) {
         return {
           success: false,
@@ -205,15 +220,18 @@ export default {
   /**
    * 显示目录树
    */
-  async handleTree(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleTree(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const path = args.join(' ') || '.';
-    
+
     try {
       const fs = await import('fs');
       const pathModule = await import('path');
-      
+
       const targetPath = pathModule.resolve(context.cwd || process.cwd(), path);
-      
+
       if (!fs.existsSync(targetPath)) {
         return {
           success: false,
@@ -223,25 +241,25 @@ export default {
       }
 
       const tree: string[] = [];
-      
+
       const buildTree = (dir: string, prefix: string = '') => {
         const files = fs.readdirSync(dir).sort();
-        
+
         files.forEach((file, index) => {
           const fullPath = pathModule.join(dir, file);
           const stat = fs.statSync(fullPath);
           const isLast = index === files.length - 1;
           const connector = isLast ? '└──' : '├──';
-          
+
           tree.push(`${prefix}${connector} ${file}`);
-          
+
           if (stat.isDirectory()) {
             const newPrefix = prefix + (isLast ? '    ' : '│   ');
             buildTree(fullPath, newPrefix);
           }
         });
       };
-      
+
       tree.push(targetPath);
       buildTree(targetPath);
 
@@ -266,24 +284,26 @@ export default {
   async handleClean(context: CommandContext): Promise<CommandResult> {
     const tempFiles = ['*.log', '*.tmp', '*.bak', '.DS_Store', 'Thumbs.db'];
     let deletedCount = 0;
-    
+
     try {
       const fs = await import('fs');
       const pathModule = await import('path');
-      
+
       const searchDir = context.cwd || process.cwd();
-      
+
       const clean = (dir: string) => {
         const files = fs.readdirSync(dir);
         for (const file of files) {
           const fullPath = pathModule.join(dir, file);
           const stat = fs.statSync(fullPath);
-          
+
           if (stat.isDirectory()) {
             clean(fullPath);
           } else {
             for (const pattern of tempFiles) {
-              const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+              const regex = new RegExp(
+                '^' + pattern.replace(/\*/g, '.*') + '$'
+              );
               if (regex.test(file)) {
                 fs.unlinkSync(fullPath);
                 deletedCount++;
@@ -293,11 +313,13 @@ export default {
           }
         }
       };
-      
+
       clean(searchDir);
 
-      context.onDone?.(`已清理 ${deletedCount} 个临时文件`, { display: 'system' });
-      
+      context.onDone?.(`已清理 ${deletedCount} 个临时文件`, {
+        display: 'system',
+      });
+
       return {
         success: true,
         type: 'text',

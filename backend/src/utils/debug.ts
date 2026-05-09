@@ -8,13 +8,18 @@ import { isEnvTruthy } from './envUtils.js';
  * 检查是否启用了调试模式
  */
 export function isDebugMode(): boolean {
-  return isEnvTruthy(process.env.DEBUG) || isEnvTruthy(process.env.PY_APP_DEBUG);
+  return (
+    isEnvTruthy(process.env.DEBUG) || isEnvTruthy(process.env.PY_APP_DEBUG)
+  );
 }
 
 /**
  * 调试日志
  */
-export function logForDebugging(message: string, options?: Record<string, any>): void {
+export function logForDebugging(
+  message: string,
+  options?: Record<string, any>
+): void {
   if (!isDebugMode()) {
     return;
   }
@@ -50,7 +55,9 @@ export function getHasFormattedOutput(): boolean {
  */
 export function logError(error: unknown): void {
   if (error instanceof Error) {
-    logForDebugging(`Error: ${error.message}\n${error.stack}`, { level: 'error' });
+    logForDebugging(`Error: ${error.message}\n${error.stack}`, {
+      level: 'error',
+    });
   } else {
     logForDebugging(`Unknown error: ${String(error)}`, { level: 'error' });
   }

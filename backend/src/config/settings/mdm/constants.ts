@@ -16,10 +16,8 @@ export const MACOS_PREFERENCE_DOMAIN = 'com.pyapp.py-app';
  * Windows注册表键路径
  * 使用 SOFTWARE\Policies 路径，32位和64位进程共享
  */
-export const WINDOWS_REGISTRY_KEY_PATH_HKLM =
-  'HKLM\\SOFTWARE\\Policies\\PyApp';
-export const WINDOWS_REGISTRY_KEY_PATH_HKCU =
-  'HKCU\\SOFTWARE\\Policies\\PyApp';
+export const WINDOWS_REGISTRY_KEY_PATH_HKLM = 'HKLM\\SOFTWARE\\Policies\\PyApp';
+export const WINDOWS_REGISTRY_KEY_PATH_HKCU = 'HKCU\\SOFTWARE\\Policies\\PyApp';
 
 /**
  * Windows注册表值名称
@@ -34,7 +32,13 @@ export const PLUTIL_PATH = '/usr/bin/plutil';
 /**
  * plutil转换参数
  */
-export const PLUTIL_ARGS_PREFIX = ['-convert', 'json', '-o', '-', '--'] as const;
+export const PLUTIL_ARGS_PREFIX = [
+  '-convert',
+  'json',
+  '-o',
+  '-',
+  '--',
+] as const;
 
 /**
  * 子进程超时时间（毫秒）

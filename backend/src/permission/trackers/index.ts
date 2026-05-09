@@ -3,4 +3,8 @@
  */
 
 export { DenialTracker, denialTracker } from './DenialTracker.js';
-export type { DenialRecord, DenialStats, DenialTrackerConfig } from './DenialTracker.js';
+export type {
+  DenialRecord,
+  DenialStats,
+  DenialTrackerConfig,
+} from './DenialTracker.js';

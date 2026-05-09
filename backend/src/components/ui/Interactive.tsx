@@ -22,7 +22,12 @@ export function Confirm({ message, onConfirm, onCancel }: ConfirmProps) {
       } else {
         onCancel();
       }
-    } else if (input === 'y' || input === 'Y' || input === 'n' || input === 'N') {
+    } else if (
+      input === 'y' ||
+      input === 'Y' ||
+      input === 'n' ||
+      input === 'N'
+    ) {
       setAnswer(input);
     }
   });
@@ -30,9 +35,13 @@ export function Confirm({ message, onConfirm, onCancel }: ConfirmProps) {
   return (
     <Box>
       <Text>{message} </Text>
-      <Text bold color={answer === 'y' ? 'green' : 'white'}>[Y]</Text>
+      <Text bold color={answer === 'y' ? 'green' : 'white'}>
+        [Y]
+      </Text>
       <Text>/</Text>
-      <Text bold color={answer === 'n' ? 'green' : 'white'}>[N]</Text>
+      <Text bold color={answer === 'n' ? 'green' : 'white'}>
+        [N]
+      </Text>
     </Box>
   );
 }

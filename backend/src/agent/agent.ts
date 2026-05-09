@@ -2,7 +2,16 @@
  * AI代理
  */
 
-import { AIAgent, AgentConfig, AgentTask, AgentResponse, AgentState, AgentContext, AgentStrategy, AgentMemory } from './models/types';
+import {
+  AIAgent,
+  AgentConfig,
+  AgentTask,
+  AgentResponse,
+  AgentState,
+  AgentContext,
+  AgentStrategy,
+  AgentMemory,
+} from './models/types';
 import { StrategyFactory } from './strategies/agentStrategy';
 import { createAgentMemory } from './memory/agentMemory';
 import { AIModelType, AIMessageRole } from '../ai';
@@ -70,10 +79,10 @@ export class AIAgentImpl implements AIAgent {
 
       // 执行任务
       const response = await this.strategy.execute(task, context);
-      
+
       // 记录任务完成
       logger.info(`Agent ${this.name} completed task: ${task.name}`);
-      
+
       this.state = response.status;
       this.updatedAt = Date.now();
 
@@ -92,9 +101,13 @@ export class AIAgentImpl implements AIAgent {
       return response;
     } catch (error) {
       // 增强错误处理
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`Agent ${this.name} failed to execute task ${task.name}:`, error instanceof Error ? error : new Error(String(error)));
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(
+        `Agent ${this.name} failed to execute task ${task.name}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
+
       const errorResponse: AgentResponse = {
         id: Date.now().toString(36),
         taskId: task.id,
@@ -103,7 +116,8 @@ export class AIAgentImpl implements AIAgent {
         error: errorMessage,
         timestamp: Date.now(),
         metadata: {
-          errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+          errorType:
+            error instanceof Error ? error.constructor.name : 'UnknownError',
           agentId: this.id,
           agentName: this.name,
         },
@@ -150,13 +164,13 @@ export class AIAgentImpl implements AIAgent {
       // 检查AI服务是否支持流式输出
       if (typeof aiService.stream === 'function') {
         // 使用AI服务的流式API
-        const systemPrompt = this.strategy.buildSystemPrompt ? 
-          this.strategy.buildSystemPrompt(task, context) : 
-          `你是一个AI代理，你的任务是：${task.description}`;
-        
-        const userMessage = this.strategy.buildUserMessage ? 
-          this.strategy.buildUserMessage(task) : 
-          `任务：${task.name}\n描述：${task.description}\n输入：${JSON.stringify(task.input, null, 2)}`;
+        const systemPrompt = this.strategy.buildSystemPrompt
+          ? this.strategy.buildSystemPrompt(task, context)
+          : `你是一个AI代理，你的任务是：${task.description}`;
+
+        const userMessage = this.strategy.buildUserMessage
+          ? this.strategy.buildUserMessage(task)
+          : `任务：${task.name}\n描述：${task.description}\n输入：${JSON.stringify(task.input, null, 2)}`;
 
         const messages = [
           { role: AIMessageRole.SYSTEM, content: systemPrompt },
@@ -171,7 +185,11 @@ export class AIAgentImpl implements AIAgent {
         };
 
         try {
-          for await (const chunk of aiService.stream(messages, context.model, streamOptions)) {
+          for await (const chunk of aiService.stream(
+            messages,
+            context.model,
+            streamOptions
+          )) {
             // 检查是否被取消
             if (isCancelled) {
               break;
@@ -179,7 +197,7 @@ export class AIAgentImpl implements AIAgent {
 
             if (chunk.content) {
               accumulatedContent += chunk.content;
-              
+
               // 每收到一个chunk就产生一个响应
               yield {
                 id: `${responseId}_${chunkIndex++}`,

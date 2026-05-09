@@ -73,9 +73,8 @@ export class SessionMetadataService extends EventEmitter {
    */
   getMetadata(): SessionExternalMetadata {
     const cacheKey = 'session_metadata_current';
-    const cachedMetadata = performanceOptimizationService.get<
-      SessionExternalMetadata
-    >(cacheKey);
+    const cachedMetadata =
+      performanceOptimizationService.get<SessionExternalMetadata>(cacheKey);
     if (cachedMetadata !== null) {
       return cachedMetadata;
     }

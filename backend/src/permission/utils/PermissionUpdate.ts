@@ -85,12 +85,19 @@ export class PermissionUpdateValidator {
   /**
    * 验证更新
    */
-  validate(update: PermissionUpdate, existingRules: PermissionRule[]): PermissionUpdateValidation {
+  validate(
+    update: PermissionUpdate,
+    existingRules: PermissionRule[]
+  ): PermissionUpdateValidation {
     const errors: string[] = [];
     const warnings: string[] = [];
 
     // 验证更新类型
-    if (!['add_rule', 'remove_rule', 'update_rule', 'replace_all'].includes(update.type)) {
+    if (
+      !['add_rule', 'remove_rule', 'update_rule', 'replace_all'].includes(
+        update.type
+      )
+    ) {
       errors.push(`Invalid update type: ${update.type}`);
     }
 
@@ -118,7 +125,11 @@ export class PermissionUpdateValidator {
         if (!update.rule) {
           errors.push('Missing rule for update_rule update');
         } else {
-          const ruleValidation = this.validateRule(update.rule, existingRules, update.ruleId);
+          const ruleValidation = this.validateRule(
+            update.rule,
+            existingRules,
+            update.ruleId
+          );
           errors.push(...ruleValidation.errors);
           warnings.push(...ruleValidation.warnings);
         }
@@ -128,7 +139,7 @@ export class PermissionUpdateValidator {
         if (!update.ruleId) {
           errors.push('Missing ruleId for remove_rule update');
         } else {
-          const exists = existingRules.some(r => r.id === update.ruleId);
+          const exists = existingRules.some((r) => r.id === update.ruleId);
           if (!exists) {
             warnings.push(`Rule ${update.ruleId} does not exist`);
           }
@@ -140,7 +151,9 @@ export class PermissionUpdateValidator {
           errors.push('Missing rules for replace_all update');
         } else {
           if (update.rules.length > DEFAULT_CONFIG.maxRules) {
-            errors.push(`Too many rules: ${update.rules.length}, max: ${DEFAULT_CONFIG.maxRules}`);
+            errors.push(
+              `Too many rules: ${update.rules.length}, max: ${DEFAULT_CONFIG.maxRules}`
+            );
           }
           for (const rule of update.rules) {
             const ruleValidation = this.validateRule(rule, []);
@@ -181,7 +194,9 @@ export class PermissionUpdateValidator {
     }
 
     if (rule.id) {
-      const duplicate = existingRules.find(r => r.id === rule.id && r.id !== excludeId);
+      const duplicate = existingRules.find(
+        (r) => r.id === rule.id && r.id !== excludeId
+      );
       if (duplicate) {
         errors.push(`Duplicate rule id: ${rule.id}`);
       }
@@ -257,7 +272,7 @@ export class PermissionUpdateManager {
 
       case 'update_rule':
         if (update.ruleId && update.rule) {
-          const index = newRules.findIndex(r => r.id === update.ruleId);
+          const index = newRules.findIndex((r) => r.id === update.ruleId);
           if (index >= 0) {
             newRules[index] = update.rule;
           }
@@ -266,7 +281,7 @@ export class PermissionUpdateManager {
 
       case 'remove_rule':
         if (update.ruleId) {
-          newRules = newRules.filter(r => r.id !== update.ruleId);
+          newRules = newRules.filter((r) => r.id !== update.ruleId);
         }
         break;
 
@@ -286,7 +301,9 @@ export class PermissionUpdateManager {
       this.updates = this.updates.slice(-100);
     }
 
-    logger.info(`PermissionUpdate: Applied ${update.type} in ${update.scope} scope`);
+    logger.info(
+      `PermissionUpdate: Applied ${update.type} in ${update.scope} scope`
+    );
 
     // 通知监听器
     for (const listener of this.listeners) {
@@ -307,7 +324,10 @@ export class PermissionUpdateManager {
   /**
    * 验证更新
    */
-  validate(update: PermissionUpdate, existingRules: PermissionRule[]): PermissionUpdateValidation {
+  validate(
+    update: PermissionUpdate,
+    existingRules: PermissionRule[]
+  ): PermissionUpdateValidation {
     return this.validator.validate(update, existingRules);
   }
 
@@ -322,14 +342,14 @@ export class PermissionUpdateManager {
    * 获取会话更新
    */
   getSessionUpdates(): PermissionUpdate[] {
-    return this.updates.filter(u => u.scope === 'session');
+    return this.updates.filter((u) => u.scope === 'session');
   }
 
   /**
    * 获取永久更新
    */
   getPermanentUpdates(): PermissionUpdate[] {
-    return this.updates.filter(u => u.scope === 'permanent');
+    return this.updates.filter((u) => u.scope === 'permanent');
   }
 
   /**
@@ -353,7 +373,7 @@ export class PermissionUpdateManager {
    * 清除会话更新
    */
   clearSessionUpdates(): void {
-    this.updates = this.updates.filter(u => u.scope !== 'session');
+    this.updates = this.updates.filter((u) => u.scope !== 'session');
   }
 
   /**

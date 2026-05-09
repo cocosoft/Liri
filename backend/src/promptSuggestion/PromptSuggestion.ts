@@ -153,11 +153,11 @@ export async function generateSuggestion(
     return {
       suggestion: 'run the tests',
       generationRequestId: 'mock-' + Date.now(),
-    }
+    };
   }
 
   if (abortController.signal.aborted) {
-    return { suggestion: null, generationRequestId: null }
+    return { suggestion: null, generationRequestId: null };
   }
 
   const contextSuggestions: Record<string, string[]> = {
@@ -178,15 +178,16 @@ export async function generateSuggestion(
       'show me more',
       'explain further',
     ],
-  }
+  };
 
-  const candidates = contextSuggestions[promptId] || contextSuggestions['user_intent']
-  const idx = Math.floor(Math.random() * candidates.length)
+  const candidates =
+    contextSuggestions[promptId] || contextSuggestions['user_intent'];
+  const idx = Math.floor(Math.random() * candidates.length);
 
   return {
     suggestion: candidates[idx],
     generationRequestId: `heuristic-${Date.now()}`,
-  }
+  };
 }
 
 interface TryGenerateSuggestionResult {

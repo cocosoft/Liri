@@ -14,13 +14,13 @@ const TEST_COMMANDS = [
   { cmd: 'status', label: 'status' },
   { cmd: 'clear', label: 'clear' },
   { cmd: 'version', label: 'version' },
-  
+
   // B组: 配置与系统
   { cmd: 'config help', label: 'config' },
   { cmd: 'session help', label: 'session' },
   { cmd: 'history help', label: 'history' },
   { cmd: 'skill help', label: 'skill' },
-  
+
   // C组: 此次修复的关键命令
   { cmd: 'stickers help', label: 'stickers' },
   { cmd: 'pr-comments help', label: 'pr-comments' },
@@ -35,7 +35,7 @@ const TEST_COMMANDS = [
   { cmd: 'diff help', label: 'diff' },
   { cmd: 'review help', label: 'review' },
   { cmd: 'resume help', label: 'resume' },
-  
+
   // D组: 工具命令
   { cmd: 'write help', label: 'write' },
   { cmd: 'edit help', label: 'edit' },
@@ -47,7 +47,7 @@ const TEST_COMMANDS = [
   { cmd: 'task help', label: 'task' },
   { cmd: 'lsp help', label: 'lsp' },
   { cmd: 'notebook help', label: 'notebook' },
-  
+
   // E组: 新增遗漏命令
   { cmd: 'copy help', label: 'copy' },
   { cmd: 'branch help', label: 'branch' },
@@ -77,19 +77,25 @@ for (const { cmd, label } of TEST_COMMANDS) {
     const start = Date.now();
     const result = await commandExecutor.execute(cmd, baseContext);
     const elapsed = Date.now() - start;
-    
+
     if (result.success) {
       console.log(`✅ ${label.padEnd(20)} (${elapsed}ms)`);
       passed++;
     } else {
-      const errMsg = result.error ? result.error.substring(0, 50) : 'unknown error';
+      const errMsg = result.error
+        ? result.error.substring(0, 50)
+        : 'unknown error';
       console.log(`❌ ${label.padEnd(20)} ${errMsg}`);
       failed++;
     }
   } catch (err: any) {
-    console.log(`❌ ${label.padEnd(20)} ${(err.message || '').substring(0, 50)}`);
+    console.log(
+      `❌ ${label.padEnd(20)} ${(err.message || '').substring(0, 50)}`
+    );
     failed++;
   }
 }
 
-console.log(`\n完成: ${TEST_COMMANDS.length} 个命令 | ✅ ${passed} | ❌ ${failed}`);
+console.log(
+  `\n完成: ${TEST_COMMANDS.length} 个命令 | ✅ ${passed} | ❌ ${failed}`
+);

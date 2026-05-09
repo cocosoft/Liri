@@ -69,9 +69,8 @@ export class SessionStateService extends EventEmitter {
    */
   getSessionState(): SessionStateType {
     const cacheKey = 'session_state_current';
-    const cachedState = performanceOptimizationService.get<SessionStateType>(
-      cacheKey
-    );
+    const cachedState =
+      performanceOptimizationService.get<SessionStateType>(cacheKey);
     if (cachedState !== null) {
       return cachedState;
     }

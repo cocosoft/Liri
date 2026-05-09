@@ -48,17 +48,19 @@ export class BridgeStateSyncService {
    * 更新桥接状态
    */
   updateBridgeState(state: Partial<BridgeState>): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       replBridgeEnabled: state.enabled ?? prev.replBridgeEnabled,
       replBridgeExplicit: state.explicit ?? prev.replBridgeExplicit,
       replBridgeOutboundOnly: state.outboundOnly ?? prev.replBridgeOutboundOnly,
       replBridgeConnected: state.connected ?? prev.replBridgeConnected,
-      replBridgeSessionActive: state.sessionActive ?? prev.replBridgeSessionActive,
+      replBridgeSessionActive:
+        state.sessionActive ?? prev.replBridgeSessionActive,
       replBridgeReconnecting: state.reconnecting ?? prev.replBridgeReconnecting,
       replBridgeConnectUrl: state.connectUrl ?? prev.replBridgeConnectUrl,
       replBridgeSessionUrl: state.sessionUrl ?? prev.replBridgeSessionUrl,
-      replBridgeEnvironmentId: state.environmentId ?? prev.replBridgeEnvironmentId,
+      replBridgeEnvironmentId:
+        state.environmentId ?? prev.replBridgeEnvironmentId,
       replBridgeSessionId: state.sessionId ?? prev.replBridgeSessionId,
       replBridgeError: state.error ?? prev.replBridgeError,
       replBridgeInitialName: state.initialName ?? prev.replBridgeInitialName,
@@ -92,7 +94,7 @@ export class BridgeStateSyncService {
    * 重置桥接状态
    */
   resetBridgeState(): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       replBridgeEnabled: false,
       replBridgeExplicit: false,
@@ -114,7 +116,7 @@ export class BridgeStateSyncService {
    * 设置桥接错误
    */
   setBridgeError(error: string | undefined): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       replBridgeError: error,
     }));
@@ -124,7 +126,7 @@ export class BridgeStateSyncService {
    * 设置连接状态
    */
   setConnectionStatus(connected: boolean, reconnecting: boolean = false): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       replBridgeConnected: connected,
       replBridgeReconnecting: reconnecting,
@@ -135,7 +137,7 @@ export class BridgeStateSyncService {
    * 设置会话状态
    */
   setSessionStatus(active: boolean): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       replBridgeSessionActive: active,
     }));
@@ -145,7 +147,7 @@ export class BridgeStateSyncService {
    * 设置出站模式
    */
   setOutboundOnly(outboundOnly: boolean): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       replBridgeOutboundOnly: outboundOnly,
     }));
@@ -155,7 +157,7 @@ export class BridgeStateSyncService {
    * 设置桥接URL
    */
   setBridgeUrls(connectUrl?: string, sessionUrl?: string): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       replBridgeConnectUrl: connectUrl,
       replBridgeSessionUrl: sessionUrl,
@@ -166,7 +168,7 @@ export class BridgeStateSyncService {
    * 设置桥接标识符
    */
   setBridgeIdentifiers(environmentId?: string, sessionId?: string): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       replBridgeEnvironmentId: environmentId,
       replBridgeSessionId: sessionId,
@@ -177,7 +179,7 @@ export class BridgeStateSyncService {
    * 显示远程标注
    */
   showRemoteCallout(): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       showRemoteCallout: true,
     }));
@@ -187,7 +189,7 @@ export class BridgeStateSyncService {
    * 隐藏远程标注
    */
   hideRemoteCallout(): void {
-    this.store.setState(prev => ({
+    this.store.setState((prev) => ({
       ...prev,
       showRemoteCallout: false,
     }));

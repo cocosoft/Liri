@@ -39,7 +39,10 @@ export class SSETransport {
 
       return client;
     } catch (error) {
-      logger.error('SSE connection failed:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'SSE connection failed:',
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -53,7 +56,10 @@ export class SSETransport {
         await (this.client as any).close();
         logger.info(`Disconnected from SSE MCP server: ${this.config.url}`);
       } catch (error) {
-        logger.error('Error disconnecting from SSE server:', error instanceof Error ? error : new Error(String(error)));
+        logger.error(
+          'Error disconnecting from SSE server:',
+          error instanceof Error ? error : new Error(String(error))
+        );
       } finally {
         this.client = null;
       }

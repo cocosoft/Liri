@@ -30,7 +30,7 @@ const sectionCache = new Map<string, string | null>();
  */
 export function systemPromptSection(
   name: string,
-  compute: ComputeFn,
+  compute: ComputeFn
 ): SystemPromptSection {
   return { name, compute, cacheBreak: false };
 }
@@ -43,7 +43,7 @@ export function systemPromptSection(
 export function DANGEROUS_uncachedSystemPromptSection(
   name: string,
   compute: ComputeFn,
-  _reason: string,
+  _reason: string
 ): SystemPromptSection {
   return { name, compute, cacheBreak: true };
 }
@@ -52,17 +52,17 @@ export function DANGEROUS_uncachedSystemPromptSection(
  * 解析所有系统提示词段落，返回提示词字符串数组
  */
 export async function resolveSystemPromptSections(
-  sections: SystemPromptSection[],
+  sections: SystemPromptSection[]
 ): Promise<(string | null)[]> {
   return Promise.all(
-    sections.map(async s => {
+    sections.map(async (s) => {
       if (!s.cacheBreak && sectionCache.has(s.name)) {
         return sectionCache.get(s.name) ?? null;
       }
       const value = await s.compute();
       sectionCache.set(s.name, value);
       return value;
-    }),
+    })
   );
 }
 

@@ -155,13 +155,25 @@ export class CommandRegistry {
     query: string,
     options: {
       limit?: number;
-      searchFields?: ('name' | 'description' | 'aliases' | 'whenToUse' | 'argumentHint')[];
+      searchFields?: (
+        | 'name'
+        | 'description'
+        | 'aliases'
+        | 'whenToUse'
+        | 'argumentHint'
+      )[];
       includeHidden?: boolean;
     } = {}
   ): { command: Command; relevance: number }[] {
     const {
       limit,
-      searchFields = ['name', 'description', 'aliases', 'whenToUse', 'argumentHint'],
+      searchFields = [
+        'name',
+        'description',
+        'aliases',
+        'whenToUse',
+        'argumentHint',
+      ],
       includeHidden = false,
     } = options;
 

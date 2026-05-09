@@ -29,7 +29,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <div
       className={`flex items-center px-4 h-12 bg-gray-100 border-b border-gray-200 ${
-        align === 'left' ? 'justify-start' : align === 'center' ? 'justify-center' : 'justify-end'
+        align === 'left'
+          ? 'justify-start'
+          : align === 'center'
+            ? 'justify-center'
+            : 'justify-end'
       }`}
     >
       <div className="flex items-center gap-1">
@@ -42,8 +46,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               button.isActive
                 ? 'bg-blue-100 text-blue-700'
                 : button.isDisabled
-                ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900'
             }`}
             title={`${button.label}${button.shortcut ? ` (${button.shortcut})` : ''}`}
           >

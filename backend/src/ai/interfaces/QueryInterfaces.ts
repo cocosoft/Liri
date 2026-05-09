@@ -92,7 +92,13 @@ export interface QueryResult {
   /**
    * 完成原因
    */
-  finishReason: 'end_turn' | 'stop_sequence' | 'max_tokens' | 'max_turns' | 'tool_use' | 'error';
+  finishReason:
+    | 'end_turn'
+    | 'stop_sequence'
+    | 'max_tokens'
+    | 'max_turns'
+    | 'tool_use'
+    | 'error';
   /**
    * 工具调用列表
    */
@@ -110,7 +116,13 @@ export interface StreamEvent {
   /**
    * 事件类型
    */
-  type: 'content_block_start' | 'content_block_delta' | 'content_block_stop' | 'message_delta' | 'message_stop' | 'error';
+  type:
+    | 'content_block_start'
+    | 'content_block_delta'
+    | 'content_block_stop'
+    | 'message_delta'
+    | 'message_stop'
+    | 'error';
   /**
    * 事件数据
    */

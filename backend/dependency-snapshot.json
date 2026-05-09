@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-07T22:36:51.303Z",
+  "generatedAt": "2026-05-09T04:06:28.796Z",
   "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {
@@ -63,6 +63,17 @@
         "memory"
       ]
     },
+    "ink": {
+      "id": "ink",
+      "name": "ink",
+      "category": "ui",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
     "ui": {
       "id": "ui",
       "name": "ui",
@@ -70,7 +81,8 @@
       "version": "1.1.0",
       "dependencies": [
         "core",
-        "infrastructure"
+        "infrastructure",
+        "ink"
       ],
       "optionalDependencies": []
     },
@@ -306,6 +318,19 @@
         "memory"
       ]
     },
+    "daemon": {
+      "id": "daemon",
+      "name": "daemon",
+      "category": "infrastructure",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "monitoring"
+      ],
+      "optionalDependencies": [
+        "chronos"
+      ]
+    },
     "error": {
       "id": "error",
       "name": "error",
@@ -465,6 +490,7 @@
     "mcp",
     "plugins",
     "query",
+    "ink",
     "ui",
     "cli",
     "tools",
@@ -475,6 +501,7 @@
     "sandbox",
     "performance",
     "monitoring",
+    "daemon",
     "analytics",
     "buddy",
     "docs",
@@ -483,5 +510,5 @@
     "utils",
     "keybindings"
   ],
-  "fingerprint": "98bd98f4ab374c76"
+  "fingerprint": "6c18dec853a88187"
 }

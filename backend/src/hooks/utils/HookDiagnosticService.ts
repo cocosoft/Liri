@@ -253,7 +253,12 @@ export class HookDiagnosticService {
     outcome?: 'success' | 'error' | 'blocked';
     details?: Record<string, any>;
   }): HookDiagnosticLog {
-    const level: DiagnosticLogLevel = options.outcome === 'error' ? 'error' : options.outcome === 'blocked' ? 'warn' : 'info';
+    const level: DiagnosticLogLevel =
+      options.outcome === 'error'
+        ? 'error'
+        : options.outcome === 'blocked'
+          ? 'warn'
+          : 'info';
 
     return this.log({
       level,
@@ -365,7 +370,8 @@ export class HookDiagnosticService {
       }
     }
 
-    stats.averageDuration = durationCount > 0 ? totalDuration / durationCount : 0;
+    stats.averageDuration =
+      durationCount > 0 ? totalDuration / durationCount : 0;
 
     return stats;
   }
@@ -385,27 +391,31 @@ export class HookDiagnosticService {
     let filtered = [...this.recentLogs];
 
     if (options.startDate) {
-      filtered = filtered.filter(log => log.timestamp >= options.startDate!);
+      filtered = filtered.filter((log) => log.timestamp >= options.startDate!);
     }
 
     if (options.endDate) {
-      filtered = filtered.filter(log => log.timestamp <= options.endDate!);
+      filtered = filtered.filter((log) => log.timestamp <= options.endDate!);
     }
 
     if (options.levels && options.levels.length > 0) {
-      filtered = filtered.filter(log => options.levels!.includes(log.level));
+      filtered = filtered.filter((log) => options.levels!.includes(log.level));
     }
 
     if (options.events && options.events.length > 0) {
-      filtered = filtered.filter(log => options.events!.includes(log.event));
+      filtered = filtered.filter((log) => options.events!.includes(log.event));
     }
 
     if (options.hookNames && options.hookNames.length > 0) {
-      filtered = filtered.filter(log => options.hookNames!.includes(log.hookName));
+      filtered = filtered.filter((log) =>
+        options.hookNames!.includes(log.hookName)
+      );
     }
 
     if (options.outcomes && options.outcomes.length > 0) {
-      filtered = filtered.filter(log => log.outcome && options.outcomes!.includes(log.outcome));
+      filtered = filtered.filter(
+        (log) => log.outcome && options.outcomes!.includes(log.outcome)
+      );
     }
 
     if (options.limit) {
@@ -430,7 +440,19 @@ export class HookDiagnosticService {
       return JSON.stringify(this.recentLogs, null, 2);
     }
 
-    const headers = ['id', 'timestamp', 'level', 'event', 'hookName', 'hookId', 'sessionId', 'message', 'durationMs', 'exitCode', 'outcome'];
+    const headers = [
+      'id',
+      'timestamp',
+      'level',
+      'event',
+      'hookName',
+      'hookId',
+      'sessionId',
+      'message',
+      'durationMs',
+      'exitCode',
+      'outcome',
+    ];
     const rows = [headers.join(',')];
 
     for (const log of this.recentLogs) {

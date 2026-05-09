@@ -4,8 +4,14 @@
  */
 
 import { GovernanceManager } from './managers/GovernanceManager';
-import { governanceAuditService, AuditEvent } from './managers/GovernanceAuditService';
-import { governanceStrategyManager, GovernanceStrategy } from './managers/GovernanceStrategyManager';
+import {
+  governanceAuditService,
+  AuditEvent,
+} from './managers/GovernanceAuditService';
+import {
+  governanceStrategyManager,
+  GovernanceStrategy,
+} from './managers/GovernanceStrategyManager';
 
 /**
  * 报告配置
@@ -129,10 +135,14 @@ export class GovernanceReportService {
         version: '1.0.0',
       },
       summary: this.generateSummary(dateRange),
-      strategyAnalysis: includeStrategyDetails ? this.generateStrategyAnalysis() : [],
+      strategyAnalysis: includeStrategyDetails
+        ? this.generateStrategyAnalysis()
+        : [],
       timeDistribution: this.generateTimeDistribution(dateRange),
       topEvents: includeAuditDetails ? this.getTopEvents(dateRange) : [],
-      recommendations: includeRecommendation ? this.generateRecommendations() : [],
+      recommendations: includeRecommendation
+        ? this.generateRecommendations()
+        : [],
     };
 
     if (dateRange) {
@@ -158,14 +168,18 @@ export class GovernanceReportService {
   /**
    * 生成摘要
    */
-  private generateSummary(dateRange?: { start: Date; end: Date }): ReportSummary {
+  private generateSummary(dateRange?: {
+    start: Date;
+    end: Date;
+  }): ReportSummary {
     const stats = this.governanceManager.getStats();
     const auditStats = stats.auditStats;
 
     const totalExecutions = auditStats.totalEvents || 0;
     const successCount = auditStats.eventsByStatus?.success || 0;
     const failureCount = auditStats.eventsByStatus?.failure || 0;
-    const successRate = totalExecutions > 0 ? (successCount / totalExecutions) * 100 : 0;
+    const successRate =
+      totalExecutions > 0 ? (successCount / totalExecutions) * 100 : 0;
 
     const topBlockedTools = this.getTopToolsByCount(
       auditStats.eventsByTool || {},
@@ -183,7 +197,10 @@ export class GovernanceReportService {
       failureCount,
       successRate,
       averageExecutionTime: auditStats.averageExecutionTime || 0,
-      totalViolations: Object.values(stats.violations || {}).reduce((a, b) => a + b, 0),
+      totalViolations: Object.values(stats.violations || {}).reduce(
+        (a, b) => a + b,
+        0
+      ),
       topBlockedTools,
       topFailedTools,
     };
@@ -258,23 +275,28 @@ export class GovernanceReportService {
       }
     }
 
-    return [{
-      strategyName: activeStrategy.name,
-      strategyType: activeStrategy.type,
-      totalHits: Object.values(ruleHits).reduce((a, b) => a + b, 0),
-      rules: activeStrategy.rules.map(rule => ({
-        ruleId: rule.id,
-        ruleTarget: rule.target,
-        ruleAction: rule.action,
-        hitCount: ruleHits[rule.id] || 0,
-      })),
-    }];
+    return [
+      {
+        strategyName: activeStrategy.name,
+        strategyType: activeStrategy.type,
+        totalHits: Object.values(ruleHits).reduce((a, b) => a + b, 0),
+        rules: activeStrategy.rules.map((rule) => ({
+          ruleId: rule.id,
+          ruleTarget: rule.target,
+          ruleAction: rule.action,
+          hitCount: ruleHits[rule.id] || 0,
+        })),
+      },
+    ];
   }
 
   /**
    * 生成时间分布
    */
-  private generateTimeDistribution(dateRange?: { start: Date; end: Date }): TimeDistribution {
+  private generateTimeDistribution(dateRange?: {
+    start: Date;
+    end: Date;
+  }): TimeDistribution {
     const events = governanceAuditService.queryEvents({
       startDate: dateRange?.start.getTime(),
       endDate: dateRange?.end.getTime(),
@@ -289,9 +311,10 @@ export class GovernanceReportService {
     }
 
     for (const event of events) {
-      const timestamp = event.timestamp instanceof Date
-        ? event.timestamp
-        : new Date(event.timestamp);
+      const timestamp =
+        event.timestamp instanceof Date
+          ? event.timestamp
+          : new Date(event.timestamp);
 
       const hour = `${timestamp.getHours().toString().padStart(2, '0')}:00`;
       const day = timestamp.toISOString().split('T')[0];
@@ -322,7 +345,10 @@ export class GovernanceReportService {
     const stats = this.governanceManager.getStats();
 
     if (stats.violations) {
-      const totalViolations = Object.values(stats.violations).reduce((a, b) => a + b, 0);
+      const totalViolations = Object.values(stats.violations).reduce(
+        (a, b) => a + b,
+        0
+      );
       if (totalViolations > 10) {
         recommendations.push('检测到较多沙箱违规，建议加强沙箱配置');
       }
@@ -376,7 +402,9 @@ export class GovernanceReportService {
     lines.push('');
 
     if (report.metadata.dateRange) {
-      lines.push(`**日期范围**: ${report.metadata.dateRange.start.toISOString()} - ${report.metadata.dateRange.end.toISOString()}`);
+      lines.push(
+        `**日期范围**: ${report.metadata.dateRange.start.toISOString()} - ${report.metadata.dateRange.end.toISOString()}`
+      );
       lines.push('');
     }
 
@@ -388,7 +416,9 @@ export class GovernanceReportService {
     lines.push(`| 成功次数 | ${report.summary.successCount} |`);
     lines.push(`| 失败次数 | ${report.summary.failureCount} |`);
     lines.push(`| 成功率 | ${report.summary.successRate.toFixed(2)}% |`);
-    lines.push(`| 平均执行时间 | ${report.summary.averageExecutionTime.toFixed(2)}ms |`);
+    lines.push(
+      `| 平均执行时间 | ${report.summary.averageExecutionTime.toFixed(2)}ms |`
+    );
     lines.push(`| 总违规次数 | ${report.summary.totalViolations} |`);
     lines.push('');
 
@@ -407,11 +437,15 @@ export class GovernanceReportService {
       lines.push('## 治理配置');
       lines.push('');
       lines.push(`- 治理启用: ${report.config.enabled ? '是' : '否'}`);
-      lines.push(`- 权限强制: ${report.config.enforcePermission ? '是' : '否'}`);
+      lines.push(
+        `- 权限强制: ${report.config.enforcePermission ? '是' : '否'}`
+      );
       lines.push(`- 沙箱强制: ${report.config.enforceSandbox ? '是' : '否'}`);
       lines.push(`- Hooks强制: ${report.config.enforceHooks ? '是' : '否'}`);
       if (report.config.activeStrategy) {
-        lines.push(`- 活跃策略: ${report.config.activeStrategy.name} (${report.config.activeStrategy.type})`);
+        lines.push(
+          `- 活跃策略: ${report.config.activeStrategy.name} (${report.config.activeStrategy.type})`
+        );
       }
       lines.push('');
     }
@@ -428,7 +462,9 @@ export class GovernanceReportService {
         lines.push('| 规则ID | 目标 | 动作 | 命中次数 |');
         lines.push('|--------|------|------|---------|');
         for (const rule of analysis.rules) {
-          lines.push(`| ${rule.ruleId} | ${rule.ruleTarget} | ${rule.ruleAction} | ${rule.hitCount} |`);
+          lines.push(
+            `| ${rule.ruleId} | ${rule.ruleTarget} | ${rule.ruleAction} | ${rule.hitCount} |`
+          );
         }
         lines.push('');
       }
@@ -462,7 +498,10 @@ export class GovernanceReportService {
   /**
    * 保存报告到文件
    */
-  async saveReportToFile(filePath: string, config: ReportConfig = {}): Promise<void> {
+  async saveReportToFile(
+    filePath: string,
+    config: ReportConfig = {}
+  ): Promise<void> {
     const content = this.exportReport(config);
 
     const { writeFileSync } = await import('fs');

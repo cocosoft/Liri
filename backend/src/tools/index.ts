@@ -11,7 +11,10 @@ import { feature } from '@modules/core';
 import { ToolManager, globalToolManager } from './core/ToolManager';
 import { ToolRegistry, setToolRegistry, getToolRegistry } from './ToolRegistry';
 import { ToolExecutor, globalToolExecutor } from './executor/ToolExecutor';
-import { ToolPermissionManager, globalToolPermissionManager } from './security/ToolPermissionManager';
+import {
+  ToolPermissionManager,
+  globalToolPermissionManager,
+} from './security/ToolPermissionManager';
 import { ToolMonitor, globalToolMonitor } from './monitoring/ToolMonitor';
 
 // 导出核心组件
@@ -38,10 +41,10 @@ export async function initializeToolSystem(config?: any): Promise<void> {
   try {
     // 初始化工具管理器
     await globalToolManager.initialize();
-    
+
     // 启动工具监控
     globalToolMonitor.startMonitoring();
-    
+
     console.log('✅ 工具系统初始化完成');
   } catch (error) {
     console.error('❌ 工具系统初始化失败:', error);
@@ -56,7 +59,7 @@ export async function shutdownToolSystem(): Promise<void> {
   try {
     // 停止工具监控
     globalToolMonitor.stopMonitoring();
-    
+
     console.log('✅ 工具系统已关闭');
   } catch (error) {
     console.error('❌ 工具系统关闭失败:', error);
@@ -79,29 +82,71 @@ export function getToolSystemStatus(): {
     manager: globalToolManager.getStatus(),
     executor: {
       concurrentExecutions: globalToolExecutor.getConcurrentExecutionCount(),
-      activeExecutions: globalToolExecutor.getActiveExecutionIds()
+      activeExecutions: globalToolExecutor.getActiveExecutionIds(),
     },
     permissionManager: globalToolPermissionManager.getConfig(),
-    monitor: globalToolMonitor.getStatus()
+    monitor: globalToolMonitor.getStatus(),
   };
 }
 
 // 导出新文件操作工具
-export { readFile, addLineNumbers, type FileReadInput, type FileReadResult } from './FileReadTool/FileReadTool';
-export { writeFile, type FileWriteInput, type FileWriteResult } from './FileWriteTool/FileWriteTool';
-export { editFile, type FileEditInput, type FileEditResult } from './FileEditTool/FileEditTool';
+export {
+  readFile,
+  addLineNumbers,
+  type FileReadInput,
+  type FileReadResult,
+} from './FileReadTool/FileReadTool';
+export {
+  writeFile,
+  type FileWriteInput,
+  type FileWriteResult,
+} from './FileWriteTool/FileWriteTool';
+export {
+  editFile,
+  type FileEditInput,
+  type FileEditResult,
+} from './FileEditTool/FileEditTool';
 export { glob, type GlobResult } from './GlobTool/GlobTool';
-export { grep, type GrepOptions, type GrepResult, type GrepOutputMode } from './GrepTool/GrepTool';
-export { GREP_TOOL_NAME, getDescription as grepDescription } from './GrepTool/prompt';
-export { GLOB_TOOL_NAME, DESCRIPTION as globDescription } from './GlobTool/prompt';
-export { FILE_READ_TOOL_NAME, DESCRIPTION as readDescription } from './FileReadTool/prompt';
-export { FILE_WRITE_TOOL_NAME, getWriteToolDescription } from './FileWriteTool/prompt';
-export { FILE_EDIT_TOOL_NAME, getEditToolDescription } from './FileEditTool/prompt';
+export {
+  grep,
+  type GrepOptions,
+  type GrepResult,
+  type GrepOutputMode,
+} from './GrepTool/GrepTool';
+export {
+  GREP_TOOL_NAME,
+  getDescription as grepDescription,
+} from './GrepTool/prompt';
+export {
+  GLOB_TOOL_NAME,
+  DESCRIPTION as globDescription,
+} from './GlobTool/prompt';
+export {
+  FILE_READ_TOOL_NAME,
+  DESCRIPTION as readDescription,
+} from './FileReadTool/prompt';
+export {
+  FILE_WRITE_TOOL_NAME,
+  getWriteToolDescription,
+} from './FileWriteTool/prompt';
+export {
+  FILE_EDIT_TOOL_NAME,
+  getEditToolDescription,
+} from './FileEditTool/prompt';
 
 // 导出条件加载工具
-export { sendNotification, getNotifications } from './PushNotificationTool/PushNotificationTool';
-export { sendMessage, getMessageHistory } from './SendMessageTool/SendMessageTool';
-export { askUserQuestion, validateOptions } from './AskUserQuestionTool/AskUserQuestionTool';
+export {
+  sendNotification,
+  getNotifications,
+} from './PushNotificationTool/PushNotificationTool';
+export {
+  sendMessage,
+  getMessageHistory,
+} from './SendMessageTool/SendMessageTool';
+export {
+  askUserQuestion,
+  validateOptions,
+} from './AskUserQuestionTool/AskUserQuestionTool';
 
 // 导出工具特性开关
 export {
@@ -115,8 +160,14 @@ export {
 } from './utils/ToolFeatureFlags';
 
 // 导出工具编排服务
-export { ToolOrchestration, defaultToolOrchestration } from './services/ToolOrchestration';
-export { toolResultBudgetManager, ToolResultBudgetManager } from './services/ToolResultBudget';
+export {
+  ToolOrchestration,
+  defaultToolOrchestration,
+} from './services/ToolOrchestration';
+export {
+  toolResultBudgetManager,
+  ToolResultBudgetManager,
+} from './services/ToolResultBudget';
 export { InterruptibleToolExecutor } from './services/InterruptibleToolExecutor';
 
 /**
@@ -166,5 +217,5 @@ export default {
   ToolExecutor: globalToolExecutor,
   ToolPermissionManager: globalToolPermissionManager,
   ToolMonitor: globalToolMonitor,
-  version: TOOL_SYSTEM_VERSION
+  version: TOOL_SYSTEM_VERSION,
 };

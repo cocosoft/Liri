@@ -50,37 +50,40 @@ export class DirectoryWatcher {
       }
 
       const filePath = path.join(dirPath, fileName);
-      
+
       // 使用防抖避免频繁触发
       const key = `${dirPath}-${fileName}`;
       if (this.debounceTimers.has(key)) {
         clearTimeout(this.debounceTimers.get(key)!);
       }
 
-      this.debounceTimers.set(key, setTimeout(() => {
-        this.debounceTimers.delete(key);
-        
-        // 确定事件类型
-        let eventTypeNormalized: WatchEventType;
-        if (eventType === 'rename') {
-          // 检查文件是否存在
-          if (fs.existsSync(filePath)) {
-            eventTypeNormalized = 'add';
+      this.debounceTimers.set(
+        key,
+        setTimeout(() => {
+          this.debounceTimers.delete(key);
+
+          // 确定事件类型
+          let eventTypeNormalized: WatchEventType;
+          if (eventType === 'rename') {
+            // 检查文件是否存在
+            if (fs.existsSync(filePath)) {
+              eventTypeNormalized = 'add';
+            } else {
+              eventTypeNormalized = 'unlink';
+            }
           } else {
-            eventTypeNormalized = 'unlink';
+            eventTypeNormalized = 'change';
           }
-        } else {
-          eventTypeNormalized = 'change';
-        }
 
-        const event: WatchEvent = {
-          type: eventTypeNormalized,
-          filePath,
-          fileName,
-        };
+          const event: WatchEvent = {
+            type: eventTypeNormalized,
+            filePath,
+            fileName,
+          };
 
-        this.notifyCallbacks(event);
-      }, this.debounceDelay));
+          this.notifyCallbacks(event);
+        }, this.debounceDelay)
+      );
     });
 
     this.watchers.set(dirPath, watcher);
@@ -144,7 +147,7 @@ export class DirectoryWatcher {
       watcher.close();
     }
     this.watchers.clear();
-    this.debounceTimers.forEach(timer => clearTimeout(timer));
+    this.debounceTimers.forEach((timer) => clearTimeout(timer));
     this.debounceTimers.clear();
   }
 }

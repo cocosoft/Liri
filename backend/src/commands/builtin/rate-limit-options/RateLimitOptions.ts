@@ -44,7 +44,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `速率限制配置:\n\n` +
+      message:
+        `速率限制配置:\n\n` +
         `- 每分钟请求数: ${config.requestsPerMinute}\n` +
         `- 每小时请求数: ${config.requestsPerHour}\n` +
         `- 每分钟Token数: ${config.tokensPerMinute.toLocaleString()}\n` +
@@ -58,10 +59,13 @@ export default {
   /**
    * 设置速率限制
    */
-  async handleSet(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleSet(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const option = args[0];
     const value = parseInt(args[1]);
-    
+
     if (!option || isNaN(value)) {
       return {
         success: false,
@@ -72,10 +76,14 @@ export default {
     }
 
     const validOptions = [
-      'requestsPerMinute', 'requestsPerHour', 'tokensPerMinute',
-      'concurrentRequests', 'burstSize', 'cooldownPeriod'
+      'requestsPerMinute',
+      'requestsPerHour',
+      'tokensPerMinute',
+      'concurrentRequests',
+      'burstSize',
+      'cooldownPeriod',
     ];
-    
+
     if (!validOptions.includes(option)) {
       return {
         success: false,
@@ -85,8 +93,10 @@ export default {
       };
     }
 
-    context.onDone?.(`速率限制已更新: ${option} = ${value}`, { display: 'system' });
-    
+    context.onDone?.(`速率限制已更新: ${option} = ${value}`, {
+      display: 'system',
+    });
+
     return {
       success: true,
       type: 'text',
@@ -100,7 +110,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('速率限制已重置为默认值', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

@@ -5,7 +5,16 @@
 
 import { join } from 'path';
 import { randomBytes } from 'crypto';
-import { open, writeFile, readFile, mkdir, rename, unlink, readdir, stat } from 'fs/promises';
+import {
+  open,
+  writeFile,
+  readFile,
+  mkdir,
+  rename,
+  unlink,
+  readdir,
+  stat,
+} from 'fs/promises';
 import { logForDebugging } from '../utils/debug.js';
 import { isEnvTruthy } from '../utils/envUtils.js';
 import { jsonStringify, jsonParse } from '../performance/SlowOperations.js';
@@ -51,7 +60,7 @@ export async function withCacheLock<T>(fn: () => Promise<T>): Promise<T> {
 
   // 创建新锁
   let releaseLock: (() => void) | undefined;
-  cacheLockPromise = new Promise<void>(resolve => {
+  cacheLockPromise = new Promise<void>((resolve) => {
     releaseLock = resolve;
   });
 
@@ -83,30 +92,34 @@ export interface CacheStorage {
    * 获取缓存项
    */
   get<T = any>(key: string): Promise<CacheItem<T> | undefined>;
-  
+
   /**
    * 设置缓存项
    */
-  set<T = any>(key: string, value: T, options?: {
-    expiry?: number;
-    metadata?: Record<string, any>;
-  }): Promise<void>;
-  
+  set<T = any>(
+    key: string,
+    value: T,
+    options?: {
+      expiry?: number;
+      metadata?: Record<string, any>;
+    }
+  ): Promise<void>;
+
   /**
    * 删除缓存项
    */
   delete(key: string): Promise<boolean>;
-  
+
   /**
    * 清空缓存
    */
   clear(): Promise<void>;
-  
+
   /**
    * 获取所有缓存键
    */
   keys(): Promise<string[]>;
-  
+
   /**
    * 关闭存储
    */
@@ -138,10 +151,14 @@ export class MemoryStorage implements CacheStorage {
     return item as CacheItem<T>;
   }
 
-  async set<T = any>(key: string, value: T, options?: {
-    expiry?: number;
-    metadata?: Record<string, any>;
-  }): Promise<void> {
+  async set<T = any>(
+    key: string,
+    value: T,
+    options?: {
+      expiry?: number;
+      metadata?: Record<string, any>;
+    }
+  ): Promise<void> {
     const item: CacheItem<T> = {
       key,
       value,
@@ -210,13 +227,16 @@ export class DiskStorage implements CacheStorage {
    * 原子写入文件
    * 使用临时文件+重命名模式防止文件损坏
    */
-  private async atomicWriteFile(filePath: string, content: string): Promise<void> {
+  private async atomicWriteFile(
+    filePath: string,
+    content: string
+  ): Promise<void> {
     const tempPath = join(this.cacheDir, this.generateTempFileName('cache'));
-    
+
     try {
       // 确保目录存在
       await mkdir(this.cacheDir, { recursive: true });
-      
+
       // 写入临时文件
       const handle = await open(tempPath, 'w', 0o600);
       try {
@@ -225,7 +245,7 @@ export class DiskStorage implements CacheStorage {
       } finally {
         await handle.close();
       }
-      
+
       // 原子重命名
       await rename(tempPath, filePath);
     } catch (error) {
@@ -253,10 +273,7 @@ export class DiskStorage implements CacheStorage {
     }
 
     // 检查必需字段
-    if (
-      typeof parsed.data !== 'object' ||
-      parsed.data === null
-    ) {
+    if (typeof parsed.data !== 'object' || parsed.data === null) {
       return null;
     }
 
@@ -300,7 +317,7 @@ export class DiskStorage implements CacheStorage {
    */
   private async loadCacheFromDisk(): Promise<PersistentCache> {
     const cachePath = join(this.cacheDir, this.cacheFileName);
-    
+
     try {
       const content = await readFile(cachePath, 'utf-8');
       const parsed = jsonParse(content);
@@ -318,17 +335,16 @@ export class DiskStorage implements CacheStorage {
       }
 
       // 验证结构
-      if (
-        typeof parsed.data !== 'object' ||
-        parsed.data === null
-      ) {
+      if (typeof parsed.data !== 'object' || parsed.data === null) {
         logForDebugging('缓存结构无效，使用空缓存');
         return this.createEmptyCache();
       }
 
       return parsed as PersistentCache;
     } catch (error) {
-      logForDebugging(`加载缓存失败: ${error instanceof Error ? error.message : String(error)}`);
+      logForDebugging(
+        `加载缓存失败: ${error instanceof Error ? error.message : String(error)}`
+      );
       return this.createEmptyCache();
     }
   }
@@ -352,10 +368,10 @@ export class DiskStorage implements CacheStorage {
     try {
       // 确保缓存目录存在
       await mkdir(this.cacheDir, { recursive: true });
-      
+
       // 从磁盘加载缓存
       const cache = await this.loadCacheFromDisk();
-      
+
       // 加载到内存缓存
       for (const [key, item] of Object.entries(cache.data)) {
         try {
@@ -367,14 +383,20 @@ export class DiskStorage implements CacheStorage {
             });
           }
         } catch (error) {
-          logForDebugging(`加载缓存项 ${key} 失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'warn' });
+          logForDebugging(
+            `加载缓存项 ${key} 失败: ${error instanceof Error ? error.message : String(error)}`,
+            { level: 'warn' }
+          );
         }
       }
 
       this.isInitialized = true;
       logForDebugging(`磁盘存储已初始化: ${this.cacheDir}`);
     } catch (error) {
-      logForDebugging(`初始化磁盘存储失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+      logForDebugging(
+        `初始化磁盘存储失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'error' }
+      );
       throw error;
     }
   }
@@ -384,15 +406,19 @@ export class DiskStorage implements CacheStorage {
     return this.memoryCache.get<T>(key);
   }
 
-  async set<T = any>(key: string, value: T, options?: {
-    expiry?: number;
-    metadata?: Record<string, any>;
-  }): Promise<void> {
+  async set<T = any>(
+    key: string,
+    value: T,
+    options?: {
+      expiry?: number;
+      metadata?: Record<string, any>;
+    }
+  ): Promise<void> {
     await this.initialize();
-    
+
     // 先更新内存缓存
     await this.memoryCache.set(key, value, options);
-    
+
     // 然后持久化到磁盘
     try {
       await withCacheLock(async () => {
@@ -408,17 +434,20 @@ export class DiskStorage implements CacheStorage {
         logForDebugging(`缓存项已持久化: ${key}`);
       });
     } catch (error) {
-      logForDebugging(`持久化缓存项 ${key} 失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'warn' });
+      logForDebugging(
+        `持久化缓存项 ${key} 失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'warn' }
+      );
     }
   }
 
   async delete(key: string): Promise<boolean> {
     await this.initialize();
-    
+
     // 先从内存缓存中删除
     const deleted = await this.memoryCache.delete(key);
     if (!deleted) return false;
-    
+
     // 然后从磁盘中删除
     try {
       await withCacheLock(async () => {
@@ -428,18 +457,21 @@ export class DiskStorage implements CacheStorage {
         logForDebugging(`缓存项已删除: ${key}`);
       });
     } catch (error) {
-      logForDebugging(`删除缓存项 ${key} 失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'warn' });
+      logForDebugging(
+        `删除缓存项 ${key} 失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'warn' }
+      );
     }
-    
+
     return true;
   }
 
   async clear(): Promise<void> {
     await this.initialize();
-    
+
     // 清空内存缓存
     await this.memoryCache.clear();
-    
+
     // 清空磁盘缓存
     try {
       await withCacheLock(async () => {
@@ -448,7 +480,10 @@ export class DiskStorage implements CacheStorage {
         logForDebugging('缓存已清空');
       });
     } catch (error) {
-      logForDebugging(`清空磁盘缓存失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'warn' });
+      logForDebugging(
+        `清空磁盘缓存失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'warn' }
+      );
     }
   }
 
@@ -490,10 +525,14 @@ export class CacheSystem {
   /**
    * 设置缓存
    */
-  async set<T = any>(key: string, value: T, options?: {
-    expiry?: number;
-    metadata?: Record<string, any>;
-  }): Promise<void> {
+  async set<T = any>(
+    key: string,
+    value: T,
+    options?: {
+      expiry?: number;
+      metadata?: Record<string, any>;
+    }
+  ): Promise<void> {
     await withCacheLock(async () => {
       await this.storage.set(key, value, options);
     });
@@ -569,13 +608,13 @@ export class CacheSystem {
     const parts = this.version.split('.').map(Number);
     parts[2]++; // 增加补丁版本
     this.version = parts.join('.');
-    
+
     this.versionHistory.push({
       version: this.version,
       timestamp: Date.now(),
       description,
     });
-    
+
     return this.version;
   }
 
@@ -589,7 +628,10 @@ export class CacheSystem {
   /**
    * 执行版本迁移
    */
-  async migrateVersion(fromVersion: string, toVersion: string): Promise<boolean> {
+  async migrateVersion(
+    fromVersion: string,
+    toVersion: string
+  ): Promise<boolean> {
     // 这里可以实现版本迁移逻辑
     // 例如从旧版本的缓存格式迁移到新版本
     logForDebugging(`执行版本迁移: ${fromVersion} -> ${toVersion}`);
@@ -605,7 +647,7 @@ export function createCacheSystem(options?: {
   cacheDir?: string;
 }): CacheSystem {
   let storage: CacheStorage;
-  
+
   if (options?.storage) {
     storage = options.storage;
   } else if (options?.cacheDir) {
@@ -613,7 +655,7 @@ export function createCacheSystem(options?: {
   } else {
     storage = new MemoryStorage();
   }
-  
+
   return new CacheSystem(storage);
 }
 
@@ -627,7 +669,8 @@ let globalCacheSystem: CacheSystem | null = null;
  */
 export function getCacheSystem(): CacheSystem {
   if (!globalCacheSystem) {
-    const cacheDir = process.env.PY_APP_CACHE_DIR || join(process.cwd(), '.cache');
+    const cacheDir =
+      process.env.PY_APP_CACHE_DIR || join(process.cwd(), '.cache');
     globalCacheSystem = createCacheSystem({ cacheDir });
   }
   return globalCacheSystem;

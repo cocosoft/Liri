@@ -12,7 +12,11 @@ import { fileURLToPath } from 'url';
 /**
  * 治理策略类型
  */
-export type GovernanceStrategyType = 'strict' | 'balanced' | 'permissive' | 'custom';
+export type GovernanceStrategyType =
+  | 'strict'
+  | 'balanced'
+  | 'permissive'
+  | 'custom';
 
 /**
  * 治理策略
@@ -46,7 +50,11 @@ export interface GovernanceRule {
  * 策略事件
  */
 export interface StrategyEvent {
-  type: 'strategyCreated' | 'strategyUpdated' | 'strategyActivated' | 'strategyDeactivated';
+  type:
+    | 'strategyCreated'
+    | 'strategyUpdated'
+    | 'strategyActivated'
+    | 'strategyDeactivated';
   strategyId: string;
   timestamp: number;
 }
@@ -82,12 +90,19 @@ export class GovernanceStrategyManager extends EventEmitter {
    */
   private getStrategiesPath(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const strategiesDir = join(__dirname, '..', '..', '..', 'config', 'strategies');
-    
+    const strategiesDir = join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'config',
+      'strategies'
+    );
+
     if (!existsSync(strategiesDir)) {
       mkdirSync(strategiesDir, { recursive: true });
     }
-    
+
     return join(strategiesDir, 'governance_strategies.json');
   }
 
@@ -99,7 +114,9 @@ export class GovernanceStrategyManager extends EventEmitter {
       try {
         const content = readFileSync(this.strategiesPath, 'utf-8');
         const strategies = JSON.parse(content);
-        return Array.isArray(strategies) ? strategies : this.createDefaultStrategies();
+        return Array.isArray(strategies)
+          ? strategies
+          : this.createDefaultStrategies();
       } catch (error) {
         console.error('Failed to load governance strategies:', error);
         return this.createDefaultStrategies();
@@ -191,7 +208,7 @@ export class GovernanceStrategyManager extends EventEmitter {
         isActive: false,
       },
     ];
-    
+
     this.saveStrategies(strategies);
     return strategies;
   }
@@ -201,7 +218,10 @@ export class GovernanceStrategyManager extends EventEmitter {
    */
   private saveStrategies(strategies: GovernanceStrategy[]): void {
     try {
-      writeFileSync(this.strategiesPath, JSON.stringify(strategies, null, 2) + '\n');
+      writeFileSync(
+        this.strategiesPath,
+        JSON.stringify(strategies, null, 2) + '\n'
+      );
     } catch (error) {
       console.error('Failed to save governance strategies:', error);
     }
@@ -211,7 +231,7 @@ export class GovernanceStrategyManager extends EventEmitter {
    * 查找活跃策略
    */
   private findActiveStrategy(): string | null {
-    const active = this.strategies.find(s => s.isActive);
+    const active = this.strategies.find((s) => s.isActive);
     return active ? active.id : null;
   }
 
@@ -226,20 +246,27 @@ export class GovernanceStrategyManager extends EventEmitter {
    * 获取策略
    */
   getStrategy(id: string): GovernanceStrategy | undefined {
-    return this.strategies.find(s => s.id === id);
+    return this.strategies.find((s) => s.id === id);
   }
 
   /**
    * 获取活跃策略
    */
   getActiveStrategy(): GovernanceStrategy | undefined {
-    return this.activeStrategyId ? this.getStrategy(this.activeStrategyId) : undefined;
+    return this.activeStrategyId
+      ? this.getStrategy(this.activeStrategyId)
+      : undefined;
   }
 
   /**
    * 创建策略
    */
-  createStrategy(strategy: Omit<GovernanceStrategy, 'id' | 'createdAt' | 'updatedAt' | 'version'>): GovernanceStrategy {
+  createStrategy(
+    strategy: Omit<
+      GovernanceStrategy,
+      'id' | 'createdAt' | 'updatedAt' | 'version'
+    >
+  ): GovernanceStrategy {
     const now = Date.now();
     const newStrategy: GovernanceStrategy = {
       ...strategy,
@@ -264,9 +291,12 @@ export class GovernanceStrategyManager extends EventEmitter {
   /**
    * 更新策略
    */
-  updateStrategy(id: string, updates: Partial<GovernanceStrategy>): GovernanceStrategy | null {
-    const index = this.strategies.findIndex(s => s.id === id);
-    
+  updateStrategy(
+    id: string,
+    updates: Partial<GovernanceStrategy>
+  ): GovernanceStrategy | null {
+    const index = this.strategies.findIndex((s) => s.id === id);
+
     if (index === -1) {
       return null;
     }
@@ -296,13 +326,13 @@ export class GovernanceStrategyManager extends EventEmitter {
    */
   activateStrategy(id: string): boolean {
     const strategy = this.getStrategy(id);
-    
+
     if (!strategy) {
       return false;
     }
 
     // 先禁用所有策略
-    this.strategies = this.strategies.map(s => ({
+    this.strategies = this.strategies.map((s) => ({
       ...s,
       isActive: s.id === id,
     }));
@@ -324,12 +354,12 @@ export class GovernanceStrategyManager extends EventEmitter {
    */
   deactivateStrategy(id: string): boolean {
     const strategy = this.getStrategy(id);
-    
+
     if (!strategy) {
       return false;
     }
 
-    const index = this.strategies.findIndex(s => s.id === id);
+    const index = this.strategies.findIndex((s) => s.id === id);
     this.strategies[index] = {
       ...strategy,
       isActive: false,
@@ -355,44 +385,51 @@ export class GovernanceStrategyManager extends EventEmitter {
    * 删除策略
    */
   deleteStrategy(id: string): boolean {
-    const index = this.strategies.findIndex(s => s.id === id);
-    
+    const index = this.strategies.findIndex((s) => s.id === id);
+
     if (index === -1) {
       return false;
     }
 
     this.strategies.splice(index, 1);
-    
+
     if (this.activeStrategyId === id) {
       this.activeStrategyId = null;
     }
 
     this.saveStrategies(this.strategies);
-    
+
     return true;
   }
 
   /**
    * 应用策略规则
    */
-  applyStrategyRules(target: string, context: Record<string, unknown>): 'allow' | 'deny' | 'monitor' {
+  applyStrategyRules(
+    target: string,
+    context: Record<string, unknown>
+  ): 'allow' | 'deny' | 'monitor' {
     const activeStrategy = this.getActiveStrategy();
-    
+
     if (!activeStrategy) {
       return 'allow';
     }
 
     // 按优先级排序规则
-    const sortedRules = [...activeStrategy.rules].sort((a, b) => b.priority - a.priority);
+    const sortedRules = [...activeStrategy.rules].sort(
+      (a, b) => b.priority - a.priority
+    );
 
     for (const rule of sortedRules) {
       if (rule.target === '*' || rule.target === target) {
         // 检查条件
         if (rule.conditions) {
-          const conditionsMet = Object.entries(rule.conditions).every(([key, value]) => {
-            return context[key] === value;
-          });
-          
+          const conditionsMet = Object.entries(rule.conditions).every(
+            ([key, value]) => {
+              return context[key] === value;
+            }
+          );
+
           if (conditionsMet) {
             return rule.action;
           }
@@ -418,4 +455,5 @@ export class GovernanceStrategyManager extends EventEmitter {
 /**
  * 导出单例
  */
-export const governanceStrategyManager = GovernanceStrategyManager.getInstance();
+export const governanceStrategyManager =
+  GovernanceStrategyManager.getInstance();

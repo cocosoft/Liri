@@ -1,7 +1,7 @@
 /**
  * 工具列表合并Hook
  * 基于CC源码 cc_code/backend/hooks/useMergedTools.ts 实现
- * 
+ *
  * 合并来源：
  * - 内置工具（Built-in Tools）
  * - MCP工具（MCP Tools）
@@ -55,13 +55,13 @@ export interface UseMergedToolsResult {
 function getToolSource(tool: Tool): ToolSource {
   if (tool.isMcp) return 'mcp';
   if (tool.isLsp) return 'builtin';
-  
+
   // 检查是否为插件工具
   const toolName = tool.name.toLowerCase();
   if (toolName.includes('plugin') || toolName.includes('extension')) {
     return 'plugin';
   }
-  
+
   return 'builtin';
 }
 
@@ -85,8 +85,8 @@ function mergeTools(allTools: Tool[]): MergedTool[] {
     for (const tool of tools) {
       const source = getToolSource(tool);
       const conflicts = tools
-        .filter(t => t !== tool)
-        .map(t => ({
+        .filter((t) => t !== tool)
+        .map((t) => ({
           ...t,
           source: getToolSource(t),
           hasConflict: true,
@@ -158,7 +158,7 @@ export function useMergedTools(): UseMergedToolsResult {
 
   // 获取有冲突的工具
   const conflictingTools = useMemo(() => {
-    return mergedTools.filter(tool => tool.hasConflict);
+    return mergedTools.filter((tool) => tool.hasConflict);
   }, [mergedTools]);
 
   return {
@@ -183,5 +183,5 @@ export function useTools(): Tool[] {
  */
 export function useToolByName(name: string): MergedTool | undefined {
   const { tools } = useMergedTools();
-  return tools.find(tool => tool.name.toLowerCase() === name.toLowerCase());
+  return tools.find((tool) => tool.name.toLowerCase() === name.toLowerCase());
 }

@@ -9,7 +9,14 @@ export interface InputProps {
   focus?: boolean;
 }
 
-export function Input({ value = '', onChange, onSubmit, placeholder, password, focus = true }: InputProps) {
+export function Input({
+  value = '',
+  onChange,
+  onSubmit,
+  placeholder,
+  password,
+  focus = true,
+}: InputProps) {
   const [inputValue, setInputValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 

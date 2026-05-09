@@ -195,7 +195,7 @@ export class CostMonitor {
     cost: number,
     inputTokens: number,
     outputTokens: number,
-    webSearchRequests: number = 0,
+    webSearchRequests: number = 0
   ): void {
     const dataPoint: CostDataPoint = {
       timestamp: Date.now(),
@@ -230,7 +230,9 @@ export class CostMonitor {
       }
 
       const windowStart = now - rule.timeWindow;
-      const windowData = this.costHistory.filter(d => d.timestamp >= windowStart);
+      const windowData = this.costHistory.filter(
+        (d) => d.timestamp >= windowStart
+      );
 
       let currentValue = 0;
       switch (rule.thresholdType) {
@@ -238,10 +240,16 @@ export class CostMonitor {
           currentValue = windowData.reduce((sum, d) => sum + d.cost, 0);
           break;
         case 'tokens':
-          currentValue = windowData.reduce((sum, d) => sum + d.inputTokens + d.outputTokens, 0);
+          currentValue = windowData.reduce(
+            (sum, d) => sum + d.inputTokens + d.outputTokens,
+            0
+          );
           break;
         case 'requests':
-          currentValue = windowData.reduce((sum, d) => sum + d.webSearchRequests, 0);
+          currentValue = windowData.reduce(
+            (sum, d) => sum + d.webSearchRequests,
+            0
+          );
           break;
       }
 
@@ -257,7 +265,8 @@ export class CostMonitor {
   private triggerAlert(rule: AlertRule, currentValue: number): void {
     // 检查最近是否已经触发过相同规则的告警（避免频繁告警）
     const recentAlerts = this.alertHistory.filter(
-      alert => alert.ruleId === rule.id && alert.timestamp > Date.now() - 3600000,
+      (alert) =>
+        alert.ruleId === rule.id && alert.timestamp > Date.now() - 3600000
     );
     if (recentAlerts.length > 0) {
       return;
@@ -269,7 +278,8 @@ export class CostMonitor {
       level: rule.level,
       message: this.generateAlertMessage(rule, currentValue),
       timestamp: Date.now(),
-      currentCost: rule.thresholdType === 'cost' ? currentValue : this.currentPeriodCost,
+      currentCost:
+        rule.thresholdType === 'cost' ? currentValue : this.currentPeriodCost,
       threshold: rule.threshold,
     };
 
@@ -327,10 +337,10 @@ export class CostMonitor {
    */
   getRecentAlerts(level?: AlertLevel): AlertRecord[] {
     let alerts = this.alertHistory.filter(
-      a => a.timestamp > Date.now() - 24 * 60 * 60 * 1000,
+      (a) => a.timestamp > Date.now() - 24 * 60 * 60 * 1000
     );
     if (level) {
-      alerts = alerts.filter(a => a.level === level);
+      alerts = alerts.filter((a) => a.level === level);
     }
     return alerts;
   }
@@ -366,9 +376,12 @@ export class CostMonitor {
       try {
         listener(alert);
       } catch (error) {
-        logForDebugging(`告警监听器执行失败: ${error instanceof Error ? error.message : String(error)}`, {
-          level: 'error',
-        });
+        logForDebugging(
+          `告警监听器执行失败: ${error instanceof Error ? error.message : String(error)}`,
+          {
+            level: 'error',
+          }
+        );
       }
     }
   }
@@ -395,7 +408,9 @@ export class CostMonitor {
       currentPeriodCost: this.currentPeriodCost,
       periodStart: this.periodStart,
       alertCount: this.alertHistory.length,
-      criticalAlertCount: this.alertHistory.filter(a => a.level === AlertLevel.CRITICAL).length,
+      criticalAlertCount: this.alertHistory.filter(
+        (a) => a.level === AlertLevel.CRITICAL
+      ).length,
       totalCostHistory: this.costHistory.length,
     };
   }
@@ -413,7 +428,7 @@ export function recordCost(
   cost: number,
   inputTokens: number,
   outputTokens: number,
-  webSearchRequests: number = 0,
+  webSearchRequests: number = 0
 ): void {
   costMonitor.recordCost(cost, inputTokens, outputTokens, webSearchRequests);
 }
@@ -463,7 +478,9 @@ export function getAlertRules(): AlertRule[] {
 /**
  * 获取监控统计信息
  */
-export function getMonitorStats(): ReturnType<typeof costMonitor.getMonitorStats> {
+export function getMonitorStats(): ReturnType<
+  typeof costMonitor.getMonitorStats
+> {
   return costMonitor.getMonitorStats();
 }
 

@@ -28,8 +28,7 @@ export abstract class LLMClient {
     this.toolExecutor = executor;
   }
 
-  initialize(): void {
-  }
+  initialize(): void {}
 
   abstract chat(
     messages: ChatMessage[],

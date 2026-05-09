@@ -10,5 +10,5 @@ export const activityCommand: Command = {
   description: '工作活动统计（代码、任务、时间）',
   aliases: ['worksummary', 'act', '工作统计'],
   argumentHint: '[summary|code|tasks|time|status|--json|help]',
-  load: () => import('./ActivityStats.js').then(m => m.default),
+  load: () => import('./ActivityStats.js').then((m) => m.default),
 };

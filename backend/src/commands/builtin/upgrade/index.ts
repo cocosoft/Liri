@@ -14,6 +14,8 @@ export const upgradeCommand: Command = {
   aliases: ['update'],
   argumentHint: '[check|update|upgrade|version|changelog|help]',
   whenToUse: '当你需要检查更新或升级应用时',
-  load: async () => import('./Upgrade.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Upgrade.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

@@ -7,7 +7,8 @@ export const SYSTEM_PROMPT_SECTIONS = {
   ROLE: 'You are a helpful assistant.',
   CAPABILITIES: 'You have access to various tools to help you assist the user.',
   CONSTRAINTS: 'You should follow the user instructions carefully.',
-  CONTEXT: 'Consider the context of the conversation to provide relevant responses.',
+  CONTEXT:
+    'Consider the context of the conversation to provide relevant responses.',
 } as const;
 
 export const COMPACT_PROMPT = `This conversation has become quite long. To continue effectively, the previous messages have been summarized. The summary preserves key information while reducing token usage.`;

@@ -17,7 +17,8 @@ export class InteractiveShell {
   private rl: readline.Interface;
   private options: InteractiveOptions;
   private prompt: string;
-  private commandHandler: ((command: string) => Promise<void> | void) | null = null;
+  private commandHandler: ((command: string) => Promise<void> | void) | null =
+    null;
 
   constructor(options?: InteractiveOptions) {
     this.options = {
@@ -53,7 +54,7 @@ export class InteractiveShell {
    */
   private async handleLine(line: string): Promise<void> {
     const command = line.trim();
-    
+
     if (!command) {
       this.rl.prompt();
       return;
@@ -95,7 +96,7 @@ export class InteractiveShell {
    */
   private handleComplete(line: string): [string[], string] {
     const suggestions = commandCompleter.complete(line);
-    const matches = suggestions.map(s => s.value);
+    const matches = suggestions.map((s) => s.value);
     return [matches, line];
   }
 
@@ -139,12 +140,14 @@ export class InteractiveShell {
     console.log();
     console.log('  Available commands:');
     console.log();
-    
+
     const commands = commandCompleter.getAllCommands();
-    commands.forEach(cmd => {
-      console.log(chalk.green(`    ${cmd.value}`) + chalk.gray(` - ${cmd.description}`));
+    commands.forEach((cmd) => {
+      console.log(
+        chalk.green(`    ${cmd.value}`) + chalk.gray(` - ${cmd.description}`)
+      );
     });
-    
+
     console.log();
     console.log('  Shortcuts:');
     console.log('    Ctrl+C - Show exit hint');
@@ -209,7 +212,9 @@ export class InteractiveShell {
 /**
  * 创建交互式shell实例
  */
-export function createInteractiveShell(options?: InteractiveOptions): InteractiveShell {
+export function createInteractiveShell(
+  options?: InteractiveOptions
+): InteractiveShell {
   return new InteractiveShell(options);
 }
 

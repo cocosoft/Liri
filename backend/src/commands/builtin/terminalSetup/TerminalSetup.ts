@@ -50,7 +50,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `终端设置:\n` +
+      message:
+        `终端设置:\n` +
         `- Shell: ${settings.shell}\n` +
         `- 主题: ${settings.theme}\n` +
         `- 字体大小: ${settings.fontSize}\n` +
@@ -64,9 +65,12 @@ export default {
   /**
    * 设置Shell
    */
-  async handleShell(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleShell(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const shell = args[0];
-    
+
     if (!shell) {
       return {
         success: false,
@@ -81,7 +85,7 @@ export default {
     }
 
     context.onDone?.(`Shell已设置为: ${shell}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -93,7 +97,10 @@ export default {
   /**
    * 设置主题
    */
-  async handleTheme(theme: string, context: CommandContext): Promise<CommandResult> {
+  async handleTheme(
+    theme: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!theme) {
       return {
         success: false,
@@ -104,7 +111,7 @@ export default {
     }
 
     context.onDone?.(`主题已设置为: ${theme}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -116,9 +123,12 @@ export default {
   /**
    * 设置字体
    */
-  async handleFont(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleFont(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const fontSize = parseInt(args[0]) || 14;
-    
+
     if (fontSize < 8 || fontSize > 72) {
       return {
         success: false,
@@ -128,7 +138,7 @@ export default {
     }
 
     context.onDone?.(`字体大小已设置为: ${fontSize}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -140,12 +150,17 @@ export default {
   /**
    * 设置终端大小
    */
-  async handleSize(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleSize(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const width = parseInt(args[0]) || 120;
     const height = parseInt(args[1]) || 30;
-    
-    context.onDone?.(`终端大小已设置为: ${width}x${height}`, { display: 'system' });
-    
+
+    context.onDone?.(`终端大小已设置为: ${width}x${height}`, {
+      display: 'system',
+    });
+
     return {
       success: true,
       type: 'text',
@@ -159,7 +174,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('终端设置已重置为默认值', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

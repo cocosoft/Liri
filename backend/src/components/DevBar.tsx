@@ -39,27 +39,29 @@ export const DevBar: React.FC<DevBarProps> = ({
             {cpuUsage.toFixed(1)}%
           </span>
         </div>
-        
+
         <div className="dev-item">
           <span className="dev-label">MEM</span>
           <span className={`dev-value ${getStatusColor(memoryUsage)}`}>
             {memoryUsage.toFixed(1)}%
           </span>
         </div>
-        
+
         <div className="dev-item">
           <span className="dev-label">REQ</span>
           <span className="dev-value">{requestCount}</span>
         </div>
-        
+
         <div className="dev-item">
           <span className="dev-label">LAT</span>
-          <span className={`dev-value ${latency > 500 ? 'yellow' : latency > 1000 ? 'red' : 'green'}`}>
+          <span
+            className={`dev-value ${latency > 500 ? 'yellow' : latency > 1000 ? 'red' : 'green'}`}
+          >
             {latency}ms
           </span>
         </div>
       </div>
-      
+
       <div className="dev-bar-right">
         <button className="dev-close-btn" onClick={onClose}>
           ×

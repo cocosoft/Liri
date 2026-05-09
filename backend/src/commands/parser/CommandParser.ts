@@ -6,6 +6,9 @@
 import { Command as CommanderCommand, Option } from 'commander';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 命令解析器类
@@ -39,7 +42,8 @@ export class CommandParser {
    * @param command 命令对象
    */
   registerCommand(command: any): void {
-    const cmd = this.program.command(command.name)
+    const cmd = this.program
+      .command(command.name)
       .description(command.description || '')
       .action(async (args: any[], options: any) => {
         await this.executeCommand(command.name, args.join(' '), options);
@@ -72,8 +76,12 @@ export class CommandParser {
    * @param parentCommand 父命令
    * @param subcommand 子命令
    */
-  private registerSubcommand(parentCommand: CommanderCommand, subcommand: any): void {
-    const cmd = parentCommand.command(subcommand.name)
+  private registerSubcommand(
+    parentCommand: CommanderCommand,
+    subcommand: any
+  ): void {
+    const cmd = parentCommand
+      .command(subcommand.name)
       .description(subcommand.description || '')
       .action(async (args: any[], options: any) => {
         const fullCommandName = `${parentCommand.name()} ${subcommand.name}`;
@@ -108,14 +116,22 @@ export class CommandParser {
    * @param args 命令参数
    * @param options 命令选项
    */
-  private async executeCommand(commandName: string, args: string, options: any): Promise<void> {
+  private async executeCommand(
+    commandName: string,
+    args: string,
+    options: any
+  ): Promise<void> {
     const context: CommandContext = {
       options,
     };
 
-    const result = await this.commandManager.executeCommand(commandName, args, context);
+    const result = await this.commandManager.executeCommand(
+      commandName,
+      args,
+      context
+    );
     if (!result.success && result.error) {
-      console.error(`Error: ${result.error}`);
+      logger.error(`Error: ${result.error}`);
     }
   }
 
@@ -127,7 +143,10 @@ export class CommandParser {
     try {
       this.program.parse(args);
     } catch (error) {
-      console.error(`Error parsing command: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `Error parsing command`,
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 

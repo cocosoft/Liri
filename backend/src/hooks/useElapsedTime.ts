@@ -23,7 +23,8 @@ export interface ElapsedTimeActions {
 
 export type ElapsedTimeStore = ElapsedTimeState & ElapsedTimeActions;
 
-let elapsedTimeInstance: ReturnType<typeof createElapsedTimeStore> | null = null;
+let elapsedTimeInstance: ReturnType<typeof createElapsedTimeStore> | null =
+  null;
 
 function formatDuration(ms: number): string {
   if (ms < 0) {
@@ -44,8 +45,18 @@ function formatDuration(ms: number): string {
 }
 
 export function createElapsedTimeStore(
-  defaultUpdateInterval: number = 1000,
-): Omit<ElapsedTimeStore, 'start' | 'pause' | 'resume' | 'stop' | 'reset' | 'getElapsed' | 'getFormatted'> & ElapsedTimeActions {
+  defaultUpdateInterval: number = 1000
+): Omit<
+  ElapsedTimeStore,
+  | 'start'
+  | 'pause'
+  | 'resume'
+  | 'stop'
+  | 'reset'
+  | 'getElapsed'
+  | 'getFormatted'
+> &
+  ElapsedTimeActions {
   let state: ElapsedTimeState = {
     startTime: 0,
     isRunning: false,
@@ -157,11 +168,21 @@ export function createElapsedTimeStore(
   };
 
   return {
-    get startTime() { return getState().startTime; },
-    get isRunning() { return getState().isRunning; },
-    get pausedMs() { return getState().pausedMs; },
-    get endTime() { return getState().endTime; },
-    get updateIntervalMs() { return getState().updateIntervalMs; },
+    get startTime() {
+      return getState().startTime;
+    },
+    get isRunning() {
+      return getState().isRunning;
+    },
+    get pausedMs() {
+      return getState().pausedMs;
+    },
+    get endTime() {
+      return getState().endTime;
+    },
+    get updateIntervalMs() {
+      return getState().updateIntervalMs;
+    },
     start,
     pause,
     resume,
@@ -172,7 +193,9 @@ export function createElapsedTimeStore(
   };
 }
 
-export function getDefaultElapsedTime(): ReturnType<typeof createElapsedTimeStore> {
+export function getDefaultElapsedTime(): ReturnType<
+  typeof createElapsedTimeStore
+> {
   if (!elapsedTimeInstance) {
     elapsedTimeInstance = createElapsedTimeStore();
   }

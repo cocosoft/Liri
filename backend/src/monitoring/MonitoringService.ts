@@ -117,7 +117,7 @@ export class MonitoringService {
       clearInterval(this.logRotationTimer);
       this.logRotationTimer = null;
     }
-    
+
     this.log('info', '监控服务已停止');
   }
 
@@ -189,8 +189,6 @@ export class MonitoringService {
       profileCheckpoint('monitoring_collect_metrics_end');
     }
   }
-
-
 
   /**
    * 执行健康检查
@@ -413,8 +411,6 @@ export class MonitoringService {
       this.writeToLogFile(level, message, metadata);
     }
   }
-
-
 
   /**
    * 写入日志文件

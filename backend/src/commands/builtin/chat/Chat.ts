@@ -83,7 +83,10 @@ export class ChatCommand {
       try {
         this.llmClient = factory.getClientForProvider(options.provider);
       } catch (error) {
-        console.warn(`Failed to get client for provider ${options.provider}, using default`, error);
+        console.warn(
+          `Failed to get client for provider ${options.provider}, using default`,
+          error
+        );
         this.llmClient = factory.getDefaultClient();
       }
     } else if (!this.llmClient) {
@@ -156,10 +159,8 @@ export class ChatCommand {
       const config = getConfig();
       const defaultModel = config.ai?.model || modelManager.getCurrentModel();
       const useModel = options.model || defaultModel;
-      
-      const chatMessages = [
-        { role: 'user' as const, content: message },
-      ];
+
+      const chatMessages = [{ role: 'user' as const, content: message }];
 
       const startTime = Date.now();
 
@@ -168,7 +169,6 @@ export class ChatCommand {
       } else {
         return await this.regularChat(chatMessages, useModel, options);
       }
-
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       return {
@@ -181,31 +181,37 @@ export class ChatCommand {
   private async regularChat(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
     model: string,
-    options: ChatOptions,
+    options: ChatOptions
   ): Promise<ChatResult> {
     const response = await this.llmClient.chat(messages, { model });
 
     // 从响应获取token使用情况
-    const inputTokens = response.usage?.promptTokens || response.usage?.inputTokens || 0;
-    const outputTokens = response.usage?.completionTokens || response.usage?.outputTokens || 0;
+    const inputTokens =
+      response.usage?.promptTokens || response.usage?.inputTokens || 0;
+    const outputTokens =
+      response.usage?.completionTokens || response.usage?.outputTokens || 0;
     const cacheReadTokens = response.usage?.cacheReadInputTokens || 0;
     const cacheCreationTokens = response.usage?.cacheCreationInputTokens || 0;
-    
+
     // 添加成本记录
     const cost = costTracker.addCost(
-      model, 
-      inputTokens, 
+      model,
+      inputTokens,
       outputTokens,
       cacheReadTokens,
       cacheCreationTokens
     );
 
-    let resultValue = typeof response.content === 'string'
-      ? response.content
-      : '没有收到回复';
+    let resultValue =
+      typeof response.content === 'string' ? response.content : '没有收到回复';
 
     if (options.showCost) {
-      const costInfo = this.formatCostInfo(model, inputTokens, outputTokens, cost);
+      const costInfo = this.formatCostInfo(
+        model,
+        inputTokens,
+        outputTokens,
+        cost
+      );
       resultValue += `\n\n${costInfo}`;
     }
 
@@ -218,7 +224,7 @@ export class ChatCommand {
   private async streamChat(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
     model: string,
-    options: ChatOptions,
+    options: ChatOptions
   ): Promise<ChatResult> {
     let fullResponse = '';
     let inputTokens = 0;
@@ -230,16 +236,19 @@ export class ChatCommand {
       for await (const chunk of stream) {
         fullResponse += chunk;
       }
-
-    } catch (err) {
-    }
+    } catch (err) {}
 
     const cost = costTracker.addCost(model, inputTokens, outputTokens);
 
     let resultValue = fullResponse || '没有收到回复';
 
     if (options.showCost) {
-      const costInfo = this.formatCostInfo(model, inputTokens, outputTokens, cost);
+      const costInfo = this.formatCostInfo(
+        model,
+        inputTokens,
+        outputTokens,
+        cost
+      );
       resultValue += `\n\n${costInfo}`;
     }
 
@@ -253,7 +262,7 @@ export class ChatCommand {
     model: string,
     inputTokens: number,
     outputTokens: number,
-    cost: number,
+    cost: number
   ): string {
     const lines: string[] = [];
     lines.push('--- 成本统计 ---');
@@ -262,8 +271,12 @@ export class ChatCommand {
     lines.push(`输出token: ${outputTokens.toLocaleString()}`);
     lines.push(`本次花费: ${formatCost(cost)}`);
     lines.push(`会话总成本: ${formatCost(costTracker.getTotalCostUSD())}`);
-    lines.push(`会话总输入: ${costTracker.getTotalInputTokens().toLocaleString()}`);
-    lines.push(`会话总输出: ${costTracker.getTotalOutputTokens().toLocaleString()}`);
+    lines.push(
+      `会话总输入: ${costTracker.getTotalInputTokens().toLocaleString()}`
+    );
+    lines.push(
+      `会话总输出: ${costTracker.getTotalOutputTokens().toLocaleString()}`
+    );
     return lines.join('\n');
   }
 
@@ -273,18 +286,40 @@ export class ChatCommand {
     const currentModel = config.ai?.model || modelManager.getCurrentModel();
     const availableModels = modelManager.getModelInfoList();
 
-    let modelList = availableModels.map(m => `  - ${m.id}: ${m.name} - ${m.description}`).join('\n');
+    let modelList = availableModels
+      .map((m) => `  - ${m.id}: ${m.name} - ${m.description}`)
+      .join('\n');
 
     // 获取配置的供应商状态
     const providers = [
-      { name: 'DeepSeek', key: 'deepseek', configured: !!config.ai?.deepseek?.apiKey || !!process.env.DEEPSEEK_API_KEY },
-      { name: 'Anthropic', key: 'anthropic', configured: !!config.ai?.anthropic?.apiKey || !!process.env.ANTHROPIC_API_KEY },
-      { name: 'OpenAI', key: 'openai', configured: !!config.ai?.openai?.apiKey || !!process.env.OPENAI_API_KEY },
+      {
+        name: 'DeepSeek',
+        key: 'deepseek',
+        configured:
+          !!config.ai?.deepseek?.apiKey || !!process.env.DEEPSEEK_API_KEY,
+      },
+      {
+        name: 'Anthropic',
+        key: 'anthropic',
+        configured:
+          !!config.ai?.anthropic?.apiKey || !!process.env.ANTHROPIC_API_KEY,
+      },
+      {
+        name: 'OpenAI',
+        key: 'openai',
+        configured: !!config.ai?.openai?.apiKey || !!process.env.OPENAI_API_KEY,
+      },
       { name: 'Azure', key: 'azure', configured: !!config.ai?.azure?.apiKey },
-      { name: 'Vertex', key: 'vertex', configured: !!config.ai?.vertex?.projectId },
+      {
+        name: 'Vertex',
+        key: 'vertex',
+        configured: !!config.ai?.vertex?.projectId,
+      },
     ];
 
-    const providerStatus = providers.map(p => `  ${p.name}: ${p.configured ? '✓ 已配置' : '✗ 未配置'}`).join('\n');
+    const providerStatus = providers
+      .map((p) => `  ${p.name}: ${p.configured ? '✓ 已配置' : '✗ 未配置'}`)
+      .join('\n');
 
     return {
       type: 'text',

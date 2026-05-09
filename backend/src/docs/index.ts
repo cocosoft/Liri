@@ -9,8 +9,16 @@ export { ErrorMessages, errorMessages } from './ErrorMessages.js';
 export { I18nManager, i18nManager } from './I18nManager.js';
 export { ContextHelp, contextHelp } from './ContextHelp.js';
 export { DocsSearch, docsSearch } from './DocsSearch.js';
-export { DocumentVersionService, createDocumentVersionService, getDefaultDocumentVersionService } from './DocumentVersionService.js';
-export { TemplateService, createTemplateService, getDefaultTemplateService } from './TemplateService.js';
+export {
+  DocumentVersionService,
+  createDocumentVersionService,
+  getDefaultDocumentVersionService,
+} from './DocumentVersionService.js';
+export {
+  TemplateService,
+  createTemplateService,
+  getDefaultTemplateService,
+} from './TemplateService.js';
 export { TemplateRecommender } from './TemplateRecommender.js';
 
 export type {
@@ -33,10 +41,7 @@ export type {
   RecommendationContext,
 } from './TemplateRecommender.js';
 
-export type {
-  SearchQueryRecord,
-  SearchAnalyticsData,
-} from './DocsSearch.js';
+export type { SearchQueryRecord, SearchAnalyticsData } from './DocsSearch.js';
 
 export type {
   ExampleCommand,

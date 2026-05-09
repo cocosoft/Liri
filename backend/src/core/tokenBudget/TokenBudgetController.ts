@@ -9,18 +9,26 @@
  */
 
 import { priceManager } from './PriceManager';
-import { calculateCacheAwareUsage, getCacheEfficiency } from './CacheAwareBudget';
-import { createContextStatsCollector, type ContextStatsCollector } from './ContextStatsCollector';
+import {
+  calculateCacheAwareUsage,
+  getCacheEfficiency,
+} from './CacheAwareBudget';
+import {
+  createContextStatsCollector,
+  type ContextStatsCollector,
+} from './ContextStatsCollector';
 import type { APIProviderType, TokenUsageDetail, ContextStats } from './types';
 
-let nativeEstimateTokens: ((text: string, model?: string) => number) | null = null;
+let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
+  null;
 
 function lazyInitNative() {
   if (nativeEstimateTokens === undefined) {
     try {
       const native = require('../../../native');
       if (native && typeof native.estimateTokens === 'function') {
-        nativeEstimateTokens = (text, model) => native.estimateTokens(text, model);
+        nativeEstimateTokens = (text, model) =>
+          native.estimateTokens(text, model);
       } else {
         nativeEstimateTokens = null;
       }
@@ -155,7 +163,10 @@ export class TokenBudgetController {
     };
   }
 
-  getCacheEfficiencyMetrics(cacheReadTokens: number, cacheCreationTokens: number) {
+  getCacheEfficiencyMetrics(
+    cacheReadTokens: number,
+    cacheCreationTokens: number
+  ) {
     return getCacheEfficiency(cacheReadTokens, cacheCreationTokens, this.model);
   }
 

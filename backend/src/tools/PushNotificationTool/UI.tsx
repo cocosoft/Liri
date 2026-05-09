@@ -1,26 +1,26 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type PushNotificationOutput = {
-  id: string
-  title: string
-  body: string
-  url?: string
-  createdAt: number
-  read: boolean
-}
+  id: string;
+  title: string;
+  body: string;
+  url?: string;
+  createdAt: number;
+  read: boolean;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ title: string; body: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  return <Text dimColor>推送通知: {input.title || ''}</Text>
+  return <Text dimColor>推送通知: {input.title || ''}</Text>;
 }
 
 export function renderToolResultMessage(
   output: PushNotificationOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
   return (
     <Box flexDirection="column">
@@ -43,12 +43,12 @@ export function renderToolResultMessage(
         </Box>
       )}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ title: string }> | undefined,
+  input: Partial<{ title: string }> | undefined
 ): string | null {
-  if (!input?.title) return 'Notification'
-  return input.title.slice(0, 40)
+  if (!input?.title) return 'Notification';
+  return input.title.slice(0, 40);
 }

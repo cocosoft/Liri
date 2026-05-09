@@ -4,10 +4,24 @@
  * 基于CC源码实现，提供OTel指标支持
  */
 
-import { metrics, Meter, Counter, Histogram, UpDownCounter, ObservableGauge } from '@opentelemetry/api';
-import { MeterProvider, PeriodicExportingMetricReader, ConsoleMetricExporter } from '@opentelemetry/sdk-metrics';
+import {
+  metrics,
+  Meter,
+  Counter,
+  Histogram,
+  UpDownCounter,
+  ObservableGauge,
+} from '@opentelemetry/api';
+import {
+  MeterProvider,
+  PeriodicExportingMetricReader,
+  ConsoleMetricExporter,
+} from '@opentelemetry/sdk-metrics';
 import { resourceFromAttributes } from '@opentelemetry/resources';
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_VERSION,
+} from '@opentelemetry/semantic-conventions';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/utils/errors.js';
 import { getPlatform, getWslVersion } from '@modules/utils/platform.js';
@@ -44,7 +58,10 @@ export class OTelMetrics {
       ...config,
     };
 
-    this.meter = metrics.getMeter(this.config.serviceName, this.config.serviceVersion);
+    this.meter = metrics.getMeter(
+      this.config.serviceName,
+      this.config.serviceVersion
+    );
   }
 
   /**
@@ -73,7 +90,11 @@ export class OTelMetrics {
    * @param value 增加值
    * @param attributes 属性
    */
-  incrementCounter(name: string, value: number = 1, attributes?: Record<string, string | number | boolean>): void {
+  incrementCounter(
+    name: string,
+    value: number = 1,
+    attributes?: Record<string, string | number | boolean>
+  ): void {
     const counter = this.createCounter(name);
     counter.add(value, attributes);
   }
@@ -104,7 +125,11 @@ export class OTelMetrics {
    * @param value 值
    * @param attributes 属性
    */
-  recordHistogram(name: string, value: number, attributes?: Record<string, string | number | boolean>): void {
+  recordHistogram(
+    name: string,
+    value: number,
+    attributes?: Record<string, string | number | boolean>
+  ): void {
     const histogram = this.createHistogram(name);
     histogram.record(value, attributes);
   }
@@ -135,7 +160,11 @@ export class OTelMetrics {
    * @param value 增加值
    * @param attributes 属性
    */
-  addUpDownCounter(name: string, value: number, attributes?: Record<string, string | number | boolean>): void {
+  addUpDownCounter(
+    name: string,
+    value: number,
+    attributes?: Record<string, string | number | boolean>
+  ): void {
     const counter = this.createUpDownCounter(name);
     counter.add(value, attributes);
   }
@@ -213,10 +242,12 @@ let otelMetrics: OTelMetrics | null = null;
  */
 export function getOTelMetrics(config?: OTelMetricsConfig): OTelMetrics {
   if (!otelMetrics) {
-    otelMetrics = new OTelMetrics(config || {
-      serviceName: 'py-app',
-      serviceVersion: '1.0.0',
-    });
+    otelMetrics = new OTelMetrics(
+      config || {
+        serviceName: 'py-app',
+        serviceVersion: '1.0.0',
+      }
+    );
   }
   return otelMetrics;
 }

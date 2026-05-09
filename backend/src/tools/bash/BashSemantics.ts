@@ -7,28 +7,80 @@
 import { BashCommandType, BashCommandClassification } from './types';
 
 export const BASH_SEARCH_COMMANDS = new Set([
-  'find', 'grep', 'rg', 'ag', 'ack', 'locate', 'which', 'whereis',
-  'sqlite3', 'mysql', 'psql', 'mongosh',
+  'find',
+  'grep',
+  'rg',
+  'ag',
+  'ack',
+  'locate',
+  'which',
+  'whereis',
+  'sqlite3',
+  'mysql',
+  'psql',
+  'mongosh',
 ]);
 
 export const BASH_READ_COMMANDS = new Set([
-  'cat', 'head', 'tail', 'less', 'more',
-  'wc', 'stat', 'file', 'strings',
-  'jq', 'awk', 'cut', 'sort', 'uniq', 'tr',
-  'xxd', 'hexdump', 'od', 'base64', 'md5sum', 'sha256sum',
+  'cat',
+  'head',
+  'tail',
+  'less',
+  'more',
+  'wc',
+  'stat',
+  'file',
+  'strings',
+  'jq',
+  'awk',
+  'cut',
+  'sort',
+  'uniq',
+  'tr',
+  'xxd',
+  'hexdump',
+  'od',
+  'base64',
+  'md5sum',
+  'sha256sum',
 ]);
 
 export const BASH_LIST_COMMANDS = new Set([
-  'ls', 'tree', 'du', 'df', 'mount', 'jobs', 'ps', 'pgrep',
+  'ls',
+  'tree',
+  'du',
+  'df',
+  'mount',
+  'jobs',
+  'ps',
+  'pgrep',
 ]);
 
 export const BASH_SEMANTIC_NEUTRAL_COMMANDS = new Set([
-  'echo', 'printf', 'true', 'false', ':',
+  'echo',
+  'printf',
+  'true',
+  'false',
+  ':',
 ]);
 
 export const BASH_SILENT_COMMANDS = new Set([
-  'mv', 'cp', 'rm', 'mkdir', 'rmdir', 'chmod', 'chown', 'chgrp',
-  'touch', 'ln', 'cd', 'export', 'unset', 'wait', 'kill', 'sleep',
+  'mv',
+  'cp',
+  'rm',
+  'mkdir',
+  'rmdir',
+  'chmod',
+  'chown',
+  'chgrp',
+  'touch',
+  'ln',
+  'cd',
+  'export',
+  'unset',
+  'wait',
+  'kill',
+  'sleep',
 ]);
 
 export function splitCommandWithOperators(command: string): string[] {
@@ -76,14 +128,23 @@ export function splitCommandWithOperators(command: string): string[] {
         continue;
       }
 
-      if (char === '|' || char === '&' || char === ';' || char === '(' || char === ')' || char === '>') {
+      if (
+        char === '|' ||
+        char === '&' ||
+        char === ';' ||
+        char === '(' ||
+        char === ')' ||
+        char === '>'
+      ) {
         if (current.trim()) {
           parts.push(current.trim());
         }
         current = '';
         const nextChar = command[i + 1];
-        if ((char === '&' && nextChar === '&') ||
-            (char === '|' && nextChar === '|')) {
+        if (
+          (char === '&' && nextChar === '&') ||
+          (char === '|' && nextChar === '|')
+        ) {
           parts.push(char + nextChar);
           i++;
         } else if (char === '>' && nextChar === '&') {
@@ -133,8 +194,10 @@ function getBaseCommand(part: string): string {
 
 function normalizeCommandForLookup(cmd: string): string {
   let result = cmd;
-  if ((result.startsWith('"') && result.endsWith('"')) ||
-      (result.startsWith("'") && result.endsWith("'"))) {
+  if (
+    (result.startsWith('"') && result.endsWith('"')) ||
+    (result.startsWith("'") && result.endsWith("'"))
+  ) {
     result = result.slice(1, -1);
   }
   return result;
@@ -143,11 +206,17 @@ function normalizeCommandForLookup(cmd: string): string {
 function isLikelyArgument(token: string): boolean {
   if (token.startsWith('-')) return true;
   if (token.includes('/') || token.includes('\\')) return true;
-  if (token.includes('.') && (token.includes('/') || token.includes('\\') || token.startsWith('.'))) return true;
+  if (
+    token.includes('.') &&
+    (token.includes('/') || token.includes('\\') || token.startsWith('.'))
+  )
+    return true;
   return false;
 }
 
-export function analyzeBashCommandType(command: string): BashCommandClassification {
+export function analyzeBashCommandType(
+  command: string
+): BashCommandClassification {
   const normalizedCommand = command.trim();
   if (!normalizedCommand) {
     return {
@@ -185,10 +254,18 @@ export function analyzeBashCommandType(command: string): BashCommandClassificati
     };
   }
 
-  const commandParts = partsWithOperators.filter(p =>
-    p !== '>' && p !== '>>' && p !== '<' && p !== '>&' &&
-    p !== '||' && p !== '&&' && p !== '|' && p !== ';' &&
-    p !== '(' && p !== ')'
+  const commandParts = partsWithOperators.filter(
+    (p) =>
+      p !== '>' &&
+      p !== '>>' &&
+      p !== '<' &&
+      p !== '>&' &&
+      p !== '||' &&
+      p !== '&&' &&
+      p !== '|' &&
+      p !== ';' &&
+      p !== '(' &&
+      p !== ')'
   );
 
   if (commandParts.length === 0) {
@@ -202,7 +279,9 @@ export function analyzeBashCommandType(command: string): BashCommandClassificati
     };
   }
 
-  const firstCommand = normalizeCommandForLookup(getBaseCommand(commandParts[0]));
+  const firstCommand = normalizeCommandForLookup(
+    getBaseCommand(commandParts[0])
+  );
 
   if (!firstCommand) {
     return {
@@ -216,7 +295,10 @@ export function analyzeBashCommandType(command: string): BashCommandClassificati
   }
 
   if (BASH_SEMANTIC_NEUTRAL_COMMANDS.has(firstCommand)) {
-    const otherCommands = commandParts.slice(1).map(p => normalizeCommandForLookup(getBaseCommand(p))).filter(p => p);
+    const otherCommands = commandParts
+      .slice(1)
+      .map((p) => normalizeCommandForLookup(getBaseCommand(p)))
+      .filter((p) => p);
     if (otherCommands.length === 0) {
       return {
         type: 'neutral',
@@ -227,12 +309,13 @@ export function analyzeBashCommandType(command: string): BashCommandClassificati
         isSilent: false,
       };
     }
-    const actualCommands = otherCommands.filter(cmd =>
-      BASH_SEARCH_COMMANDS.has(cmd) ||
-      BASH_READ_COMMANDS.has(cmd) ||
-      BASH_LIST_COMMANDS.has(cmd) ||
-      BASH_SILENT_COMMANDS.has(cmd) ||
-      BASH_SEMANTIC_NEUTRAL_COMMANDS.has(cmd)
+    const actualCommands = otherCommands.filter(
+      (cmd) =>
+        BASH_SEARCH_COMMANDS.has(cmd) ||
+        BASH_READ_COMMANDS.has(cmd) ||
+        BASH_LIST_COMMANDS.has(cmd) ||
+        BASH_SILENT_COMMANDS.has(cmd) ||
+        BASH_SEMANTIC_NEUTRAL_COMMANDS.has(cmd)
     );
     if (actualCommands.length === 0) {
       return {
@@ -244,8 +327,8 @@ export function analyzeBashCommandType(command: string): BashCommandClassificati
         isSilent: false,
       };
     }
-    const hasNonNeutral = actualCommands.some(cmd =>
-      !BASH_SEMANTIC_NEUTRAL_COMMANDS.has(cmd)
+    const hasNonNeutral = actualCommands.some(
+      (cmd) => !BASH_SEMANTIC_NEUTRAL_COMMANDS.has(cmd)
     );
     if (!hasNonNeutral) {
       return {
@@ -343,7 +426,10 @@ export function isSilentBashCommand(command: string): boolean {
     if (baseCommand.startsWith('-')) {
       continue;
     }
-    if (lastOperator === '||' && BASH_SEMANTIC_NEUTRAL_COMMANDS.has(baseCommand)) {
+    if (
+      lastOperator === '||' &&
+      BASH_SEMANTIC_NEUTRAL_COMMANDS.has(baseCommand)
+    ) {
       continue;
     }
     hasNonSilentCommand = true;

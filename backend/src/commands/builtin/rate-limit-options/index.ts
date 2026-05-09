@@ -14,7 +14,10 @@ export const rateLimitOptionsCommand: Command = {
   aliases: ['ratelimit', 'limits'],
   argumentHint: '[show|set|reset|help]',
   whenToUse: '当你需要配置API速率限制时',
-  load: async () => import('./RateLimitOptions.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./RateLimitOptions.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
 
 export default rateLimitOptionsCommand;

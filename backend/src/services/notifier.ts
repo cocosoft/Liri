@@ -5,32 +5,32 @@
  * 支持频道配置（auto/iterm2/terminal_bell/notifications_disabled）。
  * 使用 child_process 调用系统原生通知命令。
  */
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import { platform } from 'os'
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { platform } from 'os';
 
-const execAsync = promisify(exec)
+const execAsync = promisify(exec);
 
 /**
  * 通知选项
  */
 export interface NotificationOptions {
-  message: string
-  title?: string
-  notificationType?: string
+  message: string;
+  title?: string;
+  notificationType?: string;
 }
 
 /**
  * 通知结果
  */
 export interface NotificationResult {
-  channel: string
-  success: boolean
+  channel: string;
+  success: boolean;
 }
 
-const DEFAULT_TITLE = 'PY_APP'
-const DEFAULT_CHANNEL = 'auto'
-const BELL_CHAR = '\x07'
+const DEFAULT_TITLE = 'PY_APP';
+const DEFAULT_CHANNEL = 'auto';
+const BELL_CHAR = '\x07';
 
 /**
  * 发送系统通知
@@ -47,29 +47,29 @@ const BELL_CHAR = '\x07'
 export async function sendNotification(
   notif: NotificationOptions
 ): Promise<NotificationResult> {
-  const channel = process.env.PY_APP_NOTIFICATION_CHANNEL || DEFAULT_CHANNEL
+  const channel = process.env.PY_APP_NOTIFICATION_CHANNEL || DEFAULT_CHANNEL;
 
   if (channel === 'notifications_disabled') {
-    return { channel: 'notifications_disabled', success: true }
+    return { channel: 'notifications_disabled', success: true };
   }
 
   if (channel === 'terminal_bell') {
-    process.stdout.write(BELL_CHAR)
-    return { channel: 'terminal_bell', success: true }
+    process.stdout.write(BELL_CHAR);
+    return { channel: 'terminal_bell', success: true };
   }
 
   if (channel === 'auto') {
-    return sendAutoNotification(notif)
+    return sendAutoNotification(notif);
   }
 
-  return sendAutoNotification(notif)
+  return sendAutoNotification(notif);
 }
 
 /**
  * 发送终端响铃通知
  */
 export function sendTerminalBell(): void {
-  process.stdout.write(BELL_CHAR)
+  process.stdout.write(BELL_CHAR);
 }
 
 /**
@@ -78,24 +78,24 @@ export function sendTerminalBell(): void {
 async function sendAutoNotification(
   opts: NotificationOptions
 ): Promise<NotificationResult> {
-  const title = opts.title || DEFAULT_TITLE
-  const body = opts.message
+  const title = opts.title || DEFAULT_TITLE;
+  const body = opts.message;
 
   try {
-    const plat = platform()
+    const plat = platform();
 
     if (plat === 'win32') {
-      return sendWindowsNotification(title, body)
+      return sendWindowsNotification(title, body);
     }
 
     if (plat === 'darwin') {
-      return sendMacNotification(title, body)
+      return sendMacNotification(title, body);
     }
 
-    return sendLinuxNotification(title, body)
+    return sendLinuxNotification(title, body);
   } catch {
-    process.stdout.write(BELL_CHAR)
-    return { channel: 'terminal_bell', success: false }
+    process.stdout.write(BELL_CHAR);
+    return { channel: 'terminal_bell', success: false };
   }
 }
 
@@ -107,8 +107,8 @@ async function sendWindowsNotification(
   body: string
 ): Promise<NotificationResult> {
   try {
-    const escapedTitle = title.replace(/'/g, "''")
-    const escapedBody = body.replace(/'/g, "''")
+    const escapedTitle = title.replace(/'/g, "''");
+    const escapedBody = body.replace(/'/g, "''");
     const script = `
       [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
       $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
@@ -117,22 +117,22 @@ async function sendWindowsNotification(
       $textNodes.Item(1).AppendChild($template.CreateTextNode('${escapedBody}')) > $null
       $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
       [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier().Show($toast)
-    `
+    `;
     await execAsync(
       `powershell -NoProfile -Command "${script.replace(/\n/g, ' ')}"`,
       { timeout: 5000 }
-    )
-    return { channel: 'auto', success: true }
+    );
+    return { channel: 'auto', success: true };
   } catch {
     try {
-      const escapedTitle = title.replace(/"/g, '\\"')
-      const escapedBody = body.replace(/"/g, '\\"')
-      const command = `powershell -NoProfile -Command "New-BurntToastNotification -Text '${escapedTitle}', '${escapedBody}'"`
-      await execAsync(command, { timeout: 5000 })
-      return { channel: 'auto', success: true }
+      const escapedTitle = title.replace(/"/g, '\\"');
+      const escapedBody = body.replace(/"/g, '\\"');
+      const command = `powershell -NoProfile -Command "New-BurntToastNotification -Text '${escapedTitle}', '${escapedBody}'"`;
+      await execAsync(command, { timeout: 5000 });
+      return { channel: 'auto', success: true };
     } catch {
-      process.stdout.write(BELL_CHAR)
-      return { channel: 'terminal_bell', success: false }
+      process.stdout.write(BELL_CHAR);
+      return { channel: 'terminal_bell', success: false };
     }
   }
 }
@@ -144,13 +144,13 @@ async function sendMacNotification(
   title: string,
   body: string
 ): Promise<NotificationResult> {
-  const escapedTitle = title.replace(/"/g, '\\"')
-  const escapedBody = body.replace(/"/g, '\\"')
+  const escapedTitle = title.replace(/"/g, '\\"');
+  const escapedBody = body.replace(/"/g, '\\"');
   await execAsync(
     `osascript -e 'display notification "${escapedBody}" with title "${escapedTitle}"'`,
     { timeout: 5000 }
-  )
-  return { channel: 'auto', success: true }
+  );
+  return { channel: 'auto', success: true };
 }
 
 /**
@@ -163,8 +163,8 @@ async function sendLinuxNotification(
   await execAsync(
     `notify-send "${title.replace(/"/g, '\\"')}" "${body.replace(/"/g, '\\"')}"`,
     { timeout: 5000 }
-  )
-  return { channel: 'auto', success: true }
+  );
+  return { channel: 'auto', success: true };
 }
 
 /**
@@ -179,8 +179,10 @@ export async function sendTaskNotification(
   result: 'success' | 'failure',
   details?: string
 ): Promise<NotificationResult> {
-  const title = `Task ${result === 'success' ? 'Completed' : 'Failed'}: ${taskName}`
-  const body = details || `Task "${taskName}" has ${result === 'success' ? 'completed successfully' : 'failed'}.`
+  const title = `Task ${result === 'success' ? 'Completed' : 'Failed'}: ${taskName}`;
+  const body =
+    details ||
+    `Task "${taskName}" has ${result === 'success' ? 'completed successfully' : 'failed'}.`;
 
-  return sendNotification({ message: body, title })
+  return sendNotification({ message: body, title });
 }

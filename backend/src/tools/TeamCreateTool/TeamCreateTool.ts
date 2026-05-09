@@ -66,7 +66,10 @@ export interface TeamCreateOutput {
 /**
  * 团队创建工具
  */
-export class TeamCreateTool extends BaseTool<TeamCreateInput, TeamCreateOutput> {
+export class TeamCreateTool extends BaseTool<
+  TeamCreateInput,
+  TeamCreateOutput
+> {
   /**
    * 工具名称
    */
@@ -75,7 +78,8 @@ export class TeamCreateTool extends BaseTool<TeamCreateInput, TeamCreateOutput> 
   /**
    * 工具描述
    */
-  description = '创建一个新的多Agent swarm团队，用于协调多个Agent协作完成任务。';
+  description =
+    '创建一个新的多Agent swarm团队，用于协调多个Agent协作完成任务。';
 
   /**
    * 工具参数
@@ -266,7 +270,9 @@ export class TeamCreateTool extends BaseTool<TeamCreateInput, TeamCreateOutput> 
     return '创建团队';
   }
 
-  override getActivityDescription(input?: Partial<TeamCreateInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<TeamCreateInput>
+  ): string | null {
     if (input?.team_name) {
       return `创建团队 ${input.team_name}`;
     }

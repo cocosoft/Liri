@@ -30,9 +30,21 @@ export class SecurityManager extends EventEmitter {
   private options: SecurityOptions;
   private workspaceRoot: string;
   private blockedCommands: Set<string> = new Set([
-    'rm', 'del', 'erase', 'format', 'mkfs', 'dd',
-    'shutdown', 'reboot', 'halt', 'poweroff',
-    'curl', 'wget', 'fetch', 'scp', 'sftp',
+    'rm',
+    'del',
+    'erase',
+    'format',
+    'mkfs',
+    'dd',
+    'shutdown',
+    'reboot',
+    'halt',
+    'poweroff',
+    'curl',
+    'wget',
+    'fetch',
+    'scp',
+    'sftp',
   ]);
 
   private constructor() {
@@ -91,7 +103,7 @@ export class SecurityManager extends EventEmitter {
 
     try {
       const resolvedPath = resolve(path);
-      
+
       // 检查是否在工作区目录内
       if (resolvedPath.startsWith(this.workspaceRoot)) {
         return true;
@@ -118,14 +130,17 @@ export class SecurityManager extends EventEmitter {
   validateCommand(command: string): boolean {
     // 提取命令名
     const commandName = command.split(/\s+/)[0];
-    
+
     // 检查是否在阻止列表中
     if (this.blockedCommands.has(commandName.toLowerCase())) {
       return false;
     }
 
     // 检查是否在允许列表中
-    if (this.options.allowedCommands && this.options.allowedCommands.length > 0) {
+    if (
+      this.options.allowedCommands &&
+      this.options.allowedCommands.length > 0
+    ) {
       return this.options.allowedCommands.includes(commandName);
     }
 
@@ -145,7 +160,10 @@ export class SecurityManager extends EventEmitter {
     // 检查命令类型Hook
     if (config.type === 'command') {
       if (!config.command) {
-        return { valid: false, error: 'Command is required for command-type hook' };
+        return {
+          valid: false,
+          error: 'Command is required for command-type hook',
+        };
       }
 
       if (!this.validateCommand(config.command)) {
@@ -153,8 +171,14 @@ export class SecurityManager extends EventEmitter {
       }
 
       // 检查执行时间
-      if (config?.timeout && config.timeout > (this.options?.maxExecutionTime ?? Infinity)) {
-        return { valid: false, error: 'Command timeout exceeds maximum allowed time' };
+      if (
+        config?.timeout &&
+        config.timeout > (this.options?.maxExecutionTime ?? Infinity)
+      ) {
+        return {
+          valid: false,
+          error: 'Command timeout exceeds maximum allowed time',
+        };
       }
     }
 
@@ -194,7 +218,7 @@ export class SecurityManager extends EventEmitter {
   private validateUrl(url: string): boolean {
     try {
       const parsedUrl = new URL(url);
-      
+
       // 只允许http和https协议
       if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
         return false;

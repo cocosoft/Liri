@@ -39,7 +39,8 @@ export class OAuthStorageImpl implements OAuthStorage {
 
   constructor(options?: { storagePath?: string; encryptionKey?: string }) {
     this.storagePath = options?.storagePath || './data/oauth-tokens.json';
-    this.encryptionKey = options?.encryptionKey || this.getDefaultEncryptionKey();
+    this.encryptionKey =
+      options?.encryptionKey || this.getDefaultEncryptionKey();
   }
 
   /**
@@ -48,18 +49,18 @@ export class OAuthStorageImpl implements OAuthStorage {
   async saveToken(serverKey: string, token: OAuthTokenData): Promise<void> {
     try {
       const allTokens = await this.loadAllTokens();
-      
+
       // 加密Token数据
       const encryptedToken = await CryptoUtils.encrypt(
         JSON.stringify(token),
         this.encryptionKey
       );
-      
+
       allTokens[serverKey] = {
         ...token,
         accessToken: encryptedToken,
       };
-      
+
       await this.writeToStorage(allTokens);
       logger.debug(`Token saved for ${serverKey}`);
     } catch (error) {
@@ -76,17 +77,17 @@ export class OAuthStorageImpl implements OAuthStorage {
     try {
       const allTokens = await this.loadAllTokens();
       const encryptedToken = allTokens[serverKey];
-      
+
       if (!encryptedToken) {
         return null;
       }
-      
+
       // 解密Token数据
       const decryptedToken = await CryptoUtils.decrypt(
         encryptedToken.accessToken,
         this.encryptionKey
       );
-      
+
       return JSON.parse(decryptedToken);
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
@@ -145,12 +146,16 @@ export class OAuthStorageImpl implements OAuthStorage {
   private async writeToStorage(data: Record<string, any>): Promise<void> {
     const fs = await import('fs/promises');
     const path = await import('path');
-    
+
     // 确保目录存在
     const dir = path.dirname(this.storagePath);
     await fs.mkdir(dir, { recursive: true });
-    
-    await fs.writeFile(this.storagePath, JSON.stringify(data, null, 2), 'utf-8');
+
+    await fs.writeFile(
+      this.storagePath,
+      JSON.stringify(data, null, 2),
+      'utf-8'
+    );
   }
 
   /**
@@ -160,7 +165,9 @@ export class OAuthStorageImpl implements OAuthStorage {
   private getDefaultEncryptionKey(): string {
     const key = process.env.OAUTH_ENCRYPTION_KEY;
     if (!key) {
-      logger.warn('OAUTH_ENCRYPTION_KEY not set, using default key (NOT SECURE FOR PRODUCTION)');
+      logger.warn(
+        'OAUTH_ENCRYPTION_KEY not set, using default key (NOT SECURE FOR PRODUCTION)'
+      );
       return 'default-oauth-encryption-key-change-in-production';
     }
     return key;

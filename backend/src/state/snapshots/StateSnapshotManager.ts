@@ -3,11 +3,11 @@
  * 提供状态快照、恢复、版本管理、迁移等功能
  */
 
-import { 
-  StateSnapshot, 
-  StateStore, 
+import {
+  StateSnapshot,
+  StateStore,
   StateMigrator,
-  StateManager
+  StateManager,
 } from '../types/StateTypes.js';
 
 /**
@@ -16,22 +16,22 @@ import {
 export interface SnapshotManagerOptions {
   /** 最大快照数量 */
   maxSnapshots?: number;
-  
+
   /** 快照间隔（毫秒） */
   snapshotInterval?: number;
-  
+
   /** 是否启用自动快照 */
   autoSnapshot?: boolean;
-  
+
   /** 是否启用压缩 */
   enableCompression?: boolean;
-  
+
   /** 压缩算法 */
   compressionAlgorithm?: 'gzip' | 'deflate' | 'none';
-  
+
   /** 是否启用加密 */
   enableEncryption?: boolean;
-  
+
   /** 加密密钥 */
   encryptionKey?: string;
 }
@@ -42,22 +42,22 @@ export interface SnapshotManagerOptions {
 export interface SnapshotStats {
   /** 快照总数 */
   totalSnapshots: number;
-  
+
   /** 活跃快照数 */
   activeSnapshots: number;
-  
+
   /** 总大小（字节） */
   totalSize: number;
-  
+
   /** 平均快照大小（字节） */
   averageSize: number;
-  
+
   /** 压缩率 */
   compressionRatio: number;
-  
+
   /** 恢复次数 */
   restoreCount: number;
-  
+
   /** 恢复成功率 */
   restoreSuccessRate: number;
 }
@@ -90,17 +90,17 @@ export class StateSnapshotManager<T = any> {
       enableCompression: false,
       compressionAlgorithm: 'none',
       enableEncryption: false,
-      ...options
+      ...options,
     };
     this.autoSnapshotTimers = new Map();
     this.migrationManager = new MigrationManager();
-    
+
     this.stats = {
       totalSnapshots: 0,
       activeSnapshots: 0,
       totalSize: 0,
       restoreCount: 0,
-      restoreSuccessCount: 0
+      restoreSuccessCount: 0,
     };
   }
 
@@ -108,8 +108,8 @@ export class StateSnapshotManager<T = any> {
    * 创建快照（基于CC源码）
    */
   createSnapshot(
-    storeName: string, 
-    state: T, 
+    storeName: string,
+    state: T,
     description?: string
   ): StateSnapshot<T> {
     const snapshot: StateSnapshot<T> = {
@@ -120,8 +120,8 @@ export class StateSnapshotManager<T = any> {
       metadata: {
         storeName,
         size: this.calculateSize(state),
-        version: '1.0.0'
-      }
+        version: '1.0.0',
+      },
     };
 
     if (!this.snapshots.has(storeName)) {
@@ -159,16 +159,19 @@ export class StateSnapshotManager<T = any> {
   /**
    * 获取快照（基于CC源码）
    */
-  getSnapshot(storeName: string, snapshotId: string): StateSnapshot<T> | undefined {
+  getSnapshot(
+    storeName: string,
+    snapshotId: string
+  ): StateSnapshot<T> | undefined {
     const snapshots = this.snapshots.get(storeName);
-    return snapshots?.find(snapshot => snapshot.id === snapshotId);
+    return snapshots?.find((snapshot) => snapshot.id === snapshotId);
   }
 
   /**
    * 恢复快照（基于CC源码）
    */
   async restoreSnapshot(
-    store: StateStore<T>, 
+    store: StateStore<T>,
     snapshot: StateSnapshot<T>
   ): Promise<boolean> {
     try {
@@ -176,15 +179,14 @@ export class StateSnapshotManager<T = any> {
 
       // 应用迁移
       const migratedState = await this.migrationManager.migrate(snapshot.state);
-      
+
       // 恢复状态
       store.setState(() => migratedState);
-      
+
       this.stats.restoreSuccessCount++;
-      
+
       console.log(`Snapshot restored: ${snapshot.id}`);
       return true;
-      
     } catch (error) {
       console.error(`Failed to restore snapshot: ${snapshot.id}`, error);
       return false;
@@ -200,13 +202,13 @@ export class StateSnapshotManager<T = any> {
       return false;
     }
 
-    const index = snapshots.findIndex(snapshot => snapshot.id === snapshotId);
+    const index = snapshots.findIndex((snapshot) => snapshot.id === snapshotId);
     if (index === -1) {
       return false;
     }
 
     const removed = snapshots.splice(index, 1)[0];
-    
+
     // 更新统计信息
     this.stats.totalSnapshots--;
     this.stats.activeSnapshots--;
@@ -228,8 +230,10 @@ export class StateSnapshotManager<T = any> {
     // 更新统计信息
     this.stats.totalSnapshots -= snapshots.length;
     this.stats.activeSnapshots -= snapshots.length;
-    this.stats.totalSize -= snapshots.reduce((sum, snapshot) => 
-      sum + (snapshot.metadata?.size || 0), 0);
+    this.stats.totalSize -= snapshots.reduce(
+      (sum, snapshot) => sum + (snapshot.metadata?.size || 0),
+      0
+    );
 
     this.snapshots.delete(storeName);
     console.log(`Snapshots cleared for store: ${storeName}`);
@@ -277,7 +281,7 @@ export class StateSnapshotManager<T = any> {
     const exportData = {
       ...snapshot,
       _exportVersion: '1.0.0',
-      _exportTimestamp: new Date().toISOString()
+      _exportTimestamp: new Date().toISOString(),
     };
 
     let data = JSON.stringify(exportData);
@@ -313,7 +317,7 @@ export class StateSnapshotManager<T = any> {
       }
 
       const importData = JSON.parse(processedData);
-      
+
       // 验证导入数据
       if (!this.validateImportData(importData)) {
         throw new Error('Invalid import data');
@@ -324,7 +328,7 @@ export class StateSnapshotManager<T = any> {
         state: importData.state,
         timestamp: new Date(importData.timestamp),
         description: importData.description,
-        metadata: importData.metadata
+        metadata: importData.metadata,
       };
 
       // 添加到快照列表
@@ -342,7 +346,6 @@ export class StateSnapshotManager<T = any> {
 
       console.log(`Snapshot imported for store: ${storeName} (${snapshot.id})`);
       return snapshot;
-
     } catch (error) {
       console.error('Failed to import snapshot:', error);
       return null;
@@ -353,13 +356,15 @@ export class StateSnapshotManager<T = any> {
    * 获取快照统计（基于CC源码）
    */
   getSnapshotStats(): SnapshotStats {
-    const restoreSuccessRate = this.stats.restoreCount > 0 
-      ? this.stats.restoreSuccessCount / this.stats.restoreCount 
-      : 0;
+    const restoreSuccessRate =
+      this.stats.restoreCount > 0
+        ? this.stats.restoreSuccessCount / this.stats.restoreCount
+        : 0;
 
-    const averageSize = this.stats.totalSnapshots > 0 
-      ? this.stats.totalSize / this.stats.totalSnapshots 
-      : 0;
+    const averageSize =
+      this.stats.totalSnapshots > 0
+        ? this.stats.totalSize / this.stats.totalSnapshots
+        : 0;
 
     const compressionRatio = this.options.enableCompression ? 0.7 : 1.0; // 估算值
 
@@ -370,7 +375,7 @@ export class StateSnapshotManager<T = any> {
       averageSize,
       compressionRatio,
       restoreCount: this.stats.restoreCount,
-      restoreSuccessRate
+      restoreSuccessRate,
     };
   }
 
@@ -415,7 +420,7 @@ export class StateSnapshotManager<T = any> {
     }
 
     if (obj instanceof Array) {
-      return obj.map(item => this.deepClone(item)) as any;
+      return obj.map((item) => this.deepClone(item)) as any;
     }
 
     if (typeof obj === 'object') {
@@ -461,7 +466,9 @@ export class StateSnapshotManager<T = any> {
     // 简单的XOR加密（实际项目中应该使用真正的加密算法）
     let result = '';
     for (let i = 0; i < data.length; i++) {
-      result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+      result += String.fromCharCode(
+        data.charCodeAt(i) ^ key.charCodeAt(i % key.length)
+      );
     }
     return Buffer.from(result).toString('base64');
   }
@@ -474,7 +481,9 @@ export class StateSnapshotManager<T = any> {
     const decoded = Buffer.from(data, 'base64').toString('utf8');
     let result = '';
     for (let i = 0; i < decoded.length; i++) {
-      result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+      result += String.fromCharCode(
+        decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length)
+      );
     }
     return result;
   }
@@ -483,11 +492,7 @@ export class StateSnapshotManager<T = any> {
    * 验证导入数据（基于CC源码）
    */
   private validateImportData(data: any): boolean {
-    return data && 
-           data.id && 
-           data.state && 
-           data.timestamp && 
-           data.metadata;
+    return data && data.id && data.state && data.timestamp && data.metadata;
   }
 }
 
@@ -509,7 +514,7 @@ export class MigrationManager<T = any> {
    */
   addMigrator(migrator: StateMigrator<T>): void {
     this.migrators.push(migrator);
-    
+
     // 按版本排序
     this.migrators.sort((a, b) => a.toVersion.localeCompare(b.toVersion));
   }
@@ -523,11 +528,13 @@ export class MigrationManager<T = any> {
     }
 
     let migratedState = state;
-    
+
     for (const migrator of this.migrators) {
       try {
         migratedState = migrator.migrate(migratedState);
-        console.log(`Applied migration: ${migrator.name} (${migrator.fromVersion} -> ${migrator.toVersion})`);
+        console.log(
+          `Applied migration: ${migrator.name} (${migrator.fromVersion} -> ${migrator.toVersion})`
+        );
       } catch (error) {
         console.error(`Migration failed: ${migrator.name}`, error);
         throw error;

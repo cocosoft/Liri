@@ -306,10 +306,7 @@ export class PerformanceOptimizationService extends EventEmitter {
    * 设置批处理配置
    * @param config 配置
    */
-  setBatchConfig(config: {
-    defaultDelay?: number;
-    maxSize?: number;
-  }): void {
+  setBatchConfig(config: { defaultDelay?: number; maxSize?: number }): void {
     if (config.defaultDelay !== undefined) {
       this.defaultBatchDelay = config.defaultDelay;
     }
@@ -382,7 +379,7 @@ export class PerformanceOptimizationService extends EventEmitter {
     };
     this.responseTimes = [];
     this.batchQueues.clear();
-    this.batchTimers.forEach(timer => clearTimeout(timer));
+    this.batchTimers.forEach((timer) => clearTimeout(timer));
     this.batchTimers.clear();
   }
 }

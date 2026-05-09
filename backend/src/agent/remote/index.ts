@@ -4,4 +4,7 @@
 
 export * from './types';
 export { WebSocketProtocol, HttpProtocol } from './RemoteAgentProtocol';
-export { RemoteAgentExecutorImpl, createRemoteAgentExecutor } from './RemoteAgentExecutor';
+export {
+  RemoteAgentExecutorImpl,
+  createRemoteAgentExecutor,
+} from './RemoteAgentExecutor';

@@ -73,14 +73,17 @@ export class BatchUpdaterImpl<T = any> implements BatchUpdater<T> {
   /**
    * 构造函数（基于CC源码）
    */
-  constructor(config: BatchUpdateConfig = {}, callbacks?: { onBatchStart?: () => void; onBatchEnd?: () => void }) {
+  constructor(
+    config: BatchUpdateConfig = {},
+    callbacks?: { onBatchStart?: () => void; onBatchEnd?: () => void }
+  ) {
     this.updates = [];
     this.batchingActive = false;
     this.config = {
       interval: 16,
       maxBatchSize: 100,
       enabled: true,
-      ...config
+      ...config,
     };
     this.onBatchStart = callbacks?.onBatchStart;
     this.onBatchEnd = callbacks?.onBatchEnd;
@@ -96,9 +99,9 @@ export class BatchUpdaterImpl<T = any> implements BatchUpdater<T> {
 
     this.batchingActive = true;
     this.updates = [];
-    
+
     this.onBatchStart?.();
-    
+
     console.log('Batch update started');
   }
 
@@ -111,9 +114,9 @@ export class BatchUpdaterImpl<T = any> implements BatchUpdater<T> {
     }
 
     this.batchingActive = false;
-    
+
     this.onBatchEnd?.();
-    
+
     console.log(`Batch update ended with ${this.updates.length} updates`);
   }
 
@@ -166,11 +169,11 @@ export class BatchUpdaterImpl<T = any> implements BatchUpdater<T> {
    */
   applyBatch(initialState: T): T {
     let state = initialState;
-    
+
     for (const updater of this.updates) {
       state = updater(state);
     }
-    
+
     return state;
   }
 }
@@ -275,7 +278,7 @@ export class StateEventSystem {
    * 移除路由规则（基于CC源码）
    */
   removeRoutingRule(name: string): void {
-    this.routingRules = this.routingRules.filter(r => r.name !== name);
+    this.routingRules = this.routingRules.filter((r) => r.name !== name);
   }
 
   /**
@@ -364,7 +367,10 @@ export class StateEventSystem {
   /**
    * 创建批量更新器（基于CC源码）
    */
-  createBatchUpdater<T>(config?: BatchUpdateConfig, callbacks?: { onBatchStart?: () => void; onBatchEnd?: () => void }): BatchUpdater<T> {
+  createBatchUpdater<T>(
+    config?: BatchUpdateConfig,
+    callbacks?: { onBatchStart?: () => void; onBatchEnd?: () => void }
+  ): BatchUpdater<T> {
     return new BatchUpdaterImpl<T>(config, callbacks);
   }
 }
@@ -372,6 +378,9 @@ export class StateEventSystem {
 /**
  * 创建批量更新器实例
  */
-export function createBatchUpdater<T>(config?: BatchUpdateConfig, callbacks?: { onBatchStart?: () => void; onBatchEnd?: () => void }): BatchUpdater<T> {
+export function createBatchUpdater<T>(
+  config?: BatchUpdateConfig,
+  callbacks?: { onBatchStart?: () => void; onBatchEnd?: () => void }
+): BatchUpdater<T> {
   return new BatchUpdaterImpl<T>(config, callbacks);
 }

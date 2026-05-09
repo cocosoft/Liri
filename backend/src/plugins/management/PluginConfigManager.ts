@@ -12,10 +12,10 @@ import { PluginConfig } from '../types/PluginTypes';
 export interface ConfigValidationResult {
   /** 是否有效 */
   valid: boolean;
-  
+
   /** 错误信息 */
   errors: ConfigValidationError[];
-  
+
   /** 警告信息 */
   warnings: ConfigValidationWarning[];
 }
@@ -26,10 +26,10 @@ export interface ConfigValidationResult {
 export interface ConfigValidationError {
   /** 配置键 */
   key: string;
-  
+
   /** 错误信息 */
   message: string;
-  
+
   /** 配置值 */
   value?: unknown;
 }
@@ -40,10 +40,10 @@ export interface ConfigValidationError {
 export interface ConfigValidationWarning {
   /** 配置键 */
   key: string;
-  
+
   /** 警告信息 */
   message: string;
-  
+
   /** 配置值 */
   value?: unknown;
 }
@@ -54,39 +54,39 @@ export interface ConfigValidationWarning {
 export interface ConfigSchema {
   /** 配置键 */
   key: string;
-  
+
   /** 配置类型 */
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-  
+
   /** 配置标签 */
   label: string;
-  
+
   /** 配置描述 */
   description?: string;
-  
+
   /** 默认值 */
   default?: unknown;
-  
+
   /** 是否必需 */
   required?: boolean;
-  
+
   /** 验证规则 */
   validation?: {
     /** 正则表达式 */
     pattern?: string;
-    
+
     /** 最小值 */
     min?: number;
-    
+
     /** 最大值 */
     max?: number;
-    
+
     /** 最小长度 */
     minLength?: number;
-    
+
     /** 最大长度 */
     maxLength?: number;
-    
+
     /** 枚举值 */
     enum?: string[];
   };
@@ -105,18 +105,18 @@ export class PluginConfigManager extends EventEmitter {
    */
   setSchema(pluginId: string, schema: ConfigSchema[]): void {
     this.schemas.set(pluginId, schema);
-    
+
     // 生成默认配置
     const defaultConfig: PluginConfig = {};
-    
+
     for (const item of schema) {
       if (item.default !== undefined) {
         defaultConfig[item.key] = item.default;
       }
     }
-    
+
     this.defaultConfigs.set(pluginId, defaultConfig);
-    
+
     console.log(`✅ Config schema set for plugin: ${pluginId}`);
   }
 
@@ -133,22 +133,26 @@ export class PluginConfigManager extends EventEmitter {
   setConfig(pluginId: string, config: PluginConfig): ConfigValidationResult {
     // 验证配置
     const validationResult = this.validateConfig(pluginId, config);
-    
+
     if (!validationResult.valid) {
-      this.emit('configValidationFailed', { pluginId, config, validationResult });
+      this.emit('configValidationFailed', {
+        pluginId,
+        config,
+        validationResult,
+      });
       return validationResult;
     }
-    
+
     // 合并配置
     const currentConfig = this.configs.get(pluginId) || {};
     const mergedConfig = { ...currentConfig, ...config };
-    
+
     this.configs.set(pluginId, mergedConfig);
-    
+
     this.emit('configUpdated', { pluginId, config: mergedConfig });
-    
+
     console.log(`✅ Config updated for plugin: ${pluginId}`);
-    
+
     return validationResult;
   }
 
@@ -158,7 +162,7 @@ export class PluginConfigManager extends EventEmitter {
   getConfig(pluginId: string): PluginConfig {
     const config = this.configs.get(pluginId);
     const defaultConfig = this.defaultConfigs.get(pluginId) || {};
-    
+
     return { ...defaultConfig, ...config };
   }
 
@@ -167,32 +171,36 @@ export class PluginConfigManager extends EventEmitter {
    */
   getConfigValue<T>(pluginId: string, key: string, defaultValue?: T): T {
     const config = this.getConfig(pluginId);
-    
+
     if (config[key] !== undefined) {
       return config[key] as T;
     }
-    
+
     // 检查架构中的默认值
     const schema = this.schemas.get(pluginId);
-    
+
     if (schema) {
-      const schemaItem = schema.find(item => item.key === key);
-      
+      const schemaItem = schema.find((item) => item.key === key);
+
       if (schemaItem && schemaItem.default !== undefined) {
         return schemaItem.default as T;
       }
     }
-    
+
     return defaultValue as T;
   }
 
   /**
    * 设置配置值（基于CC源码）
    */
-  setConfigValue(pluginId: string, key: string, value: unknown): ConfigValidationResult {
+  setConfigValue(
+    pluginId: string,
+    key: string,
+    value: unknown
+  ): ConfigValidationResult {
     const currentConfig = this.getConfig(pluginId);
     const newConfig = { ...currentConfig, [key]: value };
-    
+
     return this.setConfig(pluginId, newConfig);
   }
 
@@ -201,80 +209,86 @@ export class PluginConfigManager extends EventEmitter {
    */
   resetConfig(pluginId: string): void {
     this.configs.delete(pluginId);
-    
+
     this.emit('configReset', { pluginId });
-    
+
     console.log(`✅ Config reset for plugin: ${pluginId}`);
   }
 
   /**
    * 验证配置（基于CC源码）
    */
-  validateConfig(pluginId: string, config: PluginConfig): ConfigValidationResult {
+  validateConfig(
+    pluginId: string,
+    config: PluginConfig
+  ): ConfigValidationResult {
     const schema = this.schemas.get(pluginId);
-    
+
     if (!schema) {
       return {
         valid: true,
         errors: [],
-        warnings: [{ key: 'schema', message: 'No schema defined for plugin' }]
+        warnings: [{ key: 'schema', message: 'No schema defined for plugin' }],
       };
     }
-    
+
     const errors: ConfigValidationError[] = [];
     const warnings: ConfigValidationWarning[] = [];
-    
+
     // 验证必需字段
     for (const item of schema) {
       if (item.required && config[item.key] === undefined) {
         errors.push({
           key: item.key,
-          message: `Required configuration item is missing`
+          message: `Required configuration item is missing`,
         });
       }
     }
-    
+
     // 验证配置值
     for (const [key, value] of Object.entries(config)) {
-      const schemaItem = schema.find(item => item.key === key);
-      
+      const schemaItem = schema.find((item) => item.key === key);
+
       if (!schemaItem) {
         warnings.push({
           key,
           message: `Unknown configuration item`,
-          value
+          value,
         });
         continue;
       }
-      
+
       // 类型检查
       if (!this.validateType(value, schemaItem.type)) {
         errors.push({
           key,
           message: `Expected type ${schemaItem.type}, got ${typeof value}`,
-          value
+          value,
         });
         continue;
       }
-      
+
       // 验证规则检查
       if (schemaItem.validation) {
-        const validationErrors = this.validateValue(value, schemaItem.validation);
-        
+        const validationErrors = this.validateValue(
+          value,
+          schemaItem.validation
+        );
+
         for (const error of validationErrors) {
           errors.push({
             key,
             message: error,
-            value
+            value,
           });
         }
       }
     }
-    
+
     return {
       valid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 
@@ -292,7 +306,9 @@ export class PluginConfigManager extends EventEmitter {
       case 'array':
         return Array.isArray(value);
       case 'object':
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
+        return (
+          typeof value === 'object' && value !== null && !Array.isArray(value)
+        );
       default:
         return false;
     }
@@ -303,44 +319,44 @@ export class PluginConfigManager extends EventEmitter {
    */
   private validateValue(value: unknown, validation: any): string[] {
     const errors: string[] = [];
-    
+
     if (validation.pattern && typeof value === 'string') {
       const regex = new RegExp(validation.pattern);
       if (!regex.test(value)) {
         errors.push(`Value does not match pattern: ${validation.pattern}`);
       }
     }
-    
+
     if (validation.min !== undefined && typeof value === 'number') {
       if (value < validation.min) {
         errors.push(`Value must be >= ${validation.min}`);
       }
     }
-    
+
     if (validation.max !== undefined && typeof value === 'number') {
       if (value > validation.max) {
         errors.push(`Value must be <= ${validation.max}`);
       }
     }
-    
+
     if (validation.minLength !== undefined && typeof value === 'string') {
       if (value.length < validation.minLength) {
         errors.push(`Length must be >= ${validation.minLength}`);
       }
     }
-    
+
     if (validation.maxLength !== undefined && typeof value === 'string') {
       if (value.length > validation.maxLength) {
         errors.push(`Length must be <= ${validation.maxLength}`);
       }
     }
-    
+
     if (validation.enum && typeof value === 'string') {
       if (!validation.enum.includes(value)) {
         errors.push(`Value must be one of: ${validation.enum.join(', ')}`);
       }
     }
-    
+
     return errors;
   }
 
@@ -362,18 +378,18 @@ export class PluginConfigManager extends EventEmitter {
   } {
     let validationErrors = 0;
     let validationWarnings = 0;
-    
+
     for (const [pluginId, config] of this.configs.entries()) {
       const validationResult = this.validateConfig(pluginId, config);
       validationErrors += validationResult.errors.length;
       validationWarnings += validationResult.warnings.length;
     }
-    
+
     return {
       totalPlugins: this.schemas.size,
       configuredPlugins: this.configs.size,
       validationErrors,
-      validationWarnings
+      validationWarnings,
     };
   }
 
@@ -382,25 +398,27 @@ export class PluginConfigManager extends EventEmitter {
    */
   exportConfigs(): Record<string, PluginConfig> {
     const result: Record<string, PluginConfig> = {};
-    
+
     for (const [pluginId, config] of this.configs.entries()) {
       result[pluginId] = config;
     }
-    
+
     return result;
   }
 
   /**
    * 导入配置（基于CC源码）
    */
-  importConfigs(configs: Record<string, PluginConfig>): ConfigValidationResult[] {
+  importConfigs(
+    configs: Record<string, PluginConfig>
+  ): ConfigValidationResult[] {
     const results: ConfigValidationResult[] = [];
-    
+
     for (const [pluginId, config] of Object.entries(configs)) {
       const result = this.setConfig(pluginId, config);
       results.push(result);
     }
-    
+
     return results;
   }
 
@@ -411,7 +429,7 @@ export class PluginConfigManager extends EventEmitter {
     this.configs.clear();
     this.schemas.clear();
     this.defaultConfigs.clear();
-    
+
     console.log('✅ Plugin config manager cleared');
   }
 }

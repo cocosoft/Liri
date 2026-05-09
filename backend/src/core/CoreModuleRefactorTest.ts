@@ -3,9 +3,16 @@
  * 验证重构后的模块依赖管理、并行加载和配置管理功能
  */
 
-import { EnhancedModuleDependencyManager, EnhancedModuleDefinition } from './EnhancedModuleDependencyManager.js';
+import {
+  EnhancedModuleDependencyManager,
+  EnhancedModuleDefinition,
+} from './EnhancedModuleDependencyManager.js';
 import { StartupOptimizer, PrefetchTaskFactory } from './StartupOptimizer.js';
-import { RemoteConfigManager, ConfigUtils, SecurityLevel } from './RemoteConfigManager.js';
+import {
+  RemoteConfigManager,
+  ConfigUtils,
+  SecurityLevel,
+} from './RemoteConfigManager.js';
 
 /**
  * 综合测试类
@@ -40,7 +47,7 @@ export class CoreModuleRefactorTest {
    */
   private async testModuleDependencyManagement(): Promise<ModuleDependencyTestResults> {
     console.log('=== 测试模块依赖管理功能 ===');
-    
+
     const results: ModuleDependencyTestResults = {
       moduleRegistration: false,
       dependencyAnalysis: false,
@@ -66,15 +73,16 @@ export class CoreModuleRefactorTest {
       console.log('✅ 循环依赖检测测试通过');
 
       // 4. 测试并行加载
-      const loadResults = await this.moduleManager.loadModulesInParallel(analysis.loadOrder);
-      results.parallelLoading = loadResults.every(r => r.success);
+      const loadResults = await this.moduleManager.loadModulesInParallel(
+        analysis.loadOrder
+      );
+      results.parallelLoading = loadResults.every((r) => r.success);
       console.log('✅ 并行加载测试通过');
 
       // 5. 测试错误处理
       await this.testErrorHandling();
       results.errorHandling = true;
       console.log('✅ 错误处理测试通过');
-
     } catch (error) {
       console.error('模块依赖管理测试失败:', error);
     }
@@ -134,7 +142,7 @@ export class CoreModuleRefactorTest {
       },
     ];
 
-    testModules.forEach(module => {
+    testModules.forEach((module) => {
       this.moduleManager.registerModule(module);
     });
 
@@ -160,7 +168,7 @@ export class CoreModuleRefactorTest {
    */
   private async testStartupOptimization(): Promise<StartupOptimizationTestResults> {
     console.log('\n=== 测试启动优化功能 ===');
-    
+
     const results: StartupOptimizationTestResults = {
       prefetchTasks: false,
       parallelExecution: false,
@@ -195,7 +203,6 @@ export class CoreModuleRefactorTest {
 
       // 输出优化报告
       console.log('优化报告:', this.startupOptimizer.getOptimizationReport());
-
     } catch (error) {
       console.error('启动优化测试失败:', error);
     }
@@ -230,7 +237,7 @@ export class CoreModuleRefactorTest {
    */
   private async testConfigManagement(): Promise<ConfigManagementTestResults> {
     console.log('\n=== 测试配置管理功能 ===');
-    
+
     const results: ConfigManagementTestResults = {
       configRegistration: false,
       configAccess: false,
@@ -264,7 +271,6 @@ export class CoreModuleRefactorTest {
       await this.testConfigRollback();
       results.configRollback = true;
       console.log('✅ 配置回滚测试通过');
-
     } catch (error) {
       console.error('配置管理测试失败:', error);
     }
@@ -310,14 +316,19 @@ export class CoreModuleRefactorTest {
    */
   private async testConfigRollback(): Promise<void> {
     // 修改配置值
-    this.configManager.setConfig('app_name', 'PY_APP_MODIFIED', 'test_user', '测试回滚');
-    
+    this.configManager.setConfig(
+      'app_name',
+      'PY_APP_MODIFIED',
+      'test_user',
+      '测试回滚'
+    );
+
     // 获取版本历史
     const versions = this.configManager.getVersionHistory();
     if (versions.length > 0) {
       // 回滚到上一个版本
       await this.configManager.rollback(versions[0].version);
-      
+
       // 验证回滚成功
       const currentValue = this.configManager.getConfig<string>('app_name');
       if (currentValue !== 'PY_APP') {
@@ -331,7 +342,7 @@ export class CoreModuleRefactorTest {
    */
   private async testIntegration(): Promise<IntegrationTestResults> {
     console.log('\n=== 测试集成功能 ===');
-    
+
     const results: IntegrationTestResults = {
       moduleConfigIntegration: false,
       startupConfigIntegration: false,
@@ -340,17 +351,18 @@ export class CoreModuleRefactorTest {
 
     try {
       // 1. 测试模块与配置集成
-      results.moduleConfigIntegration = await this.testModuleConfigIntegration();
+      results.moduleConfigIntegration =
+        await this.testModuleConfigIntegration();
       console.log('✅ 模块配置集成测试通过');
 
       // 2. 测试启动与配置集成
-      results.startupConfigIntegration = await this.testStartupConfigIntegration();
+      results.startupConfigIntegration =
+        await this.testStartupConfigIntegration();
       console.log('✅ 启动配置集成测试通过');
 
       // 3. 测试性能集成
       results.performanceIntegration = await this.testPerformanceIntegration();
       console.log('✅ 性能集成测试通过');
-
     } catch (error) {
       console.error('集成测试失败:', error);
     }
@@ -363,11 +375,16 @@ export class CoreModuleRefactorTest {
    */
   private async testModuleConfigIntegration(): Promise<boolean> {
     // 配置驱动模块行为
-    const maxTasks = this.configManager.getConfig<number>('max_concurrent_tasks');
-    
+    const maxTasks = this.configManager.getConfig<number>(
+      'max_concurrent_tasks'
+    );
+
     // 创建基于配置的优化器
-    const configuredOptimizer = new StartupOptimizer(this.moduleManager, maxTasks);
-    
+    const configuredOptimizer = new StartupOptimizer(
+      this.moduleManager,
+      maxTasks
+    );
+
     // 测试优化功能
     const metrics = await configuredOptimizer.optimizeStartup();
     return metrics.totalTime > 0;
@@ -379,12 +396,12 @@ export class CoreModuleRefactorTest {
   private async testStartupConfigIntegration(): Promise<boolean> {
     // 配置影响启动行为
     const enableDebug = this.configManager.getConfig<boolean>('enable_debug');
-    
+
     if (enableDebug) {
       // 启用详细日志等调试功能
       console.log('调试模式已启用');
     }
-    
+
     return true;
   }
 
@@ -394,17 +411,17 @@ export class CoreModuleRefactorTest {
   private async testPerformanceIntegration(): Promise<boolean> {
     // 测量综合性能
     const startTime = Date.now();
-    
+
     // 并行执行多个操作
     await Promise.all([
       this.moduleManager.loadModulesInParallel(['core', 'infrastructure']),
       this.configManager.sync(),
       this.startupOptimizer.optimizeStartup(),
     ]);
-    
+
     const totalTime = Date.now() - startTime;
     console.log(`综合性能测试完成，耗时: ${totalTime}ms`);
-    
+
     return totalTime < 5000; // 期望在5秒内完成
   }
 
@@ -413,15 +430,17 @@ export class CoreModuleRefactorTest {
    */
   generateReport(results: TestResults): string {
     const totalTests = Object.values(results).flatMap(Object.values).length;
-    const passedTests = Object.values(results).flatMap(Object.values).filter(Boolean).length;
+    const passedTests = Object.values(results)
+      .flatMap(Object.values)
+      .filter(Boolean).length;
     const successRate = (passedTests / totalTests) * 100;
-    
+
     let report = `=== Core模块重构测试报告 ===\n`;
     report += `测试时间: ${new Date().toISOString()}\n`;
     report += `总测试数: ${totalTests}\n`;
     report += `通过测试: ${passedTests}\n`;
     report += `成功率: ${successRate.toFixed(1)}%\n\n`;
-    
+
     // 详细结果
     Object.entries(results).forEach(([category, categoryResults]) => {
       report += `${category}:\n`;
@@ -430,7 +449,7 @@ export class CoreModuleRefactorTest {
       });
       report += '\n';
     });
-    
+
     return report;
   }
 }
@@ -480,24 +499,28 @@ interface IntegrationTestResults {
  */
 async function main(): Promise<void> {
   console.log('开始Core模块重构功能测试...\n');
-  
+
   try {
     const tester = new CoreModuleRefactorTest();
     console.log('测试器创建成功');
-    
+
     const results = await tester.runAllTests();
     console.log('所有测试执行完成');
-    
+
     console.log('\n' + tester.generateReport(results));
-    
+
     // 总结
     const totalTests = Object.values(results).flatMap(Object.values).length;
-    const passedTests = Object.values(results).flatMap(Object.values).filter(Boolean).length;
-    
+    const passedTests = Object.values(results)
+      .flatMap(Object.values)
+      .filter(Boolean).length;
+
     if (passedTests === totalTests) {
       console.log('🎉 所有测试通过！Core模块重构功能正常。');
     } else {
-      console.log(`⚠️  ${passedTests}/${totalTests} 测试通过，需要进一步调试。`);
+      console.log(
+        `⚠️  ${passedTests}/${totalTests} 测试通过，需要进一步调试。`
+      );
     }
   } catch (error) {
     console.error('测试执行失败:', error);

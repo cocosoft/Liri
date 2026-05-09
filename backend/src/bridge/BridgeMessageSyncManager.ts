@@ -7,6 +7,9 @@
 import { randomUUID } from 'crypto';
 import type { Message } from '../types/message.js';
 import { BoundedUUIDSet } from './BoundedUUIDSet.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * SDK消息类型
@@ -88,7 +91,7 @@ export class BridgeMessageSyncManager {
   handleIngressMessage(data: string): void {
     // 出站模式下忽略所有入站消息
     if (this.options.outboundOnly) {
-      console.log('[bridge] Outbound-only mode: ignoring ingress message');
+      logger.info('[bridge] Outbound-only mode: ignoring ingress message');
       return;
     }
 
@@ -97,14 +100,16 @@ export class BridgeMessageSyncManager {
 
       // 处理控制响应
       if (this.isSDKControlResponse(parsed)) {
-        console.log('[bridge] Ingress message type=control_response');
+        logger.info('[bridge] Ingress message type=control_response');
         this.options.onPermissionResponse?.(parsed);
         return;
       }
 
       // 处理控制请求
       if (this.isSDKControlRequest(parsed)) {
-        console.log(`[bridge] Inbound control_request subtype=${parsed.request.subtype}`);
+        logger.info(
+          `[bridge] Inbound control_request subtype=${parsed.request.subtype}`
+        );
         this.options.onControlRequest?.(parsed);
         return;
       }
@@ -112,31 +117,45 @@ export class BridgeMessageSyncManager {
       // 处理SDK消息
       if (this.isSDKMessage(parsed)) {
         // 检查UUID以检测回声
-        const uuid = 'uuid' in parsed && typeof parsed.uuid === 'string' ? parsed.uuid : undefined;
+        const uuid =
+          'uuid' in parsed && typeof parsed.uuid === 'string'
+            ? parsed.uuid
+            : undefined;
 
         if (uuid && this.recentPostedUUIDs.has(uuid)) {
-          console.log(`[bridge] Ignoring echo: type=${parsed.type} uuid=${uuid}`);
+          logger.info(
+            `[bridge] Ignoring echo: type=${parsed.type} uuid=${uuid}`
+          );
           return;
         }
 
         // 防止重复处理
         if (uuid && this.recentInboundUUIDs.has(uuid)) {
-          console.log(`[bridge] Ignoring re-delivered inbound: type=${parsed.type} uuid=${uuid}`);
+          logger.info(
+            `[bridge] Ignoring re-delivered inbound: type=${parsed.type} uuid=${uuid}`
+          );
           return;
         }
 
-        console.log(`[bridge] Ingress message type=${parsed.type}${uuid ? ` uuid=${uuid}` : ''}`);
+        logger.info(
+          `[bridge] Ingress message type=${parsed.type}${uuid ? ` uuid=${uuid}` : ''}`
+        );
 
         if (parsed.type === 'user') {
           if (uuid) this.recentInboundUUIDs.add(uuid);
           // 异步处理入站消息
           void this.options.onInboundMessage?.(parsed);
         } else {
-          console.log(`[bridge] Ignoring non-user inbound message: type=${parsed.type}`);
+          logger.info(
+            `[bridge] Ignoring non-user inbound message: type=${parsed.type}`
+          );
         }
       }
     } catch (error) {
-      console.error('[bridge] Failed to parse ingress message:', error);
+      logger.error(
+        '[bridge] Failed to parse ingress message',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
@@ -145,7 +164,7 @@ export class BridgeMessageSyncManager {
    */
   async sendOutboundMessage(message: Message): Promise<void> {
     if (this.options.outboundOnly) {
-      console.log('[bridge] Outbound-only mode: skipping message sending');
+      logger.info('[bridge] Outbound-only mode: skipping message sending');
       return;
     }
 
@@ -166,9 +185,9 @@ export class BridgeMessageSyncManager {
 
     // 构建SDK消息
     const sdkMessage = this.buildSDKMessage(processedMessage, uuid);
-    
+
     // 发送消息（这里需要与实际的传输层集成）
-    console.log('[bridge] Sending outbound message:', sdkMessage.type);
+    logger.info('[bridge] Sending outbound message:', sdkMessage.type);
   }
 
   /**
@@ -207,7 +226,10 @@ export class BridgeMessageSyncManager {
    */
   private isEligibleBridgeMessage(message: any): boolean {
     // 虚拟消息不适合桥接
-    if ((message.type === 'user' || message.type === 'assistant') && message.isVirtual) {
+    if (
+      (message.type === 'user' || message.type === 'assistant') &&
+      message.isVirtual
+    ) {
       return false;
     }
 

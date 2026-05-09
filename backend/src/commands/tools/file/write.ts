@@ -79,7 +79,10 @@ function parseFlags(args: string): WriteOptions {
   const trimmed = args.trim();
   const showJson = /(^|\s)--json(\s|$)/.test(trimmed);
   const append = /(^|\s)--append(\s|$)/.test(trimmed);
-  const cleaned = trimmed.replace(/--json\s*/g, '').replace(/--append\s*/g, '').trim();
+  const cleaned = trimmed
+    .replace(/--json\s*/g, '')
+    .replace(/--append\s*/g, '')
+    .trim();
 
   const firstSpace = cleaned.indexOf(' ');
   if (firstSpace === -1) {
@@ -98,7 +101,11 @@ function parseFlags(args: string): WriteOptions {
 function parseWriteOutput(data: unknown): FileWriteResult | null {
   if (!data || typeof data !== 'object') return null;
   const d = data as Record<string, unknown>;
-  if (d.type && (d.type === 'create' || d.type === 'update') && typeof d.filePath === 'string') {
+  if (
+    d.type &&
+    (d.type === 'create' || d.type === 'update') &&
+    typeof d.filePath === 'string'
+  ) {
     return {
       type: d.type as 'create' | 'update',
       filePath: d.filePath as string,
@@ -113,7 +120,10 @@ const writeCommand = {
   /**
    * 执行 write 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     if (!args.trim() || args.trim().toLowerCase() === 'help') {
       return { success: true, message: buildHelpText() };
     }
@@ -122,7 +132,10 @@ const writeCommand = {
 
     try {
       const { logEvent } = await import('@modules/analytics/index.js');
-      logEvent('tengu_write_command', { append: options.append, hasContent: options.content.length > 0 });
+      logEvent('tengu_write_command', {
+        append: options.append,
+        hasContent: options.content.length > 0,
+      });
     } catch {
       // analytics 非关键
     }
@@ -183,7 +196,8 @@ const writeCommand = {
       const modeText = options.append ? '已追加到' : '已写入';
 
       if (writeResult) {
-        const typeText = writeResult.type === 'create' ? '新建文件' : '更新文件';
+        const typeText =
+          writeResult.type === 'create' ? '新建文件' : '更新文件';
         return {
           success: true,
           message: `${modeText} ${options.filePath} (${typeText}, ${writeResult.linesWritten} 行, ${writeResult.sizeBytes} 字节)`,
@@ -198,11 +212,15 @@ const writeCommand = {
       if (options.showJson) {
         return {
           success: false,
-          message: JSON.stringify({
-            success: false,
-            filePath: options.filePath,
-            error: error instanceof Error ? error.message : String(error),
-          }, null, 2),
+          message: JSON.stringify(
+            {
+              success: false,
+              filePath: options.filePath,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            null,
+            2
+          ),
         };
       }
       return {

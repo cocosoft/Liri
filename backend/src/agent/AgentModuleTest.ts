@@ -53,7 +53,10 @@ export class AgentModuleTest {
     };
 
     try {
-      this.multiSourceManager.createPool('test-pool', { minSize: 2, maxSize: 5 });
+      this.multiSourceManager.createPool('test-pool', {
+        minSize: 2,
+        maxSize: 5,
+      });
       results.poolCreation = true;
       console.log('✅ 代理池创建测试通过');
 
@@ -74,7 +77,6 @@ export class AgentModuleTest {
       this.multiSourceManager.balanceLoad();
       results.loadBalancing = true;
       console.log('✅ 负载均衡测试通过');
-
     } catch (error) {
       console.error('多源代理管理器测试失败:', error);
     }
@@ -109,7 +111,6 @@ export class AgentModuleTest {
       const history = this.pluginLoader.getLoadHistory();
       results.loadHistory = Array.isArray(history);
       console.log('✅ 加载历史测试通过');
-
     } catch (error) {
       console.error('插件加载器测试失败:', error);
     }
@@ -130,8 +131,16 @@ export class AgentModuleTest {
     };
 
     try {
-      this.memorySystem.add('test_key_1', { data: 'test_value_1', timestamp: Date.now() }, ['test']);
-      this.memorySystem.add('test_key_2', { data: 'test_value_2', timestamp: Date.now() }, ['test']);
+      this.memorySystem.add(
+        'test_key_1',
+        { data: 'test_value_1', timestamp: Date.now() },
+        ['test']
+      );
+      this.memorySystem.add(
+        'test_key_2',
+        { data: 'test_value_2', timestamp: Date.now() },
+        ['test']
+      );
       results.memoryStorage = true;
       console.log('✅ 记忆存储测试通过');
 
@@ -139,7 +148,10 @@ export class AgentModuleTest {
       results.memoryRetrieval = value !== undefined;
       console.log('✅ 记忆检索测试通过');
 
-      const searchResults = this.memorySystem.search('test_value', { limit: 5, threshold: 0.1 });
+      const searchResults = this.memorySystem.search('test_value', {
+        limit: 5,
+        threshold: 0.1,
+      });
       results.semanticSearch = searchResults.length > 0;
       console.log('✅ 语义搜索测试通过');
 
@@ -154,7 +166,6 @@ export class AgentModuleTest {
       const stats = this.memorySystem.getStats();
       results.versionManagement = stats.totalItems >= 0;
       console.log('✅ 版本管理测试通过');
-
     } catch (error) {
       console.error('高级记忆系统测试失败:', error);
     }
@@ -210,7 +221,6 @@ export class AgentModuleTest {
       await this.uiManager.sendCommand(agent.id, command);
       results.commandExecution = true;
       console.log('✅ 命令执行测试通过');
-
     } catch (error) {
       console.error('代理UI管理器测试失败:', error);
     }
@@ -228,8 +238,15 @@ export class AgentModuleTest {
     };
 
     try {
-      this.memorySystem.add('integration_key', { type: 'integration_test', timestamp: Date.now() }, ['integration']);
-      const searchResults = this.memorySystem.search('integration', { limit: 5, threshold: 0.1 });
+      this.memorySystem.add(
+        'integration_key',
+        { type: 'integration_test', timestamp: Date.now() },
+        ['integration']
+      );
+      const searchResults = this.memorySystem.search('integration', {
+        limit: 5,
+        threshold: 0.1,
+      });
       results.memoryAndSearch = searchResults.length > 0;
       console.log('✅ 记忆与搜索集成测试通过');
 
@@ -257,7 +274,6 @@ export class AgentModuleTest {
       const response = await agent.execute(task);
       results.fullPipeline = response.status !== AgentState.FAILED;
       console.log('✅ 完整流水线测试通过');
-
     } catch (error) {
       console.error('集成测试失败:', error);
     }
@@ -296,7 +312,9 @@ export class AgentModuleTest {
 
   generateReport(results: TestResults): string {
     const totalTests = Object.values(results).flatMap(Object.values).length;
-    const passedTests = Object.values(results).flatMap(Object.values).filter(Boolean).length;
+    const passedTests = Object.values(results)
+      .flatMap(Object.values)
+      .filter(Boolean).length;
     const successRate = (passedTests / totalTests) * 100;
 
     let report = `=== Agent模块重构测试报告 ===\n`;
@@ -376,12 +394,16 @@ async function main(): Promise<void> {
     console.log('\n' + tester.generateReport(results));
 
     const totalTests = Object.values(results).flatMap(Object.values).length;
-    const passedTests = Object.values(results).flatMap(Object.values).filter(Boolean).length;
+    const passedTests = Object.values(results)
+      .flatMap(Object.values)
+      .filter(Boolean).length;
 
     if (passedTests === totalTests) {
       console.log('所有测试通过！Agent模块重构功能正常。');
     } else {
-      console.log(`${passedTests}/${totalTests} 测试通过。需要修复 ${totalTests - passedTests} 个失败测试。`);
+      console.log(
+        `${passedTests}/${totalTests} 测试通过。需要修复 ${totalTests - passedTests} 个失败测试。`
+      );
     }
   } catch (error) {
     console.error('测试执行失败:', error);

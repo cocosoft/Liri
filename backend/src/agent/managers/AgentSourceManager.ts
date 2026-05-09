@@ -8,30 +8,44 @@ import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/plugins/PluginLoader';
 import { SettingSource } from '@modules/config/constants';
-import { loadUserAgents, loadProjectAgents, loadManagedAgents, loadLocalAgents } from '../utils/agentLoader';
+import {
+  loadUserAgents,
+  loadProjectAgents,
+  loadManagedAgents,
+  loadLocalAgents,
+} from '../utils/agentLoader';
 import { DirectoryWatcher, WatchEvent } from '../utils/directoryWatcher';
 
 /**
  * Agent源类型
  */
-export type AgentSource = 'built-in' | 'user' | 'project' | 'local' | 'managed' | 'plugin';
+export type AgentSource =
+  | 'built-in'
+  | 'user'
+  | 'project'
+  | 'local'
+  | 'managed'
+  | 'plugin';
 
 /**
  * Agent源优先级
  */
 export const AGENT_SOURCE_PRIORITY: Record<AgentSource, number> = {
-  'user': 1,      // 用户定义的Agent优先级最高
-  'project': 2,    // 项目级Agent次之
-  'managed': 3,    // 管理级Agent
-  'plugin': 4,     // 插件Agent
-  'local': 5,      // 本地Agent
-  'built-in': 6    // 内置Agent优先级最低
+  user: 1, // 用户定义的Agent优先级最高
+  project: 2, // 项目级Agent次之
+  managed: 3, // 管理级Agent
+  plugin: 4, // 插件Agent
+  local: 5, // 本地Agent
+  'built-in': 6, // 内置Agent优先级最低
 };
 
 /**
  * 热加载回调类型
  */
-export type HotReloadCallback = (event: 'added' | 'updated' | 'removed', agent?: AgentDefinition) => void;
+export type HotReloadCallback = (
+  event: 'added' | 'updated' | 'removed',
+  agent?: AgentDefinition
+) => void;
 
 /**
  * Agent源管理器
@@ -60,8 +74,10 @@ export class AgentSourceManager {
 
       // 只处理支持的文件格式
       const supportedExtensions = ['.md', '.yaml', '.yml', '.json'];
-      const isSupported = supportedExtensions.some(ext => event.filePath.endsWith(ext));
-      
+      const isSupported = supportedExtensions.some((ext) =>
+        event.filePath.endsWith(ext)
+      );
+
       if (!isSupported) {
         return;
       }
@@ -111,7 +127,9 @@ export class AgentSourceManager {
   private async handleFileRemoved(filePath: string): Promise<void> {
     try {
       // 移除对应的Agent
-      this.allAgents = this.allAgents.filter(agent => agent.filename !== filePath);
+      this.allAgents = this.allAgents.filter(
+        (agent) => agent.filename !== filePath
+      );
       this.agents.forEach((agent, key) => {
         if (agent.filename === filePath) {
           this.agents.delete(key);
@@ -126,7 +144,10 @@ export class AgentSourceManager {
   /**
    * 通知热加载回调
    */
-  private notifyHotReload(event: 'added' | 'updated' | 'removed', agent?: AgentDefinition): void {
+  private notifyHotReload(
+    event: 'added' | 'updated' | 'removed',
+    agent?: AgentDefinition
+  ): void {
     for (const callback of this.hotReloadCallbacks) {
       try {
         callback(event, agent);
@@ -141,13 +162,19 @@ export class AgentSourceManager {
    */
   enableHotReload(): void {
     this.isHotReloadEnabled = true;
-    
+
     // 监控用户和项目Agent目录
     const userAgentsDir = require('path').join(
-      process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'agents'
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.py_app',
+      'agents'
     );
-    const projectAgentsDir = require('path').join(process.cwd(), '.py_app', 'agents');
-    
+    const projectAgentsDir = require('path').join(
+      process.cwd(),
+      '.py_app',
+      'agents'
+    );
+
     this.directoryWatcher.watchDirectory(userAgentsDir);
     this.directoryWatcher.watchDirectory(projectAgentsDir);
   }
@@ -217,13 +244,13 @@ export class AgentSourceManager {
   private async loadBuiltInAgents(): Promise<void> {
     try {
       const builtInAgents = getBuiltInAgents();
-      builtInAgents.forEach(agent => {
+      builtInAgents.forEach((agent) => {
         this.addAgent(agent);
       });
     } catch (error) {
       this.failedFiles.push({
         path: 'built-in',
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
   }
@@ -234,13 +261,13 @@ export class AgentSourceManager {
   private async loadLocalAgents(): Promise<void> {
     try {
       const localAgents = await loadLocalAgents();
-      localAgents.forEach(agent => {
+      localAgents.forEach((agent) => {
         this.addAgent({ ...agent, source: 'local' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({
         path: 'local',
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
   }
@@ -251,13 +278,13 @@ export class AgentSourceManager {
   private async loadManagedAgents(): Promise<void> {
     try {
       const managedAgents = await loadManagedAgents();
-      managedAgents.forEach(agent => {
+      managedAgents.forEach((agent) => {
         this.addAgent({ ...agent, source: 'managed' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({
         path: 'managed',
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
   }
@@ -268,13 +295,13 @@ export class AgentSourceManager {
   private async loadProjectAgents(): Promise<void> {
     try {
       const projectAgents = await loadProjectAgents();
-      projectAgents.forEach(agent => {
+      projectAgents.forEach((agent) => {
         this.addAgent({ ...agent, source: 'project' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({
         path: 'project',
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
   }
@@ -285,13 +312,13 @@ export class AgentSourceManager {
   private async loadUserAgents(): Promise<void> {
     try {
       const userAgents = await loadUserAgents();
-      userAgents.forEach(agent => {
+      userAgents.forEach((agent) => {
         this.addAgent({ ...agent, source: 'user' } as AgentDefinition);
       });
     } catch (error) {
       this.failedFiles.push({
         path: 'user',
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
   }
@@ -308,7 +335,7 @@ export class AgentSourceManager {
     } catch (error) {
       this.failedFiles.push({
         path: 'plugin',
-        error: (error as Error).message
+        error: (error as Error).message,
       });
     }
   }
@@ -319,12 +346,14 @@ export class AgentSourceManager {
    */
   private addAgent(agent: AgentDefinition): void {
     const key = `${agent.agentType}-${agent.source}`;
-    
+
     // 检查是否已存在同类型的Agent
     // 优先级高的会覆盖优先级低的
-    if (!this.agents.has(key) || 
-        AGENT_SOURCE_PRIORITY[agent.source as AgentSource] < 
-        AGENT_SOURCE_PRIORITY[this.agents.get(key)?.source as AgentSource]) {
+    if (
+      !this.agents.has(key) ||
+      AGENT_SOURCE_PRIORITY[agent.source as AgentSource] <
+        AGENT_SOURCE_PRIORITY[this.agents.get(key)?.source as AgentSource]
+    ) {
       this.agents.set(key, agent);
       this.allAgents.push(agent);
     }
@@ -345,12 +374,14 @@ export class AgentSourceManager {
   getActiveAgents(): AgentDefinition[] {
     // 去重，保留优先级最高的Agent
     const uniqueAgents = new Map<string, AgentDefinition>();
-    
-    this.allAgents.forEach(agent => {
+
+    this.allAgents.forEach((agent) => {
       const existing = uniqueAgents.get(agent.agentType);
-      if (!existing || 
-          AGENT_SOURCE_PRIORITY[agent.source as AgentSource] < 
-          AGENT_SOURCE_PRIORITY[existing.source as AgentSource]) {
+      if (
+        !existing ||
+        AGENT_SOURCE_PRIORITY[agent.source as AgentSource] <
+          AGENT_SOURCE_PRIORITY[existing.source as AgentSource]
+      ) {
         uniqueAgents.set(agent.agentType, agent);
       }
     });
@@ -365,7 +396,7 @@ export class AgentSourceManager {
    */
   getAgentByType(agentType: string): AgentDefinition | undefined {
     const activeAgents = this.getActiveAgents();
-    return activeAgents.find(agent => agent.agentType === agentType);
+    return activeAgents.find((agent) => agent.agentType === agentType);
   }
 
   /**
@@ -374,7 +405,7 @@ export class AgentSourceManager {
    * @returns Agent定义数组
    */
   getAgentsBySource(source: AgentSource): AgentDefinition[] {
-    return this.allAgents.filter(agent => agent.source === source);
+    return this.allAgents.filter((agent) => agent.source === source);
   }
 
   /**

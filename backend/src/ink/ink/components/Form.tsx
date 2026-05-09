@@ -67,7 +67,7 @@ export const Form: React.FC<FormProps> = ({
             {field.label}
             {field.required && <Text color="red">*</Text>}
           </Text>
-          
+
           {field.type === 'text' || field.type === 'password' ? (
             <Input
               placeholder={field.placeholder}

@@ -16,10 +16,7 @@ import type {
 } from '../hooks/types/PostSampling.js';
 import { CompactServiceImpl } from '../services/compact/CompactService.js';
 import type { CompactArtifact } from '../services/compact/CompactService.js';
-import {
-  AnalyticsService,
-  analyticsService,
-} from '../analytics/index.js';
+import { AnalyticsService, analyticsService } from '../analytics/index.js';
 import {
   AnalyticsEventQueue,
   getGlobalAnalyticsQueue,
@@ -424,7 +421,10 @@ export class QueryEngine {
    * @param reason 停止原因
    * @param error 错误对象（可选）
    */
-  private async executeStopHooks(reason: StopHookReason, error?: Error): Promise<void> {
+  private async executeStopHooks(
+    reason: StopHookReason,
+    error?: Error
+  ): Promise<void> {
     if (!this.sessionState) return;
 
     const context: StopHookContext = {
@@ -549,10 +549,13 @@ export class QueryEngine {
       };
       this.emitError(queryError);
       this.updateSessionState({ queryState: QueryState.ERROR });
-      
+
       // 执行停止钩子
-      await this.executeStopHooks('error', error instanceof Error ? error : undefined);
-      
+      await this.executeStopHooks(
+        'error',
+        error instanceof Error ? error : undefined
+      );
+
       yield {
         type: 'error',
         error: queryError.message,
@@ -622,7 +625,10 @@ export class QueryEngine {
         });
 
         const budgetState = this.tokenBudgetManager.getCurrentBudgetState();
-        if (budgetState.status === TokenBudgetStatus.CRITICAL || budgetState.status === TokenBudgetStatus.EXCEEDED) {
+        if (
+          budgetState.status === TokenBudgetStatus.CRITICAL ||
+          budgetState.status === TokenBudgetStatus.EXCEEDED
+        ) {
           this.analyticsService.logEvent('token_budget_threshold', {
             session_id: sessionId,
             status: budgetState.status,
@@ -773,7 +779,11 @@ export class QueryEngine {
       message: Message;
       toolCalls?: ToolCall[];
       toolResults?: ToolResult[];
-      usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+      usage?: {
+        inputTokens: number;
+        outputTokens: number;
+        totalTokens: number;
+      };
     }> => {
       // 使用ChatManager发送消息，实现完整的聊天循环
       const message = await this.chatManager.sendMessage(prompt, {
@@ -782,7 +792,10 @@ export class QueryEngine {
 
       // 从消息中提取工具调用（如果有）
       const toolCalls: ToolCall[] = [];
-      if ((message as any).tool_calls && Array.isArray((message as any).tool_calls)) {
+      if (
+        (message as any).tool_calls &&
+        Array.isArray((message as any).tool_calls)
+      ) {
         for (const tc of (message as any).tool_calls) {
           toolCalls.push({
             id: tc.id,
@@ -793,7 +806,10 @@ export class QueryEngine {
       }
 
       // 计算token使用量（简化计算）
-      const contentLength = typeof message.content === 'string' ? message.content.length : JSON.stringify(message.content).length;
+      const contentLength =
+        typeof message.content === 'string'
+          ? message.content.length
+          : JSON.stringify(message.content).length;
       const usage = {
         inputTokens: prompt.length,
         outputTokens: contentLength,
@@ -1019,9 +1035,11 @@ export class QueryEngine {
 
       // 根据Token使用率决定压缩级别
       const compactLevel = this.determineCompactLevel(percentUsed);
-      
+
       if (compactLevel > 0) {
-        console.log(`🔄 检测到需要压缩，级别: Level ${compactLevel}, Token使用率: ${percentUsed}%`);
+        console.log(
+          `🔄 检测到需要压缩，级别: Level ${compactLevel}, Token使用率: ${percentUsed}%`
+        );
 
         // 更新会话状态为压缩中
         this.updateSessionState({ queryState: QueryState.COMPACTING });
@@ -1091,7 +1109,10 @@ export class QueryEngine {
    * @param messages 消息列表
    * @returns 压缩产物
    */
-  private async performLightCompact(sessionId: string, messages: any[]): Promise<any[]> {
+  private async performLightCompact(
+    sessionId: string,
+    messages: any[]
+  ): Promise<any[]> {
     const result = await this.compactService.compactConversation(messages, {
       isAutoCompact: true,
       suppressFollowUpQuestions: true,
@@ -1112,7 +1133,10 @@ export class QueryEngine {
    * @param messages 消息列表
    * @returns 压缩产物
    */
-  private async performMediumCompact(sessionId: string, messages: any[]): Promise<any[]> {
+  private async performMediumCompact(
+    sessionId: string,
+    messages: any[]
+  ): Promise<any[]> {
     const pivotIndex = Math.max(0, messages.length - 6);
     const result = await this.compactService.partialCompactConversation(
       messages,
@@ -1135,17 +1159,23 @@ export class QueryEngine {
    * @param messages 消息列表
    * @returns 压缩产物
    */
-  private async performDeepCompact(sessionId: string, messages: any[]): Promise<any[]> {
+  private async performDeepCompact(
+    sessionId: string,
+    messages: any[]
+  ): Promise<any[]> {
     const pivotIndex = Math.max(0, messages.length - 3);
     const result = await this.compactService.partialCompactConversation(
       messages,
       pivotIndex,
       'up_to'
     );
-    
+
     // 同时提取关键信息
-    const keyArtifacts = await this.compactService.extractKeyInformation(messages, sessionId);
-    
+    const keyArtifacts = await this.compactService.extractKeyInformation(
+      messages,
+      sessionId
+    );
+
     const summaryArtifact = {
       id: `compact_deep_${Date.now()}`,
       sessionId,
@@ -1154,7 +1184,7 @@ export class QueryEngine {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    
+
     return [summaryArtifact, ...keyArtifacts];
   }
 
@@ -1371,7 +1401,10 @@ export class QueryEngine {
         message: budgetState.warningMessage || 'Token budget exhausted',
         retryable: false,
         timestamp: Date.now(),
-        details: { currentTokens: budgetState.currentTokens, maxTokens: budgetState.maxTokens },
+        details: {
+          currentTokens: budgetState.currentTokens,
+          maxTokens: budgetState.maxTokens,
+        },
       };
       this.emitError(error);
       return false;
@@ -1417,7 +1450,7 @@ export class QueryEngine {
       this.abortController.abort();
     }
     this.updateSessionState({ queryState: QueryState.ABORTED });
-    
+
     // 执行停止钩子
     await this.executeStopHooks('aborted');
   }

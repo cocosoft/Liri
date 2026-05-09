@@ -28,7 +28,8 @@ export interface SpanContext {
  */
 export class SpanContextManager {
   private static instance: SpanContextManager;
-  private asyncLocalStorage: AsyncLocalStorage<SpanContext> = new AsyncLocalStorage();
+  private asyncLocalStorage: AsyncLocalStorage<SpanContext> =
+    new AsyncLocalStorage();
 
   private constructor() {}
 
@@ -93,10 +94,12 @@ export class SpanContextManager {
   /**
    * 遍历上下文链
    */
-  traverseContextChain(callback: (context: SpanContext, depth: number) => void): void {
+  traverseContextChain(
+    callback: (context: SpanContext, depth: number) => void
+  ): void {
     let current = this.getCurrentContext();
     let depth = 0;
-    
+
     while (current) {
       callback(current, depth);
       current = current.parent;
@@ -110,12 +113,12 @@ export class SpanContextManager {
   getContextChainLength(): number {
     let length = 0;
     let current = this.getCurrentContext();
-    
+
     while (current) {
       length++;
       current = current.parent;
     }
-    
+
     return length;
   }
 
@@ -155,7 +158,8 @@ export class SpanContextManager {
     try {
       return this.runWithContext(spanContext, fn);
     } catch (error) {
-      spanContext.attributes.error = error instanceof Error ? error.message : String(error);
+      spanContext.attributes.error =
+        error instanceof Error ? error.message : String(error);
       throw error;
     }
   }
@@ -172,7 +176,8 @@ export class SpanContextManager {
     try {
       return await this.runWithContext(spanContext, fn);
     } catch (error) {
-      spanContext.attributes.error = error instanceof Error ? error.message : String(error);
+      spanContext.attributes.error =
+        error instanceof Error ? error.message : String(error);
       throw error;
     }
   }
@@ -197,7 +202,7 @@ export class SpanContextUtils {
     if (manager.hasActiveContext()) {
       return fn();
     }
-    
+
     // 创建默认上下文
     const defaultSpan: SpanContext = {
       spanId: Math.random().toString(36).substr(2, 9),
@@ -206,7 +211,7 @@ export class SpanContextUtils {
       startTime: Date.now(),
       events: [],
     };
-    
+
     return manager.withSpan(defaultSpan, fn);
   }
 
@@ -218,7 +223,7 @@ export class SpanContextUtils {
     if (manager.hasActiveContext()) {
       return await fn();
     }
-    
+
     // 创建默认上下文
     const defaultSpan: SpanContext = {
       spanId: Math.random().toString(36).substr(2, 9),
@@ -227,7 +232,7 @@ export class SpanContextUtils {
       startTime: Date.now(),
       events: [],
     };
-    
+
     return await manager.withAsyncSpan(defaultSpan, fn);
   }
 }

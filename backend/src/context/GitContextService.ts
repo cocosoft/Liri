@@ -83,7 +83,7 @@ export class GitContextService {
           cwd: process.cwd(),
         }
       );
-      
+
       if (stdout.trim()) {
         // 获取主分支名称
         const { stdout: mainBranch } = await execAsync(
@@ -163,13 +163,14 @@ export class GitContextService {
         return null;
       }
 
-      const [branch, mainBranch, status, recentCommits, userName] = await Promise.all([
-        this.getBranch(),
-        this.getDefaultBranch(),
-        this.getStatus(),
-        this.getRecentCommits(),
-        this.getUserName(),
-      ]);
+      const [branch, mainBranch, status, recentCommits, userName] =
+        await Promise.all([
+          this.getBranch(),
+          this.getDefaultBranch(),
+          this.getStatus(),
+          this.getRecentCommits(),
+          this.getUserName(),
+        ]);
 
       return {
         branch: branch || 'unknown',

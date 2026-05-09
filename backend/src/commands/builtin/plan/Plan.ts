@@ -40,11 +40,36 @@ export default {
   async handleShow(context: CommandContext): Promise<CommandResult> {
     const plan = {
       tasks: [
-        { id: 1, description: '分析项目结构', status: 'completed', estimatedTime: '15min' },
-        { id: 2, description: '设计API接口', status: 'completed', estimatedTime: '30min' },
-        { id: 3, description: '实现核心功能', status: 'in_progress', estimatedTime: '1h' },
-        { id: 4, description: '编写单元测试', status: 'pending', estimatedTime: '45min' },
-        { id: 5, description: '文档编写', status: 'pending', estimatedTime: '30min' },
+        {
+          id: 1,
+          description: '分析项目结构',
+          status: 'completed',
+          estimatedTime: '15min',
+        },
+        {
+          id: 2,
+          description: '设计API接口',
+          status: 'completed',
+          estimatedTime: '30min',
+        },
+        {
+          id: 3,
+          description: '实现核心功能',
+          status: 'in_progress',
+          estimatedTime: '1h',
+        },
+        {
+          id: 4,
+          description: '编写单元测试',
+          status: 'pending',
+          estimatedTime: '45min',
+        },
+        {
+          id: 5,
+          description: '文档编写',
+          status: 'pending',
+          estimatedTime: '30min',
+        },
       ],
       totalTasks: 5,
       completedTasks: 2,
@@ -52,15 +77,23 @@ export default {
       pendingTasks: 2,
     };
 
-    const table = plan.tasks.map(task => {
-      const statusIcon = task.status === 'completed' ? '✓' : task.status === 'in_progress' ? '○' : '○';
-      return `${statusIcon} ${task.id.toString().padEnd(3)} ${task.status.padEnd(15)} ${task.description}`;
-    }).join('\n');
+    const table = plan.tasks
+      .map((task) => {
+        const statusIcon =
+          task.status === 'completed'
+            ? '✓'
+            : task.status === 'in_progress'
+              ? '○'
+              : '○';
+        return `${statusIcon} ${task.id.toString().padEnd(3)} ${task.status.padEnd(15)} ${task.description}`;
+      })
+      .join('\n');
 
     return {
       success: true,
       type: 'text',
-      message: `当前计划:\n\n${table}\n\n` +
+      message:
+        `当前计划:\n\n${table}\n\n` +
         `进度: ${plan.completedTasks}/${plan.totalTasks} 任务完成`,
       data: plan,
     };
@@ -69,11 +102,14 @@ export default {
   /**
    * 创建新计划
    */
-  async handleCreate(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleCreate(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const planName = args.join(' ') || '新计划';
-    
+
     context.onDone?.(`已创建计划: ${planName}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -85,9 +121,12 @@ export default {
   /**
    * 添加任务到计划
    */
-  async handleAdd(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleAdd(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const taskDescription = args.join(' ');
-    
+
     if (!taskDescription) {
       return {
         success: false,
@@ -98,7 +137,7 @@ export default {
     }
 
     context.onDone?.(`已添加任务: ${taskDescription}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -110,9 +149,12 @@ export default {
   /**
    * 从计划中移除任务
    */
-  async handleRemove(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleRemove(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const taskId = args[0];
-    
+
     if (!taskId) {
       return {
         success: false,
@@ -123,7 +165,7 @@ export default {
     }
 
     context.onDone?.(`已移除任务: ${taskId}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -137,7 +179,7 @@ export default {
    */
   async handleClear(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('计划已清空', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -150,7 +192,7 @@ export default {
    */
   async handleExecute(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('开始执行计划', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

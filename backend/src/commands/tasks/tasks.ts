@@ -4,18 +4,29 @@
  * 对标 CC BackgroundTasksDialog 实现
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
-import type { BackgroundTaskInfo, BackgroundTaskStatus } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
+import type {
+  BackgroundTaskInfo,
+  BackgroundTaskStatus,
+} from '@modules/tools/AgentTool/BackgroundTaskManager.js';
 import { getBackgroundTaskManager } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
 
 /**
  * 解析参数
  */
-function parseFlags(args: string): { showJson: boolean; subcommand: string; taskId: string; limit: number } {
+function parseFlags(args: string): {
+  showJson: boolean;
+  subcommand: string;
+  taskId: string;
+  limit: number;
+} {
   const trimmed = args.trim();
   const showJson = /(^|\s)--json(\s|$)/.test(trimmed);
   const limitMatch = trimmed.match(/--limit\s+(\d+)/);
   const limit = limitMatch ? parseInt(limitMatch[1], 10) : 20;
-  const cleaned = trimmed.replace(/--json\s*/g, '').replace(/--limit\s+\d+/g, '').trim();
+  const cleaned = trimmed
+    .replace(/--json\s*/g, '')
+    .replace(/--limit\s+\d+/g, '')
+    .trim();
   const parts = cleaned.split(/\s+/);
   const subcommand = parts[0]?.toLowerCase() || '';
   const taskId = parts.slice(1).join(' ');
@@ -98,12 +109,18 @@ function formatAge(timestamp: number): string {
  */
 function statusIcon(status: BackgroundTaskStatus): string {
   switch (status) {
-    case 'running': return '●';
-    case 'completed': return '✓';
-    case 'failed': return '✗';
-    case 'aborted': return '○';
-    case 'pending': return '◌';
-    default: return '?';
+    case 'running':
+      return '●';
+    case 'completed':
+      return '✓';
+    case 'failed':
+      return '✗';
+    case 'aborted':
+      return '○';
+    case 'pending':
+      return '◌';
+    default:
+      return '?';
   }
 }
 
@@ -112,12 +129,18 @@ function statusIcon(status: BackgroundTaskStatus): string {
  */
 function statusColor(status: BackgroundTaskStatus): string {
   switch (status) {
-    case 'running': return '\x1b[36m';
-    case 'completed': return '\x1b[32m';
-    case 'failed': return '\x1b[31m';
-    case 'aborted': return '\x1b[33m';
-    case 'pending': return '\x1b[90m';
-    default: return '\x1b[0m';
+    case 'running':
+      return '\x1b[36m';
+    case 'completed':
+      return '\x1b[32m';
+    case 'failed':
+      return '\x1b[31m';
+    case 'aborted':
+      return '\x1b[33m';
+    case 'pending':
+      return '\x1b[90m';
+    default:
+      return '\x1b[0m';
   }
 }
 
@@ -127,18 +150,19 @@ const RESET = '\x1b[0m';
  * 构建统计头部
  */
 function buildStatsHeader(tasks: BackgroundTaskInfo[]): string {
-  const running = tasks.filter(t => t.status === 'running').length;
-  const pending = tasks.filter(t => t.status === 'pending').length;
-  const completed = tasks.filter(t => t.status === 'completed').length;
-  const failed = tasks.filter(t => t.status === 'failed').length;
-  const aborted = tasks.filter(t => t.status === 'aborted').length;
+  const running = tasks.filter((t) => t.status === 'running').length;
+  const pending = tasks.filter((t) => t.status === 'pending').length;
+  const completed = tasks.filter((t) => t.status === 'completed').length;
+  const failed = tasks.filter((t) => t.status === 'failed').length;
+  const aborted = tasks.filter((t) => t.status === 'aborted').length;
   const total = tasks.length;
 
   const parts: string[] = [];
   if (total > 0) parts.push(`总计 ${total}`);
   if (running > 0) parts.push(`${statusIcon('running')} 运行中 ${running}`);
   if (pending > 0) parts.push(`${statusIcon('pending')} 等待中 ${pending}`);
-  if (completed > 0) parts.push(`${statusIcon('completed')} 已完成 ${completed}`);
+  if (completed > 0)
+    parts.push(`${statusIcon('completed')} 已完成 ${completed}`);
   if (failed > 0) parts.push(`${statusIcon('failed')} 失败 ${failed}`);
   if (aborted > 0) parts.push(`${statusIcon('aborted')} 已中断 ${aborted}`);
 
@@ -149,7 +173,11 @@ function buildStatsHeader(tasks: BackgroundTaskInfo[]): string {
  * 按状态分组显示任务列表
  */
 function formatTaskGroups(tasks: BackgroundTaskInfo[], limit?: number): string {
-  const groups: { label: string; statuses: BackgroundTaskStatus[]; tasks: BackgroundTaskInfo[] }[] = [
+  const groups: {
+    label: string;
+    statuses: BackgroundTaskStatus[];
+    tasks: BackgroundTaskInfo[];
+  }[] = [
     { label: '运行中', statuses: ['running'], tasks: [] },
     { label: '等待中', statuses: ['pending'], tasks: [] },
     { label: '已完成', statuses: ['completed'], tasks: [] },
@@ -158,7 +186,7 @@ function formatTaskGroups(tasks: BackgroundTaskInfo[], limit?: number): string {
   ];
 
   for (const task of tasks) {
-    const group = groups.find(g => g.statuses.includes(task.status));
+    const group = groups.find((g) => g.statuses.includes(task.status));
     if (group) group.tasks.push(task);
   }
 
@@ -191,7 +219,9 @@ function formatTaskGroups(tasks: BackgroundTaskInfo[], limit?: number): string {
       const age = formatAge(task.createdAt);
       const progress = task.progressMessage ? ` — ${task.progressMessage}` : '';
 
-      lines.push(`    ${color}${icon}${RESET} [${sid}] ${desc} (${agentInfo}, ${age}${elapsed})${progress}`);
+      lines.push(
+        `    ${color}${icon}${RESET} [${sid}] ${desc} (${agentInfo}, ${age}${elapsed})${progress}`
+      );
       shown++;
     }
   }
@@ -210,10 +240,14 @@ function formatTaskDetail(task: BackgroundTaskInfo): string {
   lines.push(`${color}${icon}${RESET} 任务详情`);
   lines.push('─'.repeat(50));
   lines.push(`  ID:          ${task.taskId}`);
-  lines.push(`  Agent:       ${task.agentName || 'unknown'} (${task.agentType || 'unknown'})`);
+  lines.push(
+    `  Agent:       ${task.agentName || 'unknown'} (${task.agentType || 'unknown'})`
+  );
   lines.push(` 描述:        ${task.description || '无'}`);
   lines.push(` 状态:        ${color}${task.status}${RESET}`);
-  lines.push(` 创建时间:    ${new Date(task.createdAt).toLocaleString()} (${formatAge(task.createdAt)}前)`);
+  lines.push(
+    ` 创建时间:    ${new Date(task.createdAt).toLocaleString()} (${formatAge(task.createdAt)}前)`
+  );
 
   if (task.startedAt) {
     lines.push(` 开始时间:    ${new Date(task.startedAt).toLocaleString()}`);
@@ -234,11 +268,16 @@ function formatTaskDetail(task: BackgroundTaskInfo): string {
 
   if (task.tokenUsage) {
     const tu = task.tokenUsage;
-    lines.push(` Token 用量:  ${tu.totalTokens} (prompt: ${tu.promptTokens}, completion: ${tu.completionTokens})`);
+    lines.push(
+      ` Token 用量:  ${tu.totalTokens} (prompt: ${tu.promptTokens}, completion: ${tu.completionTokens})`
+    );
   }
 
   if (task.result) {
-    const preview = task.result.length > 200 ? task.result.substring(0, 200) + '...' : task.result;
+    const preview =
+      task.result.length > 200
+        ? task.result.substring(0, 200) + '...'
+        : task.result;
     lines.push(` 结果:        ${preview}`);
   }
 
@@ -259,7 +298,9 @@ function formatTaskDetail(task: BackgroundTaskInfo): string {
       const estimated = Math.min(elapsed, 300000);
       const barW = 20;
       const filled = Math.round((estimated / 300000) * barW);
-      lines.push(` 进度:        [${'█'.repeat(filled)}${'░'.repeat(barW - filled)}] ${Math.min(Math.round((estimated / 300000) * 100), 100)}%`);
+      lines.push(
+        ` 进度:        [${'█'.repeat(filled)}${'░'.repeat(barW - filled)}] ${Math.min(Math.round((estimated / 300000) * 100), 100)}%`
+      );
     }
   }
 
@@ -271,7 +312,10 @@ function formatTaskDetail(task: BackgroundTaskInfo): string {
 /**
  * 筛选任务列表
  */
-function filterTasksByStatus(tasks: BackgroundTaskInfo[], filter?: string): BackgroundTaskInfo[] {
+function filterTasksByStatus(
+  tasks: BackgroundTaskInfo[],
+  filter?: string
+): BackgroundTaskInfo[] {
   if (!filter) return tasks;
 
   const statusMap: Record<string, BackgroundTaskStatus[]> = {
@@ -289,7 +333,7 @@ function filterTasksByStatus(tasks: BackgroundTaskInfo[], filter?: string): Back
   const statuses = statusMap[filter];
   if (!statuses) return tasks;
 
-  return tasks.filter(t => statuses.includes(t.status));
+  return tasks.filter((t) => statuses.includes(t.status));
 }
 
 /**
@@ -304,7 +348,7 @@ function tasksToJson(tasks: BackgroundTaskInfo[]): Record<string, unknown> {
   return {
     total: tasks.length,
     stats,
-    tasks: tasks.map(t => ({
+    tasks: tasks.map((t) => ({
       taskId: t.taskId,
       agentName: t.agentName,
       agentType: t.agentType,
@@ -325,11 +369,18 @@ function tasksToJson(tasks: BackgroundTaskInfo[]): Record<string, unknown> {
 /**
  * 将统计信息转换为 JSON 结构
  */
-function statsToJson(allTasks: BackgroundTaskInfo[], stats: {
-  total: number; pending: number; running: number;
-  completed: number; failed: number; aborted: number;
-}): Record<string, unknown> {
-  const runningTasks = allTasks.filter(t => t.status === 'running');
+function statsToJson(
+  allTasks: BackgroundTaskInfo[],
+  stats: {
+    total: number;
+    pending: number;
+    running: number;
+    completed: number;
+    failed: number;
+    aborted: number;
+  }
+): Record<string, unknown> {
+  const runningTasks = allTasks.filter((t) => t.status === 'running');
 
   return {
     total: stats.total,
@@ -338,7 +389,7 @@ function statsToJson(allTasks: BackgroundTaskInfo[], stats: {
     completed: stats.completed,
     failed: stats.failed,
     aborted: stats.aborted,
-    activeTasks: runningTasks.map(t => ({
+    activeTasks: runningTasks.map((t) => ({
       taskId: t.taskId,
       description: t.description || t.agentName,
       agentType: t.agentType,
@@ -357,7 +408,10 @@ function handleStats(showJson: boolean): CommandResult {
   const stats = manager.getStats();
 
   if (showJson) {
-    return { success: true, message: JSON.stringify(statsToJson(allTasks, stats), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(statsToJson(allTasks, stats), null, 2),
+    };
   }
 
   const lines: string[] = [];
@@ -371,13 +425,17 @@ function handleStats(showJson: boolean): CommandResult {
   lines.push(`  已中断:      ${stats.aborted}`);
   lines.push('');
 
-  const runningTasks = allTasks.filter(t => t.status === 'running');
+  const runningTasks = allTasks.filter((t) => t.status === 'running');
   if (runningTasks.length > 0) {
     lines.push('活跃任务:');
     for (const t of runningTasks) {
-      const elapsed = t.startedAt ? formatDuration(Date.now() - t.startedAt) : '等待中';
+      const elapsed = t.startedAt
+        ? formatDuration(Date.now() - t.startedAt)
+        : '等待中';
       const progress = t.progressMessage ? ` — ${t.progressMessage}` : '';
-      lines.push(`  ● [${t.taskId.substring(0, 8)}] ${t.description || t.agentName} (${elapsed})${progress}`);
+      lines.push(
+        `  ● [${t.taskId.substring(0, 8)}] ${t.description || t.agentName} (${elapsed})${progress}`
+      );
     }
   }
 
@@ -397,17 +455,19 @@ function handleClear(args: string): CommandResult {
   if (isNaN(hours)) {
     return {
       success: true,
-      message: removed > 0
-        ? `已清理 ${removed} 个已完成的任务`
-        : '没有已结束的任务需要清理',
+      message:
+        removed > 0
+          ? `已清理 ${removed} 个已完成的任务`
+          : '没有已结束的任务需要清理',
     };
   }
 
   return {
     success: true,
-    message: removed > 0
-      ? `已清理 ${removed} 个 ${hours} 小时前完成的任务`
-      : `没有 ${hours} 小时前完成的任务需要清理`,
+    message:
+      removed > 0
+        ? `已清理 ${removed} 个 ${hours} 小时前完成的任务`
+        : `没有 ${hours} 小时前完成的任务需要清理`,
   };
 }
 
@@ -427,13 +487,21 @@ function handleStop(taskId: string): CommandResult {
   }
 
   if (task.status !== 'running' && task.status !== 'pending') {
-    return { success: false, message: `任务 "${taskId}" 当前状态为 "${task.status}"，无法停止` };
+    return {
+      success: false,
+      message: `任务 "${taskId}" 当前状态为 "${task.status}"，无法停止`,
+    };
   }
 
   manager.abortTask(taskId);
 
-  const elapsed = task.startedAt ? formatDuration(Date.now() - task.startedAt) : '未开始';
-  return { success: true, message: `任务已停止: ${task.description || task.taskId} (运行 ${elapsed})` };
+  const elapsed = task.startedAt
+    ? formatDuration(Date.now() - task.startedAt)
+    : '未开始';
+  return {
+    success: true,
+    message: `任务已停止: ${task.description || task.taskId} (运行 ${elapsed})`,
+  };
 }
 
 /**
@@ -448,7 +516,10 @@ function handleShow(taskId: string): CommandResult {
   const task = manager.getTask(taskId);
 
   if (!task) {
-    return { success: false, message: `任务 "${taskId}" 不存在。使用 /tasks 查看所有任务` };
+    return {
+      success: false,
+      message: `任务 "${taskId}" 不存在。使用 /tasks 查看所有任务`,
+    };
   }
 
   return { success: true, message: formatTaskDetail(task) };
@@ -467,7 +538,10 @@ function handleRecent(args: string, showJson: boolean): CommandResult {
   }
 
   if (showJson) {
-    return { success: true, message: JSON.stringify(tasksToJson(recentTasks), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(tasksToJson(recentTasks), null, 2),
+    };
   }
 
   const lines: string[] = [];
@@ -484,9 +558,13 @@ function handleRecent(args: string, showJson: boolean): CommandResult {
     const age = task.completedAt ? formatAge(task.completedAt) : '-';
 
     lines.push(`  ${color}${icon}${RESET} [${sid}] ${desc}`);
-    lines.push(`      Agent: ${agentInfo}, 耗时: ${duration}, 完成于: ${age}前`);
+    lines.push(
+      `      Agent: ${agentInfo}, 耗时: ${duration}, 完成于: ${age}前`
+    );
     if (task.error) {
-      lines.push(`      错误: ${task.error.substring(0, 100)}${task.error.length > 100 ? '...' : ''}`);
+      lines.push(
+        `      错误: ${task.error.substring(0, 100)}${task.error.length > 100 ? '...' : ''}`
+      );
     }
     lines.push('');
   }
@@ -497,20 +575,33 @@ function handleRecent(args: string, showJson: boolean): CommandResult {
 /**
  * 处理筛选子命令（running/pending/completed/failed/aborted/all/active）
  */
-function handleFilter(subcommand: string, showJson: boolean, limit: number): CommandResult {
+function handleFilter(
+  subcommand: string,
+  showJson: boolean,
+  limit: number
+): CommandResult {
   const manager = getBackgroundTaskManager();
   const allTasks = manager.getAllTasks();
   const filtered = filterTasksByStatus(allTasks, subcommand);
 
   if (filtered.length === 0) {
-    return { success: true, message: `没有 ${subcommand === 'all' ? '' : subcommand + ' '}后台任务` };
+    return {
+      success: true,
+      message: `没有 ${subcommand === 'all' ? '' : subcommand + ' '}后台任务`,
+    };
   }
 
   if (showJson) {
-    return { success: true, message: JSON.stringify(tasksToJson(filtered.slice(0, limit)), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(tasksToJson(filtered.slice(0, limit)), null, 2),
+    };
   }
 
-  return { success: true, message: buildStatsHeader(filtered) + formatTaskGroups(filtered, limit) };
+  return {
+    success: true,
+    message: buildStatsHeader(filtered) + formatTaskGroups(filtered, limit),
+  };
 }
 
 /**
@@ -525,17 +616,26 @@ function handleList(showJson: boolean, limit: number): CommandResult {
   }
 
   if (showJson) {
-    return { success: true, message: JSON.stringify(tasksToJson(allTasks.slice(0, limit)), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(tasksToJson(allTasks.slice(0, limit)), null, 2),
+    };
   }
 
-  return { success: true, message: buildStatsHeader(allTasks) + formatTaskGroups(allTasks, limit) };
+  return {
+    success: true,
+    message: buildStatsHeader(allTasks) + formatTaskGroups(allTasks, limit),
+  };
 }
 
 const tasksCommand = {
   /**
    * 执行 tasks 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     try {
       const { showJson, subcommand, taskId, limit } = parseFlags(args);
 
@@ -545,7 +645,10 @@ const tasksCommand = {
 
       try {
         const { logEvent } = await import('@modules/analytics/index.js');
-        logEvent('tengu_tasks_view', { subcommand: subcommand || 'list', showJson });
+        logEvent('tengu_tasks_view', {
+          subcommand: subcommand || 'list',
+          showJson,
+        });
       } catch {
         // analytics 非关键
       }
@@ -570,7 +673,17 @@ const tasksCommand = {
         return handleRecent(taskId, showJson);
       }
 
-      const filterKeywords = ['running', 'pending', 'completed', 'failed', 'aborted', 'active', 'done', 'stopped', 'all'];
+      const filterKeywords = [
+        'running',
+        'pending',
+        'completed',
+        'failed',
+        'aborted',
+        'active',
+        'done',
+        'stopped',
+        'all',
+      ];
       if (subcommand && filterKeywords.includes(subcommand)) {
         return handleFilter(subcommand, showJson, limit);
       }
@@ -579,9 +692,15 @@ const tasksCommand = {
         return handleList(showJson, limit);
       }
 
-      return { success: false, message: `未知子命令: ${subcommand}\n使用 /tasks help 查看帮助` };
+      return {
+        success: false,
+        message: `未知子命令: ${subcommand}\n使用 /tasks help 查看帮助`,
+      };
     } catch (error) {
-      return { success: false, message: error instanceof Error ? error.message : String(error) };
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
   },
 };

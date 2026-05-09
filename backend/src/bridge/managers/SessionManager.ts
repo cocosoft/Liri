@@ -71,7 +71,10 @@ export class SessionManager {
   private readonly maxSessions: number;
   private readonly sessionTimeoutMs: number;
   private readonly idleTimeoutMs: number;
-  private readonly onSessionDone: (sessionId: string, status: SessionDoneStatus) => void;
+  private readonly onSessionDone: (
+    sessionId: string,
+    status: SessionDoneStatus
+  ) => void;
 
   private sessions: Map<string, SessionInfo> = new Map();
   private sessionTimers: Map<string, NodeJS.Timeout> = new Map();
@@ -99,7 +102,7 @@ export class SessionManager {
     sdkUrl: string,
     accessToken: string,
     workId: string,
-    dir: string,
+    dir: string
   ): SessionHandle {
     if (this.sessions.size >= this.maxSessions) {
       throw new Error(`已达到最大会话数限制 (${this.maxSessions})`);
@@ -187,16 +190,18 @@ export class SessionManager {
    * 获取会话统计
    */
   getStats(): SessionStats {
-    const completedTotal = this.totalCompleted + this.totalFailed + this.totalInterrupted;
+    const completedTotal =
+      this.totalCompleted + this.totalFailed + this.totalInterrupted;
     return {
       totalCreated: this.totalCreated,
       totalCompleted: this.totalCompleted,
       totalFailed: this.totalFailed,
       totalInterrupted: this.totalInterrupted,
       activeCount: this.sessions.size,
-      averageLifetimeMs: completedTotal > 0
-        ? Math.round(this.lifetimeTotalMs / completedTotal)
-        : 0,
+      averageLifetimeMs:
+        completedTotal > 0
+          ? Math.round(this.lifetimeTotalMs / completedTotal)
+          : 0,
     };
   }
 
@@ -278,7 +283,7 @@ export class SessionManager {
    */
   async interruptAllSessions(): Promise<void> {
     const ids = Array.from(this.sessions.keys());
-    await Promise.all(ids.map(id => this.stopSession(id)));
+    await Promise.all(ids.map((id) => this.stopSession(id)));
   }
 
   /**
@@ -297,7 +302,7 @@ export class SessionManager {
     }
     this.idleTimers.clear();
 
-    await Promise.all(ids.map(id => this.stopSession(id)));
+    await Promise.all(ids.map((id) => this.stopSession(id)));
   }
 
   /**
@@ -397,6 +402,8 @@ export class SessionManager {
 /**
  * 创建会话管理器
  */
-export function createSessionManager(options: SessionManagerOptions): SessionManager {
+export function createSessionManager(
+  options: SessionManagerOptions
+): SessionManager {
   return new SessionManager(options);
 }

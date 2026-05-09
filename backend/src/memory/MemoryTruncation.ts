@@ -24,7 +24,13 @@ export function truncateMemoryContent(raw: string): TruncationResult {
   const wasByteTruncated = byteCount > MAX_MEMORY_BYTES;
 
   if (!wasLineTruncated && !wasByteTruncated) {
-    return { content: trimmed, lineCount, byteCount, wasLineTruncated: false, wasByteTruncated: false };
+    return {
+      content: trimmed,
+      lineCount,
+      byteCount,
+      wasLineTruncated: false,
+      wasByteTruncated: false,
+    };
   }
 
   let truncated = wasLineTruncated

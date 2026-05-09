@@ -1,19 +1,19 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type TeamOutput = {
-  teamName?: string
-  memberCount?: number
-  members?: string[]
-  action?: 'created' | 'deleted'
-  error?: string
-}
+  teamName?: string;
+  memberCount?: number;
+  members?: string[];
+  action?: 'created' | 'deleted';
+  error?: string;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ team_name: string; agent_names: string[] }>,
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { team_name, agent_names } = input
+  const { team_name, agent_names } = input;
 
   if (verbose && agent_names?.length) {
     return (
@@ -21,7 +21,10 @@ export function renderToolUseMessage(
         <Box flexDirection="row">
           <Text dimColor>Team: </Text>
           <Text bold>{team_name || 'new team'}</Text>
-          <Text dimColor> ({agent_names.length} agent{agent_names.length !== 1 ? 's' : ''})</Text>
+          <Text dimColor>
+            {' '}
+            ({agent_names.length} agent{agent_names.length !== 1 ? 's' : ''})
+          </Text>
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
           {agent_names.map((name, i) => (
@@ -31,7 +34,7 @@ export function renderToolUseMessage(
           ))}
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
@@ -42,15 +45,15 @@ export function renderToolUseMessage(
         <Text dimColor> ({agent_names.length})</Text>
       ) : null}
     </Box>
-  )
+  );
 }
 
 export function renderToolResultMessage(
   output: TeamOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { teamName, memberCount, members, action, error } = output
+  const { teamName, memberCount, members, action, error } = output;
 
   if (error) {
     return (
@@ -63,7 +66,7 @@ export function renderToolResultMessage(
           <Text color="red">{error.slice(0, 300)}</Text>
         </Box>
       </Box>
-    )
+    );
   }
 
   if (verbose && members?.length) {
@@ -71,9 +74,14 @@ export function renderToolResultMessage(
       <Box flexDirection="column">
         <Box flexDirection="row">
           <Text color="green">✓ </Text>
-          <Text>Team {teamName || ''} {action || 'ready'}</Text>
+          <Text>
+            Team {teamName || ''} {action || 'ready'}
+          </Text>
           {memberCount !== undefined ? (
-            <Text dimColor> ({memberCount} member{memberCount !== 1 ? 's' : ''})</Text>
+            <Text dimColor>
+              {' '}
+              ({memberCount} member{memberCount !== 1 ? 's' : ''})
+            </Text>
           ) : null}
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
@@ -84,23 +92,25 @@ export function renderToolResultMessage(
           ))}
         </Box>
       </Box>
-    )
+    );
   }
 
   return (
     <Box flexDirection="row">
       <Text color="green">✓ </Text>
-      <Text>Team {teamName || ''} {action || 'ready'}</Text>
+      <Text>
+        Team {teamName || ''} {action || 'ready'}
+      </Text>
       {memberCount !== undefined ? (
         <Text dimColor> ({memberCount})</Text>
       ) : null}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ team_name: string }> | undefined,
+  input: Partial<{ team_name: string }> | undefined
 ): string | null {
-  if (!input?.team_name) return 'Team operation'
-  return `Team: ${input.team_name}`
+  if (!input?.team_name) return 'Team operation';
+  return `Team: ${input.team_name}`;
 }

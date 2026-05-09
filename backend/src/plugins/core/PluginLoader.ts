@@ -6,17 +6,17 @@
 import { EventEmitter } from 'events';
 import { join } from 'path';
 import { existsSync, readdirSync } from 'fs';
-import { 
-  PluginState, 
-  PluginType, 
-  PluginMetadata, 
-  PluginConfig, 
-  LoadedPlugin, 
-  PluginLoaderOptions, 
-  PluginLoadResult, 
+import {
+  PluginState,
+  PluginType,
+  PluginMetadata,
+  PluginConfig,
+  LoadedPlugin,
+  PluginLoaderOptions,
+  PluginLoadResult,
   PluginValidationResult,
   PluginEventType,
-  PluginEvent
+  PluginEvent,
 } from '../types/PluginTypes';
 
 /**
@@ -32,7 +32,7 @@ export class PluginLoader extends EventEmitter {
    */
   constructor(options: PluginLoaderOptions = {}) {
     super();
-    
+
     this.options = {
       pluginDirectories: [join(process.cwd(), 'plugins')],
       autoLoad: true,
@@ -41,7 +41,7 @@ export class PluginLoader extends EventEmitter {
       cacheEnabled: true,
       maxConcurrentLoads: 5,
       loadTimeout: 30000,
-      ...options
+      ...options,
     };
   }
 
@@ -54,26 +54,25 @@ export class PluginLoader extends EventEmitter {
     }
 
     this.emit('initializing');
-    
+
     try {
       // 创建插件目录
       await this.createPluginDirectories();
-      
+
       // 发现插件
       await this.discoverPlugins();
-      
+
       // 自动加载插件
       if (this.options.autoLoad) {
         await this.loadAllPlugins();
       }
-      
+
       this.isInitialized = true;
       this.emit('initialized');
-      
     } catch (error) {
-      this.emit('error', { 
-        type: 'initialization', 
-        error: error instanceof Error ? error : new Error(String(error)) 
+      this.emit('error', {
+        type: 'initialization',
+        error: error instanceof Error ? error : new Error(String(error)),
       });
       throw error;
     }
@@ -96,37 +95,36 @@ export class PluginLoader extends EventEmitter {
    */
   private async discoverPlugins(): Promise<void> {
     this.emit('discovering');
-    
+
     for (const dir of this.options.pluginDirectories || []) {
       if (!existsSync(dir)) {
         continue;
       }
-      
+
       try {
         const items = readdirSync(dir, { withFileTypes: true });
-        
+
         for (const item of items) {
           if (!item.isDirectory()) {
             continue;
           }
-          
+
           const pluginPath = join(dir, item.name);
           const manifestPath = join(pluginPath, 'plugin.json');
-          
+
           if (existsSync(manifestPath)) {
             await this.registerPlugin(pluginPath);
           }
         }
-        
       } catch (error) {
-        this.emit('error', { 
-          type: 'discovery', 
+        this.emit('error', {
+          type: 'discovery',
           pluginPath: dir,
-          error: error instanceof Error ? error : new Error(String(error)) 
+          error: error instanceof Error ? error : new Error(String(error)),
         });
       }
     }
-    
+
     this.emit('discovered', { count: this.plugins.size });
   }
 
@@ -137,18 +135,18 @@ export class PluginLoader extends EventEmitter {
     try {
       // 读取插件清单
       const manifest = await this.loadManifest(pluginPath);
-      
+
       // 验证插件
       const validationResult = await this.validatePlugin(manifest, pluginPath);
-      
+
       if (!validationResult.valid) {
-        this.emit('validationFailed', { 
-          pluginPath, 
-          errors: validationResult.errors 
+        this.emit('validationFailed', {
+          pluginPath,
+          errors: validationResult.errors,
         });
         return;
       }
-      
+
       // 创建插件实例
       const plugin: LoadedPlugin = {
         id: manifest.id,
@@ -160,19 +158,18 @@ export class PluginLoader extends EventEmitter {
         stats: {
           loadCount: 0,
           activateCount: 0,
-          errorCount: 0
-        }
+          errorCount: 0,
+        },
       };
-      
+
       this.plugins.set(manifest.id, plugin);
-      
+
       this.emit('registered', { plugin });
-      
     } catch (error) {
-      this.emit('error', { 
-        type: 'registration', 
+      this.emit('error', {
+        type: 'registration',
         pluginPath,
-        error: error instanceof Error ? error : new Error(String(error)) 
+        error: error instanceof Error ? error : new Error(String(error)),
       });
     }
   }
@@ -182,7 +179,7 @@ export class PluginLoader extends EventEmitter {
    */
   private async loadManifest(pluginPath: string): Promise<PluginMetadata> {
     const manifestPath = join(pluginPath, 'plugin.json');
-    
+
     // 这里应该读取和解析JSON文件
     // 为了简化，返回一个模拟的清单
     return {
@@ -191,7 +188,7 @@ export class PluginLoader extends EventEmitter {
       version: '1.0.0',
       description: 'Test plugin for demonstration',
       author: 'Test Author',
-      type: PluginType.TOOL
+      type: PluginType.TOOL,
     };
   }
 
@@ -199,47 +196,49 @@ export class PluginLoader extends EventEmitter {
    * 验证插件（基于CC源码）
    */
   private async validatePlugin(
-    manifest: PluginMetadata, 
+    manifest: PluginMetadata,
     pluginPath: string
   ): Promise<PluginValidationResult> {
     if (!this.options.validationEnabled) {
       return { valid: true, errors: [], warnings: [] };
     }
-    
+
     const errors: string[] = [];
     const warnings: string[] = [];
-    
+
     // 验证必需字段
     if (!manifest.id) {
       errors.push('Plugin ID is required');
     }
-    
+
     if (!manifest.name) {
       errors.push('Plugin name is required');
     }
-    
+
     if (!manifest.version) {
       errors.push('Plugin version is required');
     }
-    
+
     if (!manifest.description) {
       warnings.push('Plugin description is recommended');
     }
-    
+
     // 验证ID格式
     if (manifest.id && !/^[a-z0-9-]+$/.test(manifest.id)) {
-      errors.push('Plugin ID must contain only lowercase letters, numbers, and hyphens');
+      errors.push(
+        'Plugin ID must contain only lowercase letters, numbers, and hyphens'
+      );
     }
-    
+
     // 验证版本格式
     if (manifest.version && !/^\d+\.\d+\.\d+$/.test(manifest.version)) {
       warnings.push('Plugin version should follow semantic versioning');
     }
-    
+
     return {
       valid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 
@@ -248,18 +247,18 @@ export class PluginLoader extends EventEmitter {
    */
   async loadAllPlugins(): Promise<PluginLoadResult[]> {
     this.emit('loadingAll');
-    
+
     const results: PluginLoadResult[] = [];
-    
+
     for (const plugin of this.plugins.values()) {
       if (plugin.state === PluginState.UNLOADED) {
         const result = await this.loadPlugin(plugin.id);
         results.push(result);
       }
     }
-    
+
     this.emit('loadedAll', { results });
-    
+
     return results;
   }
 
@@ -268,53 +267,52 @@ export class PluginLoader extends EventEmitter {
    */
   async loadPlugin(pluginId: string): Promise<PluginLoadResult> {
     const plugin = this.plugins.get(pluginId);
-    
+
     if (!plugin) {
       return {
         success: false,
-        error: `Plugin not found: ${pluginId}`
+        error: `Plugin not found: ${pluginId}`,
       };
     }
-    
+
     if (plugin.state !== PluginState.UNLOADED) {
       return {
         success: false,
-        error: `Plugin is already in state: ${plugin.state}`
+        error: `Plugin is already in state: ${plugin.state}`,
       };
     }
-    
+
     this.emitPluginEvent(PluginEventType.BEFORE_LOAD, pluginId);
-    
+
     try {
       // 更新插件状态
       plugin.state = PluginState.LOADING;
-      
+
       // 这里应该加载插件的实际代码
       // 为了简化，模拟加载过程
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       // 更新插件状态和统计信息
       plugin.state = PluginState.LOADED;
       plugin.loadedAt = new Date();
       plugin.stats.loadCount++;
-      
+
       this.emitPluginEvent(PluginEventType.AFTER_LOAD, pluginId);
-      
+
       return {
         success: true,
-        plugin
+        plugin,
       };
-      
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
       plugin.stats.errorCount++;
-      
+
       this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
-      
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -324,46 +322,45 @@ export class PluginLoader extends EventEmitter {
    */
   async unloadPlugin(pluginId: string): Promise<PluginLoadResult> {
     const plugin = this.plugins.get(pluginId);
-    
+
     if (!plugin) {
       return {
         success: false,
-        error: `Plugin not found: ${pluginId}`
+        error: `Plugin not found: ${pluginId}`,
       };
     }
-    
+
     if (plugin.state === PluginState.UNLOADED) {
       return {
         success: false,
-        error: `Plugin is already unloaded`
+        error: `Plugin is already unloaded`,
       };
     }
-    
+
     this.emitPluginEvent(PluginEventType.BEFORE_UNLOAD, pluginId);
-    
+
     try {
       // 更新插件状态
       plugin.state = PluginState.UNLOADED;
       plugin.instance = undefined;
       plugin.error = undefined;
-      
+
       this.emitPluginEvent(PluginEventType.AFTER_UNLOAD, pluginId);
-      
+
       return {
         success: true,
-        plugin
+        plugin,
       };
-      
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
       plugin.stats.errorCount++;
-      
+
       this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
-      
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -373,46 +370,45 @@ export class PluginLoader extends EventEmitter {
    */
   async activatePlugin(pluginId: string): Promise<PluginLoadResult> {
     const plugin = this.plugins.get(pluginId);
-    
+
     if (!plugin) {
       return {
         success: false,
-        error: `Plugin not found: ${pluginId}`
+        error: `Plugin not found: ${pluginId}`,
       };
     }
-    
+
     if (plugin.state !== PluginState.LOADED) {
       return {
         success: false,
-        error: `Plugin must be loaded before activation, current state: ${plugin.state}`
+        error: `Plugin must be loaded before activation, current state: ${plugin.state}`,
       };
     }
-    
+
     this.emitPluginEvent(PluginEventType.BEFORE_ACTIVATE, pluginId);
-    
+
     try {
       // 更新插件状态
       plugin.state = PluginState.ACTIVATED;
       plugin.activatedAt = new Date();
       plugin.stats.activateCount++;
-      
+
       this.emitPluginEvent(PluginEventType.AFTER_ACTIVATE, pluginId);
-      
+
       return {
         success: true,
-        plugin
+        plugin,
       };
-      
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
       plugin.stats.errorCount++;
-      
+
       this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
-      
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -422,45 +418,44 @@ export class PluginLoader extends EventEmitter {
    */
   async deactivatePlugin(pluginId: string): Promise<PluginLoadResult> {
     const plugin = this.plugins.get(pluginId);
-    
+
     if (!plugin) {
       return {
         success: false,
-        error: `Plugin not found: ${pluginId}`
+        error: `Plugin not found: ${pluginId}`,
       };
     }
-    
+
     if (plugin.state !== PluginState.ACTIVATED) {
       return {
         success: false,
-        error: `Plugin is not activated, current state: ${plugin.state}`
+        error: `Plugin is not activated, current state: ${plugin.state}`,
       };
     }
-    
+
     this.emitPluginEvent(PluginEventType.BEFORE_DEACTIVATE, pluginId);
-    
+
     try {
       // 更新插件状态
       plugin.state = PluginState.DEACTIVATED;
       plugin.deactivatedAt = new Date();
-      
+
       this.emitPluginEvent(PluginEventType.AFTER_DEACTIVATE, pluginId);
-      
+
       return {
         success: true,
-        plugin
+        plugin,
       };
-      
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
       plugin.stats.errorCount++;
-      
+
       this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
-      
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -484,7 +479,9 @@ export class PluginLoader extends EventEmitter {
    */
   getLoadedPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values()).filter(
-      plugin => plugin.state === PluginState.LOADED || plugin.state === PluginState.ACTIVATED
+      (plugin) =>
+        plugin.state === PluginState.LOADED ||
+        plugin.state === PluginState.ACTIVATED
     );
   }
 
@@ -493,7 +490,7 @@ export class PluginLoader extends EventEmitter {
    */
   getActivatedPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values()).filter(
-      plugin => plugin.state === PluginState.ACTIVATED
+      (plugin) => plugin.state === PluginState.ACTIVATED
     );
   }
 
@@ -507,14 +504,18 @@ export class PluginLoader extends EventEmitter {
   /**
    * 发射插件事件（基于CC源码）
    */
-  private emitPluginEvent(type: PluginEventType, pluginId: string, data?: any): void {
+  private emitPluginEvent(
+    type: PluginEventType,
+    pluginId: string,
+    data?: any
+  ): void {
     const event: PluginEvent = {
       type,
       pluginId,
       data,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
-    
+
     this.emit('pluginEvent', event);
     this.emit(type, event);
   }
@@ -524,17 +525,17 @@ export class PluginLoader extends EventEmitter {
    */
   async destroy(): Promise<void> {
     this.emit('destroying');
-    
+
     // 卸载所有插件
     for (const plugin of this.plugins.values()) {
       if (plugin.state !== PluginState.UNLOADED) {
         await this.unloadPlugin(plugin.id);
       }
     }
-    
+
     this.plugins.clear();
     this.isInitialized = false;
-    
+
     this.emit('destroyed');
   }
 }

@@ -66,11 +66,11 @@ export class GovernanceConfigManager extends EventEmitter {
   private getConfigPath(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const configDir = join(__dirname, '..', '..', '..', 'config');
-    
+
     if (!existsSync(configDir)) {
       mkdirSync(configDir, { recursive: true });
     }
-    
+
     return join(configDir, 'governance.json');
   }
 
@@ -80,11 +80,11 @@ export class GovernanceConfigManager extends EventEmitter {
   private getVersionsPath(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
     const versionsDir = join(__dirname, '..', '..', '..', 'config', 'versions');
-    
+
     if (!existsSync(versionsDir)) {
       mkdirSync(versionsDir, { recursive: true });
     }
-    
+
     return join(versionsDir, 'governance_versions.json');
   }
 
@@ -130,7 +130,10 @@ export class GovernanceConfigManager extends EventEmitter {
    */
   private saveConfig(): void {
     try {
-      writeFileSync(this.configPath, JSON.stringify(this.currentConfig, null, 2) + '\n');
+      writeFileSync(
+        this.configPath,
+        JSON.stringify(this.currentConfig, null, 2) + '\n'
+      );
     } catch (error) {
       console.error('Failed to save governance config:', error);
     }
@@ -141,7 +144,10 @@ export class GovernanceConfigManager extends EventEmitter {
    */
   private saveVersions(): void {
     try {
-      writeFileSync(this.versionsPath, JSON.stringify(this.versions, null, 2) + '\n');
+      writeFileSync(
+        this.versionsPath,
+        JSON.stringify(this.versions, null, 2) + '\n'
+      );
     } catch (error) {
       console.error('Failed to save governance config versions:', error);
     }
@@ -159,7 +165,7 @@ export class GovernanceConfigManager extends EventEmitter {
    */
   updateConfig(config: Partial<GovernanceConfig>, reason?: string): void {
     const newConfig = { ...this.currentConfig, ...config };
-    
+
     this.currentVersion++;
     const version: ConfigVersion = {
       version: this.currentVersion,
@@ -169,7 +175,7 @@ export class GovernanceConfigManager extends EventEmitter {
     };
 
     this.versions.push(version);
-    
+
     if (this.versions.length > this.maxVersions) {
       this.versions.shift();
     }
@@ -189,15 +195,15 @@ export class GovernanceConfigManager extends EventEmitter {
    * 回滚配置
    */
   rollbackToVersion(versionNumber: number): boolean {
-    const version = this.versions.find(v => v.version === versionNumber);
-    
+    const version = this.versions.find((v) => v.version === versionNumber);
+
     if (!version) {
       return false;
     }
 
     this.currentConfig = { ...version.config };
     this.currentVersion++;
-    
+
     const rollbackVersion: ConfigVersion = {
       version: this.currentVersion,
       timestamp: Date.now(),
@@ -206,7 +212,7 @@ export class GovernanceConfigManager extends EventEmitter {
     };
 
     this.versions.push(rollbackVersion);
-    
+
     if (this.versions.length > this.maxVersions) {
       this.versions.shift();
     }
@@ -234,7 +240,7 @@ export class GovernanceConfigManager extends EventEmitter {
    * 获取特定版本
    */
   getVersion(versionNumber: number): ConfigVersion | undefined {
-    return this.versions.find(v => v.version === versionNumber);
+    return this.versions.find((v) => v.version === versionNumber);
   }
 
   /**
@@ -248,7 +254,10 @@ export class GovernanceConfigManager extends EventEmitter {
    * 重置配置为默认值
    */
   resetToDefault(reason?: string): void {
-    this.updateConfig(createDefaultGovernanceConfig(), reason || 'Reset to default');
+    this.updateConfig(
+      createDefaultGovernanceConfig(),
+      reason || 'Reset to default'
+    );
   }
 
   /**
@@ -271,7 +280,7 @@ export class GovernanceConfigManager extends EventEmitter {
   validateConfig(config: GovernanceConfig): boolean {
     try {
       const defaultConfig = createDefaultGovernanceConfig();
-      
+
       // 检查必要的字段
       const requiredFields = Object.keys(defaultConfig);
       for (const field of requiredFields) {
@@ -279,7 +288,7 @@ export class GovernanceConfigManager extends EventEmitter {
           return false;
         }
       }
-      
+
       return true;
     } catch {
       return false;

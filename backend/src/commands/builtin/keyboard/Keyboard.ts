@@ -45,9 +45,9 @@ export default {
       { key: 'Esc', action: '关闭弹窗' },
     ];
 
-    const table = shortcuts.map(s => 
-      `${s.key.padEnd(15)} ${s.action}`
-    ).join('\n');
+    const table = shortcuts
+      .map((s) => `${s.key.padEnd(15)} ${s.action}`)
+      .join('\n');
 
     return {
       success: true,
@@ -60,7 +60,10 @@ export default {
   /**
    * 显示特定快捷键详情
    */
-  async handleShow(key: string, context: CommandContext): Promise<CommandResult> {
+  async handleShow(
+    key: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!key) {
       return {
         success: false,
@@ -91,7 +94,7 @@ export default {
    */
   async handleCustomize(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('打开快捷键设置', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -105,7 +108,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('快捷键已重置', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

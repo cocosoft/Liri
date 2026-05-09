@@ -11,7 +11,16 @@ import type { LoadedPlugin, CommandMetadata } from '../types/plugin';
 /**
  * 插件组件类型
  */
-export type PluginComponentType = 'commands' | 'agents' | 'skills' | 'outputStyles' | 'tools' | 'hooks' | 'themes' | 'languages' | 'presets';
+export type PluginComponentType =
+  | 'commands'
+  | 'agents'
+  | 'skills'
+  | 'outputStyles'
+  | 'tools'
+  | 'hooks'
+  | 'themes'
+  | 'languages'
+  | 'presets';
 
 /**
  * 插件组件信息
@@ -188,14 +197,18 @@ export class PluginComponentLoader {
   /**
    * 获取组件路径
    */
-  private getComponentPaths(plugin: LoadedPlugin, componentType: PluginComponentType): string[] {
+  private getComponentPaths(
+    plugin: LoadedPlugin,
+    componentType: PluginComponentType
+  ): string[] {
     const paths: string[] = [];
     const basePath = plugin.path;
 
     // 根据组件类型获取对应的路径配置
     switch (componentType) {
       case 'commands':
-        if (plugin.commandsPath) paths.push(join(basePath, plugin.commandsPath));
+        if (plugin.commandsPath)
+          paths.push(join(basePath, plugin.commandsPath));
         if (plugin.commandsPaths) {
           for (const p of plugin.commandsPaths) {
             paths.push(join(basePath, p));
@@ -228,7 +241,8 @@ export class PluginComponentLoader {
         break;
 
       case 'outputStyles':
-        if (plugin.outputStylesPath) paths.push(join(basePath, plugin.outputStylesPath));
+        if (plugin.outputStylesPath)
+          paths.push(join(basePath, plugin.outputStylesPath));
         if (plugin.outputStylesPaths) {
           for (const p of plugin.outputStylesPaths) {
             paths.push(join(basePath, p));
@@ -270,11 +284,20 @@ export class PluginComponentLoader {
   /**
    * 扫描组件目录
    */
-  private scanComponentDirectory(directory: string, componentType: PluginComponentType, plugin: LoadedPlugin): void {
+  private scanComponentDirectory(
+    directory: string,
+    componentType: PluginComponentType,
+    plugin: LoadedPlugin
+  ): void {
     try {
       const entries = readdirSync(directory, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isFile() && (entry.name.endsWith('.js') || entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+        if (
+          entry.isFile() &&
+          (entry.name.endsWith('.js') ||
+            entry.name.endsWith('.ts') ||
+            entry.name.endsWith('.tsx'))
+        ) {
           const componentName = entry.name.replace(/\.(js|ts|tsx)$/, '');
           const componentPath = join(directory, entry.name);
           const key = `${plugin.name}:${componentType}:${componentName}`;
@@ -285,7 +308,7 @@ export class PluginComponentLoader {
             type: componentType,
             path: componentPath,
             pluginName: plugin.name,
-            loaded: false // 标记为未加载
+            loaded: false, // 标记为未加载
           };
 
           // 对于命令组件，尝试加载元数据
@@ -303,7 +326,11 @@ export class PluginComponentLoader {
           this.pluginComponents.get(plugin.name)!.push(componentInfo);
         } else if (entry.isDirectory()) {
           // 递归扫描子目录
-          this.scanComponentDirectory(join(directory, entry.name), componentType, plugin);
+          this.scanComponentDirectory(
+            join(directory, entry.name),
+            componentType,
+            plugin
+          );
         }
       }
     } catch (error) {
@@ -323,7 +350,7 @@ export class PluginComponentLoader {
    * 根据类型获取组件
    */
   getComponentsByType(type: PluginComponentType): PluginComponentInfo[] {
-    return this.getAllComponents().filter(c => c.type === type);
+    return this.getAllComponents().filter((c) => c.type === type);
   }
 
   /**
@@ -336,7 +363,11 @@ export class PluginComponentLoader {
   /**
    * 获取单个组件
    */
-  getComponent(pluginName: string, type: PluginComponentType, componentName: string): PluginComponentInfo | undefined {
+  getComponent(
+    pluginName: string,
+    type: PluginComponentType,
+    componentName: string
+  ): PluginComponentInfo | undefined {
     const key = `${pluginName}:${type}:${componentName}`;
     return this.components.get(key);
   }
@@ -344,10 +375,16 @@ export class PluginComponentLoader {
   /**
    * 加载组件（延迟加载）
    */
-  async loadComponent(pluginName: string, type: PluginComponentType, componentName: string): Promise<any> {
+  async loadComponent(
+    pluginName: string,
+    type: PluginComponentType,
+    componentName: string
+  ): Promise<any> {
     const component = this.getComponent(pluginName, type, componentName);
     if (!component) {
-      throw new Error(`Component not found: ${pluginName}:${type}:${componentName}`);
+      throw new Error(
+        `Component not found: ${pluginName}:${type}:${componentName}`
+      );
     }
 
     // 如果已经加载，直接返回
@@ -411,7 +448,7 @@ export class PluginComponentLoader {
    * 获取已加载的组件数量
    */
   getLoadedComponentCount(): number {
-    return Array.from(this.components.values()).filter(c => c.loaded).length;
+    return Array.from(this.components.values()).filter((c) => c.loaded).length;
   }
 
   /**
@@ -429,10 +466,14 @@ export class PluginComponentLoader {
     const loadPromises = components.map(async (component) => {
       if (!component.loaded) {
         try {
-          await this.loadComponent(component.pluginName, component.type, component.name);
+          await this.loadComponent(
+            component.pluginName,
+            component.type,
+            component.name
+          );
         } catch (error) {
-            const e = error instanceof Error ? error : new Error(String(error));
-            logger.error(`Failed to preload component ${component.name}:`, e);
+          const e = error instanceof Error ? error : new Error(String(error));
+          logger.error(`Failed to preload component ${component.name}:`, e);
         }
       }
     });

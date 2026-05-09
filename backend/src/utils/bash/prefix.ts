@@ -5,18 +5,18 @@
  * 解析和处理命令前缀（环境变量、包装命令等）。
  * 用于命令执行前的安全分析和前缀提取。
  */
-import type { CommandSpec } from './registry'
-import { parseCommand, extractCommandArguments } from './parser'
-import { getCommandSpec, isWrapperCommand } from './registry'
+import type { CommandSpec } from './registry';
+import { parseCommand, extractCommandArguments } from './parser';
+import { getCommandSpec, isWrapperCommand } from './registry';
 
-const ENV_VAR = /^[A-Za-z_][A-Za-z0-9_]*=/
-const NUMERIC = /^\d+$/
+const ENV_VAR = /^[A-Za-z_][A-Za-z0-9_]*=/;
+const NUMERIC = /^\d+$/;
 
 /**
  * 将值转为数组
  */
 function toArray<T>(val: T | T[]): T[] {
-  return Array.isArray(val) ? val : [val]
+  return Array.isArray(val) ? val : [val];
 }
 
 /**
@@ -26,10 +26,10 @@ function isKnownSubcommand(
   arg: string,
   spec: { subcommands?: { name: string | string[] }[] } | null
 ): boolean {
-  if (!spec?.subcommands?.length) return false
-  return spec.subcommands.some(sub =>
+  if (!spec?.subcommands?.length) return false;
+  return spec.subcommands.some((sub) =>
     Array.isArray(sub.name) ? sub.name.includes(arg) : sub.name === arg
-  )
+  );
 }
 
 /**
@@ -51,43 +51,48 @@ export async function getCommandPrefixStatic(
   recursionDepth = 0,
   wrapperCount = 0
 ): Promise<{ commandPrefix: string | null } | null> {
-  if (wrapperCount > 2 || recursionDepth > 10) return null
+  if (wrapperCount > 2 || recursionDepth > 10) return null;
 
-  const parsed = await parseCommand(command)
-  if (!parsed) return null
+  const parsed = await parseCommand(command);
+  if (!parsed) return null;
 
   if (!parsed.commandNode) {
-    return { commandPrefix: null }
+    return { commandPrefix: null };
   }
 
-  const { envVars, commandNode } = parsed
-  const cmdArgs = extractCommandArguments(commandNode)
-  const [cmd, ...args] = cmdArgs
-  if (!cmd) return { commandPrefix: null }
+  const { envVars, commandNode } = parsed;
+  const cmdArgs = extractCommandArguments(commandNode);
+  const [cmd, ...args] = cmdArgs;
+  if (!cmd) return { commandPrefix: null };
 
-  const spec = getCommandSpec(cmd)
+  const spec = getCommandSpec(cmd);
 
-  let isWrapper = isWrapperCommand(cmd) ||
-    (spec?.args != null && toArray(spec.args).some(arg => arg?.isCommand))
+  let isWrapper =
+    isWrapperCommand(cmd) ||
+    (spec?.args != null && toArray(spec.args).some((arg) => arg?.isCommand));
 
   if (isWrapper && args[0] && isKnownSubcommand(args[0], spec)) {
-    isWrapper = false
+    isWrapper = false;
   }
 
-  let prefix: string | null = null
+  let prefix: string | null = null;
 
   if (isWrapper) {
-    prefix = await handleWrapper(cmd, args, recursionDepth, wrapperCount)
+    prefix = await handleWrapper(cmd, args, recursionDepth, wrapperCount);
   } else {
-    prefix = await buildPrefix(cmd, args, spec)
+    prefix = await buildPrefix(cmd, args, spec);
   }
 
   if (prefix === null && recursionDepth === 0 && isWrapper) {
-    return null
+    return null;
   }
 
-  const envPrefix = Object.keys(envVars).length ? `${Object.keys(envVars).map(k => `${k}=${envVars[k]}`).join(' ')} ` : ''
-  return { commandPrefix: prefix ? envPrefix + prefix : null }
+  const envPrefix = Object.keys(envVars).length
+    ? `${Object.keys(envVars)
+        .map((k) => `${k}=${envVars[k]}`)
+        .join(' ')} `
+    : '';
+  return { commandPrefix: prefix ? envPrefix + prefix : null };
 }
 
 /**
@@ -99,48 +104,50 @@ async function handleWrapper(
   recursionDepth: number,
   wrapperCount: number
 ): Promise<string | null> {
-  const spec = getCommandSpec(command)
+  const spec = getCommandSpec(command);
 
   if (spec?.args) {
-    const commandArgIndex = toArray(spec.args).findIndex(arg => arg?.isCommand)
+    const commandArgIndex = toArray(spec.args).findIndex(
+      (arg) => arg?.isCommand
+    );
     if (commandArgIndex !== -1) {
-      const parts = [command]
+      const parts = [command];
       for (let i = 0; i < args.length && i <= commandArgIndex; i++) {
         if (i === commandArgIndex) {
           const result = await getCommandPrefixStatic(
             args.slice(i).join(' '),
             recursionDepth + 1,
             wrapperCount + 1
-          )
+          );
           if (result?.commandPrefix) {
-            parts.push(...result.commandPrefix.split(' '))
-            return parts.join(' ')
+            parts.push(...result.commandPrefix.split(' '));
+            return parts.join(' ');
           }
-          break
+          break;
         } else if (
           args[i] &&
           !args[i].startsWith('-') &&
           !ENV_VAR.test(args[i])
         ) {
-          parts.push(args[i])
+          parts.push(args[i]);
         }
       }
     }
   }
 
   const wrapped = args.find(
-    arg => !arg.startsWith('-') && !NUMERIC.test(arg) && !ENV_VAR.test(arg)
-  )
-  if (!wrapped) return command
+    (arg) => !arg.startsWith('-') && !NUMERIC.test(arg) && !ENV_VAR.test(arg)
+  );
+  if (!wrapped) return command;
 
-  const wrappedIdx = args.indexOf(wrapped)
+  const wrappedIdx = args.indexOf(wrapped);
   const result = await getCommandPrefixStatic(
     args.slice(wrappedIdx).join(' '),
     recursionDepth + 1,
     wrapperCount + 1
-  )
+  );
 
-  return !result?.commandPrefix ? null : `${command} ${result.commandPrefix}`
+  return !result?.commandPrefix ? null : `${command} ${result.commandPrefix}`;
 }
 
 /**
@@ -153,15 +160,17 @@ async function buildPrefix(
 ): Promise<string | null> {
   // 如果命令有子命令且第一个参数匹配子命令，保留两者
   if (spec?.subcommands?.length && args.length > 0) {
-    const sub = args[0]
+    const sub = args[0];
     if (sub && !sub.startsWith('-') && !ENV_VAR.test(sub)) {
-      if (spec.subcommands.some(s =>
-        Array.isArray(s.name) ? s.name.includes(sub) : s.name === sub
-      )) {
-        return `${cmd} ${sub}`
+      if (
+        spec.subcommands.some((s) =>
+          Array.isArray(s.name) ? s.name.includes(sub) : s.name === sub
+        )
+      ) {
+        return `${cmd} ${sub}`;
       }
     }
   }
 
-  return cmd
+  return cmd;
 }

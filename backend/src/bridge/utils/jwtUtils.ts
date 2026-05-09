@@ -4,6 +4,9 @@
  */
 
 import { decode, JwtPayload, verify } from 'jsonwebtoken';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 令牌刷新调度器选项
@@ -134,14 +137,18 @@ class TokenRefreshScheduler {
 
     // 验证令牌结构
     if (!this.validateTokenStructure(sessionIngressToken)) {
-      console.warn(`${this.label}: Invalid token structure for session ${sessionId}`);
+      logger.warning(
+        `${this.label}: Invalid token structure for session ${sessionId}`
+      );
       return;
     }
 
     // 计算令牌过期时间
     const expiry = this.getTokenExpiry(sessionIngressToken);
     if (!expiry) {
-      console.warn(`${this.label}: Cannot determine token expiry for session ${sessionId}`);
+      logger.warning(
+        `${this.label}: Cannot determine token expiry for session ${sessionId}`
+      );
       return;
     }
 
@@ -167,7 +174,9 @@ class TokenRefreshScheduler {
       retryCount: 0,
     });
 
-    console.debug(`${this.label}: Scheduled token refresh for session ${sessionId} in ${delay}ms`);
+    logger.debug(
+      `${this.label}: Scheduled token refresh for session ${sessionId} in ${delay}ms`
+    );
   }
 
   /**
@@ -180,7 +189,10 @@ class TokenRefreshScheduler {
   /**
    * 刷新令牌
    */
-  private async refreshToken(sessionId: string, retryCount: number): Promise<void> {
+  private async refreshToken(
+    sessionId: string,
+    retryCount: number
+  ): Promise<void> {
     try {
       const token = await this.getAccessToken();
       if (token) {
@@ -191,13 +203,18 @@ class TokenRefreshScheduler {
         if (state) {
           state.retryCount = 0;
         }
-        console.debug(`${this.label}: Token refreshed successfully for session ${sessionId}`);
+        logger.debug(
+          `${this.label}: Token refreshed successfully for session ${sessionId}`
+        );
       } else {
         throw new Error('Access token not available');
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error(`${this.label}: Failed to refresh token for session ${sessionId}:`, err.message);
+      logger.error(
+        `${this.label}: Failed to refresh token for session ${sessionId}`,
+        err.message
+      );
 
       // 触发失败回调
       this.onRefreshFailed?.(sessionId, err);
@@ -205,7 +222,9 @@ class TokenRefreshScheduler {
       // 尝试重试
       if (retryCount < this.maxRetries) {
         const nextRetryCount = retryCount + 1;
-        console.debug(`${this.label}: Retrying token refresh for session ${sessionId} (attempt ${nextRetryCount}/${this.maxRetries})`);
+        logger.debug(
+          `${this.label}: Retrying token refresh for session ${sessionId} (attempt ${nextRetryCount}/${this.maxRetries})`
+        );
 
         const timer = setTimeout(() => {
           this.refreshToken(sessionId, nextRetryCount);
@@ -217,7 +236,9 @@ class TokenRefreshScheduler {
           retryCount: nextRetryCount,
         });
       } else {
-        console.error(`${this.label}: Max retries exceeded for session ${sessionId}, cancelling refresh`);
+        logger.error(
+          `${this.label}: Max retries exceeded for session ${sessionId}, cancelling refresh`
+        );
         this.cancel(sessionId);
       }
     }
@@ -231,7 +252,9 @@ class TokenRefreshScheduler {
     if (state) {
       clearTimeout(state.timer);
       this.refreshStates.delete(sessionId);
-      console.debug(`${this.label}: Cancelled token refresh for session ${sessionId}`);
+      logger.debug(
+        `${this.label}: Cancelled token refresh for session ${sessionId}`
+      );
     }
   }
 
@@ -267,7 +290,7 @@ class TokenRefreshScheduler {
       clearTimeout(state.timer);
     }
     this.refreshStates.clear();
-    console.debug(`${this.label}: Cleared all token refresh schedulers`);
+    logger.debug(`${this.label}: Cleared all token refresh schedulers`);
   }
 
   /**
@@ -275,7 +298,9 @@ class TokenRefreshScheduler {
    */
   rescheduleAll(): void {
     const sessionIds = Array.from(this.refreshStates.keys());
-    console.debug(`${this.label}: Rescheduling ${sessionIds.length} token refresh(es)`);
+    logger.debug(
+      `${this.label}: Rescheduling ${sessionIds.length} token refresh(es)`
+    );
     // 注意：需要外部提供新的令牌才能重新调度
     // 这里只是取消现有调度，需要调用者重新调用schedule
     this.clear();
@@ -322,7 +347,10 @@ export function isTokenExpired(token: string): boolean {
 /**
  * 检查令牌是否即将过期
  */
-export function isTokenExpiringSoon(token: string, thresholdMs: number = 5 * 60 * 1000): boolean {
+export function isTokenExpiringSoon(
+  token: string,
+  thresholdMs: number = 5 * 60 * 1000
+): boolean {
   const expiry = getTokenExpiryMs(token);
   if (!expiry) return true;
   return expiry - Date.now() < thresholdMs;

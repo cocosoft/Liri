@@ -2,7 +2,16 @@
  * Debug 命令实现
  * 显示调试信息、系统状态和进程信息
  */
-import { arch, platform, hostname, totalmem, freemem, cpus, uptime, loadavg } from 'node:os';
+import {
+  arch,
+  platform,
+  hostname,
+  totalmem,
+  freemem,
+  cpus,
+  uptime,
+  loadavg,
+} from 'node:os';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 
 /**
@@ -91,7 +100,7 @@ function getSystemData() {
       total: memTotal,
       free: memFree,
       used: memTotal - memFree,
-      usagePercent: ((memTotal - memFree) / memTotal * 100).toFixed(1),
+      usagePercent: (((memTotal - memFree) / memTotal) * 100).toFixed(1),
       totalFormatted: formatBytes(memTotal),
       freeFormatted: formatBytes(memFree),
       usedFormatted: formatBytes(memTotal - memFree),
@@ -151,9 +160,11 @@ function formatStatusText(data: ReturnType<typeof getSystemData>): string {
   lines.push(`  主机: ${data.hostname}`);
   lines.push(`  运行时间: ${data.uptimeFormatted}`);
   lines.push(`  CPU: ${data.cpus.count}x ${data.cpus.model}`);
-  lines.push(`  内存: ${data.memory.usedFormatted} / ${data.memory.totalFormatted} (${data.memory.usagePercent}%)`);
+  lines.push(
+    `  内存: ${data.memory.usedFormatted} / ${data.memory.totalFormatted} (${data.memory.usagePercent}%)`
+  );
   lines.push(`  内存空闲: ${data.memory.freeFormatted}`);
-  lines.push(`  负载: ${data.loadAverage.map(v => v.toFixed(2)).join(', ')}`);
+  lines.push(`  负载: ${data.loadAverage.map((v) => v.toFixed(2)).join(', ')}`);
 
   return lines.join('\n');
 }
@@ -177,7 +188,9 @@ function formatInspectText(data: ReturnType<typeof getProcessData>): string {
   lines.push(`    堆已用:     ${data.memoryUsage.heapUsedFormatted}`);
   lines.push(`    外部:       ${data.memoryUsage.externalFormatted}`);
   lines.push('');
-  lines.push(`  CPU: 用户态 ${(data.cpuUsage.user / 1000).toFixed(1)}ms, 内核态 ${(data.cpuUsage.system / 1000).toFixed(1)}ms`);
+  lines.push(
+    `  CPU: 用户态 ${(data.cpuUsage.user / 1000).toFixed(1)}ms, 内核态 ${(data.cpuUsage.system / 1000).toFixed(1)}ms`
+  );
 
   return lines.join('\n');
 }
@@ -213,7 +226,11 @@ const debugCommand = {
     try {
       const { showJson, subcommand } = parseFlags(args);
 
-      if (subcommand === 'help' || subcommand === '-h' || subcommand === '--help') {
+      if (
+        subcommand === 'help' ||
+        subcommand === '-h' ||
+        subcommand === '--help'
+      ) {
         return showHelp();
       }
 

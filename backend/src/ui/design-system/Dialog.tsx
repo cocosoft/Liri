@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink';
+import { Box, Text } from '@modules/ink';
 import { DialogProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 import { KeyboardShortcutHint } from './KeyboardShortcutHint';
@@ -26,7 +26,7 @@ export function Dialog({
   hideBorder = false,
   isCancelActive = true,
   confirmText = '确认',
-  cancelText = '取消'
+  cancelText = '取消',
 }: DialogProps) {
   const { theme } = useTheme();
 
@@ -51,7 +51,7 @@ export function Dialog({
 
     const shortcuts = [
       { keys: ['Esc', 'n'], description: cancelText },
-      ...(onConfirm ? [{ keys: ['Enter'], description: confirmText }] : [])
+      ...(onConfirm ? [{ keys: ['Enter'], description: confirmText }] : []),
     ];
 
     return (
@@ -79,11 +79,7 @@ export function Dialog({
         <Text bold color={theme.colors[color]}>
           {title}
         </Text>
-        {subtitle && (
-          <Text color={theme.colors.textSecondary}>
-            {subtitle}
-          </Text>
-        )}
+        {subtitle && <Text color={theme.colors.textSecondary}>{subtitle}</Text>}
       </Box>
 
       {/* 对话框内容区域（基于CC源码） */}
@@ -107,7 +103,7 @@ export function ConfirmDialog({
   onCancel,
   confirmText = '确认',
   cancelText = '取消',
-  color = 'primary'
+  color = 'primary',
 }: {
   title: string;
   message: string;
@@ -138,7 +134,7 @@ export function AlertDialog({
   title,
   message,
   onClose,
-  color = 'warning'
+  color = 'warning',
 }: {
   title: string;
   message: string;
@@ -146,12 +142,7 @@ export function AlertDialog({
   color?: keyof UITheme['colors'];
 }) {
   return (
-    <Dialog
-      title={title}
-      onCancel={onClose}
-      color={color}
-      confirmText="确定"
-    >
+    <Dialog title={title} onCancel={onClose} color={color} confirmText="确定">
       <Text>{message}</Text>
     </Dialog>
   );
@@ -164,7 +155,7 @@ export function ErrorDialog({
   title,
   message,
   onClose,
-  color = 'error'
+  color = 'error',
 }: {
   title: string;
   message: string;
@@ -172,12 +163,7 @@ export function ErrorDialog({
   color?: keyof UITheme['colors'];
 }) {
   return (
-    <Dialog
-      title={title}
-      onCancel={onClose}
-      color={color}
-      confirmText="确定"
-    >
+    <Dialog title={title} onCancel={onClose} color={color} confirmText="确定">
       <Text>{message}</Text>
     </Dialog>
   );

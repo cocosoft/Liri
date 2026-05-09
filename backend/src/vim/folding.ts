@@ -45,7 +45,7 @@ export class FoldManager {
    */
   private detectFolds(): void {
     this.folds = [];
-    
+
     switch (this.foldMethod) {
       case 'indent':
         this.detectIndentFolds();
@@ -70,7 +70,7 @@ export class FoldManager {
 
     lines.forEach((line, index) => {
       const indent = this.getIndentLevel(line);
-      
+
       if (indent > prevIndent && !currentFold) {
         // 开始新折叠
         currentFold = {
@@ -89,7 +89,7 @@ export class FoldManager {
         // 扩展折叠
         currentFold.endLine = index;
       }
-      
+
       prevIndent = indent;
     });
 
@@ -140,10 +140,10 @@ export class FoldManager {
   private getIndentLevel(line: string): number {
     const match = line.match(/^(\s*)/);
     if (!match) return 0;
-    
+
     const spaces = match[1].length;
     const tabSize = 4; // 假设tab大小为4
-    
+
     return Math.floor(spaces / tabSize);
   }
 
@@ -158,9 +158,7 @@ export class FoldManager {
    * 获取指定行的折叠
    */
   getFoldAtLine(line: number): FoldRange | undefined {
-    return this.folds.find(
-      (f) => line >= f.startLine && line <= f.endLine
-    );
+    return this.folds.find((f) => line >= f.startLine && line <= f.endLine);
   }
 
   /**
@@ -216,15 +214,15 @@ export class FoldManager {
     if (!fold) {
       return { isFolded: false };
     }
-    
+
     if (line === fold.startLine) {
       return { isFolded: false, fold };
     }
-    
+
     if (!fold.isOpen && line > fold.startLine && line <= fold.endLine) {
       return { isFolded: true, fold };
     }
-    
+
     return { isFolded: false };
   }
 

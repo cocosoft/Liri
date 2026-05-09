@@ -9,7 +9,13 @@ import { z } from 'zod';
 /**
  * 插件配置项目类型
  */
-export type ConfigItemType = 'string' | 'number' | 'boolean' | 'select' | 'array' | 'object';
+export type ConfigItemType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'array'
+  | 'object';
 
 /**
  * 插件配置项目
@@ -73,11 +79,17 @@ function createStringSchema(item: ConfigItem): z.ZodType<unknown> {
   let schema = z.string();
 
   if (item.validation?.minLength !== undefined) {
-    schema = schema.min(item.validation.minLength, `最小长度为 ${item.validation.minLength}`);
+    schema = schema.min(
+      item.validation.minLength,
+      `最小长度为 ${item.validation.minLength}`
+    );
   }
 
   if (item.validation?.maxLength !== undefined) {
-    schema = schema.max(item.validation.maxLength, `最大长度为 ${item.validation.maxLength}`);
+    schema = schema.max(
+      item.validation.maxLength,
+      `最大长度为 ${item.validation.maxLength}`
+    );
   }
 
   if (item.validation?.pattern) {
@@ -107,7 +119,9 @@ function createNumberSchema(item: ConfigItem): z.ZodType<unknown> {
 /**
  * 从配置项创建Zod schema
  */
-export function createSchemaFromConfigItem(item: ConfigItem): z.ZodType<unknown> {
+export function createSchemaFromConfigItem(
+  item: ConfigItem
+): z.ZodType<unknown> {
   switch (item.type) {
     case 'string':
       return createStringSchema(item);
@@ -120,7 +134,7 @@ export function createSchemaFromConfigItem(item: ConfigItem): z.ZodType<unknown>
 
     case 'select':
       if (item.options && item.options.length > 0) {
-        const validValues = item.options.map(o => o.value);
+        const validValues = item.options.map((o) => o.value);
         return z.enum(validValues as [string, ...string[]]);
       }
       return z.string();
@@ -139,7 +153,9 @@ export function createSchemaFromConfigItem(item: ConfigItem): z.ZodType<unknown>
 /**
  * 从配置架构创建完整Zod schema
  */
-export function createSchemaFromPluginConfig(config: PluginConfigSchema): z.ZodObject<Record<string, z.ZodType<unknown>>> {
+export function createSchemaFromPluginConfig(
+  config: PluginConfigSchema
+): z.ZodObject<Record<string, z.ZodType<unknown>>> {
   const shape: Record<string, z.ZodType<unknown>> = {};
 
   for (const item of config.items) {
@@ -200,7 +216,7 @@ export function validatePluginConfig(
     }
 
     if (item.type === 'select' && item.options) {
-      const validValues = item.options.map(o => o.value);
+      const validValues = item.options.map((o) => o.value);
       if (!validValues.includes(value as string)) {
         errors.push({
           key: item.key,
@@ -212,14 +228,20 @@ export function validatePluginConfig(
 
     if (item.validation) {
       if (item.type === 'string' && typeof value === 'string') {
-        if (item.validation.minLength && value.length < item.validation.minLength) {
+        if (
+          item.validation.minLength &&
+          value.length < item.validation.minLength
+        ) {
           errors.push({
             key: item.key,
             message: `${item.label} 的长度不能小于 ${item.validation.minLength}`,
             value,
           });
         }
-        if (item.validation.maxLength && value.length > item.validation.maxLength) {
+        if (
+          item.validation.maxLength &&
+          value.length > item.validation.maxLength
+        ) {
           errors.push({
             key: item.key,
             message: `${item.label} 的长度不能大于 ${item.validation.maxLength}`,
@@ -267,7 +289,9 @@ export function validatePluginConfig(
 /**
  * 获取配置的默认值
  */
-export function getDefaultConfigValues(config: PluginConfigSchema): Record<string, unknown> {
+export function getDefaultConfigValues(
+  config: PluginConfigSchema
+): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};
 
   for (const item of config.items) {

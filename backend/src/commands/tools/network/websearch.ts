@@ -216,7 +216,11 @@ function getPromptForCommand(): Promise<Array<{ type: 'text'; text: string }>> {
  */
 function formatSearchResults(
   data: SearchResultData,
-  options: { query: string; allowedDomains: string[]; blockedDomains: string[] },
+  options: {
+    query: string;
+    allowedDomains: string[];
+    blockedDomains: string[];
+  },
   duration: number
 ): string {
   const lines: string[] = [];
@@ -255,10 +259,17 @@ function getRecoverySuggestion(errorMsg: string): string {
   if (errorMsg.includes('ENOTFOUND') || errorMsg.includes('DNS')) {
     return '\n提示: 无法解析域名，请检查网络连接是否正常';
   }
-  if (errorMsg.includes('ECONNREFUSED') || errorMsg.includes('Unable to connect')) {
+  if (
+    errorMsg.includes('ECONNREFUSED') ||
+    errorMsg.includes('Unable to connect')
+  ) {
     return '\n提示: 连接被拒绝，搜索服务可能暂时不可用';
   }
-  if (errorMsg.includes('ETIMEDOUT') || errorMsg.includes('timeout') || errorMsg.includes('AbortError')) {
+  if (
+    errorMsg.includes('ETIMEDOUT') ||
+    errorMsg.includes('timeout') ||
+    errorMsg.includes('AbortError')
+  ) {
     return '\n提示: 搜索超时。可尝试使用 --timeout 增加超时时间';
   }
   if (errorMsg.includes('400') || errorMsg.includes('429')) {
@@ -275,7 +286,8 @@ export const websearchCommand: Command = {
   name: 'websearch',
   description: '执行网络搜索',
   aliases: ['web_search'],
-  argumentHint: '<query> [-n count] [-l lang] [--allow domain] [--block domain]',
+  argumentHint:
+    '<query> [-n count] [-l lang] [--allow domain] [--block domain]',
   whenToUse: '当你需要执行网络搜索、查找最新资讯、查询技术文档或获取实时信息时',
   getPromptForCommand,
   load: async () => ({

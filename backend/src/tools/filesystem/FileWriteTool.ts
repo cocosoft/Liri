@@ -176,7 +176,9 @@ export class FileWriteTool extends BaseTool {
     return null;
   }
 
-  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
     const filePath = (input?.file_path as string) || '';
     const append = (input?.append as boolean) || false;
     if (filePath) {

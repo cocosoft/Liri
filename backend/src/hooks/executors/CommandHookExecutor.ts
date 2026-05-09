@@ -90,7 +90,11 @@ export class CommandHookExecutor {
     json: any,
     result: HookExecutionResult
   ): HookExecutionResult {
-    const processed: HookExecutionResult = { ...result, success: true, hookSpecificOutput: json };
+    const processed: HookExecutionResult = {
+      ...result,
+      success: true,
+      hookSpecificOutput: json,
+    };
 
     // 处理通用字段
     if (json.continue !== undefined) processed.continue = json.continue;

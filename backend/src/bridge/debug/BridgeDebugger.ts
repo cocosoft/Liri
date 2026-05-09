@@ -68,7 +68,9 @@ class BridgeDebugger {
   recordConnection(connectionId: string, status: ConnectionStatus): void {
     this.connections.set(connectionId, status);
     if (this.options.verbose) {
-      this.log(`Connection ${connectionId}: ${status.connected ? 'connected' : 'disconnected'}`);
+      this.log(
+        `Connection ${connectionId}: ${status.connected ? 'connected' : 'disconnected'}`
+      );
     }
   }
 
@@ -127,7 +129,9 @@ class BridgeDebugger {
     return this.messages.slice(-limit);
   }
 
-  getErrorLogs(limit: number = 50): Array<{ timestamp: number; error: string; context?: string }> {
+  getErrorLogs(
+    limit: number = 50
+  ): Array<{ timestamp: number; error: string; context?: string }> {
     return this.errors.slice(-limit);
   }
 
@@ -162,8 +166,12 @@ class BridgeDebugger {
     lines.push(`Total: ${stats.messages.length}`);
     const inbound = stats.messages.filter((m) => m.direction === 'inbound');
     const outbound = stats.messages.filter((m) => m.direction === 'outbound');
-    lines.push(`  Inbound: ${inbound.length} (${inbound.reduce((s, m) => s + m.size, 0)} bytes)`);
-    lines.push(`  Outbound: ${outbound.length} (${outbound.reduce((s, m) => s + m.size, 0)} bytes)`);
+    lines.push(
+      `  Inbound: ${inbound.length} (${inbound.reduce((s, m) => s + m.size, 0)} bytes)`
+    );
+    lines.push(
+      `  Outbound: ${outbound.length} (${outbound.reduce((s, m) => s + m.size, 0)} bytes)`
+    );
 
     lines.push('');
     lines.push('--- Errors ---');
@@ -188,5 +196,3 @@ export function getDebugger(options?: DebugOptions): BridgeDebugger {
 export function resetDebugger(): void {
   globalDebugger = undefined;
 }
-
-

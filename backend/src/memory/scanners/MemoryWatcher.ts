@@ -118,7 +118,7 @@ export class MemoryWatcher {
   private async scanInitialFiles(): Promise<void> {
     try {
       const entries = await this.walkDir(this.config.memoryDir);
-      const mdFiles = entries.filter(f => f.endsWith('.md'));
+      const mdFiles = entries.filter((f) => f.endsWith('.md'));
 
       for (const relativePath of mdFiles) {
         const filePath = join(this.config.memoryDir, relativePath);
@@ -130,7 +130,9 @@ export class MemoryWatcher {
         }
       }
 
-      logger.debug(`MemoryWatcher initialized with ${this.knownFiles.size} files`);
+      logger.debug(
+        `MemoryWatcher initialized with ${this.knownFiles.size} files`
+      );
     } catch (error) {
       logger.error('Failed to scan initial files:', error);
     }
@@ -178,7 +180,7 @@ export class MemoryWatcher {
   private async pollForChanges(): Promise<void> {
     try {
       const entries = await this.walkDir(this.config.memoryDir);
-      const mdFiles = entries.filter(f => f.endsWith('.md'));
+      const mdFiles = entries.filter((f) => f.endsWith('.md'));
 
       const currentFiles = new Map<string, number>();
 
@@ -190,9 +192,19 @@ export class MemoryWatcher {
 
           const knownMtime = this.knownFiles.get(relativePath);
           if (!knownMtime) {
-            this.emitEvent({ type: 'added', filePath, fileName: relativePath, timestamp: Date.now() });
+            this.emitEvent({
+              type: 'added',
+              filePath,
+              fileName: relativePath,
+              timestamp: Date.now(),
+            });
           } else if (mtimeMs > knownMtime) {
-            this.emitEvent({ type: 'modified', filePath, fileName: relativePath, timestamp: mtimeMs });
+            this.emitEvent({
+              type: 'modified',
+              filePath,
+              fileName: relativePath,
+              timestamp: mtimeMs,
+            });
           }
         } catch {
           // ignore
@@ -203,7 +215,12 @@ export class MemoryWatcher {
       for (const relativePath of knownPaths) {
         if (!currentFiles.has(relativePath)) {
           const filePath = join(this.config.memoryDir, relativePath);
-          this.emitEvent({ type: 'deleted', filePath, fileName: relativePath, timestamp: Date.now() });
+          this.emitEvent({
+            type: 'deleted',
+            filePath,
+            fileName: relativePath,
+            timestamp: Date.now(),
+          });
         }
       }
 
@@ -216,7 +233,10 @@ export class MemoryWatcher {
   /**
    * 处理文件系统事件
    */
-  private async handleFileEvent(eventType: 'rename' | 'change', filename: string): Promise<void> {
+  private async handleFileEvent(
+    eventType: 'rename' | 'change',
+    filename: string
+  ): Promise<void> {
     const filePath = join(this.config.memoryDir, filename);
 
     if (eventType === 'rename') {
@@ -231,17 +251,30 @@ export class MemoryWatcher {
             filePath,
             fileName: filename,
             timestamp: Date.now(),
-            oldFilePath: join(this.config.memoryDir, this.findFileByMtime(knownMtime)),
+            oldFilePath: join(
+              this.config.memoryDir,
+              this.findFileByMtime(knownMtime)
+            ),
           });
         } else {
-          this.emitEvent({ type: 'added', filePath, fileName: filename, timestamp: mtimeMs });
+          this.emitEvent({
+            type: 'added',
+            filePath,
+            fileName: filename,
+            timestamp: mtimeMs,
+          });
         }
 
         this.knownFiles.set(filename, mtimeMs);
       } catch {
         const oldMtime = this.knownFiles.get(filename);
         if (oldMtime) {
-          this.emitEvent({ type: 'deleted', filePath, fileName: filename, timestamp: Date.now() });
+          this.emitEvent({
+            type: 'deleted',
+            filePath,
+            fileName: filename,
+            timestamp: Date.now(),
+          });
           this.knownFiles.delete(filename);
         }
       }
@@ -251,13 +284,23 @@ export class MemoryWatcher {
         const knownMtime = this.knownFiles.get(filename);
 
         if (knownMtime && mtimeMs > knownMtime) {
-          this.emitEvent({ type: 'modified', filePath, fileName: filename, timestamp: mtimeMs });
+          this.emitEvent({
+            type: 'modified',
+            filePath,
+            fileName: filename,
+            timestamp: mtimeMs,
+          });
         }
 
         this.knownFiles.set(filename, mtimeMs);
       } catch {
         if (this.knownFiles.has(filename)) {
-          this.emitEvent({ type: 'deleted', filePath, fileName: filename, timestamp: Date.now() });
+          this.emitEvent({
+            type: 'deleted',
+            filePath,
+            fileName: filename,
+            timestamp: Date.now(),
+          });
           this.knownFiles.delete(filename);
         }
       }
@@ -285,7 +328,8 @@ export class MemoryWatcher {
 
     for (const pattern of this.config.ignorePatterns) {
       if (pattern === baseName) return true;
-      if (pattern.startsWith('*') && baseName.endsWith(pattern.slice(1))) return true;
+      if (pattern.startsWith('*') && baseName.endsWith(pattern.slice(1)))
+        return true;
     }
 
     return false;
@@ -305,7 +349,7 @@ export class MemoryWatcher {
 
         if (entry.isDirectory() && this.config.recursive) {
           const subResults = await this.walkDir(fullPath);
-          results.push(...subResults.map(p => join(entry.name, p)));
+          results.push(...subResults.map((p) => join(entry.name, p)));
         } else if (entry.isFile()) {
           results.push(entry.name);
         }

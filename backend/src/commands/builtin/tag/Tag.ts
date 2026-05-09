@@ -42,9 +42,11 @@ export default {
       { name: 'feature', color: 'purple', count: 7 },
     ];
 
-    const table = tags.map(t => 
-      `[${t.color.padEnd(6)}] ${t.name.padEnd(12)} ${t.count} 个会话`
-    ).join('\n');
+    const table = tags
+      .map(
+        (t) => `[${t.color.padEnd(6)}] ${t.name.padEnd(12)} ${t.count} 个会话`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -57,9 +59,12 @@ export default {
   /**
    * 添加标签
    */
-  async handleAdd(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleAdd(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const tagName = args[0];
-    
+
     if (!tagName) {
       return {
         success: false,
@@ -70,7 +75,7 @@ export default {
     }
 
     context.onDone?.(`标签 ${tagName} 已添加`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -82,9 +87,12 @@ export default {
   /**
    * 移除标签
    */
-  async handleRemove(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleRemove(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const tagName = args[0];
-    
+
     if (!tagName) {
       return {
         success: false,
@@ -95,7 +103,7 @@ export default {
     }
 
     context.onDone?.(`标签 ${tagName} 已移除`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -107,7 +115,10 @@ export default {
   /**
    * 按标签列出会话
    */
-  async handleSessions(tagName: string, context: CommandContext): Promise<CommandResult> {
+  async handleSessions(
+    tagName: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!tagName) {
       return {
         success: false,
@@ -123,9 +134,9 @@ export default {
       { id: 'sess-003', name: 'Bug修复', modified: '2024-01-13' },
     ];
 
-    const table = sessions.map(s => 
-      `[${s.id}] ${s.name} (${s.modified})`
-    ).join('\n');
+    const table = sessions
+      .map((s) => `[${s.id}] ${s.name} (${s.modified})`)
+      .join('\n');
 
     return {
       success: true,

@@ -3,7 +3,12 @@
  * 负责任务分配和结果汇总
  */
 
-import { SwarmTask, SwarmResult, ISwarmAgent, SwarmExecutionOptions } from './types';
+import {
+  SwarmTask,
+  SwarmResult,
+  ISwarmAgent,
+  SwarmExecutionOptions,
+} from './types';
 import { AgentSwarmManager } from './AgentSwarmManager';
 
 export class SwarmCoordinator {
@@ -44,7 +49,7 @@ export class SwarmCoordinator {
   aggregateResults(results: SwarmResult[]): SwarmResult[] {
     // 可以在这里添加更复杂的汇总逻辑
     // 例如：合并部分结果、过滤失败的结果等
-    
+
     return results;
   }
 
@@ -58,9 +63,10 @@ export class SwarmCoordinator {
     successRate: number;
   } {
     const totalTasks = results.length;
-    const successfulTasks = results.filter(r => r.success).length;
-    const failedTasks = results.filter(r => !r.success).length;
-    const successRate = totalTasks > 0 ? (successfulTasks / totalTasks) * 100 : 0;
+    const successfulTasks = results.filter((r) => r.success).length;
+    const failedTasks = results.filter((r) => !r.success).length;
+    const successRate =
+      totalTasks > 0 ? (successfulTasks / totalTasks) * 100 : 0;
 
     return {
       totalTasks,

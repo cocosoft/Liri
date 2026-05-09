@@ -52,7 +52,11 @@ export interface RetryConfig {
   delayCalculator?: (attempt: number, error: unknown) => number;
   onBeforeRetry?: (error: unknown, attempt: number, delayMs: number) => void;
   onAfterRetry?: (error: unknown, attempt: number, delayMs: number) => void;
-  onRetryFailed?: (error: unknown, attempts: number, totalDelayMs: number) => void;
+  onRetryFailed?: (
+    error: unknown,
+    attempts: number,
+    totalDelayMs: number
+  ) => void;
 }
 
 /**
@@ -115,7 +119,7 @@ export function isStaleConnectionError(error: unknown): boolean {
 export class CannotRetryError extends Error {
   constructor(
     public readonly originalError: unknown,
-    message?: string,
+    message?: string
   ) {
     super(message || 'Cannot retry error');
     this.name = 'CannotRetryError';
@@ -136,7 +140,11 @@ export function categorizeAPIError(error: unknown): APIErrorClassification {
   const statusCode = err.status || err.statusCode;
 
   // 速率限制
-  if (statusCode === 429 || msg.includes('rate_limit') || msg.includes('rate limit')) {
+  if (
+    statusCode === 429 ||
+    msg.includes('rate_limit') ||
+    msg.includes('rate limit')
+  ) {
     const retryAfter = err.retryAfterMs || err.headers?.['retry-after'];
     return {
       type: RetryableErrorType.RATE_LIMIT,
@@ -259,7 +267,8 @@ export async function withRetry<T>(
         throw error;
       }
 
-      const delayMs = classification.retryAfterMs ?? calculateBackoffDelay(attempt, config);
+      const delayMs =
+        classification.retryAfterMs ?? calculateBackoffDelay(attempt, config);
 
       if (onRetry) {
         onRetry(error, attempt + 1, delayMs);
@@ -301,7 +310,8 @@ export async function* withRetryGenerator<T>(
         throw error;
       }
 
-      const delayMs = classification.retryAfterMs ?? calculateBackoffDelay(attempt, config);
+      const delayMs =
+        classification.retryAfterMs ?? calculateBackoffDelay(attempt, config);
 
       if (onRetry) {
         onRetry(error, attempt + 1, delayMs);
@@ -433,6 +443,8 @@ export function createExponentialBackoffStrategy(
  * @param delayMs 固定延迟（毫秒）
  * @returns 延迟计算函数
  */
-export function createFixedDelayStrategy(delayMs: number): (attempt: number) => number {
+export function createFixedDelayStrategy(
+  delayMs: number
+): (attempt: number) => number {
   return () => delayMs;
 }

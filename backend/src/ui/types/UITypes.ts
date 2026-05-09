@@ -104,7 +104,12 @@ export interface PaneProps {
   margin?: number;
   flexDirection?: 'row' | 'column';
   alignItems?: 'flex-start' | 'center' | 'flex-end';
-  justifyContent?: 'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around';
+  justifyContent?:
+    | 'flex-start'
+    | 'center'
+    | 'flex-end'
+    | 'space-between'
+    | 'space-around';
 }
 
 /**
@@ -284,17 +289,32 @@ export type ComponentSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 /**
  * 组件变体类型（基于CC源码）
  */
-export type ComponentVariant = 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
+export type ComponentVariant =
+  | 'primary'
+  | 'secondary'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'info';
 
 /**
  * 组件状态类型（基于CC源码）
  */
-export type ComponentState = 'default' | 'hover' | 'focus' | 'active' | 'disabled';
+export type ComponentState =
+  | 'default'
+  | 'hover'
+  | 'focus'
+  | 'active'
+  | 'disabled';
 
 /**
  * 布局方向类型（基于CC源码）
  */
-export type LayoutDirection = 'row' | 'column' | 'row-reverse' | 'column-reverse';
+export type LayoutDirection =
+  | 'row'
+  | 'column'
+  | 'row-reverse'
+  | 'column-reverse';
 
 /**
  * 对齐方式类型（基于CC源码）
@@ -304,7 +324,13 @@ export type Alignment = 'start' | 'center' | 'end' | 'stretch' | 'baseline';
 /**
  * 分布方式类型（基于CC源码）
  */
-export type Distribution = 'start' | 'center' | 'end' | 'space-between' | 'space-around' | 'space-evenly';
+export type Distribution =
+  | 'start'
+  | 'center'
+  | 'end'
+  | 'space-between'
+  | 'space-around'
+  | 'space-evenly';
 
 /**
  * 响应式断点类型（基于CC源码）
@@ -322,6 +348,5 @@ export interface Breakpoints {
  */
 export type ResponsiveProp<T> = T | { [K in keyof Breakpoints]?: T };
 
-export {
-  // 导出所有类型
-};
+export // 导出所有类型
+ {};

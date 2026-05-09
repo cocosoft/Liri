@@ -4,17 +4,17 @@
  */
 
 import { EventEmitter } from 'events';
-import { 
-  ToolDefinition, 
-  ToolRegistration, 
-  ToolExecutionContext, 
+import {
+  ToolDefinition,
+  ToolRegistration,
+  ToolExecutionContext,
   ToolExecutionResult,
   ToolManagerConfig,
   ToolEventType,
   ToolEventData,
   ToolErrorCode,
   DEFAULT_TOOL_CONFIG,
-  TOOL_SYSTEM_VERSION
+  TOOL_SYSTEM_VERSION,
 } from '../types/ToolTypes';
 
 /**
@@ -30,13 +30,13 @@ export class ToolManager extends EventEmitter {
    */
   constructor(config: Partial<ToolManagerConfig> = {}) {
     super();
-    
+
     // 合并配置
     this.config = {
       ...DEFAULT_TOOL_CONFIG,
-      ...config
+      ...config,
     };
-    
+
     // 设置最大监听器数量
     this.setMaxListeners(100);
   }
@@ -52,23 +52,23 @@ export class ToolManager extends EventEmitter {
     try {
       // 初始化工具注册表
       await this.loadToolRegistry();
-      
+
       // 初始化工具缓存
       await this.initializeCache();
-      
+
       // 初始化工具监控
       await this.initializeMonitoring();
-      
+
       // 初始化工具安全
       await this.initializeSecurity();
-      
+
       this.isInitialized = true;
-      
+
       this.emitEvent(ToolEventType.TOOL_REGISTERED, {
         toolName: 'system',
-        data: { message: 'ToolManager initialized' }
+        data: { message: 'ToolManager initialized' },
       });
-      
+
       console.log(`✅ 工具管理器初始化完成 (版本: ${TOOL_SYSTEM_VERSION})`);
     } catch (error) {
       console.error('❌ 工具管理器初始化失败:', error);
@@ -80,22 +80,24 @@ export class ToolManager extends EventEmitter {
    * 注册工具（基于CC源码）
    */
   async registerTool(
-    definition: ToolDefinition, 
-    implementation: (context: ToolExecutionContext) => Promise<ToolExecutionResult>
+    definition: ToolDefinition,
+    implementation: (
+      context: ToolExecutionContext
+    ) => Promise<ToolExecutionResult>
   ): Promise<ToolRegistration> {
     // 验证工具定义
     this.validateToolDefinition(definition);
-    
+
     // 检查工具是否已存在
     if (this.toolRegistry.has(definition.name)) {
       throw new Error(`工具已存在: ${definition.name}`);
     }
-    
+
     // 创建工具注册信息
     const registration: ToolRegistration = {
       definition: {
         ...definition,
-        enabled: definition.enabled ?? true
+        enabled: definition.enabled ?? true,
       },
       implementation,
       status: 'registered',
@@ -106,21 +108,21 @@ export class ToolManager extends EventEmitter {
         successfulExecutions: 0,
         failedExecutions: 0,
         totalExecutionTime: 0,
-        averageExecutionTime: 0
-      }
+        averageExecutionTime: 0,
+      },
     };
-    
+
     // 注册工具
     this.toolRegistry.set(definition.name, registration);
-    
+
     // 发出工具注册事件
     this.emitEvent(ToolEventType.TOOL_REGISTERED, {
       toolName: definition.name,
-      data: { definition }
+      data: { definition },
     });
-    
+
     console.log(`✅ 工具注册成功: ${definition.name}`);
-    
+
     return registration;
   }
 
@@ -129,20 +131,20 @@ export class ToolManager extends EventEmitter {
    */
   async unregisterTool(toolName: string): Promise<void> {
     const registration = this.toolRegistry.get(toolName);
-    
+
     if (!registration) {
       throw new Error(`工具未找到: ${toolName}`);
     }
-    
+
     // 注销工具
     this.toolRegistry.delete(toolName);
-    
+
     // 发出工具注销事件
     this.emitEvent(ToolEventType.TOOL_UNREGISTERED, {
       toolName,
-      data: { registration }
+      data: { registration },
     });
-    
+
     console.log(`✅ 工具注销成功: ${toolName}`);
   }
 
@@ -150,20 +152,20 @@ export class ToolManager extends EventEmitter {
    * 执行工具（基于CC源码）
    */
   async executeTool(
-    toolName: string, 
+    toolName: string,
     parameters: Record<string, any>,
     context: Partial<ToolExecutionContext> = {}
   ): Promise<ToolExecutionResult> {
     const registration = this.toolRegistry.get(toolName);
-    
+
     if (!registration) {
       throw new Error(`工具未找到: ${toolName}`);
     }
-    
+
     if (!registration.definition.enabled) {
       throw new Error(`工具未启用: ${toolName}`);
     }
-    
+
     // 创建执行上下文
     const executionContext: ToolExecutionContext = {
       executionId: this.generateExecutionId(),
@@ -174,18 +176,21 @@ export class ToolManager extends EventEmitter {
       parameters,
       config: registration.definition.config || {},
       options: {
-        timeout: registration.definition.timeout || this.config.execution?.defaultTimeout || 30000
-      }
+        timeout:
+          registration.definition.timeout ||
+          this.config.execution?.defaultTimeout ||
+          30000,
+      },
     };
-    
+
     // 发出执行开始事件
     this.emitEvent(ToolEventType.TOOL_EXECUTION_STARTED, {
       toolName,
-      data: { executionContext }
+      data: { executionContext },
     });
-    
+
     const startTime = Date.now();
-    
+
     try {
       // 执行工具
       const result = await this.executeToolWithTimeout(
@@ -193,31 +198,31 @@ export class ToolManager extends EventEmitter {
         executionContext,
         executionContext.options.timeout || 30000
       );
-      
+
       const executionTime = Date.now() - startTime;
-      
+
       // 更新工具统计
       this.updateToolStats(toolName, true, executionTime);
-      
+
       // 发出执行成功事件
       this.emitEvent(ToolEventType.TOOL_EXECUTION_SUCCESS, {
         toolName,
-        data: { result, executionTime }
+        data: { result, executionTime },
       });
-      
+
       return result;
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
+
       // 更新工具统计
       this.updateToolStats(toolName, false, executionTime);
-      
+
       // 发出执行失败事件
       this.emitEvent(ToolEventType.TOOL_EXECUTION_FAILED, {
         toolName,
-        data: { error, executionTime }
+        data: { error, executionTime },
       });
-      
+
       throw error;
     }
   }
@@ -241,18 +246,18 @@ export class ToolManager extends EventEmitter {
    */
   enableTool(toolName: string): void {
     const registration = this.toolRegistry.get(toolName);
-    
+
     if (!registration) {
       throw new Error(`工具未找到: ${toolName}`);
     }
-    
+
     registration.definition.enabled = true;
     registration.status = 'enabled';
     registration.updatedAt = new Date();
-    
+
     this.emitEvent(ToolEventType.TOOL_ENABLED, {
       toolName,
-      data: { registration }
+      data: { registration },
     });
   }
 
@@ -261,18 +266,18 @@ export class ToolManager extends EventEmitter {
    */
   disableTool(toolName: string): void {
     const registration = this.toolRegistry.get(toolName);
-    
+
     if (!registration) {
       throw new Error(`工具未找到: ${toolName}`);
     }
-    
+
     registration.definition.enabled = false;
     registration.status = 'disabled';
     registration.updatedAt = new Date();
-    
+
     this.emitEvent(ToolEventType.TOOL_DISABLED, {
       toolName,
-      data: { registration }
+      data: { registration },
     });
   }
 
@@ -283,11 +288,11 @@ export class ToolManager extends EventEmitter {
     if (!definition.name) {
       throw new Error('工具名称不能为空');
     }
-    
+
     if (!definition.description) {
       throw new Error('工具描述不能为空');
     }
-    
+
     // 验证名称格式
     if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(definition.name)) {
       throw new Error('工具名称只能包含字母、数字和下划线，且必须以字母开头');
@@ -334,7 +339,9 @@ export class ToolManager extends EventEmitter {
    * 带超时的工具执行（基于CC源码）
    */
   private async executeToolWithTimeout(
-    implementation: (context: ToolExecutionContext) => Promise<ToolExecutionResult>,
+    implementation: (
+      context: ToolExecutionContext
+    ) => Promise<ToolExecutionResult>,
     context: ToolExecutionContext,
     timeout: number
   ): Promise<ToolExecutionResult> {
@@ -342,13 +349,13 @@ export class ToolManager extends EventEmitter {
       const timeoutId = setTimeout(() => {
         reject(new Error(`工具执行超时: ${timeout}ms`));
       }, timeout);
-      
+
       implementation(context)
-        .then(result => {
+        .then((result) => {
           clearTimeout(timeoutId);
           resolve(result);
         })
-        .catch(error => {
+        .catch((error) => {
           clearTimeout(timeoutId);
           reject(error);
         });
@@ -365,25 +372,30 @@ export class ToolManager extends EventEmitter {
   /**
    * 更新工具统计（基于CC源码）
    */
-  private updateToolStats(toolName: string, success: boolean, executionTime: number): void {
+  private updateToolStats(
+    toolName: string,
+    success: boolean,
+    executionTime: number
+  ): void {
     const registration = this.toolRegistry.get(toolName);
-    
+
     if (!registration) {
       return;
     }
-    
+
     registration.stats.totalExecutions++;
-    
+
     if (success) {
       registration.stats.successfulExecutions++;
     } else {
       registration.stats.failedExecutions++;
     }
-    
+
     registration.stats.totalExecutionTime += executionTime;
-    registration.stats.averageExecutionTime = 
-      registration.stats.totalExecutionTime / registration.stats.totalExecutions;
-    
+    registration.stats.averageExecutionTime =
+      registration.stats.totalExecutionTime /
+      registration.stats.totalExecutions;
+
     registration.stats.lastExecutionTime = new Date();
     registration.updatedAt = new Date();
   }
@@ -391,13 +403,16 @@ export class ToolManager extends EventEmitter {
   /**
    * 发出工具事件（基于CC源码）
    */
-  private emitEvent(eventType: ToolEventType, eventData: Omit<ToolEventData, 'timestamp'>): void {
+  private emitEvent(
+    eventType: ToolEventType,
+    eventData: Omit<ToolEventData, 'timestamp'>
+  ): void {
     const fullEvent: ToolEventData = {
       ...eventData,
       timestamp: new Date(),
     };
     this.emit(eventType, fullEvent);
-    
+
     // 记录事件日志
     if (this.config.logging?.enabled) {
       console.log(`[${eventType}] ${fullEvent.toolName}:`, fullEvent.data);
@@ -415,13 +430,13 @@ export class ToolManager extends EventEmitter {
     version: string;
   } {
     const tools = this.getTools();
-    
+
     return {
       initialized: this.isInitialized,
       toolCount: tools.length,
-      enabledTools: tools.filter(t => t.definition.enabled).length,
-      disabledTools: tools.filter(t => !t.definition.enabled).length,
-      version: TOOL_SYSTEM_VERSION
+      enabledTools: tools.filter((t) => t.definition.enabled).length,
+      disabledTools: tools.filter((t) => !t.definition.enabled).length,
+      version: TOOL_SYSTEM_VERSION,
     };
   }
 }

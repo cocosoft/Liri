@@ -5,10 +5,10 @@
  */
 
 import { logForDebugging } from '../utils/debug.js';
-import { 
-  calculateModelCost, 
-  formatCost, 
-  getModelPricing, 
+import {
+  calculateModelCost,
+  formatCost,
+  getModelPricing,
   getCanonicalModelName,
   hasUnknownModel,
   resetUnknownModelFlag,
@@ -70,7 +70,7 @@ export class CostTracker {
     cacheReadTokens: number = 0,
     cacheCreationTokens: number = 0,
     webSearchRequests: number = 0,
-    isFastMode: boolean = false,
+    isFastMode: boolean = false
   ): number {
     const canonicalModelName = getCanonicalModelName(modelName);
     const cost = calculateModelCost(
@@ -80,7 +80,7 @@ export class CostTracker {
       cacheReadTokens,
       cacheCreationTokens,
       webSearchRequests,
-      isFastMode,
+      isFastMode
     );
 
     this.totalCostUSD += cost;
@@ -127,7 +127,10 @@ export class CostTracker {
   /**
    * 从使用信息添加成本
    */
-  addCostFromUsage(modelName: string, usage: Omit<ModelUsage, 'costUSD'>): number {
+  addCostFromUsage(
+    modelName: string,
+    usage: Omit<ModelUsage, 'costUSD'>
+  ): number {
     return this.addCost(
       modelName,
       usage.inputTokens,
@@ -135,7 +138,7 @@ export class CostTracker {
       usage.cacheReadInputTokens,
       usage.cacheCreationInputTokens,
       usage.webSearchRequests,
-      usage.isFastMode,
+      usage.isFastMode
     );
   }
 
@@ -335,7 +338,7 @@ export function addCost(
   cacheReadTokens: number = 0,
   cacheCreationTokens: number = 0,
   webSearchRequests: number = 0,
-  isFastMode: boolean = false,
+  isFastMode: boolean = false
 ): number {
   return costTracker.addCost(
     modelName,
@@ -344,7 +347,7 @@ export function addCost(
     cacheReadTokens,
     cacheCreationTokens,
     webSearchRequests,
-    isFastMode,
+    isFastMode
   );
 }
 

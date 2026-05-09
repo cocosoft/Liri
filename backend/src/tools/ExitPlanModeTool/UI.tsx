@@ -1,23 +1,23 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type ExitPlanModeOutput = {
-  success: boolean
-  message: string
-  mode: string
-}
+  success: boolean;
+  message: string;
+  mode: string;
+};
 
 export function renderToolUseMessage(
   _input: Record<string, never>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  return <Text dimColor>退出计划模式...</Text>
+  return <Text dimColor>退出计划模式...</Text>;
 }
 
 export function renderToolResultMessage(
   output: ExitPlanModeOutput,
   _progressMessages: any[],
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
   return (
     <Box flexDirection="column">
@@ -30,5 +30,5 @@ export function renderToolResultMessage(
         </Box>
       ) : null}
     </Box>
-  )
+  );
 }

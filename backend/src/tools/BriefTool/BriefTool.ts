@@ -20,7 +20,7 @@ export interface BriefToolInput {
 export class BriefTool extends BaseTool<BriefToolInput> {
   name = 'brief';
   description = 'Generate a summary of the current session';
-  
+
   params: ToolParam[] = [
     {
       name: 'sessionId',
@@ -57,7 +57,9 @@ export class BriefTool extends BaseTool<BriefToolInput> {
   ): Promise<ToolResult> {
     try {
       const sessionId = input.sessionId || (context as any).sessionId;
-      const messages = await chatService.getSessionMessages(sessionId) as SessionMessage[];
+      const messages = (await chatService.getSessionMessages(
+        sessionId
+      )) as SessionMessage[];
 
       const summary = this.generateSummary(
         messages,
@@ -86,7 +88,7 @@ export class BriefTool extends BaseTool<BriefToolInput> {
   ): string {
     // 获取最近的消息
     const recentMessages = messages.slice(-messageCount);
-    
+
     if (recentMessages.length === 0) {
       return '## 会话摘要\n\n当前会话暂无消息。';
     }
@@ -224,8 +226,14 @@ export class BriefTool extends BaseTool<BriefToolInput> {
     const lastMessages = messages.slice(-3);
     summary += `**最近消息:**\n`;
     for (const msg of lastMessages) {
-      const preview = msg.content.substring(0, 50) + (msg.content.length > 50 ? '...' : '');
-      const roleName = msg.type === 'user' ? '用户' : msg.type === 'assistant' ? '助手' : msg.type;
+      const preview =
+        msg.content.substring(0, 50) + (msg.content.length > 50 ? '...' : '');
+      const roleName =
+        msg.type === 'user'
+          ? '用户'
+          : msg.type === 'assistant'
+            ? '助手'
+            : msg.type;
       summary += `${roleName}: ${preview}\n`;
     }
 

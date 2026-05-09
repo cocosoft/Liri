@@ -52,11 +52,11 @@ class GovernanceConfigManager extends EventEmitter {
   ensureDirectories() {
     const configDir = dirname(this.configPath);
     const versionsDir = dirname(this.versionsPath);
-    
+
     if (!existsSync(configDir)) {
       mkdirSync(configDir, { recursive: true });
     }
-    
+
     if (!existsSync(versionsDir)) {
       mkdirSync(versionsDir, { recursive: true });
     }
@@ -122,7 +122,10 @@ class GovernanceConfigManager extends EventEmitter {
    */
   saveConfig() {
     try {
-      writeFileSync(this.configPath, JSON.stringify(this.currentConfig, null, 2) + '\n');
+      writeFileSync(
+        this.configPath,
+        JSON.stringify(this.currentConfig, null, 2) + '\n'
+      );
     } catch (error) {
       console.error('Failed to save governance config:', error);
     }
@@ -133,7 +136,10 @@ class GovernanceConfigManager extends EventEmitter {
    */
   saveVersions() {
     try {
-      writeFileSync(this.versionsPath, JSON.stringify(this.versions, null, 2) + '\n');
+      writeFileSync(
+        this.versionsPath,
+        JSON.stringify(this.versions, null, 2) + '\n'
+      );
     } catch (error) {
       console.error('Failed to save governance config versions:', error);
     }
@@ -151,7 +157,7 @@ class GovernanceConfigManager extends EventEmitter {
    */
   updateConfig(config, reason) {
     const newConfig = { ...this.currentConfig, ...config };
-    
+
     this.currentVersion++;
     const version = {
       version: this.currentVersion,
@@ -161,7 +167,7 @@ class GovernanceConfigManager extends EventEmitter {
     };
 
     this.versions.push(version);
-    
+
     if (this.versions.length > this.maxVersions) {
       this.versions.shift();
     }
@@ -181,15 +187,15 @@ class GovernanceConfigManager extends EventEmitter {
    * 回滚配置
    */
   rollbackToVersion(versionNumber) {
-    const version = this.versions.find(v => v.version === versionNumber);
-    
+    const version = this.versions.find((v) => v.version === versionNumber);
+
     if (!version) {
       return false;
     }
 
     this.currentConfig = { ...version.config };
     this.currentVersion++;
-    
+
     const rollbackVersion = {
       version: this.currentVersion,
       timestamp: Date.now(),
@@ -198,7 +204,7 @@ class GovernanceConfigManager extends EventEmitter {
     };
 
     this.versions.push(rollbackVersion);
-    
+
     if (this.versions.length > this.maxVersions) {
       this.versions.shift();
     }
@@ -226,7 +232,7 @@ class GovernanceConfigManager extends EventEmitter {
    * 获取特定版本
    */
   getVersion(versionNumber) {
-    return this.versions.find(v => v.version === versionNumber);
+    return this.versions.find((v) => v.version === versionNumber);
   }
 
   /**
@@ -240,7 +246,10 @@ class GovernanceConfigManager extends EventEmitter {
    * 重置配置为默认值
    */
   resetToDefault(reason) {
-    this.updateConfig(createDefaultGovernanceConfig(), reason || 'Reset to default');
+    this.updateConfig(
+      createDefaultGovernanceConfig(),
+      reason || 'Reset to default'
+    );
   }
 
   /**
@@ -263,7 +272,7 @@ class GovernanceConfigManager extends EventEmitter {
   validateConfig(config) {
     try {
       const defaultConfig = createDefaultGovernanceConfig();
-      
+
       // 检查必要的字段
       const requiredFields = Object.keys(defaultConfig);
       for (const field of requiredFields) {
@@ -271,7 +280,7 @@ class GovernanceConfigManager extends EventEmitter {
           return false;
         }
       }
-      
+
       return true;
     } catch {
       return false;

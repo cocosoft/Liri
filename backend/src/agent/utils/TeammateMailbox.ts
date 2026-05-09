@@ -5,7 +5,13 @@
  * 参考CC源码 cc_code/backend/utils/teammateMailbox.ts 实现
  */
 
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { logger } from '@modules/utils/log';
@@ -125,7 +131,13 @@ export class TeammateMailbox {
   private cleanupTimer?: NodeJS.Timeout;
 
   constructor(config: Partial<MailboxConfig> = {}) {
-    this.mailboxDir = config.mailboxDir || join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'mailbox');
+    this.mailboxDir =
+      config.mailboxDir ||
+      join(
+        process.env.HOME || process.env.USERPROFILE || '',
+        '.py_app',
+        'mailbox'
+      );
     this.messageTtlMs = config.messageTtlMs || 24 * 60 * 60 * 1000; // 24小时
     this.cleanupIntervalMs = config.cleanupIntervalMs || 60 * 60 * 1000; // 1小时
 
@@ -172,7 +184,10 @@ export class TeammateMailbox {
       writeFileSync(mailboxPath, JSON.stringify(messages, null, 2), 'utf-8');
       logger.debug(`Wrote message to mailbox ${recipientId}: ${message.type}`);
     } catch (error) {
-      logger.error(`Failed to write to mailbox ${recipientId}:`, error as Error);
+      logger.error(
+        `Failed to write to mailbox ${recipientId}:`,
+        error as Error
+      );
     }
   }
 
@@ -192,7 +207,9 @@ export class TeammateMailbox {
 
       // 过滤过期消息
       const now = Date.now();
-      return messages.filter((m: MailboxMessage) => now - m.timestamp < this.messageTtlMs);
+      return messages.filter(
+        (m: MailboxMessage) => now - m.timestamp < this.messageTtlMs
+      );
     } catch {
       return [];
     }
@@ -225,7 +242,10 @@ export class TeammateMailbox {
   /**
    * 获取指定类型的消息
    */
-  getMessagesByType(recipientId: string, type: MailboxMessageType): MailboxMessage[] {
+  getMessagesByType(
+    recipientId: string,
+    type: MailboxMessageType
+  ): MailboxMessage[] {
     const messages = this.readMailbox(recipientId);
     return messages.filter((m: MailboxMessage) => m.type === type);
   }
@@ -233,7 +253,10 @@ export class TeammateMailbox {
   /**
    * 获取发送者的消息
    */
-  getMessagesFromSender(recipientId: string, senderId: string): MailboxMessage[] {
+  getMessagesFromSender(
+    recipientId: string,
+    senderId: string
+  ): MailboxMessage[] {
     const messages = this.readMailbox(recipientId);
     return messages.filter((m: MailboxMessage) => m.senderId === senderId);
   }
@@ -270,11 +293,17 @@ export class TeammateMailbox {
     graceful: boolean = true,
     timeout?: number
   ): ShutdownRequestMessage {
-    const message = this.createMessage('shutdown_request', senderId, senderName, {
-      reason,
-      graceful,
-      timeout,
-    }, recipientId) as ShutdownRequestMessage;
+    const message = this.createMessage(
+      'shutdown_request',
+      senderId,
+      senderName,
+      {
+        reason,
+        graceful,
+        timeout,
+      },
+      recipientId
+    ) as ShutdownRequestMessage;
     return message;
   }
 
@@ -288,10 +317,16 @@ export class TeammateMailbox {
     code?: number,
     reason?: string
   ): ShutdownResponseMessage {
-    const message = this.createMessage('shutdown_response', senderId, senderName, {
-      code,
-      reason,
-    }, recipientId) as ShutdownResponseMessage;
+    const message = this.createMessage(
+      'shutdown_response',
+      senderId,
+      senderName,
+      {
+        code,
+        reason,
+      },
+      recipientId
+    ) as ShutdownResponseMessage;
     return message;
   }
 
@@ -305,10 +340,16 @@ export class TeammateMailbox {
     plan: string,
     taskId: string
   ): PlanApprovalRequestMessage {
-    const message = this.createMessage('plan_approval_request', senderId, senderName, {
-      plan,
-      taskId,
-    }, recipientId) as PlanApprovalRequestMessage;
+    const message = this.createMessage(
+      'plan_approval_request',
+      senderId,
+      senderName,
+      {
+        plan,
+        taskId,
+      },
+      recipientId
+    ) as PlanApprovalRequestMessage;
     return message;
   }
 
@@ -323,11 +364,17 @@ export class TeammateMailbox {
     feedback?: string,
     modifiedPlan?: string
   ): PlanApprovalResponseMessage {
-    const message = this.createMessage('plan_approval_response', senderId, senderName, {
-      approved,
-      feedback,
-      modifiedPlan,
-    }, recipientId) as PlanApprovalResponseMessage;
+    const message = this.createMessage(
+      'plan_approval_response',
+      senderId,
+      senderName,
+      {
+        approved,
+        feedback,
+        modifiedPlan,
+      },
+      recipientId
+    ) as PlanApprovalResponseMessage;
     return message;
   }
 
@@ -343,12 +390,18 @@ export class TeammateMailbox {
     description: string,
     input: Record<string, unknown>
   ): PermissionRequestMessage {
-    const message = this.createMessage('permission_request', senderId, senderName, {
-      toolName,
-      toolUseId,
-      description,
-      input,
-    }, recipientId) as PermissionRequestMessage;
+    const message = this.createMessage(
+      'permission_request',
+      senderId,
+      senderName,
+      {
+        toolName,
+        toolUseId,
+        description,
+        input,
+      },
+      recipientId
+    ) as PermissionRequestMessage;
     return message;
   }
 
@@ -363,11 +416,17 @@ export class TeammateMailbox {
     feedback?: string,
     updatedInput?: Record<string, unknown>
   ): PermissionResponseMessage {
-    const message = this.createMessage('permission_response', senderId, senderName, {
-      approved,
-      feedback,
-      updatedInput,
-    }, recipientId) as PermissionResponseMessage;
+    const message = this.createMessage(
+      'permission_response',
+      senderId,
+      senderName,
+      {
+        approved,
+        feedback,
+        updatedInput,
+      },
+      recipientId
+    ) as PermissionResponseMessage;
     return message;
   }
 
@@ -388,7 +447,12 @@ export class TeammateMailbox {
    * 清理过期消息
    */
   private cleanupExpiredMessages(): void {
-    const { readdirSync, unlinkSync, readFileSync, writeFileSync } = require('fs');
+    const {
+      readdirSync,
+      unlinkSync,
+      readFileSync,
+      writeFileSync,
+    } = require('fs');
 
     try {
       const files = readdirSync(this.mailboxDir);
@@ -404,15 +468,23 @@ export class TeammateMailbox {
           let messages = JSON.parse(content) as MailboxMessage[];
           const originalCount = messages.length;
 
-          messages = messages.filter((m: MailboxMessage) => now - m.timestamp < this.messageTtlMs);
+          messages = messages.filter(
+            (m: MailboxMessage) => now - m.timestamp < this.messageTtlMs
+          );
 
           if (messages.length < originalCount) {
             if (messages.length > 0) {
-              writeFileSync(filePath, JSON.stringify(messages, null, 2), 'utf-8');
+              writeFileSync(
+                filePath,
+                JSON.stringify(messages, null, 2),
+                'utf-8'
+              );
             } else {
               unlinkSync(filePath);
             }
-            logger.debug(`Cleaned up ${originalCount - messages.length} expired messages from ${file}`);
+            logger.debug(
+              `Cleaned up ${originalCount - messages.length} expired messages from ${file}`
+            );
           }
         } catch {
           // 忽略无法处理的文件
@@ -481,7 +553,10 @@ export const teammateMailbox = new TeammateMailbox();
 /**
  * 便捷函数：写入 mailbox
  */
-export function writeToMailbox(recipientId: string, message: MailboxMessage): void {
+export function writeToMailbox(
+  recipientId: string,
+  message: MailboxMessage
+): void {
   teammateMailbox.writeToMailbox(recipientId, message);
 }
 
@@ -501,7 +576,12 @@ export function createShutdownRequestMessage(
   recipientId: string,
   reason?: string
 ): ShutdownRequestMessage {
-  return teammateMailbox.createShutdownRequest(senderId, senderName, recipientId, reason);
+  return teammateMailbox.createShutdownRequest(
+    senderId,
+    senderName,
+    recipientId,
+    reason
+  );
 }
 
 /**
@@ -514,5 +594,11 @@ export function createShutdownResponseMessage(
   code?: number,
   reason?: string
 ): ShutdownResponseMessage {
-  return teammateMailbox.createShutdownResponse(senderId, senderName, recipientId, code, reason);
+  return teammateMailbox.createShutdownResponse(
+    senderId,
+    senderName,
+    recipientId,
+    code,
+    reason
+  );
 }

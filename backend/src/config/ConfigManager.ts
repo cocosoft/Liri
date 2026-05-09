@@ -3,7 +3,18 @@
  * 提供配置加载、保存、缓存和监控功能
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, copyFileSync, statSync, watchFile, unwatchFile } from 'fs';
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+  copyFileSync,
+  statSync,
+  watchFile,
+  unwatchFile,
+} from 'fs';
 import { join, dirname, basename } from 'path';
 import { logger } from '../utils/log.js';
 import {
@@ -22,7 +33,10 @@ import { ConfigMigration } from './ConfigMigration.js';
  */
 export class ConfigManager {
   private globalConfigPath: string;
-  private configCache: { config: GlobalConfig | null; mtime: number } = { config: null, mtime: 0 };
+  private configCache: { config: GlobalConfig | null; mtime: number } = {
+    config: null,
+    mtime: 0,
+  };
   private stats: ConfigStats = {
     readCount: 0,
     writeCount: 0,
@@ -106,7 +120,10 @@ export class ConfigManager {
       this.startFreshnessWatcher();
       return config;
     } catch (error) {
-      logger.error('加载配置失败，使用默认配置', error instanceof Error ? error : undefined);
+      logger.error(
+        '加载配置失败，使用默认配置',
+        error instanceof Error ? error : undefined
+      );
       return createDefaultGlobalConfig();
     }
   }
@@ -136,7 +153,9 @@ export class ConfigManager {
       // 验证配置
       const validation = ConfigValidator.validate(config);
       if (!validation.valid) {
-        logger.warn('配置验证失败，使用默认值修正', { errors: validation.errors });
+        logger.warn('配置验证失败，使用默认值修正', {
+          errors: validation.errors,
+        });
       }
 
       return config;
@@ -162,7 +181,9 @@ export class ConfigManager {
    * 保存全局配置
    * @param updater 配置更新函数
    */
-  saveGlobalConfig(updater: (currentConfig: GlobalConfig) => GlobalConfig): void {
+  saveGlobalConfig(
+    updater: (currentConfig: GlobalConfig) => GlobalConfig
+  ): void {
     try {
       const currentConfig = this.getGlobalConfig();
       const newConfig = updater(currentConfig);
@@ -266,7 +287,10 @@ export class ConfigManager {
       // 清理旧备份，只保留最近5个
       this.cleanupOldBackups();
     } catch (error) {
-      logger.warn('创建配置备份失败', error instanceof Error ? error : undefined);
+      logger.warn(
+        '创建配置备份失败',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -300,12 +324,18 @@ export class ConfigManager {
       }
 
       const fileBase = basename(this.globalConfigPath);
-      const corruptedPath = join(backupDir, `${fileBase}.corrupted.${Date.now()}`);
+      const corruptedPath = join(
+        backupDir,
+        `${fileBase}.corrupted.${Date.now()}`
+      );
 
       copyFileSync(this.globalConfigPath, corruptedPath);
       logger.info(`损坏的配置已备份到: ${corruptedPath}`);
     } catch (error) {
-      logger.warn('备份损坏配置失败', error instanceof Error ? error : undefined);
+      logger.warn(
+        '备份损坏配置失败',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -369,7 +399,9 @@ export class ConfigManager {
     updater: (currentConfig: ProjectConfig) => ProjectConfig
   ): void {
     this.saveGlobalConfig((currentConfig) => {
-      const currentProjectConfig = currentConfig.projects?.[projectPath] ?? { ...DEFAULT_PROJECT_CONFIG };
+      const currentProjectConfig = currentConfig.projects?.[projectPath] ?? {
+        ...DEFAULT_PROJECT_CONFIG,
+      };
       const newProjectConfig = updater(currentProjectConfig);
 
       // 如果没有变化，跳过保存

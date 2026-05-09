@@ -45,7 +45,8 @@ export function StatusUI({ onDone }: StatusUIProps) {
   useEffect(() => {
     const loadStatus = async () => {
       try {
-        const { getCommandManager } = await import('../../manager/CommandManager.js');
+        const { getCommandManager } =
+          await import('../../manager/CommandManager.js');
         const commandManager = getCommandManager();
         setStatusInfo({
           commands: commandManager.getCommandCount(),

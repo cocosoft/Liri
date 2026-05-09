@@ -3,7 +3,11 @@
  * 提供插件配置管理功能
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 
 /**
  * 插件设置命令

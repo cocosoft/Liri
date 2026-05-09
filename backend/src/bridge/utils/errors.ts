@@ -5,7 +5,10 @@ export function errorMessage(error: unknown): string {
 }
 
 export class BridgeError extends Error {
-  constructor(message: string, public code?: string) {
+  constructor(
+    message: string,
+    public code?: string
+  ) {
     super(message);
     this.name = 'BridgeError';
   }

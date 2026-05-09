@@ -73,7 +73,9 @@ export function unregisterTask(taskId: string): void {
  * 获取所有运行中的任务
  */
 export function getRunningTasks(): TaskInfo[] {
-  return Array.from(runningTasks.values()).filter((task) => task.status === 'running');
+  return Array.from(runningTasks.values()).filter(
+    (task) => task.status === 'running'
+  );
 }
 
 /**
@@ -177,7 +179,19 @@ export const TaskStopTool: Tool<InputSchema, OutputSchema> = buildTool({
     return null;
   },
 
-  renderToolResultMessage({ message, task_id, task_type }: { message: string; task_id: string; task_type: string; command?: string }, _toolUseId: string) {
+  renderToolResultMessage(
+    {
+      message,
+      task_id,
+      task_type,
+    }: {
+      message: string;
+      task_id: string;
+      task_type: string;
+      command?: string;
+    },
+    _toolUseId: string
+  ) {
     return (
       <Box flexDirection="column" marginTop={1}>
         <Text color="green">✓ {message}</Text>

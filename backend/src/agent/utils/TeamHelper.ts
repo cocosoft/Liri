@@ -147,7 +147,10 @@ export class TeamHelper {
       const content = readFileSync(configPath, 'utf-8');
       return JSON.parse(content) as TeamConfig;
     } catch (error) {
-      logger.error(`Failed to read team config from ${configPath}:`, error as Error);
+      logger.error(
+        `Failed to read team config from ${configPath}:`,
+        error as Error
+      );
       return null;
     }
   }
@@ -163,7 +166,10 @@ export class TeamHelper {
       writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
       logger.debug(`Saved team config to ${configPath}`);
     } catch (error) {
-      logger.error(`Failed to save team config to ${configPath}:`, error as Error);
+      logger.error(
+        `Failed to save team config to ${configPath}:`,
+        error as Error
+      );
     }
   }
 
@@ -190,18 +196,22 @@ export class TeamHelper {
   /**
    * 检查路径是否在允许列表中
    */
-  isPathAllowed(targetPath: string, accessType: 'read' | 'write' | 'exec'): boolean {
+  isPathAllowed(
+    targetPath: string,
+    accessType: 'read' | 'write' | 'exec'
+  ): boolean {
     const paths = this.getAllowedPaths();
 
     if (!paths) {
       return true; // 没有配置则默认允许
     }
 
-    const allowedList = accessType === 'read'
-      ? paths.readPaths
-      : accessType === 'write'
-        ? paths.writePaths
-        : paths.execPaths;
+    const allowedList =
+      accessType === 'read'
+        ? paths.readPaths
+        : accessType === 'write'
+          ? paths.writePaths
+          : paths.execPaths;
 
     if (allowedList.length === 0) {
       return false; // 明确为空表示不允许
@@ -229,11 +239,12 @@ export class TeamHelper {
       execPaths: [],
     };
 
-    const pathList = accessType === 'read'
-      ? paths.readPaths
-      : accessType === 'write'
-        ? paths.writePaths
-        : paths.execPaths;
+    const pathList =
+      accessType === 'read'
+        ? paths.readPaths
+        : accessType === 'write'
+          ? paths.writePaths
+          : paths.execPaths;
 
     if (!pathList.includes(path)) {
       pathList.push(path);
@@ -252,11 +263,12 @@ export class TeamHelper {
       return;
     }
 
-    const pathList = accessType === 'read'
-      ? paths.readPaths
-      : accessType === 'write'
-        ? paths.writePaths
-        : paths.execPaths;
+    const pathList =
+      accessType === 'read'
+        ? paths.readPaths
+        : accessType === 'write'
+          ? paths.writePaths
+          : paths.execPaths;
 
     const index = pathList.indexOf(path);
     if (index > -1) {
@@ -285,7 +297,7 @@ export class TeamHelper {
    * 获取活跃成员列表
    */
   getActiveMembers(): TeamMember[] {
-    return this.getMembers().filter(m => m.status === 'active');
+    return this.getMembers().filter((m) => m.status === 'active');
   }
 
   /**
@@ -295,7 +307,7 @@ export class TeamHelper {
     const config = this.readTeamConfig();
 
     if (config) {
-      const existingIndex = config.members.findIndex(m => m.id === member.id);
+      const existingIndex = config.members.findIndex((m) => m.id === member.id);
       if (existingIndex >= 0) {
         config.members[existingIndex] = member;
       } else {
@@ -312,7 +324,7 @@ export class TeamHelper {
     const config = this.readTeamConfig();
 
     if (config) {
-      config.members = config.members.filter(m => m.id !== memberId);
+      config.members = config.members.filter((m) => m.id !== memberId);
       this.saveTeamConfig(config);
     }
   }
@@ -324,7 +336,7 @@ export class TeamHelper {
     const config = this.readTeamConfig();
 
     if (config) {
-      const member = config.members.find(m => m.id === memberId);
+      const member = config.members.find((m) => m.id === memberId);
       if (member) {
         member.status = status;
         this.saveTeamConfig(config);
@@ -367,7 +379,9 @@ export class TeamHelper {
  */
 export function getTeamDir(teamName: string): string {
   const { getEnvironmentVariable } = require('../../utils/envUtils');
-  const baseDir = process.env.PY_APP_TEAM_DIR || join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'teams');
+  const baseDir =
+    process.env.PY_APP_TEAM_DIR ||
+    join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'teams');
   return join(baseDir, teamName);
 }
 
@@ -382,7 +396,10 @@ export function createTeamHelper(teamName: string): TeamHelper {
 /**
  * 读取团队配置
  */
-export function readTeamFile(teamName: string, fileName: string): string | null {
+export function readTeamFile(
+  teamName: string,
+  fileName: string
+): string | null {
   const helper = createTeamHelper(teamName);
   const filePath = join(helper.getTeamDir(), fileName);
 
@@ -400,7 +417,11 @@ export function readTeamFile(teamName: string, fileName: string): string | null 
 /**
  * 写入团队文件
  */
-export function writeTeamFile(teamName: string, fileName: string, content: string): boolean {
+export function writeTeamFile(
+  teamName: string,
+  fileName: string,
+  content: string
+): boolean {
   const helper = createTeamHelper(teamName);
   const filePath = join(helper.getTeamDir(), fileName);
 

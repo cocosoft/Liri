@@ -3,7 +3,13 @@
  * 提供智能插件分析、性能优化、安全扫描等高级功能
  */
 
-import { PluginSystem, PluginMetadata, PluginState, PluginType, PluginEvent } from './index.js';
+import {
+  PluginSystem,
+  PluginMetadata,
+  PluginState,
+  PluginType,
+  PluginEvent,
+} from './index.js';
 
 /**
  * 插件性能指标
@@ -11,28 +17,28 @@ import { PluginSystem, PluginMetadata, PluginState, PluginType, PluginEvent } fr
 export interface PluginPerformanceMetrics {
   /** 插件ID */
   pluginId: string;
-  
+
   /** 启动时间（毫秒） */
   startupTime: number;
-  
+
   /** 内存使用量（MB） */
   memoryUsage: number;
-  
+
   /** CPU使用率（%） */
   cpuUsage: number;
-  
+
   /** 响应时间（毫秒） */
   responseTime: number;
-  
+
   /** 错误率（%） */
   errorRate: number;
-  
+
   /** 稳定性评分（0-100） */
   stabilityScore: number;
-  
+
   /** 性能评分（0-100） */
   performanceScore: number;
-  
+
   /** 最后更新时间 */
   lastUpdated: Date;
 }
@@ -43,22 +49,22 @@ export interface PluginPerformanceMetrics {
 export interface PluginSecurityAssessment {
   /** 插件ID */
   pluginId: string;
-  
+
   /** 安全评分（0-100） */
   securityScore: number;
-  
+
   /** 风险评估 */
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 安全漏洞列表 */
   vulnerabilities: PluginVulnerability[];
-  
+
   /** 权限要求 */
   permissions: string[];
-  
+
   /** 数据访问权限 */
   dataAccess: string[];
-  
+
   /** 推荐的安全措施 */
   recommendations: string[];
 }
@@ -69,22 +75,22 @@ export interface PluginSecurityAssessment {
 export interface PluginVulnerability {
   /** 漏洞ID */
   id: string;
-  
+
   /** 漏洞类型 */
   type: 'security' | 'performance' | 'compatibility' | 'stability';
-  
+
   /** 严重程度 */
   severity: 'low' | 'medium' | 'high' | 'critical';
-  
+
   /** 描述 */
   description: string;
-  
+
   /** 影响范围 */
   impact: string;
-  
+
   /** 修复建议 */
   fixRecommendation: string;
-  
+
   /** 是否已修复 */
   fixed: boolean;
 }
@@ -95,22 +101,22 @@ export interface PluginVulnerability {
 export interface PluginRecommendation {
   /** 推荐插件ID */
   pluginId: string;
-  
+
   /** 推荐理由 */
   reason: string;
-  
+
   /** 相关性评分（0-100） */
   relevanceScore: number;
-  
+
   /** 兼容性评分（0-100） */
   compatibilityScore: number;
-  
+
   /** 性能影响评估 */
   performanceImpact: 'low' | 'medium' | 'high';
-  
+
   /** 安装难度 */
   installationDifficulty: 'easy' | 'medium' | 'hard';
-  
+
   /** 用户评价 */
   userRating: number;
 }
@@ -121,22 +127,22 @@ export interface PluginRecommendation {
 export interface PluginDependencyAnalysis {
   /** 插件ID */
   pluginId: string;
-  
+
   /** 直接依赖数量 */
   directDependencies: number;
-  
+
   /** 间接依赖数量 */
   indirectDependencies: number;
-  
+
   /** 依赖冲突数量 */
   dependencyConflicts: number;
-  
+
   /** 依赖树深度 */
   dependencyTreeDepth: number;
-  
+
   /** 依赖稳定性评分（0-100） */
   dependencyStabilityScore: number;
-  
+
   /** 依赖更新频率 */
   dependencyUpdateFrequency: 'low' | 'medium' | 'high';
 }
@@ -147,28 +153,28 @@ export interface PluginDependencyAnalysis {
 export interface EnhancedPluginManagerConfig {
   /** 启用智能分析 */
   enableIntelligentAnalysis: boolean;
-  
+
   /** 启用性能监控 */
   enablePerformanceMonitoring: boolean;
-  
+
   /** 启用安全扫描 */
   enableSecurityScanning: boolean;
-  
+
   /** 启用自动优化 */
   enableAutoOptimization: boolean;
-  
+
   /** 启用智能推荐 */
   enableSmartRecommendations: boolean;
-  
+
   /** 性能监控间隔（毫秒） */
   performanceMonitoringInterval: number;
-  
+
   /** 安全扫描间隔（毫秒） */
   securityScanningInterval: number;
-  
+
   /** 最大插件数量 */
   maxPlugins: number;
-  
+
   /** 缓存大小 */
   cacheSize: number;
 }
@@ -180,7 +186,8 @@ export class EnhancedPluginManager {
   private baseSystem: PluginSystem;
   private config: EnhancedPluginManagerConfig;
   private performanceMetrics: Map<string, PluginPerformanceMetrics> = new Map();
-  private securityAssessments: Map<string, PluginSecurityAssessment> = new Map();
+  private securityAssessments: Map<string, PluginSecurityAssessment> =
+    new Map();
   private dependencyAnalyses: Map<string, PluginDependencyAnalysis> = new Map();
   private recommendations: Map<string, PluginRecommendation[]> = new Map();
   private analysisCache: Map<string, any> = new Map();
@@ -347,7 +354,10 @@ export class EnhancedPluginManager {
 
       this.performanceMetrics.set(pluginId, metrics);
     } catch (error) {
-      console.error(`Failed to collect performance metrics for plugin ${pluginId}:`, error);
+      console.error(
+        `Failed to collect performance metrics for plugin ${pluginId}:`,
+        error
+      );
     }
   }
 
@@ -379,7 +389,10 @@ export class EnhancedPluginManager {
 
       this.securityAssessments.set(pluginId, assessment);
     } catch (error) {
-      console.error(`Failed to perform security scan for plugin ${pluginId}:`, error);
+      console.error(
+        `Failed to perform security scan for plugin ${pluginId}:`,
+        error
+      );
     }
   }
 
@@ -401,7 +414,10 @@ export class EnhancedPluginManager {
 
       this.dependencyAnalyses.set(pluginId, analysis);
     } catch (error) {
-      console.error(`Failed to analyze dependencies for plugin ${pluginId}:`, error);
+      console.error(
+        `Failed to analyze dependencies for plugin ${pluginId}:`,
+        error
+      );
     }
   }
 
@@ -434,7 +450,10 @@ export class EnhancedPluginManager {
 
       this.recommendations.set(pluginId, recommendations);
     } catch (error) {
-      console.error(`Failed to generate recommendations for plugin ${pluginId}:`, error);
+      console.error(
+        `Failed to generate recommendations for plugin ${pluginId}:`,
+        error
+      );
     }
   }
 
@@ -485,7 +504,9 @@ export class EnhancedPluginManager {
   /**
    * 获取插件依赖分析
    */
-  getPluginDependencies(pluginId: string): PluginDependencyAnalysis | undefined {
+  getPluginDependencies(
+    pluginId: string
+  ): PluginDependencyAnalysis | undefined {
     return this.dependencyAnalyses.get(pluginId);
   }
 
@@ -508,7 +529,7 @@ export class EnhancedPluginManager {
   } {
     const metrics = this.getAllPerformanceMetrics();
     const totalPlugins = metrics.length;
-    
+
     if (totalPlugins === 0) {
       return {
         totalPlugins: 0,
@@ -519,10 +540,12 @@ export class EnhancedPluginManager {
       };
     }
 
-    const averagePerformanceScore = metrics.reduce((sum, m) => sum + m.performanceScore, 0) / totalPlugins;
-    const averageStabilityScore = metrics.reduce((sum, m) => sum + m.stabilityScore, 0) / totalPlugins;
+    const averagePerformanceScore =
+      metrics.reduce((sum, m) => sum + m.performanceScore, 0) / totalPlugins;
+    const averageStabilityScore =
+      metrics.reduce((sum, m) => sum + m.stabilityScore, 0) / totalPlugins;
     const totalMemoryUsage = metrics.reduce((sum, m) => sum + m.memoryUsage, 0);
-    const criticalIssues = metrics.filter(m => m.errorRate > 10).length;
+    const criticalIssues = metrics.filter((m) => m.errorRate > 10).length;
 
     return {
       totalPlugins,

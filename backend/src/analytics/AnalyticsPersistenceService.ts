@@ -1,155 +1,172 @@
-import { appendFile, mkdir, readFile } from 'fs/promises'
-import { join } from 'path'
-import type { AnalyticsEvent } from './types'
-import type { StructuredAnalyticsEvent } from './AnalyticsSchema'
-import { AnalyticsCategory, AnalyticsSeverity, getCategoryForEvent } from './AnalyticsSchema'
+import { appendFile, mkdir, readFile } from 'fs/promises';
+import { join } from 'path';
+import type { AnalyticsEvent } from './types';
+import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
+import {
+  AnalyticsCategory,
+  AnalyticsSeverity,
+  getCategoryForEvent,
+} from './AnalyticsSchema';
 
 export interface StorageConfig {
-  baseDir: string
-  maxFileSize: number
-  rotationCount: number
-  enabled: boolean
+  baseDir: string;
+  maxFileSize: number;
+  rotationCount: number;
+  enabled: boolean;
 }
 
 export const DEFAULT_STORAGE_CONFIG: StorageConfig = {
-  baseDir: process.env.ANALYTICS_STORAGE_DIR || join(process.cwd(), 'analytics_logs'),
+  baseDir:
+    process.env.ANALYTICS_STORAGE_DIR || join(process.cwd(), 'analytics_logs'),
   maxFileSize: 50 * 1024 * 1024,
   rotationCount: 5,
   enabled: process.env.ANALYTICS_PERSISTENCE_ENABLED !== 'false',
-}
+};
 
 export class AnalyticsPersistenceService {
-  private config: StorageConfig
-  private currentFile: string
-  private currentFileSize: number = 0
-  private initialized: boolean = false
+  private config: StorageConfig;
+  private currentFile: string;
+  private currentFileSize: number = 0;
+  private initialized: boolean = false;
 
   constructor(config?: Partial<StorageConfig>) {
-    this.config = { ...DEFAULT_STORAGE_CONFIG, ...config }
-    this.currentFile = this.getLogFilePath(0)
+    this.config = { ...DEFAULT_STORAGE_CONFIG, ...config };
+    this.currentFile = this.getLogFilePath(0);
   }
 
   private getLogFilePath(index: number): string {
-    const date = new Date().toISOString().split('T')[0]
-    return join(this.config.baseDir, `analytics_${date}_${index}.jsonl`)
+    const date = new Date().toISOString().split('T')[0];
+    return join(this.config.baseDir, `analytics_${date}_${index}.jsonl`);
   }
 
   async initialize(): Promise<void> {
-    if (!this.config.enabled) return
-    await mkdir(this.config.baseDir, { recursive: true })
-    this.initialized = true
+    if (!this.config.enabled) return;
+    await mkdir(this.config.baseDir, { recursive: true });
+    this.initialized = true;
   }
 
   async persistEvent(event: StructuredAnalyticsEvent): Promise<void> {
-    if (!this.initialized || !this.config.enabled) return
+    if (!this.initialized || !this.config.enabled) return;
 
     try {
       const record = {
         ...event,
         _written: Date.now(),
-      }
-      const line = JSON.stringify(record) + '\n'
+      };
+      const line = JSON.stringify(record) + '\n';
 
       if (this.currentFileSize + line.length > this.config.maxFileSize) {
-        this.currentFileSize = 0
-        const timestamp = Date.now()
+        this.currentFileSize = 0;
+        const timestamp = Date.now();
         this.currentFile = join(
           this.config.baseDir,
-          `analytics_${new Date().toISOString().split('T')[0]}_${timestamp}.jsonl`,
-        )
+          `analytics_${new Date().toISOString().split('T')[0]}_${timestamp}.jsonl`
+        );
       }
 
-      await appendFile(this.currentFile, line, { encoding: 'utf-8' })
-      this.currentFileSize += line.length
+      await appendFile(this.currentFile, line, { encoding: 'utf-8' });
+      this.currentFileSize += line.length;
     } catch (error) {
-      console.error('[AnalyticsPersistence] Failed to persist event:', error)
+      console.error('[AnalyticsPersistence] Failed to persist event:', error);
     }
   }
 
   async persistEvents(events: StructuredAnalyticsEvent[]): Promise<void> {
-    if (!this.initialized || !this.config.enabled) return
+    if (!this.initialized || !this.config.enabled) return;
     for (const event of events) {
-      await this.persistEvent(event)
+      await this.persistEvent(event);
     }
   }
 
   async queryEvents(options: {
-    category?: AnalyticsCategory
-    severity?: AnalyticsSeverity
-    eventName?: string
-    startTime?: number
-    endTime?: number
-    limit?: number
+    category?: AnalyticsCategory;
+    severity?: AnalyticsSeverity;
+    eventName?: string;
+    startTime?: number;
+    endTime?: number;
+    limit?: number;
   }): Promise<StructuredAnalyticsEvent[]> {
-    if (!this.initialized) return []
+    if (!this.initialized) return [];
 
-    const results: StructuredAnalyticsEvent[] = []
-    const limit = options.limit ?? 100
+    const results: StructuredAnalyticsEvent[] = [];
+    const limit = options.limit ?? 100;
 
     try {
-      const date = new Date().toISOString().split('T')[0]
-      const filePath = join(this.config.baseDir, `analytics_${date}_0.jsonl`)
-      const content = await readFile(filePath, { encoding: 'utf-8' }).catch(() => '')
-      if (!content) return []
+      const date = new Date().toISOString().split('T')[0];
+      const filePath = join(this.config.baseDir, `analytics_${date}_0.jsonl`);
+      const content = await readFile(filePath, { encoding: 'utf-8' }).catch(
+        () => ''
+      );
+      if (!content) return [];
 
-      const lines = content.trim().split('\n')
+      const lines = content.trim().split('\n');
       for (const line of lines) {
-        if (results.length >= limit) break
+        if (results.length >= limit) break;
         try {
-          const event = JSON.parse(line) as StructuredAnalyticsEvent
-          if (options.category && event.category !== options.category) continue
-          if (options.severity && event.severity !== options.severity) continue
-          if (options.eventName && event.eventName !== options.eventName) continue
-          if (options.startTime && event.timestamp < options.startTime) continue
-          if (options.endTime && event.timestamp > options.endTime) continue
-          results.push(event)
+          const event = JSON.parse(line) as StructuredAnalyticsEvent;
+          if (options.category && event.category !== options.category) continue;
+          if (options.severity && event.severity !== options.severity) continue;
+          if (options.eventName && event.eventName !== options.eventName)
+            continue;
+          if (options.startTime && event.timestamp < options.startTime)
+            continue;
+          if (options.endTime && event.timestamp > options.endTime) continue;
+          results.push(event);
         } catch {
-          continue
+          continue;
         }
       }
     } catch {
-      return []
+      return [];
     }
 
-    return results
+    return results;
   }
 
   async getStats(): Promise<{
-    totalEvents: number
-    byCategory: Record<string, number>
-    bySeverity: Record<string, number>
-    latestTimestamp: number
+    totalEvents: number;
+    byCategory: Record<string, number>;
+    bySeverity: Record<string, number>;
+    latestTimestamp: number;
   }> {
     const stats = {
       totalEvents: 0,
       byCategory: {} as Record<string, number>,
       bySeverity: {} as Record<string, number>,
       latestTimestamp: 0,
-    }
+    };
 
     try {
-      const date = new Date().toISOString().split('T')[0]
-      const filePath = join(this.config.baseDir, `analytics_${date}_0.jsonl`)
-      const content = await readFile(filePath, { encoding: 'utf-8' }).catch(() => '')
-      if (!content) return stats
+      const date = new Date().toISOString().split('T')[0];
+      const filePath = join(this.config.baseDir, `analytics_${date}_0.jsonl`);
+      const content = await readFile(filePath, { encoding: 'utf-8' }).catch(
+        () => ''
+      );
+      if (!content) return stats;
 
       for (const line of content.trim().split('\n')) {
         try {
-          const event = JSON.parse(line) as StructuredAnalyticsEvent
-          stats.totalEvents++
-          stats.byCategory[event.category] = (stats.byCategory[event.category] || 0) + 1
-          stats.bySeverity[event.severity] = (stats.bySeverity[event.severity] || 0) + 1
+          const event = JSON.parse(line) as StructuredAnalyticsEvent;
+          stats.totalEvents++;
+          stats.byCategory[event.category] =
+            (stats.byCategory[event.category] || 0) + 1;
+          stats.bySeverity[event.severity] =
+            (stats.bySeverity[event.severity] || 0) + 1;
           if (event.timestamp > stats.latestTimestamp) {
-            stats.latestTimestamp = event.timestamp
+            stats.latestTimestamp = event.timestamp;
           }
-        } catch { continue }
+        } catch {
+          continue;
+        }
       }
-    } catch { return stats }
+    } catch {
+      return stats;
+    }
 
-    return stats
+    return stats;
   }
 
   isEnabled(): boolean {
-    return this.config.enabled
+    return this.config.enabled;
   }
 }

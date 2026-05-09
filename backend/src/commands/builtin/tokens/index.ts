@@ -10,7 +10,7 @@ const tokensCommand: Command = {
   description: '显示 Token 使用统计',
   aliases: ['token-stats'],
   argumentHint: '[--breakdown|-b|--json|--reset|help]',
-  load: () => import('./Tokens.js').then(m => m.default),
+  load: () => import('./Tokens.js').then((m) => m.default),
 };
 
 export { tokensCommand };

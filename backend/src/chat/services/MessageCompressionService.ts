@@ -4,7 +4,10 @@
  */
 
 import type { Message, SystemMessage } from '../types/message.js';
-import { createCompactBoundaryMessage, createMicrocompactBoundaryMessage } from '@modules/utils/messages.js';
+import {
+  createCompactBoundaryMessage,
+  createMicrocompactBoundaryMessage,
+} from '@modules/utils/messages.js';
 
 export interface CompressionConfig {
   /** 最大消息数触发压缩 */
@@ -68,9 +71,7 @@ export class MessageCompressionService {
    * @returns 估算的令牌数
    */
   estimateTokens(messages: Message[]): number {
-    const totalText = messages
-      .map(m => m.content || '')
-      .join(' ');
+    const totalText = messages.map((m) => m.content || '').join(' ');
     // 粗略估算：平均每个令牌4个字符
     return Math.ceil(totalText.length / 4);
   }
@@ -84,7 +85,10 @@ export class MessageCompressionService {
     const messageCount = messages.length;
     const tokenCount = this.estimateTokens(messages);
 
-    return messageCount >= this.config.maxMessages || tokenCount >= this.config.maxTokens;
+    return (
+      messageCount >= this.config.maxMessages ||
+      tokenCount >= this.config.maxTokens
+    );
   }
 
   /**
@@ -119,11 +123,19 @@ export class MessageCompressionService {
    */
   private buildCompressionPrompt(messages: Message[]): string {
     const recentMessages = messages.slice(-this.config.keepRecentMessages);
-    const messagesToSummarize = messages.slice(0, -this.config.keepRecentMessages);
+    const messagesToSummarize = messages.slice(
+      0,
+      -this.config.keepRecentMessages
+    );
 
     const context = messagesToSummarize
       .map((m, idx) => {
-        const role = m.role === 'user' ? 'User' : m.role === 'assistant' ? 'Assistant' : 'System';
+        const role =
+          m.role === 'user'
+            ? 'User'
+            : m.role === 'assistant'
+              ? 'Assistant'
+              : 'System';
         return `${idx + 1}. ${role}: ${m.content.slice(0, 200)}`;
       })
       .join('\n');
@@ -139,11 +151,11 @@ export class MessageCompressionService {
   private async generateSummary(messages: Message[]): Promise<string> {
     // 模拟AI摘要生成（实际使用时调用AI模型）
     const prompt = this.buildCompressionPrompt(messages);
-    
+
     // 模拟摘要结果
-    const userMessages = messages.filter(m => m.role === 'user');
-    const assistantMessages = messages.filter(m => m.role === 'assistant');
-    
+    const userMessages = messages.filter((m) => m.role === 'user');
+    const assistantMessages = messages.filter((m) => m.role === 'assistant');
+
     return `Conversation summary: ${userMessages.length} user messages, ${assistantMessages.length} assistant messages`;
   }
 
@@ -169,10 +181,13 @@ export class MessageCompressionService {
 
     // 获取需要保留的最近消息
     const recentMessages = messages.slice(-this.config.keepRecentMessages);
-    
+
     // 获取需要压缩的消息
-    const messagesToCompress = messages.slice(0, -this.config.keepRecentMessages);
-    
+    const messagesToCompress = messages.slice(
+      0,
+      -this.config.keepRecentMessages
+    );
+
     // 生成摘要
     const summary = await this.generateSummary(messagesToCompress);
 
@@ -189,7 +204,9 @@ export class MessageCompressionService {
         preTokens,
         preservedSegment: {
           headUuid: messagesToCompress[0]?.id || '',
-          anchorUuid: messagesToCompress[Math.floor(messagesToCompress.length / 2)]?.id || '',
+          anchorUuid:
+            messagesToCompress[Math.floor(messagesToCompress.length / 2)]?.id ||
+            '',
           tailUuid: messagesToCompress[messagesToCompress.length - 1]?.id || '',
         },
       },
@@ -265,9 +282,10 @@ export class MessageCompressionService {
     };
 
     // 构建压缩后的消息列表
-    const compressedMessages = direction === 'from'
-      ? [boundaryMessage, ...remainingMessages]
-      : [...remainingMessages, boundaryMessage];
+    const compressedMessages =
+      direction === 'from'
+        ? [boundaryMessage, ...remainingMessages]
+        : [...remainingMessages, boundaryMessage];
 
     return {
       compressed: true,
@@ -299,7 +317,7 @@ export class MessageCompressionService {
 
     // 获取最近的消息
     const recentMessages = messages.slice(-3);
-    
+
     // 获取需要压缩的消息
     const messagesToCompress = messages.slice(0, -3);
 
@@ -317,7 +335,9 @@ export class MessageCompressionService {
     const summary = `(${messagesToCompress.length} messages compressed)`;
 
     // 创建微型压缩边界消息
-    const boundaryMessage = createMicrocompactBoundaryMessage(summary) as SystemMessage;
+    const boundaryMessage = createMicrocompactBoundaryMessage(
+      summary
+    ) as SystemMessage;
 
     // 构建压缩后的消息列表
     const compressedMessages = [boundaryMessage, ...recentMessages];
@@ -338,7 +358,10 @@ export class MessageCompressionService {
    * @returns 是否是压缩边界消息
    */
   isCompactBoundaryMessage(message: Message): boolean {
-    return message.subtype === 'compact_boundary' || message.subtype === 'micro_compact_boundary';
+    return (
+      message.subtype === 'compact_boundary' ||
+      message.subtype === 'micro_compact_boundary'
+    );
   }
 
   /**
@@ -349,12 +372,12 @@ export class MessageCompressionService {
   getMessagesAfterCompactBoundary(messages: Message[]): Message[] {
     const lastBoundaryIndex = [...messages]
       .reverse()
-      .findIndex(m => this.isCompactBoundaryMessage(m));
-    
+      .findIndex((m) => this.isCompactBoundaryMessage(m));
+
     if (lastBoundaryIndex === -1) {
       return messages;
     }
-    
+
     return messages.slice(messages.length - lastBoundaryIndex);
   }
 
@@ -364,12 +387,14 @@ export class MessageCompressionService {
    * @returns 压缩边界前的消息
    */
   getMessagesBeforeCompactBoundary(messages: Message[]): Message[] {
-    const firstBoundaryIndex = messages.findIndex(m => this.isCompactBoundaryMessage(m));
-    
+    const firstBoundaryIndex = messages.findIndex((m) =>
+      this.isCompactBoundaryMessage(m)
+    );
+
     if (firstBoundaryIndex === -1) {
       return messages;
     }
-    
+
     return messages.slice(0, firstBoundaryIndex);
   }
 
@@ -379,7 +404,7 @@ export class MessageCompressionService {
    * @returns 压缩次数
    */
   countCompactionBoundaries(messages: Message[]): number {
-    return messages.filter(m => this.isCompactBoundaryMessage(m)).length;
+    return messages.filter((m) => this.isCompactBoundaryMessage(m)).length;
   }
 }
 

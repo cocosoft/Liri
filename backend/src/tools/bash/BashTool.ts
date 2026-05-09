@@ -20,7 +20,11 @@ import { createBashProgress } from '../types/ToolProgress';
 import { ToolUtils } from '../utils/ToolUtils';
 import type { InterruptBehavior } from '../types/Tool';
 import { BashSecurityAnalyzer } from '@modules/security';
-import { parseForSecurity, isDangerousCommand, type ParseForSecurityResult } from '@modules/security/bash/BashAST';
+import {
+  parseForSecurity,
+  isDangerousCommand,
+  type ParseForSecurityResult,
+} from '@modules/security/bash/BashAST';
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
@@ -32,10 +36,21 @@ const execAsync = promisify(exec);
  */
 const BashInputSchema = z.strictObject({
   command: z.string().min(1, '命令不能为空').describe('要执行的Bash命令'),
-  timeout: z.number().int().positive().max(300000).optional().default(60000).describe('执行超时时间（毫秒）'),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .max(300000)
+    .optional()
+    .default(60000)
+    .describe('执行超时时间（毫秒）'),
   cwd: z.string().optional().describe('工作目录'),
   env: z.record(z.string()).optional().describe('环境变量'),
-  skipSecurityCheck: z.boolean().optional().default(false).describe('跳过安全检查'),
+  skipSecurityCheck: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe('跳过安全检查'),
 });
 
 /**
@@ -51,12 +66,36 @@ const BashOutputSchema = z.object({
  * 危险命令列表 - 对标CC源码安全策略
  */
 const DANGEROUS_COMMANDS = [
-  'rm -rf', 'sudo', 'su', 'chmod', 'chown', 'dd', 'mkfs', 'fdisk', 'format',
-  'shutdown', 'reboot', 'poweroff', 'kill', 'killall', 'pkill',
-  'openssl', 'ssh-keygen', 'passwd', 'useradd', 'userdel',
-  'groupadd', 'groupdel', 'usermod', 'groupmod',
-  'chroot', 'mount', 'umount',
-  'systemctl', 'service', 'init',
+  'rm -rf',
+  'sudo',
+  'su',
+  'chmod',
+  'chown',
+  'dd',
+  'mkfs',
+  'fdisk',
+  'format',
+  'shutdown',
+  'reboot',
+  'poweroff',
+  'kill',
+  'killall',
+  'pkill',
+  'openssl',
+  'ssh-keygen',
+  'passwd',
+  'useradd',
+  'userdel',
+  'groupadd',
+  'groupdel',
+  'usermod',
+  'groupmod',
+  'chroot',
+  'mount',
+  'umount',
+  'systemctl',
+  'service',
+  'init',
 ];
 
 /**
@@ -81,16 +120,15 @@ const DANGEROUS_PATTERNS = [
  * 检查路径是否安全 - 对标CC源码
  */
 function isPathSafe(path: string): boolean {
-  const pathTraversalPatterns = [
-    /\.\.\//,
-    /^\.\//,
-    /\/\.\.\//,
-    /^\//,
-  ];
+  const pathTraversalPatterns = [/\.\.\//, /^\.\//, /\/\.\.\//, /^\//];
 
   const dangerousPaths = [
-    /^\/etc\//, /^\/sys\//, /^\/proc\//,
-    /^\/boot\//, /^\/dev\//, /^\/root\//,
+    /^\/etc\//,
+    /^\/sys\//,
+    /^\/proc\//,
+    /^\/boot\//,
+    /^\/dev\//,
+    /^\/root\//,
   ];
 
   return (
@@ -169,14 +207,17 @@ export class BashTool extends BaseTool {
           .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
           .join('; ');
         return createToolResult(`Bash输入验证失败: ${errors}`, {
-          newMessages: [{
-            role: 'system',
-            content: `Error: ${errors}`,
-          }],
+          newMessages: [
+            {
+              role: 'system',
+              content: `Error: ${errors}`,
+            },
+          ],
         });
       }
 
-      const { command, timeout, cwd, env, skipSecurityCheck } = parsedInput.data;
+      const { command, timeout, cwd, env, skipSecurityCheck } =
+        parsedInput.data;
 
       // 报告开始执行
       onProgress?.({
@@ -189,33 +230,41 @@ export class BashTool extends BaseTool {
         const pathMatch = command.match(/['"]?(\/[^\s'"]+)['"]?/);
         if (pathMatch && !isPathSafe(pathMatch[1])) {
           return createToolResult('路径安全检查失败: 禁止访问系统敏感目录', {
-            newMessages: [{
-              role: 'system',
-              content: 'Error: 路径安全检查失败: 禁止访问系统敏感目录',
-            }],
+            newMessages: [
+              {
+                role: 'system',
+                content: 'Error: 路径安全检查失败: 禁止访问系统敏感目录',
+              },
+            ],
           });
         }
 
         // 对标CC：危险命令列表检查
         const lowerCommand = command.toLowerCase();
-        if (DANGEROUS_COMMANDS.some((dangerousCommand) =>
-          lowerCommand.includes(dangerousCommand.toLowerCase())
-        )) {
+        if (
+          DANGEROUS_COMMANDS.some((dangerousCommand) =>
+            lowerCommand.includes(dangerousCommand.toLowerCase())
+          )
+        ) {
           return createToolResult('安全检查: 检测到危险命令', {
-            newMessages: [{
-              role: 'system',
-              content: 'Error: 安全检查: 检测到危险命令',
-            }],
+            newMessages: [
+              {
+                role: 'system',
+                content: 'Error: 安全检查: 检测到危险命令',
+              },
+            ],
           });
         }
 
         // 对标CC：危险模式检查
         if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(command))) {
           return createToolResult('安全检查: 检测到危险命令模式', {
-            newMessages: [{
-              role: 'system',
-              content: 'Error: 安全检查: 检测到危险命令模式',
-            }],
+            newMessages: [
+              {
+                role: 'system',
+                content: 'Error: 安全检查: 检测到危险命令模式',
+              },
+            ],
           });
         }
 
@@ -224,31 +273,46 @@ export class BashTool extends BaseTool {
 
         // AST级安全分析
         const astResult = parseForSecurity(command);
-        if (astResult.kind === 'simple' && astResult.commands.some(c => isDangerousCommand(c.argv))) {
+        if (
+          astResult.kind === 'simple' &&
+          astResult.commands.some((c) => isDangerousCommand(c.argv))
+        ) {
           return createToolResult('AST安全分析: 检测到危险命令', {
-            newMessages: [{
-              role: 'system',
-              content: 'Error: AST安全分析阻止了危险命令执行',
-            }],
+            newMessages: [
+              {
+                role: 'system',
+                content: 'Error: AST安全分析阻止了危险命令执行',
+              },
+            ],
           });
         }
 
         if (securityResult.behavior === 'deny') {
-          return createToolResult(`安全检查失败: ${securityResult.message || '命令被阻止执行'}`, {
-            newMessages: [{
-              role: 'system',
-              content: `Error: 安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
-            }],
-          });
+          return createToolResult(
+            `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
+            {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Error: 安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
+                },
+              ],
+            }
+          );
         }
 
         if (securityResult.behavior === 'ask') {
-          return createToolResult(`需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`, {
-            newMessages: [{
-              role: 'system',
-              content: `Error: 需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
-            }],
-          });
+          return createToolResult(
+            `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
+            {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `Error: 需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
+                },
+              ],
+            }
+          );
         }
       }
 
@@ -265,7 +329,10 @@ export class BashTool extends BaseTool {
       }
 
       // 执行命令
-      const { stdout: rawStdout, stderr: rawStderr } = await execAsync(command, execOptions);
+      const { stdout: rawStdout, stderr: rawStderr } = await execAsync(
+        command,
+        execOptions
+      );
       const stdout = rawStdout as string;
       const stderr = rawStderr as string;
 
@@ -286,10 +353,12 @@ export class BashTool extends BaseTool {
         toolName: 'bash',
         executionId: ToolUtils.generateExecutionId('bash'),
         timestamp: Date.now(),
-        newMessages: [{
-          role: 'system',
-          content: `Command executed successfully in ${executionTime}ms`,
-        }],
+        newMessages: [
+          {
+            role: 'system',
+            content: `Command executed successfully in ${executionTime}ms`,
+          },
+        ],
       });
     } catch (error: any) {
       const executionTime = ToolUtils.calculateExecutionTime(startTime);
@@ -306,10 +375,12 @@ export class BashTool extends BaseTool {
         toolName: 'bash',
         executionId: ToolUtils.generateExecutionId('bash'),
         timestamp: Date.now(),
-        newMessages: [{
-          role: 'system',
-          content: `Error: ${error.message}`,
-        }],
+        newMessages: [
+          {
+            role: 'system',
+            content: `Error: ${error.message}`,
+          },
+        ],
       });
     }
   }
@@ -336,9 +407,11 @@ export class BashTool extends BaseTool {
   static isDangerousCommand(command: string): boolean {
     const lowerCommand = command.toLowerCase();
 
-    if (DANGEROUS_COMMANDS.some((dangerousCommand) =>
-      lowerCommand.includes(dangerousCommand.toLowerCase())
-    )) {
+    if (
+      DANGEROUS_COMMANDS.some((dangerousCommand) =>
+        lowerCommand.includes(dangerousCommand.toLowerCase())
+      )
+    ) {
       return true;
     }
 

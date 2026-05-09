@@ -67,7 +67,9 @@ export async function generateToolUseSummary({
       .map((tool) => {
         const inputStr = truncateJson(tool.input, 300);
         const outputStr = truncateJson(tool.output, 300);
-        const durationStr = tool.durationMs ? `\nDuration: ${tool.durationMs}ms` : '';
+        const durationStr = tool.durationMs
+          ? `\nDuration: ${tool.durationMs}ms`
+          : '';
         return `Tool: ${tool.name}\nInput: ${inputStr}\nOutput: ${outputStr}${durationStr}`;
       })
       .join('\n\n');

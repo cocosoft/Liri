@@ -8,7 +8,10 @@ import { existsSync, mkdirSync } from 'fs';
 import { logger } from '../utils/log';
 import { pluginInstallManager } from './PluginInstallManager';
 import { PluginErrorFactory, PluginErrorHandler } from './PluginErrorHandler';
-import type { PluginInstallOptions, PluginInstallResult } from './PluginInstallManager';
+import type {
+  PluginInstallOptions,
+  PluginInstallResult,
+} from './PluginInstallManager';
 
 /**
  * 插件市场条目
@@ -64,9 +67,15 @@ export class PluginMarketplace {
 
   constructor() {
     // 默认插件市场URL
-    this.marketplaceUrl = process.env.PLUGIN_MARKETPLACE_URL || 'https://plugins.pyapp.dev';
-    this.cacheDir = join(process.env.HOME || process.env.USERPROFILE || '', '.py_app', 'plugins', 'marketplace');
-    
+    this.marketplaceUrl =
+      process.env.PLUGIN_MARKETPLACE_URL || 'https://plugins.pyapp.dev';
+    this.cacheDir = join(
+      process.env.HOME || process.env.USERPROFILE || '',
+      '.py_app',
+      'plugins',
+      'marketplace'
+    );
+
     // 确保缓存目录存在
     this.ensureCacheDir();
   }
@@ -85,10 +94,12 @@ export class PluginMarketplace {
    * @param options 搜索选项
    * @returns 搜索结果
    */
-  async searchPlugins(options: PluginSearchOptions = {}): Promise<PluginSearchResult> {
+  async searchPlugins(
+    options: PluginSearchOptions = {}
+  ): Promise<PluginSearchResult> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (options.query) queryParams.append('q', options.query);
       if (options.category) queryParams.append('category', options.category);
       if (options.keyword) queryParams.append('keyword', options.keyword);
@@ -98,7 +109,7 @@ export class PluginMarketplace {
 
       const url = `${this.marketplaceUrl}/api/plugins?${queryParams.toString()}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to search plugins: ${response.statusText}`);
       }
@@ -117,11 +128,13 @@ export class PluginMarketplace {
    * @param pluginId 插件ID
    * @returns 插件详情
    */
-  async getPluginDetails(pluginId: string): Promise<PluginMarketplaceEntry | null> {
+  async getPluginDetails(
+    pluginId: string
+  ): Promise<PluginMarketplaceEntry | null> {
     try {
       const url = `${this.marketplaceUrl}/api/plugins/${pluginId}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to get plugin details: ${response.statusText}`);
       }
@@ -141,24 +154,32 @@ export class PluginMarketplace {
    * @param options 安装选项
    * @returns 安装结果
    */
-  async installFromMarketplace(pluginId: string, options: PluginInstallOptions = {}): Promise<PluginInstallResult> {
+  async installFromMarketplace(
+    pluginId: string,
+    options: PluginInstallOptions = {}
+  ): Promise<PluginInstallResult> {
     try {
       // 获取插件详情
       const plugin = await this.getPluginDetails(pluginId);
       if (!plugin) {
-        throw PluginErrorFactory.createLoadError(`Plugin not found in marketplace: ${pluginId}`);
+        throw PluginErrorFactory.createLoadError(
+          `Plugin not found in marketplace: ${pluginId}`
+        );
       }
 
       // 构建安装源
       const source = plugin.source;
-      
+
       // 安装插件
       return await pluginInstallManager.install(source, options);
     } catch (error) {
       PluginErrorHandler.logError(error, logger);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to install plugin from marketplace'
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to install plugin from marketplace',
       };
     }
   }
@@ -168,13 +189,17 @@ export class PluginMarketplace {
    * @param limit 限制数量
    * @returns 推荐插件列表
    */
-  async getRecommendedPlugins(limit: number = 10): Promise<PluginMarketplaceEntry[]> {
+  async getRecommendedPlugins(
+    limit: number = 10
+  ): Promise<PluginMarketplaceEntry[]> {
     try {
       const url = `${this.marketplaceUrl}/api/plugins/recommended?limit=${limit}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to get recommended plugins: ${response.statusText}`);
+        throw new Error(
+          `Failed to get recommended plugins: ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -191,13 +216,17 @@ export class PluginMarketplace {
    * @param limit 限制数量
    * @returns 热门插件列表
    */
-  async getPopularPlugins(limit: number = 10): Promise<PluginMarketplaceEntry[]> {
+  async getPopularPlugins(
+    limit: number = 10
+  ): Promise<PluginMarketplaceEntry[]> {
     try {
       const url = `${this.marketplaceUrl}/api/plugins/popular?limit=${limit}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to get popular plugins: ${response.statusText}`);
+        throw new Error(
+          `Failed to get popular plugins: ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -214,11 +243,13 @@ export class PluginMarketplace {
    * @param limit 限制数量
    * @returns 最新插件列表
    */
-  async getLatestPlugins(limit: number = 10): Promise<PluginMarketplaceEntry[]> {
+  async getLatestPlugins(
+    limit: number = 10
+  ): Promise<PluginMarketplaceEntry[]> {
     try {
       const url = `${this.marketplaceUrl}/api/plugins/latest?limit=${limit}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to get latest plugins: ${response.statusText}`);
       }
@@ -243,7 +274,9 @@ export class PluginMarketplace {
   /**
    * 获取模拟搜索结果
    */
-  private getMockSearchResult(options: PluginSearchOptions): PluginSearchResult {
+  private getMockSearchResult(
+    options: PluginSearchOptions
+  ): PluginSearchResult {
     return {
       plugins: [
         {
@@ -260,7 +293,7 @@ export class PluginMarketplace {
           stars: 50,
           createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
-          source: 'https://github.com/pyapp/python-tools-plugin.git'
+          source: 'https://github.com/pyapp/python-tools-plugin.git',
         },
         {
           id: 'code-generator',
@@ -276,20 +309,22 @@ export class PluginMarketplace {
           stars: 40,
           createdAt: '2024-01-02T00:00:00Z',
           updatedAt: '2024-01-02T00:00:00Z',
-          source: 'https://github.com/pyapp/code-generator-plugin.git'
-        }
+          source: 'https://github.com/pyapp/code-generator-plugin.git',
+        },
       ],
       total: 2,
       page: options.page || 1,
       limit: options.limit || 10,
-      pages: 1
+      pages: 1,
     };
   }
 
   /**
    * 获取模拟插件详情
    */
-  private getMockPluginDetails(pluginId: string): PluginMarketplaceEntry | null {
+  private getMockPluginDetails(
+    pluginId: string
+  ): PluginMarketplaceEntry | null {
     return {
       id: pluginId,
       name: 'Mock Plugin',
@@ -304,7 +339,7 @@ export class PluginMarketplace {
       stars: 10,
       createdAt: '2024-01-01T00:00:00Z',
       updatedAt: '2024-01-01T00:00:00Z',
-      source: `https://github.com/pyapp/${pluginId}-plugin.git`
+      source: `https://github.com/pyapp/${pluginId}-plugin.git`,
     };
   }
 

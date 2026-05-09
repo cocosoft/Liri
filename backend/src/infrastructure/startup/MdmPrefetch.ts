@@ -19,16 +19,16 @@ let rawReadPromise: Promise<MdmRawReadResult> | null = null;
 
 function execFilePromise(
   cmd: string,
-  args: string[],
+  args: string[]
 ): Promise<{ stdout: string; code: number | null }> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     execFile(
       cmd,
       args,
       { encoding: 'utf-8', timeout: MDM_SUBPROCESS_TIMEOUT_MS },
       (err, stdout) => {
         resolve({ stdout: stdout ?? '', code: err ? 1 : 0 });
-      },
+      }
     );
   });
 }
@@ -37,7 +37,10 @@ function fireRawRead(): Promise<MdmRawReadResult> {
   return (async (): Promise<MdmRawReadResult> => {
     if (process.platform === 'darwin') {
       const plistPaths = [
-        { path: '/Library/Managed Preferences/com.apple.mdm.plist', label: 'system' },
+        {
+          path: '/Library/Managed Preferences/com.apple.mdm.plist',
+          label: 'system',
+        },
         { path: '/Users/Shared/com.apple.mdm.plist', label: 'shared' },
       ];
 
@@ -47,13 +50,17 @@ function fireRawRead(): Promise<MdmRawReadResult> {
             return { stdout: '', label, ok: false };
           }
           const { stdout, code } = await execFilePromise('/usr/bin/plutil', [
-            '-convert', 'xml1', '-o', '-', path,
+            '-convert',
+            'xml1',
+            '-o',
+            '-',
+            path,
           ]);
           return { stdout, label, ok: code === 0 && !!stdout };
-        }),
+        })
       );
 
-      const winner = allResults.find(r => r.ok);
+      const winner = allResults.find((r) => r.ok);
       return {
         plistStdouts: winner
           ? [{ stdout: winner.stdout, label: winner.label }]
@@ -68,12 +75,14 @@ function fireRawRead(): Promise<MdmRawReadResult> {
         execFilePromise('reg', [
           'query',
           'HKLM\\SOFTWARE\\Microsoft\\Provisioning',
-          '/v', 'MdmIdentifier',
+          '/v',
+          'MdmIdentifier',
         ]),
         execFilePromise('reg', [
           'query',
           'HKCU\\SOFTWARE\\Microsoft\\Provisioning',
-          '/v', 'MdmIdentifier',
+          '/v',
+          'MdmIdentifier',
         ]),
       ]);
       return {

@@ -1,25 +1,25 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type TimeOutput = {
-  timezone: string
-  timestamp: number
-  iso: string
-  local: string
-  utc: string
-}
+  timezone: string;
+  timestamp: number;
+  iso: string;
+  local: string;
+  utc: string;
+};
 
 export function renderToolUseMessage(
   _input: Record<string, never>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  return <Text dimColor>获取当前时间...</Text>
+  return <Text dimColor>获取当前时间...</Text>;
 }
 
 export function renderToolResultMessage(
   output: TimeOutput,
   _progressMessages: any[],
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
   return (
     <Box flexDirection="column">
@@ -34,5 +34,5 @@ export function renderToolResultMessage(
         <Text dimColor>时区: {output.timezone}</Text>
       </Box>
     </Box>
-  )
+  );
 }

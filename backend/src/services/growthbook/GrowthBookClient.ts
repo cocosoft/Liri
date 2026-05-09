@@ -1,65 +1,74 @@
 //
-import { GrowthBook } from '@growthbook/growthbook'
-import type { GrowthBookUserAttributes, GrowthBookConfig } from './GrowthBookConfig'
-import { DEFAULT_GROWTHBOOK_CONFIG } from './GrowthBookConfig'
+import { GrowthBook } from '@growthbook/growthbook';
+import type {
+  GrowthBookUserAttributes,
+  GrowthBookConfig,
+} from './GrowthBookConfig';
+import { DEFAULT_GROWTHBOOK_CONFIG } from './GrowthBookConfig';
 
-export type FeatureRefreshListener = () => void | Promise<void>
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
+export type FeatureRefreshListener = () => void | Promise<void>;
 
 export class GrowthBookClient {
-  private static instance: GrowthBookClient | null = null
-  private client: GrowthBook | null = null
-  private config: GrowthBookConfig
-  private initialized: boolean = false
-  private initPromise: Promise<void> | null = null
-  private refreshTimer: ReturnType<typeof setInterval> | null = null
-  private refreshListeners: Set<FeatureRefreshListener> = new Set()
-  private remoteEvalCache: Map<string, unknown> = new Map()
-  private exposureLogged: Set<string> = new Set()
+  private static instance: GrowthBookClient | null = null;
+  private client: GrowthBook | null = null;
+  private config: GrowthBookConfig;
+  private initialized: boolean = false;
+  private initPromise: Promise<void> | null = null;
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private refreshListeners: Set<FeatureRefreshListener> = new Set();
+  private remoteEvalCache: Map<string, unknown> = new Map();
+  private exposureLogged: Set<string> = new Set();
 
   private constructor(config?: Partial<GrowthBookConfig>) {
-    this.config = { ...DEFAULT_GROWTHBOOK_CONFIG, ...config }
+    this.config = { ...DEFAULT_GROWTHBOOK_CONFIG, ...config };
   }
 
   static getInstance(config?: Partial<GrowthBookConfig>): GrowthBookClient {
     if (!GrowthBookClient.instance) {
-      GrowthBookClient.instance = new GrowthBookClient(config)
+      GrowthBookClient.instance = new GrowthBookClient(config);
     }
-    return GrowthBookClient.instance
+    return GrowthBookClient.instance;
   }
 
   static resetInstance(): void {
     if (GrowthBookClient.instance) {
-      GrowthBookClient.instance.destroy()
-      GrowthBookClient.instance = null
+      GrowthBookClient.instance.destroy();
+      GrowthBookClient.instance = null;
     }
   }
 
   getConfig(): GrowthBookConfig {
-    return { ...this.config }
+    return { ...this.config };
   }
 
   isEnabled(): boolean {
-    return this.config.enabled && !!this.config.clientKey
+    return this.config.enabled && !!this.config.clientKey;
   }
 
   isInitialized(): boolean {
-    return this.initialized
+    return this.initialized;
   }
 
   async initialize(attributes: GrowthBookUserAttributes): Promise<void> {
     if (!this.isEnabled()) {
-      return
+      return;
     }
 
     if (this.initPromise) {
-      return this.initPromise
+      return this.initPromise;
     }
 
-    this.initPromise = this.doInitialize(attributes)
-    return this.initPromise
+    this.initPromise = this.doInitialize(attributes);
+    return this.initPromise;
   }
 
-  private async doInitialize(attributes: GrowthBookUserAttributes): Promise<void> {
+  private async doInitialize(
+    attributes: GrowthBookUserAttributes
+  ): Promise<void> {
     try {
       this.client = new GrowthBook({
         apiHost: this.config.apiHost,
@@ -71,172 +80,207 @@ export class GrowthBookClient {
           platform: attributes.platform,
           ...(attributes.appVersion && { appVersion: attributes.appVersion }),
           ...(attributes.userType && { userType: attributes.userType }),
-          ...(attributes.organizationId && { organizationUUID: attributes.organizationId }),
+          ...(attributes.organizationId && {
+            organizationUUID: attributes.organizationId,
+          }),
           ...(attributes.accountId && { accountUUID: attributes.accountId }),
           ...(attributes.email && { email: attributes.email }),
-          ...(attributes.subscriptionType && { subscriptionType: attributes.subscriptionType }),
-          ...(attributes.rateLimitTier && { rateLimitTier: attributes.rateLimitTier }),
-          ...(attributes.firstTokenTime && { firstTokenTime: attributes.firstTokenTime }),
-          ...(attributes.apiBaseUrlHost && { apiBaseUrlHost: attributes.apiBaseUrlHost }),
+          ...(attributes.subscriptionType && {
+            subscriptionType: attributes.subscriptionType,
+          }),
+          ...(attributes.rateLimitTier && {
+            rateLimitTier: attributes.rateLimitTier,
+          }),
+          ...(attributes.firstTokenTime && {
+            firstTokenTime: attributes.firstTokenTime,
+          }),
+          ...(attributes.apiBaseUrlHost && {
+            apiBaseUrlHost: attributes.apiBaseUrlHost,
+          }),
         },
         remoteEval: this.config.remoteEval,
         cacheKeyAttributes: ['id', 'organizationUUID'],
         ...(this.config.enableDebugLogging && {
           log: (msg: string, ctx: Record<string, unknown>) => {
-            console.debug(`[GrowthBook] ${msg}`, ctx)
+            logger.debug(`[GrowthBook] ${msg}`, ctx);
           },
         }),
-      })
+      });
 
-      const result = await this.client.init({ timeout: this.config.timeout })
+      const result = await this.client.init({ timeout: this.config.timeout });
 
       if (this.config.enableDebugLogging) {
-        console.debug(`[GrowthBook] Initialized: source=${result.source}, success=${result.success}`)
+        logger.debug(
+          `[GrowthBook] Initialized: source=${result.source}, success=${result.success}`
+        );
       }
 
       if (result.success) {
-        await this.processRemoteEvalPayload()
-        this.initialized = true
-        this.startPeriodicRefresh()
-        this.notifyListeners()
+        await this.processRemoteEvalPayload();
+        this.initialized = true;
+        this.startPeriodicRefresh();
+        this.notifyListeners();
       }
     } catch (error) {
-      console.error('[GrowthBook] Initialization failed:', error)
-      this.initPromise = null
+      logger.error(
+        '[GrowthBook] Initialization failed',
+        error instanceof Error ? error : new Error(String(error))
+      );
+      this.initPromise = null;
     }
   }
 
   private async processRemoteEvalPayload(): Promise<void> {
-    if (!this.client) return
+    if (!this.client) return;
 
-    const payload = this.client.getPayload()
+    const payload = this.client.getPayload();
     if (!payload?.features || Object.keys(payload.features).length === 0) {
-      return
+      return;
     }
 
-    this.remoteEvalCache.clear()
+    this.remoteEvalCache.clear();
 
-    const features = payload.features as Record<string, Record<string, unknown>>
+    const features = payload.features as Record<
+      string,
+      Record<string, unknown>
+    >;
     for (const [key, feature] of Object.entries(features)) {
-      const value = 'defaultValue' in feature ? feature.defaultValue :
-        'value' in feature ? feature.value :
-        undefined
+      const value =
+        'defaultValue' in feature
+          ? feature.defaultValue
+          : 'value' in feature
+            ? feature.value
+            : undefined;
       if (value !== undefined) {
-        this.remoteEvalCache.set(key, value)
+        this.remoteEvalCache.set(key, value);
       }
     }
   }
 
   private startPeriodicRefresh(): void {
-    this.stopPeriodicRefresh()
+    this.stopPeriodicRefresh();
 
     this.refreshTimer = setInterval(async () => {
-      if (!this.client) return
+      if (!this.client) return;
       try {
-        await this.client.refreshFeatures()
-        await this.processRemoteEvalPayload()
-        this.notifyListeners()
+        await this.client.refreshFeatures();
+        await this.processRemoteEvalPayload();
+        this.notifyListeners();
       } catch (error) {
         if (this.config.enableDebugLogging) {
-          console.debug('[GrowthBook] Refresh failed:', error)
+          logger.debug(
+            '[GrowthBook] Refresh failed',
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
-    }, this.config.refreshInterval)
+    }, this.config.refreshInterval);
   }
 
   private stopPeriodicRefresh(): void {
     if (this.refreshTimer) {
-      clearInterval(this.refreshTimer)
-      this.refreshTimer = null
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
     }
   }
 
   onRefresh(listener: FeatureRefreshListener): () => void {
-    this.refreshListeners.add(listener)
+    this.refreshListeners.add(listener);
     return () => {
-      this.refreshListeners.delete(listener)
-    }
+      this.refreshListeners.delete(listener);
+    };
   }
 
   private notifyListeners(): void {
     for (const listener of this.refreshListeners) {
       try {
-        void Promise.resolve(listener()).catch(e => {
-          console.error('[GrowthBook] Listener error:', e)
-        })
+        void Promise.resolve(listener()).catch((e) => {
+          logger.error(
+            '[GrowthBook] Listener error',
+            e instanceof Error ? e : new Error(String(e))
+          );
+        });
       } catch (e) {
-        console.error('[GrowthBook] Listener error:', e)
+        logger.error(
+          '[GrowthBook] Listener error',
+          e instanceof Error ? e : new Error(String(e))
+        );
       }
     }
   }
 
   getFeatureValue<T>(feature: string, defaultValue: T): T {
     if (!this.isEnabled()) {
-      return defaultValue
+      return defaultValue;
     }
 
     if (this.remoteEvalCache.has(feature)) {
-      return this.remoteEvalCache.get(feature) as T
+      return this.remoteEvalCache.get(feature) as T;
     }
 
     if (this.client && this.initialized) {
-      return this.client.getFeatureValue(feature, defaultValue) as T
+      return this.client.getFeatureValue(feature, defaultValue) as T;
     }
 
-    return defaultValue
+    return defaultValue;
   }
 
   getFeatureValueCached<T>(feature: string, defaultValue: T): T {
     if (this.remoteEvalCache.has(feature)) {
-      return this.remoteEvalCache.get(feature) as T
+      return this.remoteEvalCache.get(feature) as T;
     }
 
     if (this.client && this.initialized) {
-      const value = this.client.getFeatureValue(feature, defaultValue) as T
-      this.remoteEvalCache.set(feature, value)
-      return value
+      const value = this.client.getFeatureValue(feature, defaultValue) as T;
+      this.remoteEvalCache.set(feature, value);
+      return value;
     }
 
-    return defaultValue
+    return defaultValue;
   }
 
   getAllFeatures(): Record<string, unknown> {
     if (!this.remoteEvalCache || this.remoteEvalCache.size === 0) {
-      return {}
+      return {};
     }
-    return Object.fromEntries(this.remoteEvalCache)
+    return Object.fromEntries(this.remoteEvalCache);
   }
 
   logExposure(feature: string): void {
-    if ((this.exposureLogged as Set<string>).has(feature)) return
-    ;(this.exposureLogged as Set<string>).add(feature)
-    ;(this.client as any)?.logFeatureUse?.(feature)
+    if ((this.exposureLogged as Set<string>).has(feature)) return;
+    (this.exposureLogged as Set<string>).add(feature);
+    (this.client as any)?.logFeatureUse?.(feature);
   }
 
   async refreshFeatures(): Promise<void> {
-    if (!this.client) return
+    if (!this.client) return;
     try {
-      await this.client.refreshFeatures()
-      await this.processRemoteEvalPayload()
-      this.notifyListeners()
+      await this.client.refreshFeatures();
+      await this.processRemoteEvalPayload();
+      this.notifyListeners();
     } catch (error) {
       if (this.config.enableDebugLogging) {
-        console.debug('[GrowthBook] Manual refresh failed:', error)
+        logger.debug(
+          '[GrowthBook] Manual refresh failed',
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     }
   }
 
   destroy(): void {
-    this.stopPeriodicRefresh()
-    this.client?.destroy()
-    this.client = null
-    this.initialized = false
-    this.initPromise = null
-    this.remoteEvalCache.clear()
-    this.exposureLogged.clear()
+    this.stopPeriodicRefresh();
+    this.client?.destroy();
+    this.client = null;
+    this.initialized = false;
+    this.initPromise = null;
+    this.remoteEvalCache.clear();
+    this.exposureLogged.clear();
   }
 }
 
-export function getGrowthBookClient(config?: Partial<GrowthBookConfig>): GrowthBookClient {
-  return GrowthBookClient.getInstance(config)
+export function getGrowthBookClient(
+  config?: Partial<GrowthBookConfig>
+): GrowthBookClient {
+  return GrowthBookClient.getInstance(config);
 }

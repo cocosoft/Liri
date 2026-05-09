@@ -14,6 +14,8 @@ export const restartCommand: Command = {
   aliases: ['reboot'],
   argumentHint: '',
   whenToUse: '当你需要重启应用时',
-  load: async () => import('./Restart.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Restart.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

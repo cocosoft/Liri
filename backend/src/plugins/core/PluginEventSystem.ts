@@ -12,19 +12,19 @@ import { PluginEvent, PluginEventType } from '../types/PluginTypes';
 export interface EventHandler {
   /** 处理器ID */
   id: string;
-  
+
   /** 事件类型 */
   eventType: PluginEventType | string;
-  
+
   /** 处理器函数 */
   handler: (event: PluginEvent) => Promise<void> | void;
-  
+
   /** 优先级 */
   priority?: number;
-  
+
   /** 是否一次性 */
   once?: boolean;
-  
+
   /** 插件ID */
   pluginId?: string;
 }
@@ -35,13 +35,13 @@ export interface EventHandler {
 export interface EventFilter {
   /** 过滤器ID */
   id: string;
-  
+
   /** 事件类型 */
   eventType: PluginEventType | string;
-  
+
   /** 过滤器函数 */
   filter: (event: PluginEvent) => boolean;
-  
+
   /** 插件ID */
   pluginId?: string;
 }
@@ -52,16 +52,16 @@ export interface EventFilter {
 export interface EventRoutingRule {
   /** 规则ID */
   id: string;
-  
+
   /** 源事件类型 */
   sourceEventType: PluginEventType | string;
-  
+
   /** 目标事件类型 */
   targetEventType: PluginEventType | string;
-  
+
   /** 转换函数 */
   transform?: (event: PluginEvent) => PluginEvent;
-  
+
   /** 条件函数 */
   condition?: (event: PluginEvent) => boolean;
 }
@@ -81,24 +81,24 @@ export class PluginEventSystem extends EventEmitter {
    */
   registerHandler(handler: EventHandler): void {
     const eventType = handler.eventType;
-    
+
     if (!this.handlers.has(eventType)) {
       this.handlers.set(eventType, []);
     }
-    
+
     const handlers = this.handlers.get(eventType)!;
-    
+
     // 检查是否已存在
-    const existingIndex = handlers.findIndex(h => h.id === handler.id);
-    
+    const existingIndex = handlers.findIndex((h) => h.id === handler.id);
+
     if (existingIndex !== -1) {
       handlers.splice(existingIndex, 1);
     }
-    
+
     // 按优先级排序
     handlers.push(handler);
     handlers.sort((a, b) => (a.priority || 0) - (b.priority || 0));
-    
+
     console.log(`✅ Event handler registered: ${handler.id} for ${eventType}`);
   }
 
@@ -109,37 +109,40 @@ export class PluginEventSystem extends EventEmitter {
     if (eventType) {
       // 注销特定事件类型的处理器
       const handlers = this.handlers.get(eventType);
-      
+
       if (!handlers) {
         return false;
       }
-      
-      const index = handlers.findIndex(h => h.id === handlerId);
-      
+
+      const index = handlers.findIndex((h) => h.id === handlerId);
+
       if (index === -1) {
         return false;
       }
-      
+
       handlers.splice(index, 1);
-      
-      console.log(`✅ Event handler unregistered: ${handlerId} from ${eventType}`);
-      
+
+      console.log(
+        `✅ Event handler unregistered: ${handlerId} from ${eventType}`
+      );
+
       return true;
-      
     } else {
       // 注销所有事件类型的处理器
       let found = false;
-      
+
       for (const [type, handlers] of this.handlers.entries()) {
-        const index = handlers.findIndex(h => h.id === handlerId);
-        
+        const index = handlers.findIndex((h) => h.id === handlerId);
+
         if (index !== -1) {
           handlers.splice(index, 1);
           found = true;
-          console.log(`✅ Event handler unregistered: ${handlerId} from ${type}`);
+          console.log(
+            `✅ Event handler unregistered: ${handlerId} from ${type}`
+          );
         }
       }
-      
+
       return found;
     }
   }
@@ -149,22 +152,22 @@ export class PluginEventSystem extends EventEmitter {
    */
   registerFilter(filter: EventFilter): void {
     const eventType = filter.eventType;
-    
+
     if (!this.filters.has(eventType)) {
       this.filters.set(eventType, []);
     }
-    
+
     const filters = this.filters.get(eventType)!;
-    
+
     // 检查是否已存在
-    const existingIndex = filters.findIndex(f => f.id === filter.id);
-    
+    const existingIndex = filters.findIndex((f) => f.id === filter.id);
+
     if (existingIndex !== -1) {
       filters.splice(existingIndex, 1);
     }
-    
+
     filters.push(filter);
-    
+
     console.log(`✅ Event filter registered: ${filter.id} for ${eventType}`);
   }
 
@@ -175,37 +178,38 @@ export class PluginEventSystem extends EventEmitter {
     if (eventType) {
       // 注销特定事件类型的过滤器
       const filters = this.filters.get(eventType);
-      
+
       if (!filters) {
         return false;
       }
-      
-      const index = filters.findIndex(f => f.id === filterId);
-      
+
+      const index = filters.findIndex((f) => f.id === filterId);
+
       if (index === -1) {
         return false;
       }
-      
+
       filters.splice(index, 1);
-      
-      console.log(`✅ Event filter unregistered: ${filterId} from ${eventType}`);
-      
+
+      console.log(
+        `✅ Event filter unregistered: ${filterId} from ${eventType}`
+      );
+
       return true;
-      
     } else {
       // 注销所有事件类型的过滤器
       let found = false;
-      
+
       for (const [type, filters] of this.filters.entries()) {
-        const index = filters.findIndex(f => f.id === filterId);
-        
+        const index = filters.findIndex((f) => f.id === filterId);
+
         if (index !== -1) {
           filters.splice(index, 1);
           found = true;
           console.log(`✅ Event filter unregistered: ${filterId} from ${type}`);
         }
       }
-      
+
       return found;
     }
   }
@@ -215,14 +219,14 @@ export class PluginEventSystem extends EventEmitter {
    */
   addRoutingRule(rule: EventRoutingRule): void {
     // 检查是否已存在
-    const existingIndex = this.routingRules.findIndex(r => r.id === rule.id);
-    
+    const existingIndex = this.routingRules.findIndex((r) => r.id === rule.id);
+
     if (existingIndex !== -1) {
       this.routingRules.splice(existingIndex, 1);
     }
-    
+
     this.routingRules.push(rule);
-    
+
     console.log(`✅ Event routing rule added: ${rule.id}`);
   }
 
@@ -230,16 +234,16 @@ export class PluginEventSystem extends EventEmitter {
    * 移除事件路由规则（基于CC源码）
    */
   removeRoutingRule(ruleId: string): boolean {
-    const index = this.routingRules.findIndex(r => r.id === ruleId);
-    
+    const index = this.routingRules.findIndex((r) => r.id === ruleId);
+
     if (index === -1) {
       return false;
     }
-    
+
     this.routingRules.splice(index, 1);
-    
+
     console.log(`✅ Event routing rule removed: ${ruleId}`);
-    
+
     return true;
   }
 
@@ -249,13 +253,13 @@ export class PluginEventSystem extends EventEmitter {
   async publishEvent(event: PluginEvent): Promise<void> {
     // 添加到历史记录
     this.addToHistory(event);
-    
+
     // 应用事件路由
     const routedEvents = this.applyRoutingRules(event);
-    
+
     // 处理所有事件（包括路由后的事件）
     const allEvents = [event, ...routedEvents];
-    
+
     for (const evt of allEvents) {
       await this.processEvent(evt);
     }
@@ -266,24 +270,26 @@ export class PluginEventSystem extends EventEmitter {
    */
   private applyRoutingRules(event: PluginEvent): PluginEvent[] {
     const routedEvents: PluginEvent[] = [];
-    
+
     for (const rule of this.routingRules) {
       if (rule.sourceEventType !== event.type) {
         continue;
       }
-      
+
       if (rule.condition && !rule.condition(event)) {
         continue;
       }
-      
-      const routedEvent = rule.transform ? rule.transform(event) : {
-        ...event,
-        type: rule.targetEventType as PluginEventType,
-      };
-      
+
+      const routedEvent = rule.transform
+        ? rule.transform(event)
+        : {
+            ...event,
+            type: rule.targetEventType as PluginEventType,
+          };
+
       routedEvents.push(routedEvent);
     }
-    
+
     return routedEvents;
   }
 
@@ -292,42 +298,41 @@ export class PluginEventSystem extends EventEmitter {
    */
   private async processEvent(event: PluginEvent): Promise<void> {
     const eventType = event.type;
-    
+
     // 获取事件处理器
     const handlers = this.handlers.get(eventType) || [];
-    
+
     if (handlers.length === 0) {
       return;
     }
-    
+
     // 应用事件过滤器
     const filters = this.filters.get(eventType) || [];
-    
+
     for (const filter of filters) {
       if (!filter.filter(event)) {
         console.log(`Event filtered: ${eventType} by ${filter.id}`);
         return;
       }
     }
-    
+
     // 执行事件处理器
     for (const handler of handlers) {
       try {
         await handler.handler(event);
-        
+
         // 如果是一次性处理器，注销
         if (handler.once) {
           this.unregisterHandler(handler.id, eventType);
         }
-        
       } catch (error) {
         console.error(`Event handler ${handler.id} failed:`, error);
-        
+
         // 发射错误事件
-        this.emit('handlerError', { 
-          handlerId: handler.id, 
-          event, 
-          error 
+        this.emit('handlerError', {
+          handlerId: handler.id,
+          event,
+          error,
         });
       }
     }
@@ -338,7 +343,7 @@ export class PluginEventSystem extends EventEmitter {
    */
   private addToHistory(event: PluginEvent): void {
     this.eventHistory.push(event);
-    
+
     // 限制历史记录大小
     if (this.eventHistory.length > this.maxHistorySize) {
       this.eventHistory = this.eventHistory.slice(-this.maxHistorySize);
@@ -348,25 +353,29 @@ export class PluginEventSystem extends EventEmitter {
   /**
    * 获取事件历史（基于CC源码）
    */
-  getEventHistory(filter?: { 
-    eventType?: string; 
-    pluginId?: string; 
-    limit?: number; 
+  getEventHistory(filter?: {
+    eventType?: string;
+    pluginId?: string;
+    limit?: number;
   }): PluginEvent[] {
     let filteredHistory = this.eventHistory;
-    
+
     if (filter?.eventType) {
-      filteredHistory = filteredHistory.filter(e => e.type === filter.eventType);
+      filteredHistory = filteredHistory.filter(
+        (e) => e.type === filter.eventType
+      );
     }
-    
+
     if (filter?.pluginId) {
-      filteredHistory = filteredHistory.filter(e => e.pluginId === filter.pluginId);
+      filteredHistory = filteredHistory.filter(
+        (e) => e.pluginId === filter.pluginId
+      );
     }
-    
+
     if (filter?.limit) {
       filteredHistory = filteredHistory.slice(-filter.limit);
     }
-    
+
     return filteredHistory;
   }
 
@@ -381,24 +390,24 @@ export class PluginEventSystem extends EventEmitter {
   } {
     const eventTypes: Record<string, number> = {};
     const plugins: Record<string, number> = {};
-    
+
     for (const event of this.eventHistory) {
       eventTypes[event.type] = (eventTypes[event.type] || 0) + 1;
-      
+
       if (event.pluginId) {
         plugins[event.pluginId] = (plugins[event.pluginId] || 0) + 1;
       }
     }
-    
-    const recentEvents = this.eventHistory
-      .filter(e => Date.now() - e.timestamp.getTime() < 24 * 60 * 60 * 1000)
-      .length;
-    
+
+    const recentEvents = this.eventHistory.filter(
+      (e) => Date.now() - e.timestamp.getTime() < 24 * 60 * 60 * 1000
+    ).length;
+
     return {
       totalEvents: this.eventHistory.length,
       eventTypes,
       plugins,
-      recentEvents
+      recentEvents,
     };
   }
 
@@ -413,22 +422,22 @@ export class PluginEventSystem extends EventEmitter {
     const handlersByType: Record<string, number> = {};
     const plugins: Record<string, number> = {};
     let totalHandlers = 0;
-    
+
     for (const [eventType, handlers] of this.handlers.entries()) {
       handlersByType[eventType] = handlers.length;
       totalHandlers += handlers.length;
-      
+
       for (const handler of handlers) {
         if (handler.pluginId) {
           plugins[handler.pluginId] = (plugins[handler.pluginId] || 0) + 1;
         }
       }
     }
-    
+
     return {
       totalHandlers,
       handlersByType,
-      plugins
+      plugins,
     };
   }
 
@@ -440,7 +449,7 @@ export class PluginEventSystem extends EventEmitter {
     this.filters.clear();
     this.routingRules = [];
     this.eventHistory = [];
-    
+
     console.log('✅ Plugin event system cleared');
   }
 
@@ -450,7 +459,7 @@ export class PluginEventSystem extends EventEmitter {
   destroy(): void {
     this.clear();
     this.removeAllListeners();
-    
+
     console.log('✅ Plugin event system destroyed');
   }
 }

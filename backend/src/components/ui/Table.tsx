@@ -24,7 +24,11 @@ export interface TableProps {
   alternateRowColor?: string;
 }
 
-function padText(text: string, width: number, align: Alignment = 'left'): string {
+function padText(
+  text: string,
+  width: number,
+  align: Alignment = 'left'
+): string {
   const padding = width - text.length;
   if (padding <= 0) return text.substring(0, width);
 
@@ -66,7 +70,8 @@ export function Table({
     return Math.max(headerLen, maxDataLen) + 2;
   });
 
-  const totalWidth = columnWidths.reduce((sum, w) => sum + w, 0) + columns.length + 1;
+  const totalWidth =
+    columnWidths.reduce((sum, w) => sum + w, 0) + columns.length + 1;
 
   const renderRow = (
     values: string[],
@@ -96,27 +101,23 @@ export function Table({
 
   return (
     <Box flexDirection="column">
-      {showBorder && (
-        <Text dimColor>{getBorderLine(totalWidth)}</Text>
-      )}
+      {showBorder && <Text dimColor>{getBorderLine(totalWidth)}</Text>}
       {showHeader &&
         renderRow(
           columns.map((c) => c.header),
           headerColor,
           true
         )}
-      {showBorder && (
-        <Text dimColor>{getBorderLine(totalWidth)}</Text>
-      )}
+      {showBorder && <Text dimColor>{getBorderLine(totalWidth)}</Text>}
       {data.map((row, idx) => {
         const values = columns.map((col) => String(row[col.key] ?? ''));
         const color =
           alternateRowColor && idx % 2 === 1 ? alternateRowColor : rowColor;
-        return <React.Fragment key={idx}>{renderRow(values, color)}</React.Fragment>;
+        return (
+          <React.Fragment key={idx}>{renderRow(values, color)}</React.Fragment>
+        );
       })}
-      {showBorder && (
-        <Text dimColor>{getBorderLine(totalWidth)}</Text>
-      )}
+      {showBorder && <Text dimColor>{getBorderLine(totalWidth)}</Text>}
     </Box>
   );
 }

@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from '../../ink';
+import { Box, Text } from '@modules/ink';
 import { DividerProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
@@ -16,15 +16,15 @@ export function Divider({
   color = 'border',
   orientation = 'horizontal',
   thickness = 1,
-  margin = 1
+  margin = 1,
 }: DividerProps) {
   const { theme } = useTheme();
 
   if (orientation === 'horizontal') {
     return (
-      <Box 
-        height={thickness} 
-        marginTop={margin} 
+      <Box
+        height={thickness}
+        marginTop={margin}
         marginBottom={margin}
         borderStyle="single"
         borderColor={theme.colors[color]}
@@ -34,9 +34,9 @@ export function Divider({
 
   // 垂直分隔线
   return (
-    <Box 
-      width={thickness} 
-      marginLeft={margin} 
+    <Box
+      width={thickness}
+      marginLeft={margin}
       marginRight={margin}
       borderStyle="single"
       borderColor={theme.colors[color]}
@@ -52,26 +52,29 @@ export function TextDivider({
   color = 'border',
   orientation = 'horizontal',
   thickness = 1,
-  margin = 1
+  margin = 1,
 }: DividerProps & { text: string }) {
   const { theme } = useTheme();
 
   if (orientation === 'horizontal') {
     return (
-      <Box flexDirection="row" alignItems="center" marginTop={margin} marginBottom={margin}>
-        <Box 
-          flexGrow={1} 
+      <Box
+        flexDirection="row"
+        alignItems="center"
+        marginTop={margin}
+        marginBottom={margin}
+      >
+        <Box
+          flexGrow={1}
           height={thickness}
           borderStyle="single"
           borderColor={theme.colors[color]}
         />
         <Box marginLeft={1} marginRight={1}>
-          <Text color={theme.colors.textSecondary}>
-            {text}
-          </Text>
+          <Text color={theme.colors.textSecondary}>{text}</Text>
         </Box>
-        <Box 
-          flexGrow={1} 
+        <Box
+          flexGrow={1}
           height={thickness}
           borderStyle="single"
           borderColor={theme.colors[color]}
@@ -82,20 +85,23 @@ export function TextDivider({
 
   // 垂直分隔线带文本
   return (
-    <Box flexDirection="column" alignItems="center" marginLeft={margin} marginRight={margin}>
-      <Box 
-        flexGrow={1} 
+    <Box
+      flexDirection="column"
+      alignItems="center"
+      marginLeft={margin}
+      marginRight={margin}
+    >
+      <Box
+        flexGrow={1}
         width={thickness}
         borderStyle="single"
         borderColor={theme.colors[color]}
       />
       <Box marginTop={1} marginBottom={1}>
-        <Text color={theme.colors.textSecondary}>
-          {text}
-        </Text>
+        <Text color={theme.colors.textSecondary}>{text}</Text>
       </Box>
-      <Box 
-        flexGrow={1} 
+      <Box
+        flexGrow={1}
         width={thickness}
         borderStyle="single"
         borderColor={theme.colors[color]}
@@ -111,15 +117,15 @@ export function DashedDivider({
   color = 'border',
   orientation = 'horizontal',
   thickness = 1,
-  margin = 1
+  margin = 1,
 }: DividerProps) {
   const { theme } = useTheme();
 
   if (orientation === 'horizontal') {
     return (
-      <Box 
-        height={thickness} 
-        marginTop={margin} 
+      <Box
+        height={thickness}
+        marginTop={margin}
         marginBottom={margin}
         borderStyle="dashed"
         borderColor={theme.colors[color]}
@@ -129,9 +135,9 @@ export function DashedDivider({
 
   // 垂直虚线分隔线
   return (
-    <Box 
-      width={thickness} 
-      marginLeft={margin} 
+    <Box
+      width={thickness}
+      marginLeft={margin}
       marginRight={margin}
       borderStyle="dashed"
       borderColor={theme.colors[color]}
@@ -146,20 +152,20 @@ export function DoubleDivider({
   color = 'border',
   orientation = 'horizontal',
   thickness = 2,
-  margin = 1
+  margin = 1,
 }: DividerProps) {
   const { theme } = useTheme();
 
   if (orientation === 'horizontal') {
     return (
       <Box flexDirection="column" marginTop={margin} marginBottom={margin}>
-        <Box 
-          height={thickness / 2} 
+        <Box
+          height={thickness / 2}
           borderStyle="single"
           borderColor={theme.colors[color]}
         />
-        <Box 
-          height={thickness / 2} 
+        <Box
+          height={thickness / 2}
           marginTop={0.5}
           borderStyle="single"
           borderColor={theme.colors[color]}
@@ -171,13 +177,13 @@ export function DoubleDivider({
   // 垂直双线分隔线
   return (
     <Box flexDirection="row" marginLeft={margin} marginRight={margin}>
-      <Box 
-        width={thickness / 2} 
+      <Box
+        width={thickness / 2}
         borderStyle="single"
         borderColor={theme.colors[color]}
       />
-      <Box 
-        width={thickness / 2} 
+      <Box
+        width={thickness / 2}
         marginLeft={0.5}
         borderStyle="single"
         borderColor={theme.colors[color]}

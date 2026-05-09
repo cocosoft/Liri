@@ -1,185 +1,211 @@
 //
-import { pathToFileURL } from 'url'
-import * as path from 'path'
+import { pathToFileURL } from 'url';
+import * as path from 'path';
 
-import type { LspServerState, ScopedLspServerConfig } from './types.js'
+import type { LspServerState, ScopedLspServerConfig } from './types.js';
 
-const LSP_ERROR_CONTENT_MODIFIED = -32801
-const MAX_RETRIES_FOR_TRANSIENT_ERRORS = 3
-const RETRY_BASE_DELAY_MS = 500
+const LSP_ERROR_CONTENT_MODIFIED = -32801;
+const MAX_RETRIES_FOR_TRANSIENT_ERRORS = 3;
+const RETRY_BASE_DELAY_MS = 500;
 
 export type LSPServerInstance = {
-  readonly name: string
-  readonly config: ScopedLspServerConfig
-  readonly state: LspServerState
-  readonly startTime: Date | undefined
-  readonly lastError: Error | undefined
-  readonly restartCount: number
+  readonly name: string;
+  readonly config: ScopedLspServerConfig;
+  readonly state: LspServerState;
+  readonly startTime: Date | undefined;
+  readonly lastError: Error | undefined;
+  readonly restartCount: number;
 
-  start(workspaceFolder?: string): Promise<void>
-  stop(): Promise<void>
-  restart(workspaceFolder?: string): Promise<void>
-  isHealthy(): boolean
-  sendRequest<T>(method: string, params: unknown): Promise<T>
-  sendNotification(method: string, params: unknown): Promise<void>
-  onNotification(method: string, handler: (params: unknown) => void): void
+  start(workspaceFolder?: string): Promise<void>;
+  stop(): Promise<void>;
+  restart(workspaceFolder?: string): Promise<void>;
+  isHealthy(): boolean;
+  sendRequest<T>(method: string, params: unknown): Promise<T>;
+  sendNotification(method: string, params: unknown): Promise<void>;
+  onNotification(method: string, handler: (params: unknown) => void): void;
   onRequest<TParams, TResult>(
     method: string,
-    handler: (params: TParams) => TResult | Promise<TResult>,
-  ): void
-}
+    handler: (params: TParams) => TResult | Promise<TResult>
+  ): void;
+};
 
 export function createLSPServerInstance(
   name: string,
-  config: ScopedLspServerConfig,
+  config: ScopedLspServerConfig
 ): LSPServerInstance {
   const { createLSPClient } = require('./LSPClient.js') as {
-    createLSPClient: typeof import('./LSPClient.js').createLSPClient
-  }
+    createLSPClient: typeof import('./LSPClient.js').createLSPClient;
+  };
 
-  let state: LspServerState = 'stopped'
-  let startTime: Date | undefined
-  let lastError: Error | undefined
-  let restartCount = 0
-  let crashRecoveryCount = 0
-  let client: ReturnType<typeof createLSPClient> | undefined
+  let state: LspServerState = 'stopped';
+  let startTime: Date | undefined;
+  let lastError: Error | undefined;
+  let restartCount = 0;
+  let crashRecoveryCount = 0;
+  let client: ReturnType<typeof createLSPClient> | undefined;
 
   function recreateClient(): void {
     client = createLSPClient(name, (error: Error) => {
-      state = 'error'
-      lastError = error
-      crashRecoveryCount++
-    })
+      state = 'error';
+      lastError = error;
+      crashRecoveryCount++;
+    });
   }
 
-  recreateClient()
+  recreateClient();
 
   async function start(workspaceFolder?: string): Promise<void> {
-    if (state === 'running' || state === 'starting') return
+    if (state === 'running' || state === 'starting') return;
 
-    const maxRestarts = config.maxRestarts ?? 3
+    const maxRestarts = config.maxRestarts ?? 3;
     if (state === 'error' && crashRecoveryCount > maxRestarts) {
       const error = new Error(
-        `LSP server '${name}' exceeded max crash recovery attempts (${maxRestarts})`,
-      )
-      lastError = error
-      throw error
+        `LSP server '${name}' exceeded max crash recovery attempts (${maxRestarts})`
+      );
+      lastError = error;
+      throw error;
     }
 
     try {
-      state = 'starting'
+      state = 'starting';
 
-      if (!client) recreateClient()
+      if (!client) recreateClient();
 
       await client!.start(config.command, config.args || [], {
         env: config.env,
         cwd: workspaceFolder,
-      })
+      });
 
-      const wsFolder = workspaceFolder || process.cwd()
-      const wsUri = pathToFileURL(wsFolder).href
+      const wsFolder = workspaceFolder || process.cwd();
+      const wsUri = pathToFileURL(wsFolder).href;
 
-      await client!.initialize(wsUri, wsFolder)
+      await client!.initialize(wsUri, wsFolder);
 
-      state = 'running'
-      startTime = new Date()
-      restartCount++
-      crashRecoveryCount = 0
-      lastError = undefined
+      state = 'running';
+      startTime = new Date();
+      restartCount++;
+      crashRecoveryCount = 0;
+      lastError = undefined;
     } catch (error) {
-      state = 'error'
-      lastError = error instanceof Error ? error : new Error(String(error))
-      throw lastError
+      state = 'error';
+      lastError = error instanceof Error ? error : new Error(String(error));
+      throw lastError;
     }
   }
 
   async function stop(): Promise<void> {
-    if (state === 'stopped') return
+    if (state === 'stopped') return;
 
-    const prevState = state
-    state = 'stopping'
+    const prevState = state;
+    state = 'stopping';
 
     try {
       if (client) {
-        await client.stop()
+        await client.stop();
       }
     } catch {
       // Errors during stop are ignored
     }
 
-    client = undefined
-    recreateClient()
-    state = 'stopped'
-    startTime = undefined
+    client = undefined;
+    recreateClient();
+    state = 'stopped';
+    startTime = undefined;
   }
 
   async function restart(workspaceFolder?: string): Promise<void> {
-    await stop()
-    await start(workspaceFolder)
+    await stop();
+    await start(workspaceFolder);
   }
 
   function isHealthy(): boolean {
-    return state === 'running' && client?.isInitialized === true
+    return state === 'running' && client?.isInitialized === true;
   }
 
   async function sendRequest<T>(method: string, params: unknown): Promise<T> {
     if (!client || state !== 'running') {
-      throw new Error(`LSP server '${name}' is not running (state: ${state})`)
+      throw new Error(`LSP server '${name}' is not running (state: ${state})`);
     }
 
-    let lastError: Error | undefined
+    let lastError: Error | undefined;
 
-    for (let attempt = 0; attempt <= MAX_RETRIES_FOR_TRANSIENT_ERRORS; attempt++) {
+    for (
+      let attempt = 0;
+      attempt <= MAX_RETRIES_FOR_TRANSIENT_ERRORS;
+      attempt++
+    ) {
       try {
-        const result = await (client as any).sendRequest(method, params)
-        return result as T
+        const result = await (client as any).sendRequest(method, params);
+        return result as T;
       } catch (error) {
-        const err = error as Error & { code?: number }
+        const err = error as Error & { code?: number };
         if (
           err.code === LSP_ERROR_CONTENT_MODIFIED &&
           attempt < MAX_RETRIES_FOR_TRANSIENT_ERRORS
         ) {
-          lastError = err
-          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
-          await new Promise(resolve => setTimeout(resolve, delay))
-          continue
+          lastError = err;
+          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
         }
-        throw error
+        throw error;
       }
     }
 
-    throw lastError || new Error(`Request failed after ${MAX_RETRIES_FOR_TRANSIENT_ERRORS} retries`)
+    throw (
+      lastError ||
+      new Error(
+        `Request failed after ${MAX_RETRIES_FOR_TRANSIENT_ERRORS} retries`
+      )
+    );
   }
 
   function sendNotification(method: string, params: unknown): Promise<void> {
     if (!client || state !== 'running') {
-      return Promise.reject(new Error(`LSP server '${name}' is not running (state: ${state})`))
+      return Promise.reject(
+        new Error(`LSP server '${name}' is not running (state: ${state})`)
+      );
     }
-    return (client as any).sendNotification(method, params)
+    return (client as any).sendNotification(method, params);
   }
 
-  function onNotification(method: string, handler: (params: unknown) => void): void {
+  function onNotification(
+    method: string,
+    handler: (params: unknown) => void
+  ): void {
     if (client) {
-      client.onNotification(method, handler)
+      client.onNotification(method, handler);
     }
   }
 
   function onRequest<TParams, TResult>(
     method: string,
-    handler: (params: TParams) => TResult | Promise<TResult>,
+    handler: (params: TParams) => TResult | Promise<TResult>
   ): void {
     if (client) {
-      client.onRequest(method, handler as (params: unknown) => unknown)
+      client.onRequest(method, handler as (params: unknown) => unknown);
     }
   }
 
   return {
-    get name(): string { return name },
-    get config(): ScopedLspServerConfig { return config },
-    get state(): LspServerState { return state },
-    get startTime(): Date | undefined { return startTime },
-    get lastError(): Error | undefined { return lastError },
-    get restartCount(): number { return restartCount },
+    get name(): string {
+      return name;
+    },
+    get config(): ScopedLspServerConfig {
+      return config;
+    },
+    get state(): LspServerState {
+      return state;
+    },
+    get startTime(): Date | undefined {
+      return startTime;
+    },
+    get lastError(): Error | undefined {
+      return lastError;
+    },
+    get restartCount(): number {
+      return restartCount;
+    },
     start,
     stop,
     restart,
@@ -188,5 +214,5 @@ export function createLSPServerInstance(
     sendNotification,
     onNotification,
     onRequest,
-  }
+  };
 }

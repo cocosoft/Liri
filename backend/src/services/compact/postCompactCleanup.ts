@@ -18,7 +18,9 @@ export function runPostCompactCleanup(querySource?: string): void {
 
   if (isMainThreadCompact) {
     try {
-      const { clearSessionMessagesCache } = require('../../session/SessionStorage');
+      const {
+        clearSessionMessagesCache,
+      } = require('../../session/SessionStorage');
       if (typeof clearSessionMessagesCache === 'function') {
         clearSessionMessagesCache();
       }

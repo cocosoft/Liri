@@ -69,10 +69,9 @@ export class StartupPreloader {
     for (const [name, task] of tasks) {
       // 立即启动所有任务，让它们并行运行
       // 不在这里捕获错误，让 ensureAllCompleted 统一处理
-      const promise = task.execute()
-        .then(() => {
-          logger.debug(`Preload task completed: ${name}`);
-        });
+      const promise = task.execute().then(() => {
+        logger.debug(`Preload task completed: ${name}`);
+      });
 
       this.preloadPromises.set(name, promise);
     }
@@ -89,8 +88,9 @@ export class StartupPreloader {
     // 等待所有任务完成
     const promises = Array.from(this.preloadPromises.entries());
     const results = await Promise.allSettled(
-      promises.map(([name, promise]) => 
-        promise.then(() => ({ status: 'fulfilled' as const, name }))
+      promises.map(([name, promise]) =>
+        promise
+          .then(() => ({ status: 'fulfilled' as const, name }))
           .catch((error) => ({ status: 'rejected' as const, name, error }))
       )
     );
@@ -113,7 +113,7 @@ export class StartupPreloader {
 
     logger.info(
       `Preload completed: ${completedTasks.length} succeeded, ` +
-      `${failedTasks.length} failed (${duration}ms)`
+        `${failedTasks.length} failed (${duration}ms)`
     );
 
     return {
@@ -172,7 +172,8 @@ export function createDefaultPreloadTasks(): PreloadTask[] {
       execute: async () => {
         // 预加载OAuth Token到内存缓存
         try {
-          const { createOAuthStorage } = await import('../../oauth/services/OAuthStorage.js');
+          const { createOAuthStorage } =
+            await import('../../oauth/services/OAuthStorage.js');
           const storage = createOAuthStorage();
           await storage.loadAllTokens();
           logger.debug('OAuth tokens preloaded');
@@ -208,7 +209,8 @@ export function createDefaultPreloadTasks(): PreloadTask[] {
       execute: async () => {
         // 预加载安全凭证（参考CC源码的keychainPrefetch）
         try {
-          const { CryptoUtils } = await import('../../security/services/CryptoUtils.js');
+          const { CryptoUtils } =
+            await import('../../security/services/CryptoUtils.js');
           // 预加载加密密钥到内存
           CryptoUtils.generateKey(32);
           logger.debug('Secure credentials preloaded');

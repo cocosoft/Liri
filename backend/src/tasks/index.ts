@@ -10,7 +10,11 @@ export type { TaskStatus, TaskType } from './types';
 export { BaseTask } from './BaseTask';
 
 // 导出本地Bash任务
-export { looksLikePrompt, LocalBashTaskOptions, LocalBashTask } from './LocalBashTask';
+export {
+  looksLikePrompt,
+  LocalBashTaskOptions,
+  LocalBashTask,
+} from './LocalBashTask';
 
 // 导出其他任务类型
 export { LocalAgentTask } from './LocalAgentTask';

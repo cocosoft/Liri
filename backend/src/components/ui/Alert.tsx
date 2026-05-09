@@ -14,7 +14,10 @@ export interface AlertProps {
   showIcon?: boolean;
 }
 
-const ALERT_CONFIG: Record<AlertType, { icon: string; color: string; label: string }> = {
+const ALERT_CONFIG: Record<
+  AlertType,
+  { icon: string; color: string; label: string }
+> = {
   info: { icon: 'ℹ', color: 'cyan', label: 'INFO' },
   success: { icon: '✓', color: 'green', label: 'SUCCESS' },
   warning: { icon: '⚠', color: 'yellow', label: 'WARNING' },
@@ -33,14 +36,14 @@ export function Alert({
     <Box flexDirection="column">
       <Box>
         {showIcon && (
-          <Text color={config.color} bold>{config.icon} </Text>
+          <Text color={config.color} bold>
+            {config.icon}{' '}
+          </Text>
         )}
         <Text color={config.color} bold>
           [{config.label}]
         </Text>
-        {title && (
-          <Text color={config.color}> {title}</Text>
-        )}
+        {title && <Text color={config.color}> {title}</Text>}
       </Box>
       <Box marginLeft={showIcon ? 2 : 0}>
         <Text>{message}</Text>

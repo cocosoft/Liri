@@ -84,7 +84,7 @@ export class OAuthDiscovery {
       const response = await fetch(wellKnownUrl, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
         signal: AbortSignal.timeout(10000), // 10秒超时
       });

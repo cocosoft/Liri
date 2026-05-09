@@ -27,19 +27,22 @@ export const useInput = ({
 }: UseInputOptions = {}): UseInputReturn => {
   const [value, setValue] = useState(initialValue);
 
-  const handleInput = useCallback((input: string) => {
-    let newValue = input;
+  const handleInput = useCallback(
+    (input: string) => {
+      let newValue = input;
 
-    if (mask) {
-      newValue = mask(input);
-    }
+      if (mask) {
+        newValue = mask(input);
+      }
 
-    if (validate && !validate(newValue)) {
-      return;
-    }
+      if (validate && !validate(newValue)) {
+        return;
+      }
 
-    setValue(newValue);
-  }, [mask, validate]);
+      setValue(newValue);
+    },
+    [mask, validate]
+  );
 
   const reset = useCallback(() => {
     setValue(initialValue);

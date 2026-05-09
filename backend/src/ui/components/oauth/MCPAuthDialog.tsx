@@ -22,7 +22,9 @@ export const MCPAuthDialog: React.FC<MCPAuthDialogProps> = ({
   authUrl,
 }) => {
   const [authCode, setAuthCode] = useState('');
-  const [step, setStep] = useState<'prompt' | 'input' | 'success' | 'error'>('prompt');
+  const [step, setStep] = useState<'prompt' | 'input' | 'success' | 'error'>(
+    'prompt'
+  );
   const [errorMessage, setErrorMessage] = useState('');
 
   useInput((input) => {

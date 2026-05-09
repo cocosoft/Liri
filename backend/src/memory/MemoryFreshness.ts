@@ -15,7 +15,7 @@ const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7天
 
 export function getMemoryFreshness(
   filePath: string,
-  lastModified: number,
+  lastModified: number
 ): MemoryFreshnessInfo {
   const ageMs = Date.now() - lastModified;
   const isFresh = ageMs < FRESH_THRESHOLD_MS;
@@ -37,7 +37,7 @@ export function getMemoryFreshness(
 
 export function memoryFreshnessNote(
   filePath: string,
-  lastModified: number,
+  lastModified: number
 ): string {
   return getMemoryFreshness(filePath, lastModified).freshnessNote;
 }

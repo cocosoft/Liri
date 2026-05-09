@@ -138,9 +138,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
         <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
           <button
-            onClick={() =>
-              setLocalSettings(settings.map((s) => ({ ...s })))
-            }
+            onClick={() => setLocalSettings(settings.map((s) => ({ ...s })))}
             className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
           >
             Reset
@@ -160,6 +158,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 /**
  * 创建设置面板组件
  */
-export function createSettingsPanel(props: SettingsPanelProps): React.ReactElement {
+export function createSettingsPanel(
+  props: SettingsPanelProps
+): React.ReactElement {
   return <SettingsPanel {...props} />;
 }

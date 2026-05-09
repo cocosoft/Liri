@@ -59,8 +59,8 @@ export function getMessageTextContent(message: Message): string {
   }
   if (Array.isArray(message.content)) {
     return message.content
-      .filter(block => block.type === 'text' || block.type === 'code')
-      .map(block => block.value)
+      .filter((block) => block.type === 'text' || block.type === 'code')
+      .map((block) => block.value)
       .join('\n');
   }
   return '';

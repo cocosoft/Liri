@@ -100,10 +100,10 @@ export class PluginLoader {
       }
 
       const conflicts = this.detectConflicts(plugin);
-      const errors = conflicts.filter(c => c.severity === 'error');
+      const errors = conflicts.filter((c) => c.severity === 'error');
       if (errors.length > 0) {
         throw new Error(
-          `Plugin conflicts detected: ${errors.map(e => e.description).join(', ')}`
+          `Plugin conflicts detected: ${errors.map((e) => e.description).join(', ')}`
         );
       }
 
@@ -115,12 +115,15 @@ export class PluginLoader {
 
       const loadTime = Date.now() - startTime;
       this.loadHistory.push({ success: true, plugin, loadTime });
-      logger.info(`Loaded plugin ${plugin.id}@${plugin.version} in ${loadTime}ms`);
+      logger.info(
+        `Loaded plugin ${plugin.id}@${plugin.version} in ${loadTime}ms`
+      );
 
       return plugin;
     } catch (error) {
       const loadTime = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.loadHistory.push({ success: false, error: errorMessage, loadTime });
       logger.error(`Failed to load plugin from ${pluginPath}: ${errorMessage}`);
       throw error;
@@ -154,7 +157,9 @@ export class PluginLoader {
     const deps = this.resolveDependencies(plugin);
     for (const dep of deps.nodes.values()) {
       if (dep.plugin.id !== pluginId && !dep.resolved) {
-        logger.warn(`Dependency ${dep.plugin.id} not resolved for plugin ${pluginId}`);
+        logger.warn(
+          `Dependency ${dep.plugin.id} not resolved for plugin ${pluginId}`
+        );
       }
     }
 
@@ -178,7 +183,10 @@ export class PluginLoader {
     logger.info(`Deactivated plugin ${pluginId}`);
   }
 
-  async hotReload(pluginId: string, newPluginPath: string): Promise<AgentPlugin> {
+  async hotReload(
+    pluginId: string,
+    newPluginPath: string
+  ): Promise<AgentPlugin> {
     logger.info(`Hot reloading plugin ${pluginId} from ${newPluginPath}`);
 
     await this.deactivatePlugin(pluginId);
@@ -187,7 +195,9 @@ export class PluginLoader {
     const plugin = await this.loadPlugin(newPluginPath);
     await this.activatePlugin(plugin.id);
 
-    logger.info(`Hot reloaded plugin ${pluginId} -> ${plugin.id}@${plugin.version}`);
+    logger.info(
+      `Hot reloaded plugin ${pluginId} -> ${plugin.id}@${plugin.version}`
+    );
     return plugin;
   }
 
@@ -239,9 +249,9 @@ export class PluginLoader {
     for (const [, existing] of this.plugins) {
       if (existing.id === plugin.id) continue;
 
-      const existingTools = existing.getTools().map(t => t.name);
-      const newTools = plugin.getTools().map(t => t.name);
-      const sharedTools = existingTools.filter(t => newTools.includes(t));
+      const existingTools = existing.getTools().map((t) => t.name);
+      const newTools = plugin.getTools().map((t) => t.name);
+      const sharedTools = existingTools.filter((t) => newTools.includes(t));
 
       if (sharedTools.length > 0) {
         conflicts.push({
@@ -283,7 +293,11 @@ export class PluginLoader {
     const existingParts = existing.split('.').map(Number);
     const incomingParts = incoming.split('.').map(Number);
 
-    for (let i = 0; i < Math.max(existingParts.length, incomingParts.length); i++) {
+    for (
+      let i = 0;
+      i < Math.max(existingParts.length, incomingParts.length);
+      i++
+    ) {
       const e = existingParts[i] || 0;
       const inc = incomingParts[i] || 0;
       if (inc > e) return true;

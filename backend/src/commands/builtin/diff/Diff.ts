@@ -18,7 +18,7 @@ const MAX_DIFF_SIZE = 50_000;
 
 export async function getDiff(
   stagedOnly: boolean = false,
-  cwd?: string,
+  cwd?: string
 ): Promise<DiffResult> {
   const args = ['diff', '--stat'];
   if (stagedOnly) args.splice(1, 0, '--cached');
@@ -36,7 +36,11 @@ export async function getDiff(
       timeout: 10_000,
     });
 
-    const files = statOut.trim().split('\n').filter(Boolean).map(l => l.split('|')[0].trim());
+    const files = statOut
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => l.split('|')[0].trim());
     const additions = (rawDiff.match(/^\+[^+]/gm) || []).length;
     const deletions = (rawDiff.match(/^-[^-]/gm) || []).length;
 
@@ -44,9 +48,10 @@ export async function getDiff(
       files,
       additions,
       deletions,
-      rawDiff: rawDiff.length > MAX_DIFF_SIZE
-        ? rawDiff.substring(0, MAX_DIFF_SIZE) + '\n...(truncated)'
-        : rawDiff,
+      rawDiff:
+        rawDiff.length > MAX_DIFF_SIZE
+          ? rawDiff.substring(0, MAX_DIFF_SIZE) + '\n...(truncated)'
+          : rawDiff,
     };
   } catch {
     return { files: [], additions: 0, deletions: 0, rawDiff: '' };

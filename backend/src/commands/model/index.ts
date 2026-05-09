@@ -16,7 +16,7 @@ const modelCommand: Command = {
   aliases: ['models', 'ml', 'list-models'],
   argumentHint: '[model|info|all|--json|help]',
   whenToUse: '当你需要查看或切换 AI 模型时',
-  load: () => import('./model.js').then(m => m.default),
+  load: () => import('./model.js').then((m) => m.default),
 };
 
 export default modelCommand;

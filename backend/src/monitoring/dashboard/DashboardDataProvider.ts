@@ -42,9 +42,23 @@ export interface TimeRangeSummary {
 }
 
 export interface IDashboardDataProvider {
-  recordDataPoint(metric: string, value: number, labels?: Record<string, string>): void;
-  recordBatch(dataPoints: { metric: string; value: number; labels?: Record<string, string> }[]): void;
-  getTimeSeries(metric: string, duration: number, aggregation?: 'avg' | 'sum' | 'min' | 'max' | 'count'): TimeSeries;
+  recordDataPoint(
+    metric: string,
+    value: number,
+    labels?: Record<string, string>
+  ): void;
+  recordBatch(
+    dataPoints: {
+      metric: string;
+      value: number;
+      labels?: Record<string, string>;
+    }[]
+  ): void;
+  getTimeSeries(
+    metric: string,
+    duration: number,
+    aggregation?: 'avg' | 'sum' | 'min' | 'max' | 'count'
+  ): TimeSeries;
   getWidgetSnapshot(widget: DashboardWidget): DashboardSnapshot;
   getRecentMetrics(limit?: number): string[];
   getTimeRangeSummary(startTime: number, endTime: number): TimeRangeSummary;
@@ -56,7 +70,11 @@ export class DashboardDataProvider implements IDashboardDataProvider {
   private store: Map<string, DataPoint[]> = new Map();
   private maxDataPoints = 100000;
 
-  recordDataPoint(metric: string, value: number, labels?: Record<string, string>): void {
+  recordDataPoint(
+    metric: string,
+    value: number,
+    labels?: Record<string, string>
+  ): void {
     if (!this.store.has(metric)) {
       this.store.set(metric, []);
     }
@@ -67,15 +85,27 @@ export class DashboardDataProvider implements IDashboardDataProvider {
     }
   }
 
-  recordBatch(dataPoints: { metric: string; value: number; labels?: Record<string, string> }[]): void {
+  recordBatch(
+    dataPoints: {
+      metric: string;
+      value: number;
+      labels?: Record<string, string>;
+    }[]
+  ): void {
     for (const dp of dataPoints) {
       this.recordDataPoint(dp.metric, dp.value, dp.labels);
     }
   }
 
-  getTimeSeries(metric: string, duration: number, aggregation: 'avg' | 'sum' | 'min' | 'max' | 'count' = 'avg'): TimeSeries {
+  getTimeSeries(
+    metric: string,
+    duration: number,
+    aggregation: 'avg' | 'sum' | 'min' | 'max' | 'count' = 'avg'
+  ): TimeSeries {
     const cutoff = Date.now() - duration;
-    const points = (this.store.get(metric) || []).filter(p => p.timestamp >= cutoff);
+    const points = (this.store.get(metric) || []).filter(
+      (p) => p.timestamp >= cutoff
+    );
 
     if (points.length === 0) {
       return { metric, dataPoints: [] };
@@ -93,13 +123,25 @@ export class DashboardDataProvider implements IDashboardDataProvider {
     for (const [bucketTime, values] of buckets) {
       let aggregated: number;
       switch (aggregation) {
-        case 'sum': aggregated = values.reduce((s, v) => s + v, 0); break;
-        case 'min': aggregated = Math.min(...values); break;
-        case 'max': aggregated = Math.max(...values); break;
-        case 'count': aggregated = values.length; break;
-        default: aggregated = values.reduce((s, v) => s + v, 0) / values.length;
+        case 'sum':
+          aggregated = values.reduce((s, v) => s + v, 0);
+          break;
+        case 'min':
+          aggregated = Math.min(...values);
+          break;
+        case 'max':
+          aggregated = Math.max(...values);
+          break;
+        case 'count':
+          aggregated = values.length;
+          break;
+        default:
+          aggregated = values.reduce((s, v) => s + v, 0) / values.length;
       }
-      dataPoints.push({ timestamp: bucketTime, value: Math.round(aggregated * 100) / 100 });
+      dataPoints.push({
+        timestamp: bucketTime,
+        value: Math.round(aggregated * 100) / 100,
+      });
     }
 
     dataPoints.sort((a, b) => a.timestamp - b.timestamp);
@@ -108,10 +150,15 @@ export class DashboardDataProvider implements IDashboardDataProvider {
 
   getWidgetSnapshot(widget: DashboardWidget): DashboardSnapshot {
     const series = this.getTimeSeries(widget.metric, widget.timeRange);
-    const values = series.dataPoints.map(p => p.value);
+    const values = series.dataPoints.map((p) => p.value);
     const summary = {
       current: values.length > 0 ? values[values.length - 1] : 0,
-      average: values.length > 0 ? Math.round(values.reduce((s, v) => s + v, 0) / values.length * 100) / 100 : 0,
+      average:
+        values.length > 0
+          ? Math.round(
+              (values.reduce((s, v) => s + v, 0) / values.length) * 100
+            ) / 100
+          : 0,
       min: values.length > 0 ? Math.round(Math.min(...values) * 100) / 100 : 0,
       max: values.length > 0 ? Math.round(Math.max(...values) * 100) / 100 : 0,
       count: values.length,
@@ -134,7 +181,9 @@ export class DashboardDataProvider implements IDashboardDataProvider {
     const metrics = new Set<string>();
     let dataPoints = 0;
     for (const [metric, points] of this.store) {
-      const filtered = points.filter(p => p.timestamp >= startTime && p.timestamp <= endTime);
+      const filtered = points.filter(
+        (p) => p.timestamp >= startTime && p.timestamp <= endTime
+      );
       if (filtered.length > 0) {
         metrics.add(metric);
         dataPoints += filtered.length;
@@ -148,7 +197,10 @@ export class DashboardDataProvider implements IDashboardDataProvider {
     let total = 0;
     for (const [metric, points] of this.store) {
       const before = points.length;
-      this.store.set(metric, points.filter(p => p.timestamp > cutoff));
+      this.store.set(
+        metric,
+        points.filter((p) => p.timestamp > cutoff)
+      );
       total += before - this.store.get(metric)!.length;
     }
     return total;

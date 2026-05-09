@@ -4,11 +4,11 @@
  * 提供状态订阅、通知、选择器、性能优化等功能
  */
 
-import { 
-  StateSubscription, 
-  StateSelector, 
+import {
+  StateSubscription,
+  StateSelector,
   StateChangeListener,
-  SubscribeOptions
+  SubscribeOptions,
 } from '../types/StateTypes.js';
 
 /**
@@ -17,16 +17,16 @@ import {
 export interface SubscriptionManagerOptions {
   /** 是否启用性能优化 */
   enablePerformanceOptimization?: boolean;
-  
+
   /** 是否启用选择器缓存 */
   enableSelectorCaching?: boolean;
-  
+
   /** 是否启用批量通知 */
   enableBatchNotification?: boolean;
-  
+
   /** 批量通知间隔（毫秒） */
   batchNotificationInterval?: number;
-  
+
   /** 最大订阅数量 */
   maxSubscriptions?: number;
 }
@@ -37,22 +37,22 @@ export interface SubscriptionManagerOptions {
 export interface SubscriptionManagerStats {
   /** 订阅总数 */
   totalSubscriptions: number;
-  
+
   /** 活跃订阅数 */
   activeSubscriptions: number;
-  
+
   /** 选择器订阅数 */
   selectorSubscriptions: number;
-  
+
   /** 通知总数 */
   totalNotifications: number;
-  
+
   /** 批量通知数 */
   batchNotifications: number;
-  
+
   /** 缓存命中率 */
   cacheHitRate: number;
-  
+
   /** 平均通知延迟（毫秒） */
   averageNotificationDelay: number;
 }
@@ -88,11 +88,11 @@ export class StateSubscriptionManager<T = any> {
       enableBatchNotification: true,
       batchNotificationInterval: 16, // 约60fps
       maxSubscriptions: 1000,
-      ...options
+      ...options,
     };
     this.isBatchNotification = false;
     this.batchQueue = [];
-    
+
     this.stats = {
       totalSubscriptions: 0,
       activeSubscriptions: 0,
@@ -101,7 +101,7 @@ export class StateSubscriptionManager<T = any> {
       batchNotifications: 0,
       cacheHits: 0,
       cacheMisses: 0,
-      notificationDelays: []
+      notificationDelays: [],
     };
   }
 
@@ -123,22 +123,24 @@ export class StateSubscriptionManager<T = any> {
       selector: options.selector,
       equalityFn: options.equalityFn || Object.is,
       priority: options.priority || 0,
-      active: true
+      active: true,
     };
 
     this.subscriptions.set(subscription.id, subscription);
-    
+
     // 更新统计信息
     this.stats.totalSubscriptions++;
     this.stats.activeSubscriptions++;
-    
+
     if (options.selector) {
       this.stats.selectorSubscriptions++;
     }
 
     // 如果要求立即触发，调用监听器
     if (options.fireImmediately) {
-      const selectedValue = options.selector ? options.selector({} as T) : {} as T;
+      const selectedValue = options.selector
+        ? options.selector({} as T)
+        : ({} as T);
       subscription.lastSelectedValue = selectedValue;
       listener(selectedValue);
     }
@@ -158,10 +160,10 @@ export class StateSubscriptionManager<T = any> {
 
     subscription.active = false;
     this.subscriptions.delete(subscriptionId);
-    
+
     // 更新统计信息
     this.stats.activeSubscriptions--;
-    
+
     if (subscription.selector) {
       this.stats.selectorSubscriptions--;
     }
@@ -182,10 +184,13 @@ export class StateSubscriptionManager<T = any> {
 
     // 按优先级排序订阅
     const sortedSubscriptions = Array.from(this.subscriptions.values())
-      .filter(sub => sub.active)
+      .filter((sub) => sub.active)
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-    if (this.options.enableBatchNotification && this.options.batchNotificationInterval) {
+    if (
+      this.options.enableBatchNotification &&
+      this.options.batchNotificationInterval
+    ) {
       // 批量通知模式
       this.batchNotify(sortedSubscriptions, newState, oldState);
     } else {
@@ -198,7 +203,7 @@ export class StateSubscriptionManager<T = any> {
     const delay = endTime - startTime;
     this.stats.totalNotifications++;
     this.stats.notificationDelays.push(delay);
-    
+
     // 限制延迟记录数量
     if (this.stats.notificationDelays.length > 100) {
       this.stats.notificationDelays.shift();
@@ -223,7 +228,7 @@ export class StateSubscriptionManager<T = any> {
    * 获取活跃订阅（基于CC源码）
    */
   getActiveSubscriptions(): StateSubscription<T>[] {
-    return Array.from(this.subscriptions.values()).filter(sub => sub.active);
+    return Array.from(this.subscriptions.values()).filter((sub) => sub.active);
   }
 
   /**
@@ -255,7 +260,10 @@ export class StateSubscriptionManager<T = any> {
   /**
    * 更新订阅优先级（基于CC源码）
    */
-  updateSubscriptionPriority(subscriptionId: string, priority: number): boolean {
+  updateSubscriptionPriority(
+    subscriptionId: string,
+    priority: number
+  ): boolean {
     const subscription = this.subscriptions.get(subscriptionId);
     if (!subscription) {
       return false;
@@ -272,11 +280,11 @@ export class StateSubscriptionManager<T = any> {
     for (const subscription of this.subscriptions.values()) {
       subscription.active = false;
     }
-    
+
     this.subscriptions.clear();
     this.stats.activeSubscriptions = 0;
     this.stats.selectorSubscriptions = 0;
-    
+
     console.log('All subscriptions cleared');
   }
 
@@ -285,11 +293,14 @@ export class StateSubscriptionManager<T = any> {
    */
   getStats(): SubscriptionManagerStats {
     const totalCacheAccess = this.stats.cacheHits + this.stats.cacheMisses;
-    const cacheHitRate = totalCacheAccess > 0 ? this.stats.cacheHits / totalCacheAccess : 0;
-    
-    const averageNotificationDelay = this.stats.notificationDelays.length > 0
-      ? this.stats.notificationDelays.reduce((sum, delay) => sum + delay, 0) / this.stats.notificationDelays.length
-      : 0;
+    const cacheHitRate =
+      totalCacheAccess > 0 ? this.stats.cacheHits / totalCacheAccess : 0;
+
+    const averageNotificationDelay =
+      this.stats.notificationDelays.length > 0
+        ? this.stats.notificationDelays.reduce((sum, delay) => sum + delay, 0) /
+          this.stats.notificationDelays.length
+        : 0;
 
     return {
       totalSubscriptions: this.stats.totalSubscriptions,
@@ -298,7 +309,7 @@ export class StateSubscriptionManager<T = any> {
       totalNotifications: this.stats.totalNotifications,
       batchNotifications: this.stats.batchNotifications,
       cacheHitRate,
-      averageNotificationDelay
+      averageNotificationDelay,
     };
   }
 
@@ -309,12 +320,14 @@ export class StateSubscriptionManager<T = any> {
     this.stats = {
       totalSubscriptions: this.subscriptions.size,
       activeSubscriptions: this.getActiveSubscriptions().length,
-      selectorSubscriptions: this.getAllSubscriptions().filter(sub => sub.selector).length,
+      selectorSubscriptions: this.getAllSubscriptions().filter(
+        (sub) => sub.selector
+      ).length,
       totalNotifications: 0,
       batchNotifications: 0,
       cacheHits: 0,
       cacheMisses: 0,
-      notificationDelays: []
+      notificationDelays: [],
     };
   }
 
@@ -323,12 +336,12 @@ export class StateSubscriptionManager<T = any> {
    */
   destroy(): void {
     this.clearAllSubscriptions();
-    
+
     if (this.batchTimer) {
       clearTimeout(this.batchTimer);
       this.batchTimer = undefined;
     }
-    
+
     this.batchQueue = [];
     this.isBatchNotification = false;
   }
@@ -371,7 +384,10 @@ export class StateSubscriptionManager<T = any> {
         try {
           subscription.listener(value);
         } catch (error) {
-          console.error(`Subscription listener failed: ${subscription.id}`, error);
+          console.error(
+            `Subscription listener failed: ${subscription.id}`,
+            error
+          );
         }
       }
     }
@@ -392,7 +408,7 @@ export class StateSubscriptionManager<T = any> {
 
     // 按订阅分组，避免重复通知
     const subscriptionMap = new Map<string, any>();
-    
+
     for (const item of batch) {
       subscriptionMap.set(item.subscription.id, item.value);
     }
@@ -404,7 +420,10 @@ export class StateSubscriptionManager<T = any> {
         try {
           subscription.listener(value);
         } catch (error) {
-          console.error(`Batch subscription listener failed: ${subscriptionId}`, error);
+          console.error(
+            `Batch subscription listener failed: ${subscriptionId}`,
+            error
+          );
         }
       }
     }
@@ -421,11 +440,11 @@ export class StateSubscriptionManager<T = any> {
     oldState: T
   ): any {
     let value: any;
-    
+
     if (subscription.selector) {
       // 使用选择器
       value = subscription.selector(newState);
-      
+
       // 检查值是否变化
       if (subscription.lastSelectedValue !== undefined) {
         if (subscription.equalityFn?.(value, subscription.lastSelectedValue)) {
@@ -433,13 +452,13 @@ export class StateSubscriptionManager<T = any> {
           return undefined;
         }
       }
-      
+
       subscription.lastSelectedValue = value;
     } else {
       // 不使用选择器，直接传递状态
       value = newState;
     }
-    
+
     return value;
   }
 
@@ -473,7 +492,7 @@ export class SelectorOptimizer<T = any> {
    */
   optimizeSelector(selector: StateSelector<T, any>): StateSelector<T, any> {
     const cacheKey = this.generateCacheKey(selector);
-    
+
     return (state: T) => {
       // 检查缓存
       const cached = this.cache.get(cacheKey);
@@ -483,13 +502,13 @@ export class SelectorOptimizer<T = any> {
 
       // 执行选择器
       const value = selector(state);
-      
+
       // 更新缓存
       this.cache.set(cacheKey, { value, timestamp: Date.now() });
-      
+
       // 清理过期缓存
       this.cleanupCache();
-      
+
       return value;
     };
   }
@@ -499,7 +518,7 @@ export class SelectorOptimizer<T = any> {
    */
   private cleanupCache(): void {
     const now = Date.now();
-    
+
     // 清理过期缓存
     for (const [key, entry] of this.cache.entries()) {
       if (now - entry.timestamp > this.cacheTtl) {
@@ -511,7 +530,7 @@ export class SelectorOptimizer<T = any> {
     if (this.cache.size > this.maxCacheSize) {
       const entries = Array.from(this.cache.entries());
       entries.sort((a, b) => a[1].timestamp - b[1].timestamp); // 按时间排序
-      
+
       const toRemove = entries.slice(0, entries.length - this.maxCacheSize);
       for (const [key] of toRemove) {
         this.cache.delete(key);
@@ -539,7 +558,7 @@ export class SelectorOptimizer<T = any> {
   getCacheStats(): { size: number; hitRate: number } {
     return {
       size: this.cache.size,
-      hitRate: 0 // 需要外部统计
+      hitRate: 0, // 需要外部统计
     };
   }
 }
@@ -556,9 +575,10 @@ export function createStateSubscriptionManager<T>(
 /**
  * 创建选择器优化器（基于CC源码）
  */
-export function createSelectorOptimizer<T>(
-  options?: { maxCacheSize?: number; cacheTtl?: number }
-): SelectorOptimizer<T> {
+export function createSelectorOptimizer<T>(options?: {
+  maxCacheSize?: number;
+  cacheTtl?: number;
+}): SelectorOptimizer<T> {
   return new SelectorOptimizer(options);
 }
 

@@ -33,7 +33,8 @@ export class TerminalComponents {
     const w = width || this.DEFAULT_WIDTH;
     const displayTitle = title || '';
     const padding = Math.max(0, Math.floor((w - displayTitle.length - 4) / 2));
-    const paddedTitle = ' '.repeat(padding) + displayTitle + ' '.repeat(padding);
+    const paddedTitle =
+      ' '.repeat(padding) + displayTitle + ' '.repeat(padding);
 
     console.log(color('╔' + '═'.repeat(w) + '╗'));
     console.log(color('║' + paddedTitle + '║'));

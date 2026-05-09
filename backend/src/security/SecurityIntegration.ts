@@ -50,7 +50,7 @@ export class SecurityIntegrationService {
   ): Promise<SecurityDecision> {
     // 1. 执行安全分析
     const securityAnalysis = this.securityAnalyzer.analyze(command);
-    
+
     // 如果安全分析直接拒绝，直接返回
     if (securityAnalysis.behavior === 'deny') {
       return {
@@ -70,7 +70,10 @@ export class SecurityIntegrationService {
     let permissionReason: string | undefined;
 
     if (toolName && input) {
-      const allowed = this.permissionManager.checkToolPermission(toolName, input as Record<string, unknown>);
+      const allowed = this.permissionManager.checkToolPermission(
+        toolName,
+        input as Record<string, unknown>
+      );
       if (allowed) {
         permissionBehavior = 'allow';
       } else {

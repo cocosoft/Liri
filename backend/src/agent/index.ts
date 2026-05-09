@@ -23,7 +23,12 @@ import { AdvancedMemorySystem } from './memory/AdvancedMemorySystem';
 import { AgentUIManager } from './ui/AgentUIManager';
 
 import { AgentSwarmManager, SwarmCoordinator } from './swarms';
-import { RemoteAgentExecutorImpl, createRemoteAgentExecutor, WebSocketProtocol, HttpProtocol } from './remote';
+import {
+  RemoteAgentExecutorImpl,
+  createRemoteAgentExecutor,
+  WebSocketProtocol,
+  HttpProtocol,
+} from './remote';
 
 export {
   AgentService,

@@ -22,7 +22,8 @@ interface HookInfo {
  */
 async function getCoreHooks(): Promise<HookInfo[]> {
   try {
-    const { CoreHooksRegistry } = await import('@modules/hooks/core/CoreHooks.js');
+    const { CoreHooksRegistry } =
+      await import('@modules/hooks/core/CoreHooks.js');
     const registry = new CoreHooksRegistry();
     registry.registerAllCoreHooks();
     const hooks = registry.getAllCoreHooks();
@@ -45,14 +46,16 @@ async function getCoreHooks(): Promise<HookInfo[]> {
  */
 async function getConfiguredHooks(): Promise<HookInfo[]> {
   try {
-    const { HookManager } = await import('@modules/hooks/managers/HookManager.js');
+    const { HookManager } =
+      await import('@modules/hooks/managers/HookManager.js');
     const manager = HookManager.getInstance();
     const hooks = manager.getAllHooks();
 
     return hooks.map((h: any) => ({
       name: h.name || h.event,
       event: h.event,
-      description: h.config?.command || h.config?.prompt || h.config?.type || '',
+      description:
+        h.config?.command || h.config?.prompt || h.config?.type || '',
       enabled: h.config?.enabled !== false,
       type: h.config?.type || 'config',
       priority: String(h.config?.priority || 0),
@@ -89,7 +92,12 @@ const hooksCommand = {
   async execute(args: string, _context: CommandContext) {
     const trimmed = args.trim();
 
-    if (trimmed === '-h' || trimmed === '--help' || trimmed === 'help' || !trimmed) {
+    if (
+      trimmed === '-h' ||
+      trimmed === '--help' ||
+      trimmed === 'help' ||
+      !trimmed
+    ) {
       return this.showHelp();
     }
 
@@ -102,7 +110,10 @@ const hooksCommand = {
 
     if (useJson && !cleanArgs) {
       const hooks = await collectAllHooks();
-      return { success: true, message: JSON.stringify({ hooks, total: hooks.length }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify({ hooks, total: hooks.length }, null, 2),
+      };
     }
 
     const parts = cleanArgs.split(/\s+/);
@@ -141,12 +152,16 @@ const hooksCommand = {
 
     return {
       success: true,
-      message: JSON.stringify({
-        total: hooks.length,
-        active: activeCount,
-        eventTypes: Array.from(eventTypes),
-        hooks,
-      }, null, 2),
+      message: JSON.stringify(
+        {
+          total: hooks.length,
+          active: activeCount,
+          eventTypes: Array.from(eventTypes),
+          hooks,
+        },
+        null,
+        2
+      ),
     };
   },
 
@@ -207,11 +222,18 @@ const hooksCommand = {
     const hooks = await collectAllHooks();
 
     if (useJson) {
-      return { success: true, message: JSON.stringify({ hooks, total: hooks.length }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify({ hooks, total: hooks.length }, null, 2),
+      };
     }
 
     if (hooks.length === 0) {
-      return { success: true, message: '当前没有注册的钩子。\n提示: 钩子在系统初始化时由 CoreHooksRegistry 自动注册。' };
+      return {
+        success: true,
+        message:
+          '当前没有注册的钩子。\n提示: 钩子在系统初始化时由 CoreHooksRegistry 自动注册。',
+      };
     }
 
     const grouped = groupBy(hooks, (h) => h.event.split('.')[0] || '其他');
@@ -228,11 +250,17 @@ const hooksCommand = {
       }
     }
 
-    (await import('@modules/services/analytics/index.js')).logEvent('tengu_hooks_list', {
-      total: hooks.length,
-    });
+    (await import('@modules/services/analytics/index.js')).logEvent(
+      'tengu_hooks_list',
+      {
+        total: hooks.length,
+      }
+    );
 
-    return { success: true, message: `📋 钩子列表 (共 ${hooks.length} 个):${lines.join('\n')}` };
+    return {
+      success: true,
+      message: `📋 钩子列表 (共 ${hooks.length} 个):${lines.join('\n')}`,
+    };
   },
 
   async showStats() {
@@ -260,7 +288,10 @@ const hooksCommand = {
 
   async executeHook(name: string, useJson: boolean) {
     if (!name) {
-      return { success: false, message: '请指定要执行的钩子名称。用法: /hooks --execute <钩子名>' };
+      return {
+        success: false,
+        message: '请指定要执行的钩子名称。用法: /hooks --execute <钩子名>',
+      };
     }
 
     const hooks = await collectAllHooks();
@@ -270,15 +301,28 @@ const hooksCommand = {
       return { success: false, message: `钩子 "${name}" 不存在。` };
     }
 
-    (await import('@modules/services/analytics/index.js')).logEvent('tengu_hooks_execute', {
-      name,
-    });
+    (await import('@modules/services/analytics/index.js')).logEvent(
+      'tengu_hooks_execute',
+      {
+        name,
+      }
+    );
 
     if (useJson) {
-      return { success: true, message: JSON.stringify({ executed: true, name, event: hook.event }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify(
+          { executed: true, name, event: hook.event },
+          null,
+          2
+        ),
+      };
     }
 
-    return { success: true, message: `▶️ 已触发钩子 "${name}" (${hook.event})` };
+    return {
+      success: true,
+      message: `▶️ 已触发钩子 "${name}" (${hook.event})`,
+    };
   },
 
   async testHooks(useJson: boolean) {
@@ -296,16 +340,29 @@ const hooksCommand = {
 
     const passed = results.filter((r) => r.status === '通过').length;
 
-    (await import('@modules/services/analytics/index.js')).logEvent('tengu_hooks_test', {
-      total: results.length,
-      passed,
-    });
+    (await import('@modules/services/analytics/index.js')).logEvent(
+      'tengu_hooks_test',
+      {
+        total: results.length,
+        passed,
+      }
+    );
 
     if (useJson) {
-      return { success: true, message: JSON.stringify({ results, total: results.length, passed }, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify(
+          { results, total: results.length, passed },
+          null,
+          2
+        ),
+      };
     }
 
-    const lines = results.map((r) => `  ${r.status === '通过' ? '✅' : '⭕'} ${r.name} (${r.event}): ${r.status}`);
+    const lines = results.map(
+      (r) =>
+        `  ${r.status === '通过' ? '✅' : '⭕'} ${r.name} (${r.event}): ${r.status}`
+    );
 
     return {
       success: true,
@@ -324,7 +381,10 @@ const hooksCommand = {
 /**
  * 按 key 分组
  */
-function groupBy<T>(items: T[], keyFn: (item: T) => string): Record<string, T[]> {
+function groupBy<T>(
+  items: T[],
+  keyFn: (item: T) => string
+): Record<string, T[]> {
   const result: Record<string, T[]> = {};
   for (const item of items) {
     const key = keyFn(item);

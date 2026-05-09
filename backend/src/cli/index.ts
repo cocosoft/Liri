@@ -544,7 +544,9 @@ program
 
 // ========== Auth Commands ==========
 
-const cliHandler = createCLIHandler({ verbose: process.env.VERBOSE === 'true' });
+const cliHandler = createCLIHandler({
+  verbose: process.env.VERBOSE === 'true',
+});
 
 program
   .command('login [username]')
@@ -840,7 +842,7 @@ if (process.argv.length === 2) {
   console.log(chalk.cyan('═'.repeat(60)));
   console.log();
   program.help();
-  
+
   // 检查更新（仅在显示帮助时）
   autoUpdater.checkAndNotify().catch(() => {});
 }

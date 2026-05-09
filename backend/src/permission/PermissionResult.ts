@@ -34,7 +34,9 @@ export type PermissionDecision<Input = Record<string, unknown>> =
 
 import type { PermissionRule, PermissionRuleSource } from './PermissionRule';
 
-export function getRuleBehaviorDescription(behavior: PermissionBehavior): string {
+export function getRuleBehaviorDescription(
+  behavior: PermissionBehavior
+): string {
   switch (behavior) {
     case 'allow':
       return 'allowed';

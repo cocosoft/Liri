@@ -4,12 +4,7 @@
  * 负责Hook的注册、管理和执行
  */
 
-import {
-  HookEvent,
-  HookResult,
-  HookContext,
-  HookDefinition,
-} from '../types';
+import { HookEvent, HookResult, HookContext, HookDefinition } from '../types';
 import { HookConfigManager } from './HookConfigManager';
 import { HookExecutor } from '../executors/HookExecutor';
 import { SessionHookManager, sessionHookManager } from './SessionHookManager';
@@ -116,7 +111,10 @@ export class HookManager {
     // 执行会话级Hook
     if (sessionId) {
       const sessionResults = await this.sessionHookManager.executeSessionHooks(
-        sessionId, event, data, toolNames
+        sessionId,
+        event,
+        data,
+        toolNames
       );
       results.push(...sessionResults);
     }
@@ -166,10 +164,7 @@ export class HookManager {
    * @param hook Hook配置
    * @returns 是否停止执行
    */
-  private shouldStopExecution(
-    result: HookResult,
-    hook: any
-  ): boolean {
+  private shouldStopExecution(result: HookResult, hook: any): boolean {
     // 根据Hook类型和执行结果决定是否停止执行
     // 例如，对于命令类型Hook，退出代码为2时可能需要停止执行
     if (hook.config.type === 'command' && result.exitCode === 2) {
@@ -218,7 +213,14 @@ export class HookManager {
     onHookSuccess?: (hook: any, result: any) => void,
     skillRoot?: string
   ): void {
-    this.sessionHookManager.addSessionHook(sessionId, event, matcher, hook, onHookSuccess, skillRoot);
+    this.sessionHookManager.addSessionHook(
+      sessionId,
+      event,
+      matcher,
+      hook,
+      onHookSuccess,
+      skillRoot
+    );
   }
 
   /**
@@ -228,14 +230,24 @@ export class HookManager {
     sessionId: string,
     event: HookEvent,
     matcher: string,
-    callback: (messages: any[], signal?: AbortSignal) => boolean | Promise<boolean>,
+    callback: (
+      messages: any[],
+      signal?: AbortSignal
+    ) => boolean | Promise<boolean>,
     errorMessage: string,
     options?: {
       timeout?: number;
       id?: string;
     }
   ): string {
-    return this.sessionHookManager.addFunctionHook(sessionId, event, matcher, callback, errorMessage, options);
+    return this.sessionHookManager.addFunctionHook(
+      sessionId,
+      event,
+      matcher,
+      callback,
+      errorMessage,
+      options
+    );
   }
 
   /**
@@ -316,7 +328,7 @@ export class HookManager {
     );
 
     // 过滤匹配的Hook
-    const matchingHooks = allHooks.filter(hook => {
+    const matchingHooks = allHooks.filter((hook) => {
       return !hook.matcher || this.matchesMatcher(hook.matcher, data);
     });
 
@@ -329,12 +341,18 @@ export class HookManager {
     };
 
     // 并行执行
-    const results = await this.hookExecutor.executeParallel(matchingHooks, context);
+    const results = await this.hookExecutor.executeParallel(
+      matchingHooks,
+      context
+    );
 
     // 执行会话级Hook
     if (sessionId) {
       const sessionResults = await this.sessionHookManager.executeSessionHooks(
-        sessionId, event, data, toolNames
+        sessionId,
+        event,
+        data,
+        toolNames
       );
       results.push(...sessionResults);
     }
@@ -365,7 +383,7 @@ export class HookManager {
     );
 
     // 过滤匹配的Hook
-    const matchingHooks = allHooks.filter(hook => {
+    const matchingHooks = allHooks.filter((hook) => {
       return !hook.matcher || this.matchesMatcher(hook.matcher, data);
     });
 
@@ -378,12 +396,19 @@ export class HookManager {
     };
 
     // 批量执行
-    const results = await this.hookExecutor.executeBatch(matchingHooks, context, batchSize);
+    const results = await this.hookExecutor.executeBatch(
+      matchingHooks,
+      context,
+      batchSize
+    );
 
     // 执行会话级Hook
     if (sessionId) {
       const sessionResults = await this.sessionHookManager.executeSessionHooks(
-        sessionId, event, data, toolNames
+        sessionId,
+        event,
+        data,
+        toolNames
       );
       results.push(...sessionResults);
     }

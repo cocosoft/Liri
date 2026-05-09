@@ -57,7 +57,14 @@ class GovernanceStrategyManager extends EventEmitter {
    */
   getStrategiesPath() {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const strategiesDir = join(__dirname, '..', '..', '..', 'config', 'strategies');
+    const strategiesDir = join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'config',
+      'strategies'
+    );
     return join(strategiesDir, 'governance_strategies.json');
   }
 
@@ -69,7 +76,9 @@ class GovernanceStrategyManager extends EventEmitter {
       try {
         const content = readFileSync(this.strategiesPath, 'utf-8');
         const strategies = JSON.parse(content);
-        return Array.isArray(strategies) ? strategies : this.createDefaultStrategies();
+        return Array.isArray(strategies)
+          ? strategies
+          : this.createDefaultStrategies();
       } catch (error) {
         console.error('Failed to load governance strategies:', error);
         return this.createDefaultStrategies();
@@ -229,7 +238,7 @@ class GovernanceStrategyManager extends EventEmitter {
         isActive: false,
       },
     ];
-    
+
     this.saveStrategies(strategies);
     return strategies;
   }
@@ -239,7 +248,10 @@ class GovernanceStrategyManager extends EventEmitter {
    */
   saveStrategies(strategies) {
     try {
-      writeFileSync(this.strategiesPath, JSON.stringify(strategies, null, 2) + '\n');
+      writeFileSync(
+        this.strategiesPath,
+        JSON.stringify(strategies, null, 2) + '\n'
+      );
     } catch (error) {
       console.error('Failed to save governance strategies:', error);
     }
@@ -249,7 +261,7 @@ class GovernanceStrategyManager extends EventEmitter {
    * 查找活跃策略
    */
   findActiveStrategy() {
-    const active = this.strategies.find(s => s.isActive);
+    const active = this.strategies.find((s) => s.isActive);
     return active ? active.id : null;
   }
 
@@ -264,14 +276,16 @@ class GovernanceStrategyManager extends EventEmitter {
    * 获取策略
    */
   getStrategy(id) {
-    return this.strategies.find(s => s.id === id);
+    return this.strategies.find((s) => s.id === id);
   }
 
   /**
    * 获取活跃策略
    */
   getActiveStrategy() {
-    return this.activeStrategyId ? this.getStrategy(this.activeStrategyId) : undefined;
+    return this.activeStrategyId
+      ? this.getStrategy(this.activeStrategyId)
+      : undefined;
   }
 
   /**
@@ -303,8 +317,8 @@ class GovernanceStrategyManager extends EventEmitter {
    * 更新策略
    */
   updateStrategy(id, updates) {
-    const index = this.strategies.findIndex(s => s.id === id);
-    
+    const index = this.strategies.findIndex((s) => s.id === id);
+
     if (index === -1) {
       return null;
     }
@@ -334,13 +348,13 @@ class GovernanceStrategyManager extends EventEmitter {
    */
   activateStrategy(id) {
     const strategy = this.getStrategy(id);
-    
+
     if (!strategy) {
       return false;
     }
 
     // 先禁用所有策略
-    this.strategies = this.strategies.map(s => ({
+    this.strategies = this.strategies.map((s) => ({
       ...s,
       isActive: s.id === id,
     }));
@@ -362,12 +376,12 @@ class GovernanceStrategyManager extends EventEmitter {
    */
   deactivateStrategy(id) {
     const strategy = this.getStrategy(id);
-    
+
     if (!strategy) {
       return false;
     }
 
-    const index = this.strategies.findIndex(s => s.id === id);
+    const index = this.strategies.findIndex((s) => s.id === id);
     this.strategies[index] = {
       ...strategy,
       isActive: false,
@@ -393,20 +407,20 @@ class GovernanceStrategyManager extends EventEmitter {
    * 删除策略
    */
   deleteStrategy(id) {
-    const index = this.strategies.findIndex(s => s.id === id);
-    
+    const index = this.strategies.findIndex((s) => s.id === id);
+
     if (index === -1) {
       return false;
     }
 
     this.strategies.splice(index, 1);
-    
+
     if (this.activeStrategyId === id) {
       this.activeStrategyId = null;
     }
 
     this.saveStrategies(this.strategies);
-    
+
     return true;
   }
 
@@ -415,22 +429,26 @@ class GovernanceStrategyManager extends EventEmitter {
    */
   applyStrategyRules(target, context) {
     const activeStrategy = this.getActiveStrategy();
-    
+
     if (!activeStrategy) {
       return 'allow';
     }
 
     // 按优先级排序规则
-    const sortedRules = [...activeStrategy.rules].sort((a, b) => b.priority - a.priority);
+    const sortedRules = [...activeStrategy.rules].sort(
+      (a, b) => b.priority - a.priority
+    );
 
     for (const rule of sortedRules) {
       if (rule.target === '*' || rule.target === target) {
         // 检查条件
         if (rule.conditions) {
-          const conditionsMet = Object.entries(rule.conditions).every(([key, value]) => {
-            return context[key] === value;
-          });
-          
+          const conditionsMet = Object.entries(rule.conditions).every(
+            ([key, value]) => {
+              return context[key] === value;
+            }
+          );
+
           if (conditionsMet) {
             return rule.action;
           }
@@ -526,4 +544,5 @@ class GovernanceStrategyManager extends EventEmitter {
 GovernanceStrategyManager.instance = new GovernanceStrategyManager();
 
 export { GovernanceStrategyManager };
-export const governanceStrategyManager = GovernanceStrategyManager.getInstance();
+export const governanceStrategyManager =
+  GovernanceStrategyManager.getInstance();

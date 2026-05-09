@@ -14,6 +14,8 @@ export const logoutCommand: Command = {
   aliases: ['signout'],
   argumentHint: '',
   whenToUse: '当你需要登出账户时',
-  load: async () => import('./Logout.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Logout.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

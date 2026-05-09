@@ -8,7 +8,7 @@ import type {
   AgentTask,
   AgentResponse,
   AgentContext,
-  BuiltInAgentDefinition
+  BuiltInAgentDefinition,
 } from '../models/types';
 import { AgentState } from '../models/types';
 import aiService from '@modules/ai';
@@ -302,7 +302,8 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
       source: 'built-in',
       baseDir: 'built-in',
       color: 'blue',
-      getSystemPrompt: () => `你是一个通用AI代理，能够处理各种任务。请根据用户的请求，提供详细、准确的回答。`,
+      getSystemPrompt: () =>
+        `你是一个通用AI代理，能够处理各种任务。请根据用户的请求，提供详细、准确的回答。`,
     },
     {
       agentType: 'code',
@@ -310,7 +311,8 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
       source: 'built-in',
       baseDir: 'built-in',
       color: 'green',
-      getSystemPrompt: () => `你是一个代码专家，擅长编写、分析和调试代码。请提供高质量的代码解决方案。`,
+      getSystemPrompt: () =>
+        `你是一个代码专家，擅长编写、分析和调试代码。请提供高质量的代码解决方案。`,
     },
     {
       agentType: 'explore',
@@ -318,7 +320,8 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
       source: 'built-in',
       baseDir: 'built-in',
       color: 'purple',
-      getSystemPrompt: () => `你是一个探索型AI代理，擅长研究和分析复杂问题。请提供深入的分析和见解。`,
+      getSystemPrompt: () =>
+        `你是一个探索型AI代理，擅长研究和分析复杂问题。请提供深入的分析和见解。`,
     },
     {
       agentType: 'plan',
@@ -326,7 +329,8 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
       source: 'built-in',
       baseDir: 'built-in',
       color: 'yellow',
-      getSystemPrompt: () => `你是一个规划专家，擅长制定详细的计划和方案。请提供结构化的计划和建议。`,
+      getSystemPrompt: () =>
+        `你是一个规划专家，擅长制定详细的计划和方案。请提供结构化的计划和建议。`,
     },
   ];
 }

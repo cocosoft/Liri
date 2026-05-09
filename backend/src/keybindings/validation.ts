@@ -104,28 +104,36 @@ export type KeybindingConfig = z.infer<typeof KeybindingConfigSchema>;
 /**
  * 验证单个按键绑定
  */
-export function validateKeybinding(binding: unknown): z.infer<typeof KeybindingSchema> {
+export function validateKeybinding(
+  binding: unknown
+): z.infer<typeof KeybindingSchema> {
   return KeybindingSchema.parse(binding);
 }
 
 /**
  * 验证按键绑定集合
  */
-export function validateKeybindings(bindings: unknown): z.infer<typeof KeybindingsSchema> {
+export function validateKeybindings(
+  bindings: unknown
+): z.infer<typeof KeybindingsSchema> {
   return KeybindingsSchema.parse(bindings);
 }
 
 /**
  * 验证按键绑定模板
  */
-export function validateTemplate(template: unknown): z.infer<typeof KeybindingTemplateSchema> {
+export function validateTemplate(
+  template: unknown
+): z.infer<typeof KeybindingTemplateSchema> {
   return KeybindingTemplateSchema.parse(template);
 }
 
 /**
  * 验证按键绑定配置
  */
-export function validateConfig(config: unknown): z.infer<typeof KeybindingConfigSchema> {
+export function validateConfig(
+  config: unknown
+): z.infer<typeof KeybindingConfigSchema> {
   return KeybindingConfigSchema.parse(config);
 }
 

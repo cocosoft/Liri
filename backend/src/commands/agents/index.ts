@@ -11,7 +11,7 @@ const subagentCommand: Command = {
   aliases: ['agent', 'agents'],
   argumentHint: '[list|info|create|delete|--json|help]',
   whenToUse: '当你需要管理多个 Agent 实例时',
-  load: () => import('./Subagent.js').then(m => m.default),
+  load: () => import('./Subagent.js').then((m) => m.default),
 };
 
 // 保留 agentCommand 别名导出以兼容旧引用

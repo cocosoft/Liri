@@ -5,7 +5,14 @@ import { z } from 'zod';
  */
 export const BashInputSchema = z.strictObject({
   command: z.string().min(1, '命令不能为空').describe('要执行的Bash命令'),
-  timeout: z.number().int().positive().max(300000).optional().default(30000).describe('执行超时时间（毫秒）'),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .max(300000)
+    .optional()
+    .default(30000)
+    .describe('执行超时时间（毫秒）'),
   cwd: z.string().optional().describe('工作目录'),
   env: z.record(z.string()).optional().describe('环境变量'),
 });

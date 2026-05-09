@@ -11,6 +11,10 @@ interface DividerProps {
   width?: number;
 }
 
-export function Divider({ char = '─', color = 'gray', width = 50 }: DividerProps): React.ReactNode {
+export function Divider({
+  char = '─',
+  color = 'gray',
+  width = 50,
+}: DividerProps): React.ReactNode {
   return <Text color={color}>{char.repeat(width)}</Text>;
 }

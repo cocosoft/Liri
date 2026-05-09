@@ -5,8 +5,17 @@
 
 import type { MdmRawReadResult } from './MdmPrefetch.js';
 import { startMdmPrefetch, ensureMdmPrefetchCompleted } from './MdmPrefetch.js';
-export { startMdmPrefetch, ensureMdmPrefetchCompleted, getMdmPrefetchPromise } from './MdmPrefetch.js';
-export { startKeychainPrefetch, ensureKeychainPrefetchCompleted, getLegacyApiKeyPrefetchResult, clearLegacyApiKeyPrefetch } from './KeychainPrefetch.js';
+export {
+  startMdmPrefetch,
+  ensureMdmPrefetchCompleted,
+  getMdmPrefetchPromise,
+} from './MdmPrefetch.js';
+export {
+  startKeychainPrefetch,
+  ensureKeychainPrefetchCompleted,
+  getLegacyApiKeyPrefetchResult,
+  clearLegacyApiKeyPrefetch,
+} from './KeychainPrefetch.js';
 
 export interface StartupPrefetch {
   mdm?: MdmRawReadResult | null;

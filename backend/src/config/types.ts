@@ -56,7 +56,13 @@ export type DiffTool = 'terminal' | 'auto';
  */
 export interface AIConfig {
   /** AI 提供商 */
-  provider?: 'anthropic' | 'openai' | 'deepseek' | 'ollama' | 'azure' | 'vertex';
+  provider?:
+    | 'anthropic'
+    | 'openai'
+    | 'deepseek'
+    | 'ollama'
+    | 'azure'
+    | 'vertex';
   /** 默认模型 */
   model?: string;
   /** DeepSeek 配置 */

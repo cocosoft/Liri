@@ -77,7 +77,9 @@ export class AutoModeStateManager {
   private state: AutoModeState = AutoModeState.DISABLED;
   private config: AutoModeConfig;
   private stats: AutoModeStats;
-  private stateChangeListeners: Array<(event: AutoModeStateChangeEvent) => void> = [];
+  private stateChangeListeners: Array<
+    (event: AutoModeStateChangeEvent) => void
+  > = [];
   private circuitBreakEndTime: number = 0;
   private history: AutoModeStateChangeEvent[] = [];
 
@@ -116,9 +118,14 @@ export class AutoModeStateManager {
     if (this.state === AutoModeState.CIRCUIT_BROKEN) {
       if (Date.now() >= this.circuitBreakEndTime) {
         if (this.config.allowReentryAfterCircuitBreak) {
-          this.transitionTo(AutoModeState.DISABLED, 'circuit_break_timeout_allow_reentry');
+          this.transitionTo(
+            AutoModeState.DISABLED,
+            'circuit_break_timeout_allow_reentry'
+          );
         } else {
-          logger.info('AutoMode: Circuit break timeout, remaining in broken state');
+          logger.info(
+            'AutoMode: Circuit break timeout, remaining in broken state'
+          );
         }
       }
     }
@@ -135,7 +142,9 @@ export class AutoModeStateManager {
       }
 
       if (Date.now() < this.circuitBreakEndTime) {
-        logger.warn('AutoMode: Cannot enable - circuit break period not elapsed');
+        logger.warn(
+          'AutoMode: Cannot enable - circuit break period not elapsed'
+        );
         return false;
       }
     }
@@ -171,7 +180,9 @@ export class AutoModeStateManager {
 
     this.circuitBreakEndTime = Date.now() + this.config.circuitBreakDurationMs;
     this.transitionTo(AutoModeState.CIRCUIT_BROKEN, reason);
-    logger.warn(`AutoMode: Circuit broken - ${reason}. Will reset at ${new Date(this.circuitBreakEndTime).toISOString()}`);
+    logger.warn(
+      `AutoMode: Circuit broken - ${reason}. Will reset at ${new Date(this.circuitBreakEndTime).toISOString()}`
+    );
   }
 
   /**
@@ -182,7 +193,10 @@ export class AutoModeStateManager {
       return;
     }
 
-    this.transitionTo(AutoModeState.WAITING_CONFIRMATION, 'user_confirmation_required');
+    this.transitionTo(
+      AutoModeState.WAITING_CONFIRMATION,
+      'user_confirmation_required'
+    );
   }
 
   /**
@@ -224,7 +238,9 @@ export class AutoModeStateManager {
 
         // 检查是否达到拒绝阈值
         if (this.stats.consecutiveDenials >= this.config.denialThreshold) {
-          this.breakCircuit(`consecutive_denials_threshold_reached: ${this.stats.consecutiveDenials}`);
+          this.breakCircuit(
+            `consecutive_denials_threshold_reached: ${this.stats.consecutiveDenials}`
+          );
           return;
         }
         break;
@@ -268,14 +284,18 @@ export class AutoModeStateManager {
   /**
    * 添加状态变更监听器
    */
-  addStateChangeListener(listener: (event: AutoModeStateChangeEvent) => void): void {
+  addStateChangeListener(
+    listener: (event: AutoModeStateChangeEvent) => void
+  ): void {
     this.stateChangeListeners.push(listener);
   }
 
   /**
    * 移除状态变更监听器
    */
-  removeStateChangeListener(listener: (event: AutoModeStateChangeEvent) => void): void {
+  removeStateChangeListener(
+    listener: (event: AutoModeStateChangeEvent) => void
+  ): void {
     const index = this.stateChangeListeners.indexOf(listener);
     if (index > -1) {
       this.stateChangeListeners.splice(index, 1);
@@ -335,7 +355,9 @@ export class AutoModeStateManager {
       this.history = this.history.slice(-100);
     }
 
-    logger.info(`AutoMode: State transition ${previousState} -> ${newState}, reason: ${reason}`);
+    logger.info(
+      `AutoMode: State transition ${previousState} -> ${newState}, reason: ${reason}`
+    );
 
     // 通知监听器
     for (const listener of this.stateChangeListeners) {

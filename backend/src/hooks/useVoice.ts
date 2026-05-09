@@ -1,7 +1,7 @@
 /**
  * 语音输入Hook
  * 基于CC源码 cc_code/backend/hooks/useVoice.ts 实现
- * 
+ *
  * 支持语音识别和语音合成功能
  */
 
@@ -79,17 +79,18 @@ export function useVoice(config: Partial<VoiceConfig> = {}): UseVoiceResult {
   const [transcript, setTranscript] = useState('');
   const [results, setResults] = useState<VoiceRecognitionResult[]>([]);
   const [isSupported, setIsSupported] = useState(false);
-  
+
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
   // 检查浏览器支持
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || 
-                              (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
     setIsSupported(!!SpeechRecognition && !!window.speechSynthesis);
   }, []);
 
@@ -97,14 +98,15 @@ export function useVoice(config: Partial<VoiceConfig> = {}): UseVoiceResult {
   useEffect(() => {
     if (!isSupported) return;
 
-    const SpeechRecognition = (window as any).SpeechRecognition || 
-                              (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    
+
     recognition.lang = mergedConfig.language;
     recognition.continuous = mergedConfig.continuous;
     recognition.interimResults = true;
-    
+
     recognitionRef.current = recognition;
 
     return () => {
@@ -125,17 +127,20 @@ export function useVoice(config: Partial<VoiceConfig> = {}): UseVoiceResult {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
           finalTranscript += transcript + ' ';
-          setResults(prev => [...prev, {
-            text: transcript,
-            confidence: event.results[i][0].confidence,
-            isFinal: true,
-          }]);
+          setResults((prev) => [
+            ...prev,
+            {
+              text: transcript,
+              confidence: event.results[i][0].confidence,
+              isFinal: true,
+            },
+          ]);
         } else {
           interimTranscript += transcript;
         }
       }
 
-      setTranscript(prev => {
+      setTranscript((prev) => {
         const newTranscript = finalTranscript || prev + interimTranscript;
         return newTranscript.trim();
       });
@@ -144,7 +149,7 @@ export function useVoice(config: Partial<VoiceConfig> = {}): UseVoiceResult {
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
-      
+
       if (mergedConfig.autoStop && finalTranscript) {
         silenceTimerRef.current = setTimeout(() => {
           recognition.stop();
@@ -194,25 +199,28 @@ export function useVoice(config: Partial<VoiceConfig> = {}): UseVoiceResult {
   }, []);
 
   // 语音合成
-  const speak = useCallback((text: string) => {
-    if (!isSupported) return;
+  const speak = useCallback(
+    (text: string) => {
+      if (!isSupported) return;
 
-    setState('speaking');
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = mergedConfig.language;
-    utteranceRef.current = utterance;
+      setState('speaking');
 
-    utterance.onend = () => {
-      setState('idle');
-    };
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = mergedConfig.language;
+      utteranceRef.current = utterance;
 
-    utterance.onerror = () => {
-      setState('idle');
-    };
+      utterance.onend = () => {
+        setState('idle');
+      };
 
-    window.speechSynthesis.speak(utterance);
-  }, [isSupported, mergedConfig.language]);
+      utterance.onerror = () => {
+        setState('idle');
+      };
+
+      window.speechSynthesis.speak(utterance);
+    },
+    [isSupported, mergedConfig.language]
+  );
 
   // 停止语音合成
   const stopSpeaking = useCallback(() => {

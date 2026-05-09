@@ -3,7 +3,10 @@
  * 支持历史导航、搜索和智能建议
  */
 
-import { CommandHistoryManager, CommandHistoryItem } from './CommandHistoryManager.js';
+import {
+  CommandHistoryManager,
+  CommandHistoryItem,
+} from './CommandHistoryManager.js';
 
 /**
  * 历史导航状态
@@ -50,7 +53,10 @@ export class EnhancedCommandHistory extends CommandHistoryManager {
 
     if (currentIndex < filteredHistory.length - 1) {
       this.navigationState.currentIndex++;
-      const item = filteredHistory[filteredHistory.length - 1 - this.navigationState.currentIndex];
+      const item =
+        filteredHistory[
+          filteredHistory.length - 1 - this.navigationState.currentIndex
+        ];
       return `${item.command} ${item.args}`.trim();
     }
 
@@ -67,7 +73,10 @@ export class EnhancedCommandHistory extends CommandHistoryManager {
     if (currentIndex > 0) {
       this.navigationState.currentIndex--;
       const { filteredHistory } = this.navigationState;
-      const item = filteredHistory[filteredHistory.length - 1 - this.navigationState.currentIndex];
+      const item =
+        filteredHistory[
+          filteredHistory.length - 1 - this.navigationState.currentIndex
+        ];
       return `${item.command} ${item.args}`.trim();
     } else if (currentIndex === 0) {
       this.navigationState.currentIndex = -1;
@@ -89,11 +98,11 @@ export class EnhancedCommandHistory extends CommandHistoryManager {
 
     for (const item of history) {
       const command = `${item.command} ${item.args}`.trim();
-      
+
       // 检查是否匹配前缀
       if (command.toLowerCase().startsWith(prefix.toLowerCase())) {
         suggestions.add(command);
-        
+
         if (suggestions.size >= limit) {
           break;
         }
@@ -108,7 +117,9 @@ export class EnhancedCommandHistory extends CommandHistoryManager {
    * @param limit 限制数量
    * @returns 常用命令列表
    */
-  getFrequentCommands(limit: number = 10): Array<{ command: string; count: number }> {
+  getFrequentCommands(
+    limit: number = 10
+  ): Array<{ command: string; count: number }> {
     const frequency = this.getCommandFrequency();
     const sorted = Object.entries(frequency)
       .sort(([, a], [, b]) => b - a)
@@ -131,18 +142,18 @@ export class EnhancedCommandHistory extends CommandHistoryManager {
   } {
     const history = this.getHistory();
     const totalCommands = history.length;
-    const successfulCommands = history.filter(item => item.success).length;
+    const successfulCommands = history.filter((item) => item.success).length;
     const failedCommands = totalCommands - successfulCommands;
 
     const frequency = this.getCommandFrequency();
-    const mostUsedCommand = Object.entries(frequency)
-      .sort(([, a], [, b]) => b - a)[0]?.[0] || '';
+    const mostUsedCommand =
+      Object.entries(frequency).sort(([, a], [, b]) => b - a)[0]?.[0] || '';
 
     // 计算平均每天命令数
     const now = Date.now();
     const dayInMs = 24 * 60 * 60 * 1000;
     const firstCommand = history[0];
-    const daysSinceFirst = firstCommand 
+    const daysSinceFirst = firstCommand
       ? Math.max(1, Math.floor((now - firstCommand.timestamp) / dayInMs))
       : 1;
     const averageCommandsPerDay = totalCommands / daysSinceFirst;

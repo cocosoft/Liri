@@ -110,7 +110,8 @@ function parseGlobOutput(data: unknown): GlobOutput | null {
   if (Array.isArray(obj.filenames)) {
     return {
       durationMs: typeof obj.durationMs === 'number' ? obj.durationMs : 0,
-      numFiles: typeof obj.numFiles === 'number' ? obj.numFiles : obj.filenames.length,
+      numFiles:
+        typeof obj.numFiles === 'number' ? obj.numFiles : obj.filenames.length,
       filenames: obj.filenames as string[],
       truncated: typeof obj.truncated === 'boolean' ? obj.truncated : false,
     };
@@ -133,7 +134,10 @@ const globCommand = {
   /**
    * 执行 glob 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     if (!args.trim() || args.trim().toLowerCase() === 'help') {
       return { success: true, message: buildHelpText() };
     }
@@ -149,7 +153,10 @@ const globCommand = {
 
     try {
       const { logEvent } = await import('@modules/analytics/index.js');
-      logEvent('tengu_glob_command', { pattern: options.pattern, path: options.path });
+      logEvent('tengu_glob_command', {
+        pattern: options.pattern,
+        path: options.path,
+      });
     } catch {
       // analytics 非关键
     }
@@ -160,11 +167,9 @@ const globCommand = {
       if (options.path) {
         input.path = options.path;
       }
-      const result = await toolManager.executeTool(
-        'glob',
-        input,
-        { cwd: process.cwd() }
-      );
+      const result = await toolManager.executeTool('glob', input, {
+        cwd: process.cwd(),
+      });
 
       const output = parseGlobOutput(result.data);
 
@@ -172,12 +177,16 @@ const globCommand = {
         if (options.showJson) {
           return {
             success: false,
-            message: JSON.stringify({
-              success: false,
-              pattern: options.pattern,
-              path: options.path,
-              error: result.error || '匹配失败',
-            }, null, 2),
+            message: JSON.stringify(
+              {
+                success: false,
+                pattern: options.pattern,
+                path: options.path,
+                error: result.error || '匹配失败',
+              },
+              null,
+              2
+            ),
           };
         }
         return {
@@ -190,15 +199,19 @@ const globCommand = {
         if (options.showJson) {
           return {
             success: true,
-            message: JSON.stringify({
-              success: true,
-              pattern: options.pattern,
-              path: options.path,
-              count: 0,
-              files: [],
-              durationMs: 0,
-              truncated: false,
-            }, null, 2),
+            message: JSON.stringify(
+              {
+                success: true,
+                pattern: options.pattern,
+                path: options.path,
+                count: 0,
+                files: [],
+                durationMs: 0,
+                truncated: false,
+              },
+              null,
+              2
+            ),
           };
         }
         const pathInfo = options.path ? ` (目录: ${options.path})` : '';
@@ -211,21 +224,27 @@ const globCommand = {
       if (options.showJson) {
         return {
           success: true,
-          message: JSON.stringify({
-            success: true,
-            pattern: options.pattern,
-            path: options.path,
-            count: output.numFiles,
-            files: output.filenames,
-            durationMs: output.durationMs,
-            truncated: output.truncated,
-          }, null, 2),
+          message: JSON.stringify(
+            {
+              success: true,
+              pattern: options.pattern,
+              path: options.path,
+              count: output.numFiles,
+              files: output.filenames,
+              durationMs: output.durationMs,
+              truncated: output.truncated,
+            },
+            null,
+            2
+          ),
         };
       }
 
       const resultLines: string[] = [];
       if (output.durationMs > 0) {
-        resultLines.push(`找到 ${output.numFiles} 个文件 (${output.durationMs}ms):`);
+        resultLines.push(
+          `找到 ${output.numFiles} 个文件 (${output.durationMs}ms):`
+        );
       } else {
         resultLines.push(`找到 ${output.numFiles} 个文件:`);
       }
@@ -234,7 +253,9 @@ const globCommand = {
 
       if (output.truncated) {
         resultLines.push('');
-        resultLines.push('(结果已截断。请考虑使用更精确的模式或指定搜索目录。)');
+        resultLines.push(
+          '(结果已截断。请考虑使用更精确的模式或指定搜索目录。)'
+        );
       }
 
       return {
@@ -245,12 +266,16 @@ const globCommand = {
       if (options.showJson) {
         return {
           success: false,
-          message: JSON.stringify({
-            success: false,
-            pattern: options.pattern,
-            path: options.path,
-            error: error instanceof Error ? error.message : String(error),
-          }, null, 2),
+          message: JSON.stringify(
+            {
+              success: false,
+              pattern: options.pattern,
+              path: options.path,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            null,
+            2
+          ),
         };
       }
       return {

@@ -12,11 +12,11 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const pluginName = args.trim();
-    
+
     if (pluginName) {
       return this.handleReloadPlugin(pluginName, context);
     }
-    
+
     return this.handleReloadAll(context);
   },
 
@@ -37,17 +37,20 @@ export default {
       ],
     };
 
-    context.onDone?.(`已重载 ${result.reloadedPlugins} 个插件`, { display: 'system' });
-    
+    context.onDone?.(`已重载 ${result.reloadedPlugins} 个插件`, {
+      display: 'system',
+    });
+
     return {
       success: true,
       type: 'text',
-      message: `插件重载完成:\n\n` +
+      message:
+        `插件重载完成:\n\n` +
         `- 总插件数: ${result.totalPlugins}\n` +
         `- 已重载: ${result.reloadedPlugins}\n` +
         `- 失败: ${result.failedPlugins}\n\n` +
         `重载的插件:\n` +
-        `${result.plugins.map(p => `  ${p.name} - ${p.status}`).join('\n')}`,
+        `${result.plugins.map((p) => `  ${p.name} - ${p.status}`).join('\n')}`,
       data: result,
     };
   },
@@ -55,9 +58,18 @@ export default {
   /**
    * 重载指定插件
    */
-  async handleReloadPlugin(pluginName: string, context: CommandContext): Promise<CommandResult> {
-    const plugins = ['code-executor', 'file-manager', 'git-tools', 'api-client', 'theme-customizer'];
-    
+  async handleReloadPlugin(
+    pluginName: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
+    const plugins = [
+      'code-executor',
+      'file-manager',
+      'git-tools',
+      'api-client',
+      'theme-customizer',
+    ];
+
     if (!plugins.includes(pluginName)) {
       return {
         success: false,
@@ -68,7 +80,7 @@ export default {
     }
 
     context.onDone?.(`插件 ${pluginName} 已重载`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

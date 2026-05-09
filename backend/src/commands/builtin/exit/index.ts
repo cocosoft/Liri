@@ -4,7 +4,13 @@
  */
 import type { Command } from '@modules/commands/types';
 
-const GOODBYE_MESSAGES = ['Goodbye!', 'See ya!', 'Bye!', 'Catch you later!', 'Farewell!'];
+const GOODBYE_MESSAGES = [
+  'Goodbye!',
+  'See ya!',
+  'Bye!',
+  'Catch you later!',
+  'Farewell!',
+];
 
 function getRandomGoodbyeMessage(): string {
   return GOODBYE_MESSAGES[Math.floor(Math.random() * GOODBYE_MESSAGES.length)];
@@ -47,7 +53,7 @@ export const exitCommand: Command = {
       }
 
       console.log(`${getRandomGoodbyeMessage()} Exiting PY_APP...`);
-      
+
       // 延迟退出以显示消息
       setTimeout(() => {
         process.exit(0);

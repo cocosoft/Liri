@@ -1,11 +1,11 @@
-//
-/**
- * 状态管理模块导出
- */
+// 核心状态管理（应用状态）
+export {
+  appStateStore,
+  createAppStateStore,
+  getGlobalStore,
+  initializeGlobalStore,
+} from './AppStateStore';
 
-export { appStateStore } from './AppStateStore';
-export * from './Store';
-export * from './types';
 export type {
   CompletionBoundary,
   SpeculationResult,
@@ -15,5 +15,26 @@ export type {
   StateChangeListener,
   StateUpdater,
 } from './AppState';
-export { getDefaultAppState } from './AppState';
-export * from './StateMigrator';
+
+export type { AppStateStore } from './AppState';
+
+export type {
+  Store,
+  StoreOptions,
+  StoreMiddleware,
+  Listener,
+  OnChange,
+} from './Store';
+
+export { StateMigrator } from './StateMigrator';
+
+export type {
+  DenialTrackingState,
+  ToolPermissionContext,
+  MCPServerConnection,
+  MCPState,
+  PluginLoadState,
+  TaskState,
+  Notification,
+  NotificationType,
+} from './types';

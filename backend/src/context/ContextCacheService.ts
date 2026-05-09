@@ -23,7 +23,8 @@ export class ContextCacheService {
   private fileWatchers: Map<string, fs.FSWatcher>;
   private defaultTTL: number; // 默认缓存生存时间（毫秒）
 
-  private constructor(defaultTTL: number = 300000) { // 5分钟
+  private constructor(defaultTTL: number = 300000) {
+    // 5分钟
     this.cache = new Map();
     this.fileWatchers = new Map();
     this.defaultTTL = defaultTTL;
@@ -164,21 +165,25 @@ export class ContextCacheService {
     }
 
     try {
-      const watcher = fs.watch(dirPath, { recursive: true }, (eventType, filename) => {
-        if (filename && (eventType === 'change' || eventType === 'rename')) {
-          console.log(`[context] Directory changed: ${filename}`);
+      const watcher = fs.watch(
+        dirPath,
+        { recursive: true },
+        (eventType, filename) => {
+          if (filename && (eventType === 'change' || eventType === 'rename')) {
+            console.log(`[context] Directory changed: ${filename}`);
 
-          // 清除指定的缓存键
-          if (cacheKeys) {
-            for (const key of cacheKeys) {
-              this.delete(key);
+            // 清除指定的缓存键
+            if (cacheKeys) {
+              for (const key of cacheKeys) {
+                this.delete(key);
+              }
+            } else {
+              // 清除所有缓存
+              this.clear();
             }
-          } else {
-            // 清除所有缓存
-            this.clear();
           }
         }
-      });
+      );
 
       this.fileWatchers.set(dirPath, watcher);
     } catch (error) {

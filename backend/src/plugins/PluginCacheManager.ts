@@ -4,7 +4,15 @@
  */
 
 import { join } from 'path';
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync, readFileSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+  readFileSync,
+} from 'fs';
 import { logger } from '../utils/log';
 import type { PluginSource } from './PluginLoader';
 import * as path from 'path';
@@ -43,7 +51,10 @@ export class PluginCacheManager {
     try {
       this.ensureCacheDirs();
     } catch (error) {
-      logger.warn(`Failed to create cache dirs at ${this.cacheRoot}, falling back to local path:`, { error: String(error) });
+      logger.warn(
+        `Failed to create cache dirs at ${this.cacheRoot}, falling back to local path:`,
+        { error: String(error) }
+      );
       this.cacheRoot = join(process.cwd(), 'data', 'plugins', 'cache');
       this.versionedCacheDir = join(this.cacheRoot, 'versioned');
       this.zipCacheDir = join(this.cacheRoot, 'zip');
@@ -76,11 +87,11 @@ export class PluginCacheManager {
     const version = source.version || 'latest';
     const branch = source.branch || 'main';
     const sourceType = source.type;
-    
+
     // 为不同类型的源创建不同的缓存目录
     const sanitizedSource = sourceType.replace(/[^a-zA-Z0-9_-]/g, '_');
     const sanitizedName = pluginName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    
+
     return join(
       this.versionedCacheDir,
       sanitizedSource,
@@ -126,7 +137,7 @@ export class PluginCacheManager {
   getCacheInfo(source: PluginSource): PluginCacheInfo | undefined {
     const cachePath = this.getCachePath(source);
     const infoPath = join(cachePath, '.cache-info.json');
-    
+
     if (existsSync(infoPath)) {
       try {
         const content = readFileSync(infoPath, 'utf8');
@@ -147,7 +158,7 @@ export class PluginCacheManager {
   writeCacheInfo(source: PluginSource, info?: Partial<PluginCacheInfo>): void {
     const cachePath = this.getCachePath(source);
     const infoPath = join(cachePath, '.cache-info.json');
-    
+
     const cacheInfo: PluginCacheInfo = {
       pluginName: source.name || this.extractPluginName(source.url),
       source: source.url,
@@ -157,7 +168,7 @@ export class PluginCacheManager {
       size: this.getDirectorySize(cachePath),
       ...info,
     };
-    
+
     writeFileSync(infoPath, JSON.stringify(cacheInfo, null, 2));
   }
 
@@ -167,7 +178,7 @@ export class PluginCacheManager {
   private getDirectorySize(directory: string): number {
     let size = 0;
     const entries = readdirSync(directory, { withFileTypes: true });
-    
+
     for (const entry of entries) {
       const entryPath = join(directory, entry.name);
       if (entry.isFile()) {
@@ -176,7 +187,7 @@ export class PluginCacheManager {
         size += this.getDirectorySize(entryPath);
       }
     }
-    
+
     return size;
   }
 
@@ -213,20 +224,22 @@ export class PluginCacheManager {
   } {
     const caches: PluginCacheInfo[] = [];
     let totalSize = 0;
-    
+
     if (existsSync(this.versionedCacheDir)) {
-      const sourceDirs = readdirSync(this.versionedCacheDir, { withFileTypes: true });
-      
+      const sourceDirs = readdirSync(this.versionedCacheDir, {
+        withFileTypes: true,
+      });
+
       for (const sourceDir of sourceDirs) {
         if (sourceDir.isDirectory()) {
           const sourcePath = join(this.versionedCacheDir, sourceDir.name);
           const pluginDirs = readdirSync(sourcePath, { withFileTypes: true });
-          
+
           for (const pluginDir of pluginDirs) {
             if (pluginDir.isDirectory()) {
               const pluginPath = join(sourcePath, pluginDir.name);
               const infoPath = join(pluginPath, '.cache-info.json');
-              
+
               if (existsSync(infoPath)) {
                 try {
                   const content = readFileSync(infoPath, 'utf8');
@@ -234,7 +247,8 @@ export class PluginCacheManager {
                   caches.push(info);
                   totalSize += info.size;
                 } catch (error) {
-                  const e = error instanceof Error ? error : new Error(String(error));
+                  const e =
+                    error instanceof Error ? error : new Error(String(error));
                   logger.error(`Failed to read cache info:`, e);
                 }
               }
@@ -243,7 +257,7 @@ export class PluginCacheManager {
         }
       }
     }
-    
+
     return {
       totalSize,
       pluginCount: caches.length,
@@ -261,19 +275,19 @@ export class PluginCacheManager {
     if (!existsSync(cachePath)) {
       return false;
     }
-    
+
     // 检查必要的文件是否存在
     const manifestPath = join(cachePath, 'manifest.json');
     if (!existsSync(manifestPath)) {
       return false;
     }
-    
+
     // 检查缓存信息是否存在
     const infoPath = join(cachePath, '.cache-info.json');
     if (!existsSync(infoPath)) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -284,33 +298,38 @@ export class PluginCacheManager {
   cleanupOldCache(maxAgeDays: number = 30): void {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
-    
+
     // 清理版本化缓存
     if (existsSync(this.versionedCacheDir)) {
-      const sourceDirs = readdirSync(this.versionedCacheDir, { withFileTypes: true });
-      
+      const sourceDirs = readdirSync(this.versionedCacheDir, {
+        withFileTypes: true,
+      });
+
       for (const sourceDir of sourceDirs) {
         if (sourceDir.isDirectory()) {
           const sourcePath = join(this.versionedCacheDir, sourceDir.name);
           const pluginDirs = readdirSync(sourcePath, { withFileTypes: true });
-          
+
           for (const pluginDir of pluginDirs) {
             if (pluginDir.isDirectory()) {
               const pluginPath = join(sourcePath, pluginDir.name);
               const infoPath = join(pluginPath, '.cache-info.json');
-              
+
               if (existsSync(infoPath)) {
                 try {
                   const content = readFileSync(infoPath, 'utf8');
                   const info = JSON.parse(content) as PluginCacheInfo;
                   const cachedDate = new Date(info.cachedAt);
-                  
+
                   if (cachedDate < cutoffDate) {
                     rmSync(pluginPath, { recursive: true, force: true });
-                    logger.info(`Cleaned up old cache for plugin: ${info.pluginName}`);
+                    logger.info(
+                      `Cleaned up old cache for plugin: ${info.pluginName}`
+                    );
                   }
                 } catch (error) {
-                  const e = error instanceof Error ? error : new Error(String(error));
+                  const e =
+                    error instanceof Error ? error : new Error(String(error));
                   logger.error(`Failed to check cache age:`, e);
                 }
               }
@@ -323,18 +342,18 @@ export class PluginCacheManager {
     // 清理ZIP缓存
     if (existsSync(this.zipCacheDir)) {
       const sourceDirs = readdirSync(this.zipCacheDir, { withFileTypes: true });
-      
+
       for (const sourceDir of sourceDirs) {
         if (sourceDir.isDirectory()) {
           const sourcePath = join(this.zipCacheDir, sourceDir.name);
           const zipFiles = readdirSync(sourcePath, { withFileTypes: true });
-          
+
           for (const zipFile of zipFiles) {
             if (zipFile.isFile() && zipFile.name.endsWith('.zip')) {
               const zipPath = join(sourcePath, zipFile.name);
               const stat = statSync(zipPath);
               const modifiedDate = new Date(stat.mtime);
-              
+
               if (modifiedDate < cutoffDate) {
                 rmSync(zipPath, { force: true });
                 logger.info(`Cleaned up old ZIP cache: ${zipPath}`);
@@ -356,10 +375,10 @@ export class PluginCacheManager {
     const version = source.version || 'latest';
     const branch = source.branch || 'main';
     const sourceType = source.type;
-    
+
     const sanitizedSource = sourceType.replace(/[^a-zA-Z0-9_-]/g, '_');
     const sanitizedName = pluginName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    
+
     return join(
       this.zipCacheDir,
       sanitizedSource,
@@ -394,10 +413,14 @@ export class PluginCacheManager {
       if (process.platform === 'win32') {
         // Windows系统使用PowerShell
         const command = `Compress-Archive -Path "${directory}\*" -DestinationPath "${zipPath}" -Force`;
-        childProcess.execSync(`powershell -Command "${command}"`, { stdio: 'inherit' });
+        childProcess.execSync(`powershell -Command "${command}"`, {
+          stdio: 'inherit',
+        });
       } else {
         // Unix系统使用zip命令
-        childProcess.execSync(`zip -r "${zipPath}" "${directory}"`, { stdio: 'inherit' });
+        childProcess.execSync(`zip -r "${zipPath}" "${directory}"`, {
+          stdio: 'inherit',
+        });
       }
       logger.info(`Compressed directory ${directory} to ${zipPath}`);
     } catch (error) {
@@ -423,10 +446,14 @@ export class PluginCacheManager {
       if (process.platform === 'win32') {
         // Windows系统使用PowerShell
         const command = `Expand-Archive -Path "${zipPath}" -DestinationPath "${targetDir}" -Force`;
-        childProcess.execSync(`powershell -Command "${command}"`, { stdio: 'inherit' });
+        childProcess.execSync(`powershell -Command "${command}"`, {
+          stdio: 'inherit',
+        });
       } else {
         // Unix系统使用unzip命令
-        childProcess.execSync(`unzip "${zipPath}" -d "${targetDir}"`, { stdio: 'inherit' });
+        childProcess.execSync(`unzip "${zipPath}" -d "${targetDir}"`, {
+          stdio: 'inherit',
+        });
       }
       logger.info(`Extracted ${zipPath} to ${targetDir}`);
     } catch (error) {

@@ -5,10 +5,26 @@ import { MemoryStoreImpl, MemoryStore } from './stores/MemoryStore';
 import { MemoryScannerImpl } from './scanners/MemoryScanner';
 import { MemoryRetrieverImpl } from './retrievers/MemoryRetriever';
 import { MemoryType } from './types/MemoryType';
-import { MemoryPromptService, MemoryPrompt } from './services/MemoryPromptService';
-import { AutoMemoryService, AutoMemoryConfig } from './services/AutoMemoryService';
-import { TeamMemoryService, TeamMemoryConfig, TeamMemorySyncStatus, TeamMemorySyncRecord } from './services/TeamMemoryService';
-import { PYAppIntegrationService, PYAppConfig, Rule, Preference } from './services/PYAppIntegrationService';
+import {
+  MemoryPromptService,
+  MemoryPrompt,
+} from './services/MemoryPromptService';
+import {
+  AutoMemoryService,
+  AutoMemoryConfig,
+} from './services/AutoMemoryService';
+import {
+  TeamMemoryService,
+  TeamMemoryConfig,
+  TeamMemorySyncStatus,
+  TeamMemorySyncRecord,
+} from './services/TeamMemoryService';
+import {
+  PYAppIntegrationService,
+  PYAppConfig,
+  Rule,
+  Preference,
+} from './services/PYAppIntegrationService';
 import fsExtra from 'fs-extra';
 import { join } from 'path';
 
@@ -117,7 +133,6 @@ export interface MemoryManager {
   addPYAppChangeListener(listener: (config: PYAppConfig) => void): void;
   removePYAppChangeListener(listener: (config: PYAppConfig) => void): void;
 }
-
 
 /**
  * 记忆管理器实现
@@ -357,7 +372,10 @@ export class MemoryManagerImpl {
    * @param exportDir 导出目录
    * @returns 导出文件路径
    */
-  async exportMemoryAsMarkdown(id: string, exportDir: string = './exports'): Promise<string> {
+  async exportMemoryAsMarkdown(
+    id: string,
+    exportDir: string = './exports'
+  ): Promise<string> {
     return this.store.exportMemoryAsMarkdown(id, exportDir);
   }
 
@@ -368,10 +386,10 @@ export class MemoryManagerImpl {
    */
   async importMemoryFromMarkdown(filePath: string): Promise<string> {
     const id = await this.store.importMemoryFromMarkdown(filePath);
-    
+
     // 重新构建索引
     await this.buildMemoryIndex();
-    
+
     return id;
   }
 
@@ -406,9 +424,12 @@ export class MemoryManagerImpl {
    */
   async backupMemoryData(backupDir: string = './backups'): Promise<void> {
     await fsExtra.ensureDir(backupDir);
-    
+
     // 复制记忆目录到备份目录
-    const backupPath = join(backupDir, `memory_backup_${new Date().toISOString().replace(/[:.]/g, '-')}`);
+    const backupPath = join(
+      backupDir,
+      `memory_backup_${new Date().toISOString().replace(/[:.]/g, '-')}`
+    );
     await fsExtra.copy(this.storeDir, backupPath);
   }
 
@@ -421,10 +442,10 @@ export class MemoryManagerImpl {
     if (!(await fsExtra.pathExists(backupDir))) {
       throw new Error(`Backup directory ${backupDir} does not exist`);
     }
-    
+
     // 清空当前记忆目录
     await fsExtra.emptyDir(this.storeDir);
-    
+
     // 复制备份数据到当前记忆目录
     const files = await fsExtra.readdir(backupDir);
     for (const file of files) {
@@ -432,7 +453,7 @@ export class MemoryManagerImpl {
       const destPath = join(this.storeDir, file);
       await fsExtra.copy(srcPath, destPath);
     }
-    
+
     // 重新构建索引
     await this.buildMemoryIndex();
   }

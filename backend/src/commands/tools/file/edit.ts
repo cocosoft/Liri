@@ -102,8 +102,10 @@ function parseEditArgs(args: string): EditOptions {
   const trimmed = args.trim();
 
   const showJson = /(^|\s)--json(\s|$)/.test(trimmed);
-  const replaceAll = /(^|\s)--all(\s|$)/.test(trimmed) || /(^|\s)-a(\s|$)/.test(trimmed);
-  const dryRun = /(^|\s)--dry-run(\s|$)/.test(trimmed) || /(^|\s)-n(\s|$)/.test(trimmed);
+  const replaceAll =
+    /(^|\s)--all(\s|$)/.test(trimmed) || /(^|\s)-a(\s|$)/.test(trimmed);
+  const dryRun =
+    /(^|\s)--dry-run(\s|$)/.test(trimmed) || /(^|\s)-n(\s|$)/.test(trimmed);
 
   const cleaned = trimmed
     .replace(/--json\s*/g, '')
@@ -116,7 +118,14 @@ function parseEditArgs(args: string): EditOptions {
   const parts = cleaned.split(/\s+/);
 
   if (parts.length < 3) {
-    return { showJson, replaceAll, dryRun, filePath: '', oldString: '', newString: '' };
+    return {
+      showJson,
+      replaceAll,
+      dryRun,
+      filePath: '',
+      oldString: '',
+      newString: '',
+    };
   }
 
   const filePath = parts[0];
@@ -138,17 +147,22 @@ function parseEditOutput(data: unknown): EditOutput {
  * 格式化补丁信息
  */
 function formatPatch(hunks: Hunk[]): string {
-  return hunks.map(h => {
-    const header = `@@ -${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@`;
-    return [header, ...h.lines].join('\n');
-  }).join('\n');
+  return hunks
+    .map((h) => {
+      const header = `@@ -${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@`;
+      return [header, ...h.lines].join('\n');
+    })
+    .join('\n');
 }
 
 const editCommand = {
   /**
    * 执行 edit 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     if (!args.trim() || args.trim().toLowerCase() === 'help') {
       return { success: true, message: buildHelpText() };
     }
@@ -214,11 +228,15 @@ const editCommand = {
         if (options.showJson) {
           return {
             success: false,
-            message: JSON.stringify({
-              success: false,
-              filePath: options.filePath,
-              error: result.error || '编辑失败',
-            }, null, 2),
+            message: JSON.stringify(
+              {
+                success: false,
+                filePath: options.filePath,
+                error: result.error || '编辑失败',
+              },
+              null,
+              2
+            ),
           };
         }
         return {
@@ -230,19 +248,23 @@ const editCommand = {
       if (options.showJson) {
         return {
           success: true,
-          message: JSON.stringify({
-            success: true,
-            filePath: options.filePath,
-            oldString: options.oldString,
-            newString: options.newString,
-            replaceAll: options.replaceAll,
-            dryRun: options.dryRun,
-            structuredPatch: output.structuredPatch,
-            gitDiff: output.gitDiff,
-            message: options.dryRun
-              ? `Dry-run: 预览 ${options.filePath} 的更改`
-              : `已成功编辑 ${options.filePath}${options.replaceAll ? ' (已替换所有匹配项)' : ''}`,
-          }, null, 2),
+          message: JSON.stringify(
+            {
+              success: true,
+              filePath: options.filePath,
+              oldString: options.oldString,
+              newString: options.newString,
+              replaceAll: options.replaceAll,
+              dryRun: options.dryRun,
+              structuredPatch: output.structuredPatch,
+              gitDiff: output.gitDiff,
+              message: options.dryRun
+                ? `Dry-run: 预览 ${options.filePath} 的更改`
+                : `已成功编辑 ${options.filePath}${options.replaceAll ? ' (已替换所有匹配项)' : ''}`,
+            },
+            null,
+            2
+          ),
         };
       }
 
@@ -251,7 +273,9 @@ const editCommand = {
 
       if (options.dryRun) {
         resultParts.push(`[DRY-RUN] 预览 ${options.filePath} 的更改:`);
-        resultParts.push(`  替换: "${options.oldString}" → "${options.newString}"`);
+        resultParts.push(
+          `  替换: "${options.oldString}" → "${options.newString}"`
+        );
       } else {
         resultParts.push(`已成功编辑 ${options.filePath}${mode}`);
       }
@@ -264,7 +288,9 @@ const editCommand = {
 
       if (output.gitDiff) {
         resultParts.push('');
-        resultParts.push(`Git diff: +${output.gitDiff.additions} -${output.gitDiff.deletions} (${output.gitDiff.status})`);
+        resultParts.push(
+          `Git diff: +${output.gitDiff.additions} -${output.gitDiff.deletions} (${output.gitDiff.status})`
+        );
         if (output.gitDiff.patch) {
           resultParts.push('');
           resultParts.push(output.gitDiff.patch);
@@ -279,11 +305,15 @@ const editCommand = {
       if (options.showJson) {
         return {
           success: false,
-          message: JSON.stringify({
-            success: false,
-            filePath: options.filePath,
-            error: error instanceof Error ? error.message : String(error),
-          }, null, 2),
+          message: JSON.stringify(
+            {
+              success: false,
+              filePath: options.filePath,
+              error: error instanceof Error ? error.message : String(error),
+            },
+            null,
+            2
+          ),
         };
       }
       return {

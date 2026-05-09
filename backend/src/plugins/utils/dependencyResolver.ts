@@ -23,7 +23,12 @@ export type ResolutionResult =
   | { ok: true; closure: PluginId[] }
   | { ok: false; reason: 'cycle'; chain: PluginId[] }
   | { ok: false; reason: 'not-found'; missing: PluginId; requiredBy: PluginId }
-  | { ok: false; reason: 'cross-marketplace'; dependency: PluginId; requiredBy: PluginId };
+  | {
+      ok: false;
+      reason: 'cross-marketplace';
+      dependency: PluginId;
+      requiredBy: PluginId;
+    };
 
 /**
  * 验证和降级结果
@@ -52,7 +57,10 @@ const INLINE_MARKETPLACE = 'inline';
 /**
  * 标准化依赖引用为完全限定的"name@marketplace"形式
  */
-export function qualifyDependency(dep: string, declaringPluginId: string): string {
+export function qualifyDependency(
+  dep: string,
+  declaringPluginId: string
+): string {
   const parsed = parsePluginIdentifier(dep);
   if (parsed.marketplace) return dep;
 
@@ -75,14 +83,17 @@ export async function resolveDependencyClosure(
   rootId: PluginId,
   lookup: (id: PluginId) => Promise<DependencyLookupResult | null>,
   alreadyEnabled: ReadonlySet<PluginId>,
-  allowedCrossMarketplaces: ReadonlySet<string> = new Set(),
+  allowedCrossMarketplaces: ReadonlySet<string> = new Set()
 ): Promise<ResolutionResult> {
   const rootMarketplace = parsePluginIdentifier(rootId).marketplace;
   const closure: PluginId[] = [];
   const visited = new Set<PluginId>();
   const stack: PluginId[] = [];
 
-  async function walk(id: PluginId, requiredBy: PluginId): Promise<ResolutionResult | null> {
+  async function walk(
+    id: PluginId,
+    requiredBy: PluginId
+  ): Promise<ResolutionResult | null> {
     if (id !== rootId && alreadyEnabled.has(id)) return null;
 
     const idMarketplace = parsePluginIdentifier(id).marketplace;
@@ -90,7 +101,12 @@ export async function resolveDependencyClosure(
       idMarketplace !== rootMarketplace &&
       !(idMarketplace && allowedCrossMarketplaces.has(idMarketplace))
     ) {
-      return { ok: false, reason: 'cross-marketplace', dependency: id, requiredBy };
+      return {
+        ok: false,
+        reason: 'cross-marketplace',
+        dependency: id,
+        requiredBy,
+      };
     }
 
     if (stack.includes(id)) {
@@ -128,11 +144,17 @@ export async function resolveDependencyClosure(
  * @param plugins 所有加载的插件（已启用+已禁用）
  * @returns 要降级的插件ID集合和错误列表
  */
-export function verifyAndDemote(plugins: readonly LoadedPlugin[]): DemoteResult {
-  const known = new Set(plugins.map(p => p.source));
-  const enabled = new Set(plugins.filter(p => p.enabled).map(p => p.source));
+export function verifyAndDemote(
+  plugins: readonly LoadedPlugin[]
+): DemoteResult {
+  const known = new Set(plugins.map((p) => p.source));
+  const enabled = new Set(
+    plugins.filter((p) => p.enabled).map((p) => p.source)
+  );
 
-  const knownByName = new Set(plugins.map(p => parsePluginIdentifier(p.source).name ?? ''));
+  const knownByName = new Set(
+    plugins.map((p) => parsePluginIdentifier(p.source).name ?? '')
+  );
   const enabledByName = new Map<string, number>();
   const enabledArray = Array.from(enabled);
   for (const id of enabledArray) {
@@ -166,7 +188,13 @@ export function verifyAndDemote(plugins: readonly LoadedPlugin[]): DemoteResult 
             source: p.source,
             plugin: p.name,
             dependency: dep,
-            reason: isBare ? (knownByName.has(dep) ? 'not-enabled' : 'not-found') : (known.has(dep) ? 'not-enabled' : 'not-found'),
+            reason: isBare
+              ? knownByName.has(dep)
+                ? 'not-enabled'
+                : 'not-found'
+              : known.has(dep)
+                ? 'not-enabled'
+                : 'not-found',
           });
           changed = true;
           break;
@@ -176,7 +204,9 @@ export function verifyAndDemote(plugins: readonly LoadedPlugin[]): DemoteResult 
   }
 
   const demoted = new Set(
-    plugins.filter(p => p.enabled && !enabled.has(p.source)).map(p => p.source),
+    plugins
+      .filter((p) => p.enabled && !enabled.has(p.source))
+      .map((p) => p.source)
   );
 
   return { demoted, errors };
@@ -191,18 +221,19 @@ export function verifyAndDemote(plugins: readonly LoadedPlugin[]): DemoteResult 
  */
 export function findReverseDependents(
   pluginId: PluginId,
-  plugins: readonly LoadedPlugin[],
+  plugins: readonly LoadedPlugin[]
 ): string[] {
   const { name: targetName } = parsePluginIdentifier(pluginId);
   return plugins
-    .filter(p =>
-      p.enabled &&
-      (p.manifest.dependencies ?? []).some((dep: string) => {
-        const { name } = parsePluginIdentifier(dep);
-        return name === targetName;
-      })
+    .filter(
+      (p) =>
+        p.enabled &&
+        (p.manifest.dependencies ?? []).some((dep: string) => {
+          const { name } = parsePluginIdentifier(dep);
+          return name === targetName;
+        })
     )
-    .map(p => p.name);
+    .map((p) => p.name);
 }
 
 /**
@@ -226,7 +257,9 @@ export function topologicalSort(plugins: LoadedPlugin[]): LoadedPlugin[] {
   for (const plugin of plugins) {
     for (const dep of plugin.manifest.dependencies ?? []) {
       const depKey = qualifyDependency(dep, plugin.source);
-      const existingDep = plugins.find(p => p.source === depKey || p.name === dep);
+      const existingDep = plugins.find(
+        (p) => p.source === depKey || p.name === dep
+      );
       if (existingDep) {
         graph.get(existingDep.source)?.push(plugin);
         inDegree.set(plugin.source, (inDegree.get(plugin.source) ?? 0) + 1);
@@ -272,7 +305,7 @@ export function detectCycle(plugins: LoadedPlugin[]): PluginId[] | null {
     recStack.add(pluginId);
     path.push(pluginId);
 
-    const plugin = plugins.find(p => p.source === pluginId);
+    const plugin = plugins.find((p) => p.source === pluginId);
     if (plugin) {
       for (const dep of plugin.manifest.dependencies ?? []) {
         const depKey = qualifyDependency(dep, pluginId);

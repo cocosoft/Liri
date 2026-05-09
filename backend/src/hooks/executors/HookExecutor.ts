@@ -127,7 +127,13 @@ export class HookExecutor {
       }
 
       // 记录性能结束
-      performanceManager.endExecution(hookId, hook.name, hook.config.type, result.success, result.error);
+      performanceManager.endExecution(
+        hookId,
+        hook.name,
+        hook.config.type,
+        result.success,
+        result.error
+      );
 
       // 记录Hook执行完成
       diagnosticManager.logEvent('hook_completed', {
@@ -144,10 +150,17 @@ export class HookExecutor {
 
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
 
       // 记录性能结束
-      performanceManager.endExecution(hookId, hook.name, hook.config.type || 'unknown', false, errorMessage);
+      performanceManager.endExecution(
+        hookId,
+        hook.name,
+        hook.config.type || 'unknown',
+        false,
+        errorMessage
+      );
 
       // 记录Hook执行错误
       diagnosticManager.logEvent('hook_error', {
@@ -181,7 +194,7 @@ export class HookExecutor {
    */
   public async cancelHook(processId: string): Promise<void> {
     await asyncHookRegistry.cancelHook(processId);
-    
+
     // 记录Hook取消
     diagnosticManager.logEvent('hook_cancelled', {
       details: {
@@ -208,7 +221,7 @@ export class HookExecutor {
     hooks: IndividualHookConfig[],
     context: HookExecutionContext
   ): Promise<HookExecutionResult[]> {
-    const tasks = hooks.map(hook => () => this.execute(hook, context));
+    const tasks = hooks.map((hook) => () => this.execute(hook, context));
     return await performanceManager.executeParallel(tasks);
   }
 
@@ -224,7 +237,7 @@ export class HookExecutor {
     context: HookExecutionContext,
     batchSize: number = 10
   ): Promise<HookExecutionResult[]> {
-    const tasks = hooks.map(hook => () => this.execute(hook, context));
+    const tasks = hooks.map((hook) => () => this.execute(hook, context));
     return await performanceManager.executeBatch(tasks, batchSize);
   }
 

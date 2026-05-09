@@ -14,6 +14,8 @@ export const btwCommand: Command = {
   aliases: [],
   argumentHint: '<备注内容>',
   whenToUse: '当你需要快速记录一个简短备注时',
-  load: async () => import('./Btw.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Btw.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

@@ -19,7 +19,7 @@ export class Branch implements CommandImplementation {
     try {
       // 解析参数
       const params = this.parseArgs(args);
-      
+
       // 根据参数执行不同的分支操作
       if (params.create) {
         return await this.createBranch(params.branchName, context);
@@ -66,8 +66,8 @@ export class Branch implements CommandImplementation {
       return params;
     }
 
-    const argsList = args.split(' ').filter(arg => arg.trim());
-    
+    const argsList = args.split(' ').filter((arg) => arg.trim());
+
     for (let i = 0; i < argsList.length; i++) {
       const arg = argsList[i];
       switch (arg.toLowerCase()) {
@@ -98,7 +98,13 @@ export class Branch implements CommandImplementation {
           break;
         default:
           // 如果没有指定操作，第一个参数可能是分支名
-          if (i === 0 && !params.create && !params.switch && !params.delete && !params.list) {
+          if (
+            i === 0 &&
+            !params.create &&
+            !params.switch &&
+            !params.delete &&
+            !params.list
+          ) {
             params.switch = true;
             params.branchName = arg;
           }
@@ -125,30 +131,34 @@ export class Branch implements CommandImplementation {
 
     try {
       const { exec } = await import('child_process');
-      
+
       return new Promise((resolve) => {
-        exec(`git checkout -b ${branchName}`, { cwd: context.cwd || process.cwd() }, (error, stdout, stderr) => {
-          if (error) {
-            resolve({
-              success: false,
-              error: `Failed to create branch: ${error.message}`,
-            });
-            return;
-          }
+        exec(
+          `git checkout -b ${branchName}`,
+          { cwd: context.cwd || process.cwd() },
+          (error, stdout, stderr) => {
+            if (error) {
+              resolve({
+                success: false,
+                error: `Failed to create branch: ${error.message}`,
+              });
+              return;
+            }
 
-          if (stderr && !stderr.includes('Switched to a new branch')) {
-            resolve({
-              success: false,
-              error: `Git error: ${stderr}`,
-            });
-            return;
-          }
+            if (stderr && !stderr.includes('Switched to a new branch')) {
+              resolve({
+                success: false,
+                error: `Git error: ${stderr}`,
+              });
+              return;
+            }
 
-          resolve({
-            success: true,
-            message: `Branch '${branchName}' created successfully`,
-          });
-        });
+            resolve({
+              success: true,
+              message: `Branch '${branchName}' created successfully`,
+            });
+          }
+        );
       });
     } catch (error) {
       return {
@@ -174,22 +184,26 @@ export class Branch implements CommandImplementation {
 
     try {
       const { exec } = await import('child_process');
-      
-      return new Promise((resolve) => {
-        exec(`git checkout ${branchName}`, { cwd: context.cwd || process.cwd() }, (error, stdout, stderr) => {
-          if (error) {
-            resolve({
-              success: false,
-              error: `Failed to switch branch: ${error.message}`,
-            });
-            return;
-          }
 
-          resolve({
-            success: true,
-            message: `Switched to branch '${branchName}'`,
-          });
-        });
+      return new Promise((resolve) => {
+        exec(
+          `git checkout ${branchName}`,
+          { cwd: context.cwd || process.cwd() },
+          (error, stdout, stderr) => {
+            if (error) {
+              resolve({
+                success: false,
+                error: `Failed to switch branch: ${error.message}`,
+              });
+              return;
+            }
+
+            resolve({
+              success: true,
+              message: `Switched to branch '${branchName}'`,
+            });
+          }
+        );
       });
     } catch (error) {
       return {
@@ -215,33 +229,41 @@ export class Branch implements CommandImplementation {
 
     try {
       const { exec } = await import('child_process');
-      
+
       return new Promise((resolve) => {
-        exec(`git branch -d ${branchName}`, { cwd: context.cwd || process.cwd() }, (error, stdout, stderr) => {
-          if (error) {
-            // 尝试强制删除
-            exec(`git branch -D ${branchName}`, { cwd: context.cwd || process.cwd() }, (error2, stdout2, stderr2) => {
-              if (error2) {
-                resolve({
-                  success: false,
-                  error: `Failed to delete branch: ${error2.message}`,
-                });
-                return;
-              }
+        exec(
+          `git branch -d ${branchName}`,
+          { cwd: context.cwd || process.cwd() },
+          (error, stdout, stderr) => {
+            if (error) {
+              // 尝试强制删除
+              exec(
+                `git branch -D ${branchName}`,
+                { cwd: context.cwd || process.cwd() },
+                (error2, stdout2, stderr2) => {
+                  if (error2) {
+                    resolve({
+                      success: false,
+                      error: `Failed to delete branch: ${error2.message}`,
+                    });
+                    return;
+                  }
 
-              resolve({
-                success: true,
-                message: `Branch '${branchName}' deleted forcefully`,
-              });
+                  resolve({
+                    success: true,
+                    message: `Branch '${branchName}' deleted forcefully`,
+                  });
+                }
+              );
+              return;
+            }
+
+            resolve({
+              success: true,
+              message: `Branch '${branchName}' deleted successfully`,
             });
-            return;
           }
-
-          resolve({
-            success: true,
-            message: `Branch '${branchName}' deleted successfully`,
-          });
-        });
+        );
       });
     } catch (error) {
       return {
@@ -259,53 +281,57 @@ export class Branch implements CommandImplementation {
   private async listBranches(context: any): Promise<any> {
     try {
       const { exec } = await import('child_process');
-      
+
       return new Promise((resolve) => {
-        exec('git branch --list', { cwd: context.cwd || process.cwd() }, (error, stdout, stderr) => {
-          if (error) {
+        exec(
+          'git branch --list',
+          { cwd: context.cwd || process.cwd() },
+          (error, stdout, stderr) => {
+            if (error) {
+              resolve({
+                success: false,
+                error: `Failed to list branches: ${error.message}`,
+              });
+              return;
+            }
+
+            if (stderr) {
+              resolve({
+                success: false,
+                error: `Git error: ${stderr}`,
+              });
+              return;
+            }
+
+            const branches = stdout
+              .split('\n')
+              .filter((line) => line.trim())
+              .map((line) => {
+                const isCurrent = line.startsWith('*');
+                const branchName = line.replace('*', '').trim();
+                return { isCurrent, branchName };
+              });
+
+            const currentBranch = branches.find((b) => b.isCurrent);
+            const otherBranches = branches.filter((b) => !b.isCurrent);
+
+            let message = `Current branch: ${currentBranch?.branchName || 'unknown'}\n\n`;
+
+            if (otherBranches.length > 0) {
+              message += 'Other branches:\n';
+              otherBranches.forEach((branch) => {
+                message += `  ${branch.branchName}\n`;
+              });
+            } else {
+              message += 'No other branches found';
+            }
+
             resolve({
-              success: false,
-              error: `Failed to list branches: ${error.message}`,
+              success: true,
+              message,
             });
-            return;
           }
-
-          if (stderr) {
-            resolve({
-              success: false,
-              error: `Git error: ${stderr}`,
-            });
-            return;
-          }
-
-          const branches = stdout
-            .split('\n')
-            .filter(line => line.trim())
-            .map(line => {
-              const isCurrent = line.startsWith('*');
-              const branchName = line.replace('*', '').trim();
-              return { isCurrent, branchName };
-            });
-
-          const currentBranch = branches.find(b => b.isCurrent);
-          const otherBranches = branches.filter(b => !b.isCurrent);
-
-          let message = `Current branch: ${currentBranch?.branchName || 'unknown'}\n\n`;
-          
-          if (otherBranches.length > 0) {
-            message += 'Other branches:\n';
-            otherBranches.forEach(branch => {
-              message += `  ${branch.branchName}\n`;
-            });
-          } else {
-            message += 'No other branches found';
-          }
-
-          resolve({
-            success: true,
-            message,
-          });
-        });
+        );
       });
     } catch (error) {
       return {

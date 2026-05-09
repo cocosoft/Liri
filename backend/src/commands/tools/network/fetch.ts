@@ -286,7 +286,8 @@ export const fetchCommand: Command = {
   name: 'fetch',
   description: '获取网页内容',
   aliases: ['web_fetch'],
-  argumentHint: '<url> [-X method] [-H header] [-d data] [--timeout ms] [--raw]',
+  argumentHint:
+    '<url> [-X method] [-H header] [-d data] [--timeout ms] [--raw]',
   whenToUse: '当你需要获取网页内容、调用 HTTP API、或测试网络端点时',
   getPromptForCommand,
   load: async () => ({
@@ -381,7 +382,9 @@ export const fetchCommand: Command = {
         const statusCode = status || 200;
         if (statusCode >= 400) {
           lines.push('');
-          lines.push(`Error: HTTP ${status}${statusText ? ` ${statusText}` : ''}`);
+          lines.push(
+            `Error: HTTP ${status}${statusText ? ` ${statusText}` : ''}`
+          );
           lines.push('');
           lines.push(content || 'No response body');
           return {
@@ -416,16 +419,30 @@ export const fetchCommand: Command = {
 
         let recovery = '';
         if (errorMsg.includes('ENOTFOUND') || errorMsg.includes('DNS')) {
-          recovery = '\n提示: 无法解析域名，请检查 URL 是否正确，或网络连接是否正常';
+          recovery =
+            '\n提示: 无法解析域名，请检查 URL 是否正确，或网络连接是否正常';
         } else if (errorMsg.includes('ECONNREFUSED')) {
           recovery = '\n提示: 连接被拒绝，目标服务器可能未运行或端口不正确';
-        } else if (errorMsg.includes('ETIMEDOUT') || errorMsg.includes('timeout') || errorMsg.includes('abort')) {
+        } else if (
+          errorMsg.includes('ETIMEDOUT') ||
+          errorMsg.includes('timeout') ||
+          errorMsg.includes('abort')
+        ) {
           recovery = `\n提示: 请求超时。可使用 --timeout 增加超时时间（当前: ${options.timeout}ms）`;
-        } else if (errorMsg.includes('SSL') || errorMsg.includes('certificate')) {
+        } else if (
+          errorMsg.includes('SSL') ||
+          errorMsg.includes('certificate')
+        ) {
           recovery = '\n提示: SSL 证书错误，请确认 URL 使用 HTTPS 且证书有效';
-        } else if (errorMsg.includes('400') || errorMsg.includes('401') || errorMsg.includes('403') ||
-                   errorMsg.includes('404') || errorMsg.includes('500')) {
-          recovery = '\n提示: 服务器返回了错误状态码。请检查 URL 和请求参数是否正确';
+        } else if (
+          errorMsg.includes('400') ||
+          errorMsg.includes('401') ||
+          errorMsg.includes('403') ||
+          errorMsg.includes('404') ||
+          errorMsg.includes('500')
+        ) {
+          recovery =
+            '\n提示: 服务器返回了错误状态码。请检查 URL 和请求参数是否正确';
         }
 
         return {

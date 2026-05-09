@@ -32,9 +32,18 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'code',
     alias: ['vscode', 'code'],
     commonPaths: [
-      join(process.env.LOCALAPPDATA || '', 'Programs\\Microsoft VS Code\\bin\\code.cmd'),
-      join(process.env['ProgramW6432'] || '', 'Microsoft VS Code\\bin\\code.cmd'),
-      join(process.env['ProgramFiles(x86)'] || '', 'Microsoft VS Code\\bin\\code.cmd'),
+      join(
+        process.env.LOCALAPPDATA || '',
+        'Programs\\Microsoft VS Code\\bin\\code.cmd'
+      ),
+      join(
+        process.env['ProgramW6432'] || '',
+        'Microsoft VS Code\\bin\\code.cmd'
+      ),
+      join(
+        process.env['ProgramFiles(x86)'] || '',
+        'Microsoft VS Code\\bin\\code.cmd'
+      ),
     ],
   },
   {
@@ -43,7 +52,10 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     alias: ['cursor'],
     commonPaths: [
       join(process.env.LOCALAPPDATA || '', 'Programs\\cursor\\Cursor.exe'),
-      join(process.env.USERPROFILE || '', 'AppData\\Local\\Programs\\cursor\\Cursor.exe'),
+      join(
+        process.env.USERPROFILE || '',
+        'AppData\\Local\\Programs\\cursor\\Cursor.exe'
+      ),
     ],
   },
   {
@@ -76,8 +88,14 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'idea',
     alias: ['idea', 'intellij'],
     commonPaths: [
-      join(process.env['ProgramW6432'] || '', 'JetBrains\\IntelliJ IDEA\\bin\\idea64.exe'),
-      join(process.env['ProgramFiles(x86)'] || '', 'JetBrains\\IntelliJ IDEA\\bin\\idea64.exe'),
+      join(
+        process.env['ProgramW6432'] || '',
+        'JetBrains\\IntelliJ IDEA\\bin\\idea64.exe'
+      ),
+      join(
+        process.env['ProgramFiles(x86)'] || '',
+        'JetBrains\\IntelliJ IDEA\\bin\\idea64.exe'
+      ),
     ],
   },
   {
@@ -85,8 +103,14 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'pycharm',
     alias: ['pycharm'],
     commonPaths: [
-      join(process.env['ProgramW6432'] || '', 'JetBrains\\PyCharm\\bin\\pycharm64.exe'),
-      join(process.env['ProgramFiles(x86)'] || '', 'JetBrains\\PyCharm\\bin\\pycharm64.exe'),
+      join(
+        process.env['ProgramW6432'] || '',
+        'JetBrains\\PyCharm\\bin\\pycharm64.exe'
+      ),
+      join(
+        process.env['ProgramFiles(x86)'] || '',
+        'JetBrains\\PyCharm\\bin\\pycharm64.exe'
+      ),
     ],
   },
   {
@@ -94,8 +118,14 @@ const SUPPORTED_IDES: IDEDefinition[] = [
     command: 'webstorm',
     alias: ['webstorm'],
     commonPaths: [
-      join(process.env['ProgramW6432'] || '', 'JetBrains\\WebStorm\\bin\\webstorm64.exe'),
-      join(process.env['ProgramFiles(x86)'] || '', 'JetBrains\\WebStorm\\bin\\webstorm64.exe'),
+      join(
+        process.env['ProgramW6432'] || '',
+        'JetBrains\\WebStorm\\bin\\webstorm64.exe'
+      ),
+      join(
+        process.env['ProgramFiles(x86)'] || '',
+        'JetBrains\\WebStorm\\bin\\webstorm64.exe'
+      ),
     ],
   },
 ];
@@ -155,7 +185,10 @@ IDE 命令帮助:
 /**
  * 通过 PATH 检测 IDE 是否安装
  */
-function detectByPath(def: IDEDefinition): { installed: boolean; path?: string } {
+function detectByPath(def: IDEDefinition): {
+  installed: boolean;
+  path?: string;
+} {
   try {
     const result = execSync(`where ${def.command}`, {
       encoding: 'utf8',
@@ -175,7 +208,10 @@ function detectByPath(def: IDEDefinition): { installed: boolean; path?: string }
 /**
  * 通过常见安装路径检测 IDE 是否安装
  */
-function detectByCommonPaths(def: IDEDefinition): { installed: boolean; path?: string } {
+function detectByCommonPaths(def: IDEDefinition): {
+  installed: boolean;
+  path?: string;
+} {
   if (!def.commonPaths) return { installed: false };
   for (const candidatePath of def.commonPaths) {
     try {
@@ -195,21 +231,24 @@ function detectByCommonPaths(def: IDEDefinition): { installed: boolean; path?: s
 function scanStartMenuPrograms(): IDEDetection[] {
   const results: IDEDetection[] = [];
   const startMenuDirs = [
-    join(process.env.ProgramData || '', 'Microsoft\\Windows\\Start Menu\\Programs'),
+    join(
+      process.env.ProgramData || '',
+      'Microsoft\\Windows\\Start Menu\\Programs'
+    ),
     join(process.env.APPDATA || '', 'Microsoft\\Windows\\Start Menu\\Programs'),
   ];
 
   const knownIDEs: Record<string, { name: string; command: string }> = {
-    'code': { name: 'VS Code', command: 'code' },
-    'vscode': { name: 'VS Code', command: 'code' },
-    'cursor': { name: 'Cursor', command: 'cursor' },
-    'trae': { name: 'Trae', command: 'trae' },
-    'windsurf': { name: 'Windsurf', command: 'windsurf' },
-    'zed': { name: 'Zed', command: 'zed' },
-    'idea': { name: 'IntelliJ IDEA', command: 'idea' },
-    'intellij': { name: 'IntelliJ IDEA', command: 'idea' },
-    'pycharm': { name: 'PyCharm', command: 'pycharm' },
-    'webstorm': { name: 'WebStorm', command: 'webstorm' },
+    code: { name: 'VS Code', command: 'code' },
+    vscode: { name: 'VS Code', command: 'code' },
+    cursor: { name: 'Cursor', command: 'cursor' },
+    trae: { name: 'Trae', command: 'trae' },
+    windsurf: { name: 'Windsurf', command: 'windsurf' },
+    zed: { name: 'Zed', command: 'zed' },
+    idea: { name: 'IntelliJ IDEA', command: 'idea' },
+    intellij: { name: 'IntelliJ IDEA', command: 'idea' },
+    pycharm: { name: 'PyCharm', command: 'pycharm' },
+    webstorm: { name: 'WebStorm', command: 'webstorm' },
   };
 
   for (const dir of startMenuDirs) {
@@ -221,7 +260,7 @@ function scanStartMenuPrograms(): IDEDetection[] {
         for (const [key, ideInfo] of Object.entries(knownIDEs)) {
           if (lower.includes(key)) {
             const fullPath = join(dir, item.name);
-            if (!results.some(r => r.name === ideInfo.name)) {
+            if (!results.some((r) => r.name === ideInfo.name)) {
               results.push({
                 name: ideInfo.name,
                 command: ideInfo.command,
@@ -246,7 +285,7 @@ function detectIDEs(): IDEDetection[] {
   const scanResults = scanStartMenuPrograms();
 
   return SUPPORTED_IDES.map((def) => {
-    const fromScan = scanResults.find(r => r.name === def.name);
+    const fromScan = scanResults.find((r) => r.name === def.name);
     if (fromScan) return fromScan;
 
     const pathResult = detectByPath(def);
@@ -266,7 +305,11 @@ function detectIDEs(): IDEDetection[] {
 /**
  * 在指定 IDE 中打开项目目录
  */
-function openInIDE(command: string, cwd: string, installedPath?: string): boolean {
+function openInIDE(
+  command: string,
+  cwd: string,
+  installedPath?: string
+): boolean {
   try {
     if (installedPath) {
       execSync(`"${installedPath}" "${cwd}"`, {
@@ -291,8 +334,8 @@ function openInIDE(command: string, cwd: string, installedPath?: string): boolea
 function idesToJson(ides: IDEDetection[]): Record<string, unknown> {
   return {
     total: ides.length,
-    installed: ides.filter(i => i.installed).length,
-    ides: ides.map(ide => ({
+    installed: ides.filter((i) => i.installed).length,
+    ides: ides.map((ide) => ({
       name: ide.name,
       installed: ide.installed,
       path: ide.path || null,
@@ -306,10 +349,13 @@ function idesToJson(ides: IDEDetection[]): Record<string, unknown> {
  */
 function handleList(showJson: boolean): CommandResult {
   const ides = detectIDEs();
-  const installed = ides.filter(i => i.installed);
+  const installed = ides.filter((i) => i.installed);
 
   if (showJson) {
-    return { success: true, message: JSON.stringify(idesToJson(ides), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(idesToJson(ides), null, 2),
+    };
   }
 
   const lines: string[] = ['已检测的 IDE:\n'];
@@ -323,7 +369,9 @@ function handleList(showJson: boolean): CommandResult {
   if (installed.length === 0) {
     lines.push('\n未检测到已安装的 IDE，请确认已正确安装。');
   } else {
-    lines.push(`\n共检测到 ${installed.length}/${ides.length} 个已安装的 IDE。`);
+    lines.push(
+      `\n共检测到 ${installed.length}/${ides.length} 个已安装的 IDE。`
+    );
     lines.push('\n使用 "\\ide open" 在当前 IDE 中打开项目目录。');
   }
 
@@ -335,14 +383,14 @@ function handleList(showJson: boolean): CommandResult {
  */
 function handleOpen(context: CommandContext): CommandResult {
   const ides = detectIDEs();
-  const installed = ides.filter(i => i.installed);
+  const installed = ides.filter((i) => i.installed);
 
   if (installed.length === 0) {
     return { success: false, message: '未检测到已安装的 IDE，无法打开项目。' };
   }
 
   const cwd = context.cwd || process.cwd();
-  const preferred = installed.find(i => i.command === 'code') || installed[0];
+  const preferred = installed.find((i) => i.command === 'code') || installed[0];
 
   const opened = openInIDE(preferred.command, cwd, preferred.path);
 

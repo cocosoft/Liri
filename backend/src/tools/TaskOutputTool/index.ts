@@ -3,5 +3,9 @@
  */
 
 export { TaskOutputTool } from './TaskOutputTool';
-export type { TaskOutputData, TaskOutputToolInput, TaskOutputToolOutput } from './TaskOutputTool';
+export type {
+  TaskOutputData,
+  TaskOutputToolInput,
+  TaskOutputToolOutput,
+} from './TaskOutputTool';
 export * from './constants';

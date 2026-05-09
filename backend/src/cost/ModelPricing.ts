@@ -109,12 +109,12 @@ export const MODEL_ALIASES: Record<string, string> = {
   'claude-4-5-sonnet': 'claude-sonnet-4-5-20250929',
   'claude-4-5-haiku': 'claude-haiku-4-5-20251001',
   'claude-4-6-opus': 'claude-opus-4-6',
-  
+
   // OpenAI GPT 模型别名
   'gpt-4-turbo-preview': 'gpt-4-turbo',
   'gpt-4-1106-preview': 'gpt-4-turbo',
   'gpt-3.5-turbo-16k': 'gpt-3.5-turbo',
-  
+
   // Google Gemini 模型别名
   'gemini-1.5-pro-latest': 'gemini-1.5-pro',
   'gemini-1.5-flash-latest': 'gemini-1.5-flash',
@@ -129,7 +129,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   'claude-3-5-sonnet-v2-20241022': COST_TIER_3_15,
   'claude-3-7-sonnet-20250219': COST_TIER_3_15,
   'claude-3-5-haiku-20241022': COST_HAIKU_35,
-  
+
   // Anthropic Claude 模型 - 3系列
   'claude-3-opus-20240229': COST_TIER_15_75,
   'claude-3-sonnet-20240229': COST_TIER_3_15,
@@ -140,7 +140,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheCreationPricePerMillion: 0.3,
     webSearchPricePerRequest: 0.01,
   },
-  
+
   // Anthropic Claude 模型 - 4系列
   'claude-opus-4-6': COST_TIER_15_75,
   'claude-opus-4-5-20251101': COST_TIER_15_75,
@@ -150,7 +150,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   'claude-sonnet-4-5-20250929': COST_TIER_3_15,
   'claude-sonnet-4-20250514': COST_TIER_3_15,
   'claude-haiku-4-5-20251001': COST_HAIKU_45,
-  
+
   // OpenAI GPT 模型
   'gpt-4o': {
     inputPricePerMillion: 5.0,
@@ -187,7 +187,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheCreationPricePerMillion: 0.625,
     webSearchPricePerRequest: 0.01,
   },
-  
+
   // Google Gemini 模型
   'gemini-1.5-pro': {
     inputPricePerMillion: 3.5,
@@ -217,7 +217,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheCreationPricePerMillion: 5.0,
     webSearchPricePerRequest: 0.01,
   },
-  
+
   // DeepSeek 模型
   'deepseek-chat': {
     inputPricePerMillion: 0.5,
@@ -233,7 +233,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheCreationPricePerMillion: 2.5,
     webSearchPricePerRequest: 0.01,
   },
-  
+
   // Meta Llama 模型
   'meta-llama-3-70b': {
     inputPricePerMillion: 1.0,
@@ -270,7 +270,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheCreationPricePerMillion: 0.25,
     webSearchPricePerRequest: 0.01,
   },
-  
+
   // Azure OpenAI 模型
   'gpt-4o-azure': {
     inputPricePerMillion: 5.0,
@@ -286,7 +286,7 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheCreationPricePerMillion: 0.1875,
     webSearchPricePerRequest: 0.01,
   },
-  
+
   // AWS Bedrock 模型
   'anthropic.claude-3-5-sonnet-20241022-v2:0': COST_TIER_3_15,
   'anthropic.claude-3-5-haiku-20241022-v1:0': COST_HAIKU_35,
@@ -327,20 +327,23 @@ export function getCanonicalModelName(modelName: string): string {
 /**
  * 获取模型定价配置
  */
-export function getModelPricing(modelName: string, isFastMode?: boolean): ModelPricing {
+export function getModelPricing(
+  modelName: string,
+  isFastMode?: boolean
+): ModelPricing {
   const canonicalName = getCanonicalModelName(modelName);
   let pricing = MODEL_PRICING[canonicalName];
-  
+
   if (!pricing) {
     hasUnknownModelCost = true;
     return DEFAULT_UNKNOWN_MODEL_COST;
   }
-  
+
   // 如果是快速模式且有快速模式定价配置，使用快速模式定价
   if (isFastMode && pricing.fastModePricing) {
     return pricing.fastModePricing;
   }
-  
+
   return pricing;
 }
 
@@ -368,7 +371,7 @@ export function calculateModelCost(
   cacheReadTokens: number = 0,
   cacheCreationTokens: number = 0,
   webSearchRequests: number = 0,
-  isFastMode?: boolean,
+  isFastMode?: boolean
 ): number {
   const pricing = getModelPricing(modelName, isFastMode);
 
@@ -384,7 +387,8 @@ export function calculateModelCost(
   cost += (cacheReadTokens / 1_000_000) * pricing.cacheReadPricePerMillion;
 
   // 计算缓存创建令牌成本
-  cost += (cacheCreationTokens / 1_000_000) * pricing.cacheCreationPricePerMillion;
+  cost +=
+    (cacheCreationTokens / 1_000_000) * pricing.cacheCreationPricePerMillion;
 
   // 计算网络搜索请求成本
   cost += webSearchRequests * pricing.webSearchPricePerRequest;
@@ -404,7 +408,7 @@ export function calculateCostFromTokens(
     cacheCreationTokens?: number;
     webSearchRequests?: number;
   },
-  isFastMode?: boolean,
+  isFastMode?: boolean
 ): number {
   return calculateModelCost(
     modelName,
@@ -413,7 +417,7 @@ export function calculateCostFromTokens(
     tokens.cacheReadTokens || 0,
     tokens.cacheCreationTokens || 0,
     tokens.webSearchRequests || 0,
-    isFastMode,
+    isFastMode
   );
 }
 
@@ -437,7 +441,10 @@ export function formatModelPricing(pricing: ModelPricing): string {
 /**
  * 获取模型定价字符串
  */
-export function getModelPricingString(modelName: string, isFastMode?: boolean): string {
+export function getModelPricingString(
+  modelName: string,
+  isFastMode?: boolean
+): string {
   const pricing = getModelPricing(modelName, isFastMode);
   return formatModelPricing(pricing);
 }

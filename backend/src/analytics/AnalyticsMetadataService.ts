@@ -173,7 +173,9 @@ export class AnalyticsMetadataService {
    * 检查是否启用详细工具名称日志
    */
   isToolDetailsLoggingEnabled(): boolean {
-    return env.OTEL_LOG_TOOL_DETAILS === '1' || env.OTEL_LOG_TOOL_DETAILS === 'true';
+    return (
+      env.OTEL_LOG_TOOL_DETAILS === '1' || env.OTEL_LOG_TOOL_DETAILS === 'true'
+    );
   }
 
   /**

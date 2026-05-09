@@ -14,5 +14,8 @@ export const rewindCommand: Command = {
   aliases: ['undo'],
   argumentHint: '[步数或消息ID]',
   whenToUse: '当你需要撤销之前的对话内容时',
-  load: async () => import('./Rewind.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Rewind.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };

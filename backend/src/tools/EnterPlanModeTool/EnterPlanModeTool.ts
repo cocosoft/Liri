@@ -89,7 +89,8 @@ export class EnterPlanModeTool extends BaseTool<void, EnterPlanModeOutput> {
         newMessages: [
           {
             role: 'system',
-            content: '🎯 已进入计划模式\n\n请描述您的需求或目标，我将为您制定详细的执行计划。\n\n在计划模式下，我会：\n1. 分析您的需求\n2. 分解任务步骤\n3. 评估执行风险\n4. 生成详细的执行计划\n\n输入您的需求即可开始规划！',
+            content:
+              '🎯 已进入计划模式\n\n请描述您的需求或目标，我将为您制定详细的执行计划。\n\n在计划模式下，我会：\n1. 分析您的需求\n2. 分解任务步骤\n3. 评估执行风险\n4. 生成详细的执行计划\n\n输入您的需求即可开始规划！',
           },
         ],
       }

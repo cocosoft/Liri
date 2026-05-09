@@ -14,5 +14,8 @@ export const colorCommand: Command = {
   aliases: ['colorscheme', 'theme'],
   argumentHint: '[show|theme|scheme|reset|help]',
   whenToUse: '当你需要配置界面颜色时',
-  load: async () => import('./Color.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Color.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };

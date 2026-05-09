@@ -12,7 +12,17 @@ export class LocalCommandExecutor implements CommandExecutor {
   private maxOutputLength: number;
 
   constructor(
-    allowedCommands: string[] = ['ls', 'dir', 'cat', 'type', 'echo', 'date', 'time', 'pwd', 'cd'],
+    allowedCommands: string[] = [
+      'ls',
+      'dir',
+      'cat',
+      'type',
+      'echo',
+      'date',
+      'time',
+      'pwd',
+      'cd',
+    ],
     maxOutputLength: number = 10000
   ) {
     this.allowedCommands = new Set(allowedCommands.map((c) => c.toLowerCase()));
@@ -38,7 +48,10 @@ export class LocalCommandExecutor implements CommandExecutor {
     }
   }
 
-  private async handleCreate(args?: Record<string, string>, context?: any): Promise<string> {
+  private async handleCreate(
+    args?: Record<string, string>,
+    context?: any
+  ): Promise<string> {
     const path = args?.path || context?.path;
 
     if (!path) {
@@ -52,7 +65,10 @@ export class LocalCommandExecutor implements CommandExecutor {
     return `Simulated create: ${path}`;
   }
 
-  private async handleDelete(args?: Record<string, string>, context?: any): Promise<string> {
+  private async handleDelete(
+    args?: Record<string, string>,
+    context?: any
+  ): Promise<string> {
     const path = args?.path || context?.path;
 
     if (!path) {
@@ -66,7 +82,10 @@ export class LocalCommandExecutor implements CommandExecutor {
     return `Simulated delete: ${path}`;
   }
 
-  private async handleRead(args?: Record<string, string>, context?: any): Promise<string> {
+  private async handleRead(
+    args?: Record<string, string>,
+    context?: any
+  ): Promise<string> {
     const path = args?.path || context?.path;
 
     if (!path) {
@@ -80,7 +99,10 @@ export class LocalCommandExecutor implements CommandExecutor {
     return `Simulated read: ${path}`;
   }
 
-  private async handleWrite(args?: Record<string, string>, context?: any): Promise<string> {
+  private async handleWrite(
+    args?: Record<string, string>,
+    context?: any
+  ): Promise<string> {
     const path = args?.path || context?.path;
     const content = args?.content || context?.content;
 
@@ -95,7 +117,10 @@ export class LocalCommandExecutor implements CommandExecutor {
     return `Simulated write to: ${path}`;
   }
 
-  private async handleExecute(args?: Record<string, string>, context?: any): Promise<string> {
+  private async handleExecute(
+    args?: Record<string, string>,
+    context?: any
+  ): Promise<string> {
     const command = args?.command || context?.command;
     const commandArgs = args?.args || context?.args;
 
@@ -127,7 +152,8 @@ export class LocalCommandExecutor implements CommandExecutor {
       proc.stdout?.on('data', (data) => {
         output += data.toString();
         if (output.length > this.maxOutputLength) {
-          output = output.substring(0, this.maxOutputLength) + '\n... (truncated)';
+          output =
+            output.substring(0, this.maxOutputLength) + '\n... (truncated)';
           proc.kill();
         }
       });
@@ -172,6 +198,8 @@ export class LocalCommandExecutor implements CommandExecutor {
   }
 }
 
-export function createCommandExecutor(allowedCommands?: string[]): LocalCommandExecutor {
+export function createCommandExecutor(
+  allowedCommands?: string[]
+): LocalCommandExecutor {
   return new LocalCommandExecutor(allowedCommands);
 }

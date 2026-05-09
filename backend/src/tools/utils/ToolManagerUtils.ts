@@ -6,6 +6,9 @@ import type { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { feature as coreFeature } from '@modules/core';
 import { isAntUser } from '@modules/utils/features.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 功能标志检查函数
@@ -27,7 +30,10 @@ export type ToolLoader = (factory: ToolFactory) => Tool | null;
 /**
  * 条件工具加载器
  */
-export function conditionalTool(condition: boolean, loader: ToolLoader): ToolLoader {
+export function conditionalTool(
+  condition: boolean,
+  loader: ToolLoader
+): ToolLoader {
   return (factory: ToolFactory) => {
     if (condition) {
       return loader(factory);
@@ -39,12 +45,17 @@ export function conditionalTool(condition: boolean, loader: ToolLoader): ToolLoa
 /**
  * 创建工具加载器
  */
-export function createToolLoader<T extends (...args: any[]) => Tool | null>(creator: T): ToolLoader {
+export function createToolLoader<T extends (...args: any[]) => Tool | null>(
+  creator: T
+): ToolLoader {
   return (factory: ToolFactory) => {
     try {
       return creator.call(factory);
     } catch (error) {
-      console.error(`Failed to create tool:`, error);
+      logger.error(
+        'Failed to create tool',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return null;
     }
   };
@@ -53,12 +64,9 @@ export function createToolLoader<T extends (...args: any[]) => Tool | null>(crea
 /**
  * 加载工具列表
  */
-export function loadTools(
-  factory: ToolFactory,
-  loaders: ToolLoader[]
-): Tool[] {
+export function loadTools(factory: ToolFactory, loaders: ToolLoader[]): Tool[] {
   return loaders
-    .map(loader => loader(factory))
+    .map((loader) => loader(factory))
     .filter((tool): tool is Tool => tool !== null);
 }
 
@@ -85,49 +93,127 @@ export const builtinToolLoaders: ToolLoader[] = [
   createToolLoader(ToolFactory.prototype.createAgentTool),
   createToolLoader(ToolFactory.prototype.createAskUserQuestionTool),
   createToolLoader(ToolFactory.prototype.createBriefTool),
-  
+
   // Notebook 编辑工具
   createToolLoader(ToolFactory.prototype.createNotebookEditTool),
-  
+
   // 通用工具
   createToolLoader(ToolFactory.prototype.createSleepTool),
   createToolLoader(ToolFactory.prototype.createMonitorTool),
-  
+
   // 团队与消息工具 (工厂方法内部进行特性开关检查)
   createToolLoader(ToolFactory.prototype.createSendMessageTool),
   createToolLoader(ToolFactory.prototype.createTeamCreateTool),
   createToolLoader(ToolFactory.prototype.createTeamDeleteTool),
-  
+
   // 条件工具
-  conditionalTool(feature('POWERSHELL'), createToolLoader(ToolFactory.prototype.createPowerShellTool)),
-  conditionalTool(feature('LSP'), createToolLoader(ToolFactory.prototype.createLSPTool)),
-  conditionalTool(feature('MCP'), createToolLoader(ToolFactory.prototype.createMCPTool)),
-  conditionalTool(feature('MCP'), createToolLoader(ToolFactory.prototype.createMCPResourceTool)),
-  conditionalTool(feature('MCP'), createToolLoader(ToolFactory.prototype.createListMcpResourcesTool)),
-  conditionalTool(feature('MCP'), createToolLoader(ToolFactory.prototype.createReadMcpResourceTool)),
-  conditionalTool(feature('REPL'), createToolLoader(ToolFactory.prototype.createREPLTool)),
-  conditionalTool(feature('NOTEBOOK'), createToolLoader(ToolFactory.prototype.createNotebookTool)),
-  conditionalTool(feature('CONFIG'), createToolLoader(ToolFactory.prototype.createConfigTool)),
+  conditionalTool(
+    feature('POWERSHELL'),
+    createToolLoader(ToolFactory.prototype.createPowerShellTool)
+  ),
+  conditionalTool(
+    feature('LSP'),
+    createToolLoader(ToolFactory.prototype.createLSPTool)
+  ),
+  conditionalTool(
+    feature('MCP'),
+    createToolLoader(ToolFactory.prototype.createMCPTool)
+  ),
+  conditionalTool(
+    feature('MCP'),
+    createToolLoader(ToolFactory.prototype.createMCPResourceTool)
+  ),
+  conditionalTool(
+    feature('MCP'),
+    createToolLoader(ToolFactory.prototype.createListMcpResourcesTool)
+  ),
+  conditionalTool(
+    feature('MCP'),
+    createToolLoader(ToolFactory.prototype.createReadMcpResourceTool)
+  ),
+  conditionalTool(
+    feature('REPL'),
+    createToolLoader(ToolFactory.prototype.createREPLTool)
+  ),
+  conditionalTool(
+    feature('NOTEBOOK'),
+    createToolLoader(ToolFactory.prototype.createNotebookTool)
+  ),
+  conditionalTool(
+    feature('CONFIG'),
+    createToolLoader(ToolFactory.prototype.createConfigTool)
+  ),
   // Tungsten 工具 (仅 ANT 用户)
-  conditionalTool(isAntUser(), createToolLoader(ToolFactory.prototype.createTungstenTool)),
-  conditionalTool(feature('BROWSER'), createToolLoader(ToolFactory.prototype.createBrowserTool)),
-  conditionalTool(feature('PLAN'), createToolLoader(ToolFactory.prototype.createPlanTool)),
-  
+  conditionalTool(
+    isAntUser(),
+    createToolLoader(ToolFactory.prototype.createTungstenTool)
+  ),
+  conditionalTool(
+    feature('BROWSER'),
+    createToolLoader(ToolFactory.prototype.createBrowserTool)
+  ),
+  conditionalTool(
+    feature('PLAN'),
+    createToolLoader(ToolFactory.prototype.createPlanTool)
+  ),
+
   // 其他条件工具
-  conditionalTool(feature('AGENT_TRIGGERS'), createToolLoader(ToolFactory.prototype.createCronCreateTool)),
-  conditionalTool(feature('AGENT_TRIGGERS'), createToolLoader(ToolFactory.prototype.createCronDeleteTool)),
-  conditionalTool(feature('AGENT_TRIGGERS'), createToolLoader(ToolFactory.prototype.createCronListTool)),
-  conditionalTool(feature('AGENT_TRIGGERS_REMOTE'), createToolLoader(ToolFactory.prototype.createRemoteTriggerTool)),
-  conditionalTool(feature('MONITOR_TOOL'), createToolLoader(ToolFactory.prototype.createMonitorTool)),
-  conditionalTool(feature('KAIROS'), createToolLoader(ToolFactory.prototype.createSendUserFileTool)),
-  conditionalTool(feature('KAIROS'), createToolLoader(ToolFactory.prototype.createPushNotificationTool)),
-  conditionalTool(feature('KAIROS_GITHUB_WEBHOOKS'), createToolLoader(ToolFactory.prototype.createSubscribePRTool)),
-  conditionalTool(feature('HISTORY_SNIP'), createToolLoader(ToolFactory.prototype.createSnipTool)),
-  conditionalTool(feature('UDS_INBOX'), createToolLoader(ToolFactory.prototype.createListPeersTool)),
-  conditionalTool(feature('WORKFLOW_SCRIPTS'), createToolLoader(ToolFactory.prototype.createWorkflowTool)),
-  conditionalTool(feature('TOOL_SEARCH'), createToolLoader(ToolFactory.prototype.createToolSearchTool)),
-  conditionalTool(feature('WORKTREE'), createToolLoader(ToolFactory.prototype.createEnterWorktreeTool)),
-  conditionalTool(feature('WORKTREE'), createToolLoader(ToolFactory.prototype.createExitWorktreeTool)),
+  conditionalTool(
+    feature('AGENT_TRIGGERS'),
+    createToolLoader(ToolFactory.prototype.createCronCreateTool)
+  ),
+  conditionalTool(
+    feature('AGENT_TRIGGERS'),
+    createToolLoader(ToolFactory.prototype.createCronDeleteTool)
+  ),
+  conditionalTool(
+    feature('AGENT_TRIGGERS'),
+    createToolLoader(ToolFactory.prototype.createCronListTool)
+  ),
+  conditionalTool(
+    feature('AGENT_TRIGGERS_REMOTE'),
+    createToolLoader(ToolFactory.prototype.createRemoteTriggerTool)
+  ),
+  conditionalTool(
+    feature('MONITOR_TOOL'),
+    createToolLoader(ToolFactory.prototype.createMonitorTool)
+  ),
+  conditionalTool(
+    feature('KAIROS'),
+    createToolLoader(ToolFactory.prototype.createSendUserFileTool)
+  ),
+  conditionalTool(
+    feature('KAIROS'),
+    createToolLoader(ToolFactory.prototype.createPushNotificationTool)
+  ),
+  conditionalTool(
+    feature('KAIROS_GITHUB_WEBHOOKS'),
+    createToolLoader(ToolFactory.prototype.createSubscribePRTool)
+  ),
+  conditionalTool(
+    feature('HISTORY_SNIP'),
+    createToolLoader(ToolFactory.prototype.createSnipTool)
+  ),
+  conditionalTool(
+    feature('UDS_INBOX'),
+    createToolLoader(ToolFactory.prototype.createListPeersTool)
+  ),
+  conditionalTool(
+    feature('WORKFLOW_SCRIPTS'),
+    createToolLoader(ToolFactory.prototype.createWorkflowTool)
+  ),
+  conditionalTool(
+    feature('TOOL_SEARCH'),
+    createToolLoader(ToolFactory.prototype.createToolSearchTool)
+  ),
+  conditionalTool(
+    feature('WORKTREE'),
+    createToolLoader(ToolFactory.prototype.createEnterWorktreeTool)
+  ),
+  conditionalTool(
+    feature('WORKTREE'),
+    createToolLoader(ToolFactory.prototype.createExitWorktreeTool)
+  ),
 ];
 
 /**

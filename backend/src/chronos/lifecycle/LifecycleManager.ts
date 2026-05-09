@@ -1,4 +1,11 @@
-export type LifecyclePhase = 'created' | 'scheduled' | 'executing' | 'completed' | 'failed' | 'expired' | 'cancelled';
+export type LifecyclePhase =
+  | 'created'
+  | 'scheduled'
+  | 'executing'
+  | 'completed'
+  | 'failed'
+  | 'expired'
+  | 'cancelled';
 
 export interface LifecycleEvent {
   taskId: string;
@@ -46,7 +53,15 @@ export class LifecycleManager implements ILifecycleManager {
     const status: LifecycleStatus = {
       taskId,
       currentPhase: 'created',
-      events: [{ taskId, from: 'created', to: 'created', timestamp: now, reason: 'task created' }],
+      events: [
+        {
+          taskId,
+          from: 'created',
+          to: 'created',
+          timestamp: now,
+          reason: 'task created',
+        },
+      ],
       createdAt: now,
       lastTransitionAt: now,
       executionCount: 0,
@@ -56,7 +71,11 @@ export class LifecycleManager implements ILifecycleManager {
     return status;
   }
 
-  transitionTo(taskId: string, phase: LifecyclePhase, reason?: string): boolean {
+  transitionTo(
+    taskId: string,
+    phase: LifecyclePhase,
+    reason?: string
+  ): boolean {
     const status = this.statuses.get(taskId);
     if (!status) return false;
 
@@ -71,7 +90,13 @@ export class LifecycleManager implements ILifecycleManager {
       status.totalRuntime += now - status.lastTransitionAt;
     }
 
-    const event: LifecycleEvent = { taskId, from, to: phase, timestamp: now, reason };
+    const event: LifecycleEvent = {
+      taskId,
+      from,
+      to: phase,
+      timestamp: now,
+      reason,
+    };
     status.events.push(event);
     status.currentPhase = phase;
     status.lastTransitionAt = now;

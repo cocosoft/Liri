@@ -11,7 +11,7 @@ export function getRainbowColor(index: number): string {
     '#00ff00', // 绿色
     '#0000ff', // 蓝色
     '#4b0082', // 靛色
-    '#9400d3'  // 紫色
+    '#9400d3', // 紫色
   ];
   return colors[index % colors.length];
 }

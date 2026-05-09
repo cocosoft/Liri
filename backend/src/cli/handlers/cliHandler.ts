@@ -38,29 +38,29 @@ export class CLIHandler {
     logout: { name: 'logout', description: '登出PY_APP', handler: 'auth' },
     status: { name: 'status', description: '检查认证状态', handler: 'auth' },
     refresh: { name: 'refresh', description: '刷新认证令牌', handler: 'auth' },
-    agents: { 
-      name: 'agents', 
-      description: '管理Agent', 
+    agents: {
+      name: 'agents',
+      description: '管理Agent',
       handler: 'agent',
-      subcommands: ['list', 'start', 'stop', 'restart', 'create']
+      subcommands: ['list', 'start', 'stop', 'restart', 'create'],
     },
-    mcp: { 
-      name: 'mcp', 
-      description: '管理MCP服务器', 
+    mcp: {
+      name: 'mcp',
+      description: '管理MCP服务器',
       handler: 'mcp',
-      subcommands: ['list', 'connect', 'disconnect']
+      subcommands: ['list', 'connect', 'disconnect'],
     },
-    plugins: { 
-      name: 'plugins', 
-      description: '管理插件', 
+    plugins: {
+      name: 'plugins',
+      description: '管理插件',
       handler: 'plugin',
-      subcommands: ['list', 'install', 'uninstall', 'enable', 'disable']
+      subcommands: ['list', 'install', 'uninstall', 'enable', 'disable'],
     },
-    auto: { 
-      name: 'auto', 
-      description: '自动模式', 
+    auto: {
+      name: 'auto',
+      description: '自动模式',
       handler: 'auto',
-      subcommands: ['start', 'stop', 'status', 'config']
+      subcommands: ['start', 'stop', 'status', 'config'],
     },
     help: { name: 'help', description: '显示帮助信息', handler: 'util' },
     version: { name: 'version', description: '显示版本信息', handler: 'util' },
@@ -73,12 +73,14 @@ export class CLIHandler {
 
   constructor(options?: CLIHandlerOptions) {
     this.options = { verbose: false, interactive: true, ...options };
-    
+
     this.authHandler = createAuthHandler({ verbose: this.options.verbose });
     this.agentHandler = createAgentHandler({ verbose: this.options.verbose });
     this.mcpHandler = createMCPHandler({ verbose: this.options.verbose });
     this.pluginHandler = createPluginHandler({ verbose: this.options.verbose });
-    this.autoModeHandler = createAutoModeHandler({ verbose: this.options.verbose });
+    this.autoModeHandler = createAutoModeHandler({
+      verbose: this.options.verbose,
+    });
     this.utilHandler = createUtilHandler({ verbose: this.options.verbose });
   }
 
@@ -113,7 +115,10 @@ export class CLIHandler {
   /**
    * 解析命令行
    */
-  private parseCommand(commandLine: string): { command: string; args: string[] } {
+  private parseCommand(commandLine: string): {
+    command: string;
+    args: string[];
+  } {
     const parts = commandLine.trim().split(/\s+/);
     return {
       command: parts[0] || '',
@@ -156,7 +161,10 @@ export class CLIHandler {
   /**
    * 处理认证命令
    */
-  private async handleAuthCommand(command: string, args: string[]): Promise<void> {
+  private async handleAuthCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
     switch (command) {
       case 'login':
         await this.authHandler.handleLogin(args);
@@ -176,7 +184,10 @@ export class CLIHandler {
   /**
    * 处理Agent命令
    */
-  private async handleAgentCommand(command: string, args: string[]): Promise<void> {
+  private async handleAgentCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
     const subcommand = args[0];
     const subargs = args.slice(1);
 
@@ -205,7 +216,10 @@ export class CLIHandler {
   /**
    * 处理MCP命令
    */
-  private async handleMCPCommand(command: string, args: string[]): Promise<void> {
+  private async handleMCPCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
     const subcommand = args[0];
     const subargs = args.slice(1);
 
@@ -228,7 +242,10 @@ export class CLIHandler {
   /**
    * 处理插件命令
    */
-  private async handlePluginCommand(command: string, args: string[]): Promise<void> {
+  private async handlePluginCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
     const subcommand = args[0];
     const subargs = args.slice(1);
 
@@ -257,7 +274,10 @@ export class CLIHandler {
   /**
    * 处理自动模式命令
    */
-  private async handleAutoCommand(command: string, args: string[]): Promise<void> {
+  private async handleAutoCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
     const subcommand = args[0];
     const subargs = args.slice(1);
 
@@ -283,7 +303,10 @@ export class CLIHandler {
   /**
    * 处理工具命令
    */
-  private async handleUtilCommand(command: string, args: string[]): Promise<void> {
+  private async handleUtilCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
     switch (command) {
       case 'help':
         await (this.utilHandler as any).showHelp(args);
@@ -318,12 +341,16 @@ export class CLIHandler {
     console.log(chalk.cyan('═'.repeat(60)));
     console.log();
 
-    const sortedCommands = Object.values(this.commands).sort((a, b) => a.name.localeCompare(b.name));
-    
+    const sortedCommands = Object.values(this.commands).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+
     for (const cmd of sortedCommands) {
       console.log(chalk.green(cmd.name.padEnd(15)) + cmd.description);
       if (cmd.subcommands && cmd.subcommands.length > 0) {
-        console.log(chalk.gray(`     Subcommands: ${cmd.subcommands.join(', ')}`));
+        console.log(
+          chalk.gray(`     Subcommands: ${cmd.subcommands.join(', ')}`)
+        );
       }
     }
 
@@ -358,9 +385,15 @@ export class CLIHandler {
     console.log(chalk.cyan('═'.repeat(60)));
     console.log();
     console.log(chalk.green('Usage:'));
-    console.log(chalk.gray('  mcp list                 - List all MCP servers'));
-    console.log(chalk.gray('  mcp connect <name> [url] - Connect to an MCP server'));
-    console.log(chalk.gray('  mcp disconnect <name>    - Disconnect from an MCP server'));
+    console.log(
+      chalk.gray('  mcp list                 - List all MCP servers')
+    );
+    console.log(
+      chalk.gray('  mcp connect <name> [url] - Connect to an MCP server')
+    );
+    console.log(
+      chalk.gray('  mcp disconnect <name>    - Disconnect from an MCP server')
+    );
     console.log(chalk.cyan('═'.repeat(60)));
   }
 
@@ -392,7 +425,9 @@ export class CLIHandler {
     console.log(chalk.green('Usage:'));
     console.log(chalk.gray('  auto start [config]      - Start auto mode'));
     console.log(chalk.gray('  auto stop                - Stop auto mode'));
-    console.log(chalk.gray('  auto status              - Check auto mode status'));
+    console.log(
+      chalk.gray('  auto status              - Check auto mode status')
+    );
     console.log(chalk.gray('  auto config <key> <val>  - Configure auto mode'));
     console.log(chalk.cyan('═'.repeat(60)));
   }

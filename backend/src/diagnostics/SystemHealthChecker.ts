@@ -245,9 +245,12 @@ export class SystemHealthChecker extends EventEmitter {
    */
   private async getWindowsDiskInfo(): Promise<{ total: number; free: number }> {
     try {
-      const { stdout } = await (execAsync as any)('wmic logicaldisk get size,freespace', {
-        shell: true,
-      });
+      const { stdout } = await (execAsync as any)(
+        'wmic logicaldisk get size,freespace',
+        {
+          shell: true,
+        }
+      );
       const lines = stdout.trim().split('\n').slice(1);
       let total = 0;
       let free = 0;
@@ -271,7 +274,9 @@ export class SystemHealthChecker extends EventEmitter {
    */
   private async getUnixDiskInfo(): Promise<{ total: number; free: number }> {
     try {
-      const { stdout } = await (execAsync as any)('df -k / | tail -1', { shell: true });
+      const { stdout } = await (execAsync as any)('df -k / | tail -1', {
+        shell: true,
+      });
       const parts = stdout.trim().split(/\s+/);
 
       if (parts.length >= 4) {
@@ -392,7 +397,10 @@ export class SystemHealthChecker extends EventEmitter {
         total: diskInfo.total,
         free: diskInfo.free,
         used: diskInfo.total - diskInfo.free,
-        usagePercent: diskInfo.total > 0 ? ((diskInfo.total - diskInfo.free) / diskInfo.total) * 100 : 0,
+        usagePercent:
+          diskInfo.total > 0
+            ? ((diskInfo.total - diskInfo.free) / diskInfo.total) * 100
+            : 0,
       },
     };
   }

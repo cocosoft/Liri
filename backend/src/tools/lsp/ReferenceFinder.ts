@@ -1,18 +1,18 @@
-import type { LSPToolImpl } from './LSPToolImpl'
+import type { LSPToolImpl } from './LSPToolImpl';
 
 export type ReferenceLocation = {
-  uri: string
-  filePath: string
+  uri: string;
+  filePath: string;
   range: {
-    start: { line: number; character: number }
-    end: { line: number; character: number }
-  }
-}
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+};
 
 export type ReferenceResult = {
-  locations: ReferenceLocation[]
-  fileCount: number
-}
+  locations: ReferenceLocation[];
+  fileCount: number;
+};
 
 export class ReferenceFinder {
   constructor(private lsp: LSPToolImpl) {}
@@ -21,46 +21,50 @@ export class ReferenceFinder {
     documentUri: string,
     line: number,
     character: number,
-    includeDeclaration: boolean = true,
+    includeDeclaration: boolean = true
   ): Promise<ReferenceResult> {
     try {
       const raw = await this.lsp.sendRequest('textDocument/references', {
         textDocument: { uri: documentUri },
         position: { line, character },
         context: { includeDeclaration },
-      })
-      if (!raw) return { locations: [], fileCount: 0 }
+      });
+      if (!raw) return { locations: [], fileCount: 0 };
 
-      const locations: any[] = Array.isArray(raw) ? raw : []
-      const normalized = locations.map((l: any) => this.normalizeLocation(l))
-      const files = new Set(normalized.map(l => l.filePath))
+      const locations: any[] = Array.isArray(raw) ? raw : [];
+      const normalized = locations.map((l: any) => this.normalizeLocation(l));
+      const files = new Set(normalized.map((l) => l.filePath));
 
-      return { locations: normalized, fileCount: files.size }
+      return { locations: normalized, fileCount: files.size };
     } catch {
-      return { locations: [], fileCount: 0 }
+      return { locations: [], fileCount: 0 };
     }
   }
 
   async findReferencesBatch(
     documentUri: string,
-    symbols: Array<{ line: number; character: number }>,
+    symbols: Array<{ line: number; character: number }>
   ): Promise<Map<string, ReferenceResult>> {
-    const results = new Map<string, ReferenceResult>()
+    const results = new Map<string, ReferenceResult>();
     for (const sym of symbols) {
-      const key = `${sym.line}:${sym.character}`
-      const result = await this.findReferences(documentUri, sym.line, sym.character)
-      results.set(key, result)
+      const key = `${sym.line}:${sym.character}`;
+      const result = await this.findReferences(
+        documentUri,
+        sym.line,
+        sym.character
+      );
+      results.set(key, result);
     }
-    return results
+    return results;
   }
 
   private normalizeLocation(loc: any): ReferenceLocation {
-    const uri = loc.uri || ''
-    let filePath = uri
+    const uri = loc.uri || '';
+    let filePath = uri;
     if (filePath.startsWith('file://')) {
-      filePath = decodeURIComponent(filePath.replace(/^file:\/\//, ''))
+      filePath = decodeURIComponent(filePath.replace(/^file:\/\//, ''));
       if (/^\/[A-Za-z]:/.test(filePath)) {
-        filePath = filePath.slice(1)
+        filePath = filePath.slice(1);
       }
     }
 
@@ -77,6 +81,6 @@ export class ReferenceFinder {
           character: loc.range?.end?.character ?? 0,
         },
       },
-    }
+    };
   }
 }

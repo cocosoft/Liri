@@ -8,7 +8,12 @@ import { logger } from '@modules/utils/log';
 /**
  * 关联类型
  */
-export type RelationType = 'tag' | 'content' | 'reference' | 'temporal' | 'project';
+export type RelationType =
+  | 'tag'
+  | 'content'
+  | 'reference'
+  | 'temporal'
+  | 'project';
 
 /**
  * 记忆关联边
@@ -58,7 +63,7 @@ export class MemoryRelationGraph {
     const sourceRelations = this.relations.get(sourceId)!;
 
     const existingIndex = sourceRelations.findIndex(
-      r => r.targetId === targetId && r.relationType === relationType
+      (r) => r.targetId === targetId && r.relationType === relationType
     );
 
     if (existingIndex >= 0) {
@@ -98,7 +103,7 @@ export class MemoryRelationGraph {
     const forwardRelations = this.relations.get(memoryId) || [];
     for (const relation of forwardRelations) {
       const reverse = this.reverseRelations.get(relation.targetId) || [];
-      const filtered = reverse.filter(r => r.targetId !== memoryId);
+      const filtered = reverse.filter((r) => r.targetId !== memoryId);
       if (filtered.length > 0) {
         this.reverseRelations.set(relation.targetId, filtered);
       } else {
@@ -110,7 +115,7 @@ export class MemoryRelationGraph {
     const reverseRelations = this.reverseRelations.get(memoryId) || [];
     for (const relation of reverseRelations) {
       const forward = this.relations.get(relation.targetId) || [];
-      const filtered = forward.filter(r => r.targetId !== memoryId);
+      const filtered = forward.filter((r) => r.targetId !== memoryId);
       if (filtered.length > 0) {
         this.relations.set(relation.targetId, filtered);
       } else {
@@ -145,17 +150,34 @@ export class MemoryRelationGraph {
       minStrength?: number;
       relationTypes?: RelationType[];
     } = {}
-  ): Map<string, { memoryId: string; depth: number; strength: number; path: string[] }> {
-    const { maxDepth = this.maxDepth, includeReverse = true, minStrength = 0, relationTypes } = options;
+  ): Map<
+    string,
+    { memoryId: string; depth: number; strength: number; path: string[] }
+  > {
+    const {
+      maxDepth = this.maxDepth,
+      includeReverse = true,
+      minStrength = 0,
+      relationTypes,
+    } = options;
 
-    const result = new Map<string, { memoryId: string; depth: number; strength: number; path: string[] }>();
+    const result = new Map<
+      string,
+      { memoryId: string; depth: number; strength: number; path: string[] }
+    >();
     const visited = new Set<string>();
-    const queue: Array<{ id: string; depth: number; strength: number; path: string[] }> = [];
+    const queue: Array<{
+      id: string;
+      depth: number;
+      strength: number;
+      path: string[];
+    }> = [];
 
     const directRelations = this.relations.get(memoryId) || [];
     for (const relation of directRelations) {
       if (relation.strength < minStrength) continue;
-      if (relationTypes && !relationTypes.includes(relation.relationType)) continue;
+      if (relationTypes && !relationTypes.includes(relation.relationType))
+        continue;
 
       queue.push({
         id: relation.targetId,
@@ -169,7 +191,8 @@ export class MemoryRelationGraph {
       const reverse = this.reverseRelations.get(memoryId) || [];
       for (const relation of reverse) {
         if (relation.strength < minStrength) continue;
-        if (relationTypes && !relationTypes.includes(relation.relationType)) continue;
+        if (relationTypes && !relationTypes.includes(relation.relationType))
+          continue;
 
         queue.push({
           id: relation.targetId,
@@ -199,7 +222,8 @@ export class MemoryRelationGraph {
       for (const relation of nextRelations) {
         if (visited.has(relation.targetId)) continue;
         if (relation.strength < minStrength) continue;
-        if (relationTypes && !relationTypes.includes(relation.relationType)) continue;
+        if (relationTypes && !relationTypes.includes(relation.relationType))
+          continue;
 
         queue.push({
           id: relation.targetId,
@@ -320,8 +344,10 @@ export class MemoryRelationGraph {
     return {
       totalMemories,
       totalRelations,
-      avgRelationsPerMemory: totalMemories > 0 ? totalRelations / totalMemories : 0,
-      mostConnectedMemory: mostConnectedMemory.count > 0 ? mostConnectedMemory.id : null,
+      avgRelationsPerMemory:
+        totalMemories > 0 ? totalRelations / totalMemories : 0,
+      mostConnectedMemory:
+        mostConnectedMemory.count > 0 ? mostConnectedMemory.id : null,
       relationTypeDistribution,
     };
   }
@@ -372,7 +398,9 @@ export class MemoryRelationGraph {
     const related1Array = Array.from(related1);
     const related2Array = Array.from(related2);
 
-    const intersection = new Set(related1Array.filter(id => related2.has(id)));
+    const intersection = new Set(
+      related1Array.filter((id) => related2.has(id))
+    );
     const union = new Set([...related1Array, ...related2Array]);
 
     return union.size > 0 ? intersection.size / union.size : 0;

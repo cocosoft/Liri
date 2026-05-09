@@ -53,9 +53,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
         alignItems="center"
         backgroundColor={checked ? 'blue' : undefined}
       >
-        <Text color={checked ? 'white' : undefined}>
-          {checked ? '✓' : ' '}
-        </Text>
+        <Text color={checked ? 'white' : undefined}>{checked ? '✓' : ' '}</Text>
       </Box>
       {label && <Text>{label}</Text>}
     </Box>

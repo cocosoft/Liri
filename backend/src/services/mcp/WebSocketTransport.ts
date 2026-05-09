@@ -40,7 +40,10 @@ export class WebSocketTransport {
 
       return client;
     } catch (error) {
-      logger.error('WebSocket connection failed:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'WebSocket connection failed:',
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -52,9 +55,14 @@ export class WebSocketTransport {
     if (this.client) {
       try {
         await (this.client as any).close();
-        logger.info(`Disconnected from WebSocket MCP server: ${this.config.url}`);
+        logger.info(
+          `Disconnected from WebSocket MCP server: ${this.config.url}`
+        );
       } catch (error) {
-        logger.error('Error disconnecting from WebSocket server:', error instanceof Error ? error : new Error(String(error)));
+        logger.error(
+          'Error disconnecting from WebSocket server:',
+          error instanceof Error ? error : new Error(String(error))
+        );
       } finally {
         this.client = null;
       }

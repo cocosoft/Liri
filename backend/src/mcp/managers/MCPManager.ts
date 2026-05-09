@@ -37,7 +37,8 @@ interface ResourceInfo {
  */
 export class MCPManager {
   private serverManager: MCPServerManager;
-  private notificationListeners: Map<string, ChannelNotificationListener[]> = new Map();
+  private notificationListeners: Map<string, ChannelNotificationListener[]> =
+    new Map();
   private commandHistory: Array<{
     id: string;
     command: string;
@@ -106,7 +107,11 @@ export class MCPManager {
   /**
    * 调用工具
    */
-  async callTool(serverName: string, toolName: string, args: Record<string, any>): Promise<any> {
+  async callTool(
+    serverName: string,
+    toolName: string,
+    args: Record<string, any>
+  ): Promise<any> {
     return this.serverManager.callTool(serverName, toolName, args);
   }
 
@@ -115,7 +120,11 @@ export class MCPManager {
   /**
    * 订阅通道通知
    */
-  subscribeToChannel(serverName: string, channel: string, listener: ChannelNotificationListener): void {
+  subscribeToChannel(
+    serverName: string,
+    channel: string,
+    listener: ChannelNotificationListener
+  ): void {
     const key = `${serverName}:${channel}`;
     if (!this.notificationListeners.has(key)) {
       this.notificationListeners.set(key, []);
@@ -127,14 +136,20 @@ export class MCPManager {
   /**
    * 取消订阅通道通知
    */
-  unsubscribeFromChannel(serverName: string, channel: string, listener: ChannelNotificationListener): void {
+  unsubscribeFromChannel(
+    serverName: string,
+    channel: string,
+    listener: ChannelNotificationListener
+  ): void {
     const key = `${serverName}:${channel}`;
     const listeners = this.notificationListeners.get(key);
     if (listeners) {
       const index = listeners.indexOf(listener);
       if (index !== -1) {
         listeners.splice(index, 1);
-        logger.info(`Unsubscribed from channel ${channel} on server ${serverName}`);
+        logger.info(
+          `Unsubscribed from channel ${channel} on server ${serverName}`
+        );
       }
     }
   }
@@ -146,7 +161,7 @@ export class MCPManager {
     const key = `${serverName}:${channel}`;
     const listeners = this.notificationListeners.get(key);
     if (listeners) {
-      listeners.forEach(listener => {
+      listeners.forEach((listener) => {
         try {
           listener(channel, message);
         } catch (error) {
@@ -161,12 +176,20 @@ export class MCPManager {
   /**
    * 执行MCP命令
    */
-  async executeCommand(serverName: string, command: string, args: Record<string, any>): Promise<CommandExecutionResult> {
+  async executeCommand(
+    serverName: string,
+    command: string,
+    args: Record<string, any>
+  ): Promise<CommandExecutionResult> {
     const commandId = `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     try {
-      const result = await this.serverManager.callTool(serverName, command, args);
-      
+      const result = await this.serverManager.callTool(
+        serverName,
+        command,
+        args
+      );
+
       // 记录命令执行历史
       this.commandHistory.push({
         id: commandId,
@@ -176,20 +199,21 @@ export class MCPManager {
         timestamp: Date.now(),
         result,
       });
-      
+
       // 限制历史记录大小
       if (this.commandHistory.length > 1000) {
         this.commandHistory.shift();
       }
-      
+
       logger.info(`Command executed successfully: ${command} on ${serverName}`);
       return {
         success: true,
         result,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
       // 记录失败的命令
       this.commandHistory.push({
         id: commandId,
@@ -198,8 +222,10 @@ export class MCPManager {
         server: serverName,
         timestamp: Date.now(),
       });
-      
-      logger.error(`Command execution failed: ${command} on ${serverName}: ${errorMessage}`);
+
+      logger.error(
+        `Command execution failed: ${command} on ${serverName}: ${errorMessage}`
+      );
       return {
         success: false,
         error: errorMessage,
@@ -234,15 +260,22 @@ export class MCPManager {
   /**
    * 列出服务器资源
    */
-  async listResources(serverName: string, path: string = '/'): Promise<ResourceInfo[]> {
+  async listResources(
+    serverName: string,
+    path: string = '/'
+  ): Promise<ResourceInfo[]> {
     try {
-      const result = await this.serverManager.callTool(serverName, 'list_resources', { path });
-      
+      const result = await this.serverManager.callTool(
+        serverName,
+        'list_resources',
+        { path }
+      );
+
       // 缓存资源信息
       if (!this.resourceCache.has(serverName)) {
         this.resourceCache.set(serverName, new Map());
       }
-      
+
       const serverCache = this.resourceCache.get(serverName)!;
       if (Array.isArray(result)) {
         result.forEach((resource: any) => {
@@ -255,10 +288,13 @@ export class MCPManager {
           });
         });
       }
-      
+
       return result;
     } catch (error) {
-      logger.error(`Failed to list resources on ${serverName}:`, error as Error);
+      logger.error(
+        `Failed to list resources on ${serverName}:`,
+        error as Error
+      );
       throw error;
     }
   }
@@ -268,11 +304,18 @@ export class MCPManager {
    */
   async readResource(serverName: string, path: string): Promise<any> {
     try {
-      const result = await this.serverManager.callTool(serverName, 'read_resource', { path });
+      const result = await this.serverManager.callTool(
+        serverName,
+        'read_resource',
+        { path }
+      );
       logger.info(`Resource read successfully: ${path} on ${serverName}`);
       return result;
     } catch (error) {
-      logger.error(`Failed to read resource ${path} on ${serverName}:`, error as Error);
+      logger.error(
+        `Failed to read resource ${path} on ${serverName}:`,
+        error as Error
+      );
       throw error;
     }
   }
@@ -280,10 +323,17 @@ export class MCPManager {
   /**
    * 写入服务器资源
    */
-  async writeResource(serverName: string, path: string, content: any): Promise<boolean> {
+  async writeResource(
+    serverName: string,
+    path: string,
+    content: any
+  ): Promise<boolean> {
     try {
-      await this.serverManager.callTool(serverName, 'write_resource', { path, content });
-      
+      await this.serverManager.callTool(serverName, 'write_resource', {
+        path,
+        content,
+      });
+
       // 更新缓存
       if (this.resourceCache.has(serverName)) {
         const serverCache = this.resourceCache.get(serverName)!;
@@ -292,11 +342,14 @@ export class MCPManager {
           resourceInfo.lastModified = new Date().toISOString();
         }
       }
-      
+
       logger.info(`Resource written successfully: ${path} on ${serverName}`);
       return true;
     } catch (error) {
-      logger.error(`Failed to write resource ${path} on ${serverName}:`, error as Error);
+      logger.error(
+        `Failed to write resource ${path} on ${serverName}:`,
+        error as Error
+      );
       return false;
     }
   }
@@ -306,18 +359,23 @@ export class MCPManager {
    */
   async deleteResource(serverName: string, path: string): Promise<boolean> {
     try {
-      await this.serverManager.callTool(serverName, 'delete_resource', { path });
-      
+      await this.serverManager.callTool(serverName, 'delete_resource', {
+        path,
+      });
+
       // 更新缓存
       if (this.resourceCache.has(serverName)) {
         const serverCache = this.resourceCache.get(serverName)!;
         serverCache.delete(path);
       }
-      
+
       logger.info(`Resource deleted successfully: ${path} on ${serverName}`);
       return true;
     } catch (error) {
-      logger.error(`Failed to delete resource ${path} on ${serverName}:`, error as Error);
+      logger.error(
+        `Failed to delete resource ${path} on ${serverName}:`,
+        error as Error
+      );
       return false;
     }
   }
@@ -325,7 +383,10 @@ export class MCPManager {
   /**
    * 获取缓存的资源信息
    */
-  getCachedResourceInfo(serverName: string, path: string): ResourceInfo | undefined {
+  getCachedResourceInfo(
+    serverName: string,
+    path: string
+  ): ResourceInfo | undefined {
     if (this.resourceCache.has(serverName)) {
       return this.resourceCache.get(serverName)!.get(path);
     }
@@ -357,7 +418,9 @@ export class MCPManager {
   /**
    * 按工具名称搜索工具
    */
-  searchTools(toolName: string): Array<{ server: string; tool: MCPToolDefinition }> {
+  searchTools(
+    toolName: string
+  ): Array<{ server: string; tool: MCPToolDefinition }> {
     return this.serverManager.searchTools(toolName);
   }
 
@@ -370,7 +433,10 @@ export class MCPManager {
       try {
         await this.serverManager.getServerTools(server);
       } catch (error) {
-        logger.error(`Failed to refresh tools for server ${server}:`, error as Error);
+        logger.error(
+          `Failed to refresh tools for server ${server}:`,
+          error as Error
+        );
       }
     }
   }
@@ -395,7 +461,7 @@ export class MCPManager {
     toolCount: number;
   }> {
     const infos = this.serverManager.getServerInfos();
-    return infos.map(info => ({
+    return infos.map((info) => ({
       name: info.name,
       status: info.status,
       error: info.error,
@@ -426,7 +492,11 @@ export class MCPManager {
             serverName,
             load: async () => ({
               execute: async (args: any) => {
-                return this.callTool(serverName, tool.name, typeof args === 'string' ? { args } : args);
+                return this.callTool(
+                  serverName,
+                  tool.name,
+                  typeof args === 'string' ? { args } : args
+                );
               },
             }),
           });

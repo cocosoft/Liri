@@ -17,7 +17,7 @@ export interface EnhancedModuleDefinition {
   init?: () => Promise<void> | void;
   destroy?: () => Promise<void> | void;
   priority?: number;
-  
+
   // 新增字段
   preload?: boolean; // 是否支持预加载
   parallelizable?: boolean; // 是否可并行加载
@@ -172,7 +172,9 @@ export class EnhancedModuleDependencyManager {
     // 更新依赖关系
     this.updateDependencies();
 
-    logger.info(`Registered enhanced module: ${definition.name} v${definition.version}`);
+    logger.info(
+      `Registered enhanced module: ${definition.name} v${definition.version}`
+    );
   }
 
   /**
@@ -229,7 +231,9 @@ export class EnhancedModuleDependencyManager {
       }
 
       if (visiting.has(name)) {
-        throw new Error(`Circular dependency detected involving module: ${name}`);
+        throw new Error(
+          `Circular dependency detected involving module: ${name}`
+        );
       }
 
       visiting.add(name);
@@ -238,12 +242,14 @@ export class EnhancedModuleDependencyManager {
       if (node) {
         // 按优先级排序依赖
         const sortedDeps = this.sortDependenciesByPriority(node.dependencies);
-        
+
         for (const dep of sortedDeps) {
           if (this.modules.has(dep)) {
             visit(dep);
           } else {
-            logger.warn(`Dependency ${dep} of module ${name} is not registered`);
+            logger.warn(
+              `Dependency ${dep} of module ${name} is not registered`
+            );
           }
         }
       }
@@ -254,12 +260,13 @@ export class EnhancedModuleDependencyManager {
     };
 
     // 按优先级排序所有模块
-    const sortedModules = Array.from(this.dependencyGraph.keys())
-      .sort((a, b) => {
+    const sortedModules = Array.from(this.dependencyGraph.keys()).sort(
+      (a, b) => {
         const nodeA = this.dependencyGraph.get(a)!;
         const nodeB = this.dependencyGraph.get(b)!;
         return nodeB.priority - nodeA.priority;
-      });
+      }
+    );
 
     for (const name of sortedModules) {
       if (!visited.has(name)) {
@@ -277,11 +284,11 @@ export class EnhancedModuleDependencyManager {
     return dependencies.sort((a, b) => {
       const nodeA = this.dependencyGraph.get(a);
       const nodeB = this.dependencyGraph.get(b);
-      
+
       if (!nodeA || !nodeB) {
         return 0;
       }
-      
+
       return nodeB.priority - nodeA.priority;
     });
   }
@@ -356,7 +363,7 @@ export class EnhancedModuleDependencyManager {
     // 实现关键路径算法（CPM）
     // 这里简化实现，返回依赖最深的路径
     const depths = new Map<string, number>();
-    
+
     const calculateDepth = (name: string): number => {
       if (depths.has(name)) {
         return depths.get(name)!;
@@ -368,10 +375,10 @@ export class EnhancedModuleDependencyManager {
         return 0;
       }
 
-      const depDepths = node.dependencies.map(dep => calculateDepth(dep));
+      const depDepths = node.dependencies.map((dep) => calculateDepth(dep));
       const maxDepth = Math.max(...depDepths) + 1;
       depths.set(name, maxDepth);
-      
+
       return maxDepth;
     };
 
@@ -392,7 +399,10 @@ export class EnhancedModuleDependencyManager {
   /**
    * 根据深度构建路径
    */
-  private buildPathFromDepth(start: string, depths: Map<string, number>): string[] {
+  private buildPathFromDepth(
+    start: string,
+    depths: Map<string, number>
+  ): string[] {
     const path: string[] = [start];
     let current = start;
 
@@ -438,12 +448,12 @@ export class EnhancedModuleDependencyManager {
         const cycle = this.findCycle(name, new Set<string>());
         if (cycle.length > 0) {
           cycles.push(cycle);
-          
+
           // 判断是否为关键循环（涉及核心模块）
           if (this.isCriticalCycle(cycle)) {
             criticalCycles.push(cycle);
           }
-          
+
           // 标记循环中的所有节点为已访问
           for (const moduleName of cycle) {
             visited.add(moduleName);
@@ -464,7 +474,7 @@ export class EnhancedModuleDependencyManager {
    */
   private isCriticalCycle(cycle: string[]): boolean {
     const criticalModules = ['core', 'infrastructure', 'ai', 'agent'];
-    return cycle.some(module => criticalModules.includes(module));
+    return cycle.some((module) => criticalModules.includes(module));
   }
 
   /**
@@ -498,7 +508,7 @@ export class EnhancedModuleDependencyManager {
    */
   private generateOptimizationSuggestions(): OptimizationSuggestion[] {
     const suggestions: OptimizationSuggestion[] = [];
-    
+
     // 避免循环调用：直接使用依赖图数据而不是调用analyzeDependencies
     const loadOrder = this.calculateOptimizedLoadOrder();
     const parallelGroups = this.identifyParallelGroups();
@@ -557,16 +567,16 @@ export class EnhancedModuleDependencyManager {
    */
   async loadModulesInParallel(modules: string[]): Promise<LoadResult[]> {
     const results: LoadResult[] = [];
-    
+
     // 分组并行加载
     const groups = this.identifyParallelGroups();
-    
+
     for (const group of groups) {
-      const groupModules = group.filter(module => modules.includes(module));
+      const groupModules = group.filter((module) => modules.includes(module));
       if (groupModules.length === 0) continue;
 
       const groupResults = await Promise.allSettled(
-        groupModules.map(module => this.loadModule(module))
+        groupModules.map((module) => this.loadModule(module))
       );
 
       groupResults.forEach((result, index) => {
@@ -595,20 +605,20 @@ export class EnhancedModuleDependencyManager {
   private async loadModule(moduleName: string): Promise<{ duration: number }> {
     const startTime = Date.now();
     const instance = this.modules.get(moduleName);
-    
+
     if (!instance) {
       throw new Error(`Module ${moduleName} not found`);
     }
 
     try {
       instance.status = EnhancedModuleStatus.LOADING;
-      
+
       // 模拟加载过程
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       instance.status = EnhancedModuleStatus.LOADED;
       instance.loadTime = Date.now() - startTime;
-      
+
       return { duration: instance.loadTime };
     } catch (error) {
       instance.status = EnhancedModuleStatus.ERROR;

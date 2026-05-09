@@ -38,13 +38,11 @@ export default {
   async handleStatus(context: CommandContext): Promise<CommandResult> {
     const connected = context.environment?.REMOTE_CONNECTED === 'true';
     const host = context.environment?.REMOTE_HOST || '未连接';
-    
+
     return {
       success: true,
       type: 'text',
-      message: connected 
-        ? `已连接到远程环境: ${host}`
-        : '未连接到远程环境',
+      message: connected ? `已连接到远程环境: ${host}` : '未连接到远程环境',
       data: { connected, host },
     };
   },
@@ -52,16 +50,19 @@ export default {
   /**
    * 连接到远程环境
    */
-  async handleConnect(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleConnect(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const host = args[0] || 'default';
-    
+
     if (context.environment) {
       context.environment.REMOTE_CONNECTED = 'true';
       context.environment.REMOTE_HOST = host;
     }
 
     context.onDone?.(`已连接到远程环境: ${host}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -80,7 +81,7 @@ export default {
     }
 
     context.onDone?.('已断开远程连接', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -94,14 +95,32 @@ export default {
    */
   async handleList(context: CommandContext): Promise<CommandResult> {
     const environments = [
-      { name: 'default', host: 'remote.example.com', status: 'online', latency: '23ms' },
-      { name: 'dev', host: 'dev.remote.example.com', status: 'online', latency: '45ms' },
-      { name: 'staging', host: 'staging.remote.example.com', status: 'maintenance', latency: '-' },
+      {
+        name: 'default',
+        host: 'remote.example.com',
+        status: 'online',
+        latency: '23ms',
+      },
+      {
+        name: 'dev',
+        host: 'dev.remote.example.com',
+        status: 'online',
+        latency: '45ms',
+      },
+      {
+        name: 'staging',
+        host: 'staging.remote.example.com',
+        status: 'maintenance',
+        latency: '-',
+      },
     ];
 
-    const table = environments.map(env => 
-      `${env.name.padEnd(10)} ${env.host.padEnd(25)} ${env.status.padEnd(12)} ${env.latency}`
-    ).join('\n');
+    const table = environments
+      .map(
+        (env) =>
+          `${env.name.padEnd(10)} ${env.host.padEnd(25)} ${env.status.padEnd(12)} ${env.latency}`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -128,7 +147,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `远程环境信息:\n` +
+      message:
+        `远程环境信息:\n` +
         `- 连接状态: ${info.connected ? '已连接' : '未连接'}\n` +
         `- 主机: ${info.host}\n` +
         `- 协议: ${info.protocol}\n` +

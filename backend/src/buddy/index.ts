@@ -1,6 +1,11 @@
 export { EnhancedCompanionSystem } from './enhanced';
 export { InteractionManager } from './interactions';
-export type { InteractionAction, InteractionResult, InteractionEntry, InteractionHistory } from './interactions';
+export type {
+  InteractionAction,
+  InteractionResult,
+  InteractionEntry,
+  InteractionHistory,
+} from './interactions';
 export { AttributeSystem, RARITY_FLOOR } from './attributes';
 export type { AttributeDistribution } from './attributes';
 export { CompanionSprite } from './CompanionSprite';

@@ -399,7 +399,10 @@ export async function executeOnce(
       };
 
       profileCheckpoint('execute_once_command_start');
-      const result = await commandExecutor.execute(commandName + ' ' + finalArgs, context);
+      const result = await commandExecutor.execute(
+        commandName + ' ' + finalArgs,
+        context
+      );
       profileCheckpoint('execute_once_command_end');
       if (result.success) {
         if (result.message) console.log(result.message);
@@ -474,7 +477,10 @@ export async function executeFromPipe(): Promise<void> {
         };
 
         profileCheckpoint('execute_from_pipe_command_start');
-        const result = await commandExecutor.execute(commandName + ' ' + args, context);
+        const result = await commandExecutor.execute(
+          commandName + ' ' + args,
+          context
+        );
         profileCheckpoint('execute_from_pipe_command_end');
 
         if (result.success) {

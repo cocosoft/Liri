@@ -28,7 +28,8 @@ export function Radio({
 }: RadioProps): React.ReactNode {
   const [internalValue, setInternalValue] = useState('');
 
-  const currentValue = controlledValue !== undefined ? controlledValue : internalValue;
+  const currentValue =
+    controlledValue !== undefined ? controlledValue : internalValue;
 
   const handleSelect = (item: RadioItem) => {
     if (item.disabled) return;
@@ -44,16 +45,12 @@ export function Radio({
         const itemColor = item.disabled
           ? 'gray'
           : isSelected
-          ? selectedColor
-          : color;
+            ? selectedColor
+            : color;
 
         return (
           <Box key={item.id}>
-            <Text
-              color={itemColor}
-              bold={isSelected}
-              dimColor={item.disabled}
-            >
+            <Text color={itemColor} bold={isSelected} dimColor={item.disabled}>
               {radioIcon} {item.label}
             </Text>
           </Box>

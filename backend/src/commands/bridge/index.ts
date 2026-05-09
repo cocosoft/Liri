@@ -12,7 +12,7 @@ const bridgeCommand: Command = {
   argumentHint: '[status|config|start|stop|connect|--json|help]',
   whenToUse: '管理 Bridge 远程控制连接，查看连接状态和配置',
   isHidden: false,
-  load: () => import('./Bridge.js').then(m => m.default),
+  load: () => import('./Bridge.js').then((m) => m.default),
 };
 
 export { bridgeCommand };

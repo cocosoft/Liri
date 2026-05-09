@@ -145,7 +145,13 @@ export class Logger {
    * @returns 是否应该记录
    */
   private shouldLog(level: LogLevel): boolean {
-    const levels = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR, LogLevel.FATAL];
+    const levels = [
+      LogLevel.DEBUG,
+      LogLevel.INFO,
+      LogLevel.WARN,
+      LogLevel.ERROR,
+      LogLevel.FATAL,
+    ];
     return levels.indexOf(level) >= levels.indexOf(this.logLevel);
   }
 
@@ -170,7 +176,9 @@ export class Logger {
         break;
       case LogLevel.ERROR:
       case LogLevel.FATAL:
-        console.error(`[${level.toUpperCase()}] ${message}${contextStr}${errorStr}`);
+        console.error(
+          `[${level.toUpperCase()}] ${message}${contextStr}${errorStr}`
+        );
         break;
     }
   }

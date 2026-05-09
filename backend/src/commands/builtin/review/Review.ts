@@ -22,7 +22,7 @@ export interface ReviewIssue {
 export function createReviewResult(
   files: string[],
   issues: ReviewIssue[] = [],
-  suggestions: string[] = [],
+  suggestions: string[] = []
 ): ReviewResult {
   return {
     summary: `Review completed: ${files.length} files, ${issues.length} issues found`,
@@ -33,7 +33,7 @@ export function createReviewResult(
 }
 
 export function classifySeverity(
-  message: string,
+  message: string
 ): 'error' | 'warning' | 'info' {
   if (/security|injection|vulnerability/i.test(message)) return 'error';
   if (/deprecated|anti-pattern|inefficient/i.test(message)) return 'warning';
@@ -60,7 +60,9 @@ export async function execute(args: string): Promise<CommandResult> {
     const severity = classifySeverity(`Checking ${f}`);
     return { file: f, line: 0, severity, message: `Reviewing ${f}...` };
   });
-  const summary = createReviewResult(files, results, ['Consider adding more specific checks']);
+  const summary = createReviewResult(files, results, [
+    'Consider adding more specific checks',
+  ]);
   return {
     success: true,
     type: 'text',

@@ -72,7 +72,7 @@ const advisorCommand = {
       }
 
       const stats = fs.statSync(fullPath);
-      
+
       if (stats.isDirectory()) {
         return this.analyzeDirectoryCode(fullPath, fs, path);
       }
@@ -93,7 +93,7 @@ const advisorCommand = {
   analyzeDirectoryCode(
     dirPath: string,
     fs: typeof import('fs'),
-    path: typeof import('path'),
+    path: typeof import('path')
   ): AnalysisResult {
     const files: string[] = [];
     const fileExtensions = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs'];
@@ -103,12 +103,12 @@ const advisorCommand = {
       for (const item of items) {
         const fullPath = path.join(currentPath, item);
         const stats = fs.statSync(fullPath);
-        
+
         if (stats.isDirectory()) {
           if (!item.startsWith('.') && !item.includes('node_modules')) {
             traverse(fullPath);
           }
-        } else if (fileExtensions.some(ext => item.endsWith(ext))) {
+        } else if (fileExtensions.some((ext) => item.endsWith(ext))) {
           files.push(fullPath);
         }
       }
@@ -123,7 +123,9 @@ const advisorCommand = {
     for (const filePath of files) {
       const content = fs.readFileSync(filePath, 'utf8');
       totalLines += content.split('\n').length;
-      totalFunctions += (content.match(/function\s+\w+|const\s+\w+\s*=\s*\(/) || []).length;
+      totalFunctions += (
+        content.match(/function\s+\w+|const\s+\w+\s*=\s*\(/) || []
+      ).length;
       totalClasses += (content.match(/class\s+\w+/) || []).length;
     }
 
@@ -143,12 +145,14 @@ const advisorCommand = {
       content.match(/function\s+\w+|const\s+\w+\s*=\s*\(/) || []
     ).length;
     const classCount = (content.match(/class\s+\w+/) || []).length;
-    const commentCount = (content.match(/\/\/.*$|\/\*[\s\S]*?\*\//gm) || []).length;
-    const commentRatio = lineCount > 0 ? ((commentCount / lineCount) * 100).toFixed(1) : '0';
+    const commentCount = (content.match(/\/\/.*$|\/\*[\s\S]*?\*\//gm) || [])
+      .length;
+    const commentRatio =
+      lineCount > 0 ? ((commentCount / lineCount) * 100).toFixed(1) : '0';
 
     // 检测潜在问题
     const issues: string[] = [];
-    
+
     if (content.includes('eval(')) {
       issues.push('- 发现 eval() 使用，可能存在安全风险');
     }
@@ -159,7 +163,8 @@ const advisorCommand = {
       issues.push('- 发现 console.log，建议移除或使用日志框架');
     }
 
-    const issuesText = issues.length > 0 ? `\n发现的问题:\n${issues.join('\n')}` : '';
+    const issuesText =
+      issues.length > 0 ? `\n发现的问题:\n${issues.join('\n')}` : '';
 
     return {
       type: 'text',
@@ -193,7 +198,7 @@ const advisorCommand = {
       }
 
       const stats = fs.statSync(fullPath);
-      
+
       if (stats.isDirectory()) {
         return this.analyzeDirectoryPerformance(fullPath, fs, path);
       }
@@ -214,7 +219,7 @@ const advisorCommand = {
   analyzeDirectoryPerformance(
     dirPath: string,
     fs: typeof import('fs'),
-    path: typeof import('path'),
+    path: typeof import('path')
   ): AnalysisResult {
     const files: string[] = [];
     const fileExtensions = ['.ts', '.tsx', '.js', '.jsx'];
@@ -224,12 +229,12 @@ const advisorCommand = {
       for (const item of items) {
         const fullPath = path.join(currentPath, item);
         const stats = fs.statSync(fullPath);
-        
+
         if (stats.isDirectory()) {
           if (!item.startsWith('.') && !item.includes('node_modules')) {
             traverse(fullPath);
           }
-        } else if (fileExtensions.some(ext => item.endsWith(ext))) {
+        } else if (fileExtensions.some((ext) => item.endsWith(ext))) {
           files.push(fullPath);
         }
       }
@@ -261,7 +266,7 @@ const advisorCommand = {
   analyzeFilePerformance(filePath: string, content: string): AnalysisResult {
     const lines = content.split('\n');
     const lineCount = lines.length;
-    
+
     // 检测潜在性能问题
     const issues: string[] = [];
     const suggestions: string[] = [];
@@ -291,12 +296,17 @@ const advisorCommand = {
     }
 
     // 检测同步操作
-    if (content.includes('fs.readFileSync') || content.includes('fs.writeFileSync')) {
+    if (
+      content.includes('fs.readFileSync') ||
+      content.includes('fs.writeFileSync')
+    ) {
       issues.push('- 发现同步文件操作，考虑使用异步版本');
     }
 
-    const issuesText = issues.length > 0 ? `\n发现的潜在问题:\n${issues.join('\n')}` : '';
-    const suggestionsText = suggestions.length > 0 ? `\n优化建议:\n${suggestions.join('\n')}` : '';
+    const issuesText =
+      issues.length > 0 ? `\n发现的潜在问题:\n${issues.join('\n')}` : '';
+    const suggestionsText =
+      suggestions.length > 0 ? `\n优化建议:\n${suggestions.join('\n')}` : '';
 
     return {
       type: 'text',
@@ -330,7 +340,7 @@ const advisorCommand = {
       }
 
       const stats = fs.statSync(fullPath);
-      
+
       if (stats.isDirectory()) {
         return this.analyzeDirectorySecurity(fullPath, fs, path);
       }
@@ -351,7 +361,7 @@ const advisorCommand = {
   analyzeDirectorySecurity(
     dirPath: string,
     fs: typeof import('fs'),
-    path: typeof import('path'),
+    path: typeof import('path')
   ): AnalysisResult {
     const files: string[] = [];
     const fileExtensions = ['.ts', '.tsx', '.js', '.jsx', '.env', '.json'];
@@ -361,12 +371,12 @@ const advisorCommand = {
       for (const item of items) {
         const fullPath = path.join(currentPath, item);
         const stats = fs.statSync(fullPath);
-        
+
         if (stats.isDirectory()) {
           if (!item.startsWith('.') && !item.includes('node_modules')) {
             traverse(fullPath);
           }
-        } else if (fileExtensions.some(ext => item.endsWith(ext))) {
+        } else if (fileExtensions.some((ext) => item.endsWith(ext))) {
           files.push(fullPath);
         }
       }
@@ -379,20 +389,25 @@ const advisorCommand = {
 
     for (const filePath of files) {
       const content = fs.readFileSync(filePath, 'utf8');
-      
+
       // 检测敏感信息
       if (filePath.endsWith('.env')) {
         securityIssues++;
         findings.push(`- ${filePath}: 环境变量文件，确保不提交到版本控制`);
       }
-      
-      if (content.includes('password') || content.includes('secret') || content.includes('apiKey')) {
+
+      if (
+        content.includes('password') ||
+        content.includes('secret') ||
+        content.includes('apiKey')
+      ) {
         securityIssues++;
         findings.push(`- ${filePath}: 可能包含敏感信息`);
       }
     }
 
-    const findingsText = findings.length > 0 ? `\n安全发现:\n${findings.join('\n')}` : '';
+    const findingsText =
+      findings.length > 0 ? `\n安全发现:\n${findings.join('\n')}` : '';
 
     return {
       type: 'text',
@@ -420,7 +435,7 @@ const advisorCommand = {
       /api[_-]?key\s*[=:]\s*['"][^'"]+['"]/gi,
       /token\s*[=:]\s*['"][^'"]+['"]/gi,
     ];
-    
+
     for (const pattern of sensitivePatterns) {
       if (pattern.test(content)) {
         issues.push('- 发现潜在的硬编码敏感信息');
@@ -443,8 +458,10 @@ const advisorCommand = {
       warnings.push('- 建议验证和清理用户输入');
     }
 
-    const issuesText = issues.length > 0 ? `\n严重问题:\n${issues.join('\n')}` : '';
-    const warningsText = warnings.length > 0 ? `\n警告:\n${warnings.join('\n')}` : '';
+    const issuesText =
+      issues.length > 0 ? `\n严重问题:\n${issues.join('\n')}` : '';
+    const warningsText =
+      warnings.length > 0 ? `\n警告:\n${warnings.join('\n')}` : '';
 
     return {
       type: 'text',

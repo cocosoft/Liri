@@ -59,7 +59,7 @@ export class ChannelMessageParser {
 
     // 匹配 <channel source="..." user="..." chat_id="...">content</channel>
     this.channelPattern = new RegExp(
-      `<${CHANNEL_TAG}\\s+source="([^"]+)"([^>]*)>\\n?([\\s\\S]*?)\\n?</${CHANNEL_TAG}>`,
+      `<${CHANNEL_TAG}\\s+source="([^"]+)"([^>]*)>\\n?([\\s\\S]*?)\\n?</${CHANNEL_TAG}>`
     );
 
     // 匹配 user="..."
@@ -192,7 +192,7 @@ export class ChannelMessageParser {
   createChannelMessage(
     source: string,
     content: string,
-    options?: { user?: string; chatId?: string },
+    options?: { user?: string; chatId?: string }
   ): string {
     const attrs: string[] = [`source="${source}"`];
 
@@ -226,7 +226,7 @@ export class ChannelMessageParser {
  * 获取通道消息解析器实例
  */
 export function getChannelMessageParser(
-  config?: ChannelMessageConfig,
+  config?: ChannelMessageConfig
 ): ChannelMessageParser {
   return ChannelMessageParser.getInstance(config);
 }
@@ -234,9 +234,7 @@ export function getChannelMessageParser(
 /**
  * 解析通道消息（便捷函数）
  */
-export function parseChannelMessage(
-  text: string,
-): ParsedChannelMessage | null {
+export function parseChannelMessage(text: string): ParsedChannelMessage | null {
   const parser = getChannelMessageParser();
   return parser.parse(text);
 }
@@ -254,7 +252,7 @@ export function isChannelMessage(text: string): boolean {
  */
 export function formatChannelMessage(
   text: string,
-  fullText: boolean = false,
+  fullText: boolean = false
 ): string {
   const parser = getChannelMessageParser();
   const parsed = parser.parse(text);

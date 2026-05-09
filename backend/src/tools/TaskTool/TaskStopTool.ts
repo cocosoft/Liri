@@ -109,7 +109,9 @@ export class TaskStopTool extends BaseTool<
     return this.name;
   }
 
-  override getToolUseSummary(input?: Partial<TaskStopToolInput>): string | null {
+  override getToolUseSummary(
+    input?: Partial<TaskStopToolInput>
+  ): string | null {
     const taskId = input?.task_id || '';
     if (taskId) {
       return `Stop task ${taskId}`;
@@ -117,7 +119,9 @@ export class TaskStopTool extends BaseTool<
     return null;
   }
 
-  override getActivityDescription(input?: Partial<TaskStopToolInput>): string | null {
+  override getActivityDescription(
+    input?: Partial<TaskStopToolInput>
+  ): string | null {
     const taskId = input?.task_id || '';
     if (taskId) {
       return `Stopping task ${taskId}`;

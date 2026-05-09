@@ -14,6 +14,8 @@ export const effortCommand: Command = {
   aliases: [],
   argumentHint: '[low|medium|high|auto]',
   whenToUse: '当你需要调整AI响应的详细程度时',
-  load: async () => import('./Effort.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Effort.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

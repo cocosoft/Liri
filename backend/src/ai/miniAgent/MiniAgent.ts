@@ -34,8 +34,13 @@ export class MiniAgent {
   constructor(config: MiniAgentConfig) {
     this.config = config;
     this.ruleEngine = new KeywordRuleEngine();
-    this.taskRouter = new TaskRouterImpl(config.routing.strategy, config.routing.fallbackToCloud);
-    this.ollamaProvider = new OllamaProvider(config.ollama || createDefaultOllamaConfig());
+    this.taskRouter = new TaskRouterImpl(
+      config.routing.strategy,
+      config.routing.fallbackToCloud
+    );
+    this.ollamaProvider = new OllamaProvider(
+      config.ollama || createDefaultOllamaConfig()
+    );
     this.commandExecutor = new LocalCommandExecutor();
   }
 
@@ -51,9 +56,14 @@ export class MiniAgent {
     this.llmClient = client;
   }
 
-  async process(input: string, messages?: ChatMessage[]): Promise<MiniAgentResult> {
+  async process(
+    input: string,
+    messages?: ChatMessage[]
+  ): Promise<MiniAgentResult> {
     const intent = this.ruleEngine.classify(input);
-    const routeDecision = this.taskRouter.route(intent, { inputLength: input.length });
+    const routeDecision = this.taskRouter.route(intent, {
+      inputLength: input.length,
+    });
 
     switch (routeDecision.target) {
       case 'rule_engine':
@@ -97,7 +107,10 @@ export class MiniAgent {
     };
   }
 
-  private async handleMCP(input: string, intent: Intent): Promise<MiniAgentResult> {
+  private async handleMCP(
+    input: string,
+    intent: Intent
+  ): Promise<MiniAgentResult> {
     if (!this.mcpProvider) {
       return {
         response: 'MCP provider not available',
@@ -129,7 +142,9 @@ export class MiniAgent {
       const result = await this.mcpProvider.callTool(toolName, {});
 
       return {
-        response: result.success ? (result.output || 'MCP tool executed') : result.error || 'MCP tool failed',
+        response: result.success
+          ? result.output || 'MCP tool executed'
+          : result.error || 'MCP tool failed',
         intent,
         routeDecision: {
           target: 'rule_engine',
@@ -152,7 +167,10 @@ export class MiniAgent {
     }
   }
 
-  private async handleSkill(input: string, intent: Intent): Promise<MiniAgentResult> {
+  private async handleSkill(
+    input: string,
+    intent: Intent
+  ): Promise<MiniAgentResult> {
     if (!this.skillProvider) {
       return {
         response: 'Skill provider not available',
@@ -181,13 +199,18 @@ export class MiniAgent {
     }
 
     try {
-      const result = await this.skillProvider.executeSkill(skillMatch.skillName, {
-        input,
-        messages: [],
-      });
+      const result = await this.skillProvider.executeSkill(
+        skillMatch.skillName,
+        {
+          input,
+          messages: [],
+        }
+      );
 
       return {
-        response: result.success ? (result.output || 'Skill executed') : result.error || 'Skill failed',
+        response: result.success
+          ? result.output || 'Skill executed'
+          : result.error || 'Skill failed',
         intent,
         routeDecision: {
           target: 'rule_engine',
@@ -222,7 +245,8 @@ export class MiniAgent {
       const now = new Date();
       response = `Current date: ${now.toLocaleDateString()}`;
     } else if (lowerInput.includes('天气') || lowerInput.includes('weather')) {
-      response = 'I cannot check weather directly. Please provide your location.';
+      response =
+        'I cannot check weather directly. Please provide your location.';
     }
 
     return {
@@ -258,7 +282,12 @@ export class MiniAgent {
 
     if (!isAvailable) {
       if (routeDecision.fallback) {
-        return this.handleCloud(input, intent, routeDecision.fallback, messages);
+        return this.handleCloud(
+          input,
+          intent,
+          routeDecision.fallback,
+          messages
+        );
       }
       return this.handleCloud(input, intent, routeDecision, messages);
     }
@@ -289,7 +318,12 @@ export class MiniAgent {
       }
     } catch (error) {
       if (routeDecision.fallback) {
-        return this.handleCloud(input, intent, routeDecision.fallback, messages);
+        return this.handleCloud(
+          input,
+          intent,
+          routeDecision.fallback,
+          messages
+        );
       }
       return this.handleCloud(input, intent, routeDecision, messages);
     }
@@ -324,11 +358,13 @@ export class MiniAgent {
         intent,
         routeDecision,
         source: 'cloud',
-        tokens: response.usage ? {
-          input: response.usage.prompt_tokens,
-          output: response.usage.completion_tokens,
-          total: response.usage.total_tokens,
-        } : undefined,
+        tokens: response.usage
+          ? {
+              input: response.usage.prompt_tokens,
+              output: response.usage.completion_tokens,
+              total: response.usage.total_tokens,
+            }
+          : undefined,
       };
     } catch (error) {
       return {

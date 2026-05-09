@@ -5,7 +5,13 @@
  */
 
 import { z } from 'zod';
-import type { Position, Range, Location, Diagnostic, CompletionItem } from './types';
+import type {
+  Position,
+  Range,
+  Location,
+  Diagnostic,
+  CompletionItem,
+} from './types';
 
 /**
  * 缓存配置
@@ -25,7 +31,10 @@ interface CacheEntry<T> {
  * 验证结果缓存
  */
 const validationCache = new Map<string, CacheEntry<boolean>>();
-const requestCache = new Map<string, CacheEntry<{ valid: boolean; errors?: string[] }>>();
+const requestCache = new Map<
+  string,
+  CacheEntry<{ valid: boolean; errors?: string[] }>
+>();
 
 /**
  * 生成缓存键
@@ -41,7 +50,10 @@ function generateCacheKey(data: unknown): string {
 /**
  * 获取缓存值
  */
-function getCachedValue<T>(cache: Map<string, CacheEntry<T>>, key: string): T | undefined {
+function getCachedValue<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string
+): T | undefined {
   const entry = cache.get(key);
   if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
     return entry.value;
@@ -55,7 +67,11 @@ function getCachedValue<T>(cache: Map<string, CacheEntry<T>>, key: string): T | 
 /**
  * 设置缓存值
  */
-function setCachedValue<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T): void {
+function setCachedValue<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string,
+  value: T
+): void {
   if (cache.size >= CACHE_SIZE) {
     // LRU缓存淘汰策略：删除最旧的条目
     let oldestKey: string | undefined;
@@ -84,7 +100,10 @@ export function clearValidationCache(): void {
 /**
  * 获取缓存统计信息
  */
-export function getCacheStats(): { validationCacheSize: number; requestCacheSize: number } {
+export function getCacheStats(): {
+  validationCacheSize: number;
+  requestCacheSize: number;
+} {
   return {
     validationCacheSize: validationCache.size,
     requestCacheSize: requestCache.size,
@@ -133,7 +152,9 @@ export const CompletionItemSchema = z.object({
   label: z.string(),
   kind: z.number().int().min(1).max(25).optional(),
   detail: z.string().optional(),
-  documentation: z.union([z.string(), z.object({ kind: z.string(), value: z.string() })]).optional(),
+  documentation: z
+    .union([z.string(), z.object({ kind: z.string(), value: z.string() })])
+    .optional(),
   insertText: z.string().optional(),
   insertTextFormat: z.number().int().min(1).max(2).optional(),
   filterText: z.string().optional(),
@@ -224,7 +245,9 @@ export function validateLocation(location: unknown): location is Location {
 /**
  * 验证Diagnostic（带缓存）
  */
-export function validateDiagnostic(diagnostic: unknown): diagnostic is Diagnostic {
+export function validateDiagnostic(
+  diagnostic: unknown
+): diagnostic is Diagnostic {
   const key = `diagnostic-${generateCacheKey(diagnostic)}`;
   const cached = getCachedValue(validationCache, key);
   if (cached !== undefined) {
@@ -252,7 +275,10 @@ export function validateCompletionItem(item: unknown): item is CompletionItem {
 /**
  * 验证文档操作请求（带缓存）
  */
-export function validateDocumentOperationRequest(request: unknown): { valid: boolean; errors?: string[] } {
+export function validateDocumentOperationRequest(request: unknown): {
+  valid: boolean;
+  errors?: string[];
+} {
   const key = `doc-op-${generateCacheKey(request)}`;
   const cached = getCachedValue(requestCache, key);
   if (cached !== undefined) {
@@ -263,7 +289,7 @@ export function validateDocumentOperationRequest(request: unknown): { valid: boo
     ? { valid: true }
     : {
         valid: false,
-        errors: result.error.errors.map(e => e.message),
+        errors: result.error.errors.map((e) => e.message),
       };
   setCachedValue(requestCache, key, response);
   return response;
@@ -272,7 +298,10 @@ export function validateDocumentOperationRequest(request: unknown): { valid: boo
 /**
  * 验证格式化请求（带缓存）
  */
-export function validateFormattingRequest(request: unknown): { valid: boolean; errors?: string[] } {
+export function validateFormattingRequest(request: unknown): {
+  valid: boolean;
+  errors?: string[];
+} {
   const key = `format-${generateCacheKey(request)}`;
   const cached = getCachedValue(requestCache, key);
   if (cached !== undefined) {
@@ -283,7 +312,7 @@ export function validateFormattingRequest(request: unknown): { valid: boolean; e
     ? { valid: true }
     : {
         valid: false,
-        errors: result.error.errors.map(e => e.message),
+        errors: result.error.errors.map((e) => e.message),
       };
   setCachedValue(requestCache, key, response);
   return response;
@@ -292,7 +321,10 @@ export function validateFormattingRequest(request: unknown): { valid: boolean; e
 /**
  * 验证重命名请求（带缓存）
  */
-export function validateRenameRequest(request: unknown): { valid: boolean; errors?: string[] } {
+export function validateRenameRequest(request: unknown): {
+  valid: boolean;
+  errors?: string[];
+} {
   const key = `rename-${generateCacheKey(request)}`;
   const cached = getCachedValue(requestCache, key);
   if (cached !== undefined) {
@@ -303,7 +335,7 @@ export function validateRenameRequest(request: unknown): { valid: boolean; error
     ? { valid: true }
     : {
         valid: false,
-        errors: result.error.errors.map(e => e.message),
+        errors: result.error.errors.map((e) => e.message),
       };
   setCachedValue(requestCache, key, response);
   return response;
@@ -312,7 +344,10 @@ export function validateRenameRequest(request: unknown): { valid: boolean; error
 /**
  * 验证代码操作请求（带缓存）
  */
-export function validateCodeActionRequest(request: unknown): { valid: boolean; errors?: string[] } {
+export function validateCodeActionRequest(request: unknown): {
+  valid: boolean;
+  errors?: string[];
+} {
   const key = `code-action-${generateCacheKey(request)}`;
   const cached = getCachedValue(requestCache, key);
   if (cached !== undefined) {
@@ -323,7 +358,7 @@ export function validateCodeActionRequest(request: unknown): { valid: boolean; e
     ? { valid: true }
     : {
         valid: false,
-        errors: result.error.errors.map(e => e.message),
+        errors: result.error.errors.map((e) => e.message),
       };
   setCachedValue(requestCache, key, response);
   return response;

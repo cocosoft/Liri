@@ -5,72 +5,92 @@
  * 参考 CC源码 cc_code/backend/utils/git.ts
  */
 
-import { execSync } from 'child_process'
+import { execSync } from 'child_process';
 
 export interface GitInfo {
-  branch: string | null
-  remoteUrl: string | null
-  commitHash: string | null
-  isDirty: boolean
+  branch: string | null;
+  remoteUrl: string | null;
+  commitHash: string | null;
+  isDirty: boolean;
 }
 
 export function getGitInfo(cwd?: string): GitInfo {
-  const dir = cwd || process.cwd()
+  const dir = cwd || process.cwd();
   return {
     branch: getCurrentBranch(dir),
     remoteUrl: getRemoteUrl(dir),
     commitHash: getCommitHash(dir),
     isDirty: isWorkingTreeDirty(dir),
-  }
+  };
 }
 
 function getCurrentBranch(cwd: string): string | null {
   try {
-    const output = execSync('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
-    return output.trim()
+    const output = execSync('git rev-parse --abbrev-ref HEAD', {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    return output.trim();
   } catch {
-    return null
+    return null;
   }
 }
 
 function getRemoteUrl(cwd: string): string | null {
   try {
-    const output = execSync('git remote get-url origin', { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
-    return output.trim()
+    const output = execSync('git remote get-url origin', {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    return output.trim();
   } catch {
-    return null
+    return null;
   }
 }
 
 function getCommitHash(cwd: string): string | null {
   try {
-    const output = execSync('git rev-parse HEAD', { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
-    return output.trim()
+    const output = execSync('git rev-parse HEAD', {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    return output.trim();
   } catch {
-    return null
+    return null;
   }
 }
 
 function isWorkingTreeDirty(cwd: string): boolean {
   try {
-    const output = execSync('git status --porcelain', { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
-    return output.trim().length > 0
+    const output = execSync('git status --porcelain', {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    return output.trim().length > 0;
   } catch {
-    return false
+    return false;
   }
 }
 
 export function getRepoRemoteHash(url: string): string {
-  const crypto = require('crypto')
-  return crypto.createHash('sha256').update(url).digest('hex').substring(0, 16)
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(url).digest('hex').substring(0, 16);
 }
 
 export function isInGitRepo(cwd?: string): boolean {
-  const dir = cwd || process.cwd()
+  const dir = cwd || process.cwd();
   try {
-    const output = execSync('git rev-parse --is-inside-work-tree', { cwd: dir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] })
-    return output.trim() === 'true'
+    const output = execSync('git rev-parse --is-inside-work-tree', {
+      cwd: dir,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    return output.trim() === 'true';
   } catch {
-    return false
+    return false;
   }
 }

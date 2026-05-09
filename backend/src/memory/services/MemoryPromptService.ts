@@ -60,23 +60,25 @@ export class MemoryPromptService {
     const prompts: MemoryPrompt[] = [];
 
     // 生成使用指导提示
-    prompts.push(...await this.generateUsageGuidance());
+    prompts.push(...(await this.generateUsageGuidance()));
 
     // 生成记忆建议提示
     if (context.userActions) {
-      prompts.push(...await this.generateMemorySuggestions(context.userActions));
+      prompts.push(
+        ...(await this.generateMemorySuggestions(context.userActions))
+      );
     }
 
     // 生成组织提示
-    prompts.push(...await this.generateOrganizationTips());
+    prompts.push(...(await this.generateOrganizationTips()));
 
     // 生成检索帮助提示
     if (context.query) {
-      prompts.push(...await this.generateRetrievalHelp(context.query));
+      prompts.push(...(await this.generateRetrievalHelp(context.query)));
     }
 
     // 生成维护建议
-    prompts.push(...await this.generateMaintenanceAdvice());
+    prompts.push(...(await this.generateMaintenanceAdvice()));
 
     // 按相关性排序
     prompts.sort((a, b) => b.relevance - a.relevance);
@@ -95,7 +97,8 @@ export class MemoryPromptService {
         id: `usage_${Date.now()}`,
         type: MemoryPromptType.USAGE_GUIDANCE,
         title: '如何有效使用记忆系统',
-        content: `记忆系统可以帮助你：\n\n` +
+        content:
+          `记忆系统可以帮助你：\n\n` +
           `1. **保存重要信息**：用户偏好、项目上下文、决策理由等\n` +
           `2. **组织记忆**：按类型（用户、反馈、项目、参考）分类\n` +
           `3. **定期回顾**：保持记忆的准确性和相关性\n` +
@@ -115,7 +118,9 @@ export class MemoryPromptService {
    * @param userActions 用户行为
    * @returns 记忆建议提示
    */
-  private async generateMemorySuggestions(userActions: string[]): Promise<MemoryPrompt[]> {
+  private async generateMemorySuggestions(
+    userActions: string[]
+  ): Promise<MemoryPrompt[]> {
     const prompts: MemoryPrompt[] = [];
 
     // 分析用户行为，生成相关建议
@@ -124,7 +129,8 @@ export class MemoryPromptService {
         id: `suggestion_${Date.now()}`,
         type: MemoryPromptType.MEMORY_SUGGESTION,
         title: '保存用户更正',
-        content: '用户刚刚更正了你的回答，建议将这个更正保存为反馈类型的记忆，以便在未来的对话中参考。',
+        content:
+          '用户刚刚更正了你的回答，建议将这个更正保存为反馈类型的记忆，以便在未来的对话中参考。',
         relevance: 0.9,
         timestamp: new Date(),
         tags: ['suggestion', 'feedback'],
@@ -136,7 +142,8 @@ export class MemoryPromptService {
         id: `suggestion_${Date.now() + 1}`,
         type: MemoryPromptType.MEMORY_SUGGESTION,
         title: '保存常见问题',
-        content: '用户重复询问了类似问题，建议将相关信息保存为参考类型的记忆，以便快速回答。',
+        content:
+          '用户重复询问了类似问题，建议将相关信息保存为参考类型的记忆，以便快速回答。',
         relevance: 0.85,
         timestamp: new Date(),
         tags: ['suggestion', 'reference'],
@@ -148,7 +155,8 @@ export class MemoryPromptService {
         id: `suggestion_${Date.now() + 2}`,
         type: MemoryPromptType.MEMORY_SUGGESTION,
         title: '保存用户偏好',
-        content: '用户提供了新的偏好信息，建议将其保存为用户类型的记忆，以便个性化服务。',
+        content:
+          '用户提供了新的偏好信息，建议将其保存为用户类型的记忆，以便个性化服务。',
         relevance: 0.8,
         timestamp: new Date(),
         tags: ['suggestion', 'user'],
@@ -172,7 +180,8 @@ export class MemoryPromptService {
         id: `org_${Date.now()}`,
         type: MemoryPromptType.ORGANIZATION_TIPS,
         title: '优化记忆组织',
-        content: `你的记忆库已有 ${stats.total} 条记忆，建议：\n\n` +
+        content:
+          `你的记忆库已有 ${stats.total} 条记忆，建议：\n\n` +
           `1. **定期清理**：删除过时或重复的记忆\n` +
           `2. **使用标签**：为记忆添加相关标签，便于分类和搜索\n` +
           `3. **整理结构**：按主题或项目组织记忆文件\n` +
@@ -185,8 +194,8 @@ export class MemoryPromptService {
 
     // 检查记忆类型分布
     const typeDistribution = Object.entries(stats.byType);
-    const dominantType = typeDistribution.reduce((max, [type, count]) => 
-      count > max.count ? { type, count } : max, 
+    const dominantType = typeDistribution.reduce(
+      (max, [type, count]) => (count > max.count ? { type, count } : max),
       { type: '', count: 0 }
     );
 
@@ -195,7 +204,8 @@ export class MemoryPromptService {
         id: `org_${Date.now() + 1}`,
         type: MemoryPromptType.ORGANIZATION_TIPS,
         title: '平衡记忆类型',
-        content: `你的记忆主要集中在 ${dominantType.type} 类型，建议丰富其他类型的记忆，如：\n\n` +
+        content:
+          `你的记忆主要集中在 ${dominantType.type} 类型，建议丰富其他类型的记忆，如：\n\n` +
           `1. **用户记忆**：保存用户偏好和背景信息\n` +
           `2. **反馈记忆**：记录用户反馈和更正\n` +
           `3. **项目记忆**：存储项目相关信息和决策\n` +
@@ -220,7 +230,8 @@ export class MemoryPromptService {
         id: `retrieval_${Date.now()}`,
         type: MemoryPromptType.RETRIEVAL_HELP,
         title: '优化搜索查询',
-        content: `为了获得更准确的记忆检索结果，建议：\n\n` +
+        content:
+          `为了获得更准确的记忆检索结果，建议：\n\n` +
           `1. **使用具体关键词**：避免使用过于宽泛的词汇\n` +
           `2. **包含相关标签**：如 #project, #user, #feedback 等\n` +
           `3. **使用语义相关词**：尝试不同但相关的表达方式\n` +
@@ -237,7 +248,8 @@ export class MemoryPromptService {
         id: `retrieval_${Date.now() + 1}`,
         type: MemoryPromptType.RETRIEVAL_HELP,
         title: '项目记忆检索',
-        content: '尝试使用项目名称、项目相关标签或具体项目阶段作为搜索关键词，以找到更相关的项目记忆。',
+        content:
+          '尝试使用项目名称、项目相关标签或具体项目阶段作为搜索关键词，以找到更相关的项目记忆。',
         relevance: 0.85,
         timestamp: new Date(),
         tags: ['retrieval', 'project'],
@@ -249,7 +261,8 @@ export class MemoryPromptService {
         id: `retrieval_${Date.now() + 2}`,
         type: MemoryPromptType.RETRIEVAL_HELP,
         title: '用户记忆检索',
-        content: '尝试使用用户相关关键词、偏好或行为描述作为搜索词，以找到相关的用户记忆。',
+        content:
+          '尝试使用用户相关关键词、偏好或行为描述作为搜索词，以找到相关的用户记忆。',
         relevance: 0.85,
         timestamp: new Date(),
         tags: ['retrieval', 'user'],
@@ -269,7 +282,8 @@ export class MemoryPromptService {
         id: `maintenance_${Date.now()}`,
         type: MemoryPromptType.MAINTENANCE_ADVICE,
         title: '记忆系统维护',
-        content: `定期维护记忆系统可以提高其有效性：\n\n` +
+        content:
+          `定期维护记忆系统可以提高其有效性：\n\n` +
           `1. **清理过期记忆**：删除不再相关的记忆\n` +
           `2. **更新记忆内容**：确保记忆信息保持最新\n` +
           `3. **备份记忆数据**：定期备份以防止数据丢失\n` +
@@ -339,6 +353,8 @@ export class MemoryPromptService {
  * @param memoryManager 记忆管理器
  * @returns 记忆提示服务实例
  */
-export function createMemoryPromptService(memoryManager: MemoryManager): MemoryPromptService {
+export function createMemoryPromptService(
+  memoryManager: MemoryManager
+): MemoryPromptService {
   return new MemoryPromptService(memoryManager);
 }

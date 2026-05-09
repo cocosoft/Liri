@@ -7,11 +7,17 @@
 import { logger } from '../utils/log.js';
 import { TerminalComponents } from '../ui/TerminalComponents.js';
 import { TerminalUIIntegration } from '../ui/TerminalUIIntegration.js';
-import { ModuleDependencyManager, ModuleDefinition } from './ModuleDependencyManager.js';
+import {
+  ModuleDependencyManager,
+  ModuleDefinition,
+} from './ModuleDependencyManager.js';
 import { PluginEcosystem, EcosystemConfig } from './PluginEcosystem.js';
 import { PluginSDK, Plugin, PluginSDKConfig } from './PluginSDK.js';
 import { StartupProfiler } from '../utils/startupProfiler.js';
-import { StartupPreloader, initializeAndStartPreloading } from './performance/StartupPreloader.js';
+import {
+  StartupPreloader,
+  initializeAndStartPreloading,
+} from './performance/StartupPreloader.js';
 
 /**
  * 应用配置
@@ -81,7 +87,9 @@ export class AppCore {
     this.profiler.checkpoint('initialization_start');
 
     try {
-      TerminalComponents.printHeader(`初始化 ${this.config.name} v${this.config.version}`);
+      TerminalComponents.printHeader(
+        `初始化 ${this.config.name} v${this.config.version}`
+      );
 
       // T1: 并行预加载（参考CC源码模式）
       const preloader = initializeAndStartPreloading();
@@ -113,7 +121,9 @@ export class AppCore {
       this.showStartupReport();
 
       TerminalComponents.printSuccess(`${this.config.name} 初始化完成`);
-      logger.info(`${this.config.name} v${this.config.version} initialized successfully`);
+      logger.info(
+        `${this.config.name} v${this.config.version} initialized successfully`
+      );
     } catch (error) {
       logger.error('Failed to initialize AppCore:', error as Error);
       throw error;
@@ -325,7 +335,7 @@ export class AppCore {
     ];
 
     TerminalComponents.printList(
-      commands.map(c => `${c.cmd} - ${c.desc}`),
+      commands.map((c) => `${c.cmd} - ${c.desc}`),
       { bullet: '►' }
     );
   }

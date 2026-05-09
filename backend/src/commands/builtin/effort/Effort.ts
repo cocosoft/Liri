@@ -15,13 +15,13 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const level = args.trim().toLowerCase() as EffortLevel;
-    
+
     const validLevels: EffortLevel[] = ['low', 'medium', 'high', 'auto'];
-    
+
     if (!level || level === ('show' as EffortLevel)) {
       return this.handleShow(context);
     }
-    
+
     if (!validLevels.includes(level)) {
       return {
         success: false,
@@ -40,7 +40,7 @@ export default {
   async handleShow(context: CommandContext): Promise<CommandResult> {
     // 获取当前设置（从配置或默认值）
     const currentLevel = context.environment?.EFFORT_LEVEL || 'auto';
-    
+
     const levelDescriptions: Record<string, string> = {
       low: '低 - 快速响应，较少细节',
       medium: '中 - 平衡响应速度和详细程度',
@@ -51,7 +51,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `当前 Effort 级别: ${levelDescriptions[currentLevel] || currentLevel}\n\n` +
+      message:
+        `当前 Effort 级别: ${levelDescriptions[currentLevel] || currentLevel}\n\n` +
         '使用 /effort <级别> 更改设置\n' +
         '级别: low, medium, high, auto',
       data: { level: currentLevel },
@@ -61,7 +62,10 @@ export default {
   /**
    * 设置effort级别
    */
-  async handleSet(level: EffortLevel, context: CommandContext): Promise<CommandResult> {
+  async handleSet(
+    level: EffortLevel,
+    context: CommandContext
+  ): Promise<CommandResult> {
     const levelDescriptions: Record<string, string> = {
       low: '低级别',
       medium: '中级别',
@@ -74,7 +78,9 @@ export default {
       context.environment.EFFORT_LEVEL = level;
     }
 
-    context.onDone?.(`Effort级别已设置为: ${levelDescriptions[level]}`, { display: 'system' });
+    context.onDone?.(`Effort级别已设置为: ${levelDescriptions[level]}`, {
+      display: 'system',
+    });
 
     return {
       success: true,

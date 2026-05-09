@@ -9,36 +9,36 @@
  * - 默认: NoopComputerUseAdapter（告知不支持）
  */
 
-import type { ComputerUseAdapter } from './types'
-import { NoopComputerUseAdapter } from './NoopAdapter'
+import type { ComputerUseAdapter } from './types';
+import { NoopComputerUseAdapter } from './NoopAdapter';
 
-let adapter: ComputerUseAdapter | null = null
+let adapter: ComputerUseAdapter | null = null;
 
 export function getComputerUseAdapter(): ComputerUseAdapter {
-  if (adapter) return adapter
+  if (adapter) return adapter;
 
   switch (process.platform) {
     case 'win32':
       try {
-        const { WindowsComputerUseAdapter } = require('./WindowsAdapter')
-        adapter = new WindowsComputerUseAdapter()
-        return adapter!
+        const { WindowsComputerUseAdapter } = require('./WindowsAdapter');
+        adapter = new WindowsComputerUseAdapter();
+        return adapter!;
       } catch {
-        break
+        break;
       }
     case 'darwin':
-      break
+      break;
     case 'linux':
-      break
+      break;
   }
 
-  return new NoopComputerUseAdapter()
+  return new NoopComputerUseAdapter();
 }
 
 export function resetComputerUseAdapter(): void {
   if (adapter) {
-    adapter.destroy().catch(() => {})
-    adapter = null
+    adapter.destroy().catch(() => {});
+    adapter = null;
   }
 }
 
@@ -51,6 +51,6 @@ export type {
   MouseAction,
   KeyboardAction,
   AppInfo,
-} from './types'
+} from './types';
 
-export { NoopComputerUseAdapter } from './NoopAdapter'
+export { NoopComputerUseAdapter } from './NoopAdapter';

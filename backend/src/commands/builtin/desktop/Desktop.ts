@@ -38,17 +38,19 @@ export default {
   async handleToggle(context: CommandContext): Promise<CommandResult> {
     const currentState = context.environment?.DESKTOP_MODE === 'true';
     const newState = !currentState;
-    
+
     if (context.environment) {
       context.environment.DESKTOP_MODE = newState.toString();
     }
 
-    const message = newState 
+    const message = newState
       ? '桌面模式已启用。应用将以独立窗口运行。'
       : '桌面模式已禁用。应用将以嵌入式方式运行。';
 
-    context.onDone?.(`桌面模式${newState ? '已启用' : '已禁用'}`, { display: 'system' });
-    
+    context.onDone?.(`桌面模式${newState ? '已启用' : '已禁用'}`, {
+      display: 'system',
+    });
+
     return {
       success: true,
       type: 'text',
@@ -66,7 +68,7 @@ export default {
     }
 
     context.onDone?.('桌面模式已启用', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -84,7 +86,7 @@ export default {
     }
 
     context.onDone?.('桌面模式已禁用', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -98,7 +100,7 @@ export default {
    */
   async handleStatus(context: CommandContext): Promise<CommandResult> {
     const enabled = context.environment?.DESKTOP_MODE === 'true';
-    
+
     return {
       success: true,
       type: 'text',
@@ -122,7 +124,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `桌面模式设置:\n` +
+      message:
+        `桌面模式设置:\n` +
         `- 启用: ${settings.enabled ? '是' : '否'}\n` +
         `- 窗口大小: ${settings.windowSize.width}x${settings.windowSize.height}\n` +
         `- 始终置顶: ${settings.alwaysOnTop ? '是' : '否'}\n` +

@@ -75,7 +75,10 @@ class InProcessTransportImpl implements InProcessTransportInterface {
  *
  * @returns [客户端传输, 服务端传输]
  */
-export function createLinkedTransportPair(): [InProcessTransportInterface, InProcessTransportInterface] {
+export function createLinkedTransportPair(): [
+  InProcessTransportInterface,
+  InProcessTransportInterface,
+] {
   const client = new InProcessTransportImpl();
   const server = new InProcessTransportImpl();
 
@@ -94,11 +97,20 @@ export class InProcessTransportFactory {
   /**
    * 创建传输对
    */
-  createPair(connectionId: string): { client: InProcessTransportInterface; server: InProcessTransportInterface } {
+  createPair(connectionId: string): {
+    client: InProcessTransportInterface;
+    server: InProcessTransportInterface;
+  } {
     const [client, server] = createLinkedTransportPair();
 
-    this.transports.set(`${connectionId}:client`, client as InProcessTransportImpl);
-    this.transports.set(`${connectionId}:server`, server as InProcessTransportImpl);
+    this.transports.set(
+      `${connectionId}:client`,
+      client as InProcessTransportImpl
+    );
+    this.transports.set(
+      `${connectionId}:server`,
+      server as InProcessTransportImpl
+    );
 
     return { client, server };
   }
@@ -106,14 +118,20 @@ export class InProcessTransportFactory {
   /**
    * 获取传输
    */
-  getTransport(connectionId: string, side: 'client' | 'server'): InProcessTransportInterface | undefined {
+  getTransport(
+    connectionId: string,
+    side: 'client' | 'server'
+  ): InProcessTransportInterface | undefined {
     return this.transports.get(`${connectionId}:${side}`);
   }
 
   /**
    * 关闭传输
    */
-  async closeTransport(connectionId: string, side: 'client' | 'server'): Promise<void> {
+  async closeTransport(
+    connectionId: string,
+    side: 'client' | 'server'
+  ): Promise<void> {
     const transport = this.transports.get(`${connectionId}:${side}`);
     if (transport) {
       await transport.close();

@@ -61,7 +61,7 @@ export class PerfettoTracer {
         bufferSize: 10000,
         flushInterval: 5000,
       };
-      
+
       PerfettoTracer.instance = new PerfettoTracer({
         ...defaultConfig,
         ...config,
@@ -116,7 +116,12 @@ export class PerfettoTracer {
   /**
    * 记录事件
    */
-  trace(eventType: PerfettoEventType, category: string, name: string, args?: Record<string, any>): void {
+  trace(
+    eventType: PerfettoEventType,
+    category: string,
+    name: string,
+    args?: Record<string, any>
+  ): void {
     if (!this.config.enabled || !this.isRunning) {
       return;
     }
@@ -163,7 +168,12 @@ export class PerfettoTracer {
   /**
    * 执行带追踪的函数
    */
-  traceFunction<T>(category: string, name: string, fn: () => T, args?: Record<string, any>): T {
+  traceFunction<T>(
+    category: string,
+    name: string,
+    fn: () => T,
+    args?: Record<string, any>
+  ): T {
     if (!this.config.enabled || !this.isRunning) {
       return fn();
     }
@@ -179,7 +189,12 @@ export class PerfettoTracer {
   /**
    * 执行带追踪的异步函数
    */
-  async traceAsyncFunction<T>(category: string, name: string, fn: () => Promise<T>, args?: Record<string, any>): Promise<T> {
+  async traceAsyncFunction<T>(
+    category: string,
+    name: string,
+    fn: () => Promise<T>,
+    args?: Record<string, any>
+  ): Promise<T> {
     if (!this.config.enabled || !this.isRunning) {
       return await fn();
     }
@@ -222,7 +237,10 @@ export class PerfettoTracer {
       const allEvents = [...existingEvents, ...this.events];
 
       // 写入文件
-      fs.writeFileSync(this.config.outputPath, JSON.stringify(allEvents, null, 2));
+      fs.writeFileSync(
+        this.config.outputPath,
+        JSON.stringify(allEvents, null, 2)
+      );
 
       // 清空事件
       this.events = [];
@@ -273,33 +291,49 @@ export class PerfettoTracer {
 /**
  * 获取Perfetto追踪器实例
  */
-export function getPerfettoTracer(config?: Partial<PerfettoConfig>): PerfettoTracer {
+export function getPerfettoTracer(
+  config?: Partial<PerfettoConfig>
+): PerfettoTracer {
   return PerfettoTracer.getInstance(config);
 }
 
 /**
  * Perfetto追踪装饰器
  */
-export function perfettoTrace(category: string, name: string, args?: Record<string, any>) {
+export function perfettoTrace(
+  category: string,
+  name: string,
+  args?: Record<string, any>
+) {
   return function (target: any, propertyKey: string, descriptor: any) {
     if (!descriptor || !descriptor.value) {
       return;
     }
-    
+
     const originalMethod = descriptor.value;
-    
+
     descriptor.value = function (...methodArgs: any[]) {
       const tracer = getPerfettoTracer();
-      
+
       if (typeof originalMethod === 'function') {
         if (originalMethod.constructor.name === 'AsyncFunction') {
-          return tracer.traceAsyncFunction(category, name, async () => {
-            return await originalMethod.apply(this, methodArgs);
-          }, args);
+          return tracer.traceAsyncFunction(
+            category,
+            name,
+            async () => {
+              return await originalMethod.apply(this, methodArgs);
+            },
+            args
+          );
         } else {
-          return tracer.traceFunction(category, name, () => {
-            return originalMethod.apply(this, methodArgs);
-          }, args);
+          return tracer.traceFunction(
+            category,
+            name,
+            () => {
+              return originalMethod.apply(this, methodArgs);
+            },
+            args
+          );
         }
       }
     };
@@ -313,7 +347,12 @@ export class PerfettoUtils {
   /**
    * 追踪代码块
    */
-  static traceBlock<T>(category: string, name: string, fn: () => T, args?: Record<string, any>): T {
+  static traceBlock<T>(
+    category: string,
+    name: string,
+    fn: () => T,
+    args?: Record<string, any>
+  ): T {
     const tracer = getPerfettoTracer();
     return tracer.traceFunction(category, name, fn, args);
   }
@@ -321,7 +360,12 @@ export class PerfettoUtils {
   /**
    * 追踪异步代码块
    */
-  static async traceAsyncBlock<T>(category: string, name: string, fn: () => Promise<T>, args?: Record<string, any>): Promise<T> {
+  static async traceAsyncBlock<T>(
+    category: string,
+    name: string,
+    fn: () => Promise<T>,
+    args?: Record<string, any>
+  ): Promise<T> {
     const tracer = getPerfettoTracer();
     return await tracer.traceAsyncFunction(category, name, fn, args);
   }
@@ -329,7 +373,11 @@ export class PerfettoUtils {
   /**
    * 追踪时间
    */
-  static time(category: string, name: string, args?: Record<string, any>): () => void {
+  static time(
+    category: string,
+    name: string,
+    args?: Record<string, any>
+  ): () => void {
     const tracer = getPerfettoTracer();
     tracer.begin(category, name, args);
     return () => tracer.end(category, name);

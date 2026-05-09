@@ -44,7 +44,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `移动端状态:\n` +
+      message:
+        `移动端状态:\n` +
         `- 已配对: ${status.paired ? '是' : '否'}\n` +
         `- 设备名称: ${status.deviceName || '未配对'}\n` +
         `- 最后同步: ${status.lastSync || '从未同步'}\n` +
@@ -60,7 +61,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: '正在生成配对二维码...\n\n' +
+      message:
+        '正在生成配对二维码...\n\n' +
         '请打开PY_APP移动应用并扫描此二维码进行配对。',
       data: { qrGenerated: true },
     };
@@ -71,12 +73,11 @@ export default {
    */
   async handlePair(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('正在配对设备...', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
-      message: '正在配对设备...\n\n' +
-        '请在移动设备上确认配对请求。',
+      message: '正在配对设备...\n\n' + '请在移动设备上确认配对请求。',
       data: { pairing: true },
     };
   },
@@ -86,7 +87,7 @@ export default {
    */
   async handleUnpair(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('已取消设备配对', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

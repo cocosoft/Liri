@@ -13,7 +13,7 @@ import type { Tip, TipContext } from './types';
  * 选择距离上次显示时间最长的提示
  */
 export function selectTipWithLongestTimeSinceShown(
-  availableTips: Tip[],
+  availableTips: Tip[]
 ): Tip | undefined {
   if (availableTips.length === 0) {
     return undefined;
@@ -23,7 +23,7 @@ export function selectTipWithLongestTimeSinceShown(
     return availableTips[0];
   }
 
-  const tipsWithSessions = availableTips.map(tip => ({
+  const tipsWithSessions = availableTips.map((tip) => ({
     tip,
     sessions: getSessionsSinceLastShown(tip.id),
   }));
@@ -36,7 +36,7 @@ export function selectTipWithLongestTimeSinceShown(
  * 获取要显示的提示
  */
 export async function getTipToShow(
-  context?: TipContext,
+  context?: TipContext
 ): Promise<Tip | undefined> {
   const tips = await getRelevantTips(context);
   if (tips.length === 0) {

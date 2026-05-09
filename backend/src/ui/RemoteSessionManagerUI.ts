@@ -329,7 +329,10 @@ export class RemoteSessionManagerUI {
 
       fs.writeFileSync(historyPath, JSON.stringify(this.history, null, 2));
     } catch (error) {
-      logger.error('Failed to save session history:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to save session history:',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 

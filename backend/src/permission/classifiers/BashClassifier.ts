@@ -67,15 +67,58 @@ const DEFAULT_CONFIG: BashClassifierConfig = {
     'curl | sh',
   ],
   readonlyCommands: [
-    'ls', 'dir', 'pwd', 'echo', 'cat', 'head', 'tail', 'less', 'more',
-    'grep', 'find', 'which', 'whereis', 'file', 'stat', 'wc', 'sort',
-    'uniq', 'cut', 'tr', 'awk', 'sed', 'tar -t', 'zipinfo', 'unzip -l',
-    'git status', 'git log', 'git diff', 'git show', 'git branch',
-    'svn status', 'svn info', 'hg log', 'cvs diff',
-    'docker ps', 'docker images', 'docker logs', 'docker inspect',
-    'kubectl get', 'kubectl describe', 'helm list',
-    'ps', 'top', 'htop', 'free', 'df', 'du', 'iostat', 'netstat',
-    'curl -I', 'curl -head', 'wget --spider',
+    'ls',
+    'dir',
+    'pwd',
+    'echo',
+    'cat',
+    'head',
+    'tail',
+    'less',
+    'more',
+    'grep',
+    'find',
+    'which',
+    'whereis',
+    'file',
+    'stat',
+    'wc',
+    'sort',
+    'uniq',
+    'cut',
+    'tr',
+    'awk',
+    'sed',
+    'tar -t',
+    'zipinfo',
+    'unzip -l',
+    'git status',
+    'git log',
+    'git diff',
+    'git show',
+    'git branch',
+    'svn status',
+    'svn info',
+    'hg log',
+    'cvs diff',
+    'docker ps',
+    'docker images',
+    'docker logs',
+    'docker inspect',
+    'kubectl get',
+    'kubectl describe',
+    'helm list',
+    'ps',
+    'top',
+    'htop',
+    'free',
+    'df',
+    'du',
+    'iostat',
+    'netstat',
+    'curl -I',
+    'curl -head',
+    'wget --spider',
   ],
   allowedDirs: [],
 };
@@ -84,15 +127,35 @@ const DEFAULT_CONFIG: BashClassifierConfig = {
  * 危险命令模式列表
  */
 const DANGER_PATTERNS: DangerPattern[] = [
-  { pattern: /^rm\s+-rf\s+\//, dangerLevel: 'critical', reason: '试图删除根目录' },
-  { pattern: /^rm\s+-rf\s+\*\s*$/, dangerLevel: 'critical', reason: '递归删除当前目录' },
+  {
+    pattern: /^rm\s+-rf\s+\//,
+    dangerLevel: 'critical',
+    reason: '试图删除根目录',
+  },
+  {
+    pattern: /^rm\s+-rf\s+\*\s*$/,
+    dangerLevel: 'critical',
+    reason: '递归删除当前目录',
+  },
   { pattern: /^dd\s+if=/, dangerLevel: 'critical', reason: '直接写入磁盘' },
   { pattern: /^mkfs\./, dangerLevel: 'critical', reason: '格式化文件系统' },
   { pattern: /^:\(\)\{:\|:&\};:/, dangerLevel: 'critical', reason: 'Fork炸弹' },
-  { pattern: /^chmod\s+-R\s+777\s+\//, dangerLevel: 'high', reason: '开放根目录权限' },
-  { pattern: /^>\s*\/etc\/passwd$/, dangerLevel: 'critical', reason: '修改系统账户文件' },
+  {
+    pattern: /^chmod\s+-R\s+777\s+\//,
+    dangerLevel: 'high',
+    reason: '开放根目录权限',
+  },
+  {
+    pattern: /^>\s*\/etc\/passwd$/,
+    dangerLevel: 'critical',
+    reason: '修改系统账户文件',
+  },
   { pattern: /\|?\s*sh\s*$/, dangerLevel: 'high', reason: '执行shell脚本' },
-  { pattern: /\$\([^)]*\)\s*\|?\s*sh/, dangerLevel: 'high', reason: '执行命令输出作为shell' },
+  {
+    pattern: /\$\([^)]*\)\s*\|?\s*sh/,
+    dangerLevel: 'high',
+    reason: '执行命令输出作为shell',
+  },
   { pattern: /curl\s+.*\|.*sh/, dangerLevel: 'high', reason: '下载并执行脚本' },
   { pattern: /wget\s+.*\|.*sh/, dangerLevel: 'high', reason: '下载并执行脚本' },
   { pattern: /sudo\s+rm\s+/, dangerLevel: 'medium', reason: '使用sudo删除' },
@@ -104,10 +167,22 @@ const DANGER_PATTERNS: DangerPattern[] = [
   { pattern: /^init\s+0/, dangerLevel: 'medium', reason: '关闭系统' },
   { pattern: /^init\s+6/, dangerLevel: 'medium', reason: '重启系统' },
   { pattern: /^systemctl\s+stop/, dangerLevel: 'low', reason: '停止系统服务' },
-  { pattern: /^systemctl\s+disable/, dangerLevel: 'low', reason: '禁用系统服务' },
+  {
+    pattern: /^systemctl\s+disable/,
+    dangerLevel: 'low',
+    reason: '禁用系统服务',
+  },
   { pattern: /^service\s+\w+\s+stop/, dangerLevel: 'low', reason: '停止服务' },
-  { pattern: /^mv\s+.*\s+\/dev\/null/, dangerLevel: 'high', reason: '删除文件到黑洞' },
-  { pattern: /^cat\s+\/dev\/null\s+>/, dangerLevel: 'medium', reason: '清空文件' },
+  {
+    pattern: /^mv\s+.*\s+\/dev\/null/,
+    dangerLevel: 'high',
+    reason: '删除文件到黑洞',
+  },
+  {
+    pattern: /^cat\s+\/dev\/null\s+>/,
+    dangerLevel: 'medium',
+    reason: '清空文件',
+  },
   { pattern: /^>\/\s*etc\//, dangerLevel: 'high', reason: '写入系统目录' },
   { pattern: /^chmod\s+777\s+/, dangerLevel: 'medium', reason: '开放权限' },
   { pattern: /^chmod\s+-R\s+777/, dangerLevel: 'high', reason: '递归开放权限' },
@@ -117,10 +192,26 @@ const DANGER_PATTERNS: DangerPattern[] = [
   { pattern: /^passwd/, dangerLevel: 'medium', reason: '修改密码' },
   { pattern: /^iptables/, dangerLevel: 'medium', reason: '修改防火墙规则' },
   { pattern: /^ufw\s+disable/, dangerLevel: 'medium', reason: '禁用防火墙' },
-  { pattern: /^docker\s+run\s+--privileged/, dangerLevel: 'high', reason: '运行特权容器' },
-  { pattern: /^docker\s+exec\s+--privileged/, dangerLevel: 'high', reason: '特权容器执行' },
-  { pattern: /^kubectl\s+exec\s+-it\s+.*\s+\/bin\/sh/, dangerLevel: 'medium', reason: '进入容器shell' },
-  { pattern: /^ssh\s+.*@.*\s+"rm/, dangerLevel: 'high', reason: '远程执行删除' },
+  {
+    pattern: /^docker\s+run\s+--privileged/,
+    dangerLevel: 'high',
+    reason: '运行特权容器',
+  },
+  {
+    pattern: /^docker\s+exec\s+--privileged/,
+    dangerLevel: 'high',
+    reason: '特权容器执行',
+  },
+  {
+    pattern: /^kubectl\s+exec\s+-it\s+.*\s+\/bin\/sh/,
+    dangerLevel: 'medium',
+    reason: '进入容器shell',
+  },
+  {
+    pattern: /^ssh\s+.*@.*\s+"rm/,
+    dangerLevel: 'high',
+    reason: '远程执行删除',
+  },
 ];
 
 /**
@@ -186,7 +277,12 @@ export class BashClassifier {
     const trimmedCommand = command.trim();
 
     if (!this.config.enabled) {
-      return this.createResult(trimmedCommand, 'allow', 'none', 'classifier_disabled');
+      return this.createResult(
+        trimmedCommand,
+        'allow',
+        'none',
+        'classifier_disabled'
+      );
     }
 
     // 检查危险命令黑名单
@@ -216,7 +312,12 @@ export class BashClassifier {
     }
 
     // 默认允许但需要确认
-    return this.createResult(trimmedCommand, 'soft_deny', 'low', 'unclassified_command');
+    return this.createResult(
+      trimmedCommand,
+      'soft_deny',
+      'low',
+      'unclassified_command'
+    );
   }
 
   /**
@@ -225,7 +326,12 @@ export class BashClassifier {
   private checkDangerousList(command: string): BashClassifierResult | null {
     for (const dangerous of this.config.dangerousCommands) {
       if (command.includes(dangerous)) {
-        return this.createResult(command, 'deny', 'critical', `dangerous_command: ${dangerous}`);
+        return this.createResult(
+          command,
+          'deny',
+          'critical',
+          `dangerous_command: ${dangerous}`
+        );
       }
     }
     return null;
@@ -237,8 +343,16 @@ export class BashClassifier {
   private checkDangerPatterns(command: string): BashClassifierResult | null {
     for (const danger of DANGER_PATTERNS) {
       if (danger.pattern.test(command)) {
-        const decision = danger.dangerLevel === 'critical' || danger.dangerLevel === 'high' ? 'deny' : 'soft_deny';
-        return this.createResult(command, decision, danger.dangerLevel, danger.reason);
+        const decision =
+          danger.dangerLevel === 'critical' || danger.dangerLevel === 'high'
+            ? 'deny'
+            : 'soft_deny';
+        return this.createResult(
+          command,
+          decision,
+          danger.dangerLevel,
+          danger.reason
+        );
       }
     }
     return null;
@@ -272,12 +386,17 @@ export class BashClassifier {
     const pathMatch = command.match(/cd\s+(\S+)/);
     if (pathMatch) {
       const targetDir = pathMatch[1];
-      const isAllowed = this.config.allowedDirs.some(allowed =>
-        targetDir.startsWith(allowed) || targetDir === allowed
+      const isAllowed = this.config.allowedDirs.some(
+        (allowed) => targetDir.startsWith(allowed) || targetDir === allowed
       );
 
       if (!isAllowed) {
-        return this.createResult(command, 'deny', 'medium', `directory_not_allowed: ${targetDir}`);
+        return this.createResult(
+          command,
+          'deny',
+          'medium',
+          `directory_not_allowed: ${targetDir}`
+        );
       }
     }
 

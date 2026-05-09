@@ -13,7 +13,9 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 export interface McpCommand {
   name: string;
   description: string;
-  execute: (args: any) => Promise<{ success: boolean; data?: any; error?: string }>;
+  execute: (
+    args: any
+  ) => Promise<{ success: boolean; data?: any; error?: string }>;
 }
 
 /**
@@ -25,7 +27,10 @@ export class CommandManager {
   /**
    * 从MCP服务器加载命令
    */
-  async loadCommandsFromServer(client: Client, serverName: string): Promise<McpCommand[]> {
+  async loadCommandsFromServer(
+    client: Client,
+    serverName: string
+  ): Promise<McpCommand[]> {
     try {
       const prompts = await (client as any).prompts.list();
       const commands: McpCommand[] = [];
@@ -36,23 +41,37 @@ export class CommandManager {
           description: prompt.description,
           execute: async (args: any) => {
             try {
-              const result = await (client as any).prompts.execute(prompt.name, args);
+              const result = await (client as any).prompts.execute(
+                prompt.name,
+                args
+              );
               return { success: true, data: result };
             } catch (error) {
-              logger.error(`Failed to execute command ${prompt.name}:`, error instanceof Error ? error : new Error(String(error)));
-              return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+              logger.error(
+                `Failed to execute command ${prompt.name}:`,
+                error instanceof Error ? error : new Error(String(error))
+              );
+              return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              };
             }
-          }
+          },
         };
 
         commands.push(command);
         this.commands.set(command.name, command);
       }
 
-      logger.info(`Loaded ${commands.length} commands from server ${serverName}`);
+      logger.info(
+        `Loaded ${commands.length} commands from server ${serverName}`
+      );
       return commands;
     } catch (error) {
-      logger.error(`Failed to load commands from server ${serverName}:`, error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        `Failed to load commands from server ${serverName}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       return [];
     }
   }
@@ -74,7 +93,10 @@ export class CommandManager {
   /**
    * 执行命令
    */
-  async executeCommand(name: string, args: any): Promise<{ success: boolean; data?: any; error?: string }> {
+  async executeCommand(
+    name: string,
+    args: any
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     const command = this.commands.get(name);
     if (!command) {
       return { success: false, error: `Command not found: ${name}` };
@@ -83,8 +105,14 @@ export class CommandManager {
     try {
       return await command.execute(args);
     } catch (error) {
-      logger.error(`Failed to execute command ${name}:`, error instanceof Error ? error : new Error(String(error)));
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      logger.error(
+        `Failed to execute command ${name}:`,
+        error instanceof Error ? error : new Error(String(error))
+      );
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 
@@ -103,7 +131,9 @@ export class CommandManager {
       this.commands.delete(name);
     }
 
-    logger.info(`Removed ${commandsToRemove.length} commands from server ${serverName}`);
+    logger.info(
+      `Removed ${commandsToRemove.length} commands from server ${serverName}`
+    );
   }
 
   /**

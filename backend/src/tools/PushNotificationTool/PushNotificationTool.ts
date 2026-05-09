@@ -2,7 +2,8 @@
  * 推送通知工具（条件编译：KAIROS/PROACTIVE）
  */
 import { FEATURE_FLAGS } from '@modules/core/featureFlags';
-const feature = (name: keyof typeof FEATURE_FLAGS) => FEATURE_FLAGS[name] ?? false;
+const feature = (name: keyof typeof FEATURE_FLAGS) =>
+  FEATURE_FLAGS[name] ?? false;
 
 export interface PushNotification {
   id: string;
@@ -19,7 +20,11 @@ export function isPushNotificationEnabled(): boolean {
   return feature('KAIROS') || feature('PROACTIVE');
 }
 
-export function sendNotification(title: string, body: string, url?: string): PushNotification | null {
+export function sendNotification(
+  title: string,
+  body: string,
+  url?: string
+): PushNotification | null {
   if (!isPushNotificationEnabled()) return null;
 
   const notif: PushNotification = {
@@ -40,18 +45,18 @@ export function getNotifications(): PushNotification[] {
 }
 
 export function getUnreadCount(): number {
-  return notifications.filter(n => !n.read).length;
+  return notifications.filter((n) => !n.read).length;
 }
 
 export function markAsRead(id: string): boolean {
-  const n = notifications.find(x => x.id === id);
+  const n = notifications.find((x) => x.id === id);
   if (!n) return false;
   n.read = true;
   return true;
 }
 
 export function markAllAsRead(): void {
-  notifications.forEach(n => (n.read = true));
+  notifications.forEach((n) => (n.read = true));
 }
 
 export function clearNotifications(): void {

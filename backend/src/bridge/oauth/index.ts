@@ -3,5 +3,8 @@
  */
 
 export { BridgeOAuthManager, bridgeOAuthManager } from './BridgeOAuthManager';
-export { BridgeOAuthProvider, bridgeOAuthProvider } from './BridgeOAuthProvider';
+export {
+  BridgeOAuthProvider,
+  bridgeOAuthProvider,
+} from './BridgeOAuthProvider';
 export type { BridgeSessionOAuthConfig } from './BridgeOAuthManager';

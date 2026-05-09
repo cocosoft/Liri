@@ -50,29 +50,21 @@ import {
   PRIVILEGE_ESCALATION_COMMANDS,
   SPECIAL_CHAR_PATTERNS,
 } from './patterns';
-import {
-  parseCommand,
-  type IParsedCommand,
-} from './bash/ParsedCommand';
-import {
-  analyzeBashCommand,
-  type BashAnalysisResult,
-} from './bash/BashAST';
+import { parseCommand, type IParsedCommand } from './bash/ParsedCommand';
+import { analyzeBashCommand, type BashAnalysisResult } from './bash/BashAST';
 import {
   extractHeredocs,
   hasHeredoc,
   isHeredocSafe,
   type HeredocInfo,
 } from './bash/HeredocHandler';
+import { classifyCommand, type CommandCategory } from './bash/CommandRegistry';
+import { hasUnterminatedQuote, hasShellQuoteBug } from './bash/QuoteHandler';
 import {
-  classifyCommand,
-  type CommandCategory,
-} from './bash/CommandRegistry';
-import {
-  hasUnterminatedQuote,
-  hasShellQuoteBug,
-} from './bash/QuoteHandler';
-import { PathValidator, createDefaultPathValidator, isDangerousRemovalPath } from './validation/PathValidator.js';
+  PathValidator,
+  createDefaultPathValidator,
+  isDangerousRemovalPath,
+} from './validation/PathValidator.js';
 
 const ADDITIONAL_DANGEROUS_COMMANDS = new Set([
   'chgrp',
@@ -154,7 +146,9 @@ export class BashSecurityAnalyzer {
           if (nativeResult.risk_level === 'dangerous') {
             highestRiskLevel = 'high';
             finalBehavior = 'deny';
-            messages.push(`检测到危险命令: ${nativeResult.matches?.map((m: any) => m.pattern).join(', ') || trimmedCommand}`);
+            messages.push(
+              `检测到危险命令: ${nativeResult.matches?.map((m: any) => m.pattern).join(', ') || trimmedCommand}`
+            );
             if (nativeResult.matches) {
               for (const m of nativeResult.matches) {
                 matchedPatterns.push(m.type || m.pattern);
@@ -178,12 +172,21 @@ export class BashSecurityAnalyzer {
             }
             highestRiskLevel = 'high';
             finalBehavior = 'deny';
-            messages.push(`检测到注入攻击: ${nativeResult.injection_types.join(', ')}`);
+            messages.push(
+              `检测到注入攻击: ${nativeResult.injection_types.join(', ')}`
+            );
           }
 
           // 原生检查通过了，但仍然需要运行TS特有的检查
           const context = this.buildContext(trimmedCommand);
-          const augmentedResult = this.runAugmentedChecks(trimmedCommand, context, matchedPatterns, highestRiskLevel, finalBehavior, messages);
+          const augmentedResult = this.runAugmentedChecks(
+            trimmedCommand,
+            context,
+            matchedPatterns,
+            highestRiskLevel,
+            finalBehavior,
+            messages
+          );
           return augmentedResult;
         }
       } catch {
@@ -209,35 +212,50 @@ export class BashSecurityAnalyzer {
     let risk = highestRiskLevel;
     let behavior = finalBehavior;
 
-    if (this.checkDangerousBaseCommand(context.baseCommand) && !matchedPatterns.includes('dangerous_base_command')) {
+    if (
+      this.checkDangerousBaseCommand(context.baseCommand) &&
+      !matchedPatterns.includes('dangerous_base_command')
+    ) {
       matchedPatterns.push('dangerous_base_command');
       risk = this.isHigherRisk('high', risk) ? 'high' : risk;
       if (behavior === 'allow') behavior = 'ask';
       messages.push(`检测到危险基础命令: ${context.baseCommand}`);
     }
 
-    if (this.checkDangerousPathOperations(trimmedCommand) && !matchedPatterns.includes('dangerous_path_operation')) {
+    if (
+      this.checkDangerousPathOperations(trimmedCommand) &&
+      !matchedPatterns.includes('dangerous_path_operation')
+    ) {
       matchedPatterns.push('dangerous_path_operation');
       risk = this.isHigherRisk('high', risk) ? 'high' : risk;
       if (behavior === 'allow') behavior = 'ask';
       messages.push('检测到危险路径操作，需要路径验证');
     }
 
-    if (this.checkSensitiveDirectoryAccess(trimmedCommand) && !matchedPatterns.includes('sensitive_directory_access')) {
+    if (
+      this.checkSensitiveDirectoryAccess(trimmedCommand) &&
+      !matchedPatterns.includes('sensitive_directory_access')
+    ) {
       matchedPatterns.push('sensitive_directory_access');
       risk = this.isHigherRisk('high', risk) ? 'high' : risk;
       if (behavior === 'allow') behavior = 'ask';
       messages.push('检测到访问敏感系统目录');
     }
 
-    if (this.checkEnvVarPollution(trimmedCommand) && !matchedPatterns.includes('env_var_pollution')) {
+    if (
+      this.checkEnvVarPollution(trimmedCommand) &&
+      !matchedPatterns.includes('env_var_pollution')
+    ) {
       matchedPatterns.push('env_var_pollution');
       risk = this.isHigherRisk('high', risk) ? 'high' : risk;
       if (behavior === 'allow') behavior = 'ask';
       messages.push('检测到环境变量污染攻击尝试');
     }
 
-    if (this.checkZshEqualsExpansion(trimmedCommand) && !matchedPatterns.includes('zsh_equals_expansion')) {
+    if (
+      this.checkZshEqualsExpansion(trimmedCommand) &&
+      !matchedPatterns.includes('zsh_equals_expansion')
+    ) {
       matchedPatterns.push('zsh_equals_expansion');
       risk = this.isHigherRisk('high', risk) ? 'high' : risk;
       behavior = 'deny';
@@ -245,7 +263,13 @@ export class BashSecurityAnalyzer {
     }
 
     const safe = behavior === 'allow';
-    return { safe, behavior: behavior, riskLevel: risk, message: messages.length > 0 ? messages.join('; ') : undefined, matchedPatterns };
+    return {
+      safe,
+      behavior: behavior,
+      riskLevel: risk,
+      message: messages.length > 0 ? messages.join('; ') : undefined,
+      matchedPatterns,
+    };
   }
 
   /**
@@ -370,7 +394,7 @@ export class BashSecurityAnalyzer {
       /\bcp\s+.*\/(etc|usr|var|tmp|home)\b/,
     ];
 
-    return pathPatterns.some(pattern => pattern.test(command));
+    return pathPatterns.some((pattern) => pattern.test(command));
   }
 
   /**
@@ -429,7 +453,10 @@ export class BashSecurityAnalyzer {
    * 检查是否为危险基础命令
    */
   private checkDangerousBaseCommand(baseCommand: string): boolean {
-    return DANGEROUS_BASE_COMMANDS.has(baseCommand) || ADDITIONAL_DANGEROUS_COMMANDS.has(baseCommand);
+    return (
+      DANGEROUS_BASE_COMMANDS.has(baseCommand) ||
+      ADDITIONAL_DANGEROUS_COMMANDS.has(baseCommand)
+    );
   }
 
   /**
@@ -437,8 +464,10 @@ export class BashSecurityAnalyzer {
    */
   private checkSensitiveDirectoryAccess(command: string): boolean {
     const lowerCommand = command.toLowerCase();
-    return SENSITIVE_DIRECTORIES.some(dir => 
-      lowerCommand.includes(dir) || lowerCommand.includes(dir.replace('/', '\\'))
+    return SENSITIVE_DIRECTORIES.some(
+      (dir) =>
+        lowerCommand.includes(dir) ||
+        lowerCommand.includes(dir.replace('/', '\\'))
     );
   }
 
@@ -454,7 +483,7 @@ export class BashSecurityAnalyzer {
       /\bLD_AUDIT\s*=/,
       /\bLD_DEBUG\s*=/,
     ];
-    return envPatterns.some(pattern => pattern.test(command));
+    return envPatterns.some((pattern) => pattern.test(command));
   }
 
   /**
@@ -544,109 +573,109 @@ export class BashSecurityAnalyzer {
    * 在现有 analyze() 基础上增加更深层次的检查
    */
   analyzeDeep(command: string): SecurityAnalysisResult {
-    const baseResult = this.analyze(command)
+    const baseResult = this.analyze(command);
 
-    const warnings: string[] = []
+    const warnings: string[] = [];
     if (baseResult.message) {
-      warnings.push(baseResult.message)
+      warnings.push(baseResult.message);
     }
 
     if (hasUnterminatedQuote(command)) {
-      warnings.push('检测到未闭合的引号')
+      warnings.push('检测到未闭合的引号');
     }
 
     if (hasShellQuoteBug(command)) {
-      warnings.push('检测到单引号内转义模式（可能的解析差异）')
+      warnings.push('检测到单引号内转义模式（可能的解析差异）');
     }
 
     if (hasHeredoc(command)) {
-      const { heredocs } = extractHeredocs(command)
+      const { heredocs } = extractHeredocs(command);
       for (const [, info] of heredocs) {
         if (!info.quoted) {
-          const content = info.fullText
+          const content = info.fullText;
           if (!isHeredocSafe(info, content)) {
-            warnings.push('Heredoc 内容可能包含危险操作')
+            warnings.push('Heredoc 内容可能包含危险操作');
             if (baseResult.behavior === 'allow') {
               return {
                 ...baseResult,
                 behavior: 'ask',
                 riskLevel: 'medium',
                 message: warnings.join('; '),
-              }
+              };
             }
           }
         }
       }
     }
 
-    const astResult = analyzeBashCommand(command)
+    const astResult = analyzeBashCommand(command);
     if (!astResult.isSimple) {
-      warnings.push('复杂命令结构')
+      warnings.push('复杂命令结构');
     } else if (astResult.isDangerous) {
-      warnings.push('检测到危险命令')
+      warnings.push('检测到危险命令');
     }
 
-    const parsedCmd = parseCommand(command)
-    const segments = parsedCmd.getPipeSegments()
+    const parsedCmd = parseCommand(command);
+    const segments = parsedCmd.getPipeSegments();
     for (const segment of segments) {
-      const firstWord = segment.trim().split(/\s+/, 1)[0] || ''
-      const category = classifyCommand(firstWord)
+      const firstWord = segment.trim().split(/\s+/, 1)[0] || '';
+      const category = classifyCommand(firstWord);
       if (category === 'dangerous') {
-        warnings.push(`危险命令分类: ${firstWord}`)
+        warnings.push(`危险命令分类: ${firstWord}`);
       }
     }
 
-    const safe = baseResult.safe && !warnings.some(
-      w => w.includes('危险') || w.includes('未闭合'),
-    )
+    const safe =
+      baseResult.safe &&
+      !warnings.some((w) => w.includes('危险') || w.includes('未闭合'));
 
     return {
       ...baseResult,
       safe,
       message: warnings.length > 0 ? warnings.join('; ') : baseResult.message,
-    }
+    };
   }
 
   /**
    * 解析命令结构
    */
   parseCommand(command: string): IParsedCommand {
-    return parseCommand(command)
+    return parseCommand(command);
   }
 
   /**
    * AST 分析命令
    */
   analyzeAST(command: string): BashAnalysisResult {
-    return analyzeBashCommand(command)
+    return analyzeBashCommand(command);
   }
 
   /**
    * 分类命令
    */
   classifyCommand(commandName: string): CommandCategory {
-    return classifyCommand(commandName)
+    return classifyCommand(commandName);
   }
 
   /**
    * 检查 heredoc
    */
   checkHeredoc(command: string): {
-    hasHeredoc: boolean
-    heredocCount: number
-    allSafe: boolean
+    hasHeredoc: boolean;
+    heredocCount: number;
+    allSafe: boolean;
   } {
     if (!hasHeredoc(command)) {
-      return { hasHeredoc: false, heredocCount: 0, allSafe: true }
+      return { hasHeredoc: false, heredocCount: 0, allSafe: true };
     }
 
-    const { heredocs } = extractHeredocs(command)
-    let allSafe = true
+    const { heredocs } = extractHeredocs(command);
+    let allSafe = true;
     for (const [, info] of heredocs) {
       if (!info.quoted) {
-        const content = info.fullText
+        const content = info.fullText;
         if (!isHeredocSafe(info, content)) {
-          allSafe = false
+          allSafe = false;
         }
       }
     }
@@ -655,19 +684,19 @@ export class BashSecurityAnalyzer {
       hasHeredoc: true,
       heredocCount: heredocs.size,
       allSafe,
-    }
+    };
   }
 
   /**
    * 检查引号完整性
    */
   checkQuotes(command: string): {
-    hasUnterminatedQuote: boolean
-    hasShellQuoteBug: boolean
+    hasUnterminatedQuote: boolean;
+    hasShellQuoteBug: boolean;
   } {
     return {
       hasUnterminatedQuote: hasUnterminatedQuote(command),
       hasShellQuoteBug: hasShellQuoteBug(command),
-    }
+    };
   }
 }

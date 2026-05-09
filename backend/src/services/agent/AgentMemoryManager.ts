@@ -7,7 +7,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '@modules/utils/log';
-import { AgentMemoryScope, getAgentMemoryDir, getAgentMemoryEntrypoint } from './agentMemory';
+import {
+  AgentMemoryScope,
+  getAgentMemoryDir,
+  getAgentMemoryEntrypoint,
+} from './agentMemory';
 
 /**
  * 确保内存目录存在
@@ -50,24 +54,31 @@ export interface MemoryScanResult {
  * Agent内存管理器
  */
 export class AgentMemoryManager {
-  private memoryCache: Map<string, { entries: MemoryEntry[]; timestamp: number }> = new Map();
+  private memoryCache: Map<
+    string,
+    { entries: MemoryEntry[]; timestamp: number }
+  > = new Map();
 
   /**
    * 扫描Agent内存
    */
-  async scanMemory(agentType: string, scope: AgentMemoryScope): Promise<MemoryScanResult> {
+  async scanMemory(
+    agentType: string,
+    scope: AgentMemoryScope
+  ): Promise<MemoryScanResult> {
     const cacheKey = `memory_${agentType}_${scope}`;
     const memoryDir = getAgentMemoryDir(agentType, scope);
 
     // 检查缓存
     const cached = this.memoryCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < 60000) { // 1分钟缓存
+    if (cached && Date.now() - cached.timestamp < 60000) {
+      // 1分钟缓存
       return this.buildScanResult(cached.entries);
     }
 
     try {
       await ensureMemoryDirExists(memoryDir);
-      
+
       const entries: MemoryEntry[] = [];
       let totalSize = 0;
 
@@ -76,13 +87,13 @@ export class AgentMemoryManager {
       if (fs.existsSync(mainMemoryPath)) {
         const content = fs.readFileSync(mainMemoryPath, 'utf8');
         totalSize += content.length;
-        
+
         // 解析内存内容
         const mainEntry: MemoryEntry = {
           id: 'main',
           content,
           timestamp: fs.statSync(mainMemoryPath).mtimeMs,
-          source: 'main'
+          source: 'main',
         };
         entries.push(mainEntry);
       }
@@ -95,16 +106,19 @@ export class AgentMemoryManager {
           try {
             const content = fs.readFileSync(filePath, 'utf8');
             totalSize += content.length;
-            
+
             const entry: MemoryEntry = {
               id: path.basename(file, '.md'),
               content,
               timestamp: fs.statSync(filePath).mtimeMs,
-              source: 'file'
+              source: 'file',
             };
             entries.push(entry);
           } catch (error) {
-            logger.debug(`Failed to read memory file ${file}:`, error as Record<string, any>);
+            logger.debug(
+              `Failed to read memory file ${file}:`,
+              error as Record<string, any>
+            );
           }
         }
       }
@@ -115,17 +129,20 @@ export class AgentMemoryManager {
       // 更新缓存
       this.memoryCache.set(cacheKey, {
         entries,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       return this.buildScanResult(entries);
     } catch (error) {
-      logger.error(`Failed to scan memory for agent ${agentType}:`, error as Error);
+      logger.error(
+        `Failed to scan memory for agent ${agentType}:`,
+        error as Error
+      );
       return {
         entries: [],
         totalSize: 0,
         oldestEntry: null,
-        newestEntry: null
+        newestEntry: null,
       };
     }
   }
@@ -135,7 +152,7 @@ export class AgentMemoryManager {
    */
   private buildScanResult(entries: MemoryEntry[]): MemoryScanResult {
     let totalSize = 0;
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       totalSize += entry.content.length;
     });
 
@@ -143,14 +160,18 @@ export class AgentMemoryManager {
       entries,
       totalSize,
       oldestEntry: entries.length > 0 ? entries[0] : null,
-      newestEntry: entries.length > 0 ? entries[entries.length - 1] : null
+      newestEntry: entries.length > 0 ? entries[entries.length - 1] : null,
     };
   }
 
   /**
    * 管理内存年龄
    */
-  async manageMemoryAge(agentType: string, scope: AgentMemoryScope, maxAgeMs: number): Promise<number> {
+  async manageMemoryAge(
+    agentType: string,
+    scope: AgentMemoryScope,
+    maxAgeMs: number
+  ): Promise<number> {
     try {
       const scanResult = await this.scanMemory(agentType, scope);
       const memoryDir = getAgentMemoryDir(agentType, scope);
@@ -158,7 +179,7 @@ export class AgentMemoryManager {
 
       for (const entry of scanResult.entries) {
         if (entry.id === 'main') continue; // 保留主内存文件
-        
+
         if (Date.now() - entry.timestamp > maxAgeMs) {
           const filePath = path.join(memoryDir, `${entry.id}.md`);
           if (fs.existsSync(filePath)) {
@@ -174,7 +195,10 @@ export class AgentMemoryManager {
 
       return deletedCount;
     } catch (error) {
-      logger.error(`Failed to manage memory age for agent ${agentType}:`, error as Error);
+      logger.error(
+        `Failed to manage memory age for agent ${agentType}:`,
+        error as Error
+      );
       return 0;
     }
   }
@@ -182,7 +206,11 @@ export class AgentMemoryManager {
   /**
    * 优化内存使用
    */
-  async optimizeMemory(agentType: string, scope: AgentMemoryScope, maxSizeBytes: number): Promise<boolean> {
+  async optimizeMemory(
+    agentType: string,
+    scope: AgentMemoryScope,
+    maxSizeBytes: number
+  ): Promise<boolean> {
     try {
       const scanResult = await this.scanMemory(agentType, scope);
       const memoryDir = getAgentMemoryDir(agentType, scope);
@@ -192,19 +220,21 @@ export class AgentMemoryManager {
       }
 
       // 按时间戳排序，删除最旧的文件
-      const sortedEntries = [...scanResult.entries].sort((a, b) => a.timestamp - b.timestamp);
+      const sortedEntries = [...scanResult.entries].sort(
+        (a, b) => a.timestamp - b.timestamp
+      );
       let currentSize = scanResult.totalSize;
       let deletedCount = 0;
 
       for (const entry of sortedEntries) {
         if (entry.id === 'main') continue; // 保留主内存文件
-        
+
         const filePath = path.join(memoryDir, `${entry.id}.md`);
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
           currentSize -= entry.content.length;
           deletedCount++;
-          
+
           if (currentSize <= maxSizeBytes) {
             break;
           }
@@ -217,7 +247,10 @@ export class AgentMemoryManager {
 
       return true;
     } catch (error) {
-      logger.error(`Failed to optimize memory for agent ${agentType}:`, error as Error);
+      logger.error(
+        `Failed to optimize memory for agent ${agentType}:`,
+        error as Error
+      );
       return false;
     }
   }
@@ -225,17 +258,21 @@ export class AgentMemoryManager {
   /**
    * 清理内存
    */
-  async cleanMemory(agentType: string, scope: AgentMemoryScope): Promise<boolean> {
+  async cleanMemory(
+    agentType: string,
+    scope: AgentMemoryScope
+  ): Promise<boolean> {
     try {
       const memoryDir = getAgentMemoryDir(agentType, scope);
-      
+
       if (!fs.existsSync(memoryDir)) {
         return true;
       }
 
       const files = fs.readdirSync(memoryDir);
       for (const file of files) {
-        if (file !== 'MEMORY.md') { // 保留主内存文件
+        if (file !== 'MEMORY.md') {
+          // 保留主内存文件
           const filePath = path.join(memoryDir, file);
           if (fs.statSync(filePath).isFile()) {
             fs.unlinkSync(filePath);
@@ -249,7 +286,10 @@ export class AgentMemoryManager {
 
       return true;
     } catch (error) {
-      logger.error(`Failed to clean memory for agent ${agentType}:`, error as Error);
+      logger.error(
+        `Failed to clean memory for agent ${agentType}:`,
+        error as Error
+      );
       return false;
     }
   }
@@ -257,7 +297,10 @@ export class AgentMemoryManager {
   /**
    * 获取内存统计信息
    */
-  async getMemoryStats(agentType: string, scope: AgentMemoryScope): Promise<{
+  async getMemoryStats(
+    agentType: string,
+    scope: AgentMemoryScope
+  ): Promise<{
     totalEntries: number;
     totalSize: number;
     oldestTimestamp: number | null;
@@ -265,20 +308,23 @@ export class AgentMemoryManager {
   }> {
     try {
       const scanResult = await this.scanMemory(agentType, scope);
-      
+
       return {
         totalEntries: scanResult.entries.length,
         totalSize: scanResult.totalSize,
         oldestTimestamp: scanResult.oldestEntry?.timestamp || null,
-        newestTimestamp: scanResult.newestEntry?.timestamp || null
+        newestTimestamp: scanResult.newestEntry?.timestamp || null,
       };
     } catch (error) {
-      logger.error(`Failed to get memory stats for agent ${agentType}:`, error as Error);
+      logger.error(
+        `Failed to get memory stats for agent ${agentType}:`,
+        error as Error
+      );
       return {
         totalEntries: 0,
         totalSize: 0,
         oldestTimestamp: null,
-        newestTimestamp: null
+        newestTimestamp: null,
       };
     }
   }

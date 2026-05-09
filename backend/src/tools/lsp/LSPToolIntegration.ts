@@ -7,7 +7,12 @@ import { LSPToolImpl } from './LSPToolImpl';
 import { Position, Location, CompletionItem, Diagnostic } from './types';
 import type { Tool } from '../types/Tool';
 import type { ToolResult } from '../types/ToolResult';
-import { validatePosition, validateLocation, validateCompletionItem, validateDiagnostic } from '@modules/lsp';
+import {
+  validatePosition,
+  validateLocation,
+  validateCompletionItem,
+  validateDiagnostic,
+} from '@modules/lsp';
 
 /**
  * LSP工具集成类
@@ -30,38 +35,49 @@ export class LSPToolIntegration {
    */
   private registerLSPTools(): void {
     // 注册代码补全工具
-    this.toolRegistry.set('lsp_get_completions', async (document: string, position: Position) => {
-      if (!validatePosition(position)) {
-        return { success: false, error: 'Invalid position' };
+    this.toolRegistry.set(
+      'lsp_get_completions',
+      async (document: string, position: Position) => {
+        if (!validatePosition(position)) {
+          return { success: false, error: 'Invalid position' };
+        }
+        const result = await this.lspTool.getCompletions(document, position);
+        return { success: true, data: result };
       }
-      const result = await this.lspTool.getCompletions(document, position);
-      return { success: true, data: result };
-    });
+    );
 
     // 注册定义查找工具
-    this.toolRegistry.set('lsp_get_definition', async (document: string, position: Position) => {
-      if (!validatePosition(position)) {
-        return { success: false, error: 'Invalid position' };
+    this.toolRegistry.set(
+      'lsp_get_definition',
+      async (document: string, position: Position) => {
+        if (!validatePosition(position)) {
+          return { success: false, error: 'Invalid position' };
+        }
+        const result = await this.lspTool.getDefinition(document, position);
+        const validLocations = result.filter((loc) => validateLocation(loc));
+        return { success: true, data: validLocations };
       }
-      const result = await this.lspTool.getDefinition(document, position);
-      const validLocations = result.filter(loc => validateLocation(loc));
-      return { success: true, data: validLocations };
-    });
+    );
 
     // 注册引用查找工具
-    this.toolRegistry.set('lsp_get_references', async (document: string, position: Position) => {
-      if (!validatePosition(position)) {
-        return { success: false, error: 'Invalid position' };
+    this.toolRegistry.set(
+      'lsp_get_references',
+      async (document: string, position: Position) => {
+        if (!validatePosition(position)) {
+          return { success: false, error: 'Invalid position' };
+        }
+        const result = await this.lspTool.getReferences(document, position);
+        const validLocations = result.filter((loc) => validateLocation(loc));
+        return { success: true, data: validLocations };
       }
-      const result = await this.lspTool.getReferences(document, position);
-      const validLocations = result.filter(loc => validateLocation(loc));
-      return { success: true, data: validLocations };
-    });
+    );
 
     // 注册诊断获取工具
     this.toolRegistry.set('lsp_get_diagnostics', async (document: string) => {
       const result = await this.lspTool.getDiagnostics(document);
-      const validDiagnostics = result.filter(diag => validateDiagnostic(diag));
+      const validDiagnostics = result.filter((diag) =>
+        validateDiagnostic(diag)
+      );
       return { success: true, data: validDiagnostics };
     });
 
@@ -72,35 +88,48 @@ export class LSPToolIntegration {
     });
 
     // 注册悬停信息工具
-    this.toolRegistry.set('lsp_get_hover', async (document: string, position: Position) => {
-      if (!validatePosition(position)) {
-        return { success: false, error: 'Invalid position' };
+    this.toolRegistry.set(
+      'lsp_get_hover',
+      async (document: string, position: Position) => {
+        if (!validatePosition(position)) {
+          return { success: false, error: 'Invalid position' };
+        }
+        const result = await this.lspTool.getHover(document, position);
+        return { success: true, data: result };
       }
-      const result = await this.lspTool.getHover(document, position);
-      return { success: true, data: result };
-    });
+    );
 
     // 注册符号重命名工具
-    this.toolRegistry.set('lsp_rename_symbol', async (document: string, position: Position, newName: string) => {
-      if (!validatePosition(position)) {
-        return { success: false, error: 'Invalid position' };
+    this.toolRegistry.set(
+      'lsp_rename_symbol',
+      async (document: string, position: Position, newName: string) => {
+        if (!validatePosition(position)) {
+          return { success: false, error: 'Invalid position' };
+        }
+        if (!newName || newName.trim().length === 0) {
+          return { success: false, error: 'Invalid new name' };
+        }
+        const result = await this.lspTool.renameSymbol(
+          document,
+          position,
+          newName
+        );
+        const validLocations = result.filter((loc) => validateLocation(loc));
+        return { success: true, data: validLocations };
       }
-      if (!newName || newName.trim().length === 0) {
-        return { success: false, error: 'Invalid new name' };
-      }
-      const result = await this.lspTool.renameSymbol(document, position, newName);
-      const validLocations = result.filter(loc => validateLocation(loc));
-      return { success: true, data: validLocations };
-    });
+    );
 
     // 注册代码操作工具
-    this.toolRegistry.set('lsp_get_code_actions', async (document: string, position: Position) => {
-      if (!validatePosition(position)) {
-        return { success: false, error: 'Invalid position' };
+    this.toolRegistry.set(
+      'lsp_get_code_actions',
+      async (document: string, position: Position) => {
+        if (!validatePosition(position)) {
+          return { success: false, error: 'Invalid position' };
+        }
+        const result = await this.lspTool.getCodeActions(document, position);
+        return { success: true, data: result };
       }
-      const result = await this.lspTool.getCodeActions(document, position);
-      return { success: true, data: result };
-    });
+    );
   }
 
   /**
@@ -168,7 +197,9 @@ export class LSPToolIntegration {
 /**
  * 创建LSP工具集成实例
  */
-export function createLSPToolIntegration(language: string = 'typescript'): LSPToolIntegration {
+export function createLSPToolIntegration(
+  language: string = 'typescript'
+): LSPToolIntegration {
   return new LSPToolIntegration(language);
 }
 
@@ -180,7 +211,11 @@ export async function getCompletions(
   position: Position,
   lspTool: LSPToolIntegration
 ): Promise<CompletionItem[]> {
-  const result = await lspTool.executeTool('lsp_get_completions', document, position);
+  const result = await lspTool.executeTool(
+    'lsp_get_completions',
+    document,
+    position
+  );
   if (!result.success) {
     throw new Error(result.error || 'Failed to get completions');
   }
@@ -195,7 +230,11 @@ export async function getDefinition(
   position: Position,
   lspTool: LSPToolIntegration
 ): Promise<Location[]> {
-  const result = await lspTool.executeTool('lsp_get_definition', document, position);
+  const result = await lspTool.executeTool(
+    'lsp_get_definition',
+    document,
+    position
+  );
   if (!result.success) {
     throw new Error(result.error || 'Failed to get definition');
   }
@@ -210,7 +249,11 @@ export async function getReferences(
   position: Position,
   lspTool: LSPToolIntegration
 ): Promise<Location[]> {
-  const result = await lspTool.executeTool('lsp_get_references', document, position);
+  const result = await lspTool.executeTool(
+    'lsp_get_references',
+    document,
+    position
+  );
   if (!result.success) {
     throw new Error(result.error || 'Failed to get references');
   }

@@ -1,32 +1,36 @@
 // import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text } from 'ink';
 
 export type ReadMcpResourceOutput = {
   contents: Array<{
-    uri: string
-    mimeType?: string
-    text?: string
-    blobSavedTo?: string
-  }>
-}
+    uri: string;
+    mimeType?: string;
+    text?: string;
+    blobSavedTo?: string;
+  }>;
+};
 
 export function renderToolUseMessage(
   input: Partial<{ server: string; uri: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const { server, uri } = input
-  return <Text dimColor>读取MCP资源: {uri} ({server})</Text>
+  const { server, uri } = input;
+  return (
+    <Text dimColor>
+      读取MCP资源: {uri} ({server})
+    </Text>
+  );
 }
 
 export function renderToolResultMessage(
   output: ReadMcpResourceOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const { contents } = output
+  const { contents } = output;
 
   if (!contents || contents.length === 0) {
-    return <Text color="yellow">MCP资源为空</Text>
+    return <Text color="yellow">MCP资源为空</Text>;
   }
 
   return (
@@ -49,12 +53,12 @@ export function renderToolResultMessage(
         </Box>
       ))}
     </Box>
-  )
+  );
 }
 
 export function getToolUseSummary(
-  input: Partial<{ server: string; uri: string }> | undefined,
+  input: Partial<{ server: string; uri: string }> | undefined
 ): string | null {
-  if (!input?.uri) return null
-  return `MCP: ${input.uri}`
+  if (!input?.uri) return null;
+  return `MCP: ${input.uri}`;
 }

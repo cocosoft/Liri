@@ -79,32 +79,32 @@ export interface StrategyConfig {
   ttl: number;
   monitorInterval: number;
   adaptThreshold: number;
-  
+
   /**
    * 热点数据访问阈值（超过此次数视为热点）
    */
   hotThreshold: number;
-  
+
   /**
    * 热点数据保护TTL（秒）
    */
   hotProtectionTtl: number;
-  
+
   /**
    * TTL随机化因子（0-1）
    */
   ttlJitterFactor: number;
-  
+
   /**
    * 是否启用二级缓存
    */
   enableL2Cache: boolean;
-  
+
   /**
    * 二级缓存大小
    */
   l2MaxSize: number;
-  
+
   /**
    * 预热完成标志
    */
@@ -172,49 +172,57 @@ export interface HotDataInfo {
 
 export interface ICacheStrategyManager {
   get(key: string): Promise<any>;
-  set(key: string, value: any, ttl?: number, priority?: CachePriority): Promise<void>;
+  set(
+    key: string,
+    value: any,
+    ttl?: number,
+    priority?: CachePriority
+  ): Promise<void>;
   delete(key: string): Promise<boolean>;
   clear(): void;
   getEffectiveness(): StrategyEffectiveness[];
   getStrategy(): StrategyType;
   getSwitchHistory(): StrategySwitchEvent[];
   getSize(): number;
-  
+
   /**
    * 获取热点数据列表
    */
   getHotData(): HotDataInfo[];
-  
+
   /**
    * 保护热点数据
    */
   protectHotData(key: string, protectionTime?: number): void;
-  
+
   /**
    * 预热缓存
    */
-  preWarm(keys: string[], dataProvider: (key: string) => Promise<any>): Promise<void>;
-  
+  preWarm(
+    keys: string[],
+    dataProvider: (key: string) => Promise<any>
+  ): Promise<void>;
+
   /**
    * 获取缓存统计
    */
   getStats(): CacheStats;
-  
+
   /**
    * 订阅缓存事件
    */
   subscribe(listener: CacheEventListener): () => void;
-  
+
   /**
    * 取消订阅缓存事件
    */
   unsubscribe(listener: CacheEventListener): void;
-  
+
   /**
    * 获取最近的缓存事件
    */
   getRecentEvents(count?: number): CacheEvent[];
-  
+
   /**
    * 触发缓存事件
    */
@@ -257,13 +265,13 @@ export class CacheStrategyManager implements ICacheStrategyManager {
   private monitorTimer: ReturnType<typeof setInterval> | null = null;
   private lruKHistory: Map<string, number[]> = new Map();
   private kValue = 2;
-  
+
   /** 事件监听器列表 */
   private eventListeners: Set<CacheEventListener> = new Set();
-  
+
   /** 最近事件历史 */
   private recentEvents: CacheEvent[] = [];
-  
+
   /** 最大事件历史记录数 */
   private maxEventHistory = 1000;
 
@@ -298,7 +306,11 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     if (this.totalAccesses < 100) return;
 
     const currentScore = this.calculateScore(this.currentStrategy);
-    const candidates: StrategyType[] = [StrategyType.LRU, StrategyType.LFU, StrategyType.FIFO];
+    const candidates: StrategyType[] = [
+      StrategyType.LRU,
+      StrategyType.LFU,
+      StrategyType.FIFO,
+    ];
     let bestType: StrategyType = this.currentStrategy;
     let bestScore = currentScore;
 
@@ -310,7 +322,10 @@ export class CacheStrategyManager implements ICacheStrategyManager {
       }
     }
 
-    if (bestType !== this.currentStrategy && (bestScore - currentScore) > this.config.adaptThreshold) {
+    if (
+      bestType !== this.currentStrategy &&
+      bestScore - currentScore > this.config.adaptThreshold
+    ) {
       const reason = `Score improved: ${currentScore.toFixed(3)} → ${bestScore.toFixed(3)}`;
       this.switchHistory.push({
         from: this.currentStrategy,
@@ -325,24 +340,29 @@ export class CacheStrategyManager implements ICacheStrategyManager {
 
   private calculateScore(type: StrategyType): number {
     if (this.totalAccesses === 0) return 0;
-    const hitRate = this.totalAccesses > 0 ? this.totalHits / this.totalAccesses : 0;
-    const avgTime = this.totalAccesses > 0 ? this.totalAccessTime / this.totalAccesses : 0;
+    const hitRate =
+      this.totalAccesses > 0 ? this.totalHits / this.totalAccesses : 0;
+    const avgTime =
+      this.totalAccesses > 0 ? this.totalAccessTime / this.totalAccesses : 0;
     const timeScore = Math.max(0, 1 - avgTime / 100);
-    const memScore = this.storage.size > 0 ? 1 - (this.storage.size / this.config.maxSize) : 0;
+    const memScore =
+      this.storage.size > 0 ? 1 - this.storage.size / this.config.maxSize : 0;
     return hitRate * 0.5 + timeScore * 0.25 + memScore * 0.25;
   }
 
   private estimateScore(type: StrategyType): number {
     const baseScore = this.calculateScore(type);
     const sampleHits = this.totalHits > 0 ? this.totalHits : 1;
-    if (type === StrategyType.LRU && this.accessOrder.length > 0) return baseScore * 1.1;
-    if (type === StrategyType.LFU && this.accessFrequency.size > 5) return baseScore * 1.05;
+    if (type === StrategyType.LRU && this.accessOrder.length > 0)
+      return baseScore * 1.1;
+    if (type === StrategyType.LFU && this.accessFrequency.size > 5)
+      return baseScore * 1.05;
     return baseScore;
   }
 
   async get(key: string): Promise<any> {
     const start = Date.now();
-    
+
     // 清理过期的保护
     this.cleanupExpiredProtections();
 
@@ -362,13 +382,13 @@ export class CacheStrategyManager implements ICacheStrategyManager {
         this.triggerMissEvent(key);
         return undefined;
       }
-      
+
       // 更新访问信息
       this.updateAccessInfo(key, entry);
-      
+
       // 检查是否成为热点
       this.checkHotData(key, entry);
-      
+
       this.recordHit(start);
       this.triggerHitEvent(key, CacheLayer.L1);
       return entry.value;
@@ -386,13 +406,13 @@ export class CacheStrategyManager implements ICacheStrategyManager {
 
   private getFromL2(key: string, startTime: number): any {
     const l2Entry = this.l2Storage.get(key);
-    
+
     if (l2Entry) {
       // L2命中，提升到L1
       if (this.storage.size >= this.config.maxSize) {
         this.evict();
       }
-      
+
       // 提升到L1
       const promotedEntry: CacheEntry = {
         ...l2Entry,
@@ -401,14 +421,14 @@ export class CacheStrategyManager implements ICacheStrategyManager {
       };
       this.storage.set(key, promotedEntry);
       this.l2Storage.delete(key);
-      
+
       this.updateAccessInfo(key, promotedEntry);
       this.recordHit(startTime);
       this.triggerHitEvent(key, CacheLayer.L2);
       this.triggerPromoteEvent(key);
       return promotedEntry.value;
     }
-    
+
     this.recordMiss(startTime);
     this.triggerMissEvent(key);
     return undefined;
@@ -435,7 +455,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
 
   private checkHotData(key: string, entry: CacheEntry): void {
     const frequency = this.accessFrequency.get(key) || 0;
-    
+
     if (frequency >= this.config.hotThreshold && !entry.isHot) {
       entry.isHot = true;
       // 自动保护热点数据
@@ -461,7 +481,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
       if (expireTime < now) {
         this.protectedKeys.delete(key);
         this.protectedExpireTimes.delete(key);
-        
+
         // 更新缓存条目的保护状态
         const entry = this.storage.get(key);
         if (entry) {
@@ -471,7 +491,12 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     }
   }
 
-  async set(key: string, value: any, ttl?: number, priority: CachePriority = CachePriority.NORMAL): Promise<void> {
+  async set(
+    key: string,
+    value: any,
+    ttl?: number,
+    priority: CachePriority = CachePriority.NORMAL
+  ): Promise<void> {
     // 应用TTL随机化
     const baseTtl = ttl ?? this.config.ttl;
     const jitter = this.config.ttlJitterFactor;
@@ -505,9 +530,13 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     this.storage.set(key, entry);
     this.insertionOrder.push(key);
     this.accessOrder.push(key);
-    
+
     // 触发SET事件
-    this.triggerSetEvent(key, CacheLayer.L1, { ttl: baseTtl, jitteredTtl, priority });
+    this.triggerSetEvent(key, CacheLayer.L1, {
+      ttl: baseTtl,
+      jitteredTtl,
+      priority,
+    });
   }
 
   private evict(allowDemotion: boolean = false): void {
@@ -596,7 +625,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
 
     for (const [k, history] of this.lruKHistory) {
       if (!this.storage.has(k) || this.isProtected(k)) continue;
-      
+
       const entry = this.storage.get(k)!;
       // LRU-K算法：基于第K次访问和最后访问的时间差评分
       if (history.length >= this.kValue) {
@@ -619,7 +648,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
 
   private evictKey(key: string, allowDemotion: boolean): void {
     const entry = this.storage.get(key);
-    
+
     if (!entry) return;
 
     // 如果启用L2缓存且允许降级，将数据移动到L2
@@ -629,7 +658,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
       if (this.l2Storage.size >= this.config.l2MaxSize) {
         this.evictFromL2();
       }
-      
+
       const demotedEntry: CacheEntry = {
         ...entry,
         demotionCount: entry.demotionCount + 1,
@@ -641,17 +670,21 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     this.storage.delete(key);
     this.accessFrequency.delete(key);
     this.lruKHistory.delete(key);
-    
+
     const aoIdx = this.accessOrder.indexOf(key);
     if (aoIdx !== -1) this.accessOrder.splice(aoIdx, 1);
     const ioIdx = this.insertionOrder.indexOf(key);
     if (ioIdx !== -1) this.insertionOrder.splice(ioIdx, 1);
-    
+
     this.evictionCount++;
-    
+
     // 如果没有降级到L2，则触发EVICT事件
     if (!isDemoted) {
-      this.triggerEvictEvent(key, CacheLayer.L1, `策略: ${this.currentStrategy}`);
+      this.triggerEvictEvent(
+        key,
+        CacheLayer.L1,
+        `策略: ${this.currentStrategy}`
+      );
     }
   }
 
@@ -682,16 +715,16 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     this.lruKHistory.delete(key);
     this.protectedKeys.delete(key);
     this.protectedExpireTimes.delete(key);
-    
+
     const aoIdx = this.accessOrder.indexOf(key);
     if (aoIdx !== -1) this.accessOrder.splice(aoIdx, 1);
     const ioIdx = this.insertionOrder.indexOf(key);
     if (ioIdx !== -1) this.insertionOrder.splice(ioIdx, 1);
-    
+
     if (existed) {
       this.triggerDeleteEvent(key);
     }
-    
+
     return existed;
   }
 
@@ -709,18 +742,27 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     this.totalAccessTime = 0;
     this.totalAccesses = 0;
     this.evictionCount = 0;
-    
+
     // 触发CLEAR事件
     this.triggerClearEvent();
   }
 
   getEffectiveness(): StrategyEffectiveness[] {
-    const types = [StrategyType.LRU, StrategyType.LFU, StrategyType.FIFO, StrategyType.LRU_K];
-    return types.map(type => ({
+    const types = [
+      StrategyType.LRU,
+      StrategyType.LFU,
+      StrategyType.FIFO,
+      StrategyType.LRU_K,
+    ];
+    return types.map((type) => ({
       type,
       hitRate: this.totalAccesses > 0 ? this.totalHits / this.totalAccesses : 0,
-      avgAccessTime: this.totalAccesses > 0 ? this.totalAccessTime / this.totalAccesses : 0,
-      memoryEfficiency: this.config.maxSize > 0 ? 1 - (this.storage.size / this.config.maxSize) : 0,
+      avgAccessTime:
+        this.totalAccesses > 0 ? this.totalAccessTime / this.totalAccesses : 0,
+      memoryEfficiency:
+        this.config.maxSize > 0
+          ? 1 - this.storage.size / this.config.maxSize
+          : 0,
       sampleSize: this.totalAccesses,
       score: this.calculateScore(type),
       evictionCount: this.evictionCount,
@@ -743,9 +785,12 @@ export class CacheStrategyManager implements ICacheStrategyManager {
 
   getHotData(): HotDataInfo[] {
     const hotData: HotDataInfo[] = [];
-    
+
     for (const [key, entry] of this.storage) {
-      if (entry.isHot || (this.accessFrequency.get(key) ?? 0) >= this.config.hotThreshold) {
+      if (
+        entry.isHot ||
+        (this.accessFrequency.get(key) ?? 0) >= this.config.hotThreshold
+      ) {
         hotData.push({
           key,
           accessCount: entry.accessCount,
@@ -755,31 +800,35 @@ export class CacheStrategyManager implements ICacheStrategyManager {
         });
       }
     }
-    
+
     return hotData.sort((a, b) => b.accessCount - a.accessCount);
   }
 
   protectHotData(key: string, protectionTime?: number): void {
-    const expireTime = Date.now() + (protectionTime || this.config.hotProtectionTtl * 1000);
+    const expireTime =
+      Date.now() + (protectionTime || this.config.hotProtectionTtl * 1000);
     this.protectedKeys.add(key);
     this.protectedExpireTimes.set(key, expireTime);
-    
+
     // 更新缓存条目
     const entry = this.storage.get(key);
     if (entry) {
       entry.isHot = true;
     }
-    
+
     // 触发热点保护事件
     this.triggerHotProtectEvent(key, expireTime - Date.now());
   }
 
-  async preWarm(keys: string[], dataProvider: (key: string) => Promise<any>): Promise<void> {
+  async preWarm(
+    keys: string[],
+    dataProvider: (key: string) => Promise<any>
+  ): Promise<void> {
     const batchSize = this.config.preWarmEnabled ? 10 : keys.length;
-    
+
     for (let i = 0; i < keys.length; i += batchSize) {
       const batch = keys.slice(i, i + batchSize);
-      const promises = batch.map(async key => {
+      const promises = batch.map(async (key) => {
         try {
           const value = await dataProvider(key);
           if (value !== undefined) {
@@ -789,12 +838,12 @@ export class CacheStrategyManager implements ICacheStrategyManager {
           console.warn(`Failed to pre-warm key ${key}:`, error);
         }
       });
-      
+
       await Promise.all(promises);
-      
+
       // 如果启用预热间隔，添加延迟
       if (this.config.preWarmEnabled && i + batchSize < keys.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
   }
@@ -802,13 +851,13 @@ export class CacheStrategyManager implements ICacheStrategyManager {
   getStats(): CacheStats {
     const now = Date.now();
     let totalTtl = 0;
-    
+
     for (const entry of this.storage.values()) {
       totalTtl += entry.effectiveTtl;
     }
-    
+
     const avgTtl = this.storage.size > 0 ? totalTtl / this.storage.size : 0;
-    
+
     return {
       totalEntries: this.storage.size + this.l2Storage.size,
       l1Entries: this.storage.size,
@@ -820,7 +869,8 @@ export class CacheStrategyManager implements ICacheStrategyManager {
       hotDataCount: this.getHotData().length,
       protectedDataCount: this.protectedKeys.size,
       avgTtl,
-      avgAccessTime: this.totalAccesses > 0 ? this.totalAccessTime / this.totalAccesses : 0,
+      avgAccessTime:
+        this.totalAccesses > 0 ? this.totalAccessTime / this.totalAccesses : 0,
     };
   }
 
@@ -829,13 +879,13 @@ export class CacheStrategyManager implements ICacheStrategyManager {
    */
   getL2Stats(): { size: number; oldestEntry?: number } {
     let oldestEntry: number | undefined;
-    
+
     for (const entry of this.l2Storage.values()) {
       if (!oldestEntry || entry.timestamp < oldestEntry) {
         oldestEntry = entry.timestamp;
       }
     }
-    
+
     return {
       size: this.l2Storage.size,
       oldestEntry,
@@ -849,7 +899,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
    */
   subscribe(listener: CacheEventListener): () => void {
     this.eventListeners.add(listener);
-    
+
     return () => {
       this.unsubscribe(listener);
     };
@@ -881,7 +931,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     if (this.recentEvents.length > this.maxEventHistory) {
       this.recentEvents.shift();
     }
-    
+
     // 通知所有监听器
     for (const listener of this.eventListeners) {
       try {
@@ -918,7 +968,11 @@ export class CacheStrategyManager implements ICacheStrategyManager {
   /**
    * 内部方法：触发SET事件
    */
-  private triggerSetEvent(key: string, layer: CacheLayer, metadata?: Record<string, any>): void {
+  private triggerSetEvent(
+    key: string,
+    layer: CacheLayer,
+    metadata?: Record<string, any>
+  ): void {
     this.triggerEvent({
       type: CacheEventType.SET,
       timestamp: Date.now(),
@@ -942,7 +996,11 @@ export class CacheStrategyManager implements ICacheStrategyManager {
   /**
    * 内部方法：触发EVICT事件
    */
-  private triggerEvictEvent(key: string, layer: CacheLayer, reason?: string): void {
+  private triggerEvictEvent(
+    key: string,
+    layer: CacheLayer,
+    reason?: string
+  ): void {
     this.triggerEvent({
       type: CacheEventType.EVICT,
       timestamp: Date.now(),
@@ -1012,7 +1070,11 @@ export class CacheStrategyManager implements ICacheStrategyManager {
   /**
    * 内部方法：触发STRATEGY_SWITCH事件
    */
-  private triggerStrategySwitchEvent(from: StrategyType, to: StrategyType, reason: string): void {
+  private triggerStrategySwitchEvent(
+    from: StrategyType,
+    to: StrategyType,
+    reason: string
+  ): void {
     this.triggerEvent({
       type: CacheEventType.STRATEGY_SWITCH,
       timestamp: Date.now(),

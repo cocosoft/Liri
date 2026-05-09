@@ -14,6 +14,8 @@ export const tutorialCommand: Command = {
   aliases: ['guide', 'learn'],
   argumentHint: '[list|start|progress|help]',
   whenToUse: '当你需要学习使用应用时',
-  load: async () => import('./Tutorial.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./Tutorial.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
-

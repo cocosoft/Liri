@@ -5,7 +5,10 @@
  */
 
 import { logForDebugging } from '../utils/debug.js';
-import { getPerformanceConfig, performanceConfigManager } from './PerformanceConfig.js';
+import {
+  getPerformanceConfig,
+  performanceConfigManager,
+} from './PerformanceConfig.js';
 
 /**
  * 内存快照
@@ -62,7 +65,9 @@ export class MemoryManager {
     this.checkInterval = setInterval(() => {
       this.checkMemory();
     }, config.memoryManagement.checkIntervalMs);
-    logForDebugging('内存监控已启动', { interval: config.memoryManagement.checkIntervalMs });
+    logForDebugging('内存监控已启动', {
+      interval: config.memoryManagement.checkIntervalMs,
+    });
   }
 
   /**
@@ -82,11 +87,14 @@ export class MemoryManager {
   checkMemory(): void {
     const memory = process.memoryUsage();
     const config = getPerformanceConfig();
-    
+
     // 计算内存增长率
     let growthRate = 0;
     if (this.lastMemory) {
-      growthRate = ((memory.heapUsed - this.lastMemory.heapUsed) / this.lastMemory.heapUsed) * 100;
+      growthRate =
+        ((memory.heapUsed - this.lastMemory.heapUsed) /
+          this.lastMemory.heapUsed) *
+        100;
     }
     this.lastMemory = memory;
 
@@ -116,24 +124,34 @@ export class MemoryManager {
 
     // 检查内存使用是否超过阈值
     if (snapshot.memory.rss > config.memoryManagement.thresholdMb) {
-      logForDebugging(`内存使用超过阈值: ${snapshot.memory.rss.toFixed(2)}MB > ${config.memoryManagement.thresholdMb}MB`, { level: 'warn' });
+      logForDebugging(
+        `内存使用超过阈值: ${snapshot.memory.rss.toFixed(2)}MB > ${config.memoryManagement.thresholdMb}MB`,
+        { level: 'warn' }
+      );
       this.notifyListeners();
     }
 
     // 检查内存增长率是否异常
     if (Math.abs(growthRate) > 50) {
-      logForDebugging(`内存增长率异常: ${growthRate.toFixed(2)}%`, { level: 'warn' });
+      logForDebugging(`内存增长率异常: ${growthRate.toFixed(2)}%`, {
+        level: 'warn',
+      });
       this.notifyListeners();
     }
 
     // 检查堆使用百分比是否过高
     if (heapUsagePercent > 90) {
-      logForDebugging(`堆使用百分比过高: ${heapUsagePercent.toFixed(2)}%`, { level: 'warn' });
+      logForDebugging(`堆使用百分比过高: ${heapUsagePercent.toFixed(2)}%`, {
+        level: 'warn',
+      });
       this.notifyListeners();
     }
 
     // 记录内存使用情况
-    if (process.env.USER_TYPE === 'ant' || process.env.NODE_ENV === 'development') {
+    if (
+      process.env.USER_TYPE === 'ant' ||
+      process.env.NODE_ENV === 'development'
+    ) {
       logForDebugging('内存使用情况', snapshot.memory);
     }
   }
@@ -143,7 +161,7 @@ export class MemoryManager {
    */
   private updateMemoryHistory(snapshot: MemorySnapshot): void {
     const timestamp = snapshot.timestamp;
-    
+
     // 更新RSS历史
     this.updateHistory('rss', timestamp, snapshot.memory.rss);
     // 更新堆使用历史
@@ -161,10 +179,10 @@ export class MemoryManager {
     if (!this.memoryUsageHistory.has(key)) {
       this.memoryUsageHistory.set(key, []);
     }
-    
+
     const history = this.memoryUsageHistory.get(key)!;
     history.push(value);
-    
+
     if (history.length > this.maxHistorySize) {
       history.shift();
     }
@@ -181,11 +199,11 @@ export class MemoryManager {
    * 获取内存趋势
    */
   getMemoryTrend(): MemoryTrend {
-    const timestamps = this.snapshots.map(s => s.timestamp);
-    const rss = this.snapshots.map(s => s.memory.rss);
-    const heapUsed = this.snapshots.map(s => s.memory.heapUsed);
-    const heapTotal = this.snapshots.map(s => s.memory.heapTotal);
-    const external = this.snapshots.map(s => s.memory.external);
+    const timestamps = this.snapshots.map((s) => s.timestamp);
+    const rss = this.snapshots.map((s) => s.memory.rss);
+    const heapUsed = this.snapshots.map((s) => s.memory.heapUsed);
+    const heapTotal = this.snapshots.map((s) => s.memory.heapTotal);
+    const external = this.snapshots.map((s) => s.memory.external);
 
     return {
       timestamps,
@@ -209,10 +227,17 @@ export class MemoryManager {
     const config = getPerformanceConfig();
 
     // 计算平均值
-    const avgRss = snapshots.reduce((sum, s) => sum + s.memory.rss, 0) / snapshots.length;
-    const avgHeapUsed = snapshots.reduce((sum, s) => sum + s.memory.heapUsed, 0) / snapshots.length;
-    const avgHeapTotal = snapshots.reduce((sum, s) => sum + s.memory.heapTotal, 0) / snapshots.length;
-    const avgExternal = snapshots.reduce((sum, s) => sum + s.memory.external, 0) / snapshots.length;
+    const avgRss =
+      snapshots.reduce((sum, s) => sum + s.memory.rss, 0) / snapshots.length;
+    const avgHeapUsed =
+      snapshots.reduce((sum, s) => sum + s.memory.heapUsed, 0) /
+      snapshots.length;
+    const avgHeapTotal =
+      snapshots.reduce((sum, s) => sum + s.memory.heapTotal, 0) /
+      snapshots.length;
+    const avgExternal =
+      snapshots.reduce((sum, s) => sum + s.memory.external, 0) /
+      snapshots.length;
 
     let report = '\n=== 内存使用报告 ===\n';
     report += `时间: ${new Date(latestSnapshot.timestamp).toISOString()}\n`;
@@ -283,7 +308,9 @@ export class MemoryManager {
       this.checkMemory();
       logForDebugging('强制垃圾回收完成');
     } else {
-      logForDebugging('垃圾回收未启用，请使用 --expose-gc 标志启动应用', { level: 'warn' });
+      logForDebugging('垃圾回收未启用，请使用 --expose-gc 标志启动应用', {
+        level: 'warn',
+      });
     }
   }
 
@@ -292,20 +319,20 @@ export class MemoryManager {
    */
   optimizeMemory(): void {
     logForDebugging('开始内存优化');
-    
+
     // 执行垃圾回收
     this.forceGC();
-    
+
     // 清理历史数据
     this.snapshots = this.snapshots.slice(-50); // 保留最近50个快照
-    
+
     // 清理内存使用历史
     for (const [key, history] of this.memoryUsageHistory.entries()) {
       if (history.length > 500) {
         this.memoryUsageHistory.set(key, history.slice(-500));
       }
     }
-    
+
     logForDebugging('内存优化完成');
   }
 
@@ -403,7 +430,10 @@ export class MemoryManager {
       try {
         listener();
       } catch (error) {
-        logForDebugging(`内存变化监听器执行失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+        logForDebugging(
+          `内存变化监听器执行失败: ${error instanceof Error ? error.message : String(error)}`,
+          { level: 'error' }
+        );
       }
     }
   }
@@ -414,12 +444,12 @@ export class MemoryManager {
   cleanupHistory(): void {
     // 清理快照
     this.snapshots = this.snapshots.slice(-20); // 保留最近20个快照
-    
+
     // 清理内存使用历史
     for (const [key, history] of this.memoryUsageHistory.entries()) {
       this.memoryUsageHistory.set(key, history.slice(-200)); // 保留最近200个数据点
     }
-    
+
     logForDebugging('历史数据清理完成');
   }
 

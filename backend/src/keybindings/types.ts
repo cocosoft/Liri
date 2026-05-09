@@ -6,24 +6,24 @@
  * 按键绑定上下文名称
  */
 export type KeybindingContextName =
-  | 'Global'        // 全局上下文，无论焦点在哪里都有效
-  | 'Chat'          // 聊天输入框聚焦时
-  | 'Autocomplete'  // 自动完成菜单可见时
-  | 'Confirmation'  // 确认/权限对话框显示时
-  | 'Help'          // 帮助覆盖层打开时
-  | 'Transcript'    // 查看对话记录时
+  | 'Global' // 全局上下文，无论焦点在哪里都有效
+  | 'Chat' // 聊天输入框聚焦时
+  | 'Autocomplete' // 自动完成菜单可见时
+  | 'Confirmation' // 确认/权限对话框显示时
+  | 'Help' // 帮助覆盖层打开时
+  | 'Transcript' // 查看对话记录时
   | 'HistorySearch' // 搜索命令历史时
-  | 'Task'          // 任务/代理在前台运行时
-  | 'ThemePicker'   // 主题选择器打开时
-  | 'Settings'      // 设置菜单打开时
-  | 'Tabs'          // 标签导航激活时
-  | 'Attachments'   // 在选择对话框中导航图片附件时
-  | 'Footer'        // 页脚指示器聚焦时
+  | 'Task' // 任务/代理在前台运行时
+  | 'ThemePicker' // 主题选择器打开时
+  | 'Settings' // 设置菜单打开时
+  | 'Tabs' // 标签导航激活时
+  | 'Attachments' // 在选择对话框中导航图片附件时
+  | 'Footer' // 页脚指示器聚焦时
   | 'MessageSelector' // 消息选择器（回退）打开时
-  | 'DiffDialog'    // 差异对话框打开时
-  | 'ModelPicker'   // 模型选择器打开时
-  | 'Select'        // 选择/列表组件聚焦时
-  | 'Plugin';       // 插件对话框打开时
+  | 'DiffDialog' // 差异对话框打开时
+  | 'ModelPicker' // 模型选择器打开时
+  | 'Select' // 选择/列表组件聚焦时
+  | 'Plugin'; // 插件对话框打开时
 
 /**
  * 解析后的按键序列
@@ -91,7 +91,15 @@ export interface KeybindingsConfig {
  * 按键绑定验证警告
  */
 export interface KeybindingWarning {
-  type: 'error' | 'warning' | 'parse_error' | 'reserved' | 'invalid_context' | 'invalid_action' | 'duplicate' | 'unused';
+  type:
+    | 'error'
+    | 'warning'
+    | 'parse_error'
+    | 'reserved'
+    | 'invalid_context'
+    | 'invalid_action'
+    | 'duplicate'
+    | 'unused';
   message: string;
   context?: string;
   action?: string;

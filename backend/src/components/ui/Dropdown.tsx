@@ -47,10 +47,7 @@ export function Dropdown({
   return (
     <Box flexDirection="column">
       <Box>
-        <Text
-          color={isOpen ? selectedColor : color}
-          underline={isOpen}
-        >
+        <Text color={isOpen ? selectedColor : color} underline={isOpen}>
           {displayText} {isOpen ? '▲' : '▼'}
         </Text>
       </Box>
@@ -61,8 +58,8 @@ export function Dropdown({
             const itemColor = item.disabled
               ? 'gray'
               : isSelected
-              ? selectedColor
-              : color;
+                ? selectedColor
+                : color;
 
             return (
               <Box key={item.id}>

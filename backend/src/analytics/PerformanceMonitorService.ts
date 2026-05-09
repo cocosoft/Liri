@@ -131,8 +131,15 @@ export class PerformanceMonitorService extends EventEmitter {
       this.endOperation(operationId, operationName, metadata, true);
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.endOperation(operationId, operationName, metadata, false, errorMessage);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.endOperation(
+        operationId,
+        operationName,
+        metadata,
+        false,
+        errorMessage
+      );
       throw error;
     }
   }
@@ -157,8 +164,15 @@ export class PerformanceMonitorService extends EventEmitter {
       this.endOperation(operationId, operationName, metadata, true);
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.endOperation(operationId, operationName, metadata, false, errorMessage);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.endOperation(
+        operationId,
+        operationName,
+        metadata,
+        false,
+        errorMessage
+      );
       throw error;
     }
   }
@@ -199,7 +213,9 @@ export class PerformanceMonitorService extends EventEmitter {
       return null;
     }
 
-    const durations = operationMetrics.map((m) => m.duration).sort((a, b) => a - b);
+    const durations = operationMetrics
+      .map((m) => m.duration)
+      .sort((a, b) => a - b);
     const successCalls = operationMetrics.filter((m) => m.success).length;
     const failedCalls = operationMetrics.filter((m) => !m.success).length;
 
@@ -283,4 +299,5 @@ export class PerformanceMonitorService extends EventEmitter {
 /**
  * 导出单例
  */
-export const performanceMonitorService = PerformanceMonitorService.getInstance();
+export const performanceMonitorService =
+  PerformanceMonitorService.getInstance();

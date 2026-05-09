@@ -1,11 +1,11 @@
 /**
  * 按键绑定解析器
  */
-import type { 
-  ParsedBinding, 
-  ParsedKeystroke, 
-  KeybindingContextName, 
-  ChordResolveResult 
+import type {
+  ParsedBinding,
+  ParsedKeystroke,
+  KeybindingContextName,
+  ChordResolveResult,
 } from './types.js';
 import { chordsEqual, keystrokeMatches } from './parser.js';
 
@@ -15,7 +15,10 @@ import { chordsEqual, keystrokeMatches } from './parser.js';
  * @param binding 绑定的序列
  * @returns 是否匹配
  */
-export function chordMatches(input: ParsedKeystroke[], binding: ParsedKeystroke[]): boolean {
+export function chordMatches(
+  input: ParsedKeystroke[],
+  binding: ParsedKeystroke[]
+): boolean {
   // 输入序列长度必须等于绑定序列长度
   if (input.length !== binding.length) {
     return false;
@@ -48,38 +51,44 @@ export function resolveKeyWithChordState(
 ): ChordResolveResult {
   // 解析当前按键
   const currentKeystroke = parseInputToKeystroke(input, key);
-  
+
   // 构建当前和弦序列
-  const currentChord = pendingChord ? [...pendingChord, currentKeystroke] : [currentKeystroke];
-  
+  const currentChord = pendingChord
+    ? [...pendingChord, currentKeystroke]
+    : [currentKeystroke];
+
   // 首先检查是否有部分匹配的和弦（优先级高于完全匹配）
-  const partialMatches = findPartialChordMatches(currentChord, activeContexts, bindings);
+  const partialMatches = findPartialChordMatches(
+    currentChord,
+    activeContexts,
+    bindings
+  );
   if (partialMatches.length > 0) {
     // 有部分匹配，继续等待和弦完成
     return {
       action: null,
       isCompleteChord: false,
-      pendingChord: currentChord
+      pendingChord: currentChord,
     };
   }
-  
+
   // 查找完全匹配的绑定
   const match = findMatchingBinding(currentChord, activeContexts, bindings);
-  
+
   if (match) {
     // 找到完全匹配的绑定
     return {
       action: match.action,
       isCompleteChord: true,
-      pendingChord: null
+      pendingChord: null,
     };
   }
-  
+
   // 没有匹配，重置和弦状态
   return {
     action: null,
     isCompleteChord: false,
-    pendingChord: null
+    pendingChord: null,
   };
 }
 
@@ -89,13 +98,13 @@ export function resolveKeyWithChordState(
 function parseInputToKeystroke(input: string, key: string): ParsedKeystroke {
   // 这里简化处理，实际应该根据ink.js的Key类型进行解析
   const keystroke: ParsedKeystroke = { key: key.toLowerCase() };
-  
+
   // 解析修饰符
   if (input.includes('ctrl')) keystroke.ctrl = true;
   if (input.includes('alt')) keystroke.alt = true;
   if (input.includes('shift')) keystroke.shift = true;
   if (input.includes('meta')) keystroke.meta = true;
-  
+
   return keystroke;
 }
 
@@ -108,14 +117,17 @@ function findMatchingBinding(
   bindings: ParsedBinding[]
 ): ParsedBinding | null {
   // 按上下文优先级排序（活跃上下文优先）
-  const prioritizedBindings = prioritizeBindingsByContext(bindings, activeContexts);
-  
+  const prioritizedBindings = prioritizeBindingsByContext(
+    bindings,
+    activeContexts
+  );
+
   for (const binding of prioritizedBindings) {
     if (chordMatches(chord, binding.chord.chords)) {
       return binding;
     }
   }
-  
+
   return null;
 }
 
@@ -128,41 +140,44 @@ function findPartialChordMatches(
   bindings: ParsedBinding[]
 ): ParsedBinding[] {
   const partialMatches: ParsedBinding[] = [];
-  
+
   for (const binding of bindings) {
     // 只检查长度大于1的和弦绑定
     if (binding.chord.chords.length <= 1) {
       continue;
     }
-    
+
     // 检查绑定是否在当前活跃上下文中
     if (!activeContexts.includes(binding.context)) {
       continue;
     }
-    
+
     // 检查当前和弦是否是绑定和弦的前缀
     if (isChordPrefix(chord, binding.chord.chords)) {
       partialMatches.push(binding);
     }
   }
-  
+
   return partialMatches;
 }
 
 /**
  * 检查和弦是否是另一个和弦的前缀
  */
-function isChordPrefix(prefix: ParsedKeystroke[], fullChord: ParsedKeystroke[]): boolean {
+function isChordPrefix(
+  prefix: ParsedKeystroke[],
+  fullChord: ParsedKeystroke[]
+): boolean {
   if (prefix.length >= fullChord.length) {
     return false;
   }
-  
+
   for (let i = 0; i < prefix.length; i++) {
     if (!keystrokeMatches(prefix[i], fullChord[i])) {
       return false;
     }
   }
-  
+
   return true;
 }
 
@@ -176,7 +191,7 @@ function prioritizeBindingsByContext(
   return [...bindings].sort((a, b) => {
     const aContextIndex = activeContexts.indexOf(a.context);
     const bContextIndex = activeContexts.indexOf(b.context);
-    
+
     // 活跃上下文中的绑定优先
     if (aContextIndex >= 0 && bContextIndex >= 0) {
       return aContextIndex - bContextIndex; // 索引小的优先级高
@@ -203,10 +218,10 @@ export function getBindingDisplayText(
   bindings: ParsedBinding[]
 ): string | undefined {
   // 查找指定上下文和动作的绑定
-  const binding = bindings.find(b => 
-    b.action === action && b.context === context
+  const binding = bindings.find(
+    (b) => b.action === action && b.context === context
   );
-  
+
   return binding?.chord.displayText;
 }
 
@@ -219,12 +234,12 @@ export function getAllBindingDisplayTexts(
   bindings: ParsedBinding[]
 ): Record<string, string> {
   const displayTexts: Record<string, string> = {};
-  
+
   for (const binding of bindings) {
     const key = `${binding.context}:${binding.action}`;
     displayTexts[key] = binding.chord.displayText;
   }
-  
+
   return displayTexts;
 }
 
@@ -238,7 +253,7 @@ export function findBindingForAction(
   action: string,
   bindings: ParsedBinding[]
 ): ParsedBinding | undefined {
-  return bindings.find(b => b.action === action);
+  return bindings.find((b) => b.action === action);
 }
 
 /**
@@ -251,7 +266,7 @@ export function findBindingsForContext(
   context: KeybindingContextName,
   bindings: ParsedBinding[]
 ): ParsedBinding[] {
-  return bindings.filter(b => b.context === context);
+  return bindings.filter((b) => b.context === context);
 }
 
 /**
@@ -272,7 +287,7 @@ export function checkBindingConflict(
       return existing;
     }
   }
-  
+
   return null;
 }
 
@@ -281,10 +296,12 @@ export function checkBindingConflict(
  * @param bindings 绑定列表
  * @returns 去重后的绑定列表
  */
-export function deduplicateBindings(bindings: ParsedBinding[]): ParsedBinding[] {
+export function deduplicateBindings(
+  bindings: ParsedBinding[]
+): ParsedBinding[] {
   const seen = new Set<string>();
   const result: ParsedBinding[] = [];
-  
+
   for (const binding of bindings) {
     const key = `${binding.context}:${binding.action}:${binding.chord.displayText}`;
     if (!seen.has(key)) {
@@ -292,6 +309,6 @@ export function deduplicateBindings(bindings: ParsedBinding[]): ParsedBinding[] 
       result.push(binding);
     }
   }
-  
+
   return result;
 }

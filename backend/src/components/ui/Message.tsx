@@ -60,7 +60,11 @@ export interface MessageInstance {
   error: (content: string, duration?: number) => void;
 }
 
-let messageQueue: Array<{ type: MessageType; content: string; duration: number }> = [];
+let messageQueue: Array<{
+  type: MessageType;
+  content: string;
+  duration: number;
+}> = [];
 
 export function createMessage(): MessageInstance {
   const show = (type: MessageType, content: string, duration = 3000) => {

@@ -100,7 +100,10 @@ export class PermissionSyncManager {
   };
   private leaderContext: PermissionContext = {};
   private workerContexts: Map<string, PermissionContext> = new Map();
-  private permissionListeners: Map<string, (message: SwarmPermissionMessage) => void> = new Map();
+  private permissionListeners: Map<
+    string,
+    (message: SwarmPermissionMessage) => void
+  > = new Map();
 
   constructor(config: Partial<PermissionSyncConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -253,7 +256,7 @@ export class PermissionSyncManager {
 
     // 从待处理队列中移除
     this.syncState.pendingRequests = this.syncState.pendingRequests.filter(
-      m => m.id !== originalRequest.id
+      (m) => m.id !== originalRequest.id
     );
 
     return response;
@@ -270,7 +273,9 @@ export class PermissionSyncManager {
    * 获取Worker的待处理请求
    */
   getWorkerPendingRequests(workerId: string): SwarmPermissionMessage[] {
-    return this.syncState.pendingRequests.filter(m => m.workerId === workerId);
+    return this.syncState.pendingRequests.filter(
+      (m) => m.workerId === workerId
+    );
   }
 
   /**
@@ -278,7 +283,9 @@ export class PermissionSyncManager {
    */
   hasPendingRequests(workerId?: string): boolean {
     if (workerId) {
-      return this.syncState.pendingRequests.some(m => m.workerId === workerId);
+      return this.syncState.pendingRequests.some(
+        (m) => m.workerId === workerId
+      );
     }
     return this.syncState.pendingRequests.length > 0;
   }
@@ -286,7 +293,10 @@ export class PermissionSyncManager {
   /**
    * 注册权限消息监听器
    */
-  addPermissionListener(workerId: string, listener: (message: SwarmPermissionMessage) => void): void {
+  addPermissionListener(
+    workerId: string,
+    listener: (message: SwarmPermissionMessage) => void
+  ): void {
     this.permissionListeners.set(workerId, listener);
   }
 
@@ -306,7 +316,10 @@ export class PermissionSyncManager {
       try {
         listener(message);
       } catch (error) {
-        logger.error(`Error in permission listener for ${message.workerId}:`, error as Error);
+        logger.error(
+          `Error in permission listener for ${message.workerId}:`,
+          error as Error
+        );
       }
     }
   }
@@ -380,7 +393,11 @@ export class PermissionSyncManager {
   /**
    * 获取同步状态
    */
-  getSyncState(): { lastSyncTime: number; pendingCount: number; syncInProgress: boolean } {
+  getSyncState(): {
+    lastSyncTime: number;
+    pendingCount: number;
+    syncInProgress: boolean;
+  } {
     return {
       lastSyncTime: this.syncState.lastSyncTime,
       pendingCount: this.syncState.pendingRequests.length,
@@ -404,6 +421,9 @@ export function inheritLeaderPermissions(workerId: string): PermissionContext {
 /**
  * 便捷函数：检查工具权限
  */
-export function checkToolPermission(context: PermissionContext, toolName: string): boolean {
+export function checkToolPermission(
+  context: PermissionContext,
+  toolName: string
+): boolean {
   return permissionSyncManager.isToolAllowed(context, toolName);
 }

@@ -80,7 +80,10 @@ export class CompleteCommand {
   /**
    * 解析参数
    */
-  private parseArgs(args: string): { subcommand: string; options: CompleteOptions } {
+  private parseArgs(args: string): {
+    subcommand: string;
+    options: CompleteOptions;
+  } {
     const parts = args.trim().split(/\s+/);
     const options: CompleteOptions = {};
 
@@ -126,10 +129,15 @@ export class CompleteCommand {
 
     const filtered = options.all ? completions : completions.slice(0, limit);
     const completionList = filtered
-      .map((item) => `  ${item.value.padEnd(30)} - ${item.description || item.label}`)
+      .map(
+        (item) =>
+          `  ${item.value.padEnd(30)} - ${item.description || item.label}`
+      )
       .join('\n');
 
-    const header = options.all ? '所有补全项:' : `补全项 (前 ${filtered.length} 条):`;
+    const header = options.all
+      ? '所有补全项:'
+      : `补全项 (前 ${filtered.length} 条):`;
     return {
       type: 'text',
       value: `${header}\n\n${completionList}\n\n共 ${completions.length} 项`,
@@ -152,7 +160,9 @@ export class CompleteCommand {
 
     const filtered = completions.slice(0, limit);
     const recentList = filtered
-      .map((item, index) => `  ${(index + 1).toString().padEnd(3)} ${item.value}`)
+      .map(
+        (item, index) => `  ${(index + 1).toString().padEnd(3)} ${item.value}`
+      )
       .join('\n');
 
     return {
@@ -202,7 +212,10 @@ export class CompleteCommand {
 
     const filtered = completions.slice(0, limit);
     const searchList = filtered
-      .map((item) => `  ${item.value.padEnd(30)} - ${item.description || item.label}`)
+      .map(
+        (item) =>
+          `  ${item.value.padEnd(30)} - ${item.description || item.label}`
+      )
       .join('\n');
 
     return {

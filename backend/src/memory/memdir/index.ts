@@ -3,10 +3,31 @@
  * 基于CC源码实现的分层记忆系统
  */
 
-export { MemdirService, type MemoryFile, type MemoryType, type MemoryLayer, type MemdirConfig, type EntrypointTruncation } from './MemdirService';
-export { MemoryScanner, type MemoryScanResult, type RelevantMemoryResult, type MemoryAgingConfig } from './MemoryScanner';
-export { MemoryCommands, type MemoryCommandOptions, type MemoryCommandResult, type AutoMemoryConfig } from './MemoryCommands';
-export { MemoryIntegrationService, type IntegratedMemory, type MemoryIntegrationConfig } from './MemoryIntegrationService';
+export {
+  MemdirService,
+  type MemoryFile,
+  type MemoryType,
+  type MemoryLayer,
+  type MemdirConfig,
+  type EntrypointTruncation,
+} from './MemdirService';
+export {
+  MemoryScanner,
+  type MemoryScanResult,
+  type RelevantMemoryResult,
+  type MemoryAgingConfig,
+} from './MemoryScanner';
+export {
+  MemoryCommands,
+  type MemoryCommandOptions,
+  type MemoryCommandResult,
+  type AutoMemoryConfig,
+} from './MemoryCommands';
+export {
+  MemoryIntegrationService,
+  type IntegratedMemory,
+  type MemoryIntegrationConfig,
+} from './MemoryIntegrationService';
 
 /**
  * 创建默认的记忆集成服务实例
@@ -54,7 +75,7 @@ export const MemoryUtils = {
     const now = new Date();
     const diffMs = now.getTime() - createdAt.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return '今天';
     if (diffDays === 1) return '昨天';
     if (diffDays < 7) return `${diffDays}天前`;
@@ -71,14 +92,14 @@ export const MemoryUtils = {
       .toLowerCase()
       .replace(/[^\w\s]/g, ' ')
       .split(/\s+/)
-      .filter(word => word.length > 2);
-    
+      .filter((word) => word.length > 2);
+
     const frequency: Record<string, number> = {};
-    
+
     for (const word of words) {
       frequency[word] = (frequency[word] || 0) + 1;
     }
-    
+
     return Object.entries(frequency)
       .sort((a, b) => b[1] - a[1])
       .slice(0, maxKeywords)
@@ -92,11 +113,11 @@ export const MemoryUtils = {
     if (!content || content.trim().length === 0) {
       return { valid: false, error: '记忆内容不能为空' };
     }
-    
+
     if (content.length > 10000) {
       return { valid: false, error: '记忆内容过长（最大10000字符）' };
     }
-    
+
     return { valid: true };
   },
 };
@@ -107,10 +128,10 @@ export const MemoryUtils = {
 export const MemoryConstants = {
   // 记忆类型
   MEMORY_TYPES: ['user', 'feedback', 'project', 'reference'] as const,
-  
+
   // 记忆层级
   MEMORY_LAYERS: ['project', 'local', 'automem', 'teammem', 'user'] as const,
-  
+
   // 默认配置
   DEFAULT_CONFIG: {
     maxEntrypointLines: 200,
@@ -119,10 +140,10 @@ export const MemoryConstants = {
     memoryTTL: 30 * 24 * 60 * 60 * 1000, // 30天
     autoUpdateInterval: 24 * 60 * 60 * 1000, // 24小时
   },
-  
+
   // 文件扩展名
   MEMORY_FILE_EXTENSIONS: ['.md', '.txt', '.memory'],
-  
+
   // 支持的编码
   SUPPORTED_ENCODINGS: ['utf-8', 'utf-16', 'ascii'],
 };

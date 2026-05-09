@@ -13,19 +13,47 @@ export interface ThemeConfig {
 const THEMES: Record<ThemeName, ThemeConfig> = {
   dark: {
     name: 'dark',
-    colors: { bg: '#1a1a2e', fg: '#e0e0e0', accent: '#6c63ff', error: '#ff4444', success: '#44ff44', warning: '#ffaa44' },
+    colors: {
+      bg: '#1a1a2e',
+      fg: '#e0e0e0',
+      accent: '#6c63ff',
+      error: '#ff4444',
+      success: '#44ff44',
+      warning: '#ffaa44',
+    },
   },
   light: {
     name: 'light',
-    colors: { bg: '#ffffff', fg: '#1a1a2e', accent: '#6c63ff', error: '#cc0000', success: '#00aa00', warning: '#cc7700' },
+    colors: {
+      bg: '#ffffff',
+      fg: '#1a1a2e',
+      accent: '#6c63ff',
+      error: '#cc0000',
+      success: '#00aa00',
+      warning: '#cc7700',
+    },
   },
   system: {
     name: 'system',
-    colors: { bg: '#1a1a2e', fg: '#e0e0e0', accent: '#6c63ff', error: '#ff4444', success: '#44ff44', warning: '#ffaa44' },
+    colors: {
+      bg: '#1a1a2e',
+      fg: '#e0e0e0',
+      accent: '#6c63ff',
+      error: '#ff4444',
+      success: '#44ff44',
+      warning: '#ffaa44',
+    },
   },
   custom: {
     name: 'custom',
-    colors: { bg: '#1a1a2e', fg: '#e0e0e0', accent: '#6c63ff', error: '#ff4444', success: '#44ff44', warning: '#ffaa44' },
+    colors: {
+      bg: '#1a1a2e',
+      fg: '#e0e0e0',
+      accent: '#6c63ff',
+      error: '#ff4444',
+      success: '#44ff44',
+      warning: '#ffaa44',
+    },
   },
 };
 

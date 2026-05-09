@@ -14,7 +14,10 @@ export const reloadPluginsCommand: Command = {
   aliases: ['reload'],
   argumentHint: '[插件名]',
   whenToUse: '当你需要重新加载插件时',
-  load: async () => import('./ReloadPlugins.js').then((m) => ({ execute: m.default.execute.bind(m.default) })),
+  load: async () =>
+    import('./ReloadPlugins.js').then((m) => ({
+      execute: m.default.execute.bind(m.default),
+    })),
 };
 
 export default reloadPluginsCommand;

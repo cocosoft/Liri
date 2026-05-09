@@ -3,9 +3,15 @@
  * 管理远程控制桥接连接，对标 CC 的 /remote-control (rc) 命令
  */
 import { isFeatureEnabled, FeatureFlag } from '@modules/utils/features.js';
-import { bridgeStateStore, type BridgeState } from '@modules/bridge/state/BridgeStateStore.js';
+import {
+  bridgeStateStore,
+  type BridgeState,
+} from '@modules/bridge/state/BridgeStateStore.js';
 import { readBridgeConfig } from '@modules/bridge/utils/bridgeConfig.js';
-import { createBridgeMain, type BridgeMain } from '@modules/bridge/BridgeMain.js';
+import {
+  createBridgeMain,
+  type BridgeMain,
+} from '@modules/bridge/BridgeMain.js';
 import { createDummySpawner } from '@modules/bridge/sessions/MultiSessionManager.js';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 
@@ -33,7 +39,11 @@ const STATE_LABELS: Record<BridgeState, string> = {
 /**
  * 解析标志参数
  */
-function parseFlags(args: string): { showJson: boolean; subcommand: string; subarg: string } {
+function parseFlags(args: string): {
+  showJson: boolean;
+  subcommand: string;
+  subarg: string;
+} {
   const trimmed = args.trim();
   const showJson = /(^|\s)--json(\s|$)/.test(trimmed);
   const cleaned = trimmed.replace(/--json\s*/g, '').trim();
@@ -81,32 +91,38 @@ function buildJsonStatus(): Record<string, unknown> {
     lastConnectedAt: state.lastConnectedAt || null,
     lastDisconnectedAt: state.lastDisconnectedAt || null,
     error: state.error || null,
-    polling: pollStats ? {
-      state: pollStats.state,
-      totalPolls: pollStats.totalPolls,
-      successfulPolls: pollStats.successfulPolls,
-      failedPolls: pollStats.failedPolls,
-      workReceived: pollStats.workReceived,
-      consecutiveErrors: pollStats.consecutiveErrors,
-      lastPollTime: pollStats.lastPollTime || null,
-    } : null,
-    sessions: sessionStats ? {
-      activeCount: sessionStats.activeCount,
-      totalCreated: sessionStats.totalCreated,
-      totalCompleted: sessionStats.totalCompleted,
-      totalFailed: sessionStats.totalFailed,
-      totalInterrupted: sessionStats.totalInterrupted,
-      averageLifetimeMs: sessionStats.averageLifetimeMs,
-    } : null,
-    heartbeat: heartbeatStats ? {
-      state: heartbeatStats.state,
-      monitoredSessions: heartbeatStats.monitoredSessions,
-      totalHeartbeatsSent: heartbeatStats.totalHeartbeatsSent,
-      successfulHeartbeats: heartbeatStats.successfulHeartbeats,
-      failedHeartbeats: heartbeatStats.failedHeartbeats,
-      lastHeartbeatTime: heartbeatStats.lastHeartbeatTime || null,
-    } : null,
-    activeSessions: state.sessions.map(s => ({
+    polling: pollStats
+      ? {
+          state: pollStats.state,
+          totalPolls: pollStats.totalPolls,
+          successfulPolls: pollStats.successfulPolls,
+          failedPolls: pollStats.failedPolls,
+          workReceived: pollStats.workReceived,
+          consecutiveErrors: pollStats.consecutiveErrors,
+          lastPollTime: pollStats.lastPollTime || null,
+        }
+      : null,
+    sessions: sessionStats
+      ? {
+          activeCount: sessionStats.activeCount,
+          totalCreated: sessionStats.totalCreated,
+          totalCompleted: sessionStats.totalCompleted,
+          totalFailed: sessionStats.totalFailed,
+          totalInterrupted: sessionStats.totalInterrupted,
+          averageLifetimeMs: sessionStats.averageLifetimeMs,
+        }
+      : null,
+    heartbeat: heartbeatStats
+      ? {
+          state: heartbeatStats.state,
+          monitoredSessions: heartbeatStats.monitoredSessions,
+          totalHeartbeatsSent: heartbeatStats.totalHeartbeatsSent,
+          successfulHeartbeats: heartbeatStats.successfulHeartbeats,
+          failedHeartbeats: heartbeatStats.failedHeartbeats,
+          lastHeartbeatTime: heartbeatStats.lastHeartbeatTime || null,
+        }
+      : null,
+    activeSessions: state.sessions.map((s) => ({
       id: s.id,
       directory: s.directory || null,
       createdAt: s.createdAt,
@@ -117,7 +133,10 @@ function buildJsonStatus(): Record<string, unknown> {
 /**
  * 创建 Bridge 实例
  */
-function createBridgeInstance(config: ReturnType<typeof readBridgeConfig>, simulated: boolean): BridgeMain {
+function createBridgeInstance(
+  config: ReturnType<typeof readBridgeConfig>,
+  simulated: boolean
+): BridgeMain {
   const onSimPoll = simulated ? createSimulatedPollHandler() : undefined;
 
   return createBridgeMain({
@@ -142,15 +161,25 @@ function createBridgeInstance(config: ReturnType<typeof readBridgeConfig>, simul
 /**
  * 创建模拟轮询回调
  */
-function createSimulatedPollHandler(): (pollCount: number) => import('../../bridge/types/index.js').WorkResponse | null {
+function createSimulatedPollHandler(): (
+  pollCount: number
+) => import('../../bridge/types/index.js').WorkResponse | null {
   let localPollCount = 0;
   return () => {
     localPollCount++;
     if (localPollCount <= 3) {
-      return { id: `sim-work-${localPollCount}`, data: { type: 'healthcheck' }, secret: 'sim-secret' };
+      return {
+        id: `sim-work-${localPollCount}`,
+        data: { type: 'healthcheck' },
+        secret: 'sim-secret',
+      };
     }
     if (localPollCount === 4) {
-      return { id: `sim-session-1`, data: { type: 'session', id: `sim-session-${Date.now()}` }, secret: 'sim-secret' };
+      return {
+        id: `sim-session-1`,
+        data: { type: 'session', id: `sim-session-${Date.now()}` },
+        secret: 'sim-secret',
+      };
     }
     return null;
   };
@@ -180,10 +209,14 @@ function formatStatusText(): string {
   lines.push(`  运行中:              ${bm?.getIsRunning() ? '是' : '否'}`);
 
   if (state.lastConnectedAt) {
-    lines.push(`  最后连接:            ${new Date(state.lastConnectedAt).toLocaleString()}`);
+    lines.push(
+      `  最后连接:            ${new Date(state.lastConnectedAt).toLocaleString()}`
+    );
   }
   if (state.lastDisconnectedAt) {
-    lines.push(`  最后断开:            ${new Date(state.lastDisconnectedAt).toLocaleString()}`);
+    lines.push(
+      `  最后断开:            ${new Date(state.lastDisconnectedAt).toLocaleString()}`
+    );
   }
   if (state.error) {
     lines.push(`  错误:                ${state.error}`);
@@ -201,7 +234,9 @@ function formatStatusText(): string {
     lines.push(`  收到工作:            ${pollStats.workReceived}`);
     lines.push(`  连续错误:            ${pollStats.consecutiveErrors}`);
     if (pollStats.lastPollTime) {
-      lines.push(`  最后轮询:            ${new Date(pollStats.lastPollTime).toLocaleString()}`);
+      lines.push(
+        `  最后轮询:            ${new Date(pollStats.lastPollTime).toLocaleString()}`
+      );
     }
   }
 
@@ -232,14 +267,16 @@ function formatStatusText(): string {
     lines.push(`  成功:                ${heartbeatStats.successfulHeartbeats}`);
     lines.push(`  失败:                ${heartbeatStats.failedHeartbeats}`);
     if (heartbeatStats.lastHeartbeatTime) {
-      lines.push(`  最后心跳:            ${new Date(heartbeatStats.lastHeartbeatTime).toLocaleString()}`);
+      lines.push(
+        `  最后心跳:            ${new Date(heartbeatStats.lastHeartbeatTime).toLocaleString()}`
+      );
     }
   }
 
   lines.push('');
   lines.push('─'.repeat(50));
   lines.push(`  活跃会话列表: ${state.sessions.length} 个`);
-  state.sessions.forEach(s => {
+  state.sessions.forEach((s) => {
     lines.push(`    ├ ${s.id}`);
     if (s.directory) lines.push(`    │ 目录: ${s.directory}`);
     lines.push(`    │ 创建: ${new Date(s.createdAt).toLocaleString()}`);
@@ -270,7 +307,9 @@ function formatConfigText(): string {
   lines.push(`  API 基础 URL:     ${config.apiBaseUrl}`);
   lines.push(`  会话入口 URL:     ${config.sessionIngressUrl}`);
   lines.push(`  生成模式:         ${config.spawnMode}`);
-  lines.push(`  模拟模式:         ${bridgeMainInstance?.getIsRunning() ? '运行中' : '待命'}`);
+  lines.push(
+    `  模拟模式:         ${bridgeMainInstance?.getIsRunning() ? '运行中' : '待命'}`
+  );
   if (config.reuseEnvironmentId) {
     lines.push(`  重用环境 ID:     ${config.reuseEnvironmentId}`);
   }
@@ -285,7 +324,10 @@ function formatConfigText(): string {
  */
 async function handleStatus(showJson: boolean): Promise<CommandResult> {
   if (showJson) {
-    return { success: true, message: JSON.stringify(buildJsonStatus(), null, 2) };
+    return {
+      success: true,
+      message: JSON.stringify(buildJsonStatus(), null, 2),
+    };
   }
   return { success: true, message: formatStatusText() };
 }
@@ -306,12 +348,18 @@ async function handleConfig(showJson: boolean): Promise<CommandResult> {
  */
 async function handleStart(simulated: boolean): Promise<CommandResult> {
   if (!isBridgeModeEnabled()) {
-    return { success: false, message: '错误: Bridge 模式未启用（BRIDGE_MODE 功能开关未打开）' };
+    return {
+      success: false,
+      message: '错误: Bridge 模式未启用（BRIDGE_MODE 功能开关未打开）',
+    };
   }
 
   const state = bridgeStateStore.getState();
   if (state.isEnabled && bridgeMainInstance?.getIsRunning()) {
-    return { success: true, message: 'Bridge 已经在运行中。使用 /bridge status 查看当前状态。' };
+    return {
+      success: true,
+      message: 'Bridge 已经在运行中。使用 /bridge status 查看当前状态。',
+    };
   }
 
   try {
@@ -327,13 +375,16 @@ async function handleStart(simulated: boolean): Promise<CommandResult> {
     lastBridgeOptions = { config, simulated };
     bridgeStateStore.enable(true);
 
-    bm.run().catch(err => {
+    bm.run().catch((err) => {
       console.error(`[Bridge] 运行错误: ${err.message}`);
       bridgeStateStore.setError(err.message);
     });
 
     const modeLabel = simulated ? '模拟模式' : '远程模式';
-    return { success: true, message: `Bridge 已启动（${modeLabel}）。\n使用 /bridge status 查看状态。` };
+    return {
+      success: true,
+      message: `Bridge 已启动（${modeLabel}）。\n使用 /bridge status 查看状态。`,
+    };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return { success: false, message: `启动 Bridge 失败: ${msg}` };
@@ -366,12 +417,18 @@ async function handleStop(): Promise<CommandResult> {
  */
 async function handleConnect(sessionId?: string): Promise<CommandResult> {
   if (!isBridgeModeEnabled()) {
-    return { success: false, message: '错误: Bridge 模式未启用（BRIDGE_MODE 功能开关未打开）' };
+    return {
+      success: false,
+      message: '错误: Bridge 模式未启用（BRIDGE_MODE 功能开关未打开）',
+    };
   }
 
   const state = bridgeStateStore.getState();
   if (!state.isEnabled) {
-    return { success: false, message: '错误: Bridge 未启动。请先使用 /bridge start。' };
+    return {
+      success: false,
+      message: '错误: Bridge 未启动。请先使用 /bridge start。',
+    };
   }
 
   bridgeStateStore.setBridgeState('connected');
@@ -385,7 +442,10 @@ async function handleConnect(sessionId?: string): Promise<CommandResult> {
     ? `已连接到远程会话 ${sessionId}`
     : '已连接到远程控制';
 
-  return { success: true, message: `${connectMsg}\n使用 /bridge status 查看详细信息。` };
+  return {
+    success: true,
+    message: `${connectMsg}\n使用 /bridge status 查看详细信息。`,
+  };
 }
 
 /**
@@ -496,7 +556,10 @@ const bridgeCommand = {
           return await handleConnect(subarg || undefined);
 
         default:
-          return { success: false, message: `未知子命令: ${subcommand}\n使用 /bridge help 查看可用命令。` };
+          return {
+            success: false,
+            message: `未知子命令: ${subcommand}\n使用 /bridge help 查看可用命令。`,
+          };
       }
     } catch (error) {
       return {

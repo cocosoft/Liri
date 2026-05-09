@@ -5,73 +5,73 @@
  * 使用 child_process 调用系统录音工具，无第三方库依赖。
  * 支持路径：SoX (macOS/Linux)、arecord (Linux ALSA)、PowerShell (Windows)
  */
-import { spawn, spawnSync } from 'child_process'
-import { readFile, unlink } from 'fs/promises'
-import { existsSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { randomUUID } from 'crypto'
+import { spawn, spawnSync } from 'child_process';
+import { readFile, unlink } from 'fs/promises';
+import { existsSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
 
-const SAMPLE_RATE = 16000
-const CHANNELS = 1
-const BITS_PER_SAMPLE = 16
+const SAMPLE_RATE = 16000;
+const CHANNELS = 1;
+const BITS_PER_SAMPLE = 16;
 
 /**
  * 录音可用性状态
  */
 export interface VoiceAvailability {
-  available: boolean
-  method: string | null
-  missing: string[]
-  installCommand: string | null
+  available: boolean;
+  method: string | null;
+  missing: string[];
+  installCommand: string | null;
 }
 
 /**
  * 录音结果
  */
 export interface RecordingResult {
-  filePath: string
-  durationMs: number
-  sampleRate: number
-  format: string
+  filePath: string;
+  durationMs: number;
+  sampleRate: number;
+  format: string;
 }
 
 /**
  * 录音选项
  */
 export interface RecordingOptions {
-  maxDurationSecs?: number
-  silenceDurationSecs?: number
-  silenceThreshold?: string
-  device?: string
+  maxDurationSecs?: number;
+  silenceDurationSecs?: number;
+  silenceThreshold?: string;
+  device?: string;
 }
 
 /**
  * 录音状态监听器
  */
-export type RecordingStateHandler = (state: string) => void
+export type RecordingStateHandler = (state: string) => void;
 
 /**
  * 检测系统命令是否可用
  */
 function hasCommand(cmd: string): boolean {
-  const isWindows = process.platform === 'win32'
-  const searchCmd = isWindows ? 'where' : 'which'
+  const isWindows = process.platform === 'win32';
+  const searchCmd = isWindows ? 'where' : 'which';
 
   const result = spawnSync(searchCmd, [cmd], {
     stdio: 'ignore',
     timeout: 3000,
-  })
+  });
 
-  return result.error === undefined
+  return result.error === undefined;
 }
 
 /**
  * 检测录音依赖
  */
 export function checkVoiceDependencies(): VoiceAvailability {
-  const platform = process.platform
-  const missing: string[] = []
+  const platform = process.platform;
+  const missing: string[] = [];
 
   if (platform === 'win32') {
     if (hasCommand('sox') || hasCommand('sox.exe')) {
@@ -80,7 +80,7 @@ export function checkVoiceDependencies(): VoiceAvailability {
         method: 'sox',
         missing: [],
         installCommand: null,
-      }
+      };
     }
 
     // Windows 使用 PowerShell 录音（无需额外工具）
@@ -89,7 +89,7 @@ export function checkVoiceDependencies(): VoiceAvailability {
       method: 'powershell',
       missing: [],
       installCommand: null,
-    }
+    };
   }
 
   if (platform === 'darwin') {
@@ -99,11 +99,11 @@ export function checkVoiceDependencies(): VoiceAvailability {
         method: 'sox',
         missing: [],
         installCommand: null,
-      }
+      };
     }
 
     // macOS 使用内置的 avfoundation 通过 rec（SoX）或 afplay
-    missing.push('sox')
+    missing.push('sox');
     return {
       available: false,
       method: null,
@@ -111,7 +111,7 @@ export function checkVoiceDependencies(): VoiceAvailability {
       installCommand: hasCommand('brew')
         ? 'brew install sox'
         : 'Install SoX from https://sox.sourceforge.net/',
-    }
+    };
   }
 
   if (platform === 'linux') {
@@ -121,7 +121,7 @@ export function checkVoiceDependencies(): VoiceAvailability {
         method: 'sox',
         missing: [],
         installCommand: null,
-      }
+      };
     }
 
     if (hasCommand('arecord')) {
@@ -130,18 +130,18 @@ export function checkVoiceDependencies(): VoiceAvailability {
         method: 'arecord',
         missing: [],
         installCommand: null,
-      }
+      };
     }
 
-    missing.push('sox')
+    missing.push('sox');
 
-    let installCmd: string | null = null
+    let installCmd: string | null = null;
     if (hasCommand('apt-get')) {
-      installCmd = 'sudo apt-get install -y sox'
+      installCmd = 'sudo apt-get install -y sox';
     } else if (hasCommand('dnf')) {
-      installCmd = 'sudo dnf install -y sox'
+      installCmd = 'sudo dnf install -y sox';
     } else if (hasCommand('pacman')) {
-      installCmd = 'sudo pacman -S sox'
+      installCmd = 'sudo pacman -S sox';
     }
 
     return {
@@ -149,7 +149,7 @@ export function checkVoiceDependencies(): VoiceAvailability {
       method: null,
       missing,
       installCommand: installCmd,
-    }
+    };
   }
 
   return {
@@ -157,45 +157,51 @@ export function checkVoiceDependencies(): VoiceAvailability {
     method: null,
     missing: ['unsupported platform'],
     installCommand: null,
-  }
+  };
 }
 
 /**
  * 构建 SoX 录音参数
  */
-function buildSoxArgs(
-  outputFile: string,
-  options: RecordingOptions
-): string[] {
+function buildSoxArgs(outputFile: string, options: RecordingOptions): string[] {
   const args = [
-    '-r', String(SAMPLE_RATE),
-    '-c', String(CHANNELS),
-    '-b', String(BITS_PER_SAMPLE),
-    '-e', 'signed-integer',
-  ]
+    '-r',
+    String(SAMPLE_RATE),
+    '-c',
+    String(CHANNELS),
+    '-b',
+    String(BITS_PER_SAMPLE),
+    '-e',
+    'signed-integer',
+  ];
 
   if (options.device) {
-    args.push('-d', options.device)
+    args.push('-d', options.device);
   } else {
-    args.push('-d')
+    args.push('-d');
   }
 
   if (options.silenceDurationSecs && options.silenceThreshold) {
     // 静音检测：自动停止
     args.push(
-      'silence', '1', '0.1', options.silenceThreshold,
-      '1', String(options.silenceDurationSecs), options.silenceThreshold,
-    )
+      'silence',
+      '1',
+      '0.1',
+      options.silenceThreshold,
+      '1',
+      String(options.silenceDurationSecs),
+      options.silenceThreshold
+    );
   }
 
   if (options.maxDurationSecs) {
     // 格式：sox 的 trim 需要放在输出文件名后面
-    args.push(outputFile, 'trim', '0', String(options.maxDurationSecs))
+    args.push(outputFile, 'trim', '0', String(options.maxDurationSecs));
   } else {
-    args.push(outputFile)
+    args.push(outputFile);
   }
 
-  return args
+  return args;
 }
 
 /**
@@ -207,30 +213,30 @@ function recordWithSox(
   onState?: RecordingStateHandler
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const args = buildSoxArgs(outputFile, options)
+    const args = buildSoxArgs(outputFile, options);
     const child = spawn('sox', args, {
       stdio: ['ignore', 'ignore', 'pipe'],
-    })
+    });
 
-    let stderr = ''
+    let stderr = '';
     child.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
-    })
+      stderr += chunk.toString();
+    });
 
-    child.on('close', code => {
+    child.on('close', (code) => {
       if (code === 0 || code === null) {
-        resolve()
+        resolve();
       } else {
-        reject(new Error(`sox failed (code ${code}): ${stderr.trim()}`))
+        reject(new Error(`sox failed (code ${code}): ${stderr.trim()}`));
       }
-    })
+    });
 
-    child.on('error', err => {
-      reject(new Error(`Failed to start sox: ${err.message}`))
-    })
+    child.on('error', (err) => {
+      reject(new Error(`Failed to start sox: ${err.message}`));
+    });
 
-    onState?.('recording')
-  })
+    onState?.('recording');
+  });
 }
 
 /**
@@ -243,41 +249,45 @@ function recordWithArecord(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const args = [
-      '-r', String(SAMPLE_RATE),
-      '-c', String(CHANNELS),
-      '-f', 'S16_LE',
-      '-t', 'wav',
-    ]
+      '-r',
+      String(SAMPLE_RATE),
+      '-c',
+      String(CHANNELS),
+      '-f',
+      'S16_LE',
+      '-t',
+      'wav',
+    ];
 
     if (options.maxDurationSecs) {
-      args.push('-d', String(options.maxDurationSecs))
+      args.push('-d', String(options.maxDurationSecs));
     }
 
-    args.push(outputFile)
+    args.push(outputFile);
 
     const child = spawn('arecord', args, {
       stdio: ['ignore', 'ignore', 'pipe'],
-    })
+    });
 
-    let stderr = ''
+    let stderr = '';
     child.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
-    })
+      stderr += chunk.toString();
+    });
 
-    child.on('close', code => {
+    child.on('close', (code) => {
       if (code === 0 || code === null) {
-        resolve()
+        resolve();
       } else {
-        reject(new Error(`arecord failed (code ${code}): ${stderr.trim()}`))
+        reject(new Error(`arecord failed (code ${code}): ${stderr.trim()}`));
       }
-    })
+    });
 
-    child.on('error', err => {
-      reject(new Error(`Failed to start arecord: ${err.message}`))
-    })
+    child.on('error', (err) => {
+      reject(new Error(`Failed to start arecord: ${err.message}`));
+    });
 
-    onState?.('recording')
-  })
+    onState?.('recording');
+  });
 }
 
 /**
@@ -289,7 +299,7 @@ function recordWithPowerShell(
   onState?: RecordingStateHandler
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const maxSecs = options.maxDurationSecs ?? 30
+    const maxSecs = options.maxDurationSecs ?? 30;
 
     const psScript = `
 $output = '${outputFile.replace(/'/g, "''")}'
@@ -336,38 +346,39 @@ while (([DateTime]::UtcNow - $startTime).TotalSeconds -lt ${maxSecs}) {
 $writer.Close()
 [System.IO.File]::WriteAllBytes($output, $source.ToArray())
 $source.Close()
-`
+`;
 
-    const child = spawn('powershell', [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      psScript,
-    ], {
-      stdio: ['ignore', 'ignore', 'pipe'],
-    })
+    const child = spawn(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-Command', psScript],
+      {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      }
+    );
 
-    let stderr = ''
+    let stderr = '';
     child.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
-    })
+      stderr += chunk.toString();
+    });
 
-    child.on('close', code => {
+    child.on('close', (code) => {
       if (code === 0) {
-        resolve()
+        resolve();
       } else {
         reject(
-          new Error(`PowerShell recording failed (code ${code}): ${stderr.trim()}`)
-        )
+          new Error(
+            `PowerShell recording failed (code ${code}): ${stderr.trim()}`
+          )
+        );
       }
-    })
+    });
 
-    child.on('error', err => {
-      reject(new Error(`Failed to start PowerShell: ${err.message}`))
-    })
+    child.on('error', (err) => {
+      reject(new Error(`Failed to start PowerShell: ${err.message}`));
+    });
 
-    onState?.('recording')
-  })
+    onState?.('recording');
+  });
 }
 
 /**
@@ -383,34 +394,34 @@ export async function startRecording(
   options: RecordingOptions = {},
   onState?: RecordingStateHandler
 ): Promise<string> {
-  const availability = checkVoiceDependencies()
+  const availability = checkVoiceDependencies();
 
   if (!availability.available) {
     throw new Error(
       `No recording tool available. Missing: ${availability.missing.join(', ')}. ` +
-      `Install: ${availability.installCommand ?? 'See platform documentation'}`
-    )
+        `Install: ${availability.installCommand ?? 'See platform documentation'}`
+    );
   }
 
-  const outputFile = join(tmpdir(), `voice_input_${randomUUID()}.wav`)
-  onState?.('starting')
+  const outputFile = join(tmpdir(), `voice_input_${randomUUID()}.wav`);
+  onState?.('starting');
 
   switch (availability.method) {
     case 'sox':
-      await recordWithSox(outputFile, options, onState)
-      break
+      await recordWithSox(outputFile, options, onState);
+      break;
     case 'arecord':
-      await recordWithArecord(outputFile, options, onState)
-      break
+      await recordWithArecord(outputFile, options, onState);
+      break;
     case 'powershell':
-      await recordWithPowerShell(outputFile, options, onState)
-      break
+      await recordWithPowerShell(outputFile, options, onState);
+      break;
     default:
-      throw new Error(`Unknown recording method: ${availability.method}`)
+      throw new Error(`Unknown recording method: ${availability.method}`);
   }
 
-  onState?.('done')
-  return outputFile
+  onState?.('done');
+  return outputFile;
 }
 
 /**
@@ -419,21 +430,19 @@ export async function startRecording(
  * @param filePath - 录音文件路径
  * @returns 录音文件内容和格式信息
  */
-export async function getRecording(
-  filePath: string
-): Promise<RecordingResult> {
+export async function getRecording(filePath: string): Promise<RecordingResult> {
   if (!existsSync(filePath)) {
-    throw new Error(`Recording file not found: ${filePath}`)
+    throw new Error(`Recording file not found: ${filePath}`);
   }
 
-  const stat = await import('fs/promises').then(fs => fs.stat(filePath))
+  const stat = await import('fs/promises').then((fs) => fs.stat(filePath));
 
   return {
     filePath,
     durationMs: 0,
     sampleRate: SAMPLE_RATE,
     format: 'wav',
-  }
+  };
 }
 
 /**
@@ -441,7 +450,7 @@ export async function getRecording(
  */
 export async function cleanupRecording(filePath: string): Promise<void> {
   try {
-    await unlink(filePath)
+    await unlink(filePath);
   } catch {
     // 文件不存在时忽略
   }
@@ -455,7 +464,11 @@ const voiceService = {
       method: deps.method,
       missing: deps.missing,
       installCommand: deps.installCommand,
-      reason: deps.available ? undefined : (deps.missing.length > 0 ? `Missing: ${deps.missing.join(', ')}` : 'Voice recording not available'),
+      reason: deps.available
+        ? undefined
+        : deps.missing.length > 0
+          ? `Missing: ${deps.missing.join(', ')}`
+          : 'Voice recording not available',
     };
   },
   checkVoiceDependencies,

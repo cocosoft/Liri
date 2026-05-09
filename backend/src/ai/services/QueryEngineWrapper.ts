@@ -7,10 +7,16 @@
 
 import type { ChatMessage } from '../models/types.js';
 import type { LLMClient } from '../clients/LLMClient.js';
-import type { QueryParams, QueryResult } from '../interfaces/QueryInterfaces.js';
+import type {
+  QueryParams,
+  QueryResult,
+} from '../interfaces/QueryInterfaces.js';
 import type { MiniAgentResult } from '../miniAgent/types.js';
 import { createMiniAgent, MiniAgent } from '../miniAgent/MiniAgent.js';
-import { QueryEngineIntegrationAdapter, createIntegrationAdapter } from '../miniAgent/QueryEngineIntegrationAdapter.js';
+import {
+  QueryEngineIntegrationAdapter,
+  createIntegrationAdapter,
+} from '../miniAgent/QueryEngineIntegrationAdapter.js';
 
 export interface QueryEngineWrapperConfig {
   client: LLMClient;
@@ -48,7 +54,10 @@ export class QueryEngineWrapper {
       return this.executeDirectQuery(params);
     }
 
-    const miniAgentResult = await this.integrationAdapter.process(input, messages);
+    const miniAgentResult = await this.integrationAdapter.process(
+      input,
+      messages
+    );
 
     if (!miniAgentResult.shouldContinueToQueryEngine) {
       return {
@@ -117,7 +126,11 @@ export class QueryEngineWrapper {
           message: assistantMessage,
           allMessages: accumulatedMessages,
           turns: currentTurn,
-          finishReason: ((response.stop_reason === 'stop' ? 'end_turn' : response.stop_reason === 'tool_calls' ? 'tool_use' : response.stop_reason) || 'end_turn') as any,
+          finishReason: ((response.stop_reason === 'stop'
+            ? 'end_turn'
+            : response.stop_reason === 'tool_calls'
+              ? 'tool_use'
+              : response.stop_reason) || 'end_turn') as any,
         };
       } catch (error) {
         return {
@@ -167,7 +180,10 @@ export class QueryEngineWrapper {
     return message;
   }
 
-  enableMiniAgent(config?: { bypassRoutes?: string[]; enableMetrics?: boolean }): void {
+  enableMiniAgent(config?: {
+    bypassRoutes?: string[];
+    enableMetrics?: boolean;
+  }): void {
     this.integrationAdapter = createIntegrationAdapter({
       enabled: true,
       bypassRoutes: config?.bypassRoutes as any,
@@ -194,6 +210,8 @@ export class QueryEngineWrapper {
   }
 }
 
-export function createQueryEngineWrapper(config: QueryEngineWrapperConfig): QueryEngineWrapper {
+export function createQueryEngineWrapper(
+  config: QueryEngineWrapperConfig
+): QueryEngineWrapper {
   return new QueryEngineWrapper(config);
 }

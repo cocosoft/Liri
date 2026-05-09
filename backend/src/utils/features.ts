@@ -5,7 +5,11 @@
  *
  * 统一标志来源：@modules/core/featureFlags.ts
  */
-import { FEATURE_FLAGS, feature, type FeatureFlag as CoreFeatureFlag } from '@modules/core';
+import {
+  FEATURE_FLAGS,
+  feature,
+  type FeatureFlag as CoreFeatureFlag,
+} from '@modules/core';
 import { isEnvTruthy } from './envUtils.js';
 import { getFeatureFlagManager } from '../services/growthbook/FeatureFlagManager.js';
 import { getGrowthBookClient } from '../services/growthbook/GrowthBookClient.js';
@@ -76,11 +80,11 @@ export function isFeatureEnabled(flag: FeatureFlagName): boolean {
  */
 export function getFeatureFlags(): Record<string, boolean> {
   const flags: Record<string, boolean> = {};
-  
-  Object.values(FeatureFlag).forEach(feature => {
+
+  Object.values(FeatureFlag).forEach((feature) => {
     flags[feature] = isFeatureEnabled(feature);
   });
-  
+
   return flags;
 }
 
@@ -89,8 +93,10 @@ export function getFeatureFlags(): Record<string, boolean> {
  * @returns 是否为开发模式
  */
 export function isDevMode(): boolean {
-  return isFeatureEnabled(FeatureFlag.ENABLE_DEV_FEATURES) || 
-         isFeatureEnabled(FeatureFlag.ENABLE_DEBUG_MODE);
+  return (
+    isFeatureEnabled(FeatureFlag.ENABLE_DEV_FEATURES) ||
+    isFeatureEnabled(FeatureFlag.ENABLE_DEBUG_MODE)
+  );
 }
 
 /**
@@ -106,7 +112,10 @@ export function isTestMode(): boolean {
  * 如果功能启用则返回值，否则返回null
  * 类似于CC源码的feature()函数模式
  */
-export function conditionalTool<T>(flag: FeatureFlagName, tool: T | null): T | null {
+export function conditionalTool<T>(
+  flag: FeatureFlagName,
+  tool: T | null
+): T | null {
   return isFeatureEnabled(flag) ? tool : null;
 }
 
@@ -184,49 +193,57 @@ const FEATURE_DEFAULTS: Record<string, boolean> = {
   ENABLE_DEV_FEATURES: false,
 };
 
-let growthBookIntegrationInitialized = false
+let growthBookIntegrationInitialized = false;
 
-export async function initGrowthBookIntegration(attributes: GrowthBookUserAttributes): Promise<void> {
-  if (growthBookIntegrationInitialized) return
+export async function initGrowthBookIntegration(
+  attributes: GrowthBookUserAttributes
+): Promise<void> {
+  if (growthBookIntegrationInitialized) return;
 
-  const client = getGrowthBookClient()
+  const client = getGrowthBookClient();
   if (!client.isEnabled()) {
-    growthBookIntegrationInitialized = true
-    return
+    growthBookIntegrationInitialized = true;
+    return;
   }
 
-  const flagManager = getFeatureFlagManager()
+  const flagManager = getFeatureFlagManager();
 
   for (const [flag, defaultVal] of Object.entries(FEATURE_DEFAULTS)) {
     flagManager.registerLocalFlag({
       key: flag,
       defaultValue: defaultVal,
       category: 'local',
-    })
+    });
   }
 
-  await client.initialize(attributes)
-  growthBookIntegrationInitialized = true
+  await client.initialize(attributes);
+  growthBookIntegrationInitialized = true;
 }
 
 export function isGrowthBookEnabled(): boolean {
-  return getGrowthBookClient().isEnabled()
+  return getGrowthBookClient().isEnabled();
 }
 
-export function getFeatureValueByGrowthBook<T>(feature: string, defaultValue: T): T {
-  const mgr = getFeatureFlagManager()
-  return mgr.getFlagCached<T>(feature, defaultValue)
+export function getFeatureValueByGrowthBook<T>(
+  feature: string,
+  defaultValue: T
+): T {
+  const mgr = getFeatureFlagManager();
+  return mgr.getFlagCached<T>(feature, defaultValue);
 }
 
 export function evaluateFeatureFlag(feature: FeatureFlagName): boolean {
-  const envValue = process.env[feature]
+  const envValue = process.env[feature];
   if (envValue !== undefined) {
-    return envValue === 'true'
+    return envValue === 'true';
   }
 
   if (isGrowthBookEnabled()) {
-    return getFeatureValueByGrowthBook<boolean>(feature, FEATURE_DEFAULTS[feature])
+    return getFeatureValueByGrowthBook<boolean>(
+      feature,
+      FEATURE_DEFAULTS[feature]
+    );
   }
 
-  return FEATURE_DEFAULTS[feature]
+  return FEATURE_DEFAULTS[feature];
 }

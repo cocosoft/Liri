@@ -6,7 +6,10 @@
  */
 
 import type { Message } from '@modules/chat/types/message';
-import type { SubAgent, SubAgentConfig } from '@modules/subagent/types/SubAgent';
+import type {
+  SubAgent,
+  SubAgentConfig,
+} from '@modules/subagent/types/SubAgent';
 
 export interface TeammateConfig {
   name: string;

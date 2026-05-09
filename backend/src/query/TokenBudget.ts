@@ -7,14 +7,16 @@
  * 当原生库不可用时自动降级为启发式估算
  */
 
-let nativeEstimateTokens: ((text: string, model?: string) => number) | null = null;
+let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
+  null;
 
 function lazyInitNative() {
   if (nativeEstimateTokens === undefined) {
     try {
       const native = require('../../native');
       if (native && typeof native.estimateTokens === 'function') {
-        nativeEstimateTokens = (text, model) => native.estimateTokens(text, model);
+        nativeEstimateTokens = (text, model) =>
+          native.estimateTokens(text, model);
       } else {
         nativeEstimateTokens = null;
       }
@@ -78,7 +80,10 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
       warningThreshold: config.warningThreshold || 0.7,
       criticalThreshold: config.criticalThreshold || 0.9,
       budgetRefreshIntervalMs: config.budgetRefreshIntervalMs || 3600_000, // 1小时
-      enableCompression: config.enableCompression !== undefined ? config.enableCompression : true,
+      enableCompression:
+        config.enableCompression !== undefined
+          ? config.enableCompression
+          : true,
     };
     this.currentUsage = 0;
     this.totalTokensUsed = 0;
@@ -89,7 +94,7 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
   getCurrentBudgetState(): TokenBudgetState {
     const percentUsed = this.currentUsage / this.config.maxTokens;
     const now = Date.now();
-    
+
     if (now >= this.resetAt) {
       this.resetBudget();
     }
@@ -102,7 +107,9 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
       maxTokens: this.config.maxTokens,
       percentUsed: Math.round(percentUsed * 100),
       isWarning: status === TokenBudgetStatus.WARNING,
-      isCritical: status === TokenBudgetStatus.CRITICAL || status === TokenBudgetStatus.EXCEEDED,
+      isCritical:
+        status === TokenBudgetStatus.CRITICAL ||
+        status === TokenBudgetStatus.EXCEEDED,
       remainingTokens: this.config.maxTokens - this.currentUsage,
       resetAt: this.resetAt,
       totalTokensUsed: this.totalTokensUsed,
@@ -115,9 +122,9 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
   private getWarningMessage(status: TokenBudgetStatus): string | undefined {
     switch (status) {
       case TokenBudgetStatus.WARNING:
-        return `Token budget warning: ${Math.round(this.currentUsage / this.config.maxTokens * 100)}% used`;
+        return `Token budget warning: ${Math.round((this.currentUsage / this.config.maxTokens) * 100)}% used`;
       case TokenBudgetStatus.CRITICAL:
-        return `Token budget critical: ${Math.round(this.currentUsage / this.config.maxTokens * 100)}% used`;
+        return `Token budget critical: ${Math.round((this.currentUsage / this.config.maxTokens) * 100)}% used`;
       case TokenBudgetStatus.EXCEEDED:
         return 'Token budget exceeded';
       default:
@@ -125,8 +132,14 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
     }
   }
 
-  recordUsage(usage: { inputTokens: number; outputTokens: number; totalTokens: number; cacheReadInputTokens?: number; cacheCreationInputTokens?: number }): void {
-    const tokens = usage.totalTokens || (usage.inputTokens + usage.outputTokens);
+  recordUsage(usage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cacheReadInputTokens?: number;
+    cacheCreationInputTokens?: number;
+  }): void {
+    const tokens = usage.totalTokens || usage.inputTokens + usage.outputTokens;
     this.consumeTokens(tokens);
   }
 
@@ -148,7 +161,7 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
 
   checkBudget(): TokenBudgetStatus {
     const percentUsed = this.currentUsage / this.config.maxTokens;
-    
+
     if (percentUsed >= this.config.criticalThreshold) {
       return TokenBudgetStatus.CRITICAL;
     }
@@ -173,7 +186,7 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
 
   getCompressionLevel(): 0 | 1 | 2 | 3 {
     const percentUsed = this.currentUsage / this.config.maxTokens;
-    
+
     if (percentUsed < this.config.warningThreshold) {
       return 0; // 无需压缩
     }
@@ -191,6 +204,8 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
   }
 }
 
-export function createTokenBudgetManager(config?: Partial<TokenBudgetConfig>): TokenBudgetManager {
+export function createTokenBudgetManager(
+  config?: Partial<TokenBudgetConfig>
+): TokenBudgetManager {
   return new TokenBudgetManagerImpl(config);
 }

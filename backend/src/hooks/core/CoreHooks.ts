@@ -27,34 +27,34 @@ export class CoreHooksRegistry {
 
     // 系统Hook
     this.registerSystemHooks();
-    
+
     // 压缩Hook
     this.registerCompressionHooks();
-    
+
     // 会话Hook
     this.registerSessionHooks();
-    
+
     // 内存Hook
     this.registerMemoryHooks();
-    
+
     // 技能Hook
     this.registerSkillHooks();
-    
+
     // 命令Hook
     this.registerCommandHooks();
-    
+
     // 工具Hook
     this.registerToolHooks();
-    
+
     // 插件Hook
     this.registerPluginHooks();
-    
+
     // 文件Hook
     this.registerFileHooks();
-    
+
     // HTTP Hook
     this.registerHttpHooks();
-    
+
     // 错误Hook
     this.registerErrorHooks();
 
@@ -72,7 +72,9 @@ export class CoreHooksRegistry {
    * 获取指定类型的Hook（基于CC源码）
    */
   getHooksByEvent(event: string): HookDefinition[] {
-    return Array.from(this.hooks.values()).filter(hook => hook.event === event);
+    return Array.from(this.hooks.values()).filter(
+      (hook) => hook.event === event
+    );
   }
 
   /**
@@ -88,10 +90,10 @@ export class CoreHooksRegistry {
       priority: 'highest',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('🚀 System startup hook executed');
-        
+
         // 执行系统初始化任务
         await this.performSystemInitialization(context);
-        
+
         return {
           success: true,
           message: 'System startup completed successfully',
@@ -109,10 +111,10 @@ export class CoreHooksRegistry {
       priority: 'highest',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('🛑 System shutdown hook executed');
-        
+
         // 执行系统清理任务
         await this.performSystemCleanup(context);
-        
+
         return {
           success: true,
           message: 'System shutdown completed successfully',
@@ -135,16 +137,19 @@ export class CoreHooksRegistry {
       priority: 'high',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('📦 Pre-compression hook executed');
-        
+
         const ctx = context as CompressionHookContext;
         const { preCompressionContent, compressionConfig } = ctx;
-        
+
         // 分析内容并生成压缩建议
-        const compressionSuggestions = this.analyzeContentForCompression(preCompressionContent);
-        
+        const compressionSuggestions = this.analyzeContentForCompression(
+          preCompressionContent
+        );
+
         // 应用压缩优化
-        const optimizations = this.generateCompressionOptimizations(compressionConfig);
-        
+        const optimizations =
+          this.generateCompressionOptimizations(compressionConfig);
+
         return {
           success: true,
           message: 'Pre-compression analysis completed',
@@ -166,23 +171,31 @@ export class CoreHooksRegistry {
       priority: 'high',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('✅ Post-compression hook executed');
-        
+
         const ctx = context as CompressionHookContext;
-        const { preCompressionContent, postCompressionContent, compressionStats } = ctx;
-        
+        const {
+          preCompressionContent,
+          postCompressionContent,
+          compressionStats,
+        } = ctx;
+
         // 验证压缩结果
         const validationResult = this.validateCompressionResult(
           preCompressionContent!,
           postCompressionContent!,
           compressionStats
         );
-        
+
         // 生成压缩报告
-        const compressionReport = this.generateCompressionReport(compressionStats!);
-        
+        const compressionReport = this.generateCompressionReport(
+          compressionStats!
+        );
+
         return {
           success: validationResult.valid,
-          message: validationResult.valid ? 'Compression validated successfully' : 'Compression validation failed',
+          message: validationResult.valid
+            ? 'Compression validated successfully'
+            : 'Compression validation failed',
           error: validationResult.error,
           additionalContext: compressionReport,
         };
@@ -203,15 +216,15 @@ export class CoreHooksRegistry {
       priority: 'high',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('💬 Session start hook executed');
-        
+
         const { sessionId, userId } = context;
-        
+
         // 初始化会话状态
         await this.initializeSessionState(sessionId, userId);
-        
+
         // 加载会话配置
         const sessionConfig = await this.loadSessionConfiguration(sessionId);
-        
+
         return {
           success: true,
           message: 'Session started successfully',
@@ -229,15 +242,15 @@ export class CoreHooksRegistry {
       priority: 'high',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('🔚 Session end hook executed');
-        
+
         const { sessionId } = context;
-        
+
         // 保存会话数据
         await this.saveSessionData(sessionId);
-        
+
         // 清理会话资源
         await this.cleanupSessionResources(sessionId);
-        
+
         return {
           success: true,
           message: 'Session ended successfully',
@@ -260,16 +273,18 @@ export class CoreHooksRegistry {
       priority: 'normal',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('💾 Memory pre-save hook executed');
-        
+
         // 验证内存数据
         const validationResult = this.validateMemoryData(context.data);
-        
+
         // 优化内存数据
         const optimizedData = this.optimizeMemoryData(context.data);
-        
+
         return {
           success: validationResult.valid,
-          message: validationResult.valid ? 'Memory data validated' : 'Memory data validation failed',
+          message: validationResult.valid
+            ? 'Memory data validated'
+            : 'Memory data validation failed',
           error: validationResult.error,
           updatedInput: { data: optimizedData },
         };
@@ -285,13 +300,13 @@ export class CoreHooksRegistry {
       priority: 'normal',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('✅ Memory post-save hook executed');
-        
+
         // 更新内存索引
         await this.updateMemoryIndex(context.data);
-        
+
         // 触发内存同步
         await this.triggerMemorySync();
-        
+
         return {
           success: true,
           message: 'Memory saved and synchronized',
@@ -313,20 +328,24 @@ export class CoreHooksRegistry {
       priority: 'normal',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('🎯 Skill pre-execute hook executed');
-        
+
         const { skillName, data } = context;
-        
+
         // 验证技能参数
         const validationResult = this.validateSkillParameters(skillName!, data);
-        
+
         // 检查技能权限
-        const permissionResult = await this.checkSkillPermission(skillName!, context);
-        
+        const permissionResult = await this.checkSkillPermission(
+          skillName!,
+          context
+        );
+
         return {
           success: validationResult.valid && permissionResult.allowed,
-          message: validationResult.valid && permissionResult.allowed 
-            ? 'Skill execution validated' 
-            : 'Skill execution validation failed',
+          message:
+            validationResult.valid && permissionResult.allowed
+              ? 'Skill execution validated'
+              : 'Skill execution validation failed',
           error: validationResult.error || permissionResult.reason,
           permissionBehavior: permissionResult.allowed ? 'allow' : 'deny',
         };
@@ -342,15 +361,15 @@ export class CoreHooksRegistry {
       priority: 'normal',
       handler: async (context: HookContext): Promise<HookResult> => {
         console.log('✅ Skill post-execute hook executed');
-        
+
         const { skillName, data } = context;
-        
+
         // 记录技能使用
         await this.recordSkillUsage(skillName!, data);
-        
+
         // 更新技能统计
         await this.updateSkillStatistics(skillName!);
-        
+
         return {
           success: true,
           message: 'Skill execution completed and recorded',
@@ -372,9 +391,11 @@ export class CoreHooksRegistry {
   /**
    * 执行系统初始化（基于CC源码）
    */
-  private async performSystemInitialization(context: HookContext): Promise<void> {
+  private async performSystemInitialization(
+    context: HookContext
+  ): Promise<void> {
     // 模拟系统初始化任务
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     console.log('🔧 System initialization completed');
   }
 
@@ -383,7 +404,7 @@ export class CoreHooksRegistry {
    */
   private async performSystemCleanup(context: HookContext): Promise<void> {
     // 模拟系统清理任务
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     console.log('🧹 System cleanup completed');
   }
 
@@ -392,19 +413,23 @@ export class CoreHooksRegistry {
    */
   private analyzeContentForCompression(content: string): string[] {
     const suggestions: string[] = [];
-    
+
     if (content.length > 10000) {
       suggestions.push('Content is large, consider chunking');
     }
-    
+
     if (content.includes('\n\n\n')) {
-      suggestions.push('Multiple consecutive newlines detected, consider normalization');
+      suggestions.push(
+        'Multiple consecutive newlines detected, consider normalization'
+      );
     }
-    
+
     if (content.includes('  ')) {
-      suggestions.push('Multiple consecutive spaces detected, consider trimming');
+      suggestions.push(
+        'Multiple consecutive spaces detected, consider trimming'
+      );
     }
-    
+
     return suggestions;
   }
 
@@ -431,11 +456,11 @@ export class CoreHooksRegistry {
     if (!postContent) {
       return { valid: false, error: 'Compression resulted in empty content' };
     }
-    
+
     if (postContent.length > preContent.length) {
       return { valid: false, error: 'Compression increased content size' };
     }
-    
+
     return { valid: true };
   }
 
@@ -443,18 +468,22 @@ export class CoreHooksRegistry {
    * 生成压缩报告（基于CC源码）
    */
   private generateCompressionReport(stats: any): string {
-    const compressionRatio = stats.originalSize > 0 
-      ? (1 - stats.compressedSize / stats.originalSize) * 100 
-      : 0;
-    
+    const compressionRatio =
+      stats.originalSize > 0
+        ? (1 - stats.compressedSize / stats.originalSize) * 100
+        : 0;
+
     return `Compression: ${compressionRatio.toFixed(2)}% reduction`;
   }
 
   /**
    * 初始化会话状态（基于CC源码）
    */
-  private async initializeSessionState(sessionId?: string, userId?: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 50));
+  private async initializeSessionState(
+    sessionId?: string,
+    userId?: string
+  ): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 50));
     console.log(`💬 Session state initialized: ${sessionId}`);
   }
 
@@ -462,7 +491,7 @@ export class CoreHooksRegistry {
    * 加载会话配置（基于CC源码）
    */
   private async loadSessionConfiguration(sessionId?: string): Promise<any> {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     return { sessionId, timestamp: Date.now() };
   }
 
@@ -470,7 +499,7 @@ export class CoreHooksRegistry {
    * 保存会话数据（基于CC源码）
    */
   private async saveSessionData(sessionId?: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     console.log(`💾 Session data saved: ${sessionId}`);
   }
 
@@ -478,7 +507,7 @@ export class CoreHooksRegistry {
    * 清理会话资源（基于CC源码）
    */
   private async cleanupSessionResources(sessionId?: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     console.log(`🧹 Session resources cleaned up: ${sessionId}`);
   }
 
@@ -489,11 +518,11 @@ export class CoreHooksRegistry {
     if (!data) {
       return { valid: false, error: 'Memory data is empty' };
     }
-    
+
     if (typeof data !== 'object') {
       return { valid: false, error: 'Memory data must be an object' };
     }
-    
+
     return { valid: true };
   }
 
@@ -503,13 +532,13 @@ export class CoreHooksRegistry {
   private optimizeMemoryData(data: any): any {
     // 简单的数据优化：移除空值和未定义值
     const optimized: any = {};
-    
+
     for (const [key, value] of Object.entries(data)) {
       if (value !== null && value !== undefined && value !== '') {
         optimized[key] = value;
       }
     }
-    
+
     return optimized;
   }
 
@@ -517,7 +546,7 @@ export class CoreHooksRegistry {
    * 更新内存索引（基于CC源码）
    */
   private async updateMemoryIndex(data: any): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     console.log('🔍 Memory index updated');
   }
 
@@ -525,32 +554,41 @@ export class CoreHooksRegistry {
    * 触发内存同步（基于CC源码）
    */
   private async triggerMemorySync(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     console.log('🔄 Memory sync triggered');
   }
 
   /**
    * 验证技能参数（基于CC源码）
    */
-  private validateSkillParameters(skillName: string, data: any): { valid: boolean; error?: string } {
+  private validateSkillParameters(
+    skillName: string,
+    data: any
+  ): { valid: boolean; error?: string } {
     if (!skillName) {
       return { valid: false, error: 'Skill name is required' };
     }
-    
+
     return { valid: true };
   }
 
   /**
    * 检查技能权限（基于CC源码）
    */
-  private async checkSkillPermission(skillName: string, context: HookContext): Promise<{ allowed: boolean; reason?: string }> {
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
+  private async checkSkillPermission(
+    skillName: string,
+    context: HookContext
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     // 简单的权限检查逻辑
     if (skillName.includes('admin') && context.userId !== 'admin') {
-      return { allowed: false, reason: 'Admin skills require admin privileges' };
+      return {
+        allowed: false,
+        reason: 'Admin skills require admin privileges',
+      };
     }
-    
+
     return { allowed: true };
   }
 
@@ -558,7 +596,7 @@ export class CoreHooksRegistry {
    * 记录技能使用（基于CC源码）
    */
   private async recordSkillUsage(skillName: string, data: any): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     console.log(`📊 Skill usage recorded: ${skillName}`);
   }
 
@@ -566,7 +604,7 @@ export class CoreHooksRegistry {
    * 更新技能统计（基于CC源码）
    */
   private async updateSkillStatistics(skillName: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     console.log(`📈 Skill statistics updated: ${skillName}`);
   }
 

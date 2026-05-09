@@ -36,7 +36,10 @@ export class PricingUpdateHistory {
     if (this.history.length > this.maxHistorySize) {
       this.history = this.history.slice(-this.maxHistorySize);
     }
-    logForDebugging('定价更新记录已添加', { version: version.version, description: version.description });
+    logForDebugging('定价更新记录已添加', {
+      version: version.version,
+      description: version.description,
+    });
   }
 
   /**
@@ -57,7 +60,7 @@ export class PricingUpdateHistory {
    * 获取指定版本
    */
   getVersion(version: string): PricingVersion | undefined {
-    return this.history.find(v => v.version === version);
+    return this.history.find((v) => v.version === version);
   }
 
   /**
@@ -110,19 +113,26 @@ export class PricingManager {
   setModelPricing(modelName: string, pricing: ModelPricing): void {
     const oldPricing = this.currentPricing[modelName];
     this.currentPricing[modelName] = pricing;
-    logForDebugging('模型定价已更新', { modelName, oldPricing, newPricing: pricing });
+    logForDebugging('模型定价已更新', {
+      modelName,
+      oldPricing,
+      newPricing: pricing,
+    });
   }
 
   /**
    * 批量更新定价
    */
-  updatePricing(pricing: Record<string, ModelPricing>, description: string): void {
+  updatePricing(
+    pricing: Record<string, ModelPricing>,
+    description: string
+  ): void {
     const oldPricing = { ...this.currentPricing };
     this.currentPricing = { ...this.currentPricing, ...pricing };
-    
+
     // 更新版本号
     this.version = this.incrementVersion(this.version);
-    
+
     // 添加更新记录
     this.updateHistory.addUpdate({
       version: this.version,
@@ -132,7 +142,7 @@ export class PricingManager {
     });
 
     logForDebugging('定价已批量更新', { version: this.version, description });
-    
+
     // 通知监听器
     this.notifyListeners(this.version);
   }
@@ -194,10 +204,10 @@ export class PricingManager {
     this.currentPricing = { ...versionInfo.pricing };
     this.version = version;
     logForDebugging('已回滚到指定版本', { version });
-    
+
     // 通知监听器
     this.notifyListeners(this.version);
-    
+
     return true;
   }
 
@@ -223,7 +233,10 @@ export class PricingManager {
       try {
         listener(version);
       } catch (error) {
-        logForDebugging(`定价变更监听器执行失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+        logForDebugging(
+          `定价变更监听器执行失败: ${error instanceof Error ? error.message : String(error)}`,
+          { level: 'error' }
+        );
       }
     }
   }
@@ -263,7 +276,10 @@ export class PricingManager {
       this.updatePricing(data.pricing, description);
       return true;
     } catch (error) {
-      logForDebugging(`导入定价配置失败: ${error instanceof Error ? error.message : String(error)}`, { level: 'error' });
+      logForDebugging(
+        `导入定价配置失败: ${error instanceof Error ? error.message : String(error)}`,
+        { level: 'error' }
+      );
       return false;
     }
   }
@@ -291,21 +307,30 @@ export function getModelPricing(modelName: string): ModelPricing | undefined {
 /**
  * 设置模型定价
  */
-export function setModelPricing(modelName: string, pricing: ModelPricing): void {
+export function setModelPricing(
+  modelName: string,
+  pricing: ModelPricing
+): void {
   pricingManager.setModelPricing(modelName, pricing);
 }
 
 /**
  * 批量更新定价
  */
-export function updatePricing(pricing: Record<string, ModelPricing>, description: string): void {
+export function updatePricing(
+  pricing: Record<string, ModelPricing>,
+  description: string
+): void {
   pricingManager.updatePricing(pricing, description);
 }
 
 /**
  * 添加模型定价
  */
-export function addModelPricing(modelName: string, pricing: ModelPricing): void {
+export function addModelPricing(
+  modelName: string,
+  pricing: ModelPricing
+): void {
   pricingManager.addModelPricing(modelName, pricing);
 }
 

@@ -45,8 +45,8 @@ export default {
     };
 
     const renderBar = () => {
-      const left = config.left.map(s => s.display).join(' | ');
-      const right = config.right.map(s => s.display).join(' | ');
+      const left = config.left.map((s) => s.display).join(' | ');
+      const right = config.right.map((s) => s.display).join(' | ');
       const width = 60;
       const padding = width - left.length - right.length;
       return left + ' '.repeat(Math.max(1, padding)) + right;
@@ -55,9 +55,10 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `状态栏配置:\n\n[${renderBar()}]\n\n` +
-        `左侧项目: ${config.left.map(s => s.segment).join(', ')}\n` +
-        `右侧项目: ${config.right.map(s => s.segment).join(', ')}`,
+      message:
+        `状态栏配置:\n\n[${renderBar()}]\n\n` +
+        `左侧项目: ${config.left.map((s) => s.segment).join(', ')}\n` +
+        `右侧项目: ${config.right.map((s) => s.segment).join(', ')}`,
       data: config,
     };
   },
@@ -65,10 +66,13 @@ export default {
   /**
    * 设置状态栏项目
    */
-  async handleSet(args: string[], context: CommandContext): Promise<CommandResult> {
+  async handleSet(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
     const position = args[0];
     const segment = args[1];
-    
+
     if (!position || !segment) {
       return {
         success: false,
@@ -79,7 +83,7 @@ export default {
     }
 
     context.onDone?.(`状态栏已更新`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -93,7 +97,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('状态栏已重置为默认配置', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

@@ -32,16 +32,32 @@ export class CommandCompleter {
       { value: 'read', label: 'read', description: 'Read file content' },
       { value: 'write', label: 'write', description: 'Write content to file' },
       { value: 'list', label: 'list', description: 'List directory contents' },
-      { value: 'search', label: 'search', description: 'Search content in files' },
+      {
+        value: 'search',
+        label: 'search',
+        description: 'Search content in files',
+      },
       { value: 'exec', label: 'exec', description: 'Execute shell command' },
       { value: 'edit', label: 'edit', description: 'Edit file content' },
-      { value: 'glob', label: 'glob', description: 'Match files using glob pattern' },
-      { value: 'tools', label: 'tools', description: 'List all available tools' },
+      {
+        value: 'glob',
+        label: 'glob',
+        description: 'Match files using glob pattern',
+      },
+      {
+        value: 'tools',
+        label: 'tools',
+        description: 'List all available tools',
+      },
       { value: 'tool', label: 'tool', description: 'Show tool details' },
       { value: 'skill', label: 'skill', description: 'Manage skills' },
       { value: 'mcp', label: 'mcp', description: 'Manage MCP connections' },
       { value: 'lsp', label: 'lsp', description: 'Manage LSP services' },
-      { value: 'performance', label: 'performance', description: 'Manage performance analysis' },
+      {
+        value: 'performance',
+        label: 'performance',
+        description: 'Manage performance analysis',
+      },
       { value: 'theme', label: 'theme', description: 'Manage themes' },
       { value: 'agent', label: 'agent', description: 'Manage agents' },
       { value: 'plugins', label: 'plugins', description: 'Manage plugins' },
@@ -58,21 +74,41 @@ export class CommandCompleter {
       ],
       mcp: [
         { value: 'list', label: 'list', description: 'List MCP servers' },
-        { value: 'connect', label: 'connect', description: 'Connect to MCP server' },
-        { value: 'disconnect', label: 'disconnect', description: 'Disconnect from MCP server' },
+        {
+          value: 'connect',
+          label: 'connect',
+          description: 'Connect to MCP server',
+        },
+        {
+          value: 'disconnect',
+          label: 'disconnect',
+          description: 'Disconnect from MCP server',
+        },
       ],
       plugins: [
         { value: 'list', label: 'list', description: 'List plugins' },
         { value: 'install', label: 'install', description: 'Install plugin' },
-        { value: 'uninstall', label: 'uninstall', description: 'Uninstall plugin' },
+        {
+          value: 'uninstall',
+          label: 'uninstall',
+          description: 'Uninstall plugin',
+        },
         { value: 'enable', label: 'enable', description: 'Enable plugin' },
         { value: 'disable', label: 'disable', description: 'Disable plugin' },
       ],
       auto: [
         { value: 'start', label: 'start', description: 'Start auto mode' },
         { value: 'stop', label: 'stop', description: 'Stop auto mode' },
-        { value: 'status', label: 'status', description: 'Check auto mode status' },
-        { value: 'config', label: 'config', description: 'Configure auto mode' },
+        {
+          value: 'status',
+          label: 'status',
+          description: 'Check auto mode status',
+        },
+        {
+          value: 'config',
+          label: 'config',
+          description: 'Configure auto mode',
+        },
       ],
       theme: [
         { value: 'list', label: 'list', description: 'List themes' },
@@ -81,9 +117,21 @@ export class CommandCompleter {
         { value: 'toggle', label: 'toggle', description: 'Toggle theme' },
       ],
       performance: [
-        { value: 'report', label: 'report', description: 'Generate performance report' },
-        { value: 'snapshot', label: 'snapshot', description: 'Get performance snapshot' },
-        { value: 'clear', label: 'clear', description: 'Clear performance history' },
+        {
+          value: 'report',
+          label: 'report',
+          description: 'Generate performance report',
+        },
+        {
+          value: 'snapshot',
+          label: 'snapshot',
+          description: 'Get performance snapshot',
+        },
+        {
+          value: 'clear',
+          label: 'clear',
+          description: 'Clear performance history',
+        },
       ],
     };
   }
@@ -114,13 +162,13 @@ export class CommandCompleter {
    * 补全命令
    */
   private completeCommand(prefix: string): CompletionItem[] {
-    const matched = this.commands.filter(cmd => 
+    const matched = this.commands.filter((cmd) =>
       cmd.value.toLowerCase().startsWith(prefix.toLowerCase())
     );
-    
+
     // 同时从历史记录中获取建议
     const historySuggestions = commandHistory.getSuggestions(prefix);
-    const historyItems = historySuggestions.map(cmd => ({
+    const historyItems = historySuggestions.map((cmd) => ({
       value: cmd,
       label: cmd,
       description: '(history)',
@@ -130,7 +178,7 @@ export class CommandCompleter {
     const seen = new Set<string>();
     const result: CompletionItem[] = [];
 
-    [...matched, ...historyItems].forEach(item => {
+    [...matched, ...historyItems].forEach((item) => {
       if (!seen.has(item.value)) {
         seen.add(item.value);
         result.push(item);
@@ -143,9 +191,12 @@ export class CommandCompleter {
   /**
    * 补全子命令
    */
-  private completeSubcommand(command: string, prefix: string): CompletionItem[] {
+  private completeSubcommand(
+    command: string,
+    prefix: string
+  ): CompletionItem[] {
     const subs = this.subcommands[command] || [];
-    return subs.filter(sub => 
+    return subs.filter((sub) =>
       sub.value.toLowerCase().startsWith(prefix.toLowerCase())
     );
   }
@@ -155,7 +206,7 @@ export class CommandCompleter {
    */
   private completeFromHistory(input: string): CompletionItem[] {
     const suggestions = commandHistory.getSuggestions(input);
-    return suggestions.map(cmd => ({
+    return suggestions.map((cmd) => ({
       value: cmd,
       label: cmd,
       description: '(history)',
@@ -180,7 +231,7 @@ export class CommandCompleter {
    * 添加自定义命令
    */
   addCommand(item: CompletionItem): void {
-    if (!this.commands.find(c => c.value === item.value)) {
+    if (!this.commands.find((c) => c.value === item.value)) {
       this.commands.push(item);
     }
   }
@@ -192,7 +243,7 @@ export class CommandCompleter {
     if (!this.subcommands[command]) {
       this.subcommands[command] = [];
     }
-    if (!this.subcommands[command].find(c => c.value === item.value)) {
+    if (!this.subcommands[command].find((c) => c.value === item.value)) {
       this.subcommands[command].push(item);
     }
   }

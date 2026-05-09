@@ -109,7 +109,7 @@ export class LazyService {
    */
   async get<T>(key: string): Promise<T> {
     const item = this.items.get(key);
-    
+
     if (!item) {
       throw new Error(`Lazy item not found: ${key}`);
     }
@@ -136,7 +136,7 @@ export class LazyService {
    */
   preload<T>(key: string): Promise<T> | null {
     const item = this.items.get(key);
-    
+
     if (!item) {
       logger.warn(`Lazy item not found for preload: ${key}`);
       return null;
@@ -153,8 +153,8 @@ export class LazyService {
    * 预加载所有项（并行）
    */
   async preloadAll(): Promise<void> {
-    const promises = Array.from(this.items.keys()).map(key => 
-      this.loadItem(key).catch(err => {
+    const promises = Array.from(this.items.keys()).map((key) =>
+      this.loadItem(key).catch((err) => {
         logger.warn(`Failed to preload item ${key}:`, err);
       })
     );
@@ -255,7 +255,7 @@ export class LazyService {
    */
   private async loadItem<T>(key: string): Promise<T> {
     const item = this.items.get(key);
-    
+
     if (!item) {
       throw new Error(`Lazy item not found: ${key}`);
     }
@@ -283,8 +283,11 @@ export class LazyService {
     } catch (error) {
       item.status = 'failed';
       item.error = (error as Error).message;
-      
-      logger.error(`Lazy item failed: ${key}`, error instanceof Error ? error : new Error(String(error)));
+
+      logger.error(
+        `Lazy item failed: ${key}`,
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw error;
     }
   }
@@ -294,14 +297,14 @@ export class LazyService {
    */
   private async waitForLoading<T>(key: string): Promise<T> {
     const item = this.items.get(key);
-    
+
     if (!item) {
       throw new Error(`Lazy item not found: ${key}`);
     }
 
     // 轮询等待加载完成
     while (item.status === 'loading') {
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     }
 
     if (item.status === 'loaded' && item.result) {
@@ -322,7 +325,9 @@ export class LazyService {
       return false;
     }
 
-    return Date.now() - item.result!.loadedAt > (this.config.cacheExpiryMs ?? 0);
+    return (
+      Date.now() - item.result!.loadedAt > (this.config.cacheExpiryMs ?? 0)
+    );
   }
 
   /**

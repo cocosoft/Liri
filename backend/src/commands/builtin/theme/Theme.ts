@@ -35,16 +35,38 @@ export default {
    */
   async handleList(context: CommandContext): Promise<CommandResult> {
     const themes = [
-      { id: 'light', name: '浅色', description: '明亮清爽的外观', active: false },
+      {
+        id: 'light',
+        name: '浅色',
+        description: '明亮清爽的外观',
+        active: false,
+      },
       { id: 'dark', name: '深色', description: '护眼暗色主题', active: true },
-      { id: 'system', name: '跟随系统', description: '根据系统设置自动切换', active: false },
-      { id: 'high-contrast', name: '高对比度', description: '增强可读性', active: false },
-      { id: 'sepia', name: '护眼黄', description: '温暖的阅读体验', active: false },
+      {
+        id: 'system',
+        name: '跟随系统',
+        description: '根据系统设置自动切换',
+        active: false,
+      },
+      {
+        id: 'high-contrast',
+        name: '高对比度',
+        description: '增强可读性',
+        active: false,
+      },
+      {
+        id: 'sepia',
+        name: '护眼黄',
+        description: '温暖的阅读体验',
+        active: false,
+      },
     ];
 
-    const table = themes.map(t => 
-      `${t.id.padEnd(15)} ${t.name.padEnd(6)} ${t.active ? '✓' : ' '}`
-    ).join('\n');
+    const table = themes
+      .map(
+        (t) => `${t.id.padEnd(15)} ${t.name.padEnd(6)} ${t.active ? '✓' : ' '}`
+      )
+      .join('\n');
 
     return {
       success: true,
@@ -57,7 +79,10 @@ export default {
   /**
    * 设置主题
    */
-  async handleSet(themeId: string, context: CommandContext): Promise<CommandResult> {
+  async handleSet(
+    themeId: string,
+    context: CommandContext
+  ): Promise<CommandResult> {
     if (!themeId) {
       return {
         success: false,
@@ -78,7 +103,7 @@ export default {
     const themeName = themes[themeId] || themeId;
 
     context.onDone?.(`主题已切换为: ${themeName}`, { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',
@@ -101,7 +126,8 @@ export default {
     return {
       success: true,
       type: 'text',
-      message: `当前主题: ${currentTheme.name}\n\n` +
+      message:
+        `当前主题: ${currentTheme.name}\n\n` +
         `ID: ${currentTheme.id}\n` +
         `描述: ${currentTheme.description}\n` +
         `强调色: ${currentTheme.accentColor}`,
@@ -114,7 +140,7 @@ export default {
    */
   async handleReset(context: CommandContext): Promise<CommandResult> {
     context.onDone?.('主题已重置为默认', { display: 'system' });
-    
+
     return {
       success: true,
       type: 'text',

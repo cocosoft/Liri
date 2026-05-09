@@ -109,7 +109,11 @@ export interface AppState {
   notificationCount: number;
   sandboxEnabled: boolean;
   remoteSessionUrl?: string;
-  remoteConnectionStatus?: 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+  remoteConnectionStatus?:
+    | 'connecting'
+    | 'connected'
+    | 'reconnecting'
+    | 'disconnected';
   startupTime: number;
 }
 
@@ -163,8 +167,12 @@ export interface AppStateStore {
   getState: () => AppState;
   setState: (updater: (prev: AppState) => AppState) => void;
   subscribe: (listener: (state: AppState) => void) => () => void;
-  updateToolPermissionContext: (context: Partial<ToolPermissionContext>) => void;
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp'>) => void;
+  updateToolPermissionContext: (
+    context: Partial<ToolPermissionContext>
+  ) => void;
+  addNotification: (
+    notification: Omit<Notification, 'id' | 'timestamp'>
+  ) => void;
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
   updateDenialTracking: (state: Partial<DenialTrackingState>) => void;

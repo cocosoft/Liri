@@ -62,7 +62,8 @@ export class MemoryAgeManager {
    * @returns 年龄（天）
    */
   memoryAgeDays(timestamp: number | Date): number {
-    const date = typeof timestamp === 'number' ? new Date(timestamp) : timestamp;
+    const date =
+      typeof timestamp === 'number' ? new Date(timestamp) : timestamp;
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -197,7 +198,10 @@ export class MemoryAgeManager {
    * @param refreshThresholdDays 刷新阈值（天）
    * @returns 是否需要刷新
    */
-  needsRefresh(timestamp: number | Date, refreshThresholdDays?: number): boolean {
+  needsRefresh(
+    timestamp: number | Date,
+    refreshThresholdDays?: number
+  ): boolean {
     const threshold = refreshThresholdDays ?? this.config.freshThresholdDays;
     const ageDays = this.memoryAgeDays(timestamp);
     return ageDays > threshold;
@@ -242,12 +246,17 @@ export function memoryFreshnessText(timestamp: number | Date): string {
  * 便捷函数：检查是否应该遗忘
  */
 export function shouldForget(timestamp: number | Date): boolean {
-  return memoryAgeManager.isForgettable(memoryAgeManager.memoryAgeDays(timestamp));
+  return memoryAgeManager.isForgettable(
+    memoryAgeManager.memoryAgeDays(timestamp)
+  );
 }
 
 /**
  * 便捷函数：获取记忆衰减因子
  */
-export function memoryDecay(timestamp: number | Date, decayRate?: number): number {
+export function memoryDecay(
+  timestamp: number | Date,
+  decayRate?: number
+): number {
   return memoryAgeManager.getDecayFactor(timestamp, decayRate);
 }

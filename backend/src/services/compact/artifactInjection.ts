@@ -9,13 +9,13 @@ import type { SessionMessage } from '@modules/session/models/SessionMessage';
 /**
  * 制品类型（来自CC源码）
  */
-export type ArtifactType = 
-  | 'plan' 
-  | 'file' 
-  | 'mcp_instruction' 
-  | 'memory' 
-  | 'skill' 
-  | 'tool' 
+export type ArtifactType =
+  | 'plan'
+  | 'file'
+  | 'mcp_instruction'
+  | 'memory'
+  | 'skill'
+  | 'tool'
   | 'agent_listing';
 
 /**
@@ -26,27 +26,27 @@ export interface Artifact {
    * 制品ID
    */
   id: string;
-  
+
   /**
    * 制品类型
    */
   type: ArtifactType;
-  
+
   /**
    * 制品内容
    */
   content: string;
-  
+
   /**
    * 元数据
    */
   metadata?: Record<string, any>;
-  
+
   /**
    * 创建时间
    */
   createdAt: Date;
-  
+
   /**
    * 更新时间
    */
@@ -61,52 +61,52 @@ export interface ArtifactInjectionContext {
    * 会话ID
    */
   sessionId: string;
-  
+
   /**
    * 压缩前的消息
    */
   preCompactMessages: SessionMessage[];
-  
+
   /**
    * 压缩后的消息
    */
   postCompactMessages: SessionMessage[];
-  
+
   /**
    * 压缩类型
    */
   compactType: 'full' | 'partial' | 'reactive' | 'auto';
-  
+
   /**
    * 模型名称
    */
   model: string;
-  
+
   /**
    * 文件状态缓存
    */
   fileStateCache?: Map<string, any>;
-  
+
   /**
    * 已加载的记忆路径
    */
   loadedMemoryPaths?: Set<string>;
-  
+
   /**
    * 已发送的技能名称
    */
   sentSkillNames?: Set<string>;
-  
+
   /**
    * 代理ID
    */
   agentId?: string;
-  
+
   /**
    * 工具配置
    */
   tools?: any[];
-  
+
   /**
    * MCP客户端
    */
@@ -121,32 +121,32 @@ export interface ArtifactInjectionOptions {
    * 最大文件恢复数量
    */
   maxFilesToRestore: number;
-  
+
   /**
    * 制品token预算
    */
   artifactTokenBudget: number;
-  
+
   /**
    * 每个文件的最大token数
    */
   maxTokensPerFile: number;
-  
+
   /**
    * 每个技能的最大token数
    */
   maxTokensPerSkill: number;
-  
+
   /**
    * 技能token预算
    */
   skillsTokenBudget: number;
-  
+
   /**
    * 是否启用计划模式
    */
   enablePlanMode: boolean;
-  
+
   /**
    * 是否启用技能搜索
    */
@@ -161,22 +161,22 @@ export interface ArtifactInjectionResult {
    * 注入的制品
    */
   artifacts: Artifact[];
-  
+
   /**
    * 生成的消息
    */
   messages: SessionMessage[];
-  
+
   /**
    * 使用的token数量
    */
   tokenUsage: number;
-  
+
   /**
    * 注入是否成功
    */
   success: boolean;
-  
+
   /**
    * 错误信息
    */
@@ -211,30 +211,45 @@ export class ArtifactInjectionService {
 
     try {
       // 注入文件制品
-      const fileArtifacts = await this.injectFileArtifacts(context, mergedOptions);
+      const fileArtifacts = await this.injectFileArtifacts(
+        context,
+        mergedOptions
+      );
       artifacts.push(...fileArtifacts.artifacts);
       totalTokenUsage += fileArtifacts.tokenUsage;
 
       // 注入计划制品
       if (mergedOptions.enablePlanMode) {
-        const planArtifacts = await this.injectPlanArtifacts(context, mergedOptions);
+        const planArtifacts = await this.injectPlanArtifacts(
+          context,
+          mergedOptions
+        );
         artifacts.push(...planArtifacts.artifacts);
         totalTokenUsage += planArtifacts.tokenUsage;
       }
 
       // 注入MCP指令制品
-      const mcpArtifacts = await this.injectMcpArtifacts(context, mergedOptions);
+      const mcpArtifacts = await this.injectMcpArtifacts(
+        context,
+        mergedOptions
+      );
       artifacts.push(...mcpArtifacts.artifacts);
       totalTokenUsage += mcpArtifacts.tokenUsage;
 
       // 注入记忆制品
-      const memoryArtifacts = await this.injectMemoryArtifacts(context, mergedOptions);
+      const memoryArtifacts = await this.injectMemoryArtifacts(
+        context,
+        mergedOptions
+      );
       artifacts.push(...memoryArtifacts.artifacts);
       totalTokenUsage += memoryArtifacts.tokenUsage;
 
       // 注入技能制品
       if (mergedOptions.enableSkillSearch) {
-        const skillArtifacts = await this.injectSkillArtifacts(context, mergedOptions);
+        const skillArtifacts = await this.injectSkillArtifacts(
+          context,
+          mergedOptions
+        );
         artifacts.push(...skillArtifacts.artifacts);
         totalTokenUsage += skillArtifacts.tokenUsage;
       }
@@ -249,7 +264,6 @@ export class ArtifactInjectionService {
         tokenUsage: totalTokenUsage,
         success: true,
       };
-
     } catch (error) {
       return {
         artifacts: [],
@@ -274,11 +288,16 @@ export class ArtifactInjectionService {
     try {
       // 简化实现：从文件状态缓存中恢复文件
       if (context.fileStateCache) {
-        const fileEntries = Array.from(context.fileStateCache.entries())
-          .slice(0, options.maxFilesToRestore);
+        const fileEntries = Array.from(context.fileStateCache.entries()).slice(
+          0,
+          options.maxFilesToRestore
+        );
 
         for (const [filePath, fileContent] of fileEntries) {
-          const content = this.truncateContent(fileContent, options.maxTokensPerFile);
+          const content = this.truncateContent(
+            fileContent,
+            options.maxTokensPerFile
+          );
           const artifact: Artifact = {
             id: `file_${Date.now()}_${artifacts.length}`,
             type: 'file',
@@ -304,7 +323,6 @@ export class ArtifactInjectionService {
         tokenUsage,
         success: true,
       };
-
     } catch (error) {
       return {
         artifacts: [],
@@ -328,7 +346,7 @@ export class ArtifactInjectionService {
     try {
       // 简化实现：创建计划制品
       const planContent = this.generatePlanContent(context);
-      
+
       if (planContent) {
         const artifact: Artifact = {
           id: `plan_${Date.now()}`,
@@ -348,7 +366,6 @@ export class ArtifactInjectionService {
         tokenUsage: this.estimateTokenCount(planContent || ''),
         success: true,
       };
-
     } catch (error) {
       return {
         artifacts: [],
@@ -373,7 +390,7 @@ export class ArtifactInjectionService {
       // 简化实现：生成MCP指令制品
       if (context.mcpClients && context.mcpClients.length > 0) {
         const mcpContent = this.generateMcpContent(context);
-        
+
         const artifact: Artifact = {
           id: `mcp_${Date.now()}`,
           type: 'mcp_instruction',
@@ -392,7 +409,6 @@ export class ArtifactInjectionService {
         tokenUsage: this.estimateTokenCount(artifacts[0]?.content || ''),
         success: true,
       };
-
     } catch (error) {
       return {
         artifacts: [],
@@ -417,7 +433,7 @@ export class ArtifactInjectionService {
       // 简化实现：生成记忆制品
       if (context.loadedMemoryPaths && context.loadedMemoryPaths.size > 0) {
         const memoryContent = this.generateMemoryContent(context);
-        
+
         const artifact: Artifact = {
           id: `memory_${Date.now()}`,
           type: 'memory',
@@ -436,7 +452,6 @@ export class ArtifactInjectionService {
         tokenUsage: this.estimateTokenCount(artifacts[0]?.content || ''),
         success: true,
       };
-
     } catch (error) {
       return {
         artifacts: [],
@@ -462,11 +477,14 @@ export class ArtifactInjectionService {
       // 简化实现：生成技能制品
       if (context.sentSkillNames && context.sentSkillNames.size > 0) {
         const skillNames = Array.from(context.sentSkillNames);
-        
+
         for (const skillName of skillNames) {
           const skillContent = this.generateSkillContent(skillName);
-          const truncatedContent = this.truncateContent(skillContent, options.maxTokensPerSkill);
-          
+          const truncatedContent = this.truncateContent(
+            skillContent,
+            options.maxTokensPerSkill
+          );
+
           const artifact: Artifact = {
             id: `skill_${Date.now()}_${artifacts.length}`,
             type: 'skill',
@@ -492,7 +510,6 @@ export class ArtifactInjectionService {
         tokenUsage,
         success: true,
       };
-
     } catch (error) {
       return {
         artifacts: [],
@@ -559,7 +576,7 @@ export class ArtifactInjectionService {
   private truncateContent(content: string, maxTokens: number): string {
     // 简化实现：按字符数截断
     const maxChars = maxTokens * 4; // 粗略估计：1 token ≈ 4字符
-    
+
     if (content.length <= maxChars) {
       return content;
     }

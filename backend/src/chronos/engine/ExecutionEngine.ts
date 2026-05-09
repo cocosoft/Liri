@@ -1,4 +1,10 @@
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'skipped';
+export type TaskStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'skipped';
 
 export interface ExecutableTask {
   id: string;
@@ -122,7 +128,10 @@ export class ExecutionEngine implements IExecutionEngine {
   }
 
   cancelExecution(taskId: string): boolean {
-    if (this.history.has(taskId) && this.history.get(taskId)!.status === 'completed') {
+    if (
+      this.history.has(taskId) &&
+      this.history.get(taskId)!.status === 'completed'
+    ) {
       return false;
     }
     this.cancelled.add(taskId);
@@ -136,19 +145,22 @@ export class ExecutionEngine implements IExecutionEngine {
   getMetrics(): ExecutionMetrics {
     const results = Array.from(this.history.values());
     const totalExecuted = results.length;
-    const totalSucceeded = results.filter(r => r.success).length;
-    const totalFailed = results.filter(r => !r.success && r.status === 'failed').length;
-    const totalCancelled = results.filter(r => r.status === 'cancelled').length;
-    const durations = results.map(r => r.duration).sort((a, b) => a - b);
-    const averageDuration = durations.length > 0
-      ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length)
-      : 0;
-    const p99Duration = durations.length > 0
-      ? durations[Math.floor(durations.length * 0.99)]
-      : 0;
-    const lastExecutionTime = results.length > 0
-      ? Math.max(...results.map(r => r.completedAt))
-      : 0;
+    const totalSucceeded = results.filter((r) => r.success).length;
+    const totalFailed = results.filter(
+      (r) => !r.success && r.status === 'failed'
+    ).length;
+    const totalCancelled = results.filter(
+      (r) => r.status === 'cancelled'
+    ).length;
+    const durations = results.map((r) => r.duration).sort((a, b) => a - b);
+    const averageDuration =
+      durations.length > 0
+        ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length)
+        : 0;
+    const p99Duration =
+      durations.length > 0 ? durations[Math.floor(durations.length * 0.99)] : 0;
+    const lastExecutionTime =
+      results.length > 0 ? Math.max(...results.map((r) => r.completedAt)) : 0;
 
     return {
       totalExecuted,
@@ -175,7 +187,7 @@ export class ExecutionEngine implements IExecutionEngine {
   }
 
   private async runTask(task: ExecutableTask): Promise<string> {
-    await new Promise(r => setTimeout(r, Math.min(task.priority, 50)));
+    await new Promise((r) => setTimeout(r, Math.min(task.priority, 50)));
     return `[${task.type}] 任务 ${task.id} 执行完成: ${task.payload.substring(0, 50)}`;
   }
 }

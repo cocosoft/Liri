@@ -22,19 +22,23 @@ export interface GrepOutput {
 
 export function renderToolUseMessage(
   input: Partial<{ pattern: string; path?: string }>,
-  _options: { verbose: boolean },
+  _options: { verbose: boolean }
 ): React.ReactNode {
   const { pattern, path } = input;
   if (!pattern) return null;
-  
+
   const pathDisplay = path ? ` in ${path}` : '';
-  return <Text dimColor>Searching for: "{pattern}"{pathDisplay}</Text>;
+  return (
+    <Text dimColor>
+      Searching for: "{pattern}"{pathDisplay}
+    </Text>
+  );
 }
 
 export function renderToolResultMessage(
   output: GrepOutput,
   _progressMessages: any[],
-  { verbose }: { verbose: boolean },
+  { verbose }: { verbose: boolean }
 ): React.ReactNode {
   const { matches, totalMatches, pattern } = output;
 
@@ -43,10 +47,12 @@ export function renderToolResultMessage(
   }
 
   const displayMatches = verbose ? matches : matches.slice(0, 10);
-  
+
   return (
     <Box flexDirection="column">
-      <Text color="green">✓ Found {totalMatches} match{totalMatches !== 1 ? 'es' : ''}:</Text>
+      <Text color="green">
+        ✓ Found {totalMatches} match{totalMatches !== 1 ? 'es' : ''}:
+      </Text>
       <Box marginTop={1} flexDirection="column">
         {displayMatches.map((match, index) => (
           <Box key={index} flexDirection="column" marginTop={index > 0 ? 1 : 0}>
@@ -74,7 +80,7 @@ export function renderToolUseProgressMessage(): React.ReactNode {
 }
 
 export function getToolUseSummary(
-  input: Partial<{ pattern: string }> | undefined,
+  input: Partial<{ pattern: string }> | undefined
 ): string | null {
   if (!input?.pattern) return null;
   return `Search: "${input.pattern}"`;

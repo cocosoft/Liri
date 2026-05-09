@@ -22,6 +22,18 @@ export type {
 } from './commandSemantics';
 export type { DestructiveCommandConfig } from './destructiveCommandWarning';
 export type { ReadOnlyValidationOptions } from './readOnlyValidation';
+export {
+  CompleteSecuritySystem,
+  completeSecuritySystem,
+} from './CompleteSecuritySystem';
+export type {
+  ICompleteSecuritySystem,
+  SecurityCheckResult,
+  AuditRecord,
+  SecurityConfig,
+  SecurityReport,
+  SecurityLevel,
+} from './CompleteSecuritySystem';
 export type {
   SecurityAnalysisResult,
   SecurityPattern,

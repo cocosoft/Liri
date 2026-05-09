@@ -39,18 +39,20 @@ export const Box: React.FC<BoxProps> = ({
 }) => {
   return (
     <InkBox
-      flexDirection={flexDirection}
-      alignItems={alignItems}
-      justifyContent={justifyContent}
-      padding={padding}
-      margin={margin}
-      borderStyle={borderStyle}
-      borderColor={borderColor}
-      backgroundColor={backgroundColor}
-      width={width}
-      height={height}
-      minHeight={minHeight}
-      className={className}
+      {...({
+        flexDirection,
+        alignItems,
+        justifyContent,
+        padding,
+        margin,
+        borderStyle,
+        borderColor,
+        backgroundColor,
+        width,
+        height,
+        minHeight,
+        className,
+      } as any)}
     >
       {children}
     </InkBox>

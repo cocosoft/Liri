@@ -83,7 +83,7 @@ export class ConfigService extends EventEmitter {
     this.configs.set(config.key, {
       ...config,
       type: typeof config.value,
-    });
+    } as ConfigItem);
 
     this.emit('configRegistered', config);
   }
@@ -192,13 +192,33 @@ export class ConfigService extends EventEmitter {
    * @param key 配置键
    * @returns 是否成功
    */
-  reset(key: string): boolean {
-    const config = this.configs.get(key);
-    if (!config || config.defaultValue === undefined) {
-      return false;
+  reset(key: string): boolean;
+  /**
+   * 重置所有配置
+   */
+  reset(): void;
+  /**
+   * 重置配置
+   * @param key 可选的配置键
+   */
+  reset(key?: string): boolean | void {
+    if (key !== undefined) {
+      const config = this.configs.get(key);
+      if (!config || config.defaultValue === undefined) {
+        return false;
+      }
+
+      return this.set(key, config.defaultValue);
     }
 
-    return this.set(key, config.defaultValue);
+    this.stopHotUpdate();
+    this.clearAllConfigs();
+    this.clearChangeHistory();
+    this.stats = {
+      changeCount: 0,
+      lastChangeTime: 0,
+    };
+    this.removeAllListeners();
   }
 
   /**
@@ -433,19 +453,6 @@ export class ConfigService extends EventEmitter {
     this.emit('allConfigsCleared');
   }
 
-  /**
-   * 重置服务
-   */
-  reset(): void {
-    this.stopHotUpdate();
-    this.clearAllConfigs();
-    this.clearChangeHistory();
-    this.stats = {
-      changeCount: 0,
-      lastChangeTime: 0,
-    };
-    this.removeAllListeners();
-  }
 }
 
 /**

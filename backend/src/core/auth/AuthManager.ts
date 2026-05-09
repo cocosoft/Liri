@@ -296,7 +296,7 @@ export class DefaultAuthManager implements AuthManager {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
-      scopes: tokens.scopes || [],
+      scopes: (tokens as any).scopes || [],
     };
     this.tokenManager.cacheToken('default', cachedToken).catch(err => {
       logger.error('Failed to cache OAuth tokens:', err);

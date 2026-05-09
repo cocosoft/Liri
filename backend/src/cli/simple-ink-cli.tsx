@@ -180,7 +180,7 @@ const App = () => {
 
         const { getToolManager } = await import('../tools/ToolManager');
         const toolManager = getToolManager();
-        setTools(toolManager.getTools());
+        setTools((toolManager as any).getTools());
       } catch (error) {
         console.error('Error initializing services:', error);
       } finally {

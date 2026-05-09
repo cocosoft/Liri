@@ -22,7 +22,7 @@ export function getComputerUseAdapter(): ComputerUseAdapter {
       try {
         const { WindowsComputerUseAdapter } = require('./WindowsAdapter')
         adapter = new WindowsComputerUseAdapter()
-        return adapter
+        return adapter!
       } catch {
         break
       }
@@ -32,8 +32,7 @@ export function getComputerUseAdapter(): ComputerUseAdapter {
       break
   }
 
-  adapter = new NoopComputerUseAdapter()
-  return adapter
+  return new NoopComputerUseAdapter()
 }
 
 export function resetComputerUseAdapter(): void {

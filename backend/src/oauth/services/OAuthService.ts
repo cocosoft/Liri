@@ -11,7 +11,7 @@
 import { logger } from '@modules/infrastructure';
 import { OAuthTokenManager } from './OAuthTokenManager';
 import { OAuthDiscovery } from './OAuthDiscovery';
-import type { OAuthProvider, OAuthToken, AuthorizeOptions } from '../types';
+import type { OAuthProvider, OAuthToken, OAuthTokenData, AuthorizeOptions } from '../types';
 
 export class OAuthService {
   private tokenManager: OAuthTokenManager;
@@ -41,14 +41,14 @@ export class OAuthService {
    * @param scopes 所需权限范围
    * @returns Token对象或null
    */
-  async getToken(providerId: string, scopes?: string[]): Promise<OAuthToken | null> {
+  async getToken(providerId: string, scopes?: string[]): Promise<OAuthTokenData | null> {
     const provider = this.providers.get(providerId);
     if (!provider) {
       logger.error(`OAuth provider not found: ${providerId}`);
       throw new Error(`OAuth provider ${providerId} not registered`);
     }
 
-    return this.tokenManager.getToken(providerId, scopes);
+    return this.tokenManager.getToken(providerId);
   }
 
   /**

@@ -44,8 +44,6 @@ export const Checkbox: React.FC<CheckboxProps> = ({
       gap={1}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      isFocused={!disabled}
-      disabled={disabled}
     >
       <Box
         borderStyle="single"

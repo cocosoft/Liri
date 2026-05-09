@@ -239,7 +239,7 @@ export class OAuthClient {
   /**
    * HTTP POST请求
    */
-  private async httpPostJson(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private async httpPostJson(url: string, body: Record<string, unknown>, headers: Record<string, string> = {}): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {
       const parsedUrl = new URL(url);
       const isHttps = parsedUrl.protocol === 'https:';
@@ -252,6 +252,7 @@ export class OAuthClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...headers,
         },
         timeout: this.defaultTimeout,
       };
@@ -319,6 +320,53 @@ export class OAuthClient {
             } catch {
               reject(new OAuthError(`Invalid JSON response from ${url}`, 'INVALID_RESPONSE'));
             }
+          } else {
+            reject(new OAuthError(
+              `HTTP ${res.statusCode}: ${data}`,
+              'HTTP_ERROR',
+              res.statusCode
+            ));
+          }
+        });
+      });
+
+      req.on('error', (error) => {
+        reject(new OAuthError(`Request failed: ${error.message}`, 'REQUEST_FAILED'));
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new OAuthError(`Request timeout (${this.defaultTimeout}ms)`, 'TIMEOUT'));
+      });
+
+      req.end();
+    });
+  }
+
+  /**
+   * HTTP DELETE请求
+   */
+  private async httpDelete(url: string, headers: Record<string, string> = {}): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const parsedUrl = new URL(url);
+      const isHttps = parsedUrl.protocol === 'https:';
+      const requester = isHttps ? httpsRequest : httpRequest;
+
+      const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: 'DELETE',
+        headers,
+        timeout: this.defaultTimeout,
+      };
+
+      const req = requester(options, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          const data = Buffer.concat(chunks).toString();
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+            resolve();
           } else {
             reject(new OAuthError(
               `HTTP ${res.statusCode}: ${data}`,

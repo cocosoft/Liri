@@ -84,8 +84,8 @@ export class AutoCompactService {
       const sessionMessages = messages as unknown as SessionMessage[];
 
       const smResult = await trySessionMemoryCompaction(
-        sessionMessages,
-        getAutoCompactThreshold(model)
+        sessionId,
+        sessionMessages
       );
 
       if (smResult) {
@@ -97,8 +97,9 @@ export class AutoCompactService {
         return {
           success: true,
           result: {
-            ...smResult,
-            attachments: smResult.attachments,
+            boundaryMarker: `[memory_compaction-${new Date().toISOString()}]`,
+            summaryMessages: smResult.summary ? [smResult.summary] : [],
+            attachments: [],
             hookResults: [],
           },
         };

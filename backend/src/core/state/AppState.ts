@@ -226,6 +226,8 @@ export function getDefaultAppState(): AppState {
   return {
     settings: {} as SettingsJson,
     verbose: false,
+    model: 'claude-3-5-sonnet-20241022',
+    modelAlias: null,
     mainLoopModel: { model: 'claude-3-5-sonnet-20241022', temperature: 0.1 } as ModelSetting,
     mainLoopModelForSession: { model: 'claude-3-5-sonnet-20241022', temperature: 0.1 } as ModelSetting,
     statusLineText: undefined,

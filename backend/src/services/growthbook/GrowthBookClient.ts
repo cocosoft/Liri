@@ -208,9 +208,9 @@ export class GrowthBookClient {
   }
 
   logExposure(feature: string): void {
-    if (this.exposureLogged.has(feature)) return
-    this.exposureLogged.add(feature)
-    this.client?.logFeatureUse?.(feature)
+    if ((this.exposureLogged as Set<string>).has(feature)) return
+    ;(this.exposureLogged as Set<string>).add(feature)
+    ;(this.client as any)?.logFeatureUse?.(feature)
   }
 
   async refreshFeatures(): Promise<void> {

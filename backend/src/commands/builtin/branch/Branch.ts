@@ -321,7 +321,7 @@ export class Branch implements CommandImplementation {
    * @param context 命令上下文
    * @returns 命令提示
    */
-  async getPromptForCommand(args: string, context?: any): Promise<string> {
+  getPromptForCommand(args: string, context?: any): string {
     return `Manage git branches: ${args || 'list branches'}`;
   }
 }

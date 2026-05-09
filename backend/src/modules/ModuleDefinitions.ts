@@ -104,23 +104,6 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     description: '工具管理模块，提供工具注册和执行功能',
     dependencies: ['core', 'infrastructure', 'error'],
     optionalDependencies: ['memory'],
-    services: [
-      {
-        name: 'ToolOrchestration',
-        path: '@modules/tools/services/ToolOrchestration',
-        singleton: true,
-      },
-      {
-        name: 'ToolResultBudgetManager',
-        path: '@modules/tools/services/ToolResultBudget',
-        singleton: true,
-      },
-      {
-        name: 'InterruptibleToolExecutor',
-        path: '@modules/tools/services/InterruptibleToolExecutor',
-        singleton: false,
-      },
-    ],
   },
   
   'commands': {

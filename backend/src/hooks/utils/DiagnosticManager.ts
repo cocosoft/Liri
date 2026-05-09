@@ -47,7 +47,7 @@ export class DiagnosticManager extends EventEmitter {
   private logDirectory: string;
   private logFile: string;
   private eventBuffer: DiagnosticEventData[] = [];
-  private bufferFlushInterval: NodeJS.Timeout;
+  private bufferFlushInterval: NodeJS.Timeout = null as unknown as NodeJS.Timeout;
   private enabled: boolean = true;
 
   private constructor() {

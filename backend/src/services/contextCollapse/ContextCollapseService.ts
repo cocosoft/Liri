@@ -203,7 +203,7 @@ export class ContextCollapseService {
       return false;
     }
 
-    if (message.isMeta) {
+    if ((message as any).isMeta) {
       return true;
     }
 
@@ -305,5 +305,5 @@ export function isContextCollapseEnabled(): boolean {
 
 export function resetContextCollapse(): void {
   const service = getContextCollapseService();
-  service.state.clear();
+  (service as any).state.clear();
 }

@@ -144,7 +144,7 @@ export class TaskExpirationService extends EventEmitter {
     const isExpired = taskJitterService.isTaskExpired(
       task.createdAt,
       task.recurring,
-      task.permanent
+      task.permanent ?? false
     );
 
     if (isExpired) {

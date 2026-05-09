@@ -115,7 +115,7 @@ export class LocalBashTask extends BaseTask {
   getEnhancedState(): LocalShellTaskState {
     return {
       ...this.taskState,
-      type: 'local_bash',
+      type: TaskType.LOCAL_BASH,
       command: this.options.command,
       isBackgrounded: this._isBackgrounded,
       kind: this._kind,

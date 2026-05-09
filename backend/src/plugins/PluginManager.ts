@@ -83,7 +83,7 @@ export class PluginManager {
 
       logger.info(`Loaded ${plugins.length} plugins with ${this.componentLoader.getComponentCount()} components`);
     } catch (error) {
-      logger.error('Failed to load plugins:', error);
+      logger.error('Failed to load plugins:', error instanceof Error ? error : undefined);
     }
   }
 
@@ -204,7 +204,7 @@ export class PluginManager {
               validate: impl.validate,
             };
           } catch (err) {
-            logger.error(`Failed to load plugin command ${component.name}:`, err);
+            logger.error(`Failed to load plugin command ${component.name}:`, err instanceof Error ? err : undefined);
             return {};
           }
         },

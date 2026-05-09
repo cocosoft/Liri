@@ -204,7 +204,7 @@ export class InProcessTeammateTask extends BaseTask {
         content,
         id: `msg-${Date.now()}`,
         ts: Date.now(),
-      } as Message
+      } as unknown as Message
     );
   }
 

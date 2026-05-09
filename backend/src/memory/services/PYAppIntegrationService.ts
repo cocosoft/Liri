@@ -147,17 +147,18 @@ export class PYAppIntegrationService {
           const description = preferenceMatch[3]?.substring(1).trim();
 
           // 尝试解析值类型
-          if (value.toLowerCase() === 'true') {
-            value = true;
-          } else if (value.toLowerCase() === 'false') {
-            value = false;
-          } else if (!isNaN(parseFloat(value))) {
-            value = parseFloat(value);
+          let parsedValue: string | boolean | number = value;
+          if (parsedValue.toLowerCase() === 'true') {
+            parsedValue = true;
+          } else if (parsedValue.toLowerCase() === 'false') {
+            parsedValue = false;
+          } else if (typeof parsedValue === 'string' && !isNaN(parseFloat(parsedValue))) {
+            parsedValue = parseFloat(parsedValue);
           }
 
           preferences.push({
             key,
-            value,
+            value: parsedValue,
             description,
           });
         } else {

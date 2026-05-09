@@ -3,7 +3,7 @@
  * Chronos后台常驻系统 - 导出模块
  */
 
-export * from './types';
+export type { TaskStatus as ChronosTaskStatus, ScheduledTask } from './types';
 export { ChronosDatabase } from './ChronosDatabase';
 export {
   parseCronExpression,

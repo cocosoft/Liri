@@ -21,7 +21,7 @@ export const Link: React.FC<LinkProps> = ({
   color = 'blue',
 }) => {
   return (
-    <InkLink url={url} underline={underline} color={color}>
+    <InkLink {...({ url, underline, color } as any)}>
       {children}
     </InkLink>
   );

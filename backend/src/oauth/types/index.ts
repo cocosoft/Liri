@@ -4,6 +4,13 @@
  */
 
 export * from './OAuthTypes';
-export * from './OAuthDiscoveryTypes';
+export {
+  ClientMetadata,
+  ClientInfo,
+  OAuthDiscoveryResult,
+  OAuthServerMetadata,
+  DiscoveryConfig,
+  DiscoveryCacheEntry,
+} from './OAuthDiscoveryTypes';
 export * from './OAuthStorageTypes';
 export * from './OAuthProvider';

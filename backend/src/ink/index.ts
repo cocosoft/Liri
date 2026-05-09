@@ -26,7 +26,7 @@ export { default as Spacer } from './ink/components/Spacer';
 export { default as Newline } from './ink/components/Newline';
 export { default as Link } from './ink/components/Link';
 export { NoSelect } from './ink/components/NoSelect';
-export { default as RawAnsi } from './ink/components/RawAnsi';
+export { RawAnsi } from './ink/components/RawAnsi';
 export { useInput } from './ink/hooks/use-input';
 export { useApp } from './ink/hooks/use-app';
 export { useTerminalSize } from '../hooks/useTerminalSize';

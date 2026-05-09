@@ -271,7 +271,7 @@ export class ConfigManager extends EventEmitter {
       return false;
     }
 
-    return Date.now() - this.cacheTimestamp < this.config.cacheTtlMs;
+    return Date.now() - (this.cacheTimestamp ?? 0) < (this.config?.cacheTtlMs ?? 60000);
   }
 
   /**
@@ -420,7 +420,7 @@ export class FileConfigLayer implements ConfigLayer {
       this.cache = config;
       return config;
     } catch (error) {
-      logger.warn(`Failed to load config from ${this.filePath}:`, error);
+      logger.warn(`Failed to load config from ${this.filePath}:`, error instanceof Error ? error : undefined);
       return {};
     }
   }
@@ -438,7 +438,7 @@ export class FileConfigLayer implements ConfigLayer {
       writeFileSync(this.filePath, JSON.stringify(config, null, 2), 'utf-8');
       this.cache = config;
     } catch (error) {
-      logger.error(`Failed to save config to ${this.filePath}:`, error);
+      logger.error(`Failed to save config to ${this.filePath}:`, error instanceof Error ? error : undefined);
     }
   }
 

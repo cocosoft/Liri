@@ -14,7 +14,6 @@ const mcp: Command = {
   type: 'local',
   name: 'mcp',
   description: '管理MCP服务器',
-  immediate: true,
   argumentHint: '[enable|disable [server-name]]',
   load: async () => {
     const { executeMCP } = await import('./mcp.js');

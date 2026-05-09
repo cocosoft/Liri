@@ -52,7 +52,7 @@ export interface NetworkResponse<T = any> {
  */
 export class NetworkError extends Error {
   constructor(
-    public message: string,
+    message: string,
     public status?: number,
     public response?: NetworkResponse
   ) {
@@ -236,7 +236,7 @@ export class NetworkManager {
 
         logger.warn(
           `Network request failed, retrying (${attempt}/${retry}): ${url}`,
-          error
+          error as any
         );
         await this.delay(retryDelay * Math.pow(2, attempt - 1)); // 指数退避
       }

@@ -136,7 +136,7 @@ export class PerformanceOptimizationService extends EventEmitter {
    */
   startMeasure(): string {
     const id = `measure_${Date.now()}_${Math.random()}`;
-    this.cache.set(id, Date.now(), 60000);
+    this.cache.set(id, Date.now() as unknown as CacheItem<unknown>);
     return id;
   }
 

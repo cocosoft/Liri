@@ -198,9 +198,9 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
         compatible: false,
         toolName,
         missingContext: [],
-        parameterIssues: [`Tool not found: ${toolName}`],
+        issues: [`Tool not found: ${toolName}`],
         suggestions: [],
-      };
+      } as ToolCompatibilityReport;
     }
 
     const missingContext: string[] = [];

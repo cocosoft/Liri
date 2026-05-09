@@ -5,6 +5,7 @@
  */
 
 import type { Message } from '@modules/chat/types/message';
+import { MessageRole, ContentBlockType } from '@modules/chat/types/message';
 
 export interface ToolInfo {
   name: string;
@@ -120,16 +121,16 @@ export class ToolUseSummaryService {
   ): Message {
     return {
       id: `tool_use_summary_${Date.now()}`,
-      role: 'user',
+      role: MessageRole.USER,
       content: [
         {
-          type: 'text',
-          text: summary,
+          type: ContentBlockType.TEXT,
+          value: summary,
         },
       ],
       toolUseIds,
       isMeta: true,
-    };
+    } as unknown as Message;
   }
 }
 

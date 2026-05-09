@@ -90,10 +90,10 @@ export class OAuthStartupManager {
     }
 
     try {
-      const serverKeys = await this.storage.listTokens();
+      const allTokens = await this.storage.loadAllTokens();
       let loadedCount = 0;
 
-      for (const serverKey of serverKeys) {
+      for (const serverKey of Object.keys(allTokens)) {
         const tokenData = await this.storage.loadToken(serverKey);
         if (tokenData && tokenData.expiresAt > Date.now()) {
           loadedCount++;

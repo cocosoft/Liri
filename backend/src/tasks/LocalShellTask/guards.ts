@@ -7,7 +7,7 @@
  * 基于 CC源码 cc_code/backend/tasks/LocalShellTask/guards.ts 实现
  */
 
-import type { TaskState } from '../types';
+import { TaskType, type TaskState } from '../types';
 
 /**
  * Bash任务种类：'bash' 普通shell任务 / 'monitor' 监控任务
@@ -19,7 +19,7 @@ export type BashTaskKind = 'bash' | 'monitor';
  * 在 TaskState 基础上添加bash特有的字段
  */
 export interface LocalShellTaskState extends TaskState {
-  type: 'local_bash';
+  type: TaskType.LOCAL_BASH;
   command: string;
   result?: {
     code: number;

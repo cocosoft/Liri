@@ -144,7 +144,7 @@ function maybeTimeBasedMicrocompact(
       ...msg,
       content: TIME_BASED_MC_CLEARED_MESSAGE,
       toolResult: undefined,
-    };
+    } as SessionMessage;
   });
 
   if (tokensSaved === 0) {

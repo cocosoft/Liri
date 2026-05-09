@@ -33,7 +33,7 @@ export type Props = PropsWithChildren<Except<Styles, 'textWrap'> & {
   onFocusCapture?: (event: FocusEvent) => void;
   onBlur?: (event: FocusEvent) => void;
   onBlurCapture?: (event: FocusEvent) => void;
-  onKeyDown?: (event: KeyboardEvent) => void;
+  onKeyDown?: ((event: KeyboardEvent) => void) | ((key: string) => void);
   onKeyDownCapture?: (event: KeyboardEvent) => void;
   /**
    * Fired when the mouse moves into this Box's rendered rect. Like DOM
@@ -44,6 +44,18 @@ export type Props = PropsWithChildren<Except<Styles, 'textWrap'> & {
   onMouseEnter?: () => void;
   /** Fired when the mouse moves out of this Box's rendered rect. */
   onMouseLeave?: () => void;
+  /** 按下按钮回调 */
+  onPress?: () => void;
+  /** 是否可聚焦 */
+  focusable?: boolean;
+  /** 键盘按下回调 */
+  onKeyPress?: (event: any) => void;
+  /** 底部边框样式 */
+  borderBottomStyle?: string;
+  /** 顶部边框样式 */
+  borderTopStyle?: string;
+  /** 自定义样式 */
+  style?: Record<string, any>;
 }>;
 
 /**

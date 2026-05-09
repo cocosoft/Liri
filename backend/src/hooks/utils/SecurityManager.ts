@@ -153,7 +153,7 @@ export class SecurityManager extends EventEmitter {
       }
 
       // 检查执行时间
-      if (config.timeout && config.timeout > this.options.maxExecutionTime) {
+      if (config?.timeout && config.timeout > (this.options?.maxExecutionTime ?? Infinity)) {
         return { valid: false, error: 'Command timeout exceeds maximum allowed time' };
       }
     }

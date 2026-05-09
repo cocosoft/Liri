@@ -163,6 +163,7 @@ export function useExitConfirmation(
         e.returnValue = '';
         return '';
       }
+      return undefined;
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);

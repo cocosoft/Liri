@@ -1644,7 +1644,7 @@ export class ChatManagerImpl implements ChatManager {
       updatedAt: msg.updatedAt,
     }));
 
-    return this.compactService.detectCompactBoundary(targetSessionId, sessionMessages);
+    return this.compactService.detectCompactBoundary(targetSessionId, sessionMessages as any);
   }
 
   /**
@@ -1672,7 +1672,7 @@ export class ChatManagerImpl implements ChatManager {
       updatedAt: msg.updatedAt,
     }));
 
-    const artifacts = await this.compactService.performCompact(targetSessionId, sessionMessages);
+    const artifacts = await this.compactService.performCompact(targetSessionId, sessionMessages as any);
 
     // 如果有压缩产物，注入到会话中
     if (artifacts.length > 0) {

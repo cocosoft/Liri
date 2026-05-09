@@ -165,7 +165,7 @@ async function executeSkill(skillManager: any) {
     return;
   }
 
-  const skillOptions = Array.from(skills.entries())
+  const skillOptions = (Array.from(skills.entries()) as [string, any][])
     .filter(([_, info]) => info.state === 'initialized')
     .map(([name, info]) => ({
       value: name,

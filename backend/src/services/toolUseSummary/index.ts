@@ -63,13 +63,14 @@ export function toolSummary(
 ): string {
   const verb = TOOL_VERBS[name] ?? name
 
+  const inputAny = input as Record<string, string | undefined>
   const target =
-    (input.file_path as string) ??
-    (input.filePath as string) ??
-    (input.pattern as string) ??
-    (typeof input.command === 'string' ? input.command.slice(0, 60) : undefined) ??
-    (input.url as string) ??
-    (input.query as string) ??
+    inputAny.file_path ??
+    inputAny.filePath ??
+    inputAny.pattern ??
+    (typeof inputAny.command === 'string' ? inputAny.command.slice(0, 60) : undefined) ??
+    inputAny.url ??
+    inputAny.query ??
     ''
 
   if (target) {
@@ -103,9 +104,9 @@ export function mergeToolSummaries(tools: ToolUseInfo[]): string {
     verbCount[verb] = (verbCount[verb] ?? 0) + 1
 
     if (targets.length < 3) {
-      const target = tool.input.file_path ??
+      const target = (tool.input.file_path ??
         tool.input.filePath ??
-        tool.input.url as string ?? undefined
+        tool.input.url) as string | undefined
       if (target && !targets.includes(target)) {
         targets.push(target)
       }

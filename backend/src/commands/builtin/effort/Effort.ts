@@ -18,7 +18,7 @@ export default {
     
     const validLevels: EffortLevel[] = ['low', 'medium', 'high', 'auto'];
     
-    if (!level || level === 'show') {
+    if (!level || level === ('show' as EffortLevel)) {
       return this.handleShow(context);
     }
     

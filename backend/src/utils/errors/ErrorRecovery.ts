@@ -122,9 +122,6 @@ export class RetryManager {
 
     const errorMessage = error instanceof Error ? error.message : String(error);
     return options.retryableErrors.some(pattern => {
-      if (pattern instanceof RegExp) {
-        return pattern.test(errorMessage);
-      }
       return errorMessage.includes(pattern);
     });
   }

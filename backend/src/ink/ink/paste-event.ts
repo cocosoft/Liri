@@ -11,5 +11,5 @@ export function isPasteEvent(event: TerminalEvent): event is PasteEvent {
 }
 
 export function createPasteEvent(data: string): PasteEvent {
-  return { type: 'paste', data };
+  return { type: 'paste', data } as PasteEvent;
 }

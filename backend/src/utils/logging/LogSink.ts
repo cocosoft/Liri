@@ -110,7 +110,7 @@ export class ConsoleSink implements LogSinkInstance {
 export class FileSink implements LogSinkInstance {
   private options: Required<FileSinkOptions>;
   private buffer: string[] = [];
-  private flushTimer?: Timer;
+  private flushTimer?: ReturnType<typeof setTimeout>;
 
   constructor(options: FileSinkOptions) {
     this.options = {

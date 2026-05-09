@@ -7,6 +7,7 @@
  * 基于 CC源码 cc_code/backend/tasks/LocalShellTask/killShellTasks.ts 实现
  */
 
+import { TaskStatus } from '../types';
 import { taskRegistry } from '../TaskRegistry';
 import { isLocalShellTask } from './guards';
 import type { LocalShellTaskState } from './guards';
@@ -45,7 +46,7 @@ export function killShellTasksForAgent(agentId: string): void {
     if (
       isLocalShellTask(state) &&
       state.agentId === agentId &&
-      state.status === 'running'
+      state.status === TaskStatus.RUNNING
     ) {
       console.log(
         `killShellTasksForAgent: killing orphaned shell task ${task.id} ` +

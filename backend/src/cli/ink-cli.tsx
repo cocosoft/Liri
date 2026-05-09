@@ -276,7 +276,7 @@ const App = () => {
         setSkills(skillManager.getSkills());
 
         const toolManager = getToolManager();
-        setTools(toolManager.getTools());
+        setTools((toolManager as any).getTools());
       } catch (error) {
         console.error('Error initializing services:', error);
       } finally {

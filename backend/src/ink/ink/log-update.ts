@@ -236,6 +236,7 @@ export class LogUpdate {
           scrollbackChangeY = y
           return true // early exit
         }
+        return false
       })
       if (scrollbackChangeY >= 0) {
         const prevLine = readLine(prev.screen, scrollbackChangeY)
@@ -309,7 +310,7 @@ export class LogUpdate {
     diffEach(prev.screen, next.screen, (x, y, removed, added) => {
       // Skip new rows - we'll render them directly after
       if (growing && y >= prev.screen.height) {
-        return
+        return false // Skip this cell
       }
 
       // Skip spacers during rendering because the terminal will automatically
@@ -321,7 +322,7 @@ export class LogUpdate {
         (added.width === CellWidth.SpacerTail ||
           added.width === CellWidth.SpacerHead)
       ) {
-        return
+        return false
       }
 
       if (
@@ -330,7 +331,7 @@ export class LogUpdate {
           removed.width === CellWidth.SpacerHead) &&
         !added
       ) {
-        return
+        return false
       }
 
       // Skip empty cells that don't need to overwrite existing content.
@@ -338,7 +339,7 @@ export class LogUpdate {
       // line wrapping at the edge of the screen.
       // Uses isEmptyCellAt to check if both packed words are zero (empty cell).
       if (added && isEmptyCellAt(next.screen, x, y) && !removed) {
-        return
+        return false
       }
 
       // If the cell outside the viewport range has changed, we need to reset
@@ -379,6 +380,8 @@ export class LogUpdate {
           return [patches, { dx: 1, dy: 0 }]
         })
       }
+
+      return false
     })
     if (needsFullReset) {
       return fullResetSequence_CAUSES_FLICKER(next, 'offscreen', stylePool, {

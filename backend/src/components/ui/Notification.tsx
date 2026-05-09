@@ -48,6 +48,7 @@ function NotificationCard({
       }, duration);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [notification.duration, notification.id, onDismiss]);
 
   if (!visible) return null;

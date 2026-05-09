@@ -233,8 +233,8 @@ export class EnhancedTaskScheduler {
 
     try {
       // 执行任务
-      this.taskExecutionPromises.set(task.id, this.executeTask(runningTask));
-      executionResult = await this.taskExecutionPromises.get(task.id);
+      this.taskExecutionPromises.set(task.id, this.executeTask(runningTask) as unknown as Promise<void>);
+      executionResult = await (this.taskExecutionPromises.get(task.id) as unknown as Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>);
     } catch (error) {
       executionResult = {
         success: false,

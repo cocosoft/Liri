@@ -131,6 +131,7 @@ export function createCronScheduler(
           ? (jitteredNextCronRunMs(
               t.cron,
               t.lastFiredAt ?? t.createdAt,
+              false,
               jitterCfg
             ) ?? Infinity)
           : (nextCronRunMs(t.cron, t.createdAt) ?? Infinity);
@@ -163,7 +164,7 @@ export function createCronScheduler(
 
       if (t.recurring && !aged) {
         const newNext =
-          jitteredNextCronRunMs(t.cron, now, jitterCfg) ?? Infinity;
+          jitteredNextCronRunMs(t.cron, now, false, jitterCfg) ?? Infinity;
         nextFireAt.set(t.id, newNext);
 
         if (!isSession) firedFileRecurring.push(t.id);

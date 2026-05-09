@@ -14,7 +14,6 @@ const hooks: Command = {
   type: 'local',
   name: 'hooks',
   description: '查看工具事件的hook配置',
-  immediate: true,
   load: async () => {
     const { executeHooks } = await import('./hooks.js');
     return {

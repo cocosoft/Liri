@@ -53,7 +53,7 @@ export class DynamicClientReg {
   private client: OAuthClient;
 
   constructor(timeout: number = 15000) {
-    this.client = new OAuthClient(timeout);
+    this.client = new OAuthClient(undefined, timeout);
   }
 
   /**
@@ -83,7 +83,7 @@ export class DynamicClientReg {
       software_version: metadata.softwareVersion,
     };
 
-    const response = await this.client['httpPostJson'](registrationEndpoint, requestBody);
+    const response = await (this.client as any)['httpPostJson'](registrationEndpoint, requestBody);
 
     const result: ClientRegistrationResponse = {
       clientId: response.client_id as string,
@@ -112,7 +112,7 @@ export class DynamicClientReg {
   ): Promise<ClientRegistrationResponse> {
     logger.debug(`Reading OAuth client info from ${registrationClientUri}`);
 
-    const response = await this.client['httpGetJson'](registrationClientUri, {
+    const response = await (this.client as any)['httpGetJson'](registrationClientUri, {
       'Authorization': `Bearer ${registrationAccessToken}`,
     });
 
@@ -159,7 +159,7 @@ export class DynamicClientReg {
       software_version: metadata.softwareVersion,
     };
 
-    const response = await this.client['httpPostJson'](registrationClientUri, requestBody, {
+    const response = await (this.client as any)['httpPostJson'](registrationClientUri, requestBody, {
       'Authorization': `Bearer ${registrationAccessToken}`,
       'Content-Type': 'application/json',
     });
@@ -188,7 +188,7 @@ export class DynamicClientReg {
   ): Promise<void> {
     logger.info(`Deleting OAuth client at ${registrationClientUri}`);
 
-    await this.client['httpDelete'](registrationClientUri, {
+    await (this.client as any)['httpDelete'](registrationClientUri, {
       'Authorization': `Bearer ${registrationAccessToken}`,
     });
 

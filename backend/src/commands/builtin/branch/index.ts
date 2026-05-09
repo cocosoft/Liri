@@ -2,7 +2,7 @@
 /**
  * Branch命令导出
  */
-import type { Command } from '@modules/commands/types';
+import type { Command, CommandImplementation } from '@modules/commands/types';
 
 /**
  * Branch命令定义
@@ -21,7 +21,7 @@ const branchCommand: Command = {
    */
   async load() {
     const { Branch } = await import('./Branch.js');
-    return new Branch();
+    return new Branch() as unknown as CommandImplementation;
   },
 
   /**

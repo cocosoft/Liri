@@ -86,7 +86,7 @@ export async function getCommandPrefixStatic(
     return null
   }
 
-  const envPrefix = envVars.length ? `${envVars.join(' ')} ` : ''
+  const envPrefix = Object.keys(envVars).length ? `${Object.keys(envVars).map(k => `${k}=${envVars[k]}`).join(' ')} ` : ''
   return { commandPrefix: prefix ? envPrefix + prefix : null }
 }
 

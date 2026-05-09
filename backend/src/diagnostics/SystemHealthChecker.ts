@@ -245,7 +245,7 @@ export class SystemHealthChecker extends EventEmitter {
    */
   private async getWindowsDiskInfo(): Promise<{ total: number; free: number }> {
     try {
-      const { stdout } = await execAsync('wmic logicaldisk get size,freespace', {
+      const { stdout } = await (execAsync as any)('wmic logicaldisk get size,freespace', {
         shell: true,
       });
       const lines = stdout.trim().split('\n').slice(1);
@@ -271,7 +271,7 @@ export class SystemHealthChecker extends EventEmitter {
    */
   private async getUnixDiskInfo(): Promise<{ total: number; free: number }> {
     try {
-      const { stdout } = await execAsync('df -k / | tail -1', { shell: true });
+      const { stdout } = await (execAsync as any)('df -k / | tail -1', { shell: true });
       const parts = stdout.trim().split(/\s+/);
 
       if (parts.length >= 4) {

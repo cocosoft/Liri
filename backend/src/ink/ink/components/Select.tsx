@@ -81,7 +81,6 @@ export const Select: React.FC<SelectProps> = ({
         paddingY={0.5}
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
-        isFocused={isFocused}
       >
         <Text>{selectedValue}</Text>
       </Box>

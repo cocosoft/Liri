@@ -4,7 +4,12 @@
  * 处理Bridge模式下的远程输入输出
  */
 
-import { Bridge } from '@modules/bridge';
+/**
+ * Bridge接口定义
+ */
+interface Bridge {
+  requestInput(options: { prompt: string; type: string }): Promise<{ value: string }>;
+}
 
 /**
  * 远程IO管理器
@@ -85,7 +90,7 @@ export class RemoteIO {
     }
 
     try {
-      this.bridge!.sendOutput({
+      (this.bridge as any).sendOutput({
         message,
         type,
       });
@@ -107,7 +112,7 @@ export class RemoteIO {
     }
 
     try {
-      this.bridge!.sendProgress({
+      (this.bridge as any).sendProgress({
         progress,
         message,
       });

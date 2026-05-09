@@ -193,7 +193,7 @@ export class RemoteConfigManager {
     definition.lastModified = new Date();
     
     // 审计记录
-    this.audit('write', key, user, { oldValue, newValue, reason });
+    this.audit('write', key, user, { oldValue, newValue: value, reason: reason || '' });
     
     logger.info(`Config ${key} updated by ${user}`);
   }
@@ -238,7 +238,7 @@ export class RemoteConfigManager {
         duration: Date.now() - startTime,
       };
       
-      logger.error('Config synchronization failed:', error);
+      logger.error('Config synchronization failed:', error instanceof Error ? error : undefined);
       
       return this.syncStatus;
     }
@@ -325,7 +325,7 @@ export class RemoteConfigManager {
           logger.debug(`Applied remote change for ${key}`);
           
         } catch (error) {
-          logger.error(`Failed to apply remote change for ${key}:`, error);
+          logger.error(`Failed to apply remote change for ${key}:`, error instanceof Error ? error : undefined);
         }
       }
     }

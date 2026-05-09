@@ -1,7 +1,7 @@
 //
 import { createChatService } from './services/chatService';
 export { createChatService };
-export type { ChatService } from './services/chatService';
+export type { ChatService } from '../chat/models/types';
 export { ChatSession } from './sessions/chatSession';
 export { ChatHistory } from './history/chatHistory';
 export type { ChatMessage, ChatSessionOptions } from './models/types';

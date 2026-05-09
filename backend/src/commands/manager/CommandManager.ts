@@ -391,7 +391,7 @@ export class CommandManager {
    * 获取命令统计信息
    * @returns 命令统计信息
    */
-  getCommandStats(): ReturnType<CommandRegistry['getCommandStats']> {
+  getCommandStats(): ReturnType<(typeof commandRegistry)['getCommandStats']> {
     return this.registry.getCommandStats();
   }
 

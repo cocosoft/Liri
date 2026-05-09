@@ -87,6 +87,10 @@ export class HookConfigManager {
     }
 
     return {
+      id: hook.name || `${hook.event}:${hook.matcher || 'default'}`,
+      name: hook.name || `${hook.event} hook`,
+      enabled: hook.config.enabled !== false,
+      priority: hook.config.priority || 0,
       event: hook.event,
       matcher: hook.matcher,
       config: {
@@ -136,7 +140,7 @@ export class HookConfigManager {
     return this.hooks.filter(
       (hook) =>
         hook.event === event &&
-        (matcher === undefined || hook.matcher === matcher) &&
+        (matcher === undefined || (hook.matcher as any) === matcher) &&
         hook.config.enabled
     );
   }

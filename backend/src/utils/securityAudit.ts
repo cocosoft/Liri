@@ -100,7 +100,7 @@ export interface SecurityAuditConfig {
  * 安全审计器类
  */
 export class SecurityAuditor {
-  private config: SecurityAuditConfig;
+  config: SecurityAuditConfig;
   private events: SecurityEvent[] = [];
   private isInitialized = false;
 
@@ -144,7 +144,7 @@ export class SecurityAuditor {
         details: { message: 'Security auditor initialized' }
       });
     } catch (error) {
-      logger.error('Failed to initialize security auditor:', error);
+      logger.error('Failed to initialize security auditor:', error instanceof Error ? error : undefined);
     }
   }
 
@@ -390,7 +390,7 @@ export class SecurityAuditor {
       
       fs.appendFileSync(this.config.logFile, logEntry, { encoding: 'utf8' });
     } catch (error) {
-      logger.error('Failed to write security audit log:', error);
+      logger.error('Failed to write security audit log:', error instanceof Error ? error : undefined);
     }
   }
 

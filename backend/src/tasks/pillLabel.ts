@@ -57,9 +57,7 @@ export function getPillLabel(tasks: TaskState[]): string {
     case 'in_process_teammate': {
       const teammateTasks = tasks as unknown as InProcessTeammateTaskState[];
       const teamCount = new Set(
-        teammateTasks.map(t =>
-          t.type === 'in_process_teammate' ? t.identity.teamName : '',
-        ),
+        teammateTasks.map(t => t.identity.teamName),
       ).size;
       return teamCount === 1 ? '1 team' : `${teamCount} teams`;
     }

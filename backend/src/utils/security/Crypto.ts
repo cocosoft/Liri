@@ -55,7 +55,7 @@ export function encrypt(
   let ciphertext: Buffer;
   if (options.algorithm.includes('gcm')) {
     const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-    const authTag = cipher.getAuthTag();
+    const authTag = (cipher as any).getAuthTag();
     return {
       ciphertext: encrypted.toString('base64'),
       iv: iv.toString('base64'),
@@ -82,7 +82,7 @@ export function decrypt(
 
   if (options.algorithm.includes('gcm') && authTag) {
     const decipher = createDecipheriv(options.algorithm, key, ivBuffer);
-    decipher.setAuthTag(Buffer.from(authTag, 'base64'));
+    (decipher as any).setAuthTag(Buffer.from(authTag, 'base64'));
     return decipher.update(ciphertextBuffer).toString('utf8') + decipher.final('utf8');
   } else {
     const decipher = createDecipheriv(options.algorithm, key, ivBuffer);

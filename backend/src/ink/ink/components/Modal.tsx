@@ -42,7 +42,6 @@ export const Modal: React.FC<ModalProps> = ({
       alignItems="center"
       justifyContent="center"
       backgroundColor="black"
-      opacity={0.5}
       onKeyDown={handleKeyDown}
     >
       <Box

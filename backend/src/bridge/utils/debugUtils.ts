@@ -177,9 +177,10 @@ export class DebugStatusChecker {
    */
   static async checkNetwork(url: string): Promise<{ success: boolean; latencyMs: number; error?: string }> {
     const startTime = Date.now();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      timeout = setTimeout(() => controller.abort(), 5000);
 
       await fetch(url, { signal: controller.signal });
       clearTimeout(timeout);

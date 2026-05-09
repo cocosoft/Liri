@@ -266,7 +266,7 @@ export interface TTLCacheOptions {
 export class TTLCache<K = string, V = unknown> {
   private cache: Map<K, CacheEntry<V>> = new Map();
   private options: Required<TTLCacheOptions>;
-  private intervalId?: Timer;
+  private intervalId?: ReturnType<typeof setTimeout>;
 
   constructor(options: TTLCacheOptions) {
     this.options = {

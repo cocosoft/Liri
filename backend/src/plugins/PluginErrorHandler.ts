@@ -48,6 +48,7 @@ export class PluginError extends Error {
   readonly details?: any;
   readonly pluginName?: string;
   readonly source?: string;
+  override cause?: Error;
 
   /**
    * 创建插件错误

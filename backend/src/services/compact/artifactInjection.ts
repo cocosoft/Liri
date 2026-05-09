@@ -539,14 +539,13 @@ export class ArtifactInjectionService {
     const messages: SessionMessage[] = [];
 
     for (const artifact of artifacts) {
-      const message: SessionMessage = {
+      const message = {
         id: `artifact_${artifact.id}`,
-        sessionId: '', // 将在调用处设置
         type: 'system',
         content: `[${artifact.type.toUpperCase()}] ${artifact.content}`,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as SessionMessage;
 
       messages.push(message);
     }

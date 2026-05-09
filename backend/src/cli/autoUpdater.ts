@@ -38,11 +38,11 @@ export class AutoUpdater {
     const now = Date.now();
     
     // 如果上次检查时间间隔不够且不是强制检查，则返回缓存结果
-    if (!force && now - this.lastCheckTime < this.options.checkInterval) {
+    if (!force && now - this.lastCheckTime < (this.options?.checkInterval ?? 3600000)) {
       if (this.updateInfo && this.options.verbose) {
         console.log(chalk.blue('ℹ'), 'Using cached update info');
       }
-      return this.updateInfo || this.createDefaultInfo();
+      return (this.updateInfo || this.createDefaultInfo())!;
     }
 
     if (this.options.verbose) {

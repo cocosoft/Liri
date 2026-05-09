@@ -3,7 +3,7 @@
  * 执行命令工具
  */
 
-import { execSync } from 'child_process';
+import { execSync as cpExecSync } from 'child_process';
 
 /**
  * 执行命令并返回输出
@@ -13,7 +13,7 @@ import { execSync } from 'child_process';
  */
 export function execSyncWithOutput(command: string, options: any = {}): { stdout: string; stderr: string } {
   try {
-    const stdout = execSync(command, { ...options, encoding: 'utf8' });
+    const stdout = cpExecSync(command, { ...options, encoding: 'utf8' });
     return { stdout, stderr: '' };
   } catch (error: any) {
     return { stdout: error.stdout || '', stderr: error.stderr || '' };
@@ -27,5 +27,5 @@ export function execSyncWithOutput(command: string, options: any = {}): { stdout
  * @returns 命令输出
  */
 export function execSync(command: string, options: any = {}): string {
-  return execSync(command, { ...options, encoding: 'utf8' });
+  return cpExecSync(command, { ...options, encoding: 'utf8' });
 }

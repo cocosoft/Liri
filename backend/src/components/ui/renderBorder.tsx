@@ -7,7 +7,7 @@ type BorderStyle = 'single' | 'double' | 'round' | 'bold' | 'singleDouble' | 'da
 type BorderTextPosition = 'top' | 'bottom'
 type BorderTextAlign = 'start' | 'end' | 'center'
 
-interface BorderBoxProps {
+export interface BorderBoxProps {
   borderStyle?: BorderStyle
   borderColor?: string
   borderText?: string

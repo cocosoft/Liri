@@ -151,7 +151,7 @@ async function handleList(context: CommandContext): Promise<CommandResult> {
   }
 
   const mode = permissionModeIntegrationService.getPermissionMode();
-  const modeInfo = mode ? `\n当前权限模式: ${PERMISSION_MODE_NAMES[mode] || mode}` : '';
+  const modeInfo = mode ? `\n当前权限模式: ${(PERMISSION_MODE_NAMES as Record<string, string>)[mode] || mode}` : '';
 
   return {
     success: true,

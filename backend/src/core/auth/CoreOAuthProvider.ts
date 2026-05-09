@@ -5,7 +5,7 @@
  */
 
 import { OAuthProvider, OAuthProviderConfig, AuthorizeOptions, OAuthToken, UserInfo } from '@modules/oauth';
-import { OAuthClient } from '@modules/oauth';
+import { OAuthClient, OAuthConfig } from '@modules/oauth';
 
 /**
  * Core OAuth提供者
@@ -21,20 +21,20 @@ export class CoreOAuthProvider implements OAuthProvider {
       authorizeUrl: process.env.OAUTH_AUTH_URL || 'https://auth.pyapp.dev/oauth/authorize',
       tokenUrl: process.env.OAUTH_TOKEN_URL || 'https://auth.pyapp.dev/oauth/token',
       profileUrl: process.env.OAUTH_PROFILE_URL || 'https://auth.pyapp.dev/oauth/userinfo',
-      clientId: process.env.OAUTH_CLIENT_ID || '',
-      clientSecret: process.env.OAUTH_CLIENT_SECRET,
-      redirectUri: process.env.OAUTH_REDIRECT_URI || 'pyapp://oauth/callback',
+      clientId: (process.env.OAUTH_CLIENT_ID || '') as string,
+      clientSecret: (process.env.OAUTH_CLIENT_SECRET || '') as string,
+      redirectUri: (process.env.OAUTH_REDIRECT_URI || 'pyapp://oauth/callback') as string,
       scopes: ['openid', 'profile', 'email', 'api'],
     };
     this.client = new OAuthClient({
       authorizeUrl: this.config.authorizeUrl,
       tokenUrl: this.config.tokenUrl,
-      profileUrl: this.config.profileUrl,
+      profileUrl: this.config.profileUrl!,
       clientId: this.config.clientId,
       clientSecret: this.config.clientSecret,
       scopes: this.config.scopes,
       redirectUri: this.config.redirectUri,
-    });
+    } as OAuthConfig);
   }
 
   /**

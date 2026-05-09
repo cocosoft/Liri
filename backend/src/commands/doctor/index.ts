@@ -3,10 +3,11 @@
  * doctor命令 - 系统诊断
  */
 
-import { Command } from '@modules/commands/types';
+import type { Command } from '@modules/commands/types';
 import {
   getDiagnosticsService,
   DiagnosticLevel,
+  // @ts-ignore - DiagnosticsService has no type declarations
 } from '@modules/diagnostics/DiagnosticsService';
 
 /**
@@ -25,7 +26,7 @@ const doctor: Command = {
     const summary = diagnostics.getSummary();
 
     const diagnosticsText = results
-      .map((r) => {
+      .map((r: any) => {
         const levelIcon = {
           [DiagnosticLevel.INFO]: 'ℹ️',
           [DiagnosticLevel.WARNING]: '⚠️',

@@ -26,7 +26,7 @@ export type {
 } from './PluginMetadata.js';
 
 export interface PluginConfig {
-  repositories: Record<string, string>;
+  repositories: Record<string, PluginRepository>;
   enabled: string[];
   disabled: string[];
 }

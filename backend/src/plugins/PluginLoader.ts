@@ -131,7 +131,7 @@ export class PluginLoader {
             {
               pluginName,
               source,
-              cause: error
+              details: error
             }
           );
         }
@@ -158,7 +158,7 @@ export class PluginLoader {
         const plugin = await this.load(path);
         plugins.push(plugin);
       } catch (error) {
-        logger.error(`Error loading plugin:`, error);
+        logger.error(`Error loading plugin:`, error instanceof Error ? error : undefined);
         errors.push(error as Error);
       }
     });

@@ -38,6 +38,7 @@ export function Message({
       }, duration);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [duration, onClose]);
 
   if (!visible) return null;

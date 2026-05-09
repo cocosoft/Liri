@@ -23,9 +23,6 @@ export {
 
 // 从统一的OAuth模块导出
 export {
-  generateCodeVerifier,
-  generateCodeChallenge,
-  generateState,
   OAuthService,
   oauthService,
   OAuthClient,
@@ -36,6 +33,12 @@ export {
   type OAuthProviderConfig,
   type AuthorizeOptions,
 } from '@modules/oauth';
+
+export {
+  generateCodeVerifier,
+  generateCodeChallenge,
+  generateState,
+} from '@modules/oauth/utils/OAuthCrypto';
 
 export {
   getOauthConfig,

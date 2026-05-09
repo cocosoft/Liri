@@ -12,7 +12,7 @@ import chalk from 'chalk';
  * 获取徽章文本
  */
 function getBadgeText(text: string, color: string): string {
-  const colorMap: Record<string, chalk.Chalk> = {
+  const colorMap: Record<string, any> = {
     green: chalk.green,
     gray: chalk.gray,
     blue: chalk.blue,
@@ -283,12 +283,12 @@ export class ModuleDependencyManager {
         instance.initTime = Date.now() - startTime;
         instance.status = ModuleStatus.READY;
 
-        steps[i].status = 'completed' as const;
+        (steps[i] as any).status = 'completed';
         logger.info(`Initialized module: ${name} (${instance.initTime}ms)`);
       } catch (error) {
         instance.status = ModuleStatus.ERROR;
         instance.error = error instanceof Error ? error.message : String(error);
-        steps[i].status = 'error' as const;
+        (steps[i] as any).status = 'error';
         logger.error(`Failed to initialize module ${name}:`, error instanceof Error ? error : undefined);
 
         // 检查是否是可选依赖

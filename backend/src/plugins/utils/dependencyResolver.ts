@@ -132,11 +132,11 @@ export function verifyAndDemote(plugins: readonly LoadedPlugin[]): DemoteResult 
   const known = new Set(plugins.map(p => p.source));
   const enabled = new Set(plugins.filter(p => p.enabled).map(p => p.source));
 
-  const knownByName = new Set(plugins.map(p => parsePluginIdentifier(p.source).name));
+  const knownByName = new Set(plugins.map(p => parsePluginIdentifier(p.source).name ?? ''));
   const enabledByName = new Map<string, number>();
   const enabledArray = Array.from(enabled);
   for (const id of enabledArray) {
-    const n = parsePluginIdentifier(id).name;
+    const n = parsePluginIdentifier(id).name ?? '';
     enabledByName.set(n, (enabledByName.get(n) ?? 0) + 1);
   }
 
@@ -197,7 +197,7 @@ export function findReverseDependents(
   return plugins
     .filter(p =>
       p.enabled &&
-      (p.manifest.dependencies ?? []).some(dep => {
+      (p.manifest.dependencies ?? []).some((dep: string) => {
         const { name } = parsePluginIdentifier(dep);
         return name === targetName;
       })

@@ -83,12 +83,6 @@ export function recurringJitteredNextCronRunMs(
   return baseMs;
 }
 
-/**
- * 检查周期性任务是否过期
- * @param taskCreatedAt 任务创建时间戳
- * @param config 抖动配置
- * @returns 是否过期
- */
 export function isRecurringTaskExpired(
   taskCreatedAt: number,
   config: CronJitterConfig = DEFAULT_CRON_JITTER_CONFIG
@@ -99,6 +93,28 @@ export function isRecurringTaskExpired(
   }
   const now = Date.now();
   return now - taskCreatedAt > recurringMaxAgeMs;
+}
+
+/**
+ * 检查任务是否过期
+ * @param createdAt 任务创建时间点
+ * @param isRecurring 是否为周期性任务
+ * @param isPermanent 是否为永久任务
+ * @returns 是否过期
+ */
+export function isTaskExpired(
+  createdAt: number,
+  isRecurring: boolean,
+  isPermanent: boolean
+): boolean {
+  if (!isRecurring || isPermanent) {
+    return false;
+  }
+  const { recurringMaxAgeMs } = DEFAULT_CRON_JITTER_CONFIG;
+  if (!recurringMaxAgeMs || recurringMaxAgeMs === 0) {
+    return false;
+  }
+  return Date.now() - createdAt >= recurringMaxAgeMs;
 }
 
 /**

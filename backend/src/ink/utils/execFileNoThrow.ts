@@ -18,8 +18,10 @@ export async function execFileNoThrow(
     const result = await execFileAsync(command, args, {
       timeout: options?.timeout ?? 5000,
       input: options?.input,
-    });
-    return { stdout: result.stdout, stderr: result.stderr, code: 0 };
+    } as any);
+    const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+    const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+    return { stdout, stderr, code: 0 };
   } catch {
     return { stdout: '', stderr: '', code: -1 };
   }

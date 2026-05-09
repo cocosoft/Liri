@@ -4,11 +4,11 @@
  */
 
 import {
-  ChatService,
   ChatServiceConfig,
+  ChatService,
   ChatSessionOptions,
-  ChatSession,
 } from '../models/types';
+import { ChatSession } from '../types/session';
 import { ChatSession as ChatSessionImpl } from '../sessions/chatSession';
 import { join } from 'path';
 import {
@@ -25,7 +25,7 @@ import { AIModelType } from '@modules/ai/models/types';
  */
 export class ChatServiceImpl implements ChatService {
   private config: ChatServiceConfig;
-  private sessions: Map<string, ChatSession> = new Map();
+  private sessions: Map<string, ChatSessionImpl> = new Map();
 
   /**
    * 构造函数
@@ -52,7 +52,7 @@ export class ChatServiceImpl implements ChatService {
     const session = new ChatSessionImpl(options);
     this.sessions.set(session.getId(), session);
     this.saveSession(session);
-    return session;
+    return session as unknown as ChatSession;
   }
 
   /**
@@ -61,7 +61,7 @@ export class ChatServiceImpl implements ChatService {
    * @returns 聊天会话或undefined
    */
   getSession(sessionId: string): ChatSession | undefined {
-    return this.sessions.get(sessionId);
+    return this.sessions.get(sessionId) as unknown as ChatSession | undefined;
   }
 
   /**
@@ -69,7 +69,7 @@ export class ChatServiceImpl implements ChatService {
    * @returns 会话列表
    */
   listSessions(): ChatSession[] {
-    return Array.from(this.sessions.values());
+    return Array.from(this.sessions.values()) as unknown as ChatSession[];
   }
 
   /**
@@ -101,7 +101,7 @@ export class ChatServiceImpl implements ChatService {
     if (session) {
       session.updateOptions(options);
       this.saveSession(session);
-      return session;
+      return session as unknown as ChatSession;
     }
     return undefined;
   }
@@ -154,21 +154,14 @@ export class ChatServiceImpl implements ChatService {
       return [];
     }
     
-    // 尝试获取消息，支持不同的会话实现
-    if (session.getMessages) {
-      return session.getMessages();
-    } else if (session.messages) {
-      return session.messages;
-    }
-    
-    return [];
+    return session.getHistory().getMessages();
   }
 
   /**
    * 保存会话
    * @param session 聊天会话
    */
-  private saveSession(session: ChatSession): void {
+  private saveSession(session: ChatSessionImpl): void {
     const sessionPath = join(
       this.config.storagePath,
       `${session.getId()}.json`
@@ -244,5 +237,3 @@ export function createChatService(
  * 聊天服务实例
  */
 export const chatService = createChatService();
-
-export type ChatService = ChatService;

@@ -10,7 +10,7 @@ export interface UtilHandlerOptions {
   verbose?: boolean;
 }
 
-export class UtilHandler implements CLIHandler {
+export class UtilHandler {
   private verbose: boolean;
 
   constructor(options: UtilHandlerOptions = {}) {
@@ -45,7 +45,7 @@ export class UtilHandler implements CLIHandler {
     }
   }
 
-  private async showHelp(args: string[]) {
+  async showHelp(args: string[] = []) {
     if (args.length === 0) {
       this.printGeneralHelp();
     } else {
@@ -116,6 +116,7 @@ export class UtilHandler implements CLIHandler {
   }
 
   private async showVersion() {
+    // @ts-expect-error - package.json has no type declarations
     const packageJson = await import('../../package.json');
     console.log(`PY_APP v${packageJson.version}`);
   }

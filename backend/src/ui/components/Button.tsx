@@ -241,7 +241,7 @@ export function ButtonGroup({
   spacing?: number;
 }) {
   return (
-    <Box flexDirection={direction} gap={spacing}>
+    <Box flexDirection={direction === 'horizontal' ? 'row' : 'column'} gap={spacing}>
       {children}
     </Box>
   );

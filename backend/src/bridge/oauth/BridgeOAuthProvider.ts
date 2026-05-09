@@ -5,7 +5,7 @@
  */
 
 import { OAuthProvider, OAuthProviderConfig, AuthorizeOptions, OAuthToken, UserInfo } from '@modules/oauth';
-import { OAuthClient } from '@modules/oauth';
+import { OAuthClient, OAuthConfig } from '@modules/oauth';
 
 export class BridgeOAuthProvider implements OAuthProvider {
   id = 'bridge';
@@ -18,20 +18,20 @@ export class BridgeOAuthProvider implements OAuthProvider {
       authorizeUrl: process.env.BRIDGE_AUTH_URL || 'https://api.anthropic.com/oauth/authorize',
       tokenUrl: process.env.BRIDGE_TOKEN_URL || 'https://api.anthropic.com/oauth/token',
       profileUrl: process.env.BRIDGE_PROFILE_URL || 'https://api.anthropic.com/v1/me',
-      clientId: process.env.BRIDGE_CLIENT_ID || '',
-      clientSecret: process.env.BRIDGE_CLIENT_SECRET,
-      redirectUri: process.env.BRIDGE_REDIRECT_URI || 'pyapp://oauth/callback',
+      clientId: (process.env.BRIDGE_CLIENT_ID || '') as string,
+      clientSecret: (process.env.BRIDGE_CLIENT_SECRET || '') as string,
+      redirectUri: (process.env.BRIDGE_REDIRECT_URI || 'pyapp://oauth/callback') as string,
       scopes: ['openid', 'profile', 'email'],
     };
     this.client = new OAuthClient({
       authorizeUrl: this.config.authorizeUrl,
       tokenUrl: this.config.tokenUrl,
-      profileUrl: this.config.profileUrl,
+      profileUrl: this.config.profileUrl!,
       clientId: this.config.clientId,
       clientSecret: this.config.clientSecret,
       scopes: this.config.scopes,
       redirectUri: this.config.redirectUri,
-    });
+    } as OAuthConfig);
   }
 
   /**

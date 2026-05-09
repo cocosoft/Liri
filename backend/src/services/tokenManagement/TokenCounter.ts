@@ -23,7 +23,7 @@ export function roughTokenCountEstimation(text: string): number {
 }
 
 export function roughTokenCountForMessages(
-  messages: Array<{ content?: string | unknown; role?: string }>,
+  messages: readonly { content?: string | unknown; role?: string }[],
 ): number {
   let total = 0
   for (const message of messages) {
@@ -38,7 +38,7 @@ export function roughTokenCountForMessages(
 }
 
 export function tokenCountWithEstimation(
-  messages: readonly Array<{ content?: string | unknown; role?: string }>,
+  messages: ReadonlyArray<{ content?: string | unknown; role?: string }>,
   apiReportedTokens: number | null = null,
 ): number {
   if (apiReportedTokens !== null && apiReportedTokens > 0) {

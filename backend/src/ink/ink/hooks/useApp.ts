@@ -1,11 +1,11 @@
-//
 /**
  * useApp Hook
  * 提供Ink应用的全局状态和生命周期管理
  */
 
-import { useEffect, useRef } from 'react';
-import { instances } from '../instances';
+import { useEffect, useRef, useState } from 'react';
+import { registerInstance, unregisterInstance, getInstances, setActiveInstance, getInstanceById } from '../instances';
+import type { InkInstance } from '../types';
 
 export interface UseAppOptions {
   /** 是否在应用挂载时注册实例 */
@@ -29,39 +29,46 @@ export interface UseAppReturn {
 
 export function useApp(options: UseAppOptions = {}): UseAppReturn {
   const { registerOnMount = true, appId } = options;
-  const instanceRef = useRef<string | null>(null);
+  const instanceRef = useRef<InkInstance | null>(null);
+  const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
     if (registerOnMount) {
-      instanceRef.current = instances.register();
+      const instance: InkInstance = {
+        id: appId || `ink-instance-${Date.now()}`,
+        isActive: true,
+        cleanup: () => {},
+      };
+      registerInstance(instance);
+      instanceRef.current = instance;
+      setIsActive(true);
     }
 
     return () => {
       if (instanceRef.current) {
-        instances.unregister(instanceRef.current);
+        unregisterInstance(instanceRef.current);
       }
     };
-  }, [registerOnMount]);
+  }, [registerOnMount, appId]);
 
   const activate = () => {
     if (instanceRef.current) {
-      instances.activate(instanceRef.current);
+      setActiveInstance(instanceRef.current.id);
+      setIsActive(true);
     }
   };
 
   const deactivate = () => {
-    if (instanceRef.current) {
-      instances.deactivate(instanceRef.current);
-    }
+    setIsActive(false);
   };
 
   const getRegisteredApps = () => {
-    return instances.getIds();
+    return getInstances().map((inst) => inst.id);
   };
 
   return {
-    isActive: instances.isActive(instanceRef.current || ''),
-    appId: instanceRef.current || appId,
+    isActive,
+    appId: instanceRef.current?.id || appId,
     activate,
     deactivate,
     getRegisteredApps,

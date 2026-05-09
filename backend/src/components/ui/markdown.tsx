@@ -1,6 +1,6 @@
 //
 import React from 'react'
-import { Text, Box } from '../../ink.js'
+import { Text, Box } from '../ink.js'
 
 interface MarkdownBlockProps {
   content: string

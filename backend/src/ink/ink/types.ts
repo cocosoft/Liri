@@ -4,8 +4,8 @@
 
 export interface InkInstance {
   id: string;
-  rootElement: React.ReactElement;
-  container: HTMLElement | null;
+  rootElement?: React.ReactElement;
+  container?: HTMLElement | null;
   isActive: boolean;
   cleanup?: () => void;
 }

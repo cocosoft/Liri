@@ -5,7 +5,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Text, Box } from './Box';
+import Box from './Box';
+import Text from './Text';
 
 export interface SelectOption {
   value: string;
@@ -97,7 +98,7 @@ export const Select: React.FC<SelectProps> = ({
                 onChange?.(option.value);
                 setIsOpen(false);
               }}
-              onKeyDown={(key) => {
+              onKeyDown={(key: string) => {
                 if (key === 'enter') {
                   onChange?.(option.value);
                   setIsOpen(false);

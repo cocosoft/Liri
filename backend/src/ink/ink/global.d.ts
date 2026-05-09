@@ -11,19 +11,18 @@ declare module '*.ts' {
   export default value;
 }
 
-declare module './components/AlternateScreen' {
-  export default function AlternateScreen(props: Record<string, unknown>): JSX.Element;
-}
-
-declare module './components/NoSelect' {
-  export default function NoSelect(props: Record<string, unknown>): JSX.Element;
-}
-
-declare module './components/RawAnsi' {
-  export default function RawAnsi(props: Record<string, unknown>): JSX.Element;
-}
-
 // Add any other global type declarations here
+
+// Missing module declarations
+declare module 'bidi-js';
+declare module 'stack-utils';
+declare module 'semver';
+
+// Bun global declaration
+declare const Bun: {
+  stringWidth: ((str: string, opts?: { ambiguousIsNarrow?: boolean }) => number) | undefined;
+  wrapAnsi: ((input: string, columns: number, options?: { hard?: boolean; wordWrap?: boolean; trim?: boolean }) => string) | undefined;
+};
 
 declare module 'lodash-es/noop.js' {
   const noop: (...args: any[]) => any;

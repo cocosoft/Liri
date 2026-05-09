@@ -2,9 +2,12 @@
 import codeExcerpt, { type CodeExcerpt } from 'code-excerpt';
 import { readFileSync } from 'fs';
 import React from 'react';
-import StackUtils from 'stack-utils';
 import Box from './Box.js';
 import Text from './Text.js';
+
+// 使用 require 避免类型问题
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const StackUtils = require('stack-utils');
 
 /* eslint-disable custom-rules/no-process-cwd -- stack trace file:// paths are relative to the real OS cwd, not the virtual cwd */
 
@@ -13,8 +16,8 @@ import Text from './Text.js';
 const cleanupPath = (path: string | undefined): string | undefined => {
   return path?.replace(`file://${process.cwd()}/`, '');
 };
-let stackUtils: StackUtils | undefined;
-function getStackUtils(): StackUtils {
+let stackUtils: any;
+function getStackUtils(): any {
   return stackUtils ??= new StackUtils({
     cwd: process.cwd(),
     internals: StackUtils.nodeInternals()

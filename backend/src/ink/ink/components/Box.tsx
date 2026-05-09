@@ -9,7 +9,7 @@ import type { FocusEvent } from '../events/focus-event.js';
 import type { KeyboardEvent } from '../events/keyboard-event.js';
 import type { Styles } from '../styles.js';
 import * as warn from '../warn.js';
-export type Props = Except<Styles, 'textWrap'> & {
+export type Props = PropsWithChildren<Except<Styles, 'textWrap'> & {
   ref?: Ref<DOMElement>;
   /**
    * Tab order index. Nodes with `tabIndex >= 0` participate in
@@ -44,12 +44,12 @@ export type Props = Except<Styles, 'textWrap'> & {
   onMouseEnter?: () => void;
   /** Fired when the mouse moves out of this Box's rendered rect. */
   onMouseLeave?: () => void;
-};
+}>;
 
 /**
  * `<Box>` is an essential Ink component to build your layout. It's like `<div style="display: flex">` in the browser.
  */
-function Box(t0) {
+function Box(t0: Props) {
   const $ = _c(42);
   let autoFocus;
   let children;

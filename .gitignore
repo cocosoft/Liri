@@ -28,6 +28,12 @@ Thumbs.db
 Desktop.ini
 
 # Python
+
+# Temporary
+backend/errors.txt
+backend/typecheck-errors*.txt
+backend/fix_*.ps1
+backend/input.txt
 __pycache__/
 *.pyc
 *.pyo

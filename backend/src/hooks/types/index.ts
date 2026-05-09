@@ -223,6 +223,16 @@ export interface HookContext {
    * 扩展数据
    */
   extensions?: Record<string, any>;
+  
+  /**
+   * 匹配器配置
+   */
+  matcher?: string;
+  
+  /**
+   * 额外属性
+   */
+  [key: string]: any;
 }
 
 /**
@@ -293,6 +303,11 @@ export interface HookResult {
    * 扩展数据
    */
   extensions?: Record<string, any>;
+  
+  /**
+   * 额外属性
+   */
+  [key: string]: any;
 }
 
 /**
@@ -533,4 +548,134 @@ export interface CompressionHookResult extends HookResult {
    * 压缩优化
    */
   compressionOptimizations?: any;
+}
+
+/**
+ * 单个Hook配置（基于CC源码）
+ */
+export interface IndividualHookConfig {
+  /**
+   * Hook ID
+   */
+  id: string;
+
+  /**
+   * Hook名称
+   */
+  name: string;
+
+  /**
+   * Hook事件类型
+   */
+  event: HookEvent;
+
+  /**
+   * 是否启用
+   */
+  enabled: boolean;
+
+  /**
+   * Hook优先级
+   */
+  priority: HookPriority;
+
+  /**
+   * 匹配器配置
+   */
+  matcher?: MatcherMetadata;
+
+  /**
+   * 执行器类型
+   */
+  executor?: string;
+
+  /**
+   * 执行器配置
+   */
+  executorConfig?: Record<string, any>;
+
+  /**
+   * Hook配置
+   */
+  config: Record<string, any>;
+
+  /**
+   * 额外属性
+   */
+  [key: string]: any;
+}
+
+/**
+ * Hook执行上下文
+ */
+export type HookExecutionContext = HookContext;
+
+/**
+ * Hook执行结果
+ */
+export type HookExecutionResult = HookResult;
+
+/**
+ * Hook事件元数据
+ */
+export interface HookEventMetadata {
+  /**
+   * 事件概要
+   */
+  summary?: string;
+
+  /**
+   * 事件描述
+   */
+  description?: string;
+
+  /**
+   * 匹配器元数据
+   */
+  matcherMetadata?: Record<string, any>;
+
+  /**
+   * 事件ID
+   */
+  eventId?: string;
+
+  /**
+   * 事件时间
+   */
+  timestamp?: number;
+
+  /**
+   * 事件来源
+   */
+  source?: string;
+
+  /**
+   * 额外数据
+   */
+  [key: string]: any;
+}
+
+/**
+ * 匹配器元数据
+ */
+export interface MatcherMetadata {
+  /**
+   * 匹配器类型
+   */
+  type?: string;
+
+  /**
+   * 匹配模式
+   */
+  pattern?: string;
+
+  /**
+   * 匹配器配置
+   */
+  config?: Record<string, any>;
+
+  /**
+   * 额外属性
+   */
+  [key: string]: any;
 }

@@ -1,6 +1,6 @@
 //
 import React, { useState } from 'react'
-import { Box, Text } from '../../ink.js'
+import { Box, Text } from '../ink.js'
 
 interface ThinkingBlockProps {
   thinking: string

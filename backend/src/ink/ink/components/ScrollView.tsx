@@ -5,7 +5,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Text } from './Box';
+import Box from './Box';
+import Text from './Text';
 
 export interface ScrollViewProps {
   children: React.ReactNode;

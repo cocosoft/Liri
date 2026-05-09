@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { Box, Text } from './Box';
+import Box from './Box';
+import Text from './Text';
 
 export interface ModalProps {
   /** 是否显示模态框 */
@@ -59,7 +60,7 @@ export const Modal: React.FC<ModalProps> = ({
           {isClosable && (
             <Box
               onClick={onClose}
-              onKeyDown={(key) => key === 'enter' && onClose?.()}
+              onKeyDown={(key: string) => key === 'enter' && onClose?.()}
             >
               <Text color="white">×</Text>
             </Box>

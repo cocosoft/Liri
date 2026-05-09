@@ -1,6 +1,6 @@
 //
 import React from 'react'
-import { Box, Text } from '../../ink.js'
+import { Box, Text } from '../ink.js'
 
 type BorderStyle = 'single' | 'double' | 'round' | 'bold' | 'singleDouble' | 'dashed'
 

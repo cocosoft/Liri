@@ -5,8 +5,8 @@
  */
 
 import React from 'react';
-import { Text } from './Text';
-import { Box } from './Box';
+import Text from './Text';
+import Box from './Box';
 
 export interface ProgressBarProps {
   /** 当前进度值 (0-100) */

@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { Text, Box } from './Box';
+import Box from './Box';
+import Text from './Text';
 
 export interface CheckboxProps {
   /** 是否选中 */

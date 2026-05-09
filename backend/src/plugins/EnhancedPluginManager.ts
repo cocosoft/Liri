@@ -10,6 +10,9 @@ import {
   PluginType,
   PluginEvent,
 } from './index.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件性能指标
@@ -354,9 +357,9 @@ export class EnhancedPluginManager {
 
       this.performanceMetrics.set(pluginId, metrics);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to collect performance metrics for plugin ${pluginId}:`,
-        error
+        { error }
       );
     }
   }
@@ -389,10 +392,9 @@ export class EnhancedPluginManager {
 
       this.securityAssessments.set(pluginId, assessment);
     } catch (error) {
-      console.error(
-        `Failed to perform security scan for plugin ${pluginId}:`,
-        error
-      );
+      logger.error(`Failed to perform security scan for plugin ${pluginId}:`, {
+        error,
+      });
     }
   }
 
@@ -414,10 +416,9 @@ export class EnhancedPluginManager {
 
       this.dependencyAnalyses.set(pluginId, analysis);
     } catch (error) {
-      console.error(
-        `Failed to analyze dependencies for plugin ${pluginId}:`,
-        error
-      );
+      logger.error(`Failed to analyze dependencies for plugin ${pluginId}:`, {
+        error,
+      });
     }
   }
 
@@ -450,9 +451,9 @@ export class EnhancedPluginManager {
 
       this.recommendations.set(pluginId, recommendations);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to generate recommendations for plugin ${pluginId}:`,
-        error
+        { error }
       );
     }
   }

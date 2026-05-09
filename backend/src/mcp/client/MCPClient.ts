@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
   MCPClient,
   MCPRequest,
@@ -22,6 +23,8 @@ import type {
 /**
  * MCP客户端类（基于CC源码实现）
  */
+const logger = new Logger({ level: LogLevel.INFO });
+
 export class MCPClientImpl extends EventEmitter implements MCPClient {
   private transport: MCPTransport;
   private _state: MCPClientState = 'disconnected';
@@ -325,7 +328,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     const pendingRequest = this.pendingRequests.get(response.request_id);
 
     if (!pendingRequest) {
-      console.warn(
+      logger.warning(
         `Received response for unknown request: ${response.request_id}`
       );
       return;
@@ -397,7 +400,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
       try {
         await this.getServerInfo();
       } catch (error) {
-        console.warn('Heartbeat failed:', error);
+        logger.warning('Heartbeat failed:', { error });
       }
     }, 30000); // 30秒心跳
   }

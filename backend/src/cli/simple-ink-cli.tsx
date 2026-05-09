@@ -3,6 +3,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, Newline, Spacer, render } from '../ink';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 主菜单组件
@@ -224,7 +227,7 @@ const App = () => {
         const toolManager = getToolManager();
         setTools((toolManager as any).getTools());
       } catch (error) {
-        console.error('Error initializing services:', error);
+        logger.error('Error initializing services:', { error });
       } finally {
         setLoading(false);
       }

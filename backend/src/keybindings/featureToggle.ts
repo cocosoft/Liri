@@ -3,8 +3,11 @@
  * 特性开关绑定
  * 动态启用或禁用特定的按键绑定
  */
-import type { ParsedBinding, KeybindingContextName } from './types.js';
+import type { KeybindingContextName } from './types.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import React from 'react';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 特性开关配置
@@ -74,7 +77,7 @@ export class FeatureToggleManager {
   enableFeature(name: string): boolean {
     const config = this.features.get(name);
     if (!config) {
-      console.warn(`特性未注册: ${name}`);
+      logger.warning(`特性未注册: ${name}`);
       return false;
     }
 
@@ -85,7 +88,7 @@ export class FeatureToggleManager {
       for (const dep of config.dependencies) {
         const depState = this.states.get(dep);
         if (!depState || !depState.enabled) {
-          console.warn(`特性 ${name} 依赖的特性 ${dep} 未启用`);
+          logger.warning(`特性 ${name} 依赖的特性 ${dep} 未启用`);
           return false;
         }
       }
@@ -96,7 +99,7 @@ export class FeatureToggleManager {
       for (const conflict of config.conflicts) {
         const conflictState = this.states.get(conflict);
         if (conflictState && conflictState.enabled) {
-          console.warn(`特性 ${name} 与特性 ${conflict} 冲突`);
+          logger.warning(`特性 ${name} 与特性 ${conflict} 冲突`);
           return false;
         }
       }
@@ -119,7 +122,7 @@ export class FeatureToggleManager {
   disableFeature(name: string): boolean {
     const config = this.features.get(name);
     if (!config) {
-      console.warn(`特性未注册: ${name}`);
+      logger.warning(`特性未注册: ${name}`);
       return false;
     }
 
@@ -130,7 +133,7 @@ export class FeatureToggleManager {
       if (otherConfig.dependencies?.includes(name)) {
         const otherState = this.states.get(otherName);
         if (otherState && otherState.enabled) {
-          console.warn(`无法禁用特性 ${name}，因为特性 ${otherName} 依赖它`);
+          logger.warning(`无法禁用特性 ${name}，因为特性 ${otherName} 依赖它`);
           return false;
         }
       }
@@ -152,7 +155,7 @@ export class FeatureToggleManager {
   toggleFeature(name: string): boolean {
     const state = this.states.get(name);
     if (!state) {
-      console.warn(`特性未注册: ${name}`);
+      logger.warning(`特性未注册: ${name}`);
       return false;
     }
 
@@ -209,7 +212,7 @@ export class FeatureToggleManager {
       try {
         listener(feature, enabled);
       } catch (error) {
-        console.error('Error in feature toggle listener:', error);
+        logger.error('Error in feature toggle listener:', { error });
       }
     }
   }

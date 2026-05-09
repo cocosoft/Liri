@@ -2,6 +2,9 @@
  * 消息总线
  */
 import { Message } from '../SubAgentCommunicator';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 消息订阅者
@@ -43,7 +46,7 @@ export class MessageBus {
       const existingSubscriber = subscribers.find((s) => s.id === subscriberId);
       if (!existingSubscriber) {
         subscribers.push({ id: subscriberId, callback, filter });
-        console.log(`Subscriber ${subscriberId} subscribed to topic ${topic}`);
+        logger.info(`Subscriber ${subscriberId} subscribed to topic ${topic}`);
       }
     }
   }
@@ -59,7 +62,7 @@ export class MessageBus {
       const index = subscribers.findIndex((s) => s.id === subscriberId);
       if (index !== -1) {
         subscribers.splice(index, 1);
-        console.log(
+        logger.info(
           `Subscriber ${subscriberId} unsubscribed from topic ${topic}`
         );
 
@@ -118,9 +121,9 @@ export class MessageBus {
           try {
             subscriber.callback(message);
           } catch (error) {
-            console.error(
+            logger.error(
               `Error processing message for subscriber ${subscriber.id}:`,
-              error
+              { error }
             );
           }
         }
@@ -151,9 +154,9 @@ export class MessageBus {
               try {
                 subscriber.callback(message);
               } catch (error) {
-                console.error(
+                logger.error(
                   `Error processing message for subscriber ${subscriber.id}:`,
-                  error
+                  { error }
                 );
               }
             }
@@ -198,7 +201,7 @@ export class MessageBus {
   cleanup(): void {
     this.subscribers.clear();
     this.messageQueue = [];
-    console.log('MessageBus cleaned up');
+    logger.info('MessageBus cleaned up');
   }
 }
 

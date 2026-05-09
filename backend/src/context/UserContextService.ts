@@ -5,6 +5,9 @@
 
 import fs from 'fs';
 import path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const MAX_CONTEXT_FILE_SIZE = 50000; // 50KB
 
@@ -65,7 +68,7 @@ export class UserContextService {
       // 检查文件大小
       const stats = fs.statSync(filePath);
       if (stats.size > MAX_CONTEXT_FILE_SIZE) {
-        console.warn(
+        logger.warning(
           `Context file ${filePath} exceeds max size, reading truncated`
         );
       }
@@ -74,7 +77,7 @@ export class UserContextService {
       const content = fs.readFileSync(filePath, 'utf-8');
       return content;
     } catch (error) {
-      console.error(`Failed to read context file ${filePath}:`, error);
+      logger.error(`Failed to read context file ${filePath}:`, { error });
       return null;
     }
   }

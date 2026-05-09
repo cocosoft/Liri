@@ -4,12 +4,15 @@
  */
 
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   PluginState,
   LoadedPlugin,
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 生命周期事件类型（基于CC源码）
@@ -107,7 +110,7 @@ export class PluginLifecycleManager extends EventEmitter {
 
     this.emitLifecycleEvent(PluginLifecycleEvent.AFTER_INITIALIZE, plugin);
 
-    console.log(`✅ Plugin registered: ${plugin.id}`);
+    logger.info(`✅ Plugin registered: ${plugin.id}`);
   }
 
   /**
@@ -129,7 +132,7 @@ export class PluginLifecycleManager extends EventEmitter {
 
     this.emitLifecycleEvent(PluginLifecycleEvent.AFTER_UNLOAD, plugin);
 
-    console.log(`✅ Plugin unregistered: ${pluginId}`);
+    logger.info(`✅ Plugin unregistered: ${pluginId}`);
 
     return true;
   }
@@ -177,7 +180,7 @@ export class PluginLifecycleManager extends EventEmitter {
         newState: PluginState.ACTIVATED,
       });
 
-      console.log(`✅ Plugin started: ${pluginId}`);
+      logger.info(`✅ Plugin started: ${pluginId}`);
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
@@ -222,7 +225,7 @@ export class PluginLifecycleManager extends EventEmitter {
         newState: PluginState.DEACTIVATED,
       });
 
-      console.log(`✅ Plugin stopped: ${pluginId}`);
+      logger.info(`✅ Plugin stopped: ${pluginId}`);
     } catch (error) {
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
@@ -250,7 +253,7 @@ export class PluginLifecycleManager extends EventEmitter {
 
     await this.startPlugin(pluginId);
 
-    console.log(`✅ Plugin restarted: ${pluginId}`);
+    logger.info(`✅ Plugin restarted: ${pluginId}`);
   }
 
   /**
@@ -264,14 +267,14 @@ export class PluginLifecycleManager extends EventEmitter {
         try {
           await this.startPlugin(plugin.id);
         } catch (error) {
-          console.error(`Failed to start plugin ${plugin.id}:`, error);
+          logger.error(`Failed to start plugin ${plugin.id}:`, { error });
         }
       }
     }
 
     this.emitLifecycleEvent(PluginLifecycleEvent.AFTER_START, null);
 
-    console.log(
+    logger.info(
       `✅ All plugins started: ${this.getActivatedPlugins().length}/${this.plugins.size}`
     );
   }
@@ -287,14 +290,14 @@ export class PluginLifecycleManager extends EventEmitter {
         try {
           await this.stopPlugin(plugin.id);
         } catch (error) {
-          console.error(`Failed to stop plugin ${plugin.id}:`, error);
+          logger.error(`Failed to stop plugin ${plugin.id}:`, { error });
         }
       }
     }
 
     this.emitLifecycleEvent(PluginLifecycleEvent.AFTER_STOP, null);
 
-    console.log(
+    logger.info(
       `✅ All plugins stopped: ${this.getDeactivatedPlugins().length}/${this.plugins.size}`
     );
   }
@@ -314,7 +317,7 @@ export class PluginLifecycleManager extends EventEmitter {
 
     this.lifecycleHooks.set(event, hooks);
 
-    console.log(`✅ Lifecycle hook registered: ${hook.name} for ${event}`);
+    logger.info(`✅ Lifecycle hook registered: ${hook.name} for ${event}`);
   }
 
   /**
@@ -334,7 +337,7 @@ export class PluginLifecycleManager extends EventEmitter {
     hooks.splice(index, 1);
     this.lifecycleHooks.set(event, hooks);
 
-    console.log(`✅ Lifecycle hook unregistered: ${hookName} from ${event}`);
+    logger.info(`✅ Lifecycle hook unregistered: ${hookName} from ${event}`);
 
     return true;
   }
@@ -352,9 +355,9 @@ export class PluginLifecycleManager extends EventEmitter {
       try {
         await hook.handler(plugin);
       } catch (error) {
-        console.error(
+        logger.error(
           `Lifecycle hook ${hook.name} failed for plugin ${plugin.id}:`,
-          error
+          { error }
         );
 
         this.emitLifecycleEvent(PluginLifecycleEvent.ERROR, plugin, {
@@ -461,7 +464,7 @@ export class PluginLifecycleManager extends EventEmitter {
 
     await this.startAllPlugins();
 
-    console.log('✅ Plugin lifecycle manager started');
+    logger.info('✅ Plugin lifecycle manager started');
   }
 
   /**
@@ -476,7 +479,7 @@ export class PluginLifecycleManager extends EventEmitter {
 
     this.isRunning = false;
 
-    console.log('✅ Plugin lifecycle manager stopped');
+    logger.info('✅ Plugin lifecycle manager stopped');
   }
 
   /**
@@ -488,7 +491,7 @@ export class PluginLifecycleManager extends EventEmitter {
     this.plugins.clear();
     this.lifecycleHooks.clear();
 
-    console.log('✅ Plugin lifecycle manager destroyed');
+    logger.info('✅ Plugin lifecycle manager destroyed');
   }
 }
 

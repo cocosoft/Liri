@@ -8,6 +8,9 @@ import {
   ParsedBinding,
   KeybindingWarning,
 } from './types.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 快捷键使用统计
@@ -380,7 +383,7 @@ export class EnhancedKeybindingsManager {
         await this.updateUsageStatistics(bindingId);
       }
     } catch (error) {
-      console.error('Failed to collect usage statistics:', error);
+      logger.error('Failed to collect usage statistics:', { error });
     }
   }
 
@@ -396,7 +399,7 @@ export class EnhancedKeybindingsManager {
         await this.detectBindingConflicts(bindingId);
       }
     } catch (error) {
-      console.error('Failed to detect conflicts:', error);
+      logger.error('Failed to detect conflicts:', { error });
     }
   }
 
@@ -412,7 +415,7 @@ export class EnhancedKeybindingsManager {
         await this.analyzeBindingPatterns(bindingId);
       }
     } catch (error) {
-      console.error('Failed to analyze patterns:', error);
+      logger.error('Failed to analyze patterns:', { error });
     }
   }
 
@@ -437,9 +440,9 @@ export class EnhancedKeybindingsManager {
 
       this.usageStatistics.set(bindingId, statistics);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to update usage statistics for binding ${bindingId}:`,
-        error
+        { error }
       );
     }
   }
@@ -465,10 +468,9 @@ export class EnhancedKeybindingsManager {
 
       this.conflicts.set(bindingId, conflicts);
     } catch (error) {
-      console.error(
-        `Failed to detect conflicts for binding ${bindingId}:`,
-        error
-      );
+      logger.error(`Failed to detect conflicts for binding ${bindingId}:`, {
+        error,
+      });
     }
   }
 
@@ -521,10 +523,9 @@ export class EnhancedKeybindingsManager {
 
       this.patternAnalyses.set(bindingId, patternAnalysis);
     } catch (error) {
-      console.error(
-        `Failed to analyze patterns for binding ${bindingId}:`,
-        error
-      );
+      logger.error(`Failed to analyze patterns for binding ${bindingId}:`, {
+        error,
+      });
     }
   }
 
@@ -547,9 +548,9 @@ export class EnhancedKeybindingsManager {
 
       this.performanceMetrics.set(bindingId, metrics);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to collect performance metrics for binding ${bindingId}:`,
-        error
+        { error }
       );
     }
   }
@@ -583,10 +584,9 @@ export class EnhancedKeybindingsManager {
 
       this.efficiencyAnalyses.set(bindingId, analysis);
     } catch (error) {
-      console.error(
-        `Failed to analyze efficiency for binding ${bindingId}:`,
-        error
-      );
+      logger.error(`Failed to analyze efficiency for binding ${bindingId}:`, {
+        error,
+      });
     }
   }
 
@@ -631,9 +631,9 @@ export class EnhancedKeybindingsManager {
 
       this.recommendations.set(bindingId, recommendations);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to generate recommendations for binding ${bindingId}:`,
-        error
+        { error }
       );
     }
   }

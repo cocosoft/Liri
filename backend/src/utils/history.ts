@@ -4,6 +4,9 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 历史记录项
@@ -73,7 +76,7 @@ export class HistoryManager {
       );
     } catch (error) {
       // 保存失败，忽略错误
-      console.warn('Failed to save history:', error);
+      logger.warning('Failed to save history:', { error });
     }
   }
 

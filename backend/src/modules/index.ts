@@ -4,6 +4,10 @@
  * 统一导出所有模块管理相关功能
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 // 导出模块注册表
 export {
   ModuleCategory,
@@ -42,7 +46,7 @@ export {
  * 快速初始化所有模块
  */
 export async function quickInitialize(): Promise<void> {
-  console.log('快速初始化模块管理系统...');
+  logger.info('快速初始化模块管理系统...');
 
   try {
     // 注册所有模块
@@ -53,9 +57,9 @@ export async function quickInitialize(): Promise<void> {
     // 初始化所有模块
     await moduleInitializer.initializeAllModules();
 
-    console.log('模块管理系统初始化完成');
+    logger.info('模块管理系统初始化完成');
   } catch (error) {
-    console.error('模块管理系统初始化失败:', error);
+    logger.error('模块管理系统初始化失败:', { error });
     throw error;
   }
 }
@@ -103,10 +107,10 @@ export const ModuleUsageExamples = {
       const agentModule = await importModule('@modules/agent');
       const aiModule = await importModule('@modules/ai');
 
-      console.log('模块导入成功');
+      logger.info('模块导入成功');
       return { agentModule, aiModule };
     } catch (error) {
-      console.error('模块导入失败:', error);
+      logger.error('模块导入失败:', { error });
       throw error;
     }
   },
@@ -122,10 +126,10 @@ export const ModuleUsageExamples = {
       const coreModule = await importFromRegistry('core');
       const configModule = await importFromRegistry('config');
 
-      console.log('从注册表导入模块成功');
+      logger.info('从注册表导入模块成功');
       return { coreModule, configModule };
     } catch (error) {
-      console.error('从注册表导入模块失败:', error);
+      logger.error('从注册表导入模块失败:', { error });
       throw error;
     }
   },
@@ -145,10 +149,10 @@ export const ModuleUsageExamples = {
         '@modules/bridge',
       ]);
 
-      console.log('批量导入模块成功');
+      logger.info('批量导入模块成功');
       return modules;
     } catch (error) {
-      console.error('批量导入模块失败:', error);
+      logger.error('批量导入模块失败:', { error });
       throw error;
     }
   },
@@ -161,11 +165,11 @@ export const ModuleUsageExamples = {
 
     const { allInitialized, states } = checkModuleInitialization();
 
-    console.log('所有模块是否已初始化:', allInitialized);
-    console.log('模块初始化状态:');
+    logger.info('所有模块是否已初始化:', allInitialized);
+    logger.info('模块初始化状态:');
 
     for (const [moduleId, state] of Object.entries(states)) {
-      console.log(`  ${moduleId}: ${(state as any).status}`);
+      logger.info(`  ${moduleId}: ${(state as any).status}`);
     }
 
     return { allInitialized, states };

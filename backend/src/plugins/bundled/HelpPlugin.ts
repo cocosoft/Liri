@@ -5,6 +5,9 @@
 
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export const HelpPluginMetadata: PluginMetadata = {
   id: 'help',
@@ -30,21 +33,21 @@ export class HelpPlugin implements Plugin {
   }
 
   async initialize(): Promise<void> {
-    console.log(`[HelpPlugin] 初始化帮助插件`);
+    logger.info(`[HelpPlugin] 初始化帮助插件`);
   }
 
   async activate(): Promise<void> {
     this.enabled = true;
-    console.log(`[HelpPlugin] 帮助插件已激活`);
+    logger.info(`[HelpPlugin] 帮助插件已激活`);
   }
 
   async deactivate(): Promise<void> {
     this.enabled = false;
-    console.log(`[HelpPlugin] 帮助插件已停用`);
+    logger.info(`[HelpPlugin] 帮助插件已停用`);
   }
 
   async dispose(): Promise<void> {
-    console.log(`[HelpPlugin] 帮助插件已释放`);
+    logger.info(`[HelpPlugin] 帮助插件已释放`);
   }
 
   /**

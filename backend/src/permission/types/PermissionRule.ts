@@ -1,6 +1,11 @@
 /**
  * 权限行为枚举
  */
+
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 export enum PermissionBehavior {
   /**
    * 允许使用工具
@@ -276,7 +281,7 @@ export function isRuleMatch(
     const pattern = new RegExp(rule.contentPattern);
     return pattern.test(inputString);
   } catch (error) {
-    console.error('Error checking rule match:', error);
+    logger.error('Error checking rule match:', { error });
     return false;
   }
 }

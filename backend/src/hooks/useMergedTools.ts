@@ -8,6 +8,10 @@
  * - 插件工具（Plugin Tools）
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getToolRegistry, type Tool } from '@modules/tools';
 import { hookManager } from './HookManager';
@@ -120,7 +124,7 @@ export function useMergedTools(): UseMergedToolsResult {
       const allTools = Array.from(registry.getTools().values());
       setTools(allTools);
     } catch (error) {
-      console.error('加载工具列表失败:', error);
+      logger.error('加载工具列表失败:', { error });
     } finally {
       setIsLoading(false);
     }

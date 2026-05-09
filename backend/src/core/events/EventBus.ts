@@ -3,6 +3,10 @@
  * 基于发布-订阅模式的事件驱动通信机制
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 事件监听器接口
  */
@@ -38,10 +42,10 @@ export interface EventBus {
  */
 export class EventBusImpl implements EventBus {
   private listeners: Map<string, Set<EventListener>> = new Map();
-  private logger?: (message: string) => void;
+  private eventLogger?: (message: string) => void;
 
-  constructor(logger?: (message: string) => void) {
-    this.logger = logger;
+  constructor(eventLogger?: (message: string) => void) {
+    this.eventLogger = eventLogger;
   }
 
   /**
@@ -60,7 +64,7 @@ export class EventBusImpl implements EventBus {
 
     this.listeners.get(event)!.add(listener);
 
-    this.logger?.(`[EventBus] Subscribed to event: ${event}`);
+    this.eventLogger?.(`[EventBus] Subscribed to event: ${event}`);
 
     return {
       unsubscribe: () => {
@@ -81,7 +85,7 @@ export class EventBusImpl implements EventBus {
       return;
     }
 
-    this.logger?.(`[EventBus] Publishing event: ${event}`);
+    this.eventLogger?.(`[EventBus] Publishing event: ${event}`);
 
     for (const listener of eventListeners) {
       try {
@@ -89,17 +93,16 @@ export class EventBusImpl implements EventBus {
 
         if (result instanceof Promise) {
           result.catch((error) => {
-            console.error(
+            logger.error(
               `[EventBus] Error in async event listener for "${event}":`,
-              error
+              { error }
             );
           });
         }
       } catch (error) {
-        console.error(
-          `[EventBus] Error in event listener for "${event}":`,
-          error
-        );
+        logger.error(`[EventBus] Error in event listener for "${event}":`, {
+          error,
+        });
       }
     }
   }
@@ -134,7 +137,7 @@ export class EventBusImpl implements EventBus {
         this.listeners.delete(event);
       }
 
-      this.logger?.(`[EventBus] Unsubscribed from event: ${event}`);
+      this.eventLogger?.(`[EventBus] Unsubscribed from event: ${event}`);
     }
   }
 
@@ -148,13 +151,15 @@ export class EventBusImpl implements EventBus {
       if (eventListeners) {
         eventListeners.clear();
         this.listeners.delete(event);
-        this.logger?.(
+        this.eventLogger?.(
           `[EventBus] Unsubscribed all listeners from event: ${event}`
         );
       }
     } else {
       this.listeners.clear();
-      this.logger?.('[EventBus] Unsubscribed all listeners from all events');
+      this.eventLogger?.(
+        '[EventBus] Unsubscribed all listeners from all events'
+      );
     }
   }
 

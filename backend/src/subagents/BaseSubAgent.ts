@@ -16,6 +16,9 @@ import {
 import { Tool } from '../tools/types/Tool';
 import { ToolRegistry, createToolRegistry } from '../tools/ToolRegistry';
 import { v4 as uuidv4 } from 'uuid';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 子代理基类
@@ -90,7 +93,7 @@ export abstract class BaseSubAgent implements SubAgent {
       await this.onStart();
       return true;
     } catch (error) {
-      console.error(`Error starting sub-agent ${this.id}:`, error);
+      logger.error(`Error starting sub-agent ${this.id}:`, { error });
       this.status = SubAgentStatus.ERROR;
       return false;
     }
@@ -107,7 +110,7 @@ export abstract class BaseSubAgent implements SubAgent {
       this.lastActivityTime = new Date();
       return true;
     } catch (error) {
-      console.error(`Error stopping sub-agent ${this.id}:`, error);
+      logger.error(`Error stopping sub-agent ${this.id}:`, { error });
       return false;
     }
   }
@@ -123,7 +126,7 @@ export abstract class BaseSubAgent implements SubAgent {
       this.lastActivityTime = new Date();
       return true;
     } catch (error) {
-      console.error(`Error pausing sub-agent ${this.id}:`, error);
+      logger.error(`Error pausing sub-agent ${this.id}:`, { error });
       return false;
     }
   }
@@ -139,7 +142,7 @@ export abstract class BaseSubAgent implements SubAgent {
       this.lastActivityTime = new Date();
       return true;
     } catch (error) {
-      console.error(`Error resuming sub-agent ${this.id}:`, error);
+      logger.error(`Error resuming sub-agent ${this.id}:`, { error });
       return false;
     }
   }
@@ -234,7 +237,9 @@ export abstract class BaseSubAgent implements SubAgent {
       this.lastActivityTime = new Date();
       return await this.onSendMessage(message);
     } catch (error) {
-      console.error(`Error sending message from sub-agent ${this.id}:`, error);
+      logger.error(`Error sending message from sub-agent ${this.id}:`, {
+        error,
+      });
       return false;
     }
   }
@@ -249,7 +254,9 @@ export abstract class BaseSubAgent implements SubAgent {
       this.lastActivityTime = new Date();
       return await this.onReceiveMessage(message);
     } catch (error) {
-      console.error(`Error receiving message in sub-agent ${this.id}:`, error);
+      logger.error(`Error receiving message in sub-agent ${this.id}:`, {
+        error,
+      });
       return false;
     }
   }
@@ -277,7 +284,9 @@ export abstract class BaseSubAgent implements SubAgent {
       await this.onConfigUpdate(config);
       return true;
     } catch (error) {
-      console.error(`Error updating config for sub-agent ${this.id}:`, error);
+      logger.error(`Error updating config for sub-agent ${this.id}:`, {
+        error,
+      });
       return false;
     }
   }
@@ -359,7 +368,9 @@ export abstract class BaseSubAgent implements SubAgent {
       }
       return true;
     } catch (error) {
-      console.error(`Error clearing memory for sub-agent ${this.id}:`, error);
+      logger.error(`Error clearing memory for sub-agent ${this.id}:`, {
+        error,
+      });
       return false;
     }
   }
@@ -382,9 +393,9 @@ export abstract class BaseSubAgent implements SubAgent {
       this.toolRegistry.registerTool(tool);
       return true;
     } catch (error) {
-      console.error(
+      logger.error(
         `Error registering tool ${tool.name} for sub-agent ${this.id}:`,
-        error
+        { error }
       );
       return false;
     }
@@ -400,9 +411,9 @@ export abstract class BaseSubAgent implements SubAgent {
       this.toolRegistry.unregisterTool(toolName);
       return true;
     } catch (error) {
-      console.error(
+      logger.error(
         `Error unregistering tool ${toolName} for sub-agent ${this.id}:`,
-        error
+        { error }
       );
       return false;
     }
@@ -496,28 +507,28 @@ export class GenericSubAgent extends BaseSubAgent {
    * 启动时的回调方法
    */
   protected async onStart(): Promise<void> {
-    console.log(`Generic sub-agent ${this.getId()} started`);
+    logger.info(`Generic sub-agent ${this.getId()} started`);
   }
 
   /**
    * 停止时的回调方法
    */
   protected async onStop(): Promise<void> {
-    console.log(`Generic sub-agent ${this.getId()} stopped`);
+    logger.info(`Generic sub-agent ${this.getId()} stopped`);
   }
 
   /**
    * 暂停时的回调方法
    */
   protected async onPause(): Promise<void> {
-    console.log(`Generic sub-agent ${this.getId()} paused`);
+    logger.info(`Generic sub-agent ${this.getId()} paused`);
   }
 
   /**
    * 恢复时的回调方法
    */
   protected async onResume(): Promise<void> {
-    console.log(`Generic sub-agent ${this.getId()} resumed`);
+    logger.info(`Generic sub-agent ${this.getId()} resumed`);
   }
 
   /**
@@ -535,7 +546,7 @@ export class GenericSubAgent extends BaseSubAgent {
     }>;
     metadata?: Record<string, unknown>;
   }> {
-    console.log(
+    logger.info(
       `Generic sub-agent ${this.getId()} executing task: ${request.task}`
     );
 
@@ -558,7 +569,9 @@ export class GenericSubAgent extends BaseSubAgent {
    * @returns 发送结果
    */
   protected async onSendMessage(message: SubAgentMessage): Promise<boolean> {
-    console.log(`Generic sub-agent ${this.getId()} sending message:`, message);
+    logger.info(`Generic sub-agent ${this.getId()} sending message:`, {
+      message,
+    });
     return true;
   }
 
@@ -568,7 +581,9 @@ export class GenericSubAgent extends BaseSubAgent {
    * @returns 接收结果
    */
   protected async onReceiveMessage(message: SubAgentMessage): Promise<boolean> {
-    console.log(`Generic sub-agent ${this.getId()} received message:`, message);
+    logger.info(`Generic sub-agent ${this.getId()} received message:`, {
+      message,
+    });
     return true;
   }
 
@@ -579,6 +594,8 @@ export class GenericSubAgent extends BaseSubAgent {
   protected async onConfigUpdate(
     config: Partial<SubAgentConfig>
   ): Promise<void> {
-    console.log(`Generic sub-agent ${this.getId()} config updated:`, config);
+    logger.info(`Generic sub-agent ${this.getId()} config updated:`, {
+      config,
+    });
   }
 }

@@ -8,6 +8,9 @@ import path from 'path';
 import { getPerformanceProfiler } from '../core/utils/Performance.js';
 import { performanceUtils } from '../core/utils/Performance.js';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 监控配置

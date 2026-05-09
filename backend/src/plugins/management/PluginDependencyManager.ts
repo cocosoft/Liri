@@ -4,11 +4,14 @@
  */
 
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   PluginDependency,
   PluginDependencyResolution,
   PluginMetadata,
 } from '../types/PluginTypes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 依赖解析结果（基于CC源码）
@@ -102,7 +105,7 @@ export class PluginDependencyManager extends EventEmitter {
     // 按版本排序（降序）
     versions.sort((a, b) => this.compareVersions(b.version, a.version));
 
-    console.log(
+    logger.info(
       `✅ Plugin added to dependency graph: ${metadata.name}@${metadata.version}`
     );
   }
@@ -138,7 +141,7 @@ export class PluginDependencyManager extends EventEmitter {
       this.dependencyGraph.delete(pluginName);
     }
 
-    console.log(
+    logger.info(
       `✅ Plugin removed from dependency graph: ${pluginName}${version ? '@' + version : ''}`
     );
 
@@ -515,7 +518,7 @@ export class PluginDependencyManager extends EventEmitter {
     this.dependencyGraph.clear();
     this.availablePlugins.clear();
 
-    console.log('✅ Plugin dependency manager cleared');
+    logger.info('✅ Plugin dependency manager cleared');
   }
 }
 

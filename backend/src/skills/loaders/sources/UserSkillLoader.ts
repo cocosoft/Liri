@@ -8,6 +8,9 @@ import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
 import { homedir } from 'os';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 用户技能加载器
@@ -40,7 +43,7 @@ export class UserSkillLoader extends SkillLoader {
       // 加载测试目录的技�?
       await this.loadSkillsFromDirectory(this.testSkillsDir, skills, fs);
     } catch (error) {
-      console.error('Error loading user skills:', error);
+      logger.error('Error loading user skills:', { error });
     }
 
     return skills;
@@ -86,7 +89,7 @@ export class UserSkillLoader extends SkillLoader {
               'test-skill'
             );
             if (!validation.valid) {
-              console.warn(
+              logger.warning(
                 `Invalid test skill: ${validation.errors.join(', ')}`
               );
               return null;
@@ -101,7 +104,7 @@ export class UserSkillLoader extends SkillLoader {
               loadedFrom: 'test',
             });
           } catch (error) {
-            console.error(`Error loading test skill:`, error);
+            logger.error(`Error loading test skill:`, { error });
             return null;
           }
         }
@@ -135,7 +138,7 @@ export class UserSkillLoader extends SkillLoader {
           // 验证技能frontmatter
           const validation = validateSkillFrontmatter(frontmatter, entry);
           if (!validation.valid) {
-            console.warn(
+            logger.warning(
               `Invalid skill ${entry}: ${validation.errors.join(', ')}`
             );
             return null;
@@ -150,7 +153,7 @@ export class UserSkillLoader extends SkillLoader {
             loadedFrom: directory === this.testSkillsDir ? 'test' : 'user',
           });
         } catch (error) {
-          console.error(`Error loading skill ${entry}:`, error);
+          logger.error(`Error loading skill ${entry}:`, { error });
           return null;
         }
       });
@@ -165,7 +168,9 @@ export class UserSkillLoader extends SkillLoader {
         }
       }
     } catch (error) {
-      console.error(`Error loading skills from directory ${directory}:`, error);
+      logger.error(`Error loading skills from directory ${directory}:`, {
+        error,
+      });
     }
   }
 

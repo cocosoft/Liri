@@ -5,6 +5,9 @@
 
 import type { LoadedPlugin } from '../types/plugin';
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export enum PluginLifecycleEvent {
   BEFORE_INITIALIZE = 'beforeInitialize',
@@ -42,16 +45,15 @@ export class PluginLifecycleManager extends EventEmitter {
 
   private initializeDefaultHooks(): void {
     this.on(PluginLifecycleEvent.ERROR, (context: LifecycleContext) => {
-      console.error(
-        `[PluginLifecycle] Plugin ${context.plugin.name} error:`,
-        context.error
-      );
+      logger.error(`[PluginLifecycle] Plugin ${context.plugin.name} error:`, {
+        error: context.error,
+      });
     });
 
     this.on(
       PluginLifecycleEvent.STATUS_CHANGED,
       (context: LifecycleContext) => {
-        console.log(
+        logger.info(
           `[PluginLifecycle] Plugin ${context.plugin.name} status changed`
         );
       }
@@ -89,9 +91,9 @@ export class PluginLifecycleManager extends EventEmitter {
       try {
         await hook.handler(plugin);
       } catch (hookError) {
-        console.error(
+        logger.error(
           `[PluginLifecycle] Hook ${hook.name} failed for ${event}:`,
-          hookError
+          { error: hookError }
         );
       }
     }

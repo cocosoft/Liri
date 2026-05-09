@@ -5,6 +5,9 @@
 
 import { EventEmitter } from 'events';
 import { PluginEvent, PluginEventType } from '../types/PluginTypes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 事件处理器（基于CC源码）
@@ -99,7 +102,7 @@ export class PluginEventSystem extends EventEmitter {
     handlers.push(handler);
     handlers.sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
-    console.log(`✅ Event handler registered: ${handler.id} for ${eventType}`);
+    logger.info(`✅ Event handler registered: ${handler.id} for ${eventType}`);
   }
 
   /**
@@ -122,7 +125,7 @@ export class PluginEventSystem extends EventEmitter {
 
       handlers.splice(index, 1);
 
-      console.log(
+      logger.info(
         `✅ Event handler unregistered: ${handlerId} from ${eventType}`
       );
 
@@ -137,7 +140,7 @@ export class PluginEventSystem extends EventEmitter {
         if (index !== -1) {
           handlers.splice(index, 1);
           found = true;
-          console.log(
+          logger.info(
             `✅ Event handler unregistered: ${handlerId} from ${type}`
           );
         }
@@ -168,7 +171,7 @@ export class PluginEventSystem extends EventEmitter {
 
     filters.push(filter);
 
-    console.log(`✅ Event filter registered: ${filter.id} for ${eventType}`);
+    logger.info(`✅ Event filter registered: ${filter.id} for ${eventType}`);
   }
 
   /**
@@ -191,7 +194,7 @@ export class PluginEventSystem extends EventEmitter {
 
       filters.splice(index, 1);
 
-      console.log(
+      logger.info(
         `✅ Event filter unregistered: ${filterId} from ${eventType}`
       );
 
@@ -206,7 +209,7 @@ export class PluginEventSystem extends EventEmitter {
         if (index !== -1) {
           filters.splice(index, 1);
           found = true;
-          console.log(`✅ Event filter unregistered: ${filterId} from ${type}`);
+          logger.info(`✅ Event filter unregistered: ${filterId} from ${type}`);
         }
       }
 
@@ -227,7 +230,7 @@ export class PluginEventSystem extends EventEmitter {
 
     this.routingRules.push(rule);
 
-    console.log(`✅ Event routing rule added: ${rule.id}`);
+    logger.info(`✅ Event routing rule added: ${rule.id}`);
   }
 
   /**
@@ -242,7 +245,7 @@ export class PluginEventSystem extends EventEmitter {
 
     this.routingRules.splice(index, 1);
 
-    console.log(`✅ Event routing rule removed: ${ruleId}`);
+    logger.info(`✅ Event routing rule removed: ${ruleId}`);
 
     return true;
   }
@@ -311,7 +314,7 @@ export class PluginEventSystem extends EventEmitter {
 
     for (const filter of filters) {
       if (!filter.filter(event)) {
-        console.log(`Event filtered: ${eventType} by ${filter.id}`);
+        logger.debug(`Event filtered: ${eventType} by ${filter.id}`);
         return;
       }
     }
@@ -326,7 +329,7 @@ export class PluginEventSystem extends EventEmitter {
           this.unregisterHandler(handler.id, eventType);
         }
       } catch (error) {
-        console.error(`Event handler ${handler.id} failed:`, error);
+        logger.error(`Event handler ${handler.id} failed:`, { error });
 
         // 发射错误事件
         this.emit('handlerError', {
@@ -450,7 +453,7 @@ export class PluginEventSystem extends EventEmitter {
     this.routingRules = [];
     this.eventHistory = [];
 
-    console.log('✅ Plugin event system cleared');
+    logger.info('✅ Plugin event system cleared');
   }
 
   /**
@@ -460,7 +463,7 @@ export class PluginEventSystem extends EventEmitter {
     this.clear();
     this.removeAllListeners();
 
-    console.log('✅ Plugin event system destroyed');
+    logger.info('✅ Plugin event system destroyed');
   }
 }
 

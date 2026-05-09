@@ -7,6 +7,9 @@
 import { EventEmitter } from 'events';
 import type { HookEvent } from '../types';
 import { diagnosticManager } from './DiagnosticManager';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 异步钩子输出
@@ -92,7 +95,7 @@ export class AsyncHookRegistry extends EventEmitter {
     const timeout = asyncResponse.asyncTimeout || 15000; // 默认15秒
     const asyncRewake = asyncResponse.asyncRewake || false;
 
-    console.log(
+    logger.info(
       `Hooks: Registering async hook ${processId} (${hookName}) with timeout ${timeout}ms, asyncRewake: ${asyncRewake}`
     );
 
@@ -182,7 +185,7 @@ export class AsyncHookRegistry extends EventEmitter {
     }> = [];
 
     const pendingCount = this.pendingHooks.size;
-    console.log(`Hooks: Found ${pendingCount} total hooks in registry`);
+    logger.info(`Hooks: Found ${pendingCount} total hooks in registry`);
 
     // 处理前先获取快照
     const hooks = Array.from(this.pendingHooks.values());
@@ -191,7 +194,7 @@ export class AsyncHookRegistry extends EventEmitter {
       hooks.map(async (hook) => {
         const stdout = (await hook.shellCommand?.taskOutput.getStdout()) ?? '';
         const stderr = hook.shellCommand?.taskOutput.getStderr() ?? '';
-        console.log(
+        logger.info(
           `Hooks: Checking hook ${hook.processId} (${hook.hookName}) - attachmentSent: ${hook.responseAttachmentSent}, stdout length: ${stdout.length}`
         );
 
@@ -211,7 +214,7 @@ export class AsyncHookRegistry extends EventEmitter {
               response = JSON.parse(jsonOutput);
             }
           } catch (error) {
-            console.error(`Hooks: Failed to parse hook output: ${error}`);
+            logger.error(`Hooks: Failed to parse hook output: ${error}`);
           }
 
           return {
@@ -330,7 +333,7 @@ export class AsyncHookRegistry extends EventEmitter {
           stderr: output.stderr,
         });
       } catch (error) {
-        console.error(`Hooks: Error getting hook progress: ${error}`);
+        logger.error(`Hooks: Error getting hook progress: ${error}`);
       }
     }, 1000);
 

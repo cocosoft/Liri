@@ -7,6 +7,9 @@ import { join } from 'path';
 import { homedir } from 'os';
 import type { SkillDefinition, SkillSource } from '../utils/skillParser';
 import { SkillParser } from '../utils/skillParser';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 技能执行上下文（基于CC源码）
@@ -340,7 +343,7 @@ export class SkillTool {
           await this.executeShellCommand(command, context.currentDirectory);
           toolsUsed.push('shell');
         } catch (error) {
-          console.warn(`Shell command failed: ${command}`, error);
+          logger.warning(`Shell command failed: ${command}`, { error });
         }
       }
     }
@@ -424,7 +427,7 @@ export class SkillTool {
     cwd: string
   ): Promise<string> {
     // 这里简化实现，实际应该使用子进程执行命令
-    console.log(`Executing shell command: ${command} in ${cwd}`);
+    logger.debug(`Executing shell command: ${command} in ${cwd}`);
 
     // 模拟命令执行
     await new Promise((resolve) => setTimeout(resolve, 100));

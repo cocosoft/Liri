@@ -5,6 +5,9 @@
  */
 
 import type { CostData, CostCategory, CostPeriod } from './types.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface CostPredictionResult {
   predictionId: string;
@@ -75,7 +78,7 @@ export class CostPredictor {
           predictions.push(prediction);
           validAlgorithms.push(algorithm);
         } catch (error) {
-          console.warn(`算法 ${algorithm.name} 预测失败:`, error);
+          logger.warning(`算法 ${algorithm.name} 预测失败:`, { error });
         }
       }
     }

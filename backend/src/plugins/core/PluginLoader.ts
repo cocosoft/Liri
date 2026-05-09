@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import { join } from 'path';
 import { existsSync, readdirSync } from 'fs';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   PluginState,
   PluginType,
@@ -18,6 +19,8 @@ import {
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件加载器（基于CC源码）
@@ -85,7 +88,7 @@ export class PluginLoader extends EventEmitter {
     for (const dir of this.options.pluginDirectories || []) {
       if (!existsSync(dir)) {
         // 这里应该创建目录，但为了简化先跳过
-        console.log(`Plugin directory does not exist: ${dir}`);
+        logger.warning(`Plugin directory does not exist: ${dir}`);
       }
     }
   }

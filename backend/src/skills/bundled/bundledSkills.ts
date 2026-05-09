@@ -11,6 +11,9 @@ import type { SkillDefinition as ParsedSkillDefinition } from '../utils/skillPar
 import type { SkillDefinition } from '../models/types';
 import type { SkillService } from '../services/skillService';
 import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 内置技能定义接口（基于CC源码）
@@ -112,7 +115,7 @@ export class BundledSkillsRegistry {
       });
     }
 
-    console.log(`Registered bundled skill: ${skill.name}`);
+    logger.info(`Registered bundled skill: ${skill.name}`);
   }
 
   /**
@@ -165,13 +168,12 @@ export class BundledSkillsRegistry {
         await this.safeWriteFile(filePath, content);
         this.extractedFiles.add(filePath);
 
-        console.log(`Extracted reference file: ${filePath}`);
+        logger.info(`Extracted reference file: ${filePath}`);
       }
     } catch (error) {
-      console.error(
-        `Failed to extract reference files for ${skill.name}:`,
-        error
-      );
+      logger.error(`Failed to extract reference files for ${skill.name}:`, {
+        error,
+      });
     }
   }
 

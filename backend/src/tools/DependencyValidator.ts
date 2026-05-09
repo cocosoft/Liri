@@ -11,6 +11,9 @@ import {
   MODULE_INITIALIZATION_ORDER,
   validateModuleDependencies,
 } from '../modules/ModuleDefinitions';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -482,45 +485,42 @@ function validateSnapshotConsistency(): SnapshotValidationResult {
  * 运行依赖关系验证
  */
 async function runDependencyValidation(): Promise<void> {
-  console.log('开始验证模块依赖关系...');
+  logger.info('开始验证模块依赖关系...');
   let hasError = false;
 
   try {
-    // 1. 标准依赖检查
     const validator = new DependencyValidator();
     const validation = validator.validateAllDependencies();
 
-    console.log('依赖关系验证完成:');
-    console.log(`- 状态: ${validation.valid ? '通过' : '失败'}`);
-    console.log(`- 错误: ${validation.errors.length}`);
-    console.log(`- 警告: ${validation.warnings.length}`);
-    console.log(`- 循环依赖: ${validation.circularDependencies.length}`);
-    console.log(`- 缺失依赖: ${validation.missingDependencies.length}`);
+    logger.info('依赖关系验证完成:');
+    logger.info(`- 状态: ${validation.valid ? '通过' : '失败'}`);
+    logger.info(`- 错误: ${validation.errors.length}`);
+    logger.info(`- 警告: ${validation.warnings.length}`);
+    logger.info(`- 循环依赖: ${validation.circularDependencies.length}`);
+    logger.info(`- 缺失依赖: ${validation.missingDependencies.length}`);
 
     if (!validation.valid) {
       hasError = true;
-      console.log('\n错误详情:');
-      validation.errors.forEach((error) => console.log(`  - ${error}`));
+      logger.info('\n错误详情:');
+      validation.errors.forEach((error) => logger.info(`  - ${error}`));
     }
 
     if (validation.warnings.length > 0) {
-      console.log('\n警告详情:');
-      validation.warnings.forEach((warning) => console.log(`  - ${warning}`));
+      logger.info('\n警告详情:');
+      validation.warnings.forEach((warning) => logger.info(`  - ${warning}`));
     }
 
-    // 2. 快照一致性检查
-    console.log('\n检查依赖图快照一致性...');
+    logger.info('\n检查依赖图快照一致性...');
     const snapshotResult = validateSnapshotConsistency();
 
     if (snapshotResult.errors.length > 0) {
       hasError = true;
-      console.log('快照检查失败:');
-      snapshotResult.errors.forEach((error) => console.log(`  - ${error}`));
+      logger.info('快照检查失败:');
+      snapshotResult.errors.forEach((error) => logger.info(`  - ${error}`));
     } else {
-      console.log('快照检查通过');
+      logger.info('快照检查通过');
     }
 
-    // 3. 生成报告
     const report = validator.generateDependencyReport(validation);
 
     const fs = require('fs');
@@ -531,13 +531,13 @@ async function runDependencyValidation(): Promise<void> {
     );
     fs.writeFileSync(reportPath, report);
 
-    console.log(`\n依赖关系报告已保存到: ${reportPath}`);
+    logger.info(`\n依赖关系报告已保存到: ${reportPath}`);
 
     if (hasError) {
       process.exit(1);
     }
   } catch (error) {
-    console.error('依赖关系验证失败:', error);
+    logger.error('依赖关系验证失败:', { error });
     process.exit(1);
   }
 }
@@ -547,5 +547,7 @@ export { runDependencyValidation };
 
 // 如果直接运行此文件，则执行验证
 if (require.main === module) {
-  runDependencyValidation().catch(console.error);
+  runDependencyValidation().catch((e) =>
+    logger.error('依赖关系验证失败:', { error: e })
+  );
 }

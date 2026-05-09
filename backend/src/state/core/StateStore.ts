@@ -15,6 +15,9 @@ import {
   StateMigrator,
   StateMiddleware,
 } from '../types/StateTypes.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 状态存储实现类（基于CC源码）
@@ -298,10 +301,9 @@ export class StateStoreImpl<T> implements StateStore<T> {
     for (const validator of sortedValidators) {
       const result = validator.validate(state);
       if (!result.valid) {
-        console.error(
-          `State validation failed by ${validator.name}:`,
-          result.errors
-        );
+        logger.error(`State validation failed by ${validator.name}:`, {
+          errors: result.errors,
+        });
         return false;
       }
     }
@@ -326,11 +328,11 @@ export class StateStoreImpl<T> implements StateStore<T> {
     for (const migrator of sortedMigrators) {
       try {
         migratedState = migrator.migrate(migratedState);
-        console.log(
+        logger.info(
           `Applied migration: ${migrator.name} (${migrator.fromVersion} -> ${migrator.toVersion})`
         );
       } catch (error) {
-        console.error(`Migration failed: ${migrator.name}`, error);
+        logger.error(`Migration failed: ${migrator.name}`, { error });
         throw error;
       }
     }
@@ -356,7 +358,7 @@ export class StateStoreImpl<T> implements StateStore<T> {
         const middlewareHandler = middleware.handler(next);
         middlewareHandler(() => state);
       } catch (error) {
-        console.error(`Middleware failed: ${middleware.name}`, error);
+        logger.error(`Middleware failed: ${middleware.name}`, { error });
         // 中间件失败时，回退到原始状态
         state = newState;
       }
@@ -379,7 +381,7 @@ export class StateStoreImpl<T> implements StateStore<T> {
       try {
         callback({ newState, oldState, changedKeys });
       } catch (error) {
-        console.error('OnChange callback failed:', error);
+        logger.error('OnChange callback failed:', { error });
       }
     }
   }
@@ -421,7 +423,7 @@ export class StateStoreImpl<T> implements StateStore<T> {
 
         subscription.listener(value);
       } catch (error) {
-        console.error(`Listener ${subscription.id} failed:`, error);
+        logger.error(`Listener ${subscription.id} failed:`, { error });
       }
     }
   }

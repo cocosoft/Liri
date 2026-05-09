@@ -12,6 +12,9 @@ import {
   isRuleMatch,
   isToolNameMatch,
 } from '../types/PermissionRule';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 规则上下文接口
@@ -100,7 +103,7 @@ export class RuleManager {
         });
       }
     } catch (error) {
-      console.error('Failed to load permission rules:', error);
+      logger.error('Failed to load permission rules:', { error });
     }
     return this.rules;
   }
@@ -125,7 +128,7 @@ export class RuleManager {
       fs.writeFileSync(this.ruleSource, rulesData);
       this.rules = rules;
     } catch (error) {
-      console.error('Failed to save permission rules:', error);
+      logger.error('Failed to save permission rules:', { error });
     }
   }
 

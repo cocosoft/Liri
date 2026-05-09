@@ -10,6 +10,9 @@ import {
   SubAgentResult,
   InProcessSubAgentConfig,
 } from './SubAgent';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 进程内子agent
@@ -55,10 +58,10 @@ export class InProcessSubAgent implements SubAgent {
       };
 
       this.status = SubAgentStatus.RUNNING;
-      console.log(`InProcessSubAgent ${this.id} started`);
+      logger.info(`InProcessSubAgent ${this.id} started`);
     } catch (error) {
       this.status = SubAgentStatus.ERROR;
-      console.error(`Error starting InProcessSubAgent ${this.id}:`, error);
+      logger.error(`Error starting InProcessSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -77,9 +80,9 @@ export class InProcessSubAgent implements SubAgent {
       this.context = {};
 
       this.status = SubAgentStatus.TERMINATED;
-      console.log(`InProcessSubAgent ${this.id} stopped`);
+      logger.info(`InProcessSubAgent ${this.id} stopped`);
     } catch (error) {
-      console.error(`Error stopping InProcessSubAgent ${this.id}:`, error);
+      logger.error(`Error stopping InProcessSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -94,9 +97,9 @@ export class InProcessSubAgent implements SubAgent {
 
     try {
       this.status = SubAgentStatus.PAUSED;
-      console.log(`InProcessSubAgent ${this.id} paused`);
+      logger.info(`InProcessSubAgent ${this.id} paused`);
     } catch (error) {
-      console.error(`Error pausing InProcessSubAgent ${this.id}:`, error);
+      logger.error(`Error pausing InProcessSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -111,9 +114,9 @@ export class InProcessSubAgent implements SubAgent {
 
     try {
       this.status = SubAgentStatus.RUNNING;
-      console.log(`InProcessSubAgent ${this.id} resumed`);
+      logger.info(`InProcessSubAgent ${this.id} resumed`);
     } catch (error) {
-      console.error(`Error resuming InProcessSubAgent ${this.id}:`, error);
+      logger.error(`Error resuming InProcessSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -129,9 +132,9 @@ export class InProcessSubAgent implements SubAgent {
     }
 
     try {
-      console.log(
+      logger.info(
         `Executing task ${task.id} in InProcessSubAgent ${this.id}:`,
-        task
+        { task }
       );
 
       // 模拟任务执行
@@ -148,14 +151,14 @@ export class InProcessSubAgent implements SubAgent {
         },
       };
 
-      console.log(
+      logger.info(
         `Task ${task.id} executed successfully in InProcessSubAgent ${this.id}`
       );
       return result;
     } catch (error) {
-      console.error(
+      logger.error(
         `Error executing task ${task.id} in InProcessSubAgent ${this.id}:`,
-        error
+        { error }
       );
       return {
         id: `result_${Date.now()}`,
@@ -201,12 +204,13 @@ export class InProcessSubAgent implements SubAgent {
         ...this.config,
         ...config,
       };
-      console.log(`Updated config for InProcessSubAgent ${this.id}:`, config);
+      logger.info(`Updated config for InProcessSubAgent ${this.id}:`, {
+        config,
+      });
     } catch (error) {
-      console.error(
-        `Error updating config for InProcessSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error updating config for InProcessSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -218,12 +222,11 @@ export class InProcessSubAgent implements SubAgent {
   async sendMessage(message: any): Promise<void> {
     try {
       this.messageQueue.push(message);
-      console.log(`Message sent to InProcessSubAgent ${this.id}:`, message);
+      logger.info(`Message sent to InProcessSubAgent ${this.id}:`, { message });
     } catch (error) {
-      console.error(
-        `Error sending message to InProcessSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error sending message to InProcessSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -239,15 +242,14 @@ export class InProcessSubAgent implements SubAgent {
       }
 
       const message = this.messageQueue.shift();
-      console.log(
-        `Message received from InProcessSubAgent ${this.id}:`,
-        message
-      );
+      logger.info(`Message received from InProcessSubAgent ${this.id}:`, {
+        message,
+      });
       return message;
     } catch (error) {
-      console.error(
+      logger.error(
         `Error receiving message from InProcessSubAgent ${this.id}:`,
-        error
+        { error }
       );
       throw error;
     }

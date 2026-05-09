@@ -8,6 +8,9 @@ import { EventEmitter } from 'events';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, lstatSync } from 'fs';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 安全选项
@@ -272,7 +275,7 @@ export class SecurityManager extends EventEmitter {
       // 创建可信标记文件
       require('fs').writeFileSync(trustedFile, '# PY_APP Trusted Workspace\n');
     } catch (error) {
-      console.error('Failed to set workspace as trusted:', error);
+      logger.error('Failed to set workspace as trusted:', { error });
     }
   }
 

@@ -2,6 +2,9 @@
  * 子agent通信器
  */
 import { SubAgent } from './types/SubAgent';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 消息
@@ -59,12 +62,14 @@ export class SubAgentCommunicator {
 
       // 这里可以实现消息发送逻辑
       // 例如：通过进程内通信、文件系统或WebSocket发送消息
-      console.log(`Sending message to subagent ${subAgent.id}:`, message);
+      logger.info(`Sending message to subagent ${subAgent.id}:`, { message });
 
       // 模拟消息发送
       await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
-      console.error(`Error sending message to subagent ${subAgent.id}:`, error);
+      logger.error(`Error sending message to subagent ${subAgent.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -83,7 +88,7 @@ export class SubAgentCommunicator {
 
       // 这里可以实现消息接收逻辑
       // 例如：通过进程内通信、文件系统或WebSocket接收消息
-      console.log(`Receiving message from subagent ${subAgent.id}`);
+      logger.info(`Receiving message from subagent ${subAgent.id}`);
 
       // 模拟消息接收
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -97,10 +102,9 @@ export class SubAgentCommunicator {
         timestamp: Date.now(),
       };
     } catch (error) {
-      console.error(
-        `Error receiving message from subagent ${subAgent.id}:`,
-        error
-      );
+      logger.error(`Error receiving message from subagent ${subAgent.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -121,17 +125,16 @@ export class SubAgentCommunicator {
       }
 
       // 这里可以实现权限请求发送逻辑
-      console.log(
-        `Sending permission request from subagent ${subAgent.id}:`,
-        request
-      );
+      logger.info(`Sending permission request from subagent ${subAgent.id}:`, {
+        request,
+      });
 
       // 模拟权限请求发送
       await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
-      console.error(
+      logger.error(
         `Error sending permission request from subagent ${subAgent.id}:`,
-        error
+        { error }
       );
       throw error;
     }
@@ -154,7 +157,7 @@ export class SubAgentCommunicator {
       }
 
       // 这里可以实现权限响应接收逻辑
-      console.log(
+      logger.info(
         `Receiving permission response for subagent ${subAgent.id}, request ${requestId}`
       );
 
@@ -169,9 +172,9 @@ export class SubAgentCommunicator {
         timestamp: Date.now(),
       };
     } catch (error) {
-      console.error(
+      logger.error(
         `Error receiving permission response for subagent ${subAgent.id}:`,
-        error
+        { error }
       );
       throw error;
     }
@@ -185,7 +188,7 @@ export class SubAgentCommunicator {
     try {
       // 这里可以实现连接建立逻辑
       // 例如：创建进程内通信通道、文件系统邮箱或WebSocket连接
-      console.log(`Establishing connection with subagent ${subAgent.id}`);
+      logger.info(`Establishing connection with subagent ${subAgent.id}`);
 
       // 模拟连接建立
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -196,9 +199,9 @@ export class SubAgentCommunicator {
         timestamp: Date.now(),
       });
     } catch (error) {
-      console.error(
+      logger.error(
         `Error establishing connection with subagent ${subAgent.id}:`,
-        error
+        { error }
       );
       throw error;
     }
@@ -212,7 +215,7 @@ export class SubAgentCommunicator {
     try {
       // 这里可以实现连接断开逻辑
       // 例如：关闭进程内通信通道、文件系统邮箱或WebSocket连接
-      console.log(`Disconnecting from subagent ${subAgent.id}`);
+      logger.info(`Disconnecting from subagent ${subAgent.id}`);
 
       // 模拟连接断开
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -220,7 +223,9 @@ export class SubAgentCommunicator {
       // 删除连接
       this.connections.delete(subAgent.id);
     } catch (error) {
-      console.error(`Error disconnecting from subagent ${subAgent.id}:`, error);
+      logger.error(`Error disconnecting from subagent ${subAgent.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -251,7 +256,7 @@ export class SubAgentCommunicator {
     const subAgentIds = Array.from(this.connections.keys());
     for (const id of subAgentIds) {
       // 这里可以实现连接清理逻辑
-      console.log(`Cleaning up connection for subagent ${id}`);
+      logger.info(`Cleaning up connection for subagent ${id}`);
     }
     this.connections.clear();
   }

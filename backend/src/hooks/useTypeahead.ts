@@ -9,6 +9,9 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 补全项类型
@@ -199,7 +202,7 @@ export function useTypeahead(
             }))
           );
         } catch (error) {
-          console.warn(`加载补全源 ${source.name} 失败:`, error);
+          logger.warning(`加载补全源 ${source.name} 失败:`, { error });
         }
       }
 

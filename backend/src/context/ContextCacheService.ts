@@ -4,6 +4,9 @@
  */
 
 import fs from 'fs';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 缓存条目
@@ -130,7 +133,7 @@ export class ContextCacheService {
     try {
       const watcher = fs.watch(filePath, (eventType) => {
         if (eventType === 'change' || eventType === 'rename') {
-          console.log(`[context] File changed: ${filePath}`);
+          logger.info(`[context] File changed: ${filePath}`);
 
           // 清除指定的缓存键
           if (cacheKeys) {
@@ -146,7 +149,7 @@ export class ContextCacheService {
 
       this.fileWatchers.set(filePath, watcher);
     } catch (error) {
-      console.error(`[context] Failed to watch file: ${filePath}`, error);
+      logger.error(`[context] Failed to watch file: ${filePath}`, { error });
     }
   }
 
@@ -170,7 +173,7 @@ export class ContextCacheService {
         { recursive: true },
         (eventType, filename) => {
           if (filename && (eventType === 'change' || eventType === 'rename')) {
-            console.log(`[context] Directory changed: ${filename}`);
+            logger.info(`[context] Directory changed: ${filename}`);
 
             // 清除指定的缓存键
             if (cacheKeys) {
@@ -187,7 +190,9 @@ export class ContextCacheService {
 
       this.fileWatchers.set(dirPath, watcher);
     } catch (error) {
-      console.error(`[context] Failed to watch directory: ${dirPath}`, error);
+      logger.error(`[context] Failed to watch directory: ${dirPath}`, {
+        error,
+      });
     }
   }
 

@@ -49,6 +49,9 @@ import {
   SandboxIntegrationService,
   sandboxIntegrationService,
 } from './sandbox/SandboxIntegration';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 权限管理器类
@@ -480,7 +483,7 @@ export class PermissionManager {
         );
       }
     } catch (error) {
-      console.error('Auto classifier error:', error);
+      logger.error('Auto classifier error:', { error });
       // 分类器出错时，回退到询问
       return createAskDecision('Classifier error, requiring user approval');
     }

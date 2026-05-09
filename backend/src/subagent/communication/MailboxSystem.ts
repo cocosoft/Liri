@@ -10,6 +10,9 @@ import {
   existsSync,
   mkdirSync,
 } from 'fs';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 邮箱系统
@@ -38,7 +41,7 @@ export class MailboxSystem {
   createMailbox(id: string): void {
     if (!this.mailboxes.has(id)) {
       this.mailboxes.set(id, []);
-      console.log(`Created mailbox for ${id}`);
+      logger.info(`Created mailbox for ${id}`);
     }
   }
 
@@ -55,7 +58,7 @@ export class MailboxSystem {
       unlinkSync(mailboxFile);
     }
 
-    console.log(`Deleted mailbox for ${id}`);
+    logger.info(`Deleted mailbox for ${id}`);
   }
 
   /**
@@ -74,7 +77,7 @@ export class MailboxSystem {
     const mailbox = this.mailboxes.get(receiver);
     if (mailbox) {
       mailbox.push(message);
-      console.log(`Message sent from ${sender} to ${receiver}:`, message);
+      logger.info(`Message sent from ${sender} to ${receiver}:`, { message });
 
       // 持久化消息到文件
       this.persistMailbox(receiver);
@@ -104,7 +107,9 @@ export class MailboxSystem {
       // 清空邮箱文件
       this.persistMailbox(receiver);
 
-      console.log(`Messages received for ${receiver}:`, messages.length);
+      logger.info(`Messages received for ${receiver}:`, {
+        count: messages.length,
+      });
       return messages;
     }
 
@@ -158,7 +163,7 @@ export class MailboxSystem {
         const messages = JSON.parse(readFileSync(mailboxFile, 'utf8'));
         this.mailboxes.set(id, messages);
       } catch (error) {
-        console.error(`Error loading mailbox for ${id}:`, error);
+        logger.error(`Error loading mailbox for ${id}:`, { error });
         // 如果加载失败，创建空邮箱
         this.mailboxes.set(id, []);
       }

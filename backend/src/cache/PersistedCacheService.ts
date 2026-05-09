@@ -7,6 +7,9 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 缓存数据版本
@@ -156,7 +159,7 @@ export class PersistedCacheService<T extends Record<string, any>> {
       this.data = loadedData;
       this.isLoaded = true;
     } catch (error) {
-      console.error('Failed to load persisted cache:', error);
+      logger.error('Failed to load persisted cache:', { error });
       this.data = {};
       this.isLoaded = true;
     }
@@ -207,7 +210,7 @@ export class PersistedCacheService<T extends Record<string, any>> {
     const content = JSON.stringify(dataToSave, null, 2);
 
     if (content.length > this.config.maxDataSize) {
-      console.warn('Persisted cache data exceeds max size, skipping save');
+      logger.warning('Persisted cache data exceeds max size, skipping save');
       return;
     }
 

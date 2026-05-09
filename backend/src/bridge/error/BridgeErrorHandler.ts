@@ -350,7 +350,7 @@ export class BridgeErrorHandler {
 
     if (options.logToConsole) {
       const logMethod = this.getLogMethod(options.logLevel);
-      logMethod(`[BridgeError] ${error.type}: ${error.message}`, error);
+      logMethod(`[BridgeError] ${error.type}: ${error.message}`, { error });
     }
   }
 
@@ -359,18 +359,19 @@ export class BridgeErrorHandler {
    */
   private getLogMethod(
     level: ErrorLogLevel
-  ): (message: string, ...args: any[]) => void {
+  ): (message: string, ...args: unknown[]) => void {
     switch (level) {
       case ErrorLogLevel.DEBUG:
-        return console.debug;
+        return (msg: string, ...args: unknown[]) => logger.debug(msg, ...args);
       case ErrorLogLevel.INFO:
-        return console.info;
+        return (msg: string, ...args: unknown[]) => logger.info(msg, ...args);
       case ErrorLogLevel.WARN:
-        return console.warn;
+        return (msg: string, ...args: unknown[]) =>
+          logger.warning(msg, ...args);
       case ErrorLogLevel.ERROR:
-        return console.error;
+        return (msg: string, ...args: unknown[]) => logger.error(msg, ...args);
       default:
-        return console.log;
+        return (msg: string, ...args: unknown[]) => logger.info(msg, ...args);
     }
   }
 

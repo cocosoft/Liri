@@ -8,6 +8,9 @@ import { ToolResult, createToolResult } from './types/ToolResult';
 import { ToolUseContext } from './types/ToolUseContext';
 import { ToolExecutor, createToolExecutor } from './ToolExecutor';
 import { v4 as uuidv4 } from 'uuid';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 工具执行任务
@@ -199,7 +202,7 @@ export class ToolOrchestrator {
       }
     } catch (error) {
       batch.status = 'failed';
-      console.error('Batch execution failed:', error);
+      logger.error('Batch execution failed:', { error });
     } finally {
       batch.endTime = Date.now();
       this.isRunning = false;

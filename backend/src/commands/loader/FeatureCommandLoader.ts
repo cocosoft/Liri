@@ -6,6 +6,9 @@
 
 import { feature, FeatureFlag } from '@modules/core';
 import type { Command, CommandLoader } from '@modules/commands/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface FeatureCommandConfig {
   featureFlag: FeatureFlag;
@@ -32,9 +35,9 @@ export class FeatureCommandLoader implements CommandLoader {
       }
       return [];
     } catch (error) {
-      console.error(
+      logger.error(
         `FeatureCommandLoader: Failed to load ${this.config.modulePath}:`,
-        error
+        { error }
       );
 
       if (this.config.fallbackPath) {
@@ -44,9 +47,9 @@ export class FeatureCommandLoader implements CommandLoader {
             return [fallbackModule.default];
           }
         } catch (fallbackError) {
-          console.error(
+          logger.error(
             `FeatureCommandLoader: Fallback ${this.config.fallbackPath} also failed:`,
-            fallbackError
+            { fallbackError }
           );
         }
       }

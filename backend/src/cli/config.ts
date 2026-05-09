@@ -3,9 +3,12 @@
  * 支持配置文件解析、验证和管理
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { z } from 'zod';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface ConfigOptions {
   configDir?: string;
@@ -97,7 +100,7 @@ export class ConfigManager {
         return ConfigSchema.parse(parsed);
       }
     } catch (error) {
-      console.warn(`Failed to load config: ${(error as Error).message}`);
+      logger.warning(`Failed to load config: ${(error as Error).message}`);
     }
 
     return ConfigSchema.parse({});
@@ -110,7 +113,7 @@ export class ConfigManager {
     try {
       const dir = join(this.configPath, '..');
       if (!existsSync(dir)) {
-        require('fs').mkdirSync(dir, { recursive: true });
+        mkdirSync(dir, { recursive: true });
       }
       writeFileSync(
         this.configPath,
@@ -118,7 +121,7 @@ export class ConfigManager {
         'utf-8'
       );
     } catch (error) {
-      console.error(`Failed to save config: ${(error as Error).message}`);
+      logger.error(`Failed to save config: ${(error as Error).message}`);
     }
   }
 

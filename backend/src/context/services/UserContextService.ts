@@ -7,6 +7,9 @@
 import { readFile, access } from 'fs/promises';
 import { join } from 'path';
 import { constants } from 'fs';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 用户上下文信息
@@ -66,7 +69,7 @@ export class UserContextService {
       const content = await readFile(filePath, 'utf-8');
       return content.trim();
     } catch (error) {
-      console.error(`Failed to read file ${filePath}:`, error);
+      logger.error(`Failed to read file ${filePath}:`, { error });
       return null;
     }
   }

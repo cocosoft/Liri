@@ -11,6 +11,9 @@ import {
   extractMemories,
   type MemoryType,
 } from '@modules/services/extractMemories';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 记忆提取选项
@@ -242,6 +245,6 @@ async function saveToMemory(
 
     await memoryManager.createMemory(memory);
   } catch (error) {
-    console.error('Failed to save memory:', error);
+    logger.error('Failed to save memory:', { error });
   }
 }

@@ -5,6 +5,9 @@
  */
 
 import type { BridgeConfig, PollConfig } from '../types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface DebugOptions {
   /** 是否启用详细日志 */
@@ -100,7 +103,7 @@ class BridgeDebugger {
 
   private log(message: string): void {
     if (this.options.jsonOutput) {
-      console.log(
+      logger.info(
         JSON.stringify({
           type: 'debug',
           timestamp: Date.now(),
@@ -108,7 +111,7 @@ class BridgeDebugger {
         })
       );
     } else {
-      console.log(`[Bridge Debug] ${message}`);
+      logger.info(`[Bridge Debug] ${message}`);
     }
   }
 

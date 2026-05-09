@@ -16,6 +16,9 @@ import {
   DEFAULT_TOOL_CONFIG,
   TOOL_SYSTEM_VERSION,
 } from '../types/ToolTypes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 工具管理器类（基于CC源码）
@@ -69,9 +72,9 @@ export class ToolManager extends EventEmitter {
         data: { message: 'ToolManager initialized' },
       });
 
-      console.log(`✅ 工具管理器初始化完成 (版本: ${TOOL_SYSTEM_VERSION})`);
+      logger.info(`✅ 工具管理器初始化完成 (版本: ${TOOL_SYSTEM_VERSION})`);
     } catch (error) {
-      console.error('❌ 工具管理器初始化失败:', error);
+      logger.error('❌ 工具管理器初始化失败:', { error });
       throw error;
     }
   }
@@ -121,7 +124,7 @@ export class ToolManager extends EventEmitter {
       data: { definition },
     });
 
-    console.log(`✅ 工具注册成功: ${definition.name}`);
+    logger.info(`✅ 工具注册成功: ${definition.name}`);
 
     return registration;
   }
@@ -145,7 +148,7 @@ export class ToolManager extends EventEmitter {
       data: { registration },
     });
 
-    console.log(`✅ 工具注销成功: ${toolName}`);
+    logger.info(`✅ 工具注销成功: ${toolName}`);
   }
 
   /**
@@ -305,7 +308,7 @@ export class ToolManager extends EventEmitter {
   private async loadToolRegistry(): Promise<void> {
     // 这里可以加载持久化的工具注册表
     // 目前使用空实现
-    console.log('📋 加载工具注册表...');
+    logger.info('📋 加载工具注册表...');
   }
 
   /**
@@ -313,7 +316,7 @@ export class ToolManager extends EventEmitter {
    */
   private async initializeCache(): Promise<void> {
     if (this.config.cache?.enabled) {
-      console.log('💾 初始化工具缓存系统...');
+      logger.info('💾 初始化工具缓存系统...');
     }
   }
 
@@ -322,7 +325,7 @@ export class ToolManager extends EventEmitter {
    */
   private async initializeMonitoring(): Promise<void> {
     if (this.config.monitoring?.enabled) {
-      console.log('📊 初始化工具监控系统...');
+      logger.info('📊 初始化工具监控系统...');
     }
   }
 
@@ -331,7 +334,7 @@ export class ToolManager extends EventEmitter {
    */
   private async initializeSecurity(): Promise<void> {
     if (this.config.security?.enabled) {
-      console.log('🔒 初始化工具安全系统...');
+      logger.info('🔒 初始化工具安全系统...');
     }
   }
 
@@ -415,7 +418,9 @@ export class ToolManager extends EventEmitter {
 
     // 记录事件日志
     if (this.config.logging?.enabled) {
-      console.log(`[${eventType}] ${fullEvent.toolName}:`, fullEvent.data);
+      logger.info(`[${eventType}] ${fullEvent.toolName}:`, {
+        data: fullEvent.data,
+      });
     }
   }
 

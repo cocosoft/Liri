@@ -3,6 +3,10 @@
  * 统一管理所有模块的注册、查找和依赖解析
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 export enum ModuleCategory {
   // 核心模块
   CORE = 'core',
@@ -90,7 +94,7 @@ export class ModuleRegistry {
     }
 
     this.modules.set(module.id, module);
-    console.log(`模块注册成功: ${module.displayName} (${module.id})`);
+    logger.info(`模块注册成功: ${module.displayName} (${module.id})`);
   }
 
   /**
@@ -169,12 +173,12 @@ export class ModuleRegistry {
 
     // 初始化当前模块
     if (module.initialize) {
-      console.log(`初始化模块: ${module.displayName}`);
+      logger.info(`初始化模块: ${module.displayName}`);
       await module.initialize();
     }
 
     this.initializedModules.add(moduleId);
-    console.log(`模块初始化完成: ${module.displayName}`);
+    logger.info(`模块初始化完成: ${module.displayName}`);
   }
 
   /**
@@ -187,7 +191,7 @@ export class ModuleRegistry {
     }
 
     if (module.destroy) {
-      console.log(`销毁模块: ${module.displayName}`);
+      logger.info(`销毁模块: ${module.displayName}`);
       await module.destroy();
     }
 

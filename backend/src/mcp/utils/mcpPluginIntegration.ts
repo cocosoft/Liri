@@ -4,6 +4,7 @@
  */
 
 import { join } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   MCPServerConfig,
   ScopedMcpServerConfig,
@@ -12,8 +13,10 @@ import {
 } from '../types';
 import type { LoadedPlugin, PluginError } from '@modules/plugins/types';
 
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
- * 未配置的通道
+ * 未配置的频道类型
  */
 export type UnconfiguredChannel = {
   server: string;
@@ -81,7 +84,7 @@ export async function loadPluginMcpServers(
             // 内联MCP服务器配置
             return spec;
           } catch (e) {
-            console.error(
+            logger.error(
               `Failed to load MCP servers from spec for plugin ${plugin.name}: ${e}`
             );
             return null;
@@ -126,7 +129,7 @@ async function loadMcpServersFromFile(
 
     return validatedServers;
   } catch (error) {
-    console.error(`Failed to load MCP servers from file: ${error}`);
+    logger.error(`Failed to load MCP servers from file:`, { error });
     return null;
   }
 }
@@ -140,7 +143,7 @@ async function loadMcpServersFromMcpb(
   errors: PluginError[]
 ): Promise<Record<string, MCPServerConfig> | null> {
   try {
-    console.log(`Loading MCP servers from MCPB: ${mcpbPath}`);
+    logger.info(`Loading MCP servers from MCPB: ${mcpbPath}`);
 
     // 这里应该实现MCPB文件的加载逻辑
     // 暂时返回一个模拟结果
@@ -152,7 +155,7 @@ async function loadMcpServersFromMcpb(
 
     return { [serverName]: mcpConfig };
   } catch (error) {
-    console.error(`Failed to load MCPB ${mcpbPath}: ${error}`);
+    logger.error(`Failed to load MCPB ${mcpbPath}:`, { error });
 
     // 添加错误信息
     errors.push({
@@ -300,7 +303,7 @@ export function resolvePluginMcpEnvironment(
     const uniqueMissingVars = [...new Set(allMissingVars)];
     const varList = uniqueMissingVars.join(', ');
 
-    console.warn(
+    logger.warning(
       `Missing environment variables in plugin MCP config: ${varList}`
     );
 

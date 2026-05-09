@@ -4,6 +4,7 @@
  * 集成成本跟踪和多供应商模型支持
  */
 import type { CommandContext } from '@modules/commands/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { modelManager } from '@modules/ai/models/ModelManager.js';
 import { getLLMClientFactory } from '@modules/ai/clients/LLMClientFactory.js';
 import { costTracker } from '@modules/cost/CostTracker.js';
@@ -20,6 +21,8 @@ import { createWebSearchTool } from '@modules/tools/WebSearchTool/WebSearchTool.
 import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js';
 import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';
 import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 interface ChatResult {
   type: 'text';
@@ -83,9 +86,9 @@ export class ChatCommand {
       try {
         this.llmClient = factory.getClientForProvider(options.provider);
       } catch (error) {
-        console.warn(
+        logger.warning(
           `Failed to get client for provider ${options.provider}, using default`,
-          error
+          { error }
         );
         this.llmClient = factory.getDefaultClient();
       }

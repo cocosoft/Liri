@@ -4,6 +4,9 @@
  */
 
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 告警级别
@@ -543,7 +546,7 @@ export class AlertRuleService extends EventEmitter {
     config: Record<string, any>
   ): void {
     const message = `[${alert.level.toUpperCase()}] ${alert.message}`;
-    console.log(message, {
+    logger.info(message, {
       alertId: alert.id,
       ruleId: alert.ruleId,
       labels: alert.labels,
@@ -576,7 +579,7 @@ export class AlertRuleService extends EventEmitter {
     alert: AlertInstance,
     config: Record<string, any>
   ): void {
-    console.log(`Webhook notification would be sent to: ${config.url}`, {
+    logger.debug(`Webhook notification would be sent to: ${config.url}`, {
       alert,
       webhookConfig: config,
     });
@@ -589,7 +592,7 @@ export class AlertRuleService extends EventEmitter {
     alert: AlertInstance,
     config: Record<string, any>
   ): void {
-    console.log(`Email notification would be sent to: ${config.to}`, {
+    logger.debug(`Email notification would be sent to: ${config.to}`, {
       alert,
       emailConfig: config,
     });

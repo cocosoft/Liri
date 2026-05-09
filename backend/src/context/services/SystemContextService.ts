@@ -6,6 +6,9 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const execAsync = promisify(exec);
 
@@ -155,7 +158,7 @@ export class SystemContextService {
         truncated,
       };
     } catch (error) {
-      console.error('Failed to get git status:', error);
+      logger.error('Failed to get git status:', { error });
       return null;
     }
   }

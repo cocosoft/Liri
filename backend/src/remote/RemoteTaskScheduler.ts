@@ -4,6 +4,10 @@
  * 提供在远程服务器上调度和管理任务的功能
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 远程任务状态
  */
@@ -118,7 +122,7 @@ export class RemoteTaskScheduler {
     sessionId: string,
     command: string
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    console.log(
+    logger.info(
       `[RemoteTaskScheduler] Executing command on ${sessionId}: ${command}`
     );
     return {

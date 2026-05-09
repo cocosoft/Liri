@@ -6,6 +6,9 @@ import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { Notebook } from './types/index.js';
 import { NotebookImpl } from './types/Notebook.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * Notebook管理器
@@ -56,7 +59,7 @@ export class NotebookManager {
           const notebook = NotebookImpl.fromJSON(notebookData);
           this.notebooks.set(notebook.id, notebook);
         } catch (error) {
-          console.error(`Error loading notebook ${file}:`, error);
+          logger.error(`Error loading notebook ${file}:`, { error });
         }
       }
     }

@@ -8,6 +8,9 @@ import * as path from 'path';
 import { homedir } from 'os';
 import { execSync } from 'child_process';
 import { realpath } from 'fs/promises';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 安装类型
@@ -475,28 +478,28 @@ export async function getDiagnosticInfo(): Promise<DiagnosticInfo> {
 export async function printDiagnosticInfo(): Promise<void> {
   const info = await getDiagnosticInfo();
 
-  console.log('=== 诊断信息 ===');
-  console.log(`安装类型: ${info.installationType}`);
-  console.log(`安装路径: ${info.installationPath}`);
-  console.log(`调用二进制: ${info.invokedBinary}`);
-  console.log(`版本: ${info.version}`);
+  logger.info('=== 诊断信息 ===');
+  logger.info(`安装类型: ${info.installationType}`);
+  logger.info(`安装路径: ${info.installationPath}`);
+  logger.info(`调用二进制: ${info.invokedBinary}`);
+  logger.info(`版本: ${info.version}`);
 
   if (info.multipleInstallations.length > 0) {
-    console.log('\n=== 检测到多个安装 ===');
+    logger.info('\n=== 检测到多个安装 ===');
     for (const install of info.multipleInstallations) {
-      console.log(`- 类型: ${install.type}, 路径: ${install.path}`);
+      logger.info(`- 类型: ${install.type}, 路径: ${install.path}`);
     }
   }
 
   if (info.warnings.length > 0) {
-    console.log('\n=== 警告 ===');
+    logger.info('\n=== 警告 ===');
     for (const warning of info.warnings) {
-      console.log(`- 问题: ${warning.issue}`);
-      console.log(`  修复: ${warning.fix}`);
+      logger.info(`- 问题: ${warning.issue}`);
+      logger.info(`  修复: ${warning.fix}`);
     }
   }
 
   if (info.recommendation) {
-    console.log(`\n建议: ${info.recommendation}`);
+    logger.info(`\n建议: ${info.recommendation}`);
   }
 }

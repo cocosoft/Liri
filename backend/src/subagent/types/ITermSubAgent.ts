@@ -10,6 +10,9 @@ import {
   SubAgentResult,
   ITermSubAgentConfig,
 } from './SubAgent';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * iTerm子agent
@@ -56,7 +59,7 @@ export class ITermSubAgent implements SubAgent {
       // 检查iTerm是否安装
       // 注意：在Windows系统上，iTerm可能不可用
       // 这里只是模拟iTerm子agent的启动
-      console.log(`Starting ITermSubAgent ${this.id}`);
+      logger.info(`Starting ITermSubAgent ${this.id}`);
 
       // 初始化子agent
       this.metadata = {
@@ -67,10 +70,10 @@ export class ITermSubAgent implements SubAgent {
       };
 
       this.status = SubAgentStatus.RUNNING;
-      console.log(`ITermSubAgent ${this.id} started`);
+      logger.info(`ITermSubAgent ${this.id} started`);
     } catch (error) {
       this.status = SubAgentStatus.ERROR;
-      console.error(`Error starting ITermSubAgent ${this.id}:`, error);
+      logger.error(`Error starting ITermSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -88,9 +91,9 @@ export class ITermSubAgent implements SubAgent {
       this.messageQueue = [];
 
       this.status = SubAgentStatus.TERMINATED;
-      console.log(`ITermSubAgent ${this.id} stopped`);
+      logger.info(`ITermSubAgent ${this.id} stopped`);
     } catch (error) {
-      console.error(`Error stopping ITermSubAgent ${this.id}:`, error);
+      logger.error(`Error stopping ITermSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -105,9 +108,9 @@ export class ITermSubAgent implements SubAgent {
 
     try {
       this.status = SubAgentStatus.PAUSED;
-      console.log(`ITermSubAgent ${this.id} paused`);
+      logger.info(`ITermSubAgent ${this.id} paused`);
     } catch (error) {
-      console.error(`Error pausing ITermSubAgent ${this.id}:`, error);
+      logger.error(`Error pausing ITermSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -122,9 +125,9 @@ export class ITermSubAgent implements SubAgent {
 
     try {
       this.status = SubAgentStatus.RUNNING;
-      console.log(`ITermSubAgent ${this.id} resumed`);
+      logger.info(`ITermSubAgent ${this.id} resumed`);
     } catch (error) {
-      console.error(`Error resuming ITermSubAgent ${this.id}:`, error);
+      logger.error(`Error resuming ITermSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -140,10 +143,9 @@ export class ITermSubAgent implements SubAgent {
     }
 
     try {
-      console.log(
-        `Executing task ${task.id} in ITermSubAgent ${this.id}:`,
-        task
-      );
+      logger.info(`Executing task ${task.id} in ITermSubAgent ${this.id}:`, {
+        task,
+      });
 
       // 模拟任务执行
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -161,14 +163,14 @@ export class ITermSubAgent implements SubAgent {
         },
       };
 
-      console.log(
+      logger.info(
         `Task ${task.id} executed successfully in ITermSubAgent ${this.id}`
       );
       return result;
     } catch (error) {
-      console.error(
+      logger.error(
         `Error executing task ${task.id} in ITermSubAgent ${this.id}:`,
-        error
+        { error }
       );
       return {
         id: `result_${Date.now()}`,
@@ -226,12 +228,11 @@ export class ITermSubAgent implements SubAgent {
         this.paneId = config.paneId;
       }
 
-      console.log(`Updated config for ITermSubAgent ${this.id}:`, config);
+      logger.info(`Updated config for ITermSubAgent ${this.id}:`, { config });
     } catch (error) {
-      console.error(
-        `Error updating config for ITermSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error updating config for ITermSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -243,12 +244,11 @@ export class ITermSubAgent implements SubAgent {
   async sendMessage(message: any): Promise<void> {
     try {
       this.messageQueue.push(message);
-      console.log(`Message sent to ITermSubAgent ${this.id}:`, message);
+      logger.info(`Message sent to ITermSubAgent ${this.id}:`, { message });
     } catch (error) {
-      console.error(
-        `Error sending message to ITermSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error sending message to ITermSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -264,13 +264,14 @@ export class ITermSubAgent implements SubAgent {
       }
 
       const message = this.messageQueue.shift();
-      console.log(`Message received from ITermSubAgent ${this.id}:`, message);
+      logger.info(`Message received from ITermSubAgent ${this.id}:`, {
+        message,
+      });
       return message;
     } catch (error) {
-      console.error(
-        `Error receiving message from ITermSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error receiving message from ITermSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }

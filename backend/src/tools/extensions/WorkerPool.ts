@@ -2,6 +2,10 @@
  * 工作池
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 任务接口
  */
@@ -121,7 +125,7 @@ export class WorkerPool {
         try {
           await task.execute();
         } catch (error) {
-          console.error(`Task ${task.id} failed:`, error);
+          logger.error(`Task ${task.id} failed:`, { error });
         } finally {
           this.workers--;
           this.runningTasks.delete(task.id);

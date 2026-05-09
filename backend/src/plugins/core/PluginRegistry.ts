@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   PluginRegistration,
   PluginState,
@@ -11,6 +12,8 @@ import {
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件注册器（基于CC源码）
@@ -42,7 +45,7 @@ export class PluginRegistry extends EventEmitter {
 
     this.emitPluginEvent(PluginEventType.AFTER_LOAD, registration.id);
 
-    console.log(`✅ Plugin registered: ${registration.id}`);
+    logger.info(`✅ Plugin registered: ${registration.id}`);
   }
 
   /**
@@ -75,7 +78,7 @@ export class PluginRegistry extends EventEmitter {
 
     this.emitPluginEvent(PluginEventType.AFTER_UNLOAD, pluginId);
 
-    console.log(`✅ Plugin unregistered: ${pluginId}`);
+    logger.info(`✅ Plugin unregistered: ${pluginId}`);
 
     return true;
   }
@@ -132,7 +135,7 @@ export class PluginRegistry extends EventEmitter {
       newState: PluginState.ENABLED,
     });
 
-    console.log(`✅ Plugin enabled: ${pluginId}`);
+    logger.info(`✅ Plugin enabled: ${pluginId}`);
 
     return true;
   }
@@ -158,7 +161,7 @@ export class PluginRegistry extends EventEmitter {
       newState: PluginState.DISABLED,
     });
 
-    console.log(`✅ Plugin disabled: ${pluginId}`);
+    logger.info(`✅ Plugin disabled: ${pluginId}`);
 
     return true;
   }
@@ -187,7 +190,7 @@ export class PluginRegistry extends EventEmitter {
       dependentRegistration.dependents.push(pluginId);
     }
 
-    console.log(`✅ Dependency added: ${pluginId} -> ${dependencyId}`);
+    logger.info(`✅ Dependency added: ${pluginId} -> ${dependencyId}`);
   }
 
   /**
@@ -209,7 +212,7 @@ export class PluginRegistry extends EventEmitter {
       }
     }
 
-    console.log(`✅ Dependency removed: ${pluginId} -> ${dependencyId}`);
+    logger.info(`✅ Dependency removed: ${pluginId} -> ${dependencyId}`);
   }
 
   /**
@@ -472,7 +475,7 @@ export class PluginRegistry extends EventEmitter {
     this.registry.clear();
     this.dependencyGraph.clear();
 
-    console.log('✅ Plugin registry cleared');
+    logger.info('✅ Plugin registry cleared');
   }
 }
 

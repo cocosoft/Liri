@@ -12,6 +12,9 @@ import * as gracefulShutdownModule from '../utils/gracefulShutdown.js';
 const { gracefulShutdown, setupGracefulShutdown } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '../monitoring/index.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 // 记录入口�?
 profileCheckpoint('cli_entry');
@@ -48,11 +51,11 @@ export async function init(): Promise<void> {
           createToolManager();
           const duration = Date.now() - startTime;
           if (duration > 50) {
-            console.warn(`工具系统加载较慢: ${duration}ms`);
+            logger.warning(`工具系统加载较慢: ${duration}ms`);
           }
           return { success: true, duration };
         } catch (error) {
-          console.warn('预加载工具系统失�?', error);
+          logger.warning('预加载工具系统失败', { error });
           return { success: false, error };
         } finally {
           profileCheckpoint('load_tools_end');
@@ -69,11 +72,11 @@ export async function init(): Promise<void> {
           await extensibilityService.startAllModules();
           const duration = Date.now() - startTime;
           if (duration > 100) {
-            console.warn(`插件系统加载较慢: ${duration}ms`);
+            logger.warning(`插件系统加载较慢: ${duration}ms`);
           }
           return { success: true, duration };
         } catch (error) {
-          console.warn('预加载插件系统失�?', error);
+          logger.warning('预加载插件系统失败', { error });
           return { success: false, error };
         } finally {
           profileCheckpoint('load_plugins_end');
@@ -88,11 +91,11 @@ export async function init(): Promise<void> {
           await initializeCommands();
           const duration = Date.now() - startTime;
           if (duration > 50) {
-            console.warn(`命令系统加载较慢: ${duration}ms`);
+            logger.warning(`命令系统加载较慢: ${duration}ms`);
           }
           return { success: true, duration };
         } catch (error) {
-          console.warn('预加载命令系统失�?', error);
+          logger.warning('预加载命令系统失败', { error });
           return { success: false, error };
         } finally {
           profileCheckpoint('load_commands_end');
@@ -108,11 +111,11 @@ export async function init(): Promise<void> {
           monitoringService.start();
           const duration = Date.now() - startTime;
           if (duration > 50) {
-            console.warn(`监控服务加载较慢: ${duration}ms`);
+            logger.warning(`监控服务加载较慢: ${duration}ms`);
           }
           return { success: true, duration };
         } catch (error) {
-          console.warn('预加载监控服务失�?', error);
+          logger.warning('预加载监控服务失败', { error });
           return { success: false, error };
         } finally {
           profileCheckpoint('load_monitoring_end');
@@ -254,7 +257,7 @@ async function startDeferredPrefetches(): Promise<void> {
     await Promise.allSettled(prefetchTasks);
   } catch (error) {
     // 忽略预加载错�?
-    console.warn('延迟预加载失�?', error);
+    logger.warning('延迟预加载失败', { error });
   }
 }
 

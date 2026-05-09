@@ -2,6 +2,9 @@ import { Skill, SkillSource } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import { createSkillCommand } from '@modules/skills/utils/skillParser';
 import { MCPServerManager } from '@modules/mcp/managers/MCPServerManager';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * MCP技能加载器
@@ -42,7 +45,7 @@ export class MCPSkillLoader extends SkillLoader {
         }
       }
     } catch (error) {
-      console.error('Error loading MCP skills:', error);
+      logger.error('Error loading MCP skills:', { error });
     }
 
     return skills;

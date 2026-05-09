@@ -6,6 +6,9 @@
 import fs from 'fs';
 import path from 'path';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 技能接口
@@ -124,7 +127,7 @@ export class SkillManager {
             const skillName = path.basename(file, '.json');
             this.skillConfigs.set(skillName, config);
           } catch (error) {
-            console.error(`Error loading skill config ${file}:`, error);
+            logger.error(`Error loading skill config ${file}:`, { error });
           }
         }
       }
@@ -190,11 +193,11 @@ export class SkillManager {
           },
         };
         this.skills.set(skill.name, skillInfo);
-        console.log(`Loaded ${type} skill: ${skill.name}`);
+        logger.info(`Loaded ${type} skill: ${skill.name}`);
       }
     } catch (error) {
       const skillName = path.basename(skillPath, path.extname(skillPath));
-      console.error(`Error loading ${type} skill ${skillName}:`, error);
+      logger.error(`Error loading ${type} skill ${skillName}:`, { error });
       const skillInfo: SkillInfo = {
         skill: {
           name: skillName,
@@ -265,9 +268,11 @@ export class SkillManager {
       }
 
       skillInfo.state = SkillState.INITIALIZED;
-      console.log(`Initialized skill: ${skillInfo.skill.name}`);
+      logger.info(`Initialized skill: ${skillInfo.skill.name}`);
     } catch (error) {
-      console.error(`Error initializing skill ${skillInfo.skill.name}:`, error);
+      logger.error(`Error initializing skill ${skillInfo.skill.name}:`, {
+        error,
+      });
       skillInfo.state = SkillState.FAILED;
       skillInfo.error = error instanceof Error ? error.message : String(error);
     }
@@ -333,11 +338,11 @@ export class SkillManager {
         try {
           await skillInfo.skill.shutdown();
         } catch (error) {
-          console.error(`Error shutting down skill ${name}:`, error);
+          logger.error(`Error shutting down skill ${name}:`, { error });
         }
       }
       this.skills.delete(name);
-      console.log(`Removed skill: ${name}`);
+      logger.info(`Removed skill: ${name}`);
     }
   }
 
@@ -365,10 +370,10 @@ export class SkillManager {
     const defaultContext: SkillContext = {
       config: skillInfo.skill.config || {},
       logger: {
-        info: (message: string) => console.log(`[${name}] ${message}`),
+        info: (message: string) => logger.info(`[${name}] ${message}`),
         error: (message: string, error?: Error) =>
-          console.error(`[${name}] ${message}`, error),
-        debug: (message: string) => console.debug(`[${name}] ${message}`),
+          logger.error(`[${name}] ${message}`, { error }),
+        debug: (message: string) => logger.debug(`[${name}] ${message}`),
       },
     };
 
@@ -380,7 +385,7 @@ export class SkillManager {
       return result;
     } catch (error) {
       profileCheckpoint(`skill_execute_${name}_end`);
-      console.error(`Error executing skill ${name}:`, error);
+      logger.error(`Error executing skill ${name}:`, { error });
       throw error;
     }
   }
@@ -422,10 +427,9 @@ export class SkillManager {
         try {
           await skillInfo.skill.shutdown();
         } catch (error) {
-          console.error(
-            `Error shutting down skill ${skillInfo.skill.name}:`,
-            error
-          );
+          logger.error(`Error shutting down skill ${skillInfo.skill.name}:`, {
+            error,
+          });
         }
       }
     }

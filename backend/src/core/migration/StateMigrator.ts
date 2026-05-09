@@ -8,6 +8,9 @@ import {
   getGlobalStore,
   initializeGlobalStore,
 } from '../state/AppStateStore.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 状态迁移选项
@@ -94,13 +97,13 @@ export class StateMigrator {
           break;
 
         default:
-          console.warn(`Unknown module: ${moduleName}`);
+          logger.warning(`Unknown module: ${moduleName}`);
           return false;
       }
 
       // 验证状态
       if (options.validate && !this.validateState(newState)) {
-        console.error('Invalid state after migration');
+        logger.error('Invalid state after migration');
         return false;
       }
 
@@ -108,7 +111,7 @@ export class StateMigrator {
       store.replaceState(newState);
       return true;
     } catch (error) {
-      console.error(`Error migrating ${moduleName} state:`, error);
+      logger.error(`Error migrating ${moduleName} state:`, { error });
       return false;
     }
   }
@@ -155,7 +158,7 @@ export class StateMigrator {
 
       // 验证状态
       if (options.validate && !this.validateState(newState)) {
-        console.error('Invalid state after batch migration');
+        logger.error('Invalid state after batch migration');
         return false;
       }
 
@@ -163,7 +166,7 @@ export class StateMigrator {
       store.replaceState(newState);
       return true;
     } catch (error) {
-      console.error('Error in batch state migration:', error);
+      logger.error('Error in batch state migration:', { error });
       return false;
     }
   }
@@ -211,7 +214,7 @@ export class StateMigrator {
 
       // 验证状态
       if (options.validate && !this.validateState(state)) {
-        console.error('Invalid state to import');
+        logger.error('Invalid state to import');
         return false;
       }
 
@@ -219,7 +222,7 @@ export class StateMigrator {
       store.replaceState(state);
       return true;
     } catch (error) {
-      console.error('Error importing state:', error);
+      logger.error('Error importing state:', { error });
       return false;
     }
   }

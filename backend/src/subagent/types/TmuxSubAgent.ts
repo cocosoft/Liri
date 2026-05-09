@@ -11,6 +11,9 @@ import {
   TmuxSubAgentConfig,
 } from './SubAgent';
 import { execSync, exec } from 'child_process';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * Tmux子agent
@@ -69,7 +72,7 @@ export class TmuxSubAgent implements SubAgent {
         execSync(
           `tmux new-session -d -s ${this.sessionName} -n ${this.windowName}`
         );
-        console.log(`Created Tmux session ${this.sessionName}`);
+        logger.info(`Created Tmux session ${this.sessionName}`);
       }
 
       // 初始化子agent
@@ -81,12 +84,12 @@ export class TmuxSubAgent implements SubAgent {
       };
 
       this.status = SubAgentStatus.RUNNING;
-      console.log(
+      logger.info(
         `TmuxSubAgent ${this.id} started in session ${this.sessionName}`
       );
     } catch (error) {
       this.status = SubAgentStatus.ERROR;
-      console.error(`Error starting TmuxSubAgent ${this.id}:`, error);
+      logger.error(`Error starting TmuxSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -106,16 +109,16 @@ export class TmuxSubAgent implements SubAgent {
       if (sessionExists) {
         // 终止会话
         execSync(`tmux kill-session -t ${this.sessionName}`);
-        console.log(`Killed Tmux session ${this.sessionName}`);
+        logger.info(`Killed Tmux session ${this.sessionName}`);
       }
 
       // 清理资源
       this.messageQueue = [];
 
       this.status = SubAgentStatus.TERMINATED;
-      console.log(`TmuxSubAgent ${this.id} stopped`);
+      logger.info(`TmuxSubAgent ${this.id} stopped`);
     } catch (error) {
-      console.error(`Error stopping TmuxSubAgent ${this.id}:`, error);
+      logger.error(`Error stopping TmuxSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -131,9 +134,9 @@ export class TmuxSubAgent implements SubAgent {
     try {
       // Tmux会话不能直接暂停，这里只是更新状态
       this.status = SubAgentStatus.PAUSED;
-      console.log(`TmuxSubAgent ${this.id} paused`);
+      logger.info(`TmuxSubAgent ${this.id} paused`);
     } catch (error) {
-      console.error(`Error pausing TmuxSubAgent ${this.id}:`, error);
+      logger.error(`Error pausing TmuxSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -155,13 +158,13 @@ export class TmuxSubAgent implements SubAgent {
         execSync(
           `tmux new-session -d -s ${this.sessionName} -n ${this.windowName}`
         );
-        console.log(`Recreated Tmux session ${this.sessionName}`);
+        logger.info(`Recreated Tmux session ${this.sessionName}`);
       }
 
       this.status = SubAgentStatus.RUNNING;
-      console.log(`TmuxSubAgent ${this.id} resumed`);
+      logger.info(`TmuxSubAgent ${this.id} resumed`);
     } catch (error) {
-      console.error(`Error resuming TmuxSubAgent ${this.id}:`, error);
+      logger.error(`Error resuming TmuxSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -177,10 +180,9 @@ export class TmuxSubAgent implements SubAgent {
     }
 
     try {
-      console.log(
-        `Executing task ${task.id} in TmuxSubAgent ${this.id}:`,
-        task
-      );
+      logger.info(`Executing task ${task.id} in TmuxSubAgent ${this.id}:`, {
+        task,
+      });
 
       // 检查会话是否存在
       const sessionExists = this.checkSessionExists(this.sessionName);
@@ -210,14 +212,14 @@ export class TmuxSubAgent implements SubAgent {
         },
       };
 
-      console.log(
+      logger.info(
         `Task ${task.id} executed successfully in TmuxSubAgent ${this.id}`
       );
       return result;
     } catch (error) {
-      console.error(
+      logger.error(
         `Error executing task ${task.id} in TmuxSubAgent ${this.id}:`,
-        error
+        { error }
       );
       return {
         id: `result_${Date.now()}`,
@@ -275,12 +277,11 @@ export class TmuxSubAgent implements SubAgent {
         this.paneName = config.paneName;
       }
 
-      console.log(`Updated config for TmuxSubAgent ${this.id}:`, config);
+      logger.info(`Updated config for TmuxSubAgent ${this.id}:`, { config });
     } catch (error) {
-      console.error(
-        `Error updating config for TmuxSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error updating config for TmuxSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -302,9 +303,11 @@ export class TmuxSubAgent implements SubAgent {
         );
       }
 
-      console.log(`Message sent to TmuxSubAgent ${this.id}:`, message);
+      logger.info(`Message sent to TmuxSubAgent ${this.id}:`, { message });
     } catch (error) {
-      console.error(`Error sending message to TmuxSubAgent ${this.id}:`, error);
+      logger.error(`Error sending message to TmuxSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -320,13 +323,14 @@ export class TmuxSubAgent implements SubAgent {
       }
 
       const message = this.messageQueue.shift();
-      console.log(`Message received from TmuxSubAgent ${this.id}:`, message);
+      logger.info(`Message received from TmuxSubAgent ${this.id}:`, {
+        message,
+      });
       return message;
     } catch (error) {
-      console.error(
-        `Error receiving message from TmuxSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error receiving message from TmuxSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }

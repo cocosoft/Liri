@@ -398,5 +398,5 @@ export type UserConfigValues = Record<string, string>;
 /**
  * MCP用户配置模式（插件通道配置架构）
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+
 export interface UserConfigSchema extends Record<string, unknown> {}

@@ -10,6 +10,9 @@
  */
 
 import { AppError } from '../types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 错误上下文
@@ -75,7 +78,7 @@ export class ExternalErrorMonitor {
    */
   registerReporter(reporter: ExternalErrorReporter): void {
     this.reporters.push(reporter);
-    console.log(`[ExternalErrorMonitor] 注册报告器: ${reporter.getName()}`);
+    logger.info(`[ExternalErrorMonitor] 注册报告器: ${reporter.getName()}`);
   }
 
   /**
@@ -83,7 +86,7 @@ export class ExternalErrorMonitor {
    */
   unregisterReporter(name: string): void {
     this.reporters = this.reporters.filter((r) => r.getName() !== name);
-    console.log(`[ExternalErrorMonitor] 注销报告器: ${name}`);
+    logger.info(`[ExternalErrorMonitor] 注销报告器: ${name}`);
   }
 
   /**
@@ -123,9 +126,9 @@ export class ExternalErrorMonitor {
         try {
           await reporter.reportError(error, fullContext);
         } catch (e) {
-          console.warn(
+          logger.warning(
             `[ExternalErrorMonitor] 报告器 ${reporter.getName()} 错误报告失败:`,
-            e
+            { error: e }
           );
         }
       })
@@ -134,7 +137,7 @@ export class ExternalErrorMonitor {
     const failed = results.filter((r) => r.status === 'rejected').length;
 
     if (failed > 0) {
-      console.warn(
+      logger.warning(
         `[ExternalErrorMonitor] ${failed}/${this.reporters.length} 个报告器上报失败`
       );
     }
@@ -157,9 +160,9 @@ export class ExternalErrorMonitor {
         try {
           await reporter.reportMetric(name, value, tags);
         } catch (e) {
-          console.warn(
+          logger.warning(
             `[ExternalErrorMonitor] 报告器 ${reporter.getName()} 指标报告失败:`,
-            e
+            { error: e }
           );
         }
       })
@@ -172,11 +175,11 @@ export class ExternalErrorMonitor {
   async shutdown(): Promise<void> {
     for (const reporter of this.reporters) {
       try {
-        console.log(`[ExternalErrorMonitor] 关闭报告器: ${reporter.getName()}`);
+        logger.info(`[ExternalErrorMonitor] 关闭报告器: ${reporter.getName()}`);
       } catch (e) {
-        console.warn(
+        logger.warning(
           `[ExternalErrorMonitor] 关闭报告器 ${reporter.getName()} 失败:`,
-          e
+          { error: e }
         );
       }
     }
@@ -197,7 +200,9 @@ export class DatadogReporter implements ExternalErrorReporter {
   async reportError(error: AppError, context: ErrorContext): Promise<void> {
     // TODO: 实现 Datadog 错误上报
     // 需要安装 datadog-metrics 包
-    console.log('[DatadogReporter] 错误上报（未实现）:', error.message);
+    logger.debug('[DatadogReporter] 错误上报（未实现）:', {
+      message: error.message,
+    });
   }
 
   async reportMetric(
@@ -206,7 +211,7 @@ export class DatadogReporter implements ExternalErrorReporter {
     tags?: Record<string, string>
   ): Promise<void> {
     // TODO: 实现 Datadog 指标上报
-    console.log('[DatadogReporter] 指标上报（未实现）:', name, value);
+    logger.debug('[DatadogReporter] 指标上报（未实现）:', { name, value });
   }
 }
 
@@ -223,7 +228,9 @@ export class PrometheusReporter implements ExternalErrorReporter {
   async reportError(error: AppError, context: ErrorContext): Promise<void> {
     // TODO: 实现 Prometheus 错误上报
     // 需要安装 prom-client 包
-    console.log('[PrometheusReporter] 错误上报（未实现）:', error.message);
+    logger.debug('[PrometheusReporter] 错误上报（未实现）:', {
+      message: error.message,
+    });
   }
 
   async reportMetric(
@@ -232,7 +239,7 @@ export class PrometheusReporter implements ExternalErrorReporter {
     tags?: Record<string, string>
   ): Promise<void> {
     // TODO: 实现 Prometheus 指标上报
-    console.log('[PrometheusReporter] 指标上报（未实现）:', name, value);
+    logger.debug('[PrometheusReporter] 指标上报（未实现）:', { name, value });
   }
 }
 
@@ -249,7 +256,9 @@ export class SentryReporter implements ExternalErrorReporter {
   async reportError(error: AppError, context: ErrorContext): Promise<void> {
     // TODO: 实现 Sentry 错误上报
     // 需要安装 @sentry/node 包
-    console.log('[SentryReporter] 错误上报（未实现）:', error.message);
+    logger.debug('[SentryReporter] 错误上报（未实现）:', {
+      message: error.message,
+    });
   }
 
   async reportMetric(
@@ -258,6 +267,6 @@ export class SentryReporter implements ExternalErrorReporter {
     tags?: Record<string, string>
   ): Promise<void> {
     // Sentry 主要用于错误追踪，不支持指标上报
-    console.log('[SentryReporter] 指标上报不支持:', name);
+    logger.debug('[SentryReporter] 指标上报不支持:', { name });
   }
 }

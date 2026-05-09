@@ -9,6 +9,9 @@ import type { SkillDefinition } from '../utils/skillParser';
 import { SkillSource } from '../utils/skillParser';
 import type { SkillLoader } from '../utils/skillLoader';
 import type { SkillTool } from '../tools/SkillTool';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 技能菜单属性（基于CC源码）
@@ -145,7 +148,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
       const result = await skillLoader.loadAllSkills();
 
       if (result.errors.length > 0) {
-        console.warn('Skill loading warnings:', result.errors);
+        logger.warning('Skill loading warnings:', { errors: result.errors });
       }
 
       // 分组技能（基于CC源码）
@@ -291,7 +294,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
       onSkillSelect(skill);
       onClose();
     } catch (error) {
-      console.error('Failed to execute skill:', error);
+      logger.error('Failed to execute skill:', { error });
     }
   };
 

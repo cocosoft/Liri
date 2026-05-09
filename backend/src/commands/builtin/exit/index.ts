@@ -3,6 +3,9 @@
  * 退出系统
  */
 import type { Command } from '@modules/commands/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const GOODBYE_MESSAGES = [
   'Goodbye!',
@@ -48,7 +51,7 @@ export const exitCommand: Command = {
         try {
           await context.chatManager.saveSession(context.sessionId);
         } catch (error) {
-          console.warn('Failed to save session on exit:', error);
+          logger.warning('Failed to save session on exit:', { error });
         }
       }
 

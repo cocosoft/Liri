@@ -5,6 +5,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 模块迁移分析结果
@@ -319,7 +322,7 @@ import { MODULE_DEFINITIONS } from '../modules/ModuleDefinitions';
  * 迁移 ${moduleName} 模块到模块管理系统
  */
 export async function migrate${this.capitalizeFirst(moduleName)}Module(): Promise<void> {
-  console.log('开始迁移 ${moduleName} 模块...');
+  logger.info('开始迁移 ${moduleName} 模块...');
   
   try {
     // 1. 获取模块定义
@@ -330,16 +333,16 @@ export async function migrate${this.capitalizeFirst(moduleName)}Module(): Promis
     
     // 2. 注册模块
     moduleRegistry.register(moduleDefinition);
-    console.log('模块注册完成: ${moduleName}');
+    logger.info('模块注册完成: ${moduleName}');
     
     // 3. 初始化模块
     await moduleRegistry.initialize('${moduleName}');
-    console.log('模块初始化完成: ${moduleName}');
+    logger.info('模块初始化完成: ${moduleName}');
     
-    console.log('${moduleName} 模块迁移完成');
+    logger.info('${moduleName} 模块迁移完成');
     
   } catch (error) {
-    console.error('${moduleName} 模块迁移失败:', error);
+    logger.error('${moduleName} 模块迁移失败:', { error });
     throw error;
   }
 }
@@ -371,20 +374,17 @@ export async function migrateAllModules(): Promise<void> {
   const tool = new ModuleMigrationTool();
   const analysis = tool.analyzeAllModules();
 
-  console.log('开始迁移所有模块...');
+  logger.info('开始迁移所有模块...');
 
-  // 生成迁移报告
   const report = tool.generateMigrationReport(analysis);
   const reportPath = path.join(process.cwd(), 'module_migration_report.md');
   fs.writeFileSync(reportPath, report);
-  console.log(`迁移报告已生成: ${reportPath}`);
+  logger.info(`迁移报告已生成: ${reportPath}`);
 
-  // 按优先级排序（工作量从低到高）
   const sortedAnalysis = analysis
     .filter((a) => a.status === 'ready' || a.status === 'needs_work')
     .sort((a, b) => a.estimatedEffort - b.estimatedEffort);
 
-  // 生成迁移脚本
   for (const item of sortedAnalysis) {
     const script = tool.generateMigrationScript(item.moduleName);
     const scriptPath = path.join(
@@ -393,15 +393,14 @@ export async function migrateAllModules(): Promise<void> {
       `${item.moduleName}_migration.ts`
     );
 
-    // 确保目录存在
     const scriptDir = path.dirname(scriptPath);
     if (!fs.existsSync(scriptDir)) {
       fs.mkdirSync(scriptDir, { recursive: true });
     }
 
     fs.writeFileSync(scriptPath, script);
-    console.log(`迁移脚本已生成: ${scriptPath}`);
+    logger.info(`迁移脚本已生成: ${scriptPath}`);
   }
 
-  console.log('模块迁移准备完成，请查看迁移报告和脚本');
+  logger.info('模块迁移准备完成，请查看迁移报告和脚本');
 }

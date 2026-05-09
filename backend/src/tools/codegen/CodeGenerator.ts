@@ -3,6 +3,10 @@
  * 用于生成常用的代码模板
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 代码生成选项
  */
@@ -356,5 +360,5 @@ export async function generateCodeFile(options: CodeGenOptions): Promise<void> {
 
   // 写入文件
   await fs.writeFile(options.outputPath, code);
-  console.log(`Generated code file: ${options.outputPath}`);
+  logger.info(`Generated code file: ${options.outputPath}`);
 }

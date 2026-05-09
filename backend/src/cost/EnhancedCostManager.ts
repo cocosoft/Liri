@@ -18,6 +18,9 @@ import {
   CostMonitor,
   PricingManager,
 } from './index.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface EnhancedCostManagerConfig {
   enableAdvancedAnalysis: boolean;
@@ -222,7 +225,7 @@ export class EnhancedCostManager {
         ),
       };
     } catch (error) {
-      console.error(`预测类别 ${category} 成本失败:`, error);
+      logger.error(`预测类别 ${category} 成本失败:`, { error });
       return null;
     }
   }

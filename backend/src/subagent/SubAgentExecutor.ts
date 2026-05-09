@@ -3,6 +3,9 @@
  */
 import { SubAgent, SubAgentTask, SubAgentResult } from './types/SubAgent';
 import { ToolResult } from '../tools/types/ToolResult';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 工具调用
@@ -115,7 +118,7 @@ export class SubAgentExecutor {
   ): Promise<void> {
     // 这里可以实现结果处理逻辑
     // 例如：保存结果、通知主agent等
-    console.log(`Processing result for subagent ${subAgent.id}:`, result);
+    logger.info(`Processing result for subagent ${subAgent.id}:`, { result });
   }
 
   /**
@@ -125,7 +128,7 @@ export class SubAgentExecutor {
   monitorExecution(subAgent: SubAgent): void {
     // 这里可以实现执行监控逻辑
     // 例如：监控执行时间、资源使用等
-    console.log(`Monitoring execution for subagent ${subAgent.id}`);
+    logger.info(`Monitoring execution for subagent ${subAgent.id}`);
   }
 
   /**
@@ -136,7 +139,7 @@ export class SubAgentExecutor {
   handleError(subAgent: SubAgent, error: Error): void {
     // 这里可以实现错误处理逻辑
     // 例如：记录错误、恢复子agent等
-    console.error(`Error in subagent ${subAgent.id}:`, error);
+    logger.error(`Error in subagent ${subAgent.id}:`, { error });
   }
 
   /**
@@ -146,7 +149,7 @@ export class SubAgentExecutor {
   interrupt(subAgent: SubAgent): void {
     // 这里可以实现中断执行逻辑
     // 例如：发送中断信号、清理资源等
-    console.log(`Interrupting execution for subagent ${subAgent.id}`);
+    logger.info(`Interrupting execution for subagent ${subAgent.id}`);
   }
 }
 

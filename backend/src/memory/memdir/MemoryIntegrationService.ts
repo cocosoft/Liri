@@ -151,7 +151,7 @@ export class MemoryIntegrationService {
         this.startAutoSync();
       }
 
-      console.log('Memory integration service initialized successfully');
+      logger.info('Memory integration service initialized successfully');
     } catch (error) {
       logger.error(
         'Failed to initialize memory integration service',
@@ -483,7 +483,7 @@ export class MemoryIntegrationService {
 
     const keptMemories = await this.memoryScanner.applyMemoryAging(memoryFiles);
 
-    console.log(
+    logger.info(
       `Memory sync completed. Kept ${keptMemories.length} file memories.`
     );
   }
@@ -526,8 +526,10 @@ export class MemoryIntegrationService {
     const exportContent = this.generateExportContent(filteredMemories);
 
     // 写入文件（简化实现）
-    console.log(`Exporting ${filteredMemories.length} memories to ${filePath}`);
-    console.log('Export content preview:', exportContent.substring(0, 200));
+    logger.info(`Exporting ${filteredMemories.length} memories to ${filePath}`);
+    logger.info('Export content preview:', {
+      content: exportContent.substring(0, 200),
+    });
   }
 
   /**

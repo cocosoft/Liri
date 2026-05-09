@@ -10,6 +10,9 @@ import {
   StateChangeListener,
   SubscribeOptions,
 } from '../types/StateTypes.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 订阅管理器选项（基于CC源码）
@@ -145,7 +148,7 @@ export class StateSubscriptionManager<T = any> {
       listener(selectedValue);
     }
 
-    console.log(`Subscription created: ${subscription.id}`);
+    logger.info(`Subscription created: ${subscription.id}`);
     return subscription;
   }
 
@@ -168,7 +171,7 @@ export class StateSubscriptionManager<T = any> {
       this.stats.selectorSubscriptions--;
     }
 
-    console.log(`Subscription deleted: ${subscriptionId}`);
+    logger.info(`Subscription deleted: ${subscriptionId}`);
     return true;
   }
 
@@ -285,7 +288,7 @@ export class StateSubscriptionManager<T = any> {
     this.stats.activeSubscriptions = 0;
     this.stats.selectorSubscriptions = 0;
 
-    console.log('All subscriptions cleared');
+    logger.info('All subscriptions cleared');
   }
 
   /**
@@ -384,10 +387,9 @@ export class StateSubscriptionManager<T = any> {
         try {
           subscription.listener(value);
         } catch (error) {
-          console.error(
-            `Subscription listener failed: ${subscription.id}`,
-            error
-          );
+          logger.error(`Subscription listener failed: ${subscription.id}`, {
+            error,
+          });
         }
       }
     }
@@ -420,9 +422,9 @@ export class StateSubscriptionManager<T = any> {
         try {
           subscription.listener(value);
         } catch (error) {
-          console.error(
+          logger.error(
             `Batch subscription listener failed: ${subscriptionId}`,
-            error
+            { error }
           );
         }
       }

@@ -5,6 +5,9 @@
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 缓存项
@@ -88,7 +91,7 @@ export class ToolCache {
             unlinkSync(path);
           }
         } catch (error) {
-          console.error(`Error loading cache file ${file}:`, error);
+          logger.error(`Error loading cache file ${file}:`, { error });
         }
       }
     }
@@ -118,7 +121,7 @@ export class ToolCache {
     try {
       writeFileSync(cacheFile, JSON.stringify(item, null, 2), 'utf8');
     } catch (error) {
-      console.error('Error writing cache to disk:', error);
+      logger.error('Error writing cache to disk:', { error });
     }
   }
 
@@ -146,7 +149,7 @@ export class ToolCache {
             unlinkSync(cacheFile);
           }
         } catch (error) {
-          console.error('Error reading cache from disk:', error);
+          logger.error('Error reading cache from disk:', { error });
         }
       }
       return null;
@@ -162,7 +165,7 @@ export class ToolCache {
         try {
           unlinkSync(cacheFile);
         } catch (error) {
-          console.error('Error deleting expired cache:', error);
+          logger.error('Error deleting expired cache:', { error });
         }
       }
       return null;
@@ -179,7 +182,7 @@ export class ToolCache {
       try {
         unlinkSync(cacheFile);
       } catch (error) {
-        console.error('Error deleting cache:', error);
+        logger.error('Error deleting cache:', { error });
       }
     }
   }
@@ -200,7 +203,7 @@ export class ToolCache {
           try {
             unlinkSync(path);
           } catch (error) {
-            console.error(`Error deleting cache file ${file}:`, error);
+            logger.error(`Error deleting cache file ${file}:`, { error });
           }
         }
       }
@@ -249,7 +252,7 @@ export class ToolCache {
         try {
           unlinkSync(cacheFile);
         } catch (error) {
-          console.error('Error deleting expired cache:', error);
+          logger.error('Error deleting expired cache:', { error });
         }
       }
     }

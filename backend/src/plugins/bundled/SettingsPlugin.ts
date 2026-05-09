@@ -5,6 +5,9 @@
 
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface SettingsConfig {
   theme: 'light' | 'dark' | 'system';
@@ -48,22 +51,22 @@ export class SettingsPlugin implements Plugin {
 
   async initialize(): Promise<void> {
     this.loadSettings();
-    console.log(`[SettingsPlugin] 初始化设置插件`);
+    logger.info(`[SettingsPlugin] 初始化设置插件`);
   }
 
   async activate(): Promise<void> {
     this.enabled = true;
-    console.log(`[SettingsPlugin] 设置插件已激活`);
+    logger.info(`[SettingsPlugin] 设置插件已激活`);
   }
 
   async deactivate(): Promise<void> {
     this.enabled = false;
-    console.log(`[SettingsPlugin] 设置插件已停用`);
+    logger.info(`[SettingsPlugin] 设置插件已停用`);
   }
 
   async dispose(): Promise<void> {
     this.saveSettings();
-    console.log(`[SettingsPlugin] 设置插件已释放`);
+    logger.info(`[SettingsPlugin] 设置插件已释放`);
   }
 
   /**

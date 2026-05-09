@@ -7,6 +7,9 @@
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { PluginConfig, PluginRepository } from '../types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 读取插件配置
@@ -34,7 +37,7 @@ export function readPluginConfig(
       disabled: config.plugins?.disabled || [],
     };
   } catch (error) {
-    console.error('Failed to read plugin config:', error);
+    logger.error('Failed to read plugin config:', { error });
     return {
       repositories: {},
       enabled: [],
@@ -71,7 +74,7 @@ export function writePluginConfig(
     const content = JSON.stringify(existingConfig, null, 2);
     writeFileSync(configPath, content, 'utf8');
   } catch (error) {
-    console.error('Failed to write plugin config:', error);
+    logger.error('Failed to write plugin config:', { error });
   }
 }
 

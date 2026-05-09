@@ -19,6 +19,9 @@ import {
   OperationType,
 } from './models/Permission.js';
 import { createFilePermissionStorage } from './storage/FilePermissionStorage.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 细粒度权限管理器类
@@ -134,7 +137,7 @@ export class FineGrainedPermissionManager {
 
       return defaultDecision;
     } catch (error) {
-      console.error('Error checking permission:', error);
+      logger.error('Error checking permission:', { error });
       return {
         action: PermissionAction.DENY,
         reason: 'Error checking permission',
@@ -174,7 +177,7 @@ export class FineGrainedPermissionManager {
 
       return eval(condition);
     } catch (error) {
-      console.error('Error evaluating condition:', error);
+      logger.error('Error evaluating condition:', { error });
       return false;
     }
   }

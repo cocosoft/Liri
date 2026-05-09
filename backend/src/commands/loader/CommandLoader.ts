@@ -10,8 +10,11 @@ import type {
 } from '@modules/commands/types';
 import { feature } from '@modules/core';
 import { join } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 import { LazyCommand } from './LazyCommand.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 // 获取项目根目录（使用当前工作目录）
 const projectRoot = process.cwd();
@@ -293,7 +296,7 @@ export class SkillCommandLoader implements CommandLoader {
         commands.push(command);
       }
     } catch (error) {
-      console.error('Failed to load skill commands:', error);
+      logger.error('Failed to load skill commands:', { error });
     }
 
     return commands;
@@ -328,7 +331,7 @@ export class PluginCommandLoader implements CommandLoader {
       const pluginCommands = await pluginManager.getCommands();
       commands.push(...pluginCommands);
     } catch (error) {
-      console.error('Failed to load plugin commands:', error);
+      logger.error('Failed to load plugin commands:', { error });
     }
 
     return commands;
@@ -363,7 +366,7 @@ export class MCPCommandLoader implements CommandLoader {
       const mcpCommands = await mcpManager.getCommands();
       commands.push(...mcpCommands);
     } catch (error) {
-      console.error('Failed to load MCP commands:', error);
+      logger.error('Failed to load MCP commands:', { error });
     }
 
     return commands;

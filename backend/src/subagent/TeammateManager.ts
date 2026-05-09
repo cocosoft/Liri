@@ -15,6 +15,9 @@ import {
   MessageHandler,
 } from './backends/TeammateBackend';
 import { InProcessTeammateBackend } from './backends/InProcessTeammateBackend';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface TeamManagerConfig {
   maxTeammates?: number;
@@ -56,7 +59,7 @@ export class TeammateManager {
 
   registerBackend(type: TeammateBackendType, backend: TeammateBackend): void {
     if (this.backends.has(type)) {
-      console.warn(`Backend type ${type} already registered, replacing...`);
+      logger.warning(`Backend type ${type} already registered, replacing...`);
     }
     this.backends.set(type, backend);
   }
@@ -99,7 +102,7 @@ export class TeammateManager {
       });
     }
 
-    console.log(`Teammate ${config.name} (${type}) spawned successfully`);
+    logger.info(`Teammate ${config.name} (${type}) spawned successfully`);
     return handle;
   }
 
@@ -114,7 +117,7 @@ export class TeammateManager {
     this.teamMembers.delete(teammateId);
     this.messageHistory.delete(teammateId);
 
-    console.log(`Teammate ${teammateId} terminated`);
+    logger.info(`Teammate ${teammateId} terminated`);
   }
 
   async sendMessageToTeammate(
@@ -138,7 +141,7 @@ export class TeammateManager {
 
     const promises = Array.from(this.activeTeammates.values()).map((handle) =>
       handle.backend.sendMessage(handle, message).catch((error) => {
-        console.error(`Failed to send broadcast to ${handle.name}:`, error);
+        logger.error(`Failed to send broadcast to ${handle.name}:`, { error });
       })
     );
 
@@ -154,7 +157,7 @@ export class TeammateManager {
       .filter((handle) => handle.id !== excludeTeammateId)
       .map((handle) =>
         handle.backend.sendMessage(handle, message).catch((error) => {
-          console.error(`Failed to send message to ${handle.name}:`, error);
+          logger.error(`Failed to send message to ${handle.name}:`, { error });
         })
       );
 
@@ -165,7 +168,7 @@ export class TeammateManager {
     const teammateIds = Array.from(this.activeTeammates.keys());
     await Promise.allSettled(teammateIds.map((id) => this.killTeammate(id)));
 
-    console.log(`All ${teammateIds.length} teammates terminated`);
+    logger.info(`All ${teammateIds.length} teammates terminated`);
   }
 
   onTeammateMessage(teammateId: string, callback: MessageHandler): void {
@@ -220,7 +223,7 @@ export class TeammateManager {
     }
 
     await handle.backend.restart(handle);
-    console.log(`Teammate ${teammateId} restarted`);
+    logger.info(`Teammate ${teammateId} restarted`);
   }
 
   getMessageHistory(teammateId: string): Message[] {
@@ -261,7 +264,7 @@ export class TeammateManager {
   }
 
   private handleStatusChange(teammateId: string, status: TeammateStatus): void {
-    console.log(`Teammate ${teammateId} status changed to ${status}`);
+    logger.info(`Teammate ${teammateId} status changed to ${status}`);
 
     if (status === 'stopped' || status === 'error') {
       this.activeTeammates.delete(teammateId);

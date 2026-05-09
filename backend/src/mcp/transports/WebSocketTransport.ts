@@ -5,6 +5,9 @@
 
 import { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * WebSocket传输层选项
@@ -79,12 +82,12 @@ export class WebSocketTransport extends MCPTransport {
               this.pendingRequests.delete(requestId);
             }
           } catch (error) {
-            console.error(`Failed to parse WebSocket response: ${event.data}`);
+            logger.error(`Failed to parse WebSocket response: ${event.data}`);
           }
         };
 
         this.socket.onerror = (error) => {
-          console.error('WebSocket error:', error);
+          logger.error('WebSocket error:', { error });
         };
 
         this.socket.onclose = (event) => {
@@ -113,7 +116,7 @@ export class WebSocketTransport extends MCPTransport {
   private scheduleReconnect(): void {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    console.log(
+    logger.info(
       `Scheduling WebSocket reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`
     );
 
@@ -121,7 +124,7 @@ export class WebSocketTransport extends MCPTransport {
       try {
         await this.connect();
       } catch (error) {
-        console.error('WebSocket reconnect failed:', error);
+        logger.error('WebSocket reconnect failed:', { error });
       }
     }, delay);
   }

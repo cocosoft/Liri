@@ -6,6 +6,9 @@
 import { spawn, ChildProcess } from 'child_process';
 import { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * Stdio传输层选项
@@ -77,12 +80,12 @@ export class StdioTransport extends MCPTransport {
 
     // 处理标准错误
     this.process.stderr?.on('data', (data) => {
-      console.error(`MCP stderr: ${data.toString()}`);
+      logger.error(`MCP stderr: ${data.toString()}`);
     });
 
     // 处理进程退出
     this.process.on('exit', (code) => {
-      console.log(`MCP process exited with code ${code}`);
+      logger.info(`MCP process exited with code ${code}`);
       this.connected = false;
       this.process = null;
 
@@ -144,7 +147,7 @@ export class StdioTransport extends MCPTransport {
           this.pendingRequests.delete(requestId);
         }
       } catch (error) {
-        console.error(`Failed to parse MCP response: ${line}`);
+        logger.error(`Failed to parse MCP response: ${line}`);
       }
     }
 

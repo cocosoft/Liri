@@ -146,7 +146,6 @@ function slowLoggingImpl(
   _strings: TemplateStringsArray,
   ..._values: unknown[]
 ): SlowLogger {
-  // eslint-disable-next-line prefer-rest-params
   return new SlowLogger(arguments);
 }
 

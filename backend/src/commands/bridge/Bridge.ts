@@ -14,6 +14,9 @@ import {
 } from '@modules/bridge/BridgeMain.js';
 import { createDummySpawner } from '@modules/bridge/sessions/MultiSessionManager.js';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const BRIDGE_CONFIG_PATH = './settings.json';
 
@@ -143,11 +146,11 @@ function createBridgeInstance(
     config,
     spawner: createDummySpawner(),
     logger: {
-      logError: (msg: string) => console.error(msg),
-      logVerbose: (msg: string) => console.log(`[Bridge] ${msg}`),
-      logInfo: (msg: string) => console.log(`[Bridge] ${msg}`),
+      logError: (msg: string) => logger.error(msg),
+      logVerbose: (msg: string) => logger.debug(`[Bridge] ${msg}`),
+      logInfo: (msg: string) => logger.info(`[Bridge] ${msg}`),
       printBanner: (_config: unknown, envId: string) => {
-        console.log(`[Bridge] 环境 ID: ${envId}`);
+        logger.info(`[Bridge] 环境 ID: ${envId}`);
       },
       setAttached: (_sessionId: string) => {
         // 无需操作
@@ -376,7 +379,7 @@ async function handleStart(simulated: boolean): Promise<CommandResult> {
     bridgeStateStore.enable(true);
 
     bm.run().catch((err) => {
-      console.error(`[Bridge] 运行错误: ${err.message}`);
+      logger.error(`[Bridge] 运行错误: ${err.message}`);
       bridgeStateStore.setError(err.message);
     });
 

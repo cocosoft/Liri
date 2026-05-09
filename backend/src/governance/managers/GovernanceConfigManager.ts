@@ -10,6 +10,9 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { GovernanceConfig } from '../types/GovernanceTypes';
 import { createDefaultGovernanceConfig } from '../types/GovernanceTypes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 配置版本
@@ -101,7 +104,7 @@ export class GovernanceConfigManager extends EventEmitter {
           ...config,
         };
       } catch (error) {
-        console.error('Failed to load governance config:', error);
+        logger.error('Failed to load governance config:', { error });
         return createDefaultGovernanceConfig();
       }
     }
@@ -118,7 +121,7 @@ export class GovernanceConfigManager extends EventEmitter {
         const versions = JSON.parse(content);
         return Array.isArray(versions) ? versions : [];
       } catch (error) {
-        console.error('Failed to load governance config versions:', error);
+        logger.error('Failed to load governance config versions:', { error });
         return [];
       }
     }
@@ -135,7 +138,7 @@ export class GovernanceConfigManager extends EventEmitter {
         JSON.stringify(this.currentConfig, null, 2) + '\n'
       );
     } catch (error) {
-      console.error('Failed to save governance config:', error);
+      logger.error('Failed to save governance config:', { error });
     }
   }
 
@@ -149,7 +152,7 @@ export class GovernanceConfigManager extends EventEmitter {
         JSON.stringify(this.versions, null, 2) + '\n'
       );
     } catch (error) {
-      console.error('Failed to save governance config versions:', error);
+      logger.error('Failed to save governance config versions:', { error });
     }
   }
 

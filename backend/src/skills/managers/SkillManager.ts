@@ -1,4 +1,7 @@
 import { Skill, SkillLoader } from '../types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export class SkillManager {
   private skills: Map<string, Skill> = new Map();
@@ -53,7 +56,7 @@ export class SkillManager {
       // 更新最后加载时间
       this.lastLoadTime = now;
     } catch (error) {
-      console.error('Error loading skills:', error);
+      logger.error('Error loading skills:', { error });
       // 加载失败时保留现有技能
     }
   }
@@ -114,7 +117,7 @@ export class SkillManager {
       const prompt = await skill.getPromptForCommand(args, toolUseContext);
       return prompt;
     } catch (error) {
-      console.error(`Error executing skill ${name}:`, error);
+      logger.error(`Error executing skill ${name}:`, { error });
       throw error;
     }
   }

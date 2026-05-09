@@ -13,8 +13,11 @@ import {
   createToolHookCancelledResult,
 } from '../types/ToolHooks';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { HookManager } from './HookManager';
 import { HookEvent } from '../types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 工具Hook管理器
@@ -141,9 +144,9 @@ export class ToolHookManager {
           };
         }
       } catch (error) {
-        console.error(
+        logger.error(
           `Error executing PreToolUse hook for ${context.toolName}:`,
-          error
+          { error }
         );
       }
     }
@@ -199,9 +202,9 @@ export class ToolHookManager {
           yield { type: 'updatedToolOutput', output: result.updatedToolOutput };
         }
       } catch (error) {
-        console.error(
+        logger.error(
           `Error executing PostToolUse hook for ${context.toolName}:`,
-          error
+          { error }
         );
       }
     }
@@ -253,9 +256,9 @@ export class ToolHookManager {
           };
         }
       } catch (error) {
-        console.error(
+        logger.error(
           `Error executing PostToolUseFailure hook for ${context.toolName}:`,
-          error
+          { error }
         );
       }
     }

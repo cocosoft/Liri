@@ -11,6 +11,9 @@
 
 import { logForDebugging } from '../debug.js';
 import { launchInTerminal } from './TerminalLauncher';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export const DEEP_LINK_PROTOCOL = 'pyapp';
 
@@ -112,8 +115,7 @@ export async function handleDeepLinkUri(uri: string): Promise<number> {
     action = parseDeepLink(uri);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // eslint-disable-next-line no-console
-    console.error(`Deep link error: ${message}`);
+    logger.error(`Deep link error: ${message}`);
     return 1;
   }
 
@@ -129,8 +131,7 @@ export async function handleDeepLinkUri(uri: string): Promise<number> {
   });
 
   if (!launched) {
-    // eslint-disable-next-line no-console
-    console.error(
+    logger.error(
       'Failed to open a terminal. Make sure a supported terminal emulator is installed.'
     );
     return 1;

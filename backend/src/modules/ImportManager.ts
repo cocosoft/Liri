@@ -5,6 +5,9 @@
  */
 
 import { ModuleDefinition, moduleRegistry } from './ModuleRegistry';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 导入管理器配置
@@ -201,7 +204,7 @@ export class ImportManager {
         case 'ignore':
           break;
         case 'log':
-          console.error(`导入模块失败: ${path}`, error);
+          logger.error(`导入模块失败: ${path}`, { error });
           break;
         case 'throw':
         default:

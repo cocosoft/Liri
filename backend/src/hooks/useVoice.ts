@@ -6,6 +6,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 语音状态
@@ -158,7 +161,7 @@ export function useVoice(config: Partial<VoiceConfig> = {}): UseVoiceResult {
     };
 
     recognition.onerror = (event: SpeechRecognitionError) => {
-      console.error('语音识别错误:', event.error);
+      logger.error('语音识别错误:', { event: event.error });
       setState('idle');
     };
 

@@ -5,6 +5,9 @@
 import { watch, FSWatcher } from 'fs';
 import { resolve } from 'path';
 import { PluginManager } from './PluginManager';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件热加载事件类型
@@ -85,7 +88,7 @@ export class PluginHotloadManager {
 
     const pluginDir = this.getPluginDirectory();
     if (!pluginDir) {
-      console.warn('Plugin directory not found, hotload disabled');
+      logger.warning('Plugin directory not found, hotload disabled');
       return;
     }
 
@@ -101,12 +104,12 @@ export class PluginHotloadManager {
       );
 
       this.watcher.on('error', (error) => {
-        console.error('Hotload watcher error:', error);
+        logger.error('Hotload watcher error:', { error });
       });
 
-      console.log(`Hotload enabled, watching: ${pluginDir}`);
+      logger.info(`Hotload enabled, watching: ${pluginDir}`);
     } catch (error) {
-      console.error('Failed to start hotload watcher:', error);
+      logger.error('Failed to start hotload watcher:', { error });
     }
   }
 
@@ -188,7 +191,7 @@ export class PluginHotloadManager {
       try {
         await listener(event);
       } catch (error) {
-        console.error('Hotload listener error:', error);
+        logger.error('Hotload listener error:', { error });
       }
     }
   }
@@ -220,9 +223,9 @@ export class PluginHotloadManager {
 
     try {
       await this.pluginManager.reloadPlugin(pluginName);
-      console.log(`Plugin reloaded: ${pluginName}`);
+      logger.info(`Plugin reloaded: ${pluginName}`);
     } catch (error) {
-      console.error(`Failed to reload plugin ${pluginName}:`, error);
+      logger.error(`Failed to reload plugin ${pluginName}:`, { error });
     }
   }
 

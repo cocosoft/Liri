@@ -6,6 +6,9 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 持久化数据结构
@@ -183,7 +186,7 @@ export class CostPersistenceService {
         { encoding: 'utf-8' }
       );
     } catch (error) {
-      console.error('保存成本数据失败:', error);
+      logger.error('保存成本数据失败:', { error });
     }
   }
 

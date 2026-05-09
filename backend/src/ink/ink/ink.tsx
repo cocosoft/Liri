@@ -1977,7 +1977,7 @@ export default class Ink {
  * DISABLE_MOUSE_TRACKING has terminal round-trip latency, so events can
  * arrive for a few ms after it's written.
  */
-/* eslint-disable */
+
 export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
   if (!stdin.isTTY) return;
   // Drain Node's stream buffer (bytes libuv already pulled in). read()
@@ -2033,7 +2033,6 @@ export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
     }
   }
 }
-
 
 const CONSOLE_STDOUT_METHODS = [
   'log',

@@ -9,6 +9,7 @@ import PluginLifecycleManager from './core/PluginLifecycleManager';
 import PluginDependencyManager from './management/PluginDependencyManager';
 import PluginConfigManager from './management/PluginConfigManager';
 import PluginEventSystem from './core/PluginEventSystem';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   PluginState,
   PluginType,
@@ -20,6 +21,8 @@ import {
   PluginEventType,
   PluginEvent,
 } from './types/PluginTypes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件系统（基于CC源码）
@@ -85,7 +88,7 @@ export class PluginSystem {
 
     // 事件系统错误处理
     this.eventSystem.on('handlerError', (data: any) => {
-      console.error('Event handler error:', data);
+      logger.error('Event handler error:', { data });
     });
   }
 
@@ -97,7 +100,7 @@ export class PluginSystem {
       return;
     }
 
-    console.log('🚀 Initializing plugin system...');
+    logger.info('🚀 Initializing plugin system...');
 
     try {
       // 初始化加载器
@@ -112,11 +115,11 @@ export class PluginSystem {
 
       this.isInitialized = true;
 
-      console.log(
+      logger.info(
         `✅ Plugin system initialized with ${plugins.length} plugins`
       );
     } catch (error) {
-      console.error('❌ Failed to initialize plugin system:', error);
+      logger.error('❌ Failed to initialize plugin system:', { error });
       throw error;
     }
   }
@@ -153,9 +156,9 @@ export class PluginSystem {
       };
       this.dependencyManager.addPlugin(metadata);
 
-      console.log(`✅ Plugin registered: ${plugin.id}`);
+      logger.info(`✅ Plugin registered: ${plugin.id}`);
     } catch (error) {
-      console.error(`❌ Failed to register plugin ${plugin.id}:`, error);
+      logger.error(`❌ Failed to register plugin ${plugin.id}:`, { error });
       throw error;
     }
   }
@@ -356,7 +359,7 @@ export class PluginSystem {
    * 销毁插件系统（基于CC源码）
    */
   async destroy(): Promise<void> {
-    console.log('🛑 Destroying plugin system...');
+    logger.info('🛑 Destroying plugin system...');
 
     try {
       // 停止所有插件
@@ -372,9 +375,9 @@ export class PluginSystem {
 
       this.isInitialized = false;
 
-      console.log('✅ Plugin system destroyed');
+      logger.info('✅ Plugin system destroyed');
     } catch (error) {
-      console.error('❌ Failed to destroy plugin system:', error);
+      logger.error('❌ Failed to destroy plugin system:', { error });
       throw error;
     }
   }

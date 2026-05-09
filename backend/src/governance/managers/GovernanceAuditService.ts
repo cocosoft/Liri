@@ -14,6 +14,9 @@ import type {
   GovernanceExecutionResult,
   GovernanceEventType,
 } from '../types/GovernanceTypes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 审计事件
@@ -104,7 +107,7 @@ export class GovernanceAuditService extends EventEmitter {
         const events = JSON.parse(content);
         return Array.isArray(events) ? events : [];
       } catch (error) {
-        console.error('Failed to load audit events:', error);
+        logger.error('Failed to load audit events:', { error });
         return [];
       }
     }
@@ -121,7 +124,7 @@ export class GovernanceAuditService extends EventEmitter {
         JSON.stringify(this.events, null, 2) + '\n'
       );
     } catch (error) {
-      console.error('Failed to save audit events:', error);
+      logger.error('Failed to save audit events:', { error });
     }
   }
 

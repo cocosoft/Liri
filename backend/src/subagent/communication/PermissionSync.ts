@@ -2,6 +2,9 @@
  * 权限同步
  */
 import { PermissionRequest, PermissionResponse } from '../SubAgentCommunicator';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 权限同步
@@ -23,13 +26,15 @@ export class PermissionSync {
     const cacheKey = this.generateCacheKey(request);
     const cachedResponse = this.permissionCache.get(cacheKey);
     if (cachedResponse) {
-      console.log(`Permission request ${requestId} cached:`, cachedResponse);
+      logger.info(`Permission request ${requestId} cached:`, {
+        cachedResponse,
+      });
       return requestId;
     }
 
     // 保存请求
     this.pendingRequests.set(requestId, request);
-    console.log(`Permission request sent:`, request);
+    logger.info(`Permission request sent:`, { request });
 
     return requestId;
   }
@@ -49,7 +54,7 @@ export class PermissionSync {
       // 移除待处理请求
       this.pendingRequests.delete(response.requestId);
 
-      console.log(`Permission response received:`, response);
+      logger.info(`Permission response received:`, { response });
     }
   }
 
@@ -95,7 +100,7 @@ export class PermissionSync {
    */
   clearCache(): void {
     this.permissionCache.clear();
-    console.log('Permission cache cleared');
+    logger.info('Permission cache cleared');
   }
 
   /**
@@ -103,7 +108,7 @@ export class PermissionSync {
    */
   clearPendingRequests(): void {
     this.pendingRequests.clear();
-    console.log('Pending permission requests cleared');
+    logger.info('Pending permission requests cleared');
   }
 
   /**
@@ -128,7 +133,7 @@ export class PermissionSync {
   cleanup(): void {
     this.clearCache();
     this.clearPendingRequests();
-    console.log('PermissionSync cleaned up');
+    logger.info('PermissionSync cleaned up');
   }
 }
 

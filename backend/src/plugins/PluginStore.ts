@@ -12,6 +12,9 @@ import {
   writeFileSync,
 } from 'fs';
 import { join, resolve } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件存储
@@ -60,7 +63,7 @@ export class PluginStore {
 
       return plugins;
     } catch (error) {
-      console.error('Error getting installed plugins:', error);
+      logger.error('Error getting installed plugins:', { error });
       return [];
     }
   }
@@ -106,7 +109,7 @@ export class PluginStore {
 
       return pluginId;
     } catch (error) {
-      console.error('Error installing plugin:', error);
+      logger.error('Error installing plugin:', { error });
       throw error;
     }
   }
@@ -154,7 +157,7 @@ export class PluginStore {
         rmSync(pluginPath, { recursive: true, force: true });
       }
     } catch (error) {
-      console.error('Error uninstalling plugin:', error);
+      logger.error('Error uninstalling plugin:', { error });
       throw error;
     }
   }

@@ -6,7 +6,7 @@ import Box from './Box.js';
 import Text from './Text.js';
 
 // 使用 require 避免类型问题
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const StackUtils = require('stack-utils');
 
 // Error's source file is reported as file:///home/user/file.js

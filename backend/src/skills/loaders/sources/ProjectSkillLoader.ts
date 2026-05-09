@@ -8,6 +8,9 @@ import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
 import { cwd } from 'process';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 项目技能加载器
@@ -69,7 +72,7 @@ export class ProjectSkillLoader extends SkillLoader {
           // 验证技能frontmatter
           const validation = validateSkillFrontmatter(frontmatter, entry);
           if (!validation.valid) {
-            console.warn(
+            logger.warning(
               `Invalid skill ${entry}: ${validation.errors.join(', ')}`
             );
             return null;
@@ -84,7 +87,7 @@ export class ProjectSkillLoader extends SkillLoader {
             loadedFrom: 'project',
           });
         } catch (error) {
-          console.error(`Error loading skill ${entry}:`, error);
+          logger.error(`Error loading skill ${entry}:`, { error });
           return null;
         }
       });
@@ -99,7 +102,7 @@ export class ProjectSkillLoader extends SkillLoader {
         }
       }
     } catch (error) {
-      console.error('Error loading project skills:', error);
+      logger.error('Error loading project skills:', { error });
     }
 
     return skills;

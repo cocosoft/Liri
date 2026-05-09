@@ -5,7 +5,10 @@
  */
 
 import type { CommandContext } from '@modules/commands/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import clipboardy from 'clipboardy';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 interface CopyOptions {
   maxLines?: number;
@@ -17,7 +20,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
     await clipboardy.write(text);
     return true;
   } catch (error) {
-    console.error('复制到剪贴板失败:', error);
+    logger.error('复制到剪贴板失败:', { error });
     return false;
   }
 }

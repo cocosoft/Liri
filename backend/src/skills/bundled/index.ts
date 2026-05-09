@@ -3,6 +3,9 @@
  */
 
 import type { SkillService } from '../services/skillService';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 // 导入内置技能
 import debugSkill from './debug';
@@ -21,5 +24,5 @@ export function initBundledSkills(skillService: SkillService): void {
   stuckSkill(skillService);
   verifySkill(skillService);
 
-  console.log('Bundled skills initialized');
+  logger.info('Bundled skills initialized');
 }

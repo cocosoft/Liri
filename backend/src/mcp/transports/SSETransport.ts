@@ -5,6 +5,9 @@
 
 import { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * SSE传输层选项
@@ -59,13 +62,13 @@ export class SSETransport extends MCPTransport {
           this.pendingRequests.delete(requestId);
         }
       } catch (error) {
-        console.error(`Failed to parse SSE response: ${event.data}`);
+        logger.error(`Failed to parse SSE response: ${event.data}`);
       }
     });
 
     // 处理错误事件
     this.eventSource.addEventListener('error', (event) => {
-      console.error('SSE error:', event);
+      logger.error('SSE error:', { event });
       this.connected = false;
 
       // 拒绝所有未完成的请求

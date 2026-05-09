@@ -1,9 +1,12 @@
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * MCP工具和资源管理系统（基于CC源码实现）
  * 负责MCP工具、资源、提示的注册、管理、调用和缓存
  */
 
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
   MCPToolDefinition,
   MCPResourceDefinition,
@@ -155,7 +158,7 @@ export class MCPToolManager extends EventEmitter {
     this.tools.set(toolId, registration);
 
     this.emit('toolRegistered', { toolId, registration });
-    console.log(`✅ Tool registered: ${toolId}`);
+    logger.info(`Tool registered: ${toolId}`);
   }
 
   /**
@@ -180,7 +183,7 @@ export class MCPToolManager extends EventEmitter {
     this.resources.set(resourceId, registration);
 
     this.emit('resourceRegistered', { resourceId, registration });
-    console.log(`✅ Resource registered: ${resourceId}`);
+    logger.info(`Resource registered: ${resourceId}`);
   }
 
   /**
@@ -205,7 +208,7 @@ export class MCPToolManager extends EventEmitter {
     this.prompts.set(promptId, registration);
 
     this.emit('promptRegistered', { promptId, registration });
-    console.log(`✅ Prompt registered: ${promptId}`);
+    logger.info(`Prompt registered: ${promptId}`);
   }
 
   /**
@@ -216,7 +219,7 @@ export class MCPToolManager extends EventEmitter {
       try {
         this.registerTool(serverName, tool);
       } catch (error) {
-        console.warn(`Failed to register tool ${tool.name}:`, error);
+        logger.warning(`Failed to register tool ${tool.name}:`, { error });
       }
     });
   }
@@ -232,7 +235,9 @@ export class MCPToolManager extends EventEmitter {
       try {
         this.registerResource(serverName, resource);
       } catch (error) {
-        console.warn(`Failed to register resource ${resource.id}:`, error);
+        logger.warning(`Failed to register resource ${resource.id}:`, {
+          error,
+        });
       }
     });
   }
@@ -245,7 +250,7 @@ export class MCPToolManager extends EventEmitter {
       try {
         this.registerPrompt(serverName, prompt);
       } catch (error) {
-        console.warn(`Failed to register prompt ${prompt.id}:`, error);
+        logger.warning(`Failed to register prompt ${prompt.id}:`, { error });
       }
     });
   }
@@ -433,7 +438,7 @@ export class MCPToolManager extends EventEmitter {
     registration.enabled = enabled;
 
     this.emit('toolEnabledChanged', { toolId, enabled });
-    console.log(`✅ Tool ${toolId} ${enabled ? 'enabled' : 'disabled'}`);
+    logger.info(`Tool ${toolId} ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**
@@ -445,7 +450,7 @@ export class MCPToolManager extends EventEmitter {
 
     if (existed) {
       this.emit('toolRemoved', { toolId });
-      console.log(`✅ Tool removed: ${toolId}`);
+      logger.info(`Tool removed: ${toolId}`);
     }
 
     return existed;
@@ -460,7 +465,7 @@ export class MCPToolManager extends EventEmitter {
 
     if (existed) {
       this.emit('resourceRemoved', { resourceId: fullResourceId });
-      console.log(`✅ Resource removed: ${fullResourceId}`);
+      logger.info(`Resource removed: ${fullResourceId}`);
     }
 
     return existed;
@@ -475,7 +480,7 @@ export class MCPToolManager extends EventEmitter {
 
     if (existed) {
       this.emit('promptRemoved', { promptId: fullPromptId });
-      console.log(`✅ Prompt removed: ${fullPromptId}`);
+      logger.info(`Prompt removed: ${fullPromptId}`);
     }
 
     return existed;
@@ -507,7 +512,7 @@ export class MCPToolManager extends EventEmitter {
     }
 
     this.emit('serverCleared', { serverName });
-    console.log(`✅ Server cleared: ${serverName}`);
+    logger.info(`Server cleared: ${serverName}`);
   }
 
   /**

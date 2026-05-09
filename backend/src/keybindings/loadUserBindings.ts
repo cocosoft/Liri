@@ -13,6 +13,9 @@ import type {
 import { validateKeybindings } from './schema.js';
 import { parseChord, formatChord } from './parser.js';
 import type { KeybindingContextName } from './types.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 用户绑定文件路径
@@ -235,7 +238,7 @@ function startFileWatching(): void {
             try {
               listener();
             } catch (error) {
-              console.error('Error in keybindings change listener:', error);
+              logger.error('Error in keybindings change listener:', { error });
             }
           }
         }
@@ -244,11 +247,11 @@ function startFileWatching(): void {
 
     // 处理观察器错误
     fileWatcher.on('error', (error) => {
-      console.error('Keybindings file watcher error:', error);
+      logger.error('Keybindings file watcher error:', { error });
       fileWatcher = null;
     });
   } catch (error) {
-    console.error('Failed to start keybindings file watcher:', error);
+    logger.error('Failed to start keybindings file watcher:', { error });
   }
 }
 
@@ -313,15 +316,15 @@ export function loadUserBindingsSyncWithWarnings(): KeybindingsLoadResult {
 
   // 显示警告信息
   if (result.warnings.length > 0) {
-    console.log('Keybinding warnings:');
+    logger.info('Keybinding warnings:');
     for (const warning of result.warnings) {
       const prefix = warning.type === 'error' ? '❌' : '⚠️';
-      console.log(`${prefix} ${warning.message}`);
+      logger.info(`${prefix} ${warning.message}`);
       if (warning.context) {
-        console.log(`   Context: ${warning.context}`);
+        logger.info(`   Context: ${warning.context}`);
       }
       if (warning.key) {
-        console.log(`   Key: ${warning.key}`);
+        logger.info(`   Key: ${warning.key}`);
       }
     }
   }
@@ -366,7 +369,7 @@ export function createDefaultUserBindingsFile(): boolean {
 
     return true;
   } catch (error) {
-    console.error('Failed to create default user bindings file:', error);
+    logger.error('Failed to create default user bindings file:', { error });
     return false;
   }
 }

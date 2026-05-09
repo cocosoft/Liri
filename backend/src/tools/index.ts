@@ -6,8 +6,10 @@
 // 导出类型定义
 export type { ToolDefinition, ToolExecutionContext } from './types/ToolTypes';
 
-// 导入组件用于导出
 import { feature } from '@modules/core';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { ToolManager, globalToolManager } from './core/ToolManager';
 import { ToolRegistry, setToolRegistry, getToolRegistry } from './ToolRegistry';
 import { ToolExecutor, globalToolExecutor } from './executor/ToolExecutor';
@@ -45,9 +47,9 @@ export async function initializeToolSystem(config?: any): Promise<void> {
     // 启动工具监控
     globalToolMonitor.startMonitoring();
 
-    console.log('✅ 工具系统初始化完成');
+    logger.info('✅ 工具系统初始化完成');
   } catch (error) {
-    console.error('❌ 工具系统初始化失败:', error);
+    logger.error('❌ 工具系统初始化失败:', { error });
     throw error;
   }
 }
@@ -60,9 +62,9 @@ export async function shutdownToolSystem(): Promise<void> {
     // 停止工具监控
     globalToolMonitor.stopMonitoring();
 
-    console.log('✅ 工具系统已关闭');
+    logger.info('✅ 工具系统已关闭');
   } catch (error) {
-    console.error('❌ 工具系统关闭失败:', error);
+    logger.error('❌ 工具系统关闭失败:', { error });
     throw error;
   }
 }

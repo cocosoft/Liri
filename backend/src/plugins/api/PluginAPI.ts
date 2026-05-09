@@ -6,6 +6,9 @@
 import type { PluginAPI } from './types/Plugin.js';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件API实现
@@ -166,7 +169,7 @@ export class PluginAPIImpl implements PluginAPI {
           try {
             handler(...args);
           } catch (error) {
-            console.error(`Error in event handler for ${event}:`, error);
+            logger.error(`Error in event handler for ${event}:`, { error });
           }
         }
       }
@@ -239,7 +242,7 @@ export class PluginAPIImpl implements PluginAPI {
      * @param message 消息对象
      */
     sendMessage: async (sessionId: string, message: any): Promise<void> => {
-      console.log(`Message sent to session ${sessionId}:`, message);
+      logger.debug(`Message sent to session ${sessionId}:`, { message });
     },
   };
 }

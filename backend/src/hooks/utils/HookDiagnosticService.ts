@@ -7,6 +7,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 钩子诊断日志级别
@@ -195,13 +198,13 @@ export class HookDiagnosticService {
 
     switch (log.level) {
       case 'error':
-        console.error(`${prefix} ${log.message}`, log);
+        logger.error(`${prefix} ${log.message}`, log);
         break;
       case 'warn':
-        console.warn(`${prefix} ${log.message}`, log);
+        logger.warning(`${prefix} ${log.message}`, log);
         break;
       default:
-        console.log(`${prefix} ${log.message}`, log);
+        logger.info(`${prefix} ${log.message}`, log);
     }
   }
 
@@ -213,7 +216,7 @@ export class HookDiagnosticService {
       const line = JSON.stringify(log) + '\n';
       fs.appendFileSync(this.logPath, line, 'utf-8');
     } catch (error) {
-      console.error('Failed to write hook diagnostic log:', error);
+      logger.error('Failed to write hook diagnostic log:', { error });
     }
   }
 

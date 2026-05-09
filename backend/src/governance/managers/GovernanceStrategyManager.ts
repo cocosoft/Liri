@@ -8,6 +8,9 @@ import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 治理策略类型
@@ -118,7 +121,7 @@ export class GovernanceStrategyManager extends EventEmitter {
           ? strategies
           : this.createDefaultStrategies();
       } catch (error) {
-        console.error('Failed to load governance strategies:', error);
+        logger.error('Failed to load governance strategies:', { error });
         return this.createDefaultStrategies();
       }
     }
@@ -223,7 +226,7 @@ export class GovernanceStrategyManager extends EventEmitter {
         JSON.stringify(strategies, null, 2) + '\n'
       );
     } catch (error) {
-      console.error('Failed to save governance strategies:', error);
+      logger.error('Failed to save governance strategies:', { error });
     }
   }
 

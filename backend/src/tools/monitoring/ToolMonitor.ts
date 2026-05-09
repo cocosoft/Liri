@@ -11,6 +11,9 @@ import {
   ToolEventType,
   ToolEventData,
 } from '../types/ToolTypes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 监控指标（基于CC源码）
@@ -93,7 +96,7 @@ export class ToolMonitor {
       this.collectMonitoringData();
     }, samplingInterval);
 
-    console.log('📊 工具监控已启动');
+    logger.info('📊 工具监控已启动');
   }
 
   /**
@@ -111,7 +114,7 @@ export class ToolMonitor {
       this.monitoringInterval = undefined;
     }
 
-    console.log('📊 工具监控已停止');
+    logger.info('📊 工具监控已停止');
   }
 
   /**
@@ -309,7 +312,7 @@ export class ToolMonitor {
     toolName: string,
     metrics: MonitoringMetrics
   ): void {
-    console.log(`🚨 工具监控告警: ${alert.name} - ${alert.message}`);
+    logger.info(`🚨 工具监控告警: ${alert.name} - ${alert.message}`);
 
     // 执行告警动作
     for (const action of alert.actions) {
@@ -327,22 +330,22 @@ export class ToolMonitor {
   ): void {
     switch (action.type) {
       case 'log':
-        console.log(`[ALERT] ${toolName}:`, metrics);
+        logger.info(`[ALERT] ${toolName}:`, { metrics });
         break;
 
       case 'notify':
         // 发送通知（简化实现）
-        console.log(`📢 通知: 工具 ${toolName} 触发告警`);
+        logger.info(`📢 通知: 工具 ${toolName} 触发告警`);
         break;
 
       case 'disable':
         // 禁用工具（简化实现）
-        console.log(`⛔ 禁用工具: ${toolName}`);
+        logger.info(`⛔ 禁用工具: ${toolName}`);
         break;
 
       case 'restart':
         // 重启工具（简化实现）
-        console.log(`🔄 重启工具: ${toolName}`);
+        logger.info(`🔄 重启工具: ${toolName}`);
         break;
     }
   }

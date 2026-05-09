@@ -7,6 +7,9 @@
  */
 import React, { useEffect } from 'react';
 import { useKeybindingContext } from './KeybindingContext.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 和弦拦截器组件
@@ -66,7 +69,7 @@ export function ChordInterceptor(): null {
           event.stopPropagation();
         }
       } catch (error) {
-        console.error('Error in chord interceptor:', error);
+        logger.error('Error in chord interceptor:', { error });
       }
     };
 

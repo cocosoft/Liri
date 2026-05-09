@@ -8,7 +8,9 @@ import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { PluginManager } from '@modules/plugins/managers/PluginManager';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
+const logger = new Logger({ level: LogLevel.INFO });
 const pluginManager = PluginManager.getInstance();
 
 /**
@@ -37,7 +39,7 @@ export class PluginSkillLoader extends SkillLoader {
 
               // 检查技能文件是否存�?
               if (!existsSync(skillFilePath)) {
-                console.warn(`Skill file not found: ${skillFilePath}`);
+                logger.warning(`Skill file not found: ${skillFilePath}`);
                 continue;
               }
 
@@ -60,7 +62,7 @@ export class PluginSkillLoader extends SkillLoader {
                 skillName
               );
               if (!validation.valid) {
-                console.warn(
+                logger.warning(
                   `Invalid skill ${skillName}: ${validation.errors.join(', ')}`
                 );
                 continue;
@@ -77,16 +79,15 @@ export class PluginSkillLoader extends SkillLoader {
 
               skills.push(skill);
             } catch (error) {
-              console.error(
-                `Error loading skill from plugin ${pluginId}:`,
-                error
-              );
+              logger.error(`Error loading skill from plugin ${pluginId}:`, {
+                error,
+              });
             }
           }
         }
       }
     } catch (error) {
-      console.error('Error loading plugin skills:', error);
+      logger.error('Error loading plugin skills:', { error });
     }
 
     return skills;

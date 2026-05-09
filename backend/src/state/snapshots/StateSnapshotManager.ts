@@ -9,6 +9,9 @@ import {
   StateMigrator,
   StateManager,
 } from '../types/StateTypes.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 快照管理器选项（基于CC源码）
@@ -145,7 +148,7 @@ export class StateSnapshotManager<T = any> {
     this.stats.activeSnapshots++;
     this.stats.totalSize += snapshot.metadata?.size || 0;
 
-    console.log(`Snapshot created for store: ${storeName} (${snapshot.id})`);
+    logger.info(`Snapshot created for store: ${storeName} (${snapshot.id})`);
     return snapshot;
   }
 
@@ -185,10 +188,10 @@ export class StateSnapshotManager<T = any> {
 
       this.stats.restoreSuccessCount++;
 
-      console.log(`Snapshot restored: ${snapshot.id}`);
+      logger.info(`Snapshot restored: ${snapshot.id}`);
       return true;
     } catch (error) {
-      console.error(`Failed to restore snapshot: ${snapshot.id}`, error);
+      logger.error(`Failed to restore snapshot: ${snapshot.id}`, { error });
       return false;
     }
   }
@@ -214,7 +217,7 @@ export class StateSnapshotManager<T = any> {
     this.stats.activeSnapshots--;
     this.stats.totalSize -= removed.metadata?.size || 0;
 
-    console.log(`Snapshot deleted: ${snapshotId}`);
+    logger.info(`Snapshot deleted: ${snapshotId}`);
     return true;
   }
 
@@ -236,7 +239,7 @@ export class StateSnapshotManager<T = any> {
     );
 
     this.snapshots.delete(storeName);
-    console.log(`Snapshots cleared for store: ${storeName}`);
+    logger.info(`Snapshots cleared for store: ${storeName}`);
   }
 
   /**
@@ -254,12 +257,12 @@ export class StateSnapshotManager<T = any> {
         const state = store.getState();
         this.createSnapshot(storeName, state, 'Auto-snapshot');
       } catch (error) {
-        console.error(`Auto-snapshot failed for store: ${storeName}`, error);
+        logger.error(`Auto-snapshot failed for store: ${storeName}`, { error });
       }
     }, this.options.snapshotInterval || 60000);
 
     this.autoSnapshotTimers.set(storeName, timer);
-    console.log(`Auto-snapshot enabled for store: ${storeName}`);
+    logger.info(`Auto-snapshot enabled for store: ${storeName}`);
   }
 
   /**
@@ -270,7 +273,7 @@ export class StateSnapshotManager<T = any> {
     if (timer) {
       clearInterval(timer);
       this.autoSnapshotTimers.delete(storeName);
-      console.log(`Auto-snapshot disabled for store: ${storeName}`);
+      logger.info(`Auto-snapshot disabled for store: ${storeName}`);
     }
   }
 
@@ -344,10 +347,10 @@ export class StateSnapshotManager<T = any> {
       this.stats.activeSnapshots++;
       this.stats.totalSize += snapshot.metadata?.size || 0;
 
-      console.log(`Snapshot imported for store: ${storeName} (${snapshot.id})`);
+      logger.info(`Snapshot imported for store: ${storeName} (${snapshot.id})`);
       return snapshot;
     } catch (error) {
-      console.error('Failed to import snapshot:', error);
+      logger.error('Failed to import snapshot:', { error });
       return null;
     }
   }
@@ -532,11 +535,11 @@ export class MigrationManager<T = any> {
     for (const migrator of this.migrators) {
       try {
         migratedState = migrator.migrate(migratedState);
-        console.log(
+        logger.info(
           `Applied migration: ${migrator.name} (${migrator.fromVersion} -> ${migrator.toVersion})`
         );
       } catch (error) {
-        console.error(`Migration failed: ${migrator.name}`, error);
+        logger.error(`Migration failed: ${migrator.name}`, { error });
         throw error;
       }
     }

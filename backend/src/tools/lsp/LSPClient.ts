@@ -10,6 +10,9 @@ import {
   CompletionItem,
   Diagnostic,
 } from './types/index.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * LSP客户端
@@ -155,7 +158,7 @@ export class LSPClient {
           this.handleNotification(data.method, data.params);
         }
       } catch (error) {
-        console.error('Error parsing LSP message:', error);
+        logger.error('Error parsing LSP message:', { error });
       }
     });
   }

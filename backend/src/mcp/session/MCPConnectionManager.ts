@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
   MCPClient,
   MCPClientState,
@@ -15,6 +16,8 @@ import type {
 } from '../types/MCPTypes';
 import { MCPClientImpl } from '../client/MCPClient';
 import { globalMCPToolManager } from '../management/MCPToolManager';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * MCP连接状态（基于CC源码）
@@ -137,7 +140,7 @@ export class MCPConnectionManager extends EventEmitter {
     await this.connect(name);
 
     this.emit('connectionCreated', { name, connectionInfo });
-    console.log(`✅ MCP connection created: ${name}`);
+    logger.info(`MCP connection created: ${name}`);
 
     return client;
   }
@@ -175,9 +178,9 @@ export class MCPConnectionManager extends EventEmitter {
       // 注册工具和资源
       await this.registerServerTools(name, connectionInfo.client);
 
-      console.log(`✅ MCP connection established: ${name}`);
+      logger.info(`✅ MCP connection established: ${name}`);
     } catch (error) {
-      // 更新连接状态
+      connectionInfo.status.errorCount++; // 更新连接状态
       connectionInfo.status.state = 'error';
       connectionInfo.status.error =
         error instanceof Error ? error.message : String(error);
@@ -231,7 +234,7 @@ export class MCPConnectionManager extends EventEmitter {
       // 清理工具和资源注册
       this.cleanupServerRegistrations(name);
 
-      console.log(`✅ MCP connection disconnected: ${name}`);
+      logger.info(`✅ MCP connection disconnected: ${name}`);
     } catch (error) {
       // 更新连接状态
       connectionInfo.status.state = 'error';
@@ -297,7 +300,7 @@ export class MCPConnectionManager extends EventEmitter {
     this.connections.delete(name);
 
     this.emit('connectionRemoved', { name });
-    console.log(`✅ MCP connection removed: ${name}`);
+    logger.info(`✅ MCP connection removed: ${name}`);
   }
 
   /**
@@ -327,7 +330,7 @@ export class MCPConnectionManager extends EventEmitter {
     this.currentSessionId = id;
 
     this.emit('sessionStarted', { sessionId: id, sessionInfo });
-    console.log(`✅ MCP session started: ${id}`);
+    logger.info(`✅ MCP session started: ${id}`);
 
     return id;
   }
@@ -357,7 +360,7 @@ export class MCPConnectionManager extends EventEmitter {
     }
 
     this.emit('sessionEnded', { sessionId: id, sessionInfo });
-    console.log(`✅ MCP session ended: ${id}`);
+    logger.info(`✅ MCP session ended: ${id}`);
   }
 
   /**
@@ -460,7 +463,7 @@ export class MCPConnectionManager extends EventEmitter {
         try {
           await this.removeConnection(name);
         } catch (error) {
-          console.warn(`Failed to remove connection ${name}:`, error);
+          logger.warning(`Failed to remove connection ${name}:`, { error });
         }
       }
     );
@@ -474,7 +477,7 @@ export class MCPConnectionManager extends EventEmitter {
     }
 
     this.emit('cleanupCompleted');
-    console.log('✅ MCP connection manager cleanup completed');
+    logger.info('MCP connection manager cleanup completed');
   }
 
   /**
@@ -562,7 +565,7 @@ export class MCPConnectionManager extends EventEmitter {
     }
 
     if (connectionInfo.status.retryCount >= this.maxRetries) {
-      console.warn(`Max retries reached for connection: ${name}`);
+      logger.warning(`Max retries reached for connection: ${name}`);
       return;
     }
 
@@ -571,7 +574,7 @@ export class MCPConnectionManager extends EventEmitter {
     const retryDelay =
       this.retryInterval * Math.pow(2, connectionInfo.status.retryCount - 1);
 
-    console.log(
+    logger.info(
       `Scheduling reconnect for ${name} in ${retryDelay}ms (attempt ${connectionInfo.status.retryCount})`
     );
 
@@ -579,7 +582,7 @@ export class MCPConnectionManager extends EventEmitter {
       try {
         await this.reconnect(name);
       } catch (error) {
-        console.warn(`Reconnect failed for ${name}:`, error);
+        logger.warning(`Reconnect failed for ${name}:`, { error });
       }
     }, retryDelay);
 
@@ -623,11 +626,11 @@ export class MCPConnectionManager extends EventEmitter {
       // 注册提示
       globalMCPToolManager.registerPrompts(name, prompts);
 
-      console.log(
-        `✅ Registered ${tools.length} tools, ${resources.length} resources, ${prompts.length} prompts for ${name}`
+      logger.info(
+        `Registered ${tools.length} tools, ${resources.length} resources, ${prompts.length} prompts for ${name}`
       );
     } catch (error) {
-      console.warn(`Failed to register tools for ${name}:`, error);
+      logger.warning(`Failed to register tools for ${name}:`, { error });
     }
   }
 

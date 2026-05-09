@@ -14,6 +14,9 @@ import type {
   ParsedKeystroke,
   KeybindingWarning,
 } from './types.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   KeybindingProvider,
   useHandlerRegistryRef,
@@ -164,9 +167,9 @@ export function KeybindingProviderSetup({
       setWarnings(userBindingsResult.warnings);
 
       // 记录加载统计
-      console.log(`按键绑定加载完成: ${mergedBindings.length} 个绑定`);
+      logger.info(`按键绑定加载完成: ${mergedBindings.length} 个绑定`);
     } catch (error) {
-      console.error('Failed to load keybindings:', error);
+      logger.error('Failed to load keybindings:', { error });
       // 回退到默认绑定
       const defaultBindings = loadDefaultBindings();
       setBindings(defaultBindings);
@@ -195,7 +198,7 @@ export function KeybindingProviderSetup({
     // 订阅特性变更
     const unsubscribeFeatureChanges = featureManager.subscribe(
       (featureName, enabled) => {
-        console.log(
+        logger.info(
           `特性 ${featureName} ${enabled ? '启用' : '禁用'}，重新加载绑定...`
         );
         loadBindings();
@@ -217,7 +220,7 @@ export function KeybindingProviderSetup({
    */
   useEffect(() => {
     if (warnings.length > 0) {
-      console.warn('Keybinding warnings:', warnings);
+      logger.warning('Keybinding warnings:', { warnings });
       // 在实际应用中，这里应该显示通知给用户
       // 例如：使用通知系统显示警告
     }

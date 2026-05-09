@@ -9,6 +9,9 @@ import {
   ErrorLevel,
   ErrorHandlerOptions,
 } from '../models/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 错误服务类
@@ -104,14 +107,14 @@ export class ErrorService {
     const message = error.message;
     const code = error.code ? ` (${error.code})` : '';
 
-    console.error(`[${timestamp}] [${level}] [${type}] ${message}${code}`);
+    logger.error(`[${timestamp}] [${level}] [${type}] ${message}${code}`);
 
     if (error.details) {
-      console.error('Details:', JSON.stringify(error.details, null, 2));
+      logger.error('Details:', { details: error.details });
     }
 
     if (error.stack) {
-      console.error('Stack:', error.stack);
+      logger.error('Stack:', { stack: error.stack });
     }
   }
 

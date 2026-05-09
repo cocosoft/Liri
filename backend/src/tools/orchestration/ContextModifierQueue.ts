@@ -5,6 +5,9 @@
  */
 
 import type { ContextModifier } from './types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 上下文修改器队列
@@ -39,7 +42,7 @@ export class ContextModifierQueue {
       try {
         result = modifier(result);
       } catch (error) {
-        console.error(`Context modifier error for ${toolUseID}:`, error);
+        logger.error(`Context modifier error for ${toolUseID}:`, { error });
       }
     }
 
@@ -60,7 +63,7 @@ export class ContextModifierQueue {
         try {
           result = modifier(result);
         } catch (error) {
-          console.error(`Context modifier error for ${toolUseID}:`, error);
+          logger.error(`Context modifier error for ${toolUseID}:`, { error });
         }
       }
     }

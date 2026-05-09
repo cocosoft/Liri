@@ -3,6 +3,10 @@
  * 参考CC源码 cc_code/backend/context/notifications.tsx 实现
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 通知优先级
  */
@@ -89,7 +93,7 @@ export class NotificationManager {
       try {
         listener(this.getState());
       } catch (error) {
-        console.error('Error in notification listener:', error);
+        logger.error('Error in notification listener:', { error });
       }
     }
   }

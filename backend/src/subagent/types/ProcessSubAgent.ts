@@ -12,6 +12,9 @@ import {
 } from './SubAgent';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 进程外子agent
@@ -69,23 +72,27 @@ export class ProcessSubAgent implements SubAgent {
 
       // 监听进程事件
       this.process.on('exit', (code, signal) => {
-        console.log(
+        logger.info(
           `ProcessSubAgent ${this.id} exited with code ${code}, signal ${signal}`
         );
         this.status = SubAgentStatus.TERMINATED;
       });
 
       this.process.on('error', (error) => {
-        console.error(`ProcessSubAgent ${this.id} error:`, error);
+        logger.error(`ProcessSubAgent ${this.id} error:`, { error });
         this.status = SubAgentStatus.ERROR;
       });
 
       this.process.stdout?.on('data', (data) => {
-        console.log(`ProcessSubAgent ${this.id} stdout:`, data.toString());
+        logger.info(`ProcessSubAgent ${this.id} stdout:`, {
+          data: data.toString(),
+        });
       });
 
       this.process.stderr?.on('data', (data) => {
-        console.error(`ProcessSubAgent ${this.id} stderr:`, data.toString());
+        logger.error(`ProcessSubAgent ${this.id} stderr:`, {
+          data: data.toString(),
+        });
       });
 
       // 初始化子agent
@@ -98,12 +105,12 @@ export class ProcessSubAgent implements SubAgent {
       };
 
       this.status = SubAgentStatus.RUNNING;
-      console.log(
+      logger.info(
         `ProcessSubAgent ${this.id} started with PID ${this.process.pid}`
       );
     } catch (error) {
       this.status = SubAgentStatus.ERROR;
-      console.error(`Error starting ProcessSubAgent ${this.id}:`, error);
+      logger.error(`Error starting ProcessSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -127,9 +134,9 @@ export class ProcessSubAgent implements SubAgent {
       this.messageQueue = [];
 
       this.status = SubAgentStatus.TERMINATED;
-      console.log(`ProcessSubAgent ${this.id} stopped`);
+      logger.info(`ProcessSubAgent ${this.id} stopped`);
     } catch (error) {
-      console.error(`Error stopping ProcessSubAgent ${this.id}:`, error);
+      logger.error(`Error stopping ProcessSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -149,9 +156,9 @@ export class ProcessSubAgent implements SubAgent {
       }
 
       this.status = SubAgentStatus.PAUSED;
-      console.log(`ProcessSubAgent ${this.id} paused`);
+      logger.info(`ProcessSubAgent ${this.id} paused`);
     } catch (error) {
-      console.error(`Error pausing ProcessSubAgent ${this.id}:`, error);
+      logger.error(`Error pausing ProcessSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -171,9 +178,9 @@ export class ProcessSubAgent implements SubAgent {
       }
 
       this.status = SubAgentStatus.RUNNING;
-      console.log(`ProcessSubAgent ${this.id} resumed`);
+      logger.info(`ProcessSubAgent ${this.id} resumed`);
     } catch (error) {
-      console.error(`Error resuming ProcessSubAgent ${this.id}:`, error);
+      logger.error(`Error resuming ProcessSubAgent ${this.id}:`, { error });
       throw error;
     }
   }
@@ -189,10 +196,9 @@ export class ProcessSubAgent implements SubAgent {
     }
 
     try {
-      console.log(
-        `Executing task ${task.id} in ProcessSubAgent ${this.id}:`,
-        task
-      );
+      logger.info(`Executing task ${task.id} in ProcessSubAgent ${this.id}:`, {
+        task,
+      });
 
       // 发送任务到子进程
       if (this.process && this.process.connected) {
@@ -213,14 +219,14 @@ export class ProcessSubAgent implements SubAgent {
         },
       };
 
-      console.log(
+      logger.info(
         `Task ${task.id} executed successfully in ProcessSubAgent ${this.id}`
       );
       return result;
     } catch (error) {
-      console.error(
+      logger.error(
         `Error executing task ${task.id} in ProcessSubAgent ${this.id}:`,
-        error
+        { error }
       );
       return {
         id: `result_${Date.now()}`,
@@ -267,17 +273,16 @@ export class ProcessSubAgent implements SubAgent {
         ...this.config,
         ...config,
       };
-      console.log(`Updated config for ProcessSubAgent ${this.id}:`, config);
+      logger.info(`Updated config for ProcessSubAgent ${this.id}:`, { config });
 
       // 发送配置更新到子进程
       if (this.process && this.process.connected) {
         this.process.send({ type: 'config', config });
       }
     } catch (error) {
-      console.error(
-        `Error updating config for ProcessSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error updating config for ProcessSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -295,12 +300,11 @@ export class ProcessSubAgent implements SubAgent {
         this.process.send({ type: 'message', message });
       }
 
-      console.log(`Message sent to ProcessSubAgent ${this.id}:`, message);
+      logger.info(`Message sent to ProcessSubAgent ${this.id}:`, { message });
     } catch (error) {
-      console.error(
-        `Error sending message to ProcessSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error sending message to ProcessSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }
@@ -316,13 +320,14 @@ export class ProcessSubAgent implements SubAgent {
       }
 
       const message = this.messageQueue.shift();
-      console.log(`Message received from ProcessSubAgent ${this.id}:`, message);
+      logger.info(`Message received from ProcessSubAgent ${this.id}:`, {
+        message,
+      });
       return message;
     } catch (error) {
-      console.error(
-        `Error receiving message from ProcessSubAgent ${this.id}:`,
-        error
-      );
+      logger.error(`Error receiving message from ProcessSubAgent ${this.id}:`, {
+        error,
+      });
       throw error;
     }
   }

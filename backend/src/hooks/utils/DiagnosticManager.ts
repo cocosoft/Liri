@@ -8,6 +8,9 @@ import { EventEmitter } from 'events';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 诊断事件类型
@@ -138,7 +141,7 @@ export class DiagnosticManager extends EventEmitter {
     const durationInfo = eventData.duration ? `[${eventData.duration}ms]` : '';
     const errorInfo = eventData.error ? `[Error: ${eventData.error}]` : '';
 
-    console.log(
+    logger.info(
       `[${timestamp}] ${eventData.event} ${sessionInfo} ${hookInfo} ${durationInfo} ${errorInfo}`
     );
   }
@@ -158,7 +161,7 @@ export class DiagnosticManager extends EventEmitter {
       writeFileSync(this.logFile, logContent, { flag: 'a' });
       this.eventBuffer = [];
     } catch (error) {
-      console.error(`Failed to write diagnostic log: ${error}`);
+      logger.error(`Failed to write diagnostic log: ${error}`);
     }
   }
 

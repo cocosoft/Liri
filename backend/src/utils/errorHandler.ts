@@ -2,6 +2,10 @@
  * 错误处理工具
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 错误类型
  */
@@ -153,7 +157,7 @@ export class ErrorHandler {
         return await fn(...args);
       } catch (error) {
         const handledError = ErrorHandler.handle(error);
-        console.error('Error:', handledError);
+        logger.error('Error:', { handledError });
         return null;
       }
     };
@@ -172,7 +176,7 @@ export class ErrorHandler {
         return fn(...args);
       } catch (error) {
         const handledError = ErrorHandler.handle(error);
-        console.error('Error:', handledError);
+        logger.error('Error:', { handledError });
         return null;
       }
     };

@@ -3,6 +3,10 @@
  * 用于自动判断工具使用是否安全
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 分类器决策结果
  */
@@ -128,7 +132,7 @@ export class AutoModeClassifier implements IAutoModeClassifier {
         durationMs: Date.now() - startTime,
       };
     } catch (error) {
-      console.error('AutoModeClassifier error:', error);
+      logger.error('AutoModeClassifier error:', { error });
       return {
         shouldBlock: true,
         unavailable: true,

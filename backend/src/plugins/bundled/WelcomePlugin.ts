@@ -5,6 +5,9 @@
 
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export const WelcomePluginMetadata: PluginMetadata = {
   id: 'welcome',
@@ -30,21 +33,21 @@ export class WelcomePlugin implements Plugin {
   }
 
   async initialize(): Promise<void> {
-    console.log(`[WelcomePlugin] 初始化欢迎插件`);
+    logger.info(`[WelcomePlugin] 初始化欢迎插件`);
   }
 
   async activate(): Promise<void> {
     this.enabled = true;
-    console.log(`[WelcomePlugin] 欢迎插件已激活`);
+    logger.info(`[WelcomePlugin] 欢迎插件已激活`);
   }
 
   async deactivate(): Promise<void> {
     this.enabled = false;
-    console.log(`[WelcomePlugin] 欢迎插件已停用`);
+    logger.info(`[WelcomePlugin] 欢迎插件已停用`);
   }
 
   async dispose(): Promise<void> {
-    console.log(`[WelcomePlugin] 欢迎插件已释放`);
+    logger.info(`[WelcomePlugin] 欢迎插件已释放`);
   }
 
   /**

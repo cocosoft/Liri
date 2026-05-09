@@ -9,6 +9,9 @@ import {
   BatchUpdater,
   StateUpdater,
 } from '../types/StateTypes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 事件类型
@@ -102,7 +105,7 @@ export class BatchUpdaterImpl<T = any> implements BatchUpdater<T> {
 
     this.onBatchStart?.();
 
-    console.log('Batch update started');
+    logger.info('Batch update started');
   }
 
   /**
@@ -117,7 +120,7 @@ export class BatchUpdaterImpl<T = any> implements BatchUpdater<T> {
 
     this.onBatchEnd?.();
 
-    console.log(`Batch update ended with ${this.updates.length} updates`);
+    logger.info(`Batch update ended with ${this.updates.length} updates`);
   }
 
   /**
@@ -129,7 +132,7 @@ export class BatchUpdaterImpl<T = any> implements BatchUpdater<T> {
     }
 
     if (this.updates.length >= (this.config.maxBatchSize || 100)) {
-      console.warn('Batch update size exceeded maximum');
+      logger.warning('Batch update size exceeded maximum');
       return;
     }
 
@@ -223,7 +226,7 @@ export class StateEventSystem {
         try {
           handler(eventWithTimestamp);
         } catch (error) {
-          console.error('Event handler error:', error);
+          logger.error('Event handler error:', { error });
         }
       }
     }
@@ -296,7 +299,7 @@ export class StateEventSystem {
         try {
           rule.targetHandler(event);
         } catch (error) {
-          console.error('Routing rule error:', error);
+          logger.error('Routing rule error:', { error });
         }
       }
     }

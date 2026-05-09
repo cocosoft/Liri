@@ -5,6 +5,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 兼容性验证结果
@@ -58,7 +61,7 @@ export class CompatibilityValidator {
    * 验证项目兼容性
    */
   async validateCompatibility(): Promise<CompatibilityResult> {
-    console.log('开始验证模块管理系统兼容性...');
+    logger.info('开始验证模块管理系统兼容性...');
 
     const result: CompatibilityResult = {
       overallCompatibility: 'excellent',
@@ -88,9 +91,9 @@ export class CompatibilityValidator {
       // 生成建议
       this.generateRecommendations(result);
 
-      console.log('兼容性验证完成');
+      logger.info('兼容性验证完成');
     } catch (error) {
-      console.error('兼容性验证失败:', error);
+      logger.error('兼容性验证失败:', { error });
       result.issues.push({
         filePath: 'compatibility-validator',
         lineNumber: 0,
@@ -119,7 +122,7 @@ export class CompatibilityValidator {
     const files = this.getAllTypeScriptFiles(srcDir);
     result.statistics.totalFiles = files.length;
 
-    console.log(`发现 ${files.length} 个TypeScript文件`);
+    logger.info(`发现 ${files.length} 个TypeScript文件`);
 
     // 分析每个文件
     for (const filePath of files) {
@@ -210,7 +213,7 @@ export class CompatibilityValidator {
         result.statistics.compatibleFiles++;
       }
     } catch (error) {
-      console.error(`分析文件失败: ${filePath}`, error);
+      logger.error(`分析文件失败: ${filePath}`, { error });
       result.issues.push({
         filePath,
         lineNumber: 0,
@@ -585,22 +588,20 @@ export async function generateCompatibilityReport(): Promise<string> {
  * 运行兼容性验证
  */
 async function runCompatibilityValidation(): Promise<void> {
-  console.log('开始运行兼容性验证...');
+  logger.info('开始运行兼容性验证...');
 
   try {
     const validator = new CompatibilityValidator();
     const result = await validator.validateCompatibility();
 
-    console.log('兼容性验证完成:');
-    console.log(`- 总体兼容性: ${result.overallCompatibility}`);
-    console.log(`- 分析文件数: ${result.statistics.analyzedFiles}`);
-    console.log(`- 兼容文件数: ${result.statistics.compatibleFiles}`);
-    console.log(`- 发现问题数: ${result.statistics.issuesCount}`);
+    logger.info('兼容性验证完成:');
+    logger.info(`- 总体兼容性: ${result.overallCompatibility}`);
+    logger.info(`- 分析文件数: ${result.statistics.analyzedFiles}`);
+    logger.info(`- 兼容文件数: ${result.statistics.compatibleFiles}`);
+    logger.info(`- 发现问题数: ${result.statistics.issuesCount}`);
 
-    // 生成报告
     const report = validator.generateCompatibilityReport(result);
 
-    // 保存报告
     const fs = require('fs');
     const path = require('path');
     const reportDir = path.join(process.cwd(), 'reports', 'compatibility');
@@ -615,17 +616,17 @@ async function runCompatibilityValidation(): Promise<void> {
     );
     fs.writeFileSync(reportPath, report);
 
-    console.log(`\n兼容性报告已保存到: ${reportPath}`);
+    logger.info(`\n兼容性报告已保存到: ${reportPath}`);
   } catch (error) {
-    console.error('兼容性验证失败:', error);
+    logger.error('兼容性验证失败:', { error });
     throw error;
   }
 }
 
-// 导出运行函数
 export { runCompatibilityValidation };
 
-// 如果直接运行此文件，则执行验证
 if (require.main === module) {
-  runCompatibilityValidation().catch(console.error);
+  runCompatibilityValidation().catch((e) =>
+    logger.error('兼容性验证失败:', { error: e })
+  );
 }

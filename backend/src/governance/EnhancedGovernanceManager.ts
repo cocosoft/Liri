@@ -4,6 +4,9 @@
  */
 
 import { GovernanceManager } from './managers/GovernanceManager.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 治理风险评估
@@ -399,7 +402,7 @@ export class EnhancedGovernanceManager {
         await this.analyzeGovernanceRisk(domain);
       }
     } catch (error) {
-      console.error('Failed to perform risk analysis:', error);
+      logger.error('Failed to perform risk analysis:', { error });
     }
   }
 
@@ -415,7 +418,7 @@ export class EnhancedGovernanceManager {
         await this.analyzeGovernanceTrends(domain);
       }
     } catch (error) {
-      console.error('Failed to perform trend analysis:', error);
+      logger.error('Failed to perform trend analysis:', { error });
     }
   }
 
@@ -511,9 +514,9 @@ export class EnhancedGovernanceManager {
 
       this.riskAssessments.set(governanceDomain, assessment);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to analyze risk for governance domain ${governanceDomain}:`,
-        error
+        { error }
       );
     }
   }
@@ -583,9 +586,9 @@ export class EnhancedGovernanceManager {
 
       this.trendAnalyses.set(governanceDomain, trendAnalysis);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to analyze trends for governance domain ${governanceDomain}:`,
-        error
+        { error }
       );
     }
   }
@@ -610,9 +613,9 @@ export class EnhancedGovernanceManager {
 
       this.performanceMetrics.set(governanceDomain, metrics);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to collect performance metrics for governance domain ${governanceDomain}:`,
-        error
+        { error }
       );
     }
   }
@@ -663,9 +666,9 @@ export class EnhancedGovernanceManager {
 
       this.recommendations.set(governanceDomain, recommendations);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to generate recommendations for governance domain ${governanceDomain}:`,
-        error
+        { error }
       );
     }
   }

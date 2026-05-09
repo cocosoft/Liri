@@ -5,6 +5,9 @@
 
 import fs from 'fs';
 import path from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 命令历史记录项
@@ -58,7 +61,7 @@ export class CommandHistoryManager {
         this.history = JSON.parse(content);
       }
     } catch (error) {
-      console.warn('Failed to load command history:', error);
+      logger.warning('Failed to load command history:', { error });
       this.history = [];
     }
   }
@@ -81,7 +84,7 @@ export class CommandHistoryManager {
 
       fs.writeFileSync(this.historyPath, JSON.stringify(this.history, null, 2));
     } catch (error) {
-      console.warn('Failed to save command history:', error);
+      logger.warning('Failed to save command history:', { error });
     }
   }
 

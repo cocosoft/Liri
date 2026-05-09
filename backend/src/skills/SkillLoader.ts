@@ -6,6 +6,9 @@
 import type { Skill, SkillManifest } from '../types/skill';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export class SkillLoader {
   /**
@@ -76,7 +79,7 @@ export class SkillLoader {
         const skill = await this.load(path);
         skills.push(skill);
       } catch (error) {
-        console.error(`Error loading skill ${path}:`, error);
+        logger.error(`Error loading skill ${path}:`, { error });
         // 继续加载其他技能
       }
     }
@@ -111,7 +114,7 @@ export class SkillLoader {
         }
       }
     } catch (error) {
-      console.error(`Error reading skills directory ${skillsDir}:`, error);
+      logger.error(`Error reading skills directory ${skillsDir}:`, { error });
       return [];
     }
 

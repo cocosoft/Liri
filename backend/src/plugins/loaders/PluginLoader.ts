@@ -30,6 +30,9 @@ import {
 import { parsePluginIdentifier } from '../utils/pluginIdentifier';
 import { calculatePluginVersion } from '../utils/pluginVersioning';
 import { PluginManifestSchema, PluginHooksSchema } from '../utils/schemas';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件加载器类
@@ -179,7 +182,9 @@ export class PluginLoader {
         try {
           rmSync(tempPath, { recursive: true, force: true });
         } catch (cleanupError) {
-          console.error('Failed to cleanup installation:', cleanupError);
+          logger.error('Failed to cleanup installation:', {
+            error: cleanupError,
+          });
         }
       }
       throw error;
@@ -401,7 +406,7 @@ export class PluginLoader {
             plugin.hooksConfig = result.data.hooks;
           }
         } catch (error) {
-          console.error('Failed to load hooks config:', error);
+          logger.error('Failed to load hooks config:', { error });
         }
       }
     }

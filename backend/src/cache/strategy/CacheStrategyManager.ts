@@ -1,4 +1,8 @@
 //
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 export enum StrategyType {
   LRU = 'LRU',
   LFU = 'LFU',
@@ -835,7 +839,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
             await this.set(key, value, undefined, CachePriority.HIGH);
           }
         } catch (error) {
-          console.warn(`Failed to pre-warm key ${key}:`, error);
+          logger.warning(`Failed to pre-warm key ${key}:`, { error });
         }
       });
 
@@ -937,7 +941,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
       try {
         listener(event);
       } catch (error) {
-        console.warn('Cache event listener error:', error);
+        logger.warning('Cache event listener error:', { error });
       }
     }
   }

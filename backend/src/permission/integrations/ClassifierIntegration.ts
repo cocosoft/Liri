@@ -12,6 +12,9 @@ import {
   createAskDecision,
 } from '../types/PermissionDecision';
 import { PermissionContext } from '../types/PermissionContext';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 工具安全白名单 - 只读工具不需要分类器检查
@@ -142,7 +145,7 @@ export class ClassifierIntegration {
           return createAskDecision('Tool use classification unknown');
       }
     } catch (error) {
-      console.error('Classifier error:', error);
+      logger.error('Classifier error:', { error });
       return createAskDecision('Classifier error, requiring user approval');
     }
   }

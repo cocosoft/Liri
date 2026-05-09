@@ -8,6 +8,9 @@ import {
   StateSnapshot,
   StateStore,
 } from '../types/StateTypes.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { join } from 'path';
 import {
   existsSync,
@@ -18,6 +21,9 @@ import {
   unlinkSync,
   statSync,
 } from 'fs';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 文件系统持久化适配器（基于CC源码）
@@ -55,13 +61,13 @@ export class FileSystemPersistenceAdapter<
 
       // 验证数据完整性
       if (!this.validateData(data)) {
-        console.warn(`Invalid data format for key: ${key}`);
+        logger.warning(`Invalid data format for key: ${key}`);
         return undefined;
       }
 
       return data as T;
     } catch (error) {
-      console.error(`Failed to load state for key: ${key}`, error);
+      logger.error(`Failed to load state for key: ${key}`, { error });
       return undefined;
     }
   }
@@ -82,9 +88,9 @@ export class FileSystemPersistenceAdapter<
       const content = JSON.stringify(data, null, 2);
       writeFileSync(filePath, content, this.encoding);
 
-      console.log(`State saved for key: ${key}`);
+      logger.info(`State saved for key: ${key}`);
     } catch (error) {
-      console.error(`Failed to save state for key: ${key}`, error);
+      logger.error(`Failed to save state for key: ${key}`, { error });
       throw error;
     }
   }
@@ -98,10 +104,10 @@ export class FileSystemPersistenceAdapter<
 
       if (existsSync(filePath)) {
         unlinkSync(filePath);
-        console.log(`State deleted for key: ${key}`);
+        logger.info(`State deleted for key: ${key}`);
       }
     } catch (error) {
-      console.error(`Failed to delete state for key: ${key}`, error);
+      logger.error(`Failed to delete state for key: ${key}`, { error });
       throw error;
     }
   }
@@ -120,7 +126,7 @@ export class FileSystemPersistenceAdapter<
         .filter((file) => file.endsWith('.json'))
         .map((file) => file.replace('.json', ''));
     } catch (error) {
-      console.error('Failed to list state keys:', error);
+      logger.error('Failed to list state keys:', { error });
       return [];
     }
   }
@@ -145,10 +151,10 @@ export class FileSystemPersistenceAdapter<
       const content = readFileSync(filePath, this.encoding);
       writeFileSync(backupFile, content, this.encoding);
 
-      console.log(`State backed up for key: ${key} -> ${backupFile}`);
+      logger.info(`State backed up for key: ${key} -> ${backupFile}`);
       return backupFile;
     } catch (error) {
-      console.error(`Failed to backup state for key: ${key}`, error);
+      logger.error(`Failed to backup state for key: ${key}`, { error });
       throw error;
     }
   }
@@ -166,9 +172,9 @@ export class FileSystemPersistenceAdapter<
       const content = readFileSync(backupFile, this.encoding);
       writeFileSync(filePath, content, this.encoding);
 
-      console.log(`State restored for key: ${key} from ${backupFile}`);
+      logger.info(`State restored for key: ${key} from ${backupFile}`);
     } catch (error) {
-      console.error(`Failed to restore state for key: ${key}`, error);
+      logger.error(`Failed to restore state for key: ${key}`, { error });
       throw error;
     }
   }
@@ -330,7 +336,7 @@ export class SnapshotManager<T = any> {
       storeSnapshots.shift(); // 移除最旧的快照
     }
 
-    console.log(`Snapshot created for store: ${storeName} (${snapshot.id})`);
+    logger.info(`Snapshot created for store: ${storeName} (${snapshot.id})`);
     return snapshot;
   }
 
@@ -361,9 +367,9 @@ export class SnapshotManager<T = any> {
   ): Promise<void> {
     try {
       store.setState(() => snapshot.state);
-      console.log(`Snapshot restored: ${snapshot.id}`);
+      logger.info(`Snapshot restored: ${snapshot.id}`);
     } catch (error) {
-      console.error(`Failed to restore snapshot: ${snapshot.id}`, error);
+      logger.error(`Failed to restore snapshot: ${snapshot.id}`, { error });
       throw error;
     }
   }
@@ -383,7 +389,7 @@ export class SnapshotManager<T = any> {
     }
 
     snapshots.splice(index, 1);
-    console.log(`Snapshot deleted: ${snapshotId}`);
+    logger.info(`Snapshot deleted: ${snapshotId}`);
     return true;
   }
 
@@ -392,7 +398,7 @@ export class SnapshotManager<T = any> {
    */
   clearSnapshots(storeName: string): void {
     this.snapshots.delete(storeName);
-    console.log(`Snapshots cleared for store: ${storeName}`);
+    logger.info(`Snapshots cleared for store: ${storeName}`);
   }
 
   /**
@@ -541,7 +547,7 @@ export class AutoPersistenceManager<T = any> {
       try {
         await this.adapter.save(storeName, store.getState());
       } catch (error) {
-        console.error(`Failed to save store: ${storeName}`, error);
+        logger.error(`Failed to save store: ${storeName}`, { error });
       }
     }
   }
@@ -573,7 +579,7 @@ export class AutoPersistenceManager<T = any> {
 
     this.intervalId = setInterval(() => {
       this.saveAll().catch((error) => {
-        console.error('Auto-save failed:', error);
+        logger.error('Auto-save failed:', { error });
       });
     }, this.saveInterval);
   }
@@ -599,10 +605,10 @@ export class AutoPersistenceManager<T = any> {
       const savedState = await this.adapter.load(storeName);
       if (savedState !== undefined) {
         store.setState(() => savedState);
-        console.log(`State loaded for store: ${storeName}`);
+        logger.info(`State loaded for store: ${storeName}`);
       }
     } catch (error) {
-      console.error(`Failed to load state for store: ${storeName}`, error);
+      logger.error(`Failed to load state for store: ${storeName}`, { error });
     }
   }
 }

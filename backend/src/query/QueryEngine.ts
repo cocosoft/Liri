@@ -52,6 +52,9 @@ import {
   type StopHookReason,
 } from './StopHooks.js';
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 查询状态枚举
@@ -1072,8 +1075,8 @@ export class QueryEngine {
       const compactLevel = this.determineCompactLevel(percentUsed);
 
       if (compactLevel > 0) {
-        console.log(
-          `🔄 检测到需要压缩，级别: Level ${compactLevel}, Token使用率: ${percentUsed}%`
+        logger.info(
+          `检测到需要压缩，级别: Level ${compactLevel}, Token使用率: ${percentUsed}%`
         );
 
         // 更新会话状态为压缩中
@@ -1092,7 +1095,7 @@ export class QueryEngine {
           artifacts = await this.performLightCompact(sessionId, messages);
         }
 
-        console.log(`✅ 压缩完成，生成了 ${artifacts.length} 个压缩产物`);
+        logger.info(`压缩完成，生成了 ${artifacts.length} 个压缩产物`);
 
         // 重新注入压缩产物
         await this.compactService.reinjectArtifacts(sessionId, artifacts);
@@ -1113,7 +1116,7 @@ export class QueryEngine {
       // 触发压缩结束进度事件
       this.emitProgress('compact_end', { session_id: sessionId });
     } catch (error) {
-      console.error('压缩检查失败:', error);
+      logger.error('压缩检查失败:', { error });
       this.analyticsService.logEvent('compaction_failed', {
         session_id: sessionId,
         error: error instanceof Error ? error.message : String(error),
@@ -1374,7 +1377,7 @@ export class QueryEngine {
       try {
         listener(event);
       } catch (e) {
-        console.error('Progress listener error:', e);
+        logger.error('Progress listener error:', { e });
       }
     }
   }
@@ -1391,7 +1394,7 @@ export class QueryEngine {
       try {
         handler(error);
       } catch (e) {
-        console.error('Error handler error:', e);
+        logger.error('Error handler error:', { e });
       }
     }
   }

@@ -48,15 +48,18 @@ export type {
 
 export type { ICache } from './models/types.js';
 export { CacheFactory, CacheNames } from './CacheFactory.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export async function initializeCacheSystem(): Promise<void> {
   try {
     const { initializeCacheSystem: initCore } =
       await import('./CacheSystem.js');
     await initCore();
-    console.log('缓存系统初始化完成');
+    logger.info('缓存系统初始化完成');
   } catch (error) {
-    console.error('缓存系统初始化失败:', error);
+    logger.error('缓存系统初始化失败:', { error });
   }
 }
 
@@ -65,8 +68,8 @@ export async function shutdownCacheSystem(): Promise<void> {
     const { shutdownCacheSystem: shutdownCore } =
       await import('./CacheSystem.js');
     await shutdownCore();
-    console.log('缓存系统已关闭');
+    logger.info('缓存系统已关闭');
   } catch (error) {
-    console.error('缓存系统关闭失败:', error);
+    logger.error('缓存系统关闭失败:', { error });
   }
 }

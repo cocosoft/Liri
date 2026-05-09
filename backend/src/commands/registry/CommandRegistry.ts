@@ -3,6 +3,9 @@
  * 管理已注册的命令
  */
 import type { Command } from '@modules/commands/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 命令注册表类
@@ -24,7 +27,7 @@ export class CommandRegistry {
    */
   register(command: Command): void {
     if (!command || !command.name) {
-      console.error('Invalid command: missing name');
+      logger.error('Invalid command: missing name');
       return;
     }
 

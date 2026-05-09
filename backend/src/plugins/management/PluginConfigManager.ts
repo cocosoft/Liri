@@ -5,6 +5,9 @@
 
 import { EventEmitter } from 'events';
 import { PluginConfig } from '../types/PluginTypes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 配置验证结果（基于CC源码）
@@ -117,7 +120,7 @@ export class PluginConfigManager extends EventEmitter {
 
     this.defaultConfigs.set(pluginId, defaultConfig);
 
-    console.log(`✅ Config schema set for plugin: ${pluginId}`);
+    logger.info(`✅ Config schema set for plugin: ${pluginId}`);
   }
 
   /**
@@ -151,7 +154,7 @@ export class PluginConfigManager extends EventEmitter {
 
     this.emit('configUpdated', { pluginId, config: mergedConfig });
 
-    console.log(`✅ Config updated for plugin: ${pluginId}`);
+    logger.info(`✅ Config updated for plugin: ${pluginId}`);
 
     return validationResult;
   }
@@ -212,7 +215,7 @@ export class PluginConfigManager extends EventEmitter {
 
     this.emit('configReset', { pluginId });
 
-    console.log(`✅ Config reset for plugin: ${pluginId}`);
+    logger.info(`✅ Config reset for plugin: ${pluginId}`);
   }
 
   /**
@@ -430,7 +433,7 @@ export class PluginConfigManager extends EventEmitter {
     this.schemas.clear();
     this.defaultConfigs.clear();
 
-    console.log('✅ Plugin config manager cleared');
+    logger.info('✅ Plugin config manager cleared');
   }
 }
 

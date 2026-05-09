@@ -3,11 +3,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { render, Box, Text, Button, ScrollBox, AlternateScreen } from '../ink';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { getSkillManager } from '../skills/SkillManager';
 import { getToolManager } from '../tools/ToolManager';
 import { profileReport } from '../utils/startupProfiler';
 import { CompanionSprite } from '../buddy/CompanionSprite';
 import { useBuddyNotification } from '../buddy/useBuddyNotification';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 主菜单组件
@@ -255,7 +258,7 @@ const App = () => {
         const toolManager = getToolManager();
         setTools((toolManager as any).getTools());
       } catch (error) {
-        console.error('Error initializing services:', error);
+        logger.error('Error initializing services:', { error });
       } finally {
         setLoading(false);
       }
@@ -283,7 +286,7 @@ const App = () => {
 
   const handleSkillExecute = (skillName: string) => {
     // 处理技能执行逻辑
-    console.log('Executing skill:', skillName);
+    logger.info('Executing skill:', { skillName });
   };
 
   return (

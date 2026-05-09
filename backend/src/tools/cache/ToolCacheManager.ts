@@ -6,6 +6,9 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 缓存项类型
@@ -85,7 +88,7 @@ export class ToolCacheManager {
         }
       }
     } catch (error) {
-      console.warn('Failed to load tool cache:', error);
+      logger.warning('Failed to load tool cache:', { error });
       this.cache = new Map();
     }
   }
@@ -116,7 +119,7 @@ export class ToolCacheManager {
       const items = Array.from(this.cache.values());
       fs.writeFileSync(this.cachePath, JSON.stringify(items, null, 2));
     } catch (error) {
-      console.warn('Failed to save tool cache:', error);
+      logger.warning('Failed to save tool cache:', { error });
     }
   }
 

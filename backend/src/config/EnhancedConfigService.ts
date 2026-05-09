@@ -6,6 +6,9 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 配置版本号
@@ -306,7 +309,7 @@ export class EnhancedConfigService {
 
       this.isLoaded = true;
     } catch (error) {
-      console.error('Failed to load config:', error);
+      logger.error('Failed to load config:', { error });
       this.config = {};
       this.isLoaded = true;
     }
@@ -791,7 +794,7 @@ export class EnhancedConfigService {
 
       return true;
     } catch (error) {
-      console.error('Failed to restore from backup:', error);
+      logger.error('Failed to restore from backup:', { error });
       return false;
     }
   }

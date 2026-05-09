@@ -5,6 +5,10 @@
  * 基于CC源码 cc_code/backend/utils/retry.ts 实现
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 export interface RetryConfig {
   maxRetries: number;
   backoffMultiplier: number;
@@ -104,7 +108,7 @@ export async function withRetry<T>(
       }
 
       const delay = calculateBackoffDelay(attempt, fullConfig);
-      console.warn(
+      logger.warning(
         `Attempt ${attempt + 1} failed: ${lastError.message}. Retrying in ${delay}ms...`
       );
 
@@ -167,7 +171,7 @@ export async function withRetryAsync<T>(
       }
 
       const delay = calculateBackoffDelay(attempt, fullConfig);
-      console.warn(
+      logger.warning(
         `Attempt ${attempt + 1} failed: ${state.lastError.message}. Retrying in ${delay}ms...`
       );
 

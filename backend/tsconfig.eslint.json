@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*", "eslint.config.js", ".eslintrc.json"],
+  "exclude": ["node_modules", "dist"]
+}

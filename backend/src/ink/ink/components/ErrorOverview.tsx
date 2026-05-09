@@ -9,8 +9,6 @@ import Text from './Text.js';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const StackUtils = require('stack-utils');
 
-/* eslint-disable custom-rules/no-process-cwd -- stack trace file:// paths are relative to the real OS cwd, not the virtual cwd */
-
 // Error's source file is reported as file:///home/user/file.js
 // This function removes the file://[cwd] part
 const cleanupPath = (path: string | undefined): string | undefined => {
@@ -24,8 +22,6 @@ function getStackUtils(): any {
   }));
 }
 
-/* eslint-enable custom-rules/no-process-cwd */
-
 type Props = {
   readonly error: Error;
 };
@@ -37,7 +33,6 @@ export default function ErrorOverview({ error }: Props) {
   let lineWidth = 0;
   if (filePath && origin?.line) {
     try {
-      // eslint-disable-next-line custom-rules/no-sync-fs -- sync render path; error overlay can't go async without suspense restructuring
       const sourceCode = readFileSync(filePath, 'utf8');
       excerpt = codeExcerpt(sourceCode, origin.line);
       if (excerpt) {

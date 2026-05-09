@@ -363,6 +363,48 @@ export interface ChatManager {
   getCompactService(): CompactServiceImpl;
 
   /**
+   * 创建会话检查点
+   * @param sessionId 会话ID
+   * @param label 检查点标签（可选）
+   * @returns 检查点ID
+   */
+  createCheckpoint(sessionId: string, label?: string): Promise<string>;
+
+  /**
+   * 列出会话检查点
+   * @param sessionId 会话ID
+   * @returns 检查点列表
+   */
+  listCheckpoints(
+    sessionId: string
+  ): Promise<import('./types/checkpoint').SessionCheckpoint[]>;
+
+  /**
+   * 回滚到指定检查点
+   * @param checkpointId 检查点ID
+   * @returns 回滚结果
+   */
+  rollbackToCheckpoint(checkpointId: string): Promise<{
+    session: ChatSession;
+    diff: import('./types/checkpoint').CheckpointDiff;
+  }>;
+
+  /**
+   * 删除检查点
+   * @param checkpointId 检查点ID
+   */
+  deleteCheckpoint(checkpointId: string): Promise<void>;
+
+  /**
+   * 获取最新的检查点
+   * @param sessionId 会话ID
+   * @returns 最新的检查点或null
+   */
+  getLatestCheckpoint(
+    sessionId: string
+  ): Promise<import('./types/checkpoint').SessionCheckpoint | null>;
+
+  /**
    * 初始化
    */
   initialize(): void;
@@ -1722,6 +1764,33 @@ export class ChatManagerImpl implements ChatManager {
    */
   getCompactService(): CompactServiceImpl {
     return this.compactService;
+  }
+
+  async createCheckpoint(sessionId: string, label?: string): Promise<string> {
+    return this.sessionManager.createCheckpoint(sessionId, label);
+  }
+
+  async listCheckpoints(
+    sessionId: string
+  ): Promise<import('./types/checkpoint').SessionCheckpoint[]> {
+    return this.sessionManager.listCheckpoints(sessionId);
+  }
+
+  async rollbackToCheckpoint(checkpointId: string): Promise<{
+    session: ChatSession;
+    diff: import('./types/checkpoint').CheckpointDiff;
+  }> {
+    return this.sessionManager.rollbackToCheckpoint(checkpointId);
+  }
+
+  async deleteCheckpoint(checkpointId: string): Promise<void> {
+    return this.sessionManager.deleteCheckpoint(checkpointId);
+  }
+
+  async getLatestCheckpoint(
+    sessionId: string
+  ): Promise<import('./types/checkpoint').SessionCheckpoint | null> {
+    return this.sessionManager.getLatestCheckpoint(sessionId);
   }
 }
 

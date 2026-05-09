@@ -190,6 +190,11 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/diff/index.js', name: 'diff' },
       { path: '../builtin/review/index.js', name: 'review' },
       { path: '../builtin/resume/index.js', name: 'resume' },
+      {
+        path: '../builtin/checkpoint/index.js',
+        name: 'checkpoint',
+        aliases: ['cp'],
+      },
     ];
 
     const commands: Command[] = [];

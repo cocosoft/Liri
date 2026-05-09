@@ -11,6 +11,11 @@ import type {
 } from '../types/session';
 import type { Message } from '../types/message';
 import { SessionState as SessionStateEnum } from '../types/session';
+import type { SessionCheckpoint, CheckpointDiff } from '../types/checkpoint';
+import {
+  SessionCheckpointService,
+  getCheckpointService,
+} from './SessionCheckpointService';
 
 /**
  * 内存会话存储
@@ -175,6 +180,56 @@ export interface SessionManager {
     ended: number;
     archived: number;
   };
+
+  /**
+   * 创建会话检查点
+   * @param sessionId 会话ID
+   * @param label 检查点标签（可选）
+   * @returns 检查点ID
+   */
+  createCheckpoint(sessionId: string, label?: string): Promise<string>;
+
+  /**
+   * 列出会话检查点
+   * @param sessionId 会话ID
+   * @returns 检查点列表
+   */
+  listCheckpoints(sessionId: string): Promise<SessionCheckpoint[]>;
+
+  /**
+   * 回滚到指定检查点
+   * @param checkpointId 检查点ID
+   * @returns 回滚后的会话数据和差异信息
+   */
+  rollbackToCheckpoint(checkpointId: string): Promise<{
+    session: ChatSession;
+    diff: CheckpointDiff;
+  }>;
+
+  /**
+   * 删除检查点
+   * @param checkpointId 检查点ID
+   */
+  deleteCheckpoint(checkpointId: string): Promise<void>;
+
+  /**
+   * 删除会话的所有检查点
+   * @param sessionId 会话ID
+   */
+  deleteSessionCheckpoints(sessionId: string): Promise<void>;
+
+  /**
+   * 获取最新的检查点
+   * @param sessionId 会话ID
+   * @returns 最新的检查点或null
+   */
+  getLatestCheckpoint(sessionId: string): Promise<SessionCheckpoint | null>;
+
+  /**
+   * 自动创建检查点
+   * @param sessionId 会话ID
+   */
+  autoCreateCheckpoint(sessionId: string): Promise<SessionCheckpoint | null>;
 }
 
 /**
@@ -197,11 +252,17 @@ export class SessionManagerImpl implements SessionManager {
   private currentSessionId: string | undefined;
 
   /**
+   * 检查点服务
+   */
+  private checkpointService: SessionCheckpointService;
+
+  /**
    * 构造函数
    * @param storage 会话存储
    */
   constructor(storage?: SessionStorage) {
     this.storage = storage || new MemorySessionStorage();
+    this.checkpointService = getCheckpointService();
     this.loadSessionsFromStorage();
   }
 
@@ -492,6 +553,98 @@ export class SessionManagerImpl implements SessionManager {
     }
 
     return stats;
+  }
+
+  async createCheckpoint(sessionId: string, label?: string): Promise<string> {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+
+    const cp = await this.checkpointService.saveCheckpointWithData(
+      sessionId,
+      session.messages,
+      session.metadata,
+      session.state,
+      label
+    );
+
+    return cp.id;
+  }
+
+  async listCheckpoints(sessionId: string): Promise<SessionCheckpoint[]> {
+    return this.checkpointService.listCheckpoints(sessionId);
+  }
+
+  async rollbackToCheckpoint(checkpointId: string): Promise<{
+    session: ChatSession;
+    diff: CheckpointDiff;
+  }> {
+    const checkpoint = await this.checkpointService.getCheckpoint(checkpointId);
+    if (!checkpoint) {
+      throw new Error(`Checkpoint not found: ${checkpointId}`);
+    }
+
+    const currentSession = this.sessions.get(checkpoint.sessionId);
+    if (!currentSession) {
+      throw new Error(`Session not found: ${checkpoint.sessionId}`);
+    }
+
+    const result = await this.checkpointService.rollbackToCheckpoint(
+      checkpointId,
+      {
+        messages: currentSession.messages,
+        metadata: currentSession.metadata,
+        state: currentSession.state,
+      }
+    );
+
+    const restoredSession: ChatSession = {
+      ...currentSession,
+      messages: result.messages,
+      metadata: result.metadata,
+      state: result.state,
+      updatedAt: new Date(),
+    };
+
+    this.sessions.set(restoredSession.id, restoredSession);
+    await this.storage.saveSession(restoredSession);
+
+    return { session: restoredSession, diff: result.diff };
+  }
+
+  async deleteCheckpoint(checkpointId: string): Promise<void> {
+    await this.checkpointService.deleteCheckpoint(checkpointId);
+  }
+
+  async deleteSessionCheckpoints(sessionId: string): Promise<void> {
+    await this.checkpointService.deleteSessionCheckpoints(sessionId);
+  }
+
+  async getLatestCheckpoint(
+    sessionId: string
+  ): Promise<SessionCheckpoint | null> {
+    return this.checkpointService.getLatestCheckpoint(sessionId);
+  }
+
+  async autoCreateCheckpoint(
+    sessionId: string
+  ): Promise<SessionCheckpoint | null> {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return null;
+    }
+
+    try {
+      return await this.checkpointService.autoCreateCheckpoint(
+        sessionId,
+        session.messages,
+        session.metadata,
+        session.state
+      );
+    } catch (error) {
+      return null;
+    }
   }
 }
 

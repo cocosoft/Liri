@@ -306,6 +306,27 @@ export interface SessionManager {
    * @param sessionId 会话ID
    */
   setCurrentSession(sessionId: string): void;
+
+  /**
+   * 创建会话检查点
+   * @param sessionId 会话ID
+   * @param label 检查点标签（可选）
+   */
+  createCheckpoint?(sessionId: string, label?: string): Promise<string>;
+
+  /**
+   * 列出会话检查点
+   * @param sessionId 会话ID
+   */
+  listCheckpoints?(
+    sessionId: string
+  ): Promise<Array<{ id: string; label?: string; createdAt: number }>>;
+
+  /**
+   * 回滚到指定检查点
+   * @param checkpointId 检查点ID
+   */
+  rollbackToCheckpoint?(checkpointId: string): Promise<void>;
 }
 
 /**

@@ -1,7 +1,18 @@
 /**
- * MCP系统核心类型定义（基于CC源码实现）
- * 定义MCP协议、客户端、服务器、工具、资源等核心类型
+ * MCP系统核心类型定义
+ * 增强层类型，标准类型引用自 services/mcp/types/
  */
+
+import {
+  MCPServerConfig as _MCPServerConfig,
+  ScopedMcpServerConfigExt as _ScopedMcpServerConfigExt,
+} from '../../services/mcp/types/index.js';
+
+export { _MCPServerConfig as MCPServerConfig };
+
+export { _ScopedMcpServerConfigExt as ScopedMcpServerConfig };
+
+export type { _ScopedMcpServerConfigExt as ScopedMcpServerConfigExt };
 
 /**
  * MCP协议版本（基于CC源码）
@@ -31,78 +42,6 @@ export type MCPServerType =
   | 'ws-ide'
   | 'sdk'
   | 'claudeai-proxy';
-
-/**
- * MCP服务器配置（基于CC源码）
- */
-export interface MCPServerConfig {
-  /** 服务器类型 */
-  type?: MCPServerType;
-
-  /** 命令路径（stdio类型） */
-  command?: string;
-
-  /** 命令参数（stdio类型） */
-  args?: string[];
-
-  /** 环境变量（stdio类型） */
-  env?: Record<string, string>;
-
-  /** URL（sse、http、ws类型） */
-  url?: string;
-
-  /** 头部信息（sse、http、ws类型） */
-  headers?: Record<string, string>;
-
-  /** 头部助手（sse类型） */
-  headersHelper?: string;
-
-  /** OAuth配置 */
-  oauth?: McpOAuthConfig;
-
-  /** 作用域 */
-  scope?: ConfigScope;
-
-  /** 插件来源 */
-  pluginSource?: string;
-
-  /** 是否启用 */
-  enabled?: boolean;
-
-  /** 描述信息 */
-  description?: string;
-
-  /** 版本信息 */
-  version?: string;
-}
-
-/**
- * 带作用域的MCP服务器配置（基于CC源码）
- */
-export interface ScopedMcpServerConfig extends MCPServerConfig {
-  /** 作用域 */
-  scope: ConfigScope;
-
-  /** 插件来源 */
-  pluginSource?: string;
-}
-
-/**
- * OAuth配置（基于CC源码）
- */
-export interface McpOAuthConfig {
-  /** 客户端ID */
-  clientId?: string;
-
-  /** 回调端口 */
-  callbackPort?: number;
-
-  /** 授权服务器元数据URL */
-  authServerMetadataUrl?: string;
-
-  /** 是否启用XAA跨应用访问 */
-  xaa?: boolean;
-}
 
 /**
  * MCP工具定义（基于CC源码）
@@ -186,6 +125,9 @@ export interface MCPRequest {
   /** 工具参数（call类型） */
   tool_arguments?: Record<string, any>;
 
+  /** 工具参数简写（call类型） */
+  args?: Record<string, any>;
+
   /** 资源URI（read_resource类型） */
   uri?: string;
 
@@ -207,10 +149,13 @@ export interface MCPResponse {
   request_id: string;
 
   /** 响应类型 */
-  type: 'result' | 'error' | 'progress';
+  type: 'result' | 'error' | 'progress' | 'pong';
 
   /** 响应结果（result类型） */
   result?: any;
+
+  /** 工具列表（list_tools响应） */
+  tools?: MCPToolDefinition[];
 
   /** 错误信息（error类型） */
   error?: {
@@ -358,7 +303,7 @@ export interface MCPEvent {
  */
 export interface MCPTransport {
   /** 发送请求 */
-  send(request: MCPRequest): Promise<void>;
+  send(request: MCPRequest): Promise<MCPResponse>;
 
   /** 接收响应 */
   receive(): AsyncIterable<MCPResponse>;
@@ -368,6 +313,34 @@ export interface MCPTransport {
 
   /** 连接状态 */
   readonly state: MCPClientState;
+}
+
+/**
+ * MCP服务器状态枚举
+ */
+export enum MCPServerStatus {
+  DISCONNECTED = 'disconnected',
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  ERROR = 'error',
+}
+
+/**
+ * MCP服务器连接信息
+ */
+export interface MCPServerConnectionInfo {
+  name: string;
+  config: _MCPServerConfig;
+  status: MCPServerStatus;
+  tools: MCPToolDefinition[];
+  error?: string;
+  stats?: {
+    totalRequests: number;
+    successfulRequests: number;
+    failedRequests: number;
+    lastRequestTime: number;
+    responseTime: number;
+  };
 }
 
 /**
@@ -381,7 +354,7 @@ export interface MCPClient {
   disconnect(): Promise<void>;
 
   /** 调用工具 */
-  callTool(name: string, arguments?: Record<string, any>): Promise<any>;
+  callTool(name: string, toolArgs?: Record<string, any>): Promise<any>;
 
   /** 列出工具 */
   listTools(): Promise<MCPToolDefinition[]>;
@@ -407,26 +380,3 @@ export interface MCPClient {
   /** 移除事件监听器 */
   off(event: MCPEventType, listener: (event: MCPEvent) => void): void;
 }
-
-export default {
-  MCP_PROTOCOL_VERSION,
-  ConfigScope,
-  MCPServerType,
-  MCPServerConfig,
-  ScopedMcpServerConfig,
-  McpOAuthConfig,
-  MCPToolDefinition,
-  MCPResourceDefinition,
-  MCPPromptDefinition,
-  MCPRequest,
-  MCPResponse,
-  MCPClientState,
-  MCPClientInfo,
-  MCPServerInfo,
-  MCPConnectionConfig,
-  MCPConnectionStats,
-  MCPEventType,
-  MCPEvent,
-  MCPTransport,
-  MCPClient,
-};

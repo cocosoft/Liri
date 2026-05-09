@@ -5,9 +5,9 @@
 import { Tool } from './types/Tool';
 import { createToolResult } from './types/ToolResult';
 import { BashTool } from './bash/BashTool';
-import { FileReadTool } from './filesystem/FileReadTool';
-import { FileWriteTool } from './filesystem/FileWriteTool';
-import { FileEditTool } from './filesystem/FileEditTool';
+import { FileReadTool } from './FileReadTool/FileReadTool';
+import { FileWriteTool } from './FileWriteTool/FileWriteTool';
+import { FileEditTool } from './FileEditTool/FileEditTool';
 import { GrepTool } from './search/GrepTool';
 import { GlobTool } from './search/GlobTool';
 import { NotebookEditTool } from './NotebookEditTool/NotebookEditTool';
@@ -627,7 +627,7 @@ export function getAllBaseTools(): Tool[] {
     tools.push(new TaskListTool());
   }
 
-  if (isFeatureEnabled(FeatureFlag.ENABLE_LSP_TOOL)) {
+  if (isFeatureEnabled(FeatureFlag.LSP)) {
     tools.push(new LSPToolAdapter());
   }
 
@@ -665,14 +665,14 @@ export function getAllBaseTools(): Tool[] {
     tools.push(listPeersTool);
   }
 
-  if (isFeatureEnabled(FeatureFlag.ENABLE_VERIFY_PLAN)) {
+  if (isFeatureEnabled(FeatureFlag.VERIFICATION_AGENT)) {
     const verifyPlanTool = createVerifyPlanExecutionTool();
     if (verifyPlanTool) {
       tools.push(verifyPlanTool);
     }
   }
 
-  if (isAntUser() && isFeatureEnabled(FeatureFlag.ENABLE_REPL)) {
+  if (isAntUser() && isFeatureEnabled(FeatureFlag.REPL)) {
     const replTool = new REPLToolAdapter();
     if (replTool) {
       tools.push(replTool);
@@ -726,7 +726,7 @@ export function getAllBaseTools(): Tool[] {
     tools.push(snipTool);
   }
 
-  if (isFeatureEnabled(FeatureFlag.ENABLE_TEST_MODE)) {
+  if (isFeatureEnabled(FeatureFlag.TEST_MODE)) {
     tools.push(createTestingPermissionTool());
   }
 
@@ -767,7 +767,7 @@ function createTeamDeleteTool(): Tool | null {
 }
 
 function createVerifyPlanExecutionTool(): Tool | null {
-  if (!isToolEnabled('ENABLE_VERIFY_PLAN')) return null;
+  if (!isToolEnabled('VERIFICATION_AGENT')) return null;
   return null;
 }
 

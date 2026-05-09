@@ -1,9 +1,11 @@
 /**
  * MCP配置管理
  * 负责加载和保存MCP服务器配置
+ * 标准配置管理请参考 services/mcp/config.ts MCPConfigManager
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { logger } from '@modules/utils/log';
 import { MCPServerConfig, ScopedMcpServerConfig } from '../types';
 
 /**
@@ -21,7 +23,7 @@ export function readMcpConfig(
     const config = JSON.parse(content);
     return config.mcpServers || {};
   } catch (error) {
-    console.error(`Failed to read MCP config: ${error}`);
+    logger.error('Failed to read MCP config', error instanceof Error ? error : new Error(String(error)), { configPath });
     return {};
   }
 }
@@ -44,7 +46,7 @@ export function writeMcpConfig(
     fullConfig.mcpServers = servers;
     writeFileSync(configPath, JSON.stringify(fullConfig, null, 2));
   } catch (error) {
-    console.error(`Failed to write MCP config: ${error}`);
+    logger.error('Failed to write MCP config', error instanceof Error ? error : new Error(String(error)), { configPath });
   }
 }
 
@@ -140,9 +142,7 @@ export function loadMcpConfigFromEnv(): Record<string, MCPServerConfig> {
         }
       }
     } catch (error) {
-      console.error(
-        `Failed to parse MCP_SERVERS environment variable: ${error}`
-      );
+      logger.error('Failed to parse MCP_SERVERS environment variable', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

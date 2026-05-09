@@ -31,5 +31,7 @@ export {
   FEATURE_FLAGS,
   feature,
   isFeatureEnabled,
+  getToolFlag,
+  TOOL_NAMES,
   type FeatureFlag,
 } from './featureFlags';

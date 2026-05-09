@@ -89,3 +89,6 @@ export type {
   SessionMemoryCompactResult,
   SessionMemoryCompactionResult,
 } from './sessionMemoryCompact';
+
+export { CompactOrchestrator } from './CompactOrchestrator';
+export type { CompactRecord, CompactOrchestratorOptions } from './CompactOrchestrator';

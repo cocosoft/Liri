@@ -75,3 +75,18 @@ export interface CacheStats {
    */
   cleanups: number;
 }
+
+/**
+ * 统一缓存接口
+ * 所有缓存实现必须遵循此接口
+ * 缓存键命名规范: 模块名:子模块:具体键名
+ */
+export interface ICache<K = string, V = unknown> {
+  get(key: K): V | null;
+  set(key: K, value: V, ttl?: number): void;
+  delete(key: K): boolean;
+  clear(): void;
+  has(key: K): boolean;
+  size(): number;
+  getStats(): CacheStats;
+}

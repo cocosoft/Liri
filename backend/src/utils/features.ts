@@ -1,4 +1,3 @@
-//
 /**
  * 功能开关模块
  * 用于管理应用中的功能开关，支持从环境变量中读取配置
@@ -7,7 +6,7 @@
  */
 import {
   FEATURE_FLAGS,
-  feature,
+  feature as coreFeature,
   type FeatureFlag as CoreFeatureFlag,
 } from '@modules/core';
 import { isEnvTruthy } from './envUtils.js';
@@ -16,62 +15,26 @@ import { getGrowthBookClient } from '../services/growthbook/GrowthBookClient.js'
 import type { GrowthBookUserAttributes } from '../services/growthbook/GrowthBookConfig.js';
 
 /**
- * 扩展功能标志常量（工具层专用，保持向后兼容）
- * 核心标志来自 @modules/core，此处仅补充工具层专用标志
+ * 功能标志名称常量（向后兼容）
+ * 每个键映射到自身的标志名称字符串
  */
-export const FeatureFlag = {
-  // 从核心导入的统一标志
-  ENABLE_PLUGINS: 'ENABLE_PLUGINS' as const,
-  ENABLE_SKILLS: 'ENABLE_SKILLS' as const,
-  ENABLE_MCP: 'ENABLE_MCP' as const,
-  ENABLE_WORKFLOWS: 'ENABLE_WORKFLOWS' as const,
-  ENABLE_ADVANCED_COMMANDS: 'ENABLE_ADVANCED_COMMANDS' as const,
-  AGENT_TRIGGERS: 'AGENT_TRIGGERS' as const,
-  AGENT_TRIGGERS_REMOTE: 'AGENT_TRIGGERS_REMOTE' as const,
-  PROACTIVE: 'PROACTIVE' as const,
-  KAIROS: 'KAIROS' as const,
-  MONITOR_TOOL: 'MONITOR_TOOL' as const,
-  CONTEXT_COLLAPSE: 'CONTEXT_COLLAPSE' as const,
-  HISTORY_SNIP: 'HISTORY_SNIP' as const,
-  VOICE_MODE: 'VOICE_MODE' as const,
-  BRIDGE_MODE: 'BRIDGE_MODE' as const,
+export const FeatureFlag: { readonly [K in FeatureFlagName]: K } = {} as any;
+for (const key of Object.keys(FEATURE_FLAGS)) {
+  (FeatureFlag as any)[key] = key;
+}
 
-  // 工具层专用标志（不在 core 中）
-  ENABLE_LSP_TOOL: 'ENABLE_LSP_TOOL' as const,
-  ENABLE_REPL: 'ENABLE_REPL' as const,
-  ENABLE_VERIFY_PLAN: 'ENABLE_VERIFY_PLAN' as const,
-  ENABLE_TEST_MODE: 'ENABLE_TEST_MODE' as const,
-  ENABLE_KAIROS_PUSH_NOTIFICATION: 'ENABLE_KAIROS_PUSH_NOTIFICATION' as const,
-  ENABLE_KAIROS_GITHUB_WEBHOOKS: 'ENABLE_KAIROS_GITHUB_WEBHOOKS' as const,
-  ENABLE_TERMINAL_PANEL: 'ENABLE_TERMINAL_PANEL' as const,
-  ENABLE_WEB_BROWSER_TOOL: 'ENABLE_WEB_BROWSER_TOOL' as const,
-  ENABLE_COORDINATOR_MODE: 'ENABLE_COORDINATOR_MODE' as const,
-  ENABLE_UDS_INBOX: 'ENABLE_UDS_INBOX' as const,
-  ENABLE_WORKFLOW_SCRIPTS: 'ENABLE_WORKFLOW_SCRIPTS' as const,
-  ENABLE_OVERFLOW_TEST_TOOL: 'ENABLE_OVERFLOW_TEST_TOOL' as const,
-  ENABLE_SIMPLE_MODE: 'CLAUDE_CODE_SIMPLE' as const,
-  USER_TYPE_ANT: 'USER_TYPE' as const,
-  ENABLE_CACHE: 'ENABLE_CACHE' as const,
-  ENABLE_MEMORY_MONITORING: 'ENABLE_MEMORY_MONITORING' as const,
-  ENABLE_PERFORMANCE_TRACKING: 'ENABLE_PERFORMANCE_TRACKING' as const,
-  ENABLE_PERMISSION_CHECKS: 'ENABLE_PERMISSION_CHECKS' as const,
-  ENABLE_SECURITY_SCAN: 'ENABLE_SECURITY_SCAN' as const,
-  ENABLE_DEBUG_MODE: 'ENABLE_DEBUG_MODE' as const,
-  ENABLE_DEV_FEATURES: 'ENABLE_DEV_FEATURES' as const,
-} as const;
-
-export type FeatureFlagName = (typeof FeatureFlag)[keyof typeof FeatureFlag];
+export type FeatureFlagName = CoreFeatureFlag;
 
 /**
  * 检查功能是否启用
- * 优先从环境变量读取，其次使用 core/featureFlags 统一默认值，最后回退到本地默认
+ * 优先从环境变量读取，其次使用 core/featureFlags 统一默认值
  */
 export function isFeatureEnabled(flag: FeatureFlagName): boolean {
   const envValue = process.env[flag];
   if (envValue !== undefined) {
     return envValue === 'true';
   }
-  return feature(flag as CoreFeatureFlag);
+  return coreFeature(flag);
 }
 
 /**
@@ -79,13 +42,11 @@ export function isFeatureEnabled(flag: FeatureFlagName): boolean {
  * @returns 功能开关状态映射
  */
 export function getFeatureFlags(): Record<string, boolean> {
-  const flags: Record<string, boolean> = {};
-
-  Object.values(FeatureFlag).forEach((feature) => {
-    flags[feature] = isFeatureEnabled(feature);
-  });
-
-  return flags;
+  const result: Record<string, boolean> = {};
+  for (const key of Object.keys(FEATURE_FLAGS)) {
+    result[key] = isFeatureEnabled(key as FeatureFlagName);
+  }
+  return result;
 }
 
 /**
@@ -94,8 +55,8 @@ export function getFeatureFlags(): Record<string, boolean> {
  */
 export function isDevMode(): boolean {
   return (
-    isFeatureEnabled(FeatureFlag.ENABLE_DEV_FEATURES) ||
-    isFeatureEnabled(FeatureFlag.ENABLE_DEBUG_MODE)
+    isFeatureEnabled('DEV_FEATURES') ||
+    isFeatureEnabled('DEBUG_MODE')
   );
 }
 
@@ -104,13 +65,12 @@ export function isDevMode(): boolean {
  * @returns 是否为测试模式
  */
 export function isTestMode(): boolean {
-  return isFeatureEnabled(FeatureFlag.ENABLE_TEST_MODE);
+  return isFeatureEnabled('TEST_MODE');
 }
 
 /**
  * 条件加载工具的辅助函数
  * 如果功能启用则返回值，否则返回null
- * 类似于CC源码的feature()函数模式
  */
 export function conditionalTool<T>(
   flag: FeatureFlagName,
@@ -124,7 +84,7 @@ export function conditionalTools<T>(flag: FeatureFlagName, tools: T[]): T[] {
 }
 
 /**
- * 检查是否为ANT用户类型
+ * 检查是否为 ANT 用户类型
  */
 export function isAntUser(): boolean {
   return process.env.USER_TYPE === 'ant';
@@ -141,57 +101,25 @@ export function isSimpleMode(): boolean {
  * 检查是否启用工作树模式
  */
 export function isWorktreeModeEnabled(): boolean {
-  return isFeatureEnabled(FeatureFlag.KAIROS);
+  return isFeatureEnabled('KAIROS');
 }
 
 export function isAgentSwarmsEnabled(): boolean {
-  return isFeatureEnabled(FeatureFlag.KAIROS);
+  return isFeatureEnabled('KAIROS');
 }
 
 /**
  * 检查是否启用任务V2
  */
 export function isTodoV2Enabled(): boolean {
-  return isFeatureEnabled(FeatureFlag.ENABLE_WORKFLOWS);
+  return isFeatureEnabled('ENABLE_WORKFLOWS');
 }
 
-const FEATURE_DEFAULTS: Record<string, boolean> = {
-  ENABLE_PLUGINS: false,
-  ENABLE_SKILLS: false,
-  ENABLE_MCP: false,
-  ENABLE_WORKFLOWS: false,
-  ENABLE_ADVANCED_COMMANDS: false,
-  AGENT_TRIGGERS: false,
-  AGENT_TRIGGERS_REMOTE: false,
-  PROACTIVE: false,
-  KAIROS: false,
-  MONITOR_TOOL: false,
-  CONTEXT_COLLAPSE: false,
-  HISTORY_SNIP: false,
-  VOICE_MODE: false,
-  BRIDGE_MODE: false,
-  ENABLE_LSP_TOOL: false,
-  ENABLE_REPL: false,
-  ENABLE_VERIFY_PLAN: false,
-  ENABLE_TEST_MODE: false,
-  ENABLE_KAIROS_PUSH_NOTIFICATION: false,
-  ENABLE_KAIROS_GITHUB_WEBHOOKS: false,
-  ENABLE_TERMINAL_PANEL: false,
-  ENABLE_WEB_BROWSER_TOOL: false,
-  ENABLE_COORDINATOR_MODE: false,
-  ENABLE_UDS_INBOX: false,
-  ENABLE_WORKFLOW_SCRIPTS: false,
-  ENABLE_OVERFLOW_TEST_TOOL: false,
-  [FeatureFlag.ENABLE_SIMPLE_MODE]: false,
-  [FeatureFlag.USER_TYPE_ANT]: false,
-  ENABLE_CACHE: true,
-  ENABLE_MEMORY_MONITORING: true,
-  ENABLE_PERFORMANCE_TRACKING: true,
-  ENABLE_PERMISSION_CHECKS: true,
-  ENABLE_SECURITY_SCAN: true,
-  ENABLE_DEBUG_MODE: false,
-  ENABLE_DEV_FEATURES: false,
-};
+/** 本地默认值（用于 GrowthBook 降级） */
+const FEATURE_DEFAULTS: Record<string, boolean> = {};
+for (const [key, val] of Object.entries(FEATURE_FLAGS)) {
+  FEATURE_DEFAULTS[key] = val;
+}
 
 let growthBookIntegrationInitialized = false;
 

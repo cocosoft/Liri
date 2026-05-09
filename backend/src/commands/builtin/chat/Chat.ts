@@ -9,9 +9,9 @@ import { getLLMClientFactory } from '@modules/ai/clients/LLMClientFactory.js';
 import { costTracker } from '@modules/cost/CostTracker.js';
 import { getConfig } from '@modules/config/index.js';
 import { ToolRegistry } from '@modules/tools/index.js';
-import { FileReadTool } from '@modules/tools/filesystem/FileReadTool.js';
-import { FileWriteTool } from '@modules/tools/filesystem/FileWriteTool.js';
-import { FileEditTool } from '@modules/tools/filesystem/FileEditTool.js';
+import { FileReadTool } from '@modules/tools/FileReadTool/FileReadTool.js';
+import { FileWriteTool } from '@modules/tools/FileWriteTool/FileWriteTool.js';
+import { FileEditTool } from '@modules/tools/FileEditTool/FileEditTool.js';
 import { BashTool } from '@modules/tools/bash/BashTool.js';
 import { createPowerShellTool } from '@modules/tools/PowerShellTool/PowerShellTool.js';
 import { GlobTool } from '@modules/tools/search/GlobTool.js';
@@ -36,8 +36,8 @@ interface ChatOptions {
 
 function createToolRegistry(): ToolRegistry {
   const registry = new ToolRegistry();
-  registry.registerTool(FileReadTool.create());
-  registry.registerTool(FileWriteTool.create());
+  registry.registerTool(new FileReadTool());
+  registry.registerTool(new FileWriteTool());
   registry.registerTool(new FileEditTool());
   registry.registerTool(new BashTool());
 

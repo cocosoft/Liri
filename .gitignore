@@ -21,6 +21,7 @@ target/
 
 # Logs
 *.log
+backend/logs/audit/
 
 # OS
 .DS_Store
@@ -71,6 +72,7 @@ backend/fix-*.js
 backend/fix-duplicate-exports.js
 backend/fix-exports.js
 backend/fix-remaining.js
+backend/eslint_report.json
 *.tar.gz
 *.rar
 
@@ -90,6 +92,12 @@ backend/src/**/*.test.tsx
 
 # Testing - test config
 backend/.test_config/
+
+# Testing - test cache / version artifacts (auto-generated, variant per run)
+backend/.test_cache/
+backend/.test_versions/
+backend/.test_versions_export/
+backend/.test_versions_integrity/
 
 # Testing - root-level test files
 backend/test_*.ts

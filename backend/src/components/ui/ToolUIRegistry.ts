@@ -58,10 +58,16 @@ export function initDefaultToolUIRegistry(): void {
   } catch {}
 
   try {
-    const fileUI = require('../../tools/filesystem/UI');
-    registerToolUI('file_read', fileUI);
-    registerToolUI('file_edit', fileUI);
-    registerToolUI('file_write', fileUI);
+    const fileReadUI = require('../../tools/FileReadTool/UI');
+    registerToolUI('file_read', fileReadUI);
+  } catch {}
+  try {
+    const fileWriteUI = require('../../tools/FileWriteTool/UI');
+    registerToolUI('file_write', fileWriteUI);
+  } catch {}
+  try {
+    const fileEditUI = require('../../tools/FileEditTool/UI');
+    registerToolUI('file_edit', fileEditUI);
   } catch {}
 
   try {

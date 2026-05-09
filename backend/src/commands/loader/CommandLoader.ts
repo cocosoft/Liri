@@ -352,7 +352,7 @@ export class MCPCommandLoader implements CommandLoader {
    * @returns 命令列表
    */
   async loadCommands(): Promise<Command[]> {
-    if (!feature('ENABLE_MCP')) {
+    if (!feature('MCP_SYSTEM')) {
       return [];
     }
 

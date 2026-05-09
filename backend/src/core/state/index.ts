@@ -38,3 +38,11 @@ export type {
   Notification,
   NotificationType,
 } from './types';
+
+// Buddy/Companion 状态（从 state/ 迁移）
+export {
+  getDefaultAppState,
+  useAppState,
+  useSetAppState,
+} from './buddyAppState.js';
+export type { AppState } from './buddyAppState.js';

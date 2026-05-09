@@ -5,6 +5,7 @@
 
 import type { Message } from '../chat/types/message.js';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
+import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
 import { ChatManagerImpl } from '../chat/ChatManager.js';
 import {
   PostSamplingHookManager,
@@ -50,6 +51,7 @@ import {
   type StopHookContext,
   type StopHookReason,
 } from './StopHooks.js';
+import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 
 /**
  * 查询状态枚举
@@ -884,80 +886,113 @@ export class QueryEngine {
     toolCalls: ToolCall[],
     sessionId: string
   ): Promise<ToolResult[]> {
-    const results: ToolResult[] = [];
+    if (toolCalls.length === 0) return [];
 
-    for (const toolCall of toolCalls) {
+    // 将 ToolCall[] 转换为 ToolUseBlock[] 供分区器使用
+    const toolUseBlocks: ToolUseBlock[] = toolCalls.map((tc) => ({
+      type: 'tool_use',
+      id: tc.id,
+      name: tc.name,
+      input: tc.arguments as Record<string, unknown>,
+    }));
+
+    // 使用分区器将工具调用分为并发安全组和串行执行组
+    const partitioner = new ToolCallPartitioner();
+    const partitions = partitioner.partition(toolUseBlocks);
+
+    // 执行单个工具调用并返回 ToolResult
+    const executeSingleTool = async (
+      block: ToolUseBlock
+    ): Promise<ToolResult> => {
       const toolStartTime = Date.now();
+      const toolCall = toolCalls.find((tc) => tc.id === block.id)!;
 
-      // 触发工具开始进度事件
       this.emitProgress('tool_start', {
-        tool_name: toolCall.name,
+        tool_name: block.name,
         session_id: sessionId,
       });
 
-      // 记录工具执行开始事件
       this.analyticsService.logEvent('tool_execute', {
         session_id: sessionId,
-        tool_name: toolCall.name,
+        tool_name: block.name,
         timestamp: toolStartTime,
       });
 
       try {
         const result = await this.chatManager.executeTool(toolCall);
-        results.push(result);
 
-        // 更新会话状态中的工具调用计数
         if (this.sessionState) {
           this.updateSessionState({
             toolCallCount: this.sessionState.toolCallCount + 1,
           });
         }
 
-        // 记录工具执行成功事件
         const toolDuration = Date.now() - toolStartTime;
         this.analyticsService.logEvent('tool_result', {
           session_id: sessionId,
-          tool_name: toolCall.name,
+          tool_name: block.name,
           success: true,
           duration: toolDuration,
           timestamp: Date.now(),
         });
+
+        this.emitProgress('tool_end', {
+          tool_name: block.name,
+          session_id: sessionId,
+        });
+
+        return result;
       } catch (error) {
-        const errorResult = {
-          toolCallId: toolCall.id,
-          toolName: toolCall.name,
+        const errorResult: ToolResult = {
+          toolCallId: block.id,
+          toolName: block.name,
           result: '',
           error: error instanceof Error ? error.message : String(error),
         };
-        results.push(errorResult);
 
-        // 触发错误处理
         const queryError: QueryError = {
           type: QueryErrorType.TOOL_ERROR,
           message: error instanceof Error ? error.message : String(error),
           retryable: true,
           timestamp: Date.now(),
-          details: { toolName: toolCall.name },
+          details: { toolName: block.name },
         };
         this.emitError(queryError);
 
-        // 记录工具执行失败事件
         const toolDuration = Date.now() - toolStartTime;
         this.analyticsService.logEvent('tool_result', {
           session_id: sessionId,
-          tool_name: toolCall.name,
+          tool_name: block.name,
           success: false,
           error: queryError.message,
           duration: toolDuration,
           timestamp: Date.now(),
         });
-      }
 
-      // 触发工具结束进度事件
-      this.emitProgress('tool_end', {
-        tool_name: toolCall.name,
-        session_id: sessionId,
-      });
+        this.emitProgress('tool_end', {
+          tool_name: block.name,
+          session_id: sessionId,
+        });
+
+        return errorResult;
+      }
+    };
+
+    const results: ToolResult[] = [];
+
+    // 按分区顺序执行：每个分区内并发安全组并行执行，串行组顺序执行
+    for (const partition of partitions) {
+      if (partition.isConcurrencySafe) {
+        const concurrentResults = await Promise.all(
+          partition.blocks.map((block) => executeSingleTool(block))
+        );
+        results.push(...concurrentResults);
+      } else {
+        for (const block of partition.blocks) {
+          const result = await executeSingleTool(block);
+          results.push(result);
+        }
+      }
     }
 
     return results;

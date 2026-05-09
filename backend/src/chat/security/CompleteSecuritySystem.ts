@@ -1,3 +1,6 @@
+import { DANGEROUS_COMMAND_PATTERNS } from '@modules/security/patterns';
+import type { SecurityPattern } from '@modules/security/types';
+
 export enum SecurityLevel {
   NONE = 0,
   LOW = 1,
@@ -79,6 +82,10 @@ const defaultConfig: SecurityConfig = {
   rateLimitMaxRequests: 100,
   rateLimitWindowMs: 60000,
 };
+
+const TOOL_DANGEROUS_PATTERNS: SecurityPattern[] = DANGEROUS_COMMAND_PATTERNS.filter(
+  (p) => p.riskLevel === 'high'
+);
 
 export interface ICompleteSecuritySystem {
   checkMessageSecurity(
@@ -186,17 +193,11 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
   ): Promise<SecurityCheckResult> {
     const issues: string[] = [];
 
-    const dangerousCommands = [
-      'rm -rf',
-      'mkfs',
-      'dd if=',
-      ':(){ :|:& };:',
-      '> /dev/sda',
-      'chmod 777 /',
-    ];
-    for (const cmd of dangerousCommands) {
-      if (JSON.stringify(args).includes(cmd)) {
-        issues.push(`Potentially dangerous command detected: ${cmd}`);
+    const commandStr = JSON.stringify(args);
+
+    for (const pattern of TOOL_DANGEROUS_PATTERNS) {
+      if (pattern.pattern.test(commandStr)) {
+        issues.push(`Dangerous command detected: ${pattern.name} - ${pattern.message}`);
       }
     }
 

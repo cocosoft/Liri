@@ -18,6 +18,39 @@ import {
   StartupPreloader,
   initializeAndStartPreloading,
 } from './performance/StartupPreloader.js';
+import { execSync } from 'child_process';
+import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
+import { join, resolve, dirname } from 'path';
+import { homedir } from 'os';
+
+/**
+ * Git 工作树创建选项
+ */
+export interface WorktreeOptions {
+  enabled: boolean;
+  name?: string;
+  prNumber?: number;
+  tmuxEnabled?: boolean;
+}
+
+/**
+ * 会话持久化加载选项
+ */
+export interface SessionStartupOptions {
+  enabled: boolean;
+  sessionId?: string;
+  storageDir?: string;
+}
+
+/**
+ * 启动流程增强选项
+ * 对应 P1.9 优化项：可选 Git 工作树创建、Session 持久化加载、终端状态备份/恢复
+ */
+export interface AppCoreStartupOptions {
+  worktree?: WorktreeOptions;
+  session?: SessionStartupOptions;
+  terminalBackup?: boolean;
+}
 
 /**
  * 应用配置
@@ -27,6 +60,7 @@ export interface AppCoreConfig {
   version: string;
   debug?: boolean;
   ecosystem?: EcosystemConfig;
+  startup?: AppCoreStartupOptions;
 }
 
 /**
@@ -41,6 +75,9 @@ export class AppCore {
   private pluginSDK: PluginSDK;
   private terminalUI: TerminalUIIntegration;
   private initialized: boolean = false;
+  private sessionFactory: import('../session/SessionFactory.js').SessionFactory | null = null;
+  private worktreePath: string | null = null;
+  private terminalBackupPath: string | null = null;
 
   constructor(config: AppCoreConfig) {
     this.config = {
@@ -91,6 +128,19 @@ export class AppCore {
         `初始化 ${this.config.name} v${this.config.version}`
       );
 
+      // T0: 启动流程增强（对应 P1.9）
+      // T0.1: 终端状态备份
+      if (this.config.startup?.terminalBackup) {
+        await this.saveTerminalState();
+        this.profiler.checkpoint('terminal_backup_done');
+      }
+
+      // T0.2: Session 持久化加载
+      if (this.config.startup?.session?.enabled) {
+        await this.loadSessionPersistence();
+        this.profiler.checkpoint('session_loaded');
+      }
+
       // T1: 并行预加载（参考CC源码模式）
       const preloader = initializeAndStartPreloading();
       this.profiler.checkpoint('preload_started');
@@ -105,6 +155,13 @@ export class AppCore {
 
       if (!preloadResult.success) {
         logger.warn(`${preloadResult.failedTasks.length} preload tasks failed`);
+      }
+
+      // T0.3: Git 工作树创建（在插件和UI初始化前，确保工作目录正确）
+      // 工作树创建需要完整的模块基础设施就绪
+      if (this.config.startup?.worktree?.enabled) {
+        await this.setupGitWorktree();
+        this.profiler.checkpoint('worktree_created');
       }
 
       // 初始化插件系统
@@ -201,6 +258,159 @@ export class AppCore {
   private async initializeTerminalUI(): Promise<void> {
     this.terminalUI.showWelcomeScreen();
     logger.info('Terminal UI initialized');
+  }
+
+  /**
+   * 创建 Git 工作树（可选）
+   * 对应 CC setup.ts 的 worktree 创建逻辑
+   */
+  private async setupGitWorktree(): Promise<void> {
+    const opts = this.config.startup?.worktree;
+    if (!opts?.enabled) return;
+
+    try {
+      const cwd = process.cwd();
+      const gitRoot = this.findGitRoot(cwd);
+      if (!gitRoot) {
+        logger.warn('Not in a git repository, skipping worktree creation');
+        return;
+      }
+
+      const slug = opts.prNumber
+        ? `pr-${opts.prNumber}`
+        : (opts.name ?? 'dev');
+
+      const worktreeBranch = `worktree/${slug}`;
+      const worktreePath = resolve(gitRoot, '..', 'worktrees', slug);
+
+      if (existsSync(worktreePath)) {
+        logger.info(`Worktree already exists at ${worktreePath}`);
+        this.worktreePath = worktreePath;
+        return;
+      }
+
+      logger.info(`Creating git worktree: ${worktreeBranch} at ${worktreePath}`);
+
+      execSync(`git worktree add --detach "${worktreePath}"`, {
+        cwd: gitRoot,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+      });
+
+      execSync(`git checkout -b "${worktreeBranch}"`, {
+        cwd: worktreePath,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+      });
+
+      process.chdir(worktreePath);
+      this.worktreePath = worktreePath;
+
+      logger.info(`Git worktree created and switched to ${worktreePath}`);
+    } catch (error) {
+      logger.warn('Failed to create git worktree', error as Error);
+    }
+  }
+
+  /**
+   * 加载 Session 持久化
+   * 从持久化存储中加载之前保存的会话状态
+   */
+  private async loadSessionPersistence(): Promise<void> {
+    const opts = this.config.startup?.session;
+    if (!opts?.enabled) return;
+
+    try {
+      const { SessionFactory } = await import('../session/SessionFactory.js');
+      const { FileSystemStorage } = await import('../session/storage/FileSystemStorage.js');
+
+      const storageDir = opts.storageDir ?? join(homedir(), '.py_app', 'sessions');
+      const storage = new FileSystemStorage(storageDir);
+      this.sessionFactory = new SessionFactory(storage);
+
+      if (opts.sessionId) {
+        const session = await this.sessionFactory.loadSession(opts.sessionId);
+        if (session) {
+          logger.info(`Session loaded: ${opts.sessionId}`);
+          TerminalComponents.printInfo(`恢复会话: ${opts.sessionId}`);
+        } else {
+          logger.info(`Session not found: ${opts.sessionId}, creating new`);
+          const newSession = await this.sessionFactory.createSession({
+             title: `Startup ${new Date().toISOString()}`,
+           });
+           logger.info(`New session created: ${newSession.id}`);
+        }
+      }
+    } catch (error) {
+      logger.warn('Failed to load session persistence', error as Error);
+    }
+  }
+
+  /**
+   * 保存终端状态备份
+   * 在应用启动时保存终端设置，以便在关闭时恢复
+   */
+  private async saveTerminalState(): Promise<void> {
+    try {
+      const backupDir = join(homedir(), '.py_app', 'data');
+      if (!existsSync(backupDir)) {
+        const { mkdirSync } = await import('fs');
+        mkdirSync(backupDir, { recursive: true });
+      }
+
+      const backupPath = join(backupDir, 'terminal_state.json');
+
+      const terminalState = {
+        cwd: process.cwd(),
+        env: {
+          TERM: process.env.TERM,
+          SHELL: process.env.SHELL,
+          LANG: process.env.LANG,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      writeFileSync(backupPath, JSON.stringify(terminalState, null, 2), 'utf-8');
+      this.terminalBackupPath = backupPath;
+      logger.info(`Terminal state saved to ${backupPath}`);
+    } catch (error) {
+      logger.warn('Failed to save terminal state', error as Error);
+    }
+  }
+
+  /**
+   * 恢复终端状态
+   * 在应用关闭时恢复之前备份的终端设置
+   */
+  private async restoreTerminalState(): Promise<void> {
+    if (!this.terminalBackupPath || !existsSync(this.terminalBackupPath)) return;
+
+    try {
+      const data = readFileSync(this.terminalBackupPath, 'utf-8');
+      const terminalState = JSON.parse(data);
+
+      logger.info('Terminal state restored from backup');
+      unlinkSync(this.terminalBackupPath);
+      this.terminalBackupPath = null;
+    } catch (error) {
+      logger.warn('Failed to restore terminal state', error as Error);
+    }
+  }
+
+  /**
+   * 查找 Git 仓库根目录
+   */
+  private findGitRoot(startPath: string): string | null {
+    try {
+      const output = execSync('git rev-parse --show-toplevel', {
+        cwd: startPath,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+      });
+      return output.trim();
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -349,6 +559,11 @@ export class AppCore {
     // 停用所有插件
     for (const plugin of this.pluginSDK.getPlugins()) {
       await this.pluginSDK.deactivatePlugin(plugin.id);
+    }
+
+    // 终端状态恢复
+    if (this.terminalBackupPath) {
+      await this.restoreTerminalState();
     }
 
     this.initialized = false;

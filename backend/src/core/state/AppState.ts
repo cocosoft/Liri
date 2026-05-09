@@ -3,6 +3,7 @@
  * 参考CC源码 cc_code/backend/state/AppStateStore.ts 实现
  */
 
+import { create } from 'zustand';
 import type { Tool, ToolPermissionContext } from '@modules/types/tool.js';
 import type { Command } from '@modules/types/command.js';
 import type {
@@ -301,3 +302,30 @@ export type StateChangeListener = (state: AppState) => void;
  * 状态更新函数
  */
 export type StateUpdater = (state: AppState) => AppState;
+
+/**
+ * Zustand 状态钩子（用于 buddy/companion 终端 UI 渲染）
+ */
+const useAppStore = create<{
+  state: AppState;
+  setState: (
+    partial: Partial<AppState> | ((state: AppState) => Partial<AppState>)
+  ) => void;
+}>((set) => ({
+  state: getDefaultAppState(),
+  setState: (partial) =>
+    set((prev) => ({
+      state:
+        typeof partial === 'function'
+          ? { ...prev.state, ...partial(prev.state) }
+          : { ...prev.state, ...partial },
+    })),
+}));
+
+export function useAppState<T>(selector: (state: AppState) => T): T {
+  return useAppStore((store) => selector(store.state));
+}
+
+export function useSetAppState() {
+  return useAppStore((store) => store.setState);
+}

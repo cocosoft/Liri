@@ -7,22 +7,6 @@ export {
 
 export type { AppStateStore as CoreAppStateStore } from '../core/state/AppState';
 
-/**
- * 简单应用状态接口（用于 buddy/companion 组件）
- */
-export interface AppState {
-  companionReaction?: string;
-  companionPetAt?: number;
-  footerSelection?: string;
-}
-
-/**
- * 获取默认应用状态
- */
-export function getDefaultAppState(): AppState {
-  return {
-    companionReaction: undefined,
-    companionPetAt: undefined,
-    footerSelection: undefined,
-  };
-}
+// Buddy/Companion 状态（已迁移至 core/state/）
+export { getDefaultAppState } from '../core/state/buddyAppState.js';
+export type { AppState } from '../core/state/buddyAppState.js';

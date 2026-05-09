@@ -63,3 +63,17 @@ export {
   type NotificationProps,
   type NotificationItem,
 } from './Notification.js';
+export {
+  ChatMessage,
+  createChatMessage,
+  type ChatMessageProps,
+  type MessageSender,
+  type ToolCallInfo,
+  type ToolResultInfo,
+} from './ChatMessage.js';
+export {
+  ChatMessages,
+  createChatMessages,
+  type ChatMessagesProps,
+  type ChatMessageData,
+} from './ChatMessages.js';

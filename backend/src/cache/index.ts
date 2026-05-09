@@ -3,6 +3,7 @@ export * from './SpecializedCaches.js';
 export * from './DataAggregator.js';
 export * from './CacheMonitor.js';
 export * from './CacheStrategy.js';
+export * from './CacheFactory.js';
 export * from './strategy/index.js';
 export * from './performance/index.js';
 export * from './monitor/index.js';
@@ -44,6 +45,9 @@ export type {
   CacheReport,
   IEnhancedCacheMonitor,
 } from './monitor/index.js';
+
+export type { ICache } from './models/types.js';
+export { CacheFactory, CacheNames } from './CacheFactory.js';
 
 export async function initializeCacheSystem(): Promise<void> {
   try {

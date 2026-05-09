@@ -331,5 +331,23 @@
     "priority": 1,
     "createdAt": "2026-05-09T03:58:23.619Z",
     "updatedAt": "2026-05-09T03:58:23.619Z"
+  },
+  {
+    "id": "rule_1778311755085_ey7aef35g",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T07:29:15.085Z",
+    "updatedAt": "2026-05-09T07:29:15.085Z"
+  },
+  {
+    "id": "rule_1778315573204_gr5r1j3k3",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T08:32:53.204Z",
+    "updatedAt": "2026-05-09T08:32:53.204Z"
   }
 ]

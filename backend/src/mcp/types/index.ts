@@ -1,152 +1,56 @@
 /**
- * MCP系统类型定义
+ * MCP系统类型定义（增强层）
+ * 标准类型引用自 services/mcp/types/，增强层特有类型定义在本文件
  */
 
-/**
- * MCP服务器配置
- */
-export interface MCPServerConfig {
-  /** 服务器类型 */
-  type?:
-    | 'stdio'
-    | 'sse'
-    | 'http'
-    | 'ws'
-    | 'sse-ide'
-    | 'ws-ide'
-    | 'sdk'
-    | 'claudeai-proxy';
-  /** 命令路径（stdio类型） */
-  command?: string;
-  /** 命令参数（stdio类型） */
-  args?: string[];
-  /** 环境变量（stdio类型） */
-  env?: Record<string, string>;
-  /** URL（sse、http、ws类型） */
-  url?: string;
-  /** 头部信息（sse、http、ws类型） */
-  headers?: Record<string, string>;
-  /** 作用域 */
-  scope?: 'dynamic' | 'static';
-  /** 插件来源 */
-  pluginSource?: string;
-}
+import {
+  MCPToolDefinition as _MCPToolDefinition,
+  MCPServerConfig as _MCPServerConfig,
+} from './MCPTypes.js';
 
-/**
- * 带作用域的MCP服务器配置
- */
-export interface ScopedMcpServerConfig extends MCPServerConfig {
-  /** 作用域 */
-  scope: 'dynamic' | 'static';
-  /** 插件来源 */
-  pluginSource: string;
-}
+import { ServerResource as _ServerResource } from '../../services/mcp/types/index.js';
 
-/**
- * MCP工具定义
- */
-export interface MCPToolDefinition {
-  /** 工具名称 */
-  name: string;
-  /** 工具描述 */
-  description: string;
-  /** 输入参数schema */
-  inputSchema: Record<string, any>;
-  /** 输出参数schema */
-  outputSchema?: Record<string, any>;
-  /** 工具类型 */
-  type?: string;
-  /** 工具版本 */
-  version?: string;
-}
+export {
+  MCP_PROTOCOL_VERSION,
+  ConfigScope,
+  MCPServerType,
+  MCPServerConfig,
+  ScopedMcpServerConfigExt as ScopedMcpServerConfig,
+  MCPServerStatus,
+  MCPServerConnectionInfo,
+  MCPToolDefinition,
+  MCPResourceDefinition,
+  MCPPromptDefinition,
+  MCPRequest,
+  MCPResponse,
+  MCPClientState,
+  MCPClientInfo,
+  MCPServerInfo,
+  MCPConnectionConfig,
+  MCPConnectionStats,
+  MCPEventType,
+  MCPEvent,
+  MCPTransport,
+  MCPClient,
+} from './MCPTypes.js';
 
-/**
- * MCP请求
- */
-export interface MCPRequest {
-  /** 请求ID */
-  id: string;
-  /** 请求类型 */
-  type: 'call' | 'list_tools' | 'ping';
-  /** 工具名称（call类型） */
-  tool_name?: string;
-  /** 工具参数（call类型） */
-  args?: Record<string, any>;
-  /** 会话ID */
-  session_id?: string;
-}
+export type {
+  ScopedMcpServerConfigExt,
+  MCPClient as MCPClientType,
+  MCPTransport as MCPTransportType,
+} from './MCPTypes.js';
 
-/**
- * MCP响应
- */
-export interface MCPResponse {
-  /** 响应ID（与请求ID对应） */
-  id: string;
-  /** 响应类型 */
-  type: 'result' | 'error' | 'pong';
-  /** 结果数据（result类型） */
-  result?: any;
-  /** 错误信息（error类型） */
-  error?: {
-    /** 错误代码 */
-    code: string;
-    /** 错误消息 */
-    message: string;
-  };
-  /** 工具列表（list_tools响应） */
-  tools?: MCPToolDefinition[];
-}
-
-/**
- * MCP传输层接口
- */
-export interface MCPTransport {
-  /** 发送请求 */
-  send(request: MCPRequest): Promise<MCPResponse>;
-  /** 连接 */
-  connect(): Promise<void>;
-  /** 断开连接 */
-  disconnect(): void;
-  /** 检查连接状态 */
-  isConnected(): boolean;
-}
-
-/**
- * MCP服务器连接状态
- */
-export enum MCPServerStatus {
-  /** 未连接 */
-  DISCONNECTED = 'disconnected',
-  /** 连接中 */
-  CONNECTING = 'connecting',
-  /** 已连接 */
-  CONNECTED = 'connected',
-  /** 错误 */
-  ERROR = 'error',
-}
-
-/**
- * MCP服务器连接信息
- */
-export interface MCPServerConnectionInfo {
-  /** 服务器名称 */
-  name: string;
-  /** 服务器配置 */
-  config: MCPServerConfig;
-  /** 服务器状态 */
-  status: MCPServerStatus;
-  /** 可用工具 */
-  tools: MCPToolDefinition[];
-  /** 错误信息 */
-  error?: string;
-}
+export type { _ServerResource as ServerResource };
 
 /**
  * MCP插件配置
  */
 export interface MCPPluginConfig {
   /** MCP服务器配置 */
-  mcpServers?: string | MCPToolDefinition[] | Record<string, MCPServerConfig>;
+  mcpServers?:
+    | string
+    | _MCPToolDefinition[]
+    | Record<string, _MCPServerConfig>;
   /** 用户配置 */
   userConfig?: Record<string, any>;
   /** 通道配置 */
@@ -178,7 +82,7 @@ export interface McpbLoadResult {
     author?: string;
   };
   /** MCP配置 */
-  mcpConfig: MCPServerConfig;
+  mcpConfig: _MCPServerConfig;
 }
 
 /**
@@ -198,43 +102,4 @@ export interface McpbNeedsConfigResult {
     /** 作者 */
     author?: string;
   };
-  /** 用户配置schema */
-  userConfigSchema: Record<string, any>;
-}
-
-/**
- * MCPB加载结果类型
- */
-export type McpbLoadResultType = McpbLoadResult | McpbNeedsConfigResult;
-
-/**
- * 用户配置值
- */
-export type UserConfigValues = Record<string, string | number | boolean | null>;
-
-/**
- * 用户配置schema
- */
-export type UserConfigSchema = Record<
-  string,
-  {
-    /** 类型 */
-    type: 'string' | 'number' | 'boolean' | 'password';
-    /** 描述 */
-    description?: string;
-    /** 是否必填 */
-    required?: boolean;
-    /** 默认值 */
-    default?: string | number | boolean;
-    /** 选项 */
-    options?: string[];
-  }
->;
-
-export interface ServerResource {
-  uri: string;
-  name: string;
-  description?: string;
-  mimeType?: string;
-  metadata?: Record<string, unknown>;
 }

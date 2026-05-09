@@ -156,7 +156,7 @@ export class MCPElicitationQueue {
           handler.onElicitResponse(event, response);
         }
       } catch (error) {
-        logger.error('Error notifying elicitation handler:', error);
+        logger.error('Error notifying elicitation handler:', error as Error);
       }
     }
   }

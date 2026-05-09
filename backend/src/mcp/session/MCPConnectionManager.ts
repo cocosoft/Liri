@@ -11,6 +11,7 @@ import type {
   ScopedMcpServerConfig,
   MCPConnectionConfig,
   MCPConnectionStats,
+  MCPEventType,
 } from '../types/MCPTypes';
 import { MCPClientImpl } from '../client/MCPClient';
 import { globalMCPToolManager } from '../management/MCPToolManager';
@@ -520,7 +521,7 @@ export class MCPConnectionManager extends EventEmitter {
    * 设置客户端事件监听器（基于CC源码）
    */
   private setupClientListeners(name: string, client: MCPClient): void {
-    client.on('event', (event) => {
+    client.on('event' as unknown as MCPEventType, (event) => {
       this.emit('clientEvent', { name, event });
     });
 

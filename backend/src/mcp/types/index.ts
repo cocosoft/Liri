@@ -38,6 +38,8 @@ export type {
   ScopedMcpServerConfigExt,
   MCPClient as MCPClientType,
   MCPTransport as MCPTransportType,
+  UserConfigValues,
+  UserConfigSchema,
 } from './MCPTypes.js';
 
 export type { _ServerResource as ServerResource };

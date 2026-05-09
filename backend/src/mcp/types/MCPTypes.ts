@@ -302,6 +302,9 @@ export interface MCPEvent {
  * MCP传输层接口（基于CC源码）
  */
 export interface MCPTransport {
+  /** 连接服务器 */
+  connect(): Promise<void>;
+
   /** 发送请求 */
   send(request: MCPRequest): Promise<MCPResponse>;
 
@@ -313,6 +316,12 @@ export interface MCPTransport {
 
   /** 连接状态 */
   readonly state: MCPClientState;
+
+  /** 服务器名称 */
+  readonly name?: string;
+
+  /** 事件监听 */
+  on(event: string, listener: (...args: any[]) => void): void;
 }
 
 /**
@@ -380,3 +389,14 @@ export interface MCPClient {
   /** 移除事件监听器 */
   off(event: MCPEventType, listener: (event: MCPEvent) => void): void;
 }
+
+/**
+ * MCP用户配置值（插件通道配置值）
+ */
+export type UserConfigValues = Record<string, string>;
+
+/**
+ * MCP用户配置模式（插件通道配置架构）
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface UserConfigSchema extends Record<string, unknown> {}

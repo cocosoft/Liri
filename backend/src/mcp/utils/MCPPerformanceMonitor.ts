@@ -3,7 +3,7 @@
  * 提供MCP服务器性能指标收集、统计分析和健康监控
  */
 
-import type { MCPServerStatus } from '../types';
+import { MCPServerStatus } from '../types';
 
 export interface MCPServerMetrics {
   serverName: string;

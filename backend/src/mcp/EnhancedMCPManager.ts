@@ -98,7 +98,7 @@ export class EnhancedMCPManager {
   private baseManager: MCPManager;
   private config: EnhancedMCPManagerConfig;
   private performanceMetrics: Map<string, MCPPerformanceMetrics> = new Map();
-  private healthChecks: Map<string, MCPHealthCheck[]> = new Map();
+  private healthChecks: Map<string, MCPServerHealthCheck[]> = new Map();
   private connectionAnalytics: Map<string, MCPConnectionAnalytics> = new Map();
   private toolUsage: Map<string, MCPToolUsageAnalytics> = new Map();
   private resourceAnalytics: Map<string, MCPResourceAnalytics> = new Map();
@@ -161,9 +161,9 @@ export class EnhancedMCPManager {
     this.monitoringIntervals.set('analytics', interval);
   }
 
-  async runHealthChecks(): Promise<MCPHealthCheck[]> {
+  async runHealthChecks(): Promise<MCPServerHealthCheck[]> {
     const serverInfos = this.baseManager.getServerInfos();
-    const results: MCPHealthCheck[] = [];
+    const results: MCPServerHealthCheck[] = [];
 
     for (const info of serverInfos) {
       const healthCheck = await this.checkServerHealth(info.name);
@@ -178,9 +178,9 @@ export class EnhancedMCPManager {
     return results;
   }
 
-  private async checkServerHealth(serverName: string): Promise<MCPHealthCheck> {
+  private async checkServerHealth(serverName: string): Promise<MCPServerHealthCheck> {
     const recommendations: string[] = [];
-    let status: MCPHealthCheck['status'] = 'healthy';
+    let status: MCPServerHealthCheck['status'] = 'healthy';
     let responseTime = 0;
     let errorMessage: string | undefined;
 
@@ -334,7 +334,7 @@ export class EnhancedMCPManager {
     return Array.from(this.performanceMetrics.values());
   }
 
-  getServerHealthHistory(serverName: string): MCPHealthCheck[] {
+  getServerHealthHistory(serverName: string): MCPServerHealthCheck[] {
     return this.healthChecks.get(serverName) || [];
   }
 

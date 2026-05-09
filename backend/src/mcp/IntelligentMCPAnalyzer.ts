@@ -1,7 +1,7 @@
 import {
   EnhancedMCPManager,
   MCPPerformanceMetrics,
-  MCPHealthCheck,
+  MCPServerHealthCheck,
   MCPConnectionAnalytics,
   MCPToolUsageAnalytics,
   MCPResourceAnalytics,
@@ -213,7 +213,7 @@ export class IntelligentMCPAnalyzer {
   private buildAnalysis(
     serverName: string,
     performance?: MCPPerformanceMetrics,
-    healthHistory?: MCPHealthCheck[],
+    healthHistory?: MCPServerHealthCheck[],
     connection?: MCPConnectionAnalytics,
     toolUsage?: MCPToolUsageAnalytics[],
     resource?: MCPResourceAnalytics
@@ -275,7 +275,7 @@ export class IntelligentMCPAnalyzer {
     };
   }
 
-  private analyzeHealth(healthHistory?: MCPHealthCheck[]): MCPHealthAnalysis {
+  private analyzeHealth(healthHistory?: MCPServerHealthCheck[]): MCPHealthAnalysis {
     if (!healthHistory || healthHistory.length === 0) {
       return {
         currentStatus: 'offline',

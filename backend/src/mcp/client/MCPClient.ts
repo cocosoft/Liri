@@ -24,8 +24,8 @@ import type {
  */
 export class MCPClientImpl extends EventEmitter implements MCPClient {
   private transport: MCPTransport;
-  private state: MCPClientState = 'disconnected';
-  private stats: MCPConnectionStats;
+  private _state: MCPClientState = 'disconnected';
+  private _stats: MCPConnectionStats;
   private requestIdCounter = 0;
   private pendingRequests = new Map<
     string,
@@ -42,7 +42,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   constructor(transport: MCPTransport) {
     super();
     this.transport = transport;
-    this.stats = this.createInitialStats();
+    this._stats = this.createInitialStats();
 
     // 监听传输层事件
     this.setupTransportListeners();
@@ -52,8 +52,8 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 连接服务器（基于CC源码）
    */
   async connect(): Promise<void> {
-    if (this.state !== 'disconnected') {
-      throw new Error(`Cannot connect from state: ${this.state}`);
+    if (this._state !== 'disconnected') {
+      throw new Error(`Cannot connect from state: ${this._state}`);
     }
 
     try {
@@ -84,7 +84,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 断开连接（基于CC源码）
    */
   async disconnect(): Promise<void> {
-    if (this.state === 'disconnected') {
+    if (this._state === 'disconnected') {
       return;
     }
 
@@ -116,8 +116,8 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 调用工具（基于CC源码）
    */
   async callTool(name: string, args?: Record<string, any>): Promise<any> {
-    if (this.state !== 'connected') {
-      throw new Error(`Cannot call tool from state: ${this.state}`);
+    if (this._state !== 'connected') {
+      throw new Error(`Cannot call tool from state: ${this._state}`);
     }
 
     const request: MCPRequest = {
@@ -156,8 +156,8 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 列出工具（基于CC源码）
    */
   async listTools(): Promise<MCPToolDefinition[]> {
-    if (this.state !== 'connected') {
-      throw new Error(`Cannot list tools from state: ${this.state}`);
+    if (this._state !== 'connected') {
+      throw new Error(`Cannot list tools from state: ${this._state}`);
     }
 
     const request: MCPRequest = {
@@ -188,8 +188,8 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 列出资源（基于CC源码）
    */
   async listResources(): Promise<MCPResourceDefinition[]> {
-    if (this.state !== 'connected') {
-      throw new Error(`Cannot list resources from state: ${this.state}`);
+    if (this._state !== 'connected') {
+      throw new Error(`Cannot list resources from state: ${this._state}`);
     }
 
     const request: MCPRequest = {
@@ -220,8 +220,8 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 列出提示（基于CC源码）
    */
   async listPrompts(): Promise<MCPPromptDefinition[]> {
-    if (this.state !== 'connected') {
-      throw new Error(`Cannot list prompts from state: ${this.state}`);
+    if (this._state !== 'connected') {
+      throw new Error(`Cannot list prompts from state: ${this._state}`);
     }
 
     const request: MCPRequest = {
@@ -252,8 +252,8 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 获取服务器信息（基于CC源码）
    */
   async getServerInfo(): Promise<MCPServerInfo> {
-    if (this.state !== 'connected') {
-      throw new Error(`Cannot get server info from state: ${this.state}`);
+    if (this._state !== 'connected') {
+      throw new Error(`Cannot get server info from state: ${this._state}`);
     }
 
     const request: MCPRequest = {
@@ -288,14 +288,14 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 获取连接状态（基于CC源码）
    */
   getState(): MCPClientState {
-    return this.state;
+    return this._state;
   }
 
   /**
    * 获取连接统计（基于CC源码）
    */
   getStats(): MCPConnectionStats {
-    return { ...this.stats };
+    return { ...this._stats };
   }
 
   /**
@@ -389,7 +389,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   private startHeartbeat(): void {
     // 心跳检测逻辑
     const heartbeatInterval = setInterval(async () => {
-      if (this.state !== 'connected') {
+      if (this._state !== 'connected') {
         clearInterval(heartbeatInterval);
         return;
       }
@@ -413,9 +413,9 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 设置连接状态（基于CC源码）
    */
   private setState(newState: MCPClientState): void {
-    if (this.state !== newState) {
-      const oldState = this.state;
-      this.state = newState;
+    if (this._state !== newState) {
+      const oldState = this._state;
+      this._state = newState;
 
       this.emitEvent('state_change', {
         serverName: this.transport.name,
@@ -433,7 +433,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
       type,
       data,
       timestamp: new Date(),
-      serverName: this.transport.name,
+      serverName: this.transport.name || 'unknown',
     };
 
     this.emit('event', event);
@@ -444,36 +444,36 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    * 更新统计信息（基于CC源码）
    */
   private updateStats(type: keyof MCPConnectionStats, duration?: number): void {
-    this.stats.lastActivity = new Date();
+    this._stats.lastActivity = new Date();
 
     switch (type) {
       case 'toolCalls':
-        this.stats.toolCalls++;
+        this._stats.toolCalls++;
         break;
       case 'resourceReads':
-        this.stats.resourceReads++;
+        this._stats.resourceReads++;
         break;
       case 'promptGets':
-        this.stats.promptGets++;
+        this._stats.promptGets++;
         break;
       case 'errors':
-        this.stats.errors++;
+        this._stats.errors++;
         break;
     }
 
     if (duration !== undefined) {
       // 更新平均响应时间
       const totalTime =
-        this.stats.averageResponseTime *
-        (this.stats.toolCalls +
-          this.stats.resourceReads +
-          this.stats.promptGets -
+        this._stats.averageResponseTime *
+        (this._stats.toolCalls +
+          this._stats.resourceReads +
+          this._stats.promptGets -
           1);
-      this.stats.averageResponseTime =
+      this._stats.averageResponseTime =
         (totalTime + duration) /
-        (this.stats.toolCalls +
-          this.stats.resourceReads +
-          this.stats.promptGets);
+        (this._stats.toolCalls +
+          this._stats.resourceReads +
+          this._stats.promptGets);
     }
   }
 
@@ -513,11 +513,11 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
 
   // 实现接口属性
   get state(): MCPClientState {
-    return this.state;
+    return this._state;
   }
 
   get stats(): MCPConnectionStats {
-    return this.stats;
+    return this._stats;
   }
 }
 

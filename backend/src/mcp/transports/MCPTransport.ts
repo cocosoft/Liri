@@ -65,4 +65,11 @@ export abstract class MCPTransport implements IMCPTransport {
   async close(): Promise<void> {
     this.disconnect();
   }
+
+  /**
+   * 事件监听（子类可重写）
+   */
+  on(_event: string, _listener: (...args: any[]) => void): void {
+    // 子类可重写以实现具体的事件监听逻辑
+  }
 }

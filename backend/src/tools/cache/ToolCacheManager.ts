@@ -1,18 +1,11 @@
-/**
- * 工具执行缓存管理器
- * 负责存储和管理工具执行的结果
- */
-
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import type { ICache, CacheStats } from '@modules/cache/models/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-/**
- * 缓存项类型
- */
 export interface ToolCacheItem {
   key: string;
   toolName: string;
@@ -22,21 +15,12 @@ export interface ToolCacheItem {
   expiration: number | null;
 }
 
-/**
- * 工具执行缓存管理器
- */
-export class ToolCacheManager {
+export class ToolCacheManager implements ICache<string, unknown> {
   private cache: Map<string, ToolCacheItem> = new Map();
   private cachePath: string;
   private maxCacheSize: number;
   private defaultExpiration: number | null;
 
-  /**
-   * 构造函数
-   * @param cachePath 缓存文件路径
-   * @param maxCacheSize 最大缓存项数量
-   * @param defaultExpiration 默认过期时间（毫秒）
-   */
   constructor(
     cachePath: string = path.join(
       process.env.HOME || process.env.USERPROFILE || '.',
@@ -44,7 +28,7 @@ export class ToolCacheManager {
       'tool_cache.json'
     ),
     maxCacheSize: number = 1000,
-    defaultExpiration: number | null = 24 * 60 * 60 * 1000 // 24小时
+    defaultExpiration: number | null = 24 * 60 * 60 * 1000
   ) {
     this.cachePath = cachePath;
     this.maxCacheSize = maxCacheSize;
@@ -52,24 +36,63 @@ export class ToolCacheManager {
     this.loadCache();
   }
 
-  /**
-   * 生成缓存键
-   * @param toolName 工具名称
-   * @param input 工具输入
-   * @returns 缓存键
-   */
+  get(key: string): unknown | null {
+    const item = this.getCache(key);
+    return item ? item.result : null;
+  }
+
+  set(key: string, value: unknown, ttl?: number): void {
+    const expiration = ttl ? Date.now() + ttl : this.defaultExpiration;
+    const item: ToolCacheItem = {
+      key,
+      toolName: 'unknown',
+      input: {},
+      result: value,
+      timestamp: Date.now(),
+      expiration: expiration ? Date.now() + expiration : null,
+    };
+    this.cache.set(key, item);
+    this.saveCache();
+  }
+
+  delete(key: string): boolean {
+    const existed = this.cache.has(key);
+    this.deleteCache(key);
+    return existed;
+  }
+
+  clear(): void {
+    this.clearCache();
+  }
+
+  has(key: string): boolean {
+    const item = this.getCache(key);
+    return item !== undefined;
+  }
+
+  size(): number {
+    return this.getCacheSize();
+  }
+
+  getStats(): CacheStats {
+    const stats = this.getCacheStatsInfo();
+    return {
+      size: stats.total,
+      hits: 0,
+      misses: 0,
+      expirations: 0,
+      cleanups: 0,
+    };
+  }
+
   generateCacheKey(toolName: string, input: Record<string, unknown>): string {
     const inputString = JSON.stringify(input, Object.keys(input).sort());
     const data = `${toolName}:${inputString}`;
     return crypto.createHash('md5').update(data).digest('hex');
   }
 
-  /**
-   * 加载缓存
-   */
   private loadCache(): void {
     try {
-      // 确保目录存在
       const dir = path.dirname(this.cachePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -79,7 +102,6 @@ export class ToolCacheManager {
         const content = fs.readFileSync(this.cachePath, 'utf8');
         const items: ToolCacheItem[] = JSON.parse(content);
 
-        // 过滤过期的缓存项
         const now = Date.now();
         for (const item of items) {
           if (!item.expiration || item.expiration > now) {
@@ -93,18 +115,13 @@ export class ToolCacheManager {
     }
   }
 
-  /**
-   * 保存缓存
-   */
   private saveCache(): void {
     try {
-      // 确保目录存在
       const dir = path.dirname(this.cachePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      // 限制缓存大小
       if (this.cache.size > this.maxCacheSize) {
         const items = Array.from(this.cache.values())
           .sort((a, b) => b.timestamp - a.timestamp)
@@ -123,16 +140,10 @@ export class ToolCacheManager {
     }
   }
 
-  /**
-   * 获取缓存项
-   * @param key 缓存键
-   * @returns 缓存项或undefined
-   */
   getCache(key: string): ToolCacheItem | undefined {
     const item = this.cache.get(key);
     if (!item) return undefined;
 
-    // 检查是否过期
     if (item.expiration && item.expiration < Date.now()) {
       this.cache.delete(key);
       this.saveCache();
@@ -142,14 +153,6 @@ export class ToolCacheManager {
     return item;
   }
 
-  /**
-   * 设置缓存项
-   * @param toolName 工具名称
-   * @param input 工具输入
-   * @param result 工具执行结果
-   * @param expiration 过期时间（毫秒）
-   * @returns 缓存键
-   */
   setCache(
     toolName: string,
     input: Record<string, unknown>,
@@ -171,27 +174,16 @@ export class ToolCacheManager {
     return key;
   }
 
-  /**
-   * 删除缓存项
-   * @param key 缓存键
-   */
   deleteCache(key: string): void {
     this.cache.delete(key);
     this.saveCache();
   }
 
-  /**
-   * 清除所有缓存
-   */
   clearCache(): void {
     this.cache.clear();
     this.saveCache();
   }
 
-  /**
-   * 清除指定工具的缓存
-   * @param toolName 工具名称
-   */
   clearToolCache(toolName: string): void {
     for (const [key, item] of this.cache.entries()) {
       if (item.toolName === toolName) {
@@ -201,19 +193,11 @@ export class ToolCacheManager {
     this.saveCache();
   }
 
-  /**
-   * 获取缓存大小
-   * @returns 缓存项数量
-   */
   getCacheSize(): number {
     return this.cache.size;
   }
 
-  /**
-   * 获取缓存统计信息
-   * @returns 缓存统计信息
-   */
-  getCacheStats(): {
+  getCacheStatsInfo(): {
     total: number;
     tools: Record<string, number>;
     oldest: number | null;
@@ -249,7 +233,4 @@ export class ToolCacheManager {
   }
 }
 
-/**
- * 全局工具执行缓存管理器实例
- */
 export const toolCacheManager = new ToolCacheManager();

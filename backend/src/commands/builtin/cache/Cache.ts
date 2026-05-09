@@ -95,7 +95,7 @@ export class CacheCommand {
    * 显示缓存统计信息
    */
   private async showStats(): Promise<CacheResult> {
-    const stats = toolCacheManager.getCacheStats();
+    const stats = toolCacheManager.getCacheStatsInfo();
 
     let statsText = `缓存统计信息:\n\n`;
     statsText += `总缓存项: ${stats.total}\n\n`;
@@ -130,7 +130,7 @@ export class CacheCommand {
    */
   private async showSize(): Promise<CacheResult> {
     const size = toolCacheManager.getCacheSize();
-    const stats = toolCacheManager.getCacheStats();
+    const stats = toolCacheManager.getCacheStatsInfo();
 
     let sizeText = `缓存大小: ${size} 项\n\n`;
 
@@ -155,7 +155,7 @@ export class CacheCommand {
    * @param toolName - 工具名称（可选）
    */
   private async listCache(toolName?: string): Promise<CacheResult> {
-    const stats = toolCacheManager.getCacheStats();
+    const stats = toolCacheManager.getCacheStatsInfo();
 
     if (stats.total === 0) {
       return {
@@ -204,7 +204,7 @@ export class CacheCommand {
       };
     }
 
-    const stats = toolCacheManager.getCacheStats();
+    const stats = toolCacheManager.getCacheStatsInfo();
     const count = stats.tools[toolName] || 0;
 
     let infoText = `工具 "${toolName}" 的缓存信息:\n\n`;

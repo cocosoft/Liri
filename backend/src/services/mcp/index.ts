@@ -154,7 +154,7 @@ export class MCPSystem {
    * 获取缓存统计信息
    */
   getCacheStats() {
-    return mcpCacheManager.getCacheStats();
+    return mcpCacheManager.getCacheStatsInfo();
   }
 
   /**

@@ -1,36 +1,107 @@
-/**
- * MCP缓存管理器
- * 负责管理MCP服务器的缓存策略
- */
-
 import { logger } from '@modules/utils/log';
+import type { ICache, CacheStats } from '@modules/cache/models/types';
 import type { Command } from '@modules/commands';
 import type { ServerResource, SerializedTool } from './types';
 
-/**
- * 缓存项
- */
-interface CacheItem<T> {
+interface MCPCacheItem<T> {
   data: T;
   timestamp: number;
   ttl: number;
 }
 
-/**
- * MCP缓存管理器
- */
-export class MCPCacheManager {
-  private toolCache: Map<string, CacheItem<SerializedTool[]>> = new Map();
-  private commandCache: Map<string, CacheItem<Command[]>> = new Map();
-  private resourceCache: Map<string, CacheItem<ServerResource[]>> = new Map();
-  private capabilitiesCache: Map<string, CacheItem<any>> = new Map();
+export class MCPCacheManager implements ICache<string, unknown> {
+  private toolCache: Map<string, MCPCacheItem<SerializedTool[]>> = new Map();
+  private commandCache: Map<string, MCPCacheItem<Command[]>> = new Map();
+  private resourceCache: Map<string, MCPCacheItem<ServerResource[]>> =
+    new Map();
+  private capabilitiesCache: Map<string, MCPCacheItem<unknown>> = new Map();
 
-  // 默认缓存时间（毫秒）
-  private defaultTTL = 5 * 60 * 1000; // 5分钟
+  private defaultTTL = 5 * 60 * 1000;
 
-  /**
-   * 设置工具缓存
-   */
+  get(key: string): unknown | null {
+    const [type, ...nameParts] = key.split(':');
+    const name = nameParts.join(':');
+
+    switch (type) {
+      case 'tool':
+        return this.getToolCache(name);
+      case 'command':
+        return this.getCommandCache(name);
+      case 'resource':
+        return this.getResourceCache(name);
+      case 'capability':
+        return this.getCapabilitiesCache(name);
+      default:
+        return null;
+    }
+  }
+
+  set(key: string, value: unknown, ttl?: number): void {
+    const [type, ...nameParts] = key.split(':');
+    const name = nameParts.join(':');
+
+    switch (type) {
+      case 'tool':
+        this.setToolCache(name, value as SerializedTool[], ttl);
+        break;
+      case 'command':
+        this.setCommandCache(name, value as Command[], ttl);
+        break;
+      case 'resource':
+        this.setResourceCache(name, value as ServerResource[], ttl);
+        break;
+      case 'capability':
+        this.setCapabilitiesCache(name, value, ttl);
+        break;
+    }
+  }
+
+  delete(key: string): boolean {
+    const [type, ...nameParts] = key.split(':');
+    const name = nameParts.join(':');
+
+    switch (type) {
+      case 'tool':
+        return this.toolCache.delete(name);
+      case 'command':
+        return this.commandCache.delete(name);
+      case 'resource':
+        return this.resourceCache.delete(name);
+      case 'capability':
+        return this.capabilitiesCache.delete(name);
+      default:
+        return false;
+    }
+  }
+
+  clear(): void {
+    this.clearAllCache();
+  }
+
+  has(key: string): boolean {
+    return this.get(key) !== null;
+  }
+
+  size(): number {
+    return (
+      this.toolCache.size +
+      this.commandCache.size +
+      this.resourceCache.size +
+      this.capabilitiesCache.size
+    );
+  }
+
+  getStats(): CacheStats {
+    const total = this.size();
+    return {
+      size: total,
+      hits: 0,
+      misses: 0,
+      expirations: 0,
+      cleanups: 0,
+    };
+  }
+
   setToolCache(
     serverName: string,
     tools: SerializedTool[],
@@ -46,14 +117,9 @@ export class MCPCacheManager {
     );
   }
 
-  /**
-   * 获取工具缓存
-   */
   getToolCache(serverName: string): SerializedTool[] | null {
     const cache = this.toolCache.get(serverName);
-    if (!cache) {
-      return null;
-    }
+    if (!cache) return null;
 
     if (Date.now() - cache.timestamp > cache.ttl) {
       this.toolCache.delete(serverName);
@@ -63,9 +129,6 @@ export class MCPCacheManager {
     return cache.data;
   }
 
-  /**
-   * 设置命令缓存
-   */
   setCommandCache(serverName: string, commands: Command[], ttl?: number): void {
     this.commandCache.set(serverName, {
       data: commands,
@@ -77,14 +140,9 @@ export class MCPCacheManager {
     );
   }
 
-  /**
-   * 获取命令缓存
-   */
   getCommandCache(serverName: string): Command[] | null {
     const cache = this.commandCache.get(serverName);
-    if (!cache) {
-      return null;
-    }
+    if (!cache) return null;
 
     if (Date.now() - cache.timestamp > cache.ttl) {
       this.commandCache.delete(serverName);
@@ -94,9 +152,6 @@ export class MCPCacheManager {
     return cache.data;
   }
 
-  /**
-   * 设置资源缓存
-   */
   setResourceCache(
     serverName: string,
     resources: ServerResource[],
@@ -112,14 +167,9 @@ export class MCPCacheManager {
     );
   }
 
-  /**
-   * 获取资源缓存
-   */
   getResourceCache(serverName: string): ServerResource[] | null {
     const cache = this.resourceCache.get(serverName);
-    if (!cache) {
-      return null;
-    }
+    if (!cache) return null;
 
     if (Date.now() - cache.timestamp > cache.ttl) {
       this.resourceCache.delete(serverName);
@@ -129,12 +179,9 @@ export class MCPCacheManager {
     return cache.data;
   }
 
-  /**
-   * 设置能力缓存
-   */
   setCapabilitiesCache(
     serverName: string,
-    capabilities: any,
+    capabilities: unknown,
     ttl?: number
   ): void {
     this.capabilitiesCache.set(serverName, {
@@ -145,14 +192,9 @@ export class MCPCacheManager {
     logger.debug(`Set capabilities cache for server ${serverName}`);
   }
 
-  /**
-   * 获取能力缓存
-   */
-  getCapabilitiesCache(serverName: string): any | null {
+  getCapabilitiesCache(serverName: string): unknown | null {
     const cache = this.capabilitiesCache.get(serverName);
-    if (!cache) {
-      return null;
-    }
+    if (!cache) return null;
 
     if (Date.now() - cache.timestamp > cache.ttl) {
       this.capabilitiesCache.delete(serverName);
@@ -162,9 +204,6 @@ export class MCPCacheManager {
     return cache.data;
   }
 
-  /**
-   * 清除服务器的所有缓存
-   */
   clearServerCache(serverName: string): void {
     this.toolCache.delete(serverName);
     this.commandCache.delete(serverName);
@@ -173,9 +212,6 @@ export class MCPCacheManager {
     logger.debug(`Cleared all cache for server ${serverName}`);
   }
 
-  /**
-   * 清除所有缓存
-   */
   clearAllCache(): void {
     this.toolCache.clear();
     this.commandCache.clear();
@@ -184,10 +220,7 @@ export class MCPCacheManager {
     logger.debug('Cleared all MCP cache');
   }
 
-  /**
-   * 获取缓存统计信息
-   */
-  getCacheStats(): {
+  getCacheStatsInfo(): {
     toolCacheSize: number;
     commandCacheSize: number;
     resourceCacheSize: number;
@@ -202,5 +235,4 @@ export class MCPCacheManager {
   }
 }
 
-// 导出单例
 export const mcpCacheManager = new MCPCacheManager();

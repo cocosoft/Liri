@@ -138,7 +138,7 @@ export class CachedToolExecutor {
     oldest: number | null;
     newest: number | null;
   } {
-    return toolCacheManager.getCacheStats();
+    return toolCacheManager.getCacheStatsInfo();
   }
 
   /**

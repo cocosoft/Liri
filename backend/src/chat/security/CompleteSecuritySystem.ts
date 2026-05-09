@@ -83,9 +83,8 @@ const defaultConfig: SecurityConfig = {
   rateLimitWindowMs: 60000,
 };
 
-const TOOL_DANGEROUS_PATTERNS: SecurityPattern[] = DANGEROUS_COMMAND_PATTERNS.filter(
-  (p) => p.riskLevel === 'high'
-);
+const TOOL_DANGEROUS_PATTERNS: SecurityPattern[] =
+  DANGEROUS_COMMAND_PATTERNS.filter((p) => p.riskLevel === 'high');
 
 export interface ICompleteSecuritySystem {
   checkMessageSecurity(
@@ -197,7 +196,9 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
 
     for (const pattern of TOOL_DANGEROUS_PATTERNS) {
       if (pattern.pattern.test(commandStr)) {
-        issues.push(`Dangerous command detected: ${pattern.name} - ${pattern.message}`);
+        issues.push(
+          `Dangerous command detected: ${pattern.name} - ${pattern.message}`
+        );
       }
     }
 

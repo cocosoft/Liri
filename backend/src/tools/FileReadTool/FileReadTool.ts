@@ -125,7 +125,12 @@ export class FileReadTool extends BaseTool {
       if (onProgress) {
         onProgress({
           toolUseID: 'file-read-tool',
-          data: { type: 'file_read', filePath: input.file_path as string, isRunning: true, isComplete: false },
+          data: {
+            type: 'file_read',
+            filePath: input.file_path as string,
+            isRunning: true,
+            isComplete: false,
+          },
         });
       }
 
@@ -138,20 +143,33 @@ export class FileReadTool extends BaseTool {
       if (onProgress) {
         onProgress({
           toolUseID: 'file-read-tool',
-          data: { type: 'file_read', filePath: result.filePath, isRunning: false, isComplete: true },
+          data: {
+            type: 'file_read',
+            filePath: result.filePath,
+            isRunning: false,
+            isComplete: true,
+          },
         });
       }
 
       return createToolResult(result.content, {
         newMessages: [
-          { role: 'system', content: `Successfully read file: ${result.filePath}` },
+          {
+            role: 'system',
+            content: `Successfully read file: ${result.filePath}`,
+          },
         ],
       });
     } catch (error: any) {
       if (onProgress) {
         onProgress({
           toolUseID: 'file-read-tool',
-          data: { type: 'file_read', error: error.message, isRunning: false, isComplete: true },
+          data: {
+            type: 'file_read',
+            error: error.message,
+            isRunning: false,
+            isComplete: true,
+          },
         });
       }
       return createToolResult(error.message, {
@@ -168,7 +186,11 @@ export class FileReadTool extends BaseTool {
     return true;
   }
 
-  override isSearchOrReadCommand(input: Record<string, unknown>): { isSearch: boolean; isRead: boolean; isList?: boolean } {
+  override isSearchOrReadCommand(input: Record<string, unknown>): {
+    isSearch: boolean;
+    isRead: boolean;
+    isList?: boolean;
+  } {
     return { isSearch: false, isRead: true };
   }
 
@@ -176,7 +198,9 @@ export class FileReadTool extends BaseTool {
     return (input.file_path as string) || '';
   }
 
-  override async preparePermissionMatcher(input: Record<string, unknown>): Promise<(pattern: string) => boolean> {
+  override async preparePermissionMatcher(
+    input: Record<string, unknown>
+  ): Promise<(pattern: string) => boolean> {
     const filePath = (input?.file_path as string) || '';
     return (pattern: string) => {
       const regexPattern = pattern.replace(/\*/g, '.*');
@@ -190,12 +214,16 @@ export class FileReadTool extends BaseTool {
     return filePath ? `Read: ${filePath}` : this.name;
   }
 
-  override getActivityDescription(input?: Partial<Record<string, unknown>>): string | null {
+  override getActivityDescription(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
     const filePath = (input?.file_path as string) || '';
     return filePath ? `Reading file: ${filePath}` : null;
   }
 
-  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
     const filePath = (input?.file_path as string) || '';
     return filePath ? `Read file: ${filePath}` : null;
   }

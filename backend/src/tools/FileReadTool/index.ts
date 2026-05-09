@@ -7,13 +7,8 @@ export {
   getToolUseSummary,
 } from './UI.js';
 export type { FileReadOutput } from './UI.js';
-export {
-  FILE_READ_TOOL_NAME,
-  DESCRIPTION,
-} from './prompt.js';
-export {
-  FILE_READ_TOOL_NAME as READ_TOOL_NAME,
-} from './prompt.js';
+export { FILE_READ_TOOL_NAME, DESCRIPTION } from './prompt.js';
+export { FILE_READ_TOOL_NAME as READ_TOOL_NAME } from './prompt.js';
 export {
   FileReadInputSchema,
   FileReadOutputSchema,

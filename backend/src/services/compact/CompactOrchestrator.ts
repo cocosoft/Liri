@@ -68,7 +68,11 @@ export class CompactOrchestrator {
     querySource?: string
   ): { shouldCompact: boolean; strategy: string; reason: string } {
     if (!this.circuitBreaker.canCompact()) {
-      return { shouldCompact: false, strategy: 'none', reason: 'Circuit breaker open' };
+      return {
+        shouldCompact: false,
+        strategy: 'none',
+        reason: 'Circuit breaker open',
+      };
     }
 
     const sessionMessages = toSessionMessages(messages);
@@ -77,7 +81,11 @@ export class CompactOrchestrator {
       model
     );
     if (autoCheck.shouldCompact) {
-      return { shouldCompact: true, strategy: 'auto', reason: 'Token threshold exceeded' };
+      return {
+        shouldCompact: true,
+        strategy: 'auto',
+        reason: 'Token threshold exceeded',
+      };
     }
 
     const reactiveCheck = this.reactiveService.shouldCompactReactively(
@@ -86,17 +94,29 @@ export class CompactOrchestrator {
       model
     );
     if (reactiveCheck.shouldCompact) {
-      return { shouldCompact: true, strategy: 'reactive', reason: reactiveCheck.reason };
+      return {
+        shouldCompact: true,
+        strategy: 'reactive',
+        reason: reactiveCheck.reason,
+      };
     }
 
     if (this.options.microCompactEnabled) {
       const microCheck = this.shouldMicrocompact(sessionMessages, querySource);
       if (microCheck) {
-        return { shouldCompact: true, strategy: 'micro', reason: 'Time-based trigger' };
+        return {
+          shouldCompact: true,
+          strategy: 'micro',
+          reason: 'Time-based trigger',
+        };
       }
     }
 
-    return { shouldCompact: false, strategy: 'none', reason: 'No strategy triggered' };
+    return {
+      shouldCompact: false,
+      strategy: 'none',
+      reason: 'No strategy triggered',
+    };
   }
 
   async compact(
@@ -111,9 +131,15 @@ export class CompactOrchestrator {
     record: CompactRecord;
   }> {
     const sessionMessages = toSessionMessages(messages);
-    const originalTokenCount = roughTokenCountEstimationForMessages(sessionMessages);
+    const originalTokenCount =
+      roughTokenCountEstimationForMessages(sessionMessages);
 
-    const decision = this.shouldCompact(sessionId, messages, model, querySource);
+    const decision = this.shouldCompact(
+      sessionId,
+      messages,
+      model,
+      querySource
+    );
     if (!decision.shouldCompact) {
       return {
         strategy: 'none',
@@ -136,7 +162,9 @@ export class CompactOrchestrator {
 
       switch (decision.strategy) {
         case 'auto': {
-          const autoService = new (await import('./AutoCompactService')).AutoCompactService();
+          const autoService = new (
+            await import('./AutoCompactService')
+          ).AutoCompactService();
           const autoResult = await autoService.performAutoCompact(
             sessionId,
             messages,
@@ -144,7 +172,7 @@ export class CompactOrchestrator {
           );
           result = autoResult;
           compressedTokenCount = autoResult.result
-            ? autoResult.result.preCompactTokenCount ?? originalTokenCount
+            ? (autoResult.result.preCompactTokenCount ?? originalTokenCount)
             : originalTokenCount;
           break;
         }
@@ -154,7 +182,8 @@ export class CompactOrchestrator {
             sessionMessages,
             model
           );
-          compressedTokenCount = result?.result?.postCompactTokenCount ?? originalTokenCount;
+          compressedTokenCount =
+            result?.result?.postCompactTokenCount ?? originalTokenCount;
           break;
         }
         case 'micro': {
@@ -171,9 +200,10 @@ export class CompactOrchestrator {
         }
       }
 
-      const reductionRatio = originalTokenCount > 0
-        ? 1 - compressedTokenCount / originalTokenCount
-        : 0;
+      const reductionRatio =
+        originalTokenCount > 0
+          ? 1 - compressedTokenCount / originalTokenCount
+          : 0;
 
       const record: CompactRecord = {
         strategy: decision.strategy as 'auto' | 'reactive' | 'micro' | 'none',
@@ -209,9 +239,16 @@ export class CompactOrchestrator {
       };
 
       this.recordCompact(sessionId, record);
-      logger.error(`Compact failed [${decision.strategy}]: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(
+        `Compact failed [${decision.strategy}]: ${error instanceof Error ? error.message : String(error)}`
+      );
 
-      return { strategy: decision.strategy, success: false, result: null, record };
+      return {
+        strategy: decision.strategy,
+        success: false,
+        result: null,
+        record,
+      };
     }
   }
 
@@ -233,9 +270,11 @@ export class CompactOrchestrator {
     for (const records of this.compactHistory.values()) {
       for (const record of records) {
         totalCompacts++;
-        totalTokensSaved += record.originalTokenCount - record.compressedTokenCount;
+        totalTokensSaved +=
+          record.originalTokenCount - record.compressedTokenCount;
         if (record.success) successCount++;
-        strategyBreakdown[record.strategy] = (strategyBreakdown[record.strategy] ?? 0) + 1;
+        strategyBreakdown[record.strategy] =
+          (strategyBreakdown[record.strategy] ?? 0) + 1;
       }
     }
 

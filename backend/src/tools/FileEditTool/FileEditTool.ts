@@ -136,28 +136,43 @@ export class FileEditTool extends BaseTool {
 
       if (!oldString) {
         return createToolResult('old_string is required', {
-          newMessages: [{ role: 'system', content: 'Error: old_string is required' }],
+          newMessages: [
+            { role: 'system', content: 'Error: old_string is required' },
+          ],
         });
       }
 
       if (oldString === newString) {
         return createToolResult(
           'No changes to make: old_string and new_string are exactly the same.',
-          { newMessages: [{ role: 'system', content: 'Error: No changes to make' }] }
+          {
+            newMessages: [
+              { role: 'system', content: 'Error: No changes to make' },
+            ],
+          }
         );
       }
 
       if (replaceAll) {
         const resolved = path.resolve(input.file_path as string);
         const content = fs.readFileSync(resolved, 'utf-8');
-        const normalizedOld = normalizeQuotes(content).includes(normalizeQuotes(oldString))
+        const normalizedOld = normalizeQuotes(content).includes(
+          normalizeQuotes(oldString)
+        )
           ? oldString
           : oldString;
         const newContent = content.replaceAll(normalizedOld, newString);
         fs.writeFileSync(resolved, newContent, 'utf-8');
         return createToolResult(
           { filePath: resolved, replaced: true },
-          { newMessages: [{ role: 'system', content: 'File edited successfully (all occurrences)' }] }
+          {
+            newMessages: [
+              {
+                role: 'system',
+                content: 'File edited successfully (all occurrences)',
+              },
+            ],
+          }
         );
       }
 
@@ -177,7 +192,10 @@ export class FileEditTool extends BaseTool {
         },
         {
           newMessages: [
-            { role: 'system', content: `Successfully edited file: ${result.filePath}` },
+            {
+              role: 'system',
+              content: `Successfully edited file: ${result.filePath}`,
+            },
           ],
           output: `File edited successfully: ${result.filePath}`,
         }

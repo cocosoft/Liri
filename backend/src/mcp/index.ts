@@ -50,17 +50,26 @@ export { SSETransport } from './transports/SSETransport.js';
 export { WebSocketTransport } from './transports/WebSocketTransport.js';
 export { HTTPTransport } from './transports/HTTPTransport.js';
 export { StdioTransport } from './transports/StdioTransport.js';
-export { createLinkedTransportPair, InProcessTransportFactory } from './transports/InProcessTransport.js';
+export {
+  createLinkedTransportPair,
+  InProcessTransportFactory,
+} from './transports/InProcessTransport.js';
 
 // ── 客户端 ──
 export { MCPClientImpl } from './client/MCPClient.js';
 
 // ── 协议 ──
-export { MCPProtocolValidator, MCPProtocolError } from './protocol/MCPProtocol.js';
+export {
+  MCPProtocolValidator,
+  MCPProtocolError,
+} from './protocol/MCPProtocol.js';
 
 // ── 管理 ──
 export { MCPManager } from './managers/MCPManager.js';
-export { MCPServerManager, getMCPServerManager } from './managers/MCPServerManager.js';
+export {
+  MCPServerManager,
+  getMCPServerManager,
+} from './managers/MCPServerManager.js';
 export { MCPServerConnection } from './managers/MCPServerConnection.js';
 
 // ── 会话 ──
@@ -132,14 +141,24 @@ export {
   getCategories,
 } from './utils/MCPOfficialRegistry.js';
 
-export { MCPPromptManager, mcpPromptManager } from './utils/MCPPromptManager.js';
-export type { MCPPrompt, PromptParams, MCPPromptResult } from './utils/MCPPromptManager.js';
+export {
+  MCPPromptManager,
+  mcpPromptManager,
+} from './utils/MCPPromptManager.js';
+export type {
+  MCPPrompt,
+  PromptParams,
+  MCPPromptResult,
+} from './utils/MCPPromptManager.js';
 
 export { MCPSecurityChecker } from './utils/MCPSecurityChecker.js';
 export type { SecurityCheckResult } from './utils/MCPSecurityChecker.js';
 
 export { MCPPerformanceMonitor } from './utils/MCPPerformanceMonitor.js';
-export type { MCPServerMetrics, MCPRequestRecord } from './utils/MCPPerformanceMonitor.js';
+export type {
+  MCPServerMetrics,
+  MCPRequestRecord,
+} from './utils/MCPPerformanceMonitor.js';
 
 export {
   MCPResourceManager,
@@ -159,7 +178,10 @@ export {
   getChannelPermissionRelay,
   clearChannelPermissionRelay,
 } from './utils/ChannelPermissions.js';
-export type { ChannelPermissionResponse, ChannelPermissionCallbacks } from './utils/ChannelPermissions.js';
+export type {
+  ChannelPermissionResponse,
+  ChannelPermissionCallbacks,
+} from './utils/ChannelPermissions.js';
 
 export {
   normalizeNameForMCP,

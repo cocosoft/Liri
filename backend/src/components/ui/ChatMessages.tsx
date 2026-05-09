@@ -62,9 +62,10 @@ export function ChatMessages({
   return (
     <Box flexDirection="column" marginTop={1}>
       {displayMessages.map((msg, index) => {
-        const messageKey = msg.id && msg.id.length > 0
-          ? msg.id
-          : `${msg.sender}-${msg.timestamp?.getTime() ?? index}-${index}`;
+        const messageKey =
+          msg.id && msg.id.length > 0
+            ? msg.id
+            : `${msg.sender}-${msg.timestamp?.getTime() ?? index}-${index}`;
 
         return (
           <Box key={messageKey} flexDirection="column">

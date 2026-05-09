@@ -54,10 +54,7 @@ export function getFeatureFlags(): Record<string, boolean> {
  * @returns 是否为开发模式
  */
 export function isDevMode(): boolean {
-  return (
-    isFeatureEnabled('DEV_FEATURES') ||
-    isFeatureEnabled('DEBUG_MODE')
-  );
+  return isFeatureEnabled('DEV_FEATURES') || isFeatureEnabled('DEBUG_MODE');
 }
 
 /**

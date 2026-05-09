@@ -154,21 +154,41 @@ export class CommandCompleter {
         { value: 'list', label: 'list', description: 'List all config values' },
       ],
       clear: [
-        { value: '--help', label: '--help', description: 'Show clear command help' },
+        {
+          value: '--help',
+          label: '--help',
+          description: 'Show clear command help',
+        },
       ],
       memory: [
-        { value: '--list', label: '--list', description: 'List all memory files' },
+        {
+          value: '--list',
+          label: '--list',
+          description: 'List all memory files',
+        },
         { value: '-l', label: '-l', description: 'List all memory files' },
-        { value: '--create', label: '--create', description: 'Create a new memory file' },
+        {
+          value: '--create',
+          label: '--create',
+          description: 'Create a new memory file',
+        },
         { value: '-c', label: '-c', description: 'Create a new memory file' },
         { value: '--show', label: '--show', description: 'Show a memory file' },
         { value: '-s', label: '-s', description: 'Show a memory file' },
         { value: '--edit', label: '--edit', description: 'Edit a memory file' },
         { value: '-e', label: '-e', description: 'Edit a memory file' },
-        { value: '--delete', label: '--delete', description: 'Delete a memory file' },
+        {
+          value: '--delete',
+          label: '--delete',
+          description: 'Delete a memory file',
+        },
         { value: '-d', label: '-d', description: 'Delete a memory file' },
         { value: 'status', label: 'status', description: 'Show memory status' },
-        { value: 'help', label: 'help', description: 'Show memory command help' },
+        {
+          value: 'help',
+          label: 'help',
+          description: 'Show memory command help',
+        },
       ],
     };
   }

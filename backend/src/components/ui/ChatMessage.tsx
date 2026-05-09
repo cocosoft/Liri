@@ -129,12 +129,7 @@ export function ChatMessage({
           <Text bold color={senderColor}>
             {SENDER_LABELS[sender]}
           </Text>
-          {timestamp && (
-            <Text dimColor>
-              {' '}
-              {formatTimestamp(timestamp)}
-            </Text>
-          )}
+          {timestamp && <Text dimColor> {formatTimestamp(timestamp)}</Text>}
         </Box>
 
         {isLoading ? (

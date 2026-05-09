@@ -49,10 +49,7 @@ export type { _ServerResource as ServerResource };
  */
 export interface MCPPluginConfig {
   /** MCP服务器配置 */
-  mcpServers?:
-    | string
-    | _MCPToolDefinition[]
-    | Record<string, _MCPServerConfig>;
+  mcpServers?: string | _MCPToolDefinition[] | Record<string, _MCPServerConfig>;
   /** 用户配置 */
   userConfig?: Record<string, any>;
   /** 通道配置 */

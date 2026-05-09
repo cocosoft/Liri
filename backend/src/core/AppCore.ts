@@ -75,7 +75,9 @@ export class AppCore {
   private pluginSDK: PluginSDK;
   private terminalUI: TerminalUIIntegration;
   private initialized: boolean = false;
-  private sessionFactory: import('../session/SessionFactory.js').SessionFactory | null = null;
+  private sessionFactory:
+    | import('../session/SessionFactory.js').SessionFactory
+    | null = null;
   private worktreePath: string | null = null;
   private terminalBackupPath: string | null = null;
 
@@ -276,9 +278,7 @@ export class AppCore {
         return;
       }
 
-      const slug = opts.prNumber
-        ? `pr-${opts.prNumber}`
-        : (opts.name ?? 'dev');
+      const slug = opts.prNumber ? `pr-${opts.prNumber}` : (opts.name ?? 'dev');
 
       const worktreeBranch = `worktree/${slug}`;
       const worktreePath = resolve(gitRoot, '..', 'worktrees', slug);
@@ -289,7 +289,9 @@ export class AppCore {
         return;
       }
 
-      logger.info(`Creating git worktree: ${worktreeBranch} at ${worktreePath}`);
+      logger.info(
+        `Creating git worktree: ${worktreeBranch} at ${worktreePath}`
+      );
 
       execSync(`git worktree add --detach "${worktreePath}"`, {
         cwd: gitRoot,
@@ -322,9 +324,11 @@ export class AppCore {
 
     try {
       const { SessionFactory } = await import('../session/SessionFactory.js');
-      const { FileSystemStorage } = await import('../session/storage/FileSystemStorage.js');
+      const { FileSystemStorage } =
+        await import('../session/storage/FileSystemStorage.js');
 
-      const storageDir = opts.storageDir ?? join(homedir(), '.py_app', 'sessions');
+      const storageDir =
+        opts.storageDir ?? join(homedir(), '.py_app', 'sessions');
       const storage = new FileSystemStorage(storageDir);
       this.sessionFactory = new SessionFactory(storage);
 
@@ -336,9 +340,9 @@ export class AppCore {
         } else {
           logger.info(`Session not found: ${opts.sessionId}, creating new`);
           const newSession = await this.sessionFactory.createSession({
-             title: `Startup ${new Date().toISOString()}`,
-           });
-           logger.info(`New session created: ${newSession.id}`);
+            title: `Startup ${new Date().toISOString()}`,
+          });
+          logger.info(`New session created: ${newSession.id}`);
         }
       }
     } catch (error) {
@@ -370,7 +374,11 @@ export class AppCore {
         timestamp: new Date().toISOString(),
       };
 
-      writeFileSync(backupPath, JSON.stringify(terminalState, null, 2), 'utf-8');
+      writeFileSync(
+        backupPath,
+        JSON.stringify(terminalState, null, 2),
+        'utf-8'
+      );
       this.terminalBackupPath = backupPath;
       logger.info(`Terminal state saved to ${backupPath}`);
     } catch (error) {
@@ -383,7 +391,8 @@ export class AppCore {
    * 在应用关闭时恢复之前备份的终端设置
    */
   private async restoreTerminalState(): Promise<void> {
-    if (!this.terminalBackupPath || !existsSync(this.terminalBackupPath)) return;
+    if (!this.terminalBackupPath || !existsSync(this.terminalBackupPath))
+      return;
 
     try {
       const data = readFileSync(this.terminalBackupPath, 'utf-8');

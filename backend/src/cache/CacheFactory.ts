@@ -43,7 +43,12 @@ class DefaultMemoryCache<V = unknown> implements ICache<string, V> {
     if (this.storage.size >= this.maxSize) {
       this.evictOne();
     }
-    const expiresAt = ttl !== undefined ? Date.now() + ttl : this.defaultTTL > 0 ? Date.now() + this.defaultTTL : null;
+    const expiresAt =
+      ttl !== undefined
+        ? Date.now() + ttl
+        : this.defaultTTL > 0
+          ? Date.now() + this.defaultTTL
+          : null;
     this.storage.set(key, { value, expiresAt });
   }
 

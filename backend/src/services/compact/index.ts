@@ -91,4 +91,7 @@ export type {
 } from './sessionMemoryCompact';
 
 export { CompactOrchestrator } from './CompactOrchestrator';
-export type { CompactRecord, CompactOrchestratorOptions } from './CompactOrchestrator';
+export type {
+  CompactRecord,
+  CompactOrchestratorOptions,
+} from './CompactOrchestrator';

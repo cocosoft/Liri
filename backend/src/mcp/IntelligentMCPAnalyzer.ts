@@ -275,7 +275,9 @@ export class IntelligentMCPAnalyzer {
     };
   }
 
-  private analyzeHealth(healthHistory?: MCPServerHealthCheck[]): MCPHealthAnalysis {
+  private analyzeHealth(
+    healthHistory?: MCPServerHealthCheck[]
+  ): MCPHealthAnalysis {
     if (!healthHistory || healthHistory.length === 0) {
       return {
         currentStatus: 'offline',

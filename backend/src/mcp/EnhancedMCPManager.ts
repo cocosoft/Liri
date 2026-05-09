@@ -178,7 +178,9 @@ export class EnhancedMCPManager {
     return results;
   }
 
-  private async checkServerHealth(serverName: string): Promise<MCPServerHealthCheck> {
+  private async checkServerHealth(
+    serverName: string
+  ): Promise<MCPServerHealthCheck> {
     const recommendations: string[] = [];
     let status: MCPServerHealthCheck['status'] = 'healthy';
     let responseTime = 0;

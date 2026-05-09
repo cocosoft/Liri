@@ -95,7 +95,12 @@ export class FileWriteTool extends BaseTool {
       if (onProgress) {
         onProgress({
           toolUseID: 'file-write-tool',
-          data: { type: 'file_write', filePath: input.file_path as string, isRunning: true, isComplete: false },
+          data: {
+            type: 'file_write',
+            filePath: input.file_path as string,
+            isRunning: true,
+            isComplete: false,
+          },
         });
       }
 
@@ -118,21 +123,34 @@ export class FileWriteTool extends BaseTool {
       if (onProgress) {
         onProgress({
           toolUseID: 'file-write-tool',
-          data: { type: 'file_write', filePath: input.file_path as string, isRunning: false, isComplete: true },
+          data: {
+            type: 'file_write',
+            filePath: input.file_path as string,
+            isRunning: false,
+            isComplete: true,
+          },
         });
       }
 
       const verb = append ? 'appended to' : 'written';
       return createToolResult(`File ${verb} successfully: ${input.file_path}`, {
         newMessages: [
-          { role: 'system', content: `Successfully ${verb} file: ${input.file_path}` },
+          {
+            role: 'system',
+            content: `Successfully ${verb} file: ${input.file_path}`,
+          },
         ],
       });
     } catch (error: any) {
       if (onProgress) {
         onProgress({
           toolUseID: 'file-write-tool',
-          data: { type: 'file_write', error: error.message, isRunning: false, isComplete: true },
+          data: {
+            type: 'file_write',
+            error: error.message,
+            isRunning: false,
+            isComplete: true,
+          },
         });
       }
       return createToolResult(error.message, {
@@ -157,7 +175,9 @@ export class FileWriteTool extends BaseTool {
     return (input.file_path as string) || '';
   }
 
-  override async preparePermissionMatcher(input: Record<string, unknown>): Promise<(pattern: string) => boolean> {
+  override async preparePermissionMatcher(
+    input: Record<string, unknown>
+  ): Promise<(pattern: string) => boolean> {
     const filePath = (input?.file_path as string) || '';
     return (pattern: string) => {
       const regexPattern = pattern.replace(/\*/g, '.*');
@@ -171,16 +191,24 @@ export class FileWriteTool extends BaseTool {
     return filePath ? `Write: ${filePath}` : this.name;
   }
 
-  override getActivityDescription(input?: Partial<Record<string, unknown>>): string | null {
+  override getActivityDescription(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
     const filePath = (input?.file_path as string) || '';
     const append = (input?.append as boolean) || false;
-    return filePath ? `${append ? 'Appending to' : 'Writing to'} file: ${filePath}` : null;
+    return filePath
+      ? `${append ? 'Appending to' : 'Writing to'} file: ${filePath}`
+      : null;
   }
 
-  override getToolUseSummary(input?: Partial<Record<string, unknown>>): string | null {
+  override getToolUseSummary(
+    input?: Partial<Record<string, unknown>>
+  ): string | null {
     const filePath = (input?.file_path as string) || '';
     const append = (input?.append as boolean) || false;
-    return filePath ? `${append ? 'Append to' : 'Write to'} file: ${filePath}` : null;
+    return filePath
+      ? `${append ? 'Append to' : 'Write to'} file: ${filePath}`
+      : null;
   }
 
   override toAutoClassifierInput(input: Record<string, unknown>): unknown {

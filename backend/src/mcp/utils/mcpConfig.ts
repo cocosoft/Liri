@@ -23,7 +23,11 @@ export function readMcpConfig(
     const config = JSON.parse(content);
     return config.mcpServers || {};
   } catch (error) {
-    logger.error('Failed to read MCP config', error instanceof Error ? error : new Error(String(error)), { configPath });
+    logger.error(
+      'Failed to read MCP config',
+      error instanceof Error ? error : new Error(String(error)),
+      { configPath }
+    );
     return {};
   }
 }
@@ -46,7 +50,11 @@ export function writeMcpConfig(
     fullConfig.mcpServers = servers;
     writeFileSync(configPath, JSON.stringify(fullConfig, null, 2));
   } catch (error) {
-    logger.error('Failed to write MCP config', error instanceof Error ? error : new Error(String(error)), { configPath });
+    logger.error(
+      'Failed to write MCP config',
+      error instanceof Error ? error : new Error(String(error)),
+      { configPath }
+    );
   }
 }
 
@@ -142,7 +150,10 @@ export function loadMcpConfigFromEnv(): Record<string, MCPServerConfig> {
         }
       }
     } catch (error) {
-      logger.error('Failed to parse MCP_SERVERS environment variable', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to parse MCP_SERVERS environment variable',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 

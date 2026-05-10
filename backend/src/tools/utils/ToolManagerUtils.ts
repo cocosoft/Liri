@@ -79,6 +79,7 @@ export const builtinToolLoaders: ToolLoader[] = [
   createToolLoader(ToolFactory.prototype.createFileReadTool),
   createToolLoader(ToolFactory.prototype.createFileWriteTool),
   createToolLoader(ToolFactory.prototype.createFileEditTool),
+  createToolLoader(ToolFactory.prototype.createFileConvertTool),
   createToolLoader(ToolFactory.prototype.createGrepTool),
   createToolLoader(ToolFactory.prototype.createGlobTool),
   createToolLoader(ToolFactory.prototype.createTodoWriteTool),

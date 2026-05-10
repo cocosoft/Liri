@@ -8,6 +8,7 @@ import { BashTool } from './bash/BashTool';
 import { FileReadTool } from './FileReadTool/FileReadTool';
 import { FileWriteTool } from './FileWriteTool/FileWriteTool';
 import { FileEditTool } from './FileEditTool/FileEditTool';
+import { FileConvertTool } from './FileConvertTool/FileConvertTool';
 import { GrepTool } from './search/GrepTool';
 import { GlobTool } from './search/GlobTool';
 import { NotebookEditTool } from './NotebookEditTool/NotebookEditTool';
@@ -174,6 +175,10 @@ export class ToolFactory {
    */
   createFileEditTool(): Tool {
     return new FileEditTool() as any;
+  }
+
+  createFileConvertTool(): Tool {
+    return new FileConvertTool();
   }
 
   /**

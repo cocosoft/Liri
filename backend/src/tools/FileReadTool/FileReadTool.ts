@@ -87,6 +87,17 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
+import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
+import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
+
+const BINARY_EXTENSIONS = new Set([
+  '.docx', '.xlsx', '.xls', '.pptx', '.pdf',
+  '.epub', '.zip',
+  '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp', '.ico', '.tiff', '.tif',
+  '.mp3', '.wav', '.m4a', '.flac', '.ogg', '.wma',
+  '.mp4',
+  '.ipynb', '.msg',
+]);
 
 export class FileReadTool extends BaseTool {
   name = 'file_read';
@@ -122,6 +133,13 @@ export class FileReadTool extends BaseTool {
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
+      const filePath = path.resolve(input.file_path as string);
+      const ext = path.extname(filePath).toLowerCase();
+
+      if (BINARY_EXTENSIONS.has(ext)) {
+        return this.convertFile(filePath, onProgress);
+      }
+
       if (onProgress) {
         onProgress({
           toolUseID: 'file-read-tool',
@@ -174,6 +192,64 @@ export class FileReadTool extends BaseTool {
       }
       return createToolResult(error.message, {
         newMessages: [{ role: 'system', content: `Error: ${error.message}` }],
+      });
+    }
+  }
+
+  private async convertFile(
+    filePath: string,
+    onProgress?: ToolCallProgress<any>,
+  ): Promise<ToolResult<unknown>> {
+    try {
+      if (onProgress) {
+        onProgress({
+          toolUseID: 'file-read-tool',
+          data: {
+            type: 'file_convert',
+            filePath,
+            isRunning: true,
+            isComplete: false,
+          },
+        });
+      }
+
+      const engine = getConverterEngine();
+      const detector = new FileTypeDetector();
+      const stat = fs.statSync(filePath);
+      const fileInfo = detector.detect(filePath, stat.size);
+      const content = fs.readFileSync(filePath);
+      const result = await engine.convertContent(fileInfo, content);
+
+      if (onProgress) {
+        onProgress({
+          toolUseID: 'file-read-tool',
+          data: {
+            type: 'file_convert',
+            filePath,
+            isRunning: false,
+            isComplete: true,
+          },
+        });
+      }
+
+      return createToolResult(result.markdown, {
+        success: true,
+        output: result.markdown,
+        newMessages: [
+          {
+            role: 'system',
+            content: `文件 [${filePath}] 为二进制格式，已自动转换为 Markdown`,
+          },
+        ],
+      });
+    } catch (error: any) {
+      return createToolResult(error.message, {
+        success: false,
+        error: error.message,
+        output: `自动转换失败: ${error.message}`,
+        newMessages: [
+          { role: 'system', content: `转换失败: ${error.message}` },
+        ],
       });
     }
   }

@@ -30,6 +30,7 @@
 - **测试**: `backend/testing/`
 - **设计文档**: `dev_docs/YYYYMMDD/`（按日期归档）
 - **CC源码**: `reference/cc_code/`（只读参考）
+- **MakeItdown源码**: `reference/markitdown-main`（只读参考）
 - **配置**: `backend/config.json` + `backend/settings.json` + `backend/configs/`
 - **依赖快照**: `backend/dependency-snapshot.json`（模块结构变更时同步更新）
 

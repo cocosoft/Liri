@@ -162,6 +162,23 @@ export const ErrorCodes = {
   },
   EXECUTION_FAILED: { code: 500, message: '执行失败', level: 'ERROR' as const },
 
+  // ─── 转换器错误 (2003-2006) ────────────────────
+  MISSING_DEPENDENCY: {
+    code: 2003,
+    message: '缺少可选依赖',
+    level: 'WARN' as const,
+  },
+  UNSUPPORTED_FORMAT: {
+    code: 2004,
+    message: '不支持的格式',
+    level: 'WARN' as const,
+  },
+  CONVERSION_FAILED: {
+    code: 2005,
+    message: '转换失败',
+    level: 'ERROR' as const,
+  },
+
   // ─── AI 错误 (1100-1199) ──────────────────────
   AI_CLIENT_ERROR: {
     code: 1100,

@@ -120,6 +120,35 @@ const DEFAULT_CONTEXT_HELP: ContextHelpEntry[] = [
     ],
   },
   {
+    contextId: 'file-convert',
+    description: '文件转换帮助',
+    helpContent: `
+文件转换帮助:
+- 使用 "convert <filepath>" 将文件转换为 Markdown
+- 使用 "read <filepath>" 读取文本文件，二进制文件自动转换为 Markdown
+- 支持 Office 文档 (.docx .xlsx .xls .pptx)、PDF、图片、音频等多种格式
+
+支持的格式:
+- 文本类: .txt .md .json .csv .tsv .xml .html .yaml
+- Office: .docx .xlsx .xls .pptx
+- 文档类: .pdf .epub
+- 媒体类: .jpg .png .gif .bmp .svg .webp .mp3 .wav .m4a .flac .ogg
+- 其他: .ipynb .rss .atom .msg .zip
+
+示例:
+- convert document.docx - 将 Word 文档转换为 Markdown
+- convert report.pdf    - 将 PDF 转换为 Markdown
+- read notebook.ipynb   - 读取 Jupyter Notebook（自动转换）
+    `.trim(),
+    relatedCommands: ['convert', 'read'],
+    relatedTools: ['FileConvertTool', 'FileReadTool'],
+    matchConditions: [
+      { type: 'command', value: 'convert', matchType: 'startsWith' },
+      { type: 'command', value: '/convert', matchType: 'exact' },
+      { type: 'tool', value: 'FileConvertTool', matchType: 'exact' },
+    ],
+  },
+  {
     contextId: 'git-operation',
     description: 'Git 操作帮助',
     helpContent: `

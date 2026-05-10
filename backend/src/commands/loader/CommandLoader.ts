@@ -97,6 +97,7 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../tools/file/write.js', name: 'write' },
       { path: '../tools/file/edit.js', name: 'edit' },
       { path: '../tools/file/glob.js', name: 'glob' },
+      { path: '../tools/file/convert.js', name: 'convert' },
       { path: '../tools/system/bash.js', name: 'bash' },
       { path: '../tools/system/grep.js', name: 'grep' },
       {

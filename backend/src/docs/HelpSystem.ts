@@ -344,6 +344,42 @@ PY_APP是一个智能编程助手，帮助你更高效地编写代码。
 
 ### /advisor
 获取智能建议和推荐。
+
+## 文件操作命令
+
+### /convert <file_path>
+将文件转换为 Markdown 格式。
+
+别名: 无
+
+支持的格式:
+- 文本类: .txt .md .json .csv .tsv .xml .html .yaml
+- Office: .docx .xlsx .xls .pptx
+- 文档类: .pdf .epub
+- 媒体类: .jpg .png .gif .bmp .svg .webp .mp3 .wav .m4a .flac .ogg
+- 其他: .ipynb .rss .atom .msg .zip
+
+示例:
+- \`/convert document.docx\` - 将 Word 文档转换为 Markdown
+- \`/convert report.pdf\` - 将 PDF 转换为 Markdown
+- \`/convert notebook.ipynb\` - 将 Jupyter Notebook 转换为 Markdown
+
+注意: 部分格式需要安装相应的可选依赖，缺失时会提示安装命令。
+
+### /write <file_path> <content>
+将内容写入文件。
+
+### /edit <file_path>
+编辑文件内容。
+
+### /glob <pattern>
+路径匹配和文件搜索。
+
+### /bash <command>
+执行 Shell 命令。
+
+### /grep <pattern>
+文本搜索和模式匹配。
 `,
       relatedTopics: ['quickstart', 'shortcuts'],
       keywords: ['命令', 'command', '参考'],
@@ -396,13 +432,16 @@ PY_APP是一个智能编程助手，帮助你更高效地编写代码。
 ## 文件操作工具
 
 ### FileReadTool
-读取文件内容。
+读取文件内容。自动识别文件格式，对二进制文件（如 .docx、.pdf、.xlsx 等）自动转换为 Markdown。
 
 ### FileWriteTool
 写入文件内容。
 
 ### FileEditTool
 编辑文件内容。
+
+### FileConvertTool
+将文件转换为 Markdown 格式。支持多种文件格式，包括 Office 文档、PDF、图片、音频等。
 
 ### GlobTool
 路径匹配和文件搜索。

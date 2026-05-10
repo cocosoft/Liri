@@ -143,9 +143,10 @@ loop       - 循环执行任务
 
 核心工具：
 bash       - 执行Bash命令
-file_read  - 读取文件内容
+file_read  - 读取文件内容（自动转换二进制文件为 Markdown）
 file_write - 写入文件内容
 file_edit  - 编辑文件内容
+file_convert - 将文件转换为 Markdown 格式
 glob       - 文件匹配
 grep       - 文本搜索
 

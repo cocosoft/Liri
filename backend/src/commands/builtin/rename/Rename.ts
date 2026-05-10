@@ -15,10 +15,22 @@ export default {
 
     if (!newName) {
       return {
-        success: false,
-        type: 'error',
-        error: '请提供新的会话名称',
-        message: '用法: /rename <新名称>',
+        success: true,
+        type: 'text',
+        message: [
+          '✏️ 重命名会话命令',
+          '',
+          '用法:',
+          '  /rename <新名称>    重命名当前会话',
+          '',
+          '要求:',
+          '  - 名称长度不超过 100 个字符',
+          '  - 不能包含字符: \\ / : * ? " < > |',
+          '',
+          '示例:',
+          '  /rename 登录功能开发',
+          '  /rename Bug修复-2026-05',
+        ].join('\n'),
       };
     }
 

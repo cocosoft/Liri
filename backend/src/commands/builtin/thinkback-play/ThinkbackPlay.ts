@@ -15,20 +15,32 @@ const thinkbackPlay = {
     const parts = args.trim().split(/\s+/);
     const thinkbackId = parts[0] || '';
 
-    if (!thinkbackId) {
-      return {
-        success: false,
-        type: 'text',
-        message: '请指定要回放的思考记录 ID',
-      };
-    }
-
     const thinkbacks = [
       { id: 'TB-001', steps: ['分析API设计问题', '评估方案', '生成建议'] },
       { id: 'TB-002', steps: ['定位登录bug', '检查认证流程', '修复实现'] },
       { id: 'TB-003', steps: ['分析查询性能', '优化索引', '验证结果'] },
       { id: 'TB-004', steps: ['代码审查分析', '检查安全漏洞', '生成报告'] },
     ];
+
+    if (!thinkbackId) {
+      const available = thinkbacks.map((t) => `  ${t.id}: ${t.steps.join(' → ')}`).join('\n');
+      return {
+        success: true,
+        type: 'text',
+        message: [
+          '🎬 思考回放播放命令',
+          '',
+          '用法:',
+          '  /thinkback-play <记录ID>    回放指定思考记录',
+          '',
+          '可用的思考记录:',
+          available,
+          '',
+          '示例:',
+          '  /thinkback-play TB-001',
+        ].join('\n'),
+      };
+    }
 
     const thinkback = thinkbacks.find((t) => t.id === thinkbackId);
 

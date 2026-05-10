@@ -12,7 +12,11 @@ export default {
    */
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const parts = args.trim().split(' ');
-    const subcommand = parts[0] || 'start';
+    const subcommand = parts[0] || '';
+
+    if (!subcommand) {
+      return this.handleHelp();
+    }
 
     switch (subcommand.toLowerCase()) {
       case 'start':

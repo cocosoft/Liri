@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+defaults:
+  run:
+    working-directory: ./backend
+
 jobs:
   test:
     name: Test Suite
@@ -29,6 +33,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'bun'
+        cache-dependency-path: './backend/bun.lock'
 
     - name: Install dependencies
       run: bun install
@@ -39,30 +44,11 @@ jobs:
     - name: Run linter
       run: bun run lint
 
-    - name: Run tests
+    - name: Run test suite
       run: bun test
 
     - name: Run build
       run: bun run build
-
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
-
-    - name: Install dependencies
-      run: bun install
-
-    - name: Run security scan
-      run: bun run security-scan
 
   command-test:
     name: Command Tests (Phase 1 + 2)
@@ -78,21 +64,45 @@ jobs:
         bun-version: latest
 
     - name: Install dependencies
+      working-directory: ./backend
       run: bun install
 
-    - name: Run Phase 1 (Structure Audit)
+    - name: Run Phase 1 (Command Structure Audit)
+      working-directory: ./backend
       run: bun test testing/commands/FullCommandAudit.test.ts
 
     - name: Run Phase 2 (Actual Execution)
+      working-directory: ./backend
       run: bun test testing/commands/Phase2Execution.test.ts
 
     - name: Upload test reports as artifacts
       uses: actions/upload-artifact@v4
       with:
         name: command-test-reports
-        path: dev_docs/testreports/
+        path: backend/dev_docs/testreports/
         retention-days: 30
         if-no-files-found: warn
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: bun install
+
+    - name: Run security scan
+      working-directory: ./backend
+      run: bun run security-scan
 
   performance-test:
     name: Performance Tests
@@ -108,7 +118,9 @@ jobs:
         bun-version: latest
 
     - name: Install dependencies
+      working-directory: ./backend
       run: bun install
 
     - name: Run performance tests
+      working-directory: ./backend
       run: bun test testing/performance.test.ts

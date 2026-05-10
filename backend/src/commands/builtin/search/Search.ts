@@ -15,10 +15,20 @@ export default {
 
     if (!query) {
       return {
-        success: false,
-        type: 'error',
-        error: '请提供搜索关键词',
-        message: '用法: /search <关键词>',
+        success: true,
+        type: 'text',
+        message: [
+          '🔍 搜索命令',
+          '',
+          '用法:',
+          '  /search <关键词>    搜索应用内的命令、配置、文件等内容',
+          '',
+          '示例:',
+          '  /search git         搜索与 git 相关的命令',
+          '  /search config      搜索配置相关条目',
+          '',
+          '提示: 提供搜索关键词以查找相关内容。',
+        ].join('\n'),
       };
     }
 

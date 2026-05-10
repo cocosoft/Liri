@@ -109,6 +109,10 @@ backend/test-*.json
 backend/*.test.ts
 backend/*.test.js
 
+backend/.test*
+backend/.tmp*
+
+backend/my-project
 # Testing - frontend tests
 py-app-client/src/tests/
 

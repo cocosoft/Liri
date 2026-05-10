@@ -2,7 +2,7 @@
  * commit-push-pr 命令
  * 提交、推送并创建 PR 的工作流命令
  */
-import type { Command } from '@modules/commands/types';
+import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
 
 /**
  * commit-push-pr 命令定义
@@ -14,6 +14,26 @@ const commitPushPrCommand: Command = {
   aliases: ['pr-create', 'commit-pr'],
   argumentHint: '[提交说明]',
   loadedFrom: 'builtin',
+  load: async () => ({
+    async execute(_args: string, _context: CommandContext): Promise<CommandResult> {
+      return {
+        success: true,
+        type: 'text',
+        message: [
+          '🚀 commit-push-pr 命令',
+          '',
+          '此命令为 AI Git 工作流提示命令，需要在对话中由 AI 模型执行。',
+          '它会自动执行提交代码、推送到远程并创建 Pull Request 的完整流程。',
+          '',
+          '用法:',
+          '  /commit-push-pr                   执行完整 Git 工作流',
+          '  /commit-push-pr "修复了登录问题"   附带提交说明',
+          '',
+          '提示: 在对话中直接输入 /commit-push-pr 即可启动 Git 工作流。',
+        ].join('\n'),
+      };
+    },
+  }),
   async getPromptForCommand(
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {

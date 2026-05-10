@@ -2,7 +2,7 @@
  * security-review 命令
  * 对当前分支的变更进行安全审查
  */
-import type { Command } from '@modules/commands/types';
+import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
 
 /**
  * security-review 命令定义
@@ -14,6 +14,26 @@ const securityReviewCommand: Command = {
   aliases: ['sec-review'],
   argumentHint: '[目标分支]',
   loadedFrom: 'builtin',
+  load: async () => ({
+    async execute(_args: string, _context: CommandContext): Promise<CommandResult> {
+      return {
+        success: true,
+        type: 'text',
+        message: [
+          '🔒 security-review 命令',
+          '',
+          '此命令为 AI 安全审查提示命令，需要在对话中由 AI 模型执行。',
+          '它会自动分析当前分支的 Git 变更并生成安全审查报告。',
+          '',
+          '用法:',
+          '  /security-review          审查当前分支变更',
+          '  /security-review main     审查与 main 分支的差异',
+          '',
+          '提示: 在对话中直接输入 /security-review 即可启动安全审查。',
+        ].join('\n'),
+      };
+    },
+  }),
   async getPromptForCommand(
     args: string
   ): Promise<Array<{ type: 'text'; text: string }>> {

@@ -15,10 +15,20 @@ export default {
 
     if (!path) {
       return {
-        success: false,
-        type: 'error',
-        error: '请提供要添加的目录路径',
-        message: '用法: /add-dir <目录路径>',
+        success: true,
+        type: 'text',
+        message: [
+          '📁 添加工作目录命令',
+          '',
+          '用法:',
+          '  /add-dir <目录路径>    添加指定目录为工作目录',
+          '',
+          '示例:',
+          '  /add-dir /home/projects/my-app',
+          '  /add-dir ./src',
+          '',
+          '提示: 提供要添加的目录路径以更新工作目录。',
+        ].join('\n'),
       };
     }
 

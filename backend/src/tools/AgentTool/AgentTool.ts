@@ -13,7 +13,12 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Tool, ToolInfo, ValidationResult } from '../types/Tool';
+import {
+  Tool,
+  ToolInfo,
+  ValidationResult,
+  ToolCallProgress,
+} from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import {
@@ -22,6 +27,7 @@ import {
   BUILTIN_AGENTS,
 } from './constants';
 import type { AgentInput, AgentConfig, BuiltInAgent, AgentType } from './types';
+import type { AgentToolProgress } from '../types/ToolProgress';
 import { VERIFICATION_SYSTEM_PROMPT } from './strategies/VerificationStrategy';
 import { STATUSLINE_SYSTEM_PROMPT } from './strategies/StatuslineStrategy';
 import {
@@ -34,6 +40,9 @@ import {
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 import { getBackgroundTaskManager } from './BackgroundTaskManager';
 import { getToolManager } from '../ToolManager';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger();
 
 /**
  * AgentTool参数定义
@@ -383,7 +392,8 @@ export class AgentTool implements Tool {
     input: AgentInput,
     agentId: string,
     systemPrompt: string,
-    isFork: boolean
+    isFork: boolean,
+    onProgress?: ToolCallProgress<AgentToolProgress>
   ): Promise<{
     result: string;
     tokenUsage?: {
@@ -397,9 +407,7 @@ export class AgentTool implements Tool {
     const engineInput = {
       agentId,
       systemPrompt,
-      messages: isFork
-        ? [{ role: 'user' as const, content: input.prompt }]
-        : [{ role: 'user' as const, content: input.prompt }],
+      messages: [{ role: 'user' as const, content: input.prompt }],
       tools: toolDefinitions.map((t) => ({
         type: 'function' as const,
         function: {
@@ -417,7 +425,29 @@ export class AgentTool implements Tool {
       model: input.model,
     };
 
-    const result = await this.engine.execute(engineInput);
+    const engineOnProgress = (event: {
+      agentId: string;
+      type: string;
+      message: string;
+      toolUseId?: string;
+      toolName?: string;
+      turn?: number;
+      maxTurns?: number;
+    }) => {
+      onProgress?.({
+        toolUseID: agentId,
+        data: {
+          type: 'agent_tool',
+          agentName: input.name || agentId,
+          action: event.type,
+          message: event.message,
+          isRunning: true,
+          isComplete: event.type === 'complete' || event.type === 'error',
+        },
+      });
+    };
+
+    const result = await this.engine.execute(engineInput, engineOnProgress);
 
     return {
       result: result.output,
@@ -482,10 +512,12 @@ export class AgentTool implements Tool {
    * 执行Agent任务
    * @param input 任务输入
    * @param context 执行上下文
+   * @param onProgress 进度回调
    */
   async execute(
     input: Record<string, unknown>,
-    context?: ToolUseContext
+    context?: ToolUseContext,
+    onProgress?: ToolCallProgress<AgentToolProgress>
   ): Promise<ToolResult<unknown>> {
     const validation = this.validateInput(input);
     if (!validation.result) {
@@ -514,6 +546,7 @@ export class AgentTool implements Tool {
     const isBackground = agentInput.run_in_background === true;
 
     if (!this.checkConcurrencyLimit()) {
+      logger.warning('Agent execution rejected: concurrent limit reached');
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,
@@ -543,11 +576,43 @@ export class AgentTool implements Tool {
       status: 'running',
     });
 
+    logger.info('Agent execution started', {
+      agentId,
+      agentType: effectiveType,
+      isBackground,
+      isFork,
+      promptLength: agentInput.prompt?.length || 0,
+    });
+
+    onProgress?.({
+      toolUseID: agentId,
+      data: {
+        type: 'agent_tool',
+        agentName: agentInput.name || agentId,
+        action: 'start',
+        message: `Starting agent: ${agentInput.name || agentId}`,
+        isRunning: true,
+        isComplete: false,
+      },
+    });
+
     try {
       const builtInAgent = this.getBuiltInAgent(effectiveType);
       let systemPrompt =
         builtInAgent?.systemPrompt ||
         this.getDefaultSystemPrompt(effectiveType);
+
+      if (agentInput.isolation === 'worktree') {
+        systemPrompt +=
+          '\n\nThis agent runs in an isolated git worktree.\n' +
+          `Use EnterWorktree to create a worktree with slug "${agentInput.name || agentId}" before making changes.\n` +
+          'After completing work, use ExitWorktree to clean up the worktree.\n' +
+          'All file modifications must be done inside the worktree, never in the parent workspace.';
+        logger.info('Worktree isolation enabled', {
+          agentId,
+          slug: agentInput.name || agentId,
+        });
+      }
 
       if (isFork) {
         const parentMessages: Array<{
@@ -579,6 +644,7 @@ export class AgentTool implements Tool {
 
       if (isBackground) {
         if (!this.config.allowBackground) {
+          logger.warning('Background execution disabled', { agentId });
           return {
             status: ToolExecutionStatus.FAILURE,
             result: null,
@@ -602,7 +668,13 @@ export class AgentTool implements Tool {
         );
         bgManager.startTask(taskId);
 
-        this.runWithEngine(agentInput, agentId, systemPrompt, isFork)
+        this.runWithEngine(
+          agentInput,
+          agentId,
+          systemPrompt,
+          isFork,
+          onProgress
+        )
           .then((runResult) => {
             bgManager.completeTask(
               taskId,
@@ -610,6 +682,7 @@ export class AgentTool implements Tool {
               runResult.tokenUsage
             );
             this.activeAgents.get(agentId)!.status = 'completed';
+            logger.info('Background agent completed', { agentId, taskId });
           })
           .catch((error) => {
             bgManager.failTask(
@@ -617,6 +690,11 @@ export class AgentTool implements Tool {
               error instanceof Error ? error.message : String(error)
             );
             this.activeAgents.get(agentId)!.status = 'failed';
+            logger.error('Background agent failed', {
+              agentId,
+              taskId,
+              error: error instanceof Error ? error.message : String(error),
+            });
           });
 
         return {
@@ -647,16 +725,37 @@ export class AgentTool implements Tool {
 
       if (isSimpleTask) {
         result = await this.runDirectCall(agentInput, agentId, systemPrompt);
+        logger.info('Agent direct call completed', {
+          agentId,
+          agentType: effectiveType,
+        });
       } else {
         result = await this.runWithEngine(
           agentInput,
           agentId,
           systemPrompt,
-          isFork
+          isFork,
+          onProgress
         );
+        logger.info('Agent engine execution completed', {
+          agentId,
+          agentType: effectiveType,
+        });
       }
 
       this.activeAgents.get(agentId)!.status = 'completed';
+
+      onProgress?.({
+        toolUseID: agentId,
+        data: {
+          type: 'agent_tool',
+          agentName: agentInput.name || agentId,
+          action: 'complete',
+          message: 'Agent task completed successfully',
+          isRunning: false,
+          isComplete: true,
+        },
+      });
 
       return {
         status: ToolExecutionStatus.SUCCESS,
@@ -683,6 +782,24 @@ export class AgentTool implements Tool {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
+      logger.error('Agent execution failed', {
+        agentId,
+        agentType: effectiveType,
+        error: errorMessage,
+      });
+
+      onProgress?.({
+        toolUseID: agentId,
+        data: {
+          type: 'agent_tool',
+          agentName: agentInput.name || agentId,
+          action: 'error',
+          message: errorMessage,
+          isRunning: false,
+          isComplete: true,
+        },
+      });
+
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,
@@ -693,7 +810,7 @@ export class AgentTool implements Tool {
         progress: [],
         metadata: {
           agentId,
-          agentType,
+          agentType: effectiveType,
           completed: false,
         },
         executionId: agentId,

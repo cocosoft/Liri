@@ -8,6 +8,7 @@
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { logger } from '@modules/utils/log.js';
+import { deepMerge } from '@modules/utils/common.js';
 
 /**
  * 托管设置文件名
@@ -121,32 +122,4 @@ export function isPolicySettingsAvailable(): boolean {
   const managedPath = getManagedSettingsPath();
   const dropInDir = getManagedDropInDir();
   return existsSync(managedPath) || existsSync(dropInDir);
-}
-
-/**
- * 深度合并对象
- */
-function deepMerge(
-  target: Record<string, any>,
-  source: Record<string, any>
-): Record<string, any> {
-  const result = { ...target };
-
-  for (const key of Object.keys(source)) {
-    if (
-      key in result &&
-      typeof result[key] === 'object' &&
-      result[key] !== null &&
-      typeof source[key] === 'object' &&
-      source[key] !== null &&
-      !Array.isArray(result[key]) &&
-      !Array.isArray(source[key])
-    ) {
-      result[key] = deepMerge(result[key], source[key]);
-    } else {
-      result[key] = source[key];
-    }
-  }
-
-  return result;
 }

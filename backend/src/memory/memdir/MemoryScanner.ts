@@ -1,15 +1,45 @@
 /**
  * 记忆扫描器实现（基于CC源码）
- * 支持记忆文件扫描、相关记忆检索、记忆老化管理
+ * 支持记忆文件扫描、记忆头信息扫描、相关记忆检索、记忆老化管理
  */
 
-import { join } from 'path';
+import { join, basename } from 'path';
 import { readdir, stat, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import type { MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
+import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 记忆头信息（参考CC memoryScan.ts）
+ * 用于快速列出记忆文件的摘要信息，不加载完整内容
+ */
+export interface MemoryHeader {
+  /** 文件名（相对路径） */
+  filename: string;
+  /** 文件绝对路径 */
+  filePath: string;
+  /** 最后修改时间（毫秒时间戳） */
+  mtimeMs: number;
+  /** 文件描述（来自frontmatter） */
+  description: string | null;
+  /** 记忆类型（来自frontmatter） */
+  type: string | undefined;
+}
+
+const MAX_MEMORY_FILES = 200;
+const FRONTMATTER_MAX_LINES = 30;
+
+/**
+ * 从frontmatter原始值解析MemoryType（参考CC memoryTypes.ts）
+ */
+export function parseMemoryType(raw: unknown): MemoryType | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const validTypes = ['user', 'feedback', 'project', 'reference'] as const;
+  return validTypes.find((t) => t === raw) as MemoryType | undefined;
+}
 
 /**
  * 记忆扫描结果（来自CC源码）
@@ -126,6 +156,77 @@ export class MemoryScanner {
       lruThreshold: 0.8, // 80%使用率时触发LRU
       ...config,
     };
+  }
+
+  /**
+   * 扫描记忆文件头信息（参考CC memoryScan.ts）
+   * 单次扫描：读取frontmatter，返回按时间排序的记忆头列表（最多200条）
+   *
+   * @param memoryDir 记忆目录路径
+   * @param signal 可选的AbortSignal用于取消操作
+   * @returns 记忆头信息列表，按修改时间降序排列
+   */
+  static async scanMemoryFiles(
+    memoryDir: string,
+    signal?: AbortSignal
+  ): Promise<MemoryHeader[]> {
+    try {
+      const entries = await readdir(memoryDir);
+      const mdFiles = entries.filter(
+        (f) => f.endsWith('.md') && basename(f) !== 'MEMORY.md'
+      );
+
+      const headerResults = await Promise.allSettled(
+        mdFiles.map(async (relativePath): Promise<MemoryHeader> => {
+          if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+          const filePath = join(memoryDir, relativePath);
+          const stats = await stat(filePath);
+          const content = await readFile(filePath, 'utf-8');
+
+          // 只读取前FRONTMATTER_MAX_LINE行来解析frontmatter
+          const lines = content.split('\n');
+          const headLines = lines.slice(0, FRONTMATTER_MAX_LINES).join('\n');
+          const { frontmatter } = parseFrontmatter(headLines);
+
+          return {
+            filename: relativePath,
+            filePath,
+            mtimeMs: stats.mtimeMs,
+            description: frontmatter.description || null,
+            type: frontmatter.type,
+          };
+        })
+      );
+
+      return headerResults
+        .filter(
+          (r): r is PromiseFulfilledResult<MemoryHeader> =>
+            r.status === 'fulfilled'
+        )
+        .map((r) => r.value)
+        .sort((a, b) => b.mtimeMs - a.mtimeMs)
+        .slice(0, MAX_MEMORY_FILES);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 格式化记忆头列表为文本清单（参考CC memoryScan.ts）
+   *
+   * @param memories 记忆头信息列表
+   * @returns 格式化的文本清单
+   */
+  static formatMemoryManifest(memories: MemoryHeader[]): string {
+    return memories
+      .map((m) => {
+        const tag = m.type ? `[${m.type}] ` : '';
+        const ts = new Date(m.mtimeMs).toISOString();
+        return m.description
+          ? `- ${tag}${m.filename} (${ts}): ${m.description}`
+          : `- ${tag}${m.filename} (${ts})`;
+      })
+      .join('\n');
   }
 
   /**

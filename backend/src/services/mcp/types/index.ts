@@ -10,6 +10,9 @@ import type {
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
+// MCP协议版本
+export const MCP_PROTOCOL_VERSION = '2024-11-05';
+
 // 配置作用域
 export const ConfigScopeSchema = z.enum([
   'local',
@@ -32,6 +35,183 @@ export const TransportSchema = z.enum([
   'sdk',
 ]);
 export type Transport = z.infer<typeof TransportSchema>;
+
+// MCP服务器类型
+export type MCPServerType =
+  | 'stdio'
+  | 'sse'
+  | 'http'
+  | 'ws'
+  | 'sse-ide'
+  | 'ws-ide'
+  | 'sdk'
+  | 'claudeai-proxy';
+
+// MCP服务器状态枚举
+export enum MCPServerStatus {
+  DISCONNECTED = 'disconnected',
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  ERROR = 'error',
+}
+
+// MCP客户端状态
+export type MCPClientState =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'authenticating'
+  | 'ready'
+  | 'error'
+  | 'disconnecting';
+
+// MCP事件类型
+export type MCPEventType =
+  | 'connect'
+  | 'disconnect'
+  | 'error'
+  | 'tool_call'
+  | 'resource_read'
+  | 'prompt_get'
+  | 'state_change';
+
+// MCP连接配置
+export interface MCPConnectionConfig {
+  timeout?: number;
+  maxRetries?: number;
+  retryInterval?: number;
+  heartbeatInterval?: number;
+  autoReconnect?: boolean;
+  debug?: boolean;
+}
+
+// MCP连接统计
+export interface MCPConnectionStats {
+  connectedAt: Date;
+  toolCalls: number;
+  resourceReads: number;
+  promptGets: number;
+  errors: number;
+  lastActivity: Date;
+  averageResponseTime: number;
+}
+
+// MCP工具定义
+export interface MCPToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  type?: string;
+  version?: string;
+}
+
+// MCP资源定义
+export interface MCPResourceDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  uri: string;
+  metadata?: Record<string, unknown>;
+}
+
+// MCP提示定义
+export interface MCPPromptDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  content: string;
+  arguments?: Record<string, unknown>;
+}
+
+// MCP请求
+export interface MCPRequest {
+  id: string;
+  type: 'call' | 'list_tools' | 'list_resources' | 'list_prompts' | 'ping';
+  tool_name?: string;
+  tool_arguments?: Record<string, unknown>;
+  args?: Record<string, unknown>;
+  uri?: string;
+  prompt_id?: string;
+  prompt_arguments?: Record<string, unknown>;
+}
+
+// MCP响应
+export interface MCPResponse {
+  id: string;
+  request_id: string;
+  type: 'result' | 'error' | 'progress' | 'pong';
+  result?: unknown;
+  tools?: MCPToolDefinition[];
+  error?: {
+    code: string;
+    message: string;
+    data?: unknown;
+  };
+  progress?: {
+    progress: number;
+    total: number;
+    message?: string;
+  };
+}
+
+// MCP客户端信息
+export interface MCPClientInfo {
+  name: string;
+  version: string;
+  capabilities: {
+    tools?: boolean;
+    resources?: boolean;
+    prompts?: boolean;
+  };
+}
+
+// MCP服务器信息
+export interface MCPServerInfo {
+  name: string;
+  version: string;
+  capabilities: {
+    tools?: boolean;
+    resources?: boolean;
+    prompts?: boolean;
+  };
+}
+
+// MCP事件
+export interface MCPEvent {
+  type: MCPEventType;
+  data?: unknown;
+  timestamp: Date;
+  serverName: string;
+}
+
+// MCP传输层接口
+export interface MCPTransport {
+  connect(): Promise<void>;
+  send(request: MCPRequest): Promise<MCPResponse>;
+  receive(): AsyncIterable<MCPResponse>;
+  close(): Promise<void>;
+  readonly state: MCPClientState;
+  readonly name?: string;
+  on(event: string, listener: (...args: unknown[]) => void): void;
+}
+
+// MCP服务器连接信息
+export interface MCPServerConnectionInfo {
+  name: string;
+  config: McpServerConfig | MCPServerConfig;
+  status: MCPServerStatus;
+  tools: MCPToolDefinition[];
+  error?: string;
+  stats?: {
+    totalRequests: number;
+    successfulRequests: number;
+    failedRequests: number;
+    lastRequestTime: number;
+    responseTime: number;
+  };
+}
 
 // Stdio服务器配置
 export const McpStdioServerConfigSchema = z.object({

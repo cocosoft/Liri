@@ -39,8 +39,8 @@ export interface MCPServerConnection {
  */
 export interface MCPState {
   clients: MCPServerConnection[];
-  tools: any[];
-  commands: any[];
+  tools: Record<string, unknown>[];
+  commands: Record<string, unknown>[];
   pluginReconnectKey: number;
 }
 
@@ -48,9 +48,9 @@ export interface MCPState {
  * 插件加载状态
  */
 export interface PluginLoadState {
-  enabled: any[];
-  disabled: any[];
-  errors: any[];
+  enabled: string[];
+  disabled: string[];
+  errors: string[];
 }
 
 /**
@@ -69,7 +69,7 @@ export interface TaskState {
   outputFile: string;
   outputOffset: number;
   notified: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
 }
 
@@ -95,7 +95,7 @@ export interface Notification {
  * 应用状态接口
  */
 export interface AppState {
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   verbose: boolean;
   statusLineText?: string;
   expandedView: 'none' | 'tasks' | 'settings';

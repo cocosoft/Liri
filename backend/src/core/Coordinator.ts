@@ -4,8 +4,8 @@
  */
 
 import { randomUUID } from 'crypto';
-import { AgentTool } from '../tools/AgentTool/AgentTool';
-import { logger } from '../utils/log.js';
+import { AgentTool } from '@modules/tools/AgentTool/AgentTool';
+import { logger } from '@modules/utils/log.js';
 
 export interface CoordinatorTask {
   id: string;

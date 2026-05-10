@@ -10,10 +10,7 @@ import {
 
 import { ServerResource as _ServerResource } from '../../services/mcp/types/index.js';
 
-export {
-  MCP_PROTOCOL_VERSION,
-  MCPServerStatus,
-} from './MCPTypes.js';
+export { MCP_PROTOCOL_VERSION, MCPServerStatus } from './MCPTypes.js';
 
 export type {
   ConfigScope,

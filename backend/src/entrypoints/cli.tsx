@@ -16,10 +16,70 @@ import {
 } from '../utils/cliArgs.js';
 
 /**
+ * 启动前环境变量优化
+ * 对标 CC 源码 entrypoints/cli.tsx 的启动前 process.env 设置
+ */
+function optimizeStartupEnv(): void {
+  if (!process.env.PY_APP_PROFILE_STARTUP) {
+    process.env.PY_APP_PROFILE_STARTUP = '0';
+  }
+  if (!process.env.FORCE_COLOR) {
+    process.env.FORCE_COLOR = '1';
+  }
+  if (!process.env.COLORTERM) {
+    process.env.COLORTERM = 'truecolor';
+  }
+  if (!process.env.PYTHONUNBUFFERED) {
+    process.env.PYTHONUNBUFFERED = '1';
+  }
+  if (!process.env.NODE_OPTIONS) {
+    process.env.NODE_OPTIONS = '--max-old-space-size=4096';
+  }
+}
+
+/**
+ * 输出系统提示
+ */
+async function dumpSystemPrompt(): Promise<void> {
+  // @ts-expect-error - context.js 没有类型声明文件
+  const contextModule: Record<string, unknown> =
+    await import('../context/context.js');
+  const getSystemContext = contextModule.getSystemContext as () => Promise<
+    Record<string, unknown>
+  >;
+  if (typeof getSystemContext !== 'function') {
+    console.log('{}');
+    return;
+  }
+  const context = await getSystemContext();
+  console.log(JSON.stringify(context, null, 2));
+}
+
+/**
+ * 运行诊断检查
+ */
+async function runDoctor(): Promise<void> {
+  console.log(chalk.cyan('PY_APP 系统诊断'));
+  console.log(chalk.gray('='.repeat(40)));
+  console.log(chalk.green('✓') + '  CLI 入口正常');
+  console.log(chalk.green('✓') + `  Node.js ${process.version}`);
+  console.log(chalk.green('✓') + `  平台: ${process.platform} ${process.arch}`);
+  console.log(chalk.green('✓') + `  CWD: ${process.cwd()}`);
+  console.log(chalk.green('✓') + `  PID: ${process.pid}`);
+  if (process.env.DEEPSEEK_API_KEY) {
+    console.log(chalk.green('✓') + '  DEEPSEEK_API_KEY 已配置');
+  } else {
+    console.log(chalk.yellow('⚠') + '  DEEPSEEK_API_KEY 未配置');
+  }
+}
+
+/**
  * 主CLI入口函数
  * 实现快速路径分发和多种运行模式支持
  */
 export async function main(): Promise<void> {
+  optimizeStartupEnv();
+
   const args = process.argv.slice(2);
   const normalizedArgs = normalizeArgs(args);
 
@@ -43,11 +103,15 @@ export async function main(): Promise<void> {
     console.log('Usage: PY_APP [options] [command]');
     console.log();
     console.log('Options:');
-    console.log('  -v, --version     显示版本信息');
-    console.log('  -h, --help        显示帮助信息');
-    console.log('  -p, --print       单次执行模式');
-    console.log('  --mcp             MCP服务器模式');
-    console.log('  --bg, --background 后台会话模式');
+    console.log('  -v, --version             显示版本信息');
+    console.log('  -h, --help                显示帮助信息');
+    console.log('  -p, --print               单次执行模式');
+    console.log('  --mcp                     MCP服务器模式');
+    console.log('  --daemon                  守护进程模式');
+    console.log('  --bg, --background        后台会话模式');
+    console.log('  --dump-system-prompt      输出系统提示并退出');
+    console.log('  --doctor                  运行系统诊断');
+    console.log('  --list-modes              列出可用运行模式');
     console.log();
     console.log('Commands:');
     console.log('  hello             显示欢迎信息');
@@ -61,6 +125,54 @@ export async function main(): Promise<void> {
     return;
   }
 
+  // 快速路径：输出系统提示
+  if (normalizedArgs.includes('--dump-system-prompt')) {
+    await dumpSystemPrompt();
+    return;
+  }
+
+  // 快速路径：运行诊断
+  if (normalizedArgs.includes('--doctor')) {
+    await runDoctor();
+    return;
+  }
+
+  // 快速路径：列出可用运行模式
+  if (normalizedArgs.includes('--list-modes')) {
+    console.log(chalk.cyan('PY_APP 可用运行模式'));
+    console.log(chalk.gray('='.repeat(40)));
+    console.log('  --mcp              MCP 服务器模式');
+    console.log('  --daemon           守护进程模式');
+    console.log('  --print, -p        单次执行模式');
+    console.log('  --pipe             管道模式');
+    console.log('  --background, --bg 后台会话模式');
+    return;
+  }
+
+  // 快速路径：MCP 服务器模式
+  if (normalizedArgs.includes('--mcp')) {
+    const { startMCPServer } = await import('./mcp.js');
+    await startMCPServer(process.cwd(), false, false);
+    return;
+  }
+
+  // 快速路径：守护进程模式
+  if (normalizedArgs.includes('--daemon')) {
+    const { launch, LaunchMode } = await import('../main.js');
+    await launch({ mode: LaunchMode.DAEMON });
+    return;
+  }
+
+  // 快速路径：后台会话模式
+  if (
+    normalizedArgs.includes('--background') ||
+    normalizedArgs.includes('--bg')
+  ) {
+    const { launch, LaunchMode } = await import('../main.js');
+    await launch({ mode: LaunchMode.DAEMON });
+    return;
+  }
+
   // 验证参数
   const validation = validateArgs(normalizedArgs);
   if (!validation.valid) {
@@ -68,16 +180,10 @@ export async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // 解析运行模式
+  // 解析运行模式（剩余模式：print, pipe）
   const runMode = parseRunMode(process.argv);
 
-  // 根据运行模式分发
-  if (runMode === 'mcp') {
-    const { startMCPServer } = await import('./mcp.js');
-    await startMCPServer(process.cwd(), false, false);
-    return;
-  } else if (runMode === 'print') {
-    // 单次执行模式
+  if (runMode === 'print') {
     const { executeOnce } = await import('./repl.js');
     const printArgs = normalizedArgs.filter(
       (arg) => arg !== '--print' && arg !== '-p'
@@ -90,14 +196,8 @@ export async function main(): Promise<void> {
     }
     return;
   } else if (runMode === 'pipe') {
-    // 管道模式
     const { executeFromPipe } = await import('./repl.js');
     await executeFromPipe();
-    return;
-  } else if (runMode === 'background') {
-    // 后台会话模式（简化实现）
-    console.log(chalk.yellow('后台会话模式暂未实现'));
-    process.exit(0);
     return;
   }
 

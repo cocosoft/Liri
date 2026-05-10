@@ -4,6 +4,10 @@
  * 支持同步和异步钩子，支持优先级排序
  */
 
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger();
+
 export type StopHookReason =
   | 'completed'
   | 'aborted'
@@ -69,7 +73,9 @@ export class StopHookManager {
         try {
           await hook.hook(context);
         } catch (error) {
-          console.error(`Stop hook "${hook.name}" failed:`, error);
+          logger.error(`Stop hook "${hook.name}" failed`, {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     } finally {

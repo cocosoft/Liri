@@ -4,6 +4,11 @@
  */
 
 import chalk from 'chalk';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface AgentHandlerOptions {
   verbose?: boolean;
@@ -30,7 +35,7 @@ export class AgentHandler {
    */
   async handleList(): Promise<void> {
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Fetching agents...');
+      logger.info('Fetching agents...');
     }
 
     try {
@@ -66,8 +71,11 @@ export class AgentHandler {
 
       console.log(chalk.cyan('═'.repeat(60)));
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to list agents: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: { handler: 'AgentHandler', operation: 'handleList' },
+      });
     }
   }
 
@@ -78,12 +86,14 @@ export class AgentHandler {
     const agentName = args[0];
 
     if (!agentName) {
-      console.error(chalk.red('✗'), 'Agent name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'AgentHandler', operation: 'handleStart' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Starting agent: ${agentName}`);
+      logger.info(`Starting agent: ${agentName}`);
     }
 
     try {
@@ -97,8 +107,15 @@ export class AgentHandler {
 
       console.log(chalk.green('✓'), `Agent ${agentName} started`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to start agent: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'AgentHandler',
+          operation: 'handleStart',
+          agentName,
+        },
+      });
     }
   }
 
@@ -109,12 +126,14 @@ export class AgentHandler {
     const agentName = args[0];
 
     if (!agentName) {
-      console.error(chalk.red('✗'), 'Agent name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'AgentHandler', operation: 'handleStop' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Stopping agent: ${agentName}`);
+      logger.info(`Stopping agent: ${agentName}`);
     }
 
     try {
@@ -128,8 +147,15 @@ export class AgentHandler {
 
       console.log(chalk.green('✓'), `Agent ${agentName} stopped`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to stop agent: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'AgentHandler',
+          operation: 'handleStop',
+          agentName,
+        },
+      });
     }
   }
 
@@ -140,12 +166,14 @@ export class AgentHandler {
     const agentName = args[0];
 
     if (!agentName) {
-      console.error(chalk.red('✗'), 'Agent name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'AgentHandler', operation: 'handleRestart' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Restarting agent: ${agentName}`);
+      logger.info(`Restarting agent: ${agentName}`);
     }
 
     try {
@@ -153,8 +181,15 @@ export class AgentHandler {
       await this.handleStart([agentName]);
       console.log(chalk.green('✓'), `Agent ${agentName} restarted`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to restart agent: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'AgentHandler',
+          operation: 'handleRestart',
+          agentName,
+        },
+      });
     }
   }
 
@@ -166,12 +201,14 @@ export class AgentHandler {
     const agentType = args[1] || 'default';
 
     if (!agentName) {
-      console.error(chalk.red('✗'), 'Agent name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'AgentHandler', operation: 'handleCreate' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Creating agent: ${agentName}`);
+      logger.info(`Creating agent: ${agentName}`);
     }
 
     try {
@@ -188,8 +225,15 @@ export class AgentHandler {
 
       console.log(chalk.green('✓'), `Agent ${agentName} created`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to create agent: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'AgentHandler',
+          operation: 'handleCreate',
+          agentName,
+        },
+      });
     }
   }
 
@@ -214,7 +258,6 @@ export class AgentHandler {
    */
   private async fetchAgents(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 200));
-    // 返回模拟数据
     if (this.agents.length === 0) {
       this.agents = [
         {

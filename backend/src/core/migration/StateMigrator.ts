@@ -3,11 +3,11 @@
  * 用于将现有模块状态迁移到新的AppState中
  */
 
-import { AppState, getDefaultAppState } from '../state/AppState.js';
+import { AppState, getDefaultAppState } from '@modules/state/AppState.js';
 import {
   getGlobalStore,
   initializeGlobalStore,
-} from '../state/AppStateStore.js';
+} from '@modules/state/AppStateStore.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });

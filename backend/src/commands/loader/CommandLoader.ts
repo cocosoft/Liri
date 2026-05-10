@@ -195,6 +195,18 @@ export class BuiltinCommandLoader implements CommandLoader {
         name: 'checkpoint',
         aliases: ['cp'],
       },
+      // CC 对标补充命令
+      {
+        path: '../builtin/commit-push-pr/index.js',
+        name: 'commit-push-pr',
+        aliases: ['pr-create', 'commit-pr'],
+      },
+      { path: '../builtin/thinkback-play/index.js', name: 'thinkback-play' },
+      {
+        path: '../builtin/security-review/index.js',
+        name: 'security-review',
+        aliases: ['sec-review'],
+      },
     ];
 
     const commands: Command[] = [];

@@ -1,5 +1,4 @@
-import { DANGEROUS_COMMAND_PATTERNS } from './patterns';
-import type { SecurityPattern } from './types';
+import { securityIntegrationService } from './SecurityIntegration';
 
 export enum SecurityLevel {
   NONE = 0,
@@ -51,6 +50,8 @@ const defaultConfig: SecurityConfig = {
   maxInputLength: 100000,
   maxMessageCount: 1000,
   blockedPatterns: [
+    // 仅保留内容级安全模式
+    // 命令级安全模式（rm -rf, mkfs, dd 等）由 BashSecurityAnalyzer 处理
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
     /DROP\s+TABLE/gi,
     /DELETE\s+FROM/gi,
@@ -58,9 +59,6 @@ const defaultConfig: SecurityConfig = {
     /process\.mainModule/i,
     /require\s*\(\s*['"]fs['"]\s*\)/i,
     /eval\s*\(/i,
-    /rm\s+-rf/gi,
-    /mkfs/i,
-    /dd\s+if=/i,
   ],
   allowedDomains: [],
   allowedFileTypes: [
@@ -82,9 +80,6 @@ const defaultConfig: SecurityConfig = {
   rateLimitMaxRequests: 100,
   rateLimitWindowMs: 60000,
 };
-
-const TOOL_DANGEROUS_PATTERNS: SecurityPattern[] =
-  DANGEROUS_COMMAND_PATTERNS.filter((p) => p.riskLevel === 'high');
 
 export interface ICompleteSecuritySystem {
   checkMessageSecurity(
@@ -114,6 +109,18 @@ export interface SecurityReport {
   securityScore: number;
 }
 
+/**
+ * 完整安全系统（编排层）
+ *
+ * 职责范围：
+ * - 内容级安全过滤（XSS、SQL注入等）
+ * - 会话安全检测（速率限制、风险行为追踪）
+ * - 审计日志管理
+ * - 安全报告生成
+ *
+ * 注意：命令级安全分析委托给 BashSecurityAnalyzer（通过 SecurityIntegrationService），
+ * 本类不重复实现命令分析逻辑。
+ */
 export class CompleteSecuritySystem implements ICompleteSecuritySystem {
   private config: SecurityConfig;
   private auditLogs: AuditRecord[] = [];
@@ -133,6 +140,11 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
     this.maxCheckHistory = maxCheckHistory;
   }
 
+  /**
+   * 检查消息内容安全性
+   * 处理内容级安全过滤（XSS、SQL注入等）
+   * 命令级安全检查委托给 BashSecurityAnalyzer
+   */
   async checkMessageSecurity(
     content: string,
     context?: Record<string, unknown>
@@ -190,23 +202,33 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
     toolName: string,
     args: Record<string, unknown>
   ): Promise<SecurityCheckResult> {
-    const issues: string[] = [];
-
     const commandStr = JSON.stringify(args);
 
-    for (const pattern of TOOL_DANGEROUS_PATTERNS) {
-      if (pattern.pattern.test(commandStr)) {
-        issues.push(
-          `Dangerous command detected: ${pattern.name} - ${pattern.message}`
-        );
-      }
-    }
+    // 委托给 SecurityIntegrationService 的 BashSecurityAnalyzer 进行完整分析
+    const analysis = securityIntegrationService
+      .getSecurityAnalyzer()
+      .analyze(commandStr);
+
+    const riskLevelMap: Record<string, SecurityLevel> = {
+      low: SecurityLevel.LOW,
+      medium: SecurityLevel.MEDIUM,
+      high: SecurityLevel.CRITICAL,
+    };
 
     const result: SecurityCheckResult = {
-      passed: issues.length === 0,
-      level: issues.length > 0 ? SecurityLevel.CRITICAL : SecurityLevel.NONE,
-      category: issues.length > 0 ? 'dangerous_tool' : 'clean',
-      details: issues,
+      passed: analysis.safe,
+      level: analysis.safe
+        ? SecurityLevel.NONE
+        : (riskLevelMap[analysis.riskLevel] ?? SecurityLevel.CRITICAL),
+      category: analysis.safe ? 'clean' : 'dangerous_tool',
+      details:
+        analysis.matchedPatterns.length > 0
+          ? analysis.matchedPatterns.map(
+              (p) => `Dangerous command detected: ${p}`
+            )
+          : analysis.message
+            ? [analysis.message]
+            : [],
       timestamp: Date.now(),
     };
 

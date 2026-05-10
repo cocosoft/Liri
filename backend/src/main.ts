@@ -2,6 +2,14 @@
 
 import { profileCheckpoint, profileReport } from './utils/startupProfiler';
 import { Logger } from './monitoring/logs/Logger';
+import {
+  startMdmPrefetch,
+  ensureMdmPrefetchCompleted,
+} from './infrastructure/startup/MdmPrefetch';
+import {
+  startKeychainPrefetch,
+  ensureKeychainPrefetchCompleted,
+} from './infrastructure/startup/KeychainPrefetch';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -119,11 +127,32 @@ export async function launch(options: LaunchOptions): Promise<void> {
   try {
     logger.info(`应用启动 - 模式: ${options.mode}`);
 
+    // T0: 启动并行预读取（不阻塞模块初始化）
+    profileCheckpoint('T0_preroll_start');
+    startMdmPrefetch();
+    if (process.platform === 'darwin') {
+      startKeychainPrefetch(
+        ['PY_APP', 'com.pyapp.api-key'],
+        process.env.USER || ''
+      );
+    }
+    profileCheckpoint('T0_preroll_end');
+
+    // 模块系统初始化
     profileCheckpoint('module_init_start');
     await initializeModuleSystem();
     profileCheckpoint('module_init_end');
 
-    profileCheckpoint('mode_dispatch_start');
+    // T1: 等待关键预读取完成
+    profileCheckpoint('T1_await_prefetch_start');
+    await ensureMdmPrefetchCompleted();
+    if (process.platform === 'darwin') {
+      await ensureKeychainPrefetchCompleted();
+    }
+    profileCheckpoint('T1_await_prefetch_end');
+
+    // T2: 模式分发
+    profileCheckpoint('T2_dispatch_start');
     switch (options.mode) {
       case LaunchMode.CLI:
         await launchCLI(options);
@@ -145,11 +174,11 @@ export async function launch(options: LaunchOptions): Promise<void> {
         await launchREPL(options);
         break;
     }
-    profileCheckpoint('mode_dispatch_end');
+    profileCheckpoint('T2_dispatch_end');
 
     profileReport();
   } catch (error) {
-    logger.error('应用启动失败', error as Error);
+    logger.error('应用启动失败', { message: error instanceof Error ? error.message : String(error) });
     profileCheckpoint('launch_error');
     profileReport();
     process.exit(1);

@@ -1,3 +1,5 @@
+import { sleep } from '@modules/utils/common.js';
+
 /**
  * 增强重试策略
  *
@@ -227,11 +229,4 @@ export async function retry<T>(
   }
 
   throw lastError ?? new Error('未知错误');
-}
-
-/**
- * 睡眠函数
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

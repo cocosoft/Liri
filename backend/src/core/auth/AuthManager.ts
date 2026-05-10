@@ -4,6 +4,7 @@
  * 负责管理各种认证方式（API Key、OAuth、AWS、GCP等）
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { getOauthConfig } from './oauthConfig.js';
 import { oauthService } from '@modules/oauth';
 import type {
@@ -21,6 +22,7 @@ export interface OAuthTokens {
   refreshToken: string;
   expiresAt: number;
   tokenType?: string;
+  scopes?: string[];
 }
 
 export interface CloudCredentials {
@@ -42,6 +44,7 @@ export interface AuthConfig {
 export interface AuthManager {
   getApiKey(): Promise<string>;
   refreshIfNeeded(): Promise<void>;
+  setOAuthTokens(tokens: OAuthTokens): void;
   getOAuthTokens(): Promise<OAuthTokens | null>;
   getCloudCredentials(
     provider: CloudProvider
@@ -146,7 +149,11 @@ export class DefaultAuthManager implements AuthManager {
     }
 
     if (!this.oauthTokens?.refreshToken) {
-      throw new Error('No refresh token available');
+      throw new AppError(
+        'No refresh token available',
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH
+      );
     }
 
     this.isRefreshing = true;
@@ -180,7 +187,11 @@ export class DefaultAuthManager implements AuthManager {
         this.oauthTokens = null;
         this.authConfig.oauth = null;
         this.clearRefreshTimer();
-        throw new Error('Token refresh failed after maximum retries');
+        throw new AppError(
+          'Token refresh failed after maximum retries',
+          ErrorCategory.PERMISSION,
+          ErrorSeverity.CRITICAL
+        );
       }
 
       const delay = Math.min(1000 * Math.pow(2, this.refreshRetryCount), 30000);
@@ -308,7 +319,7 @@ export class DefaultAuthManager implements AuthManager {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
-      scopes: (tokens as any).scopes || [],
+      scopes: tokens.scopes || [],
     };
     this.tokenManager.cacheToken('default', cachedToken).catch((err) => {
       logger.error('Failed to cache OAuth tokens:', err);

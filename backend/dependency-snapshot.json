@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-09T04:06:28.796Z",
+  "generatedAt": "2026-05-10T12:10:06.854Z",
   "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {
@@ -353,9 +353,7 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": [
-        "hooks"
-      ]
+      "optionalDependencies": []
     },
     "lsp": {
       "id": "lsp",
@@ -406,6 +404,18 @@
       "dependencies": [
         "core",
         "infrastructure"
+      ],
+      "optionalDependencies": []
+    },
+    "remote": {
+      "id": "remote",
+      "name": "remote",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "security"
       ],
       "optionalDependencies": []
     },
@@ -505,10 +515,11 @@
     "analytics",
     "buddy",
     "docs",
+    "remote",
     "services",
     "streaming",
     "utils",
     "keybindings"
   ],
-  "fingerprint": "6c18dec853a88187"
+  "fingerprint": "269f6cafd6c3b338"
 }

@@ -10,10 +10,7 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 // 导出模块注册表
 export type { ModuleDefinition } from './ModuleRegistry';
-export {
-  ModuleCategory,
-  moduleRegistry,
-} from './ModuleRegistry';
+export { ModuleCategory, moduleRegistry } from './ModuleRegistry';
 
 // 导出导入管理器
 export {

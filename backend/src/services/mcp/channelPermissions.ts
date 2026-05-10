@@ -1,6 +1,6 @@
 /**
  * 通道权限管理
- * 负责处理通道权限相关的功能，包括资源/工具访问控制
+ * 负责处理通道权限相关的功能，包括资源/工具访问控制、权限中继
  *
  * 基于CC源码 cc_code/backend/services/mcp/channelPermissions.ts 实现
  */
@@ -29,10 +29,90 @@ export interface ChannelPermissionConfig {
   toolPermissions: ToolPermission[];
 }
 
-/**
- * 通道权限回调
- */
-export interface ChannelPermissionCallbacks {
+// ----- 增强层权限中继系统 -----
+
+export type ChannelPermissionResponse = {
+  behavior: 'allow' | 'deny';
+  fromServer: string;
+};
+
+export type ChannelPermissionCallbacks = {
+  onResponse(
+    requestId: string,
+    handler: (response: ChannelPermissionResponse) => void
+  ): () => void;
+  resolve(
+    requestId: string,
+    behavior: 'allow' | 'deny',
+    fromServer: string
+  ): boolean;
+};
+
+type PermissionHandler = (response: ChannelPermissionResponse) => void;
+
+export class ChannelPermissionRelay implements ChannelPermissionCallbacks {
+  private handlers: Map<string, PermissionHandler> = new Map();
+  private serverName: string = 'unknown';
+
+  setServerName(name: string): void {
+    this.serverName = name;
+  }
+
+  onResponse(
+    requestId: string,
+    handler: (response: ChannelPermissionResponse) => void
+  ): () => void {
+    this.handlers.set(requestId, handler);
+    return () => {
+      this.handlers.delete(requestId);
+    };
+  }
+
+  resolve(
+    requestId: string,
+    behavior: 'allow' | 'deny',
+    fromServer: string
+  ): boolean {
+    const handler = this.handlers.get(requestId);
+    if (!handler) return false;
+
+    handler({ behavior, fromServer });
+    this.handlers.delete(requestId);
+    return true;
+  }
+
+  hasPendingRequest(requestId: string): boolean {
+    return this.handlers.has(requestId);
+  }
+
+  clearAll(): void {
+    this.handlers.clear();
+  }
+
+  getPendingRequestIds(): string[] {
+    return Array.from(this.handlers.keys());
+  }
+}
+
+let globalPermissionRelay: ChannelPermissionRelay | null = null;
+
+export function getChannelPermissionRelay(): ChannelPermissionRelay {
+  if (!globalPermissionRelay) {
+    globalPermissionRelay = new ChannelPermissionRelay();
+  }
+  return globalPermissionRelay;
+}
+
+export function clearChannelPermissionRelay(): void {
+  if (globalPermissionRelay) {
+    globalPermissionRelay.clearAll();
+    globalPermissionRelay = null;
+  }
+}
+
+// ----- 标准层配置系统 -----
+
+export interface DefaultChannelPermissionCallbacks {
   resolve: (requestId: string, behavior: string, serverName: string) => boolean;
   getPendingCount: () => number;
 }
@@ -40,9 +120,9 @@ export interface ChannelPermissionCallbacks {
 const permissionConfigs = new Map<string, ChannelPermissionConfig>();
 
 /**
- * 创建通道权限回调
+ * 创建默认通道权限回调
  */
-export function createChannelPermissionCallbacks(): ChannelPermissionCallbacks {
+export function createChannelPermissionCallbacks(): DefaultChannelPermissionCallbacks {
   const pendingRequests = new Map<
     string,
     {

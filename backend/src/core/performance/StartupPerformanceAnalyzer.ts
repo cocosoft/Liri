@@ -2,8 +2,11 @@
  * 启动性能分析器
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import fs from 'fs';
 import path from 'path';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 性能指标
@@ -35,6 +38,8 @@ export interface MemorySnapshot {
   external: number;
   /** RSS内存使用情况 */
   rss: number;
+  /** 快照标签 */
+  label?: string;
   /** 模块信息 */
   modules?: Array<{
     name: string;
@@ -164,12 +169,12 @@ export class StartupPerformanceAnalyzer {
       };
 
       if (label) {
-        (snapshot as any).label = label;
+        snapshot.label = label;
       }
 
       this.memorySnapshots.push(snapshot);
     } catch (error) {
-      console.error('Error taking memory snapshot:', error);
+      logger.error('Error taking memory snapshot:', error);
     }
   }
 
@@ -244,37 +249,40 @@ export class StartupPerformanceAnalyzer {
   printSummary(): void {
     const report = this.generateReport();
 
-    console.log('=== Startup Performance Summary ===');
-    console.log(`Total startup time: ${report.totalTime.toFixed(2)}ms`);
-    console.log('');
-    console.log('Top metrics:');
+    const lines: string[] = [
+      '=== Startup Performance Summary ===',
+      `Total startup time: ${report.totalTime.toFixed(2)}ms`,
+      '',
+      'Top metrics:',
+    ];
 
-    // 按持续时间排序，显示前10个
     const topMetrics = [...report.metrics]
       .sort((a, b) => b.duration - a.duration)
       .slice(0, 10);
     topMetrics.forEach((metric, index) => {
-      console.log(
+      lines.push(
         `${index + 1}. ${metric.name}: ${metric.duration.toFixed(2)}ms`
       );
     });
 
-    console.log('');
-    console.log('Memory usage:');
+    lines.push('');
+    lines.push('Memory usage:');
     const finalSnapshot =
       report.memorySnapshots[report.memorySnapshots.length - 1];
     if (finalSnapshot) {
-      console.log(
+      lines.push(
         `  Heap used: ${(finalSnapshot.heapUsed / 1024 / 1024).toFixed(2)}MB`
       );
-      console.log(
+      lines.push(
         `  Heap total: ${(finalSnapshot.heapTotal / 1024 / 1024).toFixed(2)}MB`
       );
-      console.log(`  RSS: ${(finalSnapshot.rss / 1024 / 1024).toFixed(2)}MB`);
+      lines.push(`  RSS: ${(finalSnapshot.rss / 1024 / 1024).toFixed(2)}MB`);
     }
 
-    console.log('');
-    console.log(`Module count: ${report.moduleLoadInfo.length}`);
+    lines.push('');
+    lines.push(`Module count: ${report.moduleLoadInfo.length}`);
+
+    logger.info(lines.join('\n'));
   }
 }
 

@@ -3,7 +3,14 @@
  * 提供插件系统、模块化架构、配置管理和事件总线等功能
  */
 
-import { EventBus as CoreEventBus, EventBusImpl } from '../events/EventBus';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import {
+  EventBus as CoreEventBus,
+  EventBusImpl,
+} from '@modules/core/events/EventBus';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件生命周期状态
@@ -55,7 +62,7 @@ export interface PluginMetadata {
 export interface Plugin {
   metadata: PluginMetadata;
   state: PluginState;
-  instance?: any;
+  instance?: unknown;
   error?: string;
   load(): Promise<void>;
   unload(): Promise<void>;
@@ -128,18 +135,30 @@ export class PluginLoader {
       }
 
       if (!pluginPath) {
-        throw new Error(`Plugin directory not found for ${pluginId}`);
+        throw new AppError(
+          `Plugin directory not found for ${pluginId}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH
+        );
       }
 
       // 读取plugin.json
       const pluginJsonPath = path.join(pluginPath, 'plugin.json');
       if (!fs.existsSync(pluginJsonPath)) {
-        throw new Error(`plugin.json not found in ${pluginId}`);
+        throw new AppError(
+          `plugin.json not found in ${pluginId}`,
+          ErrorCategory.FILESYSTEM,
+          ErrorSeverity.HIGH
+        );
       }
 
       const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
       if (!pluginJson.plugin) {
-        throw new Error(`Invalid plugin.json format in ${pluginId}`);
+        throw new AppError(
+          `Invalid plugin.json format in ${pluginId}`,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH
+        );
       }
 
       const metadata = pluginJson.plugin;
@@ -159,7 +178,7 @@ export class PluginLoader {
         },
         state: PluginState.LOADING,
         load: async () => {
-          console.log(`Loading plugin ${pluginId}`);
+          logger.info(`Loading plugin ${pluginId}`);
           // 动态导入插件主模块
           try {
             const mainPath = path.join(
@@ -169,34 +188,32 @@ export class PluginLoader {
             const pluginModule = await import(`file://${mainPath}`);
             plugin.instance = pluginModule.default || pluginModule;
           } catch (error) {
-            throw new Error(
-              `Failed to load plugin module: ${error instanceof Error ? error.message : String(error)}`
+            throw new AppError(
+              `Failed to load plugin module: ${error instanceof Error ? error.message : String(error)}`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH
             );
           }
           plugin.state = PluginState.LOADED;
         },
         unload: async () => {
-          console.log(`Unloading plugin ${pluginId}`);
+          logger.info(`Unloading plugin ${pluginId}`);
           plugin.instance = undefined;
           plugin.state = PluginState.UNLOADED;
         },
         activate: async () => {
-          console.log(`Activating plugin ${pluginId}`);
-          if (
-            plugin.instance &&
-            typeof plugin.instance.activate === 'function'
-          ) {
-            await plugin.instance.activate();
+          logger.info(`Activating plugin ${pluginId}`);
+          const inst = plugin.instance as Record<string, unknown> | undefined;
+          if (inst && typeof inst.activate === 'function') {
+            await (inst.activate as () => Promise<void>)();
           }
           plugin.state = PluginState.ACTIVATED;
         },
         deactivate: async () => {
-          console.log(`Deactivating plugin ${pluginId}`);
-          if (
-            plugin.instance &&
-            typeof plugin.instance.deactivate === 'function'
-          ) {
-            await plugin.instance.deactivate();
+          logger.info(`Deactivating plugin ${pluginId}`);
+          const inst = plugin.instance as Record<string, unknown> | undefined;
+          if (inst && typeof inst.deactivate === 'function') {
+            await (inst.deactivate as () => Promise<void>)();
           }
           plugin.state = PluginState.DEACTIVATED;
         },
@@ -249,7 +266,7 @@ export class PluginLoader {
       this.pluginCache.delete(pluginId);
       return true;
     } catch (error) {
-      console.error(`Failed to unload plugin ${pluginId}:`, error);
+      logger.error(`Failed to unload plugin ${pluginId}:`, error);
       return false;
     }
   }
@@ -265,7 +282,7 @@ export class PluginLoader {
       await plugin.activate();
       return true;
     } catch (error) {
-      console.error(`Failed to activate plugin ${pluginId}:`, error);
+      logger.error(`Failed to activate plugin ${pluginId}:`, error);
       plugin.state = PluginState.FAILED;
       plugin.error = error instanceof Error ? error.message : String(error);
       return false;
@@ -283,7 +300,7 @@ export class PluginLoader {
       await plugin.deactivate();
       return true;
     } catch (error) {
-      console.error(`Failed to deactivate plugin ${pluginId}:`, error);
+      logger.error(`Failed to deactivate plugin ${pluginId}:`, error);
       return false;
     }
   }
@@ -328,14 +345,17 @@ export class PluginLoader {
                     pluginIds.push(pluginJson.plugin.name);
                   }
                 } catch (error) {
-                  console.warn(`Invalid plugin.json in ${entry.name}:`, error);
+                  logger.warning(
+                    `Invalid plugin.json in ${entry.name}:`,
+                    error
+                  );
                 }
               }
             }
           }
         }
       } catch (error) {
-        console.warn(`Error scanning plugin directory ${fullPath}:`, error);
+        logger.warning(`Error scanning plugin directory ${fullPath}:`, error);
       }
     }
 
@@ -372,7 +392,7 @@ export class PluginLoader {
       try {
         await plugin.unload();
       } catch (error) {
-        console.error(`Failed to unload plugin ${plugin.metadata.id}:`, error);
+        logger.error(`Failed to unload plugin ${plugin.metadata.id}:`, error);
       }
     }
     this.plugins.clear();
@@ -429,7 +449,7 @@ export interface Module {
   stop(): Promise<void>;
   destroy(): Promise<void>;
   getProvider<T>(name: string): T | undefined;
-  registerProvider(name: string, provider: any): void;
+  registerProvider(name: string, provider: unknown): void;
   unregisterProvider(name: string): void;
 }
 
@@ -449,15 +469,21 @@ export class ModuleManager {
    */
   async registerModule(module: Module): Promise<void> {
     if (this.modules.has(module.metadata.id)) {
-      throw new Error(`Module ${module.metadata.id} already registered`);
+      throw new AppError(
+        `Module ${module.metadata.id} already registered`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM
+      );
     }
 
     // 解析依赖
     const dependencies = module.metadata.dependencies || [];
     for (const dependency of dependencies) {
       if (!this.modules.has(dependency) && !this.lazyModules.has(dependency)) {
-        throw new Error(
-          `Dependency ${dependency} not found for module ${module.metadata.id}`
+        throw new AppError(
+          `Dependency ${dependency} not found for module ${module.metadata.id}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH
         );
       }
 
@@ -488,7 +514,11 @@ export class ModuleManager {
    */
   registerLazyModule(moduleId: string, loader: () => Promise<Module>): void {
     if (this.modules.has(moduleId) || this.lazyModules.has(moduleId)) {
-      throw new Error(`Module ${moduleId} already registered`);
+      throw new AppError(
+        `Module ${moduleId} already registered`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM
+      );
     }
 
     this.lazyModules.set(moduleId, { loader, loaded: false });
@@ -500,13 +530,21 @@ export class ModuleManager {
   private async loadLazyModule(moduleId: string): Promise<Module> {
     const lazyModule = this.lazyModules.get(moduleId);
     if (!lazyModule) {
-      throw new Error(`Lazy module ${moduleId} not found`);
+      throw new AppError(
+        `Lazy module ${moduleId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     if (lazyModule.loaded) {
       const module = this.modules.get(moduleId);
       if (!module) {
-        throw new Error(`Module ${moduleId} not found after loading`);
+        throw new AppError(
+          `Module ${moduleId} not found after loading`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH
+        );
       }
       return module;
     }
@@ -523,7 +561,11 @@ export class ModuleManager {
   async startModule(moduleId: string): Promise<void> {
     const module = await this.getModule(moduleId);
     if (!module) {
-      throw new Error(`Module ${moduleId} not found`);
+      throw new AppError(
+        `Module ${moduleId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     if (module.state === ModuleState.ACTIVATED) {
@@ -531,7 +573,11 @@ export class ModuleManager {
     }
 
     if (module.state === ModuleState.FAILED) {
-      throw new Error(`Module ${moduleId} is in failed state`);
+      throw new AppError(
+        `Module ${moduleId} is in failed state`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     try {
@@ -549,7 +595,11 @@ export class ModuleManager {
   async stopModule(moduleId: string): Promise<void> {
     const module = this.modules.get(moduleId);
     if (!module) {
-      throw new Error(`Module ${moduleId} not found`);
+      throw new AppError(
+        `Module ${moduleId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     if (module.state !== ModuleState.ACTIVATED) {
@@ -571,13 +621,21 @@ export class ModuleManager {
   async unregisterModule(moduleId: string): Promise<void> {
     const module = this.modules.get(moduleId);
     if (!module) {
-      throw new Error(`Module ${moduleId} not found`);
+      throw new AppError(
+        `Module ${moduleId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     // 检查是否有其他模块依赖此模块
     for (const [id, dependencies] of this.dependencyGraph.entries()) {
       if (dependencies.includes(moduleId)) {
-        throw new Error(`Module ${moduleId} is required by ${id}`);
+        throw new AppError(
+          `Module ${moduleId} is required by ${id}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH
+        );
       }
     }
 
@@ -590,7 +648,7 @@ export class ModuleManager {
     try {
       await module.destroy();
     } catch (error) {
-      console.error(`Failed to destroy module ${moduleId}:`, error);
+      logger.error(`Failed to destroy module ${moduleId}:`, error);
     }
 
     this.modules.delete(moduleId);
@@ -616,7 +674,7 @@ export class ModuleManager {
       try {
         return await this.loadLazyModule(moduleId);
       } catch (error) {
-        console.error(`Failed to load lazy module ${moduleId}:`, error);
+        logger.error(`Failed to load lazy module ${moduleId}:`, error);
         return undefined;
       }
     }
@@ -672,9 +730,9 @@ export class ModuleManager {
   /**
    * 注册全局提供者
    */
-  registerGlobalProvider(name: string, provider: any): void {
+  registerGlobalProvider(name: string, provider: unknown): void {
     // 实际实现中应该有一个全局模块来管理全局提供者
-    console.log(`Registered global provider: ${name}`);
+    logger.info(`Registered global provider: ${name}`);
   }
 
   /**
@@ -685,7 +743,7 @@ export class ModuleManager {
       try {
         await module.destroy();
       } catch (error) {
-        console.error(`Failed to destroy module ${module.metadata.id}:`, error);
+        logger.error(`Failed to destroy module ${module.metadata.id}:`, error);
       }
     }
     this.modules.clear();
@@ -1132,21 +1190,21 @@ export class ExtensibilityService {
       state: ModuleState.UNLOADED,
       providers: new Map(),
       async init() {
-        console.log('Config module initialized');
+        logger.info('Config module initialized');
       },
       async start() {
-        console.log('Config module started');
+        logger.info('Config module started');
       },
       async stop() {
-        console.log('Config module stopped');
+        logger.info('Config module stopped');
       },
       async destroy() {
-        console.log('Config module destroyed');
+        logger.info('Config module destroyed');
       },
       getProvider: <T>(name: string): T | undefined =>
         this.configManager.getConfig(name) as T,
-      registerProvider: (name: string, provider: any): void => {
-        this.configManager.registerConfig(name, provider);
+      registerProvider: (name: string, provider: unknown): void => {
+        this.configManager.registerConfig(name, provider as Config);
       },
       unregisterProvider: (name: string): void => {
         this.configManager.removeConfig(name);
@@ -1165,19 +1223,19 @@ export class ExtensibilityService {
       state: ModuleState.UNLOADED,
       providers: new Map(),
       async init() {
-        console.log('Plugin module initialized');
+        logger.info('Plugin module initialized');
       },
       async start() {
-        console.log('Plugin module started');
+        logger.info('Plugin module started');
       },
       async stop() {
-        console.log('Plugin module stopped');
+        logger.info('Plugin module stopped');
       },
       async destroy() {
-        console.log('Plugin module destroyed');
+        logger.info('Plugin module destroyed');
       },
       getProvider: <T>(name: string): T | undefined => undefined,
-      registerProvider: (name: string, provider: any): void => {},
+      registerProvider: (name: string, provider: unknown): void => {},
       unregisterProvider: (name: string): void => {},
     }));
 
@@ -1193,19 +1251,19 @@ export class ExtensibilityService {
       state: ModuleState.UNLOADED,
       providers: new Map(),
       async init() {
-        console.log('Event module initialized');
+        logger.info('Event module initialized');
       },
       async start() {
-        console.log('Event module started');
+        logger.info('Event module started');
       },
       async stop() {
-        console.log('Event module stopped');
+        logger.info('Event module stopped');
       },
       async destroy() {
-        console.log('Event module destroyed');
+        logger.info('Event module destroyed');
       },
       getProvider: <T>(name: string): T | undefined => this.eventBus as T,
-      registerProvider: (name: string, provider: any): void => {},
+      registerProvider: (name: string, provider: unknown): void => {},
       unregisterProvider: (name: string): void => {},
     }));
 
@@ -1224,20 +1282,20 @@ export class ExtensibilityService {
         state: ModuleState.UNLOADED,
         providers: new Map(),
         async init() {
-          console.log('Skills module initialized');
+          logger.info('Skills module initialized');
         },
         async start() {
-          console.log('Skills module started');
+          logger.info('Skills module started');
         },
         async stop() {
-          console.log('Skills module stopped');
+          logger.info('Skills module stopped');
         },
         async destroy() {
-          console.log('Skills module destroyed');
+          logger.info('Skills module destroyed');
         },
         getProvider: <T>(name: string): T | undefined =>
           name === 'skillManager' ? (skillManager as T) : undefined,
-        registerProvider: (name: string, provider: any): void => {},
+        registerProvider: (name: string, provider: unknown): void => {},
         unregisterProvider: (name: string): void => {},
       };
     });
@@ -1257,22 +1315,22 @@ export class ExtensibilityService {
         state: ModuleState.UNLOADED,
         providers: new Map(),
         async init() {
-          console.log('Remote module initialized');
+          logger.info('Remote module initialized');
         },
         async start() {
-          console.log('Remote module started');
+          logger.info('Remote module started');
         },
         async stop() {
-          console.log('Remote module stopped');
+          logger.info('Remote module stopped');
         },
         async destroy() {
-          console.log('Remote module destroyed');
+          logger.info('Remote module destroyed');
         },
         getProvider: <T>(name: string): T | undefined =>
           name === 'createRemoteSessionManager'
             ? (createRemoteSessionManager as T)
             : undefined,
-        registerProvider: (name: string, provider: any): void => {},
+        registerProvider: (name: string, provider: unknown): void => {},
         unregisterProvider: (name: string): void => {},
       };
     });
@@ -1295,16 +1353,16 @@ export class ExtensibilityService {
         state: ModuleState.UNLOADED,
         providers: new Map(),
         async init() {
-          console.log('Security module initialized');
+          logger.info('Security module initialized');
         },
         async start() {
-          console.log('Security module started');
+          logger.info('Security module started');
         },
         async stop() {
-          console.log('Security module stopped');
+          logger.info('Security module stopped');
         },
         async destroy() {
-          console.log('Security module destroyed');
+          logger.info('Security module destroyed');
         },
         getProvider: <T>(name: string): T | undefined => {
           if (name === 'sandboxManager') return sandboxManager as T;
@@ -1312,7 +1370,7 @@ export class ExtensibilityService {
           if (name === 'securityAudit') return securityAudit as T;
           return undefined;
         },
-        registerProvider: (name: string, provider: any): void => {},
+        registerProvider: (name: string, provider: unknown): void => {},
         unregisterProvider: (name: string): void => {},
       };
     });
@@ -1336,16 +1394,16 @@ export class ExtensibilityService {
         state: ModuleState.UNLOADED,
         providers: new Map(),
         async init() {
-          console.log('Performance module initialized');
+          logger.info('Performance module initialized');
         },
         async start() {
-          console.log('Performance module started');
+          logger.info('Performance module started');
         },
         async stop() {
-          console.log('Performance module stopped');
+          logger.info('Performance module stopped');
         },
         async destroy() {
-          console.log('Performance module destroyed');
+          logger.info('Performance module destroyed');
         },
         getProvider: <T>(name: string): T | undefined => {
           if (name === 'performanceOptimizer') return performanceOptimizer as T;
@@ -1354,7 +1412,7 @@ export class ExtensibilityService {
           if (name === 'MemoryCache') return MemoryCache as T;
           return undefined;
         },
-        registerProvider: (name: string, provider: any): void => {},
+        registerProvider: (name: string, provider: unknown): void => {},
         unregisterProvider: (name: string): void => {},
       };
     });

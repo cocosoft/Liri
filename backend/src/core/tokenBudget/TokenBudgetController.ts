@@ -292,7 +292,7 @@ export function estimateTokenCount(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-export function estimateMessageTokenCount(message: any): number {
+export function estimateMessageTokenCount(message: unknown): number {
   const native = lazyInitNative();
 
   function doCount(text: string): number {
@@ -304,15 +304,17 @@ export function estimateMessageTokenCount(message: any): number {
     return doCount(message);
   }
 
-  if (message.content) {
-    if (typeof message.content === 'string') {
-      return doCount(message.content);
+  const msg = message as Record<string, unknown>;
+  if (msg.content) {
+    if (typeof msg.content === 'string') {
+      return doCount(msg.content);
     }
-    if (Array.isArray(message.content)) {
+    if (Array.isArray(msg.content)) {
       let total = 0;
-      for (const part of message.content) {
-        if (part.text) {
-          total += doCount(part.text);
+      for (const part of msg.content) {
+        const p = part as Record<string, unknown>;
+        if (p.text && typeof p.text === 'string') {
+          total += doCount(p.text);
         }
       }
       return total;

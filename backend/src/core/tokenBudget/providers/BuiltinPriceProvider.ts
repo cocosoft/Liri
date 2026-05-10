@@ -5,7 +5,7 @@
  */
 
 import type { IPriceProvider, PricingResult } from './IPriceProvider';
-import type { ModelPricing } from '../types';
+import type { ModelPricing } from '@modules/core/tokenBudget/types';
 
 const DEFAULT_CONTEXT_WINDOW = 200_000;
 

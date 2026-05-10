@@ -4,6 +4,7 @@
  * 提供按需加载、缓存、状态追踪等功能
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { logger } from '@modules/utils/log.js';
 
 /**
@@ -111,7 +112,11 @@ export class LazyService {
     const item = this.items.get(key);
 
     if (!item) {
-      throw new Error(`Lazy item not found: ${key}`);
+      throw new AppError(
+        `Lazy item not found: ${key}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     // 如果已加载且未过期，直接返回
@@ -257,7 +262,11 @@ export class LazyService {
     const item = this.items.get(key);
 
     if (!item) {
-      throw new Error(`Lazy item not found: ${key}`);
+      throw new AppError(
+        `Lazy item not found: ${key}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     item.status = 'loading';
@@ -299,7 +308,11 @@ export class LazyService {
     const item = this.items.get(key);
 
     if (!item) {
-      throw new Error(`Lazy item not found: ${key}`);
+      throw new AppError(
+        `Lazy item not found: ${key}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     // 轮询等待加载完成
@@ -311,7 +324,11 @@ export class LazyService {
       return item.result.data;
     }
 
-    throw new Error(`Lazy item failed: ${item.error}`);
+    throw new AppError(
+      `Lazy item failed: ${item.error}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH
+    );
   }
 
   /**

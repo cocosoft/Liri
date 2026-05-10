@@ -2,7 +2,7 @@
  * 上下文管理器
  */
 
-import type { Message } from '../types';
+import type { Message } from '@modules/core/types';
 
 interface TokenUsage {
   total: number;

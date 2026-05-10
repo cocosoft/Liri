@@ -1,9 +1,17 @@
 /**
  * MCP安全检查工具
  * 提供工具调用验证、参数检查和危险命令检测
+ *
+ * 注：危险命令和注入模式引用 @modules/security/patterns 中的共享定义，
+ * 确保与安全模块的检查一致，消除重复。
  */
 
 import type { MCPToolDefinition } from '../types';
+import { DANGEROUS_BASE_COMMANDS } from '@modules/security/patterns/dangerousCommands';
+import {
+  INJECTION_PATTERNS,
+  SPECIAL_CHAR_PATTERNS,
+} from '@modules/security/patterns';
 
 export interface SecurityCheckResult {
   safe: boolean;
@@ -15,33 +23,28 @@ export interface SecurityCheckResult {
  * MCP安全检查器
  */
 export class MCPSecurityChecker {
-  private static readonly DANGEROUS_COMMANDS = [
-    'rm',
-    'del',
-    'format',
-    'shutdown',
-    'restart',
-    'kill',
-    'pkill',
-    'taskkill',
-    'netstat',
-    'nmap',
-    'curl',
-    'wget',
-    'nc',
-    'netcat',
-    'ssh',
-    'ftp',
-    'telnet',
-    'passwd',
-    'sudo',
-    'chmod',
-    'chown',
-  ];
+  /**
+   * MCP特定的危险命令列表（基于 security/patterns 共享定义扩展）
+   */
+  private static get DANGEROUS_COMMANDS(): string[] {
+    const mcpSpecific = [
+      'curl',
+      'wget',
+      'nc',
+      'netcat',
+      'ssh',
+      'ftp',
+      'telnet',
+      'netstat',
+      'nmap',
+    ];
+    return [...DANGEROUS_BASE_COMMANDS, ...mcpSpecific];
+  }
 
-  private static readonly DANGEROUS_PATTERNS = [
-    /[\;\|\`\$\(\)\<\>]/,
-    /\.\.\//,
+  /**
+   * MCP特定的敏感内容模式（用于命令参数和路径检查）
+   */
+  private static readonly MCP_SENSITIVE_PATTERNS = [
     /\/etc\/passwd/,
     /\/etc\/shadow/,
     /~\/\\.ssh/,
@@ -137,6 +140,7 @@ export class MCPSecurityChecker {
 
   /**
    * 检查字符串安全性
+   * 使用 @modules/security/patterns 中的共享注入和特殊字符模式
    */
   static checkStringSafety(
     value: string,
@@ -144,11 +148,34 @@ export class MCPSecurityChecker {
   ): SecurityCheckResult {
     const warnings: string[] = [];
 
-    for (const pattern of this.DANGEROUS_PATTERNS) {
+    // 检查共享注入模式
+    for (const pattern of INJECTION_PATTERNS) {
+      if (pattern.pattern.test(value)) {
+        return {
+          safe: false,
+          reason: `${context}包含危险模式: ${pattern.name} - ${pattern.message}`,
+          warnings: [],
+        };
+      }
+    }
+
+    // 检查共享特殊字符模式
+    for (const pattern of SPECIAL_CHAR_PATTERNS) {
+      if (pattern.pattern.test(value)) {
+        return {
+          safe: false,
+          reason: `${context}包含特殊字符: ${pattern.name}`,
+          warnings: [],
+        };
+      }
+    }
+
+    // 检查MCP特定敏感内容
+    for (const pattern of this.MCP_SENSITIVE_PATTERNS) {
       if (pattern.test(value)) {
         return {
           safe: false,
-          reason: `${context}包含危险模式: ${pattern.toString()}`,
+          reason: `${context}包含敏感内容: ${pattern.toString()}`,
           warnings: [],
         };
       }
@@ -212,11 +239,23 @@ export class MCPSecurityChecker {
       };
     }
 
-    for (const pattern of this.DANGEROUS_PATTERNS) {
-      if (pattern.test(path)) {
+    // 检查共享注入模式
+    for (const pattern of INJECTION_PATTERNS) {
+      if (pattern.pattern.test(path)) {
         return {
           safe: false,
-          reason: '路径包含危险模式',
+          reason: '路径包含危险命令注入模式',
+          warnings: [],
+        };
+      }
+    }
+
+    // 检查共享特殊字符模式
+    for (const pattern of SPECIAL_CHAR_PATTERNS) {
+      if (pattern.pattern.test(path)) {
+        return {
+          safe: false,
+          reason: '路径包含特殊危险字符',
           warnings: [],
         };
       }

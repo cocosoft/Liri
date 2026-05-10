@@ -9,6 +9,7 @@ import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { logger } from '@modules/utils/log.js';
+import { deepMerge } from '@modules/utils/common.js';
 
 /**
  * 配置来源类型
@@ -30,9 +31,9 @@ export interface ConfigLayer {
   /** 优先级（数字越大优先级越高） */
   priority: number;
   /** 获取配置 */
-  get(): Record<string, any>;
+  get(): Record<string, unknown>;
   /** 设置配置 */
-  set?(key: string, value: any): void;
+  set?(key: string, value: unknown): void;
   /** 是否包含键 */
   has?(key: string): boolean;
 }
@@ -44,9 +45,9 @@ export interface ConfigChangeEvent {
   /** 变更的键 */
   key: string;
   /** 旧值 */
-  oldValue: any;
+  oldValue: unknown;
   /** 新值 */
-  newValue: any;
+  newValue: unknown;
   /** 变更来源 */
   source: ConfigSource;
 }
@@ -70,13 +71,13 @@ export class RuntimeConfigLayer implements ConfigLayer {
   name: ConfigSource = 'runtime';
   priority = 200;
 
-  private data: Record<string, any> = {};
+  private data: Record<string, unknown> = {};
 
-  get(): Record<string, any> {
+  get(): Record<string, unknown> {
     return { ...this.data };
   }
 
-  set(key: string, value: any): void {
+  set(key: string, value: unknown): void {
     this.data[key] = value;
   }
 
@@ -91,7 +92,7 @@ export class RuntimeConfigLayer implements ConfigLayer {
 export class ConfigManager extends EventEmitter {
   private static instance: ConfigManager;
   private layers: Map<string, ConfigLayer>;
-  private mergedCache: Record<string, any> | null;
+  private mergedCache: Record<string, unknown> | null;
   private cacheTimestamp: number;
   private config: ConfigManagerConfig;
 
@@ -142,7 +143,7 @@ export class ConfigManager extends EventEmitter {
    * 获取配置值
    * @param key 配置键
    */
-  get(key: string): any {
+  get(key: string): unknown {
     const merged = this.getMergedConfig();
     return merged[key];
   }
@@ -154,7 +155,7 @@ export class ConfigManager extends EventEmitter {
    */
   getWithDefault<T>(key: string, defaultValue: T): T {
     const value = this.get(key);
-    return value !== undefined ? value : defaultValue;
+    return value !== undefined ? (value as T) : defaultValue;
   }
 
   /**
@@ -163,7 +164,7 @@ export class ConfigManager extends EventEmitter {
    * @param value 配置值
    * @param source 配置来源
    */
-  set(key: string, value: any, source: ConfigSource = 'runtime'): void {
+  set(key: string, value: unknown, source: ConfigSource = 'runtime'): void {
     const layer = this.layers.get(source);
 
     if (!layer || !layer.set) {
@@ -188,7 +189,7 @@ export class ConfigManager extends EventEmitter {
   /**
    * 获取合并后的完整配置
    */
-  getMergedConfig(): Record<string, any> {
+  getMergedConfig(): Record<string, unknown> {
     if (this.config.enableCache && this.isCacheValid()) {
       return this.mergedCache!;
     }
@@ -261,7 +262,7 @@ export class ConfigManager extends EventEmitter {
     if (ConfigManager.instance) {
       ConfigManager.instance.removeAllListeners();
       ConfigManager.instance.reset();
-      ConfigManager.instance = undefined as any;
+      ConfigManager.instance = undefined as unknown as ConfigManager;
     }
   }
 
@@ -282,46 +283,19 @@ export class ConfigManager extends EventEmitter {
   /**
    * 合并所有配置层
    */
-  private mergeLayers(): Record<string, any> {
+  private mergeLayers(): Record<string, unknown> {
     const sortedLayers = Array.from(this.layers.values()).sort(
       (a, b) => a.priority - b.priority
     );
 
-    let merged: Record<string, any> = {};
+    let merged: Record<string, unknown> = {};
 
     for (const layer of sortedLayers) {
       const layerConfig = layer.get();
-      merged = this.deepMerge(merged, layerConfig);
+      merged = deepMerge(merged, layerConfig);
     }
 
     return merged;
-  }
-
-  /**
-   * 深度合并两个对象
-   */
-  private deepMerge(
-    target: Record<string, any>,
-    source: Record<string, any>
-  ): Record<string, any> {
-    const result = { ...target };
-
-    for (const key of Object.keys(source)) {
-      if (
-        source[key] &&
-        typeof source[key] === 'object' &&
-        !Array.isArray(source[key]) &&
-        target[key] &&
-        typeof target[key] === 'object' &&
-        !Array.isArray(target[key])
-      ) {
-        result[key] = this.deepMerge(target[key], source[key]);
-      } else {
-        result[key] = source[key];
-      }
-    }
-
-    return result;
   }
 }
 
@@ -332,17 +306,17 @@ export class DefaultConfigLayer implements ConfigLayer {
   name: ConfigSource = 'default';
   priority = 0;
 
-  private defaults: Record<string, any>;
+  private defaults: Record<string, unknown>;
 
-  constructor(defaults: Record<string, any> = {}) {
+  constructor(defaults: Record<string, unknown> = {}) {
     this.defaults = defaults;
   }
 
-  get(): Record<string, any> {
+  get(): Record<string, unknown> {
     return { ...this.defaults };
   }
 
-  set(key: string, value: any): void {
+  set(key: string, value: unknown): void {
     this.defaults[key] = value;
   }
 
@@ -359,18 +333,18 @@ export class EnvConfigLayer implements ConfigLayer {
   priority = 100;
 
   private prefix: string;
-  private cache: Record<string, any> | null = null;
+  private cache: Record<string, unknown> | null = null;
 
   constructor(prefix: string = 'PYAPP_') {
     this.prefix = prefix;
   }
 
-  get(): Record<string, any> {
+  get(): Record<string, unknown> {
     if (this.cache) {
       return this.cache;
     }
 
-    const config: Record<string, any> = {};
+    const config: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(process.env)) {
       if (key.startsWith(this.prefix) && value !== undefined) {
@@ -386,7 +360,7 @@ export class EnvConfigLayer implements ConfigLayer {
   /**
    * 解析环境变量值
    */
-  private parseEnvValue(value: string): any {
+  private parseEnvValue(value: string): unknown {
     if (value === 'true') return true;
     if (value === 'false') return false;
     if (value === 'null') return null;
@@ -437,7 +411,7 @@ export class FileConfigLayer implements ConfigLayer {
     }
   }
 
-  set(key: string, value: any): void {
+  set(key: string, value: unknown): void {
     try {
       const config = this.get();
       config[key] = value;
@@ -466,8 +440,8 @@ export class FileConfigLayer implements ConfigLayer {
 /**
  * 便捷函数：获取配置值
  */
-export function getConfig<T = any>(key: string): T | undefined {
-  return ConfigManager.getInstance().get(key);
+export function getConfig<T = unknown>(key: string): T | undefined {
+  return ConfigManager.getInstance().get(key) as T | undefined;
 }
 
 /**
@@ -475,7 +449,7 @@ export function getConfig<T = any>(key: string): T | undefined {
  */
 export function setConfig(
   key: string,
-  value: any,
+  value: unknown,
   source?: ConfigSource
 ): void {
   ConfigManager.getInstance().set(key, value, source);

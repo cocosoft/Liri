@@ -3,6 +3,7 @@
  * 权限核心决策函数（基于CC源码 utils/permissions/permissions.ts）
  */
 import type { PermissionMode } from './PermissionMode';
+import { shouldAvoidPermissionPrompts } from './PermissionMode';
 import type {
   PermissionBehavior,
   PermissionRule,
@@ -173,6 +174,14 @@ export function hasPermissionsToUseTool<Input extends Record<string, unknown>>(
     return {
       behavior: 'ask',
       decisionReason: { type: 'config', source: 'plan' },
+    };
+  }
+
+  if (shouldAvoidPermissionPrompts(context.mode as PermissionMode)) {
+    return {
+      behavior: 'deny',
+      message: `Permission denied: ${toolName} requires approval, but don't ask mode is enabled`,
+      decisionReason: { type: 'config', source: 'dontAsk' },
     };
   }
 

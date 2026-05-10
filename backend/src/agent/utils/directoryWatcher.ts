@@ -5,6 +5,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger();
 
 export type WatchEventType = 'add' | 'change' | 'unlink';
 
@@ -35,7 +38,7 @@ export class DirectoryWatcher {
       try {
         fs.mkdirSync(dirPath, { recursive: true });
       } catch {
-        console.warn(`Cannot create or watch directory: ${dirPath}`);
+        logger.warning('Cannot create or watch directory', { dirPath });
         return;
       }
     }
@@ -87,7 +90,7 @@ export class DirectoryWatcher {
     });
 
     this.watchers.set(dirPath, watcher);
-    console.debug(`Started watching directory: ${dirPath}`);
+    logger.debug('Started watching directory', { dirPath });
   }
 
   /**
@@ -98,7 +101,7 @@ export class DirectoryWatcher {
     if (watcher) {
       watcher.close();
       this.watchers.delete(dirPath);
-      console.debug(`Stopped watching directory: ${dirPath}`);
+      logger.debug('Stopped watching directory', { dirPath });
     }
   }
 
@@ -127,7 +130,9 @@ export class DirectoryWatcher {
       try {
         callback(event);
       } catch (error) {
-        console.error('Error in directory watcher callback:', error);
+        logger.error('Error in directory watcher callback', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }

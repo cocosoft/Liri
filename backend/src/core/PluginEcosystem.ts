@@ -4,12 +4,12 @@
  * 提供插件注册、发现、管理和市场功能
  */
 
-import { logger } from '../utils/log.js';
+import { logger } from '@modules/utils/log.js';
 import {
   TerminalComponents,
   type TableColumn,
   type TableRow,
-} from '../ui/TerminalComponents.js';
+} from '@modules/ui/TerminalComponents.js';
 import chalk from 'chalk';
 
 /**

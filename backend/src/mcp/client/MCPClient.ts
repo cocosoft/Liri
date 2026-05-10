@@ -361,15 +361,15 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     })();
 
     // 监听状态变化
-    this.transport.on('stateChange', (state: MCPClientState) => {
-      this.setState(state);
+    this.transport.on('stateChange', (state: unknown) => {
+      this.setState(state as MCPClientState);
     });
 
     // 监听错误
-    this.transport.on('error', (error: Error) => {
+    this.transport.on('error', (error: unknown) => {
       this.emitEvent('error', {
         serverName: this.transport.name,
-        error,
+        error: error as Error,
       });
     });
   }

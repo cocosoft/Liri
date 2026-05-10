@@ -1,4 +1,3 @@
-//
 /**
  * Agent加载器
  * 负责从不同来源加载Agent定义
@@ -9,6 +8,9 @@ import { join } from 'path';
 import { AgentDefinition } from '../models/types';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger();
 
 /**
  * 将新格式的Agent定义转换为内部格式
@@ -149,12 +151,29 @@ function loadAgentsFromDir(
         const agent = loadAgentFromFile(filePath, source);
         agents.push(agent);
       } catch (error) {
-        console.error(`加载Agent文件失败: ${filePath}`, error);
+        logger.error('加载Agent文件失败', {
+          filePath,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   });
 
   return agents;
+}
+
+/**
+ * 统一加载Agent定义入口
+ * 从指定目录加载Agent定义，支持 .md / .yaml / .yml / .json 格式
+ * @param dirPath 目录路径
+ * @param source 来源标识
+ * @returns Agent定义数组
+ */
+export function loadAgentsDir(
+  dirPath: string,
+  source: string = 'user'
+): AgentDefinition[] {
+  return loadAgentsFromDir(dirPath, source);
 }
 
 /**

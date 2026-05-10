@@ -81,7 +81,7 @@ export class ConfigHotReload extends EventEmitter {
   static resetInstance(): void {
     if (ConfigHotReload.instance) {
       ConfigHotReload.instance.stop();
-      ConfigHotReload.instance = undefined as any;
+      ConfigHotReload.instance = undefined as unknown as ConfigHotReload;
     }
   }
 

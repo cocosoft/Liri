@@ -29,7 +29,7 @@ interface ErrorHandlerOptions {
   /**
    * 回退值
    */
-  fallbackValue?: any;
+  fallbackValue?: unknown;
   /**
    * 错误处理回调
    */

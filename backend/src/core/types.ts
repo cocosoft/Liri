@@ -12,7 +12,7 @@ export interface Message {
 export interface ToolCall {
   id: string;
   name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 }
 
 export interface ToolResult<T = unknown> {
@@ -21,7 +21,7 @@ export interface ToolResult<T = unknown> {
   error?: string;
   data?: T;
   newMessages?: Message[];
-  contextModifier?: (context: any) => any;
+  contextModifier?: (context: unknown) => unknown;
   mcpMeta?: {
     _meta?: Record<string, unknown>;
     structuredContent?: Record<string, unknown>;

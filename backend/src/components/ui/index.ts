@@ -77,3 +77,19 @@ export {
   type ChatMessagesProps,
   type ChatMessageData,
 } from './ChatMessages.js';
+export {
+  TagTabs,
+  FilterableTagTabs,
+  type TagTabItem,
+  type TagTabsProps,
+  type FilterableTagTabsProps,
+} from './TagTabs.js';
+export {
+  Stats,
+  TokenStats,
+  createStats,
+  type StatsItem,
+  type StatsProps,
+  type TokenStatsProps,
+} from './Stats.js';
+export { ExitFlow, createExitFlow, type ExitFlowProps } from './ExitFlow.js';

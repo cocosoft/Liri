@@ -21,7 +21,7 @@ import { createFileStateCacheWithSizeLimit } from '../utils/fileStateCache';
 import { logger } from '../utils/log';
 import { createAssistantMessage } from '../utils/messages';
 import { getMainLoopModel } from '../utils/model/model';
-import { hasPermissionsToUseTool } from '../permissions/permissions';
+import { hasPermissionsToUseTool } from '../permission/permissions';
 import { jsonStringify } from '../utils/slowOperations';
 import { getErrorParts } from '../utils/toolErrors';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema';

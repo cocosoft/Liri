@@ -10,6 +10,7 @@ import {
   StateUpdater,
 } from './AppState';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -147,7 +148,11 @@ let globalStore: AppStateStore | null = null;
  */
 export function getGlobalStore(): AppStateStore {
   if (!globalStore) {
-    throw new Error('AppStateStore not initialized');
+    throw new AppError(
+      'AppStateStore not initialized',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH
+    );
   }
   return globalStore;
 }
@@ -157,7 +162,11 @@ export function getGlobalStore(): AppStateStore {
  */
 export function initializeGlobalStore(initialState: AppState): AppStateStore {
   if (globalStore) {
-    throw new Error('AppStateStore already initialized');
+    throw new AppError(
+      'AppStateStore already initialized',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.MEDIUM
+    );
   }
 
   globalStore = createAppStateStore(initialState);
@@ -171,7 +180,7 @@ export const appStateStore = new Proxy<AppStateStore>({} as AppStateStore, {
   },
   set(_, prop, value) {
     const store = getGlobalStore();
-    (store as any)[prop as keyof AppStateStore] = value;
+    (store as unknown as Record<string, unknown>)[prop as string] = value;
     return true;
   },
   has(_, prop) {

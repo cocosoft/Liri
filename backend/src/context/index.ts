@@ -17,8 +17,11 @@ export {
 export {
   ClaudeMdIntegrationImpl,
   createClaudeMdIntegration,
+  filterInjectedMemoryFiles,
   type ClaudeMdConfig,
   type ClaudeMdRules,
+  type MemoryFileInfo,
+  type MemoryType,
 } from './ClaudeMdIntegration';
 
 // React上下文

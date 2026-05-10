@@ -7,6 +7,7 @@
  */
 
 import { logger } from '../utils/log.js';
+import { deepMerge } from '../utils/common.js';
 import {
   ConfigLoader,
   type ConfigSource,
@@ -301,40 +302,12 @@ export class UnifiedConfigManager {
     for (const source of SETTING_SOURCES) {
       const config = this.sourceConfigs.get(source);
       if (config) {
-        merged = this.deepMerge(merged, config);
+        merged = deepMerge(merged, config);
       }
     }
 
     this.mergedConfig = merged;
     this.versionController.snapshot(merged, 'source_update');
-  }
-
-  /**
-   * 深度合并两个配置对象
-   */
-  private deepMerge(
-    target: Record<string, any>,
-    source: Record<string, any>
-  ): Record<string, any> {
-    const result = { ...target };
-
-    for (const key of Object.keys(source)) {
-      if (
-        key in result &&
-        typeof result[key] === 'object' &&
-        result[key] !== null &&
-        typeof source[key] === 'object' &&
-        source[key] !== null &&
-        !Array.isArray(result[key]) &&
-        !Array.isArray(source[key])
-      ) {
-        result[key] = this.deepMerge(result[key], source[key]);
-      } else {
-        result[key] = source[key];
-      }
-    }
-
-    return result;
   }
 }
 

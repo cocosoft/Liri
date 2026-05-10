@@ -469,7 +469,8 @@ export class MCPResourceTool extends BaseTool<
       // 如果服务器支持资源，返回资源列表
       // 否则返回空列表
       if (response.type === 'result' && response.result) {
-        return response.result.resources || [];
+        const result = response.result as { resources?: unknown[] };
+        return result.resources || [];
       }
 
       return [];
@@ -529,7 +530,8 @@ export class MCPResourceTool extends BaseTool<
       });
 
       if (response.type === 'result' && response.result) {
-        return response.result.prompts || [];
+        const result = response.result as { prompts?: unknown[] };
+        return result.prompts || [];
       }
 
       return [];

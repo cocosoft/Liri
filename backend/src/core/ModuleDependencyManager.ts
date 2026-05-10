@@ -4,12 +4,13 @@
  * 负责管理模块的依赖关系、加载顺序和循环依赖检测
  */
 
-import { logger } from '../utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { logger } from '@modules/utils/log.js';
 import {
   TerminalComponents,
   type TableColumn,
   type TableRow,
-} from '../ui/TerminalComponents.js';
+} from '@modules/ui/TerminalComponents.js';
 import chalk from 'chalk';
 
 /**
@@ -124,8 +125,10 @@ export class ModuleDependencyManager {
     // 检查是否有其他模块依赖此模块
     const dependents = this.getDependents(name);
     if (dependents.length > 0) {
-      throw new Error(
-        `Cannot unregister module ${name}, it is required by: ${dependents.join(', ')}`
+      throw new AppError(
+        `Cannot unregister module ${name}, it is required by: ${dependents.join(', ')}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
       );
     }
 
@@ -210,8 +213,10 @@ export class ModuleDependencyManager {
       }
 
       if (visiting.has(name)) {
-        throw new Error(
-          `Circular dependency detected involving module: ${name}`
+        throw new AppError(
+          `Circular dependency detected involving module: ${name}`,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH
         );
       }
 
@@ -258,8 +263,10 @@ export class ModuleDependencyManager {
   async initializeAll(): Promise<void> {
     const cycles = this.detectCircularDependencies();
     if (cycles.length > 0) {
-      throw new Error(
-        `Circular dependencies detected: ${cycles.map((c) => c.join(' -> ')).join(', ')}`
+      throw new AppError(
+        `Circular dependencies detected: ${cycles.map((c) => c.join(' -> ')).join(', ')}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH
       );
     }
 
@@ -272,7 +279,7 @@ export class ModuleDependencyManager {
 
     const steps = order.map((name) => ({
       title: name,
-      status: 'pending' as const,
+      status: 'pending' as 'pending' | 'completed' | 'error',
     }));
 
     TerminalComponents.printSteps(steps);
@@ -296,12 +303,12 @@ export class ModuleDependencyManager {
         instance.initTime = Date.now() - startTime;
         instance.status = ModuleStatus.READY;
 
-        (steps[i] as any).status = 'completed';
+        steps[i].status = 'completed';
         logger.info(`Initialized module: ${name} (${instance.initTime}ms)`);
       } catch (error) {
         instance.status = ModuleStatus.ERROR;
         instance.error = error instanceof Error ? error.message : String(error);
-        (steps[i] as any).status = 'error';
+        steps[i].status = 'error';
         logger.error(
           `Failed to initialize module ${name}:`,
           error instanceof Error ? error : undefined

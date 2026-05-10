@@ -26,7 +26,7 @@ export {
   DiagnosticManager,
   diagnosticManager,
 } from './utils/DiagnosticManager.js';
-export { SecurityManager, securityManager } from './utils/SecurityManager.js';
+export { SecurityManager, securityManager } from './utils/SecurityManager';
 export {
   PerformanceManager,
   performanceManager,

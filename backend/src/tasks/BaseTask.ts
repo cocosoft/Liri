@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import { promises as fs } from 'fs';
 import {
   isTerminalTaskStatus,
   createProgressTracker,
@@ -15,6 +16,7 @@ import type {
   ProgressTracker,
   AgentProgress,
   ToolActivity,
+  TaskContext,
 } from './types';
 
 export abstract class BaseTask extends EventEmitter {
@@ -22,6 +24,7 @@ export abstract class BaseTask extends EventEmitter {
   protected state: TaskState;
   protected progressTracker: ProgressTracker;
   protected abortController: AbortController;
+  protected taskContext: TaskContext | null = null;
 
   constructor(
     id: string,
@@ -41,8 +44,13 @@ export abstract class BaseTask extends EventEmitter {
       toolUseCount: 0,
       tokenCount: 0,
       outputFile,
+      outputOffset: 0,
       notified: false,
     };
+  }
+
+  setTaskContext(ctx: TaskContext): void {
+    this.taskContext = ctx;
   }
 
   abstract spawn(): Promise<void>;
@@ -118,5 +126,49 @@ export abstract class BaseTask extends EventEmitter {
 
   protected getAbortSignal(): AbortSignal {
     return this.abortController.signal;
+  }
+
+  protected async writeOutput(chunk: string): Promise<void> {
+    if (!this.state.outputFile) return;
+    try {
+      await fs.appendFile(this.state.outputFile, chunk, 'utf-8');
+      this.state.outputOffset += Buffer.byteLength(chunk, 'utf-8');
+    } catch {
+      // 写入失败时不抛出异常，仅跳过本次写入
+    }
+  }
+
+  protected async readOutput(): Promise<string> {
+    if (!this.state.outputFile) return '';
+    try {
+      const content = await fs.readFile(this.state.outputFile, 'utf-8');
+      return content;
+    } catch {
+      return '';
+    }
+  }
+
+  protected async clearOutput(): Promise<void> {
+    if (!this.state.outputFile) return;
+    try {
+      await fs.writeFile(this.state.outputFile, '', 'utf-8');
+      this.state.outputOffset = 0;
+    } catch {
+      // 清空失败时不抛出异常，仅跳过
+    }
+    if (this.taskContext?.getAppState) {
+      const appState = this.taskContext.getAppState();
+      const tasks = (appState as Record<string, unknown>)['tasks'] as
+        | Record<string, unknown>
+        | undefined;
+      if (tasks && typeof tasks === 'object') {
+        const taskEntry = tasks[this.state.id] as
+          | Record<string, unknown>
+          | undefined;
+        if (taskEntry) {
+          taskEntry.outputOffset = 0;
+        }
+      }
+    }
   }
 }

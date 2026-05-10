@@ -6,6 +6,9 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { Logger } from '../../monitoring/logs/Logger';
+
+const logger = new Logger();
 
 /**
  * 安全漏洞类型
@@ -24,6 +27,11 @@ export enum VulnerabilityType {
   INSECURE_CONFIGURATION = 'insecure_configuration',
   INSUFFICIENT_TRANSPORT_LAYER_PROTECTION = 'insufficient_transport_layer_protection',
   UNVALIDATED_FORWARDING = 'unvalidated_forwarding',
+  XXE = 'xxe',
+  SSRF = 'ssrf',
+  INSECURE_COOKIE = 'insecure_cookie',
+  HARDCODED_SECRET = 'hardcoded_secret',
+  DEPENDENCY_VULNERABILITY = 'dependency_vulnerability',
 }
 
 /**
@@ -38,6 +46,38 @@ export interface Vulnerability {
   recommendation: string;
   code?: string;
   line?: number;
+}
+
+/**
+ * 漏洞严重程度
+ */
+export enum VulnerabilitySeverity {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+/**
+ * 安全扫描配置
+ */
+export interface SecurityScanConfig {
+  includePaths: string[];
+  excludePaths: string[];
+  filePatterns: string[];
+  enabledRules: VulnerabilityType[];
+  maxFileSize: number;
+}
+
+/**
+ * 安全扫描结果
+ */
+export interface SecurityScanResult {
+  vulnerabilities: Vulnerability[];
+  scannedFiles: number;
+  scanTime: number;
+  startTime: string;
+  endTime: string;
 }
 
 /**
@@ -141,10 +181,13 @@ export class SecurityScanner {
       // 扫描敏感数据暴露
       this.scanSensitiveDataExposure(filePath, lines);
 
+      // 扫描硬编码密钥
+      this.scanHardcodedSecrets(filePath, lines);
+
       // 扫描不安全的配置
       this.scanInsecureConfiguration(filePath, lines);
     } catch (error) {
-      console.warn(`Error scanning file ${filePath}:`, error);
+      logger.warning(`Error scanning file ${filePath}:`, error);
     }
   }
 
@@ -291,6 +334,38 @@ export class SecurityScanner {
   }
 
   /**
+   * 扫描硬编码密钥
+   * @param filePath 文件路径
+   * @param lines 文件内容行
+   */
+  private scanHardcodedSecrets(filePath: string, lines: string[]): void {
+    const secretPatterns = [
+      /\b(api|secret|key|token|password|pass|pwd|auth|credential)\s*[:=]\s*['"]([^'"]{8,})['"]/gi,
+      /\bJWT_SECRET\s*[:=]\s*['"]([^'"]+)['"]/g,
+      /\bAPI_KEY\s*[:=]\s*['"]([^'"]+)['"]/g,
+      /\bSECRET_KEY\s*[:=]\s*['"]([^'"]+)['"]/g,
+      /\bPASSWORD\s*[:=]\s*['"]([^'"]+)['"]/g,
+    ];
+
+    lines.forEach((line, index) => {
+      for (const pattern of secretPatterns) {
+        if (pattern.test(line)) {
+          this.addVulnerability({
+            type: VulnerabilityType.HARDCODED_SECRET,
+            severity: 'critical',
+            location: filePath,
+            description: '检测到硬编码密钥',
+            recommendation: '使用环境变量或安全的凭据管理服务',
+            code: line.trim(),
+            line: index + 1,
+          });
+          break;
+        }
+      }
+    });
+  }
+
+  /**
    * 扫描不安全的配置
    * @param filePath 文件路径
    * @param lines 文件内容行
@@ -300,8 +375,13 @@ export class SecurityScanner {
       /process\.env\.NODE_ENV\s*===\s*['"]development['"]/g,
       /debug\s*=\s*true/g,
       /production\s*=\s*false/g,
+      /ssl\s*[:=]\s*false/g,
+      /https\s*[:=]\s*false/g,
       /allowOrigin\s*=\s*['"]\*['"]/g,
       /CORS\s*=\s*['"]\*['"]/g,
+      /cors\s*[:=]\s*{[^}]*origin:\s*['"]\*['"][^}]*}/g,
+      /cookie\s*[:=]\s*{[^}]*secure:\s*false[^}]*}/g,
+      /cookie\s*[:=]\s*{[^}]*httpOnly:\s*false[^}]*}/g,
       /disableHostCheck\s*=\s*true/g,
       /trustProxy\s*=\s*true/g,
     ];

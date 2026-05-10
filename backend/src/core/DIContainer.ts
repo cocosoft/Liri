@@ -2,6 +2,7 @@
  * 依赖注入容器
  * 用于管理应用中的服务依赖关系，支持单例和工厂模式
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 export class DIContainer {
   private services = new Map<string, any>();
   private factories = new Map<string, () => any>();
@@ -42,7 +43,11 @@ export class DIContainer {
       return instance;
     }
 
-    throw new Error(`Service not found: ${name}`);
+    throw new AppError(
+      `Service not found: ${name}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH
+    );
   }
 
   /**

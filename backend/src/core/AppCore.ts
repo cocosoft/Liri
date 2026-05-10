@@ -4,16 +4,17 @@
  * 整合所有子系统，提供统一的入口和管理接口
  */
 
-import { logger } from '../utils/log.js';
-import { TerminalComponents } from '../ui/TerminalComponents.js';
-import { TerminalUIIntegration } from '../ui/TerminalUIIntegration.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { logger } from '@modules/utils/log.js';
+import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
+import { TerminalUIIntegration } from '@modules/ui/TerminalUIIntegration.js';
 import {
   ModuleDependencyManager,
   ModuleDefinition,
 } from './ModuleDependencyManager.js';
 import { PluginEcosystem, EcosystemConfig } from './PluginEcosystem.js';
 import { PluginSDK, Plugin, PluginSDKConfig } from './PluginSDK.js';
-import { StartupProfiler } from '../utils/startupProfiler.js';
+import { StartupProfiler } from '@modules/utils/startupProfiler.js';
 import {
   StartupPreloader,
   initializeAndStartPreloading,
@@ -106,7 +107,11 @@ export class AppCore {
   static getInstance(config?: AppCoreConfig): AppCore {
     if (!AppCore.instance) {
       if (!config) {
-        throw new Error('AppCore must be initialized with config first');
+        throw new AppError(
+          'AppCore must be initialized with config first',
+          ErrorCategory.CONFIGURATION,
+          ErrorSeverity.HIGH
+        );
       }
       AppCore.instance = new AppCore(config);
     }

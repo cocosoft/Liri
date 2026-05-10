@@ -4,8 +4,9 @@
  * 提供任务创建、管理、执行和状态跟踪功能
  */
 
-import { appStateStore } from '../state/AppStateStore.js';
-import type { AppState } from '../state/AppState.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { appStateStore } from '@modules/state/AppStateStore.js';
+import type { AppState } from '@modules/state/AppState.js';
 import type { TaskState } from '@modules/types/task.js';
 
 /**
@@ -47,7 +48,7 @@ export interface TaskOptions {
  */
 export interface TaskResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 
@@ -150,18 +151,30 @@ export class TaskService {
     const task = state.tasks[taskId] as unknown as Task | undefined;
 
     if (!task) {
-      throw new Error(`Task not found: ${taskId}`);
+      throw new AppError(
+        `Task not found: ${taskId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     if (task.status === TaskStatus.RUNNING) {
-      throw new Error(`Task is already running: ${taskId}`);
+      throw new AppError(
+        `Task is already running: ${taskId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.MEDIUM
+      );
     }
 
     const dependencies = task.dependencies || [];
     for (const depId of dependencies) {
       const depTask = state.tasks[depId] as unknown as Task | undefined;
       if (depTask && depTask.status !== TaskStatus.COMPLETED) {
-        throw new Error(`Dependency task not completed: ${depId}`);
+        throw new AppError(
+          `Dependency task not completed: ${depId}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH
+        );
       }
     }
 
@@ -240,11 +253,19 @@ export class TaskService {
       | undefined;
 
     if (!task) {
-      throw new Error(`Task not found: ${taskId}`);
+      throw new AppError(
+        `Task not found: ${taskId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     if (task.status === TaskStatus.RUNNING) {
-      throw new Error(`Cannot cancel a running task: ${taskId}`);
+      throw new AppError(
+        `Cannot cancel a running task: ${taskId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.MEDIUM
+      );
     }
 
     this.updateTaskState(taskId, {
@@ -279,9 +300,9 @@ export class TaskService {
    */
   getPendingTasks(): Task[] {
     const tasks = this.store.getState().tasks;
-    return Object.values(tasks).filter(
-      (task: any) => task.status === TaskStatus.PENDING
-    ) as unknown as Task[];
+    return (Object.values(tasks) as unknown as Task[]).filter(
+      (task) => task.status === TaskStatus.PENDING
+    );
   }
 
   /**
@@ -290,9 +311,9 @@ export class TaskService {
    */
   getRunningTasks(): Task[] {
     const tasks = this.store.getState().tasks;
-    return Object.values(tasks).filter(
-      (task: any) => task.status === TaskStatus.RUNNING
-    ) as unknown as Task[];
+    return (Object.values(tasks) as unknown as Task[]).filter(
+      (task) => task.status === TaskStatus.RUNNING
+    );
   }
 
   /**

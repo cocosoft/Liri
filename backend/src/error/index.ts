@@ -65,9 +65,7 @@ export {
   isSSLError,
   formatSSLError,
 } from './network/SSLErrorHandler';
-export type {
-  SSLAnalysisResult,
-} from './network/SSLErrorHandler';
+export type { SSLAnalysisResult } from './network/SSLErrorHandler';
 
 // 错误上下文子模块
 export * from './context';

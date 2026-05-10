@@ -535,13 +535,14 @@ export class MCPConnectionManager extends EventEmitter {
     client.on('state_change', (event) => {
       const connectionInfo = this.connections.get(name);
       if (connectionInfo) {
-        connectionInfo.status.state = event.data.newState;
+        const data = event.data as { newState: string; oldState: string };
+        connectionInfo.status.state = data.newState as MCPClientState;
         connectionInfo.status.lastActivity = new Date();
 
         this.emit('connectionStateChanged', {
           name,
-          state: event.data.newState,
-          oldState: event.data.oldState,
+          state: data.newState,
+          oldState: data.oldState,
         });
       }
     });
@@ -549,10 +550,11 @@ export class MCPConnectionManager extends EventEmitter {
     client.on('error', (event) => {
       const connectionInfo = this.connections.get(name);
       if (connectionInfo) {
-        connectionInfo.status.error = event.data.error.message;
+        const data = event.data as { error: { message: string } };
+        connectionInfo.status.error = data.error.message;
         connectionInfo.status.lastActivity = new Date();
 
-        this.emit('connectionError', { name, error: event.data.error });
+        this.emit('connectionError', { name, error: data.error });
       }
     });
   }

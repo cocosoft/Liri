@@ -29,10 +29,17 @@ export type {
   PermissionAllowDecision,
   PermissionDenyDecision,
   PermissionAskDecision,
+  PermissionPassthroughDecision,
   PermissionDecision,
 } from './PermissionResult';
 
-export { getRuleBehaviorDescription } from './PermissionResult';
+export {
+  getRuleBehaviorDescription,
+  createAllowDecision,
+  createDenyDecision,
+  createAskDecision,
+  createPassthroughDecision,
+} from './PermissionResult';
 
 export {
   getEmptyToolPermissionContext,
@@ -67,3 +74,22 @@ export {
 } from './PermissionUpdateSchema';
 
 export * from './EnhancedPermissionEngine.js';
+
+export {
+  PermissionCacheKey,
+  PermissionCacheItem,
+  PermissionCache,
+  PermissionRuleValidator,
+  permissionCache,
+  generateInputHash,
+  checkPermissionsWithCache,
+} from './cache/PermissionCache';
+
+export {
+  checkDangerousCommand,
+  validatePath,
+  checkFileOperationPermission,
+  checkNetworkOperationPermission,
+  checkProcessOperationPermission,
+  PermissionPolicyManager,
+} from './policies/PermissionPolicies';

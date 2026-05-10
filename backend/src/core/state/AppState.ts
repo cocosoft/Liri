@@ -64,6 +64,49 @@ export type SpeculationState =
     };
 
 /**
+ * 建议推测状态
+ */
+export type SuggestionSpeculationStatus =
+  | 'idle'
+  | 'active'
+  | 'accepted'
+  | 'aborted'
+  | 'error';
+
+/**
+ * 建议推测结果
+ */
+export interface SuggestionSpeculationResult {
+  status: 'complete' | 'incomplete';
+  messages: unknown[];
+  boundary?: unknown;
+}
+
+/**
+ * 建议推测状态（用于prompt suggestion推测执行）
+ */
+export interface SuggestionSpeculationState {
+  status: SuggestionSpeculationStatus;
+  id: string | null;
+  suggestion: string | null;
+  result: SuggestionSpeculationResult | null;
+  overlayPath: string | null;
+  writtenPaths: Set<string>;
+}
+
+/**
+ * 空闲建议推测状态常量
+ */
+export const IDLE_SUGGESTION_SPECULATION_STATE: SuggestionSpeculationState = {
+  status: 'idle',
+  id: null,
+  suggestion: null,
+  result: null,
+  overlayPath: null,
+  writtenPaths: new Set(),
+};
+
+/**
  * 底部项目
  */
 export type FooterItem =
@@ -205,6 +248,8 @@ export interface AppState {
       }>;
     };
   };
+  /** 建议推测状态 */
+  suggestionSpeculation: SuggestionSpeculationState;
 }
 
 /**
@@ -290,6 +335,7 @@ export function getDefaultAppState(): AppState {
         plugins: [],
       },
     },
+    suggestionSpeculation: IDLE_SUGGESTION_SPECULATION_STATE,
   };
 }
 

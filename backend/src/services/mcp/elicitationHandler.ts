@@ -9,6 +9,11 @@
 
 import { logger } from '@modules/utils/log';
 import type { ScopedMcpServerConfig } from './types';
+import type {
+  ElicitRequestFormParams,
+  ElicitRequestURLParams,
+  ElicitResult,
+} from '@modelcontextprotocol/sdk/types.js';
 
 export interface ElicitationPrompt {
   type: 'text' | 'select' | 'confirm' | 'file';
@@ -198,6 +203,182 @@ export function registerElicitationPrompts(
   ELICITATION_PROMPTS[serverName] = prompts;
   logger.info(`Registered elicitation prompts for MCP server: ${serverName}`);
 }
+
+// ----- 增强层：SDK交互式Elicit请求处理 -----
+
+export interface ElicitationRequestEvent {
+  serverName: string;
+  requestId: string | number;
+  params: ElicitRequestFormParams | ElicitRequestURLParams;
+  signal: AbortSignal;
+  respond: (response: ElicitResult) => void;
+}
+
+export type ElicitResponseType = 'accept' | 'decline' | 'cancel';
+
+export interface MCPElicitResponse {
+  action: ElicitResponseType;
+  values?: Record<string, unknown>;
+  message?: string;
+}
+
+export type ElicitInputType = 'text' | 'select' | 'confirm' | 'url';
+
+export interface ElicitOption {
+  label: string;
+  description?: string;
+  value: string;
+}
+
+export interface ElicitationWaitingState {
+  actionLabel: string;
+  showCancel?: boolean;
+}
+
+export interface MCPElicitHandler {
+  onElicitRequest: (event: ElicitationRequestEvent) => void;
+  onElicitResponse: (
+    event: ElicitationRequestEvent,
+    response: MCPElicitResponse
+  ) => void;
+}
+
+export class MCPElicitationQueue {
+  private queue: ElicitationRequestEvent[] = [];
+  private handlers: MCPElicitHandler[] = [];
+
+  addHandler(handler: MCPElicitHandler): void {
+    this.handlers.push(handler);
+  }
+
+  removeHandler(handler: MCPElicitHandler): void {
+    const index = this.handlers.indexOf(handler);
+    if (index > -1) {
+      this.handlers.splice(index, 1);
+    }
+  }
+
+  enqueue(event: ElicitationRequestEvent): void {
+    this.queue.push(event);
+    this.notifyHandlers('onElicitRequest', event);
+  }
+
+  dequeue(requestId: string | number): ElicitationRequestEvent | undefined {
+    const index = this.queue.findIndex((e) => e.requestId === requestId);
+    if (index > -1) {
+      return this.queue.splice(index, 1)[0];
+    }
+    return undefined;
+  }
+
+  get(requestId: string | number): ElicitationRequestEvent | undefined {
+    return this.queue.find((e) => e.requestId === requestId);
+  }
+
+  getAll(): ElicitationRequestEvent[] {
+    return [...this.queue];
+  }
+
+  getByServer(serverName: string): ElicitationRequestEvent[] {
+    return this.queue.filter((e) => e.serverName === serverName);
+  }
+
+  clear(): void {
+    this.queue = [];
+  }
+
+  private notifyHandlers(
+    method: 'onElicitRequest' | 'onElicitResponse',
+    event: ElicitationRequestEvent,
+    response?: MCPElicitResponse
+  ): void {
+    for (const handler of this.handlers) {
+      try {
+        if (method === 'onElicitRequest') {
+          handler.onElicitRequest(event);
+        } else if (response) {
+          handler.onElicitResponse(event, response);
+        }
+      } catch (error) {
+        logger.error('Error notifying elicitation handler:', error as Error);
+      }
+    }
+  }
+}
+
+export interface ElicitToolParams {
+  serverName: string;
+  requestId: string | number;
+  action: ElicitResponseType;
+  values?: Record<string, unknown>;
+  message?: string;
+}
+
+export function buildElicitResponse(
+  action: ElicitResponseType,
+  values?: Record<string, unknown>,
+  message?: string
+): ElicitResult {
+  const result: ElicitResult = { action };
+  if (values) result.values = values;
+  if (message) result.message = message;
+  return result;
+}
+
+export function getElicitInputType(
+  params: ElicitRequestFormParams | ElicitRequestURLParams
+): ElicitInputType {
+  if (params.mode === 'url') return 'url';
+
+  if ('requestedSchema' in params && params.requestedSchema) {
+    const schema = params.requestedSchema;
+    if (schema.type === 'object' && schema.properties) {
+      const propValues = Object.values(schema.properties);
+      if (propValues.some((p) => 'enum' in (p as Record<string, unknown>))) {
+        return 'select';
+      }
+    }
+  }
+
+  return 'text';
+}
+
+export function validateElicitParams(
+  params: ElicitRequestFormParams | ElicitRequestURLParams
+): string[] {
+  const errors: string[] = [];
+  if (!params.message) errors.push('Missing message');
+  return errors;
+}
+
+export class DefaultMCPElicitHandler implements MCPElicitHandler {
+  private queue: MCPElicitationQueue;
+
+  constructor(queue: MCPElicitationQueue) {
+    this.queue = queue;
+  }
+
+  onElicitRequest(event: ElicitationRequestEvent): void {
+    const errors = validateElicitParams(event.params);
+    if (errors.length > 0) {
+      logger.warn(`Invalid elicitation params: ${errors.join(', ')}`);
+    }
+    logger.debug(`Elicitation request from ${event.serverName}:`, event.params);
+  }
+
+  onElicitResponse(
+    event: ElicitationRequestEvent,
+    response: MCPElicitResponse
+  ): void {
+    const eventIndex = this.queue.getAll().indexOf(event);
+    if (eventIndex > -1) {
+      this.queue.dequeue(event.requestId);
+    }
+    logger.debug(`Elicitation response for ${event.serverName}:`, response);
+  }
+}
+
+export const mcpElicitationQueue = new MCPElicitationQueue();
 
 export const elicitationHandler = {
   getElicitationPrompts,

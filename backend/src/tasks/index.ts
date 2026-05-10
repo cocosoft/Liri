@@ -4,7 +4,13 @@
  */
 
 // 导出类型
-export type { TaskStatus, TaskType } from './types';
+export type { TaskStatus, TaskType, TaskState } from './types';
+export type {
+  TaskContext,
+  TaskEvent,
+  AgentProgress,
+  ToolActivity,
+} from './types';
 
 // 导出任务基类
 export { BaseTask } from './BaseTask';

@@ -1,8 +1,6 @@
-//
-/**
- * 安全工具模块
- * 提供工具执行的安全检查功能
- */
+import { Logger } from '../monitoring/logs/Logger';
+
+const logger = new Logger();
 
 /**
  * 检查是否为危险命令
@@ -773,9 +771,9 @@ export class OutputEncoder {
     const safeMessage = this.encodeJavaScript(message);
     if (data !== undefined) {
       const safeData = this.sanitizeObjectForJson(data);
-      console.log(safeMessage, safeData);
+      logger.info(safeMessage, safeData);
     } else {
-      console.log(safeMessage);
+      logger.info(safeMessage);
     }
   }
 

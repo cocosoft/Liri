@@ -3,7 +3,7 @@
  * 实现会话元数据的存储和变更通知
  */
 
-import type { PermissionMode } from '../permissions/PermissionMode.js';
+import type { PermissionMode } from '../permission/PermissionMode';
 import type { RequiresActionDetails } from './ChatSessionStateManager.js';
 
 /**

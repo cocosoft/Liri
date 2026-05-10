@@ -1,16 +1,24 @@
 //
 import { EventEmitter } from 'events';
-import { createCipheriv, createDecipheriv, randomBytes, pbkdf2 } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  pbkdf2,
+  CipherGCM,
+  DecipherGCM,
+} from 'crypto';
 import { readFile, writeFile, mkdir, access, stat } from 'fs/promises';
 import { existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { logger } from '@modules/utils/log.js';
 
 /**
  * 安全存储数据接口
  */
 export interface SecureStorageData {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -106,7 +114,7 @@ export class SecureStorage extends EventEmitter {
    */
   static resetInstance(): void {
     if (SecureStorage.instance) {
-      SecureStorage.instance = undefined as any;
+      SecureStorage.instance = undefined as unknown as SecureStorage;
     }
   }
 
@@ -136,7 +144,10 @@ export class SecureStorage extends EventEmitter {
 
       return data;
     } catch (error) {
-      logger.warn('Failed to read secure storage:', error as any);
+      logger.warn(
+        'Failed to read secure storage:',
+        error instanceof Error ? error : new Error(String(error))
+      );
       this.cache = null;
       this.cacheTimestamp = Date.now();
       return null;
@@ -186,11 +197,17 @@ export class SecureStorage extends EventEmitter {
       this.cacheTimestamp = 0;
       this.emit('deleted');
       return true;
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
+    } catch (error: unknown) {
+      if (
+        error instanceof Error &&
+        (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ) {
         return true;
       }
-      logger.error('Failed to delete secure storage:', error);
+      logger.error(
+        'Failed to delete secure storage:',
+        error instanceof Error ? error : undefined
+      );
       return false;
     }
   }
@@ -222,7 +239,11 @@ export class SecureStorage extends EventEmitter {
 
     const key = process.env.PYAPP_ENCRYPTION_KEY;
     if (!key) {
-      throw new Error('PYAPP_ENCRYPTION_KEY environment variable is required');
+      throw new AppError(
+        'PYAPP_ENCRYPTION_KEY environment variable is required',
+        ErrorCategory.CONFIGURATION,
+        ErrorSeverity.HIGH
+      );
     }
 
     const salt = Buffer.from('pyapp-secure-storage-salt');
@@ -255,7 +276,7 @@ export class SecureStorage extends EventEmitter {
     let encrypted = cipher.update(text, 'utf8');
     encrypted = Buffer.concat([encrypted, cipher.final()]);
 
-    const authTag = (cipher as any).getAuthTag();
+    const authTag = (cipher as unknown as CipherGCM).getAuthTag();
 
     return Buffer.concat([iv, authTag, encrypted]);
   }
@@ -274,7 +295,7 @@ export class SecureStorage extends EventEmitter {
     );
 
     const decipher = createDecipheriv(this.config.algorithm, key, iv);
-    (decipher as any).setAuthTag(authTag);
+    (decipher as unknown as DecipherGCM).setAuthTag(authTag);
 
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);

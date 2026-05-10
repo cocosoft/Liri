@@ -3,7 +3,11 @@
  * 提供浅色和深色主题支持，以及自定义主题功能
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import chalk from 'chalk';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface ThemeColors {
   primary: string;
@@ -192,7 +196,11 @@ export class ThemeManager {
    */
   addCustomTheme(theme: Theme): void {
     if (this.customThemes.has(theme.name)) {
-      throw new Error(`Theme ${theme.name} already exists`);
+      throw new AppError(
+        `Theme ${theme.name} already exists`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM
+      );
     }
 
     this.customThemes.set(theme.name, theme);
@@ -256,10 +264,12 @@ export class ThemeManager {
    * 显示主题列表
    */
   displayThemes(): void {
-    console.log(chalk.cyan('═'.repeat(60)));
-    console.log(chalk.bold('  可用主题'));
-    console.log(chalk.cyan('═'.repeat(60)));
-    console.log();
+    const output: string[] = [
+      chalk.cyan('═'.repeat(60)),
+      chalk.bold('  可用主题'),
+      chalk.cyan('═'.repeat(60)),
+      '',
+    ];
 
     const themes = this.getAvailableThemes();
     themes.forEach((theme) => {
@@ -270,14 +280,15 @@ export class ThemeManager {
       const darkLabel = theme.isDark
         ? chalk.gray('[深色]')
         : chalk.gray('[浅色]');
-      console.log(
+      output.push(
         `  ${marker} ${chalk.yellow(theme.name.padEnd(15))} ${darkLabel} ${theme.description}`
       );
     });
 
-    console.log();
-    console.log(chalk.gray(`当前主题: ${this.currentTheme.name}`));
-    console.log(chalk.cyan('═'.repeat(60)));
+    output.push('');
+    output.push(chalk.gray(`当前主题: ${this.currentTheme.name}`));
+    output.push(chalk.cyan('═'.repeat(60)));
+    logger.info(output.join('\n'));
   }
 
   /**
@@ -286,22 +297,25 @@ export class ThemeManager {
   displayCurrentTheme(): void {
     const theme = this.currentTheme;
 
-    console.log(chalk.cyan('═'.repeat(60)));
-    console.log(chalk.bold(`  主题: ${theme.name}`));
-    console.log(chalk.gray(`  ${theme.description}`));
-    console.log(chalk.cyan('─'.repeat(60)));
-    console.log();
+    const output: string[] = [
+      chalk.cyan('═'.repeat(60)),
+      chalk.bold(`  主题: ${theme.name}`),
+      chalk.gray(`  ${theme.description}`),
+      chalk.cyan('─'.repeat(60)),
+      '',
+      chalk.yellow('颜色配置:'),
+    ];
 
-    console.log(chalk.yellow('颜色配置:'));
     Object.entries(theme.colors).forEach(([key, value]) => {
       const colorPreview = this.getColorPreview(value);
-      console.log(
+      output.push(
         `  ${chalk.white(key.padEnd(18))} ${colorPreview} ${chalk.gray(value)}`
       );
     });
 
-    console.log();
-    console.log(chalk.cyan('═'.repeat(60)));
+    output.push('');
+    output.push(chalk.cyan('═'.repeat(60)));
+    logger.info(output.join('\n'));
   }
 
   /**
@@ -343,13 +357,20 @@ export class ThemeManager {
       const theme = JSON.parse(json) as Theme;
 
       if (!theme.name || !theme.colors || !theme.isDark) {
-        throw new Error('Invalid theme format');
+        throw new AppError(
+          'Invalid theme format',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.MEDIUM
+        );
       }
 
       this.addCustomTheme(theme);
       return true;
     } catch (error) {
-      console.error(chalk.red('导入主题失败:'), error);
+      logger.error(
+        '导入主题失败',
+        error instanceof Error ? error : new Error(String(error))
+      );
       return false;
     }
   }

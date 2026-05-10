@@ -5,6 +5,11 @@
 
 import chalk from 'chalk';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface MCPHandlerOptions {
   verbose?: boolean;
@@ -30,7 +35,7 @@ export class MCPHandler {
    */
   async handleList(): Promise<void> {
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Fetching MCP servers...');
+      logger.info('Fetching MCP servers...');
     }
 
     try {
@@ -63,8 +68,11 @@ export class MCPHandler {
 
       console.log(chalk.cyan('═'.repeat(60)));
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to list MCP servers: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: { handler: 'MCPHandler', operation: 'handleList' },
+      });
     }
   }
 
@@ -75,12 +83,14 @@ export class MCPHandler {
     const serverName = args[0];
 
     if (!serverName) {
-      console.error(chalk.red('✗'), 'Server name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'MCPHandler', operation: 'handleConnect' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Connecting to ${serverName}...`);
+      logger.info(`Connecting to ${serverName}...`);
     }
 
     try {
@@ -104,8 +114,15 @@ export class MCPHandler {
 
       console.log(chalk.green('✓'), `Connected to ${serverName}`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to connect: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'MCPHandler',
+          operation: 'handleConnect',
+          serverName,
+        },
+      });
     }
   }
 
@@ -116,12 +133,14 @@ export class MCPHandler {
     const serverName = args[0];
 
     if (!serverName) {
-      console.error(chalk.red('✗'), 'Server name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'MCPHandler', operation: 'handleDisconnect' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Disconnecting from ${serverName}...`);
+      logger.info(`Disconnecting from ${serverName}...`);
     }
 
     try {
@@ -132,8 +151,15 @@ export class MCPHandler {
 
       console.log(chalk.green('✓'), `Disconnected from ${serverName}`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to disconnect: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'MCPHandler',
+          operation: 'handleDisconnect',
+          serverName,
+        },
+      });
     }
   }
 
@@ -158,17 +184,24 @@ export class MCPHandler {
    */
   private async fetchServerList(): Promise<void> {
     const realServers = mcpConnectionManager.getServers();
-    this.servers = realServers.map((conn) => ({
-      name: conn.name,
-      url: ((conn as any).config?.url || '') as string,
-      status:
+    this.servers = realServers.map((conn) => {
+      const connConfig = conn.config as Record<string, unknown>;
+      const url = typeof connConfig.url === 'string' ? connConfig.url : '';
+      const status: 'connected' | 'disconnected' | 'connecting' =
         conn.type === 'connected'
           ? 'connected'
           : conn.type === 'pending'
             ? 'connecting'
-            : 'disconnected',
-      version: (conn as any).serverInfo?.version || undefined,
-    }));
+            : 'disconnected';
+      const version =
+        conn.type === 'connected' ? conn.serverInfo?.version : undefined;
+      return {
+        name: conn.name,
+        url,
+        status,
+        version,
+      };
+    });
   }
 }
 

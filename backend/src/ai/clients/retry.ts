@@ -1,14 +1,29 @@
 /**
  * API重试机制
  * 实现指数退避策略和可配置的重试条件
+ * 参考CC源码: cc_code/backend/services/api/retry.ts
  */
 
+/**
+ * API错误分类
+ */
+export enum APIErrorCategory {
+  RATE_LIMIT = 'rate_limit',
+  SERVER_ERROR = 'server_error',
+  AUTH_ERROR = 'auth_error',
+  BAD_REQUEST = 'bad_request',
+  NETWORK_ERROR = 'network_error',
+  TIMEOUT_ERROR = 'timeout_error',
+  CONTEXT_OVERFLOW = 'context_overflow',
+  UNKNOWN = 'unknown',
+}
+
 export interface RetryConfig {
-  maxRetries: number; // 最大重试次数
-  baseDelay: number; // 基础延迟(ms)
-  maxDelay: number; // 最大延迟(ms)
-  retryOnStatusCodes: number[]; // 重试状态码列表
-  retryOnNetworkErrors: boolean; // 是否重试网络错误
+  maxRetries: number;
+  baseDelay: number;
+  maxDelay: number;
+  retryOnStatusCodes: number[];
+  retryOnNetworkErrors: boolean;
 }
 
 export interface RetryContext {
@@ -35,6 +50,117 @@ export const DEFAULT_CONFIG: RetryConfig = {
   retryOnNetworkErrors: true,
 };
 
+const NETWORK_ERROR_TYPES = [
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'ENOTFOUND',
+  'ECONNREFUSED',
+  'EAI_AGAIN',
+  'ERR_CONNECTION_REFUSED',
+  'ERR_NAME_NOT_RESOLVED',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'EPIPE',
+];
+
+const RATE_LIMIT_STATUS_CODES = new Set([429, 402]);
+
+const SERVER_ERROR_STATUS_CODES = new Set([500, 502, 503, 504]);
+
+const AUTH_ERROR_STATUS_CODES = new Set([401, 403]);
+
+const BAD_REQUEST_STATUS_CODES = new Set([400, 404, 405, 406, 415, 422]);
+
+/**
+ * 分类API错误
+ */
+export function categorizeAPIError(error: unknown): APIErrorCategory {
+  if (!error) {
+    return APIErrorCategory.UNKNOWN;
+  }
+
+  const err = error instanceof Error ? error : new Error(String(error));
+  const message = err.message || '';
+  const statusCode = extractStatusCode(err);
+
+  if (statusCode) {
+    if (RATE_LIMIT_STATUS_CODES.has(statusCode)) {
+      return APIErrorCategory.RATE_LIMIT;
+    }
+    if (SERVER_ERROR_STATUS_CODES.has(statusCode)) {
+      return APIErrorCategory.SERVER_ERROR;
+    }
+    if (AUTH_ERROR_STATUS_CODES.has(statusCode)) {
+      return APIErrorCategory.AUTH_ERROR;
+    }
+    if (BAD_REQUEST_STATUS_CODES.has(statusCode)) {
+      return APIErrorCategory.BAD_REQUEST;
+    }
+  }
+
+  if (NETWORK_ERROR_TYPES.some((t) => message.includes(t))) {
+    return APIErrorCategory.NETWORK_ERROR;
+  }
+
+  if (
+    message.includes('timeout') ||
+    message.includes('timed out') ||
+    message.includes('Timeout') ||
+    message.includes('TIMEOUT')
+  ) {
+    return APIErrorCategory.TIMEOUT_ERROR;
+  }
+
+  if (
+    message.includes('context_length_exceeded') ||
+    message.includes('context overflow') ||
+    message.includes('too many tokens') ||
+    message.includes('maximum context length')
+  ) {
+    return APIErrorCategory.CONTEXT_OVERFLOW;
+  }
+
+  return APIErrorCategory.UNKNOWN;
+}
+
+function extractStatusCode(error: Error): number | null {
+  const httpCodes = [
+    400, 401, 402, 403, 404, 405, 406, 415, 422, 429, 500, 502, 503, 504,
+  ];
+  for (const code of httpCodes) {
+    const regex = new RegExp(`\\b${code}\\b`);
+    if (regex.test(error.message)) {
+      return code;
+    }
+  }
+  if ('statusCode' in error && typeof (error as any).statusCode === 'number') {
+    return (error as any).statusCode;
+  }
+  if ('status' in error && typeof (error as any).status === 'number') {
+    return (error as any).status;
+  }
+  return null;
+}
+
+/**
+ * 判断错误是否可重试
+ */
+export function isRetryableError(error: unknown): boolean {
+  const category = categorizeAPIError(error);
+  switch (category) {
+    case APIErrorCategory.RATE_LIMIT:
+    case APIErrorCategory.SERVER_ERROR:
+    case APIErrorCategory.NETWORK_ERROR:
+    case APIErrorCategory.TIMEOUT_ERROR:
+      return true;
+    case APIErrorCategory.AUTH_ERROR:
+    case APIErrorCategory.BAD_REQUEST:
+    case APIErrorCategory.CONTEXT_OVERFLOW:
+    case APIErrorCategory.UNKNOWN:
+      return false;
+  }
+}
+
 /**
  * 计算指数退避延迟
  */
@@ -52,40 +178,44 @@ function delay(ms: number): Promise<void> {
 
 /**
  * 检查是否应该重试
- * @param attempt 当前尝试次数（从0开始，0表示第一次尝试）
  */
 function shouldRetry(
   error: Error,
   config: RetryConfig,
   attempt: number
 ): boolean {
-  // attempt 是已经尝试的次数，所以如果已经达到最大重试次数，就不再重试
-  // 例如：maxRetries=3 意味着可以重试3次，总共尝试4次（初始+3次重试）
   if (attempt > config.maxRetries) {
     return false;
   }
 
-  // 检查网络错误
-  const networkErrorTypes = [
-    'ETIMEDOUT',
-    'ECONNRESET',
-    'ENOTFOUND',
-    'ECONNREFUSED',
-  ];
-  const isNetworkError = networkErrorTypes.some((type) =>
-    error.message.includes(type)
-  );
+  const category = categorizeAPIError(error);
 
-  if (isNetworkError && config.retryOnNetworkErrors) {
+  if (
+    category === APIErrorCategory.RATE_LIMIT &&
+    config.retryOnStatusCodes.includes(429)
+  ) {
     return true;
   }
 
-  // 检查HTTP状态码（如果错误是HTTP错误）
-  if ('statusCode' in error) {
-    const statusCode = (error as any).statusCode;
-    if (config.retryOnStatusCodes.includes(statusCode)) {
-      return true;
-    }
+  if (
+    category === APIErrorCategory.SERVER_ERROR &&
+    config.retryOnStatusCodes.some((c) => c >= 500)
+  ) {
+    return true;
+  }
+
+  if (
+    category === APIErrorCategory.NETWORK_ERROR &&
+    config.retryOnNetworkErrors
+  ) {
+    return true;
+  }
+
+  if (
+    category === APIErrorCategory.TIMEOUT_ERROR &&
+    config.retryOnNetworkErrors
+  ) {
+    return true;
   }
 
   return false;

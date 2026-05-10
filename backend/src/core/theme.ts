@@ -3,9 +3,12 @@
  * 提供不同的视觉主题选项
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 主题接口
@@ -278,21 +281,23 @@ export class ThemeManager {
    * 显示所有主题
    */
   displayThemes(): void {
-    console.log('Available themes:');
+    const output: string[] = ['Available themes:'];
     this.themes.forEach((theme, index) => {
       const isCurrent = theme.name === this.currentTheme.name;
-      console.log(
+      output.push(
         `  ${isCurrent ? '✓' : ' '} ${index + 1}. ${theme.name} - ${theme.description}`
       );
     });
+    logger.info(output.join('\n'));
   }
 
   /**
    * 显示当前主题
    */
   displayCurrentTheme(): void {
-    console.log(`Current theme: ${this.currentTheme.name}`);
-    console.log(`Description: ${this.currentTheme.description}`);
+    logger.info(
+      `Current theme: ${this.currentTheme.name}\nDescription: ${this.currentTheme.description}`
+    );
   }
 
   /**

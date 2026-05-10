@@ -1,7 +1,6 @@
-/**
- * 核心模块性能优化工具
- * 提供性能分析、内存管理、缓存系统等功能
- */
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 性能指标类型
@@ -236,6 +235,7 @@ export class PerformanceProfiler {
   /**
    * 包装函数以记录执行时间
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   wrap<T extends (...args: any[]) => any>(
     metric: PerformanceMetric,
     name: string,
@@ -255,7 +255,8 @@ export class PerformanceProfiler {
   /**
    * 包装异步函数以记录执行时间
    */
-  asyncWrap<T extends (...args: any[]) => Promise<any>>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  asyncWrap<T extends (...args: any[]) => any>(
     metric: PerformanceMetric,
     name: string,
     fn: T,
@@ -420,16 +421,16 @@ export class PerformanceProfiler {
     if (this.shouldLog(level)) {
       switch (level) {
         case 'debug':
-          console.debug(message);
+          logger.debug(message);
           break;
         case 'info':
-          console.info(message);
+          logger.info(message);
           break;
         case 'warn':
-          console.warn(message);
+          logger.warning(message);
           break;
         case 'error':
-          console.error(message);
+          logger.error(message);
           break;
       }
     }
@@ -479,7 +480,7 @@ export class MemoryManager {
 
       // 检查内存使用是否超过阈值
       if (usage.rss > this.maxMemoryUsage) {
-        console.warn(
+        logger.warning(
           `Memory usage exceeded threshold: ${(usage.rss / 1024 / 1024).toFixed(2)} MB`
         );
       }
@@ -556,7 +557,7 @@ export interface CacheOptions {
   maxSize?: number;
   maxAge?: number;
   cleanupInterval?: number;
-  sizeCalculator?: (value: any) => number;
+  sizeCalculator?: (value: unknown) => number;
 }
 
 /**
@@ -790,6 +791,7 @@ export const performanceUtils = {
   /**
    * 节流函数
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   throttle: <T extends (...args: any[]) => any>(
     fn: T,
     delay: number
@@ -807,6 +809,7 @@ export const performanceUtils = {
   /**
    * 防抖函数
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   debounce: <T extends (...args: any[]) => any>(
     fn: T,
     delay: number

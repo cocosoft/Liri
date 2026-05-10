@@ -3,7 +3,7 @@
  * 验证重构后的Core模块与现有系统的兼容性
  */
 
-import { logger } from '../utils/log.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { EnhancedModuleDependencyManager } from './EnhancedModuleDependencyManager.js';
 import { StartupOptimizer } from './StartupOptimizer.js';
 import { RemoteConfigManager } from './RemoteConfigManager.js';
@@ -12,6 +12,8 @@ import {
   ModuleDefinition,
 } from './ModuleDependencyManager.js';
 
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 兼容性测试结果
  */
@@ -19,7 +21,7 @@ export interface CompatibilityResult {
   component: string;
   status: 'pass' | 'fail' | 'warning';
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -65,7 +67,7 @@ export class CompatibilityValidator {
   async validateCompatibility(): Promise<CompatibilityResult[]> {
     const results: CompatibilityResult[] = [];
 
-    console.log('=== 开始兼容性验证 ===\n');
+    logger.info('=== 开始兼容性验证 ===\n');
 
     // 1. API兼容性验证
     results.push(...(await this.validateAPICompatibility()));
@@ -82,7 +84,7 @@ export class CompatibilityValidator {
     // 5. 向后兼容性验证
     results.push(...(await this.validateBackwardCompatibility()));
 
-    console.log('\n=== 兼容性验证完成 ===');
+    logger.info('\n=== 兼容性验证完成 ===');
 
     return results;
   }
@@ -92,7 +94,7 @@ export class CompatibilityValidator {
    */
   private async validateAPICompatibility(): Promise<CompatibilityResult[]> {
     const results: CompatibilityResult[] = [];
-    console.log('1. 验证API兼容性...');
+    logger.info('1. 验证API兼容性...');
 
     // 检查ModuleDependencyManager API兼容性
     const oldMethods = this.getObjectMethods(this.oldModuleManager);
@@ -140,7 +142,7 @@ export class CompatibilityValidator {
     CompatibilityResult[]
   > {
     const results: CompatibilityResult[] = [];
-    console.log('2. 验证功能兼容性...');
+    logger.info('2. 验证功能兼容性...');
 
     // 测试模块注册功能
     const testModules: ModuleDefinition[] = [
@@ -220,7 +222,7 @@ export class CompatibilityValidator {
    */
   private async validatePerformance(): Promise<CompatibilityResult[]> {
     const results: CompatibilityResult[] = [];
-    console.log('3. 验证性能对比...');
+    logger.info('3. 验证性能对比...');
 
     // 测试模块加载性能
     const testIterations = 10;
@@ -284,7 +286,7 @@ export class CompatibilityValidator {
    */
   private async validateIntegration(): Promise<CompatibilityResult[]> {
     const results: CompatibilityResult[] = [];
-    console.log('4. 验证集成兼容性...');
+    logger.info('4. 验证集成兼容性...');
 
     // 测试与现有AppCore的集成
     try {
@@ -360,7 +362,7 @@ export class CompatibilityValidator {
     CompatibilityResult[]
   > {
     const results: CompatibilityResult[] = [];
-    console.log('5. 验证向后兼容性...');
+    logger.info('5. 验证向后兼容性...');
 
     // 测试数据格式兼容性
     try {
@@ -428,7 +430,7 @@ export class CompatibilityValidator {
    */
   private async testAppCoreIntegration(): Promise<{
     success: boolean;
-    details?: any;
+    details?: Record<string, unknown>;
   }> {
     // 模拟AppCore的模块初始化流程
     try {
@@ -486,7 +488,7 @@ export class CompatibilityValidator {
    */
   private async testDataFormatCompatibility(): Promise<{
     success: boolean;
-    details?: any;
+    details?: Record<string, unknown>;
   }> {
     // 测试模块定义数据格式兼容性
     try {
@@ -524,7 +526,7 @@ export class CompatibilityValidator {
    */
   private async testErrorHandlingCompatibility(): Promise<{
     success: boolean;
-    details?: any;
+    details?: Record<string, unknown>;
   }> {
     // 测试错误处理机制
     try {
@@ -555,21 +557,23 @@ export class CompatibilityValidator {
   /**
    * 获取对象的方法列表
    */
-  private getObjectMethods(obj: any): string[] {
+  private getObjectMethods(obj: unknown): string[] {
     const methods: string[] = [];
 
-    // 获取原型链上的方法
     let current = obj;
     while (current && current !== Object.prototype) {
       Object.getOwnPropertyNames(current).forEach((prop) => {
-        if (prop !== 'constructor' && typeof obj[prop] === 'function') {
+        if (
+          prop !== 'constructor' &&
+          typeof (current as Record<string, unknown>)[prop] === 'function'
+        ) {
           methods.push(prop);
         }
       });
       current = Object.getPrototypeOf(current);
     }
 
-    return [...new Set(methods)]; // 去重
+    return [...new Set(methods)];
   }
 
   /**
@@ -637,30 +641,28 @@ export class CompatibilityValidator {
  * 运行兼容性验证的主函数
  */
 async function main(): Promise<void> {
-  console.log('开始Core模块兼容性验证...\n');
+  logger.info('开始Core模块兼容性验证...\n');
 
   try {
     const validator = new CompatibilityValidator();
     const results = await validator.validateCompatibility();
 
-    console.log(validator.generateReport(results));
+    logger.info(validator.generateReport(results));
 
-    // 总结
     const passedTests = results.filter((r) => r.status === 'pass').length;
     const totalTests = results.length;
 
     if (passedTests === totalTests) {
-      console.log('🎉 所有兼容性测试通过！重构后的Core模块可以安全集成。');
+      logger.info('🎉 所有兼容性测试通过！重构后的Core模块可以安全集成。');
     } else {
-      console.log(
+      logger.info(
         `⚠️  ${passedTests}/${totalTests} 兼容性测试通过，需要关注不兼容的项目。`
       );
     }
   } catch (error) {
-    console.error('兼容性验证失败:', error);
+    logger.error('兼容性验证失败:', error);
     process.exit(1);
   }
 }
 
-// 直接运行验证
-main().catch(console.error);
+main().catch((error) => logger.error('未捕获的异常:', error));

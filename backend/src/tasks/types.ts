@@ -39,6 +39,7 @@ export interface TaskState {
   toolUseCount: number;
   tokenCount: number;
   outputFile: string;
+  outputOffset: number;
   notified: boolean;
   error?: string;
 }
@@ -89,6 +90,14 @@ export interface BashTaskOptions {
   timeout?: number;
   cwd?: string;
   env?: Record<string, string>;
+}
+
+export interface TaskContext {
+  abortController?: AbortController;
+  getAppState?: () => Record<string, unknown>;
+  setAppState?: (
+    updater: (state: Record<string, unknown>) => Record<string, unknown>
+  ) => void;
 }
 
 export interface TaskEvent {

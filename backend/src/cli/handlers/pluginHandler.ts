@@ -4,6 +4,11 @@
  */
 
 import chalk from 'chalk';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface PluginHandlerOptions {
   verbose?: boolean;
@@ -30,7 +35,7 @@ export class PluginHandler {
    */
   async handleList(): Promise<void> {
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Loading plugins...');
+      logger.info('Loading plugins...');
     }
 
     try {
@@ -66,8 +71,11 @@ export class PluginHandler {
 
       console.log(chalk.cyan('═'.repeat(60)));
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to list plugins: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: { handler: 'PluginHandler', operation: 'handleList' },
+      });
     }
   }
 
@@ -78,12 +86,14 @@ export class PluginHandler {
     const pluginName = args[0];
 
     if (!pluginName) {
-      console.error(chalk.red('✗'), 'Plugin name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'PluginHandler', operation: 'handleEnable' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Enabling plugin: ${pluginName}`);
+      logger.info(`Enabling plugin: ${pluginName}`);
     }
 
     try {
@@ -97,8 +107,15 @@ export class PluginHandler {
 
       console.log(chalk.green('✓'), `Plugin ${pluginName} enabled`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to enable plugin: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'PluginHandler',
+          operation: 'handleEnable',
+          pluginName,
+        },
+      });
     }
   }
 
@@ -109,12 +126,14 @@ export class PluginHandler {
     const pluginName = args[0];
 
     if (!pluginName) {
-      console.error(chalk.red('✗'), 'Plugin name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'PluginHandler', operation: 'handleDisable' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Disabling plugin: ${pluginName}`);
+      logger.info(`Disabling plugin: ${pluginName}`);
     }
 
     try {
@@ -128,8 +147,15 @@ export class PluginHandler {
 
       console.log(chalk.green('✓'), `Plugin ${pluginName} disabled`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to disable plugin: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'PluginHandler',
+          operation: 'handleDisable',
+          pluginName,
+        },
+      });
     }
   }
 
@@ -140,12 +166,14 @@ export class PluginHandler {
     const pluginName = args[0];
 
     if (!pluginName) {
-      console.error(chalk.red('✗'), 'Plugin name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'PluginHandler', operation: 'handleInstall' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Installing plugin: ${pluginName}`);
+      logger.info(`Installing plugin: ${pluginName}`);
     }
 
     try {
@@ -161,8 +189,15 @@ export class PluginHandler {
 
       console.log(chalk.green('✓'), `Plugin ${pluginName} installed`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to install plugin: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'PluginHandler',
+          operation: 'handleInstall',
+          pluginName,
+        },
+      });
     }
   }
 
@@ -173,12 +208,14 @@ export class PluginHandler {
     const pluginName = args[0];
 
     if (!pluginName) {
-      console.error(chalk.red('✗'), 'Plugin name is required');
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'PluginHandler', operation: 'handleUninstall' },
+      });
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), `Uninstalling plugin: ${pluginName}`);
+      logger.info(`Uninstalling plugin: ${pluginName}`);
     }
 
     try {
@@ -192,8 +229,15 @@ export class PluginHandler {
 
       console.log(chalk.green('✓'), `Plugin ${pluginName} uninstalled`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to uninstall plugin: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: {
+          handler: 'PluginHandler',
+          operation: 'handleUninstall',
+          pluginName,
+        },
+      });
     }
   }
 
@@ -202,7 +246,6 @@ export class PluginHandler {
    */
   private async loadPlugins(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 200));
-    // 返回模拟数据
     if (this.plugins.length === 0) {
       this.plugins = [
         {

@@ -3,7 +3,8 @@
  * 基于CC源码学习成果，实现并行加载优化和高级依赖分析
  */
 
-import { logger } from '../utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * 增强版模块定义
@@ -231,8 +232,10 @@ export class EnhancedModuleDependencyManager {
       }
 
       if (visiting.has(name)) {
-        throw new Error(
-          `Circular dependency detected involving module: ${name}`
+        throw new AppError(
+          `Circular dependency detected involving module: ${name}`,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH
         );
       }
 
@@ -607,7 +610,11 @@ export class EnhancedModuleDependencyManager {
     const instance = this.modules.get(moduleName);
 
     if (!instance) {
-      throw new Error(`Module ${moduleName} not found`);
+      throw new AppError(
+        `Module ${moduleName} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     try {

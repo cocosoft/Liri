@@ -100,3 +100,8 @@ export { timerCommand } from './timer/index.js';
 export { diffCommand } from './diff/index.js';
 export { reviewCommand } from './review/index.js';
 export { resumeCommand } from './resume/index.js';
+
+// CC 对标补充命令
+export { commitPushPrCommand } from './commit-push-pr/index.js';
+export { thinkbackPlayCommand } from './thinkback-play/index.js';
+export { securityReviewCommand } from './security-review/index.js';

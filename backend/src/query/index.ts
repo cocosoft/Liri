@@ -97,3 +97,10 @@ export {
   createQueryDepsManager,
 } from './deps.js';
 export type { QueryDependencies } from './deps.js';
+export { TAORLoop, createTAORLoop, TAORPhase } from './TAORLoop.js';
+export type {
+  TAORLoopConfig,
+  TAORLoopResult,
+  TAORPhaseInfo,
+  TAORPhaseCallback,
+} from './TAORLoop.js';

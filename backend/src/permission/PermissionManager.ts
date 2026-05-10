@@ -331,6 +331,11 @@ export class PermissionManager {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
 
+    // 检查安全工具白名单
+    if (this.classifierManager.isAllowlistedTool(toolName)) {
+      return createAllowDecision('Tool is on safe allowlist');
+    }
+
     // 使用新的规则管理器检查
     const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
     if (denyRule) {
@@ -548,6 +553,18 @@ export class PermissionManager {
    */
   resetDenialTracker(): void {
     this.denialTracker.reset();
+  }
+
+  /**
+   * 重置所有规则（清空内存和持久化文件）
+   */
+  resetRules(): void {
+    this.ruleManager.clearRules();
+    this.toolPermissionContext = {
+      alwaysAllowRules: {},
+      alwaysDenyRules: {},
+      alwaysAskRules: {},
+    };
   }
 
   /**

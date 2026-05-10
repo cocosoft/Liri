@@ -4,8 +4,27 @@
  * 提供通知的创建、管理、显示和持久化功能
  */
 
-import { appStateStore } from '../state/AppStateStore.js';
-import type { Notification, NotificationType } from '../state/types.js';
+import { appStateStore } from '@modules/state/AppStateStore.js';
+import type { AppState, AppStateStore } from '@modules/state/AppState.js';
+import type { Notification, NotificationType } from '@modules/state/types.js';
+
+/**
+ * 带通知字段的状态类型
+ */
+interface AppStateWithNotifications extends AppState {
+  notifications: Notification[];
+  notificationCount: number;
+}
+
+/**
+ * 支持通知操作的 store 接口
+ */
+interface NotificationStore extends AppStateStore {
+  addNotification(notification: Omit<Notification, 'id' | 'timestamp'>): void;
+  removeNotification(id: string): void;
+  clearNotifications(): void;
+  getState(): AppStateWithNotifications;
+}
 
 /**
  * 通知选项接口
@@ -28,7 +47,7 @@ export interface NotificationOptions {
  */
 export class NotificationService {
   private static instance: NotificationService;
-  private store = appStateStore;
+  private store = appStateStore as unknown as NotificationStore;
   private actionHandlers: Map<string, () => void> = new Map();
   private timers: Map<string, NodeJS.Timeout> = new Map();
 
@@ -58,10 +77,10 @@ export class NotificationService {
       read: false,
     };
 
-    (this.store as any).addNotification(notification);
+    this.store.addNotification(notification);
 
-    const state = (this.store as any).getState();
-    const notifications: any[] = state.notifications || [];
+    const state = this.store.getState();
+    const notifications: Notification[] = state.notifications || [];
     const latestNotification = notifications[notifications.length - 1];
     const notificationId = latestNotification.id;
 
@@ -160,7 +179,7 @@ export class NotificationService {
     }
 
     this.actionHandlers.delete(id);
-    (this.store as any).removeNotification(id);
+    this.store.removeNotification(id);
   }
 
   /**
@@ -172,7 +191,7 @@ export class NotificationService {
     }
     this.timers.clear();
     this.actionHandlers.clear();
-    (this.store as any).clearNotifications();
+    this.store.clearNotifications();
   }
 
   /**
@@ -180,7 +199,7 @@ export class NotificationService {
    * @returns 通知数组
    */
   getAll(): Notification[] {
-    return (this.store as any).getState().notifications;
+    return this.store.getState().notifications;
   }
 
   /**
@@ -188,7 +207,8 @@ export class NotificationService {
    * @returns 未读通知数量
    */
   getUnreadCount(): number {
-    return (this.store as any).getState().notificationCount;
+    const state = this.store.getState();
+    return state.notificationCount;
   }
 
   /**

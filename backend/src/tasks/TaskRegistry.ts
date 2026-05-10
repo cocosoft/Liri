@@ -1,3 +1,5 @@
+import { promises as fs } from 'fs';
+import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -30,6 +32,48 @@ export class TaskRegistry {
   private tasks: Map<string, BaseTask> = new Map();
   private stateHistory: TaskState[] = [];
   private listeners: Set<(event: TaskEvent) => void> = new Set();
+  private persistDir: string | null = null;
+
+  setPersistDir(dir: string): void {
+    this.persistDir = dir;
+  }
+
+  /** 持久化文件名 */
+  private get persistFilePath(): string | null {
+    return this.persistDir ? join(this.persistDir, 'tasks.json') : null;
+  }
+
+  /** 保存所有任务状态到磁盘 */
+  async saveTasks(): Promise<void> {
+    const filePath = this.persistFilePath;
+    if (!filePath) return;
+    try {
+      await fs.mkdir(this.persistDir!, { recursive: true });
+      const tasksData = Array.from(this.tasks.entries()).map(
+        ([id, task]) => task.taskState
+      );
+      await fs.writeFile(filePath, JSON.stringify(tasksData, null, 2), 'utf-8');
+    } catch (error) {
+      logger.error(
+        'Failed to persist tasks',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /** 从磁盘加载任务状态 */
+  async loadTasks(): Promise<TaskState[]> {
+    const filePath = this.persistFilePath;
+    if (!filePath) return [];
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const tasksData: TaskState[] = JSON.parse(content);
+      this.stateHistory = tasksData;
+      return tasksData;
+    } catch {
+      return [];
+    }
+  }
 
   register(task: BaseTask): string {
     const taskId = this.generateTaskId(task.type);
@@ -42,6 +86,7 @@ export class TaskRegistry {
       if (isTerminalTaskStatus(state.status)) {
         this.notifyListeners({ type: 'taskEnded', taskId, state });
       }
+      this.saveTasks();
     });
 
     task.on('progress', (progress: any) => {
@@ -75,8 +120,9 @@ export class TaskRegistry {
    * 从注册表中移除任务
    * 不会终止任务，仅从注册表中移除
    */
-  remove(taskId: string): void {
+  async remove(taskId: string): Promise<void> {
     this.tasks.delete(taskId);
+    await this.saveTasks();
   }
 
   getTask<T extends BaseTask>(taskId: string): T | undefined {
@@ -131,6 +177,7 @@ export class TaskRegistry {
     );
 
     await Promise.all(killPromises);
+    await this.saveTasks();
     this.tasks.clear();
   }
 
@@ -142,12 +189,13 @@ export class TaskRegistry {
     return this.tasks.size;
   }
 
-  clearFinishedTasks(): void {
+  async clearFinishedTasks(): Promise<void> {
     for (const [taskId, task] of this.tasks.entries()) {
       if (isTerminalTaskStatus(task.status)) {
         this.tasks.delete(taskId);
       }
     }
+    await this.saveTasks();
   }
 }
 

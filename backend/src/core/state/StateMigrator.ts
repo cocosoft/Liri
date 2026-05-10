@@ -4,6 +4,7 @@
  * 包括：迁移注册、版本检查、迁移执行、回滚支持
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { logger } from '@modules/utils/log.js';
 
 /**
@@ -102,8 +103,10 @@ export class StateMigrator {
    */
   registerMigration(migration: Migration): void {
     if (this.migrations.has(migration.version)) {
-      throw new Error(
-        `Migration version ${migration.version} already registered`
+      throw new AppError(
+        `Migration version ${migration.version} already registered`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM
       );
     }
 
@@ -153,7 +156,7 @@ export class StateMigrator {
    * @param stateMetadata 状态元数据（可选）
    */
   async migrate(
-    state: any,
+    state: Record<string, unknown>,
     stateMetadata?: StateMetadata
   ): Promise<MigrationResult> {
     const fromVersion = stateMetadata?.version ?? 0;
@@ -186,7 +189,11 @@ export class StateMigrator {
         const migration = this.migrations.get(version);
 
         if (!migration) {
-          throw new Error(`Migration v${version} not found`);
+          throw new AppError(
+            `Migration v${version} not found`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH
+          );
         }
 
         logger.info(
@@ -332,8 +339,11 @@ export function createStateMetadata(): StateMetadata {
  * @param metadata 状态元数据
  */
 export async function migrateState(
-  state: any,
+  state: unknown,
   metadata?: StateMetadata
 ): Promise<MigrationResult> {
-  return StateMigrator.getInstance().migrate(state, metadata);
+  return StateMigrator.getInstance().migrate(
+    state as Record<string, unknown>,
+    metadata
+  );
 }

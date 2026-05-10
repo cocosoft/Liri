@@ -1,15 +1,15 @@
-import type { AgentService } from './models/types';
-import { createAgentService } from './services/agentService';
-import { AIAgentImpl } from './agent';
-import type { AIAgent } from './models/types';
-import {
+import type {
+  AgentService,
+  AIAgent,
   AgentTool,
   AgentStrategy,
   AgentMemory,
   AgentTask,
   AgentResponse,
-  AgentState,
 } from './models/types';
+import { AgentState } from './models/types';
+import { createAgentService } from './services/agentService';
+import { AIAgentImpl } from './agent';
 import { GeneralAgentStrategy } from './strategies/GeneralAgentStrategy';
 import { CodeAgentStrategy } from './strategies/CodeAgentStrategy';
 import { ExploreAgentStrategy } from './strategies/ExploreAgentStrategy';
@@ -29,6 +29,17 @@ import {
   WebSocketProtocol,
   HttpProtocol,
 } from './remote';
+
+import { AgentRunner } from './AgentRunner';
+import { AgentColorManager, AGENT_COLORS } from './utils/AgentColorManager';
+import type { AgentColorName } from './utils/AgentColorManager';
+import {
+  loadAgentsDir,
+  loadUserAgents,
+  loadProjectAgents,
+  loadLocalAgents,
+  loadManagedAgents,
+} from './utils/agentLoader';
 
 export {
   AgentService,
@@ -58,6 +69,18 @@ export {
   createRemoteAgentExecutor,
   WebSocketProtocol,
   HttpProtocol,
+  // Agent Runner
+  AgentRunner,
+  // Agent Color
+  AgentColorManager,
+  AgentColorName,
+  AGENT_COLORS,
+  // Agent Loader
+  loadAgentsDir,
+  loadUserAgents,
+  loadProjectAgents,
+  loadLocalAgents,
+  loadManagedAgents,
 };
 
 const agentService = createAgentService();

@@ -3,7 +3,8 @@
  * 基于CC源码学习成果，实现并行加载和预取优化
  */
 
-import { logger } from '../utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { logger } from '@modules/utils/log.js';
 import {
   EnhancedModuleDependencyManager,
   EnhancedModuleDefinition,
@@ -320,7 +321,11 @@ export class StartupOptimizer {
     }
 
     // 理论上不会执行到这里
-    throw new Error(`Unexpected state in task execution: ${task.id}`);
+    throw new AppError(
+      `Unexpected state in task execution: ${task.id}`,
+      ErrorCategory.UNKNOWN,
+      ErrorSeverity.HIGH
+    );
   }
 
   /**

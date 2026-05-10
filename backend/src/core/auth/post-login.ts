@@ -28,7 +28,7 @@ export async function executePostLogin(
 ): Promise<void> {
   const authManager = getAuthManager();
 
-  (authManager as any).setOAuthTokens({
+  authManager.setOAuthTokens({
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresAt: tokens.expiresAt,

@@ -7,6 +7,9 @@ import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { Logger } from '../../monitoring/logs/Logger';
+
+const logger = new Logger();
 
 /**
  * 审计事件类型
@@ -159,7 +162,7 @@ export class SecurityAuditManager {
       await fs.appendFile(this.currentLogFile!, logEntry);
       this.currentFileSize += logEntry.length;
     } catch (error) {
-      console.error('Failed to log audit event:', error);
+      logger.error('Failed to log audit event:', error);
     }
   }
 
@@ -329,7 +332,7 @@ export class SecurityAuditManager {
         }
       }
     } catch (error) {
-      console.error('Failed to cleanup old logs:', error);
+      logger.error('Failed to cleanup old logs:', error);
     }
   }
 
@@ -395,7 +398,7 @@ export class SecurityAuditManager {
               return events;
             }
           } catch (error) {
-            console.error('Failed to parse audit log line:', error);
+            logger.error('Failed to parse audit log line:', error);
           }
         }
       }
@@ -407,7 +410,7 @@ export class SecurityAuditManager {
 
       return events;
     } catch (error) {
-      console.error('Failed to get audit logs:', error);
+      logger.error('Failed to get audit logs:', error);
       return [];
     }
   }

@@ -50,8 +50,8 @@ export interface TaskHandle {
  */
 export interface TaskContext {
   abortController: AbortController;
-  getAppState: () => any;
-  setAppState: (updater: (prev: any) => any) => void;
+  getAppState: () => unknown;
+  setAppState: (updater: (prev: unknown) => unknown) => void;
 }
 
 /**
@@ -93,7 +93,7 @@ export interface Task {
   type: TaskType;
   kill(
     taskId: string,
-    setAppState: (updater: (prev: any) => any) => void
+    setAppState: (updater: (prev: unknown) => unknown) => void
   ): Promise<void>;
 }
 

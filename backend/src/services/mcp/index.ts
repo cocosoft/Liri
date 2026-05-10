@@ -22,6 +22,9 @@ import {
 import {
   normalizeNameForMCP,
   normalizeToolName,
+  normalizeSimpleToolName,
+  normalizeSimpleResourceUri,
+  needsNormalization,
   isValidMcpName,
 } from './normalization';
 import {
@@ -383,9 +386,12 @@ export { MCPOfficialRegistry } from './MCPOfficialRegistry';
 export {
   normalizeNameForMCP,
   normalizeToolName,
+  normalizeSimpleToolName,
   normalizeCommandName,
   normalizeResourceUri,
+  normalizeSimpleResourceUri,
   denormalizeMcpName,
+  needsNormalization,
   isValidMcpName,
 } from './normalization';
 export {

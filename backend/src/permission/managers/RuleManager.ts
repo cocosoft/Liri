@@ -151,6 +151,14 @@ export class RuleManager {
   }
 
   /**
+   * 清空所有规则
+   */
+  clearRules(): void {
+    this.rules = [];
+    this.saveRules(this.rules);
+  }
+
+  /**
    * 获取规则
    * @param source 规则来源（可选）
    * @param behavior 权限行为（可选）

@@ -3,6 +3,7 @@
  * 统一管理多个价格提供者
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import { BuiltinPriceProvider } from './providers/BuiltinPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
@@ -150,7 +151,11 @@ export class PriceManager {
       return defaultResult;
     }
 
-    throw new Error(`No pricing found for model: ${model}`);
+    throw new AppError(
+      `No pricing found for model: ${model}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.MEDIUM
+    );
   }
 
   clearCache(): void {

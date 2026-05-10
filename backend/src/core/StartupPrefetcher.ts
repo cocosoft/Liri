@@ -4,13 +4,13 @@
  * 在首屏渲染后启动后台预读取，减少用户等待时间
  */
 
-import { logger } from '../utils/log.js';
-import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { logger } from '@modules/utils/log.js';
+import { profileCheckpoint } from '@modules/utils/startupProfiler.js';
 import {
   getStartupState,
   getSessionId,
   getOriginalCwd,
-} from '../bootstrap/state.js';
+} from '@modules/bootstrap/state.js';
 
 /**
  * 预读取任务状态

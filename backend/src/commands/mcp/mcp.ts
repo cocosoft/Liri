@@ -5,17 +5,12 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands/types';
+import type { MCPServerConfig as StdMCPServerConfig } from '@modules/services/mcp/types/index.js';
 
 /**
- * MCP服务器配置
+ * MCP服务器配置（增加名称字段）
  */
-interface MCPServerConfig {
-  name: string;
-  command: string;
-  args: string[];
-  env: Record<string, string>;
-  enabled: boolean;
-}
+type MCPServerConfig = StdMCPServerConfig & { name: string };
 
 /**
  * 获取MCP服务器配置
@@ -82,7 +77,7 @@ export async function executeMCP(
       const output = servers
         .map(
           (s) =>
-            `  ${s.enabled ? '●' : '○'} ${s.name}: ${s.command} ${s.args.join(' ')}`
+            `  ${s.enabled ? '●' : '○'} ${s.name}: ${s.command} ${(s.args ?? []).join(' ')}`
         )
         .join('\n');
 
@@ -115,7 +110,7 @@ export async function executeMCP(
       servers.push({
         name: params.name,
         command: params.command,
-        args: params.args || [],
+        args: params.args ?? [],
         env: {},
         enabled: true,
       });

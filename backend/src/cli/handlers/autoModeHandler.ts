@@ -4,6 +4,11 @@
  */
 
 import chalk from 'chalk';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface AutoModeHandlerOptions {
   verbose?: boolean;
@@ -19,17 +24,30 @@ export class AutoModeHandler {
   }
 
   /**
+   * 处理自动模式启动命令（handleEnable 的别名）
+   */
+  async handleStart(args: string[]): Promise<void> {
+    await this.handleEnable(args);
+  }
+
+  /**
+   * 处理自动模式停止命令（handleDisable 的别名）
+   */
+  async handleStop(): Promise<void> {
+    await this.handleDisable();
+  }
+
+  /**
    * 处理自动模式启用命令
    */
   async handleEnable(args: string[]): Promise<void> {
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Enabling auto mode...');
+      logger.info('Enabling auto mode...');
     }
 
     try {
       this.isAutoModeEnabled = true;
 
-      // 解析额外参数
       const config = this.parseArgs(args);
 
       console.log(chalk.green('✓'), 'Auto mode enabled');
@@ -40,8 +58,11 @@ export class AutoModeHandler {
         console.log(chalk.gray(`    Interval: ${config.interval}ms`));
       }
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to enable auto mode: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: { handler: 'AutoModeHandler', operation: 'handleEnable' },
+      });
     }
   }
 
@@ -50,15 +71,18 @@ export class AutoModeHandler {
    */
   async handleDisable(): Promise<void> {
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Disabling auto mode...');
+      logger.info('Disabling auto mode...');
     }
 
     try {
       this.isAutoModeEnabled = false;
       console.log(chalk.green('✓'), 'Auto mode disabled');
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to disable auto mode: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: { handler: 'AutoModeHandler', operation: 'handleDisable' },
+      });
     }
   }
 
@@ -88,8 +112,11 @@ export class AutoModeHandler {
       await this.updateConfig(key, value);
       console.log(chalk.green('✓'), `Config updated: ${key} = ${value}`);
     } catch (error) {
-      console.error(chalk.red('✗'), `Failed to update config: ${error}`);
-      process.exit(1);
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: { handler: 'AutoModeHandler', operation: 'handleConfig' },
+      });
     }
   }
 

@@ -55,7 +55,7 @@ export const exitCommand: Command = {
         }
       }
 
-      console.log(`${getRandomGoodbyeMessage()} Exiting PY_APP...`);
+      logger.info(`${getRandomGoodbyeMessage()} Exiting PY_APP...`);
 
       // 延迟退出以显示消息
       setTimeout(() => {

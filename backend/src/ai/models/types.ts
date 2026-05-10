@@ -1,5 +1,6 @@
 /**
- * AI模型类型定义（整合llm/types.ts
+ * AI模型类型定义（整合llm/types.ts）
+ * 参考CC源码: cc_code/backend/utils/model/types.ts
  */
 
 export enum AIModelType {
@@ -11,6 +12,148 @@ export enum AIModelType {
   GPT_4_TURBO = 'gpt-4-turbo',
   DEEPSEEK_CHAT = 'deepseek-chat',
   DEEPSEEK_CODER = 'deepseek-coder',
+}
+
+/**
+ * 模型能力枚举
+ */
+export enum ModelCapability {
+  STREAMING = 'streaming',
+  FUNCTION_CALLING = 'function_calling',
+  VISION = 'vision',
+  THINKING = 'thinking',
+  EXTENDED_THINKING = 'extended_thinking',
+  TOOL_USE = 'tool_use',
+  COMPUTER_USE = 'computer_use',
+  BASH_SANDBOX = 'bash_sandbox',
+  CONTEXT_CACHING = 'context_caching',
+  PROMPT_CACHING = 'prompt_caching',
+  STRUCTURED_OUTPUT = 'structured_output',
+  FILES_API = 'files_api',
+  BATCH_API = 'batch_api',
+  PARALLEL_TOOL_CALLS = 'parallel_tool_calls',
+  IMAGE_INPUT = 'image_input',
+  PDF_INPUT = 'pdf_input',
+  CODE_EXECUTION = 'code_execution',
+}
+
+/**
+ * 模型能力映射
+ */
+export const MODEL_CAPABILITIES: Record<string, ModelCapability[]> = {
+  'claude-opus-4-6': [
+    ModelCapability.STREAMING,
+    ModelCapability.FUNCTION_CALLING,
+    ModelCapability.VISION,
+    ModelCapability.THINKING,
+    ModelCapability.EXTENDED_THINKING,
+    ModelCapability.TOOL_USE,
+    ModelCapability.COMPUTER_USE,
+    ModelCapability.BASH_SANDBOX,
+    ModelCapability.CONTEXT_CACHING,
+    ModelCapability.STRUCTURED_OUTPUT,
+    ModelCapability.PARALLEL_TOOL_CALLS,
+    ModelCapability.IMAGE_INPUT,
+    ModelCapability.PDF_INPUT,
+  ],
+  'claude-opus-4-5-20251101': [
+    ModelCapability.STREAMING,
+    ModelCapability.FUNCTION_CALLING,
+    ModelCapability.VISION,
+    ModelCapability.THINKING,
+    ModelCapability.EXTENDED_THINKING,
+    ModelCapability.TOOL_USE,
+    ModelCapability.COMPUTER_USE,
+    ModelCapability.BASH_SANDBOX,
+    ModelCapability.CONTEXT_CACHING,
+    ModelCapability.STRUCTURED_OUTPUT,
+    ModelCapability.PARALLEL_TOOL_CALLS,
+    ModelCapability.IMAGE_INPUT,
+    ModelCapability.PDF_INPUT,
+  ],
+  'claude-sonnet-4-6': [
+    ModelCapability.STREAMING,
+    ModelCapability.FUNCTION_CALLING,
+    ModelCapability.VISION,
+    ModelCapability.THINKING,
+    ModelCapability.EXTENDED_THINKING,
+    ModelCapability.TOOL_USE,
+    ModelCapability.COMPUTER_USE,
+    ModelCapability.BASH_SANDBOX,
+    ModelCapability.CONTEXT_CACHING,
+    ModelCapability.STRUCTURED_OUTPUT,
+    ModelCapability.PARALLEL_TOOL_CALLS,
+    ModelCapability.IMAGE_INPUT,
+    ModelCapability.PDF_INPUT,
+  ],
+  'claude-sonnet-4-5-20250929': [
+    ModelCapability.STREAMING,
+    ModelCapability.FUNCTION_CALLING,
+    ModelCapability.VISION,
+    ModelCapability.THINKING,
+    ModelCapability.TOOL_USE,
+    ModelCapability.CONTEXT_CACHING,
+    ModelCapability.STRUCTURED_OUTPUT,
+    ModelCapability.PARALLEL_TOOL_CALLS,
+    ModelCapability.IMAGE_INPUT,
+    ModelCapability.PDF_INPUT,
+  ],
+  'claude-haiku-4-5-20251001': [
+    ModelCapability.STREAMING,
+    ModelCapability.FUNCTION_CALLING,
+    ModelCapability.VISION,
+    ModelCapability.THINKING,
+    ModelCapability.TOOL_USE,
+    ModelCapability.CONTEXT_CACHING,
+    ModelCapability.STRUCTURED_OUTPUT,
+    ModelCapability.PARALLEL_TOOL_CALLS,
+    ModelCapability.IMAGE_INPUT,
+    ModelCapability.PDF_INPUT,
+  ],
+  'deepseek-chat': [
+    ModelCapability.STREAMING,
+    ModelCapability.FUNCTION_CALLING,
+    ModelCapability.TOOL_USE,
+    ModelCapability.CONTEXT_CACHING,
+  ],
+  'deepseek-reasoner': [
+    ModelCapability.STREAMING,
+    ModelCapability.FUNCTION_CALLING,
+    ModelCapability.THINKING,
+    ModelCapability.TOOL_USE,
+  ],
+};
+
+/**
+ * 获取模型支持的能力列表
+ */
+export function getModelCapabilities(model: string): ModelCapability[] {
+  const normalizedModel = Object.keys(MODEL_CAPABILITIES).find(
+    (k) => model.includes(k) || k.includes(model)
+  );
+  if (normalizedModel) {
+    return MODEL_CAPABILITIES[normalizedModel] || [];
+  }
+  return [ModelCapability.STREAMING];
+}
+
+/**
+ * 检查模型是否支持指定能力
+ */
+export function modelSupportsCapability(
+  model: string,
+  capability: ModelCapability
+): boolean {
+  return getModelCapabilities(model).includes(capability);
+}
+
+/**
+ * 获取支持指定能力的模型列表
+ */
+export function getModelsWithCapability(capability: ModelCapability): string[] {
+  return Object.entries(MODEL_CAPABILITIES)
+    .filter(([, caps]) => caps.includes(capability))
+    .map(([model]) => model);
 }
 
 export enum AIMessageRole {

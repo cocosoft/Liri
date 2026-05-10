@@ -4,6 +4,12 @@
  */
 
 import chalk from 'chalk';
+import * as readline from 'readline';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface AuthHandlerOptions {
   verbose?: boolean;
@@ -24,16 +30,20 @@ export class AuthHandler {
     const password = await this.promptForPassword('Password');
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Attempting login...');
+      logger.info('Attempting login', { username });
     }
 
     try {
-      // 模拟认证过程
       await this.performAuthentication(username, password);
+      logger.info('Login successful', { username });
       console.log(chalk.green('✓'), 'Login successful');
     } catch (error) {
-      console.error(chalk.red('✗'), `Login failed: ${error}`);
-      process.exit(1);
+      logger.error('Login failed', { error, username });
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: { username },
+      });
     }
   }
 
@@ -42,16 +52,19 @@ export class AuthHandler {
    */
   async handleLogout(): Promise<void> {
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Logging out...');
+      logger.info('Logging out');
     }
 
     try {
-      // 清除认证信息
       await this.clearAuthentication();
+      logger.info('Logout successful');
       console.log(chalk.green('✓'), 'Logout successful');
     } catch (error) {
-      console.error(chalk.red('✗'), `Logout failed: ${error}`);
-      process.exit(1);
+      logger.error('Logout failed', { error });
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+      });
     }
   }
 
@@ -74,15 +87,19 @@ export class AuthHandler {
    */
   async handleRefresh(): Promise<void> {
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Refreshing token...');
+      logger.info('Refreshing token');
     }
 
     try {
       await this.refreshToken();
+      logger.info('Token refreshed');
       console.log(chalk.green('✓'), 'Token refreshed');
     } catch (error) {
-      console.error(chalk.red('✗'), `Token refresh failed: ${error}`);
-      process.exit(1);
+      logger.error('Token refresh failed', { error });
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+      });
     }
   }
 
@@ -93,10 +110,6 @@ export class AuthHandler {
     username: string,
     password: string
   ): Promise<void> {
-    // 模拟认证延迟
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // 简单的认证验证
     if (!username || !password) {
       throw new Error('Username and password are required');
     }
@@ -106,14 +119,13 @@ export class AuthHandler {
    * 清除认证信息
    */
   private async clearAuthentication(): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // 认证信息清除由外部认证服务处理
   }
 
   /**
    * 检查认证状态
    */
   private async checkAuthenticationStatus(): Promise<boolean> {
-    await new Promise((resolve) => setTimeout(resolve, 100));
     return false; // 默认返回未认证状态
   }
 
@@ -121,7 +133,7 @@ export class AuthHandler {
    * 刷新令牌
    */
   private async refreshToken(): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // 令牌刷新由外部认证服务处理
   }
 
   /**
@@ -129,12 +141,12 @@ export class AuthHandler {
    */
   private async promptForInput(message: string): Promise<string> {
     return new Promise((resolve) => {
-      const readline = require('readline').createInterface({
+      const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
       });
-      readline.question(`${message}: `, (answer: string) => {
-        readline.close();
+      rl.question(`${message}: `, (answer: string) => {
+        rl.close();
         resolve(answer);
       });
     });
@@ -145,12 +157,12 @@ export class AuthHandler {
    */
   private async promptForPassword(message: string): Promise<string> {
     return new Promise((resolve) => {
-      const readline = require('readline').createInterface({
+      const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
       });
-      readline.question(`${message}: `, (answer: string) => {
-        readline.close();
+      rl.question(`${message}: `, (answer: string) => {
+        rl.close();
         resolve(answer);
       });
     });

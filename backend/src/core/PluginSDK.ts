@@ -3,7 +3,8 @@
  * 为第三方插件开发者提供开发工具和接口
  */
 
-import { logger } from '../utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { logger } from '@modules/utils/log.js';
 import { PluginEcosystem, PluginInfo, SkillInfo } from './PluginEcosystem.js';
 import {
   ModuleDependencyManager,
@@ -22,10 +23,10 @@ export interface PluginContext {
 
   // 日志接口
   log: {
-    debug: (message: string, ...args: any[]) => void;
-    info: (message: string, ...args: any[]) => void;
-    warn: (message: string, ...args: any[]) => void;
-    error: (message: string, ...args: any[]) => void;
+    debug: (message: string, ...args: unknown[]) => void;
+    info: (message: string, ...args: unknown[]) => void;
+    warn: (message: string, ...args: unknown[]) => void;
+    error: (message: string, ...args: unknown[]) => void;
   };
 
   // 配置接口
@@ -37,9 +38,9 @@ export interface PluginContext {
 
   // 事件接口
   events: {
-    on: (event: string, callback: (...args: any[]) => void) => void;
-    off: (event: string, callback: (...args: any[]) => void) => void;
-    emit: (event: string, ...args: any[]) => void;
+    on: (event: string, callback: (...args: unknown[]) => void) => void;
+    off: (event: string, callback: (...args: unknown[]) => void) => void;
+    emit: (event: string, ...args: unknown[]) => void;
   };
 
   // 工具接口
@@ -93,7 +94,7 @@ export interface SkillParameter {
   type: 'string' | 'number' | 'boolean' | 'array' | 'object';
   description: string;
   required?: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
 }
 
 /**
@@ -103,10 +104,10 @@ export interface SkillContext {
   pluginId: string;
   skillId: string;
   log: {
-    debug: (message: string, ...args: any[]) => void;
-    info: (message: string, ...args: any[]) => void;
-    warn: (message: string, ...args: any[]) => void;
-    error: (message: string, ...args: any[]) => void;
+    debug: (message: string, ...args: unknown[]) => void;
+    info: (message: string, ...args: unknown[]) => void;
+    warn: (message: string, ...args: unknown[]) => void;
+    error: (message: string, ...args: unknown[]) => void;
   };
 }
 
@@ -213,7 +214,11 @@ export class PluginSDK {
     const context = this.contexts.get(pluginId);
 
     if (!plugin || !context) {
-      throw new Error(`Plugin ${pluginId} not found`);
+      throw new AppError(
+        `Plugin ${pluginId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     if (plugin.activate) {
@@ -233,7 +238,11 @@ export class PluginSDK {
     const context = this.contexts.get(pluginId);
 
     if (!plugin || !context) {
-      throw new Error(`Plugin ${pluginId} not found`);
+      throw new AppError(
+        `Plugin ${pluginId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     if (plugin.deactivate) {
@@ -256,27 +265,48 @@ export class PluginSDK {
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
-      throw new Error(`Plugin ${pluginId} not found`);
+      throw new AppError(
+        `Plugin ${pluginId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     const skill = plugin.skills?.find((s) => s.id === skillId);
 
     if (!skill) {
-      throw new Error(`Skill ${skillId} not found in plugin ${pluginId}`);
+      throw new AppError(
+        `Skill ${skillId} not found in plugin ${pluginId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH
+      );
     }
 
     const skillContext: SkillContext = {
       pluginId,
       skillId,
       log: {
-        debug: (message: string, ...args: any[]) =>
-          logger.debug(`[${pluginId}:${skillId}] ${message}`, ...args),
-        info: (message: string, ...args: any[]) =>
-          logger.info(`[${pluginId}:${skillId}] ${message}`, ...args),
-        warn: (message: string, ...args: any[]) =>
-          logger.warn(`[${pluginId}:${skillId}] ${message}`, ...args),
-        error: (message: string, ...args: any[]) =>
-          logger.error(`[${pluginId}:${skillId}] ${message}`, ...args),
+        debug: (message: string, ...args: unknown[]) =>
+          logger.debug(
+            `[${pluginId}:${skillId}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        info: (message: string, ...args: unknown[]) =>
+          logger.info(
+            `[${pluginId}:${skillId}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        warn: (message: string, ...args: unknown[]) =>
+          logger.warn(
+            `[${pluginId}:${skillId}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        error: (message: string, ...args: unknown[]) =>
+          logger.error(
+            `[${pluginId}:${skillId}] ${message}`,
+            args[0] as Error | undefined,
+            args[1] as Record<string, unknown> | undefined
+          ),
       },
     };
 
@@ -333,14 +363,27 @@ export class PluginSDK {
       version: plugin.version,
 
       log: {
-        debug: (message: string, ...args: any[]) =>
-          logger.debug(`[${plugin.id}] ${message}`, ...args),
-        info: (message: string, ...args: any[]) =>
-          logger.info(`[${plugin.id}] ${message}`, ...args),
-        warn: (message: string, ...args: any[]) =>
-          logger.warn(`[${plugin.id}] ${message}`, ...args),
-        error: (message: string, ...args: any[]) =>
-          logger.error(`[${plugin.id}] ${message}`, ...args),
+        debug: (message: string, ...args: unknown[]) =>
+          logger.debug(
+            `[${plugin.id}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        info: (message: string, ...args: unknown[]) =>
+          logger.info(
+            `[${plugin.id}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        warn: (message: string, ...args: unknown[]) =>
+          logger.warn(
+            `[${plugin.id}] ${message}`,
+            args[0] as Record<string, unknown> | undefined
+          ),
+        error: (message: string, ...args: unknown[]) =>
+          logger.error(
+            `[${plugin.id}] ${message}`,
+            args[0] as Error | undefined,
+            args[1] as Record<string, unknown> | undefined
+          ),
       },
 
       config: {
@@ -358,18 +401,15 @@ export class PluginSDK {
       },
 
       events: {
-        on: (event: string, callback: (...args: any[]) => void): void => {
-          // 实现事件监听
+        on: (event: string, callback: (...args: unknown[]) => void): void => {
           logger.debug(
             `[${plugin.id}] Registered event listener for: ${event}`
           );
         },
-        off: (event: string, callback: (...args: any[]) => void): void => {
-          // 实现事件取消监听
+        off: (event: string, callback: (...args: unknown[]) => void): void => {
           logger.debug(`[${plugin.id}] Removed event listener for: ${event}`);
         },
-        emit: (event: string, ...args: any[]): void => {
-          // 实现事件触发
+        emit: (event: string, ...args: unknown[]): void => {
           logger.debug(`[${plugin.id}] Emitted event: ${event}`);
         },
       },

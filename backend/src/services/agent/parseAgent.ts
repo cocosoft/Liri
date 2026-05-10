@@ -12,7 +12,7 @@ import {
 } from '@modules/utils/markdownConfigLoader';
 import { parsePositiveIntFromFrontmatter } from '@modules/utils/frontmatterParser';
 import { EFFORT_LEVELS, parseEffortValue } from '@modules/utils/effort';
-import { PermissionMode } from '@modules/permissions/PermissionMode';
+import { PermissionMode } from '@modules/permission/PermissionMode';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';
 

@@ -5,7 +5,7 @@
  */
 
 import type { IPriceProvider, PricingResult } from './IPriceProvider';
-import type { ModelPricing } from '../types';
+import type { ModelPricing } from '@modules/core/tokenBudget/types';
 
 export interface UserPricingConfig {
   models?: Record<

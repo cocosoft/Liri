@@ -106,11 +106,14 @@ export function createBridgeLogger(
     const indicator = '●';
     const isIdle = currentState === 'idle';
     const indicatorColor = isIdle ? chalk.green : chalk.cyan;
-    const stateText = isIdle ? chalk.green(currentStateText) : chalk.cyan(currentStateText);
+    const stateText = isIdle
+      ? chalk.green(currentStateText)
+      : chalk.cyan(currentStateText);
 
     let suffix = '';
     if (repoName) suffix += chalk.dim(' · ') + chalk.dim(repoName);
-    if (branch && spawnMode !== 'worktree') suffix += chalk.dim(' · ') + chalk.dim(branch);
+    if (branch && spawnMode !== 'worktree')
+      suffix += chalk.dim(' · ') + chalk.dim(branch);
 
     if (debugLogPath) {
       writeStatus(`${chalk.yellow('[Logs]')} ${chalk.dim(debugLogPath)}\n`);
@@ -118,29 +121,40 @@ export function createBridgeLogger(
     writeStatus(`${indicatorColor(indicator)} ${stateText}${suffix}\n`);
 
     if (sessionMax > 1) {
-      const modeHint = spawnMode === 'worktree'
-        ? '新会话将在隔离的工作树中创建'
-        : '新会话将在当前目录中创建';
-      writeStatus(`    ${chalk.dim(`容量: ${sessionActive}/${sessionMax} · ${modeHint}`)}\n`);
+      const modeHint =
+        spawnMode === 'worktree'
+          ? '新会话将在隔离的工作树中创建'
+          : '新会话将在当前目录中创建';
+      writeStatus(
+        `    ${chalk.dim(`容量: ${sessionActive}/${sessionMax} · ${modeHint}`)}\n`
+      );
     }
 
     if (sessionMax === 1) {
-      const modeText = spawnMode === 'single-session'
-        ? '单会话模式 · 完成后退出'
-        : spawnMode === 'worktree'
-          ? `容量: ${sessionActive}/1 · 新会话将在隔离的工作树中创建`
-          : `容量: ${sessionActive}/1 · 新会话将在当前目录中创建`;
+      const modeText =
+        spawnMode === 'single-session'
+          ? '单会话模式 · 完成后退出'
+          : spawnMode === 'worktree'
+            ? `容量: ${sessionActive}/1 · 新会话将在隔离的工作树中创建`
+            : `容量: ${sessionActive}/1 · 新会话将在当前目录中创建`;
       writeStatus(`    ${chalk.dim(modeText)}\n`);
     }
 
-    if (sessionMax === 1 && !isIdle && lastToolSummary && Date.now() - lastToolTime < TOOL_DISPLAY_EXPIRY_MS) {
+    if (
+      sessionMax === 1 &&
+      !isIdle &&
+      lastToolSummary &&
+      Date.now() - lastToolTime < TOOL_DISPLAY_EXPIRY_MS
+    ) {
       writeStatus(`  ${chalk.dim(truncateToWidth(lastToolSummary, 60))}\n`);
     }
 
     const url = activeSessionUrl ?? connectUrl;
     if (url) {
       writeStatus('\n');
-      const footerText = isIdle ? `随时随地使用 PY_APP 编码: ${url}` : `在 PY_APP 中继续编码: ${url}`;
+      const footerText = isIdle
+        ? `随时随地使用 PY_APP 编码: ${url}`
+        : `在 PY_APP 中继续编码: ${url}`;
       writeStatus(`${chalk.dim(footerText)}\n`);
     }
   }
@@ -177,7 +191,8 @@ export function createBridgeLogger(
     },
 
     updateSessionCount(count: number, max: number, mode: SpawnMode): void {
-      if (sessionActive === count && sessionMax === max && spawnMode === mode) return;
+      if (sessionActive === count && sessionMax === max && spawnMode === mode)
+        return;
       sessionActive = count;
       sessionMax = max;
       spawnMode = mode;

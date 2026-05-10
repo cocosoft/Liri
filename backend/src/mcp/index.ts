@@ -14,10 +14,7 @@ export type {
 } from './auth/index.js';
 
 // ── 类型 ──
-export {
-  MCP_PROTOCOL_VERSION,
-  MCPServerStatus,
-} from './types/index.js';
+export { MCP_PROTOCOL_VERSION, MCPServerStatus } from './types/index.js';
 export type {
   ConfigScope,
   MCPServerType,
@@ -189,8 +186,13 @@ export type {
 export {
   normalizeNameForMCP,
   normalizeToolName,
+  normalizeSimpleToolName,
   normalizeResourceUri,
+  normalizeSimpleResourceUri,
+  normalizeCommandName,
   needsNormalization,
+  denormalizeMcpName,
+  isValidMcpName,
 } from './utils/MCPNormalization.js';
 
 export {

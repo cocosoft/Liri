@@ -35,7 +35,7 @@ export class UtilHandler {
         await this.which(args);
         return true;
       case 'env':
-        await this.printEnv(args);
+        await this.showEnv(args);
         return true;
       case 'debug':
         await this.debug(args);
@@ -115,21 +115,32 @@ export class UtilHandler {
     console.log(helpText[command] || `未找到命令 '${command}' 的帮助信息`);
   }
 
-  private async showVersion() {
-    // @ts-expect-error - package.json has no type declarations
-    const packageJson = await import('../../package.json');
-    console.log(`PY_APP v${packageJson.version}`);
+  async showVersion() {
+    const { readFileSync, existsSync } = await import('fs');
+    const { join } = await import('path');
+    const packagePath = join(process.cwd(), 'package.json');
+    let version = '0.0.0';
+    if (existsSync(packagePath)) {
+      try {
+        const content = readFileSync(packagePath, 'utf8');
+        const pkg = JSON.parse(content);
+        version = pkg.version || '0.0.0';
+      } catch {
+        version = '0.0.0';
+      }
+    }
+    console.log(`PY_APP v${version}`);
   }
 
-  private async clearScreen() {
+  async clearScreen() {
     console.clear();
   }
 
-  private async echo(args: string[]) {
+  async echo(args: string[]) {
     console.log(args.join(' '));
   }
 
-  private async which(args: string[]) {
+  async which(args: string[]) {
     if (args.length === 0) {
       console.log('请指定要查找的命令');
       return;
@@ -158,7 +169,7 @@ export class UtilHandler {
     }
   }
 
-  private async printEnv(args: string[]) {
+  async showEnv(args: string[]) {
     if (args.length === 0) {
       for (const [key, value] of Object.entries(process.env)) {
         console.log(`${key}=${value}`);
@@ -170,7 +181,7 @@ export class UtilHandler {
     }
   }
 
-  private async debug(args: string[]) {
+  async debug(args: string[]) {
     if (args.includes('on')) {
       process.env.PY_APP_DEBUG = 'true';
       console.log('调试模式已开启');

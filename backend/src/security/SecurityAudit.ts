@@ -22,9 +22,17 @@ export enum AuditEventType {
    */
   TOOL_EXECUTION = 'tool_execution',
   /**
-   * 权限检�?
+   * 权限检查
    */
   PERMISSION_CHECK = 'permission_check',
+  /**
+   * 权限拒绝
+   */
+  PERMISSION_DENIED = 'permission_denied',
+  /**
+   * 权限授予
+   */
+  PERMISSION_GRANTED = 'permission_granted',
   /**
    * 错误
    */
@@ -38,9 +46,55 @@ export enum AuditEventType {
    */
   INFO = 'info',
   /**
-   * 自定�?
+   * 输入验证失败
+   */
+  INPUT_VALIDATION_FAILED = 'input_validation_failed',
+  /**
+   * 危险命令检测
+   */
+  DANGEROUS_COMMAND_DETECTED = 'dangerous_command_detected',
+  /**
+   * 路径遍历检测
+   */
+  PATH_TRAVERSAL_DETECTED = 'path_traversal_detected',
+  /**
+   * XSS攻击检测
+   */
+  XSS_ATTACK_DETECTED = 'xss_attack_detected',
+  /**
+   * 安全异常
+   */
+  SECURITY_EXCEPTION = 'security_exception',
+  /**
+   * 配置变更
+   */
+  CONFIG_CHANGE = 'config_change',
+  /**
+   * 系统启动
+   */
+  SYSTEM_STARTUP = 'system_startup',
+  /**
+   * 系统关闭
+   */
+  SYSTEM_SHUTDOWN = 'system_shutdown',
+  /**
+   * 自定义
    */
   CUSTOM = 'custom',
+}
+
+/**
+ * 审计事件严重级别
+ */
+export enum AuditEventSeverity {
+  /** 信息 */
+  INFO = 'info',
+  /** 警告 */
+  WARNING = 'warning',
+  /** 错误 */
+  ERROR = 'error',
+  /** 严重 */
+  CRITICAL = 'critical',
 }
 
 /**
@@ -56,6 +110,10 @@ export interface AuditEvent {
    */
   type: AuditEventType;
   /**
+   * 严重级别
+   */
+  severity?: AuditEventSeverity;
+  /**
    * 事件时间
    */
   timestamp: Date;
@@ -68,9 +126,17 @@ export interface AuditEvent {
    */
   userId?: string;
   /**
+   * 会话ID
+   */
+  sessionId?: string;
+  /**
    * 操作名称
    */
   operation?: string;
+  /**
+   * 工具名称
+   */
+  toolName?: string;
   /**
    * 资源名称
    */
@@ -84,9 +150,9 @@ export interface AuditEvent {
    */
   error?: string;
   /**
-   * 自定义数�?
+   * 自定义数据
    */
-  data?: any;
+  data?: Record<string, unknown>;
   /**
    * IP地址
    */
@@ -95,6 +161,24 @@ export interface AuditEvent {
    * 用户代理
    */
   userAgent?: string;
+}
+
+/**
+ * 安全审计配置
+ */
+export interface SecurityAuditConfig {
+  /** 是否启用审计 */
+  enabled: boolean;
+  /** 审计日志文件路径 */
+  logFile?: string;
+  /** 最大日志文件大小（MB） */
+  maxLogSize: number;
+  /** 保留天数 */
+  retentionDays: number;
+  /** 是否记录详细信息 */
+  verbose: boolean;
+  /** 需要审计的事件类型 */
+  eventTypes: AuditEventType[];
 }
 
 /**
@@ -167,7 +251,9 @@ export class SecurityAudit {
       eventId: event.id,
       timestamp: event.timestamp,
       userId: event.userId,
+      sessionId: event.sessionId,
       operation: event.operation,
+      toolName: event.toolName,
       resource: event.resource,
       result: event.result,
       error: event.error,

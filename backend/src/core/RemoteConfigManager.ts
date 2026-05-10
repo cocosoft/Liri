@@ -4,7 +4,8 @@
  * 基于CC源码学习成果，实现配置的实时同步和版本管理
  */
 
-import { logger } from '../utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { logger } from '@modules/utils/log.js';
 
 /**
  * 配置定义
@@ -28,8 +29,8 @@ export interface ConfigValidation {
   min?: number;
   max?: number;
   pattern?: RegExp;
-  enum?: any[];
-  custom?: (value: any) => boolean;
+  enum?: unknown[];
+  custom?: (value: unknown) => boolean;
 }
 
 /**
@@ -48,8 +49,8 @@ export enum SecurityLevel {
 export interface ConfigChange {
   id: string;
   key: string;
-  oldValue?: any;
-  newValue: any;
+  oldValue?: unknown;
+  newValue: unknown;
   timestamp: Date;
   user?: string;
   reason?: string;
@@ -76,7 +77,7 @@ export interface AuditRecord {
   key: string;
   user: string;
   timestamp: Date;
-  details?: any;
+  details?: Record<string, unknown>;
   ip?: string;
   userAgent?: string;
 }
@@ -145,7 +146,11 @@ export class RemoteConfigManager {
   getConfig<T>(key: string): T {
     const definition = this.configs.get(key);
     if (!definition) {
-      throw new Error(`Config ${key} not found`);
+      throw new AppError(
+        `Config ${key} not found`,
+        ErrorCategory.CONFIGURATION,
+        ErrorSeverity.HIGH
+      );
     }
 
     // 安全检查
@@ -168,7 +173,11 @@ export class RemoteConfigManager {
   ): void {
     const definition = this.configs.get(key);
     if (!definition) {
-      throw new Error(`Config ${key} not found`);
+      throw new AppError(
+        `Config ${key} not found`,
+        ErrorCategory.CONFIGURATION,
+        ErrorSeverity.HIGH
+      );
     }
 
     // 安全检查
@@ -281,7 +290,7 @@ export class RemoteConfigManager {
   /**
    * 生成远程配置值（模拟）
    */
-  private generateRemoteValue(definition: ConfigDefinition): any {
+  private generateRemoteValue(definition: ConfigDefinition): unknown {
     // 模拟远程配置可能与本地不同
     if (Math.random() > 0.7) {
       // 30%的概率值不同
@@ -383,7 +392,11 @@ export class RemoteConfigManager {
   async rollback(version: string): Promise<void> {
     const targetVersion = this.versions.get(version);
     if (!targetVersion) {
-      throw new Error(`Version ${version} not found`);
+      throw new AppError(
+        `Version ${version} not found`,
+        ErrorCategory.CONFIGURATION,
+        ErrorSeverity.HIGH
+      );
     }
 
     logger.info(`Rolling back to version ${version}...`);
@@ -498,11 +511,11 @@ export class RemoteConfigManager {
     action: string,
     key: string,
     user: string,
-    details?: any
+    details?: Record<string, unknown>
   ): void {
     const record: AuditRecord = {
       id: this.generateId(),
-      action: action as any,
+      action: action as 'read' | 'write' | 'delete' | 'sync',
       key,
       user,
       timestamp: new Date(),
@@ -536,7 +549,11 @@ class SecurityChecker {
   checkWritePermission(key: string, user: string): void {
     // 简化实现：检查用户权限
     if (user === 'anonymous') {
-      throw new Error(`User ${user} does not have write permission for ${key}`);
+      throw new AppError(
+        `User ${user} does not have write permission for ${key}`,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH
+      );
     }
 
     // 实际实现中应该检查更复杂的权限规则
@@ -550,13 +567,17 @@ class ConfigValidator {
   /**
    * 验证配置值
    */
-  validate(definition: ConfigDefinition, value: any): void {
+  validate(definition: ConfigDefinition, value: unknown): void {
     if (definition.validation) {
       const validation = definition.validation;
 
       // 检查必填字段
       if (validation.required && (value === undefined || value === null)) {
-        throw new Error(`Config ${definition.key} is required`);
+        throw new AppError(
+          `Config ${definition.key} is required`,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH
+        );
       }
 
       // 检查数值范围
@@ -565,37 +586,50 @@ class ConfigValidator {
         value !== undefined &&
         value !== null
       ) {
-        if (validation.min !== undefined && value < validation.min) {
-          throw new Error(
-            `Config ${definition.key} must be >= ${validation.min}`
+        const numValue = value as number;
+        if (validation.min !== undefined && numValue < validation.min) {
+          throw new AppError(
+            `Config ${definition.key} must be >= ${validation.min}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM
           );
         }
-        if (validation.max !== undefined && value > validation.max) {
-          throw new Error(
-            `Config ${definition.key} must be <= ${validation.max}`
+        if (validation.max !== undefined && numValue > validation.max) {
+          throw new AppError(
+            `Config ${definition.key} must be <= ${validation.max}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM
           );
         }
       }
 
       // 检查枚举值
-      if (validation.enum && !validation.enum.includes(value)) {
-        throw new Error(
-          `Config ${definition.key} must be one of: ${validation.enum.join(', ')}`
+      if (validation.enum && !validation.enum.includes(value as never)) {
+        throw new AppError(
+          `Config ${definition.key} must be one of: ${validation.enum.join(', ')}`,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.MEDIUM
         );
       }
 
       // 检查正则表达式
       if (validation.pattern && definition.type === 'string') {
-        if (!validation.pattern.test(value)) {
-          throw new Error(
-            `Config ${definition.key} does not match pattern: ${validation.pattern}`
+        if (!validation.pattern.test(value as string)) {
+          throw new AppError(
+            `Config ${definition.key} does not match pattern: ${validation.pattern}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM
           );
         }
       }
 
       // 自定义验证
-      if (validation.custom && !validation.custom(value)) {
-        throw new Error(`Config ${definition.key} failed custom validation`);
+      if (validation.custom && !validation.custom(value as never)) {
+        throw new AppError(
+          `Config ${definition.key} failed custom validation`,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH
+        );
       }
     }
 
@@ -606,7 +640,7 @@ class ConfigValidator {
   /**
    * 类型验证
    */
-  private validateType(type: string, value: any): void {
+  private validateType(type: string, value: unknown): void {
     if (value === undefined || value === null) {
       return; // 空值跳过类型检查
     }
@@ -614,27 +648,47 @@ class ConfigValidator {
     switch (type) {
       case 'number':
         if (typeof value !== 'number') {
-          throw new Error(`Expected number for config, got ${typeof value}`);
+          throw new AppError(
+            `Expected number for config, got ${typeof value}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM
+          );
         }
         break;
       case 'boolean':
         if (typeof value !== 'boolean') {
-          throw new Error(`Expected boolean for config, got ${typeof value}`);
+          throw new AppError(
+            `Expected boolean for config, got ${typeof value}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM
+          );
         }
         break;
       case 'string':
         if (typeof value !== 'string') {
-          throw new Error(`Expected string for config, got ${typeof value}`);
+          throw new AppError(
+            `Expected string for config, got ${typeof value}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM
+          );
         }
         break;
       case 'object':
         if (typeof value !== 'object' || Array.isArray(value)) {
-          throw new Error(`Expected object for config, got ${typeof value}`);
+          throw new AppError(
+            `Expected object for config, got ${typeof value}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM
+          );
         }
         break;
       case 'array':
         if (!Array.isArray(value)) {
-          throw new Error(`Expected array for config, got ${typeof value}`);
+          throw new AppError(
+            `Expected array for config, got ${typeof value}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM
+          );
         }
         break;
     }

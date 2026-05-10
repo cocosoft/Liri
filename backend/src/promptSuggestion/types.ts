@@ -172,38 +172,12 @@ export const DESCRIPTION_MAX_LENGTH = 60;
 
 /**
  * Speculation超前执行类型
+ * 重新从核心状态模块导出
  */
-
-export type SpeculationStatus =
-  | 'idle'
-  | 'active'
-  | 'accepted'
-  | 'aborted'
-  | 'error';
-
-export type SpeculationResult = {
-  status: 'complete' | 'incomplete';
-  messages: unknown[];
-  boundary?: unknown;
-};
-
-export interface SpeculationState {
-  status: SpeculationStatus;
-  id: string | null;
-  suggestion: string | null;
-  result: SpeculationResult | null;
-  overlayPath: string | null;
-  writtenPaths: Set<string>;
-}
-
-export const IDLE_SPECULATION_STATE: SpeculationState = {
-  status: 'idle',
-  id: null,
-  suggestion: null,
-  result: null,
-  overlayPath: null,
-  writtenPaths: new Set(),
-};
+export type { SuggestionSpeculationStatus as SpeculationStatus } from '@modules/state/AppState.js';
+export type { SuggestionSpeculationResult as SpeculationResult } from '@modules/state/AppState.js';
+export type { SuggestionSpeculationState as SpeculationState } from '@modules/state/AppState.js';
+export { IDLE_SUGGESTION_SPECULATION_STATE as IDLE_SPECULATION_STATE } from '@modules/state/AppState.js';
 
 export const MAX_SPECULATION_TURNS = 20;
 export const MAX_SPECULATION_MESSAGES = 100;

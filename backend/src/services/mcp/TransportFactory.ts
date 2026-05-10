@@ -1,58 +1,179 @@
 /**
- * 传输层工厂
+ * MCP传输层工厂（统一实现）
  * 负责创建不同类型的传输层实例
  */
 
-import { logger } from '@modules/utils/log';
-import { WebSocketTransport } from './WebSocketTransport';
-import { SSETransport } from './SSETransport';
-import type { McpServerConfig } from './types';
+import { MCPTransport } from '../../mcp/transports/MCPTransport';
+import { HTTPTransport } from '../../mcp/transports/HTTPTransport';
+import { StdioTransport } from '../../mcp/transports/StdioTransport';
+import { WebSocketTransport } from '../../mcp/transports/WebSocketTransport';
+import { SSETransport } from '../../mcp/transports/SSETransport';
+import type { MCPServerConfig } from '../../mcp/types';
 
 /**
- * 传输层工厂
+ * 传输层配置
+ */
+export interface TransportConfig {
+  type: 'stdio' | 'http' | 'ws' | 'sse';
+  url?: string;
+  command?: string;
+  args?: string[];
+  headers?: Record<string, string>;
+  env?: Record<string, string>;
+  connectTimeout?: number;
+  requestTimeout?: number;
+}
+
+/**
+ * MCP传输层工厂
  */
 export class TransportFactory {
-  /**
-   * 创建传输层实例
-   * @param config 服务器配置
-   * @returns 传输层实例
-   */
-  static createTransport(config: McpServerConfig) {
+  static createTransport(config: TransportConfig): MCPTransport {
     switch (config.type) {
-      case 'ws':
-        logger.info('Creating WebSocket transport');
-        return new WebSocketTransport(config);
-      case 'sse':
-        logger.info('Creating SSE transport');
-        return new SSETransport(config);
       case 'http':
-        logger.info('Using HTTP transport (built-in)');
-        return null; // HTTP使用内置传输
+        if (!config.url) {
+          throw new Error('HTTP transport requires url');
+        }
+        return new HTTPTransport({
+          url: config.url,
+          headers: config.headers,
+        });
+
       case 'stdio':
-        logger.info('Using Stdio transport (built-in)');
-        return null; // Stdio使用内置传输
-      case 'sdk':
-        logger.info('Using SDK transport (built-in)');
-        return null; // SDK使用内置传输
+        if (!config.command) {
+          throw new Error('Stdio transport requires command');
+        }
+        return new StdioTransport({
+          command: config.command,
+          args: config.args,
+          env: config.env,
+        });
+
+      case 'ws':
+        if (!config.url) {
+          throw new Error('WebSocket transport requires url');
+        }
+        return new WebSocketTransport({
+          url: config.url,
+          headers: config.headers,
+          connectTimeout: config.connectTimeout,
+          requestTimeout: config.requestTimeout,
+        });
+
+      case 'sse':
+        if (!config.url) {
+          throw new Error('SSE transport requires url');
+        }
+        return new SSETransport({
+          url: config.url,
+          headers: config.headers,
+        });
+
       default:
-        logger.warn(`Unknown transport type: ${config.type}`);
-        return null;
+        throw new Error(`Unknown transport type: ${config.type}`);
     }
   }
 
-  /**
-   * 获取传输层显示名称
-   * @param transportType 传输层类型
-   * @returns 显示名称
-   */
-  static getTransportDisplayName(transportType: string): string {
-    const displayNames: Record<string, string> = {
-      ws: 'WebSocket',
-      sse: 'SSE',
-      http: 'HTTP',
-      stdio: 'Stdio',
-      sdk: 'SDK',
+  static createFromServerConfig(serverConfig: MCPServerConfig): MCPTransport {
+    const transportType = (serverConfig.type || 'stdio') as
+      | 'stdio'
+      | 'http'
+      | 'ws'
+      | 'sse';
+
+    const transportConfig: TransportConfig = {
+      type: transportType,
+      url: serverConfig.url,
+      command: serverConfig.command,
+      args: serverConfig.args,
+      headers: serverConfig.headers,
+      env: serverConfig.env,
     };
-    return displayNames[transportType] || transportType;
+
+    return this.createTransport(transportConfig);
+  }
+
+  static getSupportedTransportTypes(): string[] {
+    return ['stdio', 'http', 'ws', 'sse'];
+  }
+
+  static validateTransportConfig(config: TransportConfig): {
+    valid: boolean;
+    error?: string;
+  } {
+    switch (config.type) {
+      case 'http':
+        if (!config.url) {
+          return { valid: false, error: 'HTTP transport requires url' };
+        }
+        break;
+
+      case 'stdio':
+        if (!config.command) {
+          return { valid: false, error: 'Stdio transport requires command' };
+        }
+        break;
+
+      case 'ws':
+        if (!config.url) {
+          return { valid: false, error: 'WebSocket transport requires url' };
+        }
+        break;
+
+      case 'sse':
+        if (!config.url) {
+          return { valid: false, error: 'SSE transport requires url' };
+        }
+        break;
+
+      default:
+        return {
+          valid: false,
+          error: `Unknown transport type: ${config.type}`,
+        };
+    }
+
+    return { valid: true };
+  }
+
+  static detectTransportType(url: string): 'http' | 'ws' | 'sse' | 'stdio' {
+    if (!url) {
+      return 'stdio';
+    }
+    if (url.startsWith('ws://') || url.startsWith('wss://')) {
+      return 'ws';
+    }
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      if (url.includes('/sse') || url.includes('/stream')) {
+        return 'sse';
+      }
+      return 'http';
+    }
+    return 'stdio';
+  }
+
+  static createAutoTransport(
+    urlOrConfig: string | MCPServerConfig
+  ): MCPTransport {
+    if (typeof urlOrConfig === 'string') {
+      const type = this.detectTransportType(urlOrConfig);
+      return this.createTransport({ type, url: urlOrConfig });
+    }
+
+    const type = (urlOrConfig.type ||
+      this.detectTransportType(urlOrConfig.url || '')) as
+      | 'stdio'
+      | 'http'
+      | 'ws'
+      | 'sse';
+
+    return this.createTransport({
+      type,
+      url: urlOrConfig.url,
+      command: urlOrConfig.command,
+      args: urlOrConfig.args,
+      headers: urlOrConfig.headers,
+      env: urlOrConfig.env,
+    });
   }
 }

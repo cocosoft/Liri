@@ -2,7 +2,7 @@
  * TAOR (Think-Act-Observe-Repeat) 循环核心
  */
 
-import type { ToolCall, ToolResult } from '../types';
+import type { ToolCall, ToolResult } from '@modules/core/types';
 import type { LLMClient } from '@modules/ai/clients/LLMClient';
 import type {
   ChatMessage,
@@ -18,7 +18,7 @@ interface TAORLoopConfig {
 
 interface ToolRegistry {
   getSchemas(): ToolDefinition[];
-  execute(toolCall: ToolCall, context: any): Promise<ToolResult>;
+  execute(toolCall: ToolCall, context: unknown): Promise<ToolResult>;
 }
 
 interface ResolvedConfig {

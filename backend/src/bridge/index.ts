@@ -39,8 +39,24 @@ export { createSessionManager } from './managers/SessionManager';
 export { createHeartbeatManager } from './managers/HeartbeatManager';
 export { createWorktreeManager } from './managers/WorktreeManager';
 
+// Logger
+export { createBridgeLogger } from './logger/BridgeLogger';
+
 // 多会话管理
 export * from './sessions';
+
+// 会话运行器
+export { createSessionRunner } from './SessionRunner';
+export type {
+  SessionActivity,
+  SessionHandle,
+  SessionSpawnOpts,
+  SessionDoneStatus,
+} from './types/index';
+
+// 信任设备
+export { TrustedDevice } from './TrustedDevice';
+export type { TrustedDevice as TrustedDeviceType } from './TrustedDevice';
 
 // 容量管理
 export * from './capacity';

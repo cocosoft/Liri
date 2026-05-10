@@ -9,9 +9,9 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 // 导出模块注册表
+export type { ModuleDefinition } from './ModuleRegistry';
 export {
   ModuleCategory,
-  ModuleDefinition,
   moduleRegistry,
 } from './ModuleRegistry';
 

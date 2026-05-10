@@ -3,14 +3,14 @@
  * 增强层类型，标准类型引用自 services/mcp/types/
  */
 
-import {
+import type {
   MCPServerConfig as _MCPServerConfig,
   ScopedMcpServerConfigExt as _ScopedMcpServerConfigExt,
 } from '../../services/mcp/types/index.js';
 
-export { _MCPServerConfig as MCPServerConfig };
+export type { _MCPServerConfig as MCPServerConfig };
 
-export { _ScopedMcpServerConfigExt as ScopedMcpServerConfig };
+export type { _ScopedMcpServerConfigExt as ScopedMcpServerConfig };
 
 export type { _ScopedMcpServerConfigExt as ScopedMcpServerConfigExt };
 

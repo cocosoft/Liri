@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "bun run --watch src/main.ts",
-    "start": "bun build src/main.ts --target=bun --outfile=dist/app.js && bun dist/app.js",
+    "start": "bun run src/main.ts",
     "build": "bun build src/main.ts --outdir=dist --target=bun",
     "typecheck": "tsc --noEmit",
     "test": "bun test",

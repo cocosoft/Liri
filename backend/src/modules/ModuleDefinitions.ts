@@ -4,7 +4,8 @@
  * 统一定义所有模块的基本信息、依赖关系和生命周期
  */
 
-import { ModuleDefinition, ModuleCategory } from './ModuleRegistry';
+import type { ModuleDefinition } from './ModuleRegistry';
+import { ModuleCategory } from './ModuleRegistry';
 
 /**
  * 所有模块的定义

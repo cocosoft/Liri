@@ -49,20 +49,24 @@ export * from './recovery/RetryStrategies';
 
 // 网络错误处理子模块
 export {
-  ConnectionErrorType,
-  ConnectionAnalysis,
   analyzeConnectionError,
   formatConnectionError,
   SSL_ERROR_CODES,
   getSSLErrorHint,
   getSSLUserMessage,
 } from './network/ConnectionErrorAnalyzer';
+export type {
+  ConnectionErrorType,
+  ConnectionAnalysis,
+} from './network/ConnectionErrorAnalyzer';
 export {
   SSLErrorType,
-  SSLAnalysisResult,
   analyzeSSLError,
   isSSLError,
   formatSSLError,
+} from './network/SSLErrorHandler';
+export type {
+  SSLAnalysisResult,
 } from './network/SSLErrorHandler';
 
 // 错误上下文子模块
@@ -81,11 +85,11 @@ export * from './services/ErrorService';
 export * from './ErrorManager';
 
 // 增强错误管理器
-export {
+export { EnhancedErrorManager } from './EnhancedErrorManager';
+export type {
   EnhancedErrorManagerConfig,
   ErrorCorrelation,
   ErrorLifecycle,
-  EnhancedErrorManager,
 } from './EnhancedErrorManager';
 
 // 高级错误分析器

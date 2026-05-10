@@ -4,7 +4,7 @@
  */
 
 export * from './OAuthTypes';
-export {
+export type {
   ClientMetadata,
   ClientInfo,
   OAuthDiscoveryResult,

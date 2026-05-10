@@ -12,11 +12,14 @@ import { ServerResource as _ServerResource } from '../../services/mcp/types/inde
 
 export {
   MCP_PROTOCOL_VERSION,
+  MCPServerStatus,
+} from './MCPTypes.js';
+
+export type {
   ConfigScope,
   MCPServerType,
   MCPServerConfig,
   ScopedMcpServerConfigExt as ScopedMcpServerConfig,
-  MCPServerStatus,
   MCPServerConnectionInfo,
   MCPToolDefinition,
   MCPResourceDefinition,
@@ -32,9 +35,6 @@ export {
   MCPEvent,
   MCPTransport,
   MCPClient,
-} from './MCPTypes.js';
-
-export type {
   ScopedMcpServerConfigExt,
   MCPClient as MCPClientType,
   MCPTransport as MCPTransportType,

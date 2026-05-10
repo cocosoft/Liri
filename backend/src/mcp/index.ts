@@ -16,11 +16,13 @@ export type {
 // ── 类型 ──
 export {
   MCP_PROTOCOL_VERSION,
+  MCPServerStatus,
+} from './types/index.js';
+export type {
   ConfigScope,
   MCPServerType,
   MCPServerConfig,
   ScopedMcpServerConfig,
-  MCPServerStatus,
   MCPServerConnectionInfo,
   MCPToolDefinition,
   MCPResourceDefinition,
@@ -40,8 +42,9 @@ export {
   McpbLoadResult,
   McpbNeedsConfigResult,
   ServerResource,
+  MCPClientType,
+  MCPTransportType,
 } from './types/index.js';
-export type { MCPClientType, MCPTransportType } from './types/index.js';
 
 // ── 传输层 ──
 export { MCPTransport as MCPTransportBase } from './transports/MCPTransport.js';

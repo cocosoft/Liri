@@ -37,7 +37,7 @@ export class ErrorService {
     message: string,
     options?: {
       code?: string;
-      details?: any;
+      details?: unknown;
       originalError?: Error;
       location?: string;
       level?: ErrorLevel;
@@ -123,7 +123,7 @@ export class ErrorService {
    * @param error 应用错误
    * @returns HTTP错误响应
    */
-  toHttpResponse(error: AppError): { status: number; body: any } {
+  toHttpResponse(error: AppError): { status: number; body: unknown } {
     // 根据错误类型确定HTTP状态码
     let status = 500; // 默认500 Internal Server Error
 
@@ -166,13 +166,13 @@ export class ErrorService {
    * @param options 错误处理选项
    * @returns 包装后的函数
    */
-  wrapAsync<T extends (...args: any[]) => Promise<any>>(
+  wrapAsync<T extends (...args: unknown[]) => Promise<unknown>>(
     fn: T,
     options: ErrorHandlerOptions = {}
   ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
     return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
       try {
-        return await fn(...args);
+        return (await fn(...args)) as ReturnType<T>;
       } catch (error) {
         const appError = this.handleError(error, options);
         throw appError;
@@ -186,13 +186,13 @@ export class ErrorService {
    * @param options 错误处理选项
    * @returns 包装后的函数
    */
-  wrapSync<T extends (...args: any[]) => any>(
+  wrapSync<T extends (...args: unknown[]) => unknown>(
     fn: T,
     options: ErrorHandlerOptions = {}
   ): (...args: Parameters<T>) => ReturnType<T> {
     return (...args: Parameters<T>): ReturnType<T> => {
       try {
-        return fn(...args);
+        return fn(...args) as ReturnType<T>;
       } catch (error) {
         const appError = this.handleError(error, options);
         throw appError;
@@ -229,7 +229,7 @@ export function createError(
   message: string,
   options?: {
     code?: string;
-    details?: any;
+    details?: unknown;
     originalError?: Error;
     location?: string;
     level?: ErrorLevel;
@@ -257,7 +257,7 @@ export function handleError(
  * @param options 错误处理选项
  * @returns 包装后的函数
  */
-export function wrapAsync<T extends (...args: any[]) => Promise<any>>(
+export function wrapAsync<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T,
   options: ErrorHandlerOptions = {}
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
@@ -270,7 +270,7 @@ export function wrapAsync<T extends (...args: any[]) => Promise<any>>(
  * @param options 错误处理选项
  * @returns 包装后的函数
  */
-export function wrapSync<T extends (...args: any[]) => any>(
+export function wrapSync<T extends (...args: unknown[]) => unknown>(
   fn: T,
   options: ErrorHandlerOptions = {}
 ): (...args: Parameters<T>) => ReturnType<T> {

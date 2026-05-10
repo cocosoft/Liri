@@ -11,7 +11,7 @@ import { logForDebugging } from '../utils/debug.js';
  * 聚合数据接口
  */
 export interface AggregatedData {
-  [key: string]: any;
+  [key: string]: unknown;
   count?: number;
   sum?: number;
   average?: number;
@@ -81,7 +81,7 @@ export class DataAggregator {
 
     // 批量更新
     for (const [field, value] of Object.entries(data)) {
-      existingData[field] = (existingData[field] || 0) + value;
+      existingData[field] = ((existingData[field] as number) || 0) + value;
       existingData.sum += value;
       existingData.count++;
 
@@ -169,7 +169,8 @@ export class DataAggregator {
               field
             )
           ) {
-            mergedData[field] = (mergedData[field] || 0) + (value as number);
+            mergedData[field] =
+              ((mergedData[field] as number) || 0) + (value as number);
           }
         }
       }

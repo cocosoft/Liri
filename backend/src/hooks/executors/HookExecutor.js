@@ -13,6 +13,7 @@ import { CommandHookExecutor } from './CommandHookExecutor';
 import { PromptHookExecutor } from './PromptHookExecutor';
 import { HttpHookExecutor } from './HttpHookExecutor';
 import { AgentHookExecutor } from './AgentHookExecutor';
+import { ScriptHookExecutor } from './ScriptHookExecutor';
 
 /**
  * Hook执行结果
@@ -59,7 +60,7 @@ interface IndividualHookConfig {
   id?: string;
   name: string;
   config: {
-    type: 'command' | 'prompt' | 'http' | 'agent';
+    type: 'command' | 'prompt' | 'http' | 'agent' | 'script';
     command?: string;
     prompt?: string;
     url?: string;
@@ -101,12 +102,14 @@ class HookExecutor {
   private promptExecutor: PromptHookExecutor;
   private httpExecutor: HttpHookExecutor;
   private agentExecutor: AgentHookExecutor;
+  private scriptExecutor: ScriptHookExecutor;
 
   constructor() {
     this.commandExecutor = new CommandHookExecutor();
     this.promptExecutor = new PromptHookExecutor();
     this.httpExecutor = new HttpHookExecutor();
     this.agentExecutor = new AgentHookExecutor();
+    this.scriptExecutor = new ScriptHookExecutor();
   }
 
   /**
@@ -189,6 +192,9 @@ class HookExecutor {
           break;
         case 'agent':
           result = await this.agentExecutor.execute(hook, context);
+          break;
+        case 'script':
+          result = await this.scriptExecutor.execute(hook, context);
           break;
         default:
           result = {

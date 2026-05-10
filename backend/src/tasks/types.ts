@@ -96,5 +96,5 @@ export interface TaskEvent {
   taskId: string;
   state?: TaskState;
   progress?: AgentProgress;
-  output?: any;
+  output?: unknown;
 }

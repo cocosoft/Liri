@@ -153,7 +153,7 @@ export class ErrorUtils {
     category: ErrorCategory = ErrorCategory.UNKNOWN,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): AppError {
     if (error instanceof AppError) {
       return error;
@@ -193,7 +193,9 @@ export class ErrorUtils {
    * @param context 错误上下文
    * @returns 清理后的上下文
    */
-  static sanitizeContext(context: Record<string, any>): Record<string, any> {
+  static sanitizeContext(
+    context: Record<string, unknown>
+  ): Record<string, unknown> {
     const sensitiveKeys = [
       'password',
       'token',
@@ -203,7 +205,7 @@ export class ErrorUtils {
       'auth',
       'key',
     ];
-    const safeContext: Record<string, any> = {};
+    const safeContext: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(context)) {
       if (
@@ -213,7 +215,9 @@ export class ErrorUtils {
       ) {
         safeContext[key] = '***REDACTED***';
       } else if (typeof value === 'object' && value !== null) {
-        safeContext[key] = this.sanitizeContext(value as Record<string, any>);
+        safeContext[key] = this.sanitizeContext(
+          value as Record<string, unknown>
+        );
       } else {
         safeContext[key] = value;
       }
@@ -267,7 +271,7 @@ export class ErrorUtils {
     category: ErrorCategory;
     severity: ErrorSeverity;
     code?: string;
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
   } {
     if (error instanceof AppError) {
       return {
@@ -298,9 +302,9 @@ export class ErrorUtils {
       error &&
       typeof error === 'object' &&
       'code' in error &&
-      typeof (error as any).code === 'string'
+      typeof (error as Record<string, unknown>).code === 'string'
     ) {
-      return (error as any).code;
+      return (error as Record<string, unknown>).code as string;
     }
     return undefined;
   }
@@ -380,9 +384,9 @@ export class ErrorUtils {
       error &&
       typeof error === 'object' &&
       'path' in error &&
-      typeof (error as any).path === 'string'
+      typeof (error as Record<string, unknown>).path === 'string'
     ) {
-      return (error as any).path;
+      return (error as Record<string, unknown>).path as string;
     }
     return undefined;
   }
@@ -397,7 +401,7 @@ export class ErrorUtils {
   static createNetworkError(
     message: string,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): NetworkError {
     return new NetworkError(message, ErrorSeverity.MEDIUM, code, context);
   }
@@ -412,7 +416,7 @@ export class ErrorUtils {
   static createFileSystemError(
     message: string,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): FileSystemError {
     return new FileSystemError(message, ErrorSeverity.MEDIUM, code, context);
   }
@@ -427,7 +431,7 @@ export class ErrorUtils {
   static createPermissionError(
     message: string,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): PermissionError {
     return new PermissionError(message, ErrorSeverity.HIGH, code, context);
   }
@@ -442,7 +446,7 @@ export class ErrorUtils {
   static createValidationError(
     message: string,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): ValidationError {
     return new ValidationError(message, ErrorSeverity.LOW, code, context);
   }
@@ -457,7 +461,7 @@ export class ErrorUtils {
   static createConfigParseError(
     message: string,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): ConfigParseError {
     return new ConfigParseError(message, ErrorSeverity.HIGH, code, context);
   }
@@ -478,7 +482,7 @@ export class ErrorUtils {
     stderr: string = '',
     exitCode: number = 1,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): ShellError {
     return new ShellError(
       message,
@@ -503,9 +507,9 @@ export class ErrorUtils {
   static createAPIError(
     message: string,
     status?: number,
-    response?: any,
+    response?: unknown,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): APIError {
     return new APIError(
       message,
@@ -527,7 +531,7 @@ export class ErrorUtils {
   static createDatabaseError(
     message: string,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): DatabaseError {
     return new DatabaseError(message, ErrorSeverity.HIGH, code, context);
   }
@@ -548,7 +552,7 @@ export class ErrorUtils {
     severity: ErrorSeverity,
     telemetryMessage?: string,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): TelemetrySafeError {
     return new TelemetrySafeError(
       message,

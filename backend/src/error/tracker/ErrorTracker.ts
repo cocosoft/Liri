@@ -5,7 +5,7 @@ export interface TrackedError {
   id: string;
   error: AppError;
   timestamp: number;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   resolvedAt?: number;
   resolution?: string;
 }
@@ -47,7 +47,7 @@ export class ErrorTracker {
     this.maxStorage = max;
   }
 
-  track(error: AppError, context?: Record<string, any>): string {
+  track(error: AppError, context?: Record<string, unknown>): string {
     const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const tracked: TrackedError = {
       id,

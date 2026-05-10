@@ -94,11 +94,14 @@ export class ErrorFormatter {
    * @param zodError Zod错误对象
    * @returns 格式化后的错误信息
    */
-  private static formatZodError(zodError: any): string {
+  private static formatZodError(zodError: unknown): string {
     let message = '';
 
-    if (zodError.errors && Array.isArray(zodError.errors)) {
-      for (const error of zodError.errors) {
+    const zodErr = zodError as {
+      errors?: Array<{ path?: (string | number)[]; message: string }>;
+    } | null;
+    if (zodErr?.errors && Array.isArray(zodErr.errors)) {
+      for (const error of zodErr.errors) {
         message += `\n  - ${error.path?.join('.') || 'value'}: ${error.message}`;
       }
     }
@@ -208,8 +211,10 @@ export class ErrorFormatter {
     let message = '输入验证失败:';
 
     if (error.context?.zodError) {
-      const zodError = error.context.zodError;
-      if (zodError.errors && Array.isArray(zodError.errors)) {
+      const zodError = error.context.zodError as
+        | { errors?: Array<{ path?: (string | number)[]; message: string }> }
+        | undefined;
+      if (zodError?.errors && Array.isArray(zodError.errors)) {
         for (const e of zodError.errors) {
           const field = e.path?.join('.') || '输入';
           message += `\n- ${field}: ${e.message}`;

@@ -61,6 +61,9 @@ export * from './CostBudgetManager.js';
 // 导出成本持久化服务
 export * from './CostPersistenceService.js';
 
+// 导出成本记录存储库
+export * from './CostRecordRepository.js';
+
 // 导出React Hooks
 export * from './useCostSummary.js';
 
@@ -76,6 +79,9 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     const { pricingManager } = await import('./PricingManager.js');
     const { costCacheManager } = await import('./CostCache.js');
     const { costMonitor } = await import('./CostMonitor.js');
+    const { costTracker } = await import('./CostTracker.js');
+    const { getCostRecordRepository } =
+      await import('./CostRecordRepository.js');
 
     // 初始化账单访问控制已通过单例完成
 
@@ -91,6 +97,11 @@ export async function initializeCostTrackingSystem(): Promise<void> {
       enabled: true,
       checkInterval: 60 * 1000,
     });
+
+    // 初始化成本记录存储库并关联到跟踪器
+    const repository = getCostRecordRepository();
+    await repository.initDatabase();
+    costTracker.setRecordRepository(repository);
 
     logger.info('成本跟踪系统初始化完成');
   } catch (error) {
@@ -110,6 +121,8 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
       await import('./CostPersistenceService.js');
     const { getCostAnalyticsTracker } =
       await import('../analytics/CostAnalyticsTracker.js');
+    const { getCostRecordRepository } =
+      await import('./CostRecordRepository.js');
 
     const tracker = getCostAnalyticsTracker();
     const sessionSummary = tracker.getSessionCost();
@@ -132,6 +145,10 @@ export async function shutdownCostTrackingSystem(): Promise<void> {
     };
 
     await costPersistenceService.mergeAndSave(sessionData);
+
+    const repository = getCostRecordRepository();
+    await repository.close();
+
     logger.info('成本跟踪系统已关闭');
   } catch (error) {
     logger.error(

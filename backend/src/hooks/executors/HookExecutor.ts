@@ -13,6 +13,7 @@ import { CommandHookExecutor } from './CommandHookExecutor';
 import { PromptHookExecutor } from './PromptHookExecutor';
 import { HttpHookExecutor } from './HttpHookExecutor';
 import { AgentHookExecutor } from './AgentHookExecutor';
+import { ScriptHookExecutor } from './ScriptHookExecutor';
 import { asyncHookRegistry } from '../utils/AsyncHookRegistry';
 import { environmentManager } from '../utils/EnvironmentManager';
 import { diagnosticManager } from '../utils/DiagnosticManager';
@@ -27,12 +28,14 @@ export class HookExecutor {
   private promptExecutor: PromptHookExecutor;
   private httpExecutor: HttpHookExecutor;
   private agentExecutor: AgentHookExecutor;
+  private scriptExecutor: ScriptHookExecutor;
 
   constructor() {
     this.commandExecutor = new CommandHookExecutor();
     this.promptExecutor = new PromptHookExecutor();
     this.httpExecutor = new HttpHookExecutor();
     this.agentExecutor = new AgentHookExecutor();
+    this.scriptExecutor = new ScriptHookExecutor();
   }
 
   /**
@@ -118,6 +121,9 @@ export class HookExecutor {
           break;
         case 'agent':
           result = await this.agentExecutor.execute(hook, context);
+          break;
+        case 'script':
+          result = await this.scriptExecutor.execute(hook, context);
           break;
         default:
           result = {

@@ -90,13 +90,16 @@ export class EnhancedErrorManager {
     context?: ErrorContext
   ): Promise<{
     trackedId: string;
-    recoveryResult?: any;
-    alert?: any;
+    recoveryResult?: RecoveryResult;
+    alert?: AlertEvent;
     correlation?: ErrorCorrelation;
     lifecycle: ErrorLifecycle;
   }> {
     // 使用基础管理器处理错误
-    const baseResult = await this.baseManager.handleError(error, context);
+    const baseResult = await this.baseManager.handleError(
+      error,
+      context as unknown as Record<string, unknown>
+    );
 
     if (!baseResult.trackedId) {
       throw new Error('错误追踪失败');

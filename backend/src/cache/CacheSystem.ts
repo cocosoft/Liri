@@ -76,12 +76,12 @@ export async function withCacheLock<T>(fn: () => Promise<T>): Promise<T> {
 /**
  * 缓存项接口
  */
-export interface CacheItem<T = any> {
+export interface CacheItem<T = unknown> {
   key: string;
   value: T;
   timestamp: number;
   expiry?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -91,17 +91,17 @@ export interface CacheStorage {
   /**
    * 获取缓存项
    */
-  get<T = any>(key: string): Promise<CacheItem<T> | undefined>;
+  get<T = unknown>(key: string): Promise<CacheItem<T> | undefined>;
 
   /**
    * 设置缓存项
    */
-  set<T = any>(
+  set<T = unknown>(
     key: string,
     value: T,
     options?: {
       expiry?: number;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<void>;
 
@@ -138,7 +138,7 @@ export class MemoryStorage implements CacheStorage {
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 60000);
   }
 
-  async get<T = any>(key: string): Promise<CacheItem<T> | undefined> {
+  async get<T = unknown>(key: string): Promise<CacheItem<T> | undefined> {
     const item = this.data.get(key);
     if (!item) return undefined;
 
@@ -151,12 +151,12 @@ export class MemoryStorage implements CacheStorage {
     return item as CacheItem<T>;
   }
 
-  async set<T = any>(
+  async set<T = unknown>(
     key: string,
     value: T,
     options?: {
       expiry?: number;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<void> {
     const item: CacheItem<T> = {
@@ -262,42 +262,44 @@ export class DiskStorage implements CacheStorage {
   /**
    * 迁移旧版本缓存
    */
-  private migrateCache(parsed: any): PersistentCache | null {
-    // 检查版本是否可迁移
+  private migrateCache(parsed: unknown): PersistentCache | null {
+    const cacheData = parsed as Record<string, unknown>;
     if (
-      typeof parsed.version !== 'number' ||
-      parsed.version < MIN_MIGRATABLE_VERSION ||
-      parsed.version > CACHE_VERSION
+      typeof cacheData.version !== 'number' ||
+      cacheData.version < MIN_MIGRATABLE_VERSION ||
+      cacheData.version > CACHE_VERSION
     ) {
       return null;
     }
 
-    // 检查必需字段
-    if (typeof parsed.data !== 'object' || parsed.data === null) {
+    if (typeof cacheData.data !== 'object' || cacheData.data === null) {
       return null;
     }
 
-    // 迁移到当前版本
     const migrated: PersistentCache = {
       version: CACHE_VERSION,
-      lastUpdated: parsed.lastUpdated || Date.now(),
+      lastUpdated: (cacheData.lastUpdated as number) || Date.now(),
       data: {},
     };
 
-    // 迁移数据
-    for (const [key, item] of Object.entries(parsed.data)) {
+    for (const [key, item] of Object.entries(
+      cacheData.data as Record<string, unknown>
+    )) {
       if (item && typeof item === 'object' && 'value' in item) {
+        const record = item as Record<string, unknown>;
         migrated.data[key] = {
           key,
-          value: (item as any).value,
-          timestamp: (item as any).timestamp || Date.now(),
-          expiry: (item as any).expiry,
-          metadata: (item as any).metadata,
+          value: record.value,
+          timestamp: (record.timestamp as number) || Date.now(),
+          expiry: record.expiry as number | undefined,
+          metadata: record.metadata as Record<string, unknown> | undefined,
         };
       }
     }
 
-    logForDebugging(`缓存已从版本 ${parsed.version} 迁移到 ${CACHE_VERSION}`);
+    logForDebugging(
+      `缓存已从版本 ${String(cacheData.version)} 迁移到 ${CACHE_VERSION}`
+    );
     return migrated;
   }
 

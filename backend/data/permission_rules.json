@@ -349,5 +349,32 @@
     "priority": 1,
     "createdAt": "2026-05-09T08:32:53.204Z",
     "updatedAt": "2026-05-09T08:32:53.204Z"
+  },
+  {
+    "id": "rule_1778364309295_kz4xw9wlh",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T22:05:09.295Z",
+    "updatedAt": "2026-05-09T22:05:09.295Z"
+  },
+  {
+    "id": "rule_1778364322479_8egrmevrv",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T22:05:22.479Z",
+    "updatedAt": "2026-05-09T22:05:22.479Z"
+  },
+  {
+    "id": "rule_1778364716689_1t5jbmw33",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-09T22:11:56.689Z",
+    "updatedAt": "2026-05-09T22:11:56.689Z"
   }
 ]

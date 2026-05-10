@@ -101,7 +101,7 @@ export interface AppError {
   /**
    * 错误详情
    */
-  details?: any;
+  details?: unknown;
   /**
    * 原始错误
    */

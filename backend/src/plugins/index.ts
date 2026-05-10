@@ -447,10 +447,6 @@ export { default as PluginDependencyManager } from './management/PluginDependenc
 export { default as PluginConfigManager } from './management/PluginConfigManager';
 export { default as PluginEventSystem } from './core/PluginEventSystem';
 
-// 导出增强功能
-export { EnhancedPluginManager } from './EnhancedPluginManager.js';
-export { IntelligentPluginAnalyzer } from './IntelligentPluginAnalyzer.js';
-
 // 导出内置插件
 export { bundledPlugins } from './bundled/index.js';
 

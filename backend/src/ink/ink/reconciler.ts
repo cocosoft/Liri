@@ -40,9 +40,7 @@ import applyStyles, { type Styles, type TextStyles } from './styles.js';
 // See https://github.com/vadimdemedes/ink/issues/384
 if (process.env.NODE_ENV === 'development') {
   try {
-     
     void import('./devtools.js');
-     
   } catch (error: any) {
     if (error.code === 'ERR_MODULE_NOT_FOUND') {
       // biome-ignore lint/suspicious/noConsole: intentional warning
@@ -57,7 +55,6 @@ $ npm install --save-dev react-devtools-core
 				`.trim() + '\n'
       );
     } else {
-       
       throw error;
     }
   }

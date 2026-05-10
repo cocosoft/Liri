@@ -14,15 +14,15 @@ export class TaskImpl implements Task {
   type: TaskType;
   status: TaskStatus;
   priority: TaskPriority;
-  input?: Record<string, any>;
-  output?: Record<string, any>;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
   error?: string;
   createdAt: number;
   updatedAt: number;
   startedAt?: number;
   completedAt?: number;
   duration?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   /**
    * 构造函数
@@ -40,8 +40,8 @@ export class TaskImpl implements Task {
     description: string;
     type: TaskType;
     priority?: TaskPriority;
-    input?: Record<string, any>;
-    metadata?: Record<string, any>;
+    input?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
   }) {
     this.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
     this.name = name;
@@ -68,7 +68,7 @@ export class TaskImpl implements Task {
    * 完成任务
    * @param output 任务输出
    */
-  complete(output?: Record<string, any>): void {
+  complete(output?: Record<string, unknown>): void {
     this.status = TaskStatus.COMPLETED;
     this.output = output;
     this.completedAt = Date.now();
@@ -113,7 +113,7 @@ export class TaskImpl implements Task {
    * 序列化任务
    * @returns 序列化的数据
    */
-  serialize(): any {
+  serialize(): Record<string, unknown> {
     return {
       id: this.id,
       name: this.name,
@@ -138,25 +138,25 @@ export class TaskImpl implements Task {
    * @param data 序列化的数据
    * @returns 任务实例
    */
-  static deserialize(data: any): Task {
+  static deserialize(data: Record<string, unknown>): Task {
     const task = new TaskImpl({
-      name: data.name,
-      description: data.description,
-      type: data.type,
-      priority: data.priority,
-      input: data.input,
-      metadata: data.metadata,
+      name: data.name as string,
+      description: data.description as string,
+      type: data.type as TaskType,
+      priority: data.priority as TaskPriority,
+      input: data.input as Record<string, unknown> | undefined,
+      metadata: data.metadata as Record<string, unknown> | undefined,
     });
 
-    task.id = data.id;
-    task.status = data.status;
-    task.output = data.output;
-    task.error = data.error;
-    task.createdAt = data.createdAt;
-    task.updatedAt = data.updatedAt;
-    task.startedAt = data.startedAt;
-    task.completedAt = data.completedAt;
-    task.duration = data.duration;
+    task.id = data.id as string;
+    task.status = data.status as TaskStatus;
+    task.output = data.output as Record<string, unknown> | undefined;
+    task.error = data.error as string | undefined;
+    task.createdAt = data.createdAt as number;
+    task.updatedAt = data.updatedAt as number;
+    task.startedAt = data.startedAt as number | undefined;
+    task.completedAt = data.completedAt as number | undefined;
+    task.duration = data.duration as number | undefined;
 
     return task;
   }
@@ -172,8 +172,8 @@ export function createTask(options: {
   description: string;
   type: TaskType;
   priority?: TaskPriority;
-  input?: Record<string, any>;
-  metadata?: Record<string, any>;
+  input?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }): Task {
   return new TaskImpl(options);
 }

@@ -28,7 +28,7 @@ export interface PersistedCacheConfig {
   enableLocking: boolean;
   lockTimeout: number;
   saveInterval: number;
-  onFirstLoad?: (data: any) => any;
+  onFirstLoad?: (data: Record<string, unknown>) => Record<string, unknown>;
 }
 
 /**
@@ -36,7 +36,7 @@ export interface PersistedCacheConfig {
  */
 interface PersistedCacheData {
   version: number;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   metadata: {
     createdAt: number;
     updatedAt: number;
@@ -48,10 +48,10 @@ interface PersistedCacheData {
  * 迁移函数类型
  */
 export type MigrationFunction = (
-  data: any,
+  data: unknown,
   fromVersion: number,
   toVersion: number
-) => any;
+) => unknown;
 
 /**
  * 迁移记录
@@ -73,9 +73,9 @@ interface FileLock {
 /**
  * 持久化缓存服务
  */
-export class PersistedCacheService<T extends Record<string, any>> {
+export class PersistedCacheService<T extends Record<string, unknown>> {
   private config: Required<PersistedCacheConfig>;
-  private data: Record<string, any> = {};
+  private data: Record<string, unknown> = {};
   private migrations: Map<number, MigrationRecord> = new Map();
   private isLoaded: boolean = false;
   private isDirty: boolean = false;
@@ -97,7 +97,9 @@ export class PersistedCacheService<T extends Record<string, any>> {
       enableLocking: config.enableLocking ?? true,
       lockTimeout: config.lockTimeout || 5000,
       saveInterval: config.saveInterval || 30000,
-      onFirstLoad: config.onFirstLoad as (data: any) => any,
+      onFirstLoad: config.onFirstLoad as (
+        data: Record<string, unknown>
+      ) => Record<string, unknown>,
     };
 
     this.filePath = path.join(this.config.cacheDir, this.config.fileName);
@@ -146,10 +148,13 @@ export class PersistedCacheService<T extends Record<string, any>> {
       const content = fs.readFileSync(this.filePath, 'utf8');
       const cachedData: PersistedCacheData = JSON.parse(content);
 
-      let loadedData = cachedData.data;
+      let loadedData: Record<string, unknown> = cachedData.data;
 
       if (this.config.enableVersionMigration) {
-        loadedData = this.migrateData(loadedData, cachedData.version);
+        loadedData = this.migrateData(loadedData, cachedData.version) as Record<
+          string,
+          unknown
+        >;
       }
 
       if (this.config.onFirstLoad) {
@@ -168,7 +173,7 @@ export class PersistedCacheService<T extends Record<string, any>> {
   /**
    * 迁移数据
    */
-  private migrateData(data: any, fromVersion: number): any {
+  private migrateData(data: unknown, fromVersion: number): unknown {
     let currentData = data;
     let currentVersion = fromVersion;
 
@@ -270,8 +275,9 @@ export class PersistedCacheService<T extends Record<string, any>> {
         const fd = fs.openSync(this.lockPath, 'wx');
         this.locks.set(this.lockPath, { fd, exclusive: true });
         return;
-      } catch (error: any) {
-        if (error.code === 'EEXIST') {
+      } catch (error: unknown) {
+        const nodeError = error as NodeJS.ErrnoException;
+        if (nodeError.code === 'EEXIST') {
           try {
             fs.unlinkSync(this.lockPath);
           } catch {
@@ -481,7 +487,7 @@ export class PersistedCacheService<T extends Record<string, any>> {
 /**
  * 创建持久化缓存实例
  */
-export function createPersistedCache<T extends Record<string, any>>(
+export function createPersistedCache<T extends Record<string, unknown>>(
   config: PersistedCacheConfig
 ): PersistedCacheService<T> {
   return new PersistedCacheService<T>(config);
@@ -491,9 +497,9 @@ export function createPersistedCache<T extends Record<string, any>>(
  * 默认迁移函数示例
  */
 export function createMigrationFunction(
-  transformFn: (data: any) => any
+  transformFn: (data: unknown) => unknown
 ): MigrationFunction {
-  return (data: any) => transformFn(data);
+  return (data: unknown) => transformFn(data);
 }
 
 /**
@@ -503,7 +509,7 @@ export function createMigrationChain(
   migrations: Array<{
     fromVersion: number;
     toVersion: number;
-    transform: (data: any) => any;
+    transform: (data: unknown) => unknown;
   }>
 ): Map<number, MigrationRecord> {
   const migrationMap = new Map<number, MigrationRecord>();

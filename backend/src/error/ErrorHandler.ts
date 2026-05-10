@@ -19,7 +19,7 @@ export class ErrorHandler {
    * @param error 错误对象
    * @param context 额外上下文
    */
-  static handle(error: Error, context?: Record<string, any>): void {
+  static handle(error: Error, context?: Record<string, unknown>): void {
     if (error instanceof AppError) {
       this.handleAppError(error, context);
     } else {
@@ -34,7 +34,7 @@ export class ErrorHandler {
    */
   private static handleAppError(
     error: AppError,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): void {
     // 记录错误到监控器
     errorMonitor.recordError(error);
@@ -66,7 +66,7 @@ export class ErrorHandler {
    */
   private static handleUnknownError(
     error: Error,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): void {
     // 将未知错误转换为AppError
     const appError = ErrorUtils.toAppError(error);
@@ -113,7 +113,7 @@ export class ErrorHandler {
     level: LogLevel,
     message: string,
     error: Error,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): void {
     switch (level) {
       case LogLevel.FATAL:
@@ -139,7 +139,7 @@ export class ErrorHandler {
    * @param error 错误对象
    * @param context 额外上下文
    */
-  static handleSafely(error: Error, context?: Record<string, any>): void {
+  static handleSafely(error: Error, context?: Record<string, unknown>): void {
     SafeLogger.logError(error, context);
 
     // 同时记录到监控器
@@ -180,7 +180,10 @@ export class ErrorHandler {
    * @param errors 错误数组
    * @param context 额外上下文
    */
-  static handleMultiple(errors: Error[], context?: Record<string, any>): void {
+  static handleMultiple(
+    errors: Error[],
+    context?: Record<string, unknown>
+  ): void {
     for (const error of errors) {
       this.handle(error, context);
     }
@@ -195,7 +198,7 @@ export class ErrorHandler {
   static handleWithCallback(
     error: Error,
     callback: (error: Error, userFriendlyMessage: string) => void,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): void {
     this.handle(error, context);
     const userFriendlyMessage = this.getUserFriendlyMessage(error);
@@ -208,13 +211,13 @@ export class ErrorHandler {
    * @param errorHandler 错误处理器
    * @returns 包装后的函数
    */
-  static wrapAsync<T extends (...args: any[]) => Promise<any>>(
+  static wrapAsync<T extends (...args: never[]) => Promise<unknown>>(
     fn: T,
     errorHandler?: (error: Error) => void
   ): T {
-    return (async (...args: any[]) => {
+    return (async (...args: unknown[]) => {
       try {
-        return await fn(...args);
+        return await fn(...(args as Parameters<T>));
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         if (errorHandler) {
@@ -224,7 +227,7 @@ export class ErrorHandler {
         }
         throw err;
       }
-    }) as T;
+    }) as unknown as T;
   }
 
   /**
@@ -233,13 +236,13 @@ export class ErrorHandler {
    * @param errorHandler 错误处理器
    * @returns 包装后的函数
    */
-  static wrapSync<T extends (...args: any[]) => any>(
+  static wrapSync<T extends (...args: never[]) => unknown>(
     fn: T,
     errorHandler?: (error: Error) => void
   ): T {
-    return ((...args: any[]) => {
+    return ((...args: unknown[]) => {
       try {
-        return fn(...args);
+        return fn(...(args as Parameters<T>));
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         if (errorHandler) {
@@ -249,6 +252,6 @@ export class ErrorHandler {
         }
         throw err;
       }
-    }) as T;
+    }) as unknown as T;
   }
 }

@@ -1,5 +1,8 @@
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { Logger } from '../monitoring/logs/Logger';
+import { getMonitoringService } from '../monitoring/MonitoringService';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -13,20 +16,30 @@ export interface IPCHandler {
   (message: IPCMessage): Promise<unknown>;
 }
 
+export type IPCTransport = 'http' | 'unix';
+
 export interface IPCServiceConfig {
-  host: string;
-  port: number;
+  host?: string;
+  port?: number;
+  transport?: IPCTransport;
+  socketPath?: string;
 }
 
 export class IPCService {
   private server: http.Server | null;
   private handlers: Map<string, IPCHandler>;
-  private config: IPCServiceConfig;
+  private config: Required<IPCServiceConfig>;
 
-  constructor(config: IPCServiceConfig) {
+  constructor(config: IPCServiceConfig = {}) {
     this.server = null;
     this.handlers = new Map();
-    this.config = config;
+    this.config = {
+      host: config.host ?? '127.0.0.1',
+      port: config.port ?? 0,
+      transport: config.transport ?? 'http',
+      socketPath:
+        config.socketPath ?? path.join(process.cwd(), '.py_app', 'ipc.sock'),
+    };
   }
 
   on(type: string, handler: IPCHandler): void {
@@ -82,10 +95,30 @@ export class IPCService {
         });
       });
 
-      this.server.listen(this.config.port, this.config.host, () => {
-        logger.info(`IPC 服务已启动: ${this.config.host}:${this.config.port}`);
-        resolve();
-      });
+      if (this.config.transport === 'unix') {
+        const socketDir = path.dirname(this.config.socketPath);
+        if (!fs.existsSync(socketDir)) {
+          fs.mkdirSync(socketDir, { recursive: true });
+        }
+        if (fs.existsSync(this.config.socketPath)) {
+          fs.unlinkSync(this.config.socketPath);
+        }
+        this.server.listen(this.config.socketPath, () => {
+          logger.info(
+            `IPC 服务已启动 (Unix Socket): ${this.config.socketPath}`
+          );
+          this.reportRunning(true);
+          resolve();
+        });
+      } else {
+        this.server.listen(this.config.port, this.config.host, () => {
+          logger.info(
+            `IPC 服务已启动 (HTTP): ${this.config.host}:${this.config.port}`
+          );
+          this.reportRunning(true);
+          resolve();
+        });
+      }
 
       this.server.on('error', (error) => {
         logger.error('IPC 服务启动失败', error);
@@ -97,6 +130,7 @@ export class IPCService {
   async stop(): Promise<void> {
     if (!this.server) return;
     return new Promise((resolve, reject) => {
+      const socketPath = this.config.socketPath;
       this.server!.close((err) => {
         if (err) {
           logger.error('IPC 服务关闭失败', err);
@@ -104,6 +138,10 @@ export class IPCService {
         } else {
           logger.info('IPC 服务已关闭');
           this.server = null;
+          if (this.config.transport === 'unix' && fs.existsSync(socketPath)) {
+            fs.unlinkSync(socketPath);
+          }
+          this.reportRunning(false);
           resolve();
         }
       });
@@ -115,6 +153,21 @@ export class IPCService {
   }
 
   getAddress(): string {
+    if (this.config.transport === 'unix') {
+      return `unix:${this.config.socketPath}`;
+    }
     return `${this.config.host}:${this.config.port}`;
+  }
+
+  getTransport(): IPCTransport {
+    return this.config.transport;
+  }
+
+  private reportRunning(running: boolean): void {
+    try {
+      getMonitoringService().addMetric('daemon.ipc.running', running ? 1 : 0);
+    } catch {
+      // MonitoringService not available, skip metric reporting
+    }
   }
 }

@@ -48,7 +48,7 @@ export class AppError extends Error {
     public category: ErrorCategory,
     public severity: ErrorSeverity,
     public code?: string,
-    public context?: Record<string, any>,
+    public context?: Record<string, unknown>,
     public errorId?: number
   ) {
     super(message);
@@ -64,7 +64,7 @@ export class AppError extends Error {
     errorDef: { code: number; message: string; level: string },
     options?: {
       category?: ErrorCategory;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
       cause?: Error;
     }
   ): AppError {
@@ -105,7 +105,7 @@ export class NetworkError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.NETWORK, severity, code, context);
     this.name = 'NetworkError';
@@ -120,7 +120,7 @@ export class FileSystemError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.FILESYSTEM, severity, code, context);
     this.name = 'FileSystemError';
@@ -135,7 +135,7 @@ export class PermissionError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.HIGH,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.PERMISSION, severity, code, context);
     this.name = 'PermissionError';
@@ -150,7 +150,7 @@ export class ValidationError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.LOW,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.VALIDATION, severity, code, context);
     this.name = 'ValidationError';
@@ -165,7 +165,7 @@ export class ExecutionError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.EXECUTION, severity, code, context);
     this.name = 'ExecutionError';
@@ -191,7 +191,7 @@ export class ConfigParseError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.HIGH,
     code?: string,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     options?: { filePath?: string; defaultConfig?: unknown }
   ) {
     super(message, ErrorCategory.CONFIGURATION, severity, code, context);
@@ -229,7 +229,7 @@ export class ShellError extends AppError {
     public readonly exitCode: number = 1,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.EXECUTION, severity, code, context);
     this.name = 'ShellError';
@@ -244,7 +244,7 @@ export class PluginError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.EXECUTION, severity, code, context);
     this.name = 'PluginError';
@@ -259,7 +259,7 @@ export class ToolError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.EXECUTION, severity, code, context);
     this.name = 'ToolError';
@@ -274,7 +274,7 @@ export class CacheError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.EXECUTION, severity, code, context);
     this.name = 'CacheError';
@@ -289,7 +289,7 @@ export class SecurityError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.HIGH,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.PERMISSION, severity, code, context);
     this.name = 'SecurityError';
@@ -303,10 +303,10 @@ export class APIError extends AppError {
   constructor(
     message: string,
     public readonly status?: number,
-    public readonly response?: any,
+    public readonly response?: unknown,
     severity: ErrorSeverity = ErrorSeverity.MEDIUM,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.API, severity, code, context);
     this.name = 'APIError';
@@ -321,7 +321,7 @@ export class DatabaseError extends AppError {
     message: string,
     severity: ErrorSeverity = ErrorSeverity.HIGH,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message, ErrorCategory.DATABASE, severity, code, context);
     this.name = 'DatabaseError';
@@ -395,7 +395,7 @@ export class TelemetrySafeError extends AppError {
     severity: ErrorSeverity,
     telemetryMessage?: string,
     code?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     // 移除上下文可能包含的敏感信息
     const safeContext = context
@@ -409,7 +409,9 @@ export class TelemetrySafeError extends AppError {
   /**
    * 清理上下文，移除敏感信息
    */
-  static sanitizeContext(context: Record<string, any>): Record<string, any> {
+  static sanitizeContext(
+    context: Record<string, unknown>
+  ): Record<string, unknown> {
     const sensitiveKeys = [
       'password',
       'token',
@@ -419,7 +421,7 @@ export class TelemetrySafeError extends AppError {
       'auth',
       'key',
     ];
-    const safeContext: Record<string, any> = {};
+    const safeContext: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(context)) {
       if (
@@ -429,7 +431,9 @@ export class TelemetrySafeError extends AppError {
       ) {
         safeContext[key] = '***REDACTED***';
       } else if (typeof value === 'object' && value !== null) {
-        safeContext[key] = this.sanitizeContext(value as Record<string, any>);
+        safeContext[key] = this.sanitizeContext(
+          value as Record<string, unknown>
+        );
       } else {
         safeContext[key] = value;
       }

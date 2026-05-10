@@ -55,6 +55,18 @@ const costCommand = {
 
       const params = parseArgs(args);
 
+      if (params.showHistory) {
+        return handleCostHistory(params.historyLimit || 10);
+      }
+
+      if (params.showSession) {
+        return handleSessionCost(params.sessionId || '');
+      }
+
+      if (params.showDays) {
+        return handleDaysCost(params.days || 7);
+      }
+
       if (params.showBreakdown) {
         return handleCostBreakdown();
       } else if (params.showUsage) {
@@ -80,15 +92,35 @@ function parseArgs(args: string): {
   showBreakdown: boolean;
   showUsage: boolean;
   showTimeRange: boolean;
+  showHistory: boolean;
+  historyLimit: number;
+  showSession: boolean;
+  sessionId: string;
+  showDays: boolean;
+  days: number;
 } {
   const breakdownRegex = /(^|\s)(--breakdown|-b)(\s|$)/;
   const usageRegex = /(^|\s)(--usage|-u)(\s|$)/;
   const timeRangeRegex = /(^|\s)(--time|-t)(\s|$)/;
+  const historyRegex = /(^|\s)--history(\s|$)/;
+  const historyLimitRegex = /(^|\s)--history\s+(\d+)(\s|$)/;
+  const sessionRegex = /(^|\s)--session\s+(\S+)(\s|$)/;
+  const daysRegex = /(^|\s)--days\s+(\d+)(\s|$)/;
+
+  const historyMatch = args.match(historyLimitRegex);
+  const sessionMatch = args.match(sessionRegex);
+  const daysMatch = args.match(daysRegex);
 
   return {
     showBreakdown: breakdownRegex.test(args),
     showUsage: usageRegex.test(args),
     showTimeRange: timeRangeRegex.test(args),
+    showHistory: historyRegex.test(args),
+    historyLimit: historyMatch ? parseInt(historyMatch[2], 10) : 10,
+    showSession: sessionRegex.test(args),
+    sessionId: sessionMatch ? sessionMatch[2] : '',
+    showDays: daysRegex.test(args),
+    days: daysMatch ? parseInt(daysMatch[2], 10) : 7,
   };
 }
 
@@ -106,6 +138,9 @@ async function handleHelp(): Promise<CommandResult> {
       '/cost --usage (-u)     - 显示调用使用统计',
       '/cost --time (-t)      - 显示时间范围统计',
       '/cost status           - 显示快速成本状态',
+      '/cost --history [N]    - 显示最近N条成本记录（默认10条）',
+      '/cost --session <id>   - 显示指定会话的成本统计',
+      '/cost --days <N>       - 显示最近N天的成本统计',
       '/cost --json           - 以 JSON 格式输出',
       '/cost help             - 显示此帮助信息',
       '',
@@ -115,16 +150,188 @@ async function handleHelp(): Promise<CommandResult> {
       '  - 成功/失败调用统计',
       '  - 当前会话成本',
       '',
+      '新增SQLite持久化功能:',
+      '  - 逐条成本记录持久化到数据库',
+      '  - 按会话、时间范围查询',
+      '  - 模型使用明细统计',
+      '',
       '示例:',
       '  /cost',
       '  /cost -b',
       '  /cost --usage',
       '  /cost status',
+      '  /cost --history',
+      '  /cost --history 20',
+      '  /cost --days 30',
       '  /cost --json',
       '',
       '别名: /costs, /usage-cost',
     ].join('\n'),
   };
+}
+
+/**
+ * 处理成本历史记录
+ */
+async function handleCostHistory(limit: number): Promise<CommandResult> {
+  const { getCostRecordRepository } =
+    await import('../../../cost/CostRecordRepository.js');
+
+  const repository = getCostRecordRepository();
+  await repository.initDatabase();
+
+  const records = await repository.getCostRecords({ limit });
+
+  if (records.length === 0) {
+    return {
+      success: true,
+      message: '暂无成本记录。',
+    };
+  }
+
+  const lines: string[] = [];
+  lines.push('📋 最近成本记录');
+  lines.push('');
+
+  for (const record of records) {
+    const date = new Date(record.timestamp).toLocaleString('zh-CN');
+    lines.push(
+      `  [${date}] ${record.model}: ` +
+        `输入 ${record.inputTokens.toLocaleString()} / ` +
+        `输出 ${record.outputTokens.toLocaleString()} ` +
+        `= $${record.costUSD.toFixed(4)}`
+    );
+  }
+
+  lines.push('');
+  lines.push(`共 ${records.length} 条记录`);
+
+  return { success: true, message: lines.join('\n') };
+}
+
+/**
+ * 处理指定会话成本
+ */
+async function handleSessionCost(sessionId: string): Promise<CommandResult> {
+  const { getCostRecordRepository } =
+    await import('../../../cost/CostRecordRepository.js');
+
+  const repository = getCostRecordRepository();
+  await repository.initDatabase();
+
+  const summary = await repository.getSessionSummary(sessionId);
+
+  if (!summary) {
+    return {
+      success: true,
+      message: `未找到会话 ${sessionId.substring(0, 8)}... 的成本数据。`,
+    };
+  }
+
+  const breakdown = JSON.parse(summary.modelBreakdown);
+  const lines: string[] = [];
+
+  lines.push(`📊 会话成本统计`);
+  lines.push(`  会话ID: ${summary.sessionId.substring(0, 8)}...`);
+  lines.push('');
+  lines.push(`💰 总成本: $${summary.totalCostUSD.toFixed(4)}`);
+  lines.push(`📝 总请求: ${summary.totalRequests} 次`);
+  lines.push(`📥 总输入令牌: ${summary.totalInputTokens.toLocaleString()}`);
+  lines.push(`📤 总输出令牌: ${summary.totalOutputTokens.toLocaleString()}`);
+
+  if (summary.totalCacheReadTokens > 0) {
+    lines.push(`💾 缓存读取: ${summary.totalCacheReadTokens.toLocaleString()}`);
+  }
+  if (summary.totalCacheCreationTokens > 0) {
+    lines.push(
+      `💾 缓存创建: ${summary.totalCacheCreationTokens.toLocaleString()}`
+    );
+  }
+
+  lines.push('');
+  lines.push('🔍 模型明细:');
+
+  const modelEntries = Object.entries(breakdown).sort(
+    (a: any, b: any) => b[1].totalCost - a[1].totalCost
+  );
+
+  for (const [model, data] of modelEntries) {
+    const m = data as any;
+    const pct =
+      summary.totalCostUSD > 0
+        ? ((m.totalCost / summary.totalCostUSD) * 100).toFixed(1)
+        : '0.0';
+    lines.push(
+      `  ${model}: $${m.totalCost.toFixed(4)} (${pct}%) ` +
+        `| ${m.requestCount} 次请求 | ${m.inputTokens.toLocaleString()} in / ${m.outputTokens.toLocaleString()} out`
+    );
+  }
+
+  return { success: true, message: lines.join('\n') };
+}
+
+/**
+ * 处理指定天数的成本
+ */
+async function handleDaysCost(days: number): Promise<CommandResult> {
+  const { getCostRecordRepository } =
+    await import('../../../cost/CostRecordRepository.js');
+
+  const repository = getCostRecordRepository();
+  await repository.initDatabase();
+
+  const startTime = Date.now() - days * 24 * 60 * 60 * 1000;
+  const aggregation = await repository.getAggregatedCosts({
+    startTime,
+  });
+
+  if (aggregation.totalRequests === 0) {
+    return {
+      success: true,
+      message: `最近 ${days} 天暂无成本记录。`,
+    };
+  }
+
+  const lines: string[] = [];
+  lines.push(`📊 最近 ${days} 天成本统计`);
+  lines.push('');
+  lines.push(`💰 总成本: $${aggregation.totalCostUSD.toFixed(4)}`);
+  lines.push(`📝 总请求: ${aggregation.totalRequests} 次`);
+  lines.push(`📥 总输入令牌: ${aggregation.totalInputTokens.toLocaleString()}`);
+  lines.push(
+    `📤 总输出令牌: ${aggregation.totalOutputTokens.toLocaleString()}`
+  );
+
+  if (aggregation.totalCacheReadTokens > 0) {
+    lines.push(
+      `💾 缓存读取: ${aggregation.totalCacheReadTokens.toLocaleString()}`
+    );
+  }
+  if (aggregation.totalCacheCreationTokens > 0) {
+    lines.push(
+      `💾 缓存创建: ${aggregation.totalCacheCreationTokens.toLocaleString()}`
+    );
+  }
+
+  lines.push('');
+  lines.push('🔍 模型明细:');
+
+  const modelEntries = Object.entries(aggregation.modelBreakdown).sort(
+    (a: any, b: any) => b[1].totalCost - a[1].totalCost
+  );
+
+  for (const [model, data] of modelEntries) {
+    const pct =
+      aggregation.totalCostUSD > 0
+        ? ((data.totalCost / aggregation.totalCostUSD) * 100).toFixed(1)
+        : '0.0';
+    lines.push(
+      `  ${model}: $${data.totalCost.toFixed(4)} (${pct}%) ` +
+        `| ${data.requestCount} 次请求`
+    );
+  }
+
+  return { success: true, message: lines.join('\n') };
 }
 
 /**

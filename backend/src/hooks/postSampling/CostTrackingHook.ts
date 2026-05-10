@@ -8,7 +8,6 @@ import type {
   PostSamplingHookContext,
 } from '../types/PostSampling';
 import { CostTracker } from '@modules/cost/CostTracker';
-import type { TokenUsage } from '@modules/cost/types';
 
 /**
  * 创建成本追踪Hook
@@ -25,7 +24,6 @@ export function createCostTrackingHook(
       return;
     }
 
-    const sessionId = toolUseContext.session.id;
     const model = (toolUseContext as any).model || 'default';
 
     for (const message of messages) {
@@ -33,14 +31,18 @@ export function createCostTrackingHook(
       if (msg.role === 'assistant' && msg.usage) {
         const usage = msg.usage;
 
-        const tokenUsage: TokenUsage = {
-          inputTokens: usage.input_tokens || 0,
-          outputTokens: usage.output_tokens || 0,
-          cacheReadInputTokens: usage.cache_read_input_tokens || 0,
-          cacheCreationInputTokens: usage.cache_creation_input_tokens || 0,
-        };
+        const inputTokens = usage.input_tokens || 0;
+        const outputTokens = usage.output_tokens || 0;
+        const cacheReadTokens = usage.cache_read_input_tokens || 0;
+        const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
 
-        costTracker.addUsage(model, tokenUsage, 0, sessionId);
+        costTracker.addCost(
+          model,
+          inputTokens,
+          outputTokens,
+          cacheReadTokens,
+          cacheCreationTokens
+        );
       }
     }
   };

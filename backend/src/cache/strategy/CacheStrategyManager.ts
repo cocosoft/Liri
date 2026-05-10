@@ -69,7 +69,7 @@ export interface CacheEvent {
   key?: string;
   layer?: CacheLayer;
   reason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -132,7 +132,7 @@ export interface StrategySwitchEvent {
   to: StrategyType;
   reason: string;
   timestamp: number;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -140,7 +140,7 @@ export interface StrategySwitchEvent {
  */
 export interface CacheEntry {
   key: string;
-  value: any;
+  value: unknown;
   timestamp: number;
   accessCount: number;
   lastAccess: number;
@@ -175,10 +175,10 @@ export interface HotDataInfo {
 }
 
 export interface ICacheStrategyManager {
-  get(key: string): Promise<any>;
+  get(key: string): Promise<unknown>;
   set(
     key: string,
-    value: any,
+    value: unknown,
     ttl?: number,
     priority?: CachePriority
   ): Promise<void>;
@@ -204,7 +204,7 @@ export interface ICacheStrategyManager {
    */
   preWarm(
     keys: string[],
-    dataProvider: (key: string) => Promise<any>
+    dataProvider: (key: string) => Promise<unknown>
   ): Promise<void>;
 
   /**
@@ -975,7 +975,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
   private triggerSetEvent(
     key: string,
     layer: CacheLayer,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     this.triggerEvent({
       type: CacheEventType.SET,

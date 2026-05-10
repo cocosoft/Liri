@@ -5,6 +5,7 @@
 import {
   TaskService,
   Task,
+  TaskStorage,
   TaskCreateOptions,
   TaskUpdateOptions,
   TaskQueryOptions,
@@ -17,13 +18,13 @@ import { createFileTaskStorage } from '../storage/fileStorage';
  * 任务服务类
  */
 export class TaskServiceImpl implements TaskService {
-  private storage: any;
+  private storage: TaskStorage;
 
   /**
    * 构造函数
    * @param storage 任务存储
    */
-  constructor(storage: any) {
+  constructor(storage: TaskStorage) {
     this.storage = storage;
   }
 
@@ -107,7 +108,7 @@ export class TaskServiceImpl implements TaskService {
    */
   async completeTask(
     id: string,
-    output?: Record<string, any>
+    output?: Record<string, unknown>
   ): Promise<Task | undefined> {
     const task = await this.getTask(id);
     if (!task) {

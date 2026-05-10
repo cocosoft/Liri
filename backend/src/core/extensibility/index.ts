@@ -3,6 +3,8 @@
  * 提供插件系统、模块化架构、配置管理和事件总线等功能
  */
 
+import { EventBus as CoreEventBus, EventBusImpl } from '../events/EventBus';
+
 /**
  * 插件生命周期状态
  */
@@ -860,7 +862,7 @@ export enum EventType {
 export interface EventData {
   type: EventType;
   timestamp: number;
-  data?: any;
+  data?: unknown;
   source?: string;
   [key: string]: unknown;
 }
@@ -871,106 +873,68 @@ export interface EventData {
 export type EventListener = (event: EventData) => void;
 
 /**
- * 事件总线
+ * 事件总线（基于核心 EventBus 的封装）
  */
 export class EventBus {
-  private listeners: Map<EventType, EventListener[]> = new Map();
-  private maxListeners: number = 100;
+  private coreBus: CoreEventBus;
+
+  constructor(bus?: CoreEventBus) {
+    this.coreBus = bus || new EventBusImpl();
+  }
 
   /**
    * 注册事件监听器
    */
   on(type: EventType, listener: EventListener): void {
-    if (!this.listeners.has(type)) {
-      this.listeners.set(type, []);
-    }
-
-    const listeners = this.listeners.get(type)!;
-    if (listeners.length >= this.maxListeners) {
-      console.warn(`Max listeners reached for event type ${type}`);
-      return;
-    }
-
-    listeners.push(listener);
+    this.coreBus.subscribe(type, listener);
   }
 
   /**
    * 移除事件监听器
    */
   off(type: EventType, listener: EventListener): void {
-    if (!this.listeners.has(type)) return;
-
-    const listeners = this.listeners.get(type)!;
-    const index = listeners.indexOf(listener);
-    if (index > -1) {
-      listeners.splice(index, 1);
-    }
+    this.coreBus.unsubscribe(type, listener);
   }
 
   /**
    * 触发事件
    */
-  emit(type: EventType, data?: any, source?: string): void {
+  emit(type: EventType, data?: unknown, source?: string): void {
     const event: EventData = {
       type,
       timestamp: Date.now(),
       data,
       source,
     };
-
-    if (this.listeners.has(type)) {
-      const listeners = this.listeners.get(type)!;
-      for (const listener of listeners) {
-        try {
-          listener(event);
-        } catch (error) {
-          console.error(`Error in event listener for ${type}:`, error);
-        }
-      }
-    }
+    this.coreBus.publish(type, event);
   }
 
   /**
    * 触发一次性事件
    */
   once(type: EventType, listener: EventListener): void {
-    const onceListener = (event: EventData) => {
-      listener(event);
-      this.off(type, onceListener);
-    };
-    this.on(type, onceListener);
+    this.coreBus.once(type, listener);
   }
 
   /**
    * 移除所有事件监听器
    */
   removeAllListeners(type?: EventType): void {
-    if (type) {
-      this.listeners.delete(type);
-    } else {
-      this.listeners.clear();
-    }
+    this.coreBus.unsubscribeAll(type);
   }
 
   /**
    * 获取事件监听器数量
    */
   listenerCount(type: EventType): number {
-    return this.listeners.get(type)?.length || 0;
-  }
-
-  /**
-   * 设置最大监听器数量
-   */
-  setMaxListeners(max: number): void {
-    this.maxListeners = max;
+    return this.coreBus.listenerCount(type);
   }
 
   /**
    * 销毁事件总线
    */
   destroy(): void {
-    this.listeners.clear();
+    this.coreBus.unsubscribeAll();
   }
 }
 
@@ -981,7 +945,7 @@ export const extensibilityUtils = {
   /**
    * 深度合并对象
    */
-  deepMerge: (target: any, source: any): any => {
+  deepMerge: (target: unknown, source: unknown): unknown => {
     if (target === null || typeof target !== 'object') {
       return source;
     }
@@ -995,10 +959,13 @@ export const extensibilityUtils = {
       return source;
     }
 
-    const merged = { ...target };
-    for (const key in source) {
-      if (source.hasOwnProperty(key)) {
-        merged[key] = extensibilityUtils.deepMerge(target[key], source[key]);
+    const merged = { ...(target as Record<string, unknown>) };
+    for (const key in source as Record<string, unknown>) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        merged[key] = extensibilityUtils.deepMerge(
+          (target as Record<string, unknown>)[key],
+          (source as Record<string, unknown>)[key]
+        );
       }
     }
     return merged;
@@ -1022,31 +989,35 @@ export const extensibilityUtils = {
   /**
    * 验证插件元数据
    */
-  validatePluginMetadata: (metadata: any): boolean => {
+  validatePluginMetadata: (metadata: unknown): boolean => {
     return (
       typeof metadata === 'object' &&
       metadata !== null &&
-      typeof metadata.id === 'string' &&
-      typeof metadata.name === 'string' &&
-      typeof metadata.version === 'string' &&
-      typeof metadata.description === 'string' &&
-      typeof metadata.author === 'string' &&
-      Object.values(PluginType).includes(metadata.type)
+      typeof (metadata as Record<string, unknown>).id === 'string' &&
+      typeof (metadata as Record<string, unknown>).name === 'string' &&
+      typeof (metadata as Record<string, unknown>).version === 'string' &&
+      typeof (metadata as Record<string, unknown>).description === 'string' &&
+      typeof (metadata as Record<string, unknown>).author === 'string' &&
+      Object.values(PluginType).includes(
+        (metadata as Record<string, unknown>).type as PluginType
+      )
     );
   },
 
   /**
    * 验证模块元数据
    */
-  validateModuleMetadata: (metadata: any): boolean => {
+  validateModuleMetadata: (metadata: unknown): boolean => {
     return (
       typeof metadata === 'object' &&
       metadata !== null &&
-      typeof metadata.id === 'string' &&
-      typeof metadata.name === 'string' &&
-      typeof metadata.version === 'string' &&
-      typeof metadata.description === 'string' &&
-      Object.values(ModuleType).includes(metadata.type)
+      typeof (metadata as Record<string, unknown>).id === 'string' &&
+      typeof (metadata as Record<string, unknown>).name === 'string' &&
+      typeof (metadata as Record<string, unknown>).version === 'string' &&
+      typeof (metadata as Record<string, unknown>).description === 'string' &&
+      Object.values(ModuleType).includes(
+        (metadata as Record<string, unknown>).type as ModuleType
+      )
     );
   },
 };

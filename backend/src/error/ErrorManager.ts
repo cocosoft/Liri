@@ -66,7 +66,7 @@ export class ErrorManager {
 
   async handleError(
     error: Error,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     querySource?: QuerySource
   ): Promise<{
     trackedId?: string;
@@ -122,19 +122,19 @@ export class ErrorManager {
 
   async handleAndThrow(
     error: Error,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<never> {
     await this.handleError(error, context);
     throw error;
   }
 
-  wrapAsync<T extends (...args: any[]) => Promise<any>>(
+  wrapAsync<T extends (...args: unknown[]) => Promise<unknown>>(
     fn: T,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
     return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
       try {
-        return await fn(...args);
+        return (await fn(...args)) as ReturnType<T>;
       } catch (error) {
         await this.handleError(
           error instanceof Error ? error : new Error(String(error)),

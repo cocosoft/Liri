@@ -1,4 +1,5 @@
 import { Logger } from '../monitoring/logs/Logger';
+import { getMonitoringService } from '../monitoring/MonitoringService';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -71,6 +72,7 @@ export class TaskQueue {
       logger.info(`任务已提交: ${task.name} (${task.id})`, {
         priority: task.priority,
       });
+      this.reportTaskMetrics();
       this.processNext();
     });
   }
@@ -90,6 +92,8 @@ export class TaskQueue {
           duration: 0,
         });
         logger.info(`任务已取消: ${entry.task.name} (${taskId})`);
+        this.reportTaskMetric('daemon.tasks.cancelled', 1);
+        this.reportTaskMetrics();
         return true;
       }
     }
@@ -175,6 +179,8 @@ export class TaskQueue {
         duration: Date.now() - startedAt,
       });
       logger.info(`任务完成: ${task.name} (${task.id})`);
+      this.reportTaskMetric('daemon.tasks.completed', 1);
+      this.reportTaskMetrics();
     } catch (error) {
       this.running.delete(task.id);
       const errMsg = error instanceof Error ? error.message : String(error);
@@ -202,8 +208,28 @@ export class TaskQueue {
           duration: Date.now() - startedAt,
         });
         logger.error(`任务失败: ${task.name} (${task.id})`, error as Error);
+        this.reportTaskMetric('daemon.tasks.failed', 1);
+        this.reportTaskMetrics();
       }
     }
     this.processNext();
+  }
+
+  private reportTaskMetric(name: string, value: number): void {
+    try {
+      getMonitoringService().addMetric(name, value);
+    } catch {
+      // MonitoringService not available, skip metric reporting
+    }
+  }
+
+  private reportTaskMetrics(): void {
+    try {
+      const monitoring = getMonitoringService();
+      monitoring.addMetric('daemon.tasks.pending', this.pendingCount());
+      monitoring.addMetric('daemon.tasks.running', this.running.size);
+    } catch {
+      // MonitoringService not available, skip metric reporting
+    }
   }
 }

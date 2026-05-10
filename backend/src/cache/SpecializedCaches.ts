@@ -69,7 +69,7 @@ export class SettingsCache {
   /**
    * 设置设置项
    */
-  async setSetting(key: string, value: any): Promise<void> {
+  async setSetting(key: string, value: unknown): Promise<void> {
     const data = await this.getAllSettings();
     data[key] = value;
     await this.cache.set(this.cacheKey, data, {
@@ -81,7 +81,7 @@ export class SettingsCache {
   /**
    * 获取设置项
    */
-  async getSetting(key: string): Promise<any> {
+  async getSetting(key: string): Promise<unknown> {
     const data = await this.getAllSettings();
     return data[key];
   }
@@ -89,8 +89,8 @@ export class SettingsCache {
   /**
    * 获取所有设置项
    */
-  async getAllSettings(): Promise<Record<string, any>> {
-    const data = await this.cache.get<Record<string, any>>(this.cacheKey);
+  async getAllSettings(): Promise<Record<string, unknown>> {
+    const data = await this.cache.get<Record<string, unknown>>(this.cacheKey);
     return data || {};
   }
 
@@ -135,10 +135,13 @@ export class PluginCache {
   async setPluginData(
     pluginName: string,
     key: string,
-    value: any
+    value: unknown
   ): Promise<void> {
     const cacheKey = `${this.cacheKeyPrefix}${pluginName}`;
-    const data = await this.getPluginData(pluginName);
+    const data = (await this.getPluginData(pluginName)) as Record<
+      string,
+      unknown
+    >;
     data[key] = value;
     await this.cache.set(cacheKey, data);
     logForDebugging(`插件数据已缓存: ${pluginName}.${key}`);
@@ -147,9 +150,9 @@ export class PluginCache {
   /**
    * 获取插件数据
    */
-  async getPluginData(pluginName: string, key?: string): Promise<any> {
+  async getPluginData(pluginName: string, key?: string): Promise<unknown> {
     const cacheKey = `${this.cacheKeyPrefix}${pluginName}`;
-    const data = await this.cache.get<Record<string, any>>(cacheKey);
+    const data = await this.cache.get<Record<string, unknown>>(cacheKey);
     if (!data) return key ? undefined : {};
     return key ? data[key] : data;
   }
@@ -160,7 +163,10 @@ export class PluginCache {
   async clearPluginData(pluginName: string, key?: string): Promise<void> {
     const cacheKey = `${this.cacheKeyPrefix}${pluginName}`;
     if (key) {
-      const data = await this.getPluginData(pluginName);
+      const data = (await this.getPluginData(pluginName)) as Record<
+        string,
+        unknown
+      >;
       delete data[key];
       await this.cache.set(cacheKey, data);
       logForDebugging(`插件数据已清除: ${pluginName}.${key}`);
@@ -198,10 +204,13 @@ export class SessionCache {
   async setSessionData(
     sessionId: string,
     key: string,
-    value: any
+    value: unknown
   ): Promise<void> {
     const cacheKey = `${this.cacheKeyPrefix}${sessionId}`;
-    const data = await this.getSessionData(sessionId);
+    const data = (await this.getSessionData(sessionId)) as Record<
+      string,
+      unknown
+    >;
     data[key] = value;
     await this.cache.set(cacheKey, data, { expiry: Date.now() + this.ttl });
     logForDebugging(`会话数据已缓存: ${sessionId}.${key}`);
@@ -210,9 +219,9 @@ export class SessionCache {
   /**
    * 获取会话数据
    */
-  async getSessionData(sessionId: string, key?: string): Promise<any> {
+  async getSessionData(sessionId: string, key?: string): Promise<unknown> {
     const cacheKey = `${this.cacheKeyPrefix}${sessionId}`;
-    const data = await this.cache.get<Record<string, any>>(cacheKey);
+    const data = await this.cache.get<Record<string, unknown>>(cacheKey);
     if (!data) return key ? undefined : {};
     return key ? data[key] : data;
   }
@@ -223,7 +232,10 @@ export class SessionCache {
   async clearSessionData(sessionId: string, key?: string): Promise<void> {
     const cacheKey = `${this.cacheKeyPrefix}${sessionId}`;
     if (key) {
-      const data = await this.getSessionData(sessionId);
+      const data = (await this.getSessionData(sessionId)) as Record<
+        string,
+        unknown
+      >;
       delete data[key];
       await this.cache.set(cacheKey, data, { expiry: Date.now() + this.ttl });
       logForDebugging(`会话数据已清除: ${sessionId}.${key}`);
@@ -267,8 +279,8 @@ export class ToolResultCache {
    */
   async cacheToolResult(
     toolName: string,
-    args: any,
-    result: any
+    args: unknown,
+    result: unknown
   ): Promise<string> {
     const key = this.generateKey(toolName, args);
     const cacheKey = `${this.cacheKeyPrefix}${key}`;
@@ -280,16 +292,13 @@ export class ToolResultCache {
   /**
    * 获取工具结果
    */
-  async getToolResult(toolName: string, args: any): Promise<any> {
+  async getToolResult(toolName: string, args: unknown): Promise<unknown> {
     const key = this.generateKey(toolName, args);
     const cacheKey = `${this.cacheKeyPrefix}${key}`;
     return await this.cache.get(cacheKey);
   }
 
-  /**
-   * 获取工具结果（通过键）
-   */
-  async getToolResultByKey(key: string): Promise<any> {
+  async getToolResultByKey(key: string): Promise<unknown> {
     const cacheKey = `${this.cacheKeyPrefix}${key}`;
     return await this.cache.get(cacheKey);
   }
@@ -297,7 +306,7 @@ export class ToolResultCache {
   /**
    * 清除工具结果
    */
-  async clearToolResult(toolName: string, args: any): Promise<void> {
+  async clearToolResult(toolName: string, args: unknown): Promise<void> {
     const key = this.generateKey(toolName, args);
     const cacheKey = `${this.cacheKeyPrefix}${key}`;
     await this.cache.delete(cacheKey);
@@ -327,7 +336,7 @@ export class ToolResultCache {
   /**
    * 生成缓存键
    */
-  private generateKey(toolName: string, args: any): string {
+  private generateKey(toolName: string, args: unknown): string {
     const argsStr = JSON.stringify(args);
     const hash = this.hashCode(`${toolName}:${argsStr}`);
     return `${toolName}_${hash}`;

@@ -28,13 +28,13 @@ class NetworkErrorHandler implements ErrorHandlingStrategy {
   handle(error: NetworkError): void {
     SafeLogger.logError(error, {
       action: 'network_retry',
-      retryCount: error.context?.retryCount || 0,
+      retryCount: (error.context?.retryCount as number) || 0,
     });
 
     // 可以在这里实现网络错误的重试逻辑
-    if ((error.context?.retryCount || 0) < 3) {
+    if (((error.context?.retryCount as number) || 0) < 3) {
       SafeLogger.logInfo('Retrying network operation...', {
-        retryCount: (error.context?.retryCount || 0) + 1,
+        retryCount: ((error.context?.retryCount as number) || 0) + 1,
       });
     }
   }

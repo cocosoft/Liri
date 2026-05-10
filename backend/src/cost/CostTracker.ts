@@ -13,6 +13,7 @@ import {
   hasUnknownModel,
   resetUnknownModelFlag,
 } from './ModelPricing.js';
+import type { CostRecordRepository } from './CostRecordRepository.js';
 
 /**
  * 模型使用信息
@@ -59,6 +60,28 @@ export class CostTracker {
   private totalWebSearchRequests: number = 0;
   private modelUsage: Map<string, ModelUsage> = new Map();
   private startTime: number = Date.now();
+  private recordRepository: CostRecordRepository | null = null;
+  private currentSessionId: string = '';
+
+  /**
+   * 设置成本记录存储库
+   */
+  setRecordRepository(
+    repository: CostRecordRepository,
+    sessionId?: string
+  ): void {
+    this.recordRepository = repository;
+    if (sessionId) {
+      this.currentSessionId = sessionId;
+    }
+  }
+
+  /**
+   * 设置当前会话ID
+   */
+  setSessionId(sessionId: string): void {
+    this.currentSessionId = sessionId;
+  }
 
   /**
    * 添加成本
@@ -112,6 +135,15 @@ export class CostTracker {
       });
     }
 
+    this.persistCostRecord(
+      canonicalModelName,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+      cost
+    );
+
     logForDebugging(`添加成本: ${formatCost(cost)} (${canonicalModelName})`, {
       inputTokens,
       outputTokens,
@@ -122,6 +154,36 @@ export class CostTracker {
     });
 
     return cost;
+  }
+
+  /**
+   * 持久化成本记录到SQLite
+   */
+  private async persistCostRecord(
+    model: string,
+    inputTokens: number,
+    outputTokens: number,
+    cacheReadTokens: number,
+    cacheCreationTokens: number,
+    costUSD: number
+  ): Promise<void> {
+    if (!this.recordRepository) {
+      return;
+    }
+
+    try {
+      await this.recordRepository.recordCost({
+        model,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        costUSD,
+        sessionId: this.currentSessionId || undefined,
+      });
+    } catch (error) {
+      logForDebugging('持久化成本记录失败', { error });
+    }
   }
 
   /**

@@ -323,7 +323,7 @@ export class ErrorMessageManager {
    * @param context 错误上下文
    * @returns 错误对象
    */
-  createError(code: string, context?: Record<string, any>): AppError {
+  createError(code: string, context?: Record<string, unknown>): AppError {
     const errorMessage = this.getErrorMessage(code);
     return new AppError(
       errorMessage.message,

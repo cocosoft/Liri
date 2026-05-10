@@ -45,15 +45,15 @@ export interface Task {
   type: TaskType;
   status: TaskStatus;
   priority: TaskPriority;
-  input?: Record<string, any>;
-  output?: Record<string, any>;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
   error?: string;
   createdAt: number;
   updatedAt: number;
   startedAt?: number;
   completedAt?: number;
   duration?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -64,8 +64,8 @@ export interface TaskCreateOptions {
   description: string;
   type: TaskType;
   priority?: TaskPriority;
-  input?: Record<string, any>;
-  metadata?: Record<string, any>;
+  input?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -76,10 +76,10 @@ export interface TaskUpdateOptions {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
-  input?: Record<string, any>;
-  output?: Record<string, any>;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -120,7 +120,7 @@ export interface TaskService {
   startTask(id: string): Promise<Task | undefined>;
   completeTask(
     id: string,
-    output?: Record<string, any>
+    output?: Record<string, unknown>
   ): Promise<Task | undefined>;
   failTask(id: string, error: string): Promise<Task | undefined>;
   cancelTask(id: string): Promise<Task | undefined>;

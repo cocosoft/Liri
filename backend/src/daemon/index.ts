@@ -9,4 +9,12 @@ export type {
 } from './TaskQueue';
 
 export { IPCService } from './IPCService';
-export type { IPCMessage, IPCHandler, IPCServiceConfig } from './IPCService';
+export type {
+  IPCMessage,
+  IPCHandler,
+  IPCServiceConfig,
+  IPCTransport,
+} from './IPCService';
+
+export { CronBridge } from './CronBridge';
+export type { CronBridgeConfig } from './CronBridge';

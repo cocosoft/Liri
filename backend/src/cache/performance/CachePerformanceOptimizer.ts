@@ -8,7 +8,7 @@ export interface MemoryPool {
 export interface BatchOperation {
   type: 'get' | 'set' | 'delete';
   key: string;
-  value?: any;
+  value?: unknown;
   ttl?: number;
 }
 
@@ -17,7 +17,7 @@ export interface BatchResult {
   results: Array<{
     key: string;
     success: boolean;
-    value?: any;
+    value?: unknown;
     error?: string;
   }>;
   totalDuration: number;
@@ -48,9 +48,9 @@ export interface MemoryUsageReport {
 }
 
 export interface ICachePerformanceOptimizer {
-  getBatch(keys: string[]): Promise<Map<string, any>>;
+  getBatch(keys: string[]): Promise<Map<string, unknown>>;
   setBatch(
-    entries: Array<{ key: string; value: any; ttl?: number }>
+    entries: Array<{ key: string; value: unknown; ttl?: number }>
   ): Promise<number>;
   deleteBatch(keys: string[]): Promise<number>;
   executeBatch(operations: BatchOperation[]): Promise<BatchResult>;
@@ -80,7 +80,7 @@ interface OperationRecord {
 export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
   private storage: Map<
     string,
-    { value: any; timestamp: number; ttl?: number; size: number }
+    { value: unknown; timestamp: number; ttl?: number; size: number }
   > = new Map();
   private operationLog: OperationRecord[] = [];
   private maxOperationLogSize = 10000;
@@ -97,9 +97,9 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
   private lastOptimizationTime = 0;
   private minOptimizationInterval = 60000;
 
-  async getBatch(keys: string[]): Promise<Map<string, any>> {
+  async getBatch(keys: string[]): Promise<Map<string, unknown>> {
     const start = Date.now();
-    const results = new Map<string, any>();
+    const results = new Map<string, unknown>();
     const latencies: number[] = [];
 
     for (const key of keys) {
@@ -124,7 +124,7 @@ export class CachePerformanceOptimizer implements ICachePerformanceOptimizer {
   }
 
   async setBatch(
-    entries: Array<{ key: string; value: any; ttl?: number }>
+    entries: Array<{ key: string; value: unknown; ttl?: number }>
   ): Promise<number> {
     const start = Date.now();
     let successCount = 0;

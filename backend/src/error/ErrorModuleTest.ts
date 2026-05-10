@@ -19,7 +19,11 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
-function assertEqual(actual: any, expected: any, message: string): void {
+function assertEqual(
+  actual: unknown,
+  expected: unknown,
+  message: string
+): void {
   if (actual !== expected) {
     console.error(
       `  ✗ FAIL: ${message} (expected: ${expected}, actual: ${actual})`
@@ -30,7 +34,11 @@ function assertEqual(actual: any, expected: any, message: string): void {
   }
 }
 
-function assertNotEqual(actual: any, expected: any, message: string): void {
+function assertNotEqual(
+  actual: unknown,
+  expected: unknown,
+  message: string
+): void {
   if (actual === expected) {
     console.error(`  ✗ FAIL: ${message} (should not equal: ${expected})`);
     process.exitCode = 1;

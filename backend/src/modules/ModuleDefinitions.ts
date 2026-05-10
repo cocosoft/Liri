@@ -347,7 +347,7 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     category: ModuleCategory.OTHER,
     description: '钩子模块，提供事件处理和扩展点功能',
     dependencies: ['core', 'infrastructure'],
-    optionalDependencies: ['hooks'],
+    optionalDependencies: [],
   },
 
   lsp: {
@@ -391,6 +391,18 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     category: ModuleCategory.OTHER,
     description: '查询模块，提供查询引擎和用户输入处理',
     dependencies: ['core', 'infrastructure'],
+    optionalDependencies: [],
+  },
+
+  remote: {
+    id: 'remote',
+    name: 'remote',
+    displayName: '远程连接模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description:
+      '远程连接模块，提供SSH连接管理、连接池、密钥管理和远程会话功能',
+    dependencies: ['core', 'infrastructure', 'security'],
     optionalDependencies: [],
   },
 
@@ -507,6 +519,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'analytics',
   'buddy',
   'docs',
+  'remote',
   'services',
   'streaming',
   'utils',

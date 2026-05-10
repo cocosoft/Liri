@@ -34,6 +34,9 @@ export type HookEvent =
   | 'http.post-response'
   | 'error.pre-handle'
   | 'error.post-handle'
+  | 'cost.alert'
+  | 'cost.budget.warning'
+  | 'cost.budget.exceeded'
   | string; // 支持自定义事件
 
 /**
@@ -678,4 +681,51 @@ export interface MatcherMetadata {
    * 额外属性
    */
   [key: string]: any;
+}
+
+/**
+ * 脚本Hook配置
+ * 用于在事件节点执行用户自定义脚本
+ */
+export interface ScriptHookConfig {
+  /**
+   * 脚本类型（默认 shell）
+   */
+  interpreter?: 'shell' | 'node' | 'python';
+
+  /**
+   * 内联脚本内容（与 scriptFile 二选一）
+   */
+  script?: string;
+
+  /**
+   * 脚本文件路径（与 script 二选一）
+   */
+  scriptFile?: string;
+
+  /**
+   * 超时时间（秒，默认 30）
+   */
+  timeout?: number;
+
+  /**
+   * 自定义环境变量
+   */
+  env?: Record<string, string>;
+
+  /**
+   * 启用沙箱模式（默认 true）
+   * 沙箱模式下会拦截危险命令并移除敏感环境变量
+   */
+  sandbox?: boolean;
+
+  /**
+   * 是否允许脚本修改环境变量（默认 false）
+   */
+  allowEnvModification?: boolean;
+
+  /**
+   * 工作目录
+   */
+  cwd?: string;
 }

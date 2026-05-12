@@ -13,6 +13,7 @@ import { AWSClient } from './AWSClient';
 import { AzureClient } from './AzureClient';
 import { VertexClient } from './VertexClient';
 import { getConfig } from '@modules/config';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface AnthropicConfig {
   apiKey: string;
@@ -175,7 +176,7 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
       case 'vertex':
         return this.createVertexClient(config);
       default:
-        throw new Error(`Unsupported client type: ${type}`);
+        throw new AppError(`Unsupported client type: ${type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

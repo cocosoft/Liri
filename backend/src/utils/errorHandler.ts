@@ -1,13 +1,18 @@
 /**
  * 错误处理工具
+ *
+ * 本文件提供轻量级错误处理辅助函数和 ErrorHandler 类。
+ * 所有核心错误类型委托给 @modules/error/types 中的规范定义。
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 错误类型
+ * 错误类型（兼容原独立定义）
+ * 用于 handle() 方法将系统错误码映射到规范 ErrorCategory
  */
 export enum ErrorType {
   NETWORK = 'network',
@@ -21,37 +26,25 @@ export enum ErrorType {
 }
 
 /**
- * 应用错误接口
+ * 将 ErrorType 映射为规范 ErrorCategory
  */
-export interface AppError {
-  type: ErrorType;
-  message: string;
-  code?: string;
-  stack?: string;
-  details?: any;
-}
-
-/**
- * 应用错误类
- */
-export class AppError extends Error implements AppError {
-  type: ErrorType;
-  code?: string;
-  details?: any;
-
-  /**
-   * 构造函数
-   * @param type 错误类型
-   * @param message 错误消息
-   * @param code 错误代码
-   * @param details 错误详情
-   */
-  constructor(type: ErrorType, message: string, code?: string, details?: any) {
-    super(message);
-    this.type = type;
-    this.code = code;
-    this.details = details;
-    this.name = 'AppError';
+function mapToCategory(type: ErrorType): ErrorCategory {
+  switch (type) {
+    case ErrorType.NETWORK:
+      return ErrorCategory.NETWORK;
+    case ErrorType.API:
+      return ErrorCategory.API;
+    case ErrorType.VALIDATION:
+      return ErrorCategory.VALIDATION;
+    case ErrorType.AUTHENTICATION:
+    case ErrorType.AUTHORIZATION:
+      return ErrorCategory.PERMISSION;
+    case ErrorType.DATABASE:
+      return ErrorCategory.DATABASE;
+    case ErrorType.FILE_SYSTEM:
+      return ErrorCategory.FILESYSTEM;
+    default:
+      return ErrorCategory.UNKNOWN;
   }
 }
 
@@ -62,99 +55,95 @@ export class ErrorHandler {
   /**
    * 处理错误
    * @param error 错误
-   * @returns 处理后的错误
+   * @returns 规范 AppError 实例
    */
-  static handle(error: any): AppError {
+  static handle(error: unknown): AppError {
     if (error instanceof AppError) {
       return error;
     }
 
+    const err = error as { code?: string; name?: string; message?: string };
+
     // 处理网络错误
-    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+    if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
       return new AppError(
-        ErrorType.NETWORK,
         '网络连接失败，请检查网络设置',
-        error.code,
-        error
+        ErrorCategory.NETWORK,
+        ErrorSeverity.MEDIUM,
+        err.code
       );
     }
 
     // 处理验证错误
-    if (error.name === 'ValidationError' || error.name === 'ZodError') {
+    if (err.name === 'ValidationError' || err.name === 'ZodError') {
       return new AppError(
-        ErrorType.VALIDATION,
         '数据验证失败',
-        'VALIDATION_ERROR',
-        error
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.LOW,
+        'VALIDATION_ERROR'
       );
     }
 
     // 处理认证错误
-    if (
-      error.code === 'UNAUTHENTICATED' ||
-      error.message.includes('authentication')
-    ) {
+    if (err.code === 'UNAUTHENTICATED' || (err.message && err.message.includes('authentication'))) {
       return new AppError(
-        ErrorType.AUTHENTICATION,
         '认证失败，请重新登录',
-        'AUTHENTICATION_ERROR',
-        error
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'AUTHENTICATION_ERROR'
       );
     }
 
     // 处理授权错误
-    if (
-      error.code === 'UNAUTHORIZED' ||
-      error.message.includes('authorization')
-    ) {
+    if (err.code === 'UNAUTHORIZED' || (err.message && err.message.includes('authorization'))) {
       return new AppError(
-        ErrorType.AUTHORIZATION,
         '授权失败，权限不足',
-        'AUTHORIZATION_ERROR',
-        error
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'AUTHORIZATION_ERROR'
       );
     }
 
     // 处理数据库错误
-    if (error.code && error.code.startsWith('SQL')) {
+    if (err.code && typeof err.code === 'string' && err.code.startsWith('SQL')) {
       return new AppError(
-        ErrorType.DATABASE,
         '数据库操作失败',
-        error.code,
-        error
+        ErrorCategory.DATABASE,
+        ErrorSeverity.HIGH,
+        err.code
       );
     }
 
     // 处理文件系统错误
-    if (error.code === 'ENOENT' || error.code === 'EACCES') {
+    if (err.code === 'ENOENT' || err.code === 'EACCES') {
       return new AppError(
-        ErrorType.FILE_SYSTEM,
         '文件系统操作失败',
-        error.code,
-        error
+        ErrorCategory.FILESYSTEM,
+        ErrorSeverity.MEDIUM,
+        err.code
       );
     }
 
     // 处理未知错误
     return new AppError(
-      ErrorType.UNKNOWN,
-      error.message || '未知错误',
-      'UNKNOWN_ERROR',
-      error
+      err.message || '未知错误',
+      ErrorCategory.UNKNOWN,
+      ErrorSeverity.MEDIUM,
+      'UNKNOWN_ERROR'
     );
   }
 
   /**
-   * 捕获并处理错误
+   * 捕获并处理异步函数错误
    * @param fn 函数
    * @returns 处理后的函数
    */
-  static catchAsync<T extends (...args: any[]) => Promise<any>>(
+  static catchAsync<T extends (...args: unknown[]) => Promise<unknown>>(
     fn: T
   ): (...args: Parameters<T>) => Promise<ReturnType<T> | null> {
     return async (...args: Parameters<T>): Promise<ReturnType<T> | null> => {
       try {
-        return await fn(...args);
+        return (await fn(...args)) as ReturnType<T>;
       } catch (error) {
         const handledError = ErrorHandler.handle(error);
         logger.error('Error:', { handledError });
@@ -164,16 +153,16 @@ export class ErrorHandler {
   }
 
   /**
-   * 捕获并处理错误（同步）
+   * 捕获并处理同步函数错误
    * @param fn 函数
    * @returns 处理后的函数
    */
-  static catchSync<T extends (...args: any[]) => any>(
+  static catchSync<T extends (...args: unknown[]) => unknown>(
     fn: T
   ): (...args: Parameters<T>) => ReturnType<T> | null {
     return (...args: Parameters<T>): ReturnType<T> | null => {
       try {
-        return fn(...args);
+        return fn(...args) as ReturnType<T>;
       } catch (error) {
         const handledError = ErrorHandler.handle(error);
         logger.error('Error:', { handledError });
@@ -186,30 +175,30 @@ export class ErrorHandler {
 /**
  * 处理错误
  * @param error 错误
- * @returns 处理后的错误
+ * @returns 规范 AppError 实例
  */
-export function handleError(error: any): AppError {
+export function handleError(error: unknown): AppError {
   return ErrorHandler.handle(error);
 }
 
 /**
- * 捕获并处理错误
+ * 捕获并处理异步函数错误
  * @param fn 函数
  * @returns 处理后的函数
  */
-export function catchAsync<T extends (...args: any[]) => Promise<any>>(
+export function catchAsync<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T
 ): (...args: Parameters<T>) => Promise<ReturnType<T> | null> {
-  return ErrorHandler.catchAsync(fn);
+  return ErrorHandler.catchAsync(fn) as (...args: Parameters<T>) => Promise<ReturnType<T> | null>;
 }
 
 /**
- * 捕获并处理错误（同步）
+ * 捕获并处理同步函数错误
  * @param fn 函数
  * @returns 处理后的函数
  */
-export function catchSync<T extends (...args: any[]) => any>(
+export function catchSync<T extends (...args: unknown[]) => unknown>(
   fn: T
 ): (...args: Parameters<T>) => ReturnType<T> | null {
-  return ErrorHandler.catchSync(fn);
+  return ErrorHandler.catchSync(fn) as (...args: Parameters<T>) => ReturnType<T> | null;
 }

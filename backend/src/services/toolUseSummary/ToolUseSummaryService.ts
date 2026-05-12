@@ -7,6 +7,7 @@
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole, ContentBlockType } from '@modules/chat/types/message';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -111,7 +112,7 @@ export class ToolUseSummaryService {
       mcpTools: unknown[];
     };
   }): Promise<{ message: { content: Array<{ type: string; text: string }> } }> {
-    throw new Error('queryHaiku not implemented - requires API integration');
+    throw new AppError('queryHaiku not implemented - requires API integration', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   private truncateJson(value: unknown, maxLength: number): string {

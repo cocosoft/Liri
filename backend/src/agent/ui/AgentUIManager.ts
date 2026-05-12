@@ -7,6 +7,7 @@ import {
   AgentResponse,
 } from '../models/types';
 import { logger } from '@modules/utils/log';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 interface AgentCommand {
   type: 'start' | 'stop' | 'pause' | 'resume' | 'configure' | 'execute';
@@ -104,7 +105,7 @@ export class AgentUIManager {
   async sendCommand(agentId: string, command: AgentCommand): Promise<void> {
     const agent = this.agents.get(agentId);
     if (!agent) {
-      throw new Error(`Agent ${agentId} not found`);
+      throw new AppError(`Agent ${agentId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.commandHistory.push(command);
@@ -147,7 +148,7 @@ export class AgentUIManager {
   async syncAgentData(agentId: string): Promise<AgentData> {
     const agent = this.agents.get(agentId);
     if (!agent) {
-      throw new Error(`Agent ${agentId} not found`);
+      throw new AppError(`Agent ${agentId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const info = agent.getInfo();

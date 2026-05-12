@@ -136,3 +136,36 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
     }
   };
 }
+
+/**
+ * 创建懒加载单例 — 通过 Proxy 延迟实例化，首次访问属性时才创建
+ * @param factory 实例工厂函数
+ * @returns Proxy 包装的实例
+ */
+export function lazySingleton<T extends object>(factory: () => T): T {
+  let instance: T | null = null;
+
+  return new Proxy({} as T, {
+    get(_, prop: string | symbol, receiver: unknown) {
+      if (!instance) instance = factory();
+      const value = Reflect.get(instance, prop, receiver);
+      return typeof value === 'function' ? value.bind(instance) : value;
+    },
+    set(_, prop: string | symbol, value: unknown, receiver: unknown) {
+      if (!instance) instance = factory();
+      return Reflect.set(instance, prop, value, receiver);
+    },
+    has(_, prop: string | symbol) {
+      if (!instance) instance = factory();
+      return Reflect.has(instance, prop);
+    },
+    ownKeys() {
+      if (!instance) instance = factory();
+      return Reflect.ownKeys(instance);
+    },
+    getOwnPropertyDescriptor(_, prop: string | symbol) {
+      if (!instance) instance = factory();
+      return Reflect.getOwnPropertyDescriptor(instance, prop);
+    },
+  });
+}

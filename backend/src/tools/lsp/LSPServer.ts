@@ -4,6 +4,7 @@
 
 import { spawn } from 'child_process';
 import { ServerStatus } from './types/index.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * LSP服务器配置
@@ -120,7 +121,7 @@ export class LSPServer {
    */
   send(message: string): void {
     if (this.status !== ServerStatus.RUNNING || !this.process) {
-      throw new Error('Server not running');
+      throw new AppError('Server not running', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const length = Buffer.byteLength(message, 'utf8');

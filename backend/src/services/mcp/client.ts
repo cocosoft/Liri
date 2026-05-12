@@ -12,6 +12,7 @@ import type {
   SerializedTool,
 } from './types';
 import type { McpCommand } from './commandManager';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -143,7 +144,7 @@ export async function reconnectMcpServerImpl(
         options.env = config.env || {};
         break;
       default:
-        throw new Error(`Unsupported transport type: ${config.type}`);
+        throw new AppError(`Unsupported transport type: ${config.type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const client = new Client(options as any);

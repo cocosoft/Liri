@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -99,7 +99,7 @@ export class PluginHandler {
     try {
       const plugin = this.plugins.find((p) => p.name === pluginName);
       if (!plugin) {
-        throw new Error(`Plugin not found: ${pluginName}`);
+        throw new AppError(`Plugin not found: ${pluginName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
       }
 
       plugin.enabled = true;
@@ -139,7 +139,7 @@ export class PluginHandler {
     try {
       const plugin = this.plugins.find((p) => p.name === pluginName);
       if (!plugin) {
-        throw new Error(`Plugin not found: ${pluginName}`);
+        throw new AppError(`Plugin not found: ${pluginName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
       }
 
       plugin.enabled = false;
@@ -221,7 +221,7 @@ export class PluginHandler {
     try {
       const index = this.plugins.findIndex((p) => p.name === pluginName);
       if (index === -1) {
-        throw new Error(`Plugin not found: ${pluginName}`);
+        throw new AppError(`Plugin not found: ${pluginName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
       }
 
       this.plugins.splice(index, 1);

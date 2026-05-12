@@ -4,6 +4,7 @@
  */
 import type { StreamChunk, ChatResponse, Message } from '../types/message';
 import { createAssistantMessage } from '../types/message';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 流服务接口
@@ -100,7 +101,7 @@ export class StreamServiceImpl implements StreamService {
     response: Response
   ): AsyncGenerator<string, ChatResponse, unknown> {
     if (!response.body) {
-      throw new Error('Response body is null');
+      throw new AppError('Response body is null', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const reader = response.body.getReader();

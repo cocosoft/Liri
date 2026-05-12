@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -148,7 +148,7 @@ export class AutoModeHandler {
         this.options.verbose = value.toLowerCase() === 'true';
         break;
       default:
-        throw new Error(`Unknown config key: ${key}`);
+        throw new AppError(`Unknown config key: ${key}`, ErrorCategory.CONFIGURATION, ErrorSeverity.HIGH, '400');
     }
   }
 

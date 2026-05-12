@@ -5,6 +5,7 @@
  */
 
 import chalk from 'chalk';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { AuthHandler, createAuthHandler } from './authHandler';
 import { AgentHandler, createAgentHandler } from './agentHandler';
 import { MCPHandler, createMCPHandler } from './mcpHandler';
@@ -154,7 +155,7 @@ export class CLIHandler {
         await this.handleUtilCommand(command, args);
         break;
       default:
-        throw new Error(`Unknown handler: ${commandInfo.handler}`);
+        throw new AppError(`Unknown handler: ${commandInfo.handler}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1004');
     }
   }
 

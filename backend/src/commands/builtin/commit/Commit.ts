@@ -12,6 +12,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { CommandContext } from '@modules/commands/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const execAsync = promisify(exec);
 
@@ -182,7 +183,7 @@ export class CommitCommand {
           : [],
       };
     } catch (error) {
-      throw new Error('无法获取Git信息，请确保在Git仓库中');
+      throw new AppError('无法获取Git信息，请确保在Git仓库中', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

@@ -52,5 +52,23 @@
     "priority": 1,
     "createdAt": "2026-05-10T12:14:49.487Z",
     "updatedAt": "2026-05-10T12:14:49.487Z"
+  },
+  {
+    "id": "rule_1778518892302_81h6mgzrd",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-11T17:01:32.302Z",
+    "updatedAt": "2026-05-11T17:01:32.302Z"
+  },
+  {
+    "id": "rule_1778518911611_gsu090lva",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-11T17:01:51.611Z",
+    "updatedAt": "2026-05-11T17:01:51.611Z"
   }
 ]

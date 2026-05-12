@@ -13,6 +13,7 @@ import {
   nextCronRunMs,
 } from '@modules/chronos/CronTasks';
 import { cronToHuman, parseCronExpression } from '@modules/chronos/cron';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 最大任务数量限制
@@ -102,9 +103,9 @@ export class CronCreateTool {
         try {
           const tasks = await listAllCronTasks();
           if (tasks.length >= MAX_JOBS) {
-            throw new Error(
+            throw new AppError(
               `Too many scheduled jobs (max ${MAX_JOBS}). Cancel one first.`
-            );
+            , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
           }
 
           const id = await addCronTask(cron, prompt, recurring, durable);

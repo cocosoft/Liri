@@ -16,6 +16,7 @@ import {
   createAskDecision,
 } from './types/PermissionDecision';
 import { PermissionMode } from './types/PermissionMode';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 规则条件类型
@@ -542,7 +543,7 @@ export class EnhancedPermissionEngine {
         this.rules.sort((a, b) => b.priority - a.priority);
       }
     } catch (error) {
-      throw new Error(`Failed to import rules: ${(error as Error).message}`);
+      throw new AppError(`Failed to import rules: ${(error as Error).message}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 }

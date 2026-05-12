@@ -10,6 +10,7 @@ import { MemoryManager } from '../MemoryManager';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -823,7 +824,7 @@ export class TeamMemoryService {
     // 检查权限
     if (this.securityIntegration) {
       if (!this.securityIntegration.canCreateMemory(userId)) {
-        throw new Error('Permission denied: Cannot create memory');
+        throw new AppError('Permission denied: Cannot create memory', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
     }
 

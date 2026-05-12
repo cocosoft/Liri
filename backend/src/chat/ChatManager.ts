@@ -57,6 +57,7 @@ import {
   type CompactBoundary,
   type CompactArtifact,
 } from '../services/compact/CompactService.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 聊天管理器接口
@@ -546,7 +547,7 @@ export class ChatManagerImpl implements ChatManager {
     // 验证输入安全性
     const validationResult = securityService.validateInput(content);
     if (!validationResult.valid) {
-      throw new Error(validationResult.error || 'Invalid input');
+      throw new AppError(validationResult.error || 'Invalid input', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 检查是否是命令
@@ -597,7 +598,7 @@ export class ChatManagerImpl implements ChatManager {
         this.createSession({ title: 'New Session' });
 
     if (!session) {
-      throw new Error('No session found or created');
+      throw new AppError('No session found or created', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 触发 ChatPreMessage Hook
@@ -624,7 +625,7 @@ export class ChatManagerImpl implements ChatManager {
 
     // 调用LLM客户端
     if (!this.llmClient) {
-      throw new Error('LLM client not initialized');
+      throw new AppError('LLM client not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 准备消息列表（用于API调用）
@@ -735,8 +736,8 @@ export class ChatManagerImpl implements ChatManager {
             session.id
           );
           if (!canExecute) {
-            throw new Error(
-              `Tool ${normalizedToolCall.name} execution denied by hook`
+            throw new AppError(
+              `Tool ${normalizedToolCall.name} execution denied by hook`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000'
             );
           }
         }
@@ -881,7 +882,7 @@ export class ChatManagerImpl implements ChatManager {
     // 验证输入安全性
     const validationResult = securityService.validateInput(content);
     if (!validationResult.valid) {
-      throw new Error(validationResult.error || 'Invalid input');
+      throw new AppError(validationResult.error || 'Invalid input', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 获取或创建会话
@@ -891,7 +892,7 @@ export class ChatManagerImpl implements ChatManager {
         this.createSession({ title: 'New Session' });
 
     if (!session) {
-      throw new Error('No session found or created');
+      throw new AppError('No session found or created', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 触发 ChatPreMessage Hook
@@ -984,7 +985,7 @@ export class ChatManagerImpl implements ChatManager {
     let finalResponse: ChatResponse | null = null;
 
     if (!this.llmClient) {
-      throw new Error('LLM client not initialized');
+      throw new AppError('LLM client not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const gen = this.llmClient.streamMessage(apiMessages, {
@@ -1047,7 +1048,7 @@ export class ChatManagerImpl implements ChatManager {
             session.id
           );
           if (!canExecute) {
-            throw new Error(`Tool ${toolName} execution denied by hook`);
+            throw new AppError(`Tool ${toolName} execution denied by hook`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
           }
         }
 
@@ -1103,7 +1104,7 @@ export class ChatManagerImpl implements ChatManager {
         ];
 
         if (!this.llmClient) {
-          throw new Error('LLM client not initialized');
+          throw new AppError('LLM client not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
         }
 
         let toolResultAccumulatedContent = '';
@@ -1220,7 +1221,7 @@ export class ChatManagerImpl implements ChatManager {
     } else if (this.toolIntegration) {
       return this.toolIntegration.executeTool(toolCall);
     } else {
-      throw new Error('No tool integration or tool registry initialized');
+      throw new AppError('No tool integration or tool registry initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -1373,7 +1374,7 @@ export class ChatManagerImpl implements ChatManager {
    */
   getLLMClient(): LLMClient {
     if (!this.llmClient) {
-      throw new Error('LLM client not initialized');
+      throw new AppError('LLM client not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return this.llmClient;
   }
@@ -1585,7 +1586,7 @@ export class ChatManagerImpl implements ChatManager {
       } else if (message.type === 'tool_result' && message.toolResult) {
         yield `[工具结果: ${message.toolResult.content}]`;
       } else if (message.type === 'error') {
-        throw new Error(message.error || '查询错误');
+        throw new AppError(message.error || '查询错误', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
     }
   }
@@ -1665,7 +1666,7 @@ export class ChatManagerImpl implements ChatManager {
           toolResult: message.toolResult,
         });
       } else if (message.type === 'error') {
-        throw new Error(message.error || '查询错误');
+        throw new AppError(message.error || '查询错误', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
     }
 

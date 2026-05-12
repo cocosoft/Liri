@@ -20,6 +20,7 @@ import {
 } from './models/Permission.js';
 import { createFilePermissionStorage } from './storage/FilePermissionStorage.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { TTLCache } from '../utils/cache';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -30,7 +31,7 @@ export class FineGrainedPermissionManager {
   /** 权限存储 */
   private storage: PermissionStorage;
   /** 缓存 */
-  private cache: Map<string, PermissionDecision> = new Map();
+  private cache: TTLCache<PermissionDecision>;
 
   /**
    * 构造函数
@@ -38,6 +39,7 @@ export class FineGrainedPermissionManager {
    */
   constructor(storage?: PermissionStorage) {
     this.storage = storage || createFilePermissionStorage();
+    this.cache = new TTLCache<PermissionDecision>(500, 5 * 60 * 1000);
   }
 
   /**
@@ -52,8 +54,9 @@ export class FineGrainedPermissionManager {
     const cacheKey = this.generateCacheKey(context);
 
     // 检查缓存
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)! as PermissionDecision;
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
     try {

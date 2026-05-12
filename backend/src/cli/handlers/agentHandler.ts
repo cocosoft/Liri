@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -99,7 +99,7 @@ export class AgentHandler {
     try {
       const agent = this.agents.find((a) => a.name === agentName);
       if (!agent) {
-        throw new Error(`Agent not found: ${agentName}`);
+        throw new AppError(`Agent not found: ${agentName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
       }
 
       agent.status = 'running';
@@ -139,7 +139,7 @@ export class AgentHandler {
     try {
       const agent = this.agents.find((a) => a.name === agentName);
       if (!agent) {
-        throw new Error(`Agent not found: ${agentName}`);
+        throw new AppError(`Agent not found: ${agentName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
       }
 
       await this.stopAgentProcess(agent);

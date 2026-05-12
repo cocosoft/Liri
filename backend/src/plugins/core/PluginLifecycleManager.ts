@@ -11,6 +11,7 @@ import {
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -103,7 +104,7 @@ export class PluginLifecycleManager extends EventEmitter {
    */
   registerPlugin(plugin: LoadedPlugin): void {
     if (this.plugins.has(plugin.id)) {
-      throw new Error(`Plugin already registered: ${plugin.id}`);
+      throw new AppError(`Plugin already registered: ${plugin.id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.plugins.set(plugin.id, plugin);
@@ -144,7 +145,7 @@ export class PluginLifecycleManager extends EventEmitter {
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
-      throw new Error(`Plugin not found: ${pluginId}`);
+      throw new AppError(`Plugin not found: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (plugin.state === PluginState.ACTIVATED) {
@@ -152,9 +153,9 @@ export class PluginLifecycleManager extends EventEmitter {
     }
 
     if (plugin.state !== PluginState.LOADED) {
-      throw new Error(
+      throw new AppError(
         `Plugin must be loaded before starting, current state: ${plugin.state}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     try {
@@ -199,7 +200,7 @@ export class PluginLifecycleManager extends EventEmitter {
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
-      throw new Error(`Plugin not found: ${pluginId}`);
+      throw new AppError(`Plugin not found: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (plugin.state !== PluginState.ACTIVATED) {
@@ -244,7 +245,7 @@ export class PluginLifecycleManager extends EventEmitter {
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
-      throw new Error(`Plugin not found: ${pluginId}`);
+      throw new AppError(`Plugin not found: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (plugin.state === PluginState.ACTIVATED) {

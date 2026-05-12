@@ -40,6 +40,16 @@ export const ErrorCodes = {
   },
   TIMEOUT: { code: 1003, message: '操作超时', level: 'ERROR' as const },
   INTERNAL: { code: 1004, message: '内部错误', level: 'ERROR' as const },
+  ENTITY_NOT_FOUND: {
+    code: 1005,
+    message: '实体未找到',
+    level: 'WARN' as const,
+  },
+  INVALID_STATE: {
+    code: 1006,
+    message: '当前状态不允许此操作',
+    level: 'ERROR' as const,
+  },
 
   // ─── 网络错误 (1-99) ──────────────────────────
   NETWORK_TIMEOUT: {

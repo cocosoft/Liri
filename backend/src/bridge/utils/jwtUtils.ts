@@ -5,6 +5,7 @@
 
 import { decode, JwtPayload, verify } from 'jsonwebtoken';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -207,7 +208,7 @@ class TokenRefreshScheduler {
           `${this.label}: Token refreshed successfully for session ${sessionId}`
         );
       } else {
-        throw new Error('Access token not available');
+        throw new AppError('Access token not available', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));

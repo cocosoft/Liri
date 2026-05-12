@@ -12,6 +12,7 @@ import {
 } from './SubAgent';
 import { execSync, exec } from 'child_process';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -61,7 +62,7 @@ export class TmuxSubAgent implements SubAgent {
       try {
         execSync('tmux --version');
       } catch (error) {
-        throw new Error('Tmux is not installed');
+        throw new AppError('Tmux is not installed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       // 检查会话是否存在
@@ -176,7 +177,7 @@ export class TmuxSubAgent implements SubAgent {
    */
   async execute(task: SubAgentTask): Promise<SubAgentResult> {
     if (this.status !== SubAgentStatus.RUNNING) {
-      throw new Error(`SubAgent ${this.id} is not running`);
+      throw new AppError(`SubAgent ${this.id} is not running`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     try {
@@ -188,7 +189,7 @@ export class TmuxSubAgent implements SubAgent {
       const sessionExists = this.checkSessionExists(this.sessionName);
 
       if (!sessionExists) {
-        throw new Error(`Tmux session ${this.sessionName} does not exist`);
+        throw new AppError(`Tmux session ${this.sessionName} does not exist`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       // 在Tmux会话中执行命令

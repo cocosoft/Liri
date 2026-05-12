@@ -6,6 +6,7 @@
 import { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -97,7 +98,7 @@ export class SSETransport extends MCPTransport {
    */
   async send(request: MCPRequest): Promise<MCPResponse> {
     if (!this.eventSource || !this.connected) {
-      throw new Error('Not connected to MCP server');
+      throw new AppError('Not connected to MCP server', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 注意：SSE是单向的，只能从服务器到客户端

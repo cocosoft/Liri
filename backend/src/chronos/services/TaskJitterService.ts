@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 //
 /**
  * 任务抖动服务
@@ -76,43 +78,43 @@ export class TaskJitterService {
    */
   private validateConfig(): void {
     if (this.config.recurringFrac < 0 || this.config.recurringFrac > 1) {
-      throw new Error('recurringFrac must be between 0 and 1');
+      throw new AppError('recurringFrac must be between 0 and 1', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (
       this.config.recurringCapMs < 0 ||
       this.config.recurringCapMs > HALF_HOUR_MS
     ) {
-      throw new Error('recurringCapMs must be between 0 and 1800000');
+      throw new AppError('recurringCapMs must be between 0 and 1800000', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (
       this.config.oneShotMaxMs < 0 ||
       this.config.oneShotMaxMs > HALF_HOUR_MS
     ) {
-      throw new Error('oneShotMaxMs must be between 0 and 1800000');
+      throw new AppError('oneShotMaxMs must be between 0 and 1800000', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (
       this.config.oneShotFloorMs < 0 ||
       this.config.oneShotFloorMs > HALF_HOUR_MS
     ) {
-      throw new Error('oneShotFloorMs must be between 0 and 1800000');
+      throw new AppError('oneShotFloorMs must be between 0 and 1800000', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.config.oneShotMinuteMod < 1 || this.config.oneShotMinuteMod > 60) {
-      throw new Error('oneShotMinuteMod must be between 1 and 60');
+      throw new AppError('oneShotMinuteMod must be between 1 and 60', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (
       this.config.recurringMaxAgeMs < 0 ||
       this.config.recurringMaxAgeMs > THIRTY_DAYS_MS
     ) {
-      throw new Error('recurringMaxAgeMs must be between 0 and 2592000000');
+      throw new AppError('recurringMaxAgeMs must be between 0 and 2592000000', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.config.oneShotFloorMs > this.config.oneShotMaxMs) {
-      throw new Error('oneShotFloorMs cannot be greater than oneShotMaxMs');
+      throw new AppError('oneShotFloorMs cannot be greater than oneShotMaxMs', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

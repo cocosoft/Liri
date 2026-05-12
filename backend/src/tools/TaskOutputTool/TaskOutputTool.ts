@@ -17,6 +17,7 @@ import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
 import type { BaseTask } from '@modules/tasks/BaseTask';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 任务输出数据类型
@@ -66,7 +67,7 @@ async function waitForTaskCompletion(
 
   while (Date.now() - startTime < timeoutMs) {
     if (abortSignal?.aborted) {
-      throw new Error('Aborted');
+      throw new AppError('Aborted', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const task = taskRegistry.getTask(taskId);

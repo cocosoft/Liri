@@ -9,6 +9,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import type { Skill } from '../types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 技能Frontmatter接口（基于CC源码完整实现）
@@ -116,7 +117,7 @@ export class SkillParser {
   ): Promise<SkillDefinition> {
     try {
       if (!existsSync(filePath)) {
-        throw new Error(`Skill file not found: ${filePath}`);
+        throw new AppError(`Skill file not found: ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       const content = await readFile(filePath, 'utf-8');
@@ -126,11 +127,11 @@ export class SkillParser {
 
       // 验证必需字段
       if (!frontmatter.name) {
-        throw new Error(`Skill name is required in ${filePath}`);
+        throw new AppError(`Skill name is required in ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       if (!frontmatter.description) {
-        throw new Error(`Skill description is required in ${filePath}`);
+        throw new AppError(`Skill description is required in ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       return {
@@ -145,9 +146,9 @@ export class SkillParser {
         fileSize: stats.size,
       };
     } catch (error) {
-      throw new Error(
+      throw new AppError(
         `Failed to parse skill file ${filePath}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

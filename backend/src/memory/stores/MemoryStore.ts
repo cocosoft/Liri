@@ -5,6 +5,7 @@ import matter from 'gray-matter';
 import { glob } from 'glob';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 记忆存储接口
@@ -359,7 +360,7 @@ export class MemoryStoreImpl implements MemoryStore {
   ): Promise<string> {
     const memory = await this.readMemory(id);
     if (!memory) {
-      throw new Error(`Memory with id ${id} not found`);
+      throw new AppError(`Memory with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 确保导出目录存在
@@ -435,9 +436,9 @@ export class MemoryStoreImpl implements MemoryStore {
 
       return id;
     } catch (error) {
-      throw new Error(
+      throw new AppError(
         `Failed to import memory from Markdown: ${error instanceof Error ? error.message : String(error)}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -449,7 +450,7 @@ export class MemoryStoreImpl implements MemoryStore {
   async getMemoryMarkdownPreview(id: string): Promise<string> {
     const memory = await this.readMemory(id);
     if (!memory) {
-      throw new Error(`Memory with id ${id} not found`);
+      throw new AppError(`Memory with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 构建预览内容

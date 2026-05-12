@@ -6,6 +6,7 @@ import { watch, FSWatcher } from 'fs';
 import { resolve } from 'path';
 import { PluginManager } from './PluginManager';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -83,7 +84,7 @@ export class PluginHotloadManager {
    */
   private async startWatching(): Promise<void> {
     if (!this.pluginManager) {
-      throw new Error('PluginManager not initialized');
+      throw new AppError('PluginManager not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const pluginDir = this.getPluginDirectory();

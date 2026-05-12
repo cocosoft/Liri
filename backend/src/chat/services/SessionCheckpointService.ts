@@ -8,6 +8,7 @@ import type {
 } from '../types/checkpoint';
 import type { CheckpointStorage } from '../types/checkpoint';
 import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger();
 
@@ -123,7 +124,7 @@ export class SessionCheckpointService implements CheckpointService {
   }> {
     const checkpoint = await this.storage.loadCheckpoint(checkpointId);
     if (!checkpoint) {
-      throw new Error(`Checkpoint not found: ${checkpointId}`);
+      throw new AppError(`Checkpoint not found: ${checkpointId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const diff = this.computeDiff(currentSession, checkpoint);

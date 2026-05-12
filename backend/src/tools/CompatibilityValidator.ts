@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -115,7 +116,7 @@ export class CompatibilityValidator {
     const srcDir = path.join(this.projectRoot, 'src');
 
     if (!fs.existsSync(srcDir)) {
-      throw new Error(`源码目录不存在: ${srcDir}`);
+      throw new AppError(`源码目录不存在: ${srcDir}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 获取所有TypeScript文件

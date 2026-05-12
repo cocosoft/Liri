@@ -11,6 +11,7 @@ import {
   PermissionResponseEvent,
 } from '../types';
 import { debugBody, extractErrorDetail } from '../utils/debugUtils';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 指数退避配置
@@ -110,7 +111,7 @@ export class BridgeFatalError extends Error {
 export function validateBridgeId(id: string, label: string): string {
   const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
   if (!id || !SAFE_ID_PATTERN.test(id)) {
-    throw new Error(`Invalid ${label}: contains unsafe characters`);
+    throw new AppError(`Invalid ${label}: contains unsafe characters`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return id;
 }
@@ -146,7 +147,7 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
   function resolveAuth(): string {
     const accessToken = deps.getAccessToken();
     if (!accessToken) {
-      throw new Error('Please log in first with `PY_APP login`');
+      throw new AppError('Please log in first with `PY_APP login`', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return accessToken;
   }
@@ -269,13 +270,13 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
           errorType ?? 'environment_expired'
         );
       case 429:
-        throw new Error(
+        throw new AppError(
           `${context}: Rate limited (429). Polling too frequently.`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       default:
-        throw new Error(
+        throw new AppError(
           `${context}: Failed with status ${status}${detail ? `: ${detail}` : ''}`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

@@ -5,6 +5,7 @@
 
 import type { LoadedPlugin, PluginLoadResult } from '../types';
 import { pluginSystem } from '../index.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 插件管理器类
@@ -32,7 +33,7 @@ export class PluginManager {
     if (result.success && result.plugin) {
       return result.plugin as unknown as LoadedPlugin;
     }
-    throw new Error(`Failed to load plugin: ${pluginId}`);
+    throw new AppError(`Failed to load plugin: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   /**

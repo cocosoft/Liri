@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * TaskStopTool 输入模式
@@ -31,7 +32,7 @@ export function validateTaskStopInput(input: unknown): TaskStopInputType {
     const errors = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new Error(`TaskStop输入验证失败: ${errors}`);
+    throw new AppError(`TaskStop输入验证失败: ${errors}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return result.data;
 }

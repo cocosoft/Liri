@@ -4,6 +4,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface FileReadInput {
   filePath: string;
@@ -28,21 +29,24 @@ export function readFile(input: FileReadInput): FileReadResult {
   const resolved = path.resolve(input.filePath);
 
   if (BLOCKED_PATHS.has(resolved)) {
-    throw new Error(`Blocked device path: ${resolved}`);
+    throw new AppError(`Blocked device path: ${resolved}`, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, '101');
   }
 
   if (!fs.existsSync(resolved)) {
-    throw new Error(`File not found: ${resolved}`);
+    throw new AppError(`File not found: ${resolved}`, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, '100');
   }
 
   const stat = fs.statSync(resolved);
   if (stat.isDirectory()) {
-    throw new Error(`Path is a directory: ${resolved}`);
+    throw new AppError(`Path is a directory: ${resolved}`, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, '105');
   }
 
   if (stat.size > MAX_FILE_SIZE) {
-    throw new Error(
-      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB (max 10 MiB)`
+    throw new AppError(
+      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB (max 10 MiB)`,
+      ErrorCategory.FILESYSTEM,
+      ErrorSeverity.MEDIUM,
+      '108'
     );
   }
 

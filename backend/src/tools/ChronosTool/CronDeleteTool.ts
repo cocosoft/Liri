@@ -8,6 +8,7 @@ import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 import { listAllCronTasks, removeCronTasks } from '@modules/chronos/CronTasks';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * Cron删除工具类
@@ -56,7 +57,7 @@ export class CronDeleteTool {
           const tasks = await listAllCronTasks();
           const task = tasks.find((t) => t.id === id);
           if (!task) {
-            throw new Error(`No scheduled job with id '${id}'`);
+            throw new AppError(`No scheduled job with id '${id}'`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
           }
 
           await removeCronTasks([id]);

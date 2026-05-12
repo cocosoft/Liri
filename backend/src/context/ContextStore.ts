@@ -5,6 +5,7 @@ import {
   createValidResult,
   createInvalidResult,
 } from './types/ValidationResult';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface IContextStore {
   create(data: ContextData): Promise<Context>;
@@ -41,9 +42,9 @@ export class ContextStore implements IContextStore {
   async create(data: ContextData): Promise<Context> {
     const validation = this.validate(data);
     if (!validation.valid) {
-      throw new Error(
+      throw new AppError(
         `Context validation failed: ${validation.errors.join(', ')}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.store.size >= this.maxSize) {
@@ -86,12 +87,12 @@ export class ContextStore implements IContextStore {
   async update(id: string, data: Partial<ContextData>): Promise<void> {
     const entry = this.store.get(id);
     if (!entry) {
-      throw new Error(`Context not found: ${id}`);
+      throw new AppError(`Context not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.isExpired(entry)) {
       this.store.delete(id);
-      throw new Error(`Context expired: ${id}`);
+      throw new AppError(`Context expired: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     entry.context = {
@@ -105,7 +106,7 @@ export class ContextStore implements IContextStore {
 
   async delete(id: string): Promise<void> {
     if (!this.store.has(id)) {
-      throw new Error(`Context not found: ${id}`);
+      throw new AppError(`Context not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     this.store.delete(id);
   }

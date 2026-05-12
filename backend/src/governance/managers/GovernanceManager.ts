@@ -32,6 +32,7 @@ import {
   GovernanceStrategyManager,
   governanceStrategyManager,
 } from './GovernanceStrategyManager';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 治理闭环管理器
@@ -262,7 +263,7 @@ export class GovernanceManager {
         );
 
         if (!sandboxResult.success) {
-          throw new Error(sandboxResult.error || 'Sandbox execution failed');
+          throw new AppError(sandboxResult.error || 'Sandbox execution failed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
         }
 
         output = sandboxResult.data;

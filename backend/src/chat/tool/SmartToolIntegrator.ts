@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 //
 export interface SmartTool {
   name: string;
@@ -97,7 +99,7 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
 
   registerTool(tool: SmartTool): void {
     if (this.tools.has(tool.name)) {
-      throw new Error(`Tool already registered: ${tool.name}`);
+      throw new AppError(`Tool already registered: ${tool.name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     this.tools.set(tool.name, tool);
   }

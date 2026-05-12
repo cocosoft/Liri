@@ -8,6 +8,7 @@ import { MCPOAuthConfig, MCPOAuthToken, MCPOAuthState } from './types.js';
 import { feature } from '@modules/featureflags';
 import { OAuthDiscovery, createOAuthStorage } from '@modules/oauth';
 import { logger } from '@modules/infrastructure';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export class MCPAuthManager {
   private tokens: Map<string, MCPOAuthToken> = new Map();
@@ -45,7 +46,7 @@ export class MCPAuthManager {
     config: MCPOAuthConfig
   ): Promise<string> {
     if (!feature('MCP_OAUTH')) {
-      throw new Error('MCP OAuth feature is not enabled');
+      throw new AppError('MCP OAuth feature is not enabled', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const cached = this.tokens.get(serverKey);
@@ -104,12 +105,12 @@ export class MCPAuthManager {
   ): Promise<MCPOAuthToken> {
     const oauthState = this.states.get(state);
     if (!oauthState) {
-      throw new Error('Invalid OAuth state');
+      throw new AppError('Invalid OAuth state', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (Date.now() - oauthState.timestamp > 300000) {
       this.states.delete(state);
-      throw new Error('OAuth state expired');
+      throw new AppError('OAuth state expired', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.states.delete(state);
@@ -148,7 +149,7 @@ export class MCPAuthManager {
     });
 
     if (!response.ok) {
-      throw new Error(`OAuth token exchange failed: ${response.status}`);
+      throw new AppError(`OAuth token exchange failed: ${response.status}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const data = await response.json();
@@ -180,7 +181,7 @@ export class MCPAuthManager {
     config: MCPOAuthConfig
   ): Promise<string> {
     if (!config.clientSecret) {
-      throw new Error('Client credentials flow requires clientSecret');
+      throw new AppError('Client credentials flow requires clientSecret', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const params = new URLSearchParams({
@@ -200,7 +201,7 @@ export class MCPAuthManager {
     });
 
     if (!response.ok) {
-      throw new Error(`OAuth token request failed: ${response.status}`);
+      throw new AppError(`OAuth token request failed: ${response.status}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const data = await response.json();
@@ -248,7 +249,7 @@ export class MCPAuthManager {
 
     if (!response.ok) {
       this.tokens.delete(serverKey);
-      throw new Error(`OAuth token refresh failed: ${response.status}`);
+      throw new AppError(`OAuth token refresh failed: ${response.status}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const data = await response.json();

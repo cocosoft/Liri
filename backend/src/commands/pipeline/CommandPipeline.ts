@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export enum PipelineStage {
   PRE_VALIDATE = 'pre_validate',
   PRE_AUTHORIZE = 'pre_authorize',
@@ -74,9 +76,9 @@ export class CommandPipeline implements IPipeline {
 
   use(middleware: PipelineMiddleware): void {
     const list = this.middlewares.get(middleware.stage);
-    if (!list) throw new Error(`Unknown pipeline stage: ${middleware.stage}`);
+    if (!list) throw new AppError(`Unknown pipeline stage: ${middleware.stage}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     if (list.find((m) => m.id === middleware.id)) {
-      throw new Error(`Middleware already registered: ${middleware.id}`);
+      throw new AppError(`Middleware already registered: ${middleware.id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     list.push(middleware);
     list.sort((a, b) => b.priority - a.priority);

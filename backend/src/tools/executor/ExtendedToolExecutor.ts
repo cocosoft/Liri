@@ -2,17 +2,22 @@
  * 扩展工具执行器
  */
 
+import { ParallelExecutor } from './ParallelExecutor';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * 扩展工具执行器
  */
 export class ExtendedToolExecutor {
   private toolRegistry: any;
+  private parallelExecutor: ParallelExecutor;
 
   /**
    * 构造函数
    */
-  constructor(toolRegistry: any) {
+  constructor(toolRegistry: any, parallelExecutor?: ParallelExecutor) {
     this.toolRegistry = toolRegistry;
+    this.parallelExecutor = parallelExecutor || new ParallelExecutor();
   }
 
   /**
@@ -53,7 +58,7 @@ export class ExtendedToolExecutor {
     // 检查工具是否存在
     const tool = this.toolRegistry.get(toolId);
     if (!tool) {
-      throw new Error(`Tool not found: ${toolId}`);
+      throw new AppError(`Tool not found: ${toolId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
     }
 
     // 应用超时
@@ -200,16 +205,18 @@ export class ExtendedToolExecutor {
     }>,
     context: any
   ): Promise<any[]> {
-    const promises = tasks.map((task) => {
-      return this.executeTool(
-        task.toolId,
-        task.params,
-        task.options || {},
-        context
-      );
-    });
+    const parallelTasks = tasks.map((task) => ({
+      execute: () =>
+        this.executeTool(
+          task.toolId,
+          task.params,
+          task.options || {},
+          context
+        ),
+    }));
 
-    return await Promise.all(promises);
+    const results = await this.parallelExecutor.execute<any>(parallelTasks);
+    return results.map((r) => r.data);
   }
 
   /**

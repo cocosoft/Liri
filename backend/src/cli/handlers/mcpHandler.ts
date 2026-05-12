@@ -6,7 +6,7 @@
 import chalk from 'chalk';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -146,7 +146,7 @@ export class MCPHandler {
     try {
       const server = mcpConnectionManager.getServer(serverName);
       if (!server) {
-        throw new Error(`Server not found: ${serverName}`);
+        throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
       }
 
       console.log(chalk.green('✓'), `Disconnected from ${serverName}`);

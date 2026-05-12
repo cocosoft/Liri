@@ -8,6 +8,7 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '../../monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger();
 
@@ -482,7 +483,7 @@ let globalAuditManager: SecurityAuditManager | null = null;
  */
 export function getSecurityAuditManager(): SecurityAuditManager {
   if (!globalAuditManager) {
-    throw new Error('Security audit manager not initialized');
+    throw new AppError('Security audit manager not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return globalAuditManager;
 }

@@ -9,7 +9,7 @@ import { getExtensibilityService } from '../core/extensibility/index.js';
 import { profileCheckpoint, profileReport } from '../utils/startupProfiler';
 // @ts-ignore
 import * as gracefulShutdownModule from '../utils/gracefulShutdown.js';
-const { gracefulShutdown, setupGracefulShutdown } =
+const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '../monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -119,6 +119,50 @@ export async function init(): Promise<void> {
           return { success: false, error };
         } finally {
           profileCheckpoint('load_monitoring_end');
+        }
+      })(),
+
+      // 初始化 CoreAPI + Gateway 通道服务
+      (async () => {
+        profileCheckpoint('load_gateway_start');
+        const startTime = Date.now();
+        try {
+          // 预创建 CoreAPI 单例（使用全局默认依赖）
+          const { getCoreAPI } = await import('../core/api/CoreAPIImpl.js');
+          getCoreAPI();
+
+          // 预创建 ChannelManager 单例
+          const { getChannelManager } = await import('../core/gateway/ChannelManager.js');
+          getChannelManager();
+
+          // 根据配置自动注册并启动 Gateway 通道
+          try {
+            const { setupGatewayFromConfig } = await import('../core/gateway/GatewaySetup.js');
+            const result = await setupGatewayFromConfig();
+            if (result.registeredChannels > 0) {
+              logger.info(`Gateway 通道自动启动: ${result.connectedChannels}/${result.registeredChannels} 已连接`);
+            }
+            if (result.errors.length > 0) {
+              logger.warning('Gateway 通道启动存在错误', { errors: result.errors });
+            }
+          } catch (setupError) {
+            logger.warning('Gateway 通道自动启动失败', { error: setupError });
+          }
+
+          // 注册 Gateway 优雅关闭处理
+           const { disconnectAllChannels } = await import('../core/gateway/index.js');
+          registerShutdownHandler(() => disconnectAllChannels());
+
+          const duration = Date.now() - startTime;
+          if (duration > 100) {
+            logger.warning(`Gateway 服务加载较慢: ${duration}ms`);
+          }
+          return { success: true, duration };
+        } catch (error) {
+          logger.warning('预加载 Gateway 服务失败', { error });
+          return { success: false, error };
+        } finally {
+          profileCheckpoint('load_gateway_end');
         }
       })(),
     ]);

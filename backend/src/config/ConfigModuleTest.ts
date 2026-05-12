@@ -13,6 +13,7 @@ import { HotReloader } from './hotreload/HotReloader';
 import { VersionController } from './version/VersionController';
 import { writeFileSync, mkdirSync, existsSync, unlinkSync, rmSync } from 'fs';
 import { join } from 'path';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const TEST_DIR = join(import.meta.dir, '.test_temp');
 const TEST_CONFIG_PATH = join(TEST_DIR, 'test_config.json');
@@ -216,7 +217,7 @@ describe('HotReloader', () => {
     let callCount = 0;
     reloader.setLoadFn(async () => {
       callCount++;
-      if (callCount > 1) throw new Error('Load failed');
+      if (callCount > 1) throw new AppError('Load failed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       return { app: 'test', version: 2 };
     });
     return reloader.triggerReload('test').then((firstResult) => {
@@ -248,7 +249,7 @@ describe('HotReloader', () => {
       notified = true;
     });
     reloader.setLoadFn(async () => {
-      throw new Error('Fail');
+      throw new AppError('Fail', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     });
     return reloader.triggerReload('test').then(() => {
       expect(notified).toBe(true);
@@ -531,7 +532,7 @@ describe('Config Module Integration', () => {
     versionController.snapshot(hotReloader.getCurrentConfig(), 'after_reload');
 
     hotReloader.setLoadFn(async () => {
-      throw new Error('corrupted config');
+      throw new AppError('corrupted config', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     });
     const r2 = await hotReloader.triggerReload('corrupt');
     expect(r2.success).toBe(false);

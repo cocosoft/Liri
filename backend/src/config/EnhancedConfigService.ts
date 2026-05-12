@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -296,9 +297,9 @@ export class EnhancedConfigService {
         !validationResult.valid &&
         this.validationLevel === ConfigValidationLevel.STRICT
       ) {
-        throw new Error(
+        throw new AppError(
           `Configuration validation failed: ${validationResult.errors.map((e) => e.message).join(', ')}`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       if (validationResult.errors.length > 0) {
@@ -570,9 +571,9 @@ export class EnhancedConfigService {
       }
     }
 
-    throw new Error(
+    throw new AppError(
       `Failed to acquire config lock after ${this.lockTimeout}ms`
-    );
+    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   /**

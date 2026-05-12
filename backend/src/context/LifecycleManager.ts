@@ -1,4 +1,5 @@
 import type { Context } from './types/Context';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export enum LifecycleState {
   PENDING = 'pending',
@@ -80,7 +81,7 @@ export class LifecycleManager {
     const entry = this.entries.get(id);
 
     if (!entry) {
-      throw new Error(`Context not found: ${id}`);
+      throw new AppError(`Context not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (entry.hooks.onActivate) {
@@ -96,7 +97,7 @@ export class LifecycleManager {
     const entry = this.entries.get(id);
 
     if (!entry) {
-      throw new Error(`Context not found: ${id}`);
+      throw new AppError(`Context not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (entry.hooks.onSuspend) {
@@ -112,7 +113,7 @@ export class LifecycleManager {
     const entry = this.entries.get(id);
 
     if (!entry) {
-      throw new Error(`Context not found: ${id}`);
+      throw new AppError(`Context not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (entry.hooks.onDestroy) {

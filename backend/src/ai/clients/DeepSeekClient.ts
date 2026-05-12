@@ -11,6 +11,7 @@ import type {
   ToolDefinition,
 } from '../models/types';
 import type { ThinkingConfig } from './thinking';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export class DeepSeekClient extends LLMClient {
   constructor(config?: Partial<LLMConfig>) {
@@ -63,7 +64,7 @@ export class DeepSeekClient extends LLMClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
+      throw new AppError(`DeepSeek API error: ${response.status} - ${errorText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const data = await response.json();
@@ -107,11 +108,11 @@ export class DeepSeekClient extends LLMClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
+      throw new AppError(`DeepSeek API error: ${response.status} - ${errorText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (!response.body) {
-      throw new Error('Response body is null');
+      throw new AppError('Response body is null', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const reader = response.body.getReader();

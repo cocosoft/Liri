@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 //
 /**
  * 远程文件同步服务
@@ -485,7 +487,7 @@ export class RemoteFileSyncService {
     const remotePath = `${config.remotePath}/${diff.path}`;
 
     if (!this.localOps.exists(localPath)) {
-      throw new Error(`Local file not found: ${localPath}`);
+      throw new AppError(`Local file not found: ${localPath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const localInfo = this.localOps.stat(localPath);

@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { getMCPServerManager } from '@modules/mcp/managers/MCPServerManager';
@@ -455,7 +456,7 @@ export class MCPResourceTool extends BaseTool<
     const server = mcpManager.getServer(serverName);
 
     if (!server) {
-      throw new Error(`Server not found: ${serverName}`);
+      throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
     }
 
     // 通过transport发送resources/list请求
@@ -488,7 +489,7 @@ export class MCPResourceTool extends BaseTool<
     const server = mcpManager.getServer(serverName);
 
     if (!server) {
-      throw new Error(`Server not found: ${serverName}`);
+      throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
     }
 
     // 通过transport发送resources/read请求
@@ -501,12 +502,12 @@ export class MCPResourceTool extends BaseTool<
       });
 
       if (response.type === 'error') {
-        throw new Error(response.error?.message || 'Failed to read resource');
+        throw new AppError(response.error?.message || 'Failed to read resource', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       return response.result;
     } catch (error: any) {
-      throw new Error(`Failed to read resource ${uri}: ${error.message}`);
+      throw new AppError(`Failed to read resource ${uri}: ${error.message}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -518,7 +519,7 @@ export class MCPResourceTool extends BaseTool<
     const server = mcpManager.getServer(serverName);
 
     if (!server) {
-      throw new Error(`Server not found: ${serverName}`);
+      throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
     }
 
     try {
@@ -552,7 +553,7 @@ export class MCPResourceTool extends BaseTool<
     const server = mcpManager.getServer(serverName);
 
     if (!server) {
-      throw new Error(`Server not found: ${serverName}`);
+      throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
     }
 
     try {
@@ -564,12 +565,12 @@ export class MCPResourceTool extends BaseTool<
       });
 
       if (response.type === 'error') {
-        throw new Error(response.error?.message || 'Failed to get prompt');
+        throw new AppError(response.error?.message || 'Failed to get prompt', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       return response.result;
     } catch (error: any) {
-      throw new Error(`Failed to get prompt ${promptName}: ${error.message}`);
+      throw new AppError(`Failed to get prompt ${promptName}: ${error.message}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

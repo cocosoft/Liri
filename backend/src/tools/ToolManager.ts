@@ -2,11 +2,11 @@
  * 工具管理模块
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Tool } from './types/Tool';
 import { ToolFactory } from './ToolFactory';
 import { ToolRegistry, setToolRegistry } from './ToolRegistry';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
-import { loadBuiltinTools as loadBuiltinToolsUtil } from './utils/OptimizedToolManagerUtils.js';
 import { optimizedExecuteTool } from './utils/OptimizedToolManagerUtils.js';
 import {
   isDeferredTool,
@@ -14,6 +14,10 @@ import {
   getNonDeferredTools,
   shouldEnableToolSearch,
 } from './utils/toolSearch.js';
+import { LazyModuleLoader } from '../core/utils/LazyModuleLoader';
+import { ToolLazyWrapper } from './utils/ToolLazyWrapper';
+import { builtinToolLoaders } from './utils/ToolManagerUtils.js';
+import type { ToolInfo } from './types/Tool';
 
 /**
  * 功能标志检查函数
@@ -32,11 +36,21 @@ export interface ToolManagerOptions {
 }
 
 /**
+ * 内置工具加载器类型
+ * 接收 ToolFactory 返回工具或 null
+ */
+type BuiltinToolLoader = (factory: ToolFactory) => Tool | null;
+
+/**
  * 工具管理器
+ * 构造函数仅初始化注册表和工厂，内置工具在首次访问时按需加载
  */
 export class ToolManager {
   private registry: ToolRegistry;
   private factory: ToolFactory;
+  private _loadDeferred: boolean;
+  private _toolsLoaded: boolean = false;
+  private _toolLoaders: BuiltinToolLoader[] = [];
 
   /**
    * 构造函数
@@ -49,25 +63,81 @@ export class ToolManager {
     // 设置全局工具注册表，供ToolSearchTool等使用
     setToolRegistry(this.registry);
 
-    if (options.loadBuiltinTools !== false) {
-      this.loadBuiltinTools();
-    }
+    // 记录是否需要按需加载，但不立即执行
+    this._loadDeferred = options.loadBuiltinTools !== false;
+
+    // 自动注入内置工具加载器
+    this._toolLoaders = builtinToolLoaders;
+
     profileCheckpoint('tool_manager_constructor_end');
   }
 
   /**
-   * 加载内置工具
+   * 设置内置工具加载器列表
+   * 由外部传入（如 ToolManagerUtils.builtinToolLoaders），
+   * 避免在此处直接导入 ToolManagerUtils 产生循环依赖
    */
-  loadBuiltinTools(): void {
+  setToolLoaders(loaders: BuiltinToolLoader[]): void {
+    this._toolLoaders = loaders;
+  }
+
+  /**
+   * 确保内置工具已加载
+   * 逐工具注册元信息 + LazyModuleLoader，首次 execute() 才创建实例
+   */
+  private ensureToolsLoaded(): void {
+    if (!this._loadDeferred || this._toolsLoaded) return;
+
+    this._toolsLoaded = true;
     profileCheckpoint('tool_manager_load_builtin_tools_start');
 
-    // 使用函数式方法加载内置工具
-    const builtinTools = loadBuiltinToolsUtil(this.factory);
-
-    // 注册所有工具
-    this.registry.registerTools(builtinTools);
+    // 以 loaders 方式加载每个工具
+    if (this._toolLoaders.length > 0) {
+      this.registerBuiltinToolsFromLoaders();
+    }
 
     profileCheckpoint('tool_manager_load_builtin_tools_end');
+  }
+
+  /**
+   * 从加载器列表注册内置工具（每个工具独立懒加载）
+   */
+  private registerBuiltinToolsFromLoaders(): void {
+    for (const loader of this._toolLoaders) {
+      try {
+        const tool = loader(this.factory);
+        if (!tool) continue;
+
+        const metadata = tool.getInfo();
+        const lazyLoader = new LazyModuleLoader<Tool>(() => {
+          const instance = loader(this.factory);
+          if (!instance) {
+            throw new AppError(
+              `工具 ${metadata.name} 加载失败`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              '1004'
+            );
+          }
+          return instance;
+        });
+
+        const wrapper = new ToolLazyWrapper(metadata, lazyLoader);
+        this.registry.registerTool(wrapper);
+      } catch (error) {
+        // 单个工具加载失败不阻塞其他工具
+        continue;
+      }
+    }
+  }
+
+  /**
+   * 加载内置工具
+   * 可显式调用以触发加载
+   */
+  loadBuiltinTools(): void {
+    this._loadDeferred = true;
+    this.ensureToolsLoaded();
   }
 
   /**
@@ -92,6 +162,7 @@ export class ToolManager {
    * @returns 工具或undefined
    */
   getTool(name: string): Tool | undefined {
+    this.ensureToolsLoaded();
     return this.registry.getTool(name);
   }
 
@@ -100,6 +171,7 @@ export class ToolManager {
    * @returns 工具列表
    */
   getAllTools(): Tool[] {
+    this.ensureToolsLoaded();
     return Array.from(this.registry.getTools().values());
   }
 
@@ -109,6 +181,7 @@ export class ToolManager {
    * @returns 是否成功
    */
   unregisterTool(name: string): boolean {
+    this.ensureToolsLoaded();
     this.registry.removeTool(name);
     return true;
   }
@@ -127,10 +200,11 @@ export class ToolManager {
     context: any,
     onProgress?: any
   ): Promise<any> {
+    this.ensureToolsLoaded();
     profileCheckpoint(`tool_execute_${name}_start`);
     const tool = this.getTool(name);
     if (!tool) {
-      throw new Error(`Tool ${name} not found`);
+      throw new AppError(`Tool ${name} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
     }
 
     try {
@@ -166,10 +240,10 @@ export class ToolManager {
 
   /**
    * 获取延迟工具列表
-   * 参考CC源码 isDeferredTool 实现
    * @returns 延迟工具列表
    */
   getDeferredTools(): Tool[] {
+    this.ensureToolsLoaded();
     return this.registry.getDeferredTools();
   }
 
@@ -178,6 +252,7 @@ export class ToolManager {
    * @returns 非延迟工具列表
    */
   getNonDeferredTools(): Tool[] {
+    this.ensureToolsLoaded();
     return this.registry.getNonDeferredTools();
   }
 
@@ -187,12 +262,12 @@ export class ToolManager {
    * @returns 是否为延迟工具
    */
   isDeferredTool(name: string): boolean {
+    this.ensureToolsLoaded();
     return this.registry.isDeferredTool(name);
   }
 
   /**
    * 检查是否应该启用工具搜索
-   * 基于模型、工具列表等因素综合判断
    * @param model 模型名称
    * @returns 是否启用
    */
@@ -206,6 +281,7 @@ export class ToolManager {
    * @returns 工具统计信息
    */
   getToolStats(): ReturnType<ToolRegistry['getToolStats']> {
+    this.ensureToolsLoaded();
     return this.registry.getToolStats();
   }
 }

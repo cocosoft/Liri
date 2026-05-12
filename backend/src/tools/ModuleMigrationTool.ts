@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -53,7 +54,7 @@ export class ModuleMigrationTool {
     const srcDir = path.join(this.projectRoot, 'src');
 
     if (!fs.existsSync(srcDir)) {
-      throw new Error(`源码目录不存在: ${srcDir}`);
+      throw new AppError(`源码目录不存在: ${srcDir}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 遍历src目录下的所有子目录
@@ -317,6 +318,7 @@ export class ModuleMigrationTool {
 
 import { moduleRegistry } from '../modules/ModuleRegistry';
 import { MODULE_DEFINITIONS } from '../modules/ModuleDefinitions';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 迁移 ${moduleName} 模块到模块管理系统
@@ -328,7 +330,7 @@ export async function migrate${this.capitalizeFirst(moduleName)}Module(): Promis
     // 1. 获取模块定义
     const moduleDefinition = MODULE_DEFINITIONS['${moduleName}'];
     if (!moduleDefinition) {
-      throw new Error('模块定义不存在: ${moduleName}');
+      throw new AppError('模块定义不存在: ${moduleName}', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     
     // 2. 注册模块

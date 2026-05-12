@@ -12,6 +12,7 @@ import {
   LSPClient as BaseLSPClient,
   LSPServerInstance as BaseLSPServerInstance,
 } from './index.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface EnhancedLSPManagerConfig {
   enableAdvancedFeatures: boolean;
@@ -145,9 +146,9 @@ export class EnhancedLSPManager {
     if (
       this.getActiveConnectionCount() >= this.config.maxConcurrentConnections
     ) {
-      throw new Error(
+      throw new AppError(
         `超过最大并发连接数限制: ${this.config.maxConcurrentConnections}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     try {

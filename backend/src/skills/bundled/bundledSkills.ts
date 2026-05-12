@@ -12,6 +12,7 @@ import type { SkillDefinition } from '../models/types';
 import type { SkillService } from '../services/skillService';
 import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -189,9 +190,9 @@ export class BundledSkillsRegistry {
       // 实际实现应该使用O_NOFOLLOW|O_EXCL标志防止符号链接攻击
       await writeFile(filePath, content, 'utf-8');
     } catch (error) {
-      throw new Error(
+      throw new AppError(
         `Failed to write file ${filePath}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

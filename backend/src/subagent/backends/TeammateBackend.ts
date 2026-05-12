@@ -10,6 +10,7 @@ import type {
   SubAgent,
   SubAgentConfig,
 } from '@modules/subagent/types/SubAgent';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface TeammateConfig {
   name: string;
@@ -126,7 +127,7 @@ export abstract class BaseTeammateBackend implements TeammateBackend {
 
   async sendMessage(handle: TeammateHandle, message: Message): Promise<void> {
     if (!handle.agent) {
-      throw new Error(`Teammate ${handle.id} has no agent`);
+      throw new AppError(`Teammate ${handle.id} has no agent`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const agent = handle.agent as any;

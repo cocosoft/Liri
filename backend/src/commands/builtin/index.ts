@@ -105,3 +105,6 @@ export { resumeCommand } from './resume/index.js';
 export { commitPushPrCommand } from './commit-push-pr/index.js';
 export { thinkbackPlayCommand } from './thinkback-play/index.js';
 export { securityReviewCommand } from './security-review/index.js';
+
+// Gateway 通道管理命令
+export { gatewayCommand } from './gateway/index.js';

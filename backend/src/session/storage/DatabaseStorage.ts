@@ -7,6 +7,7 @@ import type {
   MessageLoadOptions,
   SessionListOptions,
 } from '../SessionStorage';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 数据库存储实现
@@ -58,7 +59,7 @@ export class DatabaseStorage implements SessionStorage {
    */
   private async createTables(): Promise<void> {
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 创建会话表
@@ -116,7 +117,7 @@ export class DatabaseStorage implements SessionStorage {
   async saveSession(session: Session): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const sessionData = session.toJSON();
@@ -149,7 +150,7 @@ export class DatabaseStorage implements SessionStorage {
   async loadSession(sessionId: string): Promise<Session | null> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const row: any = await new Promise<any>((resolve, reject) => {
@@ -194,7 +195,7 @@ export class DatabaseStorage implements SessionStorage {
   async saveMessage(sessionId: string, message: SessionMessage): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const messageData = message.toJSON();
@@ -235,7 +236,7 @@ export class DatabaseStorage implements SessionStorage {
   ): Promise<SessionMessage[]> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     let query = `SELECT * FROM messages WHERE sessionId = ?`;
@@ -309,7 +310,7 @@ export class DatabaseStorage implements SessionStorage {
   ): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -335,7 +336,7 @@ export class DatabaseStorage implements SessionStorage {
   async loadMetadata(sessionId: string): Promise<SessionMetadata | null> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const row = await new Promise<any>((resolve, reject) => {
@@ -366,7 +367,7 @@ export class DatabaseStorage implements SessionStorage {
   async deleteSession(sessionId: string): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 先删除消息
@@ -404,7 +405,7 @@ export class DatabaseStorage implements SessionStorage {
   async listSessions(options?: SessionListOptions): Promise<string[]> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     let query = `SELECT id FROM sessions`;
@@ -460,7 +461,7 @@ export class DatabaseStorage implements SessionStorage {
   async sessionExists(sessionId: string): Promise<boolean> {
     await this.initDatabase();
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const row = await new Promise<any>((resolve, reject) => {

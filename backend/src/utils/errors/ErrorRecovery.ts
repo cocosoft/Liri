@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 //
 /**
  * 错误恢复策略
@@ -220,7 +222,7 @@ export class ErrorRecoveryManager {
     const breaker = this.getOrCreateCircuitBreaker(key, options);
 
     if (!breaker.isAllowed()) {
-      throw new Error(`Circuit breaker is open for: ${key}`);
+      throw new AppError(`Circuit breaker is open for: ${key}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     try {

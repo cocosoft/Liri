@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import type { Tool } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 计划工具输入类型
@@ -465,12 +466,12 @@ export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
                   if (tool) {
                     stepResult = await tool.execute(toolArgs, context);
                   } else {
-                    throw new Error(`工具未找到: ${toolName}`);
+                    throw new AppError(`工具未找到: ${toolName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
                   }
                 } else if (step.type === 'command') {
                   const command = step.params?.command || '';
                   if (!command) {
-                    throw new Error('命令步骤缺少 command 参数');
+                    throw new AppError('命令步骤缺少 command 参数', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
                   }
                   const bashTool = tools.find((t) => {
                     const name = (t as any).name?.toLowerCase();
@@ -482,7 +483,7 @@ export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
                       context
                     );
                   } else {
-                    throw new Error('Bash 工具未找到，无法执行命令');
+                    throw new AppError('Bash 工具未找到，无法执行命令', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
                   }
                 } else {
                   stepResult = {

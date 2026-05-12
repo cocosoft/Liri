@@ -8,6 +8,7 @@ import {
   SubAgentType,
 } from './types/SubAgent';
 import { SubAgentFactory } from './SubAgentFactory';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 子agent管理器
@@ -33,7 +34,7 @@ export class SubAgentManager {
   async createSubAgent(config: SubAgentConfig): Promise<SubAgent> {
     // 检查子agent ID是否已存在
     if (this.subAgents.has(config.id)) {
-      throw new Error(`SubAgent with id ${config.id} already exists`);
+      throw new AppError(`SubAgent with id ${config.id} already exists`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 创建子agent
@@ -58,7 +59,7 @@ export class SubAgentManager {
         );
         break;
       default:
-        throw new Error(`Unknown subagent type: ${config.type}`);
+        throw new AppError(`Unknown subagent type: ${config.type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 保存子agent
@@ -94,7 +95,7 @@ export class SubAgentManager {
   async startSubAgent(id: string): Promise<void> {
     const subAgent = this.subAgents.get(id);
     if (!subAgent) {
-      throw new Error(`SubAgent with id ${id} not found`);
+      throw new AppError(`SubAgent with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await subAgent.start();
@@ -107,7 +108,7 @@ export class SubAgentManager {
   async stopSubAgent(id: string): Promise<void> {
     const subAgent = this.subAgents.get(id);
     if (!subAgent) {
-      throw new Error(`SubAgent with id ${id} not found`);
+      throw new AppError(`SubAgent with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await subAgent.stop();
@@ -121,7 +122,7 @@ export class SubAgentManager {
   async pauseSubAgent(id: string): Promise<void> {
     const subAgent = this.subAgents.get(id);
     if (!subAgent) {
-      throw new Error(`SubAgent with id ${id} not found`);
+      throw new AppError(`SubAgent with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await subAgent.pause();
@@ -134,7 +135,7 @@ export class SubAgentManager {
   async resumeSubAgent(id: string): Promise<void> {
     const subAgent = this.subAgents.get(id);
     if (!subAgent) {
-      throw new Error(`SubAgent with id ${id} not found`);
+      throw new AppError(`SubAgent with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await subAgent.resume();
@@ -148,7 +149,7 @@ export class SubAgentManager {
   async sendTask(id: string, task: any): Promise<void> {
     const subAgent = this.subAgents.get(id);
     if (!subAgent) {
-      throw new Error(`SubAgent with id ${id} not found`);
+      throw new AppError(`SubAgent with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await subAgent.sendMessage(task);
@@ -162,7 +163,7 @@ export class SubAgentManager {
   getSubAgentStatus(id: string): SubAgentStatus {
     const subAgent = this.subAgents.get(id);
     if (!subAgent) {
-      throw new Error(`SubAgent with id ${id} not found`);
+      throw new AppError(`SubAgent with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     return subAgent.getStatus();

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, watchFile, unwatchFile, Stats } from 'fs';
 import { extname } from 'path';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export type ReloadStrategy = 'watch' | 'poll' | 'manual';
 
@@ -130,7 +131,7 @@ export class HotReloader {
 
     try {
       if (!this.loadFn) {
-        throw new Error('No load function configured');
+        throw new AppError('No load function configured', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       const newConfig = await this.loadFn();

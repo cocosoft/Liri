@@ -15,6 +15,7 @@ import type {
   KeyboardAction,
   AppInfo,
 } from './types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const NOOP_CAPABILITIES: ComputerUseCapabilities = {
   screenshot: false,
@@ -35,7 +36,7 @@ export class NoopComputerUseAdapter implements ComputerUseAdapter {
   async takeScreenshot(
     _options?: ScreenshotOptions
   ): Promise<ScreenshotResult> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async getDisplayGeometry(): Promise<{
@@ -43,43 +44,43 @@ export class NoopComputerUseAdapter implements ComputerUseAdapter {
     height: number;
     scaleFactor: number;
   }> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async mouseAction(_action: MouseAction): Promise<void> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async getMousePosition(): Promise<MousePosition> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async keyboardAction(_action: KeyboardAction): Promise<void> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async getClipboard(): Promise<string> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async setClipboard(_text: string): Promise<void> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async getRunningApps(): Promise<AppInfo[]> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async getFrontmostApp(): Promise<AppInfo | null> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async launchApp(_bundleIdOrPath: string): Promise<boolean> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async activateApp(_bundleId: string): Promise<boolean> {
-    throw new Error('ComputerUse is not supported on this platform');
+    throw new AppError('ComputerUse is not supported on this platform', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   async destroy(): Promise<void> {}

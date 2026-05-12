@@ -15,6 +15,7 @@ import type {
   SkillServiceConfig,
 } from '../models/types';
 import type { ToolUseContext } from '@modules/context/types/ToolUseContext';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 // 内部技能注册表
 const skills: SkillDefinition[] = [];
@@ -242,7 +243,7 @@ export class SkillService {
       normalized.split(pathSep).includes('..') ||
       normalized.split('/').includes('..')
     ) {
-      throw new Error(`Skill file path escapes skill dir: ${relPath}`);
+      throw new AppError(`Skill file path escapes skill dir: ${relPath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return join(baseDir, normalized);
   }

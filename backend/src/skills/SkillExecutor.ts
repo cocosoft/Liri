@@ -5,16 +5,19 @@
 
 import type { Skill, SkillContext, SkillResult } from '../types/skill';
 import { SkillRegistry } from './SkillRegistry';
+import { ParallelExecutor } from '../tools/executor/ParallelExecutor';
 
 export class SkillExecutor {
   private registry: SkillRegistry;
+  private parallelExecutor: ParallelExecutor;
 
   /**
    * 构造函数
    * @param registry 技能注册表
    */
-  constructor(registry: SkillRegistry) {
+  constructor(registry: SkillRegistry, parallelExecutor?: ParallelExecutor) {
     this.registry = registry;
+    this.parallelExecutor = parallelExecutor || new ParallelExecutor();
   }
 
   /**
@@ -91,11 +94,14 @@ export class SkillExecutor {
   async executeParallel(
     skills: Array<{ name: string; context: SkillContext }>
   ): Promise<SkillResult[]> {
-    const promises = skills.map((skillConfig) =>
-      this.execute(skillConfig.name, skillConfig.context)
-    );
+    const tasks = skills.map((skillConfig) => ({
+      execute: () => this.execute(skillConfig.name, skillConfig.context),
+    }));
 
-    return await Promise.all(promises);
+    const results = await this.parallelExecutor.execute<SkillResult>(tasks);
+    return results
+      .map((r) => r.data)
+      .filter((d): d is SkillResult => d !== undefined);
   }
 
   /**

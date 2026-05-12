@@ -6,6 +6,7 @@
 
 import { logger } from '@modules/utils/log.js';
 import { OAuthStorage, createOAuthStorage } from './OAuthStorage.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 缓存的Token接口
@@ -141,7 +142,7 @@ export class TokenManager {
     // 调度自动刷新
     this.scheduleAutoRefresh(serverKey, token, async (refreshToken) => {
       // 这里需要外部提供刷新逻辑
-      throw new Error('Token refresh function not provided');
+      throw new AppError('Token refresh function not provided', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     });
   }
 
@@ -218,9 +219,9 @@ export class TokenManager {
           `Max refresh retries reached for ${serverKey}, clearing token`
         );
         this.clearToken(serverKey);
-        throw new Error(
+        throw new AppError(
           `Token refresh failed after ${this.config.maxRetries} retries`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       // 指数退避重试

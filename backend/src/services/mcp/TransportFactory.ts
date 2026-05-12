@@ -8,6 +8,7 @@ import { HTTPTransport } from '../../mcp/transports/HTTPTransport';
 import { StdioTransport } from '../../mcp/transports/StdioTransport';
 import { WebSocketTransport } from '../../mcp/transports/WebSocketTransport';
 import { SSETransport } from '../../mcp/transports/SSETransport';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { MCPServerConfig } from '../../mcp/types';
 
 /**
@@ -32,7 +33,7 @@ export class TransportFactory {
     switch (config.type) {
       case 'http':
         if (!config.url) {
-          throw new Error('HTTP transport requires url');
+          throw new AppError('HTTP transport requires url', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
         }
         return new HTTPTransport({
           url: config.url,
@@ -41,7 +42,7 @@ export class TransportFactory {
 
       case 'stdio':
         if (!config.command) {
-          throw new Error('Stdio transport requires command');
+          throw new AppError('Stdio transport requires command', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
         }
         return new StdioTransport({
           command: config.command,
@@ -51,7 +52,7 @@ export class TransportFactory {
 
       case 'ws':
         if (!config.url) {
-          throw new Error('WebSocket transport requires url');
+          throw new AppError('WebSocket transport requires url', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
         }
         return new WebSocketTransport({
           url: config.url,
@@ -62,7 +63,7 @@ export class TransportFactory {
 
       case 'sse':
         if (!config.url) {
-          throw new Error('SSE transport requires url');
+          throw new AppError('SSE transport requires url', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
         }
         return new SSETransport({
           url: config.url,
@@ -70,7 +71,7 @@ export class TransportFactory {
         });
 
       default:
-        throw new Error(`Unknown transport type: ${config.type}`);
+        throw new AppError(`Unknown transport type: ${config.type}`, ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
     }
   }
 

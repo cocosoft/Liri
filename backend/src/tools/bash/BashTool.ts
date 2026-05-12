@@ -28,6 +28,7 @@ import {
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const execAsync = promisify(exec);
 
@@ -438,7 +439,7 @@ export class BashTool extends BaseTool {
     options: ExecOptions
   ): Promise<{ stdout: string; stderr: string }> {
     if (BashTool.isDangerousCommand(command)) {
-      throw new Error(`Dangerous command detected: ${command}`);
+      throw new AppError(`Dangerous command detected: ${command}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return BashTool.executeCommand(command, options);
   }

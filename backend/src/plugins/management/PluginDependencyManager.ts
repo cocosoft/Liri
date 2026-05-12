@@ -10,6 +10,7 @@ import {
   PluginDependencyResolution,
   PluginMetadata,
 } from '../types/PluginTypes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -380,8 +381,8 @@ export class PluginDependencyManager extends EventEmitter {
     }
 
     if (visiting.has(pluginName)) {
-      throw new Error(
-        `Circular dependency detected: ${Array.from(visiting).concat(pluginName).join(' -> ')}`
+      throw new AppError(
+        `Circular dependency detected: ${Array.from(visiting).concat(pluginName).join(' -> ')}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000'
       );
     }
 

@@ -83,7 +83,7 @@ export interface SkillDefinition {
   name: string;
   description: string;
   parameters?: SkillParameter[];
-  execute: (context: SkillContext, args: Record<string, any>) => Promise<any>;
+  execute: (context: SkillContext, args: Record<string, unknown>) => Promise<unknown>;
 }
 
 /**
@@ -260,8 +260,8 @@ export class PluginSDK {
   async executeSkill(
     pluginId: string,
     skillId: string,
-    args: Record<string, any>
-  ): Promise<any> {
+    args: Record<string, unknown>
+  ): Promise<unknown> {
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
@@ -431,7 +431,7 @@ export class PluginSDK {
   /**
    * 加载插件配置
    */
-  private loadPluginConfig(pluginId: string): Record<string, any> {
+  private loadPluginConfig(pluginId: string): Record<string, unknown> {
     try {
       const fs = require('fs');
       const path = require('path');
@@ -455,7 +455,7 @@ export class PluginSDK {
    */
   private async savePluginConfig(
     pluginId: string,
-    config: Record<string, any>
+    config: Record<string, unknown>
   ): Promise<void> {
     try {
       const fs = require('fs');

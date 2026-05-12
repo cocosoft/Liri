@@ -4,6 +4,7 @@
  */
 
 import { WorkSecret } from '../types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 解码工作密钥
@@ -13,7 +14,7 @@ export function decodeWorkSecret(secret: string): WorkSecret {
     const decoded = Buffer.from(secret, 'base64').toString('utf8');
     return JSON.parse(decoded);
   } catch (error) {
-    throw new Error('Failed to decode work secret');
+    throw new AppError('Failed to decode work secret', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 }
 
@@ -54,7 +55,7 @@ export async function registerWorker(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to register worker: ${response.status}`);
+    throw new AppError(`Failed to register worker: ${response.status}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   const data = await response.json();

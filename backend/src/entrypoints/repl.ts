@@ -7,17 +7,15 @@ import { createInterface } from 'readline';
 import chalk from 'chalk';
 import { commandExecutor } from '../commands/executor/index.js';
 import type { CommandContext } from '../commands/types/index.js';
-import { createChatManager, type ChatManager } from '../chat/ChatManager.js';
-import { createToolManager } from '../tools/ToolManager.js';
+import type { ChatManager } from '../chat/ChatManager.js';
 import { DeepSeekClient } from '../ai/clients/DeepSeekClient.js';
-import { GovernanceManager } from '../governance/managers/GovernanceManager.js';
-import { PermissionManager } from '../permission/PermissionManager.js';
-import { SandboxManager } from '../sandbox/managers/SandboxManager.js';
+import { createToolManager } from '../tools/ToolManager.js';
 import { historyManager } from '../utils/history.js';
 import { commandRegistry } from '../commands/registry/index.js';
 import { getUIEnhancer } from '../ui/UIEnhancer.js';
 import { getThemeManager } from '../core/theme.js';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { getCoreAPI } from '../core/api/CoreAPIImpl.js';
 
 /**
  * REPL配置接口
@@ -39,9 +37,11 @@ const DEFAULT_CONFIG: REPLConfig = {
 
 /**
  * 初始化聊天管理器
+ * 通过 CoreAPIImpl 获取共享 ChatManager，避免重复创建
  */
 export function initializeChatManager(): ChatManager {
-  const chatManager = createChatManager();
+  const coreAPI = getCoreAPI();
+  const chatManager = coreAPI.getChatManager();
 
   const toolManager = createToolManager();
   const registry = toolManager.getRegistry();
@@ -52,11 +52,14 @@ export function initializeChatManager(): ChatManager {
     model: process.env.DEEPSEEK_MODEL,
   });
 
-  // 设置工具注册表到 LLM 客户端
-  llmClient.setToolRegistry(registry);
+  if (registry) {
+    llmClient.setToolRegistry(registry);
+  }
 
   chatManager.setLLMClient(llmClient);
-  chatManager.setToolRegistry(registry);
+  if (registry) {
+    chatManager.setToolRegistry(registry);
+  }
   chatManager.setToolExecutor(null);
   chatManager.setPermissionManager(null);
 

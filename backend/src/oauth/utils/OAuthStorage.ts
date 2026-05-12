@@ -11,6 +11,7 @@ import type {
   StoredTokenData,
   ITokenStorage,
 } from '../types/OAuthStorageTypes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
@@ -145,7 +146,7 @@ class OAuthTokenStorage implements ITokenStorage {
   private async getEncryptionKey(): Promise<Buffer> {
     const key = process.env.OAUTH_ENCRYPTION_KEY;
     if (!key) {
-      throw new Error('OAUTH_ENCRYPTION_KEY environment variable is required');
+      throw new AppError('OAUTH_ENCRYPTION_KEY environment variable is required', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const { pbkdf2 } = await import('crypto');

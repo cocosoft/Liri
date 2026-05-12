@@ -6,6 +6,7 @@
 import { execSync } from 'child_process';
 import { join, resolve } from 'path';
 import { existsSync, rmSync } from 'fs';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 工作树信息
@@ -55,7 +56,7 @@ export class WorktreeManager {
     // 获取Git根目录
     const gitRoot = this.getGitRoot();
     if (!gitRoot) {
-      throw new Error('Not in a git repository');
+      throw new AppError('Not in a git repository', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 创建工作树

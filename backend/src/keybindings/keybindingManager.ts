@@ -5,6 +5,7 @@
  */
 
 import { renderTemplate, KeybindingTemplate } from './template';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface KeybindingAction {
   id: string;
@@ -229,7 +230,7 @@ export class KeybindingManager {
   applyTemplate(name: string, variables?: Record<string, string>): void {
     const template = this.templates.get(name);
     if (!template) {
-      throw new Error(`Template not found: ${name}`);
+      throw new AppError(`Template not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const schema = renderTemplate(template, variables);

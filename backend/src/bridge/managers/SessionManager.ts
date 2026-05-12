@@ -9,6 +9,7 @@ import type {
   SessionDoneStatus,
   SessionActivity,
 } from '../types/index.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 会话信息
@@ -105,7 +106,7 @@ export class SessionManager {
     dir: string
   ): SessionHandle {
     if (this.sessions.size >= this.maxSessions) {
-      throw new Error(`已达到最大会话数限制 (${this.maxSessions})`);
+      throw new AppError(`已达到最大会话数限制 (${this.maxSessions})`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const handle = this.spawner.spawn({ sdkUrl, accessToken }, dir);

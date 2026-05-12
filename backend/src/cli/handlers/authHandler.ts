@@ -6,7 +6,7 @@
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory } from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -111,7 +111,7 @@ export class AuthHandler {
     password: string
   ): Promise<void> {
     if (!username || !password) {
-      throw new Error('Username and password are required');
+      throw new AppError('Username and password are required', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
     }
   }
 

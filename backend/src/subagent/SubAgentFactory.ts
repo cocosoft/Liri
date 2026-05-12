@@ -15,6 +15,7 @@ import { InProcessSubAgent } from './types/InProcessSubAgent';
 import { ProcessSubAgent } from './types/ProcessSubAgent';
 import { TmuxSubAgent } from './types/TmuxSubAgent';
 import { ITermSubAgent } from './types/ITermSubAgent';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 子agent工厂
@@ -92,7 +93,7 @@ export class SubAgentFactory {
           config as CustomSubAgentConfig
         );
       default:
-        throw new Error(`Unknown subagent type: ${config.type}`);
+        throw new AppError(`Unknown subagent type: ${config.type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 }

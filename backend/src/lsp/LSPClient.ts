@@ -18,6 +18,7 @@ import type {
   TextEdit,
   WorkspaceEdit,
 } from './types.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -232,7 +233,7 @@ export function createLSPClient(
   }
 
   function sendMessage(message: unknown): void {
-    if (!childProcHandle) throw new Error('LSP client not started');
+    if (!childProcHandle) throw new AppError('LSP client not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     const body = JSON.stringify(message);
     const header = `Content-Length: ${Buffer.byteLength(body, 'utf-8')}\r\n\r\n`;
     childProcHandle.stdin(header + body);

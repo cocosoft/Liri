@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export type QuoteResult = {
   quoted: string;
   success: boolean;
@@ -43,7 +45,7 @@ export function tryQuoteArgs(args: unknown[]): QuoteResult {
       if (type === 'string' || type === 'number' || type === 'boolean') {
         return String(arg);
       }
-      throw new Error(`无法引用参数 at index ${index}: 不支持的类型 ${type}`);
+      throw new AppError(`无法引用参数 at index ${index}: 不支持的类型 ${type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     });
     const quoted = validated.map(quoteArg).join(' ');
     return { quoted, success: true };

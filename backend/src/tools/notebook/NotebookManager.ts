@@ -7,6 +7,7 @@ import { join } from 'path';
 import { Notebook } from './types/index.js';
 import { NotebookImpl } from './types/Notebook.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -87,7 +88,7 @@ export class NotebookManager {
       this.notebooks.set(notebook.id, notebook);
       return notebook;
     } catch (error) {
-      throw new Error(`Failed to open notebook: ${error}`);
+      throw new AppError(`Failed to open notebook: ${error}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -103,7 +104,7 @@ export class NotebookManager {
       (notebook as any).path = path;
       this.notebooks.set(notebook.id, notebook);
     } catch (error) {
-      throw new Error(`Failed to save notebook: ${error}`);
+      throw new AppError(`Failed to save notebook: ${error}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -117,7 +118,7 @@ export class NotebookManager {
       (notebook as any).path = path;
       this.notebooks.set(notebook.id, notebook);
     } catch (error) {
-      throw new Error(`Failed to save notebook as: ${error}`);
+      throw new AppError(`Failed to save notebook as: ${error}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

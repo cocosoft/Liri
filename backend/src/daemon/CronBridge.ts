@@ -6,6 +6,7 @@ import type { ScheduledTask as ChronosTask } from '../chronos/types';
 import type { TaskQueue } from './TaskQueue';
 import { TaskPriority } from './TaskQueue';
 import type { ManagedProcess } from './ProcessManager';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -99,7 +100,7 @@ export class CronBridge implements ManagedProcess {
         onProgress(50);
 
         if (signal.aborted) {
-          throw new Error('定时任务被取消');
+          throw new AppError('定时任务被取消', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
         }
 
         onProgress(100);

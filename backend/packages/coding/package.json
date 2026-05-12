@@ -1,0 +1,42 @@
+{
+  "name": "@pyapp/coding",
+  "version": "1.0.0",
+  "description": "PY_APP Coding — 编码版 AI Agent，含 LSP、Notebook、代码分析和浏览器工具",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "cd ../.. && bun run build:coding",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@pyapp/personal": "1.0.0"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "lsp",
+    "notebook",
+    "code-analysis",
+    "typescript"
+  ],
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

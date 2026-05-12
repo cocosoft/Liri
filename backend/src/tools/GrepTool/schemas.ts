@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * GrepTool 输出模式枚举
@@ -74,7 +75,7 @@ export function validateGrepInput(input: unknown): GrepInputType {
     const errors = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new Error(`Grep输入验证失败: ${errors}`);
+    throw new AppError(`Grep输入验证失败: ${errors}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return result.data;
 }

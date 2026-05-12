@@ -11,6 +11,7 @@ import type {
   WorkSecret,
   PollConfig,
 } from '../types/index.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 模拟 API 客户端选项
@@ -60,7 +61,7 @@ export function createSimulatedBridgeApi(
       debug('[sim-api] 注册环境...（模拟）');
 
       if (simulateRegisterFailure) {
-        throw new Error('[sim-api] 模拟注册失败');
+        throw new AppError('[sim-api] 模拟注册失败', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       await new Promise((resolve) => setTimeout(resolve, registerDelayMs));
@@ -84,7 +85,7 @@ export function createSimulatedBridgeApi(
       pollCount++;
 
       if (simulatePollFailure) {
-        throw new Error('[sim-api] 模拟轮询失败');
+        throw new AppError('[sim-api] 模拟轮询失败', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       await new Promise((resolve) => setTimeout(resolve, pollDelayMs));

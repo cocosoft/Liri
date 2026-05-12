@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * Unicode Sanitization for Hidden Character Attack Mitigation
  *
@@ -56,9 +58,9 @@ export function partiallySanitizeUnicode(prompt: string): string {
 
   // If we hit max iterations, crash loudly. This should only ever happen if there is a bug or if someone purposefully created a deeply nested unicode string.
   if (iterations >= MAX_ITERATIONS) {
-    throw new Error(
+    throw new AppError(
       `Unicode sanitization reached maximum iterations (${MAX_ITERATIONS}) for input: ${prompt.slice(0, 100)}`
-    );
+    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   return current;

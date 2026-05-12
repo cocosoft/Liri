@@ -11,6 +11,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const execPromise = promisify(exec);
 
@@ -166,9 +167,9 @@ export class SSHKeyManager {
       return keyPair;
     } catch (error) {
       await this.cleanupKeyFiles(privateKeyPath, publicKeyPath);
-      throw new Error(
+      throw new AppError(
         `SSH key generation failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

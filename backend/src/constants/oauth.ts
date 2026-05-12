@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * OAuth配置常量
  * 基于CC源码 cc_code/backend/constants/oauth.ts 实现
@@ -183,7 +185,7 @@ export function getOauthConfig(): OauthConfig {
   if (oauthBaseUrl) {
     const base = oauthBaseUrl.replace(/\/$/, '');
     if (!ALLOWED_OAUTH_BASE_URLS.includes(base)) {
-      throw new Error('PY_APP_CUSTOM_OAUTH_URL is not an approved endpoint.');
+      throw new AppError('PY_APP_CUSTOM_OAUTH_URL is not an approved endpoint.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     config = {
       ...config,

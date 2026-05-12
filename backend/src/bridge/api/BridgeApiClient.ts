@@ -53,7 +53,7 @@ export function createBridgeApiClient(deps: {
   function resolveAuth(): string {
     const accessToken = deps.getAccessToken();
     if (!accessToken) {
-      throw new Error('Please log in first with `PY_APP login`');
+      throw new AppError('Please log in first with `PY_APP login`', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return accessToken;
   }
@@ -152,27 +152,27 @@ export function createBridgeApiClient(deps: {
 
     switch (status) {
       case 401:
-        throw new Error(
+        throw new AppError(
           `${context}: Authentication failed (401)${detail ? `: ${detail}` : ''}`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       case 403:
-        throw new Error(
+        throw new AppError(
           `${context}: Access denied (403)${detail ? `: ${detail}` : ''}`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       case 404:
-        throw new Error(
+        throw new AppError(
           `${context}: Not found (404)${detail ? `: ${detail}` : ''}`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       case 410:
-        throw new Error(
+        throw new AppError(
           `${context}: Resource expired (410)${detail ? `: ${detail}` : ''}`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       case 429:
-        throw new Error(`${context}: Rate limited (429)`);
+        throw new AppError(`${context}: Rate limited (429)`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       default:
-        throw new Error(
+        throw new AppError(
           `${context}: Failed with status ${status}${detail ? `: ${detail}` : ''}`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -209,7 +209,7 @@ export function createBridgeApiClient(deps: {
   function validateBridgeId(id: string, label: string): string {
     const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
     if (!id || !SAFE_ID_PATTERN.test(id)) {
-      throw new Error(`Invalid ${label}: contains unsafe characters`);
+      throw new AppError(`Invalid ${label}: contains unsafe characters`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return id;
   }
@@ -504,3 +504,4 @@ export type {
   PermissionEvent,
   BackoffConfig,
 } from '../types/BridgeApiTypes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';

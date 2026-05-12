@@ -3,6 +3,7 @@ import { IncidentManager } from './incidents/IncidentManager';
 import type { Incident } from './incidents/IncidentManager';
 import { DashboardDataProvider } from './dashboard/DashboardDataProvider';
 import { HealthChecker } from './health/HealthChecker';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 describe('IncidentManager', () => {
   let manager: IncidentManager;
@@ -302,7 +303,7 @@ describe('HealthChecker', () => {
 
   it('registers and runs an unhealthy check', async () => {
     checker.registerCheck('failing', async () => {
-      throw new Error('connection refused');
+      throw new AppError('connection refused', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     });
     const result = await checker.runCheck('failing');
     expect(result).toBeDefined();
@@ -333,10 +334,10 @@ describe('HealthChecker', () => {
 
   it('reports unhealthy when all checks fail', async () => {
     checker.registerCheck('a', async () => {
-      throw new Error('fail');
+      throw new AppError('fail', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     });
     checker.registerCheck('b', async () => {
-      throw new Error('fail');
+      throw new AppError('fail', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     });
     const result = await checker.runAllChecks();
     expect(result.overall).toBe('unhealthy');

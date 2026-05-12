@@ -8,6 +8,7 @@ import { existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { homedir } from 'os';
 import { SkillParser, SkillSource, type SkillDefinition } from './skillParser';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 技能加载路径配置（基于CC源码）
@@ -311,16 +312,16 @@ export class SkillLoader {
     // 验证技能定义
     const validation = this.parser.validateSkillDefinition(skill);
     if (!validation.valid) {
-      throw new Error(
+      throw new AppError(
         `Invalid skill definition: ${validation.errors.join(', ')}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 应用路径过滤（基于CC源码）
     if (!this.isSkillApplicable(skill)) {
-      throw new Error(
+      throw new AppError(
         `Skill ${skill.name} is not applicable to current context`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 缓存技能

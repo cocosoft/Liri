@@ -12,6 +12,7 @@ import {
 import { SSHConfig } from '@modules/remote/SSHConnection.js';
 import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
 import { logger } from '@modules/utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 获取模型提示词（供 AI 理解远程会话能力）
@@ -106,7 +107,7 @@ export class RemoteSessionCLI {
           const success = await manager.connect();
 
           if (!success) {
-            throw new Error('SSH连接失败');
+            throw new AppError('SSH连接失败', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
           }
 
           this.sessions.set(sessionId, manager);
@@ -175,7 +176,7 @@ export class RemoteSessionCLI {
           const success = await manager.connect();
 
           if (!success) {
-            throw new Error('直接连接失败');
+            throw new AppError('直接连接失败', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
           }
 
           this.sessions.set(sessionId, manager);

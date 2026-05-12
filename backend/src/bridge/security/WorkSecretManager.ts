@@ -6,6 +6,7 @@
 
 import * as crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -86,7 +87,7 @@ class WorkSecretManager {
 
   private decrypt(ciphertext: string): string {
     if (!this.encryptionKey) {
-      throw new Error('Encryption key not initialized');
+      throw new AppError('Encryption key not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     const [ivHex, authTagHex, encrypted] = ciphertext.split(':');
     const iv = Buffer.from(ivHex, 'hex');

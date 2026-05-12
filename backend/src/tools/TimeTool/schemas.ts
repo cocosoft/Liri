@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * TimeTool 输入模式
@@ -38,7 +39,7 @@ export function validateTimeInput(input: unknown): TimeInputType {
     const errors = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new Error(`Time输入验证失败: ${errors}`);
+    throw new AppError(`Time输入验证失败: ${errors}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return result.data;
 }

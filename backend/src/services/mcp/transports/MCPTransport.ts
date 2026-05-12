@@ -8,6 +8,7 @@ import {
   MCPClientState,
   MCPTransport as IMCPTransport,
 } from '../types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * MCP传输层基础类
@@ -64,7 +65,7 @@ export abstract class MCPTransport implements IMCPTransport {
    * 接收响应（子类可重写）
    */
   receive(): AsyncIterable<MCPResponse> {
-    throw new Error('receive() not implemented by this transport');
+    throw new AppError('receive() not implemented by this transport', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   /**

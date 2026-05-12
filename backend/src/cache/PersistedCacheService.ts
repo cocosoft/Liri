@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -289,9 +290,9 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
       }
     }
 
-    throw new Error(
+    throw new AppError(
       `Failed to acquire lock after ${this.config.lockTimeout}ms`
-    );
+    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   /**

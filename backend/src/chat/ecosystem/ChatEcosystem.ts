@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export interface ExtensionPoint {
   name: string;
   description: string;
@@ -110,7 +112,7 @@ export class ChatEcosystem implements IChatEcosystem {
 
   registerExtension(extension: Extension): void {
     if (this.extensions.has(extension.id)) {
-      throw new Error(`Extension already registered: ${extension.id}`);
+      throw new AppError(`Extension already registered: ${extension.id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const sorted = [...this.extensions.values()].sort(

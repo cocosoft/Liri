@@ -1,6 +1,7 @@
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import type { RecordedSession, RecordedMessage } from './SessionRecorder';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export type ReactionOptions = {
   speedMultiplier?: number;
@@ -37,7 +38,7 @@ export class SessionPlayer {
 
   loadSession(session: RecordedSession): void {
     if (this.playing) {
-      throw new Error('Cannot load session while playing.');
+      throw new AppError('Cannot load session while playing.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     this.currentSession = structuredClone(session);
     this.messageIndex = 0;
@@ -48,7 +49,7 @@ export class SessionPlayer {
     const session = JSON.parse(content) as RecordedSession;
 
     if (!this.validateSession(session)) {
-      throw new Error(`Invalid VCR session file: ${filePath}`);
+      throw new AppError(`Invalid VCR session file: ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.currentSession = session;
@@ -68,13 +69,13 @@ export class SessionPlayer {
 
   async play(options: ReactionOptions = {}): Promise<RecordedSession> {
     if (!this.currentSession) {
-      throw new Error(
+      throw new AppError(
         'No session loaded. Use loadSession() or loadSessionFromFile() first.'
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.playing) {
-      throw new Error('Already playing.');
+      throw new AppError('Already playing.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.playing = true;

@@ -8,6 +8,7 @@ import type {
   SessionListOptions,
 } from './SessionStorage';
 import { MemoryStorage } from './storage/MemoryStorage';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 会话工厂
@@ -103,7 +104,7 @@ export class SessionFactory {
   async addMessage(sessionId: string, message: any): Promise<void> {
     const session = await this.loadSession(sessionId);
     if (!session) {
-      throw new Error(`Session ${sessionId} not found`);
+      throw new AppError(`Session ${sessionId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     session.addMessage(message);
@@ -134,7 +135,7 @@ export class SessionFactory {
   ): Promise<void> {
     const session = await this.loadSession(sessionId);
     if (!session) {
-      throw new Error(`Session ${sessionId} not found`);
+      throw new AppError(`Session ${sessionId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     session.updateMetadata(metadata);

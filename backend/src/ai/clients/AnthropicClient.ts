@@ -22,6 +22,7 @@ import {
   type RetryConfig,
 } from '@modules/query/withRetry';
 import { feature } from '@modules/core';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export type APIProvider = 'anthropic' | 'bedrock' | 'vertex' | 'custom';
 
@@ -117,7 +118,7 @@ export class AnthropicClient extends LLMClient {
       async () => {
         if (this.consecutive529Errors >= MAX_529_RETRIES) {
           this.consecutive529Errors = 0;
-          throw new Error('529 overload: max retries exceeded');
+          throw new AppError('529 overload: max retries exceeded', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
         }
         const result = await this.sendRequest(model, messages, options);
         this.consecutive529Errors = 0;

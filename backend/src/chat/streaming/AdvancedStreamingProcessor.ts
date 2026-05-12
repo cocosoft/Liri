@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export enum StreamState {
   IDLE = 'idle',
   ACTIVE = 'active',
@@ -119,7 +121,7 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     type: StreamChunk['type'] = 'text'
   ): void {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error(`Stream session not found: ${sessionId}`);
+    if (!session) throw new AppError(`Stream session not found: ${sessionId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     if (
       session.state === StreamState.CANCELLED ||
       session.state === StreamState.COMPLETED

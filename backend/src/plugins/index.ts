@@ -1,6 +1,7 @@
 /**
  * 插件系统主入口（基于CC源码实现）
  * 整合插件加载器、注册器、生命周期管理器、依赖管理器、配置管理器和事件系统
+ * 采用懒加载模式：子系统在首次访问时按需创建
  */
 
 import PluginLoader from './core/PluginLoader';
@@ -8,6 +9,7 @@ import PluginRegistry from './core/PluginRegistry';
 import PluginLifecycleManager from './core/PluginLifecycleManager';
 import PluginDependencyManager from './management/PluginDependencyManager';
 import PluginConfigManager from './management/PluginConfigManager';
+import { join } from 'path';
 import PluginEventSystem from './core/PluginEventSystem';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
@@ -26,45 +28,87 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 插件系统（基于CC源码）
+ * 所有子系统通过懒加载方式创建，构造函数仅保存配置
  */
 export class PluginSystem {
-  private loader: PluginLoader;
-  private registry: PluginRegistry;
-  private lifecycleManager: PluginLifecycleManager;
-  private dependencyManager: PluginDependencyManager;
-  private configManager: PluginConfigManager;
-  private eventSystem: PluginEventSystem;
-  private isInitialized = false;
+  private _options: PluginLoaderOptions;
+  private _isInitialized = false;
+
+  private _loader: PluginLoader | null = null;
+  private _registry: PluginRegistry | null = null;
+  private _lifecycleManager: PluginLifecycleManager | null = null;
+  private _dependencyManager: PluginDependencyManager | null = null;
+  private _configManager: PluginConfigManager | null = null;
+  private _eventSystem: PluginEventSystem | null = null;
+
+  private _pluginsDiscovered = false;
+  private _pluginsLoaded = false;
 
   /**
-   * 构造函数（基于CC源码）
+   * 构造函数，仅保存配置，不创建任何子系统
    */
   constructor(options: PluginLoaderOptions = {}) {
-    this.loader = new PluginLoader(options);
-    this.registry = new PluginRegistry();
-    this.lifecycleManager = new PluginLifecycleManager();
-    this.dependencyManager = new PluginDependencyManager();
-    this.configManager = new PluginConfigManager();
-    this.eventSystem = new PluginEventSystem();
-
-    this.setupEventForwarding();
+    this._options = {
+      pluginDirectories: [join(process.cwd(), 'plugins')],
+      autoLoad: false,
+      autoActivate: false,
+      validationEnabled: true,
+      cacheEnabled: true,
+      maxConcurrentLoads: 5,
+      loadTimeout: 30000,
+      ...options,
+    };
   }
 
-  /**
-   * 设置事件转发（基于CC源码）
-   */
+  private get loader(): PluginLoader {
+    if (!this._loader) {
+      this._loader = new PluginLoader(this._options);
+    }
+    return this._loader;
+  }
+
+  private get registry(): PluginRegistry {
+    if (!this._registry) {
+      this._registry = new PluginRegistry();
+    }
+    return this._registry;
+  }
+
+  private get lifecycleManager(): PluginLifecycleManager {
+    if (!this._lifecycleManager) {
+      this._lifecycleManager = new PluginLifecycleManager();
+    }
+    return this._lifecycleManager;
+  }
+
+  private get dependencyManager(): PluginDependencyManager {
+    if (!this._dependencyManager) {
+      this._dependencyManager = new PluginDependencyManager();
+    }
+    return this._dependencyManager;
+  }
+
+  private get configManager(): PluginConfigManager {
+    if (!this._configManager) {
+      this._configManager = new PluginConfigManager();
+    }
+    return this._configManager;
+  }
+
+  private get eventSystem(): PluginEventSystem {
+    if (!this._eventSystem) {
+      this._eventSystem = new PluginEventSystem();
+    }
+    return this._eventSystem;
+  }
+
   private setupEventForwarding(): void {
-    // 加载器事件转发
     this.loader.on('pluginEvent', (event: PluginEvent) => {
       this.eventSystem.publishEvent(event);
     });
-
-    // 注册器事件转发
     this.registry.on('pluginEvent', (event: PluginEvent) => {
       this.eventSystem.publishEvent(event);
     });
-
-    // 生命周期管理器事件转发
     this.lifecycleManager.on('lifecycleEvent', (data: any) => {
       const event: PluginEvent = {
         type: PluginEventType.STATE_CHANGED,
@@ -74,8 +118,6 @@ export class PluginSystem {
       };
       this.eventSystem.publishEvent(event);
     });
-
-    // 配置管理器事件转发
     this.configManager.on('configUpdated', (data: any) => {
       const event: PluginEvent = {
         type: PluginEventType.CONFIG_UPDATED,
@@ -85,51 +127,64 @@ export class PluginSystem {
       };
       this.eventSystem.publishEvent(event);
     });
-
-    // 事件系统错误处理
     this.eventSystem.on('handlerError', (data: any) => {
       logger.error('Event handler error:', { data });
     });
   }
 
   /**
-   * 初始化插件系统（基于CC源码）
+   * 确保插件已发现（扫描目录收集元信息）
+   * 仅收集插件路径和元数据，不加载插件代码
    */
-  async initialize(): Promise<void> {
-    if (this.isInitialized) {
-      return;
-    }
+  private async ensurePluginsDiscovered(): Promise<void> {
+    if (this._pluginsDiscovered) return;
 
-    logger.info('🚀 Initializing plugin system...');
+    await this.loader.initialize();
 
-    try {
-      // 初始化加载器
-      await this.loader.initialize();
-
-      // 注册已加载的插件
-      const plugins = this.loader.getAllPlugins();
-
-      for (const plugin of plugins) {
-        await this.registerPlugin(plugin);
-      }
-
-      this.isInitialized = true;
-
-      logger.info(
-        `✅ Plugin system initialized with ${plugins.length} plugins`
-      );
-    } catch (error) {
-      logger.error('❌ Failed to initialize plugin system:', { error });
-      throw error;
-    }
+    this._pluginsDiscovered = true;
   }
 
   /**
-   * 注册插件（基于CC源码）
+   * 确保插件已加载（首次实际使用时才加载插件代码）
    */
+  private async ensurePluginsLoaded(): Promise<void> {
+    if (this._pluginsLoaded) return;
+
+    await this.ensurePluginsDiscovered();
+
+    await this.loader.loadAllPlugins();
+    this.setupEventForwarding();
+
+    const plugins = this.loader.getAllPlugins();
+    for (const plugin of plugins) {
+      await this.registerPlugin(plugin);
+    }
+
+    this._pluginsLoaded = true;
+  }
+
+  /**
+   * 初始化插件系统
+   * 轻量级操作，仅标记初始化状态，不加载任何插件代码
+   */
+  async initialize(): Promise<void> {
+    if (this._isInitialized) {
+      return;
+    }
+
+    this._isInitialized = true;
+
+    logger.info('插件系统已就绪（延迟加载模式）');
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this._isInitialized) {
+      await this.initialize();
+    }
+  }
+
   private async registerPlugin(plugin: LoadedPlugin): Promise<void> {
     try {
-      // 添加到注册器
       this.registry.registerPlugin({
         id: plugin.id,
         name: plugin.name,
@@ -142,10 +197,8 @@ export class PluginSystem {
         dependents: [],
       });
 
-      // 添加到生命周期管理器
       this.lifecycleManager.registerPlugin(plugin);
 
-      // 添加到依赖管理器
       const metadata: PluginMetadata = {
         id: plugin.id,
         name: plugin.name,
@@ -163,13 +216,9 @@ export class PluginSystem {
     }
   }
 
-  /**
-   * 加载插件（基于CC源码）
-   */
   async loadPlugin(pluginId: string): Promise<PluginLoadResult> {
-    if (!this.isInitialized) {
-      throw new Error('Plugin system not initialized');
-    }
+    await this.ensureInitialized();
+    await this.ensurePluginsLoaded();
 
     const result = await this.loader.loadPlugin(pluginId);
 
@@ -180,18 +229,12 @@ export class PluginSystem {
     return result;
   }
 
-  /**
-   * 卸载插件（基于CC源码）
-   */
   async unloadPlugin(pluginId: string): Promise<PluginLoadResult> {
-    if (!this.isInitialized) {
-      throw new Error('Plugin system not initialized');
-    }
+    await this.ensureInitialized();
+    await this.ensurePluginsLoaded();
 
-    // 先停止插件
     await this.lifecycleManager.stopPlugin(pluginId);
 
-    // 然后卸载
     const result = await this.loader.unloadPlugin(pluginId);
 
     if (result.success) {
@@ -203,120 +246,79 @@ export class PluginSystem {
     return result;
   }
 
-  /**
-   * 启动插件（基于CC源码）
-   */
   async startPlugin(pluginId: string): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Plugin system not initialized');
-    }
+    await this.ensureInitialized();
+    await this.ensurePluginsLoaded();
 
     await this.lifecycleManager.startPlugin(pluginId);
   }
 
-  /**
-   * 停止插件（基于CC源码）
-   */
   async stopPlugin(pluginId: string): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Plugin system not initialized');
-    }
+    await this.ensureInitialized();
+    await this.ensurePluginsLoaded();
 
     await this.lifecycleManager.stopPlugin(pluginId);
   }
 
-  /**
-   * 重新启动插件（基于CC源码）
-   */
   async restartPlugin(pluginId: string): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Plugin system not initialized');
-    }
+    await this.ensureInitialized();
+    await this.ensurePluginsLoaded();
 
     await this.lifecycleManager.restartPlugin(pluginId);
   }
 
-  /**
-   * 启动所有插件（基于CC源码）
-   */
   async startAllPlugins(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Plugin system not initialized');
-    }
+    await this.ensureInitialized();
+    await this.ensurePluginsLoaded();
 
     await this.lifecycleManager.startAllPlugins();
   }
 
-  /**
-   * 停止所有插件（基于CC源码）
-   */
   async stopAllPlugins(): Promise<void> {
-    if (!this.isInitialized) {
-      throw new Error('Plugin system not initialized');
-    }
+    await this.ensureInitialized();
+    await this.ensurePluginsLoaded();
 
     await this.lifecycleManager.stopAllPlugins();
   }
 
-  /**
-   * 获取插件（基于CC源码）
-   */
   getPlugin(pluginId: string): LoadedPlugin | undefined {
+    if (!this._loader) return undefined;
     return this.loader.getPlugin(pluginId);
   }
 
-  /**
-   * 获取所有插件（基于CC源码）
-   */
   getAllPlugins(): LoadedPlugin[] {
+    if (!this._loader) return [];
     return this.loader.getAllPlugins();
   }
 
-  /**
-   * 获取已激活插件（基于CC源码）
-   */
   getActivatedPlugins(): LoadedPlugin[] {
+    if (!this._lifecycleManager) return [];
     return this.lifecycleManager.getActivatedPlugins();
   }
 
-  /**
-   * 获取插件配置（基于CC源码）
-   */
   getPluginConfig(pluginId: string): PluginConfig {
+    this.ensureInitialized();
     return this.configManager.getConfig(pluginId);
   }
 
-  /**
-   * 设置插件配置（基于CC源码）
-   */
   setPluginConfig(pluginId: string, config: PluginConfig): any {
+    this.ensureInitialized();
     return this.configManager.setConfig(pluginId, config);
   }
 
-  /**
-   * 注册事件处理器（基于CC源码）
-   */
   registerEventHandler(handler: any): void {
     this.eventSystem.registerHandler(handler);
   }
 
-  /**
-   * 注销事件处理器（基于CC源码）
-   */
   unregisterEventHandler(handlerId: string, eventType?: string): boolean {
     return this.eventSystem.unregisterHandler(handlerId, eventType);
   }
 
-  /**
-   * 发布事件（基于CC源码）
-   */
   async publishEvent(event: PluginEvent): Promise<void> {
+    this.ensureInitialized();
     await this.eventSystem.publishEvent(event);
   }
 
-  /**
-   * 获取插件系统统计信息（基于CC源码）
-   */
   getStats(): {
     plugins: {
       total: number;
@@ -333,6 +335,16 @@ export class PluginSystem {
       total: number;
     };
   } {
+    const emptyStats = {
+      plugins: { total: 0, activated: 0, deactivated: 0, failed: 0 },
+      events: { total: 0, recent: 0 },
+      configs: { configured: 0, total: 0 },
+    };
+
+    if (!this._lifecycleManager && !this._eventSystem && !this._configManager) {
+      return emptyStats;
+    }
+
     const pluginStats = this.lifecycleManager.getPluginStats();
     const eventStats = this.eventSystem.getEventStats();
     const configStats = this.configManager.getConfigStats();
@@ -355,80 +367,65 @@ export class PluginSystem {
     };
   }
 
-  /**
-   * 销毁插件系统（基于CC源码）
-   */
   async destroy(): Promise<void> {
-    logger.info('🛑 Destroying plugin system...');
+    logger.info('Destroying plugin system...');
 
     try {
-      // 停止所有插件
-      await this.stopAllPlugins();
+      if (this._pluginsLoaded) {
+        await this.stopAllPlugins();
+        await this.loader.destroy();
+        this.registry.clear();
+        await this.lifecycleManager.destroy();
+        this.dependencyManager.clear();
+        this.configManager.clear();
+        this.eventSystem.destroy();
+      }
 
-      // 销毁所有组件
-      await this.loader.destroy();
-      this.registry.clear();
-      await this.lifecycleManager.destroy();
-      this.dependencyManager.clear();
-      this.configManager.clear();
-      this.eventSystem.destroy();
+      this._loader = null;
+      this._registry = null;
+      this._lifecycleManager = null;
+      this._dependencyManager = null;
+      this._configManager = null;
+      this._eventSystem = null;
+      this._pluginsDiscovered = false;
+      this._pluginsLoaded = false;
+      this._isInitialized = false;
 
-      this.isInitialized = false;
-
-      logger.info('✅ Plugin system destroyed');
+      logger.info('Plugin system destroyed');
     } catch (error) {
-      logger.error('❌ Failed to destroy plugin system:', { error });
+      logger.error('Failed to destroy plugin system:', { error });
       throw error;
     }
   }
 
-  /**
-   * 获取插件加载器实例（基于CC源码）
-   */
   getLoader(): PluginLoader {
     return this.loader;
   }
 
-  /**
-   * 获取插件注册器实例（基于CC源码）
-   */
   getRegistry(): PluginRegistry {
     return this.registry;
   }
 
-  /**
-   * 获取生命周期管理器实例（基于CC源码）
-   */
   getLifecycleManager(): PluginLifecycleManager {
     return this.lifecycleManager;
   }
 
-  /**
-   * 获取依赖管理器实例（基于CC源码）
-   */
   getDependencyManager(): PluginDependencyManager {
     return this.dependencyManager;
   }
 
-  /**
-   * 获取配置管理器实例（基于CC源码）
-   */
   getConfigManager(): PluginConfigManager {
     return this.configManager;
   }
 
-  /**
-   * 获取事件系统实例（基于CC源码）
-   */
   getEventSystem(): PluginEventSystem {
     return this.eventSystem;
   }
 }
 
-// 创建全局插件系统实例
+// 创建全局插件系统实例（构造函数轻量，不创建任何子系统）
 export const pluginSystem = new PluginSystem();
 
-// 导出类型
 export type {
   PluginState,
   PluginType,
@@ -446,8 +443,3 @@ export { default as PluginLifecycleManager } from './core/PluginLifecycleManager
 export { default as PluginDependencyManager } from './management/PluginDependencyManager';
 export { default as PluginConfigManager } from './management/PluginConfigManager';
 export { default as PluginEventSystem } from './core/PluginEventSystem';
-
-// 导出内置插件
-export { bundledPlugins } from './bundled/index.js';
-
-export default PluginSystem;

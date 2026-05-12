@@ -1,4 +1,5 @@
 import { Skill, SkillExecutionContext } from '../types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 执行技能
@@ -13,7 +14,7 @@ export async function executeSkill(
   try {
     // 验证技能
     if (!skill) {
-      throw new Error('Skill not provided');
+      throw new AppError('Skill not provided', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 准备执行上下文

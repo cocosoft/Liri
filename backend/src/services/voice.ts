@@ -11,6 +11,7 @@ import { existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const SAMPLE_RATE = 16000;
 const CHANNELS = 1;
@@ -397,10 +398,10 @@ export async function startRecording(
   const availability = checkVoiceDependencies();
 
   if (!availability.available) {
-    throw new Error(
+    throw new AppError(
       `No recording tool available. Missing: ${availability.missing.join(', ')}. ` +
         `Install: ${availability.installCommand ?? 'See platform documentation'}`
-    );
+    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   const outputFile = join(tmpdir(), `voice_input_${randomUUID()}.wav`);
@@ -417,7 +418,7 @@ export async function startRecording(
       await recordWithPowerShell(outputFile, options, onState);
       break;
     default:
-      throw new Error(`Unknown recording method: ${availability.method}`);
+      throw new AppError(`Unknown recording method: ${availability.method}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   onState?.('done');
@@ -432,7 +433,7 @@ export async function startRecording(
  */
 export async function getRecording(filePath: string): Promise<RecordingResult> {
   if (!existsSync(filePath)) {
-    throw new Error(`Recording file not found: ${filePath}`);
+    throw new AppError(`Recording file not found: ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   const stat = await import('fs/promises').then((fs) => fs.stat(filePath));

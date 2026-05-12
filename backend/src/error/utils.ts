@@ -564,3 +564,32 @@ export class ErrorUtils {
     );
   }
 }
+
+// ─── 独立便捷函数 ─────────────────────────────────
+
+/**
+ * 从错误中提取消息
+ * @param error 错误对象
+ * @returns 错误消息
+ */
+export function errorMessage(error: unknown): string {
+  return ErrorUtils.errorMessage(error);
+}
+
+/**
+ * 将未知值转换为Error
+ * @param error 未知值
+ * @returns Error实例
+ */
+export function toError(error: unknown): Error {
+  return ErrorUtils.toError(error);
+}
+
+/**
+ * 检查错误是否为中止错误
+ * @param error 错误对象
+ * @returns 是否为中止错误
+ */
+export function isAbortError(error: unknown): boolean {
+  return ErrorUtils.isAbortError(error);
+}

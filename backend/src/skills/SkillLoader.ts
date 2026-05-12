@@ -7,6 +7,7 @@ import type { Skill, SkillManifest } from '../types/skill';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -21,7 +22,7 @@ export class SkillLoader {
       // 读取技能manifest
       const manifestPath = join(skillPath, 'manifest.json');
       if (!existsSync(manifestPath)) {
-        throw new Error(`Manifest file not found at ${manifestPath}`);
+        throw new AppError(`Manifest file not found at ${manifestPath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       const manifestContent = readFileSync(manifestPath, 'utf8');
@@ -39,7 +40,7 @@ export class SkillLoader {
         // 动态导入JavaScript文件
         skillImplementation = await import(skillPathJs);
       } else {
-        throw new Error(`Skill implementation not found at ${skillPath}`);
+        throw new AppError(`Skill implementation not found at ${skillPath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       // 检查技能实现是否有效
@@ -47,9 +48,9 @@ export class SkillLoader {
         !skillImplementation ||
         typeof skillImplementation.execute !== 'function'
       ) {
-        throw new Error(
+        throw new AppError(
           `Invalid skill implementation: missing execute function`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       // 构建技能对象
@@ -62,7 +63,7 @@ export class SkillLoader {
 
       return skill;
     } catch (error) {
-      throw new Error(`Failed to load skill from ${skillPath}: ${error}`);
+      throw new AppError(`Failed to load skill from ${skillPath}: ${error}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

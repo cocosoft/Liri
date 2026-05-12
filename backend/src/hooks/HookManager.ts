@@ -1,25 +1,23 @@
 /**
  * Hook管理器
  * 负责Hook的注册、匹配和执行
+ * 统一委托给 managers/HookManager 单例
  */
 
-import {
-  IndividualHookConfig,
-  HookEvent,
-  HookExecutionContext,
-  HookExecutionResult,
-} from './types';
+import { IndividualHookConfig, HookEvent, HookExecutionContext, HookExecutionResult } from './types';
 import { HookExecutor } from './executors/HookExecutor';
+import { HookManager as ManagerHookManager } from './managers/HookManager';
 
 /**
  * Hook管理器类
  */
 export class HookManager {
-  private hooks: Map<HookEvent, IndividualHookConfig[]> = new Map();
   private executor: HookExecutor;
+  private managerInstance: ManagerHookManager;
 
   constructor() {
     this.executor = new HookExecutor();
+    this.managerInstance = ManagerHookManager.getInstance();
   }
 
   /**
@@ -27,17 +25,7 @@ export class HookManager {
    * @param hook Hook配置
    */
   public registerHook(hook: IndividualHookConfig): void {
-    if (!this.hooks.has(hook.event)) {
-      this.hooks.set(hook.event, []);
-    }
-    this.hooks.get(hook.event)!.push(hook);
-
-    // 按优先级排序（如果有优先级）
-    this.hooks.get(hook.event)!.sort((a, b) => {
-      const prioA = a.config.priority || 0;
-      const prioB = b.config.priority || 0;
-      return prioB - prioA; // 高优先级在前
-    });
+    this.managerInstance.registerHook(hook);
   }
 
   /**
@@ -45,7 +33,7 @@ export class HookManager {
    * @param hooks Hook配置列表
    */
   public registerHooks(hooks: IndividualHookConfig[]): void {
-    hooks.forEach((hook) => this.registerHook(hook));
+    this.managerInstance.registerHooks(hooks);
   }
 
   /**
@@ -54,7 +42,7 @@ export class HookManager {
    * @returns Hook配置列表
    */
   public getHooksForEvent(event: HookEvent): IndividualHookConfig[] {
-    return this.hooks.get(event) || [];
+    return this.managerInstance.getHooksByEvent(event) as IndividualHookConfig[];
   }
 
   /**
@@ -69,16 +57,12 @@ export class HookManager {
   ): IndividualHookConfig[] {
     const hooks = this.getHooksForEvent(event);
 
-    // 如果没有匹配器，返回所有
     if (!context.matcher) {
       return hooks.filter((hook) => !hook.matcher);
     }
 
-    // 匹配带有匹配器的Hooks
     return hooks.filter((hook) => {
       if (!hook.matcher) return false;
-
-      // 支持通配符匹配
       return this.matchPattern(hook.matcher, context.matcher);
     });
   }
@@ -97,14 +81,11 @@ export class HookManager {
     const results: HookExecutionResult[] = [];
 
     for (const hook of hooks) {
-      // 检查是否启用
       if (hook.config.enabled === false) continue;
 
-      // 执行Hook
       const result = await this.executor.execute(hook, context);
       results.push(result);
 
-      // 如果有Hook要求停止，就不再继续执行后面的
       if (result.continue === false) {
         break;
       }
@@ -125,20 +106,17 @@ export class HookManager {
     };
 
     for (const result of results) {
-      // 合并错误信息
       if (!result.success) {
         aggregated.error =
           (aggregated.error ? aggregated.error + '\n' : '') +
           (result.error || '');
       }
 
-      // 合并输出
       if (result.output) {
         aggregated.output =
           (aggregated.output ? aggregated.output + '\n' : '') + result.output;
       }
 
-      // 合并附加的上下文
       if (result.additionalContext) {
         if (!aggregated.additionalContexts) {
           aggregated.additionalContexts = [];
@@ -146,7 +124,6 @@ export class HookManager {
         aggregated.additionalContexts.push(result.additionalContext);
       }
 
-      // 如果有Hook要求停止，就设置标志
       if (result.continue === false) {
         aggregated.continue = false;
         if (result.stopReason) {
@@ -154,7 +131,6 @@ export class HookManager {
         }
       }
 
-      // 处理权限决定
       if (result.permissionBehavior) {
         aggregated.permissionBehavior = result.permissionBehavior;
       }
@@ -163,17 +139,14 @@ export class HookManager {
           result.hookPermissionDecisionReason;
       }
 
-      // 处理更新的输入
       if (result.updatedInput) {
         aggregated.updatedInput = result.updatedInput;
       }
 
-      // 处理系统消息
       if (result.systemMessage) {
         aggregated.systemMessage = result.systemMessage;
       }
 
-      // 处理监视路径
       if (result.watchPaths) {
         if (!aggregated.watchPaths) {
           aggregated.watchPaths = [];
@@ -181,13 +154,11 @@ export class HookManager {
         aggregated.watchPaths.push(...result.watchPaths);
       }
 
-      // 处理重试标志
       if (result.retry) {
         aggregated.retry = true;
       }
     }
 
-    // 如果有多个附加上下文，合并它们
     if (
       aggregated.additionalContexts &&
       aggregated.additionalContexts.length > 0
@@ -202,7 +173,7 @@ export class HookManager {
    * 清除所有注册的Hooks
    */
   public clearHooks(): void {
-    this.hooks.clear();
+    this.managerInstance.clearHooks();
   }
 
   /**
@@ -212,7 +183,6 @@ export class HookManager {
    * @returns 是否匹配
    */
   private matchPattern(pattern: string, value: string): boolean {
-    // 转换为正则表达式
     const regexPattern = pattern
       .replace(/\./g, '\\.')
       .replace(/\*/g, '.*')
@@ -223,5 +193,4 @@ export class HookManager {
   }
 }
 
-// 导出单例实例
 export const hookManager = new HookManager();

@@ -1,5 +1,6 @@
 import { contextIsolator } from './ContextIsolator';
 import type { Context } from './types/Context';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface SharedContextEntry {
   context: Context;
@@ -34,7 +35,7 @@ export class ContextSharingManager {
     const scope = contextIsolator.getScope(targetScopeId);
 
     if (!scope) {
-      throw new Error(`Target scope not found: ${targetScopeId}`);
+      throw new AppError(`Target scope not found: ${targetScopeId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const entryKey = `${targetScopeId}:${contextKey}`;
@@ -43,9 +44,9 @@ export class ContextSharingManager {
       this.scopeShares.has(targetScopeId) &&
       this.scopeShares.get(targetScopeId)!.size >= this.maxSharesPerScope
     ) {
-      throw new Error(
+      throw new AppError(
         `Maximum shares per scope reached: ${this.maxSharesPerScope}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.sharedContexts.size >= this.maxSharedContexts) {

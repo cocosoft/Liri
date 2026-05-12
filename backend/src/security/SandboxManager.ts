@@ -4,6 +4,7 @@
  */
 
 import { logger } from '../utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 沙箱配置
@@ -124,11 +125,11 @@ export class SandboxManager {
    */
   createSandbox(id: string, config: SandboxConfig = {}): void {
     if (this.state !== SandboxState.RUNNING) {
-      throw new Error('Sandbox manager is not running');
+      throw new AppError('Sandbox manager is not running', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.sandboxes.has(id)) {
-      throw new Error(`Sandbox ${id} already exists`);
+      throw new AppError(`Sandbox ${id} already exists`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const sandboxConfig = {
@@ -169,12 +170,12 @@ export class SandboxManager {
    */
   async execute(id: string, code: string, context: any = {}): Promise<any> {
     if (this.state !== SandboxState.RUNNING) {
-      throw new Error('Sandbox manager is not running');
+      throw new AppError('Sandbox manager is not running', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const sandbox = this.sandboxes.get(id);
     if (!sandbox) {
-      throw new Error(`Sandbox ${id} not found`);
+      throw new AppError(`Sandbox ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     try {

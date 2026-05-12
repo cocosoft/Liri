@@ -27,6 +27,7 @@ import {
 } from './types.js';
 import { ConfigValidator } from './ConfigValidator.js';
 import { ConfigMigration } from './ConfigMigration.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 配置管理器类
@@ -134,7 +135,7 @@ export class ConfigManager {
    */
   private loadConfigFromFile(): GlobalConfig {
     if (!this.configReadingAllowed && process.env.NODE_ENV !== 'test') {
-      throw new Error('配置系统在启用前不可访问');
+      throw new AppError('配置系统在启用前不可访问', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     try {

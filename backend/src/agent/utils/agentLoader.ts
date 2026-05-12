@@ -9,6 +9,7 @@ import { AgentDefinition } from '../models/types';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger();
 
@@ -107,7 +108,7 @@ function loadAgentFromFile(
     };
   }
 
-  throw new Error(`Unsupported file format: ${filePath}`);
+  throw new AppError(`Unsupported file format: ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
 }
 
 /**

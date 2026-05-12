@@ -36,6 +36,7 @@ import { getCACertificates } from '../utils/caCerts.js';
 import { getMTLSConfig } from '../utils/mtls.js';
 import { errorMessage } from '../utils/errors.js';
 import { logForDebugging } from '../utils/debug.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const DEFAULT_METRICS_EXPORT_INTERVAL_MS = 60000;
 const DEFAULT_TRACES_EXPORT_INTERVAL_MS = 5000;
@@ -143,14 +144,14 @@ async function getOtlpReaders() {
           break;
         }
         default:
-          throw new Error(
+          throw new AppError(
             `Unknown protocol set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`
-          );
+          , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
     } else {
-      throw new Error(
+      throw new AppError(
         `Unknown exporter type set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${exporterType}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -193,14 +194,14 @@ async function getOtlpTraceExporters() {
           break;
         }
         default:
-          throw new Error(
+          throw new AppError(
             `Unknown protocol set in OTEL_EXPORTER_OTLP_TRACES_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`
-          );
+          , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
     } else {
-      throw new Error(
+      throw new AppError(
         `Unknown exporter type set in OTEL_TRACES_EXPORTER env var: ${exporterType}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

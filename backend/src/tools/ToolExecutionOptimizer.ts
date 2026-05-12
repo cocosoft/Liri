@@ -7,6 +7,7 @@ import { Tool } from './types/Tool';
 import { ToolResult, createToolResult } from './types/ToolResult';
 import { ToolUseContext } from './types/ToolUseContext';
 import { ToolExecutor, createToolExecutor } from './ToolExecutor';
+import { ParallelExecutor } from './executor/ParallelExecutor';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -184,10 +185,14 @@ export class ToolExecutionOptimizer {
       onProgress?: (toolName: string, progress: any) => void;
     }
   ): Promise<Map<string, ToolResult>> {
-    const results = new Map<string, ToolResult>();
-    const promises = tools.map(async ({ tool, input }) => {
-      try {
-        const result = await this.executeWithCache(
+    const parallelExecutor = new ParallelExecutor({
+      maxConcurrency: this.maxParallelExecutions,
+      defaultTimeout: options?.timeout || this.defaultTimeout,
+    });
+
+    const tasks = tools.map(({ tool, input }) => ({
+      execute: () =>
+        this.executeWithCache(
           tool,
           input,
           context,
@@ -195,22 +200,31 @@ export class ToolExecutionOptimizer {
             ? (progress) => options.onProgress!(tool.name, progress)
             : undefined,
           options?.timeout
-        );
-        results.set(tool.name, result);
-      } catch (error) {
-        const errorResult = createToolResult(null, {
-          newMessages: [
-            {
-              role: 'system',
-              content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            },
-          ],
-        });
-        results.set(tool.name, errorResult);
-      }
-    });
+        ),
+    }));
 
-    await Promise.all(promises);
+    const taskResults = await parallelExecutor.execute<ToolResult>(tasks);
+    const results = new Map<string, ToolResult>();
+
+    for (let i = 0; i < tools.length; i++) {
+      const taskResult = taskResults.find((r) => r.index === i);
+      if (taskResult?.data) {
+        results.set(tools[i].tool.name, taskResult.data);
+      } else {
+        results.set(
+          tools[i].tool.name,
+          createToolResult(null, {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Error: ${taskResult?.error?.message || 'Unknown error'}`,
+              },
+            ],
+          })
+        );
+      }
+    }
+
     return results;
   }
 

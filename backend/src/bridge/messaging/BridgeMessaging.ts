@@ -4,6 +4,7 @@
  */
 
 import type { Message } from '@modules/types/message.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 消息类型
@@ -305,7 +306,7 @@ export function isMessageEmpty(message: BridgeMessage): boolean {
 export function mergeMessages(messages: BridgeMessage[]): BridgeMessage {
   const first = messages[0];
   if (!first) {
-    throw new Error('Cannot merge empty message array');
+    throw new AppError('Cannot merge empty message array', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   return {

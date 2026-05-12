@@ -12,6 +12,7 @@
 import { logForDebugging } from '../debug.js';
 import { launchInTerminal } from './TerminalLauncher';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -46,16 +47,16 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   try {
     url = new URL(uri);
   } catch {
-    throw new Error(`Invalid URI: ${uri.slice(0, 100)}`);
+    throw new AppError(`Invalid URI: ${uri.slice(0, 100)}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   if (
     url.protocol !== `${DEEP_LINK_PROTOCOL}:` &&
     url.protocol !== `${DEEP_LINK_PROTOCOL}-cli:`
   ) {
-    throw new Error(
+    throw new AppError(
       `Unsupported protocol: ${url.protocol}. Expected ${DEEP_LINK_PROTOCOL}: or ${DEEP_LINK_PROTOCOL}-cli:`
-    );
+    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   const action: DeepLinkAction = {};
@@ -63,12 +64,12 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   const q = url.searchParams.get('q');
   if (q) {
     if (q.length > MAX_QUERY_LENGTH) {
-      throw new Error(
+      throw new AppError(
         `Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     if (containsControlChars(q)) {
-      throw new Error('Query contains disallowed control characters');
+      throw new AppError('Query contains disallowed control characters', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     action.query = q;
   }
@@ -76,20 +77,20 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   const cwd = url.searchParams.get('cwd');
   if (cwd) {
     if (cwd.length > MAX_CWD_LENGTH) {
-      throw new Error(
+      throw new AppError(
         `Working directory exceeds maximum length of ${MAX_CWD_LENGTH} characters`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     if (containsControlChars(cwd)) {
-      throw new Error(
+      throw new AppError(
         'Working directory contains disallowed control characters'
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     if (
       cwd.includes('..') ||
       (cwd.startsWith('/') === false && cwd.includes(':'))
     ) {
-      throw new Error('Working directory must be an absolute path');
+      throw new AppError('Working directory must be an absolute path', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     action.cwd = cwd;
   }
@@ -97,9 +98,9 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   const repo = url.searchParams.get('repo');
   if (repo) {
     if (!REPO_SLUG_PATTERN.test(repo)) {
-      throw new Error(
+      throw new AppError(
         `Invalid repository format: ${repo}. Expected owner/repo`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     action.repo = repo;
   }

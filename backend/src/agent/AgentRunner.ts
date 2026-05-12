@@ -5,6 +5,7 @@
 import { randomUUID } from 'crypto';
 import { AgentSwarmManager, SwarmTask, SwarmResult } from './swarms';
 import { feature } from '../core/featureFlags';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export type SubagentType =
   | 'general-purpose'
@@ -169,7 +170,7 @@ export class AgentRunner {
     options: { parallel?: boolean; timeoutMs?: number } = {}
   ): Promise<SwarmExecutionResult> {
     if (!this.swarmManager) {
-      throw new Error('Agent Swarms feature is not enabled');
+      throw new AppError('Agent Swarms feature is not enabled', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const startTime = Date.now();

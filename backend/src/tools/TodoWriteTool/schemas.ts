@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * Todo 项状态枚举
@@ -67,7 +68,7 @@ export function validateTodoWriteInput(input: unknown): TodoWriteInputType {
     const errors = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new Error(`TodoWrite输入验证失败: ${errors}`);
+    throw new AppError(`TodoWrite输入验证失败: ${errors}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return result.data;
 }

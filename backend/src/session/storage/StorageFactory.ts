@@ -6,6 +6,7 @@
 import type { UnifiedSessionStorage } from './UnifiedStorage.js';
 import type { StorageConfig, StorageType } from './UnifiedStorage.js';
 import { StorageType } from './UnifiedStorage.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 存储实例注册表
@@ -47,9 +48,9 @@ export class StorageFactory {
     const StorageClass = storageRegistry.get(config.type);
 
     if (!StorageClass) {
-      throw new Error(
+      throw new AppError(
         `Storage type '${config.type}' is not registered. Available types: ${Array.from(storageRegistry.keys()).join(', ')}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     return new StorageClass(config);

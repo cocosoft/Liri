@@ -1,5 +1,6 @@
 import { asyncContextStorage } from './AsyncContextStorage';
 import type { Context } from './types/Context';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export type IsolationLevel = 'strict' | 'inherited' | 'shared';
 
@@ -41,15 +42,15 @@ export class ContextIsolator {
     level: IsolationLevel = 'inherited'
   ): IsolationScope {
     if (this.scopes.has(id)) {
-      throw new Error(`Scope already exists: ${id}`);
+      throw new AppError(`Scope already exists: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (parentId && !this.scopes.has(parentId)) {
-      throw new Error(`Parent scope not found: ${parentId}`);
+      throw new AppError(`Parent scope not found: ${parentId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.scopes.size >= this.maxScopes) {
-      throw new Error(`Maximum number of scopes reached: ${this.maxScopes}`);
+      throw new AppError(`Maximum number of scopes reached: ${this.maxScopes}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const scope: IsolationScope = {
@@ -102,12 +103,12 @@ export class ContextIsolator {
     fn: () => T | Promise<T>
   ): Promise<T> {
     if (this.scopeStack.length >= this.maxStackDepth) {
-      throw new Error(`Maximum stack depth reached: ${this.maxStackDepth}`);
+      throw new AppError(`Maximum stack depth reached: ${this.maxStackDepth}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const scope = this.scopes.get(scopeId);
     if (!scope) {
-      throw new Error(`Scope not found: ${scopeId}`);
+      throw new AppError(`Scope not found: ${scopeId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const currentStore = asyncContextStorage.getStore() || {};
@@ -140,13 +141,13 @@ export class ContextIsolator {
   snapshot(scopeId: string): void {
     const scope = this.scopes.get(scopeId);
     if (!scope) {
-      throw new Error(`Scope not found: ${scopeId}`);
+      throw new AppError(`Scope not found: ${scopeId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (this.snapshots.size >= this.maxSnapshots) {
-      throw new Error(
+      throw new AppError(
         `Maximum number of snapshots reached: ${this.maxSnapshots}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.snapshots.set(scopeId, {
@@ -158,7 +159,7 @@ export class ContextIsolator {
   restore(scopeId: string): void {
     const snapshot = this.snapshots.get(scopeId);
     if (!snapshot) {
-      throw new Error(`Snapshot not found for scope: ${scopeId}`);
+      throw new AppError(`Snapshot not found for scope: ${scopeId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.scopes.set(scopeId, { ...snapshot.scope });

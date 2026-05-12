@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * MonitorTool 输入模式
@@ -36,7 +37,7 @@ export function validateMonitorInput(input: unknown): MonitorInputType {
     const errors = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new Error(`Monitor输入验证失败: ${errors}`);
+    throw new AppError(`Monitor输入验证失败: ${errors}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return result.data;
 }

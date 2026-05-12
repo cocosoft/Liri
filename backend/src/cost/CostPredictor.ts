@@ -6,6 +6,7 @@
 
 import type { CostData, CostCategory, CostPeriod } from './types.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -106,7 +107,7 @@ export class CostPredictor {
     predictions: CostPredictionResult[]
   ): CostPredictionResult {
     if (predictions.length === 0) {
-      throw new Error('没有有效的预测结果');
+      throw new AppError('没有有效的预测结果', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (predictions.length === 1) {

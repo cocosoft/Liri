@@ -10,6 +10,7 @@ import type { PostSamplingHookManager } from '../hooks/managers/PostSamplingHook
 import type { TokenBudgetManager } from './TokenBudget';
 import type { StopHookManager } from './StopHooks';
 import type { QueryConfigManager } from './config';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface QueryDependencies {
   chatManager: ChatManager;
@@ -74,7 +75,7 @@ export class QueryDepsManager {
   getOrThrow<T>(key: string): T {
     const instance = this.get<T>(key);
     if (!instance) {
-      throw new Error(`Dependency not found: ${key}`);
+      throw new AppError(`Dependency not found: ${key}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return instance;
   }
@@ -123,7 +124,7 @@ export class QueryDepsManager {
     return () => {
       const instance = this.get<T>(key);
       if (!instance) {
-        throw new Error(`Dependency not found: ${key}`);
+        throw new AppError(`Dependency not found: ${key}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
       return instance;
     };

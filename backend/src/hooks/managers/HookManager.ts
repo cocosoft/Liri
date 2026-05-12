@@ -297,10 +297,17 @@ export class HookManager {
   }
 
   /**
+   * 清除所有已注册的Hook（不清除配置加载的Hook）
+   */
+  public clearHooks(): void {
+    this.registeredHooks.clear();
+  }
+
+  /**
    * 重置管理器
    */
   public reset(): void {
-    this.registeredHooks.clear();
+    this.clearHooks();
     (this.hookConfigManager as any).reset();
     this.hookExecutor.reset();
     this.sessionHookManager.reset();

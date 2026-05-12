@@ -1,0 +1,42 @@
+{
+  "name": "@pyapp/personal",
+  "version": "1.0.0",
+  "description": "PY_APP Personal — 个人版 AI Agent，含 Telegram/Web 通道、插件系统和文件转换",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "cd ../.. && bun run build:personal",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@pyapp/core": "1.0.0"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "telegram",
+    "websocket",
+    "plugin",
+    "typescript"
+  ],
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

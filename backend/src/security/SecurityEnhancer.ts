@@ -33,6 +33,7 @@ import type { AuditEvent } from './managers/SecurityAuditManager.js';
 import type { Vulnerability } from './scanners/SecurityScanner.js';
 import type { PermissionContext } from '../permission/models/Permission.js';
 import type { PermissionDecision } from '../permission/types/PermissionDecision.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 安全增强器选项
@@ -444,7 +445,7 @@ let globalSecurityEnhancer: SecurityEnhancer | null = null;
  */
 export function getSecurityEnhancer(): SecurityEnhancer {
   if (!globalSecurityEnhancer) {
-    throw new Error('Security enhancer not initialized');
+    throw new AppError('Security enhancer not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return globalSecurityEnhancer;
 }

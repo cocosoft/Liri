@@ -13,6 +13,7 @@ import {
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -192,7 +193,7 @@ export class ProcessSubAgent implements SubAgent {
    */
   async execute(task: SubAgentTask): Promise<SubAgentResult> {
     if (this.status !== SubAgentStatus.RUNNING) {
-      throw new Error(`SubAgent ${this.id} is not running`);
+      throw new AppError(`SubAgent ${this.id} is not running`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     try {

@@ -7,6 +7,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -115,7 +116,7 @@ export class StdioTransport extends MCPTransport {
    */
   async send(request: MCPRequest): Promise<MCPResponse> {
     if (!this.process || !this.connected) {
-      throw new Error('Not connected to MCP server');
+      throw new AppError('Not connected to MCP server', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     return new Promise((resolve, reject) => {

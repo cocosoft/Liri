@@ -16,6 +16,7 @@ import type {
   SerializedTool,
 } from './types';
 import type { McpCommand } from './commandManager';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -226,7 +227,7 @@ export class MCPConnectionManager {
   async reconnectServer(serverName: string): Promise<MCPServerConnection> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new Error(`Server not found: ${serverName}`);
+      throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 取消现有的重连尝试
@@ -253,7 +254,7 @@ export class MCPConnectionManager {
   async toggleServer(serverName: string): Promise<void> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new Error(`Server not found: ${serverName}`);
+      throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 这里可以实现启用/禁用逻辑

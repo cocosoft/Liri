@@ -71,6 +71,30 @@ const ConfigSchema = z.object({
       maxRetries: z.number().int().nonnegative().default(3),
     })
     .default({}),
+
+  // Gateway 通道配置
+  gateway: z
+    .object({
+      enabled: z.boolean().default(false),
+      telegram: z
+        .object({
+          enabled: z.boolean().default(false),
+          token: z.string().default(''),
+          pollingTimeout: z.number().int().positive().default(30),
+          pollingInterval: z.number().int().positive().default(1000),
+        })
+        .default({}),
+      websocket: z
+        .object({
+          enabled: z.boolean().default(false),
+          host: z.string().default('0.0.0.0'),
+          port: z.number().int().positive().default(8080),
+          path: z.string().default('/'),
+          maxMessageSize: z.number().int().positive().default(1048576),
+        })
+        .default({}),
+    })
+    .default({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -151,6 +175,13 @@ export class ConfigManager {
    */
   getEditorConfig(): Config['editor'] {
     return { ...this.config.editor };
+  }
+
+  /**
+   * 获取 Gateway 通道配置
+   */
+  getGatewayConfig(): Config['gateway'] {
+    return { ...this.config.gateway };
   }
 
   /**

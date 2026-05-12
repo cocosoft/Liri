@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -205,7 +206,7 @@ export class SkillManager {
           version: '1.0.0',
           author: 'Unknown',
           execute: async () => {
-            throw new Error('Skill failed to load');
+            throw new AppError('Skill failed to load', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
           },
         },
         state: SkillState.FAILED,
@@ -247,7 +248,7 @@ export class SkillManager {
         for (const dependency of skillInfo.skill.dependencies) {
           const depSkillInfo = this.skills.get(dependency);
           if (!depSkillInfo) {
-            throw new Error(`Dependency ${dependency} not found`);
+            throw new AppError(`Dependency ${dependency} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
           }
           if (
             depSkillInfo.state !== SkillState.INITIALIZED &&
@@ -357,13 +358,13 @@ export class SkillManager {
     profileCheckpoint(`skill_execute_${name}_start`);
     const skillInfo = this.skills.get(name);
     if (!skillInfo) {
-      throw new Error(`Skill ${name} not found`);
+      throw new AppError(`Skill ${name} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (skillInfo.state !== SkillState.INITIALIZED) {
-      throw new Error(
+      throw new AppError(
         `Skill ${name} is not initialized (state: ${skillInfo.state})`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 构建技能上下文

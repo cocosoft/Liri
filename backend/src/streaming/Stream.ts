@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * 流式响应处理器
  *
@@ -17,7 +19,7 @@ export class Stream<T> implements AsyncIterableIterator<T> {
 
   [Symbol.asyncIterator](): AsyncIterableIterator<T> {
     if (this.started) {
-      throw new Error('Stream can only be iterated once');
+      throw new AppError('Stream can only be iterated once', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     this.started = true;
     return this;

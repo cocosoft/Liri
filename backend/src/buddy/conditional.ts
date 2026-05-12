@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * Buddy条件编译支持
  * 提供编译时功能开关和条件编译宏
@@ -176,7 +178,7 @@ export function hasAnyBuddyFeature(): boolean {
  */
 export function compileTimeAssert(condition: boolean, message: string): void {
   if (!condition) {
-    throw new Error(`[Buddy Compile Error] ${message}`);
+    throw new AppError(`[Buddy Compile Error] ${message}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 }
 

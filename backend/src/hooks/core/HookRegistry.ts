@@ -11,6 +11,7 @@ import type {
   HookPriority,
   HookDependency,
 } from '../types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * Hook注册项接口（基于CC源码）
@@ -68,7 +69,7 @@ export class HookRegistry {
 
     // 检查是否已注册
     if (this.hookIndex.has(hookId)) {
-      throw new Error(`Hook already registered: ${hookId}`);
+      throw new AppError(`Hook already registered: ${hookId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const registration: HookRegistration = {

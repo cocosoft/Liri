@@ -8,6 +8,7 @@ import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 import { exec, execSync, ExecOptions } from 'child_process';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * Bash工具输入模式
@@ -463,7 +464,7 @@ export class BashTool {
     options: ExecOptions
   ): Promise<{ stdout: string; stderr: string }> {
     if (BashTool.isDangerousCommand(command)) {
-      throw new Error(`Dangerous command detected: ${command}`);
+      throw new AppError(`Dangerous command detected: ${command}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return BashTool.executeCommand(command, options);
   }
@@ -482,9 +483,9 @@ export class BashTool {
       const stdout = execSync(command, options).toString();
       return { stdout, stderr: '' };
     } catch (error) {
-      throw new Error(
+      throw new AppError(
         `Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -499,7 +500,7 @@ export class BashTool {
     options: ExecOptions & { encoding: BufferEncoding }
   ): { stdout: string; stderr: string } {
     if (BashTool.isDangerousCommand(command)) {
-      throw new Error(`Dangerous command detected: ${command}`);
+      throw new AppError(`Dangerous command detected: ${command}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     return BashTool.executeCommandSync(command, options);
   }

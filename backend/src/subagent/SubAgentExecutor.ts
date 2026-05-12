@@ -4,6 +4,7 @@
 import { SubAgent, SubAgentTask, SubAgentResult } from './types/SubAgent';
 import { ToolResult } from '../tools/types/ToolResult';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -34,7 +35,7 @@ export class SubAgentExecutor {
     try {
       // 检查子agent状态
       if (subAgent.getStatus() !== 'running') {
-        throw new Error(`SubAgent ${subAgent.id} is not running`);
+        throw new AppError(`SubAgent ${subAgent.id} is not running`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       // 执行任务
@@ -71,7 +72,7 @@ export class SubAgentExecutor {
     try {
       // 检查子agent状态
       if (subAgent.getStatus() !== 'running') {
-        throw new Error(`SubAgent ${subAgent.id} is not running`);
+        throw new AppError(`SubAgent ${subAgent.id} is not running`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       // 这里可以实现工具执行逻辑

@@ -4,6 +4,7 @@ import {
   createValidResult,
   createInvalidResult,
 } from './types/ValidationResult';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export interface IContextInjector {
   inject(context: Context, target: unknown): Promise<void>;
@@ -19,9 +20,9 @@ export class ContextInjector implements IContextInjector {
   async inject(context: Context, target: unknown): Promise<void> {
     const validation = this.validateInjection(context, target);
     if (!validation.valid) {
-      throw new Error(
+      throw new AppError(
         `Injection validation failed: ${validation.errors.join(', ')}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     if (target && typeof target === 'object') {

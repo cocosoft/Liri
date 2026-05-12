@@ -5,6 +5,7 @@
  */
 
 import { logger } from '@modules/utils/log.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * OAuth授权服务器元数据
@@ -90,9 +91,9 @@ export class OAuthDiscovery {
       });
 
       if (!response.ok) {
-        throw new Error(
+        throw new AppError(
           `OAuth Discovery failed: ${response.status} ${response.statusText}`
-        );
+        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       const metadata = await response.json();
@@ -101,9 +102,9 @@ export class OAuthDiscovery {
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
       logger.error(`OAuth Discovery failed for ${issuer}:`, e);
-      throw new Error(
+      throw new AppError(
         `Failed to discover OAuth metadata: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -131,7 +132,7 @@ export class OAuthDiscovery {
 
     for (const field of requiredFields) {
       if (!metadata[field as keyof OAuthMetadata]) {
-        throw new Error(`Missing required OAuth metadata field: ${field}`);
+        throw new AppError(`Missing required OAuth metadata field: ${field}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
     }
 
@@ -139,7 +140,7 @@ export class OAuthDiscovery {
     try {
       new URL(metadata.issuer);
     } catch {
-      throw new Error(`Invalid issuer URL: ${metadata.issuer}`);
+      throw new AppError(`Invalid issuer URL: ${metadata.issuer}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 验证端点URL格式
@@ -152,7 +153,7 @@ export class OAuthDiscovery {
       try {
         new URL(endpoint);
       } catch {
-        throw new Error(`Invalid endpoint URL: ${endpoint}`);
+        throw new AppError(`Invalid endpoint URL: ${endpoint}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
     }
 

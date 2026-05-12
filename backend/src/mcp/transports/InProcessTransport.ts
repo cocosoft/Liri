@@ -5,6 +5,7 @@
  */
 
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 进程内传输接口
@@ -40,7 +41,7 @@ class InProcessTransportImpl implements InProcessTransportInterface {
 
   async send(message: JSONRPCMessage): Promise<void> {
     if (this._closed) {
-      throw new Error('Transport is closed');
+      throw new AppError('Transport is closed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 异步投递消息，避免同步请求/响应循环导致的栈溢出

@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import { Database } from 'sqlite3';
 import { Logger } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger();
 
@@ -113,7 +114,7 @@ export class CostRecordRepository {
 
   private async createTables(): Promise<void> {
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await new Promise<void>((resolve, reject) => {

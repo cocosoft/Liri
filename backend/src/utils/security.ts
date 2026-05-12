@@ -1,4 +1,5 @@
 import { Logger } from '../monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger();
 
@@ -848,53 +849,50 @@ export function validateObject(
     const value = obj[key];
 
     if (rules.required && (value === undefined || value === null)) {
-      throw new Error('Field ' + key + ' is required');
+      throw new AppError('Field ' + key + ' is required', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
     }
 
     if (value !== undefined && value !== null) {
       if (rules.type) {
         if (typeof value !== rules.type) {
-          throw new Error('Field ' + key + ' must be of type ' + rules.type);
+          throw new AppError('Field ' + key + ' must be of type ' + rules.type, ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
         }
 
         if (rules.type === 'string') {
           if (rules.minLength !== undefined && value.length < rules.minLength) {
-            throw new Error(
+            throw new AppError(
               'Field ' +
                 key +
                 ' must be at least ' +
                 rules.minLength +
-                ' characters'
-            );
+                ' characters', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
           }
           if (rules.maxLength !== undefined && value.length > rules.maxLength) {
-            throw new Error(
+            throw new AppError(
               'Field ' +
                 key +
                 ' must be at most ' +
                 rules.maxLength +
-                ' characters'
-            );
+                ' characters', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
           }
         }
 
         if (rules.type === 'number') {
           if (rules.min !== undefined && value < rules.min) {
-            throw new Error('Field ' + key + ' must be at least ' + rules.min);
+            throw new AppError('Field ' + key + ' must be at least ' + rules.min, ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
           }
           if (rules.max !== undefined && value > rules.max) {
-            throw new Error('Field ' + key + ' must be at most ' + rules.max);
+            throw new AppError('Field ' + key + ' must be at most ' + rules.max, ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
           }
         }
 
         if (rules.enum && !rules.enum.includes(value)) {
-          throw new Error(
-            'Field ' + key + ' must be one of ' + rules.enum.join(', ')
-          );
+          throw new AppError(
+            'Field ' + key + ' must be one of ' + rules.enum.join(', '), ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
         }
 
         if (rules.validate && !rules.validate(value)) {
-          throw new Error('Field ' + key + ' failed validation');
+          throw new AppError('Field ' + key + ' failed validation', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
         }
       }
     }

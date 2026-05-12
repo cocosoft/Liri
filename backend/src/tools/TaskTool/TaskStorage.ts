@@ -6,6 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import type { Task, TaskStorage, TaskStatus } from './types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 内存任务存储
@@ -48,7 +49,7 @@ export class InMemoryTaskStorage implements TaskStorage {
   async update(id: string, updates: Partial<Task>): Promise<Task> {
     const task = this.tasks.get(id);
     if (!task) {
-      throw new Error(`Task with id ${id} not found`);
+      throw new AppError(`Task with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const updatedTask: Task = {
@@ -72,7 +73,7 @@ export class InMemoryTaskStorage implements TaskStorage {
    */
   async delete(id: string): Promise<void> {
     if (!this.tasks.has(id)) {
-      throw new Error(`Task with id ${id} not found`);
+      throw new AppError(`Task with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     this.tasks.delete(id);
   }

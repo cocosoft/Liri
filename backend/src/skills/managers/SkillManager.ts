@@ -1,5 +1,6 @@
 import { Skill, SkillLoader } from '../types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -110,7 +111,7 @@ export class SkillManager {
   ): Promise<any> {
     const skill = this.getSkill(name);
     if (!skill) {
-      throw new Error(`Skill not found: ${name}`);
+      throw new AppError(`Skill not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     try {

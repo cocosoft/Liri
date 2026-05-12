@@ -13,6 +13,7 @@ import {
   SwarmExecutionOptions,
   AgentStatus,
 } from './types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const DEFAULT_CONFIG: SwarmConfig = {
   maxAgents: 10,
@@ -34,7 +35,7 @@ class DefaultSwarmAgent implements ISwarmAgent {
     }
 
     if (payload.shouldFail) {
-      throw new Error('Simulated failure');
+      throw new AppError('Simulated failure', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     return {
@@ -82,7 +83,7 @@ export class AgentSwarmManager {
   addAgent(agent: ISwarmAgent): void {
     const maxAgents = this.config.maxAgents ?? 10;
     if (this.agents.size >= maxAgents) {
-      throw new Error(`Cannot add more than ${maxAgents} agents to swarm`);
+      throw new AppError(`Cannot add more than ${maxAgents} agents to swarm`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     this.agents.set(agent.id, agent);
   }
@@ -142,7 +143,7 @@ export class AgentSwarmManager {
   ): Promise<SwarmResult[]> {
     const agents = this.getAgents();
     if (agents.length === 0) {
-      throw new Error('No agents available in swarm');
+      throw new AppError('No agents available in swarm', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const timeoutPromise = new Promise<SwarmResult[]>((_, reject) => {
@@ -169,7 +170,7 @@ export class AgentSwarmManager {
   ): Promise<SwarmResult[]> {
     const agents = this.getAgents();
     if (agents.length === 0) {
-      throw new Error('No agents available in swarm');
+      throw new AppError('No agents available in swarm', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const results: SwarmResult[] = [];
@@ -177,7 +178,7 @@ export class AgentSwarmManager {
 
     for (let i = 0; i < tasks.length; i++) {
       if (Date.now() - startTime > timeoutMs) {
-        throw new Error('Swarm execution timed out');
+        throw new AppError('Swarm execution timed out', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
 
       const agent = agents[i % agents.length];

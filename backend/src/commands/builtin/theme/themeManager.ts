@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * /theme 命令 - 主题管理
  * 基于CC源码 commands/theme/theme.tsx 模式
@@ -64,7 +66,7 @@ export function getTheme(): ThemeConfig {
 }
 
 export function setTheme(name: ThemeName): ThemeConfig {
-  if (!THEMES[name]) throw new Error(`Unknown theme: ${name}`);
+  if (!THEMES[name]) throw new AppError(`Unknown theme: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   currentTheme = name;
   return THEMES[name];
 }

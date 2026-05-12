@@ -4,6 +4,7 @@
  */
 
 import type { ChatResponse } from '../models/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * SSE 事件类型
@@ -166,7 +167,7 @@ export async function* streamOpenAICompatible(
   options?: SSEClientOptions
 ): AsyncGenerator<OpenAIStreamChunk> {
   if (!response.body) {
-    throw new Error('Response body is null');
+    throw new AppError('Response body is null', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   const parser = new SSEStreamParser();
@@ -302,9 +303,9 @@ export async function createOpenAIStream(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(
+    throw new AppError(
       `OpenAI compatible API error: ${response.status} - ${errorText}`
-    );
+    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
 
   return streamOpenAICompatible(response, options);

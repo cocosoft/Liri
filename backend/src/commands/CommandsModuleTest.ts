@@ -12,6 +12,7 @@ import type {
 } from './pipeline/CommandPipeline';
 import { AdvancedCommandHistory } from './history/AdvancedCommandHistory';
 import type { HistoryEntry } from './history/AdvancedCommandHistory';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 describe('EnhancedCommandRegistry', () => {
   let registry: EnhancedCommandRegistry;
@@ -319,7 +320,7 @@ describe('CommandPipeline', () => {
       stage: PipelineStage.EXECUTE,
       priority: 10,
       handler: async (_ctx, _next) => {
-        throw new Error('Middleware error');
+        throw new AppError('Middleware error', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       },
     });
     const result = await pipeline.execute('test', '');

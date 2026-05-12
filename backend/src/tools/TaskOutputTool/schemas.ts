@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * TaskOutputTool 输入模式
@@ -54,7 +55,7 @@ export function validateTaskOutputInput(input: unknown): TaskOutputInputType {
     const errors = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new Error(`TaskOutput输入验证失败: ${errors}`);
+    throw new AppError(`TaskOutput输入验证失败: ${errors}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
   }
   return result.data;
 }

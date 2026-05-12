@@ -15,6 +15,7 @@ import { notebookManager } from './NotebookManager.js';
 import { CodeCellImpl, MarkdownCellImpl } from './types/Cell.js';
 import { REPLToolImpl } from '../repl/REPLToolImpl.js';
 import { REPLSession } from '../repl/types/index.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * Notebook工具实现
@@ -186,7 +187,7 @@ export class NotebookToolImpl implements NotebookTool {
       case 'pdf':
         return this.exportToPDF(notebook);
       default:
-        throw new Error(`Unsupported format: ${format}`);
+        throw new AppError(`Unsupported format: ${format}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

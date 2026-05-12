@@ -12,6 +12,31 @@
  *   - 命名约定参考 CC 源码
  */
 
+/** 构建变体（分版标识） */
+export type BuildVariant = 'core' | 'personal' | 'coding' | 'enterprise';
+
+/** 所有构建变体列表 */
+export const BUILD_VARIANTS: readonly BuildVariant[] = [
+  'core',
+  'personal',
+  'coding',
+  'enterprise',
+] as const;
+
+/**
+ * 当前构建变体
+ *
+ * 控制当前构建的版本类型，影响功能开关的默认值。
+ * - 'core': 核心版（最小功能集，仅 CLI + 基础工具）
+ * - 'personal': 个人版（Core + Telegram/Web 通道 + 插件）
+ * - 'coding': 编码版（Personal + LSP + Notebook + 代码分析）
+ * - 'enterprise': 企业版（Coding + Slack/Discord + Auth + Audit）
+ *
+ * 可通过环境变量 PYAPP_BUILD_VARIANT 覆盖。
+ */
+export const BUILD_VARIANT: BuildVariant =
+  (process.env['PYAPP_BUILD_VARIANT'] as BuildVariant) || 'coding';
+
 export const FEATURE_FLAGS = {
   // ───── AI/Agent 功能 ─────
   /** Agent 功能 */
@@ -220,6 +245,28 @@ export function feature(name: FeatureFlag): boolean {
 
 export function isFeatureEnabled(name: FeatureFlag): boolean {
   return FEATURE_FLAGS[name];
+}
+
+/** 获取当前构建变体 */
+export function getBuildVariant(): BuildVariant {
+  return BUILD_VARIANT;
+}
+
+/** 检查是否为指定变体 */
+export function isBuildVariant(variant: BuildVariant): boolean {
+  return BUILD_VARIANT === variant;
+}
+
+/** 检查当前变体是否至少包含指定变体的功能（core < personal < coding < enterprise） */
+export function isAtLeastVariant(variant: BuildVariant): boolean {
+  const order: Record<BuildVariant, number> = {
+    core: 0,
+    personal: 1,
+    coding: 2,
+    enterprise: 3,
+  };
+
+  return order[BUILD_VARIANT] >= order[variant];
 }
 
 /** 工具名到核心标志的映射表 */

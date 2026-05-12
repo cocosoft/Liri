@@ -12,6 +12,7 @@ import {
 } from './types';
 import { WebSocketProtocol, HttpProtocol } from './RemoteAgentProtocol';
 import { RemoteAgentProtocol, ProtocolType } from './types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
   private protocol: RemoteAgentProtocol;
@@ -56,7 +57,7 @@ export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
     task: Omit<RemoteAgentTask, 'agentId'>
   ): Promise<RemoteExecutionResult> {
     if (this.sessionStatus !== 'connected') {
-      throw new Error('Not connected to remote agent');
+      throw new AppError('Not connected to remote agent', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const remoteTask: RemoteAgentTask = {

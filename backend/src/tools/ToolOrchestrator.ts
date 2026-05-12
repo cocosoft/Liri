@@ -9,6 +9,7 @@ import { ToolUseContext } from './types/ToolUseContext';
 import { ToolExecutor, createToolExecutor } from './ToolExecutor';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -178,7 +179,7 @@ export class ToolOrchestrator {
   async executeBatch(batchId: string): Promise<ToolExecutionBatch> {
     const batch = this.batches.get(batchId);
     if (!batch) {
-      throw new Error(`Batch not found: ${batchId}`);
+      throw new AppError(`Batch not found: ${batchId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     batch.status = 'running';
@@ -225,7 +226,7 @@ export class ToolOrchestrator {
     context: ToolUseContext
   ): Promise<ToolResult[]> {
     if (tools.length !== inputs.length) {
-      throw new Error('Tools and inputs length must match');
+      throw new AppError('Tools and inputs length must match', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const tasks = tools.map((tool, index) => ({

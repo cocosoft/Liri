@@ -11,6 +11,7 @@ import {
   MCPToolDefinition,
 } from '../types';
 import { MCPServerConnection } from './MCPServerConnection';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 服务器统计信息
@@ -159,7 +160,7 @@ export class MCPServerManager {
   ): Promise<any> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new Error(`MCP server not found: ${serverName}`);
+      throw new AppError(`MCP server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const startTime = Date.now();
@@ -221,7 +222,7 @@ export class MCPServerManager {
   async getServerTools(serverName: string): Promise<MCPServerConnectionInfo> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new Error(`MCP server not found: ${serverName}`);
+      throw new AppError(`MCP server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await this.refreshServerTools(serverName);

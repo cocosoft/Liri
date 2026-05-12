@@ -10,6 +10,7 @@ import {
   SwarmExecutionOptions,
 } from './types';
 import { AgentSwarmManager } from './AgentSwarmManager';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export class SwarmCoordinator {
   private swarmManager: AgentSwarmManager;
@@ -33,7 +34,7 @@ export class SwarmCoordinator {
     // 检查可用Agent数量
     const agentCount = this.swarmManager.size();
     if (agentCount === 0) {
-      throw new Error('No agents available in swarm');
+      throw new AppError('No agents available in swarm', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 执行任务

@@ -27,6 +27,7 @@ import {
 } from './services/PYAppIntegrationService';
 import fsExtra from 'fs-extra';
 import { join } from 'path';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 记忆管理器接口
@@ -230,7 +231,7 @@ export class MemoryManagerImpl {
     // 获取现有记忆
     const existingMemory = await this.store.readMemory(id);
     if (!existingMemory) {
-      throw new Error(`Memory with id ${id} not found`);
+      throw new AppError(`Memory with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 合并更新
@@ -440,7 +441,7 @@ export class MemoryManagerImpl {
   async restoreMemoryData(backupDir: string): Promise<void> {
     // 检查备份目录是否存在
     if (!(await fsExtra.pathExists(backupDir))) {
-      throw new Error(`Backup directory ${backupDir} does not exist`);
+      throw new AppError(`Backup directory ${backupDir} does not exist`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 清空当前记忆目录

@@ -18,6 +18,7 @@ import {
   supports1MContext as aliasSupports1MContext,
 } from './models/ModelAliases.js';
 import { modelManager } from './models/ModelManager.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export const MODEL_ALIASES = [
   'sonnet',
@@ -51,16 +52,16 @@ export class AIModelManager {
    */
   private ensureModelManager(): void {
     if (!modelManager) {
-      throw new Error(
+      throw new AppError(
         'AIModelManager: modelManager is not available. ' +
           'Ensure ModelManager is initialized before using AIModelManager.'
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
     if (typeof modelManager.getModelContextWindow !== 'function') {
-      throw new Error(
+      throw new AppError(
         'AIModelManager: modelManager instance is invalid. ' +
           'Expected ModelManager with getModelContextWindow method.'
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 

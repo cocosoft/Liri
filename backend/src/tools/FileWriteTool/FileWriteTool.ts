@@ -31,9 +31,9 @@ export function writeFile(input: FileWriteInput): FileWriteResult {
   if (existed) {
     const stat = fs.statSync(resolved);
     if (stat.size > MAX_FILE_SIZE) {
-      throw new Error(
+      throw new AppError(
         `File too large to overwrite: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -57,6 +57,7 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export class FileWriteTool extends BaseTool {
   name = 'file_write';

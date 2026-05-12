@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { AgentTool } from '@modules/tools/AgentTool/AgentTool';
+import { lazySingleton } from '../utils/common';
 import { logger } from '@modules/utils/log.js';
 
 export interface CoordinatorTask {
@@ -52,15 +52,23 @@ const DEFAULT_CONFIG: CoordinatorConfig = {
 
 export class Coordinator {
   private config: CoordinatorConfig;
-  private agentTool: AgentTool;
+  private _agentTool: any = null;
   private tasks: Map<string, CoordinatorTask> = new Map();
   private taskQueue: string[] = [];
   private runningTasks: Set<string> = new Set();
   private taskStatusCache: Map<string, CoordinatorTask> = new Map();
 
+  private get agentTool(): any {
+    if (!this._agentTool) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { AgentTool } = require('@modules/tools/AgentTool/AgentTool');
+      this._agentTool = new AgentTool();
+    }
+    return this._agentTool;
+  }
+
   constructor(config?: Partial<CoordinatorConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.agentTool = new AgentTool();
   }
 
   /**
@@ -479,6 +487,6 @@ export function createCoordinator(
 }
 
 /**
- * 全局协调器实例
+ * 全局协调器实例（懒加载）
  */
-export const coordinator = new Coordinator();
+export const coordinator = lazySingleton(() => new Coordinator());

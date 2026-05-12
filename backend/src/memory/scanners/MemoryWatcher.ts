@@ -8,6 +8,7 @@ import { watch, FSWatcher } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
 import { logger } from '@modules/utils/log';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 记忆文件变化类型
@@ -80,7 +81,7 @@ export class MemoryWatcher {
     }
 
     if (!this.config.memoryDir) {
-      throw new Error('memoryDir is required');
+      throw new AppError('memoryDir is required', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     await this.scanInitialFiles();

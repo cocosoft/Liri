@@ -146,3 +146,6 @@ export { themeCommand } from './builtin/theme/index.js';
 export { keyboardCommand } from './builtin/keyboard/index.js';
 export { workspaceCommand } from './builtin/workspace/index.js';
 export { timerCommand } from './builtin/timer/index.js';
+
+// Gateway 通道管理命令
+export { gatewayCommand } from './builtin/gateway/index.js';

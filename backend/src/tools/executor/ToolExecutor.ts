@@ -11,6 +11,7 @@ import {
   ToolExecutionLog,
   ToolErrorCode,
 } from '../types/ToolTypes';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 工具执行器类（基于CC源码）
@@ -36,7 +37,7 @@ export class ToolExecutor {
 
     // 检查是否已有相同执行ID的执行
     if (this.concurrentExecutions.has(executionId)) {
-      throw new Error(`执行ID已存在: ${executionId}`);
+      throw new AppError(`执行ID已存在: ${executionId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     // 创建执行Promise

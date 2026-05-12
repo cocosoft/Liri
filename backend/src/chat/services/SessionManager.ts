@@ -16,6 +16,7 @@ import {
   SessionCheckpointService,
   getCheckpointService,
 } from './SessionCheckpointService';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 内存会话存储
@@ -558,7 +559,7 @@ export class SessionManagerImpl implements SessionManager {
   async createCheckpoint(sessionId: string, label?: string): Promise<string> {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
+      throw new AppError(`Session not found: ${sessionId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const cp = await this.checkpointService.saveCheckpointWithData(
@@ -582,12 +583,12 @@ export class SessionManagerImpl implements SessionManager {
   }> {
     const checkpoint = await this.checkpointService.getCheckpoint(checkpointId);
     if (!checkpoint) {
-      throw new Error(`Checkpoint not found: ${checkpointId}`);
+      throw new AppError(`Checkpoint not found: ${checkpointId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const currentSession = this.sessions.get(checkpoint.sessionId);
     if (!currentSession) {
-      throw new Error(`Session not found: ${checkpoint.sessionId}`);
+      throw new AppError(`Session not found: ${checkpoint.sessionId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const result = await this.checkpointService.rollbackToCheckpoint(

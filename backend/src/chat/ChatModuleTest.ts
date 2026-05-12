@@ -28,6 +28,7 @@ import type {
 } from './security/CompleteSecuritySystem';
 import { ChatEcosystem } from './ecosystem/ChatEcosystem';
 import type { Extension } from './ecosystem/ChatEcosystem';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 describe('AdvancedStreamingProcessor', () => {
   let processor: AdvancedStreamingProcessor;
@@ -227,7 +228,7 @@ describe('SmartToolIntegrator', () => {
       version: '1.0.0',
       parameters: {},
       execute: async () => {
-        throw new Error('temporary');
+        throw new AppError('temporary', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       },
       timeout: 100,
     };
@@ -591,7 +592,7 @@ describe('ChatEcosystem', () => {
       description: '',
       hooks: {
         beforeSendMessage: async () => {
-          throw new Error('hook error');
+          throw new AppError('hook error', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
         },
       },
       priority: 0,

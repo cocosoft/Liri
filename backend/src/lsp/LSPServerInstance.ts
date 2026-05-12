@@ -3,6 +3,7 @@ import { pathToFileURL } from 'url';
 import * as path from 'path';
 
 import type { LspServerState, ScopedLspServerConfig } from './types.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const LSP_ERROR_CONTENT_MODIFIED = -32801;
 const MAX_RETRIES_FOR_TRANSIENT_ERRORS = 3;
@@ -124,7 +125,7 @@ export function createLSPServerInstance(
 
   async function sendRequest<T>(method: string, params: unknown): Promise<T> {
     if (!client || state !== 'running') {
-      throw new Error(`LSP server '${name}' is not running (state: ${state})`);
+      throw new AppError(`LSP server '${name}' is not running (state: ${state})`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     let lastError: Error | undefined;

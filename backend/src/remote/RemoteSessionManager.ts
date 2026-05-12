@@ -9,6 +9,7 @@ import {
   DirectConnectManager,
   parseCCProtocolUrl,
 } from './DirectConnectManager.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
  * 远程会话配置
@@ -65,9 +66,9 @@ export class RemoteSessionManager {
     } else if (config.directConnectUrl) {
       this.sessionType = RemoteSessionType.DIRECT_CONNECT;
     } else {
-      throw new Error(
+      throw new AppError(
         'Invalid remote session config: missing sshConfig or directConnectUrl'
-      );
+      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -104,14 +105,14 @@ export class RemoteSessionManager {
    */
   private async connectSSH(): Promise<void> {
     if (!this.config.sshConfig) {
-      throw new Error('SSH config not provided');
+      throw new AppError('SSH config not provided', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.sshConnection = new SSHConnection(this.config.sshConfig);
     const success = await this.sshConnection.connect();
 
     if (!success) {
-      throw new Error('SSH connection failed');
+      throw new AppError('SSH connection failed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
   }
 
@@ -120,12 +121,12 @@ export class RemoteSessionManager {
    */
   private async connectDirect(): Promise<void> {
     if (!this.config.directConnectUrl) {
-      throw new Error('Direct connect URL not provided');
+      throw new AppError('Direct connect URL not provided', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const parsedUrl = parseCCProtocolUrl(this.config.directConnectUrl);
     if (!parsedUrl) {
-      throw new Error('Invalid direct connect URL');
+      throw new AppError('Invalid direct connect URL', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     this.directConnectManager = new DirectConnectManager();

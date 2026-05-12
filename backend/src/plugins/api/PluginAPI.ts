@@ -7,6 +7,7 @@ import type { PluginAPI } from './types/Plugin.js';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -60,7 +61,7 @@ export class PluginAPIImpl implements PluginAPI {
     ): Promise<unknown> => {
       const handler = this.commands.get(id);
       if (!handler) {
-        throw new Error(`Command not found: ${id}`);
+        throw new AppError(`Command not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
       return await handler();
     },
@@ -188,7 +189,7 @@ export class PluginAPIImpl implements PluginAPI {
     readFile: async (path: string): Promise<string> => {
       const resolvedPath = resolve(path);
       if (!existsSync(resolvedPath)) {
-        throw new Error(`File not found: ${path}`);
+        throw new AppError(`File not found: ${path}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
       }
       return readFileSync(resolvedPath, 'utf8');
     },

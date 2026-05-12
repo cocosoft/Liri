@@ -13,6 +13,7 @@ import type {
   OllamaResponse,
   OllamaChatResponse,
 } from './types.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 export class OllamaProvider implements IOllamaProvider {
   private config: OllamaConfig;
@@ -69,7 +70,7 @@ export class OllamaProvider implements IOllamaProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama generate failed: ${response.statusText}`);
+      throw new AppError(`Ollama generate failed: ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const data = await response.json();
@@ -118,7 +119,7 @@ export class OllamaProvider implements IOllamaProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama chat failed: ${response.statusText}`);
+      throw new AppError(`Ollama chat failed: ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
     }
 
     const data = await response.json();

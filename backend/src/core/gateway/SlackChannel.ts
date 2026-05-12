@@ -3,6 +3,8 @@
  * 使用 Slack Events API + Web API 接收/发送消息
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import * as https from 'https';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -14,7 +16,12 @@ import type {
   ChannelEventCallbacks,
   ChannelStats,
 } from './types';
-import { ChannelType, ChannelStatus } from './types';
+import { ChannelType, ChannelStatus, MessageDirection } from './types';
+import type {
+  ChannelPlugin,
+  ChannelCapabilities,
+  PluginValidationResult,
+} from './ChannelPlugin';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -56,7 +63,7 @@ interface SlackEventCallback {
  * Slack 通道（企业版）
  * 支持 Events API 和 Socket Mode 两种连接方式
  */
-export class SlackChannel implements GatewayChannel {
+export class SlackChannel implements GatewayChannel, ChannelPlugin {
   readonly name: string;
   readonly type = ChannelType.SLACK;
   readonly config: SlackChannelConfig;
@@ -186,12 +193,61 @@ export class SlackChannel implements GatewayChannel {
     };
   }
 
+  // ---- ChannelPlugin 接口实现 ----
+
+  get id(): string {
+    return this.name;
+  }
+
+  get capabilities(): ChannelCapabilities {
+    return this.getCapabilities();
+  }
+
+  async handleInbound(message: InboundMessage): Promise<void> {
+    this._stats.messagesReceived++;
+    this.callbacks.onMessage?.(message);
+  }
+
+  async handleOutbound(message: OutboundMessage): Promise<boolean> {
+    return this.send(message);
+  }
+
+  getCapabilities(): ChannelCapabilities {
+    return {
+      messageTypes: ['text', 'markdown', 'html'],
+      supportsMedia: true,
+      maxMessageLength: 40000,
+      directions: [MessageDirection.INBOUND, MessageDirection.OUTBOUND],
+      features: ['events_api', 'socket_mode', 'auto_reconnect'],
+    };
+  }
+
+  validateConfig(): PluginValidationResult {
+    const errors: string[] = [];
+    if (!this.config.botToken) {
+      errors.push('缺少 Bot Token');
+    }
+    if (!this.config.signingSecret) {
+      errors.push('缺少 Signing Secret');
+    }
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
   private async verifyAuth(): Promise<void> {
     const response = await this.apiRequest('POST', '/api/auth.test', '{}');
     const data = JSON.parse(response);
 
     if (!data.ok) {
-      throw new Error(`Slack 认证失败: ${data.error}`);
+      throw new AppError(
+        ErrorCodes.AUTH_INSUFFICIENT_PERMISSIONS.message,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'SLACK_AUTH_FAILED',
+        { error: data.error }
+      );
     }
 
     logger.info(`Slack 认证成功: ${data.team} / ${data.user}`);
@@ -214,7 +270,11 @@ export class SlackChannel implements GatewayChannel {
   }
 
   private async pollEvents(): Promise<void> {
-    const response = await this.apiRequest('POST', '/api/apps.event.authorizations.list', '{}');
+    const response = await this.apiRequest(
+      'POST',
+      '/api/apps.event.authorizations.list',
+      '{}'
+    );
     const data = JSON.parse(response);
 
     if (data.authorizations) {
@@ -228,20 +288,23 @@ export class SlackChannel implements GatewayChannel {
           timestamp: Date.now(),
         };
 
-        this._stats.messagesReceived++;
-        this.callbacks.onMessage?.(inbound);
+        await this.handleInbound(inbound);
       }
     }
   }
 
-  private apiRequest(method: string, path: string, body: string): Promise<string> {
+  private apiRequest(
+    method: string,
+    path: string,
+    body: string
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
       const options: https.RequestOptions = {
         hostname: SLACK_API_BASE,
         path,
         method,
         headers: {
-          'Authorization': `Bearer ${this.config.botToken}`,
+          Authorization: `Bearer ${this.config.botToken}`,
           'Content-Type': 'application/json; charset=utf-8',
           'Content-Length': Buffer.byteLength(body),
         },

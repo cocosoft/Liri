@@ -69,7 +69,12 @@ export class HookRegistry {
 
     // 检查是否已注册
     if (this.hookIndex.has(hookId)) {
-      throw new AppError(`Hook already registered: ${hookId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Hook already registered: ${hookId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const registration: HookRegistration = {

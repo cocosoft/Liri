@@ -18,6 +18,13 @@ import { LazyModuleLoader } from '../core/utils/LazyModuleLoader';
 import { ToolLazyWrapper } from './utils/ToolLazyWrapper';
 import { builtinToolLoaders } from './utils/ToolManagerUtils.js';
 import type { ToolInfo } from './types/Tool';
+import type {
+  ToolPolicy,
+  PolicyContext,
+  PolicyResult,
+} from './policy/ToolPolicy';
+import { DefaultToolPolicy } from './policy/DefaultToolPolicy';
+import { ToolPolicyPipeline } from './policy/ToolPolicyPipeline';
 
 /**
  * 功能标志检查函数
@@ -44,6 +51,7 @@ type BuiltinToolLoader = (factory: ToolFactory) => Tool | null;
 /**
  * 工具管理器
  * 构造函数仅初始化注册表和工厂，内置工具在首次访问时按需加载
+ * 支持通过 ToolPolicy 对工具进行策略过滤
  */
 export class ToolManager {
   private registry: ToolRegistry;
@@ -51,6 +59,8 @@ export class ToolManager {
   private _loadDeferred: boolean;
   private _toolsLoaded: boolean = false;
   private _toolLoaders: BuiltinToolLoader[] = [];
+  private _policyPipeline: ToolPolicyPipeline;
+  private _defaultPolicyContext: PolicyContext = {};
 
   /**
    * 构造函数
@@ -69,7 +79,59 @@ export class ToolManager {
     // 自动注入内置工具加载器
     this._toolLoaders = builtinToolLoaders;
 
+    // 初始化策略管道（默认使用 DefaultToolPolicy，允许所有工具）
+    this._policyPipeline = new ToolPolicyPipeline([new DefaultToolPolicy()]);
+
     profileCheckpoint('tool_manager_constructor_end');
+  }
+
+  /**
+   * 设置策略管道
+   * 替换默认的允许所有策略，启用细粒度工具访问控制
+   */
+  setPolicyPipeline(pipeline: ToolPolicyPipeline): void {
+    this._policyPipeline = pipeline;
+  }
+
+  /**
+   * 获取当前策略管道
+   */
+  getPolicyPipeline(): ToolPolicyPipeline {
+    return this._policyPipeline;
+  }
+
+  /**
+   * 设置默认策略上下文
+   * 用于 getTool / getAllTools 等无上下文参数的方法调用
+   */
+  setDefaultPolicyContext(context: PolicyContext): void {
+    this._defaultPolicyContext = context;
+  }
+
+  /**
+   * 获取默认策略上下文
+   */
+  getDefaultPolicyContext(): PolicyContext {
+    return { ...this._defaultPolicyContext };
+  }
+
+  /**
+   * 检查工具是否通过策略允许
+   * @param tool 工具实例
+   * @param context 策略上下文（可选，使用默认上下文）
+   * @returns 策略决策结果
+   */
+  checkToolPolicy(tool: Tool, context?: PolicyContext): PolicyResult {
+    const ctx = context ?? this._defaultPolicyContext;
+    return this._policyPipeline.evaluate(tool, ctx);
+  }
+
+  /**
+   * 批量检查工具策略
+   */
+  checkToolsPolicy(tools: Tool[], context?: PolicyContext): PolicyResult[] {
+    const ctx = context ?? this._defaultPolicyContext;
+    return this._policyPipeline.evaluateBatch(tools, ctx);
   }
 
   /**
@@ -176,6 +238,36 @@ export class ToolManager {
   }
 
   /**
+   * 获取策略允许的工具（按策略过滤后）
+   * @param context 策略上下文（可选，使用默认上下文）
+   * @returns 策略允许的工具列表
+   */
+  getAllowedTools(context?: PolicyContext): Tool[] {
+    const allTools = this.getAllTools();
+    const ctx = context ?? this._defaultPolicyContext;
+    return allTools.filter(
+      (tool) => this._policyPipeline.evaluate(tool, ctx).allowed
+    );
+  }
+
+  /**
+   * 获取策略允许的指定工具
+   * @param name 工具名称
+   * @param context 策略上下文（可选，使用默认上下文）
+   * @returns 策略允许的工具或 undefined
+   */
+  getAllowedTool(name: string, context?: PolicyContext): Tool | undefined {
+    const tool = this.getTool(name);
+    if (!tool) return undefined;
+
+    const ctx = context ?? this._defaultPolicyContext;
+    const result = this._policyPipeline.evaluate(tool, ctx);
+    if (!result.allowed) return undefined;
+
+    return tool;
+  }
+
+  /**
    * 删除工具
    * @param name 工具名称
    * @returns 是否成功
@@ -204,7 +296,25 @@ export class ToolManager {
     profileCheckpoint(`tool_execute_${name}_start`);
     const tool = this.getTool(name);
     if (!tool) {
-      throw new AppError(`Tool ${name} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `Tool ${name} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
+    }
+
+    const policyResult = this._policyPipeline.evaluate(
+      tool,
+      this._defaultPolicyContext
+    );
+    if (!policyResult.allowed) {
+      throw new AppError(
+        `Tool ${name} is not allowed by policy: ${policyResult.reason ?? 'unknown'}`,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     try {

@@ -3,9 +3,12 @@
  * 提供文档版本控制、历史记录和回滚功能
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 文档版本状态
@@ -193,7 +196,7 @@ export class DocumentVersionService {
       const content = fs.readFileSync(filePath, 'utf8');
       return JSON.parse(content);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to load version ${version} for document ${documentId}:`,
         error
       );
@@ -242,7 +245,7 @@ export class DocumentVersionService {
       const currentVersion = Math.max(...metadataList.map((m) => m.version));
       this.documentCurrentVersion.set(documentId, currentVersion);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to load metadata for document ${documentId}:`,
         error
       );
@@ -560,13 +563,13 @@ export class DocumentVersionService {
       fs.writeFileSync(outputPath, content.content, 'utf8');
       return true;
     } catch (error) {
-      console.error('Failed to export version:', error);
+      logger.error('Failed to export version:', error);
       return false;
     }
   }
 
   /**
-   * 从文件导入文档
+   * 导入版本
    */
   public importVersion(
     title: string,
@@ -584,7 +587,7 @@ export class DocumentVersionService {
       const content = fs.readFileSync(filePath, 'utf8');
       return this.createVersion(title, content, options);
     } catch (error) {
-      console.error('Failed to import version:', error);
+      logger.error('Failed to import version:', error);
       return null;
     }
   }

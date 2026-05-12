@@ -14,61 +14,78 @@ export class ConfigValidator {
    */
   private static readonly DEFAULT_RULES: ConfigValidationRule[] = [
     { key: 'version', type: 'number', required: true },
-    { key: 'numStartups', type: 'number', required: true, default: 0 },
     { key: 'theme', type: 'string', required: true, default: 'dark' },
     { key: 'verbose', type: 'boolean', required: true, default: false },
     { key: 'editorMode', type: 'string', required: false, default: 'normal' },
+    { key: 'diffTool', type: 'string', required: false, default: 'auto' },
+    { key: 'env', type: 'object', required: true, default: {} },
+
+    // ===== 分组配置 =====
+    { key: 'notifications', type: 'object', required: true, default: {} },
+    { key: 'features', type: 'object', required: true, default: {} },
+    { key: 'internal', type: 'object', required: true, default: {} },
+
+    // ===== 向后兼容的已废弃字段 =====
+    { key: 'numStartups', type: 'number', required: false, default: 0 },
     {
       key: 'preferredNotifChannel',
       type: 'string',
-      required: true,
+      required: false,
       default: 'auto',
     },
-    { key: 'diffTool', type: 'string', required: false, default: 'auto' },
-    { key: 'env', type: 'object', required: true, default: {} },
     {
       key: 'autoCompactEnabled',
       type: 'boolean',
-      required: true,
+      required: false,
       default: true,
     },
-    { key: 'showTurnDuration', type: 'boolean', required: true, default: true },
+    {
+      key: 'showTurnDuration',
+      type: 'boolean',
+      required: false,
+      default: true,
+    },
     {
       key: 'messageIdleNotifThresholdMs',
       type: 'number',
-      required: true,
+      required: false,
       default: 60000,
     },
     {
       key: 'fileCheckpointingEnabled',
       type: 'boolean',
-      required: true,
+      required: false,
       default: true,
     },
     {
       key: 'terminalProgressBarEnabled',
       type: 'boolean',
-      required: true,
+      required: false,
       default: true,
     },
-    { key: 'respectGitignore', type: 'boolean', required: true, default: true },
+    {
+      key: 'respectGitignore',
+      type: 'boolean',
+      required: false,
+      default: true,
+    },
     {
       key: 'copyFullResponse',
       type: 'boolean',
-      required: true,
+      required: false,
       default: false,
     },
-    { key: 'tipsHistory', type: 'object', required: true, default: {} },
-    { key: 'memoryUsageCount', type: 'number', required: true, default: 0 },
-    { key: 'promptQueueUseCount', type: 'number', required: true, default: 0 },
-    { key: 'btwUseCount', type: 'number', required: true, default: 0 },
+    { key: 'tipsHistory', type: 'object', required: false, default: {} },
+    { key: 'memoryUsageCount', type: 'number', required: false, default: 0 },
+    { key: 'promptQueueUseCount', type: 'number', required: false, default: 0 },
+    { key: 'btwUseCount', type: 'number', required: false, default: 0 },
     {
       key: 'todoFeatureEnabled',
       type: 'boolean',
-      required: true,
+      required: false,
       default: true,
     },
-    { key: 'cachedStatsigGates', type: 'object', required: true, default: {} },
+    { key: 'cachedStatsigGates', type: 'object', required: false, default: {} },
   ];
 
   /**

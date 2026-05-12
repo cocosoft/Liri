@@ -147,8 +147,11 @@ export class EnhancedLSPManager {
       this.getActiveConnectionCount() >= this.config.maxConcurrentConnections
     ) {
       throw new AppError(
-        `超过最大并发连接数限制: ${this.config.maxConcurrentConnections}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `超过最大并发连接数限制: ${this.config.maxConcurrentConnections}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     try {

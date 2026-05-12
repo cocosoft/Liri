@@ -30,8 +30,13 @@ function formatChannelStatus(channel: GatewayChannel): string {
   ];
 
   const stats = channel.stats;
-  if (stats.messagesSent !== undefined || stats.messagesReceived !== undefined) {
-    lines.push(`    消息: ${String(stats.messagesSent ?? 0)} 发送 / ${String(stats.messagesReceived ?? 0)} 接收`);
+  if (
+    stats.messagesSent !== undefined ||
+    stats.messagesReceived !== undefined
+  ) {
+    lines.push(
+      `    消息: ${String(stats.messagesSent ?? 0)} 发送 / ${String(stats.messagesReceived ?? 0)} 接收`
+    );
   }
 
   if (stats.errors !== undefined) {
@@ -71,7 +76,10 @@ export const gatewayCommand: Command = {
           }
 
           const channelList = channels
-            .map((ch) => `  ${ch.name} (${ch.type}) — ${ch.status}${ch.isConnected() ? ' ✓' : ''}`)
+            .map(
+              (ch) =>
+                `  ${ch.name} (${ch.type}) — ${ch.status}${ch.isConnected() ? ' ✓' : ''}`
+            )
             .join('\n');
 
           return {
@@ -94,7 +102,9 @@ export const gatewayCommand: Command = {
             summary.push('');
 
             for (const ch of status.channels) {
-              summary.push(`  ${ch.name} — ${ch.status}${ch.connected ? ' ✓' : ''}`);
+              summary.push(
+                `  ${ch.name} — ${ch.status}${ch.connected ? ' ✓' : ''}`
+              );
             }
           }
 
@@ -110,7 +120,8 @@ export const gatewayCommand: Command = {
               await channelManager.startChannel(restArgs);
               return { success: true, message: `通道已启动: ${restArgs}` };
             } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
+              const message =
+                error instanceof Error ? error.message : String(error);
               return { success: false, error: `启动通道失败: ${message}` };
             }
           }
@@ -125,7 +136,8 @@ export const gatewayCommand: Command = {
               await channelManager.stopChannel(restArgs);
               return { success: true, message: `通道已停止: ${restArgs}` };
             } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
+              const message =
+                error instanceof Error ? error.message : String(error);
               return { success: false, error: `停止通道失败: ${message}` };
             }
           }
@@ -136,15 +148,15 @@ export const gatewayCommand: Command = {
 
         case 'diagnostics': {
           const channels = restArgs
-            ? [channelManager.getChannel(restArgs)].filter(Boolean) as GatewayChannel[]
+            ? ([channelManager.getChannel(restArgs)].filter(
+                Boolean
+              ) as GatewayChannel[])
             : channelManager.listChannels();
 
           if (channels.length === 0) {
             return {
               success: false,
-              error: restArgs
-                ? `通道不存在: ${restArgs}`
-                : '没有已注册的通道',
+              error: restArgs ? `通道不存在: ${restArgs}` : '没有已注册的通道',
             };
           }
 

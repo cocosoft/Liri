@@ -429,7 +429,12 @@ async function createAgentFile(
   const filePath = join(agentsDir, fileName);
 
   if (existsSync(filePath)) {
-    throw new AppError(`Agent '${agentType}' 已存在`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `Agent '${agentType}' 已存在`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   const toolsList = tools
@@ -471,10 +476,20 @@ async function deleteAgentFile(agentType: string): Promise<string> {
 
   const isBuiltIn = BUILT_IN_AGENTS.some((a) => a.agentType === agentType);
   if (isBuiltIn) {
-    throw new AppError(`'${agentType}' 是内置 Agent，无法删除`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `'${agentType}' 是内置 Agent，无法删除`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
-  throw new AppError(`Agent '${agentType}' 不存在`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+  throw new AppError(
+    `Agent '${agentType}' 不存在`,
+    ErrorCategory.EXECUTION,
+    ErrorSeverity.HIGH,
+    '1000'
+  );
 }
 
 /**

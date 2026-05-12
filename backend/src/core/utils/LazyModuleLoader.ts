@@ -20,7 +20,10 @@ export class LazyModuleLoader<T> {
    * @param factory - 模块工厂函数，返回模块实例或 Promise<模块实例>
    * @param validator - 可选的校验函数，用于验证实例是否仍然有效
    */
-  constructor(factory: () => Promise<T> | T, validator?: (instance: T) => boolean) {
+  constructor(
+    factory: () => Promise<T> | T,
+    validator?: (instance: T) => boolean
+  ) {
     this.factory = factory;
     this.validator = validator;
   }
@@ -64,7 +67,12 @@ export class LazyModuleLoader<T> {
    */
   getSync(): T {
     if (this.instance === null) {
-      throw new AppError('LazyModuleLoader: 模块尚未加载，请先调用 get()', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1004');
+      throw new AppError(
+        'LazyModuleLoader: 模块尚未加载，请先调用 get()',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1004'
+      );
     }
     return this.instance;
   }

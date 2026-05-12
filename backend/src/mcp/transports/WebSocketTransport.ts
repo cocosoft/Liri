@@ -135,7 +135,12 @@ export class WebSocketTransport extends MCPTransport {
    */
   async send(request: MCPRequest): Promise<MCPResponse> {
     if (!this.socket || !this.connected) {
-      throw new AppError('Not connected to MCP server', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Not connected to MCP server',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return new Promise((resolve, reject) => {

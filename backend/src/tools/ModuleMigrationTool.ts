@@ -54,7 +54,12 @@ export class ModuleMigrationTool {
     const srcDir = path.join(this.projectRoot, 'src');
 
     if (!fs.existsSync(srcDir)) {
-      throw new AppError(`源码目录不存在: ${srcDir}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `源码目录不存在: ${srcDir}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 遍历src目录下的所有子目录

@@ -124,7 +124,12 @@ export class SessionCheckpointService implements CheckpointService {
   }> {
     const checkpoint = await this.storage.loadCheckpoint(checkpointId);
     if (!checkpoint) {
-      throw new AppError(`Checkpoint not found: ${checkpointId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Checkpoint not found: ${checkpointId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const diff = this.computeDiff(currentSession, checkpoint);

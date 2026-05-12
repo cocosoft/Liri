@@ -313,15 +313,21 @@ export class SkillLoader {
     const validation = this.parser.validateSkillDefinition(skill);
     if (!validation.valid) {
       throw new AppError(
-        `Invalid skill definition: ${validation.errors.join(', ')}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Invalid skill definition: ${validation.errors.join(', ')}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 应用路径过滤（基于CC源码）
     if (!this.isSkillApplicable(skill)) {
       throw new AppError(
-        `Skill ${skill.name} is not applicable to current context`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Skill ${skill.name} is not applicable to current context`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 缓存技能

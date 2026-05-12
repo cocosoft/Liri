@@ -178,7 +178,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     profileReport();
   } catch (error) {
-    logger.error('应用启动失败', { message: error instanceof Error ? error.message : String(error) });
+    logger.error('应用启动失败', {
+      message: error instanceof Error ? error.message : String(error),
+    });
     profileCheckpoint('launch_error');
     profileReport();
     process.exit(1);

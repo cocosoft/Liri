@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import React, {
   createContext,
   useContext,
@@ -113,7 +115,13 @@ export function StatsProvider({ children }: { children: ReactNode }) {
 export function useStats() {
   const context = useContext(StatsContext);
   if (!context) {
-    throw new Error('useStats must be used within a StatsProvider');
+    throw new AppError(
+      ErrorCodes.INTERNAL.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'CONTEXT_NOT_AVAILABLE',
+      { hook: 'useStats', provider: 'StatsProvider' }
+    );
   }
   return context;
 }

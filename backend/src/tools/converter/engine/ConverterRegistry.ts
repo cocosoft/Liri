@@ -3,7 +3,11 @@ import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { Logger } from '@modules/monitoring/logs/Logger';
 import type { BaseConverter } from './BaseConverter';
 import type { ConversionResult, ConversionContext, FileInfo } from './types';
-import { PRIORITY_SPECIFIC_FILE_FORMAT, PRIORITY_GENERIC_FILE_FORMAT, PRIORITY_FALLBACK } from './types';
+import {
+  PRIORITY_SPECIFIC_FILE_FORMAT,
+  PRIORITY_GENERIC_FILE_FORMAT,
+  PRIORITY_FALLBACK,
+} from './types';
 
 const logger = new Logger();
 
@@ -40,10 +44,14 @@ export class ConverterRegistry {
     const fallback: BaseConverter[] = [];
 
     for (const c of this.converters) {
-      const hasExtMatch = c.supportedExtensions.some((e) => e.toLowerCase() === ext);
+      const hasExtMatch = c.supportedExtensions.some(
+        (e) => e.toLowerCase() === ext
+      );
       const hasMimeMatch = c.supportedMimeTypes.some((m) => {
         const mime = info.mimeType.toLowerCase();
-        return mime === m || (m.endsWith('/*') && mime.startsWith(m.slice(0, -1)));
+        return (
+          mime === m || (m.endsWith('/*') && mime.startsWith(m.slice(0, -1)))
+        );
       });
 
       if (hasExtMatch || hasMimeMatch) {
@@ -84,10 +92,15 @@ export class ConverterRegistry {
     for (const converter of matchingConverters) {
       try {
         const result = await converter.convert(context);
-        logger.info(`转换成功`, { converter: converter.name, path: fileInfo.path });
+        logger.info(`转换成功`, {
+          converter: converter.name,
+          path: fileInfo.path,
+        });
         return result;
       } catch (e) {
-        logger.warning(`转换器 ${converter.name} 失败，尝试下一个`, { error: e });
+        logger.warning(`转换器 ${converter.name} 失败，尝试下一个`, {
+          error: e,
+        });
         errors.push({ name: converter.name, error: e });
       }
     }

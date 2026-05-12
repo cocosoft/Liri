@@ -3,8 +3,11 @@
  * 实现会话元数据的存储和变更通知
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { PermissionMode } from '../permission/PermissionMode';
 import type { RequiresActionDetails } from './ChatSessionStateManager.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 会话外部元数据
@@ -98,7 +101,7 @@ export class ChatSessionMetadataManager {
       try {
         listener(updates);
       } catch (error) {
-        console.error('[chat] Error in metadata listener:', error);
+        logger.error('[chat] Error in metadata listener:', error);
       }
     });
   }
@@ -120,7 +123,7 @@ export class ChatSessionMetadataManager {
       try {
         listener({ permission_mode: mode });
       } catch (error) {
-        console.error('[chat] Error in metadata listener:', error);
+        logger.error('[chat] Error in metadata listener:', error);
       }
     });
 
@@ -129,7 +132,7 @@ export class ChatSessionMetadataManager {
       try {
         listener(mode);
       } catch (error) {
-        console.error('[chat] Error in permission mode listener:', error);
+        logger.error('[chat] Error in permission mode listener:', error);
       }
     });
   }

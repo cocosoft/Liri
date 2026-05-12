@@ -1,9 +1,10 @@
-//
 /**
  * 语音上下文（参考CC源码 cc_code/context/voice.tsx）
  * 管理语音输入/输出功能
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import {
   createContext,
   useContext,
@@ -74,7 +75,13 @@ export const VoiceProvider = ({ children }: { children: ReactNode }) => {
 export const useVoice = (): VoiceContextType => {
   const context = useContext(VoiceContext);
   if (context === undefined) {
-    throw new Error('useVoice must be used within a VoiceProvider');
+    throw new AppError(
+      ErrorCodes.INTERNAL.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'CONTEXT_NOT_AVAILABLE',
+      { hook: 'useVoice', provider: 'VoiceProvider' }
+    );
   }
   return context;
 };

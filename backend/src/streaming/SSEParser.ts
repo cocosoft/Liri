@@ -4,7 +4,10 @@
  * 解析服务器发送的事件流
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { StreamEvent } from './types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export class SSEParser {
   private buffer: string = '';
@@ -30,7 +33,7 @@ export class SSEParser {
           const parsed = JSON.parse(currentData);
           events.push(parsed as StreamEvent);
         } catch (e) {
-          console.error('Failed to parse SSE data:', currentData);
+          logger.error('Failed to parse SSE data:', currentData);
         }
         currentData = '';
       }

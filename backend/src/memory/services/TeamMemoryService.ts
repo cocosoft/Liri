@@ -824,7 +824,12 @@ export class TeamMemoryService {
     // 检查权限
     if (this.securityIntegration) {
       if (!this.securityIntegration.canCreateMemory(userId)) {
-        throw new AppError('Permission denied: Cannot create memory', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          'Permission denied: Cannot create memory',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
     }
 

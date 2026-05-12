@@ -61,7 +61,12 @@ export class PluginAPIImpl implements PluginAPI {
     ): Promise<unknown> => {
       const handler = this.commands.get(id);
       if (!handler) {
-        throw new AppError(`Command not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Command not found: ${id}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
       return await handler();
     },
@@ -189,7 +194,12 @@ export class PluginAPIImpl implements PluginAPI {
     readFile: async (path: string): Promise<string> => {
       const resolvedPath = resolve(path);
       if (!existsSync(resolvedPath)) {
-        throw new AppError(`File not found: ${path}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `File not found: ${path}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
       return readFileSync(resolvedPath, 'utf8');
     },

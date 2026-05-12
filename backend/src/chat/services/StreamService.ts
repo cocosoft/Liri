@@ -101,7 +101,12 @@ export class StreamServiceImpl implements StreamService {
     response: Response
   ): AsyncGenerator<string, ChatResponse, unknown> {
     if (!response.body) {
-      throw new AppError('Response body is null', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Response body is null',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const reader = response.body.getReader();

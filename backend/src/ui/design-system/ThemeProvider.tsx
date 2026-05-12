@@ -3,6 +3,8 @@
  * 提供主题上下文和主题管理功能
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import React, {
   createContext,
   useContext,
@@ -208,7 +210,13 @@ export function useTheme(): { theme: UITheme } & ThemeContextValue {
   const context = useContext(ThemeContext);
 
   if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    throw new AppError(
+      ErrorCodes.INTERNAL.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'CONTEXT_NOT_AVAILABLE',
+      { hook: 'useTheme', provider: 'ThemeProvider' }
+    );
   }
 
   const theme = themeMap[context.currentTheme];

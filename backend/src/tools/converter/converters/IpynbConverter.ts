@@ -10,17 +10,23 @@ export class IpynbConverter extends BaseConverter {
   override readonly supportedExtensions = ['.ipynb'];
   override readonly supportedMimeTypes = ['application/json'];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
-    const text = typeof context.content === 'string'
-      ? context.content
-      : context.content.toString('utf-8');
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
+    const text =
+      typeof context.content === 'string'
+        ? context.content
+        : context.content.toString('utf-8');
 
     let notebook: any;
     try {
       notebook = JSON.parse(text);
     } catch {
       throw AppError.fromCode(ErrorCodes.CONVERSION_FAILED, {
-        context: { format: 'ipynb', note: '无法解析 JSON 格式的 Notebook 文件' },
+        context: {
+          format: 'ipynb',
+          note: '无法解析 JSON 格式的 Notebook 文件',
+        },
       });
     }
 
@@ -35,7 +41,9 @@ export class IpynbConverter extends BaseConverter {
 
     for (const cell of notebook.cells) {
       const cellType = cell.cell_type || '';
-      const source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+      const source = Array.isArray(cell.source)
+        ? cell.source.join('')
+        : cell.source || '';
 
       if (!source) continue;
 
@@ -49,7 +57,9 @@ export class IpynbConverter extends BaseConverter {
           }
         }
       } else if (cellType === 'code') {
-        parts.push('```' + (cell.language || 'python') + '\n' + source + '\n```');
+        parts.push(
+          '```' + (cell.language || 'python') + '\n' + source + '\n```'
+        );
       } else if (cellType === 'raw') {
         parts.push('```\n' + source + '\n```');
       }

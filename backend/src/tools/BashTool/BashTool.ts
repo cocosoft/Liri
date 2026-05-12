@@ -464,7 +464,12 @@ export class BashTool {
     options: ExecOptions
   ): Promise<{ stdout: string; stderr: string }> {
     if (BashTool.isDangerousCommand(command)) {
-      throw new AppError(`Dangerous command detected: ${command}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Dangerous command detected: ${command}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     return BashTool.executeCommand(command, options);
   }
@@ -484,8 +489,11 @@ export class BashTool {
       return { stdout, stderr: '' };
     } catch (error) {
       throw new AppError(
-        `Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 
@@ -500,7 +508,12 @@ export class BashTool {
     options: ExecOptions & { encoding: BufferEncoding }
   ): { stdout: string; stderr: string } {
     if (BashTool.isDangerousCommand(command)) {
-      throw new AppError(`Dangerous command detected: ${command}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Dangerous command detected: ${command}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     return BashTool.executeCommandSync(command, options);
   }

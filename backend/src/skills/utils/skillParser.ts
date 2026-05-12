@@ -117,7 +117,12 @@ export class SkillParser {
   ): Promise<SkillDefinition> {
     try {
       if (!existsSync(filePath)) {
-        throw new AppError(`Skill file not found: ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Skill file not found: ${filePath}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       const content = await readFile(filePath, 'utf-8');
@@ -127,11 +132,21 @@ export class SkillParser {
 
       // 验证必需字段
       if (!frontmatter.name) {
-        throw new AppError(`Skill name is required in ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Skill name is required in ${filePath}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       if (!frontmatter.description) {
-        throw new AppError(`Skill description is required in ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Skill description is required in ${filePath}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       return {
@@ -147,8 +162,11 @@ export class SkillParser {
       };
     } catch (error) {
       throw new AppError(
-        `Failed to parse skill file ${filePath}: ${error instanceof Error ? error.message : String(error)}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Failed to parse skill file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

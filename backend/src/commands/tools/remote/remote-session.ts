@@ -107,7 +107,12 @@ export class RemoteSessionCLI {
           const success = await manager.connect();
 
           if (!success) {
-            throw new AppError('SSH连接失败', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+            throw new AppError(
+              'SSH连接失败',
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              '1000'
+            );
           }
 
           this.sessions.set(sessionId, manager);
@@ -176,7 +181,12 @@ export class RemoteSessionCLI {
           const success = await manager.connect();
 
           if (!success) {
-            throw new AppError('直接连接失败', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+            throw new AppError(
+              '直接连接失败',
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              '1000'
+            );
           }
 
           this.sessions.set(sessionId, manager);

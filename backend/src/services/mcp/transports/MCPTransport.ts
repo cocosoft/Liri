@@ -65,7 +65,12 @@ export abstract class MCPTransport implements IMCPTransport {
    * 接收响应（子类可重写）
    */
   receive(): AsyncIterable<MCPResponse> {
-    throw new AppError('receive() not implemented by this transport', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      'receive() not implemented by this transport',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   /**

@@ -167,7 +167,12 @@ export async function* streamOpenAICompatible(
   options?: SSEClientOptions
 ): AsyncGenerator<OpenAIStreamChunk> {
   if (!response.body) {
-    throw new AppError('Response body is null', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      'Response body is null',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   const parser = new SSEStreamParser();
@@ -304,8 +309,11 @@ export async function createOpenAIStream(
   if (!response.ok) {
     const errorText = await response.text();
     throw new AppError(
-      `OpenAI compatible API error: ${response.status} - ${errorText}`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      `OpenAI compatible API error: ${response.status} - ${errorText}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   return streamOpenAICompatible(response, options);

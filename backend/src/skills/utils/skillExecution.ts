@@ -14,7 +14,12 @@ export async function executeSkill(
   try {
     // 验证技能
     if (!skill) {
-      throw new AppError('Skill not provided', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Skill not provided',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 准备执行上下文

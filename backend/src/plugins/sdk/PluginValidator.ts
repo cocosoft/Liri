@@ -66,7 +66,10 @@ export class PluginValidator {
   }
 
   /** 验证必填字段 */
-  private validateRequired(manifest: PluginManifest, errors: PluginValidationError[]): void {
+  private validateRequired(
+    manifest: PluginManifest,
+    errors: PluginValidationError[]
+  ): void {
     const required: Array<{ field: keyof PluginManifest; label: string }> = [
       { field: 'id', label: '插件 ID' },
       { field: 'name', label: '插件名称' },
@@ -89,7 +92,10 @@ export class PluginValidator {
   }
 
   /** 验证插件 ID 格式 */
-  private validateId(manifest: PluginManifest, errors: PluginValidationError[]): void {
+  private validateId(
+    manifest: PluginManifest,
+    errors: PluginValidationError[]
+  ): void {
     if (!manifest.id) return;
 
     const idPattern = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$/i;
@@ -112,7 +118,10 @@ export class PluginValidator {
   }
 
   /** 验证版本号格式 */
-  private validateVersion(manifest: PluginManifest, errors: PluginValidationError[]): void {
+  private validateVersion(
+    manifest: PluginManifest,
+    errors: PluginValidationError[]
+  ): void {
     if (!manifest.version) return;
 
     const semverPattern = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$/;
@@ -130,7 +139,7 @@ export class PluginValidator {
   private validateEngine(
     manifest: PluginManifest,
     errors: PluginValidationError[],
-    warnings: PluginValidationWarning[],
+    warnings: PluginValidationWarning[]
   ): void {
     if (!manifest.engine) {
       warnings.push({
@@ -154,7 +163,7 @@ export class PluginValidator {
   private validateDependencies(
     manifest: PluginManifest,
     errors: PluginValidationError[],
-    warnings: PluginValidationWarning[],
+    warnings: PluginValidationWarning[]
   ): void {
     if (!manifest.dependencies || manifest.dependencies.length === 0) return;
 
@@ -181,7 +190,7 @@ export class PluginValidator {
   private validateSkills(
     manifest: PluginManifest,
     errors: PluginValidationError[],
-    warnings: PluginValidationWarning[],
+    warnings: PluginValidationWarning[]
   ): void {
     if (!manifest.skills || manifest.skills.length === 0) return;
 
@@ -225,7 +234,7 @@ export class PluginValidator {
   private validateHooks(
     manifest: PluginManifest,
     errors: PluginValidationError[],
-    warnings: PluginValidationWarning[],
+    warnings: PluginValidationWarning[]
   ): void {
     if (!manifest.hooks || manifest.hooks.length === 0) return;
 

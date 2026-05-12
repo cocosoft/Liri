@@ -75,7 +75,12 @@ export class QueryDepsManager {
   getOrThrow<T>(key: string): T {
     const instance = this.get<T>(key);
     if (!instance) {
-      throw new AppError(`Dependency not found: ${key}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Dependency not found: ${key}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     return instance;
   }
@@ -124,7 +129,12 @@ export class QueryDepsManager {
     return () => {
       const instance = this.get<T>(key);
       if (!instance) {
-        throw new AppError(`Dependency not found: ${key}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Dependency not found: ${key}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
       return instance;
     };

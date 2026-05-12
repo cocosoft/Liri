@@ -61,7 +61,12 @@ export function createSimulatedBridgeApi(
       debug('[sim-api] 注册环境...（模拟）');
 
       if (simulateRegisterFailure) {
-        throw new AppError('[sim-api] 模拟注册失败', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          '[sim-api] 模拟注册失败',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       await new Promise((resolve) => setTimeout(resolve, registerDelayMs));
@@ -85,7 +90,12 @@ export function createSimulatedBridgeApi(
       pollCount++;
 
       if (simulatePollFailure) {
-        throw new AppError('[sim-api] 模拟轮询失败', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          '[sim-api] 模拟轮询失败',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       await new Promise((resolve) => setTimeout(resolve, pollDelayMs));

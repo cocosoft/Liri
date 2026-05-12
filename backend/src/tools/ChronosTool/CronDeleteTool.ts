@@ -57,7 +57,12 @@ export class CronDeleteTool {
           const tasks = await listAllCronTasks();
           const task = tasks.find((t) => t.id === id);
           if (!task) {
-            throw new AppError(`No scheduled job with id '${id}'`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+            throw new AppError(
+              `No scheduled job with id '${id}'`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              '1000'
+            );
           }
 
           await removeCronTasks([id]);

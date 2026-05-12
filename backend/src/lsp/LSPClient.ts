@@ -233,7 +233,13 @@ export function createLSPClient(
   }
 
   function sendMessage(message: unknown): void {
-    if (!childProcHandle) throw new AppError('LSP client not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    if (!childProcHandle)
+      throw new AppError(
+        'LSP client not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     const body = JSON.stringify(message);
     const header = `Content-Length: ${Buffer.byteLength(body, 'utf-8')}\r\n\r\n`;
     childProcHandle.stdin(header + body);

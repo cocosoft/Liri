@@ -87,7 +87,12 @@ class WorkSecretManager {
 
   private decrypt(ciphertext: string): string {
     if (!this.encryptionKey) {
-      throw new AppError('Encryption key not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Encryption key not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     const [ivHex, authTagHex, encrypted] = ciphertext.split(':');
     const iv = Buffer.from(ivHex, 'hex');

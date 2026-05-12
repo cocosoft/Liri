@@ -222,7 +222,12 @@ export class ErrorRecoveryManager {
     const breaker = this.getOrCreateCircuitBreaker(key, options);
 
     if (!breaker.isAllowed()) {
-      throw new AppError(`Circuit breaker is open for: ${key}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Circuit breaker is open for: ${key}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     try {

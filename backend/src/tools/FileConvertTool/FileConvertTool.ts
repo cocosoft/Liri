@@ -34,7 +34,7 @@ export class FileConvertTool extends BaseTool {
   async execute(
     input: Record<string, unknown>,
     _context: ToolUseContext,
-    onProgress?: ToolCallProgress<any>,
+    onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
       const filePath = path.resolve(input.file_path as string);

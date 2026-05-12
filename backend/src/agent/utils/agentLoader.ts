@@ -108,7 +108,12 @@ function loadAgentFromFile(
     };
   }
 
-  throw new AppError(`Unsupported file format: ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+  throw new AppError(
+    `Unsupported file format: ${filePath}`,
+    ErrorCategory.EXECUTION,
+    ErrorSeverity.HIGH,
+    '1000'
+  );
 }
 
 /**

@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface Notification {
@@ -46,8 +48,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 export function useNotifications() {
   const context = useContext(NotificationsContext);
   if (!context) {
-    throw new Error(
-      'useNotifications must be used within a NotificationsProvider'
+    throw new AppError(
+      ErrorCodes.INTERNAL.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'CONTEXT_NOT_AVAILABLE',
+      { hook: 'useNotifications', provider: 'NotificationsProvider' }
     );
   }
   return context;

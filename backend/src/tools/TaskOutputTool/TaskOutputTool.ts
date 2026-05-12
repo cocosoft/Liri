@@ -67,7 +67,12 @@ async function waitForTaskCompletion(
 
   while (Date.now() - startTime < timeoutMs) {
     if (abortSignal?.aborted) {
-      throw new AppError('Aborted', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Aborted',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const task = taskRegistry.getTask(taskId);

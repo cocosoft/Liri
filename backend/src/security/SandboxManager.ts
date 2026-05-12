@@ -125,11 +125,21 @@ export class SandboxManager {
    */
   createSandbox(id: string, config: SandboxConfig = {}): void {
     if (this.state !== SandboxState.RUNNING) {
-      throw new AppError('Sandbox manager is not running', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Sandbox manager is not running',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (this.sandboxes.has(id)) {
-      throw new AppError(`Sandbox ${id} already exists`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Sandbox ${id} already exists`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const sandboxConfig = {
@@ -170,12 +180,22 @@ export class SandboxManager {
    */
   async execute(id: string, code: string, context: any = {}): Promise<any> {
     if (this.state !== SandboxState.RUNNING) {
-      throw new AppError('Sandbox manager is not running', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Sandbox manager is not running',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const sandbox = this.sandboxes.get(id);
     if (!sandbox) {
-      throw new AppError(`Sandbox ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Sandbox ${id} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     try {

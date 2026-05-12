@@ -53,9 +53,17 @@ export class ParallelExecutor {
         const currentIndex = nextIndex++;
         try {
           const value = await tasks[currentIndex]();
-          results[currentIndex] = { index: currentIndex, status: 'fulfilled', value };
+          results[currentIndex] = {
+            index: currentIndex,
+            status: 'fulfilled',
+            value,
+          };
         } catch (error) {
-          results[currentIndex] = { index: currentIndex, status: 'rejected', error };
+          results[currentIndex] = {
+            index: currentIndex,
+            status: 'rejected',
+            error,
+          };
         }
       }
     };
@@ -78,7 +86,10 @@ export class ParallelExecutor {
   async runFulfilled<T>(tasks: (() => Promise<T>)[]): Promise<T[]> {
     const results = await this.run(tasks);
     return results
-      .filter((r): r is ParallelTaskResult<T> & { status: 'fulfilled' } => r.status === 'fulfilled')
+      .filter(
+        (r): r is ParallelTaskResult<T> & { status: 'fulfilled' } =>
+          r.status === 'fulfilled'
+      )
       .map((r) => r.value as T);
   }
 
@@ -93,7 +104,9 @@ export class ParallelExecutor {
       throw firstError.error;
     }
 
-    return results.map((r) => (r as ParallelTaskResult<T> & { status: 'fulfilled' }).value as T);
+    return results.map(
+      (r) => (r as ParallelTaskResult<T> & { status: 'fulfilled' }).value as T
+    );
   }
 
   /**

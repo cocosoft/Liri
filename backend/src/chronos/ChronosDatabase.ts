@@ -57,7 +57,12 @@ export class ChronosDatabase {
    */
   private async createTables(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await this.createScheduledTasksTable();
@@ -70,7 +75,12 @@ export class ChronosDatabase {
    */
   private async createScheduledTasksTable(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -138,7 +148,12 @@ export class ChronosDatabase {
    */
   private async createTaskExecutionHistoryTable(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -203,7 +218,12 @@ export class ChronosDatabase {
    */
   private async createSystemConfigTable(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -251,7 +271,12 @@ export class ChronosDatabase {
   async addTask(task: ScheduledTask): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -291,7 +316,12 @@ export class ChronosDatabase {
   async getTask(taskId: string): Promise<ScheduledTask | null> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const row = await new Promise<any>((resolve, reject) => {
@@ -322,7 +352,12 @@ export class ChronosDatabase {
   async listTasks(): Promise<ScheduledTask[]> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const rows = await new Promise<any[]>((resolve, reject) => {
@@ -353,7 +388,12 @@ export class ChronosDatabase {
   ): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const setClauses: string[] = [];
@@ -412,7 +452,12 @@ export class ChronosDatabase {
   async deleteTask(taskId: string): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -438,7 +483,12 @@ export class ChronosDatabase {
   async addExecutionHistory(history: TaskExecutionHistory): Promise<number> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const id = await new Promise<number>((resolve, reject) => {
@@ -478,7 +528,12 @@ export class ChronosDatabase {
   ): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const setClauses: string[] = [];
@@ -530,7 +585,12 @@ export class ChronosDatabase {
   async getConfig(key: string): Promise<string | null> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const row = await new Promise<any>((resolve, reject) => {
@@ -563,7 +623,12 @@ export class ChronosDatabase {
   ): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const timestamp = updatedAt || Math.floor(Date.now() / 1000);

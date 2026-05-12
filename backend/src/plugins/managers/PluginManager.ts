@@ -33,7 +33,12 @@ export class PluginManager {
     if (result.success && result.plugin) {
       return result.plugin as unknown as LoadedPlugin;
     }
-    throw new AppError(`Failed to load plugin: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `Failed to load plugin: ${pluginId}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   /**

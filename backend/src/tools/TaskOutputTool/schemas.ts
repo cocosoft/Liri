@@ -55,7 +55,12 @@ export function validateTaskOutputInput(input: unknown): TaskOutputInputType {
     const errors = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new AppError(`TaskOutput输入验证失败: ${errors}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `TaskOutput输入验证失败: ${errors}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return result.data;
 }

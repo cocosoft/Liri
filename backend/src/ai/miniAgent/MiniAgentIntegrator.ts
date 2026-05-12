@@ -3,11 +3,14 @@
  * 负责将 Mini Agent 集成到现有查询流程
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { ChatMessage } from '../models/types.js';
 import type { MiniAgentResult, RouteTarget } from './types.js';
 import { MiniAgent } from './MiniAgent.js';
 import type { MiniAgentConfig } from './types.js';
 import { createMiniAgent } from './MiniAgent.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface MiniAgentIntegrationConfig {
   enabled: boolean;
@@ -71,7 +74,7 @@ export class MiniAgentIntegrator {
         shouldContinueToCloud: true,
       };
     } catch (error) {
-      console.error('[MiniAgentIntegrator] Error processing input:', error);
+      logger.error('[MiniAgentIntegrator] Error processing input:', error);
       return { handled: false, shouldContinueToCloud: true };
     }
   }

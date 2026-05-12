@@ -54,7 +54,12 @@ export class OAuthService {
     const provider = this.providers.get(providerId);
     if (!provider) {
       logger.error(`OAuth provider not found: ${providerId}`);
-      throw new AppError(`OAuth provider ${providerId} not registered`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `OAuth provider ${providerId} not registered`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return this.tokenManager.getToken(providerId);
@@ -73,7 +78,12 @@ export class OAuthService {
     const provider = this.providers.get(providerId);
     if (!provider) {
       logger.error(`OAuth provider not found: ${providerId}`);
-      throw new AppError(`OAuth provider ${providerId} not registered`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `OAuth provider ${providerId} not registered`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const token = await provider.authorize(options);
@@ -90,12 +100,22 @@ export class OAuthService {
     const provider = this.providers.get(providerId);
     if (!provider) {
       logger.error(`OAuth provider not found: ${providerId}`);
-      throw new AppError(`OAuth provider ${providerId} not registered`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `OAuth provider ${providerId} not registered`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const existingToken = await this.tokenManager.getToken(providerId);
     if (!existingToken) {
-      throw new AppError('No token found to refresh', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'No token found to refresh',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const newToken = await provider.refreshToken(existingToken.refreshToken);
@@ -111,7 +131,12 @@ export class OAuthService {
     const provider = this.providers.get(providerId);
     if (!provider) {
       logger.error(`OAuth provider not found: ${providerId}`);
-      throw new AppError(`OAuth provider ${providerId} not registered`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `OAuth provider ${providerId} not registered`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await this.tokenManager.deleteToken(providerId);

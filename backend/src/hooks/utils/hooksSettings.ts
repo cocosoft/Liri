@@ -4,8 +4,11 @@
  * 负责Hook配置的读写和管理
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { IndividualHookConfig, HookEvent } from '../types';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 读取Hook配置
@@ -36,7 +39,7 @@ export function writeHookConfig(configPath: string, config: any): void {
     const content = JSON.stringify(config, null, 2);
     writeFileSync(configPath, content, 'utf8');
   } catch (error) {
-    console.error('Error writing hook config:', error);
+    logger.error('Error writing hook config:', error);
   }
 }
 

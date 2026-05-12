@@ -170,7 +170,12 @@ export class AgentRunner {
     options: { parallel?: boolean; timeoutMs?: number } = {}
   ): Promise<SwarmExecutionResult> {
     if (!this.swarmManager) {
-      throw new AppError('Agent Swarms feature is not enabled', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Agent Swarms feature is not enabled',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const startTime = Date.now();

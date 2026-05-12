@@ -17,7 +17,12 @@ import type {
   ChannelEventCallbacks,
   ChannelStats,
 } from './types';
-import { ChannelType, ChannelStatus } from './types';
+import { ChannelType, ChannelStatus, MessageDirection } from './types';
+import type {
+  ChannelPlugin,
+  ChannelCapabilities,
+  PluginValidationResult,
+} from './ChannelPlugin';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -51,14 +56,14 @@ const enum OpCode {
   BINARY = 0x2,
   CLOSE = 0x8,
   PING = 0x9,
-  PONG = 0xA,
+  PONG = 0xa,
 }
 
 /**
  * WebSocket 通道
  * 基于 HTTP Upgrade 机制实现 WebSocket 服务器
  */
-export class WebChannel implements GatewayChannel {
+export class WebChannel implements GatewayChannel, ChannelPlugin {
   readonly name: string;
   readonly type = ChannelType.WEBSOCKET;
   readonly config: WebChannelConfig;
@@ -103,7 +108,10 @@ export class WebChannel implements GatewayChannel {
   }
 
   async connect(): Promise<void> {
-    if (this._status === ChannelStatus.CONNECTED || this._status === ChannelStatus.CONNECTING) {
+    if (
+      this._status === ChannelStatus.CONNECTED ||
+      this._status === ChannelStatus.CONNECTING
+    ) {
       return;
     }
 
@@ -121,17 +129,15 @@ export class WebChannel implements GatewayChannel {
       });
 
       return new Promise((resolve, reject) => {
-        this.server!.listen(
-          this.config.port,
-          this.config.host!,
-          () => {
-            this._startTime = Date.now();
-            this.setStatus(ChannelStatus.CONNECTED);
-            this._callbacks.onConnected?.();
-            logger.info(`WebChannel: ${this.name} 已启动 — ws://${this.config.host}:${this.config.port}${this.config.path}`);
-            resolve();
-          },
-        );
+        this.server!.listen(this.config.port, this.config.host!, () => {
+          this._startTime = Date.now();
+          this.setStatus(ChannelStatus.CONNECTED);
+          this._callbacks.onConnected?.();
+          logger.info(
+            `WebChannel: ${this.name} 已启动 — ws://${this.config.host}:${this.config.port}${this.config.path}`
+          );
+          resolve();
+        });
 
         this.server!.on('error', (err) => {
           this._errors++;
@@ -232,8 +238,55 @@ export class WebChannel implements GatewayChannel {
     };
   }
 
+  // ---- ChannelPlugin 接口实现 ----
+
+  get id(): string {
+    return this.name;
+  }
+
+  get capabilities(): ChannelCapabilities {
+    return this.getCapabilities();
+  }
+
+  async handleInbound(message: InboundMessage): Promise<void> {
+    this._messagesReceived++;
+    this._callbacks.onMessage?.(message);
+  }
+
+  async handleOutbound(message: OutboundMessage): Promise<boolean> {
+    return this.send(message);
+  }
+
+  getCapabilities(): ChannelCapabilities {
+    return {
+      messageTypes: ['text', 'markdown'],
+      supportsMedia: false,
+      maxMessageLength: 0,
+      directions: [MessageDirection.INBOUND, MessageDirection.OUTBOUND],
+      features: ['websocket_server', 'broadcast', 'client_tracking'],
+    };
+  }
+
+  validateConfig(): PluginValidationResult {
+    const errors: string[] = [];
+    if (!this.config.port || this.config.port <= 0) {
+      errors.push('端口号无效');
+    }
+    if (this.config.port < 1024 && this.config.port > 0) {
+      errors.push('端口号小于 1024 需要管理员权限');
+    }
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
   /** 获取已连接客户端列表 */
-  getConnectedClients(): Array<{ id: string; connectedAt: number; label?: string }> {
+  getConnectedClients(): Array<{
+    id: string;
+    connectedAt: number;
+    label?: string;
+  }> {
     return Array.from(this.clients.values()).map((c) => ({
       id: c.id,
       connectedAt: c.connectedAt,
@@ -280,7 +333,10 @@ export class WebChannel implements GatewayChannel {
   /**
    * 处理 WebSocket 升级
    */
-  private handleUpgrade(req: http.IncomingMessage, res: http.ServerResponse): void {
+  private handleUpgrade(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
     const key = req.headers['sec-websocket-key'] as string;
     if (!key) {
       res.writeHead(400);
@@ -291,8 +347,8 @@ export class WebChannel implements GatewayChannel {
     const acceptKey = this.generateAcceptKey(key);
 
     res.writeHead(101, {
-      'Upgrade': 'websocket',
-      'Connection': 'Upgrade',
+      Upgrade: 'websocket',
+      Connection: 'Upgrade',
       'Sec-WebSocket-Accept': acceptKey,
     });
 
@@ -377,7 +433,10 @@ export class WebChannel implements GatewayChannel {
   /**
    * 处理文本消息
    */
-  private handleTextMessage(clientId: string, text: string): void {
+  private async handleTextMessage(
+    clientId: string,
+    text: string
+  ): Promise<void> {
     try {
       const parsed = JSON.parse(text);
 
@@ -400,8 +459,7 @@ export class WebChannel implements GatewayChannel {
         timestamp: Date.now(),
       };
 
-      this._messagesReceived++;
-      this._callbacks.onMessage?.(inboundMessage);
+      await this.handleInbound(inboundMessage);
     } catch {
       const inboundMessage: InboundMessage = {
         id: `ws_${clientId}_${Date.now()}`,
@@ -411,8 +469,7 @@ export class WebChannel implements GatewayChannel {
         timestamp: Date.now(),
       };
 
-      this._messagesReceived++;
-      this._callbacks.onMessage?.(inboundMessage);
+      await this.handleInbound(inboundMessage);
     }
   }
 
@@ -429,7 +486,7 @@ export class WebChannel implements GatewayChannel {
    * 解析 WebSocket 帧
    */
   private parseFrame(
-    buffer: Buffer,
+    buffer: Buffer
   ): { opcode: number; payload: Buffer; totalLength: number } | null {
     if (buffer.length < 2) {
       return null;
@@ -437,9 +494,9 @@ export class WebChannel implements GatewayChannel {
 
     const firstByte = buffer[0];
     const secondByte = buffer[1];
-    const opcode = firstByte & 0x0F;
+    const opcode = firstByte & 0x0f;
     const masked = (secondByte & 0x80) !== 0;
-    let payloadLength = secondByte & 0x7F;
+    let payloadLength = secondByte & 0x7f;
     let offset = 2;
 
     if (payloadLength === 126) {
@@ -500,7 +557,11 @@ export class WebChannel implements GatewayChannel {
    */
   private sendCloseFrame(socket: net.Socket): void {
     try {
-      const frame = this.buildFrame(OpCode.CLOSE, Buffer.from([0x03, 0xE8]), false);
+      const frame = this.buildFrame(
+        OpCode.CLOSE,
+        Buffer.from([0x03, 0xe8]),
+        false
+      );
       socket.write(frame);
     } catch {
       // 忽略关闭帧发送错误

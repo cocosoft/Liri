@@ -483,7 +483,12 @@ let globalAuditManager: SecurityAuditManager | null = null;
  */
 export function getSecurityAuditManager(): SecurityAuditManager {
   if (!globalAuditManager) {
-    throw new AppError('Security audit manager not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      'Security audit manager not initialized',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return globalAuditManager;
 }

@@ -15,9 +15,10 @@ export class HtmlConverter extends BaseConverter {
   override readonly supportedMimeTypes = ['text/html', 'application/xhtml+xml'];
 
   async convert(context: ConversionContext): Promise<ConversionResult> {
-    const html = typeof context.content === 'string'
-      ? context.content
-      : context.content.toString('utf-8');
+    const html =
+      typeof context.content === 'string'
+        ? context.content
+        : context.content.toString('utf-8');
 
     if (!html.trim()) {
       return { markdown: '' };

@@ -4,6 +4,8 @@
  * 统一定义所有模块的基本信息、依赖关系和生命周期
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import type { ModuleDefinition } from './ModuleRegistry';
 import { ModuleCategory } from './ModuleRegistry';
 
@@ -373,6 +375,18 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     optionalDependencies: ['memory'],
   },
 
+  'plugin-sdk': {
+    id: 'plugin-sdk',
+    name: 'plugin-sdk',
+    displayName: '插件SDK',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description:
+      '插件SDK模块，为第三方插件开发者提供纯净的SDK边界，不含核心模块反向引用',
+    dependencies: [],
+    optionalDependencies: [],
+  },
+
   plugins: {
     id: 'plugins',
     name: 'plugins',
@@ -472,6 +486,7 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
  */
 export const MODULE_INITIALIZATION_ORDER: string[] = [
   // 第一阶段：核心基础设施
+  'plugin-sdk',
   'core',
   'infrastructure',
 
@@ -533,7 +548,13 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
 export function getModuleDefinition(id: string): ModuleDefinition {
   const definition = MODULE_DEFINITIONS[id];
   if (!definition) {
-    throw new Error(`模块 ${id} 未定义`);
+    throw new AppError(
+      ErrorCodes.ENTITY_NOT_FOUND.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.MEDIUM,
+      'MODULE_NOT_DEFINED',
+      { moduleId: id }
+    );
   }
   return definition;
 }

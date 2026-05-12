@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import type { DOMElement } from './dom.js';
 import { FocusEvent } from './events/focus-event.js';
 
@@ -172,7 +174,12 @@ export function getRootNode(node: DOMElement): DOMElement {
     if (current.focusManager) return current;
     current = current.parentNode;
   }
-  throw new Error('Node is not in a tree with a FocusManager');
+  throw new AppError(
+    ErrorCodes.INVALID_STATE.message,
+    ErrorCategory.VALIDATION,
+    ErrorSeverity.LOW,
+    'FOCUS_MANAGER_NOT_FOUND'
+  );
 }
 
 /**

@@ -153,7 +153,11 @@ export class HookChain {
     hooks: {
       before?: Array<{ name: string; handler: HookHandler; priority?: number }>;
       after?: Array<{ name: string; handler: HookHandler; priority?: number }>;
-      onError?: Array<{ name: string; handler: HookHandler; priority?: number }>;
+      onError?: Array<{
+        name: string;
+        handler: HookHandler;
+        priority?: number;
+      }>;
     }
   ): Promise<{
     before: HookResult[];
@@ -216,5 +220,56 @@ export class HookChain {
       after: this.afterHooks.length,
       onError: this.onErrorHooks.length,
     };
+  }
+
+  /**
+   * 获取所有 hook 条目元数据（不含 handler 函数）
+   */
+  getEntries(): Array<{
+    name: string;
+    stage: 'before' | 'after' | 'onError';
+    priority: number;
+    enabled: boolean;
+    event: string;
+  }> {
+    const entries: Array<{
+      name: string;
+      stage: 'before' | 'after' | 'onError';
+      priority: number;
+      enabled: boolean;
+      event: string;
+    }> = [];
+
+    for (const hook of this.beforeHooks) {
+      entries.push({
+        name: hook.name,
+        stage: 'before',
+        priority: hook.priority,
+        enabled: hook.enabled,
+        event: this.domain,
+      });
+    }
+
+    for (const hook of this.afterHooks) {
+      entries.push({
+        name: hook.name,
+        stage: 'after',
+        priority: hook.priority,
+        enabled: hook.enabled,
+        event: this.domain,
+      });
+    }
+
+    for (const hook of this.onErrorHooks) {
+      entries.push({
+        name: hook.name,
+        stage: 'onError',
+        priority: hook.priority,
+        enabled: hook.enabled,
+        event: this.domain,
+      });
+    }
+
+    return entries;
   }
 }

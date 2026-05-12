@@ -66,7 +66,12 @@ export class EnhancedOAuthClient {
     scopes?: string[];
   }): string {
     if (!this.metadata) {
-      throw new AppError('OAuth client not initialized. Call initialize() first.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'OAuth client not initialized. Call initialize() first.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const url = new URL(this.metadata.authorization_endpoint);
@@ -94,7 +99,12 @@ export class EnhancedOAuthClient {
     codeVerifier: string;
   }): Promise<CachedToken> {
     if (!this.metadata) {
-      throw new AppError('OAuth client not initialized. Call initialize() first.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'OAuth client not initialized. Call initialize() first.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const requestBody: Record<string, string> = {
@@ -125,8 +135,11 @@ export class EnhancedOAuthClient {
 
       if (!response.ok) {
         throw new AppError(
-          `Token exchange failed: ${response.status} ${response.statusText}`
-        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          `Token exchange failed: ${response.status} ${response.statusText}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       const data = await response.json();
@@ -153,7 +166,12 @@ export class EnhancedOAuthClient {
    */
   async refreshToken(refreshToken: string): Promise<CachedToken> {
     if (!this.metadata) {
-      throw new AppError('OAuth client not initialized. Call initialize() first.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'OAuth client not initialized. Call initialize() first.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const requestBody: Record<string, string> = {
@@ -180,8 +198,11 @@ export class EnhancedOAuthClient {
 
       if (!response.ok) {
         throw new AppError(
-          `Token refresh failed: ${response.status} ${response.statusText}`
-        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          `Token refresh failed: ${response.status} ${response.statusText}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       const data = await response.json();

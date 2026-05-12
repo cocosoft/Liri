@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-10T12:10:06.854Z",
+  "generatedAt": "2026-05-12T13:59:12.305Z",
   "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {
@@ -383,6 +383,14 @@
         "memory"
       ]
     },
+    "plugin-sdk": {
+      "id": "plugin-sdk",
+      "name": "plugin-sdk",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [],
+      "optionalDependencies": []
+    },
     "plugins": {
       "id": "plugins",
       "name": "plugins",
@@ -481,6 +489,7 @@
     }
   },
   "initializationOrder": [
+    "plugin-sdk",
     "core",
     "infrastructure",
     "ai",
@@ -521,5 +530,5 @@
     "utils",
     "keybindings"
   ],
-  "fingerprint": "269f6cafd6c3b338"
+  "fingerprint": "5837d6b6f65341c4"
 }

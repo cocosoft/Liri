@@ -140,7 +140,12 @@ export class ITermSubAgent implements SubAgent {
    */
   async execute(task: SubAgentTask): Promise<SubAgentResult> {
     if (this.status !== SubAgentStatus.RUNNING) {
-      throw new AppError(`SubAgent ${this.id} is not running`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `SubAgent ${this.id} is not running`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     try {

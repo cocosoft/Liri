@@ -93,7 +93,12 @@ export class SubAgentFactory {
           config as CustomSubAgentConfig
         );
       default:
-        throw new AppError(`Unknown subagent type: ${config.type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Unknown subagent type: ${config.type}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
     }
   }
 }

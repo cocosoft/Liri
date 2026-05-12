@@ -112,7 +112,12 @@ export class ToolUseSummaryService {
       mcpTools: unknown[];
     };
   }): Promise<{ message: { content: Array<{ type: string; text: string }> } }> {
-    throw new AppError('queryHaiku not implemented - requires API integration', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      'queryHaiku not implemented - requires API integration',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   private truncateJson(value: unknown, maxLength: number): string {

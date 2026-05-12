@@ -445,7 +445,12 @@ let globalSecurityEnhancer: SecurityEnhancer | null = null;
  */
 export function getSecurityEnhancer(): SecurityEnhancer {
   if (!globalSecurityEnhancer) {
-    throw new AppError('Security enhancer not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      'Security enhancer not initialized',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return globalSecurityEnhancer;
 }

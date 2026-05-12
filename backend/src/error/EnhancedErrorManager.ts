@@ -3,9 +3,13 @@
  * 提供高级错误处理、分析和生命周期管理功能
  */
 
-import type { AppError, ErrorCategory, ErrorContext } from './types.js';
-
-import { ErrorSeverity } from './types.js';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  ErrorContext,
+} from './types.js';
+import { ErrorCodes } from './ErrorCodes.js';
 
 import {
   ErrorManager,
@@ -102,7 +106,12 @@ export class EnhancedErrorManager {
     );
 
     if (!baseResult.trackedId) {
-      throw new Error('错误追踪失败');
+      throw new AppError(
+        ErrorCodes.EXECUTION_FAILED.message,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'ERROR_TRACKING_FAILED'
+      );
     }
 
     // 获取追踪的错误信息

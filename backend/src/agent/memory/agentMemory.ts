@@ -3,9 +3,12 @@
  * 代理内存
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 内存项接口
@@ -129,7 +132,7 @@ export class AgentMemoryImpl implements AgentMemory {
           'utf-8'
         );
       } catch (error) {
-        console.error('Failed to save agent memory:', error);
+        logger.error('Failed to save agent memory:', error);
       }
     }
   }
@@ -143,7 +146,7 @@ export class AgentMemoryImpl implements AgentMemory {
         const data = readFileSync(this.memoryPath, 'utf-8');
         this.data = JSON.parse(data);
       } catch (error) {
-        console.error('Failed to load agent memory:', error);
+        logger.error('Failed to load agent memory:', error);
         this.data = {};
       }
     }

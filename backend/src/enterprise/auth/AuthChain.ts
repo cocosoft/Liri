@@ -139,26 +139,37 @@ export class OAuthAuthenticator implements AuthStrategy {
 
       // 使用内置 https 模块进行 token 自检
       const { request } = await import('https');
-      const response = await new Promise<Record<string, unknown>>((resolve, reject) => {
-        const body = JSON.stringify({ token: credentials.accessToken });
-        const req = request(tokenIntrospectUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(body),
-          },
-        }, (res) => {
-          let data = '';
-          res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-          res.on('end', () => {
-            try { resolve(JSON.parse(data)); }
-            catch { reject(new Error('Token 自检响应解析失败')); }
-          });
-        });
-        req.on('error', reject);
-        req.write(body);
-        req.end();
-      });
+      const response = await new Promise<Record<string, unknown>>(
+        (resolve, reject) => {
+          const body = JSON.stringify({ token: credentials.accessToken });
+          const req = request(
+            tokenIntrospectUrl,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+              },
+            },
+            (res) => {
+              let data = '';
+              res.on('data', (chunk: Buffer) => {
+                data += chunk.toString();
+              });
+              res.on('end', () => {
+                try {
+                  resolve(JSON.parse(data));
+                } catch {
+                  reject(new Error('Token 自检响应解析失败'));
+                }
+              });
+            }
+          );
+          req.on('error', reject);
+          req.write(body);
+          req.end();
+        }
+      );
 
       if (response.active) {
         return {
@@ -206,25 +217,36 @@ export class SamlAuthenticator implements AuthStrategy {
         relayState: credentials.context?.relayState || '',
       });
 
-      const response = await new Promise<Record<string, unknown>>((resolve, reject) => {
-        const req = request(samlUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(body),
-          },
-        }, (res) => {
-          let data = '';
-          res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-          res.on('end', () => {
-            try { resolve(JSON.parse(data)); }
-            catch { reject(new Error('SAML 响应解析失败')); }
-          });
-        });
-        req.on('error', reject);
-        req.write(body);
-        req.end();
-      });
+      const response = await new Promise<Record<string, unknown>>(
+        (resolve, reject) => {
+          const req = request(
+            samlUrl,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+              },
+            },
+            (res) => {
+              let data = '';
+              res.on('data', (chunk: Buffer) => {
+                data += chunk.toString();
+              });
+              res.on('end', () => {
+                try {
+                  resolve(JSON.parse(data));
+                } catch {
+                  reject(new Error('SAML 响应解析失败'));
+                }
+              });
+            }
+          );
+          req.on('error', reject);
+          req.write(body);
+          req.end();
+        }
+      );
 
       if (response.status === 'success') {
         return {
@@ -271,25 +293,36 @@ export class LdapAuthenticator implements AuthStrategy {
         baseDn: process.env['PYAPP_LDAP_BASE_DN'] || '',
       });
 
-      const response = await new Promise<Record<string, unknown>>((resolve, reject) => {
-        const req = request(ldapUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(body),
-          },
-        }, (res) => {
-          let data = '';
-          res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-          res.on('end', () => {
-            try { resolve(JSON.parse(data)); }
-            catch { reject(new Error('LDAP 响应解析失败')); }
-          });
-        });
-        req.on('error', reject);
-        req.write(body);
-        req.end();
-      });
+      const response = await new Promise<Record<string, unknown>>(
+        (resolve, reject) => {
+          const req = request(
+            ldapUrl,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+              },
+            },
+            (res) => {
+              let data = '';
+              res.on('data', (chunk: Buffer) => {
+                data += chunk.toString();
+              });
+              res.on('end', () => {
+                try {
+                  resolve(JSON.parse(data));
+                } catch {
+                  reject(new Error('LDAP 响应解析失败'));
+                }
+              });
+            }
+          );
+          req.on('error', reject);
+          req.write(body);
+          req.end();
+        }
+      );
 
       if (response.authenticated) {
         return {
@@ -390,7 +423,7 @@ export class MtlsAuthenticator implements AuthStrategy {
       return null;
     }
 
-    const fingerprints = allowedFingerprints.split(',').map(f => f.trim());
+    const fingerprints = allowedFingerprints.split(',').map((f) => f.trim());
     if (fingerprints.includes(credentials.clientCertFingerprint)) {
       return {
         authenticated: true,
@@ -431,12 +464,18 @@ export class AuthChain {
    */
   async authenticate(credentials: AuthCredentials): Promise<AuthResult> {
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new AppError(
-        '认证链执行超时',
-        ErrorCategory.PERMISSION,
-        ErrorSeverity.HIGH,
-        'AUTH_CHAIN_TIMEOUT',
-      )), this.config.timeoutMs)
+      setTimeout(
+        () =>
+          reject(
+            new AppError(
+              '认证链执行超时',
+              ErrorCategory.PERMISSION,
+              ErrorSeverity.HIGH,
+              'AUTH_CHAIN_TIMEOUT'
+            )
+          ),
+        this.config.timeoutMs
+      )
     );
 
     const authPromise = this.executeChain(credentials);
@@ -452,12 +491,14 @@ export class AuthChain {
         ErrorCategory.PERMISSION,
         ErrorSeverity.HIGH,
         'AUTH_CHAIN_FAILED',
-        { originalError: (error as Error).message },
+        { originalError: (error as Error).message }
       );
     }
   }
 
-  private async executeChain(credentials: AuthCredentials): Promise<AuthResult> {
+  private async executeChain(
+    credentials: AuthCredentials
+  ): Promise<AuthResult> {
     const errors: Array<{ strategy: string; error: string }> = [];
 
     for (const strategy of this.strategies) {
@@ -479,7 +520,7 @@ export class AuthChain {
       ErrorCategory.PERMISSION,
       ErrorSeverity.HIGH,
       'AUTH_CHAIN_ALL_FAILED',
-      { strategies: errors },
+      { strategies: errors }
     );
   }
 

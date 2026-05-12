@@ -14,7 +14,12 @@ import type {
   ChannelEventCallbacks,
   ChannelStats,
 } from './types';
-import { ChannelType, ChannelStatus } from './types';
+import { ChannelType, ChannelStatus, MessageDirection } from './types';
+import type {
+  ChannelPlugin,
+  ChannelCapabilities,
+  PluginValidationResult,
+} from './ChannelPlugin';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -74,7 +79,7 @@ interface TelegramSendResponse {
  * Telegram Bot 通道
  * 通过长轮询接收消息，通过 Bot API 发送消息
  */
-export class TelegramChannel implements GatewayChannel {
+export class TelegramChannel implements GatewayChannel, ChannelPlugin {
   readonly name: string;
   readonly type = ChannelType.TELEGRAM;
   readonly config: TelegramChannelConfig;
@@ -119,7 +124,10 @@ export class TelegramChannel implements GatewayChannel {
   }
 
   async connect(): Promise<void> {
-    if (this._status === ChannelStatus.CONNECTED || this._status === ChannelStatus.CONNECTING) {
+    if (
+      this._status === ChannelStatus.CONNECTED ||
+      this._status === ChannelStatus.CONNECTING
+    ) {
       return;
     }
 
@@ -127,7 +135,9 @@ export class TelegramChannel implements GatewayChannel {
 
     try {
       const me = await this.apiCall<{ id: number; username: string }>('getMe');
-      logger.info(`TelegramChannel: ${this.name} 已连接 (Bot: @${me.username})`);
+      logger.info(
+        `TelegramChannel: ${this.name} 已连接 (Bot: @${me.username})`
+      );
 
       this._startTime = Date.now();
       this.setStatus(ChannelStatus.CONNECTED);
@@ -214,6 +224,53 @@ export class TelegramChannel implements GatewayChannel {
     };
   }
 
+  // ---- ChannelPlugin 接口实现 ----
+
+  get id(): string {
+    return this.name;
+  }
+
+  get capabilities(): ChannelCapabilities {
+    return this.getCapabilities();
+  }
+
+  async handleInbound(message: InboundMessage): Promise<void> {
+    this._messagesReceived++;
+    this._callbacks.onMessage?.(message);
+  }
+
+  async handleOutbound(message: OutboundMessage): Promise<boolean> {
+    return this.send(message);
+  }
+
+  getCapabilities(): ChannelCapabilities {
+    return {
+      messageTypes: ['text', 'markdown', 'html'],
+      supportsMedia: false,
+      maxMessageLength: 4096,
+      directions: [MessageDirection.INBOUND, MessageDirection.OUTBOUND],
+      features: ['polling', 'auto_reconnect'],
+    };
+  }
+
+  validateConfig(): PluginValidationResult {
+    const errors: string[] = [];
+    if (!this.config.token) {
+      errors.push('缺少 Bot Token');
+    }
+    if (
+      !this.config.token?.startsWith?.('/') &&
+      this.config.token &&
+      this.config.token.split(':').length < 2
+    ) {
+      errors.push('Bot Token 格式无效（需要 bot_token:数字格式）');
+    }
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
   /**
    * 开始长轮询
    */
@@ -244,7 +301,10 @@ export class TelegramChannel implements GatewayChannel {
         params.offset = this.lastUpdateId + 1;
       }
 
-      const updates = await this.apiCall<TelegramUpdate[]>('getUpdates', params);
+      const updates = await this.apiCall<TelegramUpdate[]>(
+        'getUpdates',
+        params
+      );
 
       for (const update of updates) {
         this.lastUpdateId = update.update_id;
@@ -265,7 +325,7 @@ export class TelegramChannel implements GatewayChannel {
   /**
    * 处理 Telegram 更新
    */
-  private processUpdate(update: TelegramUpdate): void {
+  private async processUpdate(update: TelegramUpdate): Promise<void> {
     const msg = update.message || update.edited_message;
     if (!msg || !msg.text) {
       return;
@@ -293,14 +353,16 @@ export class TelegramChannel implements GatewayChannel {
       timestamp: msg.date * 1000,
     };
 
-    this._messagesReceived++;
-    this._callbacks.onMessage?.(inboundMessage);
+    await this.handleInbound(inboundMessage);
   }
 
   /**
    * 调用 Telegram Bot API
    */
-  private apiCall<T>(method: string, params?: Record<string, unknown>): Promise<T> {
+  private apiCall<T>(
+    method: string,
+    params?: Record<string, unknown>
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
       const body = params ? JSON.stringify(params) : '';
       const urlPath = `/bot${this.config.token}/${method}`;
@@ -330,7 +392,11 @@ export class TelegramChannel implements GatewayChannel {
             if (parsed.ok) {
               resolve(parsed.result as T);
             } else {
-              reject(new Error(`Telegram API 错误: ${parsed.description || '未知错误'}`));
+              reject(
+                new Error(
+                  `Telegram API 错误: ${parsed.description || '未知错误'}`
+                )
+              );
             }
           } catch (e) {
             reject(new Error(`解析响应失败: ${data.substring(0, 200)}`));

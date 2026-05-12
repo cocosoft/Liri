@@ -35,7 +35,12 @@ export class ContextSharingManager {
     const scope = contextIsolator.getScope(targetScopeId);
 
     if (!scope) {
-      throw new AppError(`Target scope not found: ${targetScopeId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Target scope not found: ${targetScopeId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const entryKey = `${targetScopeId}:${contextKey}`;
@@ -45,8 +50,11 @@ export class ContextSharingManager {
       this.scopeShares.get(targetScopeId)!.size >= this.maxSharesPerScope
     ) {
       throw new AppError(
-        `Maximum shares per scope reached: ${this.maxSharesPerScope}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Maximum shares per scope reached: ${this.maxSharesPerScope}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (this.sharedContexts.size >= this.maxSharedContexts) {

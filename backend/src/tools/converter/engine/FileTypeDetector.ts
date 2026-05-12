@@ -17,9 +17,11 @@ const EXTENSION_MIME_MAP: Record<string, string> = {
   '.html': 'text/html',
   '.htm': 'text/html',
   '.xhtml': 'application/xhtml+xml',
-  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.docx':
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.pptx':
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   '.pdf': 'application/pdf',
   '.epub': 'application/epub+zip',
   '.zip': 'application/zip',
@@ -70,14 +72,20 @@ export class FileTypeDetector {
     };
 
     if (ext && mimeFromExt !== 'application/octet-stream') {
-      logger.debug(`第一层扩展名检测匹配`, { extension: ext, mimeType: mimeFromExt });
+      logger.debug(`第一层扩展名检测匹配`, {
+        extension: ext,
+        mimeType: mimeFromExt,
+      });
       return base;
     }
 
     return base;
   }
 
-  async detectWithContent(filePath: string, content: Buffer): Promise<FileInfo> {
+  async detectWithContent(
+    filePath: string,
+    content: Buffer
+  ): Promise<FileInfo> {
     const fileSize = content.length;
     const ext = path.extname(filePath).toLowerCase();
     const mimeFromExt = EXTENSION_MIME_MAP[ext] || 'application/octet-stream';
@@ -95,13 +103,17 @@ export class FileTypeDetector {
 
     const magicResult = this.detectByMagicBytes(content);
     if (magicResult) {
-      logger.debug(`第三层 Magic Bytes 检测匹配`, { extension: magicResult.extension });
+      logger.debug(`第三层 Magic Bytes 检测匹配`, {
+        extension: magicResult.extension,
+      });
       return magicResult;
     }
 
     const ooxmlResult = this.detectOoxml(content);
     if (ooxmlResult) {
-      logger.debug(`第四层 OOXML 内容检测匹配`, { extension: ooxmlResult.extension });
+      logger.debug(`第四层 OOXML 内容检测匹配`, {
+        extension: ooxmlResult.extension,
+      });
       return ooxmlResult;
     }
 
@@ -143,7 +155,10 @@ export class FileTypeDetector {
       return this.makeFileInfo('audio/flac', '.flac');
     }
 
-    if (this.matchesMagic(content, RIFF_MAGIC) && content.subarray(8, 12).toString() === 'WAVE') {
+    if (
+      this.matchesMagic(content, RIFF_MAGIC) &&
+      content.subarray(8, 12).toString() === 'WAVE'
+    ) {
       return this.makeFileInfo('audio/wav', '.wav');
     }
 
@@ -160,16 +175,29 @@ export class FileTypeDetector {
     };
 
     if (searchStr('word/main.xml')) {
-      return this.makeFileInfo('application/vnd.openxmlformats-officedocument.wordprocessingml.document', '.docx');
+      return this.makeFileInfo(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.docx'
+      );
     }
     if (searchStr('xl/workbook.xml')) {
-      return this.makeFileInfo('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '.xlsx');
+      return this.makeFileInfo(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.xlsx'
+      );
     }
     if (searchStr('ppt/presentation.xml')) {
-      return this.makeFileInfo('application/vnd.openxmlformats-officedocument.presentationml.presentation', '.pptx');
+      return this.makeFileInfo(
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        '.pptx'
+      );
     }
 
-    if (searchStr('META-INF/container.xml') || searchStr('OEBPS/') || searchStr('opf')) {
+    if (
+      searchStr('META-INF/container.xml') ||
+      searchStr('OEBPS/') ||
+      searchStr('opf')
+    ) {
       return this.makeFileInfo('application/epub+zip', '.epub');
     }
 

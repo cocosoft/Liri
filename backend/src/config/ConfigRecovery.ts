@@ -1,0 +1,66 @@
+import { copyFileSync, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { Logger } from '@modules/monitoring/logs/Logger';
+import { ConfigSnapshot } from './ConfigSnapshot';
+
+const logger = new Logger();
+
+export interface RecoveryResult {
+  recovered: boolean;
+  config?: Record<string, unknown>;
+  snapshotPath?: string;
+  error?: string;
+}
+
+export class ConfigRecovery {
+  private snapshot: ConfigSnapshot;
+  private configPath: string;
+
+  constructor(snapshot: ConfigSnapshot, configPath: string) {
+    this.snapshot = snapshot;
+    this.configPath = configPath;
+  }
+
+  attemptRecovery(): RecoveryResult {
+    const latest = this.snapshot.getLatestSnapshot();
+    if (!latest) {
+      logger.warning('配置恢复失败：无可用的快照');
+      return { recovered: false, error: 'No snapshots available' };
+    }
+
+    logger.warning('尝试从快照恢复配置', { snapshotPath: latest.path });
+
+    const config = this.snapshot.loadSnapshot(latest.path);
+    if (!config) {
+      logger.error('快照文件损坏，无法恢复', { snapshotPath: latest.path });
+      return {
+        recovered: false,
+        error: 'Snapshot is corrupted',
+        snapshotPath: latest.path,
+      };
+    }
+
+    try {
+      const configDir = join(this.configPath, '..');
+      if (!existsSync(configDir)) {
+        mkdirSync(configDir, { recursive: true });
+      }
+
+      copyFileSync(latest.path, this.configPath);
+
+      logger.warning('配置已从快照恢复', {
+        snapshotPath: latest.path,
+        configPath: this.configPath,
+      });
+
+      return { recovered: true, config, snapshotPath: latest.path };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error(
+        '快照恢复写入失败',
+        error instanceof Error ? error : undefined
+      );
+      return { recovered: false, error: msg, snapshotPath: latest.path };
+    }
+  }
+}

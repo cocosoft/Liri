@@ -88,7 +88,12 @@ export class NotebookManager {
       this.notebooks.set(notebook.id, notebook);
       return notebook;
     } catch (error) {
-      throw new AppError(`Failed to open notebook: ${error}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Failed to open notebook: ${error}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 
@@ -104,7 +109,12 @@ export class NotebookManager {
       (notebook as any).path = path;
       this.notebooks.set(notebook.id, notebook);
     } catch (error) {
-      throw new AppError(`Failed to save notebook: ${error}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Failed to save notebook: ${error}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 
@@ -118,7 +128,12 @@ export class NotebookManager {
       (notebook as any).path = path;
       this.notebooks.set(notebook.id, notebook);
     } catch (error) {
-      throw new AppError(`Failed to save notebook as: ${error}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Failed to save notebook as: ${error}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

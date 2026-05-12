@@ -99,7 +99,12 @@ export class PluginHandler {
     try {
       const plugin = this.plugins.find((p) => p.name === pluginName);
       if (!plugin) {
-        throw new AppError(`Plugin not found: ${pluginName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+        throw new AppError(
+          `Plugin not found: ${pluginName}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1005'
+        );
       }
 
       plugin.enabled = true;
@@ -139,7 +144,12 @@ export class PluginHandler {
     try {
       const plugin = this.plugins.find((p) => p.name === pluginName);
       if (!plugin) {
-        throw new AppError(`Plugin not found: ${pluginName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+        throw new AppError(
+          `Plugin not found: ${pluginName}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1005'
+        );
       }
 
       plugin.enabled = false;
@@ -221,7 +231,12 @@ export class PluginHandler {
     try {
       const index = this.plugins.findIndex((p) => p.name === pluginName);
       if (index === -1) {
-        throw new AppError(`Plugin not found: ${pluginName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+        throw new AppError(
+          `Plugin not found: ${pluginName}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1005'
+        );
       }
 
       this.plugins.splice(index, 1);

@@ -17,7 +17,15 @@ try {
 export class AudioConverter extends BaseConverter {
   override readonly name = 'audio';
   override readonly priority = PRIORITY_SPECIFIC_FILE_FORMAT;
-  override readonly supportedExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.wma'];
+  override readonly supportedExtensions = [
+    '.mp3',
+    '.wav',
+    '.m4a',
+    '.ogg',
+    '.flac',
+    '.aac',
+    '.wma',
+  ];
   override readonly supportedMimeTypes = [
     'audio/mpeg',
     'audio/wav',
@@ -29,17 +37,24 @@ export class AudioConverter extends BaseConverter {
     'audio/x-ms-wma',
   ];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'fluent-ffmpeg', format: 'audio', note: '运行：npm install fluent-ffmpeg' },
+        context: {
+          dependency: 'fluent-ffmpeg',
+          format: 'audio',
+          note: '运行：npm install fluent-ffmpeg',
+        },
         cause: _depError,
       });
     }
 
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     const lines: string[] = [];
     const fileName = context.fileInfo.path.split(/[/\\]/).pop() || 'audio';
@@ -53,9 +68,12 @@ export class AudioConverter extends BaseConverter {
         if (metadata.title) lines.push(`**标题:** ${metadata.title}`);
         if (metadata.artist) lines.push(`**艺术家:** ${metadata.artist}`);
         if (metadata.album) lines.push(`**专辑:** ${metadata.album}`);
-        if (metadata.duration) lines.push(`**时长:** ${this.formatDuration(metadata.duration)}`);
-        if (metadata.bitrate) lines.push(`**比特率:** ${Math.round(metadata.bitrate / 1000)} kbps`);
-        if (metadata.sampleRate) lines.push(`**采样率:** ${metadata.sampleRate} Hz`);
+        if (metadata.duration)
+          lines.push(`**时长:** ${this.formatDuration(metadata.duration)}`);
+        if (metadata.bitrate)
+          lines.push(`**比特率:** ${Math.round(metadata.bitrate / 1000)} kbps`);
+        if (metadata.sampleRate)
+          lines.push(`**采样率:** ${metadata.sampleRate} Hz`);
         if (metadata.channels) lines.push(`**声道:** ${metadata.channels}`);
       }
     } catch {
@@ -74,7 +92,9 @@ export class AudioConverter extends BaseConverter {
             return;
           }
 
-          const stream = data.streams?.find((s: any) => s.codec_type === 'audio');
+          const stream = data.streams?.find(
+            (s: any) => s.codec_type === 'audio'
+          );
           const format = data.format;
 
           resolve({
@@ -83,7 +103,9 @@ export class AudioConverter extends BaseConverter {
             album: format?.tags?.album || '',
             duration: format?.duration ? parseFloat(format.duration) : 0,
             bitrate: format?.bit_rate ? parseInt(format.bit_rate, 10) : 0,
-            sampleRate: stream?.sample_rate ? parseInt(stream.sample_rate, 10) : 0,
+            sampleRate: stream?.sample_rate
+              ? parseInt(stream.sample_rate, 10)
+              : 0,
             channels: stream?.channels || 0,
           });
         });
@@ -97,7 +119,8 @@ export class AudioConverter extends BaseConverter {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
-    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    if (h > 0)
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     return `${m}:${String(s).padStart(2, '0')}`;
   }
 }

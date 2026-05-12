@@ -58,7 +58,12 @@ export class ExtendedToolExecutor {
     // 检查工具是否存在
     const tool = this.toolRegistry.get(toolId);
     if (!tool) {
-      throw new AppError(`Tool not found: ${toolId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `Tool not found: ${toolId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     // 应用超时
@@ -207,12 +212,7 @@ export class ExtendedToolExecutor {
   ): Promise<any[]> {
     const parallelTasks = tasks.map((task) => ({
       execute: () =>
-        this.executeTool(
-          task.toolId,
-          task.params,
-          task.options || {},
-          context
-        ),
+        this.executeTool(task.toolId, task.params, task.options || {}, context),
     }));
 
     const results = await this.parallelExecutor.execute<any>(parallelTasks);

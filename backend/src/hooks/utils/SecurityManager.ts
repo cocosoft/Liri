@@ -181,18 +181,9 @@ export class SecurityManager extends EventEmitter {
       maxMemoryMB: 512,
       maxCpuPercent: 50,
       allowedCommands: [],
-      blockedCommands: [
-        'rm -rf /',
-        'del /f /q',
-        'format',
-        'dd',
-      ],
+      blockedCommands: ['rm -rf /', 'del /f /q', 'format', 'dd'],
       allowedPaths: [],
-      blockedPaths: [
-        'C:\\Windows\\System32',
-        '/etc/passwd',
-        '/etc/shadow',
-      ],
+      blockedPaths: ['C:\\Windows\\System32', '/etc/passwd', '/etc/shadow'],
       timeoutMs: 30000,
     };
   }
@@ -215,13 +206,19 @@ export class SecurityManager extends EventEmitter {
         this.trustState = { ...this.trustState, ...data.trustState };
       }
       if (data.sandboxConfig) {
-        this.sandboxConfig = { ...this.getDefaultSandboxConfig(), ...data.sandboxConfig };
+        this.sandboxConfig = {
+          ...this.getDefaultSandboxConfig(),
+          ...data.sandboxConfig,
+        };
       }
       if (data.securityLog) {
         this.securityLog = data.securityLog;
       }
     } catch (error) {
-      logger.error('Failed to load security config', error instanceof Error ? error : undefined);
+      logger.error(
+        'Failed to load security config',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -237,7 +234,10 @@ export class SecurityManager extends EventEmitter {
       };
       writeFileSync(this.configPath, JSON.stringify(data, null, 2) + '\n');
     } catch (error) {
-      logger.error('Failed to save security config', error instanceof Error ? error : undefined);
+      logger.error(
+        'Failed to save security config',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 
@@ -297,7 +297,9 @@ export class SecurityManager extends EventEmitter {
   /**
    * 验证钩子配置安全性
    */
-  validateHookConfig(config: Record<string, unknown>): SecurityValidationResult {
+  validateHookConfig(
+    config: Record<string, unknown>
+  ): SecurityValidationResult {
     const warnings: string[] = [];
 
     if (!config.type) {
@@ -309,31 +311,59 @@ export class SecurityManager extends EventEmitter {
 
       for (const blocked of this.sandboxConfig.blockedCommands || []) {
         if (command.includes(blocked)) {
-          this.logSecurityAction('validate_hook', 'deny', 'Blocked command detected', {
-            command,
-            blocked,
-          });
-          return { valid: false, error: `Command contains blocked pattern: ${blocked}` };
+          this.logSecurityAction(
+            'validate_hook',
+            'deny',
+            'Blocked command detected',
+            {
+              command,
+              blocked,
+            }
+          );
+          return {
+            valid: false,
+            error: `Command contains blocked pattern: ${blocked}`,
+          };
         }
       }
 
       const commandName = command.split(/\s+/)[0];
       if (this.blockedCommands.has(commandName.toLowerCase())) {
-        this.logSecurityAction('validate_hook', 'deny', 'Blocked command name', {
-          command,
-          commandName,
-        });
-        return { valid: false, error: `Command is not allowed: ${commandName}` };
+        this.logSecurityAction(
+          'validate_hook',
+          'deny',
+          'Blocked command name',
+          {
+            command,
+            commandName,
+          }
+        );
+        return {
+          valid: false,
+          error: `Command is not allowed: ${commandName}`,
+        };
       }
 
-      if (this.options.allowedCommands && this.options.allowedCommands.length > 0) {
+      if (
+        this.options.allowedCommands &&
+        this.options.allowedCommands.length > 0
+      ) {
         if (!this.options.allowedCommands.includes(commandName)) {
-          return { valid: false, error: `Command is not in allowed list: ${commandName}` };
+          return {
+            valid: false,
+            error: `Command is not in allowed list: ${commandName}`,
+          };
         }
       }
 
-      if (config.timeout !== undefined && Number(config.timeout) > (this.options.maxExecutionTime ?? Infinity)) {
-        return { valid: false, error: 'Command timeout exceeds maximum allowed time' };
+      if (
+        config.timeout !== undefined &&
+        Number(config.timeout) > (this.options.maxExecutionTime ?? Infinity)
+      ) {
+        return {
+          valid: false,
+          error: 'Command timeout exceeds maximum allowed time',
+        };
       }
 
       if (command.includes('..')) {
@@ -348,7 +378,9 @@ export class SecurityManager extends EventEmitter {
       ];
       for (const pattern of dangerousPatterns) {
         if (pattern.test(command)) {
-          warnings.push(`Command matches potentially dangerous pattern: ${pattern}`);
+          warnings.push(
+            `Command matches potentially dangerous pattern: ${pattern}`
+          );
         }
       }
     }
@@ -365,11 +397,16 @@ export class SecurityManager extends EventEmitter {
       }
 
       const url = String(config.url);
-      if (url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1')) {
+      if (
+        url.startsWith('http://localhost') ||
+        url.startsWith('http://127.0.0.1')
+      ) {
         warnings.push('HTTP hook targets localhost - ensure this is expected');
       }
       if (url.startsWith('http://') && !url.includes('localhost')) {
-        warnings.push('HTTP hook does not use HTTPS - consider using HTTPS for security');
+        warnings.push(
+          'HTTP hook does not use HTTPS - consider using HTTPS for security'
+        );
       }
     }
 
@@ -383,11 +420,18 @@ export class SecurityManager extends EventEmitter {
     }
 
     if (config.timeout !== undefined && Number(config.timeout) > 300000) {
-      warnings.push('Hook timeout exceeds 5 minutes - consider reducing for safety');
+      warnings.push(
+        'Hook timeout exceeds 5 minutes - consider reducing for safety'
+      );
     }
 
     if (warnings.length > 0) {
-      this.logSecurityAction('validate_hook', 'allow', 'Hook validated with warnings', { warnings, config });
+      this.logSecurityAction(
+        'validate_hook',
+        'allow',
+        'Hook validated with warnings',
+        { warnings, config }
+      );
     }
 
     return {
@@ -400,25 +444,46 @@ export class SecurityManager extends EventEmitter {
    * 验证路径是否安全
    */
   validatePath(path: string): SecurityValidationResult {
-    const { allowedPaths: configAllowedPaths, blockedPaths } = this.sandboxConfig;
+    const { allowedPaths: configAllowedPaths, blockedPaths } =
+      this.sandboxConfig;
 
     if (configAllowedPaths && configAllowedPaths.length > 0) {
-      const isAllowed = configAllowedPaths.some(allowedPath => path.startsWith(allowedPath));
+      const isAllowed = configAllowedPaths.some((allowedPath) =>
+        path.startsWith(allowedPath)
+      );
       if (!isAllowed) {
-        this.logSecurityAction('validate_path', 'deny', 'Path not in allowed list', { path, allowedPaths: configAllowedPaths });
+        this.logSecurityAction(
+          'validate_path',
+          'deny',
+          'Path not in allowed list',
+          { path, allowedPaths: configAllowedPaths }
+        );
         return { valid: false, error: 'Path is not in the allowed paths list' };
       }
     }
 
     for (const blockedPath of blockedPaths || []) {
       if (path.includes(blockedPath)) {
-        this.logSecurityAction('validate_path', 'deny', 'Path in blocked list', { path, blockedPath });
-        return { valid: false, error: `Path contains blocked path: ${blockedPath}` };
+        this.logSecurityAction(
+          'validate_path',
+          'deny',
+          'Path in blocked list',
+          { path, blockedPath }
+        );
+        return {
+          valid: false,
+          error: `Path contains blocked path: ${blockedPath}`,
+        };
       }
     }
 
     if (path.includes('..')) {
-      this.logSecurityAction('validate_path', 'deny', 'Path traversal detected', { path });
+      this.logSecurityAction(
+        'validate_path',
+        'deny',
+        'Path traversal detected',
+        { path }
+      );
       return { valid: false, error: 'Path contains traversal pattern (..)' };
     }
 
@@ -436,7 +501,10 @@ export class SecurityManager extends EventEmitter {
           return { valid: true };
         }
       }
-      return { valid: false, error: 'Path is outside workspace and not in allowed paths' };
+      return {
+        valid: false,
+        error: 'Path is outside workspace and not in allowed paths',
+      };
     } catch {
       return { valid: false, error: 'Failed to resolve path' };
     }
@@ -448,20 +516,39 @@ export class SecurityManager extends EventEmitter {
   validateCommand(command: string): SecurityValidationResult {
     for (const blocked of this.sandboxConfig.blockedCommands || []) {
       if (command.includes(blocked)) {
-        this.logSecurityAction('validate_command', 'deny', 'Blocked command detected', { command, blocked });
-        return { valid: false, error: `Command contains blocked pattern: ${blocked}` };
+        this.logSecurityAction(
+          'validate_command',
+          'deny',
+          'Blocked command detected',
+          { command, blocked }
+        );
+        return {
+          valid: false,
+          error: `Command contains blocked pattern: ${blocked}`,
+        };
       }
     }
 
     const commandName = command.split(/\s+/)[0];
     if (this.blockedCommands.has(commandName.toLowerCase())) {
-      this.logSecurityAction('validate_command', 'deny', 'Blocked command name', { command, commandName });
+      this.logSecurityAction(
+        'validate_command',
+        'deny',
+        'Blocked command name',
+        { command, commandName }
+      );
       return { valid: false, error: `Command is not allowed: ${commandName}` };
     }
 
-    if (this.options.allowedCommands && this.options.allowedCommands.length > 0) {
+    if (
+      this.options.allowedCommands &&
+      this.options.allowedCommands.length > 0
+    ) {
       if (!this.options.allowedCommands.includes(commandName)) {
-        return { valid: false, error: `Command is not in allowed list: ${commandName}` };
+        return {
+          valid: false,
+          error: `Command is not in allowed list: ${commandName}`,
+        };
       }
     }
 
@@ -539,7 +626,9 @@ export class SecurityManager extends EventEmitter {
    */
   analyzeSecurityStatus(): SecurityAnalysisStatus {
     const recentSecurityEvents = this.securityLog.slice(-20);
-    const blockedAttempts = this.securityLog.filter(log => log.result === 'deny').length;
+    const blockedAttempts = this.securityLog.filter(
+      (log) => log.result === 'deny'
+    ).length;
     const warnings: string[] = [];
 
     if (!this.trustState.isTrusted && this.trustState.isInteractive) {
@@ -549,7 +638,9 @@ export class SecurityManager extends EventEmitter {
       warnings.push('沙箱未启用，存在安全风险');
     }
     if (blockedAttempts > 10) {
-      warnings.push(`检测到 ${blockedAttempts} 次被阻止的安全尝试，建议检查配置`);
+      warnings.push(
+        `检测到 ${blockedAttempts} 次被阻止的安全尝试，建议检查配置`
+      );
     }
 
     return {
@@ -579,7 +670,10 @@ export class SecurityManager extends EventEmitter {
       this.trustState.isTrusted = true;
       this.saveSecurityConfig();
     } catch (error) {
-      logger.error('Failed to set workspace as trusted', error instanceof Error ? error : undefined);
+      logger.error(
+        'Failed to set workspace as trusted',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 

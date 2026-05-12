@@ -306,7 +306,12 @@ export function isMessageEmpty(message: BridgeMessage): boolean {
 export function mergeMessages(messages: BridgeMessage[]): BridgeMessage {
   const first = messages[0];
   if (!first) {
-    throw new AppError('Cannot merge empty message array', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      'Cannot merge empty message array',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   return {

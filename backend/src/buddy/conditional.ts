@@ -178,7 +178,12 @@ export function hasAnyBuddyFeature(): boolean {
  */
 export function compileTimeAssert(condition: boolean, message: string): void {
   if (!condition) {
-    throw new AppError(`[Buddy Compile Error] ${message}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `[Buddy Compile Error] ${message}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 }
 

@@ -41,7 +41,12 @@ class InProcessTransportImpl implements InProcessTransportInterface {
 
   async send(message: JSONRPCMessage): Promise<void> {
     if (this._closed) {
-      throw new AppError('Transport is closed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Transport is closed',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 异步投递消息，避免同步请求/响应循环导致的栈溢出

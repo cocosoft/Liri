@@ -32,8 +32,11 @@ export function writeFile(input: FileWriteInput): FileWriteResult {
     const stat = fs.statSync(resolved);
     if (stat.size > MAX_FILE_SIZE) {
       throw new AppError(
-        `File too large to overwrite: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `File too large to overwrite: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

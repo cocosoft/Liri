@@ -88,15 +88,23 @@ export class PluginLoader {
       const plugin = pluginModule.default || pluginModule;
 
       if (!this.validatePlugin(plugin)) {
-        throw new AppError(`Invalid plugin structure at ${pluginPath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Invalid plugin structure at ${pluginPath}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       if (this.plugins.has(plugin.id)) {
         const existing = this.plugins.get(plugin.id)!;
         if (!this.isVersionCompatible(existing.version, plugin.version)) {
           throw new AppError(
-            `Version conflict for plugin ${plugin.id}: existing ${existing.version}, loading ${plugin.version}`
-          , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+            `Version conflict for plugin ${plugin.id}: existing ${existing.version}, loading ${plugin.version}`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
         }
       }
 
@@ -104,8 +112,11 @@ export class PluginLoader {
       const errors = conflicts.filter((c) => c.severity === 'error');
       if (errors.length > 0) {
         throw new AppError(
-          `Plugin conflicts detected: ${errors.map((e) => e.description).join(', ')}`
-        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          `Plugin conflicts detected: ${errors.map((e) => e.description).join(', ')}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       const sandbox = this.createSandbox(plugin);
@@ -152,7 +163,12 @@ export class PluginLoader {
   async activatePlugin(pluginId: string): Promise<void> {
     const plugin = this.plugins.get(pluginId);
     if (!plugin) {
-      throw new AppError(`Plugin ${pluginId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Plugin ${pluginId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const deps = this.resolveDependencies(plugin);
@@ -171,7 +187,12 @@ export class PluginLoader {
   async deactivatePlugin(pluginId: string): Promise<void> {
     const plugin = this.plugins.get(pluginId);
     if (!plugin) {
-      throw new AppError(`Plugin ${pluginId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Plugin ${pluginId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const dependents = this.findDependents(pluginId);
@@ -272,7 +293,12 @@ export class PluginLoader {
     try {
       return await import(pluginPath);
     } catch (error) {
-      throw new AppError(`Cannot import plugin from ${pluginPath}: ${error}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Cannot import plugin from ${pluginPath}: ${error}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

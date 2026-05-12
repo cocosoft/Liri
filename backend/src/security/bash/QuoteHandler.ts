@@ -45,7 +45,12 @@ export function tryQuoteArgs(args: unknown[]): QuoteResult {
       if (type === 'string' || type === 'number' || type === 'boolean') {
         return String(arg);
       }
-      throw new AppError(`无法引用参数 at index ${index}: 不支持的类型 ${type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `无法引用参数 at index ${index}: 不支持的类型 ${type}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     });
     const quoted = validated.map(quoteArg).join(' ');
     return { quoted, success: true };

@@ -49,7 +49,12 @@ export class SessionRecorder {
 
   start(sessionId?: string): RecordedSession {
     if (this.recording) {
-      throw new AppError('Already recording. Stop current recording first.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Already recording. Stop current recording first.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     this.currentSession = {
@@ -68,7 +73,12 @@ export class SessionRecorder {
 
   stop(): RecordedSession {
     if (!this.recording || !this.currentSession) {
-      throw new AppError('No active recording.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'No active recording.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     this.currentSession.endTime = Date.now();
@@ -84,7 +94,12 @@ export class SessionRecorder {
     metadata?: Record<string, unknown>
   ): string {
     if (!this.recording || !this.currentSession) {
-      throw new AppError('Not recording.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Not recording.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const id = `msg_${this.currentSession.messages.length}_${randomUUID().slice(0, 6)}`;
@@ -139,7 +154,12 @@ export class SessionRecorder {
 
   async saveRecording(): Promise<string> {
     if (!this.currentSession || this.currentSession.messages.length === 0) {
-      throw new AppError('No recording data to save.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'No recording data to save.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const hash = createHash('sha1')

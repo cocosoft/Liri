@@ -14,7 +14,12 @@ export function decodeWorkSecret(secret: string): WorkSecret {
     const decoded = Buffer.from(secret, 'base64').toString('utf8');
     return JSON.parse(decoded);
   } catch (error) {
-    throw new AppError('Failed to decode work secret', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      'Failed to decode work secret',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 }
 
@@ -55,7 +60,12 @@ export async function registerWorker(
   });
 
   if (!response.ok) {
-    throw new AppError(`Failed to register worker: ${response.status}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `Failed to register worker: ${response.status}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   const data = await response.json();

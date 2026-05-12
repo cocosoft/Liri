@@ -2,6 +2,8 @@
  * TaskStopTool - 停止运行中的后台任务
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { z } from 'zod';
 import { Text, Box } from 'ink';
 import type { Tool } from '../types/index.js';
@@ -89,11 +91,23 @@ async function stopTask(
   const task = runningTasks.get(taskId);
 
   if (!task) {
-    throw new Error(`No task found with ID: ${taskId}`);
+    throw new AppError(
+      ErrorCodes.ENTITY_NOT_FOUND.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.MEDIUM,
+      'TASK_NOT_FOUND',
+      { taskId }
+    );
   }
 
   if (task.status !== 'running') {
-    throw new Error(`Task ${taskId} is not running (status: ${task.status})`);
+    throw new AppError(
+      ErrorCodes.INVALID_STATE.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.MEDIUM,
+      'TASK_NOT_RUNNING',
+      { taskId, status: task.status }
+    );
   }
 
   task.status = 'stopped';
@@ -219,7 +233,12 @@ export const TaskStopTool: Tool<InputSchema, OutputSchema> = buildTool({
     const id = task_id ?? shell_id;
 
     if (!id) {
-      throw new Error('Missing required parameter: task_id');
+      throw new AppError(
+        ErrorCodes.INVALID_INPUT.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MISSING_TASK_ID'
+      );
     }
 
     const result = await stopTask(id);

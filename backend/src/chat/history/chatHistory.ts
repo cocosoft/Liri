@@ -5,6 +5,9 @@
 import { ChatMessage, ChatHistoryOptions } from '../models/types';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 聊天历史类
@@ -105,7 +108,7 @@ export class ChatHistory {
           'utf-8'
         );
       } catch (error) {
-        console.error('Failed to save chat history:', error);
+        logger.error('Failed to save chat history:', error);
       }
     }
   }
@@ -119,7 +122,7 @@ export class ChatHistory {
         const data = readFileSync(this.storagePath, 'utf-8');
         this.messages = JSON.parse(data);
       } catch (error) {
-        console.error('Failed to load chat history:', error);
+        logger.error('Failed to load chat history:', error);
         this.messages = [];
       }
     }

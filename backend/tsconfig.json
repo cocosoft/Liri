@@ -27,6 +27,8 @@
       "src/*": ["*"],
       "@modules/core": ["core"],
       "@modules/core/*": ["core/*"],
+      "@modules/plugin-sdk": ["plugin-sdk"],
+      "@modules/plugin-sdk/*": ["plugin-sdk/*"],
       "@modules/ai": ["ai"],
       "@modules/ai/*": ["ai/*"],
       "@modules/agent": ["agent"],

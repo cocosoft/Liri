@@ -1,5 +1,8 @@
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 附件类型
@@ -128,7 +131,7 @@ export class AttachmentManager {
         return true;
       }
     } catch (error) {
-      console.error('Error deleting attachment:', error);
+      logger.error('Error deleting attachment:', error);
     }
 
     return false;

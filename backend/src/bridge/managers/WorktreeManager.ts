@@ -56,7 +56,12 @@ export class WorktreeManager {
     // 获取Git根目录
     const gitRoot = this.getGitRoot();
     if (!gitRoot) {
-      throw new AppError('Not in a git repository', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Not in a git repository',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 创建工作树

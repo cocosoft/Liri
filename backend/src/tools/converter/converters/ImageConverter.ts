@@ -16,7 +16,16 @@ try {
 export class ImageConverter extends BaseConverter {
   override readonly name = 'image';
   override readonly priority = PRIORITY_SPECIFIC_FILE_FORMAT;
-  override readonly supportedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg'];
+  override readonly supportedExtensions = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.bmp',
+    '.webp',
+    '.tiff',
+    '.svg',
+  ];
   override readonly supportedMimeTypes = [
     'image/jpeg',
     'image/png',
@@ -27,18 +36,23 @@ export class ImageConverter extends BaseConverter {
     'image/svg+xml',
   ];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     const lines: string[] = [];
 
     if (_sharp) {
       try {
         const metadata = await _sharp(buffer).metadata();
-        if (metadata.format) lines.push(`**格式:** ${metadata.format.toUpperCase()}`);
-        if (metadata.width && metadata.height) lines.push(`**尺寸:** ${metadata.width} × ${metadata.height} 像素`);
+        if (metadata.format)
+          lines.push(`**格式:** ${metadata.format.toUpperCase()}`);
+        if (metadata.width && metadata.height)
+          lines.push(`**尺寸:** ${metadata.width} × ${metadata.height} 像素`);
         if (metadata.density) lines.push(`**DPI:** ${metadata.density}`);
         if (metadata.channels) lines.push(`**通道:** ${metadata.channels}`);
         if (metadata.hasAlpha) lines.push(`**透明度:** 是`);

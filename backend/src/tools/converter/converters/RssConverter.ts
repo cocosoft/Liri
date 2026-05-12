@@ -27,17 +27,24 @@ export class RssConverter extends BaseConverter {
     'application/xml',
   ];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'fast-xml-parser', format: 'rss', note: '运行：npm install fast-xml-parser' },
+        context: {
+          dependency: 'fast-xml-parser',
+          format: 'rss',
+          note: '运行：npm install fast-xml-parser',
+        },
         cause: _depError,
       });
     }
 
-    const text = typeof context.content === 'string'
-      ? context.content
-      : context.content.toString('utf-8');
+    const text =
+      typeof context.content === 'string'
+        ? context.content
+        : context.content.toString('utf-8');
 
     const parser = new _XMLParser.XMLParser({
       ignoreAttributes: false,
@@ -59,7 +66,10 @@ export class RssConverter extends BaseConverter {
       return this.convertAtom(doc.feed);
     } else {
       throw AppError.fromCode(ErrorCodes.UNSUPPORTED_FORMAT, {
-        context: { format: 'rss', note: '无法识别的 Feed 格式（仅支持 RSS 和 Atom）' },
+        context: {
+          format: 'rss',
+          note: '无法识别的 Feed 格式（仅支持 RSS 和 Atom）',
+        },
       });
     }
   }
@@ -74,7 +84,11 @@ export class RssConverter extends BaseConverter {
 
     const channelTitle = channel.title || '';
     const channelDescription = channel.description || '';
-    const items = Array.isArray(channel.item) ? channel.item : (channel.item ? [channel.item] : []);
+    const items = Array.isArray(channel.item)
+      ? channel.item
+      : channel.item
+        ? [channel.item]
+        : [];
 
     const lines: string[] = [];
 
@@ -102,7 +116,11 @@ export class RssConverter extends BaseConverter {
   private convertAtom(feed: any): ConversionResult {
     const title = feed.title || '';
     const subtitle = feed.subtitle || '';
-    const entries = Array.isArray(feed.entry) ? feed.entry : (feed.entry ? [feed.entry] : []);
+    const entries = Array.isArray(feed.entry)
+      ? feed.entry
+      : feed.entry
+        ? [feed.entry]
+        : [];
 
     const lines: string[] = [];
 
@@ -116,15 +134,24 @@ export class RssConverter extends BaseConverter {
       const entryContent = entry.content || '';
 
       if (entryTitle) {
-        const titleText = typeof entryTitle === 'string' ? entryTitle : (entryTitle['#text'] || '');
+        const titleText =
+          typeof entryTitle === 'string'
+            ? entryTitle
+            : entryTitle['#text'] || '';
         lines.push(`\n## ${titleText}`);
       }
       if (entryUpdated) lines.push(`更新于: ${entryUpdated}`);
       if (entryContent) {
-        const contentText = typeof entryContent === 'string' ? entryContent : (entryContent['#text'] || '');
+        const contentText =
+          typeof entryContent === 'string'
+            ? entryContent
+            : entryContent['#text'] || '';
         lines.push(this.parseContent(contentText));
       } else if (entrySummary) {
-        const summaryText = typeof entrySummary === 'string' ? entrySummary : (entrySummary['#text'] || '');
+        const summaryText =
+          typeof entrySummary === 'string'
+            ? entrySummary
+            : entrySummary['#text'] || '';
         lines.push(this.parseContent(summaryText));
       }
     }

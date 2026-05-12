@@ -49,8 +49,11 @@ export class StorageFactory {
 
     if (!StorageClass) {
       throw new AppError(
-        `Storage type '${config.type}' is not registered. Available types: ${Array.from(storageRegistry.keys()).join(', ')}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Storage type '${config.type}' is not registered. Available types: ${Array.from(storageRegistry.keys()).join(', ')}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return new StorageClass(config);

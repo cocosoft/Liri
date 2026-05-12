@@ -2,6 +2,8 @@
  * ListMcpResourcesTool - 列出MCP资源
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { z } from 'zod';
 import { Text, Box } from 'ink';
 import type { Tool } from '../types/index.js';
@@ -112,8 +114,15 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> =
         : mcpClients;
 
       if (targetServer && clientsToProcess.length === 0) {
-        throw new Error(
-          `Server "${targetServer}" not found. Available servers: ${mcpClients.map((c: MCPClient) => c.name).join(', ')}`
+        throw new AppError(
+          ErrorCodes.ENTITY_NOT_FOUND.message,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.MEDIUM,
+          'MCP_SERVER_NOT_FOUND',
+          {
+            targetServer,
+            availableServers: mcpClients.map((c: MCPClient) => c.name),
+          }
         );
       }
 

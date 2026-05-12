@@ -320,7 +320,12 @@ describe('CommandPipeline', () => {
       stage: PipelineStage.EXECUTE,
       priority: 10,
       handler: async (_ctx, _next) => {
-        throw new AppError('Middleware error', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          'Middleware error',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       },
     });
     const result = await pipeline.execute('test', '');

@@ -21,17 +21,24 @@ export class DocxConverter extends HtmlConverter {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'mammoth', format: 'docx', note: '运行：npm install mammoth' },
+        context: {
+          dependency: 'mammoth',
+          format: 'docx',
+          note: '运行：npm install mammoth',
+        },
         cause: _depError,
       });
     }
 
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     const result = await _mammoth.convertToHtml({ buffer });
 

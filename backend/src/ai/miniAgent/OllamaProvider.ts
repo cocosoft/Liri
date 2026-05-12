@@ -1,9 +1,3 @@
-//
-/**
- * Ollama Provider
- * 本地中模型推理提供者 (可选组件)
- */
-
 import type { ChatMessage } from '../models/types.js';
 import type {
   IOllamaProvider,
@@ -13,15 +7,20 @@ import type {
   OllamaResponse,
   OllamaChatResponse,
 } from './types.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { OllamaProvider as StandardOllamaProvider } from '@modules/ai/providers/OllamaProvider';
 
 export class OllamaProvider implements IOllamaProvider {
+  private standardProvider: StandardOllamaProvider;
   private config: OllamaConfig;
   private available: boolean = false;
-  private cachedModels: string[] | null = null;
 
   constructor(config: OllamaConfig) {
     this.config = config;
+    this.standardProvider = new StandardOllamaProvider({
+      baseUrl: config.baseUrl,
+      model: config.defaultModel,
+      timeout: config.timeout,
+    });
   }
 
   async isAvailable(): Promise<boolean> {
@@ -29,61 +28,28 @@ export class OllamaProvider implements IOllamaProvider {
       this.available = false;
       return false;
     }
-
-    try {
-      const response = await fetch(`${this.config.baseUrl}/api/tags`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(3000),
-      });
-
-      this.available = response.ok;
-      return this.available;
-    } catch (error) {
-      this.available = false;
-      return false;
-    }
+    this.available = await this.standardProvider.isAvailable();
+    return this.available;
   }
 
   async generate(
     prompt: string,
     options?: OllamaGenerateOptions
   ): Promise<OllamaResponse> {
-    const model = options?.model || this.config.defaultModel;
-    const temperature = options?.temperature ?? 0.7;
-    const maxTokens = options?.maxTokens || 2048;
-
-    const response = await fetch(`${this.config.baseUrl}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        prompt,
-        stream: false,
-        options: {
-          temperature,
-          num_predict: maxTokens,
-        },
-      }),
-      signal: AbortSignal.timeout(this.config.timeout),
+    const result = await this.standardProvider.generate(prompt, {
+      model: options?.model,
+      temperature: options?.temperature,
+      maxTokens: options?.maxTokens,
     });
-
-    if (!response.ok) {
-      throw new AppError(`Ollama generate failed: ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
-    }
-
-    const data = await response.json();
-
     return {
-      model: data.model || model,
-      response: data.response || '',
-      done: data.done || true,
-      context: data.context,
-      totalDuration: data.total_duration,
-      loadDuration: data.load_duration,
-      promptEvalCount: data.prompt_eval_count,
-      evalCount: data.eval_count,
+      model: result.model,
+      response: result.response,
+      done: result.done,
+      context: result.context,
+      totalDuration: result.totalDuration,
+      loadDuration: result.loadDuration,
+      promptEvalCount: result.promptEvalCount,
+      evalCount: result.evalCount,
     };
   }
 
@@ -92,70 +58,23 @@ export class OllamaProvider implements IOllamaProvider {
     options?: OllamaChatOptions
   ): Promise<OllamaChatResponse> {
     const model = options?.model || this.config.defaultModel;
-    const temperature = options?.temperature ?? 0.7;
-    const maxTokens = options?.maxTokens || 2048;
-
-    const ollamaMessages = messages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
-
-    const response = await fetch(`${this.config.baseUrl}/api/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: ollamaMessages,
-        stream: false,
-        options: {
-          temperature,
-          num_predict: maxTokens,
-        },
-        tools: options?.tools,
-      }),
-      signal: AbortSignal.timeout(this.config.timeout),
+    const result = await this.standardProvider.chat(messages, {
+      model,
+      temperature: options?.temperature,
+      maxTokens: options?.maxTokens,
     });
-
-    if (!response.ok) {
-      throw new AppError(`Ollama chat failed: ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
-    }
-
-    const data = await response.json();
-
     return {
-      model: data.model || model,
+      model: result.model || model,
       message: {
-        role: data.message?.role || 'assistant',
-        content: data.message?.content || '',
+        role: 'assistant',
+        content: result.content,
       },
-      done: data.done || true,
-      totalDuration: data.total_duration,
+      done: true,
     };
   }
 
   async listModels(): Promise<string[]> {
-    if (this.cachedModels) {
-      return this.cachedModels;
-    }
-
-    try {
-      const response = await fetch(`${this.config.baseUrl}/api/tags`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(3000),
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-
-      const data = await response.json();
-      this.cachedModels = (data.models || []).map((m: any) => m.name);
-      return this.cachedModels as string[];
-    } catch (error) {
-      return [];
-    }
+    return this.standardProvider.listModels();
   }
 
   getConfig(): OllamaConfig {
@@ -174,7 +93,7 @@ export class OllamaProvider implements IOllamaProvider {
   }
 
   clearModelCache(): void {
-    this.cachedModels = null;
+    // Standard provider manages its own cache
   }
 }
 

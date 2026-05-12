@@ -2,7 +2,11 @@
  * security-review 命令
  * 对当前分支的变更进行安全审查
  */
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 
 /**
  * security-review 命令定义
@@ -15,7 +19,10 @@ const securityReviewCommand: Command = {
   argumentHint: '[目标分支]',
   loadedFrom: 'builtin',
   load: async () => ({
-    async execute(_args: string, _context: CommandContext): Promise<CommandResult> {
+    async execute(
+      _args: string,
+      _context: CommandContext
+    ): Promise<CommandResult> {
       return {
         success: true,
         type: 'text',

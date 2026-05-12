@@ -81,7 +81,12 @@ export class LifecycleManager {
     const entry = this.entries.get(id);
 
     if (!entry) {
-      throw new AppError(`Context not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Context not found: ${id}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (entry.hooks.onActivate) {
@@ -97,7 +102,12 @@ export class LifecycleManager {
     const entry = this.entries.get(id);
 
     if (!entry) {
-      throw new AppError(`Context not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Context not found: ${id}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (entry.hooks.onSuspend) {
@@ -113,7 +123,12 @@ export class LifecycleManager {
     const entry = this.entries.get(id);
 
     if (!entry) {
-      throw new AppError(`Context not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Context not found: ${id}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (entry.hooks.onDestroy) {

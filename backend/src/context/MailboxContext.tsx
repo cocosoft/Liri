@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import React, {
   createContext,
   useContext,
@@ -80,7 +82,13 @@ export function MailboxProvider({ children }: { children: ReactNode }) {
 export function useMailbox() {
   const context = useContext(MailboxContext);
   if (!context) {
-    throw new Error('useMailbox must be used within a MailboxProvider');
+    throw new AppError(
+      ErrorCodes.INTERNAL.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'CONTEXT_NOT_AVAILABLE',
+      { hook: 'useMailbox', provider: 'MailboxProvider' }
+    );
   }
   return context;
 }

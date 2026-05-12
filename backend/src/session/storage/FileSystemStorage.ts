@@ -1,5 +1,6 @@
 import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { Session } from '../models/Session';
 import { SessionMessage } from '../models/SessionMessage';
 import { SessionMetadata } from '../models/SessionMetadata';
@@ -8,6 +9,8 @@ import type {
   MessageLoadOptions,
   SessionListOptions,
 } from '../SessionStorage';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 文件系统存储实现
@@ -104,7 +107,7 @@ export class FileSystemStorage implements SessionStorage {
       const data = JSON.parse(content);
       return Session.fromJSON(data);
     } catch (error: any) {
-      console.error(`Error loading session ${sessionId}:`, error.message);
+      logger.error(`Error loading session ${sessionId}:`, error.message);
       return null;
     }
   }

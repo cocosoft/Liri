@@ -291,8 +291,11 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
     }
 
     throw new AppError(
-      `Failed to acquire lock after ${this.config.lockTimeout}ms`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      `Failed to acquire lock after ${this.config.lockTimeout}ms`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   /**

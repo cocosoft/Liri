@@ -68,7 +68,12 @@ export class WebSocketProtocol implements RemoteAgentProtocol {
 
   async send(data: RemoteAgentTask): Promise<RemoteExecutionResult> {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      throw new AppError('Not connected to remote agent', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Not connected to remote agent',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const socket = this.socket;
@@ -149,7 +154,12 @@ export class HttpProtocol implements RemoteAgentProtocol {
         });
 
         if (!response.ok) {
-          throw new AppError(`HTTP error: ${response.status}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          throw new AppError(
+            `HTTP error: ${response.status}`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
         }
 
         const result: RemoteExecutionResult = await response.json();
@@ -168,7 +178,12 @@ export class HttpProtocol implements RemoteAgentProtocol {
       }
     }
 
-    throw new AppError('Max retries exceeded', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      'Max retries exceeded',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   isConnected(): boolean {

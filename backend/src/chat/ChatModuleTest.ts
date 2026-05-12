@@ -228,7 +228,12 @@ describe('SmartToolIntegrator', () => {
       version: '1.0.0',
       parameters: {},
       execute: async () => {
-        throw new AppError('temporary', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          'temporary',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       },
       timeout: 100,
     };
@@ -592,7 +597,12 @@ describe('ChatEcosystem', () => {
       description: '',
       hooks: {
         beforeSendMessage: async () => {
-          throw new AppError('hook error', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          throw new AppError(
+            'hook error',
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
         },
       },
       priority: 0,

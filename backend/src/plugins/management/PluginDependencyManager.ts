@@ -382,7 +382,10 @@ export class PluginDependencyManager extends EventEmitter {
 
     if (visiting.has(pluginName)) {
       throw new AppError(
-        `Circular dependency detected: ${Array.from(visiting).concat(pluginName).join(' -> ')}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000'
+        `Circular dependency detected: ${Array.from(visiting).concat(pluginName).join(' -> ')}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
       );
     }
 

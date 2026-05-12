@@ -227,7 +227,12 @@ export class MCPConnectionManager {
   async reconnectServer(serverName: string): Promise<MCPServerConnection> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Server not found: ${serverName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 取消现有的重连尝试
@@ -254,7 +259,12 @@ export class MCPConnectionManager {
   async toggleServer(serverName: string): Promise<void> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Server not found: ${serverName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 这里可以实现启用/禁用逻辑

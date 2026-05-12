@@ -1,5 +1,10 @@
 import { Logger } from '@modules/monitoring/logs/Logger';
-import type { ConversionResult, ConversionContext, FileInfo, ConversionOptions } from './types';
+import type {
+  ConversionResult,
+  ConversionContext,
+  FileInfo,
+  ConversionOptions,
+} from './types';
 import { ConverterRegistry } from './ConverterRegistry';
 import { FileTypeDetector } from './FileTypeDetector';
 import { PlainTextConverter } from '../converters/PlainTextConverter';
@@ -74,7 +79,10 @@ export class ConverterEngine {
     return this.detector;
   }
 
-  async convertFile(filePath: string, options?: ConversionOptions): Promise<ConversionResult> {
+  async convertFile(
+    filePath: string,
+    options?: ConversionOptions
+  ): Promise<ConversionResult> {
     this.ensureInitialized();
     const fs = await import('fs');
     const stats = fs.statSync(filePath);
@@ -88,14 +96,17 @@ export class ConverterEngine {
       options,
     };
 
-    logger.info(`开始转换文件`, { path: filePath, extension: fileInfo.extension });
+    logger.info(`开始转换文件`, {
+      path: filePath,
+      extension: fileInfo.extension,
+    });
     return this.registry.findAndConvert(context);
   }
 
   async convertContent(
     fileInfo: FileInfo,
     content: Buffer | string,
-    options?: ConversionOptions,
+    options?: ConversionOptions
   ): Promise<ConversionResult> {
     this.ensureInitialized();
     const context: ConversionContext = { fileInfo, content, options };

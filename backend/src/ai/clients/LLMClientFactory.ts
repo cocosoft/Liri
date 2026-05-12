@@ -5,6 +5,8 @@
  * 基于CC源码 cc_code/backend/services/api/client.ts 实现
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { LLMClient } from './LLMClient';
 import { DeepSeekClient } from './DeepSeekClient';
 import { AnthropicClient } from './AnthropicClient';
@@ -13,7 +15,8 @@ import { AWSClient } from './AWSClient';
 import { AzureClient } from './AzureClient';
 import { VertexClient } from './VertexClient';
 import { getConfig } from '@modules/config';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface AnthropicConfig {
   apiKey: string;
@@ -102,10 +105,10 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
         this.clients.set('deepseek', deepseekClient);
         this.defaultClient = deepseekClient;
       } else {
-        console.warn('DeepSeek API key not configured');
+        logger.warning('DeepSeek API key not configured');
       }
     } catch (error) {
-      console.error('Failed to register default DeepSeek client:', error);
+      logger.error('Failed to register default DeepSeek client:', error);
     }
   }
 
@@ -176,7 +179,12 @@ export class DefaultLLMClientFactory implements LLMClientFactory {
       case 'vertex':
         return this.createVertexClient(config);
       default:
-        throw new AppError(`Unsupported client type: ${type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Unsupported client type: ${type}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
     }
   }
 

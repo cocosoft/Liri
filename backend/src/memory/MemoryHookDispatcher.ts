@@ -6,7 +6,7 @@
  */
 
 import type { Memory } from './types/Memory';
-import { HookManager } from '../hooks/managers/HookManager';
+import { HookChainManager } from '@modules/hooks/core/HookChainManager';
 import { Logger, LogLevel } from '../monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -36,10 +36,10 @@ export interface MemoryHookData {
  * 包装 MemoryManager 的关键方法，在前后触发 Hook 事件
  */
 export class MemoryHookDispatcher {
-  private hookManager: HookManager;
+  private hookChainManager: HookChainManager;
 
   constructor() {
-    this.hookManager = HookManager.getInstance();
+    this.hookChainManager = HookChainManager.getInstance();
   }
 
   /**
@@ -54,15 +54,14 @@ export class MemoryHookDispatcher {
     modifiedMemory?: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>;
   }> {
     try {
-      const results = await this.hookManager.executeHooks(
-        'memory.pre-save' as any,
-        { memory, sessionId } as MemoryHookData,
-        [],
-        sessionId
-      );
+      const result = await this.hookChainManager.execute('memory', {
+        event: 'memory.pre-save',
+        data: { memory, sessionId },
+        sessionId,
+      });
 
-      for (const result of results) {
-        if (!result.success || result.preventContinuation) {
+      for (const hookResult of result.before) {
+        if (!hookResult.success || hookResult.preventContinuation) {
           return { allowed: false };
         }
       }
@@ -82,12 +81,11 @@ export class MemoryHookDispatcher {
    */
   async postSave(memory: Memory, sessionId?: string): Promise<void> {
     try {
-      await this.hookManager.executeHooks(
-        'memory.post-save' as any,
-        { memory, sessionId } as MemoryHookData,
-        [],
-        sessionId
-      );
+      await this.hookChainManager.execute('memory', {
+        event: 'memory.post-save',
+        data: { memory, sessionId },
+        sessionId,
+      });
     } catch (error) {
       logger.error(
         `Memory post-save hook failed: ${error instanceof Error ? error.message : String(error)}`
@@ -104,15 +102,14 @@ export class MemoryHookDispatcher {
     sessionId?: string
   ): Promise<{ allowed: boolean }> {
     try {
-      const results = await this.hookManager.executeHooks(
-        'memory.pre-load' as any,
-        { memoryId, sessionId } as MemoryHookData,
-        [],
-        sessionId
-      );
+      const result = await this.hookChainManager.execute('memory', {
+        event: 'memory.pre-load',
+        data: { memoryId, sessionId },
+        sessionId,
+      });
 
-      for (const result of results) {
-        if (!result.success || result.preventContinuation) {
+      for (const hookResult of result.before) {
+        if (!hookResult.success || hookResult.preventContinuation) {
           return { allowed: false };
         }
       }
@@ -134,12 +131,11 @@ export class MemoryHookDispatcher {
     if (!memory) return;
 
     try {
-      await this.hookManager.executeHooks(
-        'memory.post-load' as any,
-        { memory, memoryId: memory.id, sessionId } as MemoryHookData,
-        [],
-        sessionId
-      );
+      await this.hookChainManager.execute('memory', {
+        event: 'memory.post-load',
+        data: { memory, memoryId: memory.id, sessionId },
+        sessionId,
+      });
     } catch (error) {
       logger.error(
         `Memory post-load hook failed: ${error instanceof Error ? error.message : String(error)}`

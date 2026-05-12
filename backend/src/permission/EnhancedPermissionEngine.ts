@@ -543,7 +543,12 @@ export class EnhancedPermissionEngine {
         this.rules.sort((a, b) => b.priority - a.priority);
       }
     } catch (error) {
-      throw new AppError(`Failed to import rules: ${(error as Error).message}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Failed to import rules: ${(error as Error).message}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 }

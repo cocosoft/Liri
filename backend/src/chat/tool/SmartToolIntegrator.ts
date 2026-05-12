@@ -99,7 +99,12 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
 
   registerTool(tool: SmartTool): void {
     if (this.tools.has(tool.name)) {
-      throw new AppError(`Tool already registered: ${tool.name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Tool already registered: ${tool.name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     this.tools.set(tool.name, tool);
   }

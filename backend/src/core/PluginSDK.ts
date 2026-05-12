@@ -11,108 +11,24 @@ import {
   ModuleDefinition,
 } from './ModuleDependencyManager.js';
 
-/**
- * 插件上下文
- * 提供给插件的API接口
- */
-export interface PluginContext {
-  // 插件信息
-  pluginId: string;
-  pluginName: string;
-  version: string;
+import type {
+  PluginContext,
+  Plugin,
+  SkillDefinition,
+  SkillParameter,
+  SkillContext,
+} from '@modules/plugin-sdk';
 
-  // 日志接口
-  log: {
-    debug: (message: string, ...args: unknown[]) => void;
-    info: (message: string, ...args: unknown[]) => void;
-    warn: (message: string, ...args: unknown[]) => void;
-    error: (message: string, ...args: unknown[]) => void;
-  };
-
-  // 配置接口
-  config: {
-    get: <T>(key: string, defaultValue?: T) => T;
-    set: <T>(key: string, value: T) => void;
-    save: () => Promise<void>;
-  };
-
-  // 事件接口
-  events: {
-    on: (event: string, callback: (...args: unknown[]) => void) => void;
-    off: (event: string, callback: (...args: unknown[]) => void) => void;
-    emit: (event: string, ...args: unknown[]) => void;
-  };
-
-  // 工具接口
-  utils: {
-    showNotification: (
-      message: string,
-      type?: 'info' | 'success' | 'warning' | 'error'
-    ) => void;
-    showProgress: (label: string, current: number, total: number) => void;
-  };
-}
+export type {
+  PluginContext,
+  Plugin,
+  SkillDefinition,
+  SkillParameter,
+  SkillContext,
+};
 
 /**
- * 插件接口
- */
-export interface Plugin {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  author: string;
-  tags: string[];
-  category: string;
-
-  // 生命周期方法
-  initialize?: (context: PluginContext) => Promise<void> | void;
-  activate?: (context: PluginContext) => Promise<void> | void;
-  deactivate?: (context: PluginContext) => Promise<void> | void;
-  destroy?: (context: PluginContext) => Promise<void> | void;
-
-  // 技能列表
-  skills?: SkillDefinition[];
-}
-
-/**
- * 技能定义
- */
-export interface SkillDefinition {
-  id: string;
-  name: string;
-  description: string;
-  parameters?: SkillParameter[];
-  execute: (context: SkillContext, args: Record<string, unknown>) => Promise<unknown>;
-}
-
-/**
- * 技能参数
- */
-export interface SkillParameter {
-  name: string;
-  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-  description: string;
-  required?: boolean;
-  defaultValue?: unknown;
-}
-
-/**
- * 技能上下文
- */
-export interface SkillContext {
-  pluginId: string;
-  skillId: string;
-  log: {
-    debug: (message: string, ...args: unknown[]) => void;
-    info: (message: string, ...args: unknown[]) => void;
-    warn: (message: string, ...args: unknown[]) => void;
-    error: (message: string, ...args: unknown[]) => void;
-  };
-}
-
-/**
- * 插件配置
+ * 插件SDK配置
  */
 export interface PluginSDKConfig {
   ecosystem: PluginEcosystem;

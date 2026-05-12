@@ -10,7 +10,17 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /** 策略规则条件操作符 */
-export type ConditionOperator = 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'matches' | 'in' | 'gt' | 'gte' | 'lt' | 'lte';
+export type ConditionOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'starts_with'
+  | 'matches'
+  | 'in'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte';
 
 /** 策略规则条件 */
 export interface PolicyCondition {
@@ -94,14 +104,24 @@ export class SandboxPolicy {
    * 评估给定操作在此策略下是否允许
    */
   evaluate(operation: string, context: EvaluationContext): PolicyDecision {
-    const matchedRules = this.rules.filter(r => this.matchOperation(r.operation, operation));
+    const matchedRules = this.rules.filter((r) =>
+      this.matchOperation(r.operation, operation)
+    );
 
     for (const rule of matchedRules) {
       if (this.evaluateConditions(rule.conditions, context)) {
         if (rule.effect === 'allow') {
-          return { allowed: true, reason: rule.description, matchedRule: rule.name };
+          return {
+            allowed: true,
+            reason: rule.description,
+            matchedRule: rule.name,
+          };
         }
-        return { allowed: false, reason: rule.description || '策略拒绝', matchedRule: rule.name };
+        return {
+          allowed: false,
+          reason: rule.description || '策略拒绝',
+          matchedRule: rule.name,
+        };
       }
     }
 
@@ -128,11 +148,17 @@ export class SandboxPolicy {
     return false;
   }
 
-  private evaluateConditions(conditions: PolicyCondition[], context: EvaluationContext): boolean {
-    return conditions.every(c => this.evaluateCondition(c, context));
+  private evaluateConditions(
+    conditions: PolicyCondition[],
+    context: EvaluationContext
+  ): boolean {
+    return conditions.every((c) => this.evaluateCondition(c, context));
   }
 
-  private evaluateCondition(condition: PolicyCondition, context: EvaluationContext): boolean {
+  private evaluateCondition(
+    condition: PolicyCondition,
+    context: EvaluationContext
+  ): boolean {
     const actualValue = this.resolveField(condition.field, context);
     const expectedValue = condition.value;
 
@@ -142,7 +168,10 @@ export class SandboxPolicy {
       case 'not_equals':
         return actualValue !== expectedValue;
       case 'contains':
-        if (typeof actualValue === 'string' && typeof expectedValue === 'string') {
+        if (
+          typeof actualValue === 'string' &&
+          typeof expectedValue === 'string'
+        ) {
           return actualValue.includes(expectedValue);
         }
         if (Array.isArray(actualValue)) {
@@ -150,10 +179,16 @@ export class SandboxPolicy {
         }
         return false;
       case 'starts_with':
-        return typeof actualValue === 'string' && typeof expectedValue === 'string'
-          && actualValue.startsWith(expectedValue);
+        return (
+          typeof actualValue === 'string' &&
+          typeof expectedValue === 'string' &&
+          actualValue.startsWith(expectedValue)
+        );
       case 'matches':
-        if (typeof actualValue === 'string' && typeof expectedValue === 'string') {
+        if (
+          typeof actualValue === 'string' &&
+          typeof expectedValue === 'string'
+        ) {
           try {
             return new RegExp(expectedValue).test(actualValue);
           } catch {
@@ -162,19 +197,33 @@ export class SandboxPolicy {
         }
         return false;
       case 'in':
-        return Array.isArray(expectedValue) && expectedValue.includes(actualValue);
+        return (
+          Array.isArray(expectedValue) && expectedValue.includes(actualValue)
+        );
       case 'gt':
-        return typeof actualValue === 'number' && typeof expectedValue === 'number'
-          && actualValue > expectedValue;
+        return (
+          typeof actualValue === 'number' &&
+          typeof expectedValue === 'number' &&
+          actualValue > expectedValue
+        );
       case 'gte':
-        return typeof actualValue === 'number' && typeof expectedValue === 'number'
-          && actualValue >= expectedValue;
+        return (
+          typeof actualValue === 'number' &&
+          typeof expectedValue === 'number' &&
+          actualValue >= expectedValue
+        );
       case 'lt':
-        return typeof actualValue === 'number' && typeof expectedValue === 'number'
-          && actualValue < expectedValue;
+        return (
+          typeof actualValue === 'number' &&
+          typeof expectedValue === 'number' &&
+          actualValue < expectedValue
+        );
       case 'lte':
-        return typeof actualValue === 'number' && typeof expectedValue === 'number'
-          && actualValue <= expectedValue;
+        return (
+          typeof actualValue === 'number' &&
+          typeof expectedValue === 'number' &&
+          actualValue <= expectedValue
+        );
       default:
         return false;
     }
@@ -186,7 +235,10 @@ export class SandboxPolicy {
 
     for (const part of parts) {
       if (value === null || value === undefined) return undefined;
-      if (typeof value === 'object' && part in (value as Record<string, unknown>)) {
+      if (
+        typeof value === 'object' &&
+        part in (value as Record<string, unknown>)
+      ) {
         value = (value as Record<string, unknown>)[part];
       } else {
         return undefined;
@@ -208,7 +260,7 @@ export class SandboxPolicy {
    * 移除规则
    */
   removeRule(ruleName: string): boolean {
-    const index = this.rules.findIndex(r => r.name === ruleName);
+    const index = this.rules.findIndex((r) => r.name === ruleName);
     if (index >= 0) {
       this.rules.splice(index, 1);
       return true;
@@ -233,9 +285,7 @@ export class SandboxPolicy {
         operation: 'file.read',
         effect: 'allow',
         priority: 10,
-        conditions: [
-          { field: 'path', operator: 'starts_with', value: '/tmp' },
-        ],
+        conditions: [{ field: 'path', operator: 'starts_with', value: '/tmp' }],
         description: '允许读取临时目录文件',
       },
       {
@@ -243,9 +293,7 @@ export class SandboxPolicy {
         operation: 'file.read',
         effect: 'deny',
         priority: 20,
-        conditions: [
-          { field: 'path', operator: 'starts_with', value: '/etc' },
-        ],
+        conditions: [{ field: 'path', operator: 'starts_with', value: '/etc' }],
         description: '禁止读取系统配置目录',
       },
       {

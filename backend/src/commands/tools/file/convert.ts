@@ -34,7 +34,7 @@ function buildHelpText(): string {
 const convertCommand = {
   async execute(
     args: string,
-    _context: CommandContext,
+    _context: CommandContext
   ): Promise<CommandResult> {
     if (!args.trim() || args.trim().toLowerCase() === 'help') {
       return { success: true, message: buildHelpText() };

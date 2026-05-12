@@ -115,7 +115,12 @@ export class MCPConnectionManager extends EventEmitter {
     connectionConfig?: MCPConnectionConfig
   ): Promise<MCPClient> {
     if (this.connections.has(name)) {
-      throw new AppError(`Connection already exists: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1004');
+      throw new AppError(
+        `Connection already exists: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1004'
+      );
     }
 
     // 创建连接信息
@@ -157,11 +162,21 @@ export class MCPConnectionManager extends EventEmitter {
     const connectionInfo = this.connections.get(name);
 
     if (!connectionInfo) {
-      throw new AppError(`Connection not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `Connection not found: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     if (!connectionInfo.client) {
-      throw new AppError(`Client not initialized: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `Client not initialized: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     try {
@@ -211,11 +226,21 @@ export class MCPConnectionManager extends EventEmitter {
     const connectionInfo = this.connections.get(name);
 
     if (!connectionInfo) {
-      throw new AppError(`Connection not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `Connection not found: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     if (!connectionInfo.client) {
-      throw new AppError(`Client not initialized: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `Client not initialized: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     try {
@@ -263,7 +288,12 @@ export class MCPConnectionManager extends EventEmitter {
     const connectionInfo = this.connections.get(name);
 
     if (!connectionInfo) {
-      throw new AppError(`Connection not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `Connection not found: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     // 取消现有的重连定时器
@@ -287,7 +317,12 @@ export class MCPConnectionManager extends EventEmitter {
     const connectionInfo = this.connections.get(name);
 
     if (!connectionInfo) {
-      throw new AppError(`Connection not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `Connection not found: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     // 取消重连定时器
@@ -315,7 +350,12 @@ export class MCPConnectionManager extends EventEmitter {
     const id = sessionId || this.generateSessionId();
 
     if (this.sessions.has(id)) {
-      throw new AppError(`Session already exists: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1004');
+      throw new AppError(
+        `Session already exists: ${id}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1004'
+      );
     }
 
     const sessionInfo: MCPSessionInfo = {
@@ -347,13 +387,23 @@ export class MCPConnectionManager extends EventEmitter {
     const id = sessionId || this.currentSessionId;
 
     if (!id) {
-      throw new AppError('No active session', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        'No active session',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     const sessionInfo = this.sessions.get(id);
 
     if (!sessionInfo) {
-      throw new AppError(`Session not found: ${id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `Session not found: ${id}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     sessionInfo.endedAt = new Date();
@@ -441,7 +491,12 @@ export class MCPConnectionManager extends EventEmitter {
     const connectionInfo = this.connections.get(name);
 
     if (!connectionInfo) {
-      throw new AppError(`Connection not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `Connection not found: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     connectionInfo.status.autoReconnect = enabled;

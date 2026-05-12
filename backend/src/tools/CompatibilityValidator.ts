@@ -116,7 +116,12 @@ export class CompatibilityValidator {
     const srcDir = path.join(this.projectRoot, 'src');
 
     if (!fs.existsSync(srcDir)) {
-      throw new AppError(`源码目录不存在: ${srcDir}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `源码目录不存在: ${srcDir}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 获取所有TypeScript文件

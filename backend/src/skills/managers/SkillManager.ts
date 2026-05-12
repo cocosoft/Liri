@@ -111,7 +111,12 @@ export class SkillManager {
   ): Promise<any> {
     const skill = this.getSkill(name);
     if (!skill) {
-      throw new AppError(`Skill not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Skill not found: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     try {

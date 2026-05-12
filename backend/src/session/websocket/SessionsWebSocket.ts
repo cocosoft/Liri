@@ -3,6 +3,10 @@
  * 对标CC源码的SessionsWebSocket.ts
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 type WebSocketState = 'connecting' | 'connected' | 'closed';
 
 type SessionsMessage =
@@ -186,9 +190,9 @@ export class SessionsWebSocket {
 
       if (message.type === 'auth_response') {
         if ((message as Record<string, unknown>).success) {
-          console.log('WebSocket authentication successful');
+          logger.info('WebSocket authentication successful');
         } else {
-          console.error('WebSocket authentication failed');
+          logger.error('WebSocket authentication failed');
           this.close();
           return;
         }
@@ -196,7 +200,7 @@ export class SessionsWebSocket {
 
       this.callbacks.onMessage(message);
     } catch (error) {
-      console.error('Failed to parse WebSocket message:', error);
+      logger.error('Failed to parse WebSocket message:', error);
     }
   }
 

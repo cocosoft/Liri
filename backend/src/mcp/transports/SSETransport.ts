@@ -98,7 +98,12 @@ export class SSETransport extends MCPTransport {
    */
   async send(request: MCPRequest): Promise<MCPResponse> {
     if (!this.eventSource || !this.connected) {
-      throw new AppError('Not connected to MCP server', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Not connected to MCP server',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 注意：SSE是单向的，只能从服务器到客户端

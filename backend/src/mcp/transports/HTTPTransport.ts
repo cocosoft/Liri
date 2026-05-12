@@ -43,7 +43,12 @@ export class HTTPTransport extends MCPTransport {
    */
   async send(request: MCPRequest): Promise<MCPResponse> {
     if (!this.connected) {
-      throw new AppError('Not connected to MCP server', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Not connected to MCP server',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const response = await fetch(this.url, {
@@ -56,7 +61,12 @@ export class HTTPTransport extends MCPTransport {
     });
 
     if (!response.ok) {
-      throw new AppError(`HTTP error: ${response.status} ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `HTTP error: ${response.status} ${response.statusText}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const data = await response.json();

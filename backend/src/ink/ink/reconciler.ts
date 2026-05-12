@@ -1,8 +1,13 @@
 //
 /* eslint-disable */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { appendFileSync } from 'fs';
 import createReconciler from 'react-reconciler';
+
+const logger = new Logger({ level: LogLevel.INFO });
 // 替换缺失的 getYogaCounters 导入
 const getYogaCounters = () => ({
   ms: 0,
@@ -43,8 +48,7 @@ if (process.env.NODE_ENV === 'development') {
     void import('./devtools.js');
   } catch (error: any) {
     if (error.code === 'ERR_MODULE_NOT_FOUND') {
-      // biome-ignore lint/suspicious/noConsole: intentional warning
-      console.warn(
+      logger.warning(
         `
 The environment variable DEV is set to true, so Ink tried to import \`react-devtools-core\`,
 but this failed as it was not installed. Debugging with React Devtools requires it.
@@ -321,7 +325,12 @@ const reconciler: any = createReconciler({
     internalHandle?: unknown
   ): DOMElement {
     if (hostContext.isInsideText && originalType === 'ink-box') {
-      throw new Error(`<Box> can't be nested inside <Text> component`);
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.LOW,
+        'BOX_IN_TEXT_NOT_ALLOWED'
+      );
     }
 
     const type =
@@ -348,8 +357,12 @@ const reconciler: any = createReconciler({
     hostContext: HostContext
   ): TextNode {
     if (!hostContext.isInsideText) {
-      throw new Error(
-        `Text string "${text}" must be rendered inside <Text> component`
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.LOW,
+        'TEXT_OUTSIDE_TEXT_NOT_ALLOWED',
+        { text }
       );
     }
 

@@ -151,13 +151,21 @@ export async function checkStsCallerIdentity(): Promise<void> {
     });
     const result = JSON.parse(stdout);
     if (!result.Arn) {
-      throw new AppError('Unable to retrieve caller identity', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Unable to retrieve caller identity',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   } catch (error) {
     throw new AppError(
       `AWS STS caller identity check failed: ` +
-        `${error instanceof Error ? error.message : String(error)}`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `${error instanceof Error ? error.message : String(error)}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 }
 
@@ -179,8 +187,11 @@ export async function getAwsCredentials(): Promise<AwsCredentials> {
   } catch (error) {
     throw new AppError(
       `Failed to get AWS credentials: ` +
-        `${error instanceof Error ? error.message : String(error)}`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `${error instanceof Error ? error.message : String(error)}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 }
 

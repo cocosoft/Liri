@@ -57,7 +57,12 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    */
   async connect(): Promise<void> {
     if (this._state !== 'disconnected') {
-      throw new AppError(`Cannot connect from state: ${this._state}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `Cannot connect from state: ${this._state}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     try {
@@ -121,7 +126,12 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    */
   async callTool(name: string, args?: Record<string, any>): Promise<any> {
     if (this._state !== 'connected') {
-      throw new AppError(`Cannot call tool from state: ${this._state}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `Cannot call tool from state: ${this._state}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     const request: MCPRequest = {
@@ -161,7 +171,12 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    */
   async listTools(): Promise<MCPToolDefinition[]> {
     if (this._state !== 'connected') {
-      throw new AppError(`Cannot list tools from state: ${this._state}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `Cannot list tools from state: ${this._state}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     const request: MCPRequest = {
@@ -193,7 +208,12 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    */
   async listResources(): Promise<MCPResourceDefinition[]> {
     if (this._state !== 'connected') {
-      throw new AppError(`Cannot list resources from state: ${this._state}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `Cannot list resources from state: ${this._state}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     const request: MCPRequest = {
@@ -225,7 +245,12 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    */
   async listPrompts(): Promise<MCPPromptDefinition[]> {
     if (this._state !== 'connected') {
-      throw new AppError(`Cannot list prompts from state: ${this._state}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `Cannot list prompts from state: ${this._state}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     const request: MCPRequest = {
@@ -257,7 +282,12 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
    */
   async getServerInfo(): Promise<MCPServerInfo> {
     if (this._state !== 'connected') {
-      throw new AppError(`Cannot get server info from state: ${this._state}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `Cannot get server info from state: ${this._state}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     const request: MCPRequest = {

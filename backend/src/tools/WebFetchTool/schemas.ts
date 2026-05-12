@@ -61,7 +61,12 @@ export function validateWebFetchInput(input: unknown): WebFetchInputType {
     const errors = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('; ');
-    throw new AppError(`WebFetch输入验证失败: ${errors}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `WebFetch输入验证失败: ${errors}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return result.data;
 }

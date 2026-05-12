@@ -3,6 +3,10 @@
  * 实现会话状态机和状态变更通知
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 会话状态
  */
@@ -69,7 +73,7 @@ export class ChatSessionStateManager {
       try {
         listener(state, details);
       } catch (error) {
-        console.error('[chat] Error in session state listener:', error);
+        logger.error('[chat] Error in session state listener:', error);
       }
     });
 
@@ -143,7 +147,7 @@ export class ChatSessionStateManager {
       try {
         listener('idle');
       } catch (error) {
-        console.error('[chat] Error in session state reset listener:', error);
+        logger.error('[chat] Error in session state reset listener:', error);
       }
     });
   }

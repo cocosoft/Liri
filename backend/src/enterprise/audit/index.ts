@@ -2,7 +2,10 @@
  * 企业版审计模块导出
  */
 
-export { EnterpriseAuditService, AuditEventType } from './EnterpriseAuditService.js';
+export {
+  EnterpriseAuditService,
+  AuditEventType,
+} from './EnterpriseAuditService.js';
 export { ApprovalWorkflow } from './ApprovalWorkflow.js';
 
 export type {

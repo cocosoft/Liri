@@ -146,7 +146,12 @@ export class MCPHandler {
     try {
       const server = mcpConnectionManager.getServer(serverName);
       if (!server) {
-        throw new AppError(`Server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+        throw new AppError(
+          `Server not found: ${serverName}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1005'
+        );
       }
 
       console.log(chalk.green('✓'), `Disconnected from ${serverName}`);

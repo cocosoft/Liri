@@ -29,16 +29,31 @@ export function readFile(input: FileReadInput): FileReadResult {
   const resolved = path.resolve(input.filePath);
 
   if (BLOCKED_PATHS.has(resolved)) {
-    throw new AppError(`Blocked device path: ${resolved}`, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, '101');
+    throw new AppError(
+      `Blocked device path: ${resolved}`,
+      ErrorCategory.FILESYSTEM,
+      ErrorSeverity.HIGH,
+      '101'
+    );
   }
 
   if (!fs.existsSync(resolved)) {
-    throw new AppError(`File not found: ${resolved}`, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, '100');
+    throw new AppError(
+      `File not found: ${resolved}`,
+      ErrorCategory.FILESYSTEM,
+      ErrorSeverity.HIGH,
+      '100'
+    );
   }
 
   const stat = fs.statSync(resolved);
   if (stat.isDirectory()) {
-    throw new AppError(`Path is a directory: ${resolved}`, ErrorCategory.FILESYSTEM, ErrorSeverity.HIGH, '105');
+    throw new AppError(
+      `Path is a directory: ${resolved}`,
+      ErrorCategory.FILESYSTEM,
+      ErrorSeverity.HIGH,
+      '105'
+    );
   }
 
   if (stat.size > MAX_FILE_SIZE) {
@@ -95,12 +110,32 @@ import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
 
 const BINARY_EXTENSIONS = new Set([
-  '.docx', '.xlsx', '.xls', '.pptx', '.pdf',
-  '.epub', '.zip',
-  '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.webp', '.ico', '.tiff', '.tif',
-  '.mp3', '.wav', '.m4a', '.flac', '.ogg', '.wma',
+  '.docx',
+  '.xlsx',
+  '.xls',
+  '.pptx',
+  '.pdf',
+  '.epub',
+  '.zip',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.bmp',
+  '.svg',
+  '.webp',
+  '.ico',
+  '.tiff',
+  '.tif',
+  '.mp3',
+  '.wav',
+  '.m4a',
+  '.flac',
+  '.ogg',
+  '.wma',
   '.mp4',
-  '.ipynb', '.msg',
+  '.ipynb',
+  '.msg',
 ]);
 
 export class FileReadTool extends BaseTool {
@@ -202,7 +237,7 @@ export class FileReadTool extends BaseTool {
 
   private async convertFile(
     filePath: string,
-    onProgress?: ToolCallProgress<any>,
+    onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
       if (onProgress) {

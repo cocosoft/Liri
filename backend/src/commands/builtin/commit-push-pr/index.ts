@@ -2,7 +2,11 @@
  * commit-push-pr 命令
  * 提交、推送并创建 PR 的工作流命令
  */
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 
 /**
  * commit-push-pr 命令定义
@@ -15,7 +19,10 @@ const commitPushPrCommand: Command = {
   argumentHint: '[提交说明]',
   loadedFrom: 'builtin',
   load: async () => ({
-    async execute(_args: string, _context: CommandContext): Promise<CommandResult> {
+    async execute(
+      _args: string,
+      _context: CommandContext
+    ): Promise<CommandResult> {
       return {
         success: true,
         type: 'text',

@@ -42,23 +42,22 @@ async function getCoreHooks(): Promise<HookInfo[]> {
 }
 
 /**
- * 尝试从 HookManager 获取配置的钩子
+ * 尝试从 HookChainManager 获取已注册的钩子
  */
 async function getConfiguredHooks(): Promise<HookInfo[]> {
   try {
-    const { HookManager } =
-      await import('@modules/hooks/managers/HookManager.js');
-    const manager = HookManager.getInstance();
-    const hooks = manager.getAllHooks();
+    const { HookChainManager } =
+      await import('@modules/hooks/core/HookChainManager.js');
+    const manager = HookChainManager.getInstance();
+    const entries = manager.getAllEntries();
 
-    return hooks.map((h: any) => ({
-      name: h.name || h.event,
-      event: h.event,
-      description:
-        h.config?.command || h.config?.prompt || h.config?.type || '',
-      enabled: h.config?.enabled !== false,
-      type: h.config?.type || 'config',
-      priority: String(h.config?.priority || 0),
+    return entries.map((entry) => ({
+      name: entry.name,
+      event: entry.domain,
+      description: `stage: ${entry.stage}, priority: ${entry.priority}`,
+      enabled: entry.enabled,
+      type: entry.stage,
+      priority: String(entry.priority),
     }));
   } catch {
     return [];

@@ -230,7 +230,12 @@ export class KeybindingManager {
   applyTemplate(name: string, variables?: Record<string, string>): void {
     const template = this.templates.get(name);
     if (!template) {
-      throw new AppError(`Template not found: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Template not found: ${name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const schema = renderTemplate(template, variables);

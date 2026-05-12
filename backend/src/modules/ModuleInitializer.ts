@@ -3,6 +3,8 @@
  * 统一管理模块的注册、初始化和生命周期
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { ModuleDefinition, moduleRegistry } from './ModuleRegistry';
 import {
   MODULE_DEFINITIONS,
@@ -59,7 +61,13 @@ export class ModuleInitializer {
     const validation = validateModuleDependencies();
     if (!validation.valid) {
       logger.error('模块依赖关系验证失败:', { errors: validation.errors });
-      throw new Error('模块依赖关系验证失败');
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'MODULE_DEP_VALIDATION_FAILED',
+        { errors: validation.errors }
+      );
     }
 
     // 注册所有模块
@@ -121,7 +129,13 @@ export class ModuleInitializer {
   public async initializeModule(moduleId: string): Promise<void> {
     const state = this.initializationStates.get(moduleId);
     if (!state) {
-      throw new Error(`模块 ${moduleId} 未注册`);
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MODULE_NOT_REGISTERED',
+        { moduleId }
+      );
     }
 
     // 如果已经初始化或正在初始化，直接返回

@@ -84,7 +84,12 @@ export class PluginHotloadManager {
    */
   private async startWatching(): Promise<void> {
     if (!this.pluginManager) {
-      throw new AppError('PluginManager not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'PluginManager not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const pluginDir = this.getPluginDirectory();

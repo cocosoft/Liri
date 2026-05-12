@@ -4,6 +4,8 @@
  * 模型数据统一委托给 ModelManager（ModelConfigs 为唯一数据源）
  */
 
+import type { AIProvider } from './providers/AIProvider';
+import { providerRegistry } from './providers/ProviderRegistry';
 import type { ThinkingConfig, ThinkingEffort } from './clients/thinking';
 import {
   buildThinkingConfig,
@@ -54,14 +56,20 @@ export class AIModelManager {
     if (!modelManager) {
       throw new AppError(
         'AIModelManager: modelManager is not available. ' +
-          'Ensure ModelManager is initialized before using AIModelManager.'
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          'Ensure ModelManager is initialized before using AIModelManager.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     if (typeof modelManager.getModelContextWindow !== 'function') {
       throw new AppError(
         'AIModelManager: modelManager instance is invalid. ' +
-          'Expected ModelManager with getModelContextWindow method.'
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          'Expected ModelManager with getModelContextWindow method.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 
@@ -230,6 +238,48 @@ export class AIModelManager {
   getThinkingBudgetForModel(model: string, effort?: ThinkingEffort): number {
     const effectiveEffort = effort ?? this.getDefaultThinkingEffort();
     return EFFORT_TO_BUDGET[effectiveEffort] ?? DEFAULT_THINKING_BUDGET_TOKENS;
+  }
+
+  getProvider(providerId?: string): AIProvider {
+    if (providerId) {
+      return providerRegistry.get(providerId);
+    }
+    return providerRegistry.getDefaultProvider();
+  }
+
+  getProviderForModel(model: string): AIProvider | undefined {
+    const resolved = this.parseUserSpecifiedModel(model).toLowerCase();
+
+    if (
+      resolved.startsWith('claude-') ||
+      resolved.startsWith('opus') ||
+      resolved.startsWith('sonnet') ||
+      resolved.startsWith('haiku')
+    ) {
+      if (providerRegistry.has('anthropic'))
+        return providerRegistry.get('anthropic');
+    }
+
+    if (
+      resolved.startsWith('gpt-') ||
+      resolved.startsWith('o1') ||
+      resolved.startsWith('o3') ||
+      resolved.startsWith('o4')
+    ) {
+      if (providerRegistry.has('openai')) return providerRegistry.get('openai');
+    }
+
+    if (resolved.startsWith('gemini-')) {
+      if (providerRegistry.has('google')) return providerRegistry.get('google');
+    }
+
+    if (providerRegistry.has('ollama')) return providerRegistry.get('ollama');
+
+    return undefined;
+  }
+
+  listProviders(): string[] {
+    return providerRegistry.listIds();
   }
 }
 

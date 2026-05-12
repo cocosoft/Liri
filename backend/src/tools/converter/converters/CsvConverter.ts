@@ -7,19 +7,26 @@ const logger = new Logger();
 export class CsvConverter extends BaseConverter {
   override readonly name = 'csv';
   override readonly supportedExtensions = ['.csv', '.tsv'];
-  override readonly supportedMimeTypes = ['text/csv', 'text/tab-separated-values'];
+  override readonly supportedMimeTypes = [
+    'text/csv',
+    'text/tab-separated-values',
+  ];
 
   async convert(context: ConversionContext): Promise<ConversionResult> {
-    const content = typeof context.content === 'string'
-      ? context.content
-      : context.content.toString('utf-8');
+    const content =
+      typeof context.content === 'string'
+        ? context.content
+        : context.content.toString('utf-8');
 
     const lines = content.split('\n').filter((l) => l.trim().length > 0);
     if (lines.length === 0) {
       return { markdown: '*空表格*' };
     }
 
-    const delimiter = context.fileInfo.extension === '.tsv' ? '\t' : this.detectDelimiter(lines[0]);
+    const delimiter =
+      context.fileInfo.extension === '.tsv'
+        ? '\t'
+        : this.detectDelimiter(lines[0]);
     const parsed = lines.map((line) => this.parseLine(line, delimiter));
 
     if (parsed.length === 0) {
@@ -80,7 +87,11 @@ export class CsvConverter extends BaseConverter {
     return widths;
   }
 
-  private toMarkdownTable(headers: string[], rows: string[][], widths: number[]): string {
+  private toMarkdownTable(
+    headers: string[],
+    rows: string[][],
+    widths: number[]
+  ): string {
     const formatRow = (cells: string[]): string => {
       return `| ${cells.map((c, i) => c.padEnd(widths[i] || 0)).join(' | ')} |`;
     };

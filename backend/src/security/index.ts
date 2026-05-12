@@ -6,14 +6,8 @@ export { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 export { SandboxManager } from './SandboxManager';
 export { PermissionManager } from './PermissionManager';
 export { SecurityAudit } from './SecurityAudit';
-export {
-  AuditEventType,
-  AuditEventSeverity,
-} from './SecurityAudit';
-export type {
-  AuditEvent,
-  SecurityAuditConfig,
-} from './SecurityAudit';
+export { AuditEventType, AuditEventSeverity } from './SecurityAudit';
+export type { AuditEvent, SecurityAuditConfig } from './SecurityAudit';
 export { DestructiveCommandWarner } from './destructiveCommandWarning';
 export { CommandSemanticsAnalyzer } from './commandSemantics';
 export {

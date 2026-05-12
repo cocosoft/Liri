@@ -64,7 +64,12 @@ export class DeepSeekClient extends LLMClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new AppError(`DeepSeek API error: ${response.status} - ${errorText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `DeepSeek API error: ${response.status} - ${errorText}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const data = await response.json();
@@ -108,11 +113,21 @@ export class DeepSeekClient extends LLMClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new AppError(`DeepSeek API error: ${response.status} - ${errorText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `DeepSeek API error: ${response.status} - ${errorText}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (!response.body) {
-      throw new AppError('Response body is null', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Response body is null',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const reader = response.body.getReader();

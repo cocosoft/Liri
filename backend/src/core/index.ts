@@ -15,7 +15,8 @@ export {
   type ModuleDefinition,
 } from './ModuleDependencyManager';
 export { PluginEcosystem, type EcosystemConfig } from './PluginEcosystem';
-export { PluginSDK, type Plugin, type PluginSDKConfig } from './PluginSDK';
+export { PluginSDK, type PluginSDKConfig } from './PluginSDK';
+export type { Plugin } from '@modules/plugin-sdk';
 export { Coordinator, type CoordinatorConfig } from './Coordinator';
 export { ContextManager, type ContextData } from './context/index';
 export type { AuthManager, AuthConfig } from './auth/AuthManager';

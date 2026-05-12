@@ -14,8 +14,6 @@ import {
 } from '../types/ToolHooks';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { HookManager } from './HookManager';
-import { HookEvent } from '../types';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -24,14 +22,11 @@ const logger = new Logger({ level: LogLevel.INFO });
  */
 export class ToolHookManager {
   private static instance: ToolHookManager;
-  private hookManager: HookManager;
   private preToolUseHooks: Map<string, any[]> = new Map();
   private postToolUseHooks: Map<string, any[]> = new Map();
   private postToolUseFailureHooks: Map<string, any[]> = new Map();
 
-  private constructor() {
-    this.hookManager = HookManager.getInstance();
-  }
+  private constructor() {}
 
   /**
    * 获取单例实例

@@ -146,7 +146,12 @@ class OAuthTokenStorage implements ITokenStorage {
   private async getEncryptionKey(): Promise<Buffer> {
     const key = process.env.OAUTH_ENCRYPTION_KEY;
     if (!key) {
-      throw new AppError('OAUTH_ENCRYPTION_KEY environment variable is required', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'OAUTH_ENCRYPTION_KEY environment variable is required',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const { pbkdf2 } = await import('crypto');

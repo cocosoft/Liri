@@ -3,8 +3,11 @@
  * 用于检查应用的健康状态
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { getMonitoringService } from './monitoring/index.js';
 import { getExtensibilityService } from './core/extensibility/index.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 async function healthCheck() {
   console.log('=== PY_APP 健康检查 ===');
@@ -77,7 +80,7 @@ async function healthCheck() {
     console.log('应用状态: 正常');
     process.exit(0);
   } catch (error) {
-    console.error(
+    logger.error(
       '健康检查失败:',
       error instanceof Error ? error.message : String(error)
     );

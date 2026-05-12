@@ -75,8 +75,11 @@ export class ConfigLoader implements IConfigLoader {
       } catch (error) {
         if (source.required !== false) {
           throw new AppError(
-            `Failed to load config from ${this.describeSource(source)}: ${(error as Error).message}`
-          , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+            `Failed to load config from ${this.describeSource(source)}: ${(error as Error).message}`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
         }
       }
     }
@@ -101,7 +104,12 @@ export class ConfigLoader implements IConfigLoader {
     const filePath = source.path!;
     if (!existsSync(filePath)) {
       if (source.required) {
-        throw new AppError(`Config file not found: ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Config file not found: ${filePath}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
       return {};
     }
@@ -133,7 +141,12 @@ export class ConfigLoader implements IConfigLoader {
     try {
       const response = await fetch(source.url);
       if (!response.ok) {
-        throw new AppError(`HTTP ${response.status}: ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `HTTP ${response.status}: ${response.statusText}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
       const text = await response.text();
       const format = source.format || 'json';
@@ -155,7 +168,12 @@ export class ConfigLoader implements IConfigLoader {
       case 'env':
         return this.parseEnvContent(content);
       default:
-        throw new AppError(`Unsupported config format: ${format}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Unsupported config format: ${format}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
     }
   }
 

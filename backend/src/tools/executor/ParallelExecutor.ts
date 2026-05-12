@@ -58,23 +58,35 @@ export class ParallelExecutor {
     const taskQueue = [...tasks];
     let nextIndex = 0;
 
-    const runTask = async (task: ParallelTask<T>, index: number): Promise<void> => {
+    const runTask = async (
+      task: ParallelTask<T>,
+      index: number
+    ): Promise<void> => {
       const startTime = Date.now();
       try {
         const execution = task.execute();
-        const timedPromise = timeout > 0
-          ? Promise.race([
-              execution,
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`Task timed out after ${timeout}ms`)), timeout)
-              ),
-            ])
-          : execution;
+        const timedPromise =
+          timeout > 0
+            ? Promise.race([
+                execution,
+                new Promise<never>((_, reject) =>
+                  setTimeout(
+                    () =>
+                      reject(new Error(`Task timed out after ${timeout}ms`)),
+                    timeout
+                  )
+                ),
+              ])
+            : execution;
 
         const data = await timedPromise;
         results.push({ index, data, executionTime: Date.now() - startTime });
       } catch (error) {
-        results.push({ index, error: error instanceof Error ? error : new Error(String(error)), executionTime: Date.now() - startTime });
+        results.push({
+          index,
+          error: error instanceof Error ? error : new Error(String(error)),
+          executionTime: Date.now() - startTime,
+        });
       }
     };
 
@@ -137,8 +149,8 @@ export class ParallelExecutor {
 let defaultExecutor: ParallelExecutor | null = null;
 
 /**
-   * 获取全局默认并行执行器实例
-   */
+ * 获取全局默认并行执行器实例
+ */
 export function getParallelExecutor(): ParallelExecutor {
   if (!defaultExecutor) {
     defaultExecutor = new ParallelExecutor();

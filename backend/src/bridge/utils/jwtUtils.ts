@@ -208,7 +208,12 @@ class TokenRefreshScheduler {
           `${this.label}: Token refreshed successfully for session ${sessionId}`
         );
       } else {
-        throw new AppError('Access token not available', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          'Access token not available',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));

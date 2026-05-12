@@ -135,7 +135,12 @@ export function createLSPServerManager(): LSPServerManager {
     async ensureServerStarted(name: string): Promise<void> {
       const server = serverInstances.get(name);
       if (!server) {
-        throw new AppError(`LSP server '${name}' not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `LSP server '${name}' not found`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       if (!server.isHealthy() && server.state !== 'starting') {
@@ -221,7 +226,12 @@ export function createLSPServerManager(): LSPServerManager {
     ): Promise<T> {
       const server = this.getServerForFile(filePath);
       if (!server) {
-        throw new AppError(`No LSP server available for file: ${filePath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `No LSP server available for file: ${filePath}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       await this.ensureServerStarted(server.name);

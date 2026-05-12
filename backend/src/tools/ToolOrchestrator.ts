@@ -179,7 +179,12 @@ export class ToolOrchestrator {
   async executeBatch(batchId: string): Promise<ToolExecutionBatch> {
     const batch = this.batches.get(batchId);
     if (!batch) {
-      throw new AppError(`Batch not found: ${batchId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Batch not found: ${batchId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     batch.status = 'running';
@@ -226,7 +231,12 @@ export class ToolOrchestrator {
     context: ToolUseContext
   ): Promise<ToolResult[]> {
     if (tools.length !== inputs.length) {
-      throw new AppError('Tools and inputs length must match', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Tools and inputs length must match',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const tasks = tools.map((tool, index) => ({

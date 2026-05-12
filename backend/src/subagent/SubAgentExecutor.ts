@@ -35,7 +35,12 @@ export class SubAgentExecutor {
     try {
       // 检查子agent状态
       if (subAgent.getStatus() !== 'running') {
-        throw new AppError(`SubAgent ${subAgent.id} is not running`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `SubAgent ${subAgent.id} is not running`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       // 执行任务
@@ -72,7 +77,12 @@ export class SubAgentExecutor {
     try {
       // 检查子agent状态
       if (subAgent.getStatus() !== 'running') {
-        throw new AppError(`SubAgent ${subAgent.id} is not running`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `SubAgent ${subAgent.id} is not running`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       // 这里可以实现工具执行逻辑

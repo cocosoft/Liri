@@ -3,6 +3,7 @@
  * 负责Agent配置的持久化存储和管理
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   readFileSync,
   writeFileSync,
@@ -13,6 +14,8 @@ import {
 import { join } from 'path';
 import { AgentConfig } from '../models/types';
 import { AIModelType } from '@modules/ai/models/types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * Agent配置管理器
@@ -94,7 +97,7 @@ export class AgentConfigManager {
         return validatedConfig;
       }
     } catch (error) {
-      console.error(`加载Agent配置失败: ${agentId}`, error);
+      logger.error(`加载Agent配置失败: ${agentId}`, error);
     }
 
     // 返回默认配置
@@ -127,7 +130,7 @@ export class AgentConfigManager {
       this.configCache.set(agentId, validatedConfig);
       this.lastModified.set(agentId, Date.now());
     } catch (error) {
-      console.error(`保存Agent配置失败: ${agentId}`, error);
+      logger.error(`保存Agent配置失败: ${agentId}`, error);
     }
   }
 
@@ -147,7 +150,7 @@ export class AgentConfigManager {
       this.configCache.delete(agentId);
       this.lastModified.delete(agentId);
     } catch (error) {
-      console.error(`删除Agent配置失败: ${agentId}`, error);
+      logger.error(`删除Agent配置失败: ${agentId}`, error);
     }
   }
 
@@ -208,7 +211,7 @@ export class AgentConfigManager {
           .map((file) => file.replace('.json', ''));
       }
     } catch (error) {
-      console.error('列出Agent配置失败', error);
+      logger.error('列出Agent配置失败', error);
     }
     return [];
   }

@@ -19,18 +19,28 @@ const DEFAULT_OPTIONS: MarkdownifyOptions = {
   linkStyle: 'inlined',
 };
 
-export function htmlToMarkdown(html: string, options?: MarkdownifyOptions): string {
+export function htmlToMarkdown(
+  html: string,
+  options?: MarkdownifyOptions
+): string {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const $ = cheerio.load(html);
 
-  $('script, style, nav, footer, header, aside, .sidebar, .nav, .menu, noscript').remove();
+  $(
+    'script, style, nav, footer, header, aside, .sidebar, .nav, .menu, noscript'
+  ).remove();
   $('img[src^="data:"]').remove();
 
   const result = convertNode($, $.root(), opts, 0);
   return cleanupResult(result);
 }
 
-function convertNode($: cheerio.CheerioAPI, node: cheerio.Cheerio<AnyNode>, opts: MarkdownifyOptions, depth: number): string {
+function convertNode(
+  $: cheerio.CheerioAPI,
+  node: cheerio.Cheerio<AnyNode>,
+  opts: MarkdownifyOptions,
+  depth: number
+): string {
   const results: string[] = [];
 
   node.contents().each((_i, el) => {
@@ -99,11 +109,15 @@ function convertNode($: cheerio.CheerioAPI, node: cheerio.Cheerio<AnyNode>, opts
         break;
       case 'strong':
       case 'b':
-        results.push(`${opts.strongDelimiter}${convertInline($, $el, opts)}${opts.strongDelimiter}`);
+        results.push(
+          `${opts.strongDelimiter}${convertInline($, $el, opts)}${opts.strongDelimiter}`
+        );
         break;
       case 'em':
       case 'i':
-        results.push(`${opts.emDelimiter}${convertInline($, $el, opts)}${opts.emDelimiter}`);
+        results.push(
+          `${opts.emDelimiter}${convertInline($, $el, opts)}${opts.emDelimiter}`
+        );
         break;
       case 'input':
         results.push(convertInput($, $el));
@@ -125,7 +139,13 @@ function convertNode($: cheerio.CheerioAPI, node: cheerio.Cheerio<AnyNode>, opts
   return results.join('');
 }
 
-function convertHeading($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, tagName: string, opts: MarkdownifyOptions, depth: number): string {
+function convertHeading(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  tagName: string,
+  opts: MarkdownifyOptions,
+  depth: number
+): string {
   const level = parseInt(tagName[1]);
   const prefix = '#'.repeat(level);
   const content = convertInline($, $el, opts).trim();
@@ -133,13 +153,22 @@ function convertHeading($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, ta
   return `${newlines}${prefix} ${content}\n${newlines}`;
 }
 
-function convertParagraph($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: MarkdownifyOptions, depth: number): string {
+function convertParagraph(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  opts: MarkdownifyOptions,
+  depth: number
+): string {
   const content = convertInline($, $el, opts).trim();
   if (!content) return '';
   return `\n\n${content}\n\n`;
 }
 
-function convertAnchor($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: MarkdownifyOptions): string {
+function convertAnchor(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  opts: MarkdownifyOptions
+): string {
   const href = ($el.attr('href') || '').trim();
   const text = convertInline($, $el, opts).trim() || href;
 
@@ -150,7 +179,10 @@ function convertAnchor($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opt
   return `[${text}](${escapeUri(href)})`;
 }
 
-function convertImage($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>): string {
+function convertImage(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>
+): string {
   const src = ($el.attr('src') || '').trim();
   const alt = ($el.attr('alt') || '').trim();
 
@@ -159,7 +191,10 @@ function convertImage($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>): str
   return `![${alt}](${escapeUri(src)})`;
 }
 
-function convertInput($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>): string {
+function convertInput(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>
+): string {
   const type = ($el.attr('type') || '').toLowerCase();
   const checked = $el.attr('checked') !== undefined;
   const isCheckbox = type === 'checkbox' || type === 'radio';
@@ -171,7 +206,13 @@ function convertInput($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>): str
   return '';
 }
 
-function convertList($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, tagName: string, opts: MarkdownifyOptions, depth: number): string {
+function convertList(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  tagName: string,
+  opts: MarkdownifyOptions,
+  depth: number
+): string {
   const isOrdered = tagName === 'ol';
   const items: string[] = [];
 
@@ -186,11 +227,20 @@ function convertList($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, tagNa
   return `\n${items.join('\n')}\n`;
 }
 
-function convertListItem($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: MarkdownifyOptions, depth: number): string {
+function convertListItem(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  opts: MarkdownifyOptions,
+  depth: number
+): string {
   return convertInline($, $el, opts).trim();
 }
 
-function convertPre($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: MarkdownifyOptions): string {
+function convertPre(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  opts: MarkdownifyOptions
+): string {
   const $code = $el.children('code').first();
   const codeText = $code.length > 0 ? $code.text() : $el.text();
   const lang = $code.attr('class')?.replace(/^language-/, '') || '';
@@ -199,19 +249,31 @@ function convertPre($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: 
   return `\n\`\`\`${langTag}\n${codeText.replace(/\n$/, '')}\n\`\`\`\n`;
 }
 
-function convertCode($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>): string {
+function convertCode(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>
+): string {
   const text = $el.text();
   if (!text.trim()) return '';
   return `\`${text}\``;
 }
 
-function convertBlockquote($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: MarkdownifyOptions, depth: number): string {
+function convertBlockquote(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  opts: MarkdownifyOptions,
+  depth: number
+): string {
   const content = convertNode($, $el, opts, depth).trim();
   const lines = content.split('\n').map((l) => (l.trim() ? `> ${l}` : '>'));
   return `\n${lines.join('\n')}\n`;
 }
 
-function convertTable($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: MarkdownifyOptions): string {
+function convertTable(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  opts: MarkdownifyOptions
+): string {
   const rows: string[][] = [];
   const headerCells: string[] = [];
 
@@ -248,7 +310,12 @@ function convertTable($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts
   return `\n\n${headerMd}\n${separator}\n${bodyMd}\n\n`;
 }
 
-function convertDefinitionList($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: MarkdownifyOptions, depth: number): string {
+function convertDefinitionList(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  opts: MarkdownifyOptions,
+  depth: number
+): string {
   const result: string[] = [];
   $el.children().each((_i, child) => {
     const $child = $(child);
@@ -262,8 +329,14 @@ function convertDefinitionList($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Eleme
   return result.join('\n') + '\n';
 }
 
-function convertInline($: cheerio.CheerioAPI, $el: cheerio.Cheerio<Element>, opts: MarkdownifyOptions): string {
-  return convertNode($, $el, opts, 999).replace(/\n{3,}/g, '\n\n').trim();
+function convertInline(
+  $: cheerio.CheerioAPI,
+  $el: cheerio.Cheerio<Element>,
+  opts: MarkdownifyOptions
+): string {
+  return convertNode($, $el, opts, 999)
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function escapeText(text: string): string {
@@ -297,6 +370,9 @@ function cleanupResult(md: string): string {
     .trim();
 }
 
-export function convertString(html: string, options?: MarkdownifyOptions): string {
+export function convertString(
+  html: string,
+  options?: MarkdownifyOptions
+): string {
   return htmlToMarkdown(html, options);
 }

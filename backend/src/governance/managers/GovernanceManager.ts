@@ -263,7 +263,12 @@ export class GovernanceManager {
         );
 
         if (!sandboxResult.success) {
-          throw new AppError(sandboxResult.error || 'Sandbox execution failed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          throw new AppError(
+            sandboxResult.error || 'Sandbox execution failed',
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
         }
 
         output = sandboxResult.data;

@@ -94,7 +94,12 @@ export class ToolManager extends EventEmitter {
 
     // 检查工具是否已存在
     if (this.toolRegistry.has(definition.name)) {
-      throw new AppError(`工具已存在: ${definition.name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1004');
+      throw new AppError(
+        `工具已存在: ${definition.name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1004'
+      );
     }
 
     // 创建工具注册信息
@@ -137,7 +142,12 @@ export class ToolManager extends EventEmitter {
     const registration = this.toolRegistry.get(toolName);
 
     if (!registration) {
-      throw new AppError(`工具未找到: ${toolName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `工具未找到: ${toolName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     // 注销工具
@@ -163,11 +173,21 @@ export class ToolManager extends EventEmitter {
     const registration = this.toolRegistry.get(toolName);
 
     if (!registration) {
-      throw new AppError(`工具未找到: ${toolName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `工具未找到: ${toolName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     if (!registration.definition.enabled) {
-      throw new AppError(`工具未启用: ${toolName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1006');
+      throw new AppError(
+        `工具未启用: ${toolName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
     }
 
     // 创建执行上下文
@@ -252,7 +272,12 @@ export class ToolManager extends EventEmitter {
     const registration = this.toolRegistry.get(toolName);
 
     if (!registration) {
-      throw new AppError(`工具未找到: ${toolName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `工具未找到: ${toolName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     registration.definition.enabled = true;
@@ -272,7 +297,12 @@ export class ToolManager extends EventEmitter {
     const registration = this.toolRegistry.get(toolName);
 
     if (!registration) {
-      throw new AppError(`工具未找到: ${toolName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `工具未找到: ${toolName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     registration.definition.enabled = false;
@@ -290,16 +320,31 @@ export class ToolManager extends EventEmitter {
    */
   private validateToolDefinition(definition: ToolDefinition): void {
     if (!definition.name) {
-      throw new AppError('工具名称不能为空', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
+      throw new AppError(
+        '工具名称不能为空',
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        '600'
+      );
     }
 
     if (!definition.description) {
-      throw new AppError('工具描述不能为空', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
+      throw new AppError(
+        '工具描述不能为空',
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        '600'
+      );
     }
 
     // 验证名称格式
     if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(definition.name)) {
-      throw new AppError('工具名称只能包含字母、数字和下划线，且必须以字母开头', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
+      throw new AppError(
+        '工具名称只能包含字母、数字和下划线，且必须以字母开头',
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        '600'
+      );
     }
   }
 

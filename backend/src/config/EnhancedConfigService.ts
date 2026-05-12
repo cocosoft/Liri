@@ -298,8 +298,11 @@ export class EnhancedConfigService {
         this.validationLevel === ConfigValidationLevel.STRICT
       ) {
         throw new AppError(
-          `Configuration validation failed: ${validationResult.errors.map((e) => e.message).join(', ')}`
-        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          `Configuration validation failed: ${validationResult.errors.map((e) => e.message).join(', ')}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       if (validationResult.errors.length > 0) {
@@ -572,8 +575,11 @@ export class EnhancedConfigService {
     }
 
     throw new AppError(
-      `Failed to acquire config lock after ${this.lockTimeout}ms`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      `Failed to acquire config lock after ${this.lockTimeout}ms`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   /**

@@ -291,7 +291,12 @@ export class TeamMemorySyncService {
       clearTimeout(timeout);
 
       if (!response.ok) {
-        throw new AppError(`HTTP ${response.status}: ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `HTTP ${response.status}: ${response.statusText}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       const data = await response.json();
@@ -449,13 +454,23 @@ export class TeamMemorySyncService {
     content?: string
   ): Promise<void> {
     if (!this.config.serverUrl) {
-      throw new AppError('Server URL not configured', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Server URL not configured',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (this.config.enableSecretScan && content) {
       const validation = this.secretScanner.validate(content);
       if (!validation.valid) {
-        throw new AppError(validation.message, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          validation.message,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
     }
 
@@ -483,7 +498,12 @@ export class TeamMemorySyncService {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      throw new AppError(`HTTP ${response.status}: ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `HTTP ${response.status}: ${response.statusText}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const newEtag = response.headers.get('ETag');
@@ -500,7 +520,12 @@ export class TeamMemorySyncService {
     content?: string
   ): Promise<void> {
     if (!this.config.serverUrl) {
-      throw new AppError('Server URL not configured', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Server URL not configured',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const controller = new AbortController();
@@ -519,7 +544,12 @@ export class TeamMemorySyncService {
     clearTimeout(timeout);
 
     if (!response.ok) {
-      throw new AppError(`HTTP ${response.status}: ${response.statusText}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `HTTP ${response.status}: ${response.statusText}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const data = await response.json();

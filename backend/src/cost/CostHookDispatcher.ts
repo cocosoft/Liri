@@ -5,7 +5,7 @@
  */
 
 import { costMonitor, AlertLevel, type AlertRecord } from './CostMonitor';
-import { HookManager } from '../hooks/managers/HookManager';
+import { HookChainManager } from '@modules/hooks/core/HookChainManager';
 import { Logger, LogLevel } from '../monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -29,11 +29,11 @@ export interface CostHookData {
  * 监听 CostMonitor 的告警事件，转换为 Hook 事件
  */
 export class CostHookDispatcher {
-  private hookManager: HookManager;
+  private hookChainManager: HookChainManager;
   private initialized = false;
 
   constructor() {
-    this.hookManager = HookManager.getInstance();
+    this.hookChainManager = HookChainManager.getInstance();
   }
 
   /**
@@ -67,28 +67,25 @@ export class CostHookDispatcher {
       };
 
       // 始终触发通用告警事件
-      await this.hookManager.executeHooks(
-        'cost.alert' as any,
-        hookData,
-        [],
-        hookData.sessionId
-      );
+      await this.hookChainManager.execute('cost', {
+        event: 'cost.alert',
+        data: hookData,
+        sessionId: hookData.sessionId,
+      });
 
       // 根据告警级别触发特定事件
       if (alert.level === AlertLevel.WARNING) {
-        await this.hookManager.executeHooks(
-          'cost.budget.warning' as any,
-          hookData,
-          [],
-          hookData.sessionId
-        );
+        await this.hookChainManager.execute('cost', {
+          event: 'cost.budget.warning',
+          data: hookData,
+          sessionId: hookData.sessionId,
+        });
       } else if (alert.level === AlertLevel.CRITICAL) {
-        await this.hookManager.executeHooks(
-          'cost.budget.exceeded' as any,
-          hookData,
-          [],
-          hookData.sessionId
-        );
+        await this.hookChainManager.execute('cost', {
+          event: 'cost.budget.exceeded',
+          data: hookData,
+          sessionId: hookData.sessionId,
+        });
       }
     } catch (error) {
       logger.error(
@@ -116,12 +113,11 @@ export class CostHookDispatcher {
       sessionId,
     };
 
-    await this.hookManager.executeHooks(
-      'cost.budget.warning' as any,
-      hookData,
-      [],
-      sessionId
-    );
+    await this.hookChainManager.execute('cost', {
+      event: 'cost.budget.warning',
+      data: hookData,
+      sessionId,
+    });
   }
 
   /**
@@ -143,11 +139,10 @@ export class CostHookDispatcher {
       sessionId,
     };
 
-    await this.hookManager.executeHooks(
-      'cost.budget.exceeded' as any,
-      hookData,
-      [],
-      sessionId
-    );
+    await this.hookChainManager.execute('cost', {
+      event: 'cost.budget.exceeded',
+      data: hookData,
+      sessionId,
+    });
   }
 }

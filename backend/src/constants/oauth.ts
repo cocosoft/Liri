@@ -185,7 +185,12 @@ export function getOauthConfig(): OauthConfig {
   if (oauthBaseUrl) {
     const base = oauthBaseUrl.replace(/\/$/, '');
     if (!ALLOWED_OAUTH_BASE_URLS.includes(base)) {
-      throw new AppError('PY_APP_CUSTOM_OAUTH_URL is not an approved endpoint.', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'PY_APP_CUSTOM_OAUTH_URL is not an approved endpoint.',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     config = {
       ...config,

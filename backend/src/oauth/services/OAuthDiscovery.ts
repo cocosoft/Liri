@@ -92,8 +92,11 @@ export class OAuthDiscovery {
 
       if (!response.ok) {
         throw new AppError(
-          `OAuth Discovery failed: ${response.status} ${response.statusText}`
-        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          `OAuth Discovery failed: ${response.status} ${response.statusText}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       const metadata = await response.json();
@@ -103,8 +106,11 @@ export class OAuthDiscovery {
       const e = error instanceof Error ? error : new Error(String(error));
       logger.error(`OAuth Discovery failed for ${issuer}:`, e);
       throw new AppError(
-        `Failed to discover OAuth metadata: ${error instanceof Error ? error.message : 'Unknown error'}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Failed to discover OAuth metadata: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 
@@ -132,7 +138,12 @@ export class OAuthDiscovery {
 
     for (const field of requiredFields) {
       if (!metadata[field as keyof OAuthMetadata]) {
-        throw new AppError(`Missing required OAuth metadata field: ${field}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Missing required OAuth metadata field: ${field}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
     }
 
@@ -140,7 +151,12 @@ export class OAuthDiscovery {
     try {
       new URL(metadata.issuer);
     } catch {
-      throw new AppError(`Invalid issuer URL: ${metadata.issuer}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Invalid issuer URL: ${metadata.issuer}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 验证端点URL格式
@@ -153,7 +169,12 @@ export class OAuthDiscovery {
       try {
         new URL(endpoint);
       } catch {
-        throw new AppError(`Invalid endpoint URL: ${endpoint}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Invalid endpoint URL: ${endpoint}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
     }
 

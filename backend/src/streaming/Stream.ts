@@ -19,7 +19,12 @@ export class Stream<T> implements AsyncIterableIterator<T> {
 
   [Symbol.asyncIterator](): AsyncIterableIterator<T> {
     if (this.started) {
-      throw new AppError('Stream can only be iterated once', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Stream can only be iterated once',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     this.started = true;
     return this;

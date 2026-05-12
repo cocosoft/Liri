@@ -189,7 +189,12 @@ export class MCPServerConnection {
     if (!this.transport.isConnected()) {
       const connected = await this.connect();
       if (!connected) {
-        throw new AppError(`Failed to connect to MCP server ${this.name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Failed to connect to MCP server ${this.name}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
     }
 
@@ -296,7 +301,12 @@ export class MCPServerConnection {
     const response = await this.sendRequest(request);
 
     if (response.type === 'error') {
-      throw new AppError(response.error?.message || 'Tool call failed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        response.error?.message || 'Tool call failed',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return response.result;
@@ -314,7 +324,12 @@ export class MCPServerConnection {
     const response = await this.sendRequest(request);
 
     if (response.type === 'error') {
-      throw new AppError(response.error?.message || 'Failed to list tools', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        response.error?.message || 'Failed to list tools',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     this.tools = response.tools || [];

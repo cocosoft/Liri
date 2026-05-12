@@ -4,6 +4,10 @@
  * 参考CC源码: cc_code/backend/services/api/retry.ts
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * API错误分类
  */
@@ -318,7 +322,7 @@ function publishRetryEvent(event: RetryEvent): void {
     try {
       listener(event);
     } catch (error) {
-      console.error('Error in retry event listener:', error);
+      logger.error('Error in retry event listener:', error);
     }
   }
 }

@@ -487,7 +487,12 @@ export class RemoteFileSyncService {
     const remotePath = `${config.remotePath}/${diff.path}`;
 
     if (!this.localOps.exists(localPath)) {
-      throw new AppError(`Local file not found: ${localPath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Local file not found: ${localPath}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const localInfo = this.localOps.stat(localPath);

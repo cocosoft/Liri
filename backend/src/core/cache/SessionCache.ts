@@ -195,7 +195,12 @@ export class SessionCache<T = unknown> {
   /**
    * 获取或设置缓存（若不存在则通过 factory 创建）
    */
-  getOrSet(sessionId: string, key: string, factory: () => T, ttlMs?: number): T {
+  getOrSet(
+    sessionId: string,
+    key: string,
+    factory: () => T,
+    ttlMs?: number
+  ): T {
     const existing = this.get(sessionId, key);
     if (existing !== undefined) return existing;
 

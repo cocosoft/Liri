@@ -3,6 +3,7 @@
  * 集成OpenTelemetry进行API调用追踪和指标采集
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   TelemetryConfig,
   APIUsageMetrics,
@@ -10,6 +11,8 @@ import {
   SpanContext,
   TraceEvent,
 } from './types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const DEFAULT_CONFIG: TelemetryConfig = {
   enabled: true,
@@ -43,7 +46,7 @@ export class AITelemetry {
       this.isInitialized = true;
       console.debug('AITelemetry initialized');
     } catch (error) {
-      console.warn('Failed to initialize OpenTelemetry:', error);
+      logger.warning('Failed to initialize OpenTelemetry:', error);
       this.config.enabled = false;
     }
   }

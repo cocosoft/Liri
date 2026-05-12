@@ -183,7 +183,12 @@ export class CommitCommand {
           : [],
       };
     } catch (error) {
-      throw new AppError('无法获取Git信息，请确保在Git仓库中', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        '无法获取Git信息，请确保在Git仓库中',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

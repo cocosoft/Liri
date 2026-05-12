@@ -25,15 +25,21 @@ export function editFile(input: FileEditInput): FileEditResult {
 
   if (!fs.existsSync(resolved)) {
     throw new AppError(
-      `File not found: ${resolved}. Use the Write tool to create new files.`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      `File not found: ${resolved}. Use the Write tool to create new files.`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   const stat = fs.statSync(resolved);
   if (stat.size > MAX_FILE_SIZE) {
     throw new AppError(
-      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   const content = fs.readFileSync(resolved, 'utf-8');
@@ -51,8 +57,11 @@ export function editFile(input: FileEditInput): FileEditResult {
   if (count > 1) {
     throw new AppError(
       `old_string is not unique in file (found ${count} occurrences). ` +
-        `Provide a larger string with more surrounding context to make it unique.`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Provide a larger string with more surrounding context to make it unique.`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   const newContent = content.replace(input.oldString, input.newString);

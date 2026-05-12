@@ -20,24 +20,34 @@ export class ZipConverter extends BaseConverter {
   override readonly supportedExtensions = ['.zip'];
   override readonly supportedMimeTypes = ['application/zip'];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'adm-zip', format: 'zip', note: '运行：npm install adm-zip' },
+        context: {
+          dependency: 'adm-zip',
+          format: 'zip',
+          note: '运行：npm install adm-zip',
+        },
         cause: _depError,
       });
     }
 
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     const zip = new _AdmZip(buffer);
     const engine = getConverterEngine();
     const parts: string[] = [];
 
-    const entries = zip.getEntries()
-      .filter((e: any) => !e.isDirectory && !e.entryName.startsWith('__MACOSX/'))
+    const entries = zip
+      .getEntries()
+      .filter(
+        (e: any) => !e.isDirectory && !e.entryName.startsWith('__MACOSX/')
+      )
       .sort((a: any, b: any) => a.entryName.localeCompare(b.entryName));
 
     for (const entry of entries) {
@@ -49,7 +59,9 @@ export class ZipConverter extends BaseConverter {
       try {
         const subFileInfo = {
           path: entryName,
-          extension: entryName.includes('.') ? entryName.substring(entryName.lastIndexOf('.')) : '',
+          extension: entryName.includes('.')
+            ? entryName.substring(entryName.lastIndexOf('.'))
+            : '',
           mimeType: 'application/octet-stream' as const,
           size: entryBuffer.length,
         };

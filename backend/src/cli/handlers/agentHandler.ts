@@ -99,7 +99,12 @@ export class AgentHandler {
     try {
       const agent = this.agents.find((a) => a.name === agentName);
       if (!agent) {
-        throw new AppError(`Agent not found: ${agentName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+        throw new AppError(
+          `Agent not found: ${agentName}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1005'
+        );
       }
 
       agent.status = 'running';
@@ -139,7 +144,12 @@ export class AgentHandler {
     try {
       const agent = this.agents.find((a) => a.name === agentName);
       if (!agent) {
-        throw new AppError(`Agent not found: ${agentName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+        throw new AppError(
+          `Agent not found: ${agentName}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1005'
+        );
       }
 
       await this.stopAgentProcess(agent);

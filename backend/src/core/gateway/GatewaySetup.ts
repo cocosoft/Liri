@@ -49,10 +49,12 @@ export async function setupGatewayFromConfig(): Promise<GatewaySetupResult> {
   // 注册 Telegram 通道
   if (gatewayConfig.telegram.enabled) {
     try {
-      const token = gatewayConfig.telegram.token || process.env.TELEGRAM_BOT_TOKEN || '';
+      const token =
+        gatewayConfig.telegram.token || process.env.TELEGRAM_BOT_TOKEN || '';
 
       if (!token) {
-        const errMsg = 'Telegram 通道已启用但未配置 token（设置 gateway.telegram.token 或 TELEGRAM_BOT_TOKEN 环境变量）';
+        const errMsg =
+          'Telegram 通道已启用但未配置 token（设置 gateway.telegram.token 或 TELEGRAM_BOT_TOKEN 环境变量）';
         logger.warning(errMsg);
         result.errors.push(errMsg);
       } else {
@@ -79,9 +81,9 @@ export async function setupGatewayFromConfig(): Promise<GatewaySetupResult> {
   if (gatewayConfig.websocket.enabled) {
     try {
       const webChannel = new WebChannel({
-          name: 'websocket',
-          type: ChannelType.WEBSOCKET,
-          host: gatewayConfig.websocket.host,
+        name: 'websocket',
+        type: ChannelType.WEBSOCKET,
+        host: gatewayConfig.websocket.host,
         port: gatewayConfig.websocket.port,
         path: gatewayConfig.websocket.path,
         maxMessageSize: gatewayConfig.websocket.maxMessageSize,
@@ -89,7 +91,9 @@ export async function setupGatewayFromConfig(): Promise<GatewaySetupResult> {
 
       channelManager.registerChannel(webChannel);
       result.registeredChannels++;
-      logger.info(`WebSocket 通道已注册 (${gatewayConfig.websocket.host}:${gatewayConfig.websocket.port})`);
+      logger.info(
+        `WebSocket 通道已注册 (${gatewayConfig.websocket.host}:${gatewayConfig.websocket.port})`
+      );
     } catch (error) {
       const msg = `WebSocket 通道注册失败: ${error instanceof Error ? error.message : String(error)}`;
       logger.error(msg);
@@ -103,7 +107,9 @@ export async function setupGatewayFromConfig(): Promise<GatewaySetupResult> {
       await channelManager.start();
       const status = channelManager.getStatus();
       result.connectedChannels = status.connectedChannels;
-      logger.info(`Gateway 通道启动完成: ${result.connectedChannels}/${result.registeredChannels} 已连接`);
+      logger.info(
+        `Gateway 通道启动完成: ${result.connectedChannels}/${result.registeredChannels} 已连接`
+      );
     } catch (error) {
       const msg = `通道启动失败: ${error instanceof Error ? error.message : String(error)}`;
       logger.error(msg);

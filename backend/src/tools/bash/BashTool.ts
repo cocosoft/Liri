@@ -439,7 +439,12 @@ export class BashTool extends BaseTool {
     options: ExecOptions
   ): Promise<{ stdout: string; stderr: string }> {
     if (BashTool.isDangerousCommand(command)) {
-      throw new AppError(`Dangerous command detected: ${command}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Dangerous command detected: ${command}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     return BashTool.executeCommand(command, options);
   }

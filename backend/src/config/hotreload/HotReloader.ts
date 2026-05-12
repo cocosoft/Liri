@@ -131,7 +131,12 @@ export class HotReloader {
 
     try {
       if (!this.loadFn) {
-        throw new AppError('No load function configured', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          'No load function configured',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
 
       const newConfig = await this.loadFn();

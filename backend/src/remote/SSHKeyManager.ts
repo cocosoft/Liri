@@ -168,8 +168,11 @@ export class SSHKeyManager {
     } catch (error) {
       await this.cleanupKeyFiles(privateKeyPath, publicKeyPath);
       throw new AppError(
-        `SSH key generation failed: ${error instanceof Error ? error.message : String(error)}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `SSH key generation failed: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

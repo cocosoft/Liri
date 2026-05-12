@@ -2,6 +2,7 @@
  * 文件系统任务存储
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { TaskStorage, Task, TaskQueryOptions } from '../models/types';
 import {
   writeFileSync,
@@ -12,6 +13,8 @@ import {
   readdirSync,
 } from 'fs';
 import { join } from 'path';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 文件系统任务存储类
@@ -58,7 +61,7 @@ export class FileTaskStorage implements TaskStorage {
       const data = readFileSync(taskPath, 'utf-8');
       return JSON.parse(data);
     } catch (error) {
-      console.error('Failed to read task:', error);
+      logger.error('Failed to read task:', error);
       return undefined;
     }
   }
@@ -96,7 +99,7 @@ export class FileTaskStorage implements TaskStorage {
       unlinkSync(taskPath);
       return true;
     } catch (error) {
-      console.error('Failed to delete task:', error);
+      logger.error('Failed to delete task:', error);
       return false;
     }
   }
@@ -175,7 +178,7 @@ export class FileTaskStorage implements TaskStorage {
 
       return filteredTasks;
     } catch (error) {
-      console.error('Failed to list tasks:', error);
+      logger.error('Failed to list tasks:', error);
       return [];
     }
   }

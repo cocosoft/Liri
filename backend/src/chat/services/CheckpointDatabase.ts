@@ -35,7 +35,12 @@ export class CheckpointDatabase implements CheckpointStorage {
 
   private async createTables(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -100,7 +105,12 @@ export class CheckpointDatabase implements CheckpointStorage {
   async saveCheckpoint(checkpoint: SessionCheckpoint): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -138,7 +148,12 @@ export class CheckpointDatabase implements CheckpointStorage {
   ): Promise<SessionCheckpoint | null> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const row = await new Promise<any>((resolve, reject) => {
@@ -165,7 +180,12 @@ export class CheckpointDatabase implements CheckpointStorage {
   async loadCheckpoints(sessionId: string): Promise<SessionCheckpoint[]> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const rows = await new Promise<any[]>((resolve, reject) => {
@@ -188,7 +208,12 @@ export class CheckpointDatabase implements CheckpointStorage {
   async deleteCheckpoint(checkpointId: string): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -209,7 +234,12 @@ export class CheckpointDatabase implements CheckpointStorage {
   async deleteSessionCheckpoints(sessionId: string): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -230,7 +260,12 @@ export class CheckpointDatabase implements CheckpointStorage {
   async getCheckpointCount(sessionId: string): Promise<number> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const row = await new Promise<any>((resolve, reject) => {
@@ -255,7 +290,12 @@ export class CheckpointDatabase implements CheckpointStorage {
   ): Promise<SessionCheckpoint | null> {
     await this.initDatabase();
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const row = await new Promise<any>((resolve, reject) => {

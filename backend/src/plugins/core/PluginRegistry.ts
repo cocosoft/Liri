@@ -30,7 +30,12 @@ export class PluginRegistry extends EventEmitter {
     const existing = this.registry.get(registration.id);
 
     if (existing) {
-      throw new AppError(`Plugin already registered: ${registration.id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Plugin already registered: ${registration.id}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 添加插件到注册表
@@ -64,8 +69,11 @@ export class PluginRegistry extends EventEmitter {
 
     if (dependents.length > 0) {
       throw new AppError(
-        `Cannot unregister plugin ${pluginId} because it has dependents: ${dependents.join(', ')}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Cannot unregister plugin ${pluginId} because it has dependents: ${dependents.join(', ')}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 移除依赖关系
@@ -172,11 +180,21 @@ export class PluginRegistry extends EventEmitter {
    */
   addDependency(pluginId: string, dependencyId: string): void {
     if (!this.registry.has(pluginId)) {
-      throw new AppError(`Plugin not found: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Plugin not found: ${pluginId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (!this.registry.has(dependencyId)) {
-      throw new AppError(`Dependency plugin not found: ${dependencyId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Dependency plugin not found: ${dependencyId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const dependencies = this.dependencyGraph.get(pluginId);
@@ -364,8 +382,11 @@ export class PluginRegistry extends EventEmitter {
 
     if (visiting.has(pluginId)) {
       throw new AppError(
-        `Circular dependency detected: ${Array.from(visiting).concat(pluginId).join(' -> ')}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Circular dependency detected: ${Array.from(visiting).concat(pluginId).join(' -> ')}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     visiting.add(pluginId);

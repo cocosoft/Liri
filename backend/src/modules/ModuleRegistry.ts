@@ -3,6 +3,8 @@
  * 统一管理所有模块的注册、查找和依赖解析
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -90,7 +92,13 @@ export class ModuleRegistry {
    */
   public register(module: ModuleDefinition): void {
     if (this.modules.has(module.id)) {
-      throw new Error(`模块 ${module.id} 已存在`);
+      throw new AppError(
+        ErrorCodes.INTERNAL.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MODULE_ALREADY_EXISTS',
+        { moduleId: module.id }
+      );
     }
 
     this.modules.set(module.id, module);
@@ -126,7 +134,13 @@ export class ModuleRegistry {
   public resolveDependencies(moduleId: string): ModuleDefinition[] {
     const module = this.find(moduleId);
     if (!module) {
-      throw new Error(`模块 ${moduleId} 不存在`);
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MODULE_NOT_FOUND',
+        { moduleId }
+      );
     }
 
     const dependencies: ModuleDefinition[] = [];
@@ -138,7 +152,13 @@ export class ModuleRegistry {
 
       const depModule = this.find(id);
       if (!depModule) {
-        throw new Error(`依赖模块 ${id} 不存在`);
+        throw new AppError(
+          ErrorCodes.ENTITY_NOT_FOUND.message,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.MEDIUM,
+          'DEP_MODULE_NOT_FOUND',
+          { moduleId: id }
+        );
       }
 
       // 递归解析依赖
@@ -162,7 +182,13 @@ export class ModuleRegistry {
 
     const module = this.find(moduleId);
     if (!module) {
-      throw new Error(`模块 ${moduleId} 不存在`);
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MODULE_NOT_FOUND',
+        { moduleId }
+      );
     }
 
     // 先初始化依赖模块
@@ -187,7 +213,13 @@ export class ModuleRegistry {
   public async destroy(moduleId: string): Promise<void> {
     const module = this.find(moduleId);
     if (!module) {
-      throw new Error(`模块 ${moduleId} 不存在`);
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MODULE_NOT_FOUND',
+        { moduleId }
+      );
     }
 
     if (module.destroy) {

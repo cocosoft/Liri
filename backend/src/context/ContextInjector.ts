@@ -21,8 +21,11 @@ export class ContextInjector implements IContextInjector {
     const validation = this.validateInjection(context, target);
     if (!validation.valid) {
       throw new AppError(
-        `Injection validation failed: ${validation.errors.join(', ')}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Injection validation failed: ${validation.errors.join(', ')}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (target && typeof target === 'object') {

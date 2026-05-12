@@ -9,7 +9,7 @@ import { logger } from '../utils/log.js';
 /**
  * 当前迁移版本
  */
-export const CURRENT_MIGRATION_VERSION = 1;
+export const CURRENT_MIGRATION_VERSION = 2;
 
 /**
  * 配置迁移器类
@@ -63,9 +63,87 @@ export class ConfigMigration {
     switch (version) {
       case 1:
         return this.migrateToV1(config);
+      case 2:
+        return this.migrateToV2(config);
       default:
         return config;
     }
+  }
+
+  /**
+   * 迁移到版本2：将扁平配置分组到 notifications/features/internal 子对象
+   * @param config 配置对象
+   * @returns 迁移后的配置
+   */
+  private static migrateToV2(config: any): any {
+    const migrated = { ...config };
+
+    // 构建 notifications 分组
+    migrated.notifications = {
+      preferredChannel: migrated.preferredNotifChannel ?? 'auto',
+      idleThresholdMs: migrated.messageIdleNotifThresholdMs ?? 60000,
+      taskCompleteEnabled: migrated.taskCompleteNotifEnabled ?? true,
+      inputNeededEnabled: migrated.inputNeededNotifEnabled ?? true,
+      agentPushEnabled: migrated.agentPushNotifEnabled ?? true,
+    };
+
+    // 构建 features 分组
+    migrated.features = {
+      autoCompact: migrated.autoCompactEnabled ?? true,
+      showTurnDuration: migrated.showTurnDuration ?? true,
+      fileCheckpointing: migrated.fileCheckpointingEnabled ?? true,
+      terminalProgressBar: migrated.terminalProgressBarEnabled ?? true,
+      showStatusInTerminalTab: migrated.showStatusInTerminalTab ?? false,
+      respectGitignore: migrated.respectGitignore ?? true,
+      copyFullResponse: migrated.copyFullResponse ?? false,
+      todoEnabled: migrated.todoFeatureEnabled ?? true,
+      showExpandedTodos: migrated.showExpandedTodos ?? false,
+    };
+
+    // 构建 internal 分组
+    migrated.internal = {
+      numStartups: migrated.numStartups ?? 0,
+      userID: migrated.userID,
+      tipsHistory: migrated.tipsHistory ?? {},
+      memoryUsageCount: migrated.memoryUsageCount ?? 0,
+      promptQueueUseCount: migrated.promptQueueUseCount ?? 0,
+      btwUseCount: migrated.btwUseCount ?? 0,
+      firstStartTime: migrated.firstStartTime,
+      cachedStatsigGates: migrated.cachedStatsigGates ?? {},
+      migrationVersion: 2,
+    };
+
+    // 保留旧字段 @deprecated
+    // 不清除旧字段以保证向后兼容
+
+    // 删除 version1 中的 null keys
+    const oldFlatKeys = [
+      'preferredNotifChannel',
+      'messageIdleNotifThresholdMs',
+      'taskCompleteNotifEnabled',
+      'inputNeededNotifEnabled',
+      'agentPushNotifEnabled',
+      'autoCompactEnabled',
+      'fileCheckpointingEnabled',
+      'terminalProgressBarEnabled',
+      'showStatusInTerminalTab',
+      'todoFeatureEnabled',
+      'showExpandedTodos',
+      'numStartups',
+      'tipsHistory',
+      'memoryUsageCount',
+      'promptQueueUseCount',
+      'btwUseCount',
+      'firstStartTime',
+      'cachedStatsigGates',
+    ];
+    for (const key of oldFlatKeys) {
+      if (migrated[key] === undefined) {
+        delete migrated[key];
+      }
+    }
+
+    return migrated;
   }
 
   /**

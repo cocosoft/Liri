@@ -21,17 +21,24 @@ export class XlsxConverter extends HtmlConverter {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   ];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'xlsx', format: 'xlsx', note: '运行：npm install xlsx' },
+        context: {
+          dependency: 'xlsx',
+          format: 'xlsx',
+          note: '运行：npm install xlsx',
+        },
         cause: _depError,
       });
     }
 
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     const workbook = _xlsx.read(buffer, { type: 'buffer' });
     const parts: string[] = [];
@@ -62,7 +69,9 @@ export class XlsxConverter extends HtmlConverter {
         cells.push(`<td>${this.escapeHtml(val)}</td>`);
       }
       const tag = r === range.s.r ? 'th' : 'td';
-      const inner = cells.map(c => c.replace('<td>', `<${tag}>`).replace('</td>', `</${tag}>`)).join('');
+      const inner = cells
+        .map((c) => c.replace('<td>', `<${tag}>`).replace('</td>', `</${tag}>`))
+        .join('');
       rows.push(`<tr>${inner}</tr>`);
     }
 

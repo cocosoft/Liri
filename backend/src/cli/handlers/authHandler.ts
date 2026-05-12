@@ -111,7 +111,12 @@ export class AuthHandler {
     password: string
   ): Promise<void> {
     if (!username || !password) {
-      throw new AppError('Username and password are required', ErrorCategory.VALIDATION, ErrorSeverity.HIGH, '600');
+      throw new AppError(
+        'Username and password are required',
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        '600'
+      );
     }
   }
 

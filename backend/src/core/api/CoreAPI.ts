@@ -3,7 +3,10 @@
  * 统一的应用门面，为所有外部入口（CLI、Bridge、通道插件）提供一致的功能入口
  */
 
-import type { ConversionResult, FileInfo } from '../../tools/converter/engine/types';
+import type {
+  ConversionResult,
+  FileInfo,
+} from '../../tools/converter/engine/types';
 
 /** 聊天请求 */
 export interface ChatRequest {
@@ -116,7 +119,9 @@ export interface CoreAPI {
   chat(request: ChatRequest): Promise<ChatResponse>;
 
   /** 发送消息（流式模式） */
-  chatStream(request: ChatRequest): AsyncGenerator<ChatStreamChunk, ChatResponse, unknown>;
+  chatStream(
+    request: ChatRequest
+  ): AsyncGenerator<ChatStreamChunk, ChatResponse, unknown>;
 
   // ========== 工具 ==========
 

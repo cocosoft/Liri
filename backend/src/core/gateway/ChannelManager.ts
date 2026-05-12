@@ -15,7 +15,17 @@ import type {
   OutboundMessage,
 } from './types';
 import { ChannelType, ChannelStatus, ChannelEvent } from './types';
-
+import { validateInboundFrame } from './protocol/validators';
+import type { ValidationResult } from './protocol/validators';
+import { HealthMonitor } from './HealthMonitor';
+import type { HealthReport } from './HealthMonitor';
+import { ChannelStatusReporter } from './ChannelStatusReporter';
+import type { StatusReport } from './ChannelStatusReporter';
+import { RateLimiter } from './RateLimiter';
+import { GatewayAuth } from './auth/GatewayAuth';
+import { ChannelPluginRegistry } from './ChannelPluginRegistry';
+import { isChannelPlugin } from './ChannelPlugin';
+import type { ChannelPlugin } from './ChannelPlugin';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /** 通道管理器配置 */
@@ -48,6 +58,10 @@ export class ChannelManager extends EventEmitter {
   private config: Required<ChannelManagerConfig>;
   private globalHealthTimer: ReturnType<typeof setInterval> | null = null;
   private isRunning = false;
+  private healthMonitor: HealthMonitor;
+  private statusReporter: ChannelStatusReporter;
+  private rateLimiter: RateLimiter;
+  private gatewayAuth: GatewayAuth;
 
   constructor(config?: ChannelManagerConfig) {
     super();
@@ -58,6 +72,19 @@ export class ChannelManager extends EventEmitter {
       healthCheckInterval: config?.healthCheckInterval ?? 30000,
       maxReconnectAttempts: config?.maxReconnectAttempts ?? 5,
     };
+
+    this.healthMonitor = new HealthMonitor({
+      checkIntervalMs:
+        this.config.healthCheckInterval > 0
+          ? this.config.healthCheckInterval
+          : undefined,
+    });
+    this.statusReporter = new ChannelStatusReporter();
+    this.rateLimiter = new RateLimiter({
+      windowMs: 60_000,
+      maxRequests: 120,
+    });
+    this.gatewayAuth = new GatewayAuth();
   }
 
   /**
@@ -68,12 +95,56 @@ export class ChannelManager extends EventEmitter {
     logger.info('ChannelManager: CoreAPI 已设置');
   }
 
+  getHealthMonitor(): HealthMonitor {
+    return this.healthMonitor;
+  }
+
+  getStatusReporter(): ChannelStatusReporter {
+    return this.statusReporter;
+  }
+
+  getRateLimiter(): RateLimiter {
+    return this.rateLimiter;
+  }
+
+  getGatewayAuth(): GatewayAuth {
+    return this.gatewayAuth;
+  }
+
+  /**
+   * 获取 ChannelPluginRegistry 实例
+   * 用于外部查询通道插件注册状态
+   */
+  getPluginRegistry(): ChannelPluginRegistry {
+    return ChannelPluginRegistry.getInstance();
+  }
+
+  /**
+   * 获取已注册的 ChannelPlugin（如果通道同时实现了插件接口）
+   */
+  getPlugin(id: string): ChannelPlugin | undefined {
+    return ChannelPluginRegistry.getInstance().lookup(id);
+  }
+
   /**
    * 注册通道
+   * 如果通道同时实现了 ChannelPlugin 接口，自动同步注册到插件注册表
    */
   registerChannel(channel: GatewayChannel): void {
     if (this.channels.has(channel.name)) {
       logger.warning(`ChannelManager: 通道 ${channel.name} 已存在，将被覆盖`);
+      // 同步注销旧通道在注册表中的条目
+      const registry = ChannelPluginRegistry.getInstance();
+      if (registry.has(channel.name)) {
+        registry.unregister(channel.name).catch((err) => {
+          logger.error(
+            `ChannelManager: 注销旧注册表条目失败 — ${channel.name}`,
+            {
+              error: String(err),
+            }
+          );
+        });
+      }
     }
 
     const registration: ChannelRegistration = {
@@ -84,13 +155,33 @@ export class ChannelManager extends EventEmitter {
 
     channel.setCallbacks(this.createChannelCallbacks(channel));
     this.channels.set(channel.name, registration);
+    this.healthMonitor.registerChannel(channel);
+    this.statusReporter.registerChannel(channel);
 
-    logger.info(`ChannelManager: 通道已注册 — ${channel.name} (${channel.type})`);
+    // 如果通道也实现了 ChannelPlugin 接口，同步注册到插件注册表
+    if (isChannelPlugin(channel)) {
+      const registry = ChannelPluginRegistry.getInstance();
+      try {
+        registry.register(channel);
+        logger.info(
+          `ChannelManager: 通道已同步注册到插件注册表 — ${channel.name}`
+        );
+      } catch (error) {
+        logger.warning(
+          `ChannelManager: 插件注册表同步失败 — ${channel.name} (${error instanceof Error ? error.message : String(error)})`
+        );
+      }
+    }
+
+    logger.info(
+      `ChannelManager: 通道已注册 — ${channel.name} (${channel.type})`
+    );
     this.emit(ChannelEvent.STATE_CHANGE, channel.name, channel.status);
   }
 
   /**
    * 注销通道
+   * 同步从插件注册表中注销
    */
   unregisterChannel(name: string): void {
     const registration = this.channels.get(name);
@@ -100,10 +191,25 @@ export class ChannelManager extends EventEmitter {
     }
 
     this.stopChannelInternal(registration).catch((err) => {
-      logger.error(`ChannelManager: 停止通道 ${name} 失败`, { error: String(err) });
+      logger.error(`ChannelManager: 停止通道 ${name} 失败`, {
+        error: String(err),
+      });
     });
 
     this.channels.delete(name);
+    this.healthMonitor.unregisterChannel(name);
+    this.statusReporter.unregisterChannel(name);
+
+    // 同步从插件注册表注销
+    const registry = ChannelPluginRegistry.getInstance();
+    if (registry.has(name)) {
+      registry.unregister(name).catch((err) => {
+        logger.error(`ChannelManager: 从注册表注销失败 — ${name}`, {
+          error: String(err),
+        });
+      });
+    }
+
     logger.info(`ChannelManager: 通道已注销 — ${name}`);
   }
 
@@ -120,7 +226,9 @@ export class ChannelManager extends EventEmitter {
     logger.info('ChannelManager: 启动所有通道...');
 
     const results = await Promise.allSettled(
-      Array.from(this.channels.values()).map((reg) => this.startChannelInternal(reg)),
+      Array.from(this.channels.values()).map((reg) =>
+        this.startChannelInternal(reg)
+      )
     );
 
     const failed = results.filter((r) => r.status === 'rejected').length;
@@ -128,11 +236,26 @@ export class ChannelManager extends EventEmitter {
       logger.warning(`ChannelManager: ${failed} 个通道启动失败`);
     }
 
+    this.statusReporter.start();
+    this.healthMonitor.start();
+
     if (this.config.healthCheckInterval > 0) {
       this.startGlobalHealthCheck();
     }
 
-    logger.info(`ChannelManager: 启动完成，${this.channels.size - failed}/${this.channels.size} 通道就绪`);
+    this.healthMonitor.on('health:channel_unhealthy', (status) => {
+      logger.warning(`ChannelManager: 通道不健康 — ${status.channelName}`, {
+        message: status.message,
+      });
+      const reg = this.channels.get(status.channelName);
+      if (reg && this.config.autoReconnect) {
+        this.attemptReconnect(status.channelName, reg);
+      }
+    });
+
+    logger.info(
+      `ChannelManager: 启动完成，${this.channels.size - failed}/${this.channels.size} 通道就绪`
+    );
   }
 
   /**
@@ -151,8 +274,13 @@ export class ChannelManager extends EventEmitter {
       this.globalHealthTimer = null;
     }
 
+    this.healthMonitor.stop();
+    this.statusReporter.stop();
+
     const results = await Promise.allSettled(
-      Array.from(this.channels.values()).map((reg) => this.stopChannelInternal(reg)),
+      Array.from(this.channels.values()).map((reg) =>
+        this.stopChannelInternal(reg)
+      )
     );
 
     const failed = results.filter((r) => r.status === 'rejected').length;
@@ -169,7 +297,12 @@ export class ChannelManager extends EventEmitter {
   async startChannel(name: string): Promise<void> {
     const registration = this.channels.get(name);
     if (!registration) {
-      throw new AppError(`通道 ${name} 未注册`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `通道 ${name} 未注册`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     await this.startChannelInternal(registration);
@@ -181,7 +314,12 @@ export class ChannelManager extends EventEmitter {
   async stopChannel(name: string): Promise<void> {
     const registration = this.channels.get(name);
     if (!registration) {
-      throw new AppError(`通道 ${name} 未注册`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1005');
+      throw new AppError(
+        `通道 ${name} 未注册`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
     }
 
     await this.stopChannelInternal(registration);
@@ -190,7 +328,10 @@ export class ChannelManager extends EventEmitter {
   /**
    * 通过通道发送消息
    */
-  async sendToChannel(name: string, message: OutboundMessage): Promise<boolean> {
+  async sendToChannel(
+    name: string,
+    message: OutboundMessage
+  ): Promise<boolean> {
     const registration = this.channels.get(name);
     if (!registration) {
       logger.warning(`ChannelManager: 发送失败，通道 ${name} 不存在`);
@@ -209,7 +350,9 @@ export class ChannelManager extends EventEmitter {
       }
       return result;
     } catch (error) {
-      logger.error(`ChannelManager: 发送消息至 ${name} 失败`, { error: String(error) });
+      logger.error(`ChannelManager: 发送消息至 ${name} 失败`, {
+        error: String(error),
+      });
       return false;
     }
   }
@@ -224,7 +367,7 @@ export class ChannelManager extends EventEmitter {
       Array.from(this.channels.entries()).map(async ([name]) => {
         const success = await this.sendToChannel(name, message);
         results.set(name, success);
-      }),
+      })
     );
 
     return results;
@@ -252,30 +395,29 @@ export class ChannelManager extends EventEmitter {
   }
 
   /**
-   * 执行全通道健康检查
+   * 执行全通道健康检查（使用 HealthMonitor）
    */
   async healthCheck(): Promise<Map<string, boolean>> {
+    const report = await this.healthMonitor.runHealthCheck();
     const results = new Map<string, boolean>();
-
-    await Promise.all(
-      Array.from(this.channels.entries()).map(async ([name, reg]) => {
-        try {
-          const healthy = await reg.channel.healthCheck();
-          results.set(name, healthy);
-
-          if (!healthy && this.config.autoReconnect) {
-            this.attemptReconnect(name, reg);
-          }
-        } catch {
-          results.set(name, false);
-          if (this.config.autoReconnect) {
-            this.attemptReconnect(name, reg);
-          }
-        }
-      }),
-    );
-
+    for (const status of report.statuses) {
+      results.set(status.channelName, status.healthy);
+    }
     return results;
+  }
+
+  /**
+   * 获取 DetailedHealthReport
+   */
+  async getDetailedHealthReport(): Promise<HealthReport> {
+    return this.healthMonitor.runHealthCheck();
+  }
+
+  /**
+   * 获取通道状态报告
+   */
+  generateStatusReport(): StatusReport {
+    return this.statusReporter.generateReport(this.isRunning);
   }
 
   /**
@@ -289,7 +431,7 @@ export class ChannelManager extends EventEmitter {
         status: reg.channel.status,
         connected: reg.channel.isConnected(),
         stats: { ...reg.channel.stats },
-      }),
+      })
     );
 
     return {
@@ -303,7 +445,9 @@ export class ChannelManager extends EventEmitter {
   /**
    * 创建通道事件回调
    */
-  private createChannelCallbacks(channel: GatewayChannel): ChannelEventCallbacks {
+  private createChannelCallbacks(
+    channel: GatewayChannel
+  ): ChannelEventCallbacks {
     return {
       onConnected: () => {
         const reg = this.channels.get(channel.name);
@@ -316,7 +460,9 @@ export class ChannelManager extends EventEmitter {
 
       onDisconnected: (reason?: string) => {
         this.emit(ChannelEvent.DISCONNECTED, channel.name, reason);
-        logger.warning(`ChannelManager: 通道已断开 — ${channel.name}${reason ? ` (${reason})` : ''}`);
+        logger.warning(
+          `ChannelManager: 通道已断开 — ${channel.name}${reason ? ` (${reason})` : ''}`
+        );
 
         const reg = this.channels.get(channel.name);
         if (reg && this.config.autoReconnect && this.isRunning) {
@@ -326,7 +472,9 @@ export class ChannelManager extends EventEmitter {
 
       onError: (error: Error) => {
         this.emit(ChannelEvent.ERROR, channel.name, error);
-        logger.error(`ChannelManager: 通道错误 — ${channel.name}`, { error: error.message });
+        logger.error(`ChannelManager: 通道错误 — ${channel.name}`, {
+          error: error.message,
+        });
       },
 
       onMessage: (message: InboundMessage) => {
@@ -339,15 +487,112 @@ export class ChannelManager extends EventEmitter {
       },
 
       onReconnecting: (attempt: number, maxAttempts: number) => {
-        this.emit(ChannelEvent.RECONNECTING, channel.name, attempt, maxAttempts);
+        this.emit(
+          ChannelEvent.RECONNECTING,
+          channel.name,
+          attempt,
+          maxAttempts
+        );
       },
     };
   }
 
   /**
-   * 路由入站消息到 CoreAPI
+   * 验证入站消息的合法性
    */
-  private async routeMessage(channel: GatewayChannel, message: InboundMessage): Promise<void> {
+  private validateInboundMessage(message: InboundMessage): ValidationResult {
+    if (!message.id || typeof message.id !== 'string') {
+      return { valid: false, errors: ['消息 ID 不能为空'] };
+    }
+    if (!message.sender || typeof message.sender !== 'string') {
+      return { valid: false, errors: ['消息发送者不能为空'] };
+    }
+    if (
+      !message.timestamp ||
+      typeof message.timestamp !== 'number' ||
+      message.timestamp <= 0
+    ) {
+      return { valid: false, errors: ['消息时间戳无效'] };
+    }
+
+    if (
+      message.raw &&
+      typeof message.raw === 'object' &&
+      Object.keys(message.raw).length > 0
+    ) {
+      const frameResult = validateInboundFrame(message.raw);
+      if (!frameResult.valid) {
+        return frameResult;
+      }
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * 返回结构化错误帧到通道
+   */
+  private async sendErrorResponse(
+    channel: GatewayChannel,
+    message: InboundMessage,
+    code: string,
+    errorMessage: string
+  ): Promise<void> {
+    const errorFrame = {
+      type: 'error' as const,
+      error: {
+        code,
+        message: errorMessage,
+        details: {
+          originalMessageId: message.id,
+          channel: channel.name,
+        },
+      },
+    };
+
+    try {
+      if (channel.isConnected()) {
+        await channel.send({
+          content: JSON.stringify(errorFrame),
+          sessionId: message.sessionId || 'unknown',
+          recipient: message.sender,
+          type: 'text',
+          metadata: { isErrorFrame: true, errorCode: code },
+        });
+      }
+    } catch (sendError) {
+      logger.error(`ChannelManager: 发送错误帧失败 — ${channel.name}`, {
+        error: String(sendError),
+      });
+    }
+
+    logger.warning(`ChannelManager: 非法消息被拦截 — ${channel.name}`, {
+      messageId: message.id,
+      errorCode: code,
+      errorMessage,
+    });
+  }
+
+  /**
+   * 路由入站消息到 CoreAPI
+   * 在路由前先验证消息合法性
+   */
+  private async routeMessage(
+    channel: GatewayChannel,
+    message: InboundMessage
+  ): Promise<void> {
+    const validation = this.validateInboundMessage(message);
+    if (!validation.valid) {
+      const errorMsg = validation.errors?.join('; ') || '消息格式无效';
+      await this.sendErrorResponse(channel, message, 'INVALID_FRAME', errorMsg);
+      this.emit(
+        ChannelEvent.ERROR,
+        channel.name,
+        new Error(`消息验证失败: ${errorMsg}`)
+      );
+      return;
+    }
+
     if (!this.coreAPI) {
       logger.warning('ChannelManager: CoreAPI 未设置，消息无法路由');
       return;
@@ -382,7 +627,9 @@ export class ChannelManager extends EventEmitter {
   /**
    * 启动单通道
    */
-  private async startChannelInternal(registration: ChannelRegistration): Promise<void> {
+  private async startChannelInternal(
+    registration: ChannelRegistration
+  ): Promise<void> {
     const { channel } = registration;
 
     try {
@@ -390,7 +637,9 @@ export class ChannelManager extends EventEmitter {
       await channel.connect();
       logger.info(`ChannelManager: 通道已启动 — ${channel.name}`);
     } catch (error) {
-      logger.error(`ChannelManager: 通道 ${channel.name} 启动失败`, { error: String(error) });
+      logger.error(`ChannelManager: 通道 ${channel.name} 启动失败`, {
+        error: String(error),
+      });
 
       if (this.config.autoReconnect) {
         this.attemptReconnect(channel.name, registration);
@@ -403,7 +652,9 @@ export class ChannelManager extends EventEmitter {
   /**
    * 停止单通道
    */
-  private async stopChannelInternal(registration: ChannelRegistration): Promise<void> {
+  private async stopChannelInternal(
+    registration: ChannelRegistration
+  ): Promise<void> {
     const { channel } = registration;
 
     if (registration.healthCheckTimer) {
@@ -415,30 +666,42 @@ export class ChannelManager extends EventEmitter {
       await channel.disconnect();
       logger.info(`ChannelManager: 通道已停止 — ${channel.name}`);
     } catch (error) {
-      logger.error(`ChannelManager: 通道 ${channel.name} 停止失败`, { error: String(error) });
+      logger.error(`ChannelManager: 通道 ${channel.name} 停止失败`, {
+        error: String(error),
+      });
     }
   }
 
   /**
    * 尝试重连通道
    */
-  private attemptReconnect(name: string, registration: ChannelRegistration): void {
+  private attemptReconnect(
+    name: string,
+    registration: ChannelRegistration
+  ): void {
     if (registration.reconnectAttempts >= this.config.maxReconnectAttempts) {
-      logger.warning(`ChannelManager: 通道 ${name} 已达最大重连次数 (${this.config.maxReconnectAttempts})`);
+      logger.warning(
+        `ChannelManager: 通道 ${name} 已达最大重连次数 (${this.config.maxReconnectAttempts})`
+      );
       return;
     }
 
     registration.reconnectAttempts++;
 
     const callbacks = this.createChannelCallbacks(registration.channel);
-    callbacks.onReconnecting?.(registration.reconnectAttempts, this.config.maxReconnectAttempts);
+    callbacks.onReconnecting?.(
+      registration.reconnectAttempts,
+      this.config.maxReconnectAttempts
+    );
 
     setTimeout(async () => {
       if (!this.isRunning) {
         return;
       }
 
-      logger.info(`ChannelManager: 重连通道 ${name} (${registration.reconnectAttempts}/${this.config.maxReconnectAttempts})`);
+      logger.info(
+        `ChannelManager: 重连通道 ${name} (${registration.reconnectAttempts}/${this.config.maxReconnectAttempts})`
+      );
 
       try {
         await registration.channel.disconnect();
@@ -447,7 +710,9 @@ export class ChannelManager extends EventEmitter {
         registration.reconnectAttempts = 0;
         logger.info(`ChannelManager: 通道 ${name} 重连成功`);
       } catch (error) {
-        logger.error(`ChannelManager: 通道 ${name} 重连失败`, { error: String(error) });
+        logger.error(`ChannelManager: 通道 ${name} 重连失败`, {
+          error: String(error),
+        });
         this.attemptReconnect(name, registration);
       }
     }, this.config.reconnectInterval);
@@ -484,7 +749,9 @@ let _channelManagerInstance: ChannelManager | null = null;
 /**
  * 创建 ChannelManager 实例
  */
-export function createChannelManager(config?: ChannelManagerConfig): ChannelManager {
+export function createChannelManager(
+  config?: ChannelManagerConfig
+): ChannelManager {
   return new ChannelManager(config);
 }
 
@@ -492,7 +759,9 @@ export function createChannelManager(config?: ChannelManagerConfig): ChannelMana
  * 获取全局 ChannelManager 单例
  * 首次调用时自动创建
  */
-export function getChannelManager(config?: ChannelManagerConfig): ChannelManager {
+export function getChannelManager(
+  config?: ChannelManagerConfig
+): ChannelManager {
   if (!_channelManagerInstance) {
     _channelManagerInstance = createChannelManager(config);
   }

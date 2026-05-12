@@ -3,6 +3,7 @@
  * 代理服务
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AgentService, AgentConfig, AIAgent } from '../models/types';
 import { AIAgentImpl } from '../agent';
 import { ToolFactory } from '../tools/agentTool';
@@ -15,6 +16,8 @@ import {
   mkdirSync,
 } from 'fs';
 import { AIModelType } from '@modules/ai/models/types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 代理服务类
@@ -159,7 +162,7 @@ export class AgentServiceImpl implements AgentService {
         'utf-8'
       );
     } catch (error) {
-      console.error('Failed to save agent:', error);
+      logger.error('Failed to save agent:', error);
     }
   }
 
@@ -176,7 +179,7 @@ export class AgentServiceImpl implements AgentService {
         fs.unlinkSync(agentPath);
       }
     } catch (error) {
-      console.error('Failed to delete agent file:', error);
+      logger.error('Failed to delete agent file:', error);
     }
   }
 
@@ -196,7 +199,7 @@ export class AgentServiceImpl implements AgentService {
         }
       }
     } catch (error) {
-      console.error('Failed to load agents:', error);
+      logger.error('Failed to load agents:', error);
     }
   }
 }

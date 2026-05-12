@@ -3,6 +3,8 @@
  * 按键绑定上下文管理
  * 提供按键绑定系统的React上下文和API
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import React, { createContext, useContext, useRef } from 'react';
 import type {
   KeybindingContextName,
@@ -217,8 +219,12 @@ export function KeybindingProvider({
 export function useKeybindingContext(): KeybindingContextValue {
   const ctx = useContext(KeybindingContext);
   if (!ctx) {
-    throw new Error(
-      'useKeybindingContext must be used within KeybindingProvider'
+    throw new AppError(
+      ErrorCodes.INTERNAL.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'CONTEXT_NOT_AVAILABLE',
+      { hook: 'useKeybindingContext', provider: 'KeybindingProvider' }
     );
   }
   return ctx;

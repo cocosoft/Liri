@@ -3,11 +3,14 @@
  * 基于CC源码 cc_code/backend/utils/cronTasks.ts 实现
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { parseCronExpression } from './cron';
 import type { ScheduledTask } from './types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const CRON_FILE_DIR = '.py_app';
 const CRON_FILE_NAME = 'scheduled_tasks.json';
@@ -83,7 +86,7 @@ export function readCronTasksFile(dir?: string): ScheduledTask[] {
     }
     return out;
   } catch (e) {
-    console.error('[CronTasks] error reading cron tasks file:', e);
+    logger.error('[CronTasks] error reading cron tasks file:', e);
     return [];
   }
 }

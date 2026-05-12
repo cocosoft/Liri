@@ -191,8 +191,11 @@ export class BundledSkillsRegistry {
       await writeFile(filePath, content, 'utf-8');
     } catch (error) {
       throw new AppError(
-        `Failed to write file ${filePath}: ${error instanceof Error ? error.message : String(error)}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Failed to write file ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

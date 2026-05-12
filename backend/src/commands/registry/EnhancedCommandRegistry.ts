@@ -65,7 +65,12 @@ export class EnhancedCommandRegistry implements IEnhancedCommandRegistry {
 
   register(metadata: CommandMetadata): void {
     if (this.commands.has(metadata.name)) {
-      throw new AppError(`Command already registered: ${metadata.name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Command already registered: ${metadata.name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     this.commands.set(metadata.name, metadata);
 
@@ -88,8 +93,11 @@ export class EnhancedCommandRegistry implements IEnhancedCommandRegistry {
     const dependents = this.depGraph.get(name);
     if (dependents && dependents.size > 0) {
       throw new AppError(
-        `Cannot unregister '${name}': depended on by [${[...dependents].join(', ')}]`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Cannot unregister '${name}': depended on by [${[...dependents].join(', ')}]`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     for (const [, deps] of this.depGraph) {

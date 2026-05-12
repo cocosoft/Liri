@@ -1,4 +1,6 @@
 //
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import React, { PureComponent, type ReactNode } from 'react';
 import { logForDebugging, logError } from '../../../utils/debug.js';
 import { isEnvTruthy } from '../../../utils/envUtils.js';
@@ -265,12 +267,20 @@ export default class App extends PureComponent<Props, State> {
     const { stdin } = this.props;
     if (!this.isRawModeSupported()) {
       if (stdin === process.stdin) {
-        throw new Error(
-          'Raw mode is not supported on the current process.stdin, which Ink uses as input stream by default.\nRead about how to prevent this error on https://github.com/vadimdemedes/ink/#israwmodesupported'
+        throw new AppError(
+          ErrorCodes.INVALID_STATE.message,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.MEDIUM,
+          'RAW_MODE_NOT_SUPPORTED',
+          { detail: 'process.stdin' }
         );
       } else {
-        throw new Error(
-          'Raw mode is not supported on the stdin provided to Ink.\nRead about how to prevent this error on https://github.com/vadimdemedes/ink/#israwmodesupported'
+        throw new AppError(
+          ErrorCodes.INVALID_STATE.message,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.MEDIUM,
+          'RAW_MODE_NOT_SUPPORTED',
+          { detail: 'custom stdin' }
         );
       }
     }

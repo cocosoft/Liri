@@ -28,6 +28,10 @@ import type {
   TranscriptSearchResult,
 } from './types/Transcript.js';
 import { isTranscriptMessage, isChainParticipant } from './types/Transcript.js';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
 
 /**
@@ -157,7 +161,7 @@ export class TranscriptManager {
       this.transcriptCache.set(sessionId, transcript);
       return this.filterTranscript(transcript, options);
     } catch (error) {
-      console.error(
+      logger.error(
         `Failed to load transcript for session ${sessionId}:`,
         error
       );
@@ -363,7 +367,7 @@ export class TranscriptManager {
     try {
       const stats = await stat(transcriptPath).catch(() => null);
       if (stats && stats.size >= this.config.maxFileSize) {
-        console.warn(
+        logger.warn(
           `Transcript file ${transcriptPath} exceeded max size, truncating`
         );
       }

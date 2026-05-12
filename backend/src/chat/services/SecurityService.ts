@@ -4,10 +4,7 @@ import {
   sensitiveDataService as coreService,
   SensitiveErrorType,
 } from '@modules/security';
-import type {
-  SensitiveError,
-  SensitiveDataConfig,
-} from '@modules/security';
+import type { SensitiveError, SensitiveDataConfig } from '@modules/security';
 
 export const SecurityErrorType = SensitiveErrorType;
 export type SecurityError = SensitiveError;
@@ -80,7 +77,10 @@ export class SecurityService extends EventEmitter {
     return this.coreService.createFriendlyErrorMessage(error);
   }
 
-  handleError(error: unknown): { message: string; details?: Record<string, unknown> } {
+  handleError(error: unknown): {
+    message: string;
+    details?: Record<string, unknown>;
+  } {
     return this.coreService.handleError(error);
   }
 

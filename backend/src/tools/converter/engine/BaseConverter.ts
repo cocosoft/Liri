@@ -1,6 +1,11 @@
 import { AppError } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
-import type { ConversionResult, ConversionContext, FileInfo, ConverterRegistration } from './types';
+import type {
+  ConversionResult,
+  ConversionContext,
+  FileInfo,
+  ConverterRegistration,
+} from './types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from './types';
 
 export abstract class BaseConverter implements ConverterRegistration {
@@ -21,7 +26,10 @@ export abstract class BaseConverter implements ConverterRegistration {
     if (this.supportedMimeTypes.length > 0) {
       const mime = info.mimeType.toLowerCase();
       for (const pattern of this.supportedMimeTypes) {
-        if (mime === pattern || (pattern.endsWith('/*') && mime.startsWith(pattern.slice(0, -1)))) {
+        if (
+          mime === pattern ||
+          (pattern.endsWith('/*') && mime.startsWith(pattern.slice(0, -1)))
+        ) {
           return true;
         }
       }

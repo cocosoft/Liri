@@ -104,7 +104,12 @@ export class PluginLifecycleManager extends EventEmitter {
    */
   registerPlugin(plugin: LoadedPlugin): void {
     if (this.plugins.has(plugin.id)) {
-      throw new AppError(`Plugin already registered: ${plugin.id}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Plugin already registered: ${plugin.id}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     this.plugins.set(plugin.id, plugin);
@@ -145,7 +150,12 @@ export class PluginLifecycleManager extends EventEmitter {
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
-      throw new AppError(`Plugin not found: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Plugin not found: ${pluginId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (plugin.state === PluginState.ACTIVATED) {
@@ -154,8 +164,11 @@ export class PluginLifecycleManager extends EventEmitter {
 
     if (plugin.state !== PluginState.LOADED) {
       throw new AppError(
-        `Plugin must be loaded before starting, current state: ${plugin.state}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Plugin must be loaded before starting, current state: ${plugin.state}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     try {
@@ -200,7 +213,12 @@ export class PluginLifecycleManager extends EventEmitter {
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
-      throw new AppError(`Plugin not found: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Plugin not found: ${pluginId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (plugin.state !== PluginState.ACTIVATED) {
@@ -245,7 +263,12 @@ export class PluginLifecycleManager extends EventEmitter {
     const plugin = this.plugins.get(pluginId);
 
     if (!plugin) {
-      throw new AppError(`Plugin not found: ${pluginId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Plugin not found: ${pluginId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (plugin.state === PluginState.ACTIVATED) {

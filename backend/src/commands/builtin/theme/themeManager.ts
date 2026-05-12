@@ -66,7 +66,13 @@ export function getTheme(): ThemeConfig {
 }
 
 export function setTheme(name: ThemeName): ThemeConfig {
-  if (!THEMES[name]) throw new AppError(`Unknown theme: ${name}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+  if (!THEMES[name])
+    throw new AppError(
+      `Unknown theme: ${name}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   currentTheme = name;
   return THEMES[name];
 }

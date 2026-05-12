@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { isProgressReportingAvailable, type Progress } from './terminal.js';
 import { BEL } from './termio/ansi.js';
@@ -31,8 +33,12 @@ export type TerminalNotification = {
 export function useTerminalNotification(): TerminalNotification {
   const writeRaw = useContext(TerminalWriteContext);
   if (!writeRaw) {
-    throw new Error(
-      'useTerminalNotification must be used within TerminalWriteProvider'
+    throw new AppError(
+      ErrorCodes.INTERNAL.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'CONTEXT_NOT_AVAILABLE',
+      { hook: 'useTerminalNotification', provider: 'TerminalWriteProvider' }
     );
   }
 

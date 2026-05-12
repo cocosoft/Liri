@@ -4,10 +4,13 @@
  * 负责从不同来源加载Agent定义，支持热加载
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/plugins/PluginLoader';
 import { SettingSource } from '@modules/config/constants';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   loadUserAgents,
   loadProjectAgents,
@@ -105,7 +108,7 @@ export class AgentSourceManager {
       await this.reloadAgents();
       this.notifyHotReload('added');
     } catch (error) {
-      console.error(`Failed to load new agent file: ${filePath}`, error);
+      logger.error(`Failed to load new agent file: ${filePath}`, error);
     }
   }
 
@@ -117,7 +120,7 @@ export class AgentSourceManager {
       await this.reloadAgents();
       this.notifyHotReload('updated');
     } catch (error) {
-      console.error(`Failed to reload changed agent file: ${filePath}`, error);
+      logger.error(`Failed to reload changed agent file: ${filePath}`, error);
     }
   }
 
@@ -137,7 +140,7 @@ export class AgentSourceManager {
       });
       this.notifyHotReload('removed');
     } catch (error) {
-      console.error(`Failed to remove agent: ${filePath}`, error);
+      logger.error(`Failed to remove agent: ${filePath}`, error);
     }
   }
 
@@ -152,7 +155,7 @@ export class AgentSourceManager {
       try {
         callback(event, agent);
       } catch (error) {
-        console.error('Error in hot reload callback:', error);
+        logger.error('Error in hot reload callback:', error);
       }
     }
   }

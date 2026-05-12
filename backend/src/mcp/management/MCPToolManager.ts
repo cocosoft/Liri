@@ -140,7 +140,12 @@ export class MCPToolManager extends EventEmitter {
     const toolId = this.generateToolId(serverName, tool.name);
 
     if (this.tools.has(toolId)) {
-      throw new AppError(`Tool already registered: ${toolId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Tool already registered: ${toolId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const registration: ToolRegistration = {
@@ -169,7 +174,12 @@ export class MCPToolManager extends EventEmitter {
     const resourceId = this.generateResourceId(serverName, resource.id);
 
     if (this.resources.has(resourceId)) {
-      throw new AppError(`Resource already registered: ${resourceId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Resource already registered: ${resourceId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const registration: ResourceRegistration = {
@@ -194,7 +204,12 @@ export class MCPToolManager extends EventEmitter {
     const promptId = this.generatePromptId(serverName, prompt.id);
 
     if (this.prompts.has(promptId)) {
-      throw new AppError(`Prompt already registered: ${promptId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Prompt already registered: ${promptId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const registration: PromptRegistration = {
@@ -269,11 +284,21 @@ export class MCPToolManager extends EventEmitter {
     const registration = this.tools.get(toolId);
 
     if (!registration) {
-      throw new AppError(`Tool not found: ${toolId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Tool not found: ${toolId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (!registration.enabled) {
-      throw new AppError(`Tool is disabled: ${toolId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Tool is disabled: ${toolId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const callContext: ToolCallContext = {
@@ -433,7 +458,12 @@ export class MCPToolManager extends EventEmitter {
     const registration = this.tools.get(toolId);
 
     if (!registration) {
-      throw new AppError(`Tool not found: ${toolId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Tool not found: ${toolId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     registration.enabled = enabled;

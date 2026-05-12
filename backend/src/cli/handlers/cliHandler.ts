@@ -155,7 +155,12 @@ export class CLIHandler {
         await this.handleUtilCommand(command, args);
         break;
       default:
-        throw new AppError(`Unknown handler: ${commandInfo.handler}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1004');
+        throw new AppError(
+          `Unknown handler: ${commandInfo.handler}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1004'
+        );
     }
   }
 

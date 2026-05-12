@@ -164,7 +164,10 @@ export class SensitiveDataService extends EventEmitter {
     }
   }
 
-  handleError(error: unknown): { message: string; details?: Record<string, unknown> } {
+  handleError(error: unknown): {
+    message: string;
+    details?: Record<string, unknown>;
+  } {
     let securityError: SensitiveError;
     if (error instanceof Error) {
       securityError = {

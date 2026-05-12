@@ -49,5 +49,9 @@ export type {
 export { FoldManager, createFoldManager, foldManager } from '../../vim/folding';
 export type { FoldRange } from '../../vim/folding';
 
-export { MultiCursorManager, createMultiCursorManager, multiCursorManager } from '../../vim/multiCursor';
+export {
+  MultiCursorManager,
+  createMultiCursorManager,
+  multiCursorManager,
+} from '../../vim/multiCursor';
 export type { CursorPosition } from '../../vim/multiCursor';

@@ -24,21 +24,33 @@ export class OutlookMsgConverter extends BaseConverter {
     'application/x-msg',
   ];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'outlook-email-parser', format: 'msg', note: '运行：npm install outlook-email-parser' },
+        context: {
+          dependency: 'outlook-email-parser',
+          format: 'msg',
+          note: '运行：npm install outlook-email-parser',
+        },
         cause: _depError,
       });
     }
 
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     // 验证 OLE2 magic bytes (D0CF11E0A1B11AE1)
-    if (buffer.length < 8 || buffer[0] !== 0xD0 || buffer[1] !== 0xCF ||
-        buffer[2] !== 0x11 || buffer[3] !== 0xE0) {
+    if (
+      buffer.length < 8 ||
+      buffer[0] !== 0xd0 ||
+      buffer[1] !== 0xcf ||
+      buffer[2] !== 0x11 ||
+      buffer[3] !== 0xe0
+    ) {
       throw AppError.fromCode(ErrorCodes.CONVERSION_FAILED, {
         context: { format: 'msg', note: '无效的 MSG 文件：无法识别 OLE2 格式' },
       });
@@ -58,7 +70,11 @@ export class OutlookMsgConverter extends BaseConverter {
 
     if (email.subject) lines.push(`**主题:** ${email.subject}`);
     if (email.from) {
-      const fromStr = typeof email.from === 'object' ? [email.from.name, email.from.email].filter(Boolean).join(' <') + (email.from.email ? '>' : '') : email.from;
+      const fromStr =
+        typeof email.from === 'object'
+          ? [email.from.name, email.from.email].filter(Boolean).join(' <') +
+            (email.from.email ? '>' : '')
+          : email.from;
       lines.push(`**发件人:** ${fromStr}`);
     }
     if (email.to) lines.push(`**收件人:** ${email.to}`);

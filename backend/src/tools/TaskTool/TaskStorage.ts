@@ -49,7 +49,12 @@ export class InMemoryTaskStorage implements TaskStorage {
   async update(id: string, updates: Partial<Task>): Promise<Task> {
     const task = this.tasks.get(id);
     if (!task) {
-      throw new AppError(`Task with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Task with id ${id} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const updatedTask: Task = {
@@ -73,7 +78,12 @@ export class InMemoryTaskStorage implements TaskStorage {
    */
   async delete(id: string): Promise<void> {
     if (!this.tasks.has(id)) {
-      throw new AppError(`Task with id ${id} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Task with id ${id} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     this.tasks.delete(id);
   }

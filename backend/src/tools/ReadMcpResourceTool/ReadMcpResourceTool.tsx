@@ -2,6 +2,8 @@
  * ReadMcpResourceTool - 读取MCP服务器资源
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { z } from 'zod';
 import { Text, Box } from 'ink';
 import type { Tool } from '../types/index.js';
@@ -115,17 +117,33 @@ export const ReadMcpResourceTool: Tool<
     );
 
     if (!client) {
-      throw new Error(
-        `Server "${serverName}" not found. Available servers: ${(mcpClients as MCPClient[]).map((c) => c.name).join(', ')}`
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MCP_SERVER_NOT_FOUND',
+        { serverName }
       );
     }
 
     if (client.type !== 'connected') {
-      throw new Error(`Server "${serverName}" is not connected`);
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MCP_SERVER_NOT_CONNECTED',
+        { serverName }
+      );
     }
 
     if (!client.capabilities?.resources) {
-      throw new Error(`Server "${serverName}" does not support resources`);
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MCP_SERVER_NO_RESOURCES',
+        { serverName }
+      );
     }
 
     return {

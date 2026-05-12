@@ -23,7 +23,9 @@ const thinkbackPlay = {
     ];
 
     if (!thinkbackId) {
-      const available = thinkbacks.map((t) => `  ${t.id}: ${t.steps.join(' → ')}`).join('\n');
+      const available = thinkbacks
+        .map((t) => `  ${t.id}: ${t.steps.join(' → ')}`)
+        .join('\n');
       return {
         success: true,
         type: 'text',

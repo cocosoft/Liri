@@ -187,7 +187,12 @@ export class NotebookToolImpl implements NotebookTool {
       case 'pdf':
         return this.exportToPDF(notebook);
       default:
-        throw new AppError(`Unsupported format: ${format}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Unsupported format: ${format}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
     }
   }
 

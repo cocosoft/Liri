@@ -29,3 +29,16 @@ export type {
   RemoteSessionConfig,
   RemoteSessionCallbacks,
 } from './remote/index.js';
+export { SessionStore } from './SessionStore.js';
+export type { SessionStoreOptions } from './SessionStore.js';
+export { SessionPruner } from './SessionPruner.js';
+export type { PrunerOptions, PruneResult } from './SessionPruner.js';
+export { SessionLock } from './SessionLock.js';
+export type { LockOptions, LockAcquireResult } from './SessionLock.js';
+export {
+  SessionMigration,
+  CURRENT_SESSION_VERSION,
+} from './SessionMigration.js';
+export type { MigrationFunction } from './SessionMigration.js';
+export { SessionManager, createSessionManager } from './SessionManager.js';
+export type { SessionManagerConfig } from './SessionManager.js';

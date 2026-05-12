@@ -111,7 +111,12 @@ export class BridgeFatalError extends Error {
 export function validateBridgeId(id: string, label: string): string {
   const SAFE_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
   if (!id || !SAFE_ID_PATTERN.test(id)) {
-    throw new AppError(`Invalid ${label}: contains unsafe characters`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `Invalid ${label}: contains unsafe characters`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return id;
 }
@@ -147,7 +152,12 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
   function resolveAuth(): string {
     const accessToken = deps.getAccessToken();
     if (!accessToken) {
-      throw new AppError('Please log in first with `PY_APP login`', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Please log in first with `PY_APP login`',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     return accessToken;
   }
@@ -271,12 +281,18 @@ export function createBridgeApiClient(deps: BridgeApiDeps): BridgeApiClient {
         );
       case 429:
         throw new AppError(
-          `${context}: Rate limited (429). Polling too frequently.`
-        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          `${context}: Rate limited (429). Polling too frequently.`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       default:
         throw new AppError(
-          `${context}: Failed with status ${status}${detail ? `: ${detail}` : ''}`
-        , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          `${context}: Failed with status ${status}${detail ? `: ${detail}` : ''}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
     }
   }
 

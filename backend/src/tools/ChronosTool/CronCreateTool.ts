@@ -104,8 +104,11 @@ export class CronCreateTool {
           const tasks = await listAllCronTasks();
           if (tasks.length >= MAX_JOBS) {
             throw new AppError(
-              `Too many scheduled jobs (max ${MAX_JOBS}). Cancel one first.`
-            , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+              `Too many scheduled jobs (max ${MAX_JOBS}). Cancel one first.`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              '1000'
+            );
           }
 
           const id = await addCronTask(cron, prompt, recurring, durable);

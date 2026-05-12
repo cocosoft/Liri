@@ -4,8 +4,11 @@
  * 用于检测和记录执行时间超过阈值的操作
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import path from 'path';
 import fs from 'fs';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 慢操作配置
@@ -177,7 +180,7 @@ export class SlowOperationDetector {
 
     switch (this.config.logLevel) {
       case 'error':
-        console.error(message, {
+        logger.error(message, {
           operation: record.operation,
           duration: record.duration,
           threshold: record.threshold,
@@ -186,7 +189,7 @@ export class SlowOperationDetector {
         });
         break;
       case 'warn':
-        console.warn(message, {
+        logger.warning(message, {
           operation: record.operation,
           duration: record.duration,
           threshold: record.threshold,

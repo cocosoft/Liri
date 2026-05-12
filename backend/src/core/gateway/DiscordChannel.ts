@@ -3,6 +3,8 @@
  * 使用 Discord Gateway + REST API 接收/发送消息
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import * as https from 'https';
 import { randomUUID } from 'crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -14,7 +16,12 @@ import type {
   ChannelEventCallbacks,
   ChannelStats,
 } from './types';
-import { ChannelType, ChannelStatus } from './types';
+import { ChannelType, ChannelStatus, MessageDirection } from './types';
+import type {
+  ChannelPlugin,
+  ChannelCapabilities,
+  PluginValidationResult,
+} from './ChannelPlugin';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -65,7 +72,7 @@ interface DiscordGatewayPayload {
  * Discord 通道（企业版）
  * 通过 Gateway WebSocket 接收事件，通过 REST API 发送消息
  */
-export class DiscordChannel implements GatewayChannel {
+export class DiscordChannel implements GatewayChannel, ChannelPlugin {
   readonly name: string;
   readonly type = ChannelType.DISCORD;
   readonly config: DiscordChannelConfig;
@@ -152,7 +159,11 @@ export class DiscordChannel implements GatewayChannel {
       tts: false,
     });
 
-    await this.apiRequest('POST', `/api/v10/channels/${message.recipient}/messages`, body);
+    await this.apiRequest(
+      'POST',
+      `/api/v10/channels/${message.recipient}/messages`,
+      body
+    );
     this._stats.messagesSent++;
     return true;
   }
@@ -189,18 +200,66 @@ export class DiscordChannel implements GatewayChannel {
     };
   }
 
+  // ---- ChannelPlugin 接口实现 ----
+
+  get id(): string {
+    return this.name;
+  }
+
+  get capabilities(): ChannelCapabilities {
+    return this.getCapabilities();
+  }
+
+  async handleInbound(message: InboundMessage): Promise<void> {
+    this._stats.messagesReceived++;
+    this.callbacks.onMessage?.(message);
+  }
+
+  async handleOutbound(message: OutboundMessage): Promise<boolean> {
+    return this.send(message);
+  }
+
+  getCapabilities(): ChannelCapabilities {
+    return {
+      messageTypes: ['text', 'markdown'],
+      supportsMedia: false,
+      maxMessageLength: 2000,
+      directions: [MessageDirection.INBOUND, MessageDirection.OUTBOUND],
+      features: ['gateway_websocket', 'auto_reconnect', 'rate_limit_handling'],
+    };
+  }
+
+  validateConfig(): PluginValidationResult {
+    const errors: string[] = [];
+    if (!this.config.botToken) {
+      errors.push('缺少 Bot Token');
+    }
+    if (!this.config.applicationId) {
+      errors.push('缺少 Application ID');
+    }
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
   private async verifyAuth(): Promise<void> {
     const response = await this.apiRequest('GET', '/api/v10/users/@me', '');
     const data = JSON.parse(response);
 
     if (!data.id) {
-      throw new Error('Discord 认证失败');
+      throw new AppError(
+        ErrorCodes.AUTH_INSUFFICIENT_PERMISSIONS.message,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'DISCORD_AUTH_FAILED'
+      );
     }
 
     logger.info(`Discord 认证成功: ${data.username}#${data.discriminator}`);
   }
 
-  private handleMessageCreate(data: DiscordMessage): void {
+  private async handleMessageCreate(data: DiscordMessage): Promise<void> {
     if (data.author.bot) {
       return;
     }
@@ -221,18 +280,21 @@ export class DiscordChannel implements GatewayChannel {
       timestamp: Date.now(),
     };
 
-    this._stats.messagesReceived++;
-    this.callbacks.onMessage?.(inbound);
+    await this.handleInbound(inbound);
   }
 
-  private apiRequest(method: string, path: string, body: string): Promise<string> {
+  private apiRequest(
+    method: string,
+    path: string,
+    body: string
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
       const options: https.RequestOptions = {
         hostname: DISCORD_API_BASE,
         path,
         method,
         headers: {
-          'Authorization': `Bot ${this.config.botToken}`,
+          Authorization: `Bot ${this.config.botToken}`,
           'Content-Type': 'application/json',
           'User-Agent': 'PY_APP (https://github.com/your-org/PY_APP, 1.0.0)',
         },

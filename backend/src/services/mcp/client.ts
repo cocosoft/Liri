@@ -144,7 +144,12 @@ export async function reconnectMcpServerImpl(
         options.env = config.env || {};
         break;
       default:
-        throw new AppError(`Unsupported transport type: ${config.type}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Unsupported transport type: ${config.type}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
     }
 
     const client = new Client(options as any);

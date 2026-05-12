@@ -107,7 +107,12 @@ export class CostPredictor {
     predictions: CostPredictionResult[]
   ): CostPredictionResult {
     if (predictions.length === 0) {
-      throw new AppError('没有有效的预测结果', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        '没有有效的预测结果',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     if (predictions.length === 1) {

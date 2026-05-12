@@ -8,9 +8,9 @@ export { CommandHookExecutor } from './executors/CommandHookExecutor';
 export { PromptHookExecutor } from './executors/PromptHookExecutor';
 export { HttpHookExecutor } from './executors/HttpHookExecutor';
 export { AgentHookExecutor } from './executors/AgentHookExecutor';
-export { ChatHookExecutor } from './executors/ChatHookExecutor';
 export { StopHookExecutor } from './executors/StopHookExecutor';
-export { HookManager, hookManager } from './HookManager';
+export { HookChain } from './core/HookChain';
+export { HookChainManager } from './core/HookChainManager';
 
 export { useTerminalSize } from './useTerminalSize';
 

@@ -4,6 +4,8 @@
  * 统一管理模块导入，提供别名路径和批量导入功能
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { ModuleDefinition, moduleRegistry } from './ModuleRegistry';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
@@ -65,6 +67,7 @@ export class ImportManager {
     this.config = {
       aliasMap: {
         // 核心模块别名
+        '@modules/plugin-sdk': './plugin-sdk',
         '@modules/core': './core',
         '@modules/infrastructure': './infrastructure',
 
@@ -244,7 +247,13 @@ export class ImportManager {
   ): Promise<ImportResult<T>> {
     const moduleDef = moduleRegistry.find(moduleId);
     if (!moduleDef) {
-      throw new Error(`模块 ${moduleId} 未注册`);
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MODULE_NOT_REGISTERED',
+        { moduleId }
+      );
     }
 
     // 构建模块路径

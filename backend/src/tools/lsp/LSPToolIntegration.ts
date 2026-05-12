@@ -218,7 +218,12 @@ export async function getCompletions(
     position
   );
   if (!result.success) {
-    throw new AppError(result.error || 'Failed to get completions', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      result.error || 'Failed to get completions',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return result.data as CompletionItem[];
 }
@@ -237,7 +242,12 @@ export async function getDefinition(
     position
   );
   if (!result.success) {
-    throw new AppError(result.error || 'Failed to get definition', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      result.error || 'Failed to get definition',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return result.data as Location[];
 }
@@ -256,7 +266,12 @@ export async function getReferences(
     position
   );
   if (!result.success) {
-    throw new AppError(result.error || 'Failed to get references', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      result.error || 'Failed to get references',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return result.data as Location[];
 }
@@ -270,7 +285,12 @@ export async function getDiagnostics(
 ): Promise<Diagnostic[]> {
   const result = await lspTool.executeTool('lsp_get_diagnostics', document);
   if (!result.success) {
-    throw new AppError(result.error || 'Failed to get diagnostics', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      result.error || 'Failed to get diagnostics',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return result.data as Diagnostic[];
 }
@@ -284,7 +304,12 @@ export async function formatDocument(
 ): Promise<string> {
   const result = await lspTool.executeTool('lsp_format_document', document);
   if (!result.success) {
-    throw new AppError(result.error || 'Failed to format document', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      result.error || 'Failed to format document',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
   return result.data as string;
 }

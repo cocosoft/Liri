@@ -243,7 +243,12 @@ export class SkillService {
       normalized.split(pathSep).includes('..') ||
       normalized.split('/').includes('..')
     ) {
-      throw new AppError(`Skill file path escapes skill dir: ${relPath}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Skill file path escapes skill dir: ${relPath}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     return join(baseDir, normalized);
   }

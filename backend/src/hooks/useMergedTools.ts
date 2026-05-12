@@ -14,7 +14,9 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getToolRegistry, type Tool } from '@modules/tools';
-import { hookManager } from './HookManager';
+import { createStore, type StoreApi } from 'zustand/vanilla';
+import { useStore } from 'zustand';
+import { ToolConfig } from '@modules/tools/types';
 
 /**
  * 工具来源类型
@@ -133,13 +135,6 @@ export function useMergedTools(): UseMergedToolsResult {
   // 初始化加载
   useEffect(() => {
     loadTools();
-
-    // 订阅工具变更事件
-    const unsubscribe = hookManager.subscribe('tool.registered', loadTools);
-
-    return () => {
-      unsubscribe();
-    };
   }, [loadTools]);
 
   // 合并工具

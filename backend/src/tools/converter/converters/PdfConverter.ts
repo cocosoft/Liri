@@ -11,7 +11,11 @@ try {
   _pdfjsLib = require('pdfjs-dist/legacy/build/pdf');
 } catch (e) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  try { _pdfjsLib = require('pdfjs-dist'); } catch (e2) { _depError = e2 as Error; }
+  try {
+    _pdfjsLib = require('pdfjs-dist');
+  } catch (e2) {
+    _depError = e2 as Error;
+  }
 }
 
 export class PdfConverter extends BaseConverter {
@@ -20,23 +24,31 @@ export class PdfConverter extends BaseConverter {
   override readonly supportedExtensions = ['.pdf'];
   override readonly supportedMimeTypes = ['application/pdf'];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'pdfjs-dist', format: 'pdf', note: '运行：npm install pdfjs-dist' },
+        context: {
+          dependency: 'pdfjs-dist',
+          format: 'pdf',
+          note: '运行：npm install pdfjs-dist',
+        },
         cause: _depError,
       });
     }
 
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     if (buffer.length === 0) {
       return { markdown: '' };
     }
 
-    const doc = await _pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const doc = await _pdfjsLib.getDocument({ data: new Uint8Array(buffer) })
+      .promise;
     const pages: string[] = [];
 
     for (let i = 1; i <= doc.numPages; i++) {

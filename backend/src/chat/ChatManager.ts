@@ -36,11 +36,7 @@ import { messageProcessingService } from './services/MessageProcessingService.js
 import { permissionModeIntegrationService } from './services/PermissionModeIntegrationService.js';
 import { performanceOptimizationService } from './services/PerformanceOptimizationService.js';
 import { securityService } from './services/SecurityService.js';
-import {
-  ChatHookExecutor,
-  createChatHookExecutor,
-} from '../hooks/executors/ChatHookExecutor.js';
-import { HookManager } from '../hooks/managers/HookManager.js';
+import { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
 import {
   recursivelySanitizeUnicode,
   sanitizeHTML,
@@ -466,14 +462,9 @@ export class ChatManagerImpl implements ChatManager {
   private subAgentManager: any = null;
 
   /**
-   * Hook 管理器
+   * HookChain 管理器
    */
-  private hookManager: HookManager | undefined;
-
-  /**
-   * Chat Hook 执行器
-   */
-  private chatHookExecutor: ChatHookExecutor | undefined;
+  private hookChainManager: HookChainManager;
 
   /**
    * 查询引擎
@@ -498,23 +489,15 @@ export class ChatManagerImpl implements ChatManager {
     this.streamService = createStreamService();
     this.sessionManager = createSessionManager();
     this.compactService = new CompactServiceImpl();
+    this.hookChainManager = HookChainManager.getInstance();
   }
 
   /**
-   * 设置 Hook 管理器
-   * @param hookManager Hook 管理器实例
+   * 获取 HookChain 管理器
+   * @returns HookChain 管理器实例
    */
-  public setHookManager(hookManager: HookManager): void {
-    this.hookManager = hookManager;
-    this.chatHookExecutor = createChatHookExecutor(hookManager);
-  }
-
-  /**
-   * 获取 Hook 管理器
-   * @returns Hook 管理器实例
-   */
-  public getHookManager(): HookManager | undefined {
-    return this.hookManager;
+  public getHookChainManager(): HookChainManager {
+    return this.hookChainManager;
   }
 
   /**
@@ -547,7 +530,12 @@ export class ChatManagerImpl implements ChatManager {
     // 验证输入安全性
     const validationResult = securityService.validateInput(content);
     if (!validationResult.valid) {
-      throw new AppError(validationResult.error || 'Invalid input', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        validationResult.error || 'Invalid input',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 检查是否是命令
@@ -598,14 +586,28 @@ export class ChatManagerImpl implements ChatManager {
         this.createSession({ title: 'New Session' });
 
     if (!session) {
-      throw new AppError('No session found or created', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'No session found or created',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 触发 ChatPreMessage Hook
-    if (this.chatHookExecutor) {
-      const { message: modifiedContent } =
-        await this.chatHookExecutor.preMessage(content, session.id);
-      content = modifiedContent;
+    const preMsgResult = await this.hookChainManager.execute('chat', {
+      event: 'chat.pre-message',
+      data: { message: content, sessionId: session.id },
+      sessionId: session.id,
+    });
+    for (const hr of preMsgResult.before) {
+      if (
+        hr.data &&
+        typeof hr.data === 'object' &&
+        'message' in (hr.data as Record<string, unknown>)
+      ) {
+        content = (hr.data as Record<string, string>).message;
+      }
     }
 
     // 创建用户消息
@@ -625,7 +627,12 @@ export class ChatManagerImpl implements ChatManager {
 
     // 调用LLM客户端
     if (!this.llmClient) {
-      throw new AppError('LLM client not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LLM client not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 准备消息列表（用于API调用）
@@ -711,9 +718,11 @@ export class ChatManagerImpl implements ChatManager {
     this.sessionManager.addMessage(session.id, assistantMessage);
 
     // 触发 ChatPostMessage Hook
-    if (this.chatHookExecutor) {
-      await this.chatHookExecutor.postMessage(content, response, session.id);
-    }
+    await this.hookChainManager.execute('chat', {
+      event: 'chat.post-message',
+      data: { message: content, response, sessionId: session.id },
+      sessionId: session.id,
+    });
 
     // 处理工具调用
     if (response.tool_calls && response.tool_calls.length > 0) {
@@ -726,20 +735,25 @@ export class ChatManagerImpl implements ChatManager {
         };
 
         // 触发 ChatPreToolCall Hook
-        if (this.chatHookExecutor) {
-          const canExecute = await this.chatHookExecutor.preToolCall(
-            {
+        const preToolResult = await this.hookChainManager.execute('chat', {
+          event: 'chat.pre-tool-call',
+          data: {
+            toolCall: {
               id: normalizedToolCall.id,
               name: normalizedToolCall.name,
               arguments: normalizedToolCall.arguments,
             },
-            session.id
+            sessionId: session.id,
+          },
+          sessionId: session.id,
+        });
+        if (preToolResult.before.some((r) => r.preventContinuation)) {
+          throw new AppError(
+            `Tool ${normalizedToolCall.name} execution denied by hook`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
           );
-          if (!canExecute) {
-            throw new AppError(
-              `Tool ${normalizedToolCall.name} execution denied by hook`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000'
-            );
-          }
         }
 
         // 解析工具参数（arguments 可能是 JSON 字符串）
@@ -771,17 +785,17 @@ export class ChatManagerImpl implements ChatManager {
         logger.debug('Tool execution result', { result: toolResult });
 
         // 触发 ChatPostToolCall Hook
-        if (this.chatHookExecutor) {
-          await this.chatHookExecutor.postToolCall(
-            {
-              toolCallId: normalizedToolCall.id,
-              toolName: normalizedToolCall.name,
-              result: toolResult.result,
-              error: toolResult.error,
-            },
-            session.id
-          );
-        }
+        await this.hookChainManager.execute('chat', {
+          event: 'chat.post-tool-call',
+          data: {
+            toolCallId: normalizedToolCall.id,
+            toolName: normalizedToolCall.name,
+            result: toolResult.result,
+            error: toolResult.error,
+            sessionId: session.id,
+          },
+          sessionId: session.id,
+        });
 
         const toolResultMessage = this.messageService.createToolResultMessage(
           toolResult,
@@ -882,7 +896,12 @@ export class ChatManagerImpl implements ChatManager {
     // 验证输入安全性
     const validationResult = securityService.validateInput(content);
     if (!validationResult.valid) {
-      throw new AppError(validationResult.error || 'Invalid input', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        validationResult.error || 'Invalid input',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 获取或创建会话
@@ -892,14 +911,28 @@ export class ChatManagerImpl implements ChatManager {
         this.createSession({ title: 'New Session' });
 
     if (!session) {
-      throw new AppError('No session found or created', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'No session found or created',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 触发 ChatPreMessage Hook
-    if (this.chatHookExecutor) {
-      const { message: modifiedContent } =
-        await this.chatHookExecutor.preMessage(content, session.id);
-      content = modifiedContent;
+    const preMsgResult = await this.hookChainManager.execute('chat', {
+      event: 'chat.pre-message',
+      data: { message: content, sessionId: session.id },
+      sessionId: session.id,
+    });
+    for (const hr of preMsgResult.before) {
+      if (
+        hr.data &&
+        typeof hr.data === 'object' &&
+        'message' in (hr.data as Record<string, unknown>)
+      ) {
+        content = (hr.data as Record<string, string>).message;
+      }
     }
 
     // 创建用户消息
@@ -976,16 +1009,23 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // 触发 ChatPreStream Hook
-    if (this.chatHookExecutor) {
-      await this.chatHookExecutor.preStream(content, session.id);
-    }
+    await this.hookChainManager.execute('chat', {
+      event: 'chat.pre-stream',
+      data: { message: content, sessionId: session.id },
+      sessionId: session.id,
+    });
 
     let assistantMessage: Message | undefined;
     let accumulatedContent = '';
     let finalResponse: ChatResponse | null = null;
 
     if (!this.llmClient) {
-      throw new AppError('LLM client not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LLM client not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const gen = this.llmClient.streamMessage(apiMessages, {
@@ -1015,22 +1055,26 @@ export class ChatManagerImpl implements ChatManager {
     this.sessionManager.addMessage(session.id, assistantMessage);
 
     // 触发 ChatPostStream Hook
-    if (this.chatHookExecutor) {
-      await this.chatHookExecutor.postStream(
-        content,
-        finalResponse,
-        session.id
-      );
-    }
+    await this.hookChainManager.execute('chat', {
+      event: 'chat.post-stream',
+      data: {
+        message: content,
+        response: finalResponse,
+        sessionId: session.id,
+      },
+      sessionId: session.id,
+    });
 
     // 触发 ChatPostMessage Hook
-    if (this.chatHookExecutor) {
-      await this.chatHookExecutor.postMessage(
-        content,
-        finalResponse,
-        session.id
-      );
-    }
+    await this.hookChainManager.execute('chat', {
+      event: 'chat.post-message',
+      data: {
+        message: content,
+        response: finalResponse,
+        sessionId: session.id,
+      },
+      sessionId: session.id,
+    });
 
     // 处理工具调用
     if (finalResponse?.tool_calls && finalResponse.tool_calls.length > 0) {
@@ -1038,18 +1082,25 @@ export class ChatManagerImpl implements ChatManager {
         const toolName = getToolCallName(toolCall);
 
         // 触发 ChatPreToolCall Hook
-        if (this.chatHookExecutor) {
-          const canExecute = await this.chatHookExecutor.preToolCall(
-            {
+        const preToolResult = await this.hookChainManager.execute('chat', {
+          event: 'chat.pre-tool-call',
+          data: {
+            toolCall: {
               id: toolCall.id,
               name: toolName,
               arguments: toolCall.arguments,
             },
-            session.id
+            sessionId: session.id,
+          },
+          sessionId: session.id,
+        });
+        if (preToolResult.before.some((r) => r.preventContinuation)) {
+          throw new AppError(
+            `Tool ${toolName} execution denied by hook`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
           );
-          if (!canExecute) {
-            throw new AppError(`Tool ${toolName} execution denied by hook`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
-          }
         }
 
         const toolResult = await this.executeTool({
@@ -1059,17 +1110,17 @@ export class ChatManagerImpl implements ChatManager {
         });
 
         // 触发 ChatPostToolCall Hook
-        if (this.chatHookExecutor) {
-          await this.chatHookExecutor.postToolCall(
-            {
-              toolCallId: toolCall.id,
-              toolName: toolName,
-              result: toolResult.result,
-              error: toolResult.error,
-            },
-            session.id
-          );
-        }
+        await this.hookChainManager.execute('chat', {
+          event: 'chat.post-tool-call',
+          data: {
+            toolCallId: toolCall.id,
+            toolName: toolName,
+            result: toolResult.result,
+            error: toolResult.error,
+            sessionId: session.id,
+          },
+          sessionId: session.id,
+        });
 
         const toolResultMessage = this.messageService.createToolResultMessage(
           toolResult,
@@ -1104,7 +1155,12 @@ export class ChatManagerImpl implements ChatManager {
         ];
 
         if (!this.llmClient) {
-          throw new AppError('LLM client not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          throw new AppError(
+            'LLM client not initialized',
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
         }
 
         let toolResultAccumulatedContent = '';
@@ -1221,7 +1277,12 @@ export class ChatManagerImpl implements ChatManager {
     } else if (this.toolIntegration) {
       return this.toolIntegration.executeTool(toolCall);
     } else {
-      throw new AppError('No tool integration or tool registry initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'No tool integration or tool registry initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 
@@ -1234,9 +1295,11 @@ export class ChatManagerImpl implements ChatManager {
     const session = this.sessionManager.createSession(params);
 
     // 触发 ChatSessionStart Hook
-    if (this.chatHookExecutor) {
-      this.chatHookExecutor.sessionStart(session.id);
-    }
+    this.hookChainManager.execute('chat', {
+      event: 'chat.session-start',
+      data: { sessionId: session.id },
+      sessionId: session.id,
+    });
 
     return session;
   }
@@ -1271,9 +1334,11 @@ export class ChatManagerImpl implements ChatManager {
    */
   deleteSession(sessionId: string): void {
     // 触发 ChatSessionEnd Hook
-    if (this.chatHookExecutor) {
-      this.chatHookExecutor.sessionEnd(sessionId);
-    }
+    this.hookChainManager.execute('chat', {
+      event: 'chat.session-end',
+      data: { sessionId },
+      sessionId,
+    });
 
     this.sessionManager.deleteSession(sessionId);
   }
@@ -1374,7 +1439,12 @@ export class ChatManagerImpl implements ChatManager {
    */
   getLLMClient(): LLMClient {
     if (!this.llmClient) {
-      throw new AppError('LLM client not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LLM client not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     return this.llmClient;
   }
@@ -1586,7 +1656,12 @@ export class ChatManagerImpl implements ChatManager {
       } else if (message.type === 'tool_result' && message.toolResult) {
         yield `[工具结果: ${message.toolResult.content}]`;
       } else if (message.type === 'error') {
-        throw new AppError(message.error || '查询错误', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          message.error || '查询错误',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
     }
   }
@@ -1666,7 +1741,12 @@ export class ChatManagerImpl implements ChatManager {
           toolResult: message.toolResult,
         });
       } else if (message.type === 'error') {
-        throw new AppError(message.error || '查询错误', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          message.error || '查询错误',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       }
     }
 

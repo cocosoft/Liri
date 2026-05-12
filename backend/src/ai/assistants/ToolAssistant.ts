@@ -2,9 +2,12 @@
  * 工具助手
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { Tool, ToolInfo } from '@modules/tools/types/Tool';
 import aiService from '../index';
 import { AIMessage, AIMessageRole, AIResponse } from '../models/types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 工具推荐信息
@@ -128,7 +131,7 @@ ${toolsDescription}
       );
       return recommendations;
     } catch (error) {
-      console.error('工具推荐失败:', error);
+      logger.error('工具推荐失败:', error);
       return [];
     }
   }
@@ -196,7 +199,7 @@ ${Object.entries(partialParams)
 
       return this.parseParameterSuggestions(response.content);
     } catch (error) {
-      console.error('参数填充失败:', error);
+      logger.error('参数填充失败:', error);
       return [];
     }
   }
@@ -249,7 +252,7 @@ ${toolsDescription}
 
       return this.parseToolUsageSuggestion(response.content);
     } catch (error) {
-      console.error('工具使用建议生成失败:', error);
+      logger.error('工具使用建议生成失败:', error);
       return null;
     }
   }
@@ -284,7 +287,7 @@ ${toolsDescription}
           .filter((r: any) => r !== null);
       }
     } catch (error) {
-      console.error('解析工具推荐失败:', error);
+      logger.error('解析工具推荐失败:', error);
     }
     return [];
   }
@@ -307,7 +310,7 @@ ${toolsDescription}
         }));
       }
     } catch (error) {
-      console.error('解析参数建议失败:', error);
+      logger.error('解析参数建议失败:', error);
     }
     return [];
   }
@@ -332,7 +335,7 @@ ${toolsDescription}
         };
       }
     } catch (error) {
-      console.error('解析工具使用建议失败:', error);
+      logger.error('解析工具使用建议失败:', error);
     }
     return null;
   }

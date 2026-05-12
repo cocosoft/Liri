@@ -4,6 +4,7 @@
  * 参考CC源码: cc_code/backend/utils/cronTasks.ts
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   readFile,
   writeFile,
@@ -14,6 +15,8 @@ import {
 } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 缓存项
@@ -245,7 +248,7 @@ export class StorageOptimizationService {
 
       return data;
     } catch (error) {
-      console.error(`Failed to read from file ${filePath}:`, error);
+      logger.error(`Failed to read from file ${filePath}:`, error);
       return null;
     }
   }
@@ -272,7 +275,7 @@ export class StorageOptimizationService {
 
       return true;
     } catch (error) {
-      console.error(`Failed to write to file ${filePath}:`, error);
+      logger.error(`Failed to write to file ${filePath}:`, error);
       return false;
     }
   }
@@ -301,7 +304,7 @@ export class StorageOptimizationService {
 
       return true;
     } catch (error) {
-      console.error(`Failed to delete file ${filePath}:`, error);
+      logger.error(`Failed to delete file ${filePath}:`, error);
       return false;
     }
   }
@@ -388,7 +391,7 @@ export class StorageOptimizationService {
 
       await this.writeToFile(this.config.cacheFilePath, cacheData);
     } catch (error) {
-      console.error('Failed to persist cache:', error);
+      logger.error('Failed to persist cache:', error);
     }
   }
 
@@ -416,7 +419,7 @@ export class StorageOptimizationService {
         });
       }
     } catch (error) {
-      console.error('Failed to load cache:', error);
+      logger.error('Failed to load cache:', error);
     }
   }
 
@@ -431,7 +434,7 @@ export class StorageOptimizationService {
       const files = await readdir(dirPath);
       return files;
     } catch (error) {
-      console.error(`Failed to list files in ${dirPath}:`, error);
+      logger.error(`Failed to list files in ${dirPath}:`, error);
       return [];
     }
   }

@@ -125,7 +125,12 @@ export function createLSPServerInstance(
 
   async function sendRequest<T>(method: string, params: unknown): Promise<T> {
     if (!client || state !== 'running') {
-      throw new AppError(`LSP server '${name}' is not running (state: ${state})`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `LSP server '${name}' is not running (state: ${state})`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     let lastError: Error | undefined;

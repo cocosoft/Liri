@@ -148,7 +148,12 @@ export class AutoModeHandler {
         this.options.verbose = value.toLowerCase() === 'true';
         break;
       default:
-        throw new AppError(`Unknown config key: ${key}`, ErrorCategory.CONFIGURATION, ErrorSeverity.HIGH, '400');
+        throw new AppError(
+          `Unknown config key: ${key}`,
+          ErrorCategory.CONFIGURATION,
+          ErrorSeverity.HIGH,
+          '400'
+        );
     }
   }
 

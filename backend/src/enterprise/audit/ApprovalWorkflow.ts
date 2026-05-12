@@ -6,18 +6,32 @@
  */
 
 import { randomUUID } from 'crypto';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 /** 审批状态 */
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'escalated' | 'expired' | 'cancelled';
+export type ApprovalStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'escalated'
+  | 'expired'
+  | 'cancelled';
 
 /** 审批级别 */
 export type ApprovalLevel = 'level1' | 'level2' | 'level3';
 
 /** 审批操作类型 */
-export type ApprovalAction = 'tool_execution' | 'data_deletion' | 'config_change' | 'batch_execution' | 'production_deploy' | 'user_role_change';
+export type ApprovalAction =
+  | 'tool_execution'
+  | 'data_deletion'
+  | 'config_change'
+  | 'batch_execution'
+  | 'production_deploy'
+  | 'user_role_change';
 
 /** 审批请求 */
 export interface ApprovalRequest {
@@ -156,8 +170,20 @@ export class ApprovalWorkflow {
   /**
    * 提交审批请求
    */
-  async submit(request: Omit<ApprovalRequest, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'slaDeadline' | 'approvals' | 'currentLevel'>): Promise<ApprovalRequest> {
-    const policy = this.policies.get(request.action) || this.config.defaultPolicy;
+  async submit(
+    request: Omit<
+      ApprovalRequest,
+      | 'id'
+      | 'status'
+      | 'createdAt'
+      | 'updatedAt'
+      | 'slaDeadline'
+      | 'approvals'
+      | 'currentLevel'
+    >
+  ): Promise<ApprovalRequest> {
+    const policy =
+      this.policies.get(request.action) || this.config.defaultPolicy;
 
     const approvalRequest: ApprovalRequest = {
       ...request,
@@ -187,30 +213,61 @@ export class ApprovalWorkflow {
     approver: string,
     approverRole: string,
     decision: 'approved' | 'rejected',
-    comment?: string,
+    comment?: string
   ): Promise<ApprovalRequest> {
     const request = this.requests.get(requestId);
     if (!request) {
-      throw new Error(`审批请求不存在: ${requestId}`);
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'APPROVAL_NOT_FOUND',
+        { requestId }
+      );
     }
 
     if (request.status !== 'pending') {
-      throw new Error(`审批请求状态不允许操作: ${request.status}`);
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'APPROVAL_INVALID_STATUS',
+        { status: request.status }
+      );
     }
 
-    const policy = this.policies.get(request.action) || this.config.defaultPolicy;
+    const policy =
+      this.policies.get(request.action) || this.config.defaultPolicy;
 
     if (!policy.allowSelfApproval && approver === request.requester) {
-      throw new Error('不允许自审批');
+      throw new AppError(
+        ErrorCodes.AUTH_INSUFFICIENT_PERMISSIONS.message,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'APPROVAL_SELF_NOT_ALLOWED',
+        { approver, requester: request.requester }
+      );
     }
 
     const levelApprovers = this.approvers.get(request.currentLevel) || [];
     if (!levelApprovers.includes(approver)) {
-      throw new Error(`当前审批级别中无此审批人: ${approver}`);
+      throw new AppError(
+        ErrorCodes.AUTH_INSUFFICIENT_PERMISSIONS.message,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'APPROVAL_NOT_AUTHORIZED',
+        { approver, level: request.currentLevel }
+      );
     }
 
-    if (request.approvals.some(a => a.approver === approver)) {
-      throw new Error(`审批人已审批: ${approver}`);
+    if (request.approvals.some((a) => a.approver === approver)) {
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'APPROVAL_ALREADY_DECIDED',
+        { approver }
+      );
     }
 
     const record: ApprovalRecord = {
@@ -233,7 +290,7 @@ export class ApprovalWorkflow {
     }
 
     const approvedCount = request.approvals.filter(
-      a => a.decision === 'approved' && a.level === request.currentLevel
+      (a) => a.decision === 'approved' && a.level === request.currentLevel
     ).length;
 
     if (approvedCount >= policy.requiredApprovals) {
@@ -257,11 +314,24 @@ export class ApprovalWorkflow {
    */
   async escalate(requestId: string, reason: string): Promise<ApprovalRequest> {
     const request = this.requests.get(requestId);
-    if (!request) throw new Error(`审批请求不存在: ${requestId}`);
+    if (!request)
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'APPROVAL_NOT_FOUND',
+        { requestId }
+      );
 
     const currentIndex = LEVEL_HIERARCHY.indexOf(request.currentLevel);
     if (currentIndex >= LEVEL_HIERARCHY.length - 1) {
-      throw new Error('已达到最高审批级别，无法继续升级');
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'APPROVAL_CANNOT_ESCALATE',
+        { currentLevel: request.currentLevel }
+      );
     }
 
     const prevLevel = request.currentLevel;
@@ -281,10 +351,13 @@ export class ApprovalWorkflow {
       listener(event);
     }
 
-    const policy = this.policies.get(request.action) || this.config.defaultPolicy;
+    const policy =
+      this.policies.get(request.action) || this.config.defaultPolicy;
     this.scheduleEscalation(request, policy);
 
-    logger.info(`审批已升级: ${requestId} ${prevLevel} → ${request.currentLevel}`);
+    logger.info(
+      `审批已升级: ${requestId} ${prevLevel} → ${request.currentLevel}`
+    );
     return request;
   }
 
@@ -293,14 +366,33 @@ export class ApprovalWorkflow {
    */
   async cancel(requestId: string, actor: string): Promise<ApprovalRequest> {
     const request = this.requests.get(requestId);
-    if (!request) throw new Error(`审批请求不存在: ${requestId}`);
+    if (!request)
+      throw new AppError(
+        ErrorCodes.ENTITY_NOT_FOUND.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'APPROVAL_NOT_FOUND',
+        { requestId }
+      );
 
     if (actor !== request.requester) {
-      throw new Error('只有请求人可以取消审批');
+      throw new AppError(
+        ErrorCodes.AUTH_INSUFFICIENT_PERMISSIONS.message,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'APPROVAL_CANCEL_NOT_ALLOWED',
+        { actor, requester: request.requester }
+      );
     }
 
     if (request.status !== 'pending') {
-      throw new Error('当前状态不允许取消');
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'APPROVAL_CANNOT_CANCEL',
+        { status: request.status }
+      );
     }
 
     request.status = 'cancelled';
@@ -329,10 +421,14 @@ export class ApprovalWorkflow {
   }): ApprovalRequest[] {
     let result = Array.from(this.requests.values());
 
-    if (filter?.status) result = result.filter(r => r.status === filter.status);
-    if (filter?.requester) result = result.filter(r => r.requester === filter.requester);
-    if (filter?.action) result = result.filter(r => r.action === filter.action);
-    if (filter?.tenant) result = result.filter(r => r.tenant === filter.tenant);
+    if (filter?.status)
+      result = result.filter((r) => r.status === filter.status);
+    if (filter?.requester)
+      result = result.filter((r) => r.requester === filter.requester);
+    if (filter?.action)
+      result = result.filter((r) => r.action === filter.action);
+    if (filter?.tenant)
+      result = result.filter((r) => r.tenant === filter.tenant);
 
     return result.sort((a, b) => b.createdAt - a.createdAt);
   }
@@ -344,7 +440,10 @@ export class ApprovalWorkflow {
     this.escalationListeners.push(listener);
   }
 
-  private scheduleEscalation(request: ApprovalRequest, policy: ApprovalPolicy): void {
+  private scheduleEscalation(
+    request: ApprovalRequest,
+    policy: ApprovalPolicy
+  ): void {
     this.clearEscalationTimer(request.id);
 
     if (!this.config.enableEscalation) return;
@@ -355,14 +454,17 @@ export class ApprovalWorkflow {
     const remaining = request.slaDeadline - Date.now();
     if (remaining <= 0) return;
 
-    const timer = setTimeout(() => {
-      if (request.status === 'pending') {
-        const reason = 'SLA 超时，自动升级审批级别';
-        this.escalate(request.id, reason).catch(err =>
-          logger.error('自动升级失败', err)
-        );
-      }
-    }, Math.min(policy.escalationDelayMs, remaining));
+    const timer = setTimeout(
+      () => {
+        if (request.status === 'pending') {
+          const reason = 'SLA 超时，自动升级审批级别';
+          this.escalate(request.id, reason).catch((err) =>
+            logger.error('自动升级失败', err)
+          );
+        }
+      },
+      Math.min(policy.escalationDelayMs, remaining)
+    );
 
     this.escalationTimers.set(request.id, timer);
   }
@@ -382,7 +484,12 @@ export class ApprovalWorkflow {
     const cutoff = Date.now() - maxAgeMs;
     let count = 0;
     for (const [id, req] of this.requests) {
-      if (req.createdAt < cutoff && (req.status === 'approved' || req.status === 'rejected' || req.status === 'cancelled')) {
+      if (
+        req.createdAt < cutoff &&
+        (req.status === 'approved' ||
+          req.status === 'rejected' ||
+          req.status === 'cancelled')
+      ) {
         this.clearEscalationTimer(id);
         this.requests.delete(id);
         count++;

@@ -121,7 +121,12 @@ export class LSPServer {
    */
   send(message: string): void {
     if (this.status !== ServerStatus.RUNNING || !this.process) {
-      throw new AppError('Server not running', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Server not running',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const length = Buffer.byteLength(message, 'utf8');

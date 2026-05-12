@@ -160,7 +160,12 @@ export class MCPServerManager {
   ): Promise<any> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new AppError(`MCP server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `MCP server not found: ${serverName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const startTime = Date.now();
@@ -222,7 +227,12 @@ export class MCPServerManager {
   async getServerTools(serverName: string): Promise<MCPServerConnectionInfo> {
     const server = this.servers.get(serverName);
     if (!server) {
-      throw new AppError(`MCP server not found: ${serverName}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `MCP server not found: ${serverName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await this.refreshServerTools(serverName);

@@ -37,7 +37,12 @@ export class ToolExecutor {
 
     // 检查是否已有相同执行ID的执行
     if (this.concurrentExecutions.has(executionId)) {
-      throw new AppError(`执行ID已存在: ${executionId}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `执行ID已存在: ${executionId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 创建执行Promise

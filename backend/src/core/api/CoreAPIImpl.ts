@@ -20,7 +20,11 @@ import type {
   AgentResult,
   ConvertFileParams,
 } from './CoreAPI';
-import type { ConversionResult, FileInfo, ConversionOptions } from '../../tools/converter/engine/types';
+import type {
+  ConversionResult,
+  FileInfo,
+  ConversionOptions,
+} from '../../tools/converter/engine/types';
 import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
 import type { ChatManager } from '../../chat/ChatManager';
@@ -40,7 +44,9 @@ let _coreApiInstance: CoreAPIImpl | null = null;
  * 创建 CoreAPIImpl 实例
  * 支持传入可选依赖覆盖，未传入时使用全局默认实例
  */
-export function createCoreAPI(options?: ConstructorParameters<typeof CoreAPIImpl>[0]): CoreAPIImpl {
+export function createCoreAPI(
+  options?: ConstructorParameters<typeof CoreAPIImpl>[0]
+): CoreAPIImpl {
   return new CoreAPIImpl(options);
 }
 
@@ -76,7 +82,8 @@ export class CoreAPIImpl implements CoreAPI {
     fileTypeDetector?: FileTypeDetector;
   }) {
     this.chatManager = options?.chatManager ?? createChatManager();
-    this.sessionManager = options?.sessionManager ?? (this.chatManager as any).getSessionManager();
+    this.sessionManager =
+      options?.sessionManager ?? (this.chatManager as any).getSessionManager();
     this.toolManager = options?.toolManager ?? globalToolManager;
     this.coordinator = options?.coordinator ?? defaultCoordinator;
     this.converterEngine = options?.converterEngine ?? getConverterEngine();
@@ -91,9 +98,12 @@ export class CoreAPIImpl implements CoreAPI {
         stream: request.stream,
       });
 
-      const content = typeof message.content === 'string'
-        ? message.content
-        : message.content.map((block) => ('value' in block ? block.value : '')).join('');
+      const content =
+        typeof message.content === 'string'
+          ? message.content
+          : message.content
+              .map((block) => ('value' in block ? block.value : ''))
+              .join('');
 
       return {
         content,
@@ -114,7 +124,9 @@ export class CoreAPIImpl implements CoreAPI {
     }
   }
 
-  async *chatStream(request: ChatRequest): AsyncGenerator<ChatStreamChunk, ChatResponse, unknown> {
+  async *chatStream(
+    request: ChatRequest
+  ): AsyncGenerator<ChatStreamChunk, ChatResponse, unknown> {
     let fullContent = '';
     let finalSessionId = request.sessionId || '';
     let finalMessageId = '';
@@ -147,9 +159,12 @@ export class CoreAPIImpl implements CoreAPI {
         finalSessionId = finalMessage.sessionId || finalSessionId;
         finalMessageId = finalMessage.id;
 
-        const finalContent = typeof finalMessage.content === 'string'
-          ? finalMessage.content
-          : finalMessage.content.map((block) => ('value' in block ? block.value : '')).join('');
+        const finalContent =
+          typeof finalMessage.content === 'string'
+            ? finalMessage.content
+            : finalMessage.content
+                .map((block) => ('value' in block ? block.value : ''))
+                .join('');
 
         fullContent = finalContent || fullContent;
       }
@@ -178,14 +193,17 @@ export class CoreAPIImpl implements CoreAPI {
     };
   }
 
-  async executeTool(sessionId: string, toolCall: ToolCallSpec): Promise<ToolResult> {
+  async executeTool(
+    sessionId: string,
+    toolCall: ToolCallSpec
+  ): Promise<ToolResult> {
     const startTime = Date.now();
 
     try {
       const result = await this.toolManager.executeTool(
         toolCall.name,
         toolCall.arguments as Record<string, any>,
-        { sessionId },
+        { sessionId }
       );
 
       return {
@@ -214,7 +232,14 @@ export class CoreAPIImpl implements CoreAPI {
       description: reg.definition.description,
       parameters: reg.definition.parameters
         ? Object.fromEntries(
-            reg.definition.parameters.map((p) => [p.name, { type: p.type, description: p.description, required: p.required }]),
+            reg.definition.parameters.map((p) => [
+              p.name,
+              {
+                type: p.type,
+                description: p.description,
+                required: p.required,
+              },
+            ])
           )
         : {},
       enabled: reg.definition.enabled ?? true,
@@ -232,7 +257,14 @@ export class CoreAPIImpl implements CoreAPI {
       description: reg.definition.description,
       parameters: reg.definition.parameters
         ? Object.fromEntries(
-            reg.definition.parameters.map((p) => [p.name, { type: p.type, description: p.description, required: p.required }]),
+            reg.definition.parameters.map((p) => [
+              p.name,
+              {
+                type: p.type,
+                description: p.description,
+                required: p.required,
+              },
+            ])
           )
         : {},
       enabled: reg.definition.enabled ?? true,
@@ -315,7 +347,8 @@ export class CoreAPIImpl implements CoreAPI {
         content: task.result || task.error || '',
         state: task.status === 'completed' ? 'completed' : 'failed',
         summary: {
-          durationMs: (task.endTime || Date.now()) - (task.startTime || startTime),
+          durationMs:
+            (task.endTime || Date.now()) - (task.startTime || startTime),
           tokensUsed: task.usage?.totalTokens || 0,
         },
       };
@@ -359,7 +392,9 @@ export class CoreAPIImpl implements CoreAPI {
     const options: ConversionOptions = {
       maxFileSize: params.options?.maxFileSize as number | undefined,
       includeMetadata: params.options?.includeMetadata as boolean | undefined,
-      formatSpecific: params.options?.formatSpecific as Record<string, unknown> | undefined,
+      formatSpecific: params.options?.formatSpecific as
+        | Record<string, unknown>
+        | undefined,
     };
 
     return this.converterEngine.convertFile(params.filePath, options);

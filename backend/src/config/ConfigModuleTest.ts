@@ -217,7 +217,13 @@ describe('HotReloader', () => {
     let callCount = 0;
     reloader.setLoadFn(async () => {
       callCount++;
-      if (callCount > 1) throw new AppError('Load failed', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      if (callCount > 1)
+        throw new AppError(
+          'Load failed',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
       return { app: 'test', version: 2 };
     });
     return reloader.triggerReload('test').then((firstResult) => {
@@ -249,7 +255,12 @@ describe('HotReloader', () => {
       notified = true;
     });
     reloader.setLoadFn(async () => {
-      throw new AppError('Fail', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Fail',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     });
     return reloader.triggerReload('test').then(() => {
       expect(notified).toBe(true);
@@ -532,7 +543,12 @@ describe('Config Module Integration', () => {
     versionController.snapshot(hotReloader.getCurrentConfig(), 'after_reload');
 
     hotReloader.setLoadFn(async () => {
-      throw new AppError('corrupted config', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'corrupted config',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     });
     const r2 = await hotReloader.triggerReload('corrupt');
     expect(r2.success).toBe(false);

@@ -161,7 +161,8 @@ export class EnterpriseAuditService {
     const cutoff = Date.now() - this.config.retentionDays * 86400000;
     try {
       if (existsSync(this.config.auditDir)) {
-        const { readdirSync, unlinkSync } = require('fs') as typeof import('fs');
+        const { readdirSync, unlinkSync } =
+          require('fs') as typeof import('fs');
         const files = readdirSync(this.config.auditDir);
         for (const file of files) {
           if (!file.endsWith('.json')) continue;
@@ -170,7 +171,10 @@ export class EnterpriseAuditService {
             ? readFileSync(filePath, 'utf-8')
             : '';
           if (!stat) continue;
-          const timestamp = parseInt(file.replace('.json', '').split('_')[0], 10);
+          const timestamp = parseInt(
+            file.replace('.json', '').split('_')[0],
+            10
+          );
           if (!isNaN(timestamp) && timestamp < cutoff) {
             unlinkSync(filePath);
             logger.info(`清理过期审计日志: ${file}`);
@@ -185,7 +189,9 @@ export class EnterpriseAuditService {
   /**
    * 记录审计事件
    */
-  async record(event: Omit<AuditEvent, 'id' | 'timestamp'>): Promise<AuditEvent> {
+  async record(
+    event: Omit<AuditEvent, 'id' | 'timestamp'>
+  ): Promise<AuditEvent> {
     if (!this.config.enabled) {
       return {
         id: '',
@@ -205,7 +211,7 @@ export class EnterpriseAuditService {
       this.events = this.events.slice(-this.maxMemoryEvents);
     }
 
-    this.persistEvent(auditEvent).catch(err =>
+    this.persistEvent(auditEvent).catch((err) =>
       logger.error('审计事件持久化失败', err)
     );
 
@@ -215,14 +221,20 @@ export class EnterpriseAuditService {
   /**
    * 便捷方法：记录审计事件
    */
-  async log(type: AuditEventType, severity: AuditSeverity, actor: string, action: string, options?: {
-    details?: Record<string, unknown>;
-    resource?: string;
-    sessionId?: string;
-    tenant?: string;
-    success?: boolean;
-    failureReason?: string;
-  }): Promise<AuditEvent> {
+  async log(
+    type: AuditEventType,
+    severity: AuditSeverity,
+    actor: string,
+    action: string,
+    options?: {
+      details?: Record<string, unknown>;
+      resource?: string;
+      sessionId?: string;
+      tenant?: string;
+      success?: boolean;
+      failureReason?: string;
+    }
+  ): Promise<AuditEvent> {
     return this.record({
       type,
       severity,
@@ -271,10 +283,15 @@ export class EnterpriseAuditService {
       offset = 0,
     } = filter;
 
-    let filtered = this.events.filter(e => {
+    let filtered = this.events.filter((e) => {
       if (e.timestamp < startTime || e.timestamp > endTime) return false;
       if (types && types.length > 0 && !types.includes(e.type)) return false;
-      if (severities && severities.length > 0 && !severities.includes(e.severity)) return false;
+      if (
+        severities &&
+        severities.length > 0 &&
+        !severities.includes(e.severity)
+      )
+        return false;
       if (actor && e.actor !== actor) return false;
       if (tenant && e.tenant !== tenant) return false;
       if (resource && e.resource !== resource) return false;
@@ -291,11 +308,16 @@ export class EnterpriseAuditService {
   /**
    * 获取审计统计
    */
-  async getStats(timeRange?: { from: number; to: number }): Promise<AuditStats> {
+  async getStats(timeRange?: {
+    from: number;
+    to: number;
+  }): Promise<AuditStats> {
     const from = timeRange?.from || 0;
     const to = timeRange?.to || Date.now();
 
-    const inRange = this.events.filter(e => e.timestamp >= from && e.timestamp <= to);
+    const inRange = this.events.filter(
+      (e) => e.timestamp >= from && e.timestamp <= to
+    );
 
     const byType: Record<string, number> = {};
     const bySeverity: Record<string, number> = {};
@@ -322,7 +344,10 @@ export class EnterpriseAuditService {
   /**
    * 导出审计日志
    */
-  async export(format: 'json' | 'csv' = 'json', filter?: AuditQuery): Promise<string> {
+  async export(
+    format: 'json' | 'csv' = 'json',
+    filter?: AuditQuery
+  ): Promise<string> {
     const result = await this.query(filter);
     const exportDir = join(this.config.auditDir, 'export');
     if (!existsSync(exportDir)) {
@@ -333,13 +358,30 @@ export class EnterpriseAuditService {
     const filePath = join(exportDir, filename);
 
     if (format === 'csv') {
-      const headers = ['id', 'timestamp', 'type', 'severity', 'actor', 'action', 'resource', 'success', 'failureReason'];
-      const rows = result.events.map(e => [
-        e.id, e.timestamp, e.type, e.severity, e.actor,
-        `"${e.action.replace(/"/g, '""')}"`,
-        e.resource || '',
-        e.success, e.failureReason || '',
-      ].join(','));
+      const headers = [
+        'id',
+        'timestamp',
+        'type',
+        'severity',
+        'actor',
+        'action',
+        'resource',
+        'success',
+        'failureReason',
+      ];
+      const rows = result.events.map((e) =>
+        [
+          e.id,
+          e.timestamp,
+          e.type,
+          e.severity,
+          e.actor,
+          `"${e.action.replace(/"/g, '""')}"`,
+          e.resource || '',
+          e.success,
+          e.failureReason || '',
+        ].join(',')
+      );
       writeFileSync(filePath, [headers.join(','), ...rows].join('\n'), 'utf-8');
     } else {
       writeFileSync(filePath, JSON.stringify(result.events, null, 2), 'utf-8');

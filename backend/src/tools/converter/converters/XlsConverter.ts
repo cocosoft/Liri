@@ -17,21 +17,26 @@ export class XlsConverter extends HtmlConverter {
   override readonly name = 'xls';
   override readonly priority = PRIORITY_SPECIFIC_FILE_FORMAT;
   override readonly supportedExtensions = ['.xls'];
-  override readonly supportedMimeTypes = [
-    'application/vnd.ms-excel',
-  ];
+  override readonly supportedMimeTypes = ['application/vnd.ms-excel'];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'xlsx', format: 'xls', note: '运行：npm install xlsx' },
+        context: {
+          dependency: 'xlsx',
+          format: 'xls',
+          note: '运行：npm install xlsx',
+        },
         cause: _depError,
       });
     }
 
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     const workbook = _xlsx.read(buffer, { type: 'buffer' });
     const parts: string[] = [];
@@ -62,7 +67,9 @@ export class XlsConverter extends HtmlConverter {
         cells.push(`<td>${this.escapeHtml(val)}</td>`);
       }
       const tag = r === range.s.r ? 'th' : 'td';
-      const inner = cells.map(c => c.replace('<td>', `<${tag}>`).replace('</td>', `</${tag}>`)).join('');
+      const inner = cells
+        .map((c) => c.replace('<td>', `<${tag}>`).replace('</td>', `</${tag}>`))
+        .join('');
       rows.push(`<tr>${inner}</tr>`);
     }
 

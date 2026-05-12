@@ -85,7 +85,10 @@ export class ErrorHandler {
     }
 
     // 处理认证错误
-    if (err.code === 'UNAUTHENTICATED' || (err.message && err.message.includes('authentication'))) {
+    if (
+      err.code === 'UNAUTHENTICATED' ||
+      (err.message && err.message.includes('authentication'))
+    ) {
       return new AppError(
         '认证失败，请重新登录',
         ErrorCategory.PERMISSION,
@@ -95,7 +98,10 @@ export class ErrorHandler {
     }
 
     // 处理授权错误
-    if (err.code === 'UNAUTHORIZED' || (err.message && err.message.includes('authorization'))) {
+    if (
+      err.code === 'UNAUTHORIZED' ||
+      (err.message && err.message.includes('authorization'))
+    ) {
       return new AppError(
         '授权失败，权限不足',
         ErrorCategory.PERMISSION,
@@ -105,7 +111,11 @@ export class ErrorHandler {
     }
 
     // 处理数据库错误
-    if (err.code && typeof err.code === 'string' && err.code.startsWith('SQL')) {
+    if (
+      err.code &&
+      typeof err.code === 'string' &&
+      err.code.startsWith('SQL')
+    ) {
       return new AppError(
         '数据库操作失败',
         ErrorCategory.DATABASE,
@@ -189,7 +199,9 @@ export function handleError(error: unknown): AppError {
 export function catchAsync<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T
 ): (...args: Parameters<T>) => Promise<ReturnType<T> | null> {
-  return ErrorHandler.catchAsync(fn) as (...args: Parameters<T>) => Promise<ReturnType<T> | null>;
+  return ErrorHandler.catchAsync(fn) as (
+    ...args: Parameters<T>
+  ) => Promise<ReturnType<T> | null>;
 }
 
 /**
@@ -200,5 +212,7 @@ export function catchAsync<T extends (...args: unknown[]) => Promise<unknown>>(
 export function catchSync<T extends (...args: unknown[]) => unknown>(
   fn: T
 ): (...args: Parameters<T>) => ReturnType<T> | null {
-  return ErrorHandler.catchSync(fn) as (...args: Parameters<T>) => ReturnType<T> | null;
+  return ErrorHandler.catchSync(fn) as (
+    ...args: Parameters<T>
+  ) => ReturnType<T> | null;
 }

@@ -34,7 +34,12 @@ export class SwarmCoordinator {
     // 检查可用Agent数量
     const agentCount = this.swarmManager.size();
     if (agentCount === 0) {
-      throw new AppError('No agents available in swarm', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'No agents available in swarm',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 执行任务

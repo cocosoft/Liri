@@ -55,7 +55,12 @@ export class LSPToolImpl implements LSPTool {
    */
   async sendRequest(method: string, params: any): Promise<any> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.sendRequest(method, params);
@@ -69,7 +74,12 @@ export class LSPToolImpl implements LSPTool {
     position: Position
   ): Promise<CompletionItem[]> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.getCompletions(document, position);
@@ -83,7 +93,12 @@ export class LSPToolImpl implements LSPTool {
     position: Position
   ): Promise<Location[]> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.getDefinition(document, position);
@@ -97,7 +112,12 @@ export class LSPToolImpl implements LSPTool {
     position: Position
   ): Promise<Location[]> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.getReferences(document, position);
@@ -108,7 +128,12 @@ export class LSPToolImpl implements LSPTool {
    */
   async getDiagnostics(document: string): Promise<Diagnostic[]> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.getDiagnostics(document);
@@ -119,7 +144,12 @@ export class LSPToolImpl implements LSPTool {
    */
   async formatDocument(document: string): Promise<string> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.formatDocument(document);
@@ -130,7 +160,12 @@ export class LSPToolImpl implements LSPTool {
    */
   async getHover(document: string, position: Position): Promise<string | null> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.getHover(document, position);
@@ -145,7 +180,12 @@ export class LSPToolImpl implements LSPTool {
     newName: string
   ): Promise<Location[]> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.renameSymbol(document, position, newName);
@@ -156,7 +196,12 @@ export class LSPToolImpl implements LSPTool {
    */
   async getCodeActions(document: string, position: Position): Promise<any[]> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.getCodeActions(document, position);
@@ -170,7 +215,12 @@ export class LSPToolImpl implements LSPTool {
     position: Position
   ): Promise<Location[]> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.getImplementation(document, position);
@@ -184,7 +234,12 @@ export class LSPToolImpl implements LSPTool {
     position: Position
   ): Promise<Location[]> {
     if (!this.client) {
-      throw new AppError('LSP server not started', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'LSP server not started',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return await this.client.getTypeDefinition(document, position);
@@ -269,7 +324,12 @@ export class LSPToolImpl implements LSPTool {
           serverArgs: [],
         };
       default:
-        throw new AppError(`Unsupported language: ${this.language}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Unsupported language: ${this.language}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
     }
   }
 }

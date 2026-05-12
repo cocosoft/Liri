@@ -79,7 +79,10 @@ export class HookChainManager {
    * 获取所有域的状态
    */
   stats(): Record<string, { before: number; after: number; onError: number }> {
-    const result: Record<string, { before: number; after: number; onError: number }> = {};
+    const result: Record<
+      string,
+      { before: number; after: number; onError: number }
+    > = {};
     for (const [name, chain] of this.domains) {
       result[name] = chain.stats();
     }
@@ -98,5 +101,35 @@ export class HookChainManager {
    */
   getDomains(): string[] {
     return Array.from(this.domains.keys());
+  }
+
+  /**
+   * 获取所有域的所有 hook 条目
+   */
+  getAllEntries(): Array<{
+    name: string;
+    stage: 'before' | 'after' | 'onError';
+    priority: number;
+    enabled: boolean;
+    event: string;
+    domain: string;
+  }> {
+    const all: Array<{
+      name: string;
+      stage: 'before' | 'after' | 'onError';
+      priority: number;
+      enabled: boolean;
+      event: string;
+      domain: string;
+    }> = [];
+
+    for (const [domainName, chain] of this.domains) {
+      const entries = chain.getEntries();
+      for (const entry of entries) {
+        all.push({ ...entry, domain: domainName });
+      }
+    }
+
+    return all;
   }
 }

@@ -51,24 +51,42 @@ export class HookConfigManager {
   private validateHookConfig(hook: any): IndividualHookConfig {
     // 验证事件类型
     if (!hook.event) {
-      throw new AppError('Hook must have an event', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Hook must have an event',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 验证配置
     if (!hook.config) {
-      throw new AppError('Hook must have a config', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Hook must have a config',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 验证配置类型
     if (!['command', 'prompt', 'http', 'agent'].includes(hook.config.type)) {
       throw new AppError(
-        'Hook config type must be one of: command, prompt, http, agent'
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        'Hook config type must be one of: command, prompt, http, agent',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 验证命令类型Hook
     if (hook.config.type === 'command' && !hook.config.command) {
-      throw new AppError('Command type hook must have a command', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Command type hook must have a command',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 验证HTTP类型Hook
@@ -76,7 +94,12 @@ export class HookConfigManager {
       hook.config.type === 'http' &&
       (!hook.config.http || !hook.config.http.url)
     ) {
-      throw new AppError('HTTP type hook must have a url', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'HTTP type hook must have a url',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     // 验证代理类型Hook
@@ -84,7 +107,12 @@ export class HookConfigManager {
       hook.config.type === 'agent' &&
       (!hook.config.agent || !hook.config.agent.id)
     ) {
-      throw new AppError('Agent type hook must have an agent id', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Agent type hook must have an agent id',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return {

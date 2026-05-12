@@ -3,6 +3,10 @@
  * 负责会话生命周期管理：健康检查、空闲检测、自动回收
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /** 会话摘要信息（供监管器评估用） */
 export interface SessionSummary {
   id: string;
@@ -64,7 +68,7 @@ export class SessionSupervisor {
 
     this.timer = setInterval(() => {
       this.check().catch((err) => {
-        console.error('[SessionSupervisor] 检查异常:', err);
+        logger.error('[SessionSupervisor] 检查异常:', err);
       });
     }, this.config.checkInterval);
 

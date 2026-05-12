@@ -57,7 +57,12 @@ export class RemoteAgentExecutorImpl implements RemoteAgentExecutor {
     task: Omit<RemoteAgentTask, 'agentId'>
   ): Promise<RemoteExecutionResult> {
     if (this.sessionStatus !== 'connected') {
-      throw new AppError('Not connected to remote agent', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Not connected to remote agent',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const remoteTask: RemoteAgentTask = {

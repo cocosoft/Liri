@@ -145,13 +145,19 @@ async function getOtlpReaders() {
         }
         default:
           throw new AppError(
-            `Unknown protocol set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`
-          , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+            `Unknown protocol set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
       }
     } else {
       throw new AppError(
-        `Unknown exporter type set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${exporterType}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Unknown exporter type set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${exporterType}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 
@@ -195,13 +201,19 @@ async function getOtlpTraceExporters() {
         }
         default:
           throw new AppError(
-            `Unknown protocol set in OTEL_EXPORTER_OTLP_TRACES_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`
-          , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+            `Unknown protocol set in OTEL_EXPORTER_OTLP_TRACES_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: ${protocol}`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
       }
     } else {
       throw new AppError(
-        `Unknown exporter type set in OTEL_TRACES_EXPORTER env var: ${exporterType}`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Unknown exporter type set in OTEL_TRACES_EXPORTER env var: ${exporterType}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

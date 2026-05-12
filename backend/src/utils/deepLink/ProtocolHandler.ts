@@ -47,7 +47,12 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   try {
     url = new URL(uri);
   } catch {
-    throw new AppError(`Invalid URI: ${uri.slice(0, 100)}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+    throw new AppError(
+      `Invalid URI: ${uri.slice(0, 100)}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   if (
@@ -55,8 +60,11 @@ export function parseDeepLink(uri: string): DeepLinkAction {
     url.protocol !== `${DEEP_LINK_PROTOCOL}-cli:`
   ) {
     throw new AppError(
-      `Unsupported protocol: ${url.protocol}. Expected ${DEEP_LINK_PROTOCOL}: or ${DEEP_LINK_PROTOCOL}-cli:`
-    , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      `Unsupported protocol: ${url.protocol}. Expected ${DEEP_LINK_PROTOCOL}: or ${DEEP_LINK_PROTOCOL}-cli:`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
   }
 
   const action: DeepLinkAction = {};
@@ -65,11 +73,19 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   if (q) {
     if (q.length > MAX_QUERY_LENGTH) {
       throw new AppError(
-        `Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     if (containsControlChars(q)) {
-      throw new AppError('Query contains disallowed control characters', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Query contains disallowed control characters',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     action.query = q;
   }
@@ -78,19 +94,30 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   if (cwd) {
     if (cwd.length > MAX_CWD_LENGTH) {
       throw new AppError(
-        `Working directory exceeds maximum length of ${MAX_CWD_LENGTH} characters`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Working directory exceeds maximum length of ${MAX_CWD_LENGTH} characters`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     if (containsControlChars(cwd)) {
       throw new AppError(
-        'Working directory contains disallowed control characters'
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        'Working directory contains disallowed control characters',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     if (
       cwd.includes('..') ||
       (cwd.startsWith('/') === false && cwd.includes(':'))
     ) {
-      throw new AppError('Working directory must be an absolute path', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Working directory must be an absolute path',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     action.cwd = cwd;
   }
@@ -99,8 +126,11 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   if (repo) {
     if (!REPO_SLUG_PATTERN.test(repo)) {
       throw new AppError(
-        `Invalid repository format: ${repo}. Expected owner/repo`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Invalid repository format: ${repo}. Expected owner/repo`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
     action.repo = repo;
   }

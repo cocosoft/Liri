@@ -23,17 +23,24 @@ export class EpubConverter extends HtmlConverter {
     'application/x-epub+zip',
   ];
 
-  override async convert(context: ConversionContext): Promise<ConversionResult> {
+  override async convert(
+    context: ConversionContext
+  ): Promise<ConversionResult> {
     if (_depError) {
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
-        context: { dependency: 'adm-zip', format: 'epub', note: '运行：npm install adm-zip' },
+        context: {
+          dependency: 'adm-zip',
+          format: 'epub',
+          note: '运行：npm install adm-zip',
+        },
         cause: _depError,
       });
     }
 
-    const buffer = typeof context.content === 'string'
-      ? Buffer.from(context.content, 'utf-8')
-      : context.content;
+    const buffer =
+      typeof context.content === 'string'
+        ? Buffer.from(context.content, 'utf-8')
+        : context.content;
 
     const zip = new _AdmZip(buffer);
 
@@ -45,9 +52,11 @@ export class EpubConverter extends HtmlConverter {
     if (metadata.title || metadata.authors.length > 0) {
       const metaLines: string[] = [];
       if (metadata.title) metaLines.push(`**标题:** ${metadata.title}`);
-      if (metadata.authors.length > 0) metaLines.push(`**作者:** ${metadata.authors.join(', ')}`);
+      if (metadata.authors.length > 0)
+        metaLines.push(`**作者:** ${metadata.authors.join(', ')}`);
       if (metadata.language) metaLines.push(`**语言:** ${metadata.language}`);
-      if (metadata.publisher) metaLines.push(`**出版者:** ${metadata.publisher}`);
+      if (metadata.publisher)
+        metaLines.push(`**出版者:** ${metadata.publisher}`);
       if (metadata.date) metaLines.push(`**日期:** ${metadata.date}`);
       if (metadata.description) metaLines.push(`\n${metadata.description}`);
       parts.push(metaLines.join('\n'));
@@ -68,10 +77,19 @@ export class EpubConverter extends HtmlConverter {
   }
 
   private extractMetadata(zip: any): EpubMetadata {
-    const meta: EpubMetadata = { title: '', authors: [], language: '', publisher: '', date: '', description: '' };
+    const meta: EpubMetadata = {
+      title: '',
+      authors: [],
+      language: '',
+      publisher: '',
+      date: '',
+      description: '',
+    };
 
     try {
-      const containerEntry = zip.getEntries().find((e: any) => e.entryName === 'META-INF/container.xml');
+      const containerEntry = zip
+        .getEntries()
+        .find((e: any) => e.entryName === 'META-INF/container.xml');
       if (!containerEntry) return meta;
 
       const containerXml = containerEntry.getData().toString('utf-8');
@@ -79,13 +97,17 @@ export class EpubConverter extends HtmlConverter {
       if (!opfPathMatch) return meta;
 
       const opfPath = opfPathMatch[1];
-      const opfEntry = zip.getEntries().find((e: any) => e.entryName === opfPath);
+      const opfEntry = zip
+        .getEntries()
+        .find((e: any) => e.entryName === opfPath);
       if (!opfEntry) return meta;
 
       const opfXml = opfEntry.getData().toString('utf-8');
 
       const extractTag = (tag: string): string => {
-        const m = opfXml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+        const m = opfXml.match(
+          new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i')
+        );
         return m ? m[1].trim() : '';
       };
 
@@ -100,13 +122,15 @@ export class EpubConverter extends HtmlConverter {
       };
 
       meta.title = extractTag('dc:title') || extractTag('title');
-      meta.authors = extractAllTags('dc:creator').length > 0
-        ? extractAllTags('dc:creator')
-        : extractAllTags('creator');
+      meta.authors =
+        extractAllTags('dc:creator').length > 0
+          ? extractAllTags('dc:creator')
+          : extractAllTags('creator');
       meta.language = extractTag('dc:language') || extractTag('language');
       meta.publisher = extractTag('dc:publisher') || extractTag('publisher');
       meta.date = extractTag('dc:date') || extractTag('date');
-      meta.description = extractTag('dc:description') || extractTag('description');
+      meta.description =
+        extractTag('dc:description') || extractTag('description');
     } catch {
       // 元数据解析失败时静默处理
     }
@@ -116,7 +140,9 @@ export class EpubConverter extends HtmlConverter {
 
   private extractSpineContent(zip: any): string {
     try {
-      const containerEntry = zip.getEntries().find((e: any) => e.entryName === 'META-INF/container.xml');
+      const containerEntry = zip
+        .getEntries()
+        .find((e: any) => e.entryName === 'META-INF/container.xml');
       if (!containerEntry) return '';
 
       const containerXml = containerEntry.getData().toString('utf-8');
@@ -124,9 +150,13 @@ export class EpubConverter extends HtmlConverter {
       if (!opfPathMatch) return '';
 
       const opfPath = opfPathMatch[1];
-      const basePath = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+      const basePath = opfPath.includes('/')
+        ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1)
+        : '';
 
-      const opfEntry = zip.getEntries().find((e: any) => e.entryName === opfPath);
+      const opfEntry = zip
+        .getEntries()
+        .find((e: any) => e.entryName === opfPath);
       if (!opfEntry) return '';
 
       const opfXml = opfEntry.getData().toString('utf-8');
@@ -154,7 +184,9 @@ export class EpubConverter extends HtmlConverter {
 
         const fullPath = basePath ? `${basePath}${href}` : href;
 
-        const entry = zip.getEntries().find((e: any) => e.entryName === fullPath);
+        const entry = zip
+          .getEntries()
+          .find((e: any) => e.entryName === fullPath);
         if (!entry) continue;
 
         const ext = href.toLowerCase().split('.').pop();

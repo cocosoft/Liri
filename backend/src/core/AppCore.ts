@@ -1,4 +1,3 @@
-//
 /**
  * 应用核心类
  * 整合所有子系统，提供统一的入口和管理接口
@@ -19,6 +18,7 @@ import {
   StartupPreloader,
   initializeAndStartPreloading,
 } from './performance/StartupPreloader.js';
+import { LazyModuleLoader } from './utils/LazyModuleLoader.js';
 import { execSync } from 'child_process';
 import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join, resolve, dirname } from 'path';
@@ -45,7 +45,6 @@ export interface SessionStartupOptions {
 
 /**
  * 启动流程增强选项
- * 对应 P1.9 优化项：可选 Git 工作树创建、Session 持久化加载、终端状态备份/恢复
  */
 export interface AppCoreStartupOptions {
   worktree?: WorktreeOptions;
@@ -71,16 +70,17 @@ export class AppCore {
   private static instance: AppCore;
   private config: AppCoreConfig;
   private profiler: StartupProfiler;
-  private moduleManager: ModuleDependencyManager;
-  private ecosystem: PluginEcosystem;
-  private pluginSDK: PluginSDK;
-  private terminalUI: TerminalUIIntegration;
   private initialized: boolean = false;
   private sessionFactory:
     | import('../session/SessionFactory.js').SessionFactory
     | null = null;
   private worktreePath: string | null = null;
   private terminalBackupPath: string | null = null;
+
+  private readonly lazyModuleManager: LazyModuleLoader<ModuleDependencyManager>;
+  private readonly lazyEcosystem: LazyModuleLoader<PluginEcosystem>;
+  private readonly lazyPluginSDK: LazyModuleLoader<PluginSDK>;
+  private readonly lazyTerminalUI: LazyModuleLoader<TerminalUIIntegration>;
 
   constructor(config: AppCoreConfig) {
     this.config = {
@@ -89,16 +89,44 @@ export class AppCore {
     };
 
     this.profiler = new StartupProfiler();
-    this.moduleManager = new ModuleDependencyManager();
-    this.ecosystem = new PluginEcosystem(this.config.ecosystem);
-    this.terminalUI = TerminalUIIntegration.getInstance();
 
-    const sdkConfig: PluginSDKConfig = {
-      ecosystem: this.ecosystem,
-      moduleManager: this.moduleManager,
-    };
+    this.lazyModuleManager = new LazyModuleLoader(
+      () => new ModuleDependencyManager()
+    );
 
-    this.pluginSDK = new PluginSDK(sdkConfig);
+    this.lazyEcosystem = new LazyModuleLoader(
+      () => new PluginEcosystem(this.config.ecosystem)
+    );
+
+    this.lazyTerminalUI = new LazyModuleLoader(() =>
+      TerminalUIIntegration.getInstance()
+    );
+
+    this.lazyPluginSDK = new LazyModuleLoader(async () => {
+      const ecosystem = await this.lazyEcosystem.get();
+      const moduleManager = await this.lazyModuleManager.get();
+      const sdkConfig: PluginSDKConfig = {
+        ecosystem,
+        moduleManager,
+      };
+      return new PluginSDK(sdkConfig);
+    });
+  }
+
+  private get moduleManager(): ModuleDependencyManager {
+    return this.lazyModuleManager.getSync();
+  }
+
+  private get ecosystem(): PluginEcosystem {
+    return this.lazyEcosystem.getSync();
+  }
+
+  private get pluginSDK(): PluginSDK {
+    return this.lazyPluginSDK.getSync();
+  }
+
+  private get terminalUI(): TerminalUIIntegration {
+    return this.lazyTerminalUI.getSync();
   }
 
   /**
@@ -135,7 +163,7 @@ export class AppCore {
         `初始化 ${this.config.name} v${this.config.version}`
       );
 
-      // T0: 启动流程增强（对应 P1.9）
+      // T0: 启动流程增强
       // T0.1: 终端状态备份
       if (this.config.startup?.terminalBackup) {
         await this.saveTerminalState();
@@ -148,11 +176,22 @@ export class AppCore {
         this.profiler.checkpoint('session_loaded');
       }
 
-      // T1: 并行预加载（参考CC源码模式）
+      // T1: 并行预加载
       const preloader = initializeAndStartPreloading();
       this.profiler.checkpoint('preload_started');
 
-      // 初始化核心模块
+      // 并行加载独立核心子系统（ModuleManager、Ecosystem、TerminalUI 互无依赖）
+      await Promise.all([
+        this.lazyModuleManager.get(),
+        this.lazyEcosystem.get(),
+        this.lazyTerminalUI.get(),
+      ]);
+      this.profiler.checkpoint('core_subsystems_loaded');
+
+      // PluginSDK 依赖 ModuleManager + Ecosystem，在前两者加载完成后初始化
+      await this.lazyPluginSDK.get();
+      this.profiler.checkpoint('plugin_sdk_loaded');
+
       await this.initializeCoreModules();
       this.profiler.checkpoint('core_modules_initialized');
 
@@ -164,8 +203,7 @@ export class AppCore {
         logger.warn(`${preloadResult.failedTasks.length} preload tasks failed`);
       }
 
-      // T0.3: Git 工作树创建（在插件和UI初始化前，确保工作目录正确）
-      // 工作树创建需要完整的模块基础设施就绪
+      // T0.3: Git 工作树创建
       if (this.config.startup?.worktree?.enabled) {
         await this.setupGitWorktree();
         this.profiler.checkpoint('worktree_created');
@@ -269,7 +307,6 @@ export class AppCore {
 
   /**
    * 创建 Git 工作树（可选）
-   * 对应 CC setup.ts 的 worktree 创建逻辑
    */
   private async setupGitWorktree(): Promise<void> {
     const opts = this.config.startup?.worktree;
@@ -321,7 +358,6 @@ export class AppCore {
 
   /**
    * 加载 Session 持久化
-   * 从持久化存储中加载之前保存的会话状态
    */
   private async loadSessionPersistence(): Promise<void> {
     const opts = this.config.startup?.session;
@@ -357,7 +393,6 @@ export class AppCore {
 
   /**
    * 保存终端状态备份
-   * 在应用启动时保存终端设置，以便在关闭时恢复
    */
   private async saveTerminalState(): Promise<void> {
     try {
@@ -393,7 +428,6 @@ export class AppCore {
 
   /**
    * 恢复终端状态
-   * 在应用关闭时恢复之前备份的终端设置
    */
   private async restoreTerminalState(): Promise<void> {
     if (!this.terminalBackupPath || !existsSync(this.terminalBackupPath))
@@ -475,8 +509,8 @@ export class AppCore {
   async executeSkill(
     pluginId: string,
     skillId: string,
-    args: Record<string, any>
-  ): Promise<any> {
+    args: Record<string, unknown>
+  ): Promise<unknown> {
     return this.pluginSDK.executeSkill(pluginId, skillId, args);
   }
 

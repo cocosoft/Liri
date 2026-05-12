@@ -114,7 +114,12 @@ export class CostRecordRepository {
 
   private async createTables(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {

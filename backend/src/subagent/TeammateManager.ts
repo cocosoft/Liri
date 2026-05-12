@@ -71,18 +71,31 @@ export class TeammateManager {
   ): Promise<TeammateHandle> {
     if (this.activeTeammates.size >= (this.config.maxTeammates || 10)) {
       throw new AppError(
-        `Maximum number of teammates (${this.config.maxTeammates}) reached`
-      , ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        `Maximum number of teammates (${this.config.maxTeammates}) reached`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const backend = this.backends.get(type);
     if (!backend) {
-      throw new AppError(`Backend type ${type} not registered`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Backend type ${type} not registered`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const existingTeammate = this.findTeammateByName(config.name);
     if (existingTeammate) {
-      throw new AppError(`Teammate with name ${config.name} already exists`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Teammate with name ${config.name} already exists`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const handle = await backend.spawn(config);
@@ -110,7 +123,12 @@ export class TeammateManager {
   async killTeammate(teammateId: string): Promise<void> {
     const handle = this.activeTeammates.get(teammateId);
     if (!handle) {
-      throw new AppError(`Teammate ${teammateId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Teammate ${teammateId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await handle.backend.kill(handle);
@@ -127,7 +145,12 @@ export class TeammateManager {
   ): Promise<void> {
     const handle = this.activeTeammates.get(teammateId);
     if (!handle) {
-      throw new AppError(`Teammate ${teammateId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Teammate ${teammateId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await handle.backend.sendMessage(handle, message);
@@ -137,7 +160,12 @@ export class TeammateManager {
 
   async broadcastMessage(message: Message): Promise<void> {
     if (!this.config.enableMessageBroadcast) {
-      throw new AppError('Message broadcast is disabled', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Message broadcast is disabled',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const promises = Array.from(this.activeTeammates.values()).map((handle) =>
@@ -175,7 +203,12 @@ export class TeammateManager {
   onTeammateMessage(teammateId: string, callback: MessageHandler): void {
     const handle = this.activeTeammates.get(teammateId);
     if (!handle) {
-      throw new AppError(`Teammate ${teammateId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Teammate ${teammateId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     handle.backend.onMessage(handle, callback);
@@ -211,7 +244,12 @@ export class TeammateManager {
   async getTeammateStatus(teammateId: string): Promise<TeammateStatus> {
     const handle = this.activeTeammates.get(teammateId);
     if (!handle) {
-      throw new AppError(`Teammate ${teammateId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Teammate ${teammateId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return handle.backend.getStatus(handle);
@@ -220,7 +258,12 @@ export class TeammateManager {
   async restartTeammate(teammateId: string): Promise<void> {
     const handle = this.activeTeammates.get(teammateId);
     if (!handle) {
-      throw new AppError(`Teammate ${teammateId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Teammate ${teammateId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await handle.backend.restart(handle);

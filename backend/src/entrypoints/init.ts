@@ -122,6 +122,27 @@ export async function init(): Promise<void> {
         }
       })(),
 
+      // 注册 AI Provider
+      (async () => {
+        profileCheckpoint('load_providers_start');
+        const startTime = Date.now();
+        try {
+          const { registerDefaultProviders } =
+            await import('../ai/providers/registerProviders.js');
+          registerDefaultProviders();
+          const duration = Date.now() - startTime;
+          if (duration > 50) {
+            logger.warning(`AI Provider 注册较慢: ${duration}ms`);
+          }
+          return { success: true, duration };
+        } catch (error) {
+          logger.warning('AI Provider 注册失败', { error });
+          return { success: false, error };
+        } finally {
+          profileCheckpoint('load_providers_end');
+        }
+      })(),
+
       // 初始化 CoreAPI + Gateway 通道服务
       (async () => {
         profileCheckpoint('load_gateway_start');
@@ -132,25 +153,32 @@ export async function init(): Promise<void> {
           getCoreAPI();
 
           // 预创建 ChannelManager 单例
-          const { getChannelManager } = await import('../core/gateway/ChannelManager.js');
+          const { getChannelManager } =
+            await import('../core/gateway/ChannelManager.js');
           getChannelManager();
 
           // 根据配置自动注册并启动 Gateway 通道
           try {
-            const { setupGatewayFromConfig } = await import('../core/gateway/GatewaySetup.js');
+            const { setupGatewayFromConfig } =
+              await import('../core/gateway/GatewaySetup.js');
             const result = await setupGatewayFromConfig();
             if (result.registeredChannels > 0) {
-              logger.info(`Gateway 通道自动启动: ${result.connectedChannels}/${result.registeredChannels} 已连接`);
+              logger.info(
+                `Gateway 通道自动启动: ${result.connectedChannels}/${result.registeredChannels} 已连接`
+              );
             }
             if (result.errors.length > 0) {
-              logger.warning('Gateway 通道启动存在错误', { errors: result.errors });
+              logger.warning('Gateway 通道启动存在错误', {
+                errors: result.errors,
+              });
             }
           } catch (setupError) {
             logger.warning('Gateway 通道自动启动失败', { error: setupError });
           }
 
           // 注册 Gateway 优雅关闭处理
-           const { disconnectAllChannels } = await import('../core/gateway/index.js');
+          const { disconnectAllChannels } =
+            await import('../core/gateway/index.js');
           registerShutdownHandler(() => disconnectAllChannels());
 
           const duration = Date.now() - startTime;

@@ -166,53 +166,53 @@ export interface TokenEstimatorConfig {
 }
 
 /**
- * 全局配置接口
+ * 通知配置
  */
-export interface GlobalConfig {
-  /** 配置版本 */
-  version: number;
-  /** 启动次数 */
-  numStartups: number;
-  /** 用户ID */
-  userID?: string;
-  /** 主题设置 */
-  theme: 'dark' | 'light' | 'system';
-  /** 是否已完成引导 */
-  hasCompletedOnboarding?: boolean;
-  /** 详细模式 */
-  verbose: boolean;
-  /** 编辑器模式 */
-  editorMode?: EditorMode;
+export interface NotificationsConfig {
   /** 首选通知渠道 */
-  preferredNotifChannel: NotificationChannel;
-  /** 差异工具 */
-  diffTool?: DiffTool;
-  /** 环境变量 */
-  env: { [key: string]: string };
-  /** 项目配置 */
-  projects?: Record<string, ProjectConfig>;
+  preferredChannel: NotificationChannel;
+  /** 消息空闲通知阈值（毫秒） */
+  idleThresholdMs: number;
+  /** 任务完成通知启用 */
+  taskCompleteEnabled: boolean;
+  /** 需要输入通知启用 */
+  inputNeededEnabled: boolean;
+  /** 代理推送通知启用 */
+  agentPushEnabled: boolean;
+}
+
+/**
+ * 功能开关配置
+ */
+export interface FeatureFlags {
   /** 自动压缩启用 */
-  autoCompactEnabled: boolean;
+  autoCompact: boolean;
   /** 显示回合持续时间 */
   showTurnDuration: boolean;
-  /** 消息空闲通知阈值（毫秒） */
-  messageIdleNotifThresholdMs: number;
   /** 文件检查点启用 */
-  fileCheckpointingEnabled: boolean;
+  fileCheckpointing: boolean;
   /** 终端进度条启用 */
-  terminalProgressBarEnabled: boolean;
+  terminalProgressBar: boolean;
   /** 终端标签页显示状态 */
-  showStatusInTerminalTab?: boolean;
-  /** 任务完成通知启用 */
-  taskCompleteNotifEnabled?: boolean;
-  /** 需要输入通知启用 */
-  inputNeededNotifEnabled?: boolean;
-  /** 代理推送通知启用 */
-  agentPushNotifEnabled?: boolean;
+  showStatusInTerminalTab: boolean;
   /** 尊重.gitignore */
   respectGitignore: boolean;
   /** 复制完整响应 */
   copyFullResponse: boolean;
+  /** 待办事项功能启用 */
+  todoEnabled: boolean;
+  /** 显示展开的待办事项 */
+  showExpandedTodos: boolean;
+}
+
+/**
+ * 内部运行状态（不直接暴露给用户）
+ */
+export interface InternalState {
+  /** 启动次数 */
+  numStartups: number;
+  /** 用户ID */
+  userID?: string;
   /** 提示历史 */
   tipsHistory: { [tipId: string]: number };
   /** 内存使用计数 */
@@ -221,16 +221,41 @@ export interface GlobalConfig {
   promptQueueUseCount: number;
   /** BTW使用计数 */
   btwUseCount: number;
-  /** 待办事项功能启用 */
-  todoFeatureEnabled: boolean;
-  /** 显示展开的待办事项 */
-  showExpandedTodos?: boolean;
   /** 首次启动时间 */
   firstStartTime?: string;
   /** 缓存的统计门值 */
   cachedStatsigGates: { [gateName: string]: boolean };
   /** 迁移版本 */
   migrationVersion?: number;
+}
+
+/**
+ * 全局配置接口
+ */
+export interface GlobalConfig {
+  /** 配置版本 */
+  version: number;
+
+  // ===== 用户可见配置 =====
+
+  /** 主题设置 */
+  theme: 'dark' | 'light' | 'system';
+  /** 是否已完成引导 */
+  hasCompletedOnboarding?: boolean;
+  /** 详细模式 */
+  verbose: boolean;
+  /** 编辑器模式 */
+  editorMode?: EditorMode;
+  /** 差异工具 */
+  diffTool?: DiffTool;
+  /** 环境变量 */
+  env: { [key: string]: string };
+  /** 项目配置 */
+  projects?: Record<string, ProjectConfig>;
+
+  /** AI 模块配置 */
+  ai?: AIConfig;
+
   /** 伙伴配置 */
   companion?: {
     name: string;
@@ -238,8 +263,65 @@ export interface GlobalConfig {
   };
   /** 伙伴是否静音 */
   companionMuted?: boolean;
-  /** AI 模块配置 */
-  ai?: AIConfig;
+
+  // ===== 分组配置 =====
+
+  /** 通知配置 */
+  notifications: NotificationsConfig;
+  /** 功能开关 */
+  features: FeatureFlags;
+  /** 内部运行状态 */
+  internal: InternalState;
+
+  // ===== 已废弃（向后兼容，请使用分组字段） =====
+
+  /** @deprecated 使用 notifications.preferredChannel */
+  preferredNotifChannel?: NotificationChannel;
+  /** @deprecated 使用 notifications.idleThresholdMs */
+  messageIdleNotifThresholdMs?: number;
+  /** @deprecated 使用 notifications.taskCompleteEnabled */
+  taskCompleteNotifEnabled?: boolean;
+  /** @deprecated 使用 notifications.inputNeededEnabled */
+  inputNeededNotifEnabled?: boolean;
+  /** @deprecated 使用 notifications.agentPushEnabled */
+  agentPushNotifEnabled?: boolean;
+  /** @deprecated 使用 features.autoCompact */
+  autoCompactEnabled?: boolean;
+  /** @deprecated 使用 features.showTurnDuration */
+  showTurnDuration?: boolean;
+  /** @deprecated 使用 features.fileCheckpointing */
+  fileCheckpointingEnabled?: boolean;
+  /** @deprecated 使用 features.terminalProgressBar */
+  terminalProgressBarEnabled?: boolean;
+  /** @deprecated 使用 features.showStatusInTerminalTab */
+  showStatusInTerminalTab?: boolean;
+  /** @deprecated 使用 features.respectGitignore */
+  respectGitignore?: boolean;
+  /** @deprecated 使用 features.copyFullResponse */
+  copyFullResponse?: boolean;
+  /** @deprecated 使用 features.todoEnabled */
+  todoFeatureEnabled?: boolean;
+  /** @deprecated 使用 features.showExpandedTodos */
+  showExpandedTodos?: boolean;
+  /** @deprecated 使用 internal.numStartups */
+  numStartups?: number;
+  /** @deprecated 使用 internal.userID */
+  userID?: string;
+  /** @deprecated 使用 internal.tipsHistory */
+  tipsHistory?: { [tipId: string]: number };
+  /** @deprecated 使用 internal.memoryUsageCount */
+  memoryUsageCount?: number;
+  /** @deprecated 使用 internal.promptQueueUseCount */
+  promptQueueUseCount?: number;
+  /** @deprecated 使用 internal.btwUseCount */
+  btwUseCount?: number;
+  /** @deprecated 使用 internal.firstStartTime */
+  firstStartTime?: string;
+  /** @deprecated 使用 internal.cachedStatsigGates */
+  cachedStatsigGates?: { [gateName: string]: boolean };
+  /** @deprecated 使用 internal.migrationVersion */
+  migrationVersion?: number;
+
   /** 自定义配置项 */
   [key: string]: any;
 }
@@ -251,28 +333,38 @@ export interface GlobalConfig {
 export function createDefaultGlobalConfig(): GlobalConfig {
   return {
     version: 1,
-    numStartups: 0,
     theme: 'dark',
-    preferredNotifChannel: 'auto',
     verbose: false,
     editorMode: 'normal',
     diffTool: 'auto',
     env: {},
-    tipsHistory: {},
-    memoryUsageCount: 0,
-    promptQueueUseCount: 0,
-    btwUseCount: 0,
-    todoFeatureEnabled: true,
-    showExpandedTodos: false,
-    messageIdleNotifThresholdMs: 60000,
-    autoCompactEnabled: true,
-    showTurnDuration: true,
-    fileCheckpointingEnabled: true,
-    terminalProgressBarEnabled: true,
-    respectGitignore: true,
-    copyFullResponse: false,
-    cachedStatsigGates: {},
     companionMuted: false,
+    notifications: {
+      preferredChannel: 'auto',
+      idleThresholdMs: 60000,
+      taskCompleteEnabled: true,
+      inputNeededEnabled: true,
+      agentPushEnabled: true,
+    },
+    features: {
+      autoCompact: true,
+      showTurnDuration: true,
+      fileCheckpointing: true,
+      terminalProgressBar: true,
+      showStatusInTerminalTab: false,
+      respectGitignore: true,
+      copyFullResponse: false,
+      todoEnabled: true,
+      showExpandedTodos: false,
+    },
+    internal: {
+      numStartups: 0,
+      tipsHistory: {},
+      memoryUsageCount: 0,
+      promptQueueUseCount: 0,
+      btwUseCount: 0,
+      cachedStatsigGates: {},
+    },
     ai: {
       provider: 'deepseek',
       model: 'deepseek-chat',
@@ -327,29 +419,15 @@ export function createDefaultGlobalConfig(): GlobalConfig {
  */
 export const GLOBAL_CONFIG_KEYS = [
   'version',
-  'numStartups',
-  'userID',
   'theme',
   'hasCompletedOnboarding',
   'verbose',
   'editorMode',
-  'preferredNotifChannel',
   'diffTool',
   'env',
-  'autoCompactEnabled',
-  'showTurnDuration',
-  'todoFeatureEnabled',
-  'showExpandedTodos',
-  'messageIdleNotifThresholdMs',
-  'fileCheckpointingEnabled',
-  'terminalProgressBarEnabled',
-  'showStatusInTerminalTab',
-  'taskCompleteNotifEnabled',
-  'inputNeededNotifEnabled',
-  'agentPushNotifEnabled',
-  'respectGitignore',
-  'copyFullResponse',
-  'firstStartTime',
+  'notifications',
+  'features',
+  'internal',
 ] as const;
 
 /**

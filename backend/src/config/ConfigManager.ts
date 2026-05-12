@@ -28,6 +28,9 @@ import {
 import { ConfigValidator } from './ConfigValidator.js';
 import { ConfigMigration } from './ConfigMigration.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ConfigSnapshot, createDefaultConfigSnapshot } from './ConfigSnapshot';
+import { ConfigRecovery } from './ConfigRecovery';
+import { redactConfig } from './ConfigRedactor';
 
 /**
  * 配置管理器类
@@ -48,6 +51,8 @@ export class ConfigManager {
   private readonly CONFIG_FRESHNESS_POLL_MS = 1000;
   private readonly CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5分钟
   private configReadingAllowed = false;
+  private configSnapshot: ConfigSnapshot;
+  private configRecovery: ConfigRecovery;
 
   /**
    * 构造函数
@@ -55,6 +60,12 @@ export class ConfigManager {
    */
   constructor(configPath?: string) {
     this.globalConfigPath = configPath || this.getDefaultConfigPath();
+    const configDir = dirname(this.globalConfigPath);
+    this.configSnapshot = createDefaultConfigSnapshot(configDir);
+    this.configRecovery = new ConfigRecovery(
+      this.configSnapshot,
+      this.globalConfigPath
+    );
   }
 
   /**
@@ -130,12 +141,27 @@ export class ConfigManager {
   }
 
   /**
+   * 获取脱敏后的全局配置（用于日志和安全输出）
+   * @returns 脱敏后的全局配置
+   */
+  getRedactedGlobalConfig(): GlobalConfig {
+    return redactConfig(
+      this.getGlobalConfig() as unknown as Record<string, unknown>
+    ) as unknown as GlobalConfig;
+  }
+
+  /**
    * 从文件加载配置
    * @returns 全局配置
    */
   private loadConfigFromFile(): GlobalConfig {
     if (!this.configReadingAllowed && process.env.NODE_ENV !== 'test') {
-      throw new AppError('配置系统在启用前不可访问', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        '配置系统在启用前不可访问',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     try {
@@ -168,9 +194,27 @@ export class ConfigManager {
       }
 
       if (error instanceof SyntaxError) {
-        logger.error('配置文件格式错误，使用默认配置', error);
+        logger.error('配置文件格式错误，尝试从快照恢复', error);
         // 备份损坏的配置
         this.backupCorruptedConfig();
+
+        // 尝试从快照恢复
+        const recovery = this.configRecovery.attemptRecovery();
+        if (recovery.recovered && recovery.config) {
+          const recoveredConfig: GlobalConfig = {
+            ...createDefaultGlobalConfig(),
+            ...(recovery.config as unknown as Partial<GlobalConfig>),
+          };
+          logger.warn('配置已从快照恢复，请检查配置完整性', {
+            snapshotPath: recovery.snapshotPath,
+          });
+          return recoveredConfig;
+        }
+
+        logger.error('快照恢复失败，使用默认配置');
+        if (recovery.error) {
+          logger.warn('恢复错误详情', { error: recovery.error });
+        }
         return createDefaultGlobalConfig();
       }
 
@@ -193,6 +237,11 @@ export class ConfigManager {
       if (newConfig === currentConfig) {
         return;
       }
+
+      // 写入前创建快照
+      this.configSnapshot.saveSnapshot(
+        newConfig as unknown as Record<string, unknown>
+      );
 
       // 原子写入
       this.atomicWriteConfig(newConfig);

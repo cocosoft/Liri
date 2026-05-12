@@ -105,7 +105,12 @@ export class AgentUIManager {
   async sendCommand(agentId: string, command: AgentCommand): Promise<void> {
     const agent = this.agents.get(agentId);
     if (!agent) {
-      throw new AppError(`Agent ${agentId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Agent ${agentId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     this.commandHistory.push(command);
@@ -148,7 +153,12 @@ export class AgentUIManager {
   async syncAgentData(agentId: string): Promise<AgentData> {
     const agent = this.agents.get(agentId);
     if (!agent) {
-      throw new AppError(`Agent ${agentId} not found`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        `Agent ${agentId} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const info = agent.getInfo();

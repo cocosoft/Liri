@@ -3,7 +3,10 @@
  * 用于显示监控数据和性能报告
  */
 
+import { Logger, LogLevel } from './monitoring/logs/Logger.js';
 import { getMonitoringService } from './monitoring/index.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 function monitor() {
   console.log('=== PY_APP 监控面板 ===');
@@ -56,7 +59,7 @@ function monitor() {
 
     console.log('\n=== 监控面板结束 ===');
   } catch (error) {
-    console.error(
+    logger.error(
       '监控失败:',
       error instanceof Error ? error.message : String(error)
     );

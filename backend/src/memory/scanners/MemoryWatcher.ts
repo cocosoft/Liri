@@ -81,7 +81,12 @@ export class MemoryWatcher {
     }
 
     if (!this.config.memoryDir) {
-      throw new AppError('memoryDir is required', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'memoryDir is required',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await this.scanInitialFiles();

@@ -100,7 +100,12 @@ export class CronBridge implements ManagedProcess {
         onProgress(50);
 
         if (signal.aborted) {
-          throw new AppError('定时任务被取消', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+          throw new AppError(
+            '定时任务被取消',
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
         }
 
         onProgress(100);

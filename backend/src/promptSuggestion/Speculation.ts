@@ -3,6 +3,7 @@
  * 基于CC源码设计
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 import {
@@ -14,6 +15,8 @@ import {
   MAX_SPECULATION_TURNS,
   MAX_SPECULATION_MESSAGES,
 } from './types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 let currentState: SpeculationState = { ...IDLE_SPECULATION_STATE };
 
@@ -35,7 +38,7 @@ function safeRemoveOverlay(overlayPath: string): void {
     }
   } catch (error) {
     if (process.env.DEBUG_SPECULATION === 'true') {
-      console.error('[Speculation] Error removing overlay:', error);
+      logger.error('[Speculation] Error removing overlay:', error);
     }
   }
 }

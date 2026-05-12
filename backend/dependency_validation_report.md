@@ -105,10 +105,10 @@ graph TD
 ```
 
 ## 拓扑排序（初始化顺序）
-agent → bridge → tools → commands → memory → cache → permission → performance → analytics → buddy → chat → chronos → context → cost → docs → daemon → hooks → lsp → mcp → plugins → query → remote → sandbox → streaming → utils → keybindings → cli → ui → ai → monitoring → oauth → security → featureflags → services → ink → config → error → infrastructure → core
+agent → bridge → tools → commands → memory → cache → permission → performance → analytics → buddy → chat → chronos → context → cost → docs → daemon → hooks → lsp → mcp → plugin-sdk → plugins → query → remote → sandbox → streaming → utils → keybindings → cli → ui → ai → monitoring → oauth → security → featureflags → services → ink → config → error → infrastructure → core
 
 ## 模块统计
-- **总模块数**: 39
+- **总模块数**: 40
 - **模块分类**:
   - core: 1
   - infrastructure: 3
@@ -124,4 +124,4 @@ agent → bridge → tools → commands → memory → cache → permission → 
   - security: 4
   - performance: 1
   - monitoring: 1
-  - other: 19
+  - other: 20

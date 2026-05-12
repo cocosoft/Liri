@@ -4,6 +4,8 @@
  * 跟踪应用帧率性能指标
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { ErrorCodes } from '@modules/error/ErrorCodes';
 import {
   createContext,
   useContext,
@@ -143,7 +145,13 @@ export const FPSMetricsProvider = ({ children }: { children: ReactNode }) => {
 export const useFPSMetrics = (): FPSMetricsContextType => {
   const context = useContext(FPSMetricsContext);
   if (context === undefined) {
-    throw new Error('useFPSMetrics must be used within an FPSMetricsProvider');
+    throw new AppError(
+      ErrorCodes.INTERNAL.message,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'CONTEXT_NOT_AVAILABLE',
+      { hook: 'useFPSMetrics', provider: 'FPSMetricsProvider' }
+    );
   }
   return context;
 };

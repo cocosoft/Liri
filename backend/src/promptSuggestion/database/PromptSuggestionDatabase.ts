@@ -49,7 +49,12 @@ export class PromptSuggestionDatabase {
    */
   private async createTables(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await this.createSuggestionHistoryTable();
@@ -60,7 +65,12 @@ export class PromptSuggestionDatabase {
    */
   private async createSuggestionHistoryTable(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -146,7 +156,12 @@ export class PromptSuggestionDatabase {
    */
   private async initSystemConfig(): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const configs: Array<{ key: string; value: string }> = [
@@ -183,7 +198,12 @@ export class PromptSuggestionDatabase {
     history: Omit<SuggestionHistory, 'id'>
   ): Promise<number> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -230,7 +250,12 @@ export class PromptSuggestionDatabase {
     timeToAcceptMs: number | null
   ): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -260,7 +285,12 @@ export class PromptSuggestionDatabase {
     timeToIgnoreMs: number | null
   ): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -290,7 +320,12 @@ export class PromptSuggestionDatabase {
     limit: number = 100
   ): Promise<SuggestionHistory[]> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     let sql = 'SELECT * FROM suggestion_history';
@@ -320,7 +355,12 @@ export class PromptSuggestionDatabase {
    */
   async getConfig(key: string): Promise<string | null> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -347,7 +387,12 @@ export class PromptSuggestionDatabase {
    */
   async setConfig(key: string, value: string): Promise<void> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -395,7 +440,12 @@ export class PromptSuggestionDatabase {
     acceptanceRate: number;
   }> {
     if (!this.db) {
-      throw new AppError('Database not initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'Database not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     let sql = 'SELECT outcome, COUNT(*) as count FROM suggestion_history';

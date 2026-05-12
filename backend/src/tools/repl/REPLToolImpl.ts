@@ -55,7 +55,12 @@ export class REPLToolImpl implements REPLTool {
    */
   async executeCode(session: REPLSession, code: string): Promise<REPLResult> {
     if (session.status !== REPLSessionStatus.RUNNING) {
-      throw new AppError('REPL session is not running', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'REPL session is not running',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     const startTime = Date.now();
@@ -65,7 +70,12 @@ export class REPLToolImpl implements REPLTool {
     const stderr = (session as any).stderr;
 
     if (!process || !stdin || !stdout || !stderr) {
-      throw new AppError('REPL session is not properly initialized', ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+      throw new AppError(
+        'REPL session is not properly initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
 
     return new Promise((resolve) => {
@@ -205,7 +215,12 @@ export class REPLToolImpl implements REPLTool {
         args = ['-NoExit', '-Command', 'Write-Host "PowerShell REPL started"'];
         break;
       default:
-        throw new AppError(`Unsupported language: ${language}`, ErrorCategory.EXECUTION, ErrorSeverity.HIGH, '1000');
+        throw new AppError(
+          `Unsupported language: ${language}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
     }
 
     if (options.extraArgs) {

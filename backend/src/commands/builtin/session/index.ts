@@ -2,43 +2,160 @@
  * 会话命令
  * 管理会话
  */
-import type { Command } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandType,
+  CommandResult,
+} from '@modules/commands/types';
 import { createChatManager } from '@modules/chat/ChatManager.js';
 
-function getChatManager(context: any) {
-  if (context.chatManager) {
-    return context.chatManager;
-  }
-  const manager = createChatManager();
-  if (typeof (manager as any).initialize === 'function') {
-    (manager as any).initialize();
-  }
-  return manager;
-}
+class SessionCommand implements Command {
+  type: CommandType = 'action';
+  name = 'session';
+  description = 'Manage sessions';
 
-function getSessionTitle(session: any): string {
-  return session.title || session.metadata?.title || 'Untitled';
-}
+  async execute(args: string, context: CommandContext): Promise<CommandResult> {
+    const manager = this.getChatManager(context);
+    const parts = args.trim().split(/\s+/);
+    const [subcommand, ...rest] = args.trim() ? parts : [];
 
-function formatSessionList(chatManager: any): string {
-  const sessions = chatManager.getSessions();
-  if (sessions.length === 0) {
-    return 'No sessions found. Use /session create to create one.';
-  }
-  const currentSession = chatManager.getCurrentSession();
-  let output = 'Available Sessions\n==================\n\n';
-  for (const session of sessions) {
-    const isCurrent = currentSession?.id === session.id;
-    output += `${isCurrent ? '→ ' : '  '}${session.id.padEnd(20)} - ${getSessionTitle(session)}\n`;
-    output += `    Created: ${new Date(session.createdAt).toLocaleString()}\n`;
-    output += `    Messages: ${session.messages.length}\n\n`;
-  }
-  output += `Total: ${sessions.length} sessions`;
-  return output;
-}
+    if (!subcommand) {
+      return { type: 'text', value: this.getHelpText() };
+    }
 
-function getHelpText(): string {
-  return `Session Command Help
+    switch (subcommand) {
+      case 'list': {
+        return { type: 'text', value: this.formatSessionList(manager) };
+      }
+
+      case 'create': {
+        const title = rest.join(' ') || 'New Session';
+        const newSession = (manager.createSession as Function)(title);
+        return {
+          type: 'text',
+          value: `Session created: ${(newSession as Record<string, unknown>).id as string}`,
+        };
+      }
+
+      case 'switch': {
+        const sessionId = rest[0];
+        if (!sessionId)
+          return {
+            type: 'error',
+            value: 'Error: Please provide a session ID.',
+          };
+        (manager.switchSession as Function)(sessionId);
+        return { type: 'text', value: `Switched to session: ${sessionId}` };
+      }
+
+      case 'delete': {
+        const sessionId = rest[0];
+        if (!sessionId)
+          return {
+            type: 'error',
+            value: 'Error: Please provide a session ID.',
+          };
+        (manager.deleteSession as Function)(sessionId);
+        return { type: 'text', value: `Session deleted: ${sessionId}` };
+      }
+
+      case 'rename': {
+        const sessionId = rest[0];
+        const title = rest.slice(1).join(' ');
+        if (!sessionId || !title)
+          return {
+            type: 'error',
+            value: 'Error: Please provide a session ID and new title.',
+          };
+        (manager.renameSession as Function)(sessionId, title);
+        return {
+          type: 'text',
+          value: `Session renamed: ${sessionId} -> ${title}`,
+        };
+      }
+
+      case 'info': {
+        const sessionId = rest[0];
+        if (!sessionId)
+          return {
+            type: 'error',
+            value: 'Error: Please provide a session ID.',
+          };
+        const session = (manager.getSession as Function)(sessionId) as
+          | Record<string, unknown>
+          | undefined;
+        if (!session)
+          return { type: 'error', value: `Session not found: ${sessionId}` };
+        return {
+          type: 'text',
+          value: `Session Info
+=============
+ID: ${session.id as string}
+Title: ${this.getSessionTitle(session)}
+Created: ${new Date(session.createdAt as string).toLocaleString()}
+Messages: ${(session.messages as unknown[]).length}`,
+        };
+      }
+
+      case 'current': {
+        const current = (manager.getCurrentSession as Function)() as
+          | Record<string, unknown>
+          | undefined;
+        if (!current) return { type: 'text', value: 'No active session.' };
+        return {
+          type: 'text',
+          value: `Current Session: ${current.id as string} - ${this.getSessionTitle(current)}`,
+        };
+      }
+
+      default:
+        return { type: 'text', value: this.getHelpText() };
+    }
+  }
+
+  private getChatManager(context: CommandContext): Record<string, unknown> {
+    if (context.chatManager) {
+      return context.chatManager as Record<string, unknown>;
+    }
+    const manager = createChatManager() as unknown as Record<string, unknown>;
+    if (typeof manager.initialize === 'function') {
+      manager.initialize();
+    }
+    return manager;
+  }
+
+  private getSessionTitle(session: Record<string, unknown>): string {
+    return (
+      (session.title as string) ||
+      ((session.metadata as Record<string, unknown>)?.title as string) ||
+      'Untitled'
+    );
+  }
+
+  private formatSessionList(chatManager: Record<string, unknown>): string {
+    const sessions = (chatManager.getSessions as Function)() as unknown[];
+    if (sessions.length === 0) {
+      return 'No sessions found. Use /session create to create one.';
+    }
+    const currentSession = (chatManager.getCurrentSession as Function)() as
+      | Record<string, unknown>
+      | undefined;
+    let output = 'Available Sessions\n==================\n\n';
+    for (const session of sessions) {
+      const s = session as Record<string, unknown>;
+      const isCurrent =
+        (currentSession as Record<string, unknown>)?.id === s.id;
+      output += `${isCurrent ? '\u2192 ' : '  '}${(s.id as string).padEnd(20)} - ${this.getSessionTitle(s)}\n`;
+      output += `    Created: ${new Date(s.createdAt as string).toLocaleString()}\n`;
+      output += `    Messages: ${(s.messages as unknown[]).length}\n\n`;
+    }
+    output += `Total: ${sessions.length} sessions`;
+    return output;
+  }
+
+  private getHelpText(): string {
+    return `Session Command Help
 =====================
 
 Usage:
@@ -58,180 +175,10 @@ Examples:
   /session delete session_123456
   /session rename session_123456 New Title
   /session info session_123456
-  /session current`;
+`;
+  }
 }
 
-function formatSessionInfo(
-  chatManager: any,
-  session: any,
-  isCurrent: boolean
-): string {
-  let output = `Session Info: ${session.id}\n`;
-  output += '==================\n\n';
-  output += `Title: ${getSessionTitle(session)}\n`;
-  output += `Current: ${isCurrent ? 'Yes' : 'No'}\n`;
-  output += `Created: ${new Date(session.createdAt).toLocaleString()}\n`;
-  output += `Last Modified: ${session.lastModifiedAt ? new Date(session.lastModifiedAt).toLocaleString() : 'N/A'}\n`;
-  output += `Messages: ${session.messages.length}\n`;
-  return output;
-}
-
-function formatCurrentSession(session: any): string {
-  let output = 'Current Session\n==================\n\n';
-  output += `ID: ${session.id}\n`;
-  output += `Title: ${getSessionTitle(session)}\n`;
-  output += `Created: ${new Date(session.createdAt).toLocaleString()}\n`;
-  output += `Last Modified: ${session.lastModifiedAt ? new Date(session.lastModifiedAt).toLocaleString() : 'N/A'}\n`;
-  output += `Messages: ${session.messages.length}\n`;
-  return output;
-}
-
-/**
- * 会话命令
- */
-const sessionCommand: Command = {
-  type: 'action',
-  name: 'session',
-  description: '管理会话',
-  aliases: ['s'],
-  argumentHint: '[list|create|switch|delete|rename|info|current|help]',
-  whenToUse: '当你需要管理聊天会话时',
-  load: async () => ({
-    execute: async (args: string, context: any) => {
-      const chatManager = getChatManager(context);
-      const parts = args.trim().split(/\s+/);
-      const subcommand = parts[0]?.toLowerCase();
-
-      if (!subcommand || subcommand === 'help') {
-        return { success: true, message: getHelpText() };
-      }
-
-      switch (subcommand) {
-        case 'list': {
-          return { success: true, message: formatSessionList(chatManager) };
-        }
-
-        case 'create': {
-          const title = parts.slice(1).join(' ');
-          if (!title) {
-            return {
-              success: false,
-              error:
-                'Please specify a session title.\nUsage: /session create <title>',
-            };
-          }
-          const session = chatManager.createSession({ title });
-          return {
-            success: true,
-            message: `Session created successfully!\nID: ${session.id}\nTitle: ${getSessionTitle(session)}`,
-          };
-        }
-
-        case 'switch': {
-          const sessionId = parts[1];
-          if (!sessionId) {
-            return {
-              success: false,
-              error:
-                'Please specify a session ID.\nUsage: /session switch <session_id>',
-            };
-          }
-          try {
-            chatManager.switchSession(sessionId);
-            const session = chatManager.getCurrentSession();
-            return {
-              success: true,
-              message: `Switched to session:\nID: ${sessionId}\nTitle: ${session ? getSessionTitle(session) : 'Untitled'}`,
-            };
-          } catch {
-            return { success: false, error: `Session not found: ${sessionId}` };
-          }
-        }
-
-        case 'delete': {
-          const sessionId = parts[1];
-          if (!sessionId) {
-            return {
-              success: false,
-              error:
-                'Please specify a session ID.\nUsage: /session delete <session_id>',
-            };
-          }
-          try {
-            chatManager.deleteSession(sessionId);
-            return {
-              success: true,
-              message: `Session ${sessionId} deleted successfully!`,
-            };
-          } catch {
-            return { success: false, error: `Session not found: ${sessionId}` };
-          }
-        }
-
-        case 'rename': {
-          const sessionId = parts[1];
-          const title = parts.slice(2).join(' ');
-          if (!sessionId || !title) {
-            return {
-              success: false,
-              error:
-                'Please specify session ID and new title.\nUsage: /session rename <session_id> <new_title>',
-            };
-          }
-          const renamed = chatManager.renameSession(sessionId, title);
-          if (renamed) {
-            return {
-              success: true,
-              message: `Renamed session ${sessionId} to: ${title}`,
-            };
-          }
-          return { success: false, error: `Session not found: ${sessionId}` };
-        }
-
-        case 'info': {
-          const sessionId = parts[1];
-          if (!sessionId) {
-            return {
-              success: false,
-              error:
-                'Please specify a session ID.\nUsage: /session info <session_id>',
-            };
-          }
-          const sessions = chatManager.getSessions();
-          const session = sessions.find((s: any) => s.id === sessionId);
-          if (!session) {
-            return { success: false, error: `Session not found: ${sessionId}` };
-          }
-          const currentSession = chatManager.getCurrentSession();
-          return {
-            success: true,
-            message: formatSessionInfo(
-              chatManager,
-              session,
-              currentSession?.id === session.id
-            ),
-          };
-        }
-
-        case 'current': {
-          const session = chatManager.getCurrentSession();
-          if (!session) {
-            return {
-              success: false,
-              error: 'No current session. Use /session create to create one.',
-            };
-          }
-          return { success: true, message: formatCurrentSession(session) };
-        }
-
-        default:
-          return {
-            success: false,
-            error: `Unknown subcommand: ${subcommand}\n\n${getHelpText()}`,
-          };
-      }
-    },
-  }),
-};
+const sessionCommand: Command = new SessionCommand();
 
 export { sessionCommand };

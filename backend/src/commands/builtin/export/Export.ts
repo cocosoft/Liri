@@ -11,6 +11,13 @@ import { join } from 'path';
 import { writeFileSync } from 'fs';
 import type { CommandContext } from '@modules/commands/types';
 
+interface MsgLike {
+  type?: string;
+  role?: string;
+  content?: unknown;
+  timestamp?: string;
+}
+
 /**
  * 格式化时间戳
  */
@@ -48,11 +55,12 @@ function sanitizeFilename(text: string): string {
  * 提取第一条用户消息的文本内容，用于生成文件名
  */
 function extractFirstPrompt(context: CommandContext): string {
-  if (!context.messages || !Array.isArray(context.messages)) {
+  const messages = (context.messages || []) as MsgLike[];
+  if (!messages.length) {
     return '';
   }
 
-  const firstUser = context.messages.find(
+  const firstUser = messages.find(
     (m) => m.type === 'user' || m.role === 'user'
   );
   if (!firstUser) {
@@ -65,7 +73,9 @@ function extractFirstPrompt(context: CommandContext): string {
   }
 
   if (Array.isArray(content)) {
-    const textBlock = content.find((item: any) => item.type === 'text');
+    const textBlock = content.find(
+      (item: { type?: string; text?: string }) => item.type === 'text'
+    );
     if (textBlock && typeof textBlock.text === 'string') {
       return textBlock.text.trim().split('\n')[0]?.substring(0, 50) || '';
     }
@@ -84,11 +94,12 @@ function renderMessages(context: CommandContext): string {
   lines.push(`导出时间: ${formatHumanDate(new Date())}`);
   lines.push('');
 
-  if (!context.messages || !Array.isArray(context.messages)) {
+  const messages = (context.messages || []) as MsgLike[];
+  if (!messages.length) {
     return lines.join('\n');
   }
 
-  for (const msg of context.messages) {
+  for (const msg of messages) {
     const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'Claude';
     lines.push(`[${role}]`);
 
@@ -223,11 +234,13 @@ async function handleJsonExport(context: CommandContext) {
   const filename = `conversation-${timestamp}.json`;
   const filepath = join(process.cwd(), filename);
 
+  const messages = (context.messages || []) as MsgLike[];
+
   const exportData = {
     app: 'PY_APP',
     exportTime: new Date().toISOString(),
-    messageCount: context.messages?.length || 0,
-    messages: (context.messages || []).map((msg) => ({
+    messageCount: messages.length,
+    messages: messages.map((msg) => ({
       role: msg.type === 'user' || msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content,
       timestamp: msg.timestamp,

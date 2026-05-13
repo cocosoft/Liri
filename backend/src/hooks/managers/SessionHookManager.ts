@@ -11,7 +11,7 @@ import type { HookEvent } from '../types';
  * 函数钩子回调类型
  */
 export type FunctionHookCallback = (
-  messages: any[],
+  messages: unknown[],
   signal?: AbortSignal
 ) => boolean | Promise<boolean>;
 
@@ -32,7 +32,7 @@ export interface FunctionHook {
  */
 export interface HookCommand {
   type: 'command' | 'prompt' | 'http' | 'agent';
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -43,7 +43,7 @@ export interface SessionHookMatcher {
   skillRoot?: string;
   hooks: Array<{
     hook: HookCommand | FunctionHook;
-    onHookSuccess?: (hook: HookCommand | FunctionHook, result: any) => void;
+    onHookSuccess?: (hook: HookCommand | FunctionHook, result: unknown) => void;
   }>;
 }
 
@@ -90,7 +90,7 @@ export class SessionHookManager extends EventEmitter {
     event: HookEvent,
     matcher: string,
     hook: HookCommand,
-    onHookSuccess?: (hook: HookCommand | FunctionHook, result: any) => void,
+    onHookSuccess?: (hook: HookCommand | FunctionHook, result: unknown) => void,
     skillRoot?: string
   ): void {
     this.addHookToSession(
@@ -181,7 +181,7 @@ export class SessionHookManager extends EventEmitter {
     event: HookEvent,
     matcher: string,
     hook: HookCommand | FunctionHook,
-    onHookSuccess?: (hook: HookCommand | FunctionHook, result: any) => void,
+    onHookSuccess?: (hook: HookCommand | FunctionHook, result: unknown) => void,
     skillRoot?: string
   ): void {
     const store = this.sessionHooks.get(sessionId) || { hooks: {} };
@@ -254,11 +254,11 @@ export class SessionHookManager extends EventEmitter {
   async executeSessionHooks(
     sessionId: string,
     event: HookEvent,
-    data: any,
+    data: unknown,
     toolNames: string[] = []
-  ): Promise<any[]> {
+  ): Promise<unknown[]> {
     const matchers = this.getSessionHooksByEvent(sessionId, event);
-    const results: any[] = [];
+    const results: unknown[] = [];
 
     for (const matcher of matchers) {
       // 检查匹配器
@@ -270,7 +270,7 @@ export class SessionHookManager extends EventEmitter {
         const hook = hookEntry.hook;
 
         try {
-          let result: any;
+          let result: unknown;
 
           if (hook.type === 'function') {
             // 执行函数钩子
@@ -303,9 +303,9 @@ export class SessionHookManager extends EventEmitter {
    */
   private async executeFunctionHook(
     hook: FunctionHook,
-    data: any,
+    data: unknown,
     toolNames: string[]
-  ): Promise<any> {
+  ): Promise<unknown> {
     const controller = new AbortController();
     const timeoutId = setTimeout(
       () => controller.abort(),
@@ -314,7 +314,7 @@ export class SessionHookManager extends EventEmitter {
 
     try {
       const result = await hook.callback(
-        data.messages || [],
+        ((data as Record<string, unknown>).messages as unknown[]) || [],
         controller.signal
       );
       clearTimeout(timeoutId);
@@ -336,31 +336,33 @@ export class SessionHookManager extends EventEmitter {
   /**
    * 检查是否匹配匹配器
    */
-  private matchesMatcher(matcher: string, data: any): boolean {
+  private matchesMatcher(matcher: string, data: unknown): boolean {
     if (!matcher) {
       return true;
     }
 
-    if (data.tool_name) {
-      return data.tool_name === matcher;
+    const d = data as Record<string, unknown>;
+
+    if (d.tool_name) {
+      return (d.tool_name as string) === matcher;
     }
-    if (data.notification_type) {
-      return data.notification_type === matcher;
+    if (d.notification_type) {
+      return (d.notification_type as string) === matcher;
     }
-    if (data.source) {
-      return data.source === matcher;
+    if (d.source) {
+      return (d.source as string) === matcher;
     }
-    if (data.reason) {
-      return data.reason === matcher;
+    if (d.reason) {
+      return (d.reason as string) === matcher;
     }
-    if (data.error) {
-      return data.error === matcher;
+    if (d.error) {
+      return (d.error as string) === matcher;
     }
-    if (data.file_path) {
+    if (d.file_path) {
       const pattern = new RegExp(
         matcher.replace(/\./g, '\\.').replace(/\*/g, '.*')
       );
-      return pattern.test(data.file_path);
+      return pattern.test(d.file_path as string);
     }
 
     return true;

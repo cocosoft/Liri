@@ -26,7 +26,7 @@ export interface ToolUseContext {
    */
   options: {
     /** 命令列表 */
-    commands: any[];
+    commands: unknown[];
     /** 调试模式 */
     debug: boolean;
     /** 主循环模型 */
@@ -36,15 +36,15 @@ export interface ToolUseContext {
     /** 详细模式 */
     verbose: boolean;
     /** 思考配置 */
-    thinkingConfig: any;
+    thinkingConfig: unknown;
     /** MCP客户端列表 */
-    mcpClients: any[];
+    mcpClients: unknown[];
     /** MCP资源 */
-    mcpResources: Record<string, any[]>;
+    mcpResources: Record<string, unknown[]>;
     /** 是否非交互式会话 */
     isNonInteractiveSession: boolean;
     /** 代理定义 */
-    agentDefinitions: any;
+    agentDefinitions: unknown;
     /** 最大预算（美元） */
     maxBudgetUsd?: number;
     /** 自定义系统提示 */
@@ -69,38 +69,38 @@ export interface ToolUseContext {
   /**
    * 读取文件状态
    */
-  readFileState: any;
+  readFileState: unknown;
 
   /**
    * 获取应用状态
    */
-  getAppState(): any;
+  getAppState(): unknown;
 
   /**
    * 设置应用状态
    */
-  setAppState(f: (prev: any) => any): void;
+  setAppState(f: (prev: unknown) => unknown): void;
 
   /**
    * 任务的应用状态设置
    */
-  setAppStateForTasks?: (f: (prev: any) => any) => void;
+  setAppStateForTasks?: (f: (prev: unknown) => unknown) => void;
 
   /**
    * 处理URL诱导
    */
   handleElicitation?: (
     serverName: string,
-    params: any,
+    params: unknown,
     signal: AbortSignal
-  ) => Promise<any>;
+  ) => Promise<unknown>;
 
   /**
    * 设置工具JSX
    */
   setToolJSX?: (
     args: {
-      jsx: any | null;
+      jsx: unknown | null;
       shouldHidePromptInput: boolean;
       shouldContinueAnimation?: true;
       showSpinner?: boolean;
@@ -113,12 +113,12 @@ export interface ToolUseContext {
   /**
    * 添加通知
    */
-  addNotification?: (notif: any) => void;
+  addNotification?: (notif: unknown) => void;
 
   /**
    * 追加系统消息
    */
-  appendSystemMessage?: (msg: any) => void;
+  appendSystemMessage?: (msg: unknown) => void;
 
   /**
    * 发送OS通知
@@ -186,7 +186,7 @@ export interface ToolUseContext {
   /**
    * 设置SDK状态
    */
-  setSDKStatus?: (status: any) => void;
+  setSDKStatus?: (status: unknown) => void;
 
   /**
    * 打开消息选择器
@@ -196,12 +196,12 @@ export interface ToolUseContext {
   /**
    * 更新文件历史状态
    */
-  updateFileHistoryState: (updater: (prev: any) => any) => void;
+  updateFileHistoryState: (updater: (prev: unknown) => unknown) => void;
 
   /**
    * 更新归因状态
    */
-  updateAttributionState: (updater: (prev: any) => any) => void;
+  updateAttributionState: (updater: (prev: unknown) => unknown) => void;
 
   /**
    * 设置会话ID
@@ -269,7 +269,7 @@ export interface ToolUseContext {
   requestPrompt?: (
     sourceName: string,
     toolInputSummary?: string | null
-  ) => (request: any) => Promise<any>;
+  ) => (request: unknown) => Promise<unknown>;
 
   /**
    * 工具使用ID
@@ -289,17 +289,17 @@ export interface ToolUseContext {
   /**
    * 本地拒绝跟踪
    */
-  localDenialTracking?: any;
+  localDenialTracking?: unknown;
 
   /**
    * 内容替换状态
    */
-  contentReplacementState?: any;
+  contentReplacementState?: unknown;
 
   /**
    * 渲染的系统提示
    */
-  renderedSystemPrompt?: any;
+  renderedSystemPrompt?: unknown;
 
   /**
    * 工具权限上下文

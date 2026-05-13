@@ -149,8 +149,9 @@ program
       }
 
       console.log(chalk.cyan('─'.repeat(60)));
-    } catch (error: any) {
-      console.error(chalk.red('✗'), `Read failed: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(chalk.red('✗'), `Read failed: ${(error as Error).message}`);
       process.exit(1);
     }
   });
@@ -188,8 +189,9 @@ program
       });
 
       console.log(chalk.cyan('─'.repeat(60)));
-    } catch (error: any) {
-      console.error(chalk.red('✗'), `List failed: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(chalk.red('✗'), `List failed: ${(error as Error).message}`);
       process.exit(1);
     }
   });
@@ -233,8 +235,11 @@ program
         }
 
         console.log(chalk.cyan('─'.repeat(60)));
-      } catch (error: any) {
-        console.error(chalk.red('✗'), `Search failed: ${error.message}`);
+      } catch (error: unknown) {
+        console.error(
+          chalk.red('✗'),
+          `Search failed: ${(error as Error).message}`
+        );
         process.exit(1);
       }
     }
@@ -262,10 +267,11 @@ program
       console.log(result);
       console.log(chalk.cyan('─'.repeat(60)));
       console.log(chalk.green('✓'), 'Command executed successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const execErr = error as Record<string, unknown>;
       console.error(chalk.red('✗'), `Execution failed:`);
-      if (error.stdout) console.log(error.stdout.toString());
-      if (error.stderr) console.error(error.stderr.toString());
+      if (execErr.stdout) console.log((execErr.stdout as Buffer).toString());
+      if (execErr.stderr) console.error((execErr.stderr as Buffer).toString());
       process.exit(1);
     }
   });
@@ -301,8 +307,12 @@ program
 
       console.log(chalk.green('✓'), 'File written successfully');
       console.log(chalk.cyan('─'.repeat(60)));
-    } catch (error: any) {
-      console.error(chalk.red('✗'), `Write failed: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(
+        chalk.red('✗'),
+        `Write failed: ${(error as Error).message}`
+      );
       process.exit(1);
     }
   });
@@ -342,8 +352,9 @@ program
 
       console.log(chalk.green('✓'), 'File edited successfully');
       console.log(chalk.cyan('─'.repeat(60)));
-    } catch (error: any) {
-      console.error(chalk.red('✗'), `Edit failed: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(chalk.red('✗'), `Edit failed: ${(error as Error).message}`);
       process.exit(1);
     }
   });
@@ -373,8 +384,9 @@ program
       }
 
       console.log(chalk.cyan('─'.repeat(60)));
-    } catch (error: any) {
-      console.error(chalk.red('✗'), `Glob failed: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(chalk.red('✗'), `Glob failed: ${(error as Error).message}`);
       process.exit(1);
     }
   });
@@ -419,8 +431,12 @@ program
       }
 
       console.log(chalk.cyan('═'.repeat(60)));
-    } catch (error: any) {
-      console.error(chalk.red('✗'), `Failed to list tools: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(
+        chalk.red('✗'),
+        `Failed to list tools: ${(error as Error).message}`
+      );
       process.exit(1);
     }
   });
@@ -488,10 +504,11 @@ program
 
       console.log();
       console.log(chalk.cyan('═'.repeat(60)));
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const e = error as Error;
       console.error(
         chalk.red('✗'),
-        `Failed to show tool details: ${error.message}`
+        `Failed to show tool details: ${(error as Error).message}`
       );
       process.exit(1);
     }
@@ -533,10 +550,11 @@ program
       }
 
       console.log(chalk.cyan('═'.repeat(60)));
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const e = error as Error;
       console.error(
         chalk.red('✗'),
-        `Failed to manage skills: ${error.message}`
+        `Failed to manage skills: ${(error as Error).message}`
       );
       process.exit(1);
     }
@@ -656,8 +674,12 @@ program
       console.log();
 
       console.log(chalk.cyan('═'.repeat(60)));
-    } catch (error: any) {
-      console.error(chalk.red('✗'), `Failed to manage MCP: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(
+        chalk.red('✗'),
+        `Failed to manage MCP: ${(error as Error).message}`
+      );
       process.exit(1);
     }
   });
@@ -683,8 +705,12 @@ program
       console.log();
 
       console.log(chalk.cyan('═'.repeat(60)));
-    } catch (error: any) {
-      console.error(chalk.red('✗'), `Failed to manage LSP: ${error.message}`);
+    } catch (error: unknown) {
+      const e = error as Error;
+      console.error(
+        chalk.red('✗'),
+        `Failed to manage LSP: ${(error as Error).message}`
+      );
       process.exit(1);
     }
   });

@@ -43,6 +43,11 @@ import {
   validateInput,
 } from '../utils/sanitization.js';
 import { LLMClient } from '../ai/clients/LLMClient.js';
+import type {
+  ChatMessage,
+  ParsedToolCall,
+  ToolDefinition,
+} from '../ai/models/types.js';
 import {
   QueryEngine,
   createQueryEngine,
@@ -53,6 +58,7 @@ import {
   type CompactBoundary,
   type CompactArtifact,
 } from '../services/compact/CompactService.js';
+import type { SessionMessage } from '@modules/session/models/SessionMessage';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
@@ -203,49 +209,49 @@ export interface ChatManager {
    * 设置工具注册表
    * @param registry 工具注册表
    */
-  setToolRegistry(registry: any): void;
+  setToolRegistry(registry: unknown): void;
 
   /**
    * 获取工具注册表
    * @returns 工具注册表
    */
-  getToolRegistry(): any;
+  getToolRegistry(): unknown;
 
   /**
    * 设置权限管理器
    * @param permissionManager 权限管理器
    */
-  setPermissionManager(permissionManager: any): void;
+  setPermissionManager(permissionManager: unknown): void;
 
   /**
    * 获取权限管理器
    * @returns 权限管理器
    */
-  getPermissionManager(): any;
+  getPermissionManager(): unknown;
 
   /**
    * 设置工具执行器
    * @param toolExecutor 工具执行器
    */
-  setToolExecutor(toolExecutor: any): void;
+  setToolExecutor(toolExecutor: unknown): void;
 
   /**
    * 获取工具执行器
    * @returns 工具执行器
    */
-  getToolExecutor(): any;
+  getToolExecutor(): unknown;
 
   /**
    * 设置子Agent管理器
    * @param subAgentManager 子Agent管理器
    */
-  setSubAgentManager(subAgentManager: any): void;
+  setSubAgentManager(subAgentManager: unknown): void;
 
   /**
    * 获取子Agent管理器
    * @returns 子Agent管理器
    */
-  getSubAgentManager(): any;
+  getSubAgentManager(): unknown;
 
   /**
    * 获取会话状态服务
@@ -314,7 +320,7 @@ export interface ChatManager {
       maxTurns?: number;
       maxBudgetUsd?: number;
     }
-  ): AsyncGenerator<string, any, unknown>;
+  ): AsyncGenerator<string, unknown, unknown>;
 
   /**
    * 使用查询引擎进行流式查询
@@ -329,9 +335,9 @@ export interface ChatManager {
       maxTurns?: number;
       maxBudgetUsd?: number;
       onChunk?: (chunk: string) => void;
-      onComplete?: (result: any) => void;
+      onComplete?: (result: unknown) => void;
     }
-  ): AsyncGenerator<string, any, unknown>;
+  ): AsyncGenerator<string, unknown, unknown>;
 
   /**
    * 获取查询状态
@@ -444,22 +450,22 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 工具注册表
    */
-  private toolRegistry: any = null;
+  private toolRegistry: unknown = null;
 
   /**
    * 权限管理器
    */
-  private permissionManager: any = null;
+  private permissionManager: unknown = null;
 
   /**
    * 工具执行器
    */
-  private toolExecutor: any = null;
+  private toolExecutor: unknown = null;
 
   /**
    * 子Agent管理器
    */
-  private subAgentManager: any = null;
+  private subAgentManager: unknown = null;
 
   /**
    * HookChain 管理器
@@ -637,7 +643,7 @@ export class ChatManagerImpl implements ChatManager {
 
     // 准备消息列表（用于API调用）
     const apiMessages = messages.map((msg) => {
-      const chatMessage: any = {
+      const chatMessage: Record<string, unknown> = {
         role: msg.role,
         content:
           typeof msg.content === 'string'
@@ -651,27 +657,33 @@ export class ChatManagerImpl implements ChatManager {
       }
 
       // 对于助手消息，添加tool_calls
-      if (msg.role === 'assistant' && (msg as any).tool_calls) {
-        const toolCalls = (msg as any).tool_calls;
+      if (
+        msg.role === 'assistant' &&
+        (msg as unknown as Record<string, unknown>).tool_calls
+      ) {
+        const toolCalls = (msg as unknown as Record<string, unknown>)
+          .tool_calls as Array<Record<string, unknown>>;
         // 转换 tool_calls 格式以符合 DeepSeek API 要求
-        chatMessage.tool_calls = toolCalls.map((tc: any) => {
-          // 如果已经是正确格式（有 type 和 function 字段），直接使用
-          if (tc.type && tc.function) {
-            return tc;
+        chatMessage.tool_calls = toolCalls.map(
+          (tc: Record<string, unknown>) => {
+            // 如果已经是正确格式（有 type 和 function 字段），直接使用
+            if (tc.type && tc.function) {
+              return tc;
+            }
+            // 否则转换为正确格式
+            return {
+              id: tc.id,
+              type: 'function',
+              function: {
+                name: tc.name || 'unknown',
+                arguments:
+                  typeof tc.arguments === 'string'
+                    ? tc.arguments
+                    : JSON.stringify(tc.arguments || {}),
+              },
+            };
           }
-          // 否则转换为正确格式
-          return {
-            id: tc.id,
-            type: 'function',
-            function: {
-              name: tc.name || 'unknown',
-              arguments:
-                typeof tc.arguments === 'string'
-                  ? tc.arguments
-                  : JSON.stringify(tc.arguments || {}),
-            },
-          };
-        });
+        );
       }
 
       return chatMessage;
@@ -680,27 +692,48 @@ export class ChatManagerImpl implements ChatManager {
     // 准备工具定义
 
     // 获取工具定义
-    let toolDefinitions: any[] = [];
+    let toolDefinitions: Record<string, unknown>[] = [];
     if (this.toolRegistry) {
-      const schemas = this.toolRegistry.getToolSchemas();
-      toolDefinitions = schemas.map((schema: any) => ({
+      const registry = this.toolRegistry as {
+        getToolSchemas: () => Array<Record<string, unknown>>;
+      };
+      const schemas = registry.getToolSchemas?.() || [];
+      toolDefinitions = schemas.map((schema: Record<string, unknown>) => ({
         type: 'function',
         function: {
-          name: schema.name,
-          description: schema.description,
+          name: schema.name as string,
+          description: schema.description as string,
           parameters: {
             type: 'object',
-            properties: schema.input_schema.properties,
-            required: schema.input_schema.required || [],
+            properties:
+              (
+                schema.input_schema as {
+                  properties?: unknown;
+                  required?: string[];
+                }
+              )?.properties || {},
+            required:
+              (
+                schema.input_schema as {
+                  properties?: unknown;
+                  required?: string[];
+                }
+              )?.required || [],
           },
         },
       }));
     }
 
-    const response = await this.llmClient.sendMessage(apiMessages, {
-      ...options,
-      tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
-    });
+    const response = await this.llmClient.sendMessage(
+      apiMessages as unknown as ChatMessage[],
+      {
+        ...options,
+        tools:
+          toolDefinitions.length > 0
+            ? (toolDefinitions as unknown as ToolDefinition[])
+            : undefined,
+      }
+    );
 
     const assistantMessageContent =
       typeof response.content === 'string'
@@ -812,7 +845,7 @@ export class ChatManagerImpl implements ChatManager {
             : JSON.stringify(toolResult.result)
           : toolResult.error || '{}';
 
-        const updatedMessages: any[] = [
+        const updatedMessages: Record<string, unknown>[] = [
           ...apiMessages,
           {
             role: 'assistant',
@@ -820,15 +853,15 @@ export class ChatManagerImpl implements ChatManager {
               typeof assistantMessage.content === 'string'
                 ? assistantMessage.content
                 : JSON.stringify(assistantMessage.content),
-            tool_calls: response.tool_calls.map((tc: any) => ({
+            tool_calls: response.tool_calls.map((tc: ParsedToolCall) => ({
               id: tc.id,
-              type: 'function',
+              type: 'function' as const,
               function: {
-                name: tc.function?.name || 'unknown',
+                name: tc.name,
                 arguments:
-                  typeof tc.function?.arguments === 'string'
-                    ? tc.function.arguments
-                    : JSON.stringify(tc.function?.arguments || {}),
+                  typeof tc.arguments === 'string'
+                    ? tc.arguments
+                    : JSON.stringify(tc.arguments || {}),
               },
             })),
           },
@@ -844,10 +877,13 @@ export class ChatManagerImpl implements ChatManager {
         });
 
         const toolResultResponse = await this.llmClient.sendMessage(
-          updatedMessages,
+          updatedMessages as unknown as ChatMessage[],
           {
             ...options,
-            tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
+            tools:
+              toolDefinitions.length > 0
+                ? (toolDefinitions as unknown as ToolDefinition[])
+                : undefined,
           }
         );
 
@@ -950,7 +986,7 @@ export class ChatManagerImpl implements ChatManager {
     // 准备消息列表（用于API调用）
     const messages = session.messages;
     const apiMessages = messages.map((msg) => {
-      const chatMessage: any = {
+      const chatMessage: Record<string, unknown> = {
         role: msg.role,
         content:
           typeof msg.content === 'string'
@@ -964,45 +1000,66 @@ export class ChatManagerImpl implements ChatManager {
       }
 
       // 对于助手消息，添加tool_calls
-      if (msg.role === 'assistant' && (msg as any).tool_calls) {
-        const toolCalls = (msg as any).tool_calls;
+      if (
+        msg.role === 'assistant' &&
+        (msg as unknown as Record<string, unknown>).tool_calls
+      ) {
+        const toolCalls = (msg as unknown as Record<string, unknown>)
+          .tool_calls as Array<Record<string, unknown>>;
         // 转换 tool_calls 格式以符合 DeepSeek API 要求
-        chatMessage.tool_calls = toolCalls.map((tc: any) => {
-          // 如果已经是正确格式（有 type 和 function 字段），直接使用
-          if (tc.type && tc.function) {
-            return tc;
+        chatMessage.tool_calls = toolCalls.map(
+          (tc: Record<string, unknown>) => {
+            // 如果已经是正确格式（有 type 和 function 字段），直接使用
+            if (tc.type && tc.function) {
+              return tc;
+            }
+            // 否则转换为正确格式
+            return {
+              id: tc.id,
+              type: 'function',
+              function: {
+                name: tc.name,
+                arguments:
+                  typeof tc.arguments === 'string'
+                    ? tc.arguments
+                    : JSON.stringify(tc.arguments || {}),
+              },
+            };
           }
-          // 否则转换为正确格式
-          return {
-            id: tc.id,
-            type: 'function',
-            function: {
-              name: tc.name,
-              arguments:
-                typeof tc.arguments === 'string'
-                  ? tc.arguments
-                  : JSON.stringify(tc.arguments || {}),
-            },
-          };
-        });
+        );
       }
 
       return chatMessage;
     });
 
     // 获取工具定义
-    let toolDefinitions: any[] = [];
+    let toolDefinitions: Record<string, unknown>[] = [];
     if (this.toolRegistry) {
-      const schemas = this.toolRegistry.getToolSchemas();
-      toolDefinitions = schemas.map((schema: any) => ({
+      const registry = this.toolRegistry as {
+        getToolSchemas: () => Array<Record<string, unknown>>;
+      };
+      const schemas = registry.getToolSchemas?.() || [];
+      toolDefinitions = schemas.map((schema: Record<string, unknown>) => ({
         type: 'function',
         function: {
-          name: schema.name,
-          description: schema.description,
+          name: schema.name as string,
+          description: schema.description as string,
           parameters: {
             type: 'object',
-            properties: schema.input_schema.properties,
-            required: schema.input_schema.required || [],
+            properties:
+              (
+                schema.input_schema as {
+                  properties?: unknown;
+                  required?: string[];
+                }
+              )?.properties || {},
+            required:
+              (
+                schema.input_schema as {
+                  properties?: unknown;
+                  required?: string[];
+                }
+              )?.required || [],
           },
         },
       }));
@@ -1028,10 +1085,16 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
 
-    const gen = this.llmClient.streamMessage(apiMessages, {
-      ...options,
-      tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
-    });
+    const gen = this.llmClient.streamMessage(
+      apiMessages as unknown as ChatMessage[],
+      {
+        ...options,
+        tools:
+          toolDefinitions.length > 0
+            ? (toolDefinitions as unknown as ToolDefinition[])
+            : undefined,
+      }
+    );
 
     let result = await gen.next();
     while (!result.done) {
@@ -1131,7 +1194,7 @@ export class ChatManagerImpl implements ChatManager {
         this.sessionManager.addMessage(session.id, toolResultMessage);
 
         // 将工具结果追加到消息列表，继续调用 LLM
-        const updatedMessages: any[] = [
+        const updatedMessages: Record<string, unknown>[] = [
           ...apiMessages,
           {
             role: userMessage.role,
@@ -1165,12 +1228,19 @@ export class ChatManagerImpl implements ChatManager {
 
         let toolResultAccumulatedContent = '';
 
-        const toolGen = this.llmClient.streamMessage(updatedMessages, {
-          ...options,
-          tools: toolDefinitions.length > 0 ? toolDefinitions : undefined,
-        });
+        const toolGen = this.llmClient.streamMessage(
+          updatedMessages as unknown as ChatMessage[],
+          {
+            ...options,
+            tools:
+              toolDefinitions.length > 0
+                ? (toolDefinitions as unknown as ToolDefinition[])
+                : undefined,
+          }
+        );
 
-        let toolResultIter = await toolGen.next();
+        const toolGenResult = await toolGen.next();
+        let toolResultIter = toolGenResult;
         while (!toolResultIter.done) {
           const chunk = toolResultIter.value as string;
           toolResultAccumulatedContent += chunk;
@@ -1217,11 +1287,16 @@ export class ChatManagerImpl implements ChatManager {
 
     // 检查工具权限
     if (this.permissionManager) {
-      const permissionResult =
-        await this.permissionManager.checkPermissionForTool(
-          normalizedToolCall.name,
-          normalizedToolCall.arguments
-        );
+      const pm = this.permissionManager as {
+        checkPermissionForTool: (
+          name: string,
+          args: Record<string, unknown>
+        ) => Promise<{ allowed: boolean; reason?: string }>;
+      };
+      const permissionResult = await pm.checkPermissionForTool(
+        normalizedToolCall.name,
+        normalizedToolCall.arguments
+      );
 
       if (!permissionResult.allowed) {
         return {
@@ -1244,7 +1319,25 @@ export class ChatManagerImpl implements ChatManager {
           },
         };
 
-        const toolResult = await this.toolRegistry.executeTool(
+        const registry = this.toolRegistry as {
+          executeTool: (
+            params: {
+              toolName: string;
+              input: Record<string, unknown>;
+            },
+            context: {
+              toolUseId: string;
+              options: Record<string, unknown>;
+            }
+          ) => Promise<{
+            result?: unknown;
+            data?: unknown;
+            error?: string;
+            metadata?: { error?: string };
+            output?: string;
+          }>;
+        };
+        const toolResult = await registry.executeTool(
           {
             toolName: normalizedToolCall.name,
             input: normalizedToolCall.arguments,
@@ -1477,7 +1570,7 @@ export class ChatManagerImpl implements ChatManager {
    * 设置工具注册表
    * @param registry 工具注册表
    */
-  setToolRegistry(registry: any): void {
+  setToolRegistry(registry: unknown): void {
     this.toolRegistry = registry;
   }
 
@@ -1485,7 +1578,7 @@ export class ChatManagerImpl implements ChatManager {
    * 获取工具注册表
    * @returns 工具注册表
    */
-  getToolRegistry(): any {
+  getToolRegistry(): unknown {
     return this.toolRegistry;
   }
 
@@ -1493,7 +1586,7 @@ export class ChatManagerImpl implements ChatManager {
    * 设置权限管理器
    * @param permissionManager 权限管理器
    */
-  setPermissionManager(permissionManager: any): void {
+  setPermissionManager(permissionManager: unknown): void {
     this.permissionManager = permissionManager;
   }
 
@@ -1501,7 +1594,7 @@ export class ChatManagerImpl implements ChatManager {
    * 获取权限管理器
    * @returns 权限管理器
    */
-  getPermissionManager(): any {
+  getPermissionManager(): unknown {
     return this.permissionManager;
   }
 
@@ -1509,7 +1602,7 @@ export class ChatManagerImpl implements ChatManager {
    * 设置工具执行器
    * @param toolExecutor 工具执行器
    */
-  setToolExecutor(toolExecutor: any): void {
+  setToolExecutor(toolExecutor: unknown): void {
     this.toolExecutor = toolExecutor;
   }
 
@@ -1517,7 +1610,7 @@ export class ChatManagerImpl implements ChatManager {
    * 获取工具执行器
    * @returns 工具执行器
    */
-  getToolExecutor(): any {
+  getToolExecutor(): unknown {
     return this.toolExecutor;
   }
 
@@ -1525,7 +1618,7 @@ export class ChatManagerImpl implements ChatManager {
    * 设置子Agent管理器
    * @param subAgentManager 子Agent管理器
    */
-  setSubAgentManager(subAgentManager: any): void {
+  setSubAgentManager(subAgentManager: unknown): void {
     this.subAgentManager = subAgentManager;
   }
 
@@ -1533,7 +1626,7 @@ export class ChatManagerImpl implements ChatManager {
    * 获取子Agent管理器
    * @returns 子Agent管理器
    */
-  getSubAgentManager(): any {
+  getSubAgentManager(): unknown {
     return this.subAgentManager;
   }
 
@@ -1628,7 +1721,7 @@ export class ChatManagerImpl implements ChatManager {
       maxTurns?: number;
       maxBudgetUsd?: number;
     }
-  ): AsyncGenerator<string, any, unknown> {
+  ): AsyncGenerator<string, unknown, unknown> {
     const queryEngine = this.getQueryEngine();
 
     // 构建配置
@@ -1664,6 +1757,8 @@ export class ChatManagerImpl implements ChatManager {
         );
       }
     }
+
+    return undefined;
   }
 
   /**
@@ -1690,9 +1785,9 @@ export class ChatManagerImpl implements ChatManager {
       maxTurns?: number;
       maxBudgetUsd?: number;
       onChunk?: (chunk: string) => void;
-      onComplete?: (result: any) => void;
+      onComplete?: (result: unknown) => void;
     }
-  ): AsyncGenerator<string, any, unknown> {
+  ): AsyncGenerator<string, unknown, unknown> {
     const queryEngine = this.getQueryEngine();
 
     // 构建配置
@@ -1713,7 +1808,7 @@ export class ChatManagerImpl implements ChatManager {
     // 使用QueryEngine处理消息
     const messages = queryEngine.submitMessage(content, { sessionId });
 
-    let accumulatedResult: any[] = [];
+    let accumulatedResult: unknown[] = [];
 
     for await (const message of messages) {
       if (message.type === 'text' && message.content) {
@@ -1779,21 +1874,20 @@ export class ChatManagerImpl implements ChatManager {
       return null;
     }
 
-    // 转换消息格式
-    const sessionMessages = session.messages.map((msg) => ({
+    const sessionMessages: SessionMessage[] = session.messages.map((msg) => ({
       id: msg.id,
-      type: msg.role,
+      type: msg.role as SessionMessage['type'],
       content:
         typeof msg.content === 'string'
           ? msg.content
           : JSON.stringify(msg.content),
       createdAt: msg.createdAt,
       updatedAt: msg.updatedAt,
-    }));
+    })) as unknown as SessionMessage[];
 
     return this.compactService.detectCompactBoundary(
       targetSessionId,
-      sessionMessages as any
+      sessionMessages
     );
   }
 
@@ -1815,20 +1909,20 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // 转换消息格式
-    const sessionMessages = session.messages.map((msg) => ({
+    const sessionMessages: SessionMessage[] = session.messages.map((msg) => ({
       id: msg.id,
-      type: msg.role,
+      type: msg.role as SessionMessage['type'],
       content:
         typeof msg.content === 'string'
           ? msg.content
           : JSON.stringify(msg.content),
       createdAt: msg.createdAt,
       updatedAt: msg.updatedAt,
-    }));
+    })) as unknown as SessionMessage[];
 
     const artifacts = await this.compactService.performCompact(
       targetSessionId,
-      sessionMessages as any
+      sessionMessages
     );
 
     // 如果有压缩产物，注入到会话中

@@ -59,7 +59,8 @@ const copyCommand = {
       const recentMessages = context.messages.slice(-10);
       const assistantTexts: string[] = [];
 
-      for (const msg of recentMessages) {
+      for (const item of recentMessages) {
+        const msg = item as { role?: string; message?: { content?: unknown } };
         if (msg.role === 'assistant' && 'message' in msg) {
           const content = msg.message?.content;
           if (typeof content === 'string') {

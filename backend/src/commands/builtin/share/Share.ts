@@ -7,9 +7,16 @@
  * /share [filename|help|status|--json]
  */
 
-import { join } from 'path';
 import { writeFileSync } from 'fs';
+import { join } from 'path';
 import type { CommandContext } from '@modules/commands/types';
+
+interface MsgLike {
+  type?: string;
+  role?: string;
+  content?: unknown;
+  timestamp?: string;
+}
 
 /**
  * 格式化时间戳用于文件名
@@ -89,11 +96,12 @@ function renderShareContent(context: CommandContext): string {
   lines.push(`> 分享时间: ${formatHumanDate(new Date())}`);
   lines.push('');
 
-  if (!context.messages || !Array.isArray(context.messages)) {
+  const messages = (context.messages || []) as MsgLike[];
+  if (!messages.length) {
     return lines.join('\n');
   }
 
-  for (const msg of context.messages) {
+  for (const msg of messages) {
     const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'Claude';
     const content = extractTextFromContent(msg.content);
 
@@ -112,7 +120,7 @@ function renderShareContent(context: CommandContext): string {
  * 渲染分享内容为 JSON
  */
 function renderShareJson(context: CommandContext): string {
-  const messages = (context.messages || []).map((msg) => ({
+  const mapped = ((context.messages || []) as MsgLike[]).map((msg) => ({
     role: msg.type === 'user' || msg.role === 'user' ? 'user' : 'assistant',
     content: extractTextFromContent(msg.content),
     timestamp: msg.timestamp,
@@ -122,8 +130,8 @@ function renderShareJson(context: CommandContext): string {
     app: 'PY_APP',
     shareTime: new Date().toISOString(),
     format: 'markdown',
-    messageCount: messages.length,
-    messages,
+    messageCount: mapped.length,
+    messages: mapped,
   };
 
   return JSON.stringify(data, null, 2);

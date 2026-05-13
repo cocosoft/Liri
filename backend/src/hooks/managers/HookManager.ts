@@ -1,14 +1,20 @@
-//
 /**
  * Hook管理核心
  * 负责Hook的注册、管理和执行
  */
 
-import { HookEvent, HookResult, HookContext, HookDefinition } from '../types';
+import {
+  HookEvent,
+  HookResult,
+  HookContext,
+  HookDefinition,
+  IndividualHookConfig,
+} from '../types';
 import { HookConfigManager } from './HookConfigManager';
 import { HookExecutor } from '../executors/HookExecutor';
 import { SessionHookManager, sessionHookManager } from './SessionHookManager';
 import { environmentManager } from '../utils/EnvironmentManager';
+import type { HookCommand } from './SessionHookManager';
 
 /**
  * Hook管理器
@@ -17,7 +23,7 @@ export class HookManager {
   private static instance: HookManager;
   private hookConfigManager: HookConfigManager;
   private hookExecutor: HookExecutor;
-  private registeredHooks: Map<string, any[]> = new Map();
+  private registeredHooks: Map<string, unknown[]> = new Map();
   private sessionHookManager: SessionHookManager;
 
   private constructor() {
@@ -40,8 +46,8 @@ export class HookManager {
    * 注册Hook
    * @param hook Hook配置
    */
-  public registerHook(hook: any): void {
-    const eventKey = hook.event;
+  public registerHook(hook: unknown): void {
+    const eventKey = (hook as { event: string }).event;
     if (!this.registeredHooks.has(eventKey)) {
       this.registeredHooks.set(eventKey, []);
     }
@@ -52,7 +58,7 @@ export class HookManager {
    * 注册多个Hook
    * @param hooks Hook配置列表
    */
-  public registerHooks(hooks: any[]): void {
+  public registerHooks(hooks: unknown[]): void {
     hooks.forEach((hook) => this.registerHook(hook));
   }
 
@@ -66,7 +72,7 @@ export class HookManager {
    */
   public async executeHooks(
     event: HookEvent,
-    data: any,
+    data: Record<string, unknown>,
     toolNames: string[] = [],
     sessionId?: string
   ): Promise<HookResult[]> {
@@ -75,19 +81,22 @@ export class HookManager {
     // 获取注册的Hook
     const registeredHooks = this.registeredHooks.get(event) || [];
     // 合并所有Hook
-    const allHooks = [...configHooks, ...registeredHooks];
+    const allHooks: unknown[] = [...configHooks, ...registeredHooks];
 
     // 按优先级排序
-    allHooks.sort(
-      (a, b) => (b.config.priority || 0) - (a.config.priority || 0)
-    );
+    allHooks.sort((a, b) => {
+      const aHook = a as { config?: { priority?: number } };
+      const bHook = b as { config?: { priority?: number } };
+      return (bHook.config?.priority || 0) - (aHook.config?.priority || 0);
+    });
 
     const results: HookResult[] = [];
 
     // 执行每个Hook
     for (const hook of allHooks) {
+      const h = hook as { matcher?: unknown; config?: { type?: string } };
       // 检查匹配器
-      if (hook.matcher && !this.matchesMatcher(hook.matcher, data)) {
+      if (h.matcher && !this.matchesMatcher(String(h.matcher), data)) {
         continue;
       }
 
@@ -99,7 +108,10 @@ export class HookManager {
         sessionId,
       };
 
-      const result = await this.hookExecutor.execute(hook, context);
+      const result = await this.hookExecutor.execute(
+        hook as IndividualHookConfig,
+        context
+      );
       results.push(result);
 
       // 检查是否需要停止执行
@@ -116,7 +128,7 @@ export class HookManager {
         data,
         toolNames
       );
-      results.push(...sessionResults);
+      results.push(...(sessionResults as HookResult[]));
     }
 
     return results;
@@ -128,7 +140,10 @@ export class HookManager {
    * @param data 事件数据
    * @returns 是否匹配
    */
-  private matchesMatcher(matcher: string, data: any): boolean {
+  private matchesMatcher(
+    matcher: string,
+    data: Record<string, unknown>
+  ): boolean {
     // 根据事件类型和数据结构检查匹配器
     // 这里实现简单的匹配逻辑，实际应用中可能需要更复杂的匹配
     if (data.tool_name) {
@@ -152,7 +167,7 @@ export class HookManager {
         const pattern = new RegExp(
           matcher.replace(/\./g, '\\.').replace(/\*/g, '.*')
         );
-        return pattern.test(data.file_path);
+        return pattern.test(String(data.file_path));
       }
     }
     return true;
@@ -164,10 +179,9 @@ export class HookManager {
    * @param hook Hook配置
    * @returns 是否停止执行
    */
-  private shouldStopExecution(result: HookResult, hook: any): boolean {
-    // 根据Hook类型和执行结果决定是否停止执行
-    // 例如，对于命令类型Hook，退出代码为2时可能需要停止执行
-    if (hook.config.type === 'command' && result.exitCode === 2) {
+  private shouldStopExecution(result: HookResult, hook: unknown): boolean {
+    const h = hook as { config?: { type?: string } };
+    if (h.config?.type === 'command' && result.exitCode === 2) {
       return true;
     }
     return false;
@@ -198,7 +212,7 @@ export class HookManager {
    * 加载配置
    * @param config 配置对象
    */
-  public loadConfig(config: any): void {
+  public loadConfig(config: Record<string, unknown>): void {
     this.hookConfigManager.loadConfig(config);
   }
 
@@ -209,15 +223,15 @@ export class HookManager {
     sessionId: string,
     event: HookEvent,
     matcher: string,
-    hook: any,
-    onHookSuccess?: (hook: any, result: any) => void,
+    hook: unknown,
+    onHookSuccess?: (hook: unknown, result: unknown) => void,
     skillRoot?: string
   ): void {
     this.sessionHookManager.addSessionHook(
       sessionId,
       event,
       matcher,
-      hook,
+      hook as HookCommand,
       onHookSuccess,
       skillRoot
     );
@@ -231,7 +245,7 @@ export class HookManager {
     event: HookEvent,
     matcher: string,
     callback: (
-      messages: any[],
+      messages: unknown[],
       signal?: AbortSignal
     ) => boolean | Promise<boolean>,
     errorMessage: string,
@@ -271,7 +285,7 @@ export class HookManager {
   /**
    * 检查异步Hook响应
    */
-  public async checkAsyncHookResponses(): Promise<any[]> {
+  public async checkAsyncHookResponses(): Promise<HookResult[]> {
     return await this.hookExecutor.checkAsyncHookResponses();
   }
 
@@ -285,7 +299,7 @@ export class HookManager {
   /**
    * 获取待处理的异步Hook
    */
-  public getPendingAsyncHooks(): any[] {
+  public getPendingAsyncHooks(): unknown[] {
     return this.hookExecutor.getPendingAsyncHooks();
   }
 
@@ -308,7 +322,7 @@ export class HookManager {
    */
   public reset(): void {
     this.clearHooks();
-    (this.hookConfigManager as any).reset();
+    (this.hookConfigManager as unknown as { reset: () => void }).reset();
     this.hookExecutor.reset();
     this.sessionHookManager.reset();
   }
@@ -318,7 +332,7 @@ export class HookManager {
    */
   public async executeParallel(
     event: HookEvent,
-    data: any,
+    data: Record<string, unknown>,
     toolNames: string[] = [],
     sessionId?: string
   ): Promise<HookResult[]> {
@@ -327,16 +341,19 @@ export class HookManager {
     // 获取注册的Hook
     const registeredHooks = this.registeredHooks.get(event) || [];
     // 合并所有Hook
-    const allHooks = [...configHooks, ...registeredHooks];
+    const allHooks: unknown[] = [...configHooks, ...registeredHooks];
 
     // 按优先级排序
-    allHooks.sort(
-      (a, b) => (b.config.priority || 0) - (a.config.priority || 0)
-    );
+    allHooks.sort((a, b) => {
+      const aHook = a as { config?: { priority?: number } };
+      const bHook = b as { config?: { priority?: number } };
+      return (bHook.config?.priority || 0) - (aHook.config?.priority || 0);
+    });
 
     // 过滤匹配的Hook
     const matchingHooks = allHooks.filter((hook) => {
-      return !hook.matcher || this.matchesMatcher(hook.matcher, data);
+      const h = hook as { matcher?: unknown };
+      return !h.matcher || this.matchesMatcher(String(h.matcher), data);
     });
 
     // 执行上下文
@@ -349,7 +366,7 @@ export class HookManager {
 
     // 并行执行
     const results = await this.hookExecutor.executeParallel(
-      matchingHooks,
+      matchingHooks as IndividualHookConfig[],
       context
     );
 
@@ -361,7 +378,7 @@ export class HookManager {
         data,
         toolNames
       );
-      results.push(...sessionResults);
+      results.push(...(sessionResults as HookResult[]));
     }
 
     return results;
@@ -372,7 +389,7 @@ export class HookManager {
    */
   public async executeBatch(
     event: HookEvent,
-    data: any,
+    data: Record<string, unknown>,
     toolNames: string[] = [],
     sessionId?: string,
     batchSize: number = 10
@@ -382,16 +399,19 @@ export class HookManager {
     // 获取注册的Hook
     const registeredHooks = this.registeredHooks.get(event) || [];
     // 合并所有Hook
-    const allHooks = [...configHooks, ...registeredHooks];
+    const allHooks: unknown[] = [...configHooks, ...registeredHooks];
 
     // 按优先级排序
-    allHooks.sort(
-      (a, b) => (b.config.priority || 0) - (a.config.priority || 0)
-    );
+    allHooks.sort((a, b) => {
+      const aHook = a as { config?: { priority?: number } };
+      const bHook = b as { config?: { priority?: number } };
+      return (bHook.config?.priority || 0) - (aHook.config?.priority || 0);
+    });
 
     // 过滤匹配的Hook
     const matchingHooks = allHooks.filter((hook) => {
-      return !hook.matcher || this.matchesMatcher(hook.matcher, data);
+      const h = hook as { matcher?: unknown };
+      return !h.matcher || this.matchesMatcher(String(h.matcher), data);
     });
 
     // 执行上下文
@@ -404,7 +424,7 @@ export class HookManager {
 
     // 批量执行
     const results = await this.hookExecutor.executeBatch(
-      matchingHooks,
+      matchingHooks as IndividualHookConfig[],
       context,
       batchSize
     );
@@ -417,7 +437,7 @@ export class HookManager {
         data,
         toolNames
       );
-      results.push(...sessionResults);
+      results.push(...(sessionResults as HookResult[]));
     }
 
     return results;

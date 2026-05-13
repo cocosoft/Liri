@@ -454,31 +454,39 @@ export function parseSkillFrontmatter(content: string): {
   content: string;
 } {
   const parser = new SkillParser();
-  const { frontmatter, skillContent } = (parser as any).extractFrontmatter(
-    content
-  );
+  const { frontmatter, skillContent } = (
+    parser as unknown as {
+      extractFrontmatter: (content: string) => {
+        frontmatter: Record<string, unknown>;
+        skillContent: string;
+      };
+    }
+  ).extractFrontmatter(content);
   return { frontmatter, content: skillContent };
 }
 
 export function createSkillCommand(options: CreateSkillCommandOptions): Skill {
   const { skillName, frontmatter: fm, content, source, loadedFrom } = options;
+  const fm_ = fm as Record<string, unknown>;
   const skill: Skill = {
     type: 'prompt',
     name: skillName,
-    description: (fm as any).description || '',
-    hasUserSpecifiedDescription: !!fm.description,
-    allowedTools: (fm as any)['allowed-tools'] || [],
-    argNames: (fm as any).arguments || [],
-    argumentHint: (fm as any)['argument-hint'],
-    whenToUse: (fm as any).when_to_use,
-    version: (fm as any).version,
-    model: (fm as any).model,
-    disableModelInvocation: !!(fm as any)['disable-model-invocation'],
-    userInvocable: !!(fm as any)['user-invocable'],
-    context: (fm as any).context,
-    agent: (fm as any).agent,
-    effort: (fm as any).effort,
-    paths: (fm as any).paths,
+    description: (fm_.description as string) || '',
+    hasUserSpecifiedDescription: !!fm_.description,
+    allowedTools: (fm_['allowed-tools'] as string[]) || [],
+    argNames: (fm_.arguments as string[]) || [],
+    argumentHint: fm_['argument-hint'] as string | undefined,
+    whenToUse: fm_.when_to_use as string | undefined,
+    version: fm_.version as string | undefined,
+    model: fm_.model as string | undefined,
+    disableModelInvocation: !!(fm_['disable-model-invocation'] as
+      | boolean
+      | undefined),
+    userInvocable: !!(fm_['user-invocable'] as boolean | undefined),
+    context: fm_.context as 'fork' | undefined,
+    agent: fm_.agent as string | undefined,
+    effort: fm_.effort as string | undefined,
+    paths: fm_.paths as string[] | undefined,
     contentLength: content.length,
     isHidden: false,
     progressMessage: `Running ${skillName}...`,

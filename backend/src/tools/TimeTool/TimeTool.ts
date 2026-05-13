@@ -41,7 +41,10 @@ export class TimeTool {
       isReadOnly: () => true,
       isDestructive: () => false,
       isConcurrencySafe: () => true,
-      execute: async (input, context) => {
+      execute: async (
+        input: Record<string, unknown>,
+        context: ToolUseContext
+      ) => {
         const startTime = Date.now();
         const format = (input.format as string) || 'local';
         const timezone = input.timezone as string;

@@ -320,7 +320,7 @@ export class BashTool {
       isReadOnly: (_input?: Record<string, unknown>) => false,
       isDestructive: (_input?: Record<string, unknown>) => false,
       isConcurrencySafe: (_input?: Record<string, unknown>) => false,
-      validateInput: (input) => {
+      validateInput: (input: Record<string, unknown>) => {
         const result = BashInputSchema.safeParse(input);
         if (!result.success) {
           const errors = result.error.issues
@@ -330,8 +330,9 @@ export class BashTool {
         }
         return { result: true };
       },
-      checkPermissions: async (input, context) => {
-        const command = input.command as string;
+      checkPermissions: async (input: unknown, context: ToolUseContext) => {
+        const inputRecord = input as Record<string, unknown>;
+        const command = inputRecord.command as string;
         const isSafe = !BashTool.isDangerousCommand(command);
         if (isSafe) {
           return { behavior: 'allow' };
@@ -339,12 +340,13 @@ export class BashTool {
           return { behavior: 'deny', message: 'Dangerous command not allowed' };
         }
       },
-      execute: async (input, context) => {
+      execute: async (input: unknown, context: ToolUseContext) => {
         const startTime = Date.now();
-        const command = input.command as string;
-        const timeout = (input.timeout as number) || 30000;
-        const cwd = (input.cwd as string) || process.cwd();
-        const env = (input.env as Record<string, string>) || process.env;
+        const inputRecord = input as Record<string, unknown>;
+        const command = inputRecord.command as string;
+        const timeout = (inputRecord.timeout as number) || 30000;
+        const cwd = (inputRecord.cwd as string) || process.cwd();
+        const env = (inputRecord.env as Record<string, string>) || process.env;
 
         try {
           // 执行命令

@@ -24,7 +24,12 @@ export class AgentHookExecutor {
     hook: IndividualHookConfig,
     context: HookExecutionContext
   ): Promise<HookExecutionResult> {
-    if (!hook.config.agent || !hook.config.agent.id) {
+    const config = hook.config as Record<string, unknown>;
+    const agent = config.agent as
+      | { id?: string; parameters?: Record<string, unknown> }
+      | undefined;
+
+    if (!agent?.id) {
       return {
         success: false,
         error: 'Agent id is required for agent type hook',
@@ -32,10 +37,8 @@ export class AgentHookExecutor {
     }
 
     try {
-      // 这里需要集成代理系统，暂时返回模拟结果
-      // 实际应用中，需要调用代理执行器执行代理
-      const agentId = hook.config.agent.id;
-      const parameters = hook.config.agent.parameters || {};
+      const agentId = agent.id;
+      const parameters = agent.parameters || {};
 
       // 模拟代理执行
       const agentResult = {

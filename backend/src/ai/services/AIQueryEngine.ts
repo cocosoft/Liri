@@ -246,7 +246,7 @@ export class AIQueryEngine {
             name: toolCall.name,
             input: toolCall.input,
           },
-          context || {}
+          (context || {}) as Record<string, unknown>
         );
         results.push(result);
       } catch (error) {

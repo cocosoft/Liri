@@ -5,9 +5,12 @@ export interface SmartTool {
   name: string;
   description: string;
   version: string;
-  parameters: Record<string, any>;
-  execute: (args: Record<string, any>, context: ToolContext) => Promise<any>;
-  validate?: (args: Record<string, any>) => string | null;
+  parameters: Record<string, unknown>;
+  execute: (
+    args: Record<string, unknown>,
+    context: ToolContext
+  ) => Promise<unknown>;
+  validate?: (args: Record<string, unknown>) => string | null;
   timeout?: number;
   requiredContext?: string[];
 }
@@ -16,14 +19,14 @@ export interface ToolContext {
   sessionId?: string;
   userId?: string;
   messageHistory?: Array<{ role: string; content: string }>;
-  metadata?: Record<string, any>;
-  [key: string]: any;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface ToolExecutionResult {
   toolName: string;
   success: boolean;
-  result: any;
+  result: unknown;
   error?: string;
   executionTime: number;
   retryCount: number;
@@ -62,11 +65,11 @@ export interface ISmartToolIntegrator {
   getTool(name: string): SmartTool | null;
   executeTool(
     name: string,
-    args: Record<string, any>,
+    args: Record<string, unknown>,
     context: ToolContext
   ): Promise<ToolExecutionResult>;
   executeMultiple(
-    tools: Array<{ name: string; args: Record<string, any> }>,
+    tools: Array<{ name: string; args: Record<string, unknown> }>,
     context: ToolContext
   ): Promise<ToolExecutionResult[]>;
   validateCompatibility(
@@ -81,7 +84,7 @@ export interface ISmartToolIntegrator {
 export class SmartToolIntegrator implements ISmartToolIntegrator {
   private tools: Map<string, SmartTool> = new Map();
   private executionHistory: ToolExecutionResult[] = [];
-  private resultCache: Map<string, { result: any; expiresAt: number }> =
+  private resultCache: Map<string, { result: unknown; expiresAt: number }> =
     new Map();
   private maxHistorySize: number;
   private cacheTTL: number;
@@ -119,7 +122,7 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
 
   async executeTool(
     name: string,
-    args: Record<string, any>,
+    args: Record<string, unknown>,
     context: ToolContext
   ): Promise<ToolExecutionResult> {
     const tool = this.tools.get(name);
@@ -215,7 +218,7 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
   }
 
   async executeMultiple(
-    tools: Array<{ name: string; args: Record<string, any> }>,
+    tools: Array<{ name: string; args: Record<string, unknown> }>,
     context: ToolContext
   ): Promise<ToolExecutionResult[]> {
     const results: ToolExecutionResult[] = [];
@@ -343,7 +346,7 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
 
   private buildCacheKey(
     name: string,
-    args: Record<string, any>,
+    args: Record<string, unknown>,
     context: ToolContext
   ): string {
     return `${name}_${JSON.stringify(args)}_${context.sessionId || ''}`;

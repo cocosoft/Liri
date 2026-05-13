@@ -185,11 +185,11 @@ export namespace ArrayUtils {
   /**
    * 扁平化数组
    */
-  export function flatten<T>(arr: any[]): T[] {
-    return arr.reduce(
+  export function flatten<T>(arr: unknown[]): T[] {
+    return arr.reduce<T[]>(
       (acc, val) =>
-        Array.isArray(val) ? acc.concat(flatten(val)) : acc.concat(val),
-      [] as T[]
+        Array.isArray(val) ? acc.concat(flatten(val)) : acc.concat(val as T),
+      []
     );
   }
 
@@ -217,12 +217,15 @@ export namespace ArrayUtils {
   /**
    * 排序
    */
-  export function sortBy<T>(arr: T[], key: keyof T | ((item: T) => any)): T[] {
+  export function sortBy<T>(
+    arr: T[],
+    key: keyof T | ((item: T) => unknown)
+  ): T[] {
     return [...arr].sort((a, b) => {
       const aVal = typeof key === 'function' ? key(a) : a[key];
       const bVal = typeof key === 'function' ? key(b) : b[key];
-      if (aVal < bVal) return -1;
-      if (aVal > bVal) return 1;
+      if ((aVal as number) < (bVal as number)) return -1;
+      if ((aVal as number) > (bVal as number)) return 1;
       return 0;
     });
   }
@@ -291,7 +294,7 @@ export namespace ObjectUtils {
    * 判断对象是否为空
    */
   export function isEmpty(
-    obj: Record<string, any> | null | undefined
+    obj: Record<string, unknown> | null | undefined
   ): boolean {
     if (obj === null || obj === undefined) return true;
     return Object.keys(obj).length === 0;
@@ -300,7 +303,7 @@ export namespace ObjectUtils {
   /**
    * 浅拷贝
    */
-  export function shallowClone<T extends Record<string, any>>(obj: T): T {
+  export function shallowClone<T extends Record<string, unknown>>(obj: T): T {
     return { ...obj };
   }
 
@@ -309,7 +312,8 @@ export namespace ObjectUtils {
    */
   export function deepClone<T>(obj: T): T {
     if (obj === null || typeof obj !== 'object') return obj;
-    if (Array.isArray(obj)) return obj.map((item) => deepClone(item)) as any;
+    if (Array.isArray(obj))
+      return obj.map((item) => deepClone(item)) as unknown as T;
     const cloned = {} as T;
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -322,7 +326,7 @@ export namespace ObjectUtils {
   /**
    * 合并对象
    */
-  export function merge<T extends Record<string, any>>(
+  export function merge<T extends Record<string, unknown>>(
     target: T,
     ...sources: Partial<T>[]
   ): T {
@@ -333,15 +337,15 @@ export namespace ObjectUtils {
    * 获取对象指定路径的值
    */
   export function get(
-    obj: Record<string, any>,
+    obj: Record<string, unknown>,
     path: string,
-    defaultValue?: any
-  ): any {
+    defaultValue?: unknown
+  ): unknown {
     const keys = path.split('.');
-    let result = obj;
+    let result: unknown = obj;
     for (const key of keys) {
       if (result === null || result === undefined) return defaultValue;
-      result = result[key];
+      result = (result as Record<string, unknown>)[key];
     }
     return result === undefined ? defaultValue : result;
   }
@@ -350,45 +354,48 @@ export namespace ObjectUtils {
    * 设置对象指定路径的值
    */
   export function set(
-    obj: Record<string, any>,
+    obj: Record<string, unknown>,
     path: string,
-    value: any
+    value: unknown
   ): void {
     const keys = path.split('.');
     const lastKey = keys.pop()!;
-    let current = obj;
+    let current: unknown = obj;
     for (const key of keys) {
+      const currentObj = current as Record<string, unknown>;
       if (
-        !(key in current) ||
-        current[key] === null ||
-        typeof current[key] !== 'object'
+        !(key in currentObj) ||
+        currentObj[key] === null ||
+        typeof currentObj[key] !== 'object'
       ) {
-        current[key] = {};
+        currentObj[key] = {};
       }
-      current = current[key];
+      current = currentObj[key];
     }
-    current[lastKey] = value;
+    (current as Record<string, unknown>)[lastKey] = value;
   }
 
   /**
    * 删除对象指定路径的值
    */
-  export function del(obj: Record<string, any>, path: string): boolean {
+  export function del(obj: Record<string, unknown>, path: string): boolean {
     const keys = path.split('.');
     const lastKey = keys.pop()!;
-    let current = obj;
+    let current: unknown = obj;
     for (const key of keys) {
+      const currentObj = current as Record<string, unknown>;
       if (
-        !(key in current) ||
-        current[key] === null ||
-        typeof current[key] !== 'object'
+        !(key in currentObj) ||
+        currentObj[key] === null ||
+        typeof currentObj[key] !== 'object'
       ) {
         return false;
       }
-      current = current[key];
+      current = currentObj[key];
     }
-    if (lastKey in current) {
-      delete current[lastKey];
+    const finalObj = current as Record<string, unknown>;
+    if (lastKey in finalObj) {
+      delete finalObj[lastKey];
       return true;
     }
     return false;
@@ -397,14 +404,14 @@ export namespace ObjectUtils {
   /**
    * 获取对象所有键
    */
-  export function keys(obj: Record<string, any>): string[] {
+  export function keys(obj: Record<string, unknown>): string[] {
     return Object.keys(obj);
   }
 
   /**
    * 获取对象所有值
    */
-  export function values(obj: Record<string, any>): any[] {
+  export function values(obj: Record<string, unknown>): unknown[] {
     return Object.values(obj);
   }
 
@@ -446,7 +453,7 @@ export namespace ObjectUtils {
   /**
    * 对象过滤
    */
-  export function pick<T extends Record<string, any>, K extends keyof T>(
+  export function pick<T extends Record<string, unknown>, K extends keyof T>(
     obj: T,
     keys: K[]
   ): Pick<T, K> {
@@ -462,7 +469,7 @@ export namespace ObjectUtils {
   /**
    * 对象忽略指定键
    */
-  export function omit<T extends Record<string, any>, K extends keyof T>(
+  export function omit<T extends Record<string, unknown>, K extends keyof T>(
     obj: T,
     keys: K[]
   ): Omit<T, K> {
@@ -696,7 +703,7 @@ export namespace FunctionUtils {
   /**
    * 节流函数
    */
-  export function throttle<T extends (...args: any[]) => any>(
+  export function throttle<T extends (...args: unknown[]) => unknown>(
     fn: T,
     delay: number
   ): (...args: Parameters<T>) => void {
@@ -713,7 +720,7 @@ export namespace FunctionUtils {
   /**
    * 防抖函数
    */
-  export function debounce<T extends (...args: any[]) => any>(
+  export function debounce<T extends (...args: unknown[]) => unknown>(
     fn: T,
     delay: number
   ): (...args: Parameters<T>) => void {
@@ -731,15 +738,15 @@ export namespace FunctionUtils {
   /**
    * 缓存函数结果
    */
-  export function memoize<T extends (...args: any[]) => any>(fn: T): T {
+  export function memoize<T extends (...args: unknown[]) => unknown>(fn: T): T {
     const cache = new Map<string, ReturnType<T>>();
     return ((...args: Parameters<T>) => {
       const key = JSON.stringify(args);
       if (cache.has(key)) {
-        return cache.get(key);
+        return cache.get(key) as ReturnType<T>;
       }
       const result = fn(...args);
-      cache.set(key, result);
+      cache.set(key, result as ReturnType<T>);
       return result;
     }) as T;
   }
@@ -747,9 +754,9 @@ export namespace FunctionUtils {
   /**
    * 绑定函数上下文
    */
-  export function bind<T extends (...args: any[]) => any>(
+  export function bind<T extends (...args: unknown[]) => unknown>(
     fn: T,
-    context: any
+    context: unknown
   ): T {
     return ((...args: Parameters<T>) => fn.apply(context, args)) as T;
   }

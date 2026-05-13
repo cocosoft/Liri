@@ -71,9 +71,9 @@ export interface ConfigValidationWarning {
  * 迁移函数类型
  */
 export type ConfigMigrationFunction = (
-  config: Record<string, any>,
+  config: Record<string, unknown>,
   fromVersion: number
-) => Record<string, any>;
+) => Record<string, unknown>;
 
 /**
  * 迁移记录
@@ -99,7 +99,7 @@ interface ConfigMetadata {
  */
 interface PersistedConfig {
   version: number;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   metadata: ConfigMetadata;
 }
 
@@ -115,7 +115,7 @@ interface ConfigFileLock {
  * 增强配置验证结果
  */
 export interface EnhancedConfigValidationResult extends ConfigValidationResult {
-  correctedConfig: Record<string, any>;
+  correctedConfig: Record<string, unknown>;
   appliedCorrections: string[];
 }
 
@@ -123,7 +123,7 @@ export interface EnhancedConfigValidationResult extends ConfigValidationResult {
  * 增强配置服务
  */
 export class EnhancedConfigService {
-  private config: Record<string, any> = {};
+  private config: Record<string, unknown> = {};
   private migrations: Map<number, ConfigMigrationRecord> = new Map();
   private validationRules: Map<string, ConfigValidationRule> = new Map();
   private validationLevel: ConfigValidationLevel = ConfigValidationLevel.NORMAL;
@@ -191,12 +191,13 @@ export class EnhancedConfigService {
    */
   private registerDefaultMigrations(): void {
     this.registerMigration(1, 2, (config) => {
+      const settings = config.settings as Record<string, unknown> | undefined;
       return {
         ...config,
         version: 2,
         settings: {
-          ...config.settings,
-          validation: config.settings?.validation || {
+          ...(settings || {}),
+          validation: settings?.validation || {
             level: 'normal',
             validateOnLoad: true,
           },
@@ -335,9 +336,9 @@ export class EnhancedConfigService {
    * 迁移配置
    */
   private migrateConfig(
-    config: Record<string, any>,
+    config: Record<string, unknown>,
     fromVersion: number
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     let currentConfig = { ...config };
     let currentVersion = fromVersion;
 
@@ -357,7 +358,9 @@ export class EnhancedConfigService {
   /**
    * 验证配置
    */
-  public validate(config: Record<string, any>): EnhancedConfigValidationResult {
+  public validate(
+    config: Record<string, unknown>
+  ): EnhancedConfigValidationResult {
     const errors: ConfigValidationError[] = [];
     const warnings: ConfigValidationWarning[] = [];
     const correctedConfig = { ...config };
@@ -612,7 +615,7 @@ export class EnhancedConfigService {
   /**
    * 计算校验和
    */
-  private calculateChecksum(config: Record<string, any>): string {
+  private calculateChecksum(config: Record<string, unknown>): string {
     const content = JSON.stringify(config);
     return crypto.createHash('md5').update(content).digest('hex');
   }
@@ -647,7 +650,7 @@ export class EnhancedConfigService {
   /**
    * 更新配置
    */
-  public update(updates: Record<string, any>): void {
+  public update(updates: Record<string, unknown>): void {
     if (!this.isLoaded) {
       this.load();
     }

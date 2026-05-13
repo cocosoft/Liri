@@ -71,7 +71,7 @@ export class CronCreateTool {
       isReadOnly: (_input?: Record<string, unknown>) => false,
       isDestructive: (_input?: Record<string, unknown>) => false,
       isConcurrencySafe: (_input?: Record<string, unknown>) => true,
-      validateInput: (input) => {
+      validateInput: (input: Record<string, unknown>) => {
         const cron = input.cron as string;
         if (!cron || typeof cron !== 'string') {
           return { result: false, message: 'cron expression is required' };
@@ -93,7 +93,10 @@ export class CronCreateTool {
       checkPermissions: async (input, context) => {
         return { behavior: 'allow' };
       },
-      execute: async (input, context) => {
+      execute: async (
+        input: Record<string, unknown>,
+        context: ToolUseContext
+      ) => {
         const startTime = Date.now();
         const cron = input.cron as string;
         const prompt = input.prompt as string;

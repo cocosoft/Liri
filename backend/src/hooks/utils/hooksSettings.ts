@@ -52,7 +52,9 @@ export function sortHooksByPriority(
   hooks: IndividualHookConfig[]
 ): IndividualHookConfig[] {
   return hooks.sort(
-    (a, b) => (b.config.priority || 0) - (a.config.priority || 0)
+    (a, b) =>
+      (((b.config as Record<string, unknown>).priority as number) || 0) -
+      (((a.config as Record<string, unknown>).priority as number) || 0)
   );
 }
 
@@ -76,11 +78,14 @@ export function sortMatchersByPriority(
     const hooksB = hooksByEventAndMatcher[event]?.[b] || [];
 
     // 计算匹配器的平均优先级
+    const getPriority = (hook: IndividualHookConfig) =>
+      ((hook.config as Record<string, unknown>).priority as number) || 0;
+
     const priorityA =
-      hooksA.reduce((sum, hook) => sum + (hook.config.priority || 0), 0) /
+      hooksA.reduce((sum, hook) => sum + getPriority(hook), 0) /
       (hooksA.length || 1);
     const priorityB =
-      hooksB.reduce((sum, hook) => sum + (hook.config.priority || 0), 0) /
+      hooksB.reduce((sum, hook) => sum + getPriority(hook), 0) /
       (hooksB.length || 1);
 
     return priorityB - priorityA;

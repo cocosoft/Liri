@@ -32,9 +32,9 @@ export interface SlowOperationRecord {
   operation: string;
   duration: number;
   threshold: number;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   stack?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -92,8 +92,8 @@ export class SlowOperationDetector {
     fn: () => T | Promise<T>,
     options?: {
       threshold?: number;
-      details?: Record<string, any>;
-      context?: Record<string, any>;
+      details?: Record<string, unknown>;
+      context?: Record<string, unknown>;
     }
   ): Promise<T> {
     if (!this.config.enabled) {
@@ -141,8 +141,8 @@ export class SlowOperationDetector {
     duration: number,
     threshold: number,
     options?: {
-      details?: Record<string, any>;
-      context?: Record<string, any>;
+      details?: Record<string, unknown>;
+      context?: Record<string, unknown>;
     }
   ): void {
     const record: SlowOperationRecord = {
@@ -359,15 +359,15 @@ export class SlowOperationDetector {
   /**
    * 包装函数以检测慢操作
    */
-  public wrap<T extends (...args: any[]) => any>(
+  public wrap<TArgs extends unknown[], TReturn>(
     operation: string,
-    fn: T,
+    fn: (...args: TArgs) => TReturn,
     options?: {
       threshold?: number;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
     }
-  ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
-    return (...args: Parameters<T>): Promise<ReturnType<T>> => {
+  ): (...args: TArgs) => Promise<TReturn> {
+    return (...args: TArgs): Promise<TReturn> => {
       return this.detect(operation, () => fn(...args), options);
     };
   }
@@ -376,8 +376,8 @@ export class SlowOperationDetector {
    * 包装JSON.stringify以检测慢操作
    */
   public jsonStringify(
-    value: any,
-    replacer?: (key: string, value: any) => any,
+    value: unknown,
+    replacer?: (key: string, value: unknown) => unknown,
     space?: string | number
   ): Promise<string> {
     return this.detect(
@@ -417,7 +417,7 @@ export class SlowOperationDetector {
         'Array.filter',
         (
           callback: (value: T, index: number, array: T[]) => boolean,
-          thisArg?: any
+          thisArg?: unknown
         ) => array.filter(callback, thisArg)
       ),
     });
@@ -426,8 +426,8 @@ export class SlowOperationDetector {
       value: this.wrap(
         'Array.map',
         (
-          callback: (value: T, index: number, array: T[]) => any,
-          thisArg?: any
+          callback: (value: T, index: number, array: T[]) => unknown,
+          thisArg?: unknown
         ) => array.map(callback, thisArg)
       ),
     });
@@ -437,13 +437,13 @@ export class SlowOperationDetector {
         'Array.reduce',
         (
           callback: (
-            accumulator: any,
+            accumulator: unknown,
             currentValue: T,
             currentIndex: number,
             array: T[]
-          ) => any,
-          initialValue?: any
-        ) => array.reduce(callback, initialValue)
+          ) => unknown,
+          initialValue?: unknown
+        ) => array.reduce(callback, initialValue as T)
       ),
     });
 
@@ -464,8 +464,8 @@ export function detectSlowOperation<T>(
   fn: () => T | Promise<T>,
   options?: {
     threshold?: number;
-    details?: Record<string, any>;
-    context?: Record<string, any>;
+    details?: Record<string, unknown>;
+    context?: Record<string, unknown>;
   }
 ): Promise<T> {
   return slowOperationDetector.detect(operation, fn, options);
@@ -474,14 +474,14 @@ export function detectSlowOperation<T>(
 /**
  * 包装函数以检测慢操作
  */
-export function wrapSlowOperation<T extends (...args: any[]) => any>(
+export function wrapSlowOperation<TArgs extends unknown[], TReturn>(
   operation: string,
-  fn: T,
+  fn: (...args: TArgs) => TReturn,
   options?: {
     threshold?: number;
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
   }
-): (...args: Parameters<T>) => Promise<ReturnType<T>> {
+): (...args: TArgs) => Promise<TReturn> {
   return slowOperationDetector.wrap(operation, fn, options);
 }
 
@@ -489,8 +489,8 @@ export function wrapSlowOperation<T extends (...args: any[]) => any>(
  * 检测JSON.stringify慢操作
  */
 export function safeStringify(
-  value: any,
-  replacer?: (key: string, value: any) => any,
+  value: unknown,
+  replacer?: (key: string, value: unknown) => unknown,
   space?: string | number
 ): Promise<string> {
   return slowOperationDetector.jsonStringify(value, replacer, space);

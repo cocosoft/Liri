@@ -73,7 +73,7 @@ export interface BundledSkillDefinition {
   /**
    * Hook配置
    */
-  hooks?: any;
+  hooks?: Record<string, unknown>;
 
   /**
    * 执行上下文
@@ -93,7 +93,10 @@ export interface BundledSkillDefinition {
   /**
    * 生成命令提示词
    */
-  getPromptForCommand: (args: string, context: any) => Promise<string[]>;
+  getPromptForCommand: (
+    args: string,
+    context: Record<string, unknown>
+  ) => Promise<string[]>;
 }
 
 /**
@@ -205,7 +208,7 @@ export class BundledSkillsRegistry {
   async toSkillDefinition(
     skill: BundledSkillDefinition
   ): Promise<ParsedSkillDefinition> {
-    const frontmatter: any = {
+    const frontmatter: Record<string, unknown> = {
       name: skill.name,
       description: skill.description,
       'user-invocable': skill.userInvocable ?? true,
@@ -293,7 +296,10 @@ export async function registerBundledSkill(
   skillService: SkillService,
   definition: BundledSkillDefinition
 ): Promise<void> {
-  const promptLines = await definition.getPromptForCommand('', {} as any);
+  const promptLines = await definition.getPromptForCommand(
+    '',
+    {} as Record<string, unknown>
+  );
   const content = promptLines.join('\n');
 
   const skillDef: SkillDefinition = {
@@ -311,7 +317,10 @@ export async function registerBundledSkill(
     agent: definition.agent,
     files: definition.files,
     getPromptForCommand: async (args: string, context: ToolUseContext) => {
-      const lines = await definition.getPromptForCommand(args, context);
+      const lines = await definition.getPromptForCommand(
+        args,
+        context as unknown as Record<string, unknown>
+      );
       return lines.map((line) => ({ type: 'text', text: line }));
     },
   };
@@ -329,7 +338,10 @@ function registerDebugSkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当需要分析调试日志或错误信息时使用',
     argumentHint: '输入调试日志或错误信息',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 调试分析',
         '',
@@ -356,7 +368,10 @@ function registerRememberSkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当需要审查和整理项目记忆时使用',
     argumentHint: '输入需要记忆的关键信息',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 记忆审查',
         '',
@@ -383,7 +398,10 @@ function registerVerifySkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当需要验证代码正确性或配置有效性时使用',
     argumentHint: '输入需要验证的代码或配置',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 验证检查',
         '',
@@ -410,7 +428,10 @@ function registerSimplifySkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当需要简化复杂代码或文档时使用',
     argumentHint: '输入需要简化的内容',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 简化处理',
         '',
@@ -439,7 +460,10 @@ function registerSkillifySkill(registry: BundledSkillsRegistry): void {
     argumentHint: '[要捕获的过程描述]',
     allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'AskUserQuestion'],
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# Skillify — 将过程捕获为技能',
         '',
@@ -514,7 +538,10 @@ function registerBatchSkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当需要批量处理多个相似任务时使用',
     argumentHint: '输入批量处理的任务描述',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 批量处理',
         '',
@@ -541,7 +568,10 @@ function registerStuckSkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当遇到问题卡住需要建议时使用',
     argumentHint: '描述遇到的问题',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 问题解决',
         '',
@@ -569,7 +599,10 @@ function registerLoopSkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当用户需要设置定时任务、轮询状态或重复执行某个操作时使用',
     argumentHint: '[间隔] <提示词>',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       const trimmed = args.trim();
       if (!trimmed) {
         return [
@@ -620,7 +653,10 @@ function registerUpdateConfigSkill(registry: BundledSkillsRegistry): void {
     argumentHint: '输入配置更新需求（如"允许npm命令"、"设置DEBUG=true"）',
     allowedTools: ['Read'],
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 配置更新技能',
         '',
@@ -699,7 +735,10 @@ function registerKeybindingsSkill(registry: BundledSkillsRegistry): void {
     argumentHint: '输入按键绑定需求（如"把ctrl+g改为ctrl+e"）',
     allowedTools: ['Read'],
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 按键绑定帮助',
         '',
@@ -797,7 +836,10 @@ function registerLoremIpsumSkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当用户需要占位/填充文本用于测试布局、模板或长上下文场景时使用',
     argumentHint: '[token数量]',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       const targetTokens = parseInt(args);
       if (args && (isNaN(targetTokens) || targetTokens <= 0)) {
         return ['无效的token数量。请提供一个正数（如 /lorem-ipsum 10000）。'];
@@ -844,7 +886,10 @@ function registerClaudeApiSkill(registry: BundledSkillsRegistry): void {
     argumentHint: '输入API相关问题',
     allowedTools: ['Read', 'Grep', 'Glob', 'WebFetch'],
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# Claude API参考',
         '',
@@ -925,7 +970,10 @@ function registerClaudeInChromeSkill(registry: BundledSkillsRegistry): void {
       '当用户想在Chrome浏览器中使用Claude Code或需要浏览器集成帮助时使用',
     argumentHint: '输入Chrome集成相关问题',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# Chrome集成',
         '',
@@ -956,7 +1004,10 @@ function registerScheduleRemoteAgentsSkill(
     whenToUse: '当用户需要调度远程代理在后台执行任务或在指定时间运行时使用',
     argumentHint: '输入远程代理调度需求',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 远程代理调度',
         '',
@@ -994,7 +1045,10 @@ function registerHunterSkill(registry: BundledSkillsRegistry): void {
     argumentHint: '输入需要审查的工件链接或描述',
     allowedTools: ['Read', 'Grep', 'Glob'],
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 工件审查',
         '',
@@ -1026,7 +1080,10 @@ function registerDreamSkill(registry: BundledSkillsRegistry): void {
       '当用户想进入实验性的梦境模式以增强创造力、头脑风暴或沉浸式编码时使用',
     argumentHint: '[梦境场景或目标]',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 梦境模式',
         '',
@@ -1071,7 +1128,10 @@ function registerRunSkillGeneratorSkill(registry: BundledSkillsRegistry): void {
     whenToUse: '当用户想要通过引导式流程自动生成新技能时使用',
     argumentHint: '输入技能生成需求',
     userInvocable: true,
-    async getPromptForCommand(args: string, context: any): Promise<string[]> {
+    async getPromptForCommand(
+      args: string,
+      context: Record<string, unknown>
+    ): Promise<string[]> {
       return [
         '# 技能生成器',
         '',

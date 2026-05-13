@@ -156,7 +156,7 @@ export interface HookContext {
   /**
    * 事件数据
    */
-  data?: any;
+  data?: unknown;
 
   /**
    * 工具名称列表
@@ -190,7 +190,7 @@ export interface HookContext {
     url: string;
     method: string;
     headers: Record<string, string>;
-    body?: any;
+    body?: unknown;
   };
 
   /**
@@ -199,7 +199,7 @@ export interface HookContext {
   httpResponse?: {
     status: number;
     headers: Record<string, string>;
-    body?: any;
+    body?: unknown;
   };
 
   /**
@@ -215,17 +215,17 @@ export interface HookContext {
   /**
    * 安全配置
    */
-  securityConfig?: any;
+  securityConfig?: Record<string, unknown>;
 
   /**
    * 性能配置
    */
-  performanceConfig?: any;
+  performanceConfig?: Record<string, unknown>;
 
   /**
    * 扩展数据
    */
-  extensions?: Record<string, any>;
+  extensions?: Record<string, unknown>;
 
   /**
    * 匹配器配置
@@ -235,7 +235,7 @@ export interface HookContext {
   /**
    * 额外属性
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -250,7 +250,7 @@ export interface HookResult {
   /**
    * 输出数据
    */
-  output?: any;
+  output?: unknown;
 
   /**
    * 结果消息
@@ -305,12 +305,12 @@ export interface HookResult {
   /**
    * 扩展数据
    */
-  extensions?: Record<string, any>;
+  extensions?: Record<string, unknown>;
 
   /**
    * 额外属性
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -415,12 +415,12 @@ export interface HookSystemConfig {
   /**
    * 安全配置
    */
-  securityConfig?: any;
+  securityConfig?: Record<string, unknown>;
 
   /**
    * 性能配置
    */
-  performanceConfig?: any;
+  performanceConfig?: Record<string, unknown>;
 }
 
 /**
@@ -440,12 +440,12 @@ export interface ReactHookDefinition {
   /**
    * Hook依赖项
    */
-  dependencies?: any[];
+  dependencies?: unknown[];
 
   /**
    * Hook实现函数
    */
-  implementation: (...args: any[]) => any;
+  implementation: (...args: unknown[]) => unknown;
 
   /**
    * 是否启用
@@ -470,17 +470,17 @@ export interface PermissionHookContext extends HookContext {
   /**
    * 工具使用确认
    */
-  toolUseConfirm?: any;
+  toolUseConfirm?: unknown;
 
   /**
    * 权限更新
    */
-  permissionUpdates?: any[];
+  permissionUpdates?: unknown[];
 
   /**
    * 分类器检查结果
    */
-  classifierCheck?: any;
+  classifierCheck?: unknown;
 }
 
 /**
@@ -525,12 +525,12 @@ export interface CompressionHookContext extends HookContext {
   /**
    * 压缩配置
    */
-  compressionConfig: any;
+  compressionConfig: Record<string, unknown>;
 
   /**
    * 压缩统计
    */
-  compressionStats?: any;
+  compressionStats?: Record<string, unknown>;
 }
 
 /**
@@ -550,7 +550,7 @@ export interface CompressionHookResult extends HookResult {
   /**
    * 压缩优化
    */
-  compressionOptimizations?: any;
+  compressionOptimizations?: Record<string, unknown>;
 }
 
 /**
@@ -595,17 +595,17 @@ export interface IndividualHookConfig {
   /**
    * 执行器配置
    */
-  executorConfig?: Record<string, any>;
+  executorConfig?: Record<string, unknown>;
 
   /**
    * Hook配置
    */
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 
   /**
    * 额外属性
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -635,7 +635,7 @@ export interface HookEventMetadata {
   /**
    * 匹配器元数据
    */
-  matcherMetadata?: Record<string, any>;
+  matcherMetadata?: Record<string, unknown>;
 
   /**
    * 事件ID
@@ -655,7 +655,7 @@ export interface HookEventMetadata {
   /**
    * 额外数据
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -675,12 +675,12 @@ export interface MatcherMetadata {
   /**
    * 匹配器配置
    */
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 
   /**
    * 额外属性
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**

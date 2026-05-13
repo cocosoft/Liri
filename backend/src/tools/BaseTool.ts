@@ -4,6 +4,7 @@
  */
 import type {
   Tool,
+  ToolInfo,
   ToolParam,
   ValidationResult,
   InterruptBehavior,
@@ -23,8 +24,8 @@ export { buildTool } from './types/Tool';
  * 实现Tool接口的默认方法，提供抽象方法供子类实现
  */
 export abstract class BaseTool<
-  Input = any,
-  Output = any,
+  Input = unknown,
+  Output = unknown,
   P extends ToolProgressData = ToolProgressData,
 > implements Tool<Input, Output, P> {
   /** 工具名称（子类必须实现） */
@@ -134,7 +135,7 @@ export abstract class BaseTool<
    * @returns 权限结果
    */
   async checkPermissions?(
-    input: any,
+    input: unknown,
     context: ToolUseContext
   ): Promise<PermissionResult> {
     return createAllowResult(input);
@@ -146,7 +147,7 @@ export abstract class BaseTool<
    * @param input 工具输入
    * @returns 验证结果
    */
-  validateInput?(input: any): ValidationResult {
+  validateInput?(input: unknown): ValidationResult {
     return { result: true };
   }
 
@@ -158,7 +159,7 @@ export abstract class BaseTool<
    * @returns 验证结果
    */
   async validateInputWithContext?(
-    input: any,
+    input: unknown,
     context: ToolUseContext
   ): Promise<ValidationResult> {
     if (this.validateInput) {
@@ -171,7 +172,7 @@ export abstract class BaseTool<
    * 获取工具信息
    * @returns 工具信息
    */
-  getInfo(): any {
+  getInfo(): ToolInfo {
     return {
       name: this.name,
       description: this.description,
@@ -195,7 +196,7 @@ export abstract class BaseTool<
    * @param input 工具输入
    * @returns 分类器输入
    */
-  toAutoClassifierInput?(input: any): unknown {
+  toAutoClassifierInput?(input: unknown): unknown {
     return '';
   }
 
@@ -205,7 +206,7 @@ export abstract class BaseTool<
    * @param input 工具输入（可选）
    * @returns 用户可见名称
    */
-  userFacingName?(input?: Partial<any>): string {
+  userFacingName?(input?: Partial<unknown>): string {
     return this.name;
   }
 
@@ -215,7 +216,7 @@ export abstract class BaseTool<
    * @param input 工具输入（可选）
    * @returns 活动描述
    */
-  getActivityDescription?(input?: Partial<any>): string | null {
+  getActivityDescription?(input?: Partial<unknown>): string | null {
     return null;
   }
 
@@ -225,7 +226,7 @@ export abstract class BaseTool<
    * @param input 工具输入（可选）
    * @returns 工具使用摘要
    */
-  getToolUseSummary?(input?: Partial<any>): string | null {
+  getToolUseSummary?(input?: Partial<unknown>): string | null {
     return null;
   }
 
@@ -235,7 +236,7 @@ export abstract class BaseTool<
    * @param input 工具输入
    * @returns 搜索或读取命令信息
    */
-  isSearchOrReadCommand?(input: any): {
+  isSearchOrReadCommand?(input: unknown): {
     isSearch: boolean;
     isRead: boolean;
     isList?: boolean;
@@ -249,7 +250,7 @@ export abstract class BaseTool<
    * @param input 工具输入
    * @returns 是否开放世界操作
    */
-  isOpenWorld?(input: any): boolean {
+  isOpenWorld?(input: unknown): boolean {
     return false;
   }
 
@@ -269,7 +270,7 @@ export abstract class BaseTool<
    * @returns 权限匹配器函数
    */
   async preparePermissionMatcher?(
-    input: any
+    input: unknown
   ): Promise<(pattern: string) => boolean> {
     return () => true;
   }

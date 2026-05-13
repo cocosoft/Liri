@@ -142,12 +142,9 @@ export class InteractiveCommandExecutor {
       if (result.value) {
         console.log(result.value);
       } else if (result.data) {
-        if (
-          typeof result.data === 'object' &&
-          result.data !== null &&
-          result.data.type === 'text'
-        ) {
-          console.log(result.data.value);
+        const data = result.data as { type?: string; value?: string };
+        if (data.type === 'text') {
+          console.log(data.value);
         } else {
           console.log(JSON.stringify(result.data, null, 2));
         }

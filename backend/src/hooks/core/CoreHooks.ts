@@ -278,7 +278,9 @@ export class CoreHooksRegistry {
         const validationResult = this.validateMemoryData(context.data);
 
         // 优化内存数据
-        const optimizedData = this.optimizeMemoryData(context.data);
+        const optimizedData = this.optimizeMemoryData(
+          context.data as Record<string, unknown>
+        );
 
         return {
           success: validationResult.valid,
@@ -436,12 +438,14 @@ export class CoreHooksRegistry {
   /**
    * 生成压缩优化（基于CC源码）
    */
-  private generateCompressionOptimizations(config: any): any {
+  private generateCompressionOptimizations(
+    config: Record<string, unknown>
+  ): unknown {
     return {
-      chunkSize: config.chunkSize || 8192,
-      compressionLevel: config.compressionLevel || 6,
-      removeWhitespace: config.removeWhitespace !== false,
-      normalizeNewlines: config.normalizeNewlines !== false,
+      chunkSize: (config.chunkSize as number) || 8192,
+      compressionLevel: (config.compressionLevel as number) || 6,
+      removeWhitespace: (config.removeWhitespace as boolean) !== false,
+      normalizeNewlines: (config.normalizeNewlines as boolean) !== false,
     };
   }
 
@@ -451,7 +455,7 @@ export class CoreHooksRegistry {
   private validateCompressionResult(
     preContent: string,
     postContent: string,
-    stats: any
+    stats: unknown
   ): { valid: boolean; error?: string } {
     if (!postContent) {
       return { valid: false, error: 'Compression resulted in empty content' };
@@ -467,10 +471,12 @@ export class CoreHooksRegistry {
   /**
    * 生成压缩报告（基于CC源码）
    */
-  private generateCompressionReport(stats: any): string {
+  private generateCompressionReport(stats: Record<string, unknown>): string {
     const compressionRatio =
-      stats.originalSize > 0
-        ? (1 - stats.compressedSize / stats.originalSize) * 100
+      (stats.originalSize as number) > 0
+        ? (1 -
+            (stats.compressedSize as number) / (stats.originalSize as number)) *
+          100
         : 0;
 
     return `Compression: ${compressionRatio.toFixed(2)}% reduction`;
@@ -490,7 +496,7 @@ export class CoreHooksRegistry {
   /**
    * 加载会话配置（基于CC源码）
    */
-  private async loadSessionConfiguration(sessionId?: string): Promise<any> {
+  private async loadSessionConfiguration(sessionId?: string): Promise<unknown> {
     await new Promise((resolve) => setTimeout(resolve, 50));
     return { sessionId, timestamp: Date.now() };
   }
@@ -514,7 +520,10 @@ export class CoreHooksRegistry {
   /**
    * 验证内存数据（基于CC源码）
    */
-  private validateMemoryData(data: any): { valid: boolean; error?: string } {
+  private validateMemoryData(data: unknown): {
+    valid: boolean;
+    error?: string;
+  } {
     if (!data) {
       return { valid: false, error: 'Memory data is empty' };
     }
@@ -529,9 +538,10 @@ export class CoreHooksRegistry {
   /**
    * 优化内存数据（基于CC源码）
    */
-  private optimizeMemoryData(data: any): any {
-    // 简单的数据优化：移除空值和未定义值
-    const optimized: any = {};
+  private optimizeMemoryData(
+    data: Record<string, unknown>
+  ): Record<string, unknown> {
+    const optimized: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(data)) {
       if (value !== null && value !== undefined && value !== '') {
@@ -545,7 +555,7 @@ export class CoreHooksRegistry {
   /**
    * 更新内存索引（基于CC源码）
    */
-  private async updateMemoryIndex(data: any): Promise<void> {
+  private async updateMemoryIndex(data: unknown): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
     console.log('🔍 Memory index updated');
   }
@@ -563,7 +573,7 @@ export class CoreHooksRegistry {
    */
   private validateSkillParameters(
     skillName: string,
-    data: any
+    data: unknown
   ): { valid: boolean; error?: string } {
     if (!skillName) {
       return { valid: false, error: 'Skill name is required' };
@@ -595,7 +605,10 @@ export class CoreHooksRegistry {
   /**
    * 记录技能使用（基于CC源码）
    */
-  private async recordSkillUsage(skillName: string, data: any): Promise<void> {
+  private async recordSkillUsage(
+    skillName: string,
+    data: unknown
+  ): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
     console.log(`📊 Skill usage recorded: ${skillName}`);
   }

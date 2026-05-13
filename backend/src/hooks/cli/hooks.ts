@@ -45,26 +45,38 @@ export function initHooksCommand(program: Command): void {
       console.log(chalk.cyan('═'.repeat(80)));
       console.log();
 
-      hooks.forEach((hook, index) => {
-        console.log(chalk.green(`#${index + 1}`), chalk.bold(hook.event));
-        if (hook.matcher) {
-          console.log(chalk.gray('  Matcher:'), hook.matcher);
+      hooks.forEach((hook: unknown, index) => {
+        const h = hook as Record<string, unknown>;
+        const config = h.config as Record<string, unknown>;
+        console.log(
+          chalk.green(`#${index + 1}`),
+          chalk.bold(h.event as string)
+        );
+        if (h.matcher) {
+          console.log(chalk.gray('  Matcher:'), h.matcher as string);
         }
-        console.log(chalk.gray('  Type:'), hook.config.type);
-        if (hook.config.type === 'command') {
-          console.log(chalk.gray('  Command:'), hook.config.command);
-        } else if (hook.config.type === 'prompt') {
-          console.log(chalk.gray('  Prompt:'), hook.config.prompt);
-        } else if (hook.config.type === 'http') {
-          console.log(chalk.gray('  URL:'), hook.config.http?.url);
-        } else if (hook.config.type === 'agent') {
-          console.log(chalk.gray('  Agent ID:'), hook.config.agent?.id);
+        console.log(chalk.gray('  Type:'), config.type as string);
+        if (config.type === 'command') {
+          console.log(chalk.gray('  Command:'), config.command as string);
+        } else if (config.type === 'prompt') {
+          console.log(chalk.gray('  Prompt:'), config.prompt as string);
+        } else if (config.type === 'http') {
+          const httpConfig = config.http as Record<string, unknown> | undefined;
+          console.log(chalk.gray('  URL:'), httpConfig?.url as string);
+        } else if (config.type === 'agent') {
+          const agentConfig = config.agent as
+            | Record<string, unknown>
+            | undefined;
+          console.log(chalk.gray('  Agent ID:'), agentConfig?.id as string);
         }
         console.log(
           chalk.gray('  Enabled:'),
-          hook.config.enabled ? 'Yes' : 'No'
+          (config.enabled as boolean) ? 'Yes' : 'No'
         );
-        console.log(chalk.gray('  Priority:'), hook.config.priority || 0);
+        console.log(
+          chalk.gray('  Priority:'),
+          (config.priority as number) || 0
+        );
         console.log();
       });
 

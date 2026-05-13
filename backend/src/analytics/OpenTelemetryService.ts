@@ -12,12 +12,12 @@ export interface TraceContext {
   spanId: string;
   traceId: string;
   parentSpanId?: string;
-  attributes: Record<string, any>;
+  attributes: Record<string, unknown>;
   startTime: number;
   events: Array<{
     name: string;
     timestamp: number;
-    attributes: Record<string, any>;
+    attributes: Record<string, unknown>;
   }>;
 }
 
@@ -73,7 +73,7 @@ export class AnalyticsSystem {
   /**
    * 创建根span
    */
-  createRootSpan(name: string, attributes?: Record<string, any>): string {
+  createRootSpan(name: string, attributes?: Record<string, unknown>): string {
     if (!this.config.enabled) {
       return '';
     }
@@ -96,7 +96,7 @@ export class AnalyticsSystem {
   /**
    * 创建子span
    */
-  createChildSpan(name: string, attributes?: Record<string, any>): string {
+  createChildSpan(name: string, attributes?: Record<string, unknown>): string {
     if (!this.config.enabled) {
       return '';
     }
@@ -123,7 +123,7 @@ export class AnalyticsSystem {
   runWithTrace<T>(
     name: string,
     fn: () => T,
-    attributes?: Record<string, any>
+    attributes?: Record<string, unknown>
   ): T {
     if (!this.config.enabled) {
       return fn();
@@ -153,7 +153,7 @@ export class AnalyticsSystem {
   runWithChildTrace<T>(
     name: string,
     fn: () => T,
-    attributes?: Record<string, any>
+    attributes?: Record<string, unknown>
   ): T {
     if (!this.config.enabled) {
       return fn();
@@ -195,7 +195,7 @@ export class AnalyticsSystem {
   /**
    * 为当前span添加事件
    */
-  addEvent(name: string, attributes?: Record<string, any>): void {
+  addEvent(name: string, attributes?: Record<string, unknown>): void {
     if (!this.config.enabled) {
       return;
     }
@@ -213,7 +213,7 @@ export class AnalyticsSystem {
   /**
    * 为当前span设置属性
    */
-  setAttribute(key: string, value: any): void {
+  setAttribute(key: string, value: unknown): void {
     if (!this.config.enabled) {
       return;
     }
@@ -293,15 +293,15 @@ export function getAnalyticsSystem(config?: TraceConfig): AnalyticsSystem {
 /**
  * 创建追踪装饰器
  */
-export function traceable(name: string, attributes?: Record<string, any>) {
+export function traceable(name: string, attributes?: Record<string, unknown>) {
   return function (
-    target: any,
+    target: unknown,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (...args: unknown[]) {
       const analytics = getAnalyticsSystem();
 
       if (typeof originalMethod === 'function') {
@@ -330,15 +330,18 @@ export function traceable(name: string, attributes?: Record<string, any>) {
 /**
  * 创建子追踪装饰器
  */
-export function childTraceable(name: string, attributes?: Record<string, any>) {
+export function childTraceable(
+  name: string,
+  attributes?: Record<string, unknown>
+) {
   return function (
-    target: any,
+    target: unknown,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (...args: unknown[]) {
       const analytics = getAnalyticsSystem();
 
       if (typeof originalMethod === 'function') {

@@ -7,6 +7,7 @@
 import type { Tool, ToolInfo, ToolParam } from '@modules/tools/types/Tool';
 import type { ToolUseContext } from '@modules/tools/types/ToolUseContext';
 import type { ToolResult } from '@modules/tools/types/ToolResult';
+import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 import type { SerializedTool } from './types';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
@@ -22,7 +23,7 @@ export class McpToolWrapper implements Tool {
   searchHint?: string;
   isMcp = true;
   mcpInfo: { serverName: string; toolName: string };
-  inputJSONSchema?: any;
+  inputJSONSchema?: unknown;
 
   private serverName: string;
   private toolName: string;
@@ -45,10 +46,11 @@ export class McpToolWrapper implements Tool {
 
     if (toolData.inputJSONSchema?.properties) {
       this.params = Object.entries(toolData.inputJSONSchema.properties).map(
-        ([name, prop]: [string, any]) => ({
+        ([name, prop]: [string, unknown]) => ({
           name,
-          type: prop.type || 'string',
-          description: prop.description || '',
+          type: ((prop as Record<string, unknown>).type as string) || 'string',
+          description:
+            ((prop as Record<string, unknown>).description as string) || '',
           required:
             ((toolData.inputJSONSchema?.required as string[]) || []).includes(
               name
@@ -75,27 +77,28 @@ export class McpToolWrapper implements Tool {
   }
 
   async execute(
-    input: any,
+    input: unknown,
     _context: ToolUseContext,
-    _onProgress?: any
+    _onProgress?: unknown
   ): Promise<ToolResult> {
     const client = this.getClient();
     if (!client) {
       return {
         success: false,
         error: `MCP server "${this.serverName}" is not connected`,
-        status: 'failure' as any,
+        status: ToolExecutionStatus.FAILURE,
       };
     }
 
     try {
-      const result = await (client as any).tools.call({
+      const mcpClient = client as unknown as Record<string, unknown>;
+      const result = await (mcpClient.tools as { call: Function }).call({
         name: this.toolName,
         arguments: input,
       });
 
       const content = result.content as
-        | Array<{ type: string; text?: string; data?: any }>
+        | Array<{ type: string; text?: string; data?: unknown }>
         | undefined;
       const textContent =
         content
@@ -107,14 +110,16 @@ export class McpToolWrapper implements Tool {
         success: !result.isError,
         output: textContent,
         data: result,
-        status: result.isError ? ('failure' as any) : ('success' as any),
+        status: result.isError
+          ? ToolExecutionStatus.FAILURE
+          : ToolExecutionStatus.SUCCESS,
         mcpMeta: result._meta ? { _meta: result._meta } : undefined,
       };
     } catch (error) {
       return {
         success: false,
         error: `MCP tool call failed: ${error instanceof Error ? error.message : String(error)}`,
-        status: 'failure' as any,
+        status: ToolExecutionStatus.FAILURE,
       };
     }
   }

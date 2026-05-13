@@ -36,10 +36,17 @@ export default {
   ): Promise<CommandResult> {
     try {
       if (context.chatManager) {
-        const result = await context.chatManager.rewindSession(
-          context.sessionId,
-          steps
-        );
+        const cm = context.chatManager as {
+          rewindSession: (
+            sessionId: string | undefined,
+            steps: number
+          ) => Promise<{
+            success?: boolean;
+            error?: string;
+            [key: string]: unknown;
+          }>;
+        };
+        const result = await cm.rewindSession(context.sessionId, steps);
 
         if (result.success) {
           context.onDone?.(`会话已回退 ${steps} 步`, { display: 'system' });
@@ -81,10 +88,17 @@ export default {
   ): Promise<CommandResult> {
     try {
       if (context.chatManager) {
-        const result = await context.chatManager.rewindToMessage(
-          context.sessionId,
-          messageId
-        );
+        const cm = context.chatManager as {
+          rewindToMessage: (
+            sessionId: string | undefined,
+            messageId: string
+          ) => Promise<{
+            success?: boolean;
+            error?: string;
+            [key: string]: unknown;
+          }>;
+        };
+        const result = await cm.rewindToMessage(context.sessionId, messageId);
 
         if (result.success) {
           context.onDone?.(`会话已回退到消息 ${messageId}`, {

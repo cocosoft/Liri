@@ -41,7 +41,7 @@ export interface ToolDefinition {
   enabled?: boolean;
 
   /** 工具配置 */
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 /**
@@ -61,7 +61,7 @@ export interface ToolParameter {
   required?: boolean;
 
   /** 参数默认值 */
-  default?: any;
+  default?: unknown;
 
   /** 参数验证规则 */
   validation?: ToolParameterValidation;
@@ -90,7 +90,7 @@ export interface ToolParameterValidation {
   pattern?: string;
 
   /** 自定义验证函数 */
-  validator?: (value: any) => boolean;
+  validator?: (value: unknown) => boolean;
 }
 
 /**
@@ -104,7 +104,7 @@ export interface ToolReturn {
   description: string;
 
   /** 返回示例 */
-  example?: any;
+  example?: unknown;
 }
 
 /**
@@ -144,10 +144,10 @@ export interface ToolExecutionContext {
   environment: Record<string, string>;
 
   /** 输入参数 */
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 
   /** 工具配置 */
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 
   /** 执行选项 */
   options: ToolExecutionOptions;
@@ -193,7 +193,7 @@ export interface ToolExecutionResult {
   success: boolean;
 
   /** 执行输出 */
-  output?: any;
+  output?: unknown;
 
   /** 错误信息 */
   error?: string;
@@ -269,7 +269,7 @@ export interface ToolExecutionLog {
   message: string;
 
   /** 日志数据 */
-  data?: any;
+  data?: unknown;
 }
 
 /**
@@ -470,7 +470,7 @@ export interface ToolAlertAction {
   type: 'log' | 'notify' | 'disable' | 'restart';
 
   /** 动作配置 */
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 /**
@@ -509,7 +509,7 @@ export interface ToolSandboxConfig {
   type: 'process' | 'container' | 'vm';
 
   /** 沙箱配置 */
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 /**
@@ -540,7 +540,7 @@ export interface ToolValidationRule {
   field: string;
 
   /** 验证条件 */
-  condition: (value: any) => boolean;
+  condition: (value: unknown) => boolean;
 
   /** 错误消息 */
   errorMessage: string;
@@ -589,7 +589,7 @@ export interface ToolEventData {
   timestamp: Date;
 
   /** 事件数据 */
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
 /**

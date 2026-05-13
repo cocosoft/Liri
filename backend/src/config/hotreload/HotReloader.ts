@@ -5,9 +5,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 export type ReloadStrategy = 'watch' | 'poll' | 'manual';
 
 export interface ReloadEvent {
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   changedKeys: string[];
-  previousConfig: Record<string, any>;
+  previousConfig: Record<string, unknown>;
   timestamp: number;
   source: string;
 }
@@ -22,7 +22,7 @@ export interface ReloadResult {
 export type ReloadListener = (event: ReloadEvent) => void;
 export type ReloadErrorListener = (
   error: Error,
-  previousConfig: Record<string, any>
+  previousConfig: Record<string, unknown>
 ) => void;
 
 export interface HotReloadConfig {
@@ -47,14 +47,14 @@ export class HotReloader {
   private config: HotReloadConfig;
   private listeners: Set<ReloadListener> = new Set();
   private errorListeners: Set<ReloadErrorListener> = new Set();
-  private currentConfig: Record<string, any> = {};
-  private previousConfig: Record<string, any> = {};
+  private currentConfig: Record<string, unknown> = {};
+  private previousConfig: Record<string, unknown> = {};
   private isReloading: boolean = false;
   private watchPaths: Set<string> = new Set();
   private lastReloadTime: number = 0;
   private reloadCount: number = 0;
   private rollbackCount: number = 0;
-  private loadFn: (() => Promise<Record<string, any>>) | null = null;
+  private loadFn: (() => Promise<Record<string, unknown>>) | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(customConfig?: Partial<HotReloadConfig>) {
@@ -65,11 +65,11 @@ export class HotReloader {
     Object.assign(this.config, cfg);
   }
 
-  setLoadFn(fn: () => Promise<Record<string, any>>): void {
+  setLoadFn(fn: () => Promise<Record<string, unknown>>): void {
     this.loadFn = fn;
   }
 
-  setInitialConfig(config: Record<string, any>): void {
+  setInitialConfig(config: Record<string, unknown>): void {
     this.currentConfig = { ...config };
     this.previousConfig = { ...config };
   }
@@ -183,8 +183,8 @@ export class HotReloader {
   }
 
   private detectChanges(
-    oldCfg: Record<string, any>,
-    newCfg: Record<string, any>,
+    oldCfg: Record<string, unknown>,
+    newCfg: Record<string, unknown>,
     prefix = ''
   ): string[] {
     const changes: string[] = [];
@@ -207,7 +207,13 @@ export class HotReloader {
         !Array.isArray(oldVal) &&
         !Array.isArray(newVal)
       ) {
-        changes.push(...this.detectChanges(oldVal, newVal, fullKey));
+        changes.push(
+          ...this.detectChanges(
+            oldVal as Record<string, unknown>,
+            newVal as Record<string, unknown>,
+            fullKey
+          )
+        );
       } else if (oldVal !== newVal) {
         changes.push(fullKey);
       }
@@ -226,7 +232,10 @@ export class HotReloader {
     }
   }
 
-  private notifyError(error: Error, previousConfig: Record<string, any>): void {
+  private notifyError(
+    error: Error,
+    previousConfig: Record<string, unknown>
+  ): void {
     for (const listener of this.errorListeners) {
       try {
         listener(error, previousConfig);
@@ -236,11 +245,11 @@ export class HotReloader {
     }
   }
 
-  getCurrentConfig(): Record<string, any> {
+  getCurrentConfig(): Record<string, unknown> {
     return { ...this.currentConfig };
   }
 
-  getPreviousConfig(): Record<string, any> {
+  getPreviousConfig(): Record<string, unknown> {
     return { ...this.previousConfig };
   }
 

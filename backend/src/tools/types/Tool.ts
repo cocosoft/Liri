@@ -33,9 +33,9 @@ export interface ToolParam {
   type: string;
   description: string;
   required: boolean;
-  default?: any;
+  default?: unknown;
   enum?: string[];
-  example?: any;
+  example?: unknown;
   minimum?: number;
   maximum?: number;
 }
@@ -70,8 +70,8 @@ export type ToolCallProgress<P extends ToolProgressData = ToolProgressData> =
  * 工具接口
  */
 export interface Tool<
-  Input = any,
-  Output = any,
+  Input = unknown,
+  Output = unknown,
   P extends ToolProgressData = ToolProgressData,
 > {
   /**
@@ -210,7 +210,7 @@ export interface Tool<
     input: Input,
     options: {
       isNonInteractiveSession: boolean;
-      toolPermissionContext: any;
+      toolPermissionContext: unknown;
     }
   ): Promise<string>;
 
@@ -222,7 +222,7 @@ export interface Tool<
   /**
    * JSON格式的输入Schema（用于MCP工具）
    */
-  inputJSONSchema?: any;
+  inputJSONSchema?: unknown;
 
   /**
    * 输出Schema
@@ -334,15 +334,24 @@ export interface Tool<
  */
 export type Tools = readonly Tool[];
 
-export type ToolCall = any;
-export type ToolContext = any;
+export interface ToolCall {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+  arguments?: Record<string, unknown> | string;
+  toolName?: string;
+  function?: { name: string };
+  [key: string]: unknown;
+}
+
+export type ToolContext = Record<string, unknown>;
 
 /**
  * 工具定义类型
  */
 export type ToolDef<
-  Input = any,
-  Output = any,
+  Input = unknown,
+  Output = unknown,
   P extends ToolProgressData = ToolProgressData,
 > = Omit<
   Tool<Input, Output, P>,
@@ -378,10 +387,10 @@ export type ToolDef<
     >
   > & {
     prompt?: string | (() => string);
-    renderToolUseMessage?: () => any;
-    renderToolResultMessage?: (output: Output, toolUseId: string) => any;
-    renderToolUseRejectedMessage?: () => any;
-    renderToolUseErrorMessage?: () => any;
+    renderToolUseMessage?: () => unknown;
+    renderToolResultMessage?: (output: Output, toolUseId: string) => unknown;
+    renderToolUseRejectedMessage?: () => unknown;
+    renderToolUseErrorMessage?: () => unknown;
   };
 
 /**
@@ -412,8 +421,8 @@ export const TOOL_DEFAULTS = {
  * 从部分定义构建完整工具，填充默认值
  */
 export function buildTool<
-  Input = any,
-  Output = any,
+  Input = unknown,
+  Output = unknown,
   P extends ToolProgressData = ToolProgressData,
 >(def: ToolDef<Input, Output, P>): Tool<Input, Output, P> {
   const tool = {

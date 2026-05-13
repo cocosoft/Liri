@@ -45,7 +45,7 @@ interface ImportOptions {
 /**
  * 导入结果
  */
-interface ImportResult<T = any> {
+interface ImportResult<T = unknown> {
   success: boolean;
   module?: T;
   error?: Error;
@@ -57,7 +57,7 @@ interface ImportResult<T = any> {
  */
 export class ImportManager {
   private static instance: ImportManager;
-  private moduleCache: Map<string, any> = new Map();
+  private moduleCache: Map<string, unknown> = new Map();
   private config: ImportManagerConfig;
 
   /**
@@ -146,7 +146,7 @@ export class ImportManager {
   /**
    * 导入单个模块
    */
-  public async import<T = any>(
+  public async import<T = unknown>(
     path: string,
     options: ImportOptions = {}
   ): Promise<ImportResult<T>> {
@@ -159,25 +159,29 @@ export class ImportManager {
 
       // 检查缓存
       if (mergedOptions.cache && this.moduleCache.has(resolvedPath)) {
-        const module = this.moduleCache.get(resolvedPath);
+        const cached = this.moduleCache.get(resolvedPath) as T | undefined;
         return {
           success: true,
-          module,
+          module: cached,
           duration: Date.now() - startTime,
         };
       }
 
       // 动态导入模块
-      let module: any;
+      let module: unknown;
 
       if (mergedOptions.lazy) {
         // 懒加载：返回一个代理对象
-        module = new Proxy({} as Record<string, any>, {
-          get: (target: any, prop: string) => {
+        module = new Proxy({} as Record<string, unknown>, {
+          get: (target: Record<string, unknown>, prop: string) => {
             if (!target['__module__']) {
-              target['__module__'] = this.loadModule(resolvedPath);
+              target['__module__'] = this.loadModule(resolvedPath) as Promise<
+                Record<string, unknown>
+              >;
             }
-            return target['__module__'].then((m: any) => m[prop]);
+            return (
+              target['__module__'] as Promise<Record<string, unknown>>
+            ).then((m: Record<string, unknown>) => m[prop]);
           },
         });
       } else {
@@ -192,7 +196,7 @@ export class ImportManager {
 
       return {
         success: true,
-        module,
+        module: module as T,
         duration: Date.now() - startTime,
       };
     } catch (error) {
@@ -265,7 +269,7 @@ export class ImportManager {
   /**
    * 加载模块的具体实现
    */
-  private async loadModule(path: string): Promise<any> {
+  private async loadModule(path: string): Promise<unknown> {
     return await import(path);
   }
 
@@ -327,7 +331,7 @@ export const importManager = ImportManager.getInstance();
 /**
  * 便捷导入函数
  */
-export async function importModule<T = any>(
+export async function importModule<T = unknown>(
   path: string,
   options?: ImportOptions
 ): Promise<T> {
@@ -341,7 +345,7 @@ export async function importModule<T = any>(
 /**
  * 从注册表便捷导入函数
  */
-export async function importFromRegistry<T = any>(
+export async function importFromRegistry<T = unknown>(
   moduleId: string,
   options?: ImportOptions
 ): Promise<T> {

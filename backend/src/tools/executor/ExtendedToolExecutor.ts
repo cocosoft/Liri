@@ -1,41 +1,53 @@
-/**
- * 扩展工具执行器
- */
-
 import { ParallelExecutor } from './ParallelExecutor';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
+interface ToolDescriptor {
+  execute(
+    params: Record<string, unknown>,
+    context: Record<string, unknown>
+  ): Promise<Record<string, unknown>>;
+}
+
+interface ToolRegistry {
+  get(toolId: string): ToolDescriptor | undefined;
+}
+
+interface ExecuteOptions {
+  timeout?: number;
+  retry?: {
+    enabled: boolean;
+    maxAttempts: number;
+    delay?: number;
+  };
+  outputFormat?: 'text' | 'json' | 'html';
+  environment?: Record<string, unknown>;
+  cwd?: string;
+  cache?: boolean;
+}
 
 /**
  * 扩展工具执行器
  */
 export class ExtendedToolExecutor {
-  private toolRegistry: any;
+  private toolRegistry: ToolRegistry;
   private parallelExecutor: ParallelExecutor;
 
-  /**
-   * 构造函数
-   */
-  constructor(toolRegistry: any, parallelExecutor?: ParallelExecutor) {
+  constructor(toolRegistry: ToolRegistry, parallelExecutor?: ParallelExecutor) {
     this.toolRegistry = toolRegistry;
     this.parallelExecutor = parallelExecutor || new ParallelExecutor();
   }
 
-  /**
-   * 执行工具
-   */
   async executeTool(
     toolId: string,
-    params: any,
-    options: any = {},
-    context: any
-  ): Promise<any> {
+    params: Record<string, unknown>,
+    options: ExecuteOptions = {},
+    context: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const startTime = Date.now();
 
     try {
-      // 执行工具
       const result = await this.doExecute(toolId, params, options, context);
       result.executionTime = Date.now() - startTime;
-
       return result;
     } catch (error) {
       return {
@@ -46,16 +58,12 @@ export class ExtendedToolExecutor {
     }
   }
 
-  /**
-   * 执行工具（内部方法）
-   */
   private async doExecute(
     toolId: string,
-    params: any,
-    options: any,
-    context: any
-  ): Promise<any> {
-    // 检查工具是否存在
+    params: Record<string, unknown>,
+    options: ExecuteOptions,
+    context: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const tool = this.toolRegistry.get(toolId);
     if (!tool) {
       throw new AppError(
@@ -66,7 +74,6 @@ export class ExtendedToolExecutor {
       );
     }
 
-    // 应用超时
     if (options.timeout) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), options.timeout);
@@ -74,7 +81,7 @@ export class ExtendedToolExecutor {
       try {
         const result = await Promise.race([
           this.executeWithOptions(tool, params, options, context),
-          new Promise<any>((_, reject) => {
+          new Promise<Record<string, unknown>>((_, reject) => {
             controller.signal.addEventListener('abort', () => {
               reject(
                 new Error(`Tool execution timed out after ${options.timeout}ms`)
@@ -93,16 +100,12 @@ export class ExtendedToolExecutor {
     }
   }
 
-  /**
-   * 执行工具（带选项）
-   */
   private async executeWithOptions(
-    tool: any,
-    params: any,
-    options: any,
-    context: any
-  ): Promise<any> {
-    // 应用重试策略
+    tool: ToolDescriptor,
+    params: Record<string, unknown>,
+    options: ExecuteOptions,
+    context: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     if (options.retry?.enabled) {
       let attempts = 0;
       const maxAttempts = options.retry.maxAttempts;
@@ -124,36 +127,31 @@ export class ExtendedToolExecutor {
     return await this.executeToolInternal(tool, params, options, context);
   }
 
-  /**
-   * 执行工具（内部）
-   */
   private async executeToolInternal(
-    tool: any,
-    params: any,
-    options: any,
-    context: any
-  ): Promise<any> {
-    // 执行工具
+    tool: ToolDescriptor,
+    params: Record<string, unknown>,
+    options: ExecuteOptions,
+    context: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const result = await tool.execute(params, {
       ...context,
       env: {
-        ...context.env,
+        ...((context.env as Record<string, unknown>) || {}),
         ...options.environment,
       },
-      cwd: options.cwd || context.cwd,
+      cwd: options.cwd || (context.cwd as string),
     });
 
-    // 格式化输出
     if (options.outputFormat && result.output) {
-      result.output = this.formatOutput(result.output, options.outputFormat);
+      result.output = this.formatOutput(
+        result.output as string,
+        options.outputFormat
+      );
     }
 
     return result;
   }
 
-  /**
-   * 格式化输出
-   */
   private formatOutput(
     output: string,
     format: 'text' | 'json' | 'html'
@@ -173,23 +171,17 @@ export class ExtendedToolExecutor {
     }
   }
 
-  /**
-   * 生成缓存键
-   */
-  private generateCacheKey(toolId: string, params: any): string {
+  private generateCacheKey(
+    toolId: string,
+    params: Record<string, unknown>
+  ): string {
     return `${toolId}:${JSON.stringify(params)}`;
   }
 
-  /**
-   * 睡眠
-   */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /**
-   * 转义HTML
-   */
   private escapeHtml(text: string): string {
     return text
       .replace(/&/g, '&amp;')
@@ -199,37 +191,31 @@ export class ExtendedToolExecutor {
       .replace(/'/g, '&#039;');
   }
 
-  /**
-   * 并行执行多个工具
-   */
   async executeParallel(
     tasks: Array<{
       toolId: string;
-      params: any;
-      options?: any;
+      params: Record<string, unknown>;
+      options?: ExecuteOptions;
     }>,
-    context: any
-  ): Promise<any[]> {
+    context: Record<string, unknown>
+  ): Promise<unknown[]> {
     const parallelTasks = tasks.map((task) => ({
       execute: () =>
         this.executeTool(task.toolId, task.params, task.options || {}, context),
     }));
 
-    const results = await this.parallelExecutor.execute<any>(parallelTasks);
+    const results =
+      await this.parallelExecutor.execute<Record<string, unknown>>(
+        parallelTasks
+      );
     return results.map((r) => r.data);
   }
 
-  /**
-   * 清理缓存
-   */
   async clearCache(): Promise<void> {
     // 缓存清理功能暂时不可用
   }
 
-  /**
-   * 设置工具注册表
-   */
-  setToolRegistry(registry: any): void {
+  setToolRegistry(registry: ToolRegistry): void {
     this.toolRegistry = registry;
   }
 }

@@ -84,13 +84,18 @@ export class HookExecutor {
       }
 
       // 记录性能开始
-      performanceManager.startExecution(hookId, hook.name, hook.config.type);
+      const hookType = (hook.config as Record<string, unknown>).type as string;
+      performanceManager.startExecution(hookId, hook.name, hookType);
 
       // 构建环境变量
       const envOptions = {
         sessionId: context.sessionId,
-        skillRoot: context.skillRoot,
-        pluginOptions: context.pluginOptions,
+        skillRoot: (context as Record<string, unknown>).skillRoot as
+          | string
+          | undefined,
+        pluginOptions: (context as Record<string, unknown>).pluginOptions as
+          | Record<string, string>
+          | undefined,
       };
       const env = environmentManager.buildEnvironment(envOptions);
 
@@ -106,10 +111,14 @@ export class HookExecutor {
       context.env = env;
 
       // 传递安全配置
-      context.securityConfig = securityManager.getSandboxConfig();
+      context.securityConfig =
+        securityManager.getSandboxConfig() as unknown as Record<
+          string,
+          unknown
+        >;
 
       let result: HookExecutionResult;
-      switch (hook.config.type) {
+      switch (hookType) {
         case 'command':
           result = await this.commandExecutor.execute(hook, context);
           break;
@@ -128,7 +137,7 @@ export class HookExecutor {
         default:
           result = {
             success: false,
-            error: `Unknown hook type: ${hook.config.type}`,
+            error: `Unknown hook type: ${hookType}`,
           };
       }
 
@@ -136,7 +145,7 @@ export class HookExecutor {
       performanceManager.endExecution(
         hookId,
         hook.name,
-        hook.config.type,
+        hookType,
         result.success,
         result.error
       );
@@ -163,7 +172,7 @@ export class HookExecutor {
       performanceManager.endExecution(
         hookId,
         hook.name,
-        hook.config.type || 'unknown',
+        ((hook.config as Record<string, unknown>).type as string) || 'unknown',
         false,
         errorMessage
       );

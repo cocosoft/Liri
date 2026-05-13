@@ -26,7 +26,17 @@ export class HttpHookExecutor {
     hook: IndividualHookConfig,
     context: HookExecutionContext
   ): Promise<HookExecutionResult> {
-    if (!hook.config.http || !hook.config.http.url) {
+    const config = hook.config as Record<string, unknown>;
+    const httpConfig = config.http as
+      | {
+          url: string;
+          method?: string;
+          headers?: Record<string, string>;
+          body?: unknown;
+        }
+      | undefined;
+
+    if (!httpConfig?.url) {
       return {
         success: false,
         error: 'HTTP url is required for HTTP type hook',
@@ -34,7 +44,7 @@ export class HttpHookExecutor {
     }
 
     try {
-      const { url, method = 'POST', headers = {}, body } = hook.config.http;
+      const { url, method = 'POST', headers = {}, body } = httpConfig;
 
       // 构建请求选项
       const parsedUrl = new URL(url);

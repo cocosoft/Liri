@@ -235,41 +235,41 @@ export class PerformanceProfiler {
   /**
    * 包装函数以记录执行时间
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  wrap<T extends (...args: any[]) => any>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-unknown
+  wrap<T extends (...args: unknown[]) => unknown>(
     metric: PerformanceMetric,
     name: string,
     fn: T,
     metadata?: Record<string, unknown>
   ): (...args: Parameters<T>) => ReturnType<T> {
-    return (...args: Parameters<T>) => {
+    return ((...args: Parameters<T>) => {
       const eventId = this.startEvent(metric, name, metadata);
       try {
         return fn(...args);
       } finally {
         this.endEvent(eventId);
       }
-    };
+    }) as (...args: Parameters<T>) => ReturnType<T>;
   }
 
   /**
    * 包装异步函数以记录执行时间
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  asyncWrap<T extends (...args: any[]) => any>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-unknown
+  asyncWrap<T extends (...args: unknown[]) => unknown>(
     metric: PerformanceMetric,
     name: string,
     fn: T,
     metadata?: Record<string, unknown>
   ): (...args: Parameters<T>) => Promise<Awaited<ReturnType<T>>> {
-    return async (...args: Parameters<T>) => {
+    return (async (...args: Parameters<T>) => {
       const eventId = this.startEvent(metric, name, metadata);
       try {
         return await fn(...args);
       } finally {
         this.endEvent(eventId);
       }
-    };
+    }) as (...args: Parameters<T>) => Promise<Awaited<ReturnType<T>>>;
   }
 
   /**
@@ -791,8 +791,8 @@ export const performanceUtils = {
   /**
    * 节流函数
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  throttle: <T extends (...args: any[]) => any>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-unknown
+  throttle: <T extends (...args: unknown[]) => unknown>(
     fn: T,
     delay: number
   ): ((...args: Parameters<T>) => void) => {
@@ -809,8 +809,8 @@ export const performanceUtils = {
   /**
    * 防抖函数
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debounce: <T extends (...args: any[]) => any>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-unknown
+  debounce: <T extends (...args: unknown[]) => unknown>(
     fn: T,
     delay: number
   ): ((...args: Parameters<T>) => void) => {

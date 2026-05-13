@@ -25,7 +25,7 @@ export type HttpMethod =
 export interface NetworkRequestOptions {
   method?: HttpMethod;
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
   timeout?: number;
   retry?: number;
   retryDelay?: number;
@@ -38,7 +38,7 @@ export interface NetworkRequestOptions {
 /**
  * 网络请求响应
  */
-export interface NetworkResponse<T = any> {
+export interface NetworkResponse<T = unknown> {
   status: number;
   statusText: string;
   headers: Record<string, string>;
@@ -85,7 +85,7 @@ export class NetworkManager {
   /**
    * 执行网络请求
    */
-  async request<T = any>(
+  async request<T = unknown>(
     url: string,
     options: NetworkRequestOptions = {}
   ): Promise<NetworkResponse<T>> {
@@ -155,7 +155,7 @@ export class NetworkManager {
   /**
    * 执行实际的网络请求
    */
-  private async executeRequest<T = any>(
+  private async executeRequest<T = unknown>(
     url: string,
     options: Omit<
       NetworkRequestOptions,
@@ -206,7 +206,7 @@ export class NetworkManager {
               status: response.status,
               statusText: response.statusText,
               headers: this.getHeaders(response),
-              data,
+              data: data as T,
               duration,
               fromCache: false,
             }
@@ -217,7 +217,7 @@ export class NetworkManager {
           status: response.status,
           statusText: response.statusText,
           headers: this.getHeaders(response),
-          data,
+          data: data as T,
           duration,
           fromCache: false,
         };
@@ -236,7 +236,7 @@ export class NetworkManager {
 
         logger.warn(
           `Network request failed, retrying (${attempt}/${retry}): ${url}`,
-          error as any
+          { error }
         );
         await this.delay(retryDelay * Math.pow(2, attempt - 1)); // 指数退避
       }
@@ -248,7 +248,7 @@ export class NetworkManager {
   /**
    * 解析响应
    */
-  private async parseResponse(response: Response): Promise<any> {
+  private async parseResponse(response: Response): Promise<unknown> {
     const contentType = response.headers.get('Content-Type');
 
     if (contentType?.includes('application/json')) {
@@ -281,7 +281,7 @@ export class NetworkManager {
   /**
    * GET请求
    */
-  async get<T = any>(
+  async get<T = unknown>(
     url: string,
     options: Omit<NetworkRequestOptions, 'method'> = {}
   ): Promise<NetworkResponse<T>> {
@@ -291,9 +291,9 @@ export class NetworkManager {
   /**
    * POST请求
    */
-  async post<T = any>(
+  async post<T = unknown>(
     url: string,
-    data: any,
+    data: unknown,
     options: Omit<NetworkRequestOptions, 'method' | 'body'> = {}
   ): Promise<NetworkResponse<T>> {
     return this.request<T>(url, { ...options, method: 'POST', body: data });
@@ -302,9 +302,9 @@ export class NetworkManager {
   /**
    * PUT请求
    */
-  async put<T = any>(
+  async put<T = unknown>(
     url: string,
-    data: any,
+    data: unknown,
     options: Omit<NetworkRequestOptions, 'method' | 'body'> = {}
   ): Promise<NetworkResponse<T>> {
     return this.request<T>(url, { ...options, method: 'PUT', body: data });
@@ -313,7 +313,7 @@ export class NetworkManager {
   /**
    * DELETE请求
    */
-  async delete<T = any>(
+  async delete<T = unknown>(
     url: string,
     options: Omit<NetworkRequestOptions, 'method'> = {}
   ): Promise<NetworkResponse<T>> {
@@ -323,9 +323,9 @@ export class NetworkManager {
   /**
    * PATCH请求
    */
-  async patch<T = any>(
+  async patch<T = unknown>(
     url: string,
-    data: any,
+    data: unknown,
     options: Omit<NetworkRequestOptions, 'method' | 'body'> = {}
   ): Promise<NetworkResponse<T>> {
     return this.request<T>(url, { ...options, method: 'PATCH', body: data });
@@ -351,22 +351,22 @@ export const networkManager = new NetworkManager();
  */
 export function cachedNetworkRequest(expiry?: number) {
   return function (
-    target: any,
+    target: unknown,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       const cacheKey = `${propertyKey}:${JSON.stringify(args)}`;
-      const cachedValue = getGlobalCache<any>().get(cacheKey);
+      const cachedValue = getGlobalCache<unknown>().get(cacheKey);
 
       if (cachedValue !== null) {
         return cachedValue;
       }
 
       const result = await originalMethod.apply(this, args);
-      getGlobalCache<any>().set(cacheKey, result, expiry);
+      getGlobalCache<unknown>().set(cacheKey, result, expiry);
       return result;
     };
   };

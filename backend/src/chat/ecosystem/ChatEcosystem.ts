@@ -6,7 +6,7 @@ export interface ExtensionPoint {
   handlers: Set<ExtensionHandler>;
 }
 
-export type ExtensionHandler = (context: any) => Promise<any> | any;
+export type ExtensionHandler = (context: unknown) => Promise<unknown> | unknown;
 
 export interface Extension {
   id: string;
@@ -20,7 +20,7 @@ export interface Extension {
 export interface EcosystemEvent {
   type: string;
   source: string;
-  data: any;
+  data: unknown;
   timestamp: number;
 }
 
@@ -40,8 +40,8 @@ export interface IChatEcosystem {
   unregisterExtension(id: string): boolean;
   getExtension(id: string): Extension | null;
   getExtensionsByHook(hookName: string): Extension[];
-  executeHook(hookName: string, context: any): Promise<any[]>;
-  emitEvent(type: string, source: string, data: any): void;
+  executeHook(hookName: string, context: unknown): Promise<unknown[]>;
+  emitEvent(type: string, source: string, data: unknown): void;
   onEvent(listener: EventListener): () => void;
   getMetrics(): EcosystemMetrics;
 }
@@ -169,12 +169,12 @@ export class ChatEcosystem implements IChatEcosystem {
     return results.sort((a, b) => b.priority - a.priority);
   }
 
-  async executeHook(hookName: string, context: any): Promise<any[]> {
+  async executeHook(hookName: string, context: unknown): Promise<unknown[]> {
     const point = this.extensionPoints.get(hookName);
     if (!point) return [];
 
     const sortedExtensions = this.getExtensionsByHook(hookName);
-    const results: any[] = [];
+    const results: unknown[] = [];
 
     for (const ext of sortedExtensions) {
       const handler = ext.hooks[hookName];
@@ -198,7 +198,7 @@ export class ChatEcosystem implements IChatEcosystem {
     return results;
   }
 
-  emitEvent(type: string, source: string, data: any): void {
+  emitEvent(type: string, source: string, data: unknown): void {
     const event: EcosystemEvent = {
       type,
       source,

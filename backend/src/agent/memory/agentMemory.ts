@@ -1,4 +1,3 @@
-//
 /**
  * 代理内存
  */
@@ -14,7 +13,7 @@ const logger = new Logger({ level: LogLevel.INFO });
  * 内存项接口
  */
 export interface MemoryItem {
-  value: any;
+  value: unknown;
   timestamp: number;
   accessedAt: number;
   scope: AgentMemoryScope;
@@ -62,7 +61,7 @@ export class AgentMemoryImpl implements AgentMemory {
    * @param value 值
    * @param tags 标签
    */
-  add(key: string, value: any, tags?: string[]): void {
+  add(key: string, value: unknown, tags?: string[]): void {
     this.data[key] = {
       value,
       timestamp: Date.now(),
@@ -80,7 +79,7 @@ export class AgentMemoryImpl implements AgentMemory {
    * @param key 键
    * @returns 值
    */
-  get(key: string): any {
+  get(key: string): unknown {
     const item = this.data[key];
     if (item) {
       // 更新访问时间
@@ -112,8 +111,8 @@ export class AgentMemoryImpl implements AgentMemory {
    * 获取所有内存数据
    * @returns 所有内存数据
    */
-  getAll(): Record<string, any> {
-    const result: Record<string, any> = {};
+  getAll(): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(this.data)) {
       result[key] = item.value;
     }
@@ -193,9 +192,9 @@ export class AgentMemoryImpl implements AgentMemory {
    * @returns 匹配的内存项
    */
   scan(
-    predicate: (key: string, value: any, item: MemoryItem) => boolean
-  ): Record<string, any> {
-    const result: Record<string, any> = {};
+    predicate: (key: string, value: unknown, item: MemoryItem) => boolean
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
 
     for (const [key, item] of Object.entries(this.data)) {
       if (predicate(key, item.value, item)) {
@@ -211,7 +210,7 @@ export class AgentMemoryImpl implements AgentMemory {
    * @param tag 标签
    * @returns 匹配的内存项
    */
-  searchByTag(tag: string): Record<string, any> {
+  searchByTag(tag: string): Record<string, unknown> {
     return this.scan(
       (key, value, item) => !!(item.tags && item.tags.includes(tag))
     );
@@ -222,7 +221,7 @@ export class AgentMemoryImpl implements AgentMemory {
    * @param scope 内存作用域
    * @returns 匹配的内存项
    */
-  filterByScope(scope: AgentMemoryScope): Record<string, any> {
+  filterByScope(scope: AgentMemoryScope): Record<string, unknown> {
     return this.scan((key, value, item) => item.scope === scope);
   }
 

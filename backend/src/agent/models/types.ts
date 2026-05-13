@@ -23,12 +23,12 @@ export interface AgentTask {
   id: string;
   name: string;
   description: string;
-  input: Record<string, any>;
-  expectedOutput?: Record<string, any>;
+  input: Record<string, unknown>;
+  expectedOutput?: Record<string, unknown>;
   tools?: AgentTool[];
   deadline?: number;
   priority?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -37,8 +37,10 @@ export interface AgentTask {
 export interface AgentTool {
   name: string;
   description: string;
-  parameters: Record<string, any>;
-  execute: (params: Record<string, any>) => Promise<Record<string, any>>;
+  parameters: Record<string, unknown>;
+  execute: (
+    params: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
 }
 
 /**
@@ -48,7 +50,7 @@ export interface AgentResponse {
   id: string;
   taskId: string;
   content: string;
-  result?: Record<string, any>;
+  result?: Record<string, unknown>;
   status: AgentState;
   error?: string;
   usage?: {
@@ -58,7 +60,7 @@ export interface AgentResponse {
   };
   timestamp: number;
   finishReason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -84,25 +86,25 @@ export interface AgentContext {
   timeout: number;
   taskId?: string;
   agentId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
  * 代理内存
  */
 export interface AgentMemory {
-  add(key: string, value: any, tags?: string[]): void;
-  get(key: string): any;
+  add(key: string, value: unknown, tags?: string[]): void;
+  get(key: string): unknown;
   delete(key: string): void;
   clear(): void;
-  getAll(): Record<string, any>;
+  getAll(): Record<string, unknown>;
   save(): void;
   load(): void;
   scan(
-    predicate: (key: string, value: any, item: any) => boolean
-  ): Record<string, any>;
-  searchByTag(tag: string): Record<string, any>;
-  filterByScope(scope: AgentMemoryScope): Record<string, any>;
+    predicate: (key: string, value: unknown, item: unknown) => boolean
+  ): Record<string, unknown>;
+  searchByTag(tag: string): Record<string, unknown>;
+  filterByScope(scope: AgentMemoryScope): Record<string, unknown>;
   getStats(): {
     totalItems: number;
     oldestItem: number | null;
@@ -169,7 +171,7 @@ export interface AIAgent {
     toolCount: number;
   };
   updateConfig(config: Partial<AgentConfig>): void;
-  serialize(): any;
+  serialize(): unknown;
 }
 
 /**
@@ -178,8 +180,8 @@ export interface AIAgent {
 export interface AgentHistory {
   taskId: string;
   agentId: string;
-  input: Record<string, any>;
-  output: Record<string, any>;
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
   status: AgentState;
   error?: string;
   timestamp: number;
@@ -234,7 +236,7 @@ export interface BaseAgentDefinition {
   tools?: string[];
   disallowedTools?: string[];
   skills?: string[];
-  mcpServers?: any[];
+  mcpServers?: unknown[];
   hooks?: HooksSettings;
   color?: AgentColorName;
   model?: string;

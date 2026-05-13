@@ -3,6 +3,7 @@
  * 负责创建各种工具实例，支持基于功能标志的条件加载
  */
 import { Tool } from './types/Tool';
+import type { ToolProgressData } from './types/ToolProgress';
 import { createToolResult } from './types/ToolResult';
 import { BashTool } from './bash/BashTool';
 import { FileReadTool } from './FileReadTool/FileReadTool';
@@ -94,10 +95,10 @@ export class ToolFactory {
       // 将输入 schema 的属性转换为标准化的参数列表
       params: def.inputSchema?.properties
         ? Object.entries(def.inputSchema.properties).map(
-            ([name, prop]: [string, any]) => ({
+            ([name, prop]: [string, Record<string, unknown>]) => ({
               name,
-              type: prop.type || 'string',
-              description: prop.description || '',
+              type: (prop.type as string) || 'string',
+              description: (prop.description as string) || '',
               required: def.inputSchema?.required?.includes(name) || false,
               default: prop.default,
             })
@@ -110,7 +111,11 @@ export class ToolFactory {
       isReadOnly: () => false,
       isConcurrencySafe: () => true,
       // 默认执行逻辑，返回空结果
-      execute: async (input: any, context: any, onProgress?: any) => {
+      execute: async (
+        input: unknown,
+        context: unknown,
+        onProgress?: unknown
+      ) => {
         return createToolResult(null, {
           newMessages: [],
         });
@@ -150,7 +155,7 @@ export class ToolFactory {
    * @returns PowerShell工具实例
    */
   createPowerShellTool(): Tool {
-    return new PowerShellTool() as any;
+    return new PowerShellTool();
   }
 
   /**
@@ -174,7 +179,7 @@ export class ToolFactory {
    * @returns 文件编辑工具实例
    */
   createFileEditTool(): Tool {
-    return new FileEditTool() as any;
+    return new FileEditTool();
   }
 
   createFileConvertTool(): Tool {
@@ -194,7 +199,7 @@ export class ToolFactory {
    * @returns 文件匹配工具实例
    */
   createGlobTool(): Tool {
-    return new GlobTool() as any;
+    return new GlobTool();
   }
 
   /**
@@ -202,7 +207,7 @@ export class ToolFactory {
    * @returns Web搜索工具实例
    */
   createWebSearchTool(): Tool {
-    return new WebSearchTool() as any;
+    return new WebSearchTool();
   }
 
   /**
@@ -234,7 +239,7 @@ export class ToolFactory {
    * @returns 网络内容获取工具实例
    */
   createWebFetchTool(): Tool {
-    return new WebFetchTool() as any;
+    return new WebFetchTool();
   }
 
   /**
@@ -242,7 +247,7 @@ export class ToolFactory {
    * @returns 配置工具实例
    */
   createConfigTool(): Tool {
-    return new ConfigTool() as any;
+    return new ConfigTool();
   }
 
   /**
@@ -394,7 +399,7 @@ export class ToolFactory {
    * @returns Brief工具实例
    */
   createBriefTool(): Tool {
-    return new BriefTool() as any;
+    return new BriefTool();
   }
 
   /**
@@ -410,7 +415,11 @@ export class ToolFactory {
    * @returns 计划模式工具实例
    */
   createPlanTool(): Tool {
-    return new PlanTool();
+    return new PlanTool() as unknown as Tool<
+      unknown,
+      unknown,
+      ToolProgressData
+    >;
   }
 
   /**
@@ -602,26 +611,28 @@ export function getAllBaseTools(): Tool[] {
   const globTool = new GlobTool();
   const grepTool = new GrepTool();
   if (globTool) {
-    tools.push(globTool as any);
+    tools.push(globTool);
   }
   if (grepTool) {
     tools.push(grepTool);
   }
 
-  tools.push(new FileEditTool() as any);
+  tools.push(new FileEditTool());
   tools.push(new FileReadTool());
   tools.push(new FileWriteTool());
-  tools.push(NotebookEditTool as any);
-  tools.push(new WebFetchTool() as any);
+  tools.push(NotebookEditTool);
+  tools.push(new WebFetchTool());
   tools.push(new TodoWriteTool());
-  tools.push(new WebSearchTool() as any);
+  tools.push(new WebSearchTool());
   tools.push(new TaskStopTool());
   tools.push(new AskUserQuestionTool());
   tools.push(new SkillTool());
-  tools.push(new PlanTool());
+  tools.push(
+    new PlanTool() as unknown as Tool<unknown, unknown, ToolProgressData>
+  );
 
   if (isAntUser()) {
-    tools.push(new ConfigTool() as any);
+    tools.push(new ConfigTool());
     tools.push(new TungstenTool());
   }
 
@@ -704,7 +715,7 @@ export function getAllBaseTools(): Tool[] {
     tools.push(monitorTool);
   }
 
-  tools.push(new BriefTool() as any);
+  tools.push(new BriefTool());
 
   const sendUserFileTool = createSendUserFileTool();
   if (sendUserFileTool) {
@@ -721,7 +732,7 @@ export function getAllBaseTools(): Tool[] {
     tools.push(subscribePRTool);
   }
 
-  const powerShellTool = new PowerShellTool() as any;
+  const powerShellTool = new PowerShellTool();
   if (powerShellTool) {
     tools.push(powerShellTool);
   }
@@ -743,10 +754,10 @@ export function getAllBaseTools(): Tool[] {
     tools.push(toolSearchTool);
   }
 
-  tools.push(new MCPResourceTool() as any);
-  tools.push(MCPTool as any);
-  tools.push(new NotebookToolAdapter() as any);
-  tools.push(new BrowserTool() as any);
+  tools.push(new MCPResourceTool());
+  tools.push(MCPTool);
+  tools.push(new NotebookToolAdapter());
+  tools.push(new BrowserTool());
 
   return tools.filter(
     (tool): tool is Tool => tool !== null && tool !== undefined
@@ -986,7 +997,7 @@ export function getTools(
   const simpleModeActive = isSimpleMode();
   if (simpleModeActive) {
     const simpleTools = allTools.filter((tool) => {
-      const name = (tool as any).name;
+      const name = tool.name;
       return name === 'Bash' || name === 'Read' || name === 'Edit';
     });
     return filterToolsByDenyRules(simpleTools, permissionContext);
@@ -995,8 +1006,8 @@ export function getTools(
   const filteredTools = filterToolsByDenyRules(allTools, permissionContext);
 
   return filteredTools.filter((tool) => {
-    if (typeof (tool as any).isEnabled === 'function') {
-      return (tool as any).isEnabled();
+    if (typeof tool.isEnabled === 'function') {
+      return tool.isEnabled();
     }
     return true;
   });

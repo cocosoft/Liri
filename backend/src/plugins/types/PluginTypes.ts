@@ -147,10 +147,14 @@ export interface PluginContext {
   setConfig: (key: string, value: unknown) => Promise<void>;
 
   /** 日志方法 */
-  log: (level: 'info' | 'warn' | 'error', message: string, data?: any) => void;
+  log: (
+    level: 'info' | 'warn' | 'error',
+    message: string,
+    data?: unknown
+  ) => void;
 
   /** 事件发射方法 */
-  emit: (event: string, data?: any) => void;
+  emit: (event: string, data?: unknown) => void;
 
   /** 工具注册方法 */
   registerTool: (tool: PluginTool) => void;
@@ -173,10 +177,10 @@ export interface PluginTool {
   description: string;
 
   /** 工具参数 */
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 
   /** 工具执行方法 */
-  execute: (context: PluginContext, args?: any) => Promise<any>;
+  execute: (context: PluginContext, args?: unknown) => Promise<unknown>;
 }
 
 /**
@@ -190,10 +194,10 @@ export interface PluginCommand {
   description: string;
 
   /** 命令参数 */
-  arguments?: Record<string, any>;
+  arguments?: Record<string, unknown>;
 
   /** 命令执行方法 */
-  execute: (context: PluginContext, args?: any) => Promise<any>;
+  execute: (context: PluginContext, args?: unknown) => Promise<unknown>;
 }
 
 /**
@@ -210,7 +214,7 @@ export interface PluginHook {
   priority?: number;
 
   /** 钩子执行方法 */
-  handler: (context: PluginContext, data?: any) => Promise<any>;
+  handler: (context: PluginContext, data?: unknown) => Promise<unknown>;
 }
 
 /**
@@ -224,7 +228,7 @@ export interface Plugin {
   state: PluginState;
 
   /** 插件实例 */
-  instance?: any;
+  instance?: unknown;
 
   /** 错误信息 */
   error?: string;
@@ -265,7 +269,7 @@ export interface LoadedPlugin {
   config: PluginConfig;
 
   /** 插件实例 */
-  instance?: any;
+  instance?: unknown;
 
   /** 错误信息 */
   error?: string;
@@ -417,7 +421,7 @@ export interface PluginEvent {
   pluginId: string;
 
   /** 事件数据 */
-  data?: any;
+  data?: unknown;
 
   /** 事件时间戳 */
   timestamp: Date;

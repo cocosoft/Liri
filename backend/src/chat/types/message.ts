@@ -175,7 +175,7 @@ export interface ContentBlock {
   /**
    * 工具参数（仅适用于工具调用类型）
    */
-  toolArgs?: Record<string, any>;
+  toolArgs?: Record<string, unknown>;
 }
 
 /**
@@ -255,7 +255,7 @@ export interface CompactBoundaryMessage {
   /**
    * 元数据
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -275,7 +275,7 @@ export interface ToolUseSummary {
   /**
    * 工具调用参数
    */
-  toolArguments: Record<string, any>;
+  toolArguments: Record<string, unknown>;
 
   /**
    * 工具执行结果摘要
@@ -330,7 +330,7 @@ export interface ToolUseSummaryMessage {
   /**
    * 元数据
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -380,7 +380,7 @@ export interface AttachmentMessage {
   /**
    * 元数据
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -430,7 +430,7 @@ export interface Message {
   /**
    * 元数据
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   /**
    * 消息状态
@@ -545,7 +545,7 @@ export interface SendMessageOptions {
   /**
    * 元数据
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   /**
    * 是否流式输出
@@ -615,7 +615,7 @@ export interface CreateMessageParams {
   /**
    * 元数据
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   /**
    * 消息状态
@@ -678,7 +678,7 @@ export interface ChatResponse {
   tool_calls?: Array<{
     id: string;
     name: string;
-    arguments: Record<string, any>;
+    arguments: Record<string, unknown>;
   }>;
 
   /**
@@ -820,7 +820,7 @@ export function createUserMessage(
   content: string,
   options?: {
     sessionId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): Message {
   return createMessage({
@@ -841,7 +841,7 @@ export function createAssistantMessage(
   content: string | ContentBlock[],
   options?: {
     sessionId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): Message {
   return createMessage({
@@ -864,7 +864,7 @@ export function createToolMessage(
   toolCallId: string,
   options?: {
     sessionId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): Message {
   return createMessage({
@@ -886,7 +886,7 @@ export function createSystemMessage(
   content: string,
   options?: {
     sessionId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): Message {
   return createMessage({
@@ -968,7 +968,7 @@ export function createCompactBoundaryMessage(
     compressedTokenCount?: number;
     compressionReason?: string;
     contextSummary?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): CompactBoundaryMessage {
   return {
@@ -995,7 +995,7 @@ export function createToolUseSummaryMessage(
   summaries: ToolUseSummary[],
   options?: {
     sessionId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): ToolUseSummaryMessage {
   return {
@@ -1021,7 +1021,7 @@ export function createAttachmentMessage(
   options?: {
     description?: string;
     sessionId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): AttachmentMessage {
   const now = new Date();
@@ -1051,7 +1051,7 @@ export function createAttachmentMessage(
 export function createToolUseSummary(
   toolCallId: string,
   toolName: string,
-  toolArguments: Record<string, any>,
+  toolArguments: Record<string, unknown>,
   resultSummary: string,
   status: 'success' | 'failed' | 'pending',
   options?: {

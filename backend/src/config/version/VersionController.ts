@@ -1,16 +1,16 @@
 export interface ConfigSnapshot {
   id: string;
   version: number;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   timestamp: number;
   label?: string;
   changes?: ConfigDiff;
 }
 
 export interface ConfigDiff {
-  added: Array<{ key: string; value: any }>;
-  removed: Array<{ key: string; value: any }>;
-  modified: Array<{ key: string; oldValue: any; newValue: any }>;
+  added: Array<{ key: string; value: unknown }>;
+  removed: Array<{ key: string; value: unknown }>;
+  modified: Array<{ key: string; oldValue: unknown; newValue: unknown }>;
 }
 
 export interface VersionInfo {
@@ -30,7 +30,7 @@ export class VersionController {
     this.maxSnapshots = maxSnapshots;
   }
 
-  snapshot(config: Record<string, any>, label?: string): ConfigSnapshot {
+  snapshot(config: Record<string, unknown>, label?: string): ConfigSnapshot {
     const previousSnapshot = this.snapshots[this.snapshots.length - 1];
 
     this.currentVersion++;
@@ -58,7 +58,7 @@ export class VersionController {
 
   rollback(
     version: number
-  ): { config: Record<string, any>; undone: ConfigSnapshot } | null {
+  ): { config: Record<string, unknown>; undone: ConfigSnapshot } | null {
     if (version < 1 || version >= this.currentVersion) return null;
 
     const targetIndex = this.snapshots.findIndex((s) => s.version === version);
@@ -127,8 +127,8 @@ export class VersionController {
   }
 
   diff(
-    oldConfig: Record<string, any>,
-    newConfig: Record<string, any>
+    oldConfig: Record<string, unknown>,
+    newConfig: Record<string, unknown>
   ): ConfigDiff {
     const added: ConfigDiff['added'] = [];
     const removed: ConfigDiff['removed'] = [];
@@ -162,7 +162,7 @@ export class VersionController {
     return this.diff(s1.config, s2.config);
   }
 
-  private flattenKeys(obj: Record<string, any>, prefix = ''): string[] {
+  private flattenKeys(obj: Record<string, unknown>, prefix = ''): string[] {
     const keys: string[] = [];
     for (const [key, value] of Object.entries(obj)) {
       const fullKey = prefix ? `${prefix}.${key}` : key;
@@ -171,7 +171,9 @@ export class VersionController {
         typeof value === 'object' &&
         !Array.isArray(value)
       ) {
-        keys.push(...this.flattenKeys(value, fullKey));
+        keys.push(
+          ...this.flattenKeys(value as Record<string, unknown>, fullKey)
+        );
       } else {
         keys.push(fullKey);
       }
@@ -179,12 +181,12 @@ export class VersionController {
     return keys;
   }
 
-  private getNestedValue(obj: Record<string, any>, path: string): any {
+  private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     const parts = path.split('.');
-    let current: any = obj;
+    let current: Record<string, unknown> = obj;
     for (const part of parts) {
       if (current === null || typeof current !== 'object') return undefined;
-      current = current[part];
+      current = current[part] as Record<string, unknown>;
     }
     return current;
   }

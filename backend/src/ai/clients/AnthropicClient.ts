@@ -5,6 +5,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { LLMClient } from './LLMClient';
+import type { LLMConfig } from '../models/types';
 import type {
   ChatMessage,
   ChatResponse,
@@ -42,8 +43,9 @@ export class AnthropicClient extends LLMClient {
   private consecutive529Errors: number = 0;
   private anthropic: Anthropic;
 
-  constructor(config: any) {
-    super(config);
+  constructor(config: unknown) {
+    super(config as unknown as LLMConfig);
+    const cfg = config as Record<string, unknown>;
     this.retryConfig = {
       maxRetries: 10,
       initialDelayMs: BASE_DELAY_MS,
@@ -51,10 +53,10 @@ export class AnthropicClient extends LLMClient {
       jitterFactor: 0.1,
     };
     this.anthropic = new Anthropic({
-      apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY || '',
-      baseURL: config.baseUrl || 'https://api.anthropic.com',
+      apiKey: (cfg.apiKey as string) || process.env.ANTHROPIC_API_KEY || '',
+      baseURL: (cfg.baseUrl as string) || 'https://api.anthropic.com',
       maxRetries: 2,
-      timeout: config.timeout || 120000,
+      timeout: (cfg.timeout as number) || 120000,
     });
   }
 
@@ -173,40 +175,40 @@ export class AnthropicClient extends LLMClient {
   private async sendRequest(
     model: string,
     messages: ChatMessage[],
-    options?: any
+    options?: unknown
   ): Promise<ChatResponse> {
     const systemMessages = messages.filter((m) => m.role === 'system');
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 
     const systemPrompt = systemMessages.map((m) => m.content).join('\n');
 
+    const opts = (options as Record<string, unknown>) || {};
+
     const response = await this.anthropic.messages.create({
       model,
-      max_tokens: options?.maxTokens || 4096,
-      temperature: options?.temperature,
+      max_tokens: (opts.maxTokens as number) || 4096,
+      temperature: opts.temperature as number | undefined,
       system: systemPrompt || undefined,
       messages: nonSystemMessages.map((m) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
-      tools: options?.tools?.map((t: any) => ({
-        name: t.name,
-        description: t.description,
-        input_schema: t.inputSchema || { type: 'object', properties: {} },
-      })),
+      tools: opts.tools as unknown as Anthropic.Tool[] | undefined,
     });
 
-    const content = response.content
-      .filter((c: any) => c.type === 'text')
-      .map((c: any) => c.text)
+    const content = (response.content as unknown as Record<string, unknown>[])
+      .filter((c) => c.type === 'text')
+      .map((c) => c.text as string)
       .join('');
 
-    const toolUseBlocks = response.content
-      .filter((c: any) => c.type === 'tool_use')
-      .map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        arguments: c.input || {},
+    const toolUseBlocks = (
+      response.content as unknown as Record<string, unknown>[]
+    )
+      .filter((c) => c.type === 'tool_use')
+      .map((c) => ({
+        id: c.id as string,
+        name: c.name as string,
+        arguments: (c.input as Record<string, unknown>) || {},
       }));
 
     const stopReason =
@@ -225,9 +227,11 @@ export class AnthropicClient extends LLMClient {
       usage: {
         prompt_tokens: response.usage?.input_tokens || 0,
         cache_read_input_tokens:
-          (response.usage as any)?.cache_read_input_tokens || 0,
+          ((response.usage as unknown as Record<string, unknown>)
+            ?.cache_read_input_tokens as number) || 0,
         cache_creation_input_tokens:
-          (response.usage as any)?.cache_creation_input_tokens || 0,
+          ((response.usage as unknown as Record<string, unknown>)
+            ?.cache_creation_input_tokens as number) || 0,
         completion_tokens: response.usage?.output_tokens || 0,
         total_tokens:
           (response.usage?.input_tokens || 0) +
@@ -240,27 +244,25 @@ export class AnthropicClient extends LLMClient {
   private async *streamRequest(
     model: string,
     messages: ChatMessage[],
-    options?: any
+    options?: unknown
   ): AsyncGenerator<string> {
     const systemMessages = messages.filter((m) => m.role === 'system');
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
 
     const systemPrompt = systemMessages.map((m) => m.content).join('\n');
 
+    const opts = (options as Record<string, unknown>) || {};
+
     const stream = await this.anthropic.messages.create({
       model,
-      max_tokens: options?.maxTokens || 4096,
-      temperature: options?.temperature,
+      max_tokens: (opts.maxTokens as number) || 4096,
+      temperature: opts.temperature as number | undefined,
       system: systemPrompt || undefined,
-      messages: nonSystemMessages.map((m: any) => ({
+      messages: nonSystemMessages.map((m) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
-      tools: options?.tools?.map((t: any) => ({
-        name: t.name,
-        description: t.description,
-        input_schema: t.inputSchema || { type: 'object', properties: {} },
-      })),
+      tools: opts.tools as unknown as Anthropic.Tool[] | undefined,
       stream: true,
     });
 

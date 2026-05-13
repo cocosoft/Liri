@@ -250,7 +250,9 @@ async function handleGrant(
 
   try {
     const permissionManager =
-      securityIntegrationService.getPermissionManager() as any;
+      securityIntegrationService.getPermissionManager() as unknown as {
+        addRule: (action: string, name: string) => void;
+      };
     permissionManager.addRule('allow', permissionName);
   } catch {
     // 忽略管理器调用失败
@@ -284,11 +286,15 @@ async function handleRevoke(
 
   try {
     const permissionManager =
-      securityIntegrationService.getPermissionManager() as any;
-    const rules = permissionManager.getRules();
-    for (const rule of rules) {
+      securityIntegrationService.getPermissionManager() as unknown as Record<
+        string,
+        unknown
+      >;
+    const rules = (permissionManager.getRules as Function)() as unknown[];
+    for (const r of rules) {
+      const rule = r as Record<string, unknown>;
       if (rule.toolName === permissionName || rule.name === permissionName) {
-        permissionManager.removeRule(rule.id);
+        (permissionManager.removeRule as Function)(rule.id);
       }
     }
   } catch {
@@ -379,7 +385,8 @@ async function handleMode(
 
   if (args[0] === 'set' && args[1]) {
     const targetMode = args[1];
-    if (!PERMISSION_MODES.includes(targetMode as any)) {
+    const targetModeTyped = targetMode as (typeof PERMISSION_MODES)[number];
+    if (!PERMISSION_MODES.includes(targetModeTyped)) {
       return {
         success: false,
         message: `无效的权限模式: ${targetMode}\n可用模式: ${PERMISSION_MODES.join(', ')}`,
@@ -387,8 +394,8 @@ async function handleMode(
     }
 
     try {
-      permissionModeIntegrationService.setPermissionMode(targetMode as any);
-      securityIntegrationService.setPermissionMode(targetMode as any);
+      permissionModeIntegrationService.setPermissionMode(targetModeTyped);
+      securityIntegrationService.setPermissionMode(targetModeTyped);
 
       return {
         success: true,
@@ -415,9 +422,12 @@ async function handleMode(
 async function handleRules(useJson: boolean = false): Promise<CommandResult> {
   try {
     const permissionManager =
-      securityIntegrationService.getPermissionManager() as any;
-    const mode = permissionManager.getMode();
-    const rules = permissionManager.getRules();
+      securityIntegrationService.getPermissionManager() as unknown as Record<
+        string,
+        unknown
+      >;
+    const mode = (permissionManager.getMode as Function)() as string;
+    const rules = (permissionManager.getRules as Function)() as unknown[];
 
     if (useJson) {
       return {
@@ -430,14 +440,14 @@ async function handleRules(useJson: boolean = false): Promise<CommandResult> {
       };
     }
 
-    const rulesList = rules as any[];
-    const sorted = rulesList.reduce(
-      (acc: Record<string, string[]>, rule: any) => {
-        const behavior = rule.behavior || rule.action || 'unknown';
-        const name = rule.toolName || rule.name || rule.id;
+    const sorted = rules.reduce(
+      (acc: Record<string, string[]>, rule: unknown) => {
+        const r = rule as Record<string, unknown>;
+        const behavior = (r.behavior || r.action || 'unknown') as string;
+        const name = (r.toolName || r.name || r.id) as string;
         if (!acc[behavior]) acc[behavior] = [];
-        const detail = rule.contentPattern
-          ? `${name}(${rule.contentPattern})`
+        const detail = r.contentPattern
+          ? `${name}(${r.contentPattern as string})`
           : name;
         acc[behavior].push(`  - ${detail}`);
         return acc;
@@ -521,8 +531,11 @@ async function handleAdd(params: string[]): Promise<CommandResult> {
 
     try {
       const permissionManager =
-        securityIntegrationService.getPermissionManager() as any;
-      permissionManager.addRule(action as any, resourceName, operation);
+        securityIntegrationService.getPermissionManager() as unknown as Record<
+          string,
+          unknown
+        >;
+      (permissionManager.addRule as Function)(action, resourceName, operation);
     } catch {
       // 可选同步失败不影响主要结果
     }

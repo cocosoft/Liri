@@ -109,9 +109,10 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> =
     },
 
     async call({ server: targetServer }, { options: { mcpClients = [] } }) {
+      const typedClients = mcpClients as MCPClient[];
       const clientsToProcess = targetServer
-        ? mcpClients.filter((client: MCPClient) => client.name === targetServer)
-        : mcpClients;
+        ? typedClients.filter((client) => client.name === targetServer)
+        : typedClients;
 
       if (targetServer && clientsToProcess.length === 0) {
         throw new AppError(
@@ -121,13 +122,13 @@ export const ListMcpResourcesTool: Tool<{ server?: string }, MCPResource[]> =
           'MCP_SERVER_NOT_FOUND',
           {
             targetServer,
-            availableServers: mcpClients.map((c: MCPClient) => c.name),
+            availableServers: typedClients.map((c) => c.name),
           }
         );
       }
 
       const results = await Promise.all(
-        clientsToProcess.map(async (client: MCPClient) => {
+        clientsToProcess.map(async (client) => {
           if (client.type !== 'connected') {
             return [];
           }

@@ -24,8 +24,8 @@ import {
  * 设置缓存
  */
 interface SettingsCache {
-  merged: Record<string, any>;
-  sources: Map<SettingSource, Record<string, any>>;
+  merged: Record<string, unknown>;
+  sources: Map<SettingSource, Record<string, unknown>>;
   lastRefresh: number;
 }
 
@@ -36,7 +36,7 @@ interface SettingsCache {
 export class MultiSourceSettingsManager {
   private cache: SettingsCache;
   private cacheTtl: number;
-  private flagSettings: Record<string, any>;
+  private flagSettings: Record<string, unknown>;
 
   constructor(options?: { cacheTtl?: number }) {
     this.cacheTtl = options?.cacheTtl ?? 5000;
@@ -51,7 +51,7 @@ export class MultiSourceSettingsManager {
   /**
    * 设置命令行标志配置
    */
-  setFlagSettings(flags: Record<string, any>): void {
+  setFlagSettings(flags: Record<string, unknown>): void {
     this.flagSettings = flags;
     this.invalidateCache();
   }
@@ -60,7 +60,7 @@ export class MultiSourceSettingsManager {
    * 获取合并后的设置
    * 按优先级合并：userSettings < projectSettings < localSettings < flagSettings < policySettings
    */
-  getMergedSettings(): Record<string, any> {
+  getMergedSettings(): Record<string, unknown> {
     if (this.isCacheValid()) {
       return this.cache.merged;
     }
@@ -72,7 +72,7 @@ export class MultiSourceSettingsManager {
   /**
    * 获取指定源的设置
    */
-  getSourceSettings(source: SettingSource): Record<string, any> {
+  getSourceSettings(source: SettingSource): Record<string, unknown> {
     if (!this.isCacheValid()) {
       this.refreshCache();
     }
@@ -85,7 +85,7 @@ export class MultiSourceSettingsManager {
    */
   getSettingWithSource(
     key: string
-  ): { value: any; source: SettingSource } | undefined {
+  ): { value: unknown; source: SettingSource } | undefined {
     const sources = [...SETTING_SOURCES].reverse();
 
     for (const source of sources) {
@@ -102,7 +102,7 @@ export class MultiSourceSettingsManager {
   /**
    * 获取设置值
    */
-  getValue<T = any>(key: string, defaultValue?: T): T {
+  getValue<T = unknown>(key: string, defaultValue?: T): T {
     const result = this.getSettingWithSource(key);
     return result !== undefined ? (result.value as T) : (defaultValue as T);
   }
@@ -135,7 +135,7 @@ export class MultiSourceSettingsManager {
    * 刷新缓存
    */
   refreshCache(): void {
-    const sources = new Map<SettingSource, Record<string, any>>();
+    const sources = new Map<SettingSource, Record<string, unknown>>();
 
     sources.set('userSettings', loadUserSettings());
     sources.set('projectSettings', loadProjectSettings());
@@ -146,7 +146,7 @@ export class MultiSourceSettingsManager {
       isPolicySettingsAvailable() ? loadPolicySettings() : {}
     );
 
-    let merged: Record<string, any> = {};
+    let merged: Record<string, unknown> = {};
     for (const source of SETTING_SOURCES) {
       const config = sources.get(source) ?? {};
       merged = deepMerge(merged, config);
@@ -197,9 +197,9 @@ export function getMultiSourceSettingsManager(
 /**
  * 获取嵌套值
  */
-function getNestedValue(obj: Record<string, any>, key: string): any {
+function getNestedValue(obj: Record<string, unknown>, key: string): unknown {
   const keys = key.split('.');
-  let current: any = obj;
+  let current: Record<string, unknown> = obj;
 
   for (const k of keys) {
     if (
@@ -209,7 +209,7 @@ function getNestedValue(obj: Record<string, any>, key: string): any {
     ) {
       return undefined;
     }
-    current = current[k];
+    current = current[k] as Record<string, unknown>;
   }
 
   return current;

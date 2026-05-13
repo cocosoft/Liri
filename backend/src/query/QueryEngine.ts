@@ -6,6 +6,7 @@
 import type { Message } from '../chat/types/message.js';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
 import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
+import type { ChatSession } from '../chat/types/session.js';
 import { ChatManagerImpl } from '../chat/ChatManager.js';
 import {
   PostSamplingHookManager,
@@ -15,8 +16,10 @@ import type {
   PostSamplingHookContext,
   PostSamplingHook,
 } from '../hooks/types/PostSampling.js';
+import type { ToolUseContext } from '../tools/types/ToolUseContext.js';
 import { CompactServiceImpl } from '../services/compact/CompactService.js';
 import type { CompactArtifact } from '../services/compact/CompactService.js';
+import type { SessionMessage } from '../session/models/SessionMessage.js';
 import { AnalyticsService, analyticsService } from '../analytics/index.js';
 import {
   AnalyticsEventQueue,
@@ -104,7 +107,7 @@ export interface ProgressEvent {
     | 'api_start'
     | 'api_end';
   timestamp: number;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 /**
@@ -143,7 +146,7 @@ export interface QueryError {
   code?: number;
   retryable: boolean;
   timestamp: number;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -247,7 +250,7 @@ export interface SDKMessage {
   toolUse?: {
     id: string;
     name: string;
-    input: Record<string, any>;
+    input: Record<string, unknown>;
   };
 
   /**
@@ -797,15 +800,18 @@ export class QueryEngine {
 
       // 从消息中提取工具调用（如果有）
       const toolCalls: ToolCall[] = [];
-      if (
-        (message as any).tool_calls &&
-        Array.isArray((message as any).tool_calls)
-      ) {
-        for (const tc of (message as any).tool_calls) {
+      const msg = message as { tool_calls?: Array<Record<string, unknown>> };
+      if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+        for (const tc of msg.tool_calls) {
           toolCalls.push({
-            id: tc.id,
-            name: tc.function?.name || tc.name || 'unknown',
-            arguments: tc.function?.arguments || tc.arguments || {},
+            id: tc.id as string,
+            name:
+              ((tc.function as Record<string, unknown>)?.name as string) ||
+              (tc.name as string) ||
+              'unknown',
+            arguments: ((tc.function as Record<string, unknown>)?.arguments ||
+              tc.arguments ||
+              {}) as Record<string, unknown>,
           });
         }
       }
@@ -1044,8 +1050,8 @@ export class QueryEngine {
         sessionId: sessionId,
         type: 'tool',
         createdAt: new Date(),
-      } as any,
-    } as any;
+      } as unknown as ToolUseContext,
+    };
 
     await this.postSamplingHookManager.executeHooks(hookContext);
   }
@@ -1058,11 +1064,10 @@ export class QueryEngine {
     try {
       // 从ChatManager获取会话消息
       const sessions = await this.chatManager.getSessions();
-      const session = sessions.find((s: any) => s.id === sessionId);
+      const session = sessions.find((s: ChatSession) => s.id === sessionId);
       if (!session) return;
 
-      // 这里简化处理，假设session有messages属性
-      const messages = (session as any).messages || [];
+      const messages = session.messages || [];
 
       // 触发压缩开始进度事件
       this.emitProgress('compact_start', { session_id: sessionId });
@@ -1083,7 +1088,7 @@ export class QueryEngine {
         this.updateSessionState({ queryState: QueryState.COMPACTING });
 
         // 根据压缩级别执行不同的压缩策略
-        let artifacts: any[];
+        let artifacts: unknown[];
         if (compactLevel === 3) {
           // Level 3: 深度压缩 - 保留最近1轮对话
           artifacts = await this.performDeepCompact(sessionId, messages);
@@ -1098,7 +1103,10 @@ export class QueryEngine {
         logger.info(`压缩完成，生成了 ${artifacts.length} 个压缩产物`);
 
         // 重新注入压缩产物
-        await this.compactService.reinjectArtifacts(sessionId, artifacts);
+        await this.compactService.reinjectArtifacts(
+          sessionId,
+          artifacts as CompactArtifact[]
+        );
 
         // 记录压缩事件
         this.analyticsService.logEvent('compaction_performed', {
@@ -1149,12 +1157,15 @@ export class QueryEngine {
    */
   private async performLightCompact(
     sessionId: string,
-    messages: any[]
-  ): Promise<any[]> {
-    const result = await this.compactService.compactConversation(messages, {
-      isAutoCompact: true,
-      suppressFollowUpQuestions: true,
-    });
+    messages: unknown[]
+  ): Promise<unknown[]> {
+    const result = await this.compactService.compactConversation(
+      messages as SessionMessage[],
+      {
+        isAutoCompact: true,
+        suppressFollowUpQuestions: true,
+      }
+    );
     return result.summaryMessages.map((msg: string) => ({
       id: `compact_light_${Date.now()}`,
       sessionId,
@@ -1173,11 +1184,11 @@ export class QueryEngine {
    */
   private async performMediumCompact(
     sessionId: string,
-    messages: any[]
-  ): Promise<any[]> {
+    messages: unknown[]
+  ): Promise<unknown[]> {
     const pivotIndex = Math.max(0, messages.length - 6);
     const result = await this.compactService.partialCompactConversation(
-      messages,
+      messages as SessionMessage[],
       pivotIndex,
       'up_to'
     );
@@ -1199,18 +1210,18 @@ export class QueryEngine {
    */
   private async performDeepCompact(
     sessionId: string,
-    messages: any[]
-  ): Promise<any[]> {
+    messages: unknown[]
+  ): Promise<unknown[]> {
     const pivotIndex = Math.max(0, messages.length - 3);
     const result = await this.compactService.partialCompactConversation(
-      messages,
+      messages as SessionMessage[],
       pivotIndex,
       'up_to'
     );
 
     // 同时提取关键信息
     const keyArtifacts = await this.compactService.extractKeyInformation(
-      messages,
+      messages as SessionMessage[],
       sessionId
     );
 
@@ -1366,7 +1377,7 @@ export class QueryEngine {
    */
   private emitProgress(
     type: ProgressEvent['type'],
-    data?: Record<string, any>
+    data?: Record<string, unknown>
   ): void {
     const event: ProgressEvent = {
       type,

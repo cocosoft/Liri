@@ -106,6 +106,11 @@ export interface ServerRecommendation {
   limitations: string[];
 }
 
+type LSPServerConfigWithMeta = LSPServerConfig & {
+  language?: string;
+  serverType?: string;
+};
+
 export class IntelligentLSPAnalyzer {
   private performanceData: Map<string, LSPPerformanceAnalysis[]> = new Map();
   private featureData: Map<string, LSPFeatureAnalysis[]> = new Map();
@@ -124,10 +129,11 @@ export class IntelligentLSPAnalyzer {
     serverConfig: LSPServerConfig,
     metrics?: Partial<ResourceUsage>
   ): Promise<LSPPerformanceAnalysis> {
+    const cfg = serverConfig as LSPServerConfigWithMeta;
     const analysis: LSPPerformanceAnalysis = {
       analysisId: `performance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      language: (serverConfig as any).language || 'unknown',
-      serverType: (serverConfig as any).serverType || 'unknown',
+      language: cfg.language || 'unknown',
+      serverType: cfg.serverType || 'unknown',
       performanceScore: 0,
       responseTime: 0,
       throughput: 0,
@@ -166,6 +172,7 @@ export class IntelligentLSPAnalyzer {
     connection: LSPConnection,
     serverConfig: LSPServerConfig
   ): Promise<LSPFeatureAnalysis[]> {
+    const cfg = serverConfig as LSPServerConfigWithMeta;
     const features: LSPFeatureAnalysis[] = [];
 
     // 分析代码补全功能
@@ -197,10 +204,7 @@ export class IntelligentLSPAnalyzer {
     features.push(refactoringAnalysis);
 
     // 存储功能分析
-    this.storeFeatureAnalysis(
-      (serverConfig as any).language || 'unknown',
-      features
-    );
+    this.storeFeatureAnalysis(cfg.language || 'unknown', features);
 
     return features;
   }
@@ -275,31 +279,19 @@ export class IntelligentLSPAnalyzer {
     connection: LSPConnection,
     serverConfig: LSPServerConfig
   ): Promise<LSPFeatureAnalysis> {
+    const cfg = serverConfig as LSPServerConfigWithMeta;
+    const lang = cfg.language || 'unknown';
     const analysis: LSPFeatureAnalysis = {
       featureId: `feature-completion-${Date.now()}`,
       name: '代码补全',
       type: 'completion',
       enabled: true,
-      performance: this.simulateFeaturePerformance(
-        'completion',
-        (serverConfig as any).language
-      ),
-      accuracy: this.simulateFeatureAccuracy(
-        'completion',
-        (serverConfig as any).language
-      ),
-      usage: this.simulateFeatureUsage(
-        'completion',
-        (serverConfig as any).language
-      ),
-      userSatisfaction: this.simulateUserSatisfaction(
-        'completion',
-        (serverConfig as any).language
-      ),
-      issues: this.analyzeCompletionIssues((serverConfig as any).language),
-      suggestions: this.generateCompletionSuggestions(
-        (serverConfig as any).language
-      ),
+      performance: this.simulateFeaturePerformance('completion', lang),
+      accuracy: this.simulateFeatureAccuracy('completion', lang),
+      usage: this.simulateFeatureUsage('completion', lang),
+      userSatisfaction: this.simulateUserSatisfaction('completion', lang),
+      issues: this.analyzeCompletionIssues(lang),
+      suggestions: this.generateCompletionSuggestions(lang),
     };
 
     return analysis;
@@ -312,31 +304,19 @@ export class IntelligentLSPAnalyzer {
     connection: LSPConnection,
     serverConfig: LSPServerConfig
   ): Promise<LSPFeatureAnalysis> {
+    const cfg = serverConfig as LSPServerConfigWithMeta;
+    const lang = cfg.language || 'unknown';
     const analysis: LSPFeatureAnalysis = {
       featureId: `feature-diagnostics-${Date.now()}`,
       name: '语法诊断',
       type: 'diagnostics',
       enabled: true,
-      performance: this.simulateFeaturePerformance(
-        'diagnostics',
-        (serverConfig as any).language
-      ),
-      accuracy: this.simulateFeatureAccuracy(
-        'diagnostics',
-        (serverConfig as any).language
-      ),
-      usage: this.simulateFeatureUsage(
-        'diagnostics',
-        (serverConfig as any).language
-      ),
-      userSatisfaction: this.simulateUserSatisfaction(
-        'diagnostics',
-        (serverConfig as any).language
-      ),
-      issues: this.analyzeDiagnosticsIssues((serverConfig as any).language),
-      suggestions: this.generateDiagnosticsSuggestions(
-        (serverConfig as any).language
-      ),
+      performance: this.simulateFeaturePerformance('diagnostics', lang),
+      accuracy: this.simulateFeatureAccuracy('diagnostics', lang),
+      usage: this.simulateFeatureUsage('diagnostics', lang),
+      userSatisfaction: this.simulateUserSatisfaction('diagnostics', lang),
+      issues: this.analyzeDiagnosticsIssues(lang),
+      suggestions: this.generateDiagnosticsSuggestions(lang),
     };
 
     return analysis;
@@ -349,31 +329,19 @@ export class IntelligentLSPAnalyzer {
     connection: LSPConnection,
     serverConfig: LSPServerConfig
   ): Promise<LSPFeatureAnalysis> {
+    const cfg = serverConfig as LSPServerConfigWithMeta;
+    const lang = cfg.language || 'unknown';
     const analysis: LSPFeatureAnalysis = {
       featureId: `feature-navigation-${Date.now()}`,
       name: '代码导航',
       type: 'navigation',
       enabled: true,
-      performance: this.simulateFeaturePerformance(
-        'navigation',
-        (serverConfig as any).language
-      ),
-      accuracy: this.simulateFeatureAccuracy(
-        'navigation',
-        (serverConfig as any).language
-      ),
-      usage: this.simulateFeatureUsage(
-        'navigation',
-        (serverConfig as any).language
-      ),
-      userSatisfaction: this.simulateUserSatisfaction(
-        'navigation',
-        (serverConfig as any).language
-      ),
-      issues: this.analyzeNavigationIssues((serverConfig as any).language),
-      suggestions: this.generateNavigationSuggestions(
-        (serverConfig as any).language
-      ),
+      performance: this.simulateFeaturePerformance('navigation', lang),
+      accuracy: this.simulateFeatureAccuracy('navigation', lang),
+      usage: this.simulateFeatureUsage('navigation', lang),
+      userSatisfaction: this.simulateUserSatisfaction('navigation', lang),
+      issues: this.analyzeNavigationIssues(lang),
+      suggestions: this.generateNavigationSuggestions(lang),
     };
 
     return analysis;
@@ -386,31 +354,19 @@ export class IntelligentLSPAnalyzer {
     connection: LSPConnection,
     serverConfig: LSPServerConfig
   ): Promise<LSPFeatureAnalysis> {
+    const cfg = serverConfig as LSPServerConfigWithMeta;
+    const lang = cfg.language || 'unknown';
     const analysis: LSPFeatureAnalysis = {
       featureId: `feature-refactoring-${Date.now()}`,
       name: '代码重构',
       type: 'refactoring',
       enabled: true,
-      performance: this.simulateFeaturePerformance(
-        'refactoring',
-        (serverConfig as any).language
-      ),
-      accuracy: this.simulateFeatureAccuracy(
-        'refactoring',
-        (serverConfig as any).language
-      ),
-      usage: this.simulateFeatureUsage(
-        'refactoring',
-        (serverConfig as any).language
-      ),
-      userSatisfaction: this.simulateUserSatisfaction(
-        'refactoring',
-        (serverConfig as any).language
-      ),
-      issues: this.analyzeRefactoringIssues((serverConfig as any).language),
-      suggestions: this.generateRefactoringSuggestions(
-        (serverConfig as any).language
-      ),
+      performance: this.simulateFeaturePerformance('refactoring', lang),
+      accuracy: this.simulateFeatureAccuracy('refactoring', lang),
+      usage: this.simulateFeatureUsage('refactoring', lang),
+      userSatisfaction: this.simulateUserSatisfaction('refactoring', lang),
+      issues: this.analyzeRefactoringIssues(lang),
+      suggestions: this.generateRefactoringSuggestions(lang),
     };
 
     return analysis;

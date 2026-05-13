@@ -4,6 +4,7 @@
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from '@modules/utils/log';
 import type {
   MCPServerConnection,
@@ -27,7 +28,7 @@ export async function fetchToolsForClient(
 ): Promise<SerializedTool[]> {
   try {
     const result = await (client as any).tools.list();
-    const tools: SerializedTool[] = (result as any[]).map((tool: any) => ({
+    const tools: SerializedTool[] = (result as unknown[]).map((tool: any) => ({
       name: tool.name,
       description: tool.description,
       inputJSONSchema: tool.inputSchema,
@@ -52,7 +53,7 @@ export async function fetchCommandsForClient(
 ): Promise<McpCommand[]> {
   try {
     const prompts = await (client as any).prompts.list();
-    return (prompts as any[]).map(
+    return (prompts as unknown[]).map(
       (prompt: any) =>
         ({
           name: prompt.name,
@@ -122,9 +123,9 @@ export async function reconnectMcpServerImpl(
   try {
     logger.info(`Reconnecting to MCP server: ${serverName}`);
 
-    const options: Record<string, any> = {
-      url: (config as any).url,
-      headers: (config as any).headers || {},
+    const options: Record<string, unknown> = {
+      url: (config as Record<string, unknown>).url,
+      headers: (config as Record<string, unknown>).headers || {},
     };
 
     switch (config.type) {
@@ -154,9 +155,13 @@ export async function reconnectMcpServerImpl(
 
     const client = new Client(options as any);
 
-    await (client as any).connect();
+    await (
+      client as unknown as { connect(transport?: unknown): Promise<void> }
+    ).connect();
 
-    const capabilities = await (client as any).capabilities.get();
+    const capabilities = (await (
+      client as unknown as { capabilities: { get(): Promise<unknown> } }
+    ).capabilities.get()) as ServerCapabilities;
 
     const [tools, commands, resources] = await Promise.all([
       fetchToolsForClient(client),
@@ -172,7 +177,7 @@ export async function reconnectMcpServerImpl(
       config,
       cleanup: async () => {
         try {
-          await (client as any).close();
+          await (client as unknown as { close(): Promise<void> }).close();
         } catch (error) {
           logger.error(
             'Error during cleanup:',

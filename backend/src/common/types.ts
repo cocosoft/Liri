@@ -12,20 +12,20 @@ export type Nullable<T> = T | null;
 
 export type Optional<T> = T | undefined;
 
-export type Recordable<T = any> = Record<string, T>;
+export type Recordable<T = unknown> = Record<string, T>;
 
 export type Arrayable<T> = T | T[];
 
-export type Constructor<T = any> = new (...args: any[]) => T;
+export type Constructor<T = unknown> = new (...args: unknown[]) => T;
 
 /**
  * 函数类型别名
  */
-export type AsyncFunction<T = any, Args extends any[] = any[]> = (
+export type AsyncFunction<T = unknown, Args extends unknown[] = unknown[]> = (
   ...args: Args
 ) => Promise<T>;
 
-export type SyncFunction<T = any, Args extends any[] = any[]> = (
+export type SyncFunction<T = unknown, Args extends unknown[] = unknown[]> = (
   ...args: Args
 ) => T;
 
@@ -36,17 +36,17 @@ export type AsyncVoidFunction = () => Promise<void>;
 /**
  * 回调类型别名
  */
-export type Callback<T = any> = (error: Error | null, result?: T) => void;
+export type Callback<T = unknown> = (error: Error | null, result?: T) => void;
 
-export type Predicate<T = any> = (value: T) => boolean;
+export type Predicate<T = unknown> = (value: T) => boolean;
 
-export type Consumer<T = any> = (value: T) => void;
+export type Consumer<T = unknown> = (value: T) => void;
 
-export type Supplier<T = any> = () => T;
+export type Supplier<T = unknown> = () => T;
 
-export type Mapper<T = any, R = any> = (value: T) => R;
+export type Mapper<T = unknown, R = unknown> = (value: T) => R;
 
-export type Reducer<T = any, R = any> = (
+export type Reducer<T = unknown, R = unknown> = (
   accumulator: R,
   value: T,
   index?: number
@@ -84,7 +84,7 @@ export function err<E = Error>(error: E): ResultErr<E> {
 /**
  * 分页类型
  */
-export interface Page<T = any> {
+export interface Page<T = unknown> {
   items: T[];
   total: number;
   page: number;
@@ -118,7 +118,7 @@ export function createPage<T>(
 /**
  * 键值对类型
  */
-export interface KeyValuePair<K = string, V = any> {
+export interface KeyValuePair<K = string, V = unknown> {
   key: K;
   value: V;
 }
@@ -126,7 +126,7 @@ export interface KeyValuePair<K = string, V = any> {
 /**
  * 选项类型
  */
-export interface Option<T = any> {
+export interface Option<T = unknown> {
   label: string;
   value: T;
   disabled?: boolean;
@@ -136,7 +136,7 @@ export interface Option<T = any> {
 /**
  * 树节点类型
  */
-export interface TreeNode<T = any> {
+export interface TreeNode<T = unknown> {
   id: string | number;
   label: string;
   data?: T;
@@ -150,7 +150,7 @@ export interface TreeNode<T = any> {
 /**
  * 事件类型
  */
-export interface Event<T = any> {
+export interface Event<T = unknown> {
   type: string;
   payload?: T;
   timestamp: number;
@@ -158,10 +158,10 @@ export interface Event<T = any> {
 }
 
 export interface EventEmitter {
-  emit(event: string, ...args: any[]): void;
-  on(event: string, listener: (...args: any[]) => void): void;
-  off(event: string, listener: (...args: any[]) => void): void;
-  once(event: string, listener: (...args: any[]) => void): void;
+  emit(event: string, ...args: unknown[]): void;
+  on(event: string, listener: (...args: unknown[]) => void): void;
+  off(event: string, listener: (...args: unknown[]) => void): void;
+  once(event: string, listener: (...args: unknown[]) => void): void;
 }
 
 /**
@@ -170,9 +170,9 @@ export interface EventEmitter {
 export interface ConfigOptions {
   path?: string;
   watch?: boolean;
-  defaults?: Record<string, any>;
-  validate?: (config: Record<string, any>) => boolean;
-  transform?: (config: Record<string, any>) => Record<string, any>;
+  defaults?: Record<string, unknown>;
+  validate?: (config: Record<string, unknown>) => boolean;
+  transform?: (config: Record<string, unknown>) => Record<string, unknown>;
 }
 
 /**
@@ -188,8 +188,8 @@ export interface ValidationRule {
     | 'pattern'
     | 'custom';
   message?: string;
-  value?: any;
-  validator?: (value: any) => boolean;
+  value?: unknown;
+  validator?: (value: unknown) => boolean;
 }
 
 export interface ValidationResult {
@@ -220,7 +220,7 @@ export interface LogEntry {
   level: 'debug' | 'info' | 'warn' | 'error';
   message: string;
   source?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   error?: Error;
 }
 
@@ -292,7 +292,7 @@ export interface CacheOptions {
   serializer?: 'json' | 'msgpack' | 'protobuf';
 }
 
-export interface CacheEntry<T = any> {
+export interface CacheEntry<T = unknown> {
   key: string;
   value: T;
   expiresAt?: number;
@@ -328,7 +328,7 @@ export interface WebhookConfig {
   url: string;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
   retry?: boolean;
   timeout?: number;
 }
@@ -336,7 +336,7 @@ export interface WebhookConfig {
 export interface WebhookEvent {
   id: string;
   type: string;
-  payload: any;
+  payload: unknown;
   attempts?: number;
   maxAttempts?: number;
   createdAt: number;
@@ -362,7 +362,7 @@ export interface Alert {
 /**
  * 批量操作类型
  */
-export interface BatchOperation<T = any> {
+export interface BatchOperation<T = unknown> {
   id: string;
   type: 'create' | 'update' | 'delete';
   items: T[];
@@ -375,7 +375,7 @@ export interface BatchOperation<T = any> {
 }
 
 export interface BatchResult {
-  item: any;
+  item: unknown;
   success: boolean;
   error?: string;
 }
@@ -416,11 +416,11 @@ export interface StreamStats {
 /**
  * 观察者类型
  */
-export interface Observer<T = any> {
+export interface Observer<T = unknown> {
   update(data: T): void;
 }
 
-export interface Observable<T = any> {
+export interface Observable<T = unknown> {
   subscribe(observer: Observer<T>): void;
   unsubscribe(observer: Observer<T>): void;
   notify(data: T): void;

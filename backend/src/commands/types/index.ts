@@ -87,7 +87,7 @@ export interface Command {
    */
   getPromptForCommand?: (
     args: string,
-    context?: any
+    context?: Record<string, unknown>
   ) => string | Promise<Array<{ type: string; text: string }>>;
 }
 
@@ -100,7 +100,7 @@ export interface CommandImplementation {
    */
   getPromptForCommand?: (
     args: string,
-    context?: any
+    context?: Record<string, unknown>
   ) => string | Promise<Array<{ type: string; text: string }>>;
 
   /**
@@ -111,7 +111,7 @@ export interface CommandImplementation {
   /**
    * 调用命令 (别名)
    */
-  call?: (args: string, context: CommandContext) => Promise<any>;
+  call?: (args: string, context: CommandContext) => Promise<unknown>;
 
   /**
    * 验证命令参数
@@ -151,57 +151,57 @@ export interface CommandContext {
   /**
    * 聊天管理器
    */
-  chatManager?: any;
+  chatManager?: unknown;
 
   /**
    * 插件管理器
    */
-  pluginManager?: any;
+  pluginManager?: unknown;
 
   /**
    * 技能管理器
    */
-  skillManager?: any;
+  skillManager?: unknown;
 
   /**
    * 工具管理器
    */
-  toolManager?: any;
+  toolManager?: unknown;
 
   /**
    * AI 服务（用于需要 AI 交互的命令）
    */
-  aiService?: any;
+  aiService?: unknown;
 
   /**
    * 模型管理器（用于模型相关命令）
    */
-  modelManager?: any;
+  modelManager?: unknown;
 
   /**
    * 成本管理器（用于成本相关命令）
    */
-  costManager?: any;
+  costManager?: unknown;
 
   /**
    * 权限管理器（用于权限相关命令）
    */
-  permissionManager?: any;
+  permissionManager?: unknown;
 
   /**
    * 完成回调
    */
-  onDone?: (message: string, options?: any) => void;
+  onDone?: (message: string, options?: Record<string, unknown>) => void;
 
   /**
    * 消息列表（供命令访问当前会话消息）
    */
-  messages?: any[];
+  messages?: unknown[];
 
   /**
    * 命令选项（用于解析后的选项）
    */
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
 }
 
 /**
@@ -231,7 +231,7 @@ export interface CommandResult {
   /**
    * 数据
    */
-  data?: any;
+  data?: unknown;
 
   /**
    * 错误信息
@@ -312,7 +312,7 @@ export interface CommandLoadStatus {
  */
 export type LocalCommandResult =
   | { type: 'text'; value: string }
-  | { type: 'compact'; compactionResult: any; displayText?: string }
+  | { type: 'compact'; compactionResult: unknown; displayText?: string }
   | { type: 'skip' };
 
 /**
@@ -388,7 +388,7 @@ declare module './index' {
     kind?: string; // 种类（如'workflow'）
     pluginInfo?: {
       // 插件信息
-      pluginManifest: any;
+      pluginManifest: unknown;
       repository: string;
     };
   }

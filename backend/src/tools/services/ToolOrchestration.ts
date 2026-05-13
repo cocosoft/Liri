@@ -4,6 +4,7 @@
  */
 
 import type { Tool, ToolCall, ToolResult, ToolContext } from '../types/Tool';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { createToolResult } from '../types/ToolResult';
 import { ModuleError } from '@modules/errors';
 
@@ -194,7 +195,7 @@ export class ToolOrchestration {
       }
 
       tool
-        .execute(toolCall.input, context)
+        .execute(toolCall.input, context as unknown as ToolUseContext)
         .then((result) => {
           clearTimeout(timeout);
           if (signal) signal.removeEventListener('abort', abortHandler);

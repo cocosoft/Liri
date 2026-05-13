@@ -100,8 +100,8 @@ export class UnifiedConfigManager {
   private hotReloader: HotReloader;
   private versionController: VersionController;
   private configManager: ConfigManager;
-  private mergedConfig: Record<string, any>;
-  private sourceConfigs: Map<SettingSource, Record<string, any>>;
+  private mergedConfig: Record<string, unknown>;
+  private sourceConfigs: Map<SettingSource, Record<string, unknown>>;
   private initialized: boolean;
 
   constructor(options?: {
@@ -144,14 +144,14 @@ export class UnifiedConfigManager {
   /**
    * 获取合并后的配置
    */
-  getConfig(): Record<string, any> {
+  getConfig(): Record<string, unknown> {
     return this.mergedConfig;
   }
 
   /**
    * 获取指定源的配置
    */
-  getSourceConfig(source: SettingSource): Record<string, any> | undefined {
+  getSourceConfig(source: SettingSource): Record<string, unknown> | undefined {
     return this.sourceConfigs.get(source);
   }
 
@@ -160,7 +160,7 @@ export class UnifiedConfigManager {
    */
   setSourceConfig(
     source: EditableSettingSource,
-    config: Record<string, any>
+    config: Record<string, unknown>
   ): void {
     this.sourceConfigs.set(source, config);
     this.rebuildMergedConfig();
@@ -169,9 +169,12 @@ export class UnifiedConfigManager {
   /**
    * 获取配置值
    */
-  getValue<T = any>(key: string, defaultValue?: T): T {
+  getValue<T = unknown>(key: string, defaultValue?: T): T {
     const keys = key.split('.');
-    let current: any = this.mergedConfig;
+    let current: Record<string, unknown> = this.mergedConfig as Record<
+      string,
+      unknown
+    >;
 
     for (const k of keys) {
       if (
@@ -181,10 +184,12 @@ export class UnifiedConfigManager {
       ) {
         return defaultValue as T;
       }
-      current = current[k];
+      current = current[k] as Record<string, unknown>;
     }
 
-    return current !== undefined ? (current as T) : (defaultValue as T);
+    return current !== undefined
+      ? (current as unknown as T)
+      : (defaultValue as T);
   }
 
   /**
@@ -192,19 +197,19 @@ export class UnifiedConfigManager {
    */
   setValue(
     key: string,
-    value: any,
+    value: unknown,
     source: EditableSettingSource = 'userSettings'
   ): void {
     const config = this.sourceConfigs.get(source) ?? {};
     const keys = key.split('.');
-    let current: any = config;
+    let current: Record<string, unknown> = config;
 
     for (let i = 0; i < keys.length - 1; i++) {
       const k = keys[i]!;
       if (!(k in current) || typeof current[k] !== 'object') {
         current[k] = {};
       }
-      current = current[k];
+      current = current[k] as Record<string, unknown>;
     }
 
     current[keys[keys.length - 1]!] = value;
@@ -217,7 +222,12 @@ export class UnifiedConfigManager {
    */
   onReload(listener: ReloadListener): () => void {
     this.hotReloader.onReload(listener);
-    return () => (this.hotReloader as any).offReload(listener);
+    return () =>
+      (
+        this.hotReloader as unknown as {
+          offReload: (listener: ReloadListener) => void;
+        }
+      ).offReload(listener);
   }
 
   /**
@@ -241,7 +251,7 @@ export class UnifiedConfigManager {
   /**
    * 回滚到指定版本
    */
-  rollback(version: number): Record<string, any> | null {
+  rollback(version: number): Record<string, unknown> | null {
     const result = this.versionController.rollback(version);
     if (result) {
       this.mergedConfig = result.config;
@@ -297,7 +307,7 @@ export class UnifiedConfigManager {
    * 按优先级合并各源配置：userSettings < projectSettings < localSettings < flagSettings < policySettings
    */
   private rebuildMergedConfig(): void {
-    let merged: Record<string, any> = {};
+    let merged: Record<string, unknown> = {};
 
     for (const source of SETTING_SOURCES) {
       const config = this.sourceConfigs.get(source);

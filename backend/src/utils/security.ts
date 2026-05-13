@@ -182,15 +182,16 @@ export function sanitizeUnicode(input: string): string {
  * @param input 输入
  * @returns 清理后的输入
  */
-export function recursivelySanitizeUnicode(input: any): any {
+export function recursivelySanitizeUnicode(input: unknown): unknown {
   if (typeof input === 'string') {
     return sanitizeUnicode(input);
   } else if (Array.isArray(input)) {
-    return input.map((item) => recursivelySanitizeUnicode(item));
+    return input.map((item: unknown) => recursivelySanitizeUnicode(item));
   } else if (input !== null && typeof input === 'object') {
-    const result: any = {};
-    for (const key in input) {
-      result[key] = recursivelySanitizeUnicode(input[key]);
+    const result: Record<string, unknown> = {};
+    const obj = input as Record<string, unknown>;
+    for (const key in obj) {
+      result[key] = recursivelySanitizeUnicode(obj[key]);
     }
     return result;
   }
@@ -417,7 +418,7 @@ export class InputValidator {
    * @returns 验证结果
    */
   static validateObject(
-    obj: Record<string, any>,
+    obj: Record<string, unknown>,
     schema: {
       [key: string]: {
         type: 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -432,10 +433,10 @@ export class InputValidator {
   ): {
     valid: boolean;
     errors: string[];
-    sanitized?: Record<string, any>;
+    sanitized?: Record<string, unknown>;
   } {
     const errors: string[] = [];
-    const sanitized: Record<string, any> = {};
+    const sanitized: Record<string, unknown> = {};
 
     for (const [key, rule] of Object.entries(schema)) {
       const value = obj[key];
@@ -586,20 +587,20 @@ export class InputValidator {
   static validateBatch(
     validations: Array<{
       name: string;
-      value: any;
-      validator: (value: any) => {
+      value: unknown;
+      validator: (value: unknown) => {
         valid: boolean;
         errors: string[];
-        sanitized?: any;
+        sanitized?: unknown;
       };
     }>
   ): {
     valid: boolean;
     errors: string[];
-    sanitized: Record<string, any>;
+    sanitized: Record<string, unknown>;
   } {
     const errors: string[] = [];
-    const sanitized: Record<string, any> = {};
+    const sanitized: Record<string, unknown> = {};
 
     for (const validation of validations) {
       const result = validation.validator(validation.value);
@@ -727,7 +728,7 @@ export class OutputEncoder {
    * @param obj 要序列化的对象
    * @returns 安全的JSON字符串
    */
-  static safeJsonStringify(obj: any): string {
+  static safeJsonStringify(obj: unknown): string {
     // 递归清理对象中的危险内容
     const sanitized = this.sanitizeObjectForJson(obj);
     return JSON.stringify(sanitized);
@@ -738,23 +739,24 @@ export class OutputEncoder {
    * @param obj 要清理的对象
    * @returns 清理后的对象
    */
-  private static sanitizeObjectForJson(obj: any): any {
+  private static sanitizeObjectForJson(obj: unknown): unknown {
     if (obj === null || obj === undefined) {
       return obj;
     }
 
     if (typeof obj === 'string') {
-      // 清理字符串中的危险内容
       return this.encodeHtml(obj);
     }
 
     if (Array.isArray(obj)) {
-      return obj.map((item) => this.sanitizeObjectForJson(item));
+      return obj.map((item: unknown) => this.sanitizeObjectForJson(item));
     }
 
     if (typeof obj === 'object') {
-      const sanitized: Record<string, any> = {};
-      for (const [key, value] of Object.entries(obj)) {
+      const sanitized: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(
+        obj as Record<string, unknown>
+      )) {
         sanitized[key] = this.sanitizeObjectForJson(value);
       }
       return sanitized;
@@ -768,7 +770,7 @@ export class OutputEncoder {
    * @param message 消息
    * @param data 数据
    */
-  static safeConsoleLog(message: string, data?: any): void {
+  static safeConsoleLog(message: string, data?: unknown): void {
     const safeMessage = this.encodeJavaScript(message);
     if (data !== undefined) {
       const safeData = this.sanitizeObjectForJson(data);
@@ -841,14 +843,15 @@ export class OutputEncoder {
  * @returns 验证结果
  */
 export function validateObject(
-  obj: any,
-  schema: Record<string, any>,
-  options: any = {}
+  obj: unknown,
+  schema: Record<string, unknown>,
+  options: Record<string, unknown> = {}
 ): void {
-  for (const [key, rules] of Object.entries(schema)) {
-    const value = obj[key];
+  for (const [key, ruleDef] of Object.entries(schema)) {
+    const ruleMap = ruleDef as Record<string, unknown>;
+    const value = (obj as Record<string, unknown>)[key];
 
-    if (rules.required && (value === undefined || value === null)) {
+    if (ruleMap.required && (value === undefined || value === null)) {
       throw new AppError(
         'Field ' + key + ' is required',
         ErrorCategory.VALIDATION,
@@ -858,6 +861,17 @@ export function validateObject(
     }
 
     if (value !== undefined && value !== null) {
+      const rules = ruleMap as {
+        type?: string;
+        required?: boolean;
+        minLength?: number;
+        maxLength?: number;
+        min?: number;
+        max?: number;
+        enum?: unknown[];
+        validate?: (v: unknown) => boolean;
+      };
+
       if (rules.type) {
         if (typeof value !== rules.type) {
           throw new AppError(
@@ -869,7 +883,11 @@ export function validateObject(
         }
 
         if (rules.type === 'string') {
-          if (rules.minLength !== undefined && value.length < rules.minLength) {
+          const strValue = value as string;
+          if (
+            rules.minLength !== undefined &&
+            strValue.length < rules.minLength
+          ) {
             throw new AppError(
               'Field ' +
                 key +
@@ -881,7 +899,10 @@ export function validateObject(
               '600'
             );
           }
-          if (rules.maxLength !== undefined && value.length > rules.maxLength) {
+          if (
+            rules.maxLength !== undefined &&
+            strValue.length > rules.maxLength
+          ) {
             throw new AppError(
               'Field ' +
                 key +
@@ -896,7 +917,8 @@ export function validateObject(
         }
 
         if (rules.type === 'number') {
-          if (rules.min !== undefined && value < rules.min) {
+          const numValue = value as number;
+          if (rules.min !== undefined && numValue < rules.min) {
             throw new AppError(
               'Field ' + key + ' must be at least ' + rules.min,
               ErrorCategory.VALIDATION,
@@ -904,7 +926,7 @@ export function validateObject(
               '600'
             );
           }
-          if (rules.max !== undefined && value > rules.max) {
+          if (rules.max !== undefined && numValue > rules.max) {
             throw new AppError(
               'Field ' + key + ' must be at most ' + rules.max,
               ErrorCategory.VALIDATION,
@@ -941,19 +963,19 @@ export function validateObject(
  * @param input 输入
  * @returns 清理后的输入
  */
-export function sanitizeInput(input: any): any {
+export function sanitizeInput(input: unknown): unknown {
   if (typeof input === 'string') {
-    // 移除危险标签
     return input
       .replace(/<script>/gi, '')
       .replace(/<\/script>/gi, '')
       .replace(/<[^>]+>/g, '');
   } else if (Array.isArray(input)) {
-    return input.map((item) => sanitizeInput(item));
+    return input.map((item: unknown) => sanitizeInput(item));
   } else if (input !== null && typeof input === 'object') {
-    const result: any = {};
-    for (const key in input) {
-      result[key] = sanitizeInput(input[key]);
+    const result: Record<string, unknown> = {};
+    const obj = input as Record<string, unknown>;
+    for (const key in obj) {
+      result[key] = sanitizeInput(obj[key]);
     }
     return result;
   }
@@ -965,7 +987,7 @@ export function sanitizeInput(input: any): any {
  * @param json JSON字符串
  * @returns 解析后的对象或null
  */
-export function safeJsonParse(json: string): any {
+export function safeJsonParse(json: string): unknown {
   try {
     return JSON.parse(json);
   } catch {

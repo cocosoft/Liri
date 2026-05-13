@@ -5,8 +5,8 @@ declare class AnalyticsService {
   static instance: AnalyticsService;
   static getInstance(): AnalyticsService;
 
-  events: any[];
-  sessions: Map<string, any>;
+  events: unknown[];
+  sessions: Map<string, unknown>;
   eventSequence: number;
   maxEvents: number;
   maxSessions: number;
@@ -17,9 +17,9 @@ declare class AnalyticsService {
   trackEvent(
     type: string,
     name: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): string;
-  logEvent(eventName: string, metadata?: Record<string, any>): void;
+  logEvent(eventName: string, metadata?: Record<string, unknown>): void;
   startSession(userId: string): string;
   endSession(sessionId: string): void;
   updateSessionActivity(
@@ -27,15 +27,15 @@ declare class AnalyticsService {
     operationType: string,
     duration: number
   ): void;
-  getSession(sessionId: string): any;
-  getAllSessions(): any[];
+  getSession(sessionId: string): unknown;
+  getAllSessions(): unknown[];
   getEvents(options?: {
     type?: string;
     name?: string;
     startTime?: number;
     endTime?: number;
     limit?: number;
-  }): any[];
+  }): unknown[];
   cleanupInactiveSessions(): number;
   getStats(): {
     totalEvents: number;
@@ -44,11 +44,11 @@ declare class AnalyticsService {
     eventCounts: Record<string, number>;
     averageSessionDuration: number;
   };
-  exportData(format?: string): any;
+  exportData(format?: string): unknown;
   clearData(): void;
   reset(): void;
-  on(event: string, listener: (...args: any[]) => void): this;
-  emit(event: string, ...args: any[]): boolean;
+  on(event: string, listener: (...args: unknown[]) => void): this;
+  emit(event: string, ...args: unknown[]): boolean;
 }
 
 export { AnalyticsService };

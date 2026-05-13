@@ -10,6 +10,7 @@ import type {
   ToolUseContext,
   ToolParam,
   ToolCallProgress,
+  ToolProgressData,
   ValidationResult,
 } from '../types';
 import type { Tool } from '../types/Tool';
@@ -33,7 +34,7 @@ export interface PlanToolInput {
   /** 计划状态 */
   status?: 'draft' | 'active' | 'completed' | 'cancelled';
   /** 执行参数 */
-  execution_params?: Record<string, any>;
+  execution_params?: Record<string, unknown>;
 }
 
 /**
@@ -49,7 +50,7 @@ export interface PlanStep {
   /** 步骤类型 */
   type: 'tool' | 'command' | 'condition' | 'loop';
   /** 步骤参数 */
-  params: Record<string, any>;
+  params: Record<string, unknown>;
   /** 依赖步骤 */
   dependencies?: string[];
 }
@@ -67,7 +68,7 @@ export interface PlanToolOutput {
   /** 计划列表 */
   plans?: PlanData[];
   /** 执行结果 */
-  execution_result?: any;
+  execution_result?: unknown;
 }
 
 /**
@@ -93,7 +94,11 @@ export interface PlanData {
 /**
  * 计划模式工具
  */
-export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
+export class PlanTool extends BaseTool<
+  PlanToolInput,
+  PlanToolOutput,
+  ToolProgressData
+> {
   name = 'plan';
   description = 'Create, manage, and execute plans';
 
@@ -312,7 +317,7 @@ export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
   async execute(
     input: PlanToolInput,
     context: ToolUseContext,
-    onProgress?: ToolCallProgress<any>
+    onProgress?: ToolCallProgress<ToolProgressData>
   ): Promise<ToolResult<PlanToolOutput>> {
     const validation = this.validateInput(input);
     if (!validation.result) {
@@ -429,7 +434,7 @@ export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
               message: `Plan not found: ${input.plan_id!}`,
             };
           } else {
-            const executionResults: any[] = [];
+            const executionResults: unknown[] = [];
             const errors: string[] = [];
             const tools: readonly Tool[] = context?.options?.tools || [];
 
@@ -442,21 +447,24 @@ export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
                   data: {
                     type: 'text',
                     value: `执行步骤: ${step.name}`,
-                  } as any,
+                  } as unknown as ToolProgressData,
                 });
               }
 
-              let stepResult: any;
+              let stepResult: unknown;
 
               try {
                 if (step.type === 'tool') {
-                  const toolName = step.params?.tool_name || step.name;
+                  const toolName =
+                    (step.params?.tool_name as string) || step.name;
                   const toolArgs = step.params?.tool_args || {};
                   const tool = tools.find((t) => {
-                    const tName = (t as any).name?.toLowerCase();
+                    const toolObj = t as unknown as Record<string, unknown>;
+                    const tName = (toolObj.name as string)?.toLowerCase();
                     const tAliases: string[] =
-                      (t as any).aliases?.map((a: string) => a.toLowerCase()) ||
-                      [];
+                      (toolObj.aliases as string[])?.map((a: string) =>
+                        a.toLowerCase()
+                      ) || [];
                     const searchName = toolName.toLowerCase();
                     return (
                       tName === searchName || tAliases.includes(searchName)
@@ -484,7 +492,9 @@ export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
                     );
                   }
                   const bashTool = tools.find((t) => {
-                    const name = (t as any).name?.toLowerCase();
+                    const name = (
+                      (t as unknown as Record<string, unknown>).name as string
+                    )?.toLowerCase();
                     return name === 'bash';
                   });
                   if (bashTool) {
@@ -514,15 +524,15 @@ export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
                   result: stepResult,
                   timestamp: new Date().toISOString(),
                 });
-              } catch (error: any) {
+              } catch (error: unknown) {
                 executionResults.push({
                   step_id: step.id,
                   step_name: step.name,
                   status: 'failed',
-                  error: error.message,
+                  error: (error as Error).message,
                   timestamp: new Date().toISOString(),
                 });
-                errors.push(error.message);
+                errors.push((error as Error).message);
                 break;
               }
             }
@@ -562,15 +572,15 @@ export class PlanTool extends BaseTool<PlanToolInput, PlanToolOutput> {
         success: result.success,
         output: result.message,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolResult(
         {
           success: false,
-          message: `Plan operation failed: ${error.message}`,
+          message: `Plan operation failed: ${(error as Error).message}`,
         },
         {
           success: false,
-          error: `Plan operation failed: ${error.message}`,
+          error: `Plan operation failed: ${(error as Error).message}`,
         }
       );
     }

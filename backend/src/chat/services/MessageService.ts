@@ -73,7 +73,7 @@ export interface MessageService {
     content: string,
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message;
 
@@ -87,7 +87,7 @@ export interface MessageService {
     content: string | ContentBlock[],
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message;
 
@@ -101,7 +101,7 @@ export interface MessageService {
     toolUse: ToolUse,
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message;
 
@@ -115,7 +115,7 @@ export interface MessageService {
     toolResult: ToolResult,
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message;
 
@@ -129,7 +129,7 @@ export interface MessageService {
     content: string,
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message;
 
@@ -227,7 +227,7 @@ export interface MessageService {
     content: string | ContentBlock[],
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
       status?: MessageStatus;
       priority?: MessagePriority;
       category?: MessageCategory;
@@ -388,7 +388,7 @@ export class MessageServiceImpl implements MessageService {
     content: string,
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message {
     return createMessage({
@@ -409,7 +409,7 @@ export class MessageServiceImpl implements MessageService {
     content: string | ContentBlock[],
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message {
     return createMessage({
@@ -430,7 +430,7 @@ export class MessageServiceImpl implements MessageService {
     toolUse: ToolUse,
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message {
     const content: ContentBlock[] = [
@@ -461,7 +461,7 @@ export class MessageServiceImpl implements MessageService {
     toolResult: ToolResult,
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message {
     const content: ContentBlock[] = [
@@ -491,7 +491,7 @@ export class MessageServiceImpl implements MessageService {
     content: string,
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Message {
     return createMessage({
@@ -708,7 +708,7 @@ export class MessageServiceImpl implements MessageService {
     content: string | ContentBlock[],
     options?: {
       sessionId?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
       status?: MessageStatus;
       priority?: MessagePriority;
       category?: MessageCategory;

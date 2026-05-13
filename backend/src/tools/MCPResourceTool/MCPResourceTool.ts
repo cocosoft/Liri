@@ -10,6 +10,7 @@ import type {
   ToolUseContext,
   ToolParam,
   ToolCallProgress,
+  ToolProgressData,
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
@@ -42,11 +43,11 @@ export interface MCPResourceToolOutput {
   /** 操作结果 */
   success: boolean;
   /** 资源列表 */
-  resources?: any[];
+  resources?: unknown[];
   /** 资源内容 */
-  content?: any;
+  content?: unknown;
   /** 提示列表 */
-  prompts?: any[];
+  prompts?: unknown[];
   /** 提示内容 */
   prompt?: any;
   /** 消息 */
@@ -234,7 +235,7 @@ export class MCPResourceTool extends BaseTool<
   async execute(
     input: MCPResourceToolInput,
     context: ToolUseContext,
-    onProgress?: ToolCallProgress<any>
+    onProgress?: ToolCallProgress<ToolProgressData>
   ): Promise<ToolResult<MCPResourceToolOutput>> {
     const validation = this.validateInput(input);
     if (!validation.result) {
@@ -286,7 +287,7 @@ export class MCPResourceTool extends BaseTool<
             });
           } else {
             // 列出所有服务器的资源
-            const allResources: any[] = [];
+            const allResources: unknown[] = [];
             const servers = mcpManager.listServers();
 
             for (const serverName of servers) {
@@ -294,14 +295,15 @@ export class MCPResourceTool extends BaseTool<
                 const resources =
                   await this.listResourcesFromServer(serverName);
                 allResources.push(
-                  ...resources.map((r) => ({ ...r, server: serverName }))
+                  ...resources.map((r) => ({
+                    ...(r as Record<string, unknown>),
+                    server: serverName,
+                  }))
                 );
-              } catch (error: any) {
+              } catch (error: unknown) {
                 logger.warning(
                   `Failed to list resources from ${serverName}`,
-                  error instanceof Error
-                    ? error
-                    : new Error(String(error.message))
+                  error instanceof Error ? error : new Error(String(error))
                 );
               }
             }
@@ -360,21 +362,22 @@ export class MCPResourceTool extends BaseTool<
               output: this.formatPromptsList(prompts, input.server_name),
             });
           } else {
-            const allPrompts: any[] = [];
+            const allPrompts: unknown[] = [];
             const servers = mcpManager.listServers();
 
             for (const serverName of servers) {
               try {
                 const prompts = await this.listPromptsFromServer(serverName);
                 allPrompts.push(
-                  ...prompts.map((p) => ({ ...p, server: serverName }))
+                  ...prompts.map((p) => ({
+                    ...(p as Record<string, unknown>),
+                    server: serverName,
+                  }))
                 );
-              } catch (error: any) {
+              } catch (error: unknown) {
                 logger.warning(
                   `Failed to list prompts from ${serverName}`,
-                  error instanceof Error
-                    ? error
-                    : new Error(String(error.message))
+                  error instanceof Error ? error : new Error(String(error))
                 );
               }
             }
@@ -433,15 +436,15 @@ export class MCPResourceTool extends BaseTool<
             }
           );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       return createToolResult(
         {
           success: false,
-          message: `MCP resource operation failed: ${error.message}`,
+          message: `MCP resource operation failed: ${error instanceof Error ? error.message : String(error)}`,
         },
         {
           success: false,
-          error: `MCP resource operation failed: ${error.message}`,
+          error: `MCP resource operation failed: ${error instanceof Error ? error.message : String(error)}`,
         }
       );
     }
@@ -451,7 +454,9 @@ export class MCPResourceTool extends BaseTool<
    * 从服务器列出资源
    * 通过MCP协议获取资源列表
    */
-  private async listResourcesFromServer(serverName: string): Promise<any[]> {
+  private async listResourcesFromServer(
+    serverName: string
+  ): Promise<unknown[]> {
     const mcpManager = getMCPServerManager();
     const server = mcpManager.getServer(serverName);
 
@@ -489,7 +494,10 @@ export class MCPResourceTool extends BaseTool<
   /**
    * 读取资源
    */
-  private async readResource(serverName: string, uri: string): Promise<any> {
+  private async readResource(
+    serverName: string,
+    uri: string
+  ): Promise<unknown> {
     const mcpManager = getMCPServerManager();
     const server = mcpManager.getServer(serverName);
 
@@ -521,9 +529,9 @@ export class MCPResourceTool extends BaseTool<
       }
 
       return response.result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new AppError(
-        `Failed to read resource ${uri}: ${error.message}`,
+        `Failed to read resource ${uri}: ${error instanceof Error ? error.message : String(error)}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         '1000'
@@ -534,7 +542,7 @@ export class MCPResourceTool extends BaseTool<
   /**
    * 从服务器列出提示
    */
-  private async listPromptsFromServer(serverName: string): Promise<any[]> {
+  private async listPromptsFromServer(serverName: string): Promise<unknown[]> {
     const mcpManager = getMCPServerManager();
     const server = mcpManager.getServer(serverName);
 
@@ -573,7 +581,7 @@ export class MCPResourceTool extends BaseTool<
     serverName: string,
     promptName: string,
     args?: Record<string, any>
-  ): Promise<any> {
+  ): Promise<unknown> {
     const mcpManager = getMCPServerManager();
     const server = mcpManager.getServer(serverName);
 
@@ -604,9 +612,9 @@ export class MCPResourceTool extends BaseTool<
       }
 
       return response.result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw new AppError(
-        `Failed to get prompt ${promptName}: ${error.message}`,
+        `Failed to get prompt ${promptName}: ${error instanceof Error ? error.message : String(error)}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         '1000'
@@ -617,13 +625,17 @@ export class MCPResourceTool extends BaseTool<
   /**
    * 格式化资源列表
    */
-  private formatResourcesList(resources: any[], serverName: string): string {
+  private formatResourcesList(
+    resources: unknown[],
+    serverName: string
+  ): string {
     if (resources.length === 0) {
       return `No resources found from ${serverName}`;
     }
 
     const lines = [`Resources from ${serverName}:`];
-    for (const resource of resources) {
+    for (const item of resources) {
+      const resource = item as Record<string, unknown>;
       lines.push(`  · ${resource.name || resource.uri || 'Unknown'}`);
       if (resource.description) {
         lines.push(`    ${resource.description}`);
@@ -635,13 +647,14 @@ export class MCPResourceTool extends BaseTool<
   /**
    * 格式化所有资源列表
    */
-  private formatAllResourcesList(resources: any[]): string {
+  private formatAllResourcesList(resources: unknown[]): string {
     if (resources.length === 0) {
       return 'No resources found from any server';
     }
 
     const lines = [`Found ${resources.length} resources:`];
-    for (const resource of resources) {
+    for (const item of resources) {
+      const resource = item as Record<string, unknown>;
       lines.push(
         `  · [${resource.server}] ${resource.name || resource.uri || 'Unknown'}`
       );
@@ -652,13 +665,14 @@ export class MCPResourceTool extends BaseTool<
   /**
    * 格式化提示列表
    */
-  private formatPromptsList(prompts: any[], serverName: string): string {
+  private formatPromptsList(prompts: unknown[], serverName: string): string {
     if (prompts.length === 0) {
       return `No prompts found from ${serverName}`;
     }
 
     const lines = [`Prompts from ${serverName}:`];
-    for (const prompt of prompts) {
+    for (const item of prompts) {
+      const prompt = item as Record<string, unknown>;
       lines.push(`  · ${prompt.name || 'Unknown'}`);
       if (prompt.description) {
         lines.push(`    ${prompt.description}`);
@@ -670,13 +684,14 @@ export class MCPResourceTool extends BaseTool<
   /**
    * 格式化所有提示列表
    */
-  private formatAllPromptsList(prompts: any[]): string {
+  private formatAllPromptsList(prompts: unknown[]): string {
     if (prompts.length === 0) {
       return 'No prompts found from any server';
     }
 
     const lines = [`Found ${prompts.length} prompts:`];
-    for (const prompt of prompts) {
+    for (const item of prompts) {
+      const prompt = item as Record<string, unknown>;
       lines.push(`  · [${prompt.server}] ${prompt.name || 'Unknown'}`);
     }
     return lines.join('\n');

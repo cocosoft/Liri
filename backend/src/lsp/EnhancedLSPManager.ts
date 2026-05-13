@@ -156,10 +156,14 @@ export class EnhancedLSPManager {
 
     try {
       // 建立连接
-      const connection = await (this.baseManager as any).connect(
-        language,
-        serverConfig
-      );
+      const connection = await (
+        this.baseManager as unknown as {
+          connect: (
+            lang: string,
+            config: LSPServerConfig
+          ) => Promise<LSPConnection>;
+        }
+      ).connect(language, serverConfig);
 
       const connectionId = this.generateConnectionId(language);
       const connectionTime = Date.now() - startTime;
@@ -223,7 +227,7 @@ export class EnhancedLSPManager {
     documentUri: string,
     language: string,
     position: { line: number; character: number },
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<{
     completions: IntelligentCompletion[];
     cacheHit: boolean;
@@ -248,11 +252,15 @@ export class EnhancedLSPManager {
 
     try {
       // 获取基础补全
-      const baseCompletions = await (this.baseManager as any).getCompletions(
-        language,
-        documentUri,
-        position
-      );
+      const baseCompletions = await (
+        this.baseManager as unknown as {
+          getCompletions: (
+            lang: string,
+            uri: string,
+            pos: { line: number; character: number }
+          ) => Promise<Record<string, unknown>[]>;
+        }
+      ).getCompletions(language, documentUri, position);
 
       // 智能处理补全结果
       const intelligentCompletions = await this.enhanceCompletions(
@@ -309,10 +317,14 @@ export class EnhancedLSPManager {
 
     try {
       // 获取基础诊断
-      const baseDiagnostics = await (this.baseManager as any).getDiagnostics(
-        language,
-        documentUri
-      );
+      const baseDiagnostics = await (
+        this.baseManager as unknown as {
+          getDiagnostics: (
+            lang: string,
+            uri: string
+          ) => Promise<Record<string, unknown>[]>;
+        }
+      ).getDiagnostics(language, documentUri);
 
       // 智能分析代码
       const analysis = await this.performIntelligentAnalysis(
@@ -341,21 +353,21 @@ export class EnhancedLSPManager {
    * 增强补全结果
    */
   private async enhanceCompletions(
-    baseCompletions: any[],
+    baseCompletions: Record<string, unknown>[],
     language: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<IntelligentCompletion[]> {
     const enhancedCompletions: IntelligentCompletion[] = [];
 
     for (const baseCompletion of baseCompletions) {
       const intelligentCompletion: IntelligentCompletion = {
         completionId: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        text: baseCompletion.label || '',
+        text: (baseCompletion.label as string) || '',
         type: this.determineCompletionType(baseCompletion),
         relevance: this.calculateRelevance(baseCompletion, context),
         confidence: this.calculateConfidence(baseCompletion, language),
         context: this.extractContext(baseCompletion),
-        documentation: baseCompletion.documentation,
+        documentation: baseCompletion.documentation as string | undefined,
         examples: this.generateExamples(baseCompletion, language),
         priority: this.determinePriority(baseCompletion),
       };
@@ -375,9 +387,9 @@ export class EnhancedLSPManager {
    * 确定补全类型
    */
   private determineCompletionType(
-    completion: any
+    completion: Record<string, unknown>
   ): IntelligentCompletion['type'] {
-    const label = completion.label || '';
+    const label = (completion.label as string) || '';
 
     if (label.includes('(') && label.includes(')')) return 'function';
     if (label.startsWith('@') || label.startsWith('import')) return 'import';
@@ -391,14 +403,14 @@ export class EnhancedLSPManager {
    * 计算相关性
    */
   private calculateRelevance(
-    completion: any,
-    context?: Record<string, any>
+    completion: Record<string, unknown>,
+    context?: Record<string, unknown>
   ): number {
     let relevance = 0.5; // 基础相关性
 
     if (context?.currentWord) {
-      const currentWord = context.currentWord.toLowerCase();
-      const completionText = completion.label.toLowerCase();
+      const currentWord = (context.currentWord as string).toLowerCase();
+      const completionText = (completion.label as string).toLowerCase();
 
       if (completionText.startsWith(currentWord)) {
         relevance += 0.3;
@@ -408,21 +420,22 @@ export class EnhancedLSPManager {
     }
 
     if (completion.kind) {
-      // 根据补全类型调整相关性
       const kindWeights = {
-        1: 0.1, // Text
-        2: 0.2, // Method
-        3: 0.3, // Function
-        4: 0.4, // Constructor
-        5: 0.5, // Field
-        6: 0.6, // Variable
-        7: 0.7, // Class
-        8: 0.8, // Interface
-        9: 0.9, // Module
-        10: 1.0, // Property
+        1: 0.1,
+        2: 0.2,
+        3: 0.3,
+        4: 0.4,
+        5: 0.5,
+        6: 0.6,
+        7: 0.7,
+        8: 0.8,
+        9: 0.9,
+        10: 1.0,
       };
 
-      relevance += ((kindWeights as any)[completion.kind] || 0.1) * 0.2;
+      relevance +=
+        ((kindWeights as Record<number, number>)[completion.kind as number] ||
+          0.1) * 0.2;
     }
 
     return Math.min(relevance, 1);
@@ -431,16 +444,17 @@ export class EnhancedLSPManager {
   /**
    * 计算置信度
    */
-  private calculateConfidence(completion: any, language: string): number {
-    let confidence = 0.5; // 基础置信度
+  private calculateConfidence(
+    completion: Record<string, unknown>,
+    language: string
+  ): number {
+    let confidence = 0.5;
 
-    // 基于补全详细程度
     if (completion.detail) confidence += 0.2;
     if (completion.documentation) confidence += 0.3;
 
-    // 基于语言特定规则
     if (language === 'typescript' || language === 'javascript') {
-      if (completion.label.includes('.')) confidence += 0.1;
+      if ((completion.label as string).includes('.')) confidence += 0.1;
     }
 
     return Math.min(confidence, 1);
@@ -449,11 +463,11 @@ export class EnhancedLSPManager {
   /**
    * 提取上下文信息
    */
-  private extractContext(completion: any): string[] {
+  private extractContext(completion: Record<string, unknown>): string[] {
     const context: string[] = [];
 
     if (completion.detail) {
-      context.push(`类型: ${completion.detail}`);
+      context.push(`类型: ${completion.detail as string}`);
     }
 
     if (completion.kind) {
@@ -469,7 +483,9 @@ export class EnhancedLSPManager {
         9: '模块',
         10: '属性',
       };
-      context.push(`种类: ${(kindNames as any)[completion.kind] || '未知'}`);
+      context.push(
+        `种类: ${(kindNames as Record<number, string>)[completion.kind as number] || '未知'}`
+      );
     }
 
     return context;
@@ -478,26 +494,31 @@ export class EnhancedLSPManager {
   /**
    * 生成示例
    */
-  private generateExamples(completion: any, language: string): string[] {
+  private generateExamples(
+    completion: Record<string, unknown>,
+    language: string
+  ): string[] {
     const examples: string[] = [];
 
     if (completion.label && completion.kind === 3) {
-      // 函数
-      examples.push(`${completion.label}();`);
+      examples.push(`${completion.label as string}();`);
     }
 
-    if (language === 'typescript' && completion.label?.includes('.')) {
-      examples.push(`const result = ${completion.label};`);
+    if (
+      language === 'typescript' &&
+      (completion.label as string)?.includes('.')
+    ) {
+      examples.push(`const result = ${completion.label as string};`);
     }
 
-    return examples.slice(0, 2); // 最多返回2个示例
+    return examples.slice(0, 2);
   }
 
   /**
    * 确定优先级
    */
   private determinePriority(
-    completion: any
+    completion: Record<string, unknown>
   ): IntelligentCompletion['priority'] {
     const relevance = this.calculateRelevance(completion);
     const confidence = this.calculateConfidence(completion, '');
@@ -515,7 +536,7 @@ export class EnhancedLSPManager {
     documentUri: string,
     language: string,
     code: string,
-    baseDiagnostics: any[]
+    baseDiagnostics: Record<string, unknown>[]
   ): Promise<CodeAnalysisResult> {
     const analysis: CodeAnalysisResult = {
       analysisId: `analysis-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -549,12 +570,19 @@ export class EnhancedLSPManager {
   /**
    * 计算质量分数
    */
-  private calculateQualityScore(code: string, diagnostics: any[]): number {
+  private calculateQualityScore(
+    code: string,
+    diagnostics: Record<string, unknown>[]
+  ): number {
     let baseScore = 0.8; // 基础分数
 
     // 基于诊断结果调整分数
-    const errorCount = diagnostics.filter((d) => d.severity === 1).length;
-    const warningCount = diagnostics.filter((d) => d.severity === 2).length;
+    const errorCount = diagnostics.filter(
+      (d) => (d.severity as number) === 1
+    ).length;
+    const warningCount = diagnostics.filter(
+      (d) => (d.severity as number) === 2
+    ).length;
 
     baseScore -= errorCount * 0.1;
     baseScore -= warningCount * 0.05;
@@ -570,22 +598,32 @@ export class EnhancedLSPManager {
   /**
    * 增强诊断信息
    */
-  private enhanceDiagnostics(baseDiagnostics: any[]): CodeIssue[] {
-    return baseDiagnostics.map((diagnostic) => ({
-      issueId: `issue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: this.mapSeverityToType(diagnostic.severity),
-      severity: this.mapSeverityToLevel(diagnostic.severity),
-      message: diagnostic.message || '未知问题',
-      location: {
-        line: diagnostic.range?.start?.line || 0,
-        character: diagnostic.range?.start?.character || 0,
-        endLine: diagnostic.range?.end?.line,
-        endCharacter: diagnostic.range?.end?.character,
-      },
-      code: diagnostic.code,
-      source: diagnostic.source,
-      suggestions: this.generateIssueSuggestions(diagnostic),
-    }));
+  private enhanceDiagnostics(
+    baseDiagnostics: Record<string, unknown>[]
+  ): CodeIssue[] {
+    return baseDiagnostics.map((diagnostic) => {
+      const range = diagnostic.range as
+        | {
+            start?: { line: number; character: number };
+            end?: { line: number; character: number };
+          }
+        | undefined;
+      return {
+        issueId: `issue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: this.mapSeverityToType(diagnostic.severity as number),
+        severity: this.mapSeverityToLevel(diagnostic.severity as number),
+        message: (diagnostic.message as string) || '未知问题',
+        location: {
+          line: range?.start?.line || 0,
+          character: range?.start?.character || 0,
+          endLine: range?.end?.line,
+          endCharacter: range?.end?.character,
+        },
+        code: diagnostic.code as string | undefined,
+        source: diagnostic.source as string | undefined,
+        suggestions: this.generateIssueSuggestions(diagnostic),
+      };
+    });
   }
 
   /**
@@ -627,25 +665,28 @@ export class EnhancedLSPManager {
   /**
    * 生成问题建议
    */
-  private generateIssueSuggestions(diagnostic: any): string[] {
+  private generateIssueSuggestions(
+    diagnostic: Record<string, unknown>
+  ): string[] {
     const suggestions: string[] = [];
+    const message = (diagnostic.message as string) || '';
 
-    if (diagnostic.message.includes('未定义')) {
+    if (message.includes('未定义')) {
       suggestions.push('检查变量或函数是否已定义');
       suggestions.push('确认导入语句是否正确');
     }
 
-    if (diagnostic.message.includes('类型')) {
+    if (message.includes('类型')) {
       suggestions.push('检查类型声明和赋值');
       suggestions.push('确认类型兼容性');
     }
 
-    if (diagnostic.message.includes('语法')) {
+    if (message.includes('语法')) {
       suggestions.push('检查语法错误');
       suggestions.push('确认括号和引号匹配');
     }
 
-    return suggestions.slice(0, 3); // 最多返回3个建议
+    return suggestions.slice(0, 3);
   }
 
   /**
@@ -749,7 +790,7 @@ export class EnhancedLSPManager {
   private generateCacheKey(
     documentUri: string,
     language: string,
-    position: any
+    position: { line: number; character: number }
   ): string {
     return `comp-${language}-${documentUri}-${position.line}-${position.character}`;
   }

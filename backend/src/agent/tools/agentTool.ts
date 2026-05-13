@@ -10,7 +10,7 @@ import { AgentTool } from '../models/types';
 export abstract class BaseAgentTool implements AgentTool {
   name: string;
   description: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 
   /**
    * 构造函数
@@ -21,7 +21,7 @@ export abstract class BaseAgentTool implements AgentTool {
   constructor(
     name: string,
     description: string,
-    parameters: Record<string, any>
+    parameters: Record<string, unknown>
   ) {
     this.name = name;
     this.description = description;
@@ -33,7 +33,9 @@ export abstract class BaseAgentTool implements AgentTool {
    * @param params 工具参数
    * @returns 执行结果
    */
-  abstract execute(params: Record<string, any>): Promise<Record<string, any>>;
+  abstract execute(
+    params: Record<string, unknown>
+  ): Promise<Record<string, unknown>>;
 }
 
 /**
@@ -50,7 +52,9 @@ export class FileReadTool extends BaseAgentTool {
     });
   }
 
-  async execute(params: Record<string, any>): Promise<Record<string, any>> {
+  async execute(
+    params: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const { path } = params;
     const fs = require('fs');
 
@@ -96,7 +100,9 @@ export class FileWriteTool extends BaseAgentTool {
     });
   }
 
-  async execute(params: Record<string, any>): Promise<Record<string, any>> {
+  async execute(
+    params: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const { path, content, overwrite = false } = params;
     const fs = require('fs');
     const pathModule = require('path');
@@ -151,27 +157,33 @@ export class CommandTool extends BaseAgentTool {
     });
   }
 
-  async execute(params: Record<string, any>): Promise<Record<string, any>> {
+  async execute(
+    params: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const { command, cwd } = params;
     const { exec } = require('child_process');
 
     return new Promise((resolve) => {
-      exec(command, { cwd }, (error: any, stdout: any, stderr: any) => {
-        if (error) {
-          resolve({
-            success: false,
-            error: error.message,
-            stdout,
-            stderr,
-          });
-        } else {
-          resolve({
-            success: true,
-            stdout,
-            stderr,
-          });
+      exec(
+        command,
+        { cwd },
+        (error: unknown, stdout: unknown, stderr: unknown) => {
+          if (error) {
+            resolve({
+              success: false,
+              error: (error as { message: string }).message,
+              stdout,
+              stderr,
+            });
+          } else {
+            resolve({
+              success: true,
+              stdout,
+              stderr,
+            });
+          }
         }
-      });
+      );
     });
   }
 }

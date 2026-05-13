@@ -51,7 +51,8 @@ export function decrqm(mode: number): TerminalQuery<DecrpmResponse> {
   return {
     request: csi(`?${mode}$p`),
     match: (r: TerminalResponse): r is DecrpmResponse =>
-      (r as any).type === 'decrpm' && (r as any).mode === mode,
+      (r as unknown as Record<string, unknown>).type === 'decrpm' &&
+      (r as unknown as Record<string, unknown>).mode === mode,
   };
 }
 
@@ -61,7 +62,8 @@ export function decrqm(mode: number): TerminalQuery<DecrpmResponse> {
 export function da1(): TerminalQuery<Da1Response> {
   return {
     request: csi('c'),
-    match: (r: TerminalResponse): r is Da1Response => (r as any).type === 'da1',
+    match: (r: TerminalResponse): r is Da1Response =>
+      (r as unknown as Record<string, unknown>).type === 'da1',
   };
 }
 
@@ -69,7 +71,8 @@ export function da1(): TerminalQuery<Da1Response> {
 export function da2(): TerminalQuery<Da2Response> {
   return {
     request: csi('>c'),
-    match: (r: TerminalResponse): r is Da2Response => (r as any).type === 'da2',
+    match: (r: TerminalResponse): r is Da2Response =>
+      (r as unknown as Record<string, unknown>).type === 'da2',
   };
 }
 
@@ -79,7 +82,7 @@ export function kittyKeyboard(): TerminalQuery<KittyResponse> {
   return {
     request: csi('?u'),
     match: (r: TerminalResponse): r is KittyResponse =>
-      (r as any).type === 'kittyKeyboard',
+      (r as unknown as Record<string, unknown>).type === 'kittyKeyboard',
   };
 }
 
@@ -91,7 +94,7 @@ export function cursorPosition(): TerminalQuery<CursorPosResponse> {
   return {
     request: csi('?6n'),
     match: (r: TerminalResponse): r is CursorPosResponse =>
-      (r as any).type === 'cursorPosition',
+      (r as unknown as Record<string, unknown>).type === 'cursorPosition',
   };
 }
 
@@ -101,7 +104,8 @@ export function oscColor(code: number): TerminalQuery<OscResponse> {
   return {
     request: osc(code, '?'),
     match: (r: TerminalResponse): r is OscResponse =>
-      (r as any).type === 'osc' && (r as any).code === code,
+      (r as unknown as Record<string, unknown>).type === 'osc' &&
+      (r as unknown as Record<string, unknown>).code === code,
   };
 }
 
@@ -114,7 +118,7 @@ export function xtversion(): TerminalQuery<XtversionResponse> {
   return {
     request: csi('>0q'),
     match: (r: TerminalResponse): r is XtversionResponse =>
-      (r as any).type === 'xtversion',
+      (r as unknown as Record<string, unknown>).type === 'xtversion',
   };
 }
 
@@ -146,7 +150,7 @@ export class TerminalQuerier {
    *
    * Resolves with the response when `query.match` matches an incoming
    * TerminalResponse, or with `undefined` when a flush() sentinel arrives
-   * before any matching response (meaning the terminal ignored the query).
+   * before unknown matching response (meaning the terminal ignored the query).
    *
    * Never rejects; never times out on its own. If you never call flush()
    * and the terminal doesn't respond, the promise remains pending.
@@ -191,7 +195,7 @@ export class TerminalQuerier {
    *   responses. The first matches the explicit query; the second
    *   (unmatched) fires the sentinel.
    * - Otherwise, if this is a DA1, fire the FIRST pending sentinel:
-   *   resolve any queries queued before that sentinel with undefined
+   *   resolve unknown queries queued before that sentinel with undefined
    *   (the terminal answered DA1 without answering them → unsupported)
    *   and signal its flush() completion. Only draining up to the first
    *   sentinel keeps later batches intact when multiple callers have
@@ -206,7 +210,7 @@ export class TerminalQuerier {
       return;
     }
 
-    if ((r as any).type === 'da1') {
+    if ((r as unknown as Record<string, unknown>).type === 'da1') {
       const s = this.queue.findIndex((p) => p.kind === 'sentinel');
       if (s === -1) return;
       for (const p of this.queue.splice(0, s + 1)) {

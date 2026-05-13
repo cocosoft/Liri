@@ -38,7 +38,7 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
         return `You are a planning assistant. Your goal is to help users plan complex coding tasks, break them down into manageable steps, and create implementation strategies.`;
       },
     },
-    VERIFICATION_AGENT_DEFINITION,
+    VERIFICATION_AGENT_DEFINITION as unknown as BuiltInAgentDefinition,
     {
       agentType: 'claude-code-guide',
       whenToUse: 'Code review and best practices',
@@ -48,6 +48,6 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
         return `You are a code guide assistant. Your goal is to help users write clean, efficient, and maintainable code by providing best practices and code review feedback.`;
       },
     },
-    STATUSLINE_SETUP_AGENT_DEFINITION,
+    STATUSLINE_SETUP_AGENT_DEFINITION as unknown as BuiltInAgentDefinition,
   ];
 }

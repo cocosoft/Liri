@@ -33,7 +33,12 @@ export class CompactCommand implements Command {
 
     try {
       // 获取chatManager并执行压缩
-      const { chatManager, sessionId } = context;
+      const { sessionId } = context;
+      const chatManager = context.chatManager as
+        | {
+            compactSession: (sessionId?: string) => Promise<CompactArtifact[]>;
+          }
+        | undefined;
 
       if (!chatManager) {
         return {

@@ -60,9 +60,12 @@ export class BriefCommand {
         };
       }
 
-      const messages = context.chatManager.getSessionMessages(
+      const cm = context.chatManager as {
+        getSessionMessages: (sessionId: string) => Promise<unknown[]>;
+      };
+      const messages = (await cm.getSessionMessages(
         options.sessionId!
-      ) as unknown as SessionMessage[];
+      )) as SessionMessage[];
 
       const summary = this.generateSummary(
         messages,

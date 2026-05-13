@@ -15,16 +15,16 @@ export interface ConfigSource {
 }
 
 export interface ConfigLoadResult {
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   source: string;
   timestamp: number;
 }
 
-export type ConfigChangeCallback = (changes: Record<string, any>) => void;
+export type ConfigChangeCallback = (changes: Record<string, unknown>) => void;
 
 export interface IConfigLoader {
-  load(sources?: ConfigSource[]): Promise<Record<string, any>>;
-  parse(content: string, format: ConfigFormat): Record<string, any>;
+  load(sources?: ConfigSource[]): Promise<Record<string, unknown>>;
+  parse(content: string, format: ConfigFormat): Record<string, unknown>;
   watch(source: ConfigSource, callback: ConfigChangeCallback): void;
   unwatch(path: string): void;
 }
@@ -62,11 +62,11 @@ export class ConfigLoader implements IConfigLoader {
     return join(homeDir, '.PY_APP', 'config.json');
   }
 
-  async load(sources?: ConfigSource[]): Promise<Record<string, any>> {
+  async load(sources?: ConfigSource[]): Promise<Record<string, unknown>> {
     const srcs = sources || this.defaultSources;
     const sorted = [...srcs].sort((a, b) => b.priority - a.priority);
 
-    let merged: Record<string, any> = {};
+    let merged: Record<string, unknown> = {};
 
     for (const source of sorted) {
       try {
@@ -87,7 +87,9 @@ export class ConfigLoader implements IConfigLoader {
     return merged;
   }
 
-  private async loadSource(source: ConfigSource): Promise<Record<string, any>> {
+  private async loadSource(
+    source: ConfigSource
+  ): Promise<Record<string, unknown>> {
     switch (source.type) {
       case 'file':
         return this.loadFile(source);
@@ -100,7 +102,7 @@ export class ConfigLoader implements IConfigLoader {
     }
   }
 
-  private loadFile(source: ConfigSource): Record<string, any> {
+  private loadFile(source: ConfigSource): Record<string, unknown> {
     const filePath = source.path!;
     if (!existsSync(filePath)) {
       if (source.required) {
@@ -119,9 +121,9 @@ export class ConfigLoader implements IConfigLoader {
     return this.parse(content, format);
   }
 
-  private loadEnv(source: ConfigSource): Record<string, any> {
+  private loadEnv(source: ConfigSource): Record<string, unknown> {
     const prefix = source.prefix || '';
-    const config: Record<string, any> = {};
+    const config: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(process.env)) {
       if (prefix && !key.startsWith(prefix)) continue;
@@ -135,7 +137,9 @@ export class ConfigLoader implements IConfigLoader {
     return config;
   }
 
-  private async loadRemote(source: ConfigSource): Promise<Record<string, any>> {
+  private async loadRemote(
+    source: ConfigSource
+  ): Promise<Record<string, unknown>> {
     if (!source.url) return {};
 
     try {
@@ -159,7 +163,7 @@ export class ConfigLoader implements IConfigLoader {
     }
   }
 
-  parse(content: string, format: ConfigFormat): Record<string, any> {
+  parse(content: string, format: ConfigFormat): Record<string, unknown> {
     switch (format) {
       case 'json':
         return JSON.parse(content);
@@ -177,9 +181,9 @@ export class ConfigLoader implements IConfigLoader {
     }
   }
 
-  private parseYaml(content: string): Record<string, any> {
+  private parseYaml(content: string): Record<string, unknown> {
     const lines = content.split('\n');
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     let currentKey = '';
     let indentLevel = 0;
 
@@ -215,8 +219,8 @@ export class ConfigLoader implements IConfigLoader {
     return value.replace(/^['"]|['"]$/g, '');
   }
 
-  private parseEnvContent(content: string): Record<string, any> {
-    const config: Record<string, any> = {};
+  private parseEnvContent(content: string): Record<string, unknown> {
+    const config: Record<string, unknown> = {};
     for (const line of content.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) continue;
@@ -254,9 +258,9 @@ export class ConfigLoader implements IConfigLoader {
   }
 
   private deepMerge(
-    target: Record<string, any>,
-    source: Record<string, any>
-  ): Record<string, any> {
+    target: Record<string, unknown>,
+    source: Record<string, unknown>
+  ): Record<string, unknown> {
     const result = { ...target };
     for (const [key, value] of Object.entries(source)) {
       if (
@@ -266,7 +270,10 @@ export class ConfigLoader implements IConfigLoader {
         typeof result[key] === 'object' &&
         !Array.isArray(result[key])
       ) {
-        result[key] = this.deepMerge(result[key], value);
+        result[key] = this.deepMerge(
+          result[key] as Record<string, unknown>,
+          value as Record<string, unknown>
+        );
       } else if (value !== undefined) {
         result[key] = value;
       }

@@ -1,4 +1,3 @@
-//
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { AgentMemoryImpl, MemoryItem } from './agentMemory';
 import { logger } from '@modules/utils/log';
@@ -199,42 +198,44 @@ export class AdvancedMemorySystem {
   async compressMemory(): Promise<MemoryCompressionResult> {
     const startTime = Date.now();
     const originalSize =
-      this.shortTermMemory.getAll().length +
-      this.longTermMemory.getAll().length;
+      Object.keys(this.shortTermMemory.getAll()).length +
+      Object.keys(this.longTermMemory.getAll()).length;
 
     let itemsRemoved = 0;
     let itemsArchived = 0;
 
     const shortTermEntries = Object.entries(this.shortTermMemory.getAll());
     for (const [key, value] of shortTermEntries) {
-      const age = Date.now() - (this.getTimestamp(value) || Date.now());
-      const importance = this.calculateImportance(value);
+      const val = value as Record<string, unknown>;
+      const age = Date.now() - (this.getTimestamp(val) || Date.now());
+      const importance = this.calculateImportance(val);
 
       if (age > 86400000 && importance < 0.3) {
         this.shortTermMemory.delete(key);
         itemsRemoved++;
       } else if (age > 604800000) {
         this.shortTermMemory.delete(key);
-        this.archivedMemory.add(key, value);
+        this.archivedMemory.add(key, val);
         itemsArchived++;
       }
     }
 
     const longTermEntries = Object.entries(this.longTermMemory.getAll());
     for (const [key, value] of longTermEntries) {
-      const age = Date.now() - (this.getTimestamp(value) || Date.now());
-      const importance = this.calculateImportance(value);
+      const val = value as Record<string, unknown>;
+      const age = Date.now() - (this.getTimestamp(val) || Date.now());
+      const importance = this.calculateImportance(val);
 
       if (age > 2592000000 && importance < 0.2) {
         this.longTermMemory.delete(key);
-        this.archivedMemory.add(key, value);
+        this.archivedMemory.add(key, val);
         itemsArchived++;
       }
     }
 
     const compressedSize =
-      this.shortTermMemory.getAll().length +
-      this.longTermMemory.getAll().length;
+      Object.keys(this.shortTermMemory.getAll()).length +
+      Object.keys(this.longTermMemory.getAll()).length;
     const duration = Date.now() - startTime;
 
     this.createVersion('compress');
@@ -256,9 +257,10 @@ export class AdvancedMemorySystem {
     let totalImportance = 0;
 
     for (const [key, value] of Object.entries(allItems)) {
+      const val = value as Record<string, unknown>;
       const vector = this.vectorIndex.get(key);
-      const timestamp = this.getTimestamp(value) || Date.now();
-      const importance = this.calculateImportance(value);
+      const timestamp = this.getTimestamp(val) || Date.now();
+      const importance = this.calculateImportance(val);
 
       oldestItem = Math.min(oldestItem, timestamp);
       newestItem = Math.max(newestItem, timestamp);

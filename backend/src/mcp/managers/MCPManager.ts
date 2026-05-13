@@ -10,14 +10,14 @@ import { logger } from '@modules/utils/log';
 /**
  * 通道通知监听器
  */
-type ChannelNotificationListener = (channel: string, message: any) => void;
+type ChannelNotificationListener = (channel: string, message: unknown) => void;
 
 /**
  * 命令执行结果
  */
 interface CommandExecutionResult {
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
 }
 
@@ -42,10 +42,10 @@ export class MCPManager {
   private commandHistory: Array<{
     id: string;
     command: string;
-    args: Record<string, any>;
+    args: Record<string, unknown>;
     server: string;
     timestamp: number;
-    result?: any;
+    result?: unknown;
   }> = [];
   private resourceCache: Map<string, Map<string, ResourceInfo>> = new Map(); // serverName -> resourcePath -> ResourceInfo
 
@@ -110,8 +110,8 @@ export class MCPManager {
   async callTool(
     serverName: string,
     toolName: string,
-    args: Record<string, any>
-  ): Promise<any> {
+    args: Record<string, unknown>
+  ): Promise<unknown> {
     return this.serverManager.callTool(serverName, toolName, args);
   }
 
@@ -157,7 +157,11 @@ export class MCPManager {
   /**
    * 发布通道通知
    */
-  publishToChannel(serverName: string, channel: string, message: any): void {
+  publishToChannel(
+    serverName: string,
+    channel: string,
+    message: unknown
+  ): void {
     const key = `${serverName}:${channel}`;
     const listeners = this.notificationListeners.get(key);
     if (listeners) {
@@ -179,7 +183,7 @@ export class MCPManager {
   async executeCommand(
     serverName: string,
     command: string,
-    args: Record<string, any>
+    args: Record<string, unknown>
   ): Promise<CommandExecutionResult> {
     const commandId = `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -239,10 +243,10 @@ export class MCPManager {
   getCommandHistory(limit: number = 100): Array<{
     id: string;
     command: string;
-    args: Record<string, any>;
+    args: Record<string, unknown>;
     server: string;
     timestamp: number;
-    result?: any;
+    result?: unknown;
   }> {
     return this.commandHistory.slice(-limit).reverse();
   }
@@ -278,13 +282,15 @@ export class MCPManager {
 
       const serverCache = this.resourceCache.get(serverName)!;
       if (Array.isArray(result)) {
-        result.forEach((resource: any) => {
-          serverCache.set(resource.path, {
-            name: resource.name,
-            type: resource.type,
-            size: resource.size || 0,
-            path: resource.path,
-            lastModified: resource.lastModified || new Date().toISOString(),
+        result.forEach((resource: unknown) => {
+          const res = resource as Record<string, unknown>;
+          serverCache.set(res.path as string, {
+            name: res.name as string,
+            type: res.type as string,
+            size: (res.size as number) || 0,
+            path: res.path as string,
+            lastModified:
+              (res.lastModified as string) || new Date().toISOString(),
           });
         });
       }
@@ -302,7 +308,7 @@ export class MCPManager {
   /**
    * 读取服务器资源
    */
-  async readResource(serverName: string, path: string): Promise<any> {
+  async readResource(serverName: string, path: string): Promise<unknown> {
     try {
       const result = await this.serverManager.callTool(
         serverName,
@@ -326,7 +332,7 @@ export class MCPManager {
   async writeResource(
     serverName: string,
     path: string,
-    content: any
+    content: unknown
   ): Promise<boolean> {
     try {
       await this.serverManager.callTool(serverName, 'write_resource', {
@@ -479,10 +485,10 @@ export class MCPManager {
   /**
    * 获取MCP命令列表
    */
-  async getCommands(): Promise<any[]> {
+  async getCommands(): Promise<unknown[]> {
     try {
       const allTools = await this.getAllTools();
-      const commands: any[] = [];
+      const commands: unknown[] = [];
       for (const [serverName, tools] of allTools) {
         for (const tool of tools) {
           commands.push({
@@ -491,11 +497,13 @@ export class MCPManager {
             description: tool.description || `MCP tool from ${serverName}`,
             serverName,
             load: async () => ({
-              execute: async (args: any) => {
+              execute: async (args: unknown) => {
                 return this.callTool(
                   serverName,
                   tool.name,
-                  typeof args === 'string' ? { args } : args
+                  typeof args === 'string'
+                    ? { args }
+                    : (args as Record<string, unknown>)
                 );
               },
             }),

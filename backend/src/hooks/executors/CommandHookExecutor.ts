@@ -28,7 +28,9 @@ export class CommandHookExecutor {
     hook: IndividualHookConfig,
     context: HookExecutionContext
   ): Promise<HookExecutionResult> {
-    if (!hook.config.command) {
+    const config = hook.config as Record<string, unknown>;
+
+    if (!config.command) {
       return {
         success: false,
         error: 'Command is required for command type hook',
@@ -38,6 +40,8 @@ export class CommandHookExecutor {
     try {
       // 准备命令输入
       const input = JSON.stringify(context.data);
+      const command = config.command as string;
+      const timeout = (config.timeout as number) || 30;
 
       // 设置环境变量
       const env = {
@@ -48,9 +52,9 @@ export class CommandHookExecutor {
       };
 
       // 执行命令
-      const { stdout, stderr } = await execPromise(hook.config.command, {
+      const { stdout, stderr } = await execPromise(command, {
         env,
-        timeout: (hook.config.timeout || 30) * 1000, // 转换为毫秒
+        timeout: timeout * 1000, // 转换为毫秒
         shell: true as any,
       });
 

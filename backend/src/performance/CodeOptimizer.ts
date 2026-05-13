@@ -1,4 +1,3 @@
-//
 /**
  * 代码性能优化工具
  * 提供常用的代码性能优化函数和工具
@@ -14,7 +13,7 @@ import { slowLogging } from './SlowOperations.js';
  * @param delay 延迟时间（毫秒）
  * @returns 节流后的函数
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number
 ): (...args: Parameters<T>) => void {
@@ -35,7 +34,7 @@ export function throttle<T extends (...args: any[]) => any>(
  * @param delay 延迟时间（毫秒）
  * @returns 防抖后的函数
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number
 ): (...args: Parameters<T>) => void {
@@ -57,7 +56,7 @@ export function debounce<T extends (...args: any[]) => any>(
  * @param fn 要记忆的函数
  * @returns 记忆后的函数
  */
-export function memoize<T extends (...args: any[]) => any>(
+export function memoize<T extends (...args: unknown[]) => unknown>(
   fn: T
 ): (...args: Parameters<T>) => ReturnType<T> {
   const cache = new Map<string, ReturnType<T>>();
@@ -66,7 +65,7 @@ export function memoize<T extends (...args: any[]) => any>(
     if (cache.has(key)) {
       return cache.get(key)!;
     }
-    const result = fn(...args);
+    const result = fn(...args) as ReturnType<T>;
     cache.set(key, result);
     return result;
   };
@@ -101,7 +100,7 @@ export async function batchProcess<T, R>(
  * @param delay 延迟时间（毫秒）
  * @returns 定时器ID
  */
-export function delay<T extends (...args: any[]) => any>(
+export function delay<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number,
   ...args: Parameters<T>
@@ -273,7 +272,7 @@ export function reduce<T, R>(
  * @param obj 要遍历的对象
  * @param callback 回调函数
  */
-export function forEachObject<T extends Record<string, any>>(
+export function forEachObject<T extends Record<string, unknown>>(
   obj: T,
   callback: (value: T[keyof T], key: keyof T) => void
 ): void {
@@ -289,7 +288,7 @@ export function forEachObject<T extends Record<string, any>>(
  * @param obj 要复制的对象
  * @returns 复制后的对象
  */
-export function copyObject<T extends Record<string, any>>(obj: T): T {
+export function copyObject<T extends Record<string, unknown>>(obj: T): T {
   const result: Partial<T> = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -305,7 +304,7 @@ export function copyObject<T extends Record<string, any>>(obj: T): T {
  * @param sources 源对象
  * @returns 合并后的对象
  */
-export function mergeObjects<T extends Record<string, any>>(
+export function mergeObjects<T extends Record<string, unknown>>(
   target: T,
   ...sources: Partial<T>[]
 ): T {
@@ -325,7 +324,7 @@ export function mergeObjects<T extends Record<string, any>>(
  * @param data 要序列化的数据
  * @returns JSON字符串
  */
-export function optimizedJsonStringify(data: any): string {
+export function optimizedJsonStringify(data: unknown): string {
   using _ = slowLogging`optimizedJsonStringify(${data})`;
   return JSON.stringify(data);
 }
@@ -335,7 +334,7 @@ export function optimizedJsonStringify(data: any): string {
  * @param json JSON字符串
  * @returns 解析后的数据
  */
-export function optimizedJsonParse(json: string): any {
+export function optimizedJsonParse(json: string): unknown {
   using _ = slowLogging`optimizedJsonParse(${json})`;
   return JSON.parse(json);
 }

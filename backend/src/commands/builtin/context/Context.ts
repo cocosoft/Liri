@@ -3,6 +3,13 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 
+interface ChatManagerLike {
+  clearContext(): Promise<void>;
+  getContextInfo(): Promise<Record<string, unknown>>;
+  compactContext(): Promise<Record<string, unknown>>;
+  trimContext(tokens: number): Promise<Record<string, unknown>>;
+}
+
 export default {
   /**
    * 执行上下文命令
@@ -35,9 +42,10 @@ export default {
    * 清空上下文
    */
   async handleClear(context: CommandContext): Promise<CommandResult> {
-    if (context.chatManager) {
+    const cm = context.chatManager as ChatManagerLike | undefined;
+    if (cm) {
       try {
-        await context.chatManager.clearContext();
+        await cm.clearContext();
         context.onDone?.('上下文已清空', { display: 'system' });
         return {
           success: true,
@@ -63,9 +71,10 @@ export default {
    * 显示上下文信息
    */
   async handleShow(context: CommandContext): Promise<CommandResult> {
-    if (context.chatManager) {
+    const cm = context.chatManager as ChatManagerLike | undefined;
+    if (cm) {
       try {
-        const contextInfo = await context.chatManager.getContextInfo();
+        const contextInfo = await cm.getContextInfo();
         const summary =
           `上下文信息:\n` +
           `- 消息数量: ${contextInfo.messageCount || 0}\n` +
@@ -98,9 +107,10 @@ export default {
    * 压缩上下文
    */
   async handleCompact(context: CommandContext): Promise<CommandResult> {
-    if (context.chatManager) {
+    const cm = context.chatManager as ChatManagerLike | undefined;
+    if (cm) {
       try {
-        const result = await context.chatManager.compactContext();
+        const result = await cm.compactContext();
         context.onDone?.(
           `上下文已压缩，节省 ${result.savedTokens || 0} tokens`,
           { display: 'system' }
@@ -168,8 +178,9 @@ export default {
     const targetSize = parseInt(options[0]) || 1000;
 
     if (context.chatManager) {
+      const cm = context.chatManager as ChatManagerLike;
       try {
-        const result = await context.chatManager.trimContext(targetSize);
+        const result = await cm.trimContext(targetSize);
         return {
           success: true,
           type: 'text',

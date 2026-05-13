@@ -12,8 +12,8 @@ export interface ExportData {
   timestamp: number;
   type: 'metric' | 'trace' | 'log' | 'event';
   name: string;
-  value: any;
-  attributes?: Record<string, any>;
+  value: unknown;
+  attributes?: Record<string, unknown>;
 }
 
 /**
@@ -79,8 +79,8 @@ export class ConsoleExporter {
    */
   exportMetric(
     name: string,
-    value: any,
-    attributes?: Record<string, any>
+    value: unknown,
+    attributes?: Record<string, unknown>
   ): void {
     this.export({
       timestamp: Date.now(),
@@ -99,8 +99,8 @@ export class ConsoleExporter {
    */
   exportTrace(
     name: string,
-    value: any,
-    attributes?: Record<string, any>
+    value: unknown,
+    attributes?: Record<string, unknown>
   ): void {
     this.export({
       timestamp: Date.now(),
@@ -117,7 +117,11 @@ export class ConsoleExporter {
    * @param value 日志值
    * @param attributes 属性
    */
-  exportLog(name: string, value: any, attributes?: Record<string, any>): void {
+  exportLog(
+    name: string,
+    value: unknown,
+    attributes?: Record<string, unknown>
+  ): void {
     this.export({
       timestamp: Date.now(),
       type: 'log',
@@ -135,8 +139,8 @@ export class ConsoleExporter {
    */
   exportEvent(
     name: string,
-    value: any,
-    attributes?: Record<string, any>
+    value: unknown,
+    attributes?: Record<string, unknown>
   ): void {
     this.export({
       timestamp: Date.now(),

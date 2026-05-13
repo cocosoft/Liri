@@ -382,7 +382,7 @@ export class MCPCommandLoader implements CommandLoader {
     try {
       const { mcpManager } = await import('../../mcp/managers/MCPManager.js');
       const mcpCommands = await mcpManager.getCommands();
-      commands.push(...mcpCommands);
+      commands.push(...(mcpCommands as Command[]));
     } catch (error) {
       logger.error('Failed to load MCP commands:', { error });
     }

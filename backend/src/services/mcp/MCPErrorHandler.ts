@@ -44,13 +44,13 @@ export enum MCPErrorType {
 export class MCPError extends Error {
   public type: MCPErrorType;
   public serverName?: string;
-  public details?: any;
+  public details?: unknown;
 
   constructor(
     message: string,
     type: MCPErrorType = MCPErrorType.UNKNOWN_ERROR,
     serverName?: string,
-    details?: any
+    details?: unknown
   ) {
     super(message);
     this.name = 'MCPError';
@@ -70,7 +70,7 @@ export class MCPErrorFactory {
   static createConnectionError(
     message: string,
     serverName?: string,
-    details?: any
+    details?: unknown
   ): MCPError {
     return new MCPError(
       message,
@@ -86,7 +86,7 @@ export class MCPErrorFactory {
   static createReconnectionError(
     message: string,
     serverName?: string,
-    details?: any
+    details?: unknown
   ): MCPError {
     return new MCPError(
       message,
@@ -102,7 +102,7 @@ export class MCPErrorFactory {
   static createAuthError(
     message: string,
     serverName?: string,
-    details?: any
+    details?: unknown
   ): MCPError {
     return new MCPError(
       message,
@@ -118,7 +118,7 @@ export class MCPErrorFactory {
   static createToolError(
     message: string,
     serverName?: string,
-    details?: any
+    details?: unknown
   ): MCPError {
     return new MCPError(
       message,
@@ -134,7 +134,7 @@ export class MCPErrorFactory {
   static createCommandError(
     message: string,
     serverName?: string,
-    details?: any
+    details?: unknown
   ): MCPError {
     return new MCPError(
       message,
@@ -150,7 +150,7 @@ export class MCPErrorFactory {
   static createResourceError(
     message: string,
     serverName?: string,
-    details?: any
+    details?: unknown
   ): MCPError {
     return new MCPError(
       message,
@@ -166,7 +166,7 @@ export class MCPErrorFactory {
   static createConfigError(
     message: string,
     serverName?: string,
-    details?: any
+    details?: unknown
   ): MCPError {
     return new MCPError(
       message,
@@ -182,7 +182,7 @@ export class MCPErrorFactory {
   static createUnknownError(
     message: string,
     serverName?: string,
-    details?: any
+    details?: unknown
   ): MCPError {
     return new MCPError(
       message,
@@ -200,7 +200,7 @@ export class MCPErrorHandler {
   /**
    * 处理MCP错误
    */
-  static handleError(error: any, serverName?: string): void {
+  static handleError(error: unknown, serverName?: string): void {
     if (error instanceof MCPError) {
       this.handleMCPError(error);
     } else if (error instanceof Error) {
@@ -294,7 +294,7 @@ export class MCPErrorHandler {
   /**
    * 处理未知错误
    */
-  private static handleUnknownError(error: any, serverName?: string): void {
+  private static handleUnknownError(error: unknown, serverName?: string): void {
     const serverContext = serverName ? ` [Server: ${serverName}]` : '';
     logger.error(`MCP Unknown Error${serverContext}: ${String(error)}`);
   }
@@ -302,7 +302,13 @@ export class MCPErrorHandler {
   /**
    * 记录错误
    */
-  static logError(error: any, loggerInstance: any): void {
+  static logError(
+    error: unknown,
+    loggerInstance: {
+      error: (message: string) => void;
+      debug: (message: string) => void;
+    }
+  ): void {
     if (error instanceof MCPError) {
       this.handleMCPError(error);
     } else if (error instanceof Error) {

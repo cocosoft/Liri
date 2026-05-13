@@ -11,6 +11,7 @@ import type {
   QueryParams,
   QueryResult,
 } from '../interfaces/QueryInterfaces.js';
+import type { ToolCall } from '@modules/tools/types';
 import type { MiniAgentResult } from '../miniAgent/types.js';
 import { createMiniAgent, MiniAgent } from '../miniAgent/MiniAgent.js';
 import {
@@ -118,7 +119,7 @@ export class QueryEngineWrapper {
             allMessages: accumulatedMessages,
             turns: currentTurn,
             finishReason: 'tool_use',
-            toolCalls: response.tool_calls,
+            toolCalls: response.tool_calls as unknown as ToolCall[],
           };
         }
 

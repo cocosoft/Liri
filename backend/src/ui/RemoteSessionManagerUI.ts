@@ -1,10 +1,13 @@
-//
 /**
  * 远程会话管理界面
  * 提供会话管理、状态显示和历史记录功能
  */
 
-import { TerminalComponents } from '../ui/TerminalComponents.js';
+import {
+  TerminalComponents,
+  TableColumn,
+  TableRow,
+} from '../ui/TerminalComponents.js';
 import {
   TerminalUIIntegration,
   TerminalSession,
@@ -21,7 +24,7 @@ export interface SessionHistory {
   startTime: number;
   endTime: number;
   status: 'completed' | 'error' | 'interrupted';
-  config: any;
+  config: unknown;
   error?: string;
 }
 
@@ -124,16 +127,13 @@ export class RemoteSessionManagerUI {
           : session.status === 'error'
             ? 'red'
             : 'yellow';
-      const statusBadge = (TerminalComponents as any).getBadgeText(
-        session.status,
-        statusColor
-      );
+      const tc = TerminalComponents as unknown as {
+        getBadgeText: (status: string, color: string) => string;
+      };
+      const statusBadge = tc.getBadgeText(session.status, statusColor);
 
       const typeColor = session.type === 'ssh' ? 'blue' : 'cyan';
-      const typeBadge = (TerminalComponents as any).getBadgeText(
-        session.type,
-        typeColor
-      );
+      const typeBadge = tc.getBadgeText(session.type, typeColor) as string;
 
       const duration = Math.floor((Date.now() - session.startTime) / 1000);
       const durationText = `${Math.floor(duration / 60)}m ${duration % 60}s`;
@@ -149,8 +149,15 @@ export class RemoteSessionManagerUI {
     });
 
     TerminalComponents.printTable(
-      ['#', '会话ID', '类型', '状态', '运行时间', '目标'] as any,
-      rows as any
+      [
+        '#',
+        '会话ID',
+        '类型',
+        '状态',
+        '运行时间',
+        '目标',
+      ] as unknown as TableColumn[],
+      rows as unknown as TableRow[]
     );
   }
 
@@ -188,16 +195,13 @@ export class RemoteSessionManagerUI {
             : history.status === 'error'
               ? 'red'
               : 'yellow';
-        const statusBadge = (TerminalComponents as any).getBadgeText(
-          history.status,
-          statusColor
-        );
+        const tc2 = TerminalComponents as unknown as {
+          getBadgeText: (status: string, color: string) => string;
+        };
+        const statusBadge = tc2.getBadgeText(history.status, statusColor);
 
         const typeColor = history.type === 'ssh' ? 'blue' : 'cyan';
-        const typeBadge = (TerminalComponents as any).getBadgeText(
-          history.type,
-          typeColor
-        );
+        const typeBadge = tc2.getBadgeText(history.type, typeColor) as string;
 
         const startTime = new Date(history.startTime).toLocaleString();
         const duration = Math.floor(
@@ -216,8 +220,15 @@ export class RemoteSessionManagerUI {
       });
 
     TerminalComponents.printTable(
-      ['#', '会话ID', '类型', '状态', '开始时间', '运行时间'] as any,
-      rows as any
+      [
+        '#',
+        '会话ID',
+        '类型',
+        '状态',
+        '开始时间',
+        '运行时间',
+      ] as unknown as TableColumn[],
+      rows as unknown as TableRow[]
     );
   }
 
@@ -289,7 +300,7 @@ export class RemoteSessionManagerUI {
     sessionId: string,
     type: SessionHistory['type'],
     status: SessionHistory['status'],
-    config: any,
+    config: unknown,
     error?: string
   ): void {
     const historyEntry: SessionHistory = {

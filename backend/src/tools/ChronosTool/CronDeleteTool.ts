@@ -37,7 +37,7 @@ export class CronDeleteTool {
       isReadOnly: (_input?: Record<string, unknown>) => false,
       isDestructive: (_input?: Record<string, unknown>) => true,
       isConcurrencySafe: (_input?: Record<string, unknown>) => true,
-      validateInput: (input) => {
+      validateInput: (input: Record<string, unknown>) => {
         if (!input.id || typeof input.id !== 'string') {
           return {
             result: false,
@@ -46,10 +46,16 @@ export class CronDeleteTool {
         }
         return { result: true };
       },
-      checkPermissions: async (input, context) => {
+      checkPermissions: async (
+        input: Record<string, unknown>,
+        context: ToolUseContext
+      ) => {
         return { behavior: 'allow' };
       },
-      execute: async (input, context) => {
+      execute: async (
+        input: Record<string, unknown>,
+        context: ToolUseContext
+      ) => {
         const startTime = Date.now();
         const id = input.id as string;
 

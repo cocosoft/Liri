@@ -18,7 +18,7 @@ export class MCPProtocolError extends Error {
   constructor(
     message: string,
     public code: string,
-    public data?: any
+    public data?: unknown
   ) {
     super(message);
     this.name = 'MCPProtocolError';
@@ -32,7 +32,8 @@ export class MCPProtocolValidator {
   /**
    * 验证请求（基于CC源码）
    */
-  validateRequest(request: any): MCPRequest {
+  validateRequest(request: unknown): MCPRequest {
+    const req = request as Record<string, unknown>;
     if (typeof request !== 'object' || request === null) {
       throw new MCPProtocolError(
         'Request must be an object',
@@ -40,14 +41,14 @@ export class MCPProtocolValidator {
       );
     }
 
-    if (typeof request.id !== 'string') {
+    if (typeof req.id !== 'string') {
       throw new MCPProtocolError(
         'Request must have an id',
         'MISSING_REQUEST_ID'
       );
     }
 
-    if (typeof request.type !== 'string') {
+    if (typeof req.type !== 'string') {
       throw new MCPProtocolError(
         'Request must have a type',
         'MISSING_REQUEST_TYPE'
@@ -55,9 +56,9 @@ export class MCPProtocolValidator {
     }
 
     // 验证特定类型的请求
-    switch (request.type) {
+    switch (req.type) {
       case 'call':
-        this.validateCallRequest(request);
+        this.validateCallRequest(req);
         break;
       case 'list_tools':
       case 'list_resources':
@@ -67,7 +68,7 @@ export class MCPProtocolValidator {
         break;
       default:
         throw new MCPProtocolError(
-          `Unknown request type: ${request.type}`,
+          `Unknown request type: ${req.type}`,
           'UNKNOWN_REQUEST_TYPE'
         );
     }
@@ -78,7 +79,7 @@ export class MCPProtocolValidator {
   /**
    * 验证调用工具请求（基于CC源码）
    */
-  private validateCallRequest(request: any): void {
+  private validateCallRequest(request: Record<string, unknown>): void {
     if (typeof request.tool_name !== 'string') {
       throw new MCPProtocolError(
         'Call request must have tool_name',
@@ -100,7 +101,8 @@ export class MCPProtocolValidator {
   /**
    * 验证响应（基于CC源码）
    */
-  validateResponse(response: any): MCPResponse {
+  validateResponse(response: unknown): MCPResponse {
+    const resp = response as Record<string, unknown>;
     if (typeof response !== 'object' || response === null) {
       throw new MCPProtocolError(
         'Response must be an object',
@@ -108,21 +110,21 @@ export class MCPProtocolValidator {
       );
     }
 
-    if (typeof response.id !== 'string') {
+    if (typeof resp.id !== 'string') {
       throw new MCPProtocolError(
         'Response must have an id',
         'MISSING_RESPONSE_ID'
       );
     }
 
-    if (typeof response.request_id !== 'string') {
+    if (typeof resp.request_id !== 'string') {
       throw new MCPProtocolError(
         'Response must have a request_id',
         'MISSING_REQUEST_ID'
       );
     }
 
-    if (typeof response.type !== 'string') {
+    if (typeof resp.type !== 'string') {
       throw new MCPProtocolError(
         'Response must have a type',
         'MISSING_RESPONSE_TYPE'
@@ -130,19 +132,19 @@ export class MCPProtocolValidator {
     }
 
     // 验证特定类型的响应
-    switch (response.type) {
+    switch (resp.type) {
       case 'result':
         // 结果响应可以有任何内容
         break;
       case 'error':
-        this.validateErrorResponse(response);
+        this.validateErrorResponse(resp);
         break;
       case 'progress':
-        this.validateProgressResponse(response);
+        this.validateProgressResponse(resp);
         break;
       default:
         throw new MCPProtocolError(
-          `Unknown response type: ${response.type}`,
+          `Unknown response type: ${resp.type}`,
           'UNKNOWN_RESPONSE_TYPE'
         );
     }
@@ -153,7 +155,7 @@ export class MCPProtocolValidator {
   /**
    * 验证错误响应（基于CC源码）
    */
-  private validateErrorResponse(response: any): void {
+  private validateErrorResponse(response: Record<string, unknown>): void {
     if (typeof response.error !== 'object' || response.error === null) {
       throw new MCPProtocolError(
         'Error response must have an error object',
@@ -161,14 +163,15 @@ export class MCPProtocolValidator {
       );
     }
 
-    if (typeof response.error.code !== 'string') {
+    const err = response.error as Record<string, unknown>;
+    if (typeof err.code !== 'string') {
       throw new MCPProtocolError(
         'Error must have a code',
         'MISSING_ERROR_CODE'
       );
     }
 
-    if (typeof response.error.message !== 'string') {
+    if (typeof err.message !== 'string') {
       throw new MCPProtocolError(
         'Error must have a message',
         'MISSING_ERROR_MESSAGE'
@@ -179,7 +182,7 @@ export class MCPProtocolValidator {
   /**
    * 验证进度响应（基于CC源码）
    */
-  private validateProgressResponse(response: any): void {
+  private validateProgressResponse(response: Record<string, unknown>): void {
     if (typeof response.progress !== 'object' || response.progress === null) {
       throw new MCPProtocolError(
         'Progress response must have a progress object',
@@ -187,14 +190,15 @@ export class MCPProtocolValidator {
       );
     }
 
-    if (typeof response.progress.progress !== 'number') {
+    const progress = response.progress as Record<string, unknown>;
+    if (typeof progress.progress !== 'number') {
       throw new MCPProtocolError(
         'Progress must have a progress number',
         'MISSING_PROGRESS_VALUE'
       );
     }
 
-    if (typeof response.progress.total !== 'number') {
+    if (typeof progress.total !== 'number') {
       throw new MCPProtocolError(
         'Progress must have a total number',
         'MISSING_TOTAL_VALUE'
@@ -205,23 +209,24 @@ export class MCPProtocolValidator {
   /**
    * 验证工具定义（基于CC源码）
    */
-  validateToolDefinition(tool: any): MCPToolDefinition {
+  validateToolDefinition(tool: unknown): MCPToolDefinition {
+    const t = tool as Record<string, unknown>;
     if (typeof tool !== 'object' || tool === null) {
       throw new MCPProtocolError('Tool must be an object', 'INVALID_TOOL');
     }
 
-    if (typeof tool.name !== 'string') {
+    if (typeof t.name !== 'string') {
       throw new MCPProtocolError('Tool must have a name', 'MISSING_TOOL_NAME');
     }
 
-    if (typeof tool.description !== 'string') {
+    if (typeof t.description !== 'string') {
       throw new MCPProtocolError(
         'Tool must have a description',
         'MISSING_TOOL_DESCRIPTION'
       );
     }
 
-    if (typeof tool.inputSchema !== 'object' || tool.inputSchema === null) {
+    if (typeof t.inputSchema !== 'object' || t.inputSchema === null) {
       throw new MCPProtocolError(
         'Tool must have an inputSchema',
         'MISSING_TOOL_INPUT_SCHEMA'
@@ -234,7 +239,8 @@ export class MCPProtocolValidator {
   /**
    * 验证资源定义（基于CC源码）
    */
-  validateResourceDefinition(resource: any): MCPResourceDefinition {
+  validateResourceDefinition(resource: unknown): MCPResourceDefinition {
+    const res = resource as Record<string, unknown>;
     if (typeof resource !== 'object' || resource === null) {
       throw new MCPProtocolError(
         'Resource must be an object',
@@ -242,28 +248,28 @@ export class MCPProtocolValidator {
       );
     }
 
-    if (typeof resource.id !== 'string') {
+    if (typeof res.id !== 'string') {
       throw new MCPProtocolError(
         'Resource must have an id',
         'MISSING_RESOURCE_ID'
       );
     }
 
-    if (typeof resource.name !== 'string') {
+    if (typeof res.name !== 'string') {
       throw new MCPProtocolError(
         'Resource must have a name',
         'MISSING_RESOURCE_NAME'
       );
     }
 
-    if (typeof resource.type !== 'string') {
+    if (typeof res.type !== 'string') {
       throw new MCPProtocolError(
         'Resource must have a type',
         'MISSING_RESOURCE_TYPE'
       );
     }
 
-    if (typeof resource.uri !== 'string') {
+    if (typeof res.uri !== 'string') {
       throw new MCPProtocolError(
         'Resource must have a uri',
         'MISSING_RESOURCE_URI'
@@ -276,23 +282,24 @@ export class MCPProtocolValidator {
   /**
    * 验证提示定义（基于CC源码）
    */
-  validatePromptDefinition(prompt: any): MCPPromptDefinition {
+  validatePromptDefinition(prompt: unknown): MCPPromptDefinition {
+    const p = prompt as Record<string, unknown>;
     if (typeof prompt !== 'object' || prompt === null) {
       throw new MCPProtocolError('Prompt must be an object', 'INVALID_PROMPT');
     }
 
-    if (typeof prompt.id !== 'string') {
+    if (typeof p.id !== 'string') {
       throw new MCPProtocolError('Prompt must have an id', 'MISSING_PROMPT_ID');
     }
 
-    if (typeof prompt.name !== 'string') {
+    if (typeof p.name !== 'string') {
       throw new MCPProtocolError(
         'Prompt must have a name',
         'MISSING_PROMPT_NAME'
       );
     }
 
-    if (typeof prompt.content !== 'string') {
+    if (typeof p.content !== 'string') {
       throw new MCPProtocolError(
         'Prompt must have content',
         'MISSING_PROMPT_CONTENT'
@@ -382,14 +389,17 @@ export class MCPMessageSerializer {
  * MCP消息路由器（基于CC源码）
  */
 export class MCPMessageRouter {
-  private handlers = new Map<string, (request: MCPRequest) => Promise<any>>();
+  private handlers = new Map<
+    string,
+    (request: MCPRequest) => Promise<unknown>
+  >();
 
   /**
    * 注册处理器（基于CC源码）
    */
   registerHandler(
     type: string,
-    handler: (request: MCPRequest) => Promise<any>
+    handler: (request: MCPRequest) => Promise<unknown>
   ): void {
     this.handlers.set(type, handler);
   }
@@ -404,7 +414,7 @@ export class MCPMessageRouter {
   /**
    * 路由请求（基于CC源码）
    */
-  async routeRequest(request: MCPRequest): Promise<any> {
+  async routeRequest(request: MCPRequest): Promise<unknown> {
     const handler = this.handlers.get(request.type);
 
     if (!handler) {
@@ -448,7 +458,7 @@ export class MCPMessageRouter {
   /**
    * 创建成功响应（基于CC源码）
    */
-  createSuccessResponse(requestId: string, result: any): MCPResponse {
+  createSuccessResponse(requestId: string, result: unknown): MCPResponse {
     return {
       id: this.generateResponseId(),
       request_id: requestId,
@@ -543,7 +553,7 @@ export class MCPProtocolManager {
    */
   registerHandler(
     type: string,
-    handler: (request: MCPRequest) => Promise<any>
+    handler: (request: MCPRequest) => Promise<unknown>
   ): void {
     this.router.registerHandler(type, handler);
   }
@@ -558,14 +568,14 @@ export class MCPProtocolManager {
   /**
    * 验证请求（基于CC源码）
    */
-  validateRequest(request: any): MCPRequest {
+  validateRequest(request: unknown): MCPRequest {
     return this.validator.validateRequest(request);
   }
 
   /**
    * 验证响应（基于CC源码）
    */
-  validateResponse(response: any): MCPResponse {
+  validateResponse(response: unknown): MCPResponse {
     return this.validator.validateResponse(response);
   }
 

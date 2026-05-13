@@ -54,10 +54,15 @@ export default {
 
     try {
       if (context.chatManager) {
-        const oldName = await context.chatManager.getSessionName(
-          context.sessionId
-        );
-        await context.chatManager.renameSession(context.sessionId, newName);
+        const cm = context.chatManager as {
+          getSessionName: (sessionId?: string) => Promise<string>;
+          renameSession: (
+            sessionId: string | undefined,
+            name: string
+          ) => Promise<void>;
+        };
+        const oldName = await cm.getSessionName(context.sessionId);
+        await cm.renameSession(context.sessionId, newName);
 
         context.onDone?.(`会话已重命名: ${oldName || '未命名'} -> ${newName}`, {
           display: 'system',

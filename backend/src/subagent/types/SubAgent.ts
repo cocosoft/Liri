@@ -35,13 +35,13 @@ export interface SubAgentConfig {
   model?: string;
   systemPrompt?: string;
   tools?: string[];
-  permissions?: any;
-  communication?: any;
+  permissions?: unknown;
+  communication?: unknown;
   resources?: {
     memory?: number;
     cpu?: number;
   };
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -51,9 +51,9 @@ export interface SubAgentTask {
   id: string;
   type: string;
   content: string;
-  context?: any;
+  context?: unknown;
   timeout?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -65,8 +65,8 @@ export interface SubAgentResult {
   status: 'success' | 'failure';
   content: string;
   error?: string;
-  metadata?: any;
-  [key: string]: any;
+  metadata?: unknown;
+  [key: string]: unknown;
 }
 
 /**
@@ -78,7 +78,7 @@ export interface SubAgent {
   type: SubAgentType;
   status: SubAgentStatus;
   config: SubAgentConfig;
-  metadata?: any;
+  metadata?: unknown;
 
   /**
    * 启动子agent
@@ -114,7 +114,7 @@ export interface SubAgent {
   /**
    * 获取信息
    */
-  getInfo(): any;
+  getInfo(): unknown;
 
   /**
    * 更新配置
@@ -126,12 +126,12 @@ export interface SubAgent {
    * 发送消息
    * @param message 消息
    */
-  sendMessage(message: any): Promise<void>;
+  sendMessage(message: unknown): Promise<void>;
 
   /**
    * 接收消息
    */
-  receiveMessage(): Promise<any>;
+  receiveMessage(): Promise<unknown>;
 }
 
 /**
@@ -139,7 +139,7 @@ export interface SubAgent {
  */
 export interface InProcessSubAgentConfig extends SubAgentConfig {
   type: SubAgentType.IN_PROCESS;
-  context?: any;
+  context?: unknown;
   memoryLimit?: number;
 }
 
@@ -179,5 +179,5 @@ export interface ITermSubAgentConfig extends SubAgentConfig {
  */
 export interface CustomSubAgentConfig extends SubAgentConfig {
   type: SubAgentType.CUSTOM;
-  [key: string]: any;
+  [key: string]: unknown;
 }

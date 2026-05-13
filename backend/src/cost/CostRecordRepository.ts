@@ -393,7 +393,7 @@ export class CostRecordRepository {
   ): Promise<SessionCostSummaryRow | null> {
     await this.initDatabase();
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT * FROM ${COST_SESSION_SUMMARY_TABLE} WHERE session_id = ?`,
         [sessionId],
@@ -411,7 +411,7 @@ export class CostRecordRepository {
       return null;
     }
 
-    return this.rowToSessionSummary(row);
+    return this.rowToSessionSummary(row as Record<string, unknown>);
   }
 
   async getSessionCostRecords(
@@ -421,7 +421,7 @@ export class CostRecordRepository {
   ): Promise<CostRecordRow[]> {
     await this.initDatabase();
 
-    const rows = await new Promise<any[]>((resolve, reject) => {
+    const rows = await new Promise<unknown[]>((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${COST_RECORDS_TABLE}
         WHERE session_id = ?
@@ -445,7 +445,7 @@ export class CostRecordRepository {
     await this.initDatabase();
 
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filter.sessionId) {
       conditions.push('session_id = ?');
@@ -472,7 +472,7 @@ export class CostRecordRepository {
     const limitClause = filter.limit ? `LIMIT ${filter.limit}` : '';
     const offsetClause = filter.offset ? `OFFSET ${filter.offset}` : '';
 
-    const rows = await new Promise<any[]>((resolve, reject) => {
+    const rows = await new Promise<unknown[]>((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${COST_RECORDS_TABLE}
         ${whereClause}
@@ -496,7 +496,7 @@ export class CostRecordRepository {
     await this.initDatabase();
 
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filter.sessionId) {
       conditions.push('session_id = ?');
@@ -521,7 +521,7 @@ export class CostRecordRepository {
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const result = await new Promise<any>((resolve, reject) => {
+    const result = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT
           COALESCE(SUM(cost_usd), 0) as total_cost_usd,
@@ -543,7 +543,7 @@ export class CostRecordRepository {
       );
     });
 
-    const modelRows = await new Promise<any[]>((resolve, reject) => {
+    const modelRows = await new Promise<unknown[]>((resolve, reject) => {
       this.db?.all(
         `SELECT
           model,
@@ -568,23 +568,25 @@ export class CostRecordRepository {
     });
 
     const modelBreakdown: CostAggregation['modelBreakdown'] = {};
-    for (const row of modelRows) {
-      modelBreakdown[row.model] = {
-        totalCost: row.total_cost,
-        totalTokens: row.total_tokens,
-        requestCount: row.request_count,
-        inputTokens: row.total_input,
-        outputTokens: row.total_output,
+    const resultRow = result as Record<string, unknown>;
+    for (const item of modelRows) {
+      const row = item as Record<string, unknown>;
+      modelBreakdown[row.model as string] = {
+        totalCost: row.total_cost as number,
+        totalTokens: row.total_tokens as number,
+        requestCount: row.request_count as number,
+        inputTokens: row.total_input as number,
+        outputTokens: row.total_output as number,
       };
     }
 
     return {
-      totalCostUSD: result.total_cost_usd,
-      totalInputTokens: result.total_input_tokens,
-      totalOutputTokens: result.total_output_tokens,
-      totalCacheReadTokens: result.total_cache_read_tokens,
-      totalCacheCreationTokens: result.total_cache_creation_tokens,
-      totalRequests: result.total_requests,
+      totalCostUSD: resultRow.total_cost_usd as number,
+      totalInputTokens: resultRow.total_input_tokens as number,
+      totalOutputTokens: resultRow.total_output_tokens as number,
+      totalCacheReadTokens: resultRow.total_cache_read_tokens as number,
+      totalCacheCreationTokens: resultRow.total_cache_creation_tokens as number,
+      totalRequests: resultRow.total_requests as number,
       modelBreakdown,
     };
   }
@@ -649,7 +651,7 @@ export class CostRecordRepository {
   ): Promise<SessionCostSummaryRow[]> {
     await this.initDatabase();
 
-    const rows = await new Promise<any[]>((resolve, reject) => {
+    const rows = await new Promise<unknown[]>((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${COST_SESSION_SUMMARY_TABLE}
         ORDER BY updated_at DESC
@@ -665,7 +667,9 @@ export class CostRecordRepository {
       );
     });
 
-    return rows.map((row) => this.rowToSessionSummary(row));
+    return rows.map((row) =>
+      this.rowToSessionSummary(row as Record<string, unknown>)
+    );
   }
 
   async close(): Promise<void> {
@@ -700,19 +704,21 @@ export class CostRecordRepository {
     };
   }
 
-  private rowToSessionSummary(row: any): SessionCostSummaryRow {
+  private rowToSessionSummary(
+    row: Record<string, unknown>
+  ): SessionCostSummaryRow {
     return {
-      sessionId: row.session_id,
-      totalCostUSD: row.total_cost_usd,
-      totalInputTokens: row.total_input_tokens,
-      totalOutputTokens: row.total_output_tokens,
-      totalCacheReadTokens: row.total_cache_read_tokens,
-      totalCacheCreationTokens: row.total_cache_creation_tokens,
-      totalRequests: row.total_requests,
-      modelBreakdown: row.model_breakdown,
-      startedAt: row.started_at,
-      endedAt: row.ended_at || undefined,
-      updatedAt: row.updated_at,
+      sessionId: row.session_id as string,
+      totalCostUSD: row.total_cost_usd as number,
+      totalInputTokens: row.total_input_tokens as number,
+      totalOutputTokens: row.total_output_tokens as number,
+      totalCacheReadTokens: row.total_cache_read_tokens as number,
+      totalCacheCreationTokens: row.total_cache_creation_tokens as number,
+      totalRequests: row.total_requests as number,
+      modelBreakdown: row.model_breakdown as string,
+      startedAt: row.started_at as number,
+      endedAt: (row.ended_at as number) || undefined,
+      updatedAt: row.updated_at as number,
     };
   }
 }

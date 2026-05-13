@@ -8,7 +8,8 @@ import chalk from 'chalk';
 import { commandExecutor } from '../commands/executor/index.js';
 import type { CommandContext } from '../commands/types/index.js';
 import type { ChatManager } from '../chat/ChatManager.js';
-import { DeepSeekClient } from '../ai/clients/DeepSeekClient.js';
+import { ToolAwareClient } from '../ai/clients/ToolAwareClient.js';
+import { providerRegistry } from '../ai/providers/ProviderRegistry.js';
 import { createToolManager } from '../tools/ToolManager.js';
 import { historyManager } from '../utils/history.js';
 import { commandRegistry } from '../commands/registry/index.js';
@@ -46,14 +47,16 @@ export function initializeChatManager(): ChatManager {
   const toolManager = createToolManager();
   const registry = toolManager.getRegistry();
 
-  const llmClient = new DeepSeekClient({
+  const provider = providerRegistry.getOrCreate('deepseek', {
     apiKey: process.env.DEEPSEEK_API_KEY || '',
     baseUrl: process.env.DEEPSEEK_BASE_URL,
     model: process.env.DEEPSEEK_MODEL,
   });
 
+  const llmClient = new ToolAwareClient(provider, registry, null);
+
   if (registry) {
-    llmClient.setToolRegistry(registry);
+    if (provider.setToolRegistry) provider.setToolRegistry(registry);
   }
 
   chatManager.setLLMClient(llmClient);

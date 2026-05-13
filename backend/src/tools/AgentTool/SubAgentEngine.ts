@@ -17,7 +17,8 @@ import type {
 } from '@modules/ai/models/types';
 import type { Tool } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
-import { DeepSeekClient } from '@modules/ai/clients/DeepSeekClient';
+import type { AIProvider } from '@modules/ai/providers';
+import { providerRegistry } from '@modules/ai/providers';
 
 /**
  * 子代理进度事件类型
@@ -157,7 +158,7 @@ export class SubAgentEngine {
     let totalCompletionTokens = 0;
 
     try {
-      const llmClient = new DeepSeekClient();
+      const llmClient = providerRegistry.getOrCreate('deepseek');
 
       const messages: ChatMessage[] = [
         { role: 'system', content: request.systemPrompt },
@@ -352,7 +353,7 @@ export class SubAgentEngine {
    * 调用 LLM
    */
   private async callLLM(
-    client: DeepSeekClient,
+    client: AIProvider,
     messages: ChatMessage[],
     tools: ToolDefinition[],
     model?: string

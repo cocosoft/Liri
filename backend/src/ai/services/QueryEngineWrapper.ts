@@ -6,7 +6,7 @@
  */
 
 import type { ChatMessage } from '../models/types.js';
-import type { LLMClient } from '../clients/LLMClient.js';
+import type { AIProvider } from '../providers/AIProvider.js';
 import type {
   QueryParams,
   QueryResult,
@@ -20,7 +20,7 @@ import {
 } from '../miniAgent/QueryEngineIntegrationAdapter.js';
 
 export interface QueryEngineWrapperConfig {
-  client: LLMClient;
+  client: AIProvider;
   defaultModel: string;
   miniAgentEnabled?: boolean;
   bypassRoutes?: string[];
@@ -28,7 +28,7 @@ export interface QueryEngineWrapperConfig {
 }
 
 export class QueryEngineWrapper {
-  private client: LLMClient;
+  private client: AIProvider;
   private defaultModel: string;
   private integrationAdapter: QueryEngineIntegrationAdapter;
   private miniAgent: MiniAgent | null = null;

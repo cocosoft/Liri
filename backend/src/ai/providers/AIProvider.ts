@@ -3,6 +3,7 @@ import type {
   ChatResponse,
   ToolDefinition,
 } from '../models/types';
+import type { ThinkingConfig } from '../clients/thinking';
 
 export interface ProviderConfig {
   apiKey?: string;
@@ -11,6 +12,14 @@ export interface ProviderConfig {
   maxTokens?: number;
   temperature?: number;
   [key: string]: unknown;
+}
+
+export interface ChatOptions {
+  tools?: ToolDefinition[];
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  thinking?: ThinkingConfig;
 }
 
 export interface ProviderValidationResult {
@@ -23,27 +32,20 @@ export interface AIProvider {
   readonly id: string;
   readonly displayName: string;
 
-  chat(
-    messages: ChatMessage[],
-    options?: {
-      tools?: ToolDefinition[];
-      model?: string;
-      maxTokens?: number;
-      temperature?: number;
-    }
-  ): Promise<ChatResponse>;
+  chat(messages: ChatMessage[], options?: ChatOptions): Promise<ChatResponse>;
 
   chatStream(
     messages: ChatMessage[],
-    options?: {
-      tools?: ToolDefinition[];
-      model?: string;
-      maxTokens?: number;
-      temperature?: number;
-    }
+    options?: ChatOptions
   ): AsyncGenerator<string, ChatResponse, unknown>;
 
   listModels(): Promise<string[]>;
 
   validateConfig(config: ProviderConfig): ProviderValidationResult;
+
+  setToolRegistry?(registry: unknown): void;
+
+  setToolExecutor?(executor: unknown): void;
+
+  supportsThinking?(model: string): boolean;
 }

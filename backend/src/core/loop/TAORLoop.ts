@@ -3,7 +3,8 @@
  */
 
 import type { ToolCall, ToolResult } from '@modules/core/types';
-import type { LLMClient } from '@modules/ai/clients/LLMClient';
+import type { AIProvider } from '@modules/ai/providers';
+import type { ChatOptions } from '@modules/ai/providers';
 import type {
   ChatMessage,
   ToolDefinition,
@@ -30,18 +31,18 @@ interface ResolvedConfig {
 export class TAORLoop {
   private config: ResolvedConfig;
   private toolRegistry: ToolRegistry;
-  private llmClient: LLMClient;
+  private llmClient: AIProvider;
   private turnCount: number = 0;
 
   constructor(
     config: TAORLoopConfig,
     toolRegistry: ToolRegistry,
-    llmClient: LLMClient
+    llmClient: AIProvider
   ) {
     this.config = {
       systemPrompt: config.systemPrompt || 'You are a helpful AI assistant.',
       maxTurns: config.maxTurns || 50,
-      model: config.model || 'deepseek-chat',
+      model: config.model || 'claude-sonnet-4-6',
     };
     this.toolRegistry = toolRegistry;
     this.llmClient = llmClient;

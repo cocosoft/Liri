@@ -1,152 +1,171 @@
+/**
+ * 会话存储迁移管理器
+ * 支持跨版本会话数据结构升级
+ * 对齐 OpenClaw config/sessions/store-migrations.ts
+ */
+
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-export const CURRENT_SESSION_VERSION = 1;
-
-export type MigrationFunction = (
-  data: Record<string, unknown>
-) => Record<string, unknown>;
-
-interface MigrationRecord {
-  fromVersion: number;
-  toVersion: number;
-  migrate: MigrationFunction;
+export interface MigrationVersion {
+  from: string;
+  to: string;
+  apply: (data: Record<string, unknown>) => Record<string, unknown>;
   description: string;
 }
 
+export interface MigrationResult {
+  from: string;
+  to: string;
+  description: string;
+  success: boolean;
+  errors: string[];
+}
+
 export class SessionMigration {
-  private migrations: Map<number, MigrationRecord> = new Map();
-  private highestVersion: number = CURRENT_SESSION_VERSION;
+  private migrations: MigrationVersion[] = [];
+  private stateDir: string;
 
-  constructor() {
-    this.registerBuiltinMigrations();
+  constructor(stateDir?: string) {
+    this.stateDir = stateDir || process.cwd();
   }
 
-  getCurrentVersion(): number {
-    return this.highestVersion;
+  registerMigration(migration: MigrationVersion): void {
+    this.migrations.push(migration);
+    this.migrations.sort((a, b) => a.from.localeCompare(b.from));
   }
 
-  getVersion(data: Record<string, unknown>): number {
-    return (data as any).version ?? 0;
+  async migrate(): Promise<MigrationResult[]> {
+    const results: MigrationResult[] = [];
+
+    try {
+      const sessionFiles = this.getSessionFiles();
+      logger.info(`发现 ${sessionFiles.length} 个会话文件待迁移`);
+
+      for (const sessionFile of sessionFiles) {
+        for (const migration of this.migrations) {
+          const result = await this.migrateFile(sessionFile, migration);
+          results.push(result);
+        }
+      }
+    } catch (error) {
+      logger.error('会话迁移失败', error as Error);
+    }
+
+    return results;
   }
 
-  needsMigration(data: Record<string, unknown>): boolean {
-    return this.getVersion(data) < this.highestVersion;
-  }
+  private async migrateFile(
+    filePath: string,
+    migration: MigrationVersion
+  ): Promise<MigrationResult> {
+    try {
+      const raw = readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(raw);
 
-  migrate(data: Record<string, unknown>): Record<string, unknown> {
-    let currentVersion = this.getVersion(data);
-    let result = { ...data };
-
-    while (currentVersion < this.highestVersion) {
-      const migration = this.migrations.get(currentVersion);
-      if (!migration) {
-        logger.warning(
-          `No migration found from version ${currentVersion} to ${currentVersion + 1}, skipping`
-        );
-        currentVersion++;
-        continue;
+      // 检查是否需要迁移
+      const currentVersion = data['version'] || '0.0.0';
+      if (currentVersion !== migration.from) {
+        return {
+          from: migration.from,
+          to: migration.to,
+          description: migration.description,
+          success: true,
+          errors: [],
+        };
       }
 
+      // 备份原文件
+      const backup = `${filePath}.${Date.now()}.bak`;
+      writeFileSync(backup, raw);
+
+      // 应用迁移
+      const migrated = migration.apply(data);
+      migrated['version'] = migration.to;
+      migrated['migratedAt'] = new Date().toISOString();
+
+      writeFileSync(filePath, JSON.stringify(migrated, null, 2));
+
+      logger.info(
+        `会话迁移: ${filePath} (${migration.from} → ${migration.to})`
+      );
+
+      return {
+        from: migration.from,
+        to: migration.to,
+        description: migration.description,
+        success: true,
+        errors: [],
+      };
+    } catch (error) {
+      return {
+        from: migration.from,
+        to: migration.to,
+        description: migration.description,
+        success: false,
+        errors: [String(error)],
+      };
+    }
+  }
+
+  private getSessionFiles(): string[] {
+    const results: string[] = [];
+    const dirs = [
+      join(this.stateDir, 'data', 'sessions'),
+      join(this.stateDir, 'data'),
+    ];
+
+    for (const dir of dirs) {
+      if (!existsSync(dir)) continue;
       try {
-        logger.info(
-          `Migrating session from v${migration.fromVersion} to v${migration.toVersion}: ${migration.description}`
-        );
-        result = migration.migrate(result);
-        result.version = migration.toVersion;
-        currentVersion = migration.toVersion;
-      } catch (err) {
-        logger.error(
-          `Migration from v${migration.fromVersion} to v${migration.toVersion} failed`,
-          err
-        );
-        throw err;
-      }
-    }
-
-    return result;
-  }
-
-  registerMigration(
-    fromVersion: number,
-    toVersion: number,
-    migrate: MigrationFunction,
-    description: string
-  ): void {
-    if (toVersion !== fromVersion + 1) {
-      throw new AppError(
-        `Migration must increment version by 1: v${fromVersion} -> v${toVersion}`,
-        ErrorCategory.VALIDATION,
-        ErrorSeverity.LOW
-      );
-    }
-
-    if (this.migrations.has(fromVersion)) {
-      throw new AppError(
-        `Migration from v${fromVersion} is already registered`,
-        ErrorCategory.VALIDATION,
-        ErrorSeverity.LOW
-      );
-    }
-
-    this.migrations.set(fromVersion, {
-      fromVersion,
-      toVersion,
-      migrate,
-      description,
-    });
-    if (toVersion > this.highestVersion) {
-      this.highestVersion = toVersion;
-    }
-    logger.info(
-      `Registered migration: v${fromVersion} -> v${toVersion}: ${description}`
-    );
-  }
-
-  listMigrations(): MigrationRecord[] {
-    return Array.from(this.migrations.values()).sort(
-      (a, b) => a.fromVersion - b.fromVersion
-    );
-  }
-
-  private registerBuiltinMigrations(): void {
-    this.registerMigration(
-      0,
-      1,
-      (data) => {
-        const result = { ...data };
-
-        if (!result.version) {
-          result.version = 1;
-        }
-
-        if (!result.createdAt && result.created_at) {
-          result.createdAt = result.created_at;
-          delete result.created_at;
-        }
-
-        if (!result.updatedAt && result.updated_at) {
-          result.updatedAt = result.updated_at;
-          delete result.updated_at;
-        }
-
-        if (result.metadata && typeof result.metadata === 'object') {
-          const meta = result.metadata as Record<string, unknown>;
-          if (!meta.title && meta.name) {
-            meta.title = meta.name;
-            delete meta.name;
+        const { readdirSync } = require('node:fs');
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (
+            entry.isFile() &&
+            (entry.name.endsWith('.json') || entry.name.endsWith('.jsonl'))
+          ) {
+            results.push(join(dir, entry.name));
           }
         }
+      } catch {
+        // 目录读取失败
+      }
+    }
 
-        if (!result.messages) {
-          result.messages = [];
-        }
-
-        return result;
-      },
-      'Initial migration: add version field, normalize field names, ensure messages array'
-    );
+    return results;
   }
 }
+
+/**
+ * 默认迁移链
+ */
+export const DEFAULT_MIGRATIONS: MigrationVersion[] = [
+  {
+    from: '0.0.0',
+    to: '1.0.0',
+    description: '初始化会话版本字段',
+    apply(data: Record<string, unknown>): Record<string, unknown> {
+      if (!data['messages']) data['messages'] = [];
+      if (!data['createdAt']) data['createdAt'] = new Date().toISOString();
+      return data;
+    },
+  },
+  {
+    from: '1.0.0',
+    to: '1.1.0',
+    description: '添加消息 ID 字段',
+    apply(data: Record<string, unknown>): Record<string, unknown> {
+      const messages = (data['messages'] as Array<Record<string, unknown>>) || [];
+      for (let i = 0; i < messages.length; i++) {
+        if (!messages[i]['id']) {
+          messages[i]['id'] = `migrated-${i}-${Date.now()}`;
+        }
+      }
+      return data;
+    },
+  },
+];

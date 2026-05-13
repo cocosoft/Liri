@@ -1,11 +1,10 @@
-//
 /**
  * Mini Agent 核心类
  * 整合规则引擎、任务路由、命令执行、Ollama 调用
  */
 
 import type { ChatMessage } from '../models/types.js';
-import type { LLMClient } from '../clients/LLMClient.js';
+import type { AIProvider } from '../providers/AIProvider.js';
 import type {
   Intent,
   RouteDecision,
@@ -28,7 +27,7 @@ export class MiniAgent {
   private commandExecutor: LocalCommandExecutor;
   private skillProvider: SkillProvider | null = null;
   private mcpProvider: MCPProvider | null = null;
-  private llmClient: LLMClient | null = null;
+  private llmClient: AIProvider | null = null;
   private config: MiniAgentConfig;
 
   constructor(config: MiniAgentConfig) {
@@ -52,7 +51,7 @@ export class MiniAgent {
     this.mcpProvider = provider;
   }
 
-  setLLMClient(client: LLMClient): void {
+  setLLMClient(client: AIProvider): void {
     this.llmClient = client;
   }
 

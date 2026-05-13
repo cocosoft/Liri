@@ -463,8 +463,8 @@ export class AgentTool implements Tool {
     agentId: string,
     systemPrompt: string
   ): Promise<{ result: string }> {
-    const { DeepSeekClient } = await import('../../ai/clients/DeepSeekClient');
-    const llmClient = new DeepSeekClient();
+    const { providerRegistry } = await import('../../ai/providers/ProviderRegistry');
+    const llmClient = providerRegistry.getOrCreate('deepseek');
 
     const toolDefinitions = this.buildToolDefinitions().map((t) => ({
       type: 'function' as const,

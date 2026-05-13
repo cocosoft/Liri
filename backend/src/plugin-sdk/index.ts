@@ -25,3 +25,44 @@ export type {
   PluginValidationError,
   PluginValidationWarning,
 } from './types';
+
+// categories — 插件分类系统
+export {
+  PLUGIN_CATEGORIES,
+  getCategoryMeta,
+  validateCategory,
+  listCategories,
+  createProviderPlugin,
+  createToolPlugin,
+  createHookPlugin,
+  createChannelPlugin,
+  createSkillPlugin,
+} from './categories';
+export type {
+  PluginCategoryCapability,
+  CategoryMetadata,
+  ProviderPlugin,
+  ToolPlugin,
+  HookPlugin,
+  ChannelPlugin,
+  SkillPlugin,
+  CategoryPlugin,
+} from './categories';
+
+// channel-contract — 通道插件契约
+export { validateChannelPlugin } from './channel-contract';
+export type {
+  ChannelId,
+  ChannelMeta,
+  ChannelCapabilities,
+  ChannelConfigAdapter,
+  ChannelLifecycleAdapter,
+  ChannelOutboundAdapter,
+  ChannelSecurityAdapter,
+  ChannelPairingAdapter,
+  IChannelPlugin,
+  ChannelStatus,
+  ChannelSendResult,
+  ChannelInteractiveCard,
+  ChannelMessageContext,
+} from './channel-contract';

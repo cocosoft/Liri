@@ -161,6 +161,24 @@ export const FEATURE_FLAGS = {
   CHRONOS: true,
   /** Tungsten 工具 */
   TUNGSTEN: true,
+  /** 多通道消息系统 */
+  FEATURE_CHANNELS: true,
+  /** 企业微信通道 */
+  FEATURE_CHANNEL_WECOM: true,
+  /** 飞书通道 */
+  FEATURE_CHANNEL_FEISHU: true,
+  /** 钉钉通道 */
+  FEATURE_CHANNEL_DINGTALK: true,
+  /** Channel-Bridge 协同（跨机器任务委托） */
+  FEATURE_CHANNEL_BRIDGE: true,
+  /** 微信公众号通道 */
+  FEATURE_CHANNEL_WECHAT: true,
+  /** QQ Bot 通道 */
+  FEATURE_CHANNEL_QQ: true,
+  /** Telegram 通道 */
+  FEATURE_CHANNEL_TELEGRAM: true,
+  /** Discord 通道 */
+  FEATURE_CHANNEL_DISCORD: true,
   /** 远程触发器工具 */
   REMOTE_TRIGGER: false,
   /** 发送用户文件工具 */
@@ -189,6 +207,8 @@ export const FEATURE_FLAGS = {
   PERMISSION_CHECKS: true,
   /** 安全扫描 */
   SECURITY_SCAN: true,
+  /** 安全审计 */
+  SECURITY_AUDIT: true,
 
   // ───── 性能与监控 ─────
   /** 内存监控 */

@@ -6,7 +6,8 @@
 import type { CommandContext } from '@modules/commands/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { modelManager } from '@modules/ai/models/ModelManager.js';
-import { getLLMClientFactory } from '@modules/ai/clients/LLMClientFactory.js';
+import { providerRegistry } from '@modules/ai/providers/ProviderRegistry.js';
+import { ToolAwareClient } from '@modules/ai/clients/ToolAwareClient.js';
 import { costTracker } from '@modules/cost/CostTracker.js';
 import { getConfig } from '@modules/config/index.js';
 import { ToolRegistry } from '@modules/tools/index.js';
@@ -79,21 +80,19 @@ export class ChatCommand {
   private currentSessionId: string | null = null;
 
   private initializeServices(options?: ChatOptions): void {
-    const factory = getLLMClientFactory();
-
     // 根据选项选择客户端
     if (options?.provider) {
       try {
-        this.llmClient = factory.getClientForProvider(options.provider);
+        this.llmClient = providerRegistry.getOrCreate(options.provider) as unknown as ToolAwareClient;
       } catch (error) {
         logger.warning(
           `Failed to get client for provider ${options.provider}, using default`,
           { error }
         );
-        this.llmClient = factory.getDefaultClient();
+        this.llmClient = providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
       }
     } else if (!this.llmClient) {
-      this.llmClient = factory.getDefaultClient();
+      this.llmClient = providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
     }
 
     if (!this.toolRegistry || !this.toolExecutor) {

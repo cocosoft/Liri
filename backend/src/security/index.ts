@@ -48,4 +48,5 @@ export * from './patterns';
 export * from './bash';
 export * from './scanners';
 export * from './services';
+export * from './audit';
 export * from './securityUtils';

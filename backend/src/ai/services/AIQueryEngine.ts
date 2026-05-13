@@ -5,7 +5,8 @@
  */
 
 import type { ChatMessage } from '@modules/ai/models/types';
-import type { LLMClient } from '@modules/ai/clients/LLMClient';
+import type { AIProvider } from '@modules/ai/providers';
+import type { ChatOptions } from '@modules/ai/providers';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
 import type {
   QueryParams,
@@ -18,7 +19,7 @@ export interface AIQueryEngineConfig {
   /**
    * 默认 LLM 客户端
    */
-  client: LLMClient;
+  client: AIProvider;
   /**
    * 工具执行器
    */

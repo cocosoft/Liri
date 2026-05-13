@@ -15,21 +15,14 @@ import {
   ParsedToolCall,
 } from '../models/types';
 import type { AIService } from '../models/types';
-import { DefaultLLMClientFactory } from '../clients/LLMClientFactory';
-import {
-  resolveModel,
-  resolveApiKey,
-  resolveBaseUrl,
-} from '../clients/ModelConfig';
-import { LLMClient } from '../clients/LLMClient';
+import { providerRegistry } from '../providers/ProviderRegistry';
+import type { AIProvider } from '../providers/AIProvider';
 
 export class AIServiceImpl implements AIService {
   private config: AIServiceConfig;
-  private clientFactory: DefaultLLMClientFactory;
 
   constructor(config: AIServiceConfig) {
     this.config = config;
-    this.clientFactory = new DefaultLLMClientFactory();
   }
 
   private convertToChatMessages(messages: AIMessage[]): ChatMessage[] {
@@ -120,19 +113,19 @@ export class AIServiceImpl implements AIService {
     return { ...this.config };
   }
 
-  private getClientForModel(model: AIModelType): LLMClient {
+  private getClientForModel(model: AIModelType): AIProvider {
     if (model.startsWith('claude')) {
-      return this.clientFactory.createClient('anthropic', {
+      return providerRegistry.getOrCreate('anthropic', {
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
       });
     } else if (model.startsWith('deepseek')) {
-      return this.clientFactory.createClient('deepseek', {
+      return providerRegistry.getOrCreate('deepseek', {
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
       });
     } else {
-      return this.clientFactory.createClient('openai', {
+      return providerRegistry.getOrCreate('openai', {
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
       });
@@ -145,8 +138,8 @@ export function createAIService(
 ): AIService {
   const defaultConfig: AIServiceConfig = {
     defaultModel: AIModelType.DEEPSEEK_CHAT,
-    apiKey: resolveApiKey(),
-    baseUrl: resolveBaseUrl(),
+    apiKey: process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY || '',
+    baseUrl: '',
     timeout: 60000,
     maxRetries: 3,
   };

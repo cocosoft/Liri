@@ -1,0 +1,1 @@
+export { dingtalkChannel } from './DingTalkChannel';

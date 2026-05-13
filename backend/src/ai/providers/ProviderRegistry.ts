@@ -1,6 +1,6 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import type { AIProvider } from './AIProvider';
+import type { AIProvider, ProviderConfig } from './AIProvider';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -52,6 +52,42 @@ export class ProviderRegistry {
 
   has(providerId: string): boolean {
     return this.providers.has(providerId);
+  }
+
+  /**
+   * 获取或创建 Provider — 吸收旧 LLMClientFactory 的 createClient 逻辑
+   */
+  getOrCreate(providerId: string, config?: ProviderConfig): AIProvider {
+    if (this.has(providerId)) {
+      return this.get(providerId);
+    }
+    // 动态创建（import 延迟加载，避免循环依赖）
+    const createFn = this.getCreatorFn(providerId);
+    if (createFn) {
+      const provider = createFn(config || {});
+      this.register(provider);
+      return provider;
+    }
+    throw new AppError(
+      `Cannot create provider: ${providerId}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
+  }
+
+  private getCreatorFn(
+    providerId: string
+  ): ((config: ProviderConfig) => AIProvider) | null {
+    switch (providerId) {
+      case 'deepseek':
+        return (cfg) => {
+          const { DeepSeekProvider: DSP } = require('./DeepSeekProvider');
+          return new DSP(cfg);
+        };
+      default:
+        return null;
+    }
   }
 
   list(): AIProvider[] {

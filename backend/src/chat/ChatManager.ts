@@ -42,7 +42,7 @@ import {
   sanitizeHTML,
   validateInput,
 } from '../utils/sanitization.js';
-import { LLMClient } from '../ai/clients/LLMClient.js';
+import { ToolAwareClient } from '../ai/clients/ToolAwareClient.js';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -185,7 +185,7 @@ export interface ChatManager {
    * 获取LLM客户端
    * @returns LLM客户端
    */
-  getLLMClient(): LLMClient;
+  getLLMClient(): ToolAwareClient;
 
   /**
    * 获取工具集成
@@ -203,7 +203,7 @@ export interface ChatManager {
    * 设置LLM客户端
    * @param llmClient LLM客户端
    */
-  setLLMClient(llmClient: LLMClient): void;
+  setLLMClient(llmClient: ToolAwareClient): void;
 
   /**
    * 设置工具注册表
@@ -440,7 +440,7 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * LLM客户端
    */
-  private llmClient: LLMClient | undefined;
+  private llmClient: ToolAwareClient | undefined;
 
   /**
    * 工具集成
@@ -1104,7 +1104,7 @@ export class ChatManagerImpl implements ChatManager {
       yield chunk;
       result = await gen.next();
     }
-    finalResponse = result.value as ChatResponse;
+    finalResponse = result.value as unknown as ChatResponse;
 
     // 创建助手消息
     assistantMessage = this.messageService.createAssistantMessage(
@@ -1530,7 +1530,7 @@ export class ChatManagerImpl implements ChatManager {
    * 获取LLM客户端
    * @returns LLM客户端
    */
-  getLLMClient(): LLMClient {
+  getLLMClient(): ToolAwareClient {
     if (!this.llmClient) {
       throw new AppError(
         'LLM client not initialized',
@@ -1562,7 +1562,7 @@ export class ChatManagerImpl implements ChatManager {
    * 设置LLM客户端
    * @param llmClient LLM客户端
    */
-  setLLMClient(llmClient: LLMClient): void {
+  setLLMClient(llmClient: ToolAwareClient): void {
     this.llmClient = llmClient;
   }
 

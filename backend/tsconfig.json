@@ -47,6 +47,8 @@
       "@modules/cli/*": ["cli/*"],
       "@modules/chat": ["chat"],
       "@modules/chat/*": ["chat/*"],
+      "@modules/channels": ["channels"],
+      "@modules/channels/*": ["channels/*"],
       "@modules/memory": ["memory"],
       "@modules/memory/*": ["memory/*"],
       "@modules/cache": ["cache"],

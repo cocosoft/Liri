@@ -1,0 +1,17 @@
+export type {
+  ChannelId,
+  DmPolicy,
+  ChannelMeta,
+  ChannelCapabilities,
+  MessageContext,
+  SendResult,
+  InteractiveCard,
+  ChannelStatus,
+  ResolvedSender,
+  IChannelConfigAdapter,
+  IChannelLifecycleAdapter,
+  IChannelOutboundAdapter,
+  IChannelSecurityAdapter,
+  IChannelPairingAdapter,
+  IChannelPlugin,
+} from './IChannel';

@@ -32,6 +32,14 @@ export {
   type SDKMessage,
 } from './utils/InboundMessages';
 
+// Channel-Bridge 集成（互补协同层）
+export { ChannelBridgeAdapter } from './channel/ChannelBridgeAdapter';
+export type { ChannelTaskMetadata, ChannelBridgeOptions } from './channel/ChannelBridgeAdapter';
+export { BridgeChannelReporter } from './channel/BridgeChannelReporter';
+export type { BridgeTaskReport, TaskReportStatus, ReporterConfig } from './channel/BridgeChannelReporter';
+export { AgentDelegationOrchestrator } from './channel/AgentDelegationOrchestrator';
+export type { SubTaskDef, DelegationScenario, DelegationSession } from './channel/AgentDelegationOrchestrator';
+
 // Manager导出
 export { BridgeMain } from './BridgeMain';
 export { createPollManager } from './managers/PollManager';

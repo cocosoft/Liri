@@ -222,6 +222,21 @@ export const ErrorCodes = {
     message: '检测到危险命令',
     level: 'CRITICAL' as const,
   },
+  SECURITY_AUDIT_FAILED: {
+    code: 903,
+    message: '安全审计执行失败',
+    level: 'ERROR' as const,
+  },
+  SECURITY_PLUGIN_UNTRUSTED: {
+    code: 904,
+    message: '插件未通过信任审计',
+    level: 'WARN' as const,
+  },
+  SECURITY_CONFIG_DANGEROUS: {
+    code: 905,
+    message: '检测到危险配置项',
+    level: 'WARN' as const,
+  },
 } as const;
 
 export type ErrorCodeKey = keyof typeof ErrorCodes;

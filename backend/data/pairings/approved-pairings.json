@@ -1,0 +1,20 @@
+{
+  "wecom": [
+    {
+      "userId": "newuser2",
+      "approvedAt": 1778681169478
+    },
+    {
+      "userId": "user1",
+      "approvedAt": 1778681169480
+    },
+    {
+      "userId": "u1",
+      "approvedAt": 1778681169483
+    },
+    {
+      "userId": "u2",
+      "approvedAt": 1778681169484
+    }
+  ]
+}

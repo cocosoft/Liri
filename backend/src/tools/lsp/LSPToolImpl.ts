@@ -53,7 +53,7 @@ export class LSPToolImpl implements LSPTool {
   /**
    * 发送LSP请求
    */
-  async sendRequest(method: string, params: any): Promise<any> {
+  async sendRequest(method: string, params: any): Promise<unknown> {
     if (!this.client) {
       throw new AppError(
         'LSP server not started',

@@ -33,7 +33,7 @@ export interface ParameterSuggestion {
  */
 export interface ToolUsageSuggestion {
   toolName: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   description: string;
   expectedOutcome: string;
 }
@@ -146,7 +146,7 @@ ${toolsDescription}
   async fillParameters(
     toolName: string,
     taskDescription: string,
-    partialParams: Record<string, any> = {}
+    partialParams: Record<string, unknown> = {}
   ): Promise<ParameterSuggestion[]> {
     const tool = this.tools.find((t) => t.name === toolName);
     if (!tool) {

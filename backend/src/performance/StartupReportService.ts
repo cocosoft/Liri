@@ -28,7 +28,7 @@ export interface StartupCheckpoint {
   name: string;
   timestamp: number;
   duration: number;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -117,7 +117,7 @@ export class StartupReportService {
   /**
    * 添加检查点
    */
-  public checkpoint(name: string, details?: Record<string, any>): void {
+  public checkpoint(name: string, details?: Record<string, unknown>): void {
     const now = Date.now();
     const duration = now - this.startTime;
 
@@ -462,7 +462,7 @@ export function endStartupReport(): void {
  */
 export function addStartupCheckpoint(
   name: string,
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 ): void {
   startupReportService.checkpoint(name, details);
 }

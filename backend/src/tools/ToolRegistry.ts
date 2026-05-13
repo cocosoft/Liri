@@ -17,12 +17,12 @@ export interface ToolSchema {
   description: string;
   input_schema: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required: string[];
   };
   output_schema: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
   };
   aliases?: string[];
   searchTips?: string[];

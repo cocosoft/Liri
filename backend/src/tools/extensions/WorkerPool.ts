@@ -18,7 +18,7 @@ export interface Task {
   /**
    * 执行函数
    */
-  execute: () => Promise<any>;
+  execute: () => Promise<unknown>;
 
   /**
    * 取消函数
@@ -72,7 +72,7 @@ export class WorkerPool {
   /**
    * 提交任务
    */
-  async submit(task: Omit<Task, 'id'>): Promise<any> {
+  async submit(task: Omit<Task, 'id'>): Promise<unknown> {
     const id = `task-${++this.taskCounter}-${Date.now()}`;
     const fullTask: Task = {
       ...task,

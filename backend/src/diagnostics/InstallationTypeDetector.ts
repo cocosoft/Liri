@@ -12,7 +12,7 @@ import { delimiter, join, sep } from 'path';
 
 const execAsync = promisify(exec) as (
   command: string,
-  options?: Record<string, any>
+  options?: Record<string, unknown>
 ) => Promise<{ stdout: string; stderr: string }>;
 
 /**

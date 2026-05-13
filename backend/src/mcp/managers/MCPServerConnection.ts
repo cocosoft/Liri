@@ -290,7 +290,10 @@ export class MCPServerConnection {
   /**
    * 调用工具
    */
-  async callTool(toolName: string, args: Record<string, any>): Promise<any> {
+  async callTool(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<unknown> {
     const request: MCPRequest = {
       id: randomUUID(),
       type: 'call',

@@ -56,7 +56,7 @@ export type Props = PropsWithChildren<
     /** 顶部边框样式 */
     borderTopStyle?: string;
     /** 自定义样式 */
-    style?: Record<string, any>;
+    style?: Record<string, unknown>;
   }
 >;
 

@@ -62,7 +62,7 @@ export class StateMigrator {
    */
   static migrateModuleState(
     moduleName: string,
-    state: Record<string, any>,
+    state: Record<string, unknown>,
     options: StateMigrationOptions = {}
   ): boolean {
     try {
@@ -82,7 +82,10 @@ export class StateMigrator {
           break;
 
         case 'tasks':
-          newState.tasks = { ...newState.tasks, ...state };
+          newState.tasks = {
+            ...newState.tasks,
+            ...state,
+          } as typeof newState.tasks;
           break;
 
         case 'settings':
@@ -120,7 +123,7 @@ export class StateMigrator {
    * 批量迁移多个模块状态
    */
   static migrateMultipleStates(
-    states: Array<{ moduleName: string; state: Record<string, any> }>,
+    states: Array<{ moduleName: string; state: Record<string, unknown> }>,
     options: StateMigrationOptions = {}
   ): boolean {
     try {
@@ -140,7 +143,10 @@ export class StateMigrator {
             break;
 
           case 'tasks':
-            newState.tasks = { ...newState.tasks, ...state };
+            newState.tasks = {
+              ...newState.tasks,
+              ...state,
+            } as typeof newState.tasks;
             break;
 
           case 'settings':
@@ -249,7 +255,7 @@ export function initializeAppState(initialState?: Partial<AppState>): void {
  */
 export function migrateModuleState(
   moduleName: string,
-  state: Record<string, any>,
+  state: Record<string, unknown>,
   options?: StateMigrationOptions
 ): boolean {
   return StateMigrator.migrateModuleState(moduleName, state, options);
@@ -259,7 +265,7 @@ export function migrateModuleState(
  * 便捷函数：批量迁移多个模块状态
  */
 export function migrateMultipleStates(
-  states: Array<{ moduleName: string; state: Record<string, any> }>,
+  states: Array<{ moduleName: string; state: Record<string, unknown> }>,
   options?: StateMigrationOptions
 ): boolean {
   return StateMigrator.migrateMultipleStates(states, options);

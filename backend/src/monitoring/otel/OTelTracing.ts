@@ -194,7 +194,7 @@ export class OTelTracing {
         }
 
         this.endSpan(span, SpanStatusCode.OK);
-        return result;
+        return result as Awaited<ReturnType<T>>;
       } catch (error) {
         this.recordError(
           span,
@@ -212,7 +212,7 @@ export class OTelTracing {
    * @param fn 要包装的异步函数
    * @returns 包装后的异步函数
    */
-  asyncWrap<T extends (...args: any[]) => Promise<any>>(
+  asyncWrap<T extends (...args: any[]) => Promise<unknown>>(
     options: TraceWrapperOptions,
     fn: T
   ): (...args: Parameters<T>) => Promise<Awaited<ReturnType<T>>> {
@@ -222,7 +222,7 @@ export class OTelTracing {
       try {
         const result = await fn(...args);
         this.endSpan(span, SpanStatusCode.OK);
-        return result;
+        return result as Awaited<ReturnType<T>>;
       } catch (error) {
         this.recordError(
           span,

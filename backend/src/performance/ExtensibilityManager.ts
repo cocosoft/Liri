@@ -42,7 +42,7 @@ export interface Extension {
   /** 销毁函数 */
   destroy: () => Promise<void>;
   /** 执行函数 */
-  execute: (...args: any[]) => Promise<any>;
+  execute: (...args: any[]) => Promise<unknown>;
 }
 
 /**

@@ -305,8 +305,9 @@ export class EnhancedPermissionEngine {
       }
 
       case 'role': {
-        const userRole = context.metadata?.userRole || context.userRole;
-        return condition.roles.includes(userRole || '');
+        const userRole =
+          (context.metadata?.userRole as string) || context.userRole || '';
+        return (condition.roles as string[]).includes(userRole);
       }
 
       case 'time_range': {

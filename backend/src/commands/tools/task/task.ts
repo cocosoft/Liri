@@ -567,7 +567,7 @@ async function handleOutput(
       success: true,
       message:
         rawResult?.output ||
-        rawResult?.message ||
+        ((rawResult as Record<string, unknown>)?.message as string) ||
         'No output available for this task',
     };
   } catch (error) {

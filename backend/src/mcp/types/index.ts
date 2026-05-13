@@ -48,7 +48,7 @@ export interface MCPPluginConfig {
   /** MCP服务器配置 */
   mcpServers?: string | _MCPToolDefinition[] | Record<string, _MCPServerConfig>;
   /** 用户配置 */
-  userConfig?: Record<string, any>;
+  userConfig?: Record<string, unknown>;
   /** 通道配置 */
   channels?: {
     /** 服务器名称 */
@@ -56,7 +56,7 @@ export interface MCPPluginConfig {
     /** 显示名称 */
     displayName?: string;
     /** 用户配置schema */
-    userConfig?: Record<string, any>;
+    userConfig?: Record<string, unknown>;
   }[];
 }
 

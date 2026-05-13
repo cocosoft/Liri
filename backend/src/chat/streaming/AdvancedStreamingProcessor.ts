@@ -35,7 +35,7 @@ export interface StreamSession {
   buffer: StreamChunk[];
   metrics: StreamMetrics;
   createdAt: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type ChunkCallback = (chunk: StreamChunk) => void;
@@ -48,7 +48,7 @@ export type StateChangeCallback = (
 ) => void;
 
 export interface IAdvancedStreamingProcessor {
-  createSession(metadata?: Record<string, any>): string;
+  createSession(metadata?: Record<string, unknown>): string;
   processChunk(
     sessionId: string,
     content: string,
@@ -81,7 +81,7 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
     this.maxBufferSize = maxBufferSize;
   }
 
-  createSession(metadata?: Record<string, any>): string {
+  createSession(metadata?: Record<string, unknown>): string {
     if (this.sessions.size >= this.maxSessions) {
       const oldest = [...this.sessions.entries()].sort(
         ([, a], [, b]) => a.createdAt - b.createdAt

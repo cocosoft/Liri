@@ -28,7 +28,7 @@ export interface ChronosEvent {
   cronExpression?: string;
   message?: string;
   error?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 const eventLog: ChronosEvent[] = [];

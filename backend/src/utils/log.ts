@@ -16,7 +16,7 @@ export interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   error?: Error;
 }
 
@@ -65,7 +65,7 @@ export class Logger {
    * @param message 日志消息
    * @param context 日志上下文
    */
-  debug(message: string, context?: Record<string, any>): void {
+  debug(message: string, context?: Record<string, unknown>): void {
     this.log(LogLevel.DEBUG, message, context);
   }
 
@@ -74,7 +74,7 @@ export class Logger {
    * @param message 日志消息
    * @param context 日志上下文
    */
-  info(message: string, context?: Record<string, any>): void {
+  info(message: string, context?: Record<string, unknown>): void {
     this.log(LogLevel.INFO, message, context);
   }
 
@@ -83,7 +83,7 @@ export class Logger {
    * @param message 日志消息
    * @param context 日志上下文
    */
-  warn(message: string, context?: Record<string, any>): void {
+  warn(message: string, context?: Record<string, unknown>): void {
     this.log(LogLevel.WARN, message, context);
   }
 
@@ -93,7 +93,11 @@ export class Logger {
    * @param error 错误对象
    * @param context 日志上下文
    */
-  error(message: string, error?: Error, context?: Record<string, any>): void {
+  error(
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>
+  ): void {
     this.log(LogLevel.ERROR, message, context, error);
   }
 
@@ -103,7 +107,11 @@ export class Logger {
    * @param error 错误对象
    * @param context 日志上下文
    */
-  fatal(message: string, error?: Error, context?: Record<string, any>): void {
+  fatal(
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>
+  ): void {
     this.log(LogLevel.FATAL, message, context, error);
   }
 
@@ -117,7 +125,7 @@ export class Logger {
   private log(
     level: LogLevel,
     message: string,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     error?: Error
   ): void {
     if (!this.shouldLog(level)) {

@@ -208,7 +208,7 @@ export interface LazyLoadingOptions {
  */
 export class LazyLoadingManager {
   private cache: CacheManager<any> = new CacheManager();
-  private loadingPromises: Map<string, Promise<any>> = new Map();
+  private loadingPromises: Map<string, Promise<unknown>> = new Map();
 
   /**
    * 延迟加载函数

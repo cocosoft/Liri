@@ -110,7 +110,7 @@ export class MCPSecurityChecker {
    */
   static checkToolArguments(
     toolName: string,
-    args: Record<string, any>
+    args: Record<string, unknown>
   ): SecurityCheckResult {
     const warnings: string[] = [];
 
@@ -319,7 +319,7 @@ export class MCPSecurityChecker {
    */
   static checkToolCall(
     toolName: string,
-    args: Record<string, any>,
+    args: Record<string, unknown>,
     availableTools: MCPToolDefinition[]
   ): SecurityCheckResult {
     const warnings: string[] = [];

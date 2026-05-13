@@ -103,7 +103,7 @@ export interface Notebook {
   /**
    * 元数据
    */
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 
   /**
    * 版本
@@ -138,7 +138,7 @@ export interface Cell {
   /**
    * 元数据
    */
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 
   /**
    * 执行状态
@@ -214,7 +214,7 @@ export interface CellOutput {
   /**
    * 元数据
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

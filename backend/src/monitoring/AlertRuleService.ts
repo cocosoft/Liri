@@ -80,7 +80,7 @@ export interface AlertRoute {
  */
 export interface AlertChannel {
   type: 'log' | 'webhook' | 'email' | 'console';
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   severity?: AlertLevel[];
 }
 
@@ -543,7 +543,7 @@ export class AlertRuleService extends EventEmitter {
    */
   private sendLogNotification(
     alert: AlertInstance,
-    config: Record<string, any>
+    config: Record<string, unknown>
   ): void {
     const message = `[${alert.level.toUpperCase()}] ${alert.message}`;
     logger.info(message, {
@@ -577,7 +577,7 @@ export class AlertRuleService extends EventEmitter {
    */
   private sendWebhookNotification(
     alert: AlertInstance,
-    config: Record<string, any>
+    config: Record<string, unknown>
   ): void {
     logger.debug(`Webhook notification would be sent to: ${config.url}`, {
       alert,
@@ -590,7 +590,7 @@ export class AlertRuleService extends EventEmitter {
    */
   private sendEmailNotification(
     alert: AlertInstance,
-    config: Record<string, any>
+    config: Record<string, unknown>
   ): void {
     logger.debug(`Email notification would be sent to: ${config.to}`, {
       alert,

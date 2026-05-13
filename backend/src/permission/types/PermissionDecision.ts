@@ -40,7 +40,7 @@ export interface PermissionDecision {
   /**
    * 决策上下文（可选）
    */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -53,7 +53,7 @@ export interface PermissionDecision {
 export function createAllowDecision(
   reason: string,
   rule?: any,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): PermissionDecision {
   return {
     type: PermissionDecisionType.ALLOW,
@@ -73,7 +73,7 @@ export function createAllowDecision(
 export function createDenyDecision(
   reason: string,
   rule?: any,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): PermissionDecision {
   return {
     type: PermissionDecisionType.DENY,
@@ -93,7 +93,7 @@ export function createDenyDecision(
 export function createAskDecision(
   reason: string,
   rule?: any,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): PermissionDecision {
   return {
     type: PermissionDecisionType.ASK,

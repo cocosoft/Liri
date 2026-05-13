@@ -104,7 +104,7 @@ export class AgentConfigManager {
           };
           return acc;
         },
-        {} as Record<string, any>
+        {} as Record<string, unknown>
       );
 
       // 写入文件

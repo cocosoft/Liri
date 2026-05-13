@@ -20,8 +20,8 @@ export interface Skill {
   version: string;
   author: string;
   dependencies?: string[];
-  config?: Record<string, any>;
-  execute: (args: any[], context?: SkillContext) => Promise<any>;
+  config?: Record<string, unknown>;
+  execute: (args: any[], context?: SkillContext) => Promise<unknown>;
   init?: () => Promise<void>;
   shutdown?: () => Promise<void>;
 }
@@ -30,7 +30,7 @@ export interface Skill {
  * 技能上下文
  */
 export interface SkillContext {
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   logger: {
     info: (message: string) => void;
     error: (message: string, error?: Error) => void;
@@ -71,7 +71,7 @@ export class SkillManager {
   private skills: Map<string, SkillInfo> = new Map();
   private skillsDir: string;
   private builtinSkillsDir: string;
-  private skillConfigs: Map<string, Record<string, any>> = new Map();
+  private skillConfigs: Map<string, Record<string, unknown>> = new Map();
 
   constructor() {
     // 技能目录
@@ -364,7 +364,7 @@ export class SkillManager {
     name: string,
     args: any[],
     context?: Partial<SkillContext>
-  ): Promise<any> {
+  ): Promise<unknown> {
     profileCheckpoint(`skill_execute_${name}_start`);
     const skillInfo = this.skills.get(name);
     if (!skillInfo) {

@@ -26,7 +26,7 @@ export interface ToolCallContext {
   toolName: string;
 
   /** 调用参数 */
-  args?: Record<string, any>;
+  args?: Record<string, unknown>;
 
   /** 调用时间 */
   timestamp: Date;
@@ -277,7 +277,7 @@ export class MCPToolManager extends EventEmitter {
   async callTool(
     serverName: string,
     toolName: string,
-    args?: Record<string, any>,
+    args?: Record<string, unknown>,
     context?: Partial<ToolCallContext>
   ): Promise<ToolCallResult> {
     const toolId = this.generateToolId(serverName, toolName);
@@ -362,7 +362,7 @@ export class MCPToolManager extends EventEmitter {
   private async executeTool(
     registration: ToolRegistration,
     context: ToolCallContext
-  ): Promise<any> {
+  ): Promise<unknown> {
     // 这里应该实现实际的工具执行逻辑
     // 目前返回一个模拟结果
     return {

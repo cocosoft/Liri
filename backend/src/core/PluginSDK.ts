@@ -430,7 +430,10 @@ export class PluginSDK {
               required: true,
             },
           ],
-          execute: async (context: SkillContext, args: Record<string, any>) => {
+          execute: async (
+            context: SkillContext,
+            args: Record<string, unknown>
+          ) => {
             context.log.info(`执行示例技能: ${args.message}`);
             return { success: true, message: args.message };
           },

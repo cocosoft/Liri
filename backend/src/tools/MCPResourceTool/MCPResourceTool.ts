@@ -33,7 +33,7 @@ export interface MCPResourceToolInput {
   /** 提示名称 */
   prompt_name?: string;
   /** 提示参数 */
-  prompt_args?: Record<string, any>;
+  prompt_args?: Record<string, unknown>;
 }
 
 /**
@@ -580,7 +580,7 @@ export class MCPResourceTool extends BaseTool<
   private async getPrompt(
     serverName: string,
     promptName: string,
-    args?: Record<string, any>
+    args?: Record<string, unknown>
   ): Promise<unknown> {
     const mcpManager = getMCPServerManager();
     const server = mcpManager.getServer(serverName);

@@ -12,7 +12,7 @@ export type SwarmTaskStatus =
 export interface SwarmTask {
   id: string;
   description: string;
-  input?: Record<string, any>;
+  input?: Record<string, unknown>;
   priority?: number;
   createdAt: number;
 }

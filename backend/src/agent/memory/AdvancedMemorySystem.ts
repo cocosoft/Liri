@@ -148,7 +148,7 @@ export class AdvancedMemorySystem {
     this.createVersion('clear');
   }
 
-  getAll(): Record<string, any> {
+  getAll(): Record<string, unknown> {
     return {
       ...this.shortTermMemory.getAll(),
       ...this.longTermMemory.getAll(),

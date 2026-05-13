@@ -30,12 +30,12 @@ export interface PermissionContext {
   /**
    * 工具输入
    */
-  input: Record<string, any>;
+  input: Record<string, unknown>;
 
   /**
    * 元数据（可选）
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -45,10 +45,10 @@ export interface PermissionContext {
  */
 export function createPermissionContext(params: {
   toolName: string;
-  input: Record<string, any>;
+  input: Record<string, unknown>;
   sessionId?: string;
   userId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }): PermissionContext {
   return {
     sessionId: params.sessionId,

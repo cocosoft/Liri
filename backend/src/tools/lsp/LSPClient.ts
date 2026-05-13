@@ -8,6 +8,7 @@ import {
   Position,
   Location,
   CompletionItem,
+  TextEdit,
   Diagnostic,
 } from './types/index.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -104,7 +105,7 @@ export class LSPClient {
   /**
    * 发送请求
    */
-  async sendRequest(method: string, params: any): Promise<any> {
+  async sendRequest(method: string, params: any): Promise<unknown> {
     const id = ++this.requestId;
 
     return new Promise((resolve, reject) => {
@@ -201,7 +202,9 @@ export class LSPClient {
       position,
     });
 
-    return result.items || [];
+    return (
+      ((result as Record<string, unknown>)?.items as CompletionItem[]) || []
+    );
   }
 
   /**
@@ -218,7 +221,8 @@ export class LSPClient {
       position,
     });
 
-    return Array.isArray(result) ? result : result ? [result] : [];
+    const r = result as Location | Location[];
+    return Array.isArray(r) ? r : r ? [r] : [];
   }
 
   /**
@@ -238,7 +242,7 @@ export class LSPClient {
       },
     });
 
-    return result || [];
+    return (result as Location[]) || [];
   }
 
   /**
@@ -276,13 +280,14 @@ export class LSPClient {
       },
     });
 
-    if (!result || result.length === 0) {
+    const edits = result as TextEdit[];
+    if (!edits || edits.length === 0) {
       return document;
     }
 
     // 应用格式化
     let formatted = document;
-    for (const edit of result.reverse()) {
+    for (const edit of edits.reverse()) {
       const start = this.getOffset(formatted, edit.range.start);
       const end = this.getOffset(formatted, edit.range.end);
       formatted =
@@ -324,7 +329,8 @@ export class LSPClient {
       position,
     });
 
-    return result?.contents || null;
+    const r = result as Record<string, unknown> | undefined;
+    return (r?.contents as string) || null;
   }
 
   /**
@@ -343,9 +349,11 @@ export class LSPClient {
       newName,
     });
 
-    if (result?.changes) {
+    const r = result as Record<string, unknown> | undefined;
+    if (r?.changes) {
+      const changes = r.changes as Record<string, unknown>;
       const locations: Location[] = [];
-      for (const [uri, edits] of Object.entries(result.changes)) {
+      for (const [uri, edits] of Object.entries(changes)) {
         for (const edit of edits as any) {
           locations.push({
             uri,
@@ -376,7 +384,7 @@ export class LSPClient {
       },
     });
 
-    return result || [];
+    return (result as any[]) || [];
   }
 
   /**
@@ -393,7 +401,8 @@ export class LSPClient {
       position,
     });
 
-    return Array.isArray(result) ? result : result ? [result] : [];
+    const impl = result as Location | Location[];
+    return Array.isArray(impl) ? impl : impl ? [impl] : [];
   }
 
   /**
@@ -410,7 +419,8 @@ export class LSPClient {
       position,
     });
 
-    return Array.isArray(result) ? result : result ? [result] : [];
+    const typeDef = result as Location | Location[];
+    return Array.isArray(typeDef) ? typeDef : typeDef ? [typeDef] : [];
   }
 
   /**

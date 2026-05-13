@@ -364,7 +364,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     return baseScore;
   }
 
-  async get(key: string): Promise<any> {
+  async get(key: string): Promise<unknown> {
     const start = Date.now();
 
     // 清理过期的保护
@@ -826,7 +826,7 @@ export class CacheStrategyManager implements ICacheStrategyManager {
 
   async preWarm(
     keys: string[],
-    dataProvider: (key: string) => Promise<any>
+    dataProvider: (key: string) => Promise<unknown>
   ): Promise<void> {
     const batchSize = this.config.preWarmEnabled ? 10 : keys.length;
 

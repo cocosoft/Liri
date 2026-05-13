@@ -5,7 +5,12 @@
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
-import { AgentDefinition } from '../models/types';
+import {
+  AgentDefinition,
+  AgentColorName,
+  AgentMemoryScope,
+} from '../models/types';
+import type { HooksSettings } from '@modules/types/hooks.js';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 import { Logger } from '@modules/monitoring/logs/Logger';
@@ -80,29 +85,33 @@ function loadAgentFromFile(
     }
   } else if (filePath.endsWith('.md')) {
     const { frontmatter, content: body } = parseFrontmatter(content);
+    const fm = frontmatter as Record<string, unknown>;
     return {
-      agentType: frontmatter.agentType || 'unknown',
-      whenToUse: frontmatter.whenToUse || '通用Agent',
-      tools: frontmatter.tools || [],
-      disallowedTools: frontmatter.disallowedTools || [],
-      skills: frontmatter.skills || [],
-      mcpServers: frontmatter.mcpServers || [],
-      hooks: frontmatter.hooks || {},
-      color: frontmatter.color,
-      model: frontmatter.model,
-      effort: frontmatter.effort,
-      permissionMode: frontmatter.permissionMode,
-      maxTurns: frontmatter.maxTurns,
+      agentType: (fm.agentType as string) || 'unknown',
+      whenToUse: (fm.whenToUse as string) || '通用Agent',
+      tools: (fm.tools as string[]) || [],
+      disallowedTools: (fm.disallowedTools as string[]) || [],
+      skills: (fm.skills as string[]) || [],
+      mcpServers: (fm.mcpServers as string[]) || [],
+      hooks: (fm.hooks as HooksSettings) || {},
+      color: fm.color as AgentColorName | undefined,
+      model: fm.model as string | undefined,
+      effort: fm.effort as string | number | undefined,
+      permissionMode: fm.permissionMode as string | undefined,
+      maxTurns: fm.maxTurns as number | undefined,
       filename: filePath,
       baseDir: join(filePath, '..'),
       criticalSystemReminder_EXPERIMENTAL:
-        frontmatter.criticalSystemReminder_EXPERIMENTAL,
-      requiredMcpServers: frontmatter.requiredMcpServers,
-      background: frontmatter.background,
-      initialPrompt: frontmatter.initialPrompt,
-      memory: frontmatter.memory,
-      isolation: frontmatter.isolation,
-      omitClaudeMd: frontmatter.omitClaudeMd,
+        fm.criticalSystemReminder_EXPERIMENTAL as string | undefined,
+      requiredMcpServers: (fm.requiredMcpServers as string[]) || undefined,
+      background: fm.background as boolean | undefined,
+      initialPrompt: fm.initialPrompt as string | undefined,
+      memory: fm.memory as
+        | AgentMemoryScope
+        | { enabled: boolean; retentionDays?: number }
+        | undefined,
+      isolation: fm.isolation as 'worktree' | 'remote' | undefined,
+      omitClaudeMd: fm.omitClaudeMd as boolean | undefined,
       getSystemPrompt: () => body,
       source: source as any,
     };

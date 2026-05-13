@@ -56,7 +56,7 @@ export interface PerformanceEvent {
   /** 持续时间 */
   duration: number;
   /** 事件属性 */
-  attributes: Record<string, any>;
+  attributes: Record<string, unknown>;
 }
 
 /**
@@ -118,7 +118,7 @@ export class PerformanceAnalyzer {
   recordEvent(
     name: string,
     type: string,
-    attributes?: Record<string, any>
+    attributes?: Record<string, unknown>
   ): () => void {
     const startTime = performance.now();
 
@@ -460,7 +460,7 @@ export function recordResponseTime(time: number): void {
 export function recordEvent(
   name: string,
   type: string,
-  attributes?: Record<string, any>
+  attributes?: Record<string, unknown>
 ): () => void {
   return performanceAnalyzer.recordEvent(name, type, attributes);
 }

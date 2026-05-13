@@ -42,7 +42,7 @@ export class DeepSeekClient extends LLMClient {
     const maxTokens = options?.maxTokens || this.config.maxTokens || 4096;
     const temperature = options?.temperature || this.config.temperature || 0.7;
 
-    const requestBody: Record<string, any> = {
+    const requestBody: Record<string, unknown> = {
       model,
       messages: this.formatMessages(messages),
       max_tokens: maxTokens,
@@ -90,7 +90,7 @@ export class DeepSeekClient extends LLMClient {
     const maxTokens = options?.maxTokens || this.config.maxTokens || 4096;
     const temperature = options?.temperature || this.config.temperature || 0.7;
 
-    const requestBody: Record<string, any> = {
+    const requestBody: Record<string, unknown> = {
       model,
       messages: this.formatMessages(messages),
       max_tokens: maxTokens,

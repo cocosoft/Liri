@@ -167,7 +167,7 @@ export class ToolManager extends EventEmitter {
    */
   async executeTool(
     toolName: string,
-    parameters: Record<string, any>,
+    parameters: Record<string, unknown>,
     context: Partial<ToolExecutionContext> = {}
   ): Promise<ToolExecutionResult> {
     const registration = this.toolRegistry.get(toolName);

@@ -117,7 +117,7 @@ export class AgentMemoryManager {
           } catch (error) {
             logger.debug(
               `Failed to read memory file ${file}:`,
-              error as Record<string, any>
+              error as Record<string, unknown>
             );
           }
         }

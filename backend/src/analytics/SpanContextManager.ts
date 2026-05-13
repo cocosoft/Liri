@@ -13,12 +13,12 @@ export interface SpanContext {
   spanId: string;
   traceId: string;
   parentSpanId?: string;
-  attributes: Record<string, any>;
+  attributes: Record<string, unknown>;
   startTime: number;
   events: Array<{
     name: string;
     timestamp: number;
-    attributes: Record<string, any>;
+    attributes: Record<string, unknown>;
   }>;
   parent?: SpanContext;
 }
@@ -125,7 +125,7 @@ export class SpanContextManager {
   /**
    * 为当前span添加事件
    */
-  addEvent(name: string, attributes?: Record<string, any>): void {
+  addEvent(name: string, attributes?: Record<string, unknown>): void {
     const context = this.getCurrentContext();
     if (context) {
       context.events.push({

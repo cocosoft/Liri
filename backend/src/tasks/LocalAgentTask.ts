@@ -78,7 +78,7 @@ export class LocalAgentTask extends BaseTask {
     this.setStatus(TaskStatus.KILLED);
   }
 
-  private async launchAgent(): Promise<any> {
+  private async launchAgent(): Promise<unknown> {
     return {
       on: (event: string, callback: Function) => {
         return this;

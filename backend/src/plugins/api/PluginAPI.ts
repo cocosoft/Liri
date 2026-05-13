@@ -243,7 +243,7 @@ export class PluginAPIImpl implements PluginAPI {
      * @param id 会话ID
      * @returns 会话对象
      */
-    getSession: async (id: string): Promise<any> => {
+    getSession: async (id: string): Promise<unknown> => {
       return { id, title: 'Test Session' };
     },
 

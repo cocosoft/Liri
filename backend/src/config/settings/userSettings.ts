@@ -25,7 +25,7 @@ export function getUserSettingsPath(): string {
 /**
  * 加载用户设置
  */
-export function loadUserSettings(): Record<string, any> {
+export function loadUserSettings(): Record<string, unknown> {
   const filePath = getUserSettingsPath();
 
   try {
@@ -47,7 +47,7 @@ export function loadUserSettings(): Record<string, any> {
 /**
  * 保存用户设置
  */
-export function saveUserSettings(settings: Record<string, any>): void {
+export function saveUserSettings(settings: Record<string, unknown>): void {
   const filePath = getUserSettingsPath();
 
   try {
@@ -71,8 +71,8 @@ export function saveUserSettings(settings: Record<string, any>): void {
  * 更新用户设置（合并）
  */
 export function updateUserSettings(
-  updates: Record<string, any>
-): Record<string, any> {
+  updates: Record<string, unknown>
+): Record<string, unknown> {
   const current = loadUserSettings();
   const merged = deepMerge(current, updates);
   saveUserSettings(merged);
@@ -82,7 +82,7 @@ export function updateUserSettings(
 /**
  * 删除用户设置项
  */
-export function deleteUserSetting(key: string): Record<string, any> {
+export function deleteUserSetting(key: string): Record<string, unknown> {
   const current = loadUserSettings();
   deleteNestedKey(current, key.split('.'));
   saveUserSettings(current);
@@ -92,7 +92,7 @@ export function deleteUserSetting(key: string): Record<string, any> {
 /**
  * 删除嵌套键
  */
-function deleteNestedKey(obj: Record<string, any>, keys: string[]): void {
+function deleteNestedKey(obj: Record<string, unknown>, keys: string[]): void {
   if (keys.length === 1) {
     delete obj[keys[0]];
     return;
@@ -100,8 +100,8 @@ function deleteNestedKey(obj: Record<string, any>, keys: string[]): void {
 
   const key = keys[0]!;
   if (typeof obj[key] === 'object' && obj[key] !== null) {
-    deleteNestedKey(obj[key], keys.slice(1));
-    if (Object.keys(obj[key]).length === 0) {
+    deleteNestedKey(obj[key] as Record<string, unknown>, keys.slice(1));
+    if (Object.keys(obj[key] as Record<string, unknown>).length === 0) {
       delete obj[key];
     }
   }

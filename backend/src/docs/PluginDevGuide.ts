@@ -115,7 +115,7 @@ const customTool: ToolDefinition = {
     required: ['input']
   },
   
-  async execute(args: any): Promise<any> {
+  async execute(args: any): Promise<unknown> {
     const { input } = args;
     console.log('Custom tool called with:', input);
     return {

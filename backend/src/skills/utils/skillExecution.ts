@@ -8,7 +8,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
  */
 export async function executeSkill(
   context: SkillExecutionContext
-): Promise<any> {
+): Promise<unknown> {
   const { skill, args, toolUseContext } = context;
 
   try {

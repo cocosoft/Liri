@@ -30,7 +30,7 @@ export interface SessionState {
   /**
    * 会话配置
    */
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 /**
@@ -46,7 +46,7 @@ export class SessionState implements SessionState {
   constructor(
     public currentState: string = 'active',
     public history: StateHistory[] = [],
-    public config: Record<string, any> = {}
+    public config: Record<string, unknown> = {}
   ) {
     // 初始化时添加当前状态到历史记录
     if (history.length === 0) {

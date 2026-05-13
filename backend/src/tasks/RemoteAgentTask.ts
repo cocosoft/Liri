@@ -82,7 +82,7 @@ export class RemoteAgentTask extends BaseTask {
     this.setStatus(TaskStatus.KILLED);
   }
 
-  private async connectToRemoteAgent(): Promise<any> {
+  private async connectToRemoteAgent(): Promise<unknown> {
     const { connectionString, sessionId } = this.options;
 
     return {

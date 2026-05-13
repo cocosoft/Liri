@@ -9,7 +9,7 @@ import type { ChatMessage } from '../models/types.js';
 export interface Intent {
   type: IntentType;
   confidence: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type IntentType =

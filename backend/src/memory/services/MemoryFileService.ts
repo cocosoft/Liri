@@ -32,7 +32,7 @@ export async function ensureMemoryDirExists(memoryDir: string): Promise<void> {
  */
 export function logMemoryDirCounts(
   memoryDir: string,
-  baseMetadata: Record<string, any>
+  baseMetadata: Record<string, unknown>
 ): void {
   const fs = getFsImplementation();
   void fs.readdir(memoryDir, { withFileTypes: true }).then(
@@ -100,7 +100,7 @@ export function readMemoryEntrypoint(memoryDir: string): {
 export async function writeMemoryFile(
   memoryDir: string,
   filename: string,
-  frontmatter: Record<string, any>,
+  frontmatter: Record<string, unknown>,
   content: string
 ): Promise<void> {
   const fs = getFsImplementation();

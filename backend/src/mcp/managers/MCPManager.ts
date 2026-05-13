@@ -295,7 +295,7 @@ export class MCPManager {
         });
       }
 
-      return result;
+      return result as ResourceInfo[];
     } catch (error) {
       logger.error(
         `Failed to list resources on ${serverName}:`,

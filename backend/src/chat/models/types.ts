@@ -21,7 +21,7 @@ export enum ChatMessageType {
 export interface ChatMessage extends AIMessage {
   type: ChatMessageType;
   sessionId: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   attachments?: ChatAttachment[];
 }
 
@@ -57,7 +57,7 @@ export interface ChatSessionOptions {
 export interface ChatTool {
   name: string;
   description: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 /**

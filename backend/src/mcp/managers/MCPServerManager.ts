@@ -156,8 +156,8 @@ export class MCPServerManager {
   async callTool(
     serverName: string,
     toolName: string,
-    args: Record<string, any>
-  ): Promise<any> {
+    args: Record<string, unknown>
+  ): Promise<unknown> {
     const server = this.servers.get(serverName);
     if (!server) {
       throw new AppError(
@@ -199,7 +199,7 @@ export class MCPServerManager {
     calls: Array<{
       serverName: string;
       toolName: string;
-      args: Record<string, any>;
+      args: Record<string, unknown>;
     }>
   ): Promise<Array<{ success: boolean; result?: any; error?: string }>> {
     const callPromises = calls.map(async (call) => {

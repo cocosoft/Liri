@@ -246,7 +246,7 @@ export const SystemEvents = {
 /**
  * 类型安全的发布-订阅帮助类
  */
-export class TypedEventBus<T extends Record<string, any>> {
+export class TypedEventBus<T extends Record<string, unknown>> {
   private bus: EventBus;
 
   constructor(bus?: EventBus) {

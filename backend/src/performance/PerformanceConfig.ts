@@ -120,7 +120,7 @@ export class PerformanceConfigManager {
   constructor() {
     this.config = { ...DEFAULT_CONFIG };
     this.validateConfig();
-    logForDebugging('性能优化配置已初始化', this.config);
+    logForDebugging('性能优化配置已初始化', { ...this.config });
   }
 
   /**
@@ -137,7 +137,7 @@ export class PerformanceConfigManager {
     this.config = { ...this.config, ...updates };
     this.validateConfig();
     this.notifyListeners();
-    logForDebugging('性能优化配置已更新', this.config);
+    logForDebugging('性能优化配置已更新', { ...this.config });
   }
 
   /**
@@ -176,7 +176,7 @@ export class PerformanceConfigManager {
     };
     this.validateConfig();
     this.notifyListeners();
-    logForDebugging('性能优化配置已从环境变量重新加载', this.config);
+    logForDebugging('性能优化配置已从环境变量重新加载', { ...this.config });
   }
 
   /**

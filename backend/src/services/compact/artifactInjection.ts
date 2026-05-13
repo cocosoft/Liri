@@ -40,7 +40,7 @@ export interface Artifact {
   /**
    * 元数据
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   /**
    * 创建时间

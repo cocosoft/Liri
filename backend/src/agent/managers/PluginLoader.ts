@@ -25,7 +25,7 @@ interface AgentExtension {
   name: string;
   description: string;
   hooks: Record<string, string>;
-  execute(context: Record<string, any>): Promise<Record<string, any>>;
+  execute(context: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
 
 interface DependencyGraph {
@@ -85,7 +85,8 @@ export class PluginLoader {
 
     try {
       const pluginModule = await this.importPlugin(pluginPath);
-      const plugin = pluginModule.default || pluginModule;
+      const plugin =
+        (pluginModule as Record<string, unknown>).default || pluginModule;
 
       if (!this.validatePlugin(plugin)) {
         throw new AppError(
@@ -289,7 +290,7 @@ export class PluginLoader {
     return conflicts;
   }
 
-  private async importPlugin(pluginPath: string): Promise<any> {
+  private async importPlugin(pluginPath: string): Promise<unknown> {
     try {
       return await import(pluginPath);
     } catch (error) {

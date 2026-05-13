@@ -74,7 +74,7 @@ export class OutputFormatter {
    * 格式化键值对
    */
   static formatKeyValuePairs(
-    pairs: Record<string, any>,
+    pairs: Record<string, unknown>,
     options: FormatOptions = {}
   ): string {
     const indent = options.indent || 2;

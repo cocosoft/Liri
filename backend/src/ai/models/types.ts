@@ -269,14 +269,14 @@ export interface ToolDefinition {
   function: {
     name: string;
     description: string;
-    parameters: Record<string, any>;
+    parameters: Record<string, unknown>;
   };
 }
 
 export interface ParsedToolCall {
   id: string;
   name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 }
 
 export interface ChatResponse {

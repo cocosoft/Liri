@@ -11,8 +11,8 @@ declare module '../utils/gracefulShutdown.js' {
 }
 
 declare module '../context.js' {
-  export function getSystemContext(): Promise<any>;
-  export function getUserContext(): Promise<any>;
+  export function getSystemContext(): Promise<unknown>;
+  export function getUserContext(): Promise<unknown>;
 }
 
 declare module './utils/gracefulShutdown.js' {
@@ -24,8 +24,8 @@ declare module './utils/gracefulShutdown.js' {
 }
 
 declare module './context.js' {
-  export function getSystemContext(): Promise<any>;
-  export function getUserContext(): Promise<any>;
+  export function getSystemContext(): Promise<unknown>;
+  export function getUserContext(): Promise<unknown>;
 }
 
 declare module '../tools/index.js' {

@@ -143,7 +143,7 @@ export class OAuthStorageImpl implements OAuthStorage {
   /**
    * 写入存储
    */
-  private async writeToStorage(data: Record<string, any>): Promise<void> {
+  private async writeToStorage(data: Record<string, unknown>): Promise<void> {
     const fs = await import('fs/promises');
     const path = await import('path');
 

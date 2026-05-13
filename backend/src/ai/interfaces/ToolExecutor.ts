@@ -57,7 +57,7 @@ export interface IToolExecutor {
 export interface ToolDefinition {
   name: string;
   description?: string;
-  inputSchema?: Record<string, any>;
+  inputSchema?: Record<string, unknown>;
 }
 
 /**
@@ -98,7 +98,7 @@ export interface ToolRegistry {
 export interface Tool {
   name: string;
   description?: string;
-  inputSchema?: Record<string, any>;
+  inputSchema?: Record<string, unknown>;
   execute(input: any, context: ToolContext): Promise<ToolResult>;
 }
 

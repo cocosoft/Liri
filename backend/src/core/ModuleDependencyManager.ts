@@ -17,7 +17,7 @@ import chalk from 'chalk';
  * 获取徽章文本
  */
 function getBadgeText(text: string, color: string): string {
-  const colorMap: Record<string, any> = {
+  const colorMap: Record<string, typeof chalk> = {
     green: chalk.green,
     gray: chalk.gray,
     blue: chalk.blue,

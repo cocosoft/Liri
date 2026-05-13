@@ -178,7 +178,7 @@ export class SandboxManager {
    * @param code 要执行的代码
    * @param context 执行上下�?
    */
-  async execute(id: string, code: string, context: any = {}): Promise<any> {
+  async execute(id: string, code: string, context: any = {}): Promise<unknown> {
     if (this.state !== SandboxState.RUNNING) {
       throw new AppError(
         'Sandbox manager is not running',

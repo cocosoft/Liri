@@ -380,7 +380,7 @@ export class FileConfigLayer implements ConfigLayer {
   priority: number;
 
   private filePath: string;
-  private cache: Record<string, any> | null = null;
+  private cache: Record<string, unknown> | null = null;
 
   constructor(name: ConfigSource, filePath: string, priority: number) {
     this.name = name;
@@ -388,7 +388,7 @@ export class FileConfigLayer implements ConfigLayer {
     this.priority = priority;
   }
 
-  get(): Record<string, any> {
+  get(): Record<string, unknown> {
     if (this.cache) {
       return this.cache;
     }
@@ -403,10 +403,9 @@ export class FileConfigLayer implements ConfigLayer {
       this.cache = config;
       return config;
     } catch (error) {
-      logger.warn(
-        `Failed to load config from ${this.filePath}:`,
-        error instanceof Error ? error : undefined
-      );
+      logger.warn(`Failed to load config from ${this.filePath}:`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return {};
     }
   }
@@ -458,6 +457,6 @@ export function setConfig(
 /**
  * 便捷函数：获取合并后的配置
  */
-export function getMergedConfig(): Record<string, any> {
+export function getMergedConfig(): Record<string, unknown> {
   return ConfigManager.getInstance().getMergedConfig();
 }

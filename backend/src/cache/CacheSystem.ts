@@ -413,7 +413,7 @@ export class DiskStorage implements CacheStorage {
     value: T,
     options?: {
       expiry?: number;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<void> {
     await this.initialize();
@@ -532,7 +532,7 @@ export class CacheSystem {
     value: T,
     options?: {
       expiry?: number;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }
   ): Promise<void> {
     await withCacheLock(async () => {

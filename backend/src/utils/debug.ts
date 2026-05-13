@@ -18,13 +18,13 @@ export function isDebugMode(): boolean {
  */
 export function logForDebugging(
   message: string,
-  options?: Record<string, any>
+  options?: Record<string, unknown>
 ): void {
   if (!isDebugMode()) {
     return;
   }
 
-  const level = options?.level || 'debug';
+  const level = (options?.level as string) || 'debug';
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
 

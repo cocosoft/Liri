@@ -30,7 +30,9 @@ export function getLocalSettingsPath(projectRoot?: string): string {
 /**
  * 加载本地设置
  */
-export function loadLocalSettings(projectRoot?: string): Record<string, any> {
+export function loadLocalSettings(
+  projectRoot?: string
+): Record<string, unknown> {
   const filePath = getLocalSettingsPath(projectRoot);
 
   try {
@@ -53,7 +55,7 @@ export function loadLocalSettings(projectRoot?: string): Record<string, any> {
  * 保存本地设置
  */
 export function saveLocalSettings(
-  settings: Record<string, any>,
+  settings: Record<string, unknown>,
   projectRoot?: string
 ): void {
   const filePath = getLocalSettingsPath(projectRoot);
@@ -79,9 +81,9 @@ export function saveLocalSettings(
  * 更新本地设置（合并）
  */
 export function updateLocalSettings(
-  updates: Record<string, any>,
+  updates: Record<string, unknown>,
   projectRoot?: string
-): Record<string, any> {
+): Record<string, unknown> {
   const current = loadLocalSettings(projectRoot);
   const merged = deepMerge(current, updates);
   saveLocalSettings(merged, projectRoot);

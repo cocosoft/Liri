@@ -32,12 +32,12 @@ export interface AITraceData {
   spanContext: SpanContext;
   startTime: number;
   endTime?: number;
-  attributes: Record<string, any>;
+  attributes: Record<string, unknown>;
   events: TraceEvent[];
 }
 
 export interface TraceEvent {
   name: string;
   timestamp: number;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
 }

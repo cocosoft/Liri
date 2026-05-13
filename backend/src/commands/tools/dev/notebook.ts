@@ -44,7 +44,7 @@ function stripFlags(args: string): string {
  */
 async function callAdapter(
   action: string,
-  params: Record<string, any>
+  params: Record<string, unknown>
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const toolManager = getToolManager();
@@ -58,7 +58,10 @@ async function callAdapter(
       return { success: false, error: result.error || '操作失败' };
     }
 
-    const output = result.output || result.data?.message || '';
+    const output =
+      result.output ||
+      ((result.data as Record<string, unknown>)?.message as string) ||
+      '';
     return { success: true, message: output };
   } catch (error) {
     return {

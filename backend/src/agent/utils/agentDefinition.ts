@@ -68,16 +68,18 @@ export function parseYAML(content: string): AgentDefinitionFile | null {
           currentSection = 'tools';
         } else if (currentSection === 'config') {
           // 在config section中
-          (result.config as Record<string, any>)[key] = parseValue(value);
+          (result.config as unknown as Record<string, unknown>)[key] =
+            parseValue(value);
         } else if (currentSection === 'memory') {
           // 在memory section中
           if (!result.memory) {
             result.memory = {} as MemoryConfig;
           }
-          (result.memory as Record<string, any>)[key] = parseValue(value);
+          (result.memory as unknown as Record<string, unknown>)[key] =
+            parseValue(value);
         } else {
           // 顶级字段
-          (result as Record<string, any>)[key] = parseValue(value);
+          (result as Record<string, unknown>)[key] = parseValue(value);
         }
       }
     }

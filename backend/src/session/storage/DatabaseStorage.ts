@@ -168,7 +168,7 @@ export class DatabaseStorage implements SessionStorage {
       );
     }
 
-    const row: any = await new Promise<any>((resolve, reject) => {
+    const row: any = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT * FROM sessions WHERE id = ?`,
         [sessionId],
@@ -374,7 +374,7 @@ export class DatabaseStorage implements SessionStorage {
       );
     }
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT metadata FROM sessions WHERE id = ?`,
         [sessionId],
@@ -514,7 +514,7 @@ export class DatabaseStorage implements SessionStorage {
       );
     }
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT id FROM sessions WHERE id = ?`,
         [sessionId],

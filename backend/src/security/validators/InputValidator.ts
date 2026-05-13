@@ -284,7 +284,7 @@ export class InputValidator {
    * @returns 验证结果
    */
   validateObject(
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     schema: Record<string, Array<{ name: string; options?: any }>>
   ): ValidationResult {
     for (const [field, rules] of Object.entries(schema)) {
@@ -314,7 +314,7 @@ export class InputValidator {
     } else if (Array.isArray(input)) {
       return input.map((item) => this.sanitize(item));
     } else if (typeof input === 'object' && input !== null) {
-      const sanitized: Record<string, any> = {};
+      const sanitized: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(input)) {
         sanitized[key] = this.sanitize(value);
       }

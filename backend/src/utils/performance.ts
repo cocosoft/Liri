@@ -12,7 +12,7 @@ interface PerformanceMetrics {
   name: string;
   duration: number;
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -76,7 +76,7 @@ export class PerformanceMonitor {
   recordMetric(
     name: string,
     duration: number,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     if (!this.enabled) {
       return;
@@ -196,7 +196,7 @@ export class PerformanceMonitor {
 export class PerformanceTimer {
   private name: string;
   private startTime: number;
-  private metadata?: Record<string, any>;
+  private metadata?: Record<string, unknown>;
   private monitor: PerformanceMonitor;
 
   /**
@@ -204,7 +204,7 @@ export class PerformanceTimer {
    * @param name 名称
    * @param metadata 元数据
    */
-  constructor(name: string, metadata?: Record<string, any>) {
+  constructor(name: string, metadata?: Record<string, unknown>) {
     this.name = name;
     this.startTime = Date.now();
     this.metadata = metadata;
@@ -362,7 +362,7 @@ export const performanceUtils = {
    * @param metadata 元数据
    * @returns 性能计时器
    */
-  startTimer: (name: string, metadata?: Record<string, any>) => {
+  startTimer: (name: string, metadata?: Record<string, unknown>) => {
     return new PerformanceTimer(name, metadata);
   },
 
@@ -375,7 +375,7 @@ export const performanceUtils = {
   recordMetric: (
     name: string,
     duration: number,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ) => {
     const monitor = PerformanceMonitor.getInstance();
     monitor.recordMetric(name, duration, metadata);

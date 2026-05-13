@@ -41,7 +41,11 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const bar = filledChar.repeat(filledLength) + emptyChar.repeat(emptyLength);
 
   return (
-    <Box style={style} flexDirection="column" gap={1}>
+    <Box
+      style={style as Record<string, unknown>}
+      flexDirection="column"
+      gap={1}
+    >
       {label && <Text bold>{label}</Text>}
       <Box flexDirection="row" alignItems="center" gap={2}>
         <Text>{bar}</Text>

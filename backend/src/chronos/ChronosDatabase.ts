@@ -324,7 +324,7 @@ export class ChronosDatabase {
       );
     }
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT * FROM scheduled_tasks WHERE id = ?`,
         [taskId],
@@ -593,7 +593,7 @@ export class ChronosDatabase {
       );
     }
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT value FROM system_config WHERE key = ?`,
         [key],
@@ -607,7 +607,7 @@ export class ChronosDatabase {
       );
     });
 
-    return row ? row.value : null;
+    return row ? ((row as Record<string, unknown>).value as string) : null;
   }
 
   /**

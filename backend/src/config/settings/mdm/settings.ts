@@ -22,7 +22,7 @@ import {
  * MDM读取结果
  */
 export type MdmResult = {
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   errors: Array<{ source: string; message: string }>;
 };
 

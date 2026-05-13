@@ -292,7 +292,7 @@ function mapUsage(raw: any): ChatResponse['usage'] {
  */
 export async function createOpenAIStream(
   url: string,
-  body: Record<string, any>,
+  body: Record<string, unknown>,
   apiKey: string,
   options?: SSEClientOptions
 ): Promise<AsyncGenerator<OpenAIStreamChunk>> {

@@ -14,7 +14,7 @@ export interface SkillResult {
   success: boolean;
   output?: string;
   error?: string;
-  usage?: Record<string, any>;
+  usage?: Record<string, unknown>;
 }
 
 export interface SkillProviderConfig {
@@ -25,7 +25,7 @@ export interface SkillProviderConfig {
 export interface SkillMatch {
   skillName: string;
   confidence: number;
-  args?: Record<string, any>;
+  args?: Record<string, unknown>;
 }
 
 export interface ISkillRegistry {

@@ -173,22 +173,22 @@ const bashImplementation: CommandImplementation = {
       const parts: string[] = [];
 
       // 优先使用工具返回的结构化数据
-      const data = result.data;
-      if (data && typeof data === 'object') {
-        if (data.output) {
-          parts.push(data.output);
+      const data = result.data as Record<string, unknown> | undefined;
+      if (data) {
+        if (typeof data === 'object') {
+          parts.push((data.output as string) || '');
+          if (data.errorOutput) {
+            parts.push(`[stderr] ${data.errorOutput as string}`);
+          }
+          if (data.exitCode !== undefined && data.exitCode !== 0) {
+            parts.push(`[exit code: ${String(data.exitCode)}]`);
+          }
+          if (data.executionTime !== undefined) {
+            parts.push(`(完成耗时: ${String(data.executionTime)}ms)`);
+          }
+        } else if (typeof data === 'string') {
+          parts.push(data as string);
         }
-        if (data.errorOutput) {
-          parts.push(`[stderr] ${data.errorOutput}`);
-        }
-        if (data.exitCode !== undefined && data.exitCode !== 0) {
-          parts.push(`[exit code: ${data.exitCode}]`);
-        }
-        if (data.executionTime !== undefined) {
-          parts.push(`(完成耗时: ${data.executionTime}ms)`);
-        }
-      } else if (data && typeof data === 'string') {
-        parts.push(data);
       }
 
       if (result.output) {

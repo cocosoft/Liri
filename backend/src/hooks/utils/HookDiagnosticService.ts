@@ -33,7 +33,7 @@ export interface HookDiagnosticLog {
   stderr?: string;
   exitCode?: number;
   outcome?: 'success' | 'error' | 'blocked';
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -140,7 +140,7 @@ export class HookDiagnosticService {
     stderr?: string;
     exitCode?: number;
     outcome?: 'success' | 'error' | 'blocked';
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }): HookDiagnosticLog {
     const logEntry: HookDiagnosticLog = {
       id: this.generateLogId(),
@@ -228,7 +228,7 @@ export class HookDiagnosticService {
     hookName: string;
     hookId?: string;
     sessionId?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }): HookDiagnosticLog {
     return this.log({
       level: 'info',
@@ -254,7 +254,7 @@ export class HookDiagnosticService {
     stdout?: string;
     stderr?: string;
     outcome?: 'success' | 'error' | 'blocked';
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }): HookDiagnosticLog {
     const level: DiagnosticLogLevel =
       options.outcome === 'error'
@@ -289,7 +289,7 @@ export class HookDiagnosticService {
     sessionId?: string;
     error: string;
     durationMs?: number;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }): HookDiagnosticLog {
     return this.log({
       level: 'error',
@@ -313,7 +313,7 @@ export class HookDiagnosticService {
     hookId?: string;
     sessionId?: string;
     reason: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }): HookDiagnosticLog {
     return this.log({
       level: 'warn',

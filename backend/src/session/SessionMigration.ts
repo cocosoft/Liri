@@ -6,8 +6,8 @@ const logger = new Logger({ level: LogLevel.INFO });
 export const CURRENT_SESSION_VERSION = 1;
 
 export type MigrationFunction = (
-  data: Record<string, any>
-) => Record<string, any>;
+  data: Record<string, unknown>
+) => Record<string, unknown>;
 
 interface MigrationRecord {
   fromVersion: number;
@@ -28,15 +28,15 @@ export class SessionMigration {
     return this.highestVersion;
   }
 
-  getVersion(data: Record<string, any>): number {
+  getVersion(data: Record<string, unknown>): number {
     return (data as any).version ?? 0;
   }
 
-  needsMigration(data: Record<string, any>): boolean {
+  needsMigration(data: Record<string, unknown>): boolean {
     return this.getVersion(data) < this.highestVersion;
   }
 
-  migrate(data: Record<string, any>): Record<string, any> {
+  migrate(data: Record<string, unknown>): Record<string, unknown> {
     let currentVersion = this.getVersion(data);
     let result = { ...data };
 
@@ -133,9 +133,10 @@ export class SessionMigration {
         }
 
         if (result.metadata && typeof result.metadata === 'object') {
-          if (!result.metadata.title && result.metadata.name) {
-            result.metadata.title = result.metadata.name;
-            delete result.metadata.name;
+          const meta = result.metadata as Record<string, unknown>;
+          if (!meta.title && meta.name) {
+            meta.title = meta.name;
+            delete meta.name;
           }
         }
 

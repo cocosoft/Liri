@@ -464,7 +464,7 @@ export class TemplateService {
    */
   public render(
     templateId: string,
-    variables: Record<string, any>
+    variables: Record<string, unknown>
   ): TemplateRenderResult {
     const template = this.templates.get(templateId);
 
@@ -521,7 +521,7 @@ export class TemplateService {
    */
   private renderSimpleVariables(
     content: string,
-    variables: Record<string, any>,
+    variables: Record<string, unknown>,
     usedVariables: string[]
   ): string {
     return content.replace(this.variablePatterns.simple, (match, varName) => {
@@ -545,7 +545,7 @@ export class TemplateService {
    */
   private renderBlockHelpers(
     content: string,
-    variables: Record<string, any>,
+    variables: Record<string, unknown>,
     usedVariables: string[]
   ): string {
     content = content.replace(
@@ -608,7 +608,7 @@ export class TemplateService {
    */
   public validateVariables(
     templateId: string,
-    variables: Record<string, any>
+    variables: Record<string, unknown>
   ): { valid: boolean; errors: string[] } {
     const template = this.templates.get(templateId);
 

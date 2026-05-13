@@ -202,7 +202,7 @@ export class CoreAPIImpl implements CoreAPI {
     try {
       const result = await this.toolManager.executeTool(
         toolCall.name,
-        toolCall.arguments as Record<string, any>,
+        toolCall.arguments as Record<string, unknown>,
         { sessionId }
       );
 

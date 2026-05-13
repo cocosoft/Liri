@@ -22,13 +22,13 @@ export interface DeferredTool {
   params: any[];
   shouldDefer: true;
   discoveredVia: 'search' | 'explicit' | 'auto';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   // 实现Tool接口的必要方法
   isEnabled(): boolean;
   isReadOnly(input?: Record<string, unknown>): boolean;
   isConcurrencySafe(input?: Record<string, unknown>): boolean;
-  execute(input: Record<string, unknown>, context: any): Promise<any>;
+  execute(input: Record<string, unknown>, context: any): Promise<unknown>;
   validateInput?(input: Record<string, unknown>): any;
 }
 

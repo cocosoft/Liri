@@ -20,7 +20,7 @@ export interface RemoteAgentTask {
   id: string;
   agentId: string;
   description: string;
-  input?: Record<string, any>;
+  input?: Record<string, unknown>;
   timeoutMs?: number;
 }
 

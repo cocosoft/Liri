@@ -124,7 +124,10 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   /**
    * 调用工具（基于CC源码）
    */
-  async callTool(name: string, args?: Record<string, any>): Promise<any> {
+  async callTool(
+    name: string,
+    args?: Record<string, unknown>
+  ): Promise<unknown> {
     if (this._state !== 'connected') {
       throw new AppError(
         `Cannot call tool from state: ${this._state}`,
@@ -187,12 +190,15 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     const startTime = Date.now();
 
     try {
-      const result = await this.sendRequest(request);
+      const result = (await this.sendRequest(request)) as Record<
+        string,
+        unknown
+      >;
 
       // 更新统计信息
       this.updateStats('toolCalls', Date.now() - startTime);
 
-      return result.tools || [];
+      return (result.tools as MCPToolDefinition[]) || [];
     } catch (error) {
       this.updateStats('errors');
       this.emitEvent('error', {
@@ -224,12 +230,15 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     const startTime = Date.now();
 
     try {
-      const result = await this.sendRequest(request);
+      const result = (await this.sendRequest(request)) as Record<
+        string,
+        unknown
+      >;
 
       // 更新统计信息
       this.updateStats('resourceReads', Date.now() - startTime);
 
-      return result.resources || [];
+      return (result.resources as MCPResourceDefinition[]) || [];
     } catch (error) {
       this.updateStats('errors');
       this.emitEvent('error', {
@@ -261,12 +270,15 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     const startTime = Date.now();
 
     try {
-      const result = await this.sendRequest(request);
+      const result = (await this.sendRequest(request)) as Record<
+        string,
+        unknown
+      >;
 
       // 更新统计信息
       this.updateStats('promptGets', Date.now() - startTime);
 
-      return result.prompts || [];
+      return (result.prompts as MCPPromptDefinition[]) || [];
     } catch (error) {
       this.updateStats('errors');
       this.emitEvent('error', {
@@ -298,15 +310,18 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
     const startTime = Date.now();
 
     try {
-      const result = await this.sendRequest(request);
+      const result = (await this.sendRequest(request)) as Record<
+        string,
+        unknown
+      >;
 
       // 更新统计信息
       this.updateStats('toolCalls', Date.now() - startTime);
 
       return {
-        name: result.name || 'unknown',
-        version: result.version || '1.0.0',
-        capabilities: result.capabilities || {},
+        name: (result.name as string) || 'unknown',
+        version: (result.version as string) || '1.0.0',
+        capabilities: (result.capabilities as Record<string, boolean>) || {},
       };
     } catch (error) {
       this.updateStats('errors');
@@ -335,7 +350,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   /**
    * 发送请求（基于CC源码）
    */
-  private async sendRequest(request: MCPRequest): Promise<any> {
+  private async sendRequest(request: MCPRequest): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(request.id);

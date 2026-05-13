@@ -30,7 +30,9 @@ export function getProjectSettingsPath(projectRoot?: string): string {
 /**
  * 加载项目设置
  */
-export function loadProjectSettings(projectRoot?: string): Record<string, any> {
+export function loadProjectSettings(
+  projectRoot?: string
+): Record<string, unknown> {
   const filePath = getProjectSettingsPath(projectRoot);
 
   try {
@@ -53,7 +55,7 @@ export function loadProjectSettings(projectRoot?: string): Record<string, any> {
  * 保存项目设置
  */
 export function saveProjectSettings(
-  settings: Record<string, any>,
+  settings: Record<string, unknown>,
   projectRoot?: string
 ): void {
   const filePath = getProjectSettingsPath(projectRoot);
@@ -79,9 +81,9 @@ export function saveProjectSettings(
  * 更新项目设置（合并）
  */
 export function updateProjectSettings(
-  updates: Record<string, any>,
+  updates: Record<string, unknown>,
   projectRoot?: string
-): Record<string, any> {
+): Record<string, unknown> {
   const current = loadProjectSettings(projectRoot);
   const merged = deepMerge(current, updates);
   saveProjectSettings(merged, projectRoot);

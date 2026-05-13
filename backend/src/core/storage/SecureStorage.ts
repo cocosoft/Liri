@@ -144,10 +144,9 @@ export class SecureStorage extends EventEmitter {
 
       return data;
     } catch (error) {
-      logger.warn(
-        'Failed to read secure storage:',
-        error instanceof Error ? error : new Error(String(error))
-      );
+      logger.warn('Failed to read secure storage:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       this.cache = null;
       this.cacheTimestamp = Date.now();
       return null;

@@ -352,7 +352,7 @@ export class AppCore {
 
       logger.info(`Git worktree created and switched to ${worktreePath}`);
     } catch (error) {
-      logger.warn('Failed to create git worktree', error as Error);
+      logger.warn('Failed to create git worktree', { error: String(error) });
     }
   }
 
@@ -387,7 +387,9 @@ export class AppCore {
         }
       }
     } catch (error) {
-      logger.warn('Failed to load session persistence', error as Error);
+      logger.warn('Failed to load session persistence', {
+        error: String(error),
+      });
     }
   }
 
@@ -422,7 +424,7 @@ export class AppCore {
       this.terminalBackupPath = backupPath;
       logger.info(`Terminal state saved to ${backupPath}`);
     } catch (error) {
-      logger.warn('Failed to save terminal state', error as Error);
+      logger.warn('Failed to save terminal state', { error: String(error) });
     }
   }
 
@@ -441,7 +443,7 @@ export class AppCore {
       unlinkSync(this.terminalBackupPath);
       this.terminalBackupPath = null;
     } catch (error) {
-      logger.warn('Failed to restore terminal state', error as Error);
+      logger.warn('Failed to restore terminal state', { error: String(error) });
     }
   }
 

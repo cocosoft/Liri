@@ -29,7 +29,7 @@ export interface BridgeMessage {
   type: BridgeMessageType;
   content: string;
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

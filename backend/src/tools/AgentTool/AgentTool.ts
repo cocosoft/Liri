@@ -352,7 +352,7 @@ export class AgentTool implements Tool {
   private buildToolDefinitions(): Array<{
     name: string;
     description: string;
-    parameters: Record<string, any>;
+    parameters: Record<string, unknown>;
   }> {
     const toolManager = getToolManager();
     const tools = toolManager.getAllTools();
@@ -375,7 +375,7 @@ export class AgentTool implements Tool {
               }
               return acc;
             },
-            {} as Record<string, any>
+            {} as Record<string, unknown>
           ),
           required: info.params
             .filter((param) => param.required)

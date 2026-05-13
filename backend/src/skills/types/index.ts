@@ -73,5 +73,5 @@ export interface SkillManager {
   loadSkills(): Promise<void>;
   getSkill(name: string): Skill | undefined;
   getSkills(): Skill[];
-  executeSkill(name: string, args: any, toolUseContext: any): Promise<any>;
+  executeSkill(name: string, args: any, toolUseContext: any): Promise<unknown>;
 }

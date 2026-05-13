@@ -64,7 +64,7 @@ export interface ScheduledTask {
   /**
    * 额外元数据 (JSON)
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**

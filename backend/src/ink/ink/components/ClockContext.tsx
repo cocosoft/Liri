@@ -73,7 +73,7 @@ const BLURRED_TICK_INTERVAL_MS = FRAME_INTERVAL_MS * 2;
 // Own component so App.tsx doesn't re-render when the clock is created.
 // The clock value is stable (created once via useState), so the provider
 // never causes consumer re-renders on its own.
-export function ClockProvider(t0: Record<string, any>) {
+export function ClockProvider(t0: Record<string, unknown>) {
   const $ = _c(7);
   const { children } = t0;
   const [clock] = useState(_temp);
@@ -99,7 +99,9 @@ export function ClockProvider(t0: Record<string, any>) {
   let t3;
   if ($[4] !== children || $[5] !== clock) {
     t3 = (
-      <ClockContext.Provider value={clock}>{children}</ClockContext.Provider>
+      <ClockContext.Provider value={clock}>
+        {children as React.ReactNode}
+      </ClockContext.Provider>
     );
     $[4] = children;
     $[5] = clock;

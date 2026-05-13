@@ -28,7 +28,7 @@ export interface ConfigValidationRule {
   message?: string;
 }
 
-let runtimeOverrides: Record<string, any> = {};
+let runtimeOverrides: Record<string, unknown> = {};
 
 export function getConfigPath(): string {
   const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
@@ -85,7 +85,7 @@ export function resetConfig(): void {
   configManager.resetConfig();
 }
 
-export function getConfigSources(): Record<string, any> {
+export function getConfigSources(): Record<string, unknown> {
   return {
     [ConfigSource.DEFAULT]: {},
     [ConfigSource.ENV]: {},

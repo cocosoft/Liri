@@ -180,7 +180,16 @@ export class PerformanceOptimizer {
       maxTime: number;
     }
   > {
-    const stats: Record<string, any> = {};
+    const stats: Record<
+      string,
+      {
+        count: number;
+        totalTime: number;
+        averageTime: number;
+        minTime: number;
+        maxTime: number;
+      }
+    > = {};
 
     for (const operation of this.operationCounts.keys()) {
       stats[operation] = this.getOperationStats(operation);

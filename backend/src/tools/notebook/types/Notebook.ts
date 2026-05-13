@@ -47,7 +47,7 @@ export class NotebookImpl implements NotebookInterface {
   /**
    * 元数据
    */
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 
   /**
    * 版本

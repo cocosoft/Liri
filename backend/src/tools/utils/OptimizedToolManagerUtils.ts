@@ -16,7 +16,7 @@ const logger = new Logger({ level: LogLevel.INFO });
  * @param modulePath 模块路径
  * @returns 工具模块
  */
-async function lazyLoadToolModule(modulePath: string): Promise<any> {
+async function lazyLoadToolModule(modulePath: string): Promise<unknown> {
   try {
     const module = await import(modulePath);
     return module;
@@ -118,7 +118,7 @@ export async function optimizedExecuteTool(
   input: any,
   context: any,
   onProgress?: any
-): Promise<any> {
+): Promise<unknown> {
   // 生成缓存键
   const cacheKey = `${tool.name}:${JSON.stringify(input)}`;
 

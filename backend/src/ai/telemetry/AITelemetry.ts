@@ -121,7 +121,7 @@ export class AITelemetry {
   addEvent(
     spanContext: SpanContext,
     eventName: string,
-    attributes?: Record<string, any>
+    attributes?: Record<string, unknown>
   ): void {
     if (!spanContext.isSampled) {
       return;

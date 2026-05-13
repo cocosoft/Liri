@@ -6,7 +6,7 @@
 
 export interface MCPToolCall {
   name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 }
 
 export interface MCPToolResult {
@@ -22,7 +22,10 @@ export interface MCPProviderConfig {
 }
 
 export interface IMCPClient {
-  callTool(toolName: string, args: Record<string, any>): Promise<MCPToolResult>;
+  callTool(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<MCPToolResult>;
   listTools(): Promise<string[]>;
   isConnected(): boolean;
 }
@@ -54,7 +57,7 @@ export class MCPProvider {
 
   async callTool(
     toolName: string,
-    args: Record<string, any>
+    args: Record<string, unknown>
   ): Promise<MCPToolResult> {
     if (!this.enabled) {
       return {

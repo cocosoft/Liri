@@ -38,7 +38,7 @@ export interface NotebookEditToolParams {
  */
 export interface NotebookCell {
   cell_type: 'markdown' | 'code';
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   source: string[];
   execution_count?: number;
   outputs?: any[];
@@ -49,7 +49,7 @@ export interface NotebookCell {
  */
 export interface Notebook {
   cells: NotebookCell[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   nbformat: number;
   nbformat_minor: number;
 }

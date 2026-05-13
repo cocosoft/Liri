@@ -8,10 +8,10 @@
  * @returns 解析后的frontmatter对象和正文内容
  */
 export function parseFrontmatter(content: string): {
-  frontmatter: Record<string, any>;
+  frontmatter: Record<string, unknown>;
   content: string;
 } {
-  const frontmatter: Record<string, any> = {};
+  const frontmatter: Record<string, unknown> = {};
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
 
   if (!match) {

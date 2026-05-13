@@ -18,7 +18,7 @@ export interface CachedToken {
   scopes: string[];
   subscriptionType?: string | null;
   rateLimitTier?: string | null;
-  profile?: Record<string, any>;
+  profile?: Record<string, unknown>;
 }
 
 /**

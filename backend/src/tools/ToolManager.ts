@@ -3,7 +3,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Tool } from './types/Tool';
+import { Tool, type ToolResult } from './types/Tool';
 import { ToolFactory } from './ToolFactory';
 import { ToolRegistry, setToolRegistry } from './ToolRegistry';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
@@ -291,7 +291,7 @@ export class ToolManager {
     input: any,
     context: any,
     onProgress?: any
-  ): Promise<any> {
+  ): Promise<ToolResult> {
     this.ensureToolsLoaded();
     profileCheckpoint(`tool_execute_${name}_start`);
     const tool = this.getTool(name);
@@ -325,7 +325,7 @@ export class ToolManager {
         onProgress
       );
       profileCheckpoint(`tool_execute_${name}_end`);
-      return result;
+      return result as ToolResult;
     } catch (error) {
       profileCheckpoint(`tool_execute_${name}_end`);
       throw error;
@@ -433,7 +433,7 @@ export async function executeTool(
   input: any,
   context: any,
   onProgress?: any
-): Promise<any> {
+): Promise<ToolResult> {
   return await getOrCreateToolManager().executeTool(
     name,
     input,

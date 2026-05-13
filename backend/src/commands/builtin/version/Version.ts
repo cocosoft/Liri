@@ -14,12 +14,12 @@ import type { CommandContext } from '@modules/commands/types';
 /**
  * 包信息缓存
  */
-let cachedPackage: Record<string, any> | null = null;
+let cachedPackage: Record<string, unknown> | null = null;
 
 /**
  * 读取并缓存 package.json
  */
-function readPackageInfo(): Record<string, any> {
+function readPackageInfo(): Record<string, unknown> {
   if (cachedPackage) {
     return cachedPackage;
   }
@@ -117,9 +117,9 @@ async function handleVersion() {
   (await import('@modules/services/analytics/index.js')).logEvent(
     'tengu_version_checked',
     {
-      version: info.version,
-      platform: info.platform,
-      arch: info.arch,
+      version: info.version as string,
+      platform: info.platform as string,
+      arch: info.arch as string,
     }
   );
 

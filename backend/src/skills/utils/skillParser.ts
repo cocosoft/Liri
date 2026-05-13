@@ -25,7 +25,7 @@ export interface SkillFrontmatter {
   model?: string;
   'disable-model-invocation'?: boolean;
   'user-invocable'?: boolean;
-  hooks?: Record<string, any>;
+  hooks?: Record<string, unknown>;
   context?: 'inline' | 'fork';
   agent?: string;
   effort?: string | number;

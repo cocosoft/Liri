@@ -9,7 +9,7 @@ export interface MCPToolInfo {
   name: string;
   server: string;
   description: string;
-  inputSchema: Record<string, any>;
+  inputSchema: Record<string, unknown>;
   tool: Tool;
 }
 
@@ -21,7 +21,7 @@ export class MCPToolRegistry {
     server: string,
     name: string,
     description: string,
-    inputSchema: Record<string, any>,
+    inputSchema: Record<string, unknown>,
     tool: Tool
   ): void {
     const toolInfo: MCPToolInfo = {

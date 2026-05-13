@@ -12,8 +12,8 @@ export enum PipelineStage {
 export interface PipelineContext {
   commandName: string;
   args: string;
-  parsedArgs: Record<string, any>;
-  metadata?: Record<string, any>;
+  parsedArgs: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   result?: any;
   error?: Error;
   startTime: number;
@@ -51,7 +51,7 @@ export interface IPipeline {
   execute(
     commandName: string,
     args: string,
-    parsedArgs?: Record<string, any>
+    parsedArgs?: Record<string, unknown>
   ): Promise<PipelineExecutionResult>;
   getMiddlewares(stage?: PipelineStage): PipelineMiddleware[];
   clear(): void;
@@ -109,7 +109,7 @@ export class CommandPipeline implements IPipeline {
   async execute(
     commandName: string,
     args: string,
-    parsedArgs?: Record<string, any>
+    parsedArgs?: Record<string, unknown>
   ): Promise<PipelineExecutionResult> {
     const ctx: PipelineContext = {
       commandName,

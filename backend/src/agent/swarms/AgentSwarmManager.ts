@@ -30,11 +30,16 @@ class DefaultSwarmAgent implements ISwarmAgent {
   async run(task: SwarmTask): Promise<SwarmResult> {
     const payload = task.input ?? {};
 
-    if (payload.delayMs) {
-      await new Promise((resolve) => setTimeout(resolve, payload.delayMs));
+    if ((payload as Record<string, unknown>).delayMs) {
+      await new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          (payload as Record<string, unknown>).delayMs as number
+        )
+      );
     }
 
-    if (payload.shouldFail) {
+    if ((payload as Record<string, unknown>).shouldFail) {
       throw new AppError(
         'Simulated failure',
         ErrorCategory.EXECUTION,

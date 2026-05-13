@@ -14,7 +14,7 @@ export interface PerformanceMetrics {
   duration?: number;
   memoryUsage?: NodeJS.MemoryUsage;
   cpuUsage?: NodeJS.CpuUsage;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PerformanceSnapshot {
@@ -81,7 +81,10 @@ export class PerformanceAnalyzer {
   /**
    * 开始性能跟踪
    */
-  startTracking(operationName: string, metadata?: Record<string, any>): string {
+  startTracking(
+    operationName: string,
+    metadata?: Record<string, unknown>
+  ): string {
     const operationId = `${operationName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const metrics: PerformanceMetrics = {

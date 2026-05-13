@@ -367,7 +367,7 @@ export class SubAgentEngine {
    * 执行单个工具调用
    */
   private async executeToolCall(
-    toolCall: { id: string; name: string; arguments: Record<string, any> },
+    toolCall: { id: string; name: string; arguments: Record<string, unknown> },
     toolInstances: Map<string, Tool>
   ): Promise<string> {
     const tool = toolInstances.get(toolCall.name);

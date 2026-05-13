@@ -138,7 +138,7 @@ export class EnhancedMemoryManager {
    */
   async retrieveMemoriesSmart(
     query: MemoryQuery,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<SmartRetrievalResult> {
     const startTime = Date.now();
 
@@ -558,7 +558,7 @@ export class EnhancedMemoryManager {
   private generateRecommendations(
     memories: Memory[],
     analysis: MemoryAnalysis[],
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): string[] {
     const recommendations: string[] = [];
 

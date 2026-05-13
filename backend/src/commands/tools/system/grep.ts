@@ -5,7 +5,7 @@
  */
 
 import type { Command, CommandImplementation } from '@modules/commands/types';
-import { grep } from '@modules/tools/GrepTool/GrepTool.js';
+import { grep, type GrepOutputMode } from '@modules/tools/GrepTool/GrepTool.js';
 
 /**
  * 构建帮助文本
@@ -65,10 +65,10 @@ function buildHelpText(): string {
  * @returns 解析后的搜索选项
  */
 function parseGrepArgs(args: string): {
-  options: Record<string, any>;
+  options: Record<string, unknown>;
   showHelp: boolean;
 } {
-  const options: Record<string, any> = {};
+  const options: Record<string, unknown> = {};
   const tokens: string[] = [];
   let i = 0;
   let showHelp = false;
@@ -318,20 +318,21 @@ const grepImplementation: CommandImplementation = {
     }
 
     try {
+      const o = options as Record<string, unknown>;
       const result = grep({
-        pattern: options.pattern,
-        searchPath: options.searchPath || process.cwd(),
-        include: options.include,
-        outputMode: options.outputMode || 'files_with_matches',
-        contextBefore: options.contextBefore,
-        contextAfter: options.contextAfter,
-        contextAround: options.contextAround,
-        showLineNumbers: options.showLineNumbers !== false,
-        caseInsensitive: options.caseInsensitive,
-        type: options.type,
-        headLimit: options.headLimit ?? 250,
-        offset: options.offset,
-        multiline: options.multiline,
+        pattern: o.pattern as string,
+        searchPath: (o.searchPath as string) || process.cwd(),
+        include: o.include as string | undefined,
+        outputMode: (o.outputMode as GrepOutputMode) || 'files_with_matches',
+        contextBefore: o.contextBefore as number | undefined,
+        contextAfter: o.contextAfter as number | undefined,
+        contextAround: o.contextAround as number | undefined,
+        showLineNumbers: o.showLineNumbers !== false,
+        caseInsensitive: o.caseInsensitive as boolean | undefined,
+        type: o.type as string | undefined,
+        headLimit: (o.headLimit as number) ?? 250,
+        offset: o.offset as number | undefined,
+        multiline: o.multiline as boolean | undefined,
       });
 
       if (result.matchCount > 0) {
@@ -339,15 +340,15 @@ const grepImplementation: CommandImplementation = {
           success: true,
           message: formatResult(
             result,
-            options.outputMode || 'files_with_matches',
-            options.headLimit ?? 250,
-            options.offset
+            (o.outputMode as string) || 'files_with_matches',
+            (o.headLimit as number) ?? 250,
+            o.offset as number | undefined
           ),
         };
       } else {
         return {
           success: true,
-          message: `未找到匹配: ${options.pattern}`,
+          message: `未找到匹配: ${o.pattern as string}`,
         };
       }
     } catch (error) {

@@ -4,7 +4,7 @@ import { Box, Text } from 'ink';
 export type CodeAnalysisOutput = {
   analysis: {
     type: string;
-    stats: Record<string, any>;
+    stats: Record<string, unknown>;
     details?: any;
   };
   filesAnalyzed: number;

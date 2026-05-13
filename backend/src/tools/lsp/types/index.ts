@@ -123,7 +123,7 @@ export interface DiagnosticCollection {
 export interface LSPTool {
   startServer(): Promise<void>;
   stopServer(): Promise<void>;
-  sendRequest(method: string, params: any): Promise<any>;
+  sendRequest(method: string, params: any): Promise<unknown>;
   getCompletions(
     document: string,
     position: Position

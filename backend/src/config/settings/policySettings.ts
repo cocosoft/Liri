@@ -49,11 +49,11 @@ export function getManagedDropInDir(): string {
  * 遵循 systemd/sudoers 的 drop-in 约定
  */
 export function loadManagedFileSettings(): {
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   errors: Array<{ file: string; message: string }>;
 } {
   const errors: Array<{ file: string; message: string }> = [];
-  let merged: Record<string, any> = {};
+  let merged: Record<string, unknown> = {};
 
   const managedPath = getManagedSettingsPath();
   if (existsSync(managedPath)) {
@@ -103,7 +103,7 @@ export function loadManagedFileSettings(): {
  * 加载策略设置
  * 合并文件托管设置和远程托管设置
  */
-export function loadPolicySettings(): Record<string, any> {
+export function loadPolicySettings(): Record<string, unknown> {
   const { settings, errors } = loadManagedFileSettings();
 
   if (errors.length > 0) {

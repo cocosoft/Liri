@@ -14,7 +14,7 @@ export enum CellExecutionState {
 export interface CellOutput {
   type: 'text' | 'html' | 'image' | 'error';
   content: string | Buffer;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CellExecutionResult {
@@ -30,7 +30,7 @@ export interface Cell {
   type: 'code' | 'markdown';
   createdAt: Date;
   updatedAt: Date;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   executionState: CellExecutionState;
   executionTime?: number;
 }
@@ -53,7 +53,7 @@ export interface Notebook {
   createdAt: Date;
   updatedAt: Date;
   cells: Cell[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   version: string;
 }
 

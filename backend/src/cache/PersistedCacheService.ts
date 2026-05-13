@@ -328,7 +328,7 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
   /**
    * 计算校验和
    */
-  private calculateChecksum(data: Record<string, any>): string {
+  private calculateChecksum(data: Record<string, unknown>): string {
     const content = JSON.stringify(data);
     return crypto.createHash('md5').update(content).digest('hex');
   }

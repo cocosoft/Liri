@@ -201,7 +201,7 @@ export class NotebookToolAdapter implements Tool {
   /**
    * 验证参数
    */
-  validateParams(params: Record<string, any>): ValidationResult {
+  validateParams(params: Record<string, unknown>): ValidationResult {
     if (!params.action) {
       return { result: false, message: 'Missing required parameter: action' };
     }
@@ -276,21 +276,19 @@ export class NotebookToolAdapter implements Tool {
    * 执行工具
    */
   async execute(
-    params: Record<string, any>,
+    params: Record<string, unknown>,
     context: ToolUseContext
   ): Promise<ToolResult> {
     try {
-      const {
-        action,
-        name,
-        path,
-        notebookId,
-        cellId,
-        code,
-        language,
-        content,
-        format,
-      } = params;
+      const action = params.action as string;
+      const name = params.name as string | undefined;
+      const path = params.path as string | undefined;
+      const notebookId = params.notebookId as string | undefined;
+      const cellId = params.cellId as string | undefined;
+      const code = params.code as string | undefined;
+      const language = params.language as string | undefined;
+      const content = params.content as string | undefined;
+      const format = params.format as string | undefined;
 
       switch (action) {
         case 'create':

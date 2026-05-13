@@ -194,7 +194,7 @@ export class RealtimeTerminalOutput {
    * 显示旋转动画
    */
   async showSpinner<T>(message: string, task: () => Promise<T>): Promise<T> {
-    return TerminalComponents.printSpinner(message, task);
+    return TerminalComponents.printSpinner(message, task) as Promise<T>;
   }
 
   /**

@@ -29,7 +29,7 @@ export class BridgeError extends Error {
   public readonly code?: string;
   public readonly statusCode?: number;
   public readonly isRetryable: boolean;
-  public readonly context?: Record<string, any>;
+  public readonly context?: Record<string, unknown>;
 
   constructor(
     message: string,
@@ -38,7 +38,7 @@ export class BridgeError extends Error {
       code?: string;
       statusCode?: number;
       isRetryable?: boolean;
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
     } = {}
   ) {
     super(message);
@@ -73,7 +73,7 @@ export class BridgeError extends Error {
   /**
    * 转换为普通对象
    */
-  toJSON(): Record<string, any> {
+  toJSON(): Record<string, unknown> {
     return {
       name: this.name,
       message: this.message,
@@ -266,7 +266,7 @@ export interface ErrorLogEntry {
   timestamp: number;
   level: ErrorLogLevel;
   error: BridgeError;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -449,7 +449,7 @@ export class BridgeErrorHandler {
 export function createBridgeError(
   error: Error | unknown,
   type: BridgeErrorType,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): BridgeError {
   const message = error instanceof Error ? error.message : String(error);
   return new BridgeError(message, type, { context });

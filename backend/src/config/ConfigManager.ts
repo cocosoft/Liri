@@ -337,10 +337,9 @@ export class ConfigManager {
       // 清理旧备份，只保留最近5个
       this.cleanupOldBackups();
     } catch (error) {
-      logger.warn(
-        '创建配置备份失败',
-        error instanceof Error ? error : undefined
-      );
+      logger.warn('创建配置备份失败', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -382,10 +381,9 @@ export class ConfigManager {
       copyFileSync(this.globalConfigPath, corruptedPath);
       logger.info(`损坏的配置已备份到: ${corruptedPath}`);
     } catch (error) {
-      logger.warn(
-        '备份损坏配置失败',
-        error instanceof Error ? error : undefined
-      );
+      logger.warn('备份损坏配置失败', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

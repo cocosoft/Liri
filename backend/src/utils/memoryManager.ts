@@ -273,10 +273,9 @@ export class MemoryManager {
           `Garbage collection freed ${(freed / 1024 / 1024).toFixed(2)} MB`
         );
       } catch (error) {
-        logger.warn(
-          'Garbage collection failed:',
-          error instanceof Error ? error : new Error(String(error))
-        );
+        logger.warn('Garbage collection failed:', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     } else {
       logger.warn(

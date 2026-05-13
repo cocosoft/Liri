@@ -21,7 +21,7 @@ export interface Attachment {
   mimeType: string;
   createdAt: Date;
   updatedAt: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -57,7 +57,7 @@ export class AttachmentManager {
     data: Buffer,
     type: AttachmentType,
     mimeType: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Attachment {
     // 生成唯一ID
     const id = `attach_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;

@@ -239,8 +239,8 @@ export class TerminalComponents {
 
   public static async printSpinner(
     message: string,
-    asyncTask: () => Promise<any>
-  ): Promise<any> {
+    asyncTask: () => Promise<unknown>
+  ): Promise<unknown> {
     const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let currentFrame = 0;
 

@@ -224,7 +224,7 @@ export class LSPToolAdapter implements Tool {
   /**
    * 验证参数
    */
-  validateParams(params: Record<string, any>): ValidationResult {
+  validateParams(params: Record<string, unknown>): ValidationResult {
     if (!params.action) {
       return { result: false, message: 'Missing required parameter: action' };
     }
@@ -246,7 +246,7 @@ export class LSPToolAdapter implements Tool {
       'typeDefinition',
       'callHierarchy',
     ];
-    if (positionActions.includes(params.action) && !params.position) {
+    if (positionActions.includes(params.action as string) && !params.position) {
       return {
         result: false,
         message: 'Missing required parameter: position for this action',
@@ -267,7 +267,7 @@ export class LSPToolAdapter implements Tool {
    * 执行工具
    */
   async execute(
-    params: Record<string, any>,
+    params: Record<string, unknown>,
     context: ToolUseContext
   ): Promise<ToolResult> {
     try {
@@ -275,7 +275,11 @@ export class LSPToolAdapter implements Tool {
       await this.lspTool.startServer();
 
       let result: any;
-      const { action, document, language, position, newName } = params;
+      const action = params.action as string;
+      const document = params.document as string;
+      const language = params.language as string;
+      const position = params.position as Position | undefined;
+      const newName = params.newName as string;
 
       switch (action) {
         case 'completions':
@@ -331,34 +335,42 @@ export class LSPToolAdapter implements Tool {
           );
           break;
         case 'workspaceSymbol': {
-          const query = params.query || params.symbol || '';
+          const query =
+            (params.query as string) || (params.symbol as string) || '';
           result = await this.symbolSearch.searchWorkspaceSymbols(query);
           break;
         }
         case 'documentSymbol':
           result = await this.symbolSearch.getDocumentSymbols(
-            params.uri || `file://${document}`
+            (params.uri as string) || `file://${document}`
           );
           break;
         case 'callHierarchy': {
+          const p = position as Record<string, unknown> | undefined;
           const items = await this.callHierarchy.prepareCallHierarchy(
-            params.uri || `file://${document}`,
-            params.line ?? position?.line ?? 0,
-            params.character ?? position?.character ?? 0
+            (params.uri as string) || `file://${document}`,
+            (params.line as number) ?? (p?.line as number) ?? 0,
+            (params.character as number) ?? (p?.character as number) ?? 0
           );
           result = await this.callHierarchy.buildCallHierarchy(
-            params.uri || `file://${document}`,
-            params.line ?? position?.line ?? 0,
-            params.character ?? position?.character ?? 0
+            (params.uri as string) || `file://${document}`,
+            (params.line as number) ?? (p?.line as number) ?? 0,
+            (params.character as number) ?? (p?.character as number) ?? 0
           );
           break;
         }
         case 'symbolContext': {
           result = await this.symbolContextProvider.getSymbolContext(
             document,
-            params.line ?? position?.line ?? 0,
-            params.character ?? position?.character ?? 0,
-            params.filePath || ''
+            (params.line as number) ??
+              ((position as unknown as Record<string, unknown>)
+                ?.line as number) ??
+              0,
+            (params.character as number) ??
+              ((position as unknown as Record<string, unknown>)
+                ?.character as number) ??
+              0,
+            (params.filePath as string) || ''
           );
           break;
         }

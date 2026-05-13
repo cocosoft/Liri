@@ -82,7 +82,7 @@ export class CostAnalyticsTracker {
   trackModelUsage(
     model: string,
     usage: TokenUsage,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     const cost = this.calculateCost(model, usage);
 
@@ -118,7 +118,7 @@ export class CostAnalyticsTracker {
     model: string,
     duration: number,
     success: boolean = true,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     this.requestDurations.push(duration);
 
@@ -145,7 +145,7 @@ export class CostAnalyticsTracker {
     model: string,
     errorType: string,
     errorMessage: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): void {
     this.analytics.logEvent('api_error', {
       model,

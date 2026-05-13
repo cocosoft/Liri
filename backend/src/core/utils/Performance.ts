@@ -235,7 +235,6 @@ export class PerformanceProfiler {
   /**
    * 包装函数以记录执行时间
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-unknown
   wrap<T extends (...args: unknown[]) => unknown>(
     metric: PerformanceMetric,
     name: string,
@@ -255,7 +254,6 @@ export class PerformanceProfiler {
   /**
    * 包装异步函数以记录执行时间
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-unknown
   asyncWrap<T extends (...args: unknown[]) => unknown>(
     metric: PerformanceMetric,
     name: string,
@@ -791,7 +789,6 @@ export const performanceUtils = {
   /**
    * 节流函数
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-unknown
   throttle: <T extends (...args: unknown[]) => unknown>(
     fn: T,
     delay: number
@@ -809,7 +806,6 @@ export const performanceUtils = {
   /**
    * 防抖函数
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-unknown
   debounce: <T extends (...args: unknown[]) => unknown>(
     fn: T,
     delay: number

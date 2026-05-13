@@ -108,7 +108,7 @@ export class SkillManager {
     name: string,
     args: any,
     toolUseContext: any
-  ): Promise<any> {
+  ): Promise<unknown> {
     const skill = this.getSkill(name);
     if (!skill) {
       throw new AppError(

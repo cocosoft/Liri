@@ -12,7 +12,7 @@ export interface ProjectConfig {
   /** MCP上下文URI列表 */
   mcpContextUris: string[];
   /** MCP服务器配置 */
-  mcpServers?: Record<string, any>;
+  mcpServers?: Record<string, unknown>;
   /** 是否已接受信任对话框 */
   hasTrustDialogAccepted?: boolean;
   /** 是否已完成项目引导 */

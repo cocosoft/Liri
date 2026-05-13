@@ -155,16 +155,21 @@ export class ScriptHookExecutor {
   /**
    * 解析脚本配置
    */
-  private resolveScriptConfig(config: Record<string, any>): ScriptHookConfig {
+  private resolveScriptConfig(
+    config: Record<string, unknown>
+  ): ScriptHookConfig {
     return {
-      interpreter: config.interpreter || config.scriptType || 'shell',
-      script: config.script,
-      scriptFile: config.scriptFile,
-      timeout: config.timeout ?? 30,
-      env: config.env,
+      interpreter:
+        (config.interpreter as ScriptType) ||
+        (config.scriptType as ScriptType) ||
+        'shell',
+      script: config.script as string,
+      scriptFile: config.scriptFile as string,
+      timeout: (config.timeout as number) ?? 30,
+      env: config.env as Record<string, string> | undefined,
       sandbox: config.sandbox !== false,
       allowEnvModification: config.allowEnvModification === true,
-      cwd: config.cwd,
+      cwd: config.cwd as string,
     };
   }
 
@@ -297,7 +302,7 @@ export class ScriptHookExecutor {
    * 处理脚本JSON输出
    */
   private processScriptJsonOutput(
-    json: Record<string, any>,
+    json: Record<string, unknown>,
     result: HookExecutionResult
   ): HookExecutionResult {
     const processed: HookExecutionResult = {
@@ -306,30 +311,38 @@ export class ScriptHookExecutor {
       hookSpecificOutput: json,
     };
 
-    if (json.continue !== undefined) processed.continue = json.continue;
+    if (json.continue !== undefined)
+      processed.continue = json.continue as boolean;
     if (json.suppressOutput !== undefined)
-      processed.suppressOutput = json.suppressOutput;
-    if (json.stopReason !== undefined) processed.stopReason = json.stopReason;
-    if (json.decision !== undefined) processed.decision = json.decision;
+      processed.suppressOutput = json.suppressOutput as boolean;
+    if (json.stopReason !== undefined)
+      processed.stopReason = json.stopReason as string;
+    if (json.decision !== undefined)
+      processed.decision = json.decision as string;
     if (json.systemMessage !== undefined)
-      processed.systemMessage = json.systemMessage;
+      processed.systemMessage = json.systemMessage as string;
 
     if (json.hookSpecificOutput) {
-      const hso = json.hookSpecificOutput;
+      const hso = json.hookSpecificOutput as Record<string, unknown>;
       if (hso.additionalContext !== undefined)
-        processed.additionalContext = hso.additionalContext;
+        processed.additionalContext = hso.additionalContext as string;
       if (hso.updatedInput !== undefined)
-        processed.updatedInput = hso.updatedInput;
+        processed.updatedInput = hso.updatedInput as Record<string, unknown>;
       if (hso.updatedMCPToolOutput !== undefined)
-        processed.updatedMCPToolOutput = hso.updatedMCPToolOutput;
+        processed.updatedMCPToolOutput = hso.updatedMCPToolOutput as string;
       if (hso.initialUserMessage !== undefined)
-        processed.initialUserMessage = hso.initialUserMessage;
-      if (hso.watchPaths !== undefined) processed.watchPaths = hso.watchPaths;
-      if (hso.retry !== undefined) processed.retry = hso.retry;
+        processed.initialUserMessage = hso.initialUserMessage as string;
+      if (hso.watchPaths !== undefined)
+        processed.watchPaths = hso.watchPaths as string[];
+      if (hso.retry !== undefined) processed.retry = hso.retry as number;
       if (hso.permissionDecision !== undefined)
-        processed.permissionBehavior = hso.permissionDecision;
+        processed.permissionBehavior = hso.permissionDecision as
+          | 'allow'
+          | 'deny'
+          | 'ask';
       if (hso.permissionDecisionReason !== undefined)
-        processed.hookPermissionDecisionReason = hso.permissionDecisionReason;
+        processed.hookPermissionDecisionReason =
+          hso.permissionDecisionReason as string;
     }
 
     return processed;

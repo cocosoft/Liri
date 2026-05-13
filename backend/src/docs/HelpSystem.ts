@@ -40,7 +40,7 @@ export enum ContextType {
 export interface Context {
   type: ContextType;
   name?: string;
-  args?: Record<string, any>;
+  args?: Record<string, unknown>;
   currentFile?: string;
   currentDirectory?: string;
   currentCommand?: string;

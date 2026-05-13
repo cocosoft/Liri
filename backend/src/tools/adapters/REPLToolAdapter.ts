@@ -161,7 +161,7 @@ export class REPLToolAdapter implements Tool {
   /**
    * 验证参数
    */
-  validateParams(params: Record<string, any>): ValidationResult {
+  validateParams(params: Record<string, unknown>): ValidationResult {
     if (!params.action) {
       return { result: false, message: 'Missing required parameter: action' };
     }
@@ -195,11 +195,14 @@ export class REPLToolAdapter implements Tool {
    * 执行工具
    */
   async execute(
-    params: Record<string, any>,
+    params: Record<string, unknown>,
     context: ToolUseContext
   ): Promise<ToolResult> {
     try {
-      const { action, language, code, sessionId } = params;
+      const action = params.action as string;
+      const language = params.language as string | undefined;
+      const code = params.code as string | undefined;
+      const sessionId = params.sessionId as string | undefined;
 
       switch (action) {
         case 'start':

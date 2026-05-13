@@ -19,7 +19,7 @@ export interface LSPTool {
   /**
    * 发送LSP请求
    */
-  sendRequest(method: string, params: any): Promise<any>;
+  sendRequest(method: string, params: any): Promise<unknown>;
 
   /**
    * 获取代码补全

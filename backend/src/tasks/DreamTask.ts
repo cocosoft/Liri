@@ -73,7 +73,7 @@ export class DreamTask extends BaseTask {
     this.setStatus(TaskStatus.KILLED);
   }
 
-  private async startDreaming(): Promise<any> {
+  private async startDreaming(): Promise<unknown> {
     const { thinkingPrompt, maxDuration } = this.options;
     const thoughts: string[] = [];
     let completed: (result: DreamResult) => void;

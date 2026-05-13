@@ -519,7 +519,7 @@ export class EnhancedMCPManager {
   async executeEnhanced(
     serverName: string,
     toolName: string,
-    args: Record<string, any>
+    args: Record<string, unknown>
   ): Promise<{
     result: any;
     performanceMetrics?: MCPPerformanceMetrics;

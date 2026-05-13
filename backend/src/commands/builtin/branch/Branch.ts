@@ -3,7 +3,11 @@
  * Branch命令实现
  * 分支管理：创建/切换/删除分支
  */
-import type { CommandImplementation } from '@modules/commands/types';
+import type {
+  CommandImplementation,
+  CommandResult,
+  CommandContext,
+} from '@modules/commands/types';
 
 /**
  * Branch命令实现类
@@ -15,7 +19,7 @@ export class Branch implements CommandImplementation {
    * @param context 命令上下文
    * @returns 命令执行结果
    */
-  async execute(args: string, context: any): Promise<any> {
+  async execute(args: string, context: CommandContext): Promise<CommandResult> {
     try {
       // 解析参数
       const params = this.parseArgs(args);
@@ -121,7 +125,10 @@ export class Branch implements CommandImplementation {
    * @param context 命令上下文
    * @returns 执行结果
    */
-  private async createBranch(branchName: string, context: any): Promise<any> {
+  private async createBranch(
+    branchName: string,
+    context: any
+  ): Promise<CommandResult> {
     if (!branchName) {
       return {
         success: false,
@@ -174,7 +181,10 @@ export class Branch implements CommandImplementation {
    * @param context 命令上下文
    * @returns 执行结果
    */
-  private async switchBranch(branchName: string, context: any): Promise<any> {
+  private async switchBranch(
+    branchName: string,
+    context: any
+  ): Promise<CommandResult> {
     if (!branchName) {
       return {
         success: false,
@@ -219,7 +229,10 @@ export class Branch implements CommandImplementation {
    * @param context 命令上下文
    * @returns 执行结果
    */
-  private async deleteBranch(branchName: string, context: any): Promise<any> {
+  private async deleteBranch(
+    branchName: string,
+    context: any
+  ): Promise<CommandResult> {
     if (!branchName) {
       return {
         success: false,
@@ -278,7 +291,7 @@ export class Branch implements CommandImplementation {
    * @param context 命令上下文
    * @returns 执行结果
    */
-  private async listBranches(context: any): Promise<any> {
+  private async listBranches(context: any): Promise<CommandResult> {
     try {
       const { exec } = await import('child_process');
 

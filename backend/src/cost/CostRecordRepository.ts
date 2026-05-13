@@ -350,7 +350,7 @@ export class CostRecordRepository {
         );
       });
     } else {
-      const breakdown: Record<string, any> = {};
+      const breakdown: Record<string, unknown> = {};
       breakdown[delta.model] = {
         totalCost: delta.costUSD,
         totalTokens: delta.inputTokens + delta.outputTokens,

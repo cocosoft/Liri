@@ -17,7 +17,7 @@ export const configCommand: Command = {
   load: async () => ({
     execute: async (args: string) => {
       // 模拟配置存储
-      const configStore: Record<string, any> = {
+      const configStore: Record<string, unknown> = {
         model: 'gpt-4',
         temperature: 0.7,
         maxTokens: 1000,

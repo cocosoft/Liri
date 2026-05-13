@@ -36,7 +36,7 @@ interface CodeAnalysisOutput {
   /** 分析结果 */
   analysis: {
     type: string;
-    stats: Record<string, any>;
+    stats: Record<string, unknown>;
     details?: any;
   };
   /** 分析的文件数 */
@@ -237,7 +237,7 @@ export class CodeAnalysisTool implements Tool {
 
       const analysisTime = Date.now() - startTime;
       const output: CodeAnalysisOutput = {
-        analysis: analysisResult,
+        analysis: analysisResult as CodeAnalysisOutput['analysis'],
         filesAnalyzed: files.length,
         analysisTime,
       };
@@ -302,7 +302,7 @@ export class CodeAnalysisTool implements Tool {
    * @param files 文件列表
    * @returns 分析结果
    */
-  private async analyzeStructure(files: string[]): Promise<any> {
+  private async analyzeStructure(files: string[]): Promise<unknown> {
     const stats = {
       totalFiles: files.length,
       totalLines: 0,
@@ -339,7 +339,7 @@ export class CodeAnalysisTool implements Tool {
    * @param files 文件列表
    * @returns 分析结果
    */
-  private async analyzeComplexity(files: string[]): Promise<any> {
+  private async analyzeComplexity(files: string[]): Promise<unknown> {
     const stats = {
       averageLinesPerFile: 0,
       filesWithHighComplexity: 0,
@@ -380,7 +380,7 @@ export class CodeAnalysisTool implements Tool {
    * @param files 文件列表
    * @returns 分析结果
    */
-  private async analyzeDependencies(files: string[]): Promise<any> {
+  private async analyzeDependencies(files: string[]): Promise<unknown> {
     const dependencies: Record<string, string[]> = {};
     const imports: Record<string, number> = {};
 
@@ -421,7 +421,7 @@ export class CodeAnalysisTool implements Tool {
    * @param files 文件列表
    * @returns 分析结果
    */
-  private async analyzeQuality(files: string[]): Promise<any> {
+  private async analyzeQuality(files: string[]): Promise<unknown> {
     const issues = {
       missingComments: 0,
       longLines: 0,

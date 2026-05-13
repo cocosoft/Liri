@@ -242,7 +242,7 @@ export interface PluginManifest {
   /**
    * 插件配置
    */
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
   /**
    * 插件权限
    */

@@ -156,7 +156,7 @@ export class CheckpointDatabase implements CheckpointStorage {
       );
     }
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT * FROM ${CHECKPOINT_TABLE} WHERE id = ?`,
         [checkpointId],
@@ -268,7 +268,7 @@ export class CheckpointDatabase implements CheckpointStorage {
       );
     }
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT COUNT(*) as count FROM ${CHECKPOINT_TABLE} WHERE session_id = ?`,
         [sessionId],
@@ -282,7 +282,7 @@ export class CheckpointDatabase implements CheckpointStorage {
       );
     });
 
-    return row?.count || 0;
+    return ((row as Record<string, unknown>)?.count as number) || 0;
   }
 
   async getLatestCheckpoint(
@@ -298,7 +298,7 @@ export class CheckpointDatabase implements CheckpointStorage {
       );
     }
 
-    const row = await new Promise<any>((resolve, reject) => {
+    const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
         `SELECT * FROM ${CHECKPOINT_TABLE} WHERE session_id = ? ORDER BY created_at DESC LIMIT 1`,
         [sessionId],

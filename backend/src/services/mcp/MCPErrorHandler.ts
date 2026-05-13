@@ -276,7 +276,7 @@ export class MCPErrorHandler {
     }
 
     if (error.details) {
-      logger.debug('Error details:', error.details);
+      logger.debug('Error details:', error.details as Record<string, unknown>);
     }
   }
 

@@ -19,7 +19,7 @@ export interface MCPToolParams {
   /** 工具名称 */
   tool_name?: string;
   /** 工具参数 */
-  tool_args?: Record<string, any>;
+  tool_args?: Record<string, unknown>;
   /** 服务器配置 */
   server_config?: MCPServerConfig & { name: string };
 }

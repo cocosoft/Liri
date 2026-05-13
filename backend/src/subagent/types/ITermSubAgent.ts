@@ -263,7 +263,7 @@ export class ITermSubAgent implements SubAgent {
    * 接收消息
    * @returns 消息
    */
-  async receiveMessage(): Promise<any> {
+  async receiveMessage(): Promise<unknown> {
     try {
       if (this.messageQueue.length === 0) {
         return null;

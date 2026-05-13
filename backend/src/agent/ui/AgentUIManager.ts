@@ -12,7 +12,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 interface AgentCommand {
   type: 'start' | 'stop' | 'pause' | 'resume' | 'configure' | 'execute';
   agentId: string;
-  payload?: Record<string, any>;
+  payload?: Record<string, unknown>;
   timestamp: number;
 }
 
@@ -137,9 +137,17 @@ export class AgentUIManager {
         if (command.payload) {
           const task: AgentTask = {
             id: `ui_${Date.now()}`,
-            name: command.payload.name || 'UI Task',
-            description: command.payload.description || '',
-            input: command.payload.input || {},
+            name:
+              ((command.payload as Record<string, unknown>).name as string) ||
+              'UI Task',
+            description:
+              ((command.payload as Record<string, unknown>)
+                .description as string) || '',
+            input:
+              ((command.payload as Record<string, unknown>).input as Record<
+                string,
+                unknown
+              >) || {},
           };
           const response = await agent.execute(task);
           this.emit('task:completed', agentId, response);

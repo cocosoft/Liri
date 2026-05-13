@@ -21,7 +21,7 @@ export interface PerformanceMetric {
   /** 持续时间（毫秒） */
   duration: number;
   /** 额外数据 */
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 /**
@@ -129,7 +129,7 @@ export class StartupPerformanceAnalyzer {
   recordMetric(
     name: string,
     duration: number,
-    data?: Record<string, any>
+    data?: Record<string, unknown>
   ): void {
     if (!this.isRunning) return;
 
@@ -333,7 +333,7 @@ export function startMetric(name: string): () => void {
 export function recordMetric(
   name: string,
   duration: number,
-  data?: Record<string, any>
+  data?: Record<string, unknown>
 ): void {
   getStartupAnalyzer().recordMetric(name, duration, data);
 }

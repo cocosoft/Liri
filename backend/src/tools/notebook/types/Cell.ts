@@ -46,7 +46,7 @@ export class CodeCellImpl implements CodeCell {
   /**
    * 元数据
    */
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 
   /**
    * 执行状态
@@ -142,7 +142,7 @@ export class MarkdownCellImpl implements MarkdownCell {
   /**
    * 元数据
    */
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 
   /**
    * 执行状态

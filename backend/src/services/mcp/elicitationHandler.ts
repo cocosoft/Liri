@@ -374,7 +374,10 @@ export class DefaultMCPElicitHandler implements MCPElicitHandler {
     if (eventIndex > -1) {
       this.queue.dequeue(event.requestId);
     }
-    logger.debug(`Elicitation response for ${event.serverName}:`, response);
+    logger.debug(
+      `Elicitation response for ${event.serverName}:`,
+      response as unknown as Record<string, unknown>
+    );
   }
 }
 

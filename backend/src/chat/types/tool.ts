@@ -45,7 +45,7 @@ export interface ToolCall {
   /**
    * 工具参数
    */
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 
   /**
    * 工具类型
@@ -91,7 +91,7 @@ export interface ToolUse {
   /**
    * 工具参数
    */
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 
   /**
    * 工具类型

@@ -200,11 +200,11 @@ export class CoreAPIImpl implements CoreAPI {
     const startTime = Date.now();
 
     try {
-      const result = await this.toolManager.executeTool(
+      const result = (await this.toolManager.executeTool(
         toolCall.name,
         toolCall.arguments as Record<string, unknown>,
         { sessionId }
-      );
+      )) as { output?: unknown; success: boolean };
 
       return {
         toolCallId: toolCall.id,

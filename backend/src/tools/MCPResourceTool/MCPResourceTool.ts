@@ -18,7 +18,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
-import { getMCPServerManager } from '@modules/mcp/managers/MCPServerManager';
+import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 
 /**
  * MCP资源工具输入类型

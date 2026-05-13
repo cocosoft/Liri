@@ -1,7 +1,9 @@
 /**
  * 工具管理模块
+ * 融合 CC 源码的 EventEmitter、事件系统、初始化、启/禁用能力
  */
 
+import { EventEmitter } from 'events';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Tool, type ToolResult } from './types/Tool';
 import { ToolFactory } from './ToolFactory';
@@ -17,6 +19,7 @@ import {
 import { LazyModuleLoader } from '../core/utils/LazyModuleLoader';
 import { ToolLazyWrapper } from './utils/ToolLazyWrapper';
 import { builtinToolLoaders } from './utils/ToolManagerUtils.js';
+import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
 import type { ToolInfo } from './types/Tool';
 import type {
   ToolPolicy,
@@ -25,14 +28,11 @@ import type {
 } from './policy/ToolPolicy';
 import { DefaultToolPolicy } from './policy/DefaultToolPolicy';
 import { ToolPolicyPipeline } from './policy/ToolPolicyPipeline';
-
-/**
- * 功能标志检查函数
- */
-function feature(name: string): boolean {
-  return process.env[`FEATURE_${name.toUpperCase()}`] === 'true';
-}
-
+import type {
+  ToolDefinition,
+  ToolImplementation,
+  ToolRegistration,
+} from './types/ToolTypes';
 /**
  * 工具管理器选项
  */
@@ -52,8 +52,9 @@ type BuiltinToolLoader = (factory: ToolFactory) => Tool | null;
  * 工具管理器
  * 构造函数仅初始化注册表和工厂，内置工具在首次访问时按需加载
  * 支持通过 ToolPolicy 对工具进行策略过滤
+ * 扩展 EventEmitter 支持 CC 风格的事件系统
  */
-export class ToolManager {
+export class ToolManager extends EventEmitter {
   private registry: ToolRegistry;
   private factory: ToolFactory;
   private _loadDeferred: boolean;
@@ -61,11 +62,16 @@ export class ToolManager {
   private _toolLoaders: BuiltinToolLoader[] = [];
   private _policyPipeline: ToolPolicyPipeline;
   private _defaultPolicyContext: PolicyContext = {};
+  private _disabledTools: Set<string> = new Set();
+  private _initialized: boolean = false;
 
   /**
    * 构造函数
    */
   constructor(options: ToolManagerOptions = {}) {
+    super();
+    this.setMaxListeners(100);
+
     profileCheckpoint('tool_manager_constructor_start');
     this.registry = options.registry || new ToolRegistry();
     this.factory = options.factory || new ToolFactory();
@@ -304,6 +310,15 @@ export class ToolManager {
       );
     }
 
+    if (this.isToolDisabled(name)) {
+      throw new AppError(
+        `Tool ${name} is disabled`,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        '1006'
+      );
+    }
+
     const policyResult = this._policyPipeline.evaluate(
       tool,
       this._defaultPolicyContext
@@ -387,12 +402,155 @@ export class ToolManager {
   }
 
   /**
+   * 初始化工具管理器
+   * 加载内置工具并发出初始化完成事件
+   */
+  async initialize(): Promise<void> {
+    if (this._initialized) return;
+    this._initialized = true;
+
+    this.ensureToolsLoaded();
+
+    this.emitToolEvent('initialized', {
+      toolName: 'system',
+      data: { message: 'ToolManager initialized' },
+    });
+  }
+
+  /**
+   * 启用工具
+   */
+  enableTool(toolName: string): void {
+    this._disabledTools.delete(toolName);
+    this.emitToolEvent('enabled', { toolName, data: {} });
+  }
+
+  /**
+   * 禁用工具
+   */
+  disableTool(toolName: string): void {
+    const tool = this.registry.getTool(toolName);
+    if (!tool) {
+      throw new AppError(
+        `工具未找到: ${toolName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
+    }
+    this._disabledTools.add(toolName);
+    this.emitToolEvent('disabled', { toolName, data: {} });
+  }
+
+  /**
+   * 注册 CC 风格的工具定义 + 实现函数
+   */
+  registerDefinition(
+    definition: ToolDefinition,
+    implementation: ToolImplementation
+  ): void {
+    this.registry.registerDefinition(definition, implementation);
+  }
+
+  /**
+   * 获取工具管理器状态
+   */
+  getStatus(): {
+    initialized: boolean;
+    toolCount: number;
+    enabledTools: number;
+    disabledTools: number;
+  } {
+    const tools = this.getAllTools();
+    const enabledCount = tools.filter(
+      (t) => !this._disabledTools.has(t.name)
+    ).length;
+    return {
+      initialized: this._initialized,
+      toolCount: tools.length,
+      enabledTools: enabledCount,
+      disabledTools: tools.length - enabledCount,
+    };
+  }
+
+  /**
+   * 发出工具事件
+   */
+  private emitToolEvent(
+    eventType: string,
+    eventData: { toolName: string; data: Record<string, unknown> }
+  ): void {
+    this.emit(eventType, {
+      ...eventData,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * 检查工具是否已禁用
+   */
+  private isToolDisabled(name: string): boolean {
+    return this._disabledTools.has(name);
+  }
+
+  /**
    * 获取工具统计信息
    * @returns 工具统计信息
    */
   getToolStats(): ReturnType<ToolRegistry['getToolStats']> {
     this.ensureToolsLoaded();
     return this.registry.getToolStats();
+  }
+
+  /**
+   * 将 Tool 实例转换为 CC 兼容的 ToolRegistration
+   * 供 core/ToolManager.ts 包装类使用
+   */
+  toToolRegistration(tool: Tool): ToolRegistration {
+    const info = tool.getInfo();
+    const parameters = info.params.map((p) => ({
+      name: p.name,
+      type: p.type as 'string' | 'number' | 'boolean' | 'object' | 'array',
+      description: p.description,
+      required: p.required ?? false,
+      default: p.default as string | undefined,
+    }));
+    return {
+      definition: {
+        name: info.name,
+        description: info.description,
+        parameters,
+        enabled: info.enabled,
+        timeout: undefined,
+        config: undefined,
+        version: undefined,
+      },
+      implementation: async () => ({
+        success: true,
+        output: '',
+        executionTime: 0,
+        startTime: new Date(),
+        endTime: new Date(),
+        stats: {
+          totalExecutions: 0,
+          successfulExecutions: 0,
+          failedExecutions: 0,
+          totalExecutionTime: 0,
+          averageExecutionTime: 0,
+        },
+        logs: [],
+      }),
+      status: this._disabledTools.has(info.name) ? 'disabled' : 'enabled',
+      registeredAt: new Date(),
+      updatedAt: new Date(),
+      stats: {
+        totalExecutions: 0,
+        successfulExecutions: 0,
+        failedExecutions: 0,
+        totalExecutionTime: 0,
+        averageExecutionTime: 0,
+      },
+    };
   }
 }
 

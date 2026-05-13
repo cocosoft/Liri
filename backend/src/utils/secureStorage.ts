@@ -15,7 +15,7 @@ import {
   decrypt,
   generateEncryptionKey,
   ENCRYPTION_ALGORITHMS,
-} from './security/Crypto';
+} from '@modules/security';
 
 const STORAGE_DIR = join(homedir(), '.py_app', 'secure');
 const MASTER_KEY_FILE = join(STORAGE_DIR, '.master_key');

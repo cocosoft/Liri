@@ -72,17 +72,6 @@ export {
 } from './managers/MCPServerManager.js';
 export { MCPServerConnection } from './managers/MCPServerConnection.js';
 
-// ── 会话 ──
-export {
-  MCPConnectionManager,
-  globalMCPConnectionManager,
-} from './session/MCPConnectionManager.js';
-export type {
-  MCPConnectionStatus,
-  MCPConnectionInfo,
-  MCPSessionInfo,
-} from './session/MCPConnectionManager.js';
-
 // ── 工具管理 ──
 export {
   MCPToolManager as MCPToolManagerImpl,
@@ -142,25 +131,6 @@ export {
 } from './utils/MCPOfficialRegistry.js';
 
 export {
-  MCPPromptManager,
-  mcpPromptManager,
-} from './utils/MCPPromptManager.js';
-export type {
-  MCPPrompt,
-  PromptParams,
-  MCPPromptResult,
-} from './utils/MCPPromptManager.js';
-
-export { MCPSecurityChecker } from './utils/MCPSecurityChecker.js';
-export type { SecurityCheckResult } from './utils/MCPSecurityChecker.js';
-
-export { MCPPerformanceMonitor } from './utils/MCPPerformanceMonitor.js';
-export type {
-  MCPServerMetrics,
-  MCPRequestRecord,
-} from './utils/MCPPerformanceMonitor.js';
-
-export {
   MCPResourceManager,
   mcpResourceManager,
 } from './utils/MCPResourceManager.js';
@@ -213,15 +183,6 @@ export type {
   MCPElicitHandler,
   ElicitToolParams,
 } from './utils/MCPElicitationHandler.js';
-
-export {
-  loadPluginMcpServers,
-  addPluginScopeToServers,
-  resolvePluginMcpEnvironment,
-  extractMcpServersFromPlugins,
-  getUnconfiguredChannels,
-} from './utils/mcpPluginIntegration.js';
-export type { UnconfiguredChannel } from './utils/mcpPluginIntegration.js';
 
 // ── CLI ──
 export { createMcpCommand } from './cli/mcpCommand.js';

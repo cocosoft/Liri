@@ -87,10 +87,10 @@ async function prefetchUserContext(): Promise<void> {
   markTaskRunning(task);
 
   try {
-    const { getMultiSourceSettingsManager } =
-      await import('../config/settings/index.js');
-    const settingsManager = getMultiSourceSettingsManager();
-    settingsManager.getMergedSettings();
+    const { getUnifiedConfigManager } =
+      await import('../config/UnifiedConfigManager.js');
+    const ucm = getUnifiedConfigManager();
+    ucm.loadSyncSources();
     markTaskCompleted(task);
   } catch (error) {
     markTaskFailed(task, String(error));

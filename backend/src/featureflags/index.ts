@@ -1,108 +1,72 @@
 /**
- * 功能开关模块
- * 提供feature()函数和条件加载支持
- * 参考CC_CODE bun:bundle feature实现
+ * 功能开关模块（向后兼容 shim 层）
+ * 委托到 @modules/core/featureFlags 统一数据源
+ * 保留环境变量覆盖能力（FEATURE_* 前缀）
  */
 
-import { FeatureName, FeatureConfig } from './types.js';
+import {
+  feature as coreFeature,
+  type FeatureFlag,
+} from '@modules/core/featureFlags';
 
-const featureCache: Partial<Record<FeatureName, boolean>> = {};
+const featureCache: Partial<Record<string, boolean>> = {};
 
-const FEATURE_CONFIGS: FeatureConfig[] = [
-  {
-    name: 'COORDINATOR_MODE',
-    description: '协调者模式',
-    defaultValue: false,
+/** 旧 FeatureName → 环境变量名 + core flag 名映射 */
+const LEGACY_FLAG_MAP: Record<string, { flag: string; envVar: string }> = {
+  COORDINATOR_MODE: {
+    flag: 'COORDINATOR_MODE',
     envVar: 'FEATURE_COORDINATOR_MODE',
   },
-  {
-    name: 'KAIROS',
-    description: 'Kairos功能',
-    defaultValue: false,
-    envVar: 'FEATURE_KAIROS',
-  },
-  {
-    name: 'PROACTIVE',
-    description: '主动模式',
-    defaultValue: false,
-    envVar: 'FEATURE_PROACTIVE',
-  },
-  {
-    name: 'TEAMMEM',
-    description: '团队成员',
-    defaultValue: false,
-    envVar: 'FEATURE_TEAMMEM',
-  },
-  {
-    name: 'BRIDGE_MODE',
-    description: '桥接模式',
-    defaultValue: false,
-    envVar: 'FEATURE_BRIDGE_MODE',
-  },
-  {
-    name: 'DAEMON',
-    description: '守护进程',
-    defaultValue: false,
-    envVar: 'FEATURE_DAEMON',
-  },
-  {
-    name: 'VOICE_MODE',
-    description: '语音模式',
-    defaultValue: false,
-    envVar: 'FEATURE_VOICE_MODE',
-  },
-  {
-    name: 'SANDBOX',
-    description: '沙箱模式',
-    defaultValue: true,
-    envVar: 'FEATURE_SANDBOX',
-  },
-  {
-    name: 'MCP_OAUTH',
-    description: 'MCP OAuth认证',
-    defaultValue: false,
-    envVar: 'FEATURE_MCP_OAUTH',
-  },
-  {
-    name: 'COMMAND_PIPELINE',
-    description: '命令管道',
-    defaultValue: false,
+  KAIROS: { flag: 'KAIROS', envVar: 'FEATURE_KAIROS' },
+  PROACTIVE: { flag: 'PROACTIVE', envVar: 'FEATURE_PROACTIVE' },
+  TEAMMEM: { flag: 'TEAMMEM', envVar: 'FEATURE_TEAMMEM' },
+  BRIDGE_MODE: { flag: 'BRIDGE_MODE', envVar: 'FEATURE_BRIDGE_MODE' },
+  DAEMON: { flag: 'DAEMON', envVar: 'FEATURE_DAEMON' },
+  VOICE_MODE: { flag: 'VOICE_MODE', envVar: 'FEATURE_VOICE_MODE' },
+  SANDBOX: { flag: 'SANDBOX', envVar: 'FEATURE_SANDBOX' },
+  MCP_OAUTH: { flag: 'MCP_OAUTH', envVar: 'FEATURE_MCP_OAUTH' },
+  COMMAND_PIPELINE: {
+    flag: 'COMMAND_PIPELINE',
     envVar: 'FEATURE_COMMAND_PIPELINE',
   },
-];
+};
 
-export function feature(name: FeatureName): boolean {
+export function feature(name: string): boolean {
   if (featureCache[name] !== undefined) {
     return featureCache[name]!;
   }
 
-  const config = FEATURE_CONFIGS.find((c) => c.name === name);
-  if (!config) {
+  const mapping = LEGACY_FLAG_MAP[name];
+  if (!mapping) {
     return false;
   }
 
-  const envValue = process.env[config.envVar];
+  // 优先检查旧格式环境变量（向后兼容）
+  const envValue = process.env[mapping.envVar];
   if (envValue !== undefined) {
-    featureCache[name] = envValue === 'true';
-    return featureCache[name]!;
+    const result = envValue === 'true';
+    featureCache[name] = result;
+    return result;
   }
 
-  featureCache[name] = config.defaultValue;
-  return featureCache[name]!;
+  // 委托到统一数据源
+  const result = coreFeature(mapping.flag as FeatureFlag);
+  featureCache[name] = result;
+  return result;
 }
 
-export function setFeature(name: FeatureName, value: boolean): void {
+export function setFeature(name: string, value: boolean): void {
   featureCache[name] = value;
 }
 
 export function clearFeatureCache(): void {
   Object.keys(featureCache).forEach((key) => {
-    delete featureCache[key as FeatureName];
+    delete featureCache[key];
   });
 }
 
 export function conditionalImport<T>(
-  featureName: FeatureName,
+  featureName: string,
   importFn: () => Promise<T>,
   fallback: T
 ): Promise<T> {
@@ -113,4 +77,11 @@ export function conditionalImport<T>(
 }
 
 export type { FeatureName } from './types.js';
-export const FEATURE_LIST = FEATURE_CONFIGS;
+export const FEATURE_LIST = Object.entries(LEGACY_FLAG_MAP).map(
+  ([name, mapping]) => ({
+    name,
+    description: '',
+    defaultValue: coreFeature(mapping.flag as FeatureFlag),
+    envVar: mapping.envVar,
+  })
+);

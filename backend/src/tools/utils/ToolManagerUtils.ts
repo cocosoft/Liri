@@ -11,18 +11,6 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 功能标志检查函数
- * 优先检查环境变量，其次回退到集中式标志配置
- */
-export function feature(name: string): boolean {
-  const envValue = process.env[`FEATURE_${name.toUpperCase()}`];
-  if (envValue !== undefined) {
-    return envValue === 'true';
-  }
-  return coreFeature(name as any);
-}
-
-/**
  * 工具加载器类型
  */
 export type ToolLoader = (factory: ToolFactory) => Tool | null;
@@ -109,39 +97,39 @@ export const builtinToolLoaders: ToolLoader[] = [
 
   // 条件工具
   conditionalTool(
-    feature('POWERSHELL'),
+    coreFeature('POWERSHELL'),
     createToolLoader(ToolFactory.prototype.createPowerShellTool)
   ),
   conditionalTool(
-    feature('LSP'),
+    coreFeature('LSP'),
     createToolLoader(ToolFactory.prototype.createLSPTool)
   ),
   conditionalTool(
-    feature('MCP'),
+    coreFeature('MCP'),
     createToolLoader(ToolFactory.prototype.createMCPTool)
   ),
   conditionalTool(
-    feature('MCP'),
+    coreFeature('MCP'),
     createToolLoader(ToolFactory.prototype.createMCPResourceTool)
   ),
   conditionalTool(
-    feature('MCP'),
+    coreFeature('MCP'),
     createToolLoader(ToolFactory.prototype.createListMcpResourcesTool)
   ),
   conditionalTool(
-    feature('MCP'),
+    coreFeature('MCP'),
     createToolLoader(ToolFactory.prototype.createReadMcpResourceTool)
   ),
   conditionalTool(
-    feature('REPL'),
+    coreFeature('REPL'),
     createToolLoader(ToolFactory.prototype.createREPLTool)
   ),
   conditionalTool(
-    feature('NOTEBOOK'),
+    coreFeature('NOTEBOOK'),
     createToolLoader(ToolFactory.prototype.createNotebookTool)
   ),
   conditionalTool(
-    feature('CONFIG'),
+    coreFeature('CONFIG'),
     createToolLoader(ToolFactory.prototype.createConfigTool)
   ),
   // Tungsten 工具 (仅 ANT 用户)
@@ -150,69 +138,69 @@ export const builtinToolLoaders: ToolLoader[] = [
     createToolLoader(ToolFactory.prototype.createTungstenTool)
   ),
   conditionalTool(
-    feature('BROWSER'),
+    coreFeature('BROWSER'),
     createToolLoader(ToolFactory.prototype.createBrowserTool)
   ),
   conditionalTool(
-    feature('PLAN'),
+    coreFeature('PLAN'),
     createToolLoader(ToolFactory.prototype.createPlanTool)
   ),
 
   // 其他条件工具
   conditionalTool(
-    feature('AGENT_TRIGGERS'),
+    coreFeature('AGENT_TRIGGERS'),
     createToolLoader(ToolFactory.prototype.createCronCreateTool)
   ),
   conditionalTool(
-    feature('AGENT_TRIGGERS'),
+    coreFeature('AGENT_TRIGGERS'),
     createToolLoader(ToolFactory.prototype.createCronDeleteTool)
   ),
   conditionalTool(
-    feature('AGENT_TRIGGERS'),
+    coreFeature('AGENT_TRIGGERS'),
     createToolLoader(ToolFactory.prototype.createCronListTool)
   ),
   conditionalTool(
-    feature('AGENT_TRIGGERS_REMOTE'),
+    coreFeature('AGENT_TRIGGERS_REMOTE'),
     createToolLoader(ToolFactory.prototype.createRemoteTriggerTool)
   ),
   conditionalTool(
-    feature('MONITOR_TOOL'),
+    coreFeature('MONITOR_TOOL'),
     createToolLoader(ToolFactory.prototype.createMonitorTool)
   ),
   conditionalTool(
-    feature('KAIROS'),
+    coreFeature('KAIROS'),
     createToolLoader(ToolFactory.prototype.createSendUserFileTool)
   ),
   conditionalTool(
-    feature('KAIROS'),
+    coreFeature('KAIROS'),
     createToolLoader(ToolFactory.prototype.createPushNotificationTool)
   ),
   conditionalTool(
-    feature('KAIROS_GITHUB_WEBHOOKS'),
+    coreFeature('KAIROS_GITHUB_WEBHOOKS'),
     createToolLoader(ToolFactory.prototype.createSubscribePRTool)
   ),
   conditionalTool(
-    feature('HISTORY_SNIP'),
+    coreFeature('HISTORY_SNIP'),
     createToolLoader(ToolFactory.prototype.createSnipTool)
   ),
   conditionalTool(
-    feature('UDS_INBOX'),
+    coreFeature('UDS_INBOX'),
     createToolLoader(ToolFactory.prototype.createListPeersTool)
   ),
   conditionalTool(
-    feature('WORKFLOW_SCRIPTS'),
+    coreFeature('WORKFLOW_SCRIPTS'),
     createToolLoader(ToolFactory.prototype.createWorkflowTool)
   ),
   conditionalTool(
-    feature('TOOL_SEARCH'),
+    coreFeature('TOOL_SEARCH'),
     createToolLoader(ToolFactory.prototype.createToolSearchTool)
   ),
   conditionalTool(
-    feature('WORKTREE'),
+    coreFeature('WORKTREE'),
     createToolLoader(ToolFactory.prototype.createEnterWorktreeTool)
   ),
   conditionalTool(
-    feature('WORKTREE'),
+    coreFeature('WORKTREE'),
     createToolLoader(ToolFactory.prototype.createExitWorktreeTool)
   ),
 ];

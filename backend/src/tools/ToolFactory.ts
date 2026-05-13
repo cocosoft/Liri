@@ -50,15 +50,9 @@ import { ListPeersTool } from './ListPeersTool/ListPeersTool';
 import { ListMcpResourcesTool } from './ListMcpResourcesTool/ListMcpResourcesTool.js';
 import { ReadMcpResourceTool } from './ReadMcpResourceTool/ReadMcpResourceTool.js';
 import { MCPTool } from '../mcp/MCPTool';
-import {
-  FeatureFlag,
-  isFeatureEnabled,
-  isAntUser,
-  isSimpleMode,
-  conditionalTool,
-  conditionalTools,
-} from '../utils/features.js';
+import { isAntUser, isSimpleMode } from '../utils/features.js';
 import { isToolEnabled } from './utils/ToolFeatureFlags';
+import { isFeatureEnabled } from '@modules/core';
 
 interface ToolDefinitionInput {
   name: string;
@@ -636,18 +630,18 @@ export function getAllBaseTools(): Tool[] {
     tools.push(new TungstenTool());
   }
 
-  if (isFeatureEnabled(FeatureFlag.ENABLE_WORKFLOWS)) {
+  if (isFeatureEnabled('ENABLE_WORKFLOWS')) {
     tools.push(new TaskCreateTool());
     tools.push(new TaskGetTool());
     tools.push(new TaskUpdateTool());
     tools.push(new TaskListTool());
   }
 
-  if (isFeatureEnabled(FeatureFlag.LSP)) {
+  if (isFeatureEnabled('LSP')) {
     tools.push(new LSPToolAdapter());
   }
 
-  if (isFeatureEnabled(FeatureFlag.AGENT_TRIGGERS)) {
+  if (isFeatureEnabled('AGENT_TRIGGERS')) {
     tools.push(CronCreateTool.create());
     tools.push(CronDeleteTool.create());
     tools.push(CronListTool.create());
@@ -681,24 +675,21 @@ export function getAllBaseTools(): Tool[] {
     tools.push(listPeersTool);
   }
 
-  if (isFeatureEnabled(FeatureFlag.VERIFICATION_AGENT)) {
+  if (isFeatureEnabled('VERIFICATION_AGENT')) {
     const verifyPlanTool = createVerifyPlanExecutionTool();
     if (verifyPlanTool) {
       tools.push(verifyPlanTool);
     }
   }
 
-  if (isAntUser() && isFeatureEnabled(FeatureFlag.REPL)) {
+  if (isAntUser() && isFeatureEnabled('REPL')) {
     const replTool = new REPLToolAdapter();
     if (replTool) {
       tools.push(replTool);
     }
   }
 
-  if (
-    isFeatureEnabled(FeatureFlag.PROACTIVE) ||
-    isFeatureEnabled(FeatureFlag.KAIROS)
-  ) {
+  if (isFeatureEnabled('PROACTIVE') || isFeatureEnabled('KAIROS')) {
     const sleepTool = createSleepTool();
     if (sleepTool) {
       tools.push(sleepTool);
@@ -742,7 +733,7 @@ export function getAllBaseTools(): Tool[] {
     tools.push(snipTool);
   }
 
-  if (isFeatureEnabled(FeatureFlag.TEST_MODE)) {
+  if (isFeatureEnabled('TEST_MODE')) {
     tools.push(createTestingPermissionTool());
   }
 

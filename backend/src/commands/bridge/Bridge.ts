@@ -2,7 +2,7 @@
  * Bridge 命令实现
  * 管理远程控制桥接连接，对标 CC 的 /remote-control (rc) 命令
  */
-import { isFeatureEnabled, FeatureFlag } from '@modules/utils/features.js';
+import { feature } from '@modules/core';
 import {
   bridgeStateStore,
   type BridgeState,
@@ -60,7 +60,7 @@ function parseFlags(args: string): {
  * 获取桥接启用状态
  */
 function isBridgeModeEnabled(): boolean {
-  return isFeatureEnabled(FeatureFlag.BRIDGE_MODE);
+  return feature('BRIDGE_MODE');
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   McpJsonConfigSchema,
   ScopedMcpServerConfig,
   ConfigScope,
+  MCPServerConfig,
 } from './types';
 
 /**
@@ -305,6 +306,96 @@ export class EnhancedMCPConfigManager {
       );
       return false;
     }
+  }
+
+  /**
+   * 读取任意路径的原始MCP配置
+   */
+  readRawConfig(configPath: string): Record<string, MCPServerConfig> {
+    if (!fs.existsSync(configPath)) {
+      return {};
+    }
+
+    try {
+      const content = fs.readFileSync(configPath, 'utf8');
+      const config = JSON.parse(content);
+      return config.mcpServers || {};
+    } catch (error) {
+      logger.error(
+        'Failed to read MCP config file',
+        error instanceof Error ? error : new Error(String(error)),
+        { configPath }
+      );
+      return {};
+    }
+  }
+
+  /**
+   * 写入任意路径的原始MCP配置
+   */
+  writeRawConfig(
+    configPath: string,
+    servers: Record<string, MCPServerConfig>
+  ): void {
+    try {
+      let fullConfig: Record<string, unknown> = {};
+
+      if (fs.existsSync(configPath)) {
+        const content = fs.readFileSync(configPath, 'utf8');
+        fullConfig = JSON.parse(content);
+      }
+
+      fullConfig.mcpServers = servers;
+      fs.writeFileSync(configPath, JSON.stringify(fullConfig, null, 2));
+    } catch (error) {
+      logger.error(
+        'Failed to write MCP config file',
+        error instanceof Error ? error : new Error(String(error)),
+        { configPath }
+      );
+    }
+  }
+
+  /**
+   * 从环境变量加载MCP配置（支持MCP_SERVERS和MCP_SERVER_*两种格式）
+   */
+  loadMcpConfigFromEnv(): Record<string, MCPServerConfig> {
+    const servers: Record<string, MCPServerConfig> = {};
+    const mcpConfigEnv = process.env.MCP_SERVERS;
+
+    if (mcpConfigEnv) {
+      try {
+        const config = JSON.parse(mcpConfigEnv);
+        if (typeof config === 'object' && config !== null) {
+          for (const [name, serverConfig] of Object.entries(config)) {
+            const result = McpServerConfigSchema.safeParse(serverConfig);
+            if (result.success) {
+              servers[name] = result.data as MCPServerConfig;
+            }
+          }
+        }
+      } catch (error) {
+        logger.error(
+          'Failed to parse MCP_SERVERS environment variable',
+          error instanceof Error ? error : new Error(String(error))
+        );
+      }
+    }
+
+    return servers;
+  }
+
+  /**
+   * 合并多个MCP配置
+   */
+  static mergeMcpConfigs(
+    ...configs: Array<Record<string, MCPServerConfig>>
+  ): Record<string, MCPServerConfig> {
+    const merged: Record<string, MCPServerConfig> = {};
+    for (const config of configs) {
+      Object.assign(merged, config);
+    }
+    return merged;
   }
 
   /**

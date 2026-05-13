@@ -2,109 +2,61 @@
  * 多源设置管理
  * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的多源合并逻辑
  * 按优先级合并各源配置：userSettings < projectSettings < localSettings < flagSettings < policySettings
+ *
+ * 本模块委托给 UnifiedConfigManager 实现，避免多源设置的重复实现。
+ * 新代码应直接使用 @modules/config 中的 getUnifiedConfigManager()。
  */
 
-import { logger } from '@modules/utils/log.js';
-import { deepMerge } from '@modules/utils/common.js';
-import { loadUserSettings } from './userSettings.js';
-import { loadProjectSettings } from './projectSettings.js';
-import { loadLocalSettings } from './localSettings.js';
 import {
-  loadPolicySettings,
-  isPolicySettingsAvailable,
-} from './policySettings.js';
-import {
-  SETTING_SOURCES,
+  getUnifiedConfigManager,
   type SettingSource,
   type EditableSettingSource,
-  getSettingSourceName,
 } from '../UnifiedConfigManager.js';
 
 /**
- * 设置缓存
- */
-interface SettingsCache {
-  merged: Record<string, unknown>;
-  sources: Map<SettingSource, Record<string, unknown>>;
-  lastRefresh: number;
-}
-
-/**
  * 多源设置管理器
- * 负责从多个设置源加载、合并和管理配置
+ * 委托给 UnifiedConfigManager 实现，保持向后兼容
  */
 export class MultiSourceSettingsManager {
-  private cache: SettingsCache;
-  private cacheTtl: number;
-  private flagSettings: Record<string, unknown>;
-
-  constructor(options?: { cacheTtl?: number }) {
-    this.cacheTtl = options?.cacheTtl ?? 5000;
-    this.flagSettings = {};
-    this.cache = {
-      merged: {},
-      sources: new Map(),
-      lastRefresh: 0,
-    };
-  }
+  constructor(_options?: { cacheTtl?: number }) {}
 
   /**
    * 设置命令行标志配置
    */
   setFlagSettings(flags: Record<string, unknown>): void {
-    this.flagSettings = flags;
-    this.invalidateCache();
+    getUnifiedConfigManager().setFlagSettings(flags);
   }
 
   /**
    * 获取合并后的设置
-   * 按优先级合并：userSettings < projectSettings < localSettings < flagSettings < policySettings
    */
   getMergedSettings(): Record<string, unknown> {
-    if (this.isCacheValid()) {
-      return this.cache.merged;
-    }
-
-    this.refreshCache();
-    return this.cache.merged;
+    const ucm = getUnifiedConfigManager();
+    ucm.loadSyncSources();
+    return ucm.getConfig();
   }
 
   /**
    * 获取指定源的设置
    */
   getSourceSettings(source: SettingSource): Record<string, unknown> {
-    if (!this.isCacheValid()) {
-      this.refreshCache();
-    }
-    return this.cache.sources.get(source) ?? {};
+    return getUnifiedConfigManager().getSourceConfig(source) ?? {};
   }
 
   /**
-   * 获取设置值
-   * 返回值和来源
+   * 获取设置值及其来源
    */
   getSettingWithSource(
     key: string
   ): { value: unknown; source: SettingSource } | undefined {
-    const sources = [...SETTING_SOURCES].reverse();
-
-    for (const source of sources) {
-      const config = this.getSourceSettings(source);
-      const value = getNestedValue(config, key);
-      if (value !== undefined) {
-        return { value, source };
-      }
-    }
-
-    return undefined;
+    return getUnifiedConfigManager().getSettingWithSource(key);
   }
 
   /**
    * 获取设置值
    */
   getValue<T = unknown>(key: string, defaultValue?: T): T {
-    const result = this.getSettingWithSource(key);
-    return result !== undefined ? (result.value as T) : (defaultValue as T);
+    return getUnifiedConfigManager().getValue(key, defaultValue);
   }
 
   /**
@@ -116,64 +68,21 @@ export class MultiSourceSettingsManager {
     available: boolean;
     settingCount: number;
   }> {
-    if (!this.isCacheValid()) {
-      this.refreshCache();
-    }
-
-    return SETTING_SOURCES.map((source) => {
-      const config = this.cache.sources.get(source) ?? {};
-      return {
-        source,
-        name: getSettingSourceName(source),
-        available: Object.keys(config).length > 0,
-        settingCount: Object.keys(config).length,
-      };
-    });
+    return getUnifiedConfigManager().getSourcesStatus();
   }
 
   /**
    * 刷新缓存
    */
   refreshCache(): void {
-    const sources = new Map<SettingSource, Record<string, unknown>>();
-
-    sources.set('userSettings', loadUserSettings());
-    sources.set('projectSettings', loadProjectSettings());
-    sources.set('localSettings', loadLocalSettings());
-    sources.set('flagSettings', this.flagSettings);
-    sources.set(
-      'policySettings',
-      isPolicySettingsAvailable() ? loadPolicySettings() : {}
-    );
-
-    let merged: Record<string, unknown> = {};
-    for (const source of SETTING_SOURCES) {
-      const config = sources.get(source) ?? {};
-      merged = deepMerge(merged, config);
-    }
-
-    this.cache = {
-      merged,
-      sources,
-      lastRefresh: Date.now(),
-    };
+    getUnifiedConfigManager().refreshSyncSources();
   }
 
   /**
    * 使缓存失效
    */
   invalidateCache(): void {
-    this.cache.lastRefresh = 0;
-  }
-
-  /**
-   * 检查缓存是否有效
-   */
-  private isCacheValid(): boolean {
-    return (
-      this.cache.lastRefresh > 0 &&
-      Date.now() - this.cache.lastRefresh < this.cacheTtl
-    );
+    getUnifiedConfigManager().invalidateCache();
   }
 }
 
@@ -192,25 +101,4 @@ export function getMultiSourceSettingsManager(
     globalSettingsManager = new MultiSourceSettingsManager(options);
   }
   return globalSettingsManager;
-}
-
-/**
- * 获取嵌套值
- */
-function getNestedValue(obj: Record<string, unknown>, key: string): unknown {
-  const keys = key.split('.');
-  let current: Record<string, unknown> = obj;
-
-  for (const k of keys) {
-    if (
-      current === null ||
-      current === undefined ||
-      typeof current !== 'object'
-    ) {
-      return undefined;
-    }
-    current = current[k] as Record<string, unknown>;
-  }
-
-  return current;
 }

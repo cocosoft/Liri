@@ -259,5 +259,23 @@
     "priority": 1,
     "createdAt": "2026-05-12T23:27:07.547Z",
     "updatedAt": "2026-05-12T23:27:07.547Z"
+  },
+  {
+    "id": "rule_1778661975570_l2yfjvz68",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-13T08:46:15.570Z",
+    "updatedAt": "2026-05-13T08:46:15.570Z"
+  },
+  {
+    "id": "rule_1778662074082_qir1vc377",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-13T08:47:54.082Z",
+    "updatedAt": "2026-05-13T08:47:54.082Z"
   }
 ]

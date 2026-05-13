@@ -354,7 +354,9 @@ export class MCPSystem {
       // 清理MCP工具桥接器
       await mcpToolBridge.cleanup();
 
-      // 清理连接管理器
+      // 清理连接管理器（MCPServerManager + MCPConnectionManager）
+      const { getMCPServerManager } = await import('./MCPServerManager');
+      await getMCPServerManager().closeAll();
       await mcpConnectionManager.closeAll();
 
       // 清理命令和资源

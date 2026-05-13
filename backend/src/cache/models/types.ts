@@ -90,3 +90,45 @@ export interface ICache<K = string, V = unknown> {
   size(): number;
   getStats(): CacheStats;
 }
+
+// ───── 持久化缓存类型（源自 CacheSystem） ─────
+
+/** 持久化缓存项 */
+export interface PersistentCacheItem<T = unknown> {
+  key: string;
+  value: T;
+  timestamp: number;
+  expiry?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/** 缓存版本信息 */
+export interface CacheVersion {
+  version: string;
+  timestamp: number;
+  description: string;
+}
+
+/** 持久化缓存顶层结构 */
+export interface PersistentCache {
+  version: number;
+  lastUpdated: number;
+  data: Record<string, PersistentCacheItem>;
+}
+
+/** 持久化缓存存储后端接口 */
+export interface PersistentCacheStorage {
+  get<T = unknown>(key: string): Promise<PersistentCacheItem<T> | undefined>;
+  set<T = unknown>(
+    key: string,
+    value: T,
+    options?: {
+      expiry?: number;
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<void>;
+  delete(key: string): Promise<boolean>;
+  clear(): Promise<void>;
+  keys(): Promise<string[]>;
+  close(): Promise<void>;
+}

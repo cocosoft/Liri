@@ -37,7 +37,9 @@ export type {
   TaskState,
   Notification,
   NotificationType,
+  SessionId,
 } from './types';
+export { generateSessionId } from './types';
 
 // Buddy/Companion 状态（从 state/ 迁移）
 export {

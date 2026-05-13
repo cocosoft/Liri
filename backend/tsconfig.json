@@ -115,8 +115,6 @@
       "@modules/diagnostics/*": ["diagnostics/*"],
       "@modules/remote": ["remote"],
       "@modules/remote/*": ["remote/*"],
-      "@modules/permissions": ["permissions"],
-      "@modules/permissions/*": ["permissions/*"],
       "@modules/daemon": ["daemon"],
       "@modules/daemon/*": ["daemon/*"],
       "@modules/error": ["error"],

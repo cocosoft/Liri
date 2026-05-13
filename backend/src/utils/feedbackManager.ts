@@ -12,7 +12,7 @@ import {
   appendFileSync,
 } from 'fs';
 import { logger } from '../utils/log.js';
-import { sanitizeInput } from '../utils/security.js';
+import { sanitizeInput } from '@modules/security';
 
 export interface FeedbackEntry {
   id: string;

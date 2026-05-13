@@ -7,6 +7,7 @@ export * from './CacheFactory.js';
 export * from './strategy/index.js';
 export * from './performance/index.js';
 export * from './monitor/index.js';
+export * from './models/types.js';
 
 export { CacheService } from './services/CacheService.js';
 

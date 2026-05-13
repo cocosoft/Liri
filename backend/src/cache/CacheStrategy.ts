@@ -4,7 +4,7 @@
  * 支持多种缓存淘汰策略
  */
 
-import { CacheItem } from './CacheSystem.js';
+import type { PersistentCacheItem } from './models/types.js';
 
 /**
  * 缓存策略接口
@@ -20,7 +20,7 @@ export interface CacheStrategy {
    */
   selectVictim(
     keys: string[],
-    items: Map<string, CacheItem>
+    items: Map<string, PersistentCacheItem>
   ): string | undefined;
 
   /**
@@ -47,7 +47,7 @@ export class LRUCacheStrategy implements CacheStrategy {
 
   selectVictim(
     keys: string[],
-    items: Map<string, CacheItem>
+    items: Map<string, PersistentCacheItem>
   ): string | undefined {
     // 选择最早访问的项
     for (const key of this.accessOrder) {
@@ -76,7 +76,7 @@ export class LFUCacheStrategy implements CacheStrategy {
 
   selectVictim(
     keys: string[],
-    items: Map<string, CacheItem>
+    items: Map<string, PersistentCacheItem>
   ): string | undefined {
     let minCount = Infinity;
     let victim: string | undefined;
@@ -109,7 +109,7 @@ export class FIFOCacheStrategy implements CacheStrategy {
 
   selectVictim(
     keys: string[],
-    items: Map<string, CacheItem>
+    items: Map<string, PersistentCacheItem>
   ): string | undefined {
     // 选择最早插入的项
     for (const key of this.insertionOrder) {
@@ -150,7 +150,7 @@ export class CacheStrategyFactory {
  * 带策略的缓存存储
  */
 export class StrategyCacheStorage {
-  private storage: Map<string, CacheItem> = new Map();
+  private storage: Map<string, PersistentCacheItem> = new Map();
   private strategy: CacheStrategy;
   private maxSize: number;
 
@@ -162,7 +162,7 @@ export class StrategyCacheStorage {
   /**
    * 获取缓存项
    */
-  get(key: string): CacheItem | undefined {
+  get(key: string): PersistentCacheItem | undefined {
     const item = this.storage.get(key);
     if (item) {
       this.strategy.recordAccess(key);
@@ -173,7 +173,7 @@ export class StrategyCacheStorage {
   /**
    * 设置缓存项
    */
-  set(key: string, item: CacheItem): void {
+  set(key: string, item: PersistentCacheItem): void {
     // 如果缓存已满，淘汰一个项
     if (this.storage.size >= this.maxSize) {
       const keys = Array.from(this.storage.keys());

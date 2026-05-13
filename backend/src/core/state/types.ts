@@ -160,6 +160,20 @@ export function createDefaultAppState(): AppState {
 }
 
 /**
+ * 会话ID类型
+ */
+export type SessionId = string;
+
+/**
+ * 生成会话ID
+ */
+export function generateSessionId(): SessionId {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 10);
+  return `sess_${timestamp}_${random}`;
+}
+
+/**
  * AppState存储接口
  */
 export interface AppStateStore {

@@ -9,9 +9,29 @@ import {
   createDecipheriv,
   randomBytes,
   scryptSync,
+  createHash,
+  randomUUID,
   CipherGCM,
   DecipherGCM,
 } from 'crypto';
+
+export interface EncryptionOptions {
+  algorithm: string;
+  keyLength: number;
+  ivLength: number;
+}
+
+export const ENCRYPTION_ALGORITHMS = {
+  AES_256_CBC: 'aes-256-cbc',
+  AES_256_GCM: 'aes-256-gcm',
+  AES_128_CBC: 'aes-128-cbc',
+} as const;
+
+export const DEFAULT_ENCRYPTION_OPTIONS: EncryptionOptions = {
+  algorithm: ENCRYPTION_ALGORITHMS.AES_256_CBC,
+  keyLength: 32,
+  ivLength: 16,
+};
 
 /**
  * 加密配置
@@ -64,7 +84,6 @@ export class CryptoUtils {
 
     const authTag = cipher.getAuthTag();
 
-    // 组合salt + iv + authTag + encrypted data
     const result = Buffer.concat([
       salt,
       iv,
@@ -145,5 +164,146 @@ export class CryptoUtils {
    */
   static generateSalt(length: number = 16): string {
     return randomBytes(length).toString('hex');
+  }
+
+  /**
+   * 使用密码加密（基于SHA256派生密钥）
+   */
+  static encryptWithPassword(
+    plaintext: string,
+    password: string,
+    options: EncryptionOptions = DEFAULT_ENCRYPTION_OPTIONS
+  ): { ciphertext: string; iv: string; salt: string } {
+    const salt = randomBytes(16);
+    const key = this.deriveSimpleKey(password, salt, options.keyLength);
+    const iv = randomBytes(options.ivLength);
+    const cipher = createCipheriv(options.algorithm, key, iv);
+
+    let ciphertext: Buffer;
+    if (options.algorithm.includes('gcm')) {
+      const encrypted = Buffer.concat([
+        cipher.update(plaintext, 'utf8'),
+        cipher.final(),
+      ]);
+      const authTag = (cipher as any).getAuthTag();
+      return {
+        ciphertext: Buffer.concat([encrypted, authTag]).toString('base64'),
+        iv: iv.toString('base64'),
+        salt: salt.toString('base64'),
+      };
+    } else {
+      ciphertext = Buffer.concat([
+        cipher.update(plaintext, 'utf8'),
+        cipher.final(),
+      ]);
+      return {
+        ciphertext: ciphertext.toString('base64'),
+        iv: iv.toString('base64'),
+        salt: salt.toString('base64'),
+      };
+    }
+  }
+
+  /**
+   * 使用密码解密
+   */
+  static decryptWithPassword(
+    ciphertext: string,
+    password: string,
+    iv: string,
+    salt: string,
+    options: EncryptionOptions = DEFAULT_ENCRYPTION_OPTIONS
+  ): string {
+    const saltBuffer = Buffer.from(salt, 'base64');
+    const key = this.deriveSimpleKey(password, saltBuffer, options.keyLength);
+    const ivBuffer = Buffer.from(iv, 'base64');
+    const ciphertextBuffer = Buffer.from(ciphertext, 'base64');
+
+    if (options.algorithm.includes('gcm')) {
+      const decipher = createDecipheriv(options.algorithm, key, ivBuffer);
+      const authTag = ciphertextBuffer.subarray(ciphertextBuffer.length - 16);
+      const data = ciphertextBuffer.subarray(0, ciphertextBuffer.length - 16);
+      (decipher as any).setAuthTag(authTag);
+      return decipher.update(data).toString('utf8') + decipher.final('utf8');
+    } else {
+      const decipher = createDecipheriv(options.algorithm, key, ivBuffer);
+      return (
+        decipher.update(ciphertextBuffer).toString('utf8') +
+        decipher.final('utf8')
+      );
+    }
+  }
+
+  /**
+   * 简单派生密钥（SHA256方式，与密码加密兼容）
+   */
+  private static deriveSimpleKey(
+    password: string,
+    salt: Buffer,
+    keyLength: number = 32
+  ): Buffer {
+    return createHash('sha256')
+      .update(password)
+      .update(salt)
+      .digest()
+      .subarray(0, keyLength);
+  }
+
+  /**
+   * 生成安全令牌
+   */
+  static generateSecureToken(length: number = 32): string {
+    return randomBytes(length).toString('base64url');
+  }
+
+  /**
+   * 生成UUID
+   */
+  static generateUUID(): string {
+    return randomUUID();
+  }
+
+  /**
+   * 常量时间比较
+   */
+  static constantTimeCompare(a: string, b: string): boolean {
+    if (a.length !== b.length) {
+      return false;
+    }
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return result === 0;
+  }
+
+  /**
+   * 哈希密码
+   */
+  static hashPassword(
+    password: string,
+    salt?: string
+  ): { hash: string; salt: string } {
+    const saltBuffer = salt ? Buffer.from(salt, 'base64') : randomBytes(16);
+    const hash = createHash('sha256')
+      .update(password)
+      .update(saltBuffer)
+      .digest('base64');
+    return {
+      hash,
+      salt: saltBuffer.toString('base64'),
+    };
+  }
+
+  /**
+   * 验证密码
+   */
+  static verifyPassword(password: string, hash: string, salt: string): boolean {
+    const saltBuffer = Buffer.from(salt, 'base64');
+    const computedHash = createHash('sha256')
+      .update(password)
+      .update(saltBuffer)
+      .digest('base64');
+    return this.constantTimeCompare(computedHash, hash);
   }
 }

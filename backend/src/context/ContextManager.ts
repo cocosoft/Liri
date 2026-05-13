@@ -126,7 +126,7 @@ export class ContextManager {
 
   async getGitStatus(): Promise<string | null> {
     const cached = this.cacheService.get<string>(ContextCacheKeys.GIT_STATUS);
-    if (cached !== null) {
+    if (cached !== undefined) {
       return cached;
     }
 
@@ -151,7 +151,7 @@ export class ContextManager {
       userContext: string | null;
       currentDate: string;
     }>(ContextCacheKeys.USER_CONTEXT);
-    if (cached !== null) {
+    if (cached !== undefined) {
       return cached;
     }
 

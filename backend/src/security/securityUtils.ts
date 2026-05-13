@@ -1,50 +1,38 @@
-import { Logger } from '../monitoring/logs/Logger';
+import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 const logger = new Logger();
 
-/**
- * 检查是否为危险命令
- * @param command 命令字符串
- * @returns 是否为危险命令
- */
-export function isDangerousCommand(command: string): boolean {
+function isDangerousCommand(command: string): boolean {
   const dangerousPatterns = [
-    // 系统命令 - Windows
     /^del\s/i,
     /^erase\s/i,
     /^format\s/i,
     /^rd\s/i,
     /^rmdir\s/i,
-    // 系统命令 - Unix/Linux
     /^rm\s/i,
     /^chmod\s/i,
     /^chown\s/i,
     /^kill\s/i,
     /^shutdown\s/i,
     /^reboot\s/i,
-    // 网络命令
     /^nc\s/i,
     /^netcat\s/i,
     /^curl\s/i,
     /^wget\s/i,
-    // 命令注入模式
     /[;&|]\s*rm\s/i,
     /[;&|]\s*del\s/i,
     /[;&|]\s*format\s/i,
-    // 权限提升
     /^sudo\s/i,
     /^su\s/i,
     /^runas\s/i,
-    // 文件操作
     /^mv\s/i,
     /^cp\s/i,
     /^move\s/i,
     /^copy\s/i,
-    // 环境变量
     /^export\s/i,
     /^set\s/i,
-    // 进程操作
     /^taskkill\s/i,
     /^ps\s/i,
     /^pkill\s/i,
@@ -53,11 +41,6 @@ export function isDangerousCommand(command: string): boolean {
   return dangerousPatterns.some((pattern) => pattern.test(command));
 }
 
-/**
- * 检查是否为路径遍历攻击
- * @param path 路径字符串
- * @returns 是否为路径遍历攻击
- */
 export function isPathTraversal(path: string): boolean {
   const traversalPatterns = [
     /\.\.\//,
@@ -70,13 +53,7 @@ export function isPathTraversal(path: string): boolean {
   return traversalPatterns.some((pattern) => pattern.test(path));
 }
 
-/**
- * 安全清理路径
- * @param path 原始路径
- * @returns 安全的路径
- */
 export function sanitizePath(path: string): string {
-  // 移除路径遍历字符
   let sanitized = path
     .replace(/\.\.\//g, '')
     .replace(/\.\.\\/g, '')
@@ -85,7 +62,6 @@ export function sanitizePath(path: string): string {
     .replace(/..%2f/g, '')
     .replace(/..%5c/g, '');
 
-  // 确保路径不以 / 或 \ 开头
   if (sanitized.startsWith('/') || sanitized.startsWith('\\')) {
     sanitized = sanitized.slice(1);
   }
@@ -93,17 +69,11 @@ export function sanitizePath(path: string): string {
   return sanitized;
 }
 
-/**
- * 验证命令参数
- * @param args 命令参数
- * @returns 验证结果
- */
 export function validateCommandArgs(args: string[]): {
   valid: boolean;
   error?: string;
 } {
   for (const arg of args) {
-    // 检查路径遍历
     if (isPathTraversal(arg)) {
       return {
         valid: false,
@@ -111,7 +81,6 @@ export function validateCommandArgs(args: string[]): {
       };
     }
 
-    // 检查危险字符
     if (
       arg.includes(';') ||
       arg.includes('|') ||
@@ -131,12 +100,6 @@ export function validateCommandArgs(args: string[]): {
   return { valid: true };
 }
 
-/**
- * 安全执行命令前的检查
- * @param command 命令
- * @param args 参数
- * @returns 检查结果
- */
 export function preExecutionCheck(
   command: string,
   args: string[]
@@ -148,12 +111,10 @@ export function preExecutionCheck(
   const warnings: string[] = [];
   const errors: string[] = [];
 
-  // 检查危险命令
   if (isDangerousCommand(command)) {
     warnings.push('Command "' + command + '" is potentially dangerous');
   }
 
-  // 验证参数
   const validationResult = validateCommandArgs(args);
   if (!validationResult.valid && validationResult.error) {
     errors.push(validationResult.error);
@@ -166,22 +127,12 @@ export function preExecutionCheck(
   };
 }
 
-/**
- * 清理Unicode字符
- * @param input 输入字符串
- * @returns 清理后的字符串
- */
 export function sanitizeUnicode(input: string): string {
   return input
-    .replace(/[\u200B-\u200D\uFEFF]/g, '') // 零宽字符
-    .replace(/[\u202E\u202D]/g, ''); // 文本控制字符
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[\u202E\u202D]/g, '');
 }
 
-/**
- * 递归清理Unicode字符
- * @param input 输入
- * @returns 清理后的输入
- */
 export function recursivelySanitizeUnicode(input: unknown): unknown {
   if (typeof input === 'string') {
     return sanitizeUnicode(input);
@@ -198,17 +149,7 @@ export function recursivelySanitizeUnicode(input: unknown): unknown {
   return input;
 }
 
-/**
- * 输入验证器类
- * 提供全面的输入验证功能
- */
 export class InputValidator {
-  /**
-   * 验证字符串输入
-   * @param input 输入字符串
-   * @param options 验证选项
-   * @returns 验证结果
-   */
   static validateString(
     input: string,
     options: {
@@ -226,7 +167,6 @@ export class InputValidator {
     const errors: string[] = [];
     let sanitized = input;
 
-    // 长度验证
     if (options.maxLength && input.length > options.maxLength) {
       errors.push(`Input exceeds maximum length of ${options.maxLength}`);
     }
@@ -234,12 +174,10 @@ export class InputValidator {
       errors.push(`Input is below minimum length of ${options.minLength}`);
     }
 
-    // 正则表达式验证
     if (options.pattern && !options.pattern.test(input)) {
       errors.push('Input does not match required pattern');
     }
 
-    // 允许字符验证
     if (options.allowedChars) {
       const invalidChars = input
         .split('')
@@ -251,7 +189,6 @@ export class InputValidator {
       }
     }
 
-    // 禁止字符验证
     if (options.disallowedChars) {
       const invalidChars = input
         .split('')
@@ -260,7 +197,6 @@ export class InputValidator {
         errors.push(
           `Input contains forbidden characters: ${invalidChars.join(', ')}`
         );
-        // 移除禁止字符
         sanitized = input
           .split('')
           .filter((char) => !options.disallowedChars!.includes(char))
@@ -268,7 +204,6 @@ export class InputValidator {
       }
     }
 
-    // 自动Unicode清理
     sanitized = sanitizeUnicode(sanitized);
 
     return {
@@ -278,11 +213,6 @@ export class InputValidator {
     };
   }
 
-  /**
-   * 验证文件路径
-   * @param path 文件路径
-   * @returns 验证结果
-   */
   static validateFilePath(path: string): {
     valid: boolean;
     errors: string[];
@@ -290,24 +220,20 @@ export class InputValidator {
   } {
     const errors: string[] = [];
 
-    // 路径遍历检查
     if (isPathTraversal(path)) {
       errors.push('Path traversal detected');
     }
 
-    // 危险字符检查
     const dangerousChars = [';', '|', '&', '`', '$', '>', '<'];
     const foundChars = dangerousChars.filter((char) => path.includes(char));
     if (foundChars.length > 0) {
       errors.push(`Dangerous characters detected: ${foundChars.join(', ')}`);
     }
 
-    // 路径长度检查
     if (path.length > 4096) {
       errors.push('Path is too long');
     }
 
-    // 清理路径
     const sanitized = sanitizePath(path);
 
     return {
@@ -317,11 +243,6 @@ export class InputValidator {
     };
   }
 
-  /**
-   * 验证URL
-   * @param url URL字符串
-   * @returns 验证结果
-   */
   static validateUrl(url: string): {
     valid: boolean;
     errors: string[];
@@ -329,7 +250,6 @@ export class InputValidator {
   } {
     const errors: string[] = [];
 
-    // 首先检查危险协议
     const dangerousProtocols = ['javascript:', 'vbscript:', 'data:'];
     const hasDangerousProtocol = dangerousProtocols.some((protocol) =>
       url.toLowerCase().startsWith(protocol)
@@ -347,22 +267,19 @@ export class InputValidator {
     try {
       const parsedUrl = new URL(url);
 
-      // 协议验证
       const allowedProtocols = ['http:', 'https:', 'ftp:'];
       if (!allowedProtocols.includes(parsedUrl.protocol)) {
         errors.push(`Protocol not allowed: ${parsedUrl.protocol}`);
       }
 
-      // 主机名验证
       if (!parsedUrl.hostname) {
         errors.push('Invalid hostname');
       }
 
-      // 路径验证
       if (isPathTraversal(parsedUrl.pathname)) {
         errors.push('Path traversal detected in URL');
       }
-    } catch (error) {
+    } catch {
       errors.push('Invalid URL format');
     }
 
@@ -373,12 +290,6 @@ export class InputValidator {
     };
   }
 
-  /**
-   * 验证数字输入
-   * @param input 输入值
-   * @param options 验证选项
-   * @returns 验证结果
-   */
   static validateNumber(
     input: number,
     options: {
@@ -392,7 +303,6 @@ export class InputValidator {
   } {
     const errors: string[] = [];
 
-    // 范围验证
     if (options.min !== undefined && input < options.min) {
       errors.push(`Value is below minimum of ${options.min}`);
     }
@@ -400,7 +310,6 @@ export class InputValidator {
       errors.push(`Value is above maximum of ${options.max}`);
     }
 
-    // 整数验证
     if (options.integerOnly && !Number.isInteger(input)) {
       errors.push('Value must be an integer');
     }
@@ -411,12 +320,6 @@ export class InputValidator {
     };
   }
 
-  /**
-   * 验证对象
-   * @param obj 要验证的对象
-   * @param schema 验证模式
-   * @returns 验证结果
-   */
   static validateObject(
     obj: Record<string, unknown>,
     schema: {
@@ -441,7 +344,6 @@ export class InputValidator {
     for (const [key, rule] of Object.entries(schema)) {
       const value = obj[key];
 
-      // 必填字段检查
       if (
         rule.required &&
         (value === undefined || value === null || value === '')
@@ -450,7 +352,6 @@ export class InputValidator {
         continue;
       }
 
-      // 类型检查
       if (value !== undefined && value !== null) {
         let typeValid = true;
         switch (rule.type) {
@@ -476,30 +377,28 @@ export class InputValidator {
           continue;
         }
 
-        // 特定类型的验证
-        if (rule.type === 'string' && typeof value === 'string') {
-          const stringValidation = this.validateString(value, {
-            maxLength: rule.maxLength,
-            minLength: rule.minLength,
-            pattern: rule.pattern,
-          });
-          if (!stringValidation.valid) {
+        if (rule.type === 'string') {
+          const strValue = value as string;
+          if (
+            rule.minLength !== undefined &&
+            strValue.length < rule.minLength
+          ) {
             errors.push(
-              ...stringValidation.errors.map((err) => `Field '${key}': ${err}`)
+              `Field '${key}' is below minimum length of ${rule.minLength}`
             );
           }
-          sanitized[key] = stringValidation.sanitized || value;
-        } else if (rule.type === 'number' && typeof value === 'number') {
-          const numberValidation = this.validateNumber(value, {
-            min: rule.min,
-            max: rule.max,
-          });
-          if (!numberValidation.valid) {
+          if (
+            rule.maxLength !== undefined &&
+            strValue.length > rule.maxLength
+          ) {
             errors.push(
-              ...numberValidation.errors.map((err) => `Field '${key}': ${err}`)
+              `Field '${key}' exceeds maximum length of ${rule.maxLength}`
             );
           }
-          sanitized[key] = value;
+          if (rule.pattern && !rule.pattern.test(strValue)) {
+            errors.push(`Field '${key}' does not match required pattern`);
+          }
+          sanitized[key] = sanitizeUnicode(strValue);
         } else {
           sanitized[key] = value;
         }
@@ -509,54 +408,25 @@ export class InputValidator {
     return {
       valid: errors.length === 0,
       errors,
-      sanitized,
+      sanitized: errors.length === 0 ? sanitized : undefined,
     };
   }
 
-  /**
-   * 验证数组
-   * @param array 数组
-   * @param itemValidator 项目验证器
-   * @param options 验证选项
-   * @returns 验证结果
-   */
   static validateArray<T>(
     array: T[],
     itemValidator: (item: T) => {
       valid: boolean;
       errors: string[];
       sanitized?: T;
-    },
-    options: {
-      maxLength?: number;
-      minLength?: number;
-      unique?: boolean;
-    } = {}
+    }
   ): {
     valid: boolean;
     errors: string[];
-    sanitized?: T[];
+    sanitized: T[];
   } {
     const errors: string[] = [];
     const sanitized: T[] = [];
 
-    // 长度验证
-    if (options.maxLength && array.length > options.maxLength) {
-      errors.push(`Array exceeds maximum length of ${options.maxLength}`);
-    }
-    if (options.minLength && array.length < options.minLength) {
-      errors.push(`Array is below minimum length of ${options.minLength}`);
-    }
-
-    // 唯一性验证
-    if (options.unique) {
-      const uniqueSet = new Set(array);
-      if (uniqueSet.size !== array.length) {
-        errors.push('Array contains duplicate items');
-      }
-    }
-
-    // 项目级验证
     for (let i = 0; i < array.length; i++) {
       const item = array[i];
       const validation = itemValidator(item);
@@ -579,11 +449,6 @@ export class InputValidator {
     };
   }
 
-  /**
-   * 批量验证多个输入
-   * @param validations 验证配置
-   * @returns 总体验证结果
-   */
   static validateBatch(
     validations: Array<{
       name: string;
@@ -623,16 +488,7 @@ export class InputValidator {
   }
 }
 
-/**
- * 输出编码器类
- * 提供全面的输出编码功能，防止XSS攻击
- */
 export class OutputEncoder {
-  /**
-   * HTML实体编码
-   * @param input 输入字符串
-   * @returns 编码后的字符串
-   */
   static encodeHtml(input: string): string {
     return input
       .replace(/&/g, '&amp;')
@@ -643,20 +499,10 @@ export class OutputEncoder {
       .replace(/\//g, '&#x2F;');
   }
 
-  /**
-   * URL编码
-   * @param input 输入字符串
-   * @returns 编码后的字符串
-   */
   static encodeUrl(input: string): string {
     return encodeURIComponent(input);
   }
 
-  /**
-   * JavaScript字符串编码
-   * @param input 输入字符串
-   * @returns 编码后的字符串
-   */
   static encodeJavaScript(input: string): string {
     return input
       .replace(/\\/g, '\\\\')
@@ -669,11 +515,6 @@ export class OutputEncoder {
       .replace(/\b/g, '\\b');
   }
 
-  /**
-   * CSS编码
-   * @param input 输入字符串
-   * @returns 编码后的字符串
-   */
   static encodeCss(input: string): string {
     return input.replace(/[^\w\s]/g, (match) => {
       const charCode = match.charCodeAt(0);
@@ -681,11 +522,6 @@ export class OutputEncoder {
     });
   }
 
-  /**
-   * 属性值编码
-   * @param input 输入字符串
-   * @returns 编码后的字符串
-   */
   static encodeAttribute(input: string): string {
     return input
       .replace(/&/g, '&amp;')
@@ -695,13 +531,7 @@ export class OutputEncoder {
       .replace(/'/g, '&#x27;');
   }
 
-  /**
-   * 安全插入HTML
-   * @param html HTML字符串
-   * @returns 安全的HTML字符串
-   */
   static safeHtml(html: string): string {
-    // 移除危险标签和属性
     const sanitized = html
       .replace(/<script[^>]*>.*?<\/script>/gi, '')
       .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
@@ -712,9 +542,7 @@ export class OutputEncoder {
       .replace(/javascript:/gi, '')
       .replace(/vbscript:/gi, '')
       .replace(/data:/gi, '')
-      // 移除危险事件属性
       .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-      // 移除危险协议
       .replace(
         /(href|src|action)=\s*["'](javascript|vbscript|data):[^"']*["']/gi,
         ''
@@ -723,22 +551,11 @@ export class OutputEncoder {
     return sanitized;
   }
 
-  /**
-   * 安全JSON序列化
-   * @param obj 要序列化的对象
-   * @returns 安全的JSON字符串
-   */
   static safeJsonStringify(obj: unknown): string {
-    // 递归清理对象中的危险内容
     const sanitized = this.sanitizeObjectForJson(obj);
     return JSON.stringify(sanitized);
   }
 
-  /**
-   * 清理对象用于JSON序列化
-   * @param obj 要清理的对象
-   * @returns 清理后的对象
-   */
   private static sanitizeObjectForJson(obj: unknown): unknown {
     if (obj === null || obj === undefined) {
       return obj;
@@ -765,11 +582,6 @@ export class OutputEncoder {
     return obj;
   }
 
-  /**
-   * 安全输出到控制台
-   * @param message 消息
-   * @param data 数据
-   */
   static safeConsoleLog(message: string, data?: unknown): void {
     const safeMessage = this.encodeJavaScript(message);
     if (data !== undefined) {
@@ -780,11 +592,6 @@ export class OutputEncoder {
     }
   }
 
-  /**
-   * 安全输出到HTML元素
-   * @param elementId 元素ID
-   * @param content 内容
-   */
   static safeHtmlOutput(elementId: string, content: string): void {
     const element = document.getElementById(elementId);
     if (element) {
@@ -792,12 +599,6 @@ export class OutputEncoder {
     }
   }
 
-  /**
-   * 安全设置属性
-   * @param element 元素
-   * @param attribute 属性名
-   * @param value 属性值
-   */
   static safeSetAttribute(
     element: Element,
     attribute: string,
@@ -808,22 +609,11 @@ export class OutputEncoder {
     element.setAttribute(safeAttribute, safeValue);
   }
 
-  /**
-   * 安全设置文本内容
-   * @param element 元素
-   * @param text 文本内容
-   */
   static safeSetTextContent(element: Element, text: string): void {
     const safeText = this.encodeHtml(text);
     element.textContent = safeText;
   }
 
-  /**
-   * 安全设置样式
-   * @param element 元素
-   * @param property 样式属性
-   * @param value 样式值
-   */
   static safeSetStyle(
     element: HTMLElement,
     property: string,
@@ -835,17 +625,10 @@ export class OutputEncoder {
   }
 }
 
-/**
- * 验证对象
- * @param obj 要验证的对象
- * @param schema 验证模式
- * @param options 验证选项
- * @returns 验证结果
- */
 export function validateObject(
   obj: unknown,
   schema: Record<string, unknown>,
-  options: Record<string, unknown> = {}
+  _options?: Record<string, unknown>
 ): void {
   for (const [key, ruleDef] of Object.entries(schema)) {
     const ruleMap = ruleDef as Record<string, unknown>;
@@ -958,11 +741,6 @@ export function validateObject(
   }
 }
 
-/**
- * 清理输入
- * @param input 输入
- * @returns 清理后的输入
- */
 export function sanitizeInput(input: unknown): unknown {
   if (typeof input === 'string') {
     return input
@@ -982,11 +760,6 @@ export function sanitizeInput(input: unknown): unknown {
   return input;
 }
 
-/**
- * 安全JSON解析
- * @param json JSON字符串
- * @returns 解析后的对象或null
- */
 export function safeJsonParse(json: string): unknown {
   try {
     return JSON.parse(json);
@@ -995,11 +768,6 @@ export function safeJsonParse(json: string): unknown {
   }
 }
 
-/**
- * 转义字符串
- * @param input 输入字符串
- * @returns 转义后的字符串
- */
 export function escapeString(input: string): string {
   return input
     .replace(/&/g, '&amp;')
@@ -1009,17 +777,81 @@ export function escapeString(input: string): string {
     .replace(/'/g, '&#039;');
 }
 
-/**
- * 检查是否包含危险内容
- * @param input 输入字符串
- * @returns 是否包含危险内容
- */
 export function containsDangerousContent(input: string): boolean {
   const dangerousPatterns = [
-    /<script>/gi, // XSS
-    /javascript:/i, // JavaScript协议
-    /SELECT\s+.+\s+FROM/i, // SQL注入
-    /bash\s+-c/i, // 命令注入
+    /<script>/gi,
+    /javascript:/i,
+    /SELECT\s+.+\s+FROM/i,
+    /bash\s+-c/i,
   ];
   return dangerousPatterns.some((pattern) => pattern.test(input));
+}
+
+export function generateEncryptionKey(length: number = 32): Buffer {
+  return randomBytes(length);
+}
+
+export function encrypt(
+  plaintext: string,
+  key: Buffer,
+  options: {
+    algorithm: string;
+    keyLength: number;
+    ivLength: number;
+  } = { algorithm: 'aes-256-cbc', keyLength: 32, ivLength: 16 }
+): { ciphertext: string; iv: string; authTag?: string } {
+  const iv = randomBytes(options.ivLength);
+  const cipher = createCipheriv(options.algorithm, key, iv);
+
+  if (options.algorithm.includes('gcm')) {
+    const encrypted = Buffer.concat([
+      cipher.update(plaintext, 'utf8'),
+      cipher.final(),
+    ]);
+    const authTag = (cipher as any).getAuthTag();
+    return {
+      ciphertext: encrypted.toString('base64'),
+      iv: iv.toString('base64'),
+      authTag: authTag.toString('base64'),
+    };
+  } else {
+    const ciphertext = Buffer.concat([
+      cipher.update(plaintext, 'utf8'),
+      cipher.final(),
+    ]);
+    return {
+      ciphertext: ciphertext.toString('base64'),
+      iv: iv.toString('base64'),
+    };
+  }
+}
+
+export function decrypt(
+  ciphertext: string,
+  key: Buffer,
+  iv: string,
+  options: {
+    algorithm: string;
+    keyLength: number;
+    ivLength: number;
+  } = { algorithm: 'aes-256-cbc', keyLength: 32, ivLength: 16 },
+  authTag?: string
+): string {
+  const ivBuffer = Buffer.from(iv, 'base64');
+  const ciphertextBuffer = Buffer.from(ciphertext, 'base64');
+
+  if (options.algorithm.includes('gcm') && authTag) {
+    const decipher = createDecipheriv(options.algorithm, key, ivBuffer);
+    (decipher as any).setAuthTag(Buffer.from(authTag, 'base64'));
+    return (
+      decipher.update(ciphertextBuffer).toString('utf8') +
+      decipher.final('utf8')
+    );
+  } else {
+    const decipher = createDecipheriv(options.algorithm, key, ivBuffer);
+    return (
+      decipher.update(ciphertextBuffer).toString('utf8') +
+      decipher.final('utf8')
+    );
+  }
 }

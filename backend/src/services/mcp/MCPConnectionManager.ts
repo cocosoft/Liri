@@ -1,7 +1,9 @@
-//
 /**
- * MCP连接管理器
- * 负责管理MCP服务器连接，包括指数退避重连和批量更新
+ * MCP连接管理器（适配层）
+ *
+ * 将 MCPConnectionManager 改为适配层，内部委托 MCPServerManager 执行核心操作。
+ * 保留 MCPServerConnection 联合类型（含 SDK Client）以维持消费者兼容性。
+ * MCPServerManager 为唯一的管理器实现。
  */
 
 import { logger } from '@modules/utils/log';
@@ -17,6 +19,7 @@ import type {
 } from './types';
 import type { McpCommand } from './commandManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { getMCPServerManager } from './MCPServerManager';
 
 // 重连常量
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -27,7 +30,10 @@ const MAX_BACKOFF_MS = 30000;
 const MCP_BATCH_FLUSH_MS = 16;
 
 /**
- * MCP连接管理器
+ * MCP连接管理器（适配层）
+ *
+ * 管理 MCP 服务器连接状态，内部委托 MCPServerManager 执行连接操作。
+ * 保留 MCPServerConnection 联合类型以支持消费者访问 `.client`（SDK Client）。
  */
 export class MCPConnectionManager {
   private servers: Map<string, MCPServerConnection> = new Map();
@@ -42,13 +48,15 @@ export class MCPConnectionManager {
   private flushTimer: NodeJS.Timeout | null = null;
 
   /**
-   * 初始化MCP服务器连接
+   * 初始化 MCP 服务器连接
+   * 使用 client.ts 获取 MCPServerConnection 对象（含 SDK Client），同时注册到 MCPServerManager
    */
   async initialize(
     configs: Record<string, ScopedMcpServerConfig>
   ): Promise<void> {
     try {
-      // 批量更新回调
+      const manager = getMCPServerManager();
+
       const onConnectionAttempt = (result: {
         connection: MCPServerConnection;
         tools: SerializedTool[];
@@ -56,9 +64,15 @@ export class MCPConnectionManager {
         resources?: ServerResource[];
       }) => {
         this.updateServer(result);
+        const { connection, tools } = result;
+        if (connection.type === 'connected') {
+          manager.addServer(connection.name, connection.config);
+        }
       };
 
       await getMcpToolsCommandsAndResources(onConnectionAttempt, configs);
+
+      await manager.connectAll();
     } catch (error) {
       logger.error(
         'Failed to initialize MCP connections:',
@@ -78,7 +92,6 @@ export class MCPConnectionManager {
   }): void {
     this.pendingUpdates.push(update);
 
-    // 启动批量更新定时器
     if (!this.flushTimer) {
       this.flushTimer = setTimeout(
         () => this.flushPendingUpdates(),
@@ -100,7 +113,6 @@ export class MCPConnectionManager {
     this.pendingUpdates = [];
     this.flushTimer = null;
 
-    // 处理每个更新
     for (const update of updates) {
       const { connection, tools } = update;
       this.servers.set(connection.name, connection);
@@ -115,7 +127,6 @@ export class MCPConnectionManager {
       }
     }
 
-    // 触发状态更新事件
     this.emitStateChange();
   }
 
@@ -132,14 +143,12 @@ export class MCPConnectionManager {
       return;
     }
 
-    // 取消现有的重连尝试
     const existingTimer = this.reconnectTimers.get(client.name);
     if (existingTimer) {
       clearTimeout(existingTimer);
       this.reconnectTimers.delete(client.name);
     }
 
-    // 开始指数退避重连
     this.reconnectWithBackoff(client);
   }
 
@@ -150,7 +159,6 @@ export class MCPConnectionManager {
     client: MCPServerConnection
   ): Promise<void> {
     for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
-      // 更新为待连接状态
       this.updateServer({
         connection: {
           ...client,
@@ -172,7 +180,6 @@ export class MCPConnectionManager {
           return;
         }
 
-        // 最后一次尝试失败，更新状态
         if (attempt === MAX_RECONNECT_ATTEMPTS) {
           logger.warn(
             `Max reconnection attempts reached for server ${client.name}`
@@ -203,7 +210,6 @@ export class MCPConnectionManager {
         }
       }
 
-      // 计算退避时间
       const backoffMs = Math.min(
         INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1),
         MAX_BACKOFF_MS
@@ -213,7 +219,6 @@ export class MCPConnectionManager {
         `Scheduling reconnection attempt ${attempt + 1} for server ${client.name} in ${backoffMs}ms`
       );
 
-      // 等待退避时间
       await new Promise<void>((resolve) => {
         const timer = setTimeout(resolve, backoffMs);
         this.reconnectTimers.set(client.name, timer);
@@ -223,8 +228,10 @@ export class MCPConnectionManager {
 
   /**
    * 重连指定服务器
+   * 委托 MCPServerManager 执行，同步状态到本地
    */
   async reconnectServer(serverName: string): Promise<MCPServerConnection> {
+    const manager = getMCPServerManager();
     const server = this.servers.get(serverName);
     if (!server) {
       throw new AppError(
@@ -235,40 +242,61 @@ export class MCPConnectionManager {
       );
     }
 
-    // 取消现有的重连尝试
     const existingTimer = this.reconnectTimers.get(serverName);
     if (existingTimer) {
       clearTimeout(existingTimer);
       this.reconnectTimers.delete(serverName);
     }
 
-    // 尝试重连
-    const result = await reconnectMcpServerImpl(serverName, server.config);
-    this.updateServer({
-      connection: result.connection,
-      tools: result.tools,
-      commands: result.commands,
-      resources: result.resources,
-    });
-    return result.connection;
+    try {
+      await manager.reconnectServer(serverName);
+      this.servers.set(serverName, {
+        ...server,
+        type: 'connected',
+      } as MCPServerConnection);
+    } catch (error) {
+      this.servers.set(serverName, {
+        ...server,
+        type: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      } as MCPServerConnection);
+    }
+
+    return this.servers.get(serverName)!;
   }
 
   /**
    * 切换服务器启用状态
+   * 委托 MCPServerManager 执行，同步状态到本地
    */
   async toggleServer(serverName: string): Promise<void> {
-    const server = this.servers.get(serverName);
-    if (!server) {
-      throw new AppError(
-        `Server not found: ${serverName}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
+    const manager = getMCPServerManager();
+    try {
+      await manager.toggleServer(serverName);
+
+      const mcpServer = manager.getServer(serverName);
+      if (mcpServer) {
+        const existing = this.servers.get(serverName);
+        if (mcpServer.getStatus().toString().includes('CONNECTED')) {
+          this.servers.set(serverName, {
+            ...existing,
+            name: serverName,
+            type: 'connected',
+          } as MCPServerConnection);
+        } else {
+          this.servers.set(serverName, {
+            ...existing,
+            name: serverName,
+            type: 'failed',
+          } as MCPServerConnection);
+        }
+      }
+    } catch (error) {
+      logger.error(
+        `Toggle failed for server ${serverName}:`,
+        error instanceof Error ? error : new Error(String(error))
       );
     }
-
-    // 这里可以实现启用/禁用逻辑
-    logger.info(`Toggling server ${serverName}`);
   }
 
   /**
@@ -308,35 +336,24 @@ export class MCPConnectionManager {
 
   /**
    * 关闭所有连接
+   * 委托 MCPServerManager 执行，清理本地状态
    */
   async closeAll(): Promise<void> {
-    // 取消所有重连定时器
+    const manager = getMCPServerManager();
+    await manager.closeAll();
+
     for (const timer of this.reconnectTimers.values()) {
       clearTimeout(timer);
     }
     this.reconnectTimers.clear();
 
-    // 取消批量更新定时器
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
 
-    // 关闭所有连接
-    for (const server of this.servers.values()) {
-      if (server.type === 'connected') {
-        try {
-          await server.cleanup();
-        } catch (error) {
-          logger.error(
-            `Error closing server ${server.name}:`,
-            error instanceof Error ? error : new Error(String(error))
-          );
-        }
-      }
-    }
-
     this.servers.clear();
+    this.serverTools.clear();
     this.pendingUpdates = [];
   }
 
@@ -344,7 +361,6 @@ export class MCPConnectionManager {
    * 触发状态更新事件
    */
   private emitStateChange(): void {
-    // 这里可以实现事件触发逻辑
     logger.debug('MCP state changed');
   }
 }

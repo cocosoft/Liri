@@ -7,8 +7,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
-import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/plugins/PluginLoader';
-import { SettingSource } from '@modules/config/constants';
+import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/utils/plugins/loadPluginAgents';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import {

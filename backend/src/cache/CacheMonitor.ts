@@ -4,14 +4,17 @@
  * 提供缓存使用情况的监控和统计功能
  */
 
-import { getCacheSystem, CacheItem } from './CacheSystem.js';
+import { getCacheSystem } from './CacheSystem.js';
+import type { PersistentCacheItem } from './models/types.js';
 import { logForDebugging } from '../utils/debug.js';
 import { getStatsAggregator } from './DataAggregator.js';
 
 /**
- * 缓存统计数据
+ * 监控缓存统计数据
+ * 与 cache/models/types.ts 中 CacheStats（缓存引擎统计）不同，
+ * 此接口专注于监控和报告维度的统计
  */
-export interface CacheStats {
+export interface MonitorCacheStats {
   /** 缓存键数量 */
   keyCount: number;
   /** 缓存大小（估计） */
@@ -31,7 +34,7 @@ export interface CacheStats {
   /** 最近访问时间 */
   lastAccessTime: number;
   /** 缓存项详情 */
-  items?: CacheItem[];
+  items?: PersistentCacheItem[];
 }
 
 /**
@@ -93,13 +96,13 @@ export class CacheMonitor {
   /**
    * 获取缓存统计数据
    */
-  async getStats(includeItems = false): Promise<CacheStats> {
+  async getStats(includeItems = false): Promise<MonitorCacheStats> {
     const keys = await this.cache.keys();
     const keyCount = keys.length;
 
     // 估计缓存大小
     let estimatedSize = 0;
-    let items: CacheItem[] = [];
+    let items: PersistentCacheItem[] = [];
 
     if (includeItems) {
       for (const key of keys) {
@@ -121,7 +124,7 @@ export class CacheMonitor {
     const averageAccessTime =
       totalAccesses > 0 ? this.totalAccessTime / totalAccesses : 0;
 
-    const stats: CacheStats = {
+    const stats: MonitorCacheStats = {
       keyCount,
       estimatedSize,
       hitRate,

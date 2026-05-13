@@ -29,7 +29,8 @@ import {
   preExecutionCheck,
   isPathTraversal,
   sanitizePath,
-} from '../utils/security';
+} from '@modules/security';
+import type { ToolExecutionStats, ToolExecutionLog } from './types/ToolTypes';
 
 export interface ToolResultBlock {
   toolCallId: string;
@@ -67,6 +68,15 @@ export class ToolExecutor {
 
   /** 沙箱管理器 */
   private sandboxManager: SandboxManagerImpl;
+
+  /** CC 并发执行追踪 */
+  private concurrentExecutions: Map<string, Promise<ToolResult>> = new Map();
+
+  /** CC 执行统计 */
+  private executionStats: Map<string, ToolExecutionStats> = new Map();
+
+  /** CC 执行日志 */
+  private executionLogs: Map<string, ToolExecutionLog[]> = new Map();
 
   /**
    * 构造函数
@@ -182,6 +192,8 @@ export class ToolExecutor {
         );
       }
 
+      const success = !result.metadata?.error;
+      this.recordToolExecution(toolName, toolUseId, startTime, success);
       return result;
     } catch (error) {
       const errorMessage =
@@ -191,6 +203,8 @@ export class ToolExecutor {
         hookContext.error = errorMessage;
         await this.executePostToolUseHooks(hookContext, false);
       }
+
+      this.recordToolExecution(toolName, toolUseId, startTime, false);
 
       return createToolResult(null, {
         newMessages: [
@@ -680,6 +694,167 @@ export class ToolExecutor {
       warnings,
       errors,
     };
+  }
+
+  /**
+   * 记录工具执行（基于CC源码）
+   */
+  private recordToolExecution(
+    toolName: string,
+    executionId: string,
+    startTime: number,
+    success: boolean
+  ): void {
+    const executionTime = Date.now() - startTime;
+    if (success) {
+      this.addExecutionLog(
+        toolName,
+        'info',
+        `工具执行成功: ${toolName} (${executionTime}ms)`
+      );
+    } else {
+      this.addExecutionLog(
+        toolName,
+        'error',
+        `工具执行失败: ${toolName} (${executionTime}ms)`
+      );
+    }
+    this.updateExecutionStats(toolName, executionTime, success);
+    this.cleanupExpiredLogs();
+  }
+
+  /**
+   * 获取执行统计（基于CC源码）
+   */
+  getExecutionStats(
+    toolName?: string
+  ): ToolExecutionStats | Map<string, ToolExecutionStats> {
+    if (toolName) {
+      return (
+        this.executionStats.get(toolName) || {
+          executionCount: 0,
+          averageExecutionTime: 0,
+          successRate: 0,
+          totalExecutionTime: 0,
+          successfulExecutions: 0,
+          failedExecutions: 0,
+        }
+      );
+    }
+    return new Map(this.executionStats);
+  }
+
+  /**
+   * 获取执行日志（基于CC源码）
+   */
+  getExecutionLogs(executionId: string): ToolExecutionLog[] {
+    return this.executionLogs.get(executionId) || [];
+  }
+
+  /**
+   * 获取当前并发执行数（基于CC源码）
+   */
+  getConcurrentExecutionCount(): number {
+    return this.concurrentExecutions.size;
+  }
+
+  /**
+   * 获取活跃执行ID列表（基于CC源码）
+   */
+  getActiveExecutionIds(): string[] {
+    return Array.from(this.concurrentExecutions.keys());
+  }
+
+  /**
+   * 取消执行（基于CC源码）
+   */
+  async cancelExecution(executionId: string): Promise<boolean> {
+    const executionPromise = this.concurrentExecutions.get(executionId);
+    if (!executionPromise) {
+      return false;
+    }
+    this.concurrentExecutions.delete(executionId);
+    return true;
+  }
+
+  /**
+   * 重置执行器（基于CC源码）
+   */
+  reset(): void {
+    this.concurrentExecutions.clear();
+    this.executionStats.clear();
+    this.executionLogs.clear();
+  }
+
+  /**
+   * 更新执行统计（基于CC源码）
+   */
+  private updateExecutionStats(
+    toolName: string,
+    executionTime: number,
+    success: boolean
+  ): void {
+    const defaultStats = {
+      executionCount: 0,
+      averageExecutionTime: 0,
+      successRate: 0,
+      totalExecutionTime: 0,
+      successfulExecutions: 0,
+      failedExecutions: 0,
+    };
+    const stats = this.executionStats.get(toolName) || { ...defaultStats };
+
+    stats.executionCount!++;
+    stats.totalExecutionTime! += executionTime;
+    stats.averageExecutionTime =
+      stats.totalExecutionTime! / stats.executionCount!;
+
+    if (success) {
+      stats.successfulExecutions!++;
+    } else {
+      stats.failedExecutions!++;
+    }
+
+    stats.successRate =
+      (stats.successfulExecutions! / stats.executionCount!) * 100;
+
+    this.executionStats.set(toolName, stats);
+  }
+
+  /**
+   * 添加执行日志（基于CC源码）
+   */
+  private addExecutionLog(
+    toolName: string,
+    level: 'debug' | 'info' | 'warn' | 'error',
+    message: string,
+    data?: unknown
+  ): void {
+    const logs = this.executionLogs.get(toolName) || [];
+    logs.push({
+      timestamp: new Date(),
+      level,
+      message,
+      data,
+    });
+    this.executionLogs.set(toolName, logs);
+  }
+
+  /**
+   * 清理过期的执行日志（基于CC源码）
+   */
+  private cleanupExpiredLogs(): void {
+    const now = Date.now();
+    const retentionTime = 24 * 60 * 60 * 1000;
+
+    for (const [key, logs] of this.executionLogs.entries()) {
+      if (logs.length > 0) {
+        const lastLogTime = logs[logs.length - 1].timestamp.getTime();
+        if (now - lastLogTime > retentionTime) {
+          this.executionLogs.delete(key);
+        }
+      }
+    }
   }
 }
 

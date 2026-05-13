@@ -1,9 +1,3 @@
-//
-/**
- * 哈希和签名工具
- * 基于CC源码实现
- */
-
 import { createHash, createHmac, type BinaryLike } from 'crypto';
 
 export function djb2Hash(str: string): number {

@@ -1,6 +1,6 @@
 /**
- * 上下文缓存服务
- * 实现上下文信息的缓存和清除
+ * 上下文缓存服务（统一实现）
+ * 合并 root 和 services 两个版本的接口
  */
 
 import fs from 'fs';
@@ -8,220 +8,87 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-/**
- * 缓存条目
- */
 interface CacheEntry<T> {
   value: T;
   timestamp: number;
   expiresAt: number | null;
+  ttl: number;
 }
 
-/**
- * 上下文缓存服务
- */
+export interface CacheConfig {
+  ttl: number;
+  maxSize: number;
+}
+
+const DEFAULT_CACHE_CONFIG: CacheConfig = {
+  ttl: 60000,
+  maxSize: 100,
+};
+
 export class ContextCacheService {
   private static instance: ContextCacheService;
-  private cache: Map<string, CacheEntry<any>>;
-  private fileWatchers: Map<string, fs.FSWatcher>;
-  private defaultTTL: number; // 默认缓存生存时间（毫秒）
+  private cache: Map<string, CacheEntry<any>> = new Map();
+  private fileWatchers: Map<string, fs.FSWatcher> = new Map();
+  private config: CacheConfig;
 
-  private constructor(defaultTTL: number = 300000) {
-    // 5分钟
-    this.cache = new Map();
-    this.fileWatchers = new Map();
-    this.defaultTTL = defaultTTL;
+  private constructor(config: Partial<CacheConfig> = {}) {
+    this.config = { ...DEFAULT_CACHE_CONFIG, ...config };
   }
 
-  /**
-   * 获取单例实例
-   */
-  static getInstance(defaultTTL?: number): ContextCacheService {
+  static getInstance(config?: Partial<CacheConfig>): ContextCacheService {
     if (!ContextCacheService.instance) {
-      ContextCacheService.instance = new ContextCacheService(defaultTTL);
+      ContextCacheService.instance = new ContextCacheService(config);
     }
     return ContextCacheService.instance;
   }
 
-  /**
-   * 设置缓存
-   */
   set<T>(key: string, value: T, ttl?: number): void {
+    if (this.cache.size >= this.config.maxSize) {
+      this.evictOldest();
+    }
     const now = Date.now();
-    const entry: CacheEntry<T> = {
+    const entryTTL = ttl || this.config.ttl;
+    this.cache.set(key, {
       value,
       timestamp: now,
-      expiresAt: ttl ? now + ttl : null,
-    };
-    this.cache.set(key, entry);
+      expiresAt: now + entryTTL,
+      ttl: entryTTL,
+    });
   }
 
-  /**
-   * 获取缓存
-   */
-  get<T>(key: string): T | null {
+  get<T>(key: string): T | undefined {
     const entry = this.cache.get(key);
     if (!entry) {
-      return null;
+      return undefined;
     }
-
-    // 检查是否过期
     if (entry.expiresAt && Date.now() > entry.expiresAt) {
       this.cache.delete(key);
-      return null;
+      return undefined;
     }
-
     return entry.value as T;
   }
 
-  /**
-   * 检查缓存是否存在
-   */
   has(key: string): boolean {
     const entry = this.cache.get(key);
     if (!entry) {
       return false;
     }
-
-    // 检查是否过期
     if (entry.expiresAt && Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return false;
     }
-
     return true;
   }
 
-  /**
-   * 删除缓存
-   */
-  delete(key: string): void {
-    this.cache.delete(key);
+  delete(key: string): boolean {
+    return this.cache.delete(key);
   }
 
-  /**
-   * 清空所有缓存
-   */
   clear(): void {
     this.cache.clear();
   }
 
-  /**
-   * 清空所有文件监听器
-   */
-  clearFileWatchers(): void {
-    for (const watcher of this.fileWatchers.values()) {
-      watcher.close();
-    }
-    this.fileWatchers.clear();
-  }
-
-  /**
-   * 监听文件变化并清除缓存
-   */
-  watchFile(filePath: string, cacheKeys?: string[]): void {
-    // 检查文件是否存在
-    if (!fs.existsSync(filePath)) {
-      return;
-    }
-
-    // 如果已经有监听器，先关闭
-    if (this.fileWatchers.has(filePath)) {
-      this.fileWatchers.get(filePath)?.close();
-    }
-
-    try {
-      const watcher = fs.watch(filePath, (eventType) => {
-        if (eventType === 'change' || eventType === 'rename') {
-          logger.info(`[context] File changed: ${filePath}`);
-
-          // 清除指定的缓存键
-          if (cacheKeys) {
-            for (const key of cacheKeys) {
-              this.delete(key);
-            }
-          } else {
-            // 清除所有缓存
-            this.clear();
-          }
-        }
-      });
-
-      this.fileWatchers.set(filePath, watcher);
-    } catch (error) {
-      logger.error(`[context] Failed to watch file: ${filePath}`, { error });
-    }
-  }
-
-  /**
-   * 监听目录变化并清除缓存
-   */
-  watchDirectory(dirPath: string, cacheKeys?: string[]): void {
-    // 检查目录是否存在
-    if (!fs.existsSync(dirPath)) {
-      return;
-    }
-
-    // 如果已经有监听器，先关闭
-    if (this.fileWatchers.has(dirPath)) {
-      this.fileWatchers.get(dirPath)?.close();
-    }
-
-    try {
-      const watcher = fs.watch(
-        dirPath,
-        { recursive: true },
-        (eventType, filename) => {
-          if (filename && (eventType === 'change' || eventType === 'rename')) {
-            logger.info(`[context] Directory changed: ${filename}`);
-
-            // 清除指定的缓存键
-            if (cacheKeys) {
-              for (const key of cacheKeys) {
-                this.delete(key);
-              }
-            } else {
-              // 清除所有缓存
-              this.clear();
-            }
-          }
-        }
-      );
-
-      this.fileWatchers.set(dirPath, watcher);
-    } catch (error) {
-      logger.error(`[context] Failed to watch directory: ${dirPath}`, {
-        error,
-      });
-    }
-  }
-
-  /**
-   * 获取缓存统计信息
-   */
-  getStats(): {
-    size: number;
-    keys: string[];
-    memoryUsage: number;
-  } {
-    const keys = Array.from(this.cache.keys());
-    let memoryUsage = 0;
-
-    for (const entry of this.cache.values()) {
-      memoryUsage += JSON.stringify(entry.value).length;
-    }
-
-    return {
-      size: this.cache.size,
-      keys,
-      memoryUsage,
-    };
-  }
-
-  /**
-   * 清除过期缓存
-   */
-  cleanup(): void {
+  clearExpired(): void {
     const now = Date.now();
     for (const [key, entry] of this.cache.entries()) {
       if (entry.expiresAt && now > entry.expiresAt) {
@@ -230,24 +97,135 @@ export class ContextCacheService {
     }
   }
 
-  /**
-   * 设置默认TTL
-   */
-  setDefaultTTL(ttl: number): void {
-    this.defaultTTL = ttl;
+  size(): number {
+    return this.cache.size;
   }
 
-  /**
-   * 获取默认TTL
-   */
+  keys(): string[] {
+    return Array.from(this.cache.keys());
+  }
+
+  clearFileWatchers(): void {
+    for (const watcher of this.fileWatchers.values()) {
+      watcher.close();
+    }
+    this.fileWatchers.clear();
+  }
+
+  watchFile(filePath: string, cacheKeys?: string[]): void {
+    if (!fs.existsSync(filePath)) {
+      return;
+    }
+    if (this.fileWatchers.has(filePath)) {
+      this.fileWatchers.get(filePath)?.close();
+    }
+    try {
+      const watcher = fs.watch(filePath, (eventType) => {
+        if (eventType === 'change' || eventType === 'rename') {
+          logger.info(`File changed: ${filePath}`);
+          if (cacheKeys) {
+            for (const key of cacheKeys) {
+              this.delete(key);
+            }
+          } else {
+            this.clear();
+          }
+        }
+      });
+      this.fileWatchers.set(filePath, watcher);
+    } catch (error) {
+      logger.error(`Failed to watch file: ${filePath}`, { error });
+    }
+  }
+
+  watchDirectory(dirPath: string, cacheKeys?: string[]): void {
+    if (!fs.existsSync(dirPath)) {
+      return;
+    }
+    if (this.fileWatchers.has(dirPath)) {
+      this.fileWatchers.get(dirPath)?.close();
+    }
+    try {
+      const watcher = fs.watch(
+        dirPath,
+        { recursive: true },
+        (eventType, filename) => {
+          if (filename && (eventType === 'change' || eventType === 'rename')) {
+            logger.info(`Directory changed: ${filename}`);
+            if (cacheKeys) {
+              for (const key of cacheKeys) {
+                this.delete(key);
+              }
+            } else {
+              this.clear();
+            }
+          }
+        }
+      );
+      this.fileWatchers.set(dirPath, watcher);
+    } catch (error) {
+      logger.error(`Failed to watch directory: ${dirPath}`, { error });
+    }
+  }
+
+  getStats(): {
+    size: number;
+    maxSize: number;
+    ttl: number;
+    keys?: string[];
+    memoryUsage?: number;
+  } {
+    return {
+      size: this.cache.size,
+      maxSize: this.config.maxSize,
+      ttl: this.config.ttl,
+      keys: Array.from(this.cache.keys()),
+    };
+  }
+
+  setDefaultTTL(ttl: number): void {
+    this.config.ttl = ttl;
+  }
+
   getDefaultTTL(): number {
-    return this.defaultTTL;
+    return this.config.ttl;
+  }
+
+  memoize<T extends (...args: any[]) => any>(
+    fn: T,
+    keyGenerator?: (...args: Parameters<T>) => string
+  ): T {
+    const cache = this;
+    const memoized = async function (
+      ...args: Parameters<T>
+    ): Promise<ReturnType<T>> {
+      const key = keyGenerator ? keyGenerator(...args) : JSON.stringify(args);
+      const cached = cache.get<ReturnType<T>>(key);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const result = await fn(...args);
+      cache.set(key, result);
+      return result;
+    } as T;
+    return memoized;
+  }
+
+  private evictOldest(): void {
+    let oldestKey: string | null = null;
+    let oldestTimestamp = Infinity;
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.timestamp < oldestTimestamp) {
+        oldestTimestamp = entry.timestamp;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+    }
   }
 }
 
-/**
- * 缓存键常量
- */
 export const ContextCacheKeys = {
   GIT_STATUS: 'context:git_status',
   USER_CONTEXT: 'context:user_context',
@@ -255,25 +233,23 @@ export const ContextCacheKeys = {
   ALL: 'context:*',
 } as const;
 
-/**
- * 获取上下文缓存服务实例
- */
 export function getContextCacheService(): ContextCacheService {
   return ContextCacheService.getInstance();
 }
 
-/**
- * 清除上下文缓存
- */
 export function clearContextCache(): void {
-  const service = getContextCacheService();
-  service.clear();
+  getContextCacheService().clear();
 }
 
-/**
- * 清除指定上下文缓存
- */
 export function clearContextCacheByKey(key: string): void {
-  const service = getContextCacheService();
-  service.delete(key);
+  getContextCacheService().delete(key);
+}
+
+export const contextCacheService = ContextCacheService.getInstance();
+
+export function memoize<T extends (...args: any[]) => any>(
+  fn: T,
+  keyGenerator?: (...args: Parameters<T>) => string
+): T {
+  return contextCacheService.memoize(fn, keyGenerator);
 }

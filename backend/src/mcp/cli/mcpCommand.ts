@@ -4,7 +4,7 @@
  */
 
 import { Command } from 'commander';
-import { getMCPServerManager } from '../managers/MCPServerManager';
+import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
 

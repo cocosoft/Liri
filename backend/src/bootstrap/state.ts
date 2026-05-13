@@ -2,9 +2,16 @@
  * 应用启动状态管理
  * 负责管理应用启动过程中的状态和初始化
  * 基于CC源码 cc_code/backend/bootstrap/state.ts 增强会话管理
+ *
+ * 会话ID相关类型和函数已移至 core/state/types.ts，
+ * 此处保留导出以保持向后兼容
  */
 
 import { profileCheckpoint } from '../utils/startupProfiler.js';
+import { generateSessionId } from '@modules/core/state/index.js';
+import type { SessionId } from '@modules/core/state/index.js';
+export type { SessionId };
+export { generateSessionId };
 
 /**
  * 慢操作记录
@@ -14,11 +21,6 @@ export interface SlowOperation {
   duration: number;
   timestamp: number;
 }
-
-/**
- * 会话ID类型
- */
-export type SessionId = string;
 
 /**
  * 应用启动状态
@@ -85,15 +87,6 @@ let startupState: AppStartupState = {
   isRemoteMode: false,
   mainThreadAgentType: undefined,
 };
-
-/**
- * 生成会话ID
- */
-function generateSessionId(): SessionId {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 10);
-  return `sess_${timestamp}_${random}`;
-}
 
 /**
  * 获取启动状态

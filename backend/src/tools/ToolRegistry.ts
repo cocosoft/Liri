@@ -11,6 +11,8 @@ import {
   getNonDeferredTools,
   calculateDeferredToolDescriptionChars,
 } from './utils/toolSearch';
+import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
+import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 
 export interface ToolSchema {
   name: string;
@@ -143,6 +145,18 @@ export class ToolRegistry {
     for (const tool of tools) {
       this.registerTool(tool);
     }
+  }
+
+  /**
+   * 注册 CC 风格的工具定义 + 实现函数
+   * 自动通过 ToolDefinitionAdapter 包装为 Tool 接口实例
+   */
+  registerDefinition(
+    definition: ToolDefinition,
+    implementation: ToolImplementation
+  ): void {
+    const adapter = new ToolDefinitionAdapter(definition, implementation);
+    this.registerTool(adapter);
   }
 
   getTool(name: string): Tool | undefined {

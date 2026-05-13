@@ -7,6 +7,7 @@
  * 3. MCP 合并 - 合并 MCP 工具
  */
 
+import type { FeatureFlag } from '@modules/core/featureFlags';
 import { Tool, ToolInfo } from './types/Tool';
 import { ToolRegistry } from './ToolRegistry';
 
@@ -29,7 +30,7 @@ export interface FilterResult {
  */
 export interface FeatureFlagConfig {
   /** 功能开关名称 */
-  name: string;
+  name: FeatureFlag;
   /** 是否启用 */
   enabled: boolean;
   /** 关联的工具名称 */

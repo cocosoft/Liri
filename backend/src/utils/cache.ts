@@ -6,25 +6,9 @@
 
 import { jsonStringify } from './json.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import type { ICache, CacheStats } from '@modules/cache/models/types';
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-/**
- * 缓存项
- */
-interface CacheItem<T> {
-  value: T;
-  expiresAt?: number;
-}
-
-/**
- * 缓存配置
- */
-interface CacheConfig {
-  maxSize?: number;
-  ttl?: number;
-  onEvict?: (key: string, value: any) => void;
-}
 
 /**
  * LRU缓存条目
@@ -35,9 +19,17 @@ interface LRUCacheItem<T> {
 }
 
 /**
+ * TTL 缓存条目
+ */
+interface TTLCacheEntry<T> {
+  value: T;
+  expiresAt?: number;
+}
+
+/**
  * LRU缓存类（纯JavaScript实现）
  */
-export class LRUCache<T = any> {
+export class LRUCache<T = unknown> {
   private cache: Map<string, LRUCacheItem<T>> = new Map();
   private maxSize: number;
   private defaultTtl: number;
@@ -166,8 +158,8 @@ export class LRUCache<T = any> {
 /**
  * TTL缓存类（带过期时间的缓存）
  */
-export class TTLCache<T = any> {
-  private cache: Map<string, CacheItem<T>> = new Map();
+export class TTLCache<T = unknown> {
+  private cache: Map<string, TTLCacheEntry<T>> = new Map();
   private maxSize: number;
   private defaultTtl: number;
   private accessOrder: string[] = [];
@@ -323,7 +315,7 @@ interface MemoryCacheItem<T> {
 /**
  * 内存缓存类（改进版，带LRU和TTL支持）
  */
-export class MemoryCache<T = any> {
+export class MemoryCache<T = unknown> {
   private cache: Map<string, MemoryCacheItem<T>> = new Map();
   private maxSize: number;
   private defaultTtl: number;
@@ -474,8 +466,8 @@ export class MemoryCache<T = any> {
 /**
  * 持久化缓存类
  */
-export class PersistentCache<T = any> {
-  private cache: Map<string, CacheItem<T>> = new Map();
+export class PersistentCache<T = unknown> {
+  private cache: Map<string, TTLCacheEntry<T>> = new Map();
   private filePath: string;
   private maxSize: number;
   private currentSize: number = 0;
@@ -636,7 +628,7 @@ export class PersistentCache<T = any> {
       const fs = require('fs');
       if (fs.existsSync(this.filePath)) {
         const data = fs.readFileSync(this.filePath, 'utf-8');
-        const entries = JSON.parse(data) as [string, CacheItem<T>][];
+        const entries = JSON.parse(data) as [string, TTLCacheEntry<T>][];
 
         this.cache = new Map(entries);
         this.currentSize = entries.length;
@@ -779,5 +771,76 @@ export class MultiLevelCache<T = any> {
    */
   getPersistentSize(): number {
     return this.persistentCache?.size() ?? 0;
+  }
+}
+
+export class CacheManager {
+  private caches: Map<string, MemoryCache | LRUCache | TTLCache> = new Map();
+
+  register(id: string, cache: MemoryCache | LRUCache | TTLCache): void {
+    this.caches.set(id, cache);
+  }
+
+  get(id: string): (MemoryCache | LRUCache | TTLCache) | undefined {
+    return this.caches.get(id);
+  }
+
+  has(id: string): boolean {
+    return this.caches.has(id);
+  }
+
+  clear(id?: string): void {
+    if (id) {
+      const cache = this.caches.get(id);
+      if (cache) {
+        cache.clear();
+      }
+    } else {
+      for (const cache of this.caches.values()) {
+        cache.clear();
+      }
+    }
+  }
+
+  remove(id: string): boolean {
+    const cache = this.caches.get(id);
+    if (cache) {
+      cache.clear();
+      return this.caches.delete(id);
+    }
+    return false;
+  }
+
+  size(id?: string): number {
+    if (id) {
+      const cache = this.caches.get(id);
+      return cache?.size() ?? 0;
+    }
+
+    let total = 0;
+    for (const cache of this.caches.values()) {
+      total += cache.size();
+    }
+    return total;
+  }
+
+  ids(): string[] {
+    return Array.from(this.caches.keys());
+  }
+}
+
+let globalCacheManager: CacheManager | null = null;
+
+export function getGlobalCacheManager(): CacheManager {
+  if (!globalCacheManager) {
+    globalCacheManager = new CacheManager();
+  }
+  return globalCacheManager;
+}
+
+export function resetGlobalCacheManager(): void {
+  if (globalCacheManager) {
+    globalCacheManager.clear();
+    globalCacheManager = null;
   }
 }

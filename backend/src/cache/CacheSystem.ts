@@ -18,24 +18,12 @@ import {
 import { logForDebugging } from '../utils/debug.js';
 import { isEnvTruthy } from '../utils/envUtils.js';
 import { jsonStringify, jsonParse } from '../performance/SlowOperations.js';
-
-/**
- * 缓存版本信息
- */
-export interface CacheVersion {
-  version: string;
-  timestamp: number;
-  description: string;
-}
-
-/**
- * 持久化缓存结构
- */
-export interface PersistentCache {
-  version: number;
-  lastUpdated: number;
-  data: Record<string, CacheItem>;
-}
+import {
+  type PersistentCacheItem,
+  type PersistentCache,
+  type PersistentCacheStorage,
+  type CacheVersion,
+} from './models/types.js';
 
 /**
  * 缓存版本常量
@@ -74,63 +62,10 @@ export async function withCacheLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
- * 缓存项接口
- */
-export interface CacheItem<T = unknown> {
-  key: string;
-  value: T;
-  timestamp: number;
-  expiry?: number;
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * 缓存存储接口
- */
-export interface CacheStorage {
-  /**
-   * 获取缓存项
-   */
-  get<T = unknown>(key: string): Promise<CacheItem<T> | undefined>;
-
-  /**
-   * 设置缓存项
-   */
-  set<T = unknown>(
-    key: string,
-    value: T,
-    options?: {
-      expiry?: number;
-      metadata?: Record<string, unknown>;
-    }
-  ): Promise<void>;
-
-  /**
-   * 删除缓存项
-   */
-  delete(key: string): Promise<boolean>;
-
-  /**
-   * 清空缓存
-   */
-  clear(): Promise<void>;
-
-  /**
-   * 获取所有缓存键
-   */
-  keys(): Promise<string[]>;
-
-  /**
-   * 关闭存储
-   */
-  close(): Promise<void>;
-}
-
-/**
  * 内存存储实现
  */
-export class MemoryStorage implements CacheStorage {
-  private data: Map<string, CacheItem> = new Map();
+export class MemoryStorage implements PersistentCacheStorage {
+  private data: Map<string, PersistentCacheItem> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor() {
@@ -138,7 +73,9 @@ export class MemoryStorage implements CacheStorage {
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 60000);
   }
 
-  async get<T = unknown>(key: string): Promise<CacheItem<T> | undefined> {
+  async get<T = unknown>(
+    key: string
+  ): Promise<PersistentCacheItem<T> | undefined> {
     const item = this.data.get(key);
     if (!item) return undefined;
 
@@ -148,7 +85,7 @@ export class MemoryStorage implements CacheStorage {
       return undefined;
     }
 
-    return item as CacheItem<T>;
+    return item as PersistentCacheItem<T>;
   }
 
   async set<T = unknown>(
@@ -159,14 +96,14 @@ export class MemoryStorage implements CacheStorage {
       metadata?: Record<string, unknown>;
     }
   ): Promise<void> {
-    const item: CacheItem<T> = {
+    const item: PersistentCacheItem<T> = {
       key,
       value,
       timestamp: Date.now(),
       expiry: options?.expiry,
       metadata: options?.metadata,
     };
-    this.data.set(key, item);
+    this.data.set(key, item as PersistentCacheItem);
   }
 
   async delete(key: string): Promise<boolean> {
@@ -205,7 +142,7 @@ export class MemoryStorage implements CacheStorage {
 /**
  * 磁盘存储实现
  */
-export class DiskStorage implements CacheStorage {
+export class DiskStorage implements PersistentCacheStorage {
   private cacheDir: string;
   private memoryCache = new MemoryStorage();
   private isInitialized = false;
@@ -403,12 +340,14 @@ export class DiskStorage implements CacheStorage {
     }
   }
 
-  async get<T = any>(key: string): Promise<CacheItem<T> | undefined> {
+  async get<T = unknown>(
+    key: string
+  ): Promise<PersistentCacheItem<T> | undefined> {
     await this.initialize();
     return this.memoryCache.get<T>(key);
   }
 
-  async set<T = any>(
+  async set<T = unknown>(
     key: string,
     value: T,
     options?: {
@@ -503,11 +442,11 @@ export class DiskStorage implements CacheStorage {
  * 缓存系统
  */
 export class CacheSystem {
-  private storage: CacheStorage;
+  private storage: PersistentCacheStorage;
   private version: string = '1.0.0';
   private versionHistory: CacheVersion[] = [];
 
-  constructor(storage: CacheStorage) {
+  constructor(storage: PersistentCacheStorage) {
     this.storage = storage;
     this.versionHistory.push({
       version: this.version,
@@ -519,7 +458,7 @@ export class CacheSystem {
   /**
    * 获取缓存
    */
-  async get<T = any>(key: string): Promise<T | undefined> {
+  async get<T = unknown>(key: string): Promise<T | undefined> {
     const item = await this.storage.get<T>(key);
     return item?.value;
   }
@@ -527,7 +466,7 @@ export class CacheSystem {
   /**
    * 设置缓存
    */
-  async set<T = any>(
+  async set<T = unknown>(
     key: string,
     value: T,
     options?: {
@@ -568,7 +507,9 @@ export class CacheSystem {
   /**
    * 获取缓存项的详细信息
    */
-  async getItem<T = any>(key: string): Promise<CacheItem<T> | undefined> {
+  async getItem<T = unknown>(
+    key: string
+  ): Promise<PersistentCacheItem<T> | undefined> {
     return await this.storage.get<T>(key);
   }
 
@@ -645,10 +586,10 @@ export class CacheSystem {
  * 创建缓存系统实例
  */
 export function createCacheSystem(options?: {
-  storage?: CacheStorage;
+  storage?: PersistentCacheStorage;
   cacheDir?: string;
 }): CacheSystem {
-  let storage: CacheStorage;
+  let storage: PersistentCacheStorage;
 
   if (options?.storage) {
     storage = options.storage;

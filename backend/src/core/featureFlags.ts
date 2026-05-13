@@ -69,6 +69,8 @@ export const FEATURE_FLAGS = {
   KAIROS_GITHUB_WEBHOOKS: false,
   /** KAIROS 推送通知 */
   KAIROS_PUSH_NOTIFICATION: false,
+  /** 沙箱模式 */
+  SANDBOX: true,
 
   // ───── 功能系统 ─────
   /** 插件系统 */
@@ -79,6 +81,8 @@ export const FEATURE_FLAGS = {
   ENABLE_WORKFLOWS: false,
   /** 高级命令 */
   ENABLE_ADVANCED_COMMANDS: false,
+  /** 命令管道 */
+  COMMAND_PIPELINE: false,
   /** MCP 系统 */
   MCP_SYSTEM: true,
   /** 模板系统 */
@@ -127,6 +131,8 @@ export const FEATURE_FLAGS = {
   LSP: false,
   /** MCP 工具（平台层） */
   MCP: false,
+  /** MCP OAuth 认证 */
+  MCP_OAUTH: false,
   /** REPL 工具 */
   REPL: false,
   /** Notebook 工具 */
@@ -145,6 +151,8 @@ export const FEATURE_FLAGS = {
   TEAM_CREATE: false,
   /** 团队删除工具 */
   TEAM_DELETE: false,
+  /** 团队成员 */
+  TEAMMEM: false,
   /** 休眠工具 */
   SLEEP: false,
   /** Git Worktree */
@@ -240,6 +248,10 @@ export const FEATURE_FLAGS = {
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
 
 export function feature(name: FeatureFlag): boolean {
+  const envValue = process.env[`FEATURE_${name}`];
+  if (envValue !== undefined) {
+    return envValue === 'true';
+  }
   return FEATURE_FLAGS[name] ?? false;
 }
 

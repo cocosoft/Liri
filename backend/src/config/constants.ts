@@ -1,9 +1,10 @@
-export enum SettingSource {
-  DEFAULT = 'default',
-  USER = 'user',
-  PROJECT = 'project',
-  MANAGED = 'managed',
-  LOCAL = 'local',
-  ENVIRONMENT = 'environment',
-  COMMAND_LINE = 'command_line',
-}
+/**
+ * 配置常量
+ *
+ * 注意：SettingSource 类型已在 UnifiedConfigManager.ts 中定义
+ * 此处仅为兼容旧代码的 re-export
+ */
+export type {
+  SettingSource,
+  EditableSettingSource,
+} from './UnifiedConfigManager.js';

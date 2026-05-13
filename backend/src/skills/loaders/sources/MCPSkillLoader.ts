@@ -1,7 +1,7 @@
 import { Skill, SkillSource } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import { createSkillCommand } from '@modules/skills/utils/skillParser';
-import { MCPServerManager } from '@modules/mcp/managers/MCPServerManager';
+import { MCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });

@@ -46,6 +46,8 @@ export type {
 } from './types';
 export * from './patterns';
 export * from './bash';
+export * from './git';
+export * from './permission';
 export * from './scanners';
 export * from './services';
 export * from './audit';

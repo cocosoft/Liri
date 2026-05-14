@@ -41,6 +41,50 @@ import {
   loadManagedAgents,
 } from './utils/agentLoader';
 
+import { BtwProcessor } from './btw';
+import type { BtwProcessorConfig, BtwDetectionResult, BtwAnswerResult, BtwContextMessage } from './btw';
+
+import { ToolPolicyManager } from './tool-policy';
+import type {
+  ToolProfileId as ToolPolicyProfileId,
+  ToolPolicyConfig,
+  ToolPolicyEvaluation,
+  OwnerOnlyToolApprovalClass,
+} from './tool-policy';
+import {
+  normalizeToolName,
+  normalizeToolList,
+  expandToolGroups,
+  resolveProfilePolicy,
+  resolveOwnerOnlyApprovalClass,
+  isOwnerOnlyTool,
+  TOOL_GROUPS,
+} from './tool-policy';
+
+import { ToolCatalog, createToolCatalog } from './tool-catalog';
+import type {
+  ToolProfileId as ToolCatalogProfileId,
+  ToolSection,
+  ToolCatalogItem,
+} from './tool-catalog';
+
+import { buildAgentTraceBase } from './trace-base';
+import type { AgentTraceBase } from './trace-base';
+
+import { resolveFastModeState, normalizeFastMode } from './fast-mode';
+import type { FastModeState, FastModeConfig } from './fast-mode';
+
+import {
+  resolveAgentIdentity,
+  resolveAckReaction,
+  resolveIdentityNamePrefix,
+  resolveMessagePrefix,
+  resolveResponsePrefix,
+  resolveEffectiveMessagesConfig,
+  resolveHumanDelayConfig,
+} from './identity';
+import type { IdentityConfig, MessagesConfig, HumanDelayConfig, AgentIdentitySystemConfig } from './identity';
+
 export {
   AgentService,
   createAgentService,
@@ -81,6 +125,51 @@ export {
   loadProjectAgents,
   loadLocalAgents,
   loadManagedAgents,
+  // BTW (Back That Way)
+  BtwProcessor,
+  BtwProcessorConfig,
+  BtwDetectionResult,
+  BtwAnswerResult,
+  BtwContextMessage,
+  // Tool Policy
+  ToolPolicyManager,
+  ToolPolicyProfileId,
+  ToolPolicyConfig,
+  ToolPolicyEvaluation,
+  OwnerOnlyToolApprovalClass,
+  normalizeToolName,
+  normalizeToolList,
+  expandToolGroups,
+  resolveProfilePolicy,
+  resolveOwnerOnlyApprovalClass,
+  isOwnerOnlyTool,
+  TOOL_GROUPS,
+  // Tool Catalog
+  ToolCatalog,
+  createToolCatalog,
+  ToolCatalogProfileId,
+  ToolSection,
+  ToolCatalogItem,
+  // Trace Base
+  AgentTraceBase,
+  buildAgentTraceBase,
+  // Fast Mode
+  FastModeState,
+  FastModeConfig,
+  resolveFastModeState,
+  normalizeFastMode,
+  // Identity
+  IdentityConfig,
+  MessagesConfig,
+  HumanDelayConfig,
+  AgentIdentitySystemConfig,
+  resolveAgentIdentity,
+  resolveAckReaction,
+  resolveIdentityNamePrefix,
+  resolveMessagePrefix,
+  resolveResponsePrefix,
+  resolveEffectiveMessagesConfig,
+  resolveHumanDelayConfig,
 };
 
 const agentService = createAgentService();

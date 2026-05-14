@@ -1,2 +1,2 @@
-export { ChannelRegistry, channelRegistry } from './ChannelRegistry';
-export type { ChannelEntry } from './ChannelRegistry';
+export { ChannelRegistry, channelRegistry } from './ChannelRegistry.js';
+export type { ChannelInterface, ChannelConfig, ChannelMessage } from './ChannelRegistry.js';

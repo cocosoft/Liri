@@ -1,0 +1,75 @@
+/**
+ * Fast Mode
+ * 对标 OpenClaw agents/fast-mode.ts
+ * 快速模式状态解析系统
+ * 优先级链: session → agent → config → default
+ */
+
+/**
+ * 快速模式状态
+ */
+export interface FastModeState {
+  /** 是否启用 */
+  enabled: boolean;
+  /** 来源层级 */
+  source: 'session' | 'agent' | 'config' | 'default';
+}
+
+/**
+ * 快速模式配置项
+ */
+export interface FastModeConfig {
+  /** 会话级覆盖 */
+  sessionOverride?: boolean | string | null;
+  /** 代理级默认值 */
+  agentDefault?: boolean;
+  /** 模型级配置 */
+  modelConfig?: {
+    provider: string;
+    model: string;
+    fastMode?: boolean | string;
+  };
+}
+
+/**
+ * 规范化 fastMode 值
+ * 支持 boolean、string 'true'/'false'、null/undefined
+ */
+export function normalizeFastMode(value: boolean | string | null | undefined): boolean | undefined {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase().trim();
+    if (lower === 'true') {
+      return true;
+    }
+    if (lower === 'false') {
+      return false;
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * 解析快速模式状态
+ * 优先级链: session → agent → config → default
+ */
+export function resolveFastModeState(config?: FastModeConfig): FastModeState {
+  const sessionOverride = normalizeFastMode(config?.sessionOverride);
+  if (sessionOverride !== undefined) {
+    return { enabled: sessionOverride, source: 'session' };
+  }
+
+  if (typeof config?.agentDefault === 'boolean') {
+    return { enabled: config.agentDefault, source: 'agent' };
+  }
+
+  const modelFastMode = normalizeFastMode(config?.modelConfig?.fastMode);
+  if (modelFastMode !== undefined) {
+    return { enabled: modelFastMode, source: 'config' };
+  }
+
+  return { enabled: false, source: 'default' };
+}

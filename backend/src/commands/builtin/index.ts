@@ -108,3 +108,15 @@ export { securityReviewCommand } from './security-review/index.js';
 
 // Gateway 通道管理命令
 export { gatewayCommand } from './gateway/index.js';
+
+// 文档与卸载命令
+export { docsCommand } from './docs/index.js';
+export { uninstallCommand } from './uninstall/index.js';
+
+// 入手指引、健康检查与任务管理
+export { onboardCommand } from './onboard/index.js';
+export { healthCommand } from './health/index.js';
+export { tasksCommand } from './tasks/index.js';
+
+// 通道命令（来自 commands/channel）
+export { channelCmd } from '../channel/index.js';

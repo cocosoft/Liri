@@ -179,7 +179,7 @@ export class ChannelBridgeAdapter {
 
     const message = this.formatProgressMessage(meta, progress, status);
     try {
-      const result = await entry.plugin.outbound.sendText(
+      const result = await entry.plugin!.outbound.sendText(
         meta.senderId,
         message
       );
@@ -208,7 +208,7 @@ export class ChannelBridgeAdapter {
 
     const message = this.formatResultMessage(meta, result);
     try {
-      const sendResult = await entry.plugin.outbound.sendText(
+      const sendResult = await entry.plugin!.outbound.sendText(
         meta.senderId,
         message
       );

@@ -1,10 +1,11 @@
 /**
  * 命令自动补全管理器
- * 负责提供命令自动补全功能
+ * 负责提供命令自动补全功能，集成 CommandCatalog 增强补全体验
  */
 
 import { commandRegistry } from '@modules/commands/registry/CommandRegistry.js';
 import { commandHistoryManager } from '@modules/commands/history/CommandHistoryManager.js';
+import { commandCatalog } from '@modules/commands/framework/CommandCatalog.js';
 
 /**
  * 补全项类型
@@ -27,25 +28,24 @@ export class CommandCompletionManager {
   getCompletions(input: string): CompletionItem[] {
     const completions: CompletionItem[] = [];
 
-    // 解析输入
     const parts = input.trim().split(' ');
     const firstPart = parts[0];
 
-    // 如果输入以/开头，认为是命令
     if (firstPart.startsWith('/')) {
       const commandPrefix = firstPart.substring(1);
 
-      // 补全命令
       if (parts.length === 1) {
         completions.push(...this.getCommandCompletions(commandPrefix));
       } else {
-        // 补全命令参数
         const commandName = commandPrefix;
         const args = parts.slice(1).join(' ');
         completions.push(...this.getArgumentCompletions(commandName, args));
+
+        if (args.endsWith(' ')) {
+          completions.push(...this.getCategoryCompletions(args.trim()));
+        }
       }
     } else {
-      // 补全历史命令
       completions.push(...this.getHistoryCompletions(input));
     }
 
@@ -216,7 +216,6 @@ export class CommandCompletionManager {
     const completions: CompletionItem[] = [];
     const frequency = commandHistoryManager.getCommandFrequency();
 
-    // 按使用频率排序
     const sortedCommands = Object.entries(frequency)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10);
@@ -228,6 +227,78 @@ export class CommandCompletionManager {
           value: `/${command}`,
           label: command,
           description: `${cmd.description} (使用 ${count} 次)`,
+        });
+      }
+    }
+
+    return completions;
+  }
+
+  /**
+   * 获取分类补全
+   * @param input 用户输入
+   * @returns 分类相关的补全项
+   */
+  private getCategoryCompletions(input: string): CompletionItem[] {
+    const completions: CompletionItem[] = [];
+    const categories = commandCatalog.getCategories();
+
+    for (const cat of categories) {
+      if (cat.name.toLowerCase().includes(input.toLowerCase())) {
+        const commands = cat.commands.slice(0, 5);
+        for (const cmdName of commands) {
+          const cmd = commandRegistry.getCommand(cmdName);
+          if (cmd) {
+            completions.push({
+              value: cmdName,
+              label: cmdName,
+              description: `${cat.icon} ${cmd.description}`,
+            });
+          }
+        }
+      }
+    }
+
+    return completions;
+  }
+
+  /**
+   * 获取热门命令推荐（基于使用统计）
+   * @returns 热门命令推荐列表
+   */
+  getHotCommands(): CompletionItem[] {
+    const completions: CompletionItem[] = [];
+    const stats = commandCatalog.getMostUsedCommands(5);
+
+    for (const stat of stats) {
+      const cmd = commandRegistry.getCommand(stat.name);
+      if (cmd) {
+        completions.push({
+          value: `/${stat.name}`,
+          label: stat.name,
+          description: `${cmd.description} (${stat.invokeCount} 次)`,
+        });
+      }
+    }
+
+    return completions;
+  }
+
+  /**
+   * 获取收藏命令
+   * @returns 收藏命令列表
+   */
+  getFavoriteCommands(): CompletionItem[] {
+    const completions: CompletionItem[] = [];
+    const favorites = commandCatalog.getFavorites();
+
+    for (const fav of favorites) {
+      const cmd = commandRegistry.getCommand(fav.name);
+      if (cmd) {
+        completions.push({
+          value: `/${fav.name}`,
+          label: fav.name,
+          description: cmd.description,
         });
       }
     }

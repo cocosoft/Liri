@@ -30,6 +30,7 @@
 - **测试**: `backend/testing/`
 - **设计文档**: `dev_docs/YYYYMMDD/`（按日期归档）
 - **CC源码**: `reference/cc_code/`（只读参考）
+- **OpenClaw/Hermes源码**: `reference/hermes-agent-main/`（只读参考）
 - **MakeItdown源码**: `reference/markitdown-main`（只读参考）
 - **配置**: `backend/config.json` + `backend/settings.json` + `backend/configs/`
 - **依赖快照**: `backend/dependency-snapshot.json`（模块结构变更时同步更新）
@@ -163,15 +164,15 @@ import './main_with_modules.tsx';   // 禁止直接引用历史入口
 新需求先编制设计文档到 `dev_docs/YYYYMMDD/`，用户确认后再实施。
 
 ### 3.2 禁止重复造轮子
-- 先学习 CC 源码，复用成熟方案
+- 先学习 CC 和 OpenClaw 源码，复用成熟方案
 - 发现重复代码立即整合
 
 ### 3.3 对标开发5步闭环
 ① 对标分析 → ② 实施方案 → ③ 代码实现 → ④ 验证记录 → ⑤ 总览同步
 
 ### 3.4 对标完整性原则（强制）
- 对标CC源码时，必须**先完整实现所有CC已有功能**，再评估修剪。禁止在对标分析过程中提前裁剪。
- - **正确做法**: 完整列表CC功能 → 全部实现 → 作为独立步骤评估修剪
+ 对标CC和OpenClaw源码时，必须**先完整实现所有对标对象已有功能**，再评估修剪。禁止在对标分析过程中提前裁剪。
+ - **正确做法**: 完整列表示标对象功能 → 全部实现 → 作为独立步骤评估修剪
  - **错误做法**: 分析时说"这个功能用不上"直接跳过实现
  - **例外**: 只有当某个功能依赖PY_APP不存在的底层依赖（如特定云服务API）时方可跳过，但须在注释中注明原因
  
@@ -183,7 +184,7 @@ import './main_with_modules.tsx';   // 禁止直接引用历史入口
 ## §4 实施原则
 
 ### 4.1 核心原则
-1. 仅学习 CC 源码，不修改
+1. 仅学习 CC 和 OpenClaw 源码，不修改
 2. 先设计后开发
 3. 不删除现有代码，仅新增或修改
 
@@ -373,7 +374,7 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 
 ## §9 安全必做项
 
-参考 `cc_code/bashSecurity.ts` 的检查：
+参考 `cc_code/bashSecurity.ts`（CC）和 `infra/exec-safety.ts`（OpenClaw）的检查：
 - 阻止危险 Zsh 内置命令
 - 防御 Zsh equals expansion
 - Unicode 零宽字符注入检测
@@ -405,6 +406,11 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 | 状态管理统一 | P2 | core/state/ 为唯一来源（持续完善） |
 | 缓存系统统一 | P2 | ICache 接口 + 工厂模式 |
 | CLI 命令补齐 | P2 | 达到 50+ 命令覆盖 |
+| 对标OpenClaw通道系统 | P1 | 多通道（Telegram/Discord/Slack/IRC）支持 |
+| 对标OpenClaw插件生态 | P1 | 安装/市场/Provider体系 |
+| 对标OpenClaw配置管理 | P1 | Schema驱动/IO审计/脱敏/合并恢复 |
+| 对标OpenClaw守护进程 | P2 | systemd/launchd/schtasks跨平台服务 |
+| 对标OpenClaw网关系统 | P2 | HTTP+WS+MCP+OpenAI兼容网关 |
 
 ---
 
@@ -432,6 +438,8 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 - [ ] 缓存系统实现 ICache 接口（§4.13）
 - [ ] **禁止使用 `any` 类型**，使用具体类型或 `unknown`（§1.2）
 - [ ] **确认无双轨制**：新增功能前检查是否已有同功能实现；发现双轨制按 §4.14 流程处理
+- [ ] **OpenClaw对标项验收**：新增功能是否已在 dev_docs/YYYYMMDD/ 对标报告中与 OpenClaw 对比
+- [ ] **双源学习验证**：新需求先检查 CC 和 OpenClaw 是否已有可复用方案
 
 ---
 
@@ -455,6 +463,7 @@ CC 源码中的 KAIROS 系统已被 Chronos 系统替换。
 ---
 
 **版本历史**:
+- **v6.3.0**: 对标范围扩展为 CC + OpenClaw 双基准；§1.4新增OpenClaw源码引用；§3.2/§3.4/§4.1将对标范围扩展为CC+OpenClaw；§9安全参考新增OpenClaw安全模块；§10生产化Checklist新增5项OpenClaw对标项；§11检查清单新增OpenClaw对标验收和双源学习验证项
 - **v6.2.0**: 新增§4.14 实现唯一性原则（双轨制禁止），明确判定标准和处置流程；§11 检查清单新增双轨制检查项
 - **v6.1.0**: 新增§1.9 MCP模块架构规范；新增§4.9工具分区并发规范、§4.10上下文压缩策略规范、§4.11特征开关规范、§4.12安全模块整合规范、§4.13缓存系统接口规范；更新§4.2内置命令三要素（+UI组件+测试）；更新§10生产化Checklist（新增7项能力）；更新§11 LLM开发检查清单（新增6项检查）
 - **v6.0.0**: 新增§1.6日志规范、§1.7错误处理规范、§1.8入口与启动规范；新增§4.5状态管理统一、§4.6代码复用收敛、§4.7类型定义收敛、§4.8启动流程标准化；新增§8.6后台守护进程设计原则、§8.7测试先行原则；更新§10生产化Checklist、§11 LLM开发检查清单

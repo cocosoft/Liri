@@ -1,0 +1,119 @@
+(pass) Coordinator > should create coordinator with config
+(pass) Coordinator > should add tasks
+(pass) Coordinator > should add multiple tasks
+(pass) Coordinator > should get task status
+(pass) Coordinator > should get all tasks
+(pass) Coordinator > should get pending tasks
+(pass) Coordinator > should stop task
+(pass) Coordinator > should stop all tasks
+(pass) Coordinator > should get stats
+(pass) Coordinator > should clear all tasks [15.00ms]
+(pass) Coordinator > should generate report
+(pass) FeedbackManager > should submit feedback
+(pass) FeedbackManager > should get feedback
+(pass) FeedbackManager > should update feedback status
+(pass) FeedbackManager > should get all feedback [16.00ms]
+(pass) FeedbackManager > should filter feedback by type
+(pass) FeedbackManager > should get stats [16.00ms]
+(pass) ErrorHintManager > should get error hint for connection error
+(pass) ErrorHintManager > should get error hint for file not found
+(pass) ErrorHintManager > should get error hint for permission error
+(pass) ErrorHintManager > should format error hint
+(pass) ErrorHintManager > should return null for unknown error
+(pass) ErrorHintManager > should register custom pattern
+(pass) ErrorHintManager > should get registered patterns
+(pass) AgentTool > should create tool instance
+(pass) AgentTool > should have correct parameters
+(pass) AgentTool > should have correct description
+(pass) AgentTool > should not be read-only
+(pass) AgentTool > should not be concurrency safe
+(pass) AgentTool > should validate input with required fields
+(pass) AgentTool > should validate input missing required field
+(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇鑳借缃拰鑾峰彇缂撳瓨鍊?(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇鑳藉垹闄ょ紦瀛樺€?(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇鑳芥竻绌虹紦瀛?(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇鏀寔涓嶅悓鐨勭紦瀛樹紭鍏堢骇
+(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇姝ｇ‘澶勭悊TTL杩囨湡 [157.00ms]
+(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇鏀寔鐑偣鏁版嵁淇濇姢
+(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇鏀寔浜嬩欢璁㈤槄
+(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇鏀寔浜岀骇缂撳瓨
+(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇姝ｇ‘璁＄畻缁熻淇℃伅
+(pass) CacheStrategyManager 鍩烘湰鍔熻兘娴嬭瘯 > 搴旇鏀寔绛栫暐鍒囨崲
+(pass) CommandRegistry > Search Commands > should search by exact name match
+(pass) CommandRegistry > Search Commands > should search by partial name match
+(pass) CommandRegistry > Search Commands > should search by description
+(pass) CommandRegistry > Search Commands > should search by alias
+(pass) CommandRegistry > Search Commands > should sort by relevance
+(pass) CommandRegistry > Search Commands > should respect limit option
+(pass) CommandRegistry > Search Commands > should exclude hidden commands by default
+(pass) CommandRegistry > Search Commands > should include hidden commands when requested
+(pass) CommandRegistry > Search Commands > should search by whenToUse
+(pass) CommandRegistry > Search Commands > should search by argumentHint
+(pass) CommandRegistry > Command Stats > should return correct stats
+(pass) CommandManager > Search Commands > should delegate search to registry
+(pass) CommandManager > Search Commands > should delegate stats to registry
+(pass) Coordinator > should create a coordinator instance
+(pass) Coordinator > should add a task
+(pass) Coordinator > should add tasks with priority
+(pass) Coordinator > should get task status
+(pass) Coordinator > should get all tasks
+(pass) Coordinator > should get pending tasks
+(pass) Coordinator > should stop a task
+(pass) Coordinator > should stop all tasks
+(pass) Coordinator > should get stats
+(pass) Coordinator > should generate report
+(pass) Coordinator > should clear all tasks
+(pass) Coordinator > should get queue length and running task count
+(pass) ModuleDependencyManager > should register a module
+(pass) ModuleDependencyManager > should not register duplicate modules
+(pass) ModuleDependencyManager > should detect circular dependencies
+(pass) ModuleDependencyManager > should calculate load order correctly
+(pass) ModuleDependencyManager > should initialize modules in correct order
+(pass) ModuleDependencyManager > should handle module initialization errors
+(pass) ModuleDependencyManager > should get module dependencies
+(pass) ModuleDependencyManager > should get module dependents
+(pass) PluginEcosystem > should register a plugin
+(pass) PluginEcosystem > should register a skill
+(pass) PluginEcosystem > should get plugin skills
+(pass) PluginEcosystem > should enable and disable plugins
+(pass) PluginEcosystem > should search plugins by category
+(pass) PluginEcosystem > should search plugins by tags
+(pass) PluginEcosystem > should export and import config
+(pass) PluginSDK > should register a plugin
+(pass) PluginSDK > should not register duplicate plugins
+(pass) PluginSDK > should activate and deactivate plugins
+(pass) PluginSDK > should execute skills
+(pass) PluginSDK > should throw error for non-existent skill [16.00ms]
+(pass) PluginSDK > should validate plugin definitions
+(pass) AppCore > should create AppCore instance
+(pass) AppCore > should initialize successfully
+(pass) AppCore > should get module manager
+(pass) AppCore > should get ecosystem
+(pass) AppCore > should get plugin SDK
+(pass) AppCore > should get terminal UI
+(pass) AppCore > should register and activate plugins
+(pass) AppCore > should execute skills
+(pass) AppCore > should shutdown gracefully
+(pass) Integration Tests > should integrate all core systems
+(pass) 鏂囨。绯荤粺娴嬭瘯 > 甯姪绯荤粺鐨勫熀鏈姛鑳?(pass) 鏂囨。绯荤粺娴嬭瘯 > 绀轰緥鍛戒护鍔熻兘
+(pass) 鏂囨。绯荤粺娴嬭瘯 > 閲婃斁璇存槑鍔熻兘
+(pass) 鏂囨。绯荤粺娴嬭瘯 > 閿欒娑堟伅鍔熻兘
+(pass) 鏂囨。绯荤粺娴嬭瘯 > 澶氳瑷€鏀寔鍔熻兘 [15.00ms]
+(pass) 鏂囨。绯荤粺娴嬭瘯 > 涓婁笅鏂囧府鍔╁姛鑳?(pass) 鏂囨。绯荤粺娴嬭瘯 > 鎼滅储鍔熻兘
+(pass) ErrorHandler > handleSync > should handle successful execution
+(pass) ErrorHandler > handleSync > should handle error with rethrow
+(pass) ErrorHandler > handleSync > should handle error with fallback strategy
+(pass) ErrorHandler > handleSync > should handle error with retry strategy [15.00ms]
+(pass) ErrorHandler > handleSync > should handle abort error
+(pass) ErrorHandler > handleAsync > should handle successful async execution
+(pass) ErrorHandler > handleAsync > should handle async error with fallback strategy
+(pass) ErrorHandler > handleAsync > should handle async error with retry strategy [110.00ms]
+(pass) ErrorHandler > safeSync > should return result for successful execution
+(pass) ErrorHandler > safeSync > should return fallback for failed execution
+(pass) ErrorHandler > safeAsync > should return result for successful async execution
+(pass) ErrorHandler > safeAsync > should return fallback for failed async execution
+(pass) Error utilities > formatError should format ShellError
+(pass) Error utilities > formatError should format AbortError
+(pass) Error utilities > formatError should format regular Error
+(pass) Error utilities > formatError should format non-Error
+(pass) Convenience functions > handleError should delegate to ErrorHandler.handleSync
+(pass) Convenience functions > handleErrorAsync should delegate to ErrorHandler.handleAsync
+(pass) Convenience functions > safeSync should delegate to ErrorHandler.safeSync
+(pass) Convenience functions > safeAsync should delegate to ErrorHandler.safeAsync

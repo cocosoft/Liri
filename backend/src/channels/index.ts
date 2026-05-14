@@ -1,24 +1,15 @@
-/**
- * 通道系统入口
- */
+export { IrcChannel } from './irc/index.js';
+export { SlackChannel } from './slack/index.js';
+export { LineChannel } from './line/index.js';
+export { NostrChannel } from './nostr/index.js';
+export { ChannelRegistry, channelRegistry } from './registry/ChannelRegistry.js';
+export type { ChannelInterface, ChannelConfig, ChannelMessage } from './registry/ChannelRegistry.js';
 
-export * from './types';
-export * from './registry';
-export * from './policy';
-export { wecomChannel } from './wecom';
-export { feishuChannel } from './feishu';
-export { dingtalkChannel } from './dingtalk';
-export {
-  wechatChannel,
-  parseWechatXML,
-  buildWechatReply,
-  WechatCrypto,
-} from './wechat';
-export { qqChannel } from './qq';
-export type { QQState } from './qq';
-export {
-  telegramChannel,
-  escapeMarkdownV2,
-  buildInlineKeyboard,
-} from './telegram';
-export { discordChannel, buildDiscordEmbed } from './discord';
+export { ChannelSessionManager, channelSessionManager } from './session/ChannelSessionManager.js';
+export type { ChannelSession, ChannelSessionStatus, ChannelSessionEvent } from './session/ChannelSessionManager.js';
+
+export { ChannelLogManager, channelLogManager } from './log/ChannelLogManager.js';
+export type { LogLevel, ChannelLogEntry, ChatType, ChatMeta } from './log/ChannelLogManager.js';
+
+export { TurnManager, turnManager } from './turn/TurnManager.js';
+export type { TurnStrategy, TurnEntry, TurnConfig, TurnEvent } from './turn/TurnManager.js';

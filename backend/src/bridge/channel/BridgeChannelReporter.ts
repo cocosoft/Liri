@@ -72,7 +72,7 @@ export class BridgeChannelReporter {
 
     const message = this.renderReport(report);
     try {
-      const sendResult = await entry.plugin.outbound.sendText(
+      const sendResult = await entry.plugin!.outbound.sendText(
         report.targetUserId,
         message
       );
@@ -148,7 +148,7 @@ export class BridgeChannelReporter {
     }
 
     try {
-      const result = await entry.plugin.outbound.sendText(
+      const result = await entry.plugin!.outbound.sendText(
         targetUserId,
         lines.join('\n')
       );

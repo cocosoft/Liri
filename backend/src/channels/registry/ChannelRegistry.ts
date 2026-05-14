@@ -1,165 +1,210 @@
 /**
- * 通道注册中心
- * 管理通道插件的注册、发现、生命周期
- * 对齐 OpenClaw channels/registry.ts
+ * ChannelRegistry 通道注册中心
+ * 对标 CC 的通道管理能力
  */
+import { EventEmitter } from 'node:events';
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import type {
-  IChannelPlugin,
-  ChannelId,
-  ChannelStatus,
-} from '@modules/channels/types';
-
-const logger = new Logger({ level: LogLevel.INFO });
-
-export interface ChannelEntry {
-  plugin: IChannelPlugin;
-  config: Record<string, unknown>;
+/**
+ * 通道接口
+ */
+export interface ChannelInterface {
+  name: string;
+  type: string;
+  enabled: boolean;
   connected: boolean;
-  registeredAt: number;
+
+  connect(): Promise<boolean>;
+  disconnect(): Promise<void>;
+  sendMessage(target: string, text: string): Promise<boolean>;
+  getStatus(): Record<string, unknown>;
+
+  plugin?: {
+    outbound: {
+      sendText(target: string, message: string): { success: boolean };
+    };
+  };
 }
 
-export class ChannelRegistry {
-  private channels: Map<ChannelId, ChannelEntry> = new Map();
-  private configStore: Map<ChannelId, Record<string, unknown>> = new Map();
+/**
+ * 通道配置
+ */
+export interface ChannelConfig {
+  name: string;
+  type: string;
+  enabled: boolean;
+  options: Record<string, unknown>;
+}
 
-  register(plugin: IChannelPlugin): void {
-    if (this.channels.has(plugin.id)) {
-      logger.warning(`通道已注册，将被覆盖: ${plugin.id}`);
-    }
-    const storedConfig = this.configStore.get(plugin.id);
-    const config = storedConfig || plugin.config.getDefaultConfig();
-    this.channels.set(plugin.id, {
-      plugin,
-      config,
-      connected: false,
-      registeredAt: Date.now(),
-    });
-    logger.info(`通道已注册: ${plugin.id} (${plugin.meta.displayName})`);
+/**
+ * 通道消息
+ */
+export interface ChannelMessage {
+  id: string;
+  channel: string;
+  type: string;
+  content: string;
+  sender: string;
+  timestamp: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * 通道注册中心
+ */
+export class ChannelRegistry extends EventEmitter {
+  private channels: Map<string, ChannelInterface> = new Map();
+  private configs: Map<string, ChannelConfig> = new Map();
+
+  constructor() {
+    super();
   }
 
-  unregister(id: ChannelId): boolean {
-    const entry = this.channels.get(id);
-    if (entry) {
-      if (entry.connected) {
-        entry.plugin.lifecycle.disconnect().catch((e: Error) => {
-          logger.error(`通道 ${id} 断开失败`, e);
-        });
-      }
-      this.channels.delete(id);
-      logger.info(`通道已注销: ${id}`);
+  /**
+   * 注册通道
+   */
+  register(channel: ChannelInterface): void {
+    this.channels.set(channel.name, channel);
+    this.configs.set(channel.name, {
+      name: channel.name,
+      type: channel.type,
+      enabled: channel.enabled,
+      options: {},
+    });
+
+    this.emit('channel:registered', { name: channel.name, type: channel.type });
+  }
+
+  /**
+   * 注销通道
+   */
+  unregister(name: string): boolean {
+    const channel = this.channels.get(name);
+
+    if (channel) {
+      channel.disconnect();
+      this.channels.delete(name);
+      this.configs.delete(name);
+      this.emit('channel:unregistered', { name });
+
       return true;
     }
+
     return false;
   }
 
-  get(id: ChannelId): ChannelEntry | undefined {
-    return this.channels.get(id);
+  /**
+   * 获取通道
+   */
+  get(name: string): ChannelInterface | undefined {
+    return this.channels.get(name);
   }
 
-  getPlugin(id: ChannelId): IChannelPlugin | undefined {
-    return this.channels.get(id)?.plugin;
-  }
-
-  getAll(): ChannelEntry[] {
+  /**
+   * 获取所有通道
+   */
+  getAll(): ChannelInterface[] {
     return Array.from(this.channels.values());
   }
 
-  getRegisteredIds(): ChannelId[] {
-    return Array.from(this.channels.keys());
+  /**
+   * 获取所有已启用通道
+   */
+  getEnabled(): ChannelInterface[] {
+    return Array.from(this.channels.values()).filter((c) => c.enabled);
   }
 
-  async connect(
-    id: ChannelId,
-    config?: Record<string, unknown>
-  ): Promise<boolean> {
-    const entry = this.channels.get(id);
-    if (!entry) {
-      logger.error(`通道未注册: ${id}`);
-      return false;
-    }
-    if (entry.connected) {
-      logger.warning(`通道已连接: ${id}`);
-      return true;
-    }
-    try {
-      if (config) {
-        entry.config = { ...entry.config, ...config };
-        this.configStore.set(id, entry.config);
+  /**
+   * 获取配置
+   */
+  getConfig(name: string): ChannelConfig | undefined {
+    return this.configs.get(name);
+  }
+
+  /**
+   * 获取所有配置
+   */
+  getAllConfigs(): ChannelConfig[] {
+    return Array.from(this.configs.values());
+  }
+
+  /**
+   * 广播消息到所有通道
+   */
+  async broadcast(text: string): Promise<Array<{ channel: string; success: boolean }>> {
+    const results: Array<{ channel: string; success: boolean }> = [];
+
+    for (const channel of this.getEnabled()) {
+      try {
+        const success = await channel.sendMessage('', text);
+        results.push({ channel: channel.name, success });
+      } catch {
+        results.push({ channel: channel.name, success: false });
       }
-      await entry.plugin.lifecycle.connect(entry.config);
-      entry.connected = true;
-      logger.info(`通道已连接: ${id}`);
-      return true;
-    } catch (error) {
-      logger.error(`通道连接失败: ${id}`, error as Error);
-      return false;
     }
+
+    return results;
   }
 
-  async disconnect(id: ChannelId): Promise<boolean> {
-    const entry = this.channels.get(id);
-    if (!entry || !entry.connected) {
-      return false;
+  /**
+   * 获取统计
+   */
+  getStats(): { total: number; enabled: number; types: Record<string, number> } {
+    const channels = Array.from(this.channels.values());
+    const types: Record<string, number> = {};
+
+    for (const channel of channels) {
+      types[channel.type] = (types[channel.type] || 0) + 1;
     }
-    try {
-      await entry.plugin.lifecycle.disconnect();
-      entry.connected = false;
-      logger.info(`通道已断开: ${id}`);
-      return true;
-    } catch (error) {
-      logger.error(`通道断开失败: ${id}`, error as Error);
-      return false;
-    }
+
+    return {
+      total: channels.length,
+      enabled: channels.filter((c) => c.enabled).length,
+      types,
+    };
   }
 
-  async disconnectAll(): Promise<void> {
-    for (const id of this.channels.keys()) {
-      await this.disconnect(id);
-    }
-  }
-
-  getStatus(id: ChannelId): ChannelStatus | undefined {
-    const entry = this.channels.get(id);
-    if (!entry) return undefined;
-    return entry.plugin.lifecycle.getStatus();
-  }
-
-  getAllStatuses(): Array<{
-    id: ChannelId;
-    name: string;
-    status: ChannelStatus;
-  }> {
-    return this.getAll().map((entry) => ({
-      id: entry.plugin.id,
-      name: entry.plugin.meta.displayName,
-      status: entry.plugin.lifecycle.getStatus(),
+  /**
+   * 获取所有通道状态（兼容旧 API）
+   */
+  getAllStatuses(): Array<{ id: string; status: { connected: boolean; latencyMs: number } }> {
+    return Array.from(this.channels.entries()).map(([name, channel]) => ({
+      id: name,
+      status: {
+        connected: channel.connected,
+        latencyMs: 0,
+      },
     }));
   }
 
-  getConnectedCount(): number {
-    let count = 0;
-    for (const [, entry] of this.channels) {
-      if (entry.connected) count++;
-    }
-    return count;
+  /**
+   * 获取通道连接状态（兼容旧 API）
+   */
+  getStatus(name: string): { connected: boolean } | undefined {
+    const channel = this.channels.get(name);
+    if (!channel) return undefined;
+
+    return { connected: channel.connected };
   }
 
-  isConnected(id: ChannelId): boolean {
-    return this.channels.get(id)?.connected || false;
+  /**
+   * 连接通道（兼容旧 API）
+   */
+  async connect(name: string): Promise<boolean> {
+    const channel = this.channels.get(name);
+    if (!channel) return false;
+
+    return channel.connect();
   }
 
-  updateConfig(id: ChannelId, config: Record<string, unknown>): boolean {
-    const entry = this.channels.get(id);
-    if (!entry) return false;
-    const validated = entry.plugin.config.validate(config);
-    if (!validated.valid) {
-      logger.warning(`通道配置无效: ${id} — ${validated.errors.join(', ')}`);
-      return false;
-    }
-    entry.config = { ...entry.config, ...config };
-    this.configStore.set(id, entry.config);
+  /**
+   * 断开通道（兼容旧 API）
+   */
+  async disconnect(name: string): Promise<boolean> {
+    const channel = this.channels.get(name);
+    if (!channel) return false;
+
+    await channel.disconnect();
+
     return true;
   }
 }

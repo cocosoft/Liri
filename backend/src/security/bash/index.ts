@@ -72,3 +72,67 @@ export {
   type Redirect,
   type ParseForSecurityResult,
 } from './BashAST';
+
+// Sed编辑命令解析与安全验证（对标CC源码 utils/bash/sedEditParser.ts + sedValidation.ts）
+export {
+  parseSedCommand,
+  parseSedExpression,
+  isSedCommand,
+  containsDangerousSedPattern,
+  extractSedFileTargets,
+  type SedScript,
+  type SedEditCommand,
+  type SedAddress,
+  type SedSubstituteCommand,
+  type SedDeleteCommand,
+  type SedPrintCommand,
+  type SedWriteCommand,
+  type SedInsertCommand,
+  type SedTransformCommand,
+  type SedReadCommand,
+  type SedBranchCommand,
+  type SedLabelCommand,
+  type SedQuitCommand,
+  type SedNextCommand,
+  type SedHoldCommand,
+} from './sedEditParser';
+
+export {
+  validateSedCommand,
+  validateSedExpression,
+  makeSedValidationResult,
+  isSedInPlaceEdit,
+  getSedTargetFiles,
+  type SedValidationOptions,
+  type SedValidationResult,
+  type SedIssue,
+  type SedIssueType,
+  DEFAULT_SED_OPTIONS,
+} from './sedValidation';
+
+// 命令执行模式验证（对标CC源码 utils/bash/modeValidation.ts）
+export {
+  ModeValidator,
+  getModeConfig,
+  getAllModes,
+  getModeLevel,
+  type ExecutionMode,
+  type ModeValidationOptions,
+  type ModeValidationResult,
+  EXECUTION_MODES,
+} from './modeValidation';
+
+// 注释标签解析（对标CC源码 utils/bash/commentLabel.ts）
+export {
+  extractCommentLabels,
+  hasCommentLabel,
+  getLabelValue,
+  stripCommentLabels,
+  classifyCommandByLabels,
+  addCommentLabel,
+  getLabelPriority,
+  isHighConfidenceLabel,
+  type CommentLabel,
+  type CommentLabelType,
+  type CommentLabelPattern,
+} from './commentLabel';

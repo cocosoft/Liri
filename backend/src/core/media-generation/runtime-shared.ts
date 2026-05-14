@@ -1,0 +1,83 @@
+import type {
+  MediaGenerationNormalizationMetadataInput,
+  MediaNormalizationEntry,
+  MediaNormalizationValue,
+  ParsedProviderModelRef,
+} from "./types.js";
+
+export type {
+  MediaGenerationNormalizationMetadataInput,
+  MediaNormalizationEntry,
+  MediaNormalizationValue,
+} from "./types.js";
+
+export function hasMediaNormalizationEntry<TValue extends MediaNormalizationValue>(
+  entry: MediaNormalizationEntry<TValue> | undefined,
+): entry is MediaNormalizationEntry<TValue> {
+  return Boolean(
+    entry &&
+    (entry.requested !== undefined ||
+      entry.applied !== undefined ||
+      entry.derivedFrom !== undefined ||
+      (entry.supportedValues?.length ?? 0) > 0),
+  );
+}
+
+export function buildNoCapabilityModelConfiguredMessage(params: {
+  capability: string;
+  modelCandidates: ParsedProviderModelRef[];
+}): string {
+  if (params.modelCandidates.length === 0) {
+    return `No model configured for ${params.capability}. Set a model in your agent config.`;
+  }
+  const tried = params.modelCandidates
+    .map((ref) => `${ref.provider}/${ref.model}`)
+    .join(", ");
+  return `No available model supports ${params.capability}. Tried: ${tried}`;
+}
+
+export function throwCapabilityGenerationFailure(params: {
+  capability: string;
+  modelCandidates: ParsedProviderModelRef[];
+  cause?: unknown;
+}): never {
+  const message = buildNoCapabilityModelConfiguredMessage({
+    capability: params.capability,
+    modelCandidates: params.modelCandidates,
+  });
+  if (params.cause instanceof Error) {
+    throw new Error(`${message}: ${params.cause.message}`, { cause: params.cause });
+  }
+  throw new Error(message);
+}
+
+export function resolveCapabilityModelCandidates(params: {
+  modelConfig?: { model?: string; fallbacks?: string[] };
+  modelOverride?: string;
+  parseModelRef: (raw: string | undefined) => ParsedProviderModelRef | null;
+}): ParsedProviderModelRef[] {
+  const candidates: ParsedProviderModelRef[] = [];
+  const seen = new Set<string>();
+  const add = (raw: string | undefined) => {
+    const parsed = params.parseModelRef(raw);
+    if (!parsed) {
+      return;
+    }
+    const key = `${parsed.provider}/${parsed.model}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    candidates.push(parsed);
+  };
+
+  add(params.modelOverride);
+  add(params.modelConfig?.model);
+  if (params.modelConfig?.fallbacks) {
+    for (const fb of params.modelConfig.fallbacks) {
+      add(fb);
+    }
+  }
+
+  return candidates;
+}

@@ -6,6 +6,7 @@
 import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { channelRegistry } from '@modules/channels';
+import type { ChannelInterface } from '@modules/channels';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -49,40 +50,48 @@ const channelCmd: Command = {
 
 function listChannels(): CommandResult {
   const entries = channelRegistry.getAll();
+
   if (entries.length === 0) {
     return { success: true, type: 'text', message: '没有注册的通道', data: [] };
   }
-  const lines = entries.map((e: { plugin: { meta: { icon: string; displayName: string; vendor: string }; id: string; lifecycle: { getStatus: () => { connected: boolean } } } }) => {
-    const s = e.plugin.lifecycle.getStatus();
-    return `  ${e.plugin.meta.icon} ${e.plugin.meta.displayName} (${e.plugin.id}) — ${s.connected ? '🟢 已连接' : '⚫ 未连接'} ${e.plugin.meta.vendor}`;
+
+  const lines = entries.map((ch: ChannelInterface) => {
+    return `  ${ch.name} (${ch.type}) — ${ch.connected ? '🟢 已连接' : '⚫ 未连接'} ${ch.enabled ? '已启用' : '已禁用'}`;
   });
+
   return { success: true, type: 'text', message: `通道列表 (${entries.length}):\n${lines.join('\n')}`, data: entries };
 }
 
 function channelStatus(name: string): CommandResult {
   if (!name) {
     const statuses = channelRegistry.getAllStatuses();
+
     if (statuses.length === 0) return { success: true, type: 'text', message: '没有注册的通道' };
+
     const lines = statuses.map((s: { id: string; status: { connected: boolean; latencyMs: number } }) => {
-      const st = s.status;
-      return `  ${s.id}: ${st.connected ? '🟢' : '⚫'} 延迟 ${st.latencyMs}ms`;
+      return `  ${s.id}: ${s.status.connected ? '🟢' : '⚫'} 延迟 ${s.status.latencyMs}ms`;
     });
+
     return { success: true, type: 'text', message: `通道状态:\n${lines.join('\n')}` };
   }
-  const status = channelRegistry.getStatus(name as 'wecom' | 'feishu' | 'dingtalk' | 'wechat' | 'qq' | 'telegram' | 'discord');
+
+  const status = channelRegistry.getStatus(name);
   if (!status) return { success: false, type: 'error', error: `通道不存在: ${name}` };
+
   return { success: true, type: 'text', message: `${name}: ${status.connected ? '🟢 已连接' : '⚫ 未连接'}`, data: status };
 }
 
 async function connectChannel(name: string): Promise<CommandResult> {
   if (!name) return { success: false, type: 'error', error: '请指定通道名称' };
-  const ok = await channelRegistry.connect(name as 'wecom' | 'feishu' | 'dingtalk' | 'wechat' | 'qq' | 'telegram' | 'discord');
+
+  const ok = await channelRegistry.connect(name);
   return { success: ok, type: 'text', message: ok ? `通道 ${name} 已连接` : `通道 ${name} 连接失败` };
 }
 
 async function disconnectChannel(name: string): Promise<CommandResult> {
   if (!name) return { success: false, type: 'error', error: '请指定通道名称' };
-  const ok = await channelRegistry.disconnect(name as 'wecom' | 'feishu' | 'dingtalk' | 'wechat' | 'qq' | 'telegram' | 'discord');
+
+  const ok = await channelRegistry.disconnect(name);
   return { success: ok, type: 'text', message: ok ? `通道 ${name} 已断开` : `通道 ${name} 断开失败` };
 }
 

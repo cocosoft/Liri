@@ -188,6 +188,7 @@ const hooksCommand = {
         '钩子事件类型:',
         '  system.*       - 系统启动/关闭事件',
         '  session.*      - 会话开始/结束事件',
+        '  notification.* - 通知触发事件（启动通知、插件安装通知、任务完成通知）',
         '  compression.*  - 内容压缩事件',
         '  memory.*       - 记忆保存/加载事件',
         '  command.*      - 命令执行事件',

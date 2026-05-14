@@ -14,9 +14,11 @@ export type {
   RemoteConnectionStatus,
   StateChangeListener,
   StateUpdater,
+  AppState,
+  Notification,
+  NotificationType,
+  AppStateStore,
 } from './AppState';
-
-export type { AppStateStore } from './AppState';
 
 export type {
   Store,
@@ -35,8 +37,6 @@ export type {
   MCPState,
   PluginLoadState,
   TaskState,
-  Notification,
-  NotificationType,
   SessionId,
 } from './types';
 export { generateSessionId } from './types';
@@ -47,4 +47,4 @@ export {
   useAppState,
   useSetAppState,
 } from './buddyAppState.js';
-export type { AppState } from './buddyAppState.js';
+export type { AppState as BuddyAppState } from './buddyAppState.js';

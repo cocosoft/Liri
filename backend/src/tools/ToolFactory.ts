@@ -47,6 +47,11 @@ import { TeamDeleteTool } from './TeamDeleteTool/TeamDeleteTool';
 import { EnterWorktreeTool } from './EnterWorktreeTool/EnterWorktreeTool';
 import { ExitWorktreeTool } from './ExitWorktreeTool/ExitWorktreeTool';
 import { ListPeersTool } from './ListPeersTool/ListPeersTool';
+import { SessionsTool } from './SessionsTool/SessionsTool';
+import { ClipboardTool } from './ClipboardTool/ClipboardTool';
+import { ImageTool } from './ImageTool/ImageTool';
+import { VideoTool } from './VideoTool/VideoTool';
+import { MusicTool } from './MusicTool/MusicTool';
 import { ListMcpResourcesTool } from './ListMcpResourcesTool/ListMcpResourcesTool.js';
 import { ReadMcpResourceTool } from './ReadMcpResourceTool/ReadMcpResourceTool.js';
 import { MCPTool } from '../mcp/MCPTool';
@@ -579,6 +584,41 @@ export class ToolFactory {
    */
   createToolSearchTool(): Tool | null {
     return new ToolSearchTool();
+  }
+
+  /**
+   * 创建Sessions统一会话管理工具
+   */
+  createSessionsTool(): Tool {
+    return new SessionsTool();
+  }
+
+  /**
+   * 创建剪贴板工具
+   */
+  createClipboardTool(): Tool {
+    return new ClipboardTool();
+  }
+
+  /**
+   * 创建通用图片编辑工具
+   */
+  createImageTool(): Tool {
+    return new ImageTool();
+  }
+
+  /**
+   * 创建通用视频编辑工具
+   */
+  createVideoTool(): Tool {
+    return new VideoTool();
+  }
+
+  /**
+   * 创建通用音频编辑工具
+   */
+  createMusicTool(): Tool {
+    return new MusicTool();
   }
 }
 

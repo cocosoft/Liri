@@ -76,3 +76,10 @@ export { useVoice } from './useVoice';
 export { usePrStatus, getPRCombinedStatus, canMergePR } from './usePrStatus';
 export { useDiffData } from './useDiffData';
 export { useMemoryUsage } from './useMemoryUsage';
+
+// 通知Hooks
+export {
+  useStartupNotification,
+  usePluginInstallationNotification,
+  useTaskCompletionNotification,
+} from './notifs';

@@ -3,7 +3,9 @@
  * 参考CC源码 cc_code/backend/state/AppStateStore.ts 实现
  */
 
-import { create } from 'zustand';
+import {
+  create,
+} from 'zustand';
 import type { Tool, ToolPermissionContext } from '@modules/types/tool.js';
 import type { Command } from '@modules/types/command.js';
 import type {
@@ -250,6 +252,35 @@ export interface AppState {
   };
   /** 建议推测状态 */
   suggestionSpeculation: SuggestionSpeculationState;
+  /** 通知列表 */
+  notifications: Notification[];
+  /** 未读通知计数 */
+  notificationCount: number;
+}
+
+/**
+ * 通知类型
+ */
+export type NotificationType = 'info' | 'success' | 'warning' | 'error';
+
+/**
+ * 通知接口
+ */
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  timestamp: number;
+  read?: boolean;
+  priority?: 'low' | 'medium' | 'high';
+}
+
+/**
+ * 生成通知ID
+ */
+export function generateNotifId(): string {
+  return `notif_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 }
 
 /**
@@ -266,6 +297,12 @@ export interface AppStateStore {
   replaceState(state: AppState): void;
   /** 批量更新 */
   batchUpdate(updater: (state: AppState) => AppState): void;
+  /** 添加通知 */
+  addNotification(notif: Omit<Notification, 'id' | 'timestamp'>): string;
+  /** 移除通知 */
+  removeNotification(id: string): void;
+  /** 清除所有通知 */
+  clearNotifications(): void;
 }
 
 /**
@@ -336,6 +373,8 @@ export function getDefaultAppState(): AppState {
       },
     },
     suggestionSpeculation: IDLE_SUGGESTION_SPECULATION_STATE,
+    notifications: [],
+    notificationCount: 0,
   };
 }
 

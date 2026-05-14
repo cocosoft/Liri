@@ -6,6 +6,8 @@
 import {
   AppState,
   AppStateStore,
+  Notification,
+  generateNotifId,
   StateChangeListener,
   StateUpdater,
 } from './AppState';
@@ -134,6 +136,64 @@ export function createAppStateStore(
       } else {
         batchUpdates.push(updater);
       }
+    },
+
+    /**
+     * 添加通知
+     */
+    addNotification: (notif: Omit<Notification, 'id' | 'timestamp'>): string => {
+      const id = generateNotifId();
+      const newNotif: Notification = {
+        ...notif,
+        id,
+        timestamp: Date.now(),
+        read: false,
+      };
+
+      const oldState = state;
+      const newState = {
+        ...oldState,
+        notifications: [...oldState.notifications, newNotif],
+        notificationCount: oldState.notificationCount + 1,
+      };
+
+      state = newState;
+      notifyListeners(newState, oldState);
+      return id;
+    },
+
+    /**
+     * 移除通知
+     */
+    removeNotification: (id: string): void => {
+      const oldState = state;
+      const idx = oldState.notifications.findIndex((n) => n.id === id);
+      if (idx === -1) return;
+
+      const newNotifications = [...oldState.notifications];
+      newNotifications.splice(idx, 1);
+
+      state = {
+        ...oldState,
+        notifications: newNotifications,
+        notificationCount: Math.max(0, oldState.notificationCount - 1),
+      };
+      notifyListeners(state, oldState);
+    },
+
+    /**
+     * 清除所有通知
+     */
+    clearNotifications: (): void => {
+      const oldState = state;
+      if (oldState.notifications.length === 0) return;
+
+      state = {
+        ...oldState,
+        notifications: [],
+        notificationCount: 0,
+      };
+      notifyListeners(state, oldState);
     },
   };
 }

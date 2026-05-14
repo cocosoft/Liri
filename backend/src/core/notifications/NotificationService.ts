@@ -20,7 +20,7 @@ interface AppStateWithNotifications extends AppState {
  * 支持通知操作的 store 接口
  */
 interface NotificationStore extends AppStateStore {
-  addNotification(notification: Omit<Notification, 'id' | 'timestamp'>): void;
+  addNotification(notification: Omit<Notification, 'id' | 'timestamp'>): string;
   removeNotification(id: string): void;
   clearNotifications(): void;
   getState(): AppStateWithNotifications;

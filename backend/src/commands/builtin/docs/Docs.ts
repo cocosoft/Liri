@@ -213,6 +213,31 @@ const DOC_SECTIONS: DocSection[] = [
     ].join('\n'),
     keywords: ['performance', '性能', '监控', 'monitor', 'metrics'],
   },
+  {
+    title: '通知系统',
+    content: [
+      'PY_APP 的通知系统提供事件驱动的消息推送能力：',
+      '',
+      '通知类型:',
+      '  - info     - 信息提示（一般性通知）',
+      '  - success  - 成功提示（操作完成确认）',
+      '  - warning  - 警告提示（需要注意的情况）',
+      '  - error    - 错误提示（操作失败通知）',
+      '',
+      '内置通知钩子:',
+      '  - 启动通知（useStartupNotification）      - 应用启动时推送状态信息',
+      '  - 插件安装通知（usePluginInstallationNotification） - 插件安装失败时告警',
+      '  - 任务完成通知（useTaskCompletionNotification）  - 任务完成/失败/取消时通知',
+      '',
+      '通知优先级:',
+      '  - low      - 低优先级，可延迟查看',
+      '  - medium   - 中优先级，常规提醒',
+      '  - high     - 高优先级，需要立即关注',
+      '',
+      '使用 /hooks 查看所有已注册的钩子和通知事件。',
+    ].join('\n'),
+    keywords: ['notification', 'notif', '通知', '提醒', 'alert', 'hook', '钩子'],
+  },
 ];
 
 const docsCommand = {

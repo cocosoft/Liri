@@ -83,6 +83,15 @@ export const builtinToolLoaders: ToolLoader[] = [
   createToolLoader(ToolFactory.prototype.createAskUserQuestionTool),
   createToolLoader(ToolFactory.prototype.createBriefTool),
 
+  // 会话管理工具
+  createToolLoader(ToolFactory.prototype.createSessionsTool),
+  createToolLoader(ToolFactory.prototype.createClipboardTool),
+
+  // 媒体编辑工具
+  createToolLoader(ToolFactory.prototype.createImageTool),
+  createToolLoader(ToolFactory.prototype.createVideoTool),
+  createToolLoader(ToolFactory.prototype.createMusicTool),
+
   // Notebook 编辑工具
   createToolLoader(ToolFactory.prototype.createNotebookEditTool),
 

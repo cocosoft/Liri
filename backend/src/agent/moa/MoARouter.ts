@@ -1,3 +1,9 @@
+/**
+ * MoARouter - Mixture of Agents 路由器
+ * N 模型并行查询 → 1 聚合器综合输出
+ */
+import { buildAggregatorPrompt } from './AggregatorPrompt';
+
 export interface MoARequest {
   query: string;
   models: string[];
@@ -28,23 +34,6 @@ export interface MoAModelAdapter {
     maxTokens?: number
   ): Promise<string>;
 }
-
-const AGGREGATOR_PROMPT = `You are an expert synthesizer. You will receive multiple responses from different AI models to the same prompt. Your task is to produce a single, high-quality response that combines the best elements from all responses.
-
-Rules:
-1. Identify consensus points that most models agree on
-2. Resolve contradictions by choosing the most well-reasoned position
-3. Combine complementary information from different responses
-4. Maintain a neutral, objective tone
-5. Cite which model contributed which insight when relevant
-6. Be concise but comprehensive
-
-Original user prompt: {query}
-
-Individual model responses:
-{responses}
-
-Synthesized response:`;
 
 export class MoARouter {
   private adapters: Map<string, MoAModelAdapter> = new Map();
@@ -99,14 +88,10 @@ export class MoARouter {
     let aggregated = '';
 
     if (aggregatorAdapter && individualResults.length > 0) {
-      const responsesText = individualResults
-        .map((r) => `--- Model: ${r.model} ---\n${r.response}\n`)
-        .join('\n');
-
-      const aggregatorPrompt = AGGREGATOR_PROMPT.replace(
-        '{query}',
-        request.query
-      ).replace('{responses}', responsesText);
+      const aggregatorPrompt = buildAggregatorPrompt(request.query, individualResults.map((r) => ({
+        model: r.model,
+        response: r.response,
+      })));
 
       aggregated = await aggregatorAdapter.query(
         aggregatorPrompt,

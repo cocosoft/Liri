@@ -8,6 +8,8 @@ import path from 'path';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { getSkillCurator } from './SkillCurator';
+import { SkillProvenanceTracker } from './SkillProvenanceTracker';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -109,7 +111,21 @@ export class SkillManager {
     profileCheckpoint('skill_manager_initialize_skills_start');
     await this.initializeSkills();
     profileCheckpoint('skill_manager_initialize_skills_end');
+
+    // 同步到 SkillHub 并启动策展器
+    this.syncToSkillHub();
+    getSkillCurator().startScheduler();
     profileCheckpoint('skill_manager_initialize_end');
+  }
+
+  private syncToSkillHub(): void {
+    const provenance = new SkillProvenanceTracker();
+    for (const [name, info] of this.skills) {
+      provenance.track(
+        name,
+        info.metadata?.type === 'builtin' ? 'builtin' : 'user'
+      );
+    }
   }
 
   /**

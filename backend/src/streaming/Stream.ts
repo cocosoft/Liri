@@ -99,4 +99,18 @@ export class Stream<T> implements AsyncIterableIterator<T> {
     }
     return Promise.resolve({ done: true, value: undefined });
   }
+
+  pipe<S>(
+    scrubber: (source: AsyncIterableIterator<T>) => AsyncIterableIterator<S>
+  ): Stream<S> {
+    const target = new Stream<S>();
+    const source = this;
+    (async () => {
+      for await (const chunk of scrubber(source)) {
+        target.enqueue(chunk);
+      }
+      target.done();
+    })().catch((err) => target.error(err));
+    return target;
+  }
 }

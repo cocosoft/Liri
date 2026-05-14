@@ -1,5 +1,7 @@
 import { buildEnvironmentHints, getPlatformHint } from './PlatformHints';
 import { getModelGuidance } from './ModelGuidance';
+import { getPromptInjectionDetector } from '../../security/injection/PromptInjectionDetector';
+import { getUnicodeSanitizer } from '../../security/injection/UnicodeSanitizer';
 
 export interface SystemPromptContext {
   platform?: string;
@@ -14,7 +16,17 @@ export function buildSystemPrompt(
   basePrompt: string,
   context: SystemPromptContext = {}
 ): string {
-  const parts: string[] = [basePrompt];
+  const sanitized = getUnicodeSanitizer().sanitize(basePrompt);
+  const detectionResult = getPromptInjectionDetector().detect(sanitized.output);
+
+  if (detectionResult.detected && detectionResult.severity === 'critical') {
+    throw new Error(
+      `Prompt injection detected: ${detectionResult.description}\n` +
+        `Patterns: ${detectionResult.matchedPatterns.join(', ')}`
+    );
+  }
+
+  const parts: string[] = [sanitized.output];
 
   if (context.includeEnvironmentHints !== false) {
     const envHints = buildEnvironmentHints();

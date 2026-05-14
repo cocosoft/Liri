@@ -3,6 +3,7 @@ import * as net from 'node:net';
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
 import type { GatewayAuth, AuthResult } from './auth/GatewayAuth';
 import type { RateLimiter, RateLimitResult } from './RateLimiter';
 import type { GatewayFrame } from './protocol/types';
@@ -15,7 +16,24 @@ import {
   computeWebSocketAcceptKey,
 } from './protocol/frames';
 
-const logger = new Logger({ level: LogLevel.INFO });
+const rawLogger = new Logger({ level: LogLevel.INFO });
+
+class RedactedLogger {
+  info(msg: string, meta?: Record<string, unknown>) {
+    rawLogger.info(getRedactMiddleware().redactMessage(msg), meta);
+  }
+  warning(msg: string, meta?: Record<string, unknown>) {
+    rawLogger.warning(getRedactMiddleware().redactMessage(msg), meta);
+  }
+  error(msg: string, meta?: Record<string, unknown>) {
+    rawLogger.error(msg, meta);
+  }
+  debug(msg: string, meta?: Record<string, unknown>) {
+    rawLogger.debug(getRedactMiddleware().redactMessage(msg), meta);
+  }
+}
+
+const logger = new RedactedLogger() as unknown as Logger;
 
 export interface GatewayServerConfig {
   host?: string;

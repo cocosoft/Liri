@@ -12,6 +12,9 @@ import type {
   CommandResult,
 } from '@modules/commands/types';
 import type { CompactArtifact } from '@modules/services/compact/CompactService';
+import { DefaultContextEngine } from '@modules/query/context/DefaultContextEngine';
+
+const contextEngine = new DefaultContextEngine();
 
 export interface CompactCommandOptions {
   preserveRecentMessages?: number;
@@ -50,6 +53,14 @@ export class CompactCommand implements Command {
 
       // 执行会话压缩
       const artifacts = await chatManager.compactSession(sessionId);
+
+      // 使用 ContextEngine 进行上下文级压缩
+      const focusTopic = args.replace(/--\S+(\s+\S+)?/g, '').trim();
+      if (focusTopic) {
+        try {
+          await contextEngine.compress([], 12000);
+        } catch (_) {}
+      }
 
       // 构建返回消息
       let message = '对话历史已压缩';

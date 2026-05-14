@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
 import type { CoreAPI } from '../api/CoreAPI';
 import type {
   GatewayChannel,
@@ -26,7 +27,24 @@ import { GatewayAuth } from './auth/GatewayAuth';
 import { ChannelPluginRegistry } from './ChannelPluginRegistry';
 import { isChannelPlugin } from './ChannelPlugin';
 import type { ChannelPlugin } from './ChannelPlugin';
-const logger = new Logger({ level: LogLevel.INFO });
+const rawLogger = new Logger({ level: LogLevel.INFO });
+
+class RedactedLogger {
+  info(msg: string, meta?: Record<string, unknown>) {
+    rawLogger.info(getRedactMiddleware().redactMessage(msg), meta);
+  }
+  warning(msg: string, meta?: Record<string, unknown>) {
+    rawLogger.warning(getRedactMiddleware().redactMessage(msg), meta);
+  }
+  error(msg: string, meta?: Record<string, unknown>) {
+    rawLogger.error(msg, meta);
+  }
+  debug(msg: string, meta?: Record<string, unknown>) {
+    rawLogger.debug(getRedactMiddleware().redactMessage(msg), meta);
+  }
+}
+
+const logger = new RedactedLogger() as unknown as Logger;
 
 /** 通道管理器配置 */
 export interface ChannelManagerConfig {

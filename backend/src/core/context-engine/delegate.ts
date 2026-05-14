@@ -1,7 +1,4 @@
-import type {
-  ContextEngine,
-  CompactResult,
-} from './types.js';
+import type { ContextEngine, CompactResult } from './types.js';
 
 /**
  * 委托上下文压缩给运行时的内置压缩路径。
@@ -9,7 +6,7 @@ import type {
  * 以复用内置的压缩行为。
  */
 export async function delegateCompactionToRuntime(
-  params: Parameters<ContextEngine['compact']>[0],
+  params: Parameters<ContextEngine['compact']>[0]
 ): Promise<CompactResult> {
   const currentTokenCount =
     params.currentTokenCount ??
@@ -34,8 +31,8 @@ export async function delegateCompactionToRuntime(
  * 构建内存系统提示补充段。
  * 让非 legacy 引擎显式接入内存/知识库提示指导。
  */
-export function buildMemorySystemPromptAddition(
-  _params: { availableTools: Set<string> },
-): string | undefined {
+export function buildMemorySystemPromptAddition(_params: {
+  availableTools: Set<string>;
+}): string | undefined {
   return undefined;
 }

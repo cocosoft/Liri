@@ -4,9 +4,18 @@
  * 基于当前执行模式验证命令是否允许执行
  */
 
-import type { SecurityAnalysisResult, RiskLevel, SecurityBehavior } from '../types';
+import type {
+  SecurityAnalysisResult,
+  RiskLevel,
+  SecurityBehavior,
+} from '../types';
 
-export type ExecutionMode = 'normal' | 'restricted' | 'readOnly' | 'isolated' | 'observe';
+export type ExecutionMode =
+  | 'normal'
+  | 'restricted'
+  | 'readOnly'
+  | 'isolated'
+  | 'observe';
 
 export interface ModeValidationOptions {
   currentMode: ExecutionMode;
@@ -24,7 +33,10 @@ export interface ModeValidationResult {
   reasons: string[];
 }
 
-export const EXECUTION_MODES: Record<ExecutionMode, { label: string; description: string }> = {
+export const EXECUTION_MODES: Record<
+  ExecutionMode,
+  { label: string; description: string }
+> = {
   normal: {
     label: 'Normal',
     description: 'Full execution allowed with standard security checks',
@@ -47,7 +59,10 @@ export const EXECUTION_MODES: Record<ExecutionMode, { label: string; description
   },
 };
 
-const MODE_READ_WRITE_COMMANDS: Record<ExecutionMode, { allow: string[]; ask: string[]; deny: string[] }> = {
+const MODE_READ_WRITE_COMMANDS: Record<
+  ExecutionMode,
+  { allow: string[]; ask: string[]; deny: string[] }
+> = {
   normal: {
     allow: ['*'],
     ask: [],
@@ -55,73 +70,229 @@ const MODE_READ_WRITE_COMMANDS: Record<ExecutionMode, { allow: string[]; ask: st
   },
   restricted: {
     allow: [
-      'ls', 'cat', 'head', 'tail', 'less', 'more',
-      'grep', 'egrep', 'fgrep', 'awk', 'sed', 'find',
-      'wc', 'sort', 'uniq', 'cut', 'tr', 'echo', 'printf',
-      'date', 'env', 'printenv', 'pwd', 'which', 'type',
-      'dirname', 'basename', 'realpath', 'readlink',
-      'stat', 'file', 'du', 'df',
-      'ps', 'top', 'htop', 'free', 'uptime',
-      'uname', 'hostname', 'whoami', 'id', 'groups',
-      'diff', 'comm', 'cmp',
-      'sha256sum', 'sha1sum', 'md5sum',
-      'man', 'help', 'history',
-      'git', 'npm', 'yarn', 'pnpm', 'pip',
-      'python', 'python3', 'node', 'deno', 'bun',
-      'mkdir', 'touch', 'cp', 'mv', 'chmod', 'chown',
-      'tar', 'gzip', 'gunzip', 'zip', 'unzip',
+      'ls',
+      'cat',
+      'head',
+      'tail',
+      'less',
+      'more',
+      'grep',
+      'egrep',
+      'fgrep',
+      'awk',
+      'sed',
+      'find',
+      'wc',
+      'sort',
+      'uniq',
+      'cut',
+      'tr',
+      'echo',
+      'printf',
+      'date',
+      'env',
+      'printenv',
+      'pwd',
+      'which',
+      'type',
+      'dirname',
+      'basename',
+      'realpath',
+      'readlink',
+      'stat',
+      'file',
+      'du',
+      'df',
+      'ps',
+      'top',
+      'htop',
+      'free',
+      'uptime',
+      'uname',
+      'hostname',
+      'whoami',
+      'id',
+      'groups',
+      'diff',
+      'comm',
+      'cmp',
+      'sha256sum',
+      'sha1sum',
+      'md5sum',
+      'man',
+      'help',
+      'history',
+      'git',
+      'npm',
+      'yarn',
+      'pnpm',
+      'pip',
+      'python',
+      'python3',
+      'node',
+      'deno',
+      'bun',
+      'mkdir',
+      'touch',
+      'cp',
+      'mv',
+      'chmod',
+      'chown',
+      'tar',
+      'gzip',
+      'gunzip',
+      'zip',
+      'unzip',
     ],
     ask: [
-      'rm', 'rmdir', 'del', 'erase', 'rd',
-      'ln', 'mklink',
-      'wget', 'curl',
-      'sudo', 'doas', 'pkexec',
-      'kill', 'killall', 'pkill', 'taskkill',
-      'systemctl', 'service', 'sc',
-      'reg', 'regedit',
-      'mount', 'umount',
-      'crontab', 'at', 'schtasks',
-      'chmod', 'chown', 'chgrp', 'icacls',
-      'dd', 'mkfs', 'format',
-      'shutdown', 'reboot', 'halt', 'poweroff',
+      'rm',
+      'rmdir',
+      'del',
+      'erase',
+      'rd',
+      'ln',
+      'mklink',
+      'wget',
+      'curl',
+      'sudo',
+      'doas',
+      'pkexec',
+      'kill',
+      'killall',
+      'pkill',
+      'taskkill',
+      'systemctl',
+      'service',
+      'sc',
+      'reg',
+      'regedit',
+      'mount',
+      'umount',
+      'crontab',
+      'at',
+      'schtasks',
+      'chmod',
+      'chown',
+      'chgrp',
+      'icacls',
+      'dd',
+      'mkfs',
+      'format',
+      'shutdown',
+      'reboot',
+      'halt',
+      'poweroff',
     ],
     deny: [
-      'su', 'runas',
-      'useradd', 'userdel', 'usermod', 'passwd',
-      'groupadd', 'groupdel',
-      'iptables', 'ufw', 'firewall-cmd', 'nft',
-      'fdisk', 'parted',
-      'shred', 'wipe',
+      'su',
+      'runas',
+      'useradd',
+      'userdel',
+      'usermod',
+      'passwd',
+      'groupadd',
+      'groupdel',
+      'iptables',
+      'ufw',
+      'firewall-cmd',
+      'nft',
+      'fdisk',
+      'parted',
+      'shred',
+      'wipe',
     ],
   },
   readOnly: {
     allow: [
-      'ls', 'cat', 'head', 'tail', 'less', 'more',
-      'grep', 'egrep', 'fgrep', 'awk', 'find',
-      'wc', 'sort', 'uniq', 'cut', 'tr', 'echo', 'printf',
-      'date', 'env', 'printenv', 'pwd', 'which', 'type',
-      'dirname', 'basename', 'realpath', 'readlink',
-      'stat', 'file', 'du', 'df',
-      'ps', 'top', 'htop', 'free', 'uptime',
-      'uname', 'hostname', 'whoami', 'id', 'groups',
-      'diff', 'comm', 'cmp',
-      'sha256sum', 'sha1sum', 'md5sum',
-      'man', 'help', 'history',
-      'git status', 'git log', 'git diff', 'git show',
-      'git branch', 'git tag', 'git ls-tree',
-      'git rev-parse', 'git reflog', 'git blame',
-      'npm list', 'npm view', 'npm outdated',
+      'ls',
+      'cat',
+      'head',
+      'tail',
+      'less',
+      'more',
+      'grep',
+      'egrep',
+      'fgrep',
+      'awk',
+      'find',
+      'wc',
+      'sort',
+      'uniq',
+      'cut',
+      'tr',
+      'echo',
+      'printf',
+      'date',
+      'env',
+      'printenv',
+      'pwd',
+      'which',
+      'type',
+      'dirname',
+      'basename',
+      'realpath',
+      'readlink',
+      'stat',
+      'file',
+      'du',
+      'df',
+      'ps',
+      'top',
+      'htop',
+      'free',
+      'uptime',
+      'uname',
+      'hostname',
+      'whoami',
+      'id',
+      'groups',
+      'diff',
+      'comm',
+      'cmp',
+      'sha256sum',
+      'sha1sum',
+      'md5sum',
+      'man',
+      'help',
+      'history',
+      'git status',
+      'git log',
+      'git diff',
+      'git show',
+      'git branch',
+      'git tag',
+      'git ls-tree',
+      'git rev-parse',
+      'git reflog',
+      'git blame',
+      'npm list',
+      'npm view',
+      'npm outdated',
     ],
     ask: ['git', 'npm', 'pip', 'python', 'python3', 'node'],
     deny: ['*'],
   },
   isolated: {
     allow: [
-      'ls', 'cat', 'echo', 'printf', 'pwd',
-      'which', 'type', 'dirname', 'basename',
-      'head', 'tail', 'wc', 'sort',
-      'date', 'env', 'true', 'false',
-      'man', 'help',
+      'ls',
+      'cat',
+      'echo',
+      'printf',
+      'pwd',
+      'which',
+      'type',
+      'dirname',
+      'basename',
+      'head',
+      'tail',
+      'wc',
+      'sort',
+      'date',
+      'env',
+      'true',
+      'false',
+      'man',
+      'help',
     ],
     ask: [],
     deny: ['*'],
@@ -168,7 +339,10 @@ export class ModeValidator {
     this.config = { ...this.config, ...config };
   }
 
-  validateCommand(command: string, context?: { baseCommand?: string }): SecurityAnalysisResult {
+  validateCommand(
+    command: string,
+    context?: { baseCommand?: string }
+  ): SecurityAnalysisResult {
     if (this.config.currentMode === 'normal') {
       return {
         safe: true,
@@ -269,9 +443,18 @@ export class ModeValidator {
     const trimmed = command.trim().toLowerCase();
     const baseCmd = trimmed.split(/\s+/)[0] || '';
 
-    for (const mode of ['observe', 'isolated', 'readOnly', 'restricted', 'normal'] as ExecutionMode[]) {
+    for (const mode of [
+      'observe',
+      'isolated',
+      'readOnly',
+      'restricted',
+      'normal',
+    ] as ExecutionMode[]) {
       const modeConfig = MODE_READ_WRITE_COMMANDS[mode];
-      if (modeConfig.allow.includes('*') || modeConfig.allow.includes(baseCmd)) {
+      if (
+        modeConfig.allow.includes('*') ||
+        modeConfig.allow.includes(baseCmd)
+      ) {
         return {
           allowed: true,
           resolvedBehavior: 'allow',
@@ -292,7 +475,10 @@ export class ModeValidator {
     };
   }
 
-  isModeTransitionSafe(from: ExecutionMode, to: ExecutionMode): { safe: boolean; reason?: string } {
+  isModeTransitionSafe(
+    from: ExecutionMode,
+    to: ExecutionMode
+  ): { safe: boolean; reason?: string } {
     const escalationMap: Record<ExecutionMode, number> = {
       observe: 0,
       isolated: 1,
@@ -319,7 +505,11 @@ export class ModeValidator {
     return { safe: true, reason: `Same mode '${from}' → '${to}'` };
   }
 
-  private isInAllowList(fullCommand: string, baseCmd: string, allowList: string[]): boolean {
+  private isInAllowList(
+    fullCommand: string,
+    baseCmd: string,
+    allowList: string[]
+  ): boolean {
     if (allowList.includes('*')) {
       return true;
     }
@@ -335,7 +525,9 @@ export class ModeValidator {
   }
 }
 
-export function getModeConfig(mode: ExecutionMode): { label: string; description: string } | undefined {
+export function getModeConfig(
+  mode: ExecutionMode
+): { label: string; description: string } | undefined {
   return EXECUTION_MODES[mode];
 }
 

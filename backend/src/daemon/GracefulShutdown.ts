@@ -67,7 +67,10 @@ export class GracefulShutdown {
 
   private async executeHooks(): Promise<void> {
     const timeoutPromise = new Promise<void>((_, reject) => {
-      setTimeout(() => reject(new Error(`关闭超时 (${this.config.timeoutMs}ms)`)), this.config.timeoutMs);
+      setTimeout(
+        () => reject(new Error(`关闭超时 (${this.config.timeoutMs}ms)`)),
+        this.config.timeoutMs
+      );
     });
 
     try {

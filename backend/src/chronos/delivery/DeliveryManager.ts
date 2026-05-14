@@ -6,7 +6,12 @@
 /**
  * 投递方式
  */
-export type DeliveryMethod = 'console' | 'file' | 'webhook' | 'email' | 'channel';
+export type DeliveryMethod =
+  | 'console'
+  | 'file'
+  | 'webhook'
+  | 'email'
+  | 'channel';
 
 /**
  * 投递计划
@@ -49,10 +54,14 @@ export class DeliveryManager {
   /**
    * 执行投递
    */
-  async deliver(taskId: string, result: { success: boolean; output: string; error?: string }): Promise<DeliveryResult[]> {
+  async deliver(
+    taskId: string,
+    result: { success: boolean; output: string; error?: string }
+  ): Promise<DeliveryResult[]> {
     const results: DeliveryResult[] = [];
-    const relevantPlans = Array.from(this.plans.values())
-      .filter((p) => p.taskId === taskId);
+    const relevantPlans = Array.from(this.plans.values()).filter(
+      (p) => p.taskId === taskId
+    );
 
     for (const plan of relevantPlans) {
       if (plan.schedule === 'on-success' && !result.success) continue;
@@ -88,13 +97,25 @@ export class DeliveryManager {
     switch (plan.method) {
       case 'console':
         console.log(`[投递:${plan.id}] ${content}`);
-        return { success: true, planId: plan.id, method: plan.method, target: plan.target, timestamp: Date.now() };
+        return {
+          success: true,
+          planId: plan.id,
+          method: plan.method,
+          target: plan.target,
+          timestamp: Date.now(),
+        };
 
       case 'file':
         try {
           const fs = await import('node:fs');
           fs.writeFileSync(plan.target, content, 'utf-8');
-          return { success: true, planId: plan.id, method: plan.method, target: plan.target, timestamp: Date.now() };
+          return {
+            success: true,
+            planId: plan.id,
+            method: plan.method,
+            target: plan.target,
+            timestamp: Date.now(),
+          };
         } catch (err) {
           return {
             success: false,
@@ -111,7 +132,11 @@ export class DeliveryManager {
           const response = await fetch(plan.target, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, taskId: plan.taskId, timestamp: Date.now() }),
+            body: JSON.stringify({
+              content,
+              taskId: plan.taskId,
+              timestamp: Date.now(),
+            }),
           });
 
           return {

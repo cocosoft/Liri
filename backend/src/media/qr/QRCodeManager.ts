@@ -22,7 +22,11 @@ export class QRCodeManager {
   /**
    * 生成 QR 码
    */
-  async generate(text: string, outputPath: string, options?: QRCodeOptions): Promise<boolean> {
+  async generate(
+    text: string,
+    outputPath: string,
+    options?: QRCodeOptions
+  ): Promise<boolean> {
     try {
       const args: string[] = [];
 
@@ -81,7 +85,9 @@ export class QRCodeManager {
    */
   async isQrencodeAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn('qrencode', ['--version'], { stdio: ['ignore', 'pipe', 'ignore'] });
+      const proc = spawn('qrencode', ['--version'], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
 
       proc.on('close', (code) => resolve(code === 0));
       proc.on('error', () => resolve(false));
@@ -93,7 +99,9 @@ export class QRCodeManager {
    */
   private async runQrencode(args: string[]): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn('qrencode', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      const proc = spawn('qrencode', args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
 
       proc.on('close', (code) => resolve(code === 0));
       proc.on('error', () => resolve(false));
@@ -105,10 +113,14 @@ export class QRCodeManager {
    */
   private async runQrencodeCapture(args: string[]): Promise<string | null> {
     return new Promise((resolve) => {
-      const proc = spawn('qrencode', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      const proc = spawn('qrencode', args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
       let data = '';
 
-      proc.stdout.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+      proc.stdout.on('data', (chunk: Buffer) => {
+        data += chunk.toString();
+      });
 
       proc.on('close', (code) => resolve(code === 0 ? data : null));
       proc.on('error', () => resolve(null));
@@ -120,10 +132,14 @@ export class QRCodeManager {
    */
   private async runZbarDecode(imagePath: string): Promise<string | null> {
     return new Promise((resolve) => {
-      const proc = spawn('zbarimg', ['-q', imagePath], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const proc = spawn('zbarimg', ['-q', imagePath], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
       let data = '';
 
-      proc.stdout.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+      proc.stdout.on('data', (chunk: Buffer) => {
+        data += chunk.toString();
+      });
 
       proc.on('close', () => {
         const match = data.match(/QR-Code:(.+)/);

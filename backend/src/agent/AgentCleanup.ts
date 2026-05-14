@@ -52,7 +52,9 @@ export class AgentCleanup {
     // 2. 清理临时文件
     if (params.tempFiles.length > 0) {
       for (const file of params.tempFiles) {
-        const fullPath = file.startsWith(this.stateDir) ? file : join(this.stateDir, file);
+        const fullPath = file.startsWith(this.stateDir)
+          ? file
+          : join(this.stateDir, file);
         try {
           if (existsSync(fullPath)) {
             unlinkSync(fullPath);
@@ -62,13 +64,16 @@ export class AgentCleanup {
           result.errors.push(`无法删除 ${file}: ${String(error)}`);
         }
       }
-      logger.debug(`清理临时文件: ${result.tempFilesRemoved}/${params.tempFiles.length}`);
+      logger.debug(
+        `清理临时文件: ${result.tempFilesRemoved}/${params.tempFiles.length}`
+      );
     }
 
     // 3. 沙箱清理
     if (params.sandboxId) {
       try {
-        const { DockerSandbox } = await import('@modules/sandbox/DockerSandbox');
+        const { DockerSandbox } =
+          await import('@modules/sandbox/DockerSandbox');
         // 标记沙箱需清理 — 实际清理由沙箱管理器执行
         result.sandboxCleaned = true;
         logger.debug(`标记沙箱清理: ${params.sandboxId}`);

@@ -6,7 +6,12 @@
 /**
  * 配置来源类型
  */
-export type ConfigSourceType = 'file' | 'env' | 'registry' | 'inline' | 'default';
+export type ConfigSourceType =
+  | 'file'
+  | 'env'
+  | 'registry'
+  | 'inline'
+  | 'default';
 
 /**
  * 配置来源
@@ -178,7 +183,11 @@ export class SourceConfigManager {
   /**
    * 获取统计
    */
-  getStats(): { totalConfigs: number; totalSources: number; bySource: Record<string, number> } {
+  getStats(): {
+    totalConfigs: number;
+    totalSources: number;
+    bySource: Record<string, number>;
+  } {
     const bySource: Record<string, number> = {};
 
     for (const item of this.configs.values()) {

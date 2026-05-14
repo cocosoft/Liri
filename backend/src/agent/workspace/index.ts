@@ -4,7 +4,14 @@
  * 工作区管理
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  statSync,
+} from 'node:fs';
 import { join, relative, resolve, basename } from 'node:path';
 
 export interface WorkspaceConfig {
@@ -105,9 +112,10 @@ export class AgentWorkspace {
 
   writeFile(filePath: string, content: string): void {
     const fullPath = this.resolvePath(filePath);
-    const dir = filePath.includes('/') || filePath.includes('\\')
-      ? join(fullPath, '..')
-      : this.config.rootDir;
+    const dir =
+      filePath.includes('/') || filePath.includes('\\')
+        ? join(fullPath, '..')
+        : this.config.rootDir;
 
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });

@@ -15,7 +15,10 @@ export interface PluginCommand {
   aliases?: string[];
   argumentHint?: string;
   category?: string;
-  execute(args: string[], context: Record<string, unknown>): Promise<CommandResult>;
+  execute(
+    args: string[],
+    context: Record<string, unknown>
+  ): Promise<CommandResult>;
 }
 
 /**
@@ -131,10 +134,17 @@ export class CommandRegistration {
   /**
    * 执行命令
    */
-  async execute(nameOrAlias: string, args: string[], context: Record<string, unknown> = {}): Promise<CommandResult> {
+  async execute(
+    nameOrAlias: string,
+    args: string[],
+    context: Record<string, unknown> = {}
+  ): Promise<CommandResult> {
     const command = this.find(nameOrAlias);
     if (!command) {
-      return { success: false, message: `命令 "${nameOrAlias}" 未找到或已禁用` };
+      return {
+        success: false,
+        message: `命令 "${nameOrAlias}" 未找到或已禁用`,
+      };
     }
 
     try {
@@ -191,7 +201,11 @@ export class CommandRegistration {
   /**
    * 获取注册统计
    */
-  getStats(): { total: number; enabled: number; byPlugin: Record<string, number> } {
+  getStats(): {
+    total: number;
+    enabled: number;
+    byPlugin: Record<string, number>;
+  } {
     let enabled = 0;
     const byPlugin: Record<string, number> = {};
 
@@ -199,7 +213,8 @@ export class CommandRegistration {
       if (entry.enabled) {
         enabled++;
       }
-      byPlugin[entry.command.pluginName] = (byPlugin[entry.command.pluginName] || 0) + 1;
+      byPlugin[entry.command.pluginName] =
+        (byPlugin[entry.command.pluginName] || 0) + 1;
     }
 
     return {

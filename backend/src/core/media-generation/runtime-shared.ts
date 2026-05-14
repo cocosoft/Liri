@@ -3,23 +3,25 @@ import type {
   MediaNormalizationEntry,
   MediaNormalizationValue,
   ParsedProviderModelRef,
-} from "./types.js";
+} from './types.js';
 
 export type {
   MediaGenerationNormalizationMetadataInput,
   MediaNormalizationEntry,
   MediaNormalizationValue,
-} from "./types.js";
+} from './types.js';
 
-export function hasMediaNormalizationEntry<TValue extends MediaNormalizationValue>(
-  entry: MediaNormalizationEntry<TValue> | undefined,
+export function hasMediaNormalizationEntry<
+  TValue extends MediaNormalizationValue,
+>(
+  entry: MediaNormalizationEntry<TValue> | undefined
 ): entry is MediaNormalizationEntry<TValue> {
   return Boolean(
     entry &&
     (entry.requested !== undefined ||
       entry.applied !== undefined ||
       entry.derivedFrom !== undefined ||
-      (entry.supportedValues?.length ?? 0) > 0),
+      (entry.supportedValues?.length ?? 0) > 0)
   );
 }
 
@@ -32,7 +34,7 @@ export function buildNoCapabilityModelConfiguredMessage(params: {
   }
   const tried = params.modelCandidates
     .map((ref) => `${ref.provider}/${ref.model}`)
-    .join(", ");
+    .join(', ');
   return `No available model supports ${params.capability}. Tried: ${tried}`;
 }
 
@@ -46,7 +48,9 @@ export function throwCapabilityGenerationFailure(params: {
     modelCandidates: params.modelCandidates,
   });
   if (params.cause instanceof Error) {
-    throw new Error(`${message}: ${params.cause.message}`, { cause: params.cause });
+    throw new Error(`${message}: ${params.cause.message}`, {
+      cause: params.cause,
+    });
   }
   throw new Error(message);
 }

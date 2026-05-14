@@ -4,7 +4,11 @@
  * 对齐 OpenClaw commands/onboard.ts
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,7 +26,10 @@ const onboard: Command = {
 
   async load() {
     return {
-      async execute(args: string, context?: CommandContext): Promise<CommandResult> {
+      async execute(
+        args: string,
+        context?: CommandContext
+      ): Promise<CommandResult> {
         try {
           const results = await runOnboard();
           return {
@@ -68,9 +75,26 @@ async function runOnboard(): Promise<string[]> {
   results.push('');
   results.push('Step 2: 初始化配置文件...');
   const initFiles = [
-    { path: join(cwd, 'config.json'), content: JSON.stringify({ name: 'PY_APP', version: '1.0.0' }, null, 2), label: 'config.json' },
-    { path: join(cwd, 'config', 'governance.json'), content: JSON.stringify({ allowAllModels: false, maxTokensPerRequest: 200000 }, null, 2), label: 'config/governance.json' },
-    { path: join(cwd, 'configs', 'permissions.yaml'), content: '# PY_APP 权限配置\nroles:\n  admin:\n    allow: ["*\"]\n  user:\n    allow: ["read", "write", "search"]\n', label: 'configs/permissions.yaml' },
+    {
+      path: join(cwd, 'config.json'),
+      content: JSON.stringify({ name: 'PY_APP', version: '1.0.0' }, null, 2),
+      label: 'config.json',
+    },
+    {
+      path: join(cwd, 'config', 'governance.json'),
+      content: JSON.stringify(
+        { allowAllModels: false, maxTokensPerRequest: 200000 },
+        null,
+        2
+      ),
+      label: 'config/governance.json',
+    },
+    {
+      path: join(cwd, 'configs', 'permissions.yaml'),
+      content:
+        '# PY_APP 权限配置\nroles:\n  admin:\n    allow: ["*\"]\n  user:\n    allow: ["read", "write", "search"]\n',
+      label: 'configs/permissions.yaml',
+    },
   ];
 
   for (const file of initFiles) {
@@ -86,8 +110,11 @@ async function runOnboard(): Promise<string[]> {
   results.push('Step 3: 检测运行环境...');
   results.push(`  运行时: Node.js ${process.version}`);
   results.push(`  平台: ${process.platform} (${process.arch})`);
-  results.push(`  包管理器: ${existsSync(join(cwd, 'bun.lock')) ? 'Bun' : existsSync(join(cwd, 'package-lock.json')) ? 'npm' : '未知'}`);
-  const isDocker = existsSync('/.dockerenv') || existsSync(join(cwd, 'Dockerfile'));
+  results.push(
+    `  包管理器: ${existsSync(join(cwd, 'bun.lock')) ? 'Bun' : existsSync(join(cwd, 'package-lock.json')) ? 'npm' : '未知'}`
+  );
+  const isDocker =
+    existsSync('/.dockerenv') || existsSync(join(cwd, 'Dockerfile'));
   results.push(`  Docker: ${isDocker ? '是' : '否'}`);
   results.push('  ✅ 环境检测完成');
 
@@ -99,7 +126,9 @@ async function runOnboard(): Promise<string[]> {
     try {
       const content = readFileSync(envPath, 'utf-8');
       const hasApiKey = /API[_-]?KEY\s*=\s*[^\s]+/.test(content);
-      results.push(`  .env 检测: ${hasApiKey ? '✅ API Key 已配置' : '⚠️ 未检测到 API Key'}`);
+      results.push(
+        `  .env 检测: ${hasApiKey ? '✅ API Key 已配置' : '⚠️ 未检测到 API Key'}`
+      );
     } catch {
       results.push('  ⚠️ .env 读取失败');
     }

@@ -106,7 +106,10 @@ export class FlowEngine {
   /**
    * 执行流程
    */
-  async execute(flowId: string, initialData?: Record<string, unknown>): Promise<FlowResult> {
+  async execute(
+    flowId: string,
+    initialData?: Record<string, unknown>
+  ): Promise<FlowResult> {
     const flow = this.flows.get(flowId);
 
     if (!flow) {
@@ -186,7 +189,11 @@ export class FlowEngine {
       if (step.timeout) {
         result = await this.executeWithTimeout(step, context, step.timeout);
       } else if (this.config.defaultTimeout > 0) {
-        result = await this.executeWithTimeout(step, context, this.config.defaultTimeout);
+        result = await this.executeWithTimeout(
+          step,
+          context,
+          this.config.defaultTimeout
+        );
       } else {
         result = await step.handler(context);
       }
@@ -211,7 +218,11 @@ export class FlowEngine {
       };
 
       if (this.config.enableHistory) {
-        context.history.push({ stepId, result: errorResult, timestamp: Date.now() });
+        context.history.push({
+          stepId,
+          result: errorResult,
+          timestamp: Date.now(),
+        });
       }
 
       if (step.onFailure) {

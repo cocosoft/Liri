@@ -4,7 +4,10 @@
  * 对齐 OpenClaw agents/sandbox/docker.ts
  */
 
-import type { SandboxExecuteOptions, SandboxExecuteResult } from './types/SandboxTypes';
+import type {
+  SandboxExecuteOptions,
+  SandboxExecuteResult,
+} from './types/SandboxTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -20,7 +23,11 @@ export interface DockerSandboxConfig {
   memoryLimit: string;
   cpuLimit: string;
   timeoutMs: number;
-  volumes: Array<{ hostPath: string; containerPath: string; mode: 'ro' | 'rw' }>;
+  volumes: Array<{
+    hostPath: string;
+    containerPath: string;
+    mode: 'ro' | 'rw';
+  }>;
   envVars: Record<string, string>;
 }
 
@@ -68,7 +75,10 @@ export class DockerSandbox {
 
       // 拉取镜像
       logger.info(`拉取 Docker 镜像: ${this.config.image}`);
-      execSync(`docker pull ${this.config.image}`, { stdio: 'pipe', timeout: 60000 });
+      execSync(`docker pull ${this.config.image}`, {
+        stdio: 'pipe',
+        timeout: 60000,
+      });
 
       // 创建容器
       const args: string[] = ['docker', 'create'];
@@ -80,7 +90,12 @@ export class DockerSandbox {
         args.push('--read-only');
         args.push('--tmpfs', '/tmp:rw,noexec,nosuid');
       }
-      args.push('--memory', this.config.memoryLimit, '--cpus', this.config.cpuLimit);
+      args.push(
+        '--memory',
+        this.config.memoryLimit,
+        '--cpus',
+        this.config.cpuLimit
+      );
       args.push('--name', this.config.containerName!);
 
       for (const vol of this.config.volumes) {
@@ -94,7 +109,9 @@ export class DockerSandbox {
 
       const output = execSync(args.join(' '), { encoding: 'utf-8' }).trim();
       this.containerId = output;
-      logger.info(`Docker 容器已创建: ${this.containerId} (${this.config.containerName})`);
+      logger.info(
+        `Docker 容器已创建: ${this.containerId} (${this.config.containerName})`
+      );
 
       // 启动容器
       execSync(`docker start ${this.config.containerName}`, { stdio: 'pipe' });
@@ -116,7 +133,8 @@ export class DockerSandbox {
 
       const safeCommand = this.sanitizeCommand(command);
       const execArgs: string[] = [
-        'docker', 'exec',
+        'docker',
+        'exec',
         ...(options.cwd ? ['-w', options.cwd] : []),
       ];
 
@@ -147,7 +165,12 @@ export class DockerSandbox {
         success: true,
       };
     } catch (error) {
-      const err = error as { stdout?: string; stderr?: string; status?: number; killed?: boolean };
+      const err = error as {
+        stdout?: string;
+        stderr?: string;
+        status?: number;
+        killed?: boolean;
+      };
       return {
         exitCode: err.status || 1,
         stdout: err.stdout || '',
@@ -162,7 +185,9 @@ export class DockerSandbox {
   async destroy(): Promise<void> {
     try {
       if (this.containerId) {
-        execSync(`docker rm -f ${this.config.containerName}`, { stdio: 'pipe' });
+        execSync(`docker rm -f ${this.config.containerName}`, {
+          stdio: 'pipe',
+        });
         logger.info(`Docker 容器已销毁: ${this.config.containerName}`);
         this.containerId = null;
       }

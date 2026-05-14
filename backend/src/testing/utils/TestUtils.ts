@@ -93,7 +93,10 @@ export class FakeTimers {
     Date: typeof Date;
   } | null = null;
   private currentTime: number;
-  private timers: Map<number, { callback: () => void; interval: number; repeat: boolean }> = new Map();
+  private timers: Map<
+    number,
+    { callback: () => void; interval: number; repeat: boolean }
+  > = new Map();
   private nextId: number = 1;
 
   constructor(now?: number) {
@@ -154,14 +157,18 @@ export class FakeTimers {
   advance(ms: number): void {
     this.currentTime += ms;
 
-    const expired = Array.from(this.timers.entries())
-      .filter(([_, timer]) => this.currentTime >= timer.interval);
+    const expired = Array.from(this.timers.entries()).filter(
+      ([_, timer]) => this.currentTime >= timer.interval
+    );
 
     for (const [id, timer] of expired) {
       timer.callback();
 
       if (timer.repeat) {
-        this.timers.set(id, { ...timer, interval: this.currentTime + timer.interval });
+        this.timers.set(id, {
+          ...timer,
+          interval: this.currentTime + timer.interval,
+        });
       } else {
         this.timers.delete(id);
       }
@@ -186,7 +193,10 @@ export function mockFn(): MockFunction {
 /**
  * 创建一个模拟对象
  */
-export function mockObject<T extends object>(obj: T, overrides?: Partial<T>): T {
+export function mockObject<T extends object>(
+  obj: T,
+  overrides?: Partial<T>
+): T {
   const mock: any = {};
 
   for (const key of Object.keys(obj)) {

@@ -29,6 +29,8 @@ export interface ModelUsage {
   cacheCreationInputTokens: number;
   /** 网络搜索请求数 */
   webSearchRequests: number;
+  /** 推理令牌数（reasoning tokens） */
+  reasoningTokens: number;
   /** 成本（美元） */
   costUSD: number;
   /** 是否快速模式 */
@@ -45,6 +47,7 @@ export interface SessionCostState {
   totalCacheReadInputTokens: number;
   totalCacheCreationInputTokens: number;
   totalWebSearchRequests: number;
+  totalReasoningTokens: number;
   modelUsage: Record<string, ModelUsage>;
 }
 
@@ -58,6 +61,7 @@ export class CostTracker {
   private totalCacheReadInputTokens: number = 0;
   private totalCacheCreationInputTokens: number = 0;
   private totalWebSearchRequests: number = 0;
+  private totalReasoningTokens: number = 0;
   private modelUsage: Map<string, ModelUsage> = new Map();
   private startTime: number = Date.now();
   private recordRepository: CostRecordRepository | null = null;
@@ -93,7 +97,8 @@ export class CostTracker {
     cacheReadTokens: number = 0,
     cacheCreationTokens: number = 0,
     webSearchRequests: number = 0,
-    isFastMode: boolean = false
+    isFastMode: boolean = false,
+    reasoningTokens: number = 0
   ): number {
     const canonicalModelName = getCanonicalModelName(modelName);
     const cost = calculateModelCost(
@@ -112,6 +117,7 @@ export class CostTracker {
     this.totalCacheReadInputTokens += cacheReadTokens;
     this.totalCacheCreationInputTokens += cacheCreationTokens;
     this.totalWebSearchRequests += webSearchRequests;
+    this.totalReasoningTokens += reasoningTokens;
 
     // 更新模型使用信息
     const existingUsage = this.modelUsage.get(canonicalModelName);
@@ -121,6 +127,7 @@ export class CostTracker {
       existingUsage.cacheReadInputTokens += cacheReadTokens;
       existingUsage.cacheCreationInputTokens += cacheCreationTokens;
       existingUsage.webSearchRequests += webSearchRequests;
+      existingUsage.reasoningTokens += reasoningTokens;
       existingUsage.costUSD += cost;
       existingUsage.isFastMode = isFastMode || existingUsage.isFastMode;
     } else {
@@ -130,6 +137,7 @@ export class CostTracker {
         cacheReadInputTokens: cacheReadTokens,
         cacheCreationInputTokens: cacheCreationTokens,
         webSearchRequests,
+        reasoningTokens,
         costUSD: cost,
         isFastMode,
       });
@@ -200,7 +208,8 @@ export class CostTracker {
       usage.cacheReadInputTokens,
       usage.cacheCreationInputTokens,
       usage.webSearchRequests,
-      usage.isFastMode
+      usage.isFastMode,
+      usage.reasoningTokens || 0
     );
   }
 
@@ -247,6 +256,13 @@ export class CostTracker {
   }
 
   /**
+   * 获取总推理令牌数
+   */
+  getTotalReasoningTokens(): number {
+    return this.totalReasoningTokens;
+  }
+
+  /**
    * 获取会话持续时间（毫秒）
    */
   getSessionDuration(): number {
@@ -286,6 +302,7 @@ export class CostTracker {
       totalCacheReadInputTokens: this.totalCacheReadInputTokens,
       totalCacheCreationInputTokens: this.totalCacheCreationInputTokens,
       totalWebSearchRequests: this.totalWebSearchRequests,
+      totalReasoningTokens: this.totalReasoningTokens,
       modelUsage: Object.fromEntries(this.modelUsage.entries()),
     };
   }
@@ -300,6 +317,7 @@ export class CostTracker {
     this.totalCacheReadInputTokens = state.totalCacheReadInputTokens;
     this.totalCacheCreationInputTokens = state.totalCacheCreationInputTokens;
     this.totalWebSearchRequests = state.totalWebSearchRequests;
+    this.totalReasoningTokens = state.totalReasoningTokens || 0;
     this.modelUsage = new Map(Object.entries(state.modelUsage));
     logForDebugging('成本跟踪已从状态恢复');
   }
@@ -314,6 +332,7 @@ export class CostTracker {
     this.totalCacheReadInputTokens = 0;
     this.totalCacheCreationInputTokens = 0;
     this.totalWebSearchRequests = 0;
+    this.totalReasoningTokens = 0;
     this.modelUsage.clear();
     this.startTime = Date.now();
     resetUnknownModelFlag();

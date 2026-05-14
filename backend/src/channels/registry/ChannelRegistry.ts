@@ -130,7 +130,9 @@ export class ChannelRegistry extends EventEmitter {
   /**
    * 广播消息到所有通道
    */
-  async broadcast(text: string): Promise<Array<{ channel: string; success: boolean }>> {
+  async broadcast(
+    text: string
+  ): Promise<Array<{ channel: string; success: boolean }>> {
     const results: Array<{ channel: string; success: boolean }> = [];
 
     for (const channel of this.getEnabled()) {
@@ -148,7 +150,11 @@ export class ChannelRegistry extends EventEmitter {
   /**
    * 获取统计
    */
-  getStats(): { total: number; enabled: number; types: Record<string, number> } {
+  getStats(): {
+    total: number;
+    enabled: number;
+    types: Record<string, number>;
+  } {
     const channels = Array.from(this.channels.values());
     const types: Record<string, number> = {};
 
@@ -166,7 +172,10 @@ export class ChannelRegistry extends EventEmitter {
   /**
    * 获取所有通道状态（兼容旧 API）
    */
-  getAllStatuses(): Array<{ id: string; status: { connected: boolean; latencyMs: number } }> {
+  getAllStatuses(): Array<{
+    id: string;
+    status: { connected: boolean; latencyMs: number };
+  }> {
     return Array.from(this.channels.entries()).map(([name, channel]) => ({
       id: name,
       status: {

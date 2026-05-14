@@ -4,10 +4,30 @@
  */
 
 export { CommandCatalog, commandCatalog } from './CommandCatalog.js';
-export type { CommandCategory, CommandTag, CommandUsageStats, CommandSearchOptions } from './CommandCatalog.js';
+export type {
+  CommandCategory,
+  CommandTag,
+  CommandUsageStats,
+  CommandSearchOptions,
+} from './CommandCatalog.js';
 
-export { CommandStateManager, commandStateManager, CommandPhase } from './CommandStateManager.js';
-export type { CommandSnapshot, CommandStateListener } from './CommandStateManager.js';
+export {
+  CommandStateManager,
+  commandStateManager,
+  CommandPhase,
+} from './CommandStateManager.js';
+export type {
+  CommandSnapshot,
+  CommandStateListener,
+} from './CommandStateManager.js';
 
-export { CommandAuditLogger, commandAuditLogger, AuditEventType } from './CommandAuditLogger.js';
-export type { AuditEntry, AuditFilter, AuditExportOptions } from './CommandAuditLogger.js';
+export {
+  CommandAuditLogger,
+  commandAuditLogger,
+  AuditEventType,
+} from './CommandAuditLogger.js';
+export type {
+  AuditEntry,
+  AuditFilter,
+  AuditExportOptions,
+} from './CommandAuditLogger.js';

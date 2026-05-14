@@ -4,7 +4,13 @@
  * 多Provider认证配置管理
  */
 
-export type AuthProviderType = 'openai' | 'anthropic' | 'google' | 'azure' | 'aws' | 'custom';
+export type AuthProviderType =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'azure'
+  | 'aws'
+  | 'custom';
 
 export interface AuthProfile {
   id: string;
@@ -40,7 +46,9 @@ export class AuthProfileManager {
     };
   }
 
-  createProfile(profile: Omit<AuthProfile, 'id' | 'createdAt' | 'updatedAt' | 'isActive'>): AuthProfile {
+  createProfile(
+    profile: Omit<AuthProfile, 'id' | 'createdAt' | 'updatedAt' | 'isActive'>
+  ): AuthProfile {
     if (this.profiles.size >= this.config.maxProfiles) {
       throw new Error(`Max profiles (${this.config.maxProfiles}) reached`);
     }
@@ -65,7 +73,10 @@ export class AuthProfileManager {
     return newProfile;
   }
 
-  updateProfile(id: string, updates: Partial<Omit<AuthProfile, 'id' | 'createdAt'>>): boolean {
+  updateProfile(
+    id: string,
+    updates: Partial<Omit<AuthProfile, 'id' | 'createdAt'>>
+  ): boolean {
     const profile = this.profiles.get(id);
     if (!profile) return false;
 
@@ -127,9 +138,9 @@ export class AuthProfileManager {
   }
 
   getProviders(): AuthProviderType[] {
-    return Array.from(new Set(
-      Array.from(this.profiles.values()).map((p) => p.provider),
-    )).sort();
+    return Array.from(
+      new Set(Array.from(this.profiles.values()).map((p) => p.provider))
+    ).sort();
   }
 
   getProviderProfiles(provider: AuthProviderType): AuthProfile[] {
@@ -140,7 +151,9 @@ export class AuthProfileManager {
     return this.profiles.size;
   }
 
-  async validateProfile(id: string): Promise<{ valid: boolean; error?: string }> {
+  async validateProfile(
+    id: string
+  ): Promise<{ valid: boolean; error?: string }> {
     const profile = this.profiles.get(id);
     if (!profile) {
       return { valid: false, error: 'Profile not found' };
@@ -165,7 +178,12 @@ export class AuthProfileManager {
     return rest;
   }
 
-  importProfile(profile: Omit<AuthProfile, 'id' | 'createdAt' | 'updatedAt' | 'isActive'> & { id?: string }): AuthProfile {
+  importProfile(
+    profile: Omit<
+      AuthProfile,
+      'id' | 'createdAt' | 'updatedAt' | 'isActive'
+    > & { id?: string }
+  ): AuthProfile {
     const id = profile.id ?? `${profile.provider}_imported_${Date.now()}`;
 
     if (this.profiles.has(id)) {
@@ -191,10 +209,14 @@ export class AuthProfileManager {
   }
 
   toJSON(): Array<Omit<AuthProfile, 'apiKey'>> {
-    return Array.from(this.profiles.values()).map((p) => this.exportProfile(p.id)!);
+    return Array.from(this.profiles.values()).map(
+      (p) => this.exportProfile(p.id)!
+    );
   }
 }
 
-export function createAuthProfileManager(config?: AuthProfileManagerConfig): AuthProfileManager {
+export function createAuthProfileManager(
+  config?: AuthProfileManagerConfig
+): AuthProfileManager {
   return new AuthProfileManager(config);
 }

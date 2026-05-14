@@ -5,7 +5,10 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { PLUGIN_CATEGORIES, validatePluginInterfaces } from '@modules/plugins/categories/PluginCategories';
+import {
+  PLUGIN_CATEGORIES,
+  validatePluginInterfaces,
+} from '@modules/plugins/categories/PluginCategories';
 import type { PluginCapability } from '@modules/plugins/categories/PluginCategories';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -31,19 +34,28 @@ export class PluginContractValidator {
 
   registerContract(pluginId: string, contract: PluginContract): void {
     this.contracts.set(pluginId, contract);
-    logger.info(`注册插件契约: ${pluginId} (${contract.capability}, v${contract.version})`);
+    logger.info(
+      `注册插件契约: ${pluginId} (${contract.capability}, v${contract.version})`
+    );
   }
 
   unregisterContract(pluginId: string): void {
     this.contracts.delete(pluginId);
   }
 
-  validatePlugin(pluginId: string, capability: PluginCapability, implementedInterfaces: string[]): ContractValidationResult {
+  validatePlugin(
+    pluginId: string,
+    capability: PluginCapability,
+    implementedInterfaces: string[]
+  ): ContractValidationResult {
     const contract = this.contracts.get(pluginId);
     const warnings: string[] = [];
     const errors: string[] = [];
 
-    const interfaceCheck = validatePluginInterfaces(capability, implementedInterfaces);
+    const interfaceCheck = validatePluginInterfaces(
+      capability,
+      implementedInterfaces
+    );
 
     if (!interfaceCheck.valid) {
       errors.push(`缺少必需的接口: ${interfaceCheck.missing.join(', ')}`);
@@ -62,7 +74,9 @@ export class PluginContractValidator {
     };
   }
 
-  validateAll(plugins: Array<{ id: string; capability: string; interfaces: string[] }>): ContractValidationResult[] {
+  validateAll(
+    plugins: Array<{ id: string; capability: string; interfaces: string[] }>
+  ): ContractValidationResult[] {
     return plugins.map((p) =>
       this.validatePlugin(p.id, p.capability as PluginCapability, p.interfaces)
     );
@@ -71,7 +85,8 @@ export class PluginContractValidator {
   getContractStats(): { total: number; capabilities: Record<string, number> } {
     const capabilities: Record<string, number> = {};
     for (const [, contract] of this.contracts) {
-      capabilities[contract.capability] = (capabilities[contract.capability] || 0) + 1;
+      capabilities[contract.capability] =
+        (capabilities[contract.capability] || 0) + 1;
     }
     return { total: this.contracts.size, capabilities };
   }

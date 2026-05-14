@@ -45,7 +45,8 @@ export class IsolatedAgentExecutor {
    */
   async execute(config: AgentExecutionConfig): Promise<AgentExecutionResult> {
     const startTime = Date.now();
-    const workDir = config.workDir || path.join(os.tmpdir(), 'pyapp_agents', config.taskId);
+    const workDir =
+      config.workDir || path.join(os.tmpdir(), 'pyapp_agents', config.taskId);
 
     fs.mkdirSync(workDir, { recursive: true });
 
@@ -121,8 +122,7 @@ export class IsolatedAgentExecutor {
 
         fs.rmdirSync(workDir);
       }
-    } catch {
-    }
+    } catch {}
   }
 }
 

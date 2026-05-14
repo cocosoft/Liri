@@ -9,7 +9,12 @@ import type { ChannelId, MessageContext } from '../types/IChannel.js';
 /**
  * 通道会话状态
  */
-export type ChannelSessionStatus = 'active' | 'idle' | 'waiting' | 'closed' | 'error';
+export type ChannelSessionStatus =
+  | 'active'
+  | 'idle'
+  | 'waiting'
+  | 'closed'
+  | 'error';
 
 /**
  * 通道会话
@@ -53,7 +58,12 @@ export class ChannelSessionManager extends EventEmitter {
   /**
    * 创建会话
    */
-  create(channelId: ChannelId, conversationId: string, participantId: string, participantName?: string): ChannelSession {
+  create(
+    channelId: ChannelId,
+    conversationId: string,
+    participantId: string,
+    participantName?: string
+  ): ChannelSession {
     const sessionId = `ch_session_${channelId}_${conversationId}_${Date.now()}`;
 
     const session: ChannelSession = {
@@ -93,7 +103,12 @@ export class ChannelSessionManager extends EventEmitter {
   /**
    * 查找会话（按会话ID、渠道ID或参与者ID）
    */
-  find(filter: { sessionId?: string; channelId?: ChannelId; conversationId?: string; participantId?: string }): ChannelSession[] {
+  find(filter: {
+    sessionId?: string;
+    channelId?: ChannelId;
+    conversationId?: string;
+    participantId?: string;
+  }): ChannelSession[] {
     const results: ChannelSession[] = [];
 
     for (const session of this.sessions.values()) {
@@ -105,11 +120,17 @@ export class ChannelSessionManager extends EventEmitter {
         continue;
       }
 
-      if (filter.conversationId && session.conversationId !== filter.conversationId) {
+      if (
+        filter.conversationId &&
+        session.conversationId !== filter.conversationId
+      ) {
         continue;
       }
 
-      if (filter.participantId && session.participantId !== filter.participantId) {
+      if (
+        filter.participantId &&
+        session.participantId !== filter.participantId
+      ) {
         continue;
       }
 
@@ -210,7 +231,12 @@ export class ChannelSessionManager extends EventEmitter {
   /**
    * 获取或创建会话
    */
-  getOrCreate(channelId: ChannelId, conversationId: string, participantId: string, participantName?: string): ChannelSession {
+  getOrCreate(
+    channelId: ChannelId,
+    conversationId: string,
+    participantId: string,
+    participantName?: string
+  ): ChannelSession {
     const existing = this.find({
       channelId,
       conversationId,
@@ -223,7 +249,12 @@ export class ChannelSessionManager extends EventEmitter {
       return existing[0];
     }
 
-    return this.create(channelId, conversationId, participantId, participantName);
+    return this.create(
+      channelId,
+      conversationId,
+      participantId,
+      participantName
+    );
   }
 
   /**
@@ -272,7 +303,13 @@ export class ChannelSessionManager extends EventEmitter {
   /**
    * 获取统计信息
    */
-  getStats(): { total: number; active: number; idle: number; closed: number; byChannel: Record<string, number> } {
+  getStats(): {
+    total: number;
+    active: number;
+    idle: number;
+    closed: number;
+    byChannel: Record<string, number>;
+  } {
     let active = 0;
     let idle = 0;
     let closed = 0;

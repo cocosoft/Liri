@@ -39,7 +39,10 @@ export interface ClassifiedResult {
   severity: 'info' | 'warning' | 'error' | 'critical';
 }
 
-const CLASSIFICATION_MAP: Record<AgentResultClassification, { isRetryable: boolean; defaultSeverity: ClassifiedResult['severity'] }> = {
+const CLASSIFICATION_MAP: Record<
+  AgentResultClassification,
+  { isRetryable: boolean; defaultSeverity: ClassifiedResult['severity'] }
+> = {
   ok: { isRetryable: false, defaultSeverity: 'info' },
   error: { isRetryable: true, defaultSeverity: 'error' },
   timeout: { isRetryable: true, defaultSeverity: 'warning' },
@@ -66,11 +69,17 @@ export class ResultClassifier {
     };
   }
 
-  private determineClassification(ctx: ClassifyContext): AgentResultClassification {
+  private determineClassification(
+    ctx: ClassifyContext
+  ): AgentResultClassification {
     if (ctx.aborted) return 'aborted';
     if (ctx.permissionDenied) return 'permission_denied';
     if (ctx.turnCount >= ctx.maxTurns) return 'max_turns_exceeded';
-    if (ctx.budgetUsed !== undefined && ctx.budgetLimit !== undefined && ctx.budgetUsed >= ctx.budgetLimit) {
+    if (
+      ctx.budgetUsed !== undefined &&
+      ctx.budgetLimit !== undefined &&
+      ctx.budgetUsed >= ctx.budgetLimit
+    ) {
       return 'budget_exceeded';
     }
     if (ctx.error) {
@@ -80,16 +89,28 @@ export class ResultClassifier {
   }
 
   private classifyError(error: unknown): AgentResultClassification {
-    const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    const msg =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : String(error).toLowerCase();
     if (msg.includes('timeout') || msg.includes('timed out')) return 'timeout';
-    if (msg.includes('rate limit') || msg.includes('429')) return 'rate_limited';
-    if (msg.includes('context') && (msg.includes('limit') || msg.includes('overflow'))) return 'context_overflow';
-    if (msg.includes('model') && msg.includes('unavailable')) return 'model_unavailable';
+    if (msg.includes('rate limit') || msg.includes('429'))
+      return 'rate_limited';
+    if (
+      msg.includes('context') &&
+      (msg.includes('limit') || msg.includes('overflow'))
+    )
+      return 'context_overflow';
+    if (msg.includes('model') && msg.includes('unavailable'))
+      return 'model_unavailable';
     if (msg.includes('permission')) return 'permission_denied';
     return 'error';
   }
 
-  private buildMessage(classification: AgentResultClassification, ctx: ClassifyContext): string {
+  private buildMessage(
+    classification: AgentResultClassification,
+    ctx: ClassifyContext
+  ): string {
     const messages: Record<AgentResultClassification, string> = {
       ok: '执行成功',
       error: `错误: ${ctx.error instanceof Error ? ctx.error.message : String(ctx.error || '未知错误')}`,

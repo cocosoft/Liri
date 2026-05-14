@@ -41,27 +41,22 @@ export interface FormattedSymbol {
 }
 
 export function formatLocation(loc: FormattedLocation): string {
-  const pos = loc.column !== undefined
-    ? `${loc.line}:${loc.column}`
-    : `${loc.line}`;
+  const pos =
+    loc.column !== undefined ? `${loc.line}:${loc.column}` : `${loc.line}`;
 
   return `${loc.file}:${pos} — ${loc.text.trim()}`;
 }
 
 export function formatDefinition(def: FormattedDefinition): string {
-  const pos = def.column !== undefined
-    ? `${def.line}:${def.column}`
-    : `${def.line}`;
+  const pos =
+    def.column !== undefined ? `${def.line}:${def.column}` : `${def.line}`;
 
-  return [
-    `Definition: ${def.file}:${pos}`,
-    `  ${def.text.trim()}`,
-  ].join('\n');
+  return [`Definition: ${def.file}:${pos}`, `  ${def.text.trim()}`].join('\n');
 }
 
 export function formatReferences(
   refs: FormattedReference[],
-  options?: { maxRefs?: number; showContext?: boolean },
+  options?: { maxRefs?: number; showContext?: boolean }
 ): string {
   const max = options?.maxRefs ?? 20;
   const limited = refs.slice(0, max);
@@ -108,10 +103,12 @@ export function formatSymbolTable(symbols: FormattedSymbol[]): string {
   return [...header, ...rows].join('\n');
 }
 
-export function formatSymbolHierarchy(
-  symbols: FormattedSymbol[],
-): string {
-  const tree: Array<{ symbol: FormattedSymbol; depth: number; children: typeof tree }> = [];
+export function formatSymbolHierarchy(symbols: FormattedSymbol[]): string {
+  const tree: Array<{
+    symbol: FormattedSymbol;
+    depth: number;
+    children: typeof tree;
+  }> = [];
 
   for (const sym of symbols) {
     if (!sym.containerName) {
@@ -130,9 +127,11 @@ export function formatSymbolHierarchy(
     }
   }
 
-  function renderNode(
-    node: { symbol: FormattedSymbol; depth: number; children: typeof tree },
-  ): string {
+  function renderNode(node: {
+    symbol: FormattedSymbol;
+    depth: number;
+    children: typeof tree;
+  }): string {
     const indent = '  '.repeat(node.depth);
     const prefix = node.depth === 0 ? '📦' : '├─';
     const line = `${indent}${prefix} ${node.symbol.name} (${node.symbol.kind})`;
@@ -150,7 +149,7 @@ export function truncateSymbolName(name: string, maxLen: number = 60): string {
 }
 
 export function groupByFile(
-  refs: FormattedReference[],
+  refs: FormattedReference[]
 ): Map<string, FormattedReference[]> {
   const groups = new Map<string, FormattedReference[]>();
 

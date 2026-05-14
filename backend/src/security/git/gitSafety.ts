@@ -4,9 +4,19 @@
  * 提供git命令安全验证，包括子命令分类、危险操作检测、仓库安全策略
  */
 
-import type { SecurityAnalysisResult, RiskLevel, SecurityBehavior } from '../types';
+import type {
+  SecurityAnalysisResult,
+  RiskLevel,
+  SecurityBehavior,
+} from '../types';
 
-export type GitSubcommandCategory = 'read' | 'write' | 'destructive' | 'admin' | 'network' | 'unknown';
+export type GitSubcommandCategory =
+  | 'read'
+  | 'write'
+  | 'destructive'
+  | 'admin'
+  | 'network'
+  | 'unknown';
 
 export interface GitSubcommandInfo {
   name: string;
@@ -84,59 +94,359 @@ export interface ParsedGitCommand {
 }
 
 const GIT_SUBCOMMANDS: GitSubcommandInfo[] = [
-  { name: 'status', category: 'read', riskLevel: 'low', description: 'Show working tree status', requiresConfirmation: false },
-  { name: 'log', category: 'read', riskLevel: 'low', description: 'Show commit logs', requiresConfirmation: false },
-  { name: 'diff', category: 'read', riskLevel: 'low', description: 'Show changes between commits', requiresConfirmation: false },
-  { name: 'show', category: 'read', riskLevel: 'low', description: 'Show various types of objects', requiresConfirmation: false },
-  { name: 'branch', category: 'read', riskLevel: 'low', description: 'List branches', requiresConfirmation: false },
-  { name: 'tag', category: 'read', riskLevel: 'low', description: 'Create/list/delete tags', requiresConfirmation: false },
-  { name: 'blame', category: 'read', riskLevel: 'low', description: 'Show file blame info', requiresConfirmation: false },
-  { name: 'grep', category: 'read', riskLevel: 'low', description: 'Search repository', requiresConfirmation: false },
-  { name: 'ls-tree', category: 'read', riskLevel: 'low', description: 'List tree contents', requiresConfirmation: false },
-  { name: 'rev-parse', category: 'read', riskLevel: 'low', description: 'Parse revision strings', requiresConfirmation: false },
-  { name: 'rev-list', category: 'read', riskLevel: 'low', description: 'List commit objects', requiresConfirmation: false },
-  { name: 'reflog', category: 'read', riskLevel: 'low', description: 'Manage reflog', requiresConfirmation: false },
-  { name: 'describe', category: 'read', riskLevel: 'low', description: 'Describe commit', requiresConfirmation: false },
-  { name: 'shortlog', category: 'read', riskLevel: 'low', description: 'Summarize git log', requiresConfirmation: false },
-  { name: 'remote', category: 'read', riskLevel: 'low', description: 'Manage tracked repositories', requiresConfirmation: false },
-  { name: 'config', category: 'read', riskLevel: 'low', description: 'Get/set config', requiresConfirmation: false },
-  { name: 'ls-files', category: 'read', riskLevel: 'low', description: 'List tracked files', requiresConfirmation: false },
-  { name: 'help', category: 'read', riskLevel: 'low', description: 'Show help', requiresConfirmation: false },
+  {
+    name: 'status',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Show working tree status',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'log',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Show commit logs',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'diff',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Show changes between commits',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'show',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Show various types of objects',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'branch',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'List branches',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'tag',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Create/list/delete tags',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'blame',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Show file blame info',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'grep',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Search repository',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'ls-tree',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'List tree contents',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'rev-parse',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Parse revision strings',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'rev-list',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'List commit objects',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'reflog',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Manage reflog',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'describe',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Describe commit',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'shortlog',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Summarize git log',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'remote',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Manage tracked repositories',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'config',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Get/set config',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'ls-files',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'List tracked files',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'help',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Show help',
+    requiresConfirmation: false,
+  },
 
-  { name: 'add', category: 'write', riskLevel: 'low', description: 'Add file contents to index', requiresConfirmation: false },
-  { name: 'commit', category: 'write', riskLevel: 'low', description: 'Record changes to repository', requiresConfirmation: false },
-  { name: 'checkout', category: 'write', riskLevel: 'medium', description: 'Switch branches or restore files', requiresConfirmation: false },
-  { name: 'switch', category: 'write', riskLevel: 'medium', description: 'Switch branches', requiresConfirmation: false },
-  { name: 'restore', category: 'write', riskLevel: 'medium', description: 'Restore working tree files', requiresConfirmation: false },
-  { name: 'merge', category: 'write', riskLevel: 'medium', description: 'Merge branches', requiresConfirmation: true },
-  { name: 'rebase', category: 'write', riskLevel: 'medium', description: 'Forward-port local commits', requiresConfirmation: true },
-  { name: 'stash', category: 'write', riskLevel: 'low', description: 'Stash changes', requiresConfirmation: false },
-  { name: 'rm', category: 'write', riskLevel: 'medium', description: 'Remove files from repo', requiresConfirmation: true },
-  { name: 'mv', category: 'write', riskLevel: 'low', description: 'Move/rename files in repo', requiresConfirmation: false },
-  { name: 'fetch', category: 'network', riskLevel: 'low', description: 'Fetch from remote', requiresConfirmation: false },
-  { name: 'pull', category: 'network', riskLevel: 'medium', description: 'Fetch and merge', requiresConfirmation: false },
-  { name: 'push', category: 'network', riskLevel: 'medium', description: 'Push to remote', requiresConfirmation: true },
-  { name: 'clone', category: 'network', riskLevel: 'medium', description: 'Clone a repository', requiresConfirmation: true },
-  { name: 'submodule', category: 'write', riskLevel: 'medium', description: 'Manage submodules', requiresConfirmation: true },
+  {
+    name: 'add',
+    category: 'write',
+    riskLevel: 'low',
+    description: 'Add file contents to index',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'commit',
+    category: 'write',
+    riskLevel: 'low',
+    description: 'Record changes to repository',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'checkout',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Switch branches or restore files',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'switch',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Switch branches',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'restore',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Restore working tree files',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'merge',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Merge branches',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'rebase',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Forward-port local commits',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'stash',
+    category: 'write',
+    riskLevel: 'low',
+    description: 'Stash changes',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'rm',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Remove files from repo',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'mv',
+    category: 'write',
+    riskLevel: 'low',
+    description: 'Move/rename files in repo',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'fetch',
+    category: 'network',
+    riskLevel: 'low',
+    description: 'Fetch from remote',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'pull',
+    category: 'network',
+    riskLevel: 'medium',
+    description: 'Fetch and merge',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'push',
+    category: 'network',
+    riskLevel: 'medium',
+    description: 'Push to remote',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'clone',
+    category: 'network',
+    riskLevel: 'medium',
+    description: 'Clone a repository',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'submodule',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Manage submodules',
+    requiresConfirmation: true,
+  },
 
-  { name: 'reset', category: 'destructive', riskLevel: 'high', description: 'Reset current HEAD', requiresConfirmation: true },
-  { name: 'clean', category: 'destructive', riskLevel: 'high', description: 'Remove untracked files', requiresConfirmation: true },
-  { name: 'revert', category: 'destructive', riskLevel: 'high', description: 'Revert commits', requiresConfirmation: true },
-  { name: 'cherry-pick', category: 'destructive', riskLevel: 'high', description: 'Cherry-pick commits', requiresConfirmation: true },
-  { name: 'filter-branch', category: 'destructive', riskLevel: 'high', description: 'Rewrite branches', requiresConfirmation: true },
-  { name: 'update-ref', category: 'destructive', riskLevel: 'high', description: 'Update reference', requiresConfirmation: true },
-  { name: 'gc', category: 'destructive', riskLevel: 'medium', description: 'Garbage collection', requiresConfirmation: true },
-  { name: 'prune', category: 'destructive', riskLevel: 'medium', description: 'Prune unreachable objects', requiresConfirmation: true },
-  { name: 'notes', category: 'write', riskLevel: 'low', description: 'Add/inspect notes', requiresConfirmation: false },
+  {
+    name: 'reset',
+    category: 'destructive',
+    riskLevel: 'high',
+    description: 'Reset current HEAD',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'clean',
+    category: 'destructive',
+    riskLevel: 'high',
+    description: 'Remove untracked files',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'revert',
+    category: 'destructive',
+    riskLevel: 'high',
+    description: 'Revert commits',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'cherry-pick',
+    category: 'destructive',
+    riskLevel: 'high',
+    description: 'Cherry-pick commits',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'filter-branch',
+    category: 'destructive',
+    riskLevel: 'high',
+    description: 'Rewrite branches',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'update-ref',
+    category: 'destructive',
+    riskLevel: 'high',
+    description: 'Update reference',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'gc',
+    category: 'destructive',
+    riskLevel: 'medium',
+    description: 'Garbage collection',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'prune',
+    category: 'destructive',
+    riskLevel: 'medium',
+    description: 'Prune unreachable objects',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'notes',
+    category: 'write',
+    riskLevel: 'low',
+    description: 'Add/inspect notes',
+    requiresConfirmation: false,
+  },
 
-  { name: 'init', category: 'admin', riskLevel: 'medium', description: 'Initialize repository', requiresConfirmation: true },
-  { name: 'fsck', category: 'admin', riskLevel: 'low', description: 'Filesystem checks', requiresConfirmation: false },
-  { name: 'repack', category: 'admin', riskLevel: 'medium', description: 'Pack objects', requiresConfirmation: true },
-  { name: 'archive', category: 'read', riskLevel: 'low', description: 'Create archive', requiresConfirmation: false },
-  { name: 'bundle', category: 'network', riskLevel: 'medium', description: 'Bundle objects', requiresConfirmation: false },
-  { name: 'worktree', category: 'write', riskLevel: 'medium', description: 'Manage worktrees', requiresConfirmation: true },
-  { name: 'sparse-checkout', category: 'write', riskLevel: 'medium', description: 'Initialize sparse checkout', requiresConfirmation: false },
-  { name: 'maintenance', category: 'admin', riskLevel: 'low', description: 'Repository maintenance', requiresConfirmation: false },
+  {
+    name: 'init',
+    category: 'admin',
+    riskLevel: 'medium',
+    description: 'Initialize repository',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'fsck',
+    category: 'admin',
+    riskLevel: 'low',
+    description: 'Filesystem checks',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'repack',
+    category: 'admin',
+    riskLevel: 'medium',
+    description: 'Pack objects',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'archive',
+    category: 'read',
+    riskLevel: 'low',
+    description: 'Create archive',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'bundle',
+    category: 'network',
+    riskLevel: 'medium',
+    description: 'Bundle objects',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'worktree',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Manage worktrees',
+    requiresConfirmation: true,
+  },
+  {
+    name: 'sparse-checkout',
+    category: 'write',
+    riskLevel: 'medium',
+    description: 'Initialize sparse checkout',
+    requiresConfirmation: false,
+  },
+  {
+    name: 'maintenance',
+    category: 'admin',
+    riskLevel: 'low',
+    description: 'Repository maintenance',
+    requiresConfirmation: false,
+  },
 ];
 
 const GIT_FORCE_FLAGS = new Set(['--force', '-f']);
@@ -147,7 +457,14 @@ export function parseGitCommand(command: string): ParsedGitCommand {
   const tokens = tokenize(trimmed);
   const gitIdx = tokens.findIndex((t) => t === 'git');
   if (gitIdx === -1) {
-    return { fullCommand: trimmed, subcommand: '', args: [], flags: [], hasForceFlag: false, hasHardFlag: false };
+    return {
+      fullCommand: trimmed,
+      subcommand: '',
+      args: [],
+      flags: [],
+      hasForceFlag: false,
+      hasHardFlag: false,
+    };
   }
 
   const remaining = tokens.slice(gitIdx + 1);
@@ -180,9 +497,16 @@ export function parseGitCommand(command: string): ParsedGitCommand {
       continue;
     }
 
-    if (subcommand === 'push' && i === remaining.length - 1 && !token.startsWith('-')) {
+    if (
+      subcommand === 'push' &&
+      i === remaining.length - 1 &&
+      !token.startsWith('-')
+    ) {
       remoteUrl = token;
-    } else if ((subcommand === 'push' || subcommand === 'checkout') && !token.startsWith('-')) {
+    } else if (
+      (subcommand === 'push' || subcommand === 'checkout') &&
+      !token.startsWith('-')
+    ) {
       targetBranch = token;
     }
 
@@ -201,7 +525,9 @@ export function parseGitCommand(command: string): ParsedGitCommand {
   };
 }
 
-export function classifyGitSubcommand(subcommand: string): GitSubcommandInfo | undefined {
+export function classifyGitSubcommand(
+  subcommand: string
+): GitSubcommandInfo | undefined {
   return GIT_SUBCOMMANDS.find((s) => s.name === subcommand);
 }
 
@@ -211,7 +537,7 @@ export function isGitCommand(command: string): boolean {
 
 export function validateGitCommand(
   command: string,
-  options: Partial<GitSafetyOptions> = {},
+  options: Partial<GitSafetyOptions> = {}
 ): GitValidationResult {
   const opts = { ...DEFAULT_GIT_OPTIONS, ...options };
   const issues: GitSafetyIssue[] = [];
@@ -243,11 +569,13 @@ export function validateGitCommand(
         safe: true,
         riskLevel: 'medium',
         behavior: 'ask',
-        issues: [{
-          type: 'unknown-subcommand',
-          severity: 'medium',
-          message: `Unknown git subcommand '${parsed.subcommand}' needs confirmation`,
-        }],
+        issues: [
+          {
+            type: 'unknown-subcommand',
+            severity: 'medium',
+            message: `Unknown git subcommand '${parsed.subcommand}' needs confirmation`,
+          },
+        ],
         subcommandInfo: undefined,
         parsedCommand: parsed,
       };
@@ -259,17 +587,22 @@ export function validateGitCommand(
       safe: true,
       riskLevel: 'medium',
       behavior: 'ask',
-      issues: [{
-        type: 'unknown-subcommand',
-        severity: 'medium',
-        message: `Unknown git subcommand '${parsed.subcommand}' needs confirmation`,
-      }],
+      issues: [
+        {
+          type: 'unknown-subcommand',
+          severity: 'medium',
+          message: `Unknown git subcommand '${parsed.subcommand}' needs confirmation`,
+        },
+      ],
       subcommandInfo: undefined,
       parsedCommand: parsed,
     };
   }
 
-  if (subcommandInfo.category === 'destructive' || subcommandInfo.category === 'admin') {
+  if (
+    subcommandInfo.category === 'destructive' ||
+    subcommandInfo.category === 'admin'
+  ) {
     if (parsed.subcommand === 'push' && parsed.hasForceFlag) {
       if (!opts.allowForcePush) {
         issues.push({
@@ -308,7 +641,11 @@ export function validateGitCommand(
       }
     }
 
-    if (parsed.subcommand === 'clean' && (parsed.hasForceFlag || parsed.flags.some((f) => f === '-d' || f === '-x'))) {
+    if (
+      parsed.subcommand === 'clean' &&
+      (parsed.hasForceFlag ||
+        parsed.flags.some((f) => f === '-d' || f === '-x'))
+    ) {
       if (!opts.allowDestructiveClean) {
         issues.push({
           type: 'history-rewrite',
@@ -318,7 +655,10 @@ export function validateGitCommand(
       }
     }
 
-    if (['filter-branch', 'rebase'].includes(parsed.subcommand) && parsed.flags.some((f) => f.startsWith('--onto') || f === '-i')) {
+    if (
+      ['filter-branch', 'rebase'].includes(parsed.subcommand) &&
+      parsed.flags.some((f) => f.startsWith('--onto') || f === '-i')
+    ) {
       if (!opts.allowRewriteHistory) {
         issues.push({
           type: 'history-rewrite',
@@ -346,10 +686,17 @@ export function validateGitCommand(
       });
     }
 
-    if (parsed.subcommand === 'clone' || parsed.subcommand === 'push' || parsed.subcommand === 'pull' || parsed.subcommand === 'fetch') {
+    if (
+      parsed.subcommand === 'clone' ||
+      parsed.subcommand === 'push' ||
+      parsed.subcommand === 'pull' ||
+      parsed.subcommand === 'fetch'
+    ) {
       const url = parsed.remoteUrl || parsed.args[0] || '';
       if (url) {
-        const blockedHost = opts.blockedRemoteHosts.find((host) => url.includes(host));
+        const blockedHost = opts.blockedRemoteHosts.find((host) =>
+          url.includes(host)
+        );
         if (blockedHost) {
           issues.push({
             type: 'blocked-remote',
@@ -396,7 +743,10 @@ export function isGitSafeSubcommand(command: string): boolean {
   return info ? info.category === 'read' : false;
 }
 
-export function isProtectedBranch(branch: string, protectedBranches: string[]): boolean {
+export function isProtectedBranch(
+  branch: string,
+  protectedBranches: string[]
+): boolean {
   for (const protectedBranch of protectedBranches) {
     if (protectedBranch.endsWith('/*')) {
       const prefix = protectedBranch.slice(0, -2);

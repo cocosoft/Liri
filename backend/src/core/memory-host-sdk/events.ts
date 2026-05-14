@@ -1,10 +1,14 @@
-import path from "node:path";
-import fs from "node:fs/promises";
+import path from 'node:path';
+import fs from 'node:fs/promises';
 
-export const MEMORY_HOST_EVENT_LOG_RELATIVE_PATH = path.join("memory", ".dreams", "events.jsonl");
+export const MEMORY_HOST_EVENT_LOG_RELATIVE_PATH = path.join(
+  'memory',
+  '.dreams',
+  'events.jsonl'
+);
 
 export type MemoryHostRecallRecordedEvent = {
-  type: "memory.recall.recorded";
+  type: 'memory.recall.recorded';
   timestamp: string;
   query: string;
   resultCount: number;
@@ -17,7 +21,7 @@ export type MemoryHostRecallRecordedEvent = {
 };
 
 export type MemoryHostPromotionAppliedEvent = {
-  type: "memory.promotion.applied";
+  type: 'memory.promotion.applied';
   timestamp: string;
   memoryPath: string;
   applied: number;
@@ -32,13 +36,13 @@ export type MemoryHostPromotionAppliedEvent = {
 };
 
 export type MemoryHostDreamCompletedEvent = {
-  type: "memory.dream.completed";
+  type: 'memory.dream.completed';
   timestamp: string;
-  phase: "light" | "deep" | "rem";
+  phase: 'light' | 'deep' | 'rem';
   inlinePath?: string;
   reportPath?: string;
   lineCount: number;
-  storageMode: "inline" | "separate" | "both";
+  storageMode: 'inline' | 'separate' | 'both';
 };
 
 export type MemoryHostEvent =
@@ -52,11 +56,11 @@ export function resolveMemoryHostEventLogPath(workspaceDir: string): string {
 
 export async function appendMemoryHostEvent(
   workspaceDir: string,
-  event: MemoryHostEvent,
+  event: MemoryHostEvent
 ): Promise<void> {
   const eventLogPath = resolveMemoryHostEventLogPath(workspaceDir);
   await fs.mkdir(path.dirname(eventLogPath), { recursive: true });
-  await fs.appendFile(eventLogPath, `${JSON.stringify(event)}\n`, "utf8");
+  await fs.appendFile(eventLogPath, `${JSON.stringify(event)}\n`, 'utf8');
 }
 
 export async function readMemoryHostEvents(params: {
@@ -66,10 +70,10 @@ export async function readMemoryHostEvents(params: {
   const eventLogPath = resolveMemoryHostEventLogPath(params.workspaceDir);
   let raw: string;
   try {
-    raw = await fs.readFile(eventLogPath, "utf8");
+    raw = await fs.readFile(eventLogPath, 'utf8');
   } catch (err: unknown) {
     const nodeErr = err as NodeJS.ErrnoException;
-    if (nodeErr.code === "ENOENT") {
+    if (nodeErr.code === 'ENOENT') {
       return [];
     }
     throw err;
@@ -79,7 +83,10 @@ export async function readMemoryHostEvents(params: {
     return [];
   }
 
-  const lines = raw.split("\n").map((line) => line.trim()).filter(Boolean);
+  const lines = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
   const events: MemoryHostEvent[] = [];
 
   for (const line of lines) {
@@ -91,7 +98,7 @@ export async function readMemoryHostEvents(params: {
     }
   }
 
-  if (typeof params.limit !== "number" || !Number.isFinite(params.limit)) {
+  if (typeof params.limit !== 'number' || !Number.isFinite(params.limit)) {
     return events;
   }
 

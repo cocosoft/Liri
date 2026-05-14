@@ -105,14 +105,16 @@ function writeClipboard(content: string): void {
 export class ClipboardTool extends BaseTool {
   name = 'clipboard';
 
-  description = 'Read or write system clipboard content. Supports text operations across Windows, macOS, and Linux.';
+  description =
+    'Read or write system clipboard content. Supports text operations across Windows, macOS, and Linux.';
 
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
       enum: ['read', 'write'],
-      description: 'Clipboard operation: read (get content) or write (set content)',
+      description:
+        'Clipboard operation: read (get content) or write (set content)',
       required: true,
     },
     {
@@ -124,7 +126,8 @@ export class ClipboardTool extends BaseTool {
     {
       name: 'full',
       type: 'boolean',
-      description: 'Read full clipboard content without truncation (only for read action)',
+      description:
+        'Read full clipboard content without truncation (only for read action)',
       required: false,
       default: false,
     },

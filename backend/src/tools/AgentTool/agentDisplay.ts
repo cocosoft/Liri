@@ -29,7 +29,7 @@ export interface DisplaySegment {
 
 export function formatAgentOutput(
   output: AgentOutput,
-  options?: DisplayOptions,
+  options?: DisplayOptions
 ): DisplaySegment[] {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const segments: DisplaySegment[] = [];
@@ -52,9 +52,10 @@ export function formatAgentOutput(
   }
 
   if (opts.showTiming && output.duration !== undefined) {
-    const duration = output.duration < 1000
-      ? `${output.duration}ms`
-      : `${(output.duration / 1000).toFixed(2)}s`;
+    const duration =
+      output.duration < 1000
+        ? `${output.duration}ms`
+        : `${(output.duration / 1000).toFixed(2)}s`;
 
     segments.push({
       type: 'metric',
@@ -74,9 +75,10 @@ export function formatAgentOutput(
   }
 
   if (output.description) {
-    const desc = output.description.length > opts.maxDescriptionLength
-      ? output.description.slice(0, opts.maxDescriptionLength) + '...'
-      : output.description;
+    const desc =
+      output.description.length > opts.maxDescriptionLength
+        ? output.description.slice(0, opts.maxDescriptionLength) + '...'
+        : output.description;
 
     segments.push({
       type: 'content',
@@ -138,9 +140,7 @@ export interface MergedAgentOutput extends AgentOutput {
   results: string[];
 }
 
-export function mergeAgentResults(
-  outputs: AgentOutput[],
-): MergedAgentOutput {
+export function mergeAgentResults(outputs: AgentOutput[]): MergedAgentOutput {
   const merged: MergedAgentOutput = {
     completed: outputs.every((o) => o.completed),
     duration: outputs.reduce((sum, o) => sum + (o.duration ?? 0), 0),
@@ -152,7 +152,7 @@ export function mergeAgentResults(
         }
         return sum;
       },
-      { input: 0, output: 0 },
+      { input: 0, output: 0 }
     ),
     agentCount: outputs.length,
     results: outputs.map((o) => o.result).filter(Boolean) as string[],

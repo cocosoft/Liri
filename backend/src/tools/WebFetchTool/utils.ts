@@ -51,7 +51,8 @@ export function normalizeUrl(url: string): NormalizedUrl | null {
       original: url,
       protocol: normalized.protocol,
       hostname: normalized.hostname,
-      port: normalized.port || (normalized.protocol === 'https:' ? '443' : '80'),
+      port:
+        normalized.port || (normalized.protocol === 'https:' ? '443' : '80'),
       pathname: normalized.pathname,
       search: normalized.search,
       hash: normalized.hash,
@@ -67,19 +68,22 @@ export function normalizeUrl(url: string): NormalizedUrl | null {
 export function detectContentType(contentType: string): ContentTypeInfo {
   const parts = contentType.split(';').map((s) => s.trim());
   const mimeType = parts[0].toLowerCase();
-  const charset = parts
-    .find((p) => p.toLowerCase().startsWith('charset='))
-    ?.split('=')[1]
-    ?.toLowerCase() ?? 'utf-8';
+  const charset =
+    parts
+      .find((p) => p.toLowerCase().startsWith('charset='))
+      ?.split('=')[1]
+      ?.toLowerCase() ?? 'utf-8';
 
   return {
     mimeType,
     charset,
     isHtml: mimeType.includes('text/html'),
     isJson: mimeType.includes('application/json'),
-    isXml: mimeType.includes('application/xml') || mimeType.includes('text/xml'),
+    isXml:
+      mimeType.includes('application/xml') || mimeType.includes('text/xml'),
     isText: mimeType.startsWith('text/'),
-    isBinary: !mimeType.startsWith('text/') && !mimeType.startsWith('application/json'),
+    isBinary:
+      !mimeType.startsWith('text/') && !mimeType.startsWith('application/json'),
     isImage: mimeType.startsWith('image/'),
     isAudio: mimeType.startsWith('audio/'),
     isVideo: mimeType.startsWith('video/'),
@@ -148,13 +152,15 @@ export function extractTextFromHtml(html: string, maxLength?: number): string {
 export function extractMetaTags(html: string): Record<string, string> {
   const metaTags: Record<string, string> = {};
 
-  const namePattern = /<meta\s+name=["']([^"']+)["']\s+content=["']([^"']*)["']/gi;
+  const namePattern =
+    /<meta\s+name=["']([^"']+)["']\s+content=["']([^"']*)["']/gi;
   let match: RegExpExecArray | null;
   while ((match = namePattern.exec(html)) !== null) {
     metaTags[match[1].toLowerCase()] = match[2];
   }
 
-  const propertyPattern = /<meta\s+property=["']([^"']+)["']\s+content=["']([^"']*)["']/gi;
+  const propertyPattern =
+    /<meta\s+property=["']([^"']+)["']\s+content=["']([^"']*)["']/gi;
   while ((match = propertyPattern.exec(html)) !== null) {
     metaTags[match[1].toLowerCase()] = match[2];
   }
@@ -171,7 +177,9 @@ export function buildUserAgent(): string {
   return 'PY_APP/2.0 (WebFetch; compatible)';
 }
 
-export function buildDefaultHeaders(extraHeaders?: Record<string, string>): Record<string, string> {
+export function buildDefaultHeaders(
+  extraHeaders?: Record<string, string>
+): Record<string, string> {
   return {
     'User-Agent': buildUserAgent(),
     Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -182,7 +190,7 @@ export function buildDefaultHeaders(extraHeaders?: Record<string, string>): Reco
 }
 
 export function parseCookies(
-  cookieString: string,
+  cookieString: string
 ): Array<{ name: string; value: string }> {
   return cookieString.split(';').map((c) => {
     const [name, ...rest] = c.trim().split('=');
@@ -193,19 +201,16 @@ export function parseCookies(
 export function truncateContent(
   content: string,
   maxLength: number,
-  truncationMessage?: string,
+  truncationMessage?: string
 ): string {
   if (content.length <= maxLength) {
     return content;
   }
 
-  const message = truncationMessage
-    ?? `\n\n[Content truncated. Original length: ${content.length} characters]`;
+  const message =
+    truncationMessage ??
+    `\n\n[Content truncated. Original length: ${content.length} characters]`;
   return content.substring(0, maxLength) + message;
 }
 
-export {
-  isUrlPreapproved,
-  isUrlBlocked,
-  isUrlAllowed,
-};
+export { isUrlPreapproved, isUrlBlocked, isUrlAllowed };

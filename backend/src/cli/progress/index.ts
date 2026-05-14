@@ -69,7 +69,10 @@ export class ProgressDisplay {
     this.state.startTime = Date.now();
     this.state.lastUpdate = Date.now();
 
-    if (this.options.mode === 'spinner' || this.options.mode === 'indeterminate') {
+    if (
+      this.options.mode === 'spinner' ||
+      this.options.mode === 'indeterminate'
+    ) {
       this.intervalId = setInterval(() => this.render(), 80);
     }
 
@@ -84,7 +87,10 @@ export class ProgressDisplay {
       this.state.message = message;
     }
 
-    if (this.options.mode !== 'spinner' && this.options.mode !== 'indeterminate') {
+    if (
+      this.options.mode !== 'spinner' &&
+      this.options.mode !== 'indeterminate'
+    ) {
       this.render();
     }
   }
@@ -139,7 +145,10 @@ export class ProgressDisplay {
     switch (this.options.mode) {
       case 'spinner':
         output = output
-          .replace('{spinner}', SPINNER_FRAMES[this.frameIndex % SPINNER_FRAMES.length])
+          .replace(
+            '{spinner}',
+            SPINNER_FRAMES[this.frameIndex % SPINNER_FRAMES.length]
+          )
           .replace('{message}', this.state.message)
           .replace('{percentage}', '');
         this.frameIndex++;
@@ -185,9 +194,8 @@ export class ProgressDisplay {
   }
 
   private renderProgressBar(): string {
-    const percent = this.state.total > 0
-      ? this.state.current / this.state.total
-      : 0;
+    const percent =
+      this.state.total > 0 ? this.state.current / this.state.total : 0;
     const filled = Math.round(percent * this.options.barLength);
     const empty = this.options.barLength - filled;
 
@@ -196,9 +204,11 @@ export class ProgressDisplay {
 
   private renderIndeterminateBar(): string {
     const pos = this.frameIndex % (this.options.barLength * 2);
-    const position = pos < this.options.barLength ? pos : this.options.barLength * 2 - pos;
+    const position =
+      pos < this.options.barLength ? pos : this.options.barLength * 2 - pos;
 
-    const bar = BAR_CHARS.empty.repeat(position) +
+    const bar =
+      BAR_CHARS.empty.repeat(position) +
       BAR_CHARS.head +
       BAR_CHARS.empty.repeat(this.options.barLength - position - 1);
 
@@ -245,7 +255,10 @@ export function createSpinner(message?: string): ProgressDisplay {
   return new ProgressDisplay({ mode: 'spinner', message });
 }
 
-export function createProgressBar(total: number, message?: string): ProgressDisplay {
+export function createProgressBar(
+  total: number,
+  message?: string
+): ProgressDisplay {
   return new ProgressDisplay({ mode: 'bar', total, message });
 }
 

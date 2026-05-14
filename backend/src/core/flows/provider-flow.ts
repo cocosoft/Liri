@@ -178,7 +178,7 @@ for (const provider of DEFAULT_PROVIDERS) {
  * 注册提供商设置流程贡献。
  */
 export function registerProviderFlowContribution(
-  contribution: ProviderSetupFlowContribution,
+  contribution: ProviderSetupFlowContribution
 ): void {
   providerRegistry.set(contribution.id, contribution);
 }
@@ -187,7 +187,7 @@ export function registerProviderFlowContribution(
  * 获取提供商设置流程贡献列表。
  */
 export function getProviderSetupFlow(
-  providerId: string,
+  providerId: string
 ): ProviderSetupFlowContribution | undefined {
   for (const entry of providerRegistry.values()) {
     if (entry.providerId === providerId) {
@@ -207,7 +207,7 @@ export function getProviderSetupFlowContributions(options?: {
 
   if (options?.scope) {
     entries = entries.filter(
-      (e) => !e.onboardingScopes || e.onboardingScopes.includes(options.scope!),
+      (e) => !e.onboardingScopes || e.onboardingScopes.includes(options.scope!)
     );
   }
 
@@ -230,7 +230,7 @@ export function listRegisteredProviderIds(): string[] {
  */
 export function resolveProviderAuthConfig(
   providerId: string,
-  context: FlowContext,
+  context: FlowContext
 ): ProviderAuthConfig {
   const envKeyMap: Record<string, string[]> = {
     openai: ['OPENAI_API_KEY'],
@@ -258,12 +258,16 @@ export function resolveProviderAuthConfig(
 export async function setupProvider(
   providerId: string,
   context: FlowContext = {},
-  configProvider: FlowConfigProvider,
+  configProvider: FlowConfigProvider
 ): Promise<ProviderSetupResult> {
   const flow = getProviderSetupFlow(providerId);
 
   if (!flow) {
-    return { providerId, configured: false, error: `Unknown provider: ${providerId}` };
+    return {
+      providerId,
+      configured: false,
+      error: `Unknown provider: ${providerId}`,
+    };
   }
 
   const authConfig = resolveProviderAuthConfig(providerId, context);

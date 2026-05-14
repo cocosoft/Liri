@@ -1,4 +1,9 @@
-import type { ReplyContext, ReplyPayload, ReplyEnvelope, ReplyResult } from './types.js';
+import type {
+  ReplyContext,
+  ReplyPayload,
+  ReplyEnvelope,
+  ReplyResult,
+} from './types.js';
 import { createEnvelope, hasContent, mergeEnvelopes } from './envelope.js';
 import { HeartbeatManager } from './heartbeat.js';
 import { ReplyDispatcher } from './dispatch.js';
@@ -27,7 +32,7 @@ export class ReplyOrchestrator {
     options?: {
       heartbeatIntervalMs?: number;
       chunkLimit?: number;
-    },
+    }
   ): Promise<ReplyResult> {
     const payload: ReplyPayload = {
       text: context.text,
@@ -48,7 +53,7 @@ export class ReplyOrchestrator {
         channelId: context.channelId,
         accountId: context.accountId,
       },
-      target,
+      target
     );
 
     if (!hasContent(envelope)) {
@@ -74,7 +79,9 @@ export class ReplyOrchestrator {
       sent: dispatched.sent,
       envelopes: [envelope],
       dispatched: [dispatched],
-      heartbeat: this.heartbeat.isActive() ? this.heartbeat.getState() : undefined,
+      heartbeat: this.heartbeat.isActive()
+        ? this.heartbeat.getState()
+        : undefined,
       error: dispatched.error,
     };
   }
@@ -82,12 +89,8 @@ export class ReplyOrchestrator {
   /**
    * 批量回复多个上下文。
    */
-  async replyBatch(
-    contexts: ReplyContext[],
-  ): Promise<ReplyResult[]> {
-    return Promise.all(
-      contexts.map((ctx) => this.reply(ctx)),
-    );
+  async replyBatch(contexts: ReplyContext[]): Promise<ReplyResult[]> {
+    return Promise.all(contexts.map((ctx) => this.reply(ctx)));
   }
 
   /**
@@ -95,7 +98,7 @@ export class ReplyOrchestrator {
    */
   async replyChunked(
     context: ReplyContext,
-    chunkSize: number = 4000,
+    chunkSize: number = 4000
   ): Promise<ReplyResult> {
     const target = {
       channelId: context.channelId,
@@ -121,7 +124,7 @@ export class ReplyOrchestrator {
           channelId: context.channelId,
           accountId: context.accountId,
         },
-        target,
+        target
       );
 
       envelopes.push(envelope);
@@ -141,7 +144,12 @@ export class ReplyOrchestrator {
       this.heartbeat.start(5000);
     }
 
-    const dispatched: Array<{ sent: boolean; envelopeId: string; chunkCount: number; error?: string }> = [];
+    const dispatched: Array<{
+      sent: boolean;
+      envelopeId: string;
+      chunkCount: number;
+      error?: string;
+    }> = [];
     for (const envelope of envelopes) {
       const result = await this.dispatcher.dispatch(envelope, target);
       dispatched.push(result);
@@ -157,7 +165,9 @@ export class ReplyOrchestrator {
       sent: allSent,
       envelopes,
       dispatched,
-      heartbeat: this.heartbeat.isActive() ? this.heartbeat.getState() : undefined,
+      heartbeat: this.heartbeat.isActive()
+        ? this.heartbeat.getState()
+        : undefined,
       error: allSent ? undefined : 'Some chunks failed to send',
     };
   }

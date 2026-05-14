@@ -59,7 +59,7 @@ export class CliRunner {
 
   async execute(
     command: string,
-    options?: Partial<CliRunnerOptions>,
+    options?: Partial<CliRunnerOptions>
   ): Promise<CliExecutionResult> {
     const opts = { ...this.options, ...options };
     const startTime = Date.now();
@@ -68,7 +68,7 @@ export class CliRunner {
 
     try {
       const shellPath = opts.shell
-        ? (process.env.ComSpec || process.env.SHELL || 'cmd.exe')
+        ? process.env.ComSpec || process.env.SHELL || 'cmd.exe'
         : undefined;
 
       const stdout = execSync(command, {
@@ -109,7 +109,7 @@ export class CliRunner {
   async executeBundleMCP(
     toolName: string,
     args: Record<string, unknown>,
-    options?: Partial<CliRunnerOptions>,
+    options?: Partial<CliRunnerOptions>
   ): Promise<CliExecutionResult> {
     const argsJson = JSON.stringify(args);
     const command = `bun run mcp ${toolName} --args '${argsJson}'`;
@@ -120,7 +120,7 @@ export class CliRunner {
     id: string,
     command: string,
     args: string[],
-    options?: { cwd?: string; env?: Record<string, string> },
+    options?: { cwd?: string; env?: Record<string, string> }
   ): ChildProcess {
     const proc = spawn(command, args, {
       cwd: options?.cwd ?? this.options.cwd,
@@ -141,7 +141,7 @@ export class CliRunner {
   async executeWithRetry(
     command: string,
     maxRetries: number = 3,
-    options?: Partial<CliRunnerOptions>,
+    options?: Partial<CliRunnerOptions>
   ): Promise<CliExecutionResult> {
     let lastError: CliExecutionResult | null = null;
 
@@ -165,7 +165,7 @@ export class CliRunner {
   async executeWithTimeout(
     command: string,
     timeoutMs: number,
-    options?: Partial<CliRunnerOptions>,
+    options?: Partial<CliRunnerOptions>
   ): Promise<CliExecutionResult> {
     return this.execute(command, { ...options, timeout: timeoutMs });
   }

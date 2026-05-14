@@ -22,7 +22,10 @@ const healthCommand = {
   /**
    * 执行 health 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const cleanArgs = args.trim().toLowerCase();
 
     if (cleanArgs === 'help' || cleanArgs === '--help' || cleanArgs === '-h') {
@@ -88,8 +91,9 @@ const healthCommand = {
     const lines = [
       `${statusIcon} 快速健康检查 - ${statusText}`,
       '',
-      ...checks.map((c) =>
-        `  ${c.status === 'healthy' ? '✅' : c.status === 'warning' ? '⚠️' : '❌'} ${c.name}: ${c.message}`
+      ...checks.map(
+        (c) =>
+          `  ${c.status === 'healthy' ? '✅' : c.status === 'warning' ? '⚠️' : '❌'} ${c.name}: ${c.message}`
       ),
     ];
 
@@ -125,8 +129,9 @@ const healthCommand = {
       `  平台: ${sysInfo.platform}`,
       '',
       '  检查结果:',
-      ...checks.map((c) =>
-        `    ${c.status === 'healthy' ? '✅' : c.status === 'warning' ? '⚠️' : '❌'} ${c.name}: ${c.message}`
+      ...checks.map(
+        (c) =>
+          `    ${c.status === 'healthy' ? '✅' : c.status === 'warning' ? '⚠️' : '❌'} ${c.name}: ${c.message}`
       ),
       '',
       `  共 ${checks.length} 项检查，${checks.filter((c) => c.status === 'healthy').length} 项正常`,
@@ -174,8 +179,9 @@ const healthCommand = {
       `  内存: ${this.formatBytes(sysInfo.memory.rss)} RSS / ${this.formatBytes(sysInfo.memory.heapUsed)} 堆`,
       '',
       '组件健康状态:',
-      ...checks.map((c) =>
-        `  ${c.status === 'healthy' ? '✅' : c.status === 'warning' ? '⚠️' : '❌'} [${c.status.toUpperCase()}] ${c.name}: ${c.message}`
+      ...checks.map(
+        (c) =>
+          `  ${c.status === 'healthy' ? '✅' : c.status === 'warning' ? '⚠️' : '❌'} [${c.status.toUpperCase()}] ${c.name}: ${c.message}`
       ),
       '',
       `📊 摘要: ${checks.filter((c) => c.status === 'healthy').length}/${checks.length} 项正常`,
@@ -198,7 +204,12 @@ const healthCommand = {
 
     switch (component) {
       case 'system':
-        result = { ...this.checkMemory(sysInfo), ...this.checkUptime(sysInfo), name: '系统资源', message: '' };
+        result = {
+          ...this.checkMemory(sysInfo),
+          ...this.checkUptime(sysInfo),
+          name: '系统资源',
+          message: '',
+        };
         break;
       case 'memory':
         result = this.checkMemory(sysInfo);
@@ -207,19 +218,39 @@ const healthCommand = {
         result = this.checkCPU(sysInfo);
         break;
       case 'network':
-        result = { name: '网络连接', status: 'healthy', message: '网络状态正常' };
+        result = {
+          name: '网络连接',
+          status: 'healthy',
+          message: '网络状态正常',
+        };
         break;
       case 'api':
-        result = { name: 'API 服务', status: 'healthy', message: 'API 服务可用' };
+        result = {
+          name: 'API 服务',
+          status: 'healthy',
+          message: 'API 服务可用',
+        };
         break;
       case 'plugins':
-        result = { name: '插件系统', status: 'healthy', message: '插件系统运行正常' };
+        result = {
+          name: '插件系统',
+          status: 'healthy',
+          message: '插件系统运行正常',
+        };
         break;
       case 'channels':
-        result = { name: '通道系统', status: 'healthy', message: '通道系统运行正常' };
+        result = {
+          name: '通道系统',
+          status: 'healthy',
+          message: '通道系统运行正常',
+        };
         break;
       case 'services':
-        result = { name: '后台服务', status: 'healthy', message: '后台服务运行正常' };
+        result = {
+          name: '后台服务',
+          status: 'healthy',
+          message: '后台服务运行正常',
+        };
         break;
       default:
         return {
@@ -274,19 +305,35 @@ const healthCommand = {
     const usage = sysInfo.memory.heapUsed / sysInfo.memory.heapTotal;
 
     if (usage > 0.9) {
-      return { name: '内存使用', status: 'error', message: `内存使用率过高: ${(usage * 100).toFixed(1)}%` };
+      return {
+        name: '内存使用',
+        status: 'error',
+        message: `内存使用率过高: ${(usage * 100).toFixed(1)}%`,
+      };
     }
     if (usage > 0.7) {
-      return { name: '内存使用', status: 'warning', message: `内存使用率偏高: ${(usage * 100).toFixed(1)}%` };
+      return {
+        name: '内存使用',
+        status: 'warning',
+        message: `内存使用率偏高: ${(usage * 100).toFixed(1)}%`,
+      };
     }
-    return { name: '内存使用', status: 'healthy', message: `内存使用正常: ${(usage * 100).toFixed(1)}%` };
+    return {
+      name: '内存使用',
+      status: 'healthy',
+      message: `内存使用正常: ${(usage * 100).toFixed(1)}%`,
+    };
   },
 
   /**
    * 检查运行时间
    */
   checkUptime(sysInfo: SystemInfo): HealthCheckResult {
-    return { name: '运行时间', status: 'healthy', message: `已运行 ${this.formatUptime(sysInfo.uptime)}` };
+    return {
+      name: '运行时间',
+      status: 'healthy',
+      message: `已运行 ${this.formatUptime(sysInfo.uptime)}`,
+    };
   },
 
   /**
@@ -294,12 +341,24 @@ const healthCommand = {
    */
   checkCPU(sysInfo: SystemInfo): HealthCheckResult {
     if (sysInfo.cpu.load > 0.9) {
-      return { name: 'CPU 负载', status: 'error', message: `CPU 负载过高: ${(sysInfo.cpu.load * 100).toFixed(1)}%` };
+      return {
+        name: 'CPU 负载',
+        status: 'error',
+        message: `CPU 负载过高: ${(sysInfo.cpu.load * 100).toFixed(1)}%`,
+      };
     }
     if (sysInfo.cpu.load > 0.7) {
-      return { name: 'CPU 负载', status: 'warning', message: `CPU 负载偏高: ${(sysInfo.cpu.load * 100).toFixed(1)}%` };
+      return {
+        name: 'CPU 负载',
+        status: 'warning',
+        message: `CPU 负载偏高: ${(sysInfo.cpu.load * 100).toFixed(1)}%`,
+      };
     }
-    return { name: 'CPU 负载', status: 'healthy', message: `CPU 负载正常: ${(sysInfo.cpu.load * 100).toFixed(1)}%` };
+    return {
+      name: 'CPU 负载',
+      status: 'healthy',
+      message: `CPU 负载正常: ${(sysInfo.cpu.load * 100).toFixed(1)}%`,
+    };
   },
 
   /**

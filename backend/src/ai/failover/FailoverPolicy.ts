@@ -74,27 +74,52 @@ export class FailoverPolicy {
   }
 
   classifyError(error: unknown): FailoverReason {
-    const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    const msg =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : String(error).toLowerCase();
 
-    if (msg.includes('rate limit') || msg.includes('429') || msg.includes('too many requests')) {
+    if (
+      msg.includes('rate limit') ||
+      msg.includes('429') ||
+      msg.includes('too many requests')
+    ) {
       return 'rate_limited';
     }
-    if (msg.includes('overload') || msg.includes('503') || msg.includes('529')) {
+    if (
+      msg.includes('overload') ||
+      msg.includes('503') ||
+      msg.includes('529')
+    ) {
       return 'server_overloaded';
     }
-    if (msg.includes('model') && (msg.includes('not found') || msg.includes('unavailable'))) {
+    if (
+      msg.includes('model') &&
+      (msg.includes('not found') || msg.includes('unavailable'))
+    ) {
       return 'model_unavailable';
     }
-    if (msg.includes('context') && (msg.includes('limit') || msg.includes('overflow'))) {
+    if (
+      msg.includes('context') &&
+      (msg.includes('limit') || msg.includes('overflow'))
+    ) {
       return 'context_overflow';
     }
     if (msg.includes('timeout') || msg.includes('timed out')) {
       return 'timeout';
     }
-    if (msg.includes('network') || msg.includes('econnrefused') || msg.includes('enotfound')) {
+    if (
+      msg.includes('network') ||
+      msg.includes('econnrefused') ||
+      msg.includes('enotfound')
+    ) {
       return 'network_error';
     }
-    if (msg.includes('auth') || msg.includes('unauthorized') || msg.includes('401')) {
+    if (
+      msg.includes('auth') ||
+      msg.includes('unauthorized') ||
+      msg.includes('401')
+    ) {
       return 'auth_error';
     }
     return 'unknown';

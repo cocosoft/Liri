@@ -58,11 +58,21 @@ export class SessionPruning {
       const maxSizeBytes = this.config.maxSizeMB * 1024 * 1024;
 
       const files = readdirSync(this.config.sessionsDir)
-        .filter((f) => f.endsWith('.json') || f.endsWith('.jsonl') || f.endsWith('.transcript.jsonl'))
+        .filter(
+          (f) =>
+            f.endsWith('.json') ||
+            f.endsWith('.jsonl') ||
+            f.endsWith('.transcript.jsonl')
+        )
         .map((f) => {
           const fullPath = join(this.config.sessionsDir, f);
           const st = statSync(fullPath);
-          return { name: f, path: fullPath, size: st.size, mtimeMs: st.mtimeMs };
+          return {
+            name: f,
+            path: fullPath,
+            size: st.size,
+            mtimeMs: st.mtimeMs,
+          };
         })
         .sort((a, b) => a.mtimeMs - b.mtimeMs); // 最旧的在前
 
@@ -105,7 +115,6 @@ export class SessionPruning {
           `会话修剪完成: 移除 ${result.sessionsPruned} 个会话, 释放 ${(result.bytesFreed / 1024 / 1024).toFixed(2)} MB${this.config.dryRun ? ' (DRY-RUN)' : ''}`
         );
       }
-
     } catch (error) {
       result.errors.push(`修剪失败: ${String(error)}`);
       logger.error('会话修剪失败', error as Error);

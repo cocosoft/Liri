@@ -55,41 +55,402 @@ export interface ModelFamily {
 
 const MODEL_CATALOG: ModelEntry[] = [
   // Anthropic Claude
-  { id: 'claude-opus-4-6', name: 'claude-opus-4-6', provider: 'anthropic', displayName: 'Claude Opus 4.6', contextWindow: 200000, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'thinking', 'extended_thinking', 'tool_use', 'computer_use', 'context_caching', 'structured_output', 'parallel_tool_calls', 'image_input', 'pdf_input'], pricing: { inputPer1M: 15, outputPer1M: 75 } },
-  { id: 'claude-opus-4-5', name: 'claude-opus-4-5-20251101', provider: 'anthropic', displayName: 'Claude Opus 4.5', contextWindow: 200000, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'thinking', 'extended_thinking', 'tool_use', 'computer_use', 'context_caching', 'structured_output', 'parallel_tool_calls', 'image_input', 'pdf_input'], pricing: { inputPer1M: 15, outputPer1M: 75 } },
-  { id: 'claude-sonnet-4-6', name: 'claude-sonnet-4-6', provider: 'anthropic', displayName: 'Claude Sonnet 4.6', contextWindow: 200000, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'thinking', 'extended_thinking', 'tool_use', 'computer_use', 'context_caching', 'structured_output', 'parallel_tool_calls', 'image_input', 'pdf_input'], pricing: { inputPer1M: 3, outputPer1M: 15 } },
-  { id: 'claude-sonnet-4-5', name: 'claude-sonnet-4-5-20251001', provider: 'anthropic', displayName: 'Claude Sonnet 4.5', contextWindow: 200000, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'thinking', 'extended_thinking', 'tool_use', 'computer_use', 'context_caching', 'structured_output', 'parallel_tool_calls', 'image_input', 'pdf_input'], pricing: { inputPer1M: 3, outputPer1M: 15 } },
-  { id: 'claude-sonnet-4-0', name: 'claude-sonnet-4-0-20250501', provider: 'anthropic', displayName: 'Claude Sonnet 4.0', contextWindow: 200000, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'thinking', 'tool_use', 'context_caching', 'structured_output', 'parallel_tool_calls', 'image_input', 'pdf_input'], pricing: { inputPer1M: 3, outputPer1M: 15 } },
-  { id: 'claude-sonnet-3-5', name: 'claude-sonnet-3-5-20241022', provider: 'anthropic', displayName: 'Claude Sonnet 3.5', contextWindow: 200000, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'context_caching', 'structured_output', 'parallel_tool_calls', 'image_input', 'pdf_input'], pricing: { inputPer1M: 3, outputPer1M: 15 } },
-  { id: 'claude-haiku-3-5', name: 'claude-haiku-3-5-20241022', provider: 'anthropic', displayName: 'Claude Haiku 3.5', contextWindow: 200000, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'context_caching', 'structured_output', 'parallel_tool_calls', 'image_input', 'pdf_input'], pricing: { inputPer1M: 0.8, outputPer1M: 4 } },
+  {
+    id: 'claude-opus-4-6',
+    name: 'claude-opus-4-6',
+    provider: 'anthropic',
+    displayName: 'Claude Opus 4.6',
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'thinking',
+      'extended_thinking',
+      'tool_use',
+      'computer_use',
+      'context_caching',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+      'pdf_input',
+    ],
+    pricing: { inputPer1M: 15, outputPer1M: 75 },
+  },
+  {
+    id: 'claude-opus-4-5',
+    name: 'claude-opus-4-5-20251101',
+    provider: 'anthropic',
+    displayName: 'Claude Opus 4.5',
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'thinking',
+      'extended_thinking',
+      'tool_use',
+      'computer_use',
+      'context_caching',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+      'pdf_input',
+    ],
+    pricing: { inputPer1M: 15, outputPer1M: 75 },
+  },
+  {
+    id: 'claude-sonnet-4-6',
+    name: 'claude-sonnet-4-6',
+    provider: 'anthropic',
+    displayName: 'Claude Sonnet 4.6',
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'thinking',
+      'extended_thinking',
+      'tool_use',
+      'computer_use',
+      'context_caching',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+      'pdf_input',
+    ],
+    pricing: { inputPer1M: 3, outputPer1M: 15 },
+  },
+  {
+    id: 'claude-sonnet-4-5',
+    name: 'claude-sonnet-4-5-20251001',
+    provider: 'anthropic',
+    displayName: 'Claude Sonnet 4.5',
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'thinking',
+      'extended_thinking',
+      'tool_use',
+      'computer_use',
+      'context_caching',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+      'pdf_input',
+    ],
+    pricing: { inputPer1M: 3, outputPer1M: 15 },
+  },
+  {
+    id: 'claude-sonnet-4-0',
+    name: 'claude-sonnet-4-0-20250501',
+    provider: 'anthropic',
+    displayName: 'Claude Sonnet 4.0',
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'thinking',
+      'tool_use',
+      'context_caching',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+      'pdf_input',
+    ],
+    pricing: { inputPer1M: 3, outputPer1M: 15 },
+  },
+  {
+    id: 'claude-sonnet-3-5',
+    name: 'claude-sonnet-3-5-20241022',
+    provider: 'anthropic',
+    displayName: 'Claude Sonnet 3.5',
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'context_caching',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+      'pdf_input',
+    ],
+    pricing: { inputPer1M: 3, outputPer1M: 15 },
+  },
+  {
+    id: 'claude-haiku-3-5',
+    name: 'claude-haiku-3-5-20241022',
+    provider: 'anthropic',
+    displayName: 'Claude Haiku 3.5',
+    contextWindow: 200000,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'context_caching',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+      'pdf_input',
+    ],
+    pricing: { inputPer1M: 0.8, outputPer1M: 4 },
+  },
 
   // OpenAI
-  { id: 'gpt-4o', name: 'gpt-4o', provider: 'openai', displayName: 'GPT-4o', contextWindow: 128000, maxOutputTokens: 16384, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'structured_output', 'parallel_tool_calls', 'image_input'], pricing: { inputPer1M: 2.5, outputPer1M: 10 } },
-  { id: 'gpt-4o-mini', name: 'gpt-4o-mini', provider: 'openai', displayName: 'GPT-4o Mini', contextWindow: 128000, maxOutputTokens: 16384, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'structured_output', 'parallel_tool_calls', 'image_input'], pricing: { inputPer1M: 0.15, outputPer1M: 0.6 } },
-  { id: 'o1', name: 'o1', provider: 'openai', displayName: 'o1', contextWindow: 200000, maxOutputTokens: 100000, capabilities: ['streaming', 'function_calling', 'vision', 'thinking', 'tool_use'], pricing: { inputPer1M: 15, outputPer1M: 60 } },
-  { id: 'o3-mini', name: 'o3-mini', provider: 'openai', displayName: 'o3 Mini', contextWindow: 200000, maxOutputTokens: 100000, capabilities: ['streaming', 'function_calling', 'thinking', 'tool_use'], pricing: { inputPer1M: 1.1, outputPer1M: 4.4 } },
-  { id: 'gpt-4-turbo', name: 'gpt-4-turbo', provider: 'openai', displayName: 'GPT-4 Turbo', contextWindow: 128000, maxOutputTokens: 4096, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'image_input'], pricing: { inputPer1M: 10, outputPer1M: 30 } },
-  { id: 'gpt-4', name: 'gpt-4', provider: 'openai', displayName: 'GPT-4', contextWindow: 8192, maxOutputTokens: 4096, capabilities: ['streaming', 'function_calling', 'tool_use'], pricing: { inputPer1M: 30, outputPer1M: 60 } },
+  {
+    id: 'gpt-4o',
+    name: 'gpt-4o',
+    provider: 'openai',
+    displayName: 'GPT-4o',
+    contextWindow: 128000,
+    maxOutputTokens: 16384,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+    ],
+    pricing: { inputPer1M: 2.5, outputPer1M: 10 },
+  },
+  {
+    id: 'gpt-4o-mini',
+    name: 'gpt-4o-mini',
+    provider: 'openai',
+    displayName: 'GPT-4o Mini',
+    contextWindow: 128000,
+    maxOutputTokens: 16384,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'structured_output',
+      'parallel_tool_calls',
+      'image_input',
+    ],
+    pricing: { inputPer1M: 0.15, outputPer1M: 0.6 },
+  },
+  {
+    id: 'o1',
+    name: 'o1',
+    provider: 'openai',
+    displayName: 'o1',
+    contextWindow: 200000,
+    maxOutputTokens: 100000,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'thinking',
+      'tool_use',
+    ],
+    pricing: { inputPer1M: 15, outputPer1M: 60 },
+  },
+  {
+    id: 'o3-mini',
+    name: 'o3-mini',
+    provider: 'openai',
+    displayName: 'o3 Mini',
+    contextWindow: 200000,
+    maxOutputTokens: 100000,
+    capabilities: ['streaming', 'function_calling', 'thinking', 'tool_use'],
+    pricing: { inputPer1M: 1.1, outputPer1M: 4.4 },
+  },
+  {
+    id: 'gpt-4-turbo',
+    name: 'gpt-4-turbo',
+    provider: 'openai',
+    displayName: 'GPT-4 Turbo',
+    contextWindow: 128000,
+    maxOutputTokens: 4096,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'image_input',
+    ],
+    pricing: { inputPer1M: 10, outputPer1M: 30 },
+  },
+  {
+    id: 'gpt-4',
+    name: 'gpt-4',
+    provider: 'openai',
+    displayName: 'GPT-4',
+    contextWindow: 8192,
+    maxOutputTokens: 4096,
+    capabilities: ['streaming', 'function_calling', 'tool_use'],
+    pricing: { inputPer1M: 30, outputPer1M: 60 },
+  },
 
   // DeepSeek
-  { id: 'deepseek-chat', name: 'deepseek-chat', provider: 'deepseek', displayName: 'DeepSeek Chat', contextWindow: 128000, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'tool_use', 'context_caching'], pricing: { inputPer1M: 0.27, outputPer1M: 1.1 } },
-  { id: 'deepseek-reasoner', name: 'deepseek-reasoner', provider: 'deepseek', displayName: 'DeepSeek Reasoner', contextWindow: 128000, maxOutputTokens: 8192, capabilities: ['streaming', 'thinking', 'tool_use'], pricing: { inputPer1M: 0.55, outputPer1M: 2.19 } },
+  {
+    id: 'deepseek-chat',
+    name: 'deepseek-chat',
+    provider: 'deepseek',
+    displayName: 'DeepSeek Chat',
+    contextWindow: 128000,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'tool_use',
+      'context_caching',
+    ],
+    pricing: { inputPer1M: 0.27, outputPer1M: 1.1 },
+  },
+  {
+    id: 'deepseek-reasoner',
+    name: 'deepseek-reasoner',
+    provider: 'deepseek',
+    displayName: 'DeepSeek Reasoner',
+    contextWindow: 128000,
+    maxOutputTokens: 8192,
+    capabilities: ['streaming', 'thinking', 'tool_use'],
+    pricing: { inputPer1M: 0.55, outputPer1M: 2.19 },
+  },
 
   // Google
-  { id: 'gemini-2.5-pro', name: 'gemini-2.5-pro-exp-03-25', provider: 'google', displayName: 'Gemini 2.5 Pro', contextWindow: 1048576, maxOutputTokens: 65536, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'structured_output', 'code_execution', 'image_input', 'pdf_input'], pricing: { inputPer1M: 1.25, outputPer1M: 10 } },
-  { id: 'gemini-2.0-flash', name: 'gemini-2.0-flash', provider: 'google', displayName: 'Gemini 2.0 Flash', contextWindow: 1048576, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'structured_output', 'image_input'], pricing: { inputPer1M: 0.1, outputPer1M: 0.4 } },
+  {
+    id: 'gemini-2.5-pro',
+    name: 'gemini-2.5-pro-exp-03-25',
+    provider: 'google',
+    displayName: 'Gemini 2.5 Pro',
+    contextWindow: 1048576,
+    maxOutputTokens: 65536,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'structured_output',
+      'code_execution',
+      'image_input',
+      'pdf_input',
+    ],
+    pricing: { inputPer1M: 1.25, outputPer1M: 10 },
+  },
+  {
+    id: 'gemini-2.0-flash',
+    name: 'gemini-2.0-flash',
+    provider: 'google',
+    displayName: 'Gemini 2.0 Flash',
+    contextWindow: 1048576,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'structured_output',
+      'image_input',
+    ],
+    pricing: { inputPer1M: 0.1, outputPer1M: 0.4 },
+  },
 
   // OpenAI - 补充
-  { id: 'o1-mini', name: 'o1-mini', provider: 'openai', displayName: 'o1 Mini', contextWindow: 128000, maxOutputTokens: 65536, capabilities: ['streaming', 'function_calling', 'thinking', 'tool_use'], pricing: { inputPer1M: 1.1, outputPer1M: 4.4 } },
-  { id: 'gpt-4.1-nano', name: 'gpt-4.1-nano', provider: 'openai', displayName: 'GPT-4.1 Nano', contextWindow: 1048576, maxOutputTokens: 32768, capabilities: ['streaming', 'function_calling', 'tool_use', 'structured_output', 'parallel_tool_calls'], pricing: { inputPer1M: 0.1, outputPer1M: 0.4 } },
+  {
+    id: 'o1-mini',
+    name: 'o1-mini',
+    provider: 'openai',
+    displayName: 'o1 Mini',
+    contextWindow: 128000,
+    maxOutputTokens: 65536,
+    capabilities: ['streaming', 'function_calling', 'thinking', 'tool_use'],
+    pricing: { inputPer1M: 1.1, outputPer1M: 4.4 },
+  },
+  {
+    id: 'gpt-4.1-nano',
+    name: 'gpt-4.1-nano',
+    provider: 'openai',
+    displayName: 'GPT-4.1 Nano',
+    contextWindow: 1048576,
+    maxOutputTokens: 32768,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'tool_use',
+      'structured_output',
+      'parallel_tool_calls',
+    ],
+    pricing: { inputPer1M: 0.1, outputPer1M: 0.4 },
+  },
 
   // Google - 补充
-  { id: 'gemini-1.5-pro', name: 'gemini-1.5-pro', provider: 'google', displayName: 'Gemini 1.5 Pro', contextWindow: 2097152, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'code_execution', 'image_input', 'pdf_input', 'context_caching'], pricing: { inputPer1M: 1.25, outputPer1M: 5 } },
-  { id: 'gemini-1.5-flash', name: 'gemini-1.5-flash', provider: 'google', displayName: 'Gemini 1.5 Flash', contextWindow: 1048576, maxOutputTokens: 8192, capabilities: ['streaming', 'function_calling', 'vision', 'tool_use', 'image_input', 'context_caching'], pricing: { inputPer1M: 0.075, outputPer1M: 0.3 } },
+  {
+    id: 'gemini-1.5-pro',
+    name: 'gemini-1.5-pro',
+    provider: 'google',
+    displayName: 'Gemini 1.5 Pro',
+    contextWindow: 2097152,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'code_execution',
+      'image_input',
+      'pdf_input',
+      'context_caching',
+    ],
+    pricing: { inputPer1M: 1.25, outputPer1M: 5 },
+  },
+  {
+    id: 'gemini-1.5-flash',
+    name: 'gemini-1.5-flash',
+    provider: 'google',
+    displayName: 'Gemini 1.5 Flash',
+    contextWindow: 1048576,
+    maxOutputTokens: 8192,
+    capabilities: [
+      'streaming',
+      'function_calling',
+      'vision',
+      'tool_use',
+      'image_input',
+      'context_caching',
+    ],
+    pricing: { inputPer1M: 0.075, outputPer1M: 0.3 },
+  },
 
   // Ollama (开源本地)
-  { id: 'ollama-llama3', name: 'llama3', provider: 'ollama', displayName: 'Llama 3', contextWindow: 8192, maxOutputTokens: 4096, capabilities: ['streaming', 'function_calling', 'tool_use'], pricing: undefined },
-  { id: 'ollama-mistral', name: 'mistral', provider: 'ollama', displayName: 'Mistral', contextWindow: 8192, maxOutputTokens: 4096, capabilities: ['streaming'], pricing: undefined },
+  {
+    id: 'ollama-llama3',
+    name: 'llama3',
+    provider: 'ollama',
+    displayName: 'Llama 3',
+    contextWindow: 8192,
+    maxOutputTokens: 4096,
+    capabilities: ['streaming', 'function_calling', 'tool_use'],
+    pricing: undefined,
+  },
+  {
+    id: 'ollama-mistral',
+    name: 'mistral',
+    provider: 'ollama',
+    displayName: 'Mistral',
+    contextWindow: 8192,
+    maxOutputTokens: 4096,
+    capabilities: ['streaming'],
+    pricing: undefined,
+  },
 ];
 
 export class ModelCatalog {
@@ -118,7 +479,10 @@ export class ModelCatalog {
     return this.models.delete(id);
   }
 
-  list(filter?: { provider?: ModelProvider; capability?: ModelCapabilityFlag }): ModelEntry[] {
+  list(filter?: {
+    provider?: ModelProvider;
+    capability?: ModelCapabilityFlag;
+  }): ModelEntry[] {
     let result = Array.from(this.models.values());
 
     if (filter?.provider) {
@@ -126,7 +490,9 @@ export class ModelCatalog {
     }
 
     if (filter?.capability) {
-      result = result.filter((m) => m.capabilities.includes(filter.capability!));
+      result = result.filter((m) =>
+        m.capabilities.includes(filter.capability!)
+      );
     }
 
     result = result.filter((m) => !m.deprecated);
@@ -137,7 +503,7 @@ export class ModelCatalog {
 
   getProviders(): ModelProvider[] {
     return Array.from(
-      new Set(Array.from(this.models.values()).map((m) => m.provider)),
+      new Set(Array.from(this.models.values()).map((m) => m.provider))
     ).sort() as ModelProvider[];
   }
 
@@ -167,7 +533,9 @@ export class ModelCatalog {
     let result = this.list();
 
     if (maxInputPricePer1M !== undefined) {
-      result = result.filter((m) => m.pricing && m.pricing.inputPer1M <= maxInputPricePer1M);
+      result = result.filter(
+        (m) => m.pricing && m.pricing.inputPer1M <= maxInputPricePer1M
+      );
     }
 
     return result;
@@ -179,7 +547,7 @@ export class ModelCatalog {
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.displayName.toLowerCase().includes(q) ||
-        m.provider.toLowerCase().includes(q),
+        m.provider.toLowerCase().includes(q)
     );
   }
 

@@ -1,4 +1,9 @@
-export type NodeStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type NodeStatus =
+  | 'idle'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 
 export type NodeType = 'builtin' | 'plugin' | 'remote' | 'agent' | 'channel';
 

@@ -107,6 +107,20 @@ export type {
 export { IntelligentMCPAnalyzer } from './IntelligentMCPAnalyzer.js';
 export type { MCPAnalysisResult } from './IntelligentMCPAnalyzer.js';
 
+// ── 自动发现 ──
+export { MCPAutoDiscovery, getMCPAutoDiscovery } from './MCPAutoDiscovery';
+export type { MCPDiscoveryEntry, MCPDiscoveryConfig } from './MCPAutoDiscovery';
+export {
+  MCPCompatibilityTester,
+  getMCPCompatibilityTester,
+} from './MCPCompatibilityTester';
+export type {
+  MCPTestCase,
+  MCPTestResult,
+  MCPCompatibilityReport,
+  MCPRegressionConfig,
+} from './MCPCompatibilityTester';
+
 // ── 工具函数 ──
 export {
   readMcpConfig,

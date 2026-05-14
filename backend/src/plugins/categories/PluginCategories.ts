@@ -25,7 +25,10 @@ export interface PluginCategoryMetadata {
   optionalInterfaces: string[];
 }
 
-export const PLUGIN_CATEGORIES: Record<PluginCapability, PluginCategoryMetadata> = {
+export const PLUGIN_CATEGORIES: Record<
+  PluginCapability,
+  PluginCategoryMetadata
+> = {
   provider: {
     capability: 'provider',
     description: '注册 AI 模型 Provider',
@@ -99,14 +102,19 @@ export interface IToolPlugin {
   readonly capability: 'tool';
   readonly toolName: string;
   getSchema(): Record<string, unknown>;
-  execute(input: Record<string, unknown>, context: Record<string, unknown>): Promise<Record<string, unknown>>;
+  execute(
+    input: Record<string, unknown>,
+    context: Record<string, unknown>
+  ): Promise<Record<string, unknown>>;
 }
 
 export interface IHookPlugin {
   readonly capability: 'hook';
   readonly hookName: string;
   onEvent?(event: string, payload: Record<string, unknown>): Promise<void>;
-  onIntercept?(payload: Record<string, unknown>): Promise<{ allowed: boolean; reason?: string }>;
+  onIntercept?(
+    payload: Record<string, unknown>
+  ): Promise<{ allowed: boolean; reason?: string }>;
 }
 
 export interface IChannelPlugin {
@@ -132,7 +140,9 @@ export type CategoryPlugin =
   | IChannelPlugin
   | ISkillPlugin;
 
-export function getPluginCategory(capability: PluginCapability): PluginCategoryMetadata {
+export function getPluginCategory(
+  capability: PluginCapability
+): PluginCategoryMetadata {
   return PLUGIN_CATEGORIES[capability];
 }
 
@@ -141,6 +151,8 @@ export function validatePluginInterfaces(
   implementedInterfaces: string[]
 ): { valid: boolean; missing: string[] } {
   const meta = getPluginCategory(capability);
-  const missing = meta.requiredInterfaces.filter((iface) => !implementedInterfaces.includes(iface));
+  const missing = meta.requiredInterfaces.filter(
+    (iface) => !implementedInterfaces.includes(iface)
+  );
   return { valid: missing.length === 0, missing };
 }

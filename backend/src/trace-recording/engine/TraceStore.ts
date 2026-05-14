@@ -77,8 +77,9 @@ export class TraceStore {
    * 清理最旧条目
    */
   private evictOldest(count: number): void {
-    const sorted = Array.from(this.index.entries())
-      .sort(([, a], [, b]) => a.timestamp.localeCompare(b.timestamp));
+    const sorted = Array.from(this.index.entries()).sort(([, a], [, b]) =>
+      a.timestamp.localeCompare(b.timestamp)
+    );
     const toDelete = sorted.slice(0, count);
     for (const [id] of toDelete) {
       this.index.delete(id);

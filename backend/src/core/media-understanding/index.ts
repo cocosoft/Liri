@@ -17,18 +17,15 @@ export type {
   ImageDescriptionResult,
   ImagesDescriptionResult,
   MediaUnderstandingProvider,
-} from "./types.js";
+} from './types.js';
 
 export {
   extractMediaUserText,
   formatMediaUnderstandingBody,
   formatAudioTranscripts,
-} from "./format.js";
+} from './format.js';
 
-export {
-  estimateBase64Size,
-  resolveVideoMaxBase64Bytes,
-} from "./image.js";
+export { estimateBase64Size, resolveVideoMaxBase64Bytes } from './image.js';
 
 export {
   resolveTimeoutMs,
@@ -39,4 +36,4 @@ export {
   resolveModelEntries,
   resolveConcurrency,
   resolveEntriesWithActiveFallback,
-} from "./resolve.js";
+} from './resolve.js';

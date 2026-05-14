@@ -27,7 +27,8 @@ export interface YieldResult {
 export class SessionsYieldTool extends BaseTool {
   name = 'sessions_yield';
 
-  description = 'Yield execution control back to parent or specified session. Preserves session state for later resumption.';
+  description =
+    'Yield execution control back to parent or specified session. Preserves session state for later resumption.';
 
   params: ToolParam[] = [
     {

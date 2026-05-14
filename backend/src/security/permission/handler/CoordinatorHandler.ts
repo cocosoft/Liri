@@ -5,10 +5,18 @@
  */
 
 import { logger } from '../../../utils/log.js';
-import type { PermissionContext, PermissionDecision } from '../PermissionContext.js';
+import type {
+  PermissionContext,
+  PermissionDecision,
+} from '../PermissionContext.js';
 import { globalAuditLogger } from '../logging/PermissionAuditLogger.js';
 
-export type DecisionSource = 'policy' | 'interactive' | 'admin' | 'swarm' | 'cache';
+export type DecisionSource =
+  | 'policy'
+  | 'interactive'
+  | 'admin'
+  | 'swarm'
+  | 'cache';
 
 export interface WeightedDecision {
   source: DecisionSource;
@@ -41,7 +49,7 @@ export class CoordinatorHandler {
 
   async coordinate(
     context: PermissionContext,
-    decisions: WeightedDecision[],
+    decisions: WeightedDecision[]
   ): Promise<CoordinatedDecision> {
     if (decisions.length === 0) {
       const defaultDecision = this.makeDefaultDecision(context);
@@ -72,7 +80,7 @@ export class CoordinatorHandler {
 
     if (this.options.allowOverride) {
       const adminOverride = sorted.find(
-        (d) => d.source === 'admin' || d.source === 'swarm',
+        (d) => d.source === 'admin' || d.source === 'swarm'
       );
       if (adminOverride && consensus === 'conflict') {
         final = adminOverride.decision;
@@ -89,11 +97,11 @@ export class CoordinatorHandler {
     globalAuditLogger.log(
       final.allowed ? 'permission_granted' : 'permission_denied',
       context,
-      final,
+      final
     );
 
     logger.debug(
-      `[CoordinatorHandler] Consensus: ${consensus}, final: ${final.allowed ? 'ALLOW' : 'DENY'}`,
+      `[CoordinatorHandler] Consensus: ${consensus}, final: ${final.allowed ? 'ALLOW' : 'DENY'}`
     );
 
     return result;
@@ -101,7 +109,7 @@ export class CoordinatorHandler {
 
   private resolveConflict(
     context: PermissionContext,
-    decisions: WeightedDecision[],
+    decisions: WeightedDecision[]
   ): PermissionDecision {
     const riskLevel = context.action.estimatedRisk ?? 'medium';
 

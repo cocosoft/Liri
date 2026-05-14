@@ -70,13 +70,17 @@ export class ContextEngine {
   /**
    * 设置上下文
    */
-  set(key: string, value: unknown, options?: {
-    scope?: ContextEntry['scope'];
-    priority?: number;
-    ttl?: number;
-    tags?: string[];
-    source?: string;
-  }): ContextEntry {
+  set(
+    key: string,
+    value: unknown,
+    options?: {
+      scope?: ContextEntry['scope'];
+      priority?: number;
+      ttl?: number;
+      tags?: string[];
+      source?: string;
+    }
+  ): ContextEntry {
     const entry: ContextEntry = {
       id: `ctx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       key,
@@ -129,7 +133,9 @@ export class ContextEngine {
     }
 
     if (query.tags && query.tags.length > 0) {
-      results = results.filter((e) => query.tags!.some((t) => e.tags.includes(t)));
+      results = results.filter((e) =>
+        query.tags!.some((t) => e.tags.includes(t))
+      );
     }
 
     results = results.filter((e) => !e.expiresAt || Date.now() <= e.expiresAt);

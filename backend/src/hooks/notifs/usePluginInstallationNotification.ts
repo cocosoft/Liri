@@ -15,10 +15,10 @@ export function usePluginInstallationNotification(): void {
       if (!plugins?.installationStatus) return;
 
       const failedPlugins = plugins.installationStatus.plugins.filter(
-        (p) => p.status === 'failed',
+        (p) => p.status === 'failed'
       );
       const failedMarketplaces = plugins.installationStatus.marketplaces.filter(
-        (m) => m.status === 'failed',
+        (m) => m.status === 'failed'
       );
 
       for (const plugin of failedPlugins) {

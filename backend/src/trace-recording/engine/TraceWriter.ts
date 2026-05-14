@@ -107,7 +107,8 @@ export class TraceWriter {
     }
 
     const records: TraceRecord[] = [];
-    const files = fs.readdirSync(this.traceDir)
+    const files = fs
+      .readdirSync(this.traceDir)
       .filter((f) => f.startsWith('trace_') && f.endsWith('.jsonl'))
       .sort();
 
@@ -133,7 +134,8 @@ export class TraceWriter {
     if (!fs.existsSync(this.traceDir)) {
       return [];
     }
-    return fs.readdirSync(this.traceDir)
+    return fs
+      .readdirSync(this.traceDir)
       .filter((f) => f.startsWith('trace_') && f.endsWith('.jsonl'))
       .map((f) => f.replace('trace_', '').replace('.jsonl', ''))
       .sort()

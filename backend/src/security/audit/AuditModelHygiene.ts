@@ -11,11 +11,31 @@ import { join } from 'node:path';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-const API_KEY_PATTERNS: Array<{ provider: string; pattern: RegExp; name: string }> = [
-  { provider: 'anthropic', pattern: /sk-ant-[a-zA-Z0-9_-]{40,}/, name: 'Anthropic API Key' },
-  { provider: 'openai', pattern: /sk-[a-zA-Z0-9]{32,}/, name: 'OpenAI API Key' },
-  { provider: 'deepseek', pattern: /sk-[a-zA-Z0-9]{32,}/, name: 'DeepSeek API Key' },
-  { provider: 'github', pattern: /gh[pousr]_[A-Za-z0-9_]{36,}/, name: 'GitHub Token' },
+const API_KEY_PATTERNS: Array<{
+  provider: string;
+  pattern: RegExp;
+  name: string;
+}> = [
+  {
+    provider: 'anthropic',
+    pattern: /sk-ant-[a-zA-Z0-9_-]{40,}/,
+    name: 'Anthropic API Key',
+  },
+  {
+    provider: 'openai',
+    pattern: /sk-[a-zA-Z0-9]{32,}/,
+    name: 'OpenAI API Key',
+  },
+  {
+    provider: 'deepseek',
+    pattern: /sk-[a-zA-Z0-9]{32,}/,
+    name: 'DeepSeek API Key',
+  },
+  {
+    provider: 'github',
+    pattern: /gh[pousr]_[A-Za-z0-9_]{36,}/,
+    name: 'GitHub Token',
+  },
   { provider: 'aws', pattern: /AKIA[0-9A-Z]{16}/, name: 'AWS Access Key' },
 ];
 
@@ -31,7 +51,9 @@ const SENSITIVE_CONFIG_FILES = [
 /**
  * 审计模型卫生
  */
-export function auditModelHygiene(workspaceDir?: string): SecurityAuditFinding[] {
+export function auditModelHygiene(
+  workspaceDir?: string
+): SecurityAuditFinding[] {
   const findings: SecurityAuditFinding[] = [];
   const scanDir = workspaceDir || process.cwd();
 
@@ -48,7 +70,10 @@ export function auditModelHygiene(workspaceDir?: string): SecurityAuditFinding[]
   return findings;
 }
 
-function auditApiKeyExposure(scanDir: string, findings: SecurityAuditFinding[]): void {
+function auditApiKeyExposure(
+  scanDir: string,
+  findings: SecurityAuditFinding[]
+): void {
   for (const file of SENSITIVE_CONFIG_FILES) {
     const filePath = join(scanDir, file);
     if (!existsSync(filePath)) continue;
@@ -77,7 +102,10 @@ function auditApiKeyExposure(scanDir: string, findings: SecurityAuditFinding[]):
   }
 }
 
-function auditModelPermissions(scanDir: string, findings: SecurityAuditFinding[]): void {
+function auditModelPermissions(
+  scanDir: string,
+  findings: SecurityAuditFinding[]
+): void {
   const configPath = join(scanDir, 'config', 'governance.json');
   if (!existsSync(configPath)) return;
 
@@ -93,7 +121,10 @@ function auditModelPermissions(scanDir: string, findings: SecurityAuditFinding[]
         remediation: '限制可用的模型列表，仅允许经过审查的模型',
       });
     }
-    if (governance['maxTokensPerRequest'] && governance['maxTokensPerRequest'] > 500000) {
+    if (
+      governance['maxTokensPerRequest'] &&
+      governance['maxTokensPerRequest'] > 500000
+    ) {
       findings.push({
         id: 'MODEL_perm-002',
         severity: 'LOW',
@@ -108,7 +139,10 @@ function auditModelPermissions(scanDir: string, findings: SecurityAuditFinding[]
   }
 }
 
-function auditProviderConfig(scanDir: string, findings: SecurityAuditFinding[]): void {
+function auditProviderConfig(
+  scanDir: string,
+  findings: SecurityAuditFinding[]
+): void {
   const aiConfigFiles = [
     join(scanDir, 'src', 'ai', 'models', 'ModelConfigs.ts'),
     join(scanDir, 'config', 'ai.json'),
@@ -121,7 +155,10 @@ function auditProviderConfig(scanDir: string, findings: SecurityAuditFinding[]):
       const content = readFileSync(filePath, 'utf-8');
 
       // 检查是否有 disabled 但仍有 API key 的 provider
-      if (/disabled.*true/i.test(content) && API_KEY_PATTERNS.some((p) => p.pattern.test(content))) {
+      if (
+        /disabled.*true/i.test(content) &&
+        API_KEY_PATTERNS.some((p) => p.pattern.test(content))
+      ) {
         findings.push({
           id: 'MODEL_provider-001',
           severity: 'LOW',

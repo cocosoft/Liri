@@ -42,7 +42,12 @@ import {
 } from './utils/agentLoader';
 
 import { BtwProcessor } from './btw';
-import type { BtwProcessorConfig, BtwDetectionResult, BtwAnswerResult, BtwContextMessage } from './btw';
+import type {
+  BtwProcessorConfig,
+  BtwDetectionResult,
+  BtwAnswerResult,
+  BtwContextMessage,
+} from './btw';
 
 import { ToolPolicyManager } from './tool-policy';
 import type {
@@ -83,7 +88,12 @@ import {
   resolveEffectiveMessagesConfig,
   resolveHumanDelayConfig,
 } from './identity';
-import type { IdentityConfig, MessagesConfig, HumanDelayConfig, AgentIdentitySystemConfig } from './identity';
+import type {
+  IdentityConfig,
+  MessagesConfig,
+  HumanDelayConfig,
+  AgentIdentitySystemConfig,
+} from './identity';
 
 export {
   AgentService,

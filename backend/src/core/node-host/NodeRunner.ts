@@ -5,7 +5,16 @@ import { NodeInvoke } from './NodeInvoke.js';
 export class NodeRunner extends EventEmitter {
   private sessions: Map<string, NodeSession> = new Map();
   private nodeInvoke: NodeInvoke;
-  private metrics: Map<string, { total: number; success: number; failed: number; totalDuration: number; lastInvoked: number }> = new Map();
+  private metrics: Map<
+    string,
+    {
+      total: number;
+      success: number;
+      failed: number;
+      totalDuration: number;
+      lastInvoked: number;
+    }
+  > = new Map();
   private running: boolean = false;
 
   constructor(nodeInvoke: NodeInvoke) {
@@ -111,7 +120,9 @@ export class NodeRunner extends EventEmitter {
   }
 
   getAllMetrics(): NodeMetrics[] {
-    return Array.from(this.metrics.keys()).map((nodeId) => this.getMetrics(nodeId));
+    return Array.from(this.metrics.keys()).map((nodeId) =>
+      this.getMetrics(nodeId)
+    );
   }
 
   clearSessions(): void {
@@ -119,7 +130,11 @@ export class NodeRunner extends EventEmitter {
     this.emit('sessions:cleared');
   }
 
-  private updateMetrics(nodeId: string, success: boolean, durationMs: number): void {
+  private updateMetrics(
+    nodeId: string,
+    success: boolean,
+    durationMs: number
+  ): void {
     let m = this.metrics.get(nodeId);
 
     if (!m) {

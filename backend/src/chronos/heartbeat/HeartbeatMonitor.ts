@@ -32,7 +32,10 @@ export interface HeartbeatConfig {
  * 心跳监控器
  */
 export class HeartbeatMonitor {
-  private heartbeats: Map<string, { lastBeat: number; missed: number; status: HeartbeatStatus }> = new Map();
+  private heartbeats: Map<
+    string,
+    { lastBeat: number; missed: number; status: HeartbeatStatus }
+  > = new Map();
   private config: HeartbeatConfig;
   private checkInterval: ReturnType<typeof setInterval> | null = null;
   private listeners: Array<(event: HeartbeatEvent) => void> = [];
@@ -114,7 +117,11 @@ export class HeartbeatMonitor {
   /**
    * 获取所有状态
    */
-  getAllStatus(): Array<{ taskId: string; status: HeartbeatStatus; lastBeat: number }> {
+  getAllStatus(): Array<{
+    taskId: string;
+    status: HeartbeatStatus;
+    lastBeat: number;
+  }> {
     return Array.from(this.heartbeats.entries()).map(([taskId, record]) => ({
       taskId,
       status: record.status,
@@ -171,8 +178,7 @@ export class HeartbeatMonitor {
     for (const listener of this.listeners) {
       try {
         listener(event);
-      } catch {
-      }
+      } catch {}
     }
   }
 }

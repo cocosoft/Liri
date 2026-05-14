@@ -83,16 +83,20 @@ export class ChatCommand {
     // 根据选项选择客户端
     if (options?.provider) {
       try {
-        this.llmClient = providerRegistry.getOrCreate(options.provider) as unknown as ToolAwareClient;
+        this.llmClient = providerRegistry.getOrCreate(
+          options.provider
+        ) as unknown as ToolAwareClient;
       } catch (error) {
         logger.warning(
           `Failed to get client for provider ${options.provider}, using default`,
           { error }
         );
-        this.llmClient = providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
+        this.llmClient =
+          providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
       }
     } else if (!this.llmClient) {
-      this.llmClient = providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
+      this.llmClient =
+        providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
     }
 
     if (!this.toolRegistry || !this.toolExecutor) {

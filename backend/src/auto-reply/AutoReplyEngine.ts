@@ -55,7 +55,11 @@ export class AutoReplyEngine {
   private rules: Map<string, ReplyRule> = new Map();
   private cooldowns: Map<string, number> = new Map();
   private config: AutoReplyConfig;
-  private stats: { totalProcessed: number; matched: number; failed: number } = { totalProcessed: 0, matched: 0, failed: 0 };
+  private stats: { totalProcessed: number; matched: number; failed: number } = {
+    totalProcessed: 0,
+    matched: 0,
+    failed: 0,
+  };
 
   constructor(config?: Partial<AutoReplyConfig>) {
     this.config = {
@@ -86,7 +90,11 @@ export class AutoReplyEngine {
   /**
    * 处理消息
    */
-  async process(message: string, channel: string, sender: string): Promise<ReplyResult> {
+  async process(
+    message: string,
+    channel: string,
+    sender: string
+  ): Promise<ReplyResult> {
     const startTime = Date.now();
 
     this.stats.totalProcessed++;
@@ -111,9 +119,10 @@ export class AutoReplyEngine {
       };
 
       try {
-        const response = typeof rule.response === 'function'
-          ? await Promise.resolve(rule.response(context))
-          : rule.response;
+        const response =
+          typeof rule.response === 'function'
+            ? await Promise.resolve(rule.response(context))
+            : rule.response;
 
         this.setCooldown(rule.id, rule.cooldown);
         this.stats.matched++;
@@ -156,8 +165,9 @@ export class AutoReplyEngine {
    * 获取所有规则
    */
   getAllRules(): ReplyRule[] {
-    return Array.from(this.rules.values())
-      .sort((a, b) => b.priority - a.priority);
+    return Array.from(this.rules.values()).sort(
+      (a, b) => b.priority - a.priority
+    );
   }
 
   /**

@@ -8,7 +8,13 @@ import readline from 'node:readline';
 /**
  * 向导步骤类型
  */
-export type WizardStepType = 'input' | 'confirm' | 'select' | 'multiselect' | 'password' | 'info';
+export type WizardStepType =
+  | 'input'
+  | 'confirm'
+  | 'select'
+  | 'multiselect'
+  | 'password'
+  | 'info';
 
 /**
  * 向导步骤
@@ -53,7 +59,12 @@ export interface WizardState {
  * 向导事件
  */
 export interface WizardEvent {
-  type: 'wizard:start' | 'wizard:step' | 'wizard:complete' | 'wizard:cancel' | 'wizard:error';
+  type:
+    | 'wizard:start'
+    | 'wizard:step'
+    | 'wizard:complete'
+    | 'wizard:cancel'
+    | 'wizard:error';
   wizardId: string;
   timestamp: number;
   data?: Record<string, unknown>;
@@ -104,7 +115,10 @@ export class WizardEngine extends EventEmitter {
   /**
    * 启动向导（交互模式）
    */
-  async start(wizardId: string, initialAnswers: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+  async start(
+    wizardId: string,
+    initialAnswers: Record<string, unknown> = {}
+  ): Promise<Record<string, unknown>> {
     const wizard = this.wizards.get(wizardId);
 
     if (!wizard) {
@@ -219,7 +233,10 @@ export class WizardEngine extends EventEmitter {
   /**
    * 执行向导步骤（编程模式，无需交互）
    */
-  async execute(wizardId: string, answers: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async execute(
+    wizardId: string,
+    answers: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const wizard = this.wizards.get(wizardId);
 
     if (!wizard) {
@@ -243,7 +260,9 @@ export class WizardEngine extends EventEmitter {
       }
 
       if (step.validator && typeof state.answers[step.id] === 'string') {
-        const validationError = step.validator(state.answers[step.id] as string);
+        const validationError = step.validator(
+          state.answers[step.id] as string
+        );
 
         if (validationError) {
           throw new Error(`步骤 "${step.id}" 验证失败: ${validationError}`);
@@ -263,7 +282,10 @@ export class WizardEngine extends EventEmitter {
   /**
    * 询问一个步骤
    */
-  private askStep(step: WizardStep, _answers: Record<string, unknown>): Promise<unknown> {
+  private askStep(
+    step: WizardStep,
+    _answers: Record<string, unknown>
+  ): Promise<unknown> {
     return new Promise((resolve) => {
       if (!this.rl) {
         resolve(null);
@@ -285,17 +307,21 @@ export class WizardEngine extends EventEmitter {
           break;
 
         case 'confirm': {
-          const defaultStr = step.default !== undefined ? (step.default ? 'Y/n' : 'y/N') : 'y/n';
+          const defaultStr =
+            step.default !== undefined ? (step.default ? 'Y/n' : 'y/N') : 'y/n';
 
-          this.rl!.question(`${step.prompt} (${defaultStr}): `, (input: string) => {
-            const trimmed = input.trim().toLowerCase();
+          this.rl!.question(
+            `${step.prompt} (${defaultStr}): `,
+            (input: string) => {
+              const trimmed = input.trim().toLowerCase();
 
-            if (trimmed === '') {
-              resolve(step.default ?? true);
-            } else {
-              resolve(trimmed === 'y' || trimmed === 'yes');
+              if (trimmed === '') {
+                resolve(step.default ?? true);
+              } else {
+                resolve(trimmed === 'y' || trimmed === 'yes');
+              }
             }
-          });
+          );
 
           break;
         }
@@ -318,7 +344,9 @@ export class WizardEngine extends EventEmitter {
             } else if (step.options && step.options.includes(trimmed)) {
               resolve(trimmed);
             } else {
-              resolve(step.default || (step.options ? step.options[0] : trimmed));
+              resolve(
+                step.default || (step.options ? step.options[0] : trimmed)
+              );
             }
           });
 
@@ -339,15 +367,18 @@ export class WizardEngine extends EventEmitter {
             if (!trimmed) {
               resolve(step.default || []);
             } else {
-              const selected = trimmed.split(',').map((s) => {
-                const idx = parseInt(s.trim(), 10) - 1;
+              const selected = trimmed
+                .split(',')
+                .map((s) => {
+                  const idx = parseInt(s.trim(), 10) - 1;
 
-                if (step.options && idx >= 0 && idx < step.options.length) {
-                  return step.options[idx];
-                }
+                  if (step.options && idx >= 0 && idx < step.options.length) {
+                    return step.options[idx];
+                  }
 
-                return s.trim();
-              }).filter(Boolean);
+                  return s.trim();
+                })
+                .filter(Boolean);
 
               resolve(selected);
             }
@@ -421,7 +452,8 @@ export class WizardEngine extends EventEmitter {
           title: 'API 密钥',
           description: '请输入您的 AI 服务 API 密钥',
           prompt: 'API Key',
-          validator: (value: string) => value.length < 8 ? 'API 密钥长度至少 8 位' : null,
+          validator: (value: string) =>
+            value.length < 8 ? 'API 密钥长度至少 8 位' : null,
         },
         {
           id: 'model',
@@ -429,7 +461,12 @@ export class WizardEngine extends EventEmitter {
           title: '默认模型',
           description: '选择默认使用的 AI 模型',
           prompt: '请选择模型',
-          options: ['claude-sonnet-4', 'gpt-4o', 'deepseek-v3', 'gemini-2.0-pro'],
+          options: [
+            'claude-sonnet-4',
+            'gpt-4o',
+            'deepseek-v3',
+            'gemini-2.0-pro',
+          ],
           default: 'claude-sonnet-4',
         },
         {
@@ -482,7 +519,7 @@ export class WizardEngine extends EventEmitter {
           title: '通道 Token',
           description: '请输入通道的认证 Token',
           prompt: 'Token',
-          validator: (value: string) => !value ? 'Token 不能为空' : null,
+          validator: (value: string) => (!value ? 'Token 不能为空' : null),
         },
         {
           id: 'auto_connect',

@@ -28,20 +28,31 @@ export interface DepsCheckOptions {
   verbose?: boolean;
 }
 
-const BINARY_DEPENDENCIES: Array<{ name: string; minVersion?: string; verifyCommand?: string }> = [
+const BINARY_DEPENDENCIES: Array<{
+  name: string;
+  minVersion?: string;
+  verifyCommand?: string;
+}> = [
   { name: 'node', minVersion: '18.0.0', verifyCommand: 'node --version' },
   { name: 'npm', minVersion: '8.0.0', verifyCommand: 'npm --version' },
   { name: 'git', minVersion: '2.0.0', verifyCommand: 'git --version' },
   { name: 'bun', verifyCommand: 'bun --version' },
 ];
 
-const RUNTIME_DEPENDENCIES: Array<{ name: string; minVersion?: string; verifyCommand: string }> = [
+const RUNTIME_DEPENDENCIES: Array<{
+  name: string;
+  minVersion?: string;
+  verifyCommand: string;
+}> = [
   { name: 'TypeScript', verifyCommand: 'npx tsc --version' },
   { name: 'ESLint', verifyCommand: 'npx eslint --version' },
 ];
 
 function parseVersion(version: string): number[] {
-  return version.replace(/[^0-9.]/g, '').split('.').map(Number);
+  return version
+    .replace(/[^0-9.]/g, '')
+    .split('.')
+    .map(Number);
 }
 
 function compareVersions(current: string, minVersion: string): boolean {
@@ -62,7 +73,7 @@ async function checkBinary(
   name: string,
   verifyCommand?: string,
   minVersion?: string,
-  options?: DepsCheckOptions,
+  options?: DepsCheckOptions
 ): Promise<DependencyInfo> {
   try {
     const cmd = verifyCommand ?? `${name} --version`;
@@ -79,7 +90,7 @@ async function checkBinary(
 
     const binaryPath = execSync(
       process.platform === 'win32' ? `where ${name}` : `which ${name}`,
-      { encoding: 'utf-8', timeout: 3000 },
+      { encoding: 'utf-8', timeout: 3000 }
     ).trim();
 
     return {
@@ -101,22 +112,40 @@ async function checkBinary(
   }
 }
 
-export async function checkAllDependencies(options?: DepsCheckOptions): Promise<DependencyCheckResult> {
+export async function checkAllDependencies(
+  options?: DepsCheckOptions
+): Promise<DependencyCheckResult> {
   const deps: DependencyInfo[] = [];
-  const opts: DepsCheckOptions = { checkVersion: true, verbose: false, ...options };
+  const opts: DepsCheckOptions = {
+    checkVersion: true,
+    verbose: false,
+    ...options,
+  };
 
   for (const binary of BINARY_DEPENDENCIES) {
-    const info = await checkBinary(binary.name, binary.verifyCommand, binary.minVersion, opts);
+    const info = await checkBinary(
+      binary.name,
+      binary.verifyCommand,
+      binary.minVersion,
+      opts
+    );
     deps.push(info);
   }
 
   for (const dep of RUNTIME_DEPENDENCIES) {
-    const info = await checkBinary(dep.name, dep.verifyCommand, dep.minVersion, opts);
+    const info = await checkBinary(
+      dep.name,
+      dep.verifyCommand,
+      dep.minVersion,
+      opts
+    );
     deps.push(info);
   }
 
   const missing = deps.filter((d) => !d.installed).map((d) => d.name);
-  const unsatisfied = deps.filter((d) => d.installed && !d.satisfied).map((d) => d.name);
+  const unsatisfied = deps
+    .filter((d) => d.installed && !d.satisfied)
+    .map((d) => d.name);
 
   return {
     allSatisfied: missing.length === 0 && unsatisfied.length === 0,
@@ -126,19 +155,35 @@ export async function checkAllDependencies(options?: DepsCheckOptions): Promise<
   };
 }
 
-export async function checkDependency(name: string, options?: DepsCheckOptions): Promise<DependencyInfo> {
+export async function checkDependency(
+  name: string,
+  options?: DepsCheckOptions
+): Promise<DependencyInfo> {
   const binary = BINARY_DEPENDENCIES.find((b) => b.name === name);
   if (binary) {
-    return checkBinary(binary.name, binary.verifyCommand, binary.minVersion, options);
+    return checkBinary(
+      binary.name,
+      binary.verifyCommand,
+      binary.minVersion,
+      options
+    );
   }
 
   const runtime = RUNTIME_DEPENDENCIES.find((r) => r.name === name);
   if (runtime) {
-    return checkBinary(runtime.name, runtime.verifyCommand, runtime.minVersion, options);
+    return checkBinary(
+      runtime.name,
+      runtime.verifyCommand,
+      runtime.minVersion,
+      options
+    );
   }
 
   try {
-    const output = execSync(`${name} --version`, { encoding: 'utf-8', timeout: 5000 }).trim();
+    const output = execSync(`${name} --version`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+    }).trim();
     const versionMatch = output.match(/(\d+\.\d+\.\d+)/);
     return {
       name,
@@ -161,16 +206,14 @@ export function formatDependencyReport(result: DependencyCheckResult): string {
   const lines: string[] = ['Dependency Check Report', ''];
 
   for (const dep of result.dependencies) {
-    const status = dep.installed
-      ? dep.satisfied
-        ? '✅'
-        : '⚠️'
-      : '❌';
+    const status = dep.installed ? (dep.satisfied ? '✅' : '⚠️') : '❌';
 
     const version = dep.version ?? (dep.installed ? 'unknown' : 'not found');
     const minVer = dep.minVersion ? ` (>= ${dep.minVersion})` : '';
 
-    lines.push(`  ${status} ${dep.name.padEnd(15)} ${version.padEnd(15)} ${minVer}`);
+    lines.push(
+      `  ${status} ${dep.name.padEnd(15)} ${version.padEnd(15)} ${minVer}`
+    );
   }
 
   lines.push('');

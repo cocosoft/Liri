@@ -28,15 +28,55 @@ export interface PathPolicyConfig {
 }
 
 const DEFAULT_RULES: PathPolicyRule[] = [
-  { pattern: 'node_modules/**', access: 'deny', reason: 'Node modules are not editable', priority: 80 },
-  { pattern: '.git/**', access: 'deny', reason: 'Git internals are protected', priority: 90 },
-  { pattern: '.env', access: 'deny', reason: 'Environment files contain secrets', priority: 90 },
-  { pattern: '.env.*', access: 'deny', reason: 'Environment files contain secrets', priority: 90 },
-  { pattern: '**/node_modules/**', access: 'deny', reason: 'Node modules are not editable', priority: 80 },
-  { pattern: '**/.git/**', access: 'deny', reason: 'Git internals are protected', priority: 90 },
+  {
+    pattern: 'node_modules/**',
+    access: 'deny',
+    reason: 'Node modules are not editable',
+    priority: 80,
+  },
+  {
+    pattern: '.git/**',
+    access: 'deny',
+    reason: 'Git internals are protected',
+    priority: 90,
+  },
+  {
+    pattern: '.env',
+    access: 'deny',
+    reason: 'Environment files contain secrets',
+    priority: 90,
+  },
+  {
+    pattern: '.env.*',
+    access: 'deny',
+    reason: 'Environment files contain secrets',
+    priority: 90,
+  },
+  {
+    pattern: '**/node_modules/**',
+    access: 'deny',
+    reason: 'Node modules are not editable',
+    priority: 80,
+  },
+  {
+    pattern: '**/.git/**',
+    access: 'deny',
+    reason: 'Git internals are protected',
+    priority: 90,
+  },
   { pattern: '*.log', access: 'readonly', reason: 'Log files', priority: 30 },
-  { pattern: 'dist/**', access: 'readonly', reason: 'Build output', priority: 40 },
-  { pattern: 'build/**', access: 'readonly', reason: 'Build output', priority: 40 },
+  {
+    pattern: 'dist/**',
+    access: 'readonly',
+    reason: 'Build output',
+    priority: 40,
+  },
+  {
+    pattern: 'build/**',
+    access: 'readonly',
+    reason: 'Build output',
+    priority: 40,
+  },
 ];
 
 export class PathPolicyManager {
@@ -97,7 +137,8 @@ export class PathPolicyManager {
       try {
         const regex = this.patternToRegex(rule.pattern);
         if (regex.test(normalizedPath)) {
-          const allowed = rule.access === 'allow' ||
+          const allowed =
+            rule.access === 'allow' ||
             (rule.access === 'readonly' && mode === 'read');
 
           return {
@@ -113,7 +154,8 @@ export class PathPolicyManager {
     }
 
     const defaultAccess = this.config.defaultAccess;
-    const allowed = defaultAccess === 'allow' ||
+    const allowed =
+      defaultAccess === 'allow' ||
       (defaultAccess === 'readonly' && mode === 'read');
 
     return {
@@ -151,6 +193,8 @@ export class PathPolicyManager {
   }
 }
 
-export function createPathPolicyManager(config?: PathPolicyConfig): PathPolicyManager {
+export function createPathPolicyManager(
+  config?: PathPolicyConfig
+): PathPolicyManager {
   return new PathPolicyManager(config);
 }

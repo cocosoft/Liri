@@ -59,7 +59,15 @@ export class LogConfigManager {
       level: 'info',
       targets: [
         { type: 'console', level: 'info', format: 'pretty' },
-        { type: 'file', level: 'debug', path: 'logs/app.log', format: 'json', maxSize: 10485760, maxFiles: 5, compress: true },
+        {
+          type: 'file',
+          level: 'debug',
+          path: 'logs/app.log',
+          format: 'json',
+          maxSize: 10485760,
+          maxFiles: 5,
+          compress: true,
+        },
       ],
       filters: [],
       format: 'json',
@@ -116,7 +124,11 @@ export class LogConfigManager {
   /**
    * CSR 结构化日志
    */
-  structuredLog(level: LogLevel, message: string, context?: Record<string, unknown>): string {
+  structuredLog(
+    level: LogLevel,
+    message: string,
+    context?: Record<string, unknown>
+  ): string {
     const entry: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       level,

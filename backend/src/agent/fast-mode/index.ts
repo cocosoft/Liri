@@ -35,7 +35,9 @@ export interface FastModeConfig {
  * 规范化 fastMode 值
  * 支持 boolean、string 'true'/'false'、null/undefined
  */
-export function normalizeFastMode(value: boolean | string | null | undefined): boolean | undefined {
+export function normalizeFastMode(
+  value: boolean | string | null | undefined
+): boolean | undefined {
   if (typeof value === 'boolean') {
     return value;
   }

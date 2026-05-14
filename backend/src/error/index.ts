@@ -38,6 +38,15 @@ export * from './monitor/ErrorMonitor';
 // 外部错误监控器（预留接口）
 export * from './monitor/ExternalErrorMonitor';
 
+// 错误分类器
+export {
+  ErrorClassifier,
+  getErrorClassifier,
+  classifyError,
+  FailoverReason,
+} from './ErrorClassifier';
+export type { ErrorClassification } from './ErrorClassifier';
+
 // 错误追踪器
 export * from './tracker/ErrorTracker';
 

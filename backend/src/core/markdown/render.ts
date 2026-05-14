@@ -1,4 +1,9 @@
-import type { MarkdownIR, MarkdownLinkSpan, MarkdownStyle, MarkdownStyleSpan } from "./types.js";
+import type {
+  MarkdownIR,
+  MarkdownLinkSpan,
+  MarkdownStyle,
+  MarkdownStyleSpan,
+} from './types.js';
 
 export type RenderStyleMarker = {
   open: string;
@@ -21,17 +26,17 @@ export type RenderOptions = {
 };
 
 const STYLE_ORDER: MarkdownStyle[] = [
-  "blockquote",
-  "code_block",
-  "code",
-  "bold",
-  "italic",
-  "strikethrough",
-  "spoiler",
+  'blockquote',
+  'code_block',
+  'code',
+  'bold',
+  'italic',
+  'strikethrough',
+  'spoiler',
 ];
 
 const STYLE_RANK = new Map<MarkdownStyle, number>(
-  STYLE_ORDER.map((style, index) => [style, index]),
+  STYLE_ORDER.map((style, index) => [style, index])
 );
 
 function sortStyleSpans(spans: MarkdownStyleSpan[]): MarkdownStyleSpan[] {
@@ -48,16 +53,16 @@ function sortStyleSpans(spans: MarkdownStyleSpan[]): MarkdownStyleSpan[] {
 
 export function renderMarkdownWithMarkers(
   ir: MarkdownIR,
-  options: RenderOptions,
+  options: RenderOptions
 ): string {
-  const text = ir.text ?? "";
+  const text = ir.text ?? '';
   if (!text) {
-    return "";
+    return '';
   }
 
   const styleMarkers = options.styleMarkers;
   const styled = sortStyleSpans(
-    ir.styles.filter((span) => Boolean(styleMarkers[span.style])),
+    ir.styles.filter((span) => Boolean(styleMarkers[span.style]))
   );
 
   const boundaries = new Set<number>();
@@ -112,17 +117,17 @@ export function renderMarkdownWithMarkers(
   const stack: { close: string; end: number }[] = [];
 
   type OpeningItem =
-    | { end: number; open: string; close: string; kind: "link"; index: number }
+    | { end: number; open: string; close: string; kind: 'link'; index: number }
     | {
         end: number;
         open: string;
         close: string;
-        kind: "style";
+        kind: 'style';
         style: MarkdownStyle;
         index: number;
       };
 
-  let out = "";
+  let out = '';
 
   for (let i = 0; i < points.length; i += 1) {
     const pos = points[i];
@@ -143,7 +148,7 @@ export function renderMarkdownWithMarkers(
           end: link.end,
           open: link.open,
           close: link.close,
-          kind: "link",
+          kind: 'link',
           index,
         });
       }
@@ -160,7 +165,7 @@ export function renderMarkdownWithMarkers(
           end: span.end,
           open: marker.open,
           close: marker.close,
-          kind: "style",
+          kind: 'style',
           style: span.style,
           index,
         });
@@ -173,10 +178,12 @@ export function renderMarkdownWithMarkers(
           return b.end - a.end;
         }
         if (a.kind !== b.kind) {
-          return a.kind === "link" ? -1 : 1;
+          return a.kind === 'link' ? -1 : 1;
         }
-        if (a.kind === "style" && b.kind === "style") {
-          return (STYLE_RANK.get(a.style) ?? 0) - (STYLE_RANK.get(b.style) ?? 0);
+        if (a.kind === 'style' && b.kind === 'style') {
+          return (
+            (STYLE_RANK.get(a.style) ?? 0) - (STYLE_RANK.get(b.style) ?? 0)
+          );
         }
         return a.index - b.index;
       });

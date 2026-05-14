@@ -141,7 +141,9 @@ export function createAppStateStore(
     /**
      * 添加通知
      */
-    addNotification: (notif: Omit<Notification, 'id' | 'timestamp'>): string => {
+    addNotification: (
+      notif: Omit<Notification, 'id' | 'timestamp'>
+    ): string => {
       const id = generateNotifId();
       const newNotif: Notification = {
         ...notif,

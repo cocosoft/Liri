@@ -111,12 +111,42 @@ export interface SedScript {
 }
 
 const SED_COMMAND_LETTERS = new Set([
-  's', 'd', 'p', 'w', 'i', 'a', 'c', 'y', 'r', 'b', 't', ':', 'q', 'Q',
-  'n', 'N', 'h', 'H', 'g', 'G', 'x', 'l', '=', 'F', 'v', 'z', 'D', 'P',
-  'e', 'T',
+  's',
+  'd',
+  'p',
+  'w',
+  'i',
+  'a',
+  'c',
+  'y',
+  'r',
+  'b',
+  't',
+  ':',
+  'q',
+  'Q',
+  'n',
+  'N',
+  'h',
+  'H',
+  'g',
+  'G',
+  'x',
+  'l',
+  '=',
+  'F',
+  'v',
+  'z',
+  'D',
+  'P',
+  'e',
+  'T',
 ]);
 
-function parseAddress(expression: string, startIdx: number): { address: SedAddress; nextIdx: number } {
+function parseAddress(
+  expression: string,
+  startIdx: number
+): { address: SedAddress; nextIdx: number } {
   let idx = startIdx;
   while (idx < expression.length && expression[idx] === ' ') {
     idx++;
@@ -153,7 +183,10 @@ function parseAddress(expression: string, startIdx: number): { address: SedAddre
       patternChars.push(ch);
       idx++;
     }
-    return { address: { type: 'regex', value: patternChars.join('') }, nextIdx: idx };
+    return {
+      address: { type: 'regex', value: patternChars.join('') },
+      nextIdx: idx,
+    };
   }
   if (/\d/.test(expression[idx])) {
     const numChars: string[] = [];
@@ -181,7 +214,11 @@ function parseAddress(expression: string, startIdx: number): { address: SedAddre
   return { address: { type: 'none' }, nextIdx: idx };
 }
 
-function extractDelimitedPattern(expression: string, startIdx: number, delimiter: string): { result: string; nextIdx: number } {
+function extractDelimitedPattern(
+  expression: string,
+  startIdx: number,
+  delimiter: string
+): { result: string; nextIdx: number } {
   let idx = startIdx;
   const chars: string[] = [];
   let escaped = false;
@@ -209,7 +246,10 @@ function extractDelimitedPattern(expression: string, startIdx: number, delimiter
   return { result: chars.join(''), nextIdx: idx };
 }
 
-function parseSubstitute(expression: string, startIdx: number): { command: SedSubstituteCommand; nextIdx: number } | null {
+function parseSubstitute(
+  expression: string,
+  startIdx: number
+): { command: SedSubstituteCommand; nextIdx: number } | null {
   let idx = startIdx;
   const delimiter = expression[idx];
   if (!delimiter || delimiter === ' ' || SED_COMMAND_LETTERS.has(delimiter)) {
@@ -328,14 +368,28 @@ export function parseSedExpression(expression: string): SedEditCommand | null {
       return { type: 'read', filename: readFile, address };
     }
     case 'b':
-      return { type: 'branch', label: trimmed.slice(idx).trim() || undefined, address };
+      return {
+        type: 'branch',
+        label: trimmed.slice(idx).trim() || undefined,
+        address,
+      };
     case 't':
-      return { type: 'test', label: trimmed.slice(idx).trim() || undefined, address };
+      return {
+        type: 'test',
+        label: trimmed.slice(idx).trim() || undefined,
+        address,
+      };
     case 'T':
-      return { type: 'substituteBranch', label: trimmed.slice(idx).trim() || undefined, address };
+      return {
+        type: 'substituteBranch',
+        label: trimmed.slice(idx).trim() || undefined,
+        address,
+      };
     case ':': {
       const label = trimmed.slice(idx).trim();
-      return label ? { type: 'label', name: label } : { type: 'unknown', raw: trimmed, address };
+      return label
+        ? { type: 'label', name: label }
+        : { type: 'unknown', raw: trimmed, address };
     }
     case 'q':
       return { type: 'quit', address };
@@ -428,27 +482,46 @@ export function extractSedFileTargets(script: SedScript): string[] {
   return targets;
 }
 
-export function containsDangerousSedPattern(script: SedScript): { dangerous: boolean; reason?: string } {
+export function containsDangerousSedPattern(script: SedScript): {
+  dangerous: boolean;
+  reason?: string;
+} {
   for (const cmd of script.commands) {
     if (cmd.type === 'substitute') {
       if (cmd.replacement.includes('/e') || cmd.flags.includes('e')) {
-        return { dangerous: true, reason: 'e flag allows command execution in substitution' };
+        return {
+          dangerous: true,
+          reason: 'e flag allows command execution in substitution',
+        };
       }
       if (cmd.replacement.includes('\\`') || cmd.replacement.includes('\\"')) {
-        return { dangerous: true, reason: 'Backtick or double-quote in replacement may allow injection' };
+        return {
+          dangerous: true,
+          reason: 'Backtick or double-quote in replacement may allow injection',
+        };
       }
     }
     if (cmd.type === 'write' && cmd.filename) {
       const dangerousPaths = ['/etc/', '/dev/', '/proc/', '/sys/'];
       for (const dp of dangerousPaths) {
         if (cmd.filename.includes(dp)) {
-          return { dangerous: true, reason: `Write target '${cmd.filename}' is a system path` };
+          return {
+            dangerous: true,
+            reason: `Write target '${cmd.filename}' is a system path`,
+          };
         }
       }
     }
     if (cmd.type === 'read') {
-      if (cmd.filename === '/dev/stdin' || cmd.filename === '/dev/tcp' || cmd.filename?.startsWith('/dev/')) {
-        return { dangerous: true, reason: `Read from '${cmd.filename}' may be unsafe` };
+      if (
+        cmd.filename === '/dev/stdin' ||
+        cmd.filename === '/dev/tcp' ||
+        cmd.filename?.startsWith('/dev/')
+      ) {
+        return {
+          dangerous: true,
+          reason: `Read from '${cmd.filename}' may be unsafe`,
+        };
       }
     }
   }

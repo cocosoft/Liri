@@ -45,16 +45,29 @@ function convertParagraphs(html: string): string {
 function convertLists(html: string, marker: string): string {
   let result = html;
 
-  result = result.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_: string, content: string) => {
-    return content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, `${marker} $1\n`) + '\n';
-  });
+  result = result.replace(
+    /<ul[^>]*>([\s\S]*?)<\/ul>/gi,
+    (_: string, content: string) => {
+      return (
+        content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, `${marker} $1\n`) + '\n'
+      );
+    }
+  );
 
-  result = result.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_: string, content: string) => {
-    let index = 1;
-    return content.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_: string, item: string) => {
-      return `${index++}. ${item}\n`;
-    }) + '\n';
-  });
+  result = result.replace(
+    /<ol[^>]*>([\s\S]*?)<\/ol>/gi,
+    (_: string, content: string) => {
+      let index = 1;
+      return (
+        content.replace(
+          /<li[^>]*>([\s\S]*?)<\/li>/gi,
+          (_: string, item: string) => {
+            return `${index++}. ${item}\n`;
+          }
+        ) + '\n'
+      );
+    }
+  );
 
   return result;
 }
@@ -63,7 +76,8 @@ function convertCodeBlocks(html: string, style: string): string {
   if (style === 'fenced') {
     return html
       .replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, code) => {
-        const lang = (_.match(/class="[^"]*language-(\w+)[^"]*"/) || [])[1] || '';
+        const lang =
+          (_.match(/class="[^"]*language-(\w+)[^"]*"/) || [])[1] || '';
         return '```' + lang + '\n' + decodeHtmlEntities(code) + '\n```\n\n';
       })
       .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`');
@@ -71,14 +85,23 @@ function convertCodeBlocks(html: string, style: string): string {
 
   return html
     .replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, code) => {
-      return '    ' + decodeHtmlEntities(code).replace(/\n/g, '\n    ') + '\n\n';
+      return (
+        '    ' + decodeHtmlEntities(code).replace(/\n/g, '\n    ') + '\n\n'
+      );
     })
     .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`');
 }
 
-function convertFormatting(html: string, emDelim: string, strongDelim: string): string {
+function convertFormatting(
+  html: string,
+  emDelim: string,
+  strongDelim: string
+): string {
   return html
-    .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, `${strongDelim}$1${strongDelim}`)
+    .replace(
+      /<strong[^>]*>([\s\S]*?)<\/strong>/gi,
+      `${strongDelim}$1${strongDelim}`
+    )
     .replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, `${strongDelim}$1${strongDelim}`)
     .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, `${emDelim}$1${emDelim}`)
     .replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, `${emDelim}$1${emDelim}`)
@@ -92,16 +115,22 @@ function convertFormatting(html: string, emDelim: string, strongDelim: string): 
 
 function convertLinks(html: string, style: string): string {
   if (style === 'inlined') {
-    return html.replace(/<a[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)');
+    return html.replace(
+      /<a[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      '[$2]($1)'
+    );
   }
 
   const links: Array<{ href: string; text: string }> = [];
   let refIndex = 1;
 
-  const result = html.replace(/<a[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => {
-    links.push({ href, text });
-    return `[${text}][${refIndex++}]`;
-  });
+  const result = html.replace(
+    /<a[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    (_, href, text) => {
+      links.push({ href, text });
+      return `[${text}][${refIndex++}]`;
+    }
+  );
 
   const refs = links.map((l, i) => `[${i + 1}]: ${l.href}`).join('\n');
   return result + '\n' + refs;
@@ -146,7 +175,7 @@ function convertTables(html: string): string {
 
 function createMarkdownTable(
   header: string[] | null,
-  rows: string[][],
+  rows: string[][]
 ): string {
   const lines: string[] = [];
 
@@ -163,10 +192,13 @@ function createMarkdownTable(
 }
 
 function convertBlockquotes(html: string): string {
-  return html.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_, content) => {
-    const cleaned = content.replace(/<[^>]+>/g, '').trim();
-    return '> ' + cleaned.split('\n').join('\n> ') + '\n\n';
-  });
+  return html.replace(
+    /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi,
+    (_, content) => {
+      const cleaned = content.replace(/<[^>]+>/g, '').trim();
+      return '> ' + cleaned.split('\n').join('\n> ') + '\n\n';
+    }
+  );
 }
 
 function convertHorizontalRules(html: string): string {
@@ -197,30 +229,40 @@ function trimExcessWhitespace(text: string): string {
 function wordWrap(text: string, width: number): string {
   if (width <= 0) return text;
 
-  return text.split('\n').map((line) => {
-    if (line.length <= width || line.startsWith('```') || line.startsWith('    ')) {
-      return line;
-    }
-
-    const words = line.split(' ');
-    const wrapped: string[] = [];
-    let currentLine = '';
-
-    for (const word of words) {
-      if ((currentLine + ' ' + word).trim().length > width) {
-        if (currentLine) wrapped.push(currentLine.trim());
-        currentLine = word;
-      } else {
-        currentLine += (currentLine ? ' ' : '') + word;
+  return text
+    .split('\n')
+    .map((line) => {
+      if (
+        line.length <= width ||
+        line.startsWith('```') ||
+        line.startsWith('    ')
+      ) {
+        return line;
       }
-    }
 
-    if (currentLine) wrapped.push(currentLine.trim());
-    return wrapped.join('\n');
-  }).join('\n');
+      const words = line.split(' ');
+      const wrapped: string[] = [];
+      let currentLine = '';
+
+      for (const word of words) {
+        if ((currentLine + ' ' + word).trim().length > width) {
+          if (currentLine) wrapped.push(currentLine.trim());
+          currentLine = word;
+        } else {
+          currentLine += (currentLine ? ' ' : '') + word;
+        }
+      }
+
+      if (currentLine) wrapped.push(currentLine.trim());
+      return wrapped.join('\n');
+    })
+    .join('\n');
 }
 
-export function htmlToMarkdown(html: string, options?: CfMarkdownOptions): string {
+export function htmlToMarkdown(
+  html: string,
+  options?: CfMarkdownOptions
+): string {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
   let result = html;

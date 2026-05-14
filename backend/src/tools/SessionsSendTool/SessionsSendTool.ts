@@ -26,7 +26,8 @@ export interface SessionMessageResult {
 export class SessionsSendTool extends BaseTool {
   name = 'sessions_send';
 
-  description = 'Send a message to a running session. Supports text, commands, results, and system messages.';
+  description =
+    'Send a message to a running session. Supports text, commands, results, and system messages.';
 
   params: ToolParam[] = [
     {
@@ -62,11 +63,17 @@ export class SessionsSendTool extends BaseTool {
       const { sessionId, content, type, metadata } = input;
 
       if (!sessionId || typeof sessionId !== 'string') {
-        return { success: false, error: 'sessionId is required and must be a string' };
+        return {
+          success: false,
+          error: 'sessionId is required and must be a string',
+        };
       }
 
       if (!content || typeof content !== 'string') {
-        return { success: false, error: 'content is required and must be a string' };
+        return {
+          success: false,
+          error: 'content is required and must be a string',
+        };
       }
 
       const msgType = type ?? 'text';

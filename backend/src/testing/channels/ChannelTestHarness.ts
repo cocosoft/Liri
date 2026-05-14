@@ -7,7 +7,14 @@ export interface TestScenario {
 }
 
 export interface TestStep {
-  action: 'send' | 'receive' | 'simulate' | 'connect' | 'disconnect' | 'assert' | 'wait';
+  action:
+    | 'send'
+    | 'receive'
+    | 'simulate'
+    | 'connect'
+    | 'disconnect'
+    | 'assert'
+    | 'wait';
   payload?: Record<string, unknown>;
   expect?: Record<string, unknown>;
   timeout?: number;
@@ -16,7 +23,13 @@ export interface TestStep {
 export interface TestResult {
   scenarioName: string;
   success: boolean;
-  steps: Array<{ step: number; action: string; passed: boolean; error?: string; durationMs: number }>;
+  steps: Array<{
+    step: number;
+    action: string;
+    passed: boolean;
+    error?: string;
+    durationMs: number;
+  }>;
   totalDurationMs: number;
   error?: string;
 }
@@ -89,7 +102,9 @@ export class ChannelTestHarness {
       success: scenarioSuccess,
       steps: stepResults,
       totalDurationMs: Date.now() - startTime,
-      error: scenarioSuccess ? undefined : `Scenario "${scenario.name}" failed at step ${stepResults.findIndex((s) => !s.passed) + 1}`,
+      error: scenarioSuccess
+        ? undefined
+        : `Scenario "${scenario.name}" failed at step ${stepResults.findIndex((s) => !s.passed) + 1}`,
     };
   }
 
@@ -105,23 +120,38 @@ export class ChannelTestHarness {
     return results;
   }
 
-  getSummary(results: TestResult[]): { total: number; passed: number; failed: number; avgDurationMs: number } {
+  getSummary(results: TestResult[]): {
+    total: number;
+    passed: number;
+    failed: number;
+    avgDurationMs: number;
+  } {
     const passed = results.filter((r) => r.success).length;
 
     return {
       total: results.length,
       passed,
       failed: results.length - passed,
-      avgDurationMs: results.length > 0
-        ? Math.round(results.reduce((sum, r) => sum + r.totalDurationMs, 0) / results.length)
-        : 0,
+      avgDurationMs:
+        results.length > 0
+          ? Math.round(
+              results.reduce((sum, r) => sum + r.totalDurationMs, 0) /
+                results.length
+            )
+          : 0,
     };
   }
 
-  private async executeStep(step: TestStep, globalTimeout?: number): Promise<void> {
+  private async executeStep(
+    step: TestStep,
+    globalTimeout?: number
+  ): Promise<void> {
     const timeout = step.timeout || globalTimeout || 5000;
     const timer = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error(`Step timed out after ${timeout}ms`)), timeout);
+      setTimeout(
+        () => reject(new Error(`Step timed out after ${timeout}ms`)),
+        timeout
+      );
     });
 
     await Promise.race([this.doExecuteStep(step), timer]);
@@ -196,7 +226,9 @@ export class ChannelTestHarness {
     }
   }
 
-  private async verifyExpectations(expect: Record<string, unknown>): Promise<boolean> {
+  private async verifyExpectations(
+    expect: Record<string, unknown>
+  ): Promise<boolean> {
     for (const [key, value] of Object.entries(expect)) {
       if (key === 'channelConnected') {
         const channel = this.channels.get(value as string);

@@ -47,14 +47,20 @@ export interface AgentIdentitySystemConfig {
   /** 全局消息配置 */
   messages?: MessagesConfig;
   /** 渠道配置 */
-  channels?: Record<string, {
-    ackReaction?: string;
-    responsePrefix?: string;
-    accounts?: Record<string, {
+  channels?: Record<
+    string,
+    {
       ackReaction?: string;
       responsePrefix?: string;
-    }>;
-  }>;
+      accounts?: Record<
+        string,
+        {
+          ackReaction?: string;
+          responsePrefix?: string;
+        }
+      >;
+    }
+  >;
   /** 代理默认值 */
   defaults?: {
     identity?: IdentityConfig;
@@ -69,7 +75,7 @@ const DEFAULT_ACK_REACTION = '\u{1F440}';
  */
 export function resolveAgentIdentity(
   config: AgentIdentitySystemConfig,
-  agentId: string,
+  agentId: string
 ): IdentityConfig | undefined {
   return config.agents?.[agentId] ?? config.defaults?.identity;
 }
@@ -81,10 +87,11 @@ export function resolveAgentIdentity(
 export function resolveAckReaction(
   config: AgentIdentitySystemConfig,
   agentId: string,
-  opts?: { channel?: string; accountId?: string },
+  opts?: { channel?: string; accountId?: string }
 ): string {
   if (opts?.channel && opts?.accountId) {
-    const accountReaction = config.channels?.[opts.channel]?.accounts?.[opts.accountId]?.ackReaction;
+    const accountReaction =
+      config.channels?.[opts.channel]?.accounts?.[opts.accountId]?.ackReaction;
     if (accountReaction !== undefined) {
       return accountReaction.trim();
     }
@@ -111,7 +118,7 @@ export function resolveAckReaction(
  */
 export function resolveIdentityNamePrefix(
   config: AgentIdentitySystemConfig,
-  agentId: string,
+  agentId: string
 ): string | undefined {
   const name = resolveAgentIdentity(config, agentId)?.name?.trim();
   if (!name) {
@@ -126,7 +133,7 @@ export function resolveIdentityNamePrefix(
 export function resolveMessagePrefix(
   config: AgentIdentitySystemConfig,
   agentId: string,
-  opts?: { configured?: string; hasAllowFrom?: boolean; fallback?: string },
+  opts?: { configured?: string; hasAllowFrom?: boolean; fallback?: string }
 ): string {
   const configured = opts?.configured ?? config.messages?.messagePrefix;
   if (configured !== undefined) {
@@ -137,7 +144,9 @@ export function resolveMessagePrefix(
     return '';
   }
 
-  return resolveIdentityNamePrefix(config, agentId) ?? opts?.fallback ?? '[agent]';
+  return (
+    resolveIdentityNamePrefix(config, agentId) ?? opts?.fallback ?? '[agent]'
+  );
 }
 
 /**
@@ -146,10 +155,12 @@ export function resolveMessagePrefix(
 export function resolveResponsePrefix(
   config: AgentIdentitySystemConfig,
   agentId: string,
-  opts?: { channel?: string; accountId?: string },
+  opts?: { channel?: string; accountId?: string }
 ): string | undefined {
   if (opts?.channel && opts?.accountId) {
-    const accountPrefix = config.channels?.[opts.channel]?.accounts?.[opts.accountId]?.responsePrefix;
+    const accountPrefix =
+      config.channels?.[opts.channel]?.accounts?.[opts.accountId]
+        ?.responsePrefix;
     if (accountPrefix !== undefined) {
       if (accountPrefix === 'auto') {
         return resolveIdentityNamePrefix(config, agentId);
@@ -190,7 +201,7 @@ export function resolveEffectiveMessagesConfig(
     fallbackMessagePrefix?: string;
     channel?: string;
     accountId?: string;
-  },
+  }
 ): { messagePrefix: string; responsePrefix?: string } {
   return {
     messagePrefix: resolveMessagePrefix(config, agentId, {
@@ -210,7 +221,7 @@ export function resolveEffectiveMessagesConfig(
  */
 export function resolveHumanDelayConfig(
   config: AgentIdentitySystemConfig,
-  agentId: string,
+  agentId: string
 ): HumanDelayConfig | undefined {
   const defaults = config.defaults?.humanDelay;
   const agentIdentity = resolveAgentIdentity(config, agentId);

@@ -40,7 +40,10 @@ export class MockChannel extends EventEmitter {
     this.emit('disconnected', { channelId: this.config.id });
   }
 
-  async sendMessage(content: string, sender: string = 'test-user'): Promise<MockMessage> {
+  async sendMessage(
+    content: string,
+    sender: string = 'test-user'
+  ): Promise<MockMessage> {
     await this.simulateLatency();
 
     if (this.shouldSimulateError()) {
@@ -80,7 +83,10 @@ export class MockChannel extends EventEmitter {
     this.emit('messages:cleared');
   }
 
-  simulateIncoming(content: string, sender: string = 'external-user'): MockMessage {
+  simulateIncoming(
+    content: string,
+    sender: string = 'external-user'
+  ): MockMessage {
     const message: MockMessage = {
       id: `incoming-${++this.messageCounter}`,
       channelId: this.config.id,
@@ -97,7 +103,9 @@ export class MockChannel extends EventEmitter {
 
   private async simulateLatency(): Promise<void> {
     if (this.config.simulateLatency && this.config.simulateLatency > 0) {
-      await new Promise((resolve) => setTimeout(resolve, this.config.simulateLatency));
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.config.simulateLatency)
+      );
     }
   }
 

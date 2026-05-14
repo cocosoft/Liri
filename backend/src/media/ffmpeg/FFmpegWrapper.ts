@@ -40,7 +40,9 @@ export class FFmpegWrapper {
   /**
    * 运行 FFmpeg
    */
-  async run(options: FFmpegOptions): Promise<{ success: boolean; stdout: string; stderr: string }> {
+  async run(
+    options: FFmpegOptions
+  ): Promise<{ success: boolean; stdout: string; stderr: string }> {
     return new Promise((resolve) => {
       const args = ['-i', options.input, ...options.args, '-y', options.output];
       const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -48,13 +50,19 @@ export class FFmpegWrapper {
       let stdout = '';
       let stderr = '';
 
-      proc.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
-      proc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+      proc.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+      proc.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
 
-      const timer = options.timeout ? setTimeout(() => {
-        proc.kill();
-        resolve({ success: false, stdout, stderr: stderr + '\nTIMEOUT' });
-      }, options.timeout) : null;
+      const timer = options.timeout
+        ? setTimeout(() => {
+            proc.kill();
+            resolve({ success: false, stdout, stderr: stderr + '\nTIMEOUT' });
+          }, options.timeout)
+        : null;
 
       proc.on('close', (code) => {
         if (timer) clearTimeout(timer);
@@ -73,12 +81,24 @@ export class FFmpegWrapper {
    */
   async probe(input: string): Promise<FFprobeResult | null> {
     return new Promise((resolve) => {
-      const args = ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', input];
-      const proc = spawn('ffprobe', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      const args = [
+        '-v',
+        'quiet',
+        '-print_format',
+        'json',
+        '-show_format',
+        '-show_streams',
+        input,
+      ];
+      const proc = spawn('ffprobe', args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
 
       let stdout = '';
 
-      proc.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+      proc.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
 
       proc.on('close', (code) => {
         if (code !== 0) {
@@ -105,7 +125,9 @@ export class FFmpegWrapper {
    */
   async isAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn('ffmpeg', ['-version'], { stdio: ['ignore', 'pipe', 'ignore'] });
+      const proc = spawn('ffmpeg', ['-version'], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
 
       proc.on('close', (code) => {
         resolve(code === 0);

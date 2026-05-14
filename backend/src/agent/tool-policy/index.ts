@@ -21,7 +21,10 @@ export type ToolProfileId = 'minimal' | 'coding' | 'messaging' | 'full';
 /**
  * Owner-only 工具的审批等级
  */
-export type OwnerOnlyToolApprovalClass = 'control_plane' | 'exec_capable' | 'interactive';
+export type OwnerOnlyToolApprovalClass =
+  | 'control_plane'
+  | 'exec_capable'
+  | 'interactive';
 
 /**
  * 工具策略配置项
@@ -70,18 +73,41 @@ export const TOOL_GROUPS: Record<string, string[]> = {
   'group:web': ['web_search', 'web_fetch'],
   'group:memory': ['memory_search', 'memory_get', 'todo_write'],
   'group:sessions': [
-    'sessions_list', 'sessions_history', 'sessions_send',
-    'sessions_spawn', 'sessions_yield', 'session_status',
+    'sessions_list',
+    'sessions_history',
+    'sessions_send',
+    'sessions_spawn',
+    'sessions_yield',
+    'session_status',
   ],
   'group:ui': ['browser', 'canvas', 'voice_input', 'voice_output'],
   'group:messaging': ['message', 'send_message', 'push_notification'],
   'group:automation': ['cron', 'gateway'],
   'group:agents': ['agents_list', 'update_plan', 'task'],
-  'group:media': ['image', 'image_generate', 'music_generate', 'video_generate', 'tts'],
+  'group:media': [
+    'image',
+    'image_generate',
+    'music_generate',
+    'video_generate',
+    'tts',
+  ],
   'group:openclaw': [
-    'web_search', 'web_fetch', 'read', 'write', 'edit', 'glob', 'grep',
-    'exec', 'bash', 'sessions_list', 'sessions_history', 'sessions_send',
-    'task', 'memory_search', 'memory_get', 'todo_write',
+    'web_search',
+    'web_fetch',
+    'read',
+    'write',
+    'edit',
+    'glob',
+    'grep',
+    'exec',
+    'bash',
+    'sessions_list',
+    'sessions_history',
+    'sessions_send',
+    'task',
+    'memory_search',
+    'memory_get',
+    'todo_write',
   ],
 };
 
@@ -100,7 +126,10 @@ const TOOL_NAME_ALIASES: Record<string, string> = {
 /**
  * Owner-only 工具的默认审批等级
  */
-const OWNER_ONLY_TOOL_APPROVAL_CLASSES: Record<string, OwnerOnlyToolApprovalClass> = {
+const OWNER_ONLY_TOOL_APPROVAL_CLASSES: Record<
+  string,
+  OwnerOnlyToolApprovalClass
+> = {
   cron: 'control_plane',
   gateway: 'control_plane',
   nodes: 'exec_capable',
@@ -112,17 +141,39 @@ const OWNER_ONLY_TOOL_APPROVAL_CLASSES: Record<string, OwnerOnlyToolApprovalClas
 const PROFILE_TOOL_ALLOW_LISTS: Record<ToolProfileId, string[]> = {
   minimal: ['read', 'glob', 'grep', 'session_status'],
   coding: [
-    'read', 'write', 'edit', 'apply_patch', 'glob', 'grep',
-    'exec', 'process', 'web_search', 'web_fetch',
-    'memory_search', 'memory_get', 'todo_write',
-    'sessions_list', 'sessions_history', 'sessions_send', 'sessions_spawn',
-    'sessions_yield', 'session_status',
-    'cron', 'update_plan', 'task',
-    'image', 'image_generate',
+    'read',
+    'write',
+    'edit',
+    'apply_patch',
+    'glob',
+    'grep',
+    'exec',
+    'process',
+    'web_search',
+    'web_fetch',
+    'memory_search',
+    'memory_get',
+    'todo_write',
+    'sessions_list',
+    'sessions_history',
+    'sessions_send',
+    'sessions_spawn',
+    'sessions_yield',
+    'session_status',
+    'cron',
+    'update_plan',
+    'task',
+    'image',
+    'image_generate',
   ],
   messaging: [
-    'message', 'send_message', 'push_notification',
-    'sessions_list', 'sessions_history', 'sessions_send', 'session_status',
+    'message',
+    'send_message',
+    'push_notification',
+    'sessions_list',
+    'sessions_history',
+    'sessions_send',
+    'session_status',
   ],
   full: [],
 };
@@ -165,7 +216,9 @@ export function expandToolGroups(list?: string[]): string[] {
 /**
  * 获取指定 profile 的策略
  */
-export function resolveProfilePolicy(profile?: string): ToolPolicyConfig | undefined {
+export function resolveProfilePolicy(
+  profile?: string
+): ToolPolicyConfig | undefined {
   if (!profile) {
     return undefined;
   }
@@ -187,7 +240,7 @@ export function resolveProfilePolicy(profile?: string): ToolPolicyConfig | undef
  * 获取指定工具的 Owner-only 审批等级
  */
 export function resolveOwnerOnlyApprovalClass(
-  toolName: string,
+  toolName: string
 ): OwnerOnlyToolApprovalClass | undefined {
   return OWNER_ONLY_TOOL_APPROVAL_CLASSES[normalizeToolName(toolName)];
 }
@@ -207,7 +260,7 @@ export class ToolPolicyManager {
   private globalAllowList: Set<string> = new Set();
   private globalDenyList: Set<string> = new Set();
   private ownerOnlyTools: Map<string, OwnerOnlyToolApprovalClass> = new Map(
-    Object.entries(OWNER_ONLY_TOOL_APPROVAL_CLASSES),
+    Object.entries(OWNER_ONLY_TOOL_APPROVAL_CLASSES)
   );
   private profile: ToolProfileId | null = null;
   private senderIsOwner: boolean = false;
@@ -273,7 +326,12 @@ export class ToolPolicyManager {
 
     // 1. 检查 Deny 黑名单
     if (this.globalDenyList.size > 0 && this.globalDenyList.has(name)) {
-      return { toolName, allowed: false, reason: 'Tool is denied by policy', matchedRule: 'deny' };
+      return {
+        toolName,
+        allowed: false,
+        reason: 'Tool is denied by policy',
+        matchedRule: 'deny',
+      };
     }
 
     // 2. 检查 Owner-only 限制
@@ -298,7 +356,12 @@ export class ToolPolicyManager {
           matchedRule: 'allow',
         };
       }
-      return { toolName, allowed: true, reason: 'Tool is in allow list', matchedRule: 'allow' };
+      return {
+        toolName,
+        allowed: true,
+        reason: 'Tool is in allow list',
+        matchedRule: 'allow',
+      };
     }
 
     // 4. 检查 Profile 限制
@@ -313,26 +376,36 @@ export class ToolPolicyManager {
             matchedRule: 'profile',
           };
         }
-        return { toolName, allowed: true, reason: `Allowed by profile: ${this.profile}`, matchedRule: 'profile' };
+        return {
+          toolName,
+          allowed: true,
+          reason: `Allowed by profile: ${this.profile}`,
+          matchedRule: 'profile',
+        };
       }
     }
 
     // 5. 默认允许
-    return { toolName, allowed: true, reason: 'Default allow', matchedRule: 'default' };
+    return {
+      toolName,
+      allowed: true,
+      reason: 'Default allow',
+      matchedRule: 'default',
+    };
   }
 
   /**
    * 批量评估工具列表
    */
   evaluateAll(toolNames: string[]): ToolPolicyEvaluation[] {
-    return toolNames.map(name => this.evaluate(name));
+    return toolNames.map((name) => this.evaluate(name));
   }
 
   /**
    * 过滤出被允许的工具列表
    */
   filterAllowed(toolNames: string[]): string[] {
-    return toolNames.filter(name => this.evaluate(name).allowed);
+    return toolNames.filter((name) => this.evaluate(name).allowed);
   }
 
   /**
@@ -340,7 +413,7 @@ export class ToolPolicyManager {
    */
   wrapToolExecution<T extends (...args: unknown[]) => unknown>(
     toolName: string,
-    executeFn: T,
+    executeFn: T
   ): T {
     const name = normalizeToolName(toolName);
     const isOwnerOnly = this.ownerOnlyTools.has(name);
@@ -349,7 +422,8 @@ export class ToolPolicyManager {
       return executeFn;
     }
 
-    const isAuthorized = this.senderIsOwner || this.ownerOnlyAllowlist.has(name);
+    const isAuthorized =
+      this.senderIsOwner || this.ownerOnlyAllowlist.has(name);
 
     if (isAuthorized) {
       return executeFn;

@@ -33,7 +33,8 @@ const MIME_MAP: Record<string, string> = {
   '.ico': 'image/x-icon',
   '.pdf': 'application/pdf',
   '.doc': 'application/msword',
-  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.docx':
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.xls': 'application/vnd.ms-excel',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.zip': 'application/zip',
@@ -113,10 +114,12 @@ export class MimeTypeManager {
    * 判断是否为文本类型
    */
   isText(mimeType: string): boolean {
-    return mimeType.startsWith('text/') ||
-           mimeType === 'application/json' ||
-           mimeType === 'application/xml' ||
-           mimeType.startsWith('application/javascript');
+    return (
+      mimeType.startsWith('text/') ||
+      mimeType === 'application/json' ||
+      mimeType === 'application/xml' ||
+      mimeType.startsWith('application/javascript')
+    );
   }
 
   /**
@@ -133,16 +136,21 @@ export class MimeTypeManager {
     if (!buffer || buffer.length === 0) return 'application/octet-stream';
 
     for (let i = 0; i < 4 && i < buffer.length; i++) {
-      if (buffer[i] > 0x7F) {
+      if (buffer[i] > 0x7f) {
         break;
       }
     }
 
-    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+    if (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    ) {
       return 'image/png';
     }
 
-    if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+    if (buffer[0] === 0xff && buffer[1] === 0xd8) {
       return 'image/jpeg';
     }
 
@@ -150,15 +158,24 @@ export class MimeTypeManager {
       return 'image/gif';
     }
 
-    if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+    if (
+      buffer[0] === 0x25 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x44 &&
+      buffer[3] === 0x46
+    ) {
       return 'application/pdf';
     }
 
-    if (buffer[0] === 0x50 && buffer[1] === 0x4B) {
+    if (buffer[0] === 0x50 && buffer[1] === 0x4b) {
       return 'application/zip';
     }
 
-    const textSample = buffer.toString('utf-8', 0, Math.min(buffer.length, 100));
+    const textSample = buffer.toString(
+      'utf-8',
+      0,
+      Math.min(buffer.length, 100)
+    );
     if (/^[\s\w\n\r.,;:!?(){}[\]"'@#$%^&*+=<>/\\\-]+$/.test(textSample)) {
       return 'text/plain';
     }

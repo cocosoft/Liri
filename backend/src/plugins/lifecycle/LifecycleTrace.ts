@@ -82,7 +82,12 @@ export class LifecycleTrace extends EventEmitter {
   /**
    * 记录状态转换
    */
-  recordTransition(pluginName: string, fromState: string, toState: string, durationMs?: number): TraceEvent {
+  recordTransition(
+    pluginName: string,
+    fromState: string,
+    toState: string,
+    durationMs?: number
+  ): TraceEvent {
     return this.record({
       pluginName,
       level: 'info',
@@ -96,7 +101,11 @@ export class LifecycleTrace extends EventEmitter {
   /**
    * 记录错误
    */
-  recordError(pluginName: string, message: string, metadata?: Record<string, unknown>): TraceEvent {
+  recordError(
+    pluginName: string,
+    message: string,
+    metadata?: Record<string, unknown>
+  ): TraceEvent {
     return this.record({
       pluginName,
       level: 'error',
@@ -108,7 +117,11 @@ export class LifecycleTrace extends EventEmitter {
   /**
    * 记录警告
    */
-  recordWarn(pluginName: string, message: string, metadata?: Record<string, unknown>): TraceEvent {
+  recordWarn(
+    pluginName: string,
+    message: string,
+    metadata?: Record<string, unknown>
+  ): TraceEvent {
     return this.record({
       pluginName,
       level: 'warn',
@@ -168,17 +181,22 @@ export class LifecycleTrace extends EventEmitter {
       }
     }
 
-    const transitions = Array.from(transitionMap.entries()).map(([key, count]) => {
-      const [from, to] = key.split(':');
+    const transitions = Array.from(transitionMap.entries()).map(
+      ([key, count]) => {
+        const [from, to] = key.split(':');
 
-      return { from, to, count };
-    });
+        return { from, to, count };
+      }
+    );
 
-    const durations = pluginEvents.filter((e) => e.durationMs !== undefined).map((e) => e.durationMs!);
+    const durations = pluginEvents
+      .filter((e) => e.durationMs !== undefined)
+      .map((e) => e.durationMs!);
 
-    const avgDurationMs = durations.length > 0
-      ? durations.reduce((sum, d) => sum + d, 0) / durations.length
-      : 0;
+    const avgDurationMs =
+      durations.length > 0
+        ? durations.reduce((sum, d) => sum + d, 0) / durations.length
+        : 0;
 
     return {
       pluginName,
@@ -188,7 +206,10 @@ export class LifecycleTrace extends EventEmitter {
       avgDurationMs,
       transitions,
       firstEvent: pluginEvents.length > 0 ? pluginEvents[0].timestamp : 0,
-      lastEvent: pluginEvents.length > 0 ? pluginEvents[pluginEvents.length - 1].timestamp : 0,
+      lastEvent:
+        pluginEvents.length > 0
+          ? pluginEvents[pluginEvents.length - 1].timestamp
+          : 0,
     };
   }
 
@@ -227,7 +248,12 @@ export class LifecycleTrace extends EventEmitter {
   /**
    * 获取统计
    */
-  getStats(): { total: number; errors: number; warnings: number; uniquePlugins: number } {
+  getStats(): {
+    total: number;
+    errors: number;
+    warnings: number;
+    uniquePlugins: number;
+  } {
     const pluginSet = new Set(this.events.map((e) => e.pluginName));
 
     return {

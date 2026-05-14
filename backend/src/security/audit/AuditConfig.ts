@@ -71,13 +71,21 @@ const DANGEROUS_CONFIG_PATTERNS = [
 /**
  * 审计配置安全性
  */
-export function auditConfig(config: Record<string, unknown>): SecurityAuditFinding[] {
+export function auditConfig(
+  config: Record<string, unknown>
+): SecurityAuditFinding[] {
   const findings: SecurityAuditFinding[] = [];
 
   try {
     const configStr = JSON.stringify(config, null, 2);
 
-    for (const { id, pattern, severity, message, remediation } of DANGEROUS_CONFIG_PATTERNS) {
+    for (const {
+      id,
+      pattern,
+      severity,
+      message,
+      remediation,
+    } of DANGEROUS_CONFIG_PATTERNS) {
       if (pattern.test(configStr)) {
         findings.push({
           id: `CONFIG_${id}`,
@@ -101,7 +109,10 @@ export function auditConfig(config: Record<string, unknown>): SecurityAuditFindi
   return findings;
 }
 
-function auditAuthConfig(config: Record<string, unknown>, findings: SecurityAuditFinding[]): void {
+function auditAuthConfig(
+  config: Record<string, unknown>,
+  findings: SecurityAuditFinding[]
+): void {
   if (config['auth'] && typeof config['auth'] === 'object') {
     const auth = config['auth'] as Record<string, unknown>;
     if (auth['mode'] === 'none') {
@@ -125,7 +136,10 @@ function auditAuthConfig(config: Record<string, unknown>, findings: SecurityAudi
   }
 }
 
-function auditSandboxConfig(config: Record<string, unknown>, findings: SecurityAuditFinding[]): void {
+function auditSandboxConfig(
+  config: Record<string, unknown>,
+  findings: SecurityAuditFinding[]
+): void {
   if (config['sandbox'] && typeof config['sandbox'] === 'object') {
     const sandbox = config['sandbox'] as Record<string, unknown>;
     if (sandbox['mode'] === 'host' && sandbox['allowHostExecution'] !== false) {
@@ -140,7 +154,10 @@ function auditSandboxConfig(config: Record<string, unknown>, findings: SecurityA
   }
 }
 
-function auditLoggingConfig(config: Record<string, unknown>, findings: SecurityAuditFinding[]): void {
+function auditLoggingConfig(
+  config: Record<string, unknown>,
+  findings: SecurityAuditFinding[]
+): void {
   if (config['logging'] && typeof config['logging'] === 'object') {
     const logging = config['logging'] as Record<string, unknown>;
     if (logging['redactSecrets'] === false) {

@@ -73,16 +73,53 @@ export interface SessionsOutput {
 }
 
 const MOCK_SESSIONS: SessionInfo[] = [
-  { sessionId: 'sess_001', status: 'running', name: '主会话', type: 'agent', startedAt: Date.now() - 3600000, activeTime: 1200, messageCount: 45, errorCount: 1 },
-  { sessionId: 'sess_002', status: 'completed', name: '代码审查', type: 'task', startedAt: Date.now() - 7200000, activeTime: 3400, messageCount: 120, errorCount: 3 },
-  { sessionId: 'sess_003', status: 'paused', name: '调试会话', type: 'shell', startedAt: Date.now() - 1800000, activeTime: 600, messageCount: 15, errorCount: 0 },
-  { sessionId: 'sess_004', status: 'failed', name: '批量处理', type: 'task', startedAt: Date.now() - 14400000, activeTime: 8900, messageCount: 200, errorCount: 15 },
+  {
+    sessionId: 'sess_001',
+    status: 'running',
+    name: '主会话',
+    type: 'agent',
+    startedAt: Date.now() - 3600000,
+    activeTime: 1200,
+    messageCount: 45,
+    errorCount: 1,
+  },
+  {
+    sessionId: 'sess_002',
+    status: 'completed',
+    name: '代码审查',
+    type: 'task',
+    startedAt: Date.now() - 7200000,
+    activeTime: 3400,
+    messageCount: 120,
+    errorCount: 3,
+  },
+  {
+    sessionId: 'sess_003',
+    status: 'paused',
+    name: '调试会话',
+    type: 'shell',
+    startedAt: Date.now() - 1800000,
+    activeTime: 600,
+    messageCount: 15,
+    errorCount: 0,
+  },
+  {
+    sessionId: 'sess_004',
+    status: 'failed',
+    name: '批量处理',
+    type: 'task',
+    startedAt: Date.now() - 14400000,
+    activeTime: 8900,
+    messageCount: 200,
+    errorCount: 15,
+  },
 ];
 
 export class SessionsTool extends BaseTool {
   name = 'sessions';
 
-  description = 'Unified session management tool. List, query status, view history, yield control, spawn, send messages, and delete sessions.';
+  description =
+    'Unified session management tool. List, query status, view history, yield control, spawn, send messages, and delete sessions.';
 
   params: ToolParam[] = [
     {
@@ -218,13 +255,20 @@ export class SessionsTool extends BaseTool {
    * 列出所有会话
    */
   private handleList(params: SessionsInput): ToolResult {
-    const sessions = MOCK_SESSIONS.map(s => ({
+    const sessions = MOCK_SESSIONS.map((s) => ({
       ...s,
-      ...(params.includeResourceUsage ? { resourceUsage: { cpu: Math.random() * 100, memory: Math.random() * 1024 } } : {}),
+      ...(params.includeResourceUsage
+        ? {
+            resourceUsage: {
+              cpu: Math.random() * 100,
+              memory: Math.random() * 1024,
+            },
+          }
+        : {}),
     }));
 
     const output = sessions
-      .map(s => `  ${s.sessionId}: ${s.name} [${s.status}] (${s.type})`)
+      .map((s) => `  ${s.sessionId}: ${s.name} [${s.status}] (${s.type})`)
       .join('\n');
 
     const data: SessionsOutput = {
@@ -244,7 +288,7 @@ export class SessionsTool extends BaseTool {
    * 查询指定会话状态
    */
   private handleStatus(params: SessionsInput): ToolResult {
-    const session = MOCK_SESSIONS.find(s => s.sessionId === params.sessionId);
+    const session = MOCK_SESSIONS.find((s) => s.sessionId === params.sessionId);
 
     if (params.sessionId && !session) {
       return {
@@ -256,11 +300,13 @@ export class SessionsTool extends BaseTool {
     const target = session || MOCK_SESSIONS[0];
     const info: SessionInfo = {
       ...target,
-      ...(params.includeResourceUsage ? {
-        activeTime: target.activeTime,
-        messageCount: target.messageCount,
-        errorCount: target.errorCount,
-      } : {}),
+      ...(params.includeResourceUsage
+        ? {
+            activeTime: target.activeTime,
+            messageCount: target.messageCount,
+            errorCount: target.errorCount,
+          }
+        : {}),
     };
 
     const data: SessionsOutput = {
@@ -288,7 +334,7 @@ export class SessionsTool extends BaseTool {
       sessionId: params.sessionId || MOCK_SESSIONS[0].sessionId,
       type: (['text', 'command', 'result', 'error', 'system'] as const)[i % 5],
       content: `Sample message ${i + 1 + offset}`,
-      timestamp: Date.now() - (i * 60000),
+      timestamp: Date.now() - i * 60000,
       ...(params.includeMetadata ? { metadata: { index: i + offset } } : {}),
     }));
 
@@ -399,7 +445,9 @@ export class SessionsTool extends BaseTool {
       };
     }
 
-    const index = MOCK_SESSIONS.findIndex(s => s.sessionId === params.sessionId);
+    const index = MOCK_SESSIONS.findIndex(
+      (s) => s.sessionId === params.sessionId
+    );
     if (index === -1) {
       return {
         success: false,

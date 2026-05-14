@@ -1,4 +1,4 @@
-import type { MarkdownIR } from "./types.js";
+import type { MarkdownIR } from './types.js';
 
 export type RenderedMarkdownChunk<TRendered> = {
   rendered: TRendered;
@@ -12,7 +12,11 @@ export type RenderMarkdownIRChunksWithinLimitOptions<TRendered> = {
   renderChunk: (ir: MarkdownIR) => TRendered;
 };
 
-function sliceMarkdownIR(ir: MarkdownIR, start: number, end: number): MarkdownIR {
+function sliceMarkdownIR(
+  ir: MarkdownIR,
+  start: number,
+  end: number
+): MarkdownIR {
   const sliceText = ir.text.slice(start, end);
 
   const sliceStyles = ir.styles
@@ -36,10 +40,7 @@ function sliceMarkdownIR(ir: MarkdownIR, start: number, end: number): MarkdownIR
   return { text: sliceText, styles: sliceStyles, links: sliceLinks };
 }
 
-function chunkMarkdownIR(
-  ir: MarkdownIR,
-  limit: number,
-): MarkdownIR[] {
+function chunkMarkdownIR(ir: MarkdownIR, limit: number): MarkdownIR[] {
   const text = ir.text;
   if (!text || text.length === 0) {
     return [];
@@ -55,11 +56,11 @@ function chunkMarkdownIR(
     const end = Math.min(offset + limit, text.length);
     let breakAt = end;
 
-    const newlineIdx = text.lastIndexOf("\n", end - 1);
+    const newlineIdx = text.lastIndexOf('\n', end - 1);
     if (newlineIdx > offset) {
       breakAt = newlineIdx + 1;
     } else {
-      const spaceIdx = text.lastIndexOf(" ", end - 1);
+      const spaceIdx = text.lastIndexOf(' ', end - 1);
       if (spaceIdx > offset) {
         breakAt = spaceIdx + 1;
       }
@@ -78,7 +79,7 @@ function coalesceWhitespaceOnlyMarkdownIRChunks<TRendered>(
   options: {
     measureRendered: (rendered: TRendered) => number;
     renderChunk: (ir: MarkdownIR) => TRendered;
-  },
+  }
 ): MarkdownIR[] {
   if (chunks.length <= 1) {
     return chunks;
@@ -97,7 +98,7 @@ function coalesceWhitespaceOnlyMarkdownIRChunks<TRendered>(
             links: [...last.links, ...chunk.links],
           },
           0,
-          last.text.length + chunk.text.length,
+          last.text.length + chunk.text.length
         );
         const mergedRendered = options.renderChunk(merged);
         if (options.measureRendered(mergedRendered) <= limit) {
@@ -113,7 +114,7 @@ function coalesceWhitespaceOnlyMarkdownIRChunks<TRendered>(
 }
 
 export function renderMarkdownIRChunksWithinLimit<TRendered>(
-  options: RenderMarkdownIRChunksWithinLimitOptions<TRendered>,
+  options: RenderMarkdownIRChunksWithinLimitOptions<TRendered>
 ): RenderedMarkdownChunk<TRendered>[] {
   if (!options.ir.text) {
     return [];
@@ -153,7 +154,7 @@ export function renderMarkdownIRChunksWithinLimit<TRendered>(
   return coalesceWhitespaceOnlyMarkdownIRChunks(
     finalized,
     normalizedLimit,
-    options,
+    options
   ).map((source) => ({
     source,
     rendered: options.renderChunk(source),

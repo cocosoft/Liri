@@ -59,12 +59,19 @@ export class VideoProcessor {
   /**
    * 压缩视频
    */
-  async compress(inputPath: string, outputPath: string, options?: VideoProcessOptions): Promise<boolean> {
+  async compress(
+    inputPath: string,
+    outputPath: string,
+    options?: VideoProcessOptions
+  ): Promise<boolean> {
     try {
       const args = ['-i', inputPath];
 
       if (options?.maxWidth) {
-        args.push('-vf', `scale='min(${options.maxWidth},iw)':'min(${options.maxHeight || options.maxWidth},ih)'`);
+        args.push(
+          '-vf',
+          `scale='min(${options.maxWidth},iw)':'min(${options.maxHeight || options.maxWidth},ih)'`
+        );
       }
 
       if (options?.quality !== undefined) {
@@ -93,7 +100,15 @@ export class VideoProcessor {
    */
   async extractAudio(inputPath: string, outputPath: string): Promise<boolean> {
     try {
-      const args = ['-i', inputPath, '-vn', '-acodec', 'copy', '-y', outputPath];
+      const args = [
+        '-i',
+        inputPath,
+        '-vn',
+        '-acodec',
+        'copy',
+        '-y',
+        outputPath,
+      ];
 
       return await this.runFfmpeg(args);
     } catch {
@@ -104,9 +119,22 @@ export class VideoProcessor {
   /**
    * 提取缩略图
    */
-  async extractThumbnail(inputPath: string, outputPath: string, time: number = 1): Promise<boolean> {
+  async extractThumbnail(
+    inputPath: string,
+    outputPath: string,
+    time: number = 1
+  ): Promise<boolean> {
     try {
-      const args = ['-i', inputPath, '-ss', String(time), '-vframes', '1', '-y', outputPath];
+      const args = [
+        '-i',
+        inputPath,
+        '-ss',
+        String(time),
+        '-vframes',
+        '1',
+        '-y',
+        outputPath,
+      ];
 
       return await this.runFfmpeg(args);
     } catch {
@@ -119,7 +147,9 @@ export class VideoProcessor {
    */
   private async runFfmpeg(args: string[]): Promise<boolean> {
     return new Promise((resolve) => {
-      const ffmpeg = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+      const ffmpeg = spawn('ffmpeg', args, {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
 
       ffmpeg.on('close', (code) => {
         resolve(code === 0);

@@ -4,7 +4,11 @@
  * 对齐 OpenClaw commands/doctor.ts
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { runSecurityAudit } from '@modules/security/audit';
 import type { SecurityAuditReport } from '@modules/security/audit';
@@ -46,7 +50,8 @@ interface DoctorReport {
 const doctor: Command = {
   type: 'local',
   name: 'doctor',
-  description: 'Run full system diagnostics (environment, config, security, model)',
+  description:
+    'Run full system diagnostics (environment, config, security, model)',
   aliases: ['diagnose', 'health'],
   loadedFrom: 'builtin',
   disableModelInvocation: true,
@@ -54,7 +59,10 @@ const doctor: Command = {
 
   async load() {
     return {
-      async execute(args: string, context?: CommandContext): Promise<CommandResult> {
+      async execute(
+        args: string,
+        context?: CommandContext
+      ): Promise<CommandResult> {
         try {
           const report = await runDoctor(args);
           return {
@@ -83,8 +91,14 @@ async function runDoctor(flags: string): Promise<DoctorReport> {
   const report: DoctorReport = {
     environment: {
       node: process.version,
-      bun: (typeof Bun !== 'undefined' ? 'Bun (version detection skipped)' : 'N/A'),
-      os: process.platform === 'darwin' ? 'macOS' : process.platform === 'win32' ? 'Windows' : 'Linux',
+      bun:
+        typeof Bun !== 'undefined' ? 'Bun (version detection skipped)' : 'N/A',
+      os:
+        process.platform === 'darwin'
+          ? 'macOS'
+          : process.platform === 'win32'
+            ? 'Windows'
+            : 'Linux',
       platform: process.platform,
       arch: process.arch,
       cwd: process.cwd(),
@@ -121,20 +135,27 @@ function checkConfig(report: DoctorReport): void {
 
     const configFiles = ['config.json', 'settings.json', '.env.example'];
     for (const file of configFiles) {
-      if (!existsSync(join(cwd, file)) && !existsSync(join(cwd, 'config', file))) {
+      if (
+        !existsSync(join(cwd, file)) &&
+        !existsSync(join(cwd, 'config', file))
+      ) {
         report.config.issues.push(`配置文件 ${file} 未找到`);
       }
     }
 
     if (existsSync(join(cwd, '.env'))) {
-      report.config.suggestions.push('.env 文件存在，确保不包含未脱敏的敏感信息');
+      report.config.suggestions.push(
+        '.env 文件存在，确保不包含未脱敏的敏感信息'
+      );
     }
 
     if (report.config.issues.length > 0) {
       report.config.valid = false;
     }
   } catch (error) {
-    report.config.issues.push(`配置检查失败: ${error instanceof Error ? error.message : String(error)}`);
+    report.config.issues.push(
+      `配置检查失败: ${error instanceof Error ? error.message : String(error)}`
+    );
     report.config.valid = false;
   }
 }
@@ -143,11 +164,21 @@ function checkModelStatus(report: DoctorReport): void {
   try {
     const { existsSync } = require('node:fs');
     const { join } = require('node:path');
-    const modelsConfigPath = join(process.cwd(), 'src', 'ai', 'models', 'ModelConfigs.ts');
+    const modelsConfigPath = join(
+      process.cwd(),
+      'src',
+      'ai',
+      'models',
+      'ModelConfigs.ts'
+    );
 
     if (existsSync(modelsConfigPath)) {
       report.model.health = 'ok';
-      report.model.models = ['claude-sonnet-4-6', 'claude-opus-4-6', 'deepseek-chat'];
+      report.model.models = [
+        'claude-sonnet-4-6',
+        'claude-opus-4-6',
+        'deepseek-chat',
+      ];
     } else {
       report.model.health = 'unavailable';
     }
@@ -163,7 +194,10 @@ function checkNetwork(report: DoctorReport): void {
   report.network.connectivity = 'ok';
 }
 
-async function checkSecurity(report: DoctorReport, deepMode: boolean): Promise<void> {
+async function checkSecurity(
+  report: DoctorReport,
+  deepMode: boolean
+): Promise<void> {
   try {
     const securityReport = await runSecurityAudit({ deep: deepMode });
     report.security.report = securityReport;
@@ -209,9 +243,13 @@ function formatDoctorReport(report: DoctorReport): string {
   if (report.security.auditFindings === -1) {
     lines.push('  ❌ 审计执行失败');
   } else if (report.security.passed) {
-    lines.push(`  ✅ 通过 (${report.security.auditFindings} 个发现, ${report.security.highSeverityCount} 个高危)`);
+    lines.push(
+      `  ✅ 通过 (${report.security.auditFindings} 个发现, ${report.security.highSeverityCount} 个高危)`
+    );
   } else {
-    lines.push(`  ⚠️  未通过 (${report.security.auditFindings} 个发现, ${report.security.highSeverityCount} 个高危)`);
+    lines.push(
+      `  ⚠️  未通过 (${report.security.auditFindings} 个发现, ${report.security.highSeverityCount} 个高危)`
+    );
   }
 
   lines.push('');

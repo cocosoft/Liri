@@ -469,7 +469,9 @@ export class ToolFactory {
    */
   createTraceRecordingTool(): Tool | null {
     try {
-      const { TraceRecordingTool } = require('./TraceRecordingTool/TraceRecordingTool.js');
+      const {
+        TraceRecordingTool,
+      } = require('./TraceRecordingTool/TraceRecordingTool.js');
       return new TraceRecordingTool();
     } catch (error) {
       logger.error(

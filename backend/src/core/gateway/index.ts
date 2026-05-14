@@ -121,7 +121,15 @@ export type {
 export { isChannelPlugin } from './ChannelPlugin';
 
 export { GatewayMcpBridge, gatewayMcpBridge } from './mcp/GatewayMcpBridge.js';
-export type { McpToolDefinition, McpCallRequest, McpCallResponse } from './mcp/GatewayMcpBridge.js';
+export type {
+  McpToolDefinition,
+  McpCallRequest,
+  McpCallResponse,
+} from './mcp/GatewayMcpBridge.js';
 
 export { ControlUI } from './control-ui/ControlUI.js';
-export type { ControlUIConfig, DashboardMetrics, DashboardPage } from './control-ui/ControlUI.js';
+export type {
+  ControlUIConfig,
+  DashboardMetrics,
+  DashboardPage,
+} from './control-ui/ControlUI.js';

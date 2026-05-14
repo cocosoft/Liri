@@ -15,7 +15,15 @@ export interface LifecycleConfig {
 /**
  * 插件状态
  */
-export type PluginState = 'registered' | 'loading' | 'loaded' | 'activating' | 'activated' | 'deactivating' | 'deactivated' | 'error';
+export type PluginState =
+  | 'registered'
+  | 'loading'
+  | 'loaded'
+  | 'activating'
+  | 'activated'
+  | 'deactivating'
+  | 'deactivated'
+  | 'error';
 
 /**
  * 状态转换
@@ -99,9 +107,14 @@ export class PluginLifecycleManager extends EventEmitter {
    * 激活插件
    */
   async activate(name: string): Promise<boolean> {
-    return this.transitionWithRetry(name, 'activating', 'activated', async () => {
-      await this.delay(50);
-    });
+    return this.transitionWithRetry(
+      name,
+      'activating',
+      'activated',
+      async () => {
+        await this.delay(50);
+      }
+    );
   }
 
   /**
@@ -147,22 +160,35 @@ export class PluginLifecycleManager extends EventEmitter {
    */
   getStats(): { total: number; byState: Record<PluginState, number> } {
     const byState: Record<string, number> = {
-      registered: 0, loading: 0, loaded: 0,
-      activating: 0, activated: 0,
-      deactivating: 0, deactivated: 0, error: 0,
+      registered: 0,
+      loading: 0,
+      loaded: 0,
+      activating: 0,
+      activated: 0,
+      deactivating: 0,
+      deactivated: 0,
+      error: 0,
     };
 
     for (const state of this.states.values()) {
       byState[state] = (byState[state] || 0) + 1;
     }
 
-    return { total: this.states.size, byState: byState as Record<PluginState, number> };
+    return {
+      total: this.states.size,
+      byState: byState as Record<PluginState, number>,
+    };
   }
 
   /**
    * 带重试的状态转换
    */
-  private async transitionWithRetry(name: string, intermediate: PluginState, final: PluginState, action: () => Promise<void>): Promise<boolean> {
+  private async transitionWithRetry(
+    name: string,
+    intermediate: PluginState,
+    final: PluginState,
+    action: () => Promise<void>
+  ): Promise<boolean> {
     for (let attempt = 0; attempt <= this.config.retryCount; attempt++) {
       if (!(await this.transition(name, intermediate))) {
         if (attempt < this.config.retryCount) continue;

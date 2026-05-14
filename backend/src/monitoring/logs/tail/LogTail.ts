@@ -55,12 +55,14 @@ export class LogTail extends EventEmitter {
     const allLines = content.split('\n').filter(Boolean);
     const sliced = allLines.slice(-lines);
 
-    return sliced.map((line, index) => ({
-      content: line,
-      timestamp: new Date(),
-      lineNumber: allLines.indexOf(line) + 1,
-      parsed: this.tryParse(line),
-    })).filter((log) => this.matchesFilter(log, options));
+    return sliced
+      .map((line, index) => ({
+        content: line,
+        timestamp: new Date(),
+        lineNumber: allLines.indexOf(line) + 1,
+        parsed: this.tryParse(line),
+      }))
+      .filter((log) => this.matchesFilter(log, options));
   }
 
   /**
@@ -147,15 +149,17 @@ export class LogTail extends EventEmitter {
           this.emit('line', logLine);
         }
       }
-    } catch {
-    }
+    } catch {}
   }
 
   /**
    * 过滤匹配
    */
   private matchesFilter(log: LogLine, options: TailOptions): boolean {
-    if (options.filter && !log.content.toLowerCase().includes(options.filter.toLowerCase())) {
+    if (
+      options.filter &&
+      !log.content.toLowerCase().includes(options.filter.toLowerCase())
+    ) {
       return false;
     }
 

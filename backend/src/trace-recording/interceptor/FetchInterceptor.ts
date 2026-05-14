@@ -109,8 +109,19 @@ export class FetchInterceptor {
     init: RequestInit | undefined,
     original: typeof globalThis.fetch
   ): Promise<Response> {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const method = (init?.method || (typeof input === 'object' && 'method' in input ? (input as Request).method : 'GET') || 'GET').toUpperCase();
+    const url =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+    const method = (
+      init?.method ||
+      (typeof input === 'object' && 'method' in input
+        ? (input as Request).method
+        : 'GET') ||
+      'GET'
+    ).toUpperCase();
 
     const isAI = isAIApiUrl(url);
     if (!isAI) {
@@ -127,10 +138,15 @@ export class FetchInterceptor {
 
     try {
       if (init?.body) {
-        reqBodyText = typeof init.body === 'string' ? init.body : String(init.body);
+        reqBodyText =
+          typeof init.body === 'string' ? init.body : String(init.body);
         try {
           reqBody = JSON.parse(reqBodyText);
-          if (reqBody && typeof reqBody === 'object' && 'stream' in (reqBody as Record<string, unknown>)) {
+          if (
+            reqBody &&
+            typeof reqBody === 'object' &&
+            'stream' in (reqBody as Record<string, unknown>)
+          ) {
             isStreaming = !!(reqBody as Record<string, unknown>).stream;
           }
         } catch {
@@ -142,7 +158,11 @@ export class FetchInterceptor {
           reqBodyText = await r.clone().text();
           try {
             reqBody = JSON.parse(reqBodyText);
-            if (reqBody && typeof reqBody === 'object' && 'stream' in (reqBody as Record<string, unknown>)) {
+            if (
+              reqBody &&
+              typeof reqBody === 'object' &&
+              'stream' in (reqBody as Record<string, unknown>)
+            ) {
               isStreaming = !!(reqBody as Record<string, unknown>).stream;
             }
           } catch {
@@ -159,7 +179,9 @@ export class FetchInterceptor {
     try {
       if (init?.headers) {
         if (init.headers instanceof Headers) {
-          init.headers.forEach((v, k) => { reqHeaders[k] = v; });
+          init.headers.forEach((v, k) => {
+            reqHeaders[k] = v;
+          });
         } else if (Array.isArray(init.headers)) {
           for (const [k, v] of init.headers) {
             reqHeaders[k] = v;
@@ -168,7 +190,9 @@ export class FetchInterceptor {
           Object.assign(reqHeaders, init.headers as Record<string, string>);
         }
       } else if (typeof input === 'object' && 'headers' in input) {
-        (input as Request).headers.forEach((v, k) => { reqHeaders[k] = v; });
+        (input as Request).headers.forEach((v, k) => {
+          reqHeaders[k] = v;
+        });
       }
     } catch {
       // 头读取失败
@@ -184,7 +208,9 @@ export class FetchInterceptor {
 
       // 构建响应头
       const respHeaders: Record<string, string> = {};
-      response.headers.forEach((v, k) => { respHeaders[k] = v; });
+      response.headers.forEach((v, k) => {
+        respHeaders[k] = v;
+      });
 
       // 判断Content-Type是否为SSE
       const contentType = response.headers.get('content-type') || '';
@@ -286,7 +312,8 @@ export class FetchInterceptor {
     } catch (error) {
       // 如果录制过程错误，仍返回原始结果
       const durationMs = Math.round(performance.now() - t0);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
 
       if (this.engine && this.callback) {
         const record = this.buildRecord(

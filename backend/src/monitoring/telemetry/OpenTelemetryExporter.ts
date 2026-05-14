@@ -21,7 +21,9 @@ const DEFAULT_OTEL_CONFIG: OtelConfig = {
   serviceName: 'PY_APP',
   serviceVersion: '1.0.0',
   otlpEndpoint: process.env['OTEL_EXPORTER_OTLP_ENDPOINT'] || '',
-  enabled: process.env['ENABLE_OTEL'] === 'true' || !!process.env['OTEL_EXPORTER_OTLP_ENDPOINT'],
+  enabled:
+    process.env['ENABLE_OTEL'] === 'true' ||
+    !!process.env['OTEL_EXPORTER_OTLP_ENDPOINT'],
   sampleRate: 1.0,
   batchTimeoutMs: 5000,
   maxExportBatchSize: 512,
@@ -69,7 +71,9 @@ export class OpenTelemetryExporter {
       });
     }, this.config.batchTimeoutMs);
 
-    logger.info(`OpenTelemetry 导出器已启动 (endpoint: ${this.config.otlpEndpoint || '未配置'})`);
+    logger.info(
+      `OpenTelemetry 导出器已启动 (endpoint: ${this.config.otlpEndpoint || '未配置'})`
+    );
   }
 
   stop(): void {
@@ -108,7 +112,9 @@ export class OpenTelemetryExporter {
     if (spans.length === 0 && metrics.length === 0) return;
 
     if (!this.config.otlpEndpoint) {
-      logger.debug(`OTeL 本地记录: ${spans.length} spans, ${metrics.length} metrics`);
+      logger.debug(
+        `OTeL 本地记录: ${spans.length} spans, ${metrics.length} metrics`
+      );
       return;
     }
 
@@ -121,27 +127,46 @@ export class OpenTelemetryExporter {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            resourceSpans: [{
-              resource: {
-                attributes: [
-                  { key: 'service.name', value: { stringValue: this.config.serviceName } },
-                  { key: 'service.version', value: { stringValue: this.config.serviceVersion } },
-                ],
+            resourceSpans: [
+              {
+                resource: {
+                  attributes: [
+                    {
+                      key: 'service.name',
+                      value: { stringValue: this.config.serviceName },
+                    },
+                    {
+                      key: 'service.version',
+                      value: { stringValue: this.config.serviceVersion },
+                    },
+                  ],
+                },
+                scopeSpans: spans.map((s) => ({
+                  spans: [
+                    {
+                      name: s.name,
+                      startTimeUnixNano: String(s.startTime * 1e6),
+                      endTimeUnixNano: String((s.endTime || Date.now()) * 1e6),
+                      attributes: Object.entries(s.attributes || {}).map(
+                        ([k, v]) => ({
+                          key: k,
+                          value:
+                            typeof v === 'number'
+                              ? { doubleValue: v }
+                              : typeof v === 'boolean'
+                                ? { boolValue: v }
+                                : { stringValue: String(v) },
+                        })
+                      ),
+                      status: {
+                        code: s.status === 'error' ? 2 : 1,
+                        message: s.errorMessage || '',
+                      },
+                    },
+                  ],
+                })),
               },
-              scopeSpans: spans.map((s) => ({
-                spans: [{
-                  name: s.name,
-                  startTimeUnixNano: String(s.startTime * 1e6),
-                  endTimeUnixNano: String((s.endTime || Date.now()) * 1e6),
-                  attributes: Object.entries(s.attributes || {}).map(([k, v]) => ({
-                    key: k,
-                    value: typeof v === 'number' ? { doubleValue: v } :
-                           typeof v === 'boolean' ? { boolValue: v } : { stringValue: String(v) },
-                  })),
-                  status: { code: s.status === 'error' ? 2 : 1, message: s.errorMessage || '' },
-                }],
-              })),
-            }],
+            ],
           }),
           signal: controller.signal,
         });
@@ -152,20 +177,34 @@ export class OpenTelemetryExporter {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            resourceMetrics: [{
-              resource: {
-                attributes: [
-                  { key: 'service.name', value: { stringValue: this.config.serviceName } },
-                ],
+            resourceMetrics: [
+              {
+                resource: {
+                  attributes: [
+                    {
+                      key: 'service.name',
+                      value: { stringValue: this.config.serviceName },
+                    },
+                  ],
+                },
+                scopeMetrics: metrics.map((m) => ({
+                  metrics: [
+                    {
+                      name: m.name,
+                      unit: m.unit,
+                      gauge: {
+                        dataPoints: [
+                          {
+                            asDouble: m.value,
+                            timeUnixNano: String(m.timestamp * 1e6),
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                })),
               },
-              scopeMetrics: metrics.map((m) => ({
-                metrics: [{
-                  name: m.name,
-                  unit: m.unit,
-                  gauge: { dataPoints: [{ asDouble: m.value, timeUnixNano: String(m.timestamp * 1e6) }] },
-                }],
-              })),
-            }],
+            ],
           }),
           signal: controller.signal,
         });

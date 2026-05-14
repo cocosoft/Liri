@@ -94,7 +94,11 @@ export class ImageProcessor {
   /**
    * 调整图片大小
    */
-  resize(input: string, output: string, options: ProcessOptions): ProcessResult {
+  resize(
+    input: string,
+    output: string,
+    options: ProcessOptions
+  ): ProcessResult {
     const originalSize = fs.statSync(input).size;
 
     try {
@@ -144,7 +148,7 @@ export class ImageProcessor {
       } else if (ext === '.jpg' || ext === '.jpeg') {
         let offset = 2;
         while (offset < buffer.length) {
-          if (buffer[offset] === 0xFF && buffer[offset + 1] === 0xC0) {
+          if (buffer[offset] === 0xff && buffer[offset + 1] === 0xc0) {
             height = buffer.readUInt16BE(offset + 5);
             width = buffer.readUInt16BE(offset + 7);
             break;
@@ -157,7 +161,11 @@ export class ImageProcessor {
       }
 
       if (width > 0 && height > 0) {
-        return { width, height, aspectRatio: parseFloat((width / height).toFixed(2)) };
+        return {
+          width,
+          height,
+          aspectRatio: parseFloat((width / height).toFixed(2)),
+        };
       }
 
       return undefined;
@@ -180,7 +188,14 @@ export class ImageProcessor {
    * 检查是否支持该格式
    */
   isFormatSupported(format: string): boolean {
-    const supported: ImageFormat[] = ['png', 'jpeg', 'webp', 'gif', 'bmp', 'svg'];
+    const supported: ImageFormat[] = [
+      'png',
+      'jpeg',
+      'webp',
+      'gif',
+      'bmp',
+      'svg',
+    ];
     return supported.includes(format as ImageFormat);
   }
 }

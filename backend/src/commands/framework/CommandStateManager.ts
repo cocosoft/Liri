@@ -50,7 +50,11 @@ export class CommandStateManager {
   /**
    * 创建命令执行快照
    */
-  createSnapshot(command: string, args: string, metadata?: Record<string, unknown>): string {
+  createSnapshot(
+    command: string,
+    args: string,
+    metadata?: Record<string, unknown>
+  ): string {
     const id = `cmd_${Date.now()}_${++this.counter}`;
     const snapshot: CommandSnapshot = {
       id,
@@ -77,7 +81,11 @@ export class CommandStateManager {
 
     snapshot.phase = phase;
 
-    if (phase === CommandPhase.COMPLETED || phase === CommandPhase.FAILED || phase === CommandPhase.CANCELLED) {
+    if (
+      phase === CommandPhase.COMPLETED ||
+      phase === CommandPhase.FAILED ||
+      phase === CommandPhase.CANCELLED
+    ) {
       snapshot.completedAt = Date.now();
       snapshot.duration = snapshot.completedAt - snapshot.startedAt;
     }
@@ -97,7 +105,9 @@ export class CommandStateManager {
     if (!snapshot) return;
 
     snapshot.result = result;
-    snapshot.phase = result.success ? CommandPhase.COMPLETED : CommandPhase.FAILED;
+    snapshot.phase = result.success
+      ? CommandPhase.COMPLETED
+      : CommandPhase.FAILED;
     snapshot.completedAt = Date.now();
     snapshot.duration = snapshot.completedAt - snapshot.startedAt;
 
@@ -116,10 +126,11 @@ export class CommandStateManager {
    */
   getActiveCommands(): CommandSnapshot[] {
     return Array.from(this.snapshots.values())
-      .filter((s) =>
-        s.phase === CommandPhase.PENDING ||
-        s.phase === CommandPhase.VALIDATING ||
-        s.phase === CommandPhase.EXECUTING
+      .filter(
+        (s) =>
+          s.phase === CommandPhase.PENDING ||
+          s.phase === CommandPhase.VALIDATING ||
+          s.phase === CommandPhase.EXECUTING
       )
       .sort((a, b) => b.startedAt - a.startedAt);
   }
@@ -184,8 +195,9 @@ export class CommandStateManager {
   private enforceHistoryLimit(): void {
     if (this.snapshots.size <= this.maxHistory) return;
 
-    const entries = Array.from(this.snapshots.entries())
-      .sort(([, a], [, b]) => a.startedAt - b.startedAt);
+    const entries = Array.from(this.snapshots.entries()).sort(
+      ([, a], [, b]) => a.startedAt - b.startedAt
+    );
 
     const toDelete = entries.slice(0, entries.length - this.maxHistory);
     for (const [id] of toDelete) {
@@ -203,14 +215,21 @@ export class CommandStateManager {
   /**
    * 获取统计摘要
    */
-  getStats(): { total: number; active: number; completed: number; failed: number; cancelled: number } {
+  getStats(): {
+    total: number;
+    active: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+  } {
     const all = Array.from(this.snapshots.values());
     return {
       total: all.length,
-      active: all.filter((s) =>
-        s.phase === CommandPhase.PENDING ||
-        s.phase === CommandPhase.VALIDATING ||
-        s.phase === CommandPhase.EXECUTING
+      active: all.filter(
+        (s) =>
+          s.phase === CommandPhase.PENDING ||
+          s.phase === CommandPhase.VALIDATING ||
+          s.phase === CommandPhase.EXECUTING
       ).length,
       completed: all.filter((s) => s.phase === CommandPhase.COMPLETED).length,
       failed: all.filter((s) => s.phase === CommandPhase.FAILED).length,

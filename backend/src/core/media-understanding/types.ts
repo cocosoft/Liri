@@ -1,9 +1,9 @@
 export type MediaUnderstandingKind =
-  | "audio.transcription"
-  | "video.description"
-  | "image.description";
+  | 'audio.transcription'
+  | 'video.description'
+  | 'image.description';
 
-export type MediaUnderstandingCapability = "image" | "audio" | "video";
+export type MediaUnderstandingCapability = 'image' | 'audio' | 'video';
 
 export type MediaAttachment = {
   path?: string;
@@ -22,18 +22,18 @@ export type MediaUnderstandingOutput = {
 };
 
 export type MediaUnderstandingDecisionOutcome =
-  | "success"
-  | "failed"
-  | "skipped"
-  | "disabled"
-  | "no-attachment"
-  | "scope-deny";
+  | 'success'
+  | 'failed'
+  | 'skipped'
+  | 'disabled'
+  | 'no-attachment'
+  | 'scope-deny';
 
 export type MediaUnderstandingModelDecision = {
   provider?: string;
   model?: string;
-  type: "provider" | "cli";
-  outcome: "success" | "skipped" | "failed";
+  type: 'provider' | 'cli';
+  outcome: 'success' | 'skipped' | 'failed';
   reason?: string;
 };
 
@@ -130,9 +130,17 @@ export type MediaUnderstandingProvider = {
   capabilities?: MediaUnderstandingCapability[];
   defaultModels?: Partial<Record<MediaUnderstandingCapability, string>>;
   autoPriority?: Partial<Record<MediaUnderstandingCapability, number>>;
-  nativeDocumentInputs?: Array<"pdf">;
-  transcribeAudio?: (req: AudioTranscriptionRequest) => Promise<AudioTranscriptionResult>;
-  describeVideo?: (req: VideoDescriptionRequest) => Promise<VideoDescriptionResult>;
-  describeImage?: (req: ImageDescriptionRequest) => Promise<ImageDescriptionResult>;
-  describeImages?: (req: ImagesDescriptionRequest) => Promise<ImagesDescriptionResult>;
+  nativeDocumentInputs?: Array<'pdf'>;
+  transcribeAudio?: (
+    req: AudioTranscriptionRequest
+  ) => Promise<AudioTranscriptionResult>;
+  describeVideo?: (
+    req: VideoDescriptionRequest
+  ) => Promise<VideoDescriptionResult>;
+  describeImage?: (
+    req: ImageDescriptionRequest
+  ) => Promise<ImageDescriptionResult>;
+  describeImages?: (
+    req: ImagesDescriptionRequest
+  ) => Promise<ImagesDescriptionResult>;
 };

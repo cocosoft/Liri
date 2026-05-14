@@ -29,7 +29,11 @@ const SEARCH_REDIRECT_PATTERNS: Array<{
   { pattern: /\/url\?q=([^&]+)/i, extractIndex: 1, source: 'Google' },
   { pattern: /\/l.php\?u=([^&]+)/i, extractIndex: 1, source: 'Facebook' },
   { pattern: /\/redirect\?url=([^&]+)/i, extractIndex: 1, source: 'Generic' },
-  { pattern: /\/redirect\/?[?]url=([^&]+)/i, extractIndex: 1, source: 'LinkedIn' },
+  {
+    pattern: /\/redirect\/?[?]url=([^&]+)/i,
+    extractIndex: 1,
+    source: 'LinkedIn',
+  },
   { pattern: /\/gateway\?url=([^&]+)/i, extractIndex: 1, source: 'Yahoo' },
   { pattern: /\/link\?url=([^&]+)/i, extractIndex: 1, source: 'Twitter/X' },
   { pattern: /\/away\?to=([^&]+)/i, extractIndex: 1, source: 'Reddit' },
@@ -59,10 +63,17 @@ const ACADEMIC_REDIRECT_PATTERNS = [
 ];
 
 const LINK_WRAPPER_DOMAINS = [
-  'l.facebook.com', 'l.messenger.com', 'out.reddit.com',
-  'redirect.viglink.com', 'click.linksynergy.com',
-  'www.awin1.com', 'shareasale.com', 'anrdoezrs.net',
-  'dpbolvw.net', 'tkqlhce.com', 'jdoqocy.com',
+  'l.facebook.com',
+  'l.messenger.com',
+  'out.reddit.com',
+  'redirect.viglink.com',
+  'click.linksynergy.com',
+  'www.awin1.com',
+  'shareasale.com',
+  'anrdoezrs.net',
+  'dpbolvw.net',
+  'tkqlhce.com',
+  'jdoqocy.com',
 ];
 
 export function resolveCitationUrl(url: string): CitationRedirectResult {
@@ -124,7 +135,14 @@ function tryExtractRedirectUrl(url: string): string {
   }
 
   if (url.includes('?') || url.includes('&')) {
-    const redirectParams = ['redirect_uri=', 'redirect_url=', 'return_url=', 'return_to=', 'next=', 'destination='];
+    const redirectParams = [
+      'redirect_uri=',
+      'redirect_url=',
+      'return_url=',
+      'return_to=',
+      'next=',
+      'destination=',
+    ];
     for (const param of redirectParams) {
       const paramMatch = url.match(new RegExp(`${param}([^&]+)`));
       if (paramMatch) {
@@ -157,13 +175,18 @@ function isAcademicRedirect(url: string): boolean {
 function isLinkWrapper(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return LINK_WRAPPER_DOMAINS.some((domain) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`));
+    return LINK_WRAPPER_DOMAINS.some(
+      (domain) =>
+        parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`)
+    );
   } catch {
     return false;
   }
 }
 
-export function extractCitationInfo(results: Array<{ title: string; url: string; snippet: string }>): Array<{
+export function extractCitationInfo(
+  results: Array<{ title: string; url: string; snippet: string }>
+): Array<{
   title: string;
   originalUrl: string;
   resolvedUrl: string;
@@ -186,7 +209,7 @@ export function extractCitationInfo(results: Array<{ title: string; url: string;
 
 export function formatCitations(
   citations: Array<{ title: string; resolvedUrl: string; domain: string }>,
-  format?: 'numbered' | 'bulleted' | 'inline',
+  format?: 'numbered' | 'bulleted' | 'inline'
 ): string {
   switch (format ?? 'numbered') {
     case 'numbered':
@@ -200,7 +223,10 @@ export function formatCitations(
         .join('\n');
 
     case 'inline': {
-      const formatter = new Intl.ListFormat('en', { style: 'long', type: 'unit' });
+      const formatter = new Intl.ListFormat('en', {
+        style: 'long',
+        type: 'unit',
+      });
       const links = citations.map((c) => `[${c.title}](${c.resolvedUrl})`);
       return formatter.format(links);
     }

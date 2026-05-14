@@ -38,7 +38,12 @@ export {
 export { SSEReassembler } from './sse/index';
 
 // 引擎层
-export { TraceEngine, TraceWriter, TraceStore, StatsEngine } from './engine/index';
+export {
+  TraceEngine,
+  TraceWriter,
+  TraceStore,
+  StatsEngine,
+} from './engine/index';
 export type { WriterStats } from './engine/index';
 
 // 查看层
@@ -80,9 +85,7 @@ export function getAITracePlugin(): AITracePlugin | null {
  *
  * @param deps 监控系统依赖（可选，传参启用集成模式）
  */
-export function createAITracePlugin(
-  deps?: MonitoringDeps
-): AITracePlugin {
+export function createAITracePlugin(deps?: MonitoringDeps): AITracePlugin {
   if (globalPlugin) {
     return globalPlugin;
   }

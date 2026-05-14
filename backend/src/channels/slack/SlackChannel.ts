@@ -80,10 +80,19 @@ export class SlackChannel extends EventEmitter {
   /**
    * 发送回复
    */
-  async sendReply(channel: string, threadTs: string, text: string): Promise<boolean> {
+  async sendReply(
+    channel: string,
+    threadTs: string,
+    text: string
+  ): Promise<boolean> {
     if (!this.connected) return false;
 
-    this.emit('message:sent', { channel, threadTs, text, timestamp: Date.now() });
+    this.emit('message:sent', {
+      channel,
+      threadTs,
+      text,
+      timestamp: Date.now(),
+    });
 
     return true;
   }

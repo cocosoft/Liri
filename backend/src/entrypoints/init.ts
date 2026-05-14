@@ -366,7 +366,9 @@ async function startDeferredPrefetches(): Promise<void> {
             registerShutdownHandler(async () => {
               await plugin.stop();
             });
-            logger.info('AI Trace 录制模块已启动', { config: plugin.getStatus() });
+            logger.info('AI Trace 录制模块已启动', {
+              config: plugin.getStatus(),
+            });
           }
         } catch (error) {
           logger.warning('AI Trace 录制模块启动失败', { error });

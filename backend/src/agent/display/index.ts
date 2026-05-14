@@ -19,17 +19,72 @@ export interface ToolDisplayConfig {
 }
 
 const TOOL_IMAGES: Record<string, ToolImage> = {
-  ReadFileTool: { name: 'Read', type: 'emoji', value: '📖', description: 'Read file contents' },
-  WriteFileTool: { name: 'Write', type: 'emoji', value: '✏️', description: 'Write file contents' },
-  EditFileTool: { name: 'Edit', type: 'emoji', value: '🔧', description: 'Edit file contents' },
-  FileSearchTool: { name: 'Search', type: 'emoji', value: '🔍', description: 'Search file contents' },
-  BashTool: { name: 'Bash', type: 'emoji', value: '💻', description: 'Execute bash commands' },
-  WebFetchTool: { name: 'Fetch', type: 'emoji', value: '🌐', description: 'Fetch web content' },
-  WebSearchTool: { name: 'Search', type: 'emoji', value: '🔎', description: 'Search the web' },
-  LSPTool: { name: 'LSP', type: 'emoji', value: '📐', description: 'Language server operations' },
-  AgentTool: { name: 'Agent', type: 'emoji', value: '🤖', description: 'Spawn sub-agent' },
-  SessionsTool: { name: 'Sessions', type: 'emoji', value: '🔄', description: 'Manage sessions' },
-  ScriptsTool: { name: 'Scripts', type: 'emoji', value: '📜', description: 'Manage scripts' },
+  ReadFileTool: {
+    name: 'Read',
+    type: 'emoji',
+    value: '📖',
+    description: 'Read file contents',
+  },
+  WriteFileTool: {
+    name: 'Write',
+    type: 'emoji',
+    value: '✏️',
+    description: 'Write file contents',
+  },
+  EditFileTool: {
+    name: 'Edit',
+    type: 'emoji',
+    value: '🔧',
+    description: 'Edit file contents',
+  },
+  FileSearchTool: {
+    name: 'Search',
+    type: 'emoji',
+    value: '🔍',
+    description: 'Search file contents',
+  },
+  BashTool: {
+    name: 'Bash',
+    type: 'emoji',
+    value: '💻',
+    description: 'Execute bash commands',
+  },
+  WebFetchTool: {
+    name: 'Fetch',
+    type: 'emoji',
+    value: '🌐',
+    description: 'Fetch web content',
+  },
+  WebSearchTool: {
+    name: 'Search',
+    type: 'emoji',
+    value: '🔎',
+    description: 'Search the web',
+  },
+  LSPTool: {
+    name: 'LSP',
+    type: 'emoji',
+    value: '📐',
+    description: 'Language server operations',
+  },
+  AgentTool: {
+    name: 'Agent',
+    type: 'emoji',
+    value: '🤖',
+    description: 'Spawn sub-agent',
+  },
+  SessionsTool: {
+    name: 'Sessions',
+    type: 'emoji',
+    value: '🔄',
+    description: 'Manage sessions',
+  },
+  ScriptsTool: {
+    name: 'Scripts',
+    type: 'emoji',
+    value: '📜',
+    description: 'Manage scripts',
+  },
 };
 
 const TOOL_SYMBOLS: Record<string, string> = {
@@ -139,7 +194,7 @@ export class ToolImageManager {
 export function formatToolStatus(
   toolName: string,
   status: 'running' | 'success' | 'error' | 'idle',
-  duration?: number,
+  duration?: number
 ): string {
   const statusSymbols: Record<string, string> = {
     running: '🔄',
@@ -154,6 +209,8 @@ export function formatToolStatus(
   return `${symbol} ${toolName}${durationStr}`;
 }
 
-export function createToolImageManager(config?: ToolDisplayConfig): ToolImageManager {
+export function createToolImageManager(
+  config?: ToolDisplayConfig
+): ToolImageManager {
   return new ToolImageManager(config);
 }

@@ -55,7 +55,7 @@ export class InternalEventBus {
   subscribe(
     type: string,
     handler: EventHandler,
-    options?: { priority?: EventPriority; once?: boolean },
+    options?: { priority?: EventPriority; once?: boolean }
   ): string {
     const id = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -81,7 +81,11 @@ export class InternalEventBus {
     return id;
   }
 
-  subscribeOnce(type: string, handler: EventHandler, priority?: EventPriority): string {
+  subscribeOnce(
+    type: string,
+    handler: EventHandler,
+    priority?: EventPriority
+  ): string {
     return this.subscribe(type, handler, { priority, once: true });
   }
 
@@ -98,7 +102,11 @@ export class InternalEventBus {
     return false;
   }
 
-  async emit(type: string, data?: unknown, options?: { source?: string; target?: string; priority?: EventPriority }): Promise<AgentEvent> {
+  async emit(
+    type: string,
+    data?: unknown,
+    options?: { source?: string; target?: string; priority?: EventPriority }
+  ): Promise<AgentEvent> {
     const event: AgentEvent = {
       id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       type,
@@ -120,8 +128,14 @@ export class InternalEventBus {
     ];
 
     handlers.sort((a, b) => {
-      const priorityOrder: Record<EventPriority, number> = { high: 3, normal: 2, low: 1 };
-      return (priorityOrder[b.priority] ?? 0) - (priorityOrder[a.priority] ?? 0);
+      const priorityOrder: Record<EventPriority, number> = {
+        high: 3,
+        normal: 2,
+        low: 1,
+      };
+      return (
+        (priorityOrder[b.priority] ?? 0) - (priorityOrder[a.priority] ?? 0)
+      );
     });
 
     const toRemove: string[] = [];
@@ -146,11 +160,19 @@ export class InternalEventBus {
     return event;
   }
 
-  async emitAsync(type: string, data?: unknown, options?: { source?: string; target?: string; priority?: EventPriority }): Promise<AgentEvent> {
+  async emitAsync(
+    type: string,
+    data?: unknown,
+    options?: { source?: string; target?: string; priority?: EventPriority }
+  ): Promise<AgentEvent> {
     return this.emit(type, data, options);
   }
 
-  getHistory(filter?: { type?: string; source?: string; limit?: number }): AgentEvent[] {
+  getHistory(filter?: {
+    type?: string;
+    source?: string;
+    limit?: number;
+  }): AgentEvent[] {
     let result = [...this.history];
 
     if (filter?.type) {
@@ -182,8 +204,10 @@ export class InternalEventBus {
     const direct = this.subscriptions.get(type);
     const wildcard = this.subscriptions.get('*');
 
-    return (direct !== undefined && direct.length > 0) ||
-      (wildcard !== undefined && wildcard.length > 0);
+    return (
+      (direct !== undefined && direct.length > 0) ||
+      (wildcard !== undefined && wildcard.length > 0)
+    );
   }
 
   subscriberCount(type: string): number {

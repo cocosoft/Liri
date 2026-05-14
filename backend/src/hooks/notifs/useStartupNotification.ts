@@ -11,7 +11,7 @@ type Result = Notification | Notification[] | null;
  * compute 函数仅在首次 effect 时执行一次，返回 null 跳过，返回 Notification 或数组触发通知
  */
 export function useStartupNotification(
-  compute: () => Result | Promise<Result>,
+  compute: () => Result | Promise<Result>
 ): void {
   const hasRunRef = useRef(false);
   const computeRef = useRef(compute);

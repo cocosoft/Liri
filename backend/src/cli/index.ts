@@ -865,13 +865,19 @@ program
   .option('-c, --check', 'Check for updates')
   .option('-i, --install', 'Install available updates')
   .option('-f, --force', 'Force update even if no updates available')
-  .action(async (options: { check?: boolean; install?: boolean; force?: boolean }) => {
-    if (options.install || options.force) {
-      await updateHandler.handleInstall(options.force ? ['--force'] : []);
-    } else {
-      await updateHandler.handleCheck();
+  .action(
+    async (options: {
+      check?: boolean;
+      install?: boolean;
+      force?: boolean;
+    }) => {
+      if (options.install || options.force) {
+        await updateHandler.handleInstall(options.force ? ['--force'] : []);
+      } else {
+        await updateHandler.handleCheck();
+      }
     }
-  });
+  );
 
 program
   .command('update check')
@@ -895,27 +901,44 @@ program
   .description('View documentation')
   .option('-s, --search <query>', 'Search documentation')
   .option('-l, --list', 'List all documentation sections')
-  .action(async (topic: string | undefined, options: { search?: string; list?: boolean }) => {
-    try {
-      const { docsCommand } = await import('../commands/builtin/docs/index.js');
+  .action(
+    async (
+      topic: string | undefined,
+      options: { search?: string; list?: boolean }
+    ) => {
+      try {
+        const { docsCommand } =
+          await import('../commands/builtin/docs/index.js');
 
-      if (options.search) {
-        const result = await docsCommand.load!().then((m: any) => m.execute(`search ${options.search}`, {} as any));
-        console.log(result.message);
-      } else if (options.list) {
-        const result = await docsCommand.load!().then((m: any) => m.execute('list', {} as any));
-        console.log(result.message);
-      } else if (topic) {
-        const result = await docsCommand.load!().then((m: any) => m.execute(topic, {} as any));
-        console.log(result.message);
-      } else {
-        const result = await docsCommand.load!().then((m: any) => m.execute('', {} as any));
-        console.log(result.message);
+        if (options.search) {
+          const result = await docsCommand.load!().then((m: any) =>
+            m.execute(`search ${options.search}`, {} as any)
+          );
+          console.log(result.message);
+        } else if (options.list) {
+          const result = await docsCommand.load!().then((m: any) =>
+            m.execute('list', {} as any)
+          );
+          console.log(result.message);
+        } else if (topic) {
+          const result = await docsCommand.load!().then((m: any) =>
+            m.execute(topic, {} as any)
+          );
+          console.log(result.message);
+        } else {
+          const result = await docsCommand.load!().then((m: any) =>
+            m.execute('', {} as any)
+          );
+          console.log(result.message);
+        }
+      } catch (error: unknown) {
+        console.error(
+          chalk.red('✗'),
+          `Docs command failed: ${(error as Error).message}`
+        );
       }
-    } catch (error: unknown) {
-      console.error(chalk.red('✗'), `Docs command failed: ${(error as Error).message}`);
     }
-  });
+  );
 
 // ========== Uninstall Commands ==========
 
@@ -924,19 +947,31 @@ program
   .description('Uninstall plugins, skills, tools, themes, or agents')
   .option('--confirm', 'Confirm uninstallation')
   .option('--force', 'Force uninstallation')
-  .action(async (type: string, name: string | undefined, options: { confirm?: boolean; force?: boolean }) => {
-    try {
-      const fullArgs = name
-        ? `${type} ${name}${options.force ? ' --force' : options.confirm ? ' --confirm' : ''}`
-        : type;
+  .action(
+    async (
+      type: string,
+      name: string | undefined,
+      options: { confirm?: boolean; force?: boolean }
+    ) => {
+      try {
+        const fullArgs = name
+          ? `${type} ${name}${options.force ? ' --force' : options.confirm ? ' --confirm' : ''}`
+          : type;
 
-      const { uninstallCommand } = await import('../commands/builtin/uninstall/index.js');
-      const result = await uninstallCommand.load!().then((m: any) => m.execute(fullArgs, {} as any));
-      console.log(result.message);
-    } catch (error: unknown) {
-      console.error(chalk.red('✗'), `Uninstall failed: ${(error as Error).message}`);
+        const { uninstallCommand } =
+          await import('../commands/builtin/uninstall/index.js');
+        const result = await uninstallCommand.load!().then((m: any) =>
+          m.execute(fullArgs, {} as any)
+        );
+        console.log(result.message);
+      } catch (error: unknown) {
+        console.error(
+          chalk.red('✗'),
+          `Uninstall failed: ${(error as Error).message}`
+        );
+      }
     }
-  });
+  );
 
 // ========== Onboard Commands ==========
 
@@ -945,13 +980,19 @@ program
   .description('Application onboarding wizard and quick start guide')
   .action(async (action: string | undefined) => {
     try {
-      const { onboardCommand } = await import('../commands/builtin/onboard/index.js');
+      const { onboardCommand } =
+        await import('../commands/builtin/onboard/index.js');
 
       const args = action || '';
-      const result = await onboardCommand.load!().then((m: any) => m.execute(args, {} as any));
+      const result = await onboardCommand.load!().then((m: any) =>
+        m.execute(args, {} as any)
+      );
       console.log(result.message);
     } catch (error: unknown) {
-      console.error(chalk.red('✗'), `Onboard command failed: ${(error as Error).message}`);
+      console.error(
+        chalk.red('✗'),
+        `Onboard command failed: ${(error as Error).message}`
+      );
     }
   });
 
@@ -963,13 +1004,19 @@ program
   .option('--quick', 'Quick health check')
   .action(async (action: string | undefined, options: { quick?: boolean }) => {
     try {
-      const { healthCommand } = await import('../commands/builtin/health/index.js');
+      const { healthCommand } =
+        await import('../commands/builtin/health/index.js');
 
       const args = options.quick ? 'quick' : action || '';
-      const result = await healthCommand.load!().then((m: any) => m.execute(args, {} as any));
+      const result = await healthCommand.load!().then((m: any) =>
+        m.execute(args, {} as any)
+      );
       console.log(result.message);
     } catch (error: unknown) {
-      console.error(chalk.red('✗'), `Health command failed: ${(error as Error).message}`);
+      console.error(
+        chalk.red('✗'),
+        `Health command failed: ${(error as Error).message}`
+      );
     }
   });
 
@@ -980,13 +1027,19 @@ program
   .description('Task management (list, add, complete, delete, stats)')
   .action(async (action: string[] | undefined) => {
     try {
-      const { tasksCommand } = await import('../commands/builtin/tasks/index.js');
+      const { tasksCommand } =
+        await import('../commands/builtin/tasks/index.js');
 
       const args = action ? action.join(' ') : '';
-      const result = await tasksCommand.load!().then((m: any) => m.execute(args, {} as any));
+      const result = await tasksCommand.load!().then((m: any) =>
+        m.execute(args, {} as any)
+      );
       console.log(result.message);
     } catch (error: unknown) {
-      console.error(chalk.red('✗'), `Tasks command failed: ${(error as Error).message}`);
+      console.error(
+        chalk.red('✗'),
+        `Tasks command failed: ${(error as Error).message}`
+      );
     }
   });
 

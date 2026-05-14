@@ -1,4 +1,9 @@
-import type { ModelPickerResult, FlowContext, FlowConfigProvider, FlowOption } from './types.js';
+import type {
+  ModelPickerResult,
+  FlowContext,
+  FlowConfigProvider,
+  FlowOption,
+} from './types.js';
 
 export type ModelCatalogEntry = {
   id: string;
@@ -18,19 +23,97 @@ export type ModelPickerOptions = {
 };
 
 const DEFAULT_MODEL_CATALOG: ModelCatalogEntry[] = [
-  { id: 'gpt-4o', provider: 'openai', name: 'GPT-4o', contextWindow: 128000, capabilities: ['text', 'vision'] },
-  { id: 'gpt-4o-mini', provider: 'openai', name: 'GPT-4o Mini', contextWindow: 128000, capabilities: ['text', 'vision'] },
-  { id: 'gpt-4-turbo', provider: 'openai', name: 'GPT-4 Turbo', contextWindow: 128000, capabilities: ['text', 'vision'] },
-  { id: 'claude-sonnet-4-20250514', provider: 'anthropic', name: 'Claude Sonnet 4', contextWindow: 200000, capabilities: ['text', 'vision'] },
-  { id: 'claude-haiku-3-5', provider: 'anthropic', name: 'Claude Haiku 3.5', contextWindow: 200000, capabilities: ['text', 'vision'] },
-  { id: 'gemini-2.0-flash', provider: 'google', name: 'Gemini 2.0 Flash', contextWindow: 1000000, capabilities: ['text', 'vision', 'audio'] },
-  { id: 'gemini-1.5-pro', provider: 'google', name: 'Gemini 1.5 Pro', contextWindow: 2000000, capabilities: ['text', 'vision', 'audio'] },
-  { id: 'deepseek-chat', provider: 'deepseek', name: 'DeepSeek Chat', contextWindow: 64000, capabilities: ['text'] },
-  { id: 'deepseek-reasoner', provider: 'deepseek', name: 'DeepSeek Reasoner', contextWindow: 64000, capabilities: ['text'] },
-  { id: 'llama-3.1-70b', provider: 'meta', name: 'Llama 3.1 70B', contextWindow: 128000, capabilities: ['text'] },
-  { id: 'llama-3.1-405b', provider: 'meta', name: 'Llama 3.1 405B', contextWindow: 128000, capabilities: ['text'] },
-  { id: 'mistral-large', provider: 'mistral', name: 'Mistral Large', contextWindow: 128000, capabilities: ['text'] },
-  { id: 'command-r-plus', provider: 'cohere', name: 'Command R+', contextWindow: 128000, capabilities: ['text'] },
+  {
+    id: 'gpt-4o',
+    provider: 'openai',
+    name: 'GPT-4o',
+    contextWindow: 128000,
+    capabilities: ['text', 'vision'],
+  },
+  {
+    id: 'gpt-4o-mini',
+    provider: 'openai',
+    name: 'GPT-4o Mini',
+    contextWindow: 128000,
+    capabilities: ['text', 'vision'],
+  },
+  {
+    id: 'gpt-4-turbo',
+    provider: 'openai',
+    name: 'GPT-4 Turbo',
+    contextWindow: 128000,
+    capabilities: ['text', 'vision'],
+  },
+  {
+    id: 'claude-sonnet-4-20250514',
+    provider: 'anthropic',
+    name: 'Claude Sonnet 4',
+    contextWindow: 200000,
+    capabilities: ['text', 'vision'],
+  },
+  {
+    id: 'claude-haiku-3-5',
+    provider: 'anthropic',
+    name: 'Claude Haiku 3.5',
+    contextWindow: 200000,
+    capabilities: ['text', 'vision'],
+  },
+  {
+    id: 'gemini-2.0-flash',
+    provider: 'google',
+    name: 'Gemini 2.0 Flash',
+    contextWindow: 1000000,
+    capabilities: ['text', 'vision', 'audio'],
+  },
+  {
+    id: 'gemini-1.5-pro',
+    provider: 'google',
+    name: 'Gemini 1.5 Pro',
+    contextWindow: 2000000,
+    capabilities: ['text', 'vision', 'audio'],
+  },
+  {
+    id: 'deepseek-chat',
+    provider: 'deepseek',
+    name: 'DeepSeek Chat',
+    contextWindow: 64000,
+    capabilities: ['text'],
+  },
+  {
+    id: 'deepseek-reasoner',
+    provider: 'deepseek',
+    name: 'DeepSeek Reasoner',
+    contextWindow: 64000,
+    capabilities: ['text'],
+  },
+  {
+    id: 'llama-3.1-70b',
+    provider: 'meta',
+    name: 'Llama 3.1 70B',
+    contextWindow: 128000,
+    capabilities: ['text'],
+  },
+  {
+    id: 'llama-3.1-405b',
+    provider: 'meta',
+    name: 'Llama 3.1 405B',
+    contextWindow: 128000,
+    capabilities: ['text'],
+  },
+  {
+    id: 'mistral-large',
+    provider: 'mistral',
+    name: 'Mistral Large',
+    contextWindow: 128000,
+    capabilities: ['text'],
+  },
+  {
+    id: 'command-r-plus',
+    provider: 'cohere',
+    name: 'Command R+',
+    contextWindow: 128000,
+    capabilities: ['text'],
+  },
 ];
 
 const modelCatalog: Map<string, ModelCatalogEntry> = new Map();
@@ -65,7 +148,9 @@ export function getModel(modelId: string): ModelCatalogEntry | undefined {
 /**
  * 获取经过过滤的模型目录。
  */
-export function listModels(filter?: (entry: ModelCatalogEntry) => boolean): ModelCatalogEntry[] {
+export function listModels(
+  filter?: (entry: ModelCatalogEntry) => boolean
+): ModelCatalogEntry[] {
   const entries = Array.from(modelCatalog.values());
   return filter ? entries.filter(filter) : entries;
 }
@@ -94,12 +179,14 @@ export function listProviders(): string[] {
 export async function pickModel(
   options: ModelPickerOptions = {},
   context: FlowContext = {},
-  configProvider: FlowConfigProvider,
+  configProvider: FlowConfigProvider
 ): Promise<ModelPickerResult> {
   let available = listModels(options.filter);
 
   if (options.preferredProvider) {
-    const preferred = available.filter((e) => e.provider === options.preferredProvider);
+    const preferred = available.filter(
+      (e) => e.provider === options.preferredProvider
+    );
     if (preferred.length > 0) {
       available = preferred;
     }
@@ -128,14 +215,16 @@ export async function pickModel(
  * 获取模型选择选项列表（用于交互式向导）。
  */
 export function getModelPickerOptions(
-  options: ModelPickerOptions = {},
+  options: ModelPickerOptions = {}
 ): FlowOption[] {
   const entries = listModels(options.filter);
 
   return entries.map((entry) => ({
     value: entry.id,
     label: `${entry.provider}/${entry.name}`,
-    hint: entry.contextWindow ? `${entry.contextWindow.toLocaleString()} ctx` : undefined,
+    hint: entry.contextWindow
+      ? `${entry.contextWindow.toLocaleString()} ctx`
+      : undefined,
     group: { id: entry.provider, label: entry.provider },
   }));
 }
@@ -143,7 +232,10 @@ export function getModelPickerOptions(
 /**
  * 解析模型字符串为结构化信息。
  */
-export function parseModelRef(modelRef: string): { provider?: string; model: string } {
+export function parseModelRef(modelRef: string): {
+  provider?: string;
+  model: string;
+} {
   const slashIndex = modelRef.indexOf('/');
   if (slashIndex > 0) {
     return {

@@ -86,7 +86,10 @@ const onboardCommand = {
   /**
    * 执行 onboard 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const cleanArgs = args.trim().toLowerCase();
 
     if (cleanArgs === 'help' || cleanArgs === '--help' || cleanArgs === '-h') {
@@ -170,7 +173,8 @@ const onboardCommand = {
     return {
       success: true,
       type: 'text',
-      message: '⏭️  已跳过入手指引。\n\n你可以随时使用 /onboard 重新开启。\n使用 /help 查看所有可用命令。',
+      message:
+        '⏭️  已跳过入手指引。\n\n你可以随时使用 /onboard 重新开启。\n使用 /help 查看所有可用命令。',
     };
   },
 

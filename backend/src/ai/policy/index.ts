@@ -80,7 +80,7 @@ export class FailoverManager {
   async execute<T>(
     provider: string,
     operation: (provider: string) => Promise<T>,
-    options?: { model?: string; reason?: FailoverReason },
+    options?: { model?: string; reason?: FailoverReason }
   ): Promise<{ result: T; provider: string; model: string }> {
     const chain = this.getChain(provider);
     let lastError: Error | null = null;
@@ -176,10 +176,14 @@ export class FailoverManager {
     unavailableProviders: string[];
   } {
     return {
-      totalFailures: Array.from(this.failureCounts.values()).reduce((a, b) => a + b, 0),
+      totalFailures: Array.from(this.failureCounts.values()).reduce(
+        (a, b) => a + b,
+        0
+      ),
       totalEvents: this.events.length,
-      activeCooldowns: Array.from(this.cooldownUntil.entries())
-        .filter(([, until]) => until > Date.now()).length,
+      activeCooldowns: Array.from(this.cooldownUntil.entries()).filter(
+        ([, until]) => until > Date.now()
+      ).length,
       unavailableProviders: Array.from(this.healthStatus.entries())
         .filter(([, available]) => !available)
         .map(([p]) => p),
@@ -208,11 +212,19 @@ export class FailoverManager {
   private classifyError(error: Error): FailoverReason {
     const msg = error.message.toLowerCase();
 
-    if (msg.includes('rate') || msg.includes('429') || msg.includes('too many')) {
+    if (
+      msg.includes('rate') ||
+      msg.includes('429') ||
+      msg.includes('too many')
+    ) {
       return 'rate_limited';
     }
 
-    if (msg.includes('overload') || msg.includes('503') || msg.includes('unavailable')) {
+    if (
+      msg.includes('overload') ||
+      msg.includes('503') ||
+      msg.includes('unavailable')
+    ) {
       return 'server_overloaded';
     }
 
@@ -220,19 +232,36 @@ export class FailoverManager {
       return 'timeout';
     }
 
-    if (msg.includes('auth') || msg.includes('401') || msg.includes('403') || msg.includes('api key')) {
+    if (
+      msg.includes('auth') ||
+      msg.includes('401') ||
+      msg.includes('403') ||
+      msg.includes('api key')
+    ) {
       return 'auth_error';
     }
 
-    if (msg.includes('context') || msg.includes('token') || msg.includes('length')) {
+    if (
+      msg.includes('context') ||
+      msg.includes('token') ||
+      msg.includes('length')
+    ) {
       return 'context_overflow';
     }
 
-    if (msg.includes('model') && (msg.includes('not found') || msg.includes('unavailable'))) {
+    if (
+      msg.includes('model') &&
+      (msg.includes('not found') || msg.includes('unavailable'))
+    ) {
       return 'model_unavailable';
     }
 
-    if (msg.includes('network') || msg.includes('econnrefused') || msg.includes('econnreset') || msg.includes('enotfound')) {
+    if (
+      msg.includes('network') ||
+      msg.includes('econnrefused') ||
+      msg.includes('econnreset') ||
+      msg.includes('enotfound')
+    ) {
       return 'network_error';
     }
 
@@ -259,7 +288,7 @@ export class FailoverManager {
     const count = this.failureCounts.get(provider) ?? 0;
     const backoff = Math.min(
       this.config.backoffMs * Math.pow(2, count),
-      this.config.maxBackoffMs,
+      this.config.maxBackoffMs
     );
 
     const jitter = backoff * this.config.jitterFactor * (Math.random() * 2 - 1);
@@ -277,6 +306,8 @@ export class FailoverManager {
   }
 }
 
-export function createFailoverManager(config?: Partial<FailoverPolicyConfig>): FailoverManager {
+export function createFailoverManager(
+  config?: Partial<FailoverPolicyConfig>
+): FailoverManager {
   return new FailoverManager(config);
 }

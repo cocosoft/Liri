@@ -38,7 +38,8 @@ export interface AgentsListResult {
 export class AgentsListTool extends BaseTool {
   name = 'agents_list';
 
-  description = 'List all running agents and sessions. Supports filtering by type, status, and pagination.';
+  description =
+    'List all running agents and sessions. Supports filtering by type, status, and pagination.';
 
   params: ToolParam[] = [
     {

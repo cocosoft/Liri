@@ -40,7 +40,9 @@ export function auditPlugins(pluginsDir?: string): SecurityAuditFinding[] {
       auditPluginSource(meta, findings);
     }
 
-    logger.info(`插件信任审计完成，扫描 ${pluginMetas.length} 个插件，发现 ${findings.length} 个问题`);
+    logger.info(
+      `插件信任审计完成，扫描 ${pluginMetas.length} 个插件，发现 ${findings.length} 个问题`
+    );
   } catch (error) {
     logger.error('插件信任审计失败', error as Error);
   }
@@ -87,7 +89,10 @@ function discoverPlugins(scanDir: string): PluginMeta[] {
   return metas;
 }
 
-function auditPluginIntegrity(meta: PluginMeta, findings: SecurityAuditFinding[]): void {
+function auditPluginIntegrity(
+  meta: PluginMeta,
+  findings: SecurityAuditFinding[]
+): void {
   if (!meta.hasPackageJson) {
     findings.push({
       id: `PLUGIN_${meta.name}_integrity-001`,
@@ -110,8 +115,16 @@ function auditPluginIntegrity(meta: PluginMeta, findings: SecurityAuditFinding[]
   }
 }
 
-function auditPluginPermissions(meta: PluginMeta, findings: SecurityAuditFinding[]): void {
-  const dangerousPerms = ['filesystem.full', 'network.all', 'process.spawn', 'security.bypass'];
+function auditPluginPermissions(
+  meta: PluginMeta,
+  findings: SecurityAuditFinding[]
+): void {
+  const dangerousPerms = [
+    'filesystem.full',
+    'network.all',
+    'process.spawn',
+    'security.bypass',
+  ];
   for (const perm of meta.permissions) {
     if (dangerousPerms.includes(perm)) {
       findings.push({
@@ -126,20 +139,27 @@ function auditPluginPermissions(meta: PluginMeta, findings: SecurityAuditFinding
   }
 }
 
-function auditPluginSource(meta: PluginMeta, findings: SecurityAuditFinding[]): void {
+function auditPluginSource(
+  meta: PluginMeta,
+  findings: SecurityAuditFinding[]
+): void {
   const indexPath = join(meta.path, 'index.ts');
   if (!existsSync(indexPath)) return;
 
   try {
     const content = readFileSync(indexPath, 'utf-8');
-    if (/child_process/.test(content) && !meta.permissions.includes('process.spawn')) {
+    if (
+      /child_process/.test(content) &&
+      !meta.permissions.includes('process.spawn')
+    ) {
       findings.push({
         id: `PLUGIN_${meta.name}_source-001`,
         severity: 'MEDIUM',
         category: 'plugin_trust',
         path: meta.path,
         message: `插件 "${meta.name}" 使用了 child_process 但未声明 process.spawn 权限`,
-        remediation: '在 package.json 的 py_app.permissions 中声明 process.spawn 权限',
+        remediation:
+          '在 package.json 的 py_app.permissions 中声明 process.spawn 权限',
       });
     }
     if (/https?:\/\/[^\s"']+/.test(content)) {

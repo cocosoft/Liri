@@ -145,7 +145,10 @@ export class TurnManager extends EventEmitter {
         continue;
       }
 
-      if (entry.id === this.lastAssignedId && this.consecutiveCount >= this.config.maxConsecutive) {
+      if (
+        entry.id === this.lastAssignedId &&
+        this.consecutiveCount >= this.config.maxConsecutive
+      ) {
         const event: TurnEvent = {
           entryId: entry.id,
           type: 'skipped',
@@ -287,7 +290,12 @@ export class TurnManager extends EventEmitter {
   /**
    * 获取统计数据
    */
-  getStats(): { total: number; strategy: TurnStrategy; cooldownMs: number; totalTurns: number } {
+  getStats(): {
+    total: number;
+    strategy: TurnStrategy;
+    cooldownMs: number;
+    totalTurns: number;
+  } {
     let totalTurns = 0;
 
     for (const entry of this.entries.values()) {

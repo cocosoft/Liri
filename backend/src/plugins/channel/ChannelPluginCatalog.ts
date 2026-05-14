@@ -21,7 +21,12 @@ export interface ChannelPlugin {
 /**
  * 渠道插件类型
  */
-export type ChannelPluginType = 'messaging' | 'social' | 'notification' | 'voice' | 'custom';
+export type ChannelPluginType =
+  | 'messaging'
+  | 'social'
+  | 'notification'
+  | 'voice'
+  | 'custom';
 
 /**
  * 渠道插件目录条目
@@ -99,7 +104,10 @@ export class ChannelPluginCatalog {
         type: 'messaging',
         protocol: 'irc',
         capabilities: ['sendMessage', 'receiveMessage', 'joinChannel'],
-        configSchema: { server: { type: 'string', required: true }, port: { type: 'number', default: 6667 } },
+        configSchema: {
+          server: { type: 'string', required: true },
+          port: { type: 'number', default: 6667 },
+        },
       },
       {
         name: 'channel-line',
@@ -119,7 +127,10 @@ export class ChannelPluginCatalog {
         type: 'social',
         protocol: 'nostr',
         capabilities: ['sendMessage', 'receiveMessage', 'publishEvent'],
-        configSchema: { privateKey: { type: 'string', required: true }, relays: { type: 'array', default: [] } },
+        configSchema: {
+          privateKey: { type: 'string', required: true },
+          relays: { type: 'array', default: [] },
+        },
       },
     ];
 
@@ -213,13 +224,20 @@ export class ChannelPluginCatalog {
    * 按能力获取渠道插件
    */
   getByCapability(capability: string): ChannelPluginCatalogEntry[] {
-    return this.getAll().filter((e) => e.plugin.capabilities.includes(capability));
+    return this.getAll().filter((e) =>
+      e.plugin.capabilities.includes(capability)
+    );
   }
 
   /**
    * 获取目录统计
    */
-  getStats(): { total: number; installed: number; enabled: number; byType: Record<string, number> } {
+  getStats(): {
+    total: number;
+    installed: number;
+    enabled: number;
+    byType: Record<string, number>;
+  } {
     const byType: Record<string, number> = {};
 
     for (const entry of this.entries.values()) {

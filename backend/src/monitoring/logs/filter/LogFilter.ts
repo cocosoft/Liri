@@ -94,20 +94,33 @@ export class LogFilter {
    * 启用子系统
    */
   enableSubsystem(subsystem: string): void {
-    this.config.rules.push({ name: `enable-${subsystem}`, subsystem, action: 'include' });
+    this.config.rules.push({
+      name: `enable-${subsystem}`,
+      subsystem,
+      action: 'include',
+    });
   }
 
   /**
    * 禁用子系统
    */
   disableSubsystem(subsystem: string): void {
-    this.config.rules.push({ name: `disable-${subsystem}`, subsystem, action: 'exclude' });
+    this.config.rules.push({
+      name: `disable-${subsystem}`,
+      subsystem,
+      action: 'exclude',
+    });
   }
 
   /**
    * 匹配规则
    */
-  private matchRule(rule: FilterRule, subsystem: string, level: string, message: string): boolean {
+  private matchRule(
+    rule: FilterRule,
+    subsystem: string,
+    level: string,
+    message: string
+  ): boolean {
     if (rule.subsystem && !subsystem.includes(rule.subsystem)) return false;
 
     if (rule.level && level !== rule.level) return false;
@@ -126,8 +139,12 @@ export class LogFilter {
   /**
    * 解析日志行
    */
-  private parseLogLine(line: string): { subsystem: string; level: string; message: string } | null {
-    const match = line.match(/^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\]\s+\[(\w+)\]\s+\[(\w+)\]\s+(.+)$/);
+  private parseLogLine(
+    line: string
+  ): { subsystem: string; level: string; message: string } | null {
+    const match = line.match(
+      /^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\]\s+\[(\w+)\]\s+\[(\w+)\]\s+(.+)$/
+    );
 
     if (match) {
       return { subsystem: match[3], level: match[2], message: match[4] };
@@ -136,7 +153,11 @@ export class LogFilter {
     const simpleMatch = line.match(/^\[(\w+)\]\s+\[(\w+)\]\s+(.+)$/);
 
     if (simpleMatch) {
-      return { subsystem: simpleMatch[1], level: simpleMatch[2], message: simpleMatch[3] };
+      return {
+        subsystem: simpleMatch[1],
+        level: simpleMatch[2],
+        message: simpleMatch[3],
+      };
     }
 
     return null;

@@ -75,7 +75,9 @@ export class SessionKeyManager {
     if (Date.now() > key.expiresAt) {
       this.rotate(sessionId);
 
-      return this.active.get(sessionId) ? this.keys.get(this.active.get(sessionId)!) : undefined;
+      return this.active.get(sessionId)
+        ? this.keys.get(this.active.get(sessionId)!)
+        : undefined;
     }
 
     return key;
@@ -84,7 +86,10 @@ export class SessionKeyManager {
   /**
    * 加密数据
    */
-  encrypt(sessionId: string, data: string): { encrypted: string; iv: string; tag: string } | undefined {
+  encrypt(
+    sessionId: string,
+    data: string
+  ): { encrypted: string; iv: string; tag: string } | undefined {
     const sessionKey = this.get(sessionId);
 
     if (!sessionKey) return undefined;
@@ -103,7 +108,12 @@ export class SessionKeyManager {
   /**
    * 解密数据
    */
-  decrypt(sessionId: string, encrypted: string, ivHex: string, tagHex: string): string | undefined {
+  decrypt(
+    sessionId: string,
+    encrypted: string,
+    ivHex: string,
+    tagHex: string
+  ): string | undefined {
     const sessionKey = this.get(sessionId);
 
     if (!sessionKey) return undefined;

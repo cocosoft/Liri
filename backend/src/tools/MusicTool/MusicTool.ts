@@ -47,7 +47,8 @@ const ffmpeg = new FFmpegWrapper();
 export class MusicTool extends BaseTool {
   name = 'music';
 
-  description = 'Edit and manipulate audio/music files. Supports format conversion, metadata info, trimming, and volume adjustment.';
+  description =
+    'Edit and manipulate audio/music files. Supports format conversion, metadata info, trimming, and volume adjustment.';
 
   params: ToolParam[] = [
     {
@@ -72,7 +73,8 @@ export class MusicTool extends BaseTool {
     {
       name: 'format',
       type: 'string',
-      description: 'Target format (e.g., mp3, wav, flac, ogg, aac) for convert action',
+      description:
+        'Target format (e.g., mp3, wav, flac, ogg, aac) for convert action',
       required: false,
     },
     {
@@ -90,7 +92,8 @@ export class MusicTool extends BaseTool {
     {
       name: 'volume',
       type: 'number',
-      description: 'Volume multiplier (e.g., 0.5 halves volume, 2.0 doubles) for volume action',
+      description:
+        'Volume multiplier (e.g., 0.5 halves volume, 2.0 doubles) for volume action',
       required: false,
     },
     {
@@ -153,7 +156,12 @@ export class MusicTool extends BaseTool {
       };
     }
 
-    const outputPath = params.outputPath || params.inputPath.replace(path.extname(params.inputPath), `.${params.format}`);
+    const outputPath =
+      params.outputPath ||
+      params.inputPath.replace(
+        path.extname(params.inputPath),
+        `.${params.format}`
+      );
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
     const ffmpegArgs: string[] = [];
@@ -208,7 +216,7 @@ export class MusicTool extends BaseTool {
       };
     }
 
-    const audioStream = probing.streams.find(s => s.codec_type === 'audio');
+    const audioStream = probing.streams.find((s) => s.codec_type === 'audio');
     const size = probing.format.size;
 
     const data: MusicEditOutput = {
@@ -243,12 +251,14 @@ export class MusicTool extends BaseTool {
     if (params.startTime === undefined && params.duration === undefined) {
       return {
         success: false,
-        error: 'At least one of startTime or duration is required for trim action',
+        error:
+          'At least one of startTime or duration is required for trim action',
       };
     }
 
     const ext = path.extname(params.inputPath);
-    const outputPath = params.outputPath || params.inputPath.replace(ext, `_trimmed${ext}`);
+    const outputPath =
+      params.outputPath || params.inputPath.replace(ext, `_trimmed${ext}`);
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
     const ffmpegArgs: string[] = [];
@@ -300,12 +310,14 @@ export class MusicTool extends BaseTool {
     if (params.volume === undefined || params.volume < 0) {
       return {
         success: false,
-        error: 'Volume multiplier is required and must be >= 0 for volume action',
+        error:
+          'Volume multiplier is required and must be >= 0 for volume action',
       };
     }
 
     const ext = path.extname(params.inputPath);
-    const outputPath = params.outputPath || params.inputPath.replace(ext, `_volume${ext}`);
+    const outputPath =
+      params.outputPath || params.inputPath.replace(ext, `_volume${ext}`);
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
     const ffmpegArgs = ['-af', `volume=${params.volume}`];

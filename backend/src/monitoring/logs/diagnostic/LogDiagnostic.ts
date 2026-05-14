@@ -74,7 +74,12 @@ export class LogDiagnostic {
     const errorChecks = checks.filter((c) => c.status === 'fail');
     const warnChecks = checks.filter((c) => c.status === 'warn');
 
-    const overall = errorChecks.length > 0 ? 'unhealthy' : warnChecks.length > 2 ? 'degraded' : 'healthy';
+    const overall =
+      errorChecks.length > 0
+        ? 'unhealthy'
+        : warnChecks.length > 2
+          ? 'degraded'
+          : 'healthy';
 
     return {
       timestamp: Date.now(),
@@ -111,12 +116,26 @@ export class LogDiagnostic {
       const sizeMB = size / (1024 * 1024);
 
       if (sizeMB > 500) {
-        return { name: '文件大小', status: 'warn', message: `文件过大: ${sizeMB.toFixed(1)}MB`, value: size };
+        return {
+          name: '文件大小',
+          status: 'warn',
+          message: `文件过大: ${sizeMB.toFixed(1)}MB`,
+          value: size,
+        };
       }
 
-      return { name: '文件大小', status: 'pass', message: `文件大小: ${sizeMB.toFixed(1)}MB`, value: size };
+      return {
+        name: '文件大小',
+        status: 'pass',
+        message: `文件大小: ${sizeMB.toFixed(1)}MB`,
+        value: size,
+      };
     } catch (err) {
-      return { name: '文件大小', status: 'fail', message: `检查失败: ${err instanceof Error ? err.message : String(err)}` };
+      return {
+        name: '文件大小',
+        status: 'fail',
+        message: `检查失败: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
   }
 
@@ -140,7 +159,9 @@ export class LogDiagnostic {
   /**
    * 分析日志文件
    */
-  private async analyzeLogFile(path: string): Promise<DiagnosticResult['stats']> {
+  private async analyzeLogFile(
+    path: string
+  ): Promise<DiagnosticResult['stats']> {
     const stats: DiagnosticResult['stats'] = {
       totalLines: 0,
       errorCount: 0,
@@ -175,8 +196,7 @@ export class LogDiagnostic {
         stats.oldestEntry = Math.min(...timestamps);
         stats.newestEntry = Math.max(...timestamps);
       }
-    } catch {
-    }
+    } catch {}
 
     return stats;
   }
@@ -185,17 +205,33 @@ export class LogDiagnostic {
    * 检查错误率
    */
   private checkErrorRate(stats: DiagnosticResult['stats']): DiagnosticCheck {
-    const errorRate = stats.totalLines > 0 ? stats.errorCount / stats.totalLines : 0;
+    const errorRate =
+      stats.totalLines > 0 ? stats.errorCount / stats.totalLines : 0;
 
     if (errorRate > 0.1) {
-      return { name: '错误率', status: 'fail', message: `错误率过高: ${(errorRate * 100).toFixed(1)}%`, value: errorRate };
+      return {
+        name: '错误率',
+        status: 'fail',
+        message: `错误率过高: ${(errorRate * 100).toFixed(1)}%`,
+        value: errorRate,
+      };
     }
 
     if (errorRate > 0.05) {
-      return { name: '错误率', status: 'warn', message: `错误率偏高: ${(errorRate * 100).toFixed(1)}%`, value: errorRate };
+      return {
+        name: '错误率',
+        status: 'warn',
+        message: `错误率偏高: ${(errorRate * 100).toFixed(1)}%`,
+        value: errorRate,
+      };
     }
 
-    return { name: '错误率', status: 'pass', message: `错误率正常: ${(errorRate * 100).toFixed(1)}%`, value: errorRate };
+    return {
+      name: '错误率',
+      status: 'pass',
+      message: `错误率正常: ${(errorRate * 100).toFixed(1)}%`,
+      value: errorRate,
+    };
   }
 
   /**
@@ -203,16 +239,30 @@ export class LogDiagnostic {
    */
   private checkLogRecency(stats: DiagnosticResult['stats']): DiagnosticCheck {
     if (stats.newestEntry === 0) {
-      return { name: '日志时效', status: 'warn', message: '无法确定最新日志时间' };
+      return {
+        name: '日志时效',
+        status: 'warn',
+        message: '无法确定最新日志时间',
+      };
     }
 
     const age = Date.now() - stats.newestEntry;
 
     if (age > 24 * 60 * 60 * 1000) {
-      return { name: '日志时效', status: 'warn', message: `日志最后更新: ${Math.round(age / 3600000)}小时前`, value: age };
+      return {
+        name: '日志时效',
+        status: 'warn',
+        message: `日志最后更新: ${Math.round(age / 3600000)}小时前`,
+        value: age,
+      };
     }
 
-    return { name: '日志时效', status: 'pass', message: `日志最后更新: ${Math.round(age / 60000)}分钟前`, value: age };
+    return {
+      name: '日志时效',
+      status: 'pass',
+      message: `日志最后更新: ${Math.round(age / 60000)}分钟前`,
+      value: age,
+    };
   }
 }
 

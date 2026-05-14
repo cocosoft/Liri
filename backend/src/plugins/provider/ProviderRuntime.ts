@@ -2,7 +2,10 @@
  * ProviderRuntime 提供者运行时
  * 管理提供者的运行时状态和执行环境
  */
-import type { ProviderMetadata, ProviderCapability } from './ProviderCatalog.js';
+import type {
+  ProviderMetadata,
+  ProviderCapability,
+} from './ProviderCatalog.js';
 import type { ProviderCredentials } from './ProviderAuth.js';
 
 /**
@@ -49,7 +52,10 @@ export class ProviderRuntime {
   /**
    * 初始化提供者运行时
    */
-  initialize(provider: ProviderMetadata, options?: Partial<RuntimeOptions>): void {
+  initialize(
+    provider: ProviderMetadata,
+    options?: Partial<RuntimeOptions>
+  ): void {
     const defaultOptions: RuntimeOptions = {
       timeout: 30000,
       maxRetries: 3,
@@ -126,7 +132,8 @@ export class ProviderRuntime {
     }
 
     status.avgResponseTime = Math.round(
-      (status.avgResponseTime * (status.requestCount - 1) + duration) / status.requestCount
+      (status.avgResponseTime * (status.requestCount - 1) + duration) /
+        status.requestCount
     );
   }
 
@@ -167,7 +174,12 @@ export class ProviderRuntime {
   /**
    * 获取健康状态
    */
-  getHealthSummary(): { healthy: number; degraded: number; down: number; total: number } {
+  getHealthSummary(): {
+    healthy: number;
+    degraded: number;
+    down: number;
+    total: number;
+  } {
     let healthy = 0;
     let degraded = 0;
     let down = 0;

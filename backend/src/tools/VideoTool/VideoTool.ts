@@ -51,7 +51,8 @@ const ffmpeg = new FFmpegWrapper();
 export class VideoTool extends BaseTool {
   name = 'video';
 
-  description = 'Edit and manipulate videos. Supports trim, compress, extract audio, format conversion, and metadata info.';
+  description =
+    'Edit and manipulate videos. Supports trim, compress, extract audio, format conversion, and metadata info.';
 
   params: ToolParam[] = [
     {
@@ -161,12 +162,14 @@ export class VideoTool extends BaseTool {
     if (params.startTime === undefined && params.duration === undefined) {
       return {
         success: false,
-        error: 'At least one of startTime or duration is required for trim action',
+        error:
+          'At least one of startTime or duration is required for trim action',
       };
     }
 
     const ext = path.extname(params.inputPath);
-    const outputPath = params.outputPath || params.inputPath.replace(ext, `_trimmed${ext}`);
+    const outputPath =
+      params.outputPath || params.inputPath.replace(ext, `_trimmed${ext}`);
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
     const ffmpegArgs: string[] = [];
@@ -216,14 +219,19 @@ export class VideoTool extends BaseTool {
    */
   private async handleCompress(params: VideoEditInput): Promise<ToolResult> {
     const ext = path.extname(params.inputPath);
-    const outputPath = params.outputPath || params.inputPath.replace(ext, `_compressed${ext}`);
+    const outputPath =
+      params.outputPath || params.inputPath.replace(ext, `_compressed${ext}`);
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
-    const success = await videoProcessor.compress(params.inputPath, outputPath, {
-      maxWidth: params.maxWidth,
-      maxHeight: params.maxHeight,
-      quality: params.quality,
-    });
+    const success = await videoProcessor.compress(
+      params.inputPath,
+      outputPath,
+      {
+        maxWidth: params.maxWidth,
+        maxHeight: params.maxHeight,
+        quality: params.quality,
+      }
+    );
 
     if (!success) {
       return {
@@ -253,11 +261,18 @@ export class VideoTool extends BaseTool {
   /**
    * 提取音频
    */
-  private async handleExtractAudio(params: VideoEditInput): Promise<ToolResult> {
-    const outputPath = params.outputPath || params.inputPath.replace(path.extname(params.inputPath), '.mp3');
+  private async handleExtractAudio(
+    params: VideoEditInput
+  ): Promise<ToolResult> {
+    const outputPath =
+      params.outputPath ||
+      params.inputPath.replace(path.extname(params.inputPath), '.mp3');
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
-    const success = await videoProcessor.extractAudio(params.inputPath, outputPath);
+    const success = await videoProcessor.extractAudio(
+      params.inputPath,
+      outputPath
+    );
 
     if (!success) {
       return {
@@ -295,7 +310,12 @@ export class VideoTool extends BaseTool {
       };
     }
 
-    const outputPath = params.outputPath || params.inputPath.replace(path.extname(params.inputPath), `.${params.format}`);
+    const outputPath =
+      params.outputPath ||
+      params.inputPath.replace(
+        path.extname(params.inputPath),
+        `.${params.format}`
+      );
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
     const probing = await ffmpeg.probe(params.inputPath);

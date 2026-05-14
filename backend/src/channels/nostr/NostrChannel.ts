@@ -69,12 +69,20 @@ export class NostrChannel extends EventEmitter {
   /**
    * 发布事件
    */
-  async publishEvent(content: string, kind: number = 1): Promise<string | null> {
+  async publishEvent(
+    content: string,
+    kind: number = 1
+  ): Promise<string | null> {
     if (!this.connected) return null;
 
     const eventId = crypto.randomBytes(32).toString('hex');
 
-    this.emit('event:published', { id: eventId, kind, content, timestamp: Date.now() });
+    this.emit('event:published', {
+      id: eventId,
+      kind,
+      content,
+      timestamp: Date.now(),
+    });
 
     return eventId;
   }

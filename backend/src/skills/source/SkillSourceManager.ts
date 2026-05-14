@@ -52,7 +52,12 @@ export class SkillSourceManager {
   /**
    * 注册技能源
    */
-  registerSource(name: string, type: string, basePath: string, priority: number = 100): void {
+  registerSource(
+    name: string,
+    type: string,
+    basePath: string,
+    priority: number = 100
+  ): void {
     this.sources.set(name, {
       name,
       type,
@@ -92,7 +97,12 @@ export class SkillSourceManager {
         const files = fs.readdirSync(source.basePath);
 
         for (const file of files) {
-          if (!file.endsWith('.ts') && !file.endsWith('.js') && !file.endsWith('.md')) continue;
+          if (
+            !file.endsWith('.ts') &&
+            !file.endsWith('.js') &&
+            !file.endsWith('.md')
+          )
+            continue;
 
           try {
             const skills = await this.loader.loadSkills();
@@ -102,12 +112,16 @@ export class SkillSourceManager {
             }
           } catch (err) {
             failed++;
-            errors.push(`${file}: ${err instanceof Error ? err.message : String(err)}`);
+            errors.push(
+              `${file}: ${err instanceof Error ? err.message : String(err)}`
+            );
           }
         }
       }
     } catch (err) {
-      errors.push(`加载源 ${name} 失败: ${err instanceof Error ? err.message : String(err)}`);
+      errors.push(
+        `加载源 ${name} 失败: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
 
     return { sourceName: name, loaded, failed, errors };
@@ -150,9 +164,7 @@ export class SkillSourceManager {
 
     for (const source of sorted) {
       const skill = source.skills.find(
-        (s) =>
-          s.name === name ||
-          (s.aliases || []).includes(name)
+        (s) => s.name === name || (s.aliases || []).includes(name)
       );
       if (skill) return skill;
     }

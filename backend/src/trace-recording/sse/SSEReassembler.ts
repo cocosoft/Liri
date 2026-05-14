@@ -111,11 +111,18 @@ export class SSEReassembler {
         if (message) {
           this.snapshot = this.deepClone(message);
         }
-      } else if (eventType === 'response.created' || eventType === 'response.completed' || eventType === 'response.done') {
+      } else if (
+        eventType === 'response.created' ||
+        eventType === 'response.completed' ||
+        eventType === 'response.done'
+      ) {
         const response = d.response as Record<string, unknown> | undefined;
         if (response) {
           this.snapshot = this.deepClone(response);
-        } else if (eventType === 'response.completed' || eventType === 'response.done') {
+        } else if (
+          eventType === 'response.completed' ||
+          eventType === 'response.done'
+        ) {
           this.snapshot = this.deepClone(d);
         }
       } else if (eventType === 'message' && 'choices' in d) {
@@ -124,7 +131,9 @@ export class SSEReassembler {
       } else if (this.snapshot === null) {
         return;
       } else if (eventType === 'content_block_start') {
-        const block = this.deepClone(d.content_block as Record<string, unknown> || {});
+        const block = this.deepClone(
+          (d.content_block as Record<string, unknown>) || {}
+        );
         if (!('content' in this.snapshot)) {
           this.snapshot.content = [];
         }
@@ -136,21 +145,30 @@ export class SSEReassembler {
         content[idx] = block;
       } else if (eventType === 'content_block_delta') {
         const idx = (d.index as number) ?? 0;
-        const delta = d.delta as Record<string, unknown> || {};
-        const content = this.snapshot.content as Record<string, unknown>[] | undefined;
+        const delta = (d.delta as Record<string, unknown>) || {};
+        const content = this.snapshot.content as
+          | Record<string, unknown>[]
+          | undefined;
         if (content && idx < content.length) {
           const block = content[idx];
           if (delta.type === 'text_delta') {
-            block.text = (block.text as string || '') + (delta.text as string || '');
+            block.text =
+              ((block.text as string) || '') + ((delta.text as string) || '');
           } else if (delta.type === 'thinking_delta') {
-            block.thinking = (block.thinking as string || '') + (delta.thinking as string || '');
+            block.thinking =
+              ((block.thinking as string) || '') +
+              ((delta.thinking as string) || '');
           } else if (delta.type === 'input_json_delta') {
-            block._partialJson = (block._partialJson as string || '') + (delta.partial_json as string || '');
+            block._partialJson =
+              ((block._partialJson as string) || '') +
+              ((delta.partial_json as string) || '');
           }
         }
       } else if (eventType === 'content_block_stop') {
         const idx = (d.index as number) ?? 0;
-        const content = this.snapshot.content as Record<string, unknown>[] | undefined;
+        const content = this.snapshot.content as
+          | Record<string, unknown>[]
+          | undefined;
         if (content && idx < content.length) {
           const block = content[idx];
           if ('_partialJson' in block) {
@@ -163,7 +181,7 @@ export class SSEReassembler {
           }
         }
       } else if (eventType === 'message_delta') {
-        const delta = d.delta as Record<string, unknown> || {};
+        const delta = (d.delta as Record<string, unknown>) || {};
         for (const [k, v] of Object.entries(delta)) {
           this.snapshot[k] = v;
         }
@@ -195,7 +213,7 @@ export class SSEReassembler {
       return;
     }
 
-    const choice = choices[0] as Record<string, unknown> || {};
+    const choice = (choices[0] as Record<string, unknown>) || {};
     const delta = (choice.delta as Record<string, unknown>) || {};
     const finishReason = choice.finish_reason;
 
@@ -207,7 +225,10 @@ export class SSEReassembler {
         choices: [
           {
             index: 0,
-            message: { role: (delta.role as string) || 'assistant', content: '' },
+            message: {
+              role: (delta.role as string) || 'assistant',
+              content: '',
+            },
             finish_reason: null,
           },
         ],
@@ -215,15 +236,16 @@ export class SSEReassembler {
       };
     }
 
-    const msg = (this.snapshot.choices as Record<string, unknown>[])[0].message as Record<string, unknown>;
+    const msg = (this.snapshot.choices as Record<string, unknown>[])[0]
+      .message as Record<string, unknown>;
     const textBlock = (this.snapshot.content as Record<string, unknown>[])[0];
 
     if (typeof delta.role === 'string' && delta.role) {
       msg.role = delta.role;
     }
     if (typeof delta.content === 'string' && delta.content) {
-      msg.content = (msg.content as string || '') + delta.content;
-      textBlock.text = (textBlock.text as string || '') + delta.content;
+      msg.content = ((msg.content as string) || '') + delta.content;
+      textBlock.text = ((textBlock.text as string) || '') + delta.content;
     }
 
     // Tool calls accumulated by index
@@ -237,7 +259,11 @@ export class SSEReassembler {
         const toolCalls = (msg.tool_calls as Record<string, unknown>[]) || [];
         msg.tool_calls = toolCalls;
         while (toolCalls.length <= tcIdx) {
-          toolCalls.push({ id: '', type: 'function', function: { name: '', arguments: '' } });
+          toolCalls.push({
+            id: '',
+            type: 'function',
+            function: { name: '', arguments: '' },
+          });
         }
 
         const existing = toolCalls[tcIdx];
@@ -246,13 +272,16 @@ export class SSEReassembler {
 
         const fnDelta = tc.function as Record<string, unknown> | undefined;
         if (fnDelta) {
-          const fn = (existing.function as Record<string, unknown>) || { name: '', arguments: '' };
+          const fn = (existing.function as Record<string, unknown>) || {
+            name: '',
+            arguments: '',
+          };
           existing.function = fn;
           if (typeof fnDelta.name === 'string') {
-            fn.name = (fn.name as string || '') + fnDelta.name;
+            fn.name = ((fn.name as string) || '') + fnDelta.name;
           }
           if (typeof fnDelta.arguments === 'string') {
-            fn.arguments = (fn.arguments as string || '') + fnDelta.arguments;
+            fn.arguments = ((fn.arguments as string) || '') + fnDelta.arguments;
           }
         }
 
@@ -261,7 +290,8 @@ export class SSEReassembler {
     }
 
     if (finishReason) {
-      (this.snapshot.choices as Record<string, unknown>[])[0].finish_reason = finishReason;
+      (this.snapshot.choices as Record<string, unknown>[])[0].finish_reason =
+        finishReason;
     }
 
     if (usage) {
@@ -274,7 +304,10 @@ export class SSEReassembler {
    * @param idx 索引
    * @param tc tool call 对象
    */
-  private mirrorToolCallToContent(idx: number, tc: Record<string, unknown>): void {
+  private mirrorToolCallToContent(
+    idx: number,
+    tc: Record<string, unknown>
+  ): void {
     const content = this.snapshot!.content as Record<string, unknown>[];
     const target = idx + 1;
     while (content.length <= target) {

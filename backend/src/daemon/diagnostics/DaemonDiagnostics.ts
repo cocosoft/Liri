@@ -98,7 +98,7 @@ export class DaemonDiagnostics {
         memory: {
           total: os.totalmem(),
           free: os.freemem(),
-          usagePercent: ((1 - os.freemem() / os.totalmem()) * 100),
+          usagePercent: (1 - os.freemem() / os.totalmem()) * 100,
         },
         cpu: {
           cores: cpus.length,
@@ -211,7 +211,12 @@ export class DaemonDiagnostics {
    * 检查 Socket 文件
    */
   private checkSocketFile(): DiagnosticsCheck {
-    const socketPath = path.join(os.homedir(), '.py_app', 'daemon', 'pyapp.sock');
+    const socketPath = path.join(
+      os.homedir(),
+      '.py_app',
+      'daemon',
+      'pyapp.sock'
+    );
 
     try {
       if (fs.existsSync(socketPath)) {
@@ -330,7 +335,9 @@ export class DaemonDiagnostics {
         const output = execSync('ulimit -n', {
           encoding: 'utf-8',
           stdio: 'pipe',
-        }).toString().trim();
+        })
+          .toString()
+          .trim();
         const limit = parseInt(output, 10);
 
         if (limit < 1024) {
@@ -410,7 +417,9 @@ export class DaemonDiagnostics {
       const output = execSync('node --version', {
         encoding: 'utf-8',
         stdio: 'pipe',
-      }).toString().trim();
+      })
+        .toString()
+        .trim();
       return {
         name: 'dependencies',
         status: 'pass',
@@ -434,7 +443,8 @@ export class DaemonDiagnostics {
       const logDir = path.join(os.homedir(), '.py_app', 'daemon', 'logs');
 
       if (fs.existsSync(logDir)) {
-        const logFiles = fs.readdirSync(logDir)
+        const logFiles = fs
+          .readdirSync(logDir)
           .filter((f) => f.endsWith('.log'))
           .map((f) => path.join(logDir, f))
           .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)

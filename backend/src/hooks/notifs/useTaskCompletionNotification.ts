@@ -21,11 +21,19 @@ export function useTaskCompletionNotification(): void {
         if (!prevTask) continue;
 
         const wasRunning = prevTask.status === 'running';
-        const isDone = currTask.status === 'completed' || currTask.status === 'failed' || currTask.status === 'cancelled';
+        const isDone =
+          currTask.status === 'completed' ||
+          currTask.status === 'failed' ||
+          currTask.status === 'cancelled';
         if (!wasRunning || !isDone) continue;
 
         const type = currTask.status === 'completed' ? 'success' : 'warning';
-        const label = currTask.status === 'completed' ? '完成' : currTask.status === 'failed' ? '失败' : '取消';
+        const label =
+          currTask.status === 'completed'
+            ? '完成'
+            : currTask.status === 'failed'
+              ? '失败'
+              : '取消';
 
         appStateStore.addNotification({
           type,

@@ -12,7 +12,12 @@ import { dependencyResolver } from '../utils/dependencyResolver.js';
 /**
  * 安装源类型
  */
-export type InstallSource = 'npm' | 'local' | 'git' | 'registry' | 'marketplace';
+export type InstallSource =
+  | 'npm'
+  | 'local'
+  | 'git'
+  | 'registry'
+  | 'marketplace';
 
 /**
  * 安装选项
@@ -60,7 +65,8 @@ export class PluginInstallPaths {
   private basePath: string;
 
   constructor(basePath?: string) {
-    this.basePath = basePath || path.join(process.cwd(), 'plugins', 'installed');
+    this.basePath =
+      basePath || path.join(process.cwd(), 'plugins', 'installed');
   }
 
   getBasePath(): string {
@@ -113,7 +119,10 @@ export class PluginInstallManager {
     this.registry = registry;
     this.npmDistributor = npmDistributor;
     this.installPaths = installPaths || new PluginInstallPaths();
-    this.historyFile = path.join(this.installPaths.getBasePath(), '.install-history.json');
+    this.historyFile = path.join(
+      this.installPaths.getBasePath(),
+      '.install-history.json'
+    );
     this.loadHistory();
   }
 
@@ -136,7 +145,9 @@ export class PluginInstallManager {
       }
     }
 
-    const targetPath = options.installPath || this.installPaths.getPluginPath(this.sanitizeName(options.sourcePath));
+    const targetPath =
+      options.installPath ||
+      this.installPaths.getPluginPath(this.sanitizeName(options.sourcePath));
     this.installPaths.ensureDirectories(this.sanitizeName(options.sourcePath));
 
     try {
@@ -179,7 +190,9 @@ export class PluginInstallManager {
           }
         }
       } catch (err) {
-        warnings.push(`依赖安装警告: ${err instanceof Error ? err.message : String(err)}`);
+        warnings.push(
+          `依赖安装警告: ${err instanceof Error ? err.message : String(err)}`
+        );
       }
     }
 
@@ -270,8 +283,15 @@ export class PluginInstallManager {
   /**
    * 从 NPM 安装
    */
-  private async installFromNpm(options: InstallOptions, targetPath: string): Promise<void> {
-    await this.npmDistributor.install(options.sourcePath, targetPath, options.version);
+  private async installFromNpm(
+    options: InstallOptions,
+    targetPath: string
+  ): Promise<void> {
+    await this.npmDistributor.install(
+      options.sourcePath,
+      targetPath,
+      options.version
+    );
   }
 
   /**
@@ -292,7 +312,10 @@ export class PluginInstallManager {
   /**
    * 从 Git 安装
    */
-  private async installFromGit(options: InstallOptions, targetPath: string): Promise<void> {
+  private async installFromGit(
+    options: InstallOptions,
+    targetPath: string
+  ): Promise<void> {
     const { execSync } = await import('node:child_process');
     const cloneUrl = options.version
       ? `${options.sourcePath}#${options.version}`
@@ -314,7 +337,10 @@ export class PluginInstallManager {
   /**
    * 从注册表安装
    */
-  private async installFromRegistry(options: InstallOptions, targetPath: string): Promise<void> {
+  private async installFromRegistry(
+    options: InstallOptions,
+    targetPath: string
+  ): Promise<void> {
     const plugin = this.registry.getPlugin(options.sourcePath);
     if (!plugin) {
       throw new Error(`注册表中未找到插件: ${options.sourcePath}`);
@@ -325,7 +351,10 @@ export class PluginInstallManager {
   /**
    * 从市场安装
    */
-  private async installFromMarketplace(options: InstallOptions, targetPath: string): Promise<void> {
+  private async installFromMarketplace(
+    options: InstallOptions,
+    targetPath: string
+  ): Promise<void> {
     await this.installFromNpm(options, targetPath);
   }
 
@@ -361,7 +390,11 @@ export class PluginInstallManager {
     try {
       const data = Array.from(this.installHistory.values());
       fs.mkdirSync(path.dirname(this.historyFile), { recursive: true });
-      fs.writeFileSync(this.historyFile, JSON.stringify(data, null, 2), 'utf-8');
+      fs.writeFileSync(
+        this.historyFile,
+        JSON.stringify(data, null, 2),
+        'utf-8'
+      );
     } catch {
       // 忽略保存错误
     }

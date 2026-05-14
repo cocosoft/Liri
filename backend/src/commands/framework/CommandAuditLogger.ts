@@ -98,10 +98,12 @@ export class CommandAuditLogger {
       userId: context?.userId,
       sessionId: context?.sessionId,
       projectId: context?.projectId,
-      securityContext: context ? {
-        riskLevel: context.riskLevel,
-        requiresPermission: context.requiresPermission,
-      } : undefined,
+      securityContext: context
+        ? {
+            riskLevel: context.riskLevel,
+            requiresPermission: context.requiresPermission,
+          }
+        : undefined,
       metadata: {},
     };
 
@@ -121,7 +123,9 @@ export class CommandAuditLogger {
     const entry = this.findById(entryId);
     if (!entry) return;
 
-    entry.eventType = result.success ? AuditEventType.COMMAND_COMPLETED : AuditEventType.COMMAND_FAILED;
+    entry.eventType = result.success
+      ? AuditEventType.COMMAND_COMPLETED
+      : AuditEventType.COMMAND_FAILED;
     entry.duration = duration;
     entry.success = result.success;
     entry.resultSummary = result.message?.substring(0, 200);
@@ -185,11 +189,18 @@ export class CommandAuditLogger {
   /**
    * 查询审计日志
    */
-  query(filter: AuditFilter): { entries: AuditEntry[]; total: number; page: number; pageSize: number } {
+  query(filter: AuditFilter): {
+    entries: AuditEntry[];
+    total: number;
+    page: number;
+    pageSize: number;
+  } {
     let filtered = [...this.entries];
 
     if (filter.eventTypes && filter.eventTypes.length > 0) {
-      filtered = filtered.filter((e) => filter.eventTypes!.includes(e.eventType));
+      filtered = filtered.filter((e) =>
+        filter.eventTypes!.includes(e.eventType)
+      );
     }
 
     if (filter.commands && filter.commands.length > 0) {
@@ -238,7 +249,9 @@ export class CommandAuditLogger {
     }
 
     if (options.eventTypes && options.eventTypes.length > 0) {
-      filtered = filtered.filter((e) => options.eventTypes!.includes(e.eventType));
+      filtered = filtered.filter((e) =>
+        options.eventTypes!.includes(e.eventType)
+      );
     }
 
     if (options.commands && options.commands.length > 0) {
@@ -272,10 +285,11 @@ export class CommandAuditLogger {
    */
   getSecurityEvents(limit: number = 50): AuditEntry[] {
     return this.entries
-      .filter((e) =>
-        e.eventType === AuditEventType.PERMISSION_DENIED ||
-        e.eventType === AuditEventType.SENSITIVE_ACCESS ||
-        e.eventType === AuditEventType.COMMAND_REJECTED
+      .filter(
+        (e) =>
+          e.eventType === AuditEventType.PERMISSION_DENIED ||
+          e.eventType === AuditEventType.SENSITIVE_ACCESS ||
+          e.eventType === AuditEventType.COMMAND_REJECTED
       )
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, limit);
@@ -296,17 +310,22 @@ export class CommandAuditLogger {
     }
 
     const completed = this.entries.filter(
-      (e) => e.eventType === AuditEventType.COMMAND_COMPLETED || e.eventType === AuditEventType.COMMAND_FAILED
+      (e) =>
+        e.eventType === AuditEventType.COMMAND_COMPLETED ||
+        e.eventType === AuditEventType.COMMAND_FAILED
     );
     const succeeded = completed.filter((e) => e.success);
-    const successRate = completed.length > 0 ? (succeeded.length / completed.length) * 100 : 100;
+    const successRate =
+      completed.length > 0 ? (succeeded.length / completed.length) * 100 : 100;
 
     return {
       total: this.entries.length,
       byType,
       successRate,
       securityEvents: this.entries.filter(
-        (e) => e.eventType === AuditEventType.PERMISSION_DENIED || e.eventType === AuditEventType.SENSITIVE_ACCESS
+        (e) =>
+          e.eventType === AuditEventType.PERMISSION_DENIED ||
+          e.eventType === AuditEventType.SENSITIVE_ACCESS
       ).length,
     };
   }
@@ -344,7 +363,8 @@ export class CommandAuditLogger {
    * 转换为 CSV 格式
    */
   private toCSV(entries: AuditEntry[]): string {
-    const header = 'ID,Timestamp,EventType,Command,Args,UserId,SessionId,Duration,Success,ResultSummary';
+    const header =
+      'ID,Timestamp,EventType,Command,Args,UserId,SessionId,Duration,Success,ResultSummary';
     const rows = entries.map((e) =>
       [
         e.id,

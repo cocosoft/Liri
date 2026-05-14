@@ -30,7 +30,8 @@ export interface GeneratedVideo {
 export class VideoGenerateTool extends BaseTool {
   name = 'video_generate';
 
-  description = 'Generate videos using AI. Supports multiple providers (OpenAI Sora, Runway, Pika, Stability AI) and output formats.';
+  description =
+    'Generate videos using AI. Supports multiple providers (OpenAI Sora, Runway, Pika, Stability AI) and output formats.';
 
   params: ToolParam[] = [
     {
@@ -94,12 +95,18 @@ export class VideoGenerateTool extends BaseTool {
       const params = input as unknown as VideoGenerateParams;
 
       if (!params.prompt || typeof params.prompt !== 'string') {
-        return { success: false, error: 'prompt is required and must be a string' };
+        return {
+          success: false,
+          error: 'prompt is required and must be a string',
+        };
       }
 
       const duration = params.duration ?? 10;
       if (duration < 5 || duration > 60) {
-        return { success: false, error: 'duration must be between 5 and 60 seconds' };
+        return {
+          success: false,
+          error: 'duration must be between 5 and 60 seconds',
+        };
       }
 
       return {

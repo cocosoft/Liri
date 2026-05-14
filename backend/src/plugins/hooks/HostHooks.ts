@@ -33,7 +33,9 @@ export interface HostHookContext {
 /**
  * 主机钩子函数
  */
-export type HostHookFunction = (context: HostHookContext) => Promise<HostHookResult> | HostHookResult;
+export type HostHookFunction = (
+  context: HostHookContext
+) => Promise<HostHookResult> | HostHookResult;
 
 /**
  * 主机钩子结果
@@ -129,7 +131,10 @@ export class HostHooks extends EventEmitter {
   /**
    * 执行主机钩子
    */
-  async execute(type: HostHookType, data?: Record<string, unknown>): Promise<HostHookResult[]> {
+  async execute(
+    type: HostHookType,
+    data?: Record<string, unknown>
+  ): Promise<HostHookResult[]> {
     const hooks = this.hooks.get(type);
 
     if (!hooks || hooks.length === 0) {
@@ -157,7 +162,10 @@ export class HostHooks extends EventEmitter {
           break;
         }
       } catch (err) {
-        results.push({ continue: false, error: err instanceof Error ? err.message : String(err) });
+        results.push({
+          continue: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -174,10 +182,16 @@ export class HostHooks extends EventEmitter {
       type: HostHookType;
       name: string;
       fn: HostHookFunction;
-      options?: { priority?: number; description?: string; singleton?: boolean };
+      options?: {
+        priority?: number;
+        description?: string;
+        singleton?: boolean;
+      };
     }>
   ): string[] {
-    return registrations.map((r) => this.register(r.type, r.name, r.fn, r.options));
+    return registrations.map((r) =>
+      this.register(r.type, r.name, r.fn, r.options)
+    );
   }
 
   /**

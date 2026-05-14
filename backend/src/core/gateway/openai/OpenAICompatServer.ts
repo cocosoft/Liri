@@ -50,7 +50,9 @@ export class OpenAICompatServer {
 
     return new Promise((resolve) => {
       this.server!.listen(this.config.port, this.config.host, () => {
-        logger.info(`OpenAI Compat API 服务已启动: http://${this.config.host}:${this.config.port}`);
+        logger.info(
+          `OpenAI Compat API 服务已启动: http://${this.config.host}:${this.config.port}`
+        );
         resolve();
       });
     });
@@ -79,10 +81,16 @@ export class OpenAICompatServer {
   /**
    * 处理请求
    */
-  private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  private handleRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization'
+    );
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -107,7 +115,10 @@ export class OpenAICompatServer {
   /**
    * 处理模型列表
    */
-  private handleListModels(req: http.IncomingMessage, res: http.ServerResponse): void {
+  private handleListModels(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
     if (!this.verifyAuth(req)) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Unauthorized' }));
@@ -133,7 +144,10 @@ export class OpenAICompatServer {
   /**
    * 处理聊天完成请求
    */
-  private handleChatCompletions(req: http.IncomingMessage, res: http.ServerResponse): void {
+  private handleChatCompletions(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
     if (!this.verifyAuth(req)) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Unauthorized' }));
@@ -158,9 +172,14 @@ export class OpenAICompatServer {
         }
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: { message: `无效请求: ${err instanceof Error ? err.message : String(err)}`, type: 'invalid_request_error' },
-        }));
+        res.end(
+          JSON.stringify({
+            error: {
+              message: `无效请求: ${err instanceof Error ? err.message : String(err)}`,
+              type: 'invalid_request_error',
+            },
+          })
+        );
       }
     });
   }
@@ -168,7 +187,11 @@ export class OpenAICompatServer {
   /**
    * 处理流式响应
    */
-  private handleStreamingResponse(request: ChatCompletionRequest, res: http.ServerResponse, clientReq: http.IncomingMessage): void {
+  private handleStreamingResponse(
+    request: ChatCompletionRequest,
+    res: http.ServerResponse,
+    clientReq: http.IncomingMessage
+  ): void {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -182,19 +205,25 @@ export class OpenAICompatServer {
     const content = `这是由本地 PY_APP 模型生成的回复。\n\n你的问题是: ${request.messages[request.messages.length - 1]?.content || ''}`;
     const words = content.split(' ');
 
-    res.write(`data: ${JSON.stringify({ id: responseId, object: 'chat.completion.chunk', created, model, choices: [{ delta: { role: 'assistant' }, index: 0, finish_reason: null }] })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({ id: responseId, object: 'chat.completion.chunk', created, model, choices: [{ delta: { role: 'assistant' }, index: 0, finish_reason: null }] })}\n\n`
+    );
 
     let index = 0;
     const interval = setInterval(() => {
       if (index >= words.length) {
         clearInterval(interval);
-        res.write(`data: ${JSON.stringify({ id: responseId, object: 'chat.completion.chunk', created, model, choices: [{ delta: {}, index: 0, finish_reason: 'stop' }] })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({ id: responseId, object: 'chat.completion.chunk', created, model, choices: [{ delta: {}, index: 0, finish_reason: 'stop' }] })}\n\n`
+        );
         res.write('data: [DONE]\n\n');
         res.end();
         return;
       }
 
-      res.write(`data: ${JSON.stringify({ id: responseId, object: 'chat.completion.chunk', created, model, choices: [{ delta: { content: words[index] + ' ' }, index: 0, finish_reason: null }] })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ id: responseId, object: 'chat.completion.chunk', created, model, choices: [{ delta: { content: words[index] + ' ' }, index: 0, finish_reason: null }] })}\n\n`
+      );
       index++;
     }, 50);
 
@@ -206,7 +235,10 @@ export class OpenAICompatServer {
   /**
    * 处理普通响应
    */
-  private handleNormalResponse(request: ChatCompletionRequest, res: http.ServerResponse): void {
+  private handleNormalResponse(
+    request: ChatCompletionRequest,
+    res: http.ServerResponse
+  ): void {
     const responseId = `chatcmpl-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
     const model = request.model || this.config.baseModel;
@@ -230,9 +262,14 @@ export class OpenAICompatServer {
         },
       ],
       usage: {
-        prompt_tokens: request.messages.reduce((sum, m) => sum + m.content.length, 0),
+        prompt_tokens: request.messages.reduce(
+          (sum, m) => sum + m.content.length,
+          0
+        ),
         completion_tokens: content.length,
-        total_tokens: request.messages.reduce((sum, m) => sum + m.content.length, 0) + content.length,
+        total_tokens:
+          request.messages.reduce((sum, m) => sum + m.content.length, 0) +
+          content.length,
       },
     };
 

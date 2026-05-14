@@ -10,8 +10,8 @@ interface SessionEventMap {
   'session:created': [session: AclSessionInfo];
   'session:ended': [sessionId: string];
   'session:timeout': [sessionId: string];
-  'message': [message: AclMessage, session: AclSessionInfo];
-  'error': [error: Error];
+  message: [message: AclMessage, session: AclSessionInfo];
+  error: [error: Error];
 }
 
 let _sessionIdCounter = 0;
@@ -34,10 +34,14 @@ export class AclSessionManager extends EventEmitter {
     this.sessionTimeoutMs = sessionTimeoutMs;
   }
 
-  createSession(agents: string[], metadata?: Record<string, unknown>): AclSessionInfo {
+  createSession(
+    agents: string[],
+    metadata?: Record<string, unknown>
+  ): AclSessionInfo {
     if (this.sessions.size >= this.maxSessions) {
-      const oldest = Array.from(this.sessions.values())
-        .sort((a, b) => a.createdAt - b.createdAt)[0];
+      const oldest = Array.from(this.sessions.values()).sort(
+        (a, b) => a.createdAt - b.createdAt
+      )[0];
 
       if (oldest) {
         this.endSession(oldest.id);
@@ -171,7 +175,9 @@ export class AclSessionManager extends EventEmitter {
   }
 
   getActiveSessionCount(): number {
-    return Array.from(this.sessions.values()).filter((s) => s.status === 'active').length;
+    return Array.from(this.sessions.values()).filter(
+      (s) => s.status === 'active'
+    ).length;
   }
 
   private startTimeout(sessionId: string): void {

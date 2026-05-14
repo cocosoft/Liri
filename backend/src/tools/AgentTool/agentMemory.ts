@@ -52,10 +52,7 @@ export class AgentToolMemory {
     }
   }
 
-  update(
-    id: string,
-    updates: Partial<AgentRecord>,
-  ): AgentRecord | null {
+  update(id: string, updates: Partial<AgentRecord>): AgentRecord | null {
     const record = this.records.find((r) => r.id === id);
     if (!record) return null;
 
@@ -113,9 +110,10 @@ export class AgentToolMemory {
       .filter((r) => r.duration !== undefined)
       .map((r) => r.duration!);
 
-    const avgDuration = durations.length > 0
-      ? durations.reduce((a, b) => a + b, 0) / durations.length
-      : 0;
+    const avgDuration =
+      durations.length > 0
+        ? durations.reduce((a, b) => a + b, 0) / durations.length
+        : 0;
 
     const totalTokens = this.records.reduce(
       (acc, r) => {
@@ -125,7 +123,7 @@ export class AgentToolMemory {
         }
         return acc;
       },
-      { input: 0, output: 0 },
+      { input: 0, output: 0 }
     );
 
     return {
@@ -152,7 +150,7 @@ export class AgentToolMemory {
 
     const cutoff = Date.now() - this.config.ttlMs;
     this.records = this.records.filter(
-      (r) => r.startedAt >= cutoff || !r.completedAt,
+      (r) => r.startedAt >= cutoff || !r.completedAt
     );
   }
 

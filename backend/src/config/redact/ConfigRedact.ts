@@ -27,10 +27,26 @@ export interface RedactConfig {
  * 默认脱敏规则
  */
 const DEFAULT_RULES: RedactRule[] = [
-  { keyPattern: /(api[_-]?key|apikey|api_key)/i, mode: 'mask', visibleChars: 4 },
-  { keyPattern: /(secret|token|password|passwd|credential)/i, mode: 'mask', visibleChars: 4 },
-  { keyPattern: /(private[_-]?key|private_key)/i, mode: 'mask', visibleChars: 0 },
-  { keyPattern: /(access[_-]?token|refresh[_-]?token)/i, mode: 'mask', visibleChars: 6 },
+  {
+    keyPattern: /(api[_-]?key|apikey|api_key)/i,
+    mode: 'mask',
+    visibleChars: 4,
+  },
+  {
+    keyPattern: /(secret|token|password|passwd|credential)/i,
+    mode: 'mask',
+    visibleChars: 4,
+  },
+  {
+    keyPattern: /(private[_-]?key|private_key)/i,
+    mode: 'mask',
+    visibleChars: 0,
+  },
+  {
+    keyPattern: /(access[_-]?token|refresh[_-]?token)/i,
+    mode: 'mask',
+    visibleChars: 6,
+  },
   { keyPattern: /(ssn|social[_-]?security)/i, mode: 'mask', visibleChars: 4 },
   { keyPattern: /(jwt|bearer)/i, mode: 'remove' },
 ];
@@ -74,7 +90,9 @@ export class ConfigRedact {
         result[key] = this.redact(result[key] as Record<string, unknown>);
       } else if (Array.isArray(result[key])) {
         result[key] = result[key].map((item: unknown) =>
-          this.isObject(item) ? this.redact(item as Record<string, unknown>) : item
+          this.isObject(item)
+            ? this.redact(item as Record<string, unknown>)
+            : item
         );
       }
     }
@@ -162,7 +180,7 @@ export class ConfigRedact {
 
     for (let i = 0; i < value.length; i++) {
       const char = value.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash |= 0;
     }
 

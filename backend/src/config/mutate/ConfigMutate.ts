@@ -47,7 +47,13 @@ export class ConfigMutate {
   /**
    * 记录突变
    */
-  record(key: string, action: MutateAction, oldValue: unknown | undefined, newValue: unknown | undefined, source: string): MutateRecord {
+  record(
+    key: string,
+    action: MutateAction,
+    oldValue: unknown | undefined,
+    newValue: unknown | undefined,
+    source: string
+  ): MutateRecord {
     const record: MutateRecord = {
       id: `mutate_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       key,
@@ -113,13 +119,19 @@ export class ConfigMutate {
    * 获取指定 key 的变更历史
    */
   getKeyHistory(key: string): MutateRecord[] {
-    return this.history.filter((r) => r.key === key).sort((a, b) => b.timestamp - a.timestamp);
+    return this.history
+      .filter((r) => r.key === key)
+      .sort((a, b) => b.timestamp - a.timestamp);
   }
 
   /**
    * 获取统计
    */
-  getStats(): { total: number; byAction: Record<string, number>; topKeys: string[] } {
+  getStats(): {
+    total: number;
+    byAction: Record<string, number>;
+    topKeys: string[];
+  } {
     const byAction: Record<string, number> = {};
     const keyCount: Record<string, number> = {};
 

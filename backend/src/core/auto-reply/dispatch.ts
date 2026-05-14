@@ -2,7 +2,7 @@ import type { ReplyEnvelope, DispatchTarget, DispatchResult } from './types.js';
 
 export type DispatchHandler = (
   envelope: ReplyEnvelope,
-  target: DispatchTarget,
+  target: DispatchTarget
 ) => Promise<DispatchResult>;
 
 /**
@@ -39,7 +39,7 @@ export class ReplyDispatcher {
    */
   async dispatch(
     envelope: ReplyEnvelope,
-    target: DispatchTarget,
+    target: DispatchTarget
   ): Promise<DispatchResult> {
     const handler = this.handlers.get(target.channelId) ?? this.defaultHandler;
 
@@ -69,10 +69,10 @@ export class ReplyDispatcher {
    */
   async dispatchBatch(
     envelopes: ReplyEnvelope[],
-    target: DispatchTarget,
+    target: DispatchTarget
   ): Promise<DispatchResult[]> {
     return Promise.all(
-      envelopes.map((envelope) => this.dispatch(envelope, target)),
+      envelopes.map((envelope) => this.dispatch(envelope, target))
     );
   }
 

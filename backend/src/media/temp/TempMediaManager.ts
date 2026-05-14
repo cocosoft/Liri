@@ -61,7 +61,11 @@ export class TempMediaManager {
   /**
    * 写入临时文件
    */
-  writeFile(prefix: string, extension: string, data: Buffer | string): string | null {
+  writeFile(
+    prefix: string,
+    extension: string,
+    data: Buffer | string
+  ): string | null {
     try {
       const filePath = this.createFile(prefix, extension);
       fs.writeFileSync(filePath, data);
@@ -93,26 +97,31 @@ export class TempMediaManager {
             fs.rmSync(filePath, { recursive: true, force: true });
             deleted++;
           }
-        } catch {
-        }
+        } catch {}
       }
 
       if (files.length - deleted > this.config.maxFiles) {
-        const remaining = fs.readdirSync(this.config.baseDir)
-          .map((f) => ({ name: f, path: path.join(this.config.baseDir, f), mtime: fs.statSync(path.join(this.config.baseDir, f)).mtimeMs }))
+        const remaining = fs
+          .readdirSync(this.config.baseDir)
+          .map((f) => ({
+            name: f,
+            path: path.join(this.config.baseDir, f),
+            mtime: fs.statSync(path.join(this.config.baseDir, f)).mtimeMs,
+          }))
           .sort((a, b) => a.mtime - b.mtime);
 
-        const toDelete = remaining.slice(0, remaining.length - this.config.maxFiles);
+        const toDelete = remaining.slice(
+          0,
+          remaining.length - this.config.maxFiles
+        );
 
         for (const file of toDelete) {
           try {
             fs.rmSync(file.path, { recursive: true, force: true });
-          } catch {
-          }
+          } catch {}
         }
       }
-    } catch {
-    }
+    } catch {}
   }
 
   /**
@@ -122,7 +131,9 @@ export class TempMediaManager {
     try {
       if (!fs.existsSync(this.config.baseDir)) return [];
 
-      return fs.readdirSync(this.config.baseDir).map((f) => path.join(this.config.baseDir, f));
+      return fs
+        .readdirSync(this.config.baseDir)
+        .map((f) => path.join(this.config.baseDir, f));
     } catch {
       return [];
     }
@@ -131,7 +142,11 @@ export class TempMediaManager {
   /**
    * 获取存储统计
    */
-  getStats(): { fileCount: number; totalSize: number; oldestFile: number | null } {
+  getStats(): {
+    fileCount: number;
+    totalSize: number;
+    oldestFile: number | null;
+  } {
     try {
       if (!fs.existsSync(this.config.baseDir)) {
         return { fileCount: 0, totalSize: 0, oldestFile: null };
@@ -150,8 +165,7 @@ export class TempMediaManager {
           if (oldestFile === null || stat.mtimeMs < oldestFile) {
             oldestFile = stat.mtimeMs;
           }
-        } catch {
-        }
+        } catch {}
       }
 
       return { fileCount: files.length, totalSize, oldestFile };
@@ -174,9 +188,12 @@ export class TempMediaManager {
    * 启动自动清理
    */
   private startCleanup(): void {
-    this.timer = setInterval(() => {
-      this.cleanup();
-    }, Math.min(this.config.maxAge, 30 * 60 * 1000));
+    this.timer = setInterval(
+      () => {
+        this.cleanup();
+      },
+      Math.min(this.config.maxAge, 30 * 60 * 1000)
+    );
   }
 }
 

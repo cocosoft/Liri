@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { getReadProtectionService } from '../../security/files/ReadProtectionService';
 
 export interface FileReadInput {
   filePath: string;
@@ -27,6 +28,17 @@ const BLOCKED_PATHS = new Set(['/dev/zero', '/dev/random', '/dev/urandom']);
 
 export function readFile(input: FileReadInput): FileReadResult {
   const resolved = path.resolve(input.filePath);
+
+  const readProtection = getReadProtectionService();
+  const accessCheck = readProtection.checkReadAccess(resolved);
+  if (!accessCheck.allowed) {
+    throw new AppError(
+      accessCheck.reason || `读取被阻止: ${resolved}`,
+      ErrorCategory.FILESYSTEM,
+      ErrorSeverity.HIGH,
+      '101'
+    );
+  }
 
   if (BLOCKED_PATHS.has(resolved)) {
     throw new AppError(

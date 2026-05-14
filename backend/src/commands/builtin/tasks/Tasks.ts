@@ -16,23 +16,72 @@ interface TaskItem {
 }
 
 const MOCK_TASKS: TaskItem[] = [
-  { id: 'T001', title: '代码审查 - API 模块', status: 'in-progress', priority: 'high', createdAt: '2026-05-14', updatedAt: '2026-05-14' },
-  { id: 'T002', title: '更新项目文档', status: 'pending', priority: 'medium', createdAt: '2026-05-14', updatedAt: '2026-05-14' },
-  { id: 'T003', title: '修复登录页面样式', status: 'completed', priority: 'high', createdAt: '2026-05-13', updatedAt: '2026-05-14' },
-  { id: 'T004', title: '性能优化 - 数据库查询', status: 'pending', priority: 'critical', createdAt: '2026-05-13', updatedAt: '2026-05-13' },
-  { id: 'T005', title: '新增单元测试', status: 'in-progress', priority: 'medium', createdAt: '2026-05-12', updatedAt: '2026-05-14' },
-  { id: 'T006', title: '安全漏洞修复', status: 'failed', priority: 'critical', createdAt: '2026-05-12', updatedAt: '2026-05-13' },
+  {
+    id: 'T001',
+    title: '代码审查 - API 模块',
+    status: 'in-progress',
+    priority: 'high',
+    createdAt: '2026-05-14',
+    updatedAt: '2026-05-14',
+  },
+  {
+    id: 'T002',
+    title: '更新项目文档',
+    status: 'pending',
+    priority: 'medium',
+    createdAt: '2026-05-14',
+    updatedAt: '2026-05-14',
+  },
+  {
+    id: 'T003',
+    title: '修复登录页面样式',
+    status: 'completed',
+    priority: 'high',
+    createdAt: '2026-05-13',
+    updatedAt: '2026-05-14',
+  },
+  {
+    id: 'T004',
+    title: '性能优化 - 数据库查询',
+    status: 'pending',
+    priority: 'critical',
+    createdAt: '2026-05-13',
+    updatedAt: '2026-05-13',
+  },
+  {
+    id: 'T005',
+    title: '新增单元测试',
+    status: 'in-progress',
+    priority: 'medium',
+    createdAt: '2026-05-12',
+    updatedAt: '2026-05-14',
+  },
+  {
+    id: 'T006',
+    title: '安全漏洞修复',
+    status: 'failed',
+    priority: 'critical',
+    createdAt: '2026-05-12',
+    updatedAt: '2026-05-13',
+  },
 ];
 
 const tasksCommand = {
   /**
    * 执行 tasks 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const parts = args.trim().split(/\s+/);
     const subcommand = parts[0]?.toLowerCase() || '';
 
-    if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
+    if (
+      subcommand === 'help' ||
+      subcommand === '--help' ||
+      subcommand === '-h'
+    ) {
       return this.showHelp();
     }
 
@@ -44,7 +93,11 @@ const tasksCommand = {
     if (subcommand === 'add' || subcommand === 'create') {
       const title = parts.slice(1).join(' ');
       if (!title) {
-        return { success: false, type: 'text', message: '请提供任务标题: /tasks add <标题>' };
+        return {
+          success: false,
+          type: 'text',
+          message: '请提供任务标题: /tasks add <标题>',
+        };
       }
       return this.addTask(title);
     }
@@ -52,7 +105,11 @@ const tasksCommand = {
     if (subcommand === 'done' || subcommand === 'complete') {
       const taskId = parts[1]?.toUpperCase();
       if (!taskId) {
-        return { success: false, type: 'text', message: '请提供任务ID: /tasks done <ID>' };
+        return {
+          success: false,
+          type: 'text',
+          message: '请提供任务ID: /tasks done <ID>',
+        };
       }
       return this.completeTask(taskId);
     }
@@ -60,16 +117,30 @@ const tasksCommand = {
     if (subcommand === 'delete' || subcommand === 'remove') {
       const taskId = parts[1]?.toUpperCase();
       if (!taskId) {
-        return { success: false, type: 'text', message: '请提供任务ID: /tasks delete <ID>' };
+        return {
+          success: false,
+          type: 'text',
+          message: '请提供任务ID: /tasks delete <ID>',
+        };
       }
       return this.deleteTask(taskId);
     }
 
     if (subcommand === 'priority') {
       const taskId = parts[1]?.toUpperCase();
-      const priority = parts[2]?.toLowerCase() as TaskItem['priority'] | undefined;
-      if (!taskId || !priority || !['low', 'medium', 'high', 'critical'].includes(priority)) {
-        return { success: false, type: 'text', message: '用法: /tasks priority <ID> <low|medium|high|critical>' };
+      const priority = parts[2]?.toLowerCase() as
+        | TaskItem['priority']
+        | undefined;
+      if (
+        !taskId ||
+        !priority ||
+        !['low', 'medium', 'high', 'critical'].includes(priority)
+      ) {
+        return {
+          success: false,
+          type: 'text',
+          message: '用法: /tasks priority <ID> <low|medium|high|critical>',
+        };
       }
       return this.setPriority(taskId, priority);
     }
@@ -144,33 +215,47 @@ const tasksCommand = {
 
     const statusIcon = (status: TaskItem['status']): string => {
       switch (status) {
-        case 'completed': return '✅';
-        case 'in-progress': return '🔄';
-        case 'failed': return '❌';
-        case 'pending': return '⏳';
+        case 'completed':
+          return '✅';
+        case 'in-progress':
+          return '🔄';
+        case 'failed':
+          return '❌';
+        case 'pending':
+          return '⏳';
       }
     };
 
     const priorityLabel = (p: TaskItem['priority']): string => {
       switch (p) {
-        case 'critical': return '🔴 紧急';
-        case 'high': return '🟠 高';
-        case 'medium': return '🟡 中';
-        case 'low': return '🟢 低';
+        case 'critical':
+          return '🔴 紧急';
+        case 'high':
+          return '🟠 高';
+        case 'medium':
+          return '🟡 中';
+        case 'low':
+          return '🟢 低';
       }
     };
 
     const lines = [
       `📋 任务列表 (${filtered.length} 项)`,
       '',
-      ...filtered.map((t) =>
-        `  ${statusIcon(t.status)} [${t.id}] ${t.title}\n     ${priorityLabel(t.priority)} | ${t.status}`
+      ...filtered.map(
+        (t) =>
+          `  ${statusIcon(t.status)} [${t.id}] ${t.title}\n     ${priorityLabel(t.priority)} | ${t.status}`
       ),
       '',
       '使用 /tasks <ID> 查看详情，/tasks help 查看更多操作。',
     ];
 
-    return { success: true, type: 'text', message: lines.join('\n'), data: filtered };
+    return {
+      success: true,
+      type: 'text',
+      message: lines.join('\n'),
+      data: filtered,
+    };
   },
 
   /**
@@ -179,21 +264,25 @@ const tasksCommand = {
   showTask(taskId: string): CommandResult {
     const task = MOCK_TASKS.find((t) => t.id === taskId);
     if (!task) {
-      return { success: false, type: 'text', message: `未找到任务: ${taskId}\n使用 /tasks list 查看所有任务。` };
+      return {
+        success: false,
+        type: 'text',
+        message: `未找到任务: ${taskId}\n使用 /tasks list 查看所有任务。`,
+      };
     }
 
     const statusLabel: Record<string, string> = {
-      'pending': '⏳ 待处理',
+      pending: '⏳ 待处理',
       'in-progress': '🔄 进行中',
-      'completed': '✅ 已完成',
-      'failed': '❌ 失败',
+      completed: '✅ 已完成',
+      failed: '❌ 失败',
     };
 
     const priorityLabel: Record<string, string> = {
-      'low': '🟢 低',
-      'medium': '🟡 中',
-      'high': '🟠 高',
-      'critical': '🔴 紧急',
+      low: '🟢 低',
+      medium: '🟡 中',
+      high: '🟠 高',
+      critical: '🔴 紧急',
     };
 
     const lines = [
@@ -208,7 +297,12 @@ const tasksCommand = {
       task.tags ? `  标签: ${task.tags.join(', ')}` : '',
     ];
 
-    return { success: true, type: 'text', message: lines.filter(Boolean).join('\n'), data: task };
+    return {
+      success: true,
+      type: 'text',
+      message: lines.filter(Boolean).join('\n'),
+      data: task,
+    };
   },
 
   /**
@@ -300,10 +394,14 @@ const tasksCommand = {
   showStats(): CommandResult {
     const total = MOCK_TASKS.length;
     const completed = MOCK_TASKS.filter((t) => t.status === 'completed').length;
-    const inProgress = MOCK_TASKS.filter((t) => t.status === 'in-progress').length;
+    const inProgress = MOCK_TASKS.filter(
+      (t) => t.status === 'in-progress'
+    ).length;
     const pending = MOCK_TASKS.filter((t) => t.status === 'pending').length;
     const failed = MOCK_TASKS.filter((t) => t.status === 'failed').length;
-    const critical = MOCK_TASKS.filter((t) => t.priority === 'critical' && t.status !== 'completed').length;
+    const critical = MOCK_TASKS.filter(
+      (t) => t.priority === 'critical' && t.status !== 'completed'
+    ).length;
 
     const lines = [
       '📊 任务统计',
@@ -318,7 +416,12 @@ const tasksCommand = {
       `  完成率: ${total > 0 ? ((completed / total) * 100).toFixed(1) : '0'}%`,
     ];
 
-    return { success: true, type: 'text', message: lines.join('\n'), data: { total, completed, inProgress, pending, failed } };
+    return {
+      success: true,
+      type: 'text',
+      message: lines.join('\n'),
+      data: { total, completed, inProgress, pending, failed },
+    };
   },
 };
 

@@ -100,7 +100,10 @@ export class ConfigSchema {
           return { valid: false, error: `${key} 应为字符串类型` };
         }
         if (item.enum && !item.enum.includes(value)) {
-          return { valid: false, error: `${key} 值 ${value} 不在允许范围内: ${item.enum.join(', ')}` };
+          return {
+            valid: false,
+            error: `${key} 值 ${value} 不在允许范围内: ${item.enum.join(', ')}`,
+          };
         }
         if (item.pattern && !new RegExp(item.pattern).test(value)) {
           return { valid: false, error: `${key} 格式不匹配: ${item.pattern}` };
@@ -132,7 +135,11 @@ export class ConfigSchema {
         break;
 
       case 'object':
-        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        if (
+          typeof value !== 'object' ||
+          value === null ||
+          Array.isArray(value)
+        ) {
           return { valid: false, error: `${key} 应为对象类型` };
         }
         break;

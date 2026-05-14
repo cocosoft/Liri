@@ -1,3 +1,5 @@
+import { getRedactMiddleware } from '../security/redact/RedactMiddleware';
+
 /**
  * 日志级别枚举
  */
@@ -27,6 +29,7 @@ export class Logger {
   private static instance: Logger;
   private logLevel: LogLevel = LogLevel.INFO;
   private logFile?: string;
+  private enableRedact: boolean = true;
 
   /**
    * 私有构造函数
@@ -116,6 +119,14 @@ export class Logger {
   }
 
   /**
+   * 设置是否启用日志脱敏
+   * @param enable 是否启用
+   */
+  setRedactEnabled(enable: boolean): void {
+    this.enableRedact = enable;
+  }
+
+  /**
    * 记录日志
    * @param level 日志级别
    * @param message 日志消息
@@ -132,11 +143,20 @@ export class Logger {
       return;
     }
 
+    let redactedMessage = message;
+    let redactedContext = context;
+
+    if (this.enableRedact) {
+      const redacted = getRedactMiddleware().redactLogEntry(message, context);
+      redactedMessage = redacted.message;
+      redactedContext = redacted.context;
+    }
+
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
-      message,
-      context,
+      message: redactedMessage,
+      context: redactedContext,
       error,
     };
 

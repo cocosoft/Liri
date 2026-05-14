@@ -25,14 +25,47 @@ export interface LogRedactConfig {
  * 默认敏感模式
  */
 const DEFAULT_PATTERNS: RedactPattern[] = [
-  { name: 'api-key', pattern: /(api[_-]?key|apikey)['":]\s*['"]?([^'"\s,}]+)/gi, replacement: '$1: ***REDACTED***' },
-  { name: 'token', pattern: /(token|bearer)['":]\s*['"]?([^'"\s,}]+)/gi, replacement: '$1: ***REDACTED***' },
-  { name: 'password', pattern: /(password|passwd)['":]\s*['"]?([^'"\s,}]+)/gi, replacement: '$1: ***REDACTED***' },
-  { name: 'secret', pattern: /(secret)['":]\s*['"]?([^'"\s,}]+)/gi, replacement: '$1: ***REDACTED***' },
-  { name: 'authorization-header', pattern: /(authorization|auth):\s*['"]?([^'"\s\r\n,}]+)/gi, replacement: '$1: ***REDACTED***' },
-  { name: 'jwt', pattern: /eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, replacement: '***JWT_REDACTED***' },
-  { name: 'private-key', pattern: /-----BEGIN (RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (RSA |EC )?PRIVATE KEY-----/g, replacement: '***PRIVATE_KEY_REDACTED***' },
-  { name: 'credit-card', pattern: /\b(\d{4}[-\s]?){3}\d{4}\b/g, replacement: '****-****-****-${1}' },
+  {
+    name: 'api-key',
+    pattern: /(api[_-]?key|apikey)['":]\s*['"]?([^'"\s,}]+)/gi,
+    replacement: '$1: ***REDACTED***',
+  },
+  {
+    name: 'token',
+    pattern: /(token|bearer)['":]\s*['"]?([^'"\s,}]+)/gi,
+    replacement: '$1: ***REDACTED***',
+  },
+  {
+    name: 'password',
+    pattern: /(password|passwd)['":]\s*['"]?([^'"\s,}]+)/gi,
+    replacement: '$1: ***REDACTED***',
+  },
+  {
+    name: 'secret',
+    pattern: /(secret)['":]\s*['"]?([^'"\s,}]+)/gi,
+    replacement: '$1: ***REDACTED***',
+  },
+  {
+    name: 'authorization-header',
+    pattern: /(authorization|auth):\s*['"]?([^'"\s\r\n,}]+)/gi,
+    replacement: '$1: ***REDACTED***',
+  },
+  {
+    name: 'jwt',
+    pattern: /eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g,
+    replacement: '***JWT_REDACTED***',
+  },
+  {
+    name: 'private-key',
+    pattern:
+      /-----BEGIN (RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (RSA |EC )?PRIVATE KEY-----/g,
+    replacement: '***PRIVATE_KEY_REDACTED***',
+  },
+  {
+    name: 'credit-card',
+    pattern: /\b(\d{4}[-\s]?){3}\d{4}\b/g,
+    replacement: '****-****-****-${1}',
+  },
 ];
 
 /**

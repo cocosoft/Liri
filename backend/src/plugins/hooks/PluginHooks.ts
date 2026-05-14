@@ -43,7 +43,9 @@ export interface HookContext {
 /**
  * 钩子函数
  */
-export type HookFunction = (context: HookContext) => Promise<HookResult> | HookResult;
+export type HookFunction = (
+  context: HookContext
+) => Promise<HookResult> | HookResult;
 
 /**
  * 钩子执行结果
@@ -189,7 +191,12 @@ export class PluginHooks {
   getHooks(type?: HookType): HookRegistration[] {
     if (type) {
       const all: HookRegistration[] = [];
-      for (const stage of ['before', 'after', 'around', 'onError'] as HookStage[]) {
+      for (const stage of [
+        'before',
+        'after',
+        'around',
+        'onError',
+      ] as HookStage[]) {
         const hooks = this.hooks.get(`${type}:${stage}`);
         if (hooks) all.push(...hooks);
       }

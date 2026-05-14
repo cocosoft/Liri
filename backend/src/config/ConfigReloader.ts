@@ -40,11 +40,15 @@ export class ConfigWatcher extends EventEmitter {
 
     for (const dir of dirs) {
       try {
-        const watcher = watch(dir, { persistent: false }, (_eventType, filename) => {
-          if (!filename) return;
-          const filePath = join(dir, filename);
-          this.debounce(filePath);
-        });
+        const watcher = watch(
+          dir,
+          { persistent: false },
+          (_eventType, filename) => {
+            if (!filename) return;
+            const filePath = join(dir, filename);
+            this.debounce(filePath);
+          }
+        );
         this.watchers.set(dir, watcher);
         logger.info(`配置监听已启动: ${dir}`);
       } catch (error) {
@@ -77,7 +81,11 @@ export class ConfigWatcher extends EventEmitter {
       const files = Array.from(this.pendingFiles);
       this.pendingFiles.clear();
       for (const file of files) {
-        this.emit('change', { filePath: file, eventType: 'change', timestamp: Date.now() } as ConfigChangeEvent);
+        this.emit('change', {
+          filePath: file,
+          eventType: 'change',
+          timestamp: Date.now(),
+        } as ConfigChangeEvent);
       }
     }, this.debounceMs);
   }
@@ -132,7 +140,9 @@ export class ConfigReloader {
         return;
       }
 
-      logger.info(`配置变更: ${event.filePath}, 重载 ${matchedTargets.length} 个目标`);
+      logger.info(
+        `配置变更: ${event.filePath}, 重载 ${matchedTargets.length} 个目标`
+      );
       for (const target of matchedTargets) {
         try {
           await target.reload();

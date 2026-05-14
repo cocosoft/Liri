@@ -1,6 +1,12 @@
-import type { MediaUnderstandingCapability, MediaUnderstandingProvider } from "./types.js";
+import type {
+  MediaUnderstandingCapability,
+  MediaUnderstandingProvider,
+} from './types.js';
 
-const DEFAULT_MAX_CHARS_BY_CAPABILITY: Record<MediaUnderstandingCapability, number | undefined> = {
+const DEFAULT_MAX_CHARS_BY_CAPABILITY: Record<
+  MediaUnderstandingCapability,
+  number | undefined
+> = {
   image: 800,
   audio: undefined,
   video: 1200,
@@ -13,28 +19,31 @@ const DEFAULT_MAX_BYTES: Record<MediaUnderstandingCapability, number> = {
 };
 
 const DEFAULT_PROMPT: Record<MediaUnderstandingCapability, string> = {
-  image: "Describe this image in detail.",
-  audio: "Transcribe the audio accurately.",
-  video: "Describe this video in detail.",
+  image: 'Describe this image in detail.',
+  audio: 'Transcribe the audio accurately.',
+  video: 'Describe this video in detail.',
 };
 
 const DEFAULT_MEDIA_CONCURRENCY = 5;
 
 export function resolveTimeoutMs(
   seconds: number | undefined,
-  fallbackSeconds: number,
+  fallbackSeconds: number
 ): number {
-  const value = typeof seconds === "number" && Number.isFinite(seconds) ? seconds : fallbackSeconds;
+  const value =
+    typeof seconds === 'number' && Number.isFinite(seconds)
+      ? seconds
+      : fallbackSeconds;
   return Math.max(1000, Math.floor(value * 1000));
 }
 
 export function resolvePrompt(
   capability: MediaUnderstandingCapability,
   prompt?: string,
-  maxChars?: number,
+  maxChars?: number
 ): string {
   const base = prompt?.trim() || DEFAULT_PROMPT[capability];
-  if (!maxChars || capability === "audio") {
+  if (!maxChars || capability === 'audio') {
     return base;
   }
   return `${base} Respond in at most ${maxChars} characters.`;
@@ -44,13 +53,19 @@ export function resolveMaxChars(params: {
   capability: MediaUnderstandingCapability;
   entry?: { maxChars?: number };
   config?: { maxChars?: number };
-  cfg?: { tools?: { media?: Partial<Record<MediaUnderstandingCapability, { maxChars?: number }>> } };
+  cfg?: {
+    tools?: {
+      media?: Partial<
+        Record<MediaUnderstandingCapability, { maxChars?: number }>
+      >;
+    };
+  };
 }): number | undefined {
   const configured =
     params.entry?.maxChars ??
     params.config?.maxChars ??
     params.cfg?.tools?.media?.[params.capability]?.maxChars;
-  if (typeof configured === "number") {
+  if (typeof configured === 'number') {
     return configured;
   }
   return DEFAULT_MAX_CHARS_BY_CAPABILITY[params.capability];
@@ -60,13 +75,19 @@ export function resolveMaxBytes(params: {
   capability: MediaUnderstandingCapability;
   entry?: { maxBytes?: number };
   config?: { maxBytes?: number };
-  cfg?: { tools?: { media?: Partial<Record<MediaUnderstandingCapability, { maxBytes?: number }>> } };
+  cfg?: {
+    tools?: {
+      media?: Partial<
+        Record<MediaUnderstandingCapability, { maxBytes?: number }>
+      >;
+    };
+  };
 }): number {
   const configured =
     params.entry?.maxBytes ??
     params.config?.maxBytes ??
     params.cfg?.tools?.media?.[params.capability]?.maxBytes;
-  if (typeof configured === "number") {
+  if (typeof configured === 'number') {
     return configured;
   }
   return DEFAULT_MAX_BYTES[params.capability];
@@ -76,28 +97,28 @@ export function resolveScopeDecision(params: {
   scope?: { allow?: string[]; deny?: string[] };
   sessionKey?: string;
   channel?: string;
-}): "allow" | "deny" {
+}): 'allow' | 'deny' {
   if (!params.scope) {
-    return "allow";
+    return 'allow';
   }
   if (params.scope.deny && params.scope.deny.length > 0) {
-    const key = params.sessionKey ?? params.channel ?? "";
+    const key = params.sessionKey ?? params.channel ?? '';
     for (const pattern of params.scope.deny) {
       if (key.includes(pattern)) {
-        return "deny";
+        return 'deny';
       }
     }
   }
   if (params.scope.allow && params.scope.allow.length > 0) {
-    const key = params.sessionKey ?? params.channel ?? "";
+    const key = params.sessionKey ?? params.channel ?? '';
     for (const pattern of params.scope.allow) {
       if (key.includes(pattern)) {
-        return "allow";
+        return 'allow';
       }
     }
-    return "deny";
+    return 'deny';
   }
-  return "allow";
+  return 'allow';
 }
 
 type ModelEntry = {
@@ -135,7 +156,11 @@ export function resolveConcurrency(cfg?: {
   tools?: { media?: { concurrency?: number } };
 }): number {
   const configured = cfg?.tools?.media?.concurrency;
-  if (typeof configured === "number" && Number.isFinite(configured) && configured > 0) {
+  if (
+    typeof configured === 'number' &&
+    Number.isFinite(configured) &&
+    configured > 0
+  ) {
     return Math.floor(configured);
   }
   return DEFAULT_MEDIA_CONCURRENCY;

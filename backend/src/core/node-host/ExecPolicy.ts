@@ -38,17 +38,33 @@ export class ExecPolicy {
     nodeId: string,
     operation: () => Promise<T>,
     context?: { retryOverride?: number; timeoutOverride?: number }
-  ): Promise<{ success: boolean; result?: T; error?: string; attempts: number; durationMs: number }> {
+  ): Promise<{
+    success: boolean;
+    result?: T;
+    error?: string;
+    attempts: number;
+    durationMs: number;
+  }> {
     const startTime = Date.now();
     let lastError: string | undefined;
     let attempts = 0;
 
     if (this.isCircuitBroken(nodeId)) {
-      return { success: false, error: `Circuit breaker is open for node ${nodeId}`, attempts: 0, durationMs: 0 };
+      return {
+        success: false,
+        error: `Circuit breaker is open for node ${nodeId}`,
+        attempts: 0,
+        durationMs: 0,
+      };
     }
 
     if (this.activeCount >= this.config.maxConcurrency) {
-      return { success: false, error: 'Max concurrency reached', attempts: 0, durationMs: 0 };
+      return {
+        success: false,
+        error: 'Max concurrency reached',
+        attempts: 0,
+        durationMs: 0,
+      };
     }
 
     const maxRetries = context?.retryOverride ?? this.config.maxRetries;
@@ -65,7 +81,12 @@ export class ExecPolicy {
 
           this.recordSuccess(nodeId);
 
-          return { success: true, result, attempts, durationMs: Date.now() - startTime };
+          return {
+            success: true,
+            result,
+            attempts,
+            durationMs: Date.now() - startTime,
+          };
         } catch (error) {
           lastError = error instanceof Error ? error.message : String(error);
 
@@ -79,7 +100,12 @@ export class ExecPolicy {
 
       this.recordFailure(nodeId);
 
-      return { success: false, error: lastError, attempts, durationMs: Date.now() - startTime };
+      return {
+        success: false,
+        error: lastError,
+        attempts,
+        durationMs: Date.now() - startTime,
+      };
     } finally {
       this.activeCount--;
     }
@@ -143,7 +169,10 @@ export class ExecPolicy {
     return this.config.retryDelayMs;
   }
 
-  private withTimeout<T>(operation: () => Promise<T>, timeoutMs: number): Promise<T> {
+  private withTimeout<T>(
+    operation: () => Promise<T>,
+    timeoutMs: number
+  ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`Operation timed out after ${timeoutMs}ms`));

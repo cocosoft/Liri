@@ -12,7 +12,10 @@ export interface CommandDefinition {
   category?: string;
   options?: CommandOption[];
   subcommands?: CommandDefinition[];
-  action: (args: Record<string, unknown>, options: Record<string, unknown>) => Promise<void> | void;
+  action: (
+    args: Record<string, unknown>,
+    options: Record<string, unknown>
+  ) => Promise<void> | void;
 }
 
 export interface CommandOption {
@@ -32,7 +35,9 @@ export interface CommandContext {
 export class ProgramFramework {
   private commands: Map<string, CommandDefinition> = new Map();
   private categories: Map<string, string> = new Map();
-  private middleware: Array<(ctx: CommandContext, next: () => Promise<void>) => Promise<void>> = [];
+  private middleware: Array<
+    (ctx: CommandContext, next: () => Promise<void>) => Promise<void>
+  > = [];
 
   register(command: CommandDefinition): void {
     this.commands.set(command.name, command);
@@ -87,7 +92,9 @@ export class ProgramFramework {
     return Array.from(new Set(this.categories.values())).sort();
   }
 
-  use(fn: (ctx: CommandContext, next: () => Promise<void>) => Promise<void>): void {
+  use(
+    fn: (ctx: CommandContext, next: () => Promise<void>) => Promise<void>
+  ): void {
     this.middleware.push(fn);
   }
 
@@ -213,9 +220,10 @@ export class ProgramFramework {
     if (cmd.options && cmd.options.length > 0) {
       lines.push('Options:');
       for (const opt of cmd.options) {
-        const defaultStr = opt.defaultValue !== undefined
-          ? ` (default: ${opt.defaultValue})`
-          : '';
+        const defaultStr =
+          opt.defaultValue !== undefined
+            ? ` (default: ${opt.defaultValue})`
+            : '';
         lines.push(`  ${opt.flags.padEnd(30)} ${opt.description}${defaultStr}`);
       }
       lines.push('');

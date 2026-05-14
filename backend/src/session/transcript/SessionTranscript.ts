@@ -39,7 +39,8 @@ export class SessionTranscript {
   constructor(config?: Partial<TranscriptConfig>) {
     this.config = {
       enabled: config?.enabled !== false,
-      storePath: config?.storePath || path.join(os.homedir(), '.py_app', 'transcripts'),
+      storePath:
+        config?.storePath || path.join(os.homedir(), '.py_app', 'transcripts'),
       format: config?.format || 'jsonl',
       maxFileSize: config?.maxFileSize || 10 * 1024 * 1024,
       rotateCount: config?.rotateCount || 5,
@@ -51,7 +52,12 @@ export class SessionTranscript {
   /**
    * 记录转录
    */
-  record(sessionId: string, role: TranscriptEntry['role'], content: string, metadata?: Record<string, unknown>): TranscriptEntry {
+  record(
+    sessionId: string,
+    role: TranscriptEntry['role'],
+    content: string,
+    metadata?: Record<string, unknown>
+  ): TranscriptEntry {
     const entry: TranscriptEntry = {
       timestamp: Date.now(),
       sessionId,
@@ -72,7 +78,10 @@ export class SessionTranscript {
   /**
    * 查询会话转录
    */
-  query(sessionId: string, options?: { limit?: number; roles?: TranscriptEntry['role'][] }): TranscriptEntry[] {
+  query(
+    sessionId: string,
+    options?: { limit?: number; roles?: TranscriptEntry['role'][] }
+  ): TranscriptEntry[] {
     const filePath = this.getSessionFilePath(sessionId);
     let entries: TranscriptEntry[] = [];
 
@@ -107,7 +116,9 @@ export class SessionTranscript {
 
     for (const entry of entries) {
       const timestamp = new Date(entry.timestamp).toISOString();
-      lines.push(`[${timestamp}] ${entry.role.toUpperCase()}: ${entry.content}`);
+      lines.push(
+        `[${timestamp}] ${entry.role.toUpperCase()}: ${entry.content}`
+      );
     }
 
     return lines.join('\n');
@@ -145,8 +156,7 @@ export class SessionTranscript {
         const filePath = path.join(this.config.storePath, file);
         total += fs.statSync(filePath).size;
       }
-    } catch {
-    }
+    } catch {}
 
     return total;
   }
@@ -169,7 +179,9 @@ export class SessionTranscript {
   /**
    * 按会话分组
    */
-  private groupBySession(entries: TranscriptEntry[]): Record<string, TranscriptEntry[]> {
+  private groupBySession(
+    entries: TranscriptEntry[]
+  ): Record<string, TranscriptEntry[]> {
     const grouped: Record<string, TranscriptEntry[]> = {};
 
     for (const entry of entries) {
@@ -194,8 +206,7 @@ export class SessionTranscript {
 
       const lines = entries.map((e) => JSON.stringify(e)).join('\n') + '\n';
       fs.appendFileSync(filePath, lines, 'utf-8');
-    } catch {
-    }
+    } catch {}
   }
 
   /**
@@ -203,7 +214,10 @@ export class SessionTranscript {
    */
   private rotateIfNeeded(filePath: string): void {
     try {
-      if (fs.existsSync(filePath) && fs.statSync(filePath).size > this.config.maxFileSize) {
+      if (
+        fs.existsSync(filePath) &&
+        fs.statSync(filePath).size > this.config.maxFileSize
+      ) {
         for (let i = this.config.rotateCount - 1; i > 0; i--) {
           const oldPath = `${filePath}.${i}`;
           const newPath = `${filePath}.${i + 1}`;
@@ -215,15 +229,17 @@ export class SessionTranscript {
 
         fs.renameSync(filePath, `${filePath}.1`);
       }
-    } catch {
-    }
+    } catch {}
   }
 
   /**
    * 获取会话文件路径
    */
   private getSessionFilePath(sessionId: string): string {
-    return path.join(this.config.storePath, `session_${sessionId}.${this.config.format}`);
+    return path.join(
+      this.config.storePath,
+      `session_${sessionId}.${this.config.format}`
+    );
   }
 }
 

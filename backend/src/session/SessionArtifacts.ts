@@ -5,13 +5,25 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { existsSync, writeFileSync, readFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  mkdirSync,
+  unlinkSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-export type ArtifactType = 'code' | 'diff' | 'patch' | 'log' | 'screenshot' | 'other';
+export type ArtifactType =
+  | 'code'
+  | 'diff'
+  | 'patch'
+  | 'log'
+  | 'screenshot'
+  | 'other';
 
 export interface ArtifactMeta {
   id: string;
@@ -54,10 +66,15 @@ export class SessionArtifacts {
   ): ArtifactMeta {
     const id = randomUUID();
     const ext =
-      type === 'diff' ? 'diff' :
-      type === 'patch' ? 'patch' :
-      type === 'screenshot' ? 'png' :
-      type === 'log' ? 'log' : 'txt';
+      type === 'diff'
+        ? 'diff'
+        : type === 'patch'
+          ? 'patch'
+          : type === 'screenshot'
+            ? 'png'
+            : type === 'log'
+              ? 'log'
+              : 'txt';
     const finalFilename = filename || `${type}-${id}.${ext}`;
 
     const sessionDir = join(this.config.artifactsDir, sessionId);
@@ -66,10 +83,13 @@ export class SessionArtifacts {
     }
 
     const filePath = join(sessionDir, finalFilename);
-    const data = typeof content === 'string' ? Buffer.from(content, 'utf-8') : content;
+    const data =
+      typeof content === 'string' ? Buffer.from(content, 'utf-8') : content;
 
     if (data.length > this.config.maxSizePerFile) {
-      throw new Error(`制品大小 ${data.length} 超出限制 ${this.config.maxSizePerFile}`);
+      throw new Error(
+        `制品大小 ${data.length} 超出限制 ${this.config.maxSizePerFile}`
+      );
     }
 
     writeFileSync(filePath, data);
@@ -87,7 +107,9 @@ export class SessionArtifacts {
     sessionArtifacts.push(meta);
     this.artifacts.set(sessionId, sessionArtifacts);
 
-    logger.debug(`制品已保存: ${sessionId}/${finalFilename} (${data.length} bytes)`);
+    logger.debug(
+      `制品已保存: ${sessionId}/${finalFilename} (${data.length} bytes)`
+    );
     return meta;
   }
 

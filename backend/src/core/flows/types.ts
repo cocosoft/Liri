@@ -5,7 +5,11 @@ export type FlowDocsLink = {
 
 export type FlowContributionKind = 'channel' | 'core' | 'provider' | 'search';
 
-export type FlowContributionSurface = 'auth-choice' | 'health' | 'model-picker' | 'setup';
+export type FlowContributionSurface =
+  | 'auth-choice'
+  | 'health'
+  | 'model-picker'
+  | 'setup';
 
 export type FlowOptionGroup = {
   id: string;
@@ -83,11 +87,11 @@ export type FlowConfigProvider = {
 };
 
 export function sortFlowContributionsByLabel<T extends FlowContribution>(
-  contributions: readonly T[],
+  contributions: readonly T[]
 ): T[] {
   return [...contributions].sort(
     (left: T, right: T) =>
       left.option.label.localeCompare(right.option.label) ||
-      left.option.value.localeCompare(right.option.value),
+      left.option.value.localeCompare(right.option.value)
   );
 }

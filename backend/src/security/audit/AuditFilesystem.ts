@@ -13,12 +13,36 @@ const logger = new Logger({ level: LogLevel.INFO });
 
 const SENSITIVE_PATHS = [
   { path: '.env', label: '环境变量文件', severity: 'HIGH' as AuditSeverity },
-  { path: '.env.local', label: '本地环境变量', severity: 'HIGH' as AuditSeverity },
-  { path: 'config/credentials.json', label: '凭证配置', severity: 'HIGH' as AuditSeverity },
-  { path: 'data/oauth-tokens.json', label: 'OAuth Token 存储', severity: 'HIGH' as AuditSeverity },
-  { path: 'backend/data/py_copilot.db', label: '数据库文件', severity: 'MEDIUM' as AuditSeverity },
-  { path: '.ssh/id_rsa', label: 'SSH 私钥', severity: 'CRITICAL' as AuditSeverity },
-  { path: '.git-credentials', label: 'Git 凭证', severity: 'HIGH' as AuditSeverity },
+  {
+    path: '.env.local',
+    label: '本地环境变量',
+    severity: 'HIGH' as AuditSeverity,
+  },
+  {
+    path: 'config/credentials.json',
+    label: '凭证配置',
+    severity: 'HIGH' as AuditSeverity,
+  },
+  {
+    path: 'data/oauth-tokens.json',
+    label: 'OAuth Token 存储',
+    severity: 'HIGH' as AuditSeverity,
+  },
+  {
+    path: 'backend/data/py_copilot.db',
+    label: '数据库文件',
+    severity: 'MEDIUM' as AuditSeverity,
+  },
+  {
+    path: '.ssh/id_rsa',
+    label: 'SSH 私钥',
+    severity: 'CRITICAL' as AuditSeverity,
+  },
+  {
+    path: '.git-credentials',
+    label: 'Git 凭证',
+    severity: 'HIGH' as AuditSeverity,
+  },
 ];
 
 const UNSAFE_WORLD_ACCESSIBLE = 0o777;
@@ -43,14 +67,17 @@ export function auditFilesystem(workspaceDir?: string): SecurityAuditFinding[] {
   return findings;
 }
 
-function auditSensitivePathPermissions(scanDir: string, findings: SecurityAuditFinding[]): void {
+function auditSensitivePathPermissions(
+  scanDir: string,
+  findings: SecurityAuditFinding[]
+): void {
   for (const { path: relPath, label, severity } of SENSITIVE_PATHS) {
     const fullPath = join(scanDir, relPath);
     if (!existsSync(fullPath)) continue;
 
     try {
       const st = statSync(fullPath);
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
       const mode = st.mode & 0o777;
 
       if (mode & 0o007) {
@@ -69,7 +96,10 @@ function auditSensitivePathPermissions(scanDir: string, findings: SecurityAuditF
   }
 }
 
-function auditWorldWritableFiles(scanDir: string, findings: SecurityAuditFinding[]): void {
+function auditWorldWritableFiles(
+  scanDir: string,
+  findings: SecurityAuditFinding[]
+): void {
   const checkDirs = [
     join(scanDir, 'config'),
     join(scanDir, 'data'),
@@ -97,7 +127,10 @@ function auditWorldWritableFiles(scanDir: string, findings: SecurityAuditFinding
   }
 }
 
-function auditSymlinkSafety(scanDir: string, findings: SecurityAuditFinding[]): void {
+function auditSymlinkSafety(
+  scanDir: string,
+  findings: SecurityAuditFinding[]
+): void {
   const checkDirs = [join(scanDir, 'config'), join(scanDir, 'plugins')];
 
   for (const baseDir of checkDirs) {

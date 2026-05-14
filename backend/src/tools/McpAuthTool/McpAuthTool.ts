@@ -28,7 +28,8 @@ export interface McpAuthStatus {
 export class McpAuthTool extends BaseTool {
   name = 'mcp_auth';
 
-  description = 'Manage MCP (Model Context Protocol) authentication. Supports login, logout, status check, token refresh, and listing authenticated servers.';
+  description =
+    'Manage MCP (Model Context Protocol) authentication. Supports login, logout, status check, token refresh, and listing authenticated servers.';
 
   params: ToolParam[] = [
     {
@@ -88,7 +89,10 @@ export class McpAuthTool extends BaseTool {
       const params = input as unknown as McpAuthParams;
 
       if (!params.action || typeof params.action !== 'string') {
-        return { success: false, error: 'action is required and must be a string' };
+        return {
+          success: false,
+          error: 'action is required and must be a string',
+        };
       }
 
       const validActions = ['login', 'logout', 'status', 'refresh', 'list'];
@@ -102,7 +106,10 @@ export class McpAuthTool extends BaseTool {
       switch (params.action) {
         case 'login': {
           if (!params.serverUrl) {
-            return { success: false, error: 'serverUrl is required for login action' };
+            return {
+              success: false,
+              error: 'serverUrl is required for login action',
+            };
           }
           return {
             success: true,
@@ -119,7 +126,10 @@ export class McpAuthTool extends BaseTool {
 
         case 'logout': {
           if (!params.serverUrl) {
-            return { success: false, error: 'serverUrl is required for logout action' };
+            return {
+              success: false,
+              error: 'serverUrl is required for logout action',
+            };
           }
           return {
             success: true,
@@ -130,7 +140,10 @@ export class McpAuthTool extends BaseTool {
 
         case 'status': {
           if (!params.serverUrl) {
-            return { success: false, error: 'serverUrl is required for status action' };
+            return {
+              success: false,
+              error: 'serverUrl is required for status action',
+            };
           }
           return {
             success: true,
@@ -145,7 +158,10 @@ export class McpAuthTool extends BaseTool {
 
         case 'refresh': {
           if (!params.serverUrl) {
-            return { success: false, error: 'serverUrl is required for refresh action' };
+            return {
+              success: false,
+              error: 'serverUrl is required for refresh action',
+            };
           }
           return {
             success: true,
@@ -163,7 +179,10 @@ export class McpAuthTool extends BaseTool {
         }
 
         default:
-          return { success: false, error: `Unhandled action: ${params.action}` };
+          return {
+            success: false,
+            error: `Unhandled action: ${params.action}`,
+          };
       }
     } catch (error) {
       return {

@@ -46,12 +46,54 @@ export class BundledPluginManager {
     this.plugins.clear();
 
     const builtinPlugins: BundledPlugin[] = [
-      { name: 'gateway', version: '1.0.0', description: 'API 网关插件', entryPoint: 'gateway/index.js', enabled: this.config.autoEnable, builtin: true },
-      { name: 'terminal', version: '1.0.0', description: '终端交互插件', entryPoint: 'terminal/index.js', enabled: this.config.autoEnable, builtin: true },
-      { name: 'filesystem', version: '1.0.0', description: '文件系统工具', entryPoint: 'filesystem/index.js', enabled: this.config.autoEnable, builtin: true },
-      { name: 'network', version: '1.0.0', description: '网络请求工具', entryPoint: 'network/index.js', enabled: true, builtin: true },
-      { name: 'analytics', version: '1.0.0', description: '使用分析', entryPoint: 'analytics/index.js', enabled: false, builtin: true },
-      { name: 'telemetry', version: '1.0.0', description: '遥测数据收集', entryPoint: 'telemetry/index.js', enabled: false, builtin: true },
+      {
+        name: 'gateway',
+        version: '1.0.0',
+        description: 'API 网关插件',
+        entryPoint: 'gateway/index.js',
+        enabled: this.config.autoEnable,
+        builtin: true,
+      },
+      {
+        name: 'terminal',
+        version: '1.0.0',
+        description: '终端交互插件',
+        entryPoint: 'terminal/index.js',
+        enabled: this.config.autoEnable,
+        builtin: true,
+      },
+      {
+        name: 'filesystem',
+        version: '1.0.0',
+        description: '文件系统工具',
+        entryPoint: 'filesystem/index.js',
+        enabled: this.config.autoEnable,
+        builtin: true,
+      },
+      {
+        name: 'network',
+        version: '1.0.0',
+        description: '网络请求工具',
+        entryPoint: 'network/index.js',
+        enabled: true,
+        builtin: true,
+      },
+      {
+        name: 'analytics',
+        version: '1.0.0',
+        description: '使用分析',
+        entryPoint: 'analytics/index.js',
+        enabled: false,
+        builtin: true,
+      },
+      {
+        name: 'telemetry',
+        version: '1.0.0',
+        description: '遥测数据收集',
+        entryPoint: 'telemetry/index.js',
+        enabled: false,
+        builtin: true,
+      },
     ];
 
     for (const plugin of builtinPlugins) {
@@ -91,13 +133,11 @@ export class BundledPluginManager {
                   builtin: false,
                 });
               }
-            } catch {
-            }
+            } catch {}
           }
         }
       }
-    } catch {
-    }
+    } catch {}
   }
 
   /**

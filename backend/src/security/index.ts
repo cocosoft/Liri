@@ -44,6 +44,9 @@ export type {
   SecurityCheckContext,
   SecurityDecision,
 } from './types';
+export * from './redact';
+export * from './files';
+export * from './injection';
 export * from './patterns';
 export * from './bash';
 export * from './git';
@@ -51,4 +54,5 @@ export * from './permission';
 export * from './scanners';
 export * from './services';
 export * from './audit';
+export * from './config';
 export * from './securityUtils';

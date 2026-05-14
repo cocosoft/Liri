@@ -31,7 +31,8 @@ export interface SessionInfo {
 export class SessionsSpawnTool extends BaseTool {
   name = 'sessions_spawn';
 
-  description = 'Spawn a new child session. Sessions can be agents, tasks, shell processes, or monitors.';
+  description =
+    'Spawn a new child session. Sessions can be agents, tasks, shell processes, or monitors.';
 
   params: ToolParam[] = [
     {
@@ -86,7 +87,8 @@ export class SessionsSpawnTool extends BaseTool {
       const config = input as SessionSpawnConfig;
 
       const sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const name = config.name ?? `${config.type ?? 'agent'}_${sessionId.slice(-8)}`;
+      const name =
+        config.name ?? `${config.type ?? 'agent'}_${sessionId.slice(-8)}`;
       const type = config.type ?? 'agent';
 
       const session: SessionInfo = {

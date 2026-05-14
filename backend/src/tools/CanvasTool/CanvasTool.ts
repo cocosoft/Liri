@@ -49,7 +49,8 @@ export interface CanvasResult {
 export class CanvasTool extends BaseTool {
   name = 'canvas';
 
-  description = 'Create and manipulate visual canvases. Supports drawing shapes, text, images, and exporting to multiple formats.';
+  description =
+    'Create and manipulate visual canvases. Supports drawing shapes, text, images, and exporting to multiple formats.';
 
   params: ToolParam[] = [
     {

@@ -14,21 +14,60 @@ const SENSITIVE_PATTERNS: Array<{
   pattern: RegExp;
   severity: AuditSeverity;
 }> = [
-  { name: 'API Key', pattern: /(?:api[_-]?key|apikey|secret[_-]?key)\s*[:=]\s*['"][^'"]+['"]/i, severity: 'HIGH' },
-  { name: 'Password', pattern: /(?:password|passwd|pwd)\s*[:=]\s*['"][^'"]+['"]/i, severity: 'HIGH' },
-  { name: 'Token', pattern: /(?:token|jwt|bearer)\s*[:=]\s*['"][^'"]{20,}['"]/i, severity: 'HIGH' },
-  { name: 'Private Key', pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PRIVATE )?PRIVATE KEY-----/, severity: 'HIGH' },
-  { name: 'Database URL', pattern: /(?:mongodb|postgres|mysql|redis):\/\/[^:]+:[^@]+@/, severity: 'MEDIUM' },
-  { name: 'Connection String', pattern: /(?:connection[_-]?string|connstr)\s*[:=]\s*['"]\w+:\/\/[^'"]+['"]/i, severity: 'MEDIUM' },
-  { name: 'IP Address', pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/, severity: 'LOW' },
-  { name: 'Email', pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/, severity: 'LOW' },
-  { name: 'Phone Number', pattern: /\b(?:\+\d{1,3}[-.]?)?\(?\d{3}\)?[-.]?\d{3}[-.]?\d{4}\b/, severity: 'LOW' },
+  {
+    name: 'API Key',
+    pattern: /(?:api[_-]?key|apikey|secret[_-]?key)\s*[:=]\s*['"][^'"]+['"]/i,
+    severity: 'HIGH',
+  },
+  {
+    name: 'Password',
+    pattern: /(?:password|passwd|pwd)\s*[:=]\s*['"][^'"]+['"]/i,
+    severity: 'HIGH',
+  },
+  {
+    name: 'Token',
+    pattern: /(?:token|jwt|bearer)\s*[:=]\s*['"][^'"]{20,}['"]/i,
+    severity: 'HIGH',
+  },
+  {
+    name: 'Private Key',
+    pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PRIVATE )?PRIVATE KEY-----/,
+    severity: 'HIGH',
+  },
+  {
+    name: 'Database URL',
+    pattern: /(?:mongodb|postgres|mysql|redis):\/\/[^:]+:[^@]+@/,
+    severity: 'MEDIUM',
+  },
+  {
+    name: 'Connection String',
+    pattern:
+      /(?:connection[_-]?string|connstr)\s*[:=]\s*['"]\w+:\/\/[^'"]+['"]/i,
+    severity: 'MEDIUM',
+  },
+  {
+    name: 'IP Address',
+    pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/,
+    severity: 'LOW',
+  },
+  {
+    name: 'Email',
+    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/,
+    severity: 'LOW',
+  },
+  {
+    name: 'Phone Number',
+    pattern: /\b(?:\+\d{1,3}[-.]?)?\(?\d{3}\)?[-.]?\d{3}[-.]?\d{4}\b/,
+    severity: 'LOW',
+  },
 ];
 
 /**
  * 审计上下文可见性
  */
-export function auditContextVisibility(messages: Array<{ role: string; content: string }> = []): SecurityAuditFinding[] {
+export function auditContextVisibility(
+  messages: Array<{ role: string; content: string }> = []
+): SecurityAuditFinding[] {
   const findings: SecurityAuditFinding[] = [];
 
   try {

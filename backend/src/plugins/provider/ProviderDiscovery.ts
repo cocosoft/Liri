@@ -2,12 +2,21 @@
  * ProviderDiscovery 提供者发现
  * 自动发现可用 AI 提供者，支持静态注册和动态扫描
  */
-import { providerCatalog, type ProviderMetadata, type ProviderType } from './ProviderCatalog.js';
+import {
+  providerCatalog,
+  type ProviderMetadata,
+  type ProviderType,
+} from './ProviderCatalog.js';
 
 /**
  * 发现策略
  */
-export type DiscoveryStrategy = 'static' | 'config' | 'environment' | 'network' | 'plugin';
+export type DiscoveryStrategy =
+  | 'static'
+  | 'config'
+  | 'environment'
+  | 'network'
+  | 'plugin';
 
 /**
  * 发现结果

@@ -3,9 +3,7 @@
  * 参考CC源码 cc_code/backend/state/AppStateStore.ts 实现
  */
 
-import {
-  create,
-} from 'zustand';
+import { create } from 'zustand';
 import type { Tool, ToolPermissionContext } from '@modules/types/tool.js';
 import type { Command } from '@modules/types/command.js';
 import type {

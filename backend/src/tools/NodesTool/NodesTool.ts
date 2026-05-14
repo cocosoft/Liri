@@ -33,7 +33,8 @@ export interface NodesToolParams {
 export class NodesTool extends BaseTool {
   name = 'nodes';
 
-  description = 'Manage distributed nodes and worker processes. Supports listing, status check, adding, removing, and pinging nodes.';
+  description =
+    'Manage distributed nodes and worker processes. Supports listing, status check, adding, removing, and pinging nodes.';
 
   params: ToolParam[] = [
     {
@@ -86,7 +87,10 @@ export class NodesTool extends BaseTool {
       const params = input as unknown as NodesToolParams;
 
       if (!params.action || typeof params.action !== 'string') {
-        return { success: false, error: 'action is required and must be a string' };
+        return {
+          success: false,
+          error: 'action is required and must be a string',
+        };
       }
 
       const validActions = ['list', 'status', 'add', 'remove', 'ping'];
@@ -108,11 +112,18 @@ export class NodesTool extends BaseTool {
 
         case 'status': {
           if (!params.nodeId) {
-            return { success: false, error: 'nodeId is required for status action' };
+            return {
+              success: false,
+              error: 'nodeId is required for status action',
+            };
           }
           return {
             success: true,
-            data: { action: 'status', nodeId: params.nodeId, status: 'unknown' },
+            data: {
+              action: 'status',
+              nodeId: params.nodeId,
+              status: 'unknown',
+            },
             output: `Node "${params.nodeId}" status: unknown (not found or not connected).`,
           };
         }
@@ -128,7 +139,12 @@ export class NodesTool extends BaseTool {
             success: true,
             data: {
               action: 'add',
-              node: { id: `${params.name}-${Date.now()}`, name: params.name, host: params.host, port: params.port },
+              node: {
+                id: `${params.name}-${Date.now()}`,
+                name: params.name,
+                host: params.host,
+                port: params.port,
+              },
             },
             output: `Node "${params.name}" registered at ${params.host}:${params.port}.`,
           };
@@ -136,7 +152,10 @@ export class NodesTool extends BaseTool {
 
         case 'remove': {
           if (!params.nodeId) {
-            return { success: false, error: 'nodeId is required for remove action' };
+            return {
+              success: false,
+              error: 'nodeId is required for remove action',
+            };
           }
           return {
             success: true,
@@ -147,7 +166,10 @@ export class NodesTool extends BaseTool {
 
         case 'ping': {
           if (!params.nodeId) {
-            return { success: false, error: 'nodeId is required for ping action' };
+            return {
+              success: false,
+              error: 'nodeId is required for ping action',
+            };
           }
           return {
             success: true,
@@ -157,7 +179,10 @@ export class NodesTool extends BaseTool {
         }
 
         default:
-          return { success: false, error: `Unhandled action: ${params.action}` };
+          return {
+            success: false,
+            error: `Unhandled action: ${params.action}`,
+          };
       }
     } catch (error) {
       return {

@@ -2,7 +2,12 @@
  * AcpServer ACP 协议服务端
  * 对标 OpenClaw 的 Agent 通信协议
  */
-import type { AcpMessage, AcpSession, AcpServerConfig, AcpHandler } from './index.js';
+import type {
+  AcpMessage,
+  AcpSession,
+  AcpServerConfig,
+  AcpHandler,
+} from './index.js';
 import { EventEmitter } from 'node:events';
 
 /**
@@ -61,7 +66,10 @@ export class AcpServer extends EventEmitter {
   /**
    * 建立连接
    */
-  connectSession(clientId: string, metadata?: Record<string, unknown>): AcpSession {
+  connectSession(
+    clientId: string,
+    metadata?: Record<string, unknown>
+  ): AcpSession {
     if (this.sessions.size >= this.config.maxSessions!) {
       throw new Error(`达到最大会话数: ${this.config.maxSessions!}`);
     }
@@ -99,8 +107,9 @@ export class AcpServer extends EventEmitter {
    * 处理消息
    */
   async handleMessage(message: AcpMessage): Promise<AcpMessage> {
-    const session = Array.from(this.sessions.values())
-      .find((s) => s.clientId === message.source || s.id === message.source);
+    const session = Array.from(this.sessions.values()).find(
+      (s) => s.clientId === message.source || s.id === message.source
+    );
 
     if (!session) {
       return {

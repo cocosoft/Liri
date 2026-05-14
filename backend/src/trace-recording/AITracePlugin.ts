@@ -14,7 +14,13 @@ import { TraceEngine } from './engine/TraceEngine';
 import { LiveViewServer } from './live/LiveViewServer';
 import { ViewerService } from './viewer/ViewerService';
 import { ExportService } from './export/ExportService';
-import type { TraceRecord, TraceConfig, PluginStatus, ExportFormat, MonitoringDeps } from './types';
+import type {
+  TraceRecord,
+  TraceConfig,
+  PluginStatus,
+  ExportFormat,
+  MonitoringDeps,
+} from './types';
 
 /** 默认配置 */
 const DEFAULT_CONFIG: TraceConfig = {
@@ -143,8 +149,16 @@ export class AITracePlugin {
       { metric: 'llm.calls.total', value: 1, labels },
       { metric: 'llm.calls.rate', value: 1, labels },
       { metric: 'llm.latency.ms', value: record.durationMs, labels },
-      { metric: 'llm.tokens.input', value: this.extractInputTokens(record), labels },
-      { metric: 'llm.tokens.output', value: this.extractOutputTokens(record), labels },
+      {
+        metric: 'llm.tokens.input',
+        value: this.extractInputTokens(record),
+        labels,
+      },
+      {
+        metric: 'llm.tokens.output',
+        value: this.extractOutputTokens(record),
+        labels,
+      },
       { metric: 'llm.errors.count', value: isError ? 1 : 0, labels },
     ]);
   }
@@ -206,7 +220,10 @@ export class AITracePlugin {
    * @param format 导出格式
    * @returns 导出内容
    */
-  exportRecords(records?: TraceRecord[], format: ExportFormat = 'markdown'): string {
+  exportRecords(
+    records?: TraceRecord[],
+    format: ExportFormat = 'markdown'
+  ): string {
     const data = records || (this.engine ? this.engine.getAllRecords() : []);
     return this.exportService.export(data, format);
   }
@@ -231,7 +248,9 @@ export class AITracePlugin {
       mode: this.config.mode,
       recordedCount: this.recordedCount,
       traceDir: this.config.traceDir,
-      liveViewUrl: this.liveServer?.running ? this.liveServer.getUrl() : undefined,
+      liveViewUrl: this.liveServer?.running
+        ? this.liveServer.getUrl()
+        : undefined,
     };
   }
 
@@ -269,9 +288,13 @@ export class AITracePlugin {
   private extractInputTokens(record: TraceRecord): number {
     const body = record.response.body;
     if (body && typeof body === 'object') {
-      const usage = (body as Record<string, unknown>).usage as Record<string, unknown> | undefined;
+      const usage = (body as Record<string, unknown>).usage as
+        | Record<string, unknown>
+        | undefined;
       if (usage) {
-        return (usage.input_tokens as number) || (usage.prompt_tokens as number) || 0;
+        return (
+          (usage.input_tokens as number) || (usage.prompt_tokens as number) || 0
+        );
       }
     }
     return 0;
@@ -283,9 +306,15 @@ export class AITracePlugin {
   private extractOutputTokens(record: TraceRecord): number {
     const body = record.response.body;
     if (body && typeof body === 'object') {
-      const usage = (body as Record<string, unknown>).usage as Record<string, unknown> | undefined;
+      const usage = (body as Record<string, unknown>).usage as
+        | Record<string, unknown>
+        | undefined;
       if (usage) {
-        return (usage.output_tokens as number) || (usage.completion_tokens as number) || 0;
+        return (
+          (usage.output_tokens as number) ||
+          (usage.completion_tokens as number) ||
+          0
+        );
       }
     }
     return 0;

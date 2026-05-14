@@ -31,7 +31,8 @@ export interface SessionStatusQuery {
 export class SessionStatusTool extends BaseTool {
   name = 'session_status';
 
-  description = 'Query the status of one or more sessions. Returns session state, active time, message count, and optional resource usage.';
+  description =
+    'Query the status of one or more sessions. Returns session state, active time, message count, and optional resource usage.';
 
   params: ToolParam[] = [
     {

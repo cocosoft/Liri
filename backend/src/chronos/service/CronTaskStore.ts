@@ -9,7 +9,12 @@ import os from 'node:os';
 /**
  * 任务状态
  */
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type TaskStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 
 /**
  * 存储任务
@@ -39,7 +44,8 @@ export class CronTaskStore {
   private tasks: Map<string, StoredTask> = new Map();
 
   constructor(storePath?: string) {
-    this.storePath = storePath || path.join(os.homedir(), '.py_app', 'chronos', 'tasks.json');
+    this.storePath =
+      storePath || path.join(os.homedir(), '.py_app', 'chronos', 'tasks.json');
     this.load();
   }
 
@@ -88,8 +94,9 @@ export class CronTaskStore {
    * 获取所有任务
    */
   getAll(): StoredTask[] {
-    return Array.from(this.tasks.values())
-      .sort((a, b) => b.createdAt - a.createdAt);
+    return Array.from(this.tasks.values()).sort(
+      (a, b) => b.createdAt - a.createdAt
+    );
   }
 
   /**
@@ -110,7 +117,12 @@ export class CronTaskStore {
   /**
    * 获取统计
    */
-  getStats(): { total: number; enabled: number; running: number; failed: number } {
+  getStats(): {
+    total: number;
+    enabled: number;
+    running: number;
+    failed: number;
+  } {
     const all = this.getAll();
 
     return {
@@ -147,8 +159,7 @@ export class CronTaskStore {
       fs.mkdirSync(path.dirname(this.storePath), { recursive: true });
       const tasks = this.getAll();
       fs.writeFileSync(this.storePath, JSON.stringify(tasks, null, 2), 'utf-8');
-    } catch {
-    }
+    } catch {}
   }
 }
 

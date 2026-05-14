@@ -60,15 +60,16 @@ export class ConfigIO {
    * 读取配置
    */
   readAll(options?: ConfigReadOptions): IOResult {
-    const merged: Record<string, unknown> = options?.defaults ? { ...options.defaults } : {};
+    const merged: Record<string, unknown> = options?.defaults
+      ? { ...options.defaults }
+      : {};
 
     for (const source of this.sources.sort((a, b) => b.priority - a.priority)) {
       if (source.exists) {
         try {
           const data = this.readFile(source.path, source.format);
           Object.assign(merged, data);
-        } catch {
-        }
+        } catch {}
       }
     }
 
@@ -78,7 +79,10 @@ export class ConfigIO {
   /**
    * 写入配置
    */
-  write(config: Record<string, unknown>, scope: ConfigScope = 'local'): IOResult {
+  write(
+    config: Record<string, unknown>,
+    scope: ConfigScope = 'local'
+  ): IOResult {
     const source = this.sources.find((s) => s.scope === scope);
 
     if (!source) {
@@ -133,7 +137,11 @@ export class ConfigIO {
     this.sources = [
       {
         scope: 'global',
-        path: path.join(process.env.HOME || process.env.USERPROFILE || process.cwd(), '.pyapp', 'config.json'),
+        path: path.join(
+          process.env.HOME || process.env.USERPROFILE || process.cwd(),
+          '.pyapp',
+          'config.json'
+        ),
         priority: 10,
         format: 'json',
         exists: false,
@@ -162,7 +170,10 @@ export class ConfigIO {
   /**
    * 读取文件
    */
-  private readFile(filePath: string, format: ConfigFormat): Record<string, unknown> {
+  private readFile(
+    filePath: string,
+    format: ConfigFormat
+  ): Record<string, unknown> {
     const content = fs.readFileSync(filePath, 'utf-8');
 
     switch (format) {
@@ -176,7 +187,11 @@ export class ConfigIO {
   /**
    * 写入文件
    */
-  private writeFile(filePath: string, format: ConfigFormat, data: Record<string, unknown>): void {
+  private writeFile(
+    filePath: string,
+    format: ConfigFormat,
+    data: Record<string, unknown>
+  ): void {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
     const content = JSON.stringify(data, null, 2);

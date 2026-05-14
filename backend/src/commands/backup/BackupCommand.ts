@@ -4,10 +4,21 @@
  * 对齐 OpenClaw commands/backup.ts
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  copyFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, basename } from 'node:path';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -31,7 +42,10 @@ const backup: Command = {
 
   async load() {
     return {
-      async execute(args: string, context?: CommandContext): Promise<CommandResult> {
+      async execute(
+        args: string,
+        context?: CommandContext
+      ): Promise<CommandResult> {
         try {
           const outputDir = args.trim() || join(process.cwd(), 'backups');
           const result = await createBackup(outputDir);
@@ -54,7 +68,9 @@ const backup: Command = {
   },
 };
 
-async function createBackup(outputDir: string): Promise<{ path: string; manifest: BackupManifest }> {
+async function createBackup(
+  outputDir: string
+): Promise<{ path: string; manifest: BackupManifest }> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const backupName = `pyapp-backup-${timestamp}`;
   const backupDir = join(outputDir, backupName);
@@ -110,13 +126,19 @@ async function createBackup(outputDir: string): Promise<{ path: string; manifest
   }
 
   // 写入 manifest
-  writeFileSync(join(backupDir, 'backup-manifest.json'), JSON.stringify(manifest, null, 2));
+  writeFileSync(
+    join(backupDir, 'backup-manifest.json'),
+    JSON.stringify(manifest, null, 2)
+  );
 
   // 压缩
   try {
-    execSync(`tar -czf "${join(outputDir, backupName)}.tar.gz" -C "${outputDir}" "${backupName}"`, {
-      stdio: 'pipe',
-    });
+    execSync(
+      `tar -czf "${join(outputDir, backupName)}.tar.gz" -C "${outputDir}" "${backupName}"`,
+      {
+        stdio: 'pipe',
+      }
+    );
     // 清理临时目录
     execSync(`rmdir /s /q "${backupDir}"`, { stdio: 'pipe', shell: 'cmd.exe' });
   } catch {
@@ -129,7 +151,12 @@ async function createBackup(outputDir: string): Promise<{ path: string; manifest
   };
 }
 
-function copyDirectory(src: string, dest: string, manifest: BackupManifest, prefix: string): void {
+function copyDirectory(
+  src: string,
+  dest: string,
+  manifest: BackupManifest,
+  prefix: string
+): void {
   const entries = readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
     const srcPath = join(src, entry.name);

@@ -65,7 +65,10 @@ export interface HarnessRegistryEntry {
 export class HarnessRegistry {
   private entries = new Map<string, HarnessRegistryEntry>();
 
-  register(name: string, entry: Omit<HarnessRegistryEntry, 'createdAt' | 'hooks'>): void {
+  register(
+    name: string,
+    entry: Omit<HarnessRegistryEntry, 'createdAt' | 'hooks'>
+  ): void {
     this.entries.set(name, {
       ...entry,
       createdAt: Date.now(),
@@ -134,7 +137,7 @@ export class AgentHarness {
     const existing = this.hooks.get(hook) ?? [];
     this.hooks.set(
       hook,
-      existing.filter((f) => f !== fn),
+      existing.filter((f) => f !== fn)
     );
   }
 
@@ -229,7 +232,10 @@ export class AgentHarness {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
-  private async transitionTo(stage: LifecycleStage, ctx: HookContext): Promise<void> {
+  private async transitionTo(
+    stage: LifecycleStage,
+    ctx: HookContext
+  ): Promise<void> {
     this.stage = stage;
     ctx.stage = stage;
 
@@ -269,7 +275,7 @@ export class AgentHarness {
 
 export function createHarness(
   agentId: string,
-  registry?: HarnessRegistry,
+  registry?: HarnessRegistry
 ): { harness: AgentHarness; registry: HarnessRegistry } {
   const r = registry ?? new HarnessRegistry();
   const harness = new AgentHarness({ agentId }, r);

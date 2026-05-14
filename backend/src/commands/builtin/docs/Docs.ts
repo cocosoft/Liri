@@ -236,7 +236,15 @@ const DOC_SECTIONS: DocSection[] = [
       '',
       '使用 /hooks 查看所有已注册的钩子和通知事件。',
     ].join('\n'),
-    keywords: ['notification', 'notif', '通知', '提醒', 'alert', 'hook', '钩子'],
+    keywords: [
+      'notification',
+      'notif',
+      '通知',
+      '提醒',
+      'alert',
+      'hook',
+      '钩子',
+    ],
   },
 ];
 
@@ -244,19 +252,34 @@ const docsCommand = {
   /**
    * 执行 docs 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     try {
       const cleanArgs = args.trim().toLowerCase();
 
-      if (cleanArgs === 'help' || cleanArgs === '--help' || cleanArgs === '-h') {
+      if (
+        cleanArgs === 'help' ||
+        cleanArgs === '--help' ||
+        cleanArgs === '-h'
+      ) {
         return this.showHelp();
       }
 
-      if (cleanArgs === 'list' || cleanArgs === '--list' || cleanArgs === '-l') {
+      if (
+        cleanArgs === 'list' ||
+        cleanArgs === '--list' ||
+        cleanArgs === '-l'
+      ) {
         return this.listSections();
       }
 
-      if (cleanArgs === '' || cleanArgs === 'overview' || cleanArgs === 'index') {
+      if (
+        cleanArgs === '' ||
+        cleanArgs === 'overview' ||
+        cleanArgs === 'index'
+      ) {
         return this.showOverview();
       }
 
@@ -361,11 +384,7 @@ const docsCommand = {
    * 显示指定章节
    */
   showSection(section: DocSection): CommandResult {
-    const lines = [
-      `📄 ${section.title}`,
-      '',
-      section.content,
-    ];
+    const lines = [`📄 ${section.title}`, '', section.content];
 
     return { success: true, type: 'text', message: lines.join('\n') };
   },

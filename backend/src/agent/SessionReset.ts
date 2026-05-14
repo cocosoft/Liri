@@ -10,7 +10,15 @@ import { join } from 'node:path';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-export type ResetReason = 'new' | 'reset' | 'idle' | 'daily' | 'compaction' | 'deleted' | 'manual' | 'unknown';
+export type ResetReason =
+  | 'new'
+  | 'reset'
+  | 'idle'
+  | 'daily'
+  | 'compaction'
+  | 'deleted'
+  | 'manual'
+  | 'unknown';
 
 export interface ResetParams {
   sessionId: string;
@@ -62,28 +70,54 @@ export class SessionReset {
     return { success: true, reason: 'new', message: '新会话已创建' };
   }
 
-  private async resetUser(sessionId: string, sessionFile?: string): Promise<ResetResult> {
+  private async resetUser(
+    sessionId: string,
+    sessionFile?: string
+  ): Promise<ResetResult> {
     if (sessionFile && existsSync(sessionFile)) {
       const backup = `${sessionFile}.${Date.now()}.bak`;
       try {
         unlinkSync(sessionFile);
-        return { success: true, reason: 'reset', message: `会话已重置 (备份: ${backup})`, backedUp: true, backupPath: backup };
+        return {
+          success: true,
+          reason: 'reset',
+          message: `会话已重置 (备份: ${backup})`,
+          backedUp: true,
+          backupPath: backup,
+        };
       } catch (error) {
-        return { success: false, reason: 'reset', message: `重置失败: ${String(error)}` };
+        return {
+          success: false,
+          reason: 'reset',
+          message: `重置失败: ${String(error)}`,
+        };
       }
     }
     return { success: true, reason: 'reset', message: '会话已重置' };
   }
 
-  private async resetCompaction(sessionId: string, sessionFile?: string): Promise<ResetResult> {
+  private async resetCompaction(
+    sessionId: string,
+    sessionFile?: string
+  ): Promise<ResetResult> {
     logger.info(`压缩会话: ${sessionId}`);
     if (sessionFile && existsSync(sessionFile)) {
       const backup = `${sessionFile}.compact-${Date.now()}.bak`;
       try {
         renameSync(sessionFile, backup);
-        return { success: true, reason: 'compaction', message: `会话已压缩 (备份: ${backup})`, backedUp: true, backupPath: backup };
+        return {
+          success: true,
+          reason: 'compaction',
+          message: `会话已压缩 (备份: ${backup})`,
+          backedUp: true,
+          backupPath: backup,
+        };
       } catch (error) {
-        return { success: false, reason: 'compaction', message: `压缩失败: ${String(error)}` };
+        return {
+          success: false,
+          reason: 'compaction',
+          message: `压缩失败: ${String(error)}`,
+        };
       }
     }
     return { success: true, reason: 'compaction', message: '会话已压缩' };
@@ -104,7 +138,10 @@ export class SessionReset {
     return { success: true, reason: 'deleted', message: '会话已删除' };
   }
 
-  private async resetManual(sessionId: string, preserveConfig?: boolean): Promise<ResetResult> {
+  private async resetManual(
+    sessionId: string,
+    preserveConfig?: boolean
+  ): Promise<ResetResult> {
     const msg = preserveConfig ? '会话已手动重置 (保留配置)' : '会话已手动重置';
     return { success: true, reason: 'manual', message: msg };
   }

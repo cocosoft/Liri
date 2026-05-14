@@ -93,6 +93,10 @@ export class CostCacheManager implements ICache<string, number> {
     };
   }
 
+  getCacheStats(): CacheStats {
+    return this.getStats();
+  }
+
   getCachedCost(key: CostCacheKey): number | null {
     const cacheKey = this.generateCacheKey(key);
     return this.get(cacheKey);

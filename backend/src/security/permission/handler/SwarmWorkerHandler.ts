@@ -5,7 +5,10 @@
  */
 
 import { logger } from '../../../utils/log.js';
-import type { PermissionContext, PermissionDecision } from '../PermissionContext.js';
+import type {
+  PermissionContext,
+  PermissionDecision,
+} from '../PermissionContext.js';
 import { globalAuditLogger } from '../logging/PermissionAuditLogger.js';
 
 export interface SwarmWorkerIdentity {
@@ -38,7 +41,7 @@ export class SwarmWorkerHandler {
     this.delegatedPermissions.set(identity.workerId, new Set());
 
     logger.info(
-      `[SwarmWorkerHandler] Worker registered: ${identity.workerId} (type: ${identity.workerType}, trust: ${identity.trustLevel})`,
+      `[SwarmWorkerHandler] Worker registered: ${identity.workerId} (type: ${identity.workerType}, trust: ${identity.trustLevel})`
     );
   }
 
@@ -51,7 +54,7 @@ export class SwarmWorkerHandler {
   delegatePermission(
     workerId: string,
     action: string,
-    context: PermissionContext,
+    context: PermissionContext
   ): PermissionDecision {
     const worker = this.workers.get(workerId);
     if (!worker) {
@@ -90,9 +93,10 @@ export class SwarmWorkerHandler {
       }
     }
 
-    const isActionAllowed = worker.allowedActions.length === 0
-      || worker.allowedActions.includes(action)
-      || worker.allowedActions.some((a) => action.startsWith(a));
+    const isActionAllowed =
+      worker.allowedActions.length === 0 ||
+      worker.allowedActions.includes(action) ||
+      worker.allowedActions.some((a) => action.startsWith(a));
 
     if (!isActionAllowed) {
       return {
@@ -138,7 +142,9 @@ export class SwarmWorkerHandler {
       logger.debug(`[SwarmWorkerHandler] Revoked: ${workerId} -> ${action}`);
     } else {
       permissions.clear();
-      logger.debug(`[SwarmWorkerHandler] All permissions revoked for: ${workerId}`);
+      logger.debug(
+        `[SwarmWorkerHandler] All permissions revoked for: ${workerId}`
+      );
     }
   }
 
@@ -156,7 +162,7 @@ export class SwarmWorkerHandler {
 
   createSandboxContext(
     parentContext: PermissionContext,
-    workerId: string,
+    workerId: string
   ): SwarmPermissionContext {
     const worker = this.workers.get(workerId);
 
@@ -168,7 +174,8 @@ export class SwarmWorkerHandler {
         allowedActions: [],
       },
       inheritedRoles: parentContext.user.roles,
-      isolationLevel: worker?.trustLevel === 'isolated' ? 'full_isolation' : 'sandbox',
+      isolationLevel:
+        worker?.trustLevel === 'isolated' ? 'full_isolation' : 'sandbox',
     };
   }
 

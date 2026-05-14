@@ -7,10 +7,8 @@ import { ErrorCodes } from '@modules/error/ErrorCodes';
 let _depError: Error | null = null;
 let _pdfjsLib: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   _pdfjsLib = require('pdfjs-dist/legacy/build/pdf');
 } catch (e) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   try {
     _pdfjsLib = require('pdfjs-dist');
   } catch (e2) {

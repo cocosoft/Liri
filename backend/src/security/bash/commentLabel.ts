@@ -72,20 +72,12 @@ const LABEL_PATTERNS: CommentLabelPattern[] = [
   },
   {
     type: 'warning',
-    patterns: [
-      /#\s*<<\s*warning\s*>>/i,
-      /#\s*\[warning\]/i,
-      /#\s*WARNING:/i,
-    ],
+    patterns: [/#\s*<<\s*warning\s*>>/i, /#\s*\[warning\]/i, /#\s*WARNING:/i],
     priority: 6,
   },
   {
     type: 'info',
-    patterns: [
-      /#\s*<<\s*info\s*>>/i,
-      /#\s*\[info\]/i,
-      /#\s*INFO:/i,
-    ],
+    patterns: [/#\s*<<\s*info\s*>>/i, /#\s*\[info\]/i, /#\s*INFO:/i],
     priority: 5,
   },
   {
@@ -126,17 +118,14 @@ const LABEL_PATTERNS: CommentLabelPattern[] = [
   },
   {
     type: 'custom',
-    patterns: [
-      /#\s*<<\s*(\w+)\s*:\s*(.+?)\s*>>/i,
-      /#\s*\[(\w+):\s*(.+?)\]/i,
-    ],
+    patterns: [/#\s*<<\s*(\w+)\s*:\s*(.+?)\s*>>/i, /#\s*\[(\w+):\s*(.+?)\]/i],
     priority: 1,
   },
 ];
 
 export function extractCommentLabels(
   command: string,
-  options?: { includeCustom?: boolean },
+  options?: { includeCustom?: boolean }
 ): CommentLabel[] {
   const labels: CommentLabel[] = [];
   const lines = command.split('\n');
@@ -161,7 +150,7 @@ export function extractCommentLabels(
           const confidence = patternDef.priority / 10;
 
           const existing = labels.find(
-            (l) => l.type === patternDef.type && l.value === value,
+            (l) => l.type === patternDef.type && l.value === value
           );
           if (existing && existing.confidence >= confidence) {
             continue;
@@ -185,7 +174,7 @@ export function extractCommentLabels(
 
 export function hasCommentLabel(
   command: string,
-  type: CommentLabelType,
+  type: CommentLabelType
 ): boolean {
   const labels = extractCommentLabels(command);
   return labels.some((l) => l.type === type);
@@ -193,7 +182,7 @@ export function hasCommentLabel(
 
 export function getLabelValue(
   command: string,
-  type: CommentLabelType,
+  type: CommentLabelType
 ): string | undefined {
   const labels = extractCommentLabels(command);
   const match = labels.find((l) => l.type === type);
@@ -207,9 +196,7 @@ export function stripCommentLabels(command: string): string {
   }
 
   let result = command;
-  const sortedLabels = [...labels].sort(
-    (a, b) => b.lineNumber - a.lineNumber,
-  );
+  const sortedLabels = [...labels].sort((a, b) => b.lineNumber - a.lineNumber);
 
   for (const label of sortedLabels) {
     const lines = result.split('\n');
@@ -234,9 +221,11 @@ export function stripCommentLabels(command: string): string {
   return result;
 }
 
-export function classifyCommandByLabels(
-  command: string,
-): { category: string; confidence: number; labels: CommentLabel[] } {
+export function classifyCommandByLabels(command: string): {
+  category: string;
+  confidence: number;
+  labels: CommentLabel[];
+} {
   const labels = extractCommentLabels(command, { includeCustom: true });
 
   if (labels.length === 0) {
@@ -269,7 +258,7 @@ export function classifyCommandByLabels(
 export function addCommentLabel(
   command: string,
   type: CommentLabelType,
-  value?: string,
+  value?: string
 ): string {
   let labelStr: string;
 
@@ -320,7 +309,7 @@ export function getLabelPriority(type: CommentLabelType): number {
 
 export function isHighConfidenceLabel(
   label: CommentLabel,
-  threshold?: number,
+  threshold?: number
 ): boolean {
   return label.confidence >= (threshold ?? 0.7);
 }

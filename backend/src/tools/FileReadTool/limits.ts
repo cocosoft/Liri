@@ -137,7 +137,7 @@ export class ReadLimitManager {
     const normalized = encoding.toLowerCase().replace(/[^a-z0-9-]/g, '');
 
     const allowed = this.limits.allowedEncodings.some(
-      (e) => e.toLowerCase().replace(/[^a-z0-9-]/g, '') === normalized,
+      (e) => e.toLowerCase().replace(/[^a-z0-9-]/g, '') === normalized
     );
 
     if (!allowed) {
@@ -150,7 +150,11 @@ export class ReadLimitManager {
     return { allowed: true };
   }
 
-  checkAll(fileSize: number, lineCount: number, encoding: string): ReadLimitResult {
+  checkAll(
+    fileSize: number,
+    lineCount: number,
+    encoding: string
+  ): ReadLimitResult {
     const checks = [
       this.checkFileSize(fileSize),
       this.checkLineCount(lineCount),
@@ -178,13 +182,16 @@ export class ReadLimitManager {
 }
 
 function formatSize(bytes: number): string {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${bytes} B`;
 }
 
-export function createReadLimitManager(limits?: Partial<ReadLimits>): ReadLimitManager {
+export function createReadLimitManager(
+  limits?: Partial<ReadLimits>
+): ReadLimitManager {
   return new ReadLimitManager(limits);
 }
 

@@ -114,8 +114,14 @@ export class LiveViewServer {
   /**
    * 请求处理
    */
-  private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  private handleRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
     const path = url.pathname;
 
     // SSE 事件流端点
@@ -159,7 +165,7 @@ export class LiveViewServer {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     });
 

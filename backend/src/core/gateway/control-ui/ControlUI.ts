@@ -89,7 +89,10 @@ export class ControlUI extends EventEmitter {
 
     return new Promise((resolve) => {
       this.server!.listen(this.config.port, this.config.host, () => {
-        this.emit('ui:started', { host: this.config.host, port: this.config.port });
+        this.emit('ui:started', {
+          host: this.config.host,
+          port: this.config.port,
+        });
         resolve();
       });
     });
@@ -113,17 +116,26 @@ export class ControlUI extends EventEmitter {
   /**
    * 处理 HTTP 请求
    */
-  private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+  private handleRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
     this.metrics.totalRequests++;
 
-    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
     const path = url.pathname;
 
     if (this.config.authToken) {
       const authHeader = req.headers['authorization'] || '';
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
 
-      if (token !== this.config.authToken && url.searchParams.get('token') !== this.config.authToken) {
+      if (
+        token !== this.config.authToken &&
+        url.searchParams.get('token') !== this.config.authToken
+      ) {
         this.sendJson(res, 401, { error: '未授权' });
         return;
       }
@@ -162,7 +174,9 @@ export class ControlUI extends EventEmitter {
       }
     } catch (err) {
       this.metrics.totalErrors++;
-      this.sendJson(res, 500, { error: err instanceof Error ? err.message : '内部错误' });
+      this.sendJson(res, 500, {
+        error: err instanceof Error ? err.message : '内部错误',
+      });
     }
   }
 
@@ -171,8 +185,18 @@ export class ControlUI extends EventEmitter {
    */
   private serveDashboard(res: http.ServerResponse): void {
     const pages: DashboardPage[] = [
-      { id: 'overview', title: '概览', icon: '📊', description: '网关运行总览' },
-      { id: 'connections', title: '连接', icon: '🔗', description: '活跃连接管理' },
+      {
+        id: 'overview',
+        title: '概览',
+        icon: '📊',
+        description: '网关运行总览',
+      },
+      {
+        id: 'connections',
+        title: '连接',
+        icon: '🔗',
+        description: '活跃连接管理',
+      },
       { id: 'plugins', title: '插件', icon: '🧩', description: '插件管理' },
       { id: 'channels', title: '频道', icon: '📡', description: '频道状态' },
       { id: 'tools', title: '工具', icon: '🔧', description: 'MCP 工具管理' },
@@ -235,9 +259,16 @@ export class ControlUI extends EventEmitter {
       <div class="card"><div class="label">错误数</div><div class="value" id="errors">-</div></div>
     </div>
     <div class="pages" id="pages">
-      ${pages.slice(1).map((p) => `<div class="page-card" onclick="alert('${p.title} 页面开发中')">
+      ${pages
+        .slice(1)
+        .map(
+          (
+            p
+          ) => `<div class="page-card" onclick="alert('${p.title} 页面开发中')">
         <div class="icon">${p.icon}</div><h3>${p.title}</h3><p>${p.description}</p>
-      </div>`).join('')}
+      </div>`
+        )
+        .join('')}
     </div>
   </div>
   <div class="status-bar">
@@ -362,7 +393,11 @@ export class ControlUI extends EventEmitter {
   /**
    * 发送 JSON 响应
    */
-  private sendJson(res: http.ServerResponse, status: number, data: unknown): void {
+  private sendJson(
+    res: http.ServerResponse,
+    status: number,
+    data: unknown
+  ): void {
     res.writeHead(status, {
       'Content-Type': 'application/json; charset=utf-8',
       'Access-Control-Allow-Origin': '*',

@@ -1,4 +1,3 @@
-//
 /**
  * 动态上下文构建器（参考CC源码 context.ts）
  * 整合Git/项目文件/系统信息，构建动态系统提示词
@@ -17,6 +16,8 @@ import {
   buildSystemContext,
   type SystemPromptParts,
 } from './PromptTemplates';
+import { getPromptInjectionDetector } from '../security/injection/PromptInjectionDetector';
+import { getUnicodeSanitizer } from '../security/injection/UnicodeSanitizer';
 
 // 简单的 memoize 实现，避免 lodash-es 类型依赖
 function memoize<T extends (...args: any[]) => any>(
@@ -102,11 +103,28 @@ export class ContextBuilder {
         const projectFiles = readProjectFiles(cwd);
         const userPyAppMd = readUserPyAppMd();
 
+        const unicodeSanitizer = getUnicodeSanitizer();
+        const injectionDetector = getPromptInjectionDetector();
+
         let combinedPyAppMd = projectFiles?.pyAppMd || '';
         if (userPyAppMd) {
           combinedPyAppMd = combinedPyAppMd
             ? `${combinedPyAppMd}\n\n---\n\n${userPyAppMd}`
             : userPyAppMd;
+        }
+
+        if (combinedPyAppMd) {
+          combinedPyAppMd = unicodeSanitizer.sanitize(combinedPyAppMd).output;
+
+          const detectResult = injectionDetector.detect(combinedPyAppMd);
+          if (detectResult.severity === 'critical') {
+            combinedPyAppMd = '[⚠ 上下文文件包含可疑注入内容，已移除]';
+          }
+        }
+
+        let safeMemoryMd = projectFiles?.memoryMd;
+        if (safeMemoryMd) {
+          safeMemoryMd = unicodeSanitizer.sanitize(safeMemoryMd).output;
         }
 
         const userContext = buildUserContext({
@@ -118,7 +136,7 @@ export class ContextBuilder {
         const systemContext = buildSystemContext({
           gitStatus: gitInfo?.status,
           pyAppMd: combinedPyAppMd || undefined,
-          memoryMd: projectFiles?.memoryMd || undefined,
+          memoryMd: safeMemoryMd || undefined,
           readme: projectFiles?.readme || undefined,
           projectName: path.basename(cwd),
         });

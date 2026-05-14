@@ -8,7 +8,6 @@ import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
 let _depError: Error | null = null;
 let _XMLParser: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   _XMLParser = require('fast-xml-parser');
 } catch (e) {
   _depError = e as Error;

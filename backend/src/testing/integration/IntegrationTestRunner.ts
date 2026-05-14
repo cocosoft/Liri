@@ -71,7 +71,15 @@ export class IntegrationTestRunner {
   /**
    * 运行所有套件
    */
-  async runAll(): Promise<{ results: TestResult[]; summary: { total: number; passed: number; failed: number; duration: number } }> {
+  async runAll(): Promise<{
+    results: TestResult[];
+    summary: {
+      total: number;
+      passed: number;
+      failed: number;
+      duration: number;
+    };
+  }> {
     const allResults: TestResult[] = [];
     const startTime = Date.now();
 
@@ -128,8 +136,7 @@ export class IntegrationTestRunner {
 
     try {
       if (suite.afterAll) await suite.afterAll();
-    } catch {
-    }
+    } catch {}
 
     return results;
   }
@@ -144,14 +151,23 @@ export class IntegrationTestRunner {
       if (suite.beforeEach) await suite.beforeEach();
 
       const timer = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error(`超时: ${(test.timeout || this.config.timeout)}ms`)), test.timeout || this.config.timeout);
+        setTimeout(
+          () =>
+            reject(new Error(`超时: ${test.timeout || this.config.timeout}ms`)),
+          test.timeout || this.config.timeout
+        );
       });
 
       await Promise.race([test.fn(), timer]);
 
       if (suite.afterEach) await suite.afterEach();
 
-      return { suite: suite.name, test: test.name, passed: true, duration: Date.now() - startTime };
+      return {
+        suite: suite.name,
+        test: test.name,
+        passed: true,
+        duration: Date.now() - startTime,
+      };
     } catch (err) {
       return {
         suite: suite.name,

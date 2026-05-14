@@ -30,7 +30,8 @@ export interface GeneratedImage {
 export class ImageGenerateTool extends BaseTool {
   name = 'image_generate';
 
-  description = 'Generate images using AI. Supports multiple providers (OpenAI DALL-E, Stability AI) and output formats.';
+  description =
+    'Generate images using AI. Supports multiple providers (OpenAI DALL-E, Stability AI) and output formats.';
 
   params: ToolParam[] = [
     {
@@ -99,7 +100,10 @@ export class ImageGenerateTool extends BaseTool {
       const params = input as ImageGenerateParams;
 
       if (!params.prompt || typeof params.prompt !== 'string') {
-        return { success: false, error: 'prompt is required and must be a string' };
+        return {
+          success: false,
+          error: 'prompt is required and must be a string',
+        };
       }
 
       const count = params.n ?? 1;

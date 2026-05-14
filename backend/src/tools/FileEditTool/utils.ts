@@ -27,7 +27,10 @@ const DEFAULT_OPTIONS: Required<EditOptions> = {
   normalizeWhitespace: false,
 };
 
-export function readFileContent(filePath: string, encoding: BufferEncoding = 'utf-8'): string {
+export function readFileContent(
+  filePath: string,
+  encoding: BufferEncoding = 'utf-8'
+): string {
   if (!existsSync(filePath)) {
     throw new Error(`File not found: ${filePath}`);
   }
@@ -35,7 +38,11 @@ export function readFileContent(filePath: string, encoding: BufferEncoding = 'ut
   return readFileSync(filePath, { encoding });
 }
 
-export function writeFileContent(filePath: string, content: string, encoding: BufferEncoding = 'utf-8'): void {
+export function writeFileContent(
+  filePath: string,
+  content: string,
+  encoding: BufferEncoding = 'utf-8'
+): void {
   writeFileSync(filePath, content, { encoding });
 }
 
@@ -84,7 +91,7 @@ export function generateDiff(original: string, modified: string): string {
 
 export async function applyEdit(
   command: EditCommand,
-  options?: EditOptions,
+  options?: EditOptions
 ): Promise<EditResult> {
   const opts: Required<EditOptions> = { ...DEFAULT_OPTIONS, ...options };
   const validation = validateEditCommand(command);
@@ -136,7 +143,9 @@ export async function applyEdit(
     }
 
     const charChanges = Math.abs(newContent.length - originalContent.length);
-    const lineChanges = Math.abs(newContent.split('\n').length - originalContent.split('\n').length);
+    const lineChanges = Math.abs(
+      newContent.split('\n').length - originalContent.split('\n').length
+    );
     const diff = generateDiff(originalContent, newContent);
 
     if (!opts.dryRun) {
@@ -164,7 +173,7 @@ export async function applyEdit(
 }
 
 export async function applyBatchEdits(
-  batch: BatchEditCommand,
+  batch: BatchEditCommand
 ): Promise<BatchEditResult> {
   const startTime = Date.now();
   const results: EditResult[] = [];
@@ -205,8 +214,14 @@ export async function applyBatchEdits(
           return {
             success: false,
             results: [...results, result],
-            totalLineChanges: results.reduce((s, r) => s + (r.lineChanges ?? 0), 0),
-            totalCharChanges: results.reduce((s, r) => s + (r.charChanges ?? 0), 0),
+            totalLineChanges: results.reduce(
+              (s, r) => s + (r.lineChanges ?? 0),
+              0
+            ),
+            totalCharChanges: results.reduce(
+              (s, r) => s + (r.charChanges ?? 0),
+              0
+            ),
             errorCount: errorCount,
             successCount,
             duration,
@@ -218,8 +233,14 @@ export async function applyBatchEdits(
           return {
             success: false,
             results: [...results, result],
-            totalLineChanges: results.reduce((s, r) => s + (r.lineChanges ?? 0), 0),
-            totalCharChanges: results.reduce((s, r) => s + (r.charChanges ?? 0), 0),
+            totalLineChanges: results.reduce(
+              (s, r) => s + (r.lineChanges ?? 0),
+              0
+            ),
+            totalCharChanges: results.reduce(
+              (s, r) => s + (r.charChanges ?? 0),
+              0
+            ),
             errorCount,
             successCount,
             duration,
@@ -259,7 +280,9 @@ function applyInsert(content: string, command: EditCommand): string {
   const insertLine = command.insertAtLine ?? 1;
 
   if (insertLine < 1 || insertLine > lines.length + 1) {
-    throw new Error(`Insert position ${insertLine} out of range (1-${lines.length + 1})`);
+    throw new Error(
+      `Insert position ${insertLine} out of range (1-${lines.length + 1})`
+    );
   }
 
   lines.splice(insertLine - 1, 0, command.content ?? '');
@@ -275,7 +298,9 @@ function applyDelete(content: string, command: EditCommand): string {
   }
 
   if (range.startLine < 1 || range.endLine > lines.length) {
-    throw new Error(`Delete range ${range.startLine}-${range.endLine} out of range (1-${lines.length})`);
+    throw new Error(
+      `Delete range ${range.startLine}-${range.endLine} out of range (1-${lines.length})`
+    );
   }
 
   lines.splice(range.startLine - 1, range.endLine - range.startLine + 1);
@@ -294,12 +319,20 @@ function applyReplace(content: string, command: EditCommand): string {
     const range = command.range;
 
     if (range.startLine < 1 || range.endLine > lines.length) {
-      throw new Error(`Replace range ${range.startLine}-${range.endLine} out of range (1-${lines.length})`);
+      throw new Error(
+        `Replace range ${range.startLine}-${range.endLine} out of range (1-${lines.length})`
+      );
     }
 
-    lines.splice(range.startLine - 1, range.endLine - range.startLine + 1, command.content ?? '');
+    lines.splice(
+      range.startLine - 1,
+      range.endLine - range.startLine + 1,
+      command.content ?? ''
+    );
     return lines.join('\n');
   }
 
-  throw new Error('Either searchText or range is required for replace operation');
+  throw new Error(
+    'Either searchText or range is required for replace operation'
+  );
 }

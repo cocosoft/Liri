@@ -1,7 +1,4 @@
-import {
-  AclMessage,
-  AclAgentInfo,
-} from './types.js';
+import { AclMessage, AclAgentInfo } from './types.js';
 
 export type TranslateFormat = 'json' | 'compact' | 'minimal';
 
@@ -10,7 +7,10 @@ export interface TranslateResult {
   content: string;
 }
 
-export type TranslateHandler = (message: AclMessage, targetFormat: TranslateFormat) => TranslateResult;
+export type TranslateHandler = (
+  message: AclMessage,
+  targetFormat: TranslateFormat
+) => TranslateResult;
 
 export class AclTranslator {
   private customHandlers: Map<string, TranslateHandler> = new Map();
@@ -20,7 +20,10 @@ export class AclTranslator {
     this.systemName = systemName;
   }
 
-  translate(message: AclMessage, targetFormat: TranslateFormat = 'json'): TranslateResult {
+  translate(
+    message: AclMessage,
+    targetFormat: TranslateFormat = 'json'
+  ): TranslateResult {
     const handlerKey = `${targetFormat}`;
 
     if (this.customHandlers.has(handlerKey)) {
@@ -49,7 +52,12 @@ export class AclTranslator {
   }
 
   listFormats(): string[] {
-    return ['json', 'compact', 'minimal', ...Array.from(this.customHandlers.keys())];
+    return [
+      'json',
+      'compact',
+      'minimal',
+      ...Array.from(this.customHandlers.keys()),
+    ];
   }
 
   toJson(message: AclMessage): TranslateResult {
@@ -76,7 +84,8 @@ export class AclTranslator {
   }
 
   toMinimal(message: AclMessage): TranslateResult {
-    const summary = `[${this.systemName}] ${message.role}:${message.type}` +
+    const summary =
+      `[${this.systemName}] ${message.role}:${message.type}` +
       ` ${message.sender}${message.target ? ` -> ${message.target}` : ''}` +
       ` | ${JSON.stringify(message.payload).substring(0, 100)}`;
 
@@ -87,7 +96,9 @@ export class AclTranslator {
   }
 
   createAgentSummary(agent: AclAgentInfo): string {
-    const caps = agent.capabilities.map((c) => `${c.name} v${c.version}`).join(', ');
+    const caps = agent.capabilities
+      .map((c) => `${c.name} v${c.version}`)
+      .join(', ');
 
     return [
       `Agent: ${agent.name} (${agent.id})`,
@@ -98,14 +109,19 @@ export class AclTranslator {
   }
 
   createMessageDigest(messages: AclMessage[]): string {
-    return messages.map((m) => {
-      const preview = typeof m.payload === 'object'
-        ? JSON.stringify(m.payload).substring(0, 80)
-        : String(m.payload).substring(0, 80);
+    return messages
+      .map((m) => {
+        const preview =
+          typeof m.payload === 'object'
+            ? JSON.stringify(m.payload).substring(0, 80)
+            : String(m.payload).substring(0, 80);
 
-      return `[${new Date(m.timestamp).toISOString()}] ${m.role}:${m.type}` +
-        ` ${m.sender} -> ${m.target || '*'}\n  ${preview}`;
-    }).join('\n');
+        return (
+          `[${new Date(m.timestamp).toISOString()}] ${m.role}:${m.type}` +
+          ` ${m.sender} -> ${m.target || '*'}\n  ${preview}`
+        );
+      })
+      .join('\n');
   }
 
   extractPayload<T = unknown>(message: AclMessage): T | undefined {

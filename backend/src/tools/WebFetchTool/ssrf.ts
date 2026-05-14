@@ -34,35 +34,73 @@ export type SsrfBlockType =
   | 'unknown_protocol';
 
 const PRIVATE_IP_RANGES = [
-  { start: '10.0.0.0', end: '10.255.255.255', type: 'private_ip' as SsrfBlockType },
-  { start: '172.16.0.0', end: '172.31.255.255', type: 'private_ip' as SsrfBlockType },
-  { start: '192.168.0.0', end: '192.168.255.255', type: 'private_ip' as SsrfBlockType },
+  {
+    start: '10.0.0.0',
+    end: '10.255.255.255',
+    type: 'private_ip' as SsrfBlockType,
+  },
+  {
+    start: '172.16.0.0',
+    end: '172.31.255.255',
+    type: 'private_ip' as SsrfBlockType,
+  },
+  {
+    start: '192.168.0.0',
+    end: '192.168.255.255',
+    type: 'private_ip' as SsrfBlockType,
+  },
 ];
 
 const LOOPBACK_RANGES = [
-  { start: '127.0.0.0', end: '127.255.255.255', type: 'loopback_ip' as SsrfBlockType },
-  { start: '0.0.0.0', end: '0.255.255.255', type: 'loopback_ip' as SsrfBlockType },
+  {
+    start: '127.0.0.0',
+    end: '127.255.255.255',
+    type: 'loopback_ip' as SsrfBlockType,
+  },
+  {
+    start: '0.0.0.0',
+    end: '0.255.255.255',
+    type: 'loopback_ip' as SsrfBlockType,
+  },
 ];
 
 const LINK_LOCAL_RANGES = [
-  { start: '169.254.0.0', end: '169.254.255.255', type: 'link_local' as SsrfBlockType },
+  {
+    start: '169.254.0.0',
+    end: '169.254.255.255',
+    type: 'link_local' as SsrfBlockType,
+  },
 ];
 
 const METADATA_IPS = [
-  { ip: '169.254.169.254', type: 'metadata_ip' as SsrfBlockType, description: 'Cloud metadata service (AWS/GCP/Azure)' },
-  { ip: '100.100.100.200', type: 'metadata_ip' as SsrfBlockType, description: 'Aliyun metadata service' },
+  {
+    ip: '169.254.169.254',
+    type: 'metadata_ip' as SsrfBlockType,
+    description: 'Cloud metadata service (AWS/GCP/Azure)',
+  },
+  {
+    ip: '100.100.100.200',
+    type: 'metadata_ip' as SsrfBlockType,
+    description: 'Aliyun metadata service',
+  },
 ];
 
 const INTERNAL_HOSTNAMES = [
-  'localhost', 'localhost.localdomain', 'local', 'broadcasthost',
-  'ip6-localhost', 'ip6-loopback',
+  'localhost',
+  'localhost.localdomain',
+  'local',
+  'broadcasthost',
+  'ip6-localhost',
+  'ip6-loopback',
 ];
 
 const INTERNAL_TLDS = ['.internal', '.local', '.corp', '.intranet', '.private'];
 
 function ipToInt(ip: string): number {
   const parts = ip.split('.').map(Number);
-  return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+  return (
+    ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0
+  );
 }
 
 function isIpInRange(ip: string, start: string, end: string): boolean {
@@ -98,7 +136,13 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
 
   const normalized = normalizeUrl(url);
   if (!normalized) {
-    return { safe: false, blocked: true, reason: 'Invalid URL', riskLevel: 'medium', details };
+    return {
+      safe: false,
+      blocked: true,
+      reason: 'Invalid URL',
+      riskLevel: 'medium',
+      details,
+    };
   }
 
   if (!['http:', 'https:'].includes(normalized.protocol)) {
@@ -120,7 +164,11 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
 
   if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
     if (net.isIPv6(hostname)) {
-      details.push({ type: 'ip_variant', description: 'IPv6 address', value: hostname });
+      details.push({
+        type: 'ip_variant',
+        description: 'IPv6 address',
+        value: hostname,
+      });
       return {
         safe: false,
         blocked: true,
@@ -132,25 +180,41 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
 
     for (const range of LOOPBACK_RANGES) {
       if (isIpInRange(hostname, range.start, range.end)) {
-        details.push({ type: range.type, description: 'Loopback IP range', value: hostname });
+        details.push({
+          type: range.type,
+          description: 'Loopback IP range',
+          value: hostname,
+        });
       }
     }
 
     for (const range of PRIVATE_IP_RANGES) {
       if (isIpInRange(hostname, range.start, range.end)) {
-        details.push({ type: range.type, description: 'Private IP range', value: hostname });
+        details.push({
+          type: range.type,
+          description: 'Private IP range',
+          value: hostname,
+        });
       }
     }
 
     for (const range of LINK_LOCAL_RANGES) {
       if (isIpInRange(hostname, range.start, range.end)) {
-        details.push({ type: range.type, description: 'Link-local IP range', value: hostname });
+        details.push({
+          type: range.type,
+          description: 'Link-local IP range',
+          value: hostname,
+        });
       }
     }
 
     for (const meta of METADATA_IPS) {
       if (hostname === meta.ip) {
-        details.push({ type: meta.type, description: meta.description, value: hostname });
+        details.push({
+          type: meta.type,
+          description: meta.description,
+          value: hostname,
+        });
       }
     }
   } else {
@@ -184,7 +248,11 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
       const resolvedIps = await resolveHostname(hostname);
 
       for (const ip of resolvedIps) {
-        for (const range of [...LOOPBACK_RANGES, ...PRIVATE_IP_RANGES, ...LINK_LOCAL_RANGES]) {
+        for (const range of [
+          ...LOOPBACK_RANGES,
+          ...PRIVATE_IP_RANGES,
+          ...LINK_LOCAL_RANGES,
+        ]) {
           if (isIpInRange(ip, range.start, range.end)) {
             details.push({
               type: range.type,
@@ -210,7 +278,7 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
 
   if (details.length > 0) {
     const hasCritical = details.some(
-      (d) => d.type === 'metadata_ip' || d.type === 'ip_variant',
+      (d) => d.type === 'metadata_ip' || d.type === 'ip_variant'
     );
 
     return {

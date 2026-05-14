@@ -10,7 +10,15 @@ import os from 'node:os';
 /**
  * 凭据类型
  */
-export type CredentialType = 'api-key' | 'access-token' | 'refresh-token' | 'client-id' | 'client-secret' | 'password' | 'ssh-key' | 'certificate';
+export type CredentialType =
+  | 'api-key'
+  | 'access-token'
+  | 'refresh-token'
+  | 'client-id'
+  | 'client-secret'
+  | 'password'
+  | 'ssh-key'
+  | 'certificate';
 
 /**
  * 凭据作用域
@@ -74,7 +82,9 @@ export class CredentialManager {
   private auditLog: CredentialAuditEntry[] = [];
 
   constructor(storePath?: string) {
-    this.storePath = storePath || path.join(os.homedir(), '.py_app', 'credentials', 'store.enc');
+    this.storePath =
+      storePath ||
+      path.join(os.homedir(), '.py_app', 'credentials', 'store.enc');
     this.encryptionKey = this.loadOrCreateKey();
     this.loadStore();
   }
@@ -82,7 +92,9 @@ export class CredentialManager {
   /**
    * 保存凭据
    */
-  save(credential: Omit<Credential, 'id' | 'createdAt' | 'updatedAt'>): Credential {
+  save(
+    credential: Omit<Credential, 'id' | 'createdAt' | 'updatedAt'>
+  ): Credential {
     const now = Date.now();
     const newCredential: Credential = {
       ...credential,
@@ -93,7 +105,11 @@ export class CredentialManager {
 
     this.credentials.set(newCredential.id, newCredential);
     this.persistStore();
-    this.audit({ credentialId: newCredential.id, action: 'create', source: 'CredentialManager' });
+    this.audit({
+      credentialId: newCredential.id,
+      action: 'create',
+      source: 'CredentialManager',
+    });
 
     return newCredential;
   }
@@ -105,7 +121,11 @@ export class CredentialManager {
     const credential = this.credentials.get(id);
 
     if (credential) {
-      this.audit({ credentialId: id, action: 'read', source: 'CredentialManager' });
+      this.audit({
+        credentialId: id,
+        action: 'read',
+        source: 'CredentialManager',
+      });
     }
 
     return credential;
@@ -128,14 +148,21 @@ export class CredentialManager {
   /**
    * 更新凭据
    */
-  update(id: string, updates: Partial<Omit<Credential, 'id' | 'createdAt'>>): boolean {
+  update(
+    id: string,
+    updates: Partial<Omit<Credential, 'id' | 'createdAt'>>
+  ): boolean {
     const credential = this.credentials.get(id);
 
     if (!credential) return false;
 
     Object.assign(credential, updates, { updatedAt: Date.now() });
     this.persistStore();
-    this.audit({ credentialId: id, action: 'update', source: 'CredentialManager' });
+    this.audit({
+      credentialId: id,
+      action: 'update',
+      source: 'CredentialManager',
+    });
 
     return true;
   }
@@ -148,7 +175,11 @@ export class CredentialManager {
 
     if (result) {
       this.persistStore();
-      this.audit({ credentialId: id, action: 'delete', source: 'CredentialManager' });
+      this.audit({
+        credentialId: id,
+        action: 'delete',
+        source: 'CredentialManager',
+      });
     }
 
     return result;
@@ -157,7 +188,10 @@ export class CredentialManager {
   /**
    * 获取所有凭据
    */
-  getAll(filter?: { type?: CredentialType; scope?: CredentialScope }): Credential[] {
+  getAll(filter?: {
+    type?: CredentialType;
+    scope?: CredentialScope;
+  }): Credential[] {
     let all = Array.from(this.credentials.values());
 
     if (filter?.type) {
@@ -185,7 +219,11 @@ export class CredentialManager {
   /**
    * 获取统计
    */
-  getStats(): { total: number; byType: Record<string, number>; expired: number } {
+  getStats(): {
+    total: number;
+    byType: Record<string, number>;
+    expired: number;
+  } {
     const all = this.getAll();
     const byType: Record<string, number> = {};
 
@@ -196,7 +234,8 @@ export class CredentialManager {
     return {
       total: all.length,
       byType,
-      expired: all.filter((c) => c.expiresAt && Date.now() > c.expiresAt).length,
+      expired: all.filter((c) => c.expiresAt && Date.now() > c.expiresAt)
+        .length,
     };
   }
 
@@ -240,7 +279,11 @@ export class CredentialManager {
   /**
    * 加密值
    */
-  private encrypt(plaintext: string): { encrypted: string; iv: string; tag: string } {
+  private encrypt(plaintext: string): {
+    encrypted: string;
+    iv: string;
+    tag: string;
+  } {
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', this.encryptionKey, iv);
 
@@ -278,11 +321,15 @@ export class CredentialManager {
       const data = JSON.stringify(Array.from(this.credentials.values()));
       const { encrypted, iv, tag } = this.encrypt(data);
 
-      const store = JSON.stringify({ encrypted, iv, tag, updatedAt: Date.now() });
+      const store = JSON.stringify({
+        encrypted,
+        iv,
+        tag,
+        updatedAt: Date.now(),
+      });
       fs.mkdirSync(path.dirname(this.storePath), { recursive: true });
       fs.writeFileSync(this.storePath, store, 'utf-8');
-    } catch {
-    }
+    } catch {}
   }
 
   /**

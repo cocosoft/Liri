@@ -916,5 +916,230 @@
     "priority": 1,
     "createdAt": "2026-05-14T02:41:33.676Z",
     "updatedAt": "2026-05-14T02:41:33.676Z"
+  },
+  {
+    "id": "rule_1778758396631_mxh9kcq0a",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T11:33:16.631Z",
+    "updatedAt": "2026-05-14T11:33:16.631Z"
+  },
+  {
+    "id": "rule_1778758427164_wbw51qd91",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T11:33:47.164Z",
+    "updatedAt": "2026-05-14T11:33:47.164Z"
+  },
+  {
+    "id": "rule_1778758434803_ur4bv9lvs",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T11:33:54.803Z",
+    "updatedAt": "2026-05-14T11:33:54.803Z"
+  },
+  {
+    "id": "rule_1778760974624_p1tcddvow",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:16:14.624Z",
+    "updatedAt": "2026-05-14T12:16:14.624Z"
+  },
+  {
+    "id": "rule_1778760995134_bxoh8mfm5",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:16:35.134Z",
+    "updatedAt": "2026-05-14T12:16:35.134Z"
+  },
+  {
+    "id": "rule_1778761015378_8cuzias6i",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:16:55.378Z",
+    "updatedAt": "2026-05-14T12:16:55.378Z"
+  },
+  {
+    "id": "rule_1778761035729_y7bjaiavo",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:17:15.729Z",
+    "updatedAt": "2026-05-14T12:17:15.729Z"
+  },
+  {
+    "id": "rule_1778761057803_voy6spln1",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:17:37.803Z",
+    "updatedAt": "2026-05-14T12:17:37.803Z"
+  },
+  {
+    "id": "rule_1778761081321_rv53fsl6m",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:18:01.321Z",
+    "updatedAt": "2026-05-14T12:18:01.321Z"
+  },
+  {
+    "id": "rule_1778761101639_2nkvmbyx6",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:18:21.639Z",
+    "updatedAt": "2026-05-14T12:18:21.639Z"
+  },
+  {
+    "id": "rule_1778761110152_84ev5lk6f",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:18:30.152Z",
+    "updatedAt": "2026-05-14T12:18:30.152Z"
+  },
+  {
+    "id": "rule_1778761440220_mdlbvjpew",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:24:00.220Z",
+    "updatedAt": "2026-05-14T12:24:00.220Z"
+  },
+  {
+    "id": "rule_1778761480889_66ave26i8",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:24:40.889Z",
+    "updatedAt": "2026-05-14T12:24:40.889Z"
+  },
+  {
+    "id": "rule_1778761656942_t46ilhd2q",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:27:36.942Z",
+    "updatedAt": "2026-05-14T12:27:36.942Z"
+  },
+  {
+    "id": "rule_1778761678080_v2duh9p68",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:27:58.080Z",
+    "updatedAt": "2026-05-14T12:27:58.080Z"
+  },
+  {
+    "id": "rule_1778761701240_lr5xnrcxx",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:28:21.240Z",
+    "updatedAt": "2026-05-14T12:28:21.240Z"
+  },
+  {
+    "id": "rule_1778762103891_x0nxsbmja",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:35:03.891Z",
+    "updatedAt": "2026-05-14T12:35:03.891Z"
+  },
+  {
+    "id": "rule_1778762720315_1v84zef55",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:45:20.315Z",
+    "updatedAt": "2026-05-14T12:45:20.315Z"
+  },
+  {
+    "id": "rule_1778762743136_nichod5od",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:45:43.136Z",
+    "updatedAt": "2026-05-14T12:45:43.136Z"
+  },
+  {
+    "id": "rule_1778763126665_nx5lbsn96",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:52:06.665Z",
+    "updatedAt": "2026-05-14T12:52:06.665Z"
+  },
+  {
+    "id": "rule_1778763141191_eip9rxgdw",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:52:21.191Z",
+    "updatedAt": "2026-05-14T12:52:21.191Z"
+  },
+  {
+    "id": "rule_1778763175977_ep9xq78vh",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:52:55.977Z",
+    "updatedAt": "2026-05-14T12:52:55.977Z"
+  },
+  {
+    "id": "rule_1778763201133_kjwaq0gqk",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:53:21.133Z",
+    "updatedAt": "2026-05-14T12:53:21.133Z"
+  },
+  {
+    "id": "rule_1778763222501_fe3y0r2fa",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:53:42.501Z",
+    "updatedAt": "2026-05-14T12:53:42.501Z"
+  },
+  {
+    "id": "rule_1778763241070_kddxr0fcr",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T12:54:01.070Z",
+    "updatedAt": "2026-05-14T12:54:01.070Z"
   }
 ]

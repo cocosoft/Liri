@@ -107,8 +107,14 @@ export class StatsEngine {
     const usage = resp.usage as Record<string, unknown> | undefined;
     if (usage) {
       return {
-        inputTokens: (usage.input_tokens as number) || (usage.prompt_tokens as number) || 0,
-        outputTokens: (usage.output_tokens as number) || (usage.completion_tokens as number) || 0,
+        inputTokens:
+          (usage.input_tokens as number) ||
+          (usage.prompt_tokens as number) ||
+          0,
+        outputTokens:
+          (usage.output_tokens as number) ||
+          (usage.completion_tokens as number) ||
+          0,
         cacheReadTokens: (usage.cache_read_input_tokens as number) || 0,
         cacheCreateTokens: (usage.cache_creation_input_tokens as number) || 0,
       };
@@ -172,9 +178,10 @@ export class StatsEngine {
     for (const [model, stats] of this.modelStats) {
       callsByModel[model] = stats.callCount;
       errorsByModel[model] = stats.errorCount;
-      avgLatencyByModel[model] = stats.callCount > 0
-        ? Math.round(stats.totalDurationMs / stats.callCount)
-        : 0;
+      avgLatencyByModel[model] =
+        stats.callCount > 0
+          ? Math.round(stats.totalDurationMs / stats.callCount)
+          : 0;
     }
 
     for (const [, stats] of this.modelStats) {

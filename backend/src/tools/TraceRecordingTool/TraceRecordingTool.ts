@@ -41,7 +41,8 @@ export class TraceRecordingTool extends BaseTool {
   /**
    * 工具描述
    */
-  description = '查询 AI API 调用追踪记录和统计信息。可获取录制状态、统计数据、最近调用记录，以及导出追踪数据。';
+  description =
+    '查询 AI API 调用追踪记录和统计信息。可获取录制状态、统计数据、最近调用记录，以及导出追踪数据。';
 
   /**
    * 工具参数
@@ -154,7 +155,8 @@ export class TraceRecordingTool extends BaseTool {
       };
     }
 
-    const status = typeof plugin.getStatus === 'function' ? plugin.getStatus() : {};
+    const status =
+      typeof plugin.getStatus === 'function' ? plugin.getStatus() : {};
 
     return {
       success: true,
@@ -206,9 +208,10 @@ export class TraceRecordingTool extends BaseTool {
         active: true,
         totalCalls: stats.totalCalls,
         totalErrors: stats.totalErrors,
-        errorRate: stats.totalCalls > 0
-          ? Number(((stats.totalErrors / stats.totalCalls) * 100).toFixed(2))
-          : 0,
+        errorRate:
+          stats.totalCalls > 0
+            ? Number(((stats.totalErrors / stats.totalCalls) * 100).toFixed(2))
+            : 0,
         latencyMs: {
           p50: stats.latencyP50 || 0,
           p99: stats.latencyP99 || 0,
@@ -247,7 +250,9 @@ export class TraceRecordingTool extends BaseTool {
       }
 
       if (model) {
-        records = records.filter((r: any) => r.model?.toLowerCase().includes(model.toLowerCase()));
+        records = records.filter((r: any) =>
+          r.model?.toLowerCase().includes(model.toLowerCase())
+        );
       }
 
       records = records.slice(0, limit);
@@ -259,10 +264,13 @@ export class TraceRecordingTool extends BaseTool {
         durationMs: rec.durationMs,
         statusCode: rec.statusCode,
         error: rec.error || null,
-        tokens: rec.usage ? {
-          input: rec.usage.input_tokens || rec.usage.prompt_tokens || 0,
-          output: rec.usage.output_tokens || rec.usage.completion_tokens || 0,
-        } : null,
+        tokens: rec.usage
+          ? {
+              input: rec.usage.input_tokens || rec.usage.prompt_tokens || 0,
+              output:
+                rec.usage.output_tokens || rec.usage.completion_tokens || 0,
+            }
+          : null,
         traceId: rec.traceId || null,
       }));
 
@@ -315,16 +323,22 @@ export class TraceRecordingTool extends BaseTool {
         };
       }
 
-      const { ExportService } = require('../../trace-recording/export/ExportService.js');
+      const {
+        ExportService,
+      } = require('../../trace-recording/export/ExportService.js');
       const exportService = new ExportService();
-      const content = await exportService.export(allRecords, format as 'md' | 'json' | 'html');
+      const content = await exportService.export(
+        allRecords,
+        format as 'md' | 'json' | 'html'
+      );
 
       return {
         success: true,
         data: {
           format,
           recordCount: allRecords.length,
-          content: typeof content === 'string' ? content.substring(0, 50000) : content,
+          content:
+            typeof content === 'string' ? content.substring(0, 50000) : content,
         },
       };
     } catch (error) {

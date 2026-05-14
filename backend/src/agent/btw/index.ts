@@ -177,26 +177,36 @@ export class BtwProcessor {
         '<main_task_context>',
         trimmedContext,
         '</main_task_context>',
-        'Do not continue or complete that task while answering the side question.',
+        'Do not continue or complete that task while answering the side question.'
       );
     }
 
-    lines.push('', '<btw_side_question>', question.trim(), '</btw_side_question>');
+    lines.push(
+      '',
+      '<btw_side_question>',
+      question.trim(),
+      '</btw_side_question>'
+    );
     return lines.join('\n');
   }
 
   /**
    * 从上下文中提取最近的消息作为背景信息
    */
-  extractContext(messages: BtwContextMessage[], maxMessages?: number): BtwContextMessage[] {
+  extractContext(
+    messages: BtwContextMessage[],
+    maxMessages?: number
+  ): BtwContextMessage[] {
     const limit = maxMessages ?? this.config.maxContextMessages;
     if (messages.length <= limit) {
       return [...messages];
     }
     // 保留最近的消息，但始终包含第一条 system 消息
-    const systemMessages = messages.filter(m => m.role === 'system');
-    const nonSystemMessages = messages.filter(m => m.role !== 'system');
-    const recentNonSystem = nonSystemMessages.slice(-(limit - systemMessages.length));
+    const systemMessages = messages.filter((m) => m.role === 'system');
+    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
+    const recentNonSystem = nonSystemMessages.slice(
+      -(limit - systemMessages.length)
+    );
     return [...systemMessages, ...recentNonSystem];
   }
 
@@ -221,7 +231,10 @@ export class BtwProcessor {
       const systemPrompt = this.buildSystemPrompt();
 
       // 构建问题提示
-      const questionPrompt = this.buildQuestionPrompt(question, mainTaskContext);
+      const questionPrompt = this.buildQuestionPrompt(
+        question,
+        mainTaskContext
+      );
 
       // 构建上下文消息
       const btwMessages: BtwContextMessage[] = [
@@ -241,7 +254,9 @@ export class BtwProcessor {
       const answer = await aiCall(btwMessages);
 
       const durationMs = Date.now() - startTime;
-      logger.info(`BTW answer completed in ${durationMs}ms, using model: ${this.config.model}`);
+      logger.info(
+        `BTW answer completed in ${durationMs}ms, using model: ${this.config.model}`
+      );
 
       return {
         answer,
@@ -251,8 +266,11 @@ export class BtwProcessor {
       };
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`BTW processing failed after ${durationMs}ms: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(
+        `BTW processing failed after ${durationMs}ms: ${errorMessage}`
+      );
 
       return {
         answer: '',

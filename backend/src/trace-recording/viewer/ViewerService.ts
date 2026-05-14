@@ -14,7 +14,12 @@ import type { TraceRecord } from '../types';
 /** 查看器元数据 */
 interface ViewerMeta {
   model: string;
-  tokens: { input: number; output: number; cacheRead: number; cacheCreate: number };
+  tokens: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheCreate: number;
+  };
   toolNames: string[];
   systemPrompt: string;
   durationMs: number;
@@ -78,7 +83,9 @@ export class ViewerService {
   /**
    * 提取查看器元数据
    */
-  private extractMetadata(record: TraceRecord): ViewerMeta & { id: string; timestamp: string; status: number } {
+  private extractMetadata(
+    record: TraceRecord
+  ): ViewerMeta & { id: string; timestamp: string; status: number } {
     const reqBody = record.request.body;
     let model = 'unknown';
     let systemPrompt = '';
@@ -102,15 +109,26 @@ export class ViewerService {
     }
 
     // 提取 token 用量
-    let tokens: ViewerMeta['tokens'] = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0 };
+    let tokens: ViewerMeta['tokens'] = {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreate: 0,
+    };
     const respBody = record.response.body;
     if (respBody && typeof respBody === 'object') {
       const body = respBody as Record<string, unknown>;
       const usage = body.usage as Record<string, unknown> | undefined;
       if (usage) {
         tokens = {
-          input: (usage.input_tokens as number) || (usage.prompt_tokens as number) || 0,
-          output: (usage.output_tokens as number) || (usage.completion_tokens as number) || 0,
+          input:
+            (usage.input_tokens as number) ||
+            (usage.prompt_tokens as number) ||
+            0,
+          output:
+            (usage.output_tokens as number) ||
+            (usage.completion_tokens as number) ||
+            0,
           cacheRead: (usage.cache_read_input_tokens as number) || 0,
           cacheCreate: (usage.cache_creation_input_tokens as number) || 0,
         };
@@ -145,10 +163,14 @@ export class ViewerService {
       if (Array.isArray(tools)) {
         for (const tool of tools) {
           if (tool && typeof tool === 'object') {
-            const fn = (tool as Record<string, unknown>).function as Record<string, unknown> | undefined;
+            const fn = (tool as Record<string, unknown>).function as
+              | Record<string, unknown>
+              | undefined;
             if (fn && typeof fn.name === 'string') {
               names.add(fn.name);
-            } else if (typeof (tool as Record<string, unknown>).name === 'string') {
+            } else if (
+              typeof (tool as Record<string, unknown>).name === 'string'
+            ) {
               names.add((tool as Record<string, unknown>).name as string);
             }
           }
@@ -185,7 +207,13 @@ export class ViewerService {
     needsLazyLoad: boolean;
     generatedAt: string;
   }): string {
-    const { recordsJson, metadataJson, totalCount, needsLazyLoad, generatedAt } = params;
+    const {
+      recordsJson,
+      metadataJson,
+      totalCount,
+      needsLazyLoad,
+      generatedAt,
+    } = params;
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">

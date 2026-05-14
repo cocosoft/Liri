@@ -3,7 +3,12 @@
  * 对标 OpenClaw 的 global-runner/，在所有操作前/后执行全局注册的钩子
  */
 import { EventEmitter } from 'node:events';
-import { pluginHooks, type HookType, type HookStage, type HookResult } from './PluginHooks.js';
+import {
+  pluginHooks,
+  type HookType,
+  type HookStage,
+  type HookResult,
+} from './PluginHooks.js';
 
 /**
  * 全局运行策略
@@ -53,7 +58,11 @@ export class GlobalRunner extends EventEmitter {
   /**
    * 全局运行所有匹配的钩子
    */
-  async run(type: HookType, stage: HookStage, data?: Record<string, unknown>): Promise<GlobalRunResult> {
+  async run(
+    type: HookType,
+    stage: HookStage,
+    data?: Record<string, unknown>
+  ): Promise<GlobalRunResult> {
     if (!this.enabled) {
       return { success: true, results: [], durationMs: 0, errorCount: 0 };
     }
@@ -102,7 +111,16 @@ export class GlobalRunner extends EventEmitter {
    * 顺序执行
    */
   private async runSequential(
-    hooks: Array<{ pluginName: string; fn: (context: { type: HookType; stage: HookStage; pluginName?: string; timestamp: number; data?: Record<string, unknown> }) => Promise<HookResult> | HookResult }>,
+    hooks: Array<{
+      pluginName: string;
+      fn: (context: {
+        type: HookType;
+        stage: HookStage;
+        pluginName?: string;
+        timestamp: number;
+        data?: Record<string, unknown>;
+      }) => Promise<HookResult> | HookResult;
+    }>,
     type: HookType,
     stage: HookStage,
     data?: Record<string, unknown>
@@ -125,7 +143,10 @@ export class GlobalRunner extends EventEmitter {
           break;
         }
       } catch (err) {
-        results.push({ continue: false, error: err instanceof Error ? err.message : String(err) });
+        results.push({
+          continue: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -136,7 +157,16 @@ export class GlobalRunner extends EventEmitter {
    * 并行执行
    */
   private async runParallel(
-    hooks: Array<{ pluginName: string; fn: (context: { type: HookType; stage: HookStage; pluginName?: string; timestamp: number; data?: Record<string, unknown> }) => Promise<HookResult> | HookResult }>,
+    hooks: Array<{
+      pluginName: string;
+      fn: (context: {
+        type: HookType;
+        stage: HookStage;
+        pluginName?: string;
+        timestamp: number;
+        data?: Record<string, unknown>;
+      }) => Promise<HookResult> | HookResult;
+    }>,
     type: HookType,
     stage: HookStage,
     data?: Record<string, unknown>
@@ -152,7 +182,10 @@ export class GlobalRunner extends EventEmitter {
             data,
           });
         } catch (err) {
-          return { continue: false, error: err instanceof Error ? err.message : String(err) } as HookResult;
+          return {
+            continue: false,
+            error: err instanceof Error ? err.message : String(err),
+          } as HookResult;
         }
       })()
     );
@@ -164,7 +197,16 @@ export class GlobalRunner extends EventEmitter {
    * 竞速执行
    */
   private async runRace(
-    hooks: Array<{ pluginName: string; fn: (context: { type: HookType; stage: HookStage; pluginName?: string; timestamp: number; data?: Record<string, unknown> }) => Promise<HookResult> | HookResult }>,
+    hooks: Array<{
+      pluginName: string;
+      fn: (context: {
+        type: HookType;
+        stage: HookStage;
+        pluginName?: string;
+        timestamp: number;
+        data?: Record<string, unknown>;
+      }) => Promise<HookResult> | HookResult;
+    }>,
     type: HookType,
     stage: HookStage,
     data?: Record<string, unknown>
@@ -180,7 +222,10 @@ export class GlobalRunner extends EventEmitter {
             data,
           });
         } catch (err) {
-          return { continue: false, error: err instanceof Error ? err.message : String(err) } as HookResult;
+          return {
+            continue: false,
+            error: err instanceof Error ? err.message : String(err),
+          } as HookResult;
         }
       })()
     );

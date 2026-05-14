@@ -39,7 +39,9 @@ export class AgentRouter {
 
   registerRoute(route: AgentRoute): void {
     this.routes.set(route.agentId, route);
-    logger.info(`注册路由: ${route.agentId} → ${route.model} (${route.workspaceDir})`);
+    logger.info(
+      `注册路由: ${route.agentId} → ${route.model} (${route.workspaceDir})`
+    );
   }
 
   unregisterRoute(agentId: string): void {
@@ -63,7 +65,8 @@ export class AgentRouter {
     for (const pattern of this.rules.patterns) {
       if (
         pattern.taskTypes.includes(match.taskType) &&
-        (!pattern.workspacePattern || pattern.workspacePattern.test(match.workspaceDir))
+        (!pattern.workspacePattern ||
+          pattern.workspacePattern.test(match.workspaceDir))
       ) {
         const route = this.routes.get(pattern.agentId);
         if (route) return route;

@@ -4,7 +4,11 @@
  * 对齐 OpenClaw logs CLI
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { StructuredLogger } from '@modules/monitoring/logs/StructuredLogger';
 
@@ -18,11 +22,15 @@ const logsCmd: Command = {
   loadedFrom: 'builtin',
   disableModelInvocation: true,
   userInvocable: true,
-  argumentHint: '[--level info] [--module name] [--trace id] [--since 5m] [--limit 50]',
+  argumentHint:
+    '[--level info] [--module name] [--trace id] [--since 5m] [--limit 50]',
 
   async load() {
     return {
-      async execute(args: string, _ctx?: CommandContext): Promise<CommandResult> {
+      async execute(
+        args: string,
+        _ctx?: CommandContext
+      ): Promise<CommandResult> {
         try {
           const filter = parseFilter(args);
           const entries = StructuredLogger.queryLogs(filter);
@@ -34,7 +42,11 @@ const logsCmd: Command = {
           };
         } catch (error) {
           logger.error('日志查询失败', error as Error);
-          return { success: false, type: 'error', error: `日志查询失败: ${(error as Error).message}` };
+          return {
+            success: false,
+            type: 'error',
+            error: `日志查询失败: ${(error as Error).message}`,
+          };
         }
       },
     };
@@ -63,9 +75,12 @@ function parseFilter(raw: string): Record<string, unknown> {
         break;
       case 'since': {
         const num = parseInt(val, 10);
-        if (val.endsWith('h') || val.endsWith('H')) filter['sinceMs'] = num * 3600000;
-        else if (val.endsWith('m') || val.endsWith('M')) filter['sinceMs'] = num * 60000;
-        else if (val.endsWith('s') || val.endsWith('S')) filter['sinceMs'] = num * 1000;
+        if (val.endsWith('h') || val.endsWith('H'))
+          filter['sinceMs'] = num * 3600000;
+        else if (val.endsWith('m') || val.endsWith('M'))
+          filter['sinceMs'] = num * 60000;
+        else if (val.endsWith('s') || val.endsWith('S'))
+          filter['sinceMs'] = num * 1000;
         else filter['sinceMs'] = num * 60000;
         break;
       }
@@ -77,14 +92,16 @@ function parseFilter(raw: string): Record<string, unknown> {
   return filter;
 }
 
-function formatLogOutput(entries: Array<{
-  timestamp: string;
-  level: string;
-  module: string;
-  message: string;
-  traceId?: string;
-  error?: { name: string; message: string };
-}>): string {
+function formatLogOutput(
+  entries: Array<{
+    timestamp: string;
+    level: string;
+    module: string;
+    message: string;
+    traceId?: string;
+    error?: { name: string; message: string };
+  }>
+): string {
   if (entries.length === 0) return '无匹配日志';
   return entries
     .map((e) => {

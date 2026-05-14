@@ -7,7 +7,6 @@ import { ErrorCodes } from '@modules/error/ErrorCodes';
 let _depError: Error | null = null;
 let _AdmZip: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   _AdmZip = require('adm-zip');
 } catch (e) {
   _depError = e as Error;

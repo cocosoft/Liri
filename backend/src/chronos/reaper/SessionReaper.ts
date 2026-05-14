@@ -142,7 +142,10 @@ export class SessionReaper extends EventEmitter {
       if (age > this.config.maxSessionAgeMs) {
         shouldReap = true;
         reason = 'expired';
-      } else if (session.status !== 'closed' && (now - session.lastActivityAt) > this.config.maxIdleTimeMs) {
+      } else if (
+        session.status !== 'closed' &&
+        now - session.lastActivityAt > this.config.maxIdleTimeMs
+      ) {
         shouldReap = true;
         reason = 'idle';
       }
@@ -178,11 +181,18 @@ export class SessionReaper extends EventEmitter {
       if (sessions.length > this.config.maxSessionsPerChannel) {
         sessions.sort((a, b) => a.lastActivityAt - b.lastActivityAt);
 
-        const excess = sessions.slice(0, sessions.length - this.config.maxSessionsPerChannel);
+        const excess = sessions.slice(
+          0,
+          sessions.length - this.config.maxSessionsPerChannel
+        );
 
         for (const session of excess) {
           toReap.push(session);
-          details.push({ sessionId: session.id, reason: 'over_limit', age: now - session.createdAt });
+          details.push({
+            sessionId: session.id,
+            reason: 'over_limit',
+            age: now - session.createdAt,
+          });
           toPreserve.splice(toPreserve.indexOf(session), 1);
         }
       }
@@ -215,7 +225,10 @@ export class SessionReaper extends EventEmitter {
       return true;
     }
 
-    if (session.status !== 'closed' && (now - session.lastActivityAt) > this.config.maxIdleTimeMs) {
+    if (
+      session.status !== 'closed' &&
+      now - session.lastActivityAt > this.config.maxIdleTimeMs
+    ) {
       return true;
     }
 

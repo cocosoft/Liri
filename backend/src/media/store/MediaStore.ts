@@ -50,7 +50,10 @@ export class MediaStore {
 
     if (this.config.organizeByDate) {
       const now = new Date();
-      dir = path.join(dir, `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`);
+      dir = path.join(
+        dir,
+        `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
+      );
     }
 
     dir = path.join(dir, category);
@@ -62,7 +65,11 @@ export class MediaStore {
   /**
    * 保存文件
    */
-  save(category: string, fileName: string, data: Buffer | string): string | null {
+  save(
+    category: string,
+    fileName: string,
+    data: Buffer | string
+  ): string | null {
     try {
       const filePath = this.getPath(category, fileName);
       fs.writeFileSync(filePath, data);
@@ -129,8 +136,14 @@ export class MediaStore {
   /**
    * 获取存储统计
    */
-  getStats(): { totalFiles: number; totalSize: number; categories: Record<string, { count: number; size: number }> } {
-    const stats: MediaStore['getStats'] extends (...args: unknown[]) => infer R ? R : never = {
+  getStats(): {
+    totalFiles: number;
+    totalSize: number;
+    categories: Record<string, { count: number; size: number }>;
+  } {
+    const stats: MediaStore['getStats'] extends (...args: unknown[]) => infer R
+      ? R
+      : never = {
       totalFiles: 0,
       totalSize: 0,
       categories: {},
@@ -138,8 +151,7 @@ export class MediaStore {
 
     try {
       this.walkDir(this.config.basePath, stats as any);
-    } catch {
-    }
+    } catch {}
 
     return stats as any;
   }
@@ -152,8 +164,7 @@ export class MediaStore {
 
     try {
       cleaned = this.removeEmptyDirs(this.config.basePath);
-    } catch {
-    }
+    } catch {}
 
     return cleaned;
   }
@@ -168,7 +179,14 @@ export class MediaStore {
   /**
    * 递归遍历目录
    */
-  private walkDir(dir: string, stats: { totalFiles: number; totalSize: number; categories: Record<string, { count: number; size: number }> }): void {
+  private walkDir(
+    dir: string,
+    stats: {
+      totalFiles: number;
+      totalSize: number;
+      categories: Record<string, { count: number; size: number }>;
+    }
+  ): void {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
 
     for (const entry of entries) {
@@ -223,10 +241,18 @@ export class MediaStore {
   private guessMimeType(filePath: string): string {
     const ext = path.extname(filePath).toLowerCase();
     const mimeMap: Record<string, string> = {
-      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-      '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
-      '.mp4': 'video/mp4', '.webm': 'video/webm', '.mp3': 'audio/mpeg',
-      '.wav': 'audio/wav', '.pdf': 'application/pdf', '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mp3': 'audio/mpeg',
+      '.wav': 'audio/wav',
+      '.pdf': 'application/pdf',
+      '.json': 'application/json',
     };
 
     return mimeMap[ext] || 'application/octet-stream';

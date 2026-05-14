@@ -3,7 +3,11 @@
  * py_app plugin install/list/remove/update
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { NpmDistributor } from '@modules/plugins/distribution/NpmDistributor';
 
@@ -29,7 +33,10 @@ const pluginsCmd: Command = {
 
   async load() {
     return {
-      async execute(args: string, _ctx?: CommandContext): Promise<CommandResult> {
+      async execute(
+        args: string,
+        _ctx?: CommandContext
+      ): Promise<CommandResult> {
         const parts = args.trim().split(/\s+/);
         const action = parts[0] || 'list';
         const name = parts[1] || '';
@@ -65,7 +72,11 @@ const pluginsCmd: Command = {
 
 async function installPlugin(name: string): Promise<CommandResult> {
   if (!name) {
-    return { success: false, type: 'error', error: '请指定插件名称: py_app plugin install <name>' };
+    return {
+      success: false,
+      type: 'error',
+      error: '请指定插件名称: py_app plugin install <name>',
+    };
   }
   const distributor = new NpmDistributor();
   const result = await distributor.install(name);
@@ -89,9 +100,12 @@ async function listPlugins(): Promise<CommandResult> {
     status: 'active' as const,
     source: 'npm' as const,
   }));
-  const lines = entries.length === 0
-    ? ['没有安装的插件']
-    : entries.map((e) => `  ${e.name} v${e.version} [${e.capability}] ${e.status}`);
+  const lines =
+    entries.length === 0
+      ? ['没有安装的插件']
+      : entries.map(
+          (e) => `  ${e.name} v${e.version} [${e.capability}] ${e.status}`
+        );
   return {
     success: true,
     type: 'text',
@@ -117,7 +131,9 @@ async function updatePlugin(name: string): Promise<CommandResult> {
   const distributor = new NpmDistributor();
   const target = name || 'all';
   const results = await distributor.update(target);
-  const msgs = results.map((r) => `  ${r.name}: ${r.success ? `v${r.version}` : r.error}`);
+  const msgs = results.map(
+    (r) => `  ${r.name}: ${r.success ? `v${r.version}` : r.error}`
+  );
   return {
     success: results.every((r) => r.success),
     type: 'text',

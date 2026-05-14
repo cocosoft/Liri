@@ -7,6 +7,7 @@ import path from 'node:path';
 import os from 'node:os';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
+import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
 
 /**
  * 日志级别
@@ -53,19 +54,41 @@ export class ChannelLogManager {
   private maxLogs: number;
   private logDir: string;
   private persistEnabled: boolean;
+  private enableRedact: boolean;
 
-  constructor(maxLogs: number = 10000, logDir?: string, persistEnabled: boolean = false) {
+  constructor(
+    maxLogs: number = 10000,
+    logDir?: string,
+    persistEnabled: boolean = false
+  ) {
     this.maxLogs = maxLogs;
-    this.logDir = logDir || path.join(os.homedir(), '.py_app', 'logs', 'channels');
+    this.logDir =
+      logDir || path.join(os.homedir(), '.py_app', 'logs', 'channels');
     this.persistEnabled = persistEnabled;
+    this.enableRedact = true;
+  }
+
+  /**
+   * 设置是否启用日志脱敏
+   * @param enable 是否启用
+   */
+  setRedactEnabled(enable: boolean): void {
+    this.enableRedact = enable;
   }
 
   /**
    * 记录日志
    */
   log(entry: Omit<ChannelLogEntry, 'id' | 'timestamp'>): ChannelLogEntry {
+    let redactedMessage = entry.message;
+
+    if (this.enableRedact) {
+      redactedMessage = getRedactMiddleware().redactMessage(entry.message);
+    }
+
     const full: ChannelLogEntry = {
       ...entry,
+      message: redactedMessage,
       id: `ch_log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: Date.now(),
     };
@@ -86,7 +109,10 @@ export class ChannelLogManager {
   /**
    * 记录入站消息
    */
-  logInbound(context: MessageContext, level: LogLevel = 'info'): ChannelLogEntry {
+  logInbound(
+    context: MessageContext,
+    level: LogLevel = 'info'
+  ): ChannelLogEntry {
     return this.log({
       channelId: context.channelId,
       level,
@@ -105,7 +131,11 @@ export class ChannelLogManager {
   /**
    * 记录出站消息
    */
-  logOutbound(channelId: ChannelId, content: string, targetId?: string): ChannelLogEntry {
+  logOutbound(
+    channelId: ChannelId,
+    content: string,
+    targetId?: string
+  ): ChannelLogEntry {
     return this.log({
       channelId,
       level: 'info',
@@ -118,7 +148,11 @@ export class ChannelLogManager {
   /**
    * 记录错误
    */
-  logError(channelId: ChannelId, error: string, context?: Record<string, unknown>): ChannelLogEntry {
+  logError(
+    channelId: ChannelId,
+    error: string,
+    context?: Record<string, unknown>
+  ): ChannelLogEntry {
     return this.log({
       channelId,
       level: 'error',
@@ -182,7 +216,10 @@ export class ChannelLogManager {
       return 'group';
     }
 
-    if (conversationId.startsWith('channel') || conversationId.startsWith('c')) {
+    if (
+      conversationId.startsWith('channel') ||
+      conversationId.startsWith('c')
+    ) {
       return 'channel';
     }
 
@@ -192,7 +229,13 @@ export class ChannelLogManager {
   /**
    * 创建聊天元数据
    */
-  createChatMeta(chatId: string, type: ChatType, displayName: string, participantCount: number, isBotAdmin: boolean): ChatMeta {
+  createChatMeta(
+    chatId: string,
+    type: ChatType,
+    displayName: string,
+    participantCount: number,
+    isBotAdmin: boolean
+  ): ChatMeta {
     return {
       chatId,
       type,
@@ -212,7 +255,10 @@ export class ChannelLogManager {
       }
 
       const dateStr = new Date(entry.timestamp).toISOString().slice(0, 10);
-      const filePath = path.join(this.logDir, `${entry.channelId}_${dateStr}.log`);
+      const filePath = path.join(
+        this.logDir,
+        `${entry.channelId}_${dateStr}.log`
+      );
 
       const line = JSON.stringify(entry) + '\n';
 
@@ -225,7 +271,11 @@ export class ChannelLogManager {
   /**
    * 获取日志统计
    */
-  getStats(): { total: number; byChannel: Record<string, number>; byLevel: Record<string, number> } {
+  getStats(): {
+    total: number;
+    byChannel: Record<string, number>;
+    byLevel: Record<string, number>;
+  } {
     const byChannel: Record<string, number> = {};
     const byLevel: Record<string, number> = {};
 

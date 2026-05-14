@@ -78,6 +78,17 @@ export {
 export { EnhancedTaskScheduler } from './EnhancedTaskScheduler';
 export type { EnhancedSchedulerOptions } from './EnhancedTaskScheduler';
 
+// 子进程隔离执行器
+export {
+  CronSubprocessExecutor,
+  getCronSubprocessExecutor,
+} from './CronSubprocessExecutor';
+export type {
+  SubprocessTaskConfig,
+  SubprocessTaskResult,
+  SubprocessStatus,
+} from './CronSubprocessExecutor';
+
 /**
  * 检查Chronos系统是否处于活跃状态
  */

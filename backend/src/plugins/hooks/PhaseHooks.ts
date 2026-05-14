@@ -33,7 +33,9 @@ export interface PhaseHookContext {
 /**
  * 阶段钩子函数
  */
-export type PhaseHookFunction = (context: PhaseHookContext) => Promise<PhaseHookResult> | PhaseHookResult;
+export type PhaseHookFunction = (
+  context: PhaseHookContext
+) => Promise<PhaseHookResult> | PhaseHookResult;
 
 /**
  * 阶段钩子结果
@@ -129,7 +131,10 @@ export class PhaseHooks extends EventEmitter {
   /**
    * 执行阶段钩子
    */
-  async execute(phase: PhaseName, data?: Record<string, unknown>): Promise<PhaseHookResult[]> {
+  async execute(
+    phase: PhaseName,
+    data?: Record<string, unknown>
+  ): Promise<PhaseHookResult[]> {
     const hooks = this.hooks.get(phase);
 
     if (!hooks || hooks.length === 0) {
@@ -218,7 +223,10 @@ export class PhaseHooks extends EventEmitter {
   /**
    * 获取执行记录
    */
-  getExecutionHistory(phase?: PhaseName, limit?: number): PhaseExecutionRecord[] {
+  getExecutionHistory(
+    phase?: PhaseName,
+    limit?: number
+  ): PhaseExecutionRecord[] {
     let records = this.executionHistory;
 
     if (phase) {
@@ -243,7 +251,11 @@ export class PhaseHooks extends EventEmitter {
   /**
    * 获取统计
    */
-  getStats(): { total: number; byPhase: Record<string, number>; totalExecutions: number } {
+  getStats(): {
+    total: number;
+    byPhase: Record<string, number>;
+    totalExecutions: number;
+  } {
     const byPhase: Record<string, number> = {};
 
     for (const [phase, hooks] of this.hooks.entries()) {
@@ -251,7 +263,10 @@ export class PhaseHooks extends EventEmitter {
     }
 
     return {
-      total: Array.from(this.hooks.values()).reduce((sum, h) => sum + h.length, 0),
+      total: Array.from(this.hooks.values()).reduce(
+        (sum, h) => sum + h.length,
+        0
+      ),
       byPhase,
       totalExecutions: this.executionHistory.length,
     };

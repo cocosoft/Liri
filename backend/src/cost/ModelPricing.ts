@@ -33,6 +33,17 @@ export const COST_TIER_3_15: ModelPricing = {
 };
 
 /**
+ * 成本层级 - Opus 4.6快速模式层级: $30输入 / $150输出每百万令牌
+ */
+export const COST_TIER_30_150: ModelPricing = {
+  inputPricePerMillion: 30,
+  outputPricePerMillion: 150,
+  cacheReadPricePerMillion: 3,
+  cacheCreationPricePerMillion: 37.5,
+  webSearchPricePerRequest: 0.01,
+};
+
+/**
  * 成本层级 - Opus 4/4.1层级: $15输入 / $75输出每百万令牌
  */
 export const COST_TIER_15_75: ModelPricing = {
@@ -41,6 +52,7 @@ export const COST_TIER_15_75: ModelPricing = {
   cacheReadPricePerMillion: 1.5,
   cacheCreationPricePerMillion: 18.75,
   webSearchPricePerRequest: 0.01,
+  fastModePricing: COST_TIER_30_150,
 };
 
 /**
@@ -51,17 +63,6 @@ export const COST_TIER_5_25: ModelPricing = {
   outputPricePerMillion: 25,
   cacheReadPricePerMillion: 0.5,
   cacheCreationPricePerMillion: 6.25,
-  webSearchPricePerRequest: 0.01,
-};
-
-/**
- * 成本层级 - Opus 4.6快速模式层级: $30输入 / $150输出每百万令牌
- */
-export const COST_TIER_30_150: ModelPricing = {
-  inputPricePerMillion: 30,
-  outputPricePerMillion: 150,
-  cacheReadPricePerMillion: 3,
-  cacheCreationPricePerMillion: 37.5,
   webSearchPricePerRequest: 0.01,
 };
 

@@ -8,7 +8,11 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-export type ProviderHealthStatus = 'healthy' | 'degraded' | 'unavailable' | 'unknown';
+export type ProviderHealthStatus =
+  | 'healthy'
+  | 'degraded'
+  | 'unavailable'
+  | 'unknown';
 
 export interface ProviderHealth {
   provider: string;
@@ -130,7 +134,10 @@ export class ModelHealthChecker {
           });
         } else {
           const failures = current.consecutiveFailures + 1;
-          const status: ProviderHealthStatus = failures >= this.config.failureThreshold ? 'unavailable' : 'degraded';
+          const status: ProviderHealthStatus =
+            failures >= this.config.failureThreshold
+              ? 'unavailable'
+              : 'degraded';
           this.health.set(provider, {
             ...current,
             status,
@@ -139,7 +146,9 @@ export class ModelHealthChecker {
             consecutiveFailures: failures,
             errorMessage: `${provider} 响应超时`,
           });
-          logger.warning(`模型健康检查失败: ${provider} (${failures}/${this.config.failureThreshold})`);
+          logger.warning(
+            `模型健康检查失败: ${provider} (${failures}/${this.config.failureThreshold})`
+          );
         }
       } catch (error) {
         logger.error(`模型健康检查异常: ${provider}`, error as Error);
@@ -157,7 +166,10 @@ export class ModelHealthChecker {
     // 简易 ping——不发送完整请求
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+      const timeout = setTimeout(
+        () => controller.abort(),
+        this.config.timeoutMs
+      );
 
       const urls: Record<string, string> = {
         anthropic: 'https://api.anthropic.com/',

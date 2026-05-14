@@ -37,7 +37,10 @@ export interface McpCallResponse {
  */
 export class GatewayMcpBridge extends EventEmitter {
   private tools: Map<string, McpToolDefinition> = new Map();
-  private handlers: Map<string, (args: Record<string, unknown>) => Promise<unknown>> = new Map();
+  private handlers: Map<
+    string,
+    (args: Record<string, unknown>) => Promise<unknown>
+  > = new Map();
 
   /**
    * 注册 MCP 工具
@@ -56,7 +59,10 @@ export class GatewayMcpBridge extends EventEmitter {
    * 批量注册工具
    */
   registerTools(
-    tools: Array<{ definition: McpToolDefinition; handler: (args: Record<string, unknown>) => Promise<unknown> }>
+    tools: Array<{
+      definition: McpToolDefinition;
+      handler: (args: Record<string, unknown>) => Promise<unknown>;
+    }>
   ): void {
     for (const { definition, handler } of tools) {
       this.registerTool(definition, handler);
@@ -114,7 +120,11 @@ export class GatewayMcpBridge extends EventEmitter {
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
 
-      this.emit('tool:afterCall', { tool: request.tool, success: false, error });
+      this.emit('tool:afterCall', {
+        tool: request.tool,
+        success: false,
+        error,
+      });
 
       return {
         success: false,

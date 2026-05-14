@@ -49,7 +49,9 @@ export class ProcessWatchdog {
     this.watcher = setInterval(() => {
       this.monitor(onRestart);
     }, 5000);
-    logger.info(`进程看门狗已启动: ${this.config.command} ${this.config.args.join(' ')}`);
+    logger.info(
+      `进程看门狗已启动: ${this.config.command} ${this.config.args.join(' ')}`
+    );
   }
 
   stop(): void {
@@ -70,7 +72,10 @@ export class ProcessWatchdog {
       running: !!this.process && this.process.exitCode === null,
       restartCount: this.restartTimes.length,
       totalRestarts: this.totalRestarts,
-      lastRestartTime: this.restartTimes.length > 0 ? this.restartTimes[this.restartTimes.length - 1] : null,
+      lastRestartTime:
+        this.restartTimes.length > 0
+          ? this.restartTimes[this.restartTimes.length - 1]
+          : null,
       uptime: this.startTime > 0 ? Date.now() - this.startTime : 0,
     };
   }
@@ -109,7 +114,9 @@ export class ProcessWatchdog {
       const minRestartWindow = 60000;
 
       // 清除超过窗口的旧重启时间
-      this.restartTimes = this.restartTimes.filter((t) => now - t < minRestartWindow);
+      this.restartTimes = this.restartTimes.filter(
+        (t) => now - t < minRestartWindow
+      );
 
       if (this.restartTimes.length < this.config.restartLimitPerMinute) {
         this.restartTimes.push(now);

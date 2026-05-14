@@ -32,7 +32,8 @@ export interface GatewayInfo {
 export class GatewayTool extends BaseTool {
   name = 'gateway';
 
-  description = 'Manage the API gateway. Supports start/stop/restart, TLS configuration, and log retrieval.';
+  description =
+    'Manage the API gateway. Supports start/stop/restart, TLS configuration, and log retrieval.';
 
   params: ToolParam[] = [
     {
@@ -86,7 +87,10 @@ export class GatewayTool extends BaseTool {
       const op = input as GatewayOperation;
 
       const info: GatewayInfo = {
-        status: op.action === 'start' || op.action === 'restart' ? 'running' : 'stopped',
+        status:
+          op.action === 'start' || op.action === 'restart'
+            ? 'running'
+            : 'stopped',
         port: op.port ?? 8080,
         host: op.host ?? '0.0.0.0',
         tls: op.tls ?? false,

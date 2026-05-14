@@ -7,37 +7,34 @@ export type {
   MemorySource,
   MemorySyncProgressUpdate,
   MemoryEmbeddingProbeResult,
-} from "./types.js";
+} from './types.js';
 
 export {
   hasConfiguredMemorySecretInput,
   resolveMemorySecretInputString,
-} from "./secret.js";
+} from './secret.js';
 
 export {
   resolveMemoryVectorState,
   resolveMemoryFtsState,
   resolveMemoryCacheSummary,
   resolveMemoryCacheState,
-} from "./status.js";
-export type { Tone } from "./status.js";
+} from './status.js';
+export type { Tone } from './status.js';
 
-export {
-  extractKeywords,
-  isQueryStopWordToken,
-} from "./query.js";
+export { extractKeywords, isQueryStopWordToken } from './query.js';
 
 export {
   appendMemoryHostEvent,
   readMemoryHostEvents,
   resolveMemoryHostEventLogPath,
-} from "./events.js";
+} from './events.js';
 export type {
   MemoryHostEvent,
   MemoryHostRecallRecordedEvent,
   MemoryHostPromotionAppliedEvent,
   MemoryHostDreamCompletedEvent,
-} from "./events.js";
+} from './events.js';
 
 export {
   DEFAULT_MEMORY_DREAMING_ENABLED,
@@ -62,7 +59,7 @@ export {
   resolveMemoryDreamingConfig,
   resolveMemoryDreamingPluginId,
   resolveMemoryDreamingPluginConfig,
-} from "./dreaming.js";
+} from './dreaming.js';
 export type {
   MemoryDreamingConfig,
   MemoryDreamingPhaseName,
@@ -79,8 +76,6 @@ export type {
   MemoryLightDreamingSource,
   MemoryDeepDreamingSource,
   MemoryRemDreamingSource,
-} from "./dreaming.js";
+} from './dreaming.js';
 
-export {
-  MEMORY_HOST_EVENT_LOG_RELATIVE_PATH,
-} from "./events.js";
+export { MEMORY_HOST_EVENT_LOG_RELATIVE_PATH } from './events.js';

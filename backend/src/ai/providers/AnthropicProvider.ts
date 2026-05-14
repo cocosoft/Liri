@@ -22,6 +22,15 @@ import {
 import { feature } from '@modules/core';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import {
+  isCacheSupported,
+  calculateBreakpoints,
+  shouldPlaceSystemBreakpoint,
+  shouldPlaceBreakpoint,
+  shouldPlaceToolsBreakpoint,
+  createCacheControl,
+  DEFAULT_CACHE_CONFIG,
+} from '../clients/PromptCacheConfig';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -173,16 +182,54 @@ export class AnthropicProvider implements AIProvider {
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
     const systemPrompt = systemMessages.map((m) => m.content).join('\n');
 
+    const cacheSupported = isCacheSupported(model);
+    const breakpoints = cacheSupported
+      ? calculateBreakpoints(nonSystemMessages.length, DEFAULT_CACHE_CONFIG)
+      : [];
+
+    const systemBlock = systemPrompt
+      ? [
+          {
+            type: 'text' as const,
+            text: systemPrompt,
+            ...(shouldPlaceSystemBreakpoint(breakpoints)
+              ? { cache_control: createCacheControl() }
+              : {}),
+          },
+        ]
+      : undefined;
+
+    const formattedMessages = nonSystemMessages.map((m, index) => ({
+      role: m.role as 'user' | 'assistant',
+      content: shouldPlaceBreakpoint(index, breakpoints)
+        ? [
+            {
+              type: 'text' as const,
+              text: m.content,
+              cache_control: createCacheControl(),
+            },
+          ]
+        : m.content,
+    }));
+
+    const formattedTools = options?.tools
+      ? (options.tools as unknown as Anthropic.Tool[]).map((tool, index) => {
+          const isLast =
+            index === (options.tools as unknown as Anthropic.Tool[]).length - 1;
+          if (isLast && shouldPlaceToolsBreakpoint(breakpoints)) {
+            return { ...tool, cache_control: createCacheControl() };
+          }
+          return tool;
+        })
+      : undefined;
+
     const stream = (await this.anthropic.messages.create({
       model,
       max_tokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
-      system: systemPrompt || undefined,
-      messages: nonSystemMessages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
-      tools: (options?.tools as unknown as Anthropic.Tool[]) || undefined,
+      system: systemBlock,
+      messages: formattedMessages,
+      tools: formattedTools,
       stream: true,
     } as Anthropic.MessageCreateParams)) as unknown as AsyncIterable<{
       type: string;
@@ -223,16 +270,54 @@ export class AnthropicProvider implements AIProvider {
     const nonSystemMessages = messages.filter((m) => m.role !== 'system');
     const systemPrompt = systemMessages.map((m) => m.content).join('\n');
 
+    const cacheSupported = isCacheSupported(model);
+    const breakpoints = cacheSupported
+      ? calculateBreakpoints(nonSystemMessages.length, DEFAULT_CACHE_CONFIG)
+      : [];
+
+    const systemBlock = systemPrompt
+      ? [
+          {
+            type: 'text' as const,
+            text: systemPrompt,
+            ...(shouldPlaceSystemBreakpoint(breakpoints)
+              ? { cache_control: createCacheControl() }
+              : {}),
+          },
+        ]
+      : undefined;
+
+    const formattedMessages = nonSystemMessages.map((m, index) => ({
+      role: m.role as 'user' | 'assistant',
+      content: shouldPlaceBreakpoint(index, breakpoints)
+        ? [
+            {
+              type: 'text' as const,
+              text: m.content,
+              cache_control: createCacheControl(),
+            },
+          ]
+        : m.content,
+    }));
+
+    const formattedTools = options?.tools
+      ? (options.tools as unknown as Anthropic.Tool[]).map((tool, index) => {
+          const isLast =
+            index === (options.tools as unknown as Anthropic.Tool[]).length - 1;
+          if (isLast && shouldPlaceToolsBreakpoint(breakpoints)) {
+            return { ...tool, cache_control: createCacheControl() };
+          }
+          return tool;
+        })
+      : undefined;
+
     const response = (await this.anthropic.messages.create({
       model,
       max_tokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
-      system: systemPrompt || undefined,
-      messages: nonSystemMessages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
-      tools: (options?.tools as unknown as Anthropic.Tool[]) || undefined,
+      system: systemBlock,
+      messages: formattedMessages,
+      tools: formattedTools,
     } as Anthropic.MessageCreateParams)) as unknown as {
       model: string;
       stop_reason: string;

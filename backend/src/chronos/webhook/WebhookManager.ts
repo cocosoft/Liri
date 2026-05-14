@@ -140,7 +140,9 @@ export class WebhookManager extends EventEmitter {
   /**
    * 发送 HTTP 请求
    */
-  private sendRequest(config: WebhookConfig): Promise<{ statusCode: number; body: string }> {
+  private sendRequest(
+    config: WebhookConfig
+  ): Promise<{ statusCode: number; body: string }> {
     return new Promise((resolve, reject) => {
       const parsedUrl = url.parse(config.url);
       const isHttps = parsedUrl.protocol === 'https:';
@@ -150,7 +152,11 @@ export class WebhookManager extends EventEmitter {
 
       const options: http.RequestOptions = {
         hostname: parsedUrl.hostname,
-        port: parsedUrl.port ? parseInt(parsedUrl.port, 10) : (isHttps ? 443 : 80),
+        port: parsedUrl.port
+          ? parseInt(parsedUrl.port, 10)
+          : isHttps
+            ? 443
+            : 80,
         path: parsedUrl.path || '/',
         method: config.method,
         timeout: config.timeoutMs,

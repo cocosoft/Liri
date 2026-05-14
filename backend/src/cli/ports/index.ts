@@ -46,7 +46,7 @@ export async function checkPort(port: number): Promise<PortInfo> {
 
 export async function findAvailablePort(
   preferred: number,
-  range?: PortRange,
+  range?: PortRange
 ): Promise<number> {
   const r = range ?? DEFAULT_PORT_RANGE;
 
@@ -60,7 +60,11 @@ export async function findAvailablePort(
     if (!info.inUse) return port;
   }
 
-  for (let port = Math.max(r.start, preferred - 50); port <= Math.min(r.end, preferred + 50); port++) {
+  for (
+    let port = Math.max(r.start, preferred - 50);
+    port <= Math.min(r.end, preferred + 50);
+    port++
+  ) {
     const info = await checkPort(port);
     if (!info.inUse) return port;
   }
@@ -70,7 +74,7 @@ export async function findAvailablePort(
 
 export async function findAvailablePorts(
   count: number,
-  range?: PortRange,
+  range?: PortRange
 ): Promise<number[]> {
   const ports: number[] = [];
   const r = range ?? DEFAULT_PORT_RANGE;
@@ -84,7 +88,7 @@ export async function findAvailablePorts(
 
   if (ports.length < count) {
     throw new Error(
-      `Only found ${ports.length}/${count} available ports in range ${r.start}-${r.end}`,
+      `Only found ${ports.length}/${count} available ports in range ${r.start}-${r.end}`
     );
   }
 
@@ -94,7 +98,7 @@ export async function findAvailablePorts(
 export async function waitForPort(
   port: number,
   timeoutMs: number = 30000,
-  intervalMs: number = 500,
+  intervalMs: number = 500
 ): Promise<boolean> {
   const startTime = Date.now();
 
@@ -111,7 +115,7 @@ export async function waitForPort(
 export async function waitForPortClose(
   port: number,
   timeoutMs: number = 30000,
-  intervalMs: number = 500,
+  intervalMs: number = 500
 ): Promise<boolean> {
   const startTime = Date.now();
 
@@ -152,14 +156,16 @@ export function buildPortForwardCommand(
   localPort: number,
   remoteHost: string,
   remotePort: number,
-  options?: { identityFile?: string; user?: string },
+  options?: { identityFile?: string; user?: string }
 ): string {
   const user = options?.user ?? 'root';
   const identity = options?.identityFile ? ` -i ${options.identityFile}` : '';
   return `ssh${identity} -L ${localPort}:${remoteHost}:${remotePort} ${user}@${remoteHost}`;
 }
 
-export function parsePortMapping(mapping: string): { local: number; host: string; remote: number } | null {
+export function parsePortMapping(
+  mapping: string
+): { local: number; host: string; remote: number } | null {
   const match = mapping.match(/^(\d+):([^:]+):(\d+)$/);
   if (!match) return null;
 

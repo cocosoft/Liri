@@ -172,6 +172,10 @@ export {
 } from './services/ToolResultBudget';
 export { InterruptibleToolExecutor } from './services/InterruptibleToolExecutor';
 
+export * from './guardrails';
+export * from './web';
+export * from './version';
+
 /**
  * 条件工具组装（基于CC源码 tools.ts 模式篇）
  * 使用 feature() 控制可选工具的条件加载

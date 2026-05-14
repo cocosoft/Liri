@@ -52,7 +52,8 @@ export class SessionPersistenceManager {
   private snapshots: Map<string, SnapshotMetadata> = new Map();
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir || path.join(os.homedir(), '.py_app', 'sessions', 'persistence');
+    this.baseDir =
+      baseDir || path.join(os.homedir(), '.py_app', 'sessions', 'persistence');
     this.ensureDir();
   }
 
@@ -138,7 +139,8 @@ export class SessionPersistenceManager {
     if (metadata.format === 'json') {
       messages = JSON.parse(content);
     } else {
-      messages = content.split('\n')
+      messages = content
+        .split('\n')
         .filter(Boolean)
         .map((line) => JSON.parse(line));
     }
@@ -176,7 +178,11 @@ export class SessionPersistenceManager {
     if (!metadata) return false;
 
     const ext = metadata.format === 'json' ? 'json' : 'jsonl';
-    const filePath = path.join(this.baseDir, metadata.sessionId, `${snapshotId}.${ext}`);
+    const filePath = path.join(
+      this.baseDir,
+      metadata.sessionId,
+      `${snapshotId}.${ext}`
+    );
 
     try {
       if (fs.existsSync(filePath)) {
@@ -193,11 +199,21 @@ export class SessionPersistenceManager {
   /**
    * 获取存储统计
    */
-  getStorageStats(): { totalSnapshots: number; totalSize: number; oldestTimestamp: number; newestTimestamp: number } {
+  getStorageStats(): {
+    totalSnapshots: number;
+    totalSize: number;
+    oldestTimestamp: number;
+    newestTimestamp: number;
+  } {
     const snapshots = Array.from(this.snapshots.values());
 
     if (snapshots.length === 0) {
-      return { totalSnapshots: 0, totalSize: 0, oldestTimestamp: 0, newestTimestamp: 0 };
+      return {
+        totalSnapshots: 0,
+        totalSize: 0,
+        oldestTimestamp: 0,
+        newestTimestamp: 0,
+      };
     }
 
     return {
@@ -226,8 +242,7 @@ export class SessionPersistenceManager {
       if (fs.existsSync(metaPath)) {
         Object.assign(existing, JSON.parse(fs.readFileSync(metaPath, 'utf-8')));
       }
-    } catch {
-    }
+    } catch {}
 
     existing[metadata.snapshotId] = metadata;
 
@@ -251,7 +266,7 @@ export class SessionPersistenceManager {
 
     for (let i = 0; i < content.length; i++) {
       const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
 

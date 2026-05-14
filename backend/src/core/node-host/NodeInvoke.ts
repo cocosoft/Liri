@@ -116,7 +116,11 @@ export class NodeInvoke extends EventEmitter {
     return response;
   }
 
-  getMetrics(nodeId: string): { nodeFound: boolean; handlerFound: boolean; canExecute: boolean } {
+  getMetrics(nodeId: string): {
+    nodeFound: boolean;
+    handlerFound: boolean;
+    canExecute: boolean;
+  } {
     return {
       nodeFound: this.nodes.has(nodeId),
       handlerFound: this.findHandler(nodeId, '') !== undefined,
@@ -124,7 +128,10 @@ export class NodeInvoke extends EventEmitter {
     };
   }
 
-  private findHandler(nodeId: string, operation: string): NodeInvokeHandler | undefined {
+  private findHandler(
+    nodeId: string,
+    operation: string
+  ): NodeInvokeHandler | undefined {
     const exactMatchKey = `${nodeId}/${operation}`;
 
     for (const [pattern, handler] of this.handlers) {

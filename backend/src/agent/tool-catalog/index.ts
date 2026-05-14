@@ -71,61 +71,289 @@ const SECTION_ORDER: Array<{ id: string; label: string }> = [
  */
 const CORE_TOOL_DEFINITIONS: CoreToolDefinition[] = [
   // Files
-  { id: 'read', label: 'read', description: 'Read file contents', sectionId: 'fs', profiles: ['coding'] },
-  { id: 'write', label: 'write', description: 'Create or overwrite files', sectionId: 'fs', profiles: ['coding'] },
-  { id: 'edit', label: 'edit', description: 'Make precise edits to files', sectionId: 'fs', profiles: ['coding'] },
-  { id: 'apply_patch', label: 'apply_patch', description: 'Apply patches to files', sectionId: 'fs', profiles: ['coding'] },
-  { id: 'glob', label: 'glob', description: 'List files matching glob patterns', sectionId: 'fs', profiles: ['coding'], includeInOpenClawGroup: true },
-  { id: 'grep', label: 'grep', description: 'Search file contents with regex', sectionId: 'fs', profiles: ['coding'], includeInOpenClawGroup: true },
+  {
+    id: 'read',
+    label: 'read',
+    description: 'Read file contents',
+    sectionId: 'fs',
+    profiles: ['coding'],
+  },
+  {
+    id: 'write',
+    label: 'write',
+    description: 'Create or overwrite files',
+    sectionId: 'fs',
+    profiles: ['coding'],
+  },
+  {
+    id: 'edit',
+    label: 'edit',
+    description: 'Make precise edits to files',
+    sectionId: 'fs',
+    profiles: ['coding'],
+  },
+  {
+    id: 'apply_patch',
+    label: 'apply_patch',
+    description: 'Apply patches to files',
+    sectionId: 'fs',
+    profiles: ['coding'],
+  },
+  {
+    id: 'glob',
+    label: 'glob',
+    description: 'List files matching glob patterns',
+    sectionId: 'fs',
+    profiles: ['coding'],
+    includeInOpenClawGroup: true,
+  },
+  {
+    id: 'grep',
+    label: 'grep',
+    description: 'Search file contents with regex',
+    sectionId: 'fs',
+    profiles: ['coding'],
+    includeInOpenClawGroup: true,
+  },
 
   // Runtime
-  { id: 'exec', label: 'exec', description: 'Execute shell commands', sectionId: 'runtime', profiles: ['coding'] },
-  { id: 'process', label: 'process', description: 'Manage long-running processes', sectionId: 'runtime', profiles: ['coding'] },
-  { id: 'bash', label: 'bash', description: 'Execute bash commands interactively', sectionId: 'runtime', profiles: ['coding'] },
-  { id: 'powershell', label: 'powershell', description: 'Execute PowerShell commands', sectionId: 'runtime', profiles: ['coding'] },
+  {
+    id: 'exec',
+    label: 'exec',
+    description: 'Execute shell commands',
+    sectionId: 'runtime',
+    profiles: ['coding'],
+  },
+  {
+    id: 'process',
+    label: 'process',
+    description: 'Manage long-running processes',
+    sectionId: 'runtime',
+    profiles: ['coding'],
+  },
+  {
+    id: 'bash',
+    label: 'bash',
+    description: 'Execute bash commands interactively',
+    sectionId: 'runtime',
+    profiles: ['coding'],
+  },
+  {
+    id: 'powershell',
+    label: 'powershell',
+    description: 'Execute PowerShell commands',
+    sectionId: 'runtime',
+    profiles: ['coding'],
+  },
 
   // Web
-  { id: 'web_search', label: 'web_search', description: 'Search the web for information', sectionId: 'web', profiles: ['coding'], includeInOpenClawGroup: true },
-  { id: 'web_fetch', label: 'web_fetch', description: 'Fetch and extract web page content', sectionId: 'web', profiles: ['coding'], includeInOpenClawGroup: true },
+  {
+    id: 'web_search',
+    label: 'web_search',
+    description: 'Search the web for information',
+    sectionId: 'web',
+    profiles: ['coding'],
+    includeInOpenClawGroup: true,
+  },
+  {
+    id: 'web_fetch',
+    label: 'web_fetch',
+    description: 'Fetch and extract web page content',
+    sectionId: 'web',
+    profiles: ['coding'],
+    includeInOpenClawGroup: true,
+  },
 
   // Memory
-  { id: 'memory_search', label: 'memory_search', description: 'Semantic search across memory', sectionId: 'memory', profiles: ['coding'], includeInOpenClawGroup: true },
-  { id: 'memory_get', label: 'memory_get', description: 'Read stored memory entries', sectionId: 'memory', profiles: ['coding'], includeInOpenClawGroup: true },
-  { id: 'todo_write', label: 'todo_write', description: 'Write task tracking entries', sectionId: 'memory', profiles: ['coding'] },
+  {
+    id: 'memory_search',
+    label: 'memory_search',
+    description: 'Semantic search across memory',
+    sectionId: 'memory',
+    profiles: ['coding'],
+    includeInOpenClawGroup: true,
+  },
+  {
+    id: 'memory_get',
+    label: 'memory_get',
+    description: 'Read stored memory entries',
+    sectionId: 'memory',
+    profiles: ['coding'],
+    includeInOpenClawGroup: true,
+  },
+  {
+    id: 'todo_write',
+    label: 'todo_write',
+    description: 'Write task tracking entries',
+    sectionId: 'memory',
+    profiles: ['coding'],
+  },
 
   // Sessions
-  { id: 'sessions_list', label: 'sessions_list', description: 'List active agent sessions', sectionId: 'sessions', profiles: ['coding', 'messaging'] },
-  { id: 'sessions_history', label: 'sessions_history', description: 'View session conversation history', sectionId: 'sessions', profiles: ['coding', 'messaging'] },
-  { id: 'sessions_send', label: 'sessions_send', description: 'Send messages to active sessions', sectionId: 'sessions', profiles: ['coding', 'messaging'] },
-  { id: 'sessions_spawn', label: 'sessions_spawn', description: 'Spawn new sub-agent sessions', sectionId: 'sessions', profiles: ['coding'] },
-  { id: 'sessions_yield', label: 'sessions_yield', description: 'Yield control to sub-agent results', sectionId: 'sessions', profiles: ['coding'] },
-  { id: 'session_status', label: 'session_status', description: 'Check current session status', sectionId: 'sessions', profiles: ['minimal', 'coding', 'messaging'] },
+  {
+    id: 'sessions_list',
+    label: 'sessions_list',
+    description: 'List active agent sessions',
+    sectionId: 'sessions',
+    profiles: ['coding', 'messaging'],
+  },
+  {
+    id: 'sessions_history',
+    label: 'sessions_history',
+    description: 'View session conversation history',
+    sectionId: 'sessions',
+    profiles: ['coding', 'messaging'],
+  },
+  {
+    id: 'sessions_send',
+    label: 'sessions_send',
+    description: 'Send messages to active sessions',
+    sectionId: 'sessions',
+    profiles: ['coding', 'messaging'],
+  },
+  {
+    id: 'sessions_spawn',
+    label: 'sessions_spawn',
+    description: 'Spawn new sub-agent sessions',
+    sectionId: 'sessions',
+    profiles: ['coding'],
+  },
+  {
+    id: 'sessions_yield',
+    label: 'sessions_yield',
+    description: 'Yield control to sub-agent results',
+    sectionId: 'sessions',
+    profiles: ['coding'],
+  },
+  {
+    id: 'session_status',
+    label: 'session_status',
+    description: 'Check current session status',
+    sectionId: 'sessions',
+    profiles: ['minimal', 'coding', 'messaging'],
+  },
 
   // UI
-  { id: 'browser', label: 'browser', description: 'Control a web browser', sectionId: 'ui', profiles: [] },
-  { id: 'canvas', label: 'canvas', description: 'Render content on canvas', sectionId: 'ui', profiles: [] },
-  { id: 'voice_input', label: 'voice_input', description: 'Capture voice input', sectionId: 'ui', profiles: [] },
-  { id: 'voice_output', label: 'voice_output', description: 'Play voice output', sectionId: 'ui', profiles: [] },
+  {
+    id: 'browser',
+    label: 'browser',
+    description: 'Control a web browser',
+    sectionId: 'ui',
+    profiles: [],
+  },
+  {
+    id: 'canvas',
+    label: 'canvas',
+    description: 'Render content on canvas',
+    sectionId: 'ui',
+    profiles: [],
+  },
+  {
+    id: 'voice_input',
+    label: 'voice_input',
+    description: 'Capture voice input',
+    sectionId: 'ui',
+    profiles: [],
+  },
+  {
+    id: 'voice_output',
+    label: 'voice_output',
+    description: 'Play voice output',
+    sectionId: 'ui',
+    profiles: [],
+  },
 
   // Messaging
-  { id: 'send_message', label: 'send_message', description: 'Send messages to users', sectionId: 'messaging', profiles: ['messaging'] },
-  { id: 'push_notification', label: 'push_notification', description: 'Send push notifications', sectionId: 'messaging', profiles: ['messaging'] },
+  {
+    id: 'send_message',
+    label: 'send_message',
+    description: 'Send messages to users',
+    sectionId: 'messaging',
+    profiles: ['messaging'],
+  },
+  {
+    id: 'push_notification',
+    label: 'push_notification',
+    description: 'Send push notifications',
+    sectionId: 'messaging',
+    profiles: ['messaging'],
+  },
 
   // Automation
-  { id: 'cron', label: 'cron', description: 'Schedule and manage cron jobs', sectionId: 'automation', profiles: ['coding'] },
-  { id: 'gateway', label: 'gateway', description: 'Control API gateway', sectionId: 'automation', profiles: [] },
+  {
+    id: 'cron',
+    label: 'cron',
+    description: 'Schedule and manage cron jobs',
+    sectionId: 'automation',
+    profiles: ['coding'],
+  },
+  {
+    id: 'gateway',
+    label: 'gateway',
+    description: 'Control API gateway',
+    sectionId: 'automation',
+    profiles: [],
+  },
 
   // Agents
-  { id: 'agents_list', label: 'agents_list', description: 'List available agents', sectionId: 'agents', profiles: [] },
-  { id: 'update_plan', label: 'update_plan', description: 'Update execution plan', sectionId: 'agents', profiles: ['coding'] },
-  { id: 'task', label: 'task', description: 'Create and manage tasks', sectionId: 'agents', profiles: ['coding'] },
+  {
+    id: 'agents_list',
+    label: 'agents_list',
+    description: 'List available agents',
+    sectionId: 'agents',
+    profiles: [],
+  },
+  {
+    id: 'update_plan',
+    label: 'update_plan',
+    description: 'Update execution plan',
+    sectionId: 'agents',
+    profiles: ['coding'],
+  },
+  {
+    id: 'task',
+    label: 'task',
+    description: 'Create and manage tasks',
+    sectionId: 'agents',
+    profiles: ['coding'],
+  },
 
   // Media
-  { id: 'image', label: 'image', description: 'Image understanding and analysis', sectionId: 'media', profiles: ['coding'] },
-  { id: 'image_generate', label: 'image_generate', description: 'Generate images from prompts', sectionId: 'media', profiles: ['coding'] },
-  { id: 'music_generate', label: 'music_generate', description: 'Generate music from prompts', sectionId: 'media', profiles: ['coding'] },
-  { id: 'video_generate', label: 'video_generate', description: 'Generate video from prompts', sectionId: 'media', profiles: ['coding'] },
-  { id: 'tts', label: 'tts', description: 'Text-to-speech conversion', sectionId: 'media', profiles: [] },
+  {
+    id: 'image',
+    label: 'image',
+    description: 'Image understanding and analysis',
+    sectionId: 'media',
+    profiles: ['coding'],
+  },
+  {
+    id: 'image_generate',
+    label: 'image_generate',
+    description: 'Generate images from prompts',
+    sectionId: 'media',
+    profiles: ['coding'],
+  },
+  {
+    id: 'music_generate',
+    label: 'music_generate',
+    description: 'Generate music from prompts',
+    sectionId: 'media',
+    profiles: ['coding'],
+  },
+  {
+    id: 'video_generate',
+    label: 'video_generate',
+    description: 'Generate video from prompts',
+    sectionId: 'media',
+    profiles: ['coding'],
+  },
+  {
+    id: 'tts',
+    label: 'tts',
+    description: 'Text-to-speech conversion',
+    sectionId: 'media',
+    profiles: [],
+  },
 ];
 
 /**
@@ -133,23 +361,23 @@ const CORE_TOOL_DEFINITIONS: CoreToolDefinition[] = [
  */
 const PROFILE_POLICIES: Record<ToolProfileId, { allow?: string[] }> = {
   minimal: {
-    allow: CORE_TOOL_DEFINITIONS
-      .filter(t => t.profiles.includes('minimal'))
-      .map(t => t.id),
+    allow: CORE_TOOL_DEFINITIONS.filter((t) =>
+      t.profiles.includes('minimal')
+    ).map((t) => t.id),
   },
   coding: {
     allow: [
-      ...CORE_TOOL_DEFINITIONS
-        .filter(t => t.profiles.includes('coding'))
-        .map(t => t.id),
+      ...CORE_TOOL_DEFINITIONS.filter((t) => t.profiles.includes('coding')).map(
+        (t) => t.id
+      ),
       'bundle-mcp',
     ],
   },
   messaging: {
     allow: [
-      ...CORE_TOOL_DEFINITIONS
-        .filter(t => t.profiles.includes('messaging'))
-        .map(t => t.id),
+      ...CORE_TOOL_DEFINITIONS.filter((t) =>
+        t.profiles.includes('messaging')
+      ).map((t) => t.id),
       'bundle-mcp',
     ],
   },
@@ -164,45 +392,41 @@ export class ToolCatalog {
   private definitionsById: Map<string, CoreToolDefinition>;
 
   constructor() {
-    this.definitionsById = new Map(
-      CORE_TOOL_DEFINITIONS.map(t => [t.id, t]),
-    );
+    this.definitionsById = new Map(CORE_TOOL_DEFINITIONS.map((t) => [t.id, t]));
   }
 
   /**
    * 获取所有分类区块
    */
   getSections(): ToolSection[] {
-    return SECTION_ORDER
-      .map(section => ({
-        id: section.id,
-        label: section.label,
-        tools: CORE_TOOL_DEFINITIONS
-          .filter(t => t.sectionId === section.id)
-          .map(t => ({
-            id: t.id,
-            label: t.label,
-            description: t.description,
-          })),
-      }))
-      .filter(section => section.tools.length > 0);
+    return SECTION_ORDER.map((section) => ({
+      id: section.id,
+      label: section.label,
+      tools: CORE_TOOL_DEFINITIONS.filter(
+        (t) => t.sectionId === section.id
+      ).map((t) => ({
+        id: t.id,
+        label: t.label,
+        description: t.description,
+      })),
+    })).filter((section) => section.tools.length > 0);
   }
 
   /**
    * 获取指定分类下的工具列表
    */
   getSection(sectionId: string): ToolSection | undefined {
-    const section = SECTION_ORDER.find(s => s.id === sectionId);
+    const section = SECTION_ORDER.find((s) => s.id === sectionId);
     if (!section) {
       return undefined;
     }
-    const tools = CORE_TOOL_DEFINITIONS
-      .filter(t => t.sectionId === sectionId)
-      .map(t => ({
-        id: t.id,
-        label: t.label,
-        description: t.description,
-      }));
+    const tools = CORE_TOOL_DEFINITIONS.filter(
+      (t) => t.sectionId === sectionId
+    ).map((t) => ({
+      id: t.id,
+      label: t.label,
+      description: t.description,
+    }));
     if (tools.length === 0) {
       return undefined;
     }
@@ -218,7 +442,7 @@ export class ToolCatalog {
       return [];
     }
     if (profile === 'full') {
-      return CORE_TOOL_DEFINITIONS.map(t => t.id);
+      return CORE_TOOL_DEFINITIONS.map((t) => t.id);
     }
     return policy.allow ?? [];
   }
@@ -227,7 +451,9 @@ export class ToolCatalog {
    * 获取指定 Profile 的完整策略
    */
   getProfilePolicy(profile: ToolProfileId): { allow?: string[] } | undefined {
-    return PROFILE_POLICIES[profile] ? { ...PROFILE_POLICIES[profile] } : undefined;
+    return PROFILE_POLICIES[profile]
+      ? { ...PROFILE_POLICIES[profile] }
+      : undefined;
   }
 
   /**
@@ -260,13 +486,14 @@ export class ToolCatalog {
    */
   search(query: string): ToolCatalogItem[] {
     const q = query.toLowerCase();
-    const results = CORE_TOOL_DEFINITIONS.filter(t =>
-      t.id.includes(q) ||
-      t.label.toLowerCase().includes(q) ||
-      t.description.toLowerCase().includes(q) ||
-      t.sectionId.includes(q),
+    const results = CORE_TOOL_DEFINITIONS.filter(
+      (t) =>
+        t.id.includes(q) ||
+        t.label.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.sectionId.includes(q)
     );
-    return results.map(t => ({
+    return results.map((t) => ({
       id: t.id,
       label: t.label,
       description: t.description,
@@ -277,7 +504,7 @@ export class ToolCatalog {
    * 获取所有可用的分类区块 ID
    */
   getSectionIds(): string[] {
-    return SECTION_ORDER.map(s => s.id);
+    return SECTION_ORDER.map((s) => s.id);
   }
 
   /**
@@ -299,17 +526,17 @@ export class ToolCatalog {
     const groups: Record<string, string[]> = {};
 
     for (const section of SECTION_ORDER) {
-      const tools = CORE_TOOL_DEFINITIONS
-        .filter(t => t.sectionId === section.id)
-        .map(t => t.id);
+      const tools = CORE_TOOL_DEFINITIONS.filter(
+        (t) => t.sectionId === section.id
+      ).map((t) => t.id);
       if (tools.length > 0) {
         groups[`group:${section.id}`] = tools;
       }
     }
 
-    groups['group:openclaw'] = CORE_TOOL_DEFINITIONS
-      .filter(t => t.includeInOpenClawGroup)
-      .map(t => t.id);
+    groups['group:openclaw'] = CORE_TOOL_DEFINITIONS.filter(
+      (t) => t.includeInOpenClawGroup
+    ).map((t) => t.id);
 
     return groups;
   }

@@ -99,7 +99,8 @@ export class PluginMarketplace {
           cmp = a.rating - b.rating;
           break;
         case 'updated':
-          cmp = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+          cmp =
+            new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
           break;
         case 'name':
           cmp = a.name.localeCompare(b.name);

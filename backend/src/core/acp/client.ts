@@ -20,7 +20,14 @@ export class AclClient extends EventEmitter {
   private config: AclClientConfig;
   private connected = false;
   private sessionId: string | null = null;
-  private pendingRequests: Map<string, { resolve: (msg: AclMessage) => void; reject: (err: Error) => void; timer: ReturnType<typeof setTimeout> }> = new Map();
+  private pendingRequests: Map<
+    string,
+    {
+      resolve: (msg: AclMessage) => void;
+      reject: (err: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  > = new Map();
   private reconnectAttempts = 0;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private startTime = 0;
@@ -51,8 +58,15 @@ export class AclClient extends EventEmitter {
         timestamp: Date.now(),
       };
 
-      const handshakeMsg = this.createMessage('handshake', 'request', handshake);
-      const response = await this.sendWithTimeout(handshakeMsg, this.config.transport.timeout || 5000);
+      const handshakeMsg = this.createMessage(
+        'handshake',
+        'request',
+        handshake
+      );
+      const response = await this.sendWithTimeout(
+        handshakeMsg,
+        this.config.transport.timeout || 5000
+      );
 
       if (!response.success || !response.message) {
         this.metrics.errors++;
@@ -76,7 +90,9 @@ export class AclClient extends EventEmitter {
     this.stopHeartbeat();
 
     if (this.sessionId) {
-      const byeMsg = this.createMessage('bye', 'notification', { sessionId: this.sessionId });
+      const byeMsg = this.createMessage('bye', 'notification', {
+        sessionId: this.sessionId,
+      });
       this.doSend(byeMsg).catch(() => {});
     }
 
@@ -117,13 +133,19 @@ export class AclClient extends EventEmitter {
     type: string,
     payload: unknown,
     priority: AclMessagePriority = 'normal',
-    correlationId?: string,
+    correlationId?: string
   ): Promise<void> {
     if (!this.connected) {
       throw new Error('Not connected');
     }
 
-    const message = this.createMessage(type, 'notification', payload, priority, correlationId);
+    const message = this.createMessage(
+      type,
+      'notification',
+      payload,
+      priority,
+      correlationId
+    );
     await this.doSend(message);
   }
 
@@ -131,14 +153,20 @@ export class AclClient extends EventEmitter {
     type: string,
     payload: unknown,
     timeoutMs: number = 30000,
-    priority: AclMessagePriority = 'normal',
+    priority: AclMessagePriority = 'normal'
   ): Promise<AclMessage> {
     if (!this.connected) {
       throw new Error('Not connected');
     }
 
     const correlationId = nextClientId();
-    const message = this.createMessage(type, 'request', payload, priority, correlationId);
+    const message = this.createMessage(
+      type,
+      'request',
+      payload,
+      priority,
+      correlationId
+    );
 
     return new Promise<AclMessage>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -159,7 +187,10 @@ export class AclClient extends EventEmitter {
   onMessage(message: AclMessage): void {
     this.metrics.totalMessagesReceived++;
 
-    if (message.correlationId && this.pendingRequests.has(message.correlationId)) {
+    if (
+      message.correlationId &&
+      this.pendingRequests.has(message.correlationId)
+    ) {
       const entry = this.pendingRequests.get(message.correlationId)!;
 
       clearTimeout(entry.timer);
@@ -176,7 +207,7 @@ export class AclClient extends EventEmitter {
     role: AclMessageRole,
     payload: unknown,
     priority: AclMessagePriority = 'normal',
-    correlationId?: string,
+    correlationId?: string
   ): AclMessage {
     return {
       id: nextClientId(),
@@ -196,10 +227,14 @@ export class AclClient extends EventEmitter {
     this.metrics.totalMessagesSent++;
   }
 
-  private async sendWithTimeout(message: AclMessage, _timeoutMs: number): Promise<AclResponse> {
+  private async sendWithTimeout(
+    message: AclMessage,
+    _timeoutMs: number
+  ): Promise<AclResponse> {
     try {
       this.metrics.totalMessagesSent++;
-      const responseSessionId = message.sessionId || `mock-session-${Date.now()}`;
+      const responseSessionId =
+        message.sessionId || `mock-session-${Date.now()}`;
 
       return {
         success: true,
@@ -211,7 +246,10 @@ export class AclClient extends EventEmitter {
         },
       };
     } catch (err) {
-      return { success: false, error: { code: 'SEND_FAILED', message: String(err) } };
+      return {
+        success: false,
+        error: { code: 'SEND_FAILED', message: String(err) },
+      };
     }
   }
 
@@ -219,7 +257,9 @@ export class AclClient extends EventEmitter {
     const interval = this.config.heartbeatInterval || 30000;
 
     this.heartbeatTimer = setInterval(() => {
-      const hbMsg = this.createMessage('heartbeat', 'notification', { timestamp: Date.now() });
+      const hbMsg = this.createMessage('heartbeat', 'notification', {
+        timestamp: Date.now(),
+      });
 
       this.doSend(hbMsg).catch(() => {});
     }, interval);

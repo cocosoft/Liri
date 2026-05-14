@@ -75,7 +75,15 @@ export class TlsManager {
   getStatus(): TlsStatus {
     try {
       if (!this.config.certPath || !fs.existsSync(this.config.certPath)) {
-        return { enabled: false, certPath: this.config.certPath, expiresAt: null, daysRemaining: null, valid: false, issuer: null, subject: null };
+        return {
+          enabled: false,
+          certPath: this.config.certPath,
+          expiresAt: null,
+          daysRemaining: null,
+          valid: false,
+          issuer: null,
+          subject: null,
+        };
       }
 
       const certData = fs.readFileSync(this.config.certPath, 'utf-8');
@@ -89,7 +97,9 @@ export class TlsManager {
         expiresAt = new Date(notAfterMatch[1].trim()).getTime();
       }
 
-      const daysRemaining = expiresAt ? Math.round((expiresAt - Date.now()) / (24 * 60 * 60 * 1000)) : null;
+      const daysRemaining = expiresAt
+        ? Math.round((expiresAt - Date.now()) / (24 * 60 * 60 * 1000))
+        : null;
 
       return {
         enabled: true,
@@ -101,7 +111,15 @@ export class TlsManager {
         subject: subjectMatch ? subjectMatch[1].trim() : null,
       };
     } catch {
-      return { enabled: false, certPath: this.config.certPath, expiresAt: null, daysRemaining: null, valid: false, issuer: null, subject: null };
+      return {
+        enabled: false,
+        certPath: this.config.certPath,
+        expiresAt: null,
+        daysRemaining: null,
+        valid: false,
+        issuer: null,
+        subject: null,
+      };
     }
   }
 
@@ -111,7 +129,11 @@ export class TlsManager {
   needsRenewal(): boolean {
     const status = this.getStatus();
 
-    return status.enabled && status.daysRemaining !== null && status.daysRemaining < this.config.renewThreshold;
+    return (
+      status.enabled &&
+      status.daysRemaining !== null &&
+      status.daysRemaining < this.config.renewThreshold
+    );
   }
 
   /**

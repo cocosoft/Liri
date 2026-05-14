@@ -159,7 +159,8 @@ export const DEFAULT_MIGRATIONS: MigrationVersion[] = [
     to: '1.1.0',
     description: '添加消息 ID 字段',
     apply(data: Record<string, unknown>): Record<string, unknown> {
-      const messages = (data['messages'] as Array<Record<string, unknown>>) || [];
+      const messages =
+        (data['messages'] as Array<Record<string, unknown>>) || [];
       for (let i = 0; i < messages.length; i++) {
         if (!messages[i]['id']) {
           messages[i]['id'] = `migrated-${i}-${Date.now()}`;

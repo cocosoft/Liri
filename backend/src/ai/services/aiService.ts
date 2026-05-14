@@ -138,7 +138,11 @@ export function createAIService(
 ): AIService {
   const defaultConfig: AIServiceConfig = {
     defaultModel: AIModelType.DEEPSEEK_CHAT,
-    apiKey: process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY || '',
+    apiKey:
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.DEEPSEEK_API_KEY ||
+      '',
     baseUrl: '',
     timeout: 60000,
     maxRetries: 3,

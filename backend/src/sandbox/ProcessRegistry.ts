@@ -40,11 +40,17 @@ export class ProcessRegistry {
     }
 
     this.processes.set(id, { ...procInfo, startTime: Date.now() });
-    logger.debug(`进程已注册: ${id} (PID: ${procInfo.pid}, 命令: ${procInfo.command})`);
+    logger.debug(
+      `进程已注册: ${id} (PID: ${procInfo.pid}, 命令: ${procInfo.command})`
+    );
     return id;
   }
 
-  updateStatus(id: string, status: ProcessInfo['status'], exitCode?: number): boolean {
+  updateStatus(
+    id: string,
+    status: ProcessInfo['status'],
+    exitCode?: number
+  ): boolean {
     const proc = this.processes.get(id);
     if (!proc) return false;
 
@@ -98,8 +104,9 @@ export class ProcessRegistry {
   }
 
   trim(): void {
-    const oldestFirst = Array.from(this.processes.entries())
-      .sort(([, a], [, b]) => a.startTime - b.startTime);
+    const oldestFirst = Array.from(this.processes.entries()).sort(
+      ([, a], [, b]) => a.startTime - b.startTime
+    );
 
     const removeCount = Math.floor(this.processes.size * 0.3);
     for (let i = 0; i < removeCount; i++) {
@@ -111,7 +118,13 @@ export class ProcessRegistry {
     logger.info(`进程注册表自动修剪: 移除 ${removeCount} 个旧条目`);
   }
 
-  getStats(): { total: number; running: number; completed: number; killed: number; errors: number } {
+  getStats(): {
+    total: number;
+    running: number;
+    completed: number;
+    killed: number;
+    errors: number;
+  } {
     let running = 0;
     let completed = 0;
     let killed = 0;
@@ -119,10 +132,19 @@ export class ProcessRegistry {
 
     for (const [, proc] of this.processes) {
       switch (proc.status) {
-        case 'running': running++; break;
-        case 'completed': completed++; break;
-        case 'killed': case 'timed_out': killed++; break;
-        case 'error': errors++; break;
+        case 'running':
+          running++;
+          break;
+        case 'completed':
+          completed++;
+          break;
+        case 'killed':
+        case 'timed_out':
+          killed++;
+          break;
+        case 'error':
+          errors++;
+          break;
       }
     }
 

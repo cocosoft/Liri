@@ -80,12 +80,19 @@ export class StaggerScheduler extends EventEmitter {
   /**
    * 带延迟执行单个任务
    */
-  private async executeWithDelay(task: StaggerTask, batchIndex: number): Promise<void> {
+  private async executeWithDelay(
+    task: StaggerTask,
+    batchIndex: number
+  ): Promise<void> {
     const delay = this.calculateDelay(batchIndex, 0);
 
     await this.wait(delay);
 
-    this.emit('stagger:execute', { taskId: task.id, taskName: task.name, delay });
+    this.emit('stagger:execute', {
+      taskId: task.id,
+      taskName: task.name,
+      delay,
+    });
 
     try {
       await task.execute();
@@ -94,7 +101,11 @@ export class StaggerScheduler extends EventEmitter {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
-      this.emit('stagger:error', { taskId: task.id, taskName: task.name, error: message });
+      this.emit('stagger:error', {
+        taskId: task.id,
+        taskName: task.name,
+        error: message,
+      });
     }
   }
 
@@ -114,7 +125,10 @@ export class StaggerScheduler extends EventEmitter {
       case 'incremental': {
         const progress = total > 0 ? index / total : 0;
 
-        return Math.min(base + (this.config.maxDelayMs - base) * progress, this.config.maxDelayMs);
+        return Math.min(
+          base + (this.config.maxDelayMs - base) * progress,
+          this.config.maxDelayMs
+        );
       }
 
       default:

@@ -12,6 +12,10 @@ import {
   PathValidationConfig,
   FileOperationType,
 } from './types.js';
+import {
+  isWriteProtected,
+  getWriteProtectionReason,
+} from '../files/ProtectedPaths';
 
 const WINDOWS_DRIVE_ROOT_REGEX = /^[a-zA-Z]:\\?$/;
 const WINDOWS_DRIVE_CHILD_REGEX = /^[a-zA-Z]:\\?[a-zA-Z0-9_]+$/;
@@ -85,6 +89,16 @@ export class PathValidator {
     const absolutePath = isAbsolute(expandedPath)
       ? resolve(expandedPath)
       : resolve(process.cwd(), expandedPath);
+
+    if (
+      (operation === 'write' || operation === 'delete') &&
+      isWriteProtected(absolutePath)
+    ) {
+      return {
+        allowed: false,
+        reason: getWriteProtectionReason(absolutePath),
+      };
+    }
 
     for (const deniedPath of this.deniedPaths) {
       if (absolutePath.startsWith(deniedPath)) {

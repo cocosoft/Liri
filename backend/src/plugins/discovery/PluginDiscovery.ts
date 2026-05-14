@@ -8,7 +8,12 @@ import path from 'node:path';
 /**
  * 发现源类型
  */
-export type DiscoverySource = 'builtin' | 'installed' | 'user' | 'project' | 'global';
+export type DiscoverySource =
+  | 'builtin'
+  | 'installed'
+  | 'user'
+  | 'project'
+  | 'global';
 
 /**
  * 发现的插件信息
@@ -59,7 +64,10 @@ export class PluginDiscovery {
   scan(options?: DiscoveryOptions): DiscoveredPlugin[] {
     const sources = options?.sources || Array.from(this.scanPaths.keys());
     const scanDepth = options?.scanDepth || 3;
-    const excludePatterns = options?.excludePatterns || ['node_modules', '.git'];
+    const excludePatterns = options?.excludePatterns || [
+      'node_modules',
+      '.git',
+    ];
 
     const allDiscovered: DiscoveredPlugin[] = [];
 
@@ -67,7 +75,13 @@ export class PluginDiscovery {
       const paths = this.scanPaths.get(source) || [];
       for (const scanPath of paths) {
         if (!fs.existsSync(scanPath)) continue;
-        const found = this.scanDirectory(scanPath, source, scanDepth, 0, excludePatterns);
+        const found = this.scanDirectory(
+          scanPath,
+          source,
+          scanDepth,
+          0,
+          excludePatterns
+        );
         allDiscovered.push(...found);
       }
     }
@@ -97,7 +111,9 @@ export class PluginDiscovery {
    * 按源类型获取插件
    */
   getBySource(source: DiscoverySource): DiscoveredPlugin[] {
-    return Array.from(this.discovered.values()).filter((p) => p.source === source);
+    return Array.from(this.discovered.values()).filter(
+      (p) => p.source === source
+    );
   }
 
   /**
@@ -134,7 +150,9 @@ export class PluginDiscovery {
           if (fs.existsSync(manifestPath)) {
             let version: string | undefined;
             try {
-              const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+              const manifest = JSON.parse(
+                fs.readFileSync(manifestPath, 'utf-8')
+              );
               version = manifest.version;
             } catch {
               // 忽略解析错误
@@ -150,7 +168,13 @@ export class PluginDiscovery {
             });
           }
 
-          const subResults = this.scanDirectory(fullPath, source, maxDepth, currentDepth + 1, excludePatterns);
+          const subResults = this.scanDirectory(
+            fullPath,
+            source,
+            maxDepth,
+            currentDepth + 1,
+            excludePatterns
+          );
           results.push(...subResults);
         }
       }
@@ -169,9 +193,7 @@ export class PluginDiscovery {
 
     this.scanPaths.set('builtin', [path.join(cwd, 'plugins', 'builtin')]);
     this.scanPaths.set('installed', [path.join(cwd, 'plugins', 'installed')]);
-    this.scanPaths.set('user', [
-      path.join(osHomedir(), '.pyapp', 'plugins'),
-    ]);
+    this.scanPaths.set('user', [path.join(osHomedir(), '.pyapp', 'plugins')]);
     this.scanPaths.set('project', [path.join(cwd, '.pyapp', 'plugins')]);
     this.scanPaths.set('global', [
       process.env.PYAPP_PLUGIN_PATH || path.join(cwd, 'plugins'),

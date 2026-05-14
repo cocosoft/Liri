@@ -161,11 +161,16 @@ export class ChannelPluginPresence {
   /**
    * 批量检测
    */
-  checkBatch(channels: Array<{ name: string; dependencies?: string[] }>): Map<string, PresenceResult> {
+  checkBatch(
+    channels: Array<{ name: string; dependencies?: string[] }>
+  ): Map<string, PresenceResult> {
     const results = new Map<string, PresenceResult>();
 
     for (const channel of channels) {
-      results.set(channel.name, this.checkPresence(channel.name, channel.dependencies));
+      results.set(
+        channel.name,
+        this.checkPresence(channel.name, channel.dependencies)
+      );
     }
 
     return results;

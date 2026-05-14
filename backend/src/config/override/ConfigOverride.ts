@@ -49,7 +49,13 @@ export class ConfigOverride {
   /**
    * 设置覆盖
    */
-  set(key: string, value: unknown, priority: OverridePriority, source: string, ttl?: number): void {
+  set(
+    key: string,
+    value: unknown,
+    priority: OverridePriority,
+    source: string,
+    ttl?: number
+  ): void {
     if (!this.config.enabled) return;
 
     if (this.overrides.size >= this.config.maxOverrides) {
@@ -91,8 +97,10 @@ export class ConfigOverride {
   apply<T extends Record<string, unknown>>(baseConfig: T): T {
     const result = { ...baseConfig };
 
-    const sortedOverrides = Array.from(this.overrides.values())
-      .sort((a, b) => this.priorityWeight(b.priority) - this.priorityWeight(a.priority));
+    const sortedOverrides = Array.from(this.overrides.values()).sort(
+      (a, b) =>
+        this.priorityWeight(b.priority) - this.priorityWeight(a.priority)
+    );
 
     for (const override of sortedOverrides) {
       if (override.ttl && Date.now() - override.timestamp > override.ttl) {
@@ -133,8 +141,10 @@ export class ConfigOverride {
    * 获取所有覆盖
    */
   getAll(): OverrideEntry[] {
-    return Array.from(this.overrides.values())
-      .sort((a, b) => this.priorityWeight(b.priority) - this.priorityWeight(a.priority));
+    return Array.from(this.overrides.values()).sort(
+      (a, b) =>
+        this.priorityWeight(b.priority) - this.priorityWeight(a.priority)
+    );
   }
 
   /**
@@ -167,7 +177,11 @@ export class ConfigOverride {
   /**
    * 设置嵌套值
    */
-  private setNestedValue(obj: Record<string, unknown>, key: string, value: unknown): void {
+  private setNestedValue(
+    obj: Record<string, unknown>,
+    key: string,
+    value: unknown
+  ): void {
     const parts = key.split('.');
     let current = obj;
 

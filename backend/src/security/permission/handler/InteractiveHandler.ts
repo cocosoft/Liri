@@ -5,7 +5,10 @@
  */
 
 import { logger } from '../../../utils/log.js';
-import type { PermissionContext, PermissionDecision } from '../PermissionContext.js';
+import type {
+  PermissionContext,
+  PermissionDecision,
+} from '../PermissionContext.js';
 import { globalAuditLogger } from '../logging/PermissionAuditLogger.js';
 
 export type InteractiveResponse = 'allow' | 'deny' | 'allow_once' | 'deny_once';
@@ -28,7 +31,10 @@ export interface InteractiveHandlerOptions {
 
 export class InteractiveHandler {
   private pendingRequests: Map<string, InteractiveRequest> = new Map();
-  private sessionOverrides: Map<string, { decision: 'allow' | 'deny'; expiresAt: Date }> = new Map();
+  private sessionOverrides: Map<
+    string,
+    { decision: 'allow' | 'deny'; expiresAt: Date }
+  > = new Map();
   private options: Required<InteractiveHandlerOptions>;
 
   constructor(options?: InteractiveHandlerOptions) {
@@ -41,18 +47,20 @@ export class InteractiveHandler {
 
   async requestPermission(
     context: PermissionContext,
-    customMessage?: string,
+    customMessage?: string
   ): Promise<PermissionDecision> {
     const sessionKey = this.buildSessionKey(context);
 
     const override = this.checkSessionOverride(sessionKey);
     if (override) {
-      logger.debug(`[InteractiveHandler] Session override applied: ${override.decision}`);
+      logger.debug(
+        `[InteractiveHandler] Session override applied: ${override.decision}`
+      );
       return this.makeDecision(
         override.decision === 'allow',
         context,
         `Session override: ${override.decision}`,
-        'user',
+        'user'
       );
     }
 
@@ -85,7 +93,12 @@ export class InteractiveHandler {
           return this.makeDecision(true, context, 'User approved', 'user');
 
         case 'allow_once':
-          return this.makeDecision(true, context, 'User approved (once)', 'user');
+          return this.makeDecision(
+            true,
+            context,
+            'User approved (once)',
+            'user'
+          );
 
         case 'deny':
           if (this.options.allowSessionOverride) {
@@ -94,7 +107,12 @@ export class InteractiveHandler {
           return this.makeDecision(false, context, 'User denied', 'user');
 
         case 'deny_once':
-          return this.makeDecision(false, context, 'User denied (once)', 'user');
+          return this.makeDecision(
+            false,
+            context,
+            'User denied (once)',
+            'user'
+          );
       }
     } catch (error) {
       request.resolved = true;
@@ -105,10 +123,7 @@ export class InteractiveHandler {
     }
   }
 
-  resolveRequest(
-    requestId: string,
-    response: InteractiveResponse,
-  ): boolean {
+  resolveRequest(requestId: string, response: InteractiveResponse): boolean {
     const request = this.pendingRequests.get(requestId);
     if (!request || request.resolved) {
       return false;
@@ -134,7 +149,7 @@ export class InteractiveHandler {
   }
 
   private checkSessionOverride(
-    sessionKey: string,
+    sessionKey: string
   ): { decision: 'allow' | 'deny'; expiresAt: Date } | null {
     const override = this.sessionOverrides.get(sessionKey);
     if (!override) {
@@ -149,7 +164,10 @@ export class InteractiveHandler {
     return override;
   }
 
-  private setSessionOverride(sessionKey: string, decision: 'allow' | 'deny'): void {
+  private setSessionOverride(
+    sessionKey: string,
+    decision: 'allow' | 'deny'
+  ): void {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     this.sessionOverrides.set(sessionKey, { decision, expiresAt });
   }
@@ -170,7 +188,9 @@ export class InteractiveHandler {
     }
   }
 
-  private async waitForResponse(request: InteractiveRequest): Promise<InteractiveResponse> {
+  private async waitForResponse(
+    request: InteractiveRequest
+  ): Promise<InteractiveResponse> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error('Timeout'));
@@ -199,7 +219,7 @@ export class InteractiveHandler {
     allowed: boolean,
     context: PermissionContext,
     reason: string,
-    decidedBy: PermissionDecision['decidedBy'],
+    decidedBy: PermissionDecision['decidedBy']
   ): PermissionDecision {
     const decision: PermissionDecision = {
       allowed,
@@ -213,16 +233,14 @@ export class InteractiveHandler {
     globalAuditLogger.log(
       allowed ? 'permission_granted' : 'permission_denied',
       context,
-      decision,
+      decision
     );
 
     return decision;
   }
 
   private buildDefaultMessage(context: PermissionContext): string {
-    const parts: string[] = [
-      `Action: ${context.action.action}`,
-    ];
+    const parts: string[] = [`Action: ${context.action.action}`];
 
     const target = context.action.target;
     if (target.path) {

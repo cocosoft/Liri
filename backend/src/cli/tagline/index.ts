@@ -24,11 +24,15 @@ const DEFAULT_TAGLINES = [
   'Empowering developers with AI',
 ];
 
-const SEASONAL_TAGLINES: Array<{ month: number; day: number; tagline: string }> = [
+const SEASONAL_TAGLINES: Array<{
+  month: number;
+  day: number;
+  tagline: string;
+}> = [
   { month: 1, day: 1, tagline: 'Happy New Year! A fresh start for your code' },
   { month: 12, day: 25, tagline: 'Merry Christmas! Code with joy' },
   { month: 10, day: 31, tagline: 'Spooky code... Happy Halloween!' },
-  { month: 2, day: 14, tagline: 'Love your code! Happy Valentine\'s Day' },
+  { month: 2, day: 14, tagline: "Love your code! Happy Valentine's Day" },
   { month: 3, day: 14, tagline: 'Happy Pi Day! 3.14159...' },
 ];
 
@@ -45,10 +49,7 @@ export class TaglineManager {
       separator: config?.separator ?? ' · ',
     };
 
-    this.taglines = [
-      ...DEFAULT_TAGLINES,
-      ...this.config.customTaglines,
-    ];
+    this.taglines = [...DEFAULT_TAGLINES, ...this.config.customTaglines];
   }
 
   get(): string {

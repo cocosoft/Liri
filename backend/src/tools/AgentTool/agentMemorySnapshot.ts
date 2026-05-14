@@ -4,7 +4,10 @@
  * Agent工具内存快照管理，支持序列化/反序列化
  */
 
-import type { AgentToolMemory, AgentMemorySnapshot as SnapshotData } from './agentMemory';
+import type {
+  AgentToolMemory,
+  AgentMemorySnapshot as SnapshotData,
+} from './agentMemory';
 
 export interface SnapshotMeta {
   id: string;
@@ -23,10 +26,7 @@ export class SnapshotManager {
   private snapshots: Map<string, SerializedSnapshot> = new Map();
   private version: number = 1;
 
-  takeSnapshot(
-    memory: AgentToolMemory,
-    label: string,
-  ): SerializedSnapshot {
+  takeSnapshot(memory: AgentToolMemory, label: string): SerializedSnapshot {
     const id = `snap_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const data = memory.toSnapshot();
 
@@ -45,10 +45,7 @@ export class SnapshotManager {
     return snapshot;
   }
 
-  restoreSnapshot(
-    memory: AgentToolMemory,
-    snapshotId: string,
-  ): boolean {
+  restoreSnapshot(memory: AgentToolMemory, snapshotId: string): boolean {
     const snapshot = this.snapshots.get(snapshotId);
     if (!snapshot) return false;
 
@@ -112,7 +109,7 @@ export class SnapshotManager {
 
   compareSnapshots(
     idA: string,
-    idB: string,
+    idB: string
   ): {
     added: number;
     removed: number;
@@ -131,9 +128,10 @@ export class SnapshotManager {
     const added = [...idsB].filter((id) => !idsA.has(id)).length;
     const removed = [...idsA].filter((id) => !idsB.has(id)).length;
     const changed = [...idsA].filter(
-      (id) => idsB.has(id) &&
+      (id) =>
+        idsB.has(id) &&
         JSON.stringify(snapA.data.records.find((r) => r.id === id)) !==
-          JSON.stringify(snapB.data.records.find((r) => r.id === id)),
+          JSON.stringify(snapB.data.records.find((r) => r.id === id))
     ).length;
 
     return { added, removed, changed };

@@ -15,7 +15,13 @@ export type PlatformType = 'linux' | 'darwin' | 'win32';
 /**
  * 服务操作
  */
-export type ServiceAction = 'install' | 'uninstall' | 'start' | 'stop' | 'restart' | 'status';
+export type ServiceAction =
+  | 'install'
+  | 'uninstall'
+  | 'start'
+  | 'stop'
+  | 'restart'
+  | 'status';
 
 /**
  * 服务配置
@@ -112,26 +118,46 @@ export class DaemonService {
           this.writeSystemdUnit(unitPath);
           execSync('systemctl daemon-reload', { stdio: 'pipe' });
           execSync(`systemctl enable ${serviceName}`, { stdio: 'pipe' });
-          return { success: true, action, message: `服务 ${serviceName} 已安装` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已安装`,
+          };
 
         case 'uninstall':
           execSync(`systemctl stop ${serviceName}`, { stdio: 'pipe' });
           execSync(`systemctl disable ${serviceName}`, { stdio: 'pipe' });
           if (fs.existsSync(unitPath)) fs.unlinkSync(unitPath);
           execSync('systemctl daemon-reload', { stdio: 'pipe' });
-          return { success: true, action, message: `服务 ${serviceName} 已卸载` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已卸载`,
+          };
 
         case 'start':
           execSync(`systemctl start ${serviceName}`, { stdio: 'pipe' });
-          return { success: true, action, message: `服务 ${serviceName} 已启动` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已启动`,
+          };
 
         case 'stop':
           execSync(`systemctl stop ${serviceName}`, { stdio: 'pipe' });
-          return { success: true, action, message: `服务 ${serviceName} 已停止` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已停止`,
+          };
 
         case 'restart':
           execSync(`systemctl restart ${serviceName}`, { stdio: 'pipe' });
-          return { success: true, action, message: `服务 ${serviceName} 已重启` };
+          return {
+            success: true,
+            action,
+            message: `服务 ${serviceName} 已重启`,
+          };
 
         case 'status':
           const status = this.getSystemdStatus();
@@ -156,7 +182,12 @@ export class DaemonService {
   private executeLaunchd(action: ServiceAction): ServiceActionResult {
     try {
       const plistName = `dev.pyapp.${this.config.name}.plist`;
-      const plistPath = path.join(os.homedir(), 'Library', 'LaunchAgents', plistName);
+      const plistPath = path.join(
+        os.homedir(),
+        'Library',
+        'LaunchAgents',
+        plistName
+      );
 
       switch (action) {
         case 'install':
@@ -270,10 +301,15 @@ export class DaemonService {
    */
   private getSystemdStatus(): ServiceStatus {
     try {
-      const output = execSync(`systemctl is-active ${this.config.name}.service`, {
-        stdio: 'pipe',
-        encoding: 'utf-8',
-      }).toString().trim();
+      const output = execSync(
+        `systemctl is-active ${this.config.name}.service`,
+        {
+          stdio: 'pipe',
+          encoding: 'utf-8',
+        }
+      )
+        .toString()
+        .trim();
       return { running: output === 'active', enabled: true };
     } catch {
       return { running: false, enabled: false };
@@ -347,9 +383,9 @@ WantedBy=multi-user.target
    */
   private writeLaunchdPlist(filePath: string): void {
     const envKeys = this.config.envVars
-      ? Object.entries(this.config.envVars).map(
-          ([k, v]) => `<key>${k}</key>\n<string>${v}</string>`
-        ).join('\n')
+      ? Object.entries(this.config.envVars)
+          .map(([k, v]) => `<key>${k}</key>\n<string>${v}</string>`)
+          .join('\n')
       : '';
 
     const plist = `<?xml version="1.0" encoding="UTF-8"?>

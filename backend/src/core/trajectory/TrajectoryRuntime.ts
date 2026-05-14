@@ -26,7 +26,11 @@ export class TrajectoryRuntime extends EventEmitter {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  startSession(name: string, description?: string, tags?: string[]): TraceSession {
+  startSession(
+    name: string,
+    description?: string,
+    tags?: string[]
+  ): TraceSession {
     this.enforceMaxSessions();
 
     const session: TraceSession = {
@@ -46,7 +50,10 @@ export class TrajectoryRuntime extends EventEmitter {
     return session;
   }
 
-  completeSession(sessionId: string, status: TraceRecordStatus = 'success'): boolean {
+  completeSession(
+    sessionId: string,
+    status: TraceRecordStatus = 'success'
+  ): boolean {
     const session = this.sessions.get(sessionId);
 
     if (!session) {
@@ -223,7 +230,9 @@ export class TrajectoryRuntime extends EventEmitter {
 
     const completedSteps = filteredSteps.filter((s) => s.status !== 'running');
     const successSteps = filteredSteps.filter((s) => s.status === 'success');
-    const completedWithDuration = filteredSteps.filter((s) => s.durationMs != null);
+    const completedWithDuration = filteredSteps.filter(
+      (s) => s.durationMs != null
+    );
 
     const commandCount = new Map<string, number>();
 
@@ -242,9 +251,13 @@ export class TrajectoryRuntime extends EventEmitter {
       statusDist[s.status] = (statusDist[s.status] || 0) + 1;
     }
 
-    const avgDuration = completedWithDuration.length > 0
-      ? completedWithDuration.reduce((sum, s) => sum + (s.durationMs || 0), 0) / completedWithDuration.length
-      : 0;
+    const avgDuration =
+      completedWithDuration.length > 0
+        ? completedWithDuration.reduce(
+            (sum, s) => sum + (s.durationMs || 0),
+            0
+          ) / completedWithDuration.length
+        : 0;
 
     const recentSessions = filteredSessions
       .sort((a, b) => b.startedAt - a.startedAt)
@@ -253,9 +266,10 @@ export class TrajectoryRuntime extends EventEmitter {
     return {
       totalSessions: filteredSessions.length,
       totalSteps: filteredSteps.length,
-      successRate: completedSteps.length > 0
-        ? successSteps.length / completedSteps.length
-        : 0,
+      successRate:
+        completedSteps.length > 0
+          ? successSteps.length / completedSteps.length
+          : 0,
       avgDurationMs: Math.round(avgDuration),
       topCommands,
       statusDistribution: statusDist,
@@ -282,7 +296,8 @@ export class TrajectoryRuntime extends EventEmitter {
   }
 
   cleanup(): number {
-    const cutoff = Date.now() - this.config.autoCleanupDays * 24 * 60 * 60 * 1000;
+    const cutoff =
+      Date.now() - this.config.autoCleanupDays * 24 * 60 * 60 * 1000;
     let deletedCount = 0;
 
     for (const [id, session] of this.sessions) {
@@ -313,10 +328,14 @@ export class TrajectoryRuntime extends EventEmitter {
       return;
     }
 
-    const sorted = Array.from(this.sessions.entries())
-      .sort(([, a], [, b]) => a.startedAt - b.startedAt);
+    const sorted = Array.from(this.sessions.entries()).sort(
+      ([, a], [, b]) => a.startedAt - b.startedAt
+    );
 
-    const toDelete = sorted.slice(0, sorted.length - this.config.maxSessions + 1);
+    const toDelete = sorted.slice(
+      0,
+      sorted.length - this.config.maxSessions + 1
+    );
 
     for (const [id] of toDelete) {
       this.sessions.delete(id);

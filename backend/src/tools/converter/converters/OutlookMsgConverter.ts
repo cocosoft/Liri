@@ -8,7 +8,6 @@ import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
 let _depError: Error | null = null;
 let _parseMsgBuffer: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const outlookParser = require('outlook-email-parser');
   _parseMsgBuffer = outlookParser.parseMsgBuffer;
 } catch (e) {

@@ -98,7 +98,10 @@ export function generateMinimalBanner(config?: Partial<BannerConfig>): string {
   return `${cfg.appName} v${cfg.version}`;
 }
 
-export function generateBroadcastMessage(message: string, level?: 'info' | 'warning' | 'error' | 'success'): string {
+export function generateBroadcastMessage(
+  message: string,
+  level?: 'info' | 'warning' | 'error' | 'success'
+): string {
   const prefix = level ? `[${level.toUpperCase()}]` : '[INFO]';
   const separator = '='.repeat(Math.max(message.length, 40));
   return `\n${separator}\n${prefix} ${message}\n${separator}\n`;

@@ -7,7 +7,15 @@
 import type { RiskLevel } from '../types.js';
 
 export interface ResourceIdentifier {
-  type: 'file' | 'directory' | 'command' | 'network' | 'environment' | 'process' | 'registry' | 'service';
+  type:
+    | 'file'
+    | 'directory'
+    | 'command'
+    | 'network'
+    | 'environment'
+    | 'process'
+    | 'registry'
+    | 'service';
   path?: string;
   name?: string;
   url?: string;
@@ -64,7 +72,12 @@ export interface PermissionDecision {
 }
 
 export interface PermissionConstraint {
-  type: 'timeout' | 'scope' | 'resource_limit' | 'require_approval' | 'audit_only';
+  type:
+    | 'timeout'
+    | 'scope'
+    | 'resource_limit'
+    | 'require_approval'
+    | 'audit_only';
   value: string | number | boolean;
   description: string;
 }
@@ -89,7 +102,10 @@ export class PermissionContextBuilder {
     return this;
   }
 
-  setAction(action: string, target: ResourceIdentifier): PermissionContextBuilder {
+  setAction(
+    action: string,
+    target: ResourceIdentifier
+  ): PermissionContextBuilder {
     this.context.action = {
       action,
       target,

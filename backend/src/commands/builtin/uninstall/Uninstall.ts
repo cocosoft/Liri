@@ -13,12 +13,19 @@ const uninstallCommand = {
   /**
    * 执行 uninstall 命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     try {
       const parts = args.trim().split(/\s+/);
       const subcommand = parts[0]?.toLowerCase() || '';
 
-      if (subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
+      if (
+        subcommand === 'help' ||
+        subcommand === '--help' ||
+        subcommand === '-h'
+      ) {
         return this.showHelp();
       }
 
@@ -134,7 +141,10 @@ const uninstallCommand = {
   /**
    * 执行实际卸载
    */
-  async executeUninstall(target: UninstallTarget, item: any): Promise<CommandResult> {
+  async executeUninstall(
+    target: UninstallTarget,
+    item: any
+  ): Promise<CommandResult> {
     const typeLabel = this.getTypeLabel(target.type);
     const cleanName = target.name.replace(/ --(confirm|force)$/, '').trim();
 
@@ -171,7 +181,12 @@ const uninstallCommand = {
           success: true,
           type: 'text',
           message: lines.filter(Boolean).join('\n'),
-          data: { action: 'uninstall', type: target.type, name: cleanName, success: true },
+          data: {
+            action: 'uninstall',
+            type: target.type,
+            name: cleanName,
+            success: true,
+          },
         };
       }
 
@@ -179,7 +194,12 @@ const uninstallCommand = {
         success: false,
         type: 'text',
         message: `❌ 卸载${typeLabel}失败: ${cleanName}\n\n请检查名称是否正确，或查看日志获取详细信息。`,
-        data: { action: 'uninstall', type: target.type, name: cleanName, success: false },
+        data: {
+          action: 'uninstall',
+          type: target.type,
+          name: cleanName,
+          success: false,
+        },
       };
     } catch (error) {
       return {
@@ -194,7 +214,10 @@ const uninstallCommand = {
    * 获取已安装的组件列表
    */
   getInstalledItems(type: string): Array<{ name: string; version?: string }> {
-    const mockItems: Record<string, Array<{ name: string; version?: string }>> = {
+    const mockItems: Record<
+      string,
+      Array<{ name: string; version?: string }>
+    > = {
       plugin: [
         { name: 'code-analyzer', version: '1.2.0' },
         { name: 'git-integration', version: '2.0.1' },
@@ -204,16 +227,12 @@ const uninstallCommand = {
         { name: 'code-review', version: '1.0.0' },
         { name: 'test-generator', version: '1.1.0' },
       ],
-      tool: [
-        { name: 'custom-fetch', version: '0.1.0' },
-      ],
+      tool: [{ name: 'custom-fetch', version: '0.1.0' }],
       theme: [
         { name: 'dracula', version: '1.0.0' },
         { name: 'monokai', version: '1.0.0' },
       ],
-      agent: [
-        { name: 'code-assistant', version: '1.0.0' },
-      ],
+      agent: [{ name: 'code-assistant', version: '1.0.0' }],
     };
 
     return mockItems[type] || [];

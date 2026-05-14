@@ -4,7 +4,14 @@
  * 图片处理辅助模块
  */
 
-export type ImageFormat = 'png' | 'jpeg' | 'webp' | 'gif' | 'svg' | 'bmp' | 'tiff';
+export type ImageFormat =
+  | 'png'
+  | 'jpeg'
+  | 'webp'
+  | 'gif'
+  | 'svg'
+  | 'bmp'
+  | 'tiff';
 
 export interface ImageInfo {
   path: string;
@@ -22,9 +29,12 @@ export interface ImageProcessingOptions {
   format?: ImageFormat;
 }
 
-const IMAGE_SIGNATURES: Record<string, { format: ImageFormat; mime: string; offset: number }> = {
+const IMAGE_SIGNATURES: Record<
+  string,
+  { format: ImageFormat; mime: string; offset: number }
+> = {
   '89504E47': { format: 'png', mime: 'image/png', offset: 0 },
-  'FFD8FF': { format: 'jpeg', mime: 'image/jpeg', offset: 0 },
+  FFD8FF: { format: 'jpeg', mime: 'image/jpeg', offset: 0 },
   '47494638': { format: 'gif', mime: 'image/gif', offset: 0 },
   '424D': { format: 'bmp', mime: 'image/bmp', offset: 0 },
   '49492A00': { format: 'tiff', mime: 'image/tiff', offset: 0 },
@@ -33,8 +43,19 @@ const IMAGE_SIGNATURES: Record<string, { format: ImageFormat; mime: string; offs
 };
 
 const IMAGE_EXTENSIONS: Set<string> = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.tiff', '.tif',
-  '.ico', '.avif', '.heic', '.heif',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.svg',
+  '.bmp',
+  '.tiff',
+  '.tif',
+  '.ico',
+  '.avif',
+  '.heic',
+  '.heif',
 ]);
 
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024;
@@ -47,8 +68,15 @@ export function isImageFile(filePath: string): boolean {
 export function getImageFormat(filePath: string): ImageFormat | null {
   const ext = filePath.toLowerCase().split('.').pop();
   const formatMap: Record<string, ImageFormat> = {
-    png: 'png', jpg: 'jpeg', jpeg: 'jpeg', gif: 'gif',
-    webp: 'webp', svg: 'svg', bmp: 'bmp', tiff: 'tiff', tif: 'tiff',
+    png: 'png',
+    jpg: 'jpeg',
+    jpeg: 'jpeg',
+    gif: 'gif',
+    webp: 'webp',
+    svg: 'svg',
+    bmp: 'bmp',
+    tiff: 'tiff',
+    tif: 'tiff',
   };
   return ext ? (formatMap[ext] ?? null) : null;
 }
@@ -72,7 +100,9 @@ export function detectImageFormat(buffer: Buffer): ImageFormat | null {
   return null;
 }
 
-export function getImageSize(filePath: string): Promise<{ width: number; height: number } | null> {
+export function getImageSize(
+  filePath: string
+): Promise<{ width: number; height: number } | null> {
   const { readFileSync } = require('node:fs');
   const { Buffer } = require('node:buffer');
 
@@ -93,10 +123,10 @@ export function getImageSize(filePath: string): Promise<{ width: number; height:
       case 'jpeg': {
         let offset = 2;
         while (offset < buffer.length - 1) {
-          if (buffer[offset] !== 0xFF) break;
+          if (buffer[offset] !== 0xff) break;
           const marker = buffer[offset + 1];
 
-          if (marker === 0xC0 || marker === 0xC1 || marker === 0xC2) {
+          if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
             if (offset + 9 < buffer.length) {
               return Promise.resolve({
                 height: buffer.readUInt16BE(offset + 5),
@@ -128,8 +158,10 @@ export function getImageSize(filePath: string): Promise<{ width: number; height:
         if (buffer.length < 30) return Promise.resolve(null);
         const vp8Offset = 12;
         if (buffer.slice(vp8Offset, vp8Offset + 4).toString() === 'VP8 ') {
-          const w = buffer[vp8Offset + 6] | ((buffer[vp8Offset + 7] & 0x3F) << 8);
-          const h = buffer[vp8Offset + 8] | ((buffer[vp8Offset + 9] & 0x3F) << 8);
+          const w =
+            buffer[vp8Offset + 6] | ((buffer[vp8Offset + 7] & 0x3f) << 8);
+          const h =
+            buffer[vp8Offset + 8] | ((buffer[vp8Offset + 9] & 0x3f) << 8);
           return Promise.resolve({ width: w + 1, height: h + 1 });
         }
         return Promise.resolve(null);
@@ -142,7 +174,10 @@ export function getImageSize(filePath: string): Promise<{ width: number; height:
   }
 }
 
-export function validateImageFile(filePath: string): { valid: boolean; error?: string } {
+export function validateImageFile(filePath: string): {
+  valid: boolean;
+  error?: string;
+} {
   const { statSync } = require('node:fs');
 
   try {
@@ -152,7 +187,10 @@ export function validateImageFile(filePath: string): { valid: boolean; error?: s
     }
 
     if (stats.size > MAX_IMAGE_SIZE) {
-      return { valid: false, error: `Image exceeds max size of ${MAX_IMAGE_SIZE / 1024 / 1024}MB` };
+      return {
+        valid: false,
+        error: `Image exceeds max size of ${MAX_IMAGE_SIZE / 1024 / 1024}MB`,
+      };
     }
 
     const format = getImageFormat(filePath);
@@ -167,18 +205,28 @@ export function validateImageFile(filePath: string): { valid: boolean; error?: s
 }
 
 export function formatImageInfo(info: ImageInfo): string {
-  const sizeStr = info.size >= 1024 * 1024
-    ? `${(info.size / 1024 / 1024).toFixed(2)} MB`
-    : info.size >= 1024
-      ? `${(info.size / 1024).toFixed(1)} KB`
-      : `${info.size} B`;
+  const sizeStr =
+    info.size >= 1024 * 1024
+      ? `${(info.size / 1024 / 1024).toFixed(2)} MB`
+      : info.size >= 1024
+        ? `${(info.size / 1024).toFixed(1)} KB`
+        : `${info.size} B`;
 
-  const dimStr = info.width && info.height
-    ? `${info.width}x${info.height}`
-    : 'unknown dimensions';
+  const dimStr =
+    info.width && info.height
+      ? `${info.width}x${info.height}`
+      : 'unknown dimensions';
 
   return `${info.path} | ${info.format} | ${dimStr} | ${sizeStr}`;
 }
 
 export const IMAGE_EXTENSIONS_LIST = Array.from(IMAGE_EXTENSIONS).sort();
-export const SUPPORTED_IMAGE_FORMATS: ImageFormat[] = ['png', 'jpeg', 'webp', 'gif', 'svg', 'bmp', 'tiff'];
+export const SUPPORTED_IMAGE_FORMATS: ImageFormat[] = [
+  'png',
+  'jpeg',
+  'webp',
+  'gif',
+  'svg',
+  'bmp',
+  'tiff',
+];

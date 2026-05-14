@@ -37,11 +37,17 @@ export class CommandExport {
           content = this.toHtml(trace);
           break;
         default:
-          return { success: false, format: options.format, stepCount: 0, error: `不支持的格式: ${options.format}` };
+          return {
+            success: false,
+            format: options.format,
+            stepCount: 0,
+            error: `不支持的格式: ${options.format}`,
+          };
       }
 
       if (options.outputDir) {
-        const filename = options.filename || `trace-${trace.session.id}.${options.format}`;
+        const filename =
+          options.filename || `trace-${trace.session.id}.${options.format}`;
 
         fs.mkdirSync(options.outputDir, { recursive: true });
 
@@ -49,10 +55,19 @@ export class CommandExport {
 
         fs.writeFileSync(filePath, content, 'utf-8');
 
-        return { success: true, filePath, format: options.format, stepCount: trace.steps.length };
+        return {
+          success: true,
+          filePath,
+          format: options.format,
+          stepCount: trace.steps.length,
+        };
       }
 
-      return { success: true, format: options.format, stepCount: trace.steps.length };
+      return {
+        success: true,
+        format: options.format,
+        stepCount: trace.steps.length,
+      };
     } catch (error) {
       return {
         success: false,
@@ -63,7 +78,10 @@ export class CommandExport {
     }
   }
 
-  exportSessions(sessions: TraceSession[], options: ExportOptions): ExportResult {
+  exportSessions(
+    sessions: TraceSession[],
+    options: ExportOptions
+  ): ExportResult {
     try {
       let content: string;
 
@@ -71,7 +89,11 @@ export class CommandExport {
 
       switch (options.format) {
         case 'json':
-          content = JSON.stringify(data, null, options.prettyPrint ? 2 : undefined);
+          content = JSON.stringify(
+            data,
+            null,
+            options.prettyPrint ? 2 : undefined
+          );
           break;
         case 'csv':
           content = this.sessionsToCsv(sessions);
@@ -80,11 +102,17 @@ export class CommandExport {
           content = this.sessionsToMarkdown(sessions);
           break;
         default:
-          return { success: false, format: options.format, stepCount: 0, error: `不支持的格式: ${options.format}` };
+          return {
+            success: false,
+            format: options.format,
+            stepCount: 0,
+            error: `不支持的格式: ${options.format}`,
+          };
       }
 
       if (options.outputDir) {
-        const filename = options.filename || `sessions-export.${options.format}`;
+        const filename =
+          options.filename || `sessions-export.${options.format}`;
 
         fs.mkdirSync(options.outputDir, { recursive: true });
 
@@ -92,10 +120,19 @@ export class CommandExport {
 
         fs.writeFileSync(filePath, content, 'utf-8');
 
-        return { success: true, filePath, format: options.format, stepCount: sessions.length };
+        return {
+          success: true,
+          filePath,
+          format: options.format,
+          stepCount: sessions.length,
+        };
       }
 
-      return { success: true, format: options.format, stepCount: sessions.length };
+      return {
+        success: true,
+        format: options.format,
+        stepCount: sessions.length,
+      };
     } catch (error) {
       return {
         success: false,
@@ -111,7 +148,8 @@ export class CommandExport {
   }
 
   private toCsv(trace: CommandTrace): string {
-    const header = 'stepId,sessionId,command,status,startedAt,completedAt,durationMs,error';
+    const header =
+      'stepId,sessionId,command,status,startedAt,completedAt,durationMs,error';
 
     const rows = trace.steps.map((step) => {
       return [
@@ -135,7 +173,9 @@ export class CommandExport {
     lines.push(`# 执行轨迹: ${trace.session.name}`);
     lines.push('');
     lines.push(`- **会话ID**: ${trace.session.id}`);
-    lines.push(`- **开始时间**: ${new Date(trace.session.startedAt).toISOString()}`);
+    lines.push(
+      `- **开始时间**: ${new Date(trace.session.startedAt).toISOString()}`
+    );
     lines.push(`- **状态**: ${trace.session.status}`);
     lines.push(`- **步骤数**: ${trace.steps.length}`);
 
@@ -154,22 +194,26 @@ export class CommandExport {
     lines.push('|---|------|------|----------|------|');
     trace.steps.forEach((step, index) => {
       const errorStr = step.error ? `[ERR] ${step.error.slice(0, 50)}` : '';
-      lines.push(`| ${index + 1} | \`${step.command}\` | ${this.statusIcon(step.status)} | ${step.durationMs || '-'} | ${errorStr} |`);
+      lines.push(
+        `| ${index + 1} | \`${step.command}\` | ${this.statusIcon(step.status)} | ${step.durationMs || '-'} | ${errorStr} |`
+      );
     });
 
     return lines.join('\n');
   }
 
   private toHtml(trace: CommandTrace): string {
-    const stepRows = trace.steps.map((step, index) => {
-      return `<tr>
+    const stepRows = trace.steps
+      .map((step, index) => {
+        return `<tr>
         <td>${index + 1}</td>
         <td><code>${this.escapeHtml(step.command)}</code></td>
         <td>${this.statusIcon(step.status)}</td>
         <td>${step.durationMs || '-'}</td>
         <td>${step.error ? `<span class="error">${this.escapeHtml(step.error)}</span>` : ''}</td>
       </tr>`;
-    }).join('\n      ');
+      })
+      .join('\n      ');
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -236,7 +280,9 @@ export class CommandExport {
     lines.push('|----|------|------|--------|----------|');
 
     sessions.forEach((s) => {
-      lines.push(`| ${s.id} | ${s.name} | ${this.statusIcon(s.status)} | ${s.stepCount} | ${new Date(s.startedAt).toISOString()} |`);
+      lines.push(
+        `| ${s.id} | ${s.name} | ${this.statusIcon(s.status)} | ${s.stepCount} | ${new Date(s.startedAt).toISOString()} |`
+      );
     });
 
     return lines.join('\n');

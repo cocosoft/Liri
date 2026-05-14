@@ -17,7 +17,9 @@ const logger = new Logger({ level: LogLevel.INFO });
 /**
  * 生成审计摘要
  */
-export function buildAuditSummary(findings: SecurityAuditFinding[]): SecurityAuditSummary {
+export function buildAuditSummary(
+  findings: SecurityAuditFinding[]
+): SecurityAuditSummary {
   const summary: SecurityAuditSummary = {
     high: 0,
     medium: 0,
@@ -112,7 +114,11 @@ export function formatAuditReport(report: SecurityAuditReport): string {
   }
 
   // 按严重性分组
-  const severityOrder: Array<'HIGH' | 'MEDIUM' | 'LOW'> = ['HIGH', 'MEDIUM', 'LOW'];
+  const severityOrder: Array<'HIGH' | 'MEDIUM' | 'LOW'> = [
+    'HIGH',
+    'MEDIUM',
+    'LOW',
+  ];
   for (const severity of severityOrder) {
     const group = report.findings.filter((f) => f.severity === severity);
     if (group.length === 0) continue;

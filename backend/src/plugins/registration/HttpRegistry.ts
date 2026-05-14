@@ -9,7 +9,14 @@ import url from 'node:url';
 /**
  * HTTP 方法
  */
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
+export type HttpMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'HEAD'
+  | 'OPTIONS';
 
 /**
  * HTTP 请求上下文
@@ -63,7 +70,9 @@ export class HttpRegistry {
    */
   register(handler: HttpRouteHandler): boolean {
     const exists = this.routes.some(
-      (r) => r.handler.pluginName === handler.pluginName && r.handler.path === handler.path
+      (r) =>
+        r.handler.pluginName === handler.pluginName &&
+        r.handler.path === handler.path
     );
 
     if (exists) {
@@ -100,7 +109,9 @@ export class HttpRegistry {
    */
   unregisterByPlugin(pluginName: string): number {
     const before = this.routes.length;
-    this.routes = this.routes.filter((r) => r.handler.pluginName !== pluginName);
+    this.routes = this.routes.filter(
+      (r) => r.handler.pluginName !== pluginName
+    );
     return before - this.routes.length;
   }
 
@@ -113,7 +124,9 @@ export class HttpRegistry {
         return false;
       }
 
-      const methods = Array.isArray(r.handler.method) ? r.handler.method : [r.handler.method];
+      const methods = Array.isArray(r.handler.method)
+        ? r.handler.method
+        : [r.handler.method];
 
       if (!methods.includes(method)) {
         return false;
@@ -147,7 +160,11 @@ export class HttpRegistry {
 
       let body: unknown = null;
 
-      if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+      if (
+        req.method === 'POST' ||
+        req.method === 'PUT' ||
+        req.method === 'PATCH'
+      ) {
         body = await parseBody(req);
       }
 
@@ -216,7 +233,11 @@ export class HttpRegistry {
   /**
    * 获取路由统计
    */
-  getStats(): { total: number; enabled: number; byPlugin: Record<string, number> } {
+  getStats(): {
+    total: number;
+    enabled: number;
+    byPlugin: Record<string, number>;
+  } {
     let enabled = 0;
     const byPlugin: Record<string, number> = {};
 
@@ -224,7 +245,8 @@ export class HttpRegistry {
       if (route.enabled) {
         enabled++;
       }
-      byPlugin[route.handler.pluginName] = (byPlugin[route.handler.pluginName] || 0) + 1;
+      byPlugin[route.handler.pluginName] =
+        (byPlugin[route.handler.pluginName] || 0) + 1;
     }
 
     return {

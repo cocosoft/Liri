@@ -7,7 +7,6 @@ import { ErrorCodes } from '@modules/error/ErrorCodes';
 let _depError: Error | null = null;
 let _xlsx: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   _xlsx = require('xlsx');
 } catch (e) {
   _depError = e as Error;

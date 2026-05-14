@@ -37,7 +37,10 @@ export class ProviderValidation {
   /**
    * 验证提供者
    */
-  validate(provider: ProviderMetadata, level: ValidationLevel = 'basic'): ValidationResult {
+  validate(
+    provider: ProviderMetadata,
+    level: ValidationLevel = 'basic'
+  ): ValidationResult {
     const checks: ValidationCheck[] = [];
 
     checks.push(...this.validateBasic(provider));
@@ -51,9 +54,12 @@ export class ProviderValidation {
     }
 
     const passed = checks.every((c) => c.severity !== 'error' || c.passed);
-    const score = checks.length > 0
-      ? Math.round((checks.filter((c) => c.passed).length / checks.length) * 100)
-      : 0;
+    const score =
+      checks.length > 0
+        ? Math.round(
+            (checks.filter((c) => c.passed).length / checks.length) * 100
+          )
+        : 0;
 
     return {
       providerId: provider.id,
@@ -90,13 +96,15 @@ export class ProviderValidation {
       {
         name: '认证方式',
         passed: provider.authMethods.length > 0,
-        message: provider.authMethods.length > 0 ? undefined : '至少需要一种认证方式',
+        message:
+          provider.authMethods.length > 0 ? undefined : '至少需要一种认证方式',
         severity: 'error',
       },
       {
         name: '能力定义',
         passed: provider.capabilities.length > 0,
-        message: provider.capabilities.length > 0 ? undefined : '至少需要定义一个能力',
+        message:
+          provider.capabilities.length > 0 ? undefined : '至少需要定义一个能力',
         severity: 'warning',
       },
       {
@@ -139,7 +147,8 @@ export class ProviderValidation {
       checks.push({
         name: `模型列表 (${cap.type})`,
         passed: cap.models.length > 0,
-        message: cap.models.length > 0 ? undefined : `${cap.type} 类型未配置模型`,
+        message:
+          cap.models.length > 0 ? undefined : `${cap.type} 类型未配置模型`,
         severity: 'error',
       });
     }

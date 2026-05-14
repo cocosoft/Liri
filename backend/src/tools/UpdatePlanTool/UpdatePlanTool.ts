@@ -39,7 +39,8 @@ export interface UpdatePlan {
 export class UpdatePlanTool extends BaseTool {
   name = 'update_plan';
 
-  description = 'Create and manage update execution plans. Analyzes dependencies, generates migration steps, and assesses risk.';
+  description =
+    'Create and manage update execution plans. Analyzes dependencies, generates migration steps, and assesses risk.';
 
   params: ToolParam[] = [
     {
@@ -133,7 +134,12 @@ export class UpdatePlanTool extends BaseTool {
         type: params.type,
         steps,
         estimatedDuration: '5-10 minutes',
-        riskLevel: params.type === 'security' ? 'high' : params.type === 'migration' ? 'medium' : 'low',
+        riskLevel:
+          params.type === 'security'
+            ? 'high'
+            : params.type === 'migration'
+              ? 'medium'
+              : 'low',
         prerequisites: ['Backup current state', 'Verify system requirements'],
         createdAt: Date.now(),
       };

@@ -6,7 +6,13 @@
 /**
  * 提供者类型
  */
-export type ProviderType = 'llm' | 'embedding' | 'image' | 'audio' | 'tools' | 'storage';
+export type ProviderType =
+  | 'llm'
+  | 'embedding'
+  | 'image'
+  | 'audio'
+  | 'tools'
+  | 'storage';
 
 /**
  * 提供者能力
@@ -23,7 +29,12 @@ export interface ProviderCapability {
 /**
  * 提供者认证方式
  */
-export type ProviderAuthMethod = 'api-key' | 'oauth' | 'basic' | 'bearer' | 'custom';
+export type ProviderAuthMethod =
+  | 'api-key'
+  | 'oauth'
+  | 'basic'
+  | 'bearer'
+  | 'custom';
 
 /**
  * 提供者元数据
@@ -116,7 +127,9 @@ export class ProviderCatalog {
    * 获取活跃提供者
    */
   getActive(): ProviderMetadata[] {
-    return Array.from(this.providers.values()).filter((p) => p.status === 'active');
+    return Array.from(this.providers.values()).filter(
+      (p) => p.status === 'active'
+    );
   }
 
   /**

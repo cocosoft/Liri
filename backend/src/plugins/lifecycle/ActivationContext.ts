@@ -6,7 +6,13 @@
 /**
  * 激活原因
  */
-export type ActivationReason = 'startup' | 'install' | 'manual' | 'dependency' | 'reload' | 'config_change';
+export type ActivationReason =
+  | 'startup'
+  | 'install'
+  | 'manual'
+  | 'dependency'
+  | 'reload'
+  | 'config_change';
 
 /**
  * 激活上下文
@@ -97,7 +103,11 @@ export class ActivationContextManager {
   /**
    * 获取统计
    */
-  getStats(): { active: number; totalHistory: number; byReason: Record<string, number> } {
+  getStats(): {
+    active: number;
+    totalHistory: number;
+    byReason: Record<string, number>;
+  } {
     const byReason: Record<string, number> = {};
 
     for (const ctx of this.history) {

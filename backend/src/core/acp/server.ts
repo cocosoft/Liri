@@ -34,7 +34,8 @@ export class AclServer extends EventEmitter {
   private sessions: Map<string, AclSessionInfo> = new Map();
   private handlers: Map<string, AclHandlerRegistration> = new Map();
   private startTime = 0;
-  private heartbeatTimers: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private heartbeatTimers: Map<string, ReturnType<typeof setInterval>> =
+    new Map();
   private metrics: AclMetrics = {
     totalMessagesSent: 0,
     totalMessagesReceived: 0,
@@ -108,7 +109,11 @@ export class AclServer extends EventEmitter {
     this.emit('client:disconnected', agentId);
   }
 
-  registerHandler(pattern: string, handler: AclMessageHandler, description?: string): void {
+  registerHandler(
+    pattern: string,
+    handler: AclMessageHandler,
+    description?: string
+  ): void {
     this.handlers.set(pattern, { pattern, handler, description });
   }
 
@@ -142,14 +147,23 @@ export class AclServer extends EventEmitter {
     }
 
     if (message.sessionId) {
-      this.ensureSession(message.sessionId, [this.config.agent.id, message.sender]);
+      this.ensureSession(message.sessionId, [
+        this.config.agent.id,
+        message.sender,
+      ]);
     }
 
     for (const [, registration] of this.handlers) {
       if (matchPattern(registration.pattern, message.type)) {
         try {
           const result = await registration.handler(message, {
-            agent: this.clients.get(message.sender) || { id: message.sender, name: message.sender, version: '0', capabilities: [], transport: this.config.transport.type },
+            agent: this.clients.get(message.sender) || {
+              id: message.sender,
+              name: message.sender,
+              version: '0',
+              capabilities: [],
+              transport: this.config.transport.type,
+            },
             sessionId: message.sessionId,
           });
 
@@ -188,7 +202,10 @@ export class AclServer extends EventEmitter {
         sender: this.config.agent.id,
         target: message.sender,
         sessionId: message.sessionId,
-        payload: { code: 'NO_HANDLER', message: `No handler for: ${message.type}` },
+        payload: {
+          code: 'NO_HANDLER',
+          message: `No handler for: ${message.type}`,
+        },
         priority: 'normal' as const,
         correlationId: message.id,
         timestamp: Date.now(),
@@ -252,7 +269,9 @@ export class AclServer extends EventEmitter {
     return {
       ...this.metrics,
       uptimeMs: this.startTime > 0 ? Date.now() - this.startTime : 0,
-      activeSessions: Array.from(this.sessions.values()).filter((s) => s.status === 'active').length,
+      activeSessions: Array.from(this.sessions.values()).filter(
+        (s) => s.status === 'active'
+      ).length,
       connectedClients: this.clients.size,
     };
   }

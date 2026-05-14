@@ -51,7 +51,13 @@ export class GatewayConfigManager {
       cors: {
         enabled: config?.cors?.enabled !== false,
         allowedOrigins: config?.cors?.allowedOrigins || ['*'],
-        allowedMethods: config?.cors?.allowedMethods || ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedMethods: config?.cors?.allowedMethods || [
+          'GET',
+          'POST',
+          'PUT',
+          'DELETE',
+          'OPTIONS',
+        ],
       },
       limits: {
         maxConnections: config?.limits?.maxConnections || 100,
@@ -125,15 +131,17 @@ export class GatewayConfigManager {
     for (const listener of this.listeners) {
       try {
         listener(this.config);
-      } catch {
-      }
+      } catch {}
     }
   }
 
   /**
    * 合并配置
    */
-  private mergeConfig(base: GatewayConfig, partial: Partial<GatewayConfig>): GatewayConfig {
+  private mergeConfig(
+    base: GatewayConfig,
+    partial: Partial<GatewayConfig>
+  ): GatewayConfig {
     return {
       ...base,
       ...partial,

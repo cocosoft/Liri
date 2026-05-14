@@ -90,7 +90,11 @@ export class AgentTelemetry {
     current.toolNames.push(toolName);
   }
 
-  endTurn(sessionId: string, status: TurnMetrics['status'] = 'completed', errorMessage?: string): void {
+  endTurn(
+    sessionId: string,
+    status: TurnMetrics['status'] = 'completed',
+    errorMessage?: string
+  ): void {
     const session = this.turns.get(sessionId);
     if (!session || session.length === 0) return;
     const current = session[session.length - 1];
@@ -120,10 +124,14 @@ export class AgentTelemetry {
       totalDurationMs: completed.reduce((s, t) => s + (t.durationMs || 0), 0),
       avgTurnDurationMs:
         completed.length > 0
-          ? Math.round(completed.reduce((s, t) => s + (t.durationMs || 0), 0) / completed.length)
+          ? Math.round(
+              completed.reduce((s, t) => s + (t.durationMs || 0), 0) /
+                completed.length
+            )
           : 0,
       startTime: turns[0].startTime,
-      lastActivityTime: turns[turns.length - 1].endTime || turns[turns.length - 1].startTime,
+      lastActivityTime:
+        turns[turns.length - 1].endTime || turns[turns.length - 1].startTime,
     };
   }
 

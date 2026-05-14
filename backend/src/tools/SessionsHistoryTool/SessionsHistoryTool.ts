@@ -37,7 +37,8 @@ export interface HistoryQueryResult {
 export class SessionsHistoryTool extends BaseTool {
   name = 'sessions_history';
 
-  description = 'Query session message history with filtering and pagination. Supports time ranges, message types, and session scoping.';
+  description =
+    'Query session message history with filtering and pagination. Supports time ranges, message types, and session scoping.';
 
   params: ToolParam[] = [
     {
@@ -105,9 +106,10 @@ export class SessionsHistoryTool extends BaseTool {
       return {
         success: true,
         data: result,
-        output: result.entries.length === 0
-          ? 'No history entries found matching the criteria'
-          : `Found ${result.filtered} history entries (showing ${Math.min(limit, result.filtered)})`,
+        output:
+          result.entries.length === 0
+            ? 'No history entries found matching the criteria'
+            : `Found ${result.filtered} history entries (showing ${Math.min(limit, result.filtered)})`,
       };
     } catch (error) {
       return {

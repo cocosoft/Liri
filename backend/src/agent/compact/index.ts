@@ -76,7 +76,9 @@ export class CompactionManager {
 
   async compact(context: CompactionContext): Promise<CompactionResult> {
     const originalTokenCount = context.tokenCount;
-    const targetTokens = Math.round(originalTokenCount * this.config.targetRatio);
+    const targetTokens = Math.round(
+      originalTokenCount * this.config.targetRatio
+    );
 
     if (originalTokenCount <= this.config.maxTokens) {
       return {
@@ -103,13 +105,16 @@ export class CompactionManager {
 
         messages = [...systemMessages, ...result.messages];
 
-        const compressedCount = messages.reduce((sum, m) => sum + m.tokenCount, 0);
+        const compressedCount = messages.reduce(
+          (sum, m) => sum + m.tokenCount,
+          0
+        );
         if (compressedCount <= targetTokens) {
           return this.buildResult(
             messages,
             originalTokenCount,
             compressedCount,
-            strategy.name,
+            strategy.name
           );
         }
 
@@ -120,20 +125,28 @@ export class CompactionManager {
         const result = await strategy.compress({ ...context, messages });
         messages = result.messages;
 
-        const compressedCount = messages.reduce((sum, m) => sum + m.tokenCount, 0);
+        const compressedCount = messages.reduce(
+          (sum, m) => sum + m.tokenCount,
+          0
+        );
         if (compressedCount <= targetTokens) {
           return this.buildResult(
             messages,
             originalTokenCount,
             compressedCount,
-            strategy.name,
+            strategy.name
           );
         }
       }
     }
 
     const finalCount = messages.reduce((sum, m) => sum + m.tokenCount, 0);
-    return this.buildResult(messages, originalTokenCount, finalCount, 'aggressive');
+    return this.buildResult(
+      messages,
+      originalTokenCount,
+      finalCount,
+      'aggressive'
+    );
   }
 
   needsCompaction(tokenCount: number): boolean {
@@ -156,7 +169,7 @@ export class CompactionManager {
     messages: CompactionMessage[],
     originalCount: number,
     compressedCount: number,
-    strategy: string,
+    strategy: string
   ): CompactionResult {
     return {
       messages,
@@ -195,7 +208,8 @@ export class CompactionManager {
         return {
           messages: [summaryMsg, ...kept],
           originalTokenCount: ctx.tokenCount,
-          compressedTokenCount: kept.reduce((s, m) => s + m.tokenCount, 0) + summaryMsg.tokenCount,
+          compressedTokenCount:
+            kept.reduce((s, m) => s + m.tokenCount, 0) + summaryMsg.tokenCount,
           compressionRatio: 0,
           strategyUsed: 'summarize-oldest',
         };
@@ -210,14 +224,19 @@ export class CompactionManager {
           if (m.role === 'tool' && m.content.length > 500) {
             return {
               ...m,
-              content: m.content.slice(0, 200) + `\n... [truncated ${m.content.length - 200} chars]`,
+              content:
+                m.content.slice(0, 200) +
+                `\n... [truncated ${m.content.length - 200} chars]`,
               tokenCount: Math.ceil(250 / 4),
             };
           }
           return m;
         });
 
-        const compressedCount = messages.reduce((sum, m) => sum + m.tokenCount, 0);
+        const compressedCount = messages.reduce(
+          (sum, m) => sum + m.tokenCount,
+          0
+        );
 
         return {
           messages,
@@ -231,6 +250,8 @@ export class CompactionManager {
   }
 }
 
-export function createCompactionManager(config?: CompactionConfig): CompactionManager {
+export function createCompactionManager(
+  config?: CompactionConfig
+): CompactionManager {
   return new CompactionManager(config);
 }

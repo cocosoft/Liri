@@ -10,7 +10,7 @@ const DEFAULT_CHUNK_LIMIT = 4000;
 export function chunkText(
   text: string,
   limit: number = DEFAULT_CHUNK_LIMIT,
-  mode: ChunkMode = 'length',
+  mode: ChunkMode = 'length'
 ): ChunkResult {
   if (!text) {
     return { chunks: [], mode, originalLength: 0, chunkCount: 0 };
@@ -89,7 +89,12 @@ export function chunkText(
     chunks.push(text);
   }
 
-  return { chunks, mode, originalLength: text.length, chunkCount: chunks.length };
+  return {
+    chunks,
+    mode,
+    originalLength: text.length,
+    chunkCount: chunks.length,
+  };
 }
 
 /**
@@ -113,7 +118,7 @@ function splitByLength(text: string, limit: number): string[] {
 export function resolveChunkLimit(
   channelId?: string,
   accountId?: string,
-  options?: { fallbackLimit?: number },
+  options?: { fallbackLimit?: number }
 ): number {
   const fallback = options?.fallbackLimit ?? DEFAULT_CHUNK_LIMIT;
 

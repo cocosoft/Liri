@@ -9,7 +9,13 @@
 export interface PlanStep {
   id: string;
   name: string;
-  type: 'load' | 'activate' | 'deactivate' | 'unload' | 'configure' | 'validate';
+  type:
+    | 'load'
+    | 'activate'
+    | 'deactivate'
+    | 'unload'
+    | 'configure'
+    | 'validate';
   priority: number;
   dependsOn: string[];
   timeout: number;
@@ -38,7 +44,10 @@ export interface PlanExecution {
   startedAt?: number;
   completedAt?: number;
   error?: string;
-  stepResults: Map<string, { success: boolean; durationMs: number; error?: string }>;
+  stepResults: Map<
+    string,
+    { success: boolean; durationMs: number; error?: string }
+  >;
 }
 
 /**

@@ -12,7 +12,10 @@ import * as os from 'node:os';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
-import { ImageProcessor, type ImageFormat } from '../../media/image/ImageProcessor';
+import {
+  ImageProcessor,
+  type ImageFormat,
+} from '../../media/image/ImageProcessor';
 
 /**
  * 图片编辑操作参数
@@ -47,7 +50,8 @@ const processor = new ImageProcessor();
 export class ImageTool extends BaseTool {
   name = 'image';
 
-  description = 'Edit and manipulate images. Supports resize, format conversion, grayscale filter, and metadata info.';
+  description =
+    'Edit and manipulate images. Supports resize, format conversion, grayscale filter, and metadata info.';
 
   params: ToolParam[] = [
     {
@@ -148,7 +152,9 @@ export class ImageTool extends BaseTool {
       };
     }
 
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, '_resized');
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, '_resized');
     const result = processor.resize(params.inputPath, outputPath, {
       maxWidth: params.width,
       maxHeight: params.height,
@@ -188,8 +194,14 @@ export class ImageTool extends BaseTool {
     }
 
     const ext = `.${params.format}`;
-    const outputPath = params.outputPath || params.inputPath.replace(path.extname(params.inputPath), ext);
-    const result = processor.convert(params.inputPath, outputPath, params.format);
+    const outputPath =
+      params.outputPath ||
+      params.inputPath.replace(path.extname(params.inputPath), ext);
+    const result = processor.convert(
+      params.inputPath,
+      outputPath,
+      params.format
+    );
 
     if (!result.success) {
       return {
@@ -207,7 +219,10 @@ export class ImageTool extends BaseTool {
       format: params.format,
     };
 
-    return this.formatSuccess(data, `Image converted to ${params.format}: ${result.filePath}`);
+    return this.formatSuccess(
+      data,
+      `Image converted to ${params.format}: ${result.filePath}`
+    );
   }
 
   /**
@@ -242,7 +257,9 @@ export class ImageTool extends BaseTool {
    * 灰度化处理
    */
   private handleGrayscale(params: ImageEditInput): ToolResult {
-    const outputPath = params.outputPath || this.generateOutputPath(params.inputPath, '_grayscale');
+    const outputPath =
+      params.outputPath ||
+      this.generateOutputPath(params.inputPath, '_grayscale');
     const result = processor.convert(params.inputPath, outputPath, 'png');
 
     if (!result.success) {
@@ -260,7 +277,10 @@ export class ImageTool extends BaseTool {
       processedSize: result.processedSize,
     };
 
-    return this.formatSuccess(data, `Grayscale image created: ${result.filePath}`);
+    return this.formatSuccess(
+      data,
+      `Grayscale image created: ${result.filePath}`
+    );
   }
 
   /**

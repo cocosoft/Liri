@@ -12,7 +12,11 @@ import {
   extractSedFileTargets,
   SedScript,
 } from './sedEditParser';
-import type { SecurityAnalysisResult, SecurityBehavior, RiskLevel } from '../types';
+import type {
+  SecurityAnalysisResult,
+  SecurityBehavior,
+  RiskLevel,
+} from '../types';
 
 export interface SedValidationOptions {
   allowInPlace: boolean;
@@ -29,7 +33,14 @@ export const DEFAULT_SED_OPTIONS: SedValidationOptions = {
   allowExpressionEval: false,
   maxSubstitutions: 50,
   allowedWritePrefixes: [],
-  denyWritePrefixes: ['/etc/', '/dev/', '/proc/', '/sys/', '/boot/', '/usr/lib/'],
+  denyWritePrefixes: [
+    '/etc/',
+    '/dev/',
+    '/proc/',
+    '/sys/',
+    '/boot/',
+    '/usr/lib/',
+  ],
 };
 
 export interface SedValidationResult {
@@ -60,7 +71,7 @@ export type SedIssueType =
 
 export function validateSedCommand(
   command: string,
-  options: Partial<SedValidationOptions> = {},
+  options: Partial<SedValidationOptions> = {}
 ): SedValidationResult {
   const opts = { ...DEFAULT_SED_OPTIONS, ...options };
   const issues: SedIssue[] = [];
@@ -186,9 +197,7 @@ export function validateSedCommand(
   };
 }
 
-export function validateSedExpression(
-  expression: string,
-): {
+export function validateSedExpression(expression: string): {
   valid: boolean;
   error?: string;
   commandType?: string;
@@ -199,16 +208,28 @@ export function validateSedExpression(
       return { valid: false, error: 'Unable to parse sed expression' };
     }
     if (parsed.type === 'unknown') {
-      return { valid: false, error: `Unknown sed command: ${parsed.raw}`, commandType: 'unknown' };
+      return {
+        valid: false,
+        error: `Unknown sed command: ${parsed.raw}`,
+        commandType: 'unknown',
+      };
     }
     if (parsed.type === 'write' || parsed.type === 'read') {
       const dangerousPaths = ['/etc/', '/dev/', '/proc/', '/sys/'];
       for (const dp of dangerousPaths) {
         if (parsed.type === 'write' && parsed.filename.startsWith(dp)) {
-          return { valid: false, error: `Write target '${parsed.filename}' is a system path`, commandType: parsed.type };
+          return {
+            valid: false,
+            error: `Write target '${parsed.filename}' is a system path`,
+            commandType: parsed.type,
+          };
         }
         if (parsed.type === 'read' && parsed.filename.startsWith(dp)) {
-          return { valid: false, error: `Read target '${parsed.filename}' is a system path`, commandType: parsed.type };
+          return {
+            valid: false,
+            error: `Read target '${parsed.filename}' is a system path`,
+            commandType: parsed.type,
+          };
         }
       }
     }
@@ -218,9 +239,12 @@ export function validateSedExpression(
   }
 }
 
-export function makeSedValidationResult(
-  result: SedValidationResult,
-): { safe: boolean; riskLevel: RiskLevel; behavior: SecurityBehavior; message?: string } {
+export function makeSedValidationResult(result: SedValidationResult): {
+  safe: boolean;
+  riskLevel: RiskLevel;
+  behavior: SecurityBehavior;
+  message?: string;
+} {
   if (result.safe) {
     return { safe: true, riskLevel: 'low', behavior: 'allow' };
   }
@@ -269,7 +293,12 @@ export function getSedTargetFiles(command: string): string[] {
     if (afterIOption && part.startsWith('-')) {
       afterIOption = false;
     }
-    if (!part.startsWith('-') && !part.startsWith('\'') && !part.startsWith('"') && !part.startsWith('/')) {
+    if (
+      !part.startsWith('-') &&
+      !part.startsWith("'") &&
+      !part.startsWith('"') &&
+      !part.startsWith('/')
+    ) {
       if (afterIOption) {
         files.push(part);
         afterIOption = false;

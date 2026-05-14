@@ -95,7 +95,7 @@ export interface AclClientConfig {
 
 export type AclMessageHandler = (
   message: AclMessage,
-  context: { agent: AclAgentInfo; sessionId?: string },
+  context: { agent: AclAgentInfo; sessionId?: string }
 ) => Promise<AclMessage | void> | AclMessage | void;
 
 export interface AclHandlerRegistration {

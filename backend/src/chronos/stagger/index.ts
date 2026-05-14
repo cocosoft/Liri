@@ -3,4 +3,8 @@
  */
 
 export { StaggerScheduler, staggerScheduler } from './StaggerScheduler.js';
-export type { StaggerStrategy, StaggerTask, StaggerConfig } from './StaggerScheduler.js';
+export type {
+  StaggerStrategy,
+  StaggerTask,
+  StaggerConfig,
+} from './StaggerScheduler.js';

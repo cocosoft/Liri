@@ -60,7 +60,6 @@ export class Coordinator {
 
   private get agentTool(): any {
     if (!this._agentTool) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { AgentTool } = require('@modules/tools/AgentTool/AgentTool');
       this._agentTool = new AgentTool();
     }

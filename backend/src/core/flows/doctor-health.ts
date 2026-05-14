@@ -1,9 +1,15 @@
-import type { HealthCheckResult, HealthCheckReport, FlowConfigProvider } from './types.js';
+import type {
+  HealthCheckResult,
+  HealthCheckReport,
+  FlowConfigProvider,
+} from './types.js';
 
 export type HealthCheck = {
   name: string;
   severity: 'info' | 'warning' | 'error';
-  check: (configProvider: FlowConfigProvider) => HealthCheckResult | Promise<HealthCheckResult>;
+  check: (
+    configProvider: FlowConfigProvider
+  ) => HealthCheckResult | Promise<HealthCheckResult>;
 };
 
 const healthChecks: Map<string, HealthCheck> = new Map();
@@ -27,7 +33,9 @@ const DEFAULT_HEALTH_CHECKS: HealthCheck[] = [
       return {
         ok: !!agentId,
         check: 'config:has-agent',
-        message: agentId ? `Default agent: ${agentId}` : 'No default agent configured',
+        message: agentId
+          ? `Default agent: ${agentId}`
+          : 'No default agent configured',
         severity: 'warning',
       };
     },
@@ -68,7 +76,9 @@ const DEFAULT_HEALTH_CHECKS: HealthCheck[] = [
       return {
         ok: !!model,
         check: 'model:configured',
-        message: model ? `Default model: ${model}` : 'No default model configured',
+        message: model
+          ? `Default model: ${model}`
+          : 'No default model configured',
         severity: 'warning',
       };
     },
@@ -113,7 +123,7 @@ export function initializeDefaultHealthChecks(): void {
  * 运行所有已注册的健康检查。
  */
 export async function runHealthChecks(
-  configProvider: FlowConfigProvider,
+  configProvider: FlowConfigProvider
 ): Promise<HealthCheckReport> {
   initializeDefaultHealthChecks();
 
@@ -135,7 +145,9 @@ export async function runHealthChecks(
   }
 
   const passed = results.filter((r) => r.ok).length;
-  const warnings = results.filter((r) => !r.ok && r.severity === 'warning').length;
+  const warnings = results.filter(
+    (r) => !r.ok && r.severity === 'warning'
+  ).length;
   const errors = results.filter((r) => !r.ok && r.severity === 'error').length;
 
   return {

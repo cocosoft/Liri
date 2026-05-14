@@ -1,4 +1,9 @@
-import type { ReplyPayload, EnvelopeMetadata, ReplyEnvelope, DispatchTarget } from './types.js';
+import type {
+  ReplyPayload,
+  EnvelopeMetadata,
+  ReplyEnvelope,
+  DispatchTarget,
+} from './types.js';
 import { chunkText, resolveChunkLimit } from './chunk.js';
 
 let nextEnvelopeId = 1;
@@ -18,7 +23,7 @@ function generateEnvelopeId(): string {
 export function createEnvelope(
   payload: ReplyPayload,
   metadata: Partial<EnvelopeMetadata>,
-  target?: DispatchTarget,
+  target?: DispatchTarget
 ): ReplyEnvelope {
   const channelLimit = target
     ? resolveChunkLimit(target.channelId, target.accountId)
@@ -69,10 +74,7 @@ export function mergeEnvelopes(envelopes: ReplyEnvelope[]): ReplyEnvelope[] {
       current.metadata.channelId === next.metadata.channelId &&
       current.metadata.conversationId === next.metadata.conversationId
     ) {
-      const mergedText = [
-        ...current.chunks,
-        ...next.chunks,
-      ].join('\n\n');
+      const mergedText = [...current.chunks, ...next.chunks].join('\n\n');
 
       const mergedPayload: ReplyPayload = {
         text: mergedText,

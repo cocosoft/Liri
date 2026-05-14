@@ -23,3 +23,12 @@ export * from './IntelligentLSPAnalyzer.js';
 
 // 导出Zod Schema验证
 export * from './schemas.js';
+export {
+  DiagnosticsContextAdapter,
+  getDiagnosticsContextAdapter,
+} from './DiagnosticsContextAdapter';
+export type {
+  AgentDiagnosticEntry,
+  AgentDiagnosticLevel,
+  DiagnosticsAdapterConfig,
+} from './DiagnosticsContextAdapter';

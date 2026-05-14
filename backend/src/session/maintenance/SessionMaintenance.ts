@@ -36,7 +36,8 @@ export class SessionMaintenance {
 
   constructor(config?: Partial<MaintenanceConfig>) {
     this.config = {
-      storePath: config?.storePath || path.join(os.homedir(), '.py_app', 'sessions'),
+      storePath:
+        config?.storePath || path.join(os.homedir(), '.py_app', 'sessions'),
       maxSessionAge: config?.maxSessionAge || 7 * 24 * 60 * 60 * 1000,
       maxSessions: config?.maxSessions || 1000,
       maxStorageSize: config?.maxStorageSize || 500 * 1024 * 1024,
@@ -91,7 +92,9 @@ export class SessionMaintenance {
           cleaned++;
           freedBytes += size;
         } catch (err) {
-          errors.push(`删除失败 ${file.path}: ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(
+            `删除失败 ${file.path}: ${err instanceof Error ? err.message : String(err)}`
+          );
         }
       }
 
@@ -108,13 +111,14 @@ export class SessionMaintenance {
               fs.unlinkSync(file.path);
               cleaned++;
               freedBytes += file.size;
-            } catch {
-            }
+            } catch {}
           }
         }
       }
     } catch (err) {
-      errors.push(`清理过程错误: ${err instanceof Error ? err.message : String(err)}`);
+      errors.push(
+        `清理过程错误: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
 
     return {
@@ -128,7 +132,12 @@ export class SessionMaintenance {
   /**
    * 获取存储统计
    */
-  getStats(): { totalFiles: number; totalSize: number; oldestFile: number; newestFile: number } {
+  getStats(): {
+    totalFiles: number;
+    totalSize: number;
+    oldestFile: number;
+    newestFile: number;
+  } {
     const files = this.listSessionFilesSync();
 
     if (files.length === 0) {
@@ -159,14 +168,20 @@ export class SessionMaintenance {
   /**
    * 列出会话文件
    */
-  private async listSessionFiles(): Promise<Array<{ path: string; size: number; mtime: number }>> {
+  private async listSessionFiles(): Promise<
+    Array<{ path: string; size: number; mtime: number }>
+  > {
     return this.listSessionFilesSync();
   }
 
   /**
    * 同步列出会话文件
    */
-  private listSessionFilesSync(): Array<{ path: string; size: number; mtime: number }> {
+  private listSessionFilesSync(): Array<{
+    path: string;
+    size: number;
+    mtime: number;
+  }> {
     try {
       const files = fs.readdirSync(this.config.storePath);
 
@@ -186,7 +201,9 @@ export class SessionMaintenance {
   /**
    * 查找过期文件
    */
-  private findExpiredFiles(files: Array<{ path: string; size: number; mtime: number }>): Array<{ path: string; size: number; mtime: number }> {
+  private findExpiredFiles(
+    files: Array<{ path: string; size: number; mtime: number }>
+  ): Array<{ path: string; size: number; mtime: number }> {
     const cutoff = Date.now() - this.config.maxSessionAge;
 
     return files.filter((f) => f.mtime < cutoff);
@@ -195,7 +212,9 @@ export class SessionMaintenance {
   /**
    * 查找超量文件
    */
-  private async findOverLimitFiles(files: Array<{ path: string; size: number; mtime: number }>): Promise<Array<{ path: string; size: number; mtime: number }>> {
+  private async findOverLimitFiles(
+    files: Array<{ path: string; size: number; mtime: number }>
+  ): Promise<Array<{ path: string; size: number; mtime: number }>> {
     if (files.length <= this.config.maxSessions) return [];
 
     files.sort((a, b) => b.mtime - a.mtime);

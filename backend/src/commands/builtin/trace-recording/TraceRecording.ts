@@ -3,7 +3,13 @@
  * AI Trace 录制模块的交互式命令
  * 提供状态查看、统计查询、数据导出、记录列表等功能
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+} from 'fs';
 import { join, resolve } from 'path';
 import type { CommandContext, CommandResult } from '@modules/commands/types';
 
@@ -67,7 +73,6 @@ function relativeTime(ts: number): string {
  * TraceRecording 命令实现
  */
 const traceRecordingCommand = {
-
   /**
    * 命令名称
    */
@@ -86,12 +91,16 @@ const traceRecordingCommand = {
   /**
    * 用法提示
    */
-  argumentHint: '<subcommand> [options] (status/stats/export/view/records/help)',
+  argumentHint:
+    '<subcommand> [options] (status/stats/export/view/records/help)',
 
   /**
    * 执行命令
    */
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const cleanArgs = args.trim();
     const [subcommand, ...rest] = cleanArgs.split(/\s+/);
 
@@ -179,10 +188,16 @@ const traceRecordingCommand = {
       lines.push('');
       lines.push('可通过以下方式启用:');
       lines.push('  - 设置环境变量 AI_TRACE_MODE=all 后重启');
-      return { success: true, type: 'text', message: lines.join('\n'), data: { active: false } };
+      return {
+        success: true,
+        type: 'text',
+        message: lines.join('\n'),
+        data: { active: false },
+      };
     }
 
-    const status = typeof plugin.getStatus === 'function' ? plugin.getStatus() : {};
+    const status =
+      typeof plugin.getStatus === 'function' ? plugin.getStatus() : {};
     const config = status.config || {};
 
     lines.push('✅ AI Trace 录制模块运行中');
@@ -199,8 +214,12 @@ const traceRecordingCommand = {
         const allRecords = engine.getAllRecords();
         const availableDates = engine.getAvailableDates();
         lines.push('运行数据:');
-        lines.push(`  记录总数: ${Array.isArray(allRecords) ? allRecords.length : 0}`);
-        lines.push(`  可用日期: ${Array.isArray(availableDates) ? availableDates.length : 0} 天`);
+        lines.push(
+          `  记录总数: ${Array.isArray(allRecords) ? allRecords.length : 0}`
+        );
+        lines.push(
+          `  可用日期: ${Array.isArray(availableDates) ? availableDates.length : 0} 天`
+        );
       } catch {
         // 忽略引擎查询错误
       }
@@ -250,7 +269,8 @@ const traceRecordingCommand = {
       return {
         success: true,
         type: 'text',
-        message: '📊 AI Trace 统计数据\n\n暂无录制数据。发起 AI API 调用后将自动记录。',
+        message:
+          '📊 AI Trace 统计数据\n\n暂无录制数据。发起 AI API 调用后将自动记录。',
         data: { stats },
       };
     }
@@ -281,11 +301,18 @@ const traceRecordingCommand = {
         const errors = stats.errorsByModel?.[model] || 0;
         const avgLatency = stats.avgLatencyByModel?.[model];
         const latencyStr = avgLatency ? `${avgLatency.toFixed(0)}ms` : 'N/A';
-        lines.push(`  ${model}: ${count} 次调用, ${errors} 错误, 平均 ${latencyStr}`);
+        lines.push(
+          `  ${model}: ${count} 次调用, ${errors} 错误, 平均 ${latencyStr}`
+        );
       }
     }
 
-    return { success: true, type: 'text', message: lines.join('\n'), data: { stats } };
+    return {
+      success: true,
+      type: 'text',
+      message: lines.join('\n'),
+      data: { stats },
+    };
   },
 
   /**
@@ -295,11 +322,17 @@ const traceRecordingCommand = {
     const engine = getTraceEngine();
 
     if (!engine) {
-      return { success: false, type: 'text', message: '❌ AI Trace 引擎未启动。' };
+      return {
+        success: false,
+        type: 'text',
+        message: '❌ AI Trace 引擎未启动。',
+      };
     }
 
     const format = (args[0] || 'md').toLowerCase();
-    const outputDir = args[1] ? resolve(args[1]) : join(process.cwd(), 'trace-exports');
+    const outputDir = args[1]
+      ? resolve(args[1])
+      : join(process.cwd(), 'trace-exports');
 
     if (!['md', 'json', 'html'].includes(format)) {
       return {
@@ -317,17 +350,29 @@ const traceRecordingCommand = {
       const allRecords = engine.getAllRecords() || [];
 
       if (allRecords.length === 0) {
-        return { success: true, type: 'text', message: '⚠️ 没有录制数据可导出。' };
+        return {
+          success: true,
+          type: 'text',
+          message: '⚠️ 没有录制数据可导出。',
+        };
       }
 
-      const { ExportService } = require('../../../trace-recording/export/ExportService.js');
+      const {
+        ExportService,
+      } = require('../../../trace-recording/export/ExportService.js');
       const exportService = new ExportService();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const outputFile = join(outputDir, `trace-export-${timestamp}.${format}`);
 
-      await exportService.export(allRecords, format as 'md' | 'json' | 'html', outputFile);
+      await exportService.export(
+        allRecords,
+        format as 'md' | 'json' | 'html',
+        outputFile
+      );
 
-      const stat = existsSync(outputFile) ? await import('fs').then(m => m.statSync(outputFile)) : null;
+      const stat = existsSync(outputFile)
+        ? await import('fs').then((m) => m.statSync(outputFile))
+        : null;
 
       return {
         success: true,
@@ -357,21 +402,31 @@ const traceRecordingCommand = {
     const engine = getTraceEngine();
 
     if (!engine) {
-      return { success: false, type: 'text', message: '❌ AI Trace 引擎未启动。' };
+      return {
+        success: false,
+        type: 'text',
+        message: '❌ AI Trace 引擎未启动。',
+      };
     }
 
     try {
       const allRecords = engine.getAllRecords() || [];
 
       if (allRecords.length === 0) {
-        return { success: true, type: 'text', message: '⚠️ 没有录制数据可生成查看器。' };
+        return {
+          success: true,
+          type: 'text',
+          message: '⚠️ 没有录制数据可生成查看器。',
+        };
       }
 
       const outputFile = args[0]
         ? resolve(args[0])
         : join(process.cwd(), 'trace-viewer.html');
 
-      const { ViewerService } = require('../../../trace-recording/viewer/ViewerService.js');
+      const {
+        ViewerService,
+      } = require('../../../trace-recording/viewer/ViewerService.js');
       const viewer = new ViewerService();
 
       if (typeof viewer.generateHtml === 'function') {
@@ -381,7 +436,9 @@ const traceRecordingCommand = {
         writeFileSync(outputFile, html, 'utf-8');
       }
 
-      const stat = existsSync(outputFile) ? require('fs').statSync(outputFile) : null;
+      const stat = existsSync(outputFile)
+        ? require('fs').statSync(outputFile)
+        : null;
 
       return {
         success: true,
@@ -412,7 +469,11 @@ const traceRecordingCommand = {
     const engine = getTraceEngine();
 
     if (!engine) {
-      return { success: false, type: 'text', message: '❌ AI Trace 引擎未启动。' };
+      return {
+        success: false,
+        type: 'text',
+        message: '❌ AI Trace 引擎未启动。',
+      };
     }
 
     try {
@@ -439,11 +500,19 @@ const traceRecordingCommand = {
       ];
 
       for (const rec of records) {
-        const time = rec.timestamp ? formatTimestamp(new Date(rec.timestamp)) : 'N/A';
+        const time = rec.timestamp
+          ? formatTimestamp(new Date(rec.timestamp))
+          : 'N/A';
         const model = rec.model || 'unknown';
         const status = rec.statusCode
-          ? rec.statusCode < 400 ? '✅' : rec.statusCode < 500 ? '⚠️' : '❌'
-          : rec.error ? '❌' : '✅';
+          ? rec.statusCode < 400
+            ? '✅'
+            : rec.statusCode < 500
+              ? '⚠️'
+              : '❌'
+          : rec.error
+            ? '❌'
+            : '✅';
         const duration = rec.durationMs ? `${rec.durationMs}ms` : 'N/A';
         const tokens = rec.usage
           ? `in:${rec.usage.input_tokens || rec.usage.prompt_tokens || 0} out:${rec.usage.output_tokens || rec.usage.completion_tokens || 0}`
@@ -455,7 +524,12 @@ const traceRecordingCommand = {
       lines.push('');
       lines.push(`提示: /trace records YYYY-MM-DD 查看特定日期的记录`);
 
-      return { success: true, type: 'text', message: lines.join('\n'), data: { records } };
+      return {
+        success: true,
+        type: 'text',
+        message: lines.join('\n'),
+        data: { records },
+      };
     } catch (error) {
       return {
         success: false,

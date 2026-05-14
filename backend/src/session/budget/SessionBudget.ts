@@ -81,14 +81,16 @@ export class SessionBudget {
 
     const current = this.usage.get(sessionId) || 0;
 
-    return (current + bytes) <= this.config.maxBytes;
+    return current + bytes <= this.config.maxBytes;
   }
 
   /**
    * 获取预算状态
    */
   getStatus(sessionId?: string): BudgetStatus {
-    const used = sessionId ? (this.usage.get(sessionId) || 0) : this.getTotalUsage();
+    const used = sessionId
+      ? this.usage.get(sessionId) || 0
+      : this.getTotalUsage();
     const limit = this.config.maxBytes;
     const percentage = used / limit;
 
@@ -113,7 +115,9 @@ export class SessionBudget {
    * 获取会话使用记录
    */
   getRecords(sessionId: string, limit?: number): BudgetRecord[] {
-    const filtered = this.records.filter((r) => r.sessionId === sessionId).reverse();
+    const filtered = this.records
+      .filter((r) => r.sessionId === sessionId)
+      .reverse();
 
     return limit ? filtered.slice(0, limit) : filtered;
   }
@@ -142,7 +146,11 @@ export class SessionBudget {
   /**
    * 添加记录
    */
-  private addRecord(sessionId: string, bytes: number, action: BudgetRecord['action']): void {
+  private addRecord(
+    sessionId: string,
+    bytes: number,
+    action: BudgetRecord['action']
+  ): void {
     this.records.push({ sessionId, bytes, timestamp: Date.now(), action });
 
     if (this.records.length > this.maxRecords) {

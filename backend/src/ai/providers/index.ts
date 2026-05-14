@@ -10,6 +10,20 @@ export { OpenAIProvider } from './OpenAIProvider';
 export { OllamaProvider } from './OllamaProvider';
 export { GoogleProvider } from './GoogleProvider';
 export { DeepSeekProvider } from './DeepSeekProvider';
+export { BedrockProvider } from './BedrockProvider';
+export { AzureOpenAIProvider } from './AzureOpenAIProvider';
+export { MoonshotProvider } from './MoonshotProvider';
+export { GrokProvider } from './GrokProvider';
+export {
+  ImageGenProviderRegistry,
+  getImageGenProviderRegistry,
+} from './ImageGenProvider';
+export type {
+  ImageGenProvider,
+  ImageGenParams,
+  ImageGenResult,
+  ImageData,
+} from './ImageGenProvider';
 export {
   registerDefaultProviders,
   registerAnthropicProvider,

@@ -121,7 +121,11 @@ export class ConfigMerger {
           overrideVal as Record<string, unknown>,
           options
         );
-      } else if (Array.isArray(baseVal) && Array.isArray(overrideVal) && options.preserveArrays) {
+      } else if (
+        Array.isArray(baseVal) &&
+        Array.isArray(overrideVal) &&
+        options.preserveArrays
+      ) {
         result[key] = [...baseVal, ...overrideVal];
       } else {
         result[key] = overrideVal;

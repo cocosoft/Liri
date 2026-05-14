@@ -1,26 +1,29 @@
-import type { Locale, TranslationMap, I18nRegistryOptions } from "./types.js";
+import type { Locale, TranslationMap, I18nRegistryOptions } from './types.js';
 
-function resolveTranslation(map: TranslationMap, key: string): string | undefined {
-  const parts = key.split(".");
+function resolveTranslation(
+  map: TranslationMap,
+  key: string
+): string | undefined {
+  const parts = key.split('.');
   let current: TranslationMap | string | undefined = map;
 
   for (const part of parts) {
-    if (typeof current !== "object" || current === null) {
+    if (typeof current !== 'object' || current === null) {
       return undefined;
     }
     current = current[part];
   }
 
-  return typeof current === "string" ? current : undefined;
+  return typeof current === 'string' ? current : undefined;
 }
 
 function setNestedValue(map: TranslationMap, key: string, value: string): void {
-  const parts = key.split(".");
+  const parts = key.split('.');
   let current = map;
 
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    if (typeof current[part] !== "object" || current[part] === null) {
+    if (typeof current[part] !== 'object' || current[part] === null) {
       current[part] = {};
     }
     current = current[part] as TranslationMap;
@@ -44,7 +47,7 @@ export class I18nRegistry {
   private fallbackLocales: Locale[];
 
   constructor(options?: I18nRegistryOptions) {
-    this.defaultLocale = options?.defaultLocale ?? "en";
+    this.defaultLocale = options?.defaultLocale ?? 'en';
     this.fallbackLocales = options?.fallbackLocales ?? [];
   }
 
@@ -62,11 +65,7 @@ export class I18nRegistry {
     setNestedValue(map, key, value);
   }
 
-  t(
-    key: string,
-    params?: Record<string, string>,
-    locale?: Locale,
-  ): string {
+  t(key: string, params?: Record<string, string>, locale?: Locale): string {
     const locales = this.buildLocaleChain(locale);
 
     for (const loc of locales) {

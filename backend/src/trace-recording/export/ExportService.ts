@@ -42,8 +42,8 @@ export class ExportService {
    * 按轮次组织，保留 system/assistant/tool 消息
    */
   private exportMarkdown(records: TraceRecord[]): string {
-    const sorted = [...records].sort(
-      (a, b) => a.timestamp.localeCompare(b.timestamp)
+    const sorted = [...records].sort((a, b) =>
+      a.timestamp.localeCompare(b.timestamp)
     );
 
     const lines: string[] = [];
@@ -116,7 +116,11 @@ export class ExportService {
           lines.push('### Tool Result');
           lines.push('');
           lines.push('```json');
-          lines.push(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
+          lines.push(
+            typeof content === 'string'
+              ? content
+              : JSON.stringify(content, null, 2)
+          );
           lines.push('```');
           lines.push('');
         }
@@ -190,9 +194,13 @@ export class ExportService {
   private extractInputTokens(record: TraceRecord): number {
     const body = record.response.body;
     if (body && typeof body === 'object') {
-      const usage = (body as Record<string, unknown>).usage as Record<string, unknown> | undefined;
+      const usage = (body as Record<string, unknown>).usage as
+        | Record<string, unknown>
+        | undefined;
       if (usage) {
-        return (usage.input_tokens as number) || (usage.prompt_tokens as number) || 0;
+        return (
+          (usage.input_tokens as number) || (usage.prompt_tokens as number) || 0
+        );
       }
     }
     return 0;
@@ -204,9 +212,15 @@ export class ExportService {
   private extractOutputTokens(record: TraceRecord): number {
     const body = record.response.body;
     if (body && typeof body === 'object') {
-      const usage = (body as Record<string, unknown>).usage as Record<string, unknown> | undefined;
+      const usage = (body as Record<string, unknown>).usage as
+        | Record<string, unknown>
+        | undefined;
       if (usage) {
-        return (usage.output_tokens as number) || (usage.completion_tokens as number) || 0;
+        return (
+          (usage.output_tokens as number) ||
+          (usage.completion_tokens as number) ||
+          0
+        );
       }
     }
     return 0;

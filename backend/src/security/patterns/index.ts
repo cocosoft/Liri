@@ -17,3 +17,12 @@ export {
   PRIVILEGE_ESCALATION_COMMANDS,
   SPECIAL_CHAR_PATTERNS,
 } from './shellSpecific';
+export {
+  SecurityPatternUpdater,
+  getSecurityPatternUpdater,
+} from './SecurityPatternUpdater';
+export type {
+  SecurityPatternEntry,
+  PatternUpdateEvent,
+  PatternLibraryConfig,
+} from './SecurityPatternUpdater';

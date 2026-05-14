@@ -4,7 +4,11 @@
  * 对齐 OpenClaw logging subsystem
  */
 
-import { Logger, LogLevel, type LoggerConfig } from '@modules/monitoring/logs/Logger';
+import {
+  Logger,
+  LogLevel,
+  type LoggerConfig,
+} from '@modules/monitoring/logs/Logger';
 
 export interface StructuredLogEntry {
   timestamp: string;
@@ -34,55 +38,93 @@ export class StructuredLogger extends Logger {
   private spanCounter = 0;
 
   constructor(config: StructuredLoggerConfig) {
-    super({ level: config.level, logFile: config.logFile, consoleOutput: config.consoleOutput !== false, fileOutput: config.fileOutput });
+    super({
+      level: config.level,
+      logFile: config.logFile,
+      consoleOutput: config.consoleOutput !== false,
+      fileOutput: config.fileOutput,
+    });
     this.moduleName = config.module;
     this.traceEnabled = config.traceEnabled ?? false;
     this.jsonOutput = config.jsonOutput ?? false;
   }
 
   startTrace(id?: string): string {
-    this.traceId = id || `trace-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.traceId =
+      id || `trace-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     this.spanCounter = 0;
     return this.traceId;
   }
 
   nextSpan(): string {
     this.spanCounter++;
-    return this.traceId ? `${this.traceId}-span${this.spanCounter}` : `span-${this.spanCounter}`;
+    return this.traceId
+      ? `${this.traceId}-span${this.spanCounter}`
+      : `span-${this.spanCounter}`;
   }
 
   getTraceId(): string | null {
     return this.traceId;
   }
 
-  structured(level: LogLevel, message: string, data?: Record<string, unknown>, error?: Error): void {
+  structured(
+    level: LogLevel,
+    message: string,
+    data?: Record<string, unknown>,
+    error?: Error
+  ): void {
     const entry: StructuredLogEntry = {
       timestamp: new Date().toISOString(),
       level,
       module: this.moduleName,
       message,
       traceId: this.traceId || undefined,
-      spanId: this.spanCounter > 0 ? `${this.traceId || 'default'}-span${this.spanCounter}` : undefined,
+      spanId:
+        this.spanCounter > 0
+          ? `${this.traceId || 'default'}-span${this.spanCounter}`
+          : undefined,
       data,
-      error: error ? { name: error.name, message: error.message, stack: error.stack } : undefined,
+      error: error
+        ? { name: error.name, message: error.message, stack: error.stack }
+        : undefined,
     };
 
     if (this.jsonOutput) {
       const jsonLine = JSON.stringify(entry);
       switch (level) {
-        case LogLevel.DEBUG: this.debug(jsonLine); break;
-        case LogLevel.INFO: this.info(jsonLine); break;
-        case LogLevel.WARNING: this.warning(jsonLine); break;
-        case LogLevel.ERROR: this.error(jsonLine); break;
-        case LogLevel.FATAL: this.error(jsonLine); break;
+        case LogLevel.DEBUG:
+          this.debug(jsonLine);
+          break;
+        case LogLevel.INFO:
+          this.info(jsonLine);
+          break;
+        case LogLevel.WARNING:
+          this.warning(jsonLine);
+          break;
+        case LogLevel.ERROR:
+          this.error(jsonLine);
+          break;
+        case LogLevel.FATAL:
+          this.error(jsonLine);
+          break;
       }
     } else {
       switch (level) {
-        case LogLevel.DEBUG: this.debug(message); break;
-        case LogLevel.INFO: this.info(message); break;
-        case LogLevel.WARNING: this.warning(message); break;
-        case LogLevel.ERROR: this.error(message); break;
-        case LogLevel.FATAL: this.error(message); break;
+        case LogLevel.DEBUG:
+          this.debug(message);
+          break;
+        case LogLevel.INFO:
+          this.info(message);
+          break;
+        case LogLevel.WARNING:
+          this.warning(message);
+          break;
+        case LogLevel.ERROR:
+          this.error(message);
+          break;
+        case LogLevel.FATAL:
+          this.error(message);
+          break;
       }
     }
 
@@ -115,7 +157,10 @@ export class StructuredLogger extends Logger {
       results = results.filter((e) => new Date(e.timestamp).getTime() >= since);
     }
 
-    results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    results.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
 
     if (filter?.limit && results.length > filter.limit) {
       results = results.slice(0, filter.limit);

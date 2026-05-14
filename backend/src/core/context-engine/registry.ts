@@ -6,25 +6,37 @@ import type {
   ContextEngineRegistrationResult,
 } from './types.js';
 
-const factories = new Map<string, { factory: ContextEngineFactory; owner?: string }>();
+const factories = new Map<
+  string,
+  { factory: ContextEngineFactory; owner?: string }
+>();
 const instances = new Map<string, ContextEngine>();
 
 const emitter = new EventEmitter();
 
-export function on(event: 'registered' | 'unregistered', listener: (engineId: string) => void): void {
+export function on(
+  event: 'registered' | 'unregistered',
+  listener: (engineId: string) => void
+): void {
   emitter.on(event, listener);
 }
 
-export function off(event: 'registered' | 'unregistered', listener: (engineId: string) => void): void {
+export function off(
+  event: 'registered' | 'unregistered',
+  listener: (engineId: string) => void
+): void {
   emitter.off(event, listener);
 }
 
 export function registerContextEngine(
   engineId: string,
-  factory: ContextEngineFactory,
+  factory: ContextEngineFactory
 ): ContextEngineRegistrationResult {
   if (factories.has(engineId)) {
-    return { ok: false, existingOwner: factories.get(engineId)!.owner ?? 'unknown' };
+    return {
+      ok: false,
+      existingOwner: factories.get(engineId)!.owner ?? 'unknown',
+    };
   }
 
   factories.set(engineId, { factory });
@@ -36,7 +48,7 @@ export function registerContextEngineForOwner(
   engineId: string,
   factory: ContextEngineFactory,
   owner: string,
-  options?: { allowSameOwnerRefresh?: boolean },
+  options?: { allowSameOwnerRefresh?: boolean }
 ): ContextEngineRegistrationResult {
   const existing = factories.get(engineId);
   if (existing) {
@@ -62,7 +74,9 @@ export function unregisterContextEngine(engineId: string): boolean {
   return existed;
 }
 
-export function getContextEngineFactory(engineId: string): ContextEngineFactory | undefined {
+export function getContextEngineFactory(
+  engineId: string
+): ContextEngineFactory | undefined {
   return factories.get(engineId)?.factory;
 }
 
@@ -72,7 +86,7 @@ export function listContextEngineIds(): string[] {
 
 export async function resolveContextEngine(
   engineId: string,
-  ctx?: ContextEngineFactoryContext,
+  ctx?: ContextEngineFactoryContext
 ): Promise<ContextEngine | undefined> {
   if (instances.has(engineId)) {
     return instances.get(engineId);

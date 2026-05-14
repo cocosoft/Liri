@@ -4,7 +4,10 @@
  * 对齐 OpenClaw agents/bash-tools.exec-runtime.ts
  */
 
-import type { SandboxExecuteOptions, SandboxExecuteResult } from './types/SandboxTypes';
+import type {
+  SandboxExecuteOptions,
+  SandboxExecuteResult,
+} from './types/SandboxTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { spawn, type ChildProcess } from 'node:child_process';
 
@@ -40,7 +43,8 @@ export class PTYSandbox {
 
     return new Promise((resolve) => {
       const shell = this.config.shell;
-      const shellArgs = process.platform === 'win32' ? ['-Command', command] : ['-c', command];
+      const shellArgs =
+        process.platform === 'win32' ? ['-Command', command] : ['-c', command];
 
       const child = spawn(shell, shellArgs, {
         cwd: options.cwd || this.config.cwd,
@@ -85,11 +89,14 @@ export class PTYSandbox {
         this.processes.delete(procId);
 
         const durationMs = Date.now() - startTime;
-        const truncated = stdout.length >= maxBytes || stderr.length >= maxBytes;
+        const truncated =
+          stdout.length >= maxBytes || stderr.length >= maxBytes;
 
         resolve({
           exitCode: code ?? (signal ? 1 : 0),
-          stdout: truncated ? stdout.slice(0, maxBytes) + '\n[输出已截断]' : stdout,
+          stdout: truncated
+            ? stdout.slice(0, maxBytes) + '\n[输出已截断]'
+            : stdout,
           stderr: truncated ? stderr.slice(0, maxBytes) : stderr,
           executionTime: Date.now() - startTime,
           success: !timedOut && code === 0,

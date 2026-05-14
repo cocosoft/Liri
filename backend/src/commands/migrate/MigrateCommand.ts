@@ -4,9 +4,19 @@
  * 对齐 OpenClaw commands/migrate.ts
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { existsSync, readFileSync, writeFileSync, renameSync, copyFileSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  copyFileSync,
+} from 'node:fs';
 import { join, dirname } from 'node:path';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -25,7 +35,14 @@ interface MigrationResult {
 }
 
 interface MigrationReport {
-  steps: Array<{ from: string; to: string; description: string; success: boolean; message: string; warnings: string[] }>;
+  steps: Array<{
+    from: string;
+    to: string;
+    description: string;
+    success: boolean;
+    message: string;
+    warnings: string[];
+  }>;
   totalApplied: number;
   totalFailed: number;
 }
@@ -41,14 +58,20 @@ const migrate: Command = {
 
   async load() {
     return {
-      async execute(args: string, context?: CommandContext): Promise<CommandResult> {
+      async execute(
+        args: string,
+        context?: CommandContext
+      ): Promise<CommandResult> {
         try {
           const cwd = process.cwd();
           const configDir = join(cwd, 'config');
           const dryRun = args.includes('--dry-run');
           const report = await runMigrations(configDir, dryRun);
 
-          const statusLine = report.totalFailed === 0 ? '✅ 迁移成功' : `⚠️ ${report.totalFailed} 步迁移失败`;
+          const statusLine =
+            report.totalFailed === 0
+              ? '✅ 迁移成功'
+              : `⚠️ ${report.totalFailed} 步迁移失败`;
           return {
             success: report.totalFailed === 0,
             type: 'text',
@@ -68,8 +91,15 @@ const migrate: Command = {
   },
 };
 
-async function runMigrations(configDir: string, dryRun: boolean): Promise<MigrationReport> {
-  const report: MigrationReport = { steps: [], totalApplied: 0, totalFailed: 0 };
+async function runMigrations(
+  configDir: string,
+  dryRun: boolean
+): Promise<MigrationReport> {
+  const report: MigrationReport = {
+    steps: [],
+    totalApplied: 0,
+    totalFailed: 0,
+  };
 
   const migrations = getMigrations();
   for (const migration of migrations) {
@@ -111,11 +141,18 @@ function getMigrations(): MigrationStep[] {
         const warnings: string[] = [];
         const settingsPath = join(dir, '..', 'settings.json');
         if (!existsSync(settingsPath)) {
-          writeFileSync(settingsPath, JSON.stringify({
-            version: '1.0.0',
-            migratedAt: new Date().toISOString(),
-            features: { securityAudit: true, permissions: true },
-          }, null, 2));
+          writeFileSync(
+            settingsPath,
+            JSON.stringify(
+              {
+                version: '1.0.0',
+                migratedAt: new Date().toISOString(),
+                features: { securityAudit: true, permissions: true },
+              },
+              null,
+              2
+            )
+          );
           return { success: true, message: '创建 settings.json', warnings };
         }
         const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
@@ -123,9 +160,17 @@ function getMigrations(): MigrationStep[] {
           settings['version'] = '1.0.0';
           settings['migratedAt'] = new Date().toISOString();
           writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-          return { success: true, message: 'settings.json 添加版本字段', warnings };
+          return {
+            success: true,
+            message: 'settings.json 添加版本字段',
+            warnings,
+          };
         }
-        return { success: true, message: 'settings.json 已是最新版本', warnings };
+        return {
+          success: true,
+          message: 'settings.json 已是最新版本',
+          warnings,
+        };
       },
     },
     {

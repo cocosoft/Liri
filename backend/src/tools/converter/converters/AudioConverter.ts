@@ -7,7 +7,6 @@ import { ErrorCodes } from '@modules/error/ErrorCodes';
 let _depError: Error | null = null;
 let _ffprobe: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Ffmpeg = require('fluent-ffmpeg');
   _ffprobe = Ffmpeg.ffprobe;
 } catch (e) {

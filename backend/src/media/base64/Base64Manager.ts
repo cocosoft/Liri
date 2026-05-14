@@ -17,7 +17,10 @@ export class Base64Manager {
   /**
    * 编码文件为 Base64
    */
-  encodeFromFile(filePath: string, options?: Base64EncodeOptions): string | null {
+  encodeFromFile(
+    filePath: string,
+    options?: Base64EncodeOptions
+  ): string | null {
     try {
       if (!fs.existsSync(filePath)) return null;
 
@@ -48,7 +51,9 @@ export class Base64Manager {
    */
   decodeToString(base64: string): string | null {
     try {
-      const clean = base64.includes(';base64,') ? base64.split(';base64,')[1] : base64;
+      const clean = base64.includes(';base64,')
+        ? base64.split(';base64,')[1]
+        : base64;
 
       return Buffer.from(clean, 'base64').toString('utf-8');
     } catch {
@@ -61,7 +66,9 @@ export class Base64Manager {
    */
   decodeToFile(base64: string, outputPath: string): boolean {
     try {
-      const clean = base64.includes(';base64,') ? base64.split(';base64,')[1] : base64;
+      const clean = base64.includes(';base64,')
+        ? base64.split(';base64,')[1]
+        : base64;
       const data = Buffer.from(clean, 'base64');
 
       const dir = path.dirname(outputPath);
@@ -93,7 +100,9 @@ export class Base64Manager {
    */
   isValid(base64: string): boolean {
     try {
-      const clean = base64.includes(';base64,') ? base64.split(';base64,')[1] : base64;
+      const clean = base64.includes(';base64,')
+        ? base64.split(';base64,')[1]
+        : base64;
 
       return /^[A-Za-z0-9+/]*={0,2}$/.test(clean.trim());
     } catch {

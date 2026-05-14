@@ -32,3 +32,4 @@ export type {
   StreamChunk,
   StreamCallback,
 } from './types';
+export * from './scrubbers';

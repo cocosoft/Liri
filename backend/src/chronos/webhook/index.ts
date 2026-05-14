@@ -3,4 +3,8 @@
  */
 
 export { WebhookManager, webhookManager } from './WebhookManager.js';
-export type { WebhookConfig, WebhookResult, WebhookEvent } from './WebhookManager.js';
+export type {
+  WebhookConfig,
+  WebhookResult,
+  WebhookEvent,
+} from './WebhookManager.js';

@@ -1,11 +1,11 @@
 export type MarkdownStyle =
-  | "bold"
-  | "italic"
-  | "strikethrough"
-  | "code"
-  | "code_block"
-  | "spoiler"
-  | "blockquote";
+  | 'bold'
+  | 'italic'
+  | 'strikethrough'
+  | 'code'
+  | 'code_block'
+  | 'spoiler'
+  | 'blockquote';
 
 export type MarkdownStyleSpan = {
   start: number;

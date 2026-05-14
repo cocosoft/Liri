@@ -2,6 +2,17 @@
  * Session模块导出
  */
 
+export {
+  FTS5SearchEngine,
+  getFTS5SearchEngine,
+  resetFTS5SearchEngine,
+} from './FTS5SearchEngine';
+export type {
+  FTSDocument,
+  FTSSearchResult,
+  FTSConfig,
+} from './FTS5SearchEngine';
+
 export * from './types/index.js';
 export * from './storage/UnifiedStorage.js';
 export * from './storage/StorageFactory.js';

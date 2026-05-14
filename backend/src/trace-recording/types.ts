@@ -97,9 +97,28 @@ export interface PluginStatus {
 
 /** 监控系统依赖（松耦合注入） */
 export interface MonitoringDeps {
-  dashboard?: { recordBatch: (dataPoints: { metric: string; value: number; labels?: Record<string, string> }[]) => void };
-  tracing?: { getActiveSpan?: () => { spanContext: () => { traceId: string; spanId: string } } | undefined };
-  alertManager?: { sendAlert?: (alert: { title: string; message: string; level: string; source: string }) => void };
+  dashboard?: {
+    recordBatch: (
+      dataPoints: {
+        metric: string;
+        value: number;
+        labels?: Record<string, string>;
+      }[]
+    ) => void;
+  };
+  tracing?: {
+    getActiveSpan?: () =>
+      | { spanContext: () => { traceId: string; spanId: string } }
+      | undefined;
+  };
+  alertManager?: {
+    sendAlert?: (alert: {
+      title: string;
+      message: string;
+      level: string;
+      source: string;
+    }) => void;
+  };
 }
 
 /** 导出格式 */

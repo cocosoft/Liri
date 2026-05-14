@@ -7,13 +7,13 @@ export type {
   MemorySource,
   MemorySyncProgressUpdate,
   MemoryEmbeddingProbeResult,
-} from "./types.js";
+} from './types.js';
 
 export {
   resolveMemoryDreamingConfig,
   resolveMemoryDreamingPluginId,
   resolveMemoryDreamingPluginConfig,
-} from "./dreaming.js";
+} from './dreaming.js';
 export type {
   MemoryDreamingConfig,
   MemoryDreamingPhaseName,
@@ -30,4 +30,4 @@ export type {
   MemoryLightDreamingSource,
   MemoryDeepDreamingSource,
   MemoryRemDreamingSource,
-} from "./dreaming.js";
+} from './dreaming.js';

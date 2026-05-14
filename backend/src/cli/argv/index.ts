@@ -83,7 +83,11 @@ export function parseArgv(argv: string[], schema?: ArgvSchema): ParsedArgs {
         const char = flags[j];
         const optDef = schema?.options?.find((o) => o.alias === char);
         if (optDef && optDef.type !== 'boolean' && j < flags.length - 1) {
-          result.options[optDef.name] = coerceValue(optDef.name, flags.slice(j + 1), schema);
+          result.options[optDef.name] = coerceValue(
+            optDef.name,
+            flags.slice(j + 1),
+            schema
+          );
           break;
         }
         result.options[char] = true;
@@ -101,11 +105,7 @@ export function parseArgv(argv: string[], schema?: ArgvSchema): ParsedArgs {
   return result;
 }
 
-function coerceValue(
-  key: string,
-  value: string,
-  schema?: ArgvSchema,
-): unknown {
+function coerceValue(key: string, value: string, schema?: ArgvSchema): unknown {
   const optDef = schema?.options?.find((o) => o.name === key);
   const type = optDef?.type;
 
@@ -197,7 +197,9 @@ export function formatUsage(schema: ArgvSchema): string {
   return parts.join(' ');
 }
 
-export function normalizeArgs(args: Record<string, unknown>): Record<string, unknown> {
+export function normalizeArgs(
+  args: Record<string, unknown>
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const singleCharKeys = Object.keys(args).filter((k) => k.length === 1);
 

@@ -67,6 +67,33 @@ export * from './CostRecordRepository.js';
 // 导出React Hooks
 export * from './useCostSummary.js';
 
+// 导出部门成本报表
+export {
+  DepartmentCostReporter,
+  getDepartmentCostReporter,
+} from './DepartmentCostReporter';
+export type {
+  CostAllocationReport,
+  DepartmentCostEntry,
+  TeamCostEntry,
+} from './DepartmentCostReporter';
+
+// 导出 OTel Metrics 桥
+export { CostMetricsBridge, getCostMetricsBridge } from './CostMetricsBridge';
+export type {
+  CostMetricsDataPoint,
+  CostDashboardData,
+  MetricsBridgeConfig,
+} from './CostMetricsBridge';
+
+// 导出 HTTP 端点
+export { CostReportEndpoint } from './CostReportEndpoint';
+export type {
+  CostReportRequest,
+  CostReportResponse,
+  CostReportData,
+} from './CostReportEndpoint';
+
 import { Logger } from '../monitoring/logs/Logger.js';
 
 const logger = new Logger();

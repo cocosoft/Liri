@@ -4,7 +4,12 @@
  * 支持Bing、Google、DuckDuckGo、Brave等多个搜索引擎
  */
 
-export type SearchProvider = 'bing' | 'google' | 'duckduckgo' | 'brave' | 'searxng';
+export type SearchProvider =
+  | 'bing'
+  | 'google'
+  | 'duckduckgo'
+  | 'brave'
+  | 'searxng';
 
 export interface SearchResult {
   title: string;
@@ -109,7 +114,7 @@ export class SearchProviderManager {
 
   getAvailableProviders(): SearchProvider[] {
     return (Object.keys(PROVIDER_CONFIGS) as SearchProvider[]).filter(
-      (p) => !PROVIDER_CONFIGS[p].requiresApiKey || !!this.apiKeys[p],
+      (p) => !PROVIDER_CONFIGS[p].requiresApiKey || !!this.apiKeys[p]
     );
   }
 
@@ -128,13 +133,15 @@ export class SearchProviderManager {
       maxResults?: number;
       language?: string;
       safeSearch?: boolean;
-    },
+    }
   ): Promise<SearchResponse> {
     const provider = options?.provider ?? this.defaultProvider;
     const config = this.getProviderConfig(provider);
 
     if (!this.canMakeRequest(provider)) {
-      throw new Error(`Rate limit exceeded for provider: ${config.displayName}`);
+      throw new Error(
+        `Rate limit exceeded for provider: ${config.displayName}`
+      );
     }
 
     this.recordRequest(provider);
@@ -164,7 +171,10 @@ export class SearchProviderManager {
           throw new Error(`Unsupported provider: ${provider}`);
       }
 
-      results.forEach((r, i) => { r.rank = i + 1; r.source = provider; });
+      results.forEach((r, i) => {
+        r.rank = i + 1;
+        r.source = provider;
+      });
 
       const searchTime = Date.now() - startTime;
 
@@ -182,7 +192,7 @@ export class SearchProviderManager {
 
   private async searchBing(
     query: string,
-    options?: { maxResults?: number; language?: string; safeSearch?: boolean },
+    options?: { maxResults?: number; language?: string; safeSearch?: boolean }
   ): Promise<SearchResult[]> {
     const encoded = encodeURIComponent(query);
     const url = `https://www.bing.com/search?q=${encoded}&count=${options?.maxResults ?? 10}&setlang=${options?.language ?? 'en-US'}`;
@@ -193,7 +203,7 @@ export class SearchProviderManager {
 
   private async searchGoogle(
     query: string,
-    options?: { maxResults?: number; language?: string; safeSearch?: boolean },
+    options?: { maxResults?: number; language?: string; safeSearch?: boolean }
   ): Promise<SearchResult[]> {
     const encoded = encodeURIComponent(query);
     const url = `https://www.google.com/search?q=${encoded}&num=${options?.maxResults ?? 10}&hl=${options?.language ?? 'en'}`;
@@ -204,7 +214,7 @@ export class SearchProviderManager {
 
   private async searchDuckDuckGo(
     query: string,
-    options?: { maxResults?: number; language?: string; safeSearch?: boolean },
+    options?: { maxResults?: number; language?: string; safeSearch?: boolean }
   ): Promise<SearchResult[]> {
     const encoded = encodeURIComponent(query);
     const url = `https://html.duckduckgo.com/html?q=${encoded}`;
@@ -215,7 +225,7 @@ export class SearchProviderManager {
 
   private async searchBrave(
     query: string,
-    options?: { maxResults?: number; language?: string; safeSearch?: boolean },
+    options?: { maxResults?: number; language?: string; safeSearch?: boolean }
   ): Promise<SearchResult[]> {
     const encoded = encodeURIComponent(query);
     const url = `https://search.brave.com/search?q=${encoded}&source=web`;
@@ -226,7 +236,7 @@ export class SearchProviderManager {
 
   private async searchSearxng(
     query: string,
-    options?: { maxResults?: number; language?: string; safeSearch?: boolean },
+    options?: { maxResults?: number; language?: string; safeSearch?: boolean }
   ): Promise<SearchResult[]> {
     const encoded = encodeURIComponent(query);
     const url = `${this.searxngBaseUrl}/search?q=${encoded}&format=json&language=${options?.language ?? 'auto'}`;
@@ -243,7 +253,7 @@ export class SearchProviderManager {
 
       if (!response.ok) return [];
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
       return (data.results ?? []).map((r: any) => ({
         title: r.title ?? '',
         url: r.url ?? '',
@@ -262,7 +272,8 @@ export class SearchProviderManager {
     try {
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           Accept: 'text/html,application/xhtml+xml',
           'Accept-Language': 'en-US,en;q=0.9',
         },
@@ -285,14 +296,18 @@ export class SearchProviderManager {
 
     while ((match = snippetPattern.exec(html)) !== null) {
       const block = match[1];
-      const titleMatch = block.match(/<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+      const titleMatch = block.match(
+        /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i
+      );
       const snippetMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
 
       if (titleMatch) {
         results.push({
           title: titleMatch[2].replace(/<[^>]+>/g, '').trim(),
           url: titleMatch[1],
-          snippet: snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').trim() : '',
+          snippet: snippetMatch
+            ? snippetMatch[1].replace(/<[^>]+>/g, '').trim()
+            : '',
         });
       }
     }
@@ -307,20 +322,27 @@ export class SearchProviderManager {
 
     while ((match = resultPattern.exec(html)) !== null) {
       const block = match[1];
-      const titleMatch = block.match(/<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
-      const snippetMatch = block.match(/<div class="[^"]*VwiC3b[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+      const titleMatch = block.match(
+        /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i
+      );
+      const snippetMatch = block.match(
+        /<div class="[^"]*VwiC3b[^"]*"[^>]*>([\s\S]*?)<\/div>/i
+      );
 
       if (titleMatch) {
         results.push({
           title: titleMatch[2].replace(/<[^>]+>/g, '').trim(),
           url: titleMatch[1],
-          snippet: snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').trim() : '',
+          snippet: snippetMatch
+            ? snippetMatch[1].replace(/<[^>]+>/g, '').trim()
+            : '',
         });
       }
     }
 
     if (results.length === 0) {
-      const altPattern = /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*><br>\s*<h3[^>]*>([\s\S]*?)<\/h3>/gi;
+      const altPattern =
+        /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*><br>\s*<h3[^>]*>([\s\S]*?)<\/h3>/gi;
       while ((match = altPattern.exec(html)) !== null) {
         results.push({
           title: match[2].replace(/<[^>]+>/g, '').trim(),
@@ -335,19 +357,28 @@ export class SearchProviderManager {
 
   private parseDuckDuckGoResults(html: string): SearchResult[] {
     const results: SearchResult[] = [];
-    const resultPattern = /<div class="result[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi;
+    const resultPattern =
+      /<div class="result[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi;
     let match: RegExpExecArray | null;
 
     while ((match = resultPattern.exec(html)) !== null) {
       const block = match[1];
-      const titleMatch = block.match(/<a[^>]*href=["']([^"']+)["'][^>]*class=["']result__a["'][^>]*>([\s\S]*?)<\/a>/i);
-      const snippetMatch = block.match(/<a[^>]*class=["']result__snippet["'][^>]*>([\s\S]*?)<\/a>/i);
+      const titleMatch = block.match(
+        /<a[^>]*href=["']([^"']+)["'][^>]*class=["']result__a["'][^>]*>([\s\S]*?)<\/a>/i
+      );
+      const snippetMatch = block.match(
+        /<a[^>]*class=["']result__snippet["'][^>]*>([\s\S]*?)<\/a>/i
+      );
 
       if (titleMatch) {
         results.push({
           title: titleMatch[2].replace(/<[^>]+>/g, '').trim(),
-          url: titleMatch[1].startsWith('//') ? 'https:' + titleMatch[1] : titleMatch[1],
-          snippet: snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').trim() : '',
+          url: titleMatch[1].startsWith('//')
+            ? 'https:' + titleMatch[1]
+            : titleMatch[1],
+          snippet: snippetMatch
+            ? snippetMatch[1].replace(/<[^>]+>/g, '').trim()
+            : '',
         });
       }
     }
@@ -357,19 +388,26 @@ export class SearchProviderManager {
 
   private parseBraveResults(html: string): SearchResult[] {
     const results: SearchResult[] = [];
-    const resultPattern = /<div class="snippet[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
+    const resultPattern =
+      /<div class="snippet[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi;
     let match: RegExpExecArray | null;
 
     while ((match = resultPattern.exec(html)) !== null) {
       const block = match[1];
-      const titleMatch = block.match(/<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
-      const snippetMatch = block.match(/<p[^>]*class=["'][^"']*snippet-description[^"']*["'][^>]*>([\s\S]*?)<\/p>/i);
+      const titleMatch = block.match(
+        /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/i
+      );
+      const snippetMatch = block.match(
+        /<p[^>]*class=["'][^"']*snippet-description[^"']*["'][^>]*>([\s\S]*?)<\/p>/i
+      );
 
       if (titleMatch) {
         results.push({
           title: titleMatch[2].replace(/<[^>]+>/g, '').trim(),
           url: titleMatch[1],
-          snippet: snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').trim() : '',
+          snippet: snippetMatch
+            ? snippetMatch[1].replace(/<[^>]+>/g, '').trim()
+            : '',
         });
       }
     }
@@ -410,10 +448,10 @@ export class SearchProviderManager {
       maxResults?: number;
       language?: string;
       safeSearch?: boolean;
-    },
+    }
   ): Promise<SearchResponse> {
     const available = this.getAvailableProviders().sort(
-      (a, b) => this.getProviderPriority(b) - this.getProviderPriority(a),
+      (a, b) => this.getProviderPriority(b) - this.getProviderPriority(a)
     );
 
     const errors: Array<{ provider: SearchProvider; error: string }> = [];
@@ -431,7 +469,7 @@ export class SearchProviderManager {
     }
 
     throw new Error(
-      `All search providers failed. Errors: ${errors.map((e) => `${e.provider}: ${e.error}`).join('; ')}`,
+      `All search providers failed. Errors: ${errors.map((e) => `${e.provider}: ${e.error}`).join('; ')}`
     );
   }
 }

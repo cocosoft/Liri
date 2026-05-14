@@ -4,7 +4,12 @@
  * 文件编辑操作类型定义
  */
 
-export type EditOperation = 'insert' | 'delete' | 'replace' | 'append' | 'prepend';
+export type EditOperation =
+  | 'insert'
+  | 'delete'
+  | 'replace'
+  | 'append'
+  | 'prepend';
 
 export interface EditRange {
   startLine: number;
@@ -50,7 +55,13 @@ export interface EditOptions {
   normalizeWhitespace?: boolean;
 }
 
-export type BufferEncoding = 'utf-8' | 'ascii' | 'utf-16le' | 'latin1' | 'base64' | 'hex';
+export type BufferEncoding =
+  | 'utf-8'
+  | 'ascii'
+  | 'utf-16le'
+  | 'latin1'
+  | 'base64'
+  | 'hex';
 
 export interface FileSnapshot {
   path: string;
@@ -85,7 +96,11 @@ export interface BatchEditResult {
   duration: number;
 }
 
-export function createEditCommand(type: EditOperation, path: string, params: Partial<EditCommand>): EditCommand {
+export function createEditCommand(
+  type: EditOperation,
+  path: string,
+  params: Partial<EditCommand>
+): EditCommand {
   return {
     type,
     path,
@@ -109,9 +124,17 @@ export function validateEditCommand(cmd: EditCommand): EditValidation {
   if (!cmd.type) {
     errors.push('Edit operation type is required');
   } else {
-    const validTypes: EditOperation[] = ['insert', 'delete', 'replace', 'append', 'prepend'];
+    const validTypes: EditOperation[] = [
+      'insert',
+      'delete',
+      'replace',
+      'append',
+      'prepend',
+    ];
     if (!validTypes.includes(cmd.type)) {
-      errors.push(`Invalid edit operation: ${cmd.type}. Valid: ${validTypes.join(', ')}`);
+      errors.push(
+        `Invalid edit operation: ${cmd.type}. Valid: ${validTypes.join(', ')}`
+      );
     }
   }
 

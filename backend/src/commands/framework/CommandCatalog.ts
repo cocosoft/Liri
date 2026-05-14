@@ -73,41 +73,103 @@ export class CommandCatalog {
         name: '基础操作',
         description: '应用基础操作命令',
         icon: '⚙️',
-        commands: ['help', 'config', 'status', 'version', 'clear', 'exit', 'restart'],
+        commands: [
+          'help',
+          'config',
+          'status',
+          'version',
+          'clear',
+          'exit',
+          'restart',
+        ],
         subcategories: [
-          { name: '配置管理', description: '应用配置相关', icon: '🔧', commands: ['config', 'theme', 'env', 'privacy-settings'] },
-          { name: '系统信息', description: '系统状态与信息', icon: 'ℹ️', commands: ['status', 'version', 'health', 'doctor'] },
+          {
+            name: '配置管理',
+            description: '应用配置相关',
+            icon: '🔧',
+            commands: ['config', 'theme', 'env', 'privacy-settings'],
+          },
+          {
+            name: '系统信息',
+            description: '系统状态与信息',
+            icon: 'ℹ️',
+            commands: ['status', 'version', 'health', 'doctor'],
+          },
         ],
       },
       {
         name: '文件操作',
         description: '文件与目录操作命令',
         icon: '📁',
-        commands: ['read', 'write', 'edit', 'search', 'list', 'add-dir', 'copy', 'rename', 'delete', 'files'],
+        commands: [
+          'read',
+          'write',
+          'edit',
+          'search',
+          'list',
+          'add-dir',
+          'copy',
+          'rename',
+          'delete',
+          'files',
+        ],
       },
       {
         name: '代码开发',
         description: '代码开发相关命令',
         icon: '💻',
-        commands: ['git', 'commit', 'diff', 'branch', 'review', 'debug', 'test', 'build', 'deploy'],
+        commands: [
+          'git',
+          'commit',
+          'diff',
+          'branch',
+          'review',
+          'debug',
+          'test',
+          'build',
+          'deploy',
+        ],
       },
       {
         name: 'AI 与对话',
         description: 'AI 对话与智能辅助命令',
         icon: '🤖',
-        commands: ['chat', 'ask', 'explain', 'refactor', 'optimize', 'complete', 'effort'],
+        commands: [
+          'chat',
+          'ask',
+          'explain',
+          'refactor',
+          'optimize',
+          'complete',
+          'effort',
+        ],
       },
       {
         name: '技能与插件',
         description: '技能与插件管理命令',
         icon: '🧩',
-        commands: ['skill', 'plugins', 'install', 'uninstall', 'upgrade', 'update', 'reload-plugins'],
+        commands: [
+          'skill',
+          'plugins',
+          'install',
+          'uninstall',
+          'upgrade',
+          'update',
+          'reload-plugins',
+        ],
       },
       {
         name: '会话管理',
         description: '会话与上下文管理命令',
         icon: '💬',
-        commands: ['session', 'history', 'context', 'resume', 'compact', 'rewind'],
+        commands: [
+          'session',
+          'history',
+          'context',
+          'resume',
+          'compact',
+          'rewind',
+        ],
       },
       {
         name: '通道管理',
@@ -125,25 +187,54 @@ export class CommandCatalog {
         name: '安全与权限',
         description: '安全设置与权限管理',
         icon: '🔒',
-        commands: ['security', 'permissions', 'sandbox-toggle', 'security-review'],
+        commands: [
+          'security',
+          'permissions',
+          'sandbox-toggle',
+          'security-review',
+        ],
       },
       {
         name: '监控与分析',
         description: '系统监控与数据分析',
         icon: '📊',
-        commands: ['performance', 'usage', 'cost', 'tokens', 'activity', 'insights', 'memory', 'heapdump'],
+        commands: [
+          'performance',
+          'usage',
+          'cost',
+          'tokens',
+          'activity',
+          'insights',
+          'memory',
+          'heapdump',
+        ],
       },
       {
         name: '文档与学习',
         description: '文档查看与学习资源',
         icon: '📖',
-        commands: ['docs', 'help', 'onboard', 'tutorial', 'release-notes', 'keybindings', 'tips'],
+        commands: [
+          'docs',
+          'help',
+          'onboard',
+          'tutorial',
+          'release-notes',
+          'keybindings',
+          'tips',
+        ],
       },
       {
         name: '任务与项目',
         description: '任务管理与项目协作',
         icon: '✅',
-        commands: ['tasks', 'plan', 'checkpoint', 'export', 'share', 'feedback'],
+        commands: [
+          'tasks',
+          'plan',
+          'checkpoint',
+          'export',
+          'share',
+          'feedback',
+        ],
       },
     ];
 
@@ -244,7 +335,9 @@ export class CommandCatalog {
         } else {
           const nameMatch = cmd.name.toLowerCase().includes(query);
           const descMatch = cmd.description.toLowerCase().includes(query);
-          const aliasMatch = (cmd.aliases || []).some((a: string) => a.toLowerCase().includes(query));
+          const aliasMatch = (cmd.aliases || []).some((a: string) =>
+            a.toLowerCase().includes(query)
+          );
           matched = nameMatch || descMatch || aliasMatch;
         }
       }
@@ -280,8 +373,9 @@ export class CommandCatalog {
    * 获取命令统计
    */
   getUsageStats(): CommandUsageStats[] {
-    return Array.from(this.usageStats.values())
-      .sort((a, b) => b.invokeCount - a.invokeCount);
+    return Array.from(this.usageStats.values()).sort(
+      (a, b) => b.invokeCount - a.invokeCount
+    );
   }
 
   /**
@@ -292,7 +386,9 @@ export class CommandCatalog {
     if (existing) {
       existing.invokeCount++;
       existing.lastUsed = Date.now();
-      existing.avgDuration = (existing.avgDuration * (existing.invokeCount - 1) + duration) / existing.invokeCount;
+      existing.avgDuration =
+        (existing.avgDuration * (existing.invokeCount - 1) + duration) /
+        existing.invokeCount;
     } else {
       this.usageStats.set(name, {
         name,
@@ -343,8 +439,7 @@ export class CommandCatalog {
    * 获取收藏命令
    */
   getFavorites(): CommandUsageStats[] {
-    return Array.from(this.usageStats.values())
-      .filter((s) => s.favorite);
+    return Array.from(this.usageStats.values()).filter((s) => s.favorite);
   }
 
   /**

@@ -1,4 +1,8 @@
-import type { ChannelSetupResult, FlowContext, FlowConfigProvider } from './types.js';
+import type {
+  ChannelSetupResult,
+  FlowContext,
+  FlowConfigProvider,
+} from './types.js';
 
 export type ChannelSetupPlugin = {
   channelId: string;
@@ -8,7 +12,7 @@ export type ChannelSetupPlugin = {
   configure: (
     accountId: string,
     context: FlowContext,
-    configProvider: FlowConfigProvider,
+    configProvider: FlowConfigProvider
   ) => Promise<{ ok: boolean; error?: string }>;
 };
 
@@ -21,7 +25,10 @@ const DEFAULT_PLUGINS: ChannelSetupPlugin[] = [
       if (!ctx.env?.IRC_SERVER) {
         return { ok: false, error: 'IRC_SERVER not configured' };
       }
-      configProvider.set(`channels.irc.accounts.${accountId}.server`, ctx.env.IRC_SERVER);
+      configProvider.set(
+        `channels.irc.accounts.${accountId}.server`,
+        ctx.env.IRC_SERVER
+      );
       return { ok: true };
     },
   },
@@ -33,7 +40,10 @@ const DEFAULT_PLUGINS: ChannelSetupPlugin[] = [
       if (!ctx.env?.DISCORD_TOKEN) {
         return { ok: false, error: 'DISCORD_TOKEN not configured' };
       }
-      configProvider.set(`channels.discord.accounts.${accountId}.token`, ctx.env.DISCORD_TOKEN);
+      configProvider.set(
+        `channels.discord.accounts.${accountId}.token`,
+        ctx.env.DISCORD_TOKEN
+      );
       return { ok: true };
     },
   },
@@ -47,7 +57,7 @@ const DEFAULT_PLUGINS: ChannelSetupPlugin[] = [
       }
       configProvider.set(
         `channels.telegram.accounts.${accountId}.botToken`,
-        ctx.env.TELEGRAM_BOT_TOKEN,
+        ctx.env.TELEGRAM_BOT_TOKEN
       );
       return { ok: true };
     },
@@ -60,10 +70,13 @@ const DEFAULT_PLUGINS: ChannelSetupPlugin[] = [
       if (!ctx.env?.SLACK_BOT_TOKEN) {
         return { ok: false, error: 'SLACK_BOT_TOKEN not configured' };
       }
-      configProvider.set(`channels.slack.accounts.${accountId}.token`, ctx.env.SLACK_BOT_TOKEN);
+      configProvider.set(
+        `channels.slack.accounts.${accountId}.token`,
+        ctx.env.SLACK_BOT_TOKEN
+      );
       configProvider.set(
         `channels.slack.accounts.${accountId}.appToken`,
-        ctx.env.SLACK_APP_TOKEN,
+        ctx.env.SLACK_APP_TOKEN
       );
       return { ok: true };
     },
@@ -78,7 +91,7 @@ const DEFAULT_PLUGINS: ChannelSetupPlugin[] = [
       }
       configProvider.set(
         `channels.line.accounts.${accountId}.channelAccessToken`,
-        ctx.env.LINE_CHANNEL_ACCESS_TOKEN,
+        ctx.env.LINE_CHANNEL_ACCESS_TOKEN
       );
       return { ok: true };
     },
@@ -101,7 +114,9 @@ export function registerChannelSetupPlugin(plugin: ChannelSetupPlugin): void {
 /**
  * 获取指定渠道的设置插件。
  */
-export function getChannelSetupPlugin(channelId: string): ChannelSetupPlugin | undefined {
+export function getChannelSetupPlugin(
+  channelId: string
+): ChannelSetupPlugin | undefined {
   return pluginRegistry.get(channelId);
 }
 
@@ -119,12 +134,16 @@ export async function setupChannel(
   channelId: string,
   accountId: string = 'default',
   context: FlowContext = {},
-  configProvider: FlowConfigProvider,
+  configProvider: FlowConfigProvider
 ): Promise<ChannelSetupResult> {
   const plugin = pluginRegistry.get(channelId);
 
   if (!plugin) {
-    return { channelId, configured: false, error: `No setup plugin for channel: ${channelId}` };
+    return {
+      channelId,
+      configured: false,
+      error: `No setup plugin for channel: ${channelId}`,
+    };
   }
 
   try {
@@ -151,10 +170,17 @@ export async function setupChannel(
 export async function setupChannels(
   targets: Array<{ channelId: string; accountId?: string }>,
   context: FlowContext = {},
-  configProvider: FlowConfigProvider,
+  configProvider: FlowConfigProvider
 ): Promise<ChannelSetupResult[]> {
   return Promise.all(
-    targets.map((t) => setupChannel(t.channelId, t.accountId ?? 'default', context, configProvider)),
+    targets.map((t) =>
+      setupChannel(
+        t.channelId,
+        t.accountId ?? 'default',
+        context,
+        configProvider
+      )
+    )
   );
 }
 
@@ -164,8 +190,10 @@ export async function setupChannels(
 export function isChannelConfigured(
   channelId: string,
   configProvider: FlowConfigProvider,
-  accountId: string = 'default',
+  accountId: string = 'default'
 ): boolean {
-  const accounts = configProvider.get<Record<string, unknown>>(`channels.${channelId}.accounts`);
+  const accounts = configProvider.get<Record<string, unknown>>(
+    `channels.${channelId}.accounts`
+  );
   return !!accounts?.[accountId];
 }

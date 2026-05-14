@@ -75,7 +75,7 @@ export type ContextEngineFactoryContext = {
 };
 
 export type ContextEngineFactory = (
-  ctx: ContextEngineFactoryContext,
+  ctx: ContextEngineFactoryContext
 ) => ContextEngine | Promise<ContextEngine>;
 
 export type ContextEngineRegistrationResult =

@@ -40,7 +40,7 @@ export class ChannelPluginValidator {
     this.addRule({
       name: 'name-required',
       description: '插件名称不能为空',
-      validate: (plugin) => !plugin.name ? '插件名称不能为空' : null,
+      validate: (plugin) => (!plugin.name ? '插件名称不能为空' : null),
     });
 
     this.addRule({
@@ -65,7 +65,13 @@ export class ChannelPluginValidator {
       name: 'type-valid',
       description: '插件类型必须有效',
       validate: (plugin) => {
-        const validTypes = ['messaging', 'social', 'notification', 'voice', 'custom'];
+        const validTypes = [
+          'messaging',
+          'social',
+          'notification',
+          'voice',
+          'custom',
+        ];
 
         if (!validTypes.includes(plugin.type)) {
           return `无效的插件类型 "${plugin.type}"，必须是: ${validTypes.join(', ')}`;
@@ -78,7 +84,7 @@ export class ChannelPluginValidator {
     this.addRule({
       name: 'protocol-required',
       description: '协议字段不能为空',
-      validate: (plugin) => !plugin.protocol ? '协议字段不能为空' : null,
+      validate: (plugin) => (!plugin.protocol ? '协议字段不能为空' : null),
     });
 
     this.addRule({
@@ -147,10 +153,16 @@ export class ChannelPluginValidator {
   /**
    * 检查配置完整性
    */
-  validateConfig(plugin: ChannelPlugin, config: Record<string, unknown>): ValidationResult {
+  validateConfig(
+    plugin: ChannelPlugin,
+    config: Record<string, unknown>
+  ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
-    const schema = plugin.configSchema as Record<string, { type: string; required?: boolean; default?: unknown }>;
+    const schema = plugin.configSchema as Record<
+      string,
+      { type: string; required?: boolean; default?: unknown }
+    >;
 
     for (const [key, field] of Object.entries(schema)) {
       if (field.required && config[key] === undefined) {
@@ -168,7 +180,10 @@ export class ChannelPluginValidator {
   /**
    * 检查兼容性
    */
-  checkCompatibility(plugin: ChannelPlugin, environment: Record<string, string>): ValidationResult {
+  checkCompatibility(
+    plugin: ChannelPlugin,
+    environment: Record<string, string>
+  ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 

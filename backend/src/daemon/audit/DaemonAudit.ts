@@ -76,7 +76,11 @@ export class DaemonAudit {
   /**
    * 记录审计事件
    */
-  record(type: AuditEventType, message: string, data?: Record<string, unknown>): AuditEvent {
+  record(
+    type: AuditEventType,
+    message: string,
+    data?: Record<string, unknown>
+  ): AuditEvent {
     const event: AuditEvent = {
       id: `audit_${Date.now()}_${++this.eventCounter}`,
       timestamp: Date.now(),
@@ -130,9 +134,7 @@ export class DaemonAudit {
    * 获取最近的崩溃事件
    */
   getCrashEvents(limit: number = 10): AuditEvent[] {
-    return this.events
-      .filter((e) => e.type === 'daemon:crash')
-      .slice(-limit);
+    return this.events.filter((e) => e.type === 'daemon:crash').slice(-limit);
   }
 
   /**
@@ -190,8 +192,7 @@ export class DaemonAudit {
   private appendToFile(event: AuditEvent): void {
     try {
       fs.appendFileSync(this.logFile, JSON.stringify(event) + '\n', 'utf-8');
-    } catch {
-    }
+    } catch {}
   }
 
   /**
@@ -202,16 +203,19 @@ export class DaemonAudit {
       const rotatedPath = `${this.logFile}.${Date.now()}`;
       fs.renameSync(this.logFile, rotatedPath);
 
-      const oldLogs = fs.readdirSync(this.logDir)
+      const oldLogs = fs
+        .readdirSync(this.logDir)
         .filter((f) => f.startsWith('audit.log.'))
-        .map((f) => ({ name: f, time: fs.statSync(path.join(this.logDir, f)).mtimeMs }))
+        .map((f) => ({
+          name: f,
+          time: fs.statSync(path.join(this.logDir, f)).mtimeMs,
+        }))
         .sort((a, b) => b.time - a.time);
 
       for (const old of oldLogs.slice(5)) {
         fs.unlinkSync(path.join(this.logDir, old.name));
       }
-    } catch {
-    }
+    } catch {}
   }
 }
 

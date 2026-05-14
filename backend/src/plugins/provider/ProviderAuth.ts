@@ -2,7 +2,10 @@
  * ProviderAuth 提供者认证管理
  * 管理 AI 提供者的认证凭据和验证
  */
-import type { ProviderAuthMethod, ProviderMetadata } from './ProviderCatalog.js';
+import type {
+  ProviderAuthMethod,
+  ProviderMetadata,
+} from './ProviderCatalog.js';
 
 /**
  * 认证凭据
@@ -152,12 +155,15 @@ export class ProviderAuth {
   /**
    * 通过端点验证
    */
-  private async verifyWithEndpoint(provider: ProviderMetadata, creds: ProviderCredentials): Promise<boolean> {
+  private async verifyWithEndpoint(
+    provider: ProviderMetadata,
+    creds: ProviderCredentials
+  ): Promise<boolean> {
     try {
       const response = await fetch(`${provider.baseUrl}/verify`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${creds.apiKey || creds.accessToken}`,
+          Authorization: `Bearer ${creds.apiKey || creds.accessToken}`,
         },
       });
       return response.ok;

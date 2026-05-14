@@ -7,6 +7,7 @@ export interface TokenUsage {
   outputTokens: number;
   cacheReadInputTokens?: number;
   cacheCreationInputTokens?: number;
+  reasoningTokens?: number;
 }
 
 export interface ModelPricing {

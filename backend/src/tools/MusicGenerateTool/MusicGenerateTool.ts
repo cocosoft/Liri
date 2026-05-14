@@ -32,19 +32,22 @@ export interface GeneratedMusic {
 export class MusicGenerateTool extends BaseTool {
   name = 'music_generate';
 
-  description = 'Generate music using AI. Supports multiple providers (OpenAI, Suno, Udio) and music genres.';
+  description =
+    'Generate music using AI. Supports multiple providers (OpenAI, Suno, Udio) and music genres.';
 
   params: ToolParam[] = [
     {
       name: 'prompt',
       type: 'string',
-      description: 'Text description of the music to generate (e.g., style, mood, instruments)',
+      description:
+        'Text description of the music to generate (e.g., style, mood, instruments)',
       required: true,
     },
     {
       name: 'genre',
       type: 'string',
-      description: 'Music genre (e.g., classical, jazz, electronic, rock, pop, ambient)',
+      description:
+        'Music genre (e.g., classical, jazz, electronic, rock, pop, ambient)',
       required: false,
     },
     {
@@ -71,7 +74,8 @@ export class MusicGenerateTool extends BaseTool {
     {
       name: 'mood',
       type: 'string',
-      description: 'Mood or emotion of the music (e.g., happy, sad, energetic, calm)',
+      description:
+        'Mood or emotion of the music (e.g., happy, sad, energetic, calm)',
       required: false,
     },
     {
@@ -103,12 +107,18 @@ export class MusicGenerateTool extends BaseTool {
       const params = input as unknown as MusicGenerateParams;
 
       if (!params.prompt || typeof params.prompt !== 'string') {
-        return { success: false, error: 'prompt is required and must be a string' };
+        return {
+          success: false,
+          error: 'prompt is required and must be a string',
+        };
       }
 
       const duration = params.duration ?? 30;
       if (duration < 15 || duration > 300) {
-        return { success: false, error: 'duration must be between 15 and 300 seconds' };
+        return {
+          success: false,
+          error: 'duration must be between 15 and 300 seconds',
+        };
       }
 
       return {

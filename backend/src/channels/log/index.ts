@@ -3,4 +3,9 @@
  */
 
 export { ChannelLogManager, channelLogManager } from './ChannelLogManager.js';
-export type { LogLevel, ChannelLogEntry, ChatType, ChatMeta } from './ChannelLogManager.js';
+export type {
+  LogLevel,
+  ChannelLogEntry,
+  ChatType,
+  ChatMeta,
+} from './ChannelLogManager.js';

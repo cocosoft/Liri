@@ -25,7 +25,9 @@ const DEFAULT_DEEP_TIMEOUT_MS = 30000;
 /**
  * 创建默认审计上下文
  */
-export function createDefaultAuditContext(options: SecurityAuditOptions = {}): SecurityAuditContext {
+export function createDefaultAuditContext(
+  options: SecurityAuditOptions = {}
+): SecurityAuditContext {
   return {
     config: options.config || {},
     env: (options.env as Record<string, string>) || {},
@@ -84,11 +86,13 @@ export class AuditEngine {
       findings.push(...ctxFindings);
 
       // 深度审计（可选）
-      let deepFindings: {
-        codeSafetyFindings?: SecurityAuditFinding[];
-        probeFindings?: SecurityAuditFinding[];
-        sandboxFindings?: SecurityAuditFinding[];
-      } | undefined;
+      let deepFindings:
+        | {
+            codeSafetyFindings?: SecurityAuditFinding[];
+            probeFindings?: SecurityAuditFinding[];
+            sandboxFindings?: SecurityAuditFinding[];
+          }
+        | undefined;
 
       if (this.ctx.deep) {
         deepFindings = await this.performDeepAudit();
@@ -137,7 +141,9 @@ export class AuditEngine {
       findings.sandboxFindings = this.auditDeepSandbox();
     }
 
-    logger.info(`深度审计完成: codeSafety=${findings.codeSafetyFindings.length} sandbox=${findings.sandboxFindings.length}`);
+    logger.info(
+      `深度审计完成: codeSafety=${findings.codeSafetyFindings.length} sandbox=${findings.sandboxFindings.length}`
+    );
     return findings;
   }
 
@@ -166,7 +172,8 @@ export class AuditEngine {
         pattern: /child_process\.exec\s*\(/,
         severity: 'MEDIUM' as const,
         message: '代码中使用了 child_process.exec()',
-        remediation: '优先使用 child_process.spawn() 替代 exec()，避免 shell 注入',
+        remediation:
+          '优先使用 child_process.spawn() 替代 exec()，避免 shell 注入',
       },
     ];
 
@@ -180,7 +187,13 @@ export class AuditEngine {
         for (const file of tsFiles) {
           try {
             const content = readFileSync(file, 'utf-8');
-            for (const { id, pattern, severity, message, remediation } of dangerousPatterns) {
+            for (const {
+              id,
+              pattern,
+              severity,
+              message,
+              remediation,
+            } of dangerousPatterns) {
               if (pattern.test(content)) {
                 findings.push({
                   id: `${id}_${file.replace(/[/.]/g, '_')}`,
@@ -232,7 +245,8 @@ export class AuditEngine {
               severity: 'LOW',
               category: 'sandbox',
               path: dockerfile,
-              message: 'Dockerfile 使用完整镜像，建议使用 alpine 或 slim 变体减小攻击面',
+              message:
+                'Dockerfile 使用完整镜像，建议使用 alpine 或 slim 变体减小攻击面',
               remediation: '将 FROM 镜像替换为 alpine 或 slim 变体',
             });
           }
@@ -255,9 +269,16 @@ export class AuditEngine {
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = join(dir, entry.name);
-        if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+        if (
+          entry.isDirectory() &&
+          !entry.name.startsWith('.') &&
+          entry.name !== 'node_modules'
+        ) {
           results.push(...this.findTsFiles(fullPath));
-        } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+        } else if (
+          entry.isFile() &&
+          (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))
+        ) {
           results.push(fullPath);
         }
       }
@@ -280,7 +301,9 @@ function existsSync(p: string): boolean {
 /**
  * 快捷审计函数
  */
-export async function runSecurityAudit(options: SecurityAuditOptions = {}): Promise<SecurityAuditReport> {
+export async function runSecurityAudit(
+  options: SecurityAuditOptions = {}
+): Promise<SecurityAuditReport> {
   const engine = new AuditEngine(options);
   return engine.audit();
 }

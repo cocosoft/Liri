@@ -5,7 +5,10 @@
  */
 
 import { logger } from '../../../utils/log.js';
-import type { PermissionContext, PermissionDecision } from '../PermissionContext.js';
+import type {
+  PermissionContext,
+  PermissionDecision,
+} from '../PermissionContext.js';
 
 export type AuditEventType =
   | 'permission_check'
@@ -54,7 +57,7 @@ export class PermissionAuditLogger {
   log(
     eventType: AuditEventType,
     context: PermissionContext,
-    decision: PermissionDecision,
+    decision: PermissionDecision
   ): void {
     if (!this.enabled) {
       return;
@@ -65,10 +68,11 @@ export class PermissionAuditLogger {
       eventType,
       contextId: context.id,
       action: context.action.action,
-      target: context.action.target.path
-        ?? context.action.target.url
-        ?? context.action.target.name
-        ?? context.action.target.type,
+      target:
+        context.action.target.path ??
+        context.action.target.url ??
+        context.action.target.name ??
+        context.action.target.type,
       userId: context.user.userId,
       roles: context.user.roles,
       decision,
@@ -87,7 +91,7 @@ export class PermissionAuditLogger {
     }
 
     logger.debug(
-      `[PermissionAudit] ${eventType}: ${context.action.action} -> ${decision.allowed ? 'ALLOW' : 'DENY'} (risk: ${decision.riskLevel})`,
+      `[PermissionAudit] ${eventType}: ${context.action.action} -> ${decision.allowed ? 'ALLOW' : 'DENY'} (risk: ${decision.riskLevel})`
     );
   }
 
@@ -140,24 +144,21 @@ export class PermissionAuditLogger {
     topActions: Array<{ action: string; count: number }>;
   } {
     const grantedCount = this.entries.filter(
-      (e) => e.eventType === 'permission_granted',
+      (e) => e.eventType === 'permission_granted'
     ).length;
     const deniedCount = this.entries.filter(
-      (e) => e.eventType === 'permission_denied',
+      (e) => e.eventType === 'permission_denied'
     ).length;
     const askCount = this.entries.filter(
-      (e) => e.eventType === 'permission_ask',
+      (e) => e.eventType === 'permission_ask'
     ).length;
     const violationCount = this.entries.filter(
-      (e) => e.eventType === 'policy_violation',
+      (e) => e.eventType === 'policy_violation'
     ).length;
 
     const actionCounts = new Map<string, number>();
     for (const entry of this.entries) {
-      actionCounts.set(
-        entry.action,
-        (actionCounts.get(entry.action) ?? 0) + 1,
-      );
+      actionCounts.set(entry.action, (actionCounts.get(entry.action) ?? 0) + 1);
     }
     const topActions = Array.from(actionCounts.entries())
       .sort((a, b) => b[1] - a[1])

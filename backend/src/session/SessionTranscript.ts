@@ -5,7 +5,13 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { existsSync, writeFileSync, appendFileSync, readFileSync, mkdirSync } from 'node:fs';
+import {
+  existsSync,
+  writeFileSync,
+  appendFileSync,
+  readFileSync,
+  mkdirSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -77,8 +83,13 @@ export class SessionTranscript {
         const lines = entries.map((e) => JSON.stringify(e)).join('\n') + '\n';
         appendFileSync(filePath, lines);
       } else {
-        const existing = existsSync(filePath) ? JSON.parse(readFileSync(filePath, 'utf-8')) : [];
-        writeFileSync(filePath, JSON.stringify([...existing, ...entries], null, 2));
+        const existing = existsSync(filePath)
+          ? JSON.parse(readFileSync(filePath, 'utf-8'))
+          : [];
+        writeFileSync(
+          filePath,
+          JSON.stringify([...existing, ...entries], null, 2)
+        );
       }
       this.entries.delete(sessionId);
       logger.debug(`转录已持久化: ${sessionId} (${entries.length} 条)`);
@@ -102,7 +113,10 @@ export class SessionTranscript {
   }
 
   private writeMirror(sessionId: string, entry: TranscriptEntry): void {
-    const mirrorPath = join(this.config.sessionsDir, `${sessionId}.mirror.jsonl`);
+    const mirrorPath = join(
+      this.config.sessionsDir,
+      `${sessionId}.mirror.jsonl`
+    );
     try {
       appendFileSync(mirrorPath, JSON.stringify(entry) + '\n');
     } catch (error) {
@@ -129,7 +143,10 @@ export class SessionTranscript {
   }
 
   private getFilePath(sessionId: string): string {
-    return join(this.config.sessionsDir, `${sessionId}.transcript.${this.config.format}`);
+    return join(
+      this.config.sessionsDir,
+      `${sessionId}.transcript.${this.config.format}`
+    );
   }
 }
 

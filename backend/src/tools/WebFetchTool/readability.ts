@@ -24,17 +24,33 @@ export interface ReadabilityOptions {
 }
 
 const REMOVE_SELECTORS = [
-  'script', 'style', 'nav', 'footer', 'header',
-  '.sidebar', '#sidebar', '.advertisement', '.ad',
-  '.social-share', '.comments', '#comments',
-  '.related-posts', '.recommended',
-  '.cookie-consent', '.popup', '.modal',
-  '.newsletter', '.subscribe',
-  'iframe', 'noscript',
+  'script',
+  'style',
+  'nav',
+  'footer',
+  'header',
+  '.sidebar',
+  '#sidebar',
+  '.advertisement',
+  '.ad',
+  '.social-share',
+  '.comments',
+  '#comments',
+  '.related-posts',
+  '.recommended',
+  '.cookie-consent',
+  '.popup',
+  '.modal',
+  '.newsletter',
+  '.subscribe',
+  'iframe',
+  'noscript',
 ];
 
 function extractTitle(doc: string): string | null {
-  const ogMatch = doc.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']*)["']/i);
+  const ogMatch = doc.match(
+    /<meta\s+property=["']og:title["']\s+content=["']([^"']*)["']/i
+  );
   if (ogMatch) return ogMatch[1].trim();
 
   const titleMatch = doc.match(/<title[^>]*>([^<]*)<\/title>/i);
@@ -47,17 +63,23 @@ function extractTitle(doc: string): string | null {
 }
 
 function extractByline(doc: string): string | null {
-  const authorMeta = doc.match(/<meta\s+name=["']author["']\s+content=["']([^"']*)["']/i);
+  const authorMeta = doc.match(
+    /<meta\s+name=["']author["']\s+content=["']([^"']*)["']/i
+  );
   if (authorMeta) return authorMeta[1].trim();
 
-  const ogAuthor = doc.match(/<meta\s+property=["']article:author["']\s+content=["']([^"']*)["']/i);
+  const ogAuthor = doc.match(
+    /<meta\s+property=["']article:author["']\s+content=["']([^"']*)["']/i
+  );
   if (ogAuthor) return ogAuthor[1].trim();
 
   return null;
 }
 
 function extractSiteName(doc: string): string | null {
-  const ogSite = doc.match(/<meta\s+property=["']og:site_name["']\s+content=["']([^"']*)["']/i);
+  const ogSite = doc.match(
+    /<meta\s+property=["']og:site_name["']\s+content=["']([^"']*)["']/i
+  );
   if (ogSite) return ogSite[1].trim();
 
   const domain = doc.match(/https?:\/\/(?:www\.)?([^\/]+)/i);
@@ -67,10 +89,14 @@ function extractSiteName(doc: string): string | null {
 }
 
 function extractExcerpt(doc: string): string | null {
-  const ogDesc = doc.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']*)["']/i);
+  const ogDesc = doc.match(
+    /<meta\s+property=["']og:description["']\s+content=["']([^"']*)["']/i
+  );
   if (ogDesc) return ogDesc[1].trim();
 
-  const metaDesc = doc.match(/<meta\s+name=["']description["']\s+content=["']([^"']*)["']/i);
+  const metaDesc = doc.match(
+    /<meta\s+name=["']description["']\s+content=["']([^"']*)["']/i
+  );
   if (metaDesc) return metaDesc[1].trim();
 
   return null;
@@ -84,8 +110,14 @@ function getMainContent(doc: string, options: ReadabilityOptions): string {
     const tagName = sel.replace(/^[.#]/, '');
     const patterns = [
       new RegExp(`<${sel}[^>]*>[\\s\\S]*?<\\/${sel}>`, 'gi'),
-      new RegExp(`<${tagName}[^>]*class="[^"]*${sel.replace(/^\./, '')}[^"]*"[^>]*>[\\s\\S]*?<\\/${tagName}>`, 'gi'),
-      new RegExp(`<${tagName}[^>]*id="${sel.replace(/^#/, '')}"[^>]*>[\\s\\S]*?<\\/${tagName}>`, 'gi'),
+      new RegExp(
+        `<${tagName}[^>]*class="[^"]*${sel.replace(/^\./, '')}[^"]*"[^>]*>[\\s\\S]*?<\\/${tagName}>`,
+        'gi'
+      ),
+      new RegExp(
+        `<${tagName}[^>]*id="${sel.replace(/^#/, '')}"[^>]*>[\\s\\S]*?<\\/${tagName}>`,
+        'gi'
+      ),
     ];
     for (const pattern of patterns) {
       cleaned = cleaned.replace(pattern, '');
@@ -119,11 +151,16 @@ function htmlToText(html: string, options: ReadabilityOptions): string {
     .replace(/<\/h[1-6]>/gi, '\n\n')
     .replace(/<\/li>/gi, '\n')
     .replace(/<hr\s*\/?>/gi, '\n---\n')
-    .replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi, (_, alt) => alt ? `[Image: ${alt}]` : '')
-    .replace(/<a[^>]*href=["']([^"']*)["'][^>]*>([^<]*)<\/a>/gi, (_, href, text) => {
-      if (!options.includeLinks) return text;
-      return `${text} (${href})`;
-    })
+    .replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi, (_, alt) =>
+      alt ? `[Image: ${alt}]` : ''
+    )
+    .replace(
+      /<a[^>]*href=["']([^"']*)["'][^>]*>([^<]*)<\/a>/gi,
+      (_, href, text) => {
+        if (!options.includeLinks) return text;
+        return `${text} (${href})`;
+      }
+    )
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
@@ -136,7 +173,8 @@ function htmlToText(html: string, options: ReadabilityOptions): string {
     .trim();
 
   if (options.maxContentLength && text.length > options.maxContentLength) {
-    text = text.substring(0, options.maxContentLength) + '\n\n[Content truncated]';
+    text =
+      text.substring(0, options.maxContentLength) + '\n\n[Content truncated]';
   }
 
   if (options.minContentLength && text.length < options.minContentLength) {
@@ -148,7 +186,7 @@ function htmlToText(html: string, options: ReadabilityOptions): string {
 
 export function extractReadableContent(
   html: string,
-  options?: ReadabilityOptions,
+  options?: ReadabilityOptions
 ): ReadabilityResult | null {
   const opts: ReadabilityOptions = {
     maxContentLength: options?.maxContentLength ?? 100000,
@@ -184,7 +222,7 @@ export function extractReadableContent(
 
 export function generateMarkdown(
   result: ReadabilityResult,
-  sourceUrl?: string,
+  sourceUrl?: string
 ): string {
   const lines: string[] = [];
 

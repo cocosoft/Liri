@@ -43,7 +43,12 @@ export class ScheduleIdentityManager {
   /**
    * 创建身份
    */
-  create(name: string, type: IdentityType, permissions: string[] = [], expiresInMs?: number): ScheduleIdentity {
+  create(
+    name: string,
+    type: IdentityType,
+    permissions: string[] = [],
+    expiresInMs?: number
+  ): ScheduleIdentity {
     const id = `sid_${crypto.randomUUID().slice(0, 8)}`;
     const token = `st_${crypto.randomBytes(24).toString('hex')}`;
 
@@ -116,7 +121,10 @@ export class ScheduleIdentityManager {
       return false;
     }
 
-    if (identity.permissions.includes('*') || identity.permissions.includes('all')) {
+    if (
+      identity.permissions.includes('*') ||
+      identity.permissions.includes('all')
+    ) {
       return true;
     }
 
@@ -126,7 +134,12 @@ export class ScheduleIdentityManager {
   /**
    * 更新身份
    */
-  update(id: string, updates: Partial<Pick<ScheduleIdentity, 'name' | 'permissions' | 'metadata'>>): boolean {
+  update(
+    id: string,
+    updates: Partial<
+      Pick<ScheduleIdentity, 'name' | 'permissions' | 'metadata'>
+    >
+  ): boolean {
     const identity = this.identities.get(id);
 
     if (!identity) {

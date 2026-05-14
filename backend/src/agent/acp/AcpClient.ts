@@ -14,7 +14,14 @@ export class AcpClient extends EventEmitter {
   private serverId: string;
   private connected: boolean = false;
   private messageId: number = 0;
-  private pending: Map<string, { resolve: (msg: AcpMessage) => void; reject: (err: Error) => void; timer: ReturnType<typeof setTimeout> }> = new Map();
+  private pending: Map<
+    string,
+    {
+      resolve: (msg: AcpMessage) => void;
+      reject: (err: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  > = new Map();
   private server?: AcpServer;
 
   /**
@@ -42,7 +49,11 @@ export class AcpClient extends EventEmitter {
    */
   connect(session?: { id: string }): void {
     this.connected = true;
-    this.emit('connected', { clientId: this.clientId, serverId: this.serverId, sessionId: session?.id });
+    this.emit('connected', {
+      clientId: this.clientId,
+      serverId: this.serverId,
+      sessionId: session?.id,
+    });
   }
 
   /**
@@ -56,7 +67,11 @@ export class AcpClient extends EventEmitter {
   /**
    * 发送消息
    */
-  async send(method: string, payload?: unknown, priority: AcpPriority = 'normal'): Promise<AcpMessage> {
+  async send(
+    method: string,
+    payload?: unknown,
+    priority: AcpPriority = 'normal'
+  ): Promise<AcpMessage> {
     if (!this.connected) {
       throw new Error('客户端未连接');
     }

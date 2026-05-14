@@ -55,6 +55,9 @@ export abstract class BaseTool<
   /** 严格模式标志（可选） */
   strict?: boolean = false;
 
+  /** 工具版本号（用于灰度发布和版本管理，可选） */
+  version?: string;
+
   /**
    * 检查工具是否启用
    * 默认返回true

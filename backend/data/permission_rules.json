@@ -1141,5 +1141,77 @@
     "priority": 1,
     "createdAt": "2026-05-14T12:54:01.070Z",
     "updatedAt": "2026-05-14T12:54:01.070Z"
+  },
+  {
+    "id": "rule_1778765916042_4i1vp2sd8",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T13:38:36.042Z",
+    "updatedAt": "2026-05-14T13:38:36.042Z"
+  },
+  {
+    "id": "rule_1778765931317_3xnwl2kvw",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T13:38:51.317Z",
+    "updatedAt": "2026-05-14T13:38:51.317Z"
+  },
+  {
+    "id": "rule_1778765952471_s6jb99wew",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T13:39:12.471Z",
+    "updatedAt": "2026-05-14T13:39:12.471Z"
+  },
+  {
+    "id": "rule_1778765969001_c84gt05jf",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T13:39:29.001Z",
+    "updatedAt": "2026-05-14T13:39:29.001Z"
+  },
+  {
+    "id": "rule_1778766007931_mtyzmj3ue",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T13:40:07.931Z",
+    "updatedAt": "2026-05-14T13:40:07.931Z"
+  },
+  {
+    "id": "rule_1778766368069_xissjl7gp",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T13:46:08.069Z",
+    "updatedAt": "2026-05-14T13:46:08.069Z"
+  },
+  {
+    "id": "rule_1778766422052_so6ftp98a",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T13:47:02.052Z",
+    "updatedAt": "2026-05-14T13:47:02.052Z"
+  },
+  {
+    "id": "rule_1778766438673_167qcyy2x",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T13:47:18.673Z",
+    "updatedAt": "2026-05-14T13:47:18.673Z"
   }
 ]

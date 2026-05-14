@@ -196,6 +196,12 @@ export class BuiltinCommandLoader implements CommandLoader {
         name: 'checkpoint',
         aliases: ['cp'],
       },
+      // AI Trace 录制模块命令
+      {
+        path: '../builtin/trace-recording/index.js',
+        name: 'trace',
+        aliases: ['ai-trace', 'tracer'],
+      },
       // CC 对标补充命令
       {
         path: '../builtin/commit-push-pr/index.js',

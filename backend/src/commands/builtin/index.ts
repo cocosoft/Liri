@@ -101,6 +101,9 @@ export { diffCommand } from './diff/index.js';
 export { reviewCommand } from './review/index.js';
 export { resumeCommand } from './resume/index.js';
 
+// AI Trace 录制模块命令
+export { traceRecordingCommand } from './trace-recording/index.js';
+
 // CC 对标补充命令
 export { commitPushPrCommand } from './commit-push-pr/index.js';
 export { thinkbackPlayCommand } from './thinkback-play/index.js';

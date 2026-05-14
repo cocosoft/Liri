@@ -464,6 +464,23 @@ export class ToolFactory {
   }
 
   /**
+   * 创建TraceRecording工具
+   * @returns TraceRecording工具实例
+   */
+  createTraceRecordingTool(): Tool | null {
+    try {
+      const { TraceRecordingTool } = require('./TraceRecordingTool/TraceRecordingTool.js');
+      return new TraceRecordingTool();
+    } catch (error) {
+      logger.error(
+        'Failed to create TraceRecordingTool',
+        error instanceof Error ? error : new Error(String(error))
+      );
+      return null;
+    }
+  }
+
+  /**
    * 创建SendMessage工具
    * @returns SendMessage工具实例
    */
@@ -746,6 +763,11 @@ export function getAllBaseTools(): Tool[] {
     tools.push(monitorTool);
   }
 
+  const traceRecordingTool = createTraceRecordingTool();
+  if (traceRecordingTool) {
+    tools.push(traceRecordingTool);
+  }
+
   tools.push(new BriefTool());
 
   const sendUserFileTool = createSendUserFileTool();
@@ -834,6 +856,11 @@ function createMonitorTool(): Tool | null {
   if (!isToolEnabled('ENABLE_MONITOR')) return null;
   const factory = new ToolFactory();
   return factory.createMonitorTool();
+}
+
+function createTraceRecordingTool(): Tool | null {
+  const factory = new ToolFactory();
+  return factory.createTraceRecordingTool();
 }
 
 function createSendUserFileTool(): Tool | null {

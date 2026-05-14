@@ -98,6 +98,7 @@ export const builtinToolLoaders: ToolLoader[] = [
   // 通用工具
   createToolLoader(ToolFactory.prototype.createSleepTool),
   createToolLoader(ToolFactory.prototype.createMonitorTool),
+  createToolLoader(ToolFactory.prototype.createTraceRecordingTool),
 
   // 团队与消息工具 (工厂方法内部进行特性开关检查)
   createToolLoader(ToolFactory.prototype.createSendMessageTool),

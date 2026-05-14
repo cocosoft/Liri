@@ -1,10 +1,10 @@
-# PY_APP 架构概览
+# 项目架构
 
-> 面向开发者的架构导读，帮助快速理解项目全貌。
+> PY_APP 目录结构、核心设计模式、启动流程。
 
 ---
 
-## 目录结构
+## 完整目录树
 
 ```
 backend/src/
@@ -21,33 +21,30 @@ backend/src/
 │   └── streaming/          流式处理 (Stream/SSE/背压/擦洗)
 │
 ├── ai/                     AI 模型与提供商
-│   ├── providers/          9 个 AI 提供商 (Anthropic/OpenAI/Google/Ollama/
-│   │                       DeepSeek/Bedrock/Azure/Moonshot/Grok)
+│   ├── providers/          9 个 AI 提供商
 │   ├── clients/            ThinkingConfig/PromptCacheConfig/FallbackProvider
 │   ├── prompts/            系统提示构建器 (PlatformHints/ModelGuidance/注入检测)
 │   ├── credentials/        凭证池 (CredentialPool/CredentialHealth)
-│   ├── cost/               成本 12 子系统 (追踪/预测/预算/报告/计费路由)
+│   ├── cost/               成本 12 子系统
 │   └── models/             模型元数据 (AIModelManager/别名系统)
 │
 ├── agent/                  代理引擎
 │   ├── agent.ts            AIAgentImpl 核心代理
-│   ├── strategies/         策略工厂 (StrategyFactory + 多策略)
+│   ├── strategies/         策略工厂 + 多策略
 │   ├── swarm/              Swarm 多代理编排
 │   ├── router/             AgentRouter 智能路由
-│   ├── moa/                MoA 混合代理 (多模型并行→聚合)
+│   ├── moa/                MoA 混合代理
 │   ├── trajectory/         执行轨迹记录
 │   └── btw/                代理间通信
 │
 ├── channels/               多渠道接入
-│   ├── platforms/          10+ 平台适配器 (IRC/Slack/Line/Nostr/Discord/
-│   │                       Telegram/WeChat/Feishu/DingTalk/QQ/WeCom
-│   │                       WhatsApp/Signal/Matrix)
+│   ├── platforms/          10+ 平台适配器
 │   ├── registry/           ChannelRegistry + ChannelInterface
 │   └── session/            ChannelSessionManager
 │
 ├── commands/               命令系统
-│   ├── builtin/            20+ 内置命令 (help/status/compact/security...)
-│   ├── registry/           EnhancedCommandRegistry (分类/依赖/管道)
+│   ├── builtin/            20+ 内置命令
+│   ├── registry/           EnhancedCommandRegistry
 │   ├── pipeline/           命令管道
 │   └── executor/           命令执行器
 │
@@ -60,32 +57,26 @@ backend/src/
 │
 ├── skills/                 技能系统
 │   ├── SkillManager.ts     技能生命周期管理
-│   ├── SkillPreprocessor.ts 模板变量 + 内联 Shell
-│   ├── SkillCurator.ts     7 天间隔策展 (pin/archive/consolidate/patch)
+│   ├── SkillCurator.ts     7 天间隔策展
 │   ├── SkillHub.ts         集中式技能仓库
 │   └── SkillConditionMatcher.ts YAML front matter 条件匹配
 │
-├── memory/                 记忆系统
-│   ├── providers/          外部记忆提供商接口
-│   ├── indexer/            自定义索引器
-│   └── consolidation/      记忆去重合并
-│
 ├── security/               安全体系 (6 大子系统)
-│   ├── BashSecurityAnalyzer.ts Rust+TS 双引擎 Bash 分析
-│   ├── redact/             运行时日志脱敏 (50+ 敏感字段)
-│   ├── files/              文件保护 (17 文件 + 9 目录)
-│   ├── injection/          提示注入检测 + Unicode 清理
-│   ├── permission/         RBAC + DLP + OAuth + 角色
+│   ├── BashSecurityAnalyzer.ts Rust+TS 双引擎
+│   ├── redact/             运行时日志脱敏
+│   ├── files/              文件保护
+│   ├── injection/          提示注入检测
+│   ├── permission/         RBAC + DLP + OAuth
 │   └── audit/              6 子系统审计
 │
 ├── query/                  查询引擎
 │   ├── QueryEngine.ts      7 状态查询状态机
-│   ├── context/            上下文引擎 (IContextEngine + DefaultContextEngine)
-│   └── chat/               对话管理 (ChatManager)
+│   ├── context/            上下文引擎
+│   └── chat/               对话管理
 │
 ├── storage/                SQLite 存储 (FTS5 全文搜索)
 ├── mcp/                    MCP 协议 (5 种传输层)
-├── lsp/                    LSP 客户端 (诊断/分析)
+├── lsp/                    LSP 客户端
 ├── monitoring/             OpenTelemetry 遥测
 └── session/                会话管理 (多后端存储)
 ```

@@ -1267,5 +1267,23 @@
     "priority": 1,
     "createdAt": "2026-05-14T14:55:22.698Z",
     "updatedAt": "2026-05-14T14:55:22.698Z"
+  },
+  {
+    "id": "rule_1778770941054_j62oysok1",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T15:02:21.054Z",
+    "updatedAt": "2026-05-14T15:02:21.054Z"
+  },
+  {
+    "id": "rule_1778770967227_2vg2rk45d",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-14T15:02:47.227Z",
+    "updatedAt": "2026-05-14T15:02:47.227Z"
   }
 ]

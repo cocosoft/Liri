@@ -23,6 +23,9 @@ export class DefaultContextEngine implements IContextEngine {
   private summaryTemplate: SummaryTemplate;
   private jsonTruncator: JsonTruncator;
 
+  static readonly IMAGE_CHAR_EQUIVALENT = 6400;
+  static readonly IMAGE_TOKEN_ESTIMATE = 1600;
+
   /**
    * 构造函数
    * @param config 压缩配置
@@ -114,14 +117,9 @@ export class DefaultContextEngine implements IContextEngine {
       });
     }
 
-    const originalTokens = messages.reduce(
-      (sum, m) => sum + Math.ceil(m.content.length / 4),
-      0
-    );
-    const compressedTokens = keptMessages.reduce(
-      (sum, m) => sum + Math.ceil(m.content.length / 4),
-      0
-    );
+    const originalTokens = this.estimateTokens(messages);
+
+    const compressedTokens = this.estimateTokens(keptMessages);
 
     return {
       messages: keptMessages,
@@ -132,6 +130,29 @@ export class DefaultContextEngine implements IContextEngine {
       compressed: true,
       truncatedCount: truncatedMessages.length,
     };
+  }
+
+  /**
+   * 估算消息列表的 Token 数（含多模态支持）
+   */
+  estimateTokens(messages: ChatMessage[]): number {
+    let total = 0;
+
+    for (const m of messages) {
+      if (typeof m.content === 'string') {
+        total += Math.ceil(m.content.length / 4);
+      } else if (Array.isArray(m.content)) {
+        for (const part of m.content as Array<Record<string, unknown>>) {
+          if (part['type'] === 'text' && typeof part['text'] === 'string') {
+            total += Math.ceil((part['text'] as string).length / 4);
+          } else if (part['type'] === 'image' || part['type'] === 'image_url') {
+            total += DefaultContextEngine.IMAGE_TOKEN_ESTIMATE;
+          }
+        }
+      }
+    }
+
+    return total;
   }
 
   /**

@@ -18,6 +18,14 @@ export interface ChannelInterface {
   sendMessage(target: string, text: string): Promise<boolean>;
   getStatus(): Record<string, unknown>;
 
+  homeChannelId?: string;
+  supportsThreads?: boolean;
+  sendThreadMessage?(
+    target: string,
+    threadId: string,
+    text: string
+  ): Promise<boolean>;
+
   plugin?: {
     outbound: {
       sendText(target: string, message: string): { success: boolean };
@@ -145,6 +153,33 @@ export class ChannelRegistry extends EventEmitter {
     }
 
     return results;
+  }
+
+  sendToHomeChannel(name: string, text: string): boolean {
+    const channel = this.channels.get(name);
+    if (!channel || !channel.enabled) return false;
+
+    const target = channel.homeChannelId || '';
+    channel.sendMessage(target, text);
+
+    return true;
+  }
+
+  sendThreadReply(name: string, threadId: string, text: string): boolean {
+    const channel = this.channels.get(name);
+    if (!channel || !channel.supportsThreads || !channel.sendThreadMessage)
+      return false;
+
+    const target = channel.homeChannelId || '';
+    channel.sendThreadMessage(target, threadId, text);
+
+    return true;
+  }
+
+  getHomeChannels(): Array<{ name: string; homeChannelId: string }> {
+    return this.getEnabled()
+      .filter((c) => c.homeChannelId)
+      .map((c) => ({ name: c.name, homeChannelId: c.homeChannelId! }));
   }
 
   /**

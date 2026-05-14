@@ -10,7 +10,10 @@ export interface SystemPromptContext {
   includeModelGuidance?: boolean;
 }
 
-export function buildSystemPrompt(basePrompt: string, context: SystemPromptContext = {}): string {
+export function buildSystemPrompt(
+  basePrompt: string,
+  context: SystemPromptContext = {}
+): string {
   const parts: string[] = [basePrompt];
 
   if (context.includeEnvironmentHints !== false) {
@@ -27,10 +30,16 @@ export function buildSystemPrompt(basePrompt: string, context: SystemPromptConte
     }
   }
 
-  if (context.includeModelGuidance !== false && context.provider && context.modelName) {
+  if (
+    context.includeModelGuidance !== false &&
+    context.provider &&
+    context.modelName
+  ) {
     const guidance = getModelGuidance(context.provider, context.modelName);
     if (guidance) {
-      parts.push(`\n[Model Guidance: ${context.provider}/${context.modelName}]\n${guidance}`);
+      parts.push(
+        `\n[Model Guidance: ${context.provider}/${context.modelName}]\n${guidance}`
+      );
     }
   }
 

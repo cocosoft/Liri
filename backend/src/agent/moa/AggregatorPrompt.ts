@@ -15,12 +15,16 @@ Individual model responses:
 
 Synthesized response:`;
 
-export function buildAggregatorPrompt(query: string, responses: Array<{ model: string; response: string }>): string {
+export function buildAggregatorPrompt(
+  query: string,
+  responses: Array<{ model: string; response: string }>
+): string {
   const responsesText = responses
     .map((r) => `--- Model: ${r.model} ---\n${r.response}\n`)
     .join('\n');
 
-  return AGGREGATOR_PROMPT_TEMPLATE
-    .replace('{query}', query)
-    .replace('{responses}', responsesText);
+  return AGGREGATOR_PROMPT_TEMPLATE.replace('{query}', query).replace(
+    '{responses}',
+    responsesText
+  );
 }

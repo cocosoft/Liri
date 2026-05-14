@@ -88,10 +88,13 @@ export class MoARouter {
     let aggregated = '';
 
     if (aggregatorAdapter && individualResults.length > 0) {
-      const aggregatorPrompt = buildAggregatorPrompt(request.query, individualResults.map((r) => ({
-        model: r.model,
-        response: r.response,
-      })));
+      const aggregatorPrompt = buildAggregatorPrompt(
+        request.query,
+        individualResults.map((r) => ({
+          model: r.model,
+          response: r.response,
+        }))
+      );
 
       aggregated = await aggregatorAdapter.query(
         aggregatorPrompt,

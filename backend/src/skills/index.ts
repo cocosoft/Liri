@@ -39,5 +39,11 @@ export { SkillSyncService, skillSyncService } from './SkillSyncService';
 export type { SkillSyncResult } from './SkillSyncService';
 export { SkillGuard, skillGuard } from './SkillGuard';
 export type { SkillGuardResult } from './SkillGuard';
-export { SkillProvenanceTracker, skillProvenanceTracker } from './SkillProvenanceTracker';
-export type { SkillProvenanceEntry, ProvenanceSource } from './SkillProvenanceTracker';
+export {
+  SkillProvenanceTracker,
+  skillProvenanceTracker,
+} from './SkillProvenanceTracker';
+export type {
+  SkillProvenanceEntry,
+  ProvenanceSource,
+} from './SkillProvenanceTracker';

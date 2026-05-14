@@ -51,7 +51,11 @@ export class SkillSyncService {
     return result;
   }
 
-  async diff(): Promise<{ added: string[]; removed: string[]; modified: string[] }> {
+  async diff(): Promise<{
+    added: string[];
+    removed: string[];
+    modified: string[];
+  }> {
     return { added: [], removed: [], modified: [] };
   }
 

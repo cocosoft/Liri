@@ -1,4 +1,9 @@
-export type ProvenanceSource = 'builtin' | 'user' | 'plugin' | 'hub' | 'external';
+export type ProvenanceSource =
+  | 'builtin'
+  | 'user'
+  | 'plugin'
+  | 'hub'
+  | 'external';
 
 export interface SkillProvenanceEntry {
   skillName: string;
@@ -16,7 +21,11 @@ export class SkillProvenanceTracker {
   track(
     skillName: string,
     source: ProvenanceSource,
-    options: { sourceUrl?: string; sourceVersion?: string; metadata?: Record<string, string> } = {}
+    options: {
+      sourceUrl?: string;
+      sourceVersion?: string;
+      metadata?: Record<string, string>;
+    } = {}
   ): void {
     const now = Date.now();
     const existing = this.entries.get(skillName);

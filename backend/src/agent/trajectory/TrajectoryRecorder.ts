@@ -1,7 +1,13 @@
 export interface TrajectoryStep {
   stepIndex: number;
   timestamp: number;
-  phase: 'user_input' | 'thinking' | 'tool_call' | 'tool_result' | 'response' | 'error';
+  phase:
+    | 'user_input'
+    | 'thinking'
+    | 'tool_call'
+    | 'tool_result'
+    | 'response'
+    | 'error';
   input?: string;
   output?: string;
   toolName?: string;
@@ -41,7 +47,10 @@ export class TrajectoryRecorder {
     return trajectory;
   }
 
-  recordStep(sessionId: string, step: Omit<TrajectoryStep, 'stepIndex' | 'timestamp'>): void {
+  recordStep(
+    sessionId: string,
+    step: Omit<TrajectoryStep, 'stepIndex' | 'timestamp'>
+  ): void {
     const trajectory = this.trajectories.get(sessionId);
     if (!trajectory) return;
 

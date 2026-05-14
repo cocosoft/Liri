@@ -13,8 +13,6 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '../monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { createAITracePlugin } from '../trace-recording/index.js';
-import type { MonitoringDeps } from '../trace-recording/index.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -317,61 +315,12 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
-      // 预加载文档系�?
+      // 预加载文档系统
       (async () => {
         try {
           await import('../docs/HelpSystem.js');
         } catch (error) {
-          // 忽略预加载错�?
-        }
-      })(),
-
-      // 初始化 AI Trace 录制模块
-      (async () => {
-        try {
-          const monitoringDeps: MonitoringDeps = {
-            dashboard: {
-              recordBatch: (dataPoints) => {
-                const svc = getMonitoringService();
-                for (const dp of dataPoints) {
-                  svc.addMetric(dp.metric, dp.value);
-                }
-              },
-            },
-            tracing: {
-              getActiveSpan: () => {
-                const { trace } = require('@opentelemetry/api');
-                const span = trace.getActiveSpan();
-                if (!span) {
-                  return undefined;
-                }
-                return {
-                  spanContext: () => {
-                    const ctx = span.spanContext();
-                    return { traceId: ctx.traceId, spanId: ctx.spanId };
-                  },
-                };
-              },
-            },
-            alertManager: {
-              sendAlert: (alert) => {
-                getMonitoringService().addAlert(
-                  `[${alert.level.toUpperCase()}] ${alert.title}: ${alert.message}`
-                );
-              },
-            },
-          };
-          const plugin = createAITracePlugin(monitoringDeps);
-          if (plugin) {
-            registerShutdownHandler(async () => {
-              await plugin.stop();
-            });
-            logger.info('AI Trace 录制模块已启动', {
-              config: plugin.getStatus(),
-            });
-          }
-        } catch (error) {
-          logger.warning('AI Trace 录制模块启动失败', { error });
+          // 忽略预加载错误
         }
       })(),
     ];

@@ -93,6 +93,10 @@ export interface SandboxExecuteResult {
   stderr: string;
   /** 执行时间（毫秒） */
   executionTime: number;
+  /** 执行时间（毫秒） - 别名 */
+  durationMs?: number;
+  /** 是否超时 */
+  timedOut?: boolean;
   /** 错误信息 */
   error?: string;
 }

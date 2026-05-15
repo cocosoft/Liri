@@ -1,3 +1,6 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { execSync } from 'child_process';
+
 export interface PersistentTerminalSession {
   readonly sessionId: string;
   readonly createdAt: number;
@@ -14,8 +17,11 @@ export class PersistentTerminalVm {
   private sessions: Map<string, PersistentTerminalSession> = new Map();
 
   createSession(sessionId: string): PersistentTerminalSession {
-    throw new Error(
-      'PersistentTerminalVm.createSession() requires a concrete process VM implementation'
+    throw new AppError(
+      'PersistentTerminalVm.createSession() requires a concrete process VM implementation',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'NOT_IMPLEMENTED'
     );
   }
 

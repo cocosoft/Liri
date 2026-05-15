@@ -28,6 +28,7 @@ import {
 import fsExtra from 'fs-extra';
 import { join } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import type { MemoryProvider } from './MemoryProvider';
 
 /**
  * 记忆管理器接口
@@ -120,6 +121,11 @@ export interface MemoryManager {
   getTeamMemorySyncRecords(limit?: number): TeamMemorySyncRecord[];
   triggerTeamMemorySync(): Promise<TeamMemorySyncRecord>;
 
+  // 外部提供者管理
+  addProvider(provider: MemoryProvider): Promise<void>;
+  getProvider(): MemoryProvider | null;
+  removeProvider(): void;
+
   // PY_APP.md集成功能
   initializePYAppIntegration(): Promise<void>;
   getPYAppConfig(): PYAppConfig | null;
@@ -175,6 +181,11 @@ export class MemoryManagerImpl {
    * PY_APP.md集成服务
    */
   private pyAppIntegrationService: PYAppIntegrationService;
+
+  /**
+   * 外部记忆提供者（最多 1 个）
+   */
+  private provider: MemoryProvider | null = null;
 
   /**
    * 构造函数
@@ -347,6 +358,38 @@ export class MemoryManagerImpl {
       recent,
       totalSize,
     };
+  }
+
+  /**
+   * 注册外部记忆提供者
+   * 最多允许 1 个外部提供者，重复注册会覆盖
+   * @param provider 记忆提供者实例
+   */
+  async addProvider(provider: MemoryProvider): Promise<void> {
+    if (this.provider) {
+      await this.provider.shutdown();
+    }
+
+    await provider.initialize();
+    this.provider = provider;
+  }
+
+  /**
+   * 获取当前外部记忆提供者
+   * @returns 记忆提供者或 null
+   */
+  getProvider(): MemoryProvider | null {
+    return this.provider;
+  }
+
+  /**
+   * 移除当前外部记忆提供者
+   */
+  removeProvider(): void {
+    if (this.provider) {
+      this.provider.shutdown().catch(() => {});
+      this.provider = null;
+    }
   }
 
   /**

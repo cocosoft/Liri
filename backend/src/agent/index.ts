@@ -80,6 +80,13 @@ import { resolveFastModeState, normalizeFastMode } from './fast-mode';
 import type { FastModeState, FastModeConfig } from './fast-mode';
 
 import {
+  saveTrajectory,
+  messagesToTrajectory,
+  convertScratchpadToThink,
+  hasIncompleteScratchpad,
+} from './trajectory';
+
+import {
   resolveAgentIdentity,
   resolveAckReaction,
   resolveIdentityNamePrefix,
@@ -180,7 +187,13 @@ export {
   resolveResponsePrefix,
   resolveEffectiveMessagesConfig,
   resolveHumanDelayConfig,
+  // Trajectory
+  saveTrajectory,
+  messagesToTrajectory,
+  convertScratchpadToThink,
+  hasIncompleteScratchpad,
 };
+export type { TrajectoryEntry, ConversationMessage } from './trajectory';
 
 const agentService = createAgentService();
 export default agentService;

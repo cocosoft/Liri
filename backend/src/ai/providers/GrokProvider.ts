@@ -2,6 +2,7 @@
  * Grok (X.AI) 提供商
  * OpenAI 兼容 API
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import type {
   AIProvider,
@@ -89,8 +90,12 @@ export class GrokProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Grok API error: ${response.status} ${response.statusText}`
+      throw new AppError(
+        `Grok API error: ${response.status} ${response.statusText}`,
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'API_ERROR',
+        { status: response.status, statusText: response.statusText }
       );
     }
 

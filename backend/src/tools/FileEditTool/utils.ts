@@ -6,6 +6,7 @@
 
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import {
   type EditCommand,
   type EditResult,
@@ -32,7 +33,13 @@ export function readFileContent(
   encoding: BufferEncoding = 'utf-8'
 ): string {
   if (!existsSync(filePath)) {
-    throw new Error(`File not found: ${filePath}`);
+    throw new AppError(
+      `File not found: ${filePath}`,
+      ErrorCategory.FILESYSTEM,
+      ErrorSeverity.HIGH,
+      'ENTITY_NOT_FOUND',
+      { filePath }
+    );
   }
 
   return readFileSync(filePath, { encoding });
@@ -280,8 +287,12 @@ function applyInsert(content: string, command: EditCommand): string {
   const insertLine = command.insertAtLine ?? 1;
 
   if (insertLine < 1 || insertLine > lines.length + 1) {
-    throw new Error(
-      `Insert position ${insertLine} out of range (1-${lines.length + 1})`
+    throw new AppError(
+      `Insert position ${insertLine} out of range (1-${lines.length + 1})`,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.HIGH,
+      'INVALID_INPUT',
+      { insertLine, totalLines: lines.length }
     );
   }
 
@@ -294,12 +305,21 @@ function applyDelete(content: string, command: EditCommand): string {
   const range = command.range;
 
   if (!range) {
-    throw new Error('Range is required for delete operation');
+    throw new AppError(
+      'Range is required for delete operation',
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.HIGH,
+      'INVALID_INPUT'
+    );
   }
 
   if (range.startLine < 1 || range.endLine > lines.length) {
-    throw new Error(
-      `Delete range ${range.startLine}-${range.endLine} out of range (1-${lines.length})`
+    throw new AppError(
+      `Delete range ${range.startLine}-${range.endLine} out of range (1-${lines.length})`,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.HIGH,
+      'INVALID_INPUT',
+      { startLine: range.startLine, endLine: range.endLine, totalLines: lines.length }
     );
   }
 
@@ -319,8 +339,12 @@ function applyReplace(content: string, command: EditCommand): string {
     const range = command.range;
 
     if (range.startLine < 1 || range.endLine > lines.length) {
-      throw new Error(
-        `Replace range ${range.startLine}-${range.endLine} out of range (1-${lines.length})`
+      throw new AppError(
+        `Replace range ${range.startLine}-${range.endLine} out of range (1-${lines.length})`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'INVALID_INPUT',
+        { startLine: range.startLine, endLine: range.endLine, totalLines: lines.length }
       );
     }
 
@@ -332,7 +356,10 @@ function applyReplace(content: string, command: EditCommand): string {
     return lines.join('\n');
   }
 
-  throw new Error(
-    'Either searchText or range is required for replace operation'
+  throw new AppError(
+    'Either searchText or range is required for replace operation',
+    ErrorCategory.VALIDATION,
+    ErrorSeverity.HIGH,
+    'INVALID_INPUT'
   );
 }

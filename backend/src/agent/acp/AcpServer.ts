@@ -2,6 +2,7 @@
  * AcpServer ACP 协议服务端
  * 对标 OpenClaw 的 Agent 通信协议
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type {
   AcpMessage,
   AcpSession,
@@ -71,7 +72,13 @@ export class AcpServer extends EventEmitter {
     metadata?: Record<string, unknown>
   ): AcpSession {
     if (this.sessions.size >= this.config.maxSessions!) {
-      throw new Error(`达到最大会话数: ${this.config.maxSessions!}`);
+      throw new AppError(
+        `达到最大会话数: ${this.config.maxSessions!}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'RESOURCE_EXHAUSTED',
+        { current: this.sessions.size, max: this.config.maxSessions! }
+      );
     }
 
     const session: AcpSession = {

@@ -4,6 +4,8 @@
  * 命令路由/解析/提示框架
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export interface CommandDefinition {
   name: string;
   aliases?: string[];
@@ -109,7 +111,13 @@ export class ProgramFramework {
 
     const cmd = this.commands.get(parsed.command);
     if (!cmd) {
-      throw new Error(`Unknown command: ${parsed.command}`);
+      throw new AppError(
+        `Unknown command: ${parsed.command}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'INVALID_INPUT',
+        { command: parsed.command }
+      );
     }
 
     const dispatch = async (index: number): Promise<void> => {

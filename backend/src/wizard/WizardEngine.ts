@@ -2,6 +2,7 @@
  * WizardEngine 向导系统引擎
  * 对标 OpenClaw 的 wizard 系统，提供交互式配置引导
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { EventEmitter } from 'node:events';
 import readline from 'node:readline';
 
@@ -122,7 +123,13 @@ export class WizardEngine extends EventEmitter {
     const wizard = this.wizards.get(wizardId);
 
     if (!wizard) {
-      throw new Error(`向导 "${wizardId}" 未找到`);
+      throw new AppError(
+        `向导 "${wizardId}" 未找到`,
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.HIGH,
+        'ENTITY_NOT_FOUND',
+        { wizardId }
+      );
     }
 
     const state: WizardState = {
@@ -240,7 +247,13 @@ export class WizardEngine extends EventEmitter {
     const wizard = this.wizards.get(wizardId);
 
     if (!wizard) {
-      throw new Error(`向导 "${wizardId}" 未找到`);
+      throw new AppError(
+        `向导 "${wizardId}" 未找到`,
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.HIGH,
+        'ENTITY_NOT_FOUND',
+        { wizardId }
+      );
     }
 
     const state: WizardState = {
@@ -265,7 +278,13 @@ export class WizardEngine extends EventEmitter {
         );
 
         if (validationError) {
-          throw new Error(`步骤 "${step.id}" 验证失败: ${validationError}`);
+          throw new AppError(
+            `步骤 "${step.id}" 验证失败: ${validationError}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { stepId: step.id, validationError }
+          );
         }
       }
     }

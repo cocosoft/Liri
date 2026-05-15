@@ -6,6 +6,10 @@ export {
 export type {
   InjectionSeverity,
   InjectionDetectionResult,
+  DetectionLevel,
+  DetectionResult,
+  ThreatMatch,
+  InvisibleCharMatch,
 } from './PromptInjectionDetector';
 export { UnicodeSanitizer, getUnicodeSanitizer } from './UnicodeSanitizer';
 export type { UnicodeSanitizeResult } from './UnicodeSanitizer';

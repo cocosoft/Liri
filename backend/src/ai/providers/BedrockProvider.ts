@@ -3,6 +3,7 @@
  * 对标 Hermes Bedrock provider
  * 使用 AWS SigV4 签名 + fetch API 调用 Bedrock 端点
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type {
   ChatMessage,
   ChatResponse,
@@ -142,8 +143,12 @@ export class BedrockProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Bedrock API error: ${response.status} ${response.statusText}`
+      throw new AppError(
+        `Bedrock API error: ${response.status} ${response.statusText}`,
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'API_ERROR',
+        { status: response.status, statusText: response.statusText }
       );
     }
 

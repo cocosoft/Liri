@@ -4,6 +4,8 @@
  * 多Provider认证配置管理
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export type AuthProviderType =
   | 'openai'
   | 'anthropic'
@@ -50,7 +52,13 @@ export class AuthProfileManager {
     profile: Omit<AuthProfile, 'id' | 'createdAt' | 'updatedAt' | 'isActive'>
   ): AuthProfile {
     if (this.profiles.size >= this.config.maxProfiles) {
-      throw new Error(`Max profiles (${this.config.maxProfiles}) reached`);
+      throw new AppError(
+        `Max profiles (${this.config.maxProfiles}) reached`,
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.HIGH,
+        'RESOURCE_EXHAUSTED',
+        { current: this.profiles.size, max: this.config.maxProfiles }
+      );
     }
 
     const id = `${profile.provider}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -187,7 +195,13 @@ export class AuthProfileManager {
     const id = profile.id ?? `${profile.provider}_imported_${Date.now()}`;
 
     if (this.profiles.has(id)) {
-      throw new Error(`Profile with id "${id}" already exists`);
+      throw new AppError(
+        `Profile with id "${id}" already exists`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'ENTITY_EXISTS',
+        { profileId: id }
+      );
     }
 
     const now = Date.now();

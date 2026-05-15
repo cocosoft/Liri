@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 /**
  * AutoReplyEngine 自动回复引擎
  * P2 — 对标 OpenClaw 的自动回复系统
@@ -79,7 +81,13 @@ export class AutoReplyEngine {
     };
 
     if (this.rules.size >= this.config.maxRules) {
-      throw new Error(`达到最大规则数: ${this.config.maxRules}`);
+      throw new AppError(
+        `达到最大规则数: ${this.config.maxRules}`,
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.HIGH,
+        'RESOURCE_EXHAUSTED',
+        { current: this.rules.size, max: this.config.maxRules }
+      );
     }
 
     this.rules.set(newRule.id, newRule);

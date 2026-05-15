@@ -2,6 +2,7 @@
  * AI代理
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import {
   AIAgent,
   AgentConfig,
@@ -17,6 +18,14 @@ import { createAgentMemory } from './memory/agentMemory';
 import { AIModelType, AIMessageRole } from '../ai';
 import aiService from '../ai';
 import { logger } from '../utils/log';
+import {
+  saveTrajectory,
+  messagesToTrajectory,
+  type ConversationMessage,
+} from './trajectory';
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 
 /**
  * AI代理类
@@ -386,6 +395,118 @@ export class AIAgentImpl implements AIAgent {
     agent.createdAt = data.createdAt;
     agent.updatedAt = data.updatedAt;
     return agent;
+  }
+
+  /**
+   * 保存 Agent 状态到磁盘
+   * 对标 Hermes AIAgent.save_state()
+   * @param path 保存路径（可选，默认 ~/.py_app/sessions/<id>.json）
+   * @returns 保存路径
+   */
+  saveState(path?: string): string {
+    const sessionsDir = join(homedir(), '.py_app', 'sessions');
+    if (!existsSync(sessionsDir)) {
+      mkdirSync(sessionsDir, { recursive: true });
+    }
+
+    const filepath = path || join(sessionsDir, `${this.id}.json`);
+
+    const snapshot = {
+      id: this.id,
+      name: this.name,
+      state: this.state,
+      config: this.config,
+      memory: this.memory.getAll(),
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+      savedAt: Date.now(),
+    };
+
+    writeFileSync(filepath, JSON.stringify(snapshot, null, 2), 'utf-8');
+    logger.info(`Agent state saved`, { agentId: this.id, path: filepath });
+
+    return filepath;
+  }
+
+  /**
+   * 导出 Agent 状态为可序列化 JSON 对象
+   * 对标 Hermes AIAgent.export_state()
+   * @returns 可序列化的状态对象
+   */
+  exportState(): Record<string, unknown> {
+    return {
+      id: this.id,
+      name: this.name,
+      state: this.state,
+      config: { ...this.config },
+      memory: this.memory.getAll(),
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+      exportedAt: Date.now(),
+      version: '1.0',
+    };
+  }
+
+  /**
+   * 从磁盘加载 Agent 状态
+   * 对标 Hermes AIAgent.load_state()
+   * @param path 保存路径
+   * @returns 恢复的 Agent 实例
+   */
+  static loadState(path: string): AIAgentImpl {
+    if (!existsSync(path)) {
+      throw new AppError(
+        `Agent state file not found: ${path}`,
+        ErrorCategory.FILESYSTEM,
+        ErrorSeverity.HIGH,
+        'ENTITY_NOT_FOUND',
+        { path }
+      );
+    }
+
+    const raw = readFileSync(path, 'utf-8');
+    const snapshot = JSON.parse(raw);
+
+    const agent = new AIAgentImpl(snapshot.config);
+    agent.id = snapshot.id;
+    agent.name = snapshot.name;
+    agent.state = snapshot.state;
+    agent.createdAt = snapshot.createdAt;
+    agent.updatedAt = snapshot.updatedAt;
+
+    if (snapshot.memory) {
+      for (const [key, value] of Object.entries(snapshot.memory)) {
+        agent.memory.add(key, value);
+      }
+    }
+
+    logger.info(`Agent state loaded`, { agentId: agent.id, path });
+    return agent;
+  }
+
+  /**
+   * 保存对话轨迹
+   * 对标 Hermes trajectory.save_trajectory()
+   * @param messages 对话消息列表
+   * @param completed 是否正常完成
+   */
+  async saveTrajectory(
+    messages: ConversationMessage[],
+    completed: boolean
+  ): Promise<void> {
+    const trajectory = messagesToTrajectory(
+      messages,
+      this.config.model || 'unknown',
+      completed,
+      {
+        sessionId: this.id,
+        turnCount: 0,
+        totalTokens: 0,
+        durationMs: Date.now() - this.createdAt,
+      }
+    );
+
+    await saveTrajectory(trajectory);
   }
 }
 

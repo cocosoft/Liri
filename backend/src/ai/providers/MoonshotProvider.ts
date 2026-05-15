@@ -2,6 +2,7 @@
  * Moonshot AI 提供商（Kimi）
  * OpenAI 兼容 API
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import type {
   AIProvider,
@@ -90,8 +91,12 @@ export class MoonshotProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Moonshot API error: ${response.status} ${response.statusText}`
+      throw new AppError(
+        `Moonshot API error: ${response.status} ${response.statusText}`,
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'API_ERROR',
+        { status: response.status, statusText: response.statusText }
       );
     }
 

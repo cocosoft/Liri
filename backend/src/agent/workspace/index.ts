@@ -4,6 +4,7 @@
  * 工作区管理
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import {
   existsSync,
   mkdirSync,
@@ -80,7 +81,13 @@ export class AgentWorkspace {
     const fullPath = resolve(this.config.rootDir, ...segments);
 
     if (!fullPath.startsWith(this.config.rootDir)) {
-      throw new Error(`Path escapes workspace: ${fullPath}`);
+      throw new AppError(
+        `Path escapes workspace: ${fullPath}`,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'PERMISSION_DENIED',
+        { fullPath, rootDir: this.config.rootDir }
+      );
     }
 
     return fullPath;
@@ -99,12 +106,24 @@ export class AgentWorkspace {
     const fullPath = this.resolvePath(filePath);
 
     if (!existsSync(fullPath)) {
-      throw new Error(`File not found: ${filePath}`);
+      throw new AppError(
+        `File not found: ${filePath}`,
+        ErrorCategory.FILESYSTEM,
+        ErrorSeverity.HIGH,
+        'ENTITY_NOT_FOUND',
+        { filePath, fullPath }
+      );
     }
 
     const stat = statSync(fullPath);
     if (stat.size > 1024 * 1024) {
-      throw new Error(`File too large: ${filePath} (${stat.size} bytes)`);
+      throw new AppError(
+        `File too large: ${filePath} (${stat.size} bytes)`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'INVALID_INPUT',
+        { filePath, size: stat.size, maxSize: 1024 * 1024 }
+      );
     }
 
     return readFileSync(fullPath, 'utf-8');

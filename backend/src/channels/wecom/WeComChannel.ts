@@ -12,6 +12,7 @@ import type {
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -88,7 +89,13 @@ function createWeComChannel(): IChannelPlugin {
         const corpId = config['corpId'] as string;
         const secret = config['secret'] as string;
         if (!corpId || !secret)
-          throw new Error('WeCom: corpId 和 secret 是必需的');
+          throw new AppError(
+            'WeCom: corpId 和 secret 是必需的',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { channel: 'wecom', missing: ['corpId', 'secret'] }
+          );
 
         state.startTime = Date.now();
 
@@ -98,8 +105,12 @@ function createWeComChannel(): IChannelPlugin {
           );
           const data = (await resp.json()) as Record<string, unknown>;
           if ((data['errcode'] as number) !== 0) {
-            throw new Error(
-              `WeCom: ${data['errmsg'] || '获取 access_token 失败'}`
+            throw new AppError(
+              `WeCom: ${data['errmsg'] || '获取 access_token 失败'}`,
+              ErrorCategory.API,
+              ErrorSeverity.HIGH,
+              'API_ERROR',
+              { channel: 'wecom', errcode: data['errcode'], errmsg: data['errmsg'] }
             );
           }
           state.accessToken = data['access_token'] as string;

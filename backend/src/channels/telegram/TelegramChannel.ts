@@ -13,6 +13,7 @@ import type {
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -128,7 +129,13 @@ function createTelegramChannel(): IChannelPlugin {
         state.botToken = (config['botToken'] as string) || '';
         state.webhookUrl = (config['webhookUrl'] as string) || '';
 
-        if (!state.botToken) throw new Error('Telegram: botToken 是必需的');
+        if (!state.botToken) throw new AppError(
+          'Telegram: botToken 是必需的',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'INVALID_INPUT',
+          { channel: 'telegram', missing: ['botToken'] }
+        );
 
         state.startTime = Date.now();
 
@@ -138,7 +145,13 @@ function createTelegramChannel(): IChannelPlugin {
           );
           const data = (await resp.json()) as Record<string, unknown>;
           if (!data['ok']) {
-            throw new Error(`Telegram: ${data['description'] || 'getMe 失败'}`);
+            throw new AppError(
+              `Telegram: ${data['description'] || 'getMe 失败'}`,
+              ErrorCategory.API,
+              ErrorSeverity.HIGH,
+              'API_ERROR',
+              { channel: 'telegram', description: data['description'] }
+            );
           }
 
           // 如果配置了 webhook，注册之

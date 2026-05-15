@@ -3,6 +3,7 @@
  * 对标 Hermes gateway/restart.py
  * 在收到重启信号时优雅关闭所有通道和连接，无损重启
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { EventEmitter } from 'node:events';
 
 /**
@@ -149,7 +150,13 @@ export class GracefulRestartService extends EventEmitter {
 
       if (hasRequiredFailure) {
         const failedNames = shutdownFailures.map((f) => f.hookName).join(', ');
-        throw new Error(`关键钩子执行失败: ${failedNames}`);
+        throw new AppError(
+          `关键钩子执行失败: ${failedNames}`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.CRITICAL,
+          'HOOK_FAILED',
+          { failedHooks: shutdownFailures.map((f) => f.hookName) }
+        );
       }
 
       this.recordEvent('flush_state', '正在刷新状态...');

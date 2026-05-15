@@ -129,4 +129,13 @@ export class StreamingContextScrubber {
     this.buffer = '';
     this.depth = 0;
   }
+
+  /**
+   * feed 方法 (等同于 scrub，兼容 Hermes 命名)
+   * @param chunk 流式 chunk
+   * @returns 擦洗后的 chunk
+   */
+  feed(chunk: StreamChunk): StreamChunk {
+    return this.scrub(chunk);
+  }
 }

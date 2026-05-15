@@ -4,6 +4,7 @@
  * 端口检测与管理
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import * as net from 'node:net';
 
 export interface PortInfo {
@@ -69,7 +70,13 @@ export async function findAvailablePort(
     if (!info.inUse) return port;
   }
 
-  throw new Error(`No available ports found in range ${r.start}-${r.end}`);
+  throw new AppError(
+    `No available ports found in range ${r.start}-${r.end}`,
+    ErrorCategory.RESOURCE,
+    ErrorSeverity.HIGH,
+    'RESOURCE_EXHAUSTED',
+    { range: { start: r.start, end: r.end } }
+  );
 }
 
 export async function findAvailablePorts(
@@ -87,8 +94,12 @@ export async function findAvailablePorts(
   }
 
   if (ports.length < count) {
-    throw new Error(
-      `Only found ${ports.length}/${count} available ports in range ${r.start}-${r.end}`
+    throw new AppError(
+      `Only found ${ports.length}/${count} available ports in range ${r.start}-${r.end}`,
+      ErrorCategory.RESOURCE,
+      ErrorSeverity.HIGH,
+      'RESOURCE_EXHAUSTED',
+      { found: ports.length, required: count, range: { start: r.start, end: r.end } }
     );
   }
 

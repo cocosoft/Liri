@@ -32,6 +32,66 @@ interface ChatCompletionRequest {
 }
 
 /**
+ * Responses API 输入项
+ */
+interface ResponseInputItem {
+  role: string;
+  content: string;
+}
+
+/**
+ * Responses API 请求
+ */
+interface ResponsesAPIRequest {
+  model?: string;
+  input: string | ResponseInputItem[];
+  instructions?: string;
+  max_output_tokens?: number;
+  temperature?: number;
+  stream?: boolean;
+  tools?: Array<Record<string, unknown>>;
+  tool_choice?: string;
+  store?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Responses API 输出文本内容
+ */
+interface ResponseOutputText {
+  type: 'output_text';
+  text: string;
+  annotations: unknown[];
+}
+
+/**
+ * Responses API 输出消息
+ */
+interface ResponseOutputMessage {
+  type: 'message';
+  id: string;
+  role: 'assistant';
+  content: ResponseOutputText[];
+}
+
+/**
+ * Responses API 响应
+ */
+interface ResponsesAPIResponse {
+  id: string;
+  object: 'response';
+  created: number;
+  model: string;
+  instructions?: string;
+  output: ResponseOutputMessage[];
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
+}
+
+/**
  * OpenAI 兼容 API 服务
  */
 export class OpenAICompatServer {
@@ -56,6 +116,17 @@ export class OpenAICompatServer {
         resolve();
       });
     });
+  }
+
+  /**
+   * 获取实际端口号
+   */
+  getPort(): number | undefined {
+    const addr = this.server?.address();
+    if (addr && typeof addr === 'object') {
+      return addr.port;
+    }
+    return undefined;
   }
 
   /**
@@ -108,6 +179,11 @@ export class OpenAICompatServer {
       return;
     }
 
+    if (req.method === 'POST' && req.url === '/v1/responses') {
+      this.handleResponses(req, res);
+      return;
+    }
+
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not Found' }));
   }
@@ -137,7 +213,7 @@ export class OpenAICompatServer {
       ],
     };
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(models));
   }
 
@@ -193,7 +269,7 @@ export class OpenAICompatServer {
     clientReq: http.IncomingMessage
   ): void {
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
+      'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     });
@@ -273,8 +349,166 @@ export class OpenAICompatServer {
       },
     };
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(response));
+  }
+
+  /**
+   * 处理 Responses API 请求
+   */
+  private handleResponses(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
+    if (!this.verifyAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+
+    let body = '';
+
+    req.on('data', (chunk: Buffer) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      try {
+        const request: ResponsesAPIRequest = JSON.parse(body);
+        const isStream = request.stream && this.config.streamEnabled;
+
+        if (isStream) {
+          this.handleStreamingResponses(request, res);
+        } else {
+          this.handleNormalResponses(request, res);
+        }
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: {
+              message: `无效请求: ${err instanceof Error ? err.message : String(err)}`,
+              type: 'invalid_request_error',
+            },
+          })
+        );
+      }
+    });
+  }
+
+  /**
+   * 提取用户输入文本
+   */
+  private extractResponseInput(request: ResponsesAPIRequest): string {
+    if (typeof request.input === 'string') {
+      return request.input;
+    }
+    return request.input.map((item) => item.content).join('\n');
+  }
+
+  /**
+   * 生成 Responses API 响应体
+   */
+  private buildResponsesBody(
+    request: ResponsesAPIRequest,
+    content: string,
+    responseId: string
+  ): ResponsesAPIResponse {
+    const created = Math.floor(Date.now() / 1000);
+    const model = request.model || this.config.baseModel;
+    const maxTokens = request.max_output_tokens || this.config.maxTokens;
+
+    const outputText = content.substring(0, maxTokens);
+
+    const inputText = this.extractResponseInput(request);
+
+    return {
+      id: responseId,
+      object: 'response',
+      created,
+      model,
+      instructions: request.instructions,
+      output: [
+        {
+          type: 'message',
+          id: `msg-${Date.now()}`,
+          role: 'assistant',
+          content: [
+            {
+              type: 'output_text',
+              text: outputText,
+              annotations: [],
+            },
+          ],
+        },
+      ],
+      usage: {
+        input_tokens: Math.ceil(inputText.length / 4),
+        output_tokens: Math.ceil(outputText.length / 4),
+        total_tokens: Math.ceil((inputText.length + outputText.length) / 4),
+      },
+    };
+  }
+
+  /**
+   * 处理普通 Responses API 响应
+   */
+  private handleNormalResponses(
+    request: ResponsesAPIRequest,
+    res: http.ServerResponse
+  ): void {
+    const responseId = `resp-${Date.now()}`;
+    const userInput = this.extractResponseInput(request);
+    const content = `这是由本地 PY_APP 模型 (${request.model || this.config.baseModel}) 通过 Responses API 生成的回复。\n\n你的问题是: ${userInput}`;
+
+    const response = this.buildResponsesBody(request, content, responseId);
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(response));
+  }
+
+  /**
+   * 处理流式 Responses API 响应
+   */
+  private handleStreamingResponses(
+    request: ResponsesAPIRequest,
+    res: http.ServerResponse
+  ): void {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const responseId = `resp-${Date.now()}`;
+    const model = request.model || this.config.baseModel;
+
+    const content = `这是由本地 PY_APP 模型 (${model}) 通过 Responses API 生成的回复。\n\n你的问题是: ${this.extractResponseInput(request)}`;
+
+    const words = content.split(' ');
+    let index = 0;
+    let finished = false;
+
+    const interval = setInterval(() => {
+      if (finished) {
+        return;
+      }
+
+      if (index >= words.length) {
+        finished = true;
+        clearInterval(interval);
+
+        const finalResponse = this.buildResponsesBody(request, content, responseId);
+        res.write(`event: response.done\ndata: ${JSON.stringify({ type: 'response.done', response: finalResponse })}\n\n`);
+        res.end();
+        return;
+      }
+
+      res.write(
+        `event: response.output_text.delta\ndata: ${JSON.stringify({ type: 'output_text.delta', delta: words[index] + ' ', response_id: responseId })}\n\n`
+      );
+      index++;
+    }, 20);
   }
 
   /**

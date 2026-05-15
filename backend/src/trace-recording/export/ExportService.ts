@@ -9,6 +9,7 @@
  * 参考：claude-tap 的 export.py (Python 实现)
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { TraceRecord, ExportFormat } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 
@@ -33,7 +34,13 @@ export class ExportService {
       case 'html':
         return this.viewerService.renderHtml(records);
       default:
-        throw new Error(`Unsupported export format: ${format}`);
+        throw new AppError(
+          `Unsupported export format: ${format}`,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'INVALID_INPUT',
+          { format }
+        );
     }
   }
 

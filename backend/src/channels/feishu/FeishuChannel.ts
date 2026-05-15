@@ -12,6 +12,7 @@ import type {
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -83,7 +84,13 @@ function createFeishuChannel(): IChannelPlugin {
         state.appId = (config['appId'] as string) || '';
         state.appSecret = (config['appSecret'] as string) || '';
         if (!state.appId || !state.appSecret)
-          throw new Error('Feishu: appId 和 appSecret 是必需的');
+          throw new AppError(
+            'Feishu: appId 和 appSecret 是必需的',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { channel: 'feishu', missing: ['appId', 'appSecret'] }
+          );
 
         state.startTime = Date.now();
         try {
@@ -100,8 +107,12 @@ function createFeishuChannel(): IChannelPlugin {
           );
           const data = (await resp.json()) as Record<string, unknown>;
           if ((data['code'] as number) !== 0) {
-            throw new Error(
-              `Feishu: ${data['msg'] || '获取 tenant_access_token 失败'}`
+            throw new AppError(
+              `Feishu: ${data['msg'] || '获取 tenant_access_token 失败'}`,
+              ErrorCategory.API,
+              ErrorSeverity.HIGH,
+              'API_ERROR',
+              { channel: 'feishu', code: data['code'], msg: data['msg'] }
             );
           }
           state.tenantAccessToken = data['tenant_access_token'] as string;

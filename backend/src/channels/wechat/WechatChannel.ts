@@ -13,6 +13,7 @@ import type {
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { createHash } from 'node:crypto';
 
@@ -233,7 +234,13 @@ function createWechatChannel(): IChannelPlugin {
         state.encodingAESKey = (config['encodingAESKey'] as string) || '';
 
         if (!state.appId || !state.appSecret)
-          throw new Error('Wechat: appId 和 appSecret 是必需的');
+          throw new AppError(
+            'Wechat: appId 和 appSecret 是必需的',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { channel: 'wechat', missing: ['appId', 'appSecret'] }
+          );
 
         state.startTime = Date.now();
 
@@ -243,8 +250,12 @@ function createWechatChannel(): IChannelPlugin {
           );
           const data = (await resp.json()) as Record<string, unknown>;
           if (data['errcode']) {
-            throw new Error(
-              `Wechat: ${data['errmsg'] || '获取 access_token 失败'}`
+            throw new AppError(
+              `Wechat: ${data['errmsg'] || '获取 access_token 失败'}`,
+              ErrorCategory.API,
+              ErrorSeverity.HIGH,
+              'API_ERROR',
+              { channel: 'wechat', errcode: data['errcode'], errmsg: data['errmsg'] }
             );
           }
           state.accessToken = data['access_token'] as string;

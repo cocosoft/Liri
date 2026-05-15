@@ -2,6 +2,7 @@
  * Azure OpenAI 提供商
  * 扩展 OpenAI 兼容 API，覆盖 Azure 端点
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { ChatMessage, ChatResponse } from '../models/types';
 import type {
   AIProvider,
@@ -100,8 +101,12 @@ export class AzureOpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Azure OpenAI error: ${response.status} ${response.statusText}`
+      throw new AppError(
+        `Azure OpenAI error: ${response.status} ${response.statusText}`,
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'API_ERROR',
+        { status: response.status, statusText: response.statusText }
       );
     }
 

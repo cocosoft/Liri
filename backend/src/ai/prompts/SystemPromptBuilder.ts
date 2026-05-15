@@ -1,3 +1,4 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { buildEnvironmentHints, getPlatformHint } from './PlatformHints';
 import { getModelGuidance } from './ModelGuidance';
 import { getPromptInjectionDetector } from '../../security/injection/PromptInjectionDetector';
@@ -20,9 +21,13 @@ export function buildSystemPrompt(
   const detectionResult = getPromptInjectionDetector().detect(sanitized.output);
 
   if (detectionResult.detected && detectionResult.severity === 'critical') {
-    throw new Error(
+    throw new AppError(
       `Prompt injection detected: ${detectionResult.description}\n` +
-        `Patterns: ${detectionResult.matchedPatterns.join(', ')}`
+        `Patterns: ${detectionResult.matchedPatterns.join(', ')}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.CRITICAL,
+      'PROMPT_INJECTION_DETECTED',
+      { severity: detectionResult.severity, patterns: detectionResult.matchedPatterns }
     );
   }
 

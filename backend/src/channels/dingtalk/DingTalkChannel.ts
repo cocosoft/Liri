@@ -12,6 +12,7 @@ import type {
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -103,7 +104,13 @@ function createDingtalkChannel(): IChannelPlugin {
         state.appKey = (config['appKey'] as string) || '';
         state.appSecret = (config['appSecret'] as string) || '';
         if (!state.appKey || !state.appSecret)
-          throw new Error('DingTalk: appKey 和 appSecret 是必需的');
+          throw new AppError(
+            'DingTalk: appKey 和 appSecret 是必需的',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { channel: 'dingtalk', missing: ['appKey', 'appSecret'] }
+          );
 
         state.startTime = Date.now();
 
@@ -112,8 +119,12 @@ function createDingtalkChannel(): IChannelPlugin {
           const response = await fetch(url);
           const data = (await response.json()) as Record<string, unknown>;
           if ((data['errcode'] as number) !== 0) {
-            throw new Error(
-              `DingTalk: ${data['errmsg'] || '获取 access_token 失败'}`
+            throw new AppError(
+              `DingTalk: ${data['errmsg'] || '获取 access_token 失败'}`,
+              ErrorCategory.API,
+              ErrorSeverity.HIGH,
+              'API_ERROR',
+              { channel: 'dingtalk', errcode: data['errcode'], errmsg: data['errmsg'] }
             );
           }
           state.accessToken = data['access_token'] as string;

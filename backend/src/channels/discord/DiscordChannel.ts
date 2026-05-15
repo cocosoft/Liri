@@ -13,6 +13,7 @@ import type {
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -113,7 +114,13 @@ function createDiscordChannel(): IChannelPlugin {
         state.botToken = (config['botToken'] as string) || '';
         state.clientId = (config['clientId'] as string) || '';
 
-        if (!state.botToken) throw new Error('Discord: botToken 是必需的');
+        if (!state.botToken) throw new AppError(
+          'Discord: botToken 是必需的',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'INVALID_INPUT',
+          { channel: 'discord', missing: ['botToken'] }
+        );
 
         state.startTime = Date.now();
 
@@ -134,7 +141,13 @@ function createDiscordChannel(): IChannelPlugin {
             }
           );
           if (!appResp.ok) {
-            throw new Error(`Discord: Token 无效 ${appResp.status}`);
+            throw new AppError(
+              `Discord: Token 无效 ${appResp.status}`,
+              ErrorCategory.API,
+              ErrorSeverity.HIGH,
+              'API_ERROR',
+              { channel: 'discord', status: appResp.status }
+            );
           }
 
           state.connected = true;

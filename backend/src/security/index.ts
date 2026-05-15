@@ -8,6 +8,10 @@ export { PermissionManager } from './PermissionManager';
 export { SecurityAudit } from './SecurityAudit';
 export { AuditEventType, AuditEventSeverity } from './SecurityAudit';
 export type { AuditEvent, SecurityAuditConfig } from './SecurityAudit';
+export { IOAuditor } from './IOAuditor';
+export type { IOAuditEntry, IOAuditorConfig, IOAuditQuery, IOAuditStats, IOOpsType } from './IOAuditor';
+export { GroupPolicy } from './GroupPolicy';
+export type { PolicyRule, UserGroup, GroupMember, PolicyEvaluation, GroupPolicyConfig, PolicyEffect } from './GroupPolicy';
 export { DestructiveCommandWarner } from './destructiveCommandWarning';
 export { CommandSemanticsAnalyzer } from './commandSemantics';
 export {

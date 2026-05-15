@@ -7,6 +7,10 @@ export {
   AuditEventType,
 } from './EnterpriseAuditService.js';
 export { ApprovalWorkflow } from './ApprovalWorkflow.js';
+export {
+  ExecApprovalManager,
+  createExecApprovalManager,
+} from './ExecApprovalManager.js';
 
 export type {
   AuditEvent,
@@ -29,3 +33,10 @@ export type {
   ApprovalWorkflowConfig,
   EscalationEvent,
 } from './ApprovalWorkflow.js';
+
+export type {
+  ExecApprovalRequest,
+  ExecApprovalStatus,
+  ExecApprovalEvent,
+  ExecApprovalManagerConfig,
+} from './ExecApprovalManager.js';

@@ -29,3 +29,5 @@ export {
   REDACTED_PLACEHOLDER,
   REDACTED_CONTEXT_PLACEHOLDER,
 } from './RedactPatterns';
+export { SensitiveDataRedactor } from './SensitiveDataRedactor';
+export type { RedactStats } from './SensitiveDataRedactor';

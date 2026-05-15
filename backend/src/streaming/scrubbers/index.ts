@@ -11,5 +11,6 @@ export { StreamingContextScrubber } from './StreamingContextScrubber';
 export {
   ScrubberPipeline,
   createDefaultScrubberPipeline,
+  createStreamScrubber,
 } from './ScrubberPipeline';
 export type { IScrubber } from './ScrubberPipeline';

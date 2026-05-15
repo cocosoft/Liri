@@ -4,6 +4,8 @@
  * 命令行参数解析系统
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export interface ParsedArgs {
   command: string;
   subcommand?: string;
@@ -167,7 +169,13 @@ function validateRequired(result: ParsedArgs, schema?: ArgvSchema): void {
   }
 
   if (missing.length > 0) {
-    throw new Error(`Missing required arguments: ${missing.join(', ')}`);
+    throw new AppError(
+      `Missing required arguments: ${missing.join(', ')}`,
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.HIGH,
+      'INVALID_INPUT',
+      { missing }
+    );
   }
 }
 

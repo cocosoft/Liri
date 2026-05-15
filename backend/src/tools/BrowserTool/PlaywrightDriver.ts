@@ -7,6 +7,7 @@
  * 使用 unknown 类型避免编译时对 playwright 包的依赖。
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -135,8 +136,12 @@ export class PlaywrightBrowserDriver {
       logger.info('Playwright 浏览器已启动');
       return p as Record<string, unknown>;
     } catch (error) {
-      throw new Error(
-        `Playwright 启动失败: ${error instanceof Error ? error.message : String(error)}`
+      throw new AppError(
+        `Playwright 启动失败: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'LAUNCH_FAILED',
+        { error: error instanceof Error ? error.message : String(error) }
       );
     }
   }
@@ -149,8 +154,11 @@ export class PlaywrightBrowserDriver {
       ) as (s: string) => Promise<Record<string, unknown>>;
       return await importFn('playwright');
     } catch {
-      throw new Error(
-        'playwright 未安装。运行: bun add playwright && npx playwright install chromium'
+      throw new AppError(
+        'playwright 未安装。运行: bun add playwright && npx playwright install chromium',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'DEPENDENCY_UNAVAILABLE'
       );
     }
   }
@@ -175,7 +183,13 @@ export class PlaywrightBrowserDriver {
         const ok = this.config.allowedDomains.some(
           (d) => hostname === d || hostname.endsWith('.' + d)
         );
-        if (!ok) throw new Error(`域名 ${hostname} 不在白名单中`);
+        if (!ok) throw new AppError(
+          `域名 ${hostname} 不在白名单中`,
+          ErrorCategory.PERMISSION,
+          ErrorSeverity.HIGH,
+          'PERMISSION_DENIED',
+          { hostname }
+        );
       } catch {
         // 相对路径，忽略
       }
@@ -188,7 +202,13 @@ export class PlaywrightBrowserDriver {
   ): Promise<BrowserResult> {
     switch (action.action) {
       case 'navigate': {
-        if (!action.url) throw new Error('navigate 需要 url 参数');
+        if (!action.url) throw new AppError(
+          'navigate 需要 url 参数',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'INVALID_INPUT',
+          { action: 'navigate' }
+        );
         const goto = page['goto'] as (
           u: string,
           o: Record<string, unknown>
@@ -207,7 +227,13 @@ export class PlaywrightBrowserDriver {
         };
       }
       case 'click': {
-        if (!action.selector) throw new Error('click 需要 selector 参数');
+        if (!action.selector) throw new AppError(
+          'click 需要 selector 参数',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'INVALID_INPUT',
+          { action: 'click' }
+        );
         const click = page['click'] as (s: string) => Promise<void>;
         await click(action.selector);
         return {
@@ -219,14 +245,26 @@ export class PlaywrightBrowserDriver {
       }
       case 'type': {
         if (!action.selector || !action.value)
-          throw new Error('type 需要 selector 和 value');
+          throw new AppError(
+            'type 需要 selector 和 value',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { action: 'type' }
+          );
         const type = page['type'] as (s: string, v: string) => Promise<void>;
         await type(action.selector, action.value);
         return { success: true, action: 'type', durationMs: 0 };
       }
       case 'fill': {
         if (!action.selector || !action.value)
-          throw new Error('fill 需要 selector 和 value');
+          throw new AppError(
+            'fill 需要 selector 和 value',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { action: 'fill' }
+          );
         const fill = page['fill'] as (s: string, v: string) => Promise<void>;
         await fill(action.selector, action.value);
         return { success: true, action: 'fill', durationMs: 0 };
@@ -273,7 +311,13 @@ export class PlaywrightBrowserDriver {
         };
       }
       case 'evaluate': {
-        if (!action.script) throw new Error('evaluate 需要 script 参数');
+        if (!action.script) throw new AppError(
+          'evaluate 需要 script 参数',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'INVALID_INPUT',
+          { action: 'evaluate' }
+        );
         const evalFn = page['evaluate'] as (s: string) => Promise<unknown>;
         const val = await evalFn(action.script);
         return {
@@ -312,7 +356,13 @@ export class PlaywrightBrowserDriver {
         return { success: true, action: 'close', durationMs: 0 };
       }
       default:
-        throw new Error(`未知浏览器动作: ${action.action}`);
+        throw new AppError(
+          `未知浏览器动作: ${action.action}`,
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'INVALID_INPUT',
+          { action: action.action }
+        );
     }
   }
 

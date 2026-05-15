@@ -33,6 +33,10 @@ export { DockerSandbox } from './DockerSandbox';
 export type { DockerSandboxConfig, DockerSandboxResult } from './DockerSandbox';
 export { PTYSandbox } from './PTYSandbox';
 export type { PTYSandboxConfig } from './PTYSandbox';
+export { SSHSandbox } from './SSHSandbox';
+export type { SSHSandboxConfig, SSHConnectionStatus } from './SSHSandbox';
+export { SandboxPruner } from './SandboxPruner';
+export type { SandboxInstance, PruneResult, PruneStrategy } from './SandboxPruner';
 export { ProcessRegistry, processRegistry } from './ProcessRegistry';
 export type { ProcessInfo, ProcessQuery } from './ProcessRegistry';
 export {

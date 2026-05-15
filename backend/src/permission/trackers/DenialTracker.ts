@@ -341,6 +341,44 @@ export class DenialTracker {
   }
 
   /**
+   * 检查是否应升级到用户（方案接口）
+   * 连续拒绝次数 >= 3 时返回 true
+   * @returns 是否应升级到用户
+   */
+  shouldEscalateToUser(): boolean {
+    return this.getConsecutiveCount() >= this.config.consecutiveThreshold;
+  }
+
+  /**
+   * 获取指定会话的连续拒绝次数（方案接口）
+   * @param sessionId 会话ID
+   * @returns 连续拒绝次数
+   */
+  getConsecutiveDenialCount(sessionId: string): number {
+    const sessionRecords: DenialRecord[] = [];
+    for (let i = this.records.length - 1; i >= 0; i--) {
+      if (this.records[i].sessionId === sessionId) {
+        sessionRecords.push(this.records[i]);
+      }
+    }
+
+    if (sessionRecords.length === 0) {
+      return 0;
+    }
+
+    let count = 0;
+    for (const record of sessionRecords) {
+      if (!record.userOverridden) {
+        count++;
+      } else {
+        break;
+      }
+    }
+
+    return count;
+  }
+
+  /**
    * 重置跟踪器（兼容方法）
    */
   reset(): void {

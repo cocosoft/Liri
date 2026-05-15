@@ -1,3 +1,5 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export interface ToolExecutionEnvironment {
   readonly id: string;
   readonly name: string;
@@ -50,8 +52,11 @@ export class LocalExecutionEnvironment extends BaseExecutionEnvironment {
     args: string[],
     options?: ExecuteOptions
   ): Promise<ExecuteResult> {
-    throw new Error(
-      'LocalExecutionEnvironment.execute() requires a concrete implementation'
+    throw new AppError(
+      'LocalExecutionEnvironment.execute() requires a concrete implementation',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'NOT_IMPLEMENTED'
     );
   }
 
@@ -76,8 +81,11 @@ export class DockerExecutionEnvironment extends BaseExecutionEnvironment {
     args: string[],
     options?: ExecuteOptions
   ): Promise<ExecuteResult> {
-    throw new Error(
-      'DockerExecutionEnvironment.execute() requires Docker runtime'
+    throw new AppError(
+      'DockerExecutionEnvironment.execute() requires Docker runtime',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'NOT_IMPLEMENTED'
     );
   }
 

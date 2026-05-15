@@ -4,6 +4,7 @@
  */
 import path from 'node:path';
 import fs from 'node:fs';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';
@@ -299,7 +300,13 @@ export class PluginInstallManager {
    */
   private installFromLocal(options: InstallOptions, targetPath: string): void {
     if (!fs.existsSync(options.sourcePath)) {
-      throw new Error(`本地路径不存在: ${options.sourcePath}`);
+      throw new AppError(
+        `本地路径不存在: ${options.sourcePath}`,
+        ErrorCategory.FILESYSTEM,
+        ErrorSeverity.HIGH,
+        'ENTITY_NOT_FOUND',
+        { sourcePath: options.sourcePath }
+      );
     }
 
     if (options.force && fs.existsSync(targetPath)) {
@@ -323,7 +330,13 @@ export class PluginInstallManager {
 
     if (fs.existsSync(targetPath)) {
       if (!options.force) {
-        throw new Error(`目标路径已存在: ${targetPath}`);
+        throw new AppError(
+          `目标路径已存在: ${targetPath}`,
+          ErrorCategory.FILESYSTEM,
+          ErrorSeverity.HIGH,
+          'ENTITY_EXISTS',
+          { targetPath }
+        );
       }
       fs.rmSync(targetPath, { recursive: true, force: true });
     }
@@ -343,7 +356,13 @@ export class PluginInstallManager {
   ): Promise<void> {
     const plugin = this.registry.getPlugin(options.sourcePath);
     if (!plugin) {
-      throw new Error(`注册表中未找到插件: ${options.sourcePath}`);
+      throw new AppError(
+        `注册表中未找到插件: ${options.sourcePath}`,
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.HIGH,
+        'ENTITY_NOT_FOUND',
+        { sourcePath: options.sourcePath }
+      );
     }
     await this.installFromNpm(options, targetPath);
   }

@@ -1,3 +1,4 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { EventEmitter } from 'events';
 import {
   AclClientConfig,
@@ -136,7 +137,12 @@ export class AclClient extends EventEmitter {
     correlationId?: string
   ): Promise<void> {
     if (!this.connected) {
-      throw new Error('Not connected');
+      throw new AppError(
+        'Not connected',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'INVALID_STATE'
+      );
     }
 
     const message = this.createMessage(
@@ -156,7 +162,12 @@ export class AclClient extends EventEmitter {
     priority: AclMessagePriority = 'normal'
   ): Promise<AclMessage> {
     if (!this.connected) {
-      throw new Error('Not connected');
+      throw new AppError(
+        'Not connected',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'INVALID_STATE'
+      );
     }
 
     const correlationId = nextClientId();

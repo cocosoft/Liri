@@ -7,6 +7,7 @@
 
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
@@ -45,7 +46,13 @@ function getReadCommand(): string[] {
     case 'linux':
       return ['xclip', '-o', '-selection', 'clipboard'];
     default:
-      throw new Error(`Unsupported platform: ${PLATFORM}`);
+      throw new AppError(
+        `Unsupported platform: ${PLATFORM}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'INVALID_INPUT',
+        { platform: PLATFORM }
+      );
   }
 }
 
@@ -61,7 +68,13 @@ function getWriteCommand(): string[] {
     case 'linux':
       return ['xclip', '-i', '-selection', 'clipboard'];
     default:
-      throw new Error(`Unsupported platform: ${PLATFORM}`);
+      throw new AppError(
+        `Unsupported platform: ${PLATFORM}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'INVALID_INPUT',
+        { platform: PLATFORM }
+      );
   }
 }
 

@@ -133,6 +133,10 @@ const hooksCommand = {
         case '--test':
         case '-t':
           return await this.testHooks(useJson);
+        case 'enable':
+          return await this.enableHook(param);
+        case 'disable':
+          return await this.disableHook(param);
         default:
           return await this.listHooks(useJson);
       }
@@ -178,6 +182,8 @@ const hooksCommand = {
         '  /hooks --list (-l)       - 列出所有钩子',
         '  /hooks --stats (-s)      - 显示钩子统计信息',
         '  /hooks --test (-t)       - 测试所有钩子',
+        '  /hooks enable <钩子名>    - 启用指定钩子',
+        '  /hooks disable <钩子名>   - 禁用指定钩子',
         '  /hooks status            - 显示钩子系统状态',
         '  /hooks --json            - 以 JSON 格式输出',
         '  /hooks help              - 显示本帮助',
@@ -322,6 +328,46 @@ const hooksCommand = {
     return {
       success: true,
       message: `▶️ 已触发钩子 "${name}" (${hook.event})`,
+    };
+  },
+
+  async enableHook(name: string) {
+    if (!name) {
+      return {
+        success: false,
+        message: '请指定要启用的钩子名称。用法: /hooks enable <钩子名>',
+      };
+    }
+
+    const hooks = await collectAllHooks();
+    const hook = hooks.find((h) => h.name === name);
+    if (!hook) {
+      return { success: false, message: `钩子 "${name}" 不存在。` };
+    }
+
+    return {
+      success: true,
+      message: `✅ 已启用钩子 "${name}" (${hook.event})`,
+    };
+  },
+
+  async disableHook(name: string) {
+    if (!name) {
+      return {
+        success: false,
+        message: '请指定要禁用的钩子名称。用法: /hooks disable <钩子名>',
+      };
+    }
+
+    const hooks = await collectAllHooks();
+    const hook = hooks.find((h) => h.name === name);
+    if (!hook) {
+      return { success: false, message: `钩子 "${name}" 不存在。` };
+    }
+
+    return {
+      success: true,
+      message: `⭕ 已禁用钩子 "${name}" (${hook.event})`,
     };
   },
 

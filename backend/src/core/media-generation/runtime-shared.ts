@@ -1,3 +1,4 @@
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type {
   MediaGenerationNormalizationMetadataInput,
   MediaNormalizationEntry,
@@ -48,11 +49,21 @@ export function throwCapabilityGenerationFailure(params: {
     modelCandidates: params.modelCandidates,
   });
   if (params.cause instanceof Error) {
-    throw new Error(`${message}: ${params.cause.message}`, {
-      cause: params.cause,
-    });
+    throw new AppError(
+      `${message}: ${params.cause.message}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'CAPABILITY_GENERATION_FAILED',
+      { capability: params.capability, cause: params.cause.message }
+    );
   }
-  throw new Error(message);
+  throw new AppError(
+    message,
+    ErrorCategory.EXECUTION,
+    ErrorSeverity.HIGH,
+    'CAPABILITY_GENERATION_FAILED',
+    { capability: params.capability }
+  );
 }
 
 export function resolveCapabilityModelCandidates(params: {

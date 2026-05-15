@@ -41,6 +41,9 @@ function showHelp(): CommandResult {
 
 用法:
   /model                       显示当前模型和可用模型列表
+  /model list                  显示当前模型和可用模型列表
+  /model set <model-id|alias>  切换到指定模型（支持别名）
+  /model set default           恢复默认模型
   /model <model-id|alias>      切换到指定模型（支持别名）
   /model info <model-id>       查看模型详细信息
   /model all                   列出所有提供商下的可用模型
@@ -256,6 +259,17 @@ const modelCommand = {
       if (subcommand === 'info') return handleInfo(modelArg);
 
       if (subcommand === 'all') return handleAll();
+
+      if (subcommand === 'list') return showCurrentModel(showJson);
+
+      if (subcommand === 'set') {
+        if (!modelArg || modelArg === 'default') {
+          const defaultModel = modelManager.getDefaultMainLoopModel();
+          modelManager.setCurrentModel(defaultModel);
+          return { success: true, message: `模型已恢复为默认 (${defaultModel})` };
+        }
+        return switchModel(modelArg);
+      }
 
       if (subcommand && subcommand !== 'list') return switchModel(subcommand);
 

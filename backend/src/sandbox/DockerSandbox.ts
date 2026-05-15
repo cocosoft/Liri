@@ -4,6 +4,7 @@
  * 对齐 OpenClaw agents/sandbox/docker.ts
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type {
   SandboxExecuteOptions,
   SandboxExecuteResult,
@@ -200,7 +201,12 @@ export class DockerSandbox {
     try {
       execSync('docker info', { stdio: 'pipe', timeout: 5000 });
     } catch {
-      throw new Error('Docker 不可用，无法使用 Docker 沙箱');
+      throw new AppError(
+        'Docker 不可用，无法使用 Docker 沙箱',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'DEPENDENCY_UNAVAILABLE'
+      );
     }
   }
 

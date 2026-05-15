@@ -9,6 +9,7 @@
  * - 工具组展开和名称别名
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -430,7 +431,13 @@ export class ToolPolicyManager {
     }
 
     const wrappedFn = ((...args: unknown[]) => {
-      throw new Error(`Tool "${toolName}" is restricted to owner senders.`);
+      throw new AppError(
+        `Tool "${toolName}" is restricted to owner senders.`,
+        ErrorCategory.PERMISSION,
+        ErrorSeverity.HIGH,
+        'PERMISSION_DENIED',
+        { toolName }
+      );
     }) as unknown as T;
 
     return wrappedFn;

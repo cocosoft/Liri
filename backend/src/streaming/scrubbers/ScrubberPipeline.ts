@@ -118,3 +118,39 @@ export function createDefaultScrubberPipeline(): ScrubberPipeline {
     new StreamingContextScrubber(),
   ]);
 }
+
+/**
+ * 将 ScrubberPipeline 适配为 Stream.pipe 兼容的异步迭代器变换函数
+ *
+ * 用法:
+ * ```ts
+ * const stream = new Stream<StreamChunk>();
+ * const pipeline = createDefaultScrubberPipeline();
+ * const scrubbedStream = stream.pipe(createStreamScrubber(pipeline));
+ * ```
+ *
+ * @param pipeline 擦洗管道
+ * @returns 异步迭代器变换函数，可直接传入 Stream.pipe()
+ */
+export function createStreamScrubber(
+  pipeline: ScrubberPipeline
+): (
+  source: AsyncIterableIterator<StreamChunk>
+) => AsyncIterableIterator<StreamChunk> {
+  return async function* scrubStream(source) {
+    for await (const chunk of source) {
+      const scrubbed = pipeline.scrub(chunk);
+
+      if (scrubbed.content || scrubbed.isComplete) {
+        yield scrubbed;
+      }
+    }
+
+    const residual = pipeline.flush();
+    if (residual) {
+      yield { content: residual, isComplete: false };
+    }
+
+    pipeline.reset();
+  };
+}

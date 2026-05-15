@@ -2,6 +2,14 @@ export { IrcChannel } from './irc/index.js';
 export { SlackChannel } from './slack/index.js';
 export { LineChannel } from './line/index.js';
 export { NostrChannel } from './nostr/index.js';
+export { SmsChannel } from './sms/index.js';
+export { EmailChannel } from './email/index.js';
+export { WebhookChannel } from './webhook/index.js';
+export { StickerCache } from './cache/index.js';
+export { ZaloChannel } from './zalo/ZaloChannel.js';
+export { YuanbaoChannel } from './yuanbao/YuanbaoChannel.js';
+export { GoogleChatChannel } from './googlechat/GoogleChatChannel.js';
+export { MSTeamsChannel } from './msteams/MSTeamsChannel.js';
 export * from './platforms/index.js';
 export {
   ChannelRegistry,

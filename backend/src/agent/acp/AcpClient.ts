@@ -2,6 +2,7 @@
  * AcpClient ACP 协议客户端
  * 对标 OpenClaw 的 Agent 通信协议客户端
  */
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { EventEmitter } from 'node:events';
 import { AcpServer } from './AcpServer.js';
 import type { AcpMessage, AcpPriority } from './index.js';
@@ -73,7 +74,12 @@ export class AcpClient extends EventEmitter {
     priority: AcpPriority = 'normal'
   ): Promise<AcpMessage> {
     if (!this.connected) {
-      throw new Error('客户端未连接');
+      throw new AppError(
+        '客户端未连接',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'INVALID_STATE'
+      );
     }
 
     const message: AcpMessage = {

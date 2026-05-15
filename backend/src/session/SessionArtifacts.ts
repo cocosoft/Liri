@@ -4,6 +4,7 @@
  * 对齐 OpenClaw config/sessions/artifacts.ts
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   existsSync,
@@ -87,8 +88,12 @@ export class SessionArtifacts {
       typeof content === 'string' ? Buffer.from(content, 'utf-8') : content;
 
     if (data.length > this.config.maxSizePerFile) {
-      throw new Error(
-        `制品大小 ${data.length} 超出限制 ${this.config.maxSizePerFile}`
+      throw new AppError(
+        `制品大小 ${data.length} 超出限制 ${this.config.maxSizePerFile}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'INVALID_INPUT',
+        { size: data.length, limit: this.config.maxSizePerFile }
       );
     }
 

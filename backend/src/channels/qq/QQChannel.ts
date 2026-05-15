@@ -13,6 +13,7 @@ import type {
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -98,7 +99,13 @@ function createQQChannel(): IChannelPlugin {
         state.secret = (config['secret'] as string) || '';
 
         if (!state.appId || !state.token)
-          throw new Error('QQ Bot: appId 和 token 是必需的');
+          throw new AppError(
+            'QQ Bot: appId 和 token 是必需的',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { channel: 'qq', missing: ['appId', 'token'] }
+          );
 
         state.startTime = Date.now();
         state.connected = true;

@@ -4,6 +4,8 @@
  * 支持Bing、Google、DuckDuckGo、Brave等多个搜索引擎
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
 export type SearchProvider =
   | 'bing'
   | 'google'
@@ -121,7 +123,13 @@ export class SearchProviderManager {
   getProviderConfig(provider: SearchProvider): ProviderConfig {
     const config = PROVIDER_CONFIGS[provider];
     if (!config) {
-      throw new Error(`Unknown search provider: ${provider}`);
+      throw new AppError(
+        `Unknown search provider: ${provider}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'INVALID_INPUT',
+        { provider }
+      );
     }
     return { ...config };
   }
@@ -139,8 +147,12 @@ export class SearchProviderManager {
     const config = this.getProviderConfig(provider);
 
     if (!this.canMakeRequest(provider)) {
-      throw new Error(
-        `Rate limit exceeded for provider: ${config.displayName}`
+      throw new AppError(
+        `Rate limit exceeded for provider: ${config.displayName}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.MEDIUM,
+        'RATE_LIMITED',
+        { provider, displayName: config.displayName }
       );
     }
 
@@ -168,7 +180,13 @@ export class SearchProviderManager {
           results = await this.searchSearxng(query, options);
           break;
         default:
-          throw new Error(`Unsupported provider: ${provider}`);
+          throw new AppError(
+            `Unsupported provider: ${provider}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { provider }
+          );
       }
 
       results.forEach((r, i) => {
@@ -468,8 +486,12 @@ export class SearchProviderManager {
       }
     }
 
-    throw new Error(
-      `All search providers failed. Errors: ${errors.map((e) => `${e.provider}: ${e.error}`).join('; ')}`
+    throw new AppError(
+      `All search providers failed. Errors: ${errors.map((e) => `${e.provider}: ${e.error}`).join('; ')}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'ALL_PROVIDERS_FAILED',
+      { errors }
     );
   }
 }

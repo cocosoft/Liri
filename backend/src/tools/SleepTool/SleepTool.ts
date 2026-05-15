@@ -1,75 +1,77 @@
 /**
- * Sleep工具
- * 用于延迟执行
+ * SleepTool 睡眠/延迟工具
+ * 让 Agent 在执行流程中暂停指定时间
  */
-import { BaseTool } from '../BaseTool.js';
-import type { ToolResult, ToolUseContext, ToolParam } from '../types/index.js';
+import { BaseTool } from '../BaseTool';
+import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 
-/**
- * Sleep工具类
- */
-export class SleepTool extends BaseTool {
-  /**
-   * 工具名称
-   */
-  name = 'SleepTool';
+interface SleepInput {
+  durationMs: number;
+  reason?: string;
+}
 
-  /**
-   * 工具描述
-   */
-  description = '延迟执行指定的毫秒数';
-
-  /**
-   * 工具参数
-   */
+export class SleepTool extends BaseTool<Record<string, unknown>> {
+  name = 'sleep';
+  description = 'Pause execution for a specified duration. Use when you need to wait before proceeding (e.g., waiting for a resource, rate limiting, or timing).';
   params: ToolParam[] = [
     {
-      name: 'milliseconds',
-      type: 'integer',
-      description: '延迟的毫秒数',
+      name: 'durationMs',
+      type: 'number',
+      description: 'Duration to sleep in milliseconds (min: 100, max: 300000)',
       required: true,
-      minimum: 1,
-      maximum: 300000, // 5分钟上限
+      minimum: 100,
+      maximum: 300000,
+    },
+    {
+      name: 'reason',
+      type: 'string',
+      description: 'Optional reason for sleeping',
+      required: false,
     },
   ];
 
-  /**
-   * 执行工具
-   * @param input 工具输入
-   * @param context 工具使用上下文
-   * @returns 工具执行结果
-   */
-  async execute(input: any, context: ToolUseContext): Promise<ToolResult> {
-    try {
-      const { milliseconds } = input;
+  override aliases = ['wait', 'delay', 'pause'];
+  override searchHint = 'Pause execution for a duration';
 
-      // 验证参数
-      if (
-        typeof milliseconds !== 'number' ||
-        milliseconds < 1 ||
-        milliseconds > 300000
-      ) {
-        return {
-          success: false,
-          error: 'Invalid milliseconds value. Must be between 1 and 300000.',
-        };
+  async execute(
+    input: Record<string, unknown>,
+    _context: ToolUseContext
+  ): Promise<ToolResult> {
+    try {
+      const { durationMs, reason } = input as unknown as SleepInput;
+
+      if (!durationMs || typeof durationMs !== 'number') {
+        return { success: false, error: 'durationMs is required and must be a number' };
       }
 
-      // 执行延迟
-      await new Promise((resolve) => setTimeout(resolve, milliseconds));
+      if (durationMs < 100) {
+        return { success: false, error: 'durationMs must be at least 100ms' };
+      }
+
+      if (durationMs > 300000) {
+        return { success: false, error: 'durationMs must not exceed 300000ms (5 minutes)' };
+      }
+
+      const start = Date.now();
+      await new Promise((resolve) => setTimeout(resolve, durationMs));
+      const elapsed = Date.now() - start;
+
+      const reasonNote = reason ? ` Reason: ${reason}` : '';
 
       return {
         success: true,
-        data: {
-          message: `Slept for ${milliseconds} milliseconds`,
-          milliseconds,
-        },
+        data: { durationMs, elapsed, reason },
+        output: `Slept for ${elapsed}ms.${reasonNote}`,
       };
     } catch (error) {
       return {
         success: false,
-        error: `Failed to sleep: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Sleep tool failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
+}
+
+export function createSleepTool(): SleepTool {
+  return new SleepTool();
 }

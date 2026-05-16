@@ -11,24 +11,45 @@ import type { Command } from '@modules/commands/types';
  */
 const COMMAND_TOPICS: Record<string, { name: string; match: string[] }> = {
   config: { name: '配置管理', match: ['config', 'cfg', 'settings'] },
-  development: { name: '开发工具', match: ['build', 'test', 'lint', 'format', 'review'] },
-  files: { name: '文件操作', match: ['file', 'files', 'ls', 'dir', 'find', 'search'] },
+  development: {
+    name: '开发工具',
+    match: ['build', 'test', 'lint', 'format', 'review'],
+  },
+  files: {
+    name: '文件操作',
+    match: ['file', 'files', 'ls', 'dir', 'find', 'search'],
+  },
   help: { name: '帮助与学习', match: ['help', 'docs', 'tutorial', 'onboard'] },
-  monitoring: { name: '监控与分析', match: ['stats', 'status', 'cost', 'tokens', 'usage', 'performance', 'insights'] },
+  monitoring: {
+    name: '监控与分析',
+    match: [
+      'stats',
+      'status',
+      'cost',
+      'tokens',
+      'usage',
+      'performance',
+      'insights',
+    ],
+  },
   mcp: { name: 'MCP 协议', match: ['mcp'] },
   plugins: { name: '插件管理', match: ['plugin', 'plugins'] },
   security: { name: '安全', match: ['security-review', 'sec-review'] },
   tasks: { name: '任务管理', match: ['task', 'tasks', 'todo', 'todos'] },
   tools: { name: '工具管理', match: ['tools', 'skill', 'skills'] },
-  workspace: { name: '工作区', match: ['workspace', 'project'] },
+  workspace: { name: '工作空间', match: ['workspace', 'project'] },
 };
 
 /**
  * 格式化命令条目
  */
 function formatCommand(cmd: Command): string {
-  const aliases = cmd.aliases?.length ? ` (别名: ${cmd.aliases.join(', ')})` : '';
-  const usage = cmd.argumentHint ? `\n    用法: /${cmd.name} ${cmd.argumentHint}` : '';
+  const aliases = cmd.aliases?.length
+    ? ` (别名: ${cmd.aliases.join(', ')})`
+    : '';
+  const usage = cmd.argumentHint
+    ? `\n    用法: /${cmd.name} ${cmd.argumentHint}`
+    : '';
   const whenToUse = cmd.whenToUse ? `\n    场景: ${cmd.whenToUse}` : '';
   return `  /${cmd.name}${aliases}\n    描述: ${cmd.description}${usage}${whenToUse}`;
 }
@@ -46,7 +67,8 @@ function searchCommands(keyword: string): string {
   const matches = allCommands.filter((cmd) => {
     if (cmd.name.toLowerCase().includes(lowerKeyword)) return true;
     if (cmd.description.toLowerCase().includes(lowerKeyword)) return true;
-    if (cmd.aliases?.some(a => a.toLowerCase().includes(lowerKeyword))) return true;
+    if (cmd.aliases?.some((a) => a.toLowerCase().includes(lowerKeyword)))
+      return true;
     if (cmd.whenToUse?.toLowerCase().includes(lowerKeyword)) return true;
     return false;
   });
@@ -91,7 +113,7 @@ function topicCommands(topicName: string): string {
   const allCommands = commandRegistry.getAllCommands();
   const topicCommands = allCommands.filter((cmd) => {
     if (topic.match.includes(cmd.name)) return true;
-    if (cmd.aliases?.some(a => topic.match.includes(a))) return true;
+    if (cmd.aliases?.some((a) => topic.match.includes(a))) return true;
     return false;
   });
 

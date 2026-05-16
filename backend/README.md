@@ -175,6 +175,35 @@ bun run monitor           # 系统监控
 
 完整文档位于 `docs/` 目录，建议新用户从 [📖 用户引导](docs/用户引导/guide.md) 开始。
 
+## 四产品对标分析 (2026-05-16)
+
+本项目与 Claude Code (cc_code)、OpenClaw、Hermes Agent 三个参考产品进行了全面、客观、函数级深度的对标分析。
+
+| 对标文档 | 内容概要 |
+|---------|---------|
+| [对标执行步骤](../dev_docs/四产品对标执行步骤.md) | 四阶段递进方法论 + 质量门禁标准 |
+| [模块清单 - BA](../dev_docs/20260516/inventory/backend-inventory.md) | PY_APP backend 68模块完整清单 |
+| [模块清单 - CC](../dev_docs/20260516/inventory/cc_code-inventory.md) | Claude Code 34模块清单 |
+| [模块清单 - OC](../dev_docs/20260516/inventory/openclaw-inventory.md) | OpenClaw 61模块清单 |
+| [模块清单 - HE](../dev_docs/20260516/inventory/hermes-inventory.md) | Hermes Agent 11模块清单 |
+| [对标维度框架](../dev_docs/20260516/dimensions.md) | 60个对标维度及度量指标 |
+| [逐维对比矩阵](../dev_docs/20260516/matrix/comparison-matrix.md) | 四产品13大类60维度详细对比 |
+| [完整分析报告](../dev_docs/20260516/report.md) | 含雷达图、优劣势分析、改进建议 |
+
+### 核心结论摘要
+
+在 60 个对标维度中，PY_APP backend 在 **35 个维度领先 (58.3%)**，整体综合评分四产品最高。
+
+| 最强领域 | 最弱领域 |
+|---------|---------|
+| ✅ 工具管理框架（权限/监控/编排/预算） | ❌ 无 Docker 沙箱 |
+| ✅ 安全系统（审计/组策略/语义分析） | ❌ 无向量记忆/知识库 |
+| ✅ 网关与渠道（15+渠道/协议帧/路由） | ❌ 无 i18n 国际化 |
+| ✅ AI 遥测与成本分析 | ❌ 无 LSP 集成 |
+| ✅ 存储系统（SQLite+FTS5/缓存） | ❌ 代码规模较小（28% of CC） |
+
+详细比对结果见 [完整分析报告](../dev_docs/20260516/report.md)。
+
 ## 许可证
 
 MIT

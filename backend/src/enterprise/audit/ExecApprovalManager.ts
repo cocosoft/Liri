@@ -282,7 +282,10 @@ export class ExecApprovalManager {
    * @param reason    取消原因（可选）
    * @returns 更新后的审批请求
    */
-  async cancel(requestId: string, reason?: string): Promise<ExecApprovalRequest> {
+  async cancel(
+    requestId: string,
+    reason?: string
+  ): Promise<ExecApprovalRequest> {
     const request = this.requests.get(requestId);
     if (!request) {
       throw new AppError(
@@ -375,7 +378,10 @@ export class ExecApprovalManager {
    * @param event    事件类型
    * @param listener 监听器
    */
-  on(event: ExecApprovalEvent, listener: (request: ExecApprovalRequest) => void): void {
+  on(
+    event: ExecApprovalEvent,
+    listener: (request: ExecApprovalRequest) => void
+  ): void {
     this.emitter.on(event, listener);
   }
 
@@ -385,7 +391,10 @@ export class ExecApprovalManager {
    * @param event    事件类型
    * @param listener 监听器
    */
-  off(event: ExecApprovalEvent, listener: (request: ExecApprovalRequest) => void): void {
+  off(
+    event: ExecApprovalEvent,
+    listener: (request: ExecApprovalRequest) => void
+  ): void {
     this.emitter.off(event, listener);
   }
 
@@ -425,10 +434,7 @@ export class ExecApprovalManager {
     let count = 0;
 
     for (const [id, req] of this.requests) {
-      if (
-        req.updatedAt <= cutoff &&
-        req.status !== 'pending'
-      ) {
+      if (req.updatedAt <= cutoff && req.status !== 'pending') {
         this.requests.delete(id);
         count++;
       }

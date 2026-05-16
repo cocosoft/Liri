@@ -6,7 +6,9 @@ export const SessionConfigSchema = Type.Object({
   conversationId: Type.String({ minLength: 1 }),
   participantId: Type.String({ minLength: 1 }),
   participantName: Type.Optional(Type.String()),
-  idleTimeoutMs: Type.Optional(Type.Integer({ minimum: 1000, default: 1800000 })),
+  idleTimeoutMs: Type.Optional(
+    Type.Integer({ minimum: 1000, default: 1800000 })
+  ),
   maxIdleCount: Type.Optional(Type.Integer({ minimum: 1, default: 10 })),
   resetPolicy: Type.Optional(
     Type.Union([

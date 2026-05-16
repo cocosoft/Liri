@@ -65,7 +65,7 @@ export class FileDocsProvider {
    */
   private async scanDirectory(
     dirPath: string,
-    entries: FileDocEntry[],
+    entries: FileDocEntry[]
   ): Promise<void> {
     let dirEntries: string[];
     try {
@@ -142,7 +142,7 @@ export class FileDocsProvider {
       (entry) =>
         entry.title.toLowerCase().includes(lowerQuery) ||
         entry.content.toLowerCase().includes(lowerQuery) ||
-        entry.category.toLowerCase().includes(lowerQuery),
+        entry.category.toLowerCase().includes(lowerQuery)
     );
   }
 
@@ -173,5 +173,5 @@ export class FileDocsProvider {
 }
 
 export const fileDocsProvider = new FileDocsProvider(
-  join(import.meta.dirname, '..', '..', 'docs'),
+  join(import.meta.dirname, '..', '..', 'docs')
 );

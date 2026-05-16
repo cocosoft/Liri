@@ -110,7 +110,11 @@ function createWeComChannel(): IChannelPlugin {
               ErrorCategory.API,
               ErrorSeverity.HIGH,
               'API_ERROR',
-              { channel: 'wecom', errcode: data['errcode'], errmsg: data['errmsg'] }
+              {
+                channel: 'wecom',
+                errcode: data['errcode'],
+                errmsg: data['errmsg'],
+              }
             );
           }
           state.accessToken = data['access_token'] as string;

@@ -381,7 +381,9 @@ const docsCommand = {
       ...DOC_SECTIONS.map((s, i) => `  ${i + 1}. ${s.title}`),
       '',
       `文件章节 (docs/):`,
-      ...fileDocs.map((d, i) => `  ${i + 1}. ${d.title} (docs/${d.relativePath})`),
+      ...fileDocs.map(
+        (d, i) => `  ${i + 1}. ${d.title} (docs/${d.relativePath})`
+      ),
       '',
       `共 ${DOC_SECTIONS.length + fileDocs.length} 个章节`,
       '',
@@ -464,22 +466,26 @@ const docsCommand = {
     const lines = [
       `🔍 找到 ${total} 个与"${query}"相关的结果`,
       '',
-      ...(results.length > 0 ? [
-        '内置章节:',
-        ...results.map(
-          (s, i) =>
-            `${i + 1}. ${s.title}\n   ${s.content.split('\n')[0].replace(/[#*]/g, '').trim()}`
-        ),
-        '',
-      ] : []),
-      ...(fileResults.length > 0 ? [
-        'docs/ 目录文档:',
-        ...fileResults.map(
-          (d, i) =>
-            `${i + 1}. ${d.title} (docs/${d.relativePath})\n   ${d.content.split('\n')[0].replace(/[#*]/g, '').trim()}`
-        ),
-        '',
-      ] : []),
+      ...(results.length > 0
+        ? [
+            '内置章节:',
+            ...results.map(
+              (s, i) =>
+                `${i + 1}. ${s.title}\n   ${s.content.split('\n')[0].replace(/[#*]/g, '').trim()}`
+            ),
+            '',
+          ]
+        : []),
+      ...(fileResults.length > 0
+        ? [
+            'docs/ 目录文档:',
+            ...fileResults.map(
+              (d, i) =>
+                `${i + 1}. ${d.title} (docs/${d.relativePath})\n   ${d.content.split('\n')[0].replace(/[#*]/g, '').trim()}`
+            ),
+            '',
+          ]
+        : []),
       '使用 /docs <章节名> 查看完整内容。',
     ];
 

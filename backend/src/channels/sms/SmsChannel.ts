@@ -67,12 +67,19 @@ export class SmsChannel extends EventEmitter {
       return false;
     }
 
-    if (this.config.provider === 'twilio' && (!this.config.accountSid || !this.config.authToken)) {
+    if (
+      this.config.provider === 'twilio' &&
+      (!this.config.accountSid || !this.config.authToken)
+    ) {
       this.emit('error', { message: 'Twilio 凭证未配置' });
       return false;
     }
 
-    if ((this.config.provider === 'aliyun' || this.config.provider === 'tencent') && (!this.config.apiKey || !this.config.apiSecret)) {
+    if (
+      (this.config.provider === 'aliyun' ||
+        this.config.provider === 'tencent') &&
+      (!this.config.apiKey || !this.config.apiSecret)
+    ) {
       this.emit('error', { message: `${this.config.provider} 凭证未配置` });
       return false;
     }

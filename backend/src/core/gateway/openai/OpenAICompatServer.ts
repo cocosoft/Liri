@@ -498,8 +498,14 @@ export class OpenAICompatServer {
         finished = true;
         clearInterval(interval);
 
-        const finalResponse = this.buildResponsesBody(request, content, responseId);
-        res.write(`event: response.done\ndata: ${JSON.stringify({ type: 'response.done', response: finalResponse })}\n\n`);
+        const finalResponse = this.buildResponsesBody(
+          request,
+          content,
+          responseId
+        );
+        res.write(
+          `event: response.done\ndata: ${JSON.stringify({ type: 'response.done', response: finalResponse })}\n\n`
+        );
         res.end();
         return;
       }

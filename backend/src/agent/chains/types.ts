@@ -134,7 +134,13 @@ export interface ChainProgressEvent {
   /** 链 ID */
   chainId: string;
   /** 事件类型 */
-  type: 'step_start' | 'step_complete' | 'step_fail' | 'chain_complete' | 'chain_fail' | 'chain_abort';
+  type:
+    | 'step_start'
+    | 'step_complete'
+    | 'step_fail'
+    | 'chain_complete'
+    | 'chain_fail'
+    | 'chain_abort';
   /** 当前步骤 */
   currentStep: number;
   /** 总步骤数 */

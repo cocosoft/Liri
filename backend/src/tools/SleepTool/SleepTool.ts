@@ -12,7 +12,8 @@ interface SleepInput {
 
 export class SleepTool extends BaseTool<Record<string, unknown>> {
   name = 'sleep';
-  description = 'Pause execution for a specified duration. Use when you need to wait before proceeding (e.g., waiting for a resource, rate limiting, or timing).';
+  description =
+    'Pause execution for a specified duration. Use when you need to wait before proceeding (e.g., waiting for a resource, rate limiting, or timing).';
   params: ToolParam[] = [
     {
       name: 'durationMs',
@@ -41,7 +42,10 @@ export class SleepTool extends BaseTool<Record<string, unknown>> {
       const { durationMs, reason } = input as unknown as SleepInput;
 
       if (!durationMs || typeof durationMs !== 'number') {
-        return { success: false, error: 'durationMs is required and must be a number' };
+        return {
+          success: false,
+          error: 'durationMs is required and must be a number',
+        };
       }
 
       if (durationMs < 100) {
@@ -49,7 +53,10 @@ export class SleepTool extends BaseTool<Record<string, unknown>> {
       }
 
       if (durationMs > 300000) {
-        return { success: false, error: 'durationMs must not exceed 300000ms (5 minutes)' };
+        return {
+          success: false,
+          error: 'durationMs must not exceed 300000ms (5 minutes)',
+        };
       }
 
       const start = Date.now();

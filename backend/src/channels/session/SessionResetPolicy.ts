@@ -5,7 +5,10 @@
  */
 
 import { EventEmitter } from 'node:events';
-import type { ChannelSession, ChannelSessionStatus } from './ChannelSessionManager';
+import type {
+  ChannelSession,
+  ChannelSessionStatus,
+} from './ChannelSessionManager';
 
 /**
  * 重置策略类型
@@ -348,7 +351,9 @@ export class SessionResetPolicy extends EventEmitter {
   /**
    * 拍摄会话快照
    */
-  private takeSnapshot(session: ChannelSession): ResetEvaluation['sessionSnapshot'] {
+  private takeSnapshot(
+    session: ChannelSession
+  ): ResetEvaluation['sessionSnapshot'] {
     return {
       id: session.id,
       status: session.status,

@@ -183,13 +183,14 @@ export class PlaywrightBrowserDriver {
         const ok = this.config.allowedDomains.some(
           (d) => hostname === d || hostname.endsWith('.' + d)
         );
-        if (!ok) throw new AppError(
-          `域名 ${hostname} 不在白名单中`,
-          ErrorCategory.PERMISSION,
-          ErrorSeverity.HIGH,
-          'PERMISSION_DENIED',
-          { hostname }
-        );
+        if (!ok)
+          throw new AppError(
+            `域名 ${hostname} 不在白名单中`,
+            ErrorCategory.PERMISSION,
+            ErrorSeverity.HIGH,
+            'PERMISSION_DENIED',
+            { hostname }
+          );
       } catch {
         // 相对路径，忽略
       }
@@ -202,13 +203,14 @@ export class PlaywrightBrowserDriver {
   ): Promise<BrowserResult> {
     switch (action.action) {
       case 'navigate': {
-        if (!action.url) throw new AppError(
-          'navigate 需要 url 参数',
-          ErrorCategory.VALIDATION,
-          ErrorSeverity.HIGH,
-          'INVALID_INPUT',
-          { action: 'navigate' }
-        );
+        if (!action.url)
+          throw new AppError(
+            'navigate 需要 url 参数',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { action: 'navigate' }
+          );
         const goto = page['goto'] as (
           u: string,
           o: Record<string, unknown>
@@ -227,13 +229,14 @@ export class PlaywrightBrowserDriver {
         };
       }
       case 'click': {
-        if (!action.selector) throw new AppError(
-          'click 需要 selector 参数',
-          ErrorCategory.VALIDATION,
-          ErrorSeverity.HIGH,
-          'INVALID_INPUT',
-          { action: 'click' }
-        );
+        if (!action.selector)
+          throw new AppError(
+            'click 需要 selector 参数',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { action: 'click' }
+          );
         const click = page['click'] as (s: string) => Promise<void>;
         await click(action.selector);
         return {
@@ -311,13 +314,14 @@ export class PlaywrightBrowserDriver {
         };
       }
       case 'evaluate': {
-        if (!action.script) throw new AppError(
-          'evaluate 需要 script 参数',
-          ErrorCategory.VALIDATION,
-          ErrorSeverity.HIGH,
-          'INVALID_INPUT',
-          { action: 'evaluate' }
-        );
+        if (!action.script)
+          throw new AppError(
+            'evaluate 需要 script 参数',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { action: 'evaluate' }
+          );
         const evalFn = page['evaluate'] as (s: string) => Promise<unknown>;
         const val = await evalFn(action.script);
         return {

@@ -79,13 +79,22 @@ export class MSTeamsChannel extends EventEmitter {
   /**
    * 发送消息到频道
    */
-  async sendMessage(teamId: string, channelId: string, text: string): Promise<boolean> {
+  async sendMessage(
+    teamId: string,
+    channelId: string,
+    text: string
+  ): Promise<boolean> {
     if (!this.connected) {
       this.emit('error', new Error('未连接'));
       return false;
     }
 
-    this.emit('message:sent', { teamId, channelId, text, timestamp: Date.now() });
+    this.emit('message:sent', {
+      teamId,
+      channelId,
+      text,
+      timestamp: Date.now(),
+    });
 
     return true;
   }
@@ -99,7 +108,12 @@ export class MSTeamsChannel extends EventEmitter {
       return false;
     }
 
-    this.emit('message:sent', { userId, text, conversationType: 'personal', timestamp: Date.now() });
+    this.emit('message:sent', {
+      userId,
+      text,
+      conversationType: 'personal',
+      timestamp: Date.now(),
+    });
 
     return true;
   }

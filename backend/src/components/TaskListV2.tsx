@@ -6,7 +6,13 @@
 import React, { useState } from 'react';
 import { Text, Box } from 'ink';
 
-export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled';
+export type TaskStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'skipped'
+  | 'cancelled';
 
 export interface TaskItem {
   /** 任务ID */
@@ -80,7 +86,13 @@ const priorityColors: Record<string, string> = {
   critical: 'red',
 };
 
-function ProgressBar({ percent, width = 20 }: { percent: number; width?: number }): React.ReactNode {
+function ProgressBar({
+  percent,
+  width = 20,
+}: {
+  percent: number;
+  width?: number;
+}): React.ReactNode {
   const filled = Math.round((percent / 100) * width);
   const empty = width - filled;
 
@@ -115,7 +127,9 @@ function renderTask(
         <Text> </Text>
         <Text
           bold={task.status === 'running'}
-          strikethrough={task.status === 'cancelled' || task.status === 'skipped'}
+          strikethrough={
+            task.status === 'cancelled' || task.status === 'skipped'
+          }
           color={task.status === 'failed' ? 'red' : undefined}
         >
           {task.title}
@@ -124,7 +138,11 @@ function renderTask(
           <>
             <Text> </Text>
             <Text color={priorityColors[task.priority]}>
-              {task.priority === 'critical' ? '!!!' : task.priority === 'high' ? '!!' : '!'}
+              {task.priority === 'critical'
+                ? '!!!'
+                : task.priority === 'high'
+                  ? '!!'
+                  : '!'}
             </Text>
           </>
         )}
@@ -138,13 +156,11 @@ function renderTask(
             ))}
           </>
         )}
-        {task.description && (
-          <Text> </Text>
-        )}
+        {task.description && <Text> </Text>}
       </Box>
       {task.description && (
         <Box>
-          <Text>{indent}  </Text>
+          <Text>{indent} </Text>
           <Text color="gray" dim>
             {task.description}
           </Text>
@@ -152,7 +168,7 @@ function renderTask(
       )}
       {task.progress !== undefined && task.status === 'running' && (
         <Box>
-          <Text>{indent}  </Text>
+          <Text>{indent} </Text>
           <ProgressBar percent={task.progress} />
         </Box>
       )}
@@ -202,7 +218,8 @@ export function TaskListV2({
     );
   }
 
-  const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const overallProgress =
+    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   const displayGroups = maxTasks
     ? groups.map((g) => ({
@@ -214,21 +231,11 @@ export function TaskListV2({
   return (
     <Box flexDirection="column" width="100%">
       <Box marginBottom={1}>
-        <Text bold>
-          {'任务列表 '}
-        </Text>
+        <Text bold>{'任务列表 '}</Text>
         <Text color="gray" dim>
           ({completedTasks}/{totalTasks}
-          {failedTasks > 0 && (
-            <Text color="red">
-              {' '}{failedTasks} 失败
-            </Text>
-          )}
-          {runningTasks > 0 && (
-            <Text color="cyan">
-              {' '}{runningTasks} 运行中
-            </Text>
-          )}
+          {failedTasks > 0 && <Text color="red"> {failedTasks} 失败</Text>}
+          {runningTasks > 0 && <Text color="cyan"> {runningTasks} 运行中</Text>}
           )
         </Text>
       </Box>
@@ -239,20 +246,34 @@ export function TaskListV2({
       )}
       <Box flexDirection="column">
         {displayGroups.map((group, groupIdx) => (
-          <Box key={groupIdx} flexDirection="column" marginBottom={groupIdx < groups.length - 1 ? 1 : 0}>
+          <Box
+            key={groupIdx}
+            flexDirection="column"
+            marginBottom={groupIdx < groups.length - 1 ? 1 : 0}
+          >
             {showGroups && (
               <Box marginBottom={1}>
                 <Text bold color="cyan">
-                  {'▸ '}{group.name}
+                  {'▸ '}
+                  {group.name}
                 </Text>
                 <Text color="gray" dim>
-                  {' ('}{group.tasks.filter((t) => t.status === 'completed').length}/{group.tasks.length}{')'}
+                  {' ('}
+                  {group.tasks.filter((t) => t.status === 'completed').length}/
+                  {group.tasks.length}
+                  {')'}
                 </Text>
               </Box>
             )}
             <Box flexDirection="column">
               {group.tasks.map((task) =>
-                renderTask(task, showGroups ? 0 : 0, expanded, showPriority, showTags)
+                renderTask(
+                  task,
+                  showGroups ? 0 : 0,
+                  expanded,
+                  showPriority,
+                  showTags
+                )
               )}
             </Box>
           </Box>

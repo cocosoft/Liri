@@ -124,7 +124,11 @@ export class GroupPolicy extends EventEmitter {
   /**
    * 添加组成员
    */
-  addMember(userId: string, groupId: string, role: GroupMember['role'] = 'member'): boolean {
+  addMember(
+    userId: string,
+    groupId: string,
+    role: GroupMember['role'] = 'member'
+  ): boolean {
     const group = this.groups.get(groupId);
     if (!group) return false;
 
@@ -216,7 +220,9 @@ export class GroupPolicy extends EventEmitter {
    */
   evaluate(userId: string, toolName: string): PolicyEvaluation {
     const policies = this.getUserPolicies(userId);
-    const matchedRules = policies.filter((p) => p.tools.includes('*') || p.tools.includes(toolName));
+    const matchedRules = policies.filter(
+      (p) => p.tools.includes('*') || p.tools.includes(toolName)
+    );
 
     if (matchedRules.length === 0) {
       return {

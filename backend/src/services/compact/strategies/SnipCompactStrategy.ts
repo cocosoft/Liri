@@ -60,7 +60,10 @@ export class SnipCompactStrategy extends ContextEngine {
   }
 
   canHandle(message: Message): boolean {
-    return message.role !== 'system' || (this.getConfig() as SnipCompactConfig).preserveSystemMessages;
+    return (
+      message.role !== 'system' ||
+      (this.getConfig() as SnipCompactConfig).preserveSystemMessages
+    );
   }
 
   evaluate(messages: Message[], context: CompactContext): CompactDecision {
@@ -111,7 +114,10 @@ export class SnipCompactStrategy extends ContextEngine {
     };
   }
 
-  compact(messages: Message[], options?: Partial<CompactConfig>): CompactResult {
+  compact(
+    messages: Message[],
+    options?: Partial<CompactConfig>
+  ): CompactResult {
     const startTime = Date.now();
     const originalTokenCount = this.getTotalTokenCount(messages);
     const config = { ...this.getConfig(), ...options } as SnipCompactConfig;
@@ -155,7 +161,9 @@ export class SnipCompactStrategy extends ContextEngine {
       removedCount = range.end - range.start;
 
       if (originalTokenCount >= config.summaryInsertThreshold) {
-        resultMessages.push(this.createSnippedMarker(removedCount, originalTokenCount));
+        resultMessages.push(
+          this.createSnippedMarker(removedCount, originalTokenCount)
+        );
       }
     }
 
@@ -187,7 +195,10 @@ export class SnipCompactStrategy extends ContextEngine {
   /**
    * 创建裁剪占位标记消息
    */
-  private createSnippedMarker(removedCount: number, totalTokens: number): Message {
+  private createSnippedMarker(
+    removedCount: number,
+    totalTokens: number
+  ): Message {
     return {
       id: `snip_marker_${Date.now()}`,
       role: 'system',

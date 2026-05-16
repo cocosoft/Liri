@@ -114,13 +114,14 @@ function createDiscordChannel(): IChannelPlugin {
         state.botToken = (config['botToken'] as string) || '';
         state.clientId = (config['clientId'] as string) || '';
 
-        if (!state.botToken) throw new AppError(
-          'Discord: botToken 是必需的',
-          ErrorCategory.VALIDATION,
-          ErrorSeverity.HIGH,
-          'INVALID_INPUT',
-          { channel: 'discord', missing: ['botToken'] }
-        );
+        if (!state.botToken)
+          throw new AppError(
+            'Discord: botToken 是必需的',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { channel: 'discord', missing: ['botToken'] }
+          );
 
         state.startTime = Date.now();
 

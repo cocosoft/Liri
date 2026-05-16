@@ -28,7 +28,9 @@ const DEFAULT_CONFIG: InsightGeneratorConfig = {
   includeSummary: true,
 };
 
-type CallLLMFn = (messages: Array<{ role: string; content: string }>) => Promise<string | null>;
+type CallLLMFn = (
+  messages: Array<{ role: string; content: string }>
+) => Promise<string | null>;
 
 export class InsightGenerator {
   private config: InsightGeneratorConfig;
@@ -47,7 +49,7 @@ export class InsightGenerator {
    */
   async generateInsights(
     messages: Array<{ role: string; content: string; index: number }>,
-    callLLM: CallLLMFn,
+    callLLM: CallLLMFn
   ): Promise<ConversationInsight[]> {
     if (messages.length < this.config.minMessageCount) {
       return [];
@@ -84,7 +86,7 @@ export class InsightGenerator {
    */
   async maybeGenerateInsights(
     messages: Array<{ role: string; content: string; index: number }>,
-    callLLM: CallLLMFn,
+    callLLM: CallLLMFn
   ): Promise<ConversationInsight[]> {
     const now = Date.now();
     const newMessageCount = messages.length - this.lastMessageCount;
@@ -105,7 +107,7 @@ export class InsightGenerator {
    * 构建洞察分析提示
    */
   private buildInsightPrompt(
-    messages: Array<{ role: string; content: string; index: number }>,
+    messages: Array<{ role: string; content: string; index: number }>
   ): string | null {
     if (messages.length === 0) return null;
 
@@ -129,7 +131,10 @@ export class InsightGenerator {
   /**
    * 解析 LLM 返回的洞察数据
    */
-  private parseInsights(raw: string, messageCount: number): ConversationInsight[] {
+  private parseInsights(
+    raw: string,
+    messageCount: number
+  ): ConversationInsight[] {
     try {
       const jsonStart = raw.indexOf('[');
       const jsonEnd = raw.lastIndexOf(']');
@@ -143,16 +148,18 @@ export class InsightGenerator {
       return parsed
         .filter(
           (item: unknown): item is Record<string, unknown> =>
-            typeof item === 'object' && item !== null,
+            typeof item === 'object' && item !== null
         )
         .map(
           (item: Record<string, unknown>): ConversationInsight => ({
             type: this.normalizeType(String(item.type || 'summary')),
             content: String(item.content || ''),
-            confidence: this.normalizeConfidence(String(item.confidence || 'low')),
+            confidence: this.normalizeConfidence(
+              String(item.confidence || 'low')
+            ),
             timestamp: Date.now(),
             relatedMessages: this.computeRelatedMessages(messageCount),
-          }),
+          })
         )
         .filter((i) => i.content.length > 0)
         .slice(0, this.config.maxInsights);
@@ -168,7 +175,9 @@ export class InsightGenerator {
       : 'summary';
   }
 
-  private normalizeConfidence(confidence: string): ConversationInsight['confidence'] {
+  private normalizeConfidence(
+    confidence: string
+  ): ConversationInsight['confidence'] {
     const valid = ['high', 'medium', 'low'];
     return valid.includes(confidence)
       ? (confidence as ConversationInsight['confidence'])
@@ -177,7 +186,10 @@ export class InsightGenerator {
 
   private computeRelatedMessages(messageCount: number): number[] {
     const start = Math.max(0, messageCount - 5);
-    return Array.from({ length: Math.min(5, messageCount) }, (_, i) => start + i);
+    return Array.from(
+      { length: Math.min(5, messageCount) },
+      (_, i) => start + i
+    );
   }
 
   getConfig(): InsightGeneratorConfig {
@@ -187,7 +199,9 @@ export class InsightGenerator {
 
 let globalInsightGenerator: InsightGenerator | null = null;
 
-export function getInsightGenerator(config?: Partial<InsightGeneratorConfig>): InsightGenerator {
+export function getInsightGenerator(
+  config?: Partial<InsightGeneratorConfig>
+): InsightGenerator {
   if (!globalInsightGenerator) {
     globalInsightGenerator = new InsightGenerator(config);
   }

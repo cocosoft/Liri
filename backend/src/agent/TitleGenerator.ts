@@ -27,7 +27,10 @@ const DEFAULT_CONFIG: TitleGeneratorConfig = {
   temperature: 0.3,
 };
 
-export type TitleGenerationCallback = (title: string | null, error?: Error) => void;
+export type TitleGenerationCallback = (
+  title: string | null,
+  error?: Error
+) => void;
 
 /**
  * 对话消息接口
@@ -53,7 +56,9 @@ export class TitleGenerator {
    */
   async generateTitle(
     messages: Message[],
-    callLLM: (messages: Array<{ role: string; content: string }>) => Promise<string | null>,
+    callLLM: (
+      messages: Array<{ role: string; content: string }>
+    ) => Promise<string | null>
   ): Promise<string | null>;
 
   /**
@@ -66,7 +71,9 @@ export class TitleGenerator {
   async generateTitle(
     userMessage: string,
     assistantResponse: string,
-    callLLM: (messages: Array<{ role: string; content: string }>) => Promise<string | null>,
+    callLLM: (
+      messages: Array<{ role: string; content: string }>
+    ) => Promise<string | null>
   ): Promise<string | null>;
 
   /**
@@ -74,12 +81,20 @@ export class TitleGenerator {
    */
   async generateTitle(
     userMessageOrMessages: string | Message[],
-    assistantResponseOrCallLLM: string | ((messages: Array<{ role: string; content: string }>) => Promise<string | null>),
-    callLLM?: (messages: Array<{ role: string; content: string }>) => Promise<string | null>,
+    assistantResponseOrCallLLM:
+      | string
+      | ((
+          messages: Array<{ role: string; content: string }>
+        ) => Promise<string | null>),
+    callLLM?: (
+      messages: Array<{ role: string; content: string }>
+    ) => Promise<string | null>
   ): Promise<string | null> {
     let userSnippet: string;
     let assistantSnippet: string;
-    let llmFn: (messages: Array<{ role: string; content: string }>) => Promise<string | null>;
+    let llmFn: (
+      messages: Array<{ role: string; content: string }>
+    ) => Promise<string | null>;
 
     if (Array.isArray(userMessageOrMessages)) {
       const messages = userMessageOrMessages;
@@ -87,10 +102,15 @@ export class TitleGenerator {
       const assistantMsg = messages.find((m) => m.role === 'assistant');
       userSnippet = (userMsg?.content || '').slice(0, 500);
       assistantSnippet = (assistantMsg?.content || '').slice(0, 500);
-      llmFn = assistantResponseOrCallLLM as (messages: Array<{ role: string; content: string }>) => Promise<string | null>;
+      llmFn = assistantResponseOrCallLLM as (
+        messages: Array<{ role: string; content: string }>
+      ) => Promise<string | null>;
     } else {
       userSnippet = (userMessageOrMessages || '').slice(0, 500);
-      assistantSnippet = (assistantResponseOrCallLLM as string || '').slice(0, 500);
+      assistantSnippet = ((assistantResponseOrCallLLM as string) || '').slice(
+        0,
+        500
+      );
       llmFn = callLLM!;
     }
 
@@ -123,8 +143,10 @@ export class TitleGenerator {
   async generateTitleAsync(
     sessionId: string,
     messages: Message[],
-    callLLM: (messages: Array<{ role: string; content: string }>) => Promise<string | null>,
-    callback?: TitleGenerationCallback,
+    callLLM: (
+      messages: Array<{ role: string; content: string }>
+    ) => Promise<string | null>,
+    callback?: TitleGenerationCallback
   ): Promise<void>;
 
   /**
@@ -139,8 +161,10 @@ export class TitleGenerator {
     sessionId: string,
     userMessage: string,
     assistantResponse: string,
-    callLLM: (messages: Array<{ role: string; content: string }>) => Promise<string | null>,
-    callback?: TitleGenerationCallback,
+    callLLM: (
+      messages: Array<{ role: string; content: string }>
+    ) => Promise<string | null>,
+    callback?: TitleGenerationCallback
   ): Promise<void>;
 
   /**
@@ -154,16 +178,26 @@ export class TitleGenerator {
   async generateTitleAsync(
     sessionId: string,
     userMessageOrMessages: string | Message[],
-    assistantResponseOrCallLLM: string | ((messages: Array<{ role: string; content: string }>) => Promise<string | null>),
-    callLLMOrCallback?: ((messages: Array<{ role: string; content: string }>) => Promise<string | null>) | TitleGenerationCallback,
-    callback?: TitleGenerationCallback,
+    assistantResponseOrCallLLM:
+      | string
+      | ((
+          messages: Array<{ role: string; content: string }>
+        ) => Promise<string | null>),
+    callLLMOrCallback?:
+      | ((
+          messages: Array<{ role: string; content: string }>
+        ) => Promise<string | null>)
+      | TitleGenerationCallback,
+    callback?: TitleGenerationCallback
   ): Promise<void> {
     let promise: Promise<string | null>;
 
     if (Array.isArray(userMessageOrMessages)) {
       promise = this.generateTitle(
         userMessageOrMessages,
-        assistantResponseOrCallLLM as (messages: Array<{ role: string; content: string }>) => Promise<string | null>,
+        assistantResponseOrCallLLM as (
+          messages: Array<{ role: string; content: string }>
+        ) => Promise<string | null>
       );
       this.pendingGenerations.set(sessionId, promise);
       try {
@@ -180,7 +214,9 @@ export class TitleGenerator {
 
     const userMessage = userMessageOrMessages as string;
     const assistantResponse = assistantResponseOrCallLLM as string;
-    const callLLM = callLLMOrCallback as (messages: Array<{ role: string; content: string }>) => Promise<string | null>;
+    const callLLM = callLLMOrCallback as (
+      messages: Array<{ role: string; content: string }>
+    ) => Promise<string | null>;
 
     promise = this.generateTitle(userMessage, assistantResponse, callLLM);
     this.pendingGenerations.set(sessionId, promise);
@@ -226,7 +262,9 @@ export class TitleGenerator {
 
 let globalTitleGenerator: TitleGenerator | null = null;
 
-export function getTitleGenerator(config?: Partial<TitleGeneratorConfig>): TitleGenerator {
+export function getTitleGenerator(
+  config?: Partial<TitleGeneratorConfig>
+): TitleGenerator {
   if (!globalTitleGenerator) {
     globalTitleGenerator = new TitleGenerator(config);
   }

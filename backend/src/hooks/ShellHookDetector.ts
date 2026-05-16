@@ -49,7 +49,6 @@ export interface ShellEnvironment {
  * Shell 钩子检测器
  */
 export class ShellHookDetector {
-
   private static readonly SHELL_ENV_VARS: Record<ShellType, string[]> = {
     bash: ['BASH', 'BASH_VERSION'],
     zsh: ['ZSH_VERSION'],
@@ -263,7 +262,10 @@ export class ShellHookDetector {
       if (parentProcess.includes('fish')) return 'fish';
       if (parentProcess.includes('zsh')) return 'zsh';
       if (parentProcess.includes('bash')) return 'bash';
-      if (parentProcess.includes('powershell') || parentProcess.includes('pwsh')) {
+      if (
+        parentProcess.includes('powershell') ||
+        parentProcess.includes('pwsh')
+      ) {
         return 'powershell';
       }
     } catch {
@@ -280,7 +282,7 @@ export class ShellHookDetector {
    */
   private detectVersion(shell: ShellType): string {
     const versionVar = ShellHookDetector.SHELL_ENV_VARS[shell][1];
-    const version = versionVar ? (process.env[versionVar] || '') : '';
+    const version = versionVar ? process.env[versionVar] || '' : '';
 
     if (version) return version;
 
@@ -349,8 +351,10 @@ export class ShellHookDetector {
           encoding: 'utf-8',
         });
 
-        return output.toLowerCase().includes('microsoft') ||
-          output.toLowerCase().includes('wsl');
+        return (
+          output.toLowerCase().includes('microsoft') ||
+          output.toLowerCase().includes('wsl')
+        );
       }
     } catch {
       return false;
@@ -367,10 +371,12 @@ export class ShellHookDetector {
     const path = process.env.PATH || '';
     const shell = process.env.SHELL || '';
 
-    return path.includes('Git') ||
+    return (
+      path.includes('Git') ||
       path.includes('git') ||
       shell.includes('git-bash') ||
-      shell.includes('Git');
+      shell.includes('Git')
+    );
   }
 
   /**

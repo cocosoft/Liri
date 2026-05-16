@@ -65,13 +65,18 @@ export class ContextCollapseStrategy extends ContextEngine {
     return {
       name: 'ContextCollapseStrategy',
       version: '1.0.0',
-      description: '上下文折叠策略，将中间对话批量折叠为结构化摘要，适用于上下文极度紧张场景',
+      description:
+        '上下文折叠策略，将中间对话批量折叠为结构化摘要，适用于上下文极度紧张场景',
       supportedRoles: ['user', 'assistant'],
     };
   }
 
   canHandle(message: Message): boolean {
-    return message.role === 'user' || message.role === 'assistant' || message.role === 'tool';
+    return (
+      message.role === 'user' ||
+      message.role === 'assistant' ||
+      message.role === 'tool'
+    );
   }
 
   evaluate(messages: Message[], context: CompactContext): CompactDecision {
@@ -104,7 +109,10 @@ export class ContextCollapseStrategy extends ContextEngine {
 
     const priority = Math.min(
       100,
-      Math.max(50, Math.floor((usageRatio - config.collapseThreshold) * 200 + 50))
+      Math.max(
+        50,
+        Math.floor((usageRatio - config.collapseThreshold) * 200 + 50)
+      )
     );
 
     return {
@@ -117,7 +125,10 @@ export class ContextCollapseStrategy extends ContextEngine {
     };
   }
 
-  compact(messages: Message[], options?: Partial<CompactConfig>): CompactResult {
+  compact(
+    messages: Message[],
+    options?: Partial<CompactConfig>
+  ): CompactResult {
     const startTime = Date.now();
     const originalTokenCount = this.getTotalTokenCount(messages);
     const config = { ...this.getConfig(), ...options } as ContextCollapseConfig;

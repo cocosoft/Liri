@@ -10,7 +10,9 @@ export const WebhookConfigSchema = Type.Object({
   retryConfig: Type.Optional(
     Type.Object({
       maxRetries: Type.Optional(Type.Integer({ minimum: 0, default: 3 })),
-      retryDelayMs: Type.Optional(Type.Integer({ minimum: 100, default: 1000 })),
+      retryDelayMs: Type.Optional(
+        Type.Integer({ minimum: 100, default: 1000 })
+      ),
       exponentialBackoff: Type.Optional(Type.Boolean({ default: true })),
     })
   ),

@@ -266,7 +266,10 @@ const modelCommand = {
         if (!modelArg || modelArg === 'default') {
           const defaultModel = modelManager.getDefaultMainLoopModel();
           modelManager.setCurrentModel(defaultModel);
-          return { success: true, message: `模型已恢复为默认 (${defaultModel})` };
+          return {
+            success: true,
+            message: `模型已恢复为默认 (${defaultModel})`,
+          };
         }
         return switchModel(modelArg);
       }

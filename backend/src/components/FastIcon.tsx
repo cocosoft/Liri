@@ -21,7 +21,10 @@ export interface FastIconProps {
   showLabel?: boolean;
 }
 
-const modeConfig: Record<FastMode, { icon: string; label: string; color: string; speed: string }> = {
+const modeConfig: Record<
+  FastMode,
+  { icon: string; label: string; color: string; speed: string }
+> = {
   fast: { icon: '⚡', label: '快速', color: 'yellow', speed: '高' },
   balanced: { icon: '⚖', label: '均衡', color: 'cyan', speed: '中' },
   quality: { icon: '✦', label: '质量', color: 'magenta', speed: '低' },
@@ -45,7 +48,8 @@ export function FastIcon({
         </Text>
         {showLabel && (
           <Text color="gray" dim>
-            {' '}{config.label}
+            {' '}
+            {config.label}
           </Text>
         )}
       </Box>
@@ -71,13 +75,10 @@ export function FastIcon({
         <Text color={iconColor} bold>
           {config.icon}
         </Text>
-        {showLabel && (
-          <Text color={iconColor}>
-            {' '}{config.label}
-          </Text>
-        )}
+        {showLabel && <Text color={iconColor}> {config.label}</Text>}
         <Text color="gray" dim>
-          {' 速度:'}{config.speed}
+          {' 速度:'}
+          {config.speed}
         </Text>
       </Box>
     );
@@ -88,11 +89,7 @@ export function FastIcon({
       <Text color={iconColor} bold>
         {config.icon}
       </Text>
-      {showLabel && (
-        <Text color={iconColor}>
-          {' '}{config.label}
-        </Text>
-      )}
+      {showLabel && <Text color={iconColor}> {config.label}</Text>}
     </Box>
   );
 }

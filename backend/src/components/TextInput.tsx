@@ -83,14 +83,19 @@ export function TextInput({
 
   const displayText = password ? '*'.repeat(value.length) : value;
   const showPlaceholder = value.length === 0 && placeholder;
-  const cursorChar = cursorStyle === 'block' ? '█' : cursorStyle === 'underline' ? '‗' : '|';
+  const cursorChar =
+    cursorStyle === 'block' ? '█' : cursorStyle === 'underline' ? '‗' : '|';
 
-  const insertAtCursor = useCallback((text: string) => {
-    if (maxLength && value.length + text.length > maxLength) return;
-    const newValue = value.slice(0, cursorPos) + text + value.slice(cursorPos);
-    onChange?.(newValue);
-    setCursorPos((prev) => prev + text.length);
-  }, [value, cursorPos, onChange, maxLength]);
+  const insertAtCursor = useCallback(
+    (text: string) => {
+      if (maxLength && value.length + text.length > maxLength) return;
+      const newValue =
+        value.slice(0, cursorPos) + text + value.slice(cursorPos);
+      onChange?.(newValue);
+      setCursorPos((prev) => prev + text.length);
+    },
+    [value, cursorPos, onChange, maxLength]
+  );
 
   const deleteBackward = useCallback(() => {
     if (cursorPos <= 0) return;
@@ -116,7 +121,8 @@ export function TextInput({
 
       if (isVimMode) {
         if (key.leftArrow) setCursorPos((p) => Math.max(0, p - 1));
-        else if (key.rightArrow) setCursorPos((p) => Math.min(value.length, p + 1));
+        else if (key.rightArrow)
+          setCursorPos((p) => Math.min(value.length, p + 1));
         else if (key.upArrow) setCursorPos(0);
         else if (key.downArrow) setCursorPos(value.length);
         else if (input === 'i' || input === 'a') setIsVimMode(false);
@@ -183,7 +189,9 @@ export function TextInput({
 
   const renderInputLine = (): React.ReactNode => {
     if (showPlaceholder) {
-      return <Text color={style.placeholderColor || 'gray'}>{placeholder}</Text>;
+      return (
+        <Text color={style.placeholderColor || 'gray'}>{placeholder}</Text>
+      );
     }
 
     return (
@@ -196,7 +204,9 @@ export function TextInput({
   };
 
   if (multiline) {
-    const borderClr = focus ? (style.focusBorderColor || 'cyan') : (style.borderColor || 'gray');
+    const borderClr = focus
+      ? style.focusBorderColor || 'cyan'
+      : style.borderColor || 'gray';
     return (
       <Box flexDirection="column" width={style.width || 60}>
         <Box borderStyle="round" borderColor={borderClr}>
@@ -215,9 +225,5 @@ export function TextInput({
     );
   }
 
-  return (
-    <Box>
-      {renderInputLine()}
-    </Box>
-  );
+  return <Box>{renderInputLine()}</Box>;
 }

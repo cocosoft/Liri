@@ -79,7 +79,10 @@ export class ReactiveCompactStrategy extends ContextEngine {
     const config = this.getConfig() as ReactiveCompactConfig;
 
     if (this.consecutiveFailures >= config.circuitBreakerThreshold) {
-      if (this.lastCompactTime > 0 && Date.now() - this.lastCompactTime > config.circuitBreakerResetTime) {
+      if (
+        this.lastCompactTime > 0 &&
+        Date.now() - this.lastCompactTime > config.circuitBreakerResetTime
+      ) {
         this.consecutiveFailures = 0;
       } else {
         return {
@@ -104,7 +107,11 @@ export class ReactiveCompactStrategy extends ContextEngine {
       };
     }
 
-    const roundCheck = this.checkRoundGrowth(context.sessionId, context.currentTokens, config);
+    const roundCheck = this.checkRoundGrowth(
+      context.sessionId,
+      context.currentTokens,
+      config
+    );
     if (roundCheck && roundCheck.shouldCompact) {
       return roundCheck;
     }
@@ -131,7 +138,10 @@ export class ReactiveCompactStrategy extends ContextEngine {
     };
   }
 
-  compact(messages: Message[], options?: Partial<CompactConfig>): CompactResult {
+  compact(
+    messages: Message[],
+    options?: Partial<CompactConfig>
+  ): CompactResult {
     const startTime = Date.now();
     const originalTokenCount = this.getTotalTokenCount(messages);
     const config = { ...this.getConfig(), ...options } as ReactiveCompactConfig;
@@ -255,7 +265,10 @@ export class ReactiveCompactStrategy extends ContextEngine {
     const config = this.getConfig() as ReactiveCompactConfig;
 
     if (this.consecutiveFailures >= config.circuitBreakerThreshold) {
-      if (this.lastCompactTime > 0 && Date.now() - this.lastCompactTime > config.circuitBreakerResetTime) {
+      if (
+        this.lastCompactTime > 0 &&
+        Date.now() - this.lastCompactTime > config.circuitBreakerResetTime
+      ) {
         this.consecutiveFailures = 0;
       }
     }
@@ -321,7 +334,10 @@ export class ReactiveCompactStrategy extends ContextEngine {
       return false;
     }
 
-    if (this.lastCompactTime > 0 && Date.now() - this.lastCompactTime > config.circuitBreakerResetTime) {
+    if (
+      this.lastCompactTime > 0 &&
+      Date.now() - this.lastCompactTime > config.circuitBreakerResetTime
+    ) {
       this.consecutiveFailures = 0;
       return false;
     }

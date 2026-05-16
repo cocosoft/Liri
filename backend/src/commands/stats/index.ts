@@ -4,7 +4,11 @@
  * 提供 session/tools/tokens 三个维度的统计
  */
 
-import type { Command, CommandContext, CommandResult } from '@modules/commands/types';
+import type {
+  Command,
+  CommandContext,
+  CommandResult,
+} from '@modules/commands/types';
 import { getCommandManager } from '@modules/commands/manager/CommandManager.js';
 
 /**
@@ -26,8 +30,11 @@ interface StatsData {
 function collectSystemStats(): StatsData {
   const commandManager = getCommandManager();
   const commands = commandManager.getAllCommands();
-  const visible = commands.filter(c => !c.isHidden);
-  const aliasCount = commands.reduce((acc, c) => acc + (c.aliases?.length || 0), 0);
+  const visible = commands.filter((c) => !c.isHidden);
+  const aliasCount = commands.reduce(
+    (acc, c) => acc + (c.aliases?.length || 0),
+    0
+  );
 
   return {
     totalCommands: commands.length,
@@ -68,7 +75,9 @@ function handleSession(): CommandResult {
  */
 async function handleTools(): Promise<CommandResult> {
   try {
-    const toolManager = (await import('@modules/tools/ToolManager.js')).getToolManager();
+    const toolManager = (
+      await import('@modules/tools/ToolManager.js')
+    ).getToolManager();
     const tools = toolManager.getAllTools();
     const toolNames = tools.map((t: { name: string }) => t.name).sort();
     const categories = new Map<string, number>();
@@ -90,7 +99,7 @@ async function handleTools(): Promise<CommandResult> {
         ...catLines,
         '',
         '  All Tools:',
-        ...toolNames.map(n => `    - ${n}`),
+        ...toolNames.map((n) => `    - ${n}`),
         '============================',
       ].join('\n'),
     };
@@ -174,39 +183,43 @@ const stats: Command = {
   description: '显示系统统计信息（会话/工具/资源）',
   aliases: ['statistics'],
   argumentHint: '[session|tools|tokens|help]',
-  load: () => Promise.resolve({
-    execute: async (args: string, _context: CommandContext): Promise<CommandResult> => {
-      const subcommand = args.trim().toLowerCase().split(/\s+/)[0] || '';
+  load: () =>
+    Promise.resolve({
+      execute: async (
+        args: string,
+        _context: CommandContext
+      ): Promise<CommandResult> => {
+        const subcommand = args.trim().toLowerCase().split(/\s+/)[0] || '';
 
-      switch (subcommand) {
-        case 'session':
-          return handleSession();
-        case 'tools':
-          return await handleTools();
-        case 'tokens':
-          return await handleTokens();
-        case 'help':
-        case '--help':
-        case '-h':
-          return showHelp();
-        default:
-          return {
-            success: true,
-            message: [
-              'Stats - 系统统计信息',
-              '',
-              '子命令:',
-              '  /stats session    会话统计',
-              '  /stats tools      工具统计',
-              '  /stats tokens     Token 与资源统计',
-              '  /stats help       显示帮助',
-              '',
-              `提示: 使用 "/stats <子命令>" 查看详情`,
-            ].join('\n'),
-          };
-      }
-    },
-  }),
+        switch (subcommand) {
+          case 'session':
+            return handleSession();
+          case 'tools':
+            return await handleTools();
+          case 'tokens':
+            return await handleTokens();
+          case 'help':
+          case '--help':
+          case '-h':
+            return showHelp();
+          default:
+            return {
+              success: true,
+              message: [
+                'Stats - 系统统计信息',
+                '',
+                '子命令:',
+                '  /stats session    会话统计',
+                '  /stats tools      工具统计',
+                '  /stats tokens     Token 与资源统计',
+                '  /stats help       显示帮助',
+                '',
+                `提示: 使用 "/stats <子命令>" 查看详情`,
+              ].join('\n'),
+            };
+        }
+      },
+    }),
 };
 
 export default stats;

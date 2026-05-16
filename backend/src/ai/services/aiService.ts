@@ -246,9 +246,7 @@ export function createAIServiceWithScrubbing(
     ...config,
   });
 
-  service.setScrubberPipeline(
-    pipeline || createDefaultScrubberPipeline()
-  );
+  service.setScrubberPipeline(pipeline || createDefaultScrubberPipeline());
 
   return service;
 }

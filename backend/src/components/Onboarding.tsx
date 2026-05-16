@@ -110,8 +110,8 @@ export function Onboarding({
                 idx === currentStep
                   ? 'cyan'
                   : idx < currentStep
-                  ? 'green'
-                  : 'gray'
+                    ? 'green'
+                    : 'gray'
               }
             >
               {idx <= currentStep ? '●' : '○'}
@@ -123,7 +123,12 @@ export function Onboarding({
       <Box marginBottom={1}>
         {step.icon && <Text marginRight={1}>{step.icon}</Text>}
         <Text bold>
-          {'步骤 '}{currentStep + 1}{'/'}{steps.length}{': '}{step.title}
+          {'步骤 '}
+          {currentStep + 1}
+          {'/'}
+          {steps.length}
+          {': '}
+          {step.title}
         </Text>
       </Box>
 

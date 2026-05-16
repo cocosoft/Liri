@@ -18,15 +18,22 @@ import type {
 } from './types';
 
 /** 支持的清单文件名（按优先级排序） */
-const MANIFEST_FILENAMES = ['plugin.yaml', 'plugin.yml', 'plugin.json', 'package.json'];
+const MANIFEST_FILENAMES = [
+  'plugin.yaml',
+  'plugin.yml',
+  'plugin.json',
+  'package.json',
+];
 
 /** YAML 键值对解析（极简实现，仅支持 plugin.yaml 常用结构） */
 function parseSimpleYaml(text: string): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const lines = text.split('\n');
-  const stack: Array<{ indent: number; key: string; obj: Record<string, unknown> }> = [
-    { indent: -1, key: '', obj: result },
-  ];
+  const stack: Array<{
+    indent: number;
+    key: string;
+    obj: Record<string, unknown>;
+  }> = [{ indent: -1, key: '', obj: result }];
 
   for (const rawLine of lines) {
     const trimmed = rawLine.trimEnd();
@@ -72,7 +79,10 @@ function parseSimpleYaml(text: string): Record<string, unknown> {
           else if (value === 'false') value = false;
           else if (/^\d+$/.test(value)) value = parseInt(value, 10);
           else if (/^\d+\.\d+$/.test(value)) value = parseFloat(value);
-          else if ((value as string).startsWith('"') && (value as string).endsWith('"')) {
+          else if (
+            (value as string).startsWith('"') &&
+            (value as string).endsWith('"')
+          ) {
             value = (value as string).slice(1, -1);
           }
         }
@@ -102,12 +112,16 @@ function findParentArray(obj: Record<string, unknown>): unknown[] | undefined {
 }
 
 /** 查找清单文件路径 */
-function findManifestFile(dir: string): { path: string; format: 'json' | 'yaml' | 'package' } | null {
+function findManifestFile(
+  dir: string
+): { path: string; format: 'json' | 'yaml' | 'package' } | null {
   for (const filename of MANIFEST_FILENAMES) {
     const fullPath = join(dir, filename);
     if (existsSync(fullPath)) {
-      if (filename === 'package.json') return { path: fullPath, format: 'package' };
-      if (filename.endsWith('.yaml') || filename.endsWith('.yml')) return { path: fullPath, format: 'yaml' };
+      if (filename === 'package.json')
+        return { path: fullPath, format: 'package' };
+      if (filename.endsWith('.yaml') || filename.endsWith('.yml'))
+        return { path: fullPath, format: 'yaml' };
       return { path: fullPath, format: 'json' };
     }
   }
@@ -115,7 +129,10 @@ function findManifestFile(dir: string): { path: string; format: 'json' | 'yaml' 
 }
 
 /** 从 JSON 对象中提取 plugin manifest */
-function extractFromJson(data: Record<string, unknown>, format: 'json' | 'yaml' | 'package'): Partial<PluginManifest> | null {
+function extractFromJson(
+  data: Record<string, unknown>,
+  format: 'json' | 'yaml' | 'package'
+): Partial<PluginManifest> | null {
   if (format === 'package') {
     const pyapp = data['pyapp'];
     if (!pyapp || typeof pyapp !== 'object') return null;
@@ -125,19 +142,23 @@ function extractFromJson(data: Record<string, unknown>, format: 'json' | 'yaml' 
 }
 
 /** 验证必填字段 */
-function validateManifest(manifest: Partial<PluginManifest>, source: string): PluginValidationResult {
+function validateManifest(
+  manifest: Partial<PluginManifest>,
+  source: string
+): PluginValidationResult {
   const errors: PluginValidationError[] = [];
   const warnings: PluginValidationWarning[] = [];
 
-  const requiredFields: Array<{ field: keyof PluginManifest; label: string }> = [
-    { field: 'id', label: 'id' },
-    { field: 'name', label: 'name' },
-    { field: 'version', label: 'version' },
-    { field: 'description', label: 'description' },
-    { field: 'author', label: 'author' },
-    { field: 'type', label: 'type' },
-    { field: 'main', label: 'main' },
-  ];
+  const requiredFields: Array<{ field: keyof PluginManifest; label: string }> =
+    [
+      { field: 'id', label: 'id' },
+      { field: 'name', label: 'name' },
+      { field: 'version', label: 'version' },
+      { field: 'description', label: 'description' },
+      { field: 'author', label: 'author' },
+      { field: 'type', label: 'type' },
+      { field: 'main', label: 'main' },
+    ];
 
   for (const { field, label } of requiredFields) {
     if (!manifest[field]) {
@@ -192,7 +213,13 @@ export function loadPluginManifest(dir: string): {
       manifest: null,
       validation: {
         valid: false,
-        errors: [{ field: 'file', message: '未找到插件清单文件', code: 'MANIFEST_NOT_FOUND' }],
+        errors: [
+          {
+            field: 'file',
+            message: '未找到插件清单文件',
+            code: 'MANIFEST_NOT_FOUND',
+          },
+        ],
         warnings: [],
       },
       source: dir,
@@ -215,7 +242,13 @@ export function loadPluginManifest(dir: string): {
         manifest: null,
         validation: {
           valid: false,
-          errors: [{ field: 'pyapp', message: 'package.json 中缺少 "pyapp" 字段', code: 'MISSING_PYAPP_FIELD' }],
+          errors: [
+            {
+              field: 'pyapp',
+              message: 'package.json 中缺少 "pyapp" 字段',
+              code: 'MISSING_PYAPP_FIELD',
+            },
+          ],
           warnings: [],
         },
         source: found.path,
@@ -235,7 +268,13 @@ export function loadPluginManifest(dir: string): {
       manifest: null,
       validation: {
         valid: false,
-        errors: [{ field: 'file', message: `解析清单失败: ${message}`, code: 'PARSE_ERROR' }],
+        errors: [
+          {
+            field: 'file',
+            message: `解析清单失败: ${message}`,
+            code: 'PARSE_ERROR',
+          },
+        ],
         warnings: [],
       },
       source: found.path,
@@ -253,7 +292,9 @@ export function loadPluginManifests(dirs: string[]): Array<{
 }
 
 /** 获取清单中的技能列表 */
-export function getPluginSkills(manifest: PluginManifest): PluginSkillManifest[] {
+export function getPluginSkills(
+  manifest: PluginManifest
+): PluginSkillManifest[] {
   return manifest.skills || [];
 }
 

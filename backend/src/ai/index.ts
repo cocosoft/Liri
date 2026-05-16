@@ -1,7 +1,10 @@
 /**
  * AI模块主入口（已整合LLM模块 → providers/ 统一管理）
  */
-import { createAIService, createAIServiceWithScrubbing } from './services/aiService';
+import {
+  createAIService,
+  createAIServiceWithScrubbing,
+} from './services/aiService';
 export { createAIService, createAIServiceWithScrubbing };
 export { AIServiceImpl } from './services/aiService';
 

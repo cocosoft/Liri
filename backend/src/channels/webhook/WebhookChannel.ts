@@ -66,7 +66,9 @@ export class WebhookChannel extends EventEmitter {
         this.server = http.createServer((req, res) => {
           if (req.method === 'POST' && req.url === this.config.path) {
             let body = '';
-            req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+            req.on('data', (chunk: Buffer) => {
+              body += chunk.toString();
+            });
             req.on('end', () => {
               try {
                 const payload = JSON.parse(body);
@@ -81,10 +83,14 @@ export class WebhookChannel extends EventEmitter {
                 };
                 this.emit('message:received', message);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true, messageId: message.id }));
+                res.end(
+                  JSON.stringify({ success: true, messageId: message.id })
+                );
               } catch {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+                res.end(
+                  JSON.stringify({ success: false, error: 'Invalid JSON' })
+                );
               }
             });
           } else {
@@ -93,14 +99,18 @@ export class WebhookChannel extends EventEmitter {
           }
         });
 
-        this.server.listen(this.config.listenPort, this.config.listenHost, () => {
-          this.connected = true;
-          this.emit('connected', {
-            host: this.config.listenHost,
-            port: this.config.listenPort,
-          });
-          resolve(true);
-        });
+        this.server.listen(
+          this.config.listenPort,
+          this.config.listenHost,
+          () => {
+            this.connected = true;
+            this.emit('connected', {
+              host: this.config.listenHost,
+              port: this.config.listenPort,
+            });
+            resolve(true);
+          }
+        );
       } catch (err) {
         this.emit('error', err);
         resolve(false);

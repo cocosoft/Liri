@@ -14,7 +14,9 @@ export const PluginManifestSchema = Type.Object({
 export const PluginConfigSchema = Type.Object({
   pluginId: Type.String({ minLength: 1 }),
   enabled: Type.Optional(Type.Boolean({ default: true })),
-  priority: Type.Optional(Type.Integer({ minimum: 0, maximum: 100, default: 50 })),
+  priority: Type.Optional(
+    Type.Integer({ minimum: 0, maximum: 100, default: 50 })
+  ),
   settings: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
   metadata: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
 });

@@ -202,13 +202,13 @@ export class SessionContextBuilder {
    * @param channelName 渠道名称
    * @returns 构建的会话上下文
    */
-  buildFromMessage(message: MessageContext, channelName?: string): BuiltSessionContext {
+  buildFromMessage(
+    message: MessageContext,
+    channelName?: string
+  ): BuiltSessionContext {
     const name = channelName || this.getChannelDisplayName(message.channelId);
 
-    const text = [
-      '<session_context>',
-      `  来源渠道: ${name}`,
-    ];
+    const text = ['<session_context>', `  来源渠道: ${name}`];
 
     if (this.config.includeUserName && message.senderName) {
       text.push(`  用户: ${message.senderName}`);

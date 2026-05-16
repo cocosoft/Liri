@@ -55,14 +55,21 @@ async function handleAgent(): Promise<CommandResult> {
 async function handleGateway(): Promise<CommandResult> {
   let gatewayInfo: string;
   try {
-    const { getChannelManager } = await import('@modules/core/gateway/ChannelManager.js');
+    const { getChannelManager } =
+      await import('@modules/core/gateway/ChannelManager.js');
     const status = getChannelManager().getStatus();
     gatewayInfo = [
       '  Running:          ' + (status.isRunning ? 'Yes' : 'No'),
       '  Total Channels:   ' + status.totalChannels,
       '  Connected:        ' + status.connectedChannels,
-      ...status.channels.map((ch: { name: string; type: string; status: string; connected: boolean }) =>
-        `    ${ch.name} (${ch.type}) - ${ch.status}${ch.connected ? ' [connected]' : ''}`
+      ...status.channels.map(
+        (ch: {
+          name: string;
+          type: string;
+          status: string;
+          connected: boolean;
+        }) =>
+          `    ${ch.name} (${ch.type}) - ${ch.status}${ch.connected ? ' [connected]' : ''}`
       ),
     ].join('\n');
   } catch {
@@ -85,11 +92,12 @@ async function handleGateway(): Promise<CommandResult> {
 async function handleChannels(): Promise<CommandResult> {
   let channelsInfo: string;
   try {
-    const { getChannelManager } = await import('@modules/core/gateway/ChannelManager.js');
+    const { getChannelManager } =
+      await import('@modules/core/gateway/ChannelManager.js');
     const manager = getChannelManager();
     const channels = manager.listChannels();
-    const active = channels.filter((ch: { status: string; isConnected: () => boolean }) =>
-      ch.isConnected()
+    const active = channels.filter(
+      (ch: { status: string; isConnected: () => boolean }) => ch.isConnected()
     );
     channelsInfo = [
       '  Total Channels: ' + channels.length,
@@ -98,8 +106,9 @@ async function handleChannels(): Promise<CommandResult> {
       '',
       '  Active Channels:',
       ...(active.length > 0
-        ? active.map((ch: { name: string; type: string }) =>
-            `    - ${ch.name} (${ch.type})`
+        ? active.map(
+            (ch: { name: string; type: string }) =>
+              `    - ${ch.name} (${ch.type})`
           )
         : ['    (none)']),
     ].join('\n');
@@ -146,7 +155,10 @@ const statusHandler = {
    * @param args 命令参数
    * @param _context 命令上下文
    */
-  async execute(args: string, _context?: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context?: CommandContext
+  ): Promise<CommandResult> {
     const subcommand = args.trim().toLowerCase().split(/\s+/)[0] || '';
 
     switch (subcommand) {

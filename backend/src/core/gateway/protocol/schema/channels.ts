@@ -5,7 +5,9 @@ export const ChannelConfigSchema = Type.Object({
   name: Type.String({ minLength: 1 }),
   type: Type.String({ minLength: 1 }),
   enabled: Type.Optional(Type.Boolean({ default: true })),
-  priority: Type.Optional(Type.Integer({ minimum: 0, maximum: 100, default: 50 })),
+  priority: Type.Optional(
+    Type.Integer({ minimum: 0, maximum: 100, default: 50 })
+  ),
   rateLimit: Type.Optional(
     Type.Object({
       windowMs: Type.Integer({ minimum: 100 }),
@@ -15,7 +17,9 @@ export const ChannelConfigSchema = Type.Object({
   retryConfig: Type.Optional(
     Type.Object({
       maxRetries: Type.Optional(Type.Integer({ minimum: 0, default: 3 })),
-      retryDelayMs: Type.Optional(Type.Integer({ minimum: 100, default: 1000 })),
+      retryDelayMs: Type.Optional(
+        Type.Integer({ minimum: 100, default: 1000 })
+      ),
     })
   ),
   metadata: Type.Optional(Type.Record(Type.String(), Type.Unknown())),

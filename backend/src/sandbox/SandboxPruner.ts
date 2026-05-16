@@ -63,7 +63,10 @@ export class SandboxPruner {
    * @param strategy 回收策略
    * @param intervalMs 检查间隔（毫秒），默认 5 分钟
    */
-  constructor(strategy?: Partial<PruneStrategy>, intervalMs: number = 5 * 60 * 1000) {
+  constructor(
+    strategy?: Partial<PruneStrategy>,
+    intervalMs: number = 5 * 60 * 1000
+  ) {
     this.strategy = { ...DEFAULT_STRATEGY, ...strategy };
     this.instances = new Map();
     this.intervalId = null;
@@ -118,7 +121,11 @@ export class SandboxPruner {
   /**
    * 获取统计数据
    */
-  getStats(): { total: number; byType: Record<string, number>; idleCount: number } {
+  getStats(): {
+    total: number;
+    byType: Record<string, number>;
+    idleCount: number;
+  } {
     const byType: Record<string, number> = {};
 
     let idleCount = 0;
@@ -153,19 +160,30 @@ export class SandboxPruner {
       const idleTime = now - instance.lastActiveAt;
       const lifetime = now - instance.createdAt;
 
-      if (this.strategy.pruneDisconnected && idleTime > instance.idleTimeoutMs) {
+      if (
+        this.strategy.pruneDisconnected &&
+        idleTime > instance.idleTimeoutMs
+      ) {
         if (instance.idleTimeoutMs > 0 && idleTime > instance.idleTimeoutMs) {
           shouldRemove = true;
           reason = `闲置超时 (${idleTime}ms > ${instance.idleTimeoutMs}ms)`;
         }
       }
 
-      if (!shouldRemove && instance.maxLifetimeMs > 0 && lifetime > instance.maxLifetimeMs) {
+      if (
+        !shouldRemove &&
+        instance.maxLifetimeMs > 0 &&
+        lifetime > instance.maxLifetimeMs
+      ) {
         shouldRemove = true;
         reason = `生命周期超限 (${lifetime}ms > ${instance.maxLifetimeMs}ms)`;
       }
 
-      if (!shouldRemove && this.strategy.maxLifetimeMs > 0 && lifetime > this.strategy.maxLifetimeMs) {
+      if (
+        !shouldRemove &&
+        this.strategy.maxLifetimeMs > 0 &&
+        lifetime > this.strategy.maxLifetimeMs
+      ) {
         shouldRemove = true;
         reason = `全局生命周期超限 (${lifetime}ms > ${this.strategy.maxLifetimeMs}ms)`;
       }
@@ -200,7 +218,9 @@ export class SandboxPruner {
     this.intervalId = setInterval(() => {
       const result = this.prune();
       if (result.removedCount > 0) {
-        logger.info(`回收完成: ${result.removedCount} 个沙箱已清理，剩余 ${result.remainingCount} 个`);
+        logger.info(
+          `回收完成: ${result.removedCount} 个沙箱已清理，剩余 ${result.remainingCount} 个`
+        );
       }
     }, this.intervalMs);
 

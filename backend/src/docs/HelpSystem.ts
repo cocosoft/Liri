@@ -925,7 +925,9 @@ ${this.getReleaseNotesContent()}
   /**
    * 获取按分类分组的文档索引
    */
-  async getFileDocsIndex(provider: FileDocsProvider): Promise<Record<string, Array<{ path: string; title: string }>>> {
+  async getFileDocsIndex(
+    provider: FileDocsProvider
+  ): Promise<Record<string, Array<{ path: string; title: string }>>> {
     const entries = await provider.buildIndex();
     const groups: Record<string, Array<{ path: string; title: string }>> = {};
 

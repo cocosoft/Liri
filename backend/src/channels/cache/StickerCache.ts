@@ -91,7 +91,11 @@ export class StickerCache {
     const existing = this.cache.get(key);
 
     if (existing) {
-      existing.meta = { ...meta, cachedAt: Date.now(), accessCount: existing.meta.accessCount };
+      existing.meta = {
+        ...meta,
+        cachedAt: Date.now(),
+        accessCount: existing.meta.accessCount,
+      };
       existing.data = data;
       this.moveToHead(existing);
       return;
@@ -148,7 +152,13 @@ export class StickerCache {
   /**
    * 获取缓存统计
    */
-  getStats(): { size: number; capacity: number; hits: number; misses: number; hitRate: number } {
+  getStats(): {
+    size: number;
+    capacity: number;
+    hits: number;
+    misses: number;
+    hitRate: number;
+  } {
     const total = this.hits + this.misses;
 
     return {

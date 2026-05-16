@@ -43,10 +43,22 @@ export interface DirectoryScopeConfig {
 const DEFAULT_SCOPE_CONFIG: DirectoryScopeConfig = {
   allowedDirs: [],
   denyDirs: [
-    '/etc', '/var', '/sys', '/proc', '/dev', '/boot', '/root',
-    '/usr', '/bin', '/sbin', '/lib',
-    'C:\\Windows', 'C:\\System32', 'C:\\Program Files',
-    'C:\\Program Files (x86)', 'C:\\SysWOW64',
+    '/etc',
+    '/var',
+    '/sys',
+    '/proc',
+    '/dev',
+    '/boot',
+    '/root',
+    '/usr',
+    '/bin',
+    '/sbin',
+    '/lib',
+    'C:\\Windows',
+    'C:\\System32',
+    'C:\\Program Files',
+    'C:\\Program Files (x86)',
+    'C:\\SysWOW64',
   ],
   enableSymlinkCheck: true,
   enableTraversalCheck: true,
@@ -70,7 +82,6 @@ const TRAVERSAL_PATTERNS = [
  * 子目录范围限制器
  */
 export class DirectoryScopeRestriction {
-
   private config: DirectoryScopeConfig;
 
   constructor(config: Partial<DirectoryScopeConfig> = {}) {
@@ -157,8 +168,10 @@ export class DirectoryScopeRestriction {
         const normalizedTarget = normalize(resolvedPath);
         const normalizedDir = normalize(resolvedDir);
 
-        return normalizedTarget.startsWith(normalizedDir + sep) ||
-          normalizedTarget === normalizedDir;
+        return (
+          normalizedTarget.startsWith(normalizedDir + sep) ||
+          normalizedTarget === normalizedDir
+        );
       });
 
       if (!inScope) {
@@ -200,9 +213,10 @@ export class DirectoryScopeRestriction {
     const paths = this.extractPaths(command);
 
     for (const rawPath of paths) {
-      const fullPath = rawPath.startsWith(sep) || rawPath.match(/^[A-Z]:/i)
-        ? rawPath
-        : resolve(workDir, rawPath);
+      const fullPath =
+        rawPath.startsWith(sep) || rawPath.match(/^[A-Z]:/i)
+          ? rawPath
+          : resolve(workDir, rawPath);
 
       const result = this.validatePath(fullPath);
 
@@ -275,11 +289,7 @@ export class DirectoryScopeRestriction {
         for (let i = 1; i < parts.length; i++) {
           const part = parts[i];
 
-          if (
-            part &&
-            !part.startsWith('-') &&
-            !part.startsWith('--')
-          ) {
+          if (part && !part.startsWith('-') && !part.startsWith('--')) {
             paths.push(part);
           }
         }
@@ -349,16 +359,17 @@ export class DirectoryScopeRestriction {
         const stats = statSync(resolvedPath);
 
         if (stats.isSymbolicLink()) {
-          const realPath = resolve(
-            require('fs').readlinkSync(resolvedPath)
-          );
+          const realPath = resolve(require('fs').readlinkSync(resolvedPath));
 
-          const isInScope = this.config.allowedDirs.length === 0 ||
+          const isInScope =
+            this.config.allowedDirs.length === 0 ||
             this.config.allowedDirs.some((dir) => {
               const resolvedDir = resolve(dir);
 
-              return realPath.startsWith(resolvedDir + sep) ||
-                realPath === resolvedDir;
+              return (
+                realPath.startsWith(resolvedDir + sep) ||
+                realPath === resolvedDir
+              );
             });
 
           if (!isInScope) {

@@ -3,7 +3,10 @@
  * 展示如何实现 ProviderPlugin 接口，注册 AI 模型提供者
  */
 
-import { createProviderPlugin, type ProviderPlugin } from '../../plugin-sdk/index.js';
+import {
+  createProviderPlugin,
+  type ProviderPlugin,
+} from '../../plugin-sdk/index.js';
 
 /**
  * OpenAI 配置
@@ -55,7 +58,9 @@ export function createOpenAIProvider(
         const resp = await fetch(`${cfg.baseUrl}/models`, {
           headers: {
             Authorization: `Bearer ${cfg.apiKey}`,
-            ...(cfg.organization ? { 'OpenAI-Organization': cfg.organization } : {}),
+            ...(cfg.organization
+              ? { 'OpenAI-Organization': cfg.organization }
+              : {}),
           },
           signal: controller.signal,
         });

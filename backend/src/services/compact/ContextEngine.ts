@@ -114,12 +114,18 @@ export abstract class ContextEngine {
   /**
    * 评估是否需要压缩
    */
-  abstract evaluate(messages: Message[], context: CompactContext): CompactDecision;
+  abstract evaluate(
+    messages: Message[],
+    context: CompactContext
+  ): CompactDecision;
 
   /**
    * 执行压缩
    */
-  abstract compact(messages: Message[], options?: Partial<CompactConfig>): CompactResult;
+  abstract compact(
+    messages: Message[],
+    options?: Partial<CompactConfig>
+  ): CompactResult;
 
   /**
    * 获取策略元数据
@@ -163,7 +169,10 @@ export abstract class ContextEngine {
    * 估算可节省的 token 数
    */
   estimateTokenReduction(messages: Message[]): number {
-    if (messages.length <= this.config.protectFirstN + this.config.protectLastN) {
+    if (
+      messages.length <=
+      this.config.protectFirstN + this.config.protectLastN
+    ) {
       return 0;
     }
 
@@ -190,7 +199,10 @@ export abstract class ContextEngine {
    * 计算消息总 token 数
    */
   getTotalTokenCount(messages: Message[]): number {
-    return messages.reduce((sum, msg) => sum + this.getMessageTokenCount(msg), 0);
+    return messages.reduce(
+      (sum, msg) => sum + this.getMessageTokenCount(msg),
+      0
+    );
   }
 
   /**
@@ -303,18 +315,19 @@ export abstract class ContextEngine {
    */
   protected recordCompact(result: CompactResult): void {
     this.stats.totalCompactions++;
-    this.stats.totalTokensSaved += result.originalTokenCount - result.compressedTokenCount;
+    this.stats.totalTokensSaved +=
+      result.originalTokenCount - result.compressedTokenCount;
     this.stats.totalEvaluations++;
     this.stats.lastCompactTime = Date.now();
 
     const totalReduction = this.stats.totalTokensSaved;
-    const totalOriginal = this.stats.totalCompactions > 0
-      ? (this.stats.totalTokensSaved / (1 - (result.reductionRatio || 0.01)))
-      : result.originalTokenCount;
+    const totalOriginal =
+      this.stats.totalCompactions > 0
+        ? this.stats.totalTokensSaved / (1 - (result.reductionRatio || 0.01))
+        : result.originalTokenCount;
 
-    this.stats.averageReductionRatio = totalOriginal > 0
-      ? totalReduction / totalOriginal
-      : 0;
+    this.stats.averageReductionRatio =
+      totalOriginal > 0 ? totalReduction / totalOriginal : 0;
 
     this.compactHistory.push(result);
 
@@ -344,7 +357,9 @@ export abstract class ContextEngine {
   /**
    * 获取可移除的消息区间
    */
-  protected getRemovableRange(messages: Message[]): { start: number; end: number } | null {
+  protected getRemovableRange(
+    messages: Message[]
+  ): { start: number; end: number } | null {
     const firstN = this.config.protectFirstN;
     const lastN = this.config.protectLastN;
 

@@ -130,10 +130,14 @@ export class LocalHTTPService {
 
     this.server = http.createServer((req, res) => {
       this.handleRequest(req, res).catch((err) => {
-        logger.error('处理请求失败', { error: err instanceof Error ? err.message : String(err) });
+        logger.error('处理请求失败', {
+          error: err instanceof Error ? err.message : String(err),
+        });
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: { message: 'Internal server error' } }));
+          res.end(
+            JSON.stringify({ error: { message: 'Internal server error' } })
+          );
         }
       });
     });
@@ -141,7 +145,9 @@ export class LocalHTTPService {
     return new Promise((resolve, reject) => {
       this.server!.listen(this.config.port, this.config.host, () => {
         this._isRunning = true;
-        logger.info(`LocalHTTPService 已启动: http://${this.config.host}:${this.config.port}`);
+        logger.info(
+          `LocalHTTPService 已启动: http://${this.config.host}:${this.config.port}`
+        );
         resolve();
       });
 
@@ -181,10 +187,16 @@ export class LocalHTTPService {
   /**
    * 处理 HTTP 请求
    */
-  private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  private async handleRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization'
+    );
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -209,13 +221,20 @@ export class LocalHTTPService {
     }
 
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: { message: 'Not found', type: 'invalid_request_error' } }));
+    res.end(
+      JSON.stringify({
+        error: { message: 'Not found', type: 'invalid_request_error' },
+      })
+    );
   }
 
   /**
    * 处理模型列表请求
    */
-  private handleListModels(req: http.IncomingMessage, res: http.ServerResponse): void {
+  private handleListModels(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): void {
     const models: Model[] = [
       {
         id: 'pyapp-default',
@@ -232,7 +251,10 @@ export class LocalHTTPService {
   /**
    * 处理聊天完成请求
    */
-  private async handleChatCompletions(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  private async handleChatCompletions(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
     const body = await this.readRequestBody(req);
 
     let request: ChatCompletionRequest;
@@ -240,23 +262,31 @@ export class LocalHTTPService {
       request = JSON.parse(body);
     } catch {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: {
-          message: 'Invalid JSON in request body',
-          type: 'invalid_request_error',
-        },
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'Invalid JSON in request body',
+            type: 'invalid_request_error',
+          },
+        })
+      );
       return;
     }
 
-    if (!request.messages || !Array.isArray(request.messages) || request.messages.length === 0) {
+    if (
+      !request.messages ||
+      !Array.isArray(request.messages) ||
+      request.messages.length === 0
+    ) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: {
-          message: 'messages field is required and must be a non-empty array',
-          type: 'invalid_request_error',
-        },
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'messages field is required and must be a non-empty array',
+            type: 'invalid_request_error',
+          },
+        })
+      );
       return;
     }
 
@@ -272,16 +302,21 @@ export class LocalHTTPService {
   /**
    * 处理普通（非流式）聊天完成请求
    */
-  private async handleNormalChat(res: http.ServerResponse, request: ChatCompletionRequest): Promise<void> {
+  private async handleNormalChat(
+    res: http.ServerResponse,
+    request: ChatCompletionRequest
+  ): Promise<void> {
     const userMessage = request.messages[request.messages.length - 1];
     if (!userMessage || userMessage.role !== 'user') {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: {
-          message: 'Last message must be from user',
-          type: 'invalid_request_error',
-        },
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'Last message must be from user',
+            type: 'invalid_request_error',
+          },
+        })
+      );
       return;
     }
 
@@ -299,14 +334,16 @@ export class LocalHTTPService {
         object: 'chat.completion',
         created: Math.floor(Date.now() / 1000),
         model: request.model || 'pyapp-default',
-        choices: [{
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: response.content,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: response.content,
+            },
+            finish_reason: response.finishReason || 'stop',
           },
-          finish_reason: response.finishReason || 'stop',
-        }],
+        ],
         usage: {
           prompt_tokens: 0,
           completion_tokens: 0,
@@ -317,37 +354,46 @@ export class LocalHTTPService {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(completionResponse));
     } catch (err) {
-      logger.error('聊天请求失败', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('聊天请求失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: {
-          message: 'Chat request failed',
-          type: 'internal_error',
-        },
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'Chat request failed',
+            type: 'internal_error',
+          },
+        })
+      );
     }
   }
 
   /**
    * 处理流式聊天完成请求
    */
-  private async handleStreamingChat(res: http.ServerResponse, request: ChatCompletionRequest): Promise<void> {
+  private async handleStreamingChat(
+    res: http.ServerResponse,
+    request: ChatCompletionRequest
+  ): Promise<void> {
     const userMessage = request.messages[request.messages.length - 1];
     if (!userMessage || userMessage.role !== 'user') {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: {
-          message: 'Last message must be from user',
-          type: 'invalid_request_error',
-        },
-      }));
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'Last message must be from user',
+            type: 'invalid_request_error',
+          },
+        })
+      );
       return;
     }
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     });
 
@@ -355,13 +401,17 @@ export class LocalHTTPService {
     const created = Math.floor(Date.now() / 1000);
     const model = request.model || 'pyapp-default';
 
-    res.write(`data: ${JSON.stringify({
-      id: responseId,
-      object: 'chat.completion.chunk',
-      created,
-      model,
-      choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }],
-    })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        id: responseId,
+        object: 'chat.completion.chunk',
+        created,
+        model,
+        choices: [
+          { index: 0, delta: { role: 'assistant' }, finish_reason: null },
+        ],
+      })}\n\n`
+    );
 
     try {
       const coreAPI = getCoreAPI();
@@ -382,11 +432,13 @@ export class LocalHTTPService {
             object: 'chat.completion.chunk',
             created,
             model,
-            choices: [{
-              index: 0,
-              delta: { content: chunk.content },
-              finish_reason: null,
-            }],
+            choices: [
+              {
+                index: 0,
+                delta: { content: chunk.content },
+                finish_reason: null,
+              },
+            ],
           };
 
           res.write(`data: ${JSON.stringify(streamChunk)}\n\n`);
@@ -395,30 +447,40 @@ export class LocalHTTPService {
         result = await generator.next();
       }
 
-      res.write(`data: ${JSON.stringify({
-        id: responseId,
-        object: 'chat.completion.chunk',
-        created,
-        model,
-        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
-      })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          id: responseId,
+          object: 'chat.completion.chunk',
+          created,
+          model,
+          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+        })}\n\n`
+      );
 
       res.write('data: [DONE]\n\n');
       res.end();
     } catch (err) {
-      logger.error('流式聊天请求失败', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('流式聊天请求失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
 
-      res.write(`data: ${JSON.stringify({
-        id: responseId,
-        object: 'chat.completion.chunk',
-        created,
-        model,
-        choices: [{
-          index: 0,
-          delta: { content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}` },
-          finish_reason: 'error',
-        }],
-      })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          id: responseId,
+          object: 'chat.completion.chunk',
+          created,
+          model,
+          choices: [
+            {
+              index: 0,
+              delta: {
+                content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+              },
+              finish_reason: 'error',
+            },
+          ],
+        })}\n\n`
+      );
 
       res.write('data: [DONE]\n\n');
       res.end();

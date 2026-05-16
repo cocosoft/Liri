@@ -68,13 +68,16 @@ export function SearchBox({
     };
   }, []);
 
-  const handleChange = useCallback((newValue: string) => {
-    onChange?.(newValue);
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      onSearch?.(newValue);
-    }, debounceMs);
-  }, [onChange, onSearch, debounceMs]);
+  const handleChange = useCallback(
+    (newValue: string) => {
+      onChange?.(newValue);
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(() => {
+        onSearch?.(newValue);
+      }, debounceMs);
+    },
+    [onChange, onSearch, debounceMs]
+  );
 
   useInput(
     (input, key) => {
@@ -111,7 +114,8 @@ export function SearchBox({
         return;
       }
       if (input && !key.ctrl && !key.meta) {
-        const newValue = value.slice(0, cursorPos) + input + value.slice(cursorPos);
+        const newValue =
+          value.slice(0, cursorPos) + input + value.slice(cursorPos);
         handleChange(newValue);
         setCursorPos((prev) => Math.min(prev + 1, newValue.length));
       }
@@ -119,7 +123,8 @@ export function SearchBox({
     { isActive: focus && !disabled }
   );
 
-  const displayCount = totalResults !== undefined ? totalResults : matches.length;
+  const displayCount =
+    totalResults !== undefined ? totalResults : matches.length;
 
   return (
     <Box flexDirection="column" width={width}>
@@ -149,7 +154,9 @@ export function SearchBox({
         <Box flexDirection="column" marginTop={1}>
           {matches.map((match, idx) => (
             <Box key={idx}>
-              <Text color={idx === activeMatchIndex ? highlightColor : undefined}>
+              <Text
+                color={idx === activeMatchIndex ? highlightColor : undefined}
+              >
                 {idx === activeMatchIndex ? '▸ ' : '  '}
                 {match.text.slice(0, 80)}
               </Text>

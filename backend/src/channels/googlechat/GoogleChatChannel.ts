@@ -52,7 +52,10 @@ export class GoogleChatChannel extends EventEmitter {
    */
   async connect(): Promise<boolean> {
     if (!this.config.enabled) return false;
-    if (!this.config.serviceAccountKey && this.config.webhookUrls.length === 0) {
+    if (
+      !this.config.serviceAccountKey &&
+      this.config.webhookUrls.length === 0
+    ) {
       this.emit('error', new Error('缺少认证凭证'));
       return false;
     }

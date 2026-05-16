@@ -3,4 +3,7 @@
  */
 
 export * from './types';
-export { AgentTemplateMarket, agentTemplateMarket } from './AgentTemplateMarket';
+export {
+  AgentTemplateMarket,
+  agentTemplateMarket,
+} from './AgentTemplateMarket';

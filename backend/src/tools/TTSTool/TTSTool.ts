@@ -15,22 +15,44 @@ interface TTSInput {
 }
 
 const AVAILABLE_VOICES = [
-  { id: 'zh-CN-XiaoxiaoNeural', name: 'Xiaoxiao', language: 'zh-CN', gender: 'female' },
+  {
+    id: 'zh-CN-XiaoxiaoNeural',
+    name: 'Xiaoxiao',
+    language: 'zh-CN',
+    gender: 'female',
+  },
   { id: 'zh-CN-YunxiNeural', name: 'Yunxi', language: 'zh-CN', gender: 'male' },
-  { id: 'en-US-JennyNeural', name: 'Jenny', language: 'en-US', gender: 'female' },
+  {
+    id: 'en-US-JennyNeural',
+    name: 'Jenny',
+    language: 'en-US',
+    gender: 'female',
+  },
   { id: 'en-US-GuyNeural', name: 'Guy', language: 'en-US', gender: 'male' },
-  { id: 'ja-JP-NanamiNeural', name: 'Nanami', language: 'ja-JP', gender: 'female' },
-  { id: 'ko-KR-SunHiNeural', name: 'SunHi', language: 'ko-KR', gender: 'female' },
+  {
+    id: 'ja-JP-NanamiNeural',
+    name: 'Nanami',
+    language: 'ja-JP',
+    gender: 'female',
+  },
+  {
+    id: 'ko-KR-SunHiNeural',
+    name: 'SunHi',
+    language: 'ko-KR',
+    gender: 'female',
+  },
 ];
 
 export class TTSTool extends BaseTool<Record<string, unknown>> {
   name = 'tts';
-  description = 'Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.';
+  description =
+    'Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.';
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
-      description: 'Action: speak (generate speech), list-voices (available voices), save (save to file)',
+      description:
+        'Action: speak (generate speech), list-voices (available voices), save (save to file)',
       required: true,
       enum: ['speak', 'list-voices', 'save'],
     },
@@ -76,11 +98,15 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
     _context: ToolUseContext
   ): Promise<ToolResult> {
     try {
-      const { action, text, voice, language, speed, filename } = input as unknown as TTSInput;
+      const { action, text, voice, language, speed, filename } =
+        input as unknown as TTSInput;
 
       const validActions = ['speak', 'list-voices', 'save'];
       if (!action || !validActions.includes(action)) {
-        return { success: false, error: `action must be one of: ${validActions.join(', ')}` };
+        return {
+          success: false,
+          error: `action must be one of: ${validActions.join(', ')}`,
+        };
       }
 
       switch (action) {
@@ -88,47 +114,73 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
           return {
             success: true,
             data: { voices: AVAILABLE_VOICES, count: AVAILABLE_VOICES.length },
-            output: `Available voices (${AVAILABLE_VOICES.length}):\n${
-              AVAILABLE_VOICES.map((v) => `  - ${v.id} (${v.name}, ${v.language}, ${v.gender})`).join('\n')
-            }`,
+            output: `Available voices (${AVAILABLE_VOICES.length}):\n${AVAILABLE_VOICES.map(
+              (v) => `  - ${v.id} (${v.name}, ${v.language}, ${v.gender})`
+            ).join('\n')}`,
           };
         }
 
         case 'speak':
         case 'save': {
           if (!text || typeof text !== 'string') {
-            return { success: false, error: 'text is required and must be a string' };
+            return {
+              success: false,
+              error: 'text is required and must be a string',
+            };
           }
 
           const selectedVoice = voice || 'zh-CN-XiaoxiaoNeural';
           const validVoiceIds = AVAILABLE_VOICES.map((v) => v.id);
           if (!validVoiceIds.includes(selectedVoice)) {
-            return { success: false, error: `Invalid voice "${selectedVoice}". Use list-voices to see available voices.` };
+            return {
+              success: false,
+              error: `Invalid voice "${selectedVoice}". Use list-voices to see available voices.`,
+            };
           }
 
-          const lang = language || selectedVoice.split('-').slice(0, 2).join('-');
+          const lang =
+            language || selectedVoice.split('-').slice(0, 2).join('-');
           const spd = speed || 1.0;
           if (spd < 0.5 || spd > 2.0) {
-            return { success: false, error: 'speed must be between 0.5 and 2.0' };
+            return {
+              success: false,
+              error: 'speed must be between 0.5 and 2.0',
+            };
           }
 
-          const audioLengthSec = Math.round(text.length * 0.15 / spd);
-          const estimatedSize = audioLengthSec * 16 * 22050 / 8 / 1024;
+          const audioLengthSec = Math.round((text.length * 0.15) / spd);
+          const estimatedSize = (audioLengthSec * 16 * 22050) / 8 / 1024;
 
           if (action === 'save') {
             if (!filename) {
-              return { success: false, error: 'filename is required for save action' };
+              return {
+                success: false,
+                error: 'filename is required for save action',
+              };
             }
             return {
               success: true,
-              data: { filename, voice: selectedVoice, language: lang, textLength: text.length, audioDurationSec: audioLengthSec, estimatedSizeKB: Math.round(estimatedSize) },
+              data: {
+                filename,
+                voice: selectedVoice,
+                language: lang,
+                textLength: text.length,
+                audioDurationSec: audioLengthSec,
+                estimatedSizeKB: Math.round(estimatedSize),
+              },
               output: `Speech saved to "${filename}" (${audioLengthSec}s, ~${Math.round(estimatedSize)}KB). Voice: ${selectedVoice}.`,
             };
           }
 
           return {
             success: true,
-            data: { voice: selectedVoice, language: lang, textLength: text.length, audioDurationSec: audioLengthSec, speed: spd },
+            data: {
+              voice: selectedVoice,
+              language: lang,
+              textLength: text.length,
+              audioDurationSec: audioLengthSec,
+              speed: spd,
+            },
             output: `Speaking ${audioLengthSec}s of audio. Voice: ${selectedVoice}, Language: ${lang}, Speed: ${spd}x.`,
           };
         }

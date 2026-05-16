@@ -119,7 +119,9 @@ export async function launchRepl(
         port: finalConfig.httpPort,
       });
       await localHTTPService.start();
-      ui.showInfo(`HTTP API 服务已启动: http://127.0.0.1:${finalConfig.httpPort}`);
+      ui.showInfo(
+        `HTTP API 服务已启动: http://127.0.0.1:${finalConfig.httpPort}`
+      );
       profileCheckpoint('repl_http_service_end');
     } catch (error) {
       ui.showWarning(

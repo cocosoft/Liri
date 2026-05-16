@@ -6,7 +6,14 @@
 import React from 'react';
 import { Text, Box } from 'ink';
 
-export type PrStatus = 'open' | 'merged' | 'closed' | 'draft' | 'approved' | 'changes_requested' | 'conflict';
+export type PrStatus =
+  | 'open'
+  | 'merged'
+  | 'closed'
+  | 'draft'
+  | 'approved'
+  | 'changes_requested'
+  | 'conflict';
 
 export interface ReviewInfo {
   /** 审核人 */
@@ -43,7 +50,10 @@ export interface PrBadgeProps {
   compact?: boolean;
 }
 
-const statusConfig: Record<PrStatus, { label: string; icon: string; color: string }> = {
+const statusConfig: Record<
+  PrStatus,
+  { label: string; icon: string; color: string }
+> = {
   open: { label: 'Open', icon: '○', color: 'green' },
   merged: { label: 'Merged', icon: '◉', color: 'magenta' },
   closed: { label: 'Closed', icon: '✕', color: 'red' },
@@ -73,7 +83,16 @@ function ReviewIcons({ reviews }: { reviews: ReviewInfo[] }): React.ReactNode {
   return (
     <Box>
       {reviews.map((review, idx) => (
-        <Text key={idx} color={review.status === 'approved' ? 'green' : review.status === 'changes_requested' ? 'red' : 'gray'}>
+        <Text
+          key={idx}
+          color={
+            review.status === 'approved'
+              ? 'green'
+              : review.status === 'changes_requested'
+                ? 'red'
+                : 'gray'
+          }
+        >
           {icons[review.status] || '○'}
         </Text>
       ))}
@@ -124,9 +143,7 @@ export function PrBadge({
         <Text>{title}</Text>
       </Box>
       <Box>
-        <Text color={cfg.color}>
-          [{cfg.label}]
-        </Text>
+        <Text color={cfg.color}>[{cfg.label}]</Text>
         {branch && (
           <>
             <Text> </Text>
@@ -147,7 +164,8 @@ export function PrBadge({
       <Box>
         {changes && (
           <Text color="gray" dim>
-            {'📄'}{changes.files} files{' '}
+            {'📄'}
+            {changes.files} files{' '}
             <Text color="green">+{changes.additions}</Text>{' '}
             <Text color="red">-{changes.deletions}</Text>
           </Text>
@@ -156,7 +174,8 @@ export function PrBadge({
           <>
             <Text> </Text>
             <Text color={ciConfig[ciStatus].color}>
-              {'CI:'}{ciConfig[ciStatus].icon}
+              {'CI:'}
+              {ciConfig[ciStatus].icon}
             </Text>
           </>
         )}

@@ -32,7 +32,14 @@ type AgentExecutor = (
   agentType: string,
   input: string,
   systemPrompt?: string
-) => Promise<{ output: string; tokenUsage?: { promptTokens: number; completionTokens: number; totalTokens: number } }>;
+) => Promise<{
+  output: string;
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+}>;
 
 /**
  * Agent Chain 引擎
@@ -64,7 +71,9 @@ export class AgentChain extends EventEmitter {
       lines.push(`[System: ${systemPrompt.substring(0, 50)}...]`);
     }
     lines.push(`[Input: ${input.substring(0, 100)}]`);
-    lines.push(`[Result: Processed by ${agentType} at ${new Date().toISOString()}]`);
+    lines.push(
+      `[Result: Processed by ${agentType} at ${new Date().toISOString()}]`
+    );
     return { output: lines.join('\n') };
   }
 
@@ -121,7 +130,11 @@ export class AgentChain extends EventEmitter {
         output: '',
         stepResults: [],
         totalDurationMs: 0,
-        totalTokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        totalTokenUsage: {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        },
         error: `Chain ${request.chainId} not found`,
       };
     }
@@ -133,7 +146,11 @@ export class AgentChain extends EventEmitter {
     this.activeExecutions.set(executionId, abortController);
 
     try {
-      const result = await this.executeChain(chain, request, abortController.signal);
+      const result = await this.executeChain(
+        chain,
+        request,
+        abortController.signal
+      );
       registration.useCount++;
       return result;
     } finally {
@@ -187,7 +204,10 @@ export class AgentChain extends EventEmitter {
 
       if (stepResult.status === 'completed') {
         currentInput = stepResult.output;
-      } else if (stepResult.status === 'failed' || stepResult.status === 'aborted') {
+      } else if (
+        stepResult.status === 'failed' ||
+        stepResult.status === 'aborted'
+      ) {
         const errorStrategy = step.onError || chain.defaultOnError || 'abort';
         if (errorStrategy === 'abort') {
           chainStatus = stepResult.status === 'aborted' ? 'aborted' : 'failed';
@@ -206,7 +226,12 @@ export class AgentChain extends EventEmitter {
 
     this.emitProgress({
       chainId: chain.id,
-      type: chainStatus === 'completed' ? 'chain_complete' : chainStatus === 'aborted' ? 'chain_abort' : 'chain_fail',
+      type:
+        chainStatus === 'completed'
+          ? 'chain_complete'
+          : chainStatus === 'aborted'
+            ? 'chain_abort'
+            : 'chain_fail',
       currentStep: stepResults.length,
       totalSteps,
       message: `Chain ${chain.name}: ${chainStatus}`,
@@ -256,7 +281,7 @@ export class AgentChain extends EventEmitter {
 
     const startTime = Date.now();
     const timeout = step.timeoutMs || defaultTimeout;
-    const maxRetries = step.onError === 'retry' ? (step.retryCount || 2) : 0;
+    const maxRetries = step.onError === 'retry' ? step.retryCount || 2 : 0;
     const systemPrompt = step.systemPrompt
       ? this.resolveTemplate(step.systemPrompt, input, request)
       : undefined;
@@ -289,8 +314,19 @@ export class AgentChain extends EventEmitter {
       }
 
       try {
-        if (step.mode === 'parallel' && step.substeps && step.substeps.length > 0) {
-          return await this.executeParallelStep(step, stepInput, request, signal, defaultTimeout, startTime);
+        if (
+          step.mode === 'parallel' &&
+          step.substeps &&
+          step.substeps.length > 0
+        ) {
+          return await this.executeParallelStep(
+            step,
+            stepInput,
+            request,
+            signal,
+            defaultTimeout,
+            startTime
+          );
         }
 
         const result = await this.executeWithTimeout(
@@ -427,9 +463,11 @@ export class AgentChain extends EventEmitter {
   /**
    * 汇总所有步骤的 Token 使用量
    */
-  private aggregateTokenUsage(
-    stepResults: ChainStepResult[]
-  ): { promptTokens: number; completionTokens: number; totalTokens: number } {
+  private aggregateTokenUsage(stepResults: ChainStepResult[]): {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  } {
     let promptTokens = 0;
     let completionTokens = 0;
     let totalTokens = 0;

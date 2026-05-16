@@ -319,7 +319,11 @@ function applyDelete(content: string, command: EditCommand): string {
       ErrorCategory.VALIDATION,
       ErrorSeverity.HIGH,
       'INVALID_INPUT',
-      { startLine: range.startLine, endLine: range.endLine, totalLines: lines.length }
+      {
+        startLine: range.startLine,
+        endLine: range.endLine,
+        totalLines: lines.length,
+      }
     );
   }
 
@@ -344,7 +348,11 @@ function applyReplace(content: string, command: EditCommand): string {
         ErrorCategory.VALIDATION,
         ErrorSeverity.HIGH,
         'INVALID_INPUT',
-        { startLine: range.startLine, endLine: range.endLine, totalLines: lines.length }
+        {
+          startLine: range.startLine,
+          endLine: range.endLine,
+          totalLines: lines.length,
+        }
       );
     }
 

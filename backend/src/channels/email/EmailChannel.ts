@@ -114,7 +114,11 @@ export class EmailChannel extends EventEmitter {
   /**
    * 发送格式化 HTML 邮件
    */
-  async sendHtml(target: string, subject: string, html: string): Promise<boolean> {
+  async sendHtml(
+    target: string,
+    subject: string,
+    html: string
+  ): Promise<boolean> {
     if (!this.connected) return false;
 
     const message: EmailMessage = {

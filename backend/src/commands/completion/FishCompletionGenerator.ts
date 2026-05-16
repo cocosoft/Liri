@@ -10,7 +10,6 @@ import type { Command } from '@modules/commands/types/index';
  * Fish Shell 补全脚本生成器
  */
 export class FishCompletionGenerator {
-
   /**
    * 生成完整 Fish Shell 补全脚本
    * @returns Fish 格式的补全脚本字符串
@@ -84,7 +83,8 @@ export class FishCompletionGenerator {
     const { homedir } = require('os');
     const { join } = require('path');
 
-    const targetDir = fishDir || join(homedir(), '.config', 'fish', 'completions');
+    const targetDir =
+      fishDir || join(homedir(), '.config', 'fish', 'completions');
 
     return join(targetDir, 'py_app.fish');
   }

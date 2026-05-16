@@ -14,7 +14,10 @@ interface PDFInput {
 }
 
 function generateSimplePDF(title: string, content: string): Buffer {
-  const sanitized = content.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  const sanitized = content
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
   const lines = sanitized.split('\n');
 
   let pdf = '%PDF-1.4\n';
@@ -35,13 +38,19 @@ function generateSimplePDF(title: string, content: string): Buffer {
   for (const line of lines) {
     const truncated = line.slice(0, 100);
     textObjects.push(`0 -15 Td`);
-    textObjects.push(`(${truncated.replace(/\(/g, '\\(').replace(/\)/g, '\\)')}) Tj`);
+    textObjects.push(
+      `(${truncated.replace(/\(/g, '\\(').replace(/\)/g, '\\)')}) Tj`
+    );
   }
   textObjects.push('ET');
   const streamContent = textObjects.join('\n');
 
-  objects.push(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>\nendobj`);
-  objects.push(`4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj`);
+  objects.push(
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>\nendobj`
+  );
+  objects.push(
+    `4 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj`
+  );
 
   const xrefOffset = pdf.length + objects.join('\n').length + 1;
   pdf += objects.join('\n') + '\n';
@@ -63,12 +72,14 @@ function generateSimplePDF(title: string, content: string): Buffer {
 
 export class PDFTool extends BaseTool<Record<string, unknown>> {
   name = 'pdf';
-  description = 'Generate simple PDF documents from text content. Supports creating, extracting text from, and getting info about PDF files.';
+  description =
+    'Generate simple PDF documents from text content. Supports creating, extracting text from, and getting info about PDF files.';
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
-      description: 'Action: generate (create PDF), extract (read text), info (get metadata)',
+      description:
+        'Action: generate (create PDF), extract (read text), info (get metadata)',
       required: true,
       enum: ['generate', 'extract', 'info'],
     },
@@ -106,17 +117,25 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
     _context: ToolUseContext
   ): Promise<ToolResult> {
     try {
-      const { action, title, content, filename, filepath } = input as unknown as PDFInput;
+      const { action, title, content, filename, filepath } =
+        input as unknown as PDFInput;
 
       const validActions = ['generate', 'extract', 'info'];
       if (!action || !validActions.includes(action)) {
-        return { success: false, error: `action must be one of: ${validActions.join(', ')}` };
+        return {
+          success: false,
+          error: `action must be one of: ${validActions.join(', ')}`,
+        };
       }
 
       switch (action) {
         case 'generate': {
           if (!content || typeof content !== 'string') {
-            return { success: false, error: 'content is required and must be a string for generate action' };
+            return {
+              success: false,
+              error:
+                'content is required and must be a string for generate action',
+            };
           }
 
           const docTitle = title || 'Untitled';
@@ -125,25 +144,39 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
 
           return {
             success: true,
-            data: { filename: outFile, sizeBytes: pdfBuffer.length, title: docTitle, pages: 1 },
+            data: {
+              filename: outFile,
+              sizeBytes: pdfBuffer.length,
+              title: docTitle,
+              pages: 1,
+            },
             output: `PDF generated: "${outFile}" (${pdfBuffer.length} bytes, 1 page)`,
           };
         }
 
         case 'extract': {
           if (!filepath) {
-            return { success: false, error: 'filepath is required for extract action' };
+            return {
+              success: false,
+              error: 'filepath is required for extract action',
+            };
           }
           return {
             success: true,
-            data: { filepath, text: '[PDF text extraction requires a PDF parsing library]' },
+            data: {
+              filepath,
+              text: '[PDF text extraction requires a PDF parsing library]',
+            },
             output: `PDF file "${filepath}" - text extraction requires pdf-parse library.`,
           };
         }
 
         case 'info': {
           if (!filepath) {
-            return { success: false, error: 'filepath is required for info action' };
+            return {
+              success: false,
+              error: 'filepath is required for info action',
+            };
           }
           return {
             success: true,

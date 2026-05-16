@@ -80,7 +80,9 @@ export class DenialTracker {
   /**
    * @param escalationThreshold 连续拒绝升级阈值，默认为 3
    */
-  constructor(escalationThreshold: number = DenialTracker.DEFAULT_ESCALATION_THRESHOLD) {
+  constructor(
+    escalationThreshold: number = DenialTracker.DEFAULT_ESCALATION_THRESHOLD
+  ) {
     this.escalationThreshold = escalationThreshold;
   }
 

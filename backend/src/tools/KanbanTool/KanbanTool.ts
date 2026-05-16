@@ -51,9 +51,18 @@ export interface KanbanCard {
  * Kanban 工具输入参数
  */
 export interface KanbanInput {
-  action: 'create_board' | 'list_boards' | 'view_board' | 'delete_board'
-    | 'add_column' | 'rename_column' | 'remove_column'
-    | 'add_card' | 'move_card' | 'update_card' | 'delete_card';
+  action:
+    | 'create_board'
+    | 'list_boards'
+    | 'view_board'
+    | 'delete_board'
+    | 'add_column'
+    | 'rename_column'
+    | 'remove_column'
+    | 'add_card'
+    | 'move_card'
+    | 'update_card'
+    | 'delete_card';
   boardId?: string;
   boardName?: string;
   boardDescription?: string;
@@ -81,82 +90,106 @@ function generateId(prefix: string): string {
 export class KanbanTool extends BaseTool {
   name = 'kanban';
 
-  description = 'Manage Kanban boards with columns and cards. Create, view, and organize tasks using a visual board system with drag-and-drop card movement between columns.';
+  description =
+    'Manage Kanban boards with columns and cards. Create, view, and organize tasks using a visual board system with drag-and-drop card movement between columns.';
 
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
       enum: [
-        'create_board', 'list_boards', 'view_board', 'delete_board',
-        'add_column', 'rename_column', 'remove_column',
-        'add_card', 'move_card', 'update_card', 'delete_card',
+        'create_board',
+        'list_boards',
+        'view_board',
+        'delete_board',
+        'add_column',
+        'rename_column',
+        'remove_column',
+        'add_card',
+        'move_card',
+        'update_card',
+        'delete_card',
       ],
       description: 'Action to perform',
       required: true,
     },
     {
-      name: 'boardId', type: 'string',
-      description: 'Board ID (required for view/delete/add_column/rename_column/remove_column/add_card)',
+      name: 'boardId',
+      type: 'string',
+      description:
+        'Board ID (required for view/delete/add_column/rename_column/remove_column/add_card)',
       required: false,
     },
     {
-      name: 'boardName', type: 'string',
+      name: 'boardName',
+      type: 'string',
       description: 'Board name (required for create_board)',
       required: false,
     },
     {
-      name: 'boardDescription', type: 'string',
+      name: 'boardDescription',
+      type: 'string',
       description: 'Board description',
       required: false,
     },
     {
-      name: 'columnId', type: 'string',
+      name: 'columnId',
+      type: 'string',
       description: 'Column ID (required for rename_column/remove_column)',
       required: false,
     },
     {
-      name: 'columnName', type: 'string',
+      name: 'columnName',
+      type: 'string',
       description: 'Column name (required for add_column/rename_column)',
       required: false,
     },
     {
-      name: 'columnDescription', type: 'string',
+      name: 'columnDescription',
+      type: 'string',
       description: 'Column description',
       required: false,
     },
     {
-      name: 'targetColumnId', type: 'string',
+      name: 'targetColumnId',
+      type: 'string',
       description: 'Target column ID (required for move_card)',
       required: false,
     },
     {
-      name: 'cardId', type: 'string',
+      name: 'cardId',
+      type: 'string',
       description: 'Card ID (required for move_card/update_card/delete_card)',
       required: false,
     },
     {
-      name: 'cardTitle', type: 'string',
+      name: 'cardTitle',
+      type: 'string',
       description: 'Card title (required for add_card)',
       required: false,
     },
     {
-      name: 'cardDescription', type: 'string',
+      name: 'cardDescription',
+      type: 'string',
       description: 'Card description',
       required: false,
     },
     {
-      name: 'cardPriority', type: 'string', enum: ['low', 'medium', 'high', 'urgent'],
+      name: 'cardPriority',
+      type: 'string',
+      enum: ['low', 'medium', 'high', 'urgent'],
       description: 'Card priority (default: medium)',
       required: false,
     },
     {
-      name: 'assignee', type: 'string',
+      name: 'assignee',
+      type: 'string',
       description: 'Card assignee',
       required: false,
     },
     {
-      name: 'tags', type: 'array',
+      name: 'tags',
+      type: 'array',
       description: 'Card tags',
       required: false,
     },
@@ -178,13 +211,24 @@ export class KanbanTool extends BaseTool {
       const params = input as unknown as KanbanInput;
 
       if (!params.action || typeof params.action !== 'string') {
-        return { success: false, error: 'action is required and must be a string' };
+        return {
+          success: false,
+          error: 'action is required and must be a string',
+        };
       }
 
       const validActions = [
-        'create_board', 'list_boards', 'view_board', 'delete_board',
-        'add_column', 'rename_column', 'remove_column',
-        'add_card', 'move_card', 'update_card', 'delete_card',
+        'create_board',
+        'list_boards',
+        'view_board',
+        'delete_board',
+        'add_column',
+        'rename_column',
+        'remove_column',
+        'add_card',
+        'move_card',
+        'update_card',
+        'delete_card',
       ];
       if (!validActions.includes(params.action)) {
         return {
@@ -217,7 +261,10 @@ export class KanbanTool extends BaseTool {
         case 'delete_card':
           return this.deleteCard(params);
         default:
-          return { success: false, error: `Unhandled action: ${params.action}` };
+          return {
+            success: false,
+            error: `Unhandled action: ${params.action}`,
+          };
       }
     } catch (error) {
       return {
@@ -229,7 +276,10 @@ export class KanbanTool extends BaseTool {
 
   private createBoard(params: KanbanInput): ToolResult {
     if (!params.boardName) {
-      return { success: false, error: 'boardName is required for create_board action' };
+      return {
+        success: false,
+        error: 'boardName is required for create_board action',
+      };
     }
 
     const id = generateId('board');
@@ -267,15 +317,19 @@ export class KanbanTool extends BaseTool {
     return {
       success: true,
       data: { action: 'list_boards', boards: allBoards },
-      output: allBoards.length === 0
-        ? '暂无看板。使用 create_board 创建新看板。'
-        : `共 ${allBoards.length} 个看板:\n${allBoards.map((b) => `  - ${b.name} (${b.id}): ${b.cardCount} 张卡片`).join('\n')}`,
+      output:
+        allBoards.length === 0
+          ? '暂无看板。使用 create_board 创建新看板。'
+          : `共 ${allBoards.length} 个看板:\n${allBoards.map((b) => `  - ${b.name} (${b.id}): ${b.cardCount} 张卡片`).join('\n')}`,
     };
   }
 
   private viewBoard(params: KanbanInput): ToolResult {
     if (!params.boardId) {
-      return { success: false, error: 'boardId is required for view_board action' };
+      return {
+        success: false,
+        error: 'boardId is required for view_board action',
+      };
     }
 
     const board = boards.get(params.boardId);
@@ -283,9 +337,9 @@ export class KanbanTool extends BaseTool {
       return { success: false, error: `看板 "${params.boardId}" 未找到` };
     }
 
-    const summary = board.columns.map((col) =>
-      `${col.name}: ${col.cards.length} 张卡片`
-    ).join('\n');
+    const summary = board.columns
+      .map((col) => `${col.name}: ${col.cards.length} 张卡片`)
+      .join('\n');
 
     return {
       success: true,
@@ -296,7 +350,10 @@ export class KanbanTool extends BaseTool {
 
   private deleteBoard(params: KanbanInput): ToolResult {
     if (!params.boardId) {
-      return { success: false, error: 'boardId is required for delete_board action' };
+      return {
+        success: false,
+        error: 'boardId is required for delete_board action',
+      };
     }
 
     const board = boards.get(params.boardId);
@@ -315,7 +372,10 @@ export class KanbanTool extends BaseTool {
 
   private addColumn(params: KanbanInput): ToolResult {
     if (!params.boardId || !params.columnName) {
-      return { success: false, error: 'boardId and columnName are required for add_column action' };
+      return {
+        success: false,
+        error: 'boardId and columnName are required for add_column action',
+      };
     }
 
     const board = boards.get(params.boardId);
@@ -341,7 +401,11 @@ export class KanbanTool extends BaseTool {
 
   private renameColumn(params: KanbanInput): ToolResult {
     if (!params.boardId || !params.columnId || !params.columnName) {
-      return { success: false, error: 'boardId, columnId, and columnName are required for rename_column action' };
+      return {
+        success: false,
+        error:
+          'boardId, columnId, and columnName are required for rename_column action',
+      };
     }
 
     const board = boards.get(params.boardId);
@@ -360,14 +424,21 @@ export class KanbanTool extends BaseTool {
 
     return {
       success: true,
-      data: { action: 'rename_column', boardId: params.boardId, columnId: params.columnId },
+      data: {
+        action: 'rename_column',
+        boardId: params.boardId,
+        columnId: params.columnId,
+      },
       output: `列 "${oldName}" 已重命名为 "${params.columnName}"。`,
     };
   }
 
   private removeColumn(params: KanbanInput): ToolResult {
     if (!params.boardId || !params.columnId) {
-      return { success: false, error: 'boardId and columnId are required for remove_column action' };
+      return {
+        success: false,
+        error: 'boardId and columnId are required for remove_column action',
+      };
     }
 
     const board = boards.get(params.boardId);
@@ -386,14 +457,21 @@ export class KanbanTool extends BaseTool {
 
     return {
       success: true,
-      data: { action: 'remove_column', boardId: params.boardId, columnId: params.columnId },
+      data: {
+        action: 'remove_column',
+        boardId: params.boardId,
+        columnId: params.columnId,
+      },
       output: `列 "${col.name}" 已移除（包含 ${col.cards.length} 张卡片）。`,
     };
   }
 
   private addCard(params: KanbanInput): ToolResult {
     if (!params.boardId || !params.cardTitle) {
-      return { success: false, error: 'boardId and cardTitle are required for add_card action' };
+      return {
+        success: false,
+        error: 'boardId and cardTitle are required for add_card action',
+      };
     }
 
     const board = boards.get(params.boardId);
@@ -426,14 +504,23 @@ export class KanbanTool extends BaseTool {
 
     return {
       success: true,
-      data: { action: 'add_card', cardId: card.id, boardId: params.boardId, columnId: targetCol.id },
+      data: {
+        action: 'add_card',
+        cardId: card.id,
+        boardId: params.boardId,
+        columnId: targetCol.id,
+      },
       output: `卡片 "${params.cardTitle}" 已添加到看板 "${board.name}" 的 "${targetCol.name}" 列。`,
     };
   }
 
   private moveCard(params: KanbanInput): ToolResult {
     if (!params.boardId || !params.cardId || !params.targetColumnId) {
-      return { success: false, error: 'boardId, cardId, and targetColumnId are required for move_card action' };
+      return {
+        success: false,
+        error:
+          'boardId, cardId, and targetColumnId are required for move_card action',
+      };
     }
 
     const board = boards.get(params.boardId);
@@ -443,7 +530,10 @@ export class KanbanTool extends BaseTool {
 
     const targetCol = board.columns.find((c) => c.id === params.targetColumnId);
     if (!targetCol) {
-      return { success: false, error: `目标列 "${params.targetColumnId}" 未找到` };
+      return {
+        success: false,
+        error: `目标列 "${params.targetColumnId}" 未找到`,
+      };
     }
 
     let foundCard: KanbanCard | undefined;
@@ -469,14 +559,22 @@ export class KanbanTool extends BaseTool {
 
     return {
       success: true,
-      data: { action: 'move_card', cardId: params.cardId, fromColumn: sourceCol.id, toColumn: targetCol.id },
+      data: {
+        action: 'move_card',
+        cardId: params.cardId,
+        fromColumn: sourceCol.id,
+        toColumn: targetCol.id,
+      },
       output: `卡片 "${foundCard.title}" 已从 "${sourceCol.name}" 移动到 "${targetCol.name}"。`,
     };
   }
 
   private updateCard(params: KanbanInput): ToolResult {
     if (!params.boardId || !params.cardId) {
-      return { success: false, error: 'boardId and cardId are required for update_card action' };
+      return {
+        success: false,
+        error: 'boardId and cardId are required for update_card action',
+      };
     }
 
     const board = boards.get(params.boardId);
@@ -488,8 +586,10 @@ export class KanbanTool extends BaseTool {
       const card = col.cards.find((c) => c.id === params.cardId);
       if (card) {
         if (params.cardTitle !== undefined) card.title = params.cardTitle;
-        if (params.cardDescription !== undefined) card.description = params.cardDescription;
-        if (params.cardPriority !== undefined) card.priority = params.cardPriority;
+        if (params.cardDescription !== undefined)
+          card.description = params.cardDescription;
+        if (params.cardPriority !== undefined)
+          card.priority = params.cardPriority;
         if (params.assignee !== undefined) card.assignee = params.assignee;
         if (params.tags !== undefined) card.tags = params.tags;
         card.updatedAt = Date.now();
@@ -508,7 +608,10 @@ export class KanbanTool extends BaseTool {
 
   private deleteCard(params: KanbanInput): ToolResult {
     if (!params.boardId || !params.cardId) {
-      return { success: false, error: 'boardId and cardId are required for delete_card action' };
+      return {
+        success: false,
+        error: 'boardId and cardId are required for delete_card action',
+      };
     }
 
     const board = boards.get(params.boardId);

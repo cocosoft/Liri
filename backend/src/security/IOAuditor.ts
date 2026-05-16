@@ -9,7 +9,14 @@ import { EventEmitter } from 'node:events';
 /**
  * IO 操作类型
  */
-export type IOOpsType = 'read' | 'write' | 'execute' | 'delete' | 'network' | 'file' | 'api';
+export type IOOpsType =
+  | 'read'
+  | 'write'
+  | 'execute'
+  | 'delete'
+  | 'network'
+  | 'file'
+  | 'api';
 
 /**
  * IO 审计条目
@@ -109,7 +116,9 @@ export class IOAuditor extends EventEmitter {
   /**
    * 记录一条 IO 审计条目
    */
-  record(entry: Omit<IOAuditEntry, 'id' | 'timestamp' | 'inputSize' | 'outputSize'>): IOAuditEntry {
+  record(
+    entry: Omit<IOAuditEntry, 'id' | 'timestamp' | 'inputSize' | 'outputSize'>
+  ): IOAuditEntry {
     if (!this.config.enabled) {
       const disabledEntry: IOAuditEntry = {
         ...entry,
@@ -219,7 +228,9 @@ export class IOAuditor extends EventEmitter {
     }
 
     if (query.tags && query.tags.length > 0) {
-      results = results.filter((e) => query.tags!.some((tag) => e.tags.includes(tag)));
+      results = results.filter((e) =>
+        query.tags!.some((tag) => e.tags.includes(tag))
+      );
     }
 
     const offset = query.offset || 0;

@@ -50,7 +50,12 @@ export type {
 } from './categories';
 
 // manifest-loader — 插件清单加载器
-export { loadPluginManifest, loadPluginManifests, getPluginSkills, getPluginHooks } from './ManifestLoader';
+export {
+  loadPluginManifest,
+  loadPluginManifests,
+  getPluginSkills,
+  getPluginHooks,
+} from './ManifestLoader';
 
 // channel-contract — 通道插件契约
 export { validateChannelPlugin } from './channel-contract';

@@ -98,7 +98,12 @@ export class YuanbaoChannel extends EventEmitter {
       return false;
     }
 
-    this.emit('message:sent', { groupId, text, msgType: 'group', timestamp: Date.now() });
+    this.emit('message:sent', {
+      groupId,
+      text,
+      msgType: 'group',
+      timestamp: Date.now(),
+    });
 
     return true;
   }

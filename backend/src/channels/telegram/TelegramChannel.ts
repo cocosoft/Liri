@@ -129,13 +129,14 @@ function createTelegramChannel(): IChannelPlugin {
         state.botToken = (config['botToken'] as string) || '';
         state.webhookUrl = (config['webhookUrl'] as string) || '';
 
-        if (!state.botToken) throw new AppError(
-          'Telegram: botToken 是必需的',
-          ErrorCategory.VALIDATION,
-          ErrorSeverity.HIGH,
-          'INVALID_INPUT',
-          { channel: 'telegram', missing: ['botToken'] }
-        );
+        if (!state.botToken)
+          throw new AppError(
+            'Telegram: botToken 是必需的',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'INVALID_INPUT',
+            { channel: 'telegram', missing: ['botToken'] }
+          );
 
         state.startTime = Date.now();
 

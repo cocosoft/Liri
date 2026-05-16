@@ -97,7 +97,9 @@ export abstract class MemoryProvider {
    * @param memory 记忆数据
    * @returns 存储后的带时间戳记忆
    */
-  abstract store(memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>): Promise<Memory>;
+  abstract store(
+    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<Memory>;
 
   /**
    * 批量存储记忆
@@ -288,9 +290,10 @@ export abstract class MemoryProvider {
    * @param memory 记忆数据
    * @returns 是否有效
    */
-  protected validateMemory(
-    memory: Partial<Memory>
-  ): { valid: boolean; errors: string[] } {
+  protected validateMemory(memory: Partial<Memory>): {
+    valid: boolean;
+    errors: string[];
+  } {
     const errors: string[] = [];
 
     if (!memory.content || memory.content.trim().length === 0) {

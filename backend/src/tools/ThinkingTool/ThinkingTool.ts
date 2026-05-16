@@ -22,12 +22,14 @@ interface ThinkingEntry {
 
 export class ThinkingTool extends BaseTool<Record<string, unknown>> {
   name = 'thinking';
-  description = 'Record and organize structured thinking steps. Supports adding, reflecting, summarizing, and revising thoughts during multi-step reasoning.';
+  description =
+    'Record and organize structured thinking steps. Supports adding, reflecting, summarizing, and revising thoughts during multi-step reasoning.';
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
-      description: 'Thinking action: think (add), reflect (review), summarize (condense), revise (update)',
+      description:
+        'Thinking action: think (add), reflect (review), summarize (condense), revise (update)',
       required: true,
       enum: ['think', 'reflect', 'summarize', 'revise'],
     },
@@ -66,13 +68,19 @@ export class ThinkingTool extends BaseTool<Record<string, unknown>> {
 
       const validActions = ['think', 'reflect', 'summarize', 'revise'];
       if (!action || !validActions.includes(action)) {
-        return { success: false, error: `action must be one of: ${validActions.join(', ')}` };
+        return {
+          success: false,
+          error: `action must be one of: ${validActions.join(', ')}`,
+        };
       }
 
       switch (action) {
         case 'think': {
           if (!thought || typeof thought !== 'string') {
-            return { success: false, error: 'thought is required and must be a string' };
+            return {
+              success: false,
+              error: 'thought is required and must be a string',
+            };
           }
 
           this.stepCounter++;
@@ -93,12 +101,16 @@ export class ThinkingTool extends BaseTool<Record<string, unknown>> {
 
         case 'reflect': {
           if (this.thoughts.length === 0) {
-            return { success: true, data: { thoughts: [] }, output: 'No thoughts recorded yet.' };
+            return {
+              success: true,
+              data: { thoughts: [] },
+              output: 'No thoughts recorded yet.',
+            };
           }
 
-          const summary = this.thoughts.map((t) =>
-            `[Step ${t.step}] ${t.thought.slice(0, 100)}`
-          ).join('\n');
+          const summary = this.thoughts
+            .map((t) => `[Step ${t.step}] ${t.thought.slice(0, 100)}`)
+            .join('\n');
 
           return {
             success: true,
@@ -112,24 +124,37 @@ export class ThinkingTool extends BaseTool<Record<string, unknown>> {
             return { success: true, output: 'No thoughts to summarize.' };
           }
 
-          const tagSummary = this.thoughts.flatMap((t) => t.tags).filter(Boolean);
+          const tagSummary = this.thoughts
+            .flatMap((t) => t.tags)
+            .filter(Boolean);
           const uniqueTags = [...new Set(tagSummary)];
 
           return {
             success: true,
-            data: { totalSteps: this.thoughts.length, tags: uniqueTags, steps: this.thoughts },
+            data: {
+              totalSteps: this.thoughts.length,
+              tags: uniqueTags,
+              steps: this.thoughts,
+            },
             output: `Summary: ${this.thoughts.length} reasoning steps recorded. Tags: ${uniqueTags.join(', ') || 'none'}.`,
           };
         }
 
         case 'revise': {
           if (!thought || typeof thought !== 'string') {
-            return { success: false, error: 'thought is required and must be a string for revise action' };
+            return {
+              success: false,
+              error:
+                'thought is required and must be a string for revise action',
+            };
           }
 
           const step = (input as unknown as ThinkingInput).step;
           if (!step) {
-            return { success: false, error: 'step number is required for revise action' };
+            return {
+              success: false,
+              error: 'step number is required for revise action',
+            };
           }
 
           const target = this.thoughts.find((t) => t.step === step);

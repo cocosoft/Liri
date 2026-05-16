@@ -3,7 +3,10 @@
  * 展示如何实现 ProviderPlugin 接口，注册 Anthropic Claude 模型提供者
  */
 
-import { createProviderPlugin, type ProviderPlugin } from '../../plugin-sdk/index.js';
+import {
+  createProviderPlugin,
+  type ProviderPlugin,
+} from '../../plugin-sdk/index.js';
 
 /**
  * Anthropic 配置
@@ -41,7 +44,8 @@ export function createAnthropicProvider(
     id: 'provider-anthropic',
     name: 'Anthropic Provider',
     version: '1.0.0',
-    description: 'Anthropic Claude 模型提供者适配器，支持 Claude Sonnet/Opus 系列模型',
+    description:
+      'Anthropic Claude 模型提供者适配器，支持 Claude Sonnet/Opus 系列模型',
     author: 'PY_APP',
     tags: ['ai', 'llm', 'anthropic', 'claude', 'provider'],
     providerName: 'anthropic',

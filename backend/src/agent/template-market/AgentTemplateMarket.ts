@@ -52,21 +52,24 @@ function createBuiltinTemplates(): AgentTemplate[] {
           name: '分析变更',
           description: '分析代码变更的范围和影响',
           agentType: 'explore',
-          systemPrompt: '分析以下代码变更，总结变更范围和影响：\n\n{{previousOutput}}',
+          systemPrompt:
+            '分析以下代码变更，总结变更范围和影响：\n\n{{previousOutput}}',
           onError: 'abort',
         },
         {
           name: '审查代码',
           description: '逐行审查代码质量',
           agentType: 'code',
-          systemPrompt: '请对以下代码进行审查，检查：\n1. 潜在bug\n2. 安全漏洞\n3. 性能问题\n4. 代码风格\n5. 最佳实践\n\n代码：\n{{previousOutput}}',
+          systemPrompt:
+            '请对以下代码进行审查，检查：\n1. 潜在bug\n2. 安全漏洞\n3. 性能问题\n4. 代码风格\n5. 最佳实践\n\n代码：\n{{previousOutput}}',
           onError: 'skip',
         },
         {
           name: '生成报告',
           description: '汇总审查结果',
           agentType: 'general',
-          systemPrompt: '将以下代码审查结果整理为结构化报告：\n\n{{previousOutput}}',
+          systemPrompt:
+            '将以下代码审查结果整理为结构化报告：\n\n{{previousOutput}}',
         },
       ],
       defaultInputHint: '粘贴代码变更(diff)或文件路径',
@@ -93,19 +96,22 @@ function createBuiltinTemplates(): AgentTemplate[] {
           name: '分析代码',
           description: '理解代码结构和逻辑',
           agentType: 'explore',
-          systemPrompt: '分析以下代码的结构、输入输出和边界条件：\n\n{{previousOutput}}',
+          systemPrompt:
+            '分析以下代码的结构、输入输出和边界条件：\n\n{{previousOutput}}',
         },
         {
           name: '生成测试用例',
           description: '创建测试用例列表',
           agentType: 'plan',
-          systemPrompt: '根据以下代码分析，列出需要测试的用例：\n\n{{previousOutput}}',
+          systemPrompt:
+            '根据以下代码分析，列出需要测试的用例：\n\n{{previousOutput}}',
         },
         {
           name: '编写测试代码',
           description: '生成实际测试代码',
           agentType: 'code',
-          systemPrompt: '根据以下测试用例生成完整的测试代码：\n\n{{previousOutput}}',
+          systemPrompt:
+            '根据以下测试用例生成完整的测试代码：\n\n{{previousOutput}}',
         },
       ],
       defaultInputHint: '粘贴需要测试的源代码',
@@ -132,19 +138,22 @@ function createBuiltinTemplates(): AgentTemplate[] {
           name: '目录结构分析',
           description: '分析项目目录结构',
           agentType: 'explore',
-          systemPrompt: '分析以下项目的目录结构，总结模块组织方式：\n\n{{previousOutput}}',
+          systemPrompt:
+            '分析以下项目的目录结构，总结模块组织方式：\n\n{{previousOutput}}',
         },
         {
           name: '依赖分析',
           description: '分析模块间依赖关系',
           agentType: 'explore',
-          systemPrompt: '分析以下代码的依赖关系和模块耦合度：\n\n{{previousOutput}}',
+          systemPrompt:
+            '分析以下代码的依赖关系和模块耦合度：\n\n{{previousOutput}}',
         },
         {
           name: '架构总结',
           description: '生成架构文档',
           agentType: 'general',
-          systemPrompt: '根据以下分析结果，生成简洁的架构文档：\n\n{{previousOutput}}',
+          systemPrompt:
+            '根据以下分析结果，生成简洁的架构文档：\n\n{{previousOutput}}',
         },
       ],
       defaultInputHint: '粘贴项目根目录描述或关键文件列表',
@@ -171,7 +180,8 @@ function createBuiltinTemplates(): AgentTemplate[] {
           name: '代码分析',
           description: '分析代码质量',
           agentType: 'code',
-          systemPrompt: '分析以下代码的质量问题：\n1. 代码异味\n2. 重复代码\n3. 过长方法\n4. 复杂条件\n\n代码：\n{{previousOutput}}',
+          systemPrompt:
+            '分析以下代码的质量问题：\n1. 代码异味\n2. 重复代码\n3. 过长方法\n4. 复杂条件\n\n代码：\n{{previousOutput}}',
         },
         {
           name: '重构方案',
@@ -210,13 +220,15 @@ function createBuiltinTemplates(): AgentTemplate[] {
           name: '错误分析',
           description: '分析错误信息',
           agentType: 'explore',
-          systemPrompt: '分析以下错误信息，提取关键线索：\n\n{{previousOutput}}',
+          systemPrompt:
+            '分析以下错误信息，提取关键线索：\n\n{{previousOutput}}',
         },
         {
           name: '根因定位',
           description: '定位根本原因',
           agentType: 'code',
-          systemPrompt: '根据以下分析结果，定位问题的根本原因：\n\n{{previousOutput}}',
+          systemPrompt:
+            '根据以下分析结果，定位问题的根本原因：\n\n{{previousOutput}}',
         },
         {
           name: '修复方案',
@@ -249,7 +261,8 @@ function createBuiltinTemplates(): AgentTemplate[] {
           name: '配置检查',
           description: '检查部署配置',
           agentType: 'explore',
-          systemPrompt: '检查以下部署配置的完整性和正确性：\n\n{{previousOutput}}',
+          systemPrompt:
+            '检查以下部署配置的完整性和正确性：\n\n{{previousOutput}}',
         },
         {
           name: '依赖验证',
@@ -261,7 +274,8 @@ function createBuiltinTemplates(): AgentTemplate[] {
           name: '部署计划',
           description: '生成部署计划',
           agentType: 'plan',
-          systemPrompt: '根据以下信息生成详细的部署计划：\n\n{{previousOutput}}',
+          systemPrompt:
+            '根据以下信息生成详细的部署计划：\n\n{{previousOutput}}',
         },
       ],
       defaultInputHint: '粘贴部署配置或环境信息',
@@ -310,7 +324,9 @@ export class AgentTemplateMarket extends EventEmitter {
 
     if (filter) {
       if (filter.category) {
-        results = results.filter((t) => t.metadata.category === filter.category);
+        results = results.filter(
+          (t) => t.metadata.category === filter.category
+        );
       }
 
       if (filter.source) {
@@ -389,10 +405,17 @@ export class AgentTemplateMarket extends EventEmitter {
   /**
    * 获取所有分类及其模板数量
    */
-  getCategories(): { category: TemplateCategory; count: number; name: string }[] {
+  getCategories(): {
+    category: TemplateCategory;
+    count: number;
+    name: string;
+  }[] {
     const counts = new Map<TemplateCategory, number>();
     for (const template of this.templates.values()) {
-      counts.set(template.metadata.category, (counts.get(template.metadata.category) || 0) + 1);
+      counts.set(
+        template.metadata.category,
+        (counts.get(template.metadata.category) || 0) + 1
+      );
     }
     return Array.from(counts.entries()).map(([category, count]) => ({
       category,
@@ -423,7 +446,11 @@ export class AgentTemplateMarket extends EventEmitter {
   /**
    * 注册自定义模板
    */
-  registerTemplate(template: Omit<AgentTemplate, 'metadata'> & { metadata?: Partial<TemplateMetadata> }): AgentTemplate {
+  registerTemplate(
+    template: Omit<AgentTemplate, 'metadata'> & {
+      metadata?: Partial<TemplateMetadata>;
+    }
+  ): AgentTemplate {
     const fullTemplate: AgentTemplate = {
       metadata: {
         id: template.metadata?.id || `custom-${randomUUID().substring(0, 8)}`,
@@ -520,7 +547,10 @@ export class AgentTemplateMarket extends EventEmitter {
   /**
    * 添加评分
    */
-  addReview(templateId: string, review: Omit<TemplateReview, 'templateId' | 'createdAt'>): TemplateReview | null {
+  addReview(
+    templateId: string,
+    review: Omit<TemplateReview, 'templateId' | 'createdAt'>
+  ): TemplateReview | null {
     const template = this.templates.get(templateId);
     if (!template) return null;
 

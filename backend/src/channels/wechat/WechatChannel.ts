@@ -255,7 +255,11 @@ function createWechatChannel(): IChannelPlugin {
               ErrorCategory.API,
               ErrorSeverity.HIGH,
               'API_ERROR',
-              { channel: 'wechat', errcode: data['errcode'], errmsg: data['errmsg'] }
+              {
+                channel: 'wechat',
+                errcode: data['errcode'],
+                errmsg: data['errmsg'],
+              }
             );
           }
           state.accessToken = data['access_token'] as string;

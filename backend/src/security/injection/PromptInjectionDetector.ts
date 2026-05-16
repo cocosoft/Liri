@@ -190,24 +190,104 @@ const INJECTION_PATTERNS: InjectionPattern[] = [
 /**
  * 不可见 Unicode 字符范围定义
  */
-const INVISIBLE_UNICODE_RANGES: Array<{ name: string; start: number; end: number; description: string }> = [
-  { name: 'Zero Width Space', start: 0x200b, end: 0x200b, description: '零宽空格' },
-  { name: 'Zero Width Non-Joiner', start: 0x200c, end: 0x200c, description: '零宽非连接符' },
-  { name: 'Zero Width Joiner', start: 0x200d, end: 0x200d, description: '零宽连接符' },
-  { name: 'Zero Width No-Break Space', start: 0xfeff, end: 0xfeff, description: '零宽不换行空格' },
-  { name: 'Left-to-Right Mark', start: 0x200e, end: 0x200e, description: '左到右标记' },
-  { name: 'Right-to-Left Mark', start: 0x200f, end: 0x200f, description: '右到左标记' },
-  { name: 'Left-to-Right Embedding', start: 0x202a, end: 0x202a, description: '左到右嵌入' },
-  { name: 'Right-to-Left Embedding', start: 0x202b, end: 0x202b, description: '右到左嵌入' },
-  { name: 'Pop Directional Formatting', start: 0x202c, end: 0x202c, description: '方向格式化弹出' },
-  { name: 'Left-to-Right Override', start: 0x202d, end: 0x202d, description: '左到右覆盖' },
-  { name: 'Right-to-Left Override', start: 0x202e, end: 0x202e, description: '右到左覆盖' },
+const INVISIBLE_UNICODE_RANGES: Array<{
+  name: string;
+  start: number;
+  end: number;
+  description: string;
+}> = [
+  {
+    name: 'Zero Width Space',
+    start: 0x200b,
+    end: 0x200b,
+    description: '零宽空格',
+  },
+  {
+    name: 'Zero Width Non-Joiner',
+    start: 0x200c,
+    end: 0x200c,
+    description: '零宽非连接符',
+  },
+  {
+    name: 'Zero Width Joiner',
+    start: 0x200d,
+    end: 0x200d,
+    description: '零宽连接符',
+  },
+  {
+    name: 'Zero Width No-Break Space',
+    start: 0xfeff,
+    end: 0xfeff,
+    description: '零宽不换行空格',
+  },
+  {
+    name: 'Left-to-Right Mark',
+    start: 0x200e,
+    end: 0x200e,
+    description: '左到右标记',
+  },
+  {
+    name: 'Right-to-Left Mark',
+    start: 0x200f,
+    end: 0x200f,
+    description: '右到左标记',
+  },
+  {
+    name: 'Left-to-Right Embedding',
+    start: 0x202a,
+    end: 0x202a,
+    description: '左到右嵌入',
+  },
+  {
+    name: 'Right-to-Left Embedding',
+    start: 0x202b,
+    end: 0x202b,
+    description: '右到左嵌入',
+  },
+  {
+    name: 'Pop Directional Formatting',
+    start: 0x202c,
+    end: 0x202c,
+    description: '方向格式化弹出',
+  },
+  {
+    name: 'Left-to-Right Override',
+    start: 0x202d,
+    end: 0x202d,
+    description: '左到右覆盖',
+  },
+  {
+    name: 'Right-to-Left Override',
+    start: 0x202e,
+    end: 0x202e,
+    description: '右到左覆盖',
+  },
   { name: 'Word Joiner', start: 0x2060, end: 0x2060, description: '词连接符' },
-  { name: 'Invisible Separator', start: 0x2061, end: 0x2064, description: '不可见分隔符' },
+  {
+    name: 'Invisible Separator',
+    start: 0x2061,
+    end: 0x2064,
+    description: '不可见分隔符',
+  },
   { name: 'Soft Hyphen', start: 0x00ad, end: 0x00ad, description: '软连字符' },
-  { name: 'Hangul Filler', start: 0x3164, end: 0x3164, description: '韩文填充' },
-  { name: 'Braille Pattern Blank', start: 0x2800, end: 0x2800, description: '盲文空白' },
-  { name: 'Object Replacement Char', start: 0xfffc, end: 0xfffc, description: '对象替换字符' },
+  {
+    name: 'Hangul Filler',
+    start: 0x3164,
+    end: 0x3164,
+    description: '韩文填充',
+  },
+  {
+    name: 'Braille Pattern Blank',
+    start: 0x2800,
+    end: 0x2800,
+    description: '盲文空白',
+  },
+  {
+    name: 'Object Replacement Char',
+    start: 0xfffc,
+    end: 0xfffc,
+    description: '对象替换字符',
+  },
 ];
 
 /**
@@ -223,7 +303,12 @@ const SEVERITY_SCORE: Record<InjectionSeverity, number> = {
 /**
  * 严重程度排序
  */
-const SEVERITY_ORDER: InjectionSeverity[] = ['low', 'medium', 'high', 'critical'];
+const SEVERITY_ORDER: InjectionSeverity[] = [
+  'low',
+  'medium',
+  'high',
+  'critical',
+];
 
 /**
  * 提示注入检测器
@@ -362,7 +447,10 @@ export class PromptInjectionDetector {
     const matches: ThreatMatch[] = [];
 
     for (const { name, pattern, severity, description } of this.patterns) {
-      const regex = new RegExp(pattern.source, pattern.flags.replace('g', '') + 'g');
+      const regex = new RegExp(
+        pattern.source,
+        pattern.flags.replace('g', '') + 'g'
+      );
       let match: RegExpExecArray | null;
 
       while ((match = regex.exec(userInput)) !== null) {

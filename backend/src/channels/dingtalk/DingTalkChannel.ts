@@ -124,7 +124,11 @@ function createDingtalkChannel(): IChannelPlugin {
               ErrorCategory.API,
               ErrorSeverity.HIGH,
               'API_ERROR',
-              { channel: 'dingtalk', errcode: data['errcode'], errmsg: data['errmsg'] }
+              {
+                channel: 'dingtalk',
+                errcode: data['errcode'],
+                errmsg: data['errmsg'],
+              }
             );
           }
           state.accessToken = data['access_token'] as string;

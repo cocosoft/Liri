@@ -23,44 +23,44 @@
 
 ### 公开 API 清单
 
-| API | 来源 | 类型 |
-|-----|------|------|
-| `Plugin` | types.ts | 接口 |
-| `PluginContext` | types.ts | 接口 |
-| `SkillDefinition` | types.ts | 接口 |
-| `SkillParameter` | types.ts | 接口 |
-| `SkillContext` | types.ts | 接口 |
-| `PluginManifest` | types.ts | 接口 |
-| `PluginConfig` | types.ts | 接口 |
-| `PluginRuntime` | types.ts | 接口 |
-| `ToolRegistration` | types.ts | 接口 |
-| `PluginRuntimeStatus` | types.ts | 枚举 |
-| `createPlugin()` | core.ts | 函数 |
-| `validatePluginManifest()` | core.ts | 函数 |
-| **🆕 分类系统** | | |
-| `PLUGIN_CATEGORIES` | categories.ts | 常量 |
-| `getCategoryMeta()` | categories.ts | 函数 |
-| `validateCategory()` | categories.ts | 函数 |
-| `listCategories()` | categories.ts | 函数 |
-| `createProviderPlugin()` | categories.ts | 函数 |
-| `createToolPlugin()` | categories.ts | 函数 |
-| `createHookPlugin()` | categories.ts | 函数 |
-| `createChannelPlugin()` | categories.ts | 函数 |
-| `createSkillPlugin()` | categories.ts | 函数 |
-| `PluginCategoryCapability` | categories.ts | 类型 |
-| `ProviderPlugin` | categories.ts | 接口 |
-| `ToolPlugin` | categories.ts | 接口 |
-| `HookPlugin` | categories.ts | 接口 |
-| `ChannelPlugin` | categories.ts | 接口 |
-| `SkillPlugin` | categories.ts | 接口 |
-| **🆕 通道契约** | | |
-| `IChannelPlugin` | channel-contract.ts | 接口 |
-| `validateChannelPlugin()` | channel-contract.ts | 函数 |
-| `ChannelMeta` | channel-contract.ts | 接口 |
-| `ChannelCapabilities` | channel-contract.ts | 接口 |
-| `ChannelSendResult` | channel-contract.ts | 接口 |
-| `ChannelStatus` | channel-contract.ts | 接口 |
-| `ChannelMessageContext` | channel-contract.ts | 接口 |
+| API                        | 来源                | 类型 |
+| -------------------------- | ------------------- | ---- |
+| `Plugin`                   | types.ts            | 接口 |
+| `PluginContext`            | types.ts            | 接口 |
+| `SkillDefinition`          | types.ts            | 接口 |
+| `SkillParameter`           | types.ts            | 接口 |
+| `SkillContext`             | types.ts            | 接口 |
+| `PluginManifest`           | types.ts            | 接口 |
+| `PluginConfig`             | types.ts            | 接口 |
+| `PluginRuntime`            | types.ts            | 接口 |
+| `ToolRegistration`         | types.ts            | 接口 |
+| `PluginRuntimeStatus`      | types.ts            | 枚举 |
+| `createPlugin()`           | core.ts             | 函数 |
+| `validatePluginManifest()` | core.ts             | 函数 |
+| **🆕 分类系统**            |                     |      |
+| `PLUGIN_CATEGORIES`        | categories.ts       | 常量 |
+| `getCategoryMeta()`        | categories.ts       | 函数 |
+| `validateCategory()`       | categories.ts       | 函数 |
+| `listCategories()`         | categories.ts       | 函数 |
+| `createProviderPlugin()`   | categories.ts       | 函数 |
+| `createToolPlugin()`       | categories.ts       | 函数 |
+| `createHookPlugin()`       | categories.ts       | 函数 |
+| `createChannelPlugin()`    | categories.ts       | 函数 |
+| `createSkillPlugin()`      | categories.ts       | 函数 |
+| `PluginCategoryCapability` | categories.ts       | 类型 |
+| `ProviderPlugin`           | categories.ts       | 接口 |
+| `ToolPlugin`               | categories.ts       | 接口 |
+| `HookPlugin`               | categories.ts       | 接口 |
+| `ChannelPlugin`            | categories.ts       | 接口 |
+| `SkillPlugin`              | categories.ts       | 接口 |
+| **🆕 通道契约**            |                     |      |
+| `IChannelPlugin`           | channel-contract.ts | 接口 |
+| `validateChannelPlugin()`  | channel-contract.ts | 函数 |
+| `ChannelMeta`              | channel-contract.ts | 接口 |
+| `ChannelCapabilities`      | channel-contract.ts | 接口 |
+| `ChannelSendResult`        | channel-contract.ts | 接口 |
+| `ChannelStatus`            | channel-contract.ts | 接口 |
+| `ChannelMessageContext`    | channel-contract.ts | 接口 |
 
 ### 契约测试
 

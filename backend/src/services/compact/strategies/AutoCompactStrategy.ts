@@ -102,7 +102,9 @@ export class AutoCompactStrategy extends ContextEngine {
     const priority = Math.min(
       100,
       Math.floor(
-        ((context.currentTokens - threshold) / (context.contextWindow - threshold)) * 100
+        ((context.currentTokens - threshold) /
+          (context.contextWindow - threshold)) *
+          100
       )
     );
 
@@ -116,7 +118,10 @@ export class AutoCompactStrategy extends ContextEngine {
     };
   }
 
-  compact(messages: Message[], options?: Partial<CompactConfig>): CompactResult {
+  compact(
+    messages: Message[],
+    options?: Partial<CompactConfig>
+  ): CompactResult {
     const startTime = Date.now();
     const originalTokenCount = this.getTotalTokenCount(messages);
     const config = { ...this.getConfig(), ...options } as AutoCompactConfig;
@@ -189,7 +194,11 @@ export class AutoCompactStrategy extends ContextEngine {
   /**
    * 获取断路器状态
    */
-  getCircuitBreakerStatus(): { consecutiveFailures: number; maxFailures: number; isOpen: boolean } {
+  getCircuitBreakerStatus(): {
+    consecutiveFailures: number;
+    maxFailures: number;
+    isOpen: boolean;
+  } {
     const config = this.getConfig() as AutoCompactConfig;
     return {
       consecutiveFailures: this.consecutiveFailures,

@@ -27,7 +27,10 @@ export function buildSystemPrompt(
       ErrorCategory.EXECUTION,
       ErrorSeverity.CRITICAL,
       'PROMPT_INJECTION_DETECTED',
-      { severity: detectionResult.severity, patterns: detectionResult.matchedPatterns }
+      {
+        severity: detectionResult.severity,
+        patterns: detectionResult.matchedPatterns,
+      }
     );
   }
 

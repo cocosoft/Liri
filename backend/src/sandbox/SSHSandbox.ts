@@ -69,11 +69,16 @@ export class SSHSandbox {
    */
   private buildSshArgs(remoteCmd: string): string[] {
     const args: string[] = [
-      '-o', 'StrictHostKeyChecking=no',
-      '-o', 'UserKnownHostsFile=/dev/null',
-      '-o', 'ConnectTimeout=10',
-      '-o', 'BatchMode=yes',
-      '-p', String(this.config.port),
+      '-o',
+      'StrictHostKeyChecking=no',
+      '-o',
+      'UserKnownHostsFile=/dev/null',
+      '-o',
+      'ConnectTimeout=10',
+      '-o',
+      'BatchMode=yes',
+      '-p',
+      String(this.config.port),
     ];
 
     if (this.config.privateKeyPath) {
@@ -83,7 +88,8 @@ export class SSHSandbox {
     if (this.config.jumpHost) {
       const jumpUser = this.config.jumpUsername || this.config.username;
       const jumpPort = this.config.jumpPort || 22;
-      const jumpKey = this.config.jumpPrivateKeyPath || this.config.privateKeyPath;
+      const jumpKey =
+        this.config.jumpPrivateKeyPath || this.config.privateKeyPath;
 
       let jumpTarget = `${jumpUser}@${this.config.jumpHost}`;
       if (jumpKey) {
@@ -119,7 +125,9 @@ export class SSHSandbox {
       this.connected = result.exitCode === 0;
       if (this.connected) {
         this.lastActiveAt = Date.now();
-        logger.info(`SSH 连接成功: ${this.config.username}@${this.config.host}`);
+        logger.info(
+          `SSH 连接成功: ${this.config.username}@${this.config.host}`
+        );
       }
       return this.connected;
     } catch (err) {
@@ -149,7 +157,9 @@ export class SSHSandbox {
   /**
    * 执行命令返回结果
    */
-  private executeCommand(cmd: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  private executeCommand(
+    cmd: string
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       const args = this.buildSshArgs(cmd);
       const proc = spawn('ssh', args, {

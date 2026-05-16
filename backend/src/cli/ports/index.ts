@@ -99,7 +99,11 @@ export async function findAvailablePorts(
       ErrorCategory.RESOURCE,
       ErrorSeverity.HIGH,
       'RESOURCE_EXHAUSTED',
-      { found: ports.length, required: count, range: { start: r.start, end: r.end } }
+      {
+        found: ports.length,
+        required: count,
+        range: { start: r.start, end: r.end },
+      }
     );
   }
 

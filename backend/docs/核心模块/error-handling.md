@@ -7,65 +7,42 @@
 ## 自定义错误
 
 ```typescript
-import { AppError } from "./core/error/AppError.js";
+import { AppError, ErrorCategory, ErrorSeverity } from "./error/types.js";
 
 // 抛出业务错误
-throw new AppError("VALIDATION_ERROR", "输入参数无效", {
-  field: "email",
-  value: "invalid"
-});
+throw new AppError(
+  "输入参数无效",
+  ErrorCategory.VALIDATION,
+  ErrorSeverity.MEDIUM,
+  "VALIDATION_ERROR",
+  { field: "email", value: "invalid" }
+);
 
 // 抛出系统错误
-throw new AppError("CONFIG_MISSING", "缺少配置项", {
-  key: "AI_API_KEY"
-});
+throw new AppError(
+  "缺少配置项",
+  ErrorCategory.CONFIG,
+  ErrorSeverity.HIGH,
+  "CONFIG_MISSING",
+  { key: "AI_API_KEY" }
+);
 ```
 
-## 错误码
+## 错误分类
 
-| 错误码 | 说明 |
-|--------|------|
-| VALIDATION_ERROR | 参数验证失败 |
-| CONFIG_MISSING | 缺少配置 |
-| RESOURCE_NOT_FOUND | 资源不存在 |
-| PERMISSION_DENIED | 权限不足 |
-| RATE_LIMIT_EXCEEDED | 频率限制 |
-| TOOL_EXECUTION_ERROR | 工具执行错误 |
-| INTERNAL_ERROR | 内部错误 |
-
-## 全局错误处理
-
-```typescript
-import { ErrorHandler } from "./core/error/ErrorHandler.js";
-
-const handler = new ErrorHandler();
-
-// 注册全局处理器
-handler.registerGlobalHandler((error) => {
-  logger.error("未捕获的异常", error);
-});
-
-// 配置恢复策略
-handler.setRecoveryStrategy({
-  maxRetries: 3,
-  backoff: "exponential",
-  onRetry: (attempt) => logger.warn(`重试第 ${attempt} 次`)
-});
-```
-
-## 错误上报
-
-```typescript
-// 自动收集并上报错误
-handler.enableReporting({
-  endpoint: "https://reporting.example.com/errors",
-  batchSize: 10,
-  interval: 60000
-});
-```
+| 分类 | 说明 |
+|------|------|
+| VALIDATION | 参数验证失败 |
+| CONFIG | 配置错误 |
+| RESOURCE | 资源不足或不可用 |
+| PERMISSION | 权限不足 |
+| NETWORK | 网络错误 |
+| TOOL | 工具执行错误 |
+| INTERNAL | 内部错误 |
 
 ## 最佳实践
 
 - 使用自定义错误码而非原始 Error
 - 记录充分的错误上下文
 - 实施优雅降级而非直接崩溃
+- 通过 `error/types.ts` 扩展自定义错误类型

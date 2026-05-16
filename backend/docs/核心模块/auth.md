@@ -2,73 +2,88 @@
 
 ## 概述
 
-认证授权模块提供用户认证、权限管理和安全控制能力。
+认证授权模块提供用户认证、OAuth 集成、API Key 认证和工具级别的权限管理能力，由 `core/auth/`、`oauth/` 和 `permission/` 三个子系统共同实现。
 
 ## 认证方式
 
 ### OAuth 认证
 
 ```typescript
-import { OAuthServer } from "./security/oauth/index.js";
+import { OAuthClient } from "./oauth/services/OAuthClient.js";
 
-const oauth = new OAuthServer({
-  providers: ["github", "google", "discord"]
+const client = new OAuthClient({
+  provider: "github",
+  clientId: process.env.GITHUB_CLIENT_ID,
+  clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  redirectUri: "http://localhost:3000/auth/callback"
 });
 
-// 开始认证流程
-const authUrl = oauth.getAuthorizationUrl("github");
+// 获取认证 URL
+const authUrl = client.getAuthorizationUrl({
+  state: crypto.randomUUID(),
+  scopes: ["read:user", "repo"]
+});
 
 // 处理回调
-const token = await oauth.handleCallback(code);
+const token = await client.handleCallback(code);
 ```
 
 ### API Key 认证
 
 ```typescript
-import { APIKeyAuth } from "./security/APIKeyAuth.js";
+import { ApiKeyAuthenticator } from "./enterprise/auth/AuthChain.js";
 
-const auth = new APIKeyAuth({
-  keys: JSON.parse(await file_read({ path: "data/api-keys.json" }))
+const auth = new ApiKeyAuthenticator({
+  keys: [/* API Key 列表 */]
 });
 
 // 验证请求
-const isValid = auth.validate(request.apiKey);
+const isValid = auth.authenticate(apiKey);
 ```
 
 ## 权限控制
 
 ```typescript
-// 检查权限
-const hasPermission = await auth.checkPermission(userId, "file:write");
+import { PermissionManager } from "./permission/PermissionManager.js";
 
-// 角色管理
-await auth.assignRole(userId, "admin");
-await auth.revokeRole(userId, "editor");
-```
+const permission = new PermissionManager();
 
-## 令牌管理
+// 检查工具权限
+const decision = await permission.checkPermission("file_write", {
+  filePath: "/data/report.pdf"
+});
 
-```typescript
-// 生成令牌
-const token = await auth.generateToken({ userId: "123", role: "admin" });
-
-// 验证令牌
-const decoded = await auth.verifyToken(token);
-
-// 撤销令牌
-await auth.revokeToken(token);
+if (decision.allowed) {
+  // 执行操作
+} else {
+  console.log(`权限拒绝: ${decision.reason}`);
+}
 ```
 
 ## OAuth 提供者
 
-| 提供者 | 配置 |
+| 提供者 | 说明 |
 |--------|------|
-| GitHub | `clientId`, `clientSecret` |
-| Google | `clientId`, `clientSecret` |
-| Discord | `clientId`, `clientSecret` |
+| GitHub | 代码仓库和用户信息 |
+| Google | Google API 集成 |
+| Discord | 消息渠道集成 |
+| 自定义 | 通过 oauth/types/OAuthProvider.ts 扩展 |
+
+## 信任设备管理
+
+```typescript
+import { TrustedDeviceManager } from "./core/auth/trusted-device.js";
+
+const trusted = new TrustedDeviceManager();
+await trusted.registerDevice("device-id", {
+  name: "我的笔记本",
+  expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
+});
+```
 
 ## 安全建议
 
 - 使用 HTTPS 传输
 - 定期轮换 API Key
 - 实施最小权限原则
+- 启用设备信任管理

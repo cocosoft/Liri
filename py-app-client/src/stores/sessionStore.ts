@@ -23,7 +23,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const sessions = await sessionService.list();
-      set({ sessions, isLoading: false });
+      const currentSession = await sessionService.getCurrent();
+      set({ sessions, currentSession, isLoading: false });
     } catch (error) {
       set({ error: String(error), isLoading: false });
     }

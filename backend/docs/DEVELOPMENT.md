@@ -7,29 +7,63 @@ PY_APP/backend/
 ├── src/                  # 源代码
 │   ├── agent/            # AI代理模块
 │   ├── ai/               # AI模型API集成
+│   ├── analytics/        # 分析系统
+│   ├── bootstrap/        # 启动引导
+│   ├── bridge/           # 桥接层（CLI/REPL）
+│   ├── buddy/            # 伙伴系统
+│   ├── cache/            # 缓存系统
+│   ├── channels/         # 消息渠道
 │   ├── chat/             # 聊天功能
+│   ├── chronos/          # 定时任务和自动化
 │   ├── cli/              # 命令行接口
 │   ├── commands/         # 命令系统
+│   ├── common/           # 公共常量与类型
 │   ├── config/           # 配置管理
+│   ├── constants/        # 系统常量
 │   ├── core/             # 核心功能
-│   │   ├── extensibility/ # 可扩展性服务
-│   │   ├── loop/         # 核心循环
-│   │   ├── state/        # 状态管理
-│   │   ├── theme/        # 主题系统
-│   │   ├── utils/        # 核心工具
-│   │   └── Coordinator.ts # 任务协调器
+│   │   ├── DIContainer.ts  # 依赖注入容器
+│   │   ├── Coordinator.ts  # 任务协调器
+│   │   ├── state/          # 状态管理
+│   │   ├── task/           # 核心任务
+│   │   ├── theme/          # 主题系统
+│   │   └── AppCore.ts      # 应用核心
+│   ├── cost/             # 成本追踪
+│   ├── credentials/      # 凭据管理
+│   ├── daemon/           # 守护进程
+│   ├── docs/             # 文档系统（API文档、帮助系统）
 │   ├── entrypoints/      # 入口点
+│   ├── error/            # 错误处理
+│   ├── flows/            # 流程引擎
+│   ├── hooks/            # 钩子系统
+│   ├── keybindings/      # 快捷键
+│   ├── lsp/              # LSP 客户端
+│   ├── mcp/              # MCP 协议支持
+│   ├── media/            # 媒体处理
+│   ├── memory/           # 记忆系统
+│   ├── modules/          # 模块管理
 │   ├── monitoring/       # 监控系统
+│   ├── oauth/            # OAuth 认证
 │   ├── performance/      # 性能优化
-│   ├── remote/           # 远程功能
+│   ├── permission/       # 权限管理
+│   ├── plugin-sdk/       # 插件 SDK
+│   ├── plugins/          # 插件系统
+│   ├── query/            # 查询引擎
+│   ├── sandbox/          # 沙箱环境
 │   ├── security/         # 安全性增强
+│   ├── services/         # 应用服务
+│   ├── session/          # 会话管理
 │   ├── skills/           # 技能系统
+│   ├── streaming/        # 流式处理
 │   ├── task/             # 任务管理系统
+│   ├── tasks/            # 任务实现
 │   ├── tools/            # 工具链
-│   ├── ui/               # 用户界面优化
+│   ├── types/            # 公共类型定义
+│   ├── ui/               # 用户界面
 │   ├── utils/            # 工具函数
+│   ├── vim/              # Vim 模式
 │   └── index.ts          # 主入口
 ├── docs/                 # 文档
+│   ├── index.md          # 文档索引
 │   ├── API.md            # API文档
 │   └── DEVELOPMENT.md    # 开发指南
 ├── logs/                 # 日志
@@ -39,7 +73,7 @@ PY_APP/backend/
 ├── Dockerfile            # Docker配置
 ├── docker-compose.yml    # Docker Compose配置
 ├── deploy.sh             # 部署脚本
-└── .env                  # 环境变量
+└── .env.example          # 环境变量模板
 ```
 
 ## 开发环境设置

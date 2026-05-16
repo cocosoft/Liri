@@ -2,66 +2,77 @@
 
 ## 概述
 
-State Management 模块管理应用的运行时状态，提供状态变更追踪、订阅和持久化功能。
+State Management 模块管理应用的运行时状态，提供状态存储、变更订阅和全局访问能力，位于 `core/state/`。
 
 ## 基本用法
 
 ```typescript
-import { AppStateManager } from "./core/state/stateManager.js";
+import { createAppStateStore, getGlobalStore } from "./core/state/index.js";
 
-const stateManager = new AppStateManager();
+// 创建带初始状态的状态存储
+const store = createAppStateStore({
+  user: { language: "zh-CN" },
+  config: { theme: "light" },
+  sessions: {}
+});
 
-// 更新状态
-stateManager.updateState("user.language", "zh-CN");
+// 获取当前状态
+const state = store.getState();
+console.log(state.user.language); // "zh-CN"
+```
 
-// 获取状态
-const lang = stateManager.getState("user.language");
+## 更新状态
 
-// 订阅状态变更
-const unsubscribe = stateManager.subscribe("user.*", (path, value) => {
-  console.log(`状态 ${path} 变更为:`, value);
+```typescript
+// 通过更新函数修改状态
+store.setState((prev) => ({
+  ...prev,
+  user: { ...prev.user, language: "en-US" }
+}));
+```
+
+## 订阅状态变更
+
+```typescript
+// 订阅状态变化
+const unsubscribe = store.subscribe((newState) => {
+  console.log("状态已更新:", newState);
 });
 
 // 取消订阅
 unsubscribe();
 ```
 
-## 状态路径
+## 全局状态存储
 
 ```typescript
-// 使用点号语法访问嵌套状态
-stateManager.updateState("session.123.messages", []);
-stateManager.updateState("config.theme", "dark");
+import { initializeGlobalStore } from "./core/state/index.js";
 
-// 获取部分状态
-const sessionState = stateManager.getState("session");
+// 初始化全局状态存储（应用启动时）
+initializeGlobalStore({
+  version: "1.0.0",
+  startedAt: Date.now(),
+  user: null,
+  config: { theme: "dark" },
+  sessions: {},
+  notifications: [],
+  speculation: null
+});
+
+// 在任意位置获取全局状态
+const globalStore = getGlobalStore();
+const config = globalStore.getState().config;
 ```
 
-## 状态持久化
+## 批处理更新
+
+状态存储支持批量更新模式，多个状态变更合并为一次通知：
 
 ```typescript
-// 保存状态到文件
-await stateManager.persist();
-
-// 从文件恢复
-await stateManager.restore();
-
-// 设置自动保存
-stateManager.setAutoSave({ interval: 30000 });
+// 批量更新示例
+store.setState((prev) => ({
+  ...prev,
+  sessions: { ...prev.sessions, active: "session_1" },
+  user: { ...prev.user, lastActive: Date.now() }
+}));
 ```
-
-## 状态快照
-
-```typescript
-// 创建快照
-const snapshot = stateManager.createSnapshot();
-
-// 恢复到快照
-stateManager.restoreSnapshot(snapshot);
-```
-
-## 性能优化
-
-- 使用路径通配符批量订阅
-- 状态变更批量处理
-- 自动清理过期状态

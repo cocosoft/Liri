@@ -9,7 +9,7 @@ Context Engine 管理 Agent 运行时的上下文信息，包括会话历史、�
 ### 上下文管理
 
 ```typescript
-import { ContextEngine } from "./core/context-engine/index.js";
+import { ContextEngine } from "./core/context/index.js";
 
 const engine = new ContextEngine();
 

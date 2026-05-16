@@ -2,62 +2,66 @@
 
 ## 概述
 
-媒体理解模块提供对视音频内容的分析能力，包括图片识别、视频分析和音频转写。
+媒体理解模块提供对图片和视频内容的分析处理能力，包括图片信息提取、格式转换、视频元数据获取等操作，通过 ImageTool 和 VideoTool 实现。
 
-## 图片理解
+## 图片处理
 
 ```typescript
-import { ImageUnderstandingTool } from "./tools/media/ImageUnderstandingTool.js";
+import { ImageTool } from "./tools/ImageTool/ImageTool.js";
 
-const tool = new ImageUnderstandingTool();
+const tool = new ImageTool();
 
-const result = await tool.execute({
-  image: "path/to/image.jpg",
-  question: "图片中有什么动物？"
+// 获取图片信息
+const info = await tool.execute({
+  action: "info",
+  inputPath: "path/to/image.jpg"
+});
+
+// 图片格式转换
+const converted = await tool.execute({
+  action: "convert",
+  inputPath: "path/to/image.png",
+  outputPath: "path/to/image.jpg",
+  format: "jpeg",
+  quality: 85
+});
+
+// 调整图片大小
+const resized = await tool.execute({
+  action: "resize",
+  inputPath: "path/to/image.jpg",
+  outputPath: "path/to/resized.jpg",
+  width: 800,
+  height: 600
 });
 ```
 
-## 视频理解
+## AI 视觉分析
+
+PY_APP 的 AI 模型层（如 DeepSeek）原生支持图片理解能力，可在对话中直接分析图片内容：
 
 ```typescript
-import { VideoUnderstandingTool } from "./tools/media/VideoUnderstandingTool.js";
-
-const videoTool = new VideoUnderstandingTool();
-
-const result = await videoTool.execute({
-  video: "path/to/video.mp4",
-  query: "描述视频内容"
+// AI 模型调用时自动支持图片输入
+const response = await ai.complete({
+  messages: [
+    { role: "user", content: "这张图片里有什么？" }
+  ],
+  images: ["path/to/image.jpg"]  // 附带的图片
 });
-```
-
-## 图片信息提取
-
-```typescript
-const result = await tool.execute({
-  image: "screenshot.png",
-  instruction: "提取图片中的所有文字"
-});
-
-// 返回提取的文本内容
-console.log(result.text);
 ```
 
 ## 支持的模型
 
-| 类型 | 模型 |
-|------|------|
-| 图片理解 | GPT-4 Vision, Claude 3 Vision |
-| 视频理解 | GPT-4 Video, Gemini Pro Vision |
-| OCR | Tesseract, Azure OCR |
+AI 视觉理解能力由 AI 提供商模型原生提供，不依赖独立的理解工具。
 
 ## 输入格式
 
 - 图片: PNG, JPG, JPEG, GIF, WebP, BMP
-- 视频: MP4, AVI, MOV, WebM
+- 视频元数据: MP4, AVI, MOV, WebM
 
 ## 使用场景
 
-- 图片内容描述
-- 图片中文字提取 (OCR)
-- 视频内容摘要
-- 物体识别和定位
+- 图片格式转换和尺寸调整
+- 图片元数据提取
+- AI 对话中的图片内容理解
+- 文件类型转换（通过 converter 工具链）

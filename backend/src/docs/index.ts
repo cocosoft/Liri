@@ -20,6 +20,7 @@ export {
   getDefaultTemplateService,
 } from './TemplateService.js';
 export { TemplateRecommender } from './TemplateRecommender.js';
+export { FileDocsProvider, fileDocsProvider } from './FileDocsProvider.js';
 
 export type {
   DocumentVersionMetadata,

@@ -1,266 +1,180 @@
-# PY_APP
+# PY_APP — Backend
 
-基于 TypeScript + Rust 架构的 AI Agent 项目，提供智能代码助手、工具执行、会话管理等功能。
+AI Agent 后端服务，基于 TypeScript + Bun + Rust 架构，提供交互式命令行智能助手。
 
 ## 技术栈
 
-- **编排层**: TypeScript + Bun
-- **性能核心**: Rust
-- **终端 UI**: React + Ink
-- **校验层**: Zod
-- **协议层**: MCP + LSP
-- **安全层**: 细粒度权限控制 + 安全审计
+| 层级 | 技术 |
+|------|------|
+| **运行时** | Bun（主要）/ Node.js |
+| **语言** | TypeScript (95%) + Rust (5%) |
+| **终端 UI** | React + Ink |
+| **AI 接口** | DeepSeek API（默认，可通过适配层切换） |
+| **协议层** | MCP（Model Context Protocol）+ LSP |
+| **安全** | AST 级命令分析、细粒度权限控制、安全审计 |
+| **原生模块** | Rust（Bash AST 解析、安全分析、压缩） |
+
+## 快速开始
+
+```bash
+# 安装依赖
+bun install
+
+# 配置 API 密钥
+cp .env.example .env
+# 编辑 .env，填入 DEEPSEEK_API_KEY
+
+# 开发模式启动（带热重载）
+bun run dev
+
+# 生产模式
+bun run start
+```
 
 ## 项目结构
 
 ```
-PY_APP/
-├── backend/
-│   ├── src/           # 源代码
-│   │   ├── analytics/     # 分析模块
-│   │   ├── bridge/        # 桥接模块
-│   │   ├── chat/          # 聊天模块
-│   │   ├── chronos/       # 任务调度模块
-│   │   ├── commands/      # 命令系统
-│   │   ├── core/          # 核心模块
-│   │   ├── cost/          # 成本跟踪模块
-│   │   ├── entrypoints/   # 入口点
-│   │   ├── governance/    # 治理模块
-│   │   ├── hooks/         # 钩子系统
-│   │   ├── llm/           # 语言模型客户端
-│   │   ├── mcp/           # MCP协议实现
-│   │   ├── memory/        # 记忆模块
-│   │   ├── permission/    # 权限管理
-│   │   ├── plugins/       # 插件系统
-│   │   ├── sandbox/       # 沙箱环境
-│   │   ├── security/      # 安全模块
-│   │   ├── session/       # 会话管理
-│   │   ├── skills/        # 技能系统
-│   │   ├── streaming/     # 流处理
-│   │   ├── tasks/         # 任务系统
-│   │   ├── tools/         # 工具系统
-│   │   ├── ui/            # 终端 UI
-│   │   ├── utils/         # 工具函数
-│   ├── configs/        # 配置文件
-│   ├── data/           # 数据文件
-│   ├── testing/        # 测试文件
-│   ├── .env            # 环境变量
-│   ├── package.json    # 项目配置
-│   └── tsconfig.json   # TypeScript 配置
-├── cc_code/           # 参考代码
-└── dev_docs/          # 开发文档
+src/
+├── main.ts                 # 应用启动入口（launch 函数）
+├── entrypoints/            # 运行模式入口
+│   ├── cli.tsx             # CLI 模式
+│   ├── init.ts             # 环境初始化
+│   ├── repl.ts             # REPL 模式
+│   └── mcp.ts              # MCP Server 模式
+├── agent/                  # AI Agent 核心（ACP/BTW/MOA 多智能体架构）
+├── ai/                     # AI 模型适配层（模型目录、成本、策略）
+├── analytics/              # 分析统计
+├── bootstrap/              # 启动引导
+├── bridge/                 # 远程桥接控制
+├── buddy/                  # AI 伙伴系统
+├── cache/                  # 缓存模块
+├── channels/               # 消息渠道
+├── chat/                   # 会话聊天
+├── chronos/                # 定时任务调度
+├── cli/                    # CLI 命令系统
+├── commands/               # 命令注册
+├── config/                 # 配置管理
+├── constants/              # 常量定义
+├── context/                # 上下文引擎
+├── converter/              # 格式转换
+├── core/                   # 核心基础设施（ACP/API/Auth/I18n/Task）
+├── cost/                   # API 调用成本追踪
+├── daemon/                 # 守护进程
+├── docs/                   # 内置文档系统
+├── error/                  # 错误处理
+├── flows/                  # 流程引擎
+├── governance/             # 治理模块
+├── hooks/                  # 钩子系统
+├── ink/                    # 终端 UI（Ink 实现）
+├── lsp/                    # LSP 客户端
+├── mcp/                    # MCP 协议实现
+├── media/                  # 媒体处理
+├── memory/                 # 记忆模块
+├── models/                 # 模型类型定义
+├── modules/                # 模块系统
+├── oauth/                  # OAuth 认证
+├── plugin-sdk/             # 插件 SDK
+├── plugins/                # 插件管理
+├── query/                  # 查询引擎
+├── sandbox/                # 沙箱环境
+├── security/               # 安全模块
+├── services/               # 业务服务
+├── session/                # 会话管理
+├── skills/                 # 技能系统
+├── streaming/              # 流式处理
+├── task/                   # 任务引擎
+├── tasks/                  # 任务实现
+├── tools/                  # 工具系统（Bash/文件/LSP/Web 等）
+├── types/                  # 全局类型定义
+├── ui/                     # UI 组件
+├── utils/                  # 工具函数
+├── vim/                    # Vim 模式
+├── wizard/                 # 配置向导
+├── healthcheck.ts          # 健康检查
+├── index.ts                # 历史入口（已弃用）
+├── main.ts                 # 主入口
+└── monitor.ts              # 系统监控
 ```
 
-## 核心功能
+## 运行模式
 
-### 1. 工具系统
-- **Bash 工具**: 执行命令行操作
-- **LSP 工具**: 代码补全、诊断、定义跳转
-- **REPL 工具**: 交互式代码执行
-- **Notebook 工具**: 混合代码和文档
-- **文件工具**: 读取、写入、编辑文件
-- **任务工具**: 管理和执行任务
+| 模式 | 启动方式 | 说明 |
+|------|----------|------|
+| **REPL** | `bun run dev` / `bun run start` | 交互式命令行，默认模式 |
+| **CLI** | 通过 `launch()` 参数指定 | 一次性命令执行 |
+| **MCP Server** | `bun run src/entrypoints/mcp.ts` | MCP 协议服务器 |
+| **Daemon** | 通过 `launch()` 参数指定 | 后台守护进程 |
 
-### 2. 插件系统
-- **插件加载**: 从文件系统加载插件
-- **插件管理**: 启用、禁用、卸载插件
-- **插件 API**: 提供统一的插件接口
+## 命令系统
 
-### 3. 命令系统
-- **内置命令**: `vim`、`advisor`、`brief`、`commit` 等
-- **命令执行**: 支持本地命令和远程命令
-- **命令历史**: 记录和管理命令历史
+应用使用 `/` 开头的斜杠命令体系，在 REPL 模式下直接输入交互。
 
-### 4. 安全特性
-- **细粒度权限控制**: 基于角色、用户和资源的权限管理
-- **安全审计**: 记录和查询安全事件
-- **输入验证**: 防止恶意输入和注入攻击
-- **安全扫描**: 检测代码中的安全漏洞
+### 核心命令分类
 
-### 5. 会话管理
-- **本地会话**: 管理本地聊天会话
-- **远程会话**: 支持远程连接和协作
-- **WebSocket 通信**: 实时消息传递
-- **SessionStorage**: 统一的会话存储管理
+| 类别 | 命令 | 说明 |
+|------|------|------|
+| **系统** | `/help` `/clear` `/exit` `/version` | 基本操作 |
+| **工具** | `/bash` `/fetch` `/websearch` `/grep` `/edit` | 工具调用 |
+| **管理** | `/task` `/todo` `/session` `/config` | 数据管理 |
+| **Agent** | `/subagent-run` `/subagent` `/agent-instance` | 智能代理 |
+| **技能** | `/skill list` `/skill enable` `/skill disable` | 技能管理 |
+| **监控** | `/cost` `/tokens` `/env` `/debug` | 系统监控 |
+| **远程** | `/bridge` | 远程桥接控制 |
+| **MCP** | `/mcp` | MCP 服务器管理 |
+| **IDE** | `/ide` | IDE 集成 |
+| **LSP** | `/lsp` | 语言服务器协议 |
 
-### 6. 工具执行优化
-- **缓存机制**: 缓存工具执行结果
-- **并行执行**: 支持多个工具并行执行
-- **超时控制**: 防止工具执行超时
-- **错误处理**: 统一的错误处理机制
+## 原生模块
 
-## 开发
+`native/` 目录包含 Rust 编写的性能关键模块：
 
-### 安装依赖
 ```bash
-bun install
+# 构建 Rust 原生模块
+bun run native:build
+
+# 调试构建
+bun run native:build:debug
+
+# 运行原生测试
+bun run native:test
 ```
 
-### 开发模式
+原生模块提供：
+- **Bash AST 解析** — 命令结构分析
+- **安全分析** — 命令安全检测
+- **上下文管理** — 系统上下文收集
+- **压缩** — 数据压缩
+
+> 原生模块不可用时自动降级为 TypeScript 实现。
+
+## 构建变体
+
 ```bash
-bun run dev
+bun run build:core        # 核心版
+bun run build:personal    # 个人版
+bun run build:coding      # 编程版
+bun run build:enterprise  # 企业版
+bun run build:dry-run     # 构建预览（不实际构建）
 ```
 
-### 构建
+## 开发命令
+
 ```bash
-bun run build
+bun run dev               # 开发模式（热重载）
+bun run typecheck         # 类型检查
+bun run lint              # 代码检查
+bun run lint:fix          # 自动修复
+bun run format            # 格式化代码
+bun test                  # 运行测试
+bun run test:coverage     # 测试覆盖率
+bun run health            # 健康检查
+bun run monitor           # 系统监控
 ```
 
-### 测试
-```bash
-bun test
-```
+## 文档
 
-## 工具使用指南
-
-### Bash 工具
-```typescript
-// 执行 bash 命令
-const result = await toolManager.executeTool('bash', {
-  command: 'ls -la',
-  cwd: process.cwd()
-});
-```
-
-### LSP 工具
-```typescript
-// 代码补全
-const completions = await toolManager.executeTool('lsp', {
-  action: 'complete',
-  file: 'src/index.ts',
-  position: { line: 10, character: 5 }
-});
-```
-
-### REPL 工具
-```typescript
-// 执行 JavaScript 代码
-const result = await toolManager.executeTool('repl', {
-  code: 'console.log("Hello, world!")',
-  language: 'javascript'
-});
-```
-
-### Notebook 工具
-```typescript
-// 编辑 notebook
-const result = await toolManager.executeTool('notebook', {
-  action: 'edit',
-  file: 'notebook.ipynb',
-  cells: [
-    { type: 'code', content: 'print("Hello, notebook!")' },
-    { type: 'markdown', content: '# Hello Notebook' }
-  ]
-});
-```
-
-## 插件开发
-
-### 创建插件
-```typescript
-// plugins/my-plugin/index.ts
-import { Plugin, PluginContext } from '../src/plugins/types/Plugin';
-
-export const plugin: Plugin = {
-  id: 'my-plugin',
-  name: 'My Plugin',
-  version: '1.0.0',
-  description: 'A sample plugin',
-  
-  async activate(context: PluginContext) {
-    console.log('My plugin activated');
-    // 注册命令、工具等
-  },
-  
-  async deactivate() {
-    console.log('My plugin deactivated');
-  }
-};
-
-export default plugin;
-```
-
-### 加载插件
-```typescript
-import { createPluginManager, createPluginAPI } from './src/plugins';
-
-const pluginAPI = createPluginAPI();
-const pluginManager = createPluginManager('./plugins', pluginAPI);
-
-await pluginManager.loadPlugins();
-const activePlugins = pluginManager.getActivePlugins();
-console.log(`Active plugins: ${Array.from(activePlugins)}`);
-```
-
-## 安全配置
-
-### 权限规则
-在 `backend/configs/permissions.yaml` 中配置权限规则：
-
-```yaml
-rules:
-  - id: "allow-read"
-    action: "allow"
-    resource: "file:read"
-    condition: "true"
-  
-  - id: "deny-write"
-    action: "deny"
-    resource: "file:write"
-    condition: "user.role !== 'admin'"
-```
-
-### 安全审计
-```typescript
-import { getSecurityAuditManager } from './src/security/managers/SecurityAuditManager';
-
-const auditManager = getSecurityAuditManager();
-
-await auditManager.logAuditEvent({
-  type: 'permission_check',
-  severity: 'info',
-  description: 'User accessed file',
-  details: { userId: '123', resource: 'file.txt' }
-});
-```
-
-## 部署指南
-
-### 环境变量
-在 `.env` 文件中配置环境变量：
-
-```
-# 服务器配置
-PORT=3000
-HOST=0.0.0.0
-
-# 数据库配置
-DATABASE_URL=sqlite://./data/py_copilot.db
-
-# 安全配置
-JWT_SECRET=your-secret-key
-
-# 语言模型配置
-OPENAI_API_KEY=your-api-key
-```
-
-### 生产构建
-```bash
-bun run build
-
-# 启动服务器
-bun start
-```
-
-## 贡献指南
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+完整文档位于 `docs/` 目录，建议新用户从 [📖 用户引导](docs/用户引导/guide.md) 开始。
 
 ## 许可证
 
 MIT
-

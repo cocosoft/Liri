@@ -8,7 +8,7 @@ import { useSessionStore } from './stores/sessionStore';
 import { useKeyboard } from './hooks/useKeyboard';
 
 function App() {
-  const { loadSessions, createSession, sessions } = useSessionStore();
+  const { loadSessions, createSession, sessions, currentSession } = useSessionStore();
 
   useKeyboard();
 
@@ -17,10 +17,11 @@ function App() {
   }, [loadSessions]);
 
   useEffect(() => {
-    if (sessions.length === 0) {
+    // 只有在加载完成且没有会话时才创建新会话
+    if (sessions.length === 0 && !currentSession) {
       createSession('第一个会话');
     }
-  }, [sessions.length, createSession]);
+  }, [sessions.length, currentSession, createSession]);
 
   return (
     <div className="flex h-screen bg-gray-100">

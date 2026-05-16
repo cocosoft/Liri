@@ -148,6 +148,16 @@ export async function init(): Promise<void> {
         profileCheckpoint('load_gateway_start');
         const startTime = Date.now();
         try {
+          // 禁用 Gateway 通道服务（避免 WebSocket 端口冲突）
+          try {
+            const { configManager } = await import('../cli/config.js');
+            const gatewayConfig = configManager.getGatewayConfig();
+            gatewayConfig.enabled = false;
+            gatewayConfig.websocket.enabled = false;
+          } catch {
+            // 忽略
+          }
+
           // 预创建 CoreAPI 单例（使用全局默认依赖）
           const { getCoreAPI } = await import('../core/api/CoreAPIImpl.js');
           getCoreAPI();

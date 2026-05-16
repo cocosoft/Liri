@@ -17,14 +17,16 @@ import { getUIEnhancer } from '../ui/UIEnhancer.js';
 import { getThemeManager } from '../core/theme.js';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { getCoreAPI } from '../core/api/CoreAPIImpl.js';
+import { LocalHTTPService } from '../core/gateway/local/LocalHTTPService.js';
 
 /**
  * REPL配置接口
  */
-interface REPLConfig {
+export interface REPLConfig {
   prompt?: string;
   welcomeMessage?: string;
   exitCommand?: string;
+  httpPort?: number;
 }
 
 /**
@@ -106,6 +108,25 @@ export async function launchRepl(
   ui.showSubtitle(finalConfig.welcomeMessage || '');
   ui.showInfo('输入命令开始交互，输入 exit 退出');
   console.log();
+
+  // 启动 LocalHTTPService（如果配置了 httpPort）
+  let localHTTPService: LocalHTTPService | null = null;
+  if (finalConfig.httpPort) {
+    try {
+      profileCheckpoint('repl_http_service_start');
+      localHTTPService = new LocalHTTPService({
+        host: '127.0.0.1',
+        port: finalConfig.httpPort,
+      });
+      await localHTTPService.start();
+      ui.showInfo(`HTTP API 服务已启动: http://127.0.0.1:${finalConfig.httpPort}`);
+      profileCheckpoint('repl_http_service_end');
+    } catch (error) {
+      ui.showWarning(
+        `HTTP API 服务启动失败: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
 
   // 显示系统信息
   try {
@@ -374,8 +395,21 @@ export async function launchRepl(
     rl.close();
   });
 
-  rl.on('close', () => {
+  rl.on('close', async () => {
     ui.showSuccess('REPL 已退出');
+
+    // 停止 LocalHTTPService
+    if (localHTTPService && localHTTPService.isStarted()) {
+      try {
+        await localHTTPService.stop();
+        ui.showInfo('HTTP API 服务已停止');
+      } catch (error) {
+        ui.showWarning(
+          `停止 HTTP API 服务失败: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
     ui.cleanup();
     process.exit(0);
   });

@@ -7,7 +7,7 @@
 ## 基本用法
 
 ```typescript
-import { Logger } from "./core/logger/Logger.js";
+import { Logger } from "./core/logger/index.js";
 
 const logger = new Logger({ name: "app" });
 
@@ -35,9 +35,9 @@ const logger = new Logger({
   name: "app",
   level: "info",
   format: "json",          // json, text, pretty
-  output: ["console", "file"],
-  filePath: "logs/app.log",
-  maxSize: "10MB",
+  transports: ["console", "file"],
+  outputPath: "logs/app.log",
+  maxFileSize: "10MB",
   maxFiles: 7
 });
 ```

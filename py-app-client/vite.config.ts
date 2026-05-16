@@ -11,10 +11,18 @@ export default defineConfig({
   },
   clearScreen: false,
   server: {
+    host: true,
     port: 1420,
     strictPort: true,
     watch: {
       ignored: ['**/src-tauri/**'],
+    },
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:7890',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
     },
   },
   envPrefix: ['VITE_', 'TAURI_'],

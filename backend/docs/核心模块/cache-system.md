@@ -7,30 +7,30 @@
 ## 基本用法
 
 ```typescript
-import { Cache } from "./core/cache/Cache.js";
+import { CacheSystem } from "./cache/CacheSystem.js";
 
-const cache = new Cache({ maxSize: 100, ttl: 3600 });
+const cache = new CacheSystem({ maxSize: 100, ttl: 3600 });
 
 // 设置缓存
-cache.set("user:123", { name: "Alice" });
+await cache.set("user:123", { name: "Alice" });
 
 // 获取缓存
-const user = cache.get("user:123");
+const user = await cache.get("user:123");
 
 // 删除缓存
-cache.delete("user:123");
+await cache.delete("user:123");
 
 // 清空缓存
-cache.clear();
+await cache.clear();
 ```
 
 ## 缓存配置
 
 ```typescript
-const cache = new Cache({
+const cache = new CacheSystem({
   maxSize: 1000,        // 最大条目数
   ttl: 3600,            // 默认过期时间（秒）
-  maxMemory: "100MB",   // 最大内存使用
+  maxMemory: 100 * 1024 * 1024, // 最大内存使用（字节）
   strategy: "lru"       // 淘汰策略
 });
 ```
@@ -44,30 +44,26 @@ const cache = new Cache({
 | `fifo` | 先进先出 |
 | `ttl` | 过期时间优先 |
 
-## 缓存事件
+## 缓存策略
 
 ```typescript
-cache.on("set", (key, value) => {});
-cache.on("delete", (key) => {});
-cache.on("expire", (key) => {});
-cache.on("evict", (key, reason) => {});
+import { CacheStrategyManager } from "./cache/index.js";
+
+const strategyManager = new CacheStrategyManager();
+
+// 切换淘汰策略
+strategyManager.switchStrategy("lfu");
 ```
 
-## 批量操作
+## 缓存监控
 
 ```typescript
-// 批量设置
-cache.mset([
-  { key: "a", value: 1 },
-  { key: "b", value: 2 }
-]);
+import { CacheMonitor } from "./cache/index.js";
 
-// 批量获取
-const values = cache.mget(["a", "b"]);
-
-// 获取所有键
-const keys = cache.keys();
+const monitor = new CacheMonitor(cache);
 
 // 获取缓存统计
-const stats = cache.stats();
+const stats = monitor.getStats();
+console.log(stats);
+// { hitRate: 0.85, missRate: 0.15, size: 100, memoryUsage: "25MB" }
 ```

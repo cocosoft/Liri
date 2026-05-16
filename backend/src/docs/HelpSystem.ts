@@ -10,6 +10,7 @@ import { exampleCommands } from './ExampleCommands';
 import { releaseNotes } from './ReleaseNotes';
 import { languageManager } from './i18n/LanguageManager';
 import { contextHelp } from './ContextHelp';
+import { FileDocsProvider, fileDocsProvider } from './FileDocsProvider';
 
 /**
  * 上下文类型
@@ -893,6 +894,55 @@ ${this.getReleaseNotesContent()}
   }
 
   /**
+   * 从文件文档提供器加载帮助主题
+   * 读取 docs/ 文件夹下的 Markdown 文件并注册为帮助主题
+   */
+  async loadFromFileDocs(provider: FileDocsProvider): Promise<number> {
+    const entries = await provider.buildIndex();
+    let count = 0;
+
+    for (const entry of entries) {
+      const topicId = entry.relativePath
+        .replace(/\.md$/i, '')
+        .replace(/[/\\]/g, '-')
+        .toLowerCase();
+
+      if (!this.topics.has(topicId)) {
+        this.registerTopic({
+          id: topicId,
+          title: entry.title,
+          description: `docs/${entry.relativePath}`,
+          content: entry.content,
+          keywords: [entry.title, entry.category, entry.fileName],
+        });
+        count++;
+      }
+    }
+
+    return count;
+  }
+
+  /**
+   * 获取按分类分组的文档索引
+   */
+  async getFileDocsIndex(provider: FileDocsProvider): Promise<Record<string, Array<{ path: string; title: string }>>> {
+    const entries = await provider.buildIndex();
+    const groups: Record<string, Array<{ path: string; title: string }>> = {};
+
+    for (const entry of entries) {
+      if (!groups[entry.category]) {
+        groups[entry.category] = [];
+      }
+      groups[entry.category].push({
+        path: entry.relativePath,
+        title: entry.title,
+      });
+    }
+
+    return groups;
+  }
+
+  /**
    * 获取释放说明内容
    */
   private getReleaseNotesContent(): string {
@@ -1046,3 +1096,8 @@ export function getHelpSystem(): HelpSystem {
 }
 
 export default helpSystem;
+
+// 自动加载 docs/ 目录下的文件文档（非阻塞，后台加载）
+helpSystem.loadFromFileDocs(fileDocsProvider).catch(() => {
+  // 文件文档加载失败不影响核心功能
+});

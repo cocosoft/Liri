@@ -3,6 +3,8 @@
  * 文档查看与搜索
  */
 import type { CommandContext, CommandResult } from '@modules/commands/types';
+import { fileDocsProvider } from '@modules/docs/FileDocsProvider.js';
+import type { FileDocEntry } from '@modules/docs/FileDocsProvider.js';
 
 interface DocSection {
   title: string;
@@ -249,6 +251,19 @@ const DOC_SECTIONS: DocSection[] = [
 ];
 
 const docsCommand = {
+  /** 文件文档缓存 */
+  _fileDocCache: null as FileDocEntry[] | null,
+
+  /**
+   * 初始化文件文档缓存
+   */
+  async _ensureFileDocs(): Promise<FileDocEntry[]> {
+    if (!this._fileDocCache) {
+      this._fileDocCache = await fileDocsProvider.buildIndex();
+    }
+    return this._fileDocCache;
+  },
+
   /**
    * 执行 docs 命令
    */
@@ -295,11 +310,25 @@ const docsCommand = {
         return this.searchDocs(query);
       }
 
+      // 先在硬编码章节中查找
       const section = DOC_SECTIONS.find(
         (s) => s.title.toLowerCase() === cleanArgs
       );
       if (section) {
         return this.showSection(section);
+      }
+
+      // 未找到时，尝试从 docs/ 目录加载
+      const fileDocs = await this._ensureFileDocs();
+      const matchedFile = fileDocs.find(
+        (d) =>
+          d.title.toLowerCase() === cleanArgs ||
+          d.relativePath.toLowerCase().replace(/\.md$/i, '') === cleanArgs ||
+          d.fileName.toLowerCase().replace(/\.md$/i, '') === cleanArgs
+      );
+      if (matchedFile) {
+        const lines = [`📄 ${matchedFile.title}`, '', matchedFile.content];
+        return { success: true, type: 'text', message: lines.join('\n') };
       }
 
       return this.searchDocs(cleanArgs);
@@ -326,8 +355,10 @@ const docsCommand = {
       '  /docs search <关键词>        - 搜索文档内容',
       '  /docs help                  - 显示此帮助信息',
       '',
-      '可用章节:',
+      '内置章节:',
       ...DOC_SECTIONS.map((s) => `  - ${s.title}`),
+      '',
+      'docs/ 目录下的所有 markdown 文件也可直接通过路径或标题访问。',
       '',
       '示例:',
       '  /docs 快速开始',
@@ -339,15 +370,20 @@ const docsCommand = {
   },
 
   /**
-   * 列出所有文档章节
+   * 列出所有文档章节（内置 + 文件）
    */
-  listSections(): CommandResult {
+  async listSections(): Promise<CommandResult> {
+    const fileDocs = await this._ensureFileDocs();
     const lines = [
       '📚 文档章节列表',
       '',
+      '内置章节:',
       ...DOC_SECTIONS.map((s, i) => `  ${i + 1}. ${s.title}`),
       '',
-      `共 ${DOC_SECTIONS.length} 个章节`,
+      `文件章节 (docs/):`,
+      ...fileDocs.map((d, i) => `  ${i + 1}. ${d.title} (docs/${d.relativePath})`),
+      '',
+      `共 ${DOC_SECTIONS.length + fileDocs.length} 个章节`,
       '',
       '使用 /docs <章节名> 查看具体内容。',
     ];
@@ -358,7 +394,8 @@ const docsCommand = {
   /**
    * 显示文档概览
    */
-  showOverview(): CommandResult {
+  async showOverview(): Promise<CommandResult> {
+    const fileDocs = await this._ensureFileDocs();
     const lines = [
       '📖 PY_APP 文档中心',
       '',
@@ -367,6 +404,9 @@ const docsCommand = {
       '',
       '快速链接:',
       ...DOC_SECTIONS.map((s) => `  📄 ${s.title}`),
+      '',
+      'docs/ 目录文档:',
+      ...fileDocs.map((d) => `  📄 ${d.title}`),
       '',
       '常用命令:',
       '  /docs list           - 查看所有文档章节',
@@ -390,9 +430,9 @@ const docsCommand = {
   },
 
   /**
-   * 搜索文档内容
+   * 搜索文档内容（内置 + 文件）
    */
-  searchDocs(query: string): CommandResult {
+  async searchDocs(query: string): Promise<CommandResult> {
     const lowerQuery = query.toLowerCase();
 
     const results = DOC_SECTIONS.filter(
@@ -402,7 +442,18 @@ const docsCommand = {
         s.keywords.some((k) => k.toLowerCase().includes(lowerQuery))
     );
 
-    if (results.length === 0) {
+    // 同时在文件文档中搜索
+    const fileDocs = await this._ensureFileDocs();
+    const fileResults = fileDocs.filter(
+      (d) =>
+        d.title.toLowerCase().includes(lowerQuery) ||
+        d.content.toLowerCase().includes(lowerQuery) ||
+        d.category.toLowerCase().includes(lowerQuery)
+    );
+
+    const total = results.length + fileResults.length;
+
+    if (total === 0) {
       return {
         success: true,
         type: 'text',
@@ -411,13 +462,24 @@ const docsCommand = {
     }
 
     const lines = [
-      `🔍 找到 ${results.length} 个与"${query}"相关的结果`,
+      `🔍 找到 ${total} 个与"${query}"相关的结果`,
       '',
-      ...results.map(
-        (s, i) =>
-          `${i + 1}. ${s.title}\n   ${s.content.split('\n')[0].replace(/[#*]/g, '').trim()}`
-      ),
-      '',
+      ...(results.length > 0 ? [
+        '内置章节:',
+        ...results.map(
+          (s, i) =>
+            `${i + 1}. ${s.title}\n   ${s.content.split('\n')[0].replace(/[#*]/g, '').trim()}`
+        ),
+        '',
+      ] : []),
+      ...(fileResults.length > 0 ? [
+        'docs/ 目录文档:',
+        ...fileResults.map(
+          (d, i) =>
+            `${i + 1}. ${d.title} (docs/${d.relativePath})\n   ${d.content.split('\n')[0].replace(/[#*]/g, '').trim()}`
+        ),
+        '',
+      ] : []),
       '使用 /docs <章节名> 查看完整内容。',
     ];
 

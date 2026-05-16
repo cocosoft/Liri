@@ -2,89 +2,71 @@
 
 ## 概述
 
-AutoReply 系统提供自动消息回复功能，支持消息分块、信封封装、心跳检测和智能分发。
+AutoReply 系统提供消息自动回复的编排能力，支持文本分块、心跳保活和多渠道分发，位于 `core/auto-reply/`。
 
-## 架构
-
-```
-消息输入 → Envelope(封装) → Chunk(分块) → Dispatch(分发) → Reply(回复)
-                                    ↑
-                              Heartbeat(心跳检测)
-```
-
-## 核心组件
-
-### Envelope - 消息信封
+## 基本用法
 
 ```typescript
-import { AutoReplyEnvelope } from "./core/auto-reply/envelope.js";
+import { ReplyOrchestrator } from "./core/auto-reply/index.js";
 
-const envelope = new AutoReplyEnvelope({
-  content: "这是一条很长的消息...",
-  maxSize: 4096
+const orchestrator = new ReplyOrchestrator();
+
+// 执行一次回复
+const result = await orchestrator.reply({
+  text: "你好！有什么可以帮你的吗？",
+  channelId: "discord:123",
+  accountId: "user_001",
+  conversationId: "conv_456"
 });
 
-const wrapped = envelope.wrap();
+console.log(result.sent); // true / false
 ```
 
-### Chunk - 消息分块
+## 长文本分块
 
 ```typescript
-import { AutoReplyChunk } from "./core/auto-reply/chunk.js";
-
-const chunker = new AutoReplyChunk({
-  chunkSize: 2000,
-  overlap: 100
+// 分块发送长文本
+const result = await orchestrator.replyChunked({
+  text: longContent,
+  channelId: "discord:123",
+  accountId: "user_001",
+  conversationId: "conv_456"
+}, {
+  chunkLimit: 2000  // 每块最大字符数
 });
-
-const chunks = chunker.split(longMessage);
 ```
 
-### Dispatch - 消息分发
+## 心跳保活
 
 ```typescript
-import { AutoReplyDispatch } from "./core/auto-reply/dispatch.js";
-
-const dispatcher = new AutoReplyDispatch({
-  channels: ["discord", "slack"],
-  strategy: "round_robin"
+// 长时间运行的回复启用心跳
+const result = await orchestrator.reply(context, {
+  heartbeatIntervalMs: 5000  // 每 5 秒发送心跳
 });
-
-await dispatcher.dispatch(message);
 ```
 
-### Heartbeat - 心跳检测
+## 批量回复
 
 ```typescript
-import { AutoReplyHeartbeat } from "./core/auto-reply/heartbeat.js";
-
-const heartbeat = new AutoReplyHeartbeat({
-  interval: 5000,
-  timeout: 15000
-});
-
-heartbeat.on("missed", (channelId) => {
-  console.log(`Channel ${channelId} heartbeat missed`);
-});
+// 批量回复多个上下文
+const results = await orchestrator.replyBatch([
+  { text: "回复1", channelId: "discord:1", accountId: "user_001", conversationId: "conv_1" },
+  { text: "回复2", channelId: "discord:2", accountId: "user_002", conversationId: "conv_2" }
+]);
 ```
 
-### Reply - 回复处理器
+## 组件说明
 
-```typescript
-import { AutoReplyReply } from "./core/auto-reply/reply.js";
-
-const replyHandler = new AutoReplyReply();
-
-await replyHandler.send({
-  channel: "discord",
-  content: "处理完成",
-  reference: originalMessageId
-});
-```
+| 组件 | 文件 | 说明 |
+|------|------|------|
+| ReplyOrchestrator | reply.ts | 回复编排主类 |
+| ReplyDispatcher | dispatch.ts | 消息分发器 |
+| HeartbeatManager | heartbeat.ts | 心跳保活管理 |
+| createEnvelope / chunkText | envelope.ts / chunk.ts | 信封创建与文本分块 |
 
 ## 使用场景
 
-- 多渠道消息广播
-- 长消息自动分片
-- 连接状态监控
-- 智能路由分发
+- AI Agent 回复消息的分发
+- 跨渠道消息发送
+- 长文本分段输出
+- 长时间任务的心跳保活

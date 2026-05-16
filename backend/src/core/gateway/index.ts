@@ -99,6 +99,9 @@ export {
   computeWebSocketAcceptKey,
 } from './protocol/frames';
 
+export { LocalHTTPService, getLocalHTTPService } from './local';
+export type { LocalHTTPConfig } from './local';
+
 export type {
   RequestFrame,
   ResponseFrame,

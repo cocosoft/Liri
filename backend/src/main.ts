@@ -72,8 +72,45 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   const { init } = await import('./entrypoints/init');
   await init();
 
+  // 禁用 Gateway（避免 WebSocket 端口冲突）
+  try {
+    const { configManager } = await import('./cli/config');
+    const gatewayConfig = configManager.getGatewayConfig();
+    gatewayConfig.enabled = false;
+    gatewayConfig.websocket.enabled = false;
+  } catch {
+    // 忽略
+  }
+
+  // 解析 --http-port 参数
+  const httpPort = parseHttpPortFromArgs(options.args);
+
   const { launchRepl } = await import('./entrypoints/repl');
-  await launchRepl();
+  await launchRepl({ httpPort });
+}
+
+/**
+ * 从命令行参数中解析 --http-port 值
+ */
+function parseHttpPortFromArgs(args?: string[]): number | undefined {
+  if (!args) return undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--http-port' && i + 1 < args.length) {
+      const port = parseInt(args[i + 1], 10);
+      if (!isNaN(port) && port > 0 && port < 65536) {
+        return port;
+      }
+    }
+    if (args[i].startsWith('--http-port=')) {
+      const port = parseInt(args[i].split('=')[1], 10);
+      if (!isNaN(port) && port > 0 && port < 65536) {
+        return port;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -192,7 +229,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
  */
 export async function main(): Promise<void> {
   const mode = (process.argv[2] as LaunchMode) || LaunchMode.REPL;
-  await launch({ mode });
+  const args = process.argv.slice(3);
+  await launch({ mode, args });
 }
 
 if (import.meta.main) {

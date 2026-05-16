@@ -2,73 +2,60 @@
 
 ## 概述
 
-通知系统提供消息通知能力，支持多渠道通知分发、通知模板和通知偏好管理。
+通知系统提供应用内通知能力，基于 React/Ink Hooks 实现，支持启动通知、插件安装通知和任务完成通知等场景。
 
-## 基本用法
-
-```typescript
-import { NotificationService } from "./core/notification/index.js";
-
-const notifier = new NotificationService();
-
-// 发送通知
-await notifier.send({
-  title: "任务完成",
-  body: "数据分析任务已完成",
-  channel: "discord"
-});
-```
-
-## 通知渠道
+## 通知 Hooks
 
 ```typescript
-// 注册通知渠道
-notifier.registerChannel("email", {
-  send: async (notification) => {
-    await sendEmail(notification);
-  }
-});
-
-// 配置多路分发
-await notifier.sendBroadcast(notification, ["discord", "slack", "email"]);
+import {
+  useStartupNotification,
+  usePluginInstallationNotification,
+  useTaskCompletionNotification,
+} from "./hooks/notifs/index.js";
 ```
 
-## 通知模板
+### 启动通知
 
 ```typescript
-// 注册模板
-notifier.registerTemplate("task_complete", {
-  title: "任务 {{taskName}} 已完成",
-  body: "耗时 {{duration}} 秒"
-});
+import { useStartupNotification } from "./hooks/notifs/index.js";
 
-// 使用模板
-await notifier.sendWithTemplate("task_complete", {
-  taskName: "数据分析",
-  duration: 45
-});
+function App() {
+  // 在组件中使用 Hook，当应用启动完成时自动触发通知
+  useStartupNotification();
+
+  return <AppContent />;
+}
 ```
 
-## 通知偏好
+### 插件安装通知
 
 ```typescript
-// 用户通知偏好
-const preferences = {
-  discord: { enabled: true, quiet: false },
-  email: { enabled: true, digest: "daily" },
-  sms: { enabled: false }
-};
+import { usePluginInstallationNotification } from "./hooks/notifs/index.js";
 
-await notifier.updatePreferences(userId, preferences);
+function PluginManager() {
+  // 插件安装完成时弹出通知提示
+  usePluginInstallationNotification();
+
+  return <PluginList />;
+}
 ```
 
-## 通知队列
+### 任务完成通知
 
 ```typescript
-// 通知进入队列，异步发送
-await notifier.enqueue(notification);
+import { useTaskCompletionNotification } from "./hooks/notifs/index.js";
 
-// 队列处理状态
-notifier.on("sent", (event) => console.log(`通知已发送: ${event.id}`));
-notifier.on("failed", (event) => console.error(`通知发送失败: ${event.id}`));
+function TaskRunner() {
+  // 任务执行结束后自动触发通知
+  useTaskCompletionNotification();
+
+  return <TaskView />;
+}
 ```
+
+## 使用场景
+
+- 应用启动时显示欢迎或状态通知
+- 插件安装成功/失败的即时反馈
+- 长时间运行任务完成后的提醒
+- 终端 UI 中的事件驱动的消息提示

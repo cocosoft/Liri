@@ -116,6 +116,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::backend_ctrl::start_backend,
+            commands::backend_ctrl::stop_backend,
+            commands::backend_ctrl::get_backend_status,
+            commands::backend_ctrl::set_backend_port,
+            commands::chat::set_backend_url,
             commands::chat::send_message,
             commands::chat::stream_message,
             commands::session::list_sessions,

@@ -7,12 +7,10 @@ Markdown 渲染引擎负责将 Markdown 文本渲染为格式化的终端输出�
 ## 基本用法
 
 ```typescript
-import { MarkdownRenderer } from "./core/markdown/renderer.js";
-
-const renderer = new MarkdownRenderer();
+import { renderMarkdownWithMarkers } from "./core/markdown/render.js";
 
 // 渲染 Markdown
-const output = renderer.render("# Hello\nThis is **bold** text");
+const output = renderMarkdownWithMarkers("# Hello\nThis is **bold** text");
 console.log(output);
 ```
 
@@ -34,22 +32,15 @@ console.log(output);
 
 ## 代码高亮
 
-```typescript
-const renderer = new MarkdownRenderer({
-  codeHighlight: true,
-  theme: "one-dark"
-});
-
-// 支持的语言
-// TypeScript, JavaScript, Python, Rust, Go, Java, HTML, CSS, JSON, YAML, Shell 等
-```
+渲染引擎自动识别代码块并应用 ANSI 高亮，支持 TypeScript、JavaScript、Python、Rust 等多种语言。
 
 ## 渲染选项
 
 ```typescript
-const renderer = new MarkdownRenderer({
+import { renderMarkdownWithMarkers } from "./core/markdown/render.js";
+
+const output = renderMarkdownWithMarkers(markdownContent, {
   maxWidth: 80,          // 最大行宽
-  codeHighlight: true,   // 代码高亮
   sanitize: true,        // 安全过滤
   linkify: true,         // 自动链接
   breaks: true           // 换行

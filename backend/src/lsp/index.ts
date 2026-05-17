@@ -32,3 +32,24 @@ export type {
   AgentDiagnosticLevel,
   DiagnosticsAdapterConfig,
 } from './DiagnosticsContextAdapter';
+
+// 导出多语言 Server 配置注册表
+export {
+  LSPServerConfigRegistry,
+  getDefaultConfigRegistry,
+  createConfigRegistry,
+} from './LSPServerConfigRegistry.js';
+export type { LanguageServerRegistration } from './LSPServerConfigRegistry.js';
+
+// 导出诊断展示工具
+export {
+  LSPDiagnosticDisplay,
+  getDefaultDiagnosticDisplay,
+  createDiagnosticDisplay,
+} from './LSPDiagnosticDisplay.js';
+export type {
+  DisplayDiagnostic,
+  DiagnosticSummary,
+  GroupedDiagnostics,
+  DiagnosticFormat,
+} from './LSPDiagnosticDisplay.js';

@@ -4,11 +4,13 @@ import {
   ResponseFrameSchema,
   EventFrameSchema,
   ErrorFrameSchema,
+} from './schema/frames.js';
+import {
   ChannelTypeEnum,
   FrameTypeEnum,
   EventTypeEnum,
   ErrorCodeEnum,
-} from './schemas';
+} from './schema/enums.js';
 
 export type ChannelType = Static<typeof ChannelTypeEnum>;
 export type FrameType = Static<typeof FrameTypeEnum>;

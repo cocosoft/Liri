@@ -1,6 +1,4 @@
 //
-/* eslint-disable */
-
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';

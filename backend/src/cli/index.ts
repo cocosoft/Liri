@@ -30,6 +30,11 @@ import { registerSkillsCommands } from '../skills/cli/skills';
 import { UpdateHandler } from './update';
 import * as print from './print';
 
+/** 动态加载的命令模块接口 */
+interface CommandModule {
+  execute: (...args: string[]) => { message: string };
+}
+
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });
 const autoUpdater = createAutoUpdater({ verbose: true });
@@ -911,23 +916,23 @@ program
           await import('../commands/builtin/docs/index.js');
 
         if (options.search) {
-          const result = await docsCommand.load!().then((m: any) =>
-            m.execute(`search ${options.search}`, {} as any)
+          const result = await docsCommand.load!().then((m: CommandModule) =>
+            m.execute(`search ${options.search}`, '')
           );
           console.log(result.message);
         } else if (options.list) {
-          const result = await docsCommand.load!().then((m: any) =>
-            m.execute('list', {} as any)
+          const result = await docsCommand.load!().then((m: CommandModule) =>
+            m.execute('list', '')
           );
           console.log(result.message);
         } else if (topic) {
-          const result = await docsCommand.load!().then((m: any) =>
-            m.execute(topic, {} as any)
+          const result = await docsCommand.load!().then((m: CommandModule) =>
+            m.execute(topic, '')
           );
           console.log(result.message);
         } else {
-          const result = await docsCommand.load!().then((m: any) =>
-            m.execute('', {} as any)
+          const result = await docsCommand.load!().then((m: CommandModule) =>
+            m.execute('', '')
           );
           console.log(result.message);
         }
@@ -960,8 +965,8 @@ program
 
         const { uninstallCommand } =
           await import('../commands/builtin/uninstall/index.js');
-        const result = await uninstallCommand.load!().then((m: any) =>
-          m.execute(fullArgs, {} as any)
+        const result = await uninstallCommand.load!().then((m: CommandModule) =>
+          m.execute(fullArgs, '')
         );
         console.log(result.message);
       } catch (error: unknown) {
@@ -984,8 +989,8 @@ program
         await import('../commands/builtin/onboard/index.js');
 
       const args = action || '';
-      const result = await onboardCommand.load!().then((m: any) =>
-        m.execute(args, {} as any)
+      const result = await onboardCommand.load!().then((m: CommandModule) =>
+        m.execute(args, '')
       );
       console.log(result.message);
     } catch (error: unknown) {
@@ -1008,8 +1013,8 @@ program
         await import('../commands/builtin/health/index.js');
 
       const args = options.quick ? 'quick' : action || '';
-      const result = await healthCommand.load!().then((m: any) =>
-        m.execute(args, {} as any)
+      const result = await healthCommand.load!().then((m: CommandModule) =>
+        m.execute(args, '')
       );
       console.log(result.message);
     } catch (error: unknown) {
@@ -1031,8 +1036,8 @@ program
         await import('../commands/builtin/tasks/index.js');
 
       const args = action ? action.join(' ') : '';
-      const result = await tasksCommand.load!().then((m: any) =>
-        m.execute(args, {} as any)
+      const result = await tasksCommand.load!().then((m: CommandModule) =>
+        m.execute(args, '')
       );
       console.log(result.message);
     } catch (error: unknown) {

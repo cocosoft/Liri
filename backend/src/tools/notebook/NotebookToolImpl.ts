@@ -88,14 +88,15 @@ export class NotebookToolImpl implements NotebookTool {
 
   /**
    * 执行单元格
+   * 注：按语言复用 REPL 会话，避免会话泄漏
    */
   async executeCell(cell: CodeCell): Promise<CellExecutionResult> {
     const startTime = Date.now();
     cell.executionState = CellExecutionState.RUNNING;
 
     try {
-      // 获取或创建REPL会话
-      const sessionId = `session-${cell.language}-${Date.now()}`;
+      // 按语言复用 REPL 会话，避免每次创建新会话导致泄漏
+      const sessionId = `session-${cell.language}`;
       let session = this.replSessions.get(sessionId);
 
       if (!session) {
@@ -298,17 +299,40 @@ export class NotebookToolImpl implements NotebookTool {
   }
 
   /**
-   * 导出为PDF
+   * 导出为PDF（打印就绪 HTML）
+   * 基于 HTML 输出构建，增加 @media print 样式和页面元数据，
+   * 浏览器打印/另存为 PDF 时可获得良好排版效果
    */
   private exportToPDF(notebook: Notebook): Buffer {
-    // 简化实现，实际项目中可能需要使用PDF生成库
-    const content =
-      `Notebook: ${notebook.name}\n\n` +
-      `Number of cells: ${notebook.cells.length}\n` +
-      `Created: ${notebook.createdAt}\n` +
-      `Updated: ${notebook.updatedAt}`;
+    const html = this.exportToHTML(notebook).toString('utf8');
 
-    return Buffer.from(content, 'utf8');
+    const printStyles = `
+  @media print {
+    @page { margin: 2cm; size: A4; }
+    body { font-size: 11pt; line-height: 1.6; color: #000; background: #fff; margin: 0; padding: 0; }
+    h1 { font-size: 18pt; margin-top: 0; page-break-before: avoid; page-break-after: avoid; }
+    h2 { font-size: 14pt; page-break-after: avoid; }
+    .cell { border: 1px solid #ccc; page-break-inside: avoid; margin: 1.5em 0; padding: 1em; }
+    .code-cell { background: #f9f9f9; border-left: 3px solid #4a9; }
+    .markdown-cell { border-left: 3px solid #69c; }
+    pre { font-size: 9pt; background: #f5f5f5; padding: 0.5em; border: 1px solid #ddd; white-space: pre-wrap; word-break: break-all; }
+    .output { border-top: 1px dashed #aaa; margin-top: 0.5em; padding-top: 0.5em; }
+    .error { color: #c00; font-weight: bold; }
+    .metadata { text-align: center; font-size: 9pt; color: #666; margin-top: 0.5em; padding-top: 0.5em; border-top: 1px solid #ccc; }
+  }`;
+
+    const metadata = `
+  <div class="metadata">
+    <span>导出时间: ${new Date().toISOString().split('T')[0]}</span>
+    <span> | 单元格数: ${notebook.cells.length}</span>
+    <span> | 版本: ${(notebook as any).version || '1.0'}</span>
+  </div>`;
+
+    const pdfContent = html
+      .replace('</style>', `${printStyles}\n</style>`)
+      .replace('</body>', `${metadata}\n</body>`);
+
+    return Buffer.from(pdfContent, 'utf8');
   }
 
   /**

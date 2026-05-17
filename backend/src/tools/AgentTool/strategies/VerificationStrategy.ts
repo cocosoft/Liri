@@ -147,6 +147,7 @@ export const VERIFICATION_AGENT_DEFINITION: BuiltInAgentDefinition = {
     'FileEdit',
     'FileWrite',
     'NotebookEdit',
+    'notebook',
     'ExitPlanMode',
   ],
   source: 'built-in',

@@ -2,7 +2,14 @@
  * Notebook管理
  */
 
-import { writeFileSync, readFileSync, existsSync, unlinkSync } from 'fs';
+import {
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  unlinkSync,
+  mkdirSync,
+  readdirSync,
+} from 'fs';
 import { join } from 'path';
 import { Notebook } from './types/index.js';
 import { NotebookImpl } from './types/Notebook.js';
@@ -31,9 +38,6 @@ export class NotebookManager {
    * 确保Notebook目录存在
    */
   private ensureNotebookDir(): void {
-    const { mkdirSync } = require('fs');
-    const { existsSync } = require('fs');
-
     if (!existsSync(this.notebookDir)) {
       mkdirSync(this.notebookDir, { recursive: true });
     }
@@ -43,9 +47,6 @@ export class NotebookManager {
    * 加载Notebook
    */
   private loadNotebooks(): void {
-    const { readdirSync, existsSync } = require('fs');
-    const { join } = require('path');
-
     if (!existsSync(this.notebookDir)) {
       return;
     }

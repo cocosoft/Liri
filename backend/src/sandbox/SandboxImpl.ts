@@ -360,6 +360,11 @@ export class SandboxManagerImpl {
    * @returns 沙箱实例
    */
   createSandbox(config: SandboxConfig): Sandbox {
+    // 检测 Docker 沙箱配置（通过 customConfig 中是否包含 dockerImage 键）
+    if (config.customConfig?.['dockerImage']) {
+      const { DockerSandbox } = require('./docker/DockerSandbox');
+      return new DockerSandbox();
+    }
     switch (config.platform) {
       case SandboxPlatform.WINDOWS:
         return new WindowsSandbox(config);

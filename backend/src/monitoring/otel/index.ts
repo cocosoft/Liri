@@ -23,3 +23,12 @@ export {
 } from './OTelTracing.js';
 
 export type { OTelTracingConfig, TraceWrapperOptions } from './OTelTracing.js';
+
+export { MetricsBridge, createMetricsBridge } from './MetricsBridge.js';
+export type {
+  MetricsBridgeConfig,
+  MetricsBridgeStats,
+} from './MetricsBridge.js';
+
+export { TraceBridge, createTraceBridge } from './TraceBridge.js';
+export type { TraceEvent, TraceBridgeStats } from './TraceBridge.js';

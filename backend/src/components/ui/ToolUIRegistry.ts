@@ -137,11 +137,6 @@ export function initDefaultToolUIRegistry(): void {
   } catch {}
 
   try {
-    const notebookUI = require('../../tools/NotebookEditTool/UI');
-    registerToolUI('notebook_edit', notebookUI);
-  } catch {}
-
-  try {
     const pwshUI = require('../../tools/PowerShellTool/UI');
     registerToolUI('powershell', pwshUI);
   } catch {}

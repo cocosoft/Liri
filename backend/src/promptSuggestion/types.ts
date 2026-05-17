@@ -182,7 +182,12 @@ export { IDLE_SUGGESTION_SPECULATION_STATE as IDLE_SPECULATION_STATE } from '@mo
 export const MAX_SPECULATION_TURNS = 20;
 export const MAX_SPECULATION_MESSAGES = 100;
 
-export const WRITE_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
+export const WRITE_TOOLS = new Set([
+  'Edit',
+  'Write',
+  'NotebookEdit',
+  'notebook',
+]);
 export const SAFE_READ_ONLY_TOOLS = new Set([
   'Read',
   'Glob',

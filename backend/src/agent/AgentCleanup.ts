@@ -73,7 +73,7 @@ export class AgentCleanup {
     if (params.sandboxId) {
       try {
         const { DockerSandbox } =
-          await import('@modules/sandbox/DockerSandbox');
+          await import('@modules/sandbox/docker/DockerSandbox');
         // 标记沙箱需清理 — 实际清理由沙箱管理器执行
         result.sandboxCleaned = true;
         logger.debug(`标记沙箱清理: ${params.sandboxId}`);

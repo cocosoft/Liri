@@ -13,6 +13,7 @@ import type { ToolUseContext } from '../types/ToolUseContext.js';
 import type { ToolResult } from '../types/ToolResult.js';
 import { NotebookToolImpl } from '../notebook/NotebookToolImpl.js';
 import type { Notebook, CodeCell } from '../notebook/types/index.js';
+import { notebookManager } from '../notebook/NotebookManager.js';
 
 /**
  * Notebook工具适配器
@@ -36,7 +37,7 @@ export class NotebookToolAdapter implements Tool {
       name: 'action',
       type: 'string',
       description:
-        '操作类型：create, open, save, addCodeCell, addMarkdownCell, executeCell, export',
+        '操作类型：create, open, save, addCodeCell, addMarkdownCell, executeCell, export, list, delete',
       required: true,
       enum: [
         'create',
@@ -46,20 +47,30 @@ export class NotebookToolAdapter implements Tool {
         'addMarkdownCell',
         'executeCell',
         'export',
+        'list',
+        'delete',
       ],
       example: 'create',
     },
     {
       name: 'name',
       type: 'string',
-      description: 'Notebook名称',
+      description: 'Notebook名称（create 操作必填）',
       required: false,
       example: 'My Notebook',
     },
     {
+      name: 'notebook_path',
+      type: 'string',
+      description:
+        'Notebook 文件路径（open/save 操作使用，兼容 NotebookEditTool 接口）',
+      required: false,
+      example: './notebooks/my-notebook.ipynb',
+    },
+    {
       name: 'path',
       type: 'string',
-      description: 'Notebook路径',
+      description: 'Notebook路径（与 notebook_path 同义）',
       required: false,
       example: './notebooks/my-notebook.ipynb',
     },
@@ -76,6 +87,13 @@ export class NotebookToolAdapter implements Tool {
       description: '单元格ID',
       required: false,
       example: 'cell-123',
+    },
+    {
+      name: 'cell_index',
+      type: 'number',
+      description: '单元格索引（兼容 NotebookEditTool 接口）',
+      required: false,
+      example: 0,
     },
     {
       name: 'code',
@@ -109,9 +127,15 @@ export class NotebookToolAdapter implements Tool {
   ];
 
   /**
-   * 工具别名
+   * 工具别名（包含 NotebookEditTool 兼容别名）
    */
-  aliases = ['nb', 'jupyter'];
+  aliases = [
+    'nb',
+    'jupyter',
+    'NotebookEditTool',
+    'NotebookEdit',
+    'EditNotebook',
+  ];
 
   /**
    * 搜索提示
@@ -192,6 +216,11 @@ export class NotebookToolAdapter implements Tool {
   private notebookTool: NotebookToolImpl;
 
   /**
+   * 已打开的 Notebook 映射（ID → Notebook）
+   */
+  private notebookMap: Map<string, Notebook> = new Map();
+
+  /**
    * 构造函数
    */
   constructor() {
@@ -206,70 +235,57 @@ export class NotebookToolAdapter implements Tool {
       return { result: false, message: 'Missing required parameter: action' };
     }
 
-    switch (params.action) {
-      case 'create':
-        if (!params.name) {
-          return {
-            result: false,
-            message: 'Missing required parameter: name for create action',
-          };
-        }
-        break;
-      case 'open':
-        if (!params.path) {
-          return {
-            result: false,
-            message: 'Missing required parameter: path for open action',
-          };
-        }
-        break;
-      case 'save':
-        if (!params.notebookId) {
-          return {
-            result: false,
-            message: 'Missing required parameter: notebookId for save action',
-          };
-        }
-        break;
-      case 'addCodeCell':
-        if (!params.notebookId || !params.code || !params.language) {
-          return {
-            result: false,
-            message:
-              'Missing required parameters: notebookId, code, language for addCodeCell action',
-          };
-        }
-        break;
-      case 'addMarkdownCell':
-        if (!params.notebookId || !params.content) {
-          return {
-            result: false,
-            message:
-              'Missing required parameters: notebookId, content for addMarkdownCell action',
-          };
-        }
-        break;
-      case 'executeCell':
-        if (!params.cellId) {
-          return {
-            result: false,
-            message:
-              'Missing required parameter: cellId for executeCell action',
-          };
-        }
-        break;
-      case 'export':
-        if (!params.notebookId || !params.format) {
-          return {
-            result: false,
-            message:
-              'Missing required parameters: notebookId, format for export action',
-          };
-        }
-        break;
+    const action = params.action as string;
+
+    if (action === 'create' && !params.name) {
+      return {
+        result: false,
+        message: 'Missing required parameter: name for create action',
+      };
+    }
+
+    if (action === 'export' && !params.format) {
+      return {
+        result: false,
+        message: 'Missing required parameter: format for export action',
+      };
     }
 
     return { result: true };
+  }
+
+  /**
+   * 解析 Notebook：优先 notebookId，其次 notebook_path/path
+   */
+  private resolveNotebook(
+    params: Record<string, unknown>
+  ): Notebook | undefined {
+    const notebookId = params.notebookId as string | undefined;
+    if (notebookId) {
+      return (
+        this.notebookMap.get(notebookId) ||
+        notebookManager.getNotebook(notebookId)
+      );
+    }
+
+    const notebookPath = (params.notebook_path || params.path) as
+      | string
+      | undefined;
+    if (notebookPath) {
+      const existing = Array.from(this.notebookMap.values()).find(
+        (n) => n.path === notebookPath
+      );
+      if (existing) return existing;
+      try {
+        const nb = notebookManager.openNotebook(notebookPath);
+        this.notebookMap.set(nb.id, nb);
+        return nb;
+      } catch {
+        return undefined;
+      }
+    }
+
+    return undefined;
   }
 
   /**
@@ -283,27 +299,31 @@ export class NotebookToolAdapter implements Tool {
       const action = params.action as string;
       const name = params.name as string | undefined;
       const path = params.path as string | undefined;
+      const notebookPath = params.notebook_path as string | undefined;
       const notebookId = params.notebookId as string | undefined;
       const cellId = params.cellId as string | undefined;
+      const cellIndex = params.cell_index as number | undefined;
       const code = params.code as string | undefined;
       const language = params.language as string | undefined;
       const content = params.content as string | undefined;
       const format = params.format as string | undefined;
 
       switch (action) {
-        case 'create':
+        case 'create': {
           const notebook = await this.notebookTool.createNotebook(name!);
+          this.notebookMap.set(notebook.id, notebook);
           return {
             success: true,
-            data: {
-              notebookId: notebook.id,
-              name: notebook.name,
-            },
+            data: { notebookId: notebook.id, name: notebook.name },
             output: `Notebook created: ${name}`,
           };
+        }
 
-        case 'open':
-          const openedNotebook = await this.notebookTool.openNotebook(path!);
+        case 'open': {
+          const targetPath = (notebookPath || path)!;
+          const openedNotebook =
+            await this.notebookTool.openNotebook(targetPath);
+          this.notebookMap.set(openedNotebook.id, openedNotebook);
           return {
             success: true,
             data: {
@@ -311,51 +331,173 @@ export class NotebookToolAdapter implements Tool {
               name: openedNotebook.name,
               path: openedNotebook.path,
             },
-            output: `Notebook opened: ${path}`,
+            output: `Notebook opened: ${targetPath}`,
           };
+        }
 
-        case 'save':
-          // 这里需要获取Notebook实例，实际实现中可能需要存储映射
+        case 'save': {
+          const notebook = this.resolveNotebook(params);
+          if (!notebook) {
+            return {
+              success: false,
+              error: 'Notebook not found',
+              output: 'Notebook not found',
+            };
+          }
+          const targetPath = notebookPath || path;
+          if (targetPath) {
+            notebookManager.saveNotebookAs(notebook, targetPath);
+          } else {
+            notebookManager.saveNotebook(notebook);
+          }
+          return { success: true, output: `Notebook saved: ${notebook.name}` };
+        }
+
+        case 'addCodeCell': {
+          const notebook = this.resolveNotebook(params);
+          if (!notebook) {
+            return {
+              success: false,
+              error: 'Notebook not found',
+              output: 'Notebook not found',
+            };
+          }
+          const cell = await this.notebookTool.addCodeCell(
+            notebook,
+            code!,
+            language || 'python'
+          );
+          if (cellIndex !== undefined && !isNaN(cellIndex)) {
+            const nb = notebook as any;
+            if (nb.removeCell && nb.insertCell) {
+              nb.removeCell(cell.id);
+              nb.insertCell(cellIndex, cell);
+            }
+          }
           return {
             success: true,
-            output: `Notebook saved: ${notebookId}`,
+            data: { cellId: cell.id, cellIndex, type: 'code' },
+            output: `Code cell added to notebook: ${notebook.name}`,
           };
+        }
 
-        case 'addCodeCell':
-          // 这里需要获取Notebook实例
+        case 'addMarkdownCell': {
+          const notebook = this.resolveNotebook(params);
+          if (!notebook) {
+            return {
+              success: false,
+              error: 'Notebook not found',
+              output: 'Notebook not found',
+            };
+          }
+          const cell = await this.notebookTool.addMarkdownCell(
+            notebook,
+            content!
+          );
+          if (cellIndex !== undefined && !isNaN(cellIndex)) {
+            const nb = notebook as any;
+            if (nb.removeCell && nb.insertCell) {
+              nb.removeCell(cell.id);
+              nb.insertCell(cellIndex, cell);
+            }
+          }
           return {
             success: true,
-            output: `Code cell added to notebook: ${notebookId}`,
+            data: { cellId: cell.id, cellIndex, type: 'markdown' },
+            output: `Markdown cell added to notebook: ${notebook.name}`,
           };
+        }
 
-        case 'addMarkdownCell':
-          // 这里需要获取Notebook实例
+        case 'executeCell': {
+          const notebook = this.resolveNotebook(params);
+          if (!notebook) {
+            return {
+              success: false,
+              error: 'Notebook not found',
+              output: 'Notebook not found',
+            };
+          }
+          const targetCell = cellId
+            ? ((notebook as any).getCell(cellId) as CodeCell | undefined)
+            : cellIndex !== undefined && !isNaN(cellIndex)
+              ? (notebook.cells[cellIndex] as CodeCell)
+              : undefined;
+          if (!targetCell) {
+            return {
+              success: false,
+              error: 'Cell not found',
+              output: 'Cell not found',
+            };
+          }
+          if (targetCell.type !== 'code') {
+            return {
+              success: false,
+              error: 'Can only execute code cells',
+              output: 'Can only execute code cells',
+            };
+          }
+          const result = await this.notebookTool.executeCell(
+            targetCell as CodeCell
+          );
           return {
-            success: true,
-            output: `Markdown cell added to notebook: ${notebookId}`,
+            success: result.success,
+            data: result,
+            output: result.success
+              ? `Cell executed: ${cellId || cellIndex}`
+              : `Cell execution failed: ${result.error}`,
           };
+        }
 
-        case 'executeCell':
-          // 这里需要获取Cell实例
-          return {
-            success: true,
-            output: `Cell executed: ${cellId}`,
-          };
-
-        case 'export':
-          // 这里需要获取Notebook实例
+        case 'export': {
+          const notebook = this.resolveNotebook(params);
+          if (!notebook) {
+            return {
+              success: false,
+              error: 'Notebook not found',
+              output: 'Notebook not found',
+            };
+          }
           const exportedContent = await this.notebookTool.exportNotebook(
-            { id: notebookId! } as Notebook,
+            notebook,
             format as any
           );
           return {
             success: true,
-            data: {
-              content: exportedContent.toString('utf8'),
-              format,
-            },
+            data: { content: exportedContent.toString('utf8'), format },
             output: `Notebook exported as ${format}`,
           };
+        }
+
+        case 'list': {
+          const notebooks = notebookManager.getNotebooks();
+          return {
+            success: true,
+            data: notebooks.map((n) => ({
+              id: n.id,
+              name: n.name,
+              path: n.path,
+              cells: n.cells.length,
+            })),
+            output: `Found ${notebooks.length} notebook(s)`,
+          };
+        }
+
+        case 'delete': {
+          const notebook = this.resolveNotebook(params);
+          if (!notebook) {
+            return {
+              success: false,
+              error: 'Notebook not found',
+              output: 'Notebook not found',
+            };
+          }
+          notebookManager.deleteNotebook(notebook);
+          this.notebookMap.delete(notebook.id);
+          return {
+            success: true,
+            output: `Notebook deleted: ${notebook.name}`,
+          };
+        }
 
         default:
           return {

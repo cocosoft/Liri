@@ -12,7 +12,6 @@ import { FileEditTool } from './FileEditTool/FileEditTool';
 import { FileConvertTool } from './FileConvertTool/FileConvertTool';
 import { GrepTool } from './search/GrepTool';
 import { GlobTool } from './search/GlobTool';
-import { NotebookEditTool } from './NotebookEditTool/NotebookEditTool';
 import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -314,11 +313,11 @@ export class ToolFactory {
   }
 
   /**
-   * 创建NotebookEdit工具
+   * 创建NotebookEdit工具（兼容旧接口，实际返回 NotebookToolAdapter）
    * @returns NotebookEdit工具实例
    */
   createNotebookEditTool(): Tool {
-    return NotebookEditTool;
+    return new NotebookToolAdapter();
   }
 
   /**
@@ -673,7 +672,6 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new FileEditTool());
   tools.push(new FileReadTool());
   tools.push(new FileWriteTool());
-  tools.push(NotebookEditTool);
   tools.push(new WebFetchTool());
   tools.push(new TodoWriteTool());
   tools.push(new WebSearchTool());

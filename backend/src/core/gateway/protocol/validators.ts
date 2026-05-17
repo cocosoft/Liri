@@ -6,7 +6,7 @@ import {
   ErrorFrameSchema,
   GatewayFrameSchema,
   InboundFrameSchema,
-} from './schemas';
+} from './schema/frames.js';
 
 const ajv = new Ajv({
   strict: true,

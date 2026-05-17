@@ -99,6 +99,15 @@ backend/.test_versions/
 backend/.test_versions_export/
 backend/.test_versions_integrity/
 
+# Root-level test artifacts
+.test_cache/
+.test_config/
+.test_exports/
+.test_versions/
+.test_versions_export/
+.test_versions_integrity/
+test-perfetto-trace.json
+
 # Testing - root-level test files
 backend/test_*.ts
 backend/test_*.js
@@ -128,4 +137,4 @@ reference/
 # 项目规则文件
 .trae/
 # Exclude specific dev_docs
-dev_docs/20260514/16-对标报告遗漏任务清单.md
+dev_docs/

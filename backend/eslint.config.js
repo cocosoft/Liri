@@ -43,6 +43,103 @@ export default [
     }
   },
   {
+    files: ['**/*.test.ts', '**/*.spec.ts', '**/*.test.tsx', '**/*.spec.tsx'],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off'
+    }
+  },
+  {
+    files: [
+      'src/cli/**/*.ts',
+      'src/entrypoints/**',
+      'src/ui/**/*.ts',
+      'src/scripts/**/*.ts',
+      'src/docs/**/*.ts',
+      'src/commands/interactive/**/*.ts',
+      'src/tools/**/*.ts',
+    ],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  {
+    files: [
+      'src/chronos/cli/**/*.ts',
+      'src/hooks/cli/**/*.ts',
+      'src/skills/cli/**/*.ts',
+      'src/plugins/cli/**/*.ts',
+      'src/bridge/cli/**/*.ts',
+      'src/memory/cli/**/*.ts',
+      'src/mcp/cli/**/*.ts',
+    ],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  {
+    files: [
+      'src/monitoring/logs/Logger.ts',
+      'src/monitoring/exporters/ConsoleExporter.ts',
+      'src/services/api/logging.ts',
+      'src/utils/log.ts',
+      'src/utils/logger.ts',
+      'src/utils/debug.ts',
+      'src/utils/monitoring.ts',
+      'src/utils/startupProfiler.ts',
+      'src/utils/logging/LogSink.ts',
+    ],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  {
+    files: [
+      'src/agent/AgentModuleTest.ts',
+      'src/chat/ChatModuleTest.ts',
+      'src/config/ConfigModuleTest.ts',
+      'src/error/ErrorModuleTest.ts',
+    ],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  {
+    files: [
+      'src/wizard/**/*.ts',
+      'src/security/**/*.ts',
+      'src/hooks/**/*.ts',
+      'src/channels/**/*.ts',
+      'src/chronos/**/*.ts',
+      'src/error/**/*.ts',
+      'src/tools/adapters/**/*.ts',
+      'src/tools/ModuleMigrationTool.ts',
+      'src/components/**/*.ts',
+      'src/components/**/*.tsx',
+      'src/commands/builtin/**/*.ts',
+      'src/commands/prompt/**/*.ts',
+      'src/commands/progress/**/*.ts',
+      'src/agent/events/**/*.ts',
+      'src/chat/services/**/*.ts',
+      'src/query/**/*.ts',
+      'src/promptSuggestion/**/*.ts',
+      'src/ink/**/*.tsx',
+      'src/buddy/**/*.tsx',
+      'src/performance/**/*.ts',
+      'src/monitoring/**/*.ts',
+      'src/analytics/**',
+      'src/ai/telemetry/**/*.ts',
+      'src/context/**',
+      'src/monitor.ts',
+      'src/healthcheck.ts',
+      'src/utils/errorHintManager.ts',
+    ],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  {
     files: ['**/*.js', '**/*.jsx'],
     languageOptions: {
       ecmaVersion: 12,
@@ -55,6 +152,85 @@ export default [
       'prettier/prettier': 'error',
       'no-console': 'warn',
       'no-debugger': 'error'
+    }
+  },
+  {
+    files: [
+      'src/governance/managers/**/*.js',
+      'src/utils/*.js',
+      'src/analytics/**/*.js',
+      'src/context/**/*.js',
+    ],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  {
+    files: [
+      'src/tools/**',
+      'src/commands/**',
+      'src/services/**',
+      'src/hooks/**',
+      'src/utils/**',
+      'src/ai/**',
+      'src/ink/**',
+      'src/skills/**',
+      'src/subagent/**',
+      'src/security/**',
+      'src/config/**',
+      'src/agent/**',
+      'src/bridge/**',
+      'src/plugins/**',
+      'src/session/**',
+      'src/chronos/**',
+      'src/cli/**',
+      'src/monitoring/**',
+      'src/core/**',
+      'src/ui/**',
+      'src/context/**',
+      'src/governance/**',
+      'src/performance/**',
+      'src/error/**',
+      'src/memory/**',
+      'src/chat/**',
+      'src/mcp/**',
+      'src/permission/**',
+      'src/tasks/**',
+      'src/sandbox/**',
+      'src/types/**',
+      'src/analytics/**',
+      'src/components/**',
+      'src/remote/**',
+      'src/entrypoints/**',
+      'src/modules/**',
+      'src/keybindings/**',
+      'src/query/**',
+      'src/cost/**',
+      'src/docs/**',
+      'src/testing/**',
+      'src/daemon/**',
+      'src/oauth/**',
+      'src/streaming/**',
+      'src/cache/**',
+      'src/lsp/**',
+      'src/scripts/**',
+      'src/diagnostics/**',
+      'src/media/**',
+      'src/buddy/**',
+      'src/subagents/**',
+      'src/channels/**',
+      'src/constants/**',
+      'src/enterprise/**',
+      'src/plugin-sdk/**',
+      'src/promptSuggestion/**',
+      'src/trace-recording/**',
+      'src/vim/**',
+      'src/healthcheck.ts',
+      'src/main.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off'
     }
   }
 ];

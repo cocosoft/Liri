@@ -6,3 +6,5 @@ export * from './plugins.js';
 export * from './webhooks.js';
 export * from './devices.js';
 export * from './nodes.js';
+export * from './enums.js';
+export * from './frames.js';

@@ -75,6 +75,7 @@ export type {
 export { GatewayAuth } from './auth/GatewayAuth';
 export { TokenAuth } from './auth/TokenAuth';
 export { DeviceAuth } from './auth/DeviceAuth';
+export { OAuthAuth } from './auth/OAuthAuth';
 
 export type {
   AuthResult,
@@ -84,6 +85,12 @@ export type {
 } from './auth/GatewayAuth';
 export type { TokenAuthConfig, TokenUserInfo } from './auth/TokenAuth';
 export type { DeviceAuthConfig, PendingDeviceCode } from './auth/DeviceAuth';
+export type {
+  OAuthAuthConfig,
+  OAuthClientConfig,
+  OAuthTokenResponse,
+  OAuthClientRegistration,
+} from './auth/OAuthAuth';
 
 export {
   createRequestFrame,

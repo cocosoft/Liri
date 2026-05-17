@@ -28,9 +28,9 @@ export * from './EnhancedSandboxManager.js';
 export * from './IntelligentSandboxAnalyzer.js';
 export * from './SandboxSecurityChecker.js';
 
-// 对齐 OpenClaw 的新组件
-export { DockerSandbox } from './DockerSandbox';
-export type { DockerSandboxConfig, DockerSandboxResult } from './DockerSandbox';
+// Docker 沙箱（容器级隔离）
+export { DockerSandbox, DOCKER_CONFIG_KEYS } from './docker/index';
+export type { DockerVolumeMount } from './docker/index';
 export { PTYSandbox } from './PTYSandbox';
 export type { PTYSandboxConfig } from './PTYSandbox';
 export { SSHSandbox } from './SSHSandbox';

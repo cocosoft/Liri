@@ -42,6 +42,7 @@ const TOOL_VERBS: Record<string, string> = {
   GrepTool: 'Searching',
   BashTool: 'Running',
   NotebookEditTool: 'Editing notebook',
+  notebook: 'Editing notebook',
   LSP: 'LSP',
   Task: 'Running task',
   Agent: 'Running agent',

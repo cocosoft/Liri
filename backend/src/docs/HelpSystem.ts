@@ -461,8 +461,8 @@ PY_APP是一个智能编程助手，帮助你更高效地编写代码。
 ### LSPTool
 语言服务器协议工具，提供代码智能提示。
 
-### NotebookEditTool
-Jupyter笔记本编辑。
+### NotebookToolAdapter
+Notebook 创建和执行工具（替代 NotebookEditTool）。
 
 ## 系统工具
 

@@ -10,6 +10,11 @@ export { I18nManager, i18nManager } from './I18nManager.js';
 export { ContextHelp, contextHelp } from './ContextHelp.js';
 export { DocsSearch, docsSearch } from './DocsSearch.js';
 export {
+  KnowledgeRouter,
+  knowledgeRouter,
+  getKnowledgeRouter,
+} from './KnowledgeRouter.js';
+export {
   DocumentVersionService,
   createDocumentVersionService,
   getDefaultDocumentVersionService,
@@ -41,6 +46,11 @@ export type {
   TemplateScore,
   RecommendationContext,
 } from './TemplateRecommender.js';
+
+export type {
+  KnowledgeRoute,
+  KnowledgeRouterOptions,
+} from './KnowledgeRouter.js';
 
 export type { SearchQueryRecord, SearchAnalyticsData } from './DocsSearch.js';
 

@@ -28,7 +28,6 @@ export default {
    * @param context 命令上下文
    * @returns 命令结果
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async execute(args: string, context: CommandContext): Promise<CommandResult> {
     const parts = args.trim().split(/\s+/);
     const subcommand = (parts[0] || 'list').toLowerCase();

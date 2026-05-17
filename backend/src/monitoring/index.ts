@@ -44,12 +44,20 @@ export {
   OTelTracing,
   getOTelTracing,
   createOTelTracing,
+  MetricsBridge,
+  createMetricsBridge,
+  TraceBridge,
+  createTraceBridge,
 } from './otel/index.js';
 
 export type {
   OTelMetricsConfig,
   OTelTracingConfig,
   TraceWrapperOptions,
+  MetricsBridgeConfig,
+  MetricsBridgeStats,
+  TraceEvent,
+  TraceBridgeStats,
 } from './otel/index.js';
 
 // 导出器

@@ -154,19 +154,18 @@ export class AIQueryEngine {
     while (this.currentTurn < (params.maxTurns || this.config.maxTurns || 10)) {
       this.currentTurn++;
 
-      const fullResponse: any = {
+      const fullResponse = {
         content: [],
         tool_calls: [],
       };
 
       try {
-        for await (const event of (this.config.client as any).stream(
-          currentMessages,
-          {
-            model: params.model || this.config.defaultModel,
-            tools: params.tools,
-          }
-        )) {
+        for await (const event of (
+          this.config.client as { stream: Function }
+        ).stream(currentMessages, {
+          model: params.model || this.config.defaultModel,
+          tools: params.tools,
+        })) {
           if (event.type === 'content_block_delta') {
             fullResponse.content.push(event.delta);
           } else if (event.type === 'tool_call') {
@@ -234,12 +233,13 @@ export class AIQueryEngine {
    * 执行工具调用
    */
   private async executeTools(
-    toolCalls: any[],
+    toolCalls: unknown[],
     context: ToolContext | undefined
-  ): Promise<any[]> {
+  ): Promise<unknown[]> {
     const results = [];
 
-    for (const toolCall of toolCalls) {
+    for (const raw of toolCalls) {
+      const toolCall = raw as { id: string; name: string; input: unknown };
       try {
         const result = await this.config.toolExecutor.executeTool(
           {
@@ -266,7 +266,9 @@ export class AIQueryEngine {
   /**
    * 创建助手消息
    */
-  private createAssistantMessage(response: any): ChatMessage {
+  private createAssistantMessage(
+    response: Record<string, unknown>
+  ): ChatMessage {
     const message: ChatMessage = {
       role: 'assistant',
       content: '',
@@ -276,18 +278,19 @@ export class AIQueryEngine {
       message.content = response.content;
     } else if (Array.isArray(response.content)) {
       message.content = response.content
-        .map((block: any) => {
-          if (block.type === 'text') return block.text;
-          if (block.type === 'thinking') return block.thinking;
+        .map((block: Record<string, unknown>) => {
+          if (block.type === 'text') return block.text as string;
+          if (block.type === 'thinking') return block.thinking as string;
           return JSON.stringify(block);
         })
         .join('\n');
     }
 
     if (response.tool_calls) {
-      message.tool_calls = response.tool_calls.map((tc: any) => ({
-        id: tc.id,
-        name: tc.name,
+      const calls = response.tool_calls as Array<Record<string, unknown>>;
+      message.tool_calls = calls.map((tc) => ({
+        id: tc.id as string,
+        name: tc.name as string,
         input: tc.input,
       }));
     }
@@ -299,14 +302,17 @@ export class AIQueryEngine {
    * 创建工具结果消息
    */
   private createToolResultMessages(
-    toolCalls: any[],
-    toolResults: any[]
+    toolCalls: unknown[],
+    toolResults: unknown[]
   ): ChatMessage[] {
     const messages: ChatMessage[] = [];
 
     for (let i = 0; i < toolCalls.length; i++) {
-      const toolCall = toolCalls[i];
-      const result = toolResults[i];
+      const toolCall = toolCalls[i] as { id: string };
+      const result = toolResults[i] as {
+        content: string;
+        error?: boolean;
+      };
 
       messages.push({
         role: 'user',

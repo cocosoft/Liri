@@ -1978,5 +1978,59 @@
     "priority": 1,
     "createdAt": "2026-05-15T22:43:19.898Z",
     "updatedAt": "2026-05-15T22:43:19.898Z"
+  },
+  {
+    "id": "rule_1778978342391_f72ezpjiq",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-17T00:39:02.391Z",
+    "updatedAt": "2026-05-17T00:39:02.391Z"
+  },
+  {
+    "id": "rule_1778978352355_i92bjq7ry",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-17T00:39:12.355Z",
+    "updatedAt": "2026-05-17T00:39:12.355Z"
+  },
+  {
+    "id": "rule_1778982385966_b6nrd43sp",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-17T01:46:25.966Z",
+    "updatedAt": "2026-05-17T01:46:25.966Z"
+  },
+  {
+    "id": "rule_1778982414991_xw2ufj5w5",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-17T01:46:54.991Z",
+    "updatedAt": "2026-05-17T01:46:54.991Z"
+  },
+  {
+    "id": "rule_1778984360694_tlheqyj1h",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-17T02:19:20.694Z",
+    "updatedAt": "2026-05-17T02:19:20.694Z"
+  },
+  {
+    "id": "rule_1778985165745_r6ya509wj",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-17T02:32:45.745Z",
+    "updatedAt": "2026-05-17T02:32:45.745Z"
   }
 ]

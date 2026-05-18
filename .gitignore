@@ -35,6 +35,9 @@ backend/errors.txt
 backend/typecheck-errors*.txt
 backend/fix_*.ps1
 backend/input.txt
+backend/test_errors.txt
+backend/test_output.txt
+backend/coverage_full.txt
 __pycache__/
 *.pyc
 *.pyo

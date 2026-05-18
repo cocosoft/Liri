@@ -1,30 +1,30 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { EventEmitter } from 'events';
 import {
-  AclClientConfig,
-  AclMessage,
-  AclHandshake,
-  AclResponse,
-  AclMetrics,
-  AclMessageRole,
-  AclMessagePriority,
+  AcpClientConfig,
+  AcpMessage,
+  AcpHandshake,
+  AcpResponse,
+  AcpMetrics,
+  AcpMessageType,
+  AcpMessagePriority,
 } from './types.js';
 
 let _clientIdCounter = 0;
 
 function nextClientId(): string {
   _clientIdCounter++;
-  return `acl-${Date.now()}-${_clientIdCounter}`;
+  return `acp-${Date.now()}-${_clientIdCounter}`;
 }
 
-export class AclClient extends EventEmitter {
-  private config: AclClientConfig;
+export class AcpTransportClient extends EventEmitter {
+  private config: AcpClientConfig;
   private connected = false;
   private sessionId: string | null = null;
   private pendingRequests: Map<
     string,
     {
-      resolve: (msg: AclMessage) => void;
+      resolve: (msg: AcpMessage) => void;
       reject: (err: Error) => void;
       timer: ReturnType<typeof setTimeout>;
     }
@@ -32,7 +32,7 @@ export class AclClient extends EventEmitter {
   private reconnectAttempts = 0;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private startTime = 0;
-  private metrics: AclMetrics = {
+  private metrics: AcpMetrics = {
     totalMessagesSent: 0,
     totalMessagesReceived: 0,
     activeSessions: 0,
@@ -41,7 +41,7 @@ export class AclClient extends EventEmitter {
     errors: 0,
   };
 
-  constructor(config: AclClientConfig) {
+  constructor(config: AcpClientConfig) {
     super();
     this.config = config;
   }
@@ -54,7 +54,7 @@ export class AclClient extends EventEmitter {
     this.startTime = Date.now();
 
     try {
-      const handshake: AclHandshake = {
+      const handshake: AcpHandshake = {
         agent: this.config.agent,
         timestamp: Date.now(),
       };
@@ -117,7 +117,7 @@ export class AclClient extends EventEmitter {
     return this.sessionId;
   }
 
-  getMetrics(): AclMetrics {
+  getMetrics(): AcpMetrics {
     return {
       ...this.metrics,
       uptimeMs: this.startTime > 0 ? Date.now() - this.startTime : 0,
@@ -126,14 +126,14 @@ export class AclClient extends EventEmitter {
     };
   }
 
-  getConfig(): AclClientConfig {
+  getConfig(): AcpClientConfig {
     return { ...this.config };
   }
 
   async send(
     type: string,
     payload: unknown,
-    priority: AclMessagePriority = 'normal',
+    priority: AcpMessagePriority = 'normal',
     correlationId?: string
   ): Promise<void> {
     if (!this.connected) {
@@ -159,8 +159,8 @@ export class AclClient extends EventEmitter {
     type: string,
     payload: unknown,
     timeoutMs: number = 30000,
-    priority: AclMessagePriority = 'normal'
-  ): Promise<AclMessage> {
+    priority: AcpMessagePriority = 'normal'
+  ): Promise<AcpMessage> {
     if (!this.connected) {
       throw new AppError(
         'Not connected',
@@ -179,7 +179,7 @@ export class AclClient extends EventEmitter {
       correlationId
     );
 
-    return new Promise<AclMessage>((resolve, reject) => {
+    return new Promise<AcpMessage>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pendingRequests.delete(correlationId);
         this.metrics.errors++;
@@ -195,7 +195,7 @@ export class AclClient extends EventEmitter {
     });
   }
 
-  onMessage(message: AclMessage): void {
+  onMessage(message: AcpMessage): void {
     this.metrics.totalMessagesReceived++;
 
     if (
@@ -215,11 +215,11 @@ export class AclClient extends EventEmitter {
 
   private createMessage(
     type: string,
-    role: AclMessageRole,
+    role: AcpMessageType,
     payload: unknown,
-    priority: AclMessagePriority = 'normal',
+    priority: AcpMessagePriority = 'normal',
     correlationId?: string
-  ): AclMessage {
+  ): AcpMessage {
     return {
       id: nextClientId(),
       type,
@@ -234,14 +234,14 @@ export class AclClient extends EventEmitter {
     };
   }
 
-  private async doSend(message: AclMessage): Promise<void> {
+  private async doSend(message: AcpMessage): Promise<void> {
     this.metrics.totalMessagesSent++;
   }
 
   private async sendWithTimeout(
-    message: AclMessage,
+    message: AcpMessage,
     _timeoutMs: number
-  ): Promise<AclResponse> {
+  ): Promise<AcpResponse> {
     try {
       this.metrics.totalMessagesSent++;
       const responseSessionId =
@@ -283,3 +283,6 @@ export class AclClient extends EventEmitter {
     }
   }
 }
+
+/** @deprecated 使用 AcpTransportClient */
+export { AcpTransportClient as AclClient };

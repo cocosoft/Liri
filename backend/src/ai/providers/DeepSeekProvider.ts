@@ -16,6 +16,8 @@ import type {
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
+import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -31,6 +33,7 @@ export class DeepSeekProvider implements AIProvider {
   private defaultModel: string;
   private toolRegistry: unknown = null;
   private toolExecutor: unknown = null;
+  private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
     this.apiKey = config.apiKey || process.env.DEEPSEEK_API_KEY || '';
@@ -40,6 +43,9 @@ export class DeepSeekProvider implements AIProvider {
       DEFAULT_BASE_URL
     ).replace(/\/+$/, '');
     this.defaultModel = (config.model as string) || DEFAULT_MODEL;
+    this.adapter = new TransportProviderAdapter(
+      new ChatCompletionsTransport()
+    );
   }
 
   setToolRegistry(registry: unknown): void {
@@ -59,19 +65,14 @@ export class DeepSeekProvider implements AIProvider {
     options?: ChatOptions
   ): Promise<ChatResponse> {
     const model = options?.model || this.defaultModel;
-    const maxTokens = options?.maxTokens || 4096;
-    const temperature = options?.temperature ?? 0.7;
 
-    const requestBody: Record<string, unknown> = {
+    const requestBody = this.adapter.buildRequest({
       model,
-      messages: this.formatMessages(messages),
-      max_tokens: maxTokens,
-      temperature,
-    };
-
-    if (options?.tools && options.tools.length > 0) {
-      requestBody['tools'] = options.tools;
-    }
+      messages,
+      tools: options?.tools,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature ?? 0.7,
+    });
 
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
@@ -93,7 +94,7 @@ export class DeepSeekProvider implements AIProvider {
     }
 
     const data = (await response.json()) as Record<string, unknown>;
-    return this.parseResponse(data);
+    return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
   }
 
   async *chatStream(
@@ -101,20 +102,15 @@ export class DeepSeekProvider implements AIProvider {
     options?: ChatOptions
   ): AsyncGenerator<string, ChatResponse, unknown> {
     const model = options?.model || this.defaultModel;
-    const maxTokens = options?.maxTokens || 4096;
-    const temperature = options?.temperature ?? 0.7;
 
-    const requestBody: Record<string, unknown> = {
+    const requestBody = this.adapter.buildRequest({
       model,
-      messages: this.formatMessages(messages),
-      max_tokens: maxTokens,
-      temperature,
+      messages,
+      tools: options?.tools,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature ?? 0.7,
       stream: true,
-    };
-
-    if (options?.tools && options.tools.length > 0) {
-      requestBody['tools'] = options.tools;
-    }
+    });
 
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
@@ -198,64 +194,5 @@ export class DeepSeekProvider implements AIProvider {
       errors.push('API key is required (config.apiKey or DEEPSEEK_API_KEY)');
     }
     return { valid: errors.length === 0, errors, warnings };
-  }
-
-  private formatMessages(messages: ChatMessage[]): Record<string, unknown>[] {
-    return messages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-      tool_calls: msg.tool_calls,
-      tool_call_id: msg.tool_call_id,
-    }));
-  }
-
-  private parseResponse(data: Record<string, unknown>): ChatResponse {
-    const choices = data['choices'] as
-      | Array<Record<string, unknown>>
-      | undefined;
-    const choice = choices?.[0];
-    const message = choice?.['message'] as Record<string, unknown> | undefined;
-    const usage = data['usage'] as Record<string, number> | undefined;
-
-    const toolCallsRaw = message?.['tool_calls'] as
-      | Array<Record<string, unknown>>
-      | undefined;
-    const toolCalls = toolCallsRaw?.map((tc) => {
-      const fn = tc['function'] as Record<string, unknown> | undefined;
-      const args = fn?.['arguments'];
-      return {
-        id: tc['id'] as string,
-        name: (fn?.['name'] as string) || 'unknown',
-        arguments:
-          typeof args === 'string'
-            ? JSON.parse(args)
-            : (args as Record<string, unknown>) || {},
-      };
-    });
-
-    const finishReason = (choice?.['finish_reason'] as string) || 'stop';
-    const stopReason: 'stop' | 'tool_calls' | 'max_tokens' =
-      finishReason === 'tool_calls'
-        ? 'tool_calls'
-        : finishReason === 'stop'
-          ? 'stop'
-          : 'max_tokens';
-
-    return {
-      content: (message?.['content'] as string) || '',
-      tool_calls: toolCalls,
-      stop_reason: stopReason,
-      usage: usage
-        ? {
-            prompt_tokens: usage['prompt_tokens'] || 0,
-            completion_tokens: usage['completion_tokens'] || 0,
-            total_tokens: usage['total_tokens'] || 0,
-            cache_read_input_tokens:
-              (usage['prompt_cache_hit_tokens'] as number) || 0,
-            cache_creation_input_tokens:
-              (usage['prompt_cache_miss_tokens'] as number) || 0,
-          }
-        : undefined,
-    };
   }
 }

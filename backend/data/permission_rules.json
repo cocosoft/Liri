@@ -2266,5 +2266,14 @@
     "priority": 1,
     "createdAt": "2026-05-18T02:52:32.711Z",
     "updatedAt": "2026-05-18T02:52:32.711Z"
+  },
+  {
+    "id": "rule_1779143831409_ralsih94u",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-18T22:37:11.409Z",
+    "updatedAt": "2026-05-18T22:37:11.409Z"
   }
 ]

@@ -35,6 +35,14 @@ export {
   SecurityIntegrationService,
   securityIntegrationService,
 } from './SecurityIntegration';
+export { PermissionWrapper, createPermissionWrapper } from './PermissionWrapper';
+export type {
+  PermissionBehavior,
+  PermissionCheckResult,
+  PermissionCheckFn,
+  PermissionDenialRecord,
+  PermissionDenialSummary,
+} from './PermissionWrapper';
 export type {
   CommandSemantic,
   CommandSemanticPattern,

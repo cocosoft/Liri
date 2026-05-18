@@ -1,52 +1,18 @@
 /**
- * ACP (Agent Communication Protocol)
- * 对标OpenClaw acp/
- * Agent间通信协议
+ * ACP 协议入口（归一化）
+ *
+ * 原 agent/acp/ 的实现已合并到 core/acp/，
+ * 本文件作为向后兼容的 re-export 层。
+ *
+ * @deprecated 直接从 @modules/core/acp 导入
  */
-
-export type AcpMessageType =
-  | 'request'
-  | 'response'
-  | 'event'
-  | 'error'
-  | 'ping'
-  | 'pong';
-
-export type AcpPriority = 'low' | 'normal' | 'high' | 'critical';
-
-export interface AcpMessage {
-  id: string;
-  type: AcpMessageType;
-  source: string;
-  target: string;
-  method?: string;
-  payload?: unknown;
-  correlationId?: string;
-  priority: AcpPriority;
-  timestamp: number;
-  ttl?: number;
-}
-
-export interface AcpSession {
-  id: string;
-  clientId: string;
-  serverId: string;
-  state: 'connecting' | 'connected' | 'disconnected';
-  createdAt: number;
-  lastActivity: number;
-  metadata?: Record<string, unknown>;
-}
-
-export interface AcpHandler {
-  (message: AcpMessage): Promise<AcpMessage> | AcpMessage;
-}
-
-export interface AcpServerConfig {
-  serverId: string;
-  maxSessions?: number;
-  messageTimeout?: number;
-  pingInterval?: number;
-}
-
-export { AcpServer } from './AcpServer.js';
-export { AcpClient } from './AcpClient.js';
+export { AcpTransportClient as AcpClient } from '../../core/acp/index.js';
+export { AcpTransportServer as AcpServer } from '../../core/acp/index.js';
+export type {
+  AcpMessageType,
+  AcpMessagePriority as AcpPriority,
+  AcpMessage,
+  AcpSessionInfo as AcpSession,
+  AcpMessageHandler as AcpHandler,
+  AcpServerConfig,
+} from '../../core/acp/index.js';

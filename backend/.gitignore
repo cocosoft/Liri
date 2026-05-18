@@ -27,3 +27,6 @@ data/*.sqlite3
 # OS
 .DS_Store
 Thumbs.db
+
+# Diagnostics
+tsc-errors.txt

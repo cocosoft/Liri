@@ -300,7 +300,7 @@ export class TAORLoop {
       durationMs: totalDuration,
       stopReason: this.stopReason,
       resumed: this.resumedFromCheckpoint,
-      checkpointId: this.resumedCheckpointId,
+      checkpointId: this.resumedCheckpointId ?? undefined,
     };
   }
 
@@ -370,7 +370,7 @@ export class TAORLoop {
     }
 
     if (!checkpoint) {
-      logger.warn('No checkpoint found for resume', { sessionId: this.config.sessionId });
+      logger.warning('No checkpoint found for resume', { sessionId: this.config.sessionId });
       return false;
     }
 

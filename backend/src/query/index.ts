@@ -98,6 +98,21 @@ export {
 } from './deps.js';
 export type { QueryDependencies } from './deps.js';
 export { TAORLoop, createTAORLoop, TAORPhase, MemoryCheckpointStorage } from './TAORLoop.js';
+export {
+  ParallelToolExecutor,
+  createParallelToolExecutor,
+} from './ParallelToolExecutor.js';
+export type {
+  ParallelToolResult,
+  ToolExecutorFn,
+  BatchExecutionResult,
+  ParallelToolExecutorConfig,
+} from './ParallelToolExecutor.js';
+export {
+  ToolErrorCollector,
+  createToolErrorCollector,
+} from './ToolErrorCollector.js';
+export type { ToolError, ToolErrorSummary } from './ToolErrorCollector.js';
 export type {
   TAORLoopConfig,
   TAORLoopResult,

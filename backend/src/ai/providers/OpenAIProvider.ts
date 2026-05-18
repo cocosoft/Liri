@@ -10,6 +10,8 @@ import {
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
+import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -23,85 +25,19 @@ const SUPPORTED_MODELS = [
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
-function mapMessages(messages: ChatMessage[]): unknown[] {
-  return messages.map((msg) => {
-    const mapped: Record<string, unknown> = {
-      role: msg.role,
-      content: msg.content,
-    };
-    if (msg.tool_calls) {
-      mapped.tool_calls = msg.tool_calls;
-    }
-    if (msg.tool_call_id) {
-      mapped.tool_call_id = msg.tool_call_id;
-    }
-    return mapped;
-  });
-}
-
-function mapTools(tools?: ToolDefinition[]): unknown[] | undefined {
-  if (!tools || tools.length === 0) return undefined;
-  return tools.map((t) => ({
-    type: 'function',
-    function: {
-      name: t.function.name,
-      description: t.function.description,
-      parameters: t.function.parameters,
-    },
-  }));
-}
-
-function parseResponse(data: Record<string, unknown>): ChatResponse {
-  const choice = (data.choices as Record<string, unknown>[])?.[0];
-  const message = choice?.message as Record<string, unknown> | undefined;
-  const content = (message?.content as string) ?? '';
-  const finishReason = (choice?.finish_reason as string) ?? 'stop';
-  const usage = data.usage as Record<string, number> | undefined;
-
-  const toolCallsRaw = message?.tool_calls as
-    | Record<string, unknown>[]
-    | undefined;
-  const toolCalls = toolCallsRaw?.map((tc) => ({
-    id: tc.id as string,
-    name: ((tc.function as Record<string, unknown>)?.name as string) ?? '',
-    arguments: JSON.parse(
-      ((tc.function as Record<string, unknown>)?.arguments as string) ?? '{}'
-    ),
-  }));
-
-  const stopReason =
-    finishReason === 'stop'
-      ? 'stop'
-      : finishReason === 'tool_calls'
-        ? 'tool_calls'
-        : finishReason === 'length'
-          ? 'max_tokens'
-          : 'stop';
-
-  return {
-    content,
-    model: data.model as string,
-    stop_reason: stopReason,
-    tool_calls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
-    usage: usage
-      ? {
-          prompt_tokens: usage.prompt_tokens ?? 0,
-          completion_tokens: usage.completion_tokens ?? 0,
-          total_tokens: usage.total_tokens ?? 0,
-        }
-      : undefined,
-  };
-}
-
 export class OpenAIProvider implements AIProvider {
   readonly id = 'openai';
   readonly displayName = 'OpenAI';
   private apiKey: string;
   private baseUrl: string;
+  private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
     this.apiKey = config.apiKey || process.env.OPENAI_API_KEY || '';
     this.baseUrl = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.adapter = new TransportProviderAdapter(
+      new ChatCompletionsTransport()
+    );
   }
 
   async chat(
@@ -113,20 +49,13 @@ export class OpenAIProvider implements AIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
-    const body: Record<string, unknown> = {
+    const requestBody = this.adapter.buildRequest({
       model: options?.model || 'gpt-4o',
-      messages: mapMessages(messages),
-      max_tokens: options?.maxTokens || 4096,
-    };
-
-    if (options?.temperature !== undefined) {
-      body.temperature = options.temperature;
-    }
-
-    const mappedTools = mapTools(options?.tools);
-    if (mappedTools) {
-      body.tools = mappedTools;
-    }
+      messages,
+      tools: options?.tools,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature,
+    });
 
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -135,7 +64,7 @@ export class OpenAIProvider implements AIProvider {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(120000),
       });
 
@@ -150,7 +79,7 @@ export class OpenAIProvider implements AIProvider {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      return parseResponse(data);
+      return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(
@@ -171,21 +100,14 @@ export class OpenAIProvider implements AIProvider {
       temperature?: number;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
-    const body: Record<string, unknown> = {
+    const requestBody = this.adapter.buildRequest({
       model: options?.model || 'gpt-4o',
-      messages: mapMessages(messages),
-      max_tokens: options?.maxTokens || 4096,
+      messages,
+      tools: options?.tools,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature,
       stream: true,
-    };
-
-    if (options?.temperature !== undefined) {
-      body.temperature = options.temperature;
-    }
-
-    const mappedTools = mapTools(options?.tools);
-    if (mappedTools) {
-      body.tools = mappedTools;
-    }
+    });
 
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -194,7 +116,7 @@ export class OpenAIProvider implements AIProvider {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(180000),
       });
 

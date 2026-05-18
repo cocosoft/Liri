@@ -4,7 +4,7 @@
  * 核心查询逻辑，与工具执行器解耦
  */
 
-import type { ChatMessage } from '@modules/ai/models/types';
+import type { ChatMessage, ChatResponse, ParsedToolCall } from '@modules/ai/models/types';
 import type { AIProvider } from '@modules/ai/providers';
 import type { ChatOptions } from '@modules/ai/providers';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
@@ -154,37 +154,49 @@ export class AIQueryEngine {
     while (this.currentTurn < (params.maxTurns || this.config.maxTurns || 10)) {
       this.currentTurn++;
 
-      const fullResponse = {
-        content: [],
-        tool_calls: [],
-      };
+      let fullContent = '';
+      const rawToolCalls: Array<{ id: string; name: string; input?: unknown }> = [];
 
       try {
         for await (const event of (
-          this.config.client as { stream: Function }
+          this.config.client as unknown as { stream: Function }
         ).stream(currentMessages, {
           model: params.model || this.config.defaultModel,
           tools: params.tools,
         })) {
           if (event.type === 'content_block_delta') {
-            fullResponse.content.push(event.delta);
+            fullContent += event.delta;
           } else if (event.type === 'tool_call') {
-            fullResponse.tool_calls.push(event.tool_call);
+            rawToolCalls.push(event.tool_call);
           }
         }
 
-        const assistantMessage = this.createAssistantMessage(fullResponse);
+        const toolCalls: ParsedToolCall[] | undefined = rawToolCalls.length > 0
+          ? rawToolCalls.map(tc => ({
+              id: tc.id,
+              name: tc.name,
+              arguments: (tc.input as Record<string, unknown>) || {},
+            }))
+          : undefined;
+
+        const response: ChatResponse = {
+          content: fullContent,
+          stop_reason: toolCalls ? 'tool_calls' : 'stop',
+          tool_calls: toolCalls,
+        };
+
+        const assistantMessage = this.createAssistantMessage(response);
         accumulatedMessages.push(assistantMessage);
         currentMessages.push(assistantMessage);
 
-        if (fullResponse.tool_calls && fullResponse.tool_calls.length > 0) {
+        if (response.tool_calls && response.tool_calls.length > 0) {
           const toolResults = await this.executeTools(
-            fullResponse.tool_calls,
+            response.tool_calls,
             params.toolContext
           );
 
           const toolResultMessages = this.createToolResultMessages(
-            fullResponse.tool_calls,
+            response.tool_calls,
             toolResults
           );
           accumulatedMessages.push(...toolResultMessages);
@@ -195,7 +207,11 @@ export class AIQueryEngine {
             allMessages: accumulatedMessages,
             turns: this.currentTurn,
             finishReason: 'tool_use',
-            toolCalls: fullResponse.tool_calls,
+            toolCalls: response.tool_calls.map(tc => ({
+              id: tc.id,
+              name: tc.name,
+              input: tc.arguments,
+            })),
           };
 
           continue;
@@ -245,7 +261,7 @@ export class AIQueryEngine {
           {
             id: toolCall.id,
             name: toolCall.name,
-            input: toolCall.input,
+            input: toolCall.input as Record<string, unknown>,
           },
           (context || {}) as Record<string, unknown>
         );
@@ -267,7 +283,7 @@ export class AIQueryEngine {
    * 创建助手消息
    */
   private createAssistantMessage(
-    response: Record<string, unknown>
+    response: ChatResponse
   ): ChatMessage {
     const message: ChatMessage = {
       role: 'assistant',
@@ -276,22 +292,16 @@ export class AIQueryEngine {
 
     if (typeof response.content === 'string') {
       message.content = response.content;
-    } else if (Array.isArray(response.content)) {
-      message.content = response.content
-        .map((block: Record<string, unknown>) => {
-          if (block.type === 'text') return block.text as string;
-          if (block.type === 'thinking') return block.thinking as string;
-          return JSON.stringify(block);
-        })
-        .join('\n');
     }
 
     if (response.tool_calls) {
-      const calls = response.tool_calls as Array<Record<string, unknown>>;
-      message.tool_calls = calls.map((tc) => ({
-        id: tc.id as string,
-        name: tc.name as string,
-        input: tc.input,
+      message.tool_calls = response.tool_calls.map((tc) => ({
+        id: tc.id,
+        type: 'function' as const,
+        function: {
+          name: tc.name,
+          arguments: JSON.stringify(tc.arguments),
+        },
       }));
     }
 

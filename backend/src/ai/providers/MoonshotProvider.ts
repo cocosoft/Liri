@@ -10,6 +10,8 @@ import type {
   ProviderValidationResult,
   ChatOptions,
 } from './AIProvider';
+import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
+import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 const SUPPORTED_MODELS = [
   'moonshot-v1-8k',
@@ -21,12 +23,16 @@ export class MoonshotProvider implements AIProvider {
   readonly id = 'moonshot';
   readonly displayName = 'Moonshot (Kimi)';
   private config: ProviderConfig;
+  private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
     this.config = {
       baseUrl: 'https://api.moonshot.cn/v1',
       ...config,
     };
+    this.adapter = new TransportProviderAdapter(
+      new ChatCompletionsTransport()
+    );
   }
 
   async chat(
@@ -72,22 +78,22 @@ export class MoonshotProvider implements AIProvider {
     const model =
       options?.model || (this.config.model as string) || SUPPORTED_MODELS[1];
 
+    const requestBody = this.adapter.buildRequest({
+      model,
+      messages,
+      tools: options?.tools,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature ?? 0.3,
+      stream: stream || false,
+    });
+
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        messages: messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
-        max_tokens: options?.maxTokens || 4096,
-        temperature: options?.temperature ?? 0.3,
-        stream: stream || false,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -100,27 +106,7 @@ export class MoonshotProvider implements AIProvider {
       );
     }
 
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        total_tokens?: number;
-      };
-      model?: string;
-    };
-
-    const content = data.choices?.[0]?.message?.content || '';
-
-    return {
-      content,
-      model: data.model || model,
-      stop_reason: 'stop',
-      usage: {
-        prompt_tokens: data.usage?.prompt_tokens || 0,
-        completion_tokens: data.usage?.completion_tokens || 0,
-        total_tokens: data.usage?.total_tokens || 0,
-      },
-    };
+    const data = (await response.json()) as Record<string, unknown>;
+    return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
   }
 }

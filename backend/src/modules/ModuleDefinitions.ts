@@ -1,4 +1,3 @@
-//
 /**
  * 模块定义文件
  * 统一定义所有模块的基本信息、依赖关系和生命周期
@@ -441,6 +440,18 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     description:
       '服务模块，提供各种系统服务功能，包括API客户端、分析服务、通知服务、语音服务、技能搜索和工具摘要',
     dependencies: ['core', 'infrastructure'],
+    optionalDependencies: [],
+  },
+
+  voice: {
+    id: 'voice',
+    name: 'voice',
+    displayName: '实时语音模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description:
+      '实时语音交互模块，提供 WebSocket 语音会话、Gemini Live API 适配、实时工具调用桥接和音频处理',
+    dependencies: ['core', 'infrastructure', 'tools'],
     optionalDependencies: [],
   },
 

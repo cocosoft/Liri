@@ -1,8 +1,8 @@
-import type {
-  ChatMessage,
-  ChatResponse,
-  ToolDefinition,
-} from '../models/types';
+/**
+ * Ollama (Local) 提供商
+ * Ollama /api/chat 格式
+ */
+import type { ChatMessage, ChatResponse, ToolDefinition } from '../models/types';
 import {
   type AIProvider,
   type ProviderConfig,
@@ -10,6 +10,8 @@ import {
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { OllamaTransport } from '../transports/OllamaTransport';
+import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -23,6 +25,7 @@ export class OllamaProvider implements AIProvider {
   private defaultModel: string;
   private timeout: number;
   private cachedModels: string[] | null = null;
+  private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
     this.baseUrl = (
@@ -36,6 +39,7 @@ export class OllamaProvider implements AIProvider {
     this.timeout =
       (config.timeout as number) ||
       parseInt(process.env.OLLAMA_TIMEOUT || '30000', 10);
+    this.adapter = new TransportProviderAdapter(new OllamaTransport());
   }
 
   async chat(
@@ -51,25 +55,20 @@ export class OllamaProvider implements AIProvider {
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 
-    const ollamaMessages = messages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    const requestBody = this.adapter.buildRequest({
+      model,
+      messages,
+      tools: options?.tools,
+      maxTokens,
+      temperature,
+      stream: false,
+    });
 
     try {
       const response = await fetch(`${this.baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          messages: ollamaMessages,
-          stream: false,
-          options: {
-            temperature,
-            num_predict: maxTokens,
-          },
-          tools: options?.tools,
-        }),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(this.timeout),
       });
 
@@ -83,19 +82,7 @@ export class OllamaProvider implements AIProvider {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      const message = data.message as Record<string, unknown> | undefined;
-      const content = (message?.content as string) ?? '';
-
-      return {
-        content,
-        model: (data.model as string) || model,
-        stop_reason: 'stop',
-        usage: {
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0,
-        },
-      };
+      return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(
@@ -120,24 +107,19 @@ export class OllamaProvider implements AIProvider {
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
 
-    const ollamaMessages = messages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    const requestBody = this.adapter.buildRequest({
+      model,
+      messages,
+      maxTokens,
+      temperature,
+      stream: true,
+    });
 
     try {
       const response = await fetch(`${this.baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          messages: ollamaMessages,
-          stream: true,
-          options: {
-            temperature,
-            num_predict: maxTokens,
-          },
-        }),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(this.timeout * 2),
       });
 
@@ -177,9 +159,8 @@ export class OllamaProvider implements AIProvider {
 
           try {
             const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-            const content = parsed.message
-              ? ((parsed.message as Record<string, unknown>).content as string)
-              : (parsed.response as string);
+            const message = parsed.message as Record<string, unknown> | undefined;
+            const content = message?.content as string;
             if (content) {
               yield content;
             }

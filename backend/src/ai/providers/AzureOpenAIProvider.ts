@@ -10,17 +10,23 @@ import type {
   ProviderValidationResult,
   ChatOptions,
 } from './AIProvider';
+import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
+import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 export class AzureOpenAIProvider implements AIProvider {
   readonly id = 'azure-openai';
   readonly displayName = 'Azure OpenAI';
   private config: ProviderConfig;
+  private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
     this.config = {
       apiVersion: '2024-02-15-preview',
       ...config,
     };
+    this.adapter = new TransportProviderAdapter(
+      new ChatCompletionsTransport()
+    );
   }
 
   async chat(
@@ -81,12 +87,11 @@ export class AzureOpenAIProvider implements AIProvider {
 
     const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
 
-    const body = JSON.stringify({
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-      max_tokens: options?.maxTokens || 4096,
+    const requestBody = this.adapter.buildRequest({
+      model: deployment,
+      messages,
+      tools: options?.tools,
+      maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
       stream: stream || false,
     });
@@ -97,7 +102,7 @@ export class AzureOpenAIProvider implements AIProvider {
         'Content-Type': 'application/json',
         'api-key': apiKey,
       },
-      body,
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -110,27 +115,7 @@ export class AzureOpenAIProvider implements AIProvider {
       );
     }
 
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: {
-        prompt_tokens?: number;
-        completion_tokens?: number;
-        total_tokens?: number;
-      };
-      model?: string;
-    };
-
-    const content = data.choices?.[0]?.message?.content || '';
-
-    return {
-      content,
-      model: data.model || deployment,
-      stop_reason: 'stop',
-      usage: {
-        prompt_tokens: data.usage?.prompt_tokens || 0,
-        completion_tokens: data.usage?.completion_tokens || 0,
-        total_tokens: data.usage?.total_tokens || 0,
-      },
-    };
+    const data = (await response.json()) as Record<string, unknown>;
+    return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
   }
 }

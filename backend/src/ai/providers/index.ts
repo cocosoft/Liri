@@ -10,8 +10,6 @@ export { OpenAIProvider } from './OpenAIProvider';
 export { GoogleProvider } from './GoogleProvider';
 export { OllamaProvider } from './OllamaProvider';
 export { DeepSeekProvider } from './DeepSeekProvider';
-export { createFallbackProvider } from './FallbackProvider';
-export type { FallbackConfig } from './FallbackProvider';
 export { BedrockProvider } from './BedrockProvider';
 export { AzureOpenAIProvider } from './AzureOpenAIProvider';
 export { MoonshotProvider } from './MoonshotProvider';

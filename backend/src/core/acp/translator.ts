@@ -1,4 +1,4 @@
-import { AclMessage, AclAgentInfo } from './types.js';
+import { AcpMessage, AcpAgentInfo } from './types.js';
 
 export type TranslateFormat = 'json' | 'compact' | 'minimal';
 
@@ -8,11 +8,11 @@ export interface TranslateResult {
 }
 
 export type TranslateHandler = (
-  message: AclMessage,
+  message: AcpMessage,
   targetFormat: TranslateFormat
 ) => TranslateResult;
 
-export class AclTranslator {
+export class AcpTranslator {
   private customHandlers: Map<string, TranslateHandler> = new Map();
   private systemName: string;
 
@@ -21,7 +21,7 @@ export class AclTranslator {
   }
 
   translate(
-    message: AclMessage,
+    message: AcpMessage,
     targetFormat: TranslateFormat = 'json'
   ): TranslateResult {
     const handlerKey = `${targetFormat}`;
@@ -60,14 +60,14 @@ export class AclTranslator {
     ];
   }
 
-  toJson(message: AclMessage): TranslateResult {
+  toJson(message: AcpMessage): TranslateResult {
     return {
       format: 'json',
       content: JSON.stringify(message, null, 2),
     };
   }
 
-  toCompact(message: AclMessage): TranslateResult {
+  toCompact(message: AcpMessage): TranslateResult {
     const compact = {
       t: message.type,
       f: message.sender,
@@ -83,7 +83,7 @@ export class AclTranslator {
     };
   }
 
-  toMinimal(message: AclMessage): TranslateResult {
+  toMinimal(message: AcpMessage): TranslateResult {
     const summary =
       `[${this.systemName}] ${message.role}:${message.type}` +
       ` ${message.sender}${message.target ? ` -> ${message.target}` : ''}` +
@@ -95,7 +95,7 @@ export class AclTranslator {
     };
   }
 
-  createAgentSummary(agent: AclAgentInfo): string {
+  createAgentSummary(agent: AcpAgentInfo): string {
     const caps = agent.capabilities
       .map((c) => `${c.name} v${c.version}`)
       .join(', ');
@@ -108,7 +108,7 @@ export class AclTranslator {
     ].join('\n');
   }
 
-  createMessageDigest(messages: AclMessage[]): string {
+  createMessageDigest(messages: AcpMessage[]): string {
     return messages
       .map((m) => {
         const preview =
@@ -124,7 +124,7 @@ export class AclTranslator {
       .join('\n');
   }
 
-  extractPayload<T = unknown>(message: AclMessage): T | undefined {
+  extractPayload<T = unknown>(message: AcpMessage): T | undefined {
     if (message.payload === undefined || message.payload === null) {
       return undefined;
     }
@@ -132,3 +132,6 @@ export class AclTranslator {
     return message.payload as T;
   }
 }
+
+/** @deprecated 使用 AcpTranslator */
+export { AcpTranslator as AclTranslator };

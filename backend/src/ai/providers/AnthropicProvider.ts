@@ -2,7 +2,6 @@ import Anthropic from '@anthropic-ai/sdk';
 import type {
   ChatMessage,
   ChatResponse,
-  ToolDefinition,
   LLMConfig,
 } from '../models/types';
 import type { ThinkingConfig } from '../clients/thinking';
@@ -22,15 +21,8 @@ import {
 import { feature } from '@modules/core';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import {
-  isCacheSupported,
-  calculateBreakpoints,
-  shouldPlaceSystemBreakpoint,
-  shouldPlaceBreakpoint,
-  shouldPlaceToolsBreakpoint,
-  createCacheControl,
-  DEFAULT_CACHE_CONFIG,
-} from '../clients/PromptCacheConfig';
+import { AnthropicMessagesTransport } from '../transports/AnthropicMessagesTransport';
+import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -58,6 +50,7 @@ export class AnthropicProvider implements AIProvider {
   private consecutive529Errors = 0;
   private toolRegistry: unknown = null;
   private toolExecutor: unknown = null;
+  private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
     const apiKey =
@@ -85,6 +78,10 @@ export class AnthropicProvider implements AIProvider {
       maxRetries: 2,
       timeout: (config.timeout as number) || 120000,
     });
+
+    this.adapter = new TransportProviderAdapter(
+      new AnthropicMessagesTransport()
+    );
   }
 
   setToolRegistry(registry: unknown): void {
@@ -178,58 +175,20 @@ export class AnthropicProvider implements AIProvider {
     options?: ChatOptions
   ): AsyncGenerator<string, ChatResponse, unknown> {
     const model = options?.model || this.config.model || 'claude-sonnet-4-6';
-    const systemMessages = messages.filter((m) => m.role === 'system');
-    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
-    const systemPrompt = systemMessages.map((m) => m.content).join('\n');
+    const { systemPrompt } = this.adapter.splitMessages(messages);
 
-    const cacheSupported = isCacheSupported(model);
-    const breakpoints = cacheSupported
-      ? calculateBreakpoints(nonSystemMessages.length, DEFAULT_CACHE_CONFIG)
-      : [];
-
-    const systemBlock = systemPrompt
-      ? [
-          {
-            type: 'text' as const,
-            text: systemPrompt,
-            ...(shouldPlaceSystemBreakpoint(breakpoints)
-              ? { cache_control: createCacheControl() }
-              : {}),
-          },
-        ]
-      : undefined;
-
-    const formattedMessages = nonSystemMessages.map((m, index) => ({
-      role: m.role as 'user' | 'assistant',
-      content: shouldPlaceBreakpoint(index, breakpoints)
-        ? [
-            {
-              type: 'text' as const,
-              text: m.content,
-              cache_control: createCacheControl(),
-            },
-          ]
-        : m.content,
-    }));
-
-    const formattedTools = options?.tools
-      ? (options.tools as unknown as Anthropic.Tool[]).map((tool, index) => {
-          const isLast =
-            index === (options.tools as unknown as Anthropic.Tool[]).length - 1;
-          if (isLast && shouldPlaceToolsBreakpoint(breakpoints)) {
-            return { ...tool, cache_control: createCacheControl() };
-          }
-          return tool;
-        })
-      : undefined;
+    const requestBody = this.adapter.buildRequest({
+      model,
+      messages,
+      tools: options?.tools,
+      systemPrompt,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature,
+      stream: true,
+    });
 
     const stream = (await this.anthropic.messages.create({
-      model,
-      max_tokens: options?.maxTokens || 4096,
-      temperature: options?.temperature,
-      system: systemBlock,
-      messages: formattedMessages,
-      tools: formattedTools,
+      ...requestBody,
       stream: true,
     } as Anthropic.MessageCreateParams)) as unknown as AsyncIterable<{
       type: string;
@@ -266,113 +225,24 @@ export class AnthropicProvider implements AIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const systemMessages = messages.filter((m) => m.role === 'system');
-    const nonSystemMessages = messages.filter((m) => m.role !== 'system');
-    const systemPrompt = systemMessages.map((m) => m.content).join('\n');
+    const { systemPrompt } = this.adapter.splitMessages(messages);
 
-    const cacheSupported = isCacheSupported(model);
-    const breakpoints = cacheSupported
-      ? calculateBreakpoints(nonSystemMessages.length, DEFAULT_CACHE_CONFIG)
-      : [];
-
-    const systemBlock = systemPrompt
-      ? [
-          {
-            type: 'text' as const,
-            text: systemPrompt,
-            ...(shouldPlaceSystemBreakpoint(breakpoints)
-              ? { cache_control: createCacheControl() }
-              : {}),
-          },
-        ]
-      : undefined;
-
-    const formattedMessages = nonSystemMessages.map((m, index) => ({
-      role: m.role as 'user' | 'assistant',
-      content: shouldPlaceBreakpoint(index, breakpoints)
-        ? [
-            {
-              type: 'text' as const,
-              text: m.content,
-              cache_control: createCacheControl(),
-            },
-          ]
-        : m.content,
-    }));
-
-    const formattedTools = options?.tools
-      ? (options.tools as unknown as Anthropic.Tool[]).map((tool, index) => {
-          const isLast =
-            index === (options.tools as unknown as Anthropic.Tool[]).length - 1;
-          if (isLast && shouldPlaceToolsBreakpoint(breakpoints)) {
-            return { ...tool, cache_control: createCacheControl() };
-          }
-          return tool;
-        })
-      : undefined;
-
-    const response = (await this.anthropic.messages.create({
+    const requestBody = this.adapter.buildRequest({
       model,
-      max_tokens: options?.maxTokens || 4096,
+      messages,
+      tools: options?.tools,
+      systemPrompt,
+      maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
-      system: systemBlock,
-      messages: formattedMessages,
-      tools: formattedTools,
-    } as Anthropic.MessageCreateParams)) as unknown as {
-      model: string;
-      stop_reason: string;
-      content: Array<{
-        type: string;
-        text?: string;
-        id?: string;
-        name?: string;
-        input?: Record<string, unknown>;
-      }>;
-      usage?: {
-        input_tokens: number;
-        output_tokens: number;
-        cache_read_input_tokens?: number;
-        cache_creation_input_tokens?: number;
-      };
-    };
+    });
 
-    const contentBlocks = response.content;
+    const response = (await this.anthropic.messages.create(
+      requestBody as unknown as Anthropic.MessageCreateParams
+    )) as unknown as Record<string, unknown>;
 
-    const content = contentBlocks
-      .filter((c) => c.type === 'text')
-      .map((c) => c.text || '')
-      .join('');
-
-    const toolUseBlocks = contentBlocks
-      .filter((c) => c.type === 'tool_use')
-      .map((c) => ({
-        id: c.id as string,
-        name: c.name as string,
-        arguments: c.input || {},
-      }));
-
-    const rawUsage = response.usage;
-
-    return {
-      content,
-      model: response.model,
-      stop_reason:
-        response.stop_reason === 'end_turn'
-          ? 'stop'
-          : response.stop_reason === 'tool_use'
-            ? 'tool_calls'
-            : response.stop_reason === 'max_tokens'
-              ? 'max_tokens'
-              : 'stop',
-      usage: {
-        prompt_tokens: rawUsage?.input_tokens || 0,
-        cache_read_input_tokens: rawUsage?.cache_read_input_tokens || 0,
-        cache_creation_input_tokens: rawUsage?.cache_creation_input_tokens || 0,
-        completion_tokens: rawUsage?.output_tokens || 0,
-        total_tokens:
-          (rawUsage?.input_tokens || 0) + (rawUsage?.output_tokens || 0),
-      },
-      tool_calls: toolUseBlocks.length > 0 ? toolUseBlocks : undefined,
-    };
+    return this.adapter.toChatResponse(
+      this.adapter.normalizeResponse(response),
+      model
+    );
   }
 }

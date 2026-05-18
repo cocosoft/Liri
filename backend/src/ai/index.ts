@@ -43,6 +43,32 @@ export {
   registerOpenAIProvider,
 } from './providers/registerProviders';
 
+// transports/ — 统一传输抽象层（对标 Hermes ProviderTransport）
+export { BaseTransport } from './transports/BaseTransport';
+export { TransportRegistry, transportRegistry } from './transports/TransportRegistry';
+export { AnthropicMessagesTransport } from './transports/AnthropicMessagesTransport';
+export { ChatCompletionsTransport } from './transports/ChatCompletionsTransport';
+export { GeminiTransport } from './transports/GeminiTransport';
+export type {
+  NormalizedResponse,
+  NormalizedToolCall,
+  NormalizedUsage,
+  TransportRequestParams,
+  TransportStreamEvent,
+} from './transports/types';
+export { EMPTY_NORMALIZED_USAGE } from './transports/types';
+
+// parsers/ — 工具调用解析器（对标 Hermes ToolCallParser 系统）
+export { BaseParser } from './parsers/BaseParser';
+export { ParserRegistry, parserRegistry } from './parsers/ParserRegistry';
+export { HermesXmlParser } from './parsers/HermesXmlParser';
+export { DeepSeekV3Parser } from './parsers/DeepSeekV3Parser';
+export { DeepSeekV31Parser } from './parsers/DeepSeekV31Parser';
+export { Glm45Parser } from './parsers/Glm45Parser';
+export { LlamaJsonParser } from './parsers/LlamaJsonParser';
+export type { ParsedResult } from './parsers/types';
+export { emptyParsedResult, toolCallResult } from './parsers/types';
+
 // clients/ — 工具层
 export { ToolAwareClient } from './clients/ToolAwareClient';
 export type {

@@ -311,3 +311,33 @@ export function createFailoverManager(
 ): FailoverManager {
   return new FailoverManager(config);
 }
+
+export function classifyFailoverReason(error: unknown): FailoverReason {
+  const msg =
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
+
+  if (msg.includes('rate') || msg.includes('429') || msg.includes('too many')) {
+    return 'rate_limited';
+  }
+  if (msg.includes('overload') || msg.includes('503') || msg.includes('unavailable')) {
+    return 'server_overloaded';
+  }
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return 'timeout';
+  }
+  if (msg.includes('auth') || msg.includes('401') || msg.includes('403')) {
+    return 'auth_error';
+  }
+  if (msg.includes('context') || msg.includes('token') || msg.includes('length')) {
+    return 'context_overflow';
+  }
+  if (msg.includes('model') && (msg.includes('not found') || msg.includes('unavailable'))) {
+    return 'model_unavailable';
+  }
+  if (msg.includes('network') || msg.includes('econnrefused') || msg.includes('enotfound')) {
+    return 'network_error';
+  }
+  return 'unknown';
+}

@@ -10,6 +10,8 @@ import {
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { GeminiTransport } from '../transports/GeminiTransport';
+import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -23,69 +25,17 @@ const SUPPORTED_MODELS = [
 
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
-function mapToGeminiMessages(messages: ChatMessage[]): {
-  contents: { role: string; parts: { text: string }[] }[];
-  systemInstruction?: { parts: { text: string }[] };
-} {
-  const systemMessages = messages.filter((m) => m.role === 'system');
-  const nonSystemMessages = messages.filter((m) => m.role !== 'system');
-
-  const systemInstruction =
-    systemMessages.length > 0
-      ? { parts: systemMessages.map((m) => ({ text: m.content })) }
-      : undefined;
-
-  const contents = nonSystemMessages.map((msg) => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
-  }));
-
-  return { contents, systemInstruction };
-}
-
-function parseGeminiResponse(
-  data: Record<string, unknown>,
-  model: string
-): ChatResponse {
-  const candidate = (data.candidates as Record<string, unknown>[])?.[0];
-  const content = candidate?.content as Record<string, unknown> | undefined;
-  const parts = content?.parts as Record<string, unknown>[] | undefined;
-  const text = parts?.map((p) => p.text as string).join('') ?? '';
-  const finishReason = (candidate?.finishReason as string) ?? 'STOP';
-  const usageMetadata = data.usageMetadata as
-    | Record<string, number>
-    | undefined;
-
-  const stopReason =
-    finishReason === 'STOP'
-      ? 'stop'
-      : finishReason === 'MAX_TOKENS'
-        ? 'max_tokens'
-        : 'stop';
-
-  return {
-    content: text,
-    model: model,
-    stop_reason: stopReason,
-    usage: usageMetadata
-      ? {
-          prompt_tokens: usageMetadata.promptTokenCount ?? 0,
-          completion_tokens: usageMetadata.candidatesTokenCount ?? 0,
-          total_tokens: usageMetadata.totalTokenCount ?? 0,
-        }
-      : undefined,
-  };
-}
-
 export class GoogleProvider implements AIProvider {
   readonly id = 'google';
   readonly displayName = 'Google Gemini';
   private apiKey: string;
   private baseUrl: string;
+  private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
     this.apiKey = config.apiKey || process.env.GOOGLE_API_KEY || '';
     this.baseUrl = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.adapter = new TransportProviderAdapter(new GeminiTransport());
   }
 
   async chat(
@@ -98,23 +48,16 @@ export class GoogleProvider implements AIProvider {
     }
   ): Promise<ChatResponse> {
     const model = options?.model || 'gemini-2.0-flash';
-    const { contents, systemInstruction } = mapToGeminiMessages(messages);
+    const { systemPrompt } = this.adapter.splitMessages(messages);
 
-    const body: Record<string, unknown> = {
-      contents,
-      generationConfig: {
-        maxOutputTokens: options?.maxTokens || 4096,
-      },
-    };
-
-    if (options?.temperature !== undefined) {
-      (body.generationConfig as Record<string, unknown>).temperature =
-        options.temperature;
-    }
-
-    if (systemInstruction) {
-      body.systemInstruction = systemInstruction;
-    }
+    const requestBody = this.adapter.buildRequest({
+      model,
+      messages,
+      tools: options?.tools,
+      systemPrompt,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature,
+    });
 
     const url = `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`;
 
@@ -122,7 +65,7 @@ export class GoogleProvider implements AIProvider {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(120000),
       });
 
@@ -137,7 +80,10 @@ export class GoogleProvider implements AIProvider {
       }
 
       const data = (await response.json()) as Record<string, unknown>;
-      return parseGeminiResponse(data, model);
+      return this.adapter.toChatResponse(
+        this.adapter.normalizeResponse(data),
+        model
+      );
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(
@@ -159,23 +105,17 @@ export class GoogleProvider implements AIProvider {
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
     const model = options?.model || 'gemini-2.0-flash';
-    const { contents, systemInstruction } = mapToGeminiMessages(messages);
+    const { systemPrompt } = this.adapter.splitMessages(messages);
 
-    const body: Record<string, unknown> = {
-      contents,
-      generationConfig: {
-        maxOutputTokens: options?.maxTokens || 4096,
-      },
-    };
-
-    if (options?.temperature !== undefined) {
-      (body.generationConfig as Record<string, unknown>).temperature =
-        options.temperature;
-    }
-
-    if (systemInstruction) {
-      body.systemInstruction = systemInstruction;
-    }
+    const requestBody = this.adapter.buildRequest({
+      model,
+      messages,
+      tools: options?.tools,
+      systemPrompt,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature,
+      stream: true,
+    });
 
     const url = `${this.baseUrl}/models/${model}:streamGenerateContent?alt=sse&key=${this.apiKey}`;
 
@@ -183,7 +123,7 @@ export class GoogleProvider implements AIProvider {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(180000),
       });
 

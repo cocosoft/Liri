@@ -1,14 +1,14 @@
 import { EventEmitter } from 'events';
 import {
-  AclServerConfig,
-  AclMessage,
-  AclHandshake,
-  AclAgentInfo,
-  AclMessageHandler,
-  AclHandlerRegistration,
-  AclMetrics,
-  AclSessionInfo,
-  AclSessionStatus,
+  AcpServerConfig,
+  AcpMessage,
+  AcpHandshake,
+  AcpAgentInfo,
+  AcpMessageHandler,
+  AcpHandlerRegistration,
+  AcpMetrics,
+  AcpSessionInfo,
+  AcpSessionStatus,
 } from './types.js';
 
 let _serverIdCounter = 0;
@@ -27,16 +27,16 @@ function matchPattern(pattern: string, type: string): boolean {
   return pattern === type;
 }
 
-export class AclServer extends EventEmitter {
-  private config: AclServerConfig;
+export class AcpTransportServer extends EventEmitter {
+  private config: AcpServerConfig;
   private running = false;
-  private clients: Map<string, AclAgentInfo> = new Map();
-  private sessions: Map<string, AclSessionInfo> = new Map();
-  private handlers: Map<string, AclHandlerRegistration> = new Map();
+  private clients: Map<string, AcpAgentInfo> = new Map();
+  private sessions: Map<string, AcpSessionInfo> = new Map();
+  private handlers: Map<string, AcpHandlerRegistration> = new Map();
   private startTime = 0;
   private heartbeatTimers: Map<string, ReturnType<typeof setInterval>> =
     new Map();
-  private metrics: AclMetrics = {
+  private metrics: AcpMetrics = {
     totalMessagesSent: 0,
     totalMessagesReceived: 0,
     activeSessions: 0,
@@ -45,7 +45,7 @@ export class AclServer extends EventEmitter {
     errors: 0,
   };
 
-  constructor(config: AclServerConfig) {
+  constructor(config: AcpServerConfig) {
     super();
     this.config = config;
   }
@@ -80,7 +80,7 @@ export class AclServer extends EventEmitter {
     return this.running;
   }
 
-  handleConnect(agent: AclAgentInfo, sessionId?: string): AclMessage {
+  handleConnect(agent: AcpAgentInfo, sessionId?: string): AcpMessage {
     this.clients.set(agent.id, agent);
     this.emit('client:connected', agent);
     this.startClientHeartbeat(agent.id);
@@ -111,7 +111,7 @@ export class AclServer extends EventEmitter {
 
   registerHandler(
     pattern: string,
-    handler: AclMessageHandler,
+    handler: AcpMessageHandler,
     description?: string
   ): void {
     this.handlers.set(pattern, { pattern, handler, description });
@@ -121,15 +121,15 @@ export class AclServer extends EventEmitter {
     return this.handlers.delete(pattern);
   }
 
-  getHandler(pattern: string): AclHandlerRegistration | undefined {
+  getHandler(pattern: string): AcpHandlerRegistration | undefined {
     return this.handlers.get(pattern);
   }
 
-  listHandlers(): AclHandlerRegistration[] {
+  listHandlers(): AcpHandlerRegistration[] {
     return Array.from(this.handlers.values());
   }
 
-  async handleMessage(message: AclMessage): Promise<AclMessage | void> {
+  async handleMessage(message: AcpMessage): Promise<AcpMessage | void> {
     if (!this.running) {
       return;
     }
@@ -137,7 +137,7 @@ export class AclServer extends EventEmitter {
     this.metrics.totalMessagesReceived++;
 
     if (message.type === 'handshake') {
-      const handshake = message.payload as AclHandshake;
+      const handshake = message.payload as AcpHandshake;
       return this.handleConnect(handshake.agent, message.sessionId);
     }
 
@@ -213,16 +213,16 @@ export class AclServer extends EventEmitter {
     }
   }
 
-  getClient(agentId: string): AclAgentInfo | undefined {
+  getClient(agentId: string): AcpAgentInfo | undefined {
     return this.clients.get(agentId);
   }
 
-  listClients(): AclAgentInfo[] {
+  listClients(): AcpAgentInfo[] {
     return Array.from(this.clients.values());
   }
 
-  createSession(agents: string[]): AclSessionInfo {
-    const session: AclSessionInfo = {
+  createSession(agents: string[]): AcpSessionInfo {
+    const session: AcpSessionInfo = {
       id: nextServerId(),
       agents,
       status: 'active',
@@ -234,7 +234,7 @@ export class AclServer extends EventEmitter {
     return session;
   }
 
-  getSession(sessionId: string): AclSessionInfo | undefined {
+  getSession(sessionId: string): AcpSessionInfo | undefined {
     return this.sessions.get(sessionId);
   }
 
@@ -245,13 +245,13 @@ export class AclServer extends EventEmitter {
       return false;
     }
 
-    session.status = 'ended' as AclSessionStatus;
+    session.status = 'ended' as AcpSessionStatus;
     session.endedAt = Date.now();
 
     return true;
   }
 
-  listSessions(status?: AclSessionStatus): AclSessionInfo[] {
+  listSessions(status?: AcpSessionStatus): AcpSessionInfo[] {
     const all = Array.from(this.sessions.values());
 
     if (status) {
@@ -261,11 +261,11 @@ export class AclServer extends EventEmitter {
     return all;
   }
 
-  getConfig(): AclServerConfig {
+  getConfig(): AcpServerConfig {
     return { ...this.config };
   }
 
-  getMetrics(): AclMetrics {
+  getMetrics(): AcpMetrics {
     return {
       ...this.metrics,
       uptimeMs: this.startTime > 0 ? Date.now() - this.startTime : 0,
@@ -278,7 +278,7 @@ export class AclServer extends EventEmitter {
 
   private ensureSession(sessionId: string, agents: string[]): void {
     if (!this.sessions.has(sessionId)) {
-      const session: AclSessionInfo = {
+      const session: AcpSessionInfo = {
         id: sessionId,
         agents,
         status: 'active',
@@ -312,3 +312,6 @@ export class AclServer extends EventEmitter {
     }
   }
 }
+
+/** @deprecated 使用 AcpTransportServer */
+export { AcpTransportServer as AclServer };

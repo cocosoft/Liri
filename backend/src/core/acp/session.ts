@@ -1,16 +1,16 @@
 import { EventEmitter } from 'events';
 import {
-  AclMessage,
-  AclSessionInfo,
-  AclSessionStatus,
-  AclAgentInfo,
+  AcpMessage,
+  AcpSessionInfo,
+  AcpSessionStatus,
+  AcpAgentInfo,
 } from './types.js';
 
 interface SessionEventMap {
-  'session:created': [session: AclSessionInfo];
+  'session:created': [session: AcpSessionInfo];
   'session:ended': [sessionId: string];
   'session:timeout': [sessionId: string];
-  message: [message: AclMessage, session: AclSessionInfo];
+  message: [message: AcpMessage, session: AcpSessionInfo];
   error: [error: Error];
 }
 
@@ -20,10 +20,10 @@ function nextSessionId(): string {
   return `acp-sess-${Date.now()}-${_sessionIdCounter}`;
 }
 
-export class AclSessionManager extends EventEmitter {
-  private sessions: Map<string, AclSessionInfo> = new Map();
-  private sessionMessages: Map<string, AclMessage[]> = new Map();
-  private sessionAgents: Map<string, Map<string, AclAgentInfo>> = new Map();
+export class AcpSessionManager extends EventEmitter {
+  private sessions: Map<string, AcpSessionInfo> = new Map();
+  private sessionMessages: Map<string, AcpMessage[]> = new Map();
+  private sessionAgents: Map<string, Map<string, AcpAgentInfo>> = new Map();
   private timeoutTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private maxSessions: number;
   private sessionTimeoutMs: number;
@@ -37,7 +37,7 @@ export class AclSessionManager extends EventEmitter {
   createSession(
     agents: string[],
     metadata?: Record<string, unknown>
-  ): AclSessionInfo {
+  ): AcpSessionInfo {
     if (this.sessions.size >= this.maxSessions) {
       const oldest = Array.from(this.sessions.values()).sort(
         (a, b) => a.createdAt - b.createdAt
@@ -48,7 +48,7 @@ export class AclSessionManager extends EventEmitter {
       }
     }
 
-    const session: AclSessionInfo = {
+    const session: AcpSessionInfo = {
       id: nextSessionId(),
       agents,
       status: 'active',
@@ -67,7 +67,7 @@ export class AclSessionManager extends EventEmitter {
     return session;
   }
 
-  getSession(sessionId: string): AclSessionInfo | undefined {
+  getSession(sessionId: string): AcpSessionInfo | undefined {
     return this.sessions.get(sessionId);
   }
 
@@ -78,7 +78,7 @@ export class AclSessionManager extends EventEmitter {
       return false;
     }
 
-    session.status = 'ended' as AclSessionStatus;
+    session.status = 'ended' as AcpSessionStatus;
     session.endedAt = Date.now();
     this.cancelTimeout(sessionId);
 
@@ -87,7 +87,7 @@ export class AclSessionManager extends EventEmitter {
     return true;
   }
 
-  listSessions(status?: AclSessionStatus): AclSessionInfo[] {
+  listSessions(status?: AcpSessionStatus): AcpSessionInfo[] {
     const all = Array.from(this.sessions.values());
 
     if (status) {
@@ -97,7 +97,7 @@ export class AclSessionManager extends EventEmitter {
     return all;
   }
 
-  recordMessage(sessionId: string, message: AclMessage): boolean {
+  recordMessage(sessionId: string, message: AcpMessage): boolean {
     const session = this.sessions.get(sessionId);
 
     if (!session || session.status !== 'active') {
@@ -118,7 +118,7 @@ export class AclSessionManager extends EventEmitter {
     return true;
   }
 
-  getMessages(sessionId: string, limit?: number): AclMessage[] {
+  getMessages(sessionId: string, limit?: number): AcpMessage[] {
     const messages = this.sessionMessages.get(sessionId);
 
     if (!messages) {
@@ -132,7 +132,7 @@ export class AclSessionManager extends EventEmitter {
     return [...messages];
   }
 
-  registerAgent(sessionId: string, agent: AclAgentInfo): boolean {
+  registerAgent(sessionId: string, agent: AcpAgentInfo): boolean {
     const agents = this.sessionAgents.get(sessionId);
 
     if (!agents) {
@@ -149,7 +149,7 @@ export class AclSessionManager extends EventEmitter {
     return true;
   }
 
-  getAgents(sessionId: string): AclAgentInfo[] {
+  getAgents(sessionId: string): AcpAgentInfo[] {
     const agents = this.sessionAgents.get(sessionId);
 
     if (!agents) {
@@ -185,7 +185,7 @@ export class AclSessionManager extends EventEmitter {
       const session = this.sessions.get(sessionId);
 
       if (session && session.status === 'active') {
-        session.status = 'timeout' as AclSessionStatus;
+        session.status = 'timeout' as AcpSessionStatus;
         session.endedAt = Date.now();
         this.timeoutTimers.delete(sessionId);
         this.emit('session:timeout', sessionId);
@@ -209,3 +209,6 @@ export class AclSessionManager extends EventEmitter {
     }
   }
 }
+
+/** @deprecated 使用 AcpSessionManager */
+export { AcpSessionManager as AclSessionManager };

@@ -1,18 +1,17 @@
 /**
- * ACP 模块统一出口
+ * ACP (Agent Communication Protocol) 归一化入口
+ * 对标 OpenClaw acp/
  *
- * 标准实现位于 src/agent/acp/（Acp* 命名，对标 OpenClaw acp/）
- * 本目录为向后兼容层，提供 Acl* 命名别名
+ * 类型体系: core/acp/types.ts（已合并 agent/acp 和 core/acp 两套类型）
+ * 实现: AcpTransportClient / AcpTransportServer / AcpSessionManager / AcpTranslator
+ * 向下兼容: 所有 Acl* 旧名作为 deprecated 别名导出
  */
-
-// 向后兼容：原有 Acl* 实现
-export { AclClient } from './client.js';
-export { AclServer } from './server.js';
-export { AclSessionManager } from './session.js';
-export { AclTranslator } from './translator.js';
+export { AcpTransportClient } from './client.js';
+export { AcpTransportServer } from './server.js';
+export { AcpSessionManager } from './session.js';
+export { AcpTranslator } from './translator.js';
 export * from './types.js';
 
-// 权限处理器（本目录独有）
 export { ACPPermissionHandler } from './ACPPermissionHandler.js';
 export type {
   ACPPermissionRequest,
@@ -20,13 +19,8 @@ export type {
 } from './ACPPermissionHandler.js';
 export { ACPPermissionDecision } from './ACPPermissionHandler.js';
 
-// 标准实现（从 agent/acp 引入）
-export { AcpClient, AcpServer } from '../../agent/acp/index.js';
-export type {
-  AcpMessage,
-  AcpMessageType,
-  AcpPriority,
-  AcpSession,
-  AcpHandler,
-  AcpServerConfig,
-} from '../../agent/acp/index.js';
+// 向下兼容别名
+export { AcpTransportClient as AclClient } from './client.js';
+export { AcpTransportServer as AclServer } from './server.js';
+export { AcpSessionManager as AclSessionManager } from './session.js';
+export { AcpTranslator as AclTranslator } from './translator.js';

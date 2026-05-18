@@ -4,17 +4,15 @@
  * 使用 AWS SigV4 签名 + fetch API 调用 Bedrock 端点
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import type {
-  ChatMessage,
-  ChatResponse,
-  ToolDefinition,
-} from '../models/types';
+import type { ChatMessage, ChatResponse, ToolDefinition } from '../models/types';
 import type {
   AIProvider,
   ProviderConfig,
   ProviderValidationResult,
   ChatOptions,
 } from './AIProvider';
+import { BedrockTransport } from '../transports/BedrockTransport';
+import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
 const SUPPORTED_MODELS = [
   'anthropic.claude-sonnet-4-6-v2:0',
@@ -28,21 +26,21 @@ export class BedrockProvider implements AIProvider {
   readonly id = 'bedrock';
   readonly displayName = 'AWS Bedrock';
   private config: ProviderConfig;
+  private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
     this.config = {
       region: 'us-east-1',
       ...config,
     };
+    this.adapter = new TransportProviderAdapter(new BedrockTransport());
   }
 
   async chat(
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const response = await this.sendConverseRequest(messages, options, false);
-
-    return response;
+    return this.sendConverseRequest(messages, options, false);
   }
 
   async *chatStream(
@@ -106,22 +104,16 @@ export class BedrockProvider implements AIProvider {
 
     const endpoint = `https://bedrock-runtime.${region}.amazonaws.com/model/${model}/converse${stream ? '-stream' : ''}`;
 
-    const body = JSON.stringify({
-      messages: messages
-        .filter((m) => m.role !== 'system')
-        .map((m) => ({
-          role: m.role,
-          content: [{ text: m.content }],
-        })),
-      system: messages
-        .filter((m) => m.role === 'system')
-        .map((m) => ({ text: m.content })),
-      inferenceConfig: {
-        maxTokens: options?.maxTokens || 4096,
-        temperature: options?.temperature || 1.0,
-      },
+    const requestBody = this.adapter.buildRequest({
+      model,
+      messages,
+      tools: options?.tools as ToolDefinition[] | undefined,
+      maxTokens: options?.maxTokens || 4096,
+      temperature: options?.temperature || 1.0,
+      stream: stream || false,
     });
 
+    const body = JSON.stringify(requestBody);
     const signedHeaders = this.signRequest(
       'POST',
       endpoint,
@@ -152,26 +144,8 @@ export class BedrockProvider implements AIProvider {
       );
     }
 
-    const data = (await response.json()) as {
-      output?: { message?: { content?: Array<{ text?: string }> } };
-      usage?: { inputTokens?: number; outputTokens?: number };
-      stopReason?: string;
-    };
-
-    const content =
-      data.output?.message?.content?.map((c) => c.text || '').join('') || '';
-
-    return {
-      content,
-      model,
-      stop_reason: data.stopReason === 'end_turn' ? 'stop' : 'stop',
-      usage: {
-        prompt_tokens: data.usage?.inputTokens || 0,
-        completion_tokens: data.usage?.outputTokens || 0,
-        total_tokens:
-          (data.usage?.inputTokens || 0) + (data.usage?.outputTokens || 0),
-      },
-    };
+    const data = (await response.json()) as Record<string, unknown>;
+    return this.adapter.toChatResponse(this.adapter.normalizeResponse(data));
   }
 
   private signRequest(

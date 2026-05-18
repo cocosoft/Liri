@@ -130,7 +130,9 @@
       "@modules/types": ["types"],
       "@modules/types/*": ["types/*"],
       "@modules/subagent": ["subagent"],
-      "@modules/subagent/*": ["subagent/*"]
+      "@modules/subagent/*": ["subagent/*"],
+      "@modules/voice": ["voice"],
+      "@modules/voice/*": ["voice/*"]
     }
   },
   "include": ["src/**/*"],

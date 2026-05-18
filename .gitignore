@@ -38,6 +38,7 @@ backend/input.txt
 backend/test_errors.txt
 backend/test_output.txt
 backend/coverage_full.txt
+backend/.test_exports
 __pycache__/
 *.pyc
 *.pyo

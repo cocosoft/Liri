@@ -15,6 +15,7 @@ import {
   isInboundFrame,
   computeWebSocketAcceptKey,
 } from './protocol/frames';
+import { handleVoiceUpgrade } from '@modules/voice/VoiceGatewayBridge';
 
 const rawLogger = new Logger({ level: LogLevel.INFO });
 
@@ -160,6 +161,12 @@ export class GatewayServer extends EventEmitter {
     }
 
     this.httpServer = http.createServer((req, res) => {
+      // /voice 端点路由到语音子系统
+      if (req.url?.startsWith('/voice')) {
+        handleVoiceUpgrade(req, res);
+        return;
+      }
+
       if (!this.isWebSocketUpgrade(req)) {
         res.writeHead(426, { 'Content-Type': 'text/plain' });
         res.end('WebSocket Upgrade Required');

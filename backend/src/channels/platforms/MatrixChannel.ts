@@ -30,7 +30,7 @@ export class MatrixChannel extends BasePlatformAdapter {
   }
 
   async connect(): Promise<boolean> {
-    const cfg = this.config as unknown as MatrixConfig;
+    const cfg = this._config as unknown as MatrixConfig;
     if (!cfg.enabled || !cfg.homeserverUrl || !cfg.accessToken || !cfg.userId)
       return false;
 
@@ -73,7 +73,7 @@ export class MatrixChannel extends BasePlatformAdapter {
   }
 
   getStatus(): Record<string, unknown> {
-    const cfg = this.config as unknown as MatrixConfig;
+    const cfg = this._config as unknown as MatrixConfig;
 
     return {
       connected: this.connected,

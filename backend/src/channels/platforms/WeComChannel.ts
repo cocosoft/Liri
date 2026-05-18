@@ -38,7 +38,7 @@ export class WeComChannel extends BasePlatformAdapter {
   }
 
   async connect(): Promise<boolean> {
-    const cfg = this.config as unknown as WeComConfig;
+    const cfg = this._config as unknown as WeComConfig;
     if (!cfg.enabled) return false;
     if (!cfg.corpId || !cfg.corpSecret || !cfg.agentId) return false;
 
@@ -87,7 +87,7 @@ export class WeComChannel extends BasePlatformAdapter {
     nonce: string,
     echoStr: string
   ): boolean {
-    const cfg = this.config as unknown as WeComConfig;
+    const cfg = this._config as unknown as WeComConfig;
     if (!cfg.token) return false;
 
     return true;

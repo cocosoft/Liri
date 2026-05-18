@@ -29,7 +29,7 @@ export class SignalChannel extends BasePlatformAdapter {
   }
 
   async connect(): Promise<boolean> {
-    const cfg = this.config as unknown as SignalConfig;
+    const cfg = this._config as unknown as SignalConfig;
     if (!cfg.enabled || !cfg.account) return false;
 
     this.connected = true;

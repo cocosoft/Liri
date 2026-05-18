@@ -22,5 +22,7 @@ export {
   TaskType,
 };
 
+export type { TaskCreateOptions, TaskUpdateOptions } from './models/types';
+
 // 导出默认服务实例
 export default taskService;

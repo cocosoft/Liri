@@ -38,7 +38,7 @@ export class WhatsAppChannel extends BasePlatformAdapter {
   }
 
   async connect(): Promise<boolean> {
-    const cfg = this.config as unknown as WhatsAppConfig;
+    const cfg = this._config as unknown as WhatsAppConfig;
     if (!cfg.enabled || !cfg.phoneNumberId || !cfg.accessToken) return false;
 
     this.connected = true;

@@ -44,8 +44,20 @@ jobs:
     - name: Run linter
       run: bun run lint
 
-    - name: Run test suite
-      run: bun test
+    - name: Run test suite with coverage
+      run: bun test --coverage
+
+    - name: Check coverage threshold (≥60%)
+      run: |
+        bun test --coverage > coverage_report.txt 2>&1
+        cat coverage_report.txt
+        coverage=$(grep "All files" coverage_report.txt | awk '{print $4}' | tr -d '%')
+        echo "Coverage: $coverage%"
+        if (( $(echo "$coverage < 60" | bc -l) )); then
+          echo "Error: Coverage $coverage% is below threshold of 60%"
+          exit 1
+        fi
+        echo "Coverage $coverage% meets threshold"
 
     - name: Run build
       run: bun run build

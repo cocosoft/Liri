@@ -84,7 +84,11 @@ export class ReactiveCompactorImpl implements ReactiveCompactor {
     }
 
     // 确定压缩级别
-    const compressionLevel = this.getCompressionLevel(messages);
+    let compressionLevel = this.getCompressionLevel(messages);
+    // 当API强制要求压缩但使用率低于阈值时，至少使用轻度压缩
+    if (compressionLevel === 'none' && needsCompression) {
+      compressionLevel = 'light';
+    }
 
     // 根据压缩级别确定目标Token数
     let targetTokens = originalTokenCount;

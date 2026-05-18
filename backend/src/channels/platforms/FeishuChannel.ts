@@ -42,7 +42,7 @@ export class FeishuChannel extends BasePlatformAdapter {
   }
 
   async connect(): Promise<boolean> {
-    const cfg = this.config as unknown as FeishuConfig;
+    const cfg = this._config as unknown as FeishuConfig;
     if (!cfg.enabled || !cfg.appId || !cfg.appSecret) return false;
 
     this.connected = true;

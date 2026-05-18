@@ -44,7 +44,7 @@ export class WeChatChannel extends BasePlatformAdapter {
   }
 
   async connect(): Promise<boolean> {
-    const cfg = this.config as unknown as WeChatConfig;
+    const cfg = this._config as unknown as WeChatConfig;
     if (!cfg.enabled) return false;
 
     if (!cfg.personalMode && (!cfg.corpId || !cfg.corpSecret)) return false;
@@ -83,7 +83,7 @@ export class WeChatChannel extends BasePlatformAdapter {
   }
 
   getStatus(): Record<string, unknown> {
-    const cfg = this.config as unknown as WeChatConfig;
+    const cfg = this._config as unknown as WeChatConfig;
 
     return {
       connected: this.connected,

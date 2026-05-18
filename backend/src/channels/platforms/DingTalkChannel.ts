@@ -41,7 +41,7 @@ export class DingTalkChannel extends BasePlatformAdapter {
   }
 
   async connect(): Promise<boolean> {
-    const cfg = this.config as unknown as DingTalkConfig;
+    const cfg = this._config as unknown as DingTalkConfig;
     if (!cfg.enabled) return false;
 
     const hasCredential = cfg.appKey && cfg.appSecret;
@@ -101,7 +101,7 @@ export class DingTalkChannel extends BasePlatformAdapter {
   }
 
   getStatus(): Record<string, unknown> {
-    const cfg = this.config as unknown as DingTalkConfig;
+    const cfg = this._config as unknown as DingTalkConfig;
 
     return {
       connected: this.connected,

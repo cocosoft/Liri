@@ -19,6 +19,7 @@ import type {
 import type { ToolUseContext } from '../tools/types/ToolUseContext.js';
 import { CompactServiceImpl } from '../services/compact/CompactService.js';
 import type { CompactArtifact } from '../services/compact/CompactService.js';
+import { MemoryIntegration } from '../memory/integrations/MemoryIntegration.js';
 import type { SessionMessage } from '../session/models/SessionMessage.js';
 import { AnalyticsService, analyticsService } from '../analytics/index.js';
 import {
@@ -293,6 +294,11 @@ export class QueryEngine {
   private compactService: CompactServiceImpl;
 
   /**
+   * 记忆集成（可选）
+   */
+  private memoryIntegration: MemoryIntegration | null = null;
+
+  /**
    * 分析服务
    */
   private analyticsService: AnalyticsService;
@@ -486,9 +492,15 @@ export class QueryEngine {
         return;
       }
 
+      // 注入相关记忆（如果已配置记忆集成）
+      let finalPrompt = processed || cleanPrompt;
+      if (this.memoryIntegration) {
+        finalPrompt = await this.memoryIntegration.injectMemoriesToContext(finalPrompt);
+      }
+
       // 执行查询
       const queryResults = this.query({
-        prompt: processed || cleanPrompt,
+        prompt: finalPrompt,
         sessionId,
         options: {
           enableTools: true,
@@ -1074,7 +1086,8 @@ export class QueryEngine {
 
       // 获取当前Token预算状态
       const budgetState = this.tokenBudgetManager.getCurrentBudgetState();
-      const percentUsed = budgetState.percentUsed || 0;
+      // TokenBudgetManager 返回 0.0-1.0 小数值，determineCompactLevel 需要 0-100 百分比值
+      const percentUsed = (budgetState.percentUsed || 0) * 100;
 
       // 根据Token使用率决定压缩级别
       const compactLevel = this.determineCompactLevel(percentUsed);
@@ -1235,6 +1248,37 @@ export class QueryEngine {
     };
 
     return [summaryArtifact, ...keyArtifacts];
+  }
+
+  /**
+   * 压缩服务实例注入（供 TAORLoop 设置）
+   */
+  setCompactService(service: CompactServiceImpl): void {
+    this.compactService = service;
+  }
+
+  /**
+   * 记忆集成实例注入
+   */
+  setMemoryIntegration(integration: MemoryIntegration): void {
+    this.memoryIntegration = integration;
+  }
+
+  /**
+   * 获取记忆集成实例
+   * @returns 记忆集成实例或 null
+   */
+  getMemoryIntegration(): MemoryIntegration | null {
+    return this.memoryIntegration;
+  }
+
+  /**
+   * 检查并执行上下文压缩（公开接口）
+   * 供外部组件（如 TAORLoop）在 TokenBudget WARNING 时调用
+   */
+  async compactIfNeeded(sessionId: string): Promise<void> {
+    if (!sessionId) return;
+    await this.checkAndPerformCompact(sessionId);
   }
 
   /**

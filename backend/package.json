@@ -35,6 +35,7 @@
     "deploy:docker": "docker-compose up -d",
     "stop:docker": "docker-compose down",
     "ci": "bun run typecheck && bun run lint && bun test",
+    "ci:full": "bun run ci && bun run test:coverage",
     "modules:test": "bun test src/tests/ModuleSystem.test.ts",
     "modules:analyze": "bun run scripts/migrate-modules.ts",
     "modules:migrate": "bun run scripts/migrate-modules.ts --execute",

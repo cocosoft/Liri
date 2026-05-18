@@ -49,6 +49,7 @@ import { ListPeersTool } from './ListPeersTool/ListPeersTool';
 import { SessionsTool } from './SessionsTool/SessionsTool';
 import { ClipboardTool } from './ClipboardTool/ClipboardTool';
 import { ImageTool } from './ImageTool/ImageTool';
+import { ImageAnalysisTool } from './ImageAnalysisTool/ImageAnalysisTool';
 import { VideoTool } from './VideoTool/VideoTool';
 import { MusicTool } from './MusicTool/MusicTool';
 import { ListMcpResourcesTool } from './ListMcpResourcesTool/ListMcpResourcesTool.js';
@@ -623,6 +624,13 @@ export class ToolFactory {
    */
   createImageTool(): Tool {
     return new ImageTool();
+  }
+
+  /**
+   * 创建图片分析工具
+   */
+  createImageAnalysisTool(): Tool {
+    return new ImageAnalysisTool();
   }
 
   /**

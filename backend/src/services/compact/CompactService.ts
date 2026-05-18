@@ -304,14 +304,9 @@ export class CompactServiceImpl implements CompactService {
 
     const summaryMessage = getCompactUserSummaryMessage(summary);
 
-    const groupsToKeep = options?.isAutoCompact
-      ? groups.slice(-Math.min(2, groups.length))
-      : groups.slice(-Math.min(3, groups.length));
-
-    const messagesToKeep = groupsToKeep
-      .flat()
-      .filter((m: any) => messages.some((sm) => sm.id === m.id))
-      .map((m: any) => m.id);
+    const roundsToKeep = options?.isAutoCompact ? 2 : 3;
+    const messagesCountToKeep = Math.min(roundsToKeep * 2, messages.length);
+    const messagesToKeep = messages.slice(-messagesCountToKeep).map((m) => m.id);
 
     return {
       boundaryMarker,

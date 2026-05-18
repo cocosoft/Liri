@@ -89,6 +89,7 @@ export const builtinToolLoaders: ToolLoader[] = [
 
   // 媒体编辑工具
   createToolLoader(ToolFactory.prototype.createImageTool),
+  createToolLoader(ToolFactory.prototype.createImageAnalysisTool),
   createToolLoader(ToolFactory.prototype.createVideoTool),
   createToolLoader(ToolFactory.prototype.createMusicTool),
 

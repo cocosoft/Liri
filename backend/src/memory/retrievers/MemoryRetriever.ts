@@ -178,17 +178,52 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   }
 
   /**
+   * CJK 字符正则（汉字范围）
+   */
+  private static readonly CJK_RE = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/;
+
+  /**
+   * 判断是否为纯 ASCII 字符（字母/数字）
+   */
+  private static readonly ASCII_ALPHA_RE = /^[a-zA-Z0-9]+$/;
+
+  /**
    * 分词
+   * ASCII 部分沿用原有空格拆分；CJK 字符按单字+双字拆分，零依赖
    * @param text 文本
    * @returns 分词结果
    */
   private tokenize(text: string | undefined | null): string[] {
     if (!text) return [];
-    return text
-      .toLowerCase()
-      .replace(/[^a-zA-Z0-9\s]/g, ' ')
+
+    const tokens: string[] = [];
+    const lowerText = text.toLowerCase();
+
+    // 1) ASCII 词：保留字母数字，过滤非 ASCII 符号
+    const asciiTokens = lowerText
+      .replace(/[^\x20-\x7e]/g, ' ')
       .split(/\s+/)
-      .filter((token) => token.length > 1);
+      .filter((t) => t.length > 0);
+    // ASCII 单字母（a/i 等）视为噪声过滤，但保留数字和双字母以上
+    for (const t of asciiTokens) {
+      if (t.length === 1 && !/^[0-9]$/.test(t)) continue;
+      if (t.length > 1 || /^[0-9]$/.test(t)) tokens.push(t);
+    }
+
+    // 2) CJK 拆分：提取所有中文字符
+    const cjkChars = [...lowerText].filter((ch) =>
+      MemoryRetrieverImpl.CJK_RE.test(ch)
+    );
+    if (cjkChars.length > 0) {
+      // 单字（unigram）—— 每个汉字都有独立语义
+      tokens.push(...cjkChars);
+      // 双字（bigram）
+      for (let i = 0; i < cjkChars.length - 1; i++) {
+        tokens.push(cjkChars[i] + cjkChars[i + 1]);
+      }
+    }
+
+    return [...new Set(tokens)];
   }
 
   /**
@@ -213,10 +248,13 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
   /**
    * 获取词干
+   * CJK 字符不适用词干提取，直接返回原词
    * @param word 单词
    * @returns 词干
    */
   private getStem(word: string): string {
+    // CJK 字符跳过词干提取
+    if (MemoryRetrieverImpl.CJK_RE.test(word)) return word;
     // 简单的词干提取算法
     if (word.endsWith('ing')) return word.slice(0, -3);
     if (word.endsWith('ed')) return word.slice(0, -2);

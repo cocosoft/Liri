@@ -35,7 +35,7 @@ export class QQChannel extends BasePlatformAdapter {
   }
 
   async connect(): Promise<boolean> {
-    const cfg = this.config as unknown as QQConfig;
+    const cfg = this._config as unknown as QQConfig;
     if (!cfg.enabled) return false;
     if (!cfg.appId || !cfg.token) return false;
 

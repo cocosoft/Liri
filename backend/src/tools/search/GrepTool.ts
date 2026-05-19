@@ -136,4 +136,15 @@ export class GrepTool extends BaseTool {
   ): Promise<PermissionResult> {
     return createAllowResult(input);
   }
+
+  /**
+   * 检查是否为搜索或读取命令
+   */
+  override isSearchOrReadCommand(input: Record<string, unknown>): {
+    isSearch: boolean;
+    isRead: boolean;
+    isList?: boolean;
+  } {
+    return { isSearch: true, isRead: true };
+  }
 }

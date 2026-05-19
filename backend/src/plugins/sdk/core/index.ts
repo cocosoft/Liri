@@ -16,9 +16,7 @@ export type {
   PluginValidationWarning,
 } from '../PluginManifest';
 
-export {
-  PluginType,
-} from '../PluginManifest';
+export { PluginType } from '../PluginManifest';
 
 // @modules/plugin-sdk 类型
 export type {

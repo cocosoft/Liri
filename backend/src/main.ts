@@ -2,6 +2,7 @@
 
 import { profileCheckpoint, profileReport } from './utils/startupProfiler';
 import { Logger } from './monitoring/logs/Logger';
+import { startupTracer } from './performance/StartupTracer';
 import {
   startMdmPrefetch,
   ensureMdmPrefetchCompleted,
@@ -155,17 +156,24 @@ async function launchTest(options: LaunchOptions): Promise<void> {
  *
  * 根据指定的启动模式，执行环境检测、配置加载、模块系统初始化，
  * 然后分发到对应的模式处理器。
+ *
+ * 启动阶段分为：
+ *   T0: 并行预读取（不阻塞模块初始化）
+ *   T1: 模块系统初始化（仅 CRITICAL 模块，DEFERRED 模块延迟加载）
+ *   T2: 模式分发 + 后台延迟加载
  */
 export async function launch(options: LaunchOptions): Promise<void> {
   setupWindowsSecurity();
 
   profileCheckpoint('launch_start');
+  startupTracer.traceStart('launch_total');
 
   try {
     logger.info(`应用启动 - 模式: ${options.mode}`);
 
     // T0: 启动并行预读取（不阻塞模块初始化）
     profileCheckpoint('T0_preroll_start');
+    startupTracer.traceStart('T0_preroll');
     startMdmPrefetch();
     if (process.platform === 'darwin') {
       startKeychainPrefetch(
@@ -173,23 +181,29 @@ export async function launch(options: LaunchOptions): Promise<void> {
         process.env.USER || ''
       );
     }
+    startupTracer.traceEnd('T0_preroll');
     profileCheckpoint('T0_preroll_end');
 
-    // 模块系统初始化
+    // T1: 模块系统初始化（仅 CRITICAL 模块）
     profileCheckpoint('module_init_start');
+    startupTracer.traceStart('T1_module_init');
     await initializeModuleSystem();
+    startupTracer.traceEnd('T1_module_init');
     profileCheckpoint('module_init_end');
 
-    // T1: 等待关键预读取完成
+    // T1.5: 等待关键预读取完成
     profileCheckpoint('T1_await_prefetch_start');
+    startupTracer.traceStart('T1_await_prefetch');
     await ensureMdmPrefetchCompleted();
     if (process.platform === 'darwin') {
       await ensureKeychainPrefetchCompleted();
     }
+    startupTracer.traceEnd('T1_await_prefetch');
     profileCheckpoint('T1_await_prefetch_end');
 
-    // T2: 模式分发
+    // T2: 模式分发 + 后台延迟加载
     profileCheckpoint('T2_dispatch_start');
+    startupTracer.traceStart('T2_dispatch');
     switch (options.mode) {
       case LaunchMode.CLI:
         await launchCLI(options);
@@ -211,7 +225,31 @@ export async function launch(options: LaunchOptions): Promise<void> {
         await launchREPL(options);
         break;
     }
+    startupTracer.traceEnd('T2_dispatch');
     profileCheckpoint('T2_dispatch_end');
+
+    // T3: 启动完成后，在后台调度延迟模块加载
+    startupTracer.traceStart('T3_deferred_load');
+    try {
+      const { moduleInitializer } = await import('./modules/ModuleInitializer');
+      moduleInitializer.scheduleDeferredModules();
+    } catch (e) {
+      logger.warning('调度延迟模块加载失败（非致命）', e as Error);
+    }
+    startupTracer.traceEnd('T3_deferred_load');
+
+    startupTracer.traceEnd('launch_total');
+
+    // 输出启动性能报告
+    const report = startupTracer.getReport();
+    logger.info('\n=== 启动性能报告 (StartupTracer) ===');
+    for (const summary of report.phaseSummary) {
+      logger.info(
+        `  ${summary.phase}: ${summary.duration.toFixed(1)}ms (${(summary.ratio * 100).toFixed(1)}%)`
+      );
+    }
+    logger.info(`  总启动耗时: ${report.totalDuration.toFixed(1)}ms`);
+    logger.info('==================================\n');
 
     profileReport();
   } catch (error) {

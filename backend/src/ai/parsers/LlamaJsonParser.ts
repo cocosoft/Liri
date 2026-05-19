@@ -39,7 +39,11 @@ export class LlamaJsonParser extends BaseParser {
       try {
         const parsed: unknown = JSON.parse(extracted.json);
         if (this.isToolCallLike(parsed)) {
-          const tc = parsed as { name: string; arguments?: unknown; parameters?: unknown };
+          const tc = parsed as {
+            name: string;
+            arguments?: unknown;
+            parameters?: unknown;
+          };
           const args = tc.arguments || tc.parameters || {};
 
           toolCalls.push({
@@ -118,14 +122,23 @@ export class LlamaJsonParser extends BaseParser {
   private isToolCallLike(obj: unknown): obj is Record<string, unknown> {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
     const record = obj as Record<string, unknown>;
-    if (typeof record.name !== 'string' || record.name.length === 0) return false;
+    if (typeof record.name !== 'string' || record.name.length === 0)
+      return false;
     return !this.isNonToolName(record.name);
   }
 
   private isNonToolName(name: string): boolean {
     const nonToolNames = new Set([
-      'role', 'content', 'tool_calls', 'function', 'message',
-      'type', 'text', 'image_url', 'input', 'output',
+      'role',
+      'content',
+      'tool_calls',
+      'function',
+      'message',
+      'type',
+      'text',
+      'image_url',
+      'input',
+      'output',
     ]);
     return nonToolNames.has(name);
   }

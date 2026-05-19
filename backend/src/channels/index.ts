@@ -97,3 +97,5 @@ export type {
   GatewayTraceRecord,
   GatewayTraceConfig,
 } from './GatewaySessionTracer';
+
+export * from './monitoring/index.js';

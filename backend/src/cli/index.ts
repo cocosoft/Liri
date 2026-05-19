@@ -29,7 +29,10 @@ import { createAutoUpdater } from './autoUpdater';
 import { registerSkillsCommands } from '../skills/cli/skills';
 import { UpdateHandler } from './update';
 import * as print from './print';
-import type { CommandImplementation, CommandContext } from '../commands/types/index';
+import type {
+  CommandImplementation,
+  CommandContext,
+} from '../commands/types/index';
 
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });
@@ -913,7 +916,10 @@ program
 
         if (options.search) {
           const result = await docsCommand.load!().then((m) =>
-            (m as CommandImplementation).execute!(`search ${options.search}`, {} as CommandContext)
+            (m as CommandImplementation).execute!(
+              `search ${options.search}`,
+              {} as CommandContext
+            )
           );
           console.log(result.message);
         } else if (options.list) {

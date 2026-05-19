@@ -12,7 +12,11 @@ import { emptyParsedResult, toolCallResult } from './types';
 export class DeepSeekV31Parser extends BaseParser {
   readonly name = 'deepseek_v3_1';
 
-  readonly modelPatterns = ['deepseek-reasoner', 'deepseek-v3.1', 'deepseek_r1'];
+  readonly modelPatterns = [
+    'deepseek-reasoner',
+    'deepseek-v3.1',
+    'deepseek_r1',
+  ];
 
   private static readonly START_TOKEN = 'ǒ';
 

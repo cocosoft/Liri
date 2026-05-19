@@ -60,7 +60,10 @@ export class ParserRegistry {
     }
 
     for (const [registeredModel, pn] of this.modelToParser) {
-      if (normalized.startsWith(registeredModel) || registeredModel.startsWith(normalized)) {
+      if (
+        normalized.startsWith(registeredModel) ||
+        registeredModel.startsWith(normalized)
+      ) {
         return this.parsers.get(pn);
       }
     }

@@ -22,12 +22,19 @@ import type {
   NormalizedToolCall,
   TransportRequestParams,
 } from './types';
-import type { ChatMessage, ChatResponse, ToolDefinition, ParsedToolCall } from '../models/types';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ToolDefinition,
+  ParsedToolCall,
+} from '../models/types';
 
 /**
  * 将 Provider 的 ToolDefinition[] 转换为 Transport 的 tool 格式
  */
-function extractToolDefs(tools?: ToolDefinition[]): TransportRequestParams['tools'] {
+function extractToolDefs(
+  tools?: ToolDefinition[]
+): TransportRequestParams['tools'] {
   if (!tools || tools.length === 0) return undefined;
   return tools.map((t) => ({
     name: t.function.name,
@@ -39,7 +46,9 @@ function extractToolDefs(tools?: ToolDefinition[]): TransportRequestParams['tool
 /**
  * 将 Provider 的 ChatMessage[] 转换为 Transport 的 message 格式
  */
-function extractMessages(messages: ChatMessage[]): Array<{ role: string; content: string | null }> {
+function extractMessages(
+  messages: ChatMessage[]
+): Array<{ role: string; content: string | null }> {
   return messages.map((m) => ({
     role: m.role,
     content: m.content,

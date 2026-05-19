@@ -11,6 +11,16 @@ import {
   MODULE_INITIALIZATION_ORDER,
   validateModuleDependencies,
 } from './ModuleDefinitions';
+import {
+  getEssentialModuleIds,
+  getDeferredModuleIds,
+  getOnDemandModuleIds,
+  deferredLoader,
+  requestModule,
+  isModuleOnDemand,
+  DeferredLoadState,
+} from './LazyModuleStrategy';
+import { startupTracer } from '../performance/StartupTracer';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -312,6 +322,142 @@ export class ModuleInitializer {
     );
     logger.info(`最慢模块: ${slowestModule} (${maxDuration}ms)`);
     logger.info('========================\n');
+  }
+
+  /**
+   * 初始化必需模块（仅 CRITICAL 优先级模块）
+   * 用于启动阶段快速完成核心依赖加载，减少启动时间
+   */
+  public async initializeEssentialModules(): Promise<void> {
+    logger.info('开始初始化必需模块...');
+    const startTime = Date.now();
+
+    const essentialIds = getEssentialModuleIds(MODULE_INITIALIZATION_ORDER);
+    logger.info(
+      `必需模块列表: [${essentialIds.join(', ')}] (共 ${essentialIds.length} 个)`
+    );
+
+    startupTracer.traceStart('essential_modules_init');
+
+    try {
+      for (const moduleId of essentialIds) {
+        const tracePhase = `init:${moduleId}`;
+        startupTracer.traceStart(tracePhase);
+
+        await this.initializeModule(moduleId);
+
+        startupTracer.traceEnd(tracePhase);
+      }
+
+      const duration = Date.now() - startTime;
+      startupTracer.traceEnd('essential_modules_init');
+      logger.info(`必需模块初始化完成，耗时 ${duration}ms`);
+
+      this.printInitializationStats();
+    } catch (error) {
+      logger.error('必需模块初始化失败:', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * 初始化指定的单个模块（按需加载）
+   * 用于延迟加载场景，确保模块及其依赖被正确初始化
+   */
+  public async lazyInitializeModule(moduleId: string): Promise<void> {
+    const state = this.initializationStates.get(moduleId);
+    if (!state) {
+      logger.warning(`模块未注册，尝试按需注册: ${moduleId}`);
+      return;
+    }
+
+    // 如果已经初始化，直接返回
+    if (state.status === 'initialized') return;
+
+    // 如果正在初始化，等待完成
+    if (state.status === 'initializing') {
+      while (state.status === 'initializing') {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      return;
+    }
+
+    logger.info(`按需加载模块: ${moduleId}`);
+
+    const tracePhase = `lazy:${moduleId}`;
+    startupTracer.traceStart(tracePhase);
+
+    await this.initializeModule(moduleId);
+
+    startupTracer.traceEnd(tracePhase);
+    const duration = startupTracer.getPhaseDuration(tracePhase);
+    logger.info(`按需加载完成: ${moduleId} (${duration?.toFixed(0)}ms)`);
+  }
+
+  /**
+   * 调度延迟模块的异步加载
+   * 在 T2 分发完成后调用，在后台批次加载 DEFERRED + BATCH 模块。
+   * ON_DEMAND 模块不会被后台加载，仅在首次请求时通过动态 import() 加载。
+   *
+   * @param batchSize - 每批次并发加载数，默认 3
+   */
+  public scheduleDeferredModules(batchSize = 3): void {
+    const deferredIds = getDeferredModuleIds(MODULE_INITIALIZATION_ORDER);
+    const onDemandIds = getOnDemandModuleIds(MODULE_INITIALIZATION_ORDER);
+
+    if (deferredIds.length > 0) {
+      logger.info(
+        `调度延迟模块加载: ${deferredIds.length} 个 BATCH 模块待后台加载`
+      );
+      deferredLoader.schedule(
+        deferredIds,
+        (moduleId) => this.lazyInitializeModule(moduleId),
+        batchSize
+      );
+    }
+
+    if (onDemandIds.length > 0) {
+      logger.info(
+        `按需模块已就绪: ${onDemandIds.length} 个 ON_DEMAND 模块等待首次请求时动态加载 ` +
+          `[${onDemandIds.join(', ')}]`
+      );
+    }
+  }
+
+  /**
+   * 按需加载 ON_DEMAND 模式模块
+   * 使用动态 import() 加载，重型依赖仅在首次请求时解析。
+   * 与 scheduleDeferredModules 配合使用，onDemand 模块不会被后台加载。
+   *
+   * @param moduleId - 模块 ID
+   * @returns 模块导出对象
+   */
+  public async requestOnDemandModule(moduleId: string): Promise<any> {
+    const state = this.initializationStates.get(moduleId);
+
+    if (state && state.status === 'initialized') {
+      return;
+    }
+
+    if (!isModuleOnDemand(moduleId)) {
+      throw new AppError(
+        ErrorCodes.INVALID_STATE.message,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'MODULE_NOT_ON_DEMAND',
+        { moduleId, hint: '非 ON_DEMAND 模块，请使用 lazyInitializeModule' }
+      );
+    }
+
+    const mod = await requestModule(moduleId);
+
+    if (state && state.status === 'pending') {
+      state.status = 'initialized';
+      state.startTime = Date.now();
+      state.endTime = Date.now();
+    }
+
+    return mod;
   }
 
   /**

@@ -30,9 +30,7 @@ export class MoonshotProvider implements AIProvider {
       baseUrl: 'https://api.moonshot.cn/v1',
       ...config,
     };
-    this.adapter = new TransportProviderAdapter(
-      new ChatCompletionsTransport()
-    );
+    this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
   }
 
   async chat(

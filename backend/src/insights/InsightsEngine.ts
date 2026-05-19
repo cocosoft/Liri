@@ -177,7 +177,9 @@ export class InsightsEngine {
 
     if (sentences.length <= 3) {
       const result = sentences.join('；');
-      return result.length <= maxLen ? result : result.slice(0, maxLen - 3) + '...';
+      return result.length <= maxLen
+        ? result
+        : result.slice(0, maxLen - 3) + '...';
     }
 
     const first = sentences[0];
@@ -185,7 +187,9 @@ export class InsightsEngine {
     const omitted = sentences.length - 2;
 
     const summary = `${first}…[${omitted} 句省略]…${last}`;
-    return summary.length <= maxLen ? summary : summary.slice(0, maxLen - 3) + '...';
+    return summary.length <= maxLen
+      ? summary
+      : summary.slice(0, maxLen - 3) + '...';
   }
 
   /**

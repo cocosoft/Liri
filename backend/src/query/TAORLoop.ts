@@ -7,7 +7,11 @@
 
 import { Logger } from '@modules/monitoring/logs/Logger';
 import { TokenBudgetManagerImpl, TokenBudgetStatus } from './TokenBudget.js';
-import type { TokenBudgetConfig, TokenBudgetManager, TokenBudgetState } from './TokenBudget.js';
+import type {
+  TokenBudgetConfig,
+  TokenBudgetManager,
+  TokenBudgetState,
+} from './TokenBudget.js';
 import { StopHookManager, DEFAULT_STOP_HOOK_PRIORITIES } from './StopHooks.js';
 import type { StopHook, StopHookContext, StopHookReason } from './StopHooks.js';
 import type { QueryEngine } from './QueryEngine.js';
@@ -119,7 +123,9 @@ export class MemoryCheckpointStorage implements CheckpointStorage {
     const found = Array.from(this.checkpoints.values()).filter(
       (c) => c.sessionId === sessionId
     );
-    return found.length > 0 ? found.sort((a, b) => b.createdAt - a.createdAt) : null;
+    return found.length > 0
+      ? found.sort((a, b) => b.createdAt - a.createdAt)
+      : null;
   }
 
   async delete(id: string): Promise<boolean> {
@@ -149,7 +155,7 @@ export class TAORLoop {
   private startTime: number = 0;
   private stopped: boolean = false;
   private stopReason: StopHookReason = 'completed';
-  
+
   // 检查点相关
   private checkpointStorage: CheckpointStorage;
   private lastCheckpointId: string | null = null;
@@ -171,7 +177,8 @@ export class TAORLoop {
       sessionId: config.sessionId || '',
       enableCheckpoint: config.enableCheckpoint !== false,
       checkpointInterval: config.checkpointInterval || 5,
-      checkpointStorage: config.checkpointStorage || new MemoryCheckpointStorage(),
+      checkpointStorage:
+        config.checkpointStorage || new MemoryCheckpointStorage(),
     };
     this.tokenBudget = new TokenBudgetManagerImpl(this.config.budgetConfig);
     this.stopHookManager = new StopHookManager();
@@ -309,7 +316,8 @@ export class TAORLoop {
    */
   private shouldSaveAutoCheckpoint(): boolean {
     return (
-      this.turnCount > 0 && this.turnCount % this.config.checkpointInterval === 0
+      this.turnCount > 0 &&
+      this.turnCount % this.config.checkpointInterval === 0
     );
   }
 
@@ -370,7 +378,9 @@ export class TAORLoop {
     }
 
     if (!checkpoint) {
-      logger.warning('No checkpoint found for resume', { sessionId: this.config.sessionId });
+      logger.warning('No checkpoint found for resume', {
+        sessionId: this.config.sessionId,
+      });
       return false;
     }
 

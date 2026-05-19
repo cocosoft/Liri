@@ -364,6 +364,17 @@ export class WebFetchTool extends BaseTool {
       method: input.method || 'GET',
     };
   }
+
+  /**
+   * 检查是否为读取命令
+   */
+  override isSearchOrReadCommand(input: Record<string, unknown>): {
+    isSearch: boolean;
+    isRead: boolean;
+    isList?: boolean;
+  } {
+    return { isSearch: false, isRead: true };
+  }
 }
 
 export interface WebFetchResult {

@@ -119,8 +119,7 @@ export class BedrockTransport extends BaseTransport {
         outputTokens: usage.outputTokens ?? 0,
         cacheReadTokens: 0,
         cacheCreationTokens: 0,
-        totalTokens:
-          (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
+        totalTokens: (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0),
       },
       reasoning: null,
       finishReason: raw.stopReason ?? 'end_turn',

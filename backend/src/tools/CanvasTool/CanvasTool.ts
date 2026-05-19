@@ -101,7 +101,10 @@ export class CanvasTool extends BaseTool {
     },
   ];
 
-  async execute(input: CanvasOperation, _context: ToolUseContext): Promise<ToolResult> {
+  async execute(
+    input: CanvasOperation,
+    _context: ToolUseContext
+  ): Promise<ToolResult> {
     try {
       const result: CanvasResult = {
         canvasId: `canvas_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -124,7 +127,10 @@ export class CanvasTool extends BaseTool {
     }
   }
 
-  override renderToolUseMessage(input: CanvasOperation, _options: { verbose: boolean }): unknown {
+  override renderToolUseMessage(
+    input: CanvasOperation,
+    _options: { verbose: boolean }
+  ): unknown {
     const parts = [`🎨 Canvas`];
     parts.push(`action=${input.action}`);
     if (input.width) parts.push(`width=${input.width}`);
@@ -134,7 +140,11 @@ export class CanvasTool extends BaseTool {
     return parts.join(' ');
   }
 
-  override renderToolResultMessage(output: ToolResult, _progressMessages: unknown[], _options: { verbose: boolean }): unknown {
+  override renderToolResultMessage(
+    output: ToolResult,
+    _progressMessages: unknown[],
+    _options: { verbose: boolean }
+  ): unknown {
     if (!output.success) return `❌ Canvas failed: ${output.error}`;
     const data = output.data as CanvasResult | undefined;
     if (!data) return '✅ Canvas completed';

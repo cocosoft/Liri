@@ -87,7 +87,7 @@ export class PermissionWrapper {
 
       if (result.behavior !== 'allow') {
         const toolUseId =
-          (toolInput as Record<string, unknown>)['tool_use_id'] as string ||
+          ((toolInput as Record<string, unknown>)['tool_use_id'] as string) ||
           `denial_${Date.now()}_${this.denials.length}`;
 
         const record: PermissionDenialRecord = {

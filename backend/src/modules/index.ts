@@ -4,6 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { moduleInitializer } from './ModuleInitializer';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -34,12 +35,34 @@ export {
   checkModuleInitialization,
 } from './ModuleInitializer';
 
+// 导出按需加载方法（别名，方便使用）
+export const requestOnDemandModule = (moduleId: string) =>
+  moduleInitializer.requestOnDemandModule(moduleId);
+
+// 导出延迟加载策略
+export {
+  ModuleLoadPriority,
+  DynamicLoadMode,
+  DeferredLoader,
+  deferredLoader,
+  getEssentialModuleIds,
+  getDeferredModuleIds,
+  getOnDemandModuleIds,
+  getModulePriority,
+  getModuleLoadMode,
+  isModuleDeferred,
+  isModuleOnDemand,
+  requestModule,
+  hasDynamicImport,
+} from './LazyModuleStrategy';
+
 /**
  * 模块管理工具函数
  */
 
 /**
- * 快速初始化所有模块
+ * 快速初始化必需模块（CRITICAL 优先级）
+ * 延迟模块将在 T2 分发后异步加载
  */
 export async function quickInitialize(): Promise<void> {
   logger.info('快速初始化模块管理系统...');
@@ -50,8 +73,8 @@ export async function quickInitialize(): Promise<void> {
       .moduleInitializer;
     moduleInitializer.registerAllModules();
 
-    // 初始化所有模块
-    await moduleInitializer.initializeAllModules();
+    // 仅初始化必需模块，延迟模块在启动完成后异步加载
+    await moduleInitializer.initializeEssentialModules();
 
     logger.info('模块管理系统初始化完成');
   } catch (error) {

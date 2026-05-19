@@ -148,7 +148,11 @@ export class ContractSuiteRunner {
     const results: AssertionResult[] = filtered.map((a) => {
       try {
         const passed = a.validate(target);
-        return { assertion: a, passed, error: passed ? undefined : a.errorMessage };
+        return {
+          assertion: a,
+          passed,
+          error: passed ? undefined : a.errorMessage,
+        };
       } catch (e) {
         return {
           assertion: a,
@@ -256,7 +260,8 @@ export function createCategoryContractAssertions(): ContractAssertion[] {
         const result = validatePluginInterfaces('tool', ['IToolPlugin']);
         return result.valid && result.missing.length === 0;
       },
-      errorMessage: 'validatePluginInterfaces 未能接受包含 IToolPlugin 的接口集',
+      errorMessage:
+        'validatePluginInterfaces 未能接受包含 IToolPlugin 的接口集',
     },
     {
       name: 'IProviderPlugin-has-required-methods',
@@ -269,10 +274,12 @@ export function createCategoryContractAssertions(): ContractAssertion[] {
           getModels: () => [] as string[],
           healthCheck: () => Promise.resolve(true),
         });
-        return keys.includes('capability')
-          && keys.includes('providerName')
-          && keys.includes('getModels')
-          && keys.includes('healthCheck');
+        return (
+          keys.includes('capability') &&
+          keys.includes('providerName') &&
+          keys.includes('getModels') &&
+          keys.includes('healthCheck')
+        );
       },
       errorMessage: 'IProviderPlugin 结构不完整',
     },
@@ -287,10 +294,12 @@ export function createCategoryContractAssertions(): ContractAssertion[] {
           getSchema: () => ({}),
           execute: () => Promise.resolve({}),
         });
-        return keys.includes('capability')
-          && keys.includes('toolName')
-          && keys.includes('getSchema')
-          && keys.includes('execute');
+        return (
+          keys.includes('capability') &&
+          keys.includes('toolName') &&
+          keys.includes('getSchema') &&
+          keys.includes('execute')
+        );
       },
       errorMessage: 'IToolPlugin 结构不完整',
     },
@@ -307,12 +316,14 @@ export function createCategoryContractAssertions(): ContractAssertion[] {
           sendMessage: () => Promise.resolve(),
           onMessage: () => {},
         });
-        return keys.includes('capability')
-          && keys.includes('channelName')
-          && keys.includes('connect')
-          && keys.includes('disconnect')
-          && keys.includes('sendMessage')
-          && keys.includes('onMessage');
+        return (
+          keys.includes('capability') &&
+          keys.includes('channelName') &&
+          keys.includes('connect') &&
+          keys.includes('disconnect') &&
+          keys.includes('sendMessage') &&
+          keys.includes('onMessage')
+        );
       },
       errorMessage: 'IChannelPlugin 结构不完整',
     },

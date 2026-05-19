@@ -34,6 +34,49 @@ export class PluginManager {
   async getCommands(): Promise<any[]> {
     return [];
   }
+
+  /**
+   * 检查插件是否存在
+   */
+  hasPlugin(pluginId: string): boolean {
+    return delegatingManager.hasPlugin(pluginId);
+  }
+
+  /**
+   * 加载插件
+   */
+  async loadPlugin(pluginId: string): Promise<void> {
+    await delegatingManager.loadPlugin(pluginId);
+  }
+
+  /**
+   * 启用插件
+   */
+  enablePlugin(pluginId: string): void {
+    delegatingManager.enablePlugin(pluginId);
+  }
+
+  /**
+   * 重新加载插件（用于热加载）
+   * 停用后重新加载并激活
+   * @param pluginId 插件 ID
+   */
+  async reloadPlugin(pluginId: string): Promise<void> {
+    const exists = delegatingManager.hasPlugin(pluginId);
+    if (!exists) {
+      return;
+    }
+
+    if (delegatingManager.isPluginEnabled(pluginId)) {
+      delegatingManager.disablePlugin(pluginId);
+    }
+
+    delegatingManager.uninstallPlugin(pluginId);
+
+    await delegatingManager.loadPlugin(pluginId);
+
+    delegatingManager.enablePlugin(pluginId);
+  }
 }
 
 export const pluginManager = new PluginManager();

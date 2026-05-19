@@ -157,7 +157,9 @@ export class PluginValidator {
       return;
     }
 
-    if (!this.versionManager.isCompatible(this.engineVersion, manifest.engine)) {
+    if (
+      !this.versionManager.isCompatible(this.engineVersion, manifest.engine)
+    ) {
       errors.push({
         code: 'ENGINE_INCOMPATIBLE',
         message: `插件要求引擎版本 "${manifest.engine}"，当前版本为 ${this.engineVersion}`,
@@ -259,7 +261,10 @@ export class PluginValidator {
       'CC0-1.0',
     ];
 
-    if (!validLicenses.includes(manifest.license) && !manifest.license.startsWith('SEE LICENSE IN ')) {
+    if (
+      !validLicenses.includes(manifest.license) &&
+      !manifest.license.startsWith('SEE LICENSE IN ')
+    ) {
       warnings.push({
         code: 'UNKNOWN_LICENSE',
         message: `许可证 "${manifest.license}" 不在常用许可证列表中`,
@@ -276,7 +281,10 @@ export class PluginValidator {
   ): void {
     if (!manifest.configSchema) return;
 
-    if (typeof manifest.configSchema !== 'object' || manifest.configSchema === null) {
+    if (
+      typeof manifest.configSchema !== 'object' ||
+      manifest.configSchema === null
+    ) {
       errors.push({
         code: 'INVALID_CONFIG_SCHEMA',
         message: 'configSchema 必须是对象类型',
@@ -370,5 +378,4 @@ export class PluginValidator {
       }
     }
   }
-
 }

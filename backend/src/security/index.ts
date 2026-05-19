@@ -35,7 +35,10 @@ export {
   SecurityIntegrationService,
   securityIntegrationService,
 } from './SecurityIntegration';
-export { PermissionWrapper, createPermissionWrapper } from './PermissionWrapper';
+export {
+  PermissionWrapper,
+  createPermissionWrapper,
+} from './PermissionWrapper';
 export type {
   PermissionBehavior,
   PermissionCheckResult,

@@ -57,7 +57,13 @@ export function getToolUI(toolName: string): ToolUIRenderer | undefined {
  */
 export function getToolUIWithFallback(
   toolName: string,
-  tool?: { renderToolUseMessage?: Function; renderToolResultMessage?: Function; renderToolUseErrorMessage?: Function; renderToolUseProgressMessage?: Function; getToolUseSummary?: Function }
+  tool?: {
+    renderToolUseMessage?: Function;
+    renderToolResultMessage?: Function;
+    renderToolUseErrorMessage?: Function;
+    renderToolUseProgressMessage?: Function;
+    getToolUseSummary?: Function;
+  }
 ): ToolUIRenderer | undefined {
   const registered = registry.get(toolName.toLowerCase());
   if (registered) return registered;
@@ -66,19 +72,24 @@ export function getToolUIWithFallback(
 
   const fallback: ToolUIRenderer = {};
   if (typeof tool.renderToolUseMessage === 'function') {
-    fallback.renderToolUseMessage = tool.renderToolUseMessage as ToolUIRenderer['renderToolUseMessage'];
+    fallback.renderToolUseMessage =
+      tool.renderToolUseMessage as ToolUIRenderer['renderToolUseMessage'];
   }
   if (typeof tool.renderToolResultMessage === 'function') {
-    fallback.renderToolResultMessage = tool.renderToolResultMessage as ToolUIRenderer['renderToolResultMessage'];
+    fallback.renderToolResultMessage =
+      tool.renderToolResultMessage as ToolUIRenderer['renderToolResultMessage'];
   }
   if (typeof tool.renderToolUseErrorMessage === 'function') {
-    fallback.renderToolUseErrorMessage = tool.renderToolUseErrorMessage as ToolUIRenderer['renderToolUseErrorMessage'];
+    fallback.renderToolUseErrorMessage =
+      tool.renderToolUseErrorMessage as ToolUIRenderer['renderToolUseErrorMessage'];
   }
   if (typeof tool.renderToolUseProgressMessage === 'function') {
-    fallback.renderToolUseProgressMessage = tool.renderToolUseProgressMessage as ToolUIRenderer['renderToolUseProgressMessage'];
+    fallback.renderToolUseProgressMessage =
+      tool.renderToolUseProgressMessage as ToolUIRenderer['renderToolUseProgressMessage'];
   }
   if (typeof tool.getToolUseSummary === 'function') {
-    fallback.getToolUseSummary = tool.getToolUseSummary as ToolUIRenderer['getToolUseSummary'];
+    fallback.getToolUseSummary =
+      tool.getToolUseSummary as ToolUIRenderer['getToolUseSummary'];
   }
 
   return Object.keys(fallback).length > 0 ? fallback : undefined;
@@ -218,5 +229,21 @@ export function initDefaultToolUIRegistry(): void {
   try {
     const peersUI = require('../../tools/ListPeersTool/UI');
     registerToolUI('list_peers', peersUI);
+  } catch {}
+
+  try {
+    const clipboardUI = require('../../tools/ClipboardTool/UI');
+    registerToolUI('clipboard', clipboardUI);
+  } catch {}
+
+  try {
+    const imageUI = require('../../tools/ImageTool/UI');
+    registerToolUI('image', imageUI);
+  } catch {}
+
+  try {
+    const thinkingUI = require('../../tools/ThinkingTool/UI');
+    registerToolUI('thinking', thinkingUI);
+    registerToolUI('think', thinkingUI);
   } catch {}
 }

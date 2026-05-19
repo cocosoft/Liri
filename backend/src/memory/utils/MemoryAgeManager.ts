@@ -324,8 +324,9 @@ export class MemoryAgeManager {
    */
   private scheduleNextArchive(): void {
     const now = new Date();
-    const nextCheckTime = now.getTime() + this.autoArchiveConfig.checkIntervalMs;
-    
+    const nextCheckTime =
+      now.getTime() + this.autoArchiveConfig.checkIntervalMs;
+
     this.archiveTimer = setTimeout(() => {
       this.checkAndArchive();
     }, this.autoArchiveConfig.checkIntervalMs);
@@ -339,7 +340,7 @@ export class MemoryAgeManager {
   private async checkAndArchive(): Promise<void> {
     try {
       const now = new Date();
-      
+
       // 检查是否在归档时间窗口内（归档时间前后1小时）
       const archiveTime = new Date(now);
       archiveTime.setHours(this.autoArchiveConfig.archiveHour, 0, 0, 0);
@@ -410,7 +411,6 @@ export class MemoryAgeManager {
 
       // 调用归档后回调
       this.autoArchiveConfig.onAfterArchive?.(batch.length);
-
     } catch (error) {
       logger.error('自动归档执行失败', { error });
     } finally {
@@ -467,7 +467,7 @@ export class MemoryAgeManager {
     logger.info('手动触发记忆归档');
 
     const candidates = await this.findArchiveCandidates(memories);
-    
+
     if (candidates.length === 0) {
       return 0;
     }

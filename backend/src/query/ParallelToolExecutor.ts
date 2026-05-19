@@ -32,9 +32,11 @@ export interface ParallelToolResult {
 /**
  * 工具执行回调类型
  */
-export type ToolExecutorFn = (
-  toolCall: { id: string; name: string; arguments: Record<string, unknown> }
-) => Promise<string>;
+export type ToolExecutorFn = (toolCall: {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}) => Promise<string>;
 
 /**
  * 批量执行结果
@@ -121,8 +123,10 @@ export class ParallelToolExecutor {
         );
         allResults.push(...concurrentResults);
 
-        if (this.config.abortOnError &&
-            concurrentResults.some((r) => !r.success)) {
+        if (
+          this.config.abortOnError &&
+          concurrentResults.some((r) => !r.success)
+        ) {
           abort = true;
         }
       } else {
@@ -134,8 +138,7 @@ export class ParallelToolExecutor {
         );
         allResults.push(...serialResults);
 
-        if (this.config.abortOnError &&
-            serialResults.some((r) => !r.success)) {
+        if (this.config.abortOnError && serialResults.some((r) => !r.success)) {
           abort = true;
         }
       }
@@ -234,7 +237,12 @@ export class ParallelToolExecutor {
       if (this.config.timeoutMs > 0) {
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(
-            () => reject(new Error(`Tool execution timed out after ${this.config.timeoutMs}ms`)),
+            () =>
+              reject(
+                new Error(
+                  `Tool execution timed out after ${this.config.timeoutMs}ms`
+                )
+              ),
             this.config.timeoutMs
           )
         );
@@ -275,10 +283,7 @@ export class ParallelToolExecutor {
   /**
    * 生成错误结果
    */
-  private errorResult(
-    block: ToolUseBlock,
-    error: string
-  ): ParallelToolResult {
+  private errorResult(block: ToolUseBlock, error: string): ParallelToolResult {
     return {
       toolCallId: block.id,
       toolName: block.name,

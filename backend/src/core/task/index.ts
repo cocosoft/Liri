@@ -19,4 +19,7 @@ export {
 } from '../../task/index.js';
 
 export type { TaskCreateOptions, TaskUpdateOptions } from '../../task/index.js';
-export { TaskStatus as AppTaskStatus, TaskType as AppTaskType } from '../../task/index.js';
+export {
+  TaskStatus as AppTaskStatus,
+  TaskType as AppTaskType,
+} from '../../task/index.js';

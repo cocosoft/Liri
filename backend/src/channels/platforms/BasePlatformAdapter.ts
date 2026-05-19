@@ -192,7 +192,10 @@ export interface PlatformAdapterEvent {
   timestamp: number;
 }
 
-export abstract class BasePlatformAdapter extends EventEmitter implements IChannelPlugin {
+export abstract class BasePlatformAdapter
+  extends EventEmitter
+  implements IChannelPlugin
+{
   public readonly name: AdapterName;
   public readonly type: string = 'platform';
   public enabled: boolean;

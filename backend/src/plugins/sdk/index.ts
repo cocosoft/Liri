@@ -51,8 +51,16 @@ export { PluginValidator } from './PluginValidator';
 export type { PluginValidatorOptions } from './PluginValidator';
 
 // setup 层 - 版本管理
-export { PluginVersionManager, calculatePluginVersion, pluginVersionManager } from '../utils/pluginVersioning';
-export type { VersionInfo, UpdateCheckResult, VersionCompareResult } from '../utils/pluginVersioning';
+export {
+  PluginVersionManager,
+  calculatePluginVersion,
+  pluginVersionManager,
+} from '../utils/pluginVersioning';
+export type {
+  VersionInfo,
+  UpdateCheckResult,
+  VersionCompareResult,
+} from '../utils/pluginVersioning';
 
 // setup 层 - Schema
 export {
@@ -105,11 +113,20 @@ export type {
 } from '../hooks/PhaseHooks';
 
 // runtime 层 - 生命周期管理
-export { PluginLifecycleManager, pluginLifecycleManager } from '../lifecycle/PluginLifecycleManager';
-export type { PluginState, LifecycleConfig } from '../lifecycle/PluginLifecycleManager';
+export {
+  PluginLifecycleManager,
+  pluginLifecycleManager,
+} from '../lifecycle/PluginLifecycleManager';
+export type {
+  PluginState,
+  LifecycleConfig,
+} from '../lifecycle/PluginLifecycleManager';
 
 export { PluginLifecycleEvent } from '../core/PluginLifecycleManager';
-export type { LifecycleHook, LifecycleContext } from '../core/PluginLifecycleManager';
+export type {
+  LifecycleHook,
+  LifecycleContext,
+} from '../core/PluginLifecycleManager';
 
 // runtime 层 - PluginSDK
 export { PluginSDK, createPluginSDK } from '../../core/PluginSDK';

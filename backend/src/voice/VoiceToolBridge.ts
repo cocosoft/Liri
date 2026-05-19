@@ -15,10 +15,7 @@ interface ActiveToolCall {
 
 /** 工具执行器接口——由外部注入，降低对具体工具系统的耦合 */
 export interface ToolExecutorDelegate {
-  executeTool(
-    name: string,
-    input: Record<string, unknown>
-  ): Promise<string>;
+  executeTool(name: string, input: Record<string, unknown>): Promise<string>;
   getToolDeclarations(): VoiceToolDeclaration[];
 }
 

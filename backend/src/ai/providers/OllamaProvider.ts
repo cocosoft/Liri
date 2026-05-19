@@ -2,7 +2,11 @@
  * Ollama (Local) 提供商
  * Ollama /api/chat 格式
  */
-import type { ChatMessage, ChatResponse, ToolDefinition } from '../models/types';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ToolDefinition,
+} from '../models/types';
 import {
   type AIProvider,
   type ProviderConfig,
@@ -159,7 +163,9 @@ export class OllamaProvider implements AIProvider {
 
           try {
             const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-            const message = parsed.message as Record<string, unknown> | undefined;
+            const message = parsed.message as
+              | Record<string, unknown>
+              | undefined;
             const content = message?.content as string;
             if (content) {
               yield content;

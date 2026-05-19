@@ -306,7 +306,9 @@ export class CompactServiceImpl implements CompactService {
 
     const roundsToKeep = options?.isAutoCompact ? 2 : 3;
     const messagesCountToKeep = Math.min(roundsToKeep * 2, messages.length);
-    const messagesToKeep = messages.slice(-messagesCountToKeep).map((m) => m.id);
+    const messagesToKeep = messages
+      .slice(-messagesCountToKeep)
+      .map((m) => m.id);
 
     return {
       boundaryMarker,

@@ -147,13 +147,15 @@ export class ImageAnalysisTool extends BaseTool {
     {
       name: 'comparePath',
       type: 'string',
-      description: 'Path to the second image for comparison (required for compare action)',
+      description:
+        'Path to the second image for comparison (required for compare action)',
       required: false,
     },
     {
       name: 'samplePrecision',
       type: 'number',
-      description: 'Color sampling precision (1-10, higher is more accurate but slower, default 3)',
+      description:
+        'Color sampling precision (1-10, higher is more accurate but slower, default 3)',
       required: false,
       default: 3,
     },
@@ -168,7 +170,10 @@ export class ImageAnalysisTool extends BaseTool {
       }
 
       if (!fs.existsSync(params.inputPath)) {
-        return { success: false, error: `Input file not found: ${params.inputPath}` };
+        return {
+          success: false,
+          error: `Input file not found: ${params.inputPath}`,
+        };
       }
 
       const stat = fs.statSync(params.inputPath);
@@ -245,7 +250,8 @@ export class ImageAnalysisTool extends BaseTool {
       `Color Analysis for: ${params.inputPath}`,
       `Dominant Colors:`,
       ...colors.dominantColors.map(
-        (c) => `  ${c.hex} (${c.rgb.join(',')}) - ${(c.percentage * 100).toFixed(1)}%`
+        (c) =>
+          `  ${c.hex} (${c.rgb.join(',')}) - ${(c.percentage * 100).toFixed(1)}%`
       ),
       `Palette: ${colors.palette}`,
       `Tone: ${colors.isWarm ? 'Warm' : ''}${colors.isWarm && colors.isCool ? ' / ' : ''}${colors.isCool ? 'Cool' : ''}`,
@@ -295,11 +301,17 @@ export class ImageAnalysisTool extends BaseTool {
    */
   private handleCompare(params: ImageAnalysisInput): ToolResult {
     if (!params.comparePath) {
-      return { success: false, error: 'comparePath is required for compare action' };
+      return {
+        success: false,
+        error: 'comparePath is required for compare action',
+      };
     }
 
     if (!fs.existsSync(params.comparePath)) {
-      return { success: false, error: `Compare file not found: ${params.comparePath}` };
+      return {
+        success: false,
+        error: `Compare file not found: ${params.comparePath}`,
+      };
     }
 
     const metaA = this.extractMetadata(params.inputPath);
@@ -354,8 +366,12 @@ export class ImageAnalysisTool extends BaseTool {
       `File: ${metadata.filePath}`,
       `Size: ${(metadata.fileSize / 1024).toFixed(1)} KB`,
       `Format: ${metadata.format}`,
-      metadata.width ? `Dimensions: ${metadata.width} x ${metadata.height}` : '',
-      metadata.aspectRatio ? `Aspect Ratio: ${metadata.aspectRatio?.toFixed(3)}` : '',
+      metadata.width
+        ? `Dimensions: ${metadata.width} x ${metadata.height}`
+        : '',
+      metadata.aspectRatio
+        ? `Aspect Ratio: ${metadata.aspectRatio?.toFixed(3)}`
+        : '',
       '',
       '--- Color Analysis ---',
       ...colors.dominantColors.map(
@@ -386,10 +402,17 @@ export class ImageAnalysisTool extends BaseTool {
     const dims = processor.getDimensions(filePath);
 
     const formatMap: Record<string, string> = {
-      png: 'png', jpg: 'jpeg', jpeg: 'jpeg',
-      webp: 'webp', gif: 'gif', bmp: 'bmp',
-      svg: 'svg', tiff: 'tiff', tif: 'tiff',
-      ico: 'ico', avif: 'avif',
+      png: 'png',
+      jpg: 'jpeg',
+      jpeg: 'jpeg',
+      webp: 'webp',
+      gif: 'gif',
+      bmp: 'bmp',
+      svg: 'svg',
+      tiff: 'tiff',
+      tif: 'tiff',
+      ico: 'ico',
+      avif: 'avif',
     };
 
     const format = formatMap[ext] || ext;
@@ -421,7 +444,9 @@ export class ImageAnalysisTool extends BaseTool {
     const step = Math.max(4, Math.round(12 / precision));
     const colorBuckets = new Map<string, number>();
     let totalSampled = 0;
-    let totalR = 0, totalG = 0, totalB = 0;
+    let totalR = 0,
+      totalG = 0,
+      totalB = 0;
 
     for (let i = 0; i < buffer.length; i += step * 3) {
       if (i + 2 >= buffer.length) break;
@@ -466,14 +491,18 @@ export class ImageAnalysisTool extends BaseTool {
     const isWarm = avgR > avgB;
     const isCool = avgB > avgR;
     const brightness = (avgR + avgG + avgB) / (3 * 255);
-    const colorfulness = dominantColors.length > 1
-      ? Math.min(1, dominantColors.slice(0, 3).reduce((sum, c) => {
-          const [r, g, b] = c.rgb;
-          const rg = Math.abs(r - g);
-          const yb = Math.abs((r + g) / 2 - b);
-          return sum + Math.sqrt(rg * rg + yb * yb) / 255;
-        }, 0) / 3)
-      : 0;
+    const colorfulness =
+      dominantColors.length > 1
+        ? Math.min(
+            1,
+            dominantColors.slice(0, 3).reduce((sum, c) => {
+              const [r, g, b] = c.rgb;
+              const rg = Math.abs(r - g);
+              const yb = Math.abs((r + g) / 2 - b);
+              return sum + Math.sqrt(rg * rg + yb * yb) / 255;
+            }, 0) / 3
+          )
+        : 0;
 
     let palette = 'monochrome';
     if (dominantColors.length >= 3 && colorfulness > 0.3) {
@@ -527,9 +556,10 @@ export class ImageAnalysisTool extends BaseTool {
       else if (bytesPerArea > 3) contentDensity = 'dense';
     }
 
-    const sharpness = w > 0 && h > 0 && fileSize > 0
-      ? Math.min(1, Math.log2(fileSize / (w * h) + 1) / 5)
-      : 0.5;
+    const sharpness =
+      w > 0 && h > 0 && fileSize > 0
+        ? Math.min(1, Math.log2(fileSize / (w * h) + 1) / 5)
+        : 0.5;
 
     return {
       sizeCategory,
@@ -544,8 +574,12 @@ export class ImageAnalysisTool extends BaseTool {
   /**
    * 图片对比分析
    */
-  private compareImages(metaA: ImageMetadata, metaB: ImageMetadata): CompareAnalysis {
-    const sameDimensions = metaA.width === metaB.width && metaA.height === metaB.height;
+  private compareImages(
+    metaA: ImageMetadata,
+    metaB: ImageMetadata
+  ): CompareAnalysis {
+    const sameDimensions =
+      metaA.width === metaB.width && metaA.height === metaB.height;
     const sameFormat = metaA.format === metaB.format;
     const sizeRatio = metaB.fileSize > 0 ? metaA.fileSize / metaB.fileSize : 0;
 
@@ -560,9 +594,11 @@ export class ImageAnalysisTool extends BaseTool {
       dimensionDiff = 'Dimensions unknown for one or both images';
     }
 
-    const aspectRatioDiff = metaA.aspectRatio && metaB.aspectRatio
-      ? Math.abs(metaA.aspectRatio - metaB.aspectRatio) / Math.max(metaA.aspectRatio, metaB.aspectRatio)
-      : 0;
+    const aspectRatioDiff =
+      metaA.aspectRatio && metaB.aspectRatio
+        ? Math.abs(metaA.aspectRatio - metaB.aspectRatio) /
+          Math.max(metaA.aspectRatio, metaB.aspectRatio)
+        : 0;
 
     return {
       sameDimensions,

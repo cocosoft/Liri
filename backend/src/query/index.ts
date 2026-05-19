@@ -97,7 +97,12 @@ export {
   createQueryDepsManager,
 } from './deps.js';
 export type { QueryDependencies } from './deps.js';
-export { TAORLoop, createTAORLoop, TAORPhase, MemoryCheckpointStorage } from './TAORLoop.js';
+export {
+  TAORLoop,
+  createTAORLoop,
+  TAORPhase,
+  MemoryCheckpointStorage,
+} from './TAORLoop.js';
 export {
   ParallelToolExecutor,
   createParallelToolExecutor,

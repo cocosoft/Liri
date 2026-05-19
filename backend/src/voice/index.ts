@@ -5,7 +5,12 @@ export type { ToolExecutorDelegate } from './VoiceToolBridge';
 export { VoiceSession } from './VoiceSession';
 export { GeminiLiveAdapter } from './GeminiLiveAdapter';
 export { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
-export { PCMAudioBuffer, AudioProcessor, AUDIO_FORMAT, DEFAULT_CHUNK_SIZE_BYTES } from './AudioPipeline';
+export {
+  PCMAudioBuffer,
+  AudioProcessor,
+  AUDIO_FORMAT,
+  DEFAULT_CHUNK_SIZE_BYTES,
+} from './AudioPipeline';
 export type { AudioBufferStats, AudioChunk } from './AudioPipeline';
 export {
   handleVoiceUpgrade,
@@ -14,6 +19,15 @@ export {
   getActiveVoiceSessionCount,
   closeAllVoiceSessions,
 } from './VoiceGatewayBridge';
+
+export {
+  loadVoiceWakeConfig,
+  setVoiceWakeTriggers,
+  detectWakeWord,
+  defaultVoiceWakeTriggers,
+  sanitizeTriggers,
+} from './VoiceWakeManager';
+export type { VoiceWakeConfig, WakeDetectionResult } from './VoiceWakeManager';
 
 export type {
   VoiceClientEvent,

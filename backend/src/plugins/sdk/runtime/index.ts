@@ -43,8 +43,14 @@ export type {
 } from '../../hooks/PhaseHooks';
 
 // 生命周期管理（状态机风格）
-export { PluginLifecycleManager, pluginLifecycleManager } from '../../lifecycle/PluginLifecycleManager';
-export type { PluginState, LifecycleConfig } from '../../lifecycle/PluginLifecycleManager';
+export {
+  PluginLifecycleManager,
+  pluginLifecycleManager,
+} from '../../lifecycle/PluginLifecycleManager';
+export type {
+  PluginState,
+  LifecycleConfig,
+} from '../../lifecycle/PluginLifecycleManager';
 
 // 生命周期事件类型（EventEmitter 风格）
 export { PluginLifecycleEvent } from '../../core/PluginLifecycleManager';

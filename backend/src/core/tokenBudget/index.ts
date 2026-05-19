@@ -18,7 +18,4 @@ export {
   modelContextCache,
   applyDiscoveredContextWindows,
 } from './ModelContextCache';
-export type {
-  ModelContextInfo,
-  DiscoveryResult,
-} from './ModelContextCache';
+export type { ModelContextInfo, DiscoveryResult } from './ModelContextCache';

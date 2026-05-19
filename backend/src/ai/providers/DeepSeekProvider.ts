@@ -43,9 +43,7 @@ export class DeepSeekProvider implements AIProvider {
       DEFAULT_BASE_URL
     ).replace(/\/+$/, '');
     this.defaultModel = (config.model as string) || DEFAULT_MODEL;
-    this.adapter = new TransportProviderAdapter(
-      new ChatCompletionsTransport()
-    );
+    this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
   }
 
   setToolRegistry(registry: unknown): void {

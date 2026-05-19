@@ -175,7 +175,10 @@ export class AudioProcessor {
    * @param chunkSizeMs 分片时长（毫秒），默认 20ms
    * @returns 分片数量
    */
-  static estimateChunkCount(durationMs: number, chunkSizeMs: number = 20): number {
+  static estimateChunkCount(
+    durationMs: number,
+    chunkSizeMs: number = 20
+  ): number {
     return Math.ceil(durationMs / chunkSizeMs);
   }
 }

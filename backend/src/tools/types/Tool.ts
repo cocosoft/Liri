@@ -331,10 +331,7 @@ export interface Tool<
   /**
    * 渲染工具使用消息
    */
-  renderToolUseMessage?(
-    input: Input,
-    options: { verbose: boolean }
-  ): unknown;
+  renderToolUseMessage?(input: Input, options: { verbose: boolean }): unknown;
 
   /**
    * 渲染工具执行结果消息

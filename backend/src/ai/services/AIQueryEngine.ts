@@ -4,7 +4,11 @@
  * 核心查询逻辑，与工具执行器解耦
  */
 
-import type { ChatMessage, ChatResponse, ParsedToolCall } from '@modules/ai/models/types';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ParsedToolCall,
+} from '@modules/ai/models/types';
 import type { AIProvider } from '@modules/ai/providers';
 import type { ChatOptions } from '@modules/ai/providers';
 import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
@@ -155,7 +159,8 @@ export class AIQueryEngine {
       this.currentTurn++;
 
       let fullContent = '';
-      const rawToolCalls: Array<{ id: string; name: string; input?: unknown }> = [];
+      const rawToolCalls: Array<{ id: string; name: string; input?: unknown }> =
+        [];
 
       try {
         for await (const event of (
@@ -171,13 +176,14 @@ export class AIQueryEngine {
           }
         }
 
-        const toolCalls: ParsedToolCall[] | undefined = rawToolCalls.length > 0
-          ? rawToolCalls.map(tc => ({
-              id: tc.id,
-              name: tc.name,
-              arguments: (tc.input as Record<string, unknown>) || {},
-            }))
-          : undefined;
+        const toolCalls: ParsedToolCall[] | undefined =
+          rawToolCalls.length > 0
+            ? rawToolCalls.map((tc) => ({
+                id: tc.id,
+                name: tc.name,
+                arguments: (tc.input as Record<string, unknown>) || {},
+              }))
+            : undefined;
 
         const response: ChatResponse = {
           content: fullContent,
@@ -207,7 +213,7 @@ export class AIQueryEngine {
             allMessages: accumulatedMessages,
             turns: this.currentTurn,
             finishReason: 'tool_use',
-            toolCalls: response.tool_calls.map(tc => ({
+            toolCalls: response.tool_calls.map((tc) => ({
               id: tc.id,
               name: tc.name,
               input: tc.arguments,
@@ -282,9 +288,7 @@ export class AIQueryEngine {
   /**
    * 创建助手消息
    */
-  private createAssistantMessage(
-    response: ChatResponse
-  ): ChatMessage {
+  private createAssistantMessage(response: ChatResponse): ChatMessage {
     const message: ChatMessage = {
       role: 'assistant',
       content: '',

@@ -45,7 +45,10 @@ export {
 
 // transports/ — 统一传输抽象层（对标 Hermes ProviderTransport）
 export { BaseTransport } from './transports/BaseTransport';
-export { TransportRegistry, transportRegistry } from './transports/TransportRegistry';
+export {
+  TransportRegistry,
+  transportRegistry,
+} from './transports/TransportRegistry';
 export { AnthropicMessagesTransport } from './transports/AnthropicMessagesTransport';
 export { ChatCompletionsTransport } from './transports/ChatCompletionsTransport';
 export { GeminiTransport } from './transports/GeminiTransport';

@@ -198,6 +198,15 @@ export class Logger {
   }
 
   /**
+   * 警告日志（别名）
+   * @param message 日志消息
+   * @param meta 元数据
+   */
+  warn(message: string, meta?: any): void {
+    this.warning(message, meta);
+  }
+
+  /**
    * 警告日志
    * @param message 日志消息
    * @param meta 元数据

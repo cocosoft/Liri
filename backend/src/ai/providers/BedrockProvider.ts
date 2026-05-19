@@ -4,7 +4,11 @@
  * 使用 AWS SigV4 签名 + fetch API 调用 Bedrock 端点
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import type { ChatMessage, ChatResponse, ToolDefinition } from '../models/types';
+import type {
+  ChatMessage,
+  ChatResponse,
+  ToolDefinition,
+} from '../models/types';
 import type {
   AIProvider,
   ProviderConfig,

@@ -35,9 +35,7 @@ export class OpenAIProvider implements AIProvider {
   constructor(config: ProviderConfig) {
     this.apiKey = config.apiKey || process.env.OPENAI_API_KEY || '';
     this.baseUrl = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
-    this.adapter = new TransportProviderAdapter(
-      new ChatCompletionsTransport()
-    );
+    this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
   }
 
   async chat(

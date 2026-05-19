@@ -24,9 +24,7 @@ export class AzureOpenAIProvider implements AIProvider {
       apiVersion: '2024-02-15-preview',
       ...config,
     };
-    this.adapter = new TransportProviderAdapter(
-      new ChatCompletionsTransport()
-    );
+    this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
   }
 
   async chat(

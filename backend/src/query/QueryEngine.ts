@@ -495,7 +495,8 @@ export class QueryEngine {
       // 注入相关记忆（如果已配置记忆集成）
       let finalPrompt = processed || cleanPrompt;
       if (this.memoryIntegration) {
-        finalPrompt = await this.memoryIntegration.injectMemoriesToContext(finalPrompt);
+        finalPrompt =
+          await this.memoryIntegration.injectMemoriesToContext(finalPrompt);
       }
 
       // 执行查询

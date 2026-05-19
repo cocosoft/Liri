@@ -18,8 +18,7 @@ export class Glm45Parser extends BaseParser {
 
   readonly modelPatterns = ['glm-4', 'glm4', 'chatglm', 'glm-4.5'];
 
-  private static readonly FUNC_CALL_REGEX =
-    /<tool_call>.*?<\/tool_call>/gs;
+  private static readonly FUNC_CALL_REGEX = /<tool_call>.*?<\/tool_call>/gs;
 
   private static readonly FUNC_DETAIL_REGEX =
     /<tool_call>([^\n]*)\n(.*)<\/tool_call>/s;

@@ -123,11 +123,7 @@ export class AnthropicMessagesTransport extends BaseTransport {
 
     let systemContent: unknown = params.systemPrompt || '';
 
-    if (
-      useCache &&
-      shouldPlaceSystemBreakpoint(breakpoints) &&
-      systemContent
-    ) {
+    if (useCache && shouldPlaceSystemBreakpoint(breakpoints) && systemContent) {
       systemContent = [
         {
           type: 'text',
@@ -177,8 +173,7 @@ export class AnthropicMessagesTransport extends BaseTransport {
         inputTokens: raw.usage?.input_tokens ?? 0,
         outputTokens: raw.usage?.output_tokens ?? 0,
         cacheReadTokens: raw.usage?.cache_read_input_tokens ?? 0,
-        cacheCreationTokens:
-          raw.usage?.cache_creation_input_tokens ?? 0,
+        cacheCreationTokens: raw.usage?.cache_creation_input_tokens ?? 0,
         totalTokens:
           (raw.usage?.input_tokens ?? 0) + (raw.usage?.output_tokens ?? 0),
       },
@@ -197,8 +192,7 @@ export class AnthropicMessagesTransport extends BaseTransport {
       inputTokens: raw.usage.input_tokens ?? 0,
       outputTokens: raw.usage.output_tokens ?? 0,
       cacheReadTokens: raw.usage.cache_read_input_tokens ?? 0,
-      cacheCreationTokens:
-        raw.usage.cache_creation_input_tokens ?? 0,
+      cacheCreationTokens: raw.usage.cache_creation_input_tokens ?? 0,
       totalTokens:
         (raw.usage.input_tokens ?? 0) + (raw.usage.output_tokens ?? 0),
     };

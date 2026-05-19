@@ -219,11 +219,9 @@ export class VoiceSession {
       const toolDelegate: ToolExecutorDelegate = {
         executeTool: async (name, input) => {
           try {
-            const result = await globalToolManager.executeTool(
-              name,
-              input,
-              { sessionId: this.id }
-            );
+            const result = await globalToolManager.executeTool(name, input, {
+              sessionId: this.id,
+            });
             return JSON.stringify(result);
           } catch (err) {
             return JSON.stringify({
@@ -237,10 +235,13 @@ export class VoiceSession {
             description: t.description,
             parameters: {
               type: 'object',
-              properties: t.params.reduce((acc, p) => {
-                acc[p.name] = { type: p.type, description: p.description };
-                return acc;
-              }, {} as Record<string, unknown>),
+              properties: t.params.reduce(
+                (acc, p) => {
+                  acc[p.name] = { type: p.type, description: p.description };
+                  return acc;
+                },
+                {} as Record<string, unknown>
+              ),
             },
           }));
         },
@@ -267,9 +268,13 @@ export class VoiceSession {
       };
 
       // 连接适配器
-      await this.adapter.connect(config, (event: VoiceServerEvent) => {
-        this.handleProviderEvent(event);
-      }, toolOptions);
+      await this.adapter.connect(
+        config,
+        (event: VoiceServerEvent) => {
+          this.handleProviderEvent(event);
+        },
+        toolOptions
+      );
 
       this.setState('connected');
       this.startTimeoutTimer();
@@ -456,9 +461,7 @@ export class VoiceSession {
     const key = process.env[envKey] || process.env[`${provider}_API_KEY`] || '';
 
     if (!key) {
-      throw new Error(
-        `未设置 ${provider} API Key，请设置环境变量 ${envKey}`
-      );
+      throw new Error(`未设置 ${provider} API Key，请设置环境变量 ${envKey}`);
     }
 
     return key;

@@ -50,7 +50,9 @@ export abstract class BaseTransport {
    * @param params 标准化请求参数
    * @returns 提供商 SDK 可直接使用的参数对象
    */
-  abstract buildRequest(params: TransportRequestParams): Record<string, unknown>;
+  abstract buildRequest(
+    params: TransportRequestParams
+  ): Record<string, unknown>;
 
   /**
    * 归一化提供商原始响应

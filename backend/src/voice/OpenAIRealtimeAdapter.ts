@@ -162,12 +162,14 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
     };
 
     if (this.tools.length > 0) {
-      (update.session as Record<string, unknown>).tools = this.tools.map((t) => ({
-        type: 'function',
-        name: t.name,
-        description: t.description,
-        parameters: t.parameters,
-      }));
+      (update.session as Record<string, unknown>).tools = this.tools.map(
+        (t) => ({
+          type: 'function',
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters,
+        })
+      );
       (update.session as Record<string, unknown>).tool_choice = 'auto';
     }
 
@@ -267,7 +269,10 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
       case OA_EVENT.RESPONSE_FUNCTION_CALL_DONE: {
         const callId = parsed.call_id as string;
         const funcName = parsed.name as string;
-        const fullArgs = this.pendingToolCallArgs.get(callId) ?? (parsed.arguments as string) ?? '{}';
+        const fullArgs =
+          this.pendingToolCallArgs.get(callId) ??
+          (parsed.arguments as string) ??
+          '{}';
         this.pendingToolCallArgs.delete(callId);
 
         if (callId && funcName) {
@@ -288,7 +293,7 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
         break;
 
       case OA_EVENT.ERROR: {
-        const errBody = parsed.error as Record<string, unknown> ?? {};
+        const errBody = (parsed.error as Record<string, unknown>) ?? {};
         this.sendToClient?.({
           type: 'error',
           code: 'PROVIDER_ERROR',
@@ -305,18 +310,22 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
   sendAudio(base64Data: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    this.ws.send(JSON.stringify({
-      type: OA_EVENT.INPUT_AUDIO_APPEND,
-      audio: base64Data,
-    }));
+    this.ws.send(
+      JSON.stringify({
+        type: OA_EVENT.INPUT_AUDIO_APPEND,
+        audio: base64Data,
+      })
+    );
   }
 
   commitAudio(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    this.ws.send(JSON.stringify({
-      type: OA_EVENT.INPUT_AUDIO_COMMIT,
-    }));
+    this.ws.send(
+      JSON.stringify({
+        type: OA_EVENT.INPUT_AUDIO_COMMIT,
+      })
+    );
   }
 
   sendFrame(_data: string, _mimeType?: string): void {
@@ -326,17 +335,21 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
   createResponse(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    this.ws.send(JSON.stringify({
-      type: OA_EVENT.RESPONSE_CREATE,
-    }));
+    this.ws.send(
+      JSON.stringify({
+        type: OA_EVENT.RESPONSE_CREATE,
+      })
+    );
   }
 
   cancelResponse(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    this.ws.send(JSON.stringify({
-      type: OA_EVENT.RESPONSE_CANCEL,
-    }));
+    this.ws.send(
+      JSON.stringify({
+        type: OA_EVENT.RESPONSE_CANCEL,
+      })
+    );
   }
 
   beginAsyncToolCall(_callId: string): void {
@@ -350,14 +363,16 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
   sendToolResult(callId: string, output: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    this.ws.send(JSON.stringify({
-      type: OA_EVENT.CONVERSATION_ITEM_CREATE,
-      item: {
-        type: 'function_call_output',
-        call_id: callId,
-        output,
-      },
-    }));
+    this.ws.send(
+      JSON.stringify({
+        type: OA_EVENT.CONVERSATION_ITEM_CREATE,
+        item: {
+          type: 'function_call_output',
+          call_id: callId,
+          output,
+        },
+      })
+    );
 
     this.createResponse();
   }
@@ -365,14 +380,16 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
   injectContext(text: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    this.ws.send(JSON.stringify({
-      type: OA_EVENT.CONVERSATION_ITEM_CREATE,
-      item: {
-        type: 'message',
-        role: 'user',
-        content: [{ type: 'input_text', text }],
-      },
-    }));
+    this.ws.send(
+      JSON.stringify({
+        type: OA_EVENT.CONVERSATION_ITEM_CREATE,
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [{ type: 'input_text', text }],
+        },
+      })
+    );
   }
 
   getTranscript(): Array<{ role: 'user' | 'assistant'; text: string }> {

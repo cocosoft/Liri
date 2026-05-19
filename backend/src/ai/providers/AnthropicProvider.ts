@@ -1,9 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type {
-  ChatMessage,
-  ChatResponse,
-  LLMConfig,
-} from '../models/types';
+import type { ChatMessage, ChatResponse, LLMConfig } from '../models/types';
 import type { ThinkingConfig } from '../clients/thinking';
 import type {
   AIProvider,

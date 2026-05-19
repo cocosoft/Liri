@@ -1,1 +1,0 @@
-export { wecomChannel } from './WeComChannel';

@@ -57,6 +57,20 @@ export class PluginManager {
   }
 
   /**
+   * 停用插件
+   */
+  disablePlugin(pluginId: string): void {
+    delegatingManager.disablePlugin(pluginId);
+  }
+
+  /**
+   * 卸载插件
+   */
+  uninstallPlugin(pluginId: string): void {
+    delegatingManager.uninstallPlugin(pluginId);
+  }
+
+  /**
    * 重新加载插件（用于热加载）
    * 停用后重新加载并激活
    * @param pluginId 插件 ID

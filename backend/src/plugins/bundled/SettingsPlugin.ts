@@ -3,11 +3,15 @@
  * 提供系统设置管理功能
  */
 
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
+const SETTINGS_FILE = join(homedir(), '.pyapp', 'settings.json');
 
 export interface SettingsConfig {
   theme: 'light' | 'dark' | 'system';
@@ -119,8 +123,8 @@ export class SettingsPlugin implements Plugin {
 
   private loadSettings(): void {
     try {
-      const saved = localStorage.getItem('pyapp-settings');
-      if (saved) {
+      if (existsSync(SETTINGS_FILE)) {
+        const saved = readFileSync(SETTINGS_FILE, 'utf-8');
         const parsed = JSON.parse(saved);
         this.settings = { ...this.settings, ...parsed };
       }
@@ -131,7 +135,15 @@ export class SettingsPlugin implements Plugin {
 
   private saveSettings(): void {
     try {
-      localStorage.setItem('pyapp-settings', JSON.stringify(this.settings));
+      const dir = join(homedir(), '.pyapp');
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      writeFileSync(
+        SETTINGS_FILE,
+        JSON.stringify(this.settings, null, 2),
+        'utf-8'
+      );
     } catch {
       // 保存失败，忽略
     }

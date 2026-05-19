@@ -16,3 +16,4 @@ PY_APP 的插件系统允许开发者扩展应用功能。
 | [插件市场](marketplace.md) | 插件发布与安装 |
 | [内置插件](bundled-plugins.md) | 系统内置插件列表 |
 | [API 参考](api-reference.md) | 插件 API 详细参考 |
+| [插件评审](review-process.md) | 插件评审标准与流程 |

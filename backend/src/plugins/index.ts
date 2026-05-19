@@ -11,7 +11,18 @@ import PluginDependencyManager from './management/PluginDependencyManager';
 import PluginConfigManager from './management/PluginConfigManager';
 import { join } from 'path';
 import PluginEventSystem from './core/PluginEventSystem';
+import {
+  KernelServiceRegistry,
+  KernelServiceId,
+  getKernelServiceRegistry,
+  createPluginAPI,
+} from './api/index.js';
+import type { IPluginAPI } from './api/index.js';
+import { getHotloadManager } from './hotload/PluginHotloadManager';
+import { BundledPluginManager } from './bundled/BundledPluginManager';
+import { RegistrationStub } from './stub/RegistrationStub';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import {
   PluginState,
   PluginType,
@@ -40,6 +51,7 @@ export class PluginSystem {
   private _dependencyManager: PluginDependencyManager | null = null;
   private _configManager: PluginConfigManager | null = null;
   private _eventSystem: PluginEventSystem | null = null;
+  private _kernelRegistry: KernelServiceRegistry | null = null;
 
   private _pluginsDiscovered = false;
   private _pluginsLoaded = false;
@@ -166,6 +178,7 @@ export class PluginSystem {
   /**
    * 初始化插件系统
    * 轻量级操作，仅标记初始化状态，不加载任何插件代码
+   * 注册所有内核子系统到 KernelServiceRegistry
    */
   async initialize(): Promise<void> {
     if (this._isInitialized) {
@@ -174,7 +187,58 @@ export class PluginSystem {
 
     this._isInitialized = true;
 
+    // 初始化内核服务注册表，注册所有子系统
+    this._kernelRegistry = getKernelServiceRegistry();
+    this._kernelRegistry.register(KernelServiceId.PLUGIN_LOADER, this.loader);
+    this._kernelRegistry.register(
+      KernelServiceId.PLUGIN_REGISTRY,
+      this.registry
+    );
+    this._kernelRegistry.register(
+      KernelServiceId.LIFECYCLE_MANAGER,
+      this.lifecycleManager
+    );
+    this._kernelRegistry.register(
+      KernelServiceId.DEPENDENCY_MANAGER,
+      this.dependencyManager
+    );
+    this._kernelRegistry.register(
+      KernelServiceId.CONFIG_MANAGER,
+      this.configManager
+    );
+    this._kernelRegistry.register(
+      KernelServiceId.EVENT_SYSTEM,
+      this.eventSystem
+    );
+
+    // 配置核心 PluginRegistry 回退加载器（§5 向后兼容性保障 — 措施3）
+    // 当 getPlugin() 在注册表中查找失败时，自动从内置插件列表回退加载
+    const bundledManager = new BundledPluginManager();
+    const bundledMeta = bundledManager.scan();
+    this.registry.setFallback((pluginId: string) => {
+      const match = bundledMeta.find((p) => p.name === pluginId);
+      if (!match) return undefined;
+
+      return {
+        id: pluginId,
+        name: match.name,
+        version: match.version,
+        path: match.entryPoint,
+        state: PluginState.LOADED,
+        registeredAt: new Date(),
+        enabled: match.enabled,
+        dependencies: [],
+        dependents: [],
+      };
+    });
+
     logger.info('插件系统已就绪（延迟加载模式）');
+    logger.info('内核服务注册完成', {
+      services: this._kernelRegistry.getRegisteredServices().length,
+    });
+    logger.info('内置插件回退加载器已配置', {
+      bundledPlugins: bundledMeta.length,
+    });
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -208,6 +272,21 @@ export class PluginSystem {
         type: PluginType.TOOL,
       };
       this.dependencyManager.addPlugin(metadata);
+
+      // 授予插件对受控内核服务和API的访问权限
+      if (this._kernelRegistry) {
+        this._kernelRegistry.grantAccess(plugin.id, [
+          KernelServiceId.PLUGIN_LOADER,
+          KernelServiceId.PLUGIN_REGISTRY,
+          KernelServiceId.LIFECYCLE_MANAGER,
+          KernelServiceId.EVENT_SYSTEM,
+          KernelServiceId.CONFIG_MANAGER,
+          KernelServiceId.COMMAND_API,
+          KernelServiceId.TOOL_API,
+          KernelServiceId.SETTINGS_API,
+          KernelServiceId.RESOURCE_API,
+        ]);
+      }
 
       logger.info(`✅ Plugin registered: ${plugin.id}`);
     } catch (error) {
@@ -265,6 +344,102 @@ export class PluginSystem {
     await this.ensurePluginsLoaded();
 
     await this.lifecycleManager.restartPlugin(pluginId);
+  }
+
+  /**
+   * 热加载插件：通过 PluginHotloadManager 执行优雅卸载 → 加载流程
+   * 支持依赖图感知的卸载顺序和激活上下文持久化
+   * @param pluginId 插件 ID
+   */
+  async hotloadPlugin(pluginId: string): Promise<boolean> {
+    await this.ensureInitialized();
+
+    const hotloadManager = getHotloadManager();
+
+    try {
+      await hotloadManager.gracefulUnload(pluginId);
+
+      const result = await this.loadPlugin(pluginId);
+
+      if (result.success) {
+        logger.info(`✅ Plugin hotloaded: ${pluginId}`);
+        return true;
+      }
+
+      logger.warning(`Hotload load failed: ${pluginId}`);
+      return false;
+    } catch (error) {
+      logger.error(`Hotload failed: ${pluginId}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 重载插件：使用 PluginHotloadManager 的依赖感知重载流程
+   * 先卸载所有依赖方，重载目标插件，再按逆序重新加载
+   * @param pluginId 插件 ID
+   */
+  async reloadPlugin(pluginId: string): Promise<boolean> {
+    await this.ensureInitialized();
+
+    const hotloadManager = getHotloadManager();
+
+    try {
+      await hotloadManager.reloadPluginWithDeps(pluginId);
+      logger.info(`✅ Plugin reloaded: ${pluginId}`);
+      return true;
+    } catch (error) {
+      logger.error(`Reload failed: ${pluginId}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 手动触发插件热部署
+   * 通过 PluginHotloadManager 执行依赖感知的完整重载流程
+   * @param pluginId 插件 ID
+   */
+  async triggerHotload(pluginId: string): Promise<boolean> {
+    await this.ensureInitialized();
+
+    const hotloadManager = getHotloadManager();
+
+    return hotloadManager.triggerHotload(pluginId);
+  }
+
+  /**
+   * 批量手动触发热部署
+   * @param pluginIds 插件 ID 列表
+   */
+  async triggerBatchHotload(pluginIds: string[]): Promise<{
+    succeeded: string[];
+    failed: { name: string; error: string }[];
+  }> {
+    await this.ensureInitialized();
+
+    const hotloadManager = getHotloadManager();
+
+    return hotloadManager.triggerBatchHotload(pluginIds);
+  }
+
+  /**
+   * 获取热部署历史记录
+   */
+  getHotloadHistory(
+    limit = 0
+  ): import('./hotload/PluginHotloadManager').HotloadRecord[] {
+    return getHotloadManager().getHotloadHistory(limit);
+  }
+
+  /**
+   * 清除热部署历史记录
+   */
+  clearHotloadHistory(): void {
+    getHotloadManager().clearHotloadHistory();
   }
 
   async startAllPlugins(): Promise<void> {
@@ -381,6 +556,8 @@ export class PluginSystem {
         this.eventSystem.destroy();
       }
 
+      this._kernelRegistry?.clear();
+      this._kernelRegistry = null;
       this._loader = null;
       this._registry = null;
       this._lifecycleManager = null;
@@ -420,6 +597,32 @@ export class PluginSystem {
 
   getEventSystem(): PluginEventSystem {
     return this.eventSystem;
+  }
+
+  /**
+   * 获取内核服务注册表
+   * @returns 内核服务注册表实例
+   */
+  getKernelRegistry(): KernelServiceRegistry | null {
+    return this._kernelRegistry;
+  }
+
+  /**
+   * 为指定插件创建受控的 PluginAPI 实例
+   * @param pluginId 插件 ID
+   * @returns IPluginAPI 实例，通过 KernelServiceRegistry 访问内核服务
+   */
+  createPluginAPI(pluginId: string): IPluginAPI {
+    if (!this._kernelRegistry) {
+      throw new AppError(
+        'PluginSystem not initialized',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'PLUGIN_SYSTEM_NOT_INITIALIZED'
+      );
+    }
+    // 将内核事件系统注入到 PluginAPI 中，使 events API 连接到全局事件系统
+    return createPluginAPI(pluginId, this._kernelRegistry, this._eventSystem!);
   }
 }
 

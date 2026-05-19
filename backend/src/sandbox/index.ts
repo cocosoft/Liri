@@ -43,6 +43,46 @@ export type {
 } from './SandboxPruner';
 export { ProcessRegistry, processRegistry } from './ProcessRegistry';
 export type { ProcessInfo, ProcessQuery } from './ProcessRegistry';
+
+// Worker Threads 沙箱（进程级隔离）
+export { WorkerSandbox } from './WorkerSandbox';
+export type { WorkerSandboxConfig } from './WorkerSandbox';
+
+// 资源限制管理器（per-plugin CPU/内存/并发控制）
+export {
+  ResourceLimitManager,
+  resourceLimitManager,
+} from './ResourceLimitManager';
+export type {
+  PluginResourceLimits,
+  PluginResourceUsage,
+  ExecutionContext,
+} from './ResourceLimitManager';
+
+// 插件健康监控器（心跳检测 + 崩溃恢复）
+export { PluginHealthMonitor, PluginHealthStatus } from './PluginHealthMonitor';
+export type {
+  HeartbeatRecord,
+  CrashEvent,
+  RecoveryStrategy,
+  RecoveryHandler,
+  PluginHealthMonitorConfig,
+} from './PluginHealthMonitor';
+
+// 文件系统与网络隔离管理器
+export {
+  IsolationManager,
+  isolationManager,
+  FileOperation,
+  NetworkOperation,
+} from './IsolationManager';
+export type {
+  PathAccessRule,
+  NetworkAccessRule,
+  IsolationPolicy,
+  PathAccessResult,
+  NetworkAccessResult,
+} from './IsolationManager';
 export {
   createSandboxPolicy,
   isToolAllowed,

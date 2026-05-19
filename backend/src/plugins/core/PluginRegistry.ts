@@ -1,6 +1,7 @@
 /**
  * 插件注册器（基于CC源码实现）
  * 负责插件的注册、注销、查询和依赖管理
+ * 支持回退加载机制（§5 向后兼容性保障 — 措施3）
  */
 
 import { EventEmitter } from 'events';
@@ -17,11 +18,20 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
+ * 回退加载器类型
+ * 当 getPlugin() 直接查找失败时，回调此函数尝试从其他来源加载并生成注册信息
+ */
+export type FallbackPluginLoader = (
+  pluginId: string
+) => PluginRegistration | undefined;
+
+/**
  * 插件注册器（基于CC源码）
  */
 export class PluginRegistry extends EventEmitter {
   private registry: Map<string, PluginRegistration> = new Map();
   private dependencyGraph: Map<string, Set<string>> = new Map();
+  private fallbackLoader: FallbackPluginLoader | null = null;
 
   /**
    * 注册插件（基于CC源码）
@@ -93,10 +103,39 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
+   * 设置回退加载器（§5 措施3）
+   * 当 getPlugin() 直接查找失败时，自动从回退加载器获取并注册
+   * @param fallback 回退加载函数
+   */
+  setFallback(fallback: FallbackPluginLoader): void {
+    this.fallbackLoader = fallback;
+  }
+
+  /**
+   * 清除回退加载器
+   */
+  clearFallback(): void {
+    this.fallbackLoader = null;
+  }
+
+  /**
    * 获取插件注册信息（基于CC源码）
+   * 优先从注册表查找；如果未找到，调用回退加载器自动加载并注册
+   * 回退加载的插件依赖图初始为空（不在 bundle 中记录依赖信息）
    */
   getPlugin(pluginId: string): PluginRegistration | undefined {
-    return this.registry.get(pluginId);
+    const existing = this.registry.get(pluginId);
+    if (existing) return existing;
+
+    if (this.fallbackLoader) {
+      const fallbackRegistration = this.fallbackLoader(pluginId);
+      if (fallbackRegistration) {
+        this.registerPlugin(fallbackRegistration);
+        return fallbackRegistration;
+      }
+    }
+
+    return undefined;
   }
 
   /**

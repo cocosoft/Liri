@@ -74,3 +74,7 @@ export type {
   Companion,
   StoredCompanion,
 } from './types';
+// §5 向后兼容性保障 — 措施2：统一导出入口
+// 旧模块的所有原始导出保持不变（上方 barrel export），
+// 新增的插件包装通过兼容行引入，无需修改现有引用
+export { createBuddyPlugin } from '../plugins/bundled/BuddyPlugin';

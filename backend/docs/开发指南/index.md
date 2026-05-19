@@ -25,6 +25,7 @@
 |------|------|
 | [代码风格](code-style.md) | TypeScript 编码规范、命名/导入/代码组织 |
 | [模块开发规范](module-dev.md) | 模块结构、依赖注入、测试要求 |
+| [模块到插件迁移](module-to-plugin-migration.md) | 四阶段迁移策略、PluginAPI 使用、热加载 |
 | [测试指南](testing.md) | 测试框架、编写运行、测试策略 |
 | [安全体系](security.md) | 6 大安全子系统、不可退步红线、编码 Checklist |
 

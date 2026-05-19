@@ -334,14 +334,57 @@ export class PluginLoader {
     return true;
   }
 
+  /**
+   * 为插件创建沙箱配置
+   * 基于插件元数据动态生成允许/限制的 API 列表和资源限制
+   */
   private createSandbox(plugin: AgentPlugin): PluginSandbox {
+    const tools = plugin.getTools();
+    const hasFileOps = tools.some(
+      (t) =>
+        t.name.includes('file') ||
+        t.name.includes('fs') ||
+        t.name.includes('read') ||
+        t.name.includes('write')
+    );
+    const hasNetworkOps = tools.some(
+      (t) =>
+        t.name.includes('fetch') ||
+        t.name.includes('http') ||
+        t.name.includes('network') ||
+        t.name.includes('api')
+    );
+    const hasProcessOps = tools.some(
+      (t) =>
+        t.name.includes('exec') ||
+        t.name.includes('shell') ||
+        t.name.includes('process') ||
+        t.name.includes('command')
+    );
+
+    const allowedApis: string[] = [];
+    if (hasFileOps) allowedApis.push('fs.read');
+    if (hasFileOps) allowedApis.push('fs.write');
+    if (hasNetworkOps) allowedApis.push('network.fetch');
+    if (allowedApis.length === 0) allowedApis.push('fs.read');
+
+    const restrictedApis: string[] = ['process.exit'];
+    if (!hasProcessOps) restrictedApis.push('child_process');
+
+    // 根据插件复杂度动态分配资源
+    const toolCount = tools.length;
+    const memoryLimit = hasFileOps
+      ? Math.min(100, 50 + toolCount * 10) * 1024 * 1024
+      : 50 * 1024 * 1024;
+    const timeLimit = hasNetworkOps ? 60000 : 30000;
+
     return {
       id: `sandbox_${plugin.id}_${Date.now()}`,
       pluginId: plugin.id,
-      allowedApis: ['fs.read', 'fs.write', 'network.fetch'],
-      restrictedApis: ['process.exit', 'child_process'],
-      memoryLimit: 50 * 1024 * 1024,
-      timeLimit: 30000,
+      allowedApis,
+      restrictedApis,
+      memoryLimit,
+      timeLimit,
     };
   }
 

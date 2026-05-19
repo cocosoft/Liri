@@ -44,6 +44,7 @@
     "modules:init": "bun run src/main.ts --repl",
     "modules:check": "bun test src/tests/ModuleSystem.test.ts && bun run scripts/migrate-modules.ts && bun run src/tools/DependencyValidator.ts",
     "modules:setup": "bun run scripts/setup-git-hooks.ts",
+    "plugify": "bun run src/scripts/plugify.ts",
     "native:build": "cd native && cargo build --release",
     "native:build:debug": "cd native && cargo build",
     "native:test": "cd native && cargo test",

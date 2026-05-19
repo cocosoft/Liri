@@ -277,4 +277,58 @@ export abstract class BaseTool<
   ): Promise<(pattern: string) => boolean> {
     return () => true;
   }
+
+  /**
+   * 渲染工具使用消息
+   * 默认返回null，子类可覆盖
+   * @param input 工具输入
+   * @param options 渲染选项
+   * @returns 渲染结果
+   */
+  renderToolUseMessage?(
+    input: unknown,
+    options: { verbose: boolean }
+  ): unknown {
+    return null;
+  }
+
+  /**
+   * 渲染工具执行结果消息
+   * 默认返回null，子类可覆盖
+   * @param output 工具输出
+   * @param progressMessages 进度消息
+   * @param options 渲染选项
+   * @returns 渲染结果
+   */
+  renderToolResultMessage?(
+    output: unknown,
+    progressMessages: unknown[],
+    options: { verbose: boolean }
+  ): unknown {
+    return null;
+  }
+
+  /**
+   * 渲染工具使用错误消息
+   * 默认返回null，子类可覆盖
+   * @param error 错误信息
+   * @param options 渲染选项
+   * @returns 渲染结果
+   */
+  renderToolUseErrorMessage?(
+    error: string,
+    options: { verbose: boolean }
+  ): unknown {
+    return null;
+  }
+
+  /**
+   * 渲染工具进度消息
+   * 默认返回null，子类可覆盖
+   * @param data 进度数据
+   * @returns 渲染结果
+   */
+  renderToolUseProgressMessage?(data: unknown): unknown {
+    return null;
+  }
 }

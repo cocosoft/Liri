@@ -11,6 +11,7 @@ import {
   getModelKeyByName,
 } from '@modules/ai/models/ModelConfigs';
 import type { ModelKey } from '@modules/ai/models/ModelConfigs';
+import { modelContextCache } from '../core/tokenBudget/ModelContextCache';
 
 let nativeEstimateTokens: ((text: string, model?: string) => number) | null =
   null;
@@ -199,6 +200,12 @@ export class TokenBudgetManagerImpl implements TokenBudgetManager {
       const config = ALL_MODEL_CONFIGS[modelKey];
       this.config.maxTokens = config.contextWindow;
       this.config.maxOutputTokens = config.maxOutputTokens;
+    } else {
+      const cached = modelContextCache.get(modelName);
+      if (cached) {
+        this.config.maxTokens = cached.contextWindow;
+        this.config.maxOutputTokens = cached.maxOutputTokens;
+      }
     }
   }
 

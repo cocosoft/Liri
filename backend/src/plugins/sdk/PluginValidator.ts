@@ -11,6 +11,8 @@ import type {
   PluginValidationWarning,
 } from './PluginManifest';
 
+import { PluginVersionManager } from '../utils/pluginVersioning';
+
 /** 验证选项 */
 export interface PluginValidatorOptions {
   /** 已注册的插件 ID 列表（用于依赖检查） */
@@ -28,11 +30,13 @@ export class PluginValidator {
   private registeredPlugins: Set<string>;
   private engineVersion: string;
   private strict: boolean;
+  private versionManager: PluginVersionManager;
 
   constructor(options: PluginValidatorOptions = {}) {
     this.registeredPlugins = new Set(options.registeredPlugins || []);
     this.engineVersion = options.engineVersion || '0.0.0';
     this.strict = options.strict || false;
+    this.versionManager = new PluginVersionManager();
   }
 
   /** 验证插件清单 */
@@ -45,8 +49,11 @@ export class PluginValidator {
     this.validateVersion(manifest, errors);
     this.validateEngine(manifest, errors, warnings);
     this.validateDependencies(manifest, errors, warnings);
+    this.validateOptionalDependencies(manifest, errors, warnings);
     this.validateSkills(manifest, errors, warnings);
     this.validateHooks(manifest, errors, warnings);
+    this.validateLicense(manifest, warnings);
+    this.validateConfigSchema(manifest, errors, warnings);
 
     if (this.strict && warnings.length > 0) {
       for (const warning of warnings) {
@@ -135,7 +142,7 @@ export class PluginValidator {
     }
   }
 
-  /** 验证引擎版本兼容性 */
+  /** 验证引擎版本兼容性（支持 ^ / ~ / >= / > 前缀） */
   private validateEngine(
     manifest: PluginManifest,
     errors: PluginValidationError[],
@@ -150,10 +157,10 @@ export class PluginValidator {
       return;
     }
 
-    if (!this.isVersionCompatible(manifest.engine, this.engineVersion)) {
+    if (!this.versionManager.isCompatible(this.engineVersion, manifest.engine)) {
       errors.push({
         code: 'ENGINE_INCOMPATIBLE',
-        message: `插件要求引擎版本 >= ${manifest.engine}，当前版本为 ${this.engineVersion}`,
+        message: `插件要求引擎版本 "${manifest.engine}"，当前版本为 ${this.engineVersion}`,
         field: 'engine',
       });
     }
@@ -183,6 +190,110 @@ export class PluginValidator {
         message: `插件声明了 ${manifest.dependencies.length} 个依赖，建议精简`,
         field: 'dependencies',
       });
+    }
+  }
+
+  /** 验证可选依赖 */
+  private validateOptionalDependencies(
+    manifest: PluginManifest,
+    errors: PluginValidationError[],
+    warnings: PluginValidationWarning[]
+  ): void {
+    if (
+      !manifest.optionalDependencies ||
+      manifest.optionalDependencies.length === 0
+    )
+      return;
+
+    for (const dep of manifest.optionalDependencies) {
+      if (!this.registeredPlugins.has(dep)) {
+        warnings.push({
+          code: 'MISSING_OPTIONAL_DEPENDENCY',
+          message: `可选依赖插件 "${dep}" 未注册，部分功能可能受限`,
+          field: 'optionalDependencies',
+        });
+      }
+    }
+
+    // 检查可选依赖与必需依赖是否有重复
+    if (manifest.dependencies && manifest.dependencies.length > 0) {
+      const depSet = new Set(manifest.dependencies);
+      for (const dep of manifest.optionalDependencies) {
+        if (depSet.has(dep)) {
+          warnings.push({
+            code: 'DUPLICATE_DEPENDENCY',
+            message: `插件 "${dep}" 同时出现在 dependencies 和 optionalDependencies 中`,
+            field: 'optionalDependencies',
+          });
+        }
+      }
+    }
+  }
+
+  /** 验证许可证字段 */
+  private validateLicense(
+    manifest: PluginManifest,
+    warnings: PluginValidationWarning[]
+  ): void {
+    if (!manifest.license) {
+      warnings.push({
+        code: 'NO_LICENSE',
+        message: '未声明许可证，建议添加 license 字段',
+        field: 'license',
+      });
+      return;
+    }
+
+    const validLicenses = [
+      'MIT',
+      'Apache-2.0',
+      'GPL-2.0',
+      'GPL-3.0',
+      'LGPL-2.1',
+      'LGPL-3.0',
+      'BSD-2-Clause',
+      'BSD-3-Clause',
+      'MPL-2.0',
+      'ISC',
+      'Unlicense',
+      'CC0-1.0',
+    ];
+
+    if (!validLicenses.includes(manifest.license) && !manifest.license.startsWith('SEE LICENSE IN ')) {
+      warnings.push({
+        code: 'UNKNOWN_LICENSE',
+        message: `许可证 "${manifest.license}" 不在常用许可证列表中`,
+        field: 'license',
+      });
+    }
+  }
+
+  /** 验证配置 Schema */
+  private validateConfigSchema(
+    manifest: PluginManifest,
+    errors: PluginValidationError[],
+    warnings: PluginValidationWarning[]
+  ): void {
+    if (!manifest.configSchema) return;
+
+    if (typeof manifest.configSchema !== 'object' || manifest.configSchema === null) {
+      errors.push({
+        code: 'INVALID_CONFIG_SCHEMA',
+        message: 'configSchema 必须是对象类型',
+        field: 'configSchema',
+      });
+      return;
+    }
+
+    // 检查 configSchema 中的字段命名规范
+    for (const key of Object.keys(manifest.configSchema)) {
+      if (key.includes(' ') || key === '') {
+        warnings.push({
+          code: 'INVALID_CONFIG_KEY',
+          message: `configSchema 中的键名 "${key}" 包含非法字符`,
+          field: 'configSchema',
+        });
+      }
     }
   }
 
@@ -260,23 +371,4 @@ export class PluginValidator {
     }
   }
 
-  /** 简单的语义化版本比较 */
-  private isVersionCompatible(required: string, current: string): boolean {
-    try {
-      const reqParts = required.split('.');
-      const curParts = current.split('.');
-
-      for (let i = 0; i < Math.max(reqParts.length, curParts.length); i++) {
-        const req = parseInt(reqParts[i] || '0', 10);
-        const cur = parseInt(curParts[i] || '0', 10);
-
-        if (cur > req) return true;
-        if (cur < req) return false;
-      }
-
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }

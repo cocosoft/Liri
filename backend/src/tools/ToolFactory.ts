@@ -52,6 +52,7 @@ import { ImageTool } from './ImageTool/ImageTool';
 import { ImageAnalysisTool } from './ImageAnalysisTool/ImageAnalysisTool';
 import { VideoTool } from './VideoTool/VideoTool';
 import { MusicTool } from './MusicTool/MusicTool';
+import { CanvasTool } from './CanvasTool/CanvasTool';
 import { ListMcpResourcesTool } from './ListMcpResourcesTool/ListMcpResourcesTool.js';
 import { ReadMcpResourceTool } from './ReadMcpResourceTool/ReadMcpResourceTool.js';
 import { MCPTool } from '../mcp/MCPTool';
@@ -646,6 +647,13 @@ export class ToolFactory {
   createMusicTool(): Tool {
     return new MusicTool();
   }
+
+  /**
+   * 创建 Canvas 画布工具
+   */
+  createCanvasTool(): Tool {
+    return new CanvasTool();
+  }
 }
 
 /**
@@ -819,6 +827,8 @@ export function getAllBaseTools(): Tool[] {
   tools.push(MCPTool);
   tools.push(new NotebookToolAdapter());
   tools.push(new BrowserTool());
+
+  tools.push(new CanvasTool());
 
   return tools.filter(
     (tool): tool is Tool => tool !== null && tool !== undefined

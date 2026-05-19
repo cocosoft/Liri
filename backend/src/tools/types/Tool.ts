@@ -327,6 +327,36 @@ export interface Tool<
    * 提取搜索文本
    */
   extractSearchText?(out: Output): string;
+
+  /**
+   * 渲染工具使用消息
+   */
+  renderToolUseMessage?(
+    input: Input,
+    options: { verbose: boolean }
+  ): unknown;
+
+  /**
+   * 渲染工具执行结果消息
+   */
+  renderToolResultMessage?(
+    output: Output,
+    progressMessages: unknown[],
+    options: { verbose: boolean }
+  ): unknown;
+
+  /**
+   * 渲染工具使用错误消息
+   */
+  renderToolUseErrorMessage?(
+    error: string,
+    options: { verbose: boolean }
+  ): unknown;
+
+  /**
+   * 渲染工具进度消息
+   */
+  renderToolUseProgressMessage?(data: unknown): unknown;
 }
 
 /**
@@ -368,6 +398,7 @@ export type ToolDef<
   | 'outputSchema'
   | 'execute'
   | 'params'
+  | 'renderToolResultMessage'
 > &
   Partial<
     Pick<

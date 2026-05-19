@@ -3,6 +3,7 @@
  *
  * 统一管理各工具的 UI 渲染函数映射。
  * 工具执行后通过此注册表自动查找对应的 UI 组件进行渲染。
+ * 支持两级查找：先查注册表，再降级到工具实例的原生渲染方法。
  */
 
 import type React from 'react';
@@ -38,8 +39,49 @@ export function registerToolUI(
   registry.set(toolName.toLowerCase(), renderer);
 }
 
+/**
+ * 获取注册的 UI 渲染器
+ * 优先查找注册表，如果未找到则返回 undefined
+ */
 export function getToolUI(toolName: string): ToolUIRenderer | undefined {
   return registry.get(toolName.toLowerCase());
+}
+
+/**
+ * 获取工具 UI 渲染器（含工具原生渲染降级）
+ * 优先查找注册表，如果未找到则尝试从工具实例构建渲染器
+ *
+ * @param toolName 工具名称
+ * @param tool 工具实例（可选，用于降级查找原生渲染方法）
+ * @returns UI 渲染器，如果均未找到则返回 undefined
+ */
+export function getToolUIWithFallback(
+  toolName: string,
+  tool?: { renderToolUseMessage?: Function; renderToolResultMessage?: Function; renderToolUseErrorMessage?: Function; renderToolUseProgressMessage?: Function; getToolUseSummary?: Function }
+): ToolUIRenderer | undefined {
+  const registered = registry.get(toolName.toLowerCase());
+  if (registered) return registered;
+
+  if (!tool) return undefined;
+
+  const fallback: ToolUIRenderer = {};
+  if (typeof tool.renderToolUseMessage === 'function') {
+    fallback.renderToolUseMessage = tool.renderToolUseMessage as ToolUIRenderer['renderToolUseMessage'];
+  }
+  if (typeof tool.renderToolResultMessage === 'function') {
+    fallback.renderToolResultMessage = tool.renderToolResultMessage as ToolUIRenderer['renderToolResultMessage'];
+  }
+  if (typeof tool.renderToolUseErrorMessage === 'function') {
+    fallback.renderToolUseErrorMessage = tool.renderToolUseErrorMessage as ToolUIRenderer['renderToolUseErrorMessage'];
+  }
+  if (typeof tool.renderToolUseProgressMessage === 'function') {
+    fallback.renderToolUseProgressMessage = tool.renderToolUseProgressMessage as ToolUIRenderer['renderToolUseProgressMessage'];
+  }
+  if (typeof tool.getToolUseSummary === 'function') {
+    fallback.getToolUseSummary = tool.getToolUseSummary as ToolUIRenderer['getToolUseSummary'];
+  }
+
+  return Object.keys(fallback).length > 0 ? fallback : undefined;
 }
 
 export function hasToolUI(toolName: string): boolean {

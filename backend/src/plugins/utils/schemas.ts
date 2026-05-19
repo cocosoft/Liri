@@ -14,19 +14,73 @@ export const PluginAuthorSchema = z.object({
 });
 
 /**
+ * 插件类型枚举
+ */
+export const PluginTypeEnum = z.enum([
+  'tool',
+  'theme',
+  'language',
+  'integration',
+  'utility',
+  'custom',
+]);
+
+/**
+ * 技能参数模式
+ */
+export const PluginSkillParameterSchema = z.object({
+  name: z.string(),
+  type: z.enum(['string', 'number', 'boolean', 'array', 'object']),
+  description: z.string(),
+  required: z.boolean().optional(),
+  defaultValue: z.unknown().optional(),
+  enum: z.array(z.string()).optional(),
+});
+
+/**
+ * 技能清单模式
+ */
+export const PluginSkillManifestSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  parameters: z.array(PluginSkillParameterSchema).optional(),
+  entryFunction: z.string().optional(),
+});
+
+/**
+ * Hook 清单模式
+ */
+export const PluginHookManifestSchema = z.object({
+  name: z.string(),
+  phase: z.enum(['before', 'after', 'onError']),
+  entryFunction: z.string(),
+  priority: z.number().optional(),
+});
+
+/**
  * 插件清单模式
  */
 export const PluginManifestSchema = z.object({
+  id: z.string(),
   name: z.string(),
   version: z.string(),
   description: z.string(),
-  author: PluginAuthorSchema.optional(),
+  author: z.string(),
+  type: PluginTypeEnum,
+  main: z.string(),
+  engine: z.string().optional(),
+  dependencies: z.array(z.string()).optional(),
+  optionalDependencies: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
   homepage: z.string().optional(),
+  license: z.string().optional(),
+  icon: z.string().optional(),
+  skills: z.array(PluginSkillManifestSchema).optional(),
+  hooks: z.array(PluginHookManifestSchema).optional(),
+  configSchema: z.record(z.unknown()).optional(),
   commands: z.array(z.string()).optional(),
   agents: z.array(z.string()).optional(),
-  skills: z.array(z.string()).optional(),
-  hooks: z.string().optional(),
   mcpServers: z.string().optional(),
   lspServers: z.string().optional(),
 });
@@ -125,3 +179,6 @@ export type CommandMetadata = z.infer<typeof CommandMetadataSchema>;
 export type PluginMarketplaceEntry = z.infer<
   typeof PluginMarketplaceEntrySchema
 >;
+export type PluginSkillManifest = z.infer<typeof PluginSkillManifestSchema>;
+export type PluginHookManifest = z.infer<typeof PluginHookManifestSchema>;
+export type PluginSkillParameter = z.infer<typeof PluginSkillParameterSchema>;

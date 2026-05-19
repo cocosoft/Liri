@@ -101,22 +101,20 @@ export class CanvasTool extends BaseTool {
     },
   ];
 
-  async execute(input: any, _context: ToolUseContext): Promise<ToolResult> {
+  async execute(input: CanvasOperation, _context: ToolUseContext): Promise<ToolResult> {
     try {
-      const op = input as CanvasOperation;
-
       const result: CanvasResult = {
         canvasId: `canvas_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        width: op.width ?? 800,
-        height: op.height ?? 600,
-        elementCount: op.elements?.length ?? 0,
-        format: op.format ?? 'png',
+        width: input.width ?? 800,
+        height: input.height ?? 600,
+        elementCount: input.elements?.length ?? 0,
+        format: input.format ?? 'png',
       };
 
       return {
         success: true,
         data: result,
-        output: `Canvas ${op.action} completed (${result.width}x${result.height}, ${result.elementCount} elements)`,
+        output: `Canvas ${input.action} completed (${result.width}x${result.height}, ${result.elementCount} elements)`,
       };
     } catch (error) {
       return {
@@ -124,6 +122,23 @@ export class CanvasTool extends BaseTool {
         error: `Canvas operation failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
+  }
+
+  override renderToolUseMessage(input: CanvasOperation, _options: { verbose: boolean }): unknown {
+    const parts = [`🎨 Canvas`];
+    parts.push(`action=${input.action}`);
+    if (input.width) parts.push(`width=${input.width}`);
+    if (input.height) parts.push(`height=${input.height}`);
+    if (input.format) parts.push(`format=${input.format}`);
+    if (input.elements?.length) parts.push(`elements=${input.elements.length}`);
+    return parts.join(' ');
+  }
+
+  override renderToolResultMessage(output: ToolResult, _progressMessages: unknown[], _options: { verbose: boolean }): unknown {
+    if (!output.success) return `❌ Canvas failed: ${output.error}`;
+    const data = output.data as CanvasResult | undefined;
+    if (!data) return '✅ Canvas completed';
+    return `✅ Canvas ${data.canvasId} (${data.width}x${data.height}, ${data.elementCount} elements, ${data.format})`;
   }
 }
 

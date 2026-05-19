@@ -9,6 +9,7 @@
  */
 
 import { priceManager } from './PriceManager';
+import { modelContextCache } from './ModelContextCache';
 import {
   calculateCacheAwareUsage,
   getCacheEfficiency,
@@ -99,6 +100,9 @@ export class TokenBudgetController {
   }
 
   private getContextWindowForModel(model: string): number {
+    const cached = modelContextCache.get(model);
+    if (cached) return cached.contextWindow;
+
     try {
       const priceResult = priceManager.getPriceSync(model);
       return priceResult.contextWindow;
@@ -257,6 +261,9 @@ export class TokenBudgetController {
 }
 
 export function getContextWindowForModel(model: string): number {
+  const cached = modelContextCache.get(model);
+  if (cached) return cached.contextWindow;
+
   try {
     const priceResult = priceManager.getPriceSync(model);
     return priceResult.contextWindow;

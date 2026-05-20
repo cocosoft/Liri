@@ -6,8 +6,11 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { getCoreAPI } from '@modules/core/api/CoreAPIImpl';
-import type { ChatRequest, ChatStreamChunk } from '@modules/core/api/CoreAPI';
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import type {
+  ChatRequest,
+  ChatStreamChunk,
+} from '@modules/runtime/api/CoreAPI';
 
 const logger = new Logger({ level: LogLevel.INFO });
 

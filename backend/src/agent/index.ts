@@ -192,8 +192,17 @@ export {
   messagesToTrajectory,
   convertScratchpadToThink,
   hasIncompleteScratchpad,
+  // Strategy Selector
+  StrategySelector,
+  TaskComplexity,
+  ContextSize,
 };
 export type { TrajectoryEntry, ConversationMessage } from './trajectory';
+export type {
+  TaskFeature,
+  StrategyRule,
+  StrategySelection,
+} from './StrategySelector';
 
 const agentService = createAgentService();
 export default agentService;

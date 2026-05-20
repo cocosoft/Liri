@@ -24,6 +24,10 @@ export type {
   Preference,
 } from './services/PYAppIntegrationService';
 
+// 导出记忆权重可解释性服务
+export { MemoryWeightExporter } from './services/MemoryWeightExporter';
+export type { WeightEntry, WeightReport, WeightReportSummary, WeightDistribution } from './services/MemoryWeightExporter';
+
 // 导出增强功能
 export * from './EnhancedMemoryManager.js';
 export * from './SmartMemoryAnalyzer.js';

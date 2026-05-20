@@ -19,6 +19,7 @@ import { createToolResult } from '../types/ToolResult';
 import { createBashProgress } from '../types/ToolProgress';
 import { ToolUtils } from '../utils/ToolUtils';
 import type { InterruptBehavior } from '../types/Tool';
+import { ToolTag } from '../types/Tool';
 import { BashSecurityAnalyzer } from '@modules/security';
 import {
   parseForSecurity,
@@ -141,6 +142,8 @@ function isPathSafe(path: string): boolean {
 export class BashTool extends BaseTool {
   name = 'bash';
   description = 'Execute bash commands with security checks';
+
+  tags = [ToolTag.CODE];
 
   params: ToolParam[] = [
     {

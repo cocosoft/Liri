@@ -8,6 +8,7 @@ import type {
   ToolParam,
   ToolCallProgress,
 } from '../types/Tool';
+import { ToolTag } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus, type ToolResult } from '../types/ToolResult';
 import type { PermissionResult } from '../types/PermissionResult';
@@ -81,6 +82,9 @@ function buildToolInfo(definition: ToolDefinition): ToolInfo {
     alwaysLoad: false,
     interruptBehavior: 'block',
     maxResultSizeChars: undefined,
+    tags: definition.tags?.filter((t): t is ToolTag =>
+      Object.values<string>(ToolTag).includes(t)
+    ),
   };
 }
 

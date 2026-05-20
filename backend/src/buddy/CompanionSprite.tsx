@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text } from '../components/ink.js';
-import { useAppState, useSetAppState } from '../core/state/AppState';
+import { useAppState, useSetAppState } from '../system/state/AppState';
 import { getCompanion } from './companion';
 import { renderSprite, spriteFrameCount } from './sprites';
 import { RARITY_COLORS, RARITY_STARS } from './types';

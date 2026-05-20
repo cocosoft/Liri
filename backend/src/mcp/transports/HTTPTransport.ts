@@ -1,46 +1,28 @@
-/**
- * HTTP传输层
- * 基于HTTP的传输方式
- */
-
 import { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import type { McpTlsConfig } from '../../services/mcp/transports/McpTlsManager';
 
-/**
- * HTTP传输层选项
- */
 interface HTTPTransportOptions {
-  /** URL */
   url: string;
-  /** 头部信息 */
   headers?: Record<string, string>;
+  tls?: Partial<McpTlsConfig>;
 }
 
-/**
- * HTTP传输层
- */
 export class HTTPTransport extends MCPTransport {
   private readonly url: string;
   private readonly headers: Record<string, string>;
 
   constructor(options: HTTPTransportOptions) {
-    super();
+    super(options.tls);
     this.url = options.url;
     this.headers = options.headers || {};
   }
 
-  /**
-   * 连接
-   * HTTP传输层不需要持久连接，直接返回成功
-   */
   override async connect(): Promise<void> {
     await super.connect();
   }
 
-  /**
-   * 发送请求
-   */
   async send(request: MCPRequest): Promise<MCPResponse> {
     if (!this.connected) {
       throw new AppError(
@@ -51,6 +33,8 @@ export class HTTPTransport extends MCPTransport {
       );
     }
 
+    const tlsOptions = this.tlsManager.createFetchAgentOptions();
+
     const response = await fetch(this.url, {
       method: 'POST',
       headers: {
@@ -58,6 +42,7 @@ export class HTTPTransport extends MCPTransport {
         ...this.headers,
       },
       body: JSON.stringify(request),
+      ...(tlsOptions ? { tls: tlsOptions } : {}),
     });
 
     if (!response.ok) {

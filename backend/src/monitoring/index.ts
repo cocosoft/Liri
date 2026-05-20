@@ -48,6 +48,7 @@ export {
   createMetricsBridge,
   TraceBridge,
   createTraceBridge,
+  OTelLoggerAdapter,
 } from './otel/index.js';
 
 export type {
@@ -58,6 +59,7 @@ export type {
   MetricsBridgeStats,
   TraceEvent,
   TraceBridgeStats,
+  OTelLoggerAdapterConfig,
 } from './otel/index.js';
 
 // 导出器
@@ -103,6 +105,7 @@ export type {
   AlertRule,
   AlertNotification,
   AlertHandler,
+  AlertSilence,
 } from './alerts/index.js';
 
 // 系统集成
@@ -152,13 +155,15 @@ export type {
 } from './dashboard/index.js';
 
 // 事件管理
-export { IncidentManager } from './incidents/index.js';
+export { IncidentManager, AlertIncidentBridge } from './incidents/index.js';
 export type {
   Incident,
   IncidentFilter,
   IncidentStats,
   IncidentSeverity,
   IncidentStatus,
+  AlertIncidentBridgeConfig,
+  AlertIncidentBridgeStats,
 } from './incidents/index.js';
 
 // 仪器化
@@ -169,3 +174,38 @@ export {
   initializeTelemetry,
   flushTelemetry,
 } from './instrumentation.js';
+
+// 备份管理
+export { BackupManager, createDefaultBackupManager } from './backup/index.js';
+
+export type {
+  DatabaseEntry,
+  BackupResult,
+  RestoreResult,
+  CleanupResult,
+  BackupConfig,
+} from './backup/index.js';
+
+// 数据归档
+export {
+  DataArchivalStrategy,
+  ArchiveDataType,
+  DEFAULT_ARCHIVAL_CRON,
+  ARCHIVAL_TASK_ID,
+  executeArchivalMaintenance,
+  setupArchivalScheduler,
+  stopArchivalScheduler,
+  registerArchivalCronTask,
+  unregisterArchivalCronTask,
+} from './archival/index.js';
+
+export type {
+  ArchiveMetadata,
+  ArchiveFileInfo,
+  ArchiveResult,
+  CleanupResult as ArchiveCleanupResult,
+  RetentionPolicies,
+  ArchivalConfig,
+  ArchivalMaintenanceResult,
+  ArchivalSchedulerConfig,
+} from './archival/index.js';

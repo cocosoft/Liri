@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
-import { appStateStore } from '../../core/state/AppStateStore';
-import type { Notification } from '../../core/state/AppState';
+import { appStateStore } from '../../system/state/AppStateStore';
+import type { Notification } from '../../system/state/AppState';
 
 type Result = Notification | Notification[] | null;
 

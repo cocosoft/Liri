@@ -9,6 +9,14 @@ import { getPerformanceProfiler } from '../core/utils/Performance.js';
 import { performanceUtils } from '../core/utils/Performance.js';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import {
+  AlertPresetLoader,
+  createAlertPresetLoader,
+} from './alerts/AlertPresetLoader.js';
+import {
+  BackupManager,
+  createDefaultBackupManager,
+} from './backup/BackupManager.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -67,6 +75,8 @@ export class MonitoringService {
   private healthCheckTimer: NodeJS.Timeout | null = null;
   private logRotationTimer: NodeJS.Timeout | null = null;
   private performanceProfiler = getPerformanceProfiler();
+  private presetLoader: AlertPresetLoader;
+  private backupManager: BackupManager;
 
   constructor(config: Partial<MonitoringConfig> = {}) {
     this.config = {
@@ -85,6 +95,8 @@ export class MonitoringService {
       ...config,
     };
     this.startTime = Date.now();
+    this.presetLoader = createAlertPresetLoader();
+    this.backupManager = createDefaultBackupManager();
   }
 
   /**
@@ -97,11 +109,81 @@ export class MonitoringService {
       return;
     }
 
+    this.performStartupBackup();
+    this.loadAlertPresets();
     this.startMetricsCollection();
     this.startHealthCheck();
     this.startLogRotation();
     this.log('info', '监控服务已启动');
     profileCheckpoint('monitoring_start_end');
+  }
+
+  /**
+   * 加载预置告警规则
+   */
+  private loadAlertPresets(): void {
+    try {
+      const presetsDir = path.join(import.meta.dirname, 'alerts', 'presets');
+      this.presetLoader.setPresetsDir(presetsDir);
+      const result = this.presetLoader.loadAllPresets();
+
+      if (result.loadedRules > 0) {
+        this.log('info', `已加载 ${result.loadedRules} 条预置告警规则`);
+      }
+
+      if (result.failedFiles.length > 0) {
+        this.log(
+          'warn',
+          `${result.failedFiles.length} 个预置文件加载失败: ${result.failedFiles.join(', ')}`
+        );
+      }
+    } catch (error) {
+      this.log(
+        'error',
+        `加载预置告警规则失败: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  /**
+   * 执行启动时数据库备份
+   * 在数据库连接初始化之前执行，避免拷贝锁定文件
+   */
+  private performStartupBackup(): void {
+    try {
+      const results = this.backupManager.backupIfNeeded();
+      const succeeded = results.filter((r) => r.success);
+      const failed = results.filter((r) => !r.success);
+
+      if (succeeded.length > 0) {
+        this.log(
+          'info',
+          `已备份 ${succeeded.length}/${results.length} 个数据库`
+        );
+
+        // 清理旧备份
+        const cleanupResults = this.backupManager.cleanup();
+        const totalDeleted = cleanupResults.reduce(
+          (sum, r) => sum + r.deletedCount,
+          0
+        );
+        if (totalDeleted > 0) {
+          this.log('info', `已清理 ${totalDeleted} 个旧备份文件`);
+        }
+      }
+
+      if (failed.length > 0) {
+        this.log(
+          'warn',
+          `${failed.length} 个数据库备份失败: ${failed.map((r) => `${r.name}(${r.error})`).join(', ')}`
+        );
+      }
+    } catch (error) {
+      this.log(
+        'warn',
+        `启动时数据库备份异常: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   /**

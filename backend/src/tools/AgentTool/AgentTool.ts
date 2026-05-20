@@ -16,6 +16,7 @@ import { randomUUID } from 'crypto';
 import {
   Tool,
   ToolInfo,
+  ToolTag,
   ValidationResult,
   ToolCallProgress,
 } from '../types/Tool';
@@ -171,6 +172,7 @@ export class AgentTool implements Tool {
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      tags: [ToolTag.AGENT],
     };
   }
 

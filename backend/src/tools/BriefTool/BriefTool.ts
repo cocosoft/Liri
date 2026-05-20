@@ -7,7 +7,7 @@
 import { BaseTool } from '../BaseTool';
 import chatService from '@modules/chat';
 import type { ToolUseContext, ToolResult } from '../types';
-import { ToolParam } from '../types/Tool';
+import { ToolParam, ToolTag } from '../types/Tool';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 
 export interface BriefToolInput {
@@ -20,6 +20,8 @@ export interface BriefToolInput {
 export class BriefTool extends BaseTool<BriefToolInput> {
   name = 'brief';
   description = 'Generate a summary of the current session';
+
+  tags = [ToolTag.READ];
 
   params: ToolParam[] = [
     {

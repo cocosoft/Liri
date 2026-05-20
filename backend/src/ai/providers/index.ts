@@ -9,6 +9,7 @@ export { AnthropicProvider } from './AnthropicProvider';
 export { OpenAIProvider } from './OpenAIProvider';
 export { GoogleProvider } from './GoogleProvider';
 export { OllamaProvider } from './OllamaProvider';
+export { VertexAIProvider } from './VertexAIProvider';
 export { DeepSeekProvider } from './DeepSeekProvider';
 export { BedrockProvider } from './BedrockProvider';
 export { AzureOpenAIProvider } from './AzureOpenAIProvider';
@@ -30,4 +31,5 @@ export {
   registerOpenAIProvider,
   registerGoogleProvider,
   registerOllamaProvider,
+  registerVertexAIProvider,
 } from './registerProviders';

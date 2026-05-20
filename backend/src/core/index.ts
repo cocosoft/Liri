@@ -4,7 +4,7 @@
  * 导出所有核心相关的类型、类和函数
  */
 
-export * from './state';
+export * from '@modules/system/state';
 export * from './events/EventBus';
 export * from './tasks/TaskService';
 
@@ -19,7 +19,7 @@ export { PluginSDK, type PluginSDKConfig } from './PluginSDK';
 export type { Plugin } from '@modules/plugin-sdk';
 export { Coordinator, type CoordinatorConfig } from './Coordinator';
 export { ContextManager, type ContextData } from './context/index';
-export type { AuthManager, AuthConfig } from './auth/AuthManager';
+export type { AuthManager, AuthConfig } from '@modules/system/auth/AuthManager';
 
 export {
   NotificationService,

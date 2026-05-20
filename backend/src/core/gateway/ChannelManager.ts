@@ -7,7 +7,7 @@ import { EventEmitter } from 'events';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
-import type { CoreAPI } from '../api/CoreAPI';
+import type { CoreAPI } from '../../runtime/api/CoreAPI';
 import type {
   GatewayChannel,
   ChannelConfig,

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-14T03:38:05.589Z",
+  "generatedAt": "2026-05-20T00:32:01.595Z",
   "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {
@@ -450,6 +450,18 @@
       ],
       "optionalDependencies": []
     },
+    "voice": {
+      "id": "voice",
+      "name": "voice",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "tools"
+      ],
+      "optionalDependencies": []
+    },
     "streaming": {
       "id": "streaming",
       "name": "streaming",
@@ -530,5 +542,5 @@
     "utils",
     "keybindings"
   ],
-  "fingerprint": "5837d6b6f65341c4"
+  "fingerprint": "e65687c07349d59f"
 }

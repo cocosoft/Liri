@@ -20,6 +20,17 @@ export type {
   AppStateStore,
 } from './AppState';
 
+// PYAppStateStore 增强接口（集中式状态管理）
+export { createPYAppStateStore } from './PYAppStateStore';
+export type {
+  PYAppStateStore,
+  StateChangeEvent,
+  KeyPathListener,
+  StateSnapshot,
+  StateSnapshotMeta,
+  StateTrace,
+} from './PYAppStateStore';
+
 export type {
   Store,
   StoreOptions,

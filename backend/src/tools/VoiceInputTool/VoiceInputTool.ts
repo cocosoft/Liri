@@ -2,7 +2,7 @@
  * 语音输入工具
  */
 
-import { Tool, ToolInfo, ValidationResult } from '../types/Tool';
+import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_INPUT_TOOL_NAME } from './constants';
@@ -236,6 +236,7 @@ export class VoiceInputTool implements Tool {
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      tags: [ToolTag.AI],
     };
   }
 

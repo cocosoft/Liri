@@ -1,0 +1,133 @@
+{
+  "$schema": "./AlertSchema.ts",
+  "metadata": {
+    "name": "系统资源告警",
+    "version": "1.0.0",
+    "description": "监控 CPU、内存、磁盘等系统资源的告警规则",
+    "category": "system",
+    "author": "PY_APP",
+    "created": "2026-05-20"
+  },
+  "rules": [
+    {
+      "name": "内存使用过高",
+      "description": "当堆内存使用超过 1GB 时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "memory.heapUsed",
+          "operator": ">",
+          "value": 1073741824,
+          "window": 30000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "resource",
+        "resource": "memory"
+      },
+      "annotations": {
+        "summary": "内存使用超过 1GB"
+      }
+    },
+    {
+      "name": "内存泄漏检测",
+      "description": "当内存持续增长超过 30% 基线时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "anomaly",
+          "metric": "memory.heapUsed",
+          "operator": ">",
+          "value": 3,
+          "window": 600000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 600000,
+      "enabled": true,
+      "labels": {
+        "type": "resource",
+        "resource": "memory"
+      },
+      "annotations": {
+        "summary": "疑似内存泄漏"
+      }
+    },
+    {
+      "name": "CPU 使用过高",
+      "description": "当 CPU 用户态使用率超过 80% 时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "cpu.user",
+          "operator": ">",
+          "value": 80,
+          "window": 30000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "resource",
+        "resource": "cpu"
+      },
+      "annotations": {
+        "summary": "CPU 使用超过 80%"
+      }
+    },
+    {
+      "name": "CPU 使用率突增",
+      "description": "当 CPU 使用率在短时间内快速上升时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "rate",
+          "metric": "cpu.user",
+          "operator": ">",
+          "value": 10,
+          "window": 60000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 180000,
+      "enabled": true,
+      "labels": {
+        "type": "resource",
+        "resource": "cpu"
+      },
+      "annotations": {
+        "summary": "CPU 使用率突增"
+      }
+    },
+    {
+      "name": "事件循环延迟过高",
+      "description": "当 Node.js 事件循环延迟超过 100ms 时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "eventloop.lag",
+          "operator": ">",
+          "value": 100,
+          "window": 10000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 120000,
+      "enabled": true,
+      "labels": {
+        "type": "resource",
+        "resource": "eventloop"
+      },
+      "annotations": {
+        "summary": "事件循环延迟超过 100ms"
+      }
+    }
+  ]
+}

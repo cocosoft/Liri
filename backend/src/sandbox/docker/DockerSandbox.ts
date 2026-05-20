@@ -18,7 +18,11 @@ import type {
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { DockerImageManager } from './DockerImageManager';
 import { validateDockerNetworkConfig } from './DockerNetworkPolicy';
-import type { DockerNetworkMode } from './DockerNetworkPolicy';
+import type {
+  DockerNetworkMode,
+  DockerNetworkConfig,
+} from './DockerNetworkPolicy';
+import { NetworkPolicyEngine, needsNetAdmin } from './NetworkPolicyEngine';
 
 const execAsync = promisify(exec);
 const logger = new Logger({ level: LogLevel.INFO });
@@ -34,6 +38,9 @@ export const DOCKER_CONFIG_KEYS = {
   VOLUMES: 'dockerVolumes',
   CONTAINER_NAME: 'dockerContainerName',
   READ_ONLY: 'dockerReadOnly',
+  ALLOWED_DOMAINS: 'allowedDomains',
+  BLOCKED_DOMAINS: 'blockedDomains',
+  ALLOWED_PORTS: 'allowedPorts',
 } as const;
 
 /**
@@ -95,9 +102,20 @@ export class DockerSandbox implements Sandbox {
         (custom[DOCKER_CONFIG_KEYS.NETWORK_MODE] as string) ||
         DEFAULT_DOCKER_SETTINGS.networkMode;
 
-      const networkValid = validateDockerNetworkConfig({
+      const networkConfig: DockerNetworkConfig = {
         mode: networkMode as DockerNetworkMode,
-      });
+        allowedDomains: custom[DOCKER_CONFIG_KEYS.ALLOWED_DOMAINS] as
+          | string[]
+          | undefined,
+        blockedDomains: custom[DOCKER_CONFIG_KEYS.BLOCKED_DOMAINS] as
+          | string[]
+          | undefined,
+        allowedPorts: custom[DOCKER_CONFIG_KEYS.ALLOWED_PORTS] as
+          | number[]
+          | undefined,
+      };
+
+      const networkValid = validateDockerNetworkConfig(networkConfig);
       if (!networkValid.valid) {
         throw new AppError(
           `无效的网络模式: ${networkMode} — ${networkValid.reason}`,
@@ -111,6 +129,10 @@ export class DockerSandbox implements Sandbox {
 
       if (networkMode !== 'bridge') {
         args.push('--network', networkMode);
+      }
+
+      if (needsNetAdmin(networkConfig)) {
+        args.push('--cap-add=NET_ADMIN');
       }
 
       const readOnly =
@@ -153,6 +175,15 @@ export class DockerSandbox implements Sandbox {
       );
 
       execSync(`docker start ${this.containerName}`, { stdio: 'pipe' });
+
+      const policyResult = NetworkPolicyEngine.applyPolicy(
+        this.containerName,
+        networkConfig
+      );
+      if (policyResult.errors.length > 0) {
+        logger.warn(`网络策略应用部分失败: ${policyResult.errors.join('; ')}`);
+      }
+
       this.isInitializedFlag = true;
       return true;
     } catch (error) {

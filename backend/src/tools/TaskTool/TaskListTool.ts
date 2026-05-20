@@ -4,7 +4,7 @@
  * 参考CC源码实现: cc_code/backend/tools/TaskListTool/TaskListTool.ts
  */
 
-import { Tool, ToolInfo } from '../types/Tool';
+import { Tool, ToolInfo, ToolTag } from '../types/Tool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { TASK_LIST_TOOL_NAME, TASK_LIST_DESCRIPTION } from './constants';
@@ -53,6 +53,7 @@ export class TaskListTool implements Tool {
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      tags: [ToolTag.READ],
     };
   }
 

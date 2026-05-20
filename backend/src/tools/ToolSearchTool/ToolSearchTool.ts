@@ -5,7 +5,7 @@
  */
 
 import { BaseTool } from '../BaseTool';
-import { Tool, findToolByName } from '../types/Tool';
+import { Tool, findToolByName, ToolTag } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import type { ToolCallProgress } from '../types/Tool';
@@ -231,6 +231,8 @@ export class ToolSearchTool extends BaseTool<
    */
   description =
     '搜索延迟加载的工具。当需要使用的工具未在初始工具列表中时，使用此工具查找并加载它。';
+
+  tags = [ToolTag.READ];
 
   /**
    * 工具参数

@@ -305,6 +305,11 @@ export interface ToolUseContext {
    * 工具权限上下文
    */
   toolPermissionContext?: ToolPermissionContext;
+
+  /**
+   * 追踪ID，用于跨全链路（Agent → Tool → 子工具）追踪
+   */
+  traceId?: string;
 }
 
 /**

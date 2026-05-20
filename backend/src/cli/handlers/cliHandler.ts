@@ -6,12 +6,16 @@
 
 import chalk from 'chalk';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { t } from '@modules/system/i18n/extended';
 import { AuthHandler, createAuthHandler } from './authHandler';
 import { AgentHandler, createAgentHandler } from './agentHandler';
 import { MCPHandler, createMCPHandler } from './mcpHandler';
 import { PluginHandler, createPluginHandler } from './pluginHandler';
 import { AutoModeHandler, createAutoModeHandler } from './autoModeHandler';
 import { UtilHandler, createUtilHandler } from './utilHandler';
+import { ConfigHandler, createConfigHandler } from './configHandler';
+import { SessionHandler, createSessionHandler } from './sessionHandler';
+import { DiagnoseHandler, createDiagnoseHandler } from './diagnoseHandler';
 
 export interface CLIHandlerOptions {
   verbose?: boolean;
@@ -33,8 +37,17 @@ export class CLIHandler {
   private pluginHandler: PluginHandler;
   private autoModeHandler: AutoModeHandler;
   private utilHandler: UtilHandler;
+  private configHandler: ConfigHandler;
+  private sessionHandler: SessionHandler;
+  private diagnoseHandler: DiagnoseHandler;
 
   private commands: Record<string, CommandInfo> = {
+    auth: {
+      name: 'auth',
+      description: '管理OAuth认证',
+      handler: 'auth',
+      subcommands: ['login', 'logout', 'status', 'list'],
+    },
     login: { name: 'login', description: '登录到PY_APP', handler: 'auth' },
     logout: { name: 'logout', description: '登出PY_APP', handler: 'auth' },
     status: { name: 'status', description: '检查认证状态', handler: 'auth' },
@@ -70,6 +83,25 @@ export class CLIHandler {
     which: { name: 'which', description: '显示命令位置', handler: 'util' },
     env: { name: 'env', description: '显示环境变量', handler: 'util' },
     debug: { name: 'debug', description: '调试模式', handler: 'util' },
+
+    config: {
+      name: 'config',
+      description: '管理配置',
+      handler: 'config',
+      subcommands: ['get', 'set', 'list', 'reset'],
+    },
+    sessions: {
+      name: 'sessions',
+      description: '管理会话',
+      handler: 'session',
+      subcommands: ['list', 'inspect', 'export'],
+    },
+    diagnose: {
+      name: 'diagnose',
+      description: '系统诊断',
+      handler: 'diagnose',
+      subcommands: ['network', 'health', 'debug', 'slow-query'],
+    },
   };
 
   constructor(options?: CLIHandlerOptions) {
@@ -83,6 +115,13 @@ export class CLIHandler {
       verbose: this.options.verbose,
     });
     this.utilHandler = createUtilHandler({ verbose: this.options.verbose });
+    this.configHandler = createConfigHandler({ verbose: this.options.verbose });
+    this.sessionHandler = createSessionHandler({
+      verbose: this.options.verbose,
+    });
+    this.diagnoseHandler = createDiagnoseHandler({
+      verbose: this.options.verbose,
+    });
   }
 
   /**
@@ -99,7 +138,7 @@ export class CLIHandler {
 
     const commandInfo = this.commands[command];
     if (!commandInfo) {
-      console.error(chalk.red('✗'), `Unknown command: ${command}`);
+      console.error(chalk.red('✗'), t('command.unknown', { cmd: command }));
       await this.showHelp();
       return false;
     }
@@ -108,7 +147,10 @@ export class CLIHandler {
       await this.routeCommand(commandInfo, command, args);
       return true;
     } catch (error) {
-      console.error(chalk.red('✗'), `Command failed: ${error}`);
+      console.error(
+        chalk.red('✗'),
+        t('error.internal', { detail: String(error) })
+      );
       return false;
     }
   }
@@ -154,6 +196,15 @@ export class CLIHandler {
       case 'util':
         await this.handleUtilCommand(command, args);
         break;
+      case 'config':
+        await this.handleConfigCommand(command, args);
+        break;
+      case 'session':
+        await this.handleSessionCommand(command, args);
+        break;
+      case 'diagnose':
+        await this.handleDiagnoseCommand(command, args);
+        break;
       default:
         throw new AppError(
           `Unknown handler: ${commandInfo.handler}`,
@@ -172,11 +223,39 @@ export class CLIHandler {
     args: string[]
   ): Promise<void> {
     switch (command) {
+      case 'auth': {
+        const subcommand = args[0];
+        const subargs = args.slice(1);
+        switch (subcommand) {
+          case 'login':
+            await this.authHandler.handleLogin(subargs);
+            break;
+          case 'logout':
+            await this.authHandler.handleLogout(subargs);
+            break;
+          case 'status':
+            await this.authHandler.handleStatus();
+            break;
+          case 'list':
+            await this.authHandler.handleList();
+            break;
+          default:
+            console.log(
+              chalk.yellow('⚠'),
+              t('command.unknown', { cmd: `auth ${subcommand}` })
+            );
+            console.log('  auth login <provider>  - OAuth 登录');
+            console.log('  auth logout [provider] - 登出');
+            console.log('  auth status           - 查看认证状态');
+            console.log('  auth list             - 查看 Provider 列表');
+        }
+        break;
+      }
       case 'login':
         await this.authHandler.handleLogin(args);
         break;
       case 'logout':
-        await this.authHandler.handleLogout();
+        await this.authHandler.handleLogout(args);
         break;
       case 'status':
         await this.authHandler.handleStatus();
@@ -214,7 +293,10 @@ export class CLIHandler {
         await this.agentHandler.handleCreate(subargs);
         break;
       default:
-        console.log(chalk.yellow('⚠'), `Unknown subcommand: ${subcommand}`);
+        console.log(
+          chalk.yellow('⚠'),
+          t('command.unknown', { cmd: `agent ${subcommand}` })
+        );
         await this.showAgentHelp();
     }
   }
@@ -240,7 +322,10 @@ export class CLIHandler {
         await this.mcpHandler.handleDisconnect(subargs);
         break;
       default:
-        console.log(chalk.yellow('⚠'), `Unknown subcommand: ${subcommand}`);
+        console.log(
+          chalk.yellow('⚠'),
+          t('command.unknown', { cmd: `mcp ${subcommand}` })
+        );
         await this.showMCPHelp();
     }
   }
@@ -272,7 +357,10 @@ export class CLIHandler {
         await this.pluginHandler.handleDisable(subargs);
         break;
       default:
-        console.log(chalk.yellow('⚠'), `Unknown subcommand: ${subcommand}`);
+        console.log(
+          chalk.yellow('⚠'),
+          t('command.unknown', { cmd: `plugin ${subcommand}` })
+        );
         await this.showPluginHelp();
     }
   }
@@ -301,7 +389,10 @@ export class CLIHandler {
         await this.autoModeHandler.handleConfig(subargs);
         break;
       default:
-        console.log(chalk.yellow('⚠'), `Unknown subcommand: ${subcommand}`);
+        console.log(
+          chalk.yellow('⚠'),
+          t('command.unknown', { cmd: `auto ${subcommand}` })
+        );
         await this.showAutoHelp();
     }
   }
@@ -339,11 +430,92 @@ export class CLIHandler {
   }
 
   /**
+   * 处理配置命令
+   */
+  private async handleConfigCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
+    const subcommand = args[0];
+    const subargs = args.slice(1);
+
+    const handled = await this.configHandler.handle(subcommand, subargs);
+    if (!handled) {
+      console.log(
+        chalk.yellow('⚠'),
+        t('command.unknown', { cmd: `config ${subcommand}` })
+      );
+      await this.showConfigHelp();
+    }
+  }
+
+  /**
+   * 处理会话命令
+   */
+  private async handleSessionCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
+    const subcommand = args[0];
+    const subargs = args.slice(1);
+
+    const handled = await this.sessionHandler.handle(subcommand, subargs);
+    if (!handled) {
+      console.log(
+        chalk.yellow('⚠'),
+        t('command.unknown', { cmd: `session ${subcommand}` })
+      );
+      await this.showSessionHelp();
+    }
+  }
+
+  /**
+   * 处理诊断命令
+   */
+  private async handleDiagnoseCommand(
+    command: string,
+    args: string[]
+  ): Promise<void> {
+    const subcommand = args[0];
+    const subargs = args.slice(1);
+
+    const handled = await this.diagnoseHandler.handle(subcommand, subargs);
+    if (!handled) {
+      console.log(
+        chalk.yellow('⚠'),
+        t('command.unknown', { cmd: `diagnose ${subcommand}` })
+      );
+      await this.showDiagnoseHelp();
+    }
+  }
+
+  /**
+   * 显示配置帮助
+   */
+  async showConfigHelp(): Promise<void> {
+    this.configHandler.showHelp();
+  }
+
+  /**
+   * 显示会话帮助
+   */
+  async showSessionHelp(): Promise<void> {
+    this.sessionHandler.showHelp();
+  }
+
+  /**
+   * 显示诊断帮助
+   */
+  async showDiagnoseHelp(): Promise<void> {
+    this.diagnoseHandler.showHelp();
+  }
+
+  /**
    * 显示帮助信息
    */
   async showHelp(): Promise<void> {
     console.log(chalk.cyan('═'.repeat(60)));
-    console.log(chalk.bold('  PY_APP CLI Help'));
+    console.log(chalk.bold(`  ${t('app.name')} CLI ${t('help.welcome')}`));
     console.log(chalk.cyan('═'.repeat(60)));
     console.log();
 
@@ -351,18 +523,22 @@ export class CLIHandler {
       a.name.localeCompare(b.name)
     );
 
+    console.log(chalk.bold(`  ${t('help.commands_header')}`));
+    console.log();
     for (const cmd of sortedCommands) {
       console.log(chalk.green(cmd.name.padEnd(15)) + cmd.description);
       if (cmd.subcommands && cmd.subcommands.length > 0) {
         console.log(
-          chalk.gray(`     Subcommands: ${cmd.subcommands.join(', ')}`)
+          chalk.gray(
+            `     ${t('prompt.choose')}: ${cmd.subcommands.join(', ')}`
+          )
         );
       }
     }
 
     console.log();
     console.log(chalk.cyan('═'.repeat(60)));
-    console.log(chalk.gray('Type "help <command>" for more details'));
+    console.log(chalk.gray(t('help.suggestion')));
   }
 
   /**

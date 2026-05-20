@@ -41,6 +41,7 @@ Examples:
           };
       output += `Tool: ${name}\n`;
       output += `  Description: ${info.description || 'No description'}\n`;
+      output += `  Tags: ${info.tags?.join(', ') || 'None'}\n`;
       output += `  Read Only: ${info.readOnly ? 'Yes' : 'No'}\n`;
       output += `  Concurrent Safe: ${info.concurrencySafe ? 'Yes' : 'No'}\n`;
       const paramStr =
@@ -77,6 +78,7 @@ Examples:
     output += `Description: ${info.description}\n`;
     output += `Aliases: ${info.aliases?.join(', ') || 'None'}\n`;
     output += `Search Tips: ${info.searchTips?.join(', ') || 'None'}\n`;
+    output += `Tags: ${info.tags?.join(', ') || 'None'}\n`;
     output += `Enabled: ${info.enabled ? 'Yes' : 'No'}\n`;
     output += `Read Only: ${info.readOnly ? 'Yes' : 'No'}\n`;
     output += `Destructive: ${info.destructive ? 'Yes' : 'No'}\n`;

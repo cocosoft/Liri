@@ -11,6 +11,7 @@ import type {
 } from '../types/Tool.js';
 import type { ToolUseContext } from '../types/ToolUseContext.js';
 import type { ToolResult } from '../types/ToolResult.js';
+import { ToolTag } from '../types/Tool.js';
 import { LSPToolImpl } from '../lsp/LSPToolImpl.js';
 import {
   Position,
@@ -418,6 +419,7 @@ export class LSPToolAdapter implements Tool {
       alwaysLoad: this.alwaysLoad,
       interruptBehavior: this.interruptBehavior(),
       maxResultSizeChars: this.maxResultSizeChars,
+      tags: [ToolTag.CODE],
     };
   }
 

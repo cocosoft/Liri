@@ -340,6 +340,27 @@ export class ThemeManager {
   }
 
   /**
+   * 应用主题样式
+   */
+  applyStyle(style: 'header' | 'title' | 'subtitle' | 'success' | 'warning' | 'error' | 'info' | 'code' | 'prompt' | 'progress', text: string): string {
+    const styles: Record<string, (t: string) => string> = {
+      header: (t) => chalk.hex(this.currentTheme.colors.primary).bold(t),
+      title: (t) => chalk.hex(this.currentTheme.colors.primary).bold(t),
+      subtitle: (t) => chalk.hex(this.currentTheme.colors.success)(t),
+      success: (t) => chalk.hex(this.currentTheme.colors.success)('✓ ' + t),
+      warning: (t) => chalk.hex(this.currentTheme.colors.warning)('⚠ ' + t),
+      error: (t) => chalk.hex(this.currentTheme.colors.error)('✗ ' + t),
+      info: (t) => chalk.hex(this.currentTheme.colors.info)('ℹ ' + t),
+      code: (t) => chalk.hex(this.currentTheme.colors.textSecondary)(t),
+      prompt: (t) => chalk.hex(this.currentTheme.colors.primary)(t),
+      progress: (t) => chalk.hex(this.currentTheme.colors.info)(t),
+    };
+
+    const formatter = styles[style] || ((t) => t);
+    return formatter(text);
+  }
+
+  /**
    * 导出主题为 JSON
    */
   exportTheme(themeName?: string): string {

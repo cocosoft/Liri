@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolParam,
   ToolUseContext,
@@ -14,6 +15,9 @@ import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector'
 export class FileConvertTool extends BaseTool {
   override readonly name = 'file_convert';
   override readonly description = 'Convert file to Markdown format';
+
+  tags = [ToolTag.FILE];
+
   override readonly params: ToolParam[] = [
     {
       name: 'file_path',

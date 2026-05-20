@@ -17,3 +17,5 @@ export type {
   IsolationLevel,
   NetworkValidationResult,
 } from './DockerNetworkPolicy';
+export { NetworkPolicyEngine, needsNetAdmin } from './NetworkPolicyEngine';
+export type { PolicyApplyResult } from './NetworkPolicyEngine';

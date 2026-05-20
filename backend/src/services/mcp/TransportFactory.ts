@@ -10,6 +10,7 @@ import { WebSocketTransport } from '../../mcp/transports/WebSocketTransport';
 import { SSETransport } from '../../mcp/transports/SSETransport';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { MCPServerConfig } from '../../mcp/types';
+import type { McpTlsConfig } from './transports/McpTlsManager';
 
 /**
  * 传输层配置
@@ -23,6 +24,7 @@ export interface TransportConfig {
   env?: Record<string, string>;
   connectTimeout?: number;
   requestTimeout?: number;
+  tls?: Partial<McpTlsConfig>;
 }
 
 /**
@@ -43,6 +45,7 @@ export class TransportFactory {
         return new HTTPTransport({
           url: config.url,
           headers: config.headers,
+          tls: config.tls,
         });
 
       case 'stdio':
@@ -74,6 +77,7 @@ export class TransportFactory {
           headers: config.headers,
           connectTimeout: config.connectTimeout,
           requestTimeout: config.requestTimeout,
+          tls: config.tls,
         });
 
       case 'sse':
@@ -88,6 +92,7 @@ export class TransportFactory {
         return new SSETransport({
           url: config.url,
           headers: config.headers,
+          tls: config.tls,
         });
 
       default:
@@ -114,6 +119,7 @@ export class TransportFactory {
       args: serverConfig.args,
       headers: serverConfig.headers,
       env: serverConfig.env,
+      tls: serverConfig.tls,
     };
 
     return this.createTransport(transportConfig);
@@ -200,6 +206,7 @@ export class TransportFactory {
       args: urlOrConfig.args,
       headers: urlOrConfig.headers,
       env: urlOrConfig.env,
+      tls: urlOrConfig.tls,
     });
   }
 }

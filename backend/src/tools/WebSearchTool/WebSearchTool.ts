@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolResult,
   ToolUseContext,
@@ -57,6 +58,8 @@ export class WebSearchTool extends BaseTool {
   name = 'web_search';
   description =
     'Search the web for information. Use to find current events, facts, documentation, or any topic that requires up-to-date internet resources.';
+
+  tags = [ToolTag.NETWORK, ToolTag.READ];
 
   params: ToolParam[] = [
     {

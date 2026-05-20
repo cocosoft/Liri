@@ -20,7 +20,7 @@ import { getToolGuideSystem } from '../docs/ToolGuide';
 import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
 import { getApiDocSystem } from '../docs/ApiDocs';
 import { getPerformanceAnalyzer } from '../monitoring/performance';
-import { getThemeManager } from '../core/theme';
+import { getThemeManager } from '@modules/system/theme';
 import { createCLIHandler } from './handlers/cliHandler';
 import { createRemoteIO } from './remoteIO';
 import { createStructuredIO } from './structuredIO';

@@ -24,3 +24,15 @@ export { SignalChannel, signalChannel } from './SignalChannel';
 export type { SignalConfig, SignalMessage } from './SignalChannel';
 export { MatrixChannel, matrixChannel } from './MatrixChannel';
 export type { MatrixConfig, MatrixMessage } from './MatrixChannel';
+export {
+  FacebookMessengerChannel,
+  facebookMessengerChannel,
+} from './FacebookMessengerChannel';
+export type {
+  FacebookMessengerConfig,
+  FacebookMessengerMessage,
+} from './FacebookMessengerChannel';
+export { TwitterChannel, twitterChannel } from './TwitterChannel';
+export type { TwitterConfig, TwitterMessage } from './TwitterChannel';
+export { ClaudeChannel, claudeChannel } from './ClaudeChannel';
+export type { ClaudeConfig, ClaudeMessage } from './ClaudeChannel';

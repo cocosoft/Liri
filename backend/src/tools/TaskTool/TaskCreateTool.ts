@@ -4,7 +4,7 @@
  * 参考CC源码实现: cc_code/backend/tools/TaskCreateTool/TaskCreateTool.ts
  */
 
-import { Tool, ToolInfo, ValidationResult } from '../types/Tool';
+import { Tool, ToolInfo, ValidationResult, ToolTag } from '../types/Tool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { TASK_CREATE_TOOL_NAME, TASK_CREATE_DESCRIPTION } from './constants';
@@ -84,6 +84,7 @@ export class TaskCreateTool implements Tool {
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      tags: [ToolTag.WRITE],
     };
   }
 

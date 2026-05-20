@@ -1,14 +1,21 @@
-//
 /**
  * 自动更新模块
  * 检查和提示CLI应用更新
  */
 
 import chalk from 'chalk';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import type { UpdateChannel } from '../constants/product';
+import { GitHubReleaseFetcher } from './updater/GitHubReleaseFetcher';
+import { UpdateDownloader } from './updater/UpdateDownloader';
+import { InstallManager } from './updater/InstallManager';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface AutoUpdaterOptions {
   verbose?: boolean;
   checkInterval?: number;
+  releaseChannel?: UpdateChannel;
 }
 
 export interface UpdateInfo {
@@ -16,58 +23,80 @@ export interface UpdateInfo {
   latestVersion: string;
   updateAvailable: boolean;
   changelog?: string[];
+  downloadUrl?: string;
+  releaseDate?: string;
+  checksum?: string;
+  releaseNotesUrl?: string;
+  releaseChannel?: UpdateChannel;
 }
 
 export class AutoUpdater {
   private options: AutoUpdaterOptions;
   private lastCheckTime: number = 0;
   private updateInfo: UpdateInfo | null = null;
+  private fetcher: GitHubReleaseFetcher;
+  private downloader: UpdateDownloader;
+  private installer: InstallManager;
+  private currentVersion: string;
 
   constructor(options?: AutoUpdaterOptions) {
     this.options = {
       verbose: false,
-      checkInterval: 24 * 60 * 60 * 1000, // 24小时
+      checkInterval: 24 * 60 * 60 * 1000,
+      releaseChannel: 'stable',
       ...options,
     };
+
+    this.currentVersion =
+      process.env['npm_package_version'] ||
+      process.env['PY_APP_VERSION'] ||
+      '1.0.0';
+
+    this.fetcher = new GitHubReleaseFetcher(
+      this.currentVersion,
+      this.options.releaseChannel
+    );
+
+    this.downloader = new UpdateDownloader();
+    this.installer = new InstallManager();
   }
 
   /**
    * 检查更新
+   * @param force 是否强制刷新缓存
    */
   async checkForUpdates(force: boolean = false): Promise<UpdateInfo> {
     const now = Date.now();
 
-    // 如果上次检查时间间隔不够且不是强制检查，则返回缓存结果
     if (
       !force &&
-      now - this.lastCheckTime < (this.options?.checkInterval ?? 3600000)
+      now - this.lastCheckTime < (this.options.checkInterval ?? 3600000)
     ) {
       if (this.updateInfo && this.options.verbose) {
-        console.log(chalk.blue('ℹ'), 'Using cached update info');
+        logger.info('使用缓存的更新信息');
       }
       return (this.updateInfo || this.createDefaultInfo())!;
     }
 
     if (this.options.verbose) {
-      console.log(chalk.blue('ℹ'), 'Checking for updates...');
+      logger.info('正在检查更新...');
     }
 
     this.lastCheckTime = now;
 
     try {
-      // 模拟检查更新
-      const info = await this.fetchUpdateInfo();
+      const info = await this.fetcher.fetchLatest();
       this.updateInfo = info;
 
-      if (info.updateAvailable) {
-        this.displayUpdateNotification(info);
+      if (info.updateAvailable && this.options.verbose) {
+        logger.info(
+          `发现新版本: ${info.currentVersion} → ${info.latestVersion}`
+        );
       }
 
       return info;
     } catch (error) {
-      if (this.options.verbose) {
-        console.warn(chalk.yellow('⚠'), `Update check failed: ${error}`);
-      }
+      logger.warning('检查更新失败', { error });
       return this.createDefaultInfo();
     }
   }
@@ -94,8 +123,10 @@ export class AutoUpdater {
     );
     console.log(chalk.green('Latest Version:'), chalk.bold(info.latestVersion));
     console.log();
+
+    const updateCmd = this.getUpdateCommand();
     console.log(chalk.yellow('To update, run:'));
-    console.log(chalk.gray('  npm update -g py-app'));
+    console.log(chalk.gray(`  ${updateCmd}`));
     console.log();
 
     if (info.changelog && info.changelog.length > 0) {
@@ -103,6 +134,11 @@ export class AutoUpdater {
       info.changelog.forEach((item, index) => {
         console.log(chalk.gray(`  ${index + 1}. ${item}`));
       });
+    }
+
+    if (info.releaseNotesUrl) {
+      console.log();
+      console.log(chalk.gray(`Full release notes: ${info.releaseNotesUrl}`));
     }
 
     console.log(chalk.cyan('═'.repeat(60)));
@@ -141,22 +177,58 @@ export class AutoUpdater {
   }
 
   /**
-   * 模拟获取更新信息
+   * 下载更新包
+   * @param info 更新信息
    */
-  private async fetchUpdateInfo(): Promise<UpdateInfo> {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  async downloadUpdate(info?: UpdateInfo): Promise<string | null> {
+    const updateInfo = info || this.updateInfo;
+    if (!updateInfo?.downloadUrl) {
+      logger.warning('无下载地址');
+      return null;
+    }
 
-    return {
-      currentVersion: '1.0.0',
-      latestVersion: '1.1.0',
-      updateAvailable: true,
-      changelog: [
-        'Added new CLI commands',
-        'Improved performance',
-        'Fixed bugs',
-        'Enhanced security',
-      ],
-    };
+    try {
+      const result = await this.downloader.download(
+        updateInfo.downloadUrl,
+        updateInfo.latestVersion
+      );
+
+      logger.info('更新包下载完成', {
+        path: result.filePath,
+        size: result.fileSize,
+      });
+      return result.filePath;
+    } catch (error) {
+      logger.error('下载更新包失败', error as Error);
+      return null;
+    }
+  }
+
+  /**
+   * 安装更新包
+   * @param filePath 更新包路径
+   */
+  async installUpdate(filePath: string): Promise<boolean> {
+    const info = this.updateInfo;
+
+    if (info?.checksum) {
+      const valid = await this.installer.verify(filePath, info.checksum);
+      if (!valid) {
+        logger.error('更新包校验失败');
+        return false;
+      }
+    }
+
+    const result = await this.installer.install(filePath);
+    return result.success;
+  }
+
+  /**
+   * 获取更新命令提示
+   */
+  private getUpdateCommand(): string {
+    const hasGlobal = process.env['npm_config_global'];
+    return hasGlobal ? 'npm update -g PY_APP' : 'bun run update';
   }
 
   /**
@@ -164,8 +236,8 @@ export class AutoUpdater {
    */
   private createDefaultInfo(): UpdateInfo {
     return {
-      currentVersion: '1.0.0',
-      latestVersion: '1.0.0',
+      currentVersion: this.currentVersion,
+      latestVersion: this.currentVersion,
       updateAvailable: false,
     };
   }

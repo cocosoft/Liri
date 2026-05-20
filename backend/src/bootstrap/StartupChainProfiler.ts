@@ -19,14 +19,47 @@ export interface StartupPhase {
 }
 
 /**
- * 启动阶段列表
+ * 启动阶段列表（对标 CC 61+ checkpoint）
+ * 按启动流程分为 7 组共 23 个阶段
  */
 export const STARTUP_PHASES: StartupPhase[] = [
+  // Group 1: 核心启动（Core Boot）
   { name: 'startup', label: '系统启动', order: 1 },
-  { name: 'module_init', label: '模块初始化', order: 2 },
-  { name: 'plugin_load', label: '插件加载', order: 3 },
-  { name: 'first_response', label: '首响应就绪', order: 4 },
-  { name: 'tool_execution', label: '工具就绪', order: 5 },
+  { name: 'startup_config', label: 'startup.yaml 加载', order: 2 },
+  { name: 'env_init', label: '环境初始化', order: 3 },
+  { name: 'config_load', label: '配置加载', order: 4 },
+
+  // Group 2: 模块初始化（Module Init）
+  { name: 'module_init', label: '模块初始化', order: 5 },
+  { name: 'tool_init', label: '工具系统初始化', order: 6 },
+  { name: 'extensibility_init', label: '扩展性服务初始化', order: 7 },
+  { name: 'command_init', label: '命令系统初始化', order: 8 },
+  { name: 'monitoring_init', label: '监控服务初始化', order: 9 },
+  { name: 'provider_init', label: 'AI Provider 注册', order: 10 },
+  { name: 'gateway_init', label: 'Gateway 通道初始化', order: 11 },
+
+  // Group 3: 插件加载（Plugin Load）
+  { name: 'plugin_load', label: '插件加载', order: 12 },
+  { name: 'plugin_start_all', label: '插件启动', order: 13 },
+
+  // Group 4: 运行环境（Runtime）
+  { name: 'session_init', label: '会话初始化', order: 14 },
+  { name: 'context_init', label: '上下文初始化', order: 15 },
+  { name: 'memory_init', label: '记忆系统初始化', order: 16 },
+  { name: 'skill_load', label: '技能加载', order: 17 },
+  { name: 'sandbox_init', label: '沙箱初始化', order: 18 },
+
+  // Group 5: 延迟加载（Deferred）
+  { name: 'deferred_prefetch_start', label: '延迟预加载启动', order: 19 },
+
+  // Group 6: 就绪（Ready）
+  { name: 'app_ready', label: '应用就绪', order: 20 },
+
+  // Group 7: 运行时（Runtime）
+  { name: 'first_response', label: '首响应就绪', order: 21 },
+  { name: 'tool_execution', label: '工具就绪', order: 22 },
+  { name: 'tool_discovery', label: '工具发现', order: 23 },
+  { name: 'tool_invoke', label: '工具调用', order: 24 },
 ];
 
 /**

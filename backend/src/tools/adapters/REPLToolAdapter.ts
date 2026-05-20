@@ -11,6 +11,7 @@ import type {
 } from '../types/Tool.js';
 import type { ToolUseContext } from '../types/ToolUseContext.js';
 import type { ToolResult } from '../types/ToolResult.js';
+import { ToolTag } from '../types/Tool.js';
 import { REPLToolImpl } from '../repl/REPLToolImpl.js';
 import type { REPLSession } from '../repl/types/index.js';
 
@@ -297,6 +298,7 @@ export class REPLToolAdapter implements Tool {
       alwaysLoad: this.alwaysLoad,
       interruptBehavior: this.interruptBehavior(),
       maxResultSizeChars: this.maxResultSizeChars,
+      tags: [ToolTag.CODE],
     };
   }
 

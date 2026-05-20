@@ -423,6 +423,15 @@ export interface MCPServerConfig {
   enabled?: boolean;
   description?: string;
   version?: string;
+  tls?: {
+    enabled: boolean;
+    certPath?: string;
+    keyPath?: string;
+    caPath?: string;
+    minVersion?: string;
+    rejectUnauthorized?: boolean;
+    requestCert?: boolean;
+  };
 }
 
 /**

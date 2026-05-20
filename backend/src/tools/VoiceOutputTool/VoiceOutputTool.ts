@@ -2,7 +2,7 @@
  * 语音输出工具
  */
 
-import { Tool, ToolInfo, ValidationResult } from '../types/Tool';
+import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_OUTPUT_TOOL_NAME } from './constants';
@@ -222,6 +222,7 @@ export class VoiceOutputTool implements Tool {
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      tags: [ToolTag.AI],
     };
   }
 

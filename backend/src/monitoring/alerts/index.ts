@@ -14,4 +14,27 @@ export type {
   AlertRule,
   AlertNotification,
   AlertHandler,
+  AlertSilence,
 } from './AlertManager.js';
+
+export { AlertPresetValidator } from './AlertSchema.js';
+
+export type {
+  PresetAlertLevel,
+  PresetConditionType,
+  AlertPresetCondition,
+  AlertPresetChannel,
+  AlertPresetRule,
+  AlertPresetMetadata,
+  AlertPresetFile,
+  AlertPresetValidationResult,
+  AlertPresetLoaderConfig,
+  LoadedPresetRule,
+} from './AlertSchema.js';
+
+export {
+  AlertPresetLoader,
+  createAlertPresetLoader,
+} from './AlertPresetLoader.js';
+
+export type { AlertPresetLoadResult } from './AlertPresetLoader.js';

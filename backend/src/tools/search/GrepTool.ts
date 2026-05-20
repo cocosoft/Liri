@@ -6,7 +6,7 @@
 import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { ToolParam } from '../types/Tool';
+import { ToolParam, ToolTag } from '../types/Tool';
 import { PermissionResult, createAllowResult } from '../types/PermissionResult';
 import { ValidationResult } from '../types/Tool';
 import { createSuccessResult, createFailureResult } from '../utils/ToolUtils';
@@ -16,6 +16,8 @@ import { resolve, join } from 'path';
 export class GrepTool extends BaseTool {
   name = 'grep';
   description = 'Search for patterns in files';
+
+  tags = [ToolTag.CODE, ToolTag.READ];
 
   params: ToolParam[] = [
     {

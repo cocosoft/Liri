@@ -126,3 +126,16 @@ export type {
   TAORCheckpoint,
   CheckpointStorage,
 } from './TAORLoop.js';
+export {
+  QueryLogStore,
+  getQueryLogStore,
+  resetQueryLogStore,
+} from './QueryLogStore.js';
+export type {
+  QueryLogEntry,
+  QueryLogEntryType,
+  QueryLogFilter,
+  QueryLogStats,
+} from './QueryLogTypes.js';
+export { SlowQueryDetector } from './SlowQueryDetector.js';
+export type { SlowQueryRecord, SlowQueryReport } from './SlowQueryDetector.js';

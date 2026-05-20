@@ -1,8 +1,11 @@
 /**
  * 主题管理器
  *
- * 提供终端主题的定制功能
+ * 提供终端主题的定制功能，集成 ThemeLoader 支持内置和用户主题。
  */
+
+import { ThemeLoader } from './theme/ThemeLoader';
+import type { ThemeDefinition } from './theme/ThemeSchema';
 
 export interface ThemeColors {
   foreground: string;
@@ -129,11 +132,18 @@ const LIGHT_THEME: Theme = {
   },
 };
 
+const BUILTIN_THEMES: Record<string, Theme> = {
+  default: DEFAULT_THEME,
+  dark: DARK_THEME,
+  light: LIGHT_THEME,
+};
+
 export class ThemeManager {
   private static instance: ThemeManager | null = null;
   private currentTheme: Theme;
   private config: ThemeConfig;
   private listeners: Set<() => void> = new Set();
+  private themeLoader: ThemeLoader;
 
   private constructor() {
     this.currentTheme = { ...DEFAULT_THEME };
@@ -146,6 +156,7 @@ export class ThemeManager {
       cursorBlink: true,
       cursorBlinkInterval: 530,
     };
+    this.themeLoader = new ThemeLoader();
   }
 
   static getInstance(): ThemeManager {
@@ -153,6 +164,13 @@ export class ThemeManager {
       ThemeManager.instance = new ThemeManager();
     }
     return ThemeManager.instance;
+  }
+
+  /**
+   * 初始化主题管理器（加载所有内置和用户主题）
+   */
+  async initialize(): Promise<void> {
+    await this.themeLoader.initialize();
   }
 
   /**
@@ -177,16 +195,26 @@ export class ThemeManager {
   }
 
   /**
-   * 设置主题
+   * 设置主题（支持所有内置主题和用户自定义主题）
    * @param themeName 主题名称
    */
   setTheme(themeName: string): boolean {
-    const theme = this.getBuiltInTheme(themeName);
-    if (theme) {
-      this.currentTheme = { ...theme };
+    const lowerName = themeName.toLowerCase();
+
+    const builtin = BUILTIN_THEMES[lowerName];
+    if (builtin) {
+      this.currentTheme = { ...builtin };
       this.notifyListeners();
       return true;
     }
+
+    const loaded = this.themeLoader.getTheme(themeName);
+    if (loaded) {
+      this.currentTheme = this.definitionToTheme(loaded);
+      this.notifyListeners();
+      return true;
+    }
+
     return false;
   }
 
@@ -204,23 +232,56 @@ export class ThemeManager {
    * @param name 主题名称
    */
   getBuiltInTheme(name: string): Theme | undefined {
-    switch (name.toLowerCase()) {
-      case 'default':
-        return { name: 'default', colors: { ...DEFAULT_THEME.colors } };
-      case 'dark':
-        return { name: 'dark', colors: { ...DARK_THEME.colors } };
-      case 'light':
-        return { name: 'light', colors: { ...LIGHT_THEME.colors } };
-      default:
-        return undefined;
-    }
+    const lowerName = name.toLowerCase();
+    const builtin = BUILTIN_THEMES[lowerName];
+    if (builtin) return { ...builtin };
+
+    const loaded = this.themeLoader.getBuiltinTheme(name);
+    if (loaded) return this.definitionToTheme(loaded);
+
+    return undefined;
   }
 
   /**
-   * 获取所有内置主题
+   * 获取所有内置主题列表
    */
   getBuiltInThemes(): string[] {
-    return ['default', 'dark', 'light'];
+    return Object.keys(BUILTIN_THEMES);
+  }
+
+  /**
+   * 获取所有可用主题（内置 + 用户）
+   */
+  getAllAvailableThemes(): string[] {
+    const names = new Set<string>();
+
+    for (const name of Object.keys(BUILTIN_THEMES)) {
+      names.add(name);
+    }
+
+    for (const [name] of this.themeLoader.getAllThemes()) {
+      names.add(name);
+    }
+
+    return Array.from(names).sort();
+  }
+
+  /**
+   * 获取主题加载器实例
+   */
+  getThemeLoader(): ThemeLoader {
+    return this.themeLoader;
+  }
+
+  /**
+   * 将 ThemeDefinition 转换为 Theme
+   */
+  private definitionToTheme(def: ThemeDefinition): Theme {
+    return {
+      name: def.name,
+      colors: { ...def.colors },
+      ...(def.ansi256 ? { ansi256: { ...def.ansi256 } } : {}),
+    };
   }
 
   /**
@@ -298,65 +359,4 @@ export class ThemeManager {
     this.config = { ...data.config };
     this.notifyListeners();
   }
-
-  /**
-   * 将主题颜色转换为ANSI转义序列
-   * @param colorName 颜色名称
-   */
-  colorToAnsi(colorName: keyof ThemeColors): string {
-    const color = this.getColor(colorName);
-    return this.rgbToAnsi(color);
-  }
-
-  /**
-   * 将RGB颜色转换为ANSI转义序列
-   * @param rgb RGB颜色值
-   */
-  rgbToAnsi(rgb: string): string {
-    if (rgb.startsWith('#')) {
-      const hex = rgb.slice(1);
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-
-      const ansi = this.rgbToAnsi256(r, g, b);
-      return `\x1b[38;5;${ansi}m`;
-    }
-    return '';
-  }
-
-  /**
-   * 将RGB转换为ANSI 256色
-   */
-  private rgbToAnsi256(r: number, g: number, b: number): number {
-    if (r === g && g === b) {
-      if (r < 8) return 16;
-      if (r > 248) return 231;
-      return Math.round(((r - 8) / 247) * 24) + 231;
-    }
-
-    return (
-      16 + Math.round(r / 51) * 36 + Math.round(g / 51) * 6 + Math.round(b / 51)
-    );
-  }
-
-  /**
-   * 获取背景色ANSI转义序列
-   */
-  backgroundToAnsi(colorName: keyof ThemeColors): string {
-    const color = this.getColor(colorName);
-    if (color.startsWith('#')) {
-      const hex = color.slice(1);
-      const r = parseInt(hex.slice(0, 2), 16);
-      const g = parseInt(hex.slice(2, 4), 16);
-      const b = parseInt(hex.slice(4, 6), 16);
-      const ansi = this.rgbToAnsi256(r, g, b);
-      return `\x1b[48;5;${ansi}m`;
-    }
-    return '';
-  }
 }
-
-export const themeManager = ThemeManager.getInstance();
-
-export default themeManager;

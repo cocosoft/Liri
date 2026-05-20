@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolResult,
   ToolUseContext,
@@ -55,6 +56,8 @@ export class WebFetchTool extends BaseTool {
   name = 'web_fetch';
   description =
     'Fetch content from a URL. Use to retrieve web page content, API responses, or other HTTP resources.';
+
+  tags = [ToolTag.NETWORK, ToolTag.READ];
 
   params: ToolParam[] = [
     {

@@ -111,6 +111,7 @@ export function addLineNumbers(content: string, startLine: number = 1): string {
 }
 
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolParam,
   ToolUseContext,
@@ -153,6 +154,9 @@ const BINARY_EXTENSIONS = new Set([
 export class FileReadTool extends BaseTool {
   name = 'file_read';
   description = 'Read file content';
+
+  tags = [ToolTag.FILE, ToolTag.READ];
+
   params: ToolParam[] = [
     {
       name: 'file_path',

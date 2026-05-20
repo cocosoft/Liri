@@ -91,6 +91,7 @@ function countOccurrences(str: string, search: string): number {
 }
 
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolParam,
   ToolUseContext,
@@ -107,6 +108,9 @@ function normalizeQuotes(str: string): string {
 export class FileEditTool extends BaseTool {
   name = 'file_edit';
   description = 'Edit a file by replacing text';
+
+  tags = [ToolTag.FILE, ToolTag.WRITE];
+
   params: ToolParam[] = [
     {
       name: 'file_path',

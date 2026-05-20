@@ -206,6 +206,22 @@ export interface FeatureFlags {
 }
 
 /**
+ * 自动更新配置
+ */
+export interface AutoUpdateConfig {
+  /** 是否启用自动检查更新 */
+  enabled: boolean;
+  /** 检查间隔（毫秒），默认24小时 */
+  checkIntervalMs: number;
+  /** 更新通道：stable 或 beta */
+  channel: 'stable' | 'beta';
+  /** 是否在启动时静默检查 */
+  checkOnStartup: boolean;
+  /** 是否显示详细日志 */
+  verbose: boolean;
+}
+
+/**
  * 内部运行状态（不直接暴露给用户）
  */
 export interface InternalState {
@@ -270,6 +286,8 @@ export interface GlobalConfig {
   notifications: NotificationsConfig;
   /** 功能开关 */
   features: FeatureFlags;
+  /** 自动更新配置 */
+  autoUpdate: AutoUpdateConfig;
   /** 内部运行状态 */
   internal: InternalState;
 
@@ -356,6 +374,13 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       copyFullResponse: false,
       todoEnabled: true,
       showExpandedTodos: false,
+    },
+    autoUpdate: {
+      enabled: true,
+      checkIntervalMs: 86400000,
+      channel: 'stable',
+      checkOnStartup: true,
+      verbose: false,
     },
     internal: {
       numStartups: 0,

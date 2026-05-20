@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { getThemeManager } from '../core/theme';
+import { getThemeManager } from '@modules/system/theme';
 import { createInterface, Interface } from 'readline';
 
 /**

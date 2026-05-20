@@ -5,6 +5,7 @@
  */
 
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolResult,
   ToolUseContext,
@@ -60,6 +61,8 @@ export interface BrowserToolOutput {
 export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
   name = 'browser';
   description = 'Automate Chrome browser to interact with web pages';
+
+  tags = [ToolTag.NETWORK];
 
   params: ToolParam[] = [
     {

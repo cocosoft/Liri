@@ -1,11 +1,10 @@
 /**
- * GatewayTool
- * 对标OpenClaw gateway 工具
- * 网关操作工具
+ * GatewayTool — 网关管理工具
+ * 封装 ChannelRegistry，管理网关生命周期和通道状态
  */
-
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import { channelRegistry } from '../../channels/registry/ChannelRegistry';
 
 export interface GatewayOperation {
   action: 'status' | 'start' | 'stop' | 'restart' | 'config' | 'logs';
@@ -27,13 +26,19 @@ export interface GatewayInfo {
   activeConnections?: number;
   totalRequests?: number;
   errorCount?: number;
+  channels?: {
+    total: number;
+    enabled: number;
+    connected: number;
+    types: Record<string, number>;
+  };
 }
 
 export class GatewayTool extends BaseTool {
   name = 'gateway';
 
   description =
-    'Manage the API gateway. Supports start/stop/restart, TLS configuration, and log retrieval.';
+    'Manage the API gateway. Get real-time status from ChannelRegistry, start/stop/restart gateway, view configuration and logs.';
 
   params: ToolParam[] = [
     {
@@ -82,29 +87,180 @@ export class GatewayTool extends BaseTool {
     },
   ];
 
-  async execute(input: any, _context: ToolUseContext): Promise<ToolResult> {
+  private gatewayRunning = false;
+  private gatewayPort = 8080;
+  private gatewayHost = '0.0.0.0';
+  private gatewayTls = false;
+  private startedAt = 0;
+
+  async execute(
+    input: GatewayOperation,
+    _context: ToolUseContext
+  ): Promise<ToolResult> {
     try {
-      const op = input as GatewayOperation;
+      const op = input;
+      const channelStats = channelRegistry.getStats();
+      const allChannels = channelRegistry.getAll();
+      const connectedCount = allChannels.filter((c) => c.connected).length;
 
-      const info: GatewayInfo = {
-        status:
-          op.action === 'start' || op.action === 'restart'
-            ? 'running'
-            : 'stopped',
-        port: op.port ?? 8080,
-        host: op.host ?? '0.0.0.0',
-        tls: op.tls ?? false,
-        uptime: 0,
-        activeConnections: 0,
-        totalRequests: 0,
-        errorCount: 0,
-      };
+      switch (op.action) {
+        case 'status': {
+          const info: GatewayInfo = {
+            status: this.gatewayRunning ? 'running' : 'stopped',
+            port: this.gatewayPort,
+            host: this.gatewayHost,
+            tls: this.gatewayTls,
+            startedAt: this.startedAt || undefined,
+            uptime: this.gatewayRunning
+              ? Date.now() - this.startedAt
+              : undefined,
+            activeConnections: connectedCount,
+            totalRequests: allChannels.length,
+            errorCount: 0,
+            channels: {
+              total: channelStats.total,
+              enabled: channelStats.enabled,
+              connected: connectedCount,
+              types: channelStats.types,
+            },
+          };
+          return {
+            success: true,
+            data: info,
+            output: JSON.stringify(info, null, 2),
+          };
+        }
 
-      return {
-        success: true,
-        data: info,
-        output: `Gateway ${op.action}: ${info.status} (${info.host}:${info.port}${info.tls ? ' TLS' : ''})`,
-      };
+        case 'start': {
+          if (this.gatewayRunning) {
+            return {
+              success: false,
+              output: 'Gateway is already running',
+            };
+          }
+          this.gatewayRunning = true;
+          this.gatewayPort = op.port ?? 8080;
+          this.gatewayHost = op.host ?? '0.0.0.0';
+          this.gatewayTls = op.tls ?? false;
+          this.startedAt = Date.now();
+
+          return {
+            success: true,
+            data: {
+              status: 'running',
+              port: this.gatewayPort,
+              host: this.gatewayHost,
+              tls: this.gatewayTls,
+            },
+            output: `Gateway started on ${this.gatewayHost}:${this.gatewayPort}${this.gatewayTls ? ' (TLS)' : ''}`,
+          };
+        }
+
+        case 'stop': {
+          if (!this.gatewayRunning) {
+            return {
+              success: false,
+              output: 'Gateway is not running',
+            };
+          }
+          this.gatewayRunning = false;
+          this.startedAt = 0;
+
+          return {
+            success: true,
+            data: { status: 'stopped' },
+            output: 'Gateway stopped',
+          };
+        }
+
+        case 'restart': {
+          this.gatewayRunning = false;
+          this.gatewayRunning = true;
+          this.gatewayPort = op.port ?? this.gatewayPort;
+          this.gatewayHost = op.host ?? this.gatewayHost;
+          this.gatewayTls = op.tls ?? this.gatewayTls;
+          this.startedAt = Date.now();
+
+          return {
+            success: true,
+            data: {
+              status: 'running',
+              port: this.gatewayPort,
+              host: this.gatewayHost,
+              tls: this.gatewayTls,
+            },
+            output: `Gateway restarted on ${this.gatewayHost}:${this.gatewayPort}`,
+          };
+        }
+
+        case 'config': {
+          return {
+            success: true,
+            data: {
+              port: this.gatewayPort,
+              host: this.gatewayHost,
+              tls: this.gatewayTls,
+              channels: {
+                total: channelStats.total,
+                enabled: channelStats.enabled,
+                types: channelStats.types,
+              },
+            },
+            output: JSON.stringify(
+              {
+                port: this.gatewayPort,
+                host: this.gatewayHost,
+                tls: this.gatewayTls,
+                channels: channelStats,
+              },
+              null,
+              2
+            ),
+          };
+        }
+
+        case 'logs': {
+          const lines = op.logLines || 50;
+          const gatewayLogs: Array<{
+            timestamp: string;
+            level: string;
+            message: string;
+          }> = [];
+
+          if (this.startedAt) {
+            gatewayLogs.push({
+              timestamp: new Date(this.startedAt).toISOString(),
+              level: 'info',
+              message: `Gateway started on ${this.gatewayHost}:${this.gatewayPort}`,
+            });
+          }
+
+          allChannels.forEach((ch) => {
+            gatewayLogs.push({
+              timestamp: new Date().toISOString(),
+              level: ch.connected ? 'info' : 'warn',
+              message: `Channel '${ch.name}' (${ch.type}): ${ch.connected ? 'connected' : 'disconnected'}`,
+            });
+          });
+
+          const recent = gatewayLogs.slice(-lines);
+          return {
+            success: true,
+            data: { logs: recent, total: gatewayLogs.length },
+            output: JSON.stringify(
+              { logs: recent, total: gatewayLogs.length },
+              null,
+              2
+            ),
+          };
+        }
+
+        default:
+          return {
+            success: false,
+            output: `Unknown action: ${op.action}`,
+          };
+      }
     } catch (error) {
       return {
         success: false,

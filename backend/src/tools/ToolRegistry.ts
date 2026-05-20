@@ -2,7 +2,7 @@
  * 工具注册表
  * 负责工具的注册、获取、搜索等操作
  */
-import { Tool, ToolInfo } from './types/Tool';
+import { Tool, ToolInfo, ToolTag } from './types/Tool';
 import { ToolResult, createToolResult } from './types/ToolResult';
 import { ToolUseContext } from './types/ToolUseContext';
 import {
@@ -397,6 +397,22 @@ export class ToolRegistry {
     }
 
     return filteredTools;
+  }
+
+  /**
+   * 按标签过滤工具
+   */
+  filterByTag(tag: ToolTag): Tool[] {
+    const results: Tool[] = [];
+
+    for (const tool of this.tools.values()) {
+      const info = tool.getInfo();
+      if (info.tags?.includes(tag)) {
+        results.push(tool);
+      }
+    }
+
+    return results;
   }
 
   getToolUsageStats(toolName: string): ToolUsageStats | undefined {

@@ -8,8 +8,8 @@
  */
 
 import { profileCheckpoint } from '../utils/startupProfiler.js';
-import { generateSessionId } from '@modules/core/state/index.js';
-import type { SessionId } from '@modules/core/state/index.js';
+import { generateSessionId } from '@modules/system/state/index.js';
+import type { SessionId } from '@modules/system/state/index.js';
 export type { SessionId };
 export { generateSessionId };
 

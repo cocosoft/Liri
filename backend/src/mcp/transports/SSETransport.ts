@@ -7,6 +7,7 @@ import { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import type { McpTlsConfig } from '../../services/mcp/transports/McpTlsManager';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -18,6 +19,8 @@ interface SSETransportOptions {
   url: string;
   /** 头部信息 */
   headers?: Record<string, string>;
+  /** TLS 配置 */
+  tls?: Partial<McpTlsConfig>;
 }
 
 /**
@@ -33,7 +36,7 @@ export class SSETransport extends MCPTransport {
   > = new Map();
 
   constructor(options: SSETransportOptions) {
-    super();
+    super(options.tls);
     this.url = options.url;
     this.headers = options.headers || {};
   }
@@ -46,8 +49,11 @@ export class SSETransport extends MCPTransport {
       return;
     }
 
+    const tlsOptions = this.tlsManager.createClientOptions();
+    const sseUrl = tlsOptions ? this.url.replace(/^http:/, 'https:') : this.url;
+
     // 创建EventSource
-    this.eventSource = new EventSource(this.url, {
+    this.eventSource = new EventSource(sseUrl, {
       withCredentials: true,
     });
 
@@ -111,6 +117,8 @@ export class SSETransport extends MCPTransport {
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(request.id, { resolve, reject });
 
+      const tlsOptions = this.tlsManager.createFetchAgentOptions();
+
       // 通过HTTP POST发送请求
       fetch(this.url, {
         method: 'POST',
@@ -119,6 +127,7 @@ export class SSETransport extends MCPTransport {
           ...this.headers,
         },
         body: JSON.stringify(request),
+        ...(tlsOptions ? { tls: tlsOptions } : {}),
       }).catch((error) => {
         reject(error);
         this.pendingRequests.delete(request.id);

@@ -2,7 +2,7 @@
  * 代码分析工具
  * 用于分析代码结构、质量和依赖关系
  */
-import { Tool, ToolInfo, ToolCallProgress } from '../types/Tool';
+import { Tool, ToolInfo, ToolTag, ToolCallProgress } from '../types/Tool';
 import {
   ToolResult,
   createToolResult,
@@ -67,6 +67,7 @@ export class CodeAnalysisTool implements Tool {
       alwaysLoad: false,
       interruptBehavior: 'block',
       maxResultSizeChars: 50000,
+      tags: [ToolTag.CODE, ToolTag.READ],
       params: [
         {
           name: 'target',

@@ -53,6 +53,7 @@ export function writeFile(input: FileWriteInput): FileWriteResult {
 }
 
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolParam,
   ToolUseContext,
@@ -65,6 +66,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 export class FileWriteTool extends BaseTool {
   name = 'file_write';
   description = 'Write content to a file';
+
+  tags = [ToolTag.FILE, ToolTag.WRITE];
+
   params: ToolParam[] = [
     {
       name: 'file_path',

@@ -9,7 +9,7 @@
  * - 支持Skill参数传递
  */
 
-import { Tool, ToolInfo, ValidationResult } from '../types/Tool';
+import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { SKILL_TOOL_NAME, BUILTIN_SKILLS } from './constants';
@@ -106,6 +106,7 @@ export class SkillTool implements Tool {
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      tags: [ToolTag.AGENT],
     };
   }
 

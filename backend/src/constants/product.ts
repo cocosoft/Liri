@@ -1,7 +1,5 @@
 /**
  * 产品配置常量
- * 基于CC源码 cc_code/backend/constants/product.ts 实现
- * 去除Anthropic/CLAUDE特定内容，适配PY_APP
  */
 
 /**
@@ -67,4 +65,33 @@ export function getRemoteSessionUrl(
 ): string {
   const baseUrl = getAppBaseUrl(sessionId, ingressUrl);
   return `${baseUrl}/code/${sessionId}`;
+}
+
+/**
+ * GitHub 仓库信息
+ */
+export const GITHUB_OWNER = 'pyapp';
+export const GITHUB_REPO = 'PY_APP';
+export const GITHUB_API_BASE = 'https://api.github.com';
+export const GITHUB_RELEASES_URL = `${GITHUB_API_BASE}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
+
+/**
+ * 更新通道
+ */
+export type UpdateChannel = 'stable' | 'beta';
+
+/**
+ * 获取 GitHub Releases API URL
+ * @param channel 更新通道
+ * @param perPage 每页数量
+ * @returns API URL
+ */
+export function getGitHubReleasesUrl(
+  channel: UpdateChannel = 'stable',
+  perPage: number = 5
+): string {
+  if (channel === 'beta') {
+    return `${GITHUB_RELEASES_URL}?per_page=${perPage}`;
+  }
+  return `${GITHUB_RELEASES_URL}/latest`;
 }

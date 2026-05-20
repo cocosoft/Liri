@@ -2,6 +2,7 @@ import { AnthropicProvider } from './AnthropicProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import { GoogleProvider } from './GoogleProvider';
 import { OllamaProvider } from './OllamaProvider';
+import { VertexAIProvider } from './VertexAIProvider';
 import { providerRegistry } from './ProviderRegistry';
 import type { ProviderConfig } from './AIProvider';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -13,6 +14,7 @@ export function registerDefaultProviders(config?: {
   openai?: Partial<ProviderConfig>;
   google?: Partial<ProviderConfig>;
   ollama?: Partial<ProviderConfig>;
+  vertexAi?: Partial<ProviderConfig>;
 }): void {
   const existingProviders = providerRegistry.listIds();
   if (existingProviders.length > 0) {
@@ -29,6 +31,8 @@ export function registerDefaultProviders(config?: {
   providerRegistry.register(new GoogleProvider(config?.google ?? {}));
 
   providerRegistry.register(new OllamaProvider(config?.ollama ?? {}));
+
+  providerRegistry.register(new VertexAIProvider(config?.vertexAi ?? {}));
 
   logger.info(
     `Registered ${providerRegistry.size} AI providers: ${providerRegistry.listIds().join(', ')}`
@@ -60,5 +64,12 @@ export function registerOllamaProvider(config?: ProviderConfig): void {
   if (!providerRegistry.has('ollama')) {
     providerRegistry.register(new OllamaProvider(config ?? {}));
     logger.info('Ollama provider registered');
+  }
+}
+
+export function registerVertexAIProvider(config?: ProviderConfig): void {
+  if (!providerRegistry.has('vertex-ai')) {
+    providerRegistry.register(new VertexAIProvider(config ?? {}));
+    logger.info('Vertex AI provider registered');
   }
 }

@@ -4,8 +4,8 @@
 
 export {
   ThemeManager,
-  Theme,
-  ThemeColors,
   getThemeManager,
   createThemeManager,
 } from './ThemeManager';
+
+export type { Theme, ThemeColors } from './ThemeManager';

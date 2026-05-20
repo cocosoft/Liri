@@ -4,16 +4,39 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const perfLogger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 性能阶段
+ * 对标 CC 61+ checkpoint，覆盖从进程启动到应用就绪的完整链路
  */
 export type PerformancePhase =
   | 'startup'
+  | 'startup_config'
+  | 'env_init'
+  | 'config_load'
   | 'module_init'
+  | 'tool_init'
+  | 'extensibility_init'
+  | 'command_init'
+  | 'monitoring_init'
+  | 'provider_init'
+  | 'gateway_init'
   | 'plugin_load'
+  | 'plugin_start_all'
+  | 'session_init'
+  | 'context_init'
+  | 'memory_init'
+  | 'skill_load'
+  | 'sandbox_init'
+  | 'deferred_prefetch_start'
+  | 'app_ready'
   | 'first_response'
-  | 'tool_execution';
+  | 'tool_execution'
+  | 'tool_discovery'
+  | 'tool_invoke';
 
 /**
  * 性能红线
@@ -50,7 +73,7 @@ export interface SLORreport {
 
 /**
  * 默认性能红线
- * 对标平安科技 StartupProfiler 各阶段耗时要求
+ * 对标 CC 61+ checkpoint，覆盖从进程启动到应用就绪的完整链路
  */
 export const DEFAULT_REDLINES: PerformanceRedline[] = [
   {
@@ -60,16 +83,118 @@ export const DEFAULT_REDLINES: PerformanceRedline[] = [
     description: '系统启动阶段（加载配置、解析命令行、初始化核心模块）',
   },
   {
+    phase: 'startup_config',
+    maxMs: 200,
+    warnMs: 100,
+    description: 'startup.yaml 加载阶段（读取 YAML 配置、合并默认值）',
+  },
+  {
+    phase: 'env_init',
+    maxMs: 500,
+    warnMs: 300,
+    description: '环境初始化阶段（环境变量、进程参数）',
+  },
+  {
+    phase: 'config_load',
+    maxMs: 1000,
+    warnMs: 600,
+    description: '配置加载阶段（配置系统初始化）',
+  },
+  {
     phase: 'module_init',
     maxMs: 5000,
     warnMs: 3500,
     description: '模块初始化阶段（加载技能、工具、插件依赖图）',
   },
   {
+    phase: 'tool_init',
+    maxMs: 2000,
+    warnMs: 1000,
+    description: '工具系统初始化（ToolManager 创建）',
+  },
+  {
+    phase: 'extensibility_init',
+    maxMs: 2000,
+    warnMs: 1000,
+    description: '可扩展性服务初始化（插件系统）',
+  },
+  {
+    phase: 'command_init',
+    maxMs: 1000,
+    warnMs: 600,
+    description: '命令系统初始化',
+  },
+  {
+    phase: 'monitoring_init',
+    maxMs: 1000,
+    warnMs: 600,
+    description: '监控服务初始化',
+  },
+  {
+    phase: 'provider_init',
+    maxMs: 2000,
+    warnMs: 1000,
+    description: 'AI Provider 注册',
+  },
+  {
+    phase: 'gateway_init',
+    maxMs: 3000,
+    warnMs: 1500,
+    description: 'Gateway 通道初始化',
+  },
+  {
     phase: 'plugin_load',
     maxMs: 3000,
     warnMs: 2000,
-    description: '插件加载阶段（加载和初始化全部插件）',
+    description: '插件加载阶段（加载全部插件）',
+  },
+  {
+    phase: 'plugin_start_all',
+    maxMs: 2000,
+    warnMs: 1000,
+    description: '插件启动阶段（启动全部已注册插件）',
+  },
+  {
+    phase: 'session_init',
+    maxMs: 1000,
+    warnMs: 500,
+    description: '会话初始化',
+  },
+  {
+    phase: 'context_init',
+    maxMs: 1000,
+    warnMs: 500,
+    description: '上下文初始化',
+  },
+  {
+    phase: 'memory_init',
+    maxMs: 1000,
+    warnMs: 500,
+    description: '记忆系统初始化',
+  },
+  {
+    phase: 'skill_load',
+    maxMs: 1500,
+    warnMs: 800,
+    description: '技能加载',
+  },
+  {
+    phase: 'sandbox_init',
+    maxMs: 1000,
+    warnMs: 500,
+    description: '沙箱初始化',
+  },
+  {
+    phase: 'deferred_prefetch_start',
+    maxMs: 500,
+    warnMs: 300,
+    description: '延迟预加载启动',
+  },
+  {
+    phase: 'app_ready',
+    maxMs: 500,
+    warnMs: 200,
+    description: '应用就绪',
   },
   {
     phase: 'first_response',
@@ -82,6 +207,18 @@ export const DEFAULT_REDLINES: PerformanceRedline[] = [
     maxMs: 5000,
     warnMs: 3000,
     description: '工具执行阶段（单次工具调用的最大耗时）',
+  },
+  {
+    phase: 'tool_discovery',
+    maxMs: 1000,
+    warnMs: 500,
+    description: '工具发现阶段（列举可用工具）',
+  },
+  {
+    phase: 'tool_invoke',
+    maxMs: 3000,
+    warnMs: 2000,
+    description: '工具调用阶段（单次工具调用处理）',
   },
 ];
 
@@ -143,6 +280,27 @@ export class SprintPerformanceChecker {
     };
 
     this.results.push(result);
+
+    // 红线告警：超标时记录 WARN，警告区记录 INFO
+    if (!passed) {
+      perfLogger.warn(
+        `性能红线超标 [${phase}]: ${actualMs}ms / ${redline.maxMs}ms (超出 ${actualMs - redline.maxMs}ms)`,
+        {
+          phase,
+          actualMs,
+          redlineMs: redline.maxMs,
+        }
+      );
+    } else if (warned) {
+      perfLogger.warn(
+        `性能红线警告 [${phase}]: ${actualMs}ms / ${redline.maxMs}ms`,
+        {
+          phase,
+          actualMs,
+          redlineMs: redline.maxMs,
+        }
+      );
+    }
 
     return result;
   }

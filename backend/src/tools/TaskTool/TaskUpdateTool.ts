@@ -2,7 +2,7 @@
  * TaskUpdateTool - 更新任务
  */
 
-import { Tool, ToolInfo, ValidationResult } from '../types/Tool';
+import { Tool, ToolInfo, ValidationResult, ToolTag } from '../types/Tool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { TASK_UPDATE_TOOL_NAME, TASK_UPDATE_DESCRIPTION } from './constants';
@@ -116,6 +116,7 @@ export class TaskUpdateTool implements Tool {
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      tags: [ToolTag.WRITE],
     };
   }
 

@@ -5,6 +5,8 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { StrategySelector } from './StrategySelector';
+import type { TaskFeature } from './StrategySelector';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -36,6 +38,11 @@ export interface RouteRules {
 export class AgentRouter {
   private routes: Map<string, AgentRoute> = new Map();
   private rules: RouteRules = { patterns: [] };
+  private strategySelector: StrategySelector;
+
+  constructor() {
+    this.strategySelector = new StrategySelector();
+  }
 
   registerRoute(route: AgentRoute): void {
     this.routes.set(route.agentId, route);
@@ -51,6 +58,27 @@ export class AgentRouter {
   setRules(rules: RouteRules): void {
     this.rules = rules;
     this.rules.patterns.sort((a, b) => b.priority - a.priority);
+  }
+
+  /**
+   * 基于任务特征选择策略
+   * 是 resolve() 的策略增强版本，结合 StrategySelector 做智能匹配
+   * @param feature 任务特征
+   * @returns 策略选择结果（包含路由和置信度）
+   */
+  selectStrategy(feature: TaskFeature): {
+    route: AgentRoute | null;
+    confidence: number;
+  } {
+    const routes = this.getAllRoutes();
+    return this.strategySelector.select(feature, routes);
+  }
+
+  /**
+   * 获取策略选择器实例（用于配置规则）
+   */
+  getStrategySelector(): StrategySelector {
+    return this.strategySelector;
   }
 
   resolve(match: RouteMatch): AgentRoute | null {
@@ -73,7 +101,21 @@ export class AgentRouter {
       }
     }
 
-    // 3. 默认路由
+    // 3. 策略匹配（基于任务特征的智能选择）
+    const feature = this.strategySelector.analyzeFeature(match);
+    const strategyResult = this.strategySelector.select(
+      feature,
+      this.getAllRoutes()
+    );
+    if (strategyResult.route && strategyResult.confidence >= 0.5) {
+      logger.info('策略匹配路由', {
+        agentId: strategyResult.route.agentId,
+        confidence: strategyResult.confidence,
+      });
+      return strategyResult.route;
+    }
+
+    // 4. 默认路由
     for (const route of this.routes.values()) {
       if (route.isDefault) return route;
     }

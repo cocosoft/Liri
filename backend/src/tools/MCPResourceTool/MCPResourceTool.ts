@@ -5,6 +5,7 @@
  */
 
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolResult,
   ToolUseContext,
@@ -66,6 +67,7 @@ export class MCPResourceTool extends BaseTool<
   name = 'mcp_resource';
   description =
     'List and read MCP (Model Context Protocol) resources and prompts from connected servers';
+  tags = [ToolTag.NETWORK];
 
   params: ToolParam[] = [
     {

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
-import { appStateStore } from '../../core/state/AppStateStore';
-import type { AppState } from '../../core/state/AppState';
+import { appStateStore } from '../../system/state/AppStateStore';
+import type { AppState } from '../../system/state/AppState';
 
 /**
  * 任务完成通知钩子

@@ -50,6 +50,7 @@ export function validateOptions(
 }
 
 import { BaseTool } from '../BaseTool';
+import { ToolTag } from '../types/Tool';
 import type {
   ToolParam,
   ToolUseContext,
@@ -61,6 +62,8 @@ import { createToolResult } from '../types/ToolResult';
 export class AskUserQuestionTool extends BaseTool {
   name = 'ask_user_question';
   description = 'Ask the user a question with multiple choice options';
+
+  tags = [ToolTag.AI];
 
   params: ToolParam[] = [
     {

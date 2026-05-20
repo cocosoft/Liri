@@ -14,6 +14,7 @@ import type {
   ValidationResult,
 } from '../types';
 import type { Tool } from '../types/Tool';
+import { ToolTag } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -101,6 +102,8 @@ export class PlanTool extends BaseTool<
 > {
   name = 'plan';
   description = 'Create, manage, and execute plans';
+
+  tags = [ToolTag.SYSTEM];
 
   params: ToolParam[] = [
     {

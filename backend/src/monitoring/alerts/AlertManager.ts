@@ -53,6 +53,20 @@ export type AlertHandler = (
 ) => void | Promise<void>;
 
 /**
+ * 告警静默规则
+ */
+export interface AlertSilence {
+  id: string;
+  matcher: Record<string, string>;
+  startsAt: number;
+  endsAt: number;
+  reason?: string;
+  createdBy?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+/**
  * 告警管理器配置
  */
 export interface AlertManagerConfig {
@@ -70,6 +84,8 @@ export class AlertManager extends EventEmitter {
   private rules: Map<string, AlertRule>;
   private alerts: AlertNotification[];
   private handlers: AlertHandler[];
+  private silences: Map<string, AlertSilence>;
+  private silencedAlerts: AlertNotification[];
 
   /**
    * 构造函数
@@ -88,6 +104,8 @@ export class AlertManager extends EventEmitter {
     this.rules = new Map();
     this.alerts = [];
     this.handlers = [...this.config.handlers];
+    this.silences = new Map();
+    this.silencedAlerts = [];
 
     // 注册默认规则
     this.registerDefaultRules();
@@ -263,6 +281,36 @@ export class AlertManager extends EventEmitter {
   }
 
   /**
+   * 检查告警是否被静默
+   * @param rule 告警规则
+   * @returns 是否被静默
+   */
+  private isAlertSilenced(rule: AlertRule): boolean {
+    const now = Date.now();
+
+    for (const silence of this.silences.values()) {
+      if (now < silence.startsAt || now > silence.endsAt) {
+        continue;
+      }
+
+      let matches = true;
+      for (const [key, value] of Object.entries(silence.matcher)) {
+        if (key === 'ruleId' && value === rule.id) {
+          continue;
+        }
+        matches = false;
+        break;
+      }
+
+      if (matches) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * 触发告警
    * @param rule 规则
    * @param metrics 指标数据
@@ -282,6 +330,19 @@ export class AlertManager extends EventEmitter {
       timestamp: Date.now(),
       metrics,
     };
+
+    // 检查静默规则
+    if (this.isAlertSilenced(rule)) {
+      this.silencedAlerts.push(notification);
+      if (this.silencedAlerts.length > this.config.maxAlerts) {
+        this.silencedAlerts.shift();
+      }
+      this.emit('alertSilenced', notification);
+      logForDebugging(`告警被静默: ${rule.name} - ${rule.message}`, {
+        level: 'info',
+      });
+      return;
+    }
 
     this.alerts.push(notification);
 
@@ -341,6 +402,104 @@ export class AlertManager extends EventEmitter {
   }
 
   /**
+   * 创建静默规则
+   * @param silence 静默规则（不含 id）
+   * @returns 创建的静默规则
+   */
+  createSilence(silence: Omit<AlertSilence, 'id' | 'createdAt'>): AlertSilence {
+    const id = `silence_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newSilence: AlertSilence = {
+      ...silence,
+      id,
+      createdAt: Date.now(),
+    };
+    this.silences.set(id, newSilence);
+    this.emit('silenceCreated', newSilence);
+    return newSilence;
+  }
+
+  /**
+   * 更新静默规则
+   * @param id 静默规则 ID
+   * @param updates 更新内容
+   * @returns 更新后的静默规则，未找到返回 undefined
+   */
+  updateSilence(
+    id: string,
+    updates: Partial<Omit<AlertSilence, 'id' | 'createdAt'>>
+  ): AlertSilence | undefined {
+    const silence = this.silences.get(id);
+    if (!silence) {
+      return undefined;
+    }
+    const updated: AlertSilence = {
+      ...silence,
+      ...updates,
+      id,
+      createdAt: silence.createdAt,
+      updatedAt: Date.now(),
+    };
+    this.silences.set(id, updated);
+    this.emit('silenceUpdated', updated);
+    return updated;
+  }
+
+  /**
+   * 删除静默规则
+   * @param id 静默规则 ID
+   * @returns 是否删除成功
+   */
+  deleteSilence(id: string): boolean {
+    const deleted = this.silences.delete(id);
+    if (deleted) {
+      this.emit('silenceDeleted', id);
+    }
+    return deleted;
+  }
+
+  /**
+   * 获取静默规则
+   * @param id 静默规则 ID
+   * @returns 静默规则
+   */
+  getSilence(id: string): AlertSilence | undefined {
+    return this.silences.get(id);
+  }
+
+  /**
+   * 获取所有静默规则
+   * @returns 静默规则列表
+   */
+  listSilences(): AlertSilence[] {
+    return Array.from(this.silences.values());
+  }
+
+  /**
+   * 获取已静默的告警
+   * @returns 已静默的告警列表
+   */
+  listSilencedAlerts(): AlertNotification[] {
+    return [...this.silencedAlerts];
+  }
+
+  /**
+   * 清除已过期的静默规则
+   * @returns 清除的数量
+   */
+  clearExpiredSilences(): number {
+    const now = Date.now();
+    let count = 0;
+    for (const [id, silence] of this.silences) {
+      if (now > silence.endsAt) {
+        this.silences.delete(id);
+        this.emit('silenceDeleted', id);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
    * 获取所有规则
    * @returns 规则列表
    */
@@ -363,6 +522,8 @@ export class AlertManager extends EventEmitter {
    */
   getStats(): {
     totalAlerts: number;
+    silencedAlerts: number;
+    totalSilences: number;
     alertsByLevel: Record<AlertLevel, number>;
     activeRules: number;
     totalRules: number;
@@ -380,6 +541,8 @@ export class AlertManager extends EventEmitter {
 
     return {
       totalAlerts: this.alerts.length,
+      silencedAlerts: this.silencedAlerts.length,
+      totalSilences: this.silences.size,
       alertsByLevel,
       activeRules: Array.from(this.rules.values()).filter((r) => r.enabled)
         .length,

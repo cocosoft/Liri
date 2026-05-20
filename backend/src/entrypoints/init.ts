@@ -13,8 +13,24 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as any;
 import { getMonitoringService } from '../monitoring/index.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
+import {
+  loadStartupConfig,
+  formatConfigSummary,
+} from '../bootstrap/StartupYamlLoader.js';
+import type { StartupConfig } from '../bootstrap/StartupConfig.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/** 全局 startup 配置引用 */
+let _startupConfig: StartupConfig | null = null;
+
+/**
+ * 获取已加载的 startup 配置
+ */
+export function getStartupConfig(): StartupConfig | null {
+  return _startupConfig;
+}
 
 // 记录入口�?
 profileCheckpoint('cli_entry');
@@ -28,11 +44,27 @@ profileCheckpoint('env_vars_loaded');
 export async function init(): Promise<void> {
   // 记录初始化开�?
   profileCheckpoint('init_function_start');
+  getStartupChainProfiler().markPhaseStart('env_init');
 
-  // 1. 首先启用配置系统
+  // 0. 加载 startup.yaml（在 enableConfigs 之前，以影响配置加载行为）
+  profileCheckpoint('startup_config_load_start');
+  getStartupChainProfiler().markPhaseStart('startup_config');
+  const startupResult = loadStartupConfig();
+  _startupConfig = startupResult.config;
+  if (startupResult.found) {
+    logger.info(
+      `startup.yaml 配置摘要: ${formatConfigSummary(startupResult.config)}`
+    );
+  }
+  profileCheckpoint('startup_config_load_end');
+  getStartupChainProfiler().markPhaseEnd('startup_config');
+
+  // 1. 启用配置系统
   profileCheckpoint('load_settings_start');
+  getStartupChainProfiler().markPhaseStart('config_load');
   enableConfigs();
   profileCheckpoint('load_settings_end');
+  getStartupChainProfiler().markPhaseEnd('config_load');
 
   // 2. 设置优雅关闭
   profileCheckpoint('setup_graceful_shutdown_start');
@@ -45,6 +77,7 @@ export async function init(): Promise<void> {
       // 初始化工具系�?
       (async () => {
         profileCheckpoint('load_tools_start');
+        getStartupChainProfiler().markPhaseStart('tool_init');
         const startTime = Date.now();
         try {
           const { createToolManager } = await import('../tools/ToolManager.js');
@@ -59,12 +92,14 @@ export async function init(): Promise<void> {
           return { success: false, error };
         } finally {
           profileCheckpoint('load_tools_end');
+          getStartupChainProfiler().markPhaseEnd('tool_init');
         }
       })(),
 
       // 初始化可扩展性服务（包含插件系统�?
       (async () => {
         profileCheckpoint('load_plugins_start');
+        getStartupChainProfiler().markPhaseStart('extensibility_init');
         const startTime = Date.now();
         try {
           const extensibilityService = getExtensibilityService();
@@ -80,12 +115,14 @@ export async function init(): Promise<void> {
           return { success: false, error };
         } finally {
           profileCheckpoint('load_plugins_end');
+          getStartupChainProfiler().markPhaseEnd('extensibility_init');
         }
       })(),
 
       // 初始化命令系�?
       (async () => {
         profileCheckpoint('load_commands_start');
+        getStartupChainProfiler().markPhaseStart('command_init');
         const startTime = Date.now();
         try {
           await initializeCommands();
@@ -99,12 +136,14 @@ export async function init(): Promise<void> {
           return { success: false, error };
         } finally {
           profileCheckpoint('load_commands_end');
+          getStartupChainProfiler().markPhaseEnd('command_init');
         }
       })(),
 
       // 初始化监控服�?
       (async () => {
         profileCheckpoint('load_monitoring_start');
+        getStartupChainProfiler().markPhaseStart('monitoring_init');
         const startTime = Date.now();
         try {
           const monitoringService = getMonitoringService();
@@ -119,12 +158,14 @@ export async function init(): Promise<void> {
           return { success: false, error };
         } finally {
           profileCheckpoint('load_monitoring_end');
+          getStartupChainProfiler().markPhaseEnd('monitoring_init');
         }
       })(),
 
       // 注册 AI Provider
       (async () => {
         profileCheckpoint('load_providers_start');
+        getStartupChainProfiler().markPhaseStart('provider_init');
         const startTime = Date.now();
         try {
           const { registerDefaultProviders } =
@@ -140,12 +181,14 @@ export async function init(): Promise<void> {
           return { success: false, error };
         } finally {
           profileCheckpoint('load_providers_end');
+          getStartupChainProfiler().markPhaseEnd('provider_init');
         }
       })(),
 
       // 初始化 CoreAPI + Gateway 通道服务
       (async () => {
         profileCheckpoint('load_gateway_start');
+        getStartupChainProfiler().markPhaseStart('gateway_init');
         const startTime = Date.now();
         try {
           // 禁用 Gateway 通道服务（避免 WebSocket 端口冲突）
@@ -159,7 +202,7 @@ export async function init(): Promise<void> {
           }
 
           // 预创建 CoreAPI 单例（使用全局默认依赖）
-          const { getCoreAPI } = await import('../core/api/CoreAPIImpl.js');
+          const { getCoreAPI } = await import('../runtime/api/CoreAPIImpl.js');
           getCoreAPI();
 
           // 预创建 ChannelManager 单例
@@ -201,23 +244,37 @@ export async function init(): Promise<void> {
           return { success: false, error };
         } finally {
           profileCheckpoint('load_gateway_end');
+          getStartupChainProfiler().markPhaseEnd('gateway_init');
         }
       })(),
     ]);
 
   // 4. 启动延迟预加载（非阻塞）
   profileCheckpoint('start_deferred_prefetches_start');
+  getStartupChainProfiler().markPhaseStart('deferred_prefetch_start');
   startDeferredPrefetches();
   profileCheckpoint('start_deferred_prefetches_end');
+  getStartupChainProfiler().markPhaseEnd('deferred_prefetch_start');
 
   // 记录初始化结�?
   profileCheckpoint('init_function_end');
+  getStartupChainProfiler().markPhaseEnd('env_init');
 
   // 记录应用准备就绪
   profileCheckpoint('app_ready');
+  getStartupChainProfiler().markPhaseStart('app_ready');
+  getStartupChainProfiler().markPhaseEnd('app_ready');
 
   // 生成性能报告
   profileReport();
+
+  // 输出启动链路 SLO 报告
+  const sloReport = getStartupChainProfiler().generateSLOReport();
+  if (getStartupChainProfiler().getFailures().length > 0) {
+    logger.warning('启动阶段存在性能红线超标', {
+      failures: getStartupChainProfiler().getFailures().length,
+    });
+  }
 }
 
 /**
@@ -331,6 +388,16 @@ async function startDeferredPrefetches(): Promise<void> {
           await import('../docs/HelpSystem.js');
         } catch (error) {
           // 忽略预加载错误
+        }
+      })(),
+
+      // 启动时静默检查更新（非阻塞）
+      (async () => {
+        try {
+          const { autoUpdater } = await import('../cli/autoUpdater.js');
+          await autoUpdater.checkAndNotify();
+        } catch {
+          // 更新检查失败不影响启动
         }
       })(),
     ];

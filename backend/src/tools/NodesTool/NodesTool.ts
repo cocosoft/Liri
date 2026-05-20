@@ -6,6 +6,7 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import { ToolTag } from '../types/index';
 
 export interface NodeInfo {
   id: string;
@@ -35,6 +36,8 @@ export class NodesTool extends BaseTool {
 
   description =
     'Manage distributed nodes and worker processes. Supports listing, status check, adding, removing, and pinging nodes.';
+
+  tags = [ToolTag.SYSTEM];
 
   params: ToolParam[] = [
     {

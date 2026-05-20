@@ -1,0 +1,133 @@
+{
+  "$schema": "../AlertSchema.ts",
+  "metadata": {
+    "name": "业务指标告警",
+    "version": "1.0.0",
+    "description": "监控会话数、用户活跃度、任务完成率等业务指标的告警规则",
+    "category": "business",
+    "author": "PY_APP",
+    "created": "2026-05-20"
+  },
+  "rules": [
+    {
+      "name": "活跃会话数过高",
+      "description": "当活跃会话数超过阈值时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "sessions.active",
+          "operator": ">",
+          "value": 100,
+          "window": 60000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "business",
+        "metric": "sessions"
+      },
+      "annotations": {
+        "summary": "活跃会话数超过 100"
+      }
+    },
+    {
+      "name": "任务完成率下降",
+      "description": "当任务完成率低于 80% 时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "tasks.completionRate",
+          "operator": "<",
+          "value": 80,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "business",
+        "metric": "tasks"
+      },
+      "annotations": {
+        "summary": "任务完成率低于 80%"
+      }
+    },
+    {
+      "name": "用户查询超时率过高",
+      "description": "当用户查询超时率超过 10% 时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "query.timeoutRate",
+          "operator": ">",
+          "value": 10,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "business",
+        "metric": "query"
+      },
+      "annotations": {
+        "summary": "用户查询超时率超过 10%"
+      }
+    },
+    {
+      "name": "MCP 工具调用频率异常",
+      "description": "当 MCP 工具调用频率超过正常基线时触发告警",
+      "level": "info",
+      "conditions": [
+        {
+          "type": "anomaly",
+          "metric": "mcp.toolCalls",
+          "operator": ">",
+          "value": 2,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 600000,
+      "enabled": true,
+      "labels": {
+        "type": "business",
+        "metric": "mcp"
+      },
+      "annotations": {
+        "summary": "MCP 工具调用频率异常"
+      }
+    },
+    {
+      "name": "记忆存储写入失败",
+      "description": "当记忆存储连续写入失败时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "memory.writeErrors",
+          "operator": ">",
+          "value": 5,
+          "count": 10
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 600000,
+      "enabled": true,
+      "labels": {
+        "type": "business",
+        "metric": "memory"
+      },
+      "annotations": {
+        "summary": "记忆存储连续写入失败"
+      }
+    }
+  ]
+}

@@ -6,8 +6,8 @@
  *
  * @deprecated 直接从 @modules/core/acp 导入
  */
-export { AcpTransportClient as AcpClient } from '../../core/acp/index.js';
-export { AcpTransportServer as AcpServer } from '../../core/acp/index.js';
+export { AcpTransportClient as AcpClient } from '../../runtime/acp/index.js';
+export { AcpTransportServer as AcpServer } from '../../runtime/acp/index.js';
 export type {
   AcpMessageType,
   AcpMessagePriority as AcpPriority,
@@ -15,4 +15,4 @@ export type {
   AcpSessionInfo as AcpSession,
   AcpMessageHandler as AcpHandler,
   AcpServerConfig,
-} from '../../core/acp/index.js';
+} from '../../runtime/acp/index.js';

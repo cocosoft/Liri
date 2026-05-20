@@ -1,0 +1,133 @@
+{
+  "$schema": "../AlertSchema.ts",
+  "metadata": {
+    "name": "网络连接告警",
+    "version": "1.0.0",
+    "description": "监控 WebSocket 连接、API 端点连通性、文件系统 I/O 等网络基础设施的告警规则",
+    "category": "network",
+    "author": "PY_APP",
+    "created": "2026-05-20"
+  },
+  "rules": [
+    {
+      "name": "WebSocket 连接断开",
+      "description": "当 WebSocket 连接意外断开时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "websocket.disconnects",
+          "operator": ">",
+          "value": 3,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "network",
+        "metric": "websocket"
+      },
+      "annotations": {
+        "summary": "WebSocket 连接频繁断开"
+      }
+    },
+    {
+      "name": "WebSocket 连接数过高",
+      "description": "当 WebSocket 并发连接数超过阈值时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "websocket.connections",
+          "operator": ">",
+          "value": 50,
+          "window": 30000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "network",
+        "metric": "websocket"
+      },
+      "annotations": {
+        "summary": "WebSocket 连接数超过 50"
+      }
+    },
+    {
+      "name": "HTTP 请求失败率高",
+      "description": "当对外 HTTP 请求失败率超过 10% 时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "http.failureRate",
+          "operator": ">",
+          "value": 10,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "network",
+        "metric": "http"
+      },
+      "annotations": {
+        "summary": "HTTP 请求失败率超过 10%"
+      }
+    },
+    {
+      "name": "文件系统 I/O 错误",
+      "description": "当文件系统读写错误在窗口期内累积过多时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "filesystem.ioErrors",
+          "operator": ">",
+          "value": 10,
+          "window": 600000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 600000,
+      "enabled": true,
+      "labels": {
+        "type": "network",
+        "metric": "filesystem"
+      },
+      "annotations": {
+        "summary": "文件系统 I/O 错误过多"
+      }
+    },
+    {
+      "name": "数据库查询延迟过高",
+      "description": "当 SQLite 数据库查询延迟超过 500ms 时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "database.queryLatency",
+          "operator": ">",
+          "value": 500,
+          "window": 60000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "network",
+        "metric": "database"
+      },
+      "annotations": {
+        "summary": "数据库查询延迟超过 500ms"
+      }
+    }
+  ]
+}

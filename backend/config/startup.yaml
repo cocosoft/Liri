@@ -1,0 +1,58 @@
+# PY_APP 启动配置
+# 参考类型定义: backend/src/bootstrap/StartupConfig.ts
+
+version: 1
+mode: repl
+debug: false
+verbose: false
+
+# 模块配置
+modules:
+  enabled:
+    - core
+    - tools
+    - plugins
+    - mcp
+  disabled: []
+
+# 插件配置
+plugins:
+  autoLoad: true
+  allowedSources:
+    - marketplace
+    - local
+  blacklist: []
+
+# 网关配置
+gateway:
+  enabledChannels:
+    - cli
+    - web
+  disabledChannels: []
+  websocket:
+    enabled: true
+    port: 8765
+
+# AI 配置
+ai:
+  provider: deepseek
+  model: deepseek-chat
+  baseUrl: ""
+
+# 特性开关
+features:
+  autoCompact: true
+  telemetry: false
+  fileCheckpointing: true
+  terminalProgressBar: true
+
+# 性能配置
+performance:
+  startupTimeoutMs: 30000
+  deferredPrefetch: true
+
+# 安全配置
+security:
+  sandboxIsolation: strict
+  mtlsEnabled: false
+  permissionLevel: standard

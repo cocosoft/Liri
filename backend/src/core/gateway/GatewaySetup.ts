@@ -6,7 +6,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { configManager } from '../../cli/config';
 import { getChannelManager } from './ChannelManager';
-import { getCoreAPI } from '../api/CoreAPIImpl';
+import { getCoreAPI } from '../../runtime/api/CoreAPIImpl';
 import { TelegramChannel } from './TelegramChannel';
 import { WebChannel } from './WebChannel';
 import { ChannelType } from './types';

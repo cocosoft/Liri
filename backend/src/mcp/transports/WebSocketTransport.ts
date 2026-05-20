@@ -7,26 +7,18 @@ import { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import type { McpTlsConfig } from '../../services/mcp/transports/McpTlsManager';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-/**
- * WebSocket传输层选项
- */
 interface WebSocketTransportOptions {
-  /** URL */
   url: string;
-  /** 头部信息 */
   headers?: Record<string, string>;
-  /** 连接超时时间（毫秒） */
   connectTimeout?: number;
-  /** 请求超时时间（毫秒） */
   requestTimeout?: number;
+  tls?: Partial<McpTlsConfig>;
 }
 
-/**
- * WebSocket传输层
- */
 export class WebSocketTransport extends MCPTransport {
   private readonly url: string;
   private readonly headers: Record<string, string>;
@@ -42,16 +34,13 @@ export class WebSocketTransport extends MCPTransport {
   private reconnectDelay: number = 1000;
 
   constructor(options: WebSocketTransportOptions) {
-    super();
+    super(options.tls);
     this.url = options.url;
     this.headers = options.headers || {};
     this.connectTimeout = options.connectTimeout || 30000;
     this.requestTimeout = options.requestTimeout || 60000;
   }
 
-  /**
-   * 连接
-   */
   override async connect(): Promise<void> {
     if (this.socket && this.connected) {
       return;
@@ -63,7 +52,10 @@ export class WebSocketTransport extends MCPTransport {
       }, this.connectTimeout);
 
       try {
-        this.socket = new WebSocket(this.url);
+        const tlsOptions = this.tlsManager.createClientOptions();
+        const wsUrl = tlsOptions ? this.url.replace(/^ws:/, 'wss:') : this.url;
+
+        this.socket = new WebSocket(wsUrl);
 
         this.socket.onopen = () => {
           clearTimeout(timeout);

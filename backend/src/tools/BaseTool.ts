@@ -6,6 +6,7 @@ import type {
   Tool,
   ToolInfo,
   ToolParam,
+  ToolTag,
   ValidationResult,
   InterruptBehavior,
   ToolUseContext,
@@ -51,6 +52,9 @@ export abstract class BaseTool<
 
   /** 最大结果大小（字符数）（可选） */
   maxResultSizeChars?: number;
+
+  /** 工具标签列表（可选） */
+  tags?: ToolTag[];
 
   /** 严格模式标志（可选） */
   strict?: boolean = false;
@@ -190,6 +194,7 @@ export abstract class BaseTool<
       alwaysLoad: this.alwaysLoad || false,
       interruptBehavior: this.interruptBehavior?.() || 'block',
       maxResultSizeChars: this.maxResultSizeChars,
+      tags: this.tags,
     };
   }
 

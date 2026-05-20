@@ -2,7 +2,7 @@
  * 工具工厂
  * 负责创建各种工具实例，支持基于功能标志的条件加载
  */
-import { Tool } from './types/Tool';
+import { Tool, ToolTag } from './types/Tool';
 import type { ToolProgressData } from './types/ToolProgress';
 import { createToolResult } from './types/ToolResult';
 import { BashTool } from './bash/BashTool';
@@ -59,6 +59,45 @@ import { MCPTool } from '../mcp/MCPTool';
 import { isAntUser, isSimpleMode } from '../utils/features.js';
 import { isToolEnabled } from './utils/ToolFeatureFlags';
 import { isFeatureEnabled } from '@modules/core';
+import { NodesTool } from './NodesTool/NodesTool';
+import { CodeAnalysisTool } from './CodeAnalysisTool/CodeAnalysisTool';
+import { VoiceInputTool } from './VoiceInputTool/VoiceInputTool';
+import { VoiceOutputTool } from './VoiceOutputTool/VoiceOutputTool';
+import { TTSTool } from './TTSTool/TTSTool';
+import { ThinkingTool } from './ThinkingTool/ThinkingTool';
+import { PDFTool } from './PDFTool/PDFTool';
+import { KanbanTool } from './KanbanTool/KanbanTool';
+import { SessionsSendTool } from './SessionsSendTool/SessionsSendTool';
+import { SessionsSpawnTool } from './SessionsSpawnTool/SessionsSpawnTool';
+import { SessionStatusTool } from './SessionStatusTool/SessionStatusTool';
+import { SessionsYieldTool } from './SessionsYieldTool/SessionsYieldTool';
+import { SessionsHistoryTool } from './SessionsHistoryTool/SessionsHistoryTool';
+import { GatewayTool } from './GatewayTool/GatewayTool';
+import { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
+import { MusicGenerateTool } from './MusicGenerateTool/MusicGenerateTool';
+import { VideoGenerateTool } from './VideoGenerateTool/VideoGenerateTool';
+import { McpAuthTool } from './McpAuthTool/McpAuthTool';
+import { AgentsListTool } from './AgentsListTool/AgentsListTool';
+import { UpdatePlanTool } from './UpdatePlanTool/UpdatePlanTool';
+import { TaskOutputTool } from './TaskOutputTool/TaskOutputTool';
+import { TimeTool } from './TimeTool/TimeTool';
+import { createUtilityTools } from './UtilityTools';
+import {
+  createDecisionLoggerTool,
+  createConfidenceScorerTool,
+  createPerformanceProfilerTool,
+  createMemoryDumpTool,
+  createSystemInfoTool,
+  createProcessManagerTool,
+  createGitBranchTool,
+  createGitMergeTool,
+  createGitStashTool,
+  createCodeFormatTool,
+  createReviewAssignTool,
+  createCodeReviewTool,
+} from './ExpansionTools';
+import { createChannelManagerTool } from './ChannelManagerTool/ChannelManagerTool';
+import { createBroadcastTool } from './BroadcastTool/BroadcastTool';
 
 interface ToolDefinitionInput {
   name: string;
@@ -76,6 +115,7 @@ interface ToolDefinitionInput {
   };
   aliases?: string[];
   searchTips?: string[];
+  tags?: ToolTag[];
 }
 
 /**
@@ -136,6 +176,7 @@ export class ToolFactory {
           alwaysLoad: false,
           interruptBehavior: 'block' as const,
           maxResultSizeChars: tool.maxResultSizeChars,
+          tags: def.tags,
         };
       },
     };
@@ -547,7 +588,109 @@ export class ToolFactory {
    * @returns PushNotification工具实例
    */
   createPushNotificationTool(): Tool | null {
-    return null;
+    if (!isToolEnabled('ENABLE_PUSH_NOTIFICATION')) return null;
+    try {
+      const {
+        sendNotification,
+        getNotifications,
+        getUnreadCount,
+        markAsRead,
+        markAllAsRead,
+        clearNotifications,
+        isPushNotificationEnabled,
+      } = require('./PushNotificationTool/PushNotificationTool.js');
+      if (!isPushNotificationEnabled()) return null;
+      return {
+        name: 'push_notification',
+        description:
+          'Send and manage push notifications. Supports sending notifications, listing, marking as read, and clearing.',
+        params: [
+          {
+            name: 'action',
+            type: 'string',
+            description:
+              'Action: send, list, unread, mark_read, mark_all_read, clear',
+            required: true,
+            enum: [
+              'send',
+              'list',
+              'unread',
+              'mark_read',
+              'mark_all_read',
+              'clear',
+            ],
+          },
+          {
+            name: 'title',
+            type: 'string',
+            description: 'Notification title (required for send)',
+            required: false,
+          },
+          {
+            name: 'body',
+            type: 'string',
+            description: 'Notification body (required for send)',
+            required: false,
+          },
+          {
+            name: 'url',
+            type: 'string',
+            description: 'Optional URL for notification',
+            required: false,
+          },
+          {
+            name: 'notificationId',
+            type: 'string',
+            description: 'Notification ID (required for mark_read)',
+            required: false,
+          },
+        ],
+        execute: async (input: Record<string, unknown>) => {
+          const action = input.action as string;
+          switch (action) {
+            case 'send': {
+              const n = sendNotification(
+                input.title as string,
+                input.body as string,
+                input.url as string | undefined
+              );
+              return { success: true, output: JSON.stringify(n) };
+            }
+            case 'list': {
+              const list = getNotifications();
+              return { success: true, output: JSON.stringify(list) };
+            }
+            case 'unread': {
+              const count = getUnreadCount();
+              return {
+                success: true,
+                output: JSON.stringify({ unread: count }),
+              };
+            }
+            case 'mark_read': {
+              const ok = markAsRead(input.notificationId as string);
+              return {
+                success: ok,
+                output: ok ? 'Marked as read' : 'Not found',
+              };
+            }
+            case 'mark_all_read': {
+              markAllAsRead();
+              return { success: true, output: 'All marked as read' };
+            }
+            case 'clear': {
+              clearNotifications();
+              return { success: true, output: 'Notifications cleared' };
+            }
+            default:
+              return { success: false, error: `Unknown action: ${action}` };
+          }
+        },
+        isEnabled: () => true,
+      } as unknown as Tool;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -555,7 +698,77 @@ export class ToolFactory {
    * @returns SubscribePR工具实例
    */
   createSubscribePRTool(): Tool | null {
-    return null;
+    if (!isToolEnabled('ENABLE_SUBSCRIBE_PR')) return null;
+    try {
+      const {
+        subscribeToPR,
+        getSubscriptions,
+        unsubscribe,
+        isPRSubscriptionEnabled,
+      } = require('./SubscribePRTool/SubscribePRTool.js');
+      if (!isPRSubscriptionEnabled()) return null;
+      return {
+        name: 'subscribe_pr',
+        description:
+          'Subscribe to pull request events (opened, closed, merged, comment, review) for monitoring and notifications',
+        params: [
+          {
+            name: 'action',
+            type: 'string',
+            description: 'Action: subscribe, list, unsubscribe',
+            required: true,
+            enum: ['subscribe', 'list', 'unsubscribe'],
+          },
+          {
+            name: 'repo',
+            type: 'string',
+            description: 'Repository name (e.g., "owner/repo")',
+            required: false,
+          },
+          {
+            name: 'prNumber',
+            type: 'number',
+            description: 'PR number (optional, subscribe to specific PR)',
+            required: false,
+          },
+          {
+            name: 'events',
+            type: 'array',
+            description: 'Events to subscribe to',
+            required: false,
+          },
+          {
+            name: 'subscriptionId',
+            type: 'string',
+            description: 'Subscription ID (required for unsubscribe)',
+            required: false,
+          },
+        ],
+        execute: async (input: Record<string, unknown>) => {
+          const action = input.action as string;
+          if (action === 'subscribe') {
+            const result = subscribeToPR(
+              input.repo as string,
+              input.events as string[] as any,
+              input.prNumber as number | undefined
+            );
+            return { success: true, output: JSON.stringify(result) };
+          }
+          if (action === 'list') {
+            const subs = getSubscriptions(input.repo as string | undefined);
+            return { success: true, output: JSON.stringify(subs) };
+          }
+          if (action === 'unsubscribe') {
+            const ok = unsubscribe(input.subscriptionId as string);
+            return { success: ok, output: ok ? 'Unsubscribed' : 'Not found' };
+          }
+          return { success: false, error: `Unknown action: ${action}` };
+        },
+        isEnabled: () => true,
+      } as unknown as Tool;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -829,6 +1042,187 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new BrowserTool());
 
   tools.push(new CanvasTool());
+
+  // === Phase 1: 注册已存在但未注册的工具类 ===
+  tools.push(new FileConvertTool());
+
+  const sessionsTool = new SessionsTool();
+  if (sessionsTool) {
+    tools.push(sessionsTool);
+  }
+
+  const clipboardTool = new ClipboardTool();
+  if (clipboardTool) {
+    tools.push(clipboardTool);
+  }
+
+  const imageTool = new ImageTool();
+  if (imageTool) {
+    tools.push(imageTool);
+  }
+
+  const imageAnalysisTool = new ImageAnalysisTool();
+  if (imageAnalysisTool) {
+    tools.push(imageAnalysisTool);
+  }
+
+  const videoTool = new VideoTool();
+  if (videoTool) {
+    tools.push(videoTool);
+  }
+
+  const musicTool = new MusicTool();
+  if (musicTool) {
+    tools.push(musicTool);
+  }
+
+  const nodesTool = new NodesTool();
+  if (nodesTool) {
+    tools.push(nodesTool);
+  }
+
+  const codeAnalysisTool = new CodeAnalysisTool();
+  if (codeAnalysisTool) {
+    tools.push(codeAnalysisTool);
+  }
+
+  const voiceInputTool = new VoiceInputTool();
+  if (voiceInputTool) {
+    tools.push(voiceInputTool);
+  }
+
+  const voiceOutputTool = new VoiceOutputTool();
+  if (voiceOutputTool) {
+    tools.push(voiceOutputTool);
+  }
+
+  const ttsTool = new TTSTool();
+  if (ttsTool) {
+    tools.push(ttsTool);
+  }
+
+  const thinkingTool = new ThinkingTool();
+  if (thinkingTool) {
+    tools.push(thinkingTool);
+  }
+
+  const pdfTool = new PDFTool();
+  if (pdfTool) {
+    tools.push(pdfTool);
+  }
+
+  const kanbanTool = new KanbanTool();
+  if (kanbanTool) {
+    tools.push(kanbanTool);
+  }
+
+  const sessionsSendTool = new SessionsSendTool();
+  if (sessionsSendTool) {
+    tools.push(sessionsSendTool);
+  }
+
+  const sessionsSpawnTool = new SessionsSpawnTool();
+  if (sessionsSpawnTool) {
+    tools.push(sessionsSpawnTool);
+  }
+
+  const sessionStatusTool = new SessionStatusTool();
+  if (sessionStatusTool) {
+    tools.push(sessionStatusTool);
+  }
+
+  const sessionsYieldTool = new SessionsYieldTool();
+  if (sessionsYieldTool) {
+    tools.push(sessionsYieldTool);
+  }
+
+  const sessionsHistoryTool = new SessionsHistoryTool();
+  if (sessionsHistoryTool) {
+    tools.push(sessionsHistoryTool);
+  }
+
+  const gatewayTool = new GatewayTool();
+  if (gatewayTool) {
+    tools.push(gatewayTool);
+  }
+
+  const imageGenerateTool = new ImageGenerateTool();
+  if (imageGenerateTool) {
+    tools.push(imageGenerateTool);
+  }
+
+  const musicGenerateTool = new MusicGenerateTool();
+  if (musicGenerateTool) {
+    tools.push(musicGenerateTool);
+  }
+
+  const videoGenerateTool = new VideoGenerateTool();
+  if (videoGenerateTool) {
+    tools.push(videoGenerateTool);
+  }
+
+  const mcpAuthTool = new McpAuthTool();
+  if (mcpAuthTool) {
+    tools.push(mcpAuthTool);
+  }
+
+  const agentsListTool = new AgentsListTool();
+  if (agentsListTool) {
+    tools.push(agentsListTool);
+  }
+
+  const updatePlanTool = new UpdatePlanTool();
+  if (updatePlanTool) {
+    tools.push(updatePlanTool);
+  }
+
+  const taskOutputTool = new TaskOutputTool();
+  if (taskOutputTool) {
+    tools.push(taskOutputTool);
+  }
+
+  const timeTool = TimeTool.create();
+  if (timeTool) {
+    tools.push(timeTool);
+  }
+
+  // === Phase 4: Expansion tools (5.2 工具数量追平首批) ===
+  tools.push(createDecisionLoggerTool());
+  tools.push(createConfidenceScorerTool());
+  tools.push(createPerformanceProfilerTool());
+  tools.push(createMemoryDumpTool());
+  tools.push(createSystemInfoTool());
+  tools.push(createProcessManagerTool());
+  tools.push(createGitBranchTool());
+  tools.push(createGitMergeTool());
+  tools.push(createGitStashTool());
+  tools.push(createCodeFormatTool());
+
+  // === Phase 4b: 协作工具 ===
+  const reviewAssignTool = createReviewAssignTool();
+  if (reviewAssignTool) {
+    tools.push(reviewAssignTool);
+  }
+  const codeReviewTool = createCodeReviewTool();
+  if (codeReviewTool) {
+    tools.push(codeReviewTool);
+  }
+
+  // === Phase 4c: 网关工具 ===
+  const channelManagerTool = createChannelManagerTool();
+  if (channelManagerTool) {
+    tools.push(channelManagerTool);
+  }
+  const broadcastTool = createBroadcastTool();
+  if (broadcastTool) {
+    tools.push(broadcastTool);
+  }
+
+  // === Phase 2: 效用工具集 (编码/哈希/文本/数学/日期/系统/安全/网络等) ===
+  const utilityTools = createUtilityTools();
+  for (const utilTool of utilityTools) {
+    tools.push(utilTool);
+  }
 
   return tools.filter(
     (tool): tool is Tool => tool !== null && tool !== undefined

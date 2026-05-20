@@ -14,9 +14,10 @@ import { createToolManager } from '../tools/ToolManager.js';
 import { historyManager } from '../utils/history.js';
 import { commandRegistry } from '../commands/registry/index.js';
 import { getUIEnhancer } from '../ui/UIEnhancer.js';
-import { getThemeManager } from '../core/theme.js';
+import { getThemeManager } from '@modules/system/theme';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
-import { getCoreAPI } from '../core/api/CoreAPIImpl.js';
+import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
+import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
 import { LocalHTTPService } from '../core/gateway/local/LocalHTTPService.js';
 
 /**
@@ -99,6 +100,7 @@ export async function launchRepl(
   config: REPLConfig = DEFAULT_CONFIG
 ): Promise<void> {
   profileCheckpoint('repl_launch_start');
+  getStartupChainProfiler().markPhaseStart('first_response');
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   const ui = getUIEnhancer();
   const themeManager = getThemeManager();
@@ -204,8 +206,13 @@ export async function launchRepl(
   console.log();
 
   profileCheckpoint('repl_initialize_chat_manager_start');
+  getStartupChainProfiler().markPhaseStart('session_init');
   const chatManager = initializeChatManager();
   profileCheckpoint('repl_initialize_chat_manager_end');
+  getStartupChainProfiler().markPhaseEnd('session_init');
+
+  // 上下文初始化
+  getStartupChainProfiler().markPhaseStart('context_init');
 
   // 获取可用命令列表
   function getAvailableCommands(): string[] {
@@ -268,6 +275,12 @@ export async function launchRepl(
     // 启用自动补全
     completer,
   });
+
+  // 上下文初始化完成，进入就绪状态
+  getStartupChainProfiler().markPhaseEnd('context_init');
+  getStartupChainProfiler().markPhaseStart('app_ready');
+  getStartupChainProfiler().markPhaseEnd('app_ready');
+  getStartupChainProfiler().markPhaseEnd('first_response');
 
   rl.prompt();
 

@@ -12,6 +12,7 @@ import {
   resetConfigToDefaults,
 } from '@modules/config';
 import type { ToolParam } from '../types';
+import { ToolTag } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';
 
@@ -24,6 +25,8 @@ export interface ConfigToolInput {
 export class ConfigTool extends BaseTool<ConfigToolInput> {
   name = 'config';
   description = 'Manage application configuration';
+
+  tags = [ToolTag.SYSTEM];
 
   params: ToolParam[] = [
     {

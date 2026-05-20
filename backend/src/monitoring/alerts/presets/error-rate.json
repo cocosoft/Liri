@@ -1,0 +1,133 @@
+{
+  "$schema": "../AlertSchema.ts",
+  "metadata": {
+    "name": "错误率告警",
+    "version": "1.0.0",
+    "description": "监控各类错误率、异常捕获频率的告警规则",
+    "category": "error",
+    "author": "PY_APP",
+    "created": "2026-05-20"
+  },
+  "rules": [
+    {
+      "name": "错误率过高",
+      "description": "当全局错误率超过 5% 时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "error.rate",
+          "operator": ">",
+          "value": 5,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "error",
+        "metric": "error_rate"
+      },
+      "annotations": {
+        "summary": "错误率超过 5%"
+      }
+    },
+    {
+      "name": "错误率严重过高",
+      "description": "当全局错误率超过 20% 时触发严重告警",
+      "level": "critical",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "error.rate",
+          "operator": ">",
+          "value": 20,
+          "window": 60000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 120000,
+      "enabled": true,
+      "labels": {
+        "type": "error",
+        "metric": "error_rate"
+      },
+      "annotations": {
+        "summary": "错误率超过 20%"
+      }
+    },
+    {
+      "name": "工具执行错误率过高",
+      "description": "当工具执行错误率超过 10% 时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "tool.errorRate",
+          "operator": ">",
+          "value": 10,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "error",
+        "metric": "tool_error"
+      },
+      "annotations": {
+        "summary": "工具执行错误率超过 10%"
+      }
+    },
+    {
+      "name": "AI 模型调用错误",
+      "description": "当 AI 模型连续调用失败超过 3 次时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "ai.model.errorCount",
+          "operator": ">",
+          "value": 3,
+          "count": 5
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "error",
+        "metric": "ai_error"
+      },
+      "annotations": {
+        "summary": "AI 模型连续调用失败超过 3 次"
+      }
+    },
+    {
+      "name": "未捕获异常告警",
+      "description": "当未捕获异常在短时间内频繁出现时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "error.uncaught",
+          "operator": ">",
+          "value": 5,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 600000,
+      "enabled": true,
+      "labels": {
+        "type": "error",
+        "metric": "uncaught_exception"
+      },
+      "annotations": {
+        "summary": "未捕获异常频繁出现"
+      }
+    }
+  ]
+}

@@ -26,6 +26,21 @@ export type ValidationResult =
 export type InterruptBehavior = 'cancel' | 'block';
 
 /**
+ * 工具标签枚举
+ * 用于对工具进行分类，支持按标签过滤和管理
+ */
+export enum ToolTag {
+  READ = 'read',
+  WRITE = 'write',
+  NETWORK = 'network',
+  AGENT = 'agent',
+  CODE = 'code',
+  FILE = 'file',
+  SYSTEM = 'system',
+  AI = 'ai',
+}
+
+/**
  * 工具参数类型
  */
 export interface ToolParam {
@@ -58,6 +73,7 @@ export interface ToolInfo {
   alwaysLoad: boolean;
   interruptBehavior: InterruptBehavior;
   maxResultSizeChars?: number;
+  tags?: ToolTag[];
 }
 
 /**
@@ -118,6 +134,11 @@ export interface Tool<
    * 最大结果大小（字符数）
    */
   maxResultSizeChars?: number;
+
+  /**
+   * 工具标签列表
+   */
+  tags?: ToolTag[];
 
   /**
    * 严格模式标志
@@ -471,6 +492,7 @@ export function buildTool<
         alwaysLoad: this.alwaysLoad || false,
         interruptBehavior: this.interruptBehavior?.() || 'block',
         maxResultSizeChars: this.maxResultSizeChars,
+        tags: this.tags,
       };
     },
   } as Tool<Input, Output, P>;

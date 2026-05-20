@@ -10,6 +10,9 @@ export * from './pluginHandler';
 export * from './agentHandler';
 export * from './utilHandler';
 export * from './cliHandler';
+export * from './configHandler';
+export * from './sessionHandler';
+export * from './diagnoseHandler';
 
 export { AuthHandler } from './authHandler';
 export { AutoModeHandler } from './autoModeHandler';
@@ -18,6 +21,9 @@ export { PluginHandler } from './pluginHandler';
 export { AgentHandler } from './agentHandler';
 export { UtilHandler } from './utilHandler';
 export { CLIHandler } from './cliHandler';
+export { ConfigHandler } from './configHandler';
+export { SessionHandler } from './sessionHandler';
+export { DiagnoseHandler } from './diagnoseHandler';
 
 export { createAuthHandler } from './authHandler';
 export { createAutoModeHandler } from './autoModeHandler';
@@ -26,3 +32,6 @@ export { createPluginHandler } from './pluginHandler';
 export { createAgentHandler } from './agentHandler';
 export { createUtilHandler } from './utilHandler';
 export { createCLIHandler } from './cliHandler';
+export { createConfigHandler } from './configHandler';
+export { createSessionHandler } from './sessionHandler';
+export { createDiagnoseHandler } from './diagnoseHandler';

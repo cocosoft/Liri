@@ -18,7 +18,6 @@ import {
   createPluginAPI,
 } from './api/index.js';
 import type { IPluginAPI } from './api/index.js';
-import { getHotloadManager } from './hotload/PluginHotloadManager';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
 import { RegistrationStub } from './stub/RegistrationStub';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -36,6 +35,24 @@ import {
 } from './types/PluginTypes';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 热加载管理器实例缓存（惰性加载，避免模块加载时的循环依赖）
+ * index.ts → PluginHotloadManager → PluginManager → managers/PluginManager → index.ts
+ * 使用动态 import() 在运行时解析，而非模块顶层静态导入
+ */
+let _hotloadManager: import('./hotload/PluginHotloadManager').PluginHotloadManager | null = null;
+
+/**
+ * 获取热加载管理器实例（惰性加载）
+ */
+async function getHotloadManagerLazy(): Promise<import('./hotload/PluginHotloadManager').PluginHotloadManager> {
+    if (!_hotloadManager) {
+        const { getHotloadManager } = await import('./hotload/PluginHotloadManager');
+        _hotloadManager = getHotloadManager();
+    }
+    return _hotloadManager;
+}
 
 /**
  * 插件系统（基于CC源码）
@@ -354,7 +371,7 @@ export class PluginSystem {
   async hotloadPlugin(pluginId: string): Promise<boolean> {
     await this.ensureInitialized();
 
-    const hotloadManager = getHotloadManager();
+    const hotloadManager = await getHotloadManagerLazy();
 
     try {
       await hotloadManager.gracefulUnload(pluginId);
@@ -384,7 +401,7 @@ export class PluginSystem {
   async reloadPlugin(pluginId: string): Promise<boolean> {
     await this.ensureInitialized();
 
-    const hotloadManager = getHotloadManager();
+    const hotloadManager = await getHotloadManagerLazy();
 
     try {
       await hotloadManager.reloadPluginWithDeps(pluginId);
@@ -406,7 +423,7 @@ export class PluginSystem {
   async triggerHotload(pluginId: string): Promise<boolean> {
     await this.ensureInitialized();
 
-    const hotloadManager = getHotloadManager();
+    const hotloadManager = await getHotloadManagerLazy();
 
     return hotloadManager.triggerHotload(pluginId);
   }
@@ -421,7 +438,7 @@ export class PluginSystem {
   }> {
     await this.ensureInitialized();
 
-    const hotloadManager = getHotloadManager();
+    const hotloadManager = await getHotloadManagerLazy();
 
     return hotloadManager.triggerBatchHotload(pluginIds);
   }
@@ -429,17 +446,19 @@ export class PluginSystem {
   /**
    * 获取热部署历史记录
    */
-  getHotloadHistory(
+  async getHotloadHistory(
     limit = 0
-  ): import('./hotload/PluginHotloadManager').HotloadRecord[] {
-    return getHotloadManager().getHotloadHistory(limit);
+  ): Promise<import('./hotload/PluginHotloadManager').HotloadRecord[]> {
+    const hm = await getHotloadManagerLazy();
+    return hm.getHotloadHistory(limit);
   }
 
   /**
    * 清除热部署历史记录
    */
-  clearHotloadHistory(): void {
-    getHotloadManager().clearHotloadHistory();
+  async clearHotloadHistory(): Promise<void> {
+    const hm = await getHotloadManagerLazy();
+    hm.clearHotloadHistory();
   }
 
   async startAllPlugins(): Promise<void> {

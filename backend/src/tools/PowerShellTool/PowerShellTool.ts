@@ -9,7 +9,12 @@ import { z } from 'zod';
 import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { ToolParam, InterruptBehavior, ValidationResult } from '../types/Tool';
+import {
+  ToolParam,
+  InterruptBehavior,
+  ValidationResult,
+  ToolTag,
+} from '../types/Tool';
 import { createSuccessResult, createFailureResult } from '../utils/ToolUtils';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -60,6 +65,8 @@ export class PowerShellTool extends BaseTool {
   name = 'powershell';
   description =
     'Execute PowerShell commands on Windows systems. Use for Windows-specific administration, registry operations, and system management.';
+
+  tags = [ToolTag.CODE];
 
   params: ToolParam[] = [
     {

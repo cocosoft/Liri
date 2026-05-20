@@ -9,6 +9,7 @@ import {
   MCPTransport as IMCPTransport,
 } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { McpTlsManager, type McpTlsConfig } from './McpTlsManager';
 
 /**
  * MCP传输层基础类
@@ -18,6 +19,26 @@ export abstract class MCPTransport implements IMCPTransport {
   /** 连接状态 */
   protected connected: boolean = false;
   protected _state: MCPClientState = 'disconnected';
+  /** TLS 管理器 */
+  protected tlsManager: McpTlsManager;
+
+  constructor(tlsConfig?: Partial<McpTlsConfig>) {
+    this.tlsManager = new McpTlsManager(tlsConfig);
+  }
+
+  /**
+   * 获取 TLS 管理器
+   */
+  getTlsManager(): McpTlsManager {
+    return this.tlsManager;
+  }
+
+  /**
+   * 设置 TLS 配置
+   */
+  setTlsConfig(config: Partial<McpTlsConfig>): void {
+    this.tlsManager = new McpTlsManager(config);
+  }
 
   /**
    * 发送请求

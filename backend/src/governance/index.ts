@@ -28,4 +28,18 @@ export {
 
 // 导出增强功能
 export * from './EnhancedGovernanceManager.js';
+
+// 导出主动式规则建议引擎
+export {
+  RuleSuggestionEngine,
+  ruleSuggestionEngine,
+} from './RuleSuggestionEngine.js';
+export type {
+  RuleSuggestion,
+  DetectedPattern,
+  SuggestionPatternType,
+  SuggestionStatus,
+  SuggestionQueryOptions,
+  RuleSuggestionEngineConfig,
+} from './RuleSuggestionEngine.js';
 export * from './IntelligentGovernanceAnalyzer.js';

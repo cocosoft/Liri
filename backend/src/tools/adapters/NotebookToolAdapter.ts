@@ -11,6 +11,7 @@ import type {
 } from '../types/Tool.js';
 import type { ToolUseContext } from '../types/ToolUseContext.js';
 import type { ToolResult } from '../types/ToolResult.js';
+import { ToolTag } from '../types/Tool.js';
 import { NotebookToolImpl } from '../notebook/NotebookToolImpl.js';
 import type { Notebook, CodeCell } from '../notebook/types/index.js';
 import { notebookManager } from '../notebook/NotebookManager.js';
@@ -534,6 +535,7 @@ export class NotebookToolAdapter implements Tool {
       alwaysLoad: this.alwaysLoad,
       interruptBehavior: this.interruptBehavior(),
       maxResultSizeChars: this.maxResultSizeChars,
+      tags: [ToolTag.CODE],
     };
   }
 

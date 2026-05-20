@@ -2,7 +2,7 @@
  * TaskGetTool - 获取任务详情
  */
 
-import { Tool, ToolInfo, ValidationResult } from '../types/Tool';
+import { Tool, ToolInfo, ValidationResult, ToolTag } from '../types/Tool';
 import { ToolResult } from '../types/ToolResult';
 import { createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
@@ -64,6 +64,7 @@ export class TaskGetTool implements Tool {
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      tags: [ToolTag.READ],
     };
   }
 

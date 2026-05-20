@@ -5,7 +5,7 @@
 import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { ToolParam } from '../types/Tool';
+import { ToolParam, ToolTag } from '../types/Tool';
 import { PermissionResult, createAllowResult } from '../types/PermissionResult';
 import { ValidationResult } from '../types/Tool';
 import { createSuccessResult, createFailureResult } from '../utils/ToolUtils';
@@ -13,6 +13,8 @@ import { createSuccessResult, createFailureResult } from '../utils/ToolUtils';
 export class GlobTool extends BaseTool {
   name = 'glob';
   description = 'Find files matching a pattern';
+
+  tags = [ToolTag.FILE, ToolTag.READ];
 
   params: ToolParam[] = [
     {

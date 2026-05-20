@@ -1,0 +1,133 @@
+{
+  "$schema": "../AlertSchema.ts",
+  "metadata": {
+    "name": "性能告警",
+    "version": "1.0.0",
+    "description": "监控响应时间、吞吐量、操作延迟等性能指标的告警规则",
+    "category": "performance",
+    "author": "PY_APP",
+    "created": "2026-05-20"
+  },
+  "rules": [
+    {
+      "name": "响应时间过高",
+      "description": "当 API 响应时间超过 1 秒时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "response.time",
+          "operator": ">",
+          "value": 1000,
+          "window": 60000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "performance",
+        "metric": "response_time"
+      },
+      "annotations": {
+        "summary": "响应时间超过 1 秒"
+      }
+    },
+    {
+      "name": "响应时间严重过高",
+      "description": "当 API 响应时间超过 5 秒时触发严重告警",
+      "level": "critical",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "response.time",
+          "operator": ">",
+          "value": 5000,
+          "window": 10000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 120000,
+      "enabled": true,
+      "labels": {
+        "type": "performance",
+        "metric": "response_time"
+      },
+      "annotations": {
+        "summary": "响应时间超过 5 秒"
+      }
+    },
+    {
+      "name": "吞吐量下降",
+      "description": "当请求吞吐量在窗口期内显著下降时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "rate",
+          "metric": "requests.throughput",
+          "operator": "<",
+          "value": -5,
+          "window": 300000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "performance",
+        "metric": "throughput"
+      },
+      "annotations": {
+        "summary": "吞吐量异常下降"
+      }
+    },
+    {
+      "name": "工具执行延迟过高",
+      "description": "当工具执行平均延迟超过 2 秒时触发告警",
+      "level": "warning",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "tool.executionTime",
+          "operator": ">",
+          "value": 2000,
+          "window": 120000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 300000,
+      "enabled": true,
+      "labels": {
+        "type": "performance",
+        "metric": "tool_execution"
+      },
+      "annotations": {
+        "summary": "工具执行延迟超过 2 秒"
+      }
+    },
+    {
+      "name": "AI 模型响应超时",
+      "description": "当 AI 模型调用延迟超过 10 秒时触发告警",
+      "level": "error",
+      "conditions": [
+        {
+          "type": "threshold",
+          "metric": "ai.model.latency",
+          "operator": ">",
+          "value": 10000,
+          "window": 60000
+        }
+      ],
+      "conditionOperator": "and",
+      "cooldown": 120000,
+      "enabled": true,
+      "labels": {
+        "type": "performance",
+        "metric": "ai_latency"
+      },
+      "annotations": {
+        "summary": "AI 模型调用延迟超过 10 秒"
+      }
+    }
+  ]
+}

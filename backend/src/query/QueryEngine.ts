@@ -57,6 +57,7 @@ import {
 } from './StopHooks.js';
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { QueryLogStore, getQueryLogStore } from './QueryLogStore.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -347,6 +348,11 @@ export class QueryEngine {
    * 查询开始时间（用于计算持续时间）
    */
   private queryStartTime: number = 0;
+
+  /**
+   * 查询日志存储（可选）
+   */
+  private queryLogStore: QueryLogStore | null = null;
 
   /**
    * 构造函数
@@ -874,6 +880,9 @@ export class QueryEngine {
         totalTokens: result.usage?.totalTokens || 0,
       });
 
+      // 持久化 API 调用日志
+      this.logApiCall(sessionId, result.usage, apiDuration, true);
+
       return result;
     } catch (error) {
       const classification = categorizeAPIError(error);
@@ -886,6 +895,15 @@ export class QueryEngine {
         timestamp: Date.now(),
       });
 
+      // 持久化 API 调用失败日志
+      this.logApiCall(
+        sessionId,
+        null,
+        Date.now() - apiStartTime,
+        false,
+        error instanceof Error ? error.message : String(error)
+      );
+
       // 更新会话错误计数
       if (this.sessionState) {
         this.updateSessionState({
@@ -896,6 +914,68 @@ export class QueryEngine {
 
       throw error;
     }
+  }
+
+  /**
+   * 记录 API 调用日志
+   */
+  private logApiCall(
+    sessionId: string,
+    usage: {
+      inputTokens: number;
+      outputTokens: number;
+      totalTokens: number;
+    } | null,
+    durationMs: number,
+    success: boolean,
+    error?: string
+  ): void {
+    this.queryLogStore
+      ?.log({
+        sessionId,
+        type: 'api_call',
+        model: 'default',
+        promptTokens: usage?.inputTokens || 0,
+        outputTokens: usage?.outputTokens || 0,
+        totalTokens: usage?.totalTokens || 0,
+        durationMs,
+        success,
+        error,
+        timestamp: Date.now(),
+      })
+      .catch((err) => {
+        logger.error('持久化 API 日志失败', { error: err });
+      });
+  }
+
+  /**
+   * 记录工具调用日志
+   */
+  private logToolCall(
+    sessionId: string,
+    toolName: string,
+    inputTokens: number,
+    outputTokens: number,
+    durationMs: number,
+    success: boolean,
+    error?: string
+  ): void {
+    this.queryLogStore
+      ?.log({
+        sessionId,
+        type: 'tool_call',
+        toolName,
+        promptTokens: inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        durationMs,
+        success,
+        error,
+        timestamp: Date.now(),
+      })
+      .catch((err) => {
+        logger.error('持久化工具调用日志失败', { error: err });
+      });
   }
 
   /**
@@ -963,6 +1043,8 @@ export class QueryEngine {
           session_id: sessionId,
         });
 
+        this.logToolCall(sessionId, block.name, 0, 0, toolDuration, true);
+
         return result;
       } catch (error) {
         const errorResult: ToolResult = {
@@ -995,6 +1077,16 @@ export class QueryEngine {
           tool_name: block.name,
           session_id: sessionId,
         });
+
+        this.logToolCall(
+          sessionId,
+          block.name,
+          0,
+          0,
+          toolDuration,
+          false,
+          queryError.message
+        );
 
         return errorResult;
       }
@@ -1331,6 +1423,14 @@ export class QueryEngine {
       toolCallCount: 0,
     };
     return id;
+  }
+
+  /**
+   * 设置查询日志存储
+   * @param store 日志存储实例
+   */
+  setQueryLogStore(store: QueryLogStore): void {
+    this.queryLogStore = store;
   }
 
   /**

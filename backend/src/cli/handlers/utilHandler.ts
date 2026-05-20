@@ -63,6 +63,9 @@ export class UtilHandler {
   mcp           - MCP相关命令
   plugin        - 插件相关命令
   auto          - 自动模式命令
+  config        - 管理配置
+  sessions      - 管理会话
+  diagnose      - 系统诊断
   help [命令]   - 显示帮助信息
   version       - 显示版本信息
   clear         - 清空屏幕
@@ -110,6 +113,43 @@ export class UtilHandler {
   auto start       - 启动自动模式
   auto stop        - 停止自动模式
   auto config      - 配置自动模式`,
+      config: `config - 管理配置
+
+用法:
+  config get <key>          - 获取配置项
+  config set <key> <value>  - 设置配置项
+  config list               - 列出所有配置
+  config reset [key]        - 重置配置
+
+示例:
+  config get cli.prompt
+  config set cli.prompt "pyapp> "`,
+      sessions: `sessions - 管理会话
+
+用法:
+  sessions list               - 列出所有会话
+  sessions inspect <id>       - 查看会话详情
+  sessions export <id> [opts] - 导出会话
+
+导出选项:
+  --format json   JSON 格式 (默认)
+  --format md     Markdown 格式`,
+      diagnose: `diagnose - 系统诊断
+
+用法:
+  diagnose network               - 网络连通性检测
+  diagnose health                - 系统健康检查
+  diagnose debug [scope]         - 调试信息
+  diagnose slow-query [threshold] - 慢查询检测报告
+
+调试范围:
+  all      全部信息 (默认)
+  system   系统信息
+  config   配置信息
+  session  会话信息
+
+慢查询参数:
+  threshold   阈值（毫秒），默认 5000`,
     };
 
     console.log(helpText[command] || `未找到命令 '${command}' 的帮助信息`);

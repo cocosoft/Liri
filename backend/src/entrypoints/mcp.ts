@@ -25,7 +25,7 @@ import { hasPermissionsToUseTool } from '../permission/permissions';
 import { jsonStringify } from '../utils/slowOperations';
 import { getErrorParts } from '../utils/toolErrors';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema';
-import { getDefaultAppState } from '../core/state/AppState.js';
+import { getDefaultAppState } from '../system/state/AppState.js';
 import { reviewCommand as review } from '../commands/builtin/review';
 import type { Command } from '../commands/types/index';
 import { profileCheckpoint } from '../utils/startupProfiler';

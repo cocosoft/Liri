@@ -31,6 +31,8 @@ import {
   sanitizePath,
 } from '@modules/security';
 import type { ToolExecutionStats, ToolExecutionLog } from './types/ToolTypes';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { Span, SpanStatusCode } from '@opentelemetry/api';
 
 export interface ToolResultBlock {
   toolCallId: string;
@@ -129,10 +131,32 @@ export class ToolExecutor {
       abortSignal: undefined,
     };
 
+    let tracingSpan: Span | undefined;
+
     try {
+      // 创建 OTel span 用于工具调用链追踪
+      const tracing = getOTelTracing();
+      const spanAttributes: Record<string, string | number | boolean> = {
+        'tool.name': toolName,
+        'tool.use_id': toolUseId,
+      };
+      const safeInputKeys = Object.keys(input).slice(0, 10);
+      spanAttributes['tool.input_keys'] = safeInputKeys.join(',');
+
+      tracingSpan = tracing.startSpan(`tool.${toolName}`, spanAttributes);
+
+      // 将 traceId 注入上下文，支持子工具链路追踪
+      const traceId = tracingSpan.spanContext().traceId;
+      context.traceId = traceId;
+
       // 安全检查
       const securityCheck = this.performSecurityCheck(tool, input);
       if (!securityCheck.safe) {
+        tracing.endSpan(
+          tracingSpan,
+          SpanStatusCode.ERROR,
+          'Security check failed'
+        );
         return createToolResult(null, {
           newMessages: [
             {
@@ -151,6 +175,11 @@ export class ToolExecutor {
       if (this.useHooks) {
         const preHookResult = await this.executePreToolUseHooks(hookContext);
         if (preHookResult.preventContinuation) {
+          tracing.endSpan(
+            tracingSpan,
+            SpanStatusCode.ERROR,
+            'Execution prevented by hook'
+          );
           return createToolResult(null, {
             newMessages: [
               {
@@ -193,6 +222,20 @@ export class ToolExecutor {
       }
 
       const success = !result.metadata?.error;
+
+      // 记录执行结果到 span
+      tracingSpan.setAttribute('tool.success', success);
+      tracingSpan.setAttribute('tool.duration_ms', Date.now() - startTime);
+      if (result.metadata?.error) {
+        tracing.endSpan(
+          tracingSpan,
+          SpanStatusCode.ERROR,
+          String(result.metadata.error)
+        );
+      } else {
+        tracing.endSpan(tracingSpan, SpanStatusCode.OK);
+      }
+
       this.recordToolExecution(toolName, toolUseId, startTime, success);
       return result;
     } catch (error) {
@@ -205,6 +248,20 @@ export class ToolExecutor {
       }
 
       this.recordToolExecution(toolName, toolUseId, startTime, false);
+
+      // 关闭 OTel span（如有），记录错误
+      if (tracingSpan) {
+        try {
+          const tracing = getOTelTracing();
+          tracing.recordError(
+            tracingSpan,
+            error instanceof Error ? error : new Error(errorMessage)
+          );
+          tracing.endSpan(tracingSpan, SpanStatusCode.ERROR, errorMessage);
+        } catch {
+          // OTel span 错误不影响主流程
+        }
+      }
 
       return createToolResult(null, {
         newMessages: [

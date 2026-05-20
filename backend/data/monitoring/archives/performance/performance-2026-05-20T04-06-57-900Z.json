@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": 1779250017900,
+    "memory": {
+      "rss": 184098816,
+      "heapTotal": 3116032,
+      "heapUsed": 1760139,
+      "external": 723883,
+      "arrayBuffers": 112
+    },
+    "cpu": {
+      "user": 156000,
+      "system": 140000
+    },
+    "activeOperations": 0,
+    "completedOperations": 0,
+    "failedOperations": 0,
+    "averageDuration": 0
+  }
+]

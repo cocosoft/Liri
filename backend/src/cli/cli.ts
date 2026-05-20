@@ -245,6 +245,12 @@ function listTools(toolManager: any) {
     ui.showInfo(`Name: ${tool.name}`);
     ui.showInfo(`Description: ${tool.description}`);
     ui.showInfo(`Version: ${tool.version || '1.0.0'}`);
+
+    const info = tool.getInfo?.();
+    if (info?.tags?.length) {
+      ui.showInfo(`Tags: ${info.tags.join(', ')}`);
+    }
+
     ui.showSeparator();
   }
 }

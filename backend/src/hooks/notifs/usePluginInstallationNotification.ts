@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { appStateStore } from '../../core/state/AppStateStore';
+import { appStateStore } from '../../system/state/AppStateStore';
 
 /**
  * 插件安装状态通知钩子

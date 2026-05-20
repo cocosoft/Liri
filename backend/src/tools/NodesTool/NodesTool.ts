@@ -37,7 +37,7 @@ export class NodesTool extends BaseTool {
   description =
     'Manage distributed nodes and worker processes. Supports listing, status check, adding, removing, and pinging nodes.';
 
-  tags = [ToolTag.SYSTEM];
+  override tags = [ToolTag.SYSTEM];
 
   params: ToolParam[] = [
     {
@@ -82,7 +82,7 @@ export class NodesTool extends BaseTool {
   override aliases = ['node', 'cluster'];
   override searchHint = 'Manage distributed nodes and worker processes';
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     _context: ToolUseContext
   ): Promise<ToolResult> {

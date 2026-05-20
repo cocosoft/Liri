@@ -62,7 +62,7 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
   name = 'browser';
   description = 'Automate Chrome browser to interact with web pages';
 
-  tags = [ToolTag.NETWORK];
+  override tags = [ToolTag.NETWORK];
 
   params: ToolParam[] = [
     {
@@ -237,7 +237,7 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
   /**
    * 执行工具
    */
-  async execute(
+  override async execute(
     input: BrowserToolInput,
     context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

@@ -1368,7 +1368,7 @@ export function createUtilityTools(): Tool[] {
             output: JSON.stringify({
               status: response.status,
               statusText: response.statusText,
-              headers: Object.fromEntries(response.headers),
+              headers: (() => { const h: Record<string, string> = {}; response.headers.forEach((v, k) => { h[k] = v; }); return h; })(),
               bodyLength: body.length,
               body: body.slice(0, 10000),
             }),
@@ -1408,7 +1408,7 @@ export function createUtilityTools(): Tool[] {
             output: JSON.stringify({
               status: response.status,
               statusText: response.statusText,
-              headers: Object.fromEntries(response.headers),
+              headers: (() => { const h: Record<string, string> = {}; response.headers.forEach((v, k) => { h[k] = v; }); return h; })(),
             }),
           };
         } catch (e: any) {
@@ -1466,13 +1466,13 @@ export function createUtilityTools(): Tool[] {
       aliases: ['myip', 'ipconfig'],
       tags: [TT.NETWORK],
       execute: () => {
-        const os = require('os');
+        const os = require('os') as typeof import('os');
         const interfaces = os.networkInterfaces();
         const result: Record<string, string[]> = {};
         for (const [name, addrs] of Object.entries(interfaces)) {
           if (addrs) {
-            result[name] = addrs.map(
-              (a: any) =>
+            result[name] = (addrs as import('os').NetworkInterfaceInfo[]).map(
+              (a) =>
                 `${a.address} (${a.family})${a.internal ? ' [internal]' : ''}`
             );
           }

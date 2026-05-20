@@ -16,7 +16,7 @@ export class FileConvertTool extends BaseTool {
   override readonly name = 'file_convert';
   override readonly description = 'Convert file to Markdown format';
 
-  tags = [ToolTag.FILE];
+  override tags = [ToolTag.FILE];
 
   override readonly params: ToolParam[] = [
     {
@@ -35,7 +35,7 @@ export class FileConvertTool extends BaseTool {
   override readonly aliases = ['convert', 'md'];
   override readonly searchHint = 'Convert a file to Markdown';
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     _context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

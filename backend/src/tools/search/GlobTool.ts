@@ -14,7 +14,7 @@ export class GlobTool extends BaseTool {
   name = 'glob';
   description = 'Find files matching a pattern';
 
-  tags = [ToolTag.FILE, ToolTag.READ];
+  override tags = [ToolTag.FILE, ToolTag.READ];
 
   params: ToolParam[] = [
     {
@@ -37,7 +37,7 @@ export class GlobTool extends BaseTool {
   override aliases = ['find', 'files'];
   searchTips = ['glob', 'find', 'files', 'pattern'];
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext
   ): Promise<ToolResult<unknown>> {

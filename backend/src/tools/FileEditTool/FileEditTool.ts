@@ -109,7 +109,7 @@ export class FileEditTool extends BaseTool {
   name = 'file_edit';
   description = 'Edit a file by replacing text';
 
-  tags = [ToolTag.FILE, ToolTag.WRITE];
+  override tags = [ToolTag.FILE, ToolTag.WRITE];
 
   params: ToolParam[] = [
     {
@@ -138,7 +138,7 @@ export class FileEditTool extends BaseTool {
     },
   ];
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     _context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

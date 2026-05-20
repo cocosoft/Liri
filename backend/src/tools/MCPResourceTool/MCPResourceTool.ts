@@ -67,7 +67,7 @@ export class MCPResourceTool extends BaseTool<
   name = 'mcp_resource';
   description =
     'List and read MCP (Model Context Protocol) resources and prompts from connected servers';
-  tags = [ToolTag.NETWORK];
+  override tags = [ToolTag.NETWORK];
 
   params: ToolParam[] = [
     {
@@ -234,7 +234,7 @@ export class MCPResourceTool extends BaseTool<
   /**
    * 执行工具
    */
-  async execute(
+  override async execute(
     input: MCPResourceToolInput,
     context: ToolUseContext,
     onProgress?: ToolCallProgress<ToolProgressData>

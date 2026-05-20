@@ -26,7 +26,7 @@ export class ConfigTool extends BaseTool<ConfigToolInput> {
   name = 'config';
   description = 'Manage application configuration';
 
-  tags = [ToolTag.SYSTEM];
+  override tags = [ToolTag.SYSTEM];
 
   params: ToolParam[] = [
     {
@@ -49,7 +49,7 @@ export class ConfigTool extends BaseTool<ConfigToolInput> {
     },
   ];
 
-  async execute(
+  override async execute(
     input: ConfigToolInput,
     context: ToolUseContext
   ): Promise<ToolResult> {

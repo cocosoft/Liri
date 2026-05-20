@@ -59,7 +59,7 @@ export class WebSearchTool extends BaseTool {
   description =
     'Search the web for information. Use to find current events, facts, documentation, or any topic that requires up-to-date internet resources.';
 
-  tags = [ToolTag.NETWORK, ToolTag.READ];
+  override tags = [ToolTag.NETWORK, ToolTag.READ];
 
   params: ToolParam[] = [
     {
@@ -134,7 +134,7 @@ export class WebSearchTool extends BaseTool {
     return (input?.query as string) || '';
   }
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

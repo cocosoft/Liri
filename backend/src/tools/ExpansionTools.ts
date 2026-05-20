@@ -59,6 +59,20 @@ export function createDecisionLoggerTool(): Tool {
     },
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: true,
+        readOnly: false,
+        destructive: false,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       const action = input.action as string;
       if (!action || !['log', 'query', 'stats'].includes(action)) {
@@ -168,6 +182,20 @@ export function createConfidenceScorerTool(): Tool {
     isReadOnly: () => true,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: true,
+        readOnly: true,
+        destructive: false,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       if (!input.content || typeof input.content !== 'string') {
         return {
@@ -255,6 +283,20 @@ export function createPerformanceProfilerTool(): Tool {
       !['start', 'stop'].includes((input?.action as string) || ''),
     isDestructive: () => false,
     isConcurrencySafe: () => false,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: this.isReadOnly(),
+        destructive: false,
+        concurrencySafe: this.isConcurrencySafe(),
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       const action = input.action as string;
       if (!action || !['start', 'stop', 'report', 'clear'].includes(action)) {
@@ -344,6 +386,20 @@ export function createMemoryDumpTool(): Tool {
     isReadOnly: () => true,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: true,
+        destructive: false,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       if (
         !input.target ||
@@ -459,6 +515,20 @@ export function createSystemInfoTool(): Tool {
     isReadOnly: () => true,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: true,
+        destructive: false,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       if (
         input.category &&
@@ -565,6 +635,20 @@ export function createProcessManagerTool(): Tool {
     isReadOnly: () => true,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: this.isReadOnly(),
+        destructive: false,
+        concurrencySafe: this.isConcurrencySafe(),
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       const action = input.action as string;
       if (!action || !['list', 'search'].includes(action)) {
@@ -665,6 +749,20 @@ export function createGitBranchTool(): Tool {
     isReadOnly: (input) => (input?.action as string) === 'list',
     isDestructive: (input) => (input?.action as string) === 'delete',
     isConcurrencySafe: () => false,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: this.isReadOnly(),
+        destructive: this.isDestructive ? this.isDestructive() : false,
+        concurrencySafe: this.isConcurrencySafe(),
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       const action = input.action as string;
       if (!action || !['list', 'create', 'delete', 'switch'].includes(action)) {
@@ -760,6 +858,20 @@ export function createGitMergeTool(): Tool {
     isReadOnly: (input) => (input?.action as string) === 'status',
     isDestructive: (input) => (input?.action as string) === 'merge',
     isConcurrencySafe: () => false,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: this.isReadOnly(),
+        destructive: this.isDestructive ? this.isDestructive() : false,
+        concurrencySafe: this.isConcurrencySafe(),
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       const action = input.action as string;
       if (!action || !['merge', 'abort', 'status'].includes(action)) {
@@ -853,6 +965,20 @@ export function createGitStashTool(): Tool {
     isDestructive: (input) =>
       ['drop', 'pop'].includes((input?.action as string) || ''),
     isConcurrencySafe: () => false,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: this.isReadOnly(),
+        destructive: this.isDestructive ? this.isDestructive() : false,
+        concurrencySafe: this.isConcurrencySafe(),
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       const action = input.action as string;
       if (
@@ -940,6 +1066,20 @@ export function createCodeFormatTool(): Tool {
     isReadOnly: (input) => !!input?.check,
     isDestructive: (input) => !input?.check,
     isConcurrencySafe: () => false,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: this.isReadOnly(),
+        destructive: this.isDestructive ? this.isDestructive() : false,
+        concurrencySafe: this.isConcurrencySafe(),
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       if (!input.path || typeof input.path !== 'string') {
         return {
@@ -1026,6 +1166,20 @@ export function createReviewAssignTool(): Tool {
     isReadOnly: (input) => (input?.action as string) === 'list',
     isDestructive: () => false,
     isConcurrencySafe: () => false,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: this.isReadOnly(),
+        destructive: false,
+        concurrencySafe: this.isConcurrencySafe(),
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       const action = input.action as string;
       if (!action || !['assign', 'unassign', 'list'].includes(action)) {
@@ -1189,6 +1343,20 @@ export function createCodeReviewTool(): Tool {
     isReadOnly: () => true,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    getInfo: function () {
+      return {
+        name: this.name,
+        description: this.description,
+        params: this.params,
+        enabled: this.isEnabled(),
+        readOnly: true,
+        destructive: false,
+        concurrencySafe: true,
+        deferred: false,
+        alwaysLoad: false,
+        interruptBehavior: 'block' as const,
+      };
+    },
     validateInput: (input: Record<string, unknown>): ValidationResult => {
       const action = input.action as string;
       if (!action || !['analyze', 'check'].includes(action)) {
@@ -1218,13 +1386,13 @@ export function createCodeReviewTool(): Tool {
         if (action === 'check') {
           const filePath = input.path as string;
           const content = fs.readFileSync(filePath, 'utf-8');
-          const language = input.language || detectLanguage(filePath);
+          const language = (input.language as string) || detectLanguage(filePath);
 
           return performReview(content, language, input.strictness as string);
         }
 
         const code = input.code as string;
-        const language = input.language || 'unknown';
+        const language = (input.language as string) || 'unknown';
 
         return performReview(code, language, input.strictness as string);
       } catch (error) {

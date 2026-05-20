@@ -57,7 +57,7 @@ export class WebFetchTool extends BaseTool {
   description =
     'Fetch content from a URL. Use to retrieve web page content, API responses, or other HTTP resources.';
 
-  tags = [ToolTag.NETWORK, ToolTag.READ];
+  override tags = [ToolTag.NETWORK, ToolTag.READ];
 
   params: ToolParam[] = [
     {
@@ -140,7 +140,7 @@ export class WebFetchTool extends BaseTool {
     return (input?.url as string) || '';
   }
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

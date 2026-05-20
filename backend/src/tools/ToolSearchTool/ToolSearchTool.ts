@@ -232,7 +232,7 @@ export class ToolSearchTool extends BaseTool<
   description =
     '搜索延迟加载的工具。当需要使用的工具未在初始工具列表中时，使用此工具查找并加载它。';
 
-  tags = [ToolTag.READ];
+  override tags = [ToolTag.READ];
 
   /**
    * 工具参数
@@ -269,7 +269,7 @@ export class ToolSearchTool extends BaseTool<
   /**
    * 执行工具搜索
    */
-  async execute(
+  override async execute(
     input: ToolSearchInput,
     _context: ToolUseContext,
     _onProgress?: ToolCallProgress

@@ -103,7 +103,7 @@ export class PlanTool extends BaseTool<
   name = 'plan';
   description = 'Create, manage, and execute plans';
 
-  tags = [ToolTag.SYSTEM];
+  override tags = [ToolTag.SYSTEM];
 
   params: ToolParam[] = [
     {
@@ -317,7 +317,7 @@ export class PlanTool extends BaseTool<
   /**
    * 执行工具
    */
-  async execute(
+  override async execute(
     input: PlanToolInput,
     context: ToolUseContext,
     onProgress?: ToolCallProgress<ToolProgressData>

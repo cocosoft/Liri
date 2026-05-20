@@ -67,7 +67,7 @@ export class FileWriteTool extends BaseTool {
   name = 'file_write';
   description = 'Write content to a file';
 
-  tags = [ToolTag.FILE, ToolTag.WRITE];
+  override tags = [ToolTag.FILE, ToolTag.WRITE];
 
   params: ToolParam[] = [
     {
@@ -94,7 +94,7 @@ export class FileWriteTool extends BaseTool {
   override searchHint = 'Write content to a file';
   override maxResultSizeChars = 10000;
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     _context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

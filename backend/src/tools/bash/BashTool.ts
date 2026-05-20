@@ -143,7 +143,7 @@ export class BashTool extends BaseTool {
   name = 'bash';
   description = 'Execute bash commands with security checks';
 
-  tags = [ToolTag.CODE];
+  override tags = [ToolTag.CODE];
 
   params: ToolParam[] = [
     {
@@ -196,7 +196,7 @@ export class BashTool extends BaseTool {
     this.securityAnalyzer = new BashSecurityAnalyzer();
   }
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

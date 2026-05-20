@@ -63,7 +63,7 @@ export class AskUserQuestionTool extends BaseTool {
   name = 'ask_user_question';
   description = 'Ask the user a question with multiple choice options';
 
-  tags = [ToolTag.AI];
+  override tags = [ToolTag.AI];
 
   params: ToolParam[] = [
     {
@@ -96,7 +96,7 @@ export class AskUserQuestionTool extends BaseTool {
     return true;
   }
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

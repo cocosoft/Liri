@@ -155,7 +155,7 @@ export class FileReadTool extends BaseTool {
   name = 'file_read';
   description = 'Read file content';
 
-  tags = [ToolTag.FILE, ToolTag.READ];
+  override tags = [ToolTag.FILE, ToolTag.READ];
 
   params: ToolParam[] = [
     {
@@ -182,7 +182,7 @@ export class FileReadTool extends BaseTool {
   override searchHint = 'Read content from a file';
   override maxResultSizeChars = Infinity;
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     _context: ToolUseContext,
     onProgress?: ToolCallProgress<any>

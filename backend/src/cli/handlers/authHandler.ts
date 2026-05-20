@@ -271,6 +271,43 @@ export class AuthHandler {
   }
 
   /**
+   * 处理刷新 Token 命令
+   */
+  async handleRefresh(): Promise<void> {
+    const providers = oauthService.listProviders();
+
+    if (providers.length === 0) {
+      console.log(chalk.yellow('⚠ 未配置任何 OAuth Provider'));
+      return;
+    }
+
+    console.log(chalk.bold('\n正在刷新 OAuth Token...\n'));
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const provider of providers) {
+      const status = oauthService.getTokenStatus(provider);
+      if (!status.exists) {
+        console.log(`  ${chalk.yellow('⚠')} ${provider} - 未授权，跳过`);
+        continue;
+      }
+
+      try {
+        await oauthService.refreshToken(provider);
+        console.log(`  ${chalk.green('✓')} ${provider} - Token 刷新成功`);
+        successCount++;
+      } catch (error) {
+        console.log(`  ${chalk.red('✕')} ${provider} - Token 刷新失败`);
+        logger.error('Token refresh failed', { provider, error });
+        failCount++;
+      }
+    }
+
+    console.log('');
+    console.log(chalk.bold(`刷新完成: ${successCount} 成功, ${failCount} 失败`));
+  }
+
+  /**
    * 提示选择 Provider
    */
   private async promptForProvider(): Promise<string> {

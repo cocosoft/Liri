@@ -21,7 +21,7 @@ export class BriefTool extends BaseTool<BriefToolInput> {
   name = 'brief';
   description = 'Generate a summary of the current session';
 
-  tags = [ToolTag.READ];
+  override tags = [ToolTag.READ];
 
   params: ToolParam[] = [
     {
@@ -53,7 +53,7 @@ export class BriefTool extends BaseTool<BriefToolInput> {
     },
   ];
 
-  async execute(
+  override async execute(
     input: BriefToolInput,
     context: ToolUseContext
   ): Promise<ToolResult> {

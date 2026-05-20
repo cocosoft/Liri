@@ -66,7 +66,7 @@ export class PowerShellTool extends BaseTool {
   description =
     'Execute PowerShell commands on Windows systems. Use for Windows-specific administration, registry operations, and system management.';
 
-  tags = [ToolTag.CODE];
+  override tags = [ToolTag.CODE];
 
   params: ToolParam[] = [
     {
@@ -164,7 +164,7 @@ export class PowerShellTool extends BaseTool {
     return '';
   }
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext
   ): Promise<ToolResult<unknown>> {

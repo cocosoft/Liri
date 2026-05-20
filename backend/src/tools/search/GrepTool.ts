@@ -17,7 +17,7 @@ export class GrepTool extends BaseTool {
   name = 'grep';
   description = 'Search for patterns in files';
 
-  tags = [ToolTag.CODE, ToolTag.READ];
+  override tags = [ToolTag.CODE, ToolTag.READ];
 
   params: ToolParam[] = [
     {
@@ -48,7 +48,7 @@ export class GrepTool extends BaseTool {
   override aliases = ['search', 'regex'];
   searchTips = ['grep', 'search', 'regex', 'content'];
 
-  async execute(
+  override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext
   ): Promise<ToolResult<unknown>> {

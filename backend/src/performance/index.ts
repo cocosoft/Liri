@@ -11,14 +11,6 @@ const logger = new Logger({ level: LogLevel.INFO });
 // 导出启动性能分析
 export * from './StartupProfiler.js';
 
-// 导出启动追踪器
-export {
-  StartupTracer,
-  startupTracer,
-  type TracePoint,
-  type TraceReport,
-} from './StartupTracer.js';
-
 // 导出性能监控面板
 export {
   PerformanceMonitor,

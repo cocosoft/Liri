@@ -6,7 +6,7 @@
 import { Logger } from '@modules/monitoring/logs/Logger';
 import type { ScheduledTaskResult } from './ParallelAgentScheduler';
 
-const logger = new Logger('ResultAggregator');
+const logger = new Logger();
 
 /**
  * 聚合策略枚举

@@ -18,7 +18,7 @@ import {
   type StreamChunk,
 } from './types';
 
-const logger = new Logger('Stream');
+const logger = new Logger();
 
 /**
  * 指标自动发射配置
@@ -210,7 +210,8 @@ export class Stream<T> implements AsyncIterableIterator<T> {
       try {
         listener(event);
       } catch (err) {
-        logger.error('事件监听器抛出异常', err as Error, {
+        logger.error('事件监听器抛出异常', {
+          error: err as Error,
           eventType: event.type,
         });
       }

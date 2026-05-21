@@ -1,6 +1,5 @@
 /**
  * 模型别名定义
- * 参考CC源码: cc_code/backend/utils/model/aliases.ts
  */
 
 /**

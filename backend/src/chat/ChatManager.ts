@@ -60,6 +60,9 @@ import {
 } from '../services/compact/CompactService.js';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { TaskStatus } from '@modules/tasks/types';
+import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
 
 /**
  * 聊天管理器接口
@@ -471,6 +474,7 @@ export class ChatManagerImpl implements ChatManager {
    * HookChain 管理器
    */
   private hookChainManager: HookChainManager;
+  private _executingPlan = false;
 
   /**
    * 查询引擎
@@ -517,7 +521,12 @@ export class ChatManagerImpl implements ChatManager {
    * 清理
    */
   cleanup(): void {
-    // 清理资源
+    taskOrchestrator.abortAll().catch(() => {});
+    for (const task of taskRegistry.getRunningTasks()) {
+      task.kill().catch(() => {});
+    }
+    taskRegistry.shutdown().catch(() => {});
+    this.streamService.reset();
   }
 
   /**
@@ -574,7 +583,8 @@ export class ChatManagerImpl implements ChatManager {
 
       // 添加到会话
       const session = options?.sessionId
-        ? this.sessionManager.getSession(options.sessionId)
+        ? this.sessionManager.getSession(options.sessionId) ||
+          this.createSession({ title: 'New Session' })
         : this.sessionManager.getCurrentSession() ||
           this.createSession({ title: 'New Session' });
 
@@ -587,7 +597,8 @@ export class ChatManagerImpl implements ChatManager {
 
     // 获取或创建会话
     const session = options?.sessionId
-      ? this.sessionManager.getSession(options.sessionId)
+      ? this.sessionManager.getSession(options.sessionId) ||
+        this.createSession({ title: 'New Session' })
       : this.sessionManager.getCurrentSession() ||
         this.createSession({ title: 'New Session' });
 
@@ -748,6 +759,22 @@ export class ChatManagerImpl implements ChatManager {
     );
     let assistantMessage = assistantMsg;
     assistantMessage.sessionId = session.id;
+    // 将 tool_calls 附加到存储的助手消息上，确保后续重建 apiMessages 时格式正确
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      assistantMessage.tool_calls = response.tool_calls.map(
+        (tc: ParsedToolCall) => ({
+          id: tc.id,
+          type: 'function',
+          function: {
+            name: tc.name,
+            arguments:
+              typeof tc.arguments === 'string'
+                ? tc.arguments
+                : JSON.stringify(tc.arguments || {}),
+          },
+        })
+      );
+    }
     this.sessionManager.addMessage(session.id, assistantMessage);
 
     // 触发 ChatPostMessage Hook
@@ -757,103 +784,110 @@ export class ChatManagerImpl implements ChatManager {
       sessionId: session.id,
     });
 
-    // 处理工具调用
+    // 处理工具调用 — 使用 while 循环支持多轮递归工具调用
     if (response.tool_calls && response.tool_calls.length > 0) {
-      for (const toolCall of response.tool_calls) {
-        // 转换为 ToolCall 类型
-        const normalizedToolCall: ToolCall = {
-          id: toolCall.id,
-          name: toolCall.name || 'unknown',
-          arguments: toolCall.arguments || {},
-        };
+      let currentRoundMessages = [...apiMessages];
+      let currentToolCalls: ParsedToolCall[] = [...response.tool_calls];
+      let roundAssistantMsg = assistantMessage;
 
-        // 触发 ChatPreToolCall Hook
-        const preToolResult = await this.hookChainManager.execute('chat', {
-          event: 'chat.pre-tool-call',
-          data: {
-            toolCall: {
-              id: normalizedToolCall.id,
-              name: normalizedToolCall.name,
-              arguments: normalizedToolCall.arguments,
+      while (currentToolCalls.length > 0) {
+        const processedResults: Array<{
+          normalizedToolCall: ToolCall;
+          result: ToolResult;
+        }> = [];
+
+        for (const toolCall of currentToolCalls) {
+          // 转换为 ToolCall 类型
+          const normalizedToolCall: ToolCall = {
+            id: toolCall.id,
+            name: toolCall.name || 'unknown',
+            arguments: toolCall.arguments || {},
+          };
+
+          // 触发 ChatPreToolCall Hook
+          const preToolResult = await this.hookChainManager.execute('chat', {
+            event: 'chat.pre-tool-call',
+            data: {
+              toolCall: {
+                id: normalizedToolCall.id,
+                name: normalizedToolCall.name,
+                arguments: normalizedToolCall.arguments,
+              },
+              sessionId: session.id,
             },
             sessionId: session.id,
-          },
-          sessionId: session.id,
-        });
-        if (preToolResult.before.some((r) => r.preventContinuation)) {
-          throw new AppError(
-            `Tool ${normalizedToolCall.name} execution denied by hook`,
-            ErrorCategory.EXECUTION,
-            ErrorSeverity.HIGH,
-            '1000'
-          );
-        }
-
-        // 解析工具参数（arguments 可能是 JSON 字符串）
-        let parsedArguments: Record<string, unknown>;
-        if (typeof normalizedToolCall.arguments === 'string') {
-          try {
-            parsedArguments = JSON.parse(normalizedToolCall.arguments);
-          } catch (error) {
-            parsedArguments = {};
+          });
+          if (preToolResult.before.some((r) => r.preventContinuation)) {
+            throw new AppError(
+              `Tool ${normalizedToolCall.name} execution denied by hook`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              '1000'
+            );
           }
-        } else {
-          parsedArguments = normalizedToolCall.arguments as Record<
-            string,
-            unknown
-          >;
-        }
 
-        logger.debug('Executing tool', {
-          toolName: normalizedToolCall.name,
-          arguments: parsedArguments,
-        });
+          // 解析工具参数（arguments 可能是 JSON 字符串）
+          let parsedArguments: Record<string, unknown>;
+          if (typeof normalizedToolCall.arguments === 'string') {
+            try {
+              parsedArguments = JSON.parse(normalizedToolCall.arguments);
+            } catch (error) {
+              parsedArguments = {};
+            }
+          } else {
+            parsedArguments = normalizedToolCall.arguments as Record<
+              string,
+              unknown
+            >;
+          }
 
-        const toolResult = await this.executeTool({
-          id: normalizedToolCall.id,
-          name: normalizedToolCall.name,
-          arguments: parsedArguments,
-        });
-
-        logger.debug('Tool execution result', { result: toolResult });
-
-        // 触发 ChatPostToolCall Hook
-        await this.hookChainManager.execute('chat', {
-          event: 'chat.post-tool-call',
-          data: {
-            toolCallId: normalizedToolCall.id,
+          logger.debug('Executing tool', {
             toolName: normalizedToolCall.name,
-            result: toolResult.result,
-            error: toolResult.error,
+            arguments: parsedArguments,
+          });
+
+          const toolResult = await this.executeTool({
+            id: normalizedToolCall.id,
+            name: normalizedToolCall.name,
+            arguments: parsedArguments,
+          });
+
+          logger.debug('Tool execution result', { result: toolResult });
+
+          // 触发 ChatPostToolCall Hook
+          await this.hookChainManager.execute('chat', {
+            event: 'chat.post-tool-call',
+            data: {
+              toolCallId: normalizedToolCall.id,
+              toolName: normalizedToolCall.name,
+              result: toolResult.result,
+              error: toolResult.error,
+              sessionId: session.id,
+            },
             sessionId: session.id,
-          },
-          sessionId: session.id,
-        });
+          });
 
-        const toolResultMessage = this.messageService.createToolResultMessage(
-          toolResult,
-          {
-            sessionId: session.id,
-          }
-        );
-        this.sessionManager.addMessage(session.id, toolResultMessage);
+          const toolResultMessage = this.messageService.createToolResultMessage(
+            toolResult,
+            {
+              sessionId: session.id,
+            }
+          );
+          this.sessionManager.addMessage(session.id, toolResultMessage);
 
-        // 将工具结果追加到消息列表，继续调用 LLM
-        const toolResultContent = toolResult.result
-          ? typeof toolResult.result === 'string'
-            ? toolResult.result
-            : JSON.stringify(toolResult.result)
-          : toolResult.error || '{}';
+          processedResults.push({ normalizedToolCall, result: toolResult });
+        }
 
+        // 构建完整请求：基础消息 + 带有全部 tool_calls 的 assistant + 全部工具结果
         const updatedMessages: Record<string, unknown>[] = [
-          ...apiMessages,
+          ...currentRoundMessages,
           {
             role: 'assistant',
             content:
-              typeof assistantMessage.content === 'string'
-                ? assistantMessage.content
-                : JSON.stringify(assistantMessage.content),
-            tool_calls: response.tool_calls.map((tc: ParsedToolCall) => ({
+              typeof roundAssistantMsg.content === 'string'
+                ? roundAssistantMsg.content
+                : JSON.stringify(roundAssistantMsg.content),
+            tool_calls: currentToolCalls.map((tc: ParsedToolCall) => ({
               id: tc.id,
               type: 'function' as const,
               function: {
@@ -865,14 +899,21 @@ export class ChatManagerImpl implements ChatManager {
               },
             })),
           },
-          {
-            role: 'tool',
-            content: toolResultContent,
-            tool_call_id: normalizedToolCall.id,
-          },
+          ...processedResults.map((pr) => {
+            const toolResultContent = pr.result.result
+              ? typeof pr.result.result === 'string'
+                ? pr.result.result
+                : JSON.stringify(pr.result.result)
+              : pr.result.error || '{}';
+            return {
+              role: 'tool' as const,
+              content: toolResultContent,
+              tool_call_id: pr.normalizedToolCall.id,
+            };
+          }),
         ];
 
-        logger.debug('Updated messages for tool result', {
+        logger.debug('Updated messages for tool results', {
           messages: updatedMessages,
         });
 
@@ -887,7 +928,9 @@ export class ChatManagerImpl implements ChatManager {
           }
         );
 
-        logger.debug('Tool result response', { response: toolResultResponse });
+        logger.debug('Tool result response', {
+          response: toolResultResponse,
+        });
 
         const toolResultAssistantContent =
           typeof toolResultResponse.content === 'string'
@@ -901,12 +944,53 @@ export class ChatManagerImpl implements ChatManager {
               sessionId: session.id,
             }
           );
-        let toolResultAssistantMessage = toolResultAssistantMsg;
+        const toolResultAssistantMessage = toolResultAssistantMsg;
         toolResultAssistantMessage.sessionId = session.id;
+        if (
+          toolResultResponse.tool_calls &&
+          toolResultResponse.tool_calls.length > 0
+        ) {
+          toolResultAssistantMessage.tool_calls =
+            toolResultResponse.tool_calls.map((tc: ParsedToolCall) => ({
+              id: tc.id,
+              type: 'function',
+              function: {
+                name: tc.name,
+                arguments:
+                  typeof tc.arguments === 'string'
+                    ? tc.arguments
+                    : JSON.stringify(tc.arguments || {}),
+              },
+            }));
+        }
         this.sessionManager.addMessage(session.id, toolResultAssistantMessage);
 
-        // 更新 assistantMessage 为包含工具结果的消息
-        assistantMessage = toolResultAssistantMessage;
+        // 检查是否有新的工具调用，有则继续下一轮
+        if (
+          toolResultResponse.tool_calls &&
+          toolResultResponse.tool_calls.length > 0
+        ) {
+          currentRoundMessages = [...updatedMessages];
+          currentToolCalls = [...toolResultResponse.tool_calls];
+          roundAssistantMsg = toolResultAssistantMessage;
+          assistantMessage = toolResultAssistantMessage;
+        } else {
+          assistantMessage = toolResultAssistantMessage;
+          currentToolCalls = [];
+        }
+      }
+    }
+
+    // 检测是否存在 create_task_list 工具调用，进入计划编排模式
+    if (
+      !this._executingPlan &&
+      response.tool_calls?.some((tc) => tc.name === 'create_task_list')
+    ) {
+      this._executingPlan = true;
+      try {
+        await this.executePlanSteps(session, options);
+      } finally {
+        this._executingPlan = false;
       }
     }
 
@@ -914,6 +998,272 @@ export class ChatManagerImpl implements ChatManager {
     sessionStateService.notifySessionStateChanged('idle');
 
     return assistantMessage;
+  }
+
+  /**
+   * 执行单步提示（LLM 调用 + 工具执行循环）
+   */
+  private async executeStepPrompt(
+    prompt: string,
+    session: ChatSession,
+    options?: SendMessageOptions
+  ): Promise<void> {
+    if (!this.llmClient) return;
+
+    const messages = session.messages;
+    const apiMessages = messages.map((msg: Message) => {
+      const chatMessage: Record<string, unknown> = {
+        role: msg.role,
+        content:
+          typeof msg.content === 'string'
+            ? msg.content
+            : JSON.stringify(msg.content),
+      };
+      if (msg.role === 'tool' && msg.toolCallId) {
+        chatMessage.tool_call_id = msg.toolCallId;
+      }
+      if (
+        msg.role === 'assistant' &&
+        (msg as unknown as Record<string, unknown>).tool_calls
+      ) {
+        chatMessage.tool_calls = (
+          msg as unknown as Record<string, unknown>
+        ).tool_calls;
+      }
+      return chatMessage;
+    });
+    apiMessages.push({ role: 'user', content: prompt });
+
+    const toolDefinitions = this.buildToolDefinitions();
+
+    let response = await this.llmClient.sendMessage(
+      apiMessages as unknown as ChatMessage[],
+      {
+        ...options,
+        tools:
+          toolDefinitions.length > 0
+            ? (toolDefinitions as unknown as ToolDefinition[])
+            : undefined,
+      }
+    );
+
+    let currentMessages = [...apiMessages];
+    let currentCalls = response.tool_calls ? [...response.tool_calls] : [];
+
+    // 存储首轮助手消息
+    const content =
+      typeof response.content === 'string'
+        ? response.content
+        : JSON.stringify(response.content);
+    const assistantMsg = this.messageService.createAssistantMessage(content, {
+      sessionId: session.id,
+    });
+    assistantMsg.sessionId = session.id;
+    if (response.tool_calls?.length) {
+      assistantMsg.tool_calls = response.tool_calls.map((tc) => ({
+        id: tc.id,
+        type: 'function',
+        function: {
+          name: tc.name,
+          arguments:
+            typeof tc.arguments === 'string'
+              ? tc.arguments
+              : JSON.stringify(tc.arguments || {}),
+        },
+      }));
+    }
+    this.sessionManager.addMessage(session.id, assistantMsg);
+
+    // 工具调用循环
+    while (currentCalls.length > 0) {
+      const processedResults: Array<{
+        normalizedToolCall: {
+          id: string;
+          name: string;
+          arguments: Record<string, unknown>;
+        };
+        result: ToolResult;
+      }> = [];
+
+      for (const toolCall of currentCalls) {
+        const toolCallId =
+          toolCall.id ||
+          `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const toolName = toolCall.name || 'unknown';
+        const toolResult = await this.executeTool({
+          id: toolCallId,
+          name: toolName,
+          arguments: toolCall.arguments || {},
+        });
+
+        const toolResultMessage = this.messageService.createToolResultMessage(
+          toolResult,
+          { sessionId: session.id }
+        );
+        this.sessionManager.addMessage(session.id, toolResultMessage);
+        processedResults.push({
+          normalizedToolCall: {
+            id: toolCallId,
+            name: toolName,
+            arguments: toolCall.arguments || {},
+          },
+          result: toolResult,
+        });
+      }
+
+      // 构建下一轮消息
+      const updatedMessages = [
+        ...currentMessages,
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: currentCalls.map((tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments:
+                typeof tc.arguments === 'string'
+                  ? tc.arguments
+                  : JSON.stringify(tc.arguments || {}),
+            },
+          })),
+        },
+        ...processedResults.map((pr) => ({
+          role: 'tool',
+          tool_call_id: pr.normalizedToolCall.id,
+          content:
+            pr.result.result !== undefined
+              ? JSON.stringify(pr.result.result)
+              : '',
+        })),
+      ];
+
+      const toolResultResponse = await this.llmClient.sendMessage(
+        updatedMessages as unknown as ChatMessage[],
+        {
+          tools:
+            toolDefinitions.length > 0
+              ? (toolDefinitions as unknown as ToolDefinition[])
+              : undefined,
+        }
+      );
+
+      const resultContent =
+        typeof toolResultResponse.content === 'string'
+          ? toolResultResponse.content
+          : JSON.stringify(toolResultResponse.content);
+      const resultAssistantMsg = this.messageService.createAssistantMessage(
+        resultContent,
+        { sessionId: session.id }
+      );
+      resultAssistantMsg.sessionId = session.id;
+
+      if (toolResultResponse.tool_calls?.length) {
+        resultAssistantMsg.tool_calls = toolResultResponse.tool_calls.map(
+          (tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments:
+                typeof tc.arguments === 'string'
+                  ? tc.arguments
+                  : JSON.stringify(tc.arguments || {}),
+            },
+          })
+        );
+      }
+      this.sessionManager.addMessage(session.id, resultAssistantMsg);
+
+      if (toolResultResponse.tool_calls?.length) {
+        currentMessages = [...updatedMessages];
+        currentCalls = [...toolResultResponse.tool_calls];
+      } else {
+        currentCalls = [];
+      }
+    }
+  }
+
+  /**
+   * 执行所有计划步骤（通过 TaskOrchestrator 管理 Plan 生命周期）
+   */
+  private async executePlanSteps(
+    session: ChatSession,
+    options?: SendMessageOptions
+  ): Promise<void> {
+    const pendingTasks = taskRegistry
+      .getAllTaskInfos()
+      .filter((t) => t.displayStatus === 'pending');
+
+    if (pendingTasks.length === 0) return;
+
+    // 用 TaskOrchestrator 包装已有待执行任务为 Plan
+    const stepDescriptions = pendingTasks.map((t) => t.description);
+    const taskIds = pendingTasks.map((t) => t.id);
+    const plan = taskOrchestrator.createPlan(
+      'User-assigned task plan',
+      stepDescriptions,
+      session.id,
+      taskIds
+    );
+
+    // 获取待执行步骤，通过 TaskOrchestrator 驱动
+    const steps = taskOrchestrator.getPendingSteps(plan.id);
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+
+      // 通过 TaskOrchestrator 标记运行中（同步更新 TaskRegistry）
+      taskOrchestrator.markStepRunning(step.id);
+
+      const stepPrompt = `[Plan Step ${i + 1}/${steps.length}]: ${step.description}\n\nExecute this step using available tools. When complete, summarize what was done.`;
+
+      await this.executeStepPrompt(stepPrompt, session, options);
+
+      // 通过 TaskOrchestrator 标记已完成（同步更新 TaskRegistry）
+      taskOrchestrator.markStepCompleted(step.id);
+    }
+
+    // 汇总收尾
+    const progress = taskOrchestrator.getPlanProgress(plan.id);
+    const summaryPrompt = `All ${steps.length} plan steps have been completed (${progress?.percent ?? 0}%). Provide a brief summary of what was accomplished.`;
+    await this.executeStepPrompt(summaryPrompt, session, options);
+  }
+
+  /**
+   * 构建工具定义列表
+   */
+  private buildToolDefinitions(): Array<Record<string, unknown>> {
+    if (!this.toolRegistry) return [];
+    const registry = this.toolRegistry as {
+      getToolSchemas: () => Array<Record<string, unknown>>;
+    };
+    const schemas = registry.getToolSchemas?.() || [];
+    return schemas.map((schema: Record<string, unknown>) => ({
+      type: 'function',
+      function: {
+        name: schema.name as string,
+        description: schema.description as string,
+        parameters: {
+          type: 'object',
+          properties:
+            (
+              schema.input_schema as {
+                properties?: unknown;
+                required?: string[];
+              }
+            )?.properties || {},
+          required:
+            (
+              schema.input_schema as {
+                properties?: unknown;
+                required?: string[];
+              }
+            )?.required || [],
+        },
+      },
+    }));
   }
 
   /**
@@ -942,7 +1292,8 @@ export class ChatManagerImpl implements ChatManager {
 
     // 获取或创建会话
     const session = options?.sessionId
-      ? this.sessionManager.getSession(options.sessionId)
+      ? this.sessionManager.getSession(options.sessionId) ||
+        this.createSession({ title: 'New Session' })
       : this.sessionManager.getCurrentSession() ||
         this.createSession({ title: 'New Session' });
 
@@ -1115,6 +1466,22 @@ export class ChatManagerImpl implements ChatManager {
     );
 
     // 添加助手消息到会话
+    // 将 tool_calls 附加到存储的助手消息上，确保后续重建 apiMessages 时格式正确
+    if (finalResponse?.tool_calls && finalResponse.tool_calls.length > 0) {
+      assistantMessage.tool_calls = finalResponse.tool_calls.map(
+        (tc: ParsedToolCall) => ({
+          id: tc.id,
+          type: 'function',
+          function: {
+            name: tc.name,
+            arguments:
+              typeof tc.arguments === 'string'
+                ? tc.arguments
+                : JSON.stringify(tc.arguments || {}),
+          },
+        })
+      );
+    }
     this.sessionManager.addMessage(session.id, assistantMessage);
 
     // 触发 ChatPostStream Hook
@@ -1139,82 +1506,105 @@ export class ChatManagerImpl implements ChatManager {
       sessionId: session.id,
     });
 
-    // 处理工具调用
+    // 处理工具调用 — 使用 while 循环支持多轮递归工具调用
     if (finalResponse?.tool_calls && finalResponse.tool_calls.length > 0) {
-      for (const toolCall of finalResponse.tool_calls) {
-        const toolName = getToolCallName(toolCall);
+      let currentRoundMessages = [...apiMessages];
+      let currentToolCalls: ParsedToolCall[] = [...finalResponse.tool_calls];
+      let roundAccumulatedContent = accumulatedContent;
 
-        // 触发 ChatPreToolCall Hook
-        const preToolResult = await this.hookChainManager.execute('chat', {
-          event: 'chat.pre-tool-call',
-          data: {
-            toolCall: {
+      while (currentToolCalls.length > 0) {
+        const processedResults: Array<{
+          normalizedToolCall: ToolCall;
+          result: ToolResult;
+        }> = [];
+
+        for (const toolCall of currentToolCalls) {
+          const toolName = getToolCallName(toolCall);
+
+          // 触发 ChatPreToolCall Hook
+          const preToolResult = await this.hookChainManager.execute('chat', {
+            event: 'chat.pre-tool-call',
+            data: {
+              toolCall: {
+                id: toolCall.id,
+                name: toolName,
+                arguments: toolCall.arguments,
+              },
+              sessionId: session.id,
+            },
+            sessionId: session.id,
+          });
+          if (preToolResult.before.some((r) => r.preventContinuation)) {
+            throw new AppError(
+              `Tool ${toolName} execution denied by hook`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              '1000'
+            );
+          }
+
+          const toolResult = await this.executeTool({
+            id: toolCall.id,
+            name: toolName,
+            arguments: toolCall.arguments,
+          });
+
+          // 触发 ChatPostToolCall Hook
+          await this.hookChainManager.execute('chat', {
+            event: 'chat.post-tool-call',
+            data: {
+              toolCallId: toolCall.id,
+              toolName: toolName,
+              result: toolResult.result,
+              error: toolResult.error,
+              sessionId: session.id,
+            },
+            sessionId: session.id,
+          });
+
+          const toolResultMessage = this.messageService.createToolResultMessage(
+            toolResult,
+            {
+              sessionId: session.id,
+            }
+          );
+          this.sessionManager.addMessage(session.id, toolResultMessage);
+
+          processedResults.push({
+            normalizedToolCall: {
               id: toolCall.id,
               name: toolName,
               arguments: toolCall.arguments,
             },
-            sessionId: session.id,
-          },
-          sessionId: session.id,
-        });
-        if (preToolResult.before.some((r) => r.preventContinuation)) {
-          throw new AppError(
-            `Tool ${toolName} execution denied by hook`,
-            ErrorCategory.EXECUTION,
-            ErrorSeverity.HIGH,
-            '1000'
-          );
+            result: toolResult,
+          });
         }
 
-        const toolResult = await this.executeTool({
-          id: toolCall.id,
-          name: toolName,
-          arguments: toolCall.arguments,
-        });
-
-        // 触发 ChatPostToolCall Hook
-        await this.hookChainManager.execute('chat', {
-          event: 'chat.post-tool-call',
-          data: {
-            toolCallId: toolCall.id,
-            toolName: toolName,
-            result: toolResult.result,
-            error: toolResult.error,
-            sessionId: session.id,
-          },
-          sessionId: session.id,
-        });
-
-        const toolResultMessage = this.messageService.createToolResultMessage(
-          toolResult,
-          {
-            sessionId: session.id,
-          }
-        );
-        this.sessionManager.addMessage(session.id, toolResultMessage);
-
-        // 将工具结果追加到消息列表，继续调用 LLM
+        // 构建完整请求：基础消息 + 带有全部 tool_calls 的 assistant + 全部工具结果
         const updatedMessages: Record<string, unknown>[] = [
-          ...apiMessages,
-          {
-            role: userMessage.role,
-            content:
-              typeof userMessage.content === 'string'
-                ? userMessage.content
-                : JSON.stringify(userMessage.content),
-          },
+          ...currentRoundMessages,
           {
             role: 'assistant',
-            content: accumulatedContent,
-            tool_calls: finalResponse?.tool_calls,
+            content: roundAccumulatedContent || null,
+            tool_calls: currentToolCalls.map((tc: ParsedToolCall) => ({
+              id: tc.id,
+              type: 'function' as const,
+              function: {
+                name: tc.name,
+                arguments:
+                  typeof tc.arguments === 'string'
+                    ? tc.arguments
+                    : JSON.stringify(tc.arguments || {}),
+              },
+            })),
           },
-          {
-            role: 'tool',
-            content: toolResult.result
-              ? JSON.stringify(toolResult.result)
-              : toolResult.error || '{}',
-            tool_call_id: toolCall.id,
-          },
+          ...processedResults.map((pr) => ({
+            role: 'tool' as const,
+            content: pr.result.result
+              ? JSON.stringify(pr.result.result)
+              : pr.result.error || '{}',
+            tool_call_id: pr.normalizedToolCall.id,
+          })),
         ];
 
         if (!this.llmClient) {
@@ -1248,6 +1638,8 @@ export class ChatManagerImpl implements ChatManager {
           yield chunk;
           toolResultIter = await toolGen.next();
         }
+        const toolResultResponse =
+          toolResultIter.value as unknown as ChatResponse;
 
         const toolResultAssistantMessage =
           this.messageService.createAssistantMessage(
@@ -1256,8 +1648,40 @@ export class ChatManagerImpl implements ChatManager {
               sessionId: session.id,
             }
           );
+
+        // 将 tool_calls 附加到存储的助手消息上，支持递归调用
+        if (
+          toolResultResponse?.tool_calls &&
+          toolResultResponse.tool_calls.length > 0
+        ) {
+          toolResultAssistantMessage.tool_calls =
+            toolResultResponse.tool_calls.map((tc: ParsedToolCall) => ({
+              id: tc.id,
+              type: 'function',
+              function: {
+                name: tc.name,
+                arguments:
+                  typeof tc.arguments === 'string'
+                    ? tc.arguments
+                    : JSON.stringify(tc.arguments || {}),
+              },
+            }));
+        }
         this.sessionManager.addMessage(session.id, toolResultAssistantMessage);
-        assistantMessage = toolResultAssistantMessage;
+
+        // 检查是否有新的工具调用，有则继续下一轮
+        if (
+          toolResultResponse?.tool_calls &&
+          toolResultResponse.tool_calls.length > 0
+        ) {
+          currentRoundMessages = [...updatedMessages];
+          currentToolCalls = [...toolResultResponse.tool_calls];
+          roundAccumulatedContent = toolResultAccumulatedContent;
+          assistantMessage = toolResultAssistantMessage;
+        } else {
+          assistantMessage = toolResultAssistantMessage;
+          currentToolCalls = [];
+        }
       }
     }
 

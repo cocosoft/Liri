@@ -41,17 +41,22 @@ const logger = new Logger({ level: LogLevel.INFO });
  * index.ts → PluginHotloadManager → PluginManager → managers/PluginManager → index.ts
  * 使用动态 import() 在运行时解析，而非模块顶层静态导入
  */
-let _hotloadManager: import('./hotload/PluginHotloadManager').PluginHotloadManager | null = null;
+let _hotloadManager:
+  | import('./hotload/PluginHotloadManager').PluginHotloadManager
+  | null = null;
 
 /**
  * 获取热加载管理器实例（惰性加载）
  */
-async function getHotloadManagerLazy(): Promise<import('./hotload/PluginHotloadManager').PluginHotloadManager> {
-    if (!_hotloadManager) {
-        const { getHotloadManager } = await import('./hotload/PluginHotloadManager');
-        _hotloadManager = getHotloadManager();
-    }
-    return _hotloadManager;
+async function getHotloadManagerLazy(): Promise<
+  import('./hotload/PluginHotloadManager').PluginHotloadManager
+> {
+  if (!_hotloadManager) {
+    const { getHotloadManager } =
+      await import('./hotload/PluginHotloadManager');
+    _hotloadManager = getHotloadManager();
+  }
+  return _hotloadManager;
 }
 
 /**

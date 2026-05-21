@@ -1,30 +1,9 @@
 /**
- * 监控和日志工具
+ * 监控工具
+ *
+ * Monitor 类提供 metrics 记录和性能计时功能。
+ * 日志功能统一使用 monitoring/logs/Logger。
  */
-
-import { appendFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
-
-/**
- * 日志级别
- */
-export enum LogLevel {
-  DEBUG = 'debug',
-  INFO = 'info',
-  WARN = 'warn',
-  ERROR = 'error',
-  FATAL = 'fatal',
-}
-
-/**
- * 日志配置
- */
-export interface LogConfig {
-  level: LogLevel;
-  logPath: string;
-  console: boolean;
-  file: boolean;
-}
 
 /**
  * 监控数据
@@ -37,160 +16,15 @@ export interface MonitoringData {
 }
 
 /**
- * 日志类
- */
-export class Logger {
-  private config: LogConfig;
-
-  /**
-   * 构造函数
-   * @param config 日志配置
-   */
-  constructor(config: Partial<LogConfig> = {}) {
-    this.config = {
-      level: config.level || LogLevel.INFO,
-      logPath: config.logPath || join(process.cwd(), 'logs'),
-      console: config.console ?? true,
-      file: config.file ?? true,
-    };
-
-    // 确保日志目录存在
-    if (this.config.file && !existsSync(this.config.logPath)) {
-      mkdirSync(this.config.logPath, { recursive: true });
-    }
-  }
-
-  /**
-   * 生成日志消息
-   * @param level 日志级别
-   * @param message 日志消息
-   * @param data 附加数据
-   * @returns 日志消息字符串
-   */
-  private formatMessage(level: LogLevel, message: string, data?: any): string {
-    const timestamp = new Date().toISOString();
-    const dataStr = data ? ` ${JSON.stringify(data)}` : '';
-    return `[${timestamp}] [${level.toUpperCase()}] ${message}${dataStr}`;
-  }
-
-  /**
-   * 检查日志级别
-   * @param level 日志级别
-   * @returns 是否应该记录
-   */
-  private shouldLog(level: LogLevel): boolean {
-    const levels = [
-      LogLevel.DEBUG,
-      LogLevel.INFO,
-      LogLevel.WARN,
-      LogLevel.ERROR,
-      LogLevel.FATAL,
-    ];
-    return levels.indexOf(level) >= levels.indexOf(this.config.level);
-  }
-
-  /**
-   * 记录日志
-   * @param level 日志级别
-   * @param message 日志消息
-   * @param data 附加数据
-   */
-  private log(level: LogLevel, message: string, data?: any): void {
-    if (!this.shouldLog(level)) {
-      return;
-    }
-
-    const logMessage = this.formatMessage(level, message, data);
-
-    // 输出到控制台
-    if (this.config.console) {
-      switch (level) {
-        case LogLevel.DEBUG:
-          console.debug(logMessage);
-          break;
-        case LogLevel.INFO:
-          console.info(logMessage);
-          break;
-        case LogLevel.WARN:
-          console.warn(logMessage);
-          break;
-        case LogLevel.ERROR:
-          console.error(logMessage);
-          break;
-        case LogLevel.FATAL:
-          console.error(logMessage);
-          break;
-      }
-    }
-
-    // 输出到文件
-    if (this.config.file) {
-      const logFile = join(
-        this.config.logPath,
-        `${new Date().toISOString().split('T')[0]}.log`
-      );
-      appendFileSync(logFile, logMessage + '\n', 'utf-8');
-    }
-  }
-
-  /**
-   * 调试日志
-   * @param message 日志消息
-   * @param data 附加数据
-   */
-  debug(message: string, data?: any): void {
-    this.log(LogLevel.DEBUG, message, data);
-  }
-
-  /**
-   * 信息日志
-   * @param message 日志消息
-   * @param data 附加数据
-   */
-  info(message: string, data?: any): void {
-    this.log(LogLevel.INFO, message, data);
-  }
-
-  /**
-   * 警告日志
-   * @param message 日志消息
-   * @param data 附加数据
-   */
-  warn(message: string, data?: any): void {
-    this.log(LogLevel.WARN, message, data);
-  }
-
-  /**
-   * 错误日志
-   * @param message 日志消息
-   * @param data 附加数据
-   */
-  error(message: string, data?: any): void {
-    this.log(LogLevel.ERROR, message, data);
-  }
-
-  /**
-   * 致命错误日志
-   * @param message 日志消息
-   * @param data 附加数据
-   */
-  fatal(message: string, data?: any): void {
-    this.log(LogLevel.FATAL, message, data);
-  }
-}
-
-/**
  * 监控器类
  */
 export class Monitor {
-  private logger: Logger;
   private metrics: Map<string, number>;
 
   /**
    * 构造函数
    */
   constructor() {
-    this.logger = new Logger();
     this.metrics = new Map();
   }
 
@@ -206,7 +40,6 @@ export class Monitor {
     tags?: Record<string, string>
   ): void {
     this.metrics.set(name, value);
-    this.logger.debug(`Metric recorded: ${name} = ${value}`, tags);
   }
 
   /**
@@ -278,22 +111,9 @@ export class Monitor {
 }
 
 /**
- * 日志实例
- */
-export const logger = new Logger();
-
-/**
  * 监控器实例
  */
 export const monitor = new Monitor();
-
-/**
- * 获取日志实例
- * @returns 日志实例
- */
-export function getLogger(): Logger {
-  return logger;
-}
 
 /**
  * 获取监控器实例

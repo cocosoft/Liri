@@ -5,7 +5,7 @@
 
 import { Logger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger('ParallelAgentScheduler');
+const logger = new Logger();
 
 /**
  * 调度的 Agent 任务

@@ -13,7 +13,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { StreamState } from './types';
 import type { StreamStateMachine } from './StreamStateMachine';
 
-const logger = new Logger('IncrementalRetry');
+const logger = new Logger();
 
 /**
  * 流断点
@@ -255,7 +255,8 @@ export class IncrementalRetryHandler {
           const errorMsg =
             error instanceof Error ? error.message : String(error);
 
-          logger.error('增量重试耗尽', error as Error, {
+          logger.error('增量重试耗尽', {
+            error: error instanceof Error ? error.message : String(error),
             streamId: this.breakpoint.streamId,
             attemptCount: this.attemptCount,
             maxRetries: this.config.maxRetries,

@@ -9,7 +9,7 @@ import { Logger } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { StreamState, type StreamStateTransition } from './types';
 
-const logger = new Logger('StreamStateMachine');
+const logger = new Logger();
 
 /**
  * 状态转换规则表
@@ -241,7 +241,8 @@ export class StreamStateMachine {
       try {
         listener(from, to, reason);
       } catch (err) {
-        logger.error('状态变更监听器抛出异常', err as Error, {
+        logger.error('状态变更监听器抛出异常', {
+          error: err as Error,
           streamId: this.streamId,
           from,
           to,

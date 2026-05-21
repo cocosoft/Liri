@@ -304,7 +304,9 @@ export class AuthHandler {
     }
 
     console.log('');
-    console.log(chalk.bold(`刷新完成: ${successCount} 成功, ${failCount} 失败`));
+    console.log(
+      chalk.bold(`刷新完成: ${successCount} 成功, ${failCount} 失败`)
+    );
   }
 
   /**

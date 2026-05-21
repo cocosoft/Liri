@@ -423,6 +423,11 @@ export interface Message {
   toolCallId?: string;
 
   /**
+   * 工具调用列表（仅适用于助手消息，表示 LLM 发起工具调用）
+   */
+  tool_calls?: Array<Record<string, unknown>>;
+
+  /**
    * 会话ID
    */
   sessionId?: string;

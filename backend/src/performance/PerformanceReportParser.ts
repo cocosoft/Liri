@@ -8,9 +8,20 @@
  * - 慢阶段筛选（用于定位瓶颈）
  */
 
-import { TraceReport, TracePoint } from './StartupTracer';
+import { PhaseSummaryEntry } from './StartupProfiler';
 import { DeferredLoadState } from '@modules/modules/LazyModuleStrategy';
 import { PerformanceDashboard, SnapshotComparison } from './PerformanceMonitor';
+
+export interface StartupReport {
+  totalDuration: number;
+  phaseSummary: PhaseSummaryEntry[];
+  points: Array<{
+    phase: string;
+    startTime: number;
+    endTime: number | null;
+    duration: number | null;
+  }>;
+}
 
 /**
  * 解析后的阶段节点
@@ -27,9 +38,9 @@ export interface PhaseNode {
  */
 export class PerformanceReportParser {
   /**
-   * 将 TraceReport 解析为纯文本格式
+   * 将 StartupReport 解析为纯文本格式
    */
-  static toText(report: TraceReport): string {
+  static toText(report: StartupReport): string {
     const lines: string[] = ['启动性能报告', '=============='];
 
     for (const point of report.points) {
@@ -58,9 +69,9 @@ export class PerformanceReportParser {
   }
 
   /**
-   * 将 TraceReport 解析为 Markdown 表格格式
+   * 将 StartupReport 解析为 Markdown 表格格式
    */
-  static toMarkdown(report: TraceReport): string {
+  static toMarkdown(report: StartupReport): string {
     const lines: string[] = [
       '# 启动性能报告',
       '',
@@ -84,9 +95,9 @@ export class PerformanceReportParser {
   }
 
   /**
-   * 将 TraceReport 解析为 JSON 兼容对象
+   * 将 StartupReport 解析为 JSON 兼容对象
    */
-  static toJSON(report: TraceReport): object {
+  static toJSON(report: StartupReport): object {
     return {
       generatedAt: new Date().toISOString(),
       totalDuration: report.totalDuration,
@@ -114,7 +125,7 @@ export class PerformanceReportParser {
    * @param thresholdMs - 耗时阈值
    */
   static getSlowPhases(
-    report: TraceReport,
+    report: StartupReport,
     thresholdMs: number
   ): Array<{ phase: string; duration: number; ratio: number }> {
     return report.phaseSummary.filter((s) => s.duration > thresholdMs);

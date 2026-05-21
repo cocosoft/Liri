@@ -35,12 +35,6 @@ export function getConfigPath(): string {
   return join(homeDir, '.PY_APP', 'config.json');
 }
 
-export function enableConfigs(): void {
-  profileCheckpoint('config_enable_start');
-  configManager.enableConfigs();
-  profileCheckpoint('config_enable_end');
-}
-
 export function getGlobalConfig(): GlobalConfig {
   return configManager.getGlobalConfig();
 }
@@ -107,7 +101,6 @@ export function reloadConfig(): GlobalConfig {
 }
 
 export default {
-  enableConfigs,
   getConfig,
   setConfig,
   updateConfig,

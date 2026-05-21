@@ -1,4 +1,8 @@
 /**
+ * @deprecated 请使用 TaskRegistry 替代。
+ * TaskStorage 将在后续版本中移除。
+ * 迁移路径：/task 命令已迁移至 TaskRegistry，不再使用 TaskTool 独立存储。
+ *
  * Task存储实现
  *
  * 内存中的任务存储
@@ -9,6 +13,8 @@ import type { Task, TaskStorage, TaskStatus } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
+ * @deprecated 使用 TaskRegistry 替代
+ *
  * 内存任务存储
  *
  * 在内存中存储任务，实际项目中应该使用持久化存储

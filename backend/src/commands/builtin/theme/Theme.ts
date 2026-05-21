@@ -41,7 +41,7 @@ export default {
   /**
    * 获取主题管理器实例
    */
-  private getManager(): ThemeManager {
+  getManager(): ThemeManager {
     return ThemeManager.getInstance();
   },
 

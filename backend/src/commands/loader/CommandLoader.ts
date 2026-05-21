@@ -48,6 +48,7 @@ export class BuiltinCommandLoader implements CommandLoader {
   async loadBuiltInCommands(): Promise<LoadResult> {
     this.moduleEntries = [
       { path: '../builtin/help/index.js', name: 'help' },
+      { path: '../builtin/onboard/index.js', name: 'onboard' },
       { path: '../builtin/status/index.js', name: 'status' },
       { path: '../builtin/clear/index.js', name: 'clear' },
       { path: '../builtin/skill/index.js', name: 'skill' },

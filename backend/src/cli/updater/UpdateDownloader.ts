@@ -88,7 +88,10 @@ export class UpdateDownloader {
       };
     } catch (error) {
       clearTimeout(timeoutId);
-      logger.error(`下载更新包失败`, error as Error, { url });
+      logger.error(`下载更新包失败`, {
+        error: error instanceof Error ? error.message : String(error),
+        url,
+      });
       throw error;
     }
   }

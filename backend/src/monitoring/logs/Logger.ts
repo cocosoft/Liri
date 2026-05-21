@@ -22,6 +22,7 @@ export enum LogLevel {
    * 警告
    */
   WARNING = 'warning',
+  WARN = 'warning',
   /**
    * 错误
    */
@@ -37,7 +38,7 @@ export enum LogLevel {
  */
 export interface LoggerConfig {
   /**
-   * 日志级别
+   * 日志级别（同时控制文件和终端，可被 consoleLevel/fileLevel 覆盖）
    */
   level?: LogLevel;
   /**
@@ -52,6 +53,14 @@ export interface LoggerConfig {
    * 是否输出到文件
    */
   fileOutput?: boolean;
+  /**
+   * 控制台日志级别（独立于 fileLevel），默认 WARNING
+   */
+  consoleLevel?: LogLevel;
+  /**
+   * 文件日志级别，默认 INFO
+   */
+  fileLevel?: LogLevel;
 }
 
 /**
@@ -61,18 +70,24 @@ export class Logger {
   /**
    * 日志配置
    */
-  private config: Required<LoggerConfig>;
+  private config: Required<LoggerConfig> & {
+    consoleLevel: LogLevel;
+    fileLevel: LogLevel;
+  };
 
   /**
    * 构造函数
    * @param config 日志配置
    */
   constructor(config: LoggerConfig = {}) {
+    const defaultFileLevel = config.level || LogLevel.INFO;
     this.config = {
       level: config.level || LogLevel.INFO,
       logFile: config.logFile || join(process.cwd(), 'logs', 'app.log'),
       consoleOutput: config.consoleOutput ?? true,
       fileOutput: config.fileOutput ?? true,
+      consoleLevel: config.consoleLevel ?? LogLevel.WARNING,
+      fileLevel: config.fileLevel ?? defaultFileLevel,
     };
 
     // 确保日志目录存在
@@ -95,7 +110,7 @@ export class Logger {
    * @param level 日志级别
    * @returns 是否启用
    */
-  private isLevelEnabled(level: LogLevel): boolean {
+  private isLevelEnabled(level: LogLevel, minimum: LogLevel): boolean {
     const levels = [
       LogLevel.DEBUG,
       LogLevel.INFO,
@@ -103,7 +118,7 @@ export class Logger {
       LogLevel.ERROR,
       LogLevel.FATAL,
     ];
-    return levels.indexOf(level) >= levels.indexOf(this.config.level);
+    return levels.indexOf(level) >= levels.indexOf(minimum);
   }
 
   /**
@@ -127,19 +142,19 @@ export class Logger {
    * @param meta 元数据
    */
   private log(level: LogLevel, message: string, meta?: any): void {
-    if (!this.isLevelEnabled(level)) {
-      return;
-    }
-
     const formattedMessage = this.formatMessage(level, message, meta);
 
-    // 输出到控制台
-    if (this.config.consoleOutput) {
+    if (
+      this.config.consoleOutput &&
+      this.isLevelEnabled(level, this.config.consoleLevel)
+    ) {
       this.consoleLog(level, formattedMessage);
     }
 
-    // 输出到文件
-    if (this.config.fileOutput) {
+    if (
+      this.config.fileOutput &&
+      this.isLevelEnabled(level, this.config.fileLevel)
+    ) {
       this.fileLog(formattedMessage);
     }
   }

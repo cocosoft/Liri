@@ -60,7 +60,8 @@ export class InstallManager {
         actualChecksum.toLowerCase() === expectedChecksum.toLowerCase();
 
       if (!isValid) {
-        logger.error('校验和不匹配', new Error('Checksum mismatch'), {
+        logger.error('校验和不匹配', {
+          error: 'Checksum mismatch',
           expected: expectedChecksum,
           actual: actualChecksum,
         });
@@ -68,7 +69,10 @@ export class InstallManager {
 
       return isValid;
     } catch (error) {
-      logger.error('校验失败', error as Error, { filePath });
+      logger.error('校验失败', {
+        error: error instanceof Error ? error.message : String(error),
+        filePath,
+      });
       return false;
     }
   }

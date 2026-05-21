@@ -1368,7 +1368,13 @@ export function createUtilityTools(): Tool[] {
             output: JSON.stringify({
               status: response.status,
               statusText: response.statusText,
-              headers: (() => { const h: Record<string, string> = {}; response.headers.forEach((v, k) => { h[k] = v; }); return h; })(),
+              headers: (() => {
+                const h: Record<string, string> = {};
+                response.headers.forEach((v, k) => {
+                  h[k] = v;
+                });
+                return h;
+              })(),
               bodyLength: body.length,
               body: body.slice(0, 10000),
             }),
@@ -1408,7 +1414,13 @@ export function createUtilityTools(): Tool[] {
             output: JSON.stringify({
               status: response.status,
               statusText: response.statusText,
-              headers: (() => { const h: Record<string, string> = {}; response.headers.forEach((v, k) => { h[k] = v; }); return h; })(),
+              headers: (() => {
+                const h: Record<string, string> = {};
+                response.headers.forEach((v, k) => {
+                  h[k] = v;
+                });
+                return h;
+              })(),
             }),
           };
         } catch (e: any) {

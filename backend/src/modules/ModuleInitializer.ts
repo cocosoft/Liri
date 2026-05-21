@@ -20,7 +20,10 @@ import {
   isModuleOnDemand,
   DeferredLoadState,
 } from './LazyModuleStrategy';
-import { startupTracer } from '../performance/StartupTracer';
+import {
+  profilePhaseStart,
+  profilePhaseEnd,
+} from '../performance/StartupProfiler';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -279,49 +282,16 @@ export class ModuleInitializer {
     const stats = moduleRegistry.getStatistics();
     const states = this.getAllModuleStates();
 
-    logger.info('\n=== 模块初始化统计 ===');
-    logger.info(`总模块数: ${stats.total}`);
-    logger.info(`已初始化: ${stats.initialized}`);
-
-    // 按状态统计
-    const statusCounts: Record<string, number> = {};
-    for (const state of Object.values(states)) {
-      statusCounts[state.status] = (statusCounts[state.status] || 0) + 1;
-    }
-
-    logger.info('状态分布:');
-    for (const [status, count] of Object.entries(statusCounts)) {
-      logger.info(`  ${status}: ${count}`);
-    }
-
-    logger.info('分类分布:');
-    for (const [category, count] of Object.entries(stats.byCategory)) {
-      logger.info(`  ${category}: ${count}`);
-    }
-
-    // 初始化耗时统计
     let totalDuration = 0;
-    let maxDuration = 0;
-    let slowestModule = '';
-
-    for (const [moduleId, state] of Object.entries(states)) {
+    for (const state of Object.values(states)) {
       if (state.status === 'initialized' && state.startTime && state.endTime) {
-        const duration = state.endTime - state.startTime;
-        totalDuration += duration;
-
-        if (duration > maxDuration) {
-          maxDuration = duration;
-          slowestModule = moduleId;
-        }
+        totalDuration += state.endTime - state.startTime;
       }
     }
 
-    logger.info(`总初始化耗时: ${totalDuration}ms`);
     logger.info(
-      `平均模块耗时: ${Math.round(totalDuration / stats.initialized)}ms`
+      `${stats.initialized}/${stats.total} 模块已初始化 (${totalDuration}ms)`
     );
-    logger.info(`最慢模块: ${slowestModule} (${maxDuration}ms)`);
-    logger.info('========================\n');
   }
 
   /**
@@ -333,24 +303,21 @@ export class ModuleInitializer {
     const startTime = Date.now();
 
     const essentialIds = getEssentialModuleIds(MODULE_INITIALIZATION_ORDER);
-    logger.info(
-      `必需模块列表: [${essentialIds.join(', ')}] (共 ${essentialIds.length} 个)`
-    );
 
-    startupTracer.traceStart('essential_modules_init');
+    profilePhaseStart('essential_modules_init');
 
     try {
       for (const moduleId of essentialIds) {
         const tracePhase = `init:${moduleId}`;
-        startupTracer.traceStart(tracePhase);
+        profilePhaseStart(tracePhase);
 
         await this.initializeModule(moduleId);
 
-        startupTracer.traceEnd(tracePhase);
+        profilePhaseEnd(tracePhase);
       }
 
       const duration = Date.now() - startTime;
-      startupTracer.traceEnd('essential_modules_init');
+      profilePhaseEnd('essential_modules_init');
       logger.info(`必需模块初始化完成，耗时 ${duration}ms`);
 
       this.printInitializationStats();
@@ -382,16 +349,12 @@ export class ModuleInitializer {
       return;
     }
 
-    logger.info(`按需加载模块: ${moduleId}`);
-
     const tracePhase = `lazy:${moduleId}`;
-    startupTracer.traceStart(tracePhase);
+    profilePhaseStart(tracePhase);
 
     await this.initializeModule(moduleId);
 
-    startupTracer.traceEnd(tracePhase);
-    const duration = startupTracer.getPhaseDuration(tracePhase);
-    logger.info(`按需加载完成: ${moduleId} (${duration?.toFixed(0)}ms)`);
+    profilePhaseEnd(tracePhase);
   }
 
   /**
@@ -406,9 +369,6 @@ export class ModuleInitializer {
     const onDemandIds = getOnDemandModuleIds(MODULE_INITIALIZATION_ORDER);
 
     if (deferredIds.length > 0) {
-      logger.info(
-        `调度延迟模块加载: ${deferredIds.length} 个 BATCH 模块待后台加载`
-      );
       deferredLoader.schedule(
         deferredIds,
         (moduleId) => this.lazyInitializeModule(moduleId),
@@ -417,10 +377,7 @@ export class ModuleInitializer {
     }
 
     if (onDemandIds.length > 0) {
-      logger.info(
-        `按需模块已就绪: ${onDemandIds.length} 个 ON_DEMAND 模块等待首次请求时动态加载 ` +
-          `[${onDemandIds.join(', ')}]`
-      );
+      logger.info(`按需模块已就绪: ${onDemandIds.length} 个`);
     }
   }
 

@@ -76,10 +76,6 @@ export type {
   FirstPartyEventSink,
 } from './FirstPartyEventLogger.js';
 
-export { OpenTelemetryTracer, createTracer } from './OpenTelemetryTracer.js';
-
-export type { SpanContext, TracerConfig } from './OpenTelemetryTracer.js';
-
 export {
   CostTrackerPassesHook,
   createCostTrackerPassesHook,

@@ -62,7 +62,7 @@ export class LogConfigManager {
         {
           type: 'file',
           level: 'debug',
-          path: 'logs/app.log',
+          path: 'data/logs/app.log',
           format: 'json',
           maxSize: 10485760,
           maxFiles: 5,

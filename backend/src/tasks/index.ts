@@ -22,6 +22,14 @@ export {
   LocalBashTask,
 } from './LocalBashTask';
 
+// 导出轻量笔记任务
+export { NoteTask } from './NoteTask';
+
+// 导出任务注册表（含便利方法）
+export { TaskRegistry, taskRegistry } from './TaskRegistry';
+export type { TaskInfo, TaskStats, DisplayStatus } from './TaskRegistry';
+export { displayToTaskStatus, taskStatusToDisplay } from './TaskRegistry';
+
 // 导出其他任务类型
 export { LocalAgentTask } from './LocalAgentTask';
 export { RemoteAgentTask } from './RemoteAgentTask';
@@ -31,5 +39,12 @@ export { MonitorMcpTask } from './MonitorMcpTask';
 export { stopTask } from './stopTask';
 export { InProcessTeammateTask } from './InProcessTeammateTask';
 
-// 导出任务注册表
-export { TaskRegistry, taskRegistry } from './TaskRegistry';
+// 导出 BackgroundAgentTask 适配器
+export {
+  BackgroundAgentTask,
+  backgroundTaskInfoToTaskState,
+} from './BackgroundAgentTask';
+
+// 导出 TaskOrchestrator
+export { TaskOrchestrator, taskOrchestrator } from './TaskOrchestrator';
+export type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';

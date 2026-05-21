@@ -144,7 +144,16 @@ export class EnterpriseAuditService {
 
   private resolveDefaultAuditDir(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    return join(__dirname, '..', '..', '..', '..', 'logs', 'enterprise-audit');
+    return join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '..',
+      'data',
+      'logs',
+      'enterprise-audit'
+    );
   }
 
   private ensureAuditDir(): void {

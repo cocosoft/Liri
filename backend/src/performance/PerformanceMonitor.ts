@@ -2,14 +2,19 @@
  * 性能监控面板
  *
  * 提供轻量级的性能数据查询接口：
- * - 查询启动性能报告（来自 StartupTracer）
+ * - 查询启动性能报告（来自 StartupProfiler）
  * - 查询延迟模块加载状态（来自 DeferredLoader）
  * - 查询按需动态加载模块状态（ON_DEMAND 模式）
  * - 保存/加载历史快照，支持性能对比分析
  * - 输出仪表盘式文本报告
  */
 
-import { startupTracer, TraceReport } from './StartupTracer';
+import {
+  getPhaseSummary,
+  getPhaseDuration,
+  getPhaseTimes,
+  PhaseSummaryEntry,
+} from './StartupProfiler';
 import {
   deferredLoader,
   DeferredLoadState,
@@ -123,15 +128,15 @@ export class PerformanceMonitor {
   /**
    * 获取启动性能报告
    */
-  getStartupReport(): TraceReport {
-    return startupTracer.getReport();
+  getStartupReport(): {
+    totalDuration: number;
+    phaseSummary: PhaseSummaryEntry[];
+  } {
+    return getPhaseSummary();
   }
 
-  /**
-   * 获取指定阶段的耗时（毫秒）
-   */
-  getPhaseDuration(phase: string): number | null {
-    return startupTracer.getPhaseDuration(phase);
+  getPhaseDuration(phase: string): number {
+    return getPhaseDuration(phase);
   }
 
   /**
@@ -152,19 +157,15 @@ export class PerformanceMonitor {
 
   /**
    * 获取 ON_DEMAND 模式按需模块加载统计
-   * 从 StartupTracer 中提取 on_demand:* 阶段的耗时信息
+   * 从 StartupProfiler 中提取 on_demand:* 阶段的耗时信息
    */
   getOnDemandLoadStats(): OnDemandLoadStats {
-    const report = startupTracer.getReport();
-    const onDemandPoints = report.points.filter((p) =>
-      p.phase.startsWith('on_demand:')
-    );
-
-    const modules = onDemandPoints
-      .filter((p) => p.duration !== null)
-      .map((p) => ({
-        moduleId: p.phase.replace('on_demand:', ''),
-        duration: p.duration!,
+    const times = getPhaseTimes();
+    const modules = Object.entries(times)
+      .filter(([phase]) => phase.startsWith('on_demand:'))
+      .map(([phase, duration]) => ({
+        moduleId: phase.replace('on_demand:', ''),
+        duration,
       }))
       .sort((a, b) => b.duration - a.duration);
 
@@ -197,16 +198,14 @@ export class PerformanceMonitor {
   /**
    * 获取启动关键指标摘要
    */
-  getStartupSummary(): Record<string, number | null> {
+  getStartupSummary(): Record<string, number> {
     return {
-      total: startupTracer.getPhaseDuration('launch_total'),
-      t0_preroll: startupTracer.getPhaseDuration('T0_preroll'),
-      t1_moduleInit: startupTracer.getPhaseDuration('T1_module_init'),
-      t1_awaitPrefetch: startupTracer.getPhaseDuration('T1_await_prefetch'),
-      t2_dispatch: startupTracer.getPhaseDuration('T2_dispatch'),
-      essentialModules: startupTracer.getPhaseDuration(
-        'essential_modules_init'
-      ),
+      total: getPhaseDuration('launch_total'),
+      t0_preroll: getPhaseDuration('T0_preroll'),
+      t1_moduleInit: getPhaseDuration('T1_module_init'),
+      t1_awaitPrefetch: getPhaseDuration('T1_await_prefetch'),
+      t2_dispatch: getPhaseDuration('T2_dispatch'),
+      essentialModules: getPhaseDuration('essential_modules_init'),
     };
   }
 
@@ -224,11 +223,14 @@ export class PerformanceMonitor {
       .filter((s) => s.duration > 100)
       .slice(0, 10);
 
+    const times = getPhaseTimes();
+    const totalPhases = Object.keys(times).length;
+
     return {
       timestamp: Date.now(),
       startup: {
         totalDuration: report.totalDuration,
-        phaseCount: report.points.length,
+        phaseCount: totalPhases,
         completedPhaseCount: report.phaseSummary.length,
         slowPhases,
       },

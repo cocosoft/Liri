@@ -102,7 +102,6 @@ export class ModuleRegistry {
     }
 
     this.modules.set(module.id, module);
-    logger.info(`模块注册成功: ${module.displayName} (${module.id})`);
   }
 
   /**
@@ -199,12 +198,10 @@ export class ModuleRegistry {
 
     // 初始化当前模块
     if (module.initialize) {
-      logger.info(`初始化模块: ${module.displayName}`);
       await module.initialize();
     }
 
     this.initializedModules.add(moduleId);
-    logger.info(`模块初始化完成: ${module.displayName}`);
   }
 
   /**

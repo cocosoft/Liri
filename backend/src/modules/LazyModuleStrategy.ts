@@ -13,7 +13,10 @@
  * 避免其重型依赖（GrowthBook SDK、cheerio、jsonwebtoken 等）在启动时被解析。
  */
 
-import { startupTracer } from '../performance/StartupTracer';
+import {
+  profilePhaseStart,
+  profilePhaseEnd,
+} from '../performance/StartupProfiler';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -347,7 +350,7 @@ export async function requestModule(moduleId: string): Promise<any> {
 
   const loadPromise = (async () => {
     const tracePhase = `on_demand:${moduleId}`;
-    startupTracer.traceStart(tracePhase);
+    profilePhaseStart(tracePhase);
 
     try {
       logger.info(`按需动态加载模块: ${moduleId} (${importPath})`);
@@ -357,7 +360,7 @@ export async function requestModule(moduleId: string): Promise<any> {
       return mod;
     } finally {
       dynamicModuleLoading.delete(moduleId);
-      startupTracer.traceEnd(tracePhase);
+      profilePhaseEnd(tracePhase);
     }
   })();
 
@@ -456,11 +459,6 @@ export class DeferredLoader {
       this.states.set(moduleId, { moduleId, status: 'pending' });
     }
 
-    const totalBatches = Math.ceil(deferredIds.length / batchSize);
-    logger.info(
-      `延迟加载调度: ${deferredIds.length} 个模块, ${totalBatches} 批次, 每批 ${batchSize} 个`
-    );
-
     this.scheduleNextBatch(deferredIds, initializeFn, batchSize, 0);
   }
 
@@ -474,9 +472,6 @@ export class DeferredLoader {
     startIndex: number
   ): void {
     if (startIndex >= deferredIds.length) {
-      logger.info(
-        `延迟加载完成: ${this.loadedCount} 成功, ${this.errorCount} 失败`
-      );
       return;
     }
 
@@ -484,8 +479,6 @@ export class DeferredLoader {
     const batchNum = Math.floor(startIndex / batchSize) + 1;
 
     setImmediate(async () => {
-      logger.info(`延迟加载批次 ${batchNum}: [${batch.join(', ')}]`);
-
       await Promise.all(
         batch.map((moduleId) => this.loadModule(moduleId, initializeFn))
       );
@@ -513,7 +506,7 @@ export class DeferredLoader {
     state.startTime = Date.now();
 
     const tracePhase = `deferred:${moduleId}`;
-    startupTracer.traceStart(tracePhase);
+    profilePhaseStart(tracePhase);
 
     try {
       await initializeFn(moduleId);
@@ -522,9 +515,7 @@ export class DeferredLoader {
       state.endTime = Date.now();
       this.loadedCount++;
 
-      startupTracer.traceEnd(tracePhase);
-      const duration = state.endTime - state.startTime;
-      logger.info(`延迟模块加载完成: ${moduleId} (${duration}ms)`);
+      profilePhaseEnd(tracePhase);
     } catch (error) {
       state.status = 'error';
       state.error = error as Error;

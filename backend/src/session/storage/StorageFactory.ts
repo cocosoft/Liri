@@ -4,8 +4,7 @@
  */
 
 import type { UnifiedSessionStorage } from './UnifiedStorage.js';
-import type { StorageConfig, StorageType } from './UnifiedStorage.js';
-import { StorageType } from './UnifiedStorage.js';
+import { StorageConfig, StorageType } from './UnifiedStorage.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**

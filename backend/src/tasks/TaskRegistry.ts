@@ -10,6 +10,7 @@ const logger = new Logger({ level: LogLevel.INFO });
  */
 
 import { BaseTask } from './BaseTask';
+import { NoteTask } from './NoteTask';
 import {
   TaskType,
   TaskStatus,
@@ -17,6 +18,75 @@ import {
   TaskEvent,
   isTerminalTaskStatus,
 } from './types';
+
+const VALID_DISPLAY_STATUSES = [
+  'pending',
+  'in_progress',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
+export type DisplayStatus = (typeof VALID_DISPLAY_STATUSES)[number];
+
+export interface TaskInfo {
+  id: string;
+  description: string;
+  status: TaskStatus;
+  displayStatus: DisplayStatus;
+  createdAt: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TaskStats {
+  total: number;
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+}
+
+export function displayToTaskStatus(s: DisplayStatus): TaskStatus {
+  switch (s) {
+    case 'pending':
+      return TaskStatus.PENDING;
+    case 'in_progress':
+      return TaskStatus.RUNNING;
+    case 'completed':
+      return TaskStatus.COMPLETED;
+    case 'failed':
+      return TaskStatus.FAILED;
+    case 'cancelled':
+      return TaskStatus.KILLED;
+  }
+}
+
+export function taskStatusToDisplay(s: TaskStatus): DisplayStatus {
+  switch (s) {
+    case TaskStatus.PENDING:
+      return 'pending';
+    case TaskStatus.RUNNING:
+      return 'in_progress';
+    case TaskStatus.COMPLETED:
+      return 'completed';
+    case TaskStatus.FAILED:
+      return 'failed';
+    case TaskStatus.KILLED:
+      return 'cancelled';
+  }
+}
+
+function taskToInfo(task: BaseTask): TaskInfo {
+  const s = task.taskState;
+  return {
+    id: s.id,
+    description: s.description,
+    status: s.status,
+    displayStatus: taskStatusToDisplay(s.status),
+    createdAt: s.startTime,
+    metadata: s.metadata,
+  };
+}
 
 const TASK_ID_PREFIXES: Record<string, string> = {
   [TaskType.LOCAL_BASH]: 'b',
@@ -26,6 +96,7 @@ const TASK_ID_PREFIXES: Record<string, string> = {
   [TaskType.DREAM]: 'd',
   [TaskType.WORKFLOW]: 'w',
   [TaskType.MONITOR_MCP]: 'm',
+  [TaskType.BACKGROUND_AGENT]: 'g',
 };
 
 export class TaskRegistry {
@@ -75,9 +146,13 @@ export class TaskRegistry {
     }
   }
 
-  register(task: BaseTask): string {
-    const taskId = this.generateTaskId(task.type);
+  register(task: BaseTask, existingTaskId?: string): string {
+    const taskId = existingTaskId || this.generateTaskId(task.type);
     this.tasks.set(taskId, task);
+    // 如果使用现有 ID，将其写回 task.state.id 保持一致
+    if (existingTaskId) {
+      (task as any).state = { ...(task as any).state, id: existingTaskId };
+    }
 
     task.on('stateChanged', (state: TaskState) => {
       this.stateHistory.push(state);
@@ -118,9 +193,13 @@ export class TaskRegistry {
 
   /**
    * 从注册表中移除任务
-   * 不会终止任务，仅从注册表中移除
+   * 先调用 task.cleanup() 释放资源，再从注册表中移除
    */
   async remove(taskId: string): Promise<void> {
+    const task = this.tasks.get(taskId);
+    if (task) {
+      await task.cleanup();
+    }
     this.tasks.delete(taskId);
     await this.saveTasks();
   }
@@ -196,6 +275,51 @@ export class TaskRegistry {
       }
     }
     await this.saveTasks();
+  }
+
+  registerNoteTask(description: string): NoteTask {
+    const task = new NoteTask(description, description);
+    this.register(task, undefined);
+    return task;
+  }
+
+  getAllTaskInfos(): TaskInfo[] {
+    return this.getAllTasks().map(taskToInfo);
+  }
+
+  getTaskInfo(taskId: string): TaskInfo | undefined {
+    const task = this.getTask(taskId);
+    return task ? taskToInfo(task) : undefined;
+  }
+
+  getTasksInfoByDisplayStatus(status: DisplayStatus): TaskInfo[] {
+    const ts = displayToTaskStatus(status);
+    return this.getTasksByStatus(ts).map(taskToInfo);
+  }
+
+  getTaskStats(): TaskStats {
+    const all = this.getAllTasks();
+    return {
+      total: all.length,
+      pending: all.filter((t) => t.status === TaskStatus.PENDING).length,
+      running: all.filter((t) => t.status === TaskStatus.RUNNING).length,
+      completed: all.filter((t) => t.status === TaskStatus.COMPLETED).length,
+      failed: all.filter((t) => t.status === TaskStatus.FAILED).length,
+      cancelled: all.filter((t) => t.status === TaskStatus.KILLED).length,
+    };
+  }
+
+  async removeTask(taskId: string): Promise<boolean> {
+    const task = this.tasks.get(taskId);
+    if (!task) return false;
+    await task.kill();
+    await this.remove(taskId);
+    return true;
+  }
+
+  killAll(): Promise<void[]> {
+    const running = this.getRunningTasks();
+    return Promise.all(running.map((t) => t.kill().catch(() => {})));
   }
 }
 

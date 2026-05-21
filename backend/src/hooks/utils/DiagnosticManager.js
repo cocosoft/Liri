@@ -1,7 +1,6 @@
 /**
  * 诊断管理器
  * 提供钩子执行的诊断和日志功能
- * 参考CC源码: cc_code/backend/utils/diagLogs.ts
  */
 
 import { EventEmitter } from 'events';
@@ -86,7 +85,7 @@ class DiagnosticManager extends EventEmitter {
    */
   private getLogPath(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const logDir = join(__dirname, '..', '..', '..', 'logs', 'diagnostics');
+    const logDir = join(__dirname, '..', '..', '..', 'data', 'logs', 'diagnostics');
     return join(logDir, 'hook_diagnostics.json');
   }
 

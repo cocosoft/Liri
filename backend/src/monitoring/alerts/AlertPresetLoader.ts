@@ -170,7 +170,6 @@ export class AlertPresetLoader {
         try {
           this.registerRule(rule);
           loadedCount++;
-          logger.info(`已加载预置规则 [${presetName}]: ${rule.name}`);
         } catch (error) {
           result.errors.push(
             `注册规则失败 ${rule.name}: ${error instanceof Error ? error.message : String(error)}`

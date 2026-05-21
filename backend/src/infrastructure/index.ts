@@ -1,7 +1,6 @@
-import { Logger, LogLevel } from '../utils/logger';
-export type { LoggerConfig } from '../utils/logger';
+import { Logger, LogLevel } from '../monitoring/logs/Logger';
+export type { LoggerConfig } from '../monitoring/logs/Logger';
 export { Logger, LogLevel };
 export const logger = new Logger({
   level: LogLevel.INFO,
-  prefix: 'Infrastructure',
 });

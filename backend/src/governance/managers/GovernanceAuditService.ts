@@ -88,7 +88,7 @@ export class GovernanceAuditService extends EventEmitter {
    */
   private getAuditPath(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const auditDir = join(__dirname, '..', '..', '..', 'logs', 'audit');
+    const auditDir = join(__dirname, '..', '..', '..', 'data', 'logs', 'audit');
 
     if (!existsSync(auditDir)) {
       mkdirSync(auditDir, { recursive: true });

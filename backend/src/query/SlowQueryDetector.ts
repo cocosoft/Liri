@@ -8,7 +8,7 @@ import { getQueryLogStore } from './QueryLogStore';
 import type { QueryLogStore } from './QueryLogStore';
 import type { QueryLogEntry, QueryLogStats } from './QueryLogTypes';
 
-const logger = new Logger('SlowQueryDetector');
+const logger = new Logger();
 
 /** 默认慢查询阈值（毫秒） */
 const DEFAULT_SLOW_THRESHOLD_MS = 5000;

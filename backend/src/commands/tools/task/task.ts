@@ -1,12 +1,13 @@
 /**
  * Task命令
- * 调用TaskTool系列来管理任务
- * 基于CC源码 cc_code/backend/tools/TaskTool 实现
+ * 管理任务（通过 TaskRegistry）
  */
 
 import type { Command } from '@modules/commands/types';
-import { getToolManager } from '@modules/tools/ToolManager.js';
-import { defaultTaskStorage } from '@modules/tools/TaskTool/TaskStorage.js';
+import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
+import { TaskStatus } from '@modules/tasks/types.js';
+import { BaseTask } from '@modules/tasks/BaseTask.js';
+import { NoteTask } from '@modules/tasks/NoteTask.js';
 
 const VALID_STATUSES = [
   'pending',
@@ -15,14 +16,10 @@ const VALID_STATUSES = [
   'failed',
   'cancelled',
 ] as const;
-type TaskStatus = (typeof VALID_STATUSES)[number];
+type DisplayStatus = (typeof VALID_STATUSES)[number];
 
 function hasJsonFlag(parts: string[]): boolean {
   return parts.includes('--json') || parts.includes('-j');
-}
-
-function hasFlag(parts: string[], flag: string): boolean {
-  return parts.includes(`--${flag}`);
 }
 
 function getFlagValue(parts: string[], flag: string): string | undefined {
@@ -35,6 +32,38 @@ function getFlagValue(parts: string[], flag: string): string | undefined {
 
 function stripFlags(parts: string[]): string[] {
   return parts.filter((p) => !p.startsWith('-'));
+}
+
+/** 将 TaskTool 显示状态映射为 TaskRegistry 内部状态 */
+function displayToTaskStatus(s: DisplayStatus): TaskStatus {
+  switch (s) {
+    case 'pending':
+      return TaskStatus.PENDING;
+    case 'in_progress':
+      return TaskStatus.RUNNING;
+    case 'completed':
+      return TaskStatus.COMPLETED;
+    case 'failed':
+      return TaskStatus.FAILED;
+    case 'cancelled':
+      return TaskStatus.KILLED;
+  }
+}
+
+/** 将 TaskRegistry 内部状态映射回 TaskTool 显示状态 */
+function taskStatusToDisplay(s: TaskStatus): DisplayStatus {
+  switch (s) {
+    case TaskStatus.PENDING:
+      return 'pending';
+    case TaskStatus.RUNNING:
+      return 'in_progress';
+    case TaskStatus.COMPLETED:
+      return 'completed';
+    case TaskStatus.FAILED:
+      return 'failed';
+    case TaskStatus.KILLED:
+      return 'cancelled';
+  }
 }
 
 function getPromptForCommand(): string {
@@ -136,13 +165,19 @@ Best Practices:
   };
 }
 
+function buildTaskMetadata(parts: string[]): Record<string, unknown> {
+  const metadata: Record<string, unknown> = {};
+  const activeForm = getFlagValue(parts, 'activeForm');
+  if (activeForm) metadata.activeForm = activeForm;
+  return metadata;
+}
+
 async function handleCreate(
   parts: string[]
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   const stripped = stripFlags(parts.slice(1));
   const subject = stripped[0];
   const description = stripped.slice(1).join(' ');
-  const activeForm = getFlagValue(parts, 'activeForm');
 
   if (!subject || !description) {
     return {
@@ -153,28 +188,17 @@ async function handleCreate(
   }
 
   try {
-    const toolManager = getToolManager();
-    const createInput: Record<string, unknown> = {
-      subject,
-      description,
-    };
-    if (activeForm) {
-      createInput.activeForm = activeForm;
+    const metadata = buildTaskMetadata(parts);
+    const descriptionFull = `${subject}: ${description}`;
+    const task = new NoteTask(descriptionFull, descriptionFull);
+    const taskId = taskRegistry.register(task, undefined);
+    if (Object.keys(metadata).length > 0) {
+      task.setMetadata(metadata);
     }
 
-    const rawResult = await toolManager.executeTool(
-      'TaskCreate',
-      createInput,
-      {}
-    );
-
-    const data = JSON.parse(rawResult.data as string) as {
-      task: { id: string; subject: string };
-    };
-
-    let msg = `Task created successfully:\n  ID: ${data.task.id}\n  Subject: ${data.task.subject}`;
-    if (activeForm) {
-      msg += `\n  ActiveForm: ${activeForm}`;
+    let msg = `Task created successfully:\n  ID: ${taskId}\n  Subject: ${subject}`;
+    if (metadata.activeForm) {
+      msg += `\n  ActiveForm: ${metadata.activeForm}`;
     }
 
     return { success: true, message: msg };
@@ -186,12 +210,30 @@ async function handleCreate(
   }
 }
 
+function taskToJson(task: BaseTask): Record<string, unknown> {
+  const s = task.taskState;
+  return {
+    id: s.id,
+    subject: s.description,
+    status: taskStatusToDisplay(s.status),
+    owner:
+      (s.metadata as Record<string, unknown> | undefined)?.owner || undefined,
+    priority:
+      (s.metadata as Record<string, unknown> | undefined)?.priority ||
+      undefined,
+    activeForm:
+      (s.metadata as Record<string, unknown> | undefined)?.activeForm ||
+      undefined,
+    createdAt: s.startTime,
+  };
+}
+
 async function handleList(
   parts: string[]
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   const useJson = hasJsonFlag(parts);
   const stripped = stripFlags(parts.slice(1));
-  const statusFilter = stripped[0] as TaskStatus | undefined;
+  const statusFilter = stripped[0] as DisplayStatus | undefined;
 
   if (statusFilter && !VALID_STATUSES.includes(statusFilter)) {
     return {
@@ -201,47 +243,45 @@ async function handleList(
   }
 
   try {
-    const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool('TaskList', {}, {});
-
-    const data = JSON.parse(rawResult.data as string) as {
-      tasks: Array<{
-        id: string;
-        subject: string;
-        status: string;
-        owner?: string;
-      }>;
-    };
-
-    let tasks = data.tasks || [];
+    let tasks = taskRegistry.getAllTasks();
 
     if (statusFilter) {
-      tasks = tasks.filter((t) => t.status === statusFilter);
+      const targetStatus = displayToTaskStatus(statusFilter);
+      tasks = tasks.filter((t) => t.taskState.status === targetStatus);
     }
 
     if (useJson) {
+      const jsonTasks = tasks.map(taskToJson);
       return {
         success: true,
-        message: JSON.stringify({ count: tasks.length, tasks }, null, 2),
+        message: JSON.stringify(
+          { count: tasks.length, tasks: jsonTasks },
+          null,
+          2
+        ),
       };
     }
 
     if (tasks.length > 0) {
       const formattedTasks = tasks
-        .map((task) => {
+        .map((task, i) => {
+          const s = task.taskState;
+          const displayStatus = taskStatusToDisplay(s.status);
           const statusIcon =
-            task.status === 'completed'
+            displayStatus === 'completed'
               ? '✓'
-              : task.status === 'failed'
+              : displayStatus === 'failed'
                 ? '✗'
-                : task.status === 'in_progress'
+                : displayStatus === 'in_progress'
                   ? '▶'
-                  : task.status === 'cancelled'
+                  : displayStatus === 'cancelled'
                     ? '■'
                     : '○';
-          let line = `${tasks.indexOf(task) + 1}. [${statusIcon}] ${task.subject}\n   ID: ${task.id} | Status: ${task.status}`;
-          if (task.owner) {
-            line += ` | Owner: ${task.owner}`;
+          const owner = (s.metadata as Record<string, unknown> | undefined)
+            ?.owner;
+          let line = `${i + 1}. [${statusIcon}] ${s.description}\n   ID: ${s.id} | Status: ${displayStatus}`;
+          if (owner) {
+            line += ` | Owner: ${owner}`;
           }
           return line;
         })
@@ -273,15 +313,23 @@ async function handleStats(): Promise<{
   error?: string;
 }> {
   try {
-    const allTasks = await defaultTaskStorage.list();
+    const allTasks = taskRegistry.getAllTasks();
 
-    const pending = allTasks.filter((t) => t.status === 'pending').length;
-    const inProgress = allTasks.filter(
-      (t) => t.status === 'in_progress'
+    const pending = allTasks.filter(
+      (t) => t.taskState.status === TaskStatus.PENDING
     ).length;
-    const completed = allTasks.filter((t) => t.status === 'completed').length;
-    const failed = allTasks.filter((t) => t.status === 'failed').length;
-    const cancelled = allTasks.filter((t) => t.status === 'cancelled').length;
+    const inProgress = allTasks.filter(
+      (t) => t.taskState.status === TaskStatus.RUNNING
+    ).length;
+    const completed = allTasks.filter(
+      (t) => t.taskState.status === TaskStatus.COMPLETED
+    ).length;
+    const failed = allTasks.filter(
+      (t) => t.taskState.status === TaskStatus.FAILED
+    ).length;
+    const cancelled = allTasks.filter(
+      (t) => t.taskState.status === TaskStatus.KILLED
+    ).length;
     const total = allTasks.length;
 
     let output = `Task Stats (${total} total):\n\n`;
@@ -324,44 +372,32 @@ async function handleGet(
   }
 
   try {
-    const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool('TaskGet', { id }, {});
-
-    const data = JSON.parse(rawResult.data as string) as {
-      id: string;
-      subject: string;
-      status: string;
-      description?: string;
-      priority?: string;
-      owner?: string;
-      activeForm?: string;
-      blockedBy?: string[];
-      metadata?: Record<string, unknown>;
-      createdAt?: number;
-      updatedAt?: number;
-    };
-
-    if (!data || !data.id) {
+    const task = taskRegistry.getTask(id);
+    if (!task) {
       return { success: false, error: `Task not found: ${id}` };
     }
 
+    const s = task.taskState;
+    const displayStatus = taskStatusToDisplay(s.status);
+    const meta = (s.metadata || {}) as Record<string, unknown>;
+
     if (useJson) {
-      return { success: true, message: JSON.stringify(data, null, 2) };
+      return {
+        success: true,
+        message: JSON.stringify(taskToJson(task), null, 2),
+      };
     }
 
     return {
       success: true,
       message: `Task Details:
-  ID: ${data.id}
-  Subject: ${data.subject}
-  Status: ${data.status}
-  Description: ${data.description || 'N/A'}
-  Priority: ${data.priority || 'medium'}
-  Owner: ${data.owner || 'N/A'}
-  Active Form: ${data.activeForm || 'N/A'}
-  Blocked By: ${data.blockedBy?.length ? data.blockedBy.join(', ') : 'None'}
-  Created: ${data.createdAt ? new Date(data.createdAt).toLocaleString() : 'N/A'}
-  Updated: ${data.updatedAt ? new Date(data.updatedAt).toLocaleString() : 'N/A'}`,
+  ID: ${s.id}
+  Subject: ${s.description}
+  Status: ${displayStatus}
+  Priority: ${meta.priority || 'medium'}
+  Owner: ${meta.owner || 'N/A'}
+  Active Form: ${meta.activeForm || 'N/A'}
+  Created: ${s.startTime ? new Date(s.startTime).toLocaleString() : 'N/A'}`,
     };
   } catch (error) {
     return {
@@ -376,14 +412,13 @@ async function handleUpdate(
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   const stripped = stripFlags(parts.slice(1));
   const id = stripped[0];
-  const status = stripped[1] as TaskStatus;
+  const status = stripped[1] as DisplayStatus;
   const subject = stripped[2];
   const description = stripped.slice(3).join(' ');
 
   const activeForm = getFlagValue(parts, 'activeForm');
   const owner = getFlagValue(parts, 'owner');
   const priority = getFlagValue(parts, 'priority');
-  const metadataRaw = getFlagValue(parts, 'metadata');
 
   if (!id || !status) {
     return {
@@ -401,57 +436,35 @@ async function handleUpdate(
   }
 
   try {
-    const toolManager = getToolManager();
-    const updateInput: Record<string, unknown> = {
-      id,
-      status,
+    const task = taskRegistry.getTask(id);
+    if (!task) {
+      return { success: false, error: `Task not found: ${id}` };
+    }
+
+    const targetStatus = displayToTaskStatus(status);
+    const updates: Record<string, unknown> = { status: targetStatus };
+    if (subject)
+      updates.description = description
+        ? `${subject}: ${description}`
+        : subject;
+    if (description && subject)
+      updates.description = `${subject}: ${description}`;
+
+    const meta: Record<string, unknown> = {
+      ...((task.taskState.metadata || {}) as Record<string, unknown>),
     };
+    if (activeForm) meta.activeForm = activeForm;
+    if (owner) meta.owner = owner;
+    if (priority) meta.priority = priority;
+    if (Object.keys(meta).length > 0) updates.metadata = meta;
 
-    if (subject) {
-      updateInput.subject = subject;
-    }
-    if (description) {
-      updateInput.description = description;
-    }
-    if (activeForm) {
-      updateInput.activeForm = activeForm;
-    }
-    if (owner) {
-      updateInput.owner = owner;
-    }
-    if (priority) {
-      updateInput.priority = priority;
-    }
-    if (metadataRaw) {
-      try {
-        updateInput.metadata = JSON.parse(metadataRaw);
-      } catch {
-        return {
-          success: false,
-          error: 'Error: --metadata must be a valid JSON string',
-        };
-      }
-    }
+    (task as NoteTask).patchState(updates);
 
-    const rawResult = await toolManager.executeTool(
-      'TaskUpdate',
-      updateInput,
-      {}
-    );
-
-    const data = JSON.parse(rawResult.data as string) as {
-      task: { id: string; subject: string; status: string };
-    };
-
-    if (data && data.task) {
-      let msg = `Task updated successfully:\n  ID: ${data.task.id}\n  Subject: ${data.task.subject}\n  Status: ${data.task.status}`;
-      if (activeForm) msg += `\n  ActiveForm: ${activeForm}`;
-      if (owner) msg += `\n  Owner: ${owner}`;
-      if (priority) msg += `\n  Priority: ${priority}`;
-      return { success: true, message: msg };
-    }
-
-    return { success: true, message: 'Task updated successfully' };
+    let msg = `Task updated successfully:\n  ID: ${id}\n  Status: ${status}`;
+    if (activeForm) msg += `\n  ActiveForm: ${activeForm}`;
+    if (owner) msg += `\n  Owner: ${owner}`;
+    if (priority) msg += `\n  Priority: ${priority}`;
+    return { success: true, message: msg };
   } catch (error) {
     return {
       success: false,
@@ -474,8 +487,14 @@ async function handleDelete(
   }
 
   try {
-    await defaultTaskStorage.delete(id);
-    return { success: true, message: `Task deleted successfully: ${id}` };
+    const task = taskRegistry.getTask(id);
+    if (!task) {
+      return { success: false, error: `Task not found: ${id}` };
+    }
+
+    await task.kill();
+    await taskRegistry.remove(id);
+    return { success: true, message: `Task deleted: ${id}` };
   } catch (error) {
     return {
       success: false,
@@ -498,21 +517,13 @@ async function handleStop(
   }
 
   try {
-    const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool(
-      'TaskStop',
-      { task_id: id },
-      {}
-    );
+    const task = taskRegistry.getTask(id);
+    if (!task) {
+      return { success: false, error: `Task not found: ${id}` };
+    }
 
-    const data = rawResult?.data
-      ? typeof rawResult.data === 'string'
-        ? JSON.parse(rawResult.data)
-        : rawResult.data
-      : null;
-
-    const taskId = data?.task_id || id;
-    return { success: true, message: `Task stopped successfully: ${taskId}` };
+    await task.kill();
+    return { success: true, message: `Task stopped successfully: ${id}` };
   } catch (error) {
     return {
       success: false,
@@ -535,40 +546,21 @@ async function handleOutput(
     };
   }
 
-  const useBlock = hasFlag(parts, 'block');
-  const timeoutMatch = parts.join(' ').match(/--timeout\s+(\d+)/);
-  const timeout = timeoutMatch ? parseInt(timeoutMatch[1], 10) : 30000;
-
   try {
-    const toolManager = getToolManager();
-    const rawResult = await toolManager.executeTool(
-      'TaskOutput',
-      { task_id: id, block: useBlock, timeout },
-      {}
-    );
-
-    const data = rawResult?.data
-      ? typeof rawResult.data === 'string'
-        ? JSON.parse(rawResult.data)
-        : rawResult.data
-      : null;
-
-    const task = data?.task;
-    if (task && task.output) {
-      return {
-        success: true,
-        message: `Task Output (${task.task_id}):
-  Status: ${task.status}
-  Output: ${task.output.slice(0, 5000)}${task.output.length > 5000 ? '\n  ...(truncated)' : ''}`,
-      };
+    const task = taskRegistry.getTask(id);
+    if (!task) {
+      return { success: false, error: `Task not found: ${id}` };
     }
+
+    const s = task.taskState;
+    const displayStatus = taskStatusToDisplay(s.status);
 
     return {
       success: true,
-      message:
-        rawResult?.output ||
-        ((rawResult as Record<string, unknown>)?.message as string) ||
-        'No output available for this task',
+      message: `Task Output (${s.id}):
+  Status: ${displayStatus}
+  ToolUseCount: ${s.toolUseCount}
+  TokenCount: ${s.tokenCount}`,
     };
   } catch (error) {
     return {

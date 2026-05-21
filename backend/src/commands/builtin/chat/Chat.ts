@@ -95,8 +95,15 @@ export class ChatCommand {
           providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
       }
     } else if (!this.llmClient) {
-      this.llmClient =
-        providerRegistry.getDefaultProvider() as unknown as ToolAwareClient;
+      const config = getConfig();
+      const apiKey =
+        config['ai.deepseek.apiKey'] ||
+        config.ai?.deepseek?.apiKey ||
+        process.env.DEEPSEEK_API_KEY ||
+        '';
+      this.llmClient = providerRegistry.getOrCreate('deepseek', {
+        apiKey,
+      }) as unknown as ToolAwareClient;
     }
 
     if (!this.toolRegistry || !this.toolExecutor) {
@@ -302,7 +309,9 @@ export class ChatCommand {
         name: 'DeepSeek',
         key: 'deepseek',
         configured:
-          !!config.ai?.deepseek?.apiKey || !!process.env.DEEPSEEK_API_KEY,
+          !!config['ai.deepseek.apiKey'] ||
+          !!config.ai?.deepseek?.apiKey ||
+          !!process.env.DEEPSEEK_API_KEY,
       },
       {
         name: 'Anthropic',

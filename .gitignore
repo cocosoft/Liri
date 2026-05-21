@@ -21,7 +21,7 @@ target/
 
 # Logs
 *.log
-backend/logs/audit/
+backend/data/logs/
 
 # OS
 .DS_Store
@@ -142,3 +142,5 @@ reference/
 .trae/
 # Exclude specific dev_docs
 dev_docs/
+logs/
+backend/.cache/

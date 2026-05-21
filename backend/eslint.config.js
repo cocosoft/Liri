@@ -55,10 +55,6 @@ export default [
       'src/cli/**/*.ts',
       'src/entrypoints/**',
       'src/ui/**/*.ts',
-      'src/scripts/**/*.ts',
-      'src/docs/**/*.ts',
-      'src/commands/interactive/**/*.ts',
-      'src/tools/**/*.ts',
     ],
     rules: {
       'no-console': 'off'
@@ -136,7 +132,6 @@ export default [
       'src/utils/errorHintManager.ts',
     ],
     rules: {
-      'no-console': 'off'
     }
   },
   {

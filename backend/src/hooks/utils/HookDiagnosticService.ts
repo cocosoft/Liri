@@ -95,7 +95,15 @@ export class HookDiagnosticService {
    */
   private getLogPath(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const logDir = path.join(__dirname, '..', '..', '..', 'logs', 'hooks');
+    const logDir = path.join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'data',
+      'logs',
+      'hooks'
+    );
 
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });

@@ -202,6 +202,11 @@ export interface CommandContext {
    * 命令选项（用于解析后的选项）
    */
   options?: Record<string, unknown>;
+
+  /**
+   * REPL 的 readline 接口（交互式命令用于暂停/恢复输入）
+   */
+  replReadline?: import('readline').Interface;
 }
 
 /**

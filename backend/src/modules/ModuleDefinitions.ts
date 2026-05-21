@@ -551,6 +551,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'streaming',
   'utils',
   'keybindings',
+  'voice',
 ];
 
 /**

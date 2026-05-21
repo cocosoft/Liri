@@ -270,6 +270,48 @@ export function getPhaseTimes(): Record<string, number> {
 }
 
 /**
+ * 阶段摘要条目（替代 StartupTracer.TraceReport.phaseSummary）
+ */
+export interface PhaseSummaryEntry {
+  phase: string;
+  duration: number;
+  ratio: number;
+}
+
+/**
+ * 获取指定阶段的耗时（毫秒）
+ * @param phase 阶段名称
+ * @returns 阶段耗时，未找到则返回 -1
+ */
+export function getPhaseDuration(phase: string): number {
+  return phaseTimes[phase] ?? -1;
+}
+
+/**
+ * 获取启动阶段摘要
+ * 按耗时降序排列，包含每个阶段耗时及其占总时长比例
+ * 无需 DETAILED_PROFILING 环境变量即可工作
+ */
+export function getPhaseSummary(): {
+  totalDuration: number;
+  phaseSummary: PhaseSummaryEntry[];
+} {
+  const times = getPhaseTimes();
+  const entries = Object.entries(times).filter(([, d]) => d > 0);
+  const totalDuration = entries.reduce((max, [, d]) => Math.max(max, d), 0);
+
+  const phaseSummary = entries
+    .map(([phase, duration]) => ({
+      phase,
+      duration,
+      ratio: totalDuration > 0 ? duration / totalDuration : 0,
+    }))
+    .sort((a, b) => b.duration - a.duration);
+
+  return { totalDuration, phaseSummary };
+}
+
+/**
  * 记录启动性能阶段到分析系统
  * 仅在会话被采样时记录
  */

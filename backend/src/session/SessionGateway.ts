@@ -30,10 +30,10 @@ import { StorageFactory } from './storage/StorageFactory.js';
 import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
 import type { StorageConfig } from './storage/UnifiedStorage.js';
 
+import { SessionType, SessionStatus } from './types/Session.js';
+import { StorageType } from './storage/UnifiedStorage.js';
 import type {
   UnifiedSession,
-  SessionType,
-  SessionStatus,
   SessionFilter,
   SessionStats,
   CreateSessionParams,
@@ -74,7 +74,7 @@ export class SessionGateway {
     this.config = config ?? {};
 
     this.storage = StorageFactory.createStorage(
-      this.config.storageConfig ?? { type: 'memory' }
+      this.config.storageConfig ?? { type: StorageType.MEMORY }
     );
 
     this.transcriptManager = createTranscriptManager(

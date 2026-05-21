@@ -5,7 +5,7 @@
  */
 
 import { keyboardShortcuts } from '../ui/KeyboardShortcuts';
-import { themeManager } from '../ui/ThemeManager';
+import { ThemeManager } from '../ui/ThemeManager';
 import { exampleCommands } from './ExampleCommands';
 import { releaseNotes } from './ReleaseNotes';
 import { languageManager } from './i18n/LanguageManager';

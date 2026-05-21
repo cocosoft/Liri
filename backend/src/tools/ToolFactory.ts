@@ -23,11 +23,15 @@ import { WebFetchTool } from './WebFetchTool/WebFetchTool';
 import { WebSearchTool } from './WebSearchTool/WebSearchTool';
 import { AgentTool } from './AgentTool/AgentTool';
 import { SkillTool } from './SkillTool/SkillTool';
-import { TaskCreateTool } from './TaskTool/TaskCreateTool';
-import { TaskListTool } from './TaskTool/TaskListTool';
-import { TaskGetTool } from './TaskTool/TaskGetTool';
-import { TaskUpdateTool } from './TaskTool/TaskUpdateTool';
 import { TaskStopTool } from './TaskTool/TaskStopTool';
+import {
+  TaskCreateListTool,
+  TaskUpdateStatusTool,
+  TaskGetListTool,
+  ViewTasksTool,
+  AbortTaskTool,
+  ViewPlanTool,
+} from './TaskOrchestratorTools/TaskOrchestratorTools';
 import { TodoWriteTool } from './TodoWriteTool/TodoWriteTool';
 import { TungstenTool } from './TungstenTool/TungstenTool';
 import { LSPToolAdapter } from './adapters/LSPToolAdapter';
@@ -364,43 +368,53 @@ export class ToolFactory {
   }
 
   /**
-   * 创建TaskCreate工具
-   * @returns TaskCreate工具实例
-   */
-  createTaskCreateTool(): Tool {
-    return new TaskCreateTool();
-  }
-
-  /**
-   * 创建TaskList工具
-   * @returns TaskList工具实例
-   */
-  createTaskListTool(): Tool {
-    return new TaskListTool();
-  }
-
-  /**
-   * 创建TaskGet工具
-   * @returns TaskGet工具实例
-   */
-  createTaskGetTool(): Tool {
-    return new TaskGetTool();
-  }
-
-  /**
-   * 创建TaskUpdate工具
-   * @returns TaskUpdate工具实例
-   */
-  createTaskUpdateTool(): Tool {
-    return new TaskUpdateTool();
-  }
-
-  /**
    * 创建TaskStop工具
    * @returns TaskStop工具实例
    */
   createTaskStopTool(): Tool {
     return new TaskStopTool();
+  }
+
+  /**
+   * 创建 TaskCreateList 工具
+   */
+  createTaskCreateListTool(): Tool {
+    return new TaskCreateListTool();
+  }
+
+  /**
+   * 创建 TaskUpdateStatus 工具
+   */
+  createTaskUpdateStatusTool(): Tool {
+    return new TaskUpdateStatusTool();
+  }
+
+  /**
+   * 创建 TaskGetList 工具
+   */
+  createTaskGetListTool(): Tool {
+    return new TaskGetListTool();
+  }
+
+  /**
+   * 创建 ViewTasks 工具
+   */
+  createViewTasksTool(): Tool {
+    return new ViewTasksTool();
+  }
+
+  /**
+   * 创建 AbortTask 工具
+   */
+  createAbortTaskTool(): Tool {
+    return new AbortTaskTool();
+  }
+
+  /**
+   * 创建 ViewPlan 工具
+   */
+  createViewPlanTool(): Tool {
+    return new ViewPlanTool();
   }
 
   /**
@@ -887,6 +901,12 @@ export function getAllBaseTools(): Tool[] {
 
   tools.push(new AgentTool());
   tools.push(new TaskStopTool());
+  tools.push(new TaskCreateListTool());
+  tools.push(new TaskUpdateStatusTool());
+  tools.push(new TaskGetListTool());
+  tools.push(new ViewTasksTool());
+  tools.push(new AbortTaskTool());
+  tools.push(new ViewPlanTool());
   tools.push(new BashTool());
 
   const globTool = new GlobTool();
@@ -914,13 +934,6 @@ export function getAllBaseTools(): Tool[] {
   if (isAntUser()) {
     tools.push(new ConfigTool());
     tools.push(new TungstenTool());
-  }
-
-  if (isFeatureEnabled('ENABLE_WORKFLOWS')) {
-    tools.push(new TaskCreateTool());
-    tools.push(new TaskGetTool());
-    tools.push(new TaskUpdateTool());
-    tools.push(new TaskListTool());
   }
 
   if (isFeatureEnabled('LSP')) {

@@ -77,7 +77,11 @@ export class GitHubReleaseFetcher {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        logger.warning(`GitHub API 返回错误: ${response.status}`);
+        if (response.status === 404) {
+          logger.info(`GitHub Release 未找到（无可用版本）`);
+        } else {
+          logger.warning(`GitHub API 返回错误: ${response.status}`);
+        }
         return this.buildNoUpdateInfo();
       }
 

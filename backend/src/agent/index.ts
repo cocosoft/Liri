@@ -198,7 +198,12 @@ export {
   ContextSize,
 };
 export type { TrajectoryEntry, ConversationMessage } from './trajectory';
-export type {
+import {
+  StrategySelector,
+  TaskComplexity,
+  ContextSize,
+} from './StrategySelector';
+import type {
   TaskFeature,
   StrategyRule,
   StrategySelection,

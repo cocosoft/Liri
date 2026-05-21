@@ -7,7 +7,10 @@ import { constants as fsConstants } from 'fs';
 import { mkdir, open, readdir, readFile, stat } from 'fs/promises';
 import { dirname, isAbsolute, join, normalize, sep as pathSep } from 'path';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
-import { logError, logInfo, logDebug } from '@modules/utils/logger';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({});
+
 import type {
   SkillDefinition,
   SkillInfo,
@@ -49,12 +52,12 @@ export class SkillService {
       (skill) => skill.name === definition.name
     );
     if (existingSkill) {
-      logInfo(`Skill ${definition.name} already registered, overwriting`);
+      logger.info(`Skill ${definition.name} already registered, overwriting`);
       const index = skills.indexOf(existingSkill);
       skills[index] = definition;
     } else {
       skills.push(definition);
-      logInfo(`Registered skill: ${definition.name}`);
+      logger.info(`Registered skill: ${definition.name}`);
     }
   }
 
@@ -147,7 +150,7 @@ export class SkillService {
         },
       };
     } catch (error) {
-      logError(`Error executing skill ${name}:`, error);
+      logger.error(`Error executing skill ${name}:`, { error: String(error) });
       return {
         success: false,
         result: null,
@@ -174,7 +177,9 @@ export class SkillService {
       await this.writeSkillFiles(dir, files);
       return dir;
     } catch (error) {
-      logError(`Failed to extract skill files for ${skillName}:`, error);
+      logger.error(`Failed to extract skill files for ${skillName}:`, {
+        error: String(error),
+      });
       return undefined;
     }
   }
@@ -275,7 +280,7 @@ export class SkillService {
         }
       }
     } catch (error) {
-      logError('Failed to load custom skills:', error);
+      logger.error('Failed to load custom skills:', { error: String(error) });
     }
   }
 
@@ -291,9 +296,11 @@ export class SkillService {
 
       // 这里简化处理，实际实现需要加载技能的JavaScript/TypeScript文件
       // 并注册技能
-      logInfo(`Loaded custom skill from ${skillDir}: ${manifest.name}`);
+      logger.info(`Loaded custom skill from ${skillDir}: ${manifest.name}`);
     } catch (error) {
-      logError(`Failed to load skill from ${skillDir}:`, error);
+      logger.error(`Failed to load skill from ${skillDir}:`, {
+        error: String(error),
+      });
     }
   }
 
@@ -307,10 +314,12 @@ export class SkillService {
 
     try {
       // 这里简化处理，实际实现需要调用市场API
-      logDebug('Fetching skills from marketplace');
+      logger.debug('Fetching skills from marketplace');
       return [];
     } catch (error) {
-      logError('Failed to fetch marketplace skills:', error);
+      logger.error('Failed to fetch marketplace skills:', {
+        error: String(error),
+      });
       return [];
     }
   }
@@ -326,10 +335,12 @@ export class SkillService {
 
     try {
       // 这里简化处理，实际实现需要调用市场API下载和安装技能
-      logInfo(`Installing marketplace skill: ${skillId}`);
+      logger.info(`Installing marketplace skill: ${skillId}`);
       return true;
     } catch (error) {
-      logError(`Failed to install marketplace skill ${skillId}:`, error);
+      logger.error(`Failed to install marketplace skill ${skillId}:`, {
+        error: String(error),
+      });
       return false;
     }
   }
@@ -347,10 +358,12 @@ export class SkillService {
       }
 
       skills.splice(index, 1);
-      logInfo(`Uninstalled skill: ${skillName}`);
+      logger.info(`Uninstalled skill: ${skillName}`);
       return true;
     } catch (error) {
-      logError(`Failed to uninstall skill ${skillName}:`, error);
+      logger.error(`Failed to uninstall skill ${skillName}:`, {
+        error: String(error),
+      });
       return false;
     }
   }

@@ -6,7 +6,10 @@
 import { type ChildProcess, spawn, spawnSync } from 'child_process';
 import { readFile } from 'fs/promises';
 import { getPlatform } from '@modules/utils/platform';
-import { logError } from '@modules/utils/logger';
+import { Logger } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({});
+
 import { isEnvTruthy } from '@modules/utils/envUtils';
 import type {
   RecordingAvailability,
@@ -329,7 +332,7 @@ export class VoiceService {
     });
 
     child.on('error', (err) => {
-      logError(err);
+      logger.error(String(err), { error: String(err) });
       activeRecorder = null;
       onEnd();
     });
@@ -375,7 +378,7 @@ export class VoiceService {
     });
 
     child.on('error', (err) => {
-      logError(err);
+      logger.error(String(err), { error: String(err) });
       activeRecorder = null;
       onEnd();
     });

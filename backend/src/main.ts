@@ -1,8 +1,13 @@
 #!/usr/bin/env bun
 
-import { profileCheckpoint, profileReport } from './utils/startupProfiler';
+import {
+  profileCheckpoint,
+  profileReport,
+  profilePhaseStart,
+  profilePhaseEnd,
+  getPhaseSummary,
+} from './utils/startupProfiler';
 import { Logger } from './monitoring/logs/Logger';
-import { startupTracer } from './performance/StartupTracer';
 import {
   startMdmPrefetch,
   ensureMdmPrefetchCompleted,
@@ -11,8 +16,57 @@ import {
   startKeychainPrefetch,
   ensureKeychainPrefetchCompleted,
 } from './infrastructure/startup/KeychainPrefetch';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const logger = new Logger({ level: 'info' as any });
+
+/** 首次运行标记文件 */
+const ONBOARDED_FLAG = join(process.cwd(), 'backend', 'data', '.onboarded');
+
+/**
+ * 检查是否为首次运行（无配置的初始化）
+ *
+ * 通过检查 backend/data/.onboarded 标记文件来判断。
+ * 若文件不存在，自动触发引导流程。
+ */
+async function checkFirstRunAndOnboard(): Promise<void> {
+  if (existsSync(ONBOARDED_FLAG)) {
+    return;
+  }
+
+  logger.info('检测到首次运行，启动初始化引导...');
+
+  try {
+    const { runOnboard } =
+      await import('./commands/builtin/onboard/Onboard.js');
+
+    const result = await runOnboard();
+
+    if (result.length > 0) {
+      logger.info(result.join('\n'));
+    }
+
+    const dataDir = join(process.cwd(), 'backend', 'data');
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true });
+    }
+    writeFileSync(ONBOARDED_FLAG, Date.now().toString(), 'utf-8');
+
+    if (!process.env.DEEPSEEK_API_KEY) {
+      logger.warning('DEEPSEEK_API_KEY 未配置，AI 对话功能需要此密钥');
+      logger.info(
+        '请在 .env 文件中设置 DEEPSEEK_API_KEY，或运行 /onboard 命令进行配置'
+      );
+    }
+
+    logger.info('初始化引导完成');
+  } catch (error) {
+    logger.warning('初始化引导失败，可使用 /onboard 命令手动启动', {
+      error: String(error),
+    });
+  }
+}
 
 /**
  * 启动模式枚举
@@ -73,17 +127,8 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   const { init } = await import('./entrypoints/init');
   await init();
 
-  // 禁用 Gateway（避免 WebSocket 端口冲突）
-  try {
-    const { configManager } = await import('./cli/config');
-    const gatewayConfig = configManager.getGatewayConfig();
-    gatewayConfig.enabled = false;
-    gatewayConfig.websocket.enabled = false;
-  } catch {
-    // 忽略
-  }
+  await checkFirstRunAndOnboard();
 
-  // 解析 --http-port 参数
   const httpPort = parseHttpPortFromArgs(options.args);
 
   const { launchRepl } = await import('./entrypoints/repl');
@@ -166,14 +211,14 @@ export async function launch(options: LaunchOptions): Promise<void> {
   setupWindowsSecurity();
 
   profileCheckpoint('launch_start');
-  startupTracer.traceStart('launch_total');
+  profilePhaseStart('launch_total');
 
   try {
     logger.info(`应用启动 - 模式: ${options.mode}`);
 
     // T0: 启动并行预读取（不阻塞模块初始化）
     profileCheckpoint('T0_preroll_start');
-    startupTracer.traceStart('T0_preroll');
+    profilePhaseStart('T0_preroll');
     startMdmPrefetch();
     if (process.platform === 'darwin') {
       startKeychainPrefetch(
@@ -181,29 +226,29 @@ export async function launch(options: LaunchOptions): Promise<void> {
         process.env.USER || ''
       );
     }
-    startupTracer.traceEnd('T0_preroll');
+    profilePhaseEnd('T0_preroll');
     profileCheckpoint('T0_preroll_end');
 
     // T1: 模块系统初始化（仅 CRITICAL 模块）
     profileCheckpoint('module_init_start');
-    startupTracer.traceStart('T1_module_init');
+    profilePhaseStart('T1_module_init');
     await initializeModuleSystem();
-    startupTracer.traceEnd('T1_module_init');
+    profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
 
     // T1.5: 等待关键预读取完成
     profileCheckpoint('T1_await_prefetch_start');
-    startupTracer.traceStart('T1_await_prefetch');
+    profilePhaseStart('T1_await_prefetch');
     await ensureMdmPrefetchCompleted();
     if (process.platform === 'darwin') {
       await ensureKeychainPrefetchCompleted();
     }
-    startupTracer.traceEnd('T1_await_prefetch');
+    profilePhaseEnd('T1_await_prefetch');
     profileCheckpoint('T1_await_prefetch_end');
 
     // T2: 模式分发 + 后台延迟加载
     profileCheckpoint('T2_dispatch_start');
-    startupTracer.traceStart('T2_dispatch');
+    profilePhaseStart('T2_dispatch');
     switch (options.mode) {
       case LaunchMode.CLI:
         await launchCLI(options);
@@ -225,31 +270,29 @@ export async function launch(options: LaunchOptions): Promise<void> {
         await launchREPL(options);
         break;
     }
-    startupTracer.traceEnd('T2_dispatch');
+    profilePhaseEnd('T2_dispatch');
     profileCheckpoint('T2_dispatch_end');
 
     // T3: 启动完成后，在后台调度延迟模块加载
-    startupTracer.traceStart('T3_deferred_load');
+    profilePhaseStart('T3_deferred_load');
     try {
       const { moduleInitializer } = await import('./modules/ModuleInitializer');
       moduleInitializer.scheduleDeferredModules();
     } catch (e) {
       logger.warning('调度延迟模块加载失败（非致命）', e as Error);
     }
-    startupTracer.traceEnd('T3_deferred_load');
+    profilePhaseEnd('T3_deferred_load');
 
-    startupTracer.traceEnd('launch_total');
+    profilePhaseEnd('launch_total');
 
-    // 输出启动性能报告
-    const report = startupTracer.getReport();
-    logger.info('\n=== 启动性能报告 (StartupTracer) ===');
-    for (const summary of report.phaseSummary) {
+    const { totalDuration, phaseSummary } = getPhaseSummary();
+    const significantPhases = phaseSummary.filter((s) => s.duration >= 1.0);
+    logger.info(`启动完成 (${totalDuration.toFixed(0)}ms)`);
+    for (const summary of significantPhases) {
       logger.info(
         `  ${summary.phase}: ${summary.duration.toFixed(1)}ms (${(summary.ratio * 100).toFixed(1)}%)`
       );
     }
-    logger.info(`  总启动耗时: ${report.totalDuration.toFixed(1)}ms`);
-    logger.info('==================================\n');
 
     profileReport();
   } catch (error) {

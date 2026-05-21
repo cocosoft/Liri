@@ -141,6 +141,12 @@ export class DeepSeekProvider implements AIProvider {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullContent = '';
+    let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
+    // 流式 tool_calls 按 index 累积: {arguments 为累积字符串}
+    const pendingToolCalls: Map<
+      number,
+      { id: string; name: string; arguments: string }
+    > = new Map();
 
     try {
       while (true) {
@@ -161,13 +167,57 @@ export class DeepSeekProvider implements AIProvider {
             const choices = parsed['choices'] as
               | Array<Record<string, unknown>>
               | undefined;
-            const delta = choices?.[0]?.['delta'] as
+            const choice = choices?.[0];
+            if (!choice) continue;
+
+            // 检测 finish_reason
+            const finishReason = choice['finish_reason'] as string | undefined;
+            if (finishReason === 'tool_calls') {
+              stopReason = 'tool_calls';
+            } else if (finishReason === 'max_tokens') {
+              stopReason = 'max_tokens';
+            }
+
+            const delta = choice['delta'] as
               | Record<string, unknown>
               | undefined;
+            if (!delta) continue;
+
+            // 处理文本内容
             const content = delta?.['content'] as string | undefined;
             if (content) {
               fullContent += content;
               yield content;
+            }
+
+            // 处理流式 tool_calls
+            const streamToolCalls = delta?.['tool_calls'] as
+              | Array<Record<string, unknown>>
+              | undefined;
+            if (streamToolCalls) {
+              for (const tc of streamToolCalls) {
+                const idx = tc['index'] as number;
+                let pending = pendingToolCalls.get(idx);
+                if (!pending) {
+                  pending = { id: '', name: '', arguments: '' };
+                  pendingToolCalls.set(idx, pending);
+                }
+                // id 和 name 只在首帧出现
+                if (tc['id']) {
+                  pending.id = tc['id'] as string;
+                }
+                const func = tc['function'] as
+                  | Record<string, unknown>
+                  | undefined;
+                if (func) {
+                  if (func['name']) {
+                    pending.name = func['name'] as string;
+                  }
+                  if (func['arguments']) {
+                    pending.arguments += func['arguments'] as string;
+                  }
+                }
+              }
             }
           } catch {
             // 跳过解析失败的行
@@ -178,7 +228,31 @@ export class DeepSeekProvider implements AIProvider {
       reader.releaseLock();
     }
 
-    return { content: fullContent, stop_reason: 'stop' };
+    // 组装 tool_calls 返回（若存在）
+    if (stopReason === 'tool_calls' && pendingToolCalls.size > 0) {
+      const toolCalls = Array.from(pendingToolCalls.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([_, tc]) => {
+          let parsedArgs: Record<string, unknown> = {};
+          try {
+            parsedArgs = JSON.parse(tc.arguments) as Record<string, unknown>;
+          } catch {
+            parsedArgs = { _raw: tc.arguments };
+          }
+          return {
+            id: tc.id,
+            name: tc.name,
+            arguments: parsedArgs,
+          };
+        });
+      return {
+        content: fullContent,
+        stop_reason: 'tool_calls',
+        tool_calls: toolCalls,
+      };
+    }
+
+    return { content: fullContent, stop_reason: stopReason };
   }
 
   async listModels(): Promise<string[]> {

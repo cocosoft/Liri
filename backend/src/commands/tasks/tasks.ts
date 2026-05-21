@@ -9,6 +9,14 @@ import type {
   BackgroundTaskStatus,
 } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
 import { getBackgroundTaskManager } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
+import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
+import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask.js';
+import {
+  TaskType,
+  TaskStatus,
+  isTerminalTaskStatus,
+} from '@modules/tasks/types.js';
+import type { BaseTask } from '@modules/tasks/BaseTask.js';
 
 /**
  * 解析参数
@@ -400,12 +408,71 @@ function statsToJson(
 }
 
 /**
- * 处理 stats 子命令
+ * 将 TaskRegistry 中的 BaseTask 转换为 BackgroundTaskInfo 显示格式
+ */
+function taskToBgInfo(task: BaseTask): BackgroundTaskInfo {
+  const state = task.taskState;
+  return {
+    taskId: state.id,
+    agentName: state.type,
+    agentType: state.type,
+    description: state.description,
+    status: mapTaskStatusToBg(state.status),
+    createdAt: state.startTime,
+    startedAt:
+      state.status === TaskStatus.RUNNING ? state.startTime : undefined,
+    completedAt: state.endTime,
+    progressMessage: undefined,
+    result: undefined,
+    error: state.error,
+    tokenUsage: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: state.tokenCount,
+    },
+    durationMs: state.endTime ? state.endTime - state.startTime : undefined,
+  };
+}
+
+function mapTaskStatusToBg(status: TaskStatus): BackgroundTaskStatus {
+  switch (status) {
+    case TaskStatus.PENDING:
+      return 'pending';
+    case TaskStatus.RUNNING:
+      return 'running';
+    case TaskStatus.COMPLETED:
+      return 'completed';
+    case TaskStatus.FAILED:
+      return 'failed';
+    case TaskStatus.KILLED:
+      return 'aborted';
+  }
+}
+
+/**
+ * 从 TaskRegistry 获取所有任务，同步 BackgroundTaskManager 数据
+ */
+function getAllTasksFromRegistry(): BackgroundTaskInfo[] {
+  // 同步 BackgroundTaskManager 的存量数据到 TaskRegistry
+  const bgManager = getBackgroundTaskManager();
+  const bgTasks = bgManager.getAllTasks();
+  for (const bgTask of bgTasks) {
+    const existing = taskRegistry.getTask(bgTask.taskId);
+    if (!existing) {
+      const adapter = new BackgroundAgentTask(bgTask);
+      taskRegistry.register(adapter, bgTask.taskId);
+    }
+  }
+
+  return taskRegistry.getAllTasks().map(taskToBgInfo);
+}
+
+/**
+ * 获取任务统计
  */
 function handleStats(showJson: boolean): CommandResult {
-  const manager = getBackgroundTaskManager();
-  const allTasks = manager.getAllTasks();
-  const stats = manager.getStats();
+  const allTasks = getAllTasksFromRegistry();
+  const stats = buildStatsFromTasks(allTasks);
 
   if (showJson) {
     return {
@@ -443,14 +510,79 @@ function handleStats(showJson: boolean): CommandResult {
 }
 
 /**
+ * 构建统计对象
+ */
+function buildStatsFromTasks(allTasks: BackgroundTaskInfo[]): {
+  total: number;
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+  aborted: number;
+} {
+  let pending = 0,
+    running = 0,
+    completed = 0,
+    failed = 0,
+    aborted = 0;
+  for (const t of allTasks) {
+    switch (t.status) {
+      case 'pending':
+        pending++;
+        break;
+      case 'running':
+        running++;
+        break;
+      case 'completed':
+        completed++;
+        break;
+      case 'failed':
+        failed++;
+        break;
+      case 'aborted':
+        aborted++;
+        break;
+    }
+  }
+  return {
+    total: allTasks.length,
+    pending,
+    running,
+    completed,
+    failed,
+    aborted,
+  };
+}
+
+/**
  * 处理 clear 子命令
  */
 function handleClear(args: string): CommandResult {
   const hours = parseInt(args, 10);
   const olderThanMs = isNaN(hours) ? 0 : hours * 3600000;
 
-  const manager = getBackgroundTaskManager();
-  const removed = manager.cleanup(olderThanMs);
+  const allTasks = getAllTasksFromRegistry();
+  const now = Date.now();
+  let removed = 0;
+
+  for (const task of allTasks) {
+    if (
+      task.status === 'completed' ||
+      task.status === 'failed' ||
+      task.status === 'aborted'
+    ) {
+      if (
+        olderThanMs === 0 ||
+        (task.createdAt && now - task.createdAt > olderThanMs)
+      ) {
+        const registered = taskRegistry.getTask(task.taskId);
+        if (registered) {
+          taskRegistry.remove(task.taskId);
+          removed++;
+        }
+      }
+    }
+  }
 
   if (isNaN(hours)) {
     return {
@@ -479,28 +611,30 @@ function handleStop(taskId: string): CommandResult {
     return { success: false, message: '用法: /tasks stop <task-id>' };
   }
 
-  const manager = getBackgroundTaskManager();
-  const task = manager.getTask(taskId);
-
-  if (!task) {
+  const registered = taskRegistry.getTask(taskId);
+  if (!registered) {
     return { success: false, message: `任务 "${taskId}" 不存在` };
   }
 
-  if (task.status !== 'running' && task.status !== 'pending') {
+  const state = registered.taskState;
+  if (
+    state.status !== TaskStatus.RUNNING &&
+    state.status !== TaskStatus.PENDING
+  ) {
     return {
       success: false,
-      message: `任务 "${taskId}" 当前状态为 "${task.status}"，无法停止`,
+      message: `任务 "${taskId}" 当前状态为 "${state.status}"，无法停止`,
     };
   }
 
-  manager.abortTask(taskId);
+  taskRegistry.kill(taskId);
 
-  const elapsed = task.startedAt
-    ? formatDuration(Date.now() - task.startedAt)
+  const elapsed = state.startTime
+    ? formatDuration(Date.now() - state.startTime)
     : '未开始';
   return {
     success: true,
-    message: `任务已停止: ${task.description || task.taskId} (运行 ${elapsed})`,
+    message: `任务已停止: ${state.description || taskId} (运行 ${elapsed})`,
   };
 }
 
@@ -512,8 +646,8 @@ function handleShow(taskId: string): CommandResult {
     return { success: false, message: '用法: /tasks show <task-id>' };
   }
 
-  const manager = getBackgroundTaskManager();
-  const task = manager.getTask(taskId);
+  const allTasks = getAllTasksFromRegistry();
+  const task = allTasks.find((t) => t.taskId === taskId);
 
   if (!task) {
     return {
@@ -530,8 +664,16 @@ function handleShow(taskId: string): CommandResult {
  */
 function handleRecent(args: string, showJson: boolean): CommandResult {
   const limit = parseInt(args, 10) || 5;
-  const manager = getBackgroundTaskManager();
-  const recentTasks = manager.getCompletedTasks(limit);
+  const allTasks = getAllTasksFromRegistry();
+  const recentTasks = allTasks
+    .filter(
+      (t) =>
+        t.status === 'completed' ||
+        t.status === 'failed' ||
+        t.status === 'aborted'
+    )
+    .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+    .slice(0, limit);
 
   if (recentTasks.length === 0) {
     return { success: true, message: '没有已完成的任务记录' };
@@ -580,8 +722,7 @@ function handleFilter(
   showJson: boolean,
   limit: number
 ): CommandResult {
-  const manager = getBackgroundTaskManager();
-  const allTasks = manager.getAllTasks();
+  const allTasks = getAllTasksFromRegistry();
   const filtered = filterTasksByStatus(allTasks, subcommand);
 
   if (filtered.length === 0) {
@@ -608,8 +749,7 @@ function handleFilter(
  * 处理列表子命令（默认）
  */
 function handleList(showJson: boolean, limit: number): CommandResult {
-  const manager = getBackgroundTaskManager();
-  const allTasks = manager.getAllTasks();
+  const allTasks = getAllTasksFromRegistry();
 
   if (allTasks.length === 0) {
     return { success: true, message: '没有运行中的后台任务' };

@@ -80,7 +80,7 @@ export class DiagnosticManager extends EventEmitter {
    */
   private getLogDirectory(): string {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    return join(__dirname, '..', '..', '..', 'logs');
+    return join(__dirname, '..', '..', '..', 'data', 'logs');
   }
 
   /**

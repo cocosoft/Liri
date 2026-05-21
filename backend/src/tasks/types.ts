@@ -11,6 +11,7 @@ export enum TaskType {
   DREAM = 'dream',
   WORKFLOW = 'local_workflow',
   MONITOR_MCP = 'monitor_mcp',
+  BACKGROUND_AGENT = 'background_agent',
 }
 
 export enum TaskStatus {
@@ -42,6 +43,8 @@ export interface TaskState {
   outputOffset: number;
   notified: boolean;
   error?: string;
+  /** 额外元数据（如 TaskTool 的 owner/priority/activeForm/metadata） */
+  metadata?: Record<string, unknown>;
 }
 
 export interface ToolActivity {

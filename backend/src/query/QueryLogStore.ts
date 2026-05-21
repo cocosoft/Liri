@@ -13,7 +13,7 @@ import type {
   QueryLogStats,
 } from './QueryLogTypes';
 
-const logger = new Logger('QueryLogStore');
+const logger = new Logger();
 
 const QUERY_LOG_TABLE = 'query_logs';
 
@@ -24,7 +24,7 @@ export class QueryLogStore {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = './backend/data/query_logs.db') {
+  constructor(dbPath: string = './data/query_logs.db') {
     this.dbPath = dbPath;
   }
 

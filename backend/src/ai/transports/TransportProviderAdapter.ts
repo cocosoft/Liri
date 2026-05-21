@@ -46,12 +46,17 @@ function extractToolDefs(
 /**
  * 将 Provider 的 ChatMessage[] 转换为 Transport 的 message 格式
  */
-function extractMessages(
-  messages: ChatMessage[]
-): Array<{ role: string; content: string | null }> {
+function extractMessages(messages: ChatMessage[]): Array<{
+  role: string;
+  content: string | null;
+  tool_call_id?: string;
+  tool_calls?: Array<Record<string, unknown>>;
+}> {
   return messages.map((m) => ({
     role: m.role,
     content: m.content,
+    tool_call_id: m.tool_call_id,
+    tool_calls: m.tool_calls as Array<Record<string, unknown>> | undefined,
   }));
 }
 

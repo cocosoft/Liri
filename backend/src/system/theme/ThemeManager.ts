@@ -342,7 +342,20 @@ export class ThemeManager {
   /**
    * 应用主题样式
    */
-  applyStyle(style: 'header' | 'title' | 'subtitle' | 'success' | 'warning' | 'error' | 'info' | 'code' | 'prompt' | 'progress', text: string): string {
+  applyStyle(
+    style:
+      | 'header'
+      | 'title'
+      | 'subtitle'
+      | 'success'
+      | 'warning'
+      | 'error'
+      | 'info'
+      | 'code'
+      | 'prompt'
+      | 'progress',
+    text: string
+  ): string {
     const styles: Record<string, (t: string) => string> = {
       header: (t) => chalk.hex(this.currentTheme.colors.primary).bold(t),
       title: (t) => chalk.hex(this.currentTheme.colors.primary).bold(t),

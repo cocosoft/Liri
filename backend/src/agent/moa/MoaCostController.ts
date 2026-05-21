@@ -9,7 +9,7 @@ import type {
   ScheduledTaskResult,
 } from './ParallelAgentScheduler';
 
-const logger = new Logger('MoaCostController');
+const logger = new Logger();
 
 /**
  * 成本控制预算

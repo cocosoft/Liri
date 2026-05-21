@@ -480,7 +480,7 @@ export function createDefaultBackupManager(backupDir?: string): BackupManager {
     },
     {
       name: 'query_logs',
-      dbPath: join('backend', 'data', 'query_logs.db'),
+      dbPath: join('data', 'query_logs.db'),
     },
   ]);
 

@@ -6,7 +6,7 @@
 import type { AgentRoute, RouteMatch } from './AgentRouter';
 import { Logger } from '@modules/monitoring/logs/Logger';
 
-const logger = new Logger('StrategySelector');
+const logger = new Logger();
 
 /**
  * 任务复杂度枚举

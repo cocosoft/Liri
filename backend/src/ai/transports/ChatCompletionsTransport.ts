@@ -27,17 +27,74 @@ export class ChatCompletionsTransport extends BaseTransport {
     'o3-mini',
   ];
 
-  convertMessages(
-    messages: Array<{ role: string; content: string | null }>
-  ): Array<{ role: string; content: string }> {
-    return messages
-      .filter((m) => m.content !== null)
-      .map((m) => ({
-        role: m.role as string,
-        content: m.content!,
-      }));
+  /**
+   * 统一 tool_calls 格式为 OpenAI 兼容格式:
+   * {id, type: 'function', function: {name, arguments}}
+   */
+  private normalizeToolCalls(
+    toolCalls: Array<Record<string, unknown>>
+  ): Array<Record<string, unknown>> {
+    return toolCalls.map((tc) => {
+      if (tc.type === 'function' && tc.function) {
+        return tc;
+      }
+      return {
+        id: tc.id,
+        type: 'function',
+        function: {
+          name:
+            (tc.name as string) ||
+            (tc.function as Record<string, unknown>)?.name ||
+            '',
+          arguments:
+            typeof tc.arguments === 'string'
+              ? tc.arguments
+              : typeof (tc.function as Record<string, unknown>)?.arguments ===
+                  'string'
+                ? ((tc.function as Record<string, unknown>).arguments as string)
+                : JSON.stringify(
+                    tc.arguments ||
+                      (tc.function as Record<string, unknown>)?.arguments ||
+                      {}
+                  ),
+        },
+      };
+    });
   }
 
+  convertMessages(
+    messages: Array<{
+      role: string;
+      content: string | null;
+      tool_call_id?: string;
+      tool_calls?: Array<Record<string, unknown>>;
+    }>
+  ): Array<Record<string, unknown>> {
+    return messages
+      .filter((m) => m.content !== null || m.role === 'assistant')
+      .map((m) => {
+        const msg: Record<string, unknown> = {
+          role: m.role as string,
+          content: m.content,
+        };
+        if (m.tool_call_id) {
+          msg.tool_call_id = m.tool_call_id;
+        }
+        if (m.tool_calls && m.tool_calls.length > 0) {
+          msg.tool_calls = this.normalizeToolCalls(m.tool_calls);
+        }
+        return msg;
+      });
+  }
+
+  /**
+   * 将工具定义数组转换为符合特定格式的结构化数组。
+   * 每个工具对象会被包裹在一个包含 type 和 function 属性的新对象中，
+   * 其中 type 固定为 'function'，function 属性包含原始工具的名称、描述和参数。
+   *
+   * @param tools - 原始工具定义数组，每个元素包含 name、description 和 parameters 属性
+   * @returns 转换后的工具数组，每个元素包含 type 和 function 属性，function 中包含原始工具的详细信息
+   */
   convertTools(
     tools: Array<{
       name: string;
@@ -52,6 +109,7 @@ export class ChatCompletionsTransport extends BaseTransport {
       parameters: Record<string, unknown>;
     };
   }> {
+    // 遍历原始工具数组，将每个工具对象映射为新的结构化格式
     return tools.map((t) => ({
       type: 'function' as const,
       function: {
@@ -62,10 +120,18 @@ export class ChatCompletionsTransport extends BaseTransport {
     }));
   }
 
+  /**
+   * 构建发送给大语言模型的请求对象。
+   *
+   * @param params - 传输请求参数，包含模型配置、消息历史、工具定义等。
+   * @returns 格式化后的请求对象，键值对结构，可直接用于 API 调用。
+   */
   buildRequest(params: TransportRequestParams): Record<string, unknown> {
+    // 转换消息格式并处理可选的工具定义
     const messages = this.convertMessages(params.messages);
     const tools = params.tools ? this.convertTools(params.tools) : undefined;
 
+    // 初始化基础请求参数，设置默认的最大令牌数和温度值
     const request: Record<string, unknown> = {
       model: params.model,
       messages,
@@ -73,14 +139,17 @@ export class ChatCompletionsTransport extends BaseTransport {
       temperature: params.temperature ?? 1.0,
     };
 
+    // 仅在存在有效工具时添加工具字段
     if (tools && tools.length > 0) {
       request.tools = tools;
     }
 
+    // 如果启用流式输出，则添加流式标志
     if (params.stream) {
       request.stream = true;
     }
 
+    // 合并额外的自定义参数到请求对象中
     if (params.extra) {
       Object.assign(request, params.extra);
     }
@@ -88,6 +157,13 @@ export class ChatCompletionsTransport extends BaseTransport {
     return request;
   }
 
+  /**
+   * 将原始 API 响应数据标准化为统一的 NormalizedResponse 格式。
+   * 该函数处理不同模型提供商可能存在的字段差异，提取消息内容、工具调用、用量统计及元数据。
+   *
+   * @param raw - 原始的 API 响应对象，结构可能因提供商而异
+   * @returns 标准化后的响应对象，包含内容、工具调用、用量信息及元数据
+   */
   normalizeResponse(raw: any): NormalizedResponse {
     const choice = raw.choices?.[0];
     const message = choice?.message ?? {};
@@ -96,10 +172,12 @@ export class ChatCompletionsTransport extends BaseTransport {
     let content: string | null = null;
     const toolCalls: NormalizedToolCall[] = [];
 
+    // 提取文本消息内容
     if (message.content) {
       content = message.content;
     }
 
+    // 解析并标准化工具调用列表，处理参数字符串化及字段兼容性
     if (message.tool_calls) {
       for (const tc of message.tool_calls) {
         toolCalls.push({

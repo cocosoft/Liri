@@ -1,4 +1,8 @@
 /**
+ * @deprecated 请使用 TaskRegistry + BackgroundAgentTask 替代。
+ * BackgroundTaskManager 将在后续版本中移除。
+ * 迁移路径：BackgroundAgentTask extends BaseTask，通过 TaskRegistry 管理生命周期。
+ *
  * BackgroundTaskManager - 后台 Agent 任务管理器
  *
  * 对标 CC LocalAgentTask.ts 实现后台任务生命周期管理：

@@ -10,15 +10,22 @@ import type { CommandContext } from '../commands/types/index.js';
 import type { ChatManager } from '../chat/ChatManager.js';
 import { ToolAwareClient } from '../ai/clients/ToolAwareClient.js';
 import { providerRegistry } from '../ai/providers/ProviderRegistry.js';
-import { createToolManager } from '../tools/ToolManager.js';
+import { getToolManager } from '../tools/ToolManager.js';
+import { Logger } from '../monitoring/logs/Logger.js';
 import { historyManager } from '../utils/history.js';
 import { commandRegistry } from '../commands/registry/index.js';
 import { getUIEnhancer } from '../ui/UIEnhancer.js';
-import { getThemeManager } from '@modules/system/theme';
 import { profileCheckpoint } from '../utils/startupProfiler.js';
 import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
 import { LocalHTTPService } from '../core/gateway/local/LocalHTTPService.js';
+import { getConfig } from '../config/index.js';
+import { SubAgentManager } from '../subagent/SubAgentManager.js';
+import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
+
+const logger = new Logger({
+  level: 'info' as unknown as import('../monitoring/logs/Logger').LogLevel,
+});
 
 /**
  * REPL配置接口
@@ -34,7 +41,7 @@ export interface REPLConfig {
  * 默认REPL配置
  */
 const DEFAULT_CONFIG: REPLConfig = {
-  prompt: 'PY_APP> ',
+  prompt: '\u{1F4AC} ',
   welcomeMessage: chalk.cyan('欢迎使用 PY_APP - AI Agent'),
   exitCommand: 'exit',
 };
@@ -47,11 +54,19 @@ export function initializeChatManager(): ChatManager {
   const coreAPI = getCoreAPI();
   const chatManager = coreAPI.getChatManager();
 
-  const toolManager = createToolManager();
+  const toolManager = getToolManager();
+  toolManager.loadBuiltinTools();
   const registry = toolManager.getRegistry();
 
+  const config = getConfig();
+  const apiKey =
+    config['ai.deepseek.apiKey'] ||
+    config.ai?.deepseek?.apiKey ||
+    process.env.DEEPSEEK_API_KEY ||
+    '';
+
   const provider = providerRegistry.getOrCreate('deepseek', {
-    apiKey: process.env.DEEPSEEK_API_KEY || '',
+    apiKey,
     baseUrl: process.env.DEEPSEEK_BASE_URL,
     model: process.env.DEEPSEEK_MODEL,
   });
@@ -71,6 +86,21 @@ export function initializeChatManager(): ChatManager {
 
   chatManager.initialize();
 
+  // 初始化子Agent管理器并注入ChatManager
+  try {
+    const subAgentFactory = new SubAgentFactory();
+    const subAgentManager = new SubAgentManager(subAgentFactory);
+    chatManager.setSubAgentManager(subAgentManager);
+    logger.info('SubAgentManager initialized and injected into ChatManager');
+  } catch (error) {
+    logger.warn(
+      'SubAgentManager initialization failed, continuing without it',
+      {
+        error: String(error),
+      }
+    );
+  }
+
   try {
     let sessions = chatManager.getSessions();
     if (sessions.length === 0) {
@@ -85,9 +115,9 @@ export function initializeChatManager(): ChatManager {
       }
     }
   } catch (error) {
-    console.log(
-      chalk.yellow('Warning: Session initialization issue, will use default')
-    );
+    logger.warn('Session initialization issue, will use default', {
+      error: String(error),
+    });
   }
 
   return chatManager;
@@ -103,12 +133,16 @@ export async function launchRepl(
   getStartupChainProfiler().markPhaseStart('first_response');
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   const ui = getUIEnhancer();
-  const themeManager = getThemeManager();
 
   // 显示欢迎消息
-  ui.showTitle('PY_APP - 交互式REPL模式');
-  ui.showSubtitle(finalConfig.welcomeMessage || '');
-  ui.showInfo('输入命令开始交互，输入 exit 退出');
+  ui.showTitle('PY_APP - AI Agent');
+  ui.showInfo('我是您的 AI 个人助手，可以直接用自然语言与我对话。');
+  console.log();
+  ui.showSuccess('试试看:');
+  ui.showInfo('  • 直接输入问题开始对话');
+  ui.showInfo('  • "/help" — 查看所有命令');
+  ui.showInfo('  • "/onboard" — 运行初始化配置');
+  ui.showInfo('  • "exit" — 退出');
   console.log();
 
   // 启动 LocalHTTPService（如果配置了 httpPort）
@@ -132,45 +166,45 @@ export async function launchRepl(
     }
   }
 
-  // 显示系统信息
-  try {
-    profileCheckpoint('repl_system_info_start');
-    ui.showInfo('系统信息:');
-    ui.showInfo(`  Node.js 版本: ${process.version}`);
-    ui.showInfo(`  操作系统: ${process.platform} ${process.arch}`);
-    ui.showInfo(`  当前目录: ${process.cwd()}`);
-    profileCheckpoint('repl_system_info_end');
-  } catch (error) {
-    // 忽略系统信息显示错误
-  }
+  // 记录系统信息到日志
+  logger.info('REPL 系统信息', {
+    nodeVersion: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    cwd: process.cwd(),
+  });
 
-  console.log();
-
-  // 启动检查
+  // 启动检查（仅关键警告显示到控制台）
   try {
     profileCheckpoint('repl_startup_checks_start');
-    ui.showInfo('启动检查:');
-
-    // 检查环境变量
+    const cfg = getConfig();
+    const configApiKey =
+      cfg['ai.deepseek.apiKey'] || cfg.ai?.deepseek?.apiKey || '';
     const requiredEnvVars = ['DEEPSEEK_API_KEY'];
     const missingVars = requiredEnvVars.filter(
       (varName) => !process.env[varName]
     );
-    if (missingVars.length > 0) {
-      ui.showWarning(`  警告: 缺少环境变量: ${missingVars.join(', ')}`);
-      ui.showInfo('  某些功能可能无法正常工作');
-    } else {
-      ui.showInfo('  环境变量配置正常');
+    if (missingVars.length > 0 && !configApiKey) {
+      ui.showWarning(
+        `缺少环境变量: ${missingVars.join(', ')}，AI 对话功能需要此密钥`
+      );
+      ui.showInfo('配置方法（任选其一）:');
+      ui.showInfo(
+        '  • 方法 1: 在命令行输入 /config set ai.deepseek.apiKey sk-你的密钥'
+      );
+      ui.showInfo(
+        '  • 方法 2: 编辑 backend/.env 文件，填入 DEEPSEEK_API_KEY=sk-你的密钥'
+      );
+      ui.showInfo('  • 方法 3: 运行 /onboard 启动交互式引导配置');
+      ui.showInfo('配置完成后重启应用即可开始对话');
     }
 
-    // 检查命令系统
     const commandCount = commandRegistry.getCommandCount();
-    ui.showInfo(`  已加载命令: ${commandCount}`);
-
+    logger.info('REPL 启动检查', { missingVars, commandCount });
     profileCheckpoint('repl_startup_checks_end');
   } catch (error) {
     ui.showWarning(
-      `  启动检查失败: ${error instanceof Error ? error.message : String(error)}`
+      `启动检查失败: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 
@@ -179,10 +213,9 @@ export async function launchRepl(
   // 加载历史记录
   try {
     profileCheckpoint('repl_load_history_start');
-    const loading = ui.showLoading('加载历史记录...');
     await historyManager.load();
-    loading.stop();
-    ui.showInfo(`已加载 ${historyManager.getHistoryCount()} 条历史命令`);
+    const historyCount = historyManager.getHistoryCount();
+    logger.info('已加载历史命令', { count: historyCount });
     profileCheckpoint('repl_load_history_end');
   } catch (error) {
     ui.showWarning(
@@ -190,19 +223,6 @@ export async function launchRepl(
     );
   }
 
-  console.log();
-
-  // 显示当前主题
-  ui.showInfo(`当前主题: ${themeManager.getCurrentTheme().name}`);
-  ui.showInfo('使用 /theme 命令切换主题');
-  console.log();
-
-  // 显示快速帮助
-  ui.showInfo('快速帮助:');
-  ui.showInfo('  /help - 查看可用命令');
-  ui.showInfo('  /session - 管理会话');
-  ui.showInfo('  /tool - 管理工具');
-  ui.showInfo('  /skill - 管理技能');
   console.log();
 
   profileCheckpoint('repl_initialize_chat_manager_start');
@@ -305,10 +325,7 @@ export async function launchRepl(
       await historyManager.add(trimmedLine, 'repl-session');
     } catch (error) {
       // 历史记录添加失败不影响命令执行
-      console.warn(
-        chalk.yellow('添加历史记录失败:'),
-        error instanceof Error ? error.message : String(error)
-      );
+      logger.warn('添加历史记录失败', { error: String(error) });
     }
 
     if (isProcessing) {
@@ -326,6 +343,7 @@ export async function launchRepl(
         const context: CommandContext = {
           sessionId: `repl-${Date.now()}`,
           chatManager,
+          replReadline: rl,
         };
 
         const loading = ui.showLoading(`执行命令: ${commandName}`);
@@ -359,8 +377,9 @@ export async function launchRepl(
 
         try {
           profileCheckpoint('repl_send_message_start');
+          const currentSession = chatManager.getCurrentSession();
           const response = await chatManager.sendMessage(trimmedLine, {
-            sessionId: 'repl-session',
+            sessionId: currentSession?.id,
             stream: true,
           });
           profileCheckpoint('repl_send_message_end');
@@ -377,13 +396,29 @@ export async function launchRepl(
           );
           // 根据错误类型提供不同的提示
           if (error instanceof Error) {
-            if (error.message.includes('API key')) {
-              ui.showInfo('提示: 请检查您的API密钥配置');
+            if (
+              error.message.includes('API key') ||
+              error.message.includes('apiKey')
+            ) {
+              ui.showInfo('提示: 请先配置 API 密钥');
+              ui.showInfo(
+                '  在命令行输入: /config set ai.deepseek.apiKey sk-你的密钥'
+              );
+            } else if (
+              error.message.includes('No session') ||
+              error.message.includes('session')
+            ) {
+              ui.showInfo(
+                '提示: 请先配置 API 密钥，然后重启应用即可自动创建会话'
+              );
+              ui.showInfo(
+                '  配置命令: /config set ai.deepseek.apiKey sk-你的密钥'
+              );
             } else if (error.message.includes('network')) {
               ui.showInfo('提示: 请检查您的网络连接');
             } else {
               ui.showInfo(
-                '提示: 您可以尝试使用 /help 查看可用命令，或使用 /session 管理会话。'
+                '提示: 您可以尝试使用 /help 查看可用命令。如果是首次使用，请先配置 API 密钥：/config set ai.deepseek.apiKey sk-你的密钥'
               );
             }
           }

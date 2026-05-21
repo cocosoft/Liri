@@ -256,7 +256,7 @@ export class SessionsWebSocket {
     this.pingInterval = setInterval(() => {
       if (this.ws && this.state === 'connected') {
         try {
-          this.ws.ping?.();
+          (this.ws as any).ping?.();
         } catch {
           // Ping not supported
         }

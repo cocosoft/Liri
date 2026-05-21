@@ -172,10 +172,22 @@ export class MonitoringService {
         }
       }
 
-      if (failed.length > 0) {
+      const fileNotFound = failed.filter((r) =>
+        r.error?.includes('文件不存在')
+      );
+      const realFailed = failed.filter((r) => !r.error?.includes('文件不存在'));
+
+      if (fileNotFound.length > 0) {
+        this.log(
+          'debug',
+          `${fileNotFound.length} 个数据库尚未创建（跳过备份）: ${fileNotFound.map((r) => r.name).join(', ')}`
+        );
+      }
+
+      if (realFailed.length > 0) {
         this.log(
           'warn',
-          `${failed.length} 个数据库备份失败: ${failed.map((r) => `${r.name}(${r.error})`).join(', ')}`
+          `${realFailed.length} 个数据库备份失败: ${realFailed.map((r) => `${r.name}(${r.error})`).join(', ')}`
         );
       }
     } catch (error) {
@@ -282,7 +294,7 @@ export class MonitoringService {
     profileCheckpoint('monitoring_health_check_start');
     try {
       const status = this.getSystemStatus();
-      this.writeToLogFile('info', '健康检查: 系统状态正常', {
+      logger.info('健康检查: 系统状态正常', {
         uptime: status.uptime,
         memory: `${(status.memory.heapUsed / 1024 / 1024).toFixed(2)} MB`,
         cpu: `${((status.cpu.user + status.cpu.system) / 1000).toFixed(2)} ms`,
@@ -302,7 +314,7 @@ export class MonitoringService {
    */
   private rotateLogs(): void {
     try {
-      const logDir = path.join(process.cwd(), 'logs');
+      const logDir = path.join(process.cwd(), 'data', 'logs');
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
       }
@@ -471,53 +483,33 @@ export class MonitoringService {
   }
 
   /**
-   * 记录日志
+   * 记录日志（委托给规范 Logger）
    */
   private log(
     level: 'debug' | 'info' | 'warn' | 'error',
     message: string,
     metadata?: any
   ): void {
-    const levels = ['debug', 'info', 'warn', 'error'];
-    const currentLevelIndex = levels.indexOf(this.config.logLevel);
-    const messageLevelIndex = levels.indexOf(level);
+    const currentLevelIndex = ['debug', 'info', 'warn', 'error'].indexOf(
+      this.config.logLevel
+    );
+    const messageLevelIndex = ['debug', 'info', 'warn', 'error'].indexOf(level);
 
     if (messageLevelIndex >= currentLevelIndex) {
-      const timestamp = new Date().toISOString();
-      const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
-
-      if (metadata) {
-        console.log(logMessage, metadata);
-      } else {
-        console.log(logMessage);
+      switch (level) {
+        case 'debug':
+          logger.debug(message, metadata);
+          break;
+        case 'info':
+          logger.info(message, metadata);
+          break;
+        case 'warn':
+          logger.warning(message, metadata);
+          break;
+        case 'error':
+          logger.error(message, metadata);
+          break;
       }
-
-      // 写入日志文件
-      this.writeToLogFile(level, message, metadata);
-    }
-  }
-
-  /**
-   * 写入日志文件
-   */
-  private writeToLogFile(level: string, message: string, metadata?: any): void {
-    try {
-      const logDir = path.join(process.cwd(), 'logs');
-      if (!fs.existsSync(logDir)) {
-        fs.mkdirSync(logDir, { recursive: true });
-      }
-
-      const logFile = path.join(logDir, 'app.log');
-      const timestamp = new Date().toISOString();
-      let logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
-
-      if (metadata) {
-        logMessage += ` ${JSON.stringify(metadata)}`;
-      }
-
-      fs.appendFileSync(logFile, logMessage + '\n');
-    } catch (error) {
-      // 忽略错误
     }
   }
 

@@ -4,6 +4,7 @@
  */
 
 import { request as httpsRequest } from 'https';
+import { request as httpRequest } from 'http';
 import type {
   OAuthProvider,
   AuthorizeOptions,
@@ -195,36 +196,43 @@ export class GoogleOAuthProvider implements OAuthProvider {
         timeout: 15000,
       };
 
-      const req = (isHttps ? httpsRequest : httpRequest)(options, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          const data = Buffer.concat(chunks).toString();
+      const req = (isHttps ? httpsRequest : httpRequest)(
+        options,
+        (res: import('http').IncomingMessage) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => {
+            const data = Buffer.concat(chunks).toString();
 
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            try {
-              resolve(JSON.parse(data));
-            } catch {
-              const params = new URLSearchParams(data);
-              const parsed: Record<string, unknown> = {};
-              for (const [key, value] of params) {
-                parsed[key] = value;
+            if (
+              res.statusCode &&
+              res.statusCode >= 200 &&
+              res.statusCode < 300
+            ) {
+              try {
+                resolve(JSON.parse(data));
+              } catch {
+                const params = new URLSearchParams(data);
+                const parsed: Record<string, unknown> = {};
+                for (const [key, value] of params) {
+                  parsed[key] = value;
+                }
+                resolve(parsed);
               }
-              resolve(parsed);
+            } else {
+              reject(
+                new OAuthError(
+                  `Google API 错误 HTTP ${res.statusCode}: ${data.slice(0, 200)}`,
+                  'OAUTH_GOOGLE_API_ERROR',
+                  res.statusCode
+                )
+              );
             }
-          } else {
-            reject(
-              new OAuthError(
-                `Google API 错误 HTTP ${res.statusCode}: ${data.slice(0, 200)}`,
-                'OAUTH_GOOGLE_API_ERROR',
-                res.statusCode
-              )
-            );
-          }
-        });
-      });
+          });
+        }
+      );
 
-      req.on('error', (error) =>
+      req.on('error', (error: Error) =>
         reject(
           new OAuthError(`请求失败: ${error.message}`, 'OAUTH_REQUEST_FAILED')
         )
@@ -260,31 +268,38 @@ export class GoogleOAuthProvider implements OAuthProvider {
         timeout: 15000,
       };
 
-      const req = (isHttps ? httpsRequest : httpRequest)(options, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
-        res.on('end', () => {
-          const data = Buffer.concat(chunks).toString();
+      const req = (isHttps ? httpsRequest : httpRequest)(
+        options,
+        (res: import('http').IncomingMessage) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => {
+            const data = Buffer.concat(chunks).toString();
 
-          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            try {
-              resolve(JSON.parse(data));
-            } catch {
-              resolve({ raw: data });
+            if (
+              res.statusCode &&
+              res.statusCode >= 200 &&
+              res.statusCode < 300
+            ) {
+              try {
+                resolve(JSON.parse(data));
+              } catch {
+                resolve({ raw: data });
+              }
+            } else {
+              reject(
+                new OAuthError(
+                  `Google API 错误 HTTP ${res.statusCode}`,
+                  'OAUTH_GOOGLE_API_ERROR',
+                  res.statusCode
+                )
+              );
             }
-          } else {
-            reject(
-              new OAuthError(
-                `Google API 错误 HTTP ${res.statusCode}`,
-                'OAUTH_GOOGLE_API_ERROR',
-                res.statusCode
-              )
-            );
-          }
-        });
-      });
+          });
+        }
+      );
 
-      req.on('error', (error) =>
+      req.on('error', (error: Error) =>
         reject(
           new OAuthError(`请求失败: ${error.message}`, 'OAUTH_REQUEST_FAILED')
         )

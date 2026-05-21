@@ -7,11 +7,7 @@ import { writeFile, readFile, mkdir, stat, unlink, readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 
-import type {
-  UnifiedMessage,
-  MessageType,
-  MessageRole,
-} from './types/Message.js';
+import { UnifiedMessage, MessageType, MessageRole } from './types/Message.js';
 import type {
   UnifiedSession,
   SessionType,

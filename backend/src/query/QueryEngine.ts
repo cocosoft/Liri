@@ -881,7 +881,7 @@ export class QueryEngine {
       });
 
       // 持久化 API 调用日志
-      this.logApiCall(sessionId, result.usage, apiDuration, true);
+      this.logApiCall(sessionId, result.usage ?? null, apiDuration, true);
 
       return result;
     } catch (error) {

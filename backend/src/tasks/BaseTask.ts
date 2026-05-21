@@ -46,6 +46,7 @@ export abstract class BaseTask extends EventEmitter {
       outputFile,
       outputOffset: 0,
       notified: false,
+      metadata: undefined,
     };
   }
 
@@ -55,6 +56,14 @@ export abstract class BaseTask extends EventEmitter {
 
   abstract spawn(): Promise<void>;
   abstract kill(): Promise<void>;
+
+  /**
+   * 释放任务持有的资源。
+   * 由 TaskRegistry.remove() 自动调用，子类可重写以释放子进程、文件句柄等。
+   */
+  async cleanup(): Promise<void> {
+    // 默认空实现，子类按需重写
+  }
 
   get id(): string {
     return this.state.id;

@@ -1,4 +1,4 @@
-import { createToolManager } from '@modules/tools/ToolManager.js';
+import { getToolManager } from '@modules/tools/ToolManager.js';
 import type { CommandContext } from '@modules/commands/types';
 const call = async (
   args: string,
@@ -24,7 +24,7 @@ Examples:
   }
 
   if (subcommand === 'list') {
-    const toolManager = createToolManager();
+    const toolManager = getToolManager();
     const registry = toolManager.getRegistry();
     const tools = registry.getTools();
 
@@ -41,7 +41,7 @@ Examples:
           };
       output += `Tool: ${name}\n`;
       output += `  Description: ${info.description || 'No description'}\n`;
-      output += `  Tags: ${info.tags?.join(', ') || 'None'}\n`;
+      output += `  Tags: ${('tags' in info ? info.tags?.join(', ') : undefined) || 'None'}\n`;
       output += `  Read Only: ${info.readOnly ? 'Yes' : 'No'}\n`;
       output += `  Concurrent Safe: ${info.concurrencySafe ? 'Yes' : 'No'}\n`;
       const paramStr =
@@ -64,7 +64,7 @@ Examples:
       };
     }
 
-    const toolManager = createToolManager();
+    const toolManager = getToolManager();
     const registry = toolManager.getRegistry();
     const tool = registry.getTool(toolName);
 

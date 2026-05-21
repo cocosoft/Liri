@@ -1386,7 +1386,8 @@ export function createCodeReviewTool(): Tool {
         if (action === 'check') {
           const filePath = input.path as string;
           const content = fs.readFileSync(filePath, 'utf-8');
-          const language = (input.language as string) || detectLanguage(filePath);
+          const language =
+            (input.language as string) || detectLanguage(filePath);
 
           return performReview(content, language, input.strictness as string);
         }

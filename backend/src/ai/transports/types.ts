@@ -74,7 +74,12 @@ export interface TransportRequestParams {
   /** 模型名称 */
   model: string;
   /** 内部标准消息格式 */
-  messages: Array<{ role: string; content: string | null }>;
+  messages: Array<{
+    role: string;
+    content: string | null;
+    tool_call_id?: string;
+    tool_calls?: Array<Record<string, unknown>>;
+  }>;
   /** 工具定义列表 */
   tools?: Array<{
     name: string;

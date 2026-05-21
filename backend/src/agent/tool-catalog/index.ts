@@ -182,6 +182,23 @@ const CORE_TOOL_DEFINITIONS: CoreToolDefinition[] = [
     includeInOpenClawGroup: true,
   },
   {
+    id: 'knowledge_search',
+    label: 'knowledge_search',
+    description:
+      'Search across knowledge base documents, docs, and wiki articles',
+    sectionId: 'memory',
+    profiles: ['coding'],
+    includeInOpenClawGroup: true,
+  },
+  {
+    id: 'unified_search',
+    label: 'unified_search',
+    description: 'Unified search across knowledge base and memory system',
+    sectionId: 'memory',
+    profiles: ['coding'],
+    includeInOpenClawGroup: true,
+  },
+  {
     id: 'todo_write',
     label: 'todo_write',
     description: 'Write task tracking entries',

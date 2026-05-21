@@ -72,7 +72,13 @@ export const TOOL_GROUPS: Record<string, string[]> = {
   'group:fs': ['read', 'write', 'edit', 'apply_patch', 'glob', 'grep'],
   'group:runtime': ['exec', 'process', 'bash', 'powershell'],
   'group:web': ['web_search', 'web_fetch'],
-  'group:memory': ['memory_search', 'memory_get', 'todo_write'],
+  'group:memory': [
+    'memory_search',
+    'memory_get',
+    'todo_write',
+    'knowledge_search',
+    'unified_search',
+  ],
   'group:sessions': [
     'sessions_list',
     'sessions_history',

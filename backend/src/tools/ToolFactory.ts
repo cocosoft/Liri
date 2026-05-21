@@ -16,6 +16,14 @@ import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { CronListTool } from './ChronosTool/CronListTool';
+import { knowledgeRouter } from '../docs/KnowledgeRouter';
+import { createKnowledgeSearchTool } from '../memory/tools/KnowledgeSearchTool';
+import { createUnifiedSearchTool } from '../memory/tools/UnifiedSearchTool';
+import { createMemoryTool } from '../memory/tools/MemoryTool';
+import { createMemoryGetTool } from '../memory/tools/MemoryGetTool';
+import { SearchToolImpl } from '../memory/tools/SearchTool';
+import { createUnifiedSearchService } from '../memory/services/UnifiedSearchService';
+import { MemoryManagerImpl } from '../memory/MemoryManager';
 
 const logger = new Logger({ level: LogLevel.INFO });
 import { PowerShellTool } from './PowerShellTool/PowerShellTool';
@@ -926,6 +934,31 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new WebSearchTool());
   tools.push(new TaskStopTool());
   tools.push(new AskUserQuestionTool());
+
+  const knowledgeSearchTool = createKnowledgeSearchTool(knowledgeRouter);
+  if (knowledgeSearchTool) {
+    tools.push(knowledgeSearchTool);
+  }
+
+  const memoryManager = new MemoryManagerImpl('./data/memory');
+  const memorySearchTool = createMemoryTool(new SearchToolImpl(memoryManager));
+  if (memorySearchTool) {
+    tools.push(memorySearchTool);
+  }
+
+  const memoryGetTool = createMemoryGetTool(memoryManager);
+  if (memoryGetTool) {
+    tools.push(memoryGetTool);
+  }
+
+  const unifiedSearchService = createUnifiedSearchService(
+    knowledgeRouter,
+    memoryManager
+  );
+  const unifiedSearchTool = createUnifiedSearchTool(unifiedSearchService);
+  if (unifiedSearchTool) {
+    tools.push(unifiedSearchTool);
+  }
   tools.push(new SkillTool());
   tools.push(
     new PlanTool() as unknown as Tool<unknown, unknown, ToolProgressData>

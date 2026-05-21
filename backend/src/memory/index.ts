@@ -1,5 +1,36 @@
 export { MemoryManager, MemoryManagerImpl } from './MemoryManager';
-export { MemoryTool, createMemoryTool, SearchTool } from './tools';
+export {
+  MemoryTool,
+  createMemoryTool,
+  MemoryGetTool,
+  createMemoryGetTool,
+  SearchTool,
+  KnowledgeSearchTool,
+  createKnowledgeSearchTool,
+  UnifiedSearchTool,
+  createUnifiedSearchTool,
+} from './tools';
+export {
+  UnifiedSearchService,
+  createUnifiedSearchService,
+} from './services/UnifiedSearchService';
+export type {
+  UnifiedSearchResult,
+  MemorySearchProvider,
+} from './services/UnifiedSearchService';
+export {
+  KnowledgeBaseWriter,
+  createKnowledgeBaseWriter,
+} from './services/KnowledgeBaseWriter';
+export type {
+  KnowledgeBaseEntry,
+  WriteResult,
+} from './services/KnowledgeBaseWriter';
+export { KnowledgeRouterAdapter } from './services/adapters/KnowledgeSearchAdapter';
+export type {
+  KnowledgeSearchAdapter,
+  AdapterResult,
+} from './services/adapters/KnowledgeSearchAdapter';
 
 export * from './consolidation';
 export * from './indexer';

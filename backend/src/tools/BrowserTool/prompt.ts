@@ -1,6 +1,5 @@
 /**
  * BrowserTool提示模板
- * 基于CC源码 cc_code/backend/tools/BrowserTool/prompt.ts 实现
  */
 
 export const BROWSER_TOOL_PROMPT = `你是一个浏览器自动化助手。使用BrowserTool操作Chrome浏览器。

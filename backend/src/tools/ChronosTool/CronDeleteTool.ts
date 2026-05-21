@@ -1,6 +1,5 @@
 /**
  * Cron删除工具
- * 基于CC源码 cc_code/backend/tools/ScheduleCronTool/CronDeleteTool.ts 实现
  */
 
 import { Tool } from '../types/Tool';

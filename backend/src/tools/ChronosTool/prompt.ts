@@ -1,6 +1,5 @@
 /**
  * ChronosTool提示模板
- * 基于CC源码 cc_code/backend/tools/ChronosTool/prompt.ts 实现
  */
 
 export const CHRONOS_TOOL_PROMPT = `你是一个定时任务管理助手。使用ChronosTool创建和管理定时任务。

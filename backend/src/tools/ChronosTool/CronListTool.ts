@@ -1,6 +1,5 @@
 /**
  * Cron列表工具
- * 基于CC源码 cc_code/backend/tools/ScheduleCronTool/CronListTool.ts 实现
  */
 
 import { Tool } from '../types/Tool';

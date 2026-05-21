@@ -1,6 +1,5 @@
 /**
  * 浏览器自动化工具
- * 参考CC源码 cc_code/backend/skills/bundled/claudeInChrome.ts 实现
  * 提供与Chrome浏览器交互的功能，支持打开标签页、点击元素、填写表单等操作
  */
 

@@ -1,6 +1,5 @@
 /**
  * Cron创建工具
- * 基于CC源码 cc_code/backend/tools/ScheduleCronTool/CronCreateTool.ts 实现
  */
 
 import { Tool } from '../types/Tool';

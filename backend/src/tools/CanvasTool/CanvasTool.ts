@@ -1,6 +1,5 @@
 /**
  * CanvasTool
- * 对标OpenClaw canvas 工具
  * 画布操作工具
  */
 

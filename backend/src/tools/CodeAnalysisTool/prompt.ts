@@ -1,6 +1,5 @@
 /**
  * CodeAnalysisTool提示模板
- * 基于CC源码 cc_code/backend/tools/CodeAnalysisTool/prompt.ts 实现
  */
 
 export const CODE_ANALYSIS_TOOL_PROMPT = `你是一个代码分析助手。使用CodeAnalysisTool分析代码结构、质量和依赖关系。

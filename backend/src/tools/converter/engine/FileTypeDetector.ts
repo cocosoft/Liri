@@ -17,8 +17,15 @@ const EXTENSION_MIME_MAP: Record<string, string> = {
   '.html': 'text/html',
   '.htm': 'text/html',
   '.xhtml': 'application/xhtml+xml',
+  '.doc': 'application/msword',
+  '.dot': 'application/msword',
   '.docx':
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.dotx':
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.template',
+  '.docm': 'application/vnd.ms-word.document.macroenabled.12',
+  '.rtf': 'application/rtf',
+  '.odt': 'application/vnd.oasis.opendocument.text',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.pptx':
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',

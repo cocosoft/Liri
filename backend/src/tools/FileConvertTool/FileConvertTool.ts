@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BaseTool } from '../BaseTool';
 import { ToolTag } from '../types/Tool';
+import { AppError } from '../../error/types';
+import { ErrorCodes } from '../../error/ErrorCodes';
 import type {
   ToolParam,
   ToolUseContext,
@@ -94,12 +96,17 @@ export class FileConvertTool extends BaseTool {
         ],
       });
     } catch (error: any) {
+      const isUnsupported =
+        error instanceof AppError &&
+        error.code === String(ErrorCodes.UNSUPPORTED_FORMAT.code);
+      const prefix = isUnsupported ? '格式不支持' : '转换失败';
+
       return createToolResult(error.message, {
         success: false,
         error: error.message,
         output: error.message,
         newMessages: [
-          { role: 'system', content: `转换失败: ${error.message}` },
+          { role: 'system', content: `${prefix}: ${error.message}` },
         ],
       });
     }

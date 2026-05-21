@@ -2,7 +2,6 @@
  * ClipboardTool
  * 剪贴板读写工具
  * 跨平台支持：Windows(macOS/Linux 使用 pbpaste/pbcopy/xclip)
- * 对标 CC 的 ClipboardTool
  */
 
 import * as os from 'node:os';

@@ -9,7 +9,7 @@
 推荐将密钥存储在环境变量中：
 
 ```env
-AI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 AI_SECRET_KEY=your_secret_key
 DISCORD_TOKEN=your_discord_bot_token
 ```

@@ -7,7 +7,7 @@ import { Memory } from '../types/Memory';
 import { MemoryType } from '../types/MemoryType';
 import { MemoryManager } from '../MemoryManager';
 import type { AIService } from '@modules/ai/models/types';
-import { Logger } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { KnowledgeBaseWriter } from './KnowledgeBaseWriter';
 
 /**
@@ -81,7 +81,7 @@ export class AutoMemoryService {
       useLLM: false,
       ...config,
     };
-    this.logger = new Logger({ name: 'AutoMemoryService' });
+    this.logger = new Logger({ level: LogLevel.INFO });
   }
 
   /**

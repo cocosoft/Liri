@@ -8,12 +8,9 @@
 
 ```ini
 # AI 模型配置
-AI_PROVIDER=openai
-AI_API_KEY=
-AI_MODEL=gpt-4
-AI_BASE_URL=
-AI_MAX_TOKENS=4096
-AI_TEMPERATURE=0.7
+DEEPSEEK_API_KEY=在此填入你的 DeepSeek API 密钥
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
 
 # 日志配置
 LOG_LEVEL=info

@@ -210,7 +210,7 @@ export class ModelManager {
    */
   getModelPricing(
     modelName: string
-  ): { inputPer1K: number; outputPer1K: number } | null {
+  ): { inputPer1M: number; outputPer1M: number } | null {
     const modelKey = getModelKeyByName(modelName);
     if (modelKey) {
       return ALL_MODEL_CONFIGS[modelKey].pricing || null;
@@ -231,8 +231,8 @@ export class ModelManager {
       return null;
     }
 
-    const inputCost = (inputTokens / 1000) * pricing.inputPer1K;
-    const outputCost = (outputTokens / 1000) * pricing.outputPer1K;
+    const inputCost = (inputTokens / 1000000) * pricing.inputPer1M;
+    const outputCost = (outputTokens / 1000000) * pricing.outputPer1M;
     return inputCost + outputCost;
   }
 
@@ -261,7 +261,7 @@ export class ModelManager {
         const config = ALL_MODEL_CONFIGS[key];
         const id = config.firstParty;
         const pricing = config.pricing
-          ? `(输入: $${config.pricing.inputPer1K}/1K, 输出: $${config.pricing.outputPer1K}/1K)`
+          ? `(输入: $${config.pricing.inputPer1M}/1M, 输出: $${config.pricing.outputPer1M}/1M)`
           : '';
         return {
           id,

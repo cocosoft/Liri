@@ -1,8 +1,6 @@
 /**
- * 配置管理工具（兼容层）
- *
- * 本文件为旧版配置系统的兼容层，所有功能委托给新的 ConfigManager 实现。
- * 新代码应直接使用 @modules/config 而非此文件。
+ * 配置管理工具
+ * 委托给 ConfigManager 实现的配置 API
  */
 
 import { join } from 'path';
@@ -32,7 +30,7 @@ let runtimeOverrides: Record<string, unknown> = {};
 
 export function getConfigPath(): string {
   const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-  return join(homeDir, '.PY_APP', 'config.json');
+  return join(homeDir, '.pyapp', 'config.json');
 }
 
 export function getGlobalConfig(): GlobalConfig {

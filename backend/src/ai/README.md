@@ -10,7 +10,7 @@ AI 功能模块，提供模型管理和 AI 服务能力。
 - **clients/** — AI 客户端实现（retry、thinking 等）
 - **models/** — 模型类型定义
 - **telemetry/** — AI 调用遥测
-- **miniAgent/** — 轻量级 Agent 支持
+- **localAgent/** — 轻量级本地 Agent 支持
 
 ## 模型数据源
 

@@ -6,7 +6,7 @@
 import chalk from 'chalk';
 import * as os from 'os';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { createConfigManager } from '@modules/cli/config';
+import { createCliConfigManager } from '@modules/cli/config';
 import { createSessionGateway } from '@modules/session/SessionGateway';
 import { SlowQueryDetector } from '@modules/query/SlowQueryDetector';
 
@@ -271,7 +271,7 @@ export class DiagnoseHandler {
   private async printConfigDebug(): Promise<void> {
     console.log(chalk.bold('配置状态:'));
     try {
-      const configManager = createConfigManager();
+      const configManager = createCliConfigManager();
       const config = configManager.getConfig();
       console.log(
         `  ${chalk.gray('路径:')}   ${configManager.getConfigPath()}`

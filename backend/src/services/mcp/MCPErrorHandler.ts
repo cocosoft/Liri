@@ -4,7 +4,9 @@
  * 负责定义和处理MCP系统的错误
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * MCP错误类型

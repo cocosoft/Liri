@@ -17,7 +17,9 @@ import { StrategyFactory } from './strategies/agentStrategy';
 import { createAgentMemory } from './memory/agentMemory';
 import { AIModelType, AIMessageRole } from '../ai';
 import aiService from '../ai';
-import { logger } from '../utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   saveTrajectory,
   messagesToTrajectory,

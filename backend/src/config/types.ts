@@ -105,21 +105,21 @@ export interface AIConfig {
   routing?: RoutingConfig;
   /** Token 估算器配置 */
   tokenEstimator?: TokenEstimatorConfig;
-  /** Mini Agent 配置 */
-  miniAgent?: MiniAgentConfig;
+  /** Local Agent 配置 */
+  localAgent?: LocalAgentConfig;
 }
 
 /**
- * Mini Agent 配置
+ * Local Agent 配置
  */
-export interface MiniAgentConfig {
+export interface LocalAgentConfig {
   /** 是否启用 */
   enabled: boolean;
   /** 路由策略 */
   routing: RoutingConfig;
   /** Ollama 配置 */
   ollama?: OllamaConfig;
-  /** 绕过路由（这些路由不经过 MiniAgent 直接执行） */
+  /** 绕过路由（这些路由不经过 LocalAgent 直接执行） */
   bypassRoutes?: string[];
   /** 是否启用性能指标 */
   enableMetrics?: boolean;
@@ -507,4 +507,16 @@ export interface ConfigStats {
   cacheMisses: number;
   lastReadTime?: number;
   lastWriteTime?: number;
+}
+
+/**
+ * 用户设置 JSON 结构
+ */
+export interface SettingsJson {
+  theme?: string;
+  language?: string;
+  fontSize?: number;
+  apiKey?: string;
+  model?: string;
+  [key: string]: unknown;
 }

@@ -1,10 +1,7 @@
-//
 /**
- * Mini Agent 核心类型定义
+ * Local Agent 核心类型定义
  * 普适性架构 - 核心层必需组件
  */
-
-import type { ChatMessage } from '../models/types.js';
 
 export interface Intent {
   type: IntentType;
@@ -31,9 +28,16 @@ export interface RouteDecision {
 
 export type RouteTarget = 'rule_engine' | 'ollama' | 'cloud';
 
-export interface MiniAgentConfig {
+export interface DelegationConfig {
+  enabled: boolean;
+  complexityThreshold: number;
+  maxDepth: number;
+}
+
+export interface LocalAgentConfig {
   ollama?: OllamaConfig;
   routing: RoutingConfig;
+  delegation?: DelegationConfig;
 }
 
 export interface OllamaConfig {
@@ -46,6 +50,11 @@ export interface OllamaConfig {
 export interface RoutingConfig {
   strategy: RoutingStrategy;
   fallbackToCloud: boolean;
+  thresholds?: {
+    ruleEngine: number;
+    localLLM: number;
+    cloud: number;
+  };
 }
 
 export type RoutingStrategy = 'cloud-first' | 'ollama-first' | 'local-first';
@@ -63,7 +72,7 @@ export interface RuleMatch {
   routeDecision: RouteDecision;
 }
 
-export interface MiniAgentResult {
+export interface LocalAgentResult {
   response: string;
   intent: Intent;
   routeDecision: RouteDecision;
@@ -86,51 +95,6 @@ export interface CommandExecutor {
 export interface IRuleEngine {
   classify(input: string): Intent;
   match(input: string): RuleMatch | null;
-}
-
-export interface IOllamaProvider {
-  isAvailable(): Promise<boolean>;
-  generate(
-    prompt: string,
-    options?: OllamaGenerateOptions
-  ): Promise<OllamaResponse>;
-  chat(
-    messages: ChatMessage[],
-    options?: OllamaChatOptions
-  ): Promise<OllamaChatResponse>;
-  listModels(): Promise<string[]>;
-}
-
-export interface OllamaGenerateOptions {
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-  timeout?: number;
-}
-
-export interface OllamaChatOptions extends OllamaGenerateOptions {
-  tools?: any[];
-}
-
-export interface OllamaResponse {
-  model: string;
-  response: string;
-  done: boolean;
-  context?: number[];
-  totalDuration?: number;
-  loadDuration?: number;
-  promptEvalCount?: number;
-  evalCount?: number;
-}
-
-export interface OllamaChatResponse {
-  model: string;
-  message: {
-    role: string;
-    content: string;
-  };
-  done: boolean;
-  totalDuration?: number;
 }
 
 export const ROUTING_KEYWORDS: Record<IntentType, string[]> = {

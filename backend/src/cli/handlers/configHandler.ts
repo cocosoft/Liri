@@ -7,8 +7,8 @@ import chalk from 'chalk';
 import { t } from '@modules/system/i18n/extended';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
-  ConfigManager,
-  createConfigManager,
+  CliConfigManager,
+  createCliConfigManager,
   ConfigOptions,
 } from '@modules/cli/config';
 
@@ -19,12 +19,12 @@ export interface ConfigHandlerOptions {
 }
 
 export class ConfigHandler {
-  private configManager: ConfigManager;
+  private configManager: CliConfigManager;
   private options: ConfigHandlerOptions;
 
   constructor(options?: ConfigHandlerOptions) {
     this.options = { verbose: false, ...options };
-    this.configManager = createConfigManager();
+    this.configManager = createCliConfigManager();
   }
 
   /**

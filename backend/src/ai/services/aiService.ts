@@ -177,22 +177,18 @@ export class AIServiceImpl implements AIService {
   }
 
   private getClientForModel(model: AIModelType): AIProvider {
-    if (model.startsWith('claude')) {
-      return providerRegistry.getOrCreate('anthropic', {
-        apiKey: this.config.apiKey,
-        baseUrl: this.config.baseUrl,
-      });
-    } else if (model.startsWith('deepseek')) {
-      return providerRegistry.getOrCreate('deepseek', {
-        apiKey: this.config.apiKey,
-        baseUrl: this.config.baseUrl,
-      });
-    } else {
-      return providerRegistry.getOrCreate('openai', {
-        apiKey: this.config.apiKey,
-        baseUrl: this.config.baseUrl,
-      });
-    }
+    const resolved = providerRegistry.getByModel(model);
+    if (resolved) return resolved;
+
+    const id = model.startsWith('claude')
+      ? 'anthropic'
+      : model.startsWith('deepseek')
+        ? 'deepseek'
+        : 'openai';
+    return providerRegistry.getOrCreate(id, {
+      apiKey: this.config.apiKey,
+      baseUrl: this.config.baseUrl,
+    });
   }
 }
 

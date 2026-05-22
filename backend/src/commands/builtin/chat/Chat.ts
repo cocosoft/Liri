@@ -114,42 +114,51 @@ export class ChatCommand {
     }
   }
 
-  private parseArgs(args: string): { message: string; options: ChatOptions } {
-    const trimmedArgs = args.trim();
-    const options: ChatOptions = {
-      stream: false,
-      showCost: false,
-    };
-
-    let remainingArgs = trimmedArgs;
-
-    if (remainingArgs.includes('--stream')) {
-      options.stream = true;
-      remainingArgs = remainingArgs.replace('--stream', '').trim();
+    /**
+     * 解析输入参数字符串，提取聊天选项和剩余的消息内容。
+     * 支持解析 --stream, --show-cost, --model=<value>, --provider=<value> 等标志。
+     *
+     * @param args - 原始输入参数字符串
+     * @returns 包含解析后的消息内容和聊天选项的对象
+     */
+    private parseArgs(args: string): { message: string; options: ChatOptions } {
+      const trimmedArgs = args.trim();
+      const options: ChatOptions = {
+        stream: false,
+        showCost: false,
+      };
+  
+      let remainingArgs = trimmedArgs;
+  
+      // 解析布尔型标志：--stream 和 --show-cost
+      if (remainingArgs.includes('--stream')) {
+        options.stream = true;
+        remainingArgs = remainingArgs.replace('--stream', '').trim();
+      }
+  
+      if (remainingArgs.includes('--show-cost')) {
+        options.showCost = true;
+        remainingArgs = remainingArgs.replace('--show-cost', '').trim();
+      }
+  
+      // 解析带值的参数：--model 和 --provider
+      const modelMatch = remainingArgs.match(/--model=(\S+)/);
+      if (modelMatch) {
+        options.model = modelMatch[1];
+        remainingArgs = remainingArgs.replace(modelMatch[0], '').trim();
+      }
+  
+      const providerMatch = remainingArgs.match(/--provider=(\S+)/);
+      if (providerMatch) {
+        options.provider = providerMatch[1];
+        remainingArgs = remainingArgs.replace(providerMatch[0], '').trim();
+      }
+  
+      return {
+        message: remainingArgs,
+        options,
+      };
     }
-
-    if (remainingArgs.includes('--show-cost')) {
-      options.showCost = true;
-      remainingArgs = remainingArgs.replace('--show-cost', '').trim();
-    }
-
-    const modelMatch = remainingArgs.match(/--model=(\S+)/);
-    if (modelMatch) {
-      options.model = modelMatch[1];
-      remainingArgs = remainingArgs.replace(modelMatch[0], '').trim();
-    }
-
-    const providerMatch = remainingArgs.match(/--provider=(\S+)/);
-    if (providerMatch) {
-      options.provider = providerMatch[1];
-      remainingArgs = remainingArgs.replace(providerMatch[0], '').trim();
-    }
-
-    return {
-      message: remainingArgs,
-      options,
-    };
-  }
 
   async call(args: string, context: CommandContext): Promise<ChatResult> {
     const { message, options } = this.parseArgs(args);

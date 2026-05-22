@@ -1,14 +1,11 @@
-//
-/**
- * 命令执行器
- * 处理本地命令执行
- */
-
 import { spawn } from 'child_process';
+import fs from 'fs/promises';
+import path from 'path';
 import type { CommandMatch, CommandExecutor } from './types.js';
 
 export class LocalCommandExecutor implements CommandExecutor {
   private allowedCommands: Set<string>;
+  private allowedDirectories: string[];
   private maxOutputLength: number;
 
   constructor(
@@ -23,9 +20,11 @@ export class LocalCommandExecutor implements CommandExecutor {
       'pwd',
       'cd',
     ],
+    allowedDirectories?: string[],
     maxOutputLength: number = 10000
   ) {
     this.allowedCommands = new Set(allowedCommands.map((c) => c.toLowerCase()));
+    this.allowedDirectories = allowedDirectories || [process.cwd()];
     this.maxOutputLength = maxOutputLength;
   }
 
@@ -52,69 +51,115 @@ export class LocalCommandExecutor implements CommandExecutor {
     args?: Record<string, string>,
     context?: any
   ): Promise<string> {
-    const path = args?.path || context?.path;
+    const filePath = args?.path || context?.path;
 
-    if (!path) {
+    if (!filePath) {
       return 'Error: path is required for create action';
     }
 
-    if (path.includes('..') || path.includes('~')) {
-      return 'Error: path traversal not allowed';
+    if (!this.isPathAllowed(filePath)) {
+      return `Error: path not allowed: ${filePath}`;
     }
 
-    return `Simulated create: ${path}`;
+    try {
+      const resolvedPath = path.resolve(filePath);
+      await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
+      await fs.writeFile(resolvedPath, '', 'utf-8');
+      return `Created: ${resolvedPath}`;
+    } catch (error) {
+      return `Error creating file: ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 
   private async handleDelete(
     args?: Record<string, string>,
     context?: any
   ): Promise<string> {
-    const path = args?.path || context?.path;
+    const filePath = args?.path || context?.path;
 
-    if (!path) {
+    if (!filePath) {
       return 'Error: path is required for delete action';
     }
 
-    if (path.includes('..') || path.includes('~')) {
+    if (filePath.includes('..') || filePath.includes('~')) {
       return 'Error: path traversal not allowed';
     }
 
-    return `Simulated delete: ${path}`;
+    return 'Error: delete operation requires explicit confirmation and is disabled by default';
   }
 
   private async handleRead(
     args?: Record<string, string>,
     context?: any
   ): Promise<string> {
-    const path = args?.path || context?.path;
+    const filePath = args?.path || context?.path;
 
-    if (!path) {
+    if (!filePath) {
       return 'Error: path is required for read action';
     }
 
-    if (path.includes('..') || path.includes('~')) {
-      return 'Error: path traversal not allowed';
+    if (!this.isPathAllowed(filePath)) {
+      return `Error: path not allowed: ${filePath}`;
     }
 
-    return `Simulated read: ${path}`;
+    try {
+      const resolvedPath = path.resolve(filePath);
+      const content = await fs.readFile(resolvedPath, 'utf-8');
+      return content;
+    } catch (error) {
+      return `Error reading file: ${error instanceof Error ? error.message : String(error)}`;
+    }
   }
 
   private async handleWrite(
     args?: Record<string, string>,
     context?: any
   ): Promise<string> {
-    const path = args?.path || context?.path;
+    const filePath = args?.path || context?.path;
     const content = args?.content || context?.content;
 
-    if (!path) {
+    if (!filePath) {
       return 'Error: path is required for write action';
     }
 
-    if (path.includes('..') || path.includes('~')) {
-      return 'Error: path traversal not allowed';
+    if (!this.isPathAllowed(filePath)) {
+      return `Error: path not allowed: ${filePath}`;
     }
 
-    return `Simulated write to: ${path}`;
+    try {
+      const resolvedPath = path.resolve(filePath);
+      await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
+      await fs.writeFile(resolvedPath, content || '', 'utf-8');
+      return `Written to: ${resolvedPath}`;
+    } catch (error) {
+      return `Error writing file: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  private isPathAllowed(filePath: string): boolean {
+    try {
+      const resolved = path.resolve(filePath);
+      return this.allowedDirectories.some((dir) => {
+        const resolvedDir = path.resolve(dir);
+        return (
+          resolved.startsWith(resolvedDir + path.sep) ||
+          resolved === resolvedDir
+        );
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  addAllowedDirectory(dir: string): void {
+    const resolved = path.resolve(dir);
+    if (!this.allowedDirectories.includes(resolved)) {
+      this.allowedDirectories.push(resolved);
+    }
+  }
+
+  getAllowedDirectories(): string[] {
+    return [...this.allowedDirectories];
   }
 
   private async handleExecute(
@@ -199,7 +244,8 @@ export class LocalCommandExecutor implements CommandExecutor {
 }
 
 export function createCommandExecutor(
-  allowedCommands?: string[]
+  allowedCommands?: string[],
+  allowedDirectories?: string[]
 ): LocalCommandExecutor {
-  return new LocalCommandExecutor(allowedCommands);
+  return new LocalCommandExecutor(allowedCommands, allowedDirectories);
 }

@@ -1,15 +1,19 @@
 import type { AIProvider, ChatOptions } from '@modules/ai/providers';
 import type { ChatMessage, ChatResponse } from '@modules/ai/models/types';
+import type {
+  IToolExecutor,
+  ToolRegistry,
+} from '@modules/ai/interfaces/ToolExecutor';
 
 export class ToolAwareClient {
   private provider: AIProvider;
-  private toolRegistry: unknown;
-  private toolExecutor: unknown;
+  private toolRegistry: ToolRegistry | null;
+  private toolExecutor: IToolExecutor | null;
 
   constructor(
     provider: AIProvider,
-    toolRegistry: unknown,
-    toolExecutor: unknown
+    toolRegistry: ToolRegistry | null,
+    toolExecutor: IToolExecutor | null
   ) {
     this.provider = provider;
     this.toolRegistry = toolRegistry;

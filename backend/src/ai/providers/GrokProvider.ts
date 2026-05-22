@@ -10,10 +10,10 @@ import type {
   ProviderValidationResult,
   ChatOptions,
 } from './AIProvider';
+import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
-
-const SUPPORTED_MODELS = ['grok-4', 'grok-4-mini', 'grok-3', 'grok-3-mini'];
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 export class GrokProvider implements AIProvider {
   readonly id = 'grok';
@@ -47,7 +47,9 @@ export class GrokProvider implements AIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    return [...SUPPORTED_MODELS];
+    return getModelsByProvider('grok').map(
+      (key) => ALL_MODEL_CONFIGS[key].grok
+    );
   }
 
   validateConfig(config: ProviderConfig): ProviderValidationResult {
@@ -60,9 +62,9 @@ export class GrokProvider implements AIProvider {
     return { valid: errors.length === 0, errors, warnings: [] };
   }
 
-  setToolRegistry(registry: unknown): void {}
+  setToolRegistry(registry: ToolRegistry | null): void {}
 
-  setToolExecutor(executor: unknown): void {}
+  setToolExecutor(executor: IToolExecutor | null): void {}
 
   private async sendRequest(
     messages: ChatMessage[],
@@ -72,8 +74,11 @@ export class GrokProvider implements AIProvider {
     const apiKey =
       (this.config.apiKey as string) || process.env['GROK_API_KEY'] || '';
     const baseUrl = (this.config.baseUrl as string) || 'https://api.x.ai/v1';
+    const grokModels = getModelsByProvider('grok').map(
+      (key) => ALL_MODEL_CONFIGS[key].grok
+    );
     const model =
-      options?.model || (this.config.model as string) || SUPPORTED_MODELS[1];
+      options?.model || (this.config.model as string) || grokModels[1];
 
     const requestBody = this.adapter.buildRequest({
       model,

@@ -4,17 +4,14 @@
 
 | 变量 | 说明 | 示例 |
 |------|------|------|
-| `AI_PROVIDER` | AI 服务提供商 | `openai` |
-| `AI_API_KEY` | API 密钥 | `sk-xxx` |
+| `DEEPSEEK_API_KEY` | DeepSeek API 密钥（获取: https://platform.deepseek.com/api_keys） | `sk-xxx` |
 
 ## AI 配置
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `AI_MODEL` | 模型名称 | `gpt-4` |
-| `AI_BASE_URL` | API 基础 URL | - |
-| `AI_MAX_TOKENS` | 最大 Token 数 | `4096` |
-| `AI_TEMPERATURE` | 温度参数 | `0.7` |
+| `DEEPSEEK_BASE_URL` | API 基础 URL | `https://api.deepseek.com` |
+| `DEEPSEEK_MODEL` | 模型名称 | `deepseek-chat` |
 
 ## 服务配置
 

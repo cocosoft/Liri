@@ -12,12 +12,7 @@ import type {
 } from './AIProvider';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
-
-const SUPPORTED_MODELS = [
-  'moonshot-v1-8k',
-  'moonshot-v1-32k',
-  'moonshot-v1-128k',
-];
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 export class MoonshotProvider implements AIProvider {
   readonly id = 'moonshot';
@@ -51,7 +46,9 @@ export class MoonshotProvider implements AIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    return [...SUPPORTED_MODELS];
+    return getModelsByProvider('moonshot').map(
+      (key) => ALL_MODEL_CONFIGS[key].moonshot
+    );
   }
 
   validateConfig(config: ProviderConfig): ProviderValidationResult {
@@ -73,8 +70,11 @@ export class MoonshotProvider implements AIProvider {
       (this.config.apiKey as string) || process.env['MOONSHOT_API_KEY'] || '';
     const baseUrl =
       (this.config.baseUrl as string) || 'https://api.moonshot.cn/v1';
+    const moonshotModels = getModelsByProvider('moonshot').map(
+      (key) => ALL_MODEL_CONFIGS[key].moonshot
+    );
     const model =
-      options?.model || (this.config.model as string) || SUPPORTED_MODELS[1];
+      options?.model || (this.config.model as string) || moonshotModels[1];
 
     const requestBody = this.adapter.buildRequest({
       model,

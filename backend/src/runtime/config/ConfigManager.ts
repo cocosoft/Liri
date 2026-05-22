@@ -1,5 +1,9 @@
 //
 /**
+ * @deprecated 配置管理功能已统一迁移到 @modules/config。
+ * 请使用 ConfigManager (from @modules/config/ConfigManager) 替代。
+ * 此文件在下一轮清理中移除。
+ *
  * 多层配置管理器
  * 参考CC源码的配置管理模式，提供多层级配置合并机制
  * 包括：环境变量、用户配置、项目配置、策略配置、默认配置
@@ -7,7 +11,7 @@
 
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { dirname } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { deepMerge } from '@modules/utils/common.js';
 

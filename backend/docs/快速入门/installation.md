@@ -51,9 +51,9 @@ cp .env.example .env
 
 ```ini
 # AI 模型配置
-AI_PROVIDER=openai
-AI_API_KEY=your_api_key_here
-AI_MODEL=gpt-4
+DEEPSEEK_API_KEY=在此填入你的 DeepSeek API 密钥
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
 
 # 日志级别
 LOG_LEVEL=info

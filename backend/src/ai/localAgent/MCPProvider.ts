@@ -99,12 +99,19 @@ export class MCPProvider {
     return this.client?.isConnected() || false;
   }
 
-  matchTool(input: string): string | null {
+  async matchTool(input: string): Promise<string | null> {
     if (!this.enabled || !this.client) {
       return null;
     }
 
     const lowerInput = input.toLowerCase();
+
+    const tools = await this.listTools();
+    for (const tool of tools) {
+      if (lowerInput.includes(tool.toLowerCase())) {
+        return tool;
+      }
+    }
 
     const commonTools = [
       'filesystem',

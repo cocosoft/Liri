@@ -41,6 +41,14 @@ export {
   registerDefaultProviders,
   registerAnthropicProvider,
   registerOpenAIProvider,
+  registerGoogleProvider,
+  registerOllamaProvider,
+  registerVertexAIProvider,
+  registerDeepSeekProvider,
+  registerBedrockProvider,
+  registerAzureOpenAIProvider,
+  registerMoonshotProvider,
+  registerGrokProvider,
 } from './providers/registerProviders';
 
 // transports/ — 统一传输抽象层（对标 Hermes ProviderTransport）
@@ -124,6 +132,12 @@ export type {
   ToolExecutorConfig,
 } from './interfaces/ToolExecutor';
 export type { ToolExecutorConfig as IToolExecutorConfig } from './interfaces/ToolExecutor';
+export type {
+  IQueryEngineCore,
+  QueryOptions,
+  QueryHooks,
+} from './interfaces/IQueryEngineCore';
+/** @deprecated 使用 QueryEngineWrapper 或 query/QueryEngine 替代 */
 export { AIQueryEngine } from './services/AIQueryEngine';
 export type { AIQueryEngineConfig } from './services/AIQueryEngine';
 export type {
@@ -144,18 +158,15 @@ export type {
 } from './telemetry';
 
 export {
-  MiniAgent,
+  LocalAgent,
   KeywordRuleEngine,
   TaskRouterImpl,
-  OllamaProvider as MiniAgentOllamaProvider,
   LocalCommandExecutor,
-  createMiniAgent,
-  getGlobalMiniAgent,
-  setGlobalMiniAgent,
+  createLocalAgent,
+  getGlobalLocalAgent,
+  setGlobalLocalAgent,
   createTaskRouter,
   createCommandExecutor,
-  createOllamaProvider,
-  createDefaultOllamaConfig,
   QueryEngineIntegrationAdapter,
   createIntegrationAdapter,
   getGlobalIntegrationAdapter,
@@ -165,7 +176,7 @@ export {
   MetricsCollector,
   createMetricsCollector,
   getGlobalMetricsCollector,
-} from './miniAgent';
+} from './localAgent';
 export type {
   Intent,
   RouteDecision,
@@ -174,32 +185,35 @@ export type {
   CommandMatch,
   CommandAction,
   RuleMatch,
-  MiniAgentConfig,
-  MiniAgentResult,
+  LocalAgentConfig,
+  LocalAgentResult,
   OllamaConfig,
   RoutingConfig,
   RoutingStrategy,
   IRuleEngine,
-  IOllamaProvider,
-  OllamaGenerateOptions,
-  OllamaChatOptions,
-  OllamaResponse,
-  OllamaChatResponse,
   QueryEngineIntegrationConfig,
-  IntegrationResult as QueryEngineIntegrationResult,
+  QueryEngineIntegrationResult,
   MCPProviderConfig,
   IMCPClient,
   MCPToolCall,
   MCPToolResult,
-  MiniAgentMetrics,
+  LocalAgentMetrics,
   MetricEntry,
-} from './miniAgent';
+} from './localAgent';
 
 export {
   QueryEngineWrapper,
   createQueryEngineWrapper,
 } from './services/QueryEngineWrapper';
 export type { QueryEngineWrapperConfig } from './services/QueryEngineWrapper';
+
+// middleware/ — 统一中间件管道
+export {
+  AIPipeline,
+  getDefaultPipeline,
+  setDefaultPipeline,
+} from './middleware';
+export type { AIMiddleware, AIMiddlewareContext } from './middleware';
 
 export * from './credentials';
 export * from './cost';

@@ -12,16 +12,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-const SUPPORTED_MODELS = [
-  'gemini-2.5-pro',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-pro',
-  'gemini-1.5-flash',
-];
 
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -201,13 +194,16 @@ export class GoogleProvider implements AIProvider {
   }
 
   async listModels(): Promise<string[]> {
+    const supportedModels = getModelsByProvider('google').map(
+      (key) => ALL_MODEL_CONFIGS[key].google
+    );
     try {
       const url = `${this.baseUrl}/models?key=${this.apiKey}&pageSize=100`;
       const response = await fetch(url, {
         signal: AbortSignal.timeout(10000),
       });
 
-      if (!response.ok) return [...SUPPORTED_MODELS];
+      if (!response.ok) return supportedModels;
 
       const data = (await response.json()) as {
         models?: { name: string }[];
@@ -215,10 +211,10 @@ export class GoogleProvider implements AIProvider {
       return (
         data.models
           ?.map((m) => m.name.replace('models/', ''))
-          .filter((name) => name.includes('gemini')) ?? [...SUPPORTED_MODELS]
+          .filter((name) => name.includes('gemini')) ?? supportedModels
       );
     } catch {
-      return [...SUPPORTED_MODELS];
+      return supportedModels;
     }
   }
 
@@ -230,9 +226,12 @@ export class GoogleProvider implements AIProvider {
       errors.push('API key is required (config.apiKey or GOOGLE_API_KEY)');
     }
 
-    if (config.model && !SUPPORTED_MODELS.includes(config.model)) {
+    const supportedModels = getModelsByProvider('google').map(
+      (key) => ALL_MODEL_CONFIGS[key].google
+    );
+    if (config.model && !supportedModels.includes(config.model)) {
       warnings.push(
-        `Unknown model: ${config.model}. Supported: ${SUPPORTED_MODELS.join(', ')}`
+        `Unknown model: ${config.model}. Supported: ${supportedModels.join(', ')}`
       );
     }
 

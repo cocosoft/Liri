@@ -96,7 +96,7 @@ export class SkillProvider {
     }
   }
 
-  matchSkill(input: string): SkillMatch | null {
+  async matchSkill(input: string): Promise<SkillMatch | null> {
     if (!this.enabled || !this.registry) {
       return null;
     }

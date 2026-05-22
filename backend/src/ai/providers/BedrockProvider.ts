@@ -17,14 +17,7 @@ import type {
 } from './AIProvider';
 import { BedrockTransport } from '../transports/BedrockTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
-
-const SUPPORTED_MODELS = [
-  'anthropic.claude-sonnet-4-6-v2:0',
-  'anthropic.claude-3-5-sonnet-20241022-v2:0',
-  'anthropic.claude-3-5-haiku-20241022-v1:0',
-  'amazon.nova-pro-v1:0',
-  'amazon.nova-lite-v1:0',
-];
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 export class BedrockProvider implements AIProvider {
   readonly id = 'bedrock';
@@ -58,7 +51,9 @@ export class BedrockProvider implements AIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    return [...SUPPORTED_MODELS];
+    return getModelsByProvider('bedrock').map(
+      (key) => ALL_MODEL_CONFIGS[key].bedrock
+    );
   }
 
   validateConfig(config: ProviderConfig): ProviderValidationResult {
@@ -87,8 +82,11 @@ export class BedrockProvider implements AIProvider {
     options?: ChatOptions,
     stream?: boolean
   ): Promise<ChatResponse> {
+    const bedrockModels = getModelsByProvider('bedrock').map(
+      (key) => ALL_MODEL_CONFIGS[key].bedrock
+    );
     const model =
-      options?.model || (this.config.model as string) || SUPPORTED_MODELS[0];
+      options?.model || (this.config.model as string) || bedrockModels[0];
     const region =
       (this.config.region as string) ||
       process.env['AWS_REGION'] ||

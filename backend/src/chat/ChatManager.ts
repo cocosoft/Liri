@@ -43,6 +43,8 @@ import {
   validateInput,
 } from '../utils/sanitization.js';
 import { ToolAwareClient } from '../ai/clients/ToolAwareClient.js';
+import type { IToolExecutor } from '@modules/ai/interfaces/ToolExecutor';
+import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -212,13 +214,13 @@ export interface ChatManager {
    * 设置工具注册表
    * @param registry 工具注册表
    */
-  setToolRegistry(registry: unknown): void;
+  setToolRegistry(registry: ToolRegistry | null): void;
 
   /**
    * 获取工具注册表
    * @returns 工具注册表
    */
-  getToolRegistry(): unknown;
+  getToolRegistry(): ToolRegistry | null;
 
   /**
    * 设置权限管理器
@@ -236,13 +238,13 @@ export interface ChatManager {
    * 设置工具执行器
    * @param toolExecutor 工具执行器
    */
-  setToolExecutor(toolExecutor: unknown): void;
+  setToolExecutor(toolExecutor: IToolExecutor | null): void;
 
   /**
    * 获取工具执行器
    * @returns 工具执行器
    */
-  getToolExecutor(): unknown;
+  getToolExecutor(): IToolExecutor | null;
 
   /**
    * 设置子Agent管理器
@@ -453,7 +455,7 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 工具注册表
    */
-  private toolRegistry: unknown = null;
+  private toolRegistry: ToolRegistry | null = null;
 
   /**
    * 权限管理器
@@ -463,7 +465,7 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 工具执行器
    */
-  private toolExecutor: unknown = null;
+  private toolExecutor: IToolExecutor | null = null;
 
   /**
    * 子Agent管理器
@@ -705,7 +707,7 @@ export class ChatManagerImpl implements ChatManager {
     // 获取工具定义
     let toolDefinitions: Record<string, unknown>[] = [];
     if (this.toolRegistry) {
-      const registry = this.toolRegistry as {
+      const registry = this.toolRegistry as unknown as {
         getToolSchemas: () => Array<Record<string, unknown>>;
       };
       const schemas = registry.getToolSchemas?.() || [];
@@ -1236,7 +1238,7 @@ export class ChatManagerImpl implements ChatManager {
    */
   private buildToolDefinitions(): Array<Record<string, unknown>> {
     if (!this.toolRegistry) return [];
-    const registry = this.toolRegistry as {
+    const registry = this.toolRegistry as unknown as {
       getToolSchemas: () => Array<Record<string, unknown>>;
     };
     const schemas = registry.getToolSchemas?.() || [];
@@ -1386,7 +1388,7 @@ export class ChatManagerImpl implements ChatManager {
     // 获取工具定义
     let toolDefinitions: Record<string, unknown>[] = [];
     if (this.toolRegistry) {
-      const registry = this.toolRegistry as {
+      const registry = this.toolRegistry as unknown as {
         getToolSchemas: () => Array<Record<string, unknown>>;
       };
       const schemas = registry.getToolSchemas?.() || [];
@@ -1743,7 +1745,7 @@ export class ChatManagerImpl implements ChatManager {
           },
         };
 
-        const registry = this.toolRegistry as {
+        const registry = this.toolRegistry as unknown as {
           executeTool: (
             params: {
               toolName: string;
@@ -1994,7 +1996,7 @@ export class ChatManagerImpl implements ChatManager {
    * 设置工具注册表
    * @param registry 工具注册表
    */
-  setToolRegistry(registry: unknown): void {
+  setToolRegistry(registry: ToolRegistry | null): void {
     this.toolRegistry = registry;
   }
 
@@ -2002,7 +2004,7 @@ export class ChatManagerImpl implements ChatManager {
    * 获取工具注册表
    * @returns 工具注册表
    */
-  getToolRegistry(): unknown {
+  getToolRegistry(): ToolRegistry | null {
     return this.toolRegistry;
   }
 
@@ -2026,7 +2028,7 @@ export class ChatManagerImpl implements ChatManager {
    * 设置工具执行器
    * @param toolExecutor 工具执行器
    */
-  setToolExecutor(toolExecutor: unknown): void {
+  setToolExecutor(toolExecutor: IToolExecutor | null): void {
     this.toolExecutor = toolExecutor;
   }
 
@@ -2034,7 +2036,7 @@ export class ChatManagerImpl implements ChatManager {
    * 获取工具执行器
    * @returns 工具执行器
    */
-  getToolExecutor(): unknown {
+  getToolExecutor(): IToolExecutor | null {
     return this.toolExecutor;
   }
 

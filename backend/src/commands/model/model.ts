@@ -98,7 +98,7 @@ function getModelDetail(modelId: string): {
 
   const config = ALL_MODEL_CONFIGS[modelKey];
   const pricing = config.pricing
-    ? `输入: $${config.pricing.inputPer1K}/1K tokens, 输出: $${config.pricing.outputPer1K}/1K tokens`
+    ? `输入: $${config.pricing.inputPer1M}/1M tokens, 输出: $${config.pricing.outputPer1M}/1M tokens`
     : '定价信息不可用';
 
   return {
@@ -162,7 +162,7 @@ function handleAll(): CommandResult {
     }
     if (config.pricing) {
       lines.push(
-        `    定价: 输入 $${config.pricing.inputPer1K}/1K, 输出 $${config.pricing.outputPer1K}/1K`
+        `    定价: 输入 $${config.pricing.inputPer1M}/1M, 输出 $${config.pricing.outputPer1M}/1M`
       );
     }
     lines.push('');

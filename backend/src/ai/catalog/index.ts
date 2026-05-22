@@ -1,7 +1,13 @@
 /**
  * AI Model Catalog
- * 对标OpenClaw model-catalog/
- * 模型目录类型定义与完整覆盖
+ *
+ * @deprecated 此模块已废弃，使用 ai/models/ModelConfigs.ts 作为单一事实源。
+ *   - ALL_MODEL_CONFIGS 替代 MODEL_CATALOG
+ *   - ModelConfig 替代 ModelEntry
+ *   - APIProvider 替代 ModelProvider
+ *   - ModelCapability (types.ts) 替代 ModelCapabilityFlag
+ *   - getModelsByProvider() / getModelsWithCapability() 替代 ModelCatalog 实例方法
+ *   保留此文件仅为兼容过渡，新代码禁止引用。
  */
 
 export type ModelProvider =

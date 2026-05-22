@@ -193,8 +193,8 @@ export async function init(): Promise<void> {
         try {
           // 禁用 Gateway 通道服务（避免 WebSocket 端口冲突）
           try {
-            const { configManager } = await import('../cli/config.js');
-            const gatewayConfig = configManager.getGatewayConfig();
+            const { cliConfigManager } = await import('../cli/config.js');
+            const gatewayConfig = cliConfigManager.getGatewayConfig();
             gatewayConfig.enabled = false;
             gatewayConfig.websocket.enabled = false;
           } catch {
@@ -322,7 +322,7 @@ async function startDeferredPrefetches(): Promise<void> {
       // 预加载治理管理器
       (async () => {
         try {
-          await import('../governance/managers/GovernanceManager.js');
+          await import('../governance/managers/GovernanceManager');
         } catch (error) {
           // 忽略预加载错�?
         }

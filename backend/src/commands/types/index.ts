@@ -207,6 +207,11 @@ export interface CommandContext {
    * REPL 的 readline 接口（交互式命令用于暂停/恢复输入）
    */
   replReadline?: import('readline').Interface;
+
+  /**
+   * 停止加载动画的回调（交互式命令在接管输出前调用）
+   */
+  stopLoading?: () => void;
 }
 
 /**

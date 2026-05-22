@@ -7,7 +7,9 @@
  * 基于CC源码 cc_code/backend/services/mcp/elicitationHandler.ts 实现
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import type { ScopedMcpServerConfig } from './types';
 import type {
   ElicitRequestFormParams,

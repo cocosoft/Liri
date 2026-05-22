@@ -1,6 +1,6 @@
-import { Tool } from '../types/Tool';
-import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
-import { ToolUseContext } from '../types/ToolUseContext';
+import type { Tool } from '../../tools/types/Tool';
+import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
+import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { MemoryManagerImpl } from '../MemoryManager';
 import { Memory } from '../types/Memory';
 
@@ -75,7 +75,7 @@ export class MemoryGetTool implements Tool {
           return {
             status: ToolExecutionStatus.SUCCESS,
             result: null,
-            error: null,
+            error: undefined,
             executionTime,
             output: JSON.stringify({
               found: false,
@@ -93,7 +93,7 @@ export class MemoryGetTool implements Tool {
         return {
           status: ToolExecutionStatus.SUCCESS,
           result: memory,
-          error: null,
+          error: undefined,
           executionTime,
           output: JSON.stringify(memory),
           errorOutput: '',
@@ -126,7 +126,7 @@ export class MemoryGetTool implements Tool {
       return {
         status: ToolExecutionStatus.SUCCESS,
         result: memories,
-        error: null,
+        error: undefined,
         executionTime,
         output: JSON.stringify(memories),
         errorOutput: '',
@@ -158,13 +158,32 @@ export class MemoryGetTool implements Tool {
     }
   }
 
+  isEnabled(): boolean {
+    return true;
+  }
+
+  isReadOnly(_input?: Record<string, unknown>): boolean {
+    return false;
+  }
+
+  isConcurrencySafe(_input?: Record<string, unknown>): boolean {
+    return true;
+  }
+
   getInfo() {
     return {
       name: this.name,
       description: this.description,
       params: this.params,
       aliases: this.aliases,
-      concurrentSafe: this.concurrentSafe,
+      searchTips: this.searchTips,
+      enabled: this.isEnabled(),
+      readOnly: this.isReadOnly(),
+      destructive: false,
+      concurrencySafe: this.isConcurrencySafe(),
+      deferred: false,
+      alwaysLoad: false,
+      interruptBehavior: 'cancel' as const,
     };
   }
 }

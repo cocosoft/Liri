@@ -21,17 +21,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-const SUPPORTED_MODELS = [
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-pro',
-  'gemini-1.5-flash',
-];
 
 const DEFAULT_REGION = 'us-central1';
 const TOKEN_URI = 'https://oauth2.googleapis.com/token';
@@ -253,6 +245,9 @@ export class VertexAIProvider implements AIProvider {
   }
 
   async listModels(): Promise<string[]> {
+    const supportedModels = getModelsByProvider('vertex').map(
+      (key) => ALL_MODEL_CONFIGS[key].vertex
+    );
     try {
       const token = await this.getAccessToken();
       const url = `https://${this.region}-aiplatform.googleapis.com/v1/projects/${this.projectId}/locations/${this.region}/publishers/google/models?pageSize=100`;
@@ -264,7 +259,7 @@ export class VertexAIProvider implements AIProvider {
         signal: AbortSignal.timeout(10000),
       });
 
-      if (!response.ok) return [...SUPPORTED_MODELS];
+      if (!response.ok) return supportedModels;
 
       const data = (await response.json()) as {
         models?: { name: string }[];
@@ -272,10 +267,10 @@ export class VertexAIProvider implements AIProvider {
       return (
         data.models
           ?.map((m) => m.name.split('/').pop() || '')
-          .filter((name) => name.includes('gemini')) ?? [...SUPPORTED_MODELS]
+          .filter((name) => name.includes('gemini')) ?? supportedModels
       );
     } catch {
-      return [...SUPPORTED_MODELS];
+      return supportedModels;
     }
   }
 
@@ -296,9 +291,12 @@ export class VertexAIProvider implements AIProvider {
       );
     }
 
-    if (config.model && !SUPPORTED_MODELS.includes(config.model as string)) {
+    const supportedModels = getModelsByProvider('vertex').map(
+      (key) => ALL_MODEL_CONFIGS[key].vertex
+    );
+    if (config.model && !supportedModels.includes(config.model as string)) {
       warnings.push(
-        `Unknown model: ${config.model}. Supported: ${SUPPORTED_MODELS.join(', ')}`
+        `Unknown model: ${config.model}. Supported: ${supportedModels.join(', ')}`
       );
     }
 

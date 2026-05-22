@@ -49,6 +49,12 @@ export class BuiltinCommandLoader implements CommandLoader {
     this.moduleEntries = [
       { path: '../builtin/help/index.js', name: 'help' },
       { path: '../builtin/onboard/index.js', name: 'onboard' },
+      // 对话演示
+      {
+        path: '../builtin/demo/index.js',
+        name: 'demo',
+        aliases: ['preview', 'example', 'demo-chat'],
+      },
       { path: '../builtin/status/index.js', name: 'status' },
       { path: '../builtin/clear/index.js', name: 'clear' },
       { path: '../builtin/skill/index.js', name: 'skill' },

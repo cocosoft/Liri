@@ -20,8 +20,8 @@ import { getCacheEfficiency as getCacheEfficiencyFromBudget } from '@modules/cor
  * @returns 格式化后的价格字符串
  */
 export function formatModelPricing(pricing: {
-  inputPer1K: number;
-  outputPer1K: number;
+  inputPer1M: number;
+  outputPer1M: number;
 }): string {
   const formatPrice = (price: number): string => {
     if (price < 0.01) {
@@ -30,7 +30,7 @@ export function formatModelPricing(pricing: {
     return `$${price.toFixed(2)}/1K`;
   };
 
-  return `${formatPrice(pricing.inputPer1K)} input, ${formatPrice(pricing.outputPer1K)} output`;
+  return `${formatPrice(pricing.inputPer1M)} input, ${formatPrice(pricing.outputPer1M)} output`;
 }
 
 /**
@@ -94,10 +94,10 @@ export function compareModels(
   const context2 = modelManager.getModelContextWindow(model2);
 
   const avgPrice1 = pricing1
-    ? (pricing1.inputPer1K + pricing1.outputPer1K) / 2
+    ? (pricing1.inputPer1M + pricing1.outputPer1M) / 2
     : Infinity;
   const avgPrice2 = pricing2
-    ? (pricing2.inputPer1K + pricing2.outputPer1K) / 2
+    ? (pricing2.inputPer1M + pricing2.outputPer1M) / 2
     : Infinity;
 
   return {

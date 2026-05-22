@@ -6,7 +6,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   McpServerConfigSchema,
   McpJsonConfigSchema,
@@ -321,11 +323,10 @@ export class EnhancedMCPConfigManager {
       const config = JSON.parse(content);
       return config.mcpServers || {};
     } catch (error) {
-      logger.error(
-        'Failed to read MCP config file',
-        error instanceof Error ? error : new Error(String(error)),
-        { configPath }
-      );
+      logger.error('Failed to read MCP config file', {
+        error: error instanceof Error ? error : new Error(String(error)),
+        configPath,
+      });
       return {};
     }
   }
@@ -348,11 +349,10 @@ export class EnhancedMCPConfigManager {
       fullConfig.mcpServers = servers;
       fs.writeFileSync(configPath, JSON.stringify(fullConfig, null, 2));
     } catch (error) {
-      logger.error(
-        'Failed to write MCP config file',
-        error instanceof Error ? error : new Error(String(error)),
-        { configPath }
-      );
+      logger.error('Failed to write MCP config file', {
+        error: error instanceof Error ? error : new Error(String(error)),
+        configPath,
+      });
     }
   }
 

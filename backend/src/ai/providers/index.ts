@@ -32,4 +32,9 @@ export {
   registerGoogleProvider,
   registerOllamaProvider,
   registerVertexAIProvider,
+  registerDeepSeekProvider,
+  registerBedrockProvider,
+  registerAzureOpenAIProvider,
+  registerMoonshotProvider,
+  registerGrokProvider,
 } from './registerProviders';

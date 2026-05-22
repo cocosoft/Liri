@@ -3,6 +3,11 @@ import { OpenAIProvider } from './OpenAIProvider';
 import { GoogleProvider } from './GoogleProvider';
 import { OllamaProvider } from './OllamaProvider';
 import { VertexAIProvider } from './VertexAIProvider';
+import { DeepSeekProvider } from './DeepSeekProvider';
+import { BedrockProvider } from './BedrockProvider';
+import { AzureOpenAIProvider } from './AzureOpenAIProvider';
+import { MoonshotProvider } from './MoonshotProvider';
+import { GrokProvider } from './GrokProvider';
 import { providerRegistry } from './ProviderRegistry';
 import type { ProviderConfig } from './AIProvider';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -15,6 +20,11 @@ export function registerDefaultProviders(config?: {
   google?: Partial<ProviderConfig>;
   ollama?: Partial<ProviderConfig>;
   vertexAi?: Partial<ProviderConfig>;
+  deepseek?: Partial<ProviderConfig>;
+  bedrock?: Partial<ProviderConfig>;
+  azureOpenAi?: Partial<ProviderConfig>;
+  moonshot?: Partial<ProviderConfig>;
+  grok?: Partial<ProviderConfig>;
 }): void {
   const existingProviders = providerRegistry.listIds();
   if (existingProviders.length > 0) {
@@ -25,14 +35,15 @@ export function registerDefaultProviders(config?: {
   logger.info('Registering default AI providers...');
 
   providerRegistry.register(new AnthropicProvider(config?.anthropic ?? {}));
-
   providerRegistry.register(new OpenAIProvider(config?.openai ?? {}));
-
   providerRegistry.register(new GoogleProvider(config?.google ?? {}));
-
   providerRegistry.register(new OllamaProvider(config?.ollama ?? {}));
-
   providerRegistry.register(new VertexAIProvider(config?.vertexAi ?? {}));
+  providerRegistry.register(new DeepSeekProvider(config?.deepseek ?? {}));
+  providerRegistry.register(new BedrockProvider(config?.bedrock ?? {}));
+  providerRegistry.register(new AzureOpenAIProvider(config?.azureOpenAi ?? {}));
+  providerRegistry.register(new MoonshotProvider(config?.moonshot ?? {}));
+  providerRegistry.register(new GrokProvider(config?.grok ?? {}));
 
   logger.info(
     `Registered ${providerRegistry.size} AI providers: ${providerRegistry.listIds().join(', ')}`
@@ -71,5 +82,40 @@ export function registerVertexAIProvider(config?: ProviderConfig): void {
   if (!providerRegistry.has('vertex-ai')) {
     providerRegistry.register(new VertexAIProvider(config ?? {}));
     logger.info('Vertex AI provider registered');
+  }
+}
+
+export function registerDeepSeekProvider(config?: ProviderConfig): void {
+  if (!providerRegistry.has('deepseek')) {
+    providerRegistry.register(new DeepSeekProvider(config ?? {}));
+    logger.info('DeepSeek provider registered');
+  }
+}
+
+export function registerBedrockProvider(config?: ProviderConfig): void {
+  if (!providerRegistry.has('bedrock')) {
+    providerRegistry.register(new BedrockProvider(config ?? {}));
+    logger.info('Bedrock provider registered');
+  }
+}
+
+export function registerAzureOpenAIProvider(config?: ProviderConfig): void {
+  if (!providerRegistry.has('azure-openai')) {
+    providerRegistry.register(new AzureOpenAIProvider(config ?? {}));
+    logger.info('Azure OpenAI provider registered');
+  }
+}
+
+export function registerMoonshotProvider(config?: ProviderConfig): void {
+  if (!providerRegistry.has('moonshot')) {
+    providerRegistry.register(new MoonshotProvider(config ?? {}));
+    logger.info('Moonshot provider registered');
+  }
+}
+
+export function registerGrokProvider(config?: ProviderConfig): void {
+  if (!providerRegistry.has('grok')) {
+    providerRegistry.register(new GrokProvider(config ?? {}));
+    logger.info('Grok provider registered');
   }
 }

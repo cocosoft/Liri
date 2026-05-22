@@ -4,7 +4,9 @@
  * 将MCP服务器的工具注册到主ToolManager中
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { getToolManager } from '@modules/tools/ToolManager';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';

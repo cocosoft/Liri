@@ -10,6 +10,7 @@ import type {
   ProviderValidationResult,
   ChatOptions,
 } from './AIProvider';
+import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
@@ -62,9 +63,9 @@ export class AzureOpenAIProvider implements AIProvider {
     return { valid: errors.length === 0, errors, warnings };
   }
 
-  setToolRegistry(registry: unknown): void {}
+  setToolRegistry(registry: ToolRegistry | null): void {}
 
-  setToolExecutor(executor: unknown): void {}
+  setToolExecutor(executor: IToolExecutor | null): void {}
 
   private async sendRequest(
     messages: ChatMessage[],

@@ -12,9 +12,9 @@ PY_APP 的配置按优先级从高到低排列：
 
 | 变量 | 说明 | 必需 |
 |------|------|------|
-| `AI_PROVIDER` | AI 提供商 | 是 |
-| `AI_API_KEY` | API 密钥 | 是 |
-| `AI_MODEL` | 模型名称 | 否 |
+| `DEEPSEEK_API_KEY` | DeepSeek API 密钥（获取: https://platform.deepseek.com/api_keys） | 是 |
+| `DEEPSEEK_BASE_URL` | DeepSeek API 地址（默认即可） | 否 |
+| `DEEPSEEK_MODEL` | DeepSeek 模型名称（默认即可） | 否 |
 | `LOG_LEVEL` | 日志级别 | 否 |
 | `PORT` | 服务端口 | 否 |
 
@@ -53,7 +53,7 @@ PY_APP 的配置按优先级从高到低排列：
 /config show
 
 # 查看特定配置项
-/config get AI_MODEL
+/config get DEEPSEEK_MODEL
 
 # 修改配置（临时）
 /config set LOG_LEVEL debug

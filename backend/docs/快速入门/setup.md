@@ -37,9 +37,9 @@ bun run lint
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `AI_PROVIDER` | AI 服务提供商 | `openai` |
-| `AI_API_KEY` | API 密钥 | - |
-| `AI_MODEL` | 模型名称 | `gpt-4` |
+| `DEEPSEEK_API_KEY` | DeepSeek API 密钥（获取: https://platform.deepseek.com/api_keys） | - |
+| `DEEPSEEK_BASE_URL` | DeepSeek API 地址 | `https://api.deepseek.com` |
+| `DEEPSEEK_MODEL` | DeepSeek 模型名称 | `deepseek-chat` |
 | `LOG_LEVEL` | 日志级别 | `info` |
 | `PORT` | 服务端口 | `3000` |
 | `NODE_ENV` | 运行环境 | `development` |

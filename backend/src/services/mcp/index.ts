@@ -4,7 +4,9 @@
  * 整合所有MCP系统模块
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { mcpToolBridge } from './MCPToolBridge';

@@ -1,8 +1,8 @@
 /**
- * Mini Agent 性能指标收集器
+ * Local Agent 性能指标收集器
  */
 
-export interface MiniAgentMetrics {
+export interface LocalAgentMetrics {
   totalRequests: number;
   handledRequests: number;
   bypassedRequests: number;
@@ -27,7 +27,7 @@ export interface MetricEntry {
 }
 
 export class MetricsCollector {
-  private metrics: MiniAgentMetrics = {
+  private metrics: LocalAgentMetrics = {
     totalRequests: 0,
     handledRequests: 0,
     bypassedRequests: 0,
@@ -106,7 +106,7 @@ export class MetricsCollector {
     }
   }
 
-  getMetrics(): MiniAgentMetrics {
+  getMetrics(): LocalAgentMetrics {
     return { ...this.metrics };
   }
 

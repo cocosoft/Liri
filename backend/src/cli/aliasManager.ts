@@ -3,7 +3,7 @@
  * 支持命令别名的定义、解析和执行
  */
 
-import { configManager } from './config';
+import { cliConfigManager } from './config';
 
 export class AliasManager {
   private aliases: Record<string, string> = {};
@@ -16,7 +16,7 @@ export class AliasManager {
    * 从配置加载别名
    */
   private loadAliases(): void {
-    this.aliases = { ...configManager.getAliases() };
+    this.aliases = { ...cliConfigManager.getAliases() };
   }
 
   /**
@@ -24,7 +24,7 @@ export class AliasManager {
    */
   addAlias(name: string, command: string): void {
     this.aliases[name] = command;
-    configManager.addAlias(name, command);
+    cliConfigManager.addAlias(name, command);
   }
 
   /**
@@ -33,7 +33,7 @@ export class AliasManager {
   removeAlias(name: string): boolean {
     if (this.aliases[name]) {
       delete this.aliases[name];
-      return configManager.removeAlias(name);
+      return cliConfigManager.removeAlias(name);
     }
     return false;
   }
@@ -150,7 +150,7 @@ export class AliasManager {
         this.aliases = { ...parsed };
         // 保存到配置
         Object.entries(this.aliases).forEach(([name, command]) => {
-          configManager.addAlias(name, command);
+          cliConfigManager.addAlias(name, command);
         });
         return true;
       }
@@ -166,8 +166,8 @@ export class AliasManager {
   reset(): void {
     this.aliases = {};
     // 清除配置中的别名
-    Object.keys(configManager.getAliases()).forEach((name) => {
-      configManager.removeAlias(name);
+    Object.keys(cliConfigManager.getAliases()).forEach((name) => {
+      cliConfigManager.removeAlias(name);
     });
   }
 }

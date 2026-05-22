@@ -4,7 +4,9 @@
  * 负责处理MCP服务器的命令功能
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 /**

@@ -5,7 +5,9 @@
  */
 
 import { randomUUID } from 'crypto';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   MCPServerConfig,
   MCPToolDefinition,

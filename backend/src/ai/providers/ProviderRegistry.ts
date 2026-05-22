@@ -8,6 +8,31 @@ export class ProviderRegistry {
   private providers: Map<string, AIProvider> = new Map();
   private defaultProviderId: string | null = null;
 
+  /**
+   * 模型前缀 → Provider ID 映射表（按优先级排序）
+   * getByModel() 依次匹配，返回第一个命中
+   */
+  private modelToProvider: Array<[string, string]> = [
+    ['claude-', 'anthropic'],
+    ['opus', 'anthropic'],
+    ['sonnet', 'anthropic'],
+    ['haiku', 'anthropic'],
+    ['gpt-', 'openai'],
+    ['o1', 'openai'],
+    ['o3', 'openai'],
+    ['o4', 'openai'],
+    ['gemini-', 'google'],
+    ['deepseek', 'deepseek'],
+    ['azure-', 'azure-openai'],
+    ['moonshot', 'moonshot'],
+    ['grok', 'grok'],
+    ['bedrock-', 'bedrock'],
+    ['vertex-', 'vertex-ai'],
+    ['qwen', 'ollama'],
+    ['llama', 'ollama'],
+    ['mistral', 'ollama'],
+  ];
+
   register(provider: AIProvider): void {
     if (this.providers.has(provider.id)) {
       logger.warning(
@@ -55,6 +80,20 @@ export class ProviderRegistry {
   }
 
   /**
+   * 按模型名自动匹配 Provider
+   * 遍历 modelToProvider 映射表，返回第一个匹配的已注册 Provider
+   */
+  getByModel(model: string): AIProvider | undefined {
+    const normalized = model.toLowerCase();
+    for (const [prefix, providerId] of this.modelToProvider) {
+      if (normalized.startsWith(prefix) && this.providers.has(providerId)) {
+        return this.providers.get(providerId);
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * 获取或创建 Provider — 吸收旧 LLMClientFactory 的 createClient 逻辑
    */
   getOrCreate(providerId: string, config?: ProviderConfig): AIProvider {
@@ -80,10 +119,55 @@ export class ProviderRegistry {
     providerId: string
   ): ((config: ProviderConfig) => AIProvider) | null {
     switch (providerId) {
+      case 'anthropic':
+        return (cfg) => {
+          const { AnthropicProvider: AP } = require('./AnthropicProvider');
+          return new AP(cfg);
+        };
+      case 'openai':
+        return (cfg) => {
+          const { OpenAIProvider: OP } = require('./OpenAIProvider');
+          return new OP(cfg);
+        };
+      case 'google':
+        return (cfg) => {
+          const { GoogleProvider: GP } = require('./GoogleProvider');
+          return new GP(cfg);
+        };
       case 'deepseek':
         return (cfg) => {
           const { DeepSeekProvider: DSP } = require('./DeepSeekProvider');
           return new DSP(cfg);
+        };
+      case 'bedrock':
+        return (cfg) => {
+          const { BedrockProvider: BP } = require('./BedrockProvider');
+          return new BP(cfg);
+        };
+      case 'azure-openai':
+        return (cfg) => {
+          const { AzureOpenAIProvider: AZ } = require('./AzureOpenAIProvider');
+          return new AZ(cfg);
+        };
+      case 'moonshot':
+        return (cfg) => {
+          const { MoonshotProvider: MP } = require('./MoonshotProvider');
+          return new MP(cfg);
+        };
+      case 'grok':
+        return (cfg) => {
+          const { GrokProvider: GP } = require('./GrokProvider');
+          return new GP(cfg);
+        };
+      case 'ollama':
+        return (cfg) => {
+          const { OllamaProvider: OP } = require('./OllamaProvider');
+          return new OP(cfg);
+        };
+      case 'vertex-ai':
+        return (cfg) => {
+          const { VertexAIProvider: VP } = require('./VertexAIProvider');
+          return new VP(cfg);
         };
       default:
         return null;

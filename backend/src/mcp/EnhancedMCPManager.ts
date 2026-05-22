@@ -1,7 +1,9 @@
 import { MCPManager } from './managers/MCPManager.js';
 import { MCPServerManager } from './managers/MCPServerManager.js';
 import { MCPServerConfig, MCPToolDefinition } from './types';
-import { logger } from '../utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface MCPPerformanceMetrics {
   serverName: string;

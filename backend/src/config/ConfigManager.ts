@@ -31,6 +31,15 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ConfigSnapshot, createDefaultConfigSnapshot } from './ConfigSnapshot';
 import { ConfigRecovery } from './ConfigRecovery';
 import { redactConfig } from './ConfigRedactor';
+import { ConfigIO } from './io/ConfigIO';
+import { deepMerge } from '../utils/common.js';
+import { loadUserSettings } from './settings/userSettings.js';
+import { loadProjectSettings } from './settings/projectSettings.js';
+import { loadLocalSettings } from './settings/localSettings.js';
+import {
+  loadPolicySettings,
+  isPolicySettingsAvailable,
+} from './settings/policySettings.js';
 
 /**
  * 配置管理器类
@@ -53,19 +62,59 @@ export class ConfigManager {
   private configReadingAllowed = false;
   private configSnapshot: ConfigSnapshot;
   private configRecovery: ConfigRecovery;
+  private configIO: ConfigIO;
+
+  // --- 多源合并相关 ---
+  private sourceConfigs: Map<string, Record<string, unknown>> = new Map();
+  private mergedCache: Record<string, unknown> = {};
+  private sourcePriority: string[] = [
+    'userSettings',
+    'projectSettings',
+    'localSettings',
+    'flagSettings',
+    'policySettings',
+  ];
 
   /**
    * 构造函数
    * @param configPath 配置文件路径
+   * @param lockTimeout 文件锁超时时间（毫秒）
    */
-  constructor(configPath?: string) {
-    this.globalConfigPath = configPath || this.getDefaultConfigPath();
+  constructor(configPath?: string, lockTimeout?: number) {
+    this.globalConfigPath = configPath || this.resolveConfigPath();
     const configDir = dirname(this.globalConfigPath);
     this.configSnapshot = createDefaultConfigSnapshot(configDir);
     this.configRecovery = new ConfigRecovery(
       this.configSnapshot,
       this.globalConfigPath
     );
+    this.configIO = new ConfigIO(configDir, lockTimeout);
+  }
+
+  /**
+   * 解析配置文件路径，含旧路径迁移
+   * @returns 配置文件路径
+   */
+  private resolveConfigPath(): string {
+    const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
+    const oldPath = join(homeDir, '.PY_APP', 'config.json');
+    const newPath = join(homeDir, '.pyapp', 'config.json');
+
+    // 首次启动时自动迁移从 ~/.PY_APP/ 到 ~/.pyapp/
+    if (existsSync(oldPath) && !existsSync(newPath)) {
+      try {
+        const data = readFileSync(oldPath, 'utf-8');
+        mkdirSync(dirname(newPath), { recursive: true });
+        writeFileSync(newPath, data, 'utf-8');
+        renameSync(oldPath, oldPath + '.bak');
+        logger.info('配置路径迁移完成', { from: oldPath, to: newPath });
+      } catch (e) {
+        logger.warn('配置路径迁移失败，继续使用旧路径', { error: String(e) });
+        return oldPath;
+      }
+    }
+
+    return newPath;
   }
 
   /**
@@ -74,7 +123,7 @@ export class ConfigManager {
    */
   private getDefaultConfigPath(): string {
     const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-    return join(homeDir, '.PY_APP', 'config.json');
+    return join(homeDir, '.pyapp', 'config.json');
   }
 
   /**
@@ -261,21 +310,26 @@ export class ConfigManager {
    * @param config 配置对象
    */
   private atomicWriteConfig(config: GlobalConfig): void {
-    const configDir = dirname(this.globalConfigPath);
+    const lockPath = this.globalConfigPath + '.lock';
 
-    // 确保目录存在
-    if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true });
-    }
-
-    // 创建备份
-    this.createBackup();
-
-    // 写入临时文件
-    const tempPath = `${this.globalConfigPath}.tmp`;
-    const filteredConfig = this.filterDefaults(config);
+    // 获取文件锁
+    this.configIO.acquireLock(lockPath);
 
     try {
+      const configDir = dirname(this.globalConfigPath);
+
+      // 确保目录存在
+      if (!existsSync(configDir)) {
+        mkdirSync(configDir, { recursive: true });
+      }
+
+      // 创建备份
+      this.createBackup();
+
+      // 写入临时文件
+      const tempPath = `${this.globalConfigPath}.tmp`;
+      const filteredConfig = this.filterDefaults(config);
+
       writeFileSync(tempPath, JSON.stringify(filteredConfig, null, 2), {
         encoding: 'utf-8',
         mode: 0o600, // 仅限所有者读写
@@ -286,6 +340,7 @@ export class ConfigManager {
     } catch (error) {
       // 清理临时文件
       try {
+        const tempPath = `${this.globalConfigPath}.tmp`;
         if (existsSync(tempPath)) {
           unlinkSync(tempPath);
         }
@@ -293,6 +348,9 @@ export class ConfigManager {
         // 忽略清理错误
       }
       throw error;
+    } finally {
+      // 释放文件锁
+      this.configIO.releaseLock(lockPath);
     }
   }
 
@@ -534,6 +592,167 @@ export class ConfigManager {
     this.atomicWriteConfig(defaultConfig);
     this.configCache = { config: defaultConfig, mtime: Date.now() };
     logger.info('配置已重置为默认值');
+  }
+
+  // ========== 多源合并 ==========
+
+  /**
+   * 获取指定源的配置
+   */
+  getSourceConfig(source: string): Record<string, unknown> | undefined {
+    return this.sourceConfigs.get(source);
+  }
+
+  /**
+   * 设置指定源的配置
+   */
+  setSourceConfig(source: string, config: Record<string, unknown>): void {
+    this.sourceConfigs.set(source, config);
+    this.rebuildMergedConfig();
+  }
+
+  /**
+   * 加载所有同步设置源
+   * 优先级从低到高：userSettings < projectSettings < localSettings < flagSettings < policySettings
+   */
+  loadSyncSources(): void {
+    this.sourceConfigs.set('userSettings', loadUserSettings());
+    this.sourceConfigs.set('projectSettings', loadProjectSettings());
+    this.sourceConfigs.set('localSettings', loadLocalSettings());
+    this.sourceConfigs.set(
+      'policySettings',
+      isPolicySettingsAvailable() ? loadPolicySettings() : {}
+    );
+    this.rebuildMergedConfig();
+  }
+
+  /**
+   * 刷新同步设置源
+   */
+  refreshSyncSources(): void {
+    this.loadSyncSources();
+  }
+
+  /**
+   * 获取合并后的多源配置
+   */
+  getMergedConfig(): Record<string, unknown> {
+    return this.mergedCache;
+  }
+
+  /**
+   * 重建合并配置
+   * 按优先级合并各源：低优先级 < 高优先级
+   */
+  private rebuildMergedConfig(): void {
+    let merged: Record<string, unknown> = {};
+
+    for (const source of this.sourcePriority) {
+      const config = this.sourceConfigs.get(source);
+      if (config && Object.keys(config).length > 0) {
+        merged = deepMerge(merged, config);
+      }
+    }
+
+    this.mergedCache = merged;
+  }
+
+  /**
+   * 获取设置值及其来源
+   */
+  getSettingWithSource(
+    key: string
+  ): { value: unknown; source: string } | undefined {
+    const reversed = [...this.sourcePriority].reverse();
+
+    for (const source of reversed) {
+      const config = this.sourceConfigs.get(source);
+      if (!config) continue;
+      const keys = key.split('.');
+      let current: Record<string, unknown> = config as Record<string, unknown>;
+      let found = true;
+
+      for (const k of keys) {
+        if (
+          current === null ||
+          current === undefined ||
+          typeof current !== 'object'
+        ) {
+          found = false;
+          break;
+        }
+        current = current[k] as Record<string, unknown>;
+      }
+
+      if (found && current !== undefined) {
+        return { value: current, source };
+      }
+    }
+
+    return undefined;
+  }
+
+  // ========== 文件 I/O 委托（供 CliConfigManager 等外部模块使用） ==========
+
+  /**
+   * 读取任意 JSON 文件（使用文件锁）
+   * @param filePath 文件路径
+   * @returns 解析后的 JSON 对象，失败返回 null
+   */
+  readJsonFile(filePath: string): Record<string, unknown> | null {
+    const lockPath = filePath + '.lock';
+    this.configIO.acquireLock(lockPath);
+
+    try {
+      if (!existsSync(filePath)) {
+        return null;
+      }
+      const content = readFileSync(filePath, 'utf-8');
+      return JSON.parse(content) as Record<string, unknown>;
+    } catch {
+      return null;
+    } finally {
+      this.configIO.releaseLock(lockPath);
+    }
+  }
+
+  /**
+   * 写入任意 JSON 文件（使用文件锁和原子写入）
+   * @param filePath 文件路径
+   * @param data JSON 数据
+   */
+  writeJsonFile(filePath: string, data: Record<string, unknown>): boolean {
+    const lockPath = filePath + '.lock';
+    const tempPath = filePath + '.tmp.' + process.pid + '.' + Date.now();
+
+    if (!this.configIO.acquireLock(lockPath)) {
+      return false;
+    }
+
+    try {
+      const dir = dirname(filePath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      writeFileSync(tempPath, JSON.stringify(data, null, 2), {
+        encoding: 'utf-8',
+        mode: 0o600,
+      });
+      renameSync(tempPath, filePath);
+      return true;
+    } catch (error) {
+      try {
+        if (existsSync(tempPath)) {
+          unlinkSync(tempPath);
+        }
+      } catch {
+        // 忽略清理错误
+      }
+      logger.error('JSON 文件写入失败', { filePath, error: String(error) });
+      return false;
+    } finally {
+      this.configIO.releaseLock(lockPath);
+    }
   }
 
   /**

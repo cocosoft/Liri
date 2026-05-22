@@ -4,7 +4,7 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-import { configManager } from '../../cli/config';
+import { cliConfigManager } from '../../cli/config';
 import { getChannelManager } from './ChannelManager';
 import { getCoreAPI } from '../../runtime/api/CoreAPIImpl';
 import { TelegramChannel } from './TelegramChannel';
@@ -33,7 +33,7 @@ export async function setupGatewayFromConfig(): Promise<GatewaySetupResult> {
     errors: [],
   };
 
-  const gatewayConfig = configManager.getGatewayConfig();
+  const gatewayConfig = cliConfigManager.getGatewayConfig();
 
   if (!gatewayConfig.enabled) {
     logger.info('Gateway 通道服务未启用（gateway.enabled = false）');

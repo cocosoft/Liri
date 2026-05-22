@@ -155,7 +155,7 @@ export class AIModelManager {
     const resolved = this.parseUserSpecifiedModel(model);
     const pricing = modelManager.getModelPricing(resolved);
     if (pricing) {
-      return `$${pricing.inputPer1K.toFixed(4)}/$${pricing.outputPer1K.toFixed(4)} per 1K tokens`;
+      return `$${pricing.inputPer1M}/$${pricing.outputPer1M} per 1M tokens`;
     }
     return '';
   }

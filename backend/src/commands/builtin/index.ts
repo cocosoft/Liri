@@ -121,6 +121,9 @@ export { onboardCommand } from './onboard/index.js';
 export { healthCommand } from './health/index.js';
 export { tasksCommand } from './tasks/index.js';
 
+// 对话演示（离线模式预览）
+export { demoCommand } from './demo/index.js';
+
 // 模型命令（来自 commands/model）
 export { modelCommand } from '../model/index.js';
 

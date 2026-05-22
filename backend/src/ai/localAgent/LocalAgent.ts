@@ -1,26 +1,32 @@
 /**
- * Mini Agent 核心类
+ * Local Agent 核心类
  * 整合规则引擎、任务路由、命令执行、Ollama 调用
  */
 
 import type { ChatMessage } from '../models/types.js';
-import type { AIProvider } from '../providers/AIProvider.js';
+import type { AIProvider, ProviderConfig } from '../providers/AIProvider.js';
+import { OllamaProvider } from '@modules/ai/providers/OllamaProvider';
 import type {
   Intent,
   RouteDecision,
-  MiniAgentConfig,
-  MiniAgentResult,
+  LocalAgentConfig,
+  LocalAgentResult,
   CommandMatch,
   IRuleEngine,
 } from './types.js';
 import { KeywordRuleEngine } from './KeywordRuleEngine.js';
 import { TaskRouterImpl } from './TaskRouter.js';
-import { OllamaProvider, createDefaultOllamaConfig } from './OllamaProvider.js';
 import { LocalCommandExecutor } from './CommandExecutor.js';
 import { SkillProvider } from './SkillProvider.js';
 import { MCPProvider } from './MCPProvider.js';
+import { SimpleQAEngine } from './SimpleQAEngine.js';
+import { ToolDispatcher } from './ToolDispatcher.js';
+import { LocalAgentCache } from './LocalAgentCache.js';
+import { DateTimeHandler } from './handlers/DateTimeHandler.js';
+import { SystemInfoHandler } from './handlers/SystemInfoHandler.js';
+import { GreetingHandler } from './handlers/GreetingHandler.js';
 
-export class MiniAgent {
+export class LocalAgent {
   private ruleEngine: IRuleEngine;
   private taskRouter: TaskRouterImpl;
   private ollamaProvider: OllamaProvider;
@@ -28,27 +34,74 @@ export class MiniAgent {
   private skillProvider: SkillProvider | null = null;
   private mcpProvider: MCPProvider | null = null;
   private llmClient: AIProvider | null = null;
-  private config: MiniAgentConfig;
+  private simpleQAEngine: SimpleQAEngine;
+  private toolDispatcher: ToolDispatcher;
+  private delegationDepth: number = 0;
+  private cache: LocalAgentCache;
+  private config: LocalAgentConfig;
 
-  constructor(config: MiniAgentConfig) {
-    this.config = config;
+  constructor(config: LocalAgentConfig) {
+    this.config = {
+      ...config,
+      routing: {
+        strategy: config.routing?.strategy ?? ('local-first' as const),
+        fallbackToCloud: config.routing?.fallbackToCloud ?? true,
+        thresholds: {
+          ruleEngine: config.routing?.thresholds?.ruleEngine ?? 0.85,
+          localLLM: config.routing?.thresholds?.localLLM ?? 0.6,
+          cloud: config.routing?.thresholds?.cloud ?? 0,
+        },
+      },
+      delegation: {
+        enabled: true,
+        complexityThreshold: 200,
+        maxDepth: 2,
+        ...config.delegation,
+      },
+    };
     this.ruleEngine = new KeywordRuleEngine();
     this.taskRouter = new TaskRouterImpl(
-      config.routing.strategy,
-      config.routing.fallbackToCloud
+      this.config.routing.strategy,
+      this.config.routing.fallbackToCloud
     );
-    this.ollamaProvider = new OllamaProvider(
-      config.ollama || createDefaultOllamaConfig()
-    );
+    this.ollamaProvider = new OllamaProvider({
+      baseUrl: this.config.ollama?.baseUrl,
+      model: this.config.ollama?.defaultModel,
+      timeout: this.config.ollama?.timeout,
+    } as ProviderConfig);
     this.commandExecutor = new LocalCommandExecutor();
+    this.simpleQAEngine = new SimpleQAEngine();
+    this.simpleQAEngine.registerHandlers([
+      new DateTimeHandler(),
+      new SystemInfoHandler(),
+      new GreetingHandler(),
+    ]);
+
+    this.toolDispatcher = new ToolDispatcher(
+      this.mcpProvider ?? undefined,
+      this.skillProvider ?? undefined,
+      this.commandExecutor
+    );
+
+    this.cache = new LocalAgentCache(100, 60000);
   }
 
   setSkillProvider(provider: SkillProvider): void {
     this.skillProvider = provider;
+    this.toolDispatcher = new ToolDispatcher(
+      this.mcpProvider ?? undefined,
+      this.skillProvider ?? undefined,
+      this.commandExecutor
+    );
   }
 
   setMCPProvider(provider: MCPProvider): void {
     this.mcpProvider = provider;
+    this.toolDispatcher = new ToolDispatcher(
+      this.mcpProvider ?? undefined,
+      this.skillProvider ?? undefined,
+      this.commandExecutor
+    );
   }
 
   setLLMClient(client: AIProvider): void {
@@ -58,33 +111,70 @@ export class MiniAgent {
   async process(
     input: string,
     messages?: ChatMessage[]
-  ): Promise<MiniAgentResult> {
+  ): Promise<LocalAgentResult> {
+    const cached = this.cache.get(input);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     const intent = this.ruleEngine.classify(input);
     const routeDecision = this.taskRouter.route(intent, {
       inputLength: input.length,
     });
 
+    let result: LocalAgentResult;
+
     switch (routeDecision.target) {
       case 'rule_engine':
-        return this.handleRuleEngine(input, intent, routeDecision);
+        result = await this.handleRuleEngine(input, intent, routeDecision);
+        break;
       case 'ollama':
-        return this.handleOllama(input, intent, routeDecision, messages);
+        result = await this.handleOllama(
+          input,
+          intent,
+          routeDecision,
+          messages
+        );
+        break;
       case 'cloud':
-        return this.handleCloud(input, intent, routeDecision, messages);
+        result = await this.handleCloud(input, intent, routeDecision, messages);
+        break;
       default:
-        return this.handleCloud(input, intent, routeDecision, messages);
+        result = await this.handleCloud(input, intent, routeDecision, messages);
+        break;
     }
+
+    this.cache.set(input, JSON.stringify(result));
+    return result;
   }
 
   private async handleRuleEngine(
     input: string,
     intent: Intent,
     routeDecision: RouteDecision
-  ): Promise<MiniAgentResult> {
+  ): Promise<LocalAgentResult> {
     const handler = routeDecision.handler;
 
     if (handler === 'simple_qa') {
-      return this.handleSimpleQA(input, intent);
+      const qaResult = this.simpleQAEngine.process(input);
+      if (qaResult) {
+        return {
+          response: qaResult.response,
+          intent,
+          routeDecision,
+          source: 'rule_engine',
+        };
+      }
+    }
+
+    const toolResult = await this.toolDispatcher.dispatch(input);
+    if (toolResult?.success && toolResult.output) {
+      return {
+        response: toolResult.output,
+        intent,
+        routeDecision,
+        source: 'rule_engine',
+      };
     }
 
     if (handler === 'skill' && this.skillProvider) {
@@ -109,7 +199,7 @@ export class MiniAgent {
   private async handleMCP(
     input: string,
     intent: Intent
-  ): Promise<MiniAgentResult> {
+  ): Promise<LocalAgentResult> {
     if (!this.mcpProvider) {
       return {
         response: 'MCP provider not available',
@@ -123,7 +213,7 @@ export class MiniAgent {
       };
     }
 
-    const toolName = this.mcpProvider.matchTool(input);
+    const toolName = await this.mcpProvider.matchTool(input);
     if (!toolName) {
       return {
         response: 'No matching MCP tool found',
@@ -169,7 +259,7 @@ export class MiniAgent {
   private async handleSkill(
     input: string,
     intent: Intent
-  ): Promise<MiniAgentResult> {
+  ): Promise<LocalAgentResult> {
     if (!this.skillProvider) {
       return {
         response: 'Skill provider not available',
@@ -183,7 +273,7 @@ export class MiniAgent {
       };
     }
 
-    const skillMatch = this.skillProvider.matchSkill(input);
+    const skillMatch = await this.skillProvider.matchSkill(input);
     if (!skillMatch) {
       return {
         response: 'No matching skill found',
@@ -232,34 +322,6 @@ export class MiniAgent {
     }
   }
 
-  private handleSimpleQA(input: string, intent: Intent): MiniAgentResult {
-    const lowerInput = input.toLowerCase();
-
-    let response = 'I can help with that.';
-
-    if (lowerInput.includes('时间') || lowerInput.includes('time')) {
-      const now = new Date();
-      response = `Current time: ${now.toLocaleTimeString()}`;
-    } else if (lowerInput.includes('日期') || lowerInput.includes('date')) {
-      const now = new Date();
-      response = `Current date: ${now.toLocaleDateString()}`;
-    } else if (lowerInput.includes('天气') || lowerInput.includes('weather')) {
-      response =
-        'I cannot check weather directly. Please provide your location.';
-    }
-
-    return {
-      response,
-      intent,
-      routeDecision: {
-        target: 'rule_engine',
-        handler: 'simple_qa',
-        reason: '简单问答由规则引擎处理',
-      },
-      source: 'rule_engine',
-    };
-  }
-
   private parseCommand(input: string, action: string): CommandMatch {
     const words = input.trim().split(/\s+/);
     const actionWord = words[0];
@@ -276,7 +338,19 @@ export class MiniAgent {
     intent: Intent,
     routeDecision: RouteDecision,
     messages?: ChatMessage[]
-  ): Promise<MiniAgentResult> {
+  ): Promise<LocalAgentResult> {
+    if (!this.config.ollama?.enabled) {
+      if (routeDecision.fallback) {
+        return this.handleCloud(
+          input,
+          intent,
+          routeDecision.fallback,
+          messages
+        );
+      }
+      return this.handleCloud(input, intent, routeDecision, messages);
+    }
+
     const isAvailable = await this.ollamaProvider.isAvailable();
 
     if (!isAvailable) {
@@ -291,6 +365,24 @@ export class MiniAgent {
       return this.handleCloud(input, intent, routeDecision, messages);
     }
 
+    if (this.shouldDelegate(input)) {
+      this.delegationDepth++;
+      const delegatedDecision: RouteDecision = {
+        ...routeDecision,
+        target: 'cloud',
+        model: routeDecision.fallback?.model || 'deepseek-chat',
+        reason: `Delegated from Ollama (depth ${this.delegationDepth})`,
+      };
+      const result = await this.handleCloud(
+        input,
+        intent,
+        delegatedDecision,
+        messages
+      );
+      this.delegationDepth--;
+      return result;
+    }
+
     try {
       if (messages && messages.length > 0) {
         const response = await this.ollamaProvider.chat(messages, {
@@ -298,7 +390,7 @@ export class MiniAgent {
         });
 
         return {
-          response: response.message.content,
+          response: response.content,
           intent,
           routeDecision,
           source: 'ollama',
@@ -333,7 +425,7 @@ export class MiniAgent {
     intent: Intent,
     routeDecision: RouteDecision,
     messages?: ChatMessage[]
-  ): Promise<MiniAgentResult> {
+  ): Promise<LocalAgentResult> {
     if (!this.llmClient) {
       return {
         response: 'Error: No LLM client configured',
@@ -375,6 +467,37 @@ export class MiniAgent {
     }
   }
 
+  private shouldDelegate(input: string): boolean {
+    const delegation = this.config.delegation;
+    if (!delegation?.enabled) return false;
+    if (this.delegationDepth >= delegation.maxDepth) return false;
+
+    const complexKeywords = [
+      '分析',
+      '复写',
+      '复杂',
+      '详细',
+      '重构',
+      '优化',
+      '设计',
+      'analyze',
+      'refactor',
+      'complex',
+      'detailed',
+      'optimize',
+      'architecture',
+      'review',
+      'security',
+    ];
+    const lower = input.toLowerCase();
+    const hasKeyword = complexKeywords.some((k) => lower.includes(k));
+    if (hasKeyword) return true;
+
+    if (input.length > delegation.complexityThreshold) return true;
+
+    return false;
+  }
+
   classify(input: string): Intent {
     return this.ruleEngine.classify(input);
   }
@@ -395,11 +518,19 @@ export class MiniAgent {
     return this.taskRouter;
   }
 
-  getConfig(): MiniAgentConfig {
+  getConfig(): LocalAgentConfig {
     return { ...this.config };
   }
 
-  updateConfig(config: Partial<MiniAgentConfig>): void {
+  getCacheStats() {
+    return this.cache.getStats();
+  }
+
+  clearCache(): void {
+    this.cache.clear();
+  }
+
+  updateConfig(config: Partial<LocalAgentConfig>): void {
     this.config = { ...this.config, ...config };
 
     if (config.routing) {
@@ -408,32 +539,49 @@ export class MiniAgent {
     }
 
     if (config.ollama) {
-      this.ollamaProvider.setEnabled(config.ollama.enabled);
+      this.config.ollama = { ...this.config.ollama, ...config.ollama };
     }
   }
 }
 
-export function createMiniAgent(config?: Partial<MiniAgentConfig>): MiniAgent {
-  const defaultConfig: MiniAgentConfig = {
-    ollama: createDefaultOllamaConfig(),
+export function createLocalAgent(
+  config?: Partial<LocalAgentConfig>
+): LocalAgent {
+  const defaultConfig: LocalAgentConfig = {
+    ollama: {
+      enabled: false,
+      baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+      defaultModel: process.env.OLLAMA_DEFAULT_MODEL || 'qwen3:1.8b',
+      timeout: parseInt(process.env.OLLAMA_TIMEOUT || '30000', 10),
+    },
     routing: {
-      strategy: 'cloud-first',
+      strategy: 'local-first',
       fallbackToCloud: true,
+      thresholds: {
+        ruleEngine: 0.85,
+        localLLM: 0.6,
+        cloud: 0,
+      },
+    },
+    delegation: {
+      enabled: true,
+      complexityThreshold: 200,
+      maxDepth: 2,
     },
   };
 
-  return new MiniAgent({ ...defaultConfig, ...config });
+  return new LocalAgent({ ...defaultConfig, ...config });
 }
 
-let globalMiniAgent: MiniAgent | null = null;
+let globalLocalAgent: LocalAgent | null = null;
 
-export function getGlobalMiniAgent(): MiniAgent {
-  if (!globalMiniAgent) {
-    globalMiniAgent = createMiniAgent();
+export function getGlobalLocalAgent(): LocalAgent {
+  if (!globalLocalAgent) {
+    globalLocalAgent = createLocalAgent();
   }
-  return globalMiniAgent;
+  return globalLocalAgent;
 }
 
-export function setGlobalMiniAgent(agent: MiniAgent): void {
-  globalMiniAgent = agent;
+export function setGlobalLocalAgent(agent: LocalAgent): void {
+  globalLocalAgent = agent;
 }

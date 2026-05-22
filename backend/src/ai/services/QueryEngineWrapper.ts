@@ -1,8 +1,13 @@
-//
 /**
  * QueryEngine 包装器
  * 集成 Mini Agent 到 QueryEngine
  * 实现意图预分类和智能路由
+ *
+ * TODO(阶段二-未来): 将 executeDirectQuery 替换为 query/QueryEngine 委托调用
+ *   1. 注入 ChatManagerImpl 依赖或通过工厂获取
+ *   2. 使用 createQueryEngine(chatManager, config) 创建主引擎
+ *   3. 将 messages 转换为 prompt string 后委托 QueryEngine.query()
+ *   4. 将 AsyncGenerator 输出转换为 Promise<QueryResult>
  */
 
 import type { ChatMessage } from '../models/types.js';
@@ -10,65 +15,178 @@ import type { AIProvider } from '../providers/AIProvider.js';
 import type {
   QueryParams,
   QueryResult,
+  StreamEvent,
 } from '../interfaces/QueryInterfaces.js';
+import type {
+  IQueryEngineCore,
+  QueryOptions,
+} from '../interfaces/IQueryEngineCore.js';
 import type { ToolCall } from '@modules/tools/types';
-import type { MiniAgentResult } from '../miniAgent/types.js';
-import { createMiniAgent, MiniAgent } from '../miniAgent/MiniAgent.js';
+import { createLocalAgent, LocalAgent } from '../localAgent/LocalAgent.js';
 import {
   QueryEngineIntegrationAdapter,
   createIntegrationAdapter,
-} from '../miniAgent/QueryEngineIntegrationAdapter.js';
+} from '../localAgent/QueryEngineIntegrationAdapter.js';
 
 export interface QueryEngineWrapperConfig {
   client: AIProvider;
   defaultModel: string;
-  miniAgentEnabled?: boolean;
+  localAgentEnabled?: boolean;
   bypassRoutes?: string[];
   enableMetrics?: boolean;
 }
 
-export class QueryEngineWrapper {
+export class QueryEngineWrapper implements IQueryEngineCore {
   private client: AIProvider;
   private defaultModel: string;
   private integrationAdapter: QueryEngineIntegrationAdapter;
-  private miniAgent: MiniAgent | null = null;
+  private localAgent: LocalAgent | null = null;
+  private abortController: AbortController | null = null;
 
   constructor(config: QueryEngineWrapperConfig) {
     this.client = config.client;
     this.defaultModel = config.defaultModel;
     this.integrationAdapter = createIntegrationAdapter({
-      enabled: config.miniAgentEnabled ?? false,
+      enabled: config.localAgentEnabled ?? false,
       bypassRoutes: config.bypassRoutes as any,
       enableMetrics: config.enableMetrics ?? false,
     });
   }
 
-  isMiniAgentEnabled(): boolean {
+  isLocalAgentEnabled(): boolean {
     return this.integrationAdapter.isEnabled();
   }
 
-  async query(params: QueryParams): Promise<QueryResult> {
-    const { messages, maxTurns } = params;
+  async query(
+    messages: ChatMessage[],
+    options?: QueryOptions
+  ): Promise<QueryResult> {
+    const params = this.buildQueryParams(messages, options);
+    return this.executeWithLocalAgent(params);
+  }
+
+  async *streamQuery(
+    messages: ChatMessage[],
+    options?: QueryOptions
+  ): AsyncIterable<StreamEvent> {
+    this.abortController = new AbortController();
+    const params = this.buildQueryParams(messages, options);
+
+    const input = this.extractUserInput(messages);
+    if (input) {
+      const localAgentResult = await this.integrationAdapter.process(
+        input,
+        messages
+      );
+      if (!localAgentResult.shouldContinueToQueryEngine) {
+        yield {
+          type: 'content_block_delta',
+          data: { delta: localAgentResult.result?.response || '' },
+        };
+        yield { type: 'message_stop', data: undefined };
+        return;
+      }
+    }
+
+    const { model, maxTurns } = params;
+    let currentMessages = [...messages];
+    let currentTurn = 0;
+    const maxIterations = maxTurns || 10;
+
+    while (currentTurn < maxIterations) {
+      if (this.abortController?.signal.aborted) {
+        yield { type: 'message_stop', data: undefined };
+        return;
+      }
+
+      currentTurn++;
+      let fullContent = '';
+
+      try {
+        const streamIterable = (this.client as any).stream?.(currentMessages, {
+          model: model || this.defaultModel,
+          tools: options?.tools,
+        });
+
+        if (!streamIterable) {
+          yield {
+            type: 'error',
+            data: { error: 'Provider does not support streaming' },
+          };
+          return;
+        }
+
+        for await (const event of streamIterable) {
+          if (event.type === 'content_block_delta') {
+            fullContent += event.delta;
+            yield { type: 'content_block_delta', data: { delta: event.delta } };
+          } else if (event.type === 'tool_call') {
+            yield {
+              type: 'content_block_delta',
+              data: { delta: `[Tool: ${event.tool_call?.name}]` },
+            };
+          }
+        }
+
+        yield { type: 'message_stop', data: { content: fullContent } };
+        return;
+      } catch (error) {
+        yield {
+          type: 'error',
+          data: {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        };
+        return;
+      }
+    }
+  }
+
+  abort(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+
+  private buildQueryParams(
+    messages: ChatMessage[],
+    options?: QueryOptions
+  ): QueryParams {
+    return {
+      messages,
+      model: options?.model,
+      tools: options?.tools as any,
+      maxTokens: options?.maxTokens,
+      temperature: options?.temperature,
+      maxTurns: options?.maxTurns,
+    };
+  }
+
+  private async executeWithLocalAgent(
+    params: QueryParams
+  ): Promise<QueryResult> {
+    const { messages } = params;
     const input = this.extractUserInput(messages);
 
     if (!input) {
       return this.executeDirectQuery(params);
     }
 
-    const miniAgentResult = await this.integrationAdapter.process(
+    const localAgentResult = await this.integrationAdapter.process(
       input,
       messages
     );
 
-    if (!miniAgentResult.shouldContinueToQueryEngine) {
+    if (!localAgentResult.shouldContinueToQueryEngine) {
       return {
         message: {
           role: 'assistant',
-          content: miniAgentResult.result?.response || '',
+          content: localAgentResult.result?.response || '',
         },
         allMessages: messages,
         turns: 0,
-        finishReason: 'mini_agent_handled' as any,
+        finishReason: 'local_agent_handled' as any,
       };
     }
 
@@ -181,7 +299,7 @@ export class QueryEngineWrapper {
     return message;
   }
 
-  enableMiniAgent(config?: {
+  enableLocalAgent(config?: {
     bypassRoutes?: string[];
     enableMetrics?: boolean;
   }): void {
@@ -192,7 +310,7 @@ export class QueryEngineWrapper {
     });
   }
 
-  disableMiniAgent(): void {
+  disableLocalAgent(): void {
     this.integrationAdapter = createIntegrationAdapter({
       enabled: false,
     });

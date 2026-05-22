@@ -18,7 +18,9 @@ import { ToolUseContext } from '../tools/types/ToolUseContext';
 import { createToolManager } from '../tools/ToolManager';
 import { createAbortController } from '../utils/abortController';
 import { createFileStateCacheWithSizeLimit } from '../utils/fileStateCache';
-import { logger } from '../utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { createAssistantMessage } from '../utils/messages';
 import { getMainLoopModel } from '../utils/model/model';
 import { hasPermissionsToUseTool } from '../permission/permissions';
@@ -118,7 +120,7 @@ export async function startMCPServer(
         };
       } catch (error) {
         const e = error instanceof Error ? error : new Error(String(error));
-        logger.error('Error in ListTools handler:', e);
+        logger.error('Error in ListTools handler', { error: e });
         return {
           tools: [],
         };
@@ -217,7 +219,7 @@ export async function startMCPServer(
         };
       } catch (error) {
         const e = error instanceof Error ? error : new Error(String(error));
-        logger.error(`Error executing tool ${name}:`, e);
+        logger.error(`Error executing tool ${name}`, { error: e });
 
         const parts =
           error instanceof Error ? getErrorParts(error) : [String(error)];
@@ -274,7 +276,7 @@ export async function startMCPServer(
       profileCheckpoint('mcp_run_server_end');
     } catch (error) {
       const e = error instanceof Error ? error : new Error(String(error));
-      logger.error('Failed to start MCP server:', e);
+      logger.error('Failed to start MCP server', { error: e });
       process.exit(1);
     }
   }

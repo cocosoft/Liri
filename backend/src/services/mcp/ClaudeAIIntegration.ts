@@ -4,7 +4,9 @@
  * 负责与Claude AI MCP服务器的集成
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { mcpConnectionManager } from './MCPConnectionManager';
 import {
   registerChannelNotificationHandler,

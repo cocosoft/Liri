@@ -1,6 +1,11 @@
 /**
  * 配置管理服务
  * 支持配置验证、迁移、原子写入和并发控制
+ *
+ * @deprecated 功能已合并到 ConfigManager。使用 ConfigManager 替代，
+ *         文件锁通过 config/io/ConfigIO 的 acquireLock/releaseLock 提供，
+ *         验证通过 ConfigValidator 提供，迁移通过 ConfigMigration 提供。
+ *         此文件将在下一轮清理中移除。
  */
 
 import fs from 'fs';

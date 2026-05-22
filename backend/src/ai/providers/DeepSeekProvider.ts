@@ -36,16 +36,28 @@ export class DeepSeekProvider implements AIProvider {
   private toolExecutor: IToolExecutor | null = null;
   private readonly adapter: TransportProviderAdapter;
 
-  constructor(config: ProviderConfig) {
-    this.apiKey = config.apiKey || process.env.DEEPSEEK_API_KEY || '';
-    this.baseUrl = (
-      config.baseUrl ||
-      process.env.DEEPSEEK_BASE_URL ||
-      DEFAULT_BASE_URL
-    ).replace(/\/+$/, '');
-    this.defaultModel = (config.model as string) || DEFAULT_MODEL;
-    this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
-  }
+    /**
+     * 初始化 Provider 实例，配置 API 密钥、基础 URL、默认模型及传输适配器。
+     *
+     * @param config - 提供者配置对象，包含可选的 apiKey、baseUrl 和 model 字段。
+     */
+    constructor(config: ProviderConfig) {
+      // 按优先级确定 API 密钥：配置参数 > 环境变量 > 空字符串
+      this.apiKey = config.apiKey || process.env.DEEPSEEK_API_KEY || '';
+  
+      // 按优先级确定基础 URL 并移除末尾斜杠：配置参数 > 环境变量 > 默认值
+      this.baseUrl = (
+        config.baseUrl ||
+        process.env.DEEPSEEK_BASE_URL ||
+        DEFAULT_BASE_URL
+      ).replace(/\/+$/, '');
+  
+      // 设置默认模型，优先使用配置中的模型，否则使用默认模型
+      this.defaultModel = (config.model as string) || DEFAULT_MODEL;
+  
+      // 初始化传输适配器，使用聊天完成传输协议
+      this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
+    }
 
   setApiKey(key: string): void {
     if (key) {
@@ -54,9 +66,13 @@ export class DeepSeekProvider implements AIProvider {
     }
   }
 
-  setToolRegistry(registry: ToolRegistry | null): void {
-    this.toolRegistry = registry;
-  }
+    /**
+     * 设置工具注册表实例。
+     * @param registry - 要设置的工具注册表实例，若为 null 则清除当前注册表。
+     */
+    setToolRegistry(registry: ToolRegistry | null): void {
+      this.toolRegistry = registry;
+    }
 
   setToolExecutor(executor: IToolExecutor | null): void {
     this.toolExecutor = executor;

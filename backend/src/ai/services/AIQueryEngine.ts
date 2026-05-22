@@ -1,7 +1,15 @@
-//
 /**
  * AI 查询引擎
- * 核心查询逻辑，与工具执行器解耦
+ *
+ * @deprecated 自 vX.X 起，查询功能已迁移至 query/QueryEngine（全功能）和
+ *             QueryEngineWrapper（LocalAgent 集成层）。
+ *             query/QueryEngine 提供 compaction / memory / analytics / token budget / retry / hooks 等完整功能。
+ *             此实现仅保留基础工具调用循环和 stop_reason 映射，功能已被覆盖。
+ *
+ * 迁移指引：
+ *   - 需要全功能查询引擎：使用 query/QueryEngine 或 ChatManager.getQueryEngine()
+ *   - 需要 LocalAgent 集成：使用 QueryEngineWrapper（包装 query/QueryEngine）
+ *   - 仅需基础 AIProvider 调用：直接使用 AIProvider.chat() / .stream()
  */
 
 import type {
@@ -42,6 +50,7 @@ export interface AIQueryEngineConfig {
   stream?: boolean;
 }
 
+/** @deprecated 使用 query/QueryEngine 或 QueryEngineWrapper 替代 */
 export class AIQueryEngine {
   private config: AIQueryEngineConfig;
   private currentTurn: number = 0;

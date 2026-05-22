@@ -1,12 +1,13 @@
 /**
  * CLI配置管理模块
  * 支持配置文件解析、验证和管理
+ * 文件 I/O 委托给 ConfigManager（使用文件锁和原子写入）
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { z } from 'zod';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { configManager } from '../config/ConfigManager.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -99,7 +100,7 @@ const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
-export class ConfigManager {
+export class CliConfigManager {
   private config: Config;
   private configPath: string;
 
@@ -118,13 +119,12 @@ export class ConfigManager {
    */
   private loadConfig(): Config {
     try {
-      if (existsSync(this.configPath)) {
-        const content = readFileSync(this.configPath, 'utf-8');
-        const parsed = JSON.parse(content);
-        return ConfigSchema.parse(parsed);
+      const data = configManager.readJsonFile(this.configPath);
+      if (data) {
+        return ConfigSchema.parse(data);
       }
     } catch (error) {
-      logger.warning(`Failed to load config: ${(error as Error).message}`);
+      logger.warning(`加载CLI配置失败: ${(error as Error).message}`);
     }
 
     return ConfigSchema.parse({});
@@ -134,18 +134,12 @@ export class ConfigManager {
    * 保存配置
    */
   save(): void {
-    try {
-      const dir = join(this.configPath, '..');
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-      }
-      writeFileSync(
-        this.configPath,
-        JSON.stringify(this.config, null, 2),
-        'utf-8'
-      );
-    } catch (error) {
-      logger.error(`Failed to save config: ${(error as Error).message}`);
+    const result = configManager.writeJsonFile(
+      this.configPath,
+      this.config as unknown as Record<string, unknown>
+    );
+    if (!result) {
+      logger.error(`保存CLI配置失败: ${this.configPath}`);
     }
   }
 
@@ -300,13 +294,15 @@ export class ConfigManager {
 }
 
 /**
- * 创建配置管理器实例
+ * 创建 CLI 配置管理器实例
  */
-export function createConfigManager(options?: ConfigOptions): ConfigManager {
-  return new ConfigManager(options);
+export function createCliConfigManager(
+  options?: ConfigOptions
+): CliConfigManager {
+  return new CliConfigManager(options);
 }
 
 /**
- * 全局配置管理器实例
+ * 全局 CLI 配置管理器实例
  */
-export const configManager = createConfigManager();
+export const cliConfigManager = createCliConfigManager();

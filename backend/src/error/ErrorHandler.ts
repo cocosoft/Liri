@@ -3,8 +3,10 @@
  * 提供统一的错误处理和记录功能
  */
 
-import { logger, LogLevel } from '../utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorSeverity, TelemetrySafeError } from './types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { ErrorUtils } from './utils';
 import { ErrorFormatter } from './formatter';
 import { SafeLogger } from './safeLog';
@@ -54,7 +56,7 @@ export class ErrorHandler {
 
     if (error.severity === ErrorSeverity.CRITICAL) {
       // 严重错误，可能需要退出
-      logger.fatal('Critical error occurred, exiting process', error);
+      logger.fatal('Critical error occurred, exiting process', { error });
       process.exit(1);
     }
   }
@@ -76,10 +78,7 @@ export class ErrorHandler {
 
     // 格式化并记录
     const formattedMessage = ErrorFormatter.format(error);
-    logger.error(formattedMessage, error, {
-      stack: error.stack,
-      context,
-    });
+    logger.error(formattedMessage, { error, stack: error.stack, context });
   }
 
   /**
@@ -115,12 +114,13 @@ export class ErrorHandler {
     error: Error,
     context?: Record<string, unknown>
   ): void {
+    const meta = context ? { error, ...context } : { error };
     switch (level) {
       case LogLevel.FATAL:
-        logger.fatal(message, error, context);
+        logger.fatal(message, meta);
         break;
       case LogLevel.ERROR:
-        logger.error(message, error, context);
+        logger.error(message, meta);
         break;
       case LogLevel.WARN:
         logger.warn(message, context);

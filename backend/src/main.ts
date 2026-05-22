@@ -16,13 +16,71 @@ import {
   startKeychainPrefetch,
   ensureKeychainPrefetchCompleted,
 } from './infrastructure/startup/KeychainPrefetch';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { execSync } from 'node:child_process';
 
 const logger = new Logger({ level: 'info' as any });
 
 /** 首次运行标记文件 */
 const ONBOARDED_FLAG = join(process.cwd(), 'backend', 'data', '.onboarded');
+const ENV_FILE = join(process.cwd(), '.env');
+const ENV_EXAMPLE = join(process.cwd(), '.env.example');
+
+/** 最大首次引导重试次数 */
+const MAX_ONBOARD_RETRIES = 3;
+
+/** 引导失败重试计数文件 */
+const ONBOARD_RETRY_FLAG = join(
+  process.cwd(),
+  'backend',
+  'data',
+  '.onboard_retry'
+);
+
+/** 离线模式（无 AI 密钥）标志，供 REPL 等模块使用 */
+export let isOfflineMode = true;
+
+/** 已知的占位 API 密钥值（用户未替换的真实密钥） */
+const PLACEHOLDER_API_KEYS = new Set([
+  'your_deepseek_api_key_here',
+  'sk-your-api-key',
+  'your-api-key',
+  'your_api_key_here',
+  '',
+]);
+
+/**
+ * 校验 API 密钥是否有效（非占位符、非空）
+ */
+export function isValidApiKey(key: string | undefined | null): boolean {
+  if (!key) return false;
+  const trimmed = key.trim();
+  if (trimmed.length < 8) return false; // 最短密钥长度
+  if (PLACEHOLDER_API_KEYS.has(trimmed.toLowerCase())) return false;
+  return true;
+}
+
+/**
+ * 检查 AI 是否已配置
+ */
+async function isAIConfigured(): Promise<boolean> {
+  try {
+    if (isValidApiKey(process.env.DEEPSEEK_API_KEY)) return true;
+    const { getConfig } = await import('./config/index.js');
+    const config = getConfig();
+    const ai = (config as Record<string, unknown>).ai as
+      | Record<string, unknown>
+      | undefined;
+    const apiKey: string =
+      ((config as Record<string, unknown>)['ai.deepseek.apiKey'] as string) ||
+      ((ai?.['deepseek'] as Record<string, unknown> | undefined)?.['apiKey'] as string) ||
+      '';
+    return isValidApiKey(apiKey);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 检查是否为首次运行（无配置的初始化）
@@ -32,6 +90,60 @@ const ONBOARDED_FLAG = join(process.cwd(), 'backend', 'data', '.onboarded');
  */
 async function checkFirstRunAndOnboard(): Promise<void> {
   if (existsSync(ONBOARDED_FLAG)) {
+    // 已有标记文件，检查 AI 状态
+    if (await isAIConfigured()) {
+      isOfflineMode = false;
+    }
+    return;
+  }
+
+  // 首次运行：确保 .env 文件存在（从 .env.example 模板创建）
+  if (!existsSync(ENV_FILE) && existsSync(ENV_EXAMPLE)) {
+    try {
+      const exampleContent = readFileSync(ENV_EXAMPLE, 'utf-8');
+      // 替换占位密钥为空，引导用户填写真实密钥
+      const envContent = exampleContent.replace(
+        /DEEPSEEK_API_KEY=.*/,
+        '# 请将下方密钥替换为你的真实 DeepSeek API 密钥\n# 获取地址: https://platform.deepseek.com/api_keys\nDEEPSEEK_API_KEY='
+      );
+      writeFileSync(ENV_FILE, envContent, 'utf-8');
+      logger.info('.env 文件已自动创建（来自 .env.example）');
+    } catch (e) {
+      logger.warn('自动创建 .env 文件失败', { error: String(e) });
+    }
+  }
+
+  // 检查重试次数
+  let retryCount = 0;
+  if (existsSync(ONBOARD_RETRY_FLAG)) {
+    try {
+      retryCount = parseInt(
+        readFileSync(ONBOARD_RETRY_FLAG, 'utf-8').trim(),
+        10
+      );
+    } catch {
+      retryCount = 0;
+    }
+  }
+
+  console.log('');
+  console.log('🎉 欢迎使用 PY_APP，准备配置向导...');
+  console.log('');
+
+  if (retryCount >= MAX_ONBOARD_RETRIES) {
+    console.log('  ⚠️ 引导已重试多次，跳过自动引导。');
+    console.log('  您可以随时输入 /onboard 手动启动配置。');
+    console.log('');
+    const dataDir = join(process.cwd(), 'backend', 'data');
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true });
+    }
+    writeFileSync(ONBOARDED_FLAG, Date.now().toString(), 'utf-8');
+    if (existsSync(ONBOARD_RETRY_FLAG)) {
+      try {
+        rmSync(ONBOARD_RETRY_FLAG, { force: true });
+      } catch {}
+    }
     return;
   }
 
@@ -53,18 +165,56 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     }
     writeFileSync(ONBOARDED_FLAG, Date.now().toString(), 'utf-8');
 
-    if (!process.env.DEEPSEEK_API_KEY) {
-      logger.warning('DEEPSEEK_API_KEY 未配置，AI 对话功能需要此密钥');
-      logger.info(
-        '请在 .env 文件中设置 DEEPSEEK_API_KEY，或运行 /onboard 命令进行配置'
-      );
+    // 清除重试计数
+    if (existsSync(ONBOARD_RETRY_FLAG)) {
+      try {
+        rmSync(ONBOARD_RETRY_FLAG, { force: true });
+      } catch {}
+    }
+
+    if (await isAIConfigured()) {
+      isOfflineMode = false;
+      console.log('  ✅ AI 已配置，准备就绪！');
+    } else {
+      console.log('  💡 提示: AI 密钥未配置，将进入离线模式。');
+      console.log('  您可以稍后通过 /onboard 或 /config 命令配置。');
     }
 
     logger.info('初始化引导完成');
   } catch (error) {
+    // 增加重试计数
+    retryCount++;
+    try {
+      const dataDir = join(process.cwd(), 'backend', 'data');
+      if (!existsSync(dataDir)) {
+        mkdirSync(dataDir, { recursive: true });
+      }
+      writeFileSync(ONBOARD_RETRY_FLAG, String(retryCount), 'utf-8');
+    } catch {}
+
+    const errorMsg = error instanceof Error ? error.message : String(error);
     logger.warning('初始化引导失败，可使用 /onboard 命令手动启动', {
-      error: String(error),
+      error: errorMsg,
     });
+
+    // 向控制台输出友好错误（用户能看到）
+    console.log('  ⚠️ 自动引导遇到问题，跳过配置。');
+    console.log('  您可以随时输入 /onboard 手动启动配置向导。');
+    console.log('');
+    console.log('  📖 快速开始:');
+    console.log('  1. 获取 API 密钥: https://platform.deepseek.com/api_keys');
+    console.log('  2. 输入 /onboard 启动配置向导');
+    console.log('  3. 或输入 /help 查看可用命令');
+    console.log('');
+
+    // 创建标记文件防止每次启动都失败
+    if (retryCount >= MAX_ONBOARD_RETRIES) {
+      const dataDir = join(process.cwd(), 'backend', 'data');
+      if (!existsSync(dataDir)) {
+        mkdirSync(dataDir, { recursive: true });
+      }
+      writeFileSync(ONBOARDED_FLAG, Date.now().toString(), 'utf-8');
+    }
   }
 }
 
@@ -92,6 +242,22 @@ export interface LaunchOptions {
 function setupWindowsSecurity(): void {
   if (process.platform === 'win32') {
     process.env.NoDefaultCurrentDirectoryInExePath = '1';
+    // Windows 终端 UTF-8 编码适配
+    // 必须在任何中文输出之前执行，使用 inherit 共享控制台上下文
+    try {
+      execSync('@chcp 65001 > nul', {
+        timeout: 3000,
+        stdio: 'inherit',
+        shell: 'cmd.exe',
+      });
+    } catch {
+      // 非致命，部分终端可能不支持
+    }
+    try {
+      process.stdout.write('\x1b]0;PY_APP\x07');
+    } catch {
+      // 非致命
+    }
   }
 }
 
@@ -232,7 +398,14 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // T1: 模块系统初始化（仅 CRITICAL 模块）
     profileCheckpoint('module_init_start');
     profilePhaseStart('T1_module_init');
+
+    // 显示加载提示（在 T1 执行期间给用户进度反馈）
+    process.stdout.write('⏳ PY_APP 正在加载模块...\r');
+
     await initializeModuleSystem();
+
+    // 清除加载提示行
+    process.stdout.write('\x1b[K');
     profilePhaseEnd('T1_module_init');
     profileCheckpoint('module_init_end');
 

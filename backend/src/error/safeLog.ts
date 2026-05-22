@@ -3,7 +3,9 @@
  * 提供安全的错误记录功能，自动清理敏感信息
  */
 
-import { logger } from '../utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import {
   AppError,
   TelemetrySafeError,
@@ -29,7 +31,7 @@ export class SafeLogger {
     const errorInfo = ErrorUtils.extractErrorInfo(safeError);
 
     // 记录错误
-    logger.error(errorInfo.message, undefined, {
+    logger.error(errorInfo.message, {
       category: errorInfo.category,
       severity: errorInfo.severity,
       code: errorInfo.code,
@@ -145,7 +147,7 @@ export class SafeLogger {
     const safeError = this.toSafeError(error);
     const errorInfo = ErrorUtils.extractErrorInfo(safeError);
 
-    logger.error(`${operation} failed`, undefined, {
+    logger.error(`${operation} failed`, {
       operation,
       error: {
         message: errorInfo.message,

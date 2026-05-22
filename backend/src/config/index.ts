@@ -26,7 +26,7 @@ export type {
   OllamaConfig,
   RoutingConfig,
   TokenEstimatorConfig,
-  MiniAgentConfig,
+  LocalAgentConfig,
 } from './types.js';
 
 export {

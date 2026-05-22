@@ -18,7 +18,7 @@ bun install
 
 ### 如何修改 AI 模型？
 
-编辑 `.env` 文件中的 `AI_MODEL` 配置项。
+编辑 `.env` 文件中的 `DEEPSEEK_MODEL` 配置项。
 
 ### 如何查看当前配置？
 

@@ -2,11 +2,14 @@
  * 统一配置管理器
  * 整合 ConfigLoader、HotReloader、VersionController 及多源设置管理
  * 提供统一的配置访问入口，支持多源设置管理
- * 基于CC源码 cc_code/backend/utils/settings/settings.ts 的多源设计
+ *
+ * 多源合并功能委托给 ConfigManager 实现，避免重复。
+ * 本层负责编排 ConfigLoader、HotReloader、VersionController 等子系统。
+ *
+ * @see ConfigManager.loadSyncSources / getMergedConfig / getSettingWithSource
  */
 
 import { logger } from '../utils/log.js';
-import { deepMerge } from '../utils/common.js';
 import {
   ConfigLoader,
   type ConfigSource,
@@ -26,25 +29,18 @@ import {
 } from './version/VersionController.js';
 import { ConfigManager } from './ConfigManager.js';
 import {
-  loadUserSettings,
   saveUserSettings,
   updateUserSettings,
   deleteUserSetting,
 } from './settings/userSettings.js';
 import {
-  loadProjectSettings,
   saveProjectSettings,
   updateProjectSettings,
 } from './settings/projectSettings.js';
 import {
-  loadLocalSettings,
   saveLocalSettings,
   updateLocalSettings,
 } from './settings/localSettings.js';
-import {
-  loadPolicySettings,
-  isPolicySettingsAvailable,
-} from './settings/policySettings.js';
 
 /**
  * 设置源类型
@@ -120,7 +116,6 @@ export class UnifiedConfigManager {
   private versionController: VersionController;
   private configManager: ConfigManager;
   private mergedConfig: Record<string, unknown>;
-  private sourceConfigs: Map<SettingSource, Record<string, unknown>>;
   private initialized: boolean;
   private syncSourcesLoaded: boolean;
   private cacheTtl: number;
@@ -136,7 +131,6 @@ export class UnifiedConfigManager {
     this.versionController = new VersionController(options?.maxSnapshots);
     this.configManager = new ConfigManager();
     this.mergedConfig = {};
-    this.sourceConfigs = new Map();
     this.initialized = false;
     this.syncSourcesLoaded = false;
     this.cacheTtl = options?.cacheTtl ?? 5000;
@@ -178,7 +172,7 @@ export class UnifiedConfigManager {
    * 获取指定源的配置
    */
   getSourceConfig(source: SettingSource): Record<string, unknown> | undefined {
-    return this.sourceConfigs.get(source);
+    return this.configManager.getSourceConfig(source);
   }
 
   /**
@@ -188,8 +182,7 @@ export class UnifiedConfigManager {
     source: EditableSettingSource,
     config: Record<string, unknown>
   ): void {
-    this.sourceConfigs.set(source, config);
-    this.rebuildMergedConfig();
+    this.configManager.setSourceConfig(source, config);
   }
 
   /**
@@ -226,9 +219,10 @@ export class UnifiedConfigManager {
     value: unknown,
     source: EditableSettingSource = 'userSettings'
   ): void {
-    const config = this.sourceConfigs.get(source) ?? {};
+    const config = this.getSourceConfig(source) ?? {};
+    const root: Record<string, unknown> = { ...config };
     const keys = key.split('.');
-    let current: Record<string, unknown> = config;
+    let current = root;
 
     for (let i = 0; i < keys.length - 1; i++) {
       const k = keys[i]!;
@@ -239,8 +233,7 @@ export class UnifiedConfigManager {
     }
 
     current[keys[keys.length - 1]!] = value;
-    this.sourceConfigs.set(source, config);
-    this.rebuildMergedConfig();
+    this.configManager.setSourceConfig(source, root);
   }
 
   /**
@@ -332,8 +325,7 @@ export class UnifiedConfigManager {
    * 设置命令行标志配置
    */
   setFlagSettings(flags: Record<string, unknown>): void {
-    this.sourceConfigs.set('flagSettings', flags);
-    this.rebuildMergedConfig();
+    this.configManager.setSourceConfig('flagSettings', flags);
   }
 
   /**
@@ -341,31 +333,17 @@ export class UnifiedConfigManager {
    * 从各设置文件同步加载：userSettings < projectSettings < localSettings < flagSettings < policySettings
    */
   loadSyncSources(): void {
-    this.sourceConfigs.set('userSettings', loadUserSettings());
-    this.sourceConfigs.set('projectSettings', loadProjectSettings());
-    this.sourceConfigs.set('localSettings', loadLocalSettings());
-    this.sourceConfigs.set(
-      'policySettings',
-      isPolicySettingsAvailable() ? loadPolicySettings() : {}
-    );
+    this.configManager.loadSyncSources();
     this.syncSourcesLoaded = true;
     this.cacheLastRefresh = Date.now();
-    this.rebuildMergedConfig();
   }
 
   /**
    * 刷新同步设置源
    */
   refreshSyncSources(): void {
-    this.sourceConfigs.set('userSettings', loadUserSettings());
-    this.sourceConfigs.set('projectSettings', loadProjectSettings());
-    this.sourceConfigs.set('localSettings', loadLocalSettings());
-    this.sourceConfigs.set(
-      'policySettings',
-      isPolicySettingsAvailable() ? loadPolicySettings() : {}
-    );
+    this.configManager.refreshSyncSources();
     this.cacheLastRefresh = Date.now();
-    this.rebuildMergedConfig();
   }
 
   /**
@@ -374,16 +352,10 @@ export class UnifiedConfigManager {
   getSettingWithSource(
     key: string
   ): { value: unknown; source: SettingSource } | undefined {
-    const sources = [...SETTING_SOURCES].reverse();
-
-    for (const source of sources) {
-      const config = this.sourceConfigs.get(source);
-      const value = this.getNestedValue(config ?? {}, key);
-      if (value !== undefined) {
-        return { value, source };
-      }
+    const result = this.configManager.getSettingWithSource(key);
+    if (result) {
+      return { value: result.value, source: result.source as SettingSource };
     }
-
     return undefined;
   }
 
@@ -396,8 +368,8 @@ export class UnifiedConfigManager {
     available: boolean;
     settingCount: number;
   }> {
-    return SETTING_SOURCES.map((source) => {
-      const config = this.sourceConfigs.get(source) ?? {};
+    return [...(SETTING_SOURCES as readonly SettingSource[])].map((source) => {
+      const config = this.getSourceConfig(source) ?? {};
       return {
         source,
         name: getSettingSourceName(source),
@@ -419,38 +391,9 @@ export class UnifiedConfigManager {
    * 按优先级合并各源配置：userSettings < projectSettings < localSettings < flagSettings < policySettings
    */
   rebuildMergedConfig(): void {
-    let merged: Record<string, unknown> = {};
-
-    for (const source of SETTING_SOURCES) {
-      const config = this.sourceConfigs.get(source);
-      if (config) {
-        merged = deepMerge(merged, config);
-      }
-    }
-
-    this.mergedConfig = merged;
-    this.versionController.snapshot(merged, 'source_update');
-  }
-
-  /**
-   * 获取嵌套对象值
-   */
-  private getNestedValue(obj: Record<string, unknown>, key: string): unknown {
-    const keys = key.split('.');
-    let current: Record<string, unknown> = obj;
-
-    for (const k of keys) {
-      if (
-        current === null ||
-        current === undefined ||
-        typeof current !== 'object'
-      ) {
-        return undefined;
-      }
-      current = current[k] as Record<string, unknown>;
-    }
-
-    return current;
+    this.configManager.loadSyncSources();
+    this.mergedConfig = this.configManager.getMergedConfig();
+    this.versionController.snapshot(this.mergedConfig, 'source_update');
   }
 }
 

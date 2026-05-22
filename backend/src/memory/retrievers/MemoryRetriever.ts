@@ -1,6 +1,6 @@
 import type { Memory } from '../types/Memory';
 import { MemoryScannerImpl } from '../scanners/MemoryScanner';
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { EmbeddingService } from '../services/EmbeddingService';
@@ -587,7 +587,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
         memories: Array.from(this.memoryIndex.values()),
       };
 
-      await fs.promises.writeFile(
+      await fs.writeFile(
         this.indexFilePath,
         JSON.stringify(indexData, null, 2),
         'utf8'

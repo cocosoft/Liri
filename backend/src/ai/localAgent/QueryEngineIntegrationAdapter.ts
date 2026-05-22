@@ -1,13 +1,13 @@
 /**
  * QueryEngine 集成适配器
- * 负责将 Mini Agent 集成到 QueryEngine 的查询流程
+ * 负责将 Local Agent 集成到 QueryEngine 的查询流程
  */
 
 import type { ChatMessage } from '../models/types.js';
-import type { MiniAgentResult, RouteTarget } from './types.js';
-import { MiniAgent } from './MiniAgent.js';
-import type { MiniAgentConfig } from './types.js';
-import { createMiniAgent } from './MiniAgent.js';
+import type { LocalAgentResult, RouteTarget } from './types.js';
+import { LocalAgent } from './LocalAgent.js';
+import type { LocalAgentConfig } from './types.js';
+import { createLocalAgent } from './LocalAgent.js';
 import {
   createMetricsCollector,
   type MetricsCollector,
@@ -16,7 +16,7 @@ import { createSkillProvider, type SkillProvider } from './SkillProvider.js';
 
 export interface QueryEngineIntegrationConfig {
   enabled: boolean;
-  miniAgentConfig?: MiniAgentConfig;
+  localAgentConfig?: LocalAgentConfig;
   skillProvider?: SkillProvider;
   bypassRoutes?: RouteTarget[];
   enableMetrics?: boolean;
@@ -24,7 +24,7 @@ export interface QueryEngineIntegrationConfig {
 
 export interface IntegrationResult {
   handled: boolean;
-  result?: MiniAgentResult;
+  result?: LocalAgentResult;
   shouldContinueToQueryEngine?: boolean;
   metrics?: {
     latencyMs: number;
@@ -33,7 +33,7 @@ export interface IntegrationResult {
 }
 
 export class QueryEngineIntegrationAdapter {
-  private miniAgent: MiniAgent | null = null;
+  private localAgent: LocalAgent | null = null;
   private config: QueryEngineIntegrationConfig;
   private metricsCollector: MetricsCollector;
   private enabled: boolean;
@@ -44,16 +44,16 @@ export class QueryEngineIntegrationAdapter {
     this.metricsCollector = createMetricsCollector();
 
     if (config.enabled) {
-      const agentConfig = config.miniAgentConfig || this.createDefaultConfig();
-      this.miniAgent = createMiniAgent(agentConfig);
+      const agentConfig = config.localAgentConfig || this.createDefaultConfig();
+      this.localAgent = createLocalAgent(agentConfig);
 
       if (config.skillProvider) {
-        this.miniAgent.setSkillProvider(config.skillProvider);
+        this.localAgent.setSkillProvider(config.skillProvider);
       }
     }
   }
 
-  private createDefaultConfig(): MiniAgentConfig {
+  private createDefaultConfig(): LocalAgentConfig {
     return {
       ollama: {
         enabled: false,
@@ -69,7 +69,7 @@ export class QueryEngineIntegrationAdapter {
   }
 
   isEnabled(): boolean {
-    return this.enabled && this.miniAgent !== null;
+    return this.enabled && this.localAgent !== null;
   }
 
   async process(
@@ -83,7 +83,7 @@ export class QueryEngineIntegrationAdapter {
     const startTime = Date.now();
 
     try {
-      const result = await this.miniAgent!.process(input, messages);
+      const result = await this.localAgent!.process(input, messages);
       const latencyMs = Date.now() - startTime;
 
       if (this.config.enableMetrics) {
@@ -140,8 +140,8 @@ export class QueryEngineIntegrationAdapter {
     }
   }
 
-  getMiniAgent(): MiniAgent | null {
-    return this.miniAgent;
+  getLocalAgent(): LocalAgent | null {
+    return this.localAgent;
   }
 
   getMetricsCollector(): MetricsCollector {
@@ -155,17 +155,17 @@ export class QueryEngineIntegrationAdapter {
       this.enabled = config.enabled;
     }
 
-    if (config.enabled && !this.miniAgent) {
-      const agentConfig = config.miniAgentConfig || this.createDefaultConfig();
-      this.miniAgent = createMiniAgent(agentConfig);
+    if (config.enabled && !this.localAgent) {
+      const agentConfig = config.localAgentConfig || this.createDefaultConfig();
+      this.localAgent = createLocalAgent(agentConfig);
 
       if (config.skillProvider) {
-        this.miniAgent.setSkillProvider(config.skillProvider);
+        this.localAgent.setSkillProvider(config.skillProvider);
       }
     }
 
-    if (!config.enabled && this.miniAgent) {
-      this.miniAgent = null;
+    if (!config.enabled && this.localAgent) {
+      this.localAgent = null;
     }
   }
 
@@ -204,7 +204,7 @@ export function createIntegrationAdapter(
 ): QueryEngineIntegrationAdapter {
   return new QueryEngineIntegrationAdapter({
     enabled: config?.enabled ?? false,
-    miniAgentConfig: config?.miniAgentConfig,
+    localAgentConfig: config?.localAgentConfig,
     skillProvider: config?.skillProvider,
     bypassRoutes: config?.bypassRoutes ?? ['rule_engine'],
     enableMetrics: config?.enableMetrics ?? true,

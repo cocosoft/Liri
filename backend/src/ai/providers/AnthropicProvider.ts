@@ -7,6 +7,7 @@ import type {
   ProviderValidationResult,
   ChatOptions,
 } from './AIProvider';
+import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import {
   withRetry,
   is529Error,
@@ -19,18 +20,9 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AnthropicMessagesTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 const logger = new Logger({ level: LogLevel.INFO });
-
-const SUPPORTED_MODELS = [
-  'claude-opus-4-6',
-  'claude-opus-4-5-20251101',
-  'claude-sonnet-4-6',
-  'claude-sonnet-4-5-20250929',
-  'claude-haiku-4-5-20251001',
-  'claude-3-5-sonnet-20241022',
-  'claude-3-5-haiku-20241022',
-];
 
 const BETA_HEADERS = {
   PROMPT_CACHING: 'prompt-caching-2024-07-24',
@@ -44,8 +36,8 @@ export class AnthropicProvider implements AIProvider {
   private config: LLMConfig;
   private retryConfig: RetryConfig;
   private consecutive529Errors = 0;
-  private toolRegistry: unknown = null;
-  private toolExecutor: unknown = null;
+  private toolRegistry: ToolRegistry | null = null;
+  private toolExecutor: IToolExecutor | null = null;
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
@@ -80,11 +72,11 @@ export class AnthropicProvider implements AIProvider {
     );
   }
 
-  setToolRegistry(registry: unknown): void {
+  setToolRegistry(registry: ToolRegistry | null): void {
     this.toolRegistry = registry;
   }
 
-  setToolExecutor(executor: unknown): void {
+  setToolExecutor(executor: IToolExecutor | null): void {
     this.toolExecutor = executor;
   }
 
@@ -116,7 +108,9 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    return [...SUPPORTED_MODELS];
+    return getModelsByProvider('firstParty').map(
+      (key) => ALL_MODEL_CONFIGS[key].firstParty
+    );
   }
 
   validateConfig(config: ProviderConfig): ProviderValidationResult {
@@ -127,9 +121,12 @@ export class AnthropicProvider implements AIProvider {
       errors.push('API key is required (config.apiKey or ANTHROPIC_API_KEY)');
     }
 
-    if (config.model && !SUPPORTED_MODELS.includes(config.model)) {
+    const supportedModels = getModelsByProvider('firstParty').map(
+      (key) => ALL_MODEL_CONFIGS[key].firstParty
+    );
+    if (config.model && !supportedModels.includes(config.model)) {
       warnings.push(
-        `Unknown model: ${config.model}. Supported: ${SUPPORTED_MODELS.join(', ')}`
+        `Unknown model: ${config.model}. Supported: ${supportedModels.join(', ')}`
       );
     }
 

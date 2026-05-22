@@ -4,7 +4,9 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '../types';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 错误统计信息接口

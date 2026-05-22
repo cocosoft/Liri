@@ -14,14 +14,15 @@ import type {
   ProviderConfig,
   ProviderValidationResult,
 } from './AIProvider';
+import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
+import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-const SUPPORTED_MODELS = ['deepseek-chat', 'deepseek-reasoner'];
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 const DEFAULT_MODEL = 'deepseek-chat';
 
@@ -31,8 +32,8 @@ export class DeepSeekProvider implements AIProvider {
   private apiKey: string;
   private baseUrl: string;
   private defaultModel: string;
-  private toolRegistry: unknown = null;
-  private toolExecutor: unknown = null;
+  private toolRegistry: ToolRegistry | null = null;
+  private toolExecutor: IToolExecutor | null = null;
   private readonly adapter: TransportProviderAdapter;
 
   constructor(config: ProviderConfig) {
@@ -46,11 +47,18 @@ export class DeepSeekProvider implements AIProvider {
     this.adapter = new TransportProviderAdapter(new ChatCompletionsTransport());
   }
 
-  setToolRegistry(registry: unknown): void {
+  setApiKey(key: string): void {
+    if (key) {
+      this.apiKey = key;
+      logger.info('DeepSeek API key updated');
+    }
+  }
+
+  setToolRegistry(registry: ToolRegistry | null): void {
     this.toolRegistry = registry;
   }
 
-  setToolExecutor(executor: unknown): void {
+  setToolExecutor(executor: IToolExecutor | null): void {
     this.toolExecutor = executor;
   }
 
@@ -256,7 +264,9 @@ export class DeepSeekProvider implements AIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    return [...SUPPORTED_MODELS];
+    return getModelsByProvider('deepseek').map(
+      (key) => ALL_MODEL_CONFIGS[key].deepseek
+    );
   }
 
   validateConfig(config: ProviderConfig): ProviderValidationResult {

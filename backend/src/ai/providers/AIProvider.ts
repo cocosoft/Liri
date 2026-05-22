@@ -4,6 +4,7 @@ import type {
   ToolDefinition,
 } from '../models/types';
 import type { ThinkingConfig } from '../clients/thinking';
+import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 
 export interface ProviderConfig {
   apiKey?: string;
@@ -43,9 +44,11 @@ export interface AIProvider {
 
   validateConfig(config: ProviderConfig): ProviderValidationResult;
 
-  setToolRegistry?(registry: unknown): void;
+  setApiKey?(key: string): void;
 
-  setToolExecutor?(executor: unknown): void;
+  setToolRegistry?(registry: ToolRegistry | null): void;
+
+  setToolExecutor?(executor: IToolExecutor | null): void;
 
   supportsThinking?(model: string): boolean;
 }

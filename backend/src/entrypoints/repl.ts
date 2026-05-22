@@ -22,6 +22,7 @@ import { LocalHTTPService } from '../core/gateway/local/LocalHTTPService.js';
 import { getConfig } from '../config/index.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';
 import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
+import { isOfflineMode, isValidApiKey } from '../main.js';
 
 const logger = new Logger({
   level: 'info' as unknown as import('../monitoring/logs/Logger').LogLevel,
@@ -71,10 +72,24 @@ export function initializeChatManager(): ChatManager {
     model: process.env.DEEPSEEK_MODEL,
   });
 
-  const llmClient = new ToolAwareClient(provider, registry, null);
+  // 确保 Provider 使用最新密钥（getOrCreate 可能返回已存在的 stale 实例）
+  if (apiKey) {
+    provider.setApiKey?.(apiKey);
+  }
+
+  const llmClient = new ToolAwareClient(
+    provider,
+    registry as unknown as import('@modules/ai/interfaces/ToolExecutor').ToolRegistry,
+    null
+  );
 
   if (registry) {
-    if (provider.setToolRegistry) provider.setToolRegistry(registry);
+    if (provider.setToolRegistry)
+      provider.setToolRegistry(
+        registry as unknown as Parameters<
+          NonNullable<typeof provider.setToolRegistry>
+        >[0]
+      );
   }
 
   chatManager.setLLMClient(llmClient);
@@ -136,14 +151,29 @@ export async function launchRepl(
 
   // 显示欢迎消息
   ui.showTitle('PY_APP - AI Agent');
-  ui.showInfo('我是您的 AI 个人助手，可以直接用自然语言与我对话。');
-  console.log();
-  ui.showSuccess('试试看:');
-  ui.showInfo('  • 直接输入问题开始对话');
-  ui.showInfo('  • "/help" — 查看所有命令');
-  ui.showInfo('  • "/onboard" — 运行初始化配置');
-  ui.showInfo('  • "exit" — 退出');
-  console.log();
+
+  if (isOfflineMode) {
+    ui.showInfo('我是您的 AI 个人助手。当前为离线模式，AI 对话暂不可用。');
+    console.log();
+    ui.showSuccess('新用户起步:');
+    ui.showInfo('  • "/onboard" — 3 步配置向导（推荐）');
+    ui.showInfo('  • "/demo" — 预览对话效果');
+    ui.showInfo('  • "/help" — 查看所有命令');
+    ui.showInfo('  • "exit" — 退出');
+  } else {
+    ui.showInfo('我是您的 AI 个人助手，可以直接用自然语言与我对话。');
+    console.log();
+    ui.showSuccess('试试看:');
+    ui.showInfo('  • 直接输入问题开始对话');
+    ui.showInfo('  • "/help" — 查看所有命令');
+    ui.showInfo('  • "/onboard" — 重新运行配置向导');
+    ui.showInfo('  • "exit" — 退出');
+  }
+
+  // 根据离线/在线状态设置提示符
+  if (isOfflineMode) {
+    finalConfig.prompt = '\u{1F50C} [离线] ';
+  }
 
   // 启动 LocalHTTPService（如果配置了 httpPort）
   let localHTTPService: LocalHTTPService | null = null;
@@ -180,27 +210,22 @@ export async function launchRepl(
     const cfg = getConfig();
     const configApiKey =
       cfg['ai.deepseek.apiKey'] || cfg.ai?.deepseek?.apiKey || '';
-    const requiredEnvVars = ['DEEPSEEK_API_KEY'];
-    const missingVars = requiredEnvVars.filter(
-      (varName) => !process.env[varName]
-    );
-    if (missingVars.length > 0 && !configApiKey) {
-      ui.showWarning(
-        `缺少环境变量: ${missingVars.join(', ')}，AI 对话功能需要此密钥`
-      );
+    const effectiveKey = process.env.DEEPSEEK_API_KEY || configApiKey;
+    if (isOfflineMode || !isValidApiKey(effectiveKey)) {
+      ui.showWarning('AI 对话功能不可用：未检测到有效的 API 密钥');
       ui.showInfo('配置方法（任选其一）:');
+      ui.showInfo('  • 方法 1: 运行 /onboard 启动交互式配置向导（推荐）');
       ui.showInfo(
-        '  • 方法 1: 在命令行输入 /config set ai.deepseek.apiKey sk-你的密钥'
+        '  • 方法 2: 在命令行输入 /config set ai.deepseek.apiKey sk-你的密钥'
       );
       ui.showInfo(
-        '  • 方法 2: 编辑 backend/.env 文件，填入 DEEPSEEK_API_KEY=sk-你的密钥'
+        '  • 方法 3: 编辑 backend/.env 文件，填入 DEEPSEEK_API_KEY=sk-你的密钥'
       );
-      ui.showInfo('  • 方法 3: 运行 /onboard 启动交互式引导配置');
-      ui.showInfo('配置完成后重启应用即可开始对话');
+      ui.showInfo('  • 运行 /demo 预览对话效果（无需配置）');
     }
 
     const commandCount = commandRegistry.getCommandCount();
-    logger.info('REPL 启动检查', { missingVars, commandCount });
+    logger.info('REPL 启动检查', { isOfflineMode, commandCount });
     profileCheckpoint('repl_startup_checks_end');
   } catch (error) {
     ui.showWarning(
@@ -340,13 +365,14 @@ export async function launchRepl(
         const commandName = parts[0];
         const args = parts.slice(1).join(' ');
 
+        const loading = ui.showLoading(`执行命令: ${commandName}`);
         const context: CommandContext = {
           sessionId: `repl-${Date.now()}`,
           chatManager,
           replReadline: rl,
+          stopLoading: () => loading.stop(),
         };
 
-        const loading = ui.showLoading(`执行命令: ${commandName}`);
         profileCheckpoint('repl_execute_command_start');
         const result = await commandExecutor.execute(
           commandName + ' ' + args,
@@ -396,14 +422,18 @@ export async function launchRepl(
           );
           // 根据错误类型提供不同的提示
           if (error instanceof Error) {
-            if (
+            if (isOfflineMode) {
+              ui.showInfo('提示: 您当前处于离线模式，AI 对话不可用');
+              ui.showInfo('  请运行 /onboard 配置 API 密钥即可使用 AI 功能');
+            } else if (
               error.message.includes('API key') ||
-              error.message.includes('apiKey')
+              error.message.includes('apiKey') ||
+              error.message.includes('401') ||
+              error.message.includes('unauthorized')
             ) {
-              ui.showInfo('提示: 请先配置 API 密钥');
-              ui.showInfo(
-                '  在命令行输入: /config set ai.deepseek.apiKey sk-你的密钥'
-              );
+              ui.showInfo('提示: API 密钥无效或已过期，请重新配置');
+              ui.showInfo('  运行 /onboard 重新设置 API 密钥');
+              ui.showInfo('  运行 /demo 预览对话效果（无需配置）');
             } else if (
               error.message.includes('No session') ||
               error.message.includes('session')
@@ -414,11 +444,12 @@ export async function launchRepl(
               ui.showInfo(
                 '  配置命令: /config set ai.deepseek.apiKey sk-你的密钥'
               );
-            } else if (error.message.includes('network')) {
-              ui.showInfo('提示: 请检查您的网络连接');
+            } else if (error.message.includes('network') || error.message.includes('fetch')) {
+              ui.showInfo('提示: 网络连接失败，请检查网络');
+              ui.showInfo('  如果您已配置 API 密钥，请确保可以访问互联网');
             } else {
               ui.showInfo(
-                '提示: 您可以尝试使用 /help 查看可用命令。如果是首次使用，请先配置 API 密钥：/config set ai.deepseek.apiKey sk-你的密钥'
+                '提示: 您可以尝试使用 /help 查看可用命令。如果是首次使用，请先配置 API 密钥：\n  运行 /onboard 启动配置向导'
               );
             }
           }

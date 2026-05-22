@@ -10,12 +10,13 @@ import type {
   MemorySearchResult,
 } from './types/Memory.js';
 
-import {
-  MemoryManager,
-  MemoryStore,
-  MemoryIndexer,
-  MemoryRetriever,
-} from './index.js';
+import type { MemoryManager } from './MemoryManager.js';
+import { MemoryManagerImpl } from './MemoryManager.js';
+import type { MemoryStore } from './stores/MemoryStore.js';
+import { MemoryStoreImpl } from './stores/MemoryStore.js';
+import { MemoryIndexer } from './indexer/MemoryIndexer.js';
+import type { MemoryRetriever } from './retrievers/MemoryRetriever.js';
+import { MemoryRetrieverImpl } from './retrievers/MemoryRetriever.js';
 
 export interface EnhancedMemoryManagerConfig {
   enableAdvancedAnalysis: boolean;
@@ -92,10 +93,10 @@ export class EnhancedMemoryManager {
       ...config,
     };
 
-    this.baseManager = new MemoryManager();
-    this.memoryStore = new MemoryStore();
+    this.baseManager = new MemoryManagerImpl();
+    this.memoryStore = new MemoryStoreImpl();
     this.memoryIndexer = new MemoryIndexer();
-    this.memoryRetriever = new MemoryRetriever();
+    this.memoryRetriever = new MemoryRetrieverImpl();
   }
 
   /**
@@ -108,7 +109,11 @@ export class EnhancedMemoryManager {
     lifecycle: MemoryLifecycle;
   }> {
     // 使用基础管理器存储记忆
-    const memoryId = await this.baseManager.store(memory);
+    const created = await this.baseManager.createMemory({
+      content: memory.content,
+      metadata: memory.metadata,
+    });
+    const memoryId = created.id;
 
     // 高级分析
     let analysis: MemoryAnalysis | undefined;
@@ -667,8 +672,7 @@ export class EnhancedMemoryManager {
    * 获取所有记忆
    */
   private async getAllMemories(): Promise<Memory[]> {
-    // 简化实现：返回空数组
-    return [];
+    return this.baseManager.getAllMemories();
   }
 
   /**

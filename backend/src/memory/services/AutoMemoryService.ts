@@ -1,4 +1,3 @@
-//
 /**
  * 自动记忆服务
  * 负责自动识别和创建记忆
@@ -7,6 +6,9 @@
 import { Memory } from '../types/Memory';
 import { MemoryType } from '../types/MemoryType';
 import { MemoryManager } from '../MemoryManager';
+import type { AIService } from '@modules/ai/models/types';
+import { Logger } from '@modules/monitoring/logs/Logger';
+import type { KnowledgeBaseWriter } from './KnowledgeBaseWriter';
 
 /**
  * 自动记忆触发类型
@@ -29,6 +31,7 @@ export interface AutoMemoryConfig {
   maxMemorySize: number; // 字符数
   maxMemoriesPerConversation: number;
   triggerTypes: AutoMemoryTriggerType[];
+  useLLM?: boolean; // 是否使用 LLM 进行智能记忆检测
 }
 
 /**
@@ -50,25 +53,42 @@ export class AutoMemoryService {
   private memoryManager: MemoryManager;
   private config: AutoMemoryConfig;
   private conversationMemories: Map<string, Memory[]> = new Map();
+  private aiService: AIService | null = null;
+  private logger: Logger;
+  private knowledgeBaseWriter: KnowledgeBaseWriter | null = null;
 
   /**
    * 构造函数
    * @param memoryManager 记忆管理器
    * @param config 自动记忆配置
+   * @param aiService 可选的 AI 服务，用于 LLM 驱动的记忆检测
    */
   constructor(
     memoryManager: MemoryManager,
-    config: Partial<AutoMemoryConfig> = {}
+    config: Partial<AutoMemoryConfig> = {},
+    aiService?: AIService,
+    knowledgeBaseWriter?: KnowledgeBaseWriter
   ) {
     this.memoryManager = memoryManager;
+    this.aiService = aiService || null;
+    this.knowledgeBaseWriter = knowledgeBaseWriter || null;
     this.config = {
       enabled: true,
       minConfidence: 0.7,
       maxMemorySize: 1000,
       maxMemoriesPerConversation: 5,
       triggerTypes: Object.values(AutoMemoryTriggerType),
+      useLLM: false,
       ...config,
     };
+    this.logger = new Logger({ name: 'AutoMemoryService' });
+  }
+
+  /**
+   * 设置知识库写入器
+   */
+  setKnowledgeBaseWriter(writer: KnowledgeBaseWriter): void {
+    this.knowledgeBaseWriter = writer;
   }
 
   /**
@@ -140,6 +160,20 @@ export class AutoMemoryService {
     if (createdMemories.length > 0) {
       const updatedMemories = [...existingMemories, ...createdMemories];
       this.conversationMemories.set(conversationId, updatedMemories);
+    }
+
+    // 将高置信度的重要信息同步到知识库
+    if (this.knowledgeBaseWriter) {
+      for (let i = 0; i < createdMemories.length; i++) {
+        const extraction = filteredExtractions[i];
+        if (
+          extraction &&
+          extraction.trigger === AutoMemoryTriggerType.IMPORTANT_INFORMATION &&
+          extraction.confidence >= 0.8
+        ) {
+          await this.knowledgeBaseWriter.writeFromMemory(createdMemories[i]);
+        }
+      }
     }
 
     return createdMemories;
@@ -593,16 +627,34 @@ export class AutoMemoryService {
   }
 
   /**
-   * 查找类似的记忆
+   * 查找类似的记忆（带时间窗口过滤和反向引用更新）
    * @param content 记忆内容
    * @returns 类似的记忆或null
    */
   private async findSimilarMemory(content: string): Promise<Memory | null> {
     const allMemories = await this.memoryManager.getAllMemories();
+    const now = Date.now();
+    const dedupWindowMs = 48 * 60 * 60 * 1000; // 48小时时间窗口
 
     for (const memory of allMemories) {
+      const memoryAge = now - memory.updatedAt.getTime();
+      // 时间窗口过滤：只比较 48 小时内的记忆
+      if (memoryAge > dedupWindowMs) {
+        const similarity = this.calculateSimilarity(content, memory.content);
+        if (similarity > 0.85) {
+          // 超过 48 小时的内容需要更高阈值才能认定为重复
+          memory.updatedAt = new Date();
+          await this.memoryManager.updateMemory(memory.id, memory);
+          return memory;
+        }
+        continue;
+      }
+
       const similarity = this.calculateSimilarity(content, memory.content);
       if (similarity > 0.7) {
+        // 更新原记忆的更新时间，标记最近被引用过
+        memory.updatedAt = new Date();
+        await this.memoryManager.updateMemory(memory.id, memory);
         return memory;
       }
     }

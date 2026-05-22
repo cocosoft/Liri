@@ -11,11 +11,11 @@ export {
   type MemdirConfig,
   type EntrypointTruncation,
 } from './MemdirService';
-export {
-  MemoryScanner,
-  type MemoryScanResult,
-  type RelevantMemoryResult,
-  type MemoryAgingConfig,
+export { MemdirMemoryScanner } from './MemoryScanner';
+export type {
+  MemoryScanResult,
+  RelevantMemoryResult,
+  MemoryAgingConfig,
 } from './MemoryScanner';
 export {
   MemoryCommands,
@@ -34,12 +34,12 @@ export {
  */
 export function createDefaultMemoryIntegrationService(): {
   memdirService: MemdirService;
-  memoryScanner: MemoryScanner;
+  memoryScanner: MemdirMemoryScanner;
   memoryCommands: MemoryCommands;
   integrationService: MemoryIntegrationService;
 } {
   const memdirService = new MemdirService();
-  const memoryScanner = new MemoryScanner();
+  const memoryScanner = new MemdirMemoryScanner();
   const memoryCommands = new MemoryCommands(memdirService, memoryScanner);
   const integrationService = new MemoryIntegrationService(
     memdirService,

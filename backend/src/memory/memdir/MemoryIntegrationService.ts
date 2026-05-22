@@ -10,7 +10,10 @@ import type {
   MemoryType,
   MemoryLayer,
 } from './MemdirService';
-import type { MemoryScanner, RelevantMemoryResult } from './MemoryScanner';
+import type {
+  MemdirMemoryScanner,
+  RelevantMemoryResult,
+} from './MemoryScanner';
 import type {
   MemoryCommands,
   MemoryCommandOptions,
@@ -110,14 +113,14 @@ export interface MemoryIntegrationConfig {
  */
 export class MemoryIntegrationService {
   private memdirService: MemdirService;
-  private memoryScanner: MemoryScanner;
+  private memoryScanner: MemdirMemoryScanner;
   private memoryCommands: MemoryCommands;
   private config: MemoryIntegrationConfig;
   private databaseMemories: Map<string, Memory> = new Map();
 
   constructor(
     memdirService: MemdirService,
-    memoryScanner: MemoryScanner,
+    memoryScanner: MemdirMemoryScanner,
     memoryCommands: MemoryCommands,
     config?: Partial<MemoryIntegrationConfig>
   ) {

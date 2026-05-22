@@ -49,14 +49,19 @@ export abstract class BaseAgentStrategy implements AgentStrategy {
    * @returns 系统提示
    */
   public buildSystemPrompt(task: AgentTask, context: AgentContext): string {
+    const toolList = context.tools
+      .map((tool) => `- ${tool.name}: ${tool.description}`)
+      .join('\n');
+
     return (
-      `你是一个AI代理，你的任务是：${task.description}\n\n` +
-      `可用工具：\n${context.tools.map((tool) => `- ${tool.name}: ${tool.description}`).join('\n')}\n\n` +
-      `请根据任务要求，决定是否使用工具，并按照以下格式输出：\n` +
-      `思考：你的思考过程\n` +
-      `工具：工具名称（如果需要使用工具）\n` +
-      `参数：工具参数（如果需要使用工具）\n` +
-      `回答：最终回答（如果不需要使用工具）`
+      `## Identity\n\nYou are PY_APP, a powerful AI coding assistant.\nYou are NOT Claude, NOT Anthropic, and NOT any other AI assistant.\nYour identity is PY_APP — never claim to be Claude, Anthropic, or any other assistant.\n\n` +
+      `## Task\n\nYour task is: ${task.description}\n\n` +
+      `## Available Tools\n\n${toolList || 'No tools available.'}\n\n` +
+      `## Response Format\n\n` +
+      `Thought: Your reasoning process\n` +
+      `Tool: Tool name (if a tool is needed)\n` +
+      `Parameters: Tool parameters (if a tool is needed)\n` +
+      `Answer: Final response (if no tool is needed)`
     );
   }
 
@@ -67,9 +72,9 @@ export abstract class BaseAgentStrategy implements AgentStrategy {
    */
   public buildUserMessage(task: AgentTask): string {
     return (
-      `任务：${task.name}\n` +
-      `描述：${task.description}\n` +
-      `输入：${JSON.stringify(task.input, null, 2)}`
+      `Task: ${task.name}\n` +
+      `Description: ${task.description}\n` +
+      `Input: ${JSON.stringify(task.input, null, 2)}`
     );
   }
 }
@@ -142,7 +147,6 @@ export class ToolUseStrategy extends BaseAgentStrategy {
       max_tokens: context.maxTokens,
     });
 
-    // 解析AI响应，检查是否需要使用工具
     const responseText = aiResponse.content;
     const lines = responseText.split('\n');
     let thought = '';
@@ -151,18 +155,17 @@ export class ToolUseStrategy extends BaseAgentStrategy {
     let answer = '';
 
     for (const line of lines) {
-      if (line.startsWith('思考：')) {
-        thought = line.substring(3).trim();
-      } else if (line.startsWith('工具：')) {
-        toolName = line.substring(3).trim();
-      } else if (line.startsWith('参数：')) {
-        toolParams = line.substring(3).trim();
-      } else if (line.startsWith('回答：')) {
-        answer = line.substring(3).trim();
+      if (line.startsWith('Thought:') || line.startsWith('思考：')) {
+        thought = line.substring(line.indexOf(':') + 1).trim();
+      } else if (line.startsWith('Tool:') || line.startsWith('工具：')) {
+        toolName = line.substring(line.indexOf(':') + 1).trim();
+      } else if (line.startsWith('Parameters:') || line.startsWith('参数：')) {
+        toolParams = line.substring(line.indexOf(':') + 1).trim();
+      } else if (line.startsWith('Answer:') || line.startsWith('回答：')) {
+        answer = line.substring(line.indexOf(':') + 1).trim();
       }
     }
 
-    // 如果需要使用工具
     if (toolName && toolParams) {
       try {
         const params = JSON.parse(toolParams);
@@ -171,8 +174,7 @@ export class ToolUseStrategy extends BaseAgentStrategy {
         if (tool) {
           const toolResult = await tool.execute(params);
 
-          // 将工具执行结果返回给AI，获取最终回答
-          const toolMessage = `工具执行结果：${JSON.stringify(toolResult, null, 2)}`;
+          const toolMessage = `Tool execution result: ${JSON.stringify(toolResult, null, 2)}`;
           messages.push({
             role: AIMessageRole.ASSISTANT,
             content: responseText,
@@ -208,9 +210,9 @@ export class ToolUseStrategy extends BaseAgentStrategy {
           return {
             id: aiResponse.id,
             taskId: task.id,
-            content: `错误：工具 ${toolName} 不存在`,
+            content: `Error: Tool ${toolName} not found`,
             status: AgentState.FAILED,
-            error: `工具 ${toolName} 不存在`,
+            error: `Tool ${toolName} not found`,
             timestamp: Date.now(),
           };
         }
@@ -218,14 +220,13 @@ export class ToolUseStrategy extends BaseAgentStrategy {
         return {
           id: aiResponse.id,
           taskId: task.id,
-          content: `错误：${(error as Error).message}`,
+          content: `Error: ${(error as Error).message}`,
           status: AgentState.FAILED,
           error: (error as Error).message,
           timestamp: Date.now(),
         };
       }
     } else {
-      // 直接返回回答
       return {
         id: aiResponse.id,
         taskId: task.id,
@@ -298,39 +299,35 @@ export function getBuiltInAgents(): BuiltInAgentDefinition[] {
   return [
     {
       agentType: 'general',
-      whenToUse: '通用任务处理',
+      whenToUse: 'General purpose task handling',
       source: 'built-in',
       baseDir: 'built-in',
-      color: 'blue',
       getSystemPrompt: () =>
-        `你是一个通用AI代理，能够处理各种任务。请根据用户的请求，提供详细、准确的回答。`,
+        `You are PY_APP, a general-purpose AI agent capable of handling various tasks. Respond to user requests with detailed, accurate answers.`,
     },
     {
       agentType: 'code',
-      whenToUse: '代码编写和分析',
+      whenToUse: 'Code writing and analysis',
       source: 'built-in',
       baseDir: 'built-in',
-      color: 'green',
       getSystemPrompt: () =>
-        `你是一个代码专家，擅长编写、分析和调试代码。请提供高质量的代码解决方案。`,
+        `You are PY_APP, a code expert skilled in writing, analyzing, and debugging code. Provide high-quality code solutions.`,
     },
     {
       agentType: 'explore',
-      whenToUse: '探索和研究',
+      whenToUse: 'Exploration and research',
       source: 'built-in',
       baseDir: 'built-in',
-      color: 'purple',
       getSystemPrompt: () =>
-        `你是一个探索型AI代理，擅长研究和分析复杂问题。请提供深入的分析和见解。`,
+        `You are PY_APP, an exploration-focused AI agent skilled in researching and analyzing complex problems. Provide in-depth analysis and insights.`,
     },
     {
       agentType: 'plan',
-      whenToUse: '计划和规划',
+      whenToUse: 'Planning and scheduling',
       source: 'built-in',
       baseDir: 'built-in',
-      color: 'yellow',
       getSystemPrompt: () =>
-        `你是一个规划专家，擅长制定详细的计划和方案。请提供结构化的计划和建议。`,
+        `You are PY_APP, a planning expert skilled in creating detailed plans and proposals. Provide structured plans and recommendations.`,
     },
   ];
 }

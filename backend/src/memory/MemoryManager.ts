@@ -27,8 +27,13 @@ import {
 } from './services/PYAppIntegrationService';
 import fsExtra from 'fs-extra';
 import { join } from 'path';
+import * as fs from 'fs';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type { MemoryProvider } from './MemoryProvider';
+import { memoryRelationGraph } from './utils/MemoryRelationGraph';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 记忆管理器接口
@@ -183,6 +188,11 @@ export class MemoryManagerImpl {
   private pyAppIntegrationService: PYAppIntegrationService;
 
   /**
+   * 关联图文件路径
+   */
+  private relationGraphPath: string;
+
+  /**
    * 外部记忆提供者（最多 1 个）
    */
   private provider: MemoryProvider | null = null;
@@ -193,6 +203,7 @@ export class MemoryManagerImpl {
    */
   constructor(memoryDir: string = './data/memory') {
     this.storeDir = memoryDir;
+    this.relationGraphPath = join(memoryDir, 'memory-relation-graph.json');
     this.store = new MemoryStoreImpl(memoryDir);
     this.scanner = new MemoryScannerImpl();
     this.retriever = new MemoryRetrieverImpl(memoryDir);
@@ -200,6 +211,9 @@ export class MemoryManagerImpl {
     this.autoMemoryService = new AutoMemoryService(this as any);
     this.teamMemoryService = new TeamMemoryService(this as any);
     this.pyAppIntegrationService = new PYAppIntegrationService();
+
+    // 加载关联图
+    this.loadRelationGraph().catch(() => {});
   }
 
   /**
@@ -219,6 +233,9 @@ export class MemoryManagerImpl {
     // 增量更新检索器索引
     this.retriever.updateIndex(newMemory);
     await this.retriever.saveIndex();
+
+    // 持久化关联图
+    await this.saveRelationGraph();
 
     return newMemory;
   }
@@ -268,6 +285,9 @@ export class MemoryManagerImpl {
     this.retriever.updateIndex(updatedMemory);
     await this.retriever.saveIndex();
 
+    // 持久化关联图
+    await this.saveRelationGraph();
+
     return updatedMemory;
   }
 
@@ -281,6 +301,9 @@ export class MemoryManagerImpl {
     // 从检索器索引中移除
     this.retriever.removeFromIndex(id);
     await this.retriever.saveIndex();
+
+    // 持久化关联图
+    await this.saveRelationGraph();
   }
 
   /**
@@ -479,7 +502,31 @@ export class MemoryManagerImpl {
       backupDir,
       `memory_backup_${new Date().toISOString().replace(/[:.]/g, '-')}`
     );
-    await fsExtra.copy(this.storeDir, backupPath);
+
+    try {
+      // 检查源目录是否存在
+      const sourceExists = await fsExtra.pathExists(this.storeDir);
+      if (!sourceExists) {
+        throw new AppError(
+          `Source memory directory ${this.storeDir} does not exist`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
+      }
+
+      await fsExtra.copy(this.storeDir, backupPath);
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError(
+        `Failed to backup memory data from ${this.storeDir} to ${backupPath}: ${error instanceof Error ? error.message : String(error)}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
   }
 
   /**
@@ -510,6 +557,42 @@ export class MemoryManagerImpl {
 
     // 重新构建索引
     await this.buildMemoryIndex();
+  }
+
+  /**
+   * 加载关联图
+   */
+  async loadRelationGraph(): Promise<void> {
+    try {
+      await fs.promises.access(this.relationGraphPath);
+      const content = await fs.promises.readFile(
+        this.relationGraphPath,
+        'utf8'
+      );
+      const relations = JSON.parse(content);
+      memoryRelationGraph.deserialize(relations);
+    } catch {
+      // 文件不存在或解析失败时使用空关联图
+    }
+  }
+
+  /**
+   * 保存关联图
+   */
+  async saveRelationGraph(): Promise<void> {
+    try {
+      const relations = memoryRelationGraph.serialize();
+      await fs.promises.writeFile(
+        this.relationGraphPath,
+        JSON.stringify(relations, null, 2),
+        'utf8'
+      );
+    } catch (error) {
+      logger.error(
+        'Error saving relation graph',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
   }
 
   /**

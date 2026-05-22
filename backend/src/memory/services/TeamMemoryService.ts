@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import matter from 'gray-matter';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -374,11 +375,29 @@ export class TeamMemoryService {
 
     const files = fs.readdirSync(teamMemDir);
     for (const file of files) {
-      if (file.endsWith('.json')) {
+      if (file.endsWith('.md') && file !== 'MEMORY.md') {
         try {
           const filePath = path.join(teamMemDir, file);
           const content = fs.readFileSync(filePath, 'utf8');
-          const memory = JSON.parse(content);
+          const { data, content: memoryContent } = matter(content);
+          const memory: Memory = {
+            id: data.id || file.replace('.md', ''),
+            content: memoryContent.trim(),
+            metadata: {
+              name: data.name || 'Untitled',
+              description: data.description || '',
+              type: data.type || 'reference',
+              createdAt: new Date(data.createdAt || Date.now()),
+              updatedAt: new Date(data.updatedAt || Date.now()),
+              tags: data.tags || [],
+              priority: data.priority || 0,
+              expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined,
+              author: data.author,
+              source: data.source,
+            },
+            createdAt: new Date(data.createdAt || Date.now()),
+            updatedAt: new Date(data.updatedAt || Date.now()),
+          };
           memories.push(memory);
         } catch (error) {
           logger.error(
@@ -403,7 +422,7 @@ export class TeamMemoryService {
     if (fs.existsSync(teamMemDir)) {
       const files = fs.readdirSync(teamMemDir);
       for (const file of files) {
-        if (file.endsWith('.json')) {
+        if (file.endsWith('.md') && file !== 'MEMORY.md') {
           fs.unlinkSync(path.join(teamMemDir, file));
         }
       }
@@ -413,8 +432,22 @@ export class TeamMemoryService {
 
     // 保存记忆
     for (const memory of memories) {
-      const filePath = path.join(teamMemDir, `${memory.id}.json`);
-      fs.writeFileSync(filePath, JSON.stringify(memory, null, 2));
+      const filePath = path.join(teamMemDir, `${memory.id}.md`);
+      const frontmatter: Record<string, unknown> = {
+        id: memory.id,
+        name: memory.metadata.name,
+        description: memory.metadata.description,
+        type: memory.metadata.type,
+        createdAt: memory.createdAt.toISOString(),
+        updatedAt: memory.updatedAt.toISOString(),
+        tags: memory.metadata.tags,
+        priority: memory.metadata.priority,
+        expiresAt: memory.metadata.expiresAt?.toISOString(),
+        author: memory.metadata.author,
+        source: memory.metadata.source,
+      };
+      const content = matter.stringify(memory.content, frontmatter);
+      fs.writeFileSync(filePath, content, 'utf8');
     }
   }
 

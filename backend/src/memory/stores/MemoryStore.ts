@@ -52,11 +52,87 @@ export class MemoryStoreImpl implements MemoryStore {
   private memoryDir: string;
 
   /**
+   * 向量索引文件路径
+   */
+  private getVectorIndexPath(): string {
+    return join(this.memoryDir, 'memory-vectors.json');
+  }
+
+  /**
    * 构造函数
    * @param memoryDir 记忆目录路径
    */
   constructor(memoryDir: string = './data/memory') {
     this.memoryDir = memoryDir;
+  }
+
+  /**
+   * 保存向量索引
+   */
+  async saveVectorIndex(
+    vectors: Record<
+      string,
+      { vector: number[]; model: string; timestamp: string }
+    >
+  ): Promise<void> {
+    await this.ensureMemoryDirExists();
+    await fs.writeFile(
+      this.getVectorIndexPath(),
+      JSON.stringify(vectors, null, 2),
+      'utf8'
+    );
+  }
+
+  /**
+   * 加载向量索引
+   */
+  async loadVectorIndex(): Promise<
+    Record<string, { vector: number[]; model: string; timestamp: string }>
+  > {
+    await this.ensureMemoryDirExists();
+    try {
+      await fs.access(this.getVectorIndexPath());
+      const content = await fs.readFile(this.getVectorIndexPath(), 'utf8');
+      return JSON.parse(content);
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * 保存单个记忆的向量
+   */
+  async saveMemoryVector(
+    memoryId: string,
+    vector: number[],
+    model: string
+  ): Promise<void> {
+    const vectors = await this.loadVectorIndex();
+    vectors[memoryId] = {
+      vector,
+      model,
+      timestamp: new Date().toISOString(),
+    };
+    await this.saveVectorIndex(vectors);
+  }
+
+  /**
+   * 获取单个记忆的向量
+   */
+  async getMemoryVector(
+    memoryId: string
+  ): Promise<{ vector: number[]; model: string; timestamp: string } | null> {
+    const vectors = await this.loadVectorIndex();
+    return vectors[memoryId] || null;
+  }
+
+  /**
+   * 删除单个记忆的向量
+   */
+  async deleteMemoryVector(memoryId: string): Promise<void> {
+    const vectors = await this.loadVectorIndex();
+    delete vectors[memoryId];
+    await this.saveVectorIndex(vectors);
   }
 
   /**
@@ -91,7 +167,7 @@ export class MemoryStoreImpl implements MemoryStore {
     await this.ensureMemoryDirExists();
 
     // 构建frontmatter元数据
-    const frontmatter: any = {};
+    const frontmatter: Record<string, unknown> = {};
 
     // 只添加非undefined的值
     if (memory.id !== undefined) {
@@ -151,9 +227,6 @@ export class MemoryStoreImpl implements MemoryStore {
     // 写入文件
     const filePath = this.getMemoryFilePath(memory.id);
     await fs.writeFile(filePath, content);
-
-    // 更新记忆索引
-    await this.updateMemoryIndex();
   }
 
   /**
@@ -228,12 +301,12 @@ export class MemoryStoreImpl implements MemoryStore {
 
       // 删除文件
       await fs.unlink(filePath);
-
-      // 更新记忆索引
-      await this.updateMemoryIndex();
     } catch (error) {
       // 文件不存在，忽略错误
     }
+
+    // 删除向量索引
+    await this.deleteMemoryVector(id);
   }
 
   /**
@@ -375,7 +448,7 @@ export class MemoryStoreImpl implements MemoryStore {
     const exportPath = join(exportDir, `${memory.id}.md`);
 
     // 构建frontmatter元数据
-    const frontmatter: any = {
+    const frontmatter: Record<string, unknown> = {
       id: memory.id,
       name: memory.metadata.name,
       description: memory.metadata.description,

@@ -27,6 +27,8 @@
       "src/*": ["*"],
       "@modules/core": ["core"],
       "@modules/core/*": ["core/*"],
+      "@modules/constants": ["constants"],
+      "@modules/constants/*": ["constants/*"],
       "@modules/plugin-sdk": ["plugin-sdk"],
       "@modules/plugin-sdk/*": ["plugin-sdk/*"],
       "@modules/ai": ["ai"],

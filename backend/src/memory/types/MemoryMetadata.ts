@@ -98,5 +98,8 @@ export function createMemoryMetadata(
     expiresAt: data.expiresAt,
     author: data.author,
     source: data.source,
+    accessLevel: data.accessLevel,
+    encrypted: data.encrypted || false,
+    isPinned: data.isPinned || false,
   };
 }

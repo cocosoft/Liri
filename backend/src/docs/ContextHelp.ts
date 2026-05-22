@@ -1,6 +1,11 @@
 /**
  * 上下文帮助管理器
  * 根据用户当前操作上下文提供相关帮助
+ *
+ * ⚠️ 【冻结】此文件已停止新增内容
+ *
+ * 新的帮助内容请直接添加到 docs/ 目录下的 Markdown 文件，
+ * 不要在本文件中新增内容。未来将逐步将现有内容迁移到 docs/ 目录。
  */
 
 import { ContextHelpEntry, ContextMatchCondition } from './types.js';

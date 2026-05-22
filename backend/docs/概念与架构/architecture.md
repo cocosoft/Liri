@@ -2,40 +2,58 @@
 
 ## 整体架构
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    用户界面层                        │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
-│  │   CLI    │  │  REPL    │  │  渠道适配器        │  │
-│  └──────────┘  └──────────┘  └───────────────────┘  │
-└──────────────────────┬──────────────────────────────┘
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│                    应用核心层                        │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
-│  │ AppCore  │  │Coordinator│  │  EventBus         │  │
-│  └──────────┘  └──────────┘  └───────────────────┘  │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
-│  │   DI     │  │  Config  │  │  SessionManager   │  │
-│  └──────────┘  └──────────┘  └───────────────────┘  │
-└──────────────────────┬──────────────────────────────┘
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│                    AI 服务层                         │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
-│  │   AI     │  │  Agent   │  │  Task System      │  │
-│  └──────────┘  └──────────┘  └───────────────────┘  │
-└──────────────────────┬──────────────────────────────┘
-                       ▼
-┌─────────────────────────────────────────────────────┐
-│                    工具层                            │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
-│  │ 文件工具  │  │ 网络工具  │  │  媒体工具         │  │
-│  └──────────┘  └──────────┘  └───────────────────┘  │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
-│  │ 代码工具  │  │ 系统工具  │  │  MCP 工具         │  │
-│  └──────────┘  └──────────┘  └───────────────────┘  │
-└─────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph 用户界面层
+        CLI[CLI]
+        REPL[REPL]
+        ChannelAdapter[渠道适配器]
+    end
+    
+    subgraph 应用核心层
+        AppCore[AppCore]
+        Coordinator[Coordinator]
+        EventBus[EventBus]
+        DI[DI 容器]
+        Config[配置管理]
+        SessionManager[会话管理]
+    end
+    
+    subgraph AI 服务层
+        AI[AI 服务]
+        Agent[Agent 系统]
+        TaskSystem[任务系统]
+    end
+    
+    subgraph 工具层
+        FileTools[文件工具]
+        NetTools[网络工具]
+        MediaTools[媒体工具]
+        CodeTools[代码工具]
+        SystemTools[系统工具]
+        MCPTools[MCP 工具]
+    end
+    
+    CLI --> AppCore
+    REPL --> AppCore
+    ChannelAdapter --> AppCore
+    
+    AppCore --> Coordinator
+    AppCore --> EventBus
+    AppCore --> DI
+    AppCore --> Config
+    AppCore --> SessionManager
+    
+    Coordinator --> AI
+    Coordinator --> Agent
+    Coordinator --> TaskSystem
+    
+    AI --> FileTools
+    AI --> NetTools
+    AI --> MediaTools
+    Agent --> CodeTools
+    Agent --> SystemTools
+    Agent --> MCPTools
 ```
 
 ## 架构原则
@@ -67,12 +85,25 @@
 
 ## 数据流
 
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Channel as 渠道适配器
+    participant Gateway as 网关
+    participant Coord as Coordinator
+    participant Agent as Agent
+    participant Tools as 工具系统
+    
+    User->>Channel: 用户输入
+    Channel->>Gateway: 转发请求
+    Gateway->>Coord: 分发处理
+    Coord->>Agent: 调用 Agent
+    Agent->>Tools: 选择并执行工具
+    Tools-->>Agent: 返回结果
+    Agent-->>Coord: 整合响应
+    Coord-->>Gateway: 返回处理结果
+    Gateway-->>Channel: 包装响应
+    Channel-->>User: 展示给用户
 ```
-用户输入 → 渠道适配器 → 网关 → Coordinator
-                                    ↓
-                              Agent(LLM调用)
-                                    ↓
-                              工具选择与执行
-                                    ↓
-                              响应生成与返回
-```
+
+

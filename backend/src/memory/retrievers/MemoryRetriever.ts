@@ -3,8 +3,17 @@ import { MemoryScannerImpl } from '../scanners/MemoryScanner';
 import fs from 'fs';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import type { EmbeddingService } from '../services/EmbeddingService';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 相似搜索结果
+ */
+export interface SimilarMemoryResult {
+  memory: Memory;
+  similarity: number; // 0-1 余弦相似度
+}
 
 /**
  * 记忆检索器接口
@@ -36,6 +45,16 @@ export interface MemoryRetriever {
 
   // 从文件加载索引
   loadIndex(): Promise<void>;
+
+  // 语义相似度搜索（需要 EmbeddingService）
+  retrieveBySimilarity(
+    query: string,
+    limit?: number,
+    threshold?: number
+  ): Promise<SimilarMemoryResult[]>;
+
+  // 混合搜索（关键词+语义）
+  hybridSearch(query: string, limit?: number): Promise<Memory[]>;
 }
 
 /**
@@ -48,6 +67,10 @@ interface MemoryIndexItem {
   content: string;
   type: string;
   tags: string[];
+  priority: number;
+  expiresAt?: Date;
+  author?: string;
+  source?: string;
   createdAt: Date;
   updatedAt: Date;
   // 预计算的索引数据
@@ -91,20 +114,84 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   private indexLoaded: boolean = false;
 
   /**
+   * 嵌入服务（可选，用于语义搜索）
+   */
+  private embeddingService?: EmbeddingService;
+
+  /**
+   * 向量缓存
+   */
+  private vectorCache: Map<string, { vector: number[]; model: string }> =
+    new Map();
+
+  /**
    * 构造函数
    * @param memoryDir 记忆目录路径
+   * @param embeddingService 可选的嵌入服务
    */
-  constructor(memoryDir: string = './data/memory') {
+  constructor(
+    memoryDir: string = './data/memory',
+    embeddingService?: EmbeddingService
+  ) {
     this.memoryDir = memoryDir;
     this.indexFilePath = path.join(memoryDir, 'memory-index.json');
     this.scanner = new MemoryScannerImpl();
     this.memoryIndex = new Map();
     this.stemMap = new Map();
+    this.embeddingService = embeddingService;
 
     // 尝试加载索引
     this.loadIndex().catch(() => {
       // 加载失败时不做处理，后续会重新构建
     });
+  }
+
+  /**
+   * 设置嵌入服务
+   */
+  setEmbeddingService(embeddingService: EmbeddingService): void {
+    this.embeddingService = embeddingService;
+  }
+
+  /**
+   * 余弦相似度计算
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) return 0;
+    let dot = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    if (normA === 0 || normB === 0) return 0;
+    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  /**
+   * 从索引项构建 Memory 对象
+   */
+  private indexItemToMemory(item: MemoryIndexItem): Memory {
+    return {
+      id: item.id,
+      content: item.content,
+      metadata: {
+        name: item.name,
+        description: item.description,
+        type: item.type,
+        tags: item.tags,
+        priority: item.priority,
+        expiresAt: item.expiresAt,
+        author: item.author,
+        source: item.source,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      },
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    };
   }
 
   /**
@@ -150,6 +237,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       content: memory.content,
       type: memory.metadata.type,
       tags: memory.metadata.tags || [],
+      priority: memory.metadata.priority || 0,
+      expiresAt: memory.metadata.expiresAt,
+      author: memory.metadata.author,
+      source: memory.metadata.source,
       createdAt: memory.createdAt,
       updatedAt: memory.updatedAt,
       nameTokens: this.tokenize(memory.metadata.name),
@@ -386,6 +477,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
           createdAt: memory.createdAt,
           updatedAt: memory.updatedAt,
           tags: memory.tags,
+          priority: memory.priority,
+          expiresAt: memory.expiresAt,
+          author: memory.author,
+          source: memory.source,
         },
         createdAt: memory.createdAt,
         updatedAt: memory.updatedAt,
@@ -420,6 +515,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
             createdAt: memory.createdAt,
             updatedAt: memory.updatedAt,
             tags: memory.tags,
+            priority: memory.priority,
+            expiresAt: memory.expiresAt,
+            author: memory.author,
+            source: memory.source,
           },
           createdAt: memory.createdAt,
           updatedAt: memory.updatedAt,
@@ -463,6 +562,10 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
             createdAt: memory.createdAt,
             updatedAt: memory.updatedAt,
             tags: memory.tags,
+            priority: memory.priority,
+            expiresAt: memory.expiresAt,
+            author: memory.author,
+            source: memory.source,
           },
           createdAt: memory.createdAt,
           updatedAt: memory.updatedAt,
@@ -484,7 +587,11 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
         memories: Array.from(this.memoryIndex.values()),
       };
 
-      fs.writeFileSync(this.indexFilePath, JSON.stringify(indexData, null, 2));
+      await fs.promises.writeFile(
+        this.indexFilePath,
+        JSON.stringify(indexData, null, 2),
+        'utf8'
+      );
     } catch (error) {
       logger.error(
         'Error saving memory index',
@@ -497,26 +604,38 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * 从文件加载索引
    */
   async loadIndex(): Promise<void> {
+    // 如果内存索引已通过扫描加载，跳过加载以避免覆盖
+    if (this.memoryIndex.size > 0) {
+      this.indexLoaded = true;
+      return;
+    }
+
     try {
-      if (fs.existsSync(this.indexFilePath)) {
-        const content = fs.readFileSync(this.indexFilePath, 'utf8');
-        const indexData = JSON.parse(content);
+      try {
+        await fs.access(this.indexFilePath);
+      } catch {
+        return;
+      }
 
-        if (indexData.memories && Array.isArray(indexData.memories)) {
-          this.memoryIndex.clear();
-          this.stemMap.clear();
+      const content = await fs.readFile(this.indexFilePath, 'utf8');
+      const indexData = JSON.parse(content);
 
-          for (const memoryData of indexData.memories) {
-            // 转换日期字符串为 Date 对象
-            memoryData.createdAt = new Date(memoryData.createdAt);
-            memoryData.updatedAt = new Date(memoryData.updatedAt);
+      if (indexData.memories && Array.isArray(indexData.memories)) {
+        this.memoryIndex.clear();
+        this.stemMap.clear();
 
-            this.memoryIndex.set(memoryData.id, memoryData);
-            this.updateStemMap(memoryData);
+        for (const memoryData of indexData.memories) {
+          memoryData.createdAt = new Date(memoryData.createdAt);
+          memoryData.updatedAt = new Date(memoryData.updatedAt);
+          if (memoryData.expiresAt) {
+            memoryData.expiresAt = new Date(memoryData.expiresAt);
           }
 
-          this.indexLoaded = true;
+          this.memoryIndex.set(memoryData.id, memoryData);
+          this.updateStemMap(memoryData);
         }
+
+        this.indexLoaded = true;
       }
     } catch (error) {
       logger.error(
@@ -550,5 +669,109 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    */
   getIndexSize(): number {
     return this.memoryIndex.size;
+  }
+
+  /**
+   * 语义相似度搜索
+   * @param query 查询字符串
+   * @param limit 返回数量限制
+   * @param threshold 相似度阈值（0-1）
+   * @returns 排序后的相似记忆结果
+   */
+  async retrieveBySimilarity(
+    query: string,
+    limit: number = 5,
+    threshold: number = 0.3
+  ): Promise<SimilarMemoryResult[]> {
+    if (this.memoryIndex.size === 0 && !this.indexLoaded) {
+      await this.scanMemoryDirectory();
+    }
+
+    if (!this.embeddingService) {
+      logger.warn('EmbeddingService 未配置，无法进行语义搜索');
+      return [];
+    }
+
+    const queryEmb = await this.embeddingService.embed(query);
+    const results: SimilarMemoryResult[] = [];
+
+    for (const item of this.memoryIndex.values()) {
+      const memory = this.indexItemToMemory(item);
+      // 使用 name + description + content 作为嵌入文本
+      const textToEmbed =
+        `${item.name} ${item.description} ${item.content}`.substring(0, 8000);
+
+      let vector: number[];
+      const cached = this.vectorCache.get(item.id);
+      if (cached) {
+        vector = cached.vector;
+      } else {
+        const emb = await this.embeddingService.embed(textToEmbed);
+        vector = emb.vector;
+        this.vectorCache.set(item.id, { vector, model: emb.model });
+      }
+
+      const similarity = this.cosineSimilarity(queryEmb.vector, vector);
+      if (similarity >= threshold) {
+        results.push({ memory, similarity });
+      }
+    }
+
+    results.sort((a, b) => b.similarity - a.similarity);
+    return results.slice(0, limit);
+  }
+
+  /**
+   * 混合搜索（关键词+语义）
+   * @param query 查询字符串
+   * @param limit 返回数量限制
+   * @returns 排序后的记忆列表
+   */
+  async hybridSearch(query: string, limit: number = 5): Promise<Memory[]> {
+    // 获取关键词搜索结果
+    const keywordResults = await this.retrieve(query, limit * 2);
+
+    // 如果有嵌入服务，获取语义搜索结果
+    if (this.embeddingService) {
+      const semanticResults = await this.retrieveBySimilarity(query, limit * 2);
+
+      // 去重和合并
+      const idSet = new Set<string>();
+      const combined: { memory: Memory; score: number }[] = [];
+
+      // 添加关键词结果（得分从1递减）
+      for (let i = 0; i < keywordResults.length; i++) {
+        const mem = keywordResults[i];
+        if (!idSet.has(mem.id)) {
+          idSet.add(mem.id);
+          combined.push({
+            memory: mem,
+            score: 1 - (i / keywordResults.length) * 0.5,
+          });
+        }
+      }
+
+      // 添加语义结果（得分从1递减）
+      for (let i = 0; i < semanticResults.length; i++) {
+        const { memory: mem, similarity } = semanticResults[i];
+        if (idSet.has(mem.id)) {
+          // 已存在则更新得分（取两者较高者）
+          const existing = combined.find((c) => c.memory.id === mem.id);
+          if (existing) {
+            existing.score = Math.max(existing.score, similarity);
+          }
+        } else {
+          idSet.add(mem.id);
+          combined.push({ memory: mem, score: similarity });
+        }
+      }
+
+      // 按得分排序
+      combined.sort((a, b) => b.score - a.score);
+      return combined.slice(0, limit).map((c) => c.memory);
+    }
+
+    // 没有嵌入服务，只返回关键词结果
+    return keywordResults.slice(0, limit);
   }
 }

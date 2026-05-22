@@ -1,6 +1,5 @@
 /**
  * 文件化记忆系统（Memdir）实现
- * 基于CC源码 cc_code/backend/memdir/memdir.ts 实现
  * 支持分层记忆模型、记忆文件扫描、相关记忆检索
  */
 
@@ -28,9 +27,9 @@ export enum MemoryType {
 export enum MemoryLayer {
   PROJECT = 'project', // 项目级：CLAUDE.md
   LOCAL = 'local', // 项目级：CLAUDE.local.md
-  AUTOMEM = 'automem', // 用户级：~/.claude/memory/
+  AUTOMEM = 'automem', // 用户级：~/.pyapp/memory/
   TEAMMEM = 'teammem', // 团队级：共享存储
-  USER = 'user', // 用户级：~/.claude/CLAUDE.md
+  USER = 'user', // 用户级：~/.pyapp/CLAUDE.md
 }
 
 /**
@@ -136,7 +135,7 @@ export class MemdirService {
       entrypointName: 'MEMORY.md',
       maxEntrypointLines: 200,
       maxEntrypointBytes: 25000,
-      autoMemBaseDir: join(homedir(), '.claude', 'memory'),
+      autoMemBaseDir: join(homedir(), '.pyapp', 'memory'),
       autoMemoryEnabled: true,
       ...config,
     };
@@ -256,7 +255,7 @@ export class MemdirService {
    * 扫描用户级记忆文件（来自CC源码）
    */
   private async scanUserMemoryFiles(): Promise<void> {
-    const userMemDir = join(homedir(), '.claude');
+    const userMemDir = join(homedir(), '.pyapp');
     const userFile = join(userMemDir, 'CLAUDE.md');
 
     if (existsSync(userFile)) {

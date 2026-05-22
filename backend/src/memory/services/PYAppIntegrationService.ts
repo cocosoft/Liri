@@ -25,11 +25,20 @@ export interface Preference {
 }
 
 /**
+ * 人格段落类型
+ */
+export interface PersonalitySection {
+  category: string;
+  content: string;
+}
+
+/**
  * PY_APP.md配置信息
  */
 export interface PYAppConfig {
   rules: Rule[];
   preferences: Preference[];
+  personalitySections: PersonalitySection[];
   lastModified: Date;
   filePath: string;
 }
@@ -80,6 +89,7 @@ export class PYAppIntegrationService {
         this.config = {
           rules: [],
           preferences: [],
+          personalitySections: [],
           lastModified: new Date(0),
           filePath: this.filePath,
         };
@@ -92,6 +102,7 @@ export class PYAppIntegrationService {
       this.config = {
         rules: [],
         preferences: [],
+        personalitySections: [],
         lastModified: new Date(0),
         filePath: this.filePath,
       };
@@ -111,6 +122,29 @@ export class PYAppIntegrationService {
   }
 
   /**
+   * 人格段落类别关键词（中英文）
+   */
+  private static readonly PERSONALITY_SECTIONS = new Set([
+    'core truths',
+    '核心信念',
+    'boundaries',
+    '边界',
+    'vibe',
+    '语气',
+    'red lines',
+    '红线',
+    'continuity',
+  ]);
+
+  /**
+   * 判断是否为人格段落
+   */
+  private isPersonalitySection(sectionName: string): boolean {
+    const lower = sectionName.toLowerCase().trim();
+    return PYAppIntegrationService.PERSONALITY_SECTIONS.has(lower);
+  }
+
+  /**
    * 解析PY_APP.md内容
    */
   private parsePYAppContent(
@@ -120,45 +154,52 @@ export class PYAppIntegrationService {
   ): PYAppConfig {
     const rules: Rule[] = [];
     const preferences: Preference[] = [];
+    const personalitySections: PersonalitySection[] = [];
 
     const lines = content.split('\n');
     let currentSection = '';
     let currentRuleContent = '';
     let currentRuleCategory = '';
+    let currentIsPersonality = false;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
       // 检测章节标题
       if (line.startsWith('## ')) {
-        // 如果有未完成的规则，先保存
         if (currentRuleContent && currentRuleCategory) {
-          rules.push({
-            id: this.generateRuleId(currentRuleCategory, rules.length),
-            category: currentRuleCategory,
-            content: currentRuleContent.trim(),
-            priority: this.determinePriority(currentRuleContent),
-          });
+          if (currentIsPersonality) {
+            personalitySections.push({
+              category: currentRuleCategory,
+              content: currentRuleContent.trim(),
+            });
+          } else {
+            rules.push({
+              id: this.generateRuleId(currentRuleCategory, rules.length),
+              category: currentRuleCategory,
+              content: currentRuleContent.trim(),
+              priority: this.determinePriority(currentRuleContent),
+            });
+          }
           currentRuleContent = '';
         }
 
         currentSection = line.substring(3).trim();
         currentRuleCategory = currentSection;
+        currentIsPersonality = this.isPersonalitySection(currentSection);
       }
       // 检测列表项
       else if (line.startsWith('- ') || line.startsWith('* ')) {
         const itemContent = line.substring(2).trim();
 
-        // 尝试解析偏好设置（格式: key: value - description）
         const preferenceMatch = itemContent.match(
           /^([^:]+):\s*([^-]+?)\s*(-\s*.+)?$/
         );
-        if (preferenceMatch) {
+        if (preferenceMatch && !currentIsPersonality) {
           const key = preferenceMatch[1].trim();
           let value = preferenceMatch[2].trim();
           const description = preferenceMatch[3]?.substring(1).trim();
 
-          // 尝试解析值类型
           let parsedValue: string | boolean | number = value;
           if (parsedValue.toLowerCase() === 'true') {
             parsedValue = true;
@@ -177,7 +218,6 @@ export class PYAppIntegrationService {
             description,
           });
         } else {
-          // 作为规则内容
           if (currentRuleCategory) {
             if (currentRuleContent) {
               currentRuleContent += '\n';
@@ -197,17 +237,25 @@ export class PYAppIntegrationService {
 
     // 保存最后一个规则
     if (currentRuleContent && currentRuleCategory) {
-      rules.push({
-        id: this.generateRuleId(currentRuleCategory, rules.length),
-        category: currentRuleCategory,
-        content: currentRuleContent.trim(),
-        priority: this.determinePriority(currentRuleContent),
-      });
+      if (currentIsPersonality) {
+        personalitySections.push({
+          category: currentRuleCategory,
+          content: currentRuleContent.trim(),
+        });
+      } else {
+        rules.push({
+          id: this.generateRuleId(currentRuleCategory, rules.length),
+          category: currentRuleContent.trim(),
+          content: currentRuleContent.trim(),
+          priority: this.determinePriority(currentRuleContent),
+        });
+      }
     }
 
     return {
       rules,
       preferences,
+      personalitySections,
       lastModified,
       filePath,
     };
@@ -358,6 +406,13 @@ export class PYAppIntegrationService {
   getPreferenceValue(key: string, defaultValue?: any): any {
     const preference = this.getPreference(key);
     return preference?.value ?? defaultValue;
+  }
+
+  /**
+   * 获取人格段落
+   */
+  getPersonalitySections(): PersonalitySection[] {
+    return this.config?.personalitySections || [];
   }
 
   /**

@@ -156,4 +156,26 @@ export class MemoryPriorityManager implements IPriorityManager {
   clear(): void {
     this.priorities.clear();
   }
+
+  serialize(): MemoryPriorityData[] {
+    return Array.from(this.priorities.values()).map((p) => ({
+      ...p,
+    }));
+  }
+
+  deserialize(data: MemoryPriorityData[]): void {
+    this.priorities.clear();
+    for (const item of data) {
+      this.priorities.set(item.memoryId, item as MemoryPriority);
+    }
+  }
+}
+
+export interface MemoryPriorityData {
+  memoryId: string;
+  tier: PriorityTier;
+  score: number;
+  factors: PriorityFactor[];
+  assignedAt: number;
+  lastUpdated: number;
 }

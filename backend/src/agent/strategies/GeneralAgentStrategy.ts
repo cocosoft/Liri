@@ -7,6 +7,7 @@ import type { AgentTask, AgentResponse, AgentContext } from '../models/types';
 import { AgentState } from '../models/types';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai/models/types';
+import { assembleDefaultSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 
 /**
  * 通用代理策略
@@ -20,17 +21,9 @@ export class GeneralAgentStrategy extends BaseAgentStrategy {
     task: AgentTask,
     context: AgentContext
   ): Promise<AgentResponse> {
-    const systemPrompt = `你是一个智能助手，可以帮助用户完成各种任务。
+    const strategyExtra = `## Strategy Instructions\n\nYou are a general-purpose assistant capable of handling a wide range of tasks.\n\nCapabilities:\n- Answering questions\n- Providing suggestions\n- Writing assistance\n- Information retrieval\n- Task planning\n\nSelect appropriate tools based on user needs. If no suitable tool exists, respond directly.`;
 
-能力：
-- 回答问题
-- 提供建议
-- 写作辅助
-- 信息检索
-- 任务规划
-
-请根据用户需求，选择合适的工具来完成任务。如果没有合适的工具，请直接回答。`;
-
+    const systemPrompt = await assembleDefaultSystemPrompt(strategyExtra);
     const userMessage = this.buildUserMessage(task);
 
     const messages = [

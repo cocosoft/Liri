@@ -1,5 +1,5 @@
 /**
- * 记忆命令系统实现（基于CC源码）
+ * 记忆命令系统实现
  * 支持 /memory 命令、记忆文件选择器、自动记忆更新
  */
 
@@ -14,7 +14,10 @@ import type {
   MemoryLayer,
   MemdirService,
 } from './MemdirService';
-import type { MemoryScanner, RelevantMemoryResult } from './MemoryScanner';
+import type {
+  MemdirMemoryScanner,
+  RelevantMemoryResult,
+} from './MemoryScanner';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -143,12 +146,12 @@ export interface AutoMemoryConfig {
  */
 export class MemoryCommands {
   private memdirService: MemdirService;
-  private memoryScanner: MemoryScanner;
+  private memoryScanner: MemdirMemoryScanner;
   private autoMemoryConfig: AutoMemoryConfig;
 
   constructor(
     memdirService: MemdirService,
-    memoryScanner: MemoryScanner,
+    memoryScanner: MemdirMemoryScanner,
     config?: Partial<AutoMemoryConfig>
   ) {
     this.memdirService = memdirService;
@@ -159,7 +162,7 @@ export class MemoryCommands {
       updateInterval: 24 * 60 * 60 * 1000, // 24小时
       minContentLength: 100,
       maxContentLength: 10000,
-      autoMemDir: join(homedir(), '.claude', 'memory'),
+      autoMemDir: join(homedir(), '.pyapp', 'memory'),
       enableAutoDream: true,
       autoDreamInterval: 7 * 24 * 60 * 60 * 1000, // 7天
       ...config,

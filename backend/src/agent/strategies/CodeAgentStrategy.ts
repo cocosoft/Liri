@@ -7,6 +7,7 @@ import type { AgentTask, AgentResponse, AgentContext } from '../models/types';
 import { AgentState } from '../models/types';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai/models/types';
+import { assembleDefaultSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 
 /**
  * 代码代理策略
@@ -20,18 +21,9 @@ export class CodeAgentStrategy extends BaseAgentStrategy {
     task: AgentTask,
     context: AgentContext
   ): Promise<AgentResponse> {
-    const systemPrompt = `你是一个专业的代码助手，专注于帮助用户编写、调试和优化代码。
+    const strategyExtra = `## Strategy Instructions\n\nYou are a code-specialized assistant focused on writing, debugging, and optimizing code.\n\nCapabilities:\n- Writing high-quality code\n- Debugging and fixing errors\n- Code review and optimization\n- Explaining code logic\n- Generating test cases\n- Providing refactoring suggestions\n\nWhen using tools, clearly specify the tool name and parameters.`;
 
-你的能力：
-- 编写高质量代码
-- 代码调试和错误修复
-- 代码审查和优化
-- 解释代码逻辑
-- 生成测试用例
-- 提供代码重构建议
-
-当你需要使用工具时，请明确指出工具名称和参数。`;
-
+    const systemPrompt = await assembleDefaultSystemPrompt(strategyExtra);
     const userMessage = this.buildUserMessage(task);
 
     const messages = [

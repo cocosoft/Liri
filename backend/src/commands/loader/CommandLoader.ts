@@ -188,6 +188,16 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/keyboard/index.js', name: 'keyboard' },
       { path: '../builtin/workspace/index.js', name: 'workspace' },
       { path: '../builtin/timer/index.js', name: 'timer' },
+      {
+        path: '../builtin/docs/index.js',
+        name: 'docs',
+        aliases: ['doc', 'documentation', 'help-docs'],
+      },
+      {
+        path: '../builtin/knowledge/index.js',
+        name: 'knowledge',
+        aliases: ['kb', 'wiki', 'note'],
+      },
       // 遗漏命令补充
       { path: '../builtin/diff/index.js', name: 'diff' },
       { path: '../builtin/review/index.js', name: 'review' },

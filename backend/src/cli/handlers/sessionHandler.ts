@@ -33,7 +33,7 @@ export class SessionHandler {
    */
   private async getGateway(): Promise<SessionGateway> {
     if (!this.sessionGateway) {
-      this.sessionGateway = createSessionGateway();
+      this.sessionGateway = createSessionGateway({ wireServices: true });
       await this.sessionGateway.initialize();
     }
     return this.sessionGateway;

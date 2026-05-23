@@ -7,7 +7,7 @@ import type { AgentTask, AgentResponse, AgentContext } from '../models/types';
 import { AgentState } from '../models/types';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai/models/types';
-import { assembleDefaultSystemPrompt } from '@modules/services/prompt/PromptAssembler';
+import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 
 /**
  * 探索代理策略
@@ -21,9 +21,12 @@ export class ExploreAgentStrategy extends BaseAgentStrategy {
     task: AgentTask,
     context: AgentContext
   ): Promise<AgentResponse> {
-    const strategyExtra = `## Strategy Instructions\n\nYou are an exploration-specialized assistant focused on information gathering, analysis, and discovery.\n\nCapabilities:\n- Web search and content retrieval\n- Document reading and comprehension\n- Information extraction and organization\n- Correlation analysis and discovery\n- Trend identification\n- Comparative analysis\n\nWhen using tools, clearly specify the tool name and parameters.`;
+    const strategyExtra = `## 策略说明\n\n你是一个探索专家助手，专注于信息收集、分析和发现。\n\n能力范围：\n- 网络搜索和内容检索\n- 文档阅读和理解\n- 信息提取和组织\n- 关联分析和发现\n- 趋势识别\n- 比较分析\n\n使用工具时，明确指定工具名称和参数。`;
 
-    const systemPrompt = await assembleDefaultSystemPrompt(strategyExtra);
+    const systemPrompt = await assembleSystemPrompt({
+      strategyExtra,
+      mode: context.promptMode,
+    });
     const userMessage = this.buildUserMessage(task);
 
     const messages = [

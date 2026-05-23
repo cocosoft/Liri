@@ -48,6 +48,17 @@ import type {
 } from './types/Message.js';
 import type { Transcript } from './types/Transcript.js';
 
+import { SessionTokenTracker } from './TokenTracker.js';
+import type { PruningDecider } from './pruning/PruningDecider.js';
+import type { PruningResult } from './pruning/PruningStrategy.js';
+import type { SessionCompactionBridge } from './compaction/SessionCompactionBridge.js';
+import { createWiredCompactionBridge } from './compaction/ServiceAdapters.js';
+import { SessionKeyFactory } from './key/SessionKeyFactory.js';
+import type { SessionKeyFactoryConfig } from './key/SessionKeyFactory.js';
+import { SessionRouter } from './key/SessionRouter.js';
+import type { SessionSource } from './key/SessionSource.js';
+import { SessionLifecycleEventBus, createSessionLifecycleEvent } from './lifecycle/index.js';
+
 /**
  * 网关配置
  */
@@ -58,6 +69,8 @@ export interface SessionGatewayConfig {
     wsUrl?: string;
     orgUuid?: string;
   };
+  keyFactoryConfig?: SessionKeyFactoryConfig;
+  wireServices?: boolean;
 }
 
 /**
@@ -70,6 +83,13 @@ export class SessionGateway {
   private webSockets: Map<string, SessionsWebSocket> = new Map();
   private config: SessionGatewayConfig;
 
+  private tokenTracker: SessionTokenTracker | null = null;
+  private pruningDecider: PruningDecider | null = null;
+  private compactionBridge: SessionCompactionBridge | null = null;
+  private keyFactory: SessionKeyFactory | null = null;
+  private sessionRouter: SessionRouter | null = null;
+  private eventBus: SessionLifecycleEventBus | null = null;
+
   constructor(config?: SessionGatewayConfig) {
     this.config = config ?? {};
 
@@ -81,6 +101,81 @@ export class SessionGateway {
       this.storage,
       this.config.transcriptConfig
     );
+
+    if (this.config.keyFactoryConfig) {
+      this.keyFactory = new SessionKeyFactory(this.config.keyFactoryConfig);
+    }
+
+    if (this.config.wireServices) {
+      this.setTokenTracker(new SessionTokenTracker());
+      this.setCompactionBridge(createWiredCompactionBridge());
+    }
+  }
+
+  /**
+   * 设置令牌追踪器
+   */
+  setTokenTracker(tracker: SessionTokenTracker): void {
+    this.tokenTracker = tracker;
+  }
+
+  /**
+   * 设置修剪决策器
+   */
+  setPruningDecider(decider: PruningDecider): void {
+    this.pruningDecider = decider;
+  }
+
+  /**
+   * 设置压缩桥接
+   */
+  setCompactionBridge(bridge: SessionCompactionBridge): void {
+    this.compactionBridge = bridge;
+  }
+
+  /**
+   * 设置会话 Key 工厂
+   */
+  setKeyFactory(factory: SessionKeyFactory): void {
+    this.keyFactory = factory;
+  }
+
+  /**
+   * 设置会话路由器
+   */
+  setSessionRouter(router: SessionRouter): void {
+    this.sessionRouter = router;
+  }
+
+  /**
+   * 获取会话路由器
+   */
+  getSessionRouter(): SessionRouter | null {
+    return this.sessionRouter;
+  }
+
+  /**
+   * 设置生命周期事件总线
+   */
+  setEventBus(bus: SessionLifecycleEventBus): void {
+    this.eventBus = bus;
+  }
+
+  /**
+   * 获取生命周期事件总线
+   */
+  getEventBus(): SessionLifecycleEventBus | null {
+    return this.eventBus;
+  }
+
+  /**
+   * 一键注入真实服务（TokenTracker + CompactionBridge + CheckpointService + SessionRouter）
+   * 适用于 ChatManager / SessionHandler 等使用方，免去手动装配
+   */
+  wireWithRealServices(): this {
+    this.setTokenTracker(new SessionTokenTracker());
+    this.setCompactionBridge(createWiredCompactionBridge());
+    return this;
   }
 
   /**
@@ -95,9 +190,22 @@ export class SessionGateway {
    * 创建会话
    */
   async createSession(
-    params: CreateSessionParams = {}
+    params: CreateSessionParams & { userId?: string; chatType?: string; sessionSource?: SessionSource } = {}
   ): Promise<UnifiedSession> {
-    const sessionId = params.id ?? randomUUID();
+    let sessionId = params.id;
+
+    if (!sessionId && this.sessionRouter && params.sessionSource) {
+      sessionId = this.sessionRouter.route(params.sessionSource);
+    } else if (!sessionId && this.keyFactory) {
+      sessionId = this.keyFactory
+        .create({
+          userId: params.userId,
+          chatType: params.chatType as any,
+        })
+        .toString();
+    }
+
+    sessionId = sessionId ?? randomUUID();
     const now = Date.now();
 
     const session: UnifiedSession = {
@@ -115,6 +223,14 @@ export class SessionGateway {
     };
 
     await this.storage.createSession(session);
+
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('session:created', session.id, {
+        sessionKey: session.id,
+        metadata: { userId: params.userId, type: params.type },
+      })
+    );
+
     return session;
   }
 
@@ -140,6 +256,12 @@ export class SessionGateway {
   async deleteSession(sessionId: string): Promise<void> {
     await this.storage.deleteSession(sessionId);
     await this.transcriptManager.deleteTranscript(sessionId);
+
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('session:deleted', sessionId, {
+        sessionKey: sessionId,
+      })
+    );
 
     const remoteSession = this.remoteSessions.get(sessionId);
     if (remoteSession) {
@@ -291,6 +413,137 @@ export class SessionGateway {
    */
   async searchTranscript(sessionId: string, query: string) {
     return this.transcriptManager.searchTranscript(sessionId, query);
+  }
+
+  /**
+   * 记录令牌用量
+   */
+  recordTokenUsage(
+    sessionId: string,
+    input: {
+      promptTokens?: number;
+      completionTokens?: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+      totalTokens?: number;
+    }
+  ): void {
+    if (!this.tokenTracker) return;
+    this.tokenTracker.recordUsage(sessionId, {
+      inputTokens: input.promptTokens ?? 0,
+      outputTokens: input.completionTokens ?? 0,
+      cacheReadInputTokens: input.cacheReadTokens,
+      cacheCreationInputTokens: input.cacheCreationTokens,
+    });
+  }
+
+  /**
+   * 获取令牌用量
+   */
+  getTokenUsage(sessionId: string) {
+    return this.tokenTracker?.getUsage(sessionId) ?? null;
+  }
+
+  /**
+   * 检查是否需要修剪上下文
+   * @returns 修剪结果，若无修剪决策器则返回 null
+   */
+  async checkPruning(sessionId: string): Promise<PruningResult | null> {
+    if (!this.pruningDecider) return null;
+
+    const session = await this.getSession(sessionId);
+    if (!session) return null;
+
+    const messages = await this.getMessages(sessionId);
+    const tokenUsage = this.tokenTracker?.getUsage(sessionId);
+    const totalTokens =
+      (tokenUsage?.totalTokens ?? 0) +
+      (tokenUsage?.inputTokens ?? 0) +
+      (tokenUsage?.outputTokens ?? 0);
+
+    const decision = this.pruningDecider.decide({
+      session: {
+        id: sessionId,
+        messages:
+          messages as never as import('../session/models/SessionMessage').SessionMessage[],
+        metadata:
+          session.metadata as never as import('../session/models/SessionMetadata').SessionMetadata,
+        createdAt: new Date(session.createdAt),
+        updatedAt: new Date(session.updatedAt),
+      } as import('../session/models/Session').Session,
+      tokenUsage: totalTokens,
+      modelContextWindow: 200000,
+    });
+
+    if (decision.action === 'skip') return null;
+
+    return {
+      prunedMessageCount: decision.results.reduce(
+        (s, r) => s + r.prunedMessageCount,
+        0
+      ),
+      prunedTokenEstimate: decision.results.reduce(
+        (s, r) => s + r.prunedTokenEstimate,
+        0
+      ),
+      messagesRemaining: decision.results.reduce(
+        (s, r) => s + r.messagesRemaining,
+        0
+      ),
+      reason: decision.reason,
+    };
+  }
+
+  /**
+   * 执行会话压缩
+   */
+  async compactSession(
+    sessionId: string,
+    model?: string
+  ): Promise<{
+    success: boolean;
+    record?: import('../session/compaction/CompactionRecord').CompactionRecord;
+    error?: string;
+  } | null> {
+    if (!this.compactionBridge) return null;
+
+    const session = await this.getSession(sessionId);
+    if (!session) return { success: false, error: 'Session not found' };
+
+    const messages = await this.getMessages(sessionId);
+    const sessionLike = {
+      id: sessionId,
+      messages:
+        messages as never as import('../session/models/SessionMessage').SessionMessage[],
+      metadata:
+        session.metadata as never as import('../session/models/SessionMetadata').SessionMetadata,
+      createdAt: new Date(session.createdAt),
+      updatedAt: new Date(session.updatedAt),
+    } as import('../session/models/Session').Session;
+
+    const preResult = await this.compactionBridge.beforeCompact(
+      sessionLike,
+      model ?? 'deepseek-chat'
+    );
+
+    if (!preResult.proceed) {
+      return { success: false, error: preResult.reason };
+    }
+
+    const record = await this.compactionBridge.performCompact(
+      sessionLike,
+      model ?? 'deepseek-chat',
+      'manual'
+    );
+
+    return { success: record.success, record, error: record.error };
+  }
+
+  /**
+   * 获取压缩历史
+   */
+  getCompactionHistory(sessionId: string) {
+    return this.compactionBridge?.getCompactionHistory(sessionId) ?? [];
   }
 
   /**

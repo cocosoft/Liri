@@ -1,4 +1,3 @@
-//
 /**
  * 代理策略
  */
@@ -13,6 +12,7 @@ import type {
 import { AgentState } from '../models/types';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
+import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 
 /**
  * 基础代理策略
@@ -43,29 +43,6 @@ export abstract class BaseAgentStrategy implements AgentStrategy {
   ): Promise<AgentResponse>;
 
   /**
-   * 构建系统提示
-   * @param task 任务
-   * @param context 上下文
-   * @returns 系统提示
-   */
-  public buildSystemPrompt(task: AgentTask, context: AgentContext): string {
-    const toolList = context.tools
-      .map((tool) => `- ${tool.name}: ${tool.description}`)
-      .join('\n');
-
-    return (
-      `## Identity\n\nYou are PY_APP, a powerful AI coding assistant.\nYou are NOT Claude, NOT Anthropic, and NOT any other AI assistant.\nYour identity is PY_APP — never claim to be Claude, Anthropic, or any other assistant.\n\n` +
-      `## Task\n\nYour task is: ${task.description}\n\n` +
-      `## Available Tools\n\n${toolList || 'No tools available.'}\n\n` +
-      `## Response Format\n\n` +
-      `Thought: Your reasoning process\n` +
-      `Tool: Tool name (if a tool is needed)\n` +
-      `Parameters: Tool parameters (if a tool is needed)\n` +
-      `Answer: Final response (if no tool is needed)`
-    );
-  }
-
-  /**
    * 构建用户消息
    * @param task 任务
    * @returns 用户消息
@@ -91,7 +68,11 @@ export class DirectAnswerStrategy extends BaseAgentStrategy {
     task: AgentTask,
     context: AgentContext
   ): Promise<AgentResponse> {
-    const systemPrompt = this.buildSystemPrompt(task, context);
+    const strategyExtra = `## 策略说明\n\n你是一个通用助手，能够直接回答问题而无需使用工具。\n\n能力范围：\n- 回答问题\n- 提供建议\n- 写作辅助\n- 信息检索\n- 任务规划`;
+    const systemPrompt = await assembleSystemPrompt({
+      strategyExtra,
+      mode: context.promptMode,
+    });
     const userMessage = this.buildUserMessage(task);
 
     const messages = [
@@ -134,7 +115,11 @@ export class ToolUseStrategy extends BaseAgentStrategy {
     task: AgentTask,
     context: AgentContext
   ): Promise<AgentResponse> {
-    const systemPrompt = this.buildSystemPrompt(task, context);
+    const strategyExtra = `## 策略说明\n\n你是一个工具使用助手，能够根据任务需求选择和执行适当的工具。\n\n能力范围：\n- 根据任务需求选择合适的工具\n- 执行工具并处理结果\n- 分析工具输出以指导后续步骤\n- 组合多个工具调用以解决复杂问题`;
+    const systemPrompt = await assembleSystemPrompt({
+      strategyExtra,
+      mode: context.promptMode,
+    });
     const userMessage = this.buildUserMessage(task);
 
     const messages = [

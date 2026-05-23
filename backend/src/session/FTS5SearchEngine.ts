@@ -15,6 +15,7 @@ export interface FTSDocument {
   content: string;
   category: string;
   timestamp: number;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -92,9 +93,15 @@ export class FTS5SearchEngine {
    * @param query 搜索查询
    * @param category 按类别过滤（可选）
    * @param limit 最大结果数
+   * @param metadataFilter 按元数据过滤（可选）
    * @returns 搜索结果列表
    */
-  search(query: string, category?: string, limit?: number): FTSSearchResult[] {
+  search(
+    query: string,
+    category?: string,
+    limit?: number,
+    metadataFilter?: (doc: FTSDocument) => boolean
+  ): FTSSearchResult[] {
     const maxResults = limit || this.config.maxResults;
     const tokens = this.tokenize(query);
 
@@ -112,12 +119,19 @@ export class FTS5SearchEngine {
 
         if (category && doc.category !== category) continue;
 
+        if (metadataFilter && !metadataFilter(doc)) continue;
+
         const current = docScores.get(docId) || 0;
 
         if (doc.title.toLowerCase().includes(token)) {
           docScores.set(docId, current + 3);
         } else if (doc.content.toLowerCase().includes(token)) {
           docScores.set(docId, current + 1);
+        } else if (doc.metadata) {
+          const metaStr = JSON.stringify(doc.metadata).toLowerCase();
+          if (metaStr.includes(token)) {
+            docScores.set(docId, current + 0.5);
+          }
         } else {
           docScores.set(docId, current + 0.5);
         }

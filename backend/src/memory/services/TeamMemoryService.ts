@@ -601,7 +601,7 @@ export class TeamMemoryService {
       metadata: {
         ...memory.metadata,
         tags,
-        type: memory.metadata.type || MemoryType.PROJECT,
+        type: memory.metadata.type || MemoryType.PROJECT_KNOWLEDGE,
       },
     });
 
@@ -909,7 +909,7 @@ export class TeamMemoryService {
         ...memory.metadata,
         tags,
         accessLevel,
-        type: memory.metadata.type || MemoryType.PROJECT,
+        type: memory.metadata.type || MemoryType.PROJECT_KNOWLEDGE,
         encrypted:
           this.config.enableEncryption &&
           (accessLevel === MemoryAccessLevel.PRIVATE ||

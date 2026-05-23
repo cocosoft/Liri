@@ -77,6 +77,7 @@ export class AIAgentImpl implements AIAgent {
         timeout: this.config.timeout,
         taskId: task.id,
         agentId: this.id,
+        promptMode: this.config.promptMode,
         // 添加额外的上下文信息
         metadata: {
           timestamp: Date.now(),
@@ -170,6 +171,7 @@ export class AIAgentImpl implements AIAgent {
         temperature: this.config.temperature,
         maxTokens: this.config.maxTokens,
         timeout: this.config.timeout,
+        promptMode: this.config.promptMode,
       };
 
       // 检查AI服务是否支持流式输出

@@ -121,16 +121,43 @@ export class AnthropicMessagesTransport extends BaseTransport {
       temperature: params.temperature ?? 1.0,
     };
 
-    let systemContent: unknown = params.systemPrompt || '';
+    const rawPrompt = params.systemPrompt || '';
+    let systemContent: unknown = rawPrompt;
 
-    if (useCache && shouldPlaceSystemBreakpoint(breakpoints) && systemContent) {
-      systemContent = [
-        {
-          type: 'text',
-          text: systemContent,
-          cache_control: createCacheControl(),
-        },
-      ];
+    if (useCache && rawPrompt && typeof rawPrompt === 'string') {
+      const CACHE_BOUNDARY = '<!-- CACHE_BOUNDARY -->';
+      const boundaryIndex = rawPrompt.indexOf(CACHE_BOUNDARY);
+
+      if (boundaryIndex !== -1) {
+        const stablePart = rawPrompt.slice(0, boundaryIndex).trimEnd();
+        const dynamicPart = rawPrompt
+          .slice(boundaryIndex + CACHE_BOUNDARY.length)
+          .trimStart();
+
+        const blocks: Record<string, unknown>[] = [];
+        if (stablePart) {
+          blocks.push({
+            type: 'text',
+            text: stablePart,
+            cache_control: createCacheControl(),
+          });
+        }
+        if (dynamicPart) {
+          blocks.push({
+            type: 'text',
+            text: dynamicPart,
+          });
+        }
+        systemContent = blocks.length > 0 ? blocks : rawPrompt;
+      } else if (shouldPlaceSystemBreakpoint(breakpoints)) {
+        systemContent = [
+          {
+            type: 'text',
+            text: rawPrompt,
+            cache_control: createCacheControl(),
+          },
+        ];
+      }
     }
 
     if (systemContent) {

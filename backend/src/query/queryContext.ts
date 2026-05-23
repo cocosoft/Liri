@@ -8,6 +8,10 @@ import type { ToolCall } from '../chat/types/tool.js';
 
 export type { SystemPromptParts };
 
+/**
+ * 获取系统提示词部件
+ * @deprecated 功能已迁移至 systemPromptSections。请使用 PromptAssembler.assembleSystemPrompt() 替代。
+ */
 export async function fetchSystemPromptParts(options?: {
   customSystemPrompt?: string;
 }): Promise<SystemPromptParts> {

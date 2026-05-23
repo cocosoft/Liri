@@ -5,8 +5,8 @@ export {
 } from './PlatformHints';
 export {
   TOOL_USE_ENFORCEMENT_GUIDANCE,
-  OPENAI_MODEL_EXECUTION_GUIDANCE,
-  GOOGLE_MODEL_OPERATIONAL_GUIDANCE,
+  DEEPSEEK_GUIDANCE,
+  PROVIDER_GUIDANCE,
   getModelGuidance,
 } from './ModelGuidance';
 export {

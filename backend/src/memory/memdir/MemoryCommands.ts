@@ -322,7 +322,7 @@ export class MemoryCommands {
    */
   private generateMemoryFileName(options: MemoryCommandOptions): string {
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const type = options.type || MemoryType.USER;
+    const type = options.type || MemoryType.USER_FACT;
 
     return `${timestamp}_${type}.md`;
   }
@@ -331,7 +331,7 @@ export class MemoryCommands {
    * 生成默认记忆内容（来自CC源码）
    */
   private generateDefaultMemoryContent(options: MemoryCommandOptions): string {
-    const type = options.type || MemoryType.USER;
+    const type = options.type || MemoryType.USER_FACT;
     const timestamp = new Date().toISOString();
 
     return `# ${type.charAt(0).toUpperCase() + type.slice(1)} Memory
@@ -408,10 +408,11 @@ Add your memory content here...
    */
   private countByType(memoryFiles: MemoryFile[]): Record<MemoryType, number> {
     const counts: Record<MemoryType, number> = {
-      [MemoryType.USER]: 0,
-      [MemoryType.FEEDBACK]: 0,
-      [MemoryType.PROJECT]: 0,
-      [MemoryType.REFERENCE]: 0,
+      [MemoryType.USER_FACT]: 0,
+      [MemoryType.USER_PREFERENCE]: 0,
+      [MemoryType.PROJECT_KNOWLEDGE]: 0,
+      [MemoryType.CODE_PATTERN]: 0,
+      [MemoryType.DECISION]: 0,
     };
 
     for (const file of memoryFiles) {

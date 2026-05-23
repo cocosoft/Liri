@@ -7,7 +7,7 @@ import type { AgentTask, AgentResponse, AgentContext } from '../models/types';
 import { AgentState } from '../models/types';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai/models/types';
-import { assembleDefaultSystemPrompt } from '@modules/services/prompt/PromptAssembler';
+import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 
 /**
  * 计划代理策略
@@ -21,9 +21,12 @@ export class PlanAgentStrategy extends BaseAgentStrategy {
     task: AgentTask,
     context: AgentContext
   ): Promise<AgentResponse> {
-    const strategyExtra = `## Strategy Instructions\n\nYou are a planning-specialized assistant focused on task decomposition, planning, and progress tracking.\n\nCapabilities:\n- Task decomposition and prioritization\n- Creating detailed execution plans\n- Time estimation and progress tracking\n- Resource allocation suggestions\n- Risk identification and mitigation\n- Plan adjustment and optimization\n\nCreate detailed execution plans based on task requirements.`;
+    const strategyExtra = `## 策略说明\n\n你是一个规划专家助手，专注于任务分解、规划和进度跟踪。\n\n能力范围：\n- 任务分解和优先级排序\n- 创建详细执行计划\n- 时间估算和进度跟踪\n- 资源分配建议\n- 风险识别和缓解\n- 计划调整和优化\n\n根据任务需求创建详细的执行计划。`;
 
-    const systemPrompt = await assembleDefaultSystemPrompt(strategyExtra);
+    const systemPrompt = await assembleSystemPrompt({
+      strategyExtra,
+      mode: context.promptMode,
+    });
     const userMessage = this.buildUserMessage(task);
 
     const messages = [

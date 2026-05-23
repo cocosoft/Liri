@@ -311,7 +311,7 @@ export class MemoryIntegrationService {
       id: result.memory.id,
       content: result.memory.content,
       source: 'database',
-      type: MemoryType.USER, // 简化实现
+      type: MemoryType.USER_FACT, // 简化实现
       layer: MemoryLayer.AUTOMEM, // 简化实现
       createdAt: result.memory.createdAt,
       updatedAt: result.memory.updatedAt,
@@ -350,7 +350,7 @@ export class MemoryIntegrationService {
           id: memory.id,
           content: memory.content,
           source: 'database',
-          type: MemoryType.USER, // 简化实现
+          type: MemoryType.USER_FACT, // 简化实现
           layer: MemoryLayer.AUTOMEM, // 简化实现
           createdAt: memory.createdAt,
           updatedAt: memory.updatedAt,
@@ -410,10 +410,11 @@ export class MemoryIntegrationService {
     const allMemories = await this.getAllMemories();
 
     const byType: Record<MemoryType, number> = {
-      [MemoryType.USER]: 0,
-      [MemoryType.FEEDBACK]: 0,
-      [MemoryType.PROJECT]: 0,
-      [MemoryType.REFERENCE]: 0,
+      [MemoryType.USER_FACT]: 0,
+      [MemoryType.USER_PREFERENCE]: 0,
+      [MemoryType.PROJECT_KNOWLEDGE]: 0,
+      [MemoryType.CODE_PATTERN]: 0,
+      [MemoryType.DECISION]: 0,
     };
 
     const byLayer: Record<MemoryLayer, number> = {

@@ -3,6 +3,8 @@
  * 允许应用注入 MemoryManager 实现，供 systemPromptSection 读取记忆摘要
  */
 
+import type { SessionContext } from '@modules/memory/types/SessionContext';
+
 export interface MemoryQueryResult {
   summaries: string[];
   totalCount: number;
@@ -24,4 +26,14 @@ export function getMemoryQueryProvider(): MemoryQueryProvider | null {
 
 export function clearMemoryQueryProvider(): void {
   provider = null;
+}
+
+let currentSessionContext: SessionContext | null = null;
+
+export function setCurrentSessionContext(ctx: SessionContext | null): void {
+  currentSessionContext = ctx;
+}
+
+export function getCurrentSessionContext(): SessionContext | null {
+  return currentSessionContext;
 }

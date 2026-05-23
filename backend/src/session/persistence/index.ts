@@ -11,3 +11,4 @@ export type {
   RestoreOptions,
   PersistenceResult,
 } from './SessionPersistenceManager.js';
+export { AtomicWriter, AtomicWriteError } from './AtomicWriter.js';

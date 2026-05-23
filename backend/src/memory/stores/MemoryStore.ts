@@ -1,11 +1,100 @@
 import { promises as fs, constants } from 'fs';
 import fsExtra from 'fs-extra';
-import { join, dirname, basename } from 'path';
+import { join, dirname, basename, resolve, normalize } from 'path';
 import matter from 'gray-matter';
 import { glob } from 'glob';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const storeLogger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 验证记忆ID安全性
+ * 防御路径注入攻击：拒绝路径遍历、路径分隔符、Windows驱动根、null字节
+ * @param id 记忆ID
+ * @throws AppError 如果不安全
+ */
+export function validateMemoryId(id: string): void {
+  if (id.includes('..')) {
+    storeLogger.warn('Path traversal detected in memoryId', { id });
+    throw new AppError(
+      'Invalid memory ID: path traversal detected',
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'MEMORY_PATH_TRAVERSAL',
+      { id }
+    );
+  }
+
+  if (id.includes('/') || id.includes('\\')) {
+    storeLogger.warn('Path separator detected in memoryId', { id });
+    throw new AppError(
+      'Invalid memory ID: contains path separator',
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'MEMORY_ID_SEPARATOR',
+      { id }
+    );
+  }
+
+  if (/^[A-Za-z]:/.test(id)) {
+    storeLogger.warn('Drive root detected in memoryId', { id });
+    throw new AppError(
+      'Invalid memory ID: contains drive root',
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'MEMORY_ID_DRIVE_ROOT',
+      { id }
+    );
+  }
+
+  if (id.includes('\0')) {
+    storeLogger.warn('Null byte detected in memoryId', { id });
+    throw new AppError(
+      'Invalid memory ID: contains null byte',
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'MEMORY_ID_NULL_BYTE',
+      { id }
+    );
+  }
+}
+
+/**
+ * 验证记忆路径安全性（用于文件路径参数）
+ * 防御路径注入：拒绝路径遍历和null字节
+ * @param input 文件路径
+ * @param fieldName 字段名（用于错误信息）
+ * @throws AppError 如果不安全
+ */
+export function validateMemoryPath(
+  input: string,
+  fieldName: string = 'path'
+): void {
+  if (input.includes('..')) {
+    storeLogger.warn(`Path traversal detected in ${fieldName}`, { input });
+    throw new AppError(
+      `Invalid ${fieldName}: path traversal detected`,
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'MEMORY_PATH_TRAVERSAL',
+      { fieldName, input }
+    );
+  }
+
+  if (input.includes('\0')) {
+    storeLogger.warn(`Null byte detected in ${fieldName}`, { input });
+    throw new AppError(
+      `Invalid ${fieldName}: null byte detected`,
+      ErrorCategory.PERMISSION,
+      ErrorSeverity.HIGH,
+      'MEMORY_PATH_NULL_BYTE',
+      { fieldName, input }
+    );
+  }
+}
 
 /**
  * 记忆存储接口
@@ -148,6 +237,7 @@ export class MemoryStoreImpl implements MemoryStore {
    * @returns 记忆文件路径
    */
   private getMemoryFilePath(id: string): string {
+    validateMemoryId(id);
     return join(this.memoryDir, `${id}.md`);
   }
 
@@ -431,6 +521,9 @@ export class MemoryStoreImpl implements MemoryStore {
     id: string,
     exportDir: string = './exports'
   ): Promise<string> {
+    validateMemoryId(id);
+    validateMemoryPath(exportDir, 'exportDir');
+
     const memory = await this.readMemory(id);
     if (!memory) {
       throw new AppError(
@@ -477,6 +570,8 @@ export class MemoryStoreImpl implements MemoryStore {
    * @returns 创建的记忆ID
    */
   async importMemoryFromMarkdown(filePath: string): Promise<string> {
+    validateMemoryPath(filePath, 'filePath');
+
     try {
       // 读取文件内容
       const content = await fs.readFile(filePath, 'utf-8');

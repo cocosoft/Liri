@@ -4,8 +4,142 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { EmbeddingService } from '../services/EmbeddingService';
+import { existsSync, readFileSync } from 'fs';
+import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 余弦相似度计算
+ */
+export function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
+ * MMR（最大边界相关）多样化配置
+ * 在搜索结果中平衡相关性与多样性
+ */
+export interface MMRConfig {
+  enabled: boolean;
+  lambda: number; // 0.0=纯多样性, 1.0=纯相关性
+}
+
+/**
+ * 时序衰减配置
+ * 使用半衰期模型对记忆进行时间衰减
+ */
+export interface TemporalDecayConfig {
+  enabled: boolean;
+  halfLifeDays: number; // 半衰期天数
+  minScore: number; // 最低保留分数
+}
+
+/**
+ * 记忆搜索配置
+ * 控制记忆检索行为与搜索参数
+ */
+export interface MemorySearchConfig {
+  sources: Array<'memory' | 'sessions'>;
+  query: {
+    maxResults: number;
+    minScore: number;
+    hybrid?: {
+      enabled: boolean;
+      vectorWeight: number;
+      textWeight: number;
+    };
+    mmr?: MMRConfig;
+    temporalDecay?: TemporalDecayConfig;
+  };
+  cache: {
+    enabled: boolean;
+    maxEntries: number;
+  };
+}
+
+export const MEMORY_SEARCH_DEFAULTS: MemorySearchConfig = {
+  sources: ['memory'],
+  query: {
+    maxResults: 6,
+    minScore: 0.35,
+    hybrid: {
+      enabled: false,
+      vectorWeight: 0.5,
+      textWeight: 0.5,
+    },
+    mmr: {
+      enabled: false,
+      lambda: 0.5,
+    },
+    temporalDecay: {
+      enabled: false,
+      halfLifeDays: 30,
+      minScore: 0.1,
+    },
+  },
+  cache: {
+    enabled: true,
+    maxEntries: 1000,
+  },
+};
+
+/**
+ * 从用户设置加载记忆搜索配置
+ * 优先级：settings.json.memory.search > MEMORY_SEARCH_DEFAULTS
+ */
+export function loadMemorySearchConfig(): MemorySearchConfig {
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
+  const settingsPath = path.join(homeDir, '.pyapp', 'settings.json');
+
+  try {
+    if (!existsSync(settingsPath)) {
+      return MEMORY_SEARCH_DEFAULTS;
+    }
+    const content = readFileSync(settingsPath, 'utf-8');
+    const settings = JSON.parse(content);
+    const searchConfig = settings?.memory?.search;
+    if (!searchConfig) {
+      return MEMORY_SEARCH_DEFAULTS;
+    }
+    return {
+      ...MEMORY_SEARCH_DEFAULTS,
+      ...searchConfig,
+      query: {
+        ...MEMORY_SEARCH_DEFAULTS.query,
+        ...(searchConfig.query || {}),
+        hybrid: {
+          ...MEMORY_SEARCH_DEFAULTS.query.hybrid!,
+          ...(searchConfig.query?.hybrid || {}),
+        },
+        mmr: {
+          ...MEMORY_SEARCH_DEFAULTS.query.mmr!,
+          ...(searchConfig.query?.mmr || {}),
+        },
+        temporalDecay: {
+          ...MEMORY_SEARCH_DEFAULTS.query.temporalDecay!,
+          ...(searchConfig.query?.temporalDecay || {}),
+        },
+      },
+      cache: {
+        ...MEMORY_SEARCH_DEFAULTS.cache,
+        ...(searchConfig.cache || {}),
+      },
+    };
+  } catch {
+    return MEMORY_SEARCH_DEFAULTS;
+  }
+}
 
 /**
  * 相似搜索结果
@@ -19,41 +153,30 @@ export interface SimilarMemoryResult {
  * 记忆检索器接口
  */
 export interface MemoryRetriever {
-  // 检索相关记忆
   retrieve(query: string, limit?: number): Promise<Memory[]>;
 
-  // 按类型检索记忆
   retrieveByType(type: string, limit?: number): Promise<Memory[]>;
 
-  // 扫描记忆目录
   scanMemoryDirectory(): Promise<void>;
 
-  // 构建记忆索引
   buildMemoryIndex(): Promise<void>;
 
-  // 搜索记忆
   searchMemories(pattern: string): Promise<Memory[]>;
 
-  // 增量更新索引
   updateIndex(memory: Memory): void;
 
-  // 从索引中移除记忆
   removeFromIndex(memoryId: string): void;
 
-  // 保存索引到文件
   saveIndex(): Promise<void>;
 
-  // 从文件加载索引
   loadIndex(): Promise<void>;
 
-  // 语义相似度搜索（需要 EmbeddingService）
   retrieveBySimilarity(
     query: string,
     limit?: number,
     threshold?: number
   ): Promise<SimilarMemoryResult[]>;
 
-  // 混合搜索（关键词+语义）
   hybridSearch(query: string, limit?: number): Promise<Memory[]>;
 }
 
@@ -125,13 +248,25 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     new Map();
 
   /**
+   * 搜索配置
+   */
+  private searchConfig: MemorySearchConfig;
+
+  /**
+   * 预取队列
+   */
+  private prefetchQueue?: MemoryPrefetchQueue;
+
+  /**
    * 构造函数
    * @param memoryDir 记忆目录路径
    * @param embeddingService 可选的嵌入服务
+   * @param searchConfig 可选的搜索配置（默认使用 MEMORY_SEARCH_DEFAULTS）
    */
   constructor(
     memoryDir: string = './data/memory',
-    embeddingService?: EmbeddingService
+    embeddingService?: EmbeddingService,
+    searchConfig?: MemorySearchConfig
   ) {
     this.memoryDir = memoryDir;
     this.indexFilePath = path.join(memoryDir, 'memory-index.json');
@@ -139,6 +274,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     this.memoryIndex = new Map();
     this.stemMap = new Map();
     this.embeddingService = embeddingService;
+    this.searchConfig = searchConfig ?? loadMemorySearchConfig();
 
     // 尝试加载索引
     this.loadIndex().catch(() => {
@@ -147,10 +283,106 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   }
 
   /**
+   * 更新搜索配置（运行时修改）
+   */
+  setSearchConfig(config: Partial<MemorySearchConfig>): void {
+    this.searchConfig = {
+      ...this.searchConfig,
+      ...config,
+      query: {
+        ...this.searchConfig.query,
+        ...(config.query || {}),
+        hybrid: {
+          ...this.searchConfig.query.hybrid!,
+          ...(config.query?.hybrid || {}),
+        },
+        mmr: {
+          ...this.searchConfig.query.mmr!,
+          ...(config.query?.mmr || {}),
+        },
+        temporalDecay: {
+          ...this.searchConfig.query.temporalDecay!,
+          ...(config.query?.temporalDecay || {}),
+        },
+      },
+      cache: {
+        ...this.searchConfig.cache,
+        ...(config.cache || {}),
+      },
+    };
+  }
+
+  /**
    * 设置嵌入服务
    */
   setEmbeddingService(embeddingService: EmbeddingService): void {
     this.embeddingService = embeddingService;
+  }
+
+  /**
+   * 启用异步预取
+   * 启动后台预取队列，自动缓存未命中向量
+   */
+  enablePrefetch(
+    config?: Partial<
+      import('../services/MemoryPrefetchQueue').PrefetchQueueConfig
+    >
+  ): void {
+    if (!this.embeddingService) {
+      logger.warn('EmbeddingService 未配置，无法启用预取');
+      return;
+    }
+    if (this.prefetchQueue) {
+      this.prefetchQueue.stop();
+    }
+    this.prefetchQueue = new MemoryPrefetchQueue(config);
+    this.prefetchQueue.start();
+  }
+
+  /**
+   * 禁用异步预取
+   */
+  disablePrefetch(): void {
+    if (this.prefetchQueue) {
+      this.prefetchQueue.stop();
+      this.prefetchQueue.clear();
+      this.prefetchQueue = undefined;
+    }
+  }
+
+  /**
+   * 触发全量向量预取
+   * 为所有未缓存的记忆生成向量嵌入
+   */
+  async prefetchVectorsForAll(): Promise<void> {
+    if (!this.embeddingService || !this.prefetchQueue) return;
+
+    const items = Array.from(this.memoryIndex.values());
+    const executor = (id: string) => this.prefetchVectorForItem(id);
+    const batch = items
+      .filter((item) => !this.vectorCache.has(item.id))
+      .map((item) => ({
+        id: item.id,
+        priority: item.priority,
+      }));
+
+    this.prefetchQueue.enqueueBatch(batch, executor);
+  }
+
+  /**
+   * 为单个记忆项预取向量
+   */
+  private async prefetchVectorForItem(itemId: string): Promise<void> {
+    if (!this.embeddingService) return;
+    if (this.vectorCache.has(itemId)) return;
+
+    const item = this.memoryIndex.get(itemId);
+    if (!item) return;
+
+    const textToEmbed =
+      `${item.name} ${item.description} ${item.content}`.substring(0, 8000);
+    const emb = await this.embeddingService.embed(textToEmbed);
+    this.vectorCache.set(itemId, { vector: emb.vector, model: emb.model });
   }
 
   /**
@@ -168,6 +400,97 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     }
     if (normA === 0 || normB === 0) return 0;
     return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  /**
+   * 应用时序衰减（半衰期模型）
+   * score_adj = score * 2^(-age / halfLifeDays)
+   * @param results 相似搜索结果
+   * @param config 时序衰减配置
+   */
+  static applyTemporalDecay(
+    results: SimilarMemoryResult[],
+    config: TemporalDecayConfig
+  ): void {
+    if (!config.enabled || results.length === 0) return;
+
+    const now = Date.now();
+    for (const result of results) {
+      const updatedAt = result.memory.updatedAt ?? result.memory.createdAt;
+      const ageMs = now - updatedAt.getTime();
+      const ageDays = ageMs / (1000 * 60 * 60 * 24);
+      const decayFactor = Math.pow(2, -ageDays / config.halfLifeDays);
+      const adjustedScore = result.similarity * decayFactor;
+      result.similarity = Math.max(adjustedScore, config.minScore);
+    }
+  }
+
+  /**
+   * 应用 MMR（最大边界相关）多样化重排序
+   * 平衡相关性与多样性，防止结果过于相似
+   * MMR = λ * Sim(q, d_i) - (1-λ) * max_{j∈S} Sim(d_i, d_j)
+   * @param results 候选结果列表
+   * @param queryEmbedding 查询向量
+   * @param lambda MMR λ 参数（0=纯多样性, 1=纯相关性）
+   * @param limit 返回数量
+   * @param embeddingService 嵌入服务（用于计算记忆间相似度）
+   * @returns MMR 重排序后的结果
+   */
+  static async applyMMR(
+    results: SimilarMemoryResult[],
+    queryEmbedding: number[],
+    lambda: number,
+    limit: number,
+    embeddingService: EmbeddingService
+  ): Promise<SimilarMemoryResult[]> {
+    if (!lambda || results.length <= limit) return results;
+
+    const selected: SimilarMemoryResult[] = [];
+    const candidateIndices = new Set(results.keys());
+
+    let chosenIdx = 0;
+    let bestScore = -1;
+    for (let i = 0; i < results.length; i++) {
+      const sim = results[i].similarity;
+      if (sim > bestScore) {
+        bestScore = sim;
+        chosenIdx = i;
+      }
+    }
+    selected.push(results[chosenIdx]);
+    candidateIndices.delete(chosenIdx);
+
+    while (selected.length < limit && candidateIndices.size > 0) {
+      let bestCandidateIdx = -1;
+      let bestMMRScore = -Infinity;
+
+      for (const i of candidateIndices) {
+        const relevanceScore = results[i].similarity;
+        const textA = `${results[i].memory.content} ${results[i].memory.metadata.name}`;
+        const textAEmb = await embeddingService.embed(textA);
+        let maxSimilarity = 0;
+
+        for (const sel of selected) {
+          const textB = `${sel.memory.content} ${sel.memory.metadata.name}`;
+          const textBEmb = await embeddingService.embed(textB);
+          const sim = cosineSimilarity(textAEmb.vector, textBEmb.vector);
+          if (sim > maxSimilarity) maxSimilarity = sim;
+        }
+
+        const mmrScore = lambda * relevanceScore - (1 - lambda) * maxSimilarity;
+
+        if (mmrScore > bestMMRScore) {
+          bestMMRScore = mmrScore;
+          bestCandidateIdx = i;
+        }
+      }
+
+      if (bestCandidateIdx === -1) break;
+      selected.push(results[bestCandidateIdx]);
+      candidateIndices.delete(bestCandidateIdx);
+    }
+
+    return selected;
   }
 
   /**
@@ -447,23 +770,25 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * @param limit 返回数量限制
    * @returns 相关记忆列表
    */
-  async retrieve(query: string, limit: number = 5): Promise<Memory[]> {
+  async retrieve(query: string, limit?: number): Promise<Memory[]> {
     if (this.memoryIndex.size === 0 && !this.indexLoaded) {
       await this.scanMemoryDirectory();
     }
 
+    const resultLimit = limit ?? this.searchConfig.query.maxResults;
+    const minScore = this.searchConfig.query.minScore;
     const scoredMemories: { memory: MemoryIndexItem; score: number }[] = [];
 
     for (const memory of this.memoryIndex.values()) {
       const score = this.calculateRelevanceScore(memory, query);
-      if (score > 0.1) {
+      if (score > minScore) {
         scoredMemories.push({ memory, score });
       }
     }
 
     scoredMemories.sort((a, b) => b.score - a.score);
 
-    const topMemories = scoredMemories.slice(0, limit);
+    const topMemories = scoredMemories.slice(0, resultLimit);
 
     const memories: Memory[] = [];
     for (const { memory } of topMemories) {
@@ -680,8 +1005,8 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    */
   async retrieveBySimilarity(
     query: string,
-    limit: number = 5,
-    threshold: number = 0.3
+    limit?: number,
+    threshold?: number
   ): Promise<SimilarMemoryResult[]> {
     if (this.memoryIndex.size === 0 && !this.indexLoaded) {
       await this.scanMemoryDirectory();
@@ -692,12 +1017,13 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       return [];
     }
 
+    const resultLimit = limit ?? this.searchConfig.query.maxResults;
+    const minScore = threshold ?? this.searchConfig.query.minScore;
     const queryEmb = await this.embeddingService.embed(query);
     const results: SimilarMemoryResult[] = [];
 
     for (const item of this.memoryIndex.values()) {
       const memory = this.indexItemToMemory(item);
-      // 使用 name + description + content 作为嵌入文本
       const textToEmbed =
         `${item.name} ${item.description} ${item.content}`.substring(0, 8000);
 
@@ -712,66 +1038,97 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       }
 
       const similarity = this.cosineSimilarity(queryEmb.vector, vector);
-      if (similarity >= threshold) {
+      if (similarity >= minScore) {
         results.push({ memory, similarity });
       }
     }
 
     results.sort((a, b) => b.similarity - a.similarity);
-    return results.slice(0, limit);
+
+    // 触发后台预取：为未缓存的记忆项入队向量嵌入任务
+    if (this.prefetchQueue && this.embeddingService) {
+      const uncached = Array.from(this.memoryIndex.values())
+        .filter((item) => !this.vectorCache.has(item.id))
+        .map((item) => ({
+          id: item.id,
+          priority: item.priority,
+        }));
+      if (uncached.length > 0) {
+        this.prefetchQueue.enqueueBatch(uncached, (id) =>
+          this.prefetchVectorForItem(id)
+        );
+      }
+    }
+
+    return results.slice(0, resultLimit);
   }
 
   /**
    * 混合搜索（关键词+语义）
+   * 使用配置中的 vectorWeight / textWeight 进行加权合并
    * @param query 查询字符串
    * @param limit 返回数量限制
    * @returns 排序后的记忆列表
    */
-  async hybridSearch(query: string, limit: number = 5): Promise<Memory[]> {
-    // 获取关键词搜索结果
-    const keywordResults = await this.retrieve(query, limit * 2);
+  async hybridSearch(query: string, limit?: number): Promise<Memory[]> {
+    const resultLimit = limit ?? this.searchConfig.query.maxResults;
+    const hybridConfig = this.searchConfig.query.hybrid;
+    const keywordResults = await this.retrieve(query, resultLimit * 2);
 
-    // 如果有嵌入服务，获取语义搜索结果
-    if (this.embeddingService) {
-      const semanticResults = await this.retrieveBySimilarity(query, limit * 2);
-
-      // 去重和合并
-      const idSet = new Set<string>();
-      const combined: { memory: Memory; score: number }[] = [];
-
-      // 添加关键词结果（得分从1递减）
-      for (let i = 0; i < keywordResults.length; i++) {
-        const mem = keywordResults[i];
-        if (!idSet.has(mem.id)) {
-          idSet.add(mem.id);
-          combined.push({
-            memory: mem,
-            score: 1 - (i / keywordResults.length) * 0.5,
-          });
-        }
-      }
-
-      // 添加语义结果（得分从1递减）
-      for (let i = 0; i < semanticResults.length; i++) {
-        const { memory: mem, similarity } = semanticResults[i];
-        if (idSet.has(mem.id)) {
-          // 已存在则更新得分（取两者较高者）
-          const existing = combined.find((c) => c.memory.id === mem.id);
-          if (existing) {
-            existing.score = Math.max(existing.score, similarity);
-          }
-        } else {
-          idSet.add(mem.id);
-          combined.push({ memory: mem, score: similarity });
-        }
-      }
-
-      // 按得分排序
-      combined.sort((a, b) => b.score - a.score);
-      return combined.slice(0, limit).map((c) => c.memory);
+    if (!hybridConfig?.enabled || !this.embeddingService) {
+      return keywordResults.slice(0, resultLimit);
     }
 
-    // 没有嵌入服务，只返回关键词结果
-    return keywordResults.slice(0, limit);
+    const semanticResults = await this.retrieveBySimilarity(
+      query,
+      resultLimit * 2
+    );
+    const { vectorWeight, textWeight } = hybridConfig;
+
+    const scoreMap = new Map<
+      string,
+      { memory: Memory; keywordScore: number }
+    >();
+
+    for (let i = 0; i < keywordResults.length; i++) {
+      const mem = keywordResults[i];
+      const normalized =
+        keywordResults.length > 1 ? 1 - i / (keywordResults.length - 1) : 1;
+      scoreMap.set(mem.id, { memory: mem, keywordScore: normalized });
+    }
+
+    const semanticScoreMap = new Map<string, number>();
+    const allResults: Memory[] = [];
+
+    for (const { memory: mem, similarity } of semanticResults) {
+      semanticScoreMap.set(mem.id, similarity);
+      if (!scoreMap.has(mem.id)) {
+        scoreMap.set(mem.id, { memory: mem, keywordScore: 0 });
+      }
+    }
+
+    for (const { memory: mem } of semanticResults) {
+      if (!allResults.find((m) => m.id === mem.id)) {
+        allResults.push(mem);
+      }
+    }
+    for (let i = 0; i < keywordResults.length; i++) {
+      if (!allResults.find((m) => m.id === keywordResults[i].id)) {
+        allResults.push(keywordResults[i]);
+      }
+    }
+
+    const scoredResults: { memory: Memory; score: number }[] = [];
+
+    for (const mem of allResults) {
+      const entry = scoreMap.get(mem.id);
+      const keywordScore = entry?.keywordScore ?? 0;
+      const semanticScore = semanticScoreMap.get(mem.id) ?? 0;
+      const score = textWeight * keywordScore + vectorWeight * semanticScore;
+      scoredResults.push({ memory: mem, score });
+    }
+
+    scoredResults.sort((a, b) => b.score - a.score);
+    return scoredResults.slice(0, resultLimit).map((c) => c.memory);
   }
 }

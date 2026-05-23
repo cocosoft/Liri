@@ -212,6 +212,35 @@ export abstract class MemoryProvider {
    */
   abstract shutdown(): Promise<void>;
 
+  // ── 可选生命周期钩子 ──
+
+  /**
+   * 会话轮次开始时触发
+   * @param turn 轮次信息
+   */
+  onTurnStart?(turn: {
+    sessionId: string;
+    turnNumber: number;
+    timestamp: number;
+  }): Promise<void>;
+
+  /**
+   * 会话结束时触发
+   * @param messages 会话中的消息列表
+   */
+  onSessionEnd?(
+    messages: Array<{ role: string; content: string; timestamp: number }>
+  ): Promise<void>;
+
+  /**
+   * 压缩前触发，可返回替代摘要文本
+   * @param messages 待压缩的消息列表
+   * @returns 可选的替代摘要文本，返回 null 则使用默认压缩逻辑
+   */
+  onPreCompress?(
+    messages: Array<{ role: string; content: string; timestamp: number }>
+  ): Promise<string | null>;
+
   /**
    * 获取提供者状态
    * @returns 提供者状态

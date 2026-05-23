@@ -330,7 +330,7 @@ export class AutoMemoryService {
     return {
       content: `用户更正：${message.content}\n\n原回复：${lastAssistantReply.content}`,
       title: '用户更正',
-      type: MemoryType.FEEDBACK,
+      type: MemoryType.USER_PREFERENCE,
       confidence: 0.85,
       trigger: AutoMemoryTriggerType.USER_CORRECTION,
       tags: ['correction', 'feedback', 'user'],
@@ -378,7 +378,7 @@ export class AutoMemoryService {
     return {
       content: message.content,
       title: '常见问题',
-      type: MemoryType.REFERENCE,
+      type: MemoryType.DECISION,
       confidence: 0.75,
       trigger: AutoMemoryTriggerType.REPEATED_QUESTION,
       tags: ['question', 'reference', 'frequent'],
@@ -427,7 +427,7 @@ export class AutoMemoryService {
     return {
       content: message.content,
       title: '用户偏好',
-      type: MemoryType.USER,
+      type: MemoryType.USER_FACT,
       confidence: 0.8,
       trigger: AutoMemoryTriggerType.PREFERENCE_STATEMENT,
       tags: ['preference', 'user', 'preference'],
@@ -471,7 +471,7 @@ export class AutoMemoryService {
     return {
       content: message.content,
       title: '重要信息',
-      type: MemoryType.REFERENCE,
+      type: MemoryType.DECISION,
       confidence: 0.7,
       trigger: AutoMemoryTriggerType.IMPORTANT_INFORMATION,
       tags: ['important', 'reference', 'critical'],
@@ -515,7 +515,7 @@ export class AutoMemoryService {
     return {
       content: message.content,
       title: '项目上下文',
-      type: MemoryType.PROJECT,
+      type: MemoryType.PROJECT_KNOWLEDGE,
       confidence: 0.75,
       trigger: AutoMemoryTriggerType.PROJECT_CONTEXT,
       tags: ['project', 'context', 'plan'],
@@ -559,7 +559,7 @@ export class AutoMemoryService {
     return {
       content: message.content,
       title: '明确记忆请求',
-      type: MemoryType.USER,
+      type: MemoryType.USER_FACT,
       confidence: 0.9,
       trigger: AutoMemoryTriggerType.EXPLICIT_REQUEST,
       tags: ['request', 'user', 'explicit'],

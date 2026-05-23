@@ -9,7 +9,6 @@ export * from './xml.js';
 export * from './toolLimits.js';
 export * from './messages.js';
 export * from './keys.js';
-export * from './prompts.js';
 
 export * from './apiLimits.js';
 export * from './oauth.js';

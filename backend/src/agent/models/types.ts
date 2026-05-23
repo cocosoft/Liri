@@ -86,6 +86,7 @@ export interface AgentContext {
   timeout: number;
   taskId?: string;
   agentId?: string;
+  promptMode?: 'full' | 'minimal' | 'none';
   metadata?: Record<string, unknown>;
 }
 
@@ -126,6 +127,7 @@ export interface AgentConfig {
   timeout: number;
   memoryPath: string;
   defaultStrategy: string;
+  promptMode?: 'full' | 'minimal' | 'none';
   tools: AgentTool[];
 }
 

@@ -59,7 +59,7 @@ export class MemoryCLI {
             metadata: createMemoryMetadata({
               name: options.name || 'Untitled Memory',
               description: options.description || '',
-              type: options.type || MemoryType.USER,
+              type: options.type || MemoryType.USER_FACT,
               tags,
               priority: options.priority,
             }),

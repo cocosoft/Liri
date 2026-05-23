@@ -380,6 +380,47 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
+      // 初始化 SessionStateBridge：将 SessionLifecycleEventBus 桥接到 SessionStateService
+      (async () => {
+        try {
+          const { getGlobalEventBus } = await import('../session/lifecycle/SessionLifecycleEventBus.js');
+          const { SessionStateBridge } = await import('../chat/services/SessionStateBridge.js');
+          const bridge = new SessionStateBridge(getGlobalEventBus());
+          bridge.connect();
+          logger.info('SessionStateBridge 已连接: 生命周期事件 → 会话状态服务');
+        } catch (error) {
+          logger.warning('SessionStateBridge 初始化失败，流量不受影响', { error });
+        }
+      })(),
+
+      // 启动 SessionSupervisor 会话监管器（空闲检测 + 自动回收）
+      (async () => {
+        try {
+          const { SessionManager } = await import('../session/SessionManager.js');
+          const { SessionSupervisor } = await import('../core/session/SessionSupervisor.js');
+          const { createSupervisorStore } = await import('../core/session/SessionStoreAdapter.js');
+          const store = createSupervisorStore(SessionManager.instance.store);
+          const supervisor = new SessionSupervisor(store, {
+            resetPolicy: {
+              mode: 'idle',
+              idleMinutes: 30,
+              preserveMetadata: true,
+            },
+          });
+          supervisor.start();
+          (globalThis as Record<string, unknown>)['__sessionSupervisor'] = supervisor;
+          registerShutdownHandler(() => {
+            const sup = (globalThis as Record<string, unknown>)['__sessionSupervisor'];
+            if (sup && typeof (sup as Record<string, unknown>).dispose === 'function') {
+              (sup as { dispose: () => void }).dispose();
+            }
+          });
+          logger.info('SessionSupervisor 已启动: 空闲检测 30min, 检查周期 5min');
+        } catch (error) {
+          logger.warning('SessionSupervisor 启动失败，会话监管功能不可用', { error });
+        }
+      })(),
+
       // 预加载聊天管理器
       (async () => {
         try {
@@ -395,6 +436,49 @@ async function startDeferredPrefetches(): Promise<void> {
           await import('../memory/MemoryManager.js');
         } catch (error) {
           // 忽略预加载错�?
+        }
+      })(),
+
+      // 注册记忆查询提供者（MemorySummarizer → MemoryQueryProvider 适配）
+      (async () => {
+        try {
+          const { MemoryManagerImpl } =
+            await import('../memory/MemoryManager.js');
+          const { MemorySummarizer } =
+            await import('../memory/services/MemorySummarizer.js');
+          const { setMemoryQueryProvider, getCurrentSessionContext } =
+            await import('../services/prompt/MemoryPromptProvider.js');
+          const summarizer = new MemorySummarizer(new MemoryManagerImpl());
+          setMemoryQueryProvider({
+            async getMemorySummaries(limit?: number) {
+              const ctx = getCurrentSessionContext();
+              return summarizer.getSummaries(limit, ctx ?? undefined);
+            },
+          });
+        } catch (error) {
+          logger.warning('记忆查询提供者注册失败', { error });
+        }
+      })(),
+
+      // 注册知识库查询提供者（KnowledgeSummarizer → KnowledgeQueryProvider 适配）
+      (async () => {
+        try {
+          const { knowledgeDocsProvider, fileDocsProvider } =
+            await import('../docs/FileDocsProvider.js');
+          const { KnowledgeRouter } =
+            await import('../docs/KnowledgeRouter.js');
+          const { KnowledgeSummarizer } =
+            await import('../memory/services/KnowledgeSummarizer.js');
+          const { setKnowledgeQueryProvider } =
+            await import('../services/prompt/KnowledgePromptProvider.js');
+          const router = new KnowledgeRouter([
+            fileDocsProvider,
+            knowledgeDocsProvider,
+          ]);
+          const summarizer = new KnowledgeSummarizer(router);
+          setKnowledgeQueryProvider(summarizer);
+        } catch (error) {
+          logger.warning('知识库查询提供者注册失败', { error });
         }
       })(),
 

@@ -1,4 +1,3 @@
-//
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -50,6 +49,9 @@ import type {
   ParsedToolCall,
   ToolDefinition,
 } from '../ai/models/types.js';
+import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
+import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
+import type { SessionContext } from '@modules/memory/types/SessionContext';
 import {
   QueryEngine,
   createQueryEngine,
@@ -61,6 +63,7 @@ import {
   type CompactArtifact,
 } from '../services/compact/CompactService.js';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import { SessionTokenTracker } from '@modules/session/TokenTracker';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { TaskStatus } from '@modules/tasks/types';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
@@ -494,6 +497,11 @@ export class ChatManagerImpl implements ChatManager {
   private compactService: CompactServiceImpl;
 
   /**
+   * 令牌追踪器
+   */
+  private tokenTracker: SessionTokenTracker | null = null;
+
+  /**
    * 构造函数
    */
   constructor() {
@@ -510,6 +518,34 @@ export class ChatManagerImpl implements ChatManager {
    */
   public getHookChainManager(): HookChainManager {
     return this.hookChainManager;
+  }
+
+  /**
+   * 获取或组装系统提示词
+   * 每次根据当前会话状态重新组装（包含动态段落如 sessionContext）
+   */
+  private async getOrAssembleSystemPrompt(
+    session: ChatSession,
+    currentMessage?: string
+  ): Promise<string> {
+    const providerId = this.llmClient?.getProviderId() || 'deepseek';
+    const sessionContext: SessionContext = {
+      sessionId: session.id,
+      turnCount: session.messages.length,
+      duration: Date.now() - (session.createdAt?.getTime() ?? Date.now()),
+      startedAt: session.createdAt?.getTime() ?? Date.now(),
+      tags: session.metadata?.tags,
+    };
+
+    if (currentMessage) {
+      setCurrentKnowledgeQuery(currentMessage);
+    }
+
+    const prompt = await assembleSystemPrompt({
+      providerId,
+      sessionContext,
+    });
+    return prompt;
   }
 
   /**
@@ -629,6 +665,9 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
+    // 记忆增强：将相关记忆注入用户消息
+    content = await this.enhanceWithMemoryContext(content);
+
     // 创建用户消息
     const userMessage = this.messageService.createUserMessage(content, {
       sessionId: session.id,
@@ -737,6 +776,14 @@ export class ChatManagerImpl implements ChatManager {
       }));
     }
 
+    const hasSystemMessage = apiMessages.some(
+      (m: Record<string, unknown>) => m.role === 'system'
+    );
+    if (!hasSystemMessage) {
+      const sysPrompt = await this.getOrAssembleSystemPrompt(session, content);
+      apiMessages.unshift({ role: 'system', content: sysPrompt });
+    }
+
     const response = await this.llmClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
       {
@@ -747,6 +794,8 @@ export class ChatManagerImpl implements ChatManager {
             : undefined,
       }
     );
+
+    this.recordChatResponseUsage(session.id, response.usage);
 
     const assistantMessageContent =
       typeof response.content === 'string'
@@ -778,6 +827,9 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
     this.sessionManager.addMessage(session.id, assistantMessage);
+
+    // 响应后自动提取记忆
+    await this.extractMemoryFromChat(content, assistantMessageContent, session.id);
 
     // 触发 ChatPostMessage Hook
     await this.hookChainManager.execute('chat', {
@@ -930,6 +982,8 @@ export class ChatManagerImpl implements ChatManager {
           }
         );
 
+        this.recordChatResponseUsage(session.id, toolResultResponse.usage);
+
         logger.debug('Tool result response', {
           response: toolResultResponse,
         });
@@ -1003,6 +1057,76 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 增强用户消息：注入相关记忆作为上下文
+   */
+  private async enhanceWithMemoryContext(content: string): Promise<string> {
+    try {
+      const { MemoryIntegration } = await import(
+        '@modules/memory/integrations/MemoryIntegration'
+      );
+      const { MemoryManagerImpl } = await import(
+        '@modules/memory/MemoryManager'
+      );
+      const integration = new MemoryIntegration(new MemoryManagerImpl());
+      return await integration.injectMemoriesToContext(content);
+    } catch {
+      return content;
+    }
+  }
+
+  /**
+   * 响应后自动提取记忆
+   */
+  private async extractMemoryFromChat(
+    userContent: string,
+    assistantContent: string,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      const { MemoryManagerImpl } = await import(
+        '@modules/memory/MemoryManager'
+      );
+      const mm = new MemoryManagerImpl();
+      const memorableContent = `用户: ${userContent}\n助手: ${assistantContent}`;
+      await mm.createMemory({
+        content: memorableContent,
+        metadata: {
+          name: `会话 ${sessionId.slice(0, 8)} 对话`,
+          description: '从对话中自动提取',
+          type: 'conversation',
+          tags: ['auto-extracted', sessionId],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    } catch {
+      // 记忆提取失败不影响主流程
+    }
+  }
+
+  /**
+   * 记录 LLM 响应的令牌用量到 TokenTracker
+   * 支持 ai/models/types.ChatResponse.usage 和 chat/types/message.ChatResponse.usage 两种格式
+   */
+  private recordChatResponseUsage(
+    sessionId: string,
+    usage: Record<string, number> | null | undefined
+  ): void {
+    if (!this.tokenTracker || !usage) return;
+    const inputTokens = usage.prompt_tokens ?? usage.inputTokens ?? 0;
+    const outputTokens = usage.completion_tokens ?? usage.outputTokens ?? 0;
+    if (inputTokens === 0 && outputTokens === 0) return;
+    this.tokenTracker.recordUsage(sessionId, {
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens:
+        usage.cache_read_input_tokens ?? usage.cacheReadInputTokens,
+      cacheCreationInputTokens:
+        usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens,
+    });
+  }
+
+  /**
    * 执行单步提示（LLM 调用 + 工具执行循环）
    */
   private async executeStepPrompt(
@@ -1035,6 +1159,14 @@ export class ChatManagerImpl implements ChatManager {
       return chatMessage;
     });
     apiMessages.push({ role: 'user', content: prompt });
+
+    const hasSystemMessage = apiMessages.some(
+      (m: Record<string, unknown>) => m.role === 'system'
+    );
+    if (!hasSystemMessage) {
+      const sysPrompt = await this.getOrAssembleSystemPrompt(session, prompt);
+      apiMessages.unshift({ role: 'system', content: sysPrompt });
+    }
 
     const toolDefinitions = this.buildToolDefinitions();
 
@@ -1150,6 +1282,8 @@ export class ChatManagerImpl implements ChatManager {
               : undefined,
         }
       );
+
+      this.recordChatResponseUsage(session.id, toolResultResponse.usage);
 
       const resultContent =
         typeof toolResultResponse.content === 'string'
@@ -1324,6 +1458,9 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
+    // 记忆增强：将相关记忆注入用户消息
+    content = await this.enhanceWithMemoryContext(content);
+
     // 创建用户消息
     const userMessage = this.messageService.createUserMessage(content, {
       sessionId: session.id,
@@ -1425,6 +1562,14 @@ export class ChatManagerImpl implements ChatManager {
       sessionId: session.id,
     });
 
+    const hasSystemMessage = apiMessages.some(
+      (m: Record<string, unknown>) => m.role === 'system'
+    );
+    if (!hasSystemMessage) {
+      const sysPrompt = await this.getOrAssembleSystemPrompt(session, content);
+      apiMessages.unshift({ role: 'system', content: sysPrompt });
+    }
+
     let assistantMessage: Message | undefined;
     let accumulatedContent = '';
     let finalResponse: ChatResponse | null = null;
@@ -1459,6 +1604,8 @@ export class ChatManagerImpl implements ChatManager {
     }
     finalResponse = result.value as unknown as ChatResponse;
 
+    this.recordChatResponseUsage(session.id, finalResponse?.usage);
+
     // 创建助手消息
     assistantMessage = this.messageService.createAssistantMessage(
       accumulatedContent,
@@ -1485,6 +1632,9 @@ export class ChatManagerImpl implements ChatManager {
       );
     }
     this.sessionManager.addMessage(session.id, assistantMessage);
+
+    // 响应后自动提取记忆
+    await this.extractMemoryFromChat(content, accumulatedContent, session.id);
 
     // 触发 ChatPostStream Hook
     await this.hookChainManager.execute('chat', {
@@ -1642,6 +1792,8 @@ export class ChatManagerImpl implements ChatManager {
         }
         const toolResultResponse =
           toolResultIter.value as unknown as ChatResponse;
+
+        this.recordChatResponseUsage(session.id, toolResultResponse?.usage);
 
         const toolResultAssistantMessage =
           this.messageService.createAssistantMessage(
@@ -2006,6 +2158,20 @@ export class ChatManagerImpl implements ChatManager {
    */
   getToolRegistry(): ToolRegistry | null {
     return this.toolRegistry;
+  }
+
+  /**
+   * 设置令牌追踪器
+   */
+  setTokenTracker(tracker: SessionTokenTracker | null): void {
+    this.tokenTracker = tracker;
+  }
+
+  /**
+   * 获取令牌追踪器
+   */
+  getTokenTracker(): SessionTokenTracker | null {
+    return this.tokenTracker;
   }
 
   /**

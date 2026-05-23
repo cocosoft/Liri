@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "autoCheckpointBeforeCompact": true,
+  "maxRecordsPerSession": 20,
+  "compactOnThreshold": true,
+  "thresholdPercent": 0.85
+}

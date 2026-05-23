@@ -1,7 +1,11 @@
-//
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
-import { MemoryStoreImpl, MemoryStore } from './stores/MemoryStore';
+import {
+  validateMemoryId,
+  validateMemoryPath,
+  MemoryStoreImpl,
+  MemoryStore,
+} from './stores/MemoryStore';
 import { MemoryScannerImpl } from './scanners/MemoryScanner';
 import { MemoryRetrieverImpl } from './retrievers/MemoryRetriever';
 import { MemoryType } from './types/MemoryType';
@@ -246,6 +250,7 @@ export class MemoryManagerImpl {
    * @returns 记忆对象或null
    */
   async getMemory(id: string): Promise<Memory | null> {
+    validateMemoryId(id);
     return this.store.readMemory(id);
   }
 
@@ -256,6 +261,8 @@ export class MemoryManagerImpl {
    * @returns 更新后的记忆
    */
   async updateMemory(id: string, updates: Partial<Memory>): Promise<Memory> {
+    validateMemoryId(id);
+
     // 获取现有记忆
     const existingMemory = await this.store.readMemory(id);
     if (!existingMemory) {
@@ -296,6 +303,7 @@ export class MemoryManagerImpl {
    * @param id 记忆ID
    */
   async deleteMemory(id: string): Promise<void> {
+    validateMemoryId(id);
     await this.store.deleteMemory(id);
 
     // 从检索器索引中移除
@@ -348,10 +356,11 @@ export class MemoryManagerImpl {
 
     // 按类型统计
     const byType: Record<MemoryType, number> = {
-      [MemoryType.USER]: 0,
-      [MemoryType.FEEDBACK]: 0,
-      [MemoryType.PROJECT]: 0,
-      [MemoryType.REFERENCE]: 0,
+      [MemoryType.USER_FACT]: 0,
+      [MemoryType.USER_PREFERENCE]: 0,
+      [MemoryType.PROJECT_KNOWLEDGE]: 0,
+      [MemoryType.CODE_PATTERN]: 0,
+      [MemoryType.DECISION]: 0,
     };
 
     let totalSize = 0;
@@ -448,6 +457,8 @@ export class MemoryManagerImpl {
     id: string,
     exportDir: string = './exports'
   ): Promise<string> {
+    validateMemoryId(id);
+    validateMemoryPath(exportDir, 'exportDir');
     return this.store.exportMemoryAsMarkdown(id, exportDir);
   }
 
@@ -457,6 +468,7 @@ export class MemoryManagerImpl {
    * @returns 创建的记忆ID
    */
   async importMemoryFromMarkdown(filePath: string): Promise<string> {
+    validateMemoryPath(filePath, 'filePath');
     const id = await this.store.importMemoryFromMarkdown(filePath);
 
     // 重新构建索引

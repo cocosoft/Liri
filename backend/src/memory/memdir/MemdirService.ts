@@ -228,7 +228,9 @@ export class MemdirService {
           const memoryFile: MemoryFile = {
             path: filePath,
             type:
-              fileName === 'CLAUDE.md' ? MemoryType.PROJECT : MemoryType.USER,
+              fileName === 'CLAUDE.md'
+                ? MemoryType.PROJECT_KNOWLEDGE
+                : MemoryType.USER_FACT,
             layer:
               fileName === 'CLAUDE.md'
                 ? MemoryLayer.PROJECT
@@ -265,7 +267,7 @@ export class MemdirService {
 
         const memoryFile: MemoryFile = {
           path: userFile,
-          type: MemoryType.USER,
+          type: MemoryType.USER_FACT,
           layer: MemoryLayer.USER,
           content,
           size: stats.size,
@@ -352,7 +354,7 @@ export class MemdirService {
 
             const memoryFile: MemoryFile = {
               path: filePath,
-              type: MemoryType.REFERENCE,
+              type: MemoryType.DECISION,
               layer: MemoryLayer.TEAMMEM,
               content,
               size: stats.size,
@@ -383,18 +385,18 @@ export class MemdirService {
    */
   private detectMemoryType(fileName: string, content: string): MemoryType {
     if (fileName.includes('feedback')) {
-      return MemoryType.FEEDBACK;
+      return MemoryType.USER_PREFERENCE;
     }
 
     if (fileName.includes('project')) {
-      return MemoryType.PROJECT;
+      return MemoryType.PROJECT_KNOWLEDGE;
     }
 
     if (fileName.includes('reference')) {
-      return MemoryType.REFERENCE;
+      return MemoryType.DECISION;
     }
 
-    return MemoryType.USER;
+    return MemoryType.USER_FACT;
   }
 
   /**

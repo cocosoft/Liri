@@ -11,10 +11,8 @@ export interface SystemPromptParts {
 
 /**
  * 构建基础系统提示词数组，用于初始化 AI 助手的身份和行为准则。
- *
- * 该函数生成一组字符串，定义了 AI 助手（PY_APP）的身份标识、工具使用规范、
- * 文件修改原则以及命令执行流程。这些提示词旨在确保助手行为的一致性、
- * 安全性和用户友好性。
+ * @deprecated 功能已迁移至 systemPromptSections 的 identity/toolUse 段落。
+ *             请使用 PromptAssembler.assembleSystemPrompt() 替代。
  *
  * @param tools - 可用工具的名称列表。虽然当前实现中未直接使用该参数动态生成内容，
  *                但保留此参数以支持未来扩展或上下文注入。默认为空数组。
@@ -44,6 +42,8 @@ export function buildBasePrompt(tools: string[] = []): string[] {
 
 /**
  * 构建用户上下文信息对象
+ * @deprecated 功能已迁移至 systemPromptSections + PlatformHints.buildEnvironmentHints()。
+ *             请使用 PromptAssembler.assembleSystemPrompt() 替代。
  *
  * @param info - 包含平台、工作目录、分支和日期等可选信息的对象
  * @param info.platform - 可选的平台标识，若未提供则使用当前进程的平台
@@ -71,6 +71,8 @@ export function buildUserContext(info: {
 
 /**
  * 根据提供的项目信息构建系统上下文对象。
+ * @deprecated 功能已迁移至 systemPromptSections 的 gitContext/projectMeta 段落。
+ *             请使用 PromptAssembler.assembleSystemPrompt() 替代。
  *
  * 该函数会过滤掉空值或未定义的字段，仅将存在的有效信息添加到返回的上下文中。
  *

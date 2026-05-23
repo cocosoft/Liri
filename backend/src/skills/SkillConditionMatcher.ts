@@ -16,6 +16,7 @@ export interface ConditionContext {
   channelId?: string;
   environment?: string;
   tools?: string[];
+  toolsets?: string[];
   [key: string]: unknown;
 }
 
@@ -86,6 +87,54 @@ export class SkillConditionMatcher {
       const availableTools = this.context.tools || [];
       for (const tool of requiredTools) {
         if (!availableTools.includes(tool)) {
+          return false;
+        }
+      }
+    }
+
+    if (frontmatter['requires_toolsets'] !== undefined) {
+      const requiredToolsets = this.normalizeStringArray(
+        frontmatter['requires_toolsets']
+      );
+      const availableToolsets = this.context.toolsets || [];
+      for (const ts of requiredToolsets) {
+        if (!availableToolsets.includes(ts)) {
+          return false;
+        }
+      }
+    }
+
+    if (frontmatter['requires_tools'] !== undefined) {
+      const requiredTools = this.normalizeStringArray(
+        frontmatter['requires_tools']
+      );
+      const availableTools = this.context.tools || [];
+      for (const tool of requiredTools) {
+        if (!availableTools.includes(tool)) {
+          return false;
+        }
+      }
+    }
+
+    if (frontmatter['fallback_for_toolsets'] !== undefined) {
+      const fallbackToolsets = this.normalizeStringArray(
+        frontmatter['fallback_for_toolsets']
+      );
+      const availableToolsets = this.context.toolsets || [];
+      for (const ts of fallbackToolsets) {
+        if (availableToolsets.includes(ts)) {
+          return false;
+        }
+      }
+    }
+
+    if (frontmatter['fallback_for_tools'] !== undefined) {
+      const fallbackTools = this.normalizeStringArray(
+        frontmatter['fallback_for_tools']
+      );
+      const availableTools = this.context.tools || [];
+      for (const tool of fallbackTools) {
+        if (availableTools.includes(tool)) {
           return false;
         }
       }

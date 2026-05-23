@@ -4,6 +4,8 @@
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { ResetPolicyDecider } from '@modules/session/policy/ResetPolicyDecider';
+import type { ResetPolicy } from '@modules/session/policy/ResetPolicy';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -30,6 +32,8 @@ export interface SessionSupervisorConfig {
   forceRecycleThreshold: number;
   /** 检查周期（毫秒） */
   checkInterval: number;
+  /** 重置策略（可选），不设置则回退到 staleThreshold 逻辑 */
+  resetPolicy?: ResetPolicy;
 }
 
 /** 默认配置 */
@@ -48,6 +52,7 @@ export class SessionSupervisor {
   private config: SessionSupervisorConfig;
   private timer: ReturnType<typeof setInterval> | null = null;
   private disposed = false;
+  private policyDecider: ResetPolicyDecider | null = null;
 
   /**
    * @param store - 会话存储适配器
@@ -56,6 +61,26 @@ export class SessionSupervisor {
   constructor(store: SessionStore, config?: Partial<SessionSupervisorConfig>) {
     this.store = store;
     this.config = { ...DEFAULT_CONFIG, ...config };
+    if (this.config.resetPolicy) {
+      this.policyDecider = new ResetPolicyDecider();
+    }
+  }
+
+  /**
+   * 设置或更新重置策略
+   */
+  setResetPolicy(policy: ResetPolicy): void {
+    this.config.resetPolicy = policy;
+    if (!this.policyDecider) {
+      this.policyDecider = new ResetPolicyDecider();
+    }
+  }
+
+  /**
+   * 获取当前重置策略
+   */
+  getResetPolicy(): ResetPolicy | undefined {
+    return this.config.resetPolicy;
   }
 
   /**
@@ -114,8 +139,29 @@ export class SessionSupervisor {
         continue;
       }
 
-      if (idleTime >= this.config.staleThreshold) {
-        await this.store.markIdle(session.id);
+      if (this.policyDecider && this.config.resetPolicy) {
+        const action = this.policyDecider.evaluate(
+          {
+            id: session.id,
+            lastActivityAt: session.lastActivityAt,
+            createdAt: session.createdAt,
+            status: session.status,
+          },
+          this.config.resetPolicy
+        );
+
+        if (action.action === 'mark_idle') {
+          await this.store.markIdle(session.id);
+        } else if (action.action === 'reset') {
+          await this.store.markIdle(session.id);
+          if (!this.config.resetPolicy.preserveMetadata) {
+            logger.warn(`[SessionSupervisor] 会话 ${session.id} 每日重置触发`);
+          }
+        }
+      } else {
+        if (idleTime >= this.config.staleThreshold) {
+          await this.store.markIdle(session.id);
+        }
       }
     }
   }

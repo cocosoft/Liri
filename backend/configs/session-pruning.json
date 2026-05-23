@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "maxContextTokens": 100000,
+  "maxContextMessages": 200,
+  "messageTtlMs": 3600000,
+  "ttlEnabled": true,
+  "trimThresholdPercent": 0.8,
+  "preserveFirstMessages": 2,
+  "preserveLastMessages": 5
+}

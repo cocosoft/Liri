@@ -7,6 +7,30 @@ import type { LockOptions } from './SessionLock';
 import { SessionMigration } from './SessionMigration';
 import { FileSystemStorage } from './storage/FileSystemStorage';
 import type { SessionStorage } from './SessionStorage';
+import type { SessionCompactionBridge } from './compaction/SessionCompactionBridge';
+import { PriorityManager } from './qos/PriorityManager';
+import { QoSEnforcer } from './qos/QoSEnforcer';
+import type {
+  SessionPriority,
+  SessionPriorityLevel,
+  QoSLevel,
+} from './qos/SessionPriority';
+import { BudgetTracker } from './budget/BudgetTracker';
+import { BudgetEnforcer } from './budget/BudgetEnforcer';
+import type {
+  SessionTokenBudgetConfig,
+  BudgetDecision,
+  BudgetPeriod,
+} from './budget/BudgetTypes';
+import { SessionArchiver } from './archive/SessionArchiver';
+import type {
+  ArchiveConfig,
+  ArchiveResult,
+  RestoreResult,
+  ArchiveMetadata,
+} from './archive/ArchiveTypes';
+import { MessageRole, ContentBlockType } from './types/Message';
+import type { UnifiedMessage } from './types/Message';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -19,6 +43,8 @@ export interface SessionManagerConfig {
   enablePruner?: boolean;
   enableMigration?: boolean;
   enableLock?: boolean;
+  enableCompactionMonitor?: boolean;
+  compactionMonitorIntervalMs?: number;
 }
 
 export class SessionManager {
@@ -37,7 +63,15 @@ export class SessionManager {
     lockOptions?: LockOptions;
   };
   private prunerInterval: ReturnType<typeof setInterval> | null = null;
+  private compactionMonitorInterval: ReturnType<typeof setInterval> | null =
+    null;
+  private compactionBridge: SessionCompactionBridge | null = null;
   private initialized = false;
+  readonly priorityManager = new PriorityManager();
+  readonly qosEnforcer = new QoSEnforcer();
+  readonly budgetTracker = new BudgetTracker();
+  readonly budgetEnforcer = new BudgetEnforcer(this.budgetTracker);
+  private _archiver: SessionArchiver | null = null;
 
   constructor(config: SessionManagerConfig = {}) {
     this.config = {
@@ -46,6 +80,9 @@ export class SessionManager {
       enablePruner: config.enablePruner ?? true,
       enableMigration: config.enableMigration ?? true,
       enableLock: config.enableLock ?? true,
+      enableCompactionMonitor: config.enableCompactionMonitor ?? false,
+      compactionMonitorIntervalMs:
+        config.compactionMonitorIntervalMs ?? 30 * 60 * 1000,
       storage: config.storage,
       prunerOptions: config.prunerOptions,
       lockOptions: config.lockOptions,
@@ -68,6 +105,202 @@ export class SessionManager {
       : (null as unknown as SessionMigration);
   }
 
+  /**
+   * 设置压缩桥接
+   */
+  setCompactionBridge(bridge: SessionCompactionBridge): void {
+    this.compactionBridge = bridge;
+  }
+
+  /**
+   * 获取压缩桥接
+   */
+  getCompactionBridge(): SessionCompactionBridge | null {
+    return this.compactionBridge;
+  }
+
+  /**
+   * 设置会话优先级
+   */
+  setSessionPriority(
+    sessionId: string,
+    level: SessionPriorityLevel,
+    qos?: QoSLevel
+  ): void {
+    this.priorityManager.setPriority(sessionId, level, qos);
+    this.qosEnforcer.registerSession(
+      sessionId,
+      this.priorityManager.getPriority(sessionId)
+    );
+  }
+
+  /**
+   * 获取会话优先级
+   */
+  getSessionPriority(sessionId: string): SessionPriority {
+    return this.priorityManager.getPriority(sessionId);
+  }
+
+  /**
+   * 获取 QoS 执行器
+   */
+  getQoSEnforcer(): QoSEnforcer {
+    return this.qosEnforcer;
+  }
+
+  /**
+   * 获取优先级管理器
+   */
+  getPriorityManager(): PriorityManager {
+    return this.priorityManager;
+  }
+
+  /**
+   * 设置会话预算配置
+   */
+  setSessionBudget(sessionId: string, config: SessionTokenBudgetConfig): void {
+    this.budgetEnforcer.setBudgetConfig(sessionId, config);
+  }
+
+  /**
+   * 记录会话令牌消耗
+   */
+  recordTokenConsumption(
+    sessionId: string,
+    tokens: number,
+    period?: BudgetPeriod
+  ): void {
+    this.budgetTracker.recordConsumption(sessionId, tokens, period);
+  }
+
+  /**
+   * 检查预算状态
+   */
+  checkBudget(sessionId: string, estimatedTokens?: number): BudgetDecision {
+    return this.budgetEnforcer.evaluate(sessionId, estimatedTokens);
+  }
+
+  /**
+   * 检查能否继续（预算内）
+   */
+  canProceedWithBudget(sessionId: string, estimatedTokens?: number): boolean {
+    return this.budgetEnforcer.canProceed(sessionId, estimatedTokens);
+  }
+
+  /**
+   * 获取预算追踪器
+   */
+  getBudgetTracker(): BudgetTracker {
+    return this.budgetTracker;
+  }
+
+  /**
+   * 获取预算执行器
+   */
+  getBudgetEnforcer(): BudgetEnforcer {
+    return this.budgetEnforcer;
+  }
+
+  /**
+   * 获取归档管理器（延迟初始化）
+   */
+  getArchiver(config?: Partial<ArchiveConfig>): SessionArchiver {
+    if (!this._archiver) {
+      this._archiver = new SessionArchiver(config);
+    }
+    return this._archiver;
+  }
+
+  /**
+   * 设置归档配置
+   */
+  setArchiver(archiver: SessionArchiver): void {
+    this._archiver = archiver;
+  }
+
+  /**
+   * 归档会话
+   */
+  async archiveSession(
+    sessionId: string,
+    trigger?: import('./archive/ArchiveTypes').ArchiveTrigger
+  ): Promise<ArchiveResult> {
+    const archiver = this.getArchiver();
+    await archiver.initialize();
+
+    const session = await this.store.loadSession(sessionId);
+    if (!session) {
+      return {
+        sessionId,
+        success: false,
+        archivedAt: Date.now(),
+        error: 'Session not found',
+      };
+    }
+
+    return archiver.archiveSession(
+      {
+        id: session.id,
+        status: session.state.currentState,
+        messageCount: session.messages?.length ?? 0,
+        totalTokens: session.metadata?.tokenUsage?.totalTokens ?? 0,
+        createdAt: session.createdAt.getTime(),
+        updatedAt: session.updatedAt.getTime(),
+        lastActivityAt: session.updatedAt.getTime(),
+        toUnifiedSession() {
+          return {
+            id: session.id,
+            type: 'local' as never,
+            createdAt: session.createdAt.getTime(),
+            updatedAt: session.updatedAt.getTime(),
+            lastActivityAt: session.updatedAt.getTime(),
+            status: session.state.currentState as never,
+            metadata: {},
+          };
+        },
+        toUnifiedMessages(): UnifiedMessage[] {
+          return (session.messages ?? []).map((m) => ({
+            id: m.id,
+            sessionId: session.id,
+            type: 'assistant' as never,
+            role:
+              m.type === 'tool'
+                ? MessageRole.TOOL
+                : m.type === 'user'
+                  ? MessageRole.USER
+                  : MessageRole.ASSISTANT,
+            content: [{ type: ContentBlockType.TEXT, text: m.content }],
+            timestamp: m.createdAt.getTime(),
+          }));
+        },
+      },
+      trigger
+    );
+  }
+
+  /**
+   * 获取归档列表
+   */
+  async listArchivedSessions(): Promise<ArchiveMetadata[]> {
+    const archiver = this.getArchiver();
+    await archiver.initialize();
+    return archiver.listArchived();
+  }
+
+  /**
+   * 获取归档存储统计
+   */
+  async getArchiveStats(): Promise<{
+    count: number;
+    totalSize: number;
+    oldestArchive: number;
+    newestArchive: number;
+  }> {
+    const archiver = this.getArchiver();
+    await archiver.initialize();
+    return archiver.getStorageStats();
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
@@ -75,6 +308,10 @@ export class SessionManager {
 
     if (this.config.enablePruner) {
       this.startPruner();
+    }
+
+    if (this.config.enableCompactionMonitor && this.compactionBridge) {
+      this.startCompactionMonitor();
     }
 
     this.initialized = true;
@@ -87,6 +324,7 @@ export class SessionManager {
     logger.info('SessionManager shutting down');
 
     this.stopPruner();
+    this.stopCompactionMonitor();
 
     if (this.config.enableLock) {
       await this.lock.releaseAll();
@@ -96,6 +334,51 @@ export class SessionManager {
     this.initialized = false;
 
     logger.info('SessionManager shut down');
+  }
+
+  /**
+   * 手动触发所有活跃会话的压缩检查
+   */
+  async compactNow(): Promise<
+    { sessionId: string; success: boolean; error?: string }[]
+  > {
+    if (!this.compactionBridge) {
+      logger.warn('CompactionBridge not set, cannot compact');
+      return [];
+    }
+
+    const sessionIds = await this.store.listSessions();
+    const results: { sessionId: string; success: boolean; error?: string }[] =
+      [];
+
+    for (const sessionId of sessionIds) {
+      try {
+        const session = await this.store.loadSession(sessionId);
+        if (!session) continue;
+        if (session.state.currentState !== 'active') continue;
+
+        const bridgeResult = await this.compactionBridge.beforeCompact(
+          session,
+          'deepseek-chat'
+        );
+        if (!bridgeResult.proceed) continue;
+
+        const record = await this.compactionBridge.performCompact(
+          session,
+          'deepseek-chat',
+          'manual'
+        );
+        results.push({
+          sessionId,
+          success: record.success,
+          error: record.error,
+        });
+      } catch (e) {
+        results.push({ sessionId, success: false, error: String(e) });
+      }
+    }
+
+    return results;
   }
 
   async pruneNow(): Promise<import('./SessionPruner').PruneResult> {
@@ -138,6 +421,21 @@ export class SessionManager {
     if (this.prunerInterval) {
       clearInterval(this.prunerInterval);
       this.prunerInterval = null;
+    }
+  }
+
+  private startCompactionMonitor(): void {
+    this.stopCompactionMonitor();
+    this.compactionMonitorInterval = setInterval(() => {
+      this.compactNow();
+    }, this.config.compactionMonitorIntervalMs);
+    this.compactionMonitorInterval.unref();
+  }
+
+  private stopCompactionMonitor(): void {
+    if (this.compactionMonitorInterval) {
+      clearInterval(this.compactionMonitorInterval);
+      this.compactionMonitorInterval = null;
     }
   }
 }

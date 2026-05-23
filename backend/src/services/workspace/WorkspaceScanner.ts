@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getPromptInjectionDetector } from '../../security/injection/PromptInjectionDetector';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -45,10 +46,10 @@ function readCached(filePath: string): WorkspaceFile | null {
     }
 
     const content = fs.readFileSync(filePath, 'utf-8');
-    const truncated = content.length > MAX_FILE_CHARS;
-    const safeContent = truncated
-      ? content.substring(0, MAX_FILE_CHARS) + '\n...(truncated)'
-      : content;
+    const { content: safeContent, truncated } = headTailTruncate(
+      content,
+      MAX_FILE_CHARS
+    );
 
     fileCache.set(filePath, { content: safeContent, mtimeMs: stat.mtimeMs });
 
@@ -135,25 +136,88 @@ export function scanWorkspaceFiles(cwd: string): WorkspaceFiles {
   return { agentsMd, toolsMd, agentsDirFiles };
 }
 
+/**
+ * 剥离 Markdown 文件的 YAML frontmatter
+ * 匹配开头的 ---\n...\n---\n 块
+ */
+export function stripFrontmatter(content: string): string {
+  return content.replace(/^---\n[\s\S]*?\n---\n/, '');
+}
+
+/**
+ * head(70%) + tail(30%) 截断策略（对标 Hermes head/tail 截断）
+ * 超出 maxChars 时保留开头 70% 和结尾 30%，中间插入截断标记
+ */
+export function headTailTruncate(
+  content: string,
+  maxChars: number
+): { content: string; truncated: boolean } {
+  if (content.length <= maxChars) return { content, truncated: false };
+
+  const headChars = Math.floor(maxChars * 0.7);
+  const tailChars = maxChars - headChars;
+  const removed = content.length - maxChars;
+  const marker = `\n... (truncated, ${removed} chars removed) ...\n`;
+
+  return {
+    content:
+      content.substring(0, headChars) +
+      marker +
+      content.substring(content.length - tailChars),
+    truncated: true,
+  };
+}
+
+/**
+ * 扫描上下文文件内容中的注入威胁（对标 Hermes _scan_context_content()）
+ * 检测到威胁时替换为 [BLOCKED: ...] 标记而非完全拒绝
+ */
+export function scanContextContent(content: string, source: string): string {
+  const detector = getPromptInjectionDetector();
+  const matches = detector.scan(content);
+
+  if (matches.length === 0) return content;
+
+  const blocked = matches.filter((m) => m.severity !== 'low');
+  if (blocked.length === 0) return content;
+
+  logger.warn(`扫描到 ${blocked.length} 个注入威胁，已从 ${source} 中屏蔽`, {
+    patterns: blocked.map((m) => m.pattern),
+  });
+
+  let result = content;
+  const sorted = [...blocked].sort((a, b) => b.index - a.index);
+  for (const m of sorted) {
+    const before = result.slice(0, m.index);
+    const after = result.slice(m.index + m.match.length);
+    result = `${before}[BLOCKED: ${m.pattern}]${after}`;
+  }
+
+  return result;
+}
+
 export function readAgentsMd(cwd: string): string | null {
   const files = scanWorkspaceFiles(cwd);
   if (!files.agentsMd) return null;
 
   const parts: string[] = [];
-  parts.push(files.agentsMd.content);
+  parts.push(stripFrontmatter(files.agentsMd.content));
 
   if (files.agentsDirFiles.length > 0) {
     for (const f of files.agentsDirFiles) {
-      parts.push(`\n---\n\n# ${f.name}\n\n${f.content}`);
+      parts.push(`\n---\n\n# ${f.name}\n\n${stripFrontmatter(f.content)}`);
     }
   }
 
-  return parts.join('\n');
+  const merged = parts.join('\n');
+  return scanContextContent(merged, 'AGENTS');
 }
 
 export function readToolsMd(cwd: string): string | null {
   const files = scanWorkspaceFiles(cwd);
-  return files.toolsMd?.content ?? null;
+  return files.toolsMd?.content
+    ? scanContextContent(stripFrontmatter(files.toolsMd.content), 'TOOLS')
+    : null;
 }
 
 export function clearWorkspaceCache(): void {

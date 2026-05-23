@@ -13,6 +13,15 @@ export interface BudgetConfig {
 }
 
 /**
+ * 磁盘预算配置
+ */
+export interface DiskBudgetConfig {
+  maxDiskBytes: number;
+  highWaterBytes: number;
+  pruneOrder: ('archive' | 'orphan' | 'oldest')[];
+}
+
+/**
  * 预算状态
  */
 export interface BudgetStatus {
@@ -22,6 +31,16 @@ export interface BudgetStatus {
   percentage: number;
   isWarning: boolean;
   isExceeded: boolean;
+}
+
+/**
+ * 磁盘预算状态
+ */
+export interface DiskBudgetStatus {
+  currentBytes: number;
+  maxBytes: number;
+  usagePercent: number;
+  needsCleanup: boolean;
 }
 
 /**
@@ -35,19 +54,34 @@ export interface BudgetRecord {
 }
 
 /**
+ * 默认磁盘预算配置
+ */
+export const DEFAULT_DISK_BUDGET: DiskBudgetConfig = {
+  maxDiskBytes: 500 * 1024 * 1024,
+  highWaterBytes: 400 * 1024 * 1024,
+  pruneOrder: ['orphan', 'archive', 'oldest'],
+};
+
+/**
  * 会话预算管理器
  */
 export class SessionBudget {
   private usage: Map<string, number> = new Map();
   private records: BudgetRecord[] = [];
   private config: BudgetConfig;
+  private diskConfig: DiskBudgetConfig;
   private maxRecords: number = 10000;
 
-  constructor(config?: Partial<BudgetConfig>) {
+  constructor(config?: Partial<BudgetConfig>, diskConfig?: Partial<DiskBudgetConfig>) {
     this.config = {
       maxBytes: config?.maxBytes || 100 * 1024 * 1024,
       warnThreshold: config?.warnThreshold || 0.8,
       hardLimit: config?.hardLimit !== false,
+    };
+    this.diskConfig = {
+      maxDiskBytes: diskConfig?.maxDiskBytes ?? DEFAULT_DISK_BUDGET.maxDiskBytes,
+      highWaterBytes: diskConfig?.highWaterBytes ?? DEFAULT_DISK_BUDGET.highWaterBytes,
+      pruneOrder: diskConfig?.pruneOrder ?? DEFAULT_DISK_BUDGET.pruneOrder,
     };
   }
 
@@ -102,6 +136,35 @@ export class SessionBudget {
       isWarning: percentage >= this.config.warnThreshold,
       isExceeded: percentage >= 1,
     };
+  }
+
+  /**
+   * 获取磁盘预算状态
+   */
+  getDiskStatus(): DiskBudgetStatus {
+    const currentBytes = this.getTotalUsage();
+    return {
+      currentBytes,
+      maxBytes: this.diskConfig.maxDiskBytes,
+      usagePercent: currentBytes / this.diskConfig.maxDiskBytes,
+      needsCleanup: currentBytes >= this.diskConfig.highWaterBytes,
+    };
+  }
+
+  /**
+   * 获取磁盘预算配置
+   */
+  getDiskConfig(): DiskBudgetConfig {
+    return { ...this.diskConfig };
+  }
+
+  /**
+   * 更新磁盘预算配置
+   */
+  updateDiskConfig(config: Partial<DiskBudgetConfig>): void {
+    if (config.maxDiskBytes !== undefined) this.diskConfig.maxDiskBytes = config.maxDiskBytes;
+    if (config.highWaterBytes !== undefined) this.diskConfig.highWaterBytes = config.highWaterBytes;
+    if (config.pruneOrder !== undefined) this.diskConfig.pruneOrder = config.pruneOrder;
   }
 
   /**

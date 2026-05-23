@@ -1,0 +1,8 @@
+{
+  "mode": "idle",
+  "idleMinutes": 30,
+  "dailyResetHour": 4,
+  "dailyResetMinute": 0,
+  "dailyResetTimezone": "local",
+  "preserveMetadata": true
+}

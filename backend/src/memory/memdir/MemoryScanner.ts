@@ -266,7 +266,7 @@ export class MemdirMemoryScanner {
           } catch (error) {
             const errorResult: MemoryScanResult = {
               filePath,
-              type: MemoryType.USER,
+              type: MemoryType.USER_FACT,
               layer: MemoryLayer.AUTOMEM,
               size: 0,
               modifiedAt: new Date(),
@@ -390,18 +390,18 @@ export class MemdirMemoryScanner {
     const lowerContent = content.toLowerCase();
 
     if (fileName.includes('feedback') || lowerContent.includes('feedback')) {
-      return MemoryType.FEEDBACK;
+      return MemoryType.USER_PREFERENCE;
     }
 
     if (fileName.includes('project') || lowerContent.includes('project')) {
-      return MemoryType.PROJECT;
+      return MemoryType.PROJECT_KNOWLEDGE;
     }
 
     if (fileName.includes('reference') || lowerContent.includes('reference')) {
-      return MemoryType.REFERENCE;
+      return MemoryType.DECISION;
     }
 
-    return MemoryType.USER;
+    return MemoryType.USER_FACT;
   }
 
   /**

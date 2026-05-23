@@ -16,7 +16,37 @@ import {
   readToolsMd,
   clearWorkspaceCache,
 } from '@modules/services/workspace';
-import { getMemoryQueryProvider } from '@modules/services/prompt/MemoryPromptProvider';
+import {
+  getMemoryQueryProvider,
+  getCurrentSessionContext,
+} from '@modules/services/prompt/MemoryPromptProvider';
+import {
+  getKnowledgeQueryProvider,
+  getCurrentKnowledgeQuery,
+} from '@modules/services/prompt/KnowledgePromptProvider';
+import { truncateMemoryContent } from '@modules/memory/MemoryTruncation';
+import { getGitInfo } from '@modules/context/GitDetector';
+import { readProjectFiles } from '@modules/context/ProjectFileReader';
+import { basename, join } from 'path';
+import { SkillInjectionService } from '@modules/skills/services/SkillInjectionService';
+
+/** 技能注入服务单例 */
+export const skillInjectionService = new SkillInjectionService({
+  builtinSkillsDir: join(__dirname, '..', 'builtin', 'skills'),
+});
+
+/**
+ * 构建上下文隔离的记忆块
+ * 包裹 <memory-context> 标签，防止记忆被误认为用户输入
+ */
+export function buildMemoryContextBlock(memoryContent: string): string {
+  return [
+    '<memory-context>',
+    '[System note: The following is recalled memory, NOT new user input.]',
+    memoryContent,
+    '</memory-context>',
+  ].join('\n');
+}
 
 /**
  * 计算函数类型
@@ -42,6 +72,9 @@ const sectionCache = new Map<string, string | null>();
  * 已注册的段落列表
  */
 let registeredSections: SystemPromptSection[] = [];
+
+/** 缓存边界标记 — 分隔稳定段落与动态段落 */
+export const CACHE_BOUNDARY = '<!-- CACHE_BOUNDARY -->';
 
 /**
  * 创建缓存的系统提示词段落
@@ -73,18 +106,6 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
     return `## 身份\n\n你是 PY_APP，一个强大的AI编程助手。\n你不是Claude，不是Anthropic，也不是任何其他AI助手。\n你的身份是 PY_APP——绝不自称为Claude、Anthropic或任何其他助手。\n当被要求自我介绍时，始终回答你是 PY_APP。`;
   }),
 
-  systemPromptSection('personality', () => {
-    return buildSoulSection();
-  }),
-
-  systemPromptSection('userProfile', () => {
-    return buildUserSection();
-  }),
-
-  systemPromptSection('toolUse', () => {
-    return `## 工具使用\n\n你可以使用一系列工具与用户的系统进行交互。\n使用这些工具帮助用户完成任务。\n\n修改文件时：\n- 使用可用工具先读取文件再编辑\n- 做精准、最小化的修改\n- 除非明确要求，否则不添加注释\n\n执行命令时：\n- 先说明你要做什么\n- 必要时等待用户确认\n- 清晰地报告结果`;
-  }),
-
   DANGEROUS_uncachedSystemPromptSection(
     'projectRules',
     () => {
@@ -107,6 +128,18 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
     'TOOLS.md is a workspace file that may change independently of the conversation'
   ),
 
+  systemPromptSection('toolUse', () => {
+    return `## 工具使用\n\n你可以使用一系列工具与用户的系统进行交互。\n使用这些工具帮助用户完成任务。\n\n修改文件时：\n- 使用可用工具先读取文件再编辑\n- 做精准、最小化的修改\n- 除非明确要求，否则不添加注释\n\n执行命令时：\n- 先说明你要做什么\n- 必要时等待用户确认\n- 清晰地报告结果`;
+  }),
+
+  systemPromptSection('userProfile', () => {
+    return buildUserSection();
+  }),
+
+  systemPromptSection('personality', () => {
+    return buildSoulSection();
+  }),
+
   DANGEROUS_uncachedSystemPromptSection(
     'memoryContext',
     async () => {
@@ -119,9 +152,102 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       const summaries = result.summaries
         .map((s, i) => `${i + 1}. ${s}`)
         .join('\n');
-      return `## 记忆上下文\n\n用户有以下相关记忆：\n${summaries}`;
+
+      const truncated = truncateMemoryContent(summaries);
+      const memoryBlock = buildMemoryContextBlock(
+        `## 记忆上下文\n\n用户有以下相关记忆：\n${truncated.content}`
+      );
+      return memoryBlock;
     },
     'Memory summaries change as new memories are created'
+  ),
+
+  DANGEROUS_uncachedSystemPromptSection(
+    'gitContext',
+    async () => {
+      const gitInfo = await getGitInfo(process.cwd());
+      if (!gitInfo.isGit) return null;
+      const parts: string[] = ['## Git 上下文'];
+      if (gitInfo.branch) {
+        parts.push(`当前分支: ${gitInfo.branch}`);
+      }
+      if (gitInfo.status) {
+        parts.push(`\n状态:\n${gitInfo.status}`);
+      }
+      return parts.join('\n');
+    },
+    'Git status changes as files are modified'
+  ),
+
+  DANGEROUS_uncachedSystemPromptSection(
+    'projectMeta',
+    async () => {
+      const cwd = process.cwd();
+      const projectFiles = readProjectFiles(cwd);
+      const projectName = basename(cwd);
+      const parts: string[] = [`## 项目信息\n\n项目名称: ${projectName}`];
+      if (projectFiles.pyAppMd) {
+        parts.push(`## 项目规则\n\n${projectFiles.pyAppMd}`);
+      }
+      if (projectFiles.readme) {
+        parts.push(`## README\n\n${projectFiles.readme}`);
+      }
+      return parts.join('\n\n');
+    },
+    'Project files may change independently of conversation'
+  ),
+
+  DANGEROUS_uncachedSystemPromptSection(
+    'skills',
+    async () => {
+      await skillInjectionService.ensureFresh();
+      return skillInjectionService.getInjectionPrompt() || null;
+    },
+    'Skill injection content changes as conditions update'
+  ),
+
+  DANGEROUS_uncachedSystemPromptSection(
+    'sessionContext',
+    () => {
+      const ctx = getCurrentSessionContext();
+      if (!ctx || ctx.turnCount <= 1) return null;
+      const durationMinutes = Math.round(ctx.duration / 60000);
+      const parts: string[] = ['## 会话上下文'];
+      parts.push(`当前会话已进行 ${ctx.turnCount} 轮`);
+      if (durationMinutes > 0) {
+        parts.push(`持续 ${durationMinutes} 分钟`);
+      }
+      if (ctx.tags?.length) {
+        parts.push(`标签: ${ctx.tags.join(', ')}`);
+      }
+      if (ctx.recentTopics?.length) {
+        parts.push(`近期主题: ${ctx.recentTopics.join(', ')}`);
+      }
+      return parts.join('\n');
+    },
+    'Session state changes every turn'
+  ),
+
+  DANGEROUS_uncachedSystemPromptSection(
+    'knowledgeContext',
+    async () => {
+      const provider = getKnowledgeQueryProvider();
+      if (!provider) return null;
+
+      const query = getCurrentKnowledgeQuery();
+      if (!query) return null;
+
+      const result = await provider.getKnowledgeSummaries(query, 3);
+      if (result.summaries.length === 0) return null;
+
+      const parts: string[] = ['## 相关知识'];
+      for (const s of result.summaries) {
+        parts.push(`\n### ${s.title}`);
+        parts.push(s.content);
+      }
+      return parts.join('\n');
+    },
+    'Knowledge relevance depends on current conversation context'
   ),
 ];
 

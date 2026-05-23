@@ -64,6 +64,15 @@ export type {
   WeightDistribution,
 } from './services/MemoryWeightExporter';
 
+// 导出记忆摘要服务（记忆→提示词适配层）
+export { MemorySummarizer } from './services/MemorySummarizer';
+
+// 导出知识摘要服务（知识库→提示词适配层）
+export { KnowledgeSummarizer } from './services/KnowledgeSummarizer';
+
+// 导出会话上下文类型（记忆检索专用）
+export type { SessionContext } from './types/SessionContext';
+
 // 导出增强功能
 export * from './EnhancedMemoryManager.js';
 export * from './SmartMemoryAnalyzer.js';

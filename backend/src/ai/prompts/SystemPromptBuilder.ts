@@ -1,6 +1,10 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { buildEnvironmentHints, getPlatformHint } from './PlatformHints';
-import { getModelGuidance } from './ModelGuidance';
+import {
+  getModelGuidance,
+  type ModelGuidanceConfig,
+  type ModelGuidanceMode,
+} from './ModelGuidance';
 import { getPromptInjectionDetector } from '../../security/injection/PromptInjectionDetector';
 import { getUnicodeSanitizer } from '../../security/injection/UnicodeSanitizer';
 
@@ -11,6 +15,7 @@ export interface SystemPromptContext {
   includeEnvironmentHints?: boolean;
   includePlatformHint?: boolean;
   includeModelGuidance?: boolean;
+  modelGuidanceMode?: ModelGuidanceMode;
 }
 
 export function buildSystemPrompt(
@@ -55,7 +60,15 @@ export function buildSystemPrompt(
     context.provider &&
     context.modelName
   ) {
-    const guidance = getModelGuidance(context.provider, context.modelName);
+    const guidanceConfig: Partial<ModelGuidanceConfig> = {};
+    if (context.modelGuidanceMode) {
+      guidanceConfig.mode = context.modelGuidanceMode;
+    }
+    const guidance = getModelGuidance(
+      context.provider,
+      context.modelName,
+      guidanceConfig as ModelGuidanceConfig
+    );
     if (guidance) {
       parts.push(
         `\n[Model Guidance: ${context.provider}/${context.modelName}]\n${guidance}`
@@ -75,9 +88,18 @@ export function injectPlatformHints(prompt: string, platform: string): string {
 export function injectModelGuidance(
   prompt: string,
   provider: string,
-  modelName: string
+  modelName: string,
+  mode?: ModelGuidanceMode
 ): string {
-  const guidance = getModelGuidance(provider, modelName);
+  const guidanceConfig: Partial<ModelGuidanceConfig> = {};
+  if (mode) {
+    guidanceConfig.mode = mode;
+  }
+  const guidance = getModelGuidance(
+    provider,
+    modelName,
+    guidanceConfig as ModelGuidanceConfig
+  );
 
   return guidance ? `${prompt}\n\n${guidance}` : prompt;
 }

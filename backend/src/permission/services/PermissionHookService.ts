@@ -10,7 +10,9 @@ import {
   RegisteredPermissionHook,
   PermissionHookMetadata,
 } from '../types/PermissionHook';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 权限钩子服务类

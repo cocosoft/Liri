@@ -4,7 +4,9 @@
  * 参考CC源码 cc_code/backend/utils/permissions/permissionUpdate.ts 实现
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import type { PermissionRule } from '../types/PermissionRule.js';
 
 /**

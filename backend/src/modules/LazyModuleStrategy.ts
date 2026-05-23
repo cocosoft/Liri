@@ -72,6 +72,7 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
 
   // ========== 第二阶段：基础功能模块 ==========
   ai: { priority: ModuleLoadPriority.CRITICAL, trigger: '核心 AI 功能' },
+  bootstrap: { priority: ModuleLoadPriority.CRITICAL, trigger: '启动引导' },
   config: { priority: ModuleLoadPriority.CRITICAL, trigger: '配置管理' },
   context: { priority: ModuleLoadPriority.CRITICAL, trigger: '上下文管理' },
   error: { priority: ModuleLoadPriority.CRITICAL, trigger: '错误处理基础设施' },
@@ -82,6 +83,7 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
   },
 
   // ========== 第三阶段：数据存储模块 ==========
+  modules: { priority: ModuleLoadPriority.CRITICAL, trigger: '模块系统自身' },
   memory: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: '记忆首次读写时加载',
@@ -90,6 +92,30 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
   cache: { priority: ModuleLoadPriority.CRITICAL, trigger: '缓存系统' },
 
   // ========== 第四阶段：功能模块 ==========
+  channels: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '渠道通信首次触发时加载',
+  },
+  session: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '会话首次访问时加载',
+  },
+  skills: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '技能首次调用时加载',
+  },
+  runtime: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '运行时首次请求时加载',
+  },
+  tasks: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '任务系统首次触发时加载',
+  },
+  governance: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '治理功能首次触发时加载',
+  },
   agent: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: '代理操作触发时按需加载',
@@ -191,6 +217,22 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
   },
 
   // ========== 第八阶段：其他模块 ==========
+  enterprise: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '企业版功能首次触发时加载',
+  },
+  flows: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '流程引擎首次触发时加载',
+  },
+  media: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '媒体处理首次触发时加载',
+  },
+  vim: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: 'Vim 模式首次激活时加载',
+  },
   analytics: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: '分析功能首次触发时加载',

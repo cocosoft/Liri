@@ -12,6 +12,7 @@ import type {
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
 /**
  * Google Chat 配置
@@ -56,9 +57,6 @@ export class GoogleChatChannel extends EventEmitter {
     };
   }
 
-  /**
-   * 连接 Google Chat API
-   */
   async connect(): Promise<boolean> {
     if (!this.config.enabled) return false;
     if (
@@ -75,17 +73,11 @@ export class GoogleChatChannel extends EventEmitter {
     return true;
   }
 
-  /**
-   * 断开连接
-   */
   async disconnect(): Promise<void> {
     this.connected = false;
     this.emit('disconnected', { platform: 'google-chat' });
   }
 
-  /**
-   * 发送消息
-   */
   async sendMessage(spaceId: string, text: string): Promise<boolean> {
     if (!this.connected) {
       this.emit('error', new Error('未连接'));
@@ -97,9 +89,6 @@ export class GoogleChatChannel extends EventEmitter {
     return true;
   }
 
-  /**
-   * 通过 Webhook 发送消息
-   */
   async sendViaWebhook(webhookUrl: string, text: string): Promise<boolean> {
     if (!this.connected) return false;
 
@@ -135,93 +124,87 @@ const GOOGLECHAT_CAPABILITIES: ChannelCapabilities = {
 
 export const googleChatChannel = new GoogleChatChannel();
 
-export function createGoogleChatChannel(): IChannelPlugin {
-  return {
-    id: 'googlechat',
-    meta: GOOGLECHAT_META,
-    capabilities: GOOGLECHAT_CAPABILITIES,
+class GoogleChatChannelPlugin extends BaseChannelPlugin {
+  readonly id = 'googlechat' as const;
+  readonly meta = GOOGLECHAT_META;
+  readonly capabilities = GOOGLECHAT_CAPABILITIES;
 
-    config: {
-      validate(c: Record<string, unknown>) {
-        const errors: string[] = [];
-        if (!c['spaceIds']) errors.push('缺少 spaceIds');
-        return { valid: errors.length === 0, errors };
-      },
-      getDefaultConfig() {
-        return {
-          enabled: false,
-          serviceAccountKey: '',
-          spaceIds: [],
-          webhookUrls: [],
-          apiEndpoint: 'https://chat.googleapis.com',
-        };
-      },
-    },
-
-    lifecycle: {
-      async connect(): Promise<void> {
-        await googleChatChannel.connect();
-      },
-      async disconnect(): Promise<void> {
-        await googleChatChannel.disconnect();
-      },
-      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
-        return { healthy: googleChatChannel['connected'], latencyMs: 0 };
-      },
-      getStatus(): ChannelStatus {
-        return {
-          connected: googleChatChannel['connected'],
-          latencyMs: 0,
-          lastMessageAt: null,
-          uptimeMs: 0,
-        };
-      },
-    },
-
-    outbound: {
-      async sendText(target: string, content: string): Promise<SendResult> {
-        try {
-          await googleChatChannel.sendMessage(target, content);
-          return { success: true };
-        } catch (e) {
-          return { success: false, error: String(e) };
-        }
-      },
-      async sendMarkdown(target: string, content: string): Promise<SendResult> {
-        return this.sendText(target, content);
-      },
-      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
-        return this.sendText(target, `[图片] ${imageUrl}`);
-      },
-      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
-        return { success: false, error: 'GoogleChat: sendFile 未实现' };
-      },
-      async sendInteractive(
-        target: string,
-        _card: InteractiveCard
-      ): Promise<SendResult> {
-        return { success: false, error: 'GoogleChat: sendInteractive 未实现' };
-      },
-    },
-
-    security: {
-      dmPolicy: 'open',
-      pairingCodeTimeoutMs: 300000,
+  constructor() {
+    super();
+    this.security = {
+      ...this.security,
+      dmPolicy: 'open' as const,
       maxPairingAttempts: 3,
-      async resolveSender(
+      resolveSender: async (
         sender: Record<string, unknown>
-      ): Promise<ResolvedSender> {
-        return {
-          userId: (sender['userId'] as string) || 'unknown',
-          displayName: (sender['senderName'] as string) || 'Unknown',
-          isApproved: true,
-        };
-      },
-      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
-        return { allowed: true };
-      },
-    },
-  };
+      ): Promise<ResolvedSender> => ({
+        userId: (sender['userId'] as string) || 'unknown',
+        displayName: (sender['senderName'] as string) || 'Unknown',
+        isApproved: true,
+      }),
+    };
+  }
+
+  protected getDefaultConfig(): Record<string, unknown> {
+    return {
+      enabled: false,
+      serviceAccountKey: '',
+      spaceIds: [],
+      webhookUrls: [],
+      apiEndpoint: 'https://chat.googleapis.com',
+    };
+  }
+
+  protected validateConfig(config: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    if (!config['spaceIds']) errors.push('缺少 spaceIds');
+    return errors;
+  }
+
+  protected async onConnect(_config: Record<string, unknown>): Promise<void> {
+    await googleChatChannel.connect();
+  }
+
+  protected override async onDisconnect(): Promise<void> {
+    await googleChatChannel.disconnect();
+  }
+
+  protected async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    try {
+      await googleChatChannel.sendMessage(target, content);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+  }
+
+  protected async sendImageMessage(
+    target: string,
+    imageUrl: string
+  ): Promise<SendResult> {
+    return this.sendTextMessage(target, `[图片] ${imageUrl}`);
+  }
+
+  protected async sendFileMessage(
+    _target: string,
+    _filePath: string
+  ): Promise<SendResult> {
+    return { success: false, error: 'GoogleChat: sendFile 未实现' };
+  }
+
+  protected override async sendInteractiveMessage(
+    _target: string,
+    _card: InteractiveCard
+  ): Promise<SendResult> {
+    return { success: false, error: 'GoogleChat: sendInteractive 未实现' };
+  }
+}
+
+export function createGoogleChatChannel(): IChannelPlugin {
+  return new GoogleChatChannelPlugin();
 }
 
 export const googleChatChannelPlugin = createGoogleChatChannel();

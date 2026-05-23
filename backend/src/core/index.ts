@@ -9,7 +9,20 @@ export * from './events/EventBus';
 export * from './tasks/TaskService';
 
 export { AppCore, createAppCore, type AppCoreConfig } from './AppCore';
-export { DIContainer } from './DIContainer';
+export {
+  DIContainer,
+  getDIContainer,
+  resetDIContainer,
+  ContainerScope,
+  CycleDetector,
+  AutoWiringEngine,
+  DisposeManager,
+  DEFAULT_CONTAINER_CONFIG,
+  type ServiceScope,
+  type ContainerConfig,
+  type ServiceDescriptor,
+  type CycleDetectionResult,
+} from './DIContainer';
 export {
   ModuleDependencyManager,
   type ModuleDefinition,

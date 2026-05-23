@@ -10,7 +10,9 @@ import {
 import { AIAgentImpl } from '../agent';
 import { AgentSourceManager } from './AgentSourceManager';
 import { AgentConfigManager } from './AgentConfigManager';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 interface AgentPoolConfig {
   minSize: number;

@@ -3,14 +3,13 @@
  * 对标 Hermes 的 Email 通道实现
  */
 import { EventEmitter } from 'node:events';
+import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
   ChannelMeta,
   ChannelCapabilities,
-  ChannelStatus,
   SendResult,
   InteractiveCard,
-  ResolvedSender,
 } from '@modules/channels/types';
 
 /**
@@ -50,7 +49,7 @@ export interface EmailMessage {
 }
 
 /**
- * Email 通道
+ * Email 通道（遗留 EventEmitter 类，保持向后兼容）
  */
 export class EmailChannel extends EventEmitter {
   private config: EmailConfig;
@@ -185,108 +184,108 @@ const EMAIL_CAPABILITIES: ChannelCapabilities = {
   webhook: false,
 };
 
-export function createEmailChannel(): IChannelPlugin {
-  return {
-    id: 'email',
-    meta: EMAIL_META,
-    capabilities: EMAIL_CAPABILITIES,
+class EmailChannelPlugin extends BaseChannelPlugin {
+  readonly id = 'email';
+  readonly meta = EMAIL_META;
+  readonly capabilities = EMAIL_CAPABILITIES;
 
-    config: {
-      validate(c: Record<string, unknown>) {
-        const errors: string[] = [];
-        if (!c['host']) errors.push('缺少 host');
-        if (!c['user']) errors.push('缺少 user');
-        if (!c['pass']) errors.push('缺少 pass');
-        return { valid: errors.length === 0, errors };
-      },
-      getDefaultConfig() {
-        return {
-          host: '',
-          port: 587,
-          secure: false,
-          user: '',
-          pass: '',
-          fromAddress: '',
-          fromName: 'PY_APP',
-        };
-      },
-    },
+  constructor() {
+    super();
 
-    lifecycle: {
-      async connect(): Promise<void> {
-        await emailChannel.connect();
-      },
-      async disconnect(): Promise<void> {
-        await emailChannel.disconnect();
-      },
-      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
-        return { healthy: emailChannel['connected'], latencyMs: 0 };
-      },
-      getStatus(): ChannelStatus {
-        return {
-          connected: emailChannel['connected'],
-          latencyMs: 0,
-          lastMessageAt: null,
-          uptimeMs: 0,
-        };
-      },
-    },
-
-    outbound: {
-      async sendText(target: string, content: string): Promise<SendResult> {
-        try {
-          await emailChannel.sendMessage(target, content);
-          return { success: true };
-        } catch (e) {
-          return { success: false, error: String(e) };
-        }
-      },
-      async sendMarkdown(target: string, content: string): Promise<SendResult> {
-        try {
-          await emailChannel.sendHtml(target, 'PY_APP 消息', content);
-          return { success: true };
-        } catch (e) {
-          return { success: false, error: String(e) };
-        }
-      },
-      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
-        return this.sendText(target, `[图片] ${imageUrl}`);
-      },
-      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
-        return { success: false, error: 'Email: sendFile 未实现' };
-      },
-      async sendInteractive(
-        target: string,
-        card: InteractiveCard
-      ): Promise<SendResult> {
-        const html = `<h3>${card.title}</h3><p>${card.content}</p>`;
-        try {
-          await emailChannel.sendHtml(target, card.title, html);
-          return { success: true };
-        } catch (e) {
-          return { success: false, error: String(e) };
-        }
-      },
-    },
-
-    security: {
-      dmPolicy: 'open',
-      pairingCodeTimeoutMs: 300000,
+    this.security = {
+      ...this.security,
+      dmPolicy: 'open' as const,
       maxPairingAttempts: 3,
-      async resolveSender(
-        sender: Record<string, unknown>
-      ): Promise<ResolvedSender> {
-        return {
-          userId: (sender['to'] as string) || 'unknown',
-          displayName: (sender['to'] as string) || 'unknown',
-          isApproved: true,
-        };
-      },
-      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
-        return { allowed: true };
-      },
-    },
-  };
+      resolveSender: async (sender: Record<string, unknown>) => ({
+        userId: (sender['to'] as string) || 'unknown',
+        displayName: (sender['to'] as string) || 'unknown',
+        isApproved: true,
+      }),
+    };
+  }
+
+  protected getDefaultConfig(): Record<string, unknown> {
+    return {
+      host: '',
+      port: 587,
+      secure: false,
+      user: '',
+      pass: '',
+      fromAddress: '',
+      fromName: 'PY_APP',
+    };
+  }
+
+  protected validateConfig(config: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    if (!config['host']) errors.push('缺少 host');
+    if (!config['user']) errors.push('缺少 user');
+    if (!config['pass']) errors.push('缺少 pass');
+    return errors;
+  }
+
+  protected async onConnect(_config: Record<string, unknown>): Promise<void> {
+    await emailChannel.connect();
+  }
+
+  protected override async onDisconnect(): Promise<void> {
+    await emailChannel.disconnect();
+  }
+
+  protected async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    try {
+      await emailChannel.sendMessage(target, content);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+  }
+
+  protected override async sendMarkdownMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    try {
+      await emailChannel.sendHtml(target, 'PY_APP 消息', content);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+  }
+
+  protected async sendImageMessage(
+    target: string,
+    imageUrl: string
+  ): Promise<SendResult> {
+    return this.sendTextMessage(target, `[图片] ${imageUrl}`);
+  }
+
+  protected async sendFileMessage(
+    _target: string,
+    _filePath: string
+  ): Promise<SendResult> {
+    return { success: false, error: 'Email: sendFile 未实现' };
+  }
+
+  protected override async sendInteractiveMessage(
+    target: string,
+    card: InteractiveCard
+  ): Promise<SendResult> {
+    const html = `<h3>${card.title}</h3><p>${card.content}</p>`;
+    try {
+      await emailChannel.sendHtml(target, card.title, html);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+  }
+}
+
+export function createEmailChannel(): IChannelPlugin {
+  return new EmailChannelPlugin();
 }
 
 export const emailChannelPlugin = createEmailChannel();

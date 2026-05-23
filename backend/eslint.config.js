@@ -1,6 +1,7 @@
 import typescriptParser from '@typescript-eslint/parser';
 import typescriptPlugin from '@typescript-eslint/eslint-plugin';
 import prettierPlugin from 'eslint-plugin-prettier';
+import moduleRegistryPlugin from './tools/eslint-plugin-module-registry/index.js';
 
 export default [
   {
@@ -21,7 +22,8 @@ export default [
     },
     plugins: {
       '@typescript-eslint': typescriptPlugin,
-      prettier: prettierPlugin
+      prettier: prettierPlugin,
+      'module-registry': moduleRegistryPlugin,
     },
     rules: {
       'prettier/prettier': 'error',
@@ -34,6 +36,33 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'warn',
       'no-debugger': 'error',
+      'no-restricted-imports': ['warn', {
+        paths: [
+          {
+            name: '@modules/utils/log',
+            message: '请使用 @modules/monitoring/logs/Logger',
+          },
+          {
+            name: '@modules/utils/log.js',
+            message: '请使用 @modules/monitoring/logs/Logger',
+          },
+          {
+            name: '@modules/utils/monitoring',
+            message: '日志功能已迁移至 @modules/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
+          },
+          {
+            name: '@modules/utils/monitoring.js',
+            message: '日志功能已迁移至 @modules/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
+          },
+        ],
+        patterns: [
+          {
+            group: ['@modules/security/*'],
+            message: '禁止直接引用安全模块子路径，请通过 @modules/security 门面 API 访问',
+          },
+        ],
+      }],
+      'module-registry/no-direct-module-import': 'warn',
       'custom-rules/no-top-level-side-effects': 'off',
       'custom-rules/no-top-level-dynamic-import': 'off',
       'custom-rules/no-process-env-top-level': 'off',
@@ -47,7 +76,14 @@ export default [
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'off'
+      '@typescript-eslint/no-unused-vars': 'off',
+      'module-registry/no-direct-module-import': 'off'
+    }
+  },
+  {
+    files: ['src/modules/**', 'src/tools/**'],
+    rules: {
+      'module-registry/no-direct-module-import': 'off'
     }
   },
   {

@@ -7,7 +7,9 @@
 import { watch, FSWatcher } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**

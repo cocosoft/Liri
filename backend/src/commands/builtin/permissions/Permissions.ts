@@ -14,7 +14,7 @@ import {
   PERMISSION_MODE_NAMES,
 } from '@modules/permission/PermissionMode.js';
 import { permissionModeIntegrationService } from '@modules/chat/services/PermissionModeIntegrationService.js';
-import { securityIntegrationService } from '@modules/security/SecurityIntegration.js';
+import { completeSecuritySystem } from '@modules/security';
 
 const COMMON_PERMISSIONS: Record<
   string,
@@ -250,7 +250,7 @@ async function handleGrant(
 
   try {
     const permissionManager =
-      securityIntegrationService.getPermissionManager() as unknown as {
+      completeSecuritySystem.getPermissionManager() as unknown as {
         addRule: (action: string, name: string) => void;
       };
     permissionManager.addRule('allow', permissionName);
@@ -286,7 +286,7 @@ async function handleRevoke(
 
   try {
     const permissionManager =
-      securityIntegrationService.getPermissionManager() as unknown as Record<
+      completeSecuritySystem.getPermissionManager() as unknown as Record<
         string,
         unknown
       >;
@@ -395,7 +395,7 @@ async function handleMode(
 
     try {
       permissionModeIntegrationService.setPermissionMode(targetModeTyped);
-      securityIntegrationService.setPermissionMode(targetModeTyped);
+      completeSecuritySystem.setPermissionMode(targetModeTyped);
 
       return {
         success: true,
@@ -422,7 +422,7 @@ async function handleMode(
 async function handleRules(useJson: boolean = false): Promise<CommandResult> {
   try {
     const permissionManager =
-      securityIntegrationService.getPermissionManager() as unknown as Record<
+      completeSecuritySystem.getPermissionManager() as unknown as Record<
         string,
         unknown
       >;
@@ -531,7 +531,7 @@ async function handleAdd(params: string[]): Promise<CommandResult> {
 
     try {
       const permissionManager =
-        securityIntegrationService.getPermissionManager() as unknown as Record<
+        completeSecuritySystem.getPermissionManager() as unknown as Record<
           string,
           unknown
         >;

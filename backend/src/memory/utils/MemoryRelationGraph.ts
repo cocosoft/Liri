@@ -3,7 +3,9 @@
  * 管理记忆之间的关联关系，支持递归检索关联记忆
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 关联类型

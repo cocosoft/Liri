@@ -2,7 +2,7 @@ export {
   SecurityLevel,
   CompleteSecuritySystem,
   completeSecuritySystem,
-} from '@modules/security/CompleteSecuritySystem';
+} from '@modules/security';
 
 export type {
   SecurityCheckResult,
@@ -10,4 +10,4 @@ export type {
   SecurityConfig,
   ICompleteSecuritySystem,
   SecurityReport,
-} from '@modules/security/CompleteSecuritySystem';
+} from '@modules/security';

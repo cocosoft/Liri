@@ -7,11 +7,11 @@ import type {
   IChannelPlugin,
   ChannelMeta,
   ChannelCapabilities,
-  ChannelStatus,
   SendResult,
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
 /**
  * 元宝配置
@@ -60,9 +60,6 @@ export class YuanbaoChannel extends EventEmitter {
     };
   }
 
-  /**
-   * 连接元宝 API
-   */
   async connect(): Promise<boolean> {
     if (!this.config.enabled) return false;
     if (!this.config.appId || !this.config.appKey) {
@@ -76,17 +73,11 @@ export class YuanbaoChannel extends EventEmitter {
     return true;
   }
 
-  /**
-   * 断开连接
-   */
   async disconnect(): Promise<void> {
     this.connected = false;
     this.emit('disconnected', { platform: 'yuanbao' });
   }
 
-  /**
-   * 发送消息
-   */
   async sendMessage(toUserId: string, text: string): Promise<boolean> {
     if (!this.connected) {
       this.emit('error', new Error('未连接'));
@@ -98,9 +89,6 @@ export class YuanbaoChannel extends EventEmitter {
     return true;
   }
 
-  /**
-   * 发送群消息
-   */
   async sendGroupMessage(groupId: string, text: string): Promise<boolean> {
     if (!this.connected) {
       this.emit('error', new Error('未连接'));
@@ -144,96 +132,90 @@ const YUANBAO_CAPABILITIES: ChannelCapabilities = {
 
 export const yuanbaoChannel = new YuanbaoChannel();
 
-export function createYuanbaoChannel(): IChannelPlugin {
-  return {
-    id: 'yuanbao',
-    meta: YUANBAO_META,
-    capabilities: YUANBAO_CAPABILITIES,
+class YuanbaoChannelPlugin extends BaseChannelPlugin {
+  readonly id = 'yuanbao' as const;
+  readonly meta = YUANBAO_META;
+  readonly capabilities = YUANBAO_CAPABILITIES;
 
-    config: {
-      validate(c: Record<string, unknown>) {
-        const errors: string[] = [];
-        if (!c['appId']) errors.push('缺少 appId');
-        if (!c['appKey']) errors.push('缺少 appKey');
-        return { valid: errors.length === 0, errors };
-      },
-      getDefaultConfig() {
-        return {
-          enabled: false,
-          appId: '',
-          appKey: '',
-          botId: '',
-          apiBaseUrl: 'https://api.yuanbao.tencent.com',
-          webhookSecret: '',
-          timeout: 10000,
-        };
-      },
-    },
-
-    lifecycle: {
-      async connect(): Promise<void> {
-        await yuanbaoChannel.connect();
-      },
-      async disconnect(): Promise<void> {
-        await yuanbaoChannel.disconnect();
-      },
-      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
-        return { healthy: yuanbaoChannel['connected'], latencyMs: 0 };
-      },
-      getStatus(): ChannelStatus {
-        return {
-          connected: yuanbaoChannel['connected'],
-          latencyMs: 0,
-          lastMessageAt: null,
-          uptimeMs: 0,
-        };
-      },
-    },
-
-    outbound: {
-      async sendText(target: string, content: string): Promise<SendResult> {
-        try {
-          await yuanbaoChannel.sendMessage(target, content);
-          return { success: true };
-        } catch (e) {
-          return { success: false, error: String(e) };
-        }
-      },
-      async sendMarkdown(target: string, content: string): Promise<SendResult> {
-        return this.sendText(target, content);
-      },
-      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
-        return this.sendText(target, `[图片] ${imageUrl}`);
-      },
-      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
-        return { success: false, error: '元宝: sendFile 未实现' };
-      },
-      async sendInteractive(
-        _target: string,
-        _card: InteractiveCard
-      ): Promise<SendResult> {
-        return { success: false, error: '元宝: 不支持交互卡片' };
-      },
-    },
-
-    security: {
-      dmPolicy: 'open',
-      pairingCodeTimeoutMs: 300000,
+  constructor() {
+    super();
+    this.security = {
+      ...this.security,
+      dmPolicy: 'open' as const,
       maxPairingAttempts: 3,
-      async resolveSender(
+      resolveSender: async (
         sender: Record<string, unknown>
-      ): Promise<ResolvedSender> {
-        return {
-          userId: (sender['fromUserId'] as string) || 'unknown',
-          displayName: (sender['fromNickname'] as string) || 'Unknown',
-          isApproved: true,
-        };
-      },
-      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
-        return { allowed: true };
-      },
-    },
-  };
+      ): Promise<ResolvedSender> => ({
+        userId: (sender['fromUserId'] as string) || 'unknown',
+        displayName: (sender['fromNickname'] as string) || 'Unknown',
+        isApproved: true,
+      }),
+    };
+  }
+
+  protected getDefaultConfig(): Record<string, unknown> {
+    return {
+      enabled: false,
+      appId: '',
+      appKey: '',
+      botId: '',
+      apiBaseUrl: 'https://api.yuanbao.tencent.com',
+      webhookSecret: '',
+      timeout: 10000,
+    };
+  }
+
+  protected validateConfig(config: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    if (!config['appId']) errors.push('缺少 appId');
+    if (!config['appKey']) errors.push('缺少 appKey');
+    return errors;
+  }
+
+  protected async onConnect(_config: Record<string, unknown>): Promise<void> {
+    await yuanbaoChannel.connect();
+  }
+
+  protected override async onDisconnect(): Promise<void> {
+    await yuanbaoChannel.disconnect();
+  }
+
+  protected async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    try {
+      await yuanbaoChannel.sendMessage(target, content);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+  }
+
+  protected async sendImageMessage(
+    target: string,
+    imageUrl: string
+  ): Promise<SendResult> {
+    return this.sendTextMessage(target, `[图片] ${imageUrl}`);
+  }
+
+  protected async sendFileMessage(
+    _target: string,
+    _filePath: string
+  ): Promise<SendResult> {
+    return { success: false, error: '元宝: sendFile 未实现' };
+  }
+
+  protected override async sendInteractiveMessage(
+    _target: string,
+    _card: InteractiveCard
+  ): Promise<SendResult> {
+    return { success: false, error: '元宝: 不支持交互卡片' };
+  }
+}
+
+export function createYuanbaoChannel(): IChannelPlugin {
+  return new YuanbaoChannelPlugin();
 }
 
 export const yuanbaoChannelPlugin = createYuanbaoChannel();

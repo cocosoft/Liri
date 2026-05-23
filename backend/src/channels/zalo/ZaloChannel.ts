@@ -7,11 +7,11 @@ import type {
   IChannelPlugin,
   ChannelMeta,
   ChannelCapabilities,
-  ChannelStatus,
   SendResult,
   InteractiveCard,
   ResolvedSender,
 } from '@modules/channels/types';
+import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
 /**
  * Zalo 配置
@@ -58,9 +58,6 @@ export class ZaloChannel extends EventEmitter {
     };
   }
 
-  /**
-   * 连接 Zalo API
-   */
   async connect(): Promise<boolean> {
     if (!this.config.enabled) return false;
     if (!this.config.appId || !this.config.appSecret) {
@@ -74,17 +71,11 @@ export class ZaloChannel extends EventEmitter {
     return true;
   }
 
-  /**
-   * 断开连接
-   */
   async disconnect(): Promise<void> {
     this.connected = false;
     this.emit('disconnected', { platform: 'zalo' });
   }
 
-  /**
-   * 发送消息
-   */
   async sendMessage(userId: string, text: string): Promise<boolean> {
     if (!this.connected) {
       this.emit('error', new Error('未连接'));
@@ -123,99 +114,97 @@ const ZALO_CAPABILITIES: ChannelCapabilities = {
 
 export const zaloChannel = new ZaloChannel();
 
-export function createZaloChannel(): IChannelPlugin {
-  return {
-    id: 'zalo',
-    meta: ZALO_META,
-    capabilities: ZALO_CAPABILITIES,
+class ZaloChannelPlugin extends BaseChannelPlugin {
+  readonly id = 'zalo' as const;
+  readonly meta = ZALO_META;
+  readonly capabilities = ZALO_CAPABILITIES;
 
-    config: {
-      validate(c: Record<string, unknown>) {
-        const errors: string[] = [];
-        if (!c['appId']) errors.push('缺少 appId');
-        if (!c['appSecret']) errors.push('缺少 appSecret');
-        return { valid: errors.length === 0, errors };
-      },
-      getDefaultConfig() {
-        return {
-          enabled: false,
-          appId: '',
-          appSecret: '',
-          accessToken: '',
-          refreshToken: '',
-          webhookUrl: '',
-          apiVersion: '2.0',
-        };
-      },
-    },
-
-    lifecycle: {
-      async connect(): Promise<void> {
-        await zaloChannel.connect();
-      },
-      async disconnect(): Promise<void> {
-        await zaloChannel.disconnect();
-      },
-      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
-        return { healthy: zaloChannel['connected'], latencyMs: 0 };
-      },
-      getStatus(): ChannelStatus {
-        return {
-          connected: zaloChannel['connected'],
-          latencyMs: 0,
-          lastMessageAt: null,
-          uptimeMs: 0,
-        };
-      },
-    },
-
-    outbound: {
-      async sendText(target: string, content: string): Promise<SendResult> {
-        try {
-          await zaloChannel.sendMessage(target, content);
-          return { success: true };
-        } catch (e) {
-          return { success: false, error: String(e) };
-        }
-      },
-      async sendMarkdown(
-        _target: string,
-        _content: string
-      ): Promise<SendResult> {
-        return { success: false, error: 'Zalo: 不支持 Markdown' };
-      },
-      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
-        return this.sendText(target, `[图片] ${imageUrl}`);
-      },
-      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
-        return { success: false, error: 'Zalo: sendFile 未实现' };
-      },
-      async sendInteractive(
-        _target: string,
-        _card: InteractiveCard
-      ): Promise<SendResult> {
-        return { success: false, error: 'Zalo: 不支持交互卡片' };
-      },
-    },
-
-    security: {
-      dmPolicy: 'open',
-      pairingCodeTimeoutMs: 300000,
+  constructor() {
+    super();
+    this.security = {
+      ...this.security,
+      dmPolicy: 'open' as const,
       maxPairingAttempts: 3,
-      async resolveSender(
+      resolveSender: async (
         sender: Record<string, unknown>
-      ): Promise<ResolvedSender> {
-        return {
-          userId: (sender['userId'] as string) || 'unknown',
-          displayName: (sender['userId'] as string) || 'Unknown',
-          isApproved: true,
-        };
-      },
-      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
-        return { allowed: true };
-      },
-    },
-  };
+      ): Promise<ResolvedSender> => ({
+        userId: (sender['userId'] as string) || 'unknown',
+        displayName: (sender['userId'] as string) || 'Unknown',
+        isApproved: true,
+      }),
+    };
+  }
+
+  protected getDefaultConfig(): Record<string, unknown> {
+    return {
+      enabled: false,
+      appId: '',
+      appSecret: '',
+      accessToken: '',
+      refreshToken: '',
+      webhookUrl: '',
+      apiVersion: '2.0',
+    };
+  }
+
+  protected validateConfig(config: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    if (!config['appId']) errors.push('缺少 appId');
+    if (!config['appSecret']) errors.push('缺少 appSecret');
+    return errors;
+  }
+
+  protected async onConnect(_config: Record<string, unknown>): Promise<void> {
+    await zaloChannel.connect();
+  }
+
+  protected override async onDisconnect(): Promise<void> {
+    await zaloChannel.disconnect();
+  }
+
+  protected async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    try {
+      await zaloChannel.sendMessage(target, content);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+  }
+
+  protected async sendImageMessage(
+    target: string,
+    imageUrl: string
+  ): Promise<SendResult> {
+    return this.sendTextMessage(target, `[图片] ${imageUrl}`);
+  }
+
+  protected async sendFileMessage(
+    _target: string,
+    _filePath: string
+  ): Promise<SendResult> {
+    return { success: false, error: 'Zalo: sendFile 未实现' };
+  }
+
+  protected override async sendMarkdownMessage(
+    _target: string,
+    _content: string
+  ): Promise<SendResult> {
+    return { success: false, error: 'Zalo: 不支持 Markdown' };
+  }
+
+  protected override async sendInteractiveMessage(
+    _target: string,
+    _card: InteractiveCard
+  ): Promise<SendResult> {
+    return { success: false, error: 'Zalo: 不支持交互卡片' };
+  }
+}
+
+export function createZaloChannel(): IChannelPlugin {
+  return new ZaloChannelPlugin();
 }
 
 export const zaloChannelPlugin = createZaloChannel();

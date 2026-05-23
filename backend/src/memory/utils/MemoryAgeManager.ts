@@ -4,7 +4,9 @@
  * 参考CC源码 cc_code/backend/memdir/memoryAge.ts 实现
  */
 
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 记忆新鲜度级别

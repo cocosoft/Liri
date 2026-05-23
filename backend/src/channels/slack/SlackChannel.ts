@@ -1,20 +1,19 @@
-/**
- * SlackChannel Slack 通道
- * 对标 OpenClaw 的 Slack 支持
+﻿/**
+ * SlackChannel Slack ??
+ * ?? OpenClaw ? Slack ??
  */
 import { EventEmitter } from 'node:events';
+import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
   ChannelMeta,
   ChannelCapabilities,
-  ChannelStatus,
   SendResult,
   InteractiveCard,
-  ResolvedSender,
 } from '@modules/channels/types';
 
 /**
- * Slack 配置
+ * Slack ??
  */
 export interface SlackConfig {
   enabled: boolean;
@@ -25,7 +24,7 @@ export interface SlackConfig {
 }
 
 /**
- * Slack 消息
+ * Slack ??
  */
 export interface SlackMessage {
   user: string;
@@ -37,7 +36,7 @@ export interface SlackMessage {
 }
 
 /**
- * Slack 通道
+ * Slack ?? (?? EventEmitter ??????)
  */
 export class SlackChannel extends EventEmitter {
   private config: SlackConfig;
@@ -56,7 +55,7 @@ export class SlackChannel extends EventEmitter {
   }
 
   /**
-   * 连接
+   * ??
    */
   async connect(): Promise<boolean> {
     if (!this.config.enabled || !this.config.botToken) return false;
@@ -68,7 +67,7 @@ export class SlackChannel extends EventEmitter {
   }
 
   /**
-   * 断开连接
+   * ????
    */
   async disconnect(): Promise<void> {
     this.connected = false;
@@ -76,7 +75,7 @@ export class SlackChannel extends EventEmitter {
   }
 
   /**
-   * 发送消息
+   * ????
    */
   async sendMessage(channel: string, text: string): Promise<boolean> {
     if (!this.connected) return false;
@@ -87,7 +86,7 @@ export class SlackChannel extends EventEmitter {
   }
 
   /**
-   * 发送回复
+   * ????
    */
   async sendReply(
     channel: string,
@@ -107,7 +106,7 @@ export class SlackChannel extends EventEmitter {
   }
 
   /**
-   * 获取状态
+   * ????
    */
   getStatus(): { connected: boolean; channels: string[] } {
     return { connected: this.connected, channels: [...this.config.channels] };
@@ -140,88 +139,87 @@ const SLACK_CAPABILITIES: ChannelCapabilities = {
   webhook: true,
 };
 
-export function createSlackChannel(): IChannelPlugin {
-  return {
-    id: 'slack',
-    meta: SLACK_META,
-    capabilities: SLACK_CAPABILITIES,
+class SlackChannelPlugin extends BaseChannelPlugin {
+  readonly id = 'slack';
+  readonly meta = SLACK_META;
+  readonly capabilities = SLACK_CAPABILITIES;
 
-    config: {
-      validate(c: Record<string, unknown>) {
-        const errors: string[] = [];
-        if (!c['botToken']) errors.push('缺少 botToken');
-        return { valid: errors.length === 0, errors };
-      },
-      getDefaultConfig() {
-        return { botToken: '', appToken: '', signingSecret: '', channels: [] };
-      },
-    },
+  constructor() {
+    super();
 
-    lifecycle: {
-      async connect(): Promise<void> {
-        const cfg = { botToken: process.env.SLACK_BOT_TOKEN };
-        await slackChannel.connect();
-      },
-      async disconnect(): Promise<void> {
-        await slackChannel.disconnect();
-      },
-      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
-        return { healthy: slackChannel['connected'], latencyMs: 0 };
-      },
-      getStatus(): ChannelStatus {
-        return {
-          connected: slackChannel['connected'],
-          latencyMs: 0,
-          lastMessageAt: null,
-          uptimeMs: 0,
-        };
-      },
-    },
-
-    outbound: {
-      async sendText(target: string, content: string): Promise<SendResult> {
-        try {
-          await slackChannel.sendMessage(target, content);
-          return { success: true };
-        } catch (e) {
-          return { success: false, error: String(e) };
-        }
-      },
-      async sendMarkdown(target: string, content: string): Promise<SendResult> {
-        return this.sendText(target, content);
-      },
-      async sendImage(target: string, _imageUrl: string): Promise<SendResult> {
-        return { success: false, error: 'Slack: sendImage 未实现' };
-      },
-      async sendFile(target: string, _filePath: string): Promise<SendResult> {
-        return { success: false, error: 'Slack: sendFile 未实现' };
-      },
-      async sendInteractive(
-        target: string,
-        _card: InteractiveCard
-      ): Promise<SendResult> {
-        return { success: false, error: 'Slack: sendInteractive 未实现' };
-      },
-    },
-
-    security: {
-      dmPolicy: 'open',
-      pairingCodeTimeoutMs: 300000,
+    this.security = {
+      ...this.security,
+      dmPolicy: 'open' as const,
       maxPairingAttempts: 3,
-      async resolveSender(
-        sender: Record<string, unknown>
-      ): Promise<ResolvedSender> {
-        return {
-          userId: (sender['user'] as string) || 'unknown',
-          displayName: (sender['user'] as string) || 'unknown',
-          isApproved: true,
-        };
-      },
-      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
-        return { allowed: true };
-      },
-    },
-  };
+      resolveSender: async (sender: Record<string, unknown>) => ({
+        userId: (sender['user'] as string) || 'unknown',
+        displayName: (sender['user'] as string) || 'unknown',
+        isApproved: true,
+      }),
+    };
+  }
+
+  protected getDefaultConfig(): Record<string, unknown> {
+    return { botToken: '', appToken: '', signingSecret: '', channels: [] };
+  }
+
+  protected validateConfig(config: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    if (!config['botToken']) errors.push('?? botToken');
+    return errors;
+  }
+
+  protected async onConnect(_config: Record<string, unknown>): Promise<void> {
+    await slackChannel.connect();
+  }
+
+  protected override async onDisconnect(): Promise<void> {
+    await slackChannel.disconnect();
+  }
+
+  protected async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    try {
+      await slackChannel.sendMessage(target, content);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+  }
+
+  protected override async sendMarkdownMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    return this.sendTextMessage(target, content);
+  }
+
+  protected async sendImageMessage(
+    _target: string,
+    _imageUrl: string
+  ): Promise<SendResult> {
+    return { success: false, error: 'Slack: sendImage ???' };
+  }
+
+  protected async sendFileMessage(
+    _target: string,
+    _filePath: string
+  ): Promise<SendResult> {
+    return { success: false, error: 'Slack: sendFile ???' };
+  }
+
+  protected override async sendInteractiveMessage(
+    _target: string,
+    _card: InteractiveCard
+  ): Promise<SendResult> {
+    return { success: false, error: 'Slack: sendInteractive ???' };
+  }
+}
+
+export function createSlackChannel(): IChannelPlugin {
+  return new SlackChannelPlugin();
 }
 
 export const slackChannelPlugin = createSlackChannel();

@@ -6,7 +6,9 @@
 
 import { readFile, readdir } from 'fs/promises';
 import { join, relative } from 'path';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 危险模式类型

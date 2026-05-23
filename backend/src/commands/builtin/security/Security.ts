@@ -1,10 +1,9 @@
 /**
  * Security 命令 - 安全管理
- * 对标 CC 源码的 bashSecurity.ts 安全分析体系，提供全面的安全管理功能
  */
 
 import type { CommandContext } from '@modules/commands/types';
-import { securityIntegrationService } from '@modules/security/SecurityIntegration.js';
+import { completeSecuritySystem } from '@modules/security';
 import { createSecurityScanner } from '@modules/security/scanners/SecurityScanner.js';
 import { inputValidator } from '@modules/security/validators/InputValidator.js';
 import type {
@@ -107,7 +106,7 @@ const securityCommand = {
     }
 
     const command = params.join(' ');
-    const analyzer = securityIntegrationService.getSecurityAnalyzer();
+    const analyzer = completeSecuritySystem.getSecurityAnalyzer();
     const result: SecurityAnalysisResult = analyzer.analyze(command);
 
     if (useJson) {
@@ -172,7 +171,7 @@ const securityCommand = {
     }
 
     const command = params.join(' ');
-    const analyzer = securityIntegrationService.getSecurityAnalyzer();
+    const analyzer = completeSecuritySystem.getSecurityAnalyzer();
     const result = analyzer.analyzeDeep(command);
 
     if (useJson) {
@@ -392,7 +391,7 @@ const securityCommand = {
    * 展示安全分析器、沙箱、权限管理器等组件的运行状态
    */
   async showStatus(useJson: boolean) {
-    const status = securityIntegrationService.getStatus();
+    const status = completeSecuritySystem.getStatus();
 
     if (useJson) {
       return {
@@ -422,8 +421,7 @@ const securityCommand = {
 
     // 检测当前会话是否有规则
     try {
-      const permissionManager =
-        securityIntegrationService.getPermissionManager();
+      const permissionManager = completeSecuritySystem.getPermissionManager();
       if (
         permissionManager &&
         typeof permissionManager.getRules === 'function'
@@ -444,7 +442,7 @@ const securityCommand = {
    * 展示 BashSecurityAnalyzer 中注册的所有安全模式
    */
   async listPatterns(params: string[], useJson: boolean) {
-    const analyzer = securityIntegrationService.getSecurityAnalyzer();
+    const analyzer = completeSecuritySystem.getSecurityAnalyzer();
     const patterns: SecurityPattern[] = analyzer.getPatterns();
 
     // 过滤参数
@@ -527,7 +525,7 @@ const securityCommand = {
     }
 
     const commandName = params[0].toLowerCase();
-    const analyzer = securityIntegrationService.getSecurityAnalyzer();
+    const analyzer = completeSecuritySystem.getSecurityAnalyzer();
 
     // 使用安全性分析
     const result = analyzer.analyze(`${commandName} test`);

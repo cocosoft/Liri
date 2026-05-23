@@ -1,4 +1,24 @@
 import { securityIntegrationService } from './SecurityIntegration';
+import type { SecurityDecision } from './SecurityIntegration';
+import type { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
+import type { PermissionManager } from './PermissionManager';
+import type { SandboxManager } from '@modules/sandbox';
+import type { PermissionMode } from '@modules/permission';
+import {
+  filterMcpServersByPolicy as filterMcpPolicy,
+  doesEnterpriseMcpConfigExist as checkEnterpriseMcpConfig,
+  checkResourcePermission as checkChannelResourcePerm,
+  checkToolPermission as checkChannelToolPerm,
+  isResourceAccessAllowed as isResourceAccessOk,
+  isToolAccessAllowed as isToolAccessOk,
+} from './policy';
+import type { MCPServerPolicy, PermissionBehavior } from './policy';
+import type { MemorySecretMatch } from './scanner/secret';
+import {
+  scanMemoryForSecrets,
+  containsSecrets,
+  sanitizeSecrets,
+} from './scanner/secret';
 
 export enum SecurityLevel {
   NONE = 0,
@@ -50,8 +70,6 @@ const defaultConfig: SecurityConfig = {
   maxInputLength: 100000,
   maxMessageCount: 1000,
   blockedPatterns: [
-    // 仅保留内容级安全模式
-    // 命令级安全模式（rm -rf, mkfs, dd 等）由 BashSecurityAnalyzer 处理
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
     /DROP\s+TABLE/gi,
     /DELETE\s+FROM/gi,
@@ -96,6 +114,48 @@ export interface ICompleteSecuritySystem {
   getSecurityReport(): SecurityReport;
   updateConfig(config: Partial<SecurityConfig>): void;
   isRateLimited(sessionId: string): boolean;
+
+  checkCommandSecurity(
+    command: string,
+    toolName?: string,
+    input?: Record<string, unknown>
+  ): Promise<SecurityDecision>;
+
+  getSecurityAnalyzer(): BashSecurityAnalyzer;
+  getPermissionManager(): PermissionManager;
+  getSandboxManager(): SandboxManager;
+  getStatus(): {
+    sandboxEnabled: boolean;
+    permissionMode: PermissionMode;
+    securityAnalyzerReady: boolean;
+  };
+  setPermissionMode(mode: PermissionMode): void;
+  isSandboxEnabled(): boolean;
+  setSandboxEnabled(enabled: boolean): void;
+
+  // ==================== 策略管理 ====================
+
+  filterMcpServersByPolicy(
+    serverNames: string[],
+    policy?: MCPServerPolicy
+  ): string[];
+  doesEnterpriseMcpConfigExist(): boolean;
+  checkChannelResourcePermission(
+    serverName: string,
+    resourceUri: string
+  ): PermissionBehavior;
+  checkChannelToolPermission(
+    serverName: string,
+    toolName: string
+  ): PermissionBehavior;
+  isResourceAccessAllowed(serverName: string, resourceUri: string): boolean;
+  isToolAccessAllowed(serverName: string, toolName: string): boolean;
+
+  // ==================== 秘密扫描 ====================
+
+  scanForSecrets(content: string): MemorySecretMatch[];
+  containsSecrets(content: string): boolean;
+  sanitizeSecrets(content: string, placeholder?: string): string;
 }
 
 export interface SecurityReport {
@@ -110,16 +170,22 @@ export interface SecurityReport {
 }
 
 /**
- * 完整安全系统（编排层）
+ * 统一安全系统门面（编排层）
  *
- * 职责范围：
- * - 内容级安全过滤（XSS、SQL注入等）
- * - 会话安全检测（速率限制、风险行为追踪）
- * - 审计日志管理
- * - 安全报告生成
+ * 作为安全子系统的唯一对外入口，聚合以下能力：
+ * - 内容级安全过滤（XSS、SQL注入等）→ 本类实现
+ * - 会话安全检测（速率限制、风险行为追踪）→ 本类实现
+ * - 审计日志管理 → 本类实现
+ * - 安全报告生成 → 本类实现
+ * - 命令级安全分析 → 委托给 SecurityIntegrationService
+ * - 沙箱管理 → 委托给 SecurityIntegrationService
+ * - 权限管理 → 委托给 SecurityIntegrationService
+ * - MCP 服务器策略过滤 → 委托给 policy/MCPServerPolicy
+ * - 通道权限管理 → 委托给 policy/ChannelPermission
+ * - 秘密扫描（记忆/团队记忆）→ 委托给 scanner/secret
  *
- * 注意：命令级安全分析委托给 BashSecurityAnalyzer（通过 SecurityIntegrationService），
- * 本类不重复实现命令分析逻辑。
+ * 外部代码应仅通过 @modules/security 导入此类的单例 completeSecuritySystem，
+ * 不应直接引用 SecurityIntegrationService 或其内部组件。
  */
 export class CompleteSecuritySystem implements ICompleteSecuritySystem {
   private config: SecurityConfig;
@@ -140,11 +206,8 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
     this.maxCheckHistory = maxCheckHistory;
   }
 
-  /**
-   * 检查消息内容安全性
-   * 处理内容级安全过滤（XSS、SQL注入等）
-   * 命令级安全检查委托给 BashSecurityAnalyzer
-   */
+  // ==================== 内容安全（本类实现） ====================
+
   async checkMessageSecurity(
     content: string,
     context?: Record<string, unknown>
@@ -204,7 +267,6 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
   ): Promise<SecurityCheckResult> {
     const commandStr = JSON.stringify(args);
 
-    // 委托给 SecurityIntegrationService 的 BashSecurityAnalyzer 进行完整分析
     const analysis = securityIntegrationService
       .getSecurityAnalyzer()
       .analyze(commandStr);
@@ -362,6 +424,99 @@ export class CompleteSecuritySystem implements ICompleteSecuritySystem {
 
     return entry.count >= this.config.rateLimitMaxRequests;
   }
+
+  // ==================== 命令安全（委托给 SecurityIntegrationService） ====================
+
+  async checkCommandSecurity(
+    command: string,
+    toolName?: string,
+    input?: Record<string, unknown>
+  ): Promise<SecurityDecision> {
+    return securityIntegrationService.checkSecurity(command, toolName, input);
+  }
+
+  getSecurityAnalyzer(): BashSecurityAnalyzer {
+    return securityIntegrationService.getSecurityAnalyzer();
+  }
+
+  getPermissionManager(): PermissionManager {
+    return securityIntegrationService.getPermissionManager();
+  }
+
+  getSandboxManager(): SandboxManager {
+    return securityIntegrationService.getSandboxManager();
+  }
+
+  getStatus(): {
+    sandboxEnabled: boolean;
+    permissionMode: PermissionMode;
+    securityAnalyzerReady: boolean;
+  } {
+    return securityIntegrationService.getStatus();
+  }
+
+  setPermissionMode(mode: PermissionMode): void {
+    securityIntegrationService.setPermissionMode(mode);
+  }
+
+  isSandboxEnabled(): boolean {
+    return securityIntegrationService.isSandboxEnabled();
+  }
+
+  setSandboxEnabled(enabled: boolean): void {
+    securityIntegrationService.setSandboxEnabled(enabled);
+  }
+
+  // ==================== 策略管理 ====================
+
+  filterMcpServersByPolicy(
+    serverNames: string[],
+    policy?: MCPServerPolicy
+  ): string[] {
+    return filterMcpPolicy(serverNames, policy);
+  }
+
+  doesEnterpriseMcpConfigExist(): boolean {
+    return checkEnterpriseMcpConfig();
+  }
+
+  checkChannelResourcePermission(
+    serverName: string,
+    resourceUri: string
+  ): PermissionBehavior {
+    return checkChannelResourcePerm(serverName, resourceUri);
+  }
+
+  checkChannelToolPermission(
+    serverName: string,
+    toolName: string
+  ): PermissionBehavior {
+    return checkChannelToolPerm(serverName, toolName);
+  }
+
+  isResourceAccessAllowed(serverName: string, resourceUri: string): boolean {
+    return isResourceAccessOk(serverName, resourceUri);
+  }
+
+  isToolAccessAllowed(serverName: string, toolName: string): boolean {
+    return isToolAccessOk(serverName, toolName);
+  }
+
+  // ==================== 秘密扫描 ====================
+
+  scanForSecrets(content: string): MemorySecretMatch[] {
+    return scanMemoryForSecrets(content);
+  }
+
+  containsSecrets(content: string): boolean {
+    return containsSecrets(content);
+  }
+
+  sanitizeSecrets(content: string, placeholder?: string): string {
+    return sanitizeSecrets(content, placeholder);
+  }
+
+  // ==================== 私有方法 ====================
 
   private recordCheck(result: SecurityCheckResult): void {
     this.checkHistory.push(result);

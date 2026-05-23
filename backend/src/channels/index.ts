@@ -102,7 +102,6 @@ export {
   claudeChannelPlugin,
 } from './claude/index.js';
 export { wecomChannel } from './wecom/index.js';
-export * from './platforms/index.js';
 export {
   ChannelRegistry,
   channelRegistry,

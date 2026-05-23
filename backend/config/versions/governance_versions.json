@@ -1,32 +1,6 @@
 [
   {
     "version": 1,
-    "timestamp": 1779264427984,
-    "config": {
-      "enabled": false,
-      "enforcePermission": true,
-      "enforceSandbox": false,
-      "enforceHooks": true,
-      "enforceFeatureFlags": true,
-      "maxExecutionTimeMs": 300000,
-      "allowParallelExecution": true
-    }
-  },
-  {
-    "version": 2,
-    "timestamp": 1779264428003,
-    "config": {
-      "enabled": false,
-      "enforcePermission": true,
-      "enforceSandbox": false,
-      "enforceHooks": true,
-      "enforceFeatureFlags": true,
-      "maxExecutionTimeMs": 300000,
-      "allowParallelExecution": true
-    }
-  },
-  {
-    "version": 1,
     "timestamp": 1779264449620,
     "config": {
       "enabled": false,
@@ -639,6 +613,32 @@
   {
     "version": 2,
     "timestamp": 1779355127790,
+    "config": {
+      "enabled": false,
+      "enforcePermission": true,
+      "enforceSandbox": false,
+      "enforceHooks": true,
+      "enforceFeatureFlags": true,
+      "maxExecutionTimeMs": 300000,
+      "allowParallelExecution": true
+    }
+  },
+  {
+    "version": 1,
+    "timestamp": 1779523412801,
+    "config": {
+      "enabled": false,
+      "enforcePermission": true,
+      "enforceSandbox": false,
+      "enforceHooks": true,
+      "enforceFeatureFlags": true,
+      "maxExecutionTimeMs": 300000,
+      "allowParallelExecution": true
+    }
+  },
+  {
+    "version": 2,
+    "timestamp": 1779523412818,
     "config": {
       "enabled": false,
       "enforcePermission": true,

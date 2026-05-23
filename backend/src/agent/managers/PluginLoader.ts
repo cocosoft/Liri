@@ -1,7 +1,9 @@
 //
 import { AgentTool } from '../models/types';
 import { AgentStrategy } from '../models/types';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 interface AgentPlugin {

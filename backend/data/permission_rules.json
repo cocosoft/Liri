@@ -3292,5 +3292,14 @@
     "priority": 1,
     "createdAt": "2026-05-21T09:18:47.783Z",
     "updatedAt": "2026-05-21T09:18:47.783Z"
+  },
+  {
+    "id": "rule_1779523412813_ue33sydwh",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-23T08:03:32.813Z",
+    "updatedAt": "2026-05-23T08:03:32.813Z"
   }
 ]

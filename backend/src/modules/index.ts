@@ -1,6 +1,10 @@
 /**
  * 模块管理模块入口文件
  * 统一导出所有模块管理相关功能
+ *
+ * @deprecated 请使用 ModuleRegistry.bootstrap() 替代 quickInitialize()，
+ * 使用 moduleRegistry.resolve<T>() 替代直接 import 模块。
+ * 此文件提供的 API 将在未来版本中废弃。
  */
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -63,6 +67,10 @@ export {
 /**
  * 快速初始化必需模块（CRITICAL 优先级）
  * 延迟模块将在 T2 分发后异步加载
+ *
+ * @deprecated 请使用 ModuleRegistry.bootstrap() 替代。
+ * moduleRegistry.bootstrap() 提供了相同的功能，
+ * 是模块系统的统一推荐入口。
  */
 export async function quickInitialize(): Promise<void> {
   logger.info('快速初始化模块管理系统...');

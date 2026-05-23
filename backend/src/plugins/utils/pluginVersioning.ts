@@ -7,7 +7,9 @@
 import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 版本信息

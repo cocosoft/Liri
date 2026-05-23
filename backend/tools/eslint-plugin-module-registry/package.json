@@ -1,0 +1,7 @@
+{
+  "name": "eslint-plugin-module-registry",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ESLint plugin enforcing ModuleRegistry-based module access",
+  "main": "index.js"
+}

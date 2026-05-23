@@ -8,15 +8,13 @@ import type {
   IChannelPlugin,
   ChannelMeta,
   ChannelCapabilities,
-  ChannelStatus,
   SendResult,
   InteractiveCard,
   ResolvedSender,
+  IChannelPairingAdapter,
 } from '@modules/channels/types';
+import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
-
-const logger = new Logger({ level: LogLevel.INFO });
 
 const WECOM_META: ChannelMeta = {
   id: 'wecom',
@@ -42,299 +40,28 @@ const WECOM_CAPABILITIES: ChannelCapabilities = {
   webhook: true,
 };
 
-interface WecomState {
-  connected: boolean;
-  lastMessageAt: number | null;
-  startTime: number;
-  corpId: string;
-  corpSecret: string;
-  agentId: string;
-  token: string;
-  encodingAESKey: string;
-  accessToken: string | null;
-  tokenExpiresAt: number;
-}
+class WecomChannelPlugin extends BaseChannelPlugin {
+  readonly id = 'wecom' as const;
+  readonly meta = WECOM_META;
+  readonly capabilities = WECOM_CAPABILITIES;
 
-function createWecomChannel(): IChannelPlugin {
-  const state: WecomState = {
-    connected: false,
-    lastMessageAt: null,
-    startTime: 0,
-    corpId: '',
-    corpSecret: '',
-    agentId: '',
-    token: '',
-    encodingAESKey: '',
-    accessToken: null,
-    tokenExpiresAt: 0,
-  };
+  private corpId = '';
+  private corpSecret = '';
+  private agentId = '';
+  private token = '';
+  private encodingAESKey = '';
+  private accessToken: string | null = null;
+  private tokenExpiresAt = 0;
 
-  async function getAccessToken(): Promise<string | null> {
-    if (state.accessToken && Date.now() < state.tokenExpiresAt) {
-      return state.accessToken;
-    }
-    if (!state.corpId || !state.corpSecret) return null;
-
-    try {
-      const resp = await fetch(
-        `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${state.corpId}&corpsecret=${state.corpSecret}`
-      );
-      const data = (await resp.json()) as Record<string, unknown>;
-      if ((data['errcode'] as number) === 0) {
-        state.accessToken = data['access_token'] as string;
-        state.tokenExpiresAt =
-          Date.now() + ((data['expires_in'] as number) || 7200) * 1000;
-        return state.accessToken;
-      }
-      logger.error('企业微信获取 access_token 失败', {
-        errcode: data['errcode'],
-        errmsg: data['errmsg'],
-      });
-    } catch (err) {
-      logger.error('企业微信获取 access_token 网络错误', err as Error);
-    }
-    return null;
-  }
-
-  return {
-    id: 'wecom',
-    meta: WECOM_META,
-    capabilities: WECOM_CAPABILITIES,
-
-    config: {
-      validate(c: Record<string, unknown>) {
-        const errors: string[] = [];
-        if (!c['corpId']) errors.push('缺少 corpId (企业 ID)');
-        if (!c['corpSecret']) errors.push('缺少 corpSecret (企业密钥)');
-        if (!c['agentId']) errors.push('缺少 agentId (应用 AgentId)');
-        return { valid: errors.length === 0, errors };
-      },
-      getDefaultConfig() {
-        return {
-          corpId: '',
-          corpSecret: '',
-          agentId: '',
-          token: '',
-          encodingAESKey: '',
-        };
-      },
-    },
-
-    lifecycle: {
-      async connect(config: Record<string, unknown>) {
-        state.corpId = (config['corpId'] as string) || '';
-        state.corpSecret = (config['corpSecret'] as string) || '';
-        state.agentId = (config['agentId'] as string) || '';
-        state.token = (config['token'] as string) || '';
-        state.encodingAESKey = (config['encodingAESKey'] as string) || '';
-
-        if (!state.corpId || !state.corpSecret || !state.agentId) {
-          throw new AppError(
-            'Wecom: corpId, corpSecret 和 agentId 是必需的',
-            ErrorCategory.VALIDATION,
-            ErrorSeverity.HIGH,
-            'INVALID_INPUT',
-            {
-              channel: 'wecom',
-              missing: [
-                !state.corpId ? 'corpId' : null,
-                !state.corpSecret ? 'corpSecret' : null,
-                !state.agentId ? 'agentId' : null,
-              ].filter(Boolean),
-            }
-          );
-        }
-
-        state.startTime = Date.now();
-
-        const token = await getAccessToken();
-        if (token) {
-          state.connected = true;
-          logger.info('企业微信通道已连接');
-        } else {
-          logger.warning('企业微信通道连接失败：无法获取 access_token');
-          throw new AppError(
-            '企业微信连接失败：无法获取 access_token，请检查 corpId 和 corpSecret',
-            ErrorCategory.API,
-            ErrorSeverity.HIGH,
-            'AUTH_FAILED',
-            { channel: 'wecom' }
-          );
-        }
-      },
-
-      async disconnect() {
-        state.connected = false;
-        state.accessToken = null;
-        state.tokenExpiresAt = 0;
-        logger.info('企业微信通道已断开');
-      },
-
-      async healthCheck() {
-        if (!state.accessToken) return { healthy: false, latencyMs: 0 };
-        const start = Date.now();
-        try {
-          const resp = await fetch(
-            `https://qyapi.weixin.qq.com/cgi-bin/getcallbackip?access_token=${state.accessToken}`
-          );
-          return { healthy: resp.ok, latencyMs: Date.now() - start };
-        } catch {
-          return { healthy: false, latencyMs: Date.now() - start };
-        }
-      },
-
-      getStatus(): ChannelStatus {
-        return {
-          connected: state.connected,
-          latencyMs: 0,
-          lastMessageAt: state.lastMessageAt,
-          uptimeMs: state.connected ? Date.now() - state.startTime : 0,
-        };
-      },
-    },
-
-    outbound: {
-      async sendText(target: string, content: string): Promise<SendResult> {
-        const token = await getAccessToken();
-        if (!token) return { success: false, error: '未连接或 token 失效' };
-
-        try {
-          const body = {
-            touser: target || '@all',
-            msgtype: 'text',
-            agentid: parseInt(state.agentId, 10) || 1,
-            text: { content: content.slice(0, 2048) },
-          };
-          const resp = await fetch(
-            `https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${token}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            }
-          );
-          const data = (await resp.json()) as Record<string, unknown>;
-          const ok = (data['errcode'] as number) === 0;
-          if (ok) state.lastMessageAt = Date.now();
-          return {
-            success: ok,
-            error: ok ? undefined : (data['errmsg'] as string),
-          };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-
-      async sendMarkdown(target: string, content: string): Promise<SendResult> {
-        const token = await getAccessToken();
-        if (!token) return { success: false, error: '未连接或 token 失效' };
-
-        try {
-          const body = {
-            touser: target || '@all',
-            msgtype: 'markdown',
-            agentid: parseInt(state.agentId, 10) || 1,
-            markdown: { content: content.slice(0, 2048) },
-          };
-          const resp = await fetch(
-            `https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${token}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            }
-          );
-          const data = (await resp.json()) as Record<string, unknown>;
-          const ok = (data['errcode'] as number) === 0;
-          if (ok) state.lastMessageAt = Date.now();
-          return {
-            success: ok,
-            error: ok ? undefined : (data['errmsg'] as string),
-          };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-
-      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
-        const token = await getAccessToken();
-        if (!token) return { success: false, error: '未连接或 token 失效' };
-
-        try {
-          const body = {
-            touser: target || '@all',
-            msgtype: 'image',
-            agentid: parseInt(state.agentId, 10) || 1,
-            image: { media_id: imageUrl },
-          };
-          const resp = await fetch(
-            `https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${token}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            }
-          );
-          const data = (await resp.json()) as Record<string, unknown>;
-          return {
-            success: (data['errcode'] as number) === 0,
-            error: data['errmsg'] as string,
-          };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-
-      async sendFile(target: string, filePath: string): Promise<SendResult> {
-        return { success: false, error: '企业微信文件发送暂未实现' };
-      },
-
-      async sendInteractive(
-        target: string,
-        card: InteractiveCard
-      ): Promise<SendResult> {
-        const token = await getAccessToken();
-        if (!token) return { success: false, error: '未连接或 token 失效' };
-
-        try {
-          const articles = [
-            {
-              title: card.title,
-              description: card.content.slice(0, 512),
-              url: 'https://github.com/pyapp',
-            },
-          ];
-          const body = {
-            touser: target || '@all',
-            msgtype: 'news',
-            agentid: parseInt(state.agentId, 10) || 1,
-            news: { articles },
-          };
-          const resp = await fetch(
-            `https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${token}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            }
-          );
-          const data = (await resp.json()) as Record<string, unknown>;
-          return {
-            success: (data['errcode'] as number) === 0,
-            error: data['errmsg'] as string,
-          };
-        } catch (err) {
-          return { success: false, error: (err as Error).message };
-        }
-      },
-    },
-
-    security: {
-      dmPolicy: 'allowlist',
-      allowFrom: [],
-      pairingCodeTimeoutMs: 300000,
+  constructor() {
+    super();
+    this.security = {
+      ...this.security,
+      dmPolicy: 'allowlist' as const,
       maxPairingAttempts: 5,
-      async resolveSender(sender: Record<string, unknown>) {
+      resolveSender: async (
+        sender: Record<string, unknown>
+      ): Promise<ResolvedSender> => {
         const userId =
           (sender['UserId'] as string) ||
           (sender['userId'] as string) ||
@@ -342,26 +69,202 @@ function createWecomChannel(): IChannelPlugin {
           'unknown';
         return { userId, displayName: userId, isApproved: false };
       },
-      async authorizeMessage(ctx) {
-        return { allowed: true };
-      },
-    },
+    };
+    this.pairing = this.createPairingAdapter();
+  }
 
-    pairing: {
-      async generatePairingCode(userId: string) {
+  private createPairingAdapter(): IChannelPairingAdapter {
+    return {
+      generatePairingCode: async (userId: string) => {
         const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-        logger.info(`企业微信配对码: ${userId} → ${code}`);
+        this.logger.info(`企业微信配对码: ${userId} → ${code}`);
         return code;
       },
-      async validatePairingCode(_userId: string, code: string) {
-        return code.length === 6;
+      validatePairingCode: async (_userId: string, code: string) =>
+        code.length === 6,
+      listApprovedUsers: async () => [],
+      removeApprovedUser: async (_userId: string) => {},
+    };
+  }
+
+  private async getAccessToken(): Promise<string | null> {
+    if (this.accessToken && Date.now() < this.tokenExpiresAt) {
+      return this.accessToken;
+    }
+    if (!this.corpId || !this.corpSecret) return null;
+
+    try {
+      const resp = await fetch(
+        `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${this.corpId}&corpsecret=${this.corpSecret}`
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      if ((data['errcode'] as number) === 0) {
+        this.accessToken = data['access_token'] as string;
+        this.tokenExpiresAt =
+          Date.now() + ((data['expires_in'] as number) || 7200) * 1000;
+        return this.accessToken;
+      }
+      this.logger.error('企业微信获取 access_token 失败', {
+        errcode: data['errcode'],
+        errmsg: data['errmsg'],
+      });
+    } catch (err) {
+      this.logger.error('企业微信获取 access_token 网络错误', err as Error);
+    }
+    return null;
+  }
+
+  private async callSendApi(
+    body: Record<string, unknown>
+  ): Promise<SendResult> {
+    const token = await this.getAccessToken();
+    if (!token) return { success: false, error: '未连接或 token 失效' };
+
+    try {
+      const resp = await fetch(
+        `https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token=${token}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      const ok = (data['errcode'] as number) === 0;
+      return {
+        success: ok,
+        error: ok ? undefined : (data['errmsg'] as string),
+      };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  }
+
+  protected getDefaultConfig(): Record<string, unknown> {
+    return {
+      corpId: '',
+      corpSecret: '',
+      agentId: '',
+      token: '',
+      encodingAESKey: '',
+    };
+  }
+
+  protected validateConfig(config: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    if (!config['corpId']) errors.push('缺少 corpId (企业 ID)');
+    if (!config['corpSecret']) errors.push('缺少 corpSecret (企业密钥)');
+    if (!config['agentId']) errors.push('缺少 agentId (应用 AgentId)');
+    return errors;
+  }
+
+  protected async onConnect(config: Record<string, unknown>): Promise<void> {
+    this.corpId = (config['corpId'] as string) || '';
+    this.corpSecret = (config['corpSecret'] as string) || '';
+    this.agentId = (config['agentId'] as string) || '';
+    this.token = (config['token'] as string) || '';
+    this.encodingAESKey = (config['encodingAESKey'] as string) || '';
+
+    const token = await this.getAccessToken();
+    if (!token) {
+      throw new AppError(
+        '企业微信连接失败：无法获取 access_token，请检查 corpId 和 corpSecret',
+        ErrorCategory.API,
+        ErrorSeverity.HIGH,
+        'AUTH_FAILED',
+        { channel: 'wecom' }
+      );
+    }
+    this.logger.info('企业微信通道已连接');
+  }
+
+  protected override async onDisconnect(): Promise<void> {
+    this.accessToken = null;
+    this.tokenExpiresAt = 0;
+    this.logger.info('企业微信通道已断开');
+  }
+
+  protected async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    return this.callSendApi({
+      touser: target || '@all',
+      msgtype: 'text',
+      agentid: parseInt(this.agentId, 10) || 1,
+      text: { content: content.slice(0, 2048) },
+    });
+  }
+
+  protected override async sendMarkdownMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    return this.callSendApi({
+      touser: target || '@all',
+      msgtype: 'markdown',
+      agentid: parseInt(this.agentId, 10) || 1,
+      markdown: { content: content.slice(0, 2048) },
+    });
+  }
+
+  protected async sendImageMessage(
+    target: string,
+    imageUrl: string
+  ): Promise<SendResult> {
+    return this.callSendApi({
+      touser: target || '@all',
+      msgtype: 'image',
+      agentid: parseInt(this.agentId, 10) || 1,
+      image: { media_id: imageUrl },
+    });
+  }
+
+  protected async sendFileMessage(
+    _target: string,
+    _filePath: string
+  ): Promise<SendResult> {
+    return { success: false, error: '企业微信文件发送暂未实现' };
+  }
+
+  protected override async sendInteractiveMessage(
+    _target: string,
+    card: InteractiveCard
+  ): Promise<SendResult> {
+    const articles = [
+      {
+        title: card.title,
+        description: card.content.slice(0, 512),
+        url: 'https://github.com/pyapp',
       },
-      async listApprovedUsers() {
-        return [];
-      },
-      async removeApprovedUser(_userId: string) {},
-    },
-  };
+    ];
+    return this.callSendApi({
+      touser: _target || '@all',
+      msgtype: 'news',
+      agentid: parseInt(this.agentId, 10) || 1,
+      news: { articles },
+    });
+  }
+
+  protected override async checkHealth(): Promise<{
+    healthy: boolean;
+    latencyMs: number;
+  }> {
+    if (!this.accessToken) return { healthy: false, latencyMs: 0 };
+    const start = Date.now();
+    try {
+      const resp = await fetch(
+        `https://qyapi.weixin.qq.com/cgi-bin/getcallbackip?access_token=${this.accessToken}`
+      );
+      return { healthy: resp.ok, latencyMs: Date.now() - start };
+    } catch {
+      return { healthy: false, latencyMs: Date.now() - start };
+    }
+  }
+}
+
+export function createWecomChannel(): IChannelPlugin {
+  return new WecomChannelPlugin();
 }
 
 export const wecomChannel = createWecomChannel();

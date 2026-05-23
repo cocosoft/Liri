@@ -6,6 +6,11 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import {
+  getDIContainer,
+  type DIContainer,
+  type ServiceDescriptor,
+} from '@modules/core/DIContainer';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -76,6 +81,7 @@ export class ModuleRegistry {
   private static instance: ModuleRegistry;
   private modules: Map<string, ModuleDefinition> = new Map();
   private initializedModules: Set<string> = new Set();
+  private container: DIContainer | null = null;
 
   /**
    * 获取单例实例
@@ -85,6 +91,43 @@ export class ModuleRegistry {
       ModuleRegistry.instance = new ModuleRegistry();
     }
     return ModuleRegistry.instance;
+  }
+
+  /**
+   * 绑定 DI 容器
+   * 将所有已注册模块同步到容器中，后续注册的模块也会自动注册到容器
+   */
+  public useContainer(diContainer: DIContainer): void {
+    this.container = diContainer;
+    for (const module of this.modules.values()) {
+      this.registerWithContainer(module);
+    }
+  }
+
+  /**
+   * 将模块注册到 DI 容器
+   */
+  private registerWithContainer(module: ModuleDefinition): void {
+    if (!this.container) return;
+
+    const descriptor: ServiceDescriptor = {
+      id: module.id,
+      factory: () => {
+        if (module.instance) return module.instance;
+        return module;
+      },
+      scope: 'singleton',
+      dependencies: module.dependencies,
+    };
+
+    try {
+      this.container.registerDescriptor(descriptor);
+    } catch (e) {
+      logger.warn('模块已注册到 DI 容器，跳过重复注册', {
+        moduleId: module.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   /**
@@ -102,6 +145,7 @@ export class ModuleRegistry {
     }
 
     this.modules.set(module.id, module);
+    this.registerWithContainer(module);
   }
 
   /**
@@ -205,6 +249,23 @@ export class ModuleRegistry {
   }
 
   /**
+   * 从 DI 容器解析模块实例
+   * 如果容器已绑定，优先使用容器解析；否则返回 module.instance
+   */
+  public resolveModule<T = unknown>(moduleId: string): T | undefined {
+    if (this.container) {
+      try {
+        return this.container.resolve<T>(moduleId);
+      } catch {
+        return undefined;
+      }
+    }
+
+    const module = this.find(moduleId);
+    return module?.instance as T | undefined;
+  }
+
+  /**
    * 销毁模块
    */
   public async destroy(moduleId: string): Promise<void> {
@@ -252,6 +313,32 @@ export class ModuleRegistry {
       initialized: this.initializedModules.size,
       byCategory,
     };
+  }
+
+  /**
+   * 启动模块系统（统一入口）
+   *
+   * 封装完整的模块系统启动流程：
+   * 1. 注册所有模块到注册表
+   * 2. 初始化必需模块（CRITICAL 优先级）
+   * 3. 在后台调度延迟模块的异步加载
+   *
+   * 使用方式（main.ts 入口处）：
+   *
+   *   import { moduleRegistry } from './modules/ModuleRegistry';
+   *   await moduleRegistry.bootstrap();
+   *
+   * 该方法是整个模块系统的唯一推荐入口，替代直接调用
+   * ModuleInitializer.registerAllModules / initializeEssentialModules / scheduleDeferredModules。
+   */
+  public async bootstrap(): Promise<void> {
+    const moduleInitializerModule = await import('./ModuleInitializer');
+    moduleInitializerModule.moduleInitializer.registerAllModules();
+
+    this.useContainer(getDIContainer());
+
+    await moduleInitializerModule.moduleInitializer.initializeEssentialModules();
+    moduleInitializerModule.moduleInitializer.scheduleDeferredModules();
   }
 }
 

@@ -1,12 +1,10 @@
 import { EventEmitter } from 'node:events';
+import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
   ChannelMeta,
   ChannelCapabilities,
-  ChannelStatus,
   SendResult,
-  InteractiveCard,
-  ResolvedSender,
 } from '@modules/channels/types';
 
 export interface WhatsAppConfig {
@@ -33,71 +31,6 @@ export interface WhatsAppMessage {
   image?: { id: string; mime_type: string };
 }
 
-export class WhatsAppChannel extends EventEmitter {
-  private config: WhatsAppConfig;
-  private connected: boolean = false;
-
-  constructor(config?: Partial<WhatsAppConfig>) {
-    super();
-
-    this.config = {
-      enabled: config?.enabled ?? false,
-      phoneNumberId: config?.phoneNumberId,
-      accessToken: config?.accessToken,
-      verifyToken: config?.verifyToken,
-      businessAccountId: config?.businessAccountId,
-    };
-  }
-
-  async connect(): Promise<boolean> {
-    if (
-      !this.config.enabled ||
-      !this.config.phoneNumberId ||
-      !this.config.accessToken
-    )
-      return false;
-
-    this.connected = true;
-    this.emit('connected', { phoneNumberId: this.config.phoneNumberId });
-
-    return true;
-  }
-
-  async disconnect(): Promise<void> {
-    this.connected = false;
-    this.emit('disconnected', {});
-  }
-
-  async sendMessage(target: string, content: string): Promise<boolean> {
-    if (!this.connected) return false;
-
-    this.emit('message:sent', { to: target, body: content });
-
-    return true;
-  }
-
-  async sendTemplateMessage(
-    target: string,
-    templateName: string,
-    languageCode: string = 'en'
-  ): Promise<boolean> {
-    if (!this.connected) return false;
-
-    this.emit('template_sent', { to: target, templateName, languageCode });
-
-    return true;
-  }
-
-  handleIncomingMessage(message: WhatsAppMessage): void {
-    this.emit('message_received', {
-      from: message.from,
-      type: message.type,
-      text: message.text?.body,
-      messageId: message.id,
-    });
-  }
-}
-
 const WHATSAPP_META: ChannelMeta = {
   id: 'whatsapp',
   displayName: 'WhatsApp',
@@ -122,96 +55,92 @@ const WHATSAPP_CAPABILITIES: ChannelCapabilities = {
   webhook: true,
 };
 
+export class WhatsAppChannel extends BaseChannelPlugin {
+  private eventBus = new EventEmitter();
+  private _phoneNumberId = '';
+  private _accessToken = '';
+  private _verifyToken = '';
+  private _businessAccountId = '';
+
+  readonly id = 'whatsapp';
+  readonly meta = WHATSAPP_META;
+  readonly capabilities = WHATSAPP_CAPABILITIES;
+
+  protected getDefaultConfig(): Record<string, unknown> {
+    return {
+      enabled: false,
+      phoneNumberId: '',
+      accessToken: '',
+      verifyToken: '',
+      businessAccountId: '',
+    };
+  }
+
+  protected validateConfig(config: Record<string, unknown>): string[] {
+    const errors: string[] = [];
+    if (!config['phoneNumberId']) errors.push('缺少 phoneNumberId');
+    if (!config['accessToken']) errors.push('缺少 accessToken');
+    return errors;
+  }
+
+  protected async onConnect(config: Record<string, unknown>): Promise<void> {
+    this._phoneNumberId = (config['phoneNumberId'] as string) || '';
+    this._accessToken = (config['accessToken'] as string) || '';
+    this._verifyToken = (config['verifyToken'] as string) || '';
+    this._businessAccountId = (config['businessAccountId'] as string) || '';
+
+    this.eventBus.emit('connected', { phoneNumberId: this._phoneNumberId });
+  }
+
+  protected async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
+    this.eventBus.emit('message:sent', { to: target, body: content });
+    return { success: true };
+  }
+
+  protected async sendImageMessage(
+    target: string,
+    imageUrl: string
+  ): Promise<SendResult> {
+    return this.sendTextMessage(target, `[图片] ${imageUrl}`);
+  }
+
+  protected async sendFileMessage(
+    _target: string,
+    _filePath: string
+  ): Promise<SendResult> {
+    return { success: false, error: 'WhatsApp: sendFile 未实现' };
+  }
+
+  async sendTemplateMessage(
+    target: string,
+    templateName: string,
+    languageCode: string = 'en'
+  ): Promise<boolean> {
+    this.eventBus.emit('template_sent', {
+      to: target,
+      templateName,
+      languageCode,
+    });
+    return true;
+  }
+
+  handleIncomingMessage(message: WhatsAppMessage): void {
+    this.eventBus.emit('message_received', {
+      from: message.from,
+      type: message.type,
+      text: message.text?.body,
+      messageId: message.id,
+    });
+  }
+}
+
 export const whatsAppChannel = new WhatsAppChannel();
 
 export function createWhatsAppChannel(): IChannelPlugin {
-  return {
-    id: 'whatsapp',
-    meta: WHATSAPP_META,
-    capabilities: WHATSAPP_CAPABILITIES,
-
-    config: {
-      validate(c: Record<string, unknown>) {
-        const errors: string[] = [];
-        if (!c['phoneNumberId']) errors.push('缺少 phoneNumberId');
-        if (!c['accessToken']) errors.push('缺少 accessToken');
-        return { valid: errors.length === 0, errors };
-      },
-      getDefaultConfig() {
-        return {
-          enabled: false,
-          phoneNumberId: '',
-          accessToken: '',
-          verifyToken: '',
-          businessAccountId: '',
-        };
-      },
-    },
-
-    lifecycle: {
-      async connect(): Promise<void> {
-        await whatsAppChannel.connect();
-      },
-      async disconnect(): Promise<void> {
-        await whatsAppChannel.disconnect();
-      },
-      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
-        return { healthy: whatsAppChannel['connected'], latencyMs: 0 };
-      },
-      getStatus(): ChannelStatus {
-        return {
-          connected: whatsAppChannel['connected'],
-          latencyMs: 0,
-          lastMessageAt: null,
-          uptimeMs: 0,
-        };
-      },
-    },
-
-    outbound: {
-      async sendText(target: string, content: string): Promise<SendResult> {
-        try {
-          await whatsAppChannel.sendMessage(target, content);
-          return { success: true };
-        } catch (e) {
-          return { success: false, error: String(e) };
-        }
-      },
-      async sendMarkdown(target: string, content: string): Promise<SendResult> {
-        return this.sendText(target, content);
-      },
-      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
-        return this.sendText(target, `[图片] ${imageUrl}`);
-      },
-      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
-        return { success: false, error: 'WhatsApp: sendFile 未实现' };
-      },
-      async sendInteractive(
-        target: string,
-        _card: InteractiveCard
-      ): Promise<SendResult> {
-        return { success: false, error: 'WhatsApp: sendInteractive 未实现' };
-      },
-    },
-
-    security: {
-      dmPolicy: 'open',
-      pairingCodeTimeoutMs: 300000,
-      maxPairingAttempts: 3,
-      async resolveSender(
-        sender: Record<string, unknown>
-      ): Promise<ResolvedSender> {
-        return {
-          userId: (sender['userId'] as string) || 'unknown',
-          displayName: (sender['senderName'] as string) || 'Unknown',
-          isApproved: true,
-        };
-      },
-      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
-        return { allowed: true };
-      },
-    },
-  };
+  return whatsAppChannel;
 }
 
-export const whatsAppChannelPlugin = createWhatsAppChannel();
+export const whatsAppChannelPlugin = whatsAppChannel;

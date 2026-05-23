@@ -14,7 +14,9 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { logger } from '@modules/utils/log';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * Mailbox消息类型

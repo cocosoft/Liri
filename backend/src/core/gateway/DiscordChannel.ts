@@ -1,5 +1,7 @@
 /**
  * DiscordChannel — Discord 通道适配器（企业版）
+ * @deprecated 请使用 channels/discord/ 下的 IChannelPlugin 实现
+ *             core/gateway/ 体系后续将统一收敛到 channels/ 体系
  * 使用 Discord Gateway + REST API 接收/发送消息
  */
 

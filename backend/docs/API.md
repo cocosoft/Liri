@@ -134,7 +134,7 @@ const session = chatService.createSession({
   model: 'gpt-3.5-turbo',
   temperature: 0.7,
   maxTokens: 1000,
-  systemPrompt: 'You are a helpful assistant.',
+  systemPrompt: '你是一个有用的助手。',
   historyLimit: 100,
   autoSave: true
 });
@@ -144,11 +144,11 @@ const session = chatService.createSession({
 
 ```typescript
 // 基本发送
-const response = await session.sendMessage('Hello, how are you?');
+const response = await session.sendMessage('你好，你是谁？');
 console.log(response.message.content);
 
 // 流式发送
-const stream = session.streamMessage('Write a poem about AI');
+const stream = session.streamMessage('写一首关于AI的诗');
 
 for await (const chunk of stream) {
   process.stdout.write(chunk.message.content);

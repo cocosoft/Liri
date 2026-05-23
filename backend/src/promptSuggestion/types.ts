@@ -1,6 +1,5 @@
 /**
  * Prompt Suggestion类型定义
- * 基于CC源码设计
  */
 
 export type PromptVariant = 'user_intent' | 'stated_intent';
@@ -56,7 +55,7 @@ export const DEFAULT_SUGGESTION_CONFIG: SuggestionConfig = {
   speculation_enabled: true,
 };
 
-export const SUGGESTION_PROMPT = `[SUGGESTION MODE: Suggest what the user might naturally type next into Claude Code.]
+export const SUGGESTION_PROMPT = `[SUGGESTION MODE: Suggest what the user might naturally type next into PY_APP.]
 
 FIRST: Look at the user's recent messages and original request.
 
@@ -67,8 +66,8 @@ THE TEST: Would they think "I was just about to type that"?
 EXAMPLES:
 User asked "fix the bug and run tests", bug is fixed → "run the tests"
 After code written → "try it out"
-Claude offers options → suggest the one the user would likely pick, based on conversation
-Claude asks to continue → "yes" or "go ahead"
+PY_APP offers options → suggest the one the user would likely pick, based on conversation
+PY_APP asks to continue → "yes" or "go ahead"
 Task complete, obvious follow-up → "commit this" or "push it"
 After error or misunderstanding → silence (let them assess/correct)
 
@@ -77,7 +76,7 @@ Be specific: "run the tests" beats "continue".
 NEVER SUGGEST:
 - Evaluative ("looks good", "thanks")
 - Questions ("what about...?")
-- Claude-voice ("Let me...", "I'll...", "Here's...")
+- PY_APP-voice ("Let me...", "I'll...", "Here's...")
 - New ideas they didn't ask about
 - Multiple sentences
 

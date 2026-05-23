@@ -1,8 +1,6 @@
 /**
  * AgentTool - 创建子代理执行任务
  *
- * 参考CC源码实现: cc_code/backend/tools/AgentTool/AgentTool.tsx
- *
  * 功能:
  * - 创建子代理执行复杂任务
  * - 完整的查询循环（多轮工具调用）

@@ -70,7 +70,7 @@ export function DANGEROUS_uncachedSystemPromptSection(
 /** 默认注册的所有段落 */
 const DEFAULT_SECTIONS: SystemPromptSection[] = [
   systemPromptSection('identity', () => {
-    return `## Identity\n\nYou are PY_APP, a powerful AI coding assistant.\nYou are NOT Claude, NOT Anthropic, and NOT any other AI assistant.\nYour identity is PY_APP — never claim to be Claude, Anthropic, or any other assistant.\nWhen asked to introduce yourself, always say you are PY_APP.`;
+    return `## 身份\n\n你是 PY_APP，一个强大的AI编程助手。\n你不是Claude，不是Anthropic，也不是任何其他AI助手。\n你的身份是 PY_APP——绝不自称为Claude、Anthropic或任何其他助手。\n当被要求自我介绍时，始终回答你是 PY_APP。`;
   }),
 
   systemPromptSection('personality', () => {
@@ -82,7 +82,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
   }),
 
   systemPromptSection('toolUse', () => {
-    return `## Tool Use\n\nYou have access to a set of tools that allow you to interact with the user's system.\nUse these tools to help the user accomplish their tasks.\n\nWhen making changes to files:\n- Use the available tools to read files before editing them\n- Make surgical, minimal changes\n- Do not add comments unless explicitly asked\n\nWhen executing commands:\n- Explain what you're about to do\n- Wait for user confirmation when necessary\n- Report results clearly`;
+    return `## 工具使用\n\n你可以使用一系列工具与用户的系统进行交互。\n使用这些工具帮助用户完成任务。\n\n修改文件时：\n- 使用可用工具先读取文件再编辑\n- 做精准、最小化的修改\n- 除非明确要求，否则不添加注释\n\n执行命令时：\n- 先说明你要做什么\n- 必要时等待用户确认\n- 清晰地报告结果`;
   }),
 
   DANGEROUS_uncachedSystemPromptSection(
@@ -91,7 +91,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       const cwd = process.cwd();
       const agentsContent = readAgentsMd(cwd);
       if (!agentsContent) return null;
-      return `## Project Rules\n\n${agentsContent}`;
+      return `## 项目规则\n\n${agentsContent}`;
     },
     'AGENTS.md is a workspace file that may change independently of the conversation'
   ),
@@ -102,7 +102,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       const cwd = process.cwd();
       const toolsContent = readToolsMd(cwd);
       if (!toolsContent) return null;
-      return `## Tool Conventions\n\n${toolsContent}`;
+      return `## 工具约定\n\n${toolsContent}`;
     },
     'TOOLS.md is a workspace file that may change independently of the conversation'
   ),
@@ -119,7 +119,7 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       const summaries = result.summaries
         .map((s, i) => `${i + 1}. ${s}`)
         .join('\n');
-      return `## Memory Context\n\nUser has memories about:\n${summaries}`;
+      return `## 记忆上下文\n\n用户有以下相关记忆：\n${summaries}`;
     },
     'Memory summaries change as new memories are created'
   ),

@@ -3,6 +3,15 @@
  * 对标 OpenClaw 的 IRC 支持
  */
 import { EventEmitter } from 'node:events';
+import type {
+  IChannelPlugin,
+  ChannelMeta,
+  ChannelCapabilities,
+  ChannelStatus,
+  SendResult,
+  InteractiveCard,
+  ResolvedSender,
+} from '@modules/channels/types';
 
 /**
  * IRC 配置
@@ -131,3 +140,122 @@ export class IrcChannel extends EventEmitter {
 }
 
 export const ircChannel = new IrcChannel();
+
+const IRC_META: ChannelMeta = {
+  id: 'irc',
+  displayName: 'IRC',
+  vendor: 'IRC',
+  vendorSite: 'https://ircv3.net',
+  icon: 'irc',
+  markdownCapable: false,
+  maxMessageLength: 512,
+  supportedMessageTypes: ['text'],
+};
+
+const IRC_CAPABILITIES: ChannelCapabilities = {
+  directMessage: true,
+  groupMessage: true,
+  groupMention: true,
+  threading: false,
+  reactions: false,
+  interactive: false,
+  voiceCall: false,
+  fileUpload: false,
+  imageMessage: false,
+  webhook: false,
+};
+
+export function createIrcChannel(): IChannelPlugin {
+  return {
+    id: 'irc',
+    meta: IRC_META,
+    capabilities: IRC_CAPABILITIES,
+
+    config: {
+      validate(c: Record<string, unknown>) {
+        const errors: string[] = [];
+        if (!c['server']) errors.push('缺少 server');
+        if (!c['nickname']) errors.push('缺少 nickname');
+        return { valid: errors.length === 0, errors };
+      },
+      getDefaultConfig() {
+        return {
+          server: '',
+          port: 6667,
+          nickname: 'py_app_bot',
+          channels: [],
+          tls: false,
+        };
+      },
+    },
+
+    lifecycle: {
+      async connect(): Promise<void> {
+        await ircChannel.connect();
+      },
+      async disconnect(): Promise<void> {
+        await ircChannel.disconnect();
+      },
+      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
+        return { healthy: ircChannel['connected'], latencyMs: 0 };
+      },
+      getStatus(): ChannelStatus {
+        return {
+          connected: ircChannel['connected'],
+          latencyMs: 0,
+          lastMessageAt: null,
+          uptimeMs: 0,
+        };
+      },
+    },
+
+    outbound: {
+      async sendText(target: string, content: string): Promise<SendResult> {
+        try {
+          await ircChannel.sendMessage(target, content);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+      async sendMarkdown(
+        _target: string,
+        _content: string
+      ): Promise<SendResult> {
+        return { success: false, error: 'IRC: 不支持 Markdown' };
+      },
+      async sendImage(_target: string, _imageUrl: string): Promise<SendResult> {
+        return { success: false, error: 'IRC: 不支持图片' };
+      },
+      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
+        return { success: false, error: 'IRC: 不支持文件' };
+      },
+      async sendInteractive(
+        _target: string,
+        _card: InteractiveCard
+      ): Promise<SendResult> {
+        return { success: false, error: 'IRC: 不支持交互卡片' };
+      },
+    },
+
+    security: {
+      dmPolicy: 'open',
+      pairingCodeTimeoutMs: 300000,
+      maxPairingAttempts: 3,
+      async resolveSender(
+        sender: Record<string, unknown>
+      ): Promise<ResolvedSender> {
+        return {
+          userId: (sender['nickname'] as string) || 'unknown',
+          displayName: (sender['nickname'] as string) || 'unknown',
+          isApproved: true,
+        };
+      },
+      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
+        return { allowed: true };
+      },
+    },
+  };
+}
+
+export const ircChannelPlugin = createIrcChannel();

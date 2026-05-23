@@ -100,7 +100,7 @@ function renderMessages(context: CommandContext): string {
   }
 
   for (const msg of messages) {
-    const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'Claude';
+    const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'PY_APP';
     lines.push(`[${role}]`);
 
     if (typeof msg.content === 'string') {

@@ -102,7 +102,7 @@ function renderShareContent(context: CommandContext): string {
   }
 
   for (const msg of messages) {
-    const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'Claude';
+    const role = msg.type === 'user' || msg.role === 'user' ? '用户' : 'PY_APP';
     const content = extractTextFromContent(msg.content);
 
     if (content.trim()) {

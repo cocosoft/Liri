@@ -3,9 +3,6 @@
  *
  * 当不指定 subagent_type 时触发隐式 fork：
  * 子代理继承父代理的完整对话上下文和系统提示词。
- *
- * 参考：cc_code/backend/tools/AgentTool/forkSubagent.ts
- *      cc_code/backend/utils/forkedAgent.ts
  */
 
 import { randomUUID } from 'crypto';

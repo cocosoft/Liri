@@ -3,6 +3,15 @@
  * 对标 Hermes 的 Email 通道实现
  */
 import { EventEmitter } from 'node:events';
+import type {
+  IChannelPlugin,
+  ChannelMeta,
+  ChannelCapabilities,
+  ChannelStatus,
+  SendResult,
+  InteractiveCard,
+  ResolvedSender,
+} from '@modules/channels/types';
 
 /**
  * Email 配置
@@ -149,3 +158,135 @@ export class EmailChannel extends EventEmitter {
     };
   }
 }
+
+export const emailChannel = new EmailChannel();
+
+const EMAIL_META: ChannelMeta = {
+  id: 'email',
+  displayName: 'Email',
+  vendor: 'SMTP',
+  vendorSite: '',
+  icon: 'email',
+  markdownCapable: true,
+  maxMessageLength: 100000,
+  supportedMessageTypes: ['text', 'markdown', 'file'],
+};
+
+const EMAIL_CAPABILITIES: ChannelCapabilities = {
+  directMessage: true,
+  groupMessage: false,
+  groupMention: false,
+  threading: false,
+  reactions: false,
+  interactive: false,
+  voiceCall: false,
+  fileUpload: true,
+  imageMessage: true,
+  webhook: false,
+};
+
+export function createEmailChannel(): IChannelPlugin {
+  return {
+    id: 'email',
+    meta: EMAIL_META,
+    capabilities: EMAIL_CAPABILITIES,
+
+    config: {
+      validate(c: Record<string, unknown>) {
+        const errors: string[] = [];
+        if (!c['host']) errors.push('缺少 host');
+        if (!c['user']) errors.push('缺少 user');
+        if (!c['pass']) errors.push('缺少 pass');
+        return { valid: errors.length === 0, errors };
+      },
+      getDefaultConfig() {
+        return {
+          host: '',
+          port: 587,
+          secure: false,
+          user: '',
+          pass: '',
+          fromAddress: '',
+          fromName: 'PY_APP',
+        };
+      },
+    },
+
+    lifecycle: {
+      async connect(): Promise<void> {
+        await emailChannel.connect();
+      },
+      async disconnect(): Promise<void> {
+        await emailChannel.disconnect();
+      },
+      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
+        return { healthy: emailChannel['connected'], latencyMs: 0 };
+      },
+      getStatus(): ChannelStatus {
+        return {
+          connected: emailChannel['connected'],
+          latencyMs: 0,
+          lastMessageAt: null,
+          uptimeMs: 0,
+        };
+      },
+    },
+
+    outbound: {
+      async sendText(target: string, content: string): Promise<SendResult> {
+        try {
+          await emailChannel.sendMessage(target, content);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+      async sendMarkdown(target: string, content: string): Promise<SendResult> {
+        try {
+          await emailChannel.sendHtml(target, 'PY_APP 消息', content);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
+        return this.sendText(target, `[图片] ${imageUrl}`);
+      },
+      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
+        return { success: false, error: 'Email: sendFile 未实现' };
+      },
+      async sendInteractive(
+        target: string,
+        card: InteractiveCard
+      ): Promise<SendResult> {
+        const html = `<h3>${card.title}</h3><p>${card.content}</p>`;
+        try {
+          await emailChannel.sendHtml(target, card.title, html);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+    },
+
+    security: {
+      dmPolicy: 'open',
+      pairingCodeTimeoutMs: 300000,
+      maxPairingAttempts: 3,
+      async resolveSender(
+        sender: Record<string, unknown>
+      ): Promise<ResolvedSender> {
+        return {
+          userId: (sender['to'] as string) || 'unknown',
+          displayName: (sender['to'] as string) || 'unknown',
+          isApproved: true,
+        };
+      },
+      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
+        return { allowed: true };
+      },
+    },
+  };
+}
+
+export const emailChannelPlugin = createEmailChannel();

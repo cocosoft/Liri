@@ -3,6 +3,15 @@
  * 对标 Hermes 的 SMS 通道实现
  */
 import { EventEmitter } from 'node:events';
+import type {
+  IChannelPlugin,
+  ChannelMeta,
+  ChannelCapabilities,
+  ChannelStatus,
+  SendResult,
+  InteractiveCard,
+  ResolvedSender,
+} from '@modules/channels/types';
 
 /**
  * SMS 配置
@@ -131,3 +140,126 @@ export class SmsChannel extends EventEmitter {
     };
   }
 }
+
+export const smsChannel = new SmsChannel();
+
+const SMS_META: ChannelMeta = {
+  id: 'sms',
+  displayName: 'SMS',
+  vendor: 'SMS',
+  vendorSite: '',
+  icon: 'sms',
+  markdownCapable: false,
+  maxMessageLength: 160,
+  supportedMessageTypes: ['text'],
+};
+
+const SMS_CAPABILITIES: ChannelCapabilities = {
+  directMessage: true,
+  groupMessage: false,
+  groupMention: false,
+  threading: false,
+  reactions: false,
+  interactive: false,
+  voiceCall: false,
+  fileUpload: false,
+  imageMessage: false,
+  webhook: false,
+};
+
+export function createSmsChannel(): IChannelPlugin {
+  return {
+    id: 'sms',
+    meta: SMS_META,
+    capabilities: SMS_CAPABILITIES,
+
+    config: {
+      validate(c: Record<string, unknown>) {
+        const errors: string[] = [];
+        if (!c['fromNumber']) errors.push('缺少 fromNumber');
+        return { valid: errors.length === 0, errors };
+      },
+      getDefaultConfig() {
+        return {
+          provider: 'custom',
+          fromNumber: '',
+          accountSid: '',
+          authToken: '',
+          apiKey: '',
+          apiSecret: '',
+          maxRetries: 3,
+          timeout: 10000,
+        };
+      },
+    },
+
+    lifecycle: {
+      async connect(): Promise<void> {
+        await smsChannel.connect();
+      },
+      async disconnect(): Promise<void> {
+        await smsChannel.disconnect();
+      },
+      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
+        return { healthy: smsChannel['connected'], latencyMs: 0 };
+      },
+      getStatus(): ChannelStatus {
+        return {
+          connected: smsChannel['connected'],
+          latencyMs: 0,
+          lastMessageAt: null,
+          uptimeMs: 0,
+        };
+      },
+    },
+
+    outbound: {
+      async sendText(target: string, content: string): Promise<SendResult> {
+        try {
+          await smsChannel.sendMessage(target, content);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+      async sendMarkdown(
+        _target: string,
+        _content: string
+      ): Promise<SendResult> {
+        return { success: false, error: 'SMS: 不支持 Markdown' };
+      },
+      async sendImage(_target: string, _imageUrl: string): Promise<SendResult> {
+        return { success: false, error: 'SMS: 不支持图片' };
+      },
+      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
+        return { success: false, error: 'SMS: 不支持文件' };
+      },
+      async sendInteractive(
+        _target: string,
+        _card: InteractiveCard
+      ): Promise<SendResult> {
+        return { success: false, error: 'SMS: 不支持交互卡片' };
+      },
+    },
+
+    security: {
+      dmPolicy: 'open',
+      pairingCodeTimeoutMs: 300000,
+      maxPairingAttempts: 3,
+      async resolveSender(
+        sender: Record<string, unknown>
+      ): Promise<ResolvedSender> {
+        return {
+          userId: (sender['to'] as string) || 'unknown',
+          displayName: (sender['to'] as string) || 'unknown',
+          isApproved: true,
+        };
+      },
+      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
+        return { allowed: true };
+      },
+    },
+  };
+}
+
+export const smsChannelPlugin = createSmsChannel();

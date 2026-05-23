@@ -38,15 +38,6 @@ export { setupGatewayFromConfig } from './GatewaySetup';
 
 export type { GatewaySetupResult } from './GatewaySetup';
 
-export { GatewayServer } from './GatewayServer';
-
-export type {
-  GatewayServerConfig,
-  GatewayClient,
-  GatewayStats,
-  GatewayEvent,
-} from './GatewayServer';
-
 export { HealthMonitor } from './HealthMonitor';
 
 export type {
@@ -73,9 +64,6 @@ export type {
 } from './RateLimiter';
 
 export { GatewayAuth } from './auth/GatewayAuth';
-export { TokenAuth } from './auth/TokenAuth';
-export { DeviceAuth } from './auth/DeviceAuth';
-export { OAuthAuth } from './auth/OAuthAuth';
 
 export type {
   AuthResult,
@@ -83,14 +71,6 @@ export type {
   GatewayAuthenticator,
   AuthConfig,
 } from './auth/GatewayAuth';
-export type { TokenAuthConfig, TokenUserInfo } from './auth/TokenAuth';
-export type { DeviceAuthConfig, PendingDeviceCode } from './auth/DeviceAuth';
-export type {
-  OAuthAuthConfig,
-  OAuthClientConfig,
-  OAuthTokenResponse,
-  OAuthClientRegistration,
-} from './auth/OAuthAuth';
 
 export {
   createRequestFrame,
@@ -136,10 +116,3 @@ export type {
   McpCallRequest,
   McpCallResponse,
 } from './mcp/GatewayMcpBridge.js';
-
-export { ControlUI } from './control-ui/ControlUI.js';
-export type {
-  ControlUIConfig,
-  DashboardMetrics,
-  DashboardPage,
-} from './control-ui/ControlUI.js';

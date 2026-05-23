@@ -108,8 +108,14 @@ import {
   createReviewAssignTool,
   createCodeReviewTool,
 } from './ExpansionTools';
-import { createChannelManagerTool } from './ChannelManagerTool/ChannelManagerTool';
-import { createBroadcastTool } from './BroadcastTool/BroadcastTool';
+import {
+  ChannelManagerTool,
+  createChannelManagerTool,
+} from './ChannelManagerTool/ChannelManagerTool';
+import {
+  BroadcastTool,
+  createBroadcastTool,
+} from './BroadcastTool/BroadcastTool';
 
 interface ToolDefinitionInput {
   name: string;
@@ -888,6 +894,27 @@ export class ToolFactory {
    */
   createCanvasTool(): Tool {
     return new CanvasTool();
+  }
+
+  /**
+   * 创建网关管理工具
+   */
+  createGatewayTool(): Tool {
+    return new GatewayTool();
+  }
+
+  /**
+   * 创建频道管理器工具
+   */
+  createChannelManagerTool(): Tool {
+    return new ChannelManagerTool();
+  }
+
+  /**
+   * 创建广播工具
+   */
+  createBroadcastTool(): Tool {
+    return new BroadcastTool();
   }
 }
 

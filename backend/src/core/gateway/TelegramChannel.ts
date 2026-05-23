@@ -1,5 +1,7 @@
 /**
  * TelegramChannel — Telegram Bot 通道适配器
+ * @deprecated 请使用 channels/telegram/ 下的 IChannelPlugin 实现
+ *             core/gateway/ 体系后续将统一收敛到 channels/ 体系
  * 使用 Node.js 内置 https 模块通过长轮询接收/发送消息
  */
 

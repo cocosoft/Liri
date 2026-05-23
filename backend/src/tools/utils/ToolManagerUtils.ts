@@ -213,6 +213,11 @@ export const builtinToolLoaders: ToolLoader[] = [
     coreFeature('WORKTREE'),
     createToolLoader(ToolFactory.prototype.createExitWorktreeTool)
   ),
+
+  // 通道/网关工具
+  createToolLoader(ToolFactory.prototype.createGatewayTool),
+  createToolLoader(ToolFactory.prototype.createChannelManagerTool),
+  createToolLoader(ToolFactory.prototype.createBroadcastTool),
 ];
 
 /**

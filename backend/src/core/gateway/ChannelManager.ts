@@ -27,6 +27,8 @@ import { GatewayAuth } from './auth/GatewayAuth';
 import { ChannelPluginRegistry } from './ChannelPluginRegistry';
 import { isChannelPlugin } from './ChannelPlugin';
 import type { ChannelPlugin } from './ChannelPlugin';
+import { channelRegistry } from '../../channels/registry/ChannelRegistry';
+import type { ChannelInterface } from '../../channels/registry/ChannelRegistry';
 const rawLogger = new Logger({ level: LogLevel.INFO });
 
 class RedactedLogger {
@@ -195,6 +197,15 @@ export class ChannelManager extends EventEmitter {
       `ChannelManager: 通道已注册 — ${channel.name} (${channel.type})`
     );
     this.emit(ChannelEvent.STATE_CHANGE, channel.name, channel.status);
+
+    // 同步到 ChannelRegistry，确保工具和 /channel 命令可访问
+    try {
+      channelRegistry.register(this.adaptToChannelInterface(channel));
+    } catch (error) {
+      logger.warning(
+        `ChannelManager: 同步到 ChannelRegistry 失败 — ${channel.name} (${error instanceof Error ? error.message : String(error)})`
+      );
+    }
   }
 
   /**
@@ -512,6 +523,43 @@ export class ChannelManager extends EventEmitter {
           maxAttempts
         );
       },
+    };
+  }
+
+  /**
+   * 将 GatewayChannel 适配为 ChannelInterface，用于同步到 ChannelRegistry
+   */
+  private adaptToChannelInterface(channel: GatewayChannel): ChannelInterface {
+    return {
+      name: channel.name,
+      type: channel.type,
+      enabled: true,
+      get connected() {
+        return channel.isConnected();
+      },
+      connect: async () => {
+        try {
+          await channel.connect();
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      disconnect: async () => {
+        await channel.disconnect();
+      },
+      sendMessage: async (_target: string, text: string) => {
+        return channel.send({
+          content: text,
+          sessionId: _target,
+          recipient: _target,
+        });
+      },
+      getStatus: () => ({
+        status: channel.status,
+        connected: channel.isConnected(),
+        stats: channel.stats,
+      }),
     };
   }
 

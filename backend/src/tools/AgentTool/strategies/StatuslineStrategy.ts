@@ -1,8 +1,6 @@
 /**
  * StatuslineSetup 策略定义
  *
- * 参考: cc_code/backend/tools/AgentTool/built-in/statuslineSetup.ts
- *
  * 状态栏设置代理的核心职责:
  * - 读取用户的 shell 配置文件（~/.zshrc, ~/.bashrc 等）
  * - 提取并转换 PS1 配置为 statusLine 命令

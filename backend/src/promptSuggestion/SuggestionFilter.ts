@@ -133,7 +133,7 @@ export function shouldFilterSuggestion(
         ),
     ],
     [
-      'claude_voice',
+      'pyapp_voice',
       () =>
         /^(let me|i'll|i've|i'm|i can|i would|i think|i notice|here's|here is|here are|that's|this is|this will|you can|you should|you could|sure,|of course|certainly)/i.test(
           suggestion
@@ -178,7 +178,7 @@ export function getFilterRuleDescriptions(): Array<{
     { rule: 'multiple_sentences', description: '过滤多个句子的输入' },
     { rule: 'has_formatting', description: '过滤包含格式字符的输入' },
     { rule: 'evaluative', description: '过滤评价性文本如"thanks"' },
-    { rule: 'claude_voice', description: '过滤AI语气文本如"Let me..."' },
+    { rule: 'pyapp_voice', description: '过滤AI语气文本如"Let me..."' },
   ];
 }
 
@@ -192,7 +192,7 @@ export function isAllowedSingleWord(word: string): boolean {
 /**
  * 检查建议是否包含AI语气
  */
-export function hasClaudeVoice(suggestion: string): boolean {
+export function hasPyAppVoice(suggestion: string): boolean {
   const lower = suggestion.toLowerCase();
   return /^(let me|i'll|i've|i'm|i can|i would|i think|i notice|here's|here is|here are|that's|this is|this will|you can|you should|you could|sure,|of course|certainly)/i.test(
     lower

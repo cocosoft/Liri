@@ -1,6 +1,5 @@
 /**
  * AI模型类型定义（整合llm/types.ts）
- * 参考CC源码: cc_code/backend/utils/model/types.ts
  */
 
 export enum AIModelType {

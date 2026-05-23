@@ -3,6 +3,15 @@
  * 对标 Google Workspace Chat API
  */
 import { EventEmitter } from 'node:events';
+import type {
+  IChannelPlugin,
+  ChannelMeta,
+  ChannelCapabilities,
+  ChannelStatus,
+  SendResult,
+  InteractiveCard,
+  ResolvedSender,
+} from '@modules/channels/types';
 
 /**
  * Google Chat 配置
@@ -99,3 +108,120 @@ export class GoogleChatChannel extends EventEmitter {
     return true;
   }
 }
+
+const GOOGLECHAT_META: ChannelMeta = {
+  id: 'googlechat',
+  displayName: 'Google Chat',
+  vendor: 'Google',
+  vendorSite: 'https://chat.google.com',
+  icon: '💬',
+  markdownCapable: true,
+  maxMessageLength: 4096,
+  supportedMessageTypes: ['text', 'markdown', 'card'],
+};
+
+const GOOGLECHAT_CAPABILITIES: ChannelCapabilities = {
+  directMessage: true,
+  groupMessage: true,
+  groupMention: true,
+  threading: true,
+  reactions: false,
+  interactive: true,
+  voiceCall: false,
+  fileUpload: true,
+  imageMessage: true,
+  webhook: true,
+};
+
+export const googleChatChannel = new GoogleChatChannel();
+
+export function createGoogleChatChannel(): IChannelPlugin {
+  return {
+    id: 'googlechat',
+    meta: GOOGLECHAT_META,
+    capabilities: GOOGLECHAT_CAPABILITIES,
+
+    config: {
+      validate(c: Record<string, unknown>) {
+        const errors: string[] = [];
+        if (!c['spaceIds']) errors.push('缺少 spaceIds');
+        return { valid: errors.length === 0, errors };
+      },
+      getDefaultConfig() {
+        return {
+          enabled: false,
+          serviceAccountKey: '',
+          spaceIds: [],
+          webhookUrls: [],
+          apiEndpoint: 'https://chat.googleapis.com',
+        };
+      },
+    },
+
+    lifecycle: {
+      async connect(): Promise<void> {
+        await googleChatChannel.connect();
+      },
+      async disconnect(): Promise<void> {
+        await googleChatChannel.disconnect();
+      },
+      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
+        return { healthy: googleChatChannel['connected'], latencyMs: 0 };
+      },
+      getStatus(): ChannelStatus {
+        return {
+          connected: googleChatChannel['connected'],
+          latencyMs: 0,
+          lastMessageAt: null,
+          uptimeMs: 0,
+        };
+      },
+    },
+
+    outbound: {
+      async sendText(target: string, content: string): Promise<SendResult> {
+        try {
+          await googleChatChannel.sendMessage(target, content);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+      async sendMarkdown(target: string, content: string): Promise<SendResult> {
+        return this.sendText(target, content);
+      },
+      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
+        return this.sendText(target, `[图片] ${imageUrl}`);
+      },
+      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
+        return { success: false, error: 'GoogleChat: sendFile 未实现' };
+      },
+      async sendInteractive(
+        target: string,
+        _card: InteractiveCard
+      ): Promise<SendResult> {
+        return { success: false, error: 'GoogleChat: sendInteractive 未实现' };
+      },
+    },
+
+    security: {
+      dmPolicy: 'open',
+      pairingCodeTimeoutMs: 300000,
+      maxPairingAttempts: 3,
+      async resolveSender(
+        sender: Record<string, unknown>
+      ): Promise<ResolvedSender> {
+        return {
+          userId: (sender['userId'] as string) || 'unknown',
+          displayName: (sender['senderName'] as string) || 'Unknown',
+          isApproved: true,
+        };
+      },
+      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
+        return { allowed: true };
+      },
+    },
+  };
+}
+
+export const googleChatChannelPlugin = createGoogleChatChannel();

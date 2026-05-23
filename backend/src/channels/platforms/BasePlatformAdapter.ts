@@ -1,5 +1,11 @@
 /**
  * BasePlatformAdapter 平台适配器基类
+ *
+ * @deprecated 请迁移至新的 EventEmitter + IChannelPlugin 工厂模式。
+ *   新通道应直接 extends EventEmitter 并实现 IChannelPlugin 工厂函数，
+ *   参考 channels/googlechat/GoogleChatChannel.ts 的实现方式。
+ *   该基类将在未来版本中移除。
+ *
  * 对标 Hermes gateway/ 的 BasePlatformAdapter
  * 统一 5 个国产平台的通用逻辑，减少重复代码
  * 实现 IChannelPlugin 契约，可直接被 ChannelPluginRegistry 使用

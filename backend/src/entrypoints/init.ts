@@ -229,6 +229,22 @@ export async function init(): Promise<void> {
             logger.warning('Gateway 通道自动启动失败', { error: setupError });
           }
 
+          // 同步通道到 ChannelRegistry，确保工具和 /channel 命令可访问
+          try {
+            const { setupChannelsFromConfig } =
+              await import('../channels/setupChannels.js');
+            const channelResult = await setupChannelsFromConfig();
+            if (channelResult.registered > 0) {
+              logger.info(
+                `ChannelRegistry 通道同步完成: ${channelResult.registered} 通道已注册`
+              );
+            }
+          } catch (channelError) {
+            logger.warning('ChannelRegistry 同步失败', {
+              error: channelError,
+            });
+          }
+
           // 注册 Gateway 优雅关闭处理
           const { disconnectAllChannels } =
             await import('../core/gateway/index.js');

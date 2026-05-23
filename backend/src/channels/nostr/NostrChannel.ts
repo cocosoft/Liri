@@ -4,6 +4,15 @@
  */
 import { EventEmitter } from 'node:events';
 import crypto from 'node:crypto';
+import type {
+  IChannelPlugin,
+  ChannelMeta,
+  ChannelCapabilities,
+  ChannelStatus,
+  SendResult,
+  InteractiveCard,
+  ResolvedSender,
+} from '@modules/channels/types';
 
 /**
  * Nostr 配置
@@ -116,3 +125,114 @@ export class NostrChannel extends EventEmitter {
 }
 
 export const nostrChannel = new NostrChannel();
+
+const NOSTR_META: ChannelMeta = {
+  id: 'nostr',
+  displayName: 'Nostr',
+  vendor: 'Nostr',
+  vendorSite: 'https://nostr.com',
+  icon: 'nostr',
+  markdownCapable: false,
+  maxMessageLength: 64000,
+  supportedMessageTypes: ['text'],
+};
+
+const NOSTR_CAPABILITIES: ChannelCapabilities = {
+  directMessage: true,
+  groupMessage: false,
+  groupMention: false,
+  threading: false,
+  reactions: false,
+  interactive: false,
+  voiceCall: false,
+  fileUpload: false,
+  imageMessage: false,
+  webhook: false,
+};
+
+export function createNostrChannel(): IChannelPlugin {
+  return {
+    id: 'nostr',
+    meta: NOSTR_META,
+    capabilities: NOSTR_CAPABILITIES,
+
+    config: {
+      validate(c: Record<string, unknown>) {
+        const errors: string[] = [];
+        return { valid: errors.length === 0, errors };
+      },
+      getDefaultConfig() {
+        return { relays: [], privateKey: '', publicKey: '' };
+      },
+    },
+
+    lifecycle: {
+      async connect(): Promise<void> {
+        await nostrChannel.connect();
+      },
+      async disconnect(): Promise<void> {
+        await nostrChannel.disconnect();
+      },
+      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
+        return { healthy: nostrChannel['connected'], latencyMs: 0 };
+      },
+      getStatus(): ChannelStatus {
+        return {
+          connected: nostrChannel['connected'],
+          latencyMs: 0,
+          lastMessageAt: null,
+          uptimeMs: 0,
+        };
+      },
+    },
+
+    outbound: {
+      async sendText(target: string, content: string): Promise<SendResult> {
+        try {
+          await nostrChannel.sendDirectMessage(target, content);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+      async sendMarkdown(
+        _target: string,
+        _content: string
+      ): Promise<SendResult> {
+        return { success: false, error: 'Nostr: 不支持 Markdown' };
+      },
+      async sendImage(_target: string, _imageUrl: string): Promise<SendResult> {
+        return { success: false, error: 'Nostr: 不支持图片' };
+      },
+      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
+        return { success: false, error: 'Nostr: 不支持文件' };
+      },
+      async sendInteractive(
+        _target: string,
+        _card: InteractiveCard
+      ): Promise<SendResult> {
+        return { success: false, error: 'Nostr: 不支持交互卡片' };
+      },
+    },
+
+    security: {
+      dmPolicy: 'open',
+      pairingCodeTimeoutMs: 300000,
+      maxPairingAttempts: 3,
+      async resolveSender(
+        sender: Record<string, unknown>
+      ): Promise<ResolvedSender> {
+        return {
+          userId: (sender['pubkey'] as string) || 'unknown',
+          displayName: (sender['pubkey'] as string) || 'unknown',
+          isApproved: true,
+        };
+      },
+      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
+        return { allowed: true };
+      },
+    },
+  };
+}
+
+export const nostrChannelPlugin = createNostrChannel();

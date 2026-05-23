@@ -11,7 +11,24 @@ export type ChannelId =
   | 'wechat'
   | 'qq'
   | 'telegram'
-  | 'discord';
+  | 'discord'
+  | 'slack'
+  | 'line'
+  | 'irc'
+  | 'nostr'
+  | 'email'
+  | 'sms'
+  | 'webhook'
+  | 'googlechat'
+  | 'msteams'
+  | 'zalo'
+  | 'yuanbao'
+  | 'whatsapp'
+  | 'signal'
+  | 'matrix'
+  | 'facebook'
+  | 'twitter'
+  | 'claude';
 
 export type DmPolicy = 'pairing' | 'allowlist' | 'open';
 

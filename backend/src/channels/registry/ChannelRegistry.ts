@@ -1,11 +1,12 @@
 /**
  * ChannelRegistry 通道注册中心
- * 对标 CC 的通道管理能力
  */
 import { EventEmitter } from 'node:events';
+import type { IChannelPlugin } from '../types/IChannel';
 
 /**
  * 通道接口
+ * @deprecated 过渡接口，新代码请使用 IChannelPlugin
  */
 export interface ChannelInterface {
   name: string;
@@ -30,6 +31,37 @@ export interface ChannelInterface {
     outbound: {
       sendText(target: string, message: string): { success: boolean };
     };
+  };
+}
+
+/**
+ * 将 IChannelPlugin 适配为 ChannelInterface
+ */
+export function adaptPluginToInterface(
+  plugin: IChannelPlugin
+): ChannelInterface {
+  return {
+    name: plugin.id,
+    type: plugin.id,
+    enabled: true,
+    get connected() {
+      return plugin.lifecycle.getStatus().connected;
+    },
+    connect: async () => {
+      await plugin.lifecycle.connect({});
+      return plugin.lifecycle.getStatus().connected;
+    },
+    disconnect: async () => {
+      await plugin.lifecycle.disconnect();
+    },
+    sendMessage: async (_target: string, text: string) => {
+      const result = await plugin.outbound.sendText(_target, text);
+      return result.success;
+    },
+    getStatus: () => ({
+      ...plugin.lifecycle.getStatus(),
+      type: plugin.id,
+    }),
   };
 }
 
@@ -68,18 +100,26 @@ export class ChannelRegistry extends EventEmitter {
   }
 
   /**
-   * 注册通道
+   * 注册通道（支持 ChannelInterface 和 IChannelPlugin）
    */
-  register(channel: ChannelInterface): void {
-    this.channels.set(channel.name, channel);
-    this.configs.set(channel.name, {
-      name: channel.name,
-      type: channel.type,
-      enabled: channel.enabled,
+  register(channel: ChannelInterface | IChannelPlugin): void {
+    let adapted: ChannelInterface;
+
+    if ('lifecycle' in channel && 'outbound' in channel) {
+      adapted = adaptPluginToInterface(channel as IChannelPlugin);
+    } else {
+      adapted = channel as ChannelInterface;
+    }
+
+    this.channels.set(adapted.name, adapted);
+    this.configs.set(adapted.name, {
+      name: adapted.name,
+      type: adapted.type,
+      enabled: adapted.enabled,
       options: {},
     });
 
-    this.emit('channel:registered', { name: channel.name, type: channel.type });
+    this.emit('channel:registered', { name: adapted.name, type: adapted.type });
   }
 
   /**

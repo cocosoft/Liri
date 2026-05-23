@@ -238,12 +238,12 @@ export class HookConfigManager {
       UserPromptSubmit: {
         summary: 'When the user submits a prompt',
         description:
-          'Input to command is JSON with original user prompt text.\nExit code 0 - stdout shown to Claude\nExit code 2 - block processing, erase original prompt, and show stderr to user only\nOther exit codes - show stderr to user only',
+          'Input to command is JSON with original user prompt text.\nExit code 0 - stdout shown to PY_APP\nExit code 2 - block processing, erase original prompt, and show stderr to user only\nOther exit codes - show stderr to user only',
       },
       SessionStart: {
         summary: 'When a new session is started',
         description:
-          'Input to command is JSON with session start source.\nExit code 0 - stdout shown to Claude\nBlocking errors are ignored\nOther exit codes - show stderr to user only',
+          'Input to command is JSON with session start source.\nExit code 0 - stdout shown to PY_APP\nBlocking errors are ignored\nOther exit codes - show stderr to user only',
         matcherMetadata: {
           fieldToMatch: 'source',
           values: ['startup', 'resume', 'clear', 'compact'],
@@ -259,7 +259,7 @@ export class HookConfigManager {
         },
       },
       Stop: {
-        summary: 'Right before Claude concludes its response',
+        summary: 'Right before PY_APP concludes its response',
         description:
           'Exit code 0 - stdout/stderr not shown\nExit code 2 - show stderr to model and continue conversation\nOther exit codes - show stderr to user only',
       },

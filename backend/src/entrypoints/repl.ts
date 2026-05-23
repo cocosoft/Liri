@@ -23,6 +23,8 @@ import { getConfig } from '../config/index.js';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';
 import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
 import { isOfflineMode, isValidApiKey } from '../main.js';
+import { channelRegistry } from '../channels/index.js';
+import { channelBootstrapper } from '../channels/bootstrap/ChannelBootstrapper.js';
 
 const logger = new Logger({
   level: 'info' as unknown as import('../monitoring/logs/Logger').LogLevel,
@@ -158,6 +160,7 @@ export async function launchRepl(
     ui.showSuccess('新用户起步:');
     ui.showInfo('  • "/onboard" — 3 步配置向导（推荐）');
     ui.showInfo('  • "/demo" — 预览对话效果');
+    ui.showInfo('  • "/channel list" — 管理消息通道（QQ/Telegram等）');
     ui.showInfo('  • "/help" — 查看所有命令');
     ui.showInfo('  • "exit" — 退出');
   } else {
@@ -165,6 +168,7 @@ export async function launchRepl(
     console.log();
     ui.showSuccess('试试看:');
     ui.showInfo('  • 直接输入问题开始对话');
+    ui.showInfo('  • "/channel list" — 管理消息通道（QQ/Telegram等）');
     ui.showInfo('  • "/help" — 查看所有命令');
     ui.showInfo('  • "/onboard" — 重新运行配置向导');
     ui.showInfo('  • "exit" — 退出');
@@ -231,6 +235,64 @@ export async function launchRepl(
     ui.showWarning(
       `启动检查失败: ${error instanceof Error ? error.message : String(error)}`
     );
+  }
+
+  // 检测通道状态，提示未连接的通道
+  try {
+    const registeredChannels = channelRegistry.getAll();
+    const availableChannels = [
+      'qq',
+      'telegram',
+      'dingtalk',
+      'feishu',
+      'wechat',
+      'wecom',
+      'discord',
+      'slack',
+      'line',
+      'irc',
+      'nostr',
+      'email',
+      'sms',
+      'webhook',
+      'googlechat',
+      'msteams',
+      'zalo',
+      'yuanbao',
+      'whatsapp',
+      'signal',
+      'matrix',
+      'facebook',
+      'twitter',
+      'claude',
+    ];
+    const unconnectedChannels: string[] = [];
+    for (const channelType of availableChannels) {
+      const factory = channelBootstrapper.getPluginFactory(channelType);
+      if (factory) {
+        const isRegistered = registeredChannels.some(
+          (rc: { type: string }) => rc.type === channelType
+        );
+        if (!isRegistered) {
+          unconnectedChannels.push(channelType);
+        }
+      }
+    }
+    const connectedCount = registeredChannels.length;
+    const factoryCount = availableChannels.filter((t) =>
+      channelBootstrapper.getPluginFactory(t)
+    ).length;
+    if (factoryCount > 0 && connectedCount === 0) {
+      ui.showInfo(`消息通道: ${connectedCount} 已连接 / ${factoryCount} 可用`);
+      ui.showInfo('  • /onboard 的第 4 步可以配置消息通道');
+      ui.showInfo('  • 或运行 /channel list 查看详情');
+      console.log();
+    } else if (unconnectedChannels.length > 0) {
+      ui.showInfo(`消息通道: ${connectedCount} 已连接 / ${factoryCount} 可用`);
+      console.log();
+    }
+  } catch {
+    // 通道检测失败不影响 REPL 启动
   }
 
   console.log();
@@ -444,7 +506,10 @@ export async function launchRepl(
               ui.showInfo(
                 '  配置命令: /config set ai.deepseek.apiKey sk-你的密钥'
               );
-            } else if (error.message.includes('network') || error.message.includes('fetch')) {
+            } else if (
+              error.message.includes('network') ||
+              error.message.includes('fetch')
+            ) {
               ui.showInfo('提示: 网络连接失败，请检查网络');
               ui.showInfo('  如果您已配置 API 密钥，请确保可以访问互联网');
             } else {

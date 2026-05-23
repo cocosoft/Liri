@@ -60,7 +60,10 @@ const DEMO_CONVERSATION = `
 `;
 
 const demoCommand = {
-  async execute(args: string, _context: CommandContext): Promise<CommandResult> {
+  async execute(
+    args: string,
+    _context: CommandContext
+  ): Promise<CommandResult> {
     const cleanArgs = args.trim().toLowerCase();
 
     if (cleanArgs === 'help' || cleanArgs === '--help' || cleanArgs === '-h') {
@@ -70,7 +73,9 @@ const demoCommand = {
     return {
       success: true,
       type: 'text',
-      message: DEMO_CONVERSATION + '\n💡 配置 API 密钥后即可体验真实对话。运行 /onboard 开始配置。',
+      message:
+        DEMO_CONVERSATION +
+        '\n💡 配置 API 密钥后即可体验真实对话。运行 /onboard 开始配置。',
     };
   },
 

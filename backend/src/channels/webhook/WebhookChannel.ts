@@ -4,6 +4,15 @@
  */
 import { EventEmitter } from 'node:events';
 import http from 'node:http';
+import type {
+  IChannelPlugin,
+  ChannelMeta,
+  ChannelCapabilities,
+  ChannelStatus,
+  SendResult,
+  InteractiveCard,
+  ResolvedSender,
+} from '@modules/channels/types';
 
 /**
  * Webhook 配置
@@ -187,3 +196,123 @@ export class WebhookChannel extends EventEmitter {
     };
   }
 }
+
+export const webhookChannel = new WebhookChannel();
+
+const WEBHOOK_META: ChannelMeta = {
+  id: 'webhook',
+  displayName: 'Webhook',
+  vendor: 'Webhook',
+  vendorSite: '',
+  icon: 'webhook',
+  markdownCapable: false,
+  maxMessageLength: 50000,
+  supportedMessageTypes: ['text'],
+};
+
+const WEBHOOK_CAPABILITIES: ChannelCapabilities = {
+  directMessage: false,
+  groupMessage: false,
+  groupMention: false,
+  threading: false,
+  reactions: false,
+  interactive: false,
+  voiceCall: false,
+  fileUpload: false,
+  imageMessage: false,
+  webhook: true,
+};
+
+export function createWebhookChannel(): IChannelPlugin {
+  return {
+    id: 'webhook',
+    meta: WEBHOOK_META,
+    capabilities: WEBHOOK_CAPABILITIES,
+
+    config: {
+      validate(c: Record<string, unknown>) {
+        const errors: string[] = [];
+        if (!c['listenPort']) errors.push('缺少 listenPort');
+        return { valid: errors.length === 0, errors };
+      },
+      getDefaultConfig() {
+        return {
+          listenPort: 9100,
+          listenHost: '0.0.0.0',
+          path: '/webhook',
+          endpoints: [],
+          secret: '',
+        };
+      },
+    },
+
+    lifecycle: {
+      async connect(): Promise<void> {
+        await webhookChannel.connect();
+      },
+      async disconnect(): Promise<void> {
+        await webhookChannel.disconnect();
+      },
+      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
+        return { healthy: webhookChannel['connected'], latencyMs: 0 };
+      },
+      getStatus(): ChannelStatus {
+        return {
+          connected: webhookChannel['connected'],
+          latencyMs: 0,
+          lastMessageAt: null,
+          uptimeMs: 0,
+        };
+      },
+    },
+
+    outbound: {
+      async sendText(target: string, content: string): Promise<SendResult> {
+        try {
+          await webhookChannel.sendMessage(target, content);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+      async sendMarkdown(
+        _target: string,
+        _content: string
+      ): Promise<SendResult> {
+        return { success: false, error: 'Webhook: 不支持 Markdown' };
+      },
+      async sendImage(_target: string, _imageUrl: string): Promise<SendResult> {
+        return { success: false, error: 'Webhook: 不支持图片' };
+      },
+      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
+        return { success: false, error: 'Webhook: 不支持文件' };
+      },
+      async sendInteractive(
+        _target: string,
+        _card: InteractiveCard
+      ): Promise<SendResult> {
+        return { success: false, error: 'Webhook: 不支持交互卡片' };
+      },
+    },
+
+    security: {
+      dmPolicy: 'open',
+      pairingCodeTimeoutMs: 300000,
+      maxPairingAttempts: 3,
+      async resolveSender(
+        sender: Record<string, unknown>
+      ): Promise<ResolvedSender> {
+        return {
+          userId: (sender['url'] as string) || 'unknown',
+          displayName: 'Webhook',
+          isApproved: true,
+        };
+      },
+      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
+        return { allowed: true };
+      },
+    },
+  };
+}
+
+export const webhookChannelPlugin = createWebhookChannel();

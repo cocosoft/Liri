@@ -1,50 +1,13 @@
 /**
  * Gateway 命令
  * 管理消息通道的注册、启停和状态查看
+ * 已统一：list/status 从 ChannelRegistry 获取数据，start/stop/diagnostics 通过 ChannelManager
  */
 import type { Command } from '@modules/commands/types';
 import { getChannelManager } from '../../../core/gateway/ChannelManager';
+import { channelRegistry } from '../../../channels/registry/ChannelRegistry';
 import type { GatewayChannel } from '../../../core/gateway/types';
 import { ChannelStatus } from '../../../core/gateway/types';
-
-/**
- * 格式化通道状态为可读字符串
- */
-function formatChannelStatus(channel: GatewayChannel): string {
-  const statusIcon: Record<string, string> = {
-    [ChannelStatus.CONNECTED]: '✓',
-    [ChannelStatus.DISCONNECTED]: '✗',
-    [ChannelStatus.CONNECTING]: '⟳',
-    [ChannelStatus.ERROR]: '!',
-    [ChannelStatus.IDLE]: '·',
-    [ChannelStatus.STOPPED]: '■',
-  };
-
-  const icon = statusIcon[channel.status] || '?';
-
-  const lines: string[] = [
-    `  ${icon} ${channel.name}`,
-    `    类型: ${channel.type}`,
-    `    状态: ${channel.status}`,
-    `    已连接: ${channel.isConnected() ? '是' : '否'}`,
-  ];
-
-  const stats = channel.stats;
-  if (
-    stats.messagesSent !== undefined ||
-    stats.messagesReceived !== undefined
-  ) {
-    lines.push(
-      `    消息: ${String(stats.messagesSent ?? 0)} 发送 / ${String(stats.messagesReceived ?? 0)} 接收`
-    );
-  }
-
-  if (stats.errors !== undefined) {
-    lines.push(`    错误: ${String(stats.errors ?? 0)}`);
-  }
-
-  return lines.join('\n');
-}
 
 /**
  * 网关命令
@@ -66,42 +29,51 @@ export const gatewayCommand: Command = {
 
       switch (subcommand) {
         case 'list': {
-          const channels = channelManager.listChannels();
+          const registryChannels = channelRegistry.getAll();
 
-          if (channels.length === 0) {
+          if (registryChannels.length === 0) {
             return {
               success: true,
               message: '没有已注册的通道。使用 /gateway start 启动默认通道。',
             };
           }
 
-          const channelList = channels
-            .map(
-              (ch) =>
-                `  ${ch.name} (${ch.type}) — ${ch.status}${ch.isConnected() ? ' ✓' : ''}`
-            )
+          const channelList = registryChannels
+            .map((ch) => {
+              const status = ch.connected ? '✓' : '✗';
+              return `  ${status} ${ch.name} (${ch.type})`;
+            })
             .join('\n');
+
+          const stats = channelRegistry.getStats();
 
           return {
             success: true,
-            message: `已注册通道 (${channels.length}):\n${channelList}`,
+            message: `已注册通道 (${registryChannels.length}, 已启用 ${stats.enabled}):\n${channelList}`,
           };
         }
 
         case 'status': {
-          const status = channelManager.getStatus();
+          const regStats = channelRegistry.getStats();
+          const cmStatus = channelManager.getStatus();
 
           const summary = [
-            `通道管理器状态:`,
-            `  运行中: ${status.isRunning ? '是' : '否'}`,
-            `  总通道数: ${status.totalChannels}`,
-            `  已连接: ${status.connectedChannels}/${status.totalChannels}`,
+            '=== ChannelRegistry ===',
+            `  总通道数: ${regStats.total}`,
+            `  已启用: ${regStats.enabled}`,
+            `  类型分布: ${Object.entries(regStats.types)
+              .map(([t, n]) => `${t}:${n}`)
+              .join(', ')}`,
+            '',
+            '=== ChannelManager ===',
+            `  运行中: ${cmStatus.isRunning ? '是' : '否'}`,
+            `  总通道数: ${cmStatus.totalChannels}`,
+            `  已连接: ${cmStatus.connectedChannels}/${cmStatus.totalChannels}`,
           ];
 
-          if (status.channels.length > 0) {
+          if (cmStatus.channels.length > 0) {
             summary.push('');
-
-            for (const ch of status.channels) {
+            for (const ch of cmStatus.channels) {
               summary.push(
                 `  ${ch.name} — ${ch.status}${ch.connected ? ' ✓' : ''}`
               );
@@ -181,13 +153,14 @@ export const gatewayCommand: Command = {
           const helpMessage = [
             '网关命令用法:',
             '',
-            '/gateway list          - 列出所有已注册通道',
+            '/gateway list          - 列出所有已注册通道（ChannelRegistry）',
             '/gateway status        - 查看通道管理器运行状态',
             '/gateway start [name]  - 启动所有或指定通道',
             '/gateway stop [name]   - 停止所有或指定通道',
             '/gateway diagnostics [name] - 查看通道诊断信息',
             '',
             '别名: /gw, /channels',
+            '注意: /channel 命令也提供类似功能，使用 ChannelRegistry 后端',
             '',
             '示例:',
             '  /gateway list',

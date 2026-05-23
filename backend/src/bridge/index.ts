@@ -79,6 +79,3 @@ export type { TrustedDevice as TrustedDeviceType } from './TrustedDevice';
 
 // 容量管理
 export * from './capacity';
-
-// 安全管理
-export * from './security';

@@ -75,12 +75,12 @@ export class UserContextService {
   }
 
   /**
-   * 查找claude.md文件
+   * 查找py_app.md文件
    * @param startDir 起始目录
-   * @returns claude.md文件路径
+   * @returns py_app.md文件路径
    */
   private async findClaudeMd(startDir: string): Promise<string | null> {
-    const claudeMdNames = ['CLAUDE.md', 'claude.md', 'Claude.md'];
+    const claudeMdNames = ['PY_APP.md', 'py_app.md', 'Py_App.md'];
 
     for (const name of claudeMdNames) {
       const filePath = join(startDir, name);

@@ -38,6 +38,7 @@ const COMMAND_TOPICS: Record<string, { name: string; match: string[] }> = {
   tasks: { name: '任务管理', match: ['task', 'tasks', 'todo', 'todos'] },
   tools: { name: '工具管理', match: ['tools', 'skill', 'skills'] },
   workspace: { name: '工作空间', match: ['workspace', 'project'] },
+  channels: { name: '通道管理', match: ['channel', 'channels'] },
 };
 
 /**

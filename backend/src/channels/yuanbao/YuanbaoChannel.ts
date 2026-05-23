@@ -3,6 +3,15 @@
  * 对标 Tencent 元宝开放平台接口
  */
 import { EventEmitter } from 'node:events';
+import type {
+  IChannelPlugin,
+  ChannelMeta,
+  ChannelCapabilities,
+  ChannelStatus,
+  SendResult,
+  InteractiveCard,
+  ResolvedSender,
+} from '@modules/channels/types';
 
 /**
  * 元宝配置
@@ -108,3 +117,123 @@ export class YuanbaoChannel extends EventEmitter {
     return true;
   }
 }
+
+const YUANBAO_META: ChannelMeta = {
+  id: 'yuanbao',
+  displayName: '元宝',
+  vendor: '腾讯 (Tencent)',
+  vendorSite: 'https://yuanbao.tencent.com',
+  icon: '💬',
+  markdownCapable: true,
+  maxMessageLength: 4096,
+  supportedMessageTypes: ['text', 'markdown'],
+};
+
+const YUANBAO_CAPABILITIES: ChannelCapabilities = {
+  directMessage: true,
+  groupMessage: true,
+  groupMention: true,
+  threading: false,
+  reactions: false,
+  interactive: false,
+  voiceCall: false,
+  fileUpload: true,
+  imageMessage: true,
+  webhook: true,
+};
+
+export const yuanbaoChannel = new YuanbaoChannel();
+
+export function createYuanbaoChannel(): IChannelPlugin {
+  return {
+    id: 'yuanbao',
+    meta: YUANBAO_META,
+    capabilities: YUANBAO_CAPABILITIES,
+
+    config: {
+      validate(c: Record<string, unknown>) {
+        const errors: string[] = [];
+        if (!c['appId']) errors.push('缺少 appId');
+        if (!c['appKey']) errors.push('缺少 appKey');
+        return { valid: errors.length === 0, errors };
+      },
+      getDefaultConfig() {
+        return {
+          enabled: false,
+          appId: '',
+          appKey: '',
+          botId: '',
+          apiBaseUrl: 'https://api.yuanbao.tencent.com',
+          webhookSecret: '',
+          timeout: 10000,
+        };
+      },
+    },
+
+    lifecycle: {
+      async connect(): Promise<void> {
+        await yuanbaoChannel.connect();
+      },
+      async disconnect(): Promise<void> {
+        await yuanbaoChannel.disconnect();
+      },
+      async healthCheck(): Promise<{ healthy: boolean; latencyMs: number }> {
+        return { healthy: yuanbaoChannel['connected'], latencyMs: 0 };
+      },
+      getStatus(): ChannelStatus {
+        return {
+          connected: yuanbaoChannel['connected'],
+          latencyMs: 0,
+          lastMessageAt: null,
+          uptimeMs: 0,
+        };
+      },
+    },
+
+    outbound: {
+      async sendText(target: string, content: string): Promise<SendResult> {
+        try {
+          await yuanbaoChannel.sendMessage(target, content);
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: String(e) };
+        }
+      },
+      async sendMarkdown(target: string, content: string): Promise<SendResult> {
+        return this.sendText(target, content);
+      },
+      async sendImage(target: string, imageUrl: string): Promise<SendResult> {
+        return this.sendText(target, `[图片] ${imageUrl}`);
+      },
+      async sendFile(_target: string, _filePath: string): Promise<SendResult> {
+        return { success: false, error: '元宝: sendFile 未实现' };
+      },
+      async sendInteractive(
+        _target: string,
+        _card: InteractiveCard
+      ): Promise<SendResult> {
+        return { success: false, error: '元宝: 不支持交互卡片' };
+      },
+    },
+
+    security: {
+      dmPolicy: 'open',
+      pairingCodeTimeoutMs: 300000,
+      maxPairingAttempts: 3,
+      async resolveSender(
+        sender: Record<string, unknown>
+      ): Promise<ResolvedSender> {
+        return {
+          userId: (sender['fromUserId'] as string) || 'unknown',
+          displayName: (sender['fromNickname'] as string) || 'Unknown',
+          isApproved: true,
+        };
+      },
+      async authorizeMessage(): Promise<{ allowed: boolean; reason?: string }> {
+        return { allowed: true };
+      },
+    },
+  };
+}
+
+export const yuanbaoChannelPlugin = createYuanbaoChannel();

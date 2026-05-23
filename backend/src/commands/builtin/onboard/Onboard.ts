@@ -19,9 +19,225 @@ const logger = new Logger({ level: LogLevel.INFO });
 /**
  * AI 提供商信息
  */
+const CHANNEL_INFO: Record<
+  string,
+  {
+    name: string;
+    signupUrl: string;
+    envVars: { key: string; label: string }[];
+    channelType: string;
+  }
+> = {
+  qq: {
+    name: 'QQ Bot',
+    signupUrl: 'https://q.qq.com/',
+    envVars: [
+      { key: 'QQ_APP_ID', label: 'QQ Bot AppID' },
+      { key: 'QQ_TOKEN', label: 'QQ Bot Token' },
+    ],
+    channelType: 'qq',
+  },
+  telegram: {
+    name: 'Telegram',
+    signupUrl: 'https://t.me/BotFather',
+    envVars: [{ key: 'TELEGRAM_BOT_TOKEN', label: 'Bot Token' }],
+    channelType: 'telegram',
+  },
+  dingtalk: {
+    name: '钉钉',
+    signupUrl: 'https://open.dingtalk.com/',
+    envVars: [
+      { key: 'DINGTALK_APP_KEY', label: 'App Key' },
+      { key: 'DINGTALK_APP_SECRET', label: 'App Secret' },
+    ],
+    channelType: 'dingtalk',
+  },
+  feishu: {
+    name: '飞书',
+    signupUrl: 'https://open.feishu.cn/',
+    envVars: [
+      { key: 'FEISHU_APP_ID', label: 'App ID' },
+      { key: 'FEISHU_APP_SECRET', label: 'App Secret' },
+    ],
+    channelType: 'feishu',
+  },
+  wechat: {
+    name: '微信公众号',
+    signupUrl: 'https://mp.weixin.qq.com/',
+    envVars: [
+      { key: 'WECHAT_APP_ID', label: 'App ID' },
+      { key: 'WECHAT_APP_SECRET', label: 'App Secret' },
+    ],
+    channelType: 'wechat',
+  },
+  wecom: {
+    name: '企业微信',
+    signupUrl: 'https://work.weixin.qq.com/',
+    envVars: [
+      { key: 'WECOM_CORP_ID', label: '企业 ID (corpId)' },
+      { key: 'WECOM_CORP_SECRET', label: '企业密钥 (corpSecret)' },
+      { key: 'WECOM_AGENT_ID', label: '应用 AgentId' },
+    ],
+    channelType: 'wecom',
+  },
+  discord: {
+    name: 'Discord',
+    signupUrl: 'https://discord.com/developers/applications',
+    envVars: [{ key: 'DISCORD_TOKEN', label: 'Bot Token' }],
+    channelType: 'discord',
+  },
+  slack: {
+    name: 'Slack',
+    signupUrl: 'https://api.slack.com/apps',
+    envVars: [
+      { key: 'SLACK_BOT_TOKEN', label: 'Bot Token' },
+      { key: 'SLACK_SIGNING_SECRET', label: 'Signing Secret' },
+    ],
+    channelType: 'slack',
+  },
+  line: {
+    name: 'LINE',
+    signupUrl: 'https://developers.line.biz/console/',
+    envVars: [
+      { key: 'LINE_CHANNEL_ACCESS_TOKEN', label: 'Channel Access Token' },
+      { key: 'LINE_CHANNEL_SECRET', label: 'Channel Secret' },
+    ],
+    channelType: 'line',
+  },
+  irc: {
+    name: 'IRC',
+    signupUrl: '',
+    envVars: [
+      { key: 'IRC_SERVER', label: 'IRC Server' },
+      { key: 'IRC_NICK', label: 'Nickname' },
+    ],
+    channelType: 'irc',
+  },
+  nostr: {
+    name: 'Nostr',
+    signupUrl: 'https://nostr.com/',
+    envVars: [
+      { key: 'NOSTR_PRIVATE_KEY', label: 'Private Key (nsec)' },
+      { key: 'NOSTR_RELAYS', label: 'Relay URLs (逗号分隔)' },
+    ],
+    channelType: 'nostr',
+  },
+  email: {
+    name: 'Email',
+    signupUrl: '',
+    envVars: [
+      { key: 'EMAIL_HOST', label: 'SMTP Host' },
+      { key: 'EMAIL_USER', label: 'SMTP Username' },
+      { key: 'EMAIL_PASS', label: 'SMTP Password' },
+    ],
+    channelType: 'email',
+  },
+  sms: {
+    name: 'SMS',
+    signupUrl: '',
+    envVars: [{ key: 'SMS_FROM_NUMBER', label: 'Sender Phone Number' }],
+    channelType: 'sms',
+  },
+  webhook: {
+    name: 'Webhook',
+    signupUrl: '',
+    envVars: [{ key: 'WEBHOOK_LISTEN_PORT', label: 'Webhook Listen Port' }],
+    channelType: 'webhook',
+  },
+  googlechat: {
+    name: 'Google Chat',
+    signupUrl: 'https://developers.google.com/chat',
+    envVars: [
+      { key: 'GOOGLECHAT_SERVICE_ACCOUNT', label: 'Service Account Key' },
+    ],
+    channelType: 'googlechat',
+  },
+  msteams: {
+    name: 'Microsoft Teams',
+    signupUrl: 'https://dev.teams.microsoft.com/',
+    envVars: [
+      { key: 'MSTEAMS_BOT_ID', label: 'Bot ID' },
+      { key: 'MSTEAMS_BOT_PASSWORD', label: 'Bot Password' },
+    ],
+    channelType: 'msteams',
+  },
+  zalo: {
+    name: 'Zalo',
+    signupUrl: 'https://developers.zalo.me/',
+    envVars: [
+      { key: 'ZALO_APP_ID', label: 'App ID' },
+      { key: 'ZALO_APP_SECRET', label: 'App Secret' },
+    ],
+    channelType: 'zalo',
+  },
+  yuanbao: {
+    name: '元宝',
+    signupUrl: 'https://yuanbao.tencent.com/',
+    envVars: [
+      { key: 'YUANBAO_APP_ID', label: 'App ID' },
+      { key: 'YUANBAO_APP_KEY', label: 'App Key' },
+    ],
+    channelType: 'yuanbao',
+  },
+  whatsapp: {
+    name: 'WhatsApp',
+    signupUrl: 'https://developers.facebook.com/docs/whatsapp',
+    envVars: [
+      { key: 'WHATSAPP_PHONE_NUMBER_ID', label: 'Phone Number ID' },
+      { key: 'WHATSAPP_ACCESS_TOKEN', label: 'Access Token' },
+    ],
+    channelType: 'whatsapp',
+  },
+  signal: {
+    name: 'Signal',
+    signupUrl: 'https://signal.org/download/',
+    envVars: [{ key: 'SIGNAL_ACCOUNT', label: 'Signal Account' }],
+    channelType: 'signal',
+  },
+  matrix: {
+    name: 'Matrix',
+    signupUrl: 'https://matrix.org/',
+    envVars: [
+      { key: 'MATRIX_HOMESERVER_URL', label: 'Homeserver URL' },
+      { key: 'MATRIX_ACCESS_TOKEN', label: 'Access Token' },
+    ],
+    channelType: 'matrix',
+  },
+  facebook: {
+    name: 'Facebook Messenger',
+    signupUrl: 'https://developers.facebook.com/docs/messenger-platform',
+    envVars: [
+      { key: 'FACEBOOK_PAGE_ACCESS_TOKEN', label: 'Page Access Token' },
+    ],
+    channelType: 'facebook',
+  },
+  twitter: {
+    name: 'Twitter',
+    signupUrl: 'https://developer.twitter.com/',
+    envVars: [
+      { key: 'TWITTER_API_KEY', label: 'API Key' },
+      { key: 'TWITTER_API_SECRET_KEY', label: 'API Secret Key' },
+    ],
+    channelType: 'twitter',
+  },
+  claude: {
+    name: 'Claude',
+    signupUrl: 'https://console.anthropic.com/',
+    envVars: [{ key: 'CLAUDE_API_KEY', label: 'API Key' }],
+    channelType: 'claude',
+  },
+};
+
 const PROVIDER_INFO: Record<
   string,
-  { name: string; signupUrl: string; hasFreeTier: boolean; freeQuota: string; price: string; envKey: string }
+  {
+    name: string;
+    signupUrl: string;
+    hasFreeTier: boolean;
+    freeQuota: string;
+    price: string;
+    envKey: string;
+  }
 > = {
   deepseek: {
     name: 'DeepSeek',
@@ -94,36 +310,45 @@ function writeKeyToEnv(envKey: string, apiKey: string): boolean {
 /**
  * 测试 API 连接
  */
-async function testApiConnection(provider: string, apiKey: string): Promise<boolean> {
+async function testApiConnection(
+  provider: string,
+  apiKey: string
+): Promise<boolean> {
   try {
     if (provider === 'deepseek') {
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [{ role: 'user', content: 'hi' }],
-          max_tokens: 1,
-        }),
-      });
+      const response = await fetch(
+        'https://api.deepseek.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [{ role: 'user', content: 'hi' }],
+            max_tokens: 1,
+          }),
+        }
+      );
       return response.ok;
     }
     if (provider === 'openai') {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: 'hi' }],
-          max_tokens: 1,
-        }),
-      });
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: 'hi' }],
+            max_tokens: 1,
+          }),
+        }
+      );
       return response.ok;
     }
     if (provider === 'anthropic') {
@@ -396,7 +621,10 @@ export async function runOnboard(
       return [];
     }
 
-    if (providerChoice.toLowerCase() === 'skip' || providerChoice.toLowerCase() === 's') {
+    if (
+      providerChoice.toLowerCase() === 'skip' ||
+      providerChoice.toLowerCase() === 's'
+    ) {
       console.log('\n  ⏭️ 已跳过 AI 配置，将进入离线模式。');
       console.log('  稍后可通过 /onboard 重新配置。\n');
       return [];
@@ -476,7 +704,9 @@ export async function runOnboard(
       setConfigValue(configKey, apiKey);
       console.log('  ✅ 配置已保存到运行时');
     } catch (e) {
-      console.log(`  ⚠️ 运行时配置保存失败: ${e instanceof Error ? e.message : String(e)}`);
+      console.log(
+        `  ⚠️ 运行时配置保存失败: ${e instanceof Error ? e.message : String(e)}`
+      );
       saveOk = false;
     }
 
@@ -491,7 +721,8 @@ export async function runOnboard(
 
     // 刷新 Provider 密钥（立即生效，无需重启）
     try {
-      const { providerRegistry } = await import('@modules/ai/providers/ProviderRegistry');
+      const { providerRegistry } =
+        await import('@modules/ai/providers/ProviderRegistry');
       if (providerRegistry.has(selectedProvider)) {
         const provider = providerRegistry.get(selectedProvider);
         provider.setApiKey?.(apiKey);
@@ -520,8 +751,119 @@ export async function runOnboard(
     }
     console.log('╚════════════════════════════════════════════════╝');
     console.log('');
+
+    // ========== Step 4（可选）: 配置消息通道 ==========
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  步骤 4/4（可选）: 配置消息通道');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('');
+    console.log('  PY_APP 支持连接 QQ/Telegram 等消息平台，');
+    console.log('  让您在这些平台上与 AI 对话。');
+    console.log('');
+
+    const wantChannel = await askQuestion('  是否要配置消息通道？(y/N): ', rl);
+
+    if (
+      wantChannel.toLowerCase() === 'y' ||
+      wantChannel.toLowerCase() === 'yes'
+    ) {
+      const channelKeys = Object.keys(CHANNEL_INFO);
+
+      console.log('');
+      for (let i = 0; i < channelKeys.length; i++) {
+        const key = channelKeys[i];
+        const info = CHANNEL_INFO[key];
+        console.log(`  ${i + 1}. ${info.name}`);
+        console.log(`     申请: ${info.signupUrl}`);
+        console.log('');
+      }
+      console.log('  s. 跳过');
+      console.log('');
+
+      const channelChoice = await askQuestion(
+        `  请选择要配置的通道 (1-${channelKeys.length}): `,
+        rl
+      );
+
+      if (
+        channelChoice.toLowerCase() !== 'skip' &&
+        channelChoice.toLowerCase() !== 's' &&
+        channelChoice !== ''
+      ) {
+        const idx = parseInt(channelChoice, 10) - 1;
+        if (idx >= 0 && idx < channelKeys.length) {
+          const selectedKey = channelKeys[idx];
+          const info = CHANNEL_INFO[selectedKey];
+
+          console.log(`\n  ✅ 已选择: ${info.name}`);
+          console.log(`  🔗 申请地址: ${info.signupUrl}`);
+          console.log('');
+
+          const envValues: Record<string, string> = {};
+
+          for (const envVar of info.envVars) {
+            const value = await askQuestion(`  请输入 ${envVar.label}: `, rl);
+            if (
+              value &&
+              value.toLowerCase() !== 'skip' &&
+              value.toLowerCase() !== 'exit'
+            ) {
+              envValues[envVar.key] = value;
+            }
+          }
+
+          if (Object.keys(envValues).length > 0) {
+            console.log('');
+            console.log('  ⏳ 正在保存通道配置...');
+
+            let allWritten = true;
+            for (const [key, value] of Object.entries(envValues)) {
+              const written = writeKeyToEnv(key, value);
+              if (!written) allWritten = false;
+            }
+
+            if (allWritten) {
+              console.log('  ✅ 通道配置已保存到 .env 文件');
+            }
+
+            // 尝试热连接
+            console.log('  ⏳ 正在尝试连接...');
+            try {
+              const { channelBootstrapper } =
+                await import('@modules/channels/bootstrap/ChannelBootstrapper');
+              const factory = channelBootstrapper.getPluginFactory(
+                info.channelType
+              );
+              if (factory) {
+                const plugin = factory();
+                if (plugin) {
+                  const connectConfig: Record<string, string> = {};
+                  for (const envVar of info.envVars) {
+                    connectConfig[
+                      envVar.key.replace(/^[A-Z_]+_/, '').toLowerCase()
+                    ] = envValues[envVar.key];
+                  }
+                  await plugin.lifecycle.connect(connectConfig);
+                  const { channelRegistry } = await import('@modules/channels');
+                  channelRegistry.register(plugin);
+                  console.log(`  ✅ ${info.name} 已连接！`);
+                  console.log('  💡 输入 /channel list 查看通道状态');
+                }
+              }
+            } catch {
+              console.log(
+                '  ⚠️ 重启后自动连接（或运行 /channel connect 手动连接）'
+              );
+            }
+          }
+        }
+      }
+    }
+
+    console.log('');
     console.log('  现在您可以：');
     console.log('  • 直接输入问题开始 AI 对话');
+    console.log('  • /channel list — 查看消息通道状态');
     console.log('  • /help 查看所有命令');
     console.log('  • /config list 查看配置');
     console.log('');

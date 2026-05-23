@@ -964,10 +964,9 @@ function registerClaudeApiSkill(registry: BundledSkillsRegistry): void {
 function registerClaudeInChromeSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
     name: 'claudeInChrome',
-    description: '在Chrome浏览器中与Claude Code集成的帮助',
+    description: '在Chrome浏览器中与PY_APP集成的帮助',
     aliases: ['chrome', '浏览器'],
-    whenToUse:
-      '当用户想在Chrome浏览器中使用Claude Code或需要浏览器集成帮助时使用',
+    whenToUse: '当用户想在Chrome浏览器中使用PY_APP或需要浏览器集成帮助时使用',
     argumentHint: '输入Chrome集成相关问题',
     userInvocable: true,
     async getPromptForCommand(
@@ -977,11 +976,11 @@ function registerClaudeInChromeSkill(registry: BundledSkillsRegistry): void {
       return [
         '# Chrome集成',
         '',
-        '在Chrome浏览器中与Claude Code集成的帮助。',
+        '在Chrome浏览器中与PY_APP集成的帮助。',
         '',
         '## 功能',
         '',
-        '- 在Chrome中直接使用Claude Code',
+        '- 在Chrome中直接使用PY_APP',
         '- 从浏览器中读取和编辑代码',
         '- 利用浏览器开发者工具进行调试',
         '',

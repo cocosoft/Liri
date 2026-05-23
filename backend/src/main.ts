@@ -16,7 +16,13 @@ import {
   startKeychainPrefetch,
   ensureKeychainPrefetchCompleted,
 } from './infrastructure/startup/KeychainPrefetch';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
@@ -74,7 +80,9 @@ async function isAIConfigured(): Promise<boolean> {
       | undefined;
     const apiKey: string =
       ((config as Record<string, unknown>)['ai.deepseek.apiKey'] as string) ||
-      ((ai?.['deepseek'] as Record<string, unknown> | undefined)?.['apiKey'] as string) ||
+      ((ai?.['deepseek'] as Record<string, unknown> | undefined)?.[
+        'apiKey'
+      ] as string) ||
       '';
     return isValidApiKey(apiKey);
   } catch {

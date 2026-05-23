@@ -432,10 +432,10 @@ export function initializeBuiltinTranslations(
     { key: 'app.name', zh: 'PY_APP', en: 'PY_APP', ja: 'PY_APP', ko: 'PY_APP' },
     {
       key: 'app.description',
-      zh: '智能编程助手',
-      en: 'Intelligent Programming Assistant',
-      ja: 'インテリジェントプログラミングアシスタント',
-      ko: '지능형 프로그래밍 어시스턴트',
+      zh: '智能助手',
+      en: 'Intelligent Assistant',
+      ja: 'インテリジェントアシスタント',
+      ko: '지능형 어시스턴트',
     },
     {
       key: 'app.greeting',

@@ -1,4 +1,8 @@
-export { SessionBudget, sessionBudget, DEFAULT_DISK_BUDGET } from './SessionBudget.js';
+export {
+  SessionBudget,
+  sessionBudget,
+  DEFAULT_DISK_BUDGET,
+} from './SessionBudget.js';
 export type {
   BudgetConfig,
   BudgetStatus,

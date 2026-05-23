@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { mkdirSync } from 'node:fs';
 
 const USER_FILE_PATH = path.join(os.homedir(), '.pyapp', 'USER.md');
 
@@ -76,4 +77,25 @@ export function buildUserSection(): string {
 export function clearUserCache(): void {
   cachedContent = null;
   cachedMtime = 0;
+}
+
+/**
+ * 写入 USER.md 内容
+ */
+export function writeUserMd(content: string): void {
+  const dir = path.dirname(USER_FILE_PATH);
+  if (!fs.existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(USER_FILE_PATH, content, 'utf-8');
+  clearUserCache();
+}
+
+/**
+ * 确保 USER.md 文件存在，不存在则创建默认版本
+ */
+export function ensureDefaultUserMd(): void {
+  if (!fs.existsSync(USER_FILE_PATH)) {
+    writeUserMd(DEFAULT_USER);
+  }
 }

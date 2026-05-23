@@ -19,7 +19,10 @@ export function formatSessionSource(source: SessionSource): string {
   return `${source.platform}:${source.chatType}:${routingId}`;
 }
 
-export function sessionSourceEquals(a: SessionSource, b: SessionSource): boolean {
+export function sessionSourceEquals(
+  a: SessionSource,
+  b: SessionSource
+): boolean {
   return (
     a.userId === b.userId &&
     a.platform === b.platform &&

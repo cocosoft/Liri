@@ -829,7 +829,11 @@ export class ChatManagerImpl implements ChatManager {
     this.sessionManager.addMessage(session.id, assistantMessage);
 
     // 响应后自动提取记忆
-    await this.extractMemoryFromChat(content, assistantMessageContent, session.id);
+    await this.extractMemoryFromChat(
+      content,
+      assistantMessageContent,
+      session.id
+    );
 
     // 触发 ChatPostMessage Hook
     await this.hookChainManager.execute('chat', {
@@ -1061,12 +1065,10 @@ export class ChatManagerImpl implements ChatManager {
    */
   private async enhanceWithMemoryContext(content: string): Promise<string> {
     try {
-      const { MemoryIntegration } = await import(
-        '@modules/memory/integrations/MemoryIntegration'
-      );
-      const { MemoryManagerImpl } = await import(
-        '@modules/memory/MemoryManager'
-      );
+      const { MemoryIntegration } =
+        await import('@modules/memory/integrations/MemoryIntegration');
+      const { MemoryManagerImpl } =
+        await import('@modules/memory/MemoryManager');
       const integration = new MemoryIntegration(new MemoryManagerImpl());
       return await integration.injectMemoriesToContext(content);
     } catch {
@@ -1083,9 +1085,8 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string
   ): Promise<void> {
     try {
-      const { MemoryManagerImpl } = await import(
-        '@modules/memory/MemoryManager'
-      );
+      const { MemoryManagerImpl } =
+        await import('@modules/memory/MemoryManager');
       const mm = new MemoryManagerImpl();
       const memorableContent = `用户: ${userContent}\n助手: ${assistantContent}`;
       await mm.createMemory({

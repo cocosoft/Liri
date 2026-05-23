@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { mkdirSync } from 'node:fs';
 
 const SOUL_FILE_PATH = path.join(os.homedir(), '.pyapp', 'SOUL.md');
 
@@ -121,4 +122,25 @@ export function buildSoulSection(): string {
 export function clearSoulCache(): void {
   cachedContent = null;
   cachedMtime = 0;
+}
+
+/**
+ * 写入 SOUL.md 内容
+ */
+export function writeSoulMd(content: string): void {
+  const dir = path.dirname(SOUL_FILE_PATH);
+  if (!fs.existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(SOUL_FILE_PATH, content, 'utf-8');
+  clearSoulCache();
+}
+
+/**
+ * 确保 SOUL.md 文件存在，不存在则创建默认版本
+ */
+export function ensureDefaultSoulMd(): void {
+  if (!fs.existsSync(SOUL_FILE_PATH)) {
+    writeSoulMd(DEFAULT_SOUL);
+  }
 }

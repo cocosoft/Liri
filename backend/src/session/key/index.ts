@@ -19,4 +19,8 @@ export { LegacyKeyAdapter, LEGACY_PREFIX } from './LegacyKeyAdapter.js';
 export { SessionRouter } from './SessionRouter.js';
 export type { SessionRoute } from './SessionRouter.js';
 export { formatSessionSource, sessionSourceEquals } from './SessionSource.js';
-export type { SessionSource, SessionPlatform, SessionChatType } from './SessionSource.js';
+export type {
+  SessionSource,
+  SessionPlatform,
+  SessionChatType,
+} from './SessionSource.js';

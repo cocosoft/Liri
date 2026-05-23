@@ -57,7 +57,10 @@ import { SessionKeyFactory } from './key/SessionKeyFactory.js';
 import type { SessionKeyFactoryConfig } from './key/SessionKeyFactory.js';
 import { SessionRouter } from './key/SessionRouter.js';
 import type { SessionSource } from './key/SessionSource.js';
-import { SessionLifecycleEventBus, createSessionLifecycleEvent } from './lifecycle/index.js';
+import {
+  SessionLifecycleEventBus,
+  createSessionLifecycleEvent,
+} from './lifecycle/index.js';
 
 /**
  * 网关配置
@@ -190,7 +193,11 @@ export class SessionGateway {
    * 创建会话
    */
   async createSession(
-    params: CreateSessionParams & { userId?: string; chatType?: string; sessionSource?: SessionSource } = {}
+    params: CreateSessionParams & {
+      userId?: string;
+      chatType?: string;
+      sessionSource?: SessionSource;
+    } = {}
   ): Promise<UnifiedSession> {
     let sessionId = params.id;
 

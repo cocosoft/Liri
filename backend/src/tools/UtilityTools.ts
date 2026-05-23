@@ -5,6 +5,8 @@
  */
 import type { Tool, ToolParam, ToolTag } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
+import { readSoulMd, writeSoulMd } from '@modules/services/soul/SoulReader';
+import { readUserMd, writeUserMd } from '@modules/services/soul/UserReader';
 
 interface ToolFactoryFn {
   (): Tool[];
@@ -2062,5 +2064,106 @@ export function createUtilityTools(): Tool[] {
     })
   );
 
+  // Soul / User profile update tool
+  tools.push(
+    makeTool({
+      name: 'update_soul_or_user',
+      description:
+        'Update the AI personality (SOUL.md) or user profile (USER.md) when the user shares relevant information. Use this when the user mentions their preferences, background, communication style, or any information that should be remembered, or when giving feedback about the AI personality, tone, or behavior.',
+      params: [
+        {
+          name: 'target',
+          type: 'string',
+          description:
+            'Which file to update: "soul" for AI personality (SOUL.md), "user" for user profile (USER.md)',
+          required: true,
+          enum: ['soul', 'user'],
+        },
+        {
+          name: 'section',
+          type: 'string',
+          description:
+            'Section header to update (e.g. "基本信息", "核心信念", "语气"). If omitted, replaces the entire file.',
+          required: false,
+        },
+        {
+          name: 'content',
+          type: 'string',
+          description:
+            'The new content for the specified section or entire file. Use Markdown list items or paragraphs.',
+          required: true,
+        },
+      ],
+      execute: async (input) => {
+        const target = input.target as string;
+        const section = input.section as string | undefined;
+        const content = input.content as string;
+
+        if (!content) {
+          return { success: false, error: 'content is required' };
+        }
+
+        try {
+          if (target === 'soul') {
+            if (section) {
+              const currentContent = readSoulMd();
+              const newContent = updateMarkdownSection(
+                currentContent,
+                section,
+                content
+              );
+              writeSoulMd(newContent);
+            } else {
+              writeSoulMd(content);
+            }
+            return { success: true, output: 'SOUL.md updated successfully' };
+          }
+
+          if (target === 'user') {
+            if (section) {
+              const currentContent = readUserMd();
+              const newContent = updateMarkdownSection(
+                currentContent,
+                section,
+                content
+              );
+              writeUserMd(newContent);
+            } else {
+              writeUserMd(content);
+            }
+            return { success: true, output: 'USER.md updated successfully' };
+          }
+
+          return { success: false, error: `Invalid target: ${target}` };
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : String(e);
+          return { success: false, error: `Update failed: ${message}` };
+        }
+      },
+    })
+  );
+
   return tools;
+}
+
+/**
+ * 更新 Markdown 文档中的指定段落
+ * 查找 ## sectionName 段落并替换其内容，若不存在则追加到末尾
+ */
+function updateMarkdownSection(
+  content: string,
+  sectionName: string,
+  sectionContent: string
+): string {
+  const escapedName = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(
+    `(## ${escapedName}\\n\\n)[\\s\\S]*?(?=\\n## |\\n*$)`,
+    'm'
+  );
+  if (regex.test(content)) {
+    return content.replace(regex, `$1${sectionContent}`);
+  }
+  return (
+    content.replace(/\n*$/, '') + `\n\n## ${sectionName}\n\n${sectionContent}\n`
+  );
 }

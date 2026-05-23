@@ -24,9 +24,7 @@ export interface KnowledgeQueryProvider {
 
 let provider: KnowledgeQueryProvider | null = null;
 
-export function setKnowledgeQueryProvider(
-  p: KnowledgeQueryProvider
-): void {
+export function setKnowledgeQueryProvider(p: KnowledgeQueryProvider): void {
   provider = p;
 }
 

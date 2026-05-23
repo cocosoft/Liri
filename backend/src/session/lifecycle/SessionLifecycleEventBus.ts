@@ -3,9 +3,14 @@
  * 事件驱动架构，支持发布/订阅模式
  */
 
-import type { SessionLifecycleEvent, SessionEventType } from './SessionLifecycleEvent';
+import type {
+  SessionLifecycleEvent,
+  SessionEventType,
+} from './SessionLifecycleEvent';
 
-export type EventHandler = (event: SessionLifecycleEvent) => void | Promise<void>;
+export type EventHandler = (
+  event: SessionLifecycleEvent
+) => void | Promise<void>;
 
 export interface Subscription {
   type: SessionEventType | '*';
@@ -89,7 +94,10 @@ export class SessionLifecycleEventBus {
     }
   }
 
-  private invokeHandler(handler: EventHandler, event: SessionLifecycleEvent): void {
+  private invokeHandler(
+    handler: EventHandler,
+    event: SessionLifecycleEvent
+  ): void {
     try {
       const result = handler(event);
       if (result instanceof Promise) {

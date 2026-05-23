@@ -906,6 +906,7 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    */
   async saveIndex(): Promise<void> {
     try {
+      await fs.mkdir(path.dirname(this.indexFilePath), { recursive: true });
       const indexData = {
         version: '1.0',
         timestamp: new Date().toISOString(),

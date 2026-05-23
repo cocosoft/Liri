@@ -72,15 +72,20 @@ export class SessionBudget {
   private diskConfig: DiskBudgetConfig;
   private maxRecords: number = 10000;
 
-  constructor(config?: Partial<BudgetConfig>, diskConfig?: Partial<DiskBudgetConfig>) {
+  constructor(
+    config?: Partial<BudgetConfig>,
+    diskConfig?: Partial<DiskBudgetConfig>
+  ) {
     this.config = {
       maxBytes: config?.maxBytes || 100 * 1024 * 1024,
       warnThreshold: config?.warnThreshold || 0.8,
       hardLimit: config?.hardLimit !== false,
     };
     this.diskConfig = {
-      maxDiskBytes: diskConfig?.maxDiskBytes ?? DEFAULT_DISK_BUDGET.maxDiskBytes,
-      highWaterBytes: diskConfig?.highWaterBytes ?? DEFAULT_DISK_BUDGET.highWaterBytes,
+      maxDiskBytes:
+        diskConfig?.maxDiskBytes ?? DEFAULT_DISK_BUDGET.maxDiskBytes,
+      highWaterBytes:
+        diskConfig?.highWaterBytes ?? DEFAULT_DISK_BUDGET.highWaterBytes,
       pruneOrder: diskConfig?.pruneOrder ?? DEFAULT_DISK_BUDGET.pruneOrder,
     };
   }
@@ -162,9 +167,12 @@ export class SessionBudget {
    * 更新磁盘预算配置
    */
   updateDiskConfig(config: Partial<DiskBudgetConfig>): void {
-    if (config.maxDiskBytes !== undefined) this.diskConfig.maxDiskBytes = config.maxDiskBytes;
-    if (config.highWaterBytes !== undefined) this.diskConfig.highWaterBytes = config.highWaterBytes;
-    if (config.pruneOrder !== undefined) this.diskConfig.pruneOrder = config.pruneOrder;
+    if (config.maxDiskBytes !== undefined)
+      this.diskConfig.maxDiskBytes = config.maxDiskBytes;
+    if (config.highWaterBytes !== undefined)
+      this.diskConfig.highWaterBytes = config.highWaterBytes;
+    if (config.pruneOrder !== undefined)
+      this.diskConfig.pruneOrder = config.pruneOrder;
   }
 
   /**

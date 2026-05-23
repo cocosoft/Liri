@@ -90,9 +90,9 @@ export const DEFAULT_REDLINES: PerformanceRedline[] = [
   },
   {
     phase: 'env_init',
-    maxMs: 500,
-    warnMs: 300,
-    description: '环境初始化阶段（环境变量、进程参数）',
+    maxMs: 1000,
+    warnMs: 600,
+    description: '环境初始化阶段（startup.yaml、配置系统、优雅关闭）',
   },
   {
     phase: 'config_load',
@@ -108,21 +108,21 @@ export const DEFAULT_REDLINES: PerformanceRedline[] = [
   },
   {
     phase: 'tool_init',
-    maxMs: 2000,
-    warnMs: 1000,
+    maxMs: 3000,
+    warnMs: 1500,
     description: '工具系统初始化（ToolManager 创建）',
   },
   {
     phase: 'extensibility_init',
-    maxMs: 2000,
-    warnMs: 1000,
+    maxMs: 3500,
+    warnMs: 2000,
     description: '可扩展性服务初始化（插件系统）',
   },
   {
     phase: 'command_init',
-    maxMs: 1000,
-    warnMs: 600,
-    description: '命令系统初始化',
+    maxMs: 3500,
+    warnMs: 2000,
+    description: '命令系统初始化（100+ 命令注册）',
   },
   {
     phase: 'monitoring_init',

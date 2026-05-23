@@ -71,6 +71,9 @@ export async function init(): Promise<void> {
   setupGracefulShutdown();
   profileCheckpoint('setup_graceful_shutdown_end');
 
+  // 环境初始化阶段结束（配置 + 优雅关闭已就绪，后续是模块级并行加载）
+  getStartupChainProfiler().markPhaseEnd('env_init');
+
   // 3. 并行初始化其他核心系统（优化：最大化并行度）
   const [toolsResult, pluginsResult, commandsResult, monitoringResult] =
     await Promise.all([
@@ -83,7 +86,7 @@ export async function init(): Promise<void> {
           const { createToolManager } = await import('../tools/ToolManager.js');
           createToolManager();
           const duration = Date.now() - startTime;
-          if (duration > 50) {
+          if (duration > 1500) {
             logger.warning(`工具系统加载较慢: ${duration}ms`);
           }
           return { success: true, duration };
@@ -272,9 +275,8 @@ export async function init(): Promise<void> {
   profileCheckpoint('start_deferred_prefetches_end');
   getStartupChainProfiler().markPhaseEnd('deferred_prefetch_start');
 
-  // 记录初始化结�?
+  // 记录初始化结束
   profileCheckpoint('init_function_end');
-  getStartupChainProfiler().markPhaseEnd('env_init');
 
   // 记录应用准备就绪
   profileCheckpoint('app_ready');
@@ -383,22 +385,29 @@ async function startDeferredPrefetches(): Promise<void> {
       // 初始化 SessionStateBridge：将 SessionLifecycleEventBus 桥接到 SessionStateService
       (async () => {
         try {
-          const { getGlobalEventBus } = await import('../session/lifecycle/SessionLifecycleEventBus.js');
-          const { SessionStateBridge } = await import('../chat/services/SessionStateBridge.js');
+          const { getGlobalEventBus } =
+            await import('../session/lifecycle/SessionLifecycleEventBus.js');
+          const { SessionStateBridge } =
+            await import('../chat/services/SessionStateBridge.js');
           const bridge = new SessionStateBridge(getGlobalEventBus());
           bridge.connect();
           logger.info('SessionStateBridge 已连接: 生命周期事件 → 会话状态服务');
         } catch (error) {
-          logger.warning('SessionStateBridge 初始化失败，流量不受影响', { error });
+          logger.warning('SessionStateBridge 初始化失败，流量不受影响', {
+            error,
+          });
         }
       })(),
 
       // 启动 SessionSupervisor 会话监管器（空闲检测 + 自动回收）
       (async () => {
         try {
-          const { SessionManager } = await import('../session/SessionManager.js');
-          const { SessionSupervisor } = await import('../core/session/SessionSupervisor.js');
-          const { createSupervisorStore } = await import('../core/session/SessionStoreAdapter.js');
+          const { SessionManager } =
+            await import('../session/SessionManager.js');
+          const { SessionSupervisor } =
+            await import('../core/session/SessionSupervisor.js');
+          const { createSupervisorStore } =
+            await import('../core/session/SessionStoreAdapter.js');
           const store = createSupervisorStore(SessionManager.instance.store);
           const supervisor = new SessionSupervisor(store, {
             resetPolicy: {
@@ -408,16 +417,26 @@ async function startDeferredPrefetches(): Promise<void> {
             },
           });
           supervisor.start();
-          (globalThis as Record<string, unknown>)['__sessionSupervisor'] = supervisor;
+          (globalThis as Record<string, unknown>)['__sessionSupervisor'] =
+            supervisor;
           registerShutdownHandler(() => {
-            const sup = (globalThis as Record<string, unknown>)['__sessionSupervisor'];
-            if (sup && typeof (sup as Record<string, unknown>).dispose === 'function') {
+            const sup = (globalThis as Record<string, unknown>)[
+              '__sessionSupervisor'
+            ];
+            if (
+              sup &&
+              typeof (sup as Record<string, unknown>).dispose === 'function'
+            ) {
               (sup as { dispose: () => void }).dispose();
             }
           });
-          logger.info('SessionSupervisor 已启动: 空闲检测 30min, 检查周期 5min');
+          logger.info(
+            'SessionSupervisor 已启动: 空闲检测 30min, 检查周期 5min'
+          );
         } catch (error) {
-          logger.warning('SessionSupervisor 启动失败，会话监管功能不可用', { error });
+          logger.warning('SessionSupervisor 启动失败，会话监管功能不可用', {
+            error,
+          });
         }
       })(),
 

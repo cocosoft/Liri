@@ -13,7 +13,10 @@ export class AtomicWriteError extends Error {
   public readonly tmpPath: string;
   public readonly cause?: unknown;
 
-  constructor(message: string, details: { path: string; tmpPath: string; cause?: unknown }) {
+  constructor(
+    message: string,
+    details: { path: string; tmpPath: string; cause?: unknown }
+  ) {
     super(message);
     this.name = 'AtomicWriteError';
     this.path = details.path;

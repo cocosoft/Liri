@@ -30,7 +30,11 @@ export interface SessionLifecycleEvent {
 export function createSessionLifecycleEvent(
   type: SessionEventType,
   sessionId: string,
-  options?: { sessionKey?: string; reason?: string; metadata?: Record<string, unknown> },
+  options?: {
+    sessionKey?: string;
+    reason?: string;
+    metadata?: Record<string, unknown>;
+  }
 ): SessionLifecycleEvent {
   return {
     type,

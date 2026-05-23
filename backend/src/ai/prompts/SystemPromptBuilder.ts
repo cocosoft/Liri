@@ -2,6 +2,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { buildEnvironmentHints, getPlatformHint } from './PlatformHints';
 import {
   getModelGuidance,
+  DEFAULT_GUIDANCE_CONFIG,
   type ModelGuidanceConfig,
   type ModelGuidanceMode,
 } from './ModelGuidance';
@@ -60,14 +61,14 @@ export function buildSystemPrompt(
     context.provider &&
     context.modelName
   ) {
-    const guidanceConfig: Partial<ModelGuidanceConfig> = {};
-    if (context.modelGuidanceMode) {
-      guidanceConfig.mode = context.modelGuidanceMode;
-    }
+    const guidanceConfig: ModelGuidanceConfig = {
+      ...DEFAULT_GUIDANCE_CONFIG,
+      ...(context.modelGuidanceMode ? { mode: context.modelGuidanceMode } : {}),
+    };
     const guidance = getModelGuidance(
       context.provider,
       context.modelName,
-      guidanceConfig as ModelGuidanceConfig
+      guidanceConfig
     );
     if (guidance) {
       parts.push(
@@ -91,15 +92,11 @@ export function injectModelGuidance(
   modelName: string,
   mode?: ModelGuidanceMode
 ): string {
-  const guidanceConfig: Partial<ModelGuidanceConfig> = {};
-  if (mode) {
-    guidanceConfig.mode = mode;
-  }
-  const guidance = getModelGuidance(
-    provider,
-    modelName,
-    guidanceConfig as ModelGuidanceConfig
-  );
+  const guidanceConfig: ModelGuidanceConfig = {
+    ...DEFAULT_GUIDANCE_CONFIG,
+    ...(mode ? { mode } : {}),
+  };
+  const guidance = getModelGuidance(provider, modelName, guidanceConfig);
 
   return guidance ? `${prompt}\n\n${guidance}` : prompt;
 }

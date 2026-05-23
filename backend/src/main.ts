@@ -25,6 +25,8 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
+import { ensureDefaultSoulMd } from './services/soul/SoulReader';
+import { ensureDefaultUserMd } from './services/soul/UserReader';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -97,6 +99,10 @@ async function isAIConfigured(): Promise<boolean> {
  * 若文件不存在，自动触发引导流程。
  */
 async function checkFirstRunAndOnboard(): Promise<void> {
+  // 确保 ~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md 存在
+  ensureDefaultSoulMd();
+  ensureDefaultUserMd();
+
   if (existsSync(ONBOARDED_FLAG)) {
     // 已有标记文件，检查 AI 状态
     if (await isAIConfigured()) {

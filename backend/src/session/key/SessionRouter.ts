@@ -5,7 +5,11 @@
 
 import { SessionKey, SESSION_KEY_PREFIX } from './SessionKey';
 import { SessionKeyFactory } from './SessionKeyFactory';
-import type { SessionSource, SessionPlatform, SessionChatType } from './SessionSource';
+import type {
+  SessionSource,
+  SessionPlatform,
+  SessionChatType,
+} from './SessionSource';
 
 export interface SessionRoute {
   key: string;
@@ -35,7 +39,8 @@ export class SessionRouter {
   }
 
   route(source: SessionSource): string {
-    const chatType = source.chatType ?? SessionRouter.resolveChatType(source.platform);
+    const chatType =
+      source.chatType ?? SessionRouter.resolveChatType(source.platform);
     const key = this.keyFactory.create({
       userId: source.userId,
       chatType,
@@ -48,7 +53,8 @@ export class SessionRouter {
     if (!parsed) return null;
 
     const parts = parsed.full.split(':');
-    const platform = parts.length >= 5 ? this.resolvePlatform(parts[2]) : 'unknown';
+    const platform =
+      parts.length >= 5 ? this.resolvePlatform(parts[2]) : 'unknown';
     const routingId = parts.slice(5).join(':') || 'default';
 
     return {
@@ -70,7 +76,9 @@ export class SessionRouter {
   }
 
   private resolvePlatform(chatType: string): SessionPlatform {
-    for (const [platform, ct] of Object.entries(SessionRouter.platformToChatType)) {
+    for (const [platform, ct] of Object.entries(
+      SessionRouter.platformToChatType
+    )) {
       if (ct === chatType) return platform;
     }
     return 'unknown';

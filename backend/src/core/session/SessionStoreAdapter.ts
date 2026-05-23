@@ -5,10 +5,15 @@
  * 而 session/SessionStore 接口更丰富。本适配器桥接二者。
  */
 
-import type { SessionStore as SessionSupervisorStore, SessionSummary } from './SessionSupervisor';
+import type {
+  SessionStore as SessionSupervisorStore,
+  SessionSummary,
+} from './SessionSupervisor';
 import type { SessionStore } from '@modules/session/SessionStore';
 
-export function createSupervisorStore(sessionStore: SessionStore): SessionSupervisorStore {
+export function createSupervisorStore(
+  sessionStore: SessionStore
+): SessionSupervisorStore {
   return {
     async listSessions(): Promise<SessionSummary[]> {
       const ids = await sessionStore.listSessions();
@@ -18,9 +23,15 @@ export function createSupervisorStore(sessionStore: SessionStore): SessionSuperv
         if (s) {
           summaries.push({
             id: s.id,
-            lastActivityAt: s.updatedAt instanceof Date ? s.updatedAt.getTime() : new Date(s.updatedAt).getTime(),
+            lastActivityAt:
+              s.updatedAt instanceof Date
+                ? s.updatedAt.getTime()
+                : new Date(s.updatedAt).getTime(),
             status: s.state?.currentState ?? 'active',
-            createdAt: s.createdAt instanceof Date ? s.createdAt.getTime() : new Date(s.createdAt).getTime(),
+            createdAt:
+              s.createdAt instanceof Date
+                ? s.createdAt.getTime()
+                : new Date(s.createdAt).getTime(),
           });
         }
       }

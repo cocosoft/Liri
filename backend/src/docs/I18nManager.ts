@@ -14,7 +14,7 @@ const DEFAULT_ZH_PACK: LanguagePack = {
   name: '中文',
   translations: {
     'app.name': 'PY_APP',
-    'app.description': '智能编程助手',
+    'app.description': '智能助手',
     'command.help': '显示帮助信息',
     'command.exit': '退出应用',
     'error.unknown': '未知错误',

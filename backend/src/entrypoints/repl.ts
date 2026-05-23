@@ -38,6 +38,7 @@ export interface REPLConfig {
   welcomeMessage?: string;
   exitCommand?: string;
   httpPort?: number;
+  useLegacyRepl?: boolean;
 }
 
 /**
@@ -317,6 +318,32 @@ export async function launchRepl(
   const chatManager = initializeChatManager();
   profileCheckpoint('repl_initialize_chat_manager_end');
   getStartupChainProfiler().markPhaseEnd('session_init');
+
+  if (!finalConfig.useLegacyRepl) {
+    getStartupChainProfiler().markPhaseStart('context_init');
+    getStartupChainProfiler().markPhaseEnd('context_init');
+    getStartupChainProfiler().markPhaseStart('app_ready');
+    getStartupChainProfiler().markPhaseEnd('app_ready');
+    getStartupChainProfiler().markPhaseEnd('first_response');
+
+    try {
+      const { launchInkRepl } = await import('../ink/repl/index.js');
+      await launchInkRepl(chatManager);
+    } catch (error) {
+      logger.error('Ink REPL 启动失败', { error: String(error) });
+    }
+
+    if (localHTTPService && localHTTPService.isStarted()) {
+      try {
+        await localHTTPService.stop();
+      } catch {
+        // ignore
+      }
+    }
+    ui.cleanup();
+    profileCheckpoint('repl_launch_end');
+    return;
+  }
 
   // 上下文初始化
   getStartupChainProfiler().markPhaseStart('context_init');

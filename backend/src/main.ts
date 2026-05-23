@@ -310,9 +310,10 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   await checkFirstRunAndOnboard();
 
   const httpPort = parseHttpPortFromArgs(options.args);
+  const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
 
   const { launchRepl } = await import('./entrypoints/repl');
-  await launchRepl({ httpPort });
+  await launchRepl({ httpPort, useLegacyRepl });
 }
 
 /**
@@ -363,7 +364,7 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
 
   logger.info('后台守护进程模式启动（当前复用 REPL 模式）');
   const { launchRepl } = await import('./entrypoints/repl');
-  await launchRepl();
+  await launchRepl({ useLegacyRepl: true });
 }
 
 /**

@@ -15,6 +15,13 @@ import type {
 import { StopHookManager, DEFAULT_STOP_HOOK_PRIORITIES } from './StopHooks.js';
 import type { StopHook, StopHookContext, StopHookReason } from './StopHooks.js';
 import type { QueryEngine } from './QueryEngine.js';
+import { ContextTracker } from './context/ContextTracker.js';
+import type { CompressionRecord } from './context/ContextTracker.js';
+import type {
+  ContextEngineRegistry,
+  CompressionFeature,
+} from './context/ContextEngineRegistry.js';
+import { FileCheckpointStorage } from './FileCheckpointStorage.js';
 
 const logger = new Logger();
 
@@ -41,6 +48,8 @@ export interface TAORLoopConfig {
   checkpointInterval?: number;
   /** 检查点存储实现 */
   checkpointStorage?: CheckpointStorage;
+  /** 上下文引擎注册中心（启用可插拔引擎选择与追踪） */
+  contextEngineRegistry?: ContextEngineRegistry;
 }
 
 export interface TAORLoopResult {
@@ -148,7 +157,7 @@ export class TAORLoop {
   private queryEngine: QueryEngine;
   private tokenBudget: TokenBudgetManager;
   private stopHookManager: StopHookManager;
-  private config: Required<TAORLoopConfig>;
+  private config: Required<Omit<TAORLoopConfig, 'contextEngineRegistry'>>;
   private abortController: AbortController;
   private phaseCallbacks: TAORPhaseCallback;
   private turnCount: number = 0;
@@ -164,6 +173,8 @@ export class TAORLoop {
   private conversationSummary: string = '';
   private resumedFromCheckpoint: boolean = false;
   private resumedCheckpointId: string | null = null;
+  private contextTracker: ContextTracker;
+  private contextEngineRegistry: ContextEngineRegistry | undefined;
 
   constructor(
     queryEngine: QueryEngine,
@@ -178,13 +189,15 @@ export class TAORLoop {
       enableCheckpoint: config.enableCheckpoint !== false,
       checkpointInterval: config.checkpointInterval || 5,
       checkpointStorage:
-        config.checkpointStorage || new MemoryCheckpointStorage(),
+        config.checkpointStorage || new FileCheckpointStorage(),
     };
+    this.contextEngineRegistry = config.contextEngineRegistry;
     this.tokenBudget = new TokenBudgetManagerImpl(this.config.budgetConfig);
     this.stopHookManager = new StopHookManager();
     this.abortController = new AbortController();
     this.phaseCallbacks = phaseCallbacks;
     this.checkpointStorage = this.config.checkpointStorage;
+    this.contextTracker = new ContextTracker();
 
     this.registerDefaultStopHooks();
   }
@@ -269,10 +282,38 @@ export class TAORLoop {
       this.currentPhase = TAORPhase.OBSERVE;
       this.emitPhase(TAORPhase.OBSERVE, this.turnCount, 'Processing results');
 
-      const budget = this.tokenBudget.getCurrentBudgetState();
-      if (budget.status === TokenBudgetStatus.WARNING) {
-        this.phaseCallbacks.onBudgetWarning?.(budget.percentUsed);
+      const budgetBefore = this.tokenBudget.getCurrentBudgetState();
+      if (budgetBefore.status === TokenBudgetStatus.WARNING) {
+        this.phaseCallbacks.onBudgetWarning?.(budgetBefore.percentUsed);
+
+        let engineName = 'default';
+        if (this.contextEngineRegistry) {
+          const feature: CompressionFeature = {
+            conversationLength: this.turnCount,
+            tokenUsage: budgetBefore.percentUsed,
+            hasTools: true,
+          };
+          const selected = this.contextEngineRegistry.select(feature);
+          engineName = selected?.id ?? 'default';
+        }
+
         await this.queryEngine.compactIfNeeded(this.config.sessionId);
+
+        const budgetAfter = this.tokenBudget.getCurrentBudgetState();
+        this.contextTracker.record({
+          timestamp: Date.now(),
+          turnCount: this.turnCount,
+          engineName,
+          beforeTokens: budgetBefore.currentTokens,
+          afterTokens: budgetAfter.currentTokens,
+          compressionRatio:
+            budgetBefore.currentTokens > 0
+              ? budgetAfter.currentTokens / budgetBefore.currentTokens
+              : 1,
+          messageCountBefore: budgetBefore.messagesProcessed,
+          messageCountAfter: budgetAfter.messagesProcessed,
+          hasFocusTopic: false,
+        });
       }
     }
 
@@ -508,6 +549,14 @@ export class TAORLoop {
     this.stopReason = 'aborted';
     this.stopped = true;
     logger.info('TAOR loop aborted', { turns: this.turnCount });
+  }
+
+  /**
+   * 获取上下文追踪器
+   * 用于检查压缩历史、平均压缩比等指标
+   */
+  getContextTracker(): ContextTracker {
+    return this.contextTracker;
   }
 
   /**

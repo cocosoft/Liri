@@ -11,7 +11,7 @@ import noop from 'lodash-es/noop.js';
 import throttle from 'lodash-es/throttle.js';
 import React, { type ReactNode } from 'react';
 import type { FiberRoot } from 'react-reconciler';
-import { ConcurrentRoot } from 'react-reconciler/constants.js';
+import { LegacyRoot } from 'react-reconciler/constants.js';
 import { onExit } from 'signal-exit';
 import { format } from 'util';
 
@@ -365,7 +365,7 @@ export default class Ink {
 
     this.container = reconciler.createContainer(
       this.rootNode,
-      ConcurrentRoot,
+      LegacyRoot,
       null,
       false,
       null,
@@ -1745,6 +1745,8 @@ export default class Ink {
     );
 
     reconciler.updateContainerSync(tree, this.container, null, noop);
+    // React 19 ConcurrentRoot: ensure layout effects are flushed
+    reconciler.flushSyncFromReconciler(() => {});
     reconciler.flushSyncWork();
   }
   unmount(error?: Error | number | null): void {

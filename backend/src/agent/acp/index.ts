@@ -1,18 +1,182 @@
 /**
- * ACP 协议入口（归一化）
+ * ACP 协议入口（向后兼容层）
  *
- * 原 agent/acp/ 的实现已合并到 core/acp/，
- * 本文件作为向后兼容的 re-export 层。
+ * 新代码请直接使用 @modules/acp，本文件仅作为存量兼容保留。
  *
- * @deprecated 直接从 @modules/core/acp 导入
+ * @deprecated 请使用 @modules/acp
  */
-export { AcpTransportClient as AcpClient } from '../../runtime/acp/index.js';
-export { AcpTransportServer as AcpServer } from '../../runtime/acp/index.js';
+
+// ── 新的核心类型和函数（来自 @modules/acp） ──
+export {
+  ACP_PROTOCOL_VERSION,
+  ACP_SESSION_ID_PREFIX,
+  ACP_PROVENANCE_MODE_VALUES,
+  ACP_AGENT_INFO,
+  normalizeText,
+  isBlank,
+  truncateText,
+  createSharedRecord,
+  generateSessionId,
+  isValidSessionId,
+  createAcpClient,
+  readSecretFromFile,
+  createInMemorySessionStore,
+  getDefaultSessionStore,
+  createAcpGateway,
+  AcpGateway,
+  AcpGatewayAgent,
+  createAcpGatewayAgent,
+  mapRuntimeEventToGatewayEvent,
+  isTerminalGatewayEvent,
+  getAcpMetaInfo,
+  createCapabilityEntry,
+  mapSessionToInfo,
+  resolveInteractionMode,
+  getSupportedCommands,
+  findCommandDefinition,
+  isSupportedControl,
+  isAcpEnabledByPolicy,
+  isAcpAgentAllowedByPolicy,
+  resolveAcpDispatchPolicyState,
+  classifyAcpToolApproval,
+  AcpSessionManager,
+  createAcpSessionManager,
+  resolveRuntimeOptions,
+  validateRuntimeOption,
+  SessionActorQueue,
+  getSessionActorQueue,
+  clearSessionActorQueue,
+  RuntimeCapabilitiesCache,
+  NoopRuntimeCapabilitiesCache,
+  validateServerOptions,
+  hasValidServerOptions,
+  PersistentBindingLifecycle,
+  resolveBindingConfigToEnsureInput,
+  createInitialBindingState,
+  AcpRuntimeError,
+  isAcpRuntimeError,
+  toAcpRuntimeError,
+  AcpRuntimeRegistry,
+  getAcpRuntimeRegistry,
+  formatSessionIdentity,
+  parseSessionIdentity,
+  createSessionIdentity,
+  buildServerArgs,
+  buildAcpClientStripKeys,
+  resolveAcpClientSpawnEnv,
+  resolveAcpClientSpawnInvocation,
+  resolvePermissionRequest,
+  interactionModeToString,
+  mapSessionIdentityToSessionKey,
+  setSessionMeta,
+  getSessionMeta,
+  deleteSessionMeta,
+  getSessionMetaKeys,
+  clearSessionMeta,
+  clearAllSessionMeta,
+  getSessionMetaSnapshot,
+  generateRuntimeSessionName,
+  isValidRuntimeSessionName,
+  formatSessionIdentifier,
+  parseSessionIdentifier,
+  checkRuntimeAvailability,
+  waitForRuntimeReady,
+  assertRuntimeReady,
+  MockAcpRuntime,
+  createMockAcpRuntime,
+  createMockAcpRuntimeHandle,
+  createMockDoctorReport,
+  registerPendingSessionIdentity,
+  unregisterPendingSessionIdentity,
+  getPendingSessionIdentities,
+  clearPendingSessionIdentities,
+  reconcilePendingSessionIdentities,
+  reconcileAllSessions,
+  executeRuntimeControl,
+  isSupportedRuntimeControl,
+  getSupportedRuntimeControls,
+  setSessionMode,
+  setSessionConfigOption,
+  getSessionStatus,
+  consumeTurnStream,
+  collectTurnEvents,
+  processTurnEvents,
+} from '@modules/acp/index.js';
+
+import type {
+  AcpApprovalClass,
+  AcpRuntimeEvent,
+  AcpRuntimeHandle,
+  AcpSessionStore,
+} from '@modules/acp/index.js';
+
 export type {
-  AcpMessageType,
-  AcpMessagePriority as AcpPriority,
-  AcpMessage,
-  AcpSessionInfo as AcpSession,
-  AcpMessageHandler as AcpHandler,
-  AcpServerConfig,
-} from '../../runtime/acp/index.js';
+  AcpProvenanceMode,
+  SessionId,
+  AcpSession,
+  AcpServerOptions,
+  AcpClientOptions,
+  AcpClientHandle,
+  AcpApprovalClass,
+  SharedRecord,
+  AcpRuntimeErrorCode,
+  AcpRuntime,
+  AcpRuntimeHandle,
+  AcpRuntimeEnsureInput,
+  AcpRuntimeTurnInput,
+  AcpRuntimeTurnAttachment,
+  AcpRuntimeEvent,
+  AcpRuntimeCapabilities,
+  AcpRuntimeStatus,
+  AcpRuntimeDoctorReport,
+  AcpRuntimePromptMode,
+  AcpRuntimeSessionMode,
+  AcpSessionUpdateTag,
+  AcpRuntimeControl,
+  AcpRuntimeRegistration,
+  AcpSessionIdentity,
+  ClientSideConnection,
+  ResolvePermissionRequestParams,
+  RequestPermissionResponse,
+  AcpSessionStore,
+  AgentSideConnection,
+  GatewayClient,
+  GatewayEvent,
+  AcpMetaInfo,
+  AcpCapabilityEntry,
+  MappedSessionInfo,
+  InteractionMode,
+  AcpCommandDefinition,
+  AcpPolicyConfig,
+  AcpDispatchPolicyState,
+  ApprovalClassificationInput,
+  ResolvedRuntimeOptions,
+  AcpSessionManagerConfig,
+  AcpSessionManagerState,
+  AcpSessionManagerEvents,
+  BindingLifecycle,
+  PersistentBindingConfig,
+  PersistentBindingState,
+  RuntimeAvailabilityResult,
+  MockAcpRuntimeOptions,
+  PendingSessionIdentity,
+  IdentityReconcileResult,
+  RuntimeControlRequest,
+  RuntimeControlResult,
+  TurnStreamHandler,
+  TurnStreamResult,
+} from '@modules/acp/index.js';
+
+// ── 向后兼容的类型别名 ──
+
+/** @deprecated 使用 AcpApprovalClass */
+export type AcpPermissionLevel = AcpApprovalClass;
+
+/** @deprecated 使用 AcpRuntimeEvent */
+export type AcpTransportEvent = AcpRuntimeEvent;
+
+/** @deprecated 使用 AcpRuntimeHandle */
+export type AcpTransportHandle = AcpRuntimeHandle;
+
+/** @deprecated 使用 AcpSessionStore */
+export type AcpStorage = AcpSessionStore;

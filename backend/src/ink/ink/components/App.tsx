@@ -4,7 +4,7 @@ import React, { PureComponent, type ReactNode } from 'react';
 import { logForDebugging, logError } from '../../../utils/debug.js';
 import { isEnvTruthy } from '../../../utils/envUtils.js';
 
-// 替换缺失的导�?
+// 替换缺失的导?
 const updateLastInteractionTime = () => {};
 const stopCapturingEarlyInput = () => {};
 const isMouseClicksDisabled = () => false;

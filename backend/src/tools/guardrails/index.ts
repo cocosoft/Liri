@@ -13,8 +13,13 @@ export {
   DEFAULT_GUARDRAIL_RULES,
   getEnabledRules,
   findRule,
+  classifyTool,
+  isIdempotent,
+  isMutating,
+  IDEMPOTENT_TOOLS,
+  MUTATING_TOOLS,
 } from './GuardrailRules';
-export type { GuardrailRule } from './GuardrailRules';
+export type { GuardrailRule, ToolSafety } from './GuardrailRules';
 export {
   ToolCallGuardrailController,
   getToolCallGuardrailController,

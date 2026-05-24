@@ -16,6 +16,7 @@ import {
   GuardrailRule,
   DEFAULT_GUARDRAIL_RULES,
   getEnabledRules,
+  isMutating,
 } from './GuardrailRules';
 
 /**
@@ -37,6 +38,8 @@ export interface GuardrailConfig {
   customRules: GuardrailRule[];
   allowlist: string[];
   blocklist: string[];
+  /** 相同参数连续失败阻断阈值 */
+  maxFailureThreshold: number;
 }
 
 /**
@@ -49,6 +52,7 @@ const DEFAULT_CONFIG: GuardrailConfig = {
   customRules: [],
   allowlist: [],
   blocklist: [],
+  maxFailureThreshold: 3,
 };
 
 /**
@@ -59,6 +63,7 @@ export class ToolCallGuardrailController {
   private rules: GuardrailRule[];
   private decisionHistory: GuardrailDecision[] = [];
   private maxHistory: number = 500;
+  private exactFailureCounts: Map<string, number> = new Map();
 
   /**
    * 构造函数
@@ -117,6 +122,40 @@ export class ToolCallGuardrailController {
       return {
         decision,
         matchedRules: ['blocklist'],
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+
+    if (this.exactFailureCounts.size > 0) {
+      const sig = this.makeSignature(toolName, params);
+      const failCount = this.exactFailureCounts.get(sig) || 0;
+      if (failCount >= this.config.maxFailureThreshold) {
+        const decision = createBlockDecision(
+          `工具 "${toolName}" 使用相同参数已连续失败 ${failCount} 次，已自动阻断`,
+          'exact_failure_block',
+          context
+        );
+        this.addHistory(decision);
+
+        return {
+          decision,
+          matchedRules: ['exact_failure_block'],
+          executionTimeMs: Date.now() - startTime,
+        };
+      }
+    }
+
+    if (this.config.strictMode && isMutating(toolName)) {
+      const decision = createConfirmDecision(
+        `工具 "${toolName}" 是变易操作，需确认执行`,
+        'mutating_tool',
+        context
+      );
+      this.addHistory(decision);
+
+      return {
+        decision,
+        matchedRules: ['mutating_tool'],
         executionTimeMs: Date.now() - startTime,
       };
     }
@@ -182,6 +221,20 @@ export class ToolCallGuardrailController {
       matchedRules,
       executionTimeMs: Date.now() - startTime,
     };
+  }
+
+  /**
+   * 生成工具调用的精确签名（用于重复失败计数）
+   */
+  private makeSignature(
+    toolName: string,
+    params: Record<string, unknown>
+  ): string {
+    const sorted = Object.keys(params).sort();
+    const stable = sorted
+      .map((k) => `"${k}":${JSON.stringify(params[k])}`)
+      .join(',');
+    return `${toolName}:{${stable}}`;
   }
 
   /**
@@ -322,6 +375,61 @@ export class ToolCallGuardrailController {
    */
   clearHistory(): void {
     this.decisionHistory = [];
+  }
+
+  /**
+   * 记录工具执行失败（递增精确参数签名失败计数）
+   * @param toolName 工具名称
+   * @param params 工具参数
+   * @returns 当前失败计数
+   */
+  recordFailure(toolName: string, params: Record<string, unknown>): number {
+    const sig = this.makeSignature(toolName, params);
+    const count = (this.exactFailureCounts.get(sig) || 0) + 1;
+    this.exactFailureCounts.set(sig, count);
+    return count;
+  }
+
+  /**
+   * 记录工具执行成功（重置精确参数签名失败计数）
+   * @param toolName 工具名称
+   * @param params 工具参数
+   */
+  recordSuccess(toolName: string, params: Record<string, unknown>): void {
+    const sig = this.makeSignature(toolName, params);
+    this.exactFailureCounts.delete(sig);
+  }
+
+  /**
+   * 获取所有失败计数
+   */
+  getFailureCounts(): Record<string, number> {
+    const result: Record<string, number> = {};
+    for (const [key, count] of this.exactFailureCounts) {
+      result[key] = count;
+    }
+    return result;
+  }
+
+  /**
+   * 重置指定工具调用的失败计数
+   * @param toolName 工具名称
+   * @param params 工具参数
+   * @returns 是否存在该计数
+   */
+  resetFailureCount(
+    toolName: string,
+    params: Record<string, unknown>
+  ): boolean {
+    const sig = this.makeSignature(toolName, params);
+    return this.exactFailureCounts.delete(sig);
+  }
+
+  /**
+   * 清除所有失败计数
+   */
+  clearFailureCounts(): void {
+    this.exactFailureCounts.clear();
   }
 }
 

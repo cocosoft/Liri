@@ -349,6 +349,31 @@ export function createDefaultSandboxConstraints(): SandboxConstraints {
 }
 
 /**
+ * 文件系统访问规则（细粒度权限）
+ * 对标 Codex FSAccessRule 的细化控制
+ */
+export interface FSAccessRule {
+  path: string;
+  permissions: ('read' | 'write' | 'execute')[];
+  recursive: boolean;
+}
+
+/**
+ * 沙箱权限集（细粒度容器配置）
+ * 替代原有的 filesystemWhitelist: string[]，提供结构化控制
+ */
+export interface SandboxPermissions {
+  filesystem: FSAccessRule[];
+  network: boolean;
+  networkWhitelist: string[];
+  process: boolean;
+  bwrap: boolean;
+  memoryLimitMb?: number;
+  cpuQuota?: number;
+  timeoutMs?: number;
+}
+
+/**
  * Bash 权限规则类型
  */
 export interface BashPermissionRule {

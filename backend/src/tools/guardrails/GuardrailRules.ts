@@ -5,6 +5,84 @@
 import type { GuardrailCondition, GuardrailAction } from './GuardrailDecision';
 
 /**
+ * 工具安全性分类
+ * idempotent: 幂等工具，多次调用同一参数结果相同，可安全重试
+ * mutating: 变易工具，调用产生副作用，不可自动重试
+ * unknown: 未分类工具
+ */
+export type ToolSafety = 'idempotent' | 'mutating' | 'unknown';
+
+/**
+ * 幂等工具白名单
+ * 同一参数多次调用产生相同结果，无副作用
+ */
+export const IDEMPOTENT_TOOLS: ReadonlySet<string> = new Set([
+  'Read',
+  'Glob',
+  'Grep',
+  'WebSearch',
+  'WebFetch',
+  'ToolSearch',
+  'TaskGet',
+  'TaskList',
+  'SyntheticOutput',
+]);
+
+/**
+ * 变易工具白名单
+ * 调用产生副作用，不可安全重试
+ */
+export const MUTATING_TOOLS: ReadonlySet<string> = new Set([
+  'Write',
+  'Edit',
+  'Bash',
+  'TaskCreate',
+  'TaskUpdate',
+  'TaskStop',
+  'SendMessage',
+  'AskUserQuestion',
+  'TodoWrite',
+  'Skill',
+  'Agent',
+  'NotebookEdit',
+  'EnterPlanMode',
+  'ExitPlanMode',
+  'EnterWorktree',
+  'ExitWorktree',
+  'Workflow',
+  'TaskOutput',
+]);
+
+/**
+ * 分类工具安全性
+ * @param toolName 工具名称
+ * @returns 安全性分类
+ */
+export function classifyTool(toolName: string): ToolSafety {
+  if (IDEMPOTENT_TOOLS.has(toolName)) return 'idempotent';
+  if (MUTATING_TOOLS.has(toolName)) return 'mutating';
+  return 'unknown';
+}
+
+/**
+ * 检查工具是否为幂等工具
+ * @param toolName 工具名称
+ * @returns 是否幂等
+ */
+export function isIdempotent(toolName: string): boolean {
+  return classifyTool(toolName) === 'idempotent';
+}
+
+/**
+ * 检查工具是否为变易工具
+ * @param toolName 工具名称
+ * @returns 是否变易
+ */
+export function isMutating(toolName: string): boolean {
+  return classifyTool(toolName) === 'mutating';
+}
+
+/**
  * 护栏规则
  */
 export interface GuardrailRule {

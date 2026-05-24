@@ -498,7 +498,13 @@ export async function launch(options: LaunchOptions): Promise<void> {
  */
 export async function main(): Promise<void> {
   const mode = (process.argv[2] as LaunchMode) || LaunchMode.REPL;
-  const args = process.argv.slice(3);
+  const args = [...process.argv.slice(3)];
+  
+  // 默认使用legacy REPL，避免ink TUI的问题
+  if (!args.includes('--legacy-repl') && !args.includes('--no-legacy-repl')) {
+    args.push('--legacy-repl');
+  }
+  
   await launch({ mode, args });
 }
 

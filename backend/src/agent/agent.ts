@@ -28,6 +28,8 @@ import {
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { CuratorScheduler } from '@modules/tools/AgentTool/CuratorScheduler';
+import { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 
 /**
  * AI代理类
@@ -41,6 +43,8 @@ export class AIAgentImpl implements AIAgent {
   private memory: AgentMemory;
   private createdAt: number;
   private updatedAt: number;
+  private curator: CuratorScheduler | null = null;
+  private skillLifecycle: SkillLifecycleManager | null = null;
 
   /**
    * 构造函数
@@ -55,6 +59,19 @@ export class AIAgentImpl implements AIAgent {
     this.memory = createAgentMemory(config.memoryPath);
     this.createdAt = Date.now();
     this.updatedAt = Date.now();
+    if (config.curatorConfig) {
+      this.curator = new CuratorScheduler({
+        enabled: config.curatorConfig.enabled,
+        intervalHours: config.curatorConfig.intervalHours,
+        minIdleHours: config.curatorConfig.minIdleHours,
+        staleAfterDays: config.curatorConfig.staleAfterDays,
+        archiveAfterDays: config.curatorConfig.archiveAfterDays,
+      });
+      this.skillLifecycle = new SkillLifecycleManager({
+        staleAfterDays: config.curatorConfig.staleAfterDays,
+        archiveAfterDays: config.curatorConfig.archiveAfterDays,
+      });
+    }
   }
 
   /**
@@ -109,6 +126,10 @@ export class AIAgentImpl implements AIAgent {
           toolCount: context.tools.length,
         },
       });
+
+      this.maybeRunCurator().catch((e) =>
+        logger.warn('Curator background check failed', { error: String(e) })
+      );
 
       return response;
     } catch (error) {
@@ -296,6 +317,9 @@ export class AIAgentImpl implements AIAgent {
     if (this.state === AgentState.BUSY) {
       this.state = AgentState.PAUSED;
       this.updatedAt = Date.now();
+      this.maybeRunCurator().catch((e) =>
+        logger.warn('Curator background check failed', { error: String(e) })
+      );
     }
   }
 
@@ -315,6 +339,51 @@ export class AIAgentImpl implements AIAgent {
   stop(): void {
     this.state = AgentState.IDLE;
     this.updatedAt = Date.now();
+  }
+
+  /**
+   * 检查并触发 Curator 后台审查
+   *
+   * 当代理空闲且距上次审查超过 intervalHours 时，
+   * 自动执行技能生命周期转换并生成审查报告。
+   */
+  private async maybeRunCurator(): Promise<void> {
+    if (!this.curator || !this.skillLifecycle) {
+      return;
+    }
+
+    if (!this.curator.shouldRunNow()) {
+      return;
+    }
+
+    logger.info('Curator triggered — running skill lifecycle transitions', {
+      agentId: this.id,
+      runCount: this.curator.getState().runCount + 1,
+    });
+
+    await this.curator.runReview(async () => {
+      const transitions = this.skillLifecycle!.applyAutomaticTransitions();
+      const summary = [
+        `技能生命周期检查完成`,
+        `检查 ${transitions.checked} 个技能`,
+        transitions.markedStale > 0
+          ? `${transitions.markedStale} 个标记为 stale`
+          : '无 stale 转换',
+        transitions.archived > 0
+          ? `${transitions.archived} 个归档`
+          : '无归档操作',
+        transitions.reactivated > 0
+          ? `${transitions.reactivated} 个重新激活`
+          : '无重新激活',
+      ].join(' | ');
+
+      return {
+        reviewedCount: transitions.checked,
+        transitions,
+        summary,
+        durationMs: 0,
+      };
+    });
   }
 
   /**
@@ -345,6 +414,10 @@ export class AIAgentImpl implements AIAgent {
       strategy: this.strategy.name,
       toolCount: this.config.tools.length,
     };
+  }
+
+  getSkillLifecycleManager(): SkillLifecycleManager | null {
+    return this.skillLifecycle;
   }
 
   /**

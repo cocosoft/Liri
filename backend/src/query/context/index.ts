@@ -15,3 +15,10 @@ export type {
 } from './SummaryTemplate';
 export { JsonTruncator, DEFAULT_TRUNCATOR_CONFIG } from './JsonTruncator';
 export type { JsonTruncatorConfig } from './JsonTruncator';
+export { ContextEngineRegistry } from './ContextEngineRegistry';
+export type { CompressionFeature } from './ContextEngineRegistry';
+export { SummarizerEngine } from './SummarizerEngine';
+export { TruncatorEngine } from './TruncatorEngine';
+export { HybridEngine } from './HybridEngine';
+export { ContextTracker } from './ContextTracker';
+export type { CompressionRecord } from './ContextTracker';

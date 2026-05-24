@@ -4,6 +4,7 @@
 
 import { AIModelType } from '@modules/ai/models/types';
 import type { HooksSettings } from '@modules/types/hooks.js';
+import type { SkillLifecycleManager } from '../../tools/AgentTool/SkillLifecycleManager';
 
 /**
  * 代理状态
@@ -129,6 +130,13 @@ export interface AgentConfig {
   defaultStrategy: string;
   promptMode?: 'full' | 'minimal' | 'none';
   tools: AgentTool[];
+  curatorConfig?: {
+    enabled: boolean;
+    intervalHours: number;
+    minIdleHours: number;
+    staleAfterDays: number;
+    archiveAfterDays: number;
+  };
 }
 
 /**
@@ -174,6 +182,7 @@ export interface AIAgent {
   };
   updateConfig(config: Partial<AgentConfig>): void;
   serialize(): unknown;
+  getSkillLifecycleManager(): SkillLifecycleManager | null;
 }
 
 /**

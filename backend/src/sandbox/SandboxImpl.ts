@@ -9,8 +9,10 @@ import {
   SandboxExecuteOptions,
   SandboxExecuteResult,
   SandboxPermission,
+  SandboxPermissions,
   SandboxPlatform,
 } from './types/SandboxTypes';
+import { SandboxConfigBuilder } from './SandboxConfigBuilder';
 import { execSync, exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -202,23 +204,65 @@ export class LinuxSandbox extends BaseSandbox {
         };
       }
 
-      // 构建 bubblewrap 命令
-      const bwrapArgs = [
-        'bwrap',
-        '--ro-bind',
-        '/',
-        '/',
-        '--tmpfs',
-        '/tmp',
-        '--tmpfs',
-        '/var/tmp',
-        '--unshare-all',
-      ];
-
-      // 添加文件系统白名单
-      for (const path of this.config.filesystemWhitelist) {
-        bwrapArgs.push('--bind', path, path);
+      // 根据配置构建精细权限
+      let permissions: SandboxPermissions;
+      const toolType = options.args[0] || '';
+      if (this.config.allowedPermissions.length > 0) {
+        permissions = SandboxConfigBuilder.fromToolType(toolType, options.cwd);
+      } else {
+        permissions = SandboxConfigBuilder.defaultTool();
       }
+
+      // 构建 bubblewrap 命令（精细容器隔离）
+      const bwrapArgs: string[] = ['bwrap'];
+
+      // 命名空间隔离
+      bwrapArgs.push('--unshare-all');
+
+      // 只读系统路径（替代 --ro-bind / /）
+      bwrapArgs.push('--ro-bind', '/usr', '/usr');
+      bwrapArgs.push('--ro-bind', '/lib', '/lib');
+      bwrapArgs.push('--ro-bind', '/lib64', '/lib64');
+
+      // 空临时目录
+      bwrapArgs.push('--tmpfs', '/tmp');
+      bwrapArgs.push('--tmpfs', '/var/tmp');
+      bwrapArgs.push('--tmpfs', '/home');
+      bwrapArgs.push('--tmpfs', '/root');
+
+      // 虚拟文件系统
+      bwrapArgs.push('--proc', '/proc');
+      bwrapArgs.push('--dev', '/dev');
+
+      // 文件系统白名单（基于精细权限）
+      for (const fsRule of permissions.filesystem) {
+        const flag = fsRule.permissions.includes('write')
+          ? '--bind'
+          : '--ro-bind';
+        bwrapArgs.push(flag, fsRule.path, fsRule.path);
+      }
+
+      // 兼容旧配置的 filesystemWhitelist
+      for (const path of this.config.filesystemWhitelist) {
+        if (!permissions.filesystem.some((r) => r.path === path)) {
+          bwrapArgs.push('--bind', path, path);
+        }
+      }
+
+      // 网络隔离
+      if (!permissions.network) {
+        bwrapArgs.push('--unshare-net');
+      }
+
+      // 进程隔离
+      if (!permissions.process) {
+        bwrapArgs.push('--unshare-pid');
+      }
+
+      // 安全参数
+      bwrapArgs.push('--die-with-parent');
+      bwrapArgs.push('--setenv', 'PATH', '/usr/bin:/bin');
+      bwrapArgs.push('--setenv', 'HOME', '/tmp');
 
       // 添加命令参数
       bwrapArgs.push(...options.args);
@@ -227,7 +271,7 @@ export class LinuxSandbox extends BaseSandbox {
       const { stdout, stderr } = await execAsync(bwrapArgs.join(' '), {
         cwd: options.cwd,
         env: options.env,
-        timeout: options.timeout,
+        timeout: options.timeout || permissions.timeoutMs,
       });
 
       return {

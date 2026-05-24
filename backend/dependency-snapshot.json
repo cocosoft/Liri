@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-20T00:32:01.595Z",
+  "generatedAt": "2026-05-24T00:00:00.000Z",
   "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {
@@ -32,6 +32,21 @@
         "error"
       ],
       "optionalDependencies": []
+    },
+    "acp": {
+      "id": "acp",
+      "name": "acp",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "error",
+        "tools",
+        "monitoring",
+        "utils"
+      ]
     },
     "agent": {
       "id": "agent",
@@ -505,6 +520,7 @@
     "core",
     "infrastructure",
     "ai",
+    "acp",
     "config",
     "context",
     "error",

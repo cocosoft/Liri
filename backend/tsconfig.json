@@ -137,6 +137,8 @@
       "@modules/types/*": ["types/*"],
       "@modules/subagent": ["subagent"],
       "@modules/subagent/*": ["subagent/*"],
+      "@modules/acp": ["acp"],
+      "@modules/acp/*": ["acp/*"],
       "@modules/voice": ["voice"],
       "@modules/voice/*": ["voice/*"]
     }

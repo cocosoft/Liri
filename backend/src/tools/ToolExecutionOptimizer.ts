@@ -403,6 +403,214 @@ export class ToolExecutionOptimizer {
   getQueueLength(): number {
     return this.executionQueue.length;
   }
+
+  /**
+   * 按依赖图拓扑排序执行并行工具
+   * 同层工具并行执行，不同层按拓扑顺序串行
+   */
+  async executeParallelWithDeps(
+    tools: Array<{
+      tool: Tool;
+      input: Record<string, unknown>;
+    }>,
+    context: ToolUseContext,
+    dependencyGraph: ToolDependencyGraph,
+    options?: {
+      timeout?: number;
+      onProgress?: (toolName: string, progress: any) => void;
+    }
+  ): Promise<Map<string, ToolResult>> {
+    const toolNames = tools.map((t) => t.tool.name);
+    const levels = dependencyGraph.topologicalSort(toolNames);
+    const nameToTool = new Map(tools.map((t) => [t.tool.name, t]));
+    const results = new Map<string, ToolResult>();
+
+    for (const level of levels) {
+      if (level.length === 0) continue;
+
+      const levelTools = level
+        .map((name) => nameToTool.get(name))
+        .filter((t): t is NonNullable<typeof t> => t !== undefined);
+
+      if (levelTools.length === 0) continue;
+
+      const levelResults = await this.executeParallel(
+        levelTools,
+        context,
+        options
+      );
+
+      for (const [name, result] of levelResults) {
+        results.set(name, result);
+      }
+    }
+
+    return results;
+  }
+}
+
+/**
+ * 工具依赖关系
+ */
+export interface ToolDependency {
+  toolName: string;
+  dependsOn: string[];
+}
+
+/**
+ * 工具依赖图：DAG 拓扑排序
+ * 使用 Kahn 算法实现，用于确定工具执行的先后顺序
+ */
+export class ToolDependencyGraph {
+  /** 有向边: toolName -> {它依赖的工具} */
+  private graph: Map<string, Set<string>> = new Map();
+  /** 反向边: toolName -> {依赖它的工具} */
+  private dependents: Map<string, Set<string>> = new Map();
+
+  addDependency(toolName: string, dependsOn: string[]): void {
+    if (!this.graph.has(toolName)) {
+      this.graph.set(toolName, new Set());
+    }
+    if (!this.dependents.has(toolName)) {
+      this.dependents.set(toolName, new Set());
+    }
+
+    for (const dep of dependsOn) {
+      if (dep === toolName) continue;
+      this.graph.get(toolName)!.add(dep);
+      if (!this.dependents.has(dep)) {
+        this.dependents.set(dep, new Set());
+      }
+      this.dependents.get(dep)!.add(toolName);
+    }
+  }
+
+  removeDependency(toolName: string): void {
+    this.graph.delete(toolName);
+    this.dependents.delete(toolName);
+    for (const [, deps] of this.graph) {
+      deps.delete(toolName);
+    }
+    for (const [, deps] of this.dependents) {
+      deps.delete(toolName);
+    }
+  }
+
+  getDependencies(toolName: string): string[] {
+    return Array.from(this.graph.get(toolName) ?? []);
+  }
+
+  getDependents(toolName: string): string[] {
+    return Array.from(this.dependents.get(toolName) ?? []);
+  }
+
+  clear(): void {
+    this.graph.clear();
+    this.dependents.clear();
+  }
+
+  /**
+   * Kahn 算法拓扑排序
+   * 返回分层结果：每层是可并行执行的工具，层间按依赖顺序串行
+   */
+  topologicalSort(toolNames: string[]): string[][] {
+    const inDegree = new Map<string, number>();
+    const adj = new Map<string, Set<string>>();
+
+    for (const name of toolNames) {
+      inDegree.set(name, 0);
+      adj.set(name, new Set());
+    }
+
+    for (const name of toolNames) {
+      const deps = this.graph.get(name);
+      if (!deps) continue;
+      for (const dep of deps) {
+        if (!toolNames.includes(dep)) continue;
+        const depSet = adj.get(dep);
+        if (depSet) {
+          depSet.add(name);
+          inDegree.set(name, (inDegree.get(name) || 0) + 1);
+        }
+      }
+    }
+
+    const levels: string[][] = [];
+    let queue: string[] = [];
+
+    for (const name of toolNames) {
+      if ((inDegree.get(name) || 0) === 0) {
+        queue.push(name);
+      }
+    }
+
+    while (queue.length > 0) {
+      levels.push([...queue]);
+      const nextQueue: string[] = [];
+
+      for (const node of queue) {
+        const neighbors = adj.get(node);
+        if (!neighbors) continue;
+        for (const neighbor of neighbors) {
+          const currentDegree = inDegree.get(neighbor) || 0;
+          const newDegree = currentDegree - 1;
+          inDegree.set(neighbor, newDegree);
+          if (newDegree === 0) {
+            nextQueue.push(neighbor);
+          }
+        }
+      }
+
+      queue = nextQueue;
+    }
+
+    const sortedAll = levels.flat();
+    const remaining = toolNames.filter((n) => !sortedAll.includes(n));
+    if (remaining.length > 0) {
+      levels.push(remaining);
+    }
+
+    return levels;
+  }
+
+  /**
+   * 检测是否有循环依赖
+   */
+  hasCyclicDependency(): boolean {
+    const allNodes = new Set([...this.graph.keys(), ...this.dependents.keys()]);
+    const WHITE = 0,
+      GRAY = 1,
+      BLACK = 2;
+    const color = new Map<string, number>();
+
+    for (const node of allNodes) {
+      color.set(node, WHITE);
+    }
+
+    const dfs = (node: string): boolean => {
+      color.set(node, GRAY);
+      const deps = this.graph.get(node);
+      if (deps) {
+        for (const neighbor of deps) {
+          const c = color.get(neighbor);
+          if (c === GRAY) return true;
+          if (c === WHITE) {
+            if (dfs(neighbor)) return true;
+          }
+        }
+      }
+      color.set(node, BLACK);
+      return false;
+    };
+
+    for (const node of allNodes) {
+      if (color.get(node) === WHITE) {
+        if (dfs(node)) return true;
+      }
+    }
+
+    return false;
+  }
 }
 
 /**

@@ -563,9 +563,20 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     displayName: '运行时模块',
     version: '1.0.0',
     category: ModuleCategory.OTHER,
-    description: '运行时模块，提供 ACP 协议支持和 API 运行时服务',
+    description: '运行时模块，提供 API 运行时服务',
     dependencies: ['core'],
     optionalDependencies: ['error', 'tools', 'chat', 'monitoring', 'utils'],
+  },
+
+  acp: {
+    id: 'acp',
+    name: 'acp',
+    displayName: 'ACP 协议模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description: 'Agent Communication Protocol 模块，提供 Agent 间标准化通信和权限协商',
+    dependencies: ['core'],
+    optionalDependencies: ['error', 'tools', 'monitoring', 'utils'],
   },
 
   tasks: {
@@ -681,6 +692,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'session',
   'skills',
   'runtime',
+  'acp',
   'tasks',
   'governance',
   'memory',

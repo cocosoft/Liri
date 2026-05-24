@@ -103,6 +103,7 @@ export {
   TAORPhase,
   MemoryCheckpointStorage,
 } from './TAORLoop.js';
+export { FileCheckpointStorage } from './FileCheckpointStorage.js';
 export {
   ParallelToolExecutor,
   createParallelToolExecutor,

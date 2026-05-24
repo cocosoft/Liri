@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Box, AlternateScreen, useApp, useInput } from '../../ink';
+import { Box, AlternateScreen, useApp } from '../../ink';
 import { ConversationArea } from './ConversationArea';
 import { InputArea } from './InputArea';
 import { StatusBar } from './StatusBar';
@@ -30,11 +30,24 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   const [streamStats, setStreamStats] = useState<StreamStats | null>(null);
   const [activeToolCalls, setActiveToolCalls] = useState<ActiveToolCall[]>([]);
   const [terminalHeight, setTerminalHeight] = useState(24);
+  const [submitCount, setSubmitCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const pauseResolveRef = useRef<(() => void) | null>(null);
   const isPausedRef = useRef(false);
 
   const { exit } = useApp();
+
+  const handleEscape = useCallback(() => {
+    if (streamState === 'streaming') {
+      isPausedRef.current = true;
+      setStreamState('paused');
+    } else if (streamState === 'paused') {
+      isPausedRef.current = false;
+      setStreamState('streaming');
+      pauseResolveRef.current?.();
+      pauseResolveRef.current = null;
+    }
+  }, [streamState]);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -50,6 +63,9 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
 
   const handleSubmit = useCallback(
     async (content: string) => {
+      setSubmitCount((prev) => prev + 1);
+      logger.info('handleSubmit 开始', { content });
+
       if (content === 'exit' || content === 'quit') {
         exit?.();
         onExit();
@@ -285,18 +301,6 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
     };
   }, [streamState]);
 
-  useInput((_input, key) => {
-    if (key.escape && streamState === 'streaming') {
-      isPausedRef.current = true;
-      setStreamState('paused');
-    } else if (key.escape && streamState === 'paused') {
-      isPausedRef.current = false;
-      setStreamState('streaming');
-      pauseResolveRef.current?.();
-      pauseResolveRef.current = null;
-    }
-  });
-
   return (
     <AlternateScreen>
       <Box flexDirection="column" height={terminalHeight} width="100%">
@@ -310,10 +314,15 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
           height={conversationHeight}
         />
         <Box flexDirection="column">
-          <StatusBar streamStats={streamStats} streamState={streamState} />
+          <StatusBar
+            streamStats={streamStats}
+            streamState={streamState}
+            submitCount={submitCount}
+          />
           <InputArea
             onSubmit={handleSubmit}
             disabled={streamState === 'streaming' || streamState === 'paused'}
+            onEscape={handleEscape}
           />
         </Box>
       </Box>

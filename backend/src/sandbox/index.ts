@@ -95,3 +95,4 @@ export type {
   SandboxMode,
   SandboxGlobalPolicy,
 } from './SandboxPolicy';
+export { SandboxConfigBuilder } from './SandboxConfigBuilder';

@@ -3,7 +3,7 @@
  * 根据 SessionSource 构建或解析路由 Key
  */
 
-import { SessionKey, SESSION_KEY_PREFIX } from './SessionKey';
+import { SessionKey, SESSION_KEY_PREFIX, type ChatType } from './SessionKey';
 import { SessionKeyFactory } from './SessionKeyFactory';
 import type {
   SessionSource,
@@ -43,7 +43,7 @@ export class SessionRouter {
       source.chatType ?? SessionRouter.resolveChatType(source.platform);
     const key = this.keyFactory.create({
       userId: source.userId,
-      chatType,
+      chatType: chatType as ChatType,
     });
     return key.full;
   }

@@ -1,6 +1,5 @@
 /**
  * 任务系统模块
- * 基于CC源码 cc_code/backend/tasks/ 实现
  */
 
 // 导出类型
@@ -48,3 +47,76 @@ export {
 // 导出 TaskOrchestrator
 export { TaskOrchestrator, taskOrchestrator } from './TaskOrchestrator';
 export type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
+
+// 导出 SQLite 持久化存储
+export { SqliteTaskStore, createSqliteTaskStore } from './db/SqliteTaskStore';
+export type { TaskRun, SearchResult } from './db/SqliteTaskStore';
+export { SCHEMA, FTS5_SCHEMA, TABLE_NAMES } from './db/schema';
+
+// 导出任务流编排
+export { TaskFlowRegistry, taskFlowRegistry } from './TaskFlowRegistry';
+
+// 导出依赖链服务
+export { TaskDependencyService } from './TaskDependencyService';
+
+// 导出通知服务
+export { TaskNotificationService } from './TaskNotificationService';
+export type { DeliveryRecord } from './TaskNotificationService';
+
+// 导出一致性核对
+export { TaskReconciliationService } from './TaskReconciliationService';
+export type {
+  ReconciliationIssue,
+  ReconciliationResult,
+} from './TaskReconciliationService';
+
+// 导出分离式运行时
+export { DetachedTaskRuntime } from './DetachedTaskRuntime';
+export type {
+  DetachedTaskConfig,
+  DetachedTaskResult,
+} from './DetachedTaskRuntime';
+
+// 导出投递适配器
+export { TaskDeliveryAdapter } from './TaskDeliveryAdapter';
+export type { TaskDeliveryConfig } from './TaskDeliveryAdapter';
+
+// 导出持久化任务队列
+export { PersistentTaskQueue } from './PersistentTaskQueue';
+export type {
+  QueueEntry,
+  QueueStats,
+  QueueStatus,
+} from './PersistentTaskQueue';
+
+// 导出多阶段梦境
+export {
+  MultiPhaseDreamExecutor,
+  isToolReadOnly,
+  DREAM_PHASE_DEFAULTS,
+} from './dream/DreamPhases';
+export type {
+  DreamPhase,
+  DreamPhaseConfig,
+  MultiPhaseDreamResult,
+  DreamPhaseProgressCallback,
+} from './dream/DreamPhases';
+
+// 导出通用 task 接口类型
+export type {
+  TaskPriority,
+  Task,
+  TaskCreateOptions,
+  TaskUpdateOptions,
+  TaskQueryOptions,
+  TaskStorage,
+  TaskService,
+  TaskExecutor,
+  TaskQueue,
+} from './types';
+
+// 导出审计、维护、状态服务
+export { TaskAuditService } from './TaskAuditService';
+export { TaskMaintenanceService } from './TaskMaintenanceService';
+export { TaskStatusService } from './TaskStatusService';
+export type { SnapshotOptions, TaskStatusSnapshot } from './types';

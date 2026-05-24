@@ -1,4 +1,8 @@
-import type { AcpRuntime, AcpRuntimeHandle, AcpRuntimeControl } from '../runtime/types.js';
+import type {
+  AcpRuntime,
+  AcpRuntimeHandle,
+  AcpRuntimeControl,
+} from '../runtime/types.js';
 import { AcpRuntimeError } from '../runtime/errors.js';
 
 export interface RuntimeControlRequest {
@@ -18,7 +22,9 @@ const SUPPORTED_CONTROLS: AcpRuntimeControl[] = [
   'session/status',
 ];
 
-export function isSupportedRuntimeControl(control: string): control is AcpRuntimeControl {
+export function isSupportedRuntimeControl(
+  control: string
+): control is AcpRuntimeControl {
   return SUPPORTED_CONTROLS.includes(control as AcpRuntimeControl);
 }
 
@@ -45,7 +51,10 @@ export async function executeRuntimeControl(
         }
         const mode = request.payload?.mode;
         if (!mode) {
-          return { success: false, error: 'mode is required for session/set_mode' };
+          return {
+            success: false,
+            error: 'mode is required for session/set_mode',
+          };
         }
         await runtime.setMode({ handle: request.handle, mode });
         return { success: true };
@@ -53,12 +62,18 @@ export async function executeRuntimeControl(
 
       case 'session/set_config_option': {
         if (!runtime.setConfigOption) {
-          return { success: false, error: 'runtime does not support setConfigOption' };
+          return {
+            success: false,
+            error: 'runtime does not support setConfigOption',
+          };
         }
         const key = request.payload?.key;
         const value = request.payload?.value;
         if (!key || value === undefined) {
-          return { success: false, error: 'key and value are required for session/set_config_option' };
+          return {
+            success: false,
+            error: 'key and value are required for session/set_config_option',
+          };
         }
         await runtime.setConfigOption({ handle: request.handle, key, value });
         return { success: true };
@@ -66,14 +81,20 @@ export async function executeRuntimeControl(
 
       case 'session/status': {
         if (!runtime.getStatus) {
-          return { success: false, error: 'runtime does not support getStatus' };
+          return {
+            success: false,
+            error: 'runtime does not support getStatus',
+          };
         }
         const status = await runtime.getStatus({ handle: request.handle });
         return { success: true };
       }
 
       default:
-        return { success: false, error: `unhandled control: ${request.control}` };
+        return {
+          success: false,
+          error: `unhandled control: ${request.control}`,
+        };
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -93,7 +114,10 @@ export async function setSessionMode(
   });
 
   if (!result.success) {
-    throw new AcpRuntimeError('ACP_BACKEND_UNSUPPORTED_CONTROL', result.error || 'setMode failed');
+    throw new AcpRuntimeError(
+      'ACP_BACKEND_UNSUPPORTED_CONTROL',
+      result.error || 'setMode failed'
+    );
   }
 }
 
@@ -110,7 +134,10 @@ export async function setSessionConfigOption(
   });
 
   if (!result.success) {
-    throw new AcpRuntimeError('ACP_BACKEND_UNSUPPORTED_CONTROL', result.error || 'setConfigOption failed');
+    throw new AcpRuntimeError(
+      'ACP_BACKEND_UNSUPPORTED_CONTROL',
+      result.error || 'setConfigOption failed'
+    );
   }
 }
 

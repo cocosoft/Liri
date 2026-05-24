@@ -1,6 +1,10 @@
 const sessionMetaStore = new Map<string, Map<string, unknown>>();
 
-export function setSessionMeta(sessionKey: string, key: string, value: unknown): void {
+export function setSessionMeta(
+  sessionKey: string,
+  key: string,
+  value: unknown
+): void {
   let meta = sessionMetaStore.get(sessionKey);
   if (!meta) {
     meta = new Map();
@@ -9,7 +13,10 @@ export function setSessionMeta(sessionKey: string, key: string, value: unknown):
   meta.set(key, value);
 }
 
-export function getSessionMeta<T = unknown>(sessionKey: string, key: string): T | undefined {
+export function getSessionMeta<T = unknown>(
+  sessionKey: string,
+  key: string
+): T | undefined {
   const meta = sessionMetaStore.get(sessionKey);
   if (!meta) {
     return undefined;
@@ -45,7 +52,9 @@ export function clearAllSessionMeta(): void {
   sessionMetaStore.clear();
 }
 
-export function getSessionMetaSnapshot(sessionKey: string): Record<string, unknown> {
+export function getSessionMetaSnapshot(
+  sessionKey: string
+): Record<string, unknown> {
   const meta = sessionMetaStore.get(sessionKey);
   if (!meta) {
     return {};

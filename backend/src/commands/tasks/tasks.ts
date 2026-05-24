@@ -7,10 +7,8 @@ import type { CommandContext, CommandResult } from '@modules/commands/types';
 import type {
   BackgroundTaskInfo,
   BackgroundTaskStatus,
-} from '@modules/tools/AgentTool/BackgroundTaskManager.js';
-import { getBackgroundTaskManager } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
+} from '@modules/tasks/types.js';
 import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
-import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask.js';
 import {
   TaskType,
   TaskStatus,
@@ -450,20 +448,9 @@ function mapTaskStatusToBg(status: TaskStatus): BackgroundTaskStatus {
 }
 
 /**
- * 从 TaskRegistry 获取所有任务，同步 BackgroundTaskManager 数据
+ * 从 TaskRegistry 获取所有任务
  */
 function getAllTasksFromRegistry(): BackgroundTaskInfo[] {
-  // 同步 BackgroundTaskManager 的存量数据到 TaskRegistry
-  const bgManager = getBackgroundTaskManager();
-  const bgTasks = bgManager.getAllTasks();
-  for (const bgTask of bgTasks) {
-    const existing = taskRegistry.getTask(bgTask.taskId);
-    if (!existing) {
-      const adapter = new BackgroundAgentTask(bgTask);
-      taskRegistry.register(adapter, bgTask.taskId);
-    }
-  }
-
   return taskRegistry.getAllTasks().map(taskToBgInfo);
 }
 

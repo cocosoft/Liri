@@ -1,7 +1,17 @@
 import type { SessionId } from '../types.js';
-import type { AcpRuntime, AcpRuntimeHandle, AcpRuntimeEnsureInput, AcpRuntimeTurnInput, AcpRuntimeEvent } from '../runtime/types.js';
+import type {
+  AcpRuntime,
+  AcpRuntimeHandle,
+  AcpRuntimeEnsureInput,
+  AcpRuntimeTurnInput,
+  AcpRuntimeEvent,
+} from '../runtime/types.js';
 import type { AcpSessionStore } from '../session.js';
-import type { AcpSessionManagerConfig, AcpSessionManagerState, AcpSessionManagerEvents } from './manager.types.js';
+import type {
+  AcpSessionManagerConfig,
+  AcpSessionManagerState,
+  AcpSessionManagerEvents,
+} from './manager.types.js';
 import { getSessionActorQueue } from './session-actor-queue.js';
 
 export class AcpSessionManagerCore {
@@ -9,7 +19,10 @@ export class AcpSessionManagerCore {
   private state: AcpSessionManagerState;
   private events: AcpSessionManagerEvents;
 
-  constructor(config: AcpSessionManagerConfig, events?: Partial<AcpSessionManagerEvents>) {
+  constructor(
+    config: AcpSessionManagerConfig,
+    events?: Partial<AcpSessionManagerEvents>
+  ) {
     this.config = config;
     this.state = {
       sessions: new Map(),
@@ -34,7 +47,9 @@ export class AcpSessionManagerCore {
     return handle;
   }
 
-  async runTurn(input: AcpRuntimeTurnInput): Promise<AsyncIterable<AcpRuntimeEvent>> {
+  async runTurn(
+    input: AcpRuntimeTurnInput
+  ): Promise<AsyncIterable<AcpRuntimeEvent>> {
     const queue = getSessionActorQueue(input.handle.sessionKey);
     return queue.enqueue(async () => {
       const abortController = new AbortController();
@@ -88,7 +103,9 @@ export class AcpSessionManagerCore {
     for (const [sessionId, handle] of this.state.sessions) {
       closePromises.push(
         this.config.runtime.close({ handle, reason }).catch((err) => {
-          this.events.onError(err instanceof Error ? err : new Error(String(err)));
+          this.events.onError(
+            err instanceof Error ? err : new Error(String(err))
+          );
         })
       );
       this.state.sessions.delete(sessionId);

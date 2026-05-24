@@ -63,7 +63,7 @@ console.log('===== 批量命令测试 =====\n');
 
 await init();
 
-const chatManager = initializeChatManager();
+const chatManager = await initializeChatManager();
 const baseContext: CommandContext = {
   sessionId: `test-${Date.now()}`,
   chatManager,

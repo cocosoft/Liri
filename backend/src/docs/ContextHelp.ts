@@ -1440,7 +1440,7 @@ Tasks 命令帮助:
   统计 - 各类别计数 + 活跃任务实时状态 + 进度条（运行超过10秒）
 
 数据来源:
-  所有数据来自 BackgroundTaskManager（AgentTool 后台任务管理器）
+  所有数据来自 TaskRegistry（统一任务注册表）
 
 示例:
   /tasks

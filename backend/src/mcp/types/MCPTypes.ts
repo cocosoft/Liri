@@ -51,7 +51,7 @@ export type {
 } from '../../services/mcp/types/index.js';
 
 /**
- * MCP客户端接口（基于CC源码）
+ * MCP客户端接口
  */
 export interface MCPClient {
   /** 连接服务器 */

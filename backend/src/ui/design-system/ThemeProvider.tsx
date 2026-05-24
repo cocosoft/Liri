@@ -1,5 +1,5 @@
 /**
- * 主题提供者组件（基于CC源码）
+ * 主题提供者组件
  * 提供主题上下文和主题管理功能
  */
 
@@ -20,7 +20,7 @@ import {
 } from '../types/UITypes';
 
 /**
- * 默认主题配置（基于CC源码）
+ * 默认主题配置
  */
 const defaultTheme: UITheme = {
   colors: {
@@ -67,7 +67,7 @@ const defaultTheme: UITheme = {
 };
 
 /**
- * 深色主题配置（基于CC源码）
+ * 深色主题配置
  */
 const darkTheme: UITheme = {
   ...defaultTheme,
@@ -88,7 +88,7 @@ const darkTheme: UITheme = {
 };
 
 /**
- * 主题映射（基于CC源码）
+ * 主题映射
  */
 const themeMap: Record<ThemeName, UITheme> = {
   light: defaultTheme,
@@ -97,7 +97,7 @@ const themeMap: Record<ThemeName, UITheme> = {
 };
 
 /**
- * 主题上下文（基于CC源码）
+ * 主题上下文
  */
 const ThemeContext = createContext<ThemeContextValue>({
   themeSetting: 'light',
@@ -118,7 +118,7 @@ interface ThemeProviderProps {
 }
 
 /**
- * 主题提供者组件（基于CC源码）
+ * 主题提供者组件
  */
 export function ThemeProvider({
   children,
@@ -129,7 +129,7 @@ export function ThemeProvider({
   const [previewTheme, setPreviewTheme] = useState<ThemeSetting | null>(null);
 
   /**
-   * 解析当前主题（基于CC源码）
+   * 解析当前主题
    */
   const currentTheme: ThemeName = useMemo(() => {
     if (previewTheme && previewTheme !== 'auto') {
@@ -146,14 +146,14 @@ export function ThemeProvider({
   }, [themeSetting, previewTheme]);
 
   /**
-   * 获取当前主题配置（基于CC源码）
+   * 获取当前主题配置
    */
   const theme = useMemo(() => {
     return themeMap[currentTheme];
   }, [currentTheme]);
 
   /**
-   * 设置主题（基于CC源码）
+   * 设置主题
    */
   const handleSetThemeSetting = (setting: ThemeSetting) => {
     setThemeSetting(setting);
@@ -161,14 +161,14 @@ export function ThemeProvider({
   };
 
   /**
-   * 设置预览主题（基于CC源码）
+   * 设置预览主题
    */
   const handleSetPreviewTheme = (setting: ThemeSetting) => {
     setPreviewTheme(setting);
   };
 
   /**
-   * 保存预览主题（基于CC源码）
+   * 保存预览主题
    */
   const savePreview = () => {
     if (previewTheme) {
@@ -178,14 +178,14 @@ export function ThemeProvider({
   };
 
   /**
-   * 取消预览主题（基于CC源码）
+   * 取消预览主题
    */
   const cancelPreview = () => {
     setPreviewTheme(null);
   };
 
   /**
-   * 主题上下文值（基于CC源码）
+   * 主题上下文值
    */
   const contextValue: ThemeContextValue = {
     themeSetting,
@@ -204,7 +204,7 @@ export function ThemeProvider({
 }
 
 /**
- * 使用主题Hook（基于CC源码）
+ * 使用主题Hook
  */
 export function useTheme(): { theme: UITheme } & ThemeContextValue {
   const context = useContext(ThemeContext);
@@ -228,7 +228,7 @@ export function useTheme(): { theme: UITheme } & ThemeContextValue {
 }
 
 /**
- * 使用主题颜色Hook（基于CC源码）
+ * 使用主题颜色Hook
  */
 export function useThemeColor(color: keyof UITheme['colors']): string {
   const { theme } = useTheme();
@@ -236,7 +236,7 @@ export function useThemeColor(color: keyof UITheme['colors']): string {
 }
 
 /**
- * 使用主题间距Hook（基于CC源码）
+ * 使用主题间距Hook
  */
 export function useThemeSpacing(size: keyof UITheme['spacing']): number {
   const { theme } = useTheme();
@@ -244,7 +244,7 @@ export function useThemeSpacing(size: keyof UITheme['spacing']): number {
 }
 
 /**
- * 使用主题字体大小Hook（基于CC源码）
+ * 使用主题字体大小Hook
  */
 export function useThemeFontSize(
   size: keyof UITheme['typography']['fontSize']

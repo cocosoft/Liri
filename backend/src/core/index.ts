@@ -6,7 +6,6 @@
 
 export * from '@modules/system/state';
 export * from './events/EventBus';
-export * from './tasks/TaskService';
 
 export { AppCore, createAppCore, type AppCoreConfig } from './AppCore';
 export {

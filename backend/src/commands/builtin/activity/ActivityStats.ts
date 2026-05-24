@@ -166,17 +166,20 @@ async function getTaskStats(): Promise<{
   total: number;
 }> {
   try {
-    const { getBackgroundTaskManager } =
-      await import('../../../tools/AgentTool/BackgroundTaskManager.js');
-    const manager = getBackgroundTaskManager();
-    const allTasks = manager.getAllTasks();
-    const completed = allTasks.filter(
-      (t: any) => t.status === 'completed'
-    ).length;
-    const running = allTasks.filter((t: any) => t.status === 'running').length;
-    const pending = allTasks.filter((t: any) => t.status === 'pending').length;
-    const failed = allTasks.filter((t: any) => t.status === 'failed').length;
-
+    const { taskRegistry } = await import('../../../tasks/TaskRegistry.js');
+    const { TaskStatus } = await import('../../../tasks/types.js');
+    const allTasks = taskRegistry.getAllTasks();
+    let completed = 0,
+      running = 0,
+      pending = 0,
+      failed = 0;
+    for (const t of allTasks) {
+      const s = t.taskState.status;
+      if (s === TaskStatus.COMPLETED) completed++;
+      else if (s === TaskStatus.RUNNING) running++;
+      else if (s === TaskStatus.PENDING) pending++;
+      else if (s === TaskStatus.FAILED) failed++;
+    }
     return { completed, running, pending, failed, total: allTasks.length };
   } catch {
     return { completed: 0, running: 0, pending: 0, failed: 0, total: 0 };

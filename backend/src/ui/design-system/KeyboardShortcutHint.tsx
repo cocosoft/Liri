@@ -1,6 +1,6 @@
 //
 /**
- * 键盘快捷键提示组件（基于CC源码）
+ * 键盘快捷键提示组件
  * 显示键盘快捷键和描述信息
  */
 
@@ -10,7 +10,7 @@ import { KeyboardShortcutHintProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
- * 键盘快捷键提示组件（基于CC源码）
+ * 键盘快捷键提示组件
  */
 export function KeyboardShortcutHint({
   keys,
@@ -22,7 +22,7 @@ export function KeyboardShortcutHint({
 
   return (
     <Box flexDirection="row" alignItems="center" gap={1}>
-      {/* 快捷键键位显示（基于CC源码） */}
+      {/* 快捷键键位显示 */}
       <Box
         flexDirection="row"
         gap={0.5}
@@ -41,14 +41,14 @@ export function KeyboardShortcutHint({
         ))}
       </Box>
 
-      {/* 描述文本（基于CC源码） */}
+      {/* 描述文本 */}
       <Text color={theme.colors[color]}>{description}</Text>
     </Box>
   );
 }
 
 /**
- * 快捷键列表组件（基于CC源码）
+ * 快捷键列表组件
  */
 export function KeyboardShortcutList({
   shortcuts,

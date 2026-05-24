@@ -1,6 +1,12 @@
 import type { AcpRuntimeHandle } from '../runtime/types.js';
-import { getAcpRuntimeRegistry, type AcpRuntimeRegistry } from '../runtime/registry.js';
-import { formatSessionIdentity, type AcpSessionIdentity } from '../runtime/session-identity.js';
+import {
+  getAcpRuntimeRegistry,
+  type AcpRuntimeRegistry,
+} from '../runtime/registry.js';
+import {
+  formatSessionIdentity,
+  type AcpSessionIdentity,
+} from '../runtime/session-identity.js';
 
 export interface PendingSessionIdentity {
   sessionKey: string;
@@ -17,7 +23,9 @@ export interface IdentityReconcileResult {
 
 const pendingIdentities = new Map<string, PendingSessionIdentity>();
 
-export function registerPendingSessionIdentity(identity: AcpSessionIdentity): void {
+export function registerPendingSessionIdentity(
+  identity: AcpSessionIdentity
+): void {
   const key = formatSessionIdentity(identity);
   pendingIdentities.set(key, {
     sessionKey: identity.sessionKey,
@@ -27,7 +35,9 @@ export function registerPendingSessionIdentity(identity: AcpSessionIdentity): vo
   });
 }
 
-export function unregisterPendingSessionIdentity(identity: AcpSessionIdentity): void {
+export function unregisterPendingSessionIdentity(
+  identity: AcpSessionIdentity
+): void {
   const key = formatSessionIdentity(identity);
   pendingIdentities.delete(key);
 }
@@ -50,7 +60,9 @@ export async function reconcilePendingSessionIdentities(
   for (const [key, identity] of pendingIdentities) {
     const runtime = runtimeRegistry.get(identity.backend);
     if (!runtime) {
-      errors.push(`runtime backend "${identity.backend}" not found for session ${identity.sessionKey}`);
+      errors.push(
+        `runtime backend "${identity.backend}" not found for session ${identity.sessionKey}`
+      );
       continue;
     }
 

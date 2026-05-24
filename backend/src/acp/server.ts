@@ -21,7 +21,11 @@ export class AcpGateway {
   private sessionStore: AcpSessionStore;
   private options: AcpServerOptions;
 
-  constructor(runtime: AcpRuntime, sessionStore: AcpSessionStore, options: AcpServerOptions = {}) {
+  constructor(
+    runtime: AcpRuntime,
+    sessionStore: AcpSessionStore,
+    options: AcpServerOptions = {}
+  ) {
     this.runtime = runtime;
     this.sessionStore = sessionStore;
     this.options = options;

@@ -17,7 +17,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 内置技能定义接口（基于CC源码）
+ * 内置技能定义接口
  */
 export interface BundledSkillDefinition {
   /**
@@ -107,7 +107,7 @@ export class BundledSkillsRegistry {
   private extractedFiles: Set<string> = new Set();
 
   /**
-   * 注册内置技能（基于CC源码）
+   * 注册内置技能
    */
   registerBundledSkill(skill: BundledSkillDefinition): void {
     this.skills.set(skill.name, skill);
@@ -123,14 +123,14 @@ export class BundledSkillsRegistry {
   }
 
   /**
-   * 获取内置技能（基于CC源码）
+   * 获取内置技能
    */
   getBundledSkill(name: string): BundledSkillDefinition | undefined {
     return this.skills.get(name);
   }
 
   /**
-   * 获取所有内置技能（基于CC源码）
+   * 获取所有内置技能
    */
   getAllBundledSkills(): BundledSkillDefinition[] {
     const uniqueSkills = new Map<string, BundledSkillDefinition>();
@@ -147,7 +147,7 @@ export class BundledSkillsRegistry {
   }
 
   /**
-   * 提取参考文件（基于CC源码）
+   * 提取参考文件
    */
   async extractReferenceFiles(
     skill: BundledSkillDefinition,
@@ -182,7 +182,7 @@ export class BundledSkillsRegistry {
   }
 
   /**
-   * 安全写入文件（基于CC源码）
+   * 安全写入文件
    */
   private async safeWriteFile(
     filePath: string,
@@ -203,7 +203,7 @@ export class BundledSkillsRegistry {
   }
 
   /**
-   * 转换为技能定义（基于CC源码）
+   * 转换为技能定义
    */
   async toSkillDefinition(
     skill: BundledSkillDefinition
@@ -261,12 +261,12 @@ export class BundledSkillsRegistry {
 }
 
 /**
- * 创建默认的内置技能注册器（基于CC源码）
+ * 创建默认的内置技能注册器
  */
 export function createDefaultBundledSkillsRegistry(): BundledSkillsRegistry {
   const registry = new BundledSkillsRegistry();
 
-  // 注册20个内置技能（基于CC源码）
+  // 注册20个内置技能
   registerDebugSkill(registry);
   registerRememberSkill(registry);
   registerVerifySkill(registry);
@@ -329,7 +329,7 @@ export async function registerBundledSkill(
 }
 
 /**
- * 注册调试技能（基于CC源码）
+ * 注册调试技能
  */
 function registerDebugSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -359,7 +359,7 @@ function registerDebugSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册记忆审查技能（基于CC源码）
+ * 注册记忆审查技能
  */
 function registerRememberSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -389,7 +389,7 @@ function registerRememberSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册验证技能（基于CC源码）
+ * 注册验证技能
  */
 function registerVerifySkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -419,7 +419,7 @@ function registerVerifySkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册简化技能（基于CC源码）
+ * 注册简化技能
  */
 function registerSimplifySkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -449,7 +449,7 @@ function registerSimplifySkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册技能化技能（基于CC源码）
+ * 注册技能化技能
  */
 function registerSkillifySkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -529,7 +529,7 @@ function registerSkillifySkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册批量处理技能（基于CC源码）
+ * 注册批量处理技能
  */
 function registerBatchSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -559,7 +559,7 @@ function registerBatchSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册卡住处理技能（基于CC源码）
+ * 注册卡住处理技能
  */
 function registerStuckSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -589,7 +589,7 @@ function registerStuckSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册循环执行技能（基于CC源码）
+ * 注册循环执行技能
  */
 function registerLoopSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -641,7 +641,7 @@ function registerLoopSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册配置更新技能（基于CC源码）
+ * 注册配置更新技能
  */
 function registerUpdateConfigSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -723,7 +723,7 @@ function registerUpdateConfigSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册按键绑定帮助技能（基于CC源码）
+ * 注册按键绑定帮助技能
  */
 function registerKeybindingsSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -826,7 +826,7 @@ function registerKeybindingsSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册示例文本生成技能（基于CC源码）
+ * 注册示例文本生成技能
  */
 function registerLoremIpsumSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -874,7 +874,7 @@ function registerLoremIpsumSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册Claude API参考技能（基于CC源码）
+ * 注册Claude API参考技能
  */
 function registerClaudeApiSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -959,7 +959,7 @@ function registerClaudeApiSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册Chrome集成帮助技能（基于CC源码）
+ * 注册Chrome集成帮助技能
  */
 function registerClaudeInChromeSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -991,7 +991,7 @@ function registerClaudeInChromeSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册远程代理调度技能（基于CC源码）
+ * 注册远程代理调度技能
  */
 function registerScheduleRemoteAgentsSkill(
   registry: BundledSkillsRegistry
@@ -1033,7 +1033,7 @@ function registerScheduleRemoteAgentsSkill(
 }
 
 /**
- * 注册审查工件技能（基于CC源码）
+ * 注册审查工件技能
  */
 function registerHunterSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -1067,7 +1067,7 @@ function registerHunterSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册梦境模式技能（基于CC源码）
+ * 注册梦境模式技能
  */
 function registerDreamSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({
@@ -1117,7 +1117,7 @@ function registerDreamSkill(registry: BundledSkillsRegistry): void {
 }
 
 /**
- * 注册技能生成器技能（基于CC源码）
+ * 注册技能生成器技能
  */
 function registerRunSkillGeneratorSkill(registry: BundledSkillsRegistry): void {
   registry.registerBundledSkill({

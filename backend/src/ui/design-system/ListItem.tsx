@@ -1,6 +1,6 @@
 //
 /**
- * 列表项组件（基于CC源码）
+ * 列表项组件
  * 提供列表项显示功能，支持选择、点击等交互
  */
 
@@ -10,7 +10,7 @@ import { ListItemProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
- * 列表项组件（基于CC源码）
+ * 列表项组件
  */
 export function ListItem({
   children,
@@ -24,7 +24,7 @@ export function ListItem({
   const { theme } = useTheme();
 
   /**
-   * 处理点击事件（基于CC源码）
+   * 处理点击事件
    */
   const handlePress = () => {
     if (!disabled && onPress) {
@@ -33,7 +33,7 @@ export function ListItem({
   };
 
   /**
-   * 获取列表项样式（基于CC源码）
+   * 获取列表项样式
    */
   const getItemStyle = () => {
     if (disabled) {
@@ -77,7 +77,7 @@ export function ListItem({
 }
 
 /**
- * 图标列表项组件（基于CC源码）
+ * 图标列表项组件
  */
 export function IconListItem({
   icon,
@@ -109,7 +109,7 @@ export function IconListItem({
 }
 
 /**
- * 描述列表项组件（基于CC源码）
+ * 描述列表项组件
  */
 export function DescriptionListItem({
   title,
@@ -141,7 +141,7 @@ export function DescriptionListItem({
 }
 
 /**
- * 动作列表项组件（基于CC源码）
+ * 动作列表项组件
  */
 export function ActionListItem({
   text,
@@ -184,7 +184,7 @@ export function ActionListItem({
 }
 
 /**
- * 状态列表项组件（基于CC源码）
+ * 状态列表项组件
  */
 export function StatusListItem({
   text,
@@ -241,7 +241,7 @@ export function StatusListItem({
 }
 
 /**
- * 复选框列表项组件（基于CC源码）
+ * 复选框列表项组件
  */
 export function CheckboxListItem({
   text,
@@ -278,7 +278,7 @@ export function CheckboxListItem({
 }
 
 /**
- * 单选按钮列表项组件（基于CC源码）
+ * 单选按钮列表项组件
  */
 export function RadioListItem({
   text,

@@ -1,5 +1,5 @@
 /**
- * 加载状态组件（基于CC源码）
+ * 加载状态组件
  * 显示加载动画和状态信息
  */
 
@@ -9,7 +9,7 @@ import { LoadingStateProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
- * 加载状态组件（基于CC源码）
+ * 加载状态组件
  */
 export function LoadingState({
   text = '加载中...',
@@ -20,7 +20,7 @@ export function LoadingState({
   const { theme } = useTheme();
 
   /**
-   * 渲染旋转加载器（基于CC源码）
+   * 渲染旋转加载器
    */
   const renderSpinner = () => {
     const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -38,7 +38,7 @@ export function LoadingState({
   };
 
   /**
-   * 渲染点加载器（基于CC源码）
+   * 渲染点加载器
    */
   const renderDots = () => {
     const dotFrames = ['.  ', '.. ', '...', ' ..', '  .', '   '];
@@ -56,7 +56,7 @@ export function LoadingState({
   };
 
   /**
-   * 渲染进度条加载器（基于CC源码）
+   * 渲染进度条加载器
    */
   const renderBar = () => {
     const barFrames = [
@@ -81,7 +81,7 @@ export function LoadingState({
   };
 
   /**
-   * 根据类型渲染加载动画（基于CC源码）
+   * 根据类型渲染加载动画
    */
   const renderLoader = () => {
     switch (type) {
@@ -105,7 +105,7 @@ export function LoadingState({
 }
 
 /**
- * 全屏加载状态组件（基于CC源码）
+ * 全屏加载状态组件
  */
 export function FullScreenLoadingState({
   text = '加载中...',
@@ -123,7 +123,7 @@ export function FullScreenLoadingState({
 }
 
 /**
- * 内联加载状态组件（基于CC源码）
+ * 内联加载状态组件
  */
 export function InlineLoadingState({
   text,
@@ -134,7 +134,7 @@ export function InlineLoadingState({
 }
 
 /**
- * 骨架屏加载状态组件（基于CC源码）
+ * 骨架屏加载状态组件
  */
 export function SkeletonLoadingState({
   width = 20,
@@ -167,7 +167,7 @@ export function SkeletonLoadingState({
 }
 
 /**
- * 进度加载状态组件（基于CC源码）
+ * 进度加载状态组件
  */
 export function ProgressLoadingState({
   progress,

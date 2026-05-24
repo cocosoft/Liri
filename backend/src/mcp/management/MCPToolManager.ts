@@ -16,7 +16,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
- * 工具调用上下文（基于CC源码）
+ * 工具调用上下文
  */
 export interface ToolCallContext {
   /** 服务器名称 */
@@ -39,7 +39,7 @@ export interface ToolCallContext {
 }
 
 /**
- * 工具调用结果（基于CC源码）
+ * 工具调用结果
  */
 export interface ToolCallResult {
   /** 是否成功 */
@@ -59,7 +59,7 @@ export interface ToolCallResult {
 }
 
 /**
- * 工具注册信息（基于CC源码）
+ * 工具注册信息
  */
 export interface ToolRegistration {
   /** 工具定义 */
@@ -85,7 +85,7 @@ export interface ToolRegistration {
 }
 
 /**
- * 资源注册信息（基于CC源码）
+ * 资源注册信息
  */
 export interface ResourceRegistration {
   /** 资源定义 */
@@ -105,7 +105,7 @@ export interface ResourceRegistration {
 }
 
 /**
- * 提示注册信息（基于CC源码）
+ * 提示注册信息
  */
 export interface PromptRegistration {
   /** 提示定义 */
@@ -134,7 +134,7 @@ export class MCPToolManager extends EventEmitter {
   private servers = new Map<string, MCPServerInfo>();
 
   /**
-   * 注册工具（基于CC源码）
+   * 注册工具
    */
   registerTool(serverName: string, tool: MCPToolDefinition): void {
     const toolId = this.generateToolId(serverName, tool.name);
@@ -168,7 +168,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 注册资源（基于CC源码）
+   * 注册资源
    */
   registerResource(serverName: string, resource: MCPResourceDefinition): void {
     const resourceId = this.generateResourceId(serverName, resource.id);
@@ -198,7 +198,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 注册提示（基于CC源码）
+   * 注册提示
    */
   registerPrompt(serverName: string, prompt: MCPPromptDefinition): void {
     const promptId = this.generatePromptId(serverName, prompt.id);
@@ -228,7 +228,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 批量注册工具（基于CC源码）
+   * 批量注册工具
    */
   registerTools(serverName: string, tools: MCPToolDefinition[]): void {
     tools.forEach((tool) => {
@@ -241,7 +241,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 批量注册资源（基于CC源码）
+   * 批量注册资源
    */
   registerResources(
     serverName: string,
@@ -259,7 +259,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 批量注册提示（基于CC源码）
+   * 批量注册提示
    */
   registerPrompts(serverName: string, prompts: MCPPromptDefinition[]): void {
     prompts.forEach((prompt) => {
@@ -272,7 +272,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 调用工具（基于CC源码）
+   * 调用工具
    */
   async callTool(
     serverName: string,
@@ -357,7 +357,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 执行工具（基于CC源码）
+   * 执行工具
    */
   private async executeTool(
     registration: ToolRegistration,
@@ -373,7 +373,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 获取工具（基于CC源码）
+   * 获取工具
    */
   getTool(serverName: string, toolName: string): ToolRegistration | undefined {
     const toolId = this.generateToolId(serverName, toolName);
@@ -381,7 +381,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 获取资源（基于CC源码）
+   * 获取资源
    */
   getResource(
     serverName: string,
@@ -392,7 +392,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 获取提示（基于CC源码）
+   * 获取提示
    */
   getPrompt(
     serverName: string,
@@ -403,28 +403,28 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 获取所有工具（基于CC源码）
+   * 获取所有工具
    */
   getAllTools(): ToolRegistration[] {
     return Array.from(this.tools.values());
   }
 
   /**
-   * 获取所有资源（基于CC源码）
+   * 获取所有资源
    */
   getAllResources(): ResourceRegistration[] {
     return Array.from(this.resources.values());
   }
 
   /**
-   * 获取所有提示（基于CC源码）
+   * 获取所有提示
    */
   getAllPrompts(): PromptRegistration[] {
     return Array.from(this.prompts.values());
   }
 
   /**
-   * 获取服务器工具（基于CC源码）
+   * 获取服务器工具
    */
   getServerTools(serverName: string): ToolRegistration[] {
     return Array.from(this.tools.values()).filter(
@@ -433,7 +433,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 获取服务器资源（基于CC源码）
+   * 获取服务器资源
    */
   getServerResources(serverName: string): ResourceRegistration[] {
     return Array.from(this.resources.values()).filter(
@@ -442,7 +442,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 获取服务器提示（基于CC源码）
+   * 获取服务器提示
    */
   getServerPrompts(serverName: string): PromptRegistration[] {
     return Array.from(this.prompts.values()).filter(
@@ -451,7 +451,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 启用/禁用工具（基于CC源码）
+   * 启用/禁用工具
    */
   setToolEnabled(serverName: string, toolName: string, enabled: boolean): void {
     const toolId = this.generateToolId(serverName, toolName);
@@ -473,7 +473,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 移除工具（基于CC源码）
+   * 移除工具
    */
   removeTool(serverName: string, toolName: string): boolean {
     const toolId = this.generateToolId(serverName, toolName);
@@ -488,7 +488,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 移除资源（基于CC源码）
+   * 移除资源
    */
   removeResource(serverName: string, resourceId: string): boolean {
     const fullResourceId = this.generateResourceId(serverName, resourceId);
@@ -503,7 +503,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 移除提示（基于CC源码）
+   * 移除提示
    */
   removePrompt(serverName: string, promptId: string): boolean {
     const fullPromptId = this.generatePromptId(serverName, promptId);
@@ -518,7 +518,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 清理服务器所有注册（基于CC源码）
+   * 清理服务器所有注册
    */
   clearServerRegistrations(serverName: string): void {
     // 清理工具
@@ -547,7 +547,7 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 获取统计信息（基于CC源码）
+   * 获取统计信息
    */
   getStatistics(): {
     totalTools: number;
@@ -600,21 +600,21 @@ export class MCPToolManager extends EventEmitter {
   }
 
   /**
-   * 生成工具ID（基于CC源码）
+   * 生成工具ID
    */
   private generateToolId(serverName: string, toolName: string): string {
     return `${serverName}:${toolName}`;
   }
 
   /**
-   * 生成资源ID（基于CC源码）
+   * 生成资源ID
    */
   private generateResourceId(serverName: string, resourceId: string): string {
     return `${serverName}:${resourceId}`;
   }
 
   /**
-   * 生成提示ID（基于CC源码）
+   * 生成提示ID
    */
   private generatePromptId(serverName: string, promptId: string): string {
     return `${serverName}:${promptId}`;
@@ -622,7 +622,7 @@ export class MCPToolManager extends EventEmitter {
 }
 
 /**
- * 全局MCP工具管理器实例（基于CC源码）
+ * 全局MCP工具管理器实例
  */
 export const globalMCPToolManager = new MCPToolManager();
 

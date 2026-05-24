@@ -1,8 +1,6 @@
 /**
  * Analytics Console Sink
  * 将事件输出到控制台
- *
- * 基于CC源码 cc_code/backend/services/analytics/sink.ts 实现
  */
 
 import type { AnalyticsSink } from './types';

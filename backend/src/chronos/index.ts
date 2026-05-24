@@ -39,6 +39,7 @@ export {
   findMissedTasks,
   getCronTask,
   updateCronTask,
+  setCronSqliteStore,
 } from './CronTasks';
 export {
   tryAcquireSchedulerLock,
@@ -58,6 +59,13 @@ export * from './lifecycle';
 
 // 增强调度器
 export { EnhancedCronScheduler } from './EnhancedCronScheduler';
+
+// SQLite 持久化存储
+export {
+  SqliteCronStore,
+  createSqliteCronStore,
+} from './service/SqliteCronStore';
+export type { CronRun } from './service/SqliteCronStore';
 
 // 增强任务
 export type {
@@ -88,6 +96,35 @@ export type {
   SubprocessTaskResult,
   SubprocessStatus,
 } from './CronSubprocessExecutor';
+
+// 事件驱动触发
+export {
+  CronEventTrigger,
+  cronEventTrigger,
+} from './event-driven/CronEventTrigger';
+export type {
+  TriggerEvent,
+  TriggerRule,
+} from './event-driven/CronEventTrigger';
+
+// Lost task 检测
+export { CronLostTaskDetector } from './recovery/CronLostTaskDetector';
+export type { MissedTaskInfo } from './recovery/CronLostTaskDetector';
+
+// 执行报告生成
+export {
+  CronReportGenerator,
+  cronReportGenerator,
+} from './reporting/CronReportGenerator';
+export type {
+  CronExecutionSummary,
+  TaskExecutionStats,
+  CronReport,
+} from './reporting/CronReportGenerator';
+
+// 文件系统监听
+export { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
+export type { CronFileChangeCallback } from './watcher/CronFileWatcher';
 
 /**
  * 检查Chronos系统是否处于活跃状态

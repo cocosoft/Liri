@@ -3,7 +3,12 @@ import type { AcpRuntimeEvent } from '../runtime/types.js';
 export interface TurnStreamHandler {
   onTextDelta?: (text: string, stream?: 'output' | 'thought') => void;
   onStatus?: (text: string, used?: number, size?: number) => void;
-  onToolCall?: (text: string, toolCallId?: string, status?: string, title?: string) => void;
+  onToolCall?: (
+    text: string,
+    toolCallId?: string,
+    status?: string,
+    title?: string
+  ) => void;
   onDone?: (stopReason?: string) => void;
   onError?: (message: string, code?: string, retryable?: boolean) => void;
 }
@@ -48,7 +53,12 @@ export async function consumeTurnStream(
 
       case 'tool_call':
         toolCalls.push(event);
-        handler?.onToolCall?.(event.text, event.toolCallId, event.status, event.title);
+        handler?.onToolCall?.(
+          event.text,
+          event.toolCallId,
+          event.status,
+          event.title
+        );
         break;
 
       case 'done':
@@ -96,7 +106,12 @@ export async function processTurnEvents(
         handler.onStatus?.(event.text, event.used, event.size);
         break;
       case 'tool_call':
-        handler.onToolCall?.(event.text, event.toolCallId, event.status, event.title);
+        handler.onToolCall?.(
+          event.text,
+          event.toolCallId,
+          event.status,
+          event.title
+        );
         break;
       case 'done':
         handler.onDone?.(event.stopReason);

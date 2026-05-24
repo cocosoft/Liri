@@ -24,7 +24,9 @@ const EXPLICIT_APPROVAL_TOOLS = new Set<string>([
   'overwrite_file',
 ]);
 
-export function classifyAcpToolApproval(input: ApprovalClassificationInput): AcpApprovalClass {
+export function classifyAcpToolApproval(
+  input: ApprovalClassificationInput
+): AcpApprovalClass {
   const { toolName } = input;
 
   if (BLOCKED_TOOLS.has(toolName)) {

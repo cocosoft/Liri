@@ -4,7 +4,7 @@
  */
 
 /**
- * 插件生命周期状态（基于CC源码）
+ * 插件生命周期状态
  */
 export enum PluginState {
   /** 未加载 */
@@ -33,7 +33,7 @@ export enum PluginState {
 }
 
 /**
- * 插件类型（基于CC源码）
+ * 插件类型
  */
 export enum PluginType {
   /** 工具插件 */
@@ -56,7 +56,7 @@ export enum PluginType {
 }
 
 /**
- * 插件依赖（基于CC源码）
+ * 插件依赖
  */
 export interface PluginDependency {
   /** 依赖插件名称 */
@@ -73,7 +73,7 @@ export interface PluginDependency {
 }
 
 /**
- * 插件元数据（基于CC源码）
+ * 插件元数据
  */
 export interface PluginMetadata {
   /** 插件ID */
@@ -120,7 +120,7 @@ export interface PluginMetadata {
 }
 
 /**
- * 插件配置（基于CC源码）
+ * 插件配置
  */
 export interface PluginConfig {
   /** 配置项 */
@@ -128,7 +128,7 @@ export interface PluginConfig {
 }
 
 /**
- * 插件上下文（基于CC源码）
+ * 插件上下文
  */
 export interface PluginContext {
   /** 插件ID */
@@ -167,7 +167,7 @@ export interface PluginContext {
 }
 
 /**
- * 插件工具定义（基于CC源码）
+ * 插件工具定义
  */
 export interface PluginTool {
   /** 工具名称 */
@@ -184,7 +184,7 @@ export interface PluginTool {
 }
 
 /**
- * 插件命令定义（基于CC源码）
+ * 插件命令定义
  */
 export interface PluginCommand {
   /** 命令名称 */
@@ -201,7 +201,7 @@ export interface PluginCommand {
 }
 
 /**
- * 插件钩子定义（基于CC源码）
+ * 插件钩子定义
  */
 export interface PluginHook {
   /** 钩子名称 */
@@ -218,7 +218,7 @@ export interface PluginHook {
 }
 
 /**
- * 插件接口（基于CC源码）
+ * 插件接口
  */
 export interface Plugin {
   /** 插件元数据 */
@@ -247,7 +247,7 @@ export interface Plugin {
 }
 
 /**
- * 已加载插件（基于CC源码）
+ * 已加载插件
  */
 export interface LoadedPlugin {
   /** 插件ID */
@@ -300,7 +300,7 @@ export interface LoadedPlugin {
 }
 
 /**
- * 插件加载选项（基于CC源码）
+ * 插件加载选项
  */
 export interface PluginLoaderOptions {
   /** 插件目录 */
@@ -326,7 +326,7 @@ export interface PluginLoaderOptions {
 }
 
 /**
- * 插件注册信息（基于CC源码）
+ * 插件注册信息
  */
 export interface PluginRegistration {
   /** 插件ID */
@@ -361,7 +361,7 @@ export interface PluginRegistration {
 }
 
 /**
- * 插件事件类型（基于CC源码）
+ * 插件事件类型
  */
 export enum PluginEventType {
   /** 插件加载前 */
@@ -411,7 +411,7 @@ export enum PluginEventType {
 }
 
 /**
- * 插件事件（基于CC源码）
+ * 插件事件
  */
 export interface PluginEvent {
   /** 事件类型 */
@@ -428,7 +428,7 @@ export interface PluginEvent {
 }
 
 /**
- * 插件加载结果（基于CC源码）
+ * 插件加载结果
  */
 export interface PluginLoadResult {
   /** 是否成功 */
@@ -445,7 +445,7 @@ export interface PluginLoadResult {
 }
 
 /**
- * 插件验证结果（基于CC源码）
+ * 插件验证结果
  */
 export interface PluginValidationResult {
   /** 是否有效 */
@@ -459,7 +459,7 @@ export interface PluginValidationResult {
 }
 
 /**
- * 插件依赖解析结果（基于CC源码）
+ * 插件依赖解析结果
  */
 export interface PluginDependencyResolution {
   /** 是否成功 */

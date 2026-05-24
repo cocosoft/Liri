@@ -37,7 +37,9 @@ import {
   buildChildMessage,
 } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
-import { getBackgroundTaskManager } from './BackgroundTaskManager';
+import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
+import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { getToolManager } from '../ToolManager';
 import { Logger } from '@modules/monitoring/logs/Logger';
 
@@ -661,13 +663,18 @@ export class AgentTool implements Tool {
           };
         }
 
-        const bgManager = getBackgroundTaskManager();
-        const taskId = bgManager.createTask(
-          agentInput.name || agentId,
-          effectiveType,
-          agentInput.description || 'Background agent task'
-        );
-        bgManager.startTask(taskId);
+        const taskId = `bg-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
+        const bgInfo: BackgroundTaskInfo = {
+          taskId,
+          agentName: agentInput.name || agentId,
+          agentType: effectiveType,
+          description: agentInput.description || 'Background agent task',
+          status: 'running',
+          createdAt: Date.now(),
+          startedAt: Date.now(),
+        };
+        const bgTask = new BackgroundAgentTask(bgInfo, taskId);
+        taskRegistry.register(bgTask, taskId);
 
         this.runWithEngine(
           agentInput,
@@ -677,19 +684,29 @@ export class AgentTool implements Tool {
           onProgress
         )
           .then((runResult) => {
-            bgManager.completeTask(
-              taskId,
-              runResult.result,
-              runResult.tokenUsage
-            );
+            bgTask.syncFromBgInfo({
+              ...bgInfo,
+              status: 'completed',
+              result: runResult.result,
+              tokenUsage: runResult.tokenUsage || {
+                promptTokens: 0,
+                completionTokens: 0,
+                totalTokens: 0,
+              },
+              completedAt: Date.now(),
+              durationMs: Date.now() - bgInfo.createdAt,
+            });
             this.activeAgents.get(agentId)!.status = 'completed';
             logger.info('Background agent completed', { agentId, taskId });
           })
           .catch((error) => {
-            bgManager.failTask(
-              taskId,
-              error instanceof Error ? error.message : String(error)
-            );
+            bgTask.syncFromBgInfo({
+              ...bgInfo,
+              status: 'failed',
+              error: error instanceof Error ? error.message : String(error),
+              completedAt: Date.now(),
+              durationMs: Date.now() - bgInfo.createdAt,
+            });
             this.activeAgents.get(agentId)!.status = 'failed';
             logger.error('Background agent failed', {
               agentId,

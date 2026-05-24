@@ -23,7 +23,7 @@ import {
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 插件加载器（基于CC源码）
+ * 插件加载器
  */
 export class PluginLoader extends EventEmitter {
   private plugins: Map<string, LoadedPlugin> = new Map();
@@ -31,7 +31,7 @@ export class PluginLoader extends EventEmitter {
   private isInitialized = false;
 
   /**
-   * 构造函数（基于CC源码）
+   * 构造函数
    */
   constructor(options: PluginLoaderOptions = {}) {
     super();
@@ -49,7 +49,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 初始化插件加载器（基于CC源码）
+   * 初始化插件加载器
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
@@ -82,7 +82,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 创建插件目录（基于CC源码）
+   * 创建插件目录
    */
   private async createPluginDirectories(): Promise<void> {
     for (const dir of this.options.pluginDirectories || []) {
@@ -94,7 +94,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 发现插件（基于CC源码）
+   * 发现插件
    */
   private async discoverPlugins(): Promise<void> {
     this.emit('discovering');
@@ -132,7 +132,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 注册插件（基于CC源码）
+   * 注册插件
    */
   private async registerPlugin(pluginPath: string): Promise<void> {
     try {
@@ -178,7 +178,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 加载插件清单（基于CC源码）
+   * 加载插件清单
    */
   private async loadManifest(pluginPath: string): Promise<PluginMetadata> {
     const manifestPath = join(pluginPath, 'plugin.json');
@@ -196,7 +196,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 验证插件（基于CC源码）
+   * 验证插件
    */
   private async validatePlugin(
     manifest: PluginMetadata,
@@ -246,7 +246,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 加载所有插件（基于CC源码）
+   * 加载所有插件
    */
   async loadAllPlugins(): Promise<PluginLoadResult[]> {
     this.emit('loadingAll');
@@ -266,7 +266,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 加载插件（基于CC源码）
+   * 加载插件
    */
   async loadPlugin(pluginId: string): Promise<PluginLoadResult> {
     const plugin = this.plugins.get(pluginId);
@@ -321,7 +321,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 卸载插件（基于CC源码）
+   * 卸载插件
    */
   async unloadPlugin(pluginId: string): Promise<PluginLoadResult> {
     const plugin = this.plugins.get(pluginId);
@@ -369,7 +369,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 激活插件（基于CC源码）
+   * 激活插件
    */
   async activatePlugin(pluginId: string): Promise<PluginLoadResult> {
     const plugin = this.plugins.get(pluginId);
@@ -417,7 +417,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 停用插件（基于CC源码）
+   * 停用插件
    */
   async deactivatePlugin(pluginId: string): Promise<PluginLoadResult> {
     const plugin = this.plugins.get(pluginId);
@@ -464,21 +464,21 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 获取插件（基于CC源码）
+   * 获取插件
    */
   getPlugin(pluginId: string): LoadedPlugin | undefined {
     return this.plugins.get(pluginId);
   }
 
   /**
-   * 获取所有插件（基于CC源码）
+   * 获取所有插件
    */
   getAllPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values());
   }
 
   /**
-   * 获取已加载插件（基于CC源码）
+   * 获取已加载插件
    */
   getLoadedPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values()).filter(
@@ -489,7 +489,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 获取已激活插件（基于CC源码）
+   * 获取已激活插件
    */
   getActivatedPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values()).filter(
@@ -498,14 +498,14 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 获取插件数量（基于CC源码）
+   * 获取插件数量
    */
   getPluginCount(): number {
     return this.plugins.size;
   }
 
   /**
-   * 发射插件事件（基于CC源码）
+   * 发射插件事件
    */
   private emitPluginEvent(
     type: PluginEventType,
@@ -524,7 +524,7 @@ export class PluginLoader extends EventEmitter {
   }
 
   /**
-   * 销毁插件加载器（基于CC源码）
+   * 销毁插件加载器
    */
   async destroy(): Promise<void> {
     this.emit('destroying');

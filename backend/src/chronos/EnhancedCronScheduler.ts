@@ -11,11 +11,16 @@ import {
 } from './lifecycle';
 import { EnhancedTaskScheduler } from './EnhancedTaskScheduler';
 import type { EnhancedCronTask } from './EnhancedCronTask';
+import {
+  CronReportGenerator,
+  type CronReport,
+} from './reporting/CronReportGenerator';
 
 export class EnhancedCronScheduler {
   public readonly executionEngine: ExecutionEngine;
   public readonly lifecycleManager: LifecycleManager;
   public readonly taskScheduler: EnhancedTaskScheduler;
+  public readonly cronReportGenerator: CronReportGenerator;
 
   constructor(
     onTaskExecute: (task: EnhancedCronTask) => Promise<{
@@ -28,6 +33,11 @@ export class EnhancedCronScheduler {
     this.executionEngine = new ExecutionEngine();
     this.lifecycleManager = new LifecycleManager();
     this.taskScheduler = new EnhancedTaskScheduler({ onTaskExecute });
+    this.cronReportGenerator = new CronReportGenerator();
+  }
+
+  generateReport(periodMs?: number): CronReport {
+    return this.cronReportGenerator.generateReport(periodMs);
   }
 
   async executeTask(task: ExecutableTask): Promise<ExecutionResult> {

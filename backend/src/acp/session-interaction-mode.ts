@@ -1,4 +1,7 @@
-import type { AcpRuntimeSessionMode, AcpRuntimePromptMode } from './runtime/types.js';
+import type {
+  AcpRuntimeSessionMode,
+  AcpRuntimePromptMode,
+} from './runtime/types.js';
 
 export interface InteractionMode {
   sessionMode: AcpRuntimeSessionMode;

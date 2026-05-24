@@ -1,6 +1,6 @@
 //
 /**
- * 面板组件（基于CC源码）
+ * 面板组件
  * 提供面板容器功能，支持边框、颜色、布局等
  */
 
@@ -11,7 +11,7 @@ import { useTheme } from './ThemeProvider';
 import { Divider } from './Divider';
 
 /**
- * 面板组件（基于CC源码）
+ * 面板组件
  *
  * 面板是一个终端区域，出现在REPL提示下方，
  * 由彩色顶部边框线界定，上方有一行间隙和水平内边距。
@@ -42,12 +42,12 @@ export function Pane({
 
   return (
     <Box flexDirection="column" marginTop={margin} marginBottom={margin}>
-      {/* 顶部边框线（基于CC源码） */}
+      {/* 顶部边框线 */}
       {!hideBorder && (
         <Divider color={color} orientation="horizontal" thickness={1} />
       )}
 
-      {/* 内容区域（基于CC源码） */}
+      {/* 内容区域 */}
       <Box
         flexDirection={flexDirection}
         alignItems={alignItems}
@@ -62,7 +62,7 @@ export function Pane({
 }
 
 /**
- * 卡片面板组件（基于CC源码）
+ * 卡片面板组件
  * 提供圆角边框的卡片样式
  */
 export function CardPane({
@@ -87,7 +87,7 @@ export function CardPane({
 }
 
 /**
- * 侧边栏面板组件（基于CC源码）
+ * 侧边栏面板组件
  * 提供侧边栏样式的面板
  */
 export function SidebarPane({
@@ -113,7 +113,7 @@ export function SidebarPane({
 }
 
 /**
- * 内容面板组件（基于CC源码）
+ * 内容面板组件
  * 提供主要内容区域的面板
  */
 export function ContentPane({

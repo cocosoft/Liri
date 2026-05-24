@@ -63,7 +63,11 @@ export function resolveAcpClientSpawnEnv(
 
 export function resolveAcpClientSpawnInvocation(
   params: { serverCommand: string; serverArgs: string[] },
-  _context: { platform: NodeJS.Platform; env: NodeJS.ProcessEnv; execPath: string }
+  _context: {
+    platform: NodeJS.Platform;
+    env: NodeJS.ProcessEnv;
+    execPath: string;
+  }
 ): { command: string; args: string[]; shell: boolean; windowsHide: boolean } {
   return {
     command: params.serverCommand,

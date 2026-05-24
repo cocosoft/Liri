@@ -1,6 +1,11 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import type { AcpClientOptions, AcpClientHandle } from './types.js';
-import { buildServerArgs, buildAcpClientStripKeys, resolveAcpClientSpawnEnv, resolveAcpClientSpawnInvocation } from './client-helpers.js';
+import {
+  buildServerArgs,
+  buildAcpClientStripKeys,
+  resolveAcpClientSpawnEnv,
+  resolveAcpClientSpawnInvocation,
+} from './client-helpers.js';
 
 export interface ClientSideConnection {
   send(data: string): void;
@@ -64,7 +69,9 @@ function createStdioConnection(proc: ChildProcess): ClientSideConnection {
   };
 }
 
-export async function createAcpClient(opts: AcpClientOptions): Promise<AcpClientHandle> {
+export async function createAcpClient(
+  opts: AcpClientOptions
+): Promise<AcpClientHandle> {
   const serverCommand = opts.serverCommand || 'node';
   const serverArgs = buildServerArgs(opts);
   const invocation = resolveAcpClientSpawnInvocation(

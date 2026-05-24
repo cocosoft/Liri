@@ -1,5 +1,5 @@
 /**
- * 工具系统模块主入口（基于CC源码）
+ * 工具系统模块主入口
  * 导出所有工具系统组件和类型定义
  */
 
@@ -37,7 +37,7 @@ import { TOOL_SYSTEM_VERSION } from './types/ToolTypes';
 export { TOOL_SYSTEM_VERSION };
 
 /**
- * 工具系统初始化函数（基于CC源码）
+ * 工具系统初始化函数
  */
 export async function initializeToolSystem(config?: any): Promise<void> {
   try {
@@ -55,7 +55,7 @@ export async function initializeToolSystem(config?: any): Promise<void> {
 }
 
 /**
- * 工具系统关闭函数（基于CC源码）
+ * 工具系统关闭函数
  */
 export async function shutdownToolSystem(): Promise<void> {
   try {
@@ -70,7 +70,7 @@ export async function shutdownToolSystem(): Promise<void> {
 }
 
 /**
- * 获取工具系统状态（基于CC源码）
+ * 获取工具系统状态
  */
 export function getToolSystemStatus(): {
   version: string;
@@ -213,7 +213,7 @@ export function getTools(): any[] {
 }
 
 /**
- * 默认导出工具系统（基于CC源码）
+ * 默认导出工具系统
  */
 export default {
   initializeToolSystem,

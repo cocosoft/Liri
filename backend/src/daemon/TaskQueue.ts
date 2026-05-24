@@ -1,14 +1,12 @@
-import { Logger } from '../monitoring/logs/Logger';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
+import type { QueueBackend, QueuedTaskEntry } from './QueueBackend';
+import { InMemoryQueueBackend } from './QueueBackend';
+import { TaskPriority } from './TaskPriority';
 
-const logger = new Logger({ level: 'info' as any });
+const logger = new Logger({ level: LogLevel.INFO });
 
-export enum TaskPriority {
-  LOW = 0,
-  NORMAL = 1,
-  HIGH = 2,
-  CRITICAL = 3,
-}
+export { TaskPriority };
 
 export interface Task<T = unknown> {
   id: string;
@@ -33,42 +31,37 @@ export interface TaskResult<T = unknown> {
   duration: number;
 }
 
-interface QueuedTask {
-  task: Task;
-  resolve: (result: TaskResult) => void;
-  controller: AbortController;
-  retries: number;
-}
-
 export class TaskQueue {
-  private queues: Map<TaskPriority, QueuedTask[]>;
+  private backend: QueueBackend;
   private running: Set<string>;
   private isProcessing: boolean;
   private maxConcurrent: number;
 
-  constructor(maxConcurrent = 4) {
-    this.queues = new Map();
+  constructor(maxConcurrent = 4, backend?: QueueBackend) {
+    this.backend = backend ?? new InMemoryQueueBackend();
     this.running = new Set();
     this.isProcessing = false;
     this.maxConcurrent = maxConcurrent;
+  }
 
-    for (const p of Object.values(TaskPriority).filter(
-      (v) => typeof v === 'number'
-    )) {
-      this.queues.set(p as TaskPriority, []);
-    }
+  getBackend(): QueueBackend {
+    return this.backend;
+  }
+
+  setBackend(backend: QueueBackend): void {
+    this.backend = backend;
   }
 
   submit<T>(task: Task<T>): Promise<TaskResult<T>> {
     return new Promise((resolve) => {
       const controller = new AbortController();
-      const entry: QueuedTask = {
+      const entry: QueuedTaskEntry = {
         task,
         resolve: resolve as (result: TaskResult) => void,
         controller,
         retries: 0,
       };
-      this.queues.get(task.priority)?.push(entry);
+      this.backend.enqueue(entry, task.priority);
       logger.info(`任务已提交: ${task.name} (${task.id})`, {
         priority: task.priority,
       });
@@ -78,24 +71,21 @@ export class TaskQueue {
   }
 
   cancel(taskId: string): boolean {
-    for (const [, queue] of this.queues) {
-      const idx = queue.findIndex((e) => e.task.id === taskId);
-      if (idx !== -1) {
-        const [entry] = queue.splice(idx, 1);
-        entry.controller.abort();
-        entry.resolve({
-          taskId,
-          success: false,
-          error: '已取消',
-          startedAt: 0,
-          completedAt: Date.now(),
-          duration: 0,
-        });
-        logger.info(`任务已取消: ${entry.task.name} (${taskId})`);
-        this.reportTaskMetric('daemon.tasks.cancelled', 1);
-        this.reportTaskMetrics();
-        return true;
-      }
+    const entry = this.backend.remove(taskId);
+    if (entry) {
+      entry.controller.abort();
+      entry.resolve({
+        taskId,
+        success: false,
+        error: '已取消',
+        startedAt: 0,
+        completedAt: Date.now(),
+        duration: 0,
+      });
+      logger.info(`任务已取消: ${entry.task.name} (${taskId})`);
+      this.reportTaskMetric('daemon.tasks.cancelled', 1);
+      this.reportTaskMetrics();
+      return true;
     }
     if (this.running.has(taskId)) {
       logger.info(`正在终止运行中的任务: ${taskId}`);
@@ -106,16 +96,12 @@ export class TaskQueue {
 
   getStatus(taskId: string): 'queued' | 'running' | 'not_found' {
     if (this.running.has(taskId)) return 'running';
-    for (const [, queue] of this.queues) {
-      if (queue.some((e) => e.task.id === taskId)) return 'queued';
-    }
+    if (this.backend.contains(taskId)) return 'queued';
     return 'not_found';
   }
 
   pendingCount(): number {
-    let count = 0;
-    for (const [, queue] of this.queues) count += queue.length;
-    return count;
+    return this.backend.pendingCount();
   }
 
   private async processNext(): Promise<void> {
@@ -131,11 +117,11 @@ export class TaskQueue {
         TaskPriority.LOW,
       ];
       for (const p of priorities) {
-        const queue = this.queues.get(p);
-        if (!queue || queue.length === 0) continue;
         const available = this.maxConcurrent - this.running.size;
-        const batch = queue.splice(0, available);
-        for (const entry of batch) {
+        if (available <= 0) break;
+        for (let i = 0; i < available; i++) {
+          const entry = this.backend.dequeue(p);
+          if (!entry) break;
           this.executeTask(entry);
         }
         if (this.running.size >= this.maxConcurrent) break;
@@ -145,13 +131,13 @@ export class TaskQueue {
     }
   }
 
-  private async executeTask(entry: QueuedTask): Promise<void> {
+  private async executeTask(entry: QueuedTaskEntry): Promise<void> {
     const { task, resolve, controller, retries } = entry;
     this.running.add(task.id);
     const startedAt = Date.now();
 
     try {
-      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      let timeoutId: ReturnType<typeof setInterval> | undefined;
       const timeout = task.timeout ?? 30000;
 
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -190,13 +176,13 @@ export class TaskQueue {
           error: errMsg,
           retry: retries + 1,
         });
-        const newEntry: QueuedTask = {
+        const newEntry: QueuedTaskEntry = {
           task,
           resolve,
           controller: new AbortController(),
           retries: retries + 1,
         };
-        this.queues.get(task.priority)?.unshift(newEntry);
+        this.backend.enqueue(newEntry, task.priority);
         setTimeout(() => this.processNext(), 1000 * (retries + 1));
       } else {
         resolve({

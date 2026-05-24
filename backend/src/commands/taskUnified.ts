@@ -1,9 +1,6 @@
 //
 /**
- * Task 模块统一出口（架构优化 §6.1: task/ + tasks/ 双模块统一）
- *
- * 统一 task/models/ 和 tasks/ 两个目录到单一 import 入口。
- * 使用方无需关心 task 的具体目录结构。
+ * Task 模块统一出口（任务系统模块收敛后单一入口）
  *
  * 用法：import { BaseTask, LocalBashTask, TaskRegistry } from '@modules/commands/task-unified';
  */

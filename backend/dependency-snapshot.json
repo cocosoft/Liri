@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-24T00:00:00.000Z",
+  "generatedAt": "2026-05-24T22:25:06.345Z",
   "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {
@@ -19,7 +19,37 @@
       "dependencies": [
         "core"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
+    },
+    "bootstrap": {
+      "id": "bootstrap",
+      "name": "bootstrap",
+      "category": "infrastructure",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "performance",
+        "monitoring",
+        "utils"
+      ]
+    },
+    "modules": {
+      "id": "modules",
+      "name": "modules",
+      "category": "infrastructure",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "error",
+        "monitoring",
+        "performance"
+      ]
     },
     "ai": {
       "id": "ai",
@@ -31,21 +61,8 @@
         "infrastructure",
         "error"
       ],
-      "optionalDependencies": []
-    },
-    "acp": {
-      "id": "acp",
-      "name": "acp",
-      "category": "other",
-      "version": "1.0.0",
-      "dependencies": [
-        "core"
-      ],
       "optionalDependencies": [
-        "error",
-        "tools",
-        "monitoring",
-        "utils"
+        "monitoring"
       ]
     },
     "agent": {
@@ -60,7 +77,8 @@
       ],
       "optionalDependencies": [
         "memory",
-        "permission"
+        "permission",
+        "monitoring"
       ]
     },
     "bridge": {
@@ -75,7 +93,8 @@
         "error"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "ink": {
@@ -87,7 +106,10 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring",
+        "utils"
+      ]
     },
     "ui": {
       "id": "ui",
@@ -99,7 +121,10 @@
         "infrastructure",
         "ink"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring",
+        "utils"
+      ]
     },
     "cli": {
       "id": "cli",
@@ -111,7 +136,8 @@
         "infrastructure"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "tools": {
@@ -125,7 +151,8 @@
         "error"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "commands": {
@@ -138,7 +165,8 @@
         "cli"
       ],
       "optionalDependencies": [
-        "tools"
+        "tools",
+        "monitoring"
       ]
     },
     "memory": {
@@ -151,7 +179,10 @@
         "infrastructure",
         "error"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring",
+        "utils"
+      ]
     },
     "cache": {
       "id": "cache",
@@ -162,7 +193,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "security": {
       "id": "security",
@@ -174,7 +207,9 @@
         "infrastructure",
         "error"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "oauth": {
       "id": "oauth",
@@ -186,7 +221,9 @@
         "infrastructure",
         "config"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "permission": {
       "id": "permission",
@@ -197,7 +234,9 @@
         "core",
         "security"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "performance": {
       "id": "performance",
@@ -209,7 +248,9 @@
         "infrastructure",
         "error"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "monitoring": {
       "id": "monitoring",
@@ -234,7 +275,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "analytics": {
       "id": "analytics",
@@ -245,7 +288,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "buddy": {
       "id": "buddy",
@@ -256,7 +301,9 @@
         "core",
         "ui"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "chat": {
       "id": "chat",
@@ -269,7 +316,8 @@
         "error"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "chronos": {
@@ -281,7 +329,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "config": {
       "id": "config",
@@ -292,7 +342,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "context": {
       "id": "context",
@@ -304,7 +356,8 @@
         "infrastructure"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "cost": {
@@ -317,7 +370,8 @@
         "infrastructure"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "docs": {
@@ -330,7 +384,8 @@
         "infrastructure"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "daemon": {
@@ -368,7 +423,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "lsp": {
       "id": "lsp",
@@ -380,7 +437,8 @@
         "infrastructure"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "mcp": {
@@ -395,7 +453,8 @@
         "oauth"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "plugin-sdk": {
@@ -416,7 +475,8 @@
         "infrastructure"
       ],
       "optionalDependencies": [
-        "memory"
+        "memory",
+        "monitoring"
       ]
     },
     "query": {
@@ -428,7 +488,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "remote": {
       "id": "remote",
@@ -440,7 +502,9 @@
         "infrastructure",
         "security"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "sandbox": {
       "id": "sandbox",
@@ -452,7 +516,9 @@
         "security",
         "featureflags"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "services": {
       "id": "services",
@@ -463,7 +529,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "voice": {
       "id": "voice",
@@ -475,7 +543,9 @@
         "infrastructure",
         "tools"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "streaming": {
       "id": "streaming",
@@ -487,7 +557,9 @@
         "infrastructure",
         "services"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "utils": {
       "id": "utils",
@@ -498,7 +570,9 @@
         "core",
         "infrastructure"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "keybindings": {
       "id": "keybindings",
@@ -511,7 +585,163 @@
       ],
       "optionalDependencies": [
         "cli",
-        "ui"
+        "ui",
+        "monitoring"
+      ]
+    },
+    "channels": {
+      "id": "channels",
+      "name": "channels",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "monitoring",
+        "error",
+        "ai",
+        "security"
+      ]
+    },
+    "session": {
+      "id": "session",
+      "name": "session",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "error",
+        "monitoring"
+      ]
+    },
+    "skills": {
+      "id": "skills",
+      "name": "skills",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "context",
+        "monitoring",
+        "error",
+        "tools",
+        "chronos",
+        "services",
+        "plugins",
+        "utils"
+      ]
+    },
+    "runtime": {
+      "id": "runtime",
+      "name": "runtime",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "error",
+        "tools",
+        "chat",
+        "monitoring",
+        "utils"
+      ]
+    },
+    "acp": {
+      "id": "acp",
+      "name": "acp",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "error",
+        "tools",
+        "monitoring",
+        "utils"
+      ]
+    },
+    "tasks": {
+      "id": "tasks",
+      "name": "tasks",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "tools",
+        "chat",
+        "monitoring"
+      ]
+    },
+    "vim": {
+      "id": "vim",
+      "name": "vim",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "monitoring"
+      ]
+    },
+    "media": {
+      "id": "media",
+      "name": "media",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": []
+    },
+    "flows": {
+      "id": "flows",
+      "name": "flows",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": []
+    },
+    "governance": {
+      "id": "governance",
+      "name": "governance",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "monitoring",
+        "permission",
+        "hooks",
+        "sandbox",
+        "tools",
+        "error"
+      ]
+    },
+    "enterprise": {
+      "id": "enterprise",
+      "name": "enterprise",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "error",
+        "monitoring",
+        "sandbox"
       ]
     }
   },
@@ -520,13 +750,21 @@
     "core",
     "infrastructure",
     "ai",
-    "acp",
+    "bootstrap",
     "config",
     "context",
     "error",
     "performance",
     "hooks",
+    "modules",
     "cache",
+    "channels",
+    "session",
+    "skills",
+    "runtime",
+    "acp",
+    "tasks",
+    "governance",
     "memory",
     "agent",
     "bridge",
@@ -548,6 +786,10 @@
     "sandbox",
     "monitoring",
     "daemon",
+    "enterprise",
+    "flows",
+    "media",
+    "vim",
     "featureflags",
     "analytics",
     "buddy",
@@ -559,5 +801,5 @@
     "keybindings",
     "voice"
   ],
-  "fingerprint": "e65687c07349d59f"
+  "fingerprint": "d1103d0f0e83a0bd"
 }

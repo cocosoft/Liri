@@ -10,7 +10,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 配置验证结果（基于CC源码）
+ * 配置验证结果
  */
 export interface ConfigValidationResult {
   /** 是否有效 */
@@ -24,7 +24,7 @@ export interface ConfigValidationResult {
 }
 
 /**
- * 配置验证错误（基于CC源码）
+ * 配置验证错误
  */
 export interface ConfigValidationError {
   /** 配置键 */
@@ -38,7 +38,7 @@ export interface ConfigValidationError {
 }
 
 /**
- * 配置验证警告（基于CC源码）
+ * 配置验证警告
  */
 export interface ConfigValidationWarning {
   /** 配置键 */
@@ -52,7 +52,7 @@ export interface ConfigValidationWarning {
 }
 
 /**
- * 配置架构定义（基于CC源码）
+ * 配置架构定义
  */
 export interface ConfigSchema {
   /** 配置键 */
@@ -96,7 +96,7 @@ export interface ConfigSchema {
 }
 
 /**
- * 插件配置管理器（基于CC源码）
+ * 插件配置管理器
  */
 export class PluginConfigManager extends EventEmitter {
   private configs: Map<string, PluginConfig> = new Map();
@@ -104,7 +104,7 @@ export class PluginConfigManager extends EventEmitter {
   private defaultConfigs: Map<string, PluginConfig> = new Map();
 
   /**
-   * 设置插件配置架构（基于CC源码）
+   * 设置插件配置架构
    */
   setSchema(pluginId: string, schema: ConfigSchema[]): void {
     this.schemas.set(pluginId, schema);
@@ -124,14 +124,14 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 获取插件配置架构（基于CC源码）
+   * 获取插件配置架构
    */
   getSchema(pluginId: string): ConfigSchema[] | undefined {
     return this.schemas.get(pluginId);
   }
 
   /**
-   * 设置插件配置（基于CC源码）
+   * 设置插件配置
    */
   setConfig(pluginId: string, config: PluginConfig): ConfigValidationResult {
     // 验证配置
@@ -160,7 +160,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 获取插件配置（基于CC源码）
+   * 获取插件配置
    */
   getConfig(pluginId: string): PluginConfig {
     const config = this.configs.get(pluginId);
@@ -170,7 +170,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 获取配置值（基于CC源码）
+   * 获取配置值
    */
   getConfigValue<T>(pluginId: string, key: string, defaultValue?: T): T {
     const config = this.getConfig(pluginId);
@@ -194,7 +194,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 设置配置值（基于CC源码）
+   * 设置配置值
    */
   setConfigValue(
     pluginId: string,
@@ -208,7 +208,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 重置插件配置（基于CC源码）
+   * 重置插件配置
    */
   resetConfig(pluginId: string): void {
     this.configs.delete(pluginId);
@@ -219,7 +219,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 验证配置（基于CC源码）
+   * 验证配置
    */
   validateConfig(
     pluginId: string,
@@ -296,7 +296,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 验证类型（基于CC源码）
+   * 验证类型
    */
   private validateType(value: unknown, expectedType: string): boolean {
     switch (expectedType) {
@@ -318,7 +318,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 验证值（基于CC源码）
+   * 验证值
    */
   private validateValue(value: unknown, validation: any): string[] {
     const errors: string[] = [];
@@ -364,14 +364,14 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 获取所有插件配置（基于CC源码）
+   * 获取所有插件配置
    */
   getAllConfigs(): Map<string, PluginConfig> {
     return new Map(this.configs);
   }
 
   /**
-   * 获取配置统计（基于CC源码）
+   * 获取配置统计
    */
   getConfigStats(): {
     totalPlugins: number;
@@ -397,7 +397,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 导出配置（基于CC源码）
+   * 导出配置
    */
   exportConfigs(): Record<string, PluginConfig> {
     const result: Record<string, PluginConfig> = {};
@@ -410,7 +410,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 导入配置（基于CC源码）
+   * 导入配置
    */
   importConfigs(
     configs: Record<string, PluginConfig>
@@ -426,7 +426,7 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 清理配置管理器（基于CC源码）
+   * 清理配置管理器
    */
   clear(): void {
     this.configs.clear();

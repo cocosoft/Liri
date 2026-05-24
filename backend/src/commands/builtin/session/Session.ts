@@ -32,7 +32,7 @@ Examples:
   }
 
   const chatManager = createChatManager();
-  chatManager.initialize();
+  await chatManager.initialize();
 
   if (subcommand === 'list') {
     try {

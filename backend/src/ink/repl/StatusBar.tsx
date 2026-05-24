@@ -32,14 +32,20 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     statusText = `✓ ${streamStats.tokenCount} tokens | ${streamStats.currentSpeed} t/s${elapsed ? ` | ${elapsed}` : ''}`;
     statusColor = 'green';
   } else if (streamState === 'idle') {
-    statusText = submitCount > 0
-      ? `💬 [${submitCount}] 输入消息，Enter 发送。 /help 查看命令。`
-      : '💬 输入消息，Enter 发送。 /help 查看命令。';
+    statusText =
+      submitCount > 0
+        ? `💬 [${submitCount}] 输入消息，Enter 发送。 /help 查看命令。`
+        : '💬 输入消息，Enter 发送。 /help 查看命令。';
     statusColor = 'white';
   }
 
   return (
-    <Box flexDirection="row" justifyContent="space-between" paddingX={1} borderTop>
+    <Box
+      flexDirection="row"
+      justifyContent="space-between"
+      paddingX={1}
+      borderTop
+    >
       <Text color={statusColor} dimColor={isDim}>
         {statusText}
       </Text>

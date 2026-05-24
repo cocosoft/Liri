@@ -14,7 +14,9 @@ export interface AcpSessionStore {
 
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
-export function createInMemorySessionStore(options?: { idleTimeoutMs?: number }): AcpSessionStore {
+export function createInMemorySessionStore(options?: {
+  idleTimeoutMs?: number;
+}): AcpSessionStore {
   const sessions = new Map<SessionId, AcpSession>();
   const idleTimeoutMs = options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
 

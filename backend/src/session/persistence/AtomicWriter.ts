@@ -9,16 +9,16 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 export class AtomicWriteError extends Error {
+  override cause?: unknown;
   public readonly path: string;
   public readonly tmpPath: string;
-  public readonly cause?: unknown;
 
   constructor(
     message: string,
     details: { path: string; tmpPath: string; cause?: unknown }
   ) {
     super(message);
-    this.name = 'AtomicWriteError';
+    Object.defineProperty(this, 'name', { value: 'AtomicWriteError' });
     this.path = details.path;
     this.tmpPath = details.tmpPath;
     this.cause = details.cause;

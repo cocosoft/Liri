@@ -9,7 +9,13 @@
 import type { Command } from '@modules/commands/types';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
-import { getBackgroundTaskManager } from '@modules/tools/AgentTool/BackgroundTaskManager.js';
+import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
+import {
+  TaskStatus,
+  type BackgroundTaskInfo,
+  type BackgroundTaskStatus,
+} from '@modules/tasks/types.js';
+import type { BaseTask } from '@modules/tasks/BaseTask.js';
 import { getSubAgentEngine } from '@modules/tools/AgentTool/SubAgentEngine.js';
 
 /** 可用的 Agent 类型列表 */
@@ -105,6 +111,83 @@ function formatDuration(ms: number): string {
 }
 
 /**
+ * 将 BaseTask 转换为 BackgroundTaskInfo
+ */
+function taskToBgInfo(task: BaseTask): BackgroundTaskInfo {
+  const state = task.taskState;
+  const statusMap: Record<string, BackgroundTaskStatus> = {
+    [TaskStatus.PENDING]: 'pending',
+    [TaskStatus.RUNNING]: 'running',
+    [TaskStatus.COMPLETED]: 'completed',
+    [TaskStatus.FAILED]: 'failed',
+    [TaskStatus.KILLED]: 'aborted',
+  };
+  return {
+    taskId: state.id,
+    agentName: state.type,
+    agentType: state.type,
+    description: state.description,
+    status: statusMap[state.status] || 'pending',
+    createdAt: state.startTime,
+    startedAt:
+      state.status === TaskStatus.RUNNING ? state.startTime : undefined,
+    completedAt: state.endTime,
+    error: state.error,
+    tokenUsage: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: state.tokenCount,
+    },
+    durationMs: state.endTime ? state.endTime - state.startTime : undefined,
+  };
+}
+
+/**
+ * 获取所有后台任务信息
+ */
+function getAllBgTaskInfos(): BackgroundTaskInfo[] {
+  return taskRegistry.getAllTasks().map(taskToBgInfo);
+}
+
+/**
+ * 获取任务统计
+ */
+function getBgStats(tasks: BackgroundTaskInfo[]): {
+  total: number;
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+  aborted: number;
+} {
+  let pending = 0,
+    running = 0,
+    completed = 0,
+    failed = 0,
+    aborted = 0;
+  for (const t of tasks) {
+    switch (t.status) {
+      case 'pending':
+        pending++;
+        break;
+      case 'running':
+        running++;
+        break;
+      case 'completed':
+        completed++;
+        break;
+      case 'failed':
+        failed++;
+        break;
+      case 'aborted':
+        aborted++;
+        break;
+    }
+  }
+  return { total: tasks.length, pending, running, completed, failed, aborted };
+}
+
+/**
  * 显示活跃Agent列表
  */
 async function handleAgentList(
@@ -122,10 +205,19 @@ async function handleAgentList(
   const agents = agentTool.getActiveAgents();
   const engine = agentTool.getEngine();
   const engineAgents = engine.getActiveAgents();
-  const bgManager = getBackgroundTaskManager();
-  const activeBgTasks = bgManager.getActiveTasks();
-  const completedBgTasks = bgManager.getCompletedTasks();
-  const stats = bgManager.getStats();
+  const allBgTasks = getAllBgTaskInfos();
+  const activeBgTasks = allBgTasks.filter(
+    (t) => t.status === 'running' || t.status === 'pending'
+  );
+  const completedBgTasks = allBgTasks
+    .filter(
+      (t) =>
+        t.status === 'completed' ||
+        t.status === 'failed' ||
+        t.status === 'aborted'
+    )
+    .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+  const stats = getBgStats(allBgTasks);
 
   if (options.json) {
     const data = {
@@ -274,8 +366,8 @@ async function handleAgentStatus(
     };
   }
 
-  const bgManager = getBackgroundTaskManager();
-  const task = bgManager.getTask(id);
+  const allBgTasks = getAllBgTaskInfos();
+  const task = allBgTasks.find((t) => t.taskId === id);
 
   if (task) {
     const lines: string[] = [
@@ -349,9 +441,8 @@ async function handleAgentStop(
 async function handleBackgroundList(
   options: { json?: boolean } = {}
 ): Promise<{ success: boolean; message?: string; error?: string }> {
-  const bgManager = getBackgroundTaskManager();
-  const tasks = bgManager.getAllTasks();
-  const stats = bgManager.getStats();
+  const tasks = getAllBgTaskInfos();
+  const stats = getBgStats(tasks);
 
   if (options.json) {
     const data = {

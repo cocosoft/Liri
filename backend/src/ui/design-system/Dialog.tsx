@@ -1,6 +1,6 @@
 //
 /**
- * 对话框组件（基于CC源码）
+ * 对话框组件
  * 提供模态对话框功能，支持标题、内容、操作按钮等
  */
 
@@ -13,7 +13,7 @@ import { Byline } from './Byline';
 import { Pane } from './Pane';
 
 /**
- * 对话框组件（基于CC源码）
+ * 对话框组件
  */
 export function Dialog({
   title,
@@ -31,7 +31,7 @@ export function Dialog({
   const { theme } = useTheme();
 
   /**
-   * 处理键盘事件（基于CC源码）
+   * 处理键盘事件
    */
   const handleKeyPress = (event: any) => {
     if (!isCancelActive) return;
@@ -44,7 +44,7 @@ export function Dialog({
   };
 
   /**
-   * 渲染输入指南（基于CC源码）
+   * 渲染输入指南
    */
   const renderInputGuide = () => {
     if (hideInputGuide) return null;
@@ -74,7 +74,7 @@ export function Dialog({
       onKeyPress={handleKeyPress}
       focusable={isCancelActive}
     >
-      {/* 对话框标题区域（基于CC源码） */}
+      {/* 对话框标题区域 */}
       <Box flexDirection="column" marginBottom={1}>
         <Text bold color={theme.colors[color]}>
           {title}
@@ -82,19 +82,19 @@ export function Dialog({
         {subtitle && <Text color={theme.colors.textSecondary}>{subtitle}</Text>}
       </Box>
 
-      {/* 对话框内容区域（基于CC源码） */}
+      {/* 对话框内容区域 */}
       <Pane color={color} hideBorder={hideBorder}>
         {children}
       </Pane>
 
-      {/* 输入指南区域（基于CC源码） */}
+      {/* 输入指南区域 */}
       {renderInputGuide()}
     </Box>
   );
 }
 
 /**
- * 确认对话框组件（基于CC源码）
+ * 确认对话框组件
  */
 export function ConfirmDialog({
   title,
@@ -128,7 +128,7 @@ export function ConfirmDialog({
 }
 
 /**
- * 警告对话框组件（基于CC源码）
+ * 警告对话框组件
  */
 export function AlertDialog({
   title,
@@ -149,7 +149,7 @@ export function AlertDialog({
 }
 
 /**
- * 错误对话框组件（基于CC源码）
+ * 错误对话框组件
  */
 export function ErrorDialog({
   title,

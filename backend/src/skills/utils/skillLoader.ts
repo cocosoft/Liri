@@ -11,7 +11,7 @@ import { SkillParser, SkillSource, type SkillDefinition } from './skillParser';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
- * 技能加载路径配置（基于CC源码）
+ * 技能加载路径配置
  */
 export interface SkillLoadPath {
   /**
@@ -41,7 +41,7 @@ export interface SkillLoadPath {
 }
 
 /**
- * 技能加载结果（基于CC源码）
+ * 技能加载结果
  */
 export interface SkillLoadResult {
   /**
@@ -71,7 +71,7 @@ export interface SkillLoadResult {
 }
 
 /**
- * 技能缓存配置（基于CC源码）
+ * 技能缓存配置
  */
 export interface SkillCacheConfig {
   /**
@@ -108,7 +108,7 @@ export class SkillLoader {
   }) {
     this.parser = new SkillParser();
 
-    // 默认加载路径（基于CC源码）
+    // 默认加载路径
     this.loadPaths = config?.loadPaths || this.getDefaultLoadPaths();
 
     // 默认缓存配置
@@ -121,7 +121,7 @@ export class SkillLoader {
   }
 
   /**
-   * 获取默认加载路径（基于CC源码）
+   * 获取默认加载路径
    */
   private getDefaultLoadPaths(): SkillLoadPath[] {
     const homeDir = homedir();
@@ -167,7 +167,7 @@ export class SkillLoader {
   }
 
   /**
-   * 加载所有技能（基于CC源码）
+   * 加载所有技能
    */
   async loadAllSkills(): Promise<SkillLoadResult> {
     const startTime = Date.now();
@@ -199,7 +199,7 @@ export class SkillLoader {
       }
     }
 
-    // 去重处理（基于CC源码）
+    // 去重处理
     const uniqueSkills = this.deduplicateSkills(loadedSkills);
 
     const loadTime = Date.now() - startTime;
@@ -214,7 +214,7 @@ export class SkillLoader {
   }
 
   /**
-   * 从指定路径加载技能（基于CC源码）
+   * 从指定路径加载技能
    */
   private async loadSkillsFromPath(
     loadPath: SkillLoadPath
@@ -284,7 +284,7 @@ export class SkillLoader {
   }
 
   /**
-   * 加载单个技能文件（基于CC源码）
+   * 加载单个技能文件
    */
   private async loadSkillFile(
     filePath: string,
@@ -303,7 +303,7 @@ export class SkillLoader {
       }
     }
 
-    // 解析符号链接（基于CC源码）
+    // 解析符号链接
     const realPath = await this.resolveRealPath(filePath);
 
     // 解析技能文件
@@ -320,7 +320,7 @@ export class SkillLoader {
       );
     }
 
-    // 应用路径过滤（基于CC源码）
+    // 应用路径过滤
     if (!this.isSkillApplicable(skill)) {
       throw new AppError(
         `Skill ${skill.name} is not applicable to current context`,
@@ -342,7 +342,7 @@ export class SkillLoader {
   }
 
   /**
-   * 解析符号链接（基于CC源码）
+   * 解析符号链接
    */
   private async resolveRealPath(filePath: string): Promise<string> {
     try {
@@ -378,7 +378,7 @@ export class SkillLoader {
   }
 
   /**
-   * 技能去重（基于CC源码）
+   * 技能去重
    */
   private deduplicateSkills(skills: SkillDefinition[]): SkillDefinition[] {
     const uniqueSkills = new Map<string, SkillDefinition>();
@@ -404,7 +404,7 @@ export class SkillLoader {
   }
 
   /**
-   * 获取技能唯一键（基于CC源码）
+   * 获取技能唯一键
    */
   private getSkillKey(skill: SkillDefinition): string {
     // 使用技能名称和主要配置作为唯一键
@@ -418,7 +418,7 @@ export class SkillLoader {
   }
 
   /**
-   * 获取来源优先级（基于CC源码）
+   * 获取来源优先级
    */
   private getSourcePriority(source: SkillSource): number {
     const priorities = {
@@ -434,7 +434,7 @@ export class SkillLoader {
   }
 
   /**
-   * 清理缓存（基于CC源码）
+   * 清理缓存
    */
   private cleanupCache(): void {
     if (this.skillCache.size <= this.cacheConfig.maxEntries) {
@@ -470,7 +470,7 @@ export class SkillLoader {
   }
 
   /**
-   * 重新加载技能（基于CC源码）
+   * 重新加载技能
    */
   async reloadSkills(): Promise<SkillLoadResult> {
     // 清除缓存
@@ -481,7 +481,7 @@ export class SkillLoader {
   }
 
   /**
-   * 获取缓存统计信息（基于CC源码）
+   * 获取缓存统计信息
    */
   getCacheStats(): {
     totalCached: number;
@@ -498,7 +498,7 @@ export class SkillLoader {
   }
 
   /**
-   * 添加加载路径（基于CC源码）
+   * 添加加载路径
    */
   addLoadPath(loadPath: SkillLoadPath): void {
     this.loadPaths.push(loadPath);
@@ -508,7 +508,7 @@ export class SkillLoader {
   }
 
   /**
-   * 移除加载路径（基于CC源码）
+   * 移除加载路径
    */
   removeLoadPath(path: string): boolean {
     const index = this.loadPaths.findIndex((p) => p.path === path);

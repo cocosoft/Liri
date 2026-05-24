@@ -39,7 +39,7 @@ export interface SkillFrontmatter {
 }
 
 /**
- * 技能定义接口（基于CC源码）
+ * 技能定义接口
  */
 export interface SkillDefinition {
   /**
@@ -89,7 +89,7 @@ export interface SkillDefinition {
 }
 
 /**
- * 技能来源枚举（基于CC源码）
+ * 技能来源枚举
  */
 export enum SkillSource {
   BUILTIN = 'builtin',
@@ -109,7 +109,7 @@ export class SkillParser {
   private static readonly YAML_REGEX = /^([^:]+):\s*(.*)$/;
 
   /**
-   * 解析技能文件（基于CC源码）
+   * 解析技能文件
    */
   async parseSkillFile(
     filePath: string,
@@ -171,7 +171,7 @@ export class SkillParser {
   }
 
   /**
-   * 提取Frontmatter（基于CC源码）
+   * 提取Frontmatter
    */
   private extractFrontmatter(content: string): {
     frontmatter: SkillFrontmatter;
@@ -196,7 +196,7 @@ export class SkillParser {
   }
 
   /**
-   * 解析YAML Frontmatter（基于CC源码）
+   * 解析YAML Frontmatter
    */
   private parseYamlFrontmatter(yamlText: string): SkillFrontmatter {
     const frontmatter: SkillFrontmatter = {};
@@ -236,7 +236,7 @@ export class SkillParser {
   }
 
   /**
-   * 解析数组值（基于CC源码）
+   * 解析数组值
    */
   private parseArrayValue(value: string): string[] {
     if (value.startsWith('[') && value.endsWith(']')) {
@@ -256,7 +256,7 @@ export class SkillParser {
   }
 
   /**
-   * 解析布尔值（基于CC源码）
+   * 解析布尔值
    */
   private parseBooleanValue(value: string): boolean {
     const lowerValue = value.toLowerCase();
@@ -264,7 +264,7 @@ export class SkillParser {
   }
 
   /**
-   * 解析数值（基于CC源码）
+   * 解析数值
    */
   private parseNumberValue(value: string): number {
     const num = parseFloat(value);
@@ -272,7 +272,7 @@ export class SkillParser {
   }
 
   /**
-   * 验证技能定义（基于CC源码）
+   * 验证技能定义
    */
   validateSkillDefinition(skill: SkillDefinition): {
     valid: boolean;
@@ -326,7 +326,7 @@ export class SkillParser {
   }
 
   /**
-   * 参数替换（基于CC源码）
+   * 参数替换
    */
   substituteArguments(
     content: string,
@@ -367,7 +367,7 @@ export class SkillParser {
   }
 
   /**
-   * 提取Shell命令（基于CC源码）
+   * 提取Shell命令
    */
   extractShellCommands(content: string): string[] {
     const commands: string[] = [];
@@ -398,7 +398,7 @@ export class SkillParser {
   }
 
   /**
-   * 生成技能摘要（基于CC源码）
+   * 生成技能摘要
    */
   generateSkillSummary(skill: SkillDefinition): string {
     const summary: string[] = [];

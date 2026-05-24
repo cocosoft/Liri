@@ -754,7 +754,7 @@ export class ToolExecutor {
   }
 
   /**
-   * 记录工具执行（基于CC源码）
+   * 记录工具执行
    */
   private recordToolExecution(
     toolName: string,
@@ -781,7 +781,7 @@ export class ToolExecutor {
   }
 
   /**
-   * 获取执行统计（基于CC源码）
+   * 获取执行统计
    */
   getExecutionStats(
     toolName?: string
@@ -802,28 +802,28 @@ export class ToolExecutor {
   }
 
   /**
-   * 获取执行日志（基于CC源码）
+   * 获取执行日志
    */
   getExecutionLogs(executionId: string): ToolExecutionLog[] {
     return this.executionLogs.get(executionId) || [];
   }
 
   /**
-   * 获取当前并发执行数（基于CC源码）
+   * 获取当前并发执行数
    */
   getConcurrentExecutionCount(): number {
     return this.concurrentExecutions.size;
   }
 
   /**
-   * 获取活跃执行ID列表（基于CC源码）
+   * 获取活跃执行ID列表
    */
   getActiveExecutionIds(): string[] {
     return Array.from(this.concurrentExecutions.keys());
   }
 
   /**
-   * 取消执行（基于CC源码）
+   * 取消执行
    */
   async cancelExecution(executionId: string): Promise<boolean> {
     const executionPromise = this.concurrentExecutions.get(executionId);
@@ -835,7 +835,7 @@ export class ToolExecutor {
   }
 
   /**
-   * 重置执行器（基于CC源码）
+   * 重置执行器
    */
   reset(): void {
     this.concurrentExecutions.clear();
@@ -844,7 +844,7 @@ export class ToolExecutor {
   }
 
   /**
-   * 更新执行统计（基于CC源码）
+   * 更新执行统计
    */
   private updateExecutionStats(
     toolName: string,
@@ -879,7 +879,7 @@ export class ToolExecutor {
   }
 
   /**
-   * 添加执行日志（基于CC源码）
+   * 添加执行日志
    */
   private addExecutionLog(
     toolName: string,
@@ -898,7 +898,7 @@ export class ToolExecutor {
   }
 
   /**
-   * 清理过期的执行日志（基于CC源码）
+   * 清理过期的执行日志
    */
   private cleanupExpiredLogs(): void {
     const now = Date.now();

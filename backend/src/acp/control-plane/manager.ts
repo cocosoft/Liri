@@ -1,14 +1,24 @@
 import { AcpSessionManagerCore } from './manager.core.js';
-import type { AcpSessionManagerConfig, AcpSessionManagerEvents } from './manager.types.js';
+import type {
+  AcpSessionManagerConfig,
+  AcpSessionManagerEvents,
+} from './manager.types.js';
 import { resolveRuntimeOptions } from './runtime-options.js';
-import type { AcpRuntimeEnsureInput, AcpRuntimeTurnInput, AcpRuntimeEvent } from '../runtime/types.js';
+import type {
+  AcpRuntimeEnsureInput,
+  AcpRuntimeTurnInput,
+  AcpRuntimeEvent,
+} from '../runtime/types.js';
 import type { SessionId } from '../types.js';
 
 export class AcpSessionManager {
   private core: AcpSessionManagerCore;
   private config: AcpSessionManagerConfig;
 
-  constructor(config: AcpSessionManagerConfig, events?: Partial<AcpSessionManagerEvents>) {
+  constructor(
+    config: AcpSessionManagerConfig,
+    events?: Partial<AcpSessionManagerEvents>
+  ) {
     this.config = config;
     this.core = new AcpSessionManagerCore(config, events);
   }
@@ -34,7 +44,9 @@ export class AcpSessionManager {
     }
   }
 
-  async runTurn(input: AcpRuntimeTurnInput): Promise<AsyncIterable<AcpRuntimeEvent>> {
+  async runTurn(
+    input: AcpRuntimeTurnInput
+  ): Promise<AsyncIterable<AcpRuntimeEvent>> {
     return this.core.runTurn(input);
   }
 

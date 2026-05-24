@@ -574,7 +574,8 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     displayName: 'ACP 协议模块',
     version: '1.0.0',
     category: ModuleCategory.OTHER,
-    description: 'Agent Communication Protocol 模块，提供 Agent 间标准化通信和权限协商',
+    description:
+      'Agent Communication Protocol 模块，提供 Agent 间标准化通信和权限协商',
     dependencies: ['core'],
     optionalDependencies: ['error', 'tools', 'monitoring', 'utils'],
   },

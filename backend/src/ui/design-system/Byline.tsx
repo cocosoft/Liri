@@ -1,6 +1,6 @@
 //
 /**
- * 底部信息栏组件（基于CC源码）
+ * 底部信息栏组件
  * 提供底部信息显示功能，常用于显示快捷键提示等
  */
 
@@ -10,7 +10,7 @@ import { BylineProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
- * 底部信息栏组件（基于CC源码）
+ * 底部信息栏组件
  */
 export function Byline({
   children,
@@ -41,7 +41,7 @@ export function Byline({
 }
 
 /**
- * 状态信息栏组件（基于CC源码）
+ * 状态信息栏组件
  */
 export function StatusByline({
   status,
@@ -79,7 +79,7 @@ export function StatusByline({
 }
 
 /**
- * 进度信息栏组件（基于CC源码）
+ * 进度信息栏组件
  */
 export function ProgressByline({
   current,
@@ -105,7 +105,7 @@ export function ProgressByline({
 }
 
 /**
- * 时间信息栏组件（基于CC源码）
+ * 时间信息栏组件
  */
 export function TimeByline({
   startTime,
@@ -134,7 +134,7 @@ export function TimeByline({
 }
 
 /**
- * 格式化持续时间（基于CC源码）
+ * 格式化持续时间
  */
 function formatDuration(duration: number): string {
   const seconds = Math.floor(duration / 1000);
@@ -151,7 +151,7 @@ function formatDuration(duration: number): string {
 }
 
 /**
- * 计数信息栏组件（基于CC源码）
+ * 计数信息栏组件
  */
 export function CountByline({
   count,
@@ -174,7 +174,7 @@ export function CountByline({
 }
 
 /**
- * 多信息底部栏组件（基于CC源码）
+ * 多信息底部栏组件
  */
 export function MultiInfoByline({
   infos,

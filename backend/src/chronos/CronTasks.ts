@@ -9,11 +9,21 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { parseCronExpression } from './cron';
 import type { ScheduledTask } from './types';
+import type { SqliteCronStore } from './service/SqliteCronStore';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 const CRON_FILE_DIR = '.py_app';
 const CRON_FILE_NAME = 'scheduled_tasks.json';
+
+let _sqliteStore: SqliteCronStore | null = null;
+
+/**
+ * 设置 SQLite 持久化存储（替代 JSON 文件）
+ */
+export function setCronSqliteStore(store: SqliteCronStore): void {
+  _sqliteStore = store;
+}
 
 /**
  * 获取cron任务文件路径
@@ -36,7 +46,27 @@ function ensureDir(dir: string): void {
 /**
  * 读取cron任务文件
  */
-export function readCronTasksFile(dir?: string): ScheduledTask[] {
+export async function readCronTasksFile(
+  dir?: string
+): Promise<ScheduledTask[]> {
+  if (_sqliteStore) {
+    try {
+      const tasks = await _sqliteStore.listTasks();
+      const validTasks = tasks.filter((t) => parseCronExpression(t.cron));
+      if (validTasks.length !== tasks.length) {
+        logger.warn(
+          `[CronTasks] filtered ${tasks.length - validTasks.length} invalid tasks from SQLite`
+        );
+      }
+      return validTasks;
+    } catch (error) {
+      logger.error(
+        '[CronTasks] error reading from SQLite, falling back to file',
+        error
+      );
+    }
+  }
+
   const filePath = getCronFilePath(dir);
   try {
     if (!existsSync(filePath)) {
@@ -98,6 +128,21 @@ export async function writeCronTasksFile(
   tasks: ScheduledTask[],
   dir?: string
 ): Promise<void> {
+  if (_sqliteStore) {
+    try {
+      await _sqliteStore.removeTasks(tasks.map((t) => t.id));
+      for (const task of tasks) {
+        await _sqliteStore.addTask(task);
+      }
+      return;
+    } catch (error) {
+      logger.error(
+        '[CronTasks] error writing to SQLite, falling back to file',
+        error
+      );
+    }
+  }
+
   const baseDir = dir ?? process.cwd();
   ensureDir(baseDir);
   const filePath = getCronFilePath(baseDir);
@@ -112,7 +157,16 @@ export async function writeCronTasksFile(
 /**
  * 同步检查是否存在cron任务
  */
-export function hasCronTasksSync(dir?: string): boolean {
+export async function hasCronTasksSync(dir?: string): Promise<boolean> {
+  if (_sqliteStore) {
+    try {
+      const count = await _sqliteStore.countTasks();
+      return count > 0;
+    } catch {
+      return false;
+    }
+  }
+
   const filePath = getCronFilePath(dir);
   try {
     if (!existsSync(filePath)) {
@@ -161,7 +215,7 @@ export async function addCronTask(
   };
 
   if (durable) {
-    const tasks = readCronTasksFile(dir);
+    const tasks = await readCronTasksFile(dir);
     tasks.push(task);
     await writeCronTasksFile(tasks, dir);
   }
@@ -178,8 +232,20 @@ export async function removeCronTasks(
 ): Promise<void> {
   if (ids.length === 0) return;
 
+  if (_sqliteStore) {
+    try {
+      await _sqliteStore.removeTasks(ids);
+      return;
+    } catch (error) {
+      logger.error(
+        '[CronTasks] error removing from SQLite, falling back',
+        error
+      );
+    }
+  }
+
   const idSet = new Set(ids);
-  const tasks = readCronTasksFile(dir);
+  const tasks = await readCronTasksFile(dir);
   const remaining = tasks.filter((t) => !idSet.has(t.id));
 
   if (remaining.length !== tasks.length) {
@@ -197,8 +263,20 @@ export async function markCronTasksFired(
 ): Promise<void> {
   if (ids.length === 0) return;
 
+  if (_sqliteStore) {
+    try {
+      await _sqliteStore.markFired(ids, firedAt);
+      return;
+    } catch (error) {
+      logger.error(
+        '[CronTasks] error marking fired in SQLite, falling back',
+        error
+      );
+    }
+  }
+
   const idSet = new Set(ids);
-  const tasks = readCronTasksFile(dir);
+  const tasks = await readCronTasksFile(dir);
   let changed = false;
 
   for (const t of tasks) {
@@ -251,7 +329,18 @@ export async function getCronTask(
   id: string,
   dir?: string
 ): Promise<ScheduledTask | null> {
-  const tasks = readCronTasksFile(dir);
+  if (_sqliteStore) {
+    try {
+      return await _sqliteStore.getTask(id);
+    } catch (error) {
+      logger.error(
+        '[CronTasks] error getting task from SQLite, falling back',
+        error
+      );
+    }
+  }
+
+  const tasks = await readCronTasksFile(dir);
   return tasks.find((t) => t.id === id) || null;
 }
 
@@ -263,7 +352,19 @@ export async function updateCronTask(
   updates: Partial<ScheduledTask>,
   dir?: string
 ): Promise<void> {
-  const tasks = readCronTasksFile(dir);
+  if (_sqliteStore) {
+    try {
+      await _sqliteStore.updateTask(id, updates);
+      return;
+    } catch (error) {
+      logger.error(
+        '[CronTasks] error updating task in SQLite, falling back',
+        error
+      );
+    }
+  }
+
+  const tasks = await readCronTasksFile(dir);
   const index = tasks.findIndex((t) => t.id === id);
 
   if (index === -1) return;

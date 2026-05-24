@@ -60,7 +60,9 @@ export class MockAcpRuntime implements AcpRuntime {
   async ensureSession(input: AcpRuntimeEnsureInput): Promise<AcpRuntimeHandle> {
     this.ensureSessionCalls.push(input);
     if (this.options.shouldFail) {
-      throw new Error(this.options.failureMessage || 'mock ensureSession failed');
+      throw new Error(
+        this.options.failureMessage || 'mock ensureSession failed'
+      );
     }
     return this.options.ensureSessionResult!;
   }
@@ -91,20 +93,30 @@ export class MockAcpRuntime implements AcpRuntime {
     return this.options.doctorResult!;
   }
 
-  async cancel(input: { handle: AcpRuntimeHandle; reason?: string }): Promise<void> {
+  async cancel(input: {
+    handle: AcpRuntimeHandle;
+    reason?: string;
+  }): Promise<void> {
     this.cancelCalls.push(input);
   }
 
-  async close(input: { handle: AcpRuntimeHandle; reason: string }): Promise<void> {
+  async close(input: {
+    handle: AcpRuntimeHandle;
+    reason: string;
+  }): Promise<void> {
     this.closeCalls.push(input);
   }
 }
 
-export function createMockAcpRuntime(options?: MockAcpRuntimeOptions): MockAcpRuntime {
+export function createMockAcpRuntime(
+  options?: MockAcpRuntimeOptions
+): MockAcpRuntime {
   return new MockAcpRuntime(options);
 }
 
-export function createMockAcpRuntimeHandle(overrides?: Partial<AcpRuntimeHandle>): AcpRuntimeHandle {
+export function createMockAcpRuntimeHandle(
+  overrides?: Partial<AcpRuntimeHandle>
+): AcpRuntimeHandle {
   return {
     sessionKey: 'test-session',
     backend: 'mock-backend',
@@ -113,7 +125,9 @@ export function createMockAcpRuntimeHandle(overrides?: Partial<AcpRuntimeHandle>
   };
 }
 
-export function createMockDoctorReport(healthy: boolean = true): AcpRuntimeDoctorReport {
+export function createMockDoctorReport(
+  healthy: boolean = true
+): AcpRuntimeDoctorReport {
   return {
     healthy,
     checks: [

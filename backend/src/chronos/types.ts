@@ -249,7 +249,7 @@ export interface CronScheduler {
   /**
    * 启动调度器
    */
-  start(): void;
+  start(): Promise<void>;
 
   /**
    * 停止调度器

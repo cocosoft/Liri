@@ -17,6 +17,7 @@ import {
   hasCronTasksSync,
   nextCronRunMs,
   listAllCronTasks,
+  getCronFilePath,
 } from './CronTasks';
 import { releaseSchedulerLock, tryAcquireSchedulerLock } from './CronTasksLock';
 import {
@@ -25,6 +26,7 @@ import {
 } from './cronJitterConfig';
 import { cronToHuman } from './cron';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -76,6 +78,15 @@ export function createCronScheduler(
   let lockProbeTimer: ReturnType<typeof setInterval> | null = null;
   let stopped = false;
   let isOwner = false;
+  const fileWatcher = new CronFileWatcher();
+  let fileWatcherStarted = false;
+
+  async function reloadTasks(): Promise<void> {
+    nextFireAt.clear();
+    missedAsked.clear();
+    await load(false);
+    logger.info('[Chronos] 文件变更后任务已重新加载');
+  }
 
   async function load(initial: boolean): Promise<void> {
     const next = await readCronTasksFile(dir);
@@ -308,30 +319,49 @@ export function createCronScheduler(
     checkTimer.unref?.();
   }
 
+  function startFileWatcher(): void {
+    if (fileWatcherStarted) return;
+    const cronFilePath = getCronFilePath(dir);
+    fileWatcher.start(cronFilePath, () => {
+      void reloadTasks();
+    });
+    fileWatcherStarted = true;
+    logger.info(`[Chronos] 文件监听已启动: ${cronFilePath}`);
+  }
+
+  function stopFileWatcher(): void {
+    if (!fileWatcherStarted) return;
+    fileWatcher.stop();
+    fileWatcherStarted = false;
+    logger.info('[Chronos] 文件监听已停止');
+  }
+
   return {
-    start(): void {
+    async start(): Promise<void> {
       stopped = false;
 
       if (dir !== undefined) {
+        const hasTasks = await hasCronTasksSync(dir);
         logger.info(
-          `[Chronos] scheduler start() — dir=${dir}, hasTasks=${hasCronTasksSync(dir)}`
+          `[Chronos] scheduler start() — dir=${dir}, hasTasks=${hasTasks}`
         );
         void enable();
+        startFileWatcher();
         return;
       }
 
-      logger.info(
-        `[Chronos] scheduler start() — hasTasks=${hasCronTasksSync()}`
-      );
+      const hasTasks = await hasCronTasksSync();
+      logger.info(`[Chronos] scheduler start() — hasTasks=${hasTasks}`);
 
-      if (assistantMode || hasCronTasksSync()) {
+      if (assistantMode || hasTasks) {
         void enable();
+        startFileWatcher();
         return;
       }
 
       enablePoll = setInterval(
-        (en) => {
-          if (hasCronTasksSync()) void en();
+        async (en) => {
+          if (await hasCronTasksSync()) void en();
         },
         CHECK_INTERVAL_MS,
         enable
@@ -341,6 +371,7 @@ export function createCronScheduler(
 
     stop(): void {
       stopped = true;
+      stopFileWatcher();
 
       if (enablePoll) {
         clearInterval(enablePoll);

@@ -1,4 +1,7 @@
-import type { PersistentBindingConfig, PersistentBindingState } from './types.js';
+import type {
+  PersistentBindingConfig,
+  PersistentBindingState,
+} from './types.js';
 import type { AcpRuntimeEnsureInput } from '../runtime/types.js';
 
 export function resolveBindingConfigToEnsureInput(
@@ -12,7 +15,9 @@ export function resolveBindingConfigToEnsureInput(
   };
 }
 
-export function createInitialBindingState(config: PersistentBindingConfig): PersistentBindingState {
+export function createInitialBindingState(
+  config: PersistentBindingConfig
+): PersistentBindingState {
   return {
     config,
     active: false,

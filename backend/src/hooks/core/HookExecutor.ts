@@ -32,7 +32,7 @@ export class HookExecutor {
   }
 
   /**
-   * 执行Hook（基于CC源码）
+   * 执行Hook
    */
   async executeHook(
     hook: HookDefinition,
@@ -102,7 +102,7 @@ export class HookExecutor {
   }
 
   /**
-   * 批量执行Hook（基于CC源码）
+   * 批量执行Hook
    */
   async executeHooks(
     hooks: HookDefinition[],
@@ -129,7 +129,7 @@ export class HookExecutor {
   }
 
   /**
-   * 并发执行Hook（基于CC源码）
+   * 并发执行Hook
    */
   async executeHooksConcurrently(
     hooks: HookDefinition[],
@@ -140,7 +140,7 @@ export class HookExecutor {
   }
 
   /**
-   * 带超时的Hook执行（基于CC源码）
+   * 带超时的Hook执行
    */
   private async executeHookWithTimeout(
     hook: HookDefinition,
@@ -164,7 +164,7 @@ export class HookExecutor {
   }
 
   /**
-   * 执行安全检查（基于CC源码）
+   * 执行安全检查
    */
   private async performSecurityCheck(
     hook: HookDefinition,
@@ -189,7 +189,7 @@ export class HookExecutor {
   }
 
   /**
-   * 检查Hook名称安全性（基于CC源码）
+   * 检查Hook名称安全性
    */
   private isSafeHookName(name: string): boolean {
     // 只允许字母、数字、连字符、下划线
@@ -198,7 +198,7 @@ export class HookExecutor {
   }
 
   /**
-   * 检查Hook事件安全性（基于CC源码）
+   * 检查Hook事件安全性
    */
   private isSafeHookEvent(event: string): boolean {
     // 只允许字母、数字、点、连字符、下划线
@@ -207,7 +207,7 @@ export class HookExecutor {
   }
 
   /**
-   * 检查数据安全性（基于CC源码）
+   * 检查数据安全性
    */
   private isSafeData(data: any): boolean {
     try {
@@ -230,7 +230,7 @@ export class HookExecutor {
   }
 
   /**
-   * 获取对象深度（基于CC源码）
+   * 获取对象深度
    */
   private getObjectDepth(obj: any): number {
     if (typeof obj !== 'object' || obj === null) {
@@ -249,7 +249,7 @@ export class HookExecutor {
   }
 
   /**
-   * 记录执行统计（基于CC源码）
+   * 记录执行统计
    */
   private recordExecutionStats(
     hookId: string,
@@ -298,7 +298,7 @@ export class HookExecutor {
   }
 
   /**
-   * 获取执行统计（基于CC源码）
+   * 获取执行统计
    */
   getExecutionStats(
     hookId?: string
@@ -319,35 +319,35 @@ export class HookExecutor {
   }
 
   /**
-   * 清除统计信息（基于CC源码）
+   * 清除统计信息
    */
   clearStats(): void {
     this.stats.clear();
   }
 
   /**
-   * 获取当前活跃执行数（基于CC源码）
+   * 获取当前活跃执行数
    */
   getActiveExecutionCount(): number {
     return this.activeExecutions.size;
   }
 
   /**
-   * 获取配置信息（基于CC源码）
+   * 获取配置信息
    */
   getConfig(): HookExecutorConfig {
     return { ...this.config };
   }
 
   /**
-   * 更新配置（基于CC源码）
+   * 更新配置
    */
   updateConfig(newConfig: Partial<HookExecutorConfig>): void {
     this.config = { ...this.config, ...newConfig };
   }
 
   /**
-   * 生成Hook ID（基于CC源码）
+   * 生成Hook ID
    */
   private generateHookId(hook: HookDefinition): string {
     return `${hook.event}:${hook.name}:${hook.version || '1.0.0'}`;
@@ -355,7 +355,7 @@ export class HookExecutor {
 }
 
 /**
- * 全局Hook执行器实例（基于CC源码）
+ * 全局Hook执行器实例
  */
 export const globalHookExecutor = new HookExecutor();
 

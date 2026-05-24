@@ -6,7 +6,7 @@
 import type { HookDefinition, HookDependency, HookPriority } from '../types';
 
 /**
- * 依赖关系节点（基于CC源码）
+ * 依赖关系节点
  */
 interface DependencyNode {
   /**
@@ -41,7 +41,7 @@ interface DependencyNode {
 }
 
 /**
- * 依赖解析结果（基于CC源码）
+ * 依赖解析结果
  */
 interface DependencyResolutionResult {
   /**
@@ -78,7 +78,7 @@ export class HookDependencyManager {
   private hookDefinitions: Map<string, HookDefinition> = new Map();
 
   /**
-   * 添加Hook定义（基于CC源码）
+   * 添加Hook定义
    */
   addHookDefinition(hook: HookDefinition): void {
     const hookId = this.generateHookId(hook);
@@ -101,14 +101,14 @@ export class HookDependencyManager {
   }
 
   /**
-   * 批量添加Hook定义（基于CC源码）
+   * 批量添加Hook定义
    */
   addHookDefinitions(hooks: HookDefinition[]): void {
     hooks.forEach((hook) => this.addHookDefinition(hook));
   }
 
   /**
-   * 移除Hook定义（基于CC源码）
+   * 移除Hook定义
    */
   removeHookDefinition(hookId: string): boolean {
     if (!this.hookDefinitions.has(hookId)) {
@@ -125,7 +125,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 解析依赖关系（基于CC源码）
+   * 解析依赖关系
    */
   resolveDependencies(): DependencyResolutionResult {
     const executionOrder: string[] = [];
@@ -159,7 +159,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 深度优先遍历（基于CC源码）
+   * 深度优先遍历
    */
   private depthFirstTraversal(
     hookId: string,
@@ -220,7 +220,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 获取按优先级排序的Hook列表（基于CC源码）
+   * 获取按优先级排序的Hook列表
    */
   private getHooksByPriority(): string[] {
     const priorityOrder: Record<HookPriority, number> = {
@@ -243,7 +243,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 更新依赖关系（基于CC源码）
+   * 更新依赖关系
    */
   private updateDependencyRelationships(): void {
     // 清空所有依赖关系
@@ -263,7 +263,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 重置节点状态（基于CC源码）
+   * 重置节点状态
    */
   private resetNodeStates(): void {
     for (const node of this.dependencyGraph.values()) {
@@ -273,7 +273,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 检查依赖完整性（基于CC源码）
+   * 检查依赖完整性
    */
   checkDependencyIntegrity(): {
     valid: boolean;
@@ -314,7 +314,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 检测循环依赖（基于CC源码）
+   * 检测循环依赖
    */
   private detectCycle(
     hookId: string,
@@ -353,7 +353,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 获取Hook的依赖链（基于CC源码）
+   * 获取Hook的依赖链
    */
   getDependencyChain(hookId: string): { chain: string[]; depth: number } {
     const chain: string[] = [];
@@ -387,7 +387,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 获取受影响的Hook（基于CC源码）
+   * 获取受影响的Hook
    */
   getAffectedHooks(hookId: string): string[] {
     const affected: Set<string> = new Set();
@@ -411,7 +411,7 @@ export class HookDependencyManager {
   }
 
   /**
-   * 可视化依赖关系（基于CC源码）
+   * 可视化依赖关系
    */
   visualizeDependencies(): string {
     const lines: string[] = [];
@@ -439,14 +439,14 @@ export class HookDependencyManager {
   }
 
   /**
-   * 生成Hook ID（基于CC源码）
+   * 生成Hook ID
    */
   private generateHookId(hook: HookDefinition): string {
     return `${hook.event}:${hook.name}:${hook.version || '1.0.0'}`;
   }
 
   /**
-   * 获取依赖图统计信息（基于CC源码）
+   * 获取依赖图统计信息
    */
   getStatistics(): {
     totalHooks: number;
@@ -478,7 +478,7 @@ export class HookDependencyManager {
 }
 
 /**
- * 全局Hook依赖管理器实例（基于CC源码）
+ * 全局Hook依赖管理器实例
  */
 export const globalHookDependencyManager = new HookDependencyManager();
 

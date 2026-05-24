@@ -10,7 +10,9 @@ export function formatSessionIdentity(input: AcpSessionIdentity): string {
   return parts.join('/');
 }
 
-export function parseSessionIdentity(identity: string): AcpSessionIdentity | null {
+export function parseSessionIdentity(
+  identity: string
+): AcpSessionIdentity | null {
   const parts = identity.split('/');
   if (parts.length < 3) {
     return null;

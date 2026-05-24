@@ -4,7 +4,9 @@
  */
 
 import { randomUUID } from 'crypto';
+import path from 'node:path';
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import {
   createTranscriptManager,
   TranscriptManager,
@@ -30,6 +32,12 @@ import { StorageFactory } from './storage/StorageFactory.js';
 import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
 import type { StorageConfig } from './storage/UnifiedStorage.js';
 
+// 确保 FILESYSTEM 存储实现被注册（SessionGateway 默认使用）
+import './storage/FileSystemUnifiedStorage.js';
+
+import { CrashRecoveryManager } from './recovery/CrashRecoveryManager.js';
+import type { CrashRecoveryResult } from './recovery/CrashRecoveryManager.js';
+
 import { SessionType, SessionStatus } from './types/Session.js';
 import { StorageType } from './storage/UnifiedStorage.js';
 import type {
@@ -47,6 +55,8 @@ import type {
   PermissionResponse,
 } from './types/Message.js';
 import type { Transcript } from './types/Transcript.js';
+import type { FTSDocument, FTSSearchResult } from './FTS5SearchEngine.js';
+import { getFTS5SearchEngine } from './FTS5SearchEngine.js';
 
 import { SessionTokenTracker } from './TokenTracker.js';
 import type { PruningDecider } from './pruning/PruningDecider.js';
@@ -61,6 +71,24 @@ import {
   SessionLifecycleEventBus,
   createSessionLifecycleEvent,
 } from './lifecycle/index.js';
+import { SessionStore } from './SessionStore.js';
+import type { SessionStoreOptions } from './SessionStore.js';
+import { SessionPruner } from './SessionPruner.js';
+import type { PrunerOptions, PruneResult } from './SessionPruner.js';
+import { SessionLock } from './SessionLock.js';
+import type { LockOptions, LockAcquireResult } from './SessionLock.js';
+import { PriorityManager } from './qos/PriorityManager.js';
+import type { SessionPriorityLevel, SessionPriority, QoSLevel } from './qos/SessionPriority.js';
+import { QoSEnforcer } from './qos/QoSEnforcer.js';
+import { BudgetTracker } from './budget/BudgetTracker.js';
+import { BudgetEnforcer } from './budget/BudgetEnforcer.js';
+import type { SessionTokenBudgetConfig, BudgetDecision, BudgetPeriod } from './budget/BudgetTypes.js';
+import { SessionArchiver } from './archive/SessionArchiver.js';
+import type { ArchivableSession } from './archive/SessionArchiver.js';
+import type { ArchiveResult, ArchiveTrigger, ArchiveMetadata } from './archive/ArchiveTypes.js';
+import { UnifiedStorageAdapter } from './storage/UnifiedStorageAdapter.js';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 网关配置
@@ -92,18 +120,40 @@ export class SessionGateway {
   private keyFactory: SessionKeyFactory | null = null;
   private sessionRouter: SessionRouter | null = null;
   private eventBus: SessionLifecycleEventBus | null = null;
+  private crashRecoveryManager: CrashRecoveryManager;
+  private initialized = false;
+  private static readonly FTS_SAVE_INTERVAL_MS = 60_000;
+  private ftsSaveInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Phase A: 从 SessionManager 收敛的组件
+  private sessionStore: SessionStore | null = null;
+  private pruner: SessionPruner | null = null;
+  private prunerInterval: ReturnType<typeof setInterval> | null = null;
+  private lock: SessionLock | null = null;
+  private priorityManager: PriorityManager | null = null;
+  private qosEnforcer: QoSEnforcer | null = null;
+  private budgetTracker: BudgetTracker | null = null;
+  private budgetEnforcer: BudgetEnforcer | null = null;
+  private archiver: SessionArchiver | null = null;
 
   constructor(config?: SessionGatewayConfig) {
     this.config = config ?? {};
 
     this.storage = StorageFactory.createStorage(
-      this.config.storageConfig ?? { type: StorageType.MEMORY }
+      this.config.storageConfig ?? {
+        type: StorageType.FILESYSTEM,
+        basePath: './data/sessions',
+      }
     );
 
     this.transcriptManager = createTranscriptManager(
       this.storage,
       this.config.transcriptConfig
     );
+
+    this.crashRecoveryManager = new CrashRecoveryManager({
+      storage: this.storage,
+    });
 
     if (this.config.keyFactoryConfig) {
       this.keyFactory = new SessionKeyFactory(this.config.keyFactoryConfig);
@@ -182,11 +232,191 @@ export class SessionGateway {
   }
 
   /**
+   * 设置会话缓存层
+   */
+  setSessionStore(store: SessionStore): void {
+    this.sessionStore = store;
+  }
+
+  /**
+   * 获取会话缓存层
+   */
+  getSessionStore(): SessionStore | null {
+    return this.sessionStore;
+  }
+
+  /**
+   * 设置会话修剪器
+   */
+  setSessionPruner(pruner: SessionPruner): void {
+    this.pruner = pruner;
+  }
+
+  /**
+   * 设置并发锁
+   */
+  setSessionLock(lock: SessionLock): void {
+    this.lock = lock;
+  }
+
+  /**
+   * 设置优先级管理器
+   */
+  setPriorityManager(manager: PriorityManager): void {
+    this.priorityManager = manager;
+  }
+
+  /**
+   * 获取优先级管理器
+   */
+  getPriorityManager(): PriorityManager | null {
+    return this.priorityManager;
+  }
+
+  /**
+   * 设置 QoS 执行器
+   */
+  setQoSEnforcer(enforcer: QoSEnforcer): void {
+    this.qosEnforcer = enforcer;
+  }
+
+  /**
+   * 获取 QoS 执行器
+   */
+  getQoSEnforcer(): QoSEnforcer | null {
+    return this.qosEnforcer;
+  }
+
+  /**
+   * 设置令牌预算追踪器
+   */
+  setBudgetTracker(tracker: BudgetTracker): void {
+    this.budgetTracker = tracker;
+  }
+
+  /**
+   * 获取令牌预算追踪器
+   */
+  getBudgetTracker(): BudgetTracker | null {
+    return this.budgetTracker;
+  }
+
+  /**
+   * 设置令牌预算执行器
+   */
+  setBudgetEnforcer(enforcer: BudgetEnforcer): void {
+    this.budgetEnforcer = enforcer;
+  }
+
+  /**
+   * 获取令牌预算执行器
+   */
+  getBudgetEnforcer(): BudgetEnforcer | null {
+    return this.budgetEnforcer;
+  }
+
+  /**
+   * 设置会话归档器
+   */
+  setSessionArchiver(archiver: SessionArchiver): void {
+    this.archiver = archiver;
+  }
+
+  /**
+   * 一键注入所有服务
+   * 在 wireWithRealServices 基础上，自动装配缓存、修剪、锁、优先级/QoS、预算、归档等所有组件
+   */
+  wireWithFullServices(options?: {
+    storeOptions?: SessionStoreOptions;
+    prunerOptions?: PrunerOptions;
+  }): this {
+    this.wireWithRealServices();
+
+    const adapter = new UnifiedStorageAdapter(this.storage);
+    this.setSessionStore(new SessionStore({
+      storage: adapter,
+      ...options?.storeOptions,
+    }));
+
+    this.setSessionPruner(new SessionPruner(adapter, options?.prunerOptions));
+    this.setSessionLock(new SessionLock());
+    this.setPriorityManager(new PriorityManager());
+    this.setQoSEnforcer(new QoSEnforcer());
+
+    const budgetTracker = new BudgetTracker();
+    this.setBudgetTracker(budgetTracker);
+    this.setBudgetEnforcer(new BudgetEnforcer(budgetTracker));
+
+    this.setSessionArchiver(new SessionArchiver());
+
+    return this;
+  }
+
+  /**
    * 初始化网关
    */
   async initialize(): Promise<void> {
+    if (this.initialized) return;
+    this.initialized = true;
+
     await this.storage.initialize();
     await this.transcriptManager.initialize();
+    await this.crashRecoveryManager.initialize();
+
+    const crashResult = await this.crashRecoveryManager.recoverAfterCrash();
+    if (crashResult.totalChecked > 0) {
+      logger.info('会话崩溃恢复完毕', {
+        totalChecked: crashResult.totalChecked,
+        paused: crashResult.pausedSessions,
+        failed: crashResult.failedSessions,
+      });
+    }
+
+    await this.rebuildFTSIndex();
+    this.startFTSIndexPersistence();
+
+    if (this.eventBus) {
+      this.eventBus.on('message:created', (event) => {
+        const { messageId, type, role, content, sessionKey } = event.metadata ?? {};
+        if (messageId && typeof content === 'string') {
+          getFTS5SearchEngine().index({
+            id: `msg_${messageId}`,
+            title: '',
+            category: 'message',
+            content: content,
+            timestamp: event.timestamp,
+            metadata: {
+              messageId,
+              sessionId: event.sessionId,
+              sessionKey,
+              type,
+              role,
+            },
+          });
+        }
+      });
+
+      this.eventBus.on('session:deleted', (event) => {
+        const sessionId = event.sessionId;
+        this.storage.getMessages(sessionId).then((messages) => {
+          const engine = getFTS5SearchEngine();
+          for (const msg of messages) {
+            engine.remove(`msg_${msg.id}`);
+          }
+        });
+      });
+    }
+
+    // 启动定时修剪（如果有修剪器）
+    if (this.pruner) {
+      await this.executePrune();
+      this.startPruneInterval();
+    }
+
+    // 初始化归档器
+    if (this.archiver) {
+      await this.archiver.initialize();
+    }
   }
 
   /**
@@ -261,8 +491,17 @@ export class SessionGateway {
    * 删除会话
    */
   async deleteSession(sessionId: string): Promise<void> {
+    const messages = await this.storage.getMessages(sessionId);
+
     await this.storage.deleteSession(sessionId);
     await this.transcriptManager.deleteTranscript(sessionId);
+
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('message:deleted', sessionId, {
+        sessionKey: sessionId,
+        metadata: { messageCount: messages.length },
+      })
+    );
 
     this.eventBus?.emit(
       createSessionLifecycleEvent('session:deleted', sessionId, {
@@ -304,11 +543,100 @@ export class SessionGateway {
     await this.storage.addMessage(sessionId, message);
     await this.transcriptManager.recordMessage(sessionId, message);
 
+    this.eventBus?.emit(
+      createSessionLifecycleEvent('message:created', sessionId, {
+        sessionKey: sessionId,
+        metadata: {
+          messageId: message.id,
+          type: message.type,
+          role: message.role,
+          content: message.content,
+        },
+      })
+    );
+
     const session = await this.getSession(sessionId);
     if (session) {
       session.lastActivityAt = Date.now();
       await this.updateSession(session);
     }
+  }
+
+  /**
+   * 将消息索引到 FTS5 全文搜索引擎
+   */
+  private indexMessageToFTS(sessionId: string, message: UnifiedMessage): void {
+    try {
+      const content =
+        typeof message.content === 'string'
+          ? message.content
+          : JSON.stringify(message.content);
+      const doc: FTSDocument = {
+        id: `msg_${message.id}`,
+        title: `会话 ${sessionId} 的消息`,
+        content,
+        category: 'message',
+        timestamp: message.timestamp ?? Date.now(),
+        metadata: {
+          sessionId,
+          messageId: message.id,
+          type: message.type,
+          role: message.role,
+        },
+      };
+      getFTS5SearchEngine().index(doc);
+    } catch {
+      // FTS5 索引失败不应影响消息写入主流程
+    }
+  }
+
+  /**
+   * 在启动时重建 FTS5 索引（从持久化文件加载，或从存储全量重建）
+   */
+  private async rebuildFTSIndex(): Promise<void> {
+    const engine = getFTS5SearchEngine();
+
+    engine.loadFromDisk();
+
+    if (engine.getStats().documentCount === 0) {
+      const sessions = await this.storage.listSessions();
+      let indexedCount = 0;
+
+      for (const session of sessions) {
+        const messages = await this.storage.getMessages(session.id);
+        for (const msg of messages) {
+          this.indexMessageToFTS(session.id, msg);
+          indexedCount++;
+        }
+      }
+
+      if (indexedCount > 0) {
+        logger.info('FTS5 索引已从存储重建', { indexedCount });
+      }
+    }
+  }
+
+  /**
+   * 获取 FTS5 索引持久化路径
+   */
+  private getFTSIndexPath(): string {
+    const basePath = this.config.storageConfig?.basePath ?? './data/sessions';
+    return path.join(basePath, '../fts-index.json');
+  }
+
+  /**
+   * 启动 FTS5 索引定期磁盘持久化
+   */
+  private startFTSIndexPersistence(): void {
+    const savePath = this.getFTSIndexPath();
+
+    this.ftsSaveInterval = setInterval(() => {
+      try {
+        getFTS5SearchEngine().saveToDisk(savePath);
+      } catch {
+        // 持久化失败不影响主流程
+      }
+    }, SessionGateway.FTS_SAVE_INTERVAL_MS);
   }
 
   /**
@@ -420,6 +748,29 @@ export class SessionGateway {
    */
   async searchTranscript(sessionId: string, query: string) {
     return this.transcriptManager.searchTranscript(sessionId, query);
+  }
+
+  /**
+   * 全文搜索消息（基于 FTS5SearchEngine）
+   * @param query 搜索关键词
+   * @param sessionId 按会话过滤（可选）
+   * @param limit 最大结果数
+   * @returns 搜索结果列表
+   */
+  searchMessagesFTS(
+    query: string,
+    sessionId?: string,
+    limit?: number
+  ): FTSSearchResult[] {
+    const engine = getFTS5SearchEngine();
+    return engine.search(
+      query,
+      'message',
+      limit,
+      sessionId
+        ? (doc) => doc.metadata?.sessionId === sessionId
+        : undefined
+    );
   }
 
   /**
@@ -553,6 +904,264 @@ export class SessionGateway {
     return this.compactionBridge?.getCompactionHistory(sessionId) ?? [];
   }
 
+  // ========== 缓存层 ==========
+
+  /**
+   * 获取缓存统计
+   */
+  getCacheStats(): { sessions: number; metadata: number; messages: number } | null {
+    return this.sessionStore?.getCacheStats() ?? null;
+  }
+
+  // ========== 修剪逻辑 ==========
+
+  /**
+   * 内部：执行一次修剪
+   */
+  private async executePrune(): Promise<PruneResult | null> {
+    if (!this.pruner) return null;
+    return this.pruner.prune();
+  }
+
+  /**
+   * 内部：启动定时修剪
+   */
+  private startPruneInterval(intervalMs: number = 300_000): void {
+    this.stopPruneInterval();
+    this.prunerInterval = setInterval(async () => {
+      try {
+        await this.executePrune();
+      } catch (err) {
+        logger.error('定时修剪执行失败', { error: String(err) });
+      }
+    }, intervalMs);
+    this.prunerInterval.unref();
+  }
+
+  /**
+   * 内部：停止定时修剪
+   */
+  private stopPruneInterval(): void {
+    if (this.prunerInterval) {
+      clearInterval(this.prunerInterval);
+      this.prunerInterval = null;
+    }
+  }
+
+  /**
+   * 立即执行修剪
+   */
+  async pruneNow(): Promise<PruneResult | null> {
+    return this.executePrune();
+  }
+
+  /**
+   * 获取修剪预估
+   */
+  async getPruneEstimate(): Promise<{
+    total: number;
+    ageCandidates: number;
+    countCandidates: number;
+    activeSessions: number;
+  } | null> {
+    if (!this.pruner) return null;
+    return this.pruner.getPruneEstimate();
+  }
+
+  /**
+   * 设置修剪选项
+   */
+  setPrunerOptions(options: Partial<PrunerOptions>): void {
+    this.pruner?.updateOptions(options);
+  }
+
+  // ========== 并发锁 ==========
+
+  /**
+   * 获取会话锁
+   */
+  getSessionLock(): SessionLock | null {
+    return this.lock;
+  }
+
+  /**
+   * 获取锁
+   */
+  async acquireLock(
+    sessionId: string,
+    options?: LockOptions
+  ): Promise<LockAcquireResult> {
+    if (!this.lock) {
+      this.lock = new SessionLock(options);
+    }
+    return this.lock.acquire(sessionId, options?.timeout);
+  }
+
+  /**
+   * 释放锁
+   */
+  async releaseLock(sessionId: string): Promise<boolean> {
+    if (!this.lock) return false;
+    return this.lock.release(sessionId);
+  }
+
+  /**
+   * 检查会话是否被锁定
+   */
+  async isLocked(sessionId: string): Promise<boolean> {
+    if (!this.lock) return false;
+    return this.lock.isLocked(sessionId);
+  }
+
+  // ========== 优先级 / QoS ==========
+
+  /**
+   * 设置会话优先级
+   */
+  setSessionPriority(
+    sessionId: string,
+    level: SessionPriorityLevel,
+    qos?: QoSLevel
+  ): void {
+    if (!this.priorityManager) {
+      this.priorityManager = new PriorityManager();
+    }
+    this.priorityManager.setPriority(sessionId, level, qos);
+
+    if (this.qosEnforcer) {
+      const priority = this.priorityManager.getPriority(sessionId);
+      this.qosEnforcer.registerSession(sessionId, priority);
+      this.qosEnforcer.updatePriority(sessionId, priority);
+    }
+  }
+
+  /**
+   * 获取会话优先级
+   */
+  getSessionPriority(sessionId: string): SessionPriority {
+    if (!this.priorityManager) {
+      this.priorityManager = new PriorityManager();
+    }
+    return this.priorityManager.getPriority(sessionId);
+  }
+
+  // ========== 令牌预算 ==========
+
+  /**
+   * 设置会话预算
+   */
+  setSessionBudget(
+    sessionId: string,
+    config: SessionTokenBudgetConfig
+  ): void {
+    if (!this.budgetEnforcer) {
+      const tracker = new BudgetTracker();
+      this.budgetTracker = tracker;
+      this.budgetEnforcer = new BudgetEnforcer(tracker);
+    }
+    this.budgetEnforcer.setBudgetConfig(sessionId, config);
+  }
+
+  /**
+   * 记录词元消耗
+   */
+  recordTokenConsumption(
+    sessionId: string,
+    tokens: number,
+    period: BudgetPeriod = 'per_session'
+  ): void {
+    this.budgetTracker?.recordConsumption(sessionId, tokens, period);
+  }
+
+  /**
+   * 检查预算
+   */
+  checkBudget(
+    sessionId: string,
+    estimatedTokens?: number
+  ): BudgetDecision {
+    if (!this.budgetEnforcer) {
+      return {
+        action: 'allow' as const,
+        reason: 'No budget configured',
+        currentUsage: 0,
+        limit: 0,
+        percentage: 0,
+      };
+    }
+    return this.budgetEnforcer.evaluate(sessionId, estimatedTokens);
+  }
+
+  /**
+   * 检查是否可在预算内继续
+   */
+  canProceedWithBudget(
+    sessionId: string,
+    estimatedTokens?: number
+  ): boolean {
+    if (!this.budgetEnforcer) return true;
+    return this.budgetEnforcer.canProceed(sessionId, estimatedTokens);
+  }
+
+  // ========== 归档 ==========
+
+  /**
+   * 归档会话
+   */
+  async archiveSession(
+    sessionId: string,
+    trigger: ArchiveTrigger = 'manual'
+  ): Promise<ArchiveResult | null> {
+    if (!this.archiver) return null;
+
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      return {
+        sessionId,
+        success: false,
+        archivedAt: Date.now(),
+        error: 'Session not found',
+      };
+    }
+
+    const messages = await this.getMessages(sessionId);
+
+    const archivable: ArchivableSession = {
+      id: sessionId,
+      status: session.status,
+      messageCount: messages.length,
+      totalTokens: this.tokenTracker?.getUsage(sessionId)?.totalTokens ?? 0,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      lastActivityAt: session.lastActivityAt,
+      toUnifiedSession: () => session,
+      toUnifiedMessages: () => messages,
+    };
+
+    return this.archiver.archiveSession(archivable, trigger);
+  }
+
+  /**
+   * 列出已归档的会话
+   */
+  async listArchivedSessions(): Promise<ArchiveMetadata[]> {
+    if (!this.archiver) return [];
+    return this.archiver.listArchived();
+  }
+
+  /**
+   * 获取归档统计
+   */
+  async getArchiveStats(): Promise<{
+    count: number;
+    totalSize: number;
+    oldestArchive: number;
+    newestArchive: number;
+  } | null> {
+    if (!this.archiver) return null;
+    return this.archiver.getStorageStats();
+  }
+
   /**
    * 清理旧会话
    */
@@ -564,6 +1173,28 @@ export class SessionGateway {
    * 关闭网关
    */
   async close(): Promise<void> {
+    this.initialized = false;
+
+    if (this.ftsSaveInterval) {
+      clearInterval(this.ftsSaveInterval);
+      this.ftsSaveInterval = null;
+    }
+
+    // 停止定时修剪
+    this.stopPruneInterval();
+
+    // 停止自动归档
+    this.archiver?.stopAutoArchive();
+
+    // 释放所有锁
+    await this.lock?.releaseAll();
+
+    try {
+      getFTS5SearchEngine().saveToDisk(this.getFTSIndexPath());
+    } catch {
+      // 关闭时持久化失败不影响后续关闭流程
+    }
+
     for (const remoteSession of this.remoteSessions.values()) {
       remoteSession.disconnect();
     }

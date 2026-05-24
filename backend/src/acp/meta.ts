@@ -22,7 +22,11 @@ export interface AcpCapabilityEntry {
   enabled: boolean;
 }
 
-export function createCapabilityEntry(name: string, enabled: boolean, version?: string): AcpCapabilityEntry {
+export function createCapabilityEntry(
+  name: string,
+  enabled: boolean,
+  version?: string
+): AcpCapabilityEntry {
   return {
     name,
     version: version || '1.0',

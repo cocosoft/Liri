@@ -57,9 +57,27 @@ export interface AcpRuntimeTurnInput {
 }
 
 export type AcpRuntimeEvent =
-  | { type: 'text_delta'; text: string; stream?: 'output' | 'thought'; tag?: AcpSessionUpdateTag }
-  | { type: 'status'; text: string; tag?: AcpSessionUpdateTag; used?: number; size?: number }
-  | { type: 'tool_call'; text: string; tag?: AcpSessionUpdateTag; toolCallId?: string; status?: string; title?: string }
+  | {
+      type: 'text_delta';
+      text: string;
+      stream?: 'output' | 'thought';
+      tag?: AcpSessionUpdateTag;
+    }
+  | {
+      type: 'status';
+      text: string;
+      tag?: AcpSessionUpdateTag;
+      used?: number;
+      size?: number;
+    }
+  | {
+      type: 'tool_call';
+      text: string;
+      tag?: AcpSessionUpdateTag;
+      toolCallId?: string;
+      status?: string;
+      title?: string;
+    }
   | { type: 'done'; stopReason?: string }
   | { type: 'error'; message: string; code?: string; retryable?: boolean };
 
@@ -87,13 +105,22 @@ export interface AcpRuntime {
 
   runTurn(input: AcpRuntimeTurnInput): AsyncIterable<AcpRuntimeEvent>;
 
-  getCapabilities?(input: { handle?: AcpRuntimeHandle }): Promise<AcpRuntimeCapabilities> | AcpRuntimeCapabilities;
+  getCapabilities?(input: {
+    handle?: AcpRuntimeHandle;
+  }): Promise<AcpRuntimeCapabilities> | AcpRuntimeCapabilities;
 
-  getStatus?(input: { handle: AcpRuntimeHandle; signal?: AbortSignal }): Promise<AcpRuntimeStatus>;
+  getStatus?(input: {
+    handle: AcpRuntimeHandle;
+    signal?: AbortSignal;
+  }): Promise<AcpRuntimeStatus>;
 
   setMode?(input: { handle: AcpRuntimeHandle; mode: string }): Promise<void>;
 
-  setConfigOption?(input: { handle: AcpRuntimeHandle; key: string; value: string }): Promise<void>;
+  setConfigOption?(input: {
+    handle: AcpRuntimeHandle;
+    key: string;
+    value: string;
+  }): Promise<void>;
 
   doctor?(): Promise<AcpRuntimeDoctorReport>;
 
@@ -101,5 +128,9 @@ export interface AcpRuntime {
 
   cancel(input: { handle: AcpRuntimeHandle; reason?: string }): Promise<void>;
 
-  close(input: { handle: AcpRuntimeHandle; reason: string; discardPersistentState?: boolean }): Promise<void>;
+  close(input: {
+    handle: AcpRuntimeHandle;
+    reason: string;
+    discardPersistentState?: boolean;
+  }): Promise<void>;
 }

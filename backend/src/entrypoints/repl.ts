@@ -54,7 +54,7 @@ const DEFAULT_CONFIG: REPLConfig = {
  * 初始化聊天管理器
  * 通过 CoreAPIImpl 获取共享 ChatManager，避免重复创建
  */
-export function initializeChatManager(): ChatManager {
+export async function initializeChatManager(): Promise<ChatManager> {
   const coreAPI = getCoreAPI();
   const chatManager = coreAPI.getChatManager();
 
@@ -102,7 +102,7 @@ export function initializeChatManager(): ChatManager {
   chatManager.setToolExecutor(null);
   chatManager.setPermissionManager(null);
 
-  chatManager.initialize();
+  await chatManager.initialize();
 
   // 初始化子Agent管理器并注入ChatManager
   try {
@@ -315,7 +315,7 @@ export async function launchRepl(
 
   profileCheckpoint('repl_initialize_chat_manager_start');
   getStartupChainProfiler().markPhaseStart('session_init');
-  const chatManager = initializeChatManager();
+  const chatManager = await initializeChatManager();
   profileCheckpoint('repl_initialize_chat_manager_end');
   getStartupChainProfiler().markPhaseEnd('session_init');
 
@@ -605,7 +605,7 @@ export async function executeOnce(
       const commandName = parts[0].replace(/^\//, '');
       const finalArgs = args || parts.slice(1).join(' ');
 
-      const chatManager = initializeChatManager();
+      const chatManager = await initializeChatManager();
       const context: CommandContext = {
         sessionId: `once-${Date.now()}`,
         chatManager,
@@ -627,7 +627,7 @@ export async function executeOnce(
       }
     } else {
       profileCheckpoint('execute_once_initialize_chat_start');
-      const chatManager = initializeChatManager();
+      const chatManager = await initializeChatManager();
       profileCheckpoint('execute_once_initialize_chat_end');
 
       let sessionId = 'once-session';
@@ -671,7 +671,7 @@ export async function executeFromPipe(): Promise<void> {
   });
 
   profileCheckpoint('execute_from_pipe_initialize_chat_start');
-  const chatManager = initializeChatManager();
+  const chatManager = await initializeChatManager();
   profileCheckpoint('execute_from_pipe_initialize_chat_end');
 
   try {

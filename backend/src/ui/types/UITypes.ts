@@ -1,12 +1,12 @@
 /**
- * UI组件类型定义（基于CC源码）
+ * UI组件类型定义
  * 定义UI组件的基础类型和接口
  */
 
 import { ReactNode } from 'react';
 
 /**
- * 主题类型定义（基于CC源码）
+ * 主题类型定义
  */
 export interface UITheme {
   colors: {
@@ -53,17 +53,17 @@ export interface UITheme {
 }
 
 /**
- * 主题名称类型（基于CC源码）
+ * 主题名称类型
  */
 export type ThemeName = 'light' | 'dark' | 'auto';
 
 /**
- * 主题设置类型（基于CC源码）
+ * 主题设置类型
  */
 export type ThemeSetting = ThemeName;
 
 /**
- * 主题上下文值类型（基于CC源码）
+ * 主题上下文值类型
  */
 export interface ThemeContextValue {
   /** 保存的用户偏好，可能是'auto' */
@@ -77,7 +77,7 @@ export interface ThemeContextValue {
 }
 
 /**
- * 对话框属性类型（基于CC源码）
+ * 对话框属性类型
  */
 export interface DialogProps {
   title: ReactNode;
@@ -94,7 +94,7 @@ export interface DialogProps {
 }
 
 /**
- * 面板属性类型（基于CC源码）
+ * 面板属性类型
  */
 export interface PaneProps {
   children: ReactNode;
@@ -113,7 +113,7 @@ export interface PaneProps {
 }
 
 /**
- * 文本属性类型（基于CC源码）
+ * 文本属性类型
  */
 export interface TextProps {
   children: ReactNode;
@@ -127,7 +127,7 @@ export interface TextProps {
 }
 
 /**
- * 按钮属性类型（基于CC源码）
+ * 按钮属性类型
  */
 export interface ButtonProps {
   children: ReactNode;
@@ -140,7 +140,7 @@ export interface ButtonProps {
 }
 
 /**
- * 输入框属性类型（基于CC源码）
+ * 输入框属性类型
  */
 export interface InputProps {
   value: string;
@@ -157,7 +157,7 @@ export interface InputProps {
 }
 
 /**
- * 选择框属性类型（基于CC源码）
+ * 选择框属性类型
  */
 export interface SelectOption<T = any> {
   label: string;
@@ -177,7 +177,7 @@ export interface SelectProps<T = any> {
 }
 
 /**
- * 标签页属性类型（基于CC源码）
+ * 标签页属性类型
  */
 export interface TabItem {
   id: string;
@@ -196,7 +196,7 @@ export interface TabsProps {
 }
 
 /**
- * 进度条属性类型（基于CC源码）
+ * 进度条属性类型
  */
 export interface ProgressBarProps {
   value: number;
@@ -208,7 +208,7 @@ export interface ProgressBarProps {
 }
 
 /**
- * 加载状态属性类型（基于CC源码）
+ * 加载状态属性类型
  */
 export interface LoadingStateProps {
   text?: string;
@@ -218,7 +218,7 @@ export interface LoadingStateProps {
 }
 
 /**
- * 分隔线属性类型（基于CC源码）
+ * 分隔线属性类型
  */
 export interface DividerProps {
   color?: keyof UITheme['colors'];
@@ -228,7 +228,7 @@ export interface DividerProps {
 }
 
 /**
- * 键盘快捷键提示属性类型（基于CC源码）
+ * 键盘快捷键提示属性类型
  */
 export interface KeyboardShortcutHintProps {
   keys: string[];
@@ -238,7 +238,7 @@ export interface KeyboardShortcutHintProps {
 }
 
 /**
- * 模糊搜索选择器属性类型（基于CC源码）
+ * 模糊搜索选择器属性类型
  */
 export interface FuzzyPickerProps<T = any> {
   items: T[];
@@ -250,7 +250,7 @@ export interface FuzzyPickerProps<T = any> {
 }
 
 /**
- * 列表项属性类型（基于CC源码）
+ * 列表项属性类型
  */
 export interface ListItemProps {
   children: ReactNode;
@@ -263,7 +263,7 @@ export interface ListItemProps {
 }
 
 /**
- * 状态图标属性类型（基于CC源码）
+ * 状态图标属性类型
  */
 export interface StatusIconProps {
   status: 'success' | 'warning' | 'error' | 'info' | 'loading';
@@ -272,7 +272,7 @@ export interface StatusIconProps {
 }
 
 /**
- * 底部信息栏属性类型（基于CC源码）
+ * 底部信息栏属性类型
  */
 export interface BylineProps {
   children: ReactNode;
@@ -282,12 +282,12 @@ export interface BylineProps {
 }
 
 /**
- * 组件尺寸类型（基于CC源码）
+ * 组件尺寸类型
  */
 export type ComponentSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 /**
- * 组件变体类型（基于CC源码）
+ * 组件变体类型
  */
 export type ComponentVariant =
   | 'primary'
@@ -298,7 +298,7 @@ export type ComponentVariant =
   | 'info';
 
 /**
- * 组件状态类型（基于CC源码）
+ * 组件状态类型
  */
 export type ComponentState =
   | 'default'
@@ -308,7 +308,7 @@ export type ComponentState =
   | 'disabled';
 
 /**
- * 布局方向类型（基于CC源码）
+ * 布局方向类型
  */
 export type LayoutDirection =
   | 'row'
@@ -317,12 +317,12 @@ export type LayoutDirection =
   | 'column-reverse';
 
 /**
- * 对齐方式类型（基于CC源码）
+ * 对齐方式类型
  */
 export type Alignment = 'start' | 'center' | 'end' | 'stretch' | 'baseline';
 
 /**
- * 分布方式类型（基于CC源码）
+ * 分布方式类型
  */
 export type Distribution =
   | 'start'
@@ -333,7 +333,7 @@ export type Distribution =
   | 'space-evenly';
 
 /**
- * 响应式断点类型（基于CC源码）
+ * 响应式断点类型
  */
 export interface Breakpoints {
   xs: number;
@@ -344,7 +344,7 @@ export interface Breakpoints {
 }
 
 /**
- * 响应式属性类型（基于CC源码）
+ * 响应式属性类型
  */
 export type ResponsiveProp<T> = T | { [K in keyof Breakpoints]?: T };
 

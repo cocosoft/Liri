@@ -6,6 +6,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DiskSpaceMonitor } from '../../delivery/monitor/DiskSpaceMonitor';
 
 /**
  * 诊断级别
@@ -52,6 +53,12 @@ export interface DiagnosticsResult {
  * 守护进程诊断工具
  */
 export class DaemonDiagnostics {
+  private diskSpaceMonitor: DiskSpaceMonitor;
+
+  constructor() {
+    this.diskSpaceMonitor = new DiskSpaceMonitor();
+  }
+
   /**
    * 运行诊断
    */
@@ -64,6 +71,7 @@ export class DaemonDiagnostics {
 
     if (level === 'standard' || level === 'full') {
       checks.push(this.checkDiskSpace());
+      checks.push(this.checkComprehensiveDiskSpace());
       checks.push(this.checkMemoryUsage());
       checks.push(this.checkFileDescriptors());
       checks.push(this.checkNetworkConnectivity());
@@ -289,6 +297,68 @@ export class DaemonDiagnostics {
         name: 'disk-space',
         status: 'warn',
         message: '无法检查磁盘空间',
+      };
+    }
+  }
+
+  /**
+   * 使用 DiskSpaceMonitor 检查所有磁盘
+   */
+  private checkComprehensiveDiskSpace(): DiagnosticsCheck {
+    try {
+      const disks = this.diskSpaceMonitor.check();
+
+      if (disks.length === 0) {
+        return {
+          name: 'disk-usage-all',
+          status: 'warn',
+          message: '无法获取磁盘信息',
+        };
+      }
+
+      const highUsage = disks.filter((d) => d.usagePercent >= 90);
+      const warnUsage = disks.filter(
+        (d) => d.usagePercent >= 80 && d.usagePercent < 90
+      );
+
+      if (highUsage.length > 0) {
+        const details = highUsage
+          .map((d) => `${d.drive} ${d.usagePercent.toFixed(1)}%`)
+          .join(', ');
+        return {
+          name: 'disk-usage-all',
+          status: 'fail',
+          message: `磁盘使用率过高: ${details}`,
+          value: `${highUsage.length} drives critical`,
+        };
+      }
+
+      if (warnUsage.length > 0) {
+        const details = warnUsage
+          .map((d) => `${d.drive} ${d.usagePercent.toFixed(1)}%`)
+          .join(', ');
+        return {
+          name: 'disk-usage-all',
+          status: 'warn',
+          message: `磁盘使用率偏高: ${details}`,
+          value: `${warnUsage.length} drives warning`,
+        };
+      }
+
+      const allDisks = disks
+        .map((d) => `${d.drive} ${d.usagePercent.toFixed(1)}%`)
+        .join(', ');
+      return {
+        name: 'disk-usage-all',
+        status: 'pass',
+        message: `所有磁盘使用率正常`,
+        value: allDisks,
+      };
+    } catch {
+      return {
+        name: 'disk-usage-all',
+        status: 'warn',
+        message: '无法检查磁盘使用率',
       };
     }
   }

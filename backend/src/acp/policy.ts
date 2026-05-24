@@ -11,7 +11,10 @@ export function isAcpEnabledByPolicy(config: AcpPolicyConfig): boolean {
   return config.enabled;
 }
 
-export function isAcpAgentAllowedByPolicy(agentName: string, config: AcpPolicyConfig): boolean {
+export function isAcpAgentAllowedByPolicy(
+  agentName: string,
+  config: AcpPolicyConfig
+): boolean {
   if (!config.enabled) {
     return false;
   }

@@ -2,7 +2,11 @@ export const ACP_PROTOCOL_VERSION = '1.0';
 
 export const ACP_SESSION_ID_PREFIX = 'acp-sess-';
 
-export const ACP_PROVENANCE_MODE_VALUES = ['off', 'meta', 'meta+receipt'] as const;
+export const ACP_PROVENANCE_MODE_VALUES = [
+  'off',
+  'meta',
+  'meta+receipt',
+] as const;
 
 export type AcpProvenanceMode = (typeof ACP_PROVENANCE_MODE_VALUES)[number];
 

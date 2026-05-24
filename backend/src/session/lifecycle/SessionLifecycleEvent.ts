@@ -16,7 +16,9 @@ export type SessionEventType =
   | 'session:deleted'
   | 'session:expired'
   | 'session:token_threshold'
-  | 'session:error';
+  | 'session:error'
+  | 'message:created'
+  | 'message:deleted';
 
 export interface SessionLifecycleEvent {
   type: SessionEventType;

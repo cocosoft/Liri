@@ -14,7 +14,11 @@ export class AcpRuntimeError extends Error {
   readonly code: AcpRuntimeErrorCode;
   override readonly cause?: unknown;
 
-  constructor(code: AcpRuntimeErrorCode, message: string, options?: { cause?: unknown }) {
+  constructor(
+    code: AcpRuntimeErrorCode,
+    message: string,
+    options?: { cause?: unknown }
+  ) {
     super(message);
     this.name = 'AcpRuntimeError';
     this.code = code;
@@ -35,10 +39,15 @@ export function isAcpRuntimeError(error: unknown): error is AcpRuntimeError {
   return error instanceof AcpRuntimeError;
 }
 
-export function toAcpRuntimeError(error: unknown, defaultCode: AcpRuntimeErrorCode = 'ACP_TURN_FAILED'): AcpRuntimeError {
+export function toAcpRuntimeError(
+  error: unknown,
+  defaultCode: AcpRuntimeErrorCode = 'ACP_TURN_FAILED'
+): AcpRuntimeError {
   if (error instanceof AcpRuntimeError) {
     return error;
   }
   const message = error instanceof Error ? error.message : String(error);
-  return new AcpRuntimeError(defaultCode, message, { cause: error instanceof Error ? error : undefined });
+  return new AcpRuntimeError(defaultCode, message, {
+    cause: error instanceof Error ? error : undefined,
+  });
 }

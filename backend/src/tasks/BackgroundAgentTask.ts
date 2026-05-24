@@ -6,12 +6,14 @@
  */
 
 import { BaseTask } from './BaseTask';
-import { TaskType, TaskStatus, isTerminalTaskStatus } from './types';
+import {
+  TaskType,
+  TaskStatus,
+  isTerminalTaskStatus,
+  type BackgroundTaskInfo,
+  type BackgroundTaskStatus,
+} from './types';
 import type { TaskState } from './types';
-import type {
-  BackgroundTaskInfo,
-  BackgroundTaskStatus,
-} from '@modules/tools/AgentTool/BackgroundTaskManager.js';
 
 /**
  * 将 BackgroundTaskStatus 映射到 TaskStatus

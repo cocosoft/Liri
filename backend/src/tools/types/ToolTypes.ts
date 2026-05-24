@@ -1,10 +1,10 @@
 /**
- * 工具系统类型定义（基于CC源码）
+ * 工具系统类型定义
  * 定义工具系统的基础类型和接口
  */
 
 /**
- * 工具定义接口（基于CC源码）
+ * 工具定义接口
  */
 export interface ToolDefinition {
   /** 工具名称 */
@@ -45,7 +45,7 @@ export interface ToolDefinition {
 }
 
 /**
- * 工具参数定义（基于CC源码）
+ * 工具参数定义
  */
 export interface ToolParameter {
   /** 参数名称 */
@@ -71,7 +71,7 @@ export interface ToolParameter {
 }
 
 /**
- * 工具参数验证（基于CC源码）
+ * 工具参数验证
  */
 export interface ToolParameterValidation {
   /** 最小值（数字类型） */
@@ -94,7 +94,7 @@ export interface ToolParameterValidation {
 }
 
 /**
- * 工具返回定义（基于CC源码）
+ * 工具返回定义
  */
 export interface ToolReturn {
   /** 返回类型 */
@@ -108,7 +108,7 @@ export interface ToolReturn {
 }
 
 /**
- * 工具权限定义（基于CC源码）
+ * 工具权限定义
  */
 export interface ToolPermission {
   /** 权限类型 */
@@ -125,7 +125,7 @@ export interface ToolPermission {
 }
 
 /**
- * 工具执行上下文（基于CC源码）
+ * 工具执行上下文
  */
 export interface ToolExecutionContext {
   /** 执行ID */
@@ -154,7 +154,7 @@ export interface ToolExecutionContext {
 }
 
 /**
- * 工具执行选项（基于CC源码）
+ * 工具执行选项
  */
 export interface ToolExecutionOptions {
   /** 执行超时时间（毫秒） */
@@ -186,7 +186,7 @@ export interface ToolExecutionOptions {
 }
 
 /**
- * 工具执行结果（基于CC源码）
+ * 工具执行结果
  */
 export interface ToolExecutionResult {
   /** 是否成功 */
@@ -218,7 +218,7 @@ export interface ToolExecutionResult {
 }
 
 /**
- * 工具执行统计（基于CC源码）
+ * 工具执行统计
  */
 export interface ToolExecutionStats {
   /** 内存使用量（字节） */
@@ -256,7 +256,7 @@ export interface ToolExecutionStats {
 }
 
 /**
- * 工具执行日志（基于CC源码）
+ * 工具执行日志
  */
 export interface ToolExecutionLog {
   /** 日志时间 */
@@ -273,7 +273,7 @@ export interface ToolExecutionLog {
 }
 
 /**
- * 工具注册信息（基于CC源码）
+ * 工具注册信息
  */
 export interface ToolRegistration {
   /** 工具定义 */
@@ -296,14 +296,14 @@ export interface ToolRegistration {
 }
 
 /**
- * 工具实现函数（基于CC源码）
+ * 工具实现函数
  */
 export type ToolImplementation = (
   context: ToolExecutionContext
 ) => Promise<ToolExecutionResult>;
 
 /**
- * 工具统计信息（基于CC源码）
+ * 工具统计信息
  */
 export interface ToolStats {
   /** 总执行次数 */
@@ -329,7 +329,7 @@ export interface ToolStats {
 }
 
 /**
- * 工具管理器配置（基于CC源码）
+ * 工具管理器配置
  */
 export interface ToolManagerConfig {
   /** 工具注册表路径 */
@@ -352,7 +352,7 @@ export interface ToolManagerConfig {
 }
 
 /**
- * 工具缓存配置（基于CC源码）
+ * 工具缓存配置
  */
 export interface ToolCacheConfig {
   /** 是否启用缓存 */
@@ -369,7 +369,7 @@ export interface ToolCacheConfig {
 }
 
 /**
- * 工具执行配置（基于CC源码）
+ * 工具执行配置
  */
 export interface ToolExecutionConfig {
   /** 默认执行超时时间（毫秒） */
@@ -389,7 +389,7 @@ export interface ToolExecutionConfig {
 }
 
 /**
- * 工具监控配置（基于CC源码）
+ * 工具监控配置
  */
 export interface ToolMonitoringConfig {
   /** 是否启用监控 */
@@ -406,7 +406,7 @@ export interface ToolMonitoringConfig {
 }
 
 /**
- * 工具安全配置（基于CC源码）
+ * 工具安全配置
  */
 export interface ToolSecurityConfig {
   /** 是否启用安全检查 */
@@ -423,7 +423,7 @@ export interface ToolSecurityConfig {
 }
 
 /**
- * 工具日志配置（基于CC源码）
+ * 工具日志配置
  */
 export interface ToolLoggingConfig {
   /** 是否启用日志记录 */
@@ -443,7 +443,7 @@ export interface ToolLoggingConfig {
 }
 
 /**
- * 工具告警配置（基于CC源码）
+ * 工具告警配置
  */
 export interface ToolAlertConfig {
   /** 告警名称 */
@@ -463,7 +463,7 @@ export interface ToolAlertConfig {
 }
 
 /**
- * 工具告警动作（基于CC源码）
+ * 工具告警动作
  */
 export interface ToolAlertAction {
   /** 动作类型 */
@@ -474,7 +474,7 @@ export interface ToolAlertAction {
 }
 
 /**
- * 工具权限配置（基于CC源码）
+ * 工具权限配置
  */
 export interface ToolPermissionConfig {
   /** 权限验证模式 */
@@ -488,7 +488,7 @@ export interface ToolPermissionConfig {
 }
 
 /**
- * 工具验证配置（基于CC源码）
+ * 工具验证配置
  */
 export interface ToolValidationConfig {
   /** 输入验证模式 */
@@ -499,7 +499,7 @@ export interface ToolValidationConfig {
 }
 
 /**
- * 工具沙箱配置（基于CC源码）
+ * 工具沙箱配置
  */
 export interface ToolSandboxConfig {
   /** 是否启用沙箱 */
@@ -513,7 +513,7 @@ export interface ToolSandboxConfig {
 }
 
 /**
- * 工具权限规则（基于CC源码）
+ * 工具权限规则
  */
 export interface ToolPermissionRule {
   /** 规则名称 */
@@ -530,7 +530,7 @@ export interface ToolPermissionRule {
 }
 
 /**
- * 工具验证规则（基于CC源码）
+ * 工具验证规则
  */
 export interface ToolValidationRule {
   /** 规则名称 */
@@ -547,7 +547,7 @@ export interface ToolValidationRule {
 }
 
 /**
- * 工具事件类型（基于CC源码）
+ * 工具事件类型
  */
 export enum ToolEventType {
   /** 工具注册 */
@@ -579,7 +579,7 @@ export enum ToolEventType {
 }
 
 /**
- * 工具事件数据（基于CC源码）
+ * 工具事件数据
  */
 export interface ToolEventData {
   /** 工具名称 */
@@ -593,12 +593,12 @@ export interface ToolEventData {
 }
 
 /**
- * 工具系统版本信息（基于CC源码）
+ * 工具系统版本信息
  */
 export const TOOL_SYSTEM_VERSION = '1.0.0';
 
 /**
- * 默认工具配置（基于CC源码）
+ * 默认工具配置
  */
 export const DEFAULT_TOOL_CONFIG: ToolManagerConfig = {
   cache: {
@@ -645,7 +645,7 @@ export const DEFAULT_TOOL_CONFIG: ToolManagerConfig = {
 };
 
 /**
- * 工具系统错误代码（基于CC源码）
+ * 工具系统错误代码
  */
 export enum ToolErrorCode {
   /** 工具未找到 */

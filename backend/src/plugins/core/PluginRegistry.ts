@@ -26,7 +26,7 @@ export type FallbackPluginLoader = (
 ) => PluginRegistration | undefined;
 
 /**
- * 插件注册器（基于CC源码）
+ * 插件注册器
  */
 export class PluginRegistry extends EventEmitter {
   private registry: Map<string, PluginRegistration> = new Map();
@@ -34,7 +34,7 @@ export class PluginRegistry extends EventEmitter {
   private fallbackLoader: FallbackPluginLoader | null = null;
 
   /**
-   * 注册插件（基于CC源码）
+   * 注册插件
    */
   registerPlugin(registration: PluginRegistration): void {
     const existing = this.registry.get(registration.id);
@@ -65,7 +65,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 注销插件（基于CC源码）
+   * 注销插件
    */
   unregisterPlugin(pluginId: string): boolean {
     const registration = this.registry.get(pluginId);
@@ -119,7 +119,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 获取插件注册信息（基于CC源码）
+   * 获取插件注册信息
    * 优先从注册表查找；如果未找到，调用回退加载器自动加载并注册
    * 回退加载的插件依赖图初始为空（不在 bundle 中记录依赖信息）
    */
@@ -139,14 +139,14 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 获取所有插件（基于CC源码）
+   * 获取所有插件
    */
   getAllPlugins(): PluginRegistration[] {
     return Array.from(this.registry.values());
   }
 
   /**
-   * 获取已启用插件（基于CC源码）
+   * 获取已启用插件
    */
   getEnabledPlugins(): PluginRegistration[] {
     return Array.from(this.registry.values()).filter(
@@ -155,14 +155,14 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 获取插件数量（基于CC源码）
+   * 获取插件数量
    */
   getPluginCount(): number {
     return this.registry.size;
   }
 
   /**
-   * 启用插件（基于CC源码）
+   * 启用插件
    */
   enablePlugin(pluginId: string): boolean {
     const registration = this.registry.get(pluginId);
@@ -189,7 +189,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 禁用插件（基于CC源码）
+   * 禁用插件
    */
   disablePlugin(pluginId: string): boolean {
     const registration = this.registry.get(pluginId);
@@ -215,7 +215,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 添加依赖关系（基于CC源码）
+   * 添加依赖关系
    */
   addDependency(pluginId: string, dependencyId: string): void {
     if (!this.registry.has(pluginId)) {
@@ -252,7 +252,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 移除依赖关系（基于CC源码）
+   * 移除依赖关系
    */
   removeDependency(pluginId: string, dependencyId: string): void {
     const dependencies = this.dependencyGraph.get(pluginId);
@@ -274,7 +274,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 获取依赖关系（基于CC源码）
+   * 获取依赖关系
    */
   getDependencies(pluginId: string): string[] {
     const dependencies = this.dependencyGraph.get(pluginId);
@@ -287,7 +287,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 获取被依赖关系（基于CC源码）
+   * 获取被依赖关系
    */
   getDependents(pluginId: string): string[] {
     const registration = this.registry.get(pluginId);
@@ -300,7 +300,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 解析依赖关系（基于CC源码）
+   * 解析依赖关系
    */
   resolveDependencies(pluginId: string): PluginDependencyResolution {
     const visited = new Set<string>();
@@ -331,7 +331,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 深度优先搜索解析依赖（基于CC源码）
+   * 深度优先搜索解析依赖
    */
   private dfsResolveDependencies(
     pluginId: string,
@@ -391,7 +391,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 拓扑排序（基于CC源码）
+   * 拓扑排序
    */
   topologicalSort(): string[] {
     const visited = new Set<string>();
@@ -407,7 +407,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 深度优先搜索拓扑排序（基于CC源码）
+   * 深度优先搜索拓扑排序
    */
   private dfsTopologicalSort(
     pluginId: string,
@@ -444,7 +444,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 检查循环依赖（基于CC源码）
+   * 检查循环依赖
    */
   checkCircularDependencies(): string[][] {
     const visited = new Set<string>();
@@ -466,7 +466,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 深度优先搜索检查循环依赖（基于CC源码）
+   * 深度优先搜索检查循环依赖
    */
   private dfsCheckCircularDependencies(
     pluginId: string,
@@ -511,7 +511,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 发射插件事件（基于CC源码）
+   * 发射插件事件
    */
   private emitPluginEvent(
     type: PluginEventType,
@@ -530,7 +530,7 @@ export class PluginRegistry extends EventEmitter {
   }
 
   /**
-   * 清理注册器（基于CC源码）
+   * 清理注册器
    */
   clear(): void {
     this.registry.clear();

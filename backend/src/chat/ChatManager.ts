@@ -14,6 +14,7 @@ import type {
 } from './types/message.js';
 import { MessageRole } from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
+import { SessionState } from './types/session.js';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import { getToolCallName } from './types/tool.js';
 import {
@@ -24,10 +25,6 @@ import {
   StreamService,
   createStreamService,
 } from './services/StreamService.js';
-import {
-  SessionManager,
-  createSessionManager,
-} from './services/SessionManager.js';
 import { sessionStateService } from './services/SessionStateService.js';
 import { sessionMetadataService } from './services/SessionMetadataService.js';
 import { eventNotificationService } from './services/EventNotificationService.js';
@@ -35,6 +32,7 @@ import { messageProcessingService } from './services/MessageProcessingService.js
 import { permissionModeIntegrationService } from './services/PermissionModeIntegrationService.js';
 import { performanceOptimizationService } from './services/PerformanceOptimizationService.js';
 import { securityService } from './services/SecurityService.js';
+import { getCheckpointService } from './services/SessionCheckpointService.js';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
 import {
   recursivelySanitizeUnicode,
@@ -64,6 +62,13 @@ import {
 } from '../services/compact/CompactService.js';
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 import { SessionTokenTracker } from '@modules/session/TokenTracker';
+import {
+  SessionGateway,
+  createSessionGateway,
+} from '@modules/session/SessionGateway';
+import type { UnifiedMessage } from '@modules/session/types/Message';
+import { MessageType as SessionMessageType } from '@modules/session/types/Message';
+import { MessageRole as SessionMessageRole } from '@modules/session/types/Message';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { TaskStatus } from '@modules/tasks/types';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
@@ -187,7 +192,7 @@ export interface ChatManager {
    * 获取会话管理器
    * @returns 会话管理器
    */
-  getSessionManager(): SessionManager;
+  getSessionManager(): any;
 
   /**
    * 获取LLM客户端
@@ -441,9 +446,19 @@ export class ChatManagerImpl implements ChatManager {
   private streamService: StreamService;
 
   /**
-   * 会话管理器
+   * 当前会话ID（本地缓存）
    */
-  private sessionManager: SessionManager;
+  private _currentSessionId: string | null = null;
+
+  /**
+   * 会话内存缓存
+   */
+  private _chatSessions: Map<string, ChatSession> = new Map();
+
+  /**
+   * 检查点服务
+   */
+  private _checkpointService: ReturnType<typeof getCheckpointService>;
 
   /**
    * LLM客户端
@@ -474,6 +489,11 @@ export class ChatManagerImpl implements ChatManager {
    * 子Agent管理器
    */
   private subAgentManager: unknown = null;
+
+  /**
+   * 会话持久化网关
+   */
+  private sessionGateway: SessionGateway;
 
   /**
    * HookChain 管理器
@@ -507,9 +527,65 @@ export class ChatManagerImpl implements ChatManager {
   constructor() {
     this.messageService = createMessageService();
     this.streamService = createStreamService();
-    this.sessionManager = createSessionManager();
+    this.sessionGateway = createSessionGateway();
     this.compactService = new CompactServiceImpl();
     this.hookChainManager = HookChainManager.getInstance();
+    this._checkpointService = getCheckpointService();
+  }
+
+  /**
+   * 添加消息到本地缓存并持久化
+   */
+  private _addAndPersistMessage(sessionId: string, message: Message): void {
+    const session = this._chatSessions.get(sessionId);
+    if (session) {
+      session.messages.push(message);
+      session.updatedAt = new Date();
+      session.metadata.lastActivityAt = new Date();
+      session.metadata.totalMessages = session.messages.length;
+    }
+    this.persistMessage(sessionId, message).catch((e) => {
+      logger.error('Failed to persist message', {
+        sessionId,
+        error: String(e),
+      });
+    });
+  }
+
+  /**
+   * 从本地缓存获取会话
+   */
+  private _getLocalSession(sessionId: string | null | undefined): ChatSession | undefined {
+    if (!sessionId) return undefined;
+    return this._chatSessions.get(sessionId);
+  }
+
+  /**
+   * 将 chat Message 持久化到 SessionGateway（FileSystemUnifiedStorage）
+   */
+  private async persistMessage(sessionId: string, message: Message): Promise<void> {
+    const unifiedMessage: UnifiedMessage = {
+      id: message.id,
+      sessionId,
+      type: this.toSessionMsgType(message),
+      role: message.role as unknown as SessionMessageRole,
+      content: typeof message.content === 'string' ? message.content : JSON.stringify(message.content),
+      timestamp: message.createdAt?.getTime() ?? Date.now(),
+      metadata: message.toolCallId ? ({ toolCallId: message.toolCallId } as any) : undefined,
+    };
+    try {
+      await this.sessionGateway.sendMessage(sessionId, unifiedMessage);
+    } catch {
+      // 持久化失败不应影响主消息流，已由 Proxy 的 .catch 记录日志
+    }
+  }
+
+  private toSessionMsgType(message: Message): SessionMessageType {
+    if (message.role === MessageRole.USER) return SessionMessageType.USER;
+    if (message.role === MessageRole.ASSISTANT && message.tool_calls?.length) return SessionMessageType.TOOL_USE;
+    if (message.role === MessageRole.ASSISTANT) return SessionMessageType.ASSISTANT;
+    if (message.role === MessageRole.TOOL) return SessionMessageType.TOOL_RESULT;
+    return SessionMessageType.SYSTEM;
   }
 
   /**
@@ -551,8 +627,9 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 初始化
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     this.llmClient?.initialize();
+    await this.sessionGateway.initialize();
   }
 
   /**
@@ -621,13 +698,13 @@ export class ChatManagerImpl implements ChatManager {
 
       // 添加到会话
       const session = options?.sessionId
-        ? this.sessionManager.getSession(options.sessionId) ||
+        ? this._getLocalSession(options.sessionId) ||
           this.createSession({ title: 'New Session' })
-        : this.sessionManager.getCurrentSession() ||
+        : this._getLocalSession(this._currentSessionId) ||
           this.createSession({ title: 'New Session' });
 
       if (session) {
-        this.sessionManager.addMessage(session.id, commandMessage);
+        this._addAndPersistMessage(session.id, commandMessage);
       }
 
       return commandMessage;
@@ -635,9 +712,9 @@ export class ChatManagerImpl implements ChatManager {
 
     // 获取或创建会话
     const session = options?.sessionId
-      ? this.sessionManager.getSession(options.sessionId) ||
+      ? this._getLocalSession(options.sessionId) ||
         this.createSession({ title: 'New Session' })
-      : this.sessionManager.getCurrentSession() ||
+      : this._getLocalSession(this._currentSessionId) ||
         this.createSession({ title: 'New Session' });
 
     if (!session) {
@@ -675,7 +752,7 @@ export class ChatManagerImpl implements ChatManager {
     });
 
     // 添加消息到会话
-    this.sessionManager.addMessage(session.id, userMessage);
+    this._addAndPersistMessage(session.id, userMessage);
 
     // 通知会话状态变化为运行状态
     sessionStateService.notifySessionStateChanged('running');
@@ -826,7 +903,7 @@ export class ChatManagerImpl implements ChatManager {
         })
       );
     }
-    this.sessionManager.addMessage(session.id, assistantMessage);
+    this._addAndPersistMessage(session.id, assistantMessage);
 
     // 响应后自动提取记忆
     await this.extractMemoryFromChat(
@@ -931,7 +1008,7 @@ export class ChatManagerImpl implements ChatManager {
               sessionId: session.id,
             }
           );
-          this.sessionManager.addMessage(session.id, toolResultMessage);
+          this._addAndPersistMessage(session.id, toolResultMessage);
 
           processedResults.push({ normalizedToolCall, result: toolResult });
         }
@@ -1023,7 +1100,7 @@ export class ChatManagerImpl implements ChatManager {
               },
             }));
         }
-        this.sessionManager.addMessage(session.id, toolResultAssistantMessage);
+        this._addAndPersistMessage(session.id, toolResultAssistantMessage);
 
         // 检查是否有新的工具调用，有则继续下一轮
         if (
@@ -1207,7 +1284,7 @@ export class ChatManagerImpl implements ChatManager {
         },
       }));
     }
-    this.sessionManager.addMessage(session.id, assistantMsg);
+    this._addAndPersistMessage(session.id, assistantMsg);
 
     // 工具调用循环
     while (currentCalls.length > 0) {
@@ -1235,7 +1312,7 @@ export class ChatManagerImpl implements ChatManager {
           toolResult,
           { sessionId: session.id }
         );
-        this.sessionManager.addMessage(session.id, toolResultMessage);
+        this._addAndPersistMessage(session.id, toolResultMessage);
         processedResults.push({
           normalizedToolCall: {
             id: toolCallId,
@@ -1311,7 +1388,7 @@ export class ChatManagerImpl implements ChatManager {
           })
         );
       }
-      this.sessionManager.addMessage(session.id, resultAssistantMsg);
+      this._addAndPersistMessage(session.id, resultAssistantMsg);
 
       if (toolResultResponse.tool_calls?.length) {
         currentMessages = [...updatedMessages];
@@ -1429,9 +1506,9 @@ export class ChatManagerImpl implements ChatManager {
 
     // 获取或创建会话
     const session = options?.sessionId
-      ? this.sessionManager.getSession(options.sessionId) ||
+      ? this._getLocalSession(options.sessionId) ||
         this.createSession({ title: 'New Session' })
-      : this.sessionManager.getCurrentSession() ||
+      : this._getLocalSession(this._currentSessionId) ||
         this.createSession({ title: 'New Session' });
 
     if (!session) {
@@ -1469,7 +1546,7 @@ export class ChatManagerImpl implements ChatManager {
     });
 
     // 添加消息到会话
-    this.sessionManager.addMessage(session.id, userMessage);
+    this._addAndPersistMessage(session.id, userMessage);
 
     // 通知会话状态变化为运行状态
     sessionStateService.notifySessionStateChanged('running');
@@ -1632,7 +1709,7 @@ export class ChatManagerImpl implements ChatManager {
         })
       );
     }
-    this.sessionManager.addMessage(session.id, assistantMessage);
+    this._addAndPersistMessage(session.id, assistantMessage);
 
     // 响应后自动提取记忆
     await this.extractMemoryFromChat(content, accumulatedContent, session.id);
@@ -1721,7 +1798,7 @@ export class ChatManagerImpl implements ChatManager {
               sessionId: session.id,
             }
           );
-          this.sessionManager.addMessage(session.id, toolResultMessage);
+          this._addAndPersistMessage(session.id, toolResultMessage);
 
           processedResults.push({
             normalizedToolCall: {
@@ -1822,7 +1899,7 @@ export class ChatManagerImpl implements ChatManager {
               },
             }));
         }
-        this.sessionManager.addMessage(session.id, toolResultAssistantMessage);
+        this._addAndPersistMessage(session.id, toolResultAssistantMessage);
 
         // 检查是否有新的工具调用，有则继续下一轮
         if (
@@ -1964,7 +2041,46 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 会话对象
    */
   createSession(params: CreateSessionParams): ChatSession {
-    const session = this.sessionManager.createSession(params);
+    const now = new Date();
+    const sessionId = 'session_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const session: ChatSession = {
+      id: sessionId,
+      title: params.title,
+      state: SessionState.ACTIVE,
+      metadata: {
+        title: params.title,
+        description: params.description,
+        tags: params.tags,
+        mode: params.mode,
+        model: params.model,
+        creator: params.creator,
+        lastActivityAt: now,
+        totalMessages: params.initialMessages?.length || 0,
+        totalTokens: 0,
+        totalCost: 0,
+        ...params.metadata,
+      },
+      messages: params.initialMessages || [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this._chatSessions.set(session.id, session);
+    this._currentSessionId = session.id;
+
+    // 持久化会话到 FileSystemUnifiedStorage
+    this.sessionGateway
+      .createSession({
+        id: session.id,
+        title: params.title ?? session.title,
+        metadata: { sessionType: 'chat' as any },
+      })
+      .catch((e) => {
+        logger.error('Failed to persist session creation', {
+          sessionId: session.id,
+          error: String(e),
+        });
+      });
 
     // 触发 ChatSessionStart Hook
     this.hookChainManager.execute('chat', {
@@ -1981,7 +2097,9 @@ export class ChatManagerImpl implements ChatManager {
    * @param sessionId 会话ID
    */
   switchSession(sessionId: string): void {
-    this.sessionManager.setCurrentSession(sessionId);
+    if (this._chatSessions.has(sessionId)) {
+      this._currentSessionId = sessionId;
+    }
   }
 
   /**
@@ -1989,7 +2107,7 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 当前会话对象
    */
   getCurrentSession(): ChatSession | undefined {
-    return this.sessionManager.getCurrentSession();
+    return this._getLocalSession(this._currentSessionId);
   }
 
   /**
@@ -1997,7 +2115,7 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 会话列表
    */
   getSessions(): ChatSession[] {
-    return this.sessionManager.getSessions();
+    return Array.from(this._chatSessions.values());
   }
 
   /**
@@ -2012,7 +2130,10 @@ export class ChatManagerImpl implements ChatManager {
       sessionId,
     });
 
-    this.sessionManager.deleteSession(sessionId);
+    this._chatSessions.delete(sessionId);
+    if (this._currentSessionId === sessionId) {
+      this._currentSessionId = null;
+    }
   }
 
   /**
@@ -2020,7 +2141,7 @@ export class ChatManagerImpl implements ChatManager {
    * @param session 会话对象
    */
   async saveSession(session: ChatSession): Promise<void> {
-    await this.sessionManager.saveSession(session);
+    this._chatSessions.set(session.id, session);
   }
 
   /**
@@ -2029,7 +2150,7 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 会话对象
    */
   async loadSession(sessionId: string): Promise<ChatSession | undefined> {
-    return await this.sessionManager.loadSession(sessionId);
+    return this._getLocalSession(sessionId);
   }
 
   /**
@@ -2037,7 +2158,7 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 会话列表
    */
   async loadSessions(): Promise<ChatSession[]> {
-    return await this.sessionManager.loadSessions();
+    return Array.from(this._chatSessions.values());
   }
 
   /**
@@ -2046,7 +2167,7 @@ export class ChatManagerImpl implements ChatManager {
    * @param message 消息对象
    */
   addMessage(sessionId: string, message: Message): void {
-    this.sessionManager.addMessage(sessionId, message);
+    this._addAndPersistMessage(sessionId, message);
   }
 
   /**
@@ -2055,7 +2176,7 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 消息列表
    */
   getSessionMessages(sessionId: string): Message[] {
-    const session = this.sessionManager.getSession(sessionId);
+    const session = this._getLocalSession(sessionId);
     return session?.messages || [];
   }
 
@@ -2067,14 +2188,14 @@ export class ChatManagerImpl implements ChatManager {
    */
   searchMessages(query: string, sessionId?: string): Message[] {
     if (sessionId) {
-      const session = this.sessionManager.getSession(sessionId);
+      const session = this._getLocalSession(sessionId);
       if (session) {
         return this.messageService.searchMessages(session.messages, query);
       }
       return [];
     } else {
       const allMessages: Message[] = [];
-      for (const session of this.sessionManager.getSessions()) {
+      for (const session of this._chatSessions.values()) {
         allMessages.push(...session.messages);
       }
       return this.messageService.searchMessages(allMessages, query);
@@ -2101,8 +2222,36 @@ export class ChatManagerImpl implements ChatManager {
    * 获取会话管理器
    * @returns 会话管理器
    */
-  getSessionManager(): SessionManager {
-    return this.sessionManager;
+  getSessionManager(): any {
+    return {
+      getSession: (id: string) => this._getLocalSession(id),
+      getCurrentSession: () => this._getLocalSession(this._currentSessionId),
+      setCurrentSession: (id: string) => { this._currentSessionId = id; },
+      getSessions: () => Array.from(this._chatSessions.values()),
+      addMessage: (id: string, msg: Message) => this._addAndPersistMessage(id, msg),
+      deleteSession: (id: string) => { this._chatSessions.delete(id); },
+      saveSession: (s: ChatSession) => { this._chatSessions.set(s.id, s); },
+      loadSession: (id: string) => Promise.resolve(this._getLocalSession(id)),
+      loadSessions: () => Promise.resolve(Array.from(this._chatSessions.values())),
+      createCheckpoint: (sessionId: string, label?: string) =>
+        this._checkpointService.saveCheckpointWithData(
+          sessionId,
+          this._getLocalSession(sessionId)?.messages || [],
+          this._getLocalSession(sessionId)?.metadata || { title: '' },
+          this._getLocalSession(sessionId)?.state || SessionState.ACTIVE,
+          label
+        ).then(cp => cp.id),
+      listCheckpoints: (sessionId: string) => this._checkpointService.listCheckpoints(sessionId),
+      rollbackToCheckpoint: (checkpointId: string) =>
+        this._checkpointService.rollbackToCheckpoint(checkpointId, {
+          messages: [],
+          metadata: { title: '' },
+          state: SessionState.ACTIVE,
+        }),
+      deleteCheckpoint: (checkpointId: string) => this._checkpointService.deleteCheckpoint(checkpointId),
+      deleteSessionCheckpoints: (sessionId: string) => this._checkpointService.deleteSessionCheckpoints(sessionId),
+      getLatestCheckpoint: (sessionId: string) => this._checkpointService.getLatestCheckpoint(sessionId),
+    };
   }
 
   /**
@@ -2457,12 +2606,12 @@ export class ChatManagerImpl implements ChatManager {
     sessionId?: string
   ): Promise<CompactBoundary | null> {
     const targetSessionId =
-      sessionId || this.sessionManager.getCurrentSession()?.id;
+      sessionId || this._getLocalSession(this._currentSessionId)?.id;
     if (!targetSessionId) {
       return null;
     }
 
-    const session = this.sessionManager.getSession(targetSessionId);
+    const session = this._getLocalSession(targetSessionId);
     if (!session) {
       return null;
     }
@@ -2491,12 +2640,12 @@ export class ChatManagerImpl implements ChatManager {
    */
   async compactSession(sessionId?: string): Promise<CompactArtifact[]> {
     const targetSessionId =
-      sessionId || this.sessionManager.getCurrentSession()?.id;
+      sessionId || this._getLocalSession(this._currentSessionId)?.id;
     if (!targetSessionId) {
       return [];
     }
 
-    const session = this.sessionManager.getSession(targetSessionId);
+    const session = this._getLocalSession(targetSessionId);
     if (!session) {
       return [];
     }
@@ -2535,30 +2684,73 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   async createCheckpoint(sessionId: string, label?: string): Promise<string> {
-    return this.sessionManager.createCheckpoint(sessionId, label);
+    const session = this._getLocalSession(sessionId);
+    if (!session) {
+      throw new AppError(
+        'Session not found',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1004'
+      );
+    }
+
+    const cp = await this._checkpointService.saveCheckpointWithData(
+      sessionId,
+      session.messages,
+      session.metadata,
+      session.state,
+      label
+    );
+
+    return cp.id;
   }
 
   async listCheckpoints(
     sessionId: string
   ): Promise<import('./types/checkpoint').SessionCheckpoint[]> {
-    return this.sessionManager.listCheckpoints(sessionId);
+    return this._checkpointService.listCheckpoints(sessionId);
   }
 
   async rollbackToCheckpoint(checkpointId: string): Promise<{
     session: ChatSession;
     diff: import('./types/checkpoint').CheckpointDiff;
   }> {
-    return this.sessionManager.rollbackToCheckpoint(checkpointId);
+    const checkpoint = await this._checkpointService.getCheckpoint(checkpointId);
+    if (!checkpoint) {
+      throw new AppError(
+        'Checkpoint not found',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1005'
+      );
+    }
+
+    await this._checkpointService.rollbackToCheckpoint(checkpointId, {
+      messages: checkpoint.messages || [],
+      metadata: checkpoint.metadata || { title: '' },
+      state: SessionState.ACTIVE,
+    });
+
+    return {
+      session: this._getLocalSession(checkpoint.sessionId) || this.createSession({ title: 'Rollback Session' }),
+      diff: {
+        addedMessages: 0,
+        removedMessages: checkpoint.messages?.length || 0,
+        stateChanged: true,
+        metadataChanged: true,
+        summary: `Rolled back to checkpoint: ${checkpointId}`,
+      },
+    };
   }
 
   async deleteCheckpoint(checkpointId: string): Promise<void> {
-    return this.sessionManager.deleteCheckpoint(checkpointId);
+    return this._checkpointService.deleteCheckpoint(checkpointId);
   }
 
   async getLatestCheckpoint(
     sessionId: string
   ): Promise<import('./types/checkpoint').SessionCheckpoint | null> {
-    return this.sessionManager.getLatestCheckpoint(sessionId);
+    return this._checkpointService.getLatestCheckpoint(sessionId);
   }
 }
 

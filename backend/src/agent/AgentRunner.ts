@@ -1,5 +1,5 @@
 /**
- * Agent子系统增强（基于CC源码 AgentTool.tsx 核心模式）
+ * Agent子系统增强
  * 子代理类型、后台运行、进度追踪、摘要、群组执行
  */
 import { randomUUID } from 'crypto';

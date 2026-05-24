@@ -1,4 +1,12 @@
-import type { AcpRuntime, AcpRuntimeHandle, AcpRuntimeEnsureInput, AcpRuntimeTurnInput, AcpRuntimeEvent, AcpRuntimeSessionMode, AcpRuntimePromptMode } from './runtime/types.js';
+import type {
+  AcpRuntime,
+  AcpRuntimeHandle,
+  AcpRuntimeEnsureInput,
+  AcpRuntimeTurnInput,
+  AcpRuntimeEvent,
+  AcpRuntimeSessionMode,
+  AcpRuntimePromptMode,
+} from './runtime/types.js';
 
 export class AcpGatewayAgent {
   private runtime: AcpRuntime;
@@ -11,7 +19,9 @@ export class AcpGatewayAgent {
     return this.runtime.ensureSession(input);
   }
 
-  async runTurn(input: AcpRuntimeTurnInput): Promise<AsyncIterable<AcpRuntimeEvent>> {
+  async runTurn(
+    input: AcpRuntimeTurnInput
+  ): Promise<AsyncIterable<AcpRuntimeEvent>> {
     return this.runtime.runTurn(input);
   }
 

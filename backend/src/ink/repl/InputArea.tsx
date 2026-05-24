@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useLayoutEffect,
+} from 'react';
 import { Box, Text } from '../../ink';
 
 const AVAILABLE_COMMANDS = [
@@ -16,7 +22,11 @@ interface InputAreaProps {
   onEscape?: () => void;
 }
 
-export const InputArea: React.FC<InputAreaProps> = ({ onSubmit, disabled, onEscape }) => {
+export const InputArea: React.FC<InputAreaProps> = ({
+  onSubmit,
+  disabled,
+  onEscape,
+}) => {
   const [input, setInput] = useState('');
   const [cursorVisible, setCursorVisible] = useState(true);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -153,7 +163,9 @@ export const InputArea: React.FC<InputAreaProps> = ({ onSubmit, disabled, onEsca
               const matching = AVAILABLE_COMMANDS.filter(
                 (cmd) => cmd.startsWith(next) && cmd !== next
               );
-              setSuggestionRef.current(matching.length > 0 ? matching.join('  ') : '');
+              setSuggestionRef.current(
+                matching.length > 0 ? matching.join('  ') : ''
+              );
             } else {
               setSuggestionRef.current('');
             }
@@ -206,7 +218,9 @@ export const InputArea: React.FC<InputAreaProps> = ({ onSubmit, disabled, onEsca
               const matching = AVAILABLE_COMMANDS.filter(
                 (cmd) => cmd.startsWith(next) && cmd !== next
               );
-              setSuggestionRef.current(matching.length > 0 ? matching.join('  ') : '');
+              setSuggestionRef.current(
+                matching.length > 0 ? matching.join('  ') : ''
+              );
             } else {
               setSuggestionRef.current('');
             }

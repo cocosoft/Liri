@@ -15,7 +15,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 依赖解析结果（基于CC源码）
+ * 依赖解析结果
  */
 export interface DependencyResolution {
   /** 是否成功 */
@@ -38,7 +38,7 @@ export interface DependencyResolution {
 }
 
 /**
- * 版本冲突（基于CC源码）
+ * 版本冲突
  */
 export interface VersionConflict {
   /** 插件名称 */
@@ -55,7 +55,7 @@ export interface VersionConflict {
 }
 
 /**
- * 依赖图节点（基于CC源码）
+ * 依赖图节点
  */
 export interface DependencyNode {
   /** 插件名称 */
@@ -75,14 +75,14 @@ export interface DependencyNode {
 }
 
 /**
- * 插件依赖管理器（基于CC源码）
+ * 插件依赖管理器
  */
 export class PluginDependencyManager extends EventEmitter {
   private dependencyGraph: Map<string, DependencyNode> = new Map();
   private availablePlugins: Map<string, PluginMetadata[]> = new Map();
 
   /**
-   * 添加插件（基于CC源码）
+   * 添加插件
    */
   addPlugin(metadata: PluginMetadata): void {
     const node: DependencyNode = {
@@ -112,7 +112,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 移除插件（基于CC源码）
+   * 移除插件
    */
   removePlugin(pluginName: string, version?: string): boolean {
     if (version) {
@@ -150,7 +150,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 解析依赖（基于CC源码）
+   * 解析依赖
    */
   resolveDependencies(
     pluginName: string,
@@ -191,7 +191,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 深度优先搜索解析依赖（基于CC源码）
+   * 深度优先搜索解析依赖
    */
   private dfsResolveDependencies(
     pluginName: string,
@@ -278,7 +278,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 获取最佳匹配插件（基于CC源码）
+   * 获取最佳匹配插件
    */
   private getBestMatch(
     pluginName: string,
@@ -306,7 +306,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 检查版本是否满足要求（基于CC源码）
+   * 检查版本是否满足要求
    */
   private satisfiesVersion(
     actualVersion: string,
@@ -334,7 +334,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 比较版本号（基于CC源码）
+   * 比较版本号
    */
   private compareVersions(version1: string, version2: string): number {
     const parts1 = version1.split('.').map(Number);
@@ -352,7 +352,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 拓扑排序（基于CC源码）
+   * 拓扑排序
    */
   topologicalSort(): string[] {
     const visited = new Set<string>();
@@ -368,7 +368,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 深度优先搜索拓扑排序（基于CC源码）
+   * 深度优先搜索拓扑排序
    */
   private dfsTopologicalSort(
     pluginName: string,
@@ -407,7 +407,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 检查循环依赖（基于CC源码）
+   * 检查循环依赖
    */
   checkCircularDependencies(): string[][] {
     const visited = new Set<string>();
@@ -429,7 +429,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 深度优先搜索检查循环依赖（基于CC源码）
+   * 深度优先搜索检查循环依赖
    */
   private dfsCheckCircularDependencies(
     pluginName: string,
@@ -476,21 +476,21 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 获取依赖图（基于CC源码）
+   * 获取依赖图
    */
   getDependencyGraph(): Map<string, DependencyNode> {
     return new Map(this.dependencyGraph);
   }
 
   /**
-   * 获取可用插件（基于CC源码）
+   * 获取可用插件
    */
   getAvailablePlugins(): Map<string, PluginMetadata[]> {
     return new Map(this.availablePlugins);
   }
 
   /**
-   * 获取插件依赖（基于CC源码）
+   * 获取插件依赖
    */
   getPluginDependencies(pluginName: string): PluginDependency[] {
     const node = this.dependencyGraph.get(pluginName);
@@ -503,7 +503,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 获取插件被依赖（基于CC源码）
+   * 获取插件被依赖
    */
   getPluginDependents(pluginName: string): string[] {
     const node = this.dependencyGraph.get(pluginName);
@@ -516,7 +516,7 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 清理依赖管理器（基于CC源码）
+   * 清理依赖管理器
    */
   clear(): void {
     this.dependencyGraph.clear();

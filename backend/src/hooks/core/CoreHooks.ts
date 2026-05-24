@@ -20,7 +20,7 @@ export class CoreHooksRegistry {
   private hooks: Map<string, HookDefinition> = new Map();
 
   /**
-   * 注册所有核心Hook（基于CC源码）
+   * 注册所有核心Hook
    */
   registerAllCoreHooks(): void {
     console.log('🔧 Registering core hooks...');
@@ -62,14 +62,14 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 获取所有核心Hook（基于CC源码）
+   * 获取所有核心Hook
    */
   getAllCoreHooks(): HookDefinition[] {
     return Array.from(this.hooks.values());
   }
 
   /**
-   * 获取指定类型的Hook（基于CC源码）
+   * 获取指定类型的Hook
    */
   getHooksByEvent(event: string): HookDefinition[] {
     return Array.from(this.hooks.values()).filter(
@@ -78,7 +78,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 注册系统Hook（基于CC源码）
+   * 注册系统Hook
    */
   private registerSystemHooks(): void {
     this.registerHook({
@@ -125,7 +125,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 注册压缩Hook（基于CC源码）
+   * 注册压缩Hook
    */
   private registerCompressionHooks(): void {
     this.registerHook({
@@ -204,7 +204,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 注册会话Hook（基于CC源码）
+   * 注册会话Hook
    */
   private registerSessionHooks(): void {
     this.registerHook({
@@ -261,7 +261,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 注册内存Hook（基于CC源码）
+   * 注册内存Hook
    */
   private registerMemoryHooks(): void {
     this.registerHook({
@@ -318,7 +318,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 注册技能Hook（基于CC源码）
+   * 注册技能Hook
    */
   private registerSkillHooks(): void {
     this.registerHook({
@@ -383,7 +383,7 @@ export class CoreHooksRegistry {
   // 其他核心Hook类型的注册方法...
 
   /**
-   * 注册Hook（基于CC源码）
+   * 注册Hook
    */
   private registerHook(hook: HookDefinition): void {
     const hookId = `${hook.event}:${hook.name}`;
@@ -391,7 +391,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 执行系统初始化（基于CC源码）
+   * 执行系统初始化
    */
   private async performSystemInitialization(
     context: HookContext
@@ -402,7 +402,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 执行系统清理（基于CC源码）
+   * 执行系统清理
    */
   private async performSystemCleanup(context: HookContext): Promise<void> {
     // 模拟系统清理任务
@@ -411,7 +411,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 分析内容压缩（基于CC源码）
+   * 分析内容压缩
    */
   private analyzeContentForCompression(content: string): string[] {
     const suggestions: string[] = [];
@@ -436,7 +436,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 生成压缩优化（基于CC源码）
+   * 生成压缩优化
    */
   private generateCompressionOptimizations(
     config: Record<string, unknown>
@@ -450,7 +450,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 验证压缩结果（基于CC源码）
+   * 验证压缩结果
    */
   private validateCompressionResult(
     preContent: string,
@@ -469,7 +469,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 生成压缩报告（基于CC源码）
+   * 生成压缩报告
    */
   private generateCompressionReport(stats: Record<string, unknown>): string {
     const compressionRatio =
@@ -483,7 +483,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 初始化会话状态（基于CC源码）
+   * 初始化会话状态
    */
   private async initializeSessionState(
     sessionId?: string,
@@ -494,7 +494,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 加载会话配置（基于CC源码）
+   * 加载会话配置
    */
   private async loadSessionConfiguration(sessionId?: string): Promise<unknown> {
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -502,7 +502,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 保存会话数据（基于CC源码）
+   * 保存会话数据
    */
   private async saveSessionData(sessionId?: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -510,7 +510,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 清理会话资源（基于CC源码）
+   * 清理会话资源
    */
   private async cleanupSessionResources(sessionId?: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -518,7 +518,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 验证内存数据（基于CC源码）
+   * 验证内存数据
    */
   private validateMemoryData(data: unknown): {
     valid: boolean;
@@ -536,7 +536,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 优化内存数据（基于CC源码）
+   * 优化内存数据
    */
   private optimizeMemoryData(
     data: Record<string, unknown>
@@ -553,7 +553,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 更新内存索引（基于CC源码）
+   * 更新内存索引
    */
   private async updateMemoryIndex(data: unknown): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -561,7 +561,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 触发内存同步（基于CC源码）
+   * 触发内存同步
    */
   private async triggerMemorySync(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -569,7 +569,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 验证技能参数（基于CC源码）
+   * 验证技能参数
    */
   private validateSkillParameters(
     skillName: string,
@@ -583,7 +583,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 检查技能权限（基于CC源码）
+   * 检查技能权限
    */
   private async checkSkillPermission(
     skillName: string,
@@ -603,7 +603,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 记录技能使用（基于CC源码）
+   * 记录技能使用
    */
   private async recordSkillUsage(
     skillName: string,
@@ -614,7 +614,7 @@ export class CoreHooksRegistry {
   }
 
   /**
-   * 更新技能统计（基于CC源码）
+   * 更新技能统计
    */
   private async updateSkillStatistics(skillName: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -649,12 +649,12 @@ export class CoreHooksRegistry {
 }
 
 /**
- * 全局核心Hook注册器实例（基于CC源码）
+ * 全局核心Hook注册器实例
  */
 export const globalCoreHooksRegistry = new CoreHooksRegistry();
 
 /**
- * 注册所有核心Hook的便捷函数（基于CC源码）
+ * 注册所有核心Hook的便捷函数
  */
 export function registerAllCoreHooks(): void {
   globalCoreHooksRegistry.registerAllCoreHooks();

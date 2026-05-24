@@ -1,5 +1,5 @@
 /**
- * 工具监控器（基于CC源码）
+ * 工具监控器
  * 负责工具执行的监控、统计和告警
  */
 
@@ -16,7 +16,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 监控指标（基于CC源码）
+ * 监控指标
  */
 export interface MonitoringMetrics {
   /** 执行次数 */
@@ -51,7 +51,7 @@ export interface MonitoringMetrics {
 }
 
 /**
- * 监控数据点（基于CC源码）
+ * 监控数据点
  */
 export interface MonitoringDataPoint {
   /** 时间戳 */
@@ -65,7 +65,7 @@ export interface MonitoringDataPoint {
 }
 
 /**
- * 工具监控器类（基于CC源码）
+ * 工具监控器类
  */
 export class ToolMonitor {
   private monitoringData: Map<string, MonitoringDataPoint[]> = new Map();
@@ -74,7 +74,7 @@ export class ToolMonitor {
   private monitoringInterval?: NodeJS.Timeout;
 
   /**
-   * 构造函数（基于CC源码）
+   * 构造函数
    */
   constructor() {
     // 初始化默认告警
@@ -82,7 +82,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 开始监控（基于CC源码）
+   * 开始监控
    */
   startMonitoring(samplingInterval: number = 60000): void {
     if (this.isMonitoringEnabled) {
@@ -100,7 +100,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 停止监控（基于CC源码）
+   * 停止监控
    */
   stopMonitoring(): void {
     if (!this.isMonitoringEnabled) {
@@ -118,7 +118,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 记录工具执行（基于CC源码）
+   * 记录工具执行
    */
   recordToolExecution(
     toolName: string,
@@ -175,21 +175,21 @@ export class ToolMonitor {
   }
 
   /**
-   * 添加告警配置（基于CC源码）
+   * 添加告警配置
    */
   addAlert(alert: ToolAlertConfig): void {
     this.alerts.set(alert.name, alert);
   }
 
   /**
-   * 移除告警配置（基于CC源码）
+   * 移除告警配置
    */
   removeAlert(alertName: string): boolean {
     return this.alerts.delete(alertName);
   }
 
   /**
-   * 获取监控数据（基于CC源码）
+   * 获取监控数据
    */
   getMonitoringData(
     toolName?: string,
@@ -226,7 +226,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 获取当前指标（基于CC源码）
+   * 获取当前指标
    */
   private getCurrentMetrics(toolName: string): MonitoringMetrics {
     const data = this.monitoringData.get(toolName);
@@ -252,7 +252,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 收集监控数据（基于CC源码）
+   * 收集监控数据
    */
   private collectMonitoringData(): void {
     // 这里可以收集系统级别的监控数据
@@ -260,7 +260,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 存储监控数据（基于CC源码）
+   * 存储监控数据
    */
   private storeMonitoringData(
     toolName: string,
@@ -282,7 +282,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 收集系统指标（基于CC源码）
+   * 收集系统指标
    */
   private collectSystemMetrics(metrics: MonitoringMetrics): void {
     // 收集内存使用情况
@@ -294,7 +294,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 检查告警（基于CC源码）
+   * 检查告警
    */
   private checkAlerts(toolName: string, metrics: MonitoringMetrics): void {
     for (const alert of this.alerts.values()) {
@@ -305,7 +305,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 触发告警（基于CC源码）
+   * 触发告警
    */
   private triggerAlert(
     alert: ToolAlertConfig,
@@ -321,7 +321,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 执行告警动作（基于CC源码）
+   * 执行告警动作
    */
   private executeAlertAction(
     action: ToolAlertAction,
@@ -351,7 +351,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 初始化默认告警（基于CC源码）
+   * 初始化默认告警
    */
   private initializeDefaultAlerts(): void {
     // 高失败率告警
@@ -393,7 +393,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 获取监控状态（基于CC源码）
+   * 获取监控状态
    */
   getStatus(): {
     enabled: boolean;
@@ -415,7 +415,7 @@ export class ToolMonitor {
   }
 
   /**
-   * 清理监控数据（基于CC源码）
+   * 清理监控数据
    */
   clearMonitoringData(): void {
     this.monitoringData.clear();
@@ -423,7 +423,7 @@ export class ToolMonitor {
 }
 
 /**
- * 全局工具监控器实例（基于CC源码）
+ * 全局工具监控器实例
  */
 export const globalToolMonitor = new ToolMonitor();
 

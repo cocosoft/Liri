@@ -21,6 +21,8 @@ export function mapSessionToInfo(session: AcpSession): MappedSessionInfo {
   };
 }
 
-export function mapSessionIdentityToSessionKey(identity: AcpSessionIdentity): string {
+export function mapSessionIdentityToSessionKey(
+  identity: AcpSessionIdentity
+): string {
   return identity.sessionKey;
 }

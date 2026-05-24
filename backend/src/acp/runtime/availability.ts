@@ -92,6 +92,9 @@ export async function assertRuntimeReady(
 ): Promise<void> {
   const result = await waitForRuntimeReady(runtime, options);
   if (!result.available) {
-    throw new AcpRuntimeError('ACP_BACKEND_UNAVAILABLE', result.reason || 'runtime unavailable');
+    throw new AcpRuntimeError(
+      'ACP_BACKEND_UNAVAILABLE',
+      result.reason || 'runtime unavailable'
+    );
   }
 }

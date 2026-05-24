@@ -14,7 +14,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
 /**
- * Hook注册项接口（基于CC源码）
+ * Hook注册项接口
  */
 interface HookRegistration {
   /**
@@ -62,7 +62,7 @@ export class HookRegistry {
   private executionHistory: Map<string, HookResult[]> = new Map();
 
   /**
-   * 注册Hook（基于CC源码）
+   * 注册Hook
    */
   registerHook(definition: HookDefinition): void {
     const hookId = this.generateHookId(definition);
@@ -103,14 +103,14 @@ export class HookRegistry {
   }
 
   /**
-   * 批量注册Hooks（基于CC源码）
+   * 批量注册Hooks
    */
   registerHooks(definitions: HookDefinition[]): void {
     definitions.forEach((definition) => this.registerHook(definition));
   }
 
   /**
-   * 注销Hook（基于CC源码）
+   * 注销Hook
    */
   unregisterHook(hookId: string): boolean {
     const registration = this.hookIndex.get(hookId);
@@ -144,7 +144,7 @@ export class HookRegistry {
   }
 
   /**
-   * 获取指定事件的Hook（基于CC源码）
+   * 获取指定事件的Hook
    */
   getHooksForEvent(event: HookEvent): HookRegistration[] {
     const hooks = this.hooks.get(event) || [];
@@ -154,21 +154,21 @@ export class HookRegistry {
   }
 
   /**
-   * 获取所有Hook（基于CC源码）
+   * 获取所有Hook
    */
   getAllHooks(): HookRegistration[] {
     return Array.from(this.hookIndex.values());
   }
 
   /**
-   * 获取Hook详情（基于CC源码）
+   * 获取Hook详情
    */
   getHook(hookId: string): HookRegistration | undefined {
     return this.hookIndex.get(hookId);
   }
 
   /**
-   * 启用/禁用Hook（基于CC源码）
+   * 启用/禁用Hook
    */
   setHookEnabled(hookId: string, enabled: boolean): boolean {
     const registration = this.hookIndex.get(hookId);
@@ -182,7 +182,7 @@ export class HookRegistry {
   }
 
   /**
-   * 设置Hook优先级（基于CC源码）
+   * 设置Hook优先级
    */
   setHookPriority(hookId: string, priority: HookPriority): boolean {
     const registration = this.hookIndex.get(hookId);
@@ -200,7 +200,7 @@ export class HookRegistry {
   }
 
   /**
-   * 记录Hook执行结果（基于CC源码）
+   * 记录Hook执行结果
    */
   recordExecution(hookId: string, result: HookResult): void {
     const registration = this.hookIndex.get(hookId);
@@ -225,14 +225,14 @@ export class HookRegistry {
   }
 
   /**
-   * 获取Hook执行历史（基于CC源码）
+   * 获取Hook执行历史
    */
   getExecutionHistory(hookId: string): HookResult[] {
     return this.executionHistory.get(hookId) || [];
   }
 
   /**
-   * 检查依赖关系（基于CC源码）
+   * 检查依赖关系
    */
   checkDependencies(hookId: string): { satisfied: boolean; missing: string[] } {
     const registration = this.hookIndex.get(hookId);
@@ -270,7 +270,7 @@ export class HookRegistry {
   }
 
   /**
-   * 清除所有Hook（基于CC源码）
+   * 清除所有Hook
    */
   clearAllHooks(): void {
     this.hooks.clear();
@@ -280,7 +280,7 @@ export class HookRegistry {
   }
 
   /**
-   * 清除指定事件的Hook（基于CC源码）
+   * 清除指定事件的Hook
    */
   clearHooksForEvent(event: HookEvent): void {
     const hooks = this.hooks.get(event) || [];
@@ -296,14 +296,14 @@ export class HookRegistry {
   }
 
   /**
-   * 生成Hook ID（基于CC源码）
+   * 生成Hook ID
    */
   private generateHookId(definition: HookDefinition): string {
     return `${definition.event}:${definition.name}:${definition.version || '1.0.0'}`;
   }
 
   /**
-   * 按优先级排序Hook（基于CC源码）
+   * 按优先级排序Hook
    */
   private sortHooksByPriority(event: HookEvent): void {
     const hooks = this.hooks.get(event);
@@ -327,7 +327,7 @@ export class HookRegistry {
   }
 
   /**
-   * 获取统计信息（基于CC源码）
+   * 获取统计信息
    */
   getStatistics(): {
     totalHooks: number;
@@ -355,12 +355,12 @@ export class HookRegistry {
 }
 
 /**
- * 全局Hook注册器实例（基于CC源码）
+ * 全局Hook注册器实例
  */
 export const globalHookRegistry = new HookRegistry();
 
 /**
- * 默认Hook注册函数（基于CC源码）
+ * 默认Hook注册函数
  */
 export function registerDefaultHooks(): void {
   console.log('🔧 Registering default hooks...');
@@ -378,7 +378,7 @@ export function registerDefaultHooks(): void {
 }
 
 /**
- * 注册核心Hook（基于CC源码）
+ * 注册核心Hook
  */
 function registerCoreHooks(registry: HookRegistry): void {
   // 系统启动Hook
@@ -411,7 +411,7 @@ function registerCoreHooks(registry: HookRegistry): void {
 }
 
 /**
- * 注册压缩Hook（基于CC源码）
+ * 注册压缩Hook
  */
 function registerCompressionHooks(registry: HookRegistry): void {
   // 预压缩Hook
@@ -444,7 +444,7 @@ function registerCompressionHooks(registry: HookRegistry): void {
 }
 
 /**
- * 注册会话Hook（基于CC源码）
+ * 注册会话Hook
  */
 function registerSessionHooks(registry: HookRegistry): void {
   // 会话开始Hook

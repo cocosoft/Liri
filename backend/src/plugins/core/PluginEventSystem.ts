@@ -10,7 +10,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 事件处理器（基于CC源码）
+ * 事件处理器
  */
 export interface EventHandler {
   /** 处理器ID */
@@ -33,7 +33,7 @@ export interface EventHandler {
 }
 
 /**
- * 事件过滤器（基于CC源码）
+ * 事件过滤器
  */
 export interface EventFilter {
   /** 过滤器ID */
@@ -50,7 +50,7 @@ export interface EventFilter {
 }
 
 /**
- * 事件路由规则（基于CC源码）
+ * 事件路由规则
  */
 export interface EventRoutingRule {
   /** 规则ID */
@@ -70,7 +70,7 @@ export interface EventRoutingRule {
 }
 
 /**
- * 插件事件系统（基于CC源码）
+ * 插件事件系统
  */
 export class PluginEventSystem extends EventEmitter {
   private handlers: Map<string, EventHandler[]> = new Map();
@@ -80,7 +80,7 @@ export class PluginEventSystem extends EventEmitter {
   private maxHistorySize = 1000;
 
   /**
-   * 注册事件处理器（基于CC源码）
+   * 注册事件处理器
    */
   registerHandler(handler: EventHandler): void {
     const eventType = handler.eventType;
@@ -106,7 +106,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 注销事件处理器（基于CC源码）
+   * 注销事件处理器
    */
   unregisterHandler(handlerId: string, eventType?: string): boolean {
     if (eventType) {
@@ -151,7 +151,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 注册事件过滤器（基于CC源码）
+   * 注册事件过滤器
    */
   registerFilter(filter: EventFilter): void {
     const eventType = filter.eventType;
@@ -175,7 +175,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 注销事件过滤器（基于CC源码）
+   * 注销事件过滤器
    */
   unregisterFilter(filterId: string, eventType?: string): boolean {
     if (eventType) {
@@ -218,7 +218,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 添加事件路由规则（基于CC源码）
+   * 添加事件路由规则
    */
   addRoutingRule(rule: EventRoutingRule): void {
     // 检查是否已存在
@@ -234,7 +234,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 移除事件路由规则（基于CC源码）
+   * 移除事件路由规则
    */
   removeRoutingRule(ruleId: string): boolean {
     const index = this.routingRules.findIndex((r) => r.id === ruleId);
@@ -251,7 +251,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 发布事件（基于CC源码）
+   * 发布事件
    */
   async publishEvent(event: PluginEvent): Promise<void> {
     // 添加到历史记录
@@ -269,7 +269,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 应用事件路由规则（基于CC源码）
+   * 应用事件路由规则
    */
   private applyRoutingRules(event: PluginEvent): PluginEvent[] {
     const routedEvents: PluginEvent[] = [];
@@ -297,7 +297,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 处理事件（基于CC源码）
+   * 处理事件
    */
   private async processEvent(event: PluginEvent): Promise<void> {
     const eventType = event.type;
@@ -342,7 +342,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 添加到历史记录（基于CC源码）
+   * 添加到历史记录
    */
   private addToHistory(event: PluginEvent): void {
     this.eventHistory.push(event);
@@ -354,7 +354,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 获取事件历史（基于CC源码）
+   * 获取事件历史
    */
   getEventHistory(filter?: {
     eventType?: string;
@@ -383,7 +383,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 获取事件统计（基于CC源码）
+   * 获取事件统计
    */
   getEventStats(): {
     totalEvents: number;
@@ -415,7 +415,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 获取事件处理器统计（基于CC源码）
+   * 获取事件处理器统计
    */
   getHandlerStats(): {
     totalHandlers: number;
@@ -445,7 +445,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 清理事件系统（基于CC源码）
+   * 清理事件系统
    */
   clear(): void {
     this.handlers.clear();
@@ -457,7 +457,7 @@ export class PluginEventSystem extends EventEmitter {
   }
 
   /**
-   * 销毁事件系统（基于CC源码）
+   * 销毁事件系统
    */
   destroy(): void {
     this.clear();

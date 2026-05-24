@@ -101,8 +101,6 @@
       "@modules/state/*": ["system/state/*"],
       "@modules/streaming": ["streaming"],
       "@modules/streaming/*": ["streaming/*"],
-      "@modules/task": ["task"],
-      "@modules/task/*": ["task/*"],
       "@modules/tasks": ["tasks"],
       "@modules/tasks/*": ["tasks/*"],
       "@modules/ui": ["ui"],

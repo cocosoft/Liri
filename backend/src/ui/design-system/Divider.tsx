@@ -1,6 +1,6 @@
 //
 /**
- * 分隔线组件（基于CC源码）
+ * 分隔线组件
  * 提供水平和垂直分隔线功能
  */
 
@@ -10,7 +10,7 @@ import { DividerProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
- * 分隔线组件（基于CC源码）
+ * 分隔线组件
  */
 export function Divider({
   color = 'border',
@@ -45,7 +45,7 @@ export function Divider({
 }
 
 /**
- * 带文本的分隔线组件（基于CC源码）
+ * 带文本的分隔线组件
  */
 export function TextDivider({
   text,
@@ -111,7 +111,7 @@ export function TextDivider({
 }
 
 /**
- * 虚线分隔线组件（基于CC源码）
+ * 虚线分隔线组件
  */
 export function DashedDivider({
   color = 'border',
@@ -146,7 +146,7 @@ export function DashedDivider({
 }
 
 /**
- * 双线分隔线组件（基于CC源码）
+ * 双线分隔线组件
  */
 export function DoubleDivider({
   color = 'border',

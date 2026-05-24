@@ -21,6 +21,11 @@ export {
   getMaxEntrypointLines,
   getEntrypointName,
 } from './ConsolidationPrompt';
+export { DreamAgentExecutor } from './DreamAgentExecutor';
+export type {
+  DreamExecutionConfig,
+  DreamExecutionResult,
+} from './DreamAgentExecutor';
 export {
   initAutoDream,
   executeAutoDream,

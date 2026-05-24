@@ -11,6 +11,10 @@ import {
   cleanupNpmCacheForAnthropicPackages,
 } from './cleanup';
 import { cleanupOldVersions } from './nativeInstaller';
+import { transcriptArchiver } from '../../delivery/archiver/TranscriptArchiver';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const RECURRING_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const DELAY_VERY_SLOW_OPERATIONS_THAT_HAPPEN_EVERY_SESSION = 10 * 60 * 1000;
@@ -58,6 +62,17 @@ async function runVerySlowOps(): Promise<void> {
     await cleanupOldMessageFilesInBackground();
   }
 
+  try {
+    const result = await transcriptArchiver.archiveOldTranscripts();
+    if (result.archivedCount > 0) {
+      logger.info(`转录归档完成: ${result.archivedCount} 个文件`, {
+        totalSizeSaved: result.totalSizeSaved,
+      });
+    }
+  } catch (e) {
+    logger.error('转录归档失败', e instanceof Error ? e : new Error(String(e)));
+  }
+
   if (shouldDelaySlowOperations()) {
     setTimeout(
       runVerySlowOps,
@@ -87,6 +102,12 @@ export function startBackgroundHousekeeping(): void {
   const interval = setInterval(() => {
     void cleanupNpmCacheForAnthropicPackages();
     void cleanupOldVersionsThrottled();
+    void transcriptArchiver.archiveOldTranscripts().catch((e) => {
+      logger.error(
+        '定时转录归档失败',
+        e instanceof Error ? e : new Error(String(e))
+      );
+    });
   }, RECURRING_CLEANUP_INTERVAL_MS);
 
   interval.unref();

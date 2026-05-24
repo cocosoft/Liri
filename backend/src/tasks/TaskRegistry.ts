@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -104,9 +105,15 @@ export class TaskRegistry {
   private stateHistory: TaskState[] = [];
   private listeners: Set<(event: TaskEvent) => void> = new Set();
   private persistDir: string | null = null;
+  private sqliteStore: SqliteTaskStore | null = null;
 
   setPersistDir(dir: string): void {
     this.persistDir = dir;
+  }
+
+  /** 设置 SQLite 持久化存储（替代 JSON 文件） */
+  setSqliteStore(store: SqliteTaskStore): void {
+    this.sqliteStore = store;
   }
 
   /** 持久化文件名 */
@@ -116,6 +123,22 @@ export class TaskRegistry {
 
   /** 保存所有任务状态到磁盘 */
   async saveTasks(): Promise<void> {
+    if (this.sqliteStore) {
+      try {
+        const states = Array.from(this.tasks.entries()).map(
+          ([id, task]) => task.taskState
+        );
+        await this.sqliteStore.saveTaskStates(states);
+        return;
+      } catch (error) {
+        logger.error(
+          'Failed to persist tasks via SQLite',
+          error instanceof Error ? error : new Error(String(error))
+        );
+        return;
+      }
+    }
+
     const filePath = this.persistFilePath;
     if (!filePath) return;
     try {
@@ -134,6 +157,20 @@ export class TaskRegistry {
 
   /** 从磁盘加载任务状态 */
   async loadTasks(): Promise<TaskState[]> {
+    if (this.sqliteStore) {
+      try {
+        const states = await this.sqliteStore.loadTaskStates();
+        this.stateHistory = states;
+        return states;
+      } catch (error) {
+        logger.error(
+          'Failed to load tasks via SQLite',
+          error instanceof Error ? error : new Error(String(error))
+        );
+        return [];
+      }
+    }
+
     const filePath = this.persistFilePath;
     if (!filePath) return [];
     try {
@@ -258,6 +295,19 @@ export class TaskRegistry {
     await Promise.all(killPromises);
     await this.saveTasks();
     this.tasks.clear();
+  }
+
+  getStates(): TaskState[] {
+    return this.getAllTasks().map((t) => t.taskState);
+  }
+
+  updateState(taskId: string, updates: Partial<TaskState>): void {
+    const task = this.tasks.get(taskId) as
+      | { updateState?: (u: Partial<TaskState>) => void }
+      | undefined;
+    if (task && typeof task.updateState === 'function') {
+      task.updateState(updates);
+    }
   }
 
   getStateHistory(): TaskState[] {

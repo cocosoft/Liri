@@ -1,6 +1,6 @@
 //
 /**
- * 输入框组件（基于CC源码）
+ * 输入框组件
  * 提供文本输入功能，支持各种输入类型
  */
 
@@ -10,7 +10,7 @@ import { InputProps } from '../types/UITypes';
 import { useTheme } from '../design-system/ThemeProvider';
 
 /**
- * 输入框组件（基于CC源码）
+ * 输入框组件
  */
 export function Input({
   value,
@@ -31,7 +31,7 @@ export function Input({
   const inputRef = useRef<HTMLInputElement>(null);
 
   /**
-   * 处理焦点事件（基于CC源码）
+   * 处理焦点事件
    */
   const handleFocus = () => {
     if (!disabled) {
@@ -41,7 +41,7 @@ export function Input({
   };
 
   /**
-   * 处理失去焦点事件（基于CC源码）
+   * 处理失去焦点事件
    */
   const handleBlur = () => {
     setIsFocused(false);
@@ -49,14 +49,14 @@ export function Input({
   };
 
   /**
-   * 处理键盘输入（基于CC源码）
+   * 处理键盘输入
    */
   const handleInput = (input: string) => {
     if (disabled) return;
 
     let newValue = value;
 
-    // 处理特殊按键（基于CC源码）
+    // 处理特殊按键
     if (input === '\b') {
       // 退格键
       if (cursorPosition > 0) {
@@ -99,7 +99,7 @@ export function Input({
   };
 
   /**
-   * 处理键盘输入（基于CC源码）
+   * 处理键盘输入
    */
   useEffect(() => {
     // 这里简化处理，实际应该监听键盘输入
@@ -136,7 +136,7 @@ export function Input({
   }, [isFocused, value, cursorPosition]);
 
   /**
-   * 获取输入框样式（基于CC源码）
+   * 获取输入框样式
    */
   const getInputStyle = () => {
     const baseStyle = {
@@ -184,7 +184,7 @@ export function Input({
   const padding = style.padding[size];
 
   /**
-   * 渲染输入内容（基于CC源码）
+   * 渲染输入内容
    */
   const renderContent = () => {
     if (value === '' && placeholder) {
@@ -199,7 +199,7 @@ export function Input({
   };
 
   /**
-   * 渲染光标（基于CC源码）
+   * 渲染光标
    */
   const renderCursor = () => {
     if (!isFocused || disabled) return null;
@@ -242,7 +242,7 @@ export function Input({
 }
 
 /**
- * 文本区域组件（基于CC源码）
+ * 文本区域组件
  */
 export function TextArea({
   value,
@@ -260,7 +260,7 @@ export function TextArea({
   const [isFocused, setIsFocused] = useState(false);
 
   /**
-   * 处理焦点事件（基于CC源码）
+   * 处理焦点事件
    */
   const handleFocus = () => {
     if (!disabled) {
@@ -270,7 +270,7 @@ export function TextArea({
   };
 
   /**
-   * 处理失去焦点事件（基于CC源码）
+   * 处理失去焦点事件
    */
   const handleBlur = () => {
     setIsFocused(false);
@@ -278,7 +278,7 @@ export function TextArea({
   };
 
   /**
-   * 处理键盘输入（基于CC源码）
+   * 处理键盘输入
    */
   const handleInput = (input: string) => {
     if (disabled) return;
@@ -298,7 +298,7 @@ export function TextArea({
   };
 
   /**
-   * 处理键盘输入（基于CC源码）
+   * 处理键盘输入
    */
   useEffect(() => {
     // 这里简化处理，实际应该监听键盘输入
@@ -335,7 +335,7 @@ export function TextArea({
   }, [isFocused, value]);
 
   /**
-   * 获取文本区域样式（基于CC源码）
+   * 获取文本区域样式
    */
   const getTextAreaStyle = () => {
     const baseStyle = {
@@ -383,7 +383,7 @@ export function TextArea({
   const padding = style.padding[size];
 
   /**
-   * 渲染内容（基于CC源码）
+   * 渲染内容
    */
   const renderContent = () => {
     if (value === '' && placeholder) {

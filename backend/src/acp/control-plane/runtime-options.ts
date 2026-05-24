@@ -10,7 +10,9 @@ export interface ResolvedRuntimeOptions {
   verbose: boolean;
 }
 
-export function resolveRuntimeOptions(options?: AcpServerOptions): ResolvedRuntimeOptions {
+export function resolveRuntimeOptions(
+  options?: AcpServerOptions
+): ResolvedRuntimeOptions {
   return {
     provenanceMode: options?.provenanceMode || 'off',
     defaultSessionKey: options?.defaultSessionKey || 'default',
@@ -27,12 +29,18 @@ export interface RuntimeOptionValidation {
   errors: string[];
 }
 
-export function validateRuntimeOption(key: string, value: unknown): RuntimeOptionValidation {
+export function validateRuntimeOption(
+  key: string,
+  value: unknown
+): RuntimeOptionValidation {
   const errors: string[] = [];
 
   switch (key) {
     case 'provenanceMode':
-      if (typeof value !== 'string' || !['off', 'meta', 'meta+receipt'].includes(value)) {
+      if (
+        typeof value !== 'string' ||
+        !['off', 'meta', 'meta+receipt'].includes(value)
+      ) {
         errors.push(`Invalid provenance mode: ${String(value)}`);
       }
       break;

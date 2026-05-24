@@ -7,7 +7,11 @@ export interface SharedRecord {
   createdAt: number;
 }
 
-export function createSharedRecord(sessionId: SessionId, key: string, value: string): SharedRecord {
+export function createSharedRecord(
+  sessionId: SessionId,
+  key: string,
+  value: string
+): SharedRecord {
   return {
     sessionId,
     key,

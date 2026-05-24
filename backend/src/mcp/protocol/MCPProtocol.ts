@@ -12,7 +12,7 @@ import type {
 } from '../types/MCPTypes';
 
 /**
- * MCP协议错误（基于CC源码）
+ * MCP协议错误
  */
 export class MCPProtocolError extends Error {
   constructor(
@@ -26,11 +26,11 @@ export class MCPProtocolError extends Error {
 }
 
 /**
- * MCP协议验证器（基于CC源码）
+ * MCP协议验证器
  */
 export class MCPProtocolValidator {
   /**
-   * 验证请求（基于CC源码）
+   * 验证请求
    */
   validateRequest(request: unknown): MCPRequest {
     const req = request as Record<string, unknown>;
@@ -77,7 +77,7 @@ export class MCPProtocolValidator {
   }
 
   /**
-   * 验证调用工具请求（基于CC源码）
+   * 验证调用工具请求
    */
   private validateCallRequest(request: Record<string, unknown>): void {
     if (typeof request.tool_name !== 'string') {
@@ -99,7 +99,7 @@ export class MCPProtocolValidator {
   }
 
   /**
-   * 验证响应（基于CC源码）
+   * 验证响应
    */
   validateResponse(response: unknown): MCPResponse {
     const resp = response as Record<string, unknown>;
@@ -153,7 +153,7 @@ export class MCPProtocolValidator {
   }
 
   /**
-   * 验证错误响应（基于CC源码）
+   * 验证错误响应
    */
   private validateErrorResponse(response: Record<string, unknown>): void {
     if (typeof response.error !== 'object' || response.error === null) {
@@ -180,7 +180,7 @@ export class MCPProtocolValidator {
   }
 
   /**
-   * 验证进度响应（基于CC源码）
+   * 验证进度响应
    */
   private validateProgressResponse(response: Record<string, unknown>): void {
     if (typeof response.progress !== 'object' || response.progress === null) {
@@ -207,7 +207,7 @@ export class MCPProtocolValidator {
   }
 
   /**
-   * 验证工具定义（基于CC源码）
+   * 验证工具定义
    */
   validateToolDefinition(tool: unknown): MCPToolDefinition {
     const t = tool as Record<string, unknown>;
@@ -237,7 +237,7 @@ export class MCPProtocolValidator {
   }
 
   /**
-   * 验证资源定义（基于CC源码）
+   * 验证资源定义
    */
   validateResourceDefinition(resource: unknown): MCPResourceDefinition {
     const res = resource as Record<string, unknown>;
@@ -280,7 +280,7 @@ export class MCPProtocolValidator {
   }
 
   /**
-   * 验证提示定义（基于CC源码）
+   * 验证提示定义
    */
   validatePromptDefinition(prompt: unknown): MCPPromptDefinition {
     const p = prompt as Record<string, unknown>;
@@ -311,11 +311,11 @@ export class MCPProtocolValidator {
 }
 
 /**
- * MCP消息序列化器（基于CC源码）
+ * MCP消息序列化器
  */
 export class MCPMessageSerializer {
   /**
-   * 序列化请求（基于CC源码）
+   * 序列化请求
    */
   serializeRequest(request: MCPRequest): string {
     try {
@@ -330,7 +330,7 @@ export class MCPMessageSerializer {
   }
 
   /**
-   * 序列化响应（基于CC源码）
+   * 序列化响应
    */
   serializeResponse(response: MCPResponse): string {
     try {
@@ -345,7 +345,7 @@ export class MCPMessageSerializer {
   }
 
   /**
-   * 反序列化请求（基于CC源码）
+   * 反序列化请求
    */
   deserializeRequest(data: string): MCPRequest {
     try {
@@ -365,7 +365,7 @@ export class MCPMessageSerializer {
   }
 
   /**
-   * 反序列化响应（基于CC源码）
+   * 反序列化响应
    */
   deserializeResponse(data: string): MCPResponse {
     try {
@@ -386,7 +386,7 @@ export class MCPMessageSerializer {
 }
 
 /**
- * MCP消息路由器（基于CC源码）
+ * MCP消息路由器
  */
 export class MCPMessageRouter {
   private handlers = new Map<
@@ -395,7 +395,7 @@ export class MCPMessageRouter {
   >();
 
   /**
-   * 注册处理器（基于CC源码）
+   * 注册处理器
    */
   registerHandler(
     type: string,
@@ -405,14 +405,14 @@ export class MCPMessageRouter {
   }
 
   /**
-   * 移除处理器（基于CC源码）
+   * 移除处理器
    */
   unregisterHandler(type: string): void {
     this.handlers.delete(type);
   }
 
   /**
-   * 路由请求（基于CC源码）
+   * 路由请求
    */
   async routeRequest(request: MCPRequest): Promise<unknown> {
     const handler = this.handlers.get(request.type);
@@ -440,7 +440,7 @@ export class MCPMessageRouter {
   }
 
   /**
-   * 创建错误响应（基于CC源码）
+   * 创建错误响应
    */
   createErrorResponse(requestId: string, error: MCPProtocolError): MCPResponse {
     return {
@@ -456,7 +456,7 @@ export class MCPMessageRouter {
   }
 
   /**
-   * 创建成功响应（基于CC源码）
+   * 创建成功响应
    */
   createSuccessResponse(requestId: string, result: unknown): MCPResponse {
     return {
@@ -468,7 +468,7 @@ export class MCPMessageRouter {
   }
 
   /**
-   * 创建进度响应（基于CC源码）
+   * 创建进度响应
    */
   createProgressResponse(
     requestId: string,
@@ -489,7 +489,7 @@ export class MCPMessageRouter {
   }
 
   /**
-   * 生成响应ID（基于CC源码）
+   * 生成响应ID
    */
   private generateResponseId(): string {
     return `resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -497,7 +497,7 @@ export class MCPMessageRouter {
 }
 
 /**
- * MCP协议管理器（基于CC源码）
+ * MCP协议管理器
  */
 export class MCPProtocolManager {
   private validator = new MCPProtocolValidator();
@@ -505,7 +505,7 @@ export class MCPProtocolManager {
   private router = new MCPMessageRouter();
 
   /**
-   * 处理传入消息（基于CC源码）
+   * 处理传入消息
    */
   async handleIncomingMessage(data: string): Promise<string> {
     try {
@@ -549,7 +549,7 @@ export class MCPProtocolManager {
   }
 
   /**
-   * 注册请求处理器（基于CC源码）
+   * 注册请求处理器
    */
   registerHandler(
     type: string,
@@ -559,49 +559,49 @@ export class MCPProtocolManager {
   }
 
   /**
-   * 移除请求处理器（基于CC源码）
+   * 移除请求处理器
    */
   unregisterHandler(type: string): void {
     this.router.unregisterHandler(type);
   }
 
   /**
-   * 验证请求（基于CC源码）
+   * 验证请求
    */
   validateRequest(request: unknown): MCPRequest {
     return this.validator.validateRequest(request);
   }
 
   /**
-   * 验证响应（基于CC源码）
+   * 验证响应
    */
   validateResponse(response: unknown): MCPResponse {
     return this.validator.validateResponse(response);
   }
 
   /**
-   * 序列化请求（基于CC源码）
+   * 序列化请求
    */
   serializeRequest(request: MCPRequest): string {
     return this.serializer.serializeRequest(request);
   }
 
   /**
-   * 序列化响应（基于CC源码）
+   * 序列化响应
    */
   serializeResponse(response: MCPResponse): string {
     return this.serializer.serializeResponse(response);
   }
 
   /**
-   * 反序列化请求（基于CC源码）
+   * 反序列化请求
    */
   deserializeRequest(data: string): MCPRequest {
     return this.serializer.deserializeRequest(data);
   }
 
   /**
-   * 反序列化响应（基于CC源码）
+   * 反序列化响应
    */
   deserializeResponse(data: string): MCPResponse {
     return this.serializer.deserializeResponse(data);
@@ -609,7 +609,7 @@ export class MCPProtocolManager {
 }
 
 /**
- * 全局MCP协议管理器实例（基于CC源码）
+ * 全局MCP协议管理器实例
  */
 export const globalMCPProtocolManager = new MCPProtocolManager();
 

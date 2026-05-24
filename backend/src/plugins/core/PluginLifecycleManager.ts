@@ -16,7 +16,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 生命周期事件类型（基于CC源码）
+ * 生命周期事件类型
  */
 export enum PluginLifecycleEvent {
   /** 初始化前 */
@@ -51,7 +51,7 @@ export enum PluginLifecycleEvent {
 }
 
 /**
- * 生命周期钩子（基于CC源码）
+ * 生命周期钩子
  */
 export interface LifecycleHook {
   /** 钩子名称 */
@@ -65,7 +65,7 @@ export interface LifecycleHook {
 }
 
 /**
- * 生命周期上下文（基于CC源码）
+ * 生命周期上下文
  */
 export interface LifecycleContext {
   /** 插件 */
@@ -79,7 +79,7 @@ export interface LifecycleContext {
 }
 
 /**
- * 插件生命周期管理器（基于CC源码）
+ * 插件生命周期管理器
  */
 export class PluginLifecycleManager extends EventEmitter {
   private plugins: Map<string, LoadedPlugin> = new Map();
@@ -88,7 +88,7 @@ export class PluginLifecycleManager extends EventEmitter {
   private isRunning = false;
 
   /**
-   * 构造函数（基于CC源码）
+   * 构造函数
    */
   constructor() {
     super();
@@ -100,7 +100,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 注册插件（基于CC源码）
+   * 注册插件
    */
   registerPlugin(plugin: LoadedPlugin): void {
     if (this.plugins.has(plugin.id)) {
@@ -120,7 +120,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 注销插件（基于CC源码）
+   * 注销插件
    */
   unregisterPlugin(pluginId: string): boolean {
     const plugin = this.plugins.get(pluginId);
@@ -144,7 +144,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 启动插件（基于CC源码）
+   * 启动插件
    */
   async startPlugin(pluginId: string): Promise<void> {
     const plugin = this.plugins.get(pluginId);
@@ -207,7 +207,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 停止插件（基于CC源码）
+   * 停止插件
    */
   async stopPlugin(pluginId: string): Promise<void> {
     const plugin = this.plugins.get(pluginId);
@@ -257,7 +257,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 重新启动插件（基于CC源码）
+   * 重新启动插件
    */
   async restartPlugin(pluginId: string): Promise<void> {
     const plugin = this.plugins.get(pluginId);
@@ -281,7 +281,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 启动所有插件（基于CC源码）
+   * 启动所有插件
    */
   async startAllPlugins(): Promise<void> {
     this.emitLifecycleEvent(PluginLifecycleEvent.BEFORE_START, null);
@@ -304,7 +304,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 停止所有插件（基于CC源码）
+   * 停止所有插件
    */
   async stopAllPlugins(): Promise<void> {
     this.emitLifecycleEvent(PluginLifecycleEvent.BEFORE_STOP, null);
@@ -327,7 +327,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 注册生命周期钩子（基于CC源码）
+   * 注册生命周期钩子
    */
   registerLifecycleHook(
     event: PluginLifecycleEvent,
@@ -345,7 +345,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 注销生命周期钩子（基于CC源码）
+   * 注销生命周期钩子
    */
   unregisterLifecycleHook(
     event: PluginLifecycleEvent,
@@ -367,7 +367,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 执行生命周期钩子（基于CC源码）
+   * 执行生命周期钩子
    */
   private async executeLifecycleHooks(
     event: PluginLifecycleEvent,
@@ -393,21 +393,21 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 获取插件（基于CC源码）
+   * 获取插件
    */
   getPlugin(pluginId: string): LoadedPlugin | undefined {
     return this.plugins.get(pluginId);
   }
 
   /**
-   * 获取所有插件（基于CC源码）
+   * 获取所有插件
    */
   getAllPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values());
   }
 
   /**
-   * 获取已激活插件（基于CC源码）
+   * 获取已激活插件
    */
   getActivatedPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values()).filter(
@@ -416,7 +416,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 获取已停用插件（基于CC源码）
+   * 获取已停用插件
    */
   getDeactivatedPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values()).filter(
@@ -425,7 +425,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 获取失败插件（基于CC源码）
+   * 获取失败插件
    */
   getFailedPlugins(): LoadedPlugin[] {
     return Array.from(this.plugins.values()).filter(
@@ -434,7 +434,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 获取插件状态统计（基于CC源码）
+   * 获取插件状态统计
    */
   getPluginStats(): {
     total: number;
@@ -459,7 +459,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 发射生命周期事件（基于CC源码）
+   * 发射生命周期事件
    */
   private emitLifecycleEvent(
     event: PluginLifecycleEvent,
@@ -477,7 +477,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 启动生命周期管理器（基于CC源码）
+   * 启动生命周期管理器
    */
   async start(): Promise<void> {
     if (this.isRunning) {
@@ -492,7 +492,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 停止生命周期管理器（基于CC源码）
+   * 停止生命周期管理器
    */
   async stop(): Promise<void> {
     if (!this.isRunning) {
@@ -507,7 +507,7 @@ export class PluginLifecycleManager extends EventEmitter {
   }
 
   /**
-   * 销毁生命周期管理器（基于CC源码）
+   * 销毁生命周期管理器
    */
   async destroy(): Promise<void> {
     await this.stop();

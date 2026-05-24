@@ -1,10 +1,11 @@
 import { Logger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
 import { createCronScheduler } from '../chronos/CronScheduler';
-import { listAllCronTasks } from '../chronos/CronTasks';
+import { listAllCronTasks, setCronSqliteStore } from '../chronos/CronTasks';
+import { createSqliteCronStore } from '../chronos/service/SqliteCronStore';
 import type { ScheduledTask as ChronosTask } from '../chronos/types';
 import type { TaskQueue } from './TaskQueue';
-import { TaskPriority } from './TaskQueue';
+import { TaskPriority } from './TaskPriority';
 import type { ManagedProcess } from './ProcessManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -22,6 +23,8 @@ export class CronBridge implements ManagedProcess {
   private taskQueue: TaskQueue;
   private config: Required<CronBridgeConfig>;
   private running = false;
+  private sqliteCronStore: ReturnType<typeof createSqliteCronStore> | null =
+    null;
 
   constructor(taskQueue: TaskQueue, config: CronBridgeConfig = {}) {
     this.taskQueue = taskQueue;
@@ -35,6 +38,28 @@ export class CronBridge implements ManagedProcess {
   async start(): Promise<void> {
     if (this.running) return;
     this.running = true;
+
+    // 初始化 SQLite cron 存储（替代 JSON 文件持久化）
+    try {
+      this.sqliteCronStore = createSqliteCronStore();
+      await this.sqliteCronStore.init();
+      setCronSqliteStore(this.sqliteCronStore);
+      logger.info('SQLite cron store initialized');
+
+      // 恢复启动时遗漏的定时任务
+      const missed = await this.sqliteCronStore.recoverMissedJobs();
+      if (missed.length > 0) {
+        logger.info(`恢复 ${missed.length} 个遗漏的定时任务`);
+        for (const task of missed) {
+          this.submitCronTask(task.id, task.prompt, task.metadata);
+        }
+      }
+    } catch (error) {
+      logger.warning(
+        'SQLite cron store init failed, falling back to JSON file',
+        { error }
+      );
+    }
 
     this.scheduler = createCronScheduler({
       onFire: (prompt: string) => {
@@ -67,6 +92,11 @@ export class CronBridge implements ManagedProcess {
     if (this.scheduler) {
       this.scheduler.stop();
       this.scheduler = null;
+    }
+
+    if (this.sqliteCronStore) {
+      await this.sqliteCronStore.close();
+      this.sqliteCronStore = null;
     }
     logger.info('CronBridge 已停止');
     this.reportMetrics(false);

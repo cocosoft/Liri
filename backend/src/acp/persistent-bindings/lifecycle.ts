@@ -1,4 +1,7 @@
-import type { PersistentBindingConfig, PersistentBindingState } from './types.js';
+import type {
+  PersistentBindingConfig,
+  PersistentBindingState,
+} from './types.js';
 import type { AcpRuntime, AcpRuntimeHandle } from '../runtime/types.js';
 
 export interface BindingLifecycle {
@@ -8,14 +11,19 @@ export interface BindingLifecycle {
 }
 
 export class PersistentBindingLifecycle implements BindingLifecycle {
-  private activeBindings: Map<string, { handle: AcpRuntimeHandle; state: PersistentBindingState }> = new Map();
+  private activeBindings: Map<
+    string,
+    { handle: AcpRuntimeHandle; state: PersistentBindingState }
+  > = new Map();
   private runtime: AcpRuntime;
 
   constructor(runtime: AcpRuntime) {
     this.runtime = runtime;
   }
 
-  async activate(binding: PersistentBindingConfig): Promise<AcpRuntimeHandle | null> {
+  async activate(
+    binding: PersistentBindingConfig
+  ): Promise<AcpRuntimeHandle | null> {
     const existing = this.activeBindings.get(binding.sessionKey);
 
     if (existing) {

@@ -1,6 +1,6 @@
 //
 /**
- * 按钮组件（基于CC源码）
+ * 按钮组件
  * 提供各种类型的按钮功能
  */
 
@@ -10,7 +10,7 @@ import { ButtonProps } from '../types/UITypes';
 import { useTheme } from '../design-system/ThemeProvider';
 
 /**
- * 按钮组件（基于CC源码）
+ * 按钮组件
  */
 export function Button({
   children,
@@ -24,7 +24,7 @@ export function Button({
   const { theme } = useTheme();
 
   /**
-   * 处理点击事件（基于CC源码）
+   * 处理点击事件
    */
   const handlePress = () => {
     if (!disabled && !loading && onPress) {
@@ -33,7 +33,7 @@ export function Button({
   };
 
   /**
-   * 获取按钮样式（基于CC源码）
+   * 获取按钮样式
    */
   const getButtonStyle = () => {
     const baseStyle = {
@@ -112,7 +112,7 @@ export function Button({
   const padding = style.padding[size];
 
   /**
-   * 渲染加载状态（基于CC源码）
+   * 渲染加载状态
    */
   const renderContent = () => {
     if (loading) {
@@ -145,7 +145,7 @@ export function Button({
 }
 
 /**
- * 图标按钮组件（基于CC源码）
+ * 图标按钮组件
  */
 export function IconButton({
   icon,
@@ -171,7 +171,7 @@ export function IconButton({
 }
 
 /**
- * 文本按钮组件（基于CC源码）
+ * 文本按钮组件
  */
 export function TextButton({
   text,
@@ -197,7 +197,7 @@ export function TextButton({
 }
 
 /**
- * 图标文本按钮组件（基于CC源码）
+ * 图标文本按钮组件
  */
 export function IconTextButton({
   icon,
@@ -227,7 +227,7 @@ export function IconTextButton({
 }
 
 /**
- * 按钮组组件（基于CC源码）
+ * 按钮组组件
  */
 export function ButtonGroup({
   children,

@@ -41,7 +41,7 @@ export function createToolLoader<T extends (...args: any[]) => Tool | null>(
       return creator.call(factory);
     } catch (error) {
       logger.error(
-        'Failed to create tool',
+        `Failed to create tool [${creator.name}]`,
         error instanceof Error ? error : new Error(String(error))
       );
       return null;

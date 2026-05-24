@@ -1,5 +1,5 @@
 /**
- * 主题化文本组件（基于CC源码）
+ * 主题化文本组件
  * 提供主题化的文本显示功能
  */
 
@@ -10,7 +10,7 @@ import { TextProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
- * 主题化文本组件（基于CC源码）
+ * 主题化文本组件
  */
 export function ThemedText({
   children,
@@ -44,7 +44,7 @@ export function ThemedText({
 }
 
 /**
- * 标题文本组件（基于CC源码）
+ * 标题文本组件
  */
 export function HeadingText({
   children,
@@ -63,7 +63,7 @@ export function HeadingText({
 }
 
 /**
- * 副标题文本组件（基于CC源码）
+ * 副标题文本组件
  */
 export function SubtitleText({
   children,
@@ -78,7 +78,7 @@ export function SubtitleText({
 }
 
 /**
- * 强调文本组件（基于CC源码）
+ * 强调文本组件
  */
 export function EmphasisText({
   children,
@@ -93,7 +93,7 @@ export function EmphasisText({
 }
 
 /**
- * 代码文本组件（基于CC源码）
+ * 代码文本组件
  */
 export function CodeText({ children, color = 'text', ...props }: TextProps) {
   return (
@@ -104,7 +104,7 @@ export function CodeText({ children, color = 'text', ...props }: TextProps) {
 }
 
 /**
- * 链接文本组件（基于CC源码）
+ * 链接文本组件
  */
 export function LinkText({
   children,
@@ -120,7 +120,7 @@ export function LinkText({
 }
 
 /**
- * 成功文本组件（基于CC源码）
+ * 成功文本组件
  */
 export function SuccessText({
   children,
@@ -135,7 +135,7 @@ export function SuccessText({
 }
 
 /**
- * 警告文本组件（基于CC源码）
+ * 警告文本组件
  */
 export function WarningText({
   children,
@@ -150,7 +150,7 @@ export function WarningText({
 }
 
 /**
- * 错误文本组件（基于CC源码）
+ * 错误文本组件
  */
 export function ErrorText({ children, color = 'error', ...props }: TextProps) {
   return (
@@ -161,7 +161,7 @@ export function ErrorText({ children, color = 'error', ...props }: TextProps) {
 }
 
 /**
- * 信息文本组件（基于CC源码）
+ * 信息文本组件
  */
 export function InfoText({ children, color = 'info', ...props }: TextProps) {
   return (
@@ -172,7 +172,7 @@ export function InfoText({ children, color = 'info', ...props }: TextProps) {
 }
 
 /**
- * 静音文本组件（基于CC源码）
+ * 静音文本组件
  */
 export function MutedText({
   children,

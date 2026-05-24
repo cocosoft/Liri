@@ -1,5 +1,6 @@
 import { Logger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
+import type { IPCService } from './IPCService';
 
 const logger = new Logger({ level: 'info' as any });
 
@@ -14,6 +15,24 @@ export interface ManagedProcess {
   start: () => Promise<void>;
   stop: () => Promise<void>;
   healthCheck: () => Promise<boolean>;
+}
+
+export interface ComponentHealth {
+  name: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  lastCheck: number;
+  message?: string;
+}
+
+export interface HealthStatus {
+  alive: boolean;
+  uptime: number;
+  queueDepth: number;
+  lastError: string | null;
+  componentStatus: ComponentHealth[];
+  processCount: number;
+  runningCount: number;
+  stoppedCount: number;
 }
 
 interface ProcessState {
@@ -33,10 +52,60 @@ const DEFAULT_CONFIG: ProcessConfig = {
 export class ProcessManager {
   private processes: Map<string, ProcessState>;
   private config: ProcessConfig;
+  private startTime: number;
+  private lastError: string | null;
 
   constructor(config: Partial<ProcessConfig> = {}) {
     this.processes = new Map();
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.startTime = Date.now();
+    this.lastError = null;
+  }
+
+  getHealth(queueDepth: number = 0): HealthStatus {
+    const now = Date.now();
+    const componentStatus: ComponentHealth[] = [];
+    let overallAlive = true;
+
+    for (const [name, state] of this.processes) {
+      const comp: ComponentHealth = {
+        name,
+        status: 'healthy',
+        lastCheck: now,
+      };
+
+      if (state.status === 'running') {
+        comp.status = 'healthy';
+      } else if (state.status === 'stopping') {
+        comp.status = 'degraded';
+        overallAlive = false;
+        comp.message = '进程正在停止';
+      } else {
+        comp.status = 'unhealthy';
+        overallAlive = false;
+        comp.message = `进程状态: ${state.status}`;
+      }
+
+      componentStatus.push(comp);
+    }
+
+    const running = Array.from(this.processes.values()).filter(
+      (s) => s.status === 'running'
+    ).length;
+    const stopped = Array.from(this.processes.values()).filter(
+      (s) => s.status === 'stopped'
+    ).length;
+
+    return {
+      alive: overallAlive && this.processes.size > 0,
+      uptime: now - this.startTime,
+      queueDepth,
+      lastError: this.lastError,
+      componentStatus,
+      processCount: this.processes.size,
+      runningCount: running,
+      stoppedCount: stopped,
+    };
   }
 
   register(process: ManagedProcess): void {
@@ -79,6 +148,7 @@ export class ProcessManager {
       this.reportProcessCount();
     } catch (error) {
       state.status = 'stopped';
+      this.lastError = `启动失败: ${error instanceof Error ? error.message : String(error)}`;
       logger.error(`进程启动失败: ${name}`, error as Error);
       throw error;
     }
@@ -211,4 +281,15 @@ export class ProcessManager {
       // MonitoringService not available, skip metric reporting
     }
   }
+}
+
+export function registerHealthHandler(
+  ipcService: IPCService,
+  processManager: ProcessManager,
+  getQueueDepth?: () => number
+): void {
+  ipcService.on('daemon.health', async () => {
+    const depth = getQueueDepth ? getQueueDepth() : 0;
+    return { success: true, data: processManager.getHealth(depth) };
+  });
 }

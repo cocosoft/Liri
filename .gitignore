@@ -30,7 +30,7 @@ Desktop.ini
 
 # Python
 
-# Temporary
+# Temporary / Scratch files
 backend/errors.txt
 backend/typecheck-errors*.txt
 backend/fix_*.ps1
@@ -39,6 +39,8 @@ backend/test_errors.txt
 backend/test_output.txt
 backend/coverage_full.txt
 backend/.test_exports
+backend/_temp_*
+backend/_*_content.txt
 __pycache__/
 *.pyc
 *.pyo

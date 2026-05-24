@@ -60,7 +60,7 @@ async function getHotloadManagerLazy(): Promise<
 }
 
 /**
- * 插件系统（基于CC源码）
+ * 插件系统
  * 所有子系统通过懒加载方式创建，构造函数仅保存配置
  */
 export class PluginSystem {

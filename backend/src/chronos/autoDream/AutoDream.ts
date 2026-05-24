@@ -10,8 +10,11 @@ import {
   listSessionsTouchedSince,
   tryAcquireConsolidationLock,
   rollbackConsolidationLock,
+  recordConsolidation,
 } from './ConsolidationLock';
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
+import { DreamAgentExecutor } from './DreamAgentExecutor';
+import type { DreamExecutionResult } from './DreamAgentExecutor';
 
 const SESSION_SCAN_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -199,24 +202,62 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
       priorMtime,
     });
 
+    addDreamTurn(
+      taskId,
+      { text: '启动梦境整合', toolUseCount: 0, touchedPaths: [] },
+      [],
+      setAppState
+    );
+
+    const executor = new DreamAgentExecutor({
+      prompt,
+      memoryRoot,
+      transcriptDir,
+      signal: currentAbortController?.signal,
+      onProgress: (pct: number, msg: string) => {
+        addDreamTurn(
+          taskId,
+          { text: msg, toolUseCount: 0, touchedPaths: [] },
+          [],
+          setAppState
+        );
+      },
+    });
+
+    let result: DreamExecutionResult;
     try {
+      result = await executor.waitForResult();
+    } catch (e: unknown) {
+      result = {
+        success: false,
+        filesTouched: [],
+        insightsGenerated: 0,
+        duration: 0,
+        error: e instanceof Error ? e.message : String(e),
+      };
+    }
+
+    if (result.success) {
       completeDreamTask(taskId, setAppState);
       console.log(
-        `[autoDream] completed — consolidation prompt built, task ${taskId} marked as completed`
+        `[autoDream] completed — consolidated ${result.insightsGenerated} insights, touched ${result.filesTouched.length} files in ${result.duration}ms`
       );
 
-      if (context?.toolUseContext?.appendSystemMessage) {
-        const task = getDreamTask(taskId);
-        if (task) {
-          context.toolUseContext.appendSystemMessage({
-            type: 'text',
-            text: `Memory consolidation completed. Files touched: ${task.filesTouched.length}`,
-          });
-        }
+      try {
+        await recordConsolidation();
+      } catch {
+        // non-fatal: lock timestamp update failure
       }
-    } catch (e: unknown) {
-      console.log(`[autoDream] consolidation failed: ${(e as Error).message}`);
-      failDreamTask(taskId, setAppState, (e as Error).message);
+
+      if (context?.toolUseContext?.appendSystemMessage) {
+        context.toolUseContext.appendSystemMessage({
+          type: 'text',
+          text: `Memory consolidation completed. ${result.insightsGenerated} insights generated, ${result.filesTouched.length} files touched (${result.duration}ms).`,
+        });
+      }
+    } else {
+      console.log(`[autoDream] consolidation failed: ${result.error}`);
+      failDreamTask(taskId, setAppState, result.error);
       await rollbackConsolidationLock(priorMtime);
     }
   };

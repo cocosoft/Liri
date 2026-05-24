@@ -1,6 +1,6 @@
 //
 /**
- * 进度条组件（基于CC源码）
+ * 进度条组件
  * 显示任务进度和状态
  */
 
@@ -10,7 +10,7 @@ import { ProgressBarProps, UITheme } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 
 /**
- * 进度条组件（基于CC源码）
+ * 进度条组件
  */
 export function ProgressBar({
   value,
@@ -28,7 +28,7 @@ export function ProgressBar({
   const emptyWidth = barWidth - filledWidth;
 
   /**
-   * 渲染进度条（基于CC源码）
+   * 渲染进度条
    */
   const renderBar = () => {
     const filledChar = '█';
@@ -45,7 +45,7 @@ export function ProgressBar({
   };
 
   /**
-   * 渲染百分比文本（基于CC源码）
+   * 渲染百分比文本
    */
   const renderPercentage = () => {
     if (!showPercentage) return null;
@@ -56,7 +56,7 @@ export function ProgressBar({
   };
 
   /**
-   * 渲染标签（基于CC源码）
+   * 渲染标签
    */
   const renderLabel = () => {
     if (!label) return null;
@@ -70,7 +70,7 @@ export function ProgressBar({
 
   return (
     <Box flexDirection="column" gap={0.5}>
-      {/* 标签和进度信息（基于CC源码） */}
+      {/* 标签和进度信息 */}
       <Box
         flexDirection="row"
         justifyContent="space-between"
@@ -80,10 +80,10 @@ export function ProgressBar({
         {renderPercentage()}
       </Box>
 
-      {/* 进度条（基于CC源码） */}
+      {/* 进度条 */}
       {renderBar()}
 
-      {/* 数值显示（基于CC源码） */}
+      {/* 数值显示 */}
       <Box flexDirection="row" justifyContent="space-between">
         <Text color={theme.colors.textSecondary}>
           {value}/{max}
@@ -94,7 +94,7 @@ export function ProgressBar({
 }
 
 /**
- * 不确定进度条组件（基于CC源码）
+ * 不确定进度条组件
  */
 export function IndeterminateProgressBar({
   color = 'primary',
@@ -104,7 +104,7 @@ export function IndeterminateProgressBar({
   const { theme } = useTheme();
 
   /**
-   * 渲染动画进度条（基于CC源码）
+   * 渲染动画进度条
    */
   const renderAnimatedBar = () => {
     const barWidth = 20;
@@ -123,21 +123,21 @@ export function IndeterminateProgressBar({
 
   return (
     <Box flexDirection="column" gap={0.5}>
-      {/* 标签（基于CC源码） */}
+      {/* 标签 */}
       {label && (
         <Text color={theme.colors.text} bold={true}>
           {label}
         </Text>
       )}
 
-      {/* 动画进度条（基于CC源码） */}
+      {/* 动画进度条 */}
       {renderAnimatedBar()}
     </Box>
   );
 }
 
 /**
- * 步骤进度条组件（基于CC源码）
+ * 步骤进度条组件
  */
 export function StepProgressBar({
   steps,
@@ -154,7 +154,7 @@ export function StepProgressBar({
 
   return (
     <Box flexDirection="column" gap={1}>
-      {/* 步骤指示器（基于CC源码） */}
+      {/* 步骤指示器 */}
       <Box
         flexDirection="row"
         justifyContent="space-between"
@@ -162,7 +162,7 @@ export function StepProgressBar({
       >
         {steps.map((step, index) => (
           <Box key={index} flexDirection="row" alignItems="center" gap={0.5}>
-            {/* 步骤圆点（基于CC源码） */}
+            {/* 步骤圆点 */}
             <Box
               width={2}
               height={2}
@@ -181,7 +181,7 @@ export function StepProgressBar({
               )}
             </Box>
 
-            {/* 步骤标签（基于CC源码） */}
+            {/* 步骤标签 */}
             <Text
               color={
                 index <= currentStep
@@ -196,7 +196,7 @@ export function StepProgressBar({
         ))}
       </Box>
 
-      {/* 连接线（基于CC源码） */}
+      {/* 连接线 */}
       <Box
         flexDirection="row"
         alignItems="center"

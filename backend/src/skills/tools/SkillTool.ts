@@ -12,7 +12,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 技能执行上下文（基于CC源码）
+ * 技能执行上下文
  */
 export interface SkillExecutionContext {
   /**
@@ -62,7 +62,7 @@ export interface SkillExecutionContext {
 }
 
 /**
- * 技能执行结果（基于CC源码）
+ * 技能执行结果
  */
 export interface SkillExecutionResult {
   /**
@@ -106,7 +106,7 @@ export interface SkillExecutionResult {
 }
 
 /**
- * 技能权限检查结果（基于CC源码）
+ * 技能权限检查结果
  */
 export interface SkillPermissionResult {
   /**
@@ -142,7 +142,7 @@ export class SkillTool {
   }
 
   /**
-   * 执行技能（基于CC源码）
+   * 执行技能
    */
   async executeSkill(
     context: SkillExecutionContext
@@ -226,7 +226,7 @@ export class SkillTool {
   }
 
   /**
-   * 检查技能权限（基于CC源码）
+   * 检查技能权限
    */
   private async checkPermission(
     context: SkillExecutionContext
@@ -294,7 +294,7 @@ export class SkillTool {
   }
 
   /**
-   * 验证参数（基于CC源码）
+   * 验证参数
    */
   private validateArguments(context: SkillExecutionContext): {
     valid: boolean;
@@ -326,7 +326,7 @@ export class SkillTool {
   }
 
   /**
-   * 执行Inline模式（基于CC源码）
+   * 执行Inline模式
    */
   private async executeInInlineMode(
     context: SkillExecutionContext,
@@ -360,7 +360,7 @@ export class SkillTool {
   }
 
   /**
-   * 执行Fork模式（基于CC源码）
+   * 执行Fork模式
    */
   private async executeInForkMode(
     context: SkillExecutionContext,
@@ -396,7 +396,7 @@ export class SkillTool {
         '\n\n## Command Execution Results\n' + commandOutputs.join('\n\n');
     }
 
-    // 应用上下文修改器（基于CC源码）
+    // 应用上下文修改器
     if (context.skill.frontmatter.model) {
       context.model = context.skill.frontmatter.model;
     }
@@ -436,7 +436,7 @@ export class SkillTool {
   }
 
   /**
-   * 检查安全属性（基于CC源码）
+   * 检查安全属性
    */
   private hasSafeAttributes(skill: SkillDefinition): boolean {
     // 简化实现：检查是否包含安全属性
@@ -448,7 +448,7 @@ export class SkillTool {
   }
 
   /**
-   * 生成确认消息（基于CC源码）
+   * 生成确认消息
    */
   private generateConfirmationMessage(
     skill: SkillDefinition,
@@ -477,7 +477,7 @@ export class SkillTool {
   }
 
   /**
-   * 记录技能使用（基于CC源码）
+   * 记录技能使用
    */
   private recordSkillUsage(skillName: string): void {
     const currentCount = this.skillUsage.get(skillName) || 0;
@@ -495,7 +495,7 @@ export class SkillTool {
   }
 
   /**
-   * 获取技能使用统计（基于CC源码）
+   * 获取技能使用统计
    */
   getSkillUsageStats(): Array<{ skillName: string; usageCount: number }> {
     return Array.from(this.skillUsage.entries())
@@ -504,7 +504,7 @@ export class SkillTool {
   }
 
   /**
-   * 获取推荐技能（基于CC源码）
+   * 获取推荐技能
    */
   getRecommendedSkills(
     skills: SkillDefinition[],
@@ -530,7 +530,7 @@ export class SkillTool {
   }
 
   /**
-   * 计算技能相关性分数（基于CC源码）
+   * 计算技能相关性分数
    */
   private calculateRelevanceScore(
     skill: SkillDefinition,
@@ -561,7 +561,7 @@ export class SkillTool {
   }
 
   /**
-   * 生成技能执行报告（基于CC源码）
+   * 生成技能执行报告
    */
   generateExecutionReport(result: SkillExecutionResult): string {
     const report: string[] = [];

@@ -1,8 +1,6 @@
 /**
  * Analytics事件队列
  * 管理事件的队列和分发
- *
- * 基于CC源码 cc_code/backend/services/analytics/eventQueue.ts 实现
  */
 
 import type { AnalyticsSink } from './types';

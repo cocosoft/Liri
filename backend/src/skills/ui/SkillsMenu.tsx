@@ -14,7 +14,7 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
- * 技能菜单属性（基于CC源码）
+ * 技能菜单属性
  */
 interface SkillsMenuProps {
   /**
@@ -54,7 +54,7 @@ interface SkillsMenuProps {
 }
 
 /**
- * 技能分组（基于CC源码）
+ * 技能分组
  */
 interface SkillGroup {
   /**
@@ -79,7 +79,7 @@ interface SkillGroup {
 }
 
 /**
- * 技能菜单状态（基于CC源码）
+ * 技能菜单状态
  */
 interface SkillsMenuState {
   /**
@@ -133,7 +133,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   });
 
   /**
-   * 加载技能（基于CC源码）
+   * 加载技能
    */
   useEffect(() => {
     if (visible) {
@@ -151,7 +151,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
         logger.warning('Skill loading warnings:', { errors: result.errors });
       }
 
-      // 分组技能（基于CC源码）
+      // 分组技能
       const groups = createSkillGroups(result.skills);
 
       setState((prev) => ({
@@ -169,7 +169,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   };
 
   /**
-   * 创建技能分组（基于CC源码）
+   * 创建技能分组
    */
   const createSkillGroups = (skills: SkillDefinition[]): SkillGroup[] => {
     const sourceGroups: Record<SkillSource, SkillDefinition[]> = {
@@ -201,7 +201,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   };
 
   /**
-   * 获取来源显示名称（基于CC源码）
+   * 获取来源显示名称
    */
   const getSourceDisplayName = (source: SkillSource): string => {
     const names = {
@@ -217,7 +217,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   };
 
   /**
-   * 获取来源优先级（基于CC源码）
+   * 获取来源优先级
    */
   const getSourcePriority = (source: SkillSource): number => {
     const priorities = {
@@ -233,7 +233,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   };
 
   /**
-   * 切换分组展开状态（基于CC源码）
+   * 切换分组展开状态
    */
   const toggleGroup = (source: SkillSource) => {
     setState((prev) => ({
@@ -247,14 +247,14 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   };
 
   /**
-   * 处理搜索（基于CC源码）
+   * 处理搜索
    */
   const handleSearch = (query: string) => {
     setState((prev) => ({ ...prev, searchQuery: query }));
   };
 
   /**
-   * 过滤技能（基于CC源码）
+   * 过滤技能
    */
   const getFilteredSkills = (): SkillGroup[] => {
     const { groups, searchQuery } = state;
@@ -280,14 +280,14 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   };
 
   /**
-   * 选择技能（基于CC源码）
+   * 选择技能
    */
   const handleSkillSelect = (skill: SkillDefinition) => {
     setState((prev) => ({ ...prev, selectedSkill: skill, showDetails: true }));
   };
 
   /**
-   * 执行技能（基于CC源码）
+   * 执行技能
    */
   const handleExecuteSkill = async (skill: SkillDefinition) => {
     try {
@@ -299,7 +299,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   };
 
   /**
-   * 渲染技能分组（基于CC源码）
+   * 渲染技能分组
    */
   const renderSkillGroup = (group: SkillGroup) => (
     <div key={group.source} className="skill-group">
@@ -327,7 +327,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   );
 
   /**
-   * 渲染技能详情（基于CC源码）
+   * 渲染技能详情
    */
   const renderSkillDetails = () => {
     const { selectedSkill } = state;
@@ -397,7 +397,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
   };
 
   /**
-   * 渲染空状态（基于CC源码）
+   * 渲染空状态
    */
   const renderEmptyState = () => (
     <div className="empty-state">
@@ -468,7 +468,7 @@ export const SkillsMenu: React.FC<SkillsMenuProps> = ({
 };
 
 /**
- * 技能菜单样式（基于CC源码）
+ * 技能菜单样式
  */
 const styles = `
 .skills-menu-overlay {

@@ -1,6 +1,6 @@
 //
 /**
- * 标签页组件（基于CC源码）
+ * 标签页组件
  * 提供标签页导航功能
  */
 
@@ -10,7 +10,7 @@ import { TabsProps, TabItem, UITheme } from '../types/UITypes';
 import { useTheme } from '../design-system/ThemeProvider';
 
 /**
- * 标签页组件（基于CC源码）
+ * 标签页组件
  */
 export function Tabs({
   tabs,
@@ -23,7 +23,7 @@ export function Tabs({
   const { theme } = useTheme();
 
   /**
-   * 处理标签切换（基于CC源码）
+   * 处理标签切换
    */
   const handleTabChange = (tabId: string) => {
     if (tabId !== activeTab) {
@@ -32,7 +32,7 @@ export function Tabs({
   };
 
   /**
-   * 获取标签页样式（基于CC源码）
+   * 获取标签页样式
    */
   const getTabStyle = (tabId: string) => {
     const isActive = tabId === activeTab;
@@ -53,7 +53,7 @@ export function Tabs({
   };
 
   /**
-   * 渲染标签页头（基于CC源码）
+   * 渲染标签页头
    */
   const renderTabHeaders = () => {
     return (
@@ -83,7 +83,7 @@ export function Tabs({
   };
 
   /**
-   * 渲染活动标签页内容（基于CC源码）
+   * 渲染活动标签页内容
    */
   const renderActiveTabContent = () => {
     const activeTabItem = tabs.find((tab) => tab.id === activeTab);
@@ -104,7 +104,7 @@ export function Tabs({
 }
 
 /**
- * 带图标的标签页组件（基于CC源码）
+ * 带图标的标签页组件
  */
 export function IconTabs({
   tabs,
@@ -143,7 +143,7 @@ export function IconTabs({
 }
 
 /**
- * 可滚动标签页组件（基于CC源码）
+ * 可滚动标签页组件
  */
 export function ScrollableTabs({
   tabs,
@@ -157,7 +157,7 @@ export function ScrollableTabs({
   const { theme } = useTheme();
 
   /**
-   * 渲染可滚动标签页头（基于CC源码）
+   * 渲染可滚动标签页头
    */
   const renderScrollableTabHeaders = () => {
     return (
@@ -193,7 +193,7 @@ export function ScrollableTabs({
   };
 
   /**
-   * 获取标签页样式（基于CC源码）
+   * 获取标签页样式
    */
   const getTabStyle = (tabId: string) => {
     const isActive = tabId === activeTab;
@@ -214,7 +214,7 @@ export function ScrollableTabs({
   };
 
   /**
-   * 处理标签切换（基于CC源码）
+   * 处理标签切换
    */
   const handleTabChange = (tabId: string) => {
     if (tabId !== activeTab) {
@@ -223,7 +223,7 @@ export function ScrollableTabs({
   };
 
   /**
-   * 渲染活动标签页内容（基于CC源码）
+   * 渲染活动标签页内容
    */
   const renderActiveTabContent = () => {
     const activeTabItem = tabs.find((tab) => tab.id === activeTab);
@@ -244,7 +244,7 @@ export function ScrollableTabs({
 }
 
 /**
- * 步骤标签页组件（基于CC源码）
+ * 步骤标签页组件
  */
 export function StepTabs({
   steps,
@@ -261,7 +261,7 @@ export function StepTabs({
 
   return (
     <Box flexDirection="column" gap={1}>
-      {/* 步骤指示器（基于CC源码） */}
+      {/* 步骤指示器 */}
       <Box
         flexDirection="row"
         justifyContent="space-between"
@@ -279,7 +279,7 @@ export function StepTabs({
               alignItems="center"
               gap={0.5}
             >
-              {/* 步骤圆点（基于CC源码） */}
+              {/* 步骤圆点 */}
               <Box
                 width={3}
                 height={3}
@@ -304,7 +304,7 @@ export function StepTabs({
                 </Text>
               </Box>
 
-              {/* 步骤标签（基于CC源码） */}
+              {/* 步骤标签 */}
               <Text
                 color={
                   isActive || isCompleted
@@ -316,7 +316,7 @@ export function StepTabs({
                 {step.label}
               </Text>
 
-              {/* 步骤描述（基于CC源码） */}
+              {/* 步骤描述 */}
               {step.description && (
                 <Text color={theme.colors.textSecondary}>
                   {step.description}
@@ -327,7 +327,7 @@ export function StepTabs({
         })}
       </Box>
 
-      {/* 连接线（基于CC源码） */}
+      {/* 连接线 */}
       <Box
         flexDirection="row"
         alignItems="center"

@@ -41,6 +41,10 @@ export interface SessionMetadata {
   createdBy?: string;
   parentSessionId?: string;
   sessionType?: SessionType;
+  crashRecovery?: string;
+  crashedAt?: string;
+  lastActivityBeforeCrash?: string;
+  resumedAt?: string;
 }
 
 /**
@@ -59,6 +63,7 @@ export interface UnifiedSession {
   id: string;
   type: SessionType;
   title?: string;
+  agentId?: string;
   createdAt: number;
   updatedAt: number;
   lastActivityAt: number;
@@ -90,6 +95,7 @@ export interface SessionFilter {
   startDate?: number;
   endDate?: number;
   userId?: string;
+  agentId?: string;
   searchQuery?: string;
 }
 

@@ -1,0 +1,127 @@
+import { fork, ChildProcess } from 'node:child_process';
+import path from 'node:path';
+import { EventEmitter } from 'node:events';
+
+export interface ForkedDreamConfig {
+  thinkingPrompt: string;
+  maxDurationMs: number;
+  workerScript?: string;
+}
+
+export interface ForkedDreamResult {
+  type: 'result';
+  thoughts: string[];
+  conclusion: string;
+  timestamp: number;
+  durationMs: number;
+  success: boolean;
+  error?: string;
+}
+
+export interface ForkedDreamProgress {
+  type: 'thought';
+  content: string;
+}
+
+export class ForkedDreamExecutor extends EventEmitter {
+  private child: ChildProcess | null = null;
+  private resultPromise: Promise<ForkedDreamResult>;
+
+  constructor(private config: ForkedDreamConfig) {
+    super();
+    this.resultPromise = this.init();
+  }
+
+  private init(): Promise<ForkedDreamResult> {
+    const workerPath =
+      this.config.workerScript || path.resolve(__dirname, 'dreamWorker.js');
+
+    return new Promise((resolve) => {
+      const child = fork(workerPath, [], {
+        stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+        env: {
+          ...process.env,
+          PYAPP_DREAM_PROMPT: this.config.thinkingPrompt,
+          PYAPP_DREAM_MAX_DURATION: String(this.config.maxDurationMs),
+        },
+      });
+
+      this.child = child;
+
+      const timeout = setTimeout(() => {
+        child.kill();
+        resolve({
+          type: 'result',
+          thoughts: [],
+          conclusion: '梦境执行超时',
+          timestamp: Date.now(),
+          durationMs: this.config.maxDurationMs,
+          success: false,
+          error: 'timeout',
+        });
+      }, this.config.maxDurationMs + 10000);
+
+      child.on('message', (msg: ForkedDreamProgress | ForkedDreamResult) => {
+        if (msg.type === 'thought') {
+          this.emit('thought', msg.content);
+        } else {
+          clearTimeout(timeout);
+          this.cleanup();
+          resolve(msg);
+        }
+      });
+
+      child.on('error', (err) => {
+        clearTimeout(timeout);
+        this.cleanup();
+        resolve({
+          type: 'result',
+          thoughts: [],
+          conclusion: '梦境执行失败',
+          timestamp: Date.now(),
+          durationMs:
+            Date.now() - (this.config.maxDurationMs > 0 ? Date.now() : 0),
+          success: false,
+          error: err.message,
+        });
+      });
+
+      child.on('exit', (code) => {
+        if (code !== 0 && this.child) {
+          clearTimeout(timeout);
+          resolve({
+            type: 'result',
+            thoughts: [],
+            conclusion: `梦境进程异常退出 (code=${code})`,
+            timestamp: Date.now(),
+            durationMs: 0,
+            success: false,
+            error: `exit_code_${code}`,
+          });
+        }
+      });
+    });
+  }
+
+  async waitForResult(): Promise<ForkedDreamResult> {
+    return this.resultPromise;
+  }
+
+  kill(): void {
+    if (this.child) {
+      this.child.kill();
+      this.cleanup();
+    }
+  }
+
+  private cleanup(): void {
+    this.child = null;
+  }
+}
+
+export function createForkedDreamExecutor(
+  thinkingPrompt: string,
+  maxDurationMs: number
+): ForkedDreamExecutor {
+  return new ForkedDreamExecutor({ thinkingPrompt, maxDurationMs });
+}

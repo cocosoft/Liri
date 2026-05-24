@@ -41,7 +41,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   >();
 
   /**
-   * 构造函数（基于CC源码）
+   * 构造函数
    */
   constructor(transport: MCPTransport) {
     super();
@@ -53,7 +53,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 连接服务器（基于CC源码）
+   * 连接服务器
    */
   async connect(): Promise<void> {
     if (this._state !== 'disconnected') {
@@ -90,7 +90,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 断开连接（基于CC源码）
+   * 断开连接
    */
   async disconnect(): Promise<void> {
     if (this._state === 'disconnected') {
@@ -122,7 +122,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 调用工具（基于CC源码）
+   * 调用工具
    */
   async callTool(
     name: string,
@@ -170,7 +170,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 列出工具（基于CC源码）
+   * 列出工具
    */
   async listTools(): Promise<MCPToolDefinition[]> {
     if (this._state !== 'connected') {
@@ -210,7 +210,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 列出资源（基于CC源码）
+   * 列出资源
    */
   async listResources(): Promise<MCPResourceDefinition[]> {
     if (this._state !== 'connected') {
@@ -250,7 +250,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 列出提示（基于CC源码）
+   * 列出提示
    */
   async listPrompts(): Promise<MCPPromptDefinition[]> {
     if (this._state !== 'connected') {
@@ -290,7 +290,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 获取服务器信息（基于CC源码）
+   * 获取服务器信息
    */
   async getServerInfo(): Promise<MCPServerInfo> {
     if (this._state !== 'connected') {
@@ -334,21 +334,21 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 获取连接状态（基于CC源码）
+   * 获取连接状态
    */
   getState(): MCPClientState {
     return this._state;
   }
 
   /**
-   * 获取连接统计（基于CC源码）
+   * 获取连接统计
    */
   getStats(): MCPConnectionStats {
     return { ...this._stats };
   }
 
   /**
-   * 发送请求（基于CC源码）
+   * 发送请求
    */
   private async sendRequest(request: MCPRequest): Promise<unknown> {
     return new Promise((resolve, reject) => {
@@ -368,7 +368,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 处理响应（基于CC源码）
+   * 处理响应
    */
   private handleResponse(response: MCPResponse): void {
     const pendingRequest = this.pendingRequests.get(response.request_id);
@@ -396,7 +396,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 设置传输层监听器（基于CC源码）
+   * 设置传输层监听器
    */
   private setupTransportListeners(): void {
     // 监听响应
@@ -421,7 +421,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 发送初始化握手（基于CC源码）
+   * 发送初始化握手
    */
   private async sendInitialHandshake(): Promise<void> {
     const request: MCPRequest = {
@@ -433,7 +433,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 开始心跳检测（基于CC源码）
+   * 开始心跳检测
    */
   private startHeartbeat(): void {
     // 心跳检测逻辑
@@ -452,14 +452,14 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 停止心跳检测（基于CC源码）
+   * 停止心跳检测
    */
   private stopHeartbeat(): void {
     // 清理心跳定时器
   }
 
   /**
-   * 设置连接状态（基于CC源码）
+   * 设置连接状态
    */
   private setState(newState: MCPClientState): void {
     if (this._state !== newState) {
@@ -475,7 +475,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 发射事件（基于CC源码）
+   * 发射事件
    */
   private emitEvent(type: MCPEventType, data?: any): void {
     const event: MCPEvent = {
@@ -490,7 +490,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 更新统计信息（基于CC源码）
+   * 更新统计信息
    */
   private updateStats(type: keyof MCPConnectionStats, duration?: number): void {
     this._stats.lastActivity = new Date();
@@ -527,7 +527,7 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 清理挂起的请求（基于CC源码）
+   * 清理挂起的请求
    */
   private cleanupPendingRequests(): void {
     for (const [requestId, pendingRequest] of this.pendingRequests.entries()) {
@@ -538,14 +538,14 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
   }
 
   /**
-   * 生成请求ID（基于CC源码）
+   * 生成请求ID
    */
   private generateRequestId(): string {
     return `req_${++this.requestIdCounter}_${Date.now()}`;
   }
 
   /**
-   * 创建初始统计信息（基于CC源码）
+   * 创建初始统计信息
    */
   private createInitialStats(): MCPConnectionStats {
     const now = new Date();

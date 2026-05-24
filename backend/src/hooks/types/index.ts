@@ -5,7 +5,7 @@
  */
 
 /**
- * Hook事件类型（基于CC源码）
+ * Hook事件类型
  */
 export type HookEvent =
   | 'system.startup'
@@ -40,12 +40,12 @@ export type HookEvent =
   | string; // 支持自定义事件
 
 /**
- * Hook优先级（基于CC源码）
+ * Hook优先级
  */
 export type HookPriority = 'highest' | 'high' | 'normal' | 'low' | 'lowest';
 
 /**
- * Hook依赖关系（基于CC源码）
+ * Hook依赖关系
  */
 export interface HookDependency {
   /**
@@ -65,7 +65,7 @@ export interface HookDependency {
 }
 
 /**
- * Hook定义接口（基于CC源码）
+ * Hook定义接口
  */
 export interface HookDefinition {
   /**
@@ -130,7 +130,7 @@ export interface HookDefinition {
 }
 
 /**
- * Hook执行上下文（基于CC源码）
+ * Hook执行上下文
  */
 export interface HookContext {
   /**
@@ -239,7 +239,7 @@ export interface HookContext {
 }
 
 /**
- * Hook执行结果（基于CC源码）
+ * Hook执行结果
  */
 export interface HookResult {
   /**
@@ -314,7 +314,7 @@ export interface HookResult {
 }
 
 /**
- * Hook执行器配置（基于CC源码）
+ * Hook执行器配置
  */
 export interface HookExecutorConfig {
   /**
@@ -349,7 +349,7 @@ export interface HookExecutorConfig {
 }
 
 /**
- * Hook执行统计信息（基于CC源码）
+ * Hook执行统计信息
  */
 export interface HookExecutionStats {
   /**
@@ -389,7 +389,7 @@ export interface HookExecutionStats {
 }
 
 /**
- * Hook系统配置（基于CC源码）
+ * Hook系统配置
  */
 export interface HookSystemConfig {
   /**
@@ -424,7 +424,7 @@ export interface HookSystemConfig {
 }
 
 /**
- * React Hook类型定义（基于CC源码）
+ * React Hook类型定义
  */
 export interface ReactHookDefinition {
   /**
@@ -459,7 +459,7 @@ export interface ReactHookDefinition {
 }
 
 /**
- * 权限Hook上下文（基于CC源码）
+ * 权限Hook上下文
  */
 export interface PermissionHookContext extends HookContext {
   /**
@@ -484,7 +484,7 @@ export interface PermissionHookContext extends HookContext {
 }
 
 /**
- * 权限Hook结果（基于CC源码）
+ * 权限Hook结果
  */
 export interface PermissionHookResult extends HookResult {
   /**
@@ -509,7 +509,7 @@ export interface PermissionHookResult extends HookResult {
 }
 
 /**
- * 压缩Hook上下文（基于CC源码）
+ * 压缩Hook上下文
  */
 export interface CompressionHookContext extends HookContext {
   /**
@@ -534,7 +534,7 @@ export interface CompressionHookContext extends HookContext {
 }
 
 /**
- * 压缩Hook结果（基于CC源码）
+ * 压缩Hook结果
  */
 export interface CompressionHookResult extends HookResult {
   /**
@@ -554,7 +554,7 @@ export interface CompressionHookResult extends HookResult {
 }
 
 /**
- * 单个Hook配置（基于CC源码）
+ * 单个Hook配置
  */
 export interface IndividualHookConfig {
   /**

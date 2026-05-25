@@ -11,6 +11,7 @@ import type {
   ChannelCapabilities,
   SendResult,
   InteractiveCard,
+  MessageContext,
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
@@ -91,6 +92,11 @@ function buildInlineKeyboard(
 class TelegramChannel extends BaseChannelPlugin {
   private botToken = '';
   private webhookUrl = '';
+
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastUpdateId = 0;
+  private shouldPoll = false;
+  private readonly pollingIntervalMs = 2000;
 
   readonly id = 'telegram';
   readonly meta = TELEGRAM_META;
@@ -302,28 +308,107 @@ class TelegramChannel extends BaseChannelPlugin {
     };
   }
 
+  private startPolling(): void {
+    this.shouldPoll = true;
+    this.lastUpdateId = 0;
+    this.scheduleNextPoll();
+  }
+
+  private stopPolling(): void {
+    this.shouldPoll = false;
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
+  }
+
+  private scheduleNextPoll(): void {
+    if (!this.shouldPoll) return;
+    this.pollTimer = setTimeout(
+      () => this.pollUpdates(),
+      this.pollingIntervalMs
+    );
+  }
+
+  private async pollUpdates(): Promise<void> {
+    if (!this.shouldPoll || !this.botToken) return;
+
+    try {
+      const url = `https://api.telegram.org/bot${this.botToken}/getUpdates?offset=${this.lastUpdateId + 1}&timeout=30`;
+      const resp = await fetch(url);
+      const data = (await resp.json()) as Record<string, unknown>;
+
+      if (data['ok'] === true) {
+        const result = data['result'] as Array<Record<string, unknown>>;
+        for (const update of result) {
+          const updateId = update['update_id'] as number;
+          this.lastUpdateId = updateId;
+
+          const msg = update['message'] as Record<string, unknown> | undefined;
+          if (!msg || !msg['text']) continue;
+
+          const chat = msg['chat'] as Record<string, unknown>;
+          const from = msg['from'] as Record<string, unknown>;
+          const chatType = chat['type'] as string;
+          const message: MessageContext = {
+            channelId: 'telegram',
+            senderId: String(from['id'] || ''),
+            senderName:
+              (from['first_name'] as string) ||
+              (from['username'] as string) ||
+              '',
+            groupId:
+              chatType === 'group' || chatType === 'supergroup'
+                ? String(chat['id'])
+                : undefined,
+            conversationId: String(chat['id']),
+            messageId: String(msg['message_id']),
+            messageType: 'text',
+            content: msg['text'] as string,
+            timestamp: (msg['date'] as number) * 1000,
+            isDirectMessage: chatType === 'private',
+            rawPayload: update as unknown as Record<string, unknown>,
+          };
+
+          this.handleIncomingMessage(message).catch((error) => {
+            this.logger.error('Telegram 消息处理异常', {
+              error: String(error),
+            });
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.error('Telegram getUpdates 轮询失败', {
+        error: String(error),
+      });
+    }
+
+    this.scheduleNextPoll();
+  }
+
   /**
-   * 创建入站适配器（Webhook 协议，尚未实现）
-   * TODO: 启动 HTTP Server 接收 Telegram Bot API Webhook 回调
+   * 创建入站适配器（长轮询模式）
+   * 使用 getUpdates API 轮询接收消息，无需公网 Webhook URL
    */
   protected override createInboundAdapter(): IChannelInboundAdapter {
     const self = this;
     return {
-      protocol: 'webhook' as InboundProtocol,
+      protocol: 'polling' as InboundProtocol,
 
       get isListening(): boolean {
         return self.inboundListening;
       },
 
       start: async (_config: Record<string, unknown>): Promise<void> => {
-        self.logger.warn(
-          'Telegram 入站消息接收未实现（需启动 Webhook HTTP 服务接收 Bot API 回调）'
-        );
-        self.setInboundListening(false);
+        self.logger.info('Telegram 入站消息轮询已启动');
+        self.setInboundListening(true);
+        self.startPolling();
       },
 
       stop: async (): Promise<void> => {
+        self.stopPolling();
         self.setInboundListening(false);
+        self.logger.info('Telegram 入站消息轮询已停止');
       },
 
       setMessageHandler: (
@@ -337,9 +422,10 @@ class TelegramChannel extends BaseChannelPlugin {
   }
 }
 
-function createTelegramChannel(): IChannelPlugin {
+export function createTelegramChannel(): IChannelPlugin {
   return new TelegramChannel();
 }
 
 export const telegramChannel = createTelegramChannel();
+export const telegramChannelPlugin = createTelegramChannel();
 export { escapeMarkdownV2, buildInlineKeyboard };

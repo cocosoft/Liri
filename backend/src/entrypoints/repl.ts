@@ -147,13 +147,16 @@ export async function initializeChatManager(): Promise<ChatManager> {
 export async function launchRepl(
   config: REPLConfig = DEFAULT_CONFIG
 ): Promise<void> {
+  console.log(`[DIAG][${Date.now()}] launchRepl: 函数开始执行`);
   profileCheckpoint('repl_launch_start');
   getStartupChainProfiler().markPhaseStart('first_response');
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   const ui = getUIEnhancer();
 
   // 显示欢迎消息
+  console.log(`[DIAG][${Date.now()}] launchRepl: 准备显示标题`);
   ui.showTitle('PY_APP - AI Agent');
+  console.log(`[DIAG][${Date.now()}] launchRepl: 标题显示完成`);
 
   if (isOfflineMode) {
     ui.showInfo('我是您的 AI 个人助手。当前为离线模式，AI 对话暂不可用。');

@@ -3,6 +3,7 @@
  * 厂商: 阿里巴巴, SDK: dingtalk-robot-sender
  */
 
+import http from 'node:http';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
@@ -10,6 +11,7 @@ import type {
   ChannelCapabilities,
   SendResult,
   InteractiveCard,
+  MessageContext,
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
@@ -67,6 +69,8 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
   private appSecret = '';
   private accessToken: string | null = null;
   private tokenExpiresAt = 0;
+  private webhookServer: http.Server | null = null;
+  private webhookPort = 8084;
 
   constructor() {
     super();
@@ -115,6 +119,7 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
     this.appKey = (config['appKey'] as string) || '';
     this.appSecret = (config['appSecret'] as string) || '';
+    this.webhookPort = (config['webhookPort'] as number) || 8084;
     if (!this.appKey || !this.appSecret)
       throw new AppError(
         'DingTalk: appKey 和 appSecret 是必需的',
@@ -210,18 +215,101 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
     }
   }
 
+  private async uploadMedia(
+    url: string,
+    mediaType: 'image' | 'file'
+  ): Promise<{ mediaId?: string; error?: string }> {
+    if (!this.accessToken) return { error: '未连接' };
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) return { error: `下载失败: ${resp.status}` };
+      const blob = await resp.blob();
+      const formData = new FormData();
+      formData.append(
+        'media',
+        blob,
+        `upload.${mediaType === 'image' ? 'png' : 'bin'}`
+      );
+
+      const uploadResp = await fetch(
+        `https://oapi.dingtalk.com/media/upload?access_token=${this.accessToken}&type=${mediaType}`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+      const data = (await uploadResp.json()) as Record<string, unknown>;
+      if ((data['errcode'] as number) !== 0) {
+        return { error: (data['errmsg'] as string) || '上传失败' };
+      }
+      return { mediaId: data['media_id'] as string };
+    } catch (e) {
+      return { error: String(e) };
+    }
+  }
+
   protected async sendImageMessage(
     target: string,
     imageUrl: string
   ): Promise<SendResult> {
-    return { success: false, error: '钉钉图片发送暂未实现' };
+    if (!this.accessToken) return { success: false, error: '未连接' };
+    const upload = await this.uploadMedia(imageUrl, 'image');
+    if (!upload.mediaId)
+      return { success: false, error: upload.error || '上传图片失败' };
+
+    try {
+      const resp = await fetch(
+        `https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2?access_token=${this.accessToken}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agent_id: this.appKey,
+            userid_list: target,
+            msg: { msgtype: 'image', image: { media_id: upload.mediaId } },
+          }),
+        }
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      return {
+        success: (data['errcode'] as number) === 0,
+        error: data['errmsg'] as string,
+      };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   }
 
   protected async sendFileMessage(
     target: string,
     filePath: string
   ): Promise<SendResult> {
-    return { success: false, error: '钉钉文件发送暂未实现' };
+    if (!this.accessToken) return { success: false, error: '未连接' };
+    const upload = await this.uploadMedia(filePath, 'file');
+    if (!upload.mediaId)
+      return { success: false, error: upload.error || '上传文件失败' };
+
+    try {
+      const resp = await fetch(
+        `https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2?access_token=${this.accessToken}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agent_id: this.appKey,
+            userid_list: target,
+            msg: { msgtype: 'file', file: { media_id: upload.mediaId } },
+          }),
+        }
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      return {
+        success: (data['errcode'] as number) === 0,
+        error: data['errmsg'] as string,
+      };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   }
 
   protected override async sendInteractiveMessage(
@@ -248,8 +336,8 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
-   * 创建入站适配器（Webhook 协议，尚未实现）
-   * TODO: 启动 HTTP Server 接收钉钉回调消息
+   * 创建入站适配器（Webhook 协议）
+   * 启动 HTTP Server 接收钉钉回调消息
    */
   protected override createInboundAdapter(): IChannelInboundAdapter {
     const self = this;
@@ -261,14 +349,98 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
       },
 
       start: async (_config: Record<string, unknown>): Promise<void> => {
-        self.logger.warn(
-          '钉钉入站消息接收未实现（需启动 HTTP Server 接收钉钉回调消息）'
-        );
-        self.setInboundListening(false);
+        if (self.webhookServer) {
+          self.logger.warn('钉钉 Webhook 服务器已在运行');
+          return;
+        }
+
+        self.webhookServer = http.createServer((req, res) => {
+          if (req.method !== 'POST') {
+            res.writeHead(405);
+            res.end();
+            return;
+          }
+
+          let body = '';
+          req.on('data', (chunk: string) => {
+            body += chunk;
+          });
+
+          req.on('end', () => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({}));
+
+            try {
+              const parsed = JSON.parse(body) as Record<string, unknown>;
+              const msgtype = parsed['msgtype'] as string;
+              if (!msgtype) return;
+
+              const senderId = String(
+                parsed['senderId'] || parsed['senderStaffId'] || ''
+              );
+              const senderNick = String(parsed['senderNick'] || '');
+              const conversationId = String(parsed['conversationId'] || '');
+              const isGroup = conversationId.startsWith('cid');
+
+              let content = '';
+              if (msgtype === 'text') {
+                const text = parsed['text'] as
+                  | Record<string, unknown>
+                  | undefined;
+                content = String(text?.['content'] || '');
+              } else {
+                return;
+              }
+
+              const ctx: MessageContext = {
+                channelId: 'dingtalk',
+                senderId,
+                senderName: senderNick || senderId,
+                groupId: isGroup ? conversationId : undefined,
+                conversationId,
+                messageId: String(parsed['messageId'] || Date.now()),
+                messageType: 'text',
+                content,
+                timestamp: Date.now(),
+                isDirectMessage: !isGroup,
+                rawPayload: parsed,
+              };
+
+              self.handleIncomingMessage(ctx).catch((err) => {
+                self.logger.error('钉钉消息处理异常', { error: String(err) });
+              });
+            } catch {
+              self.logger.warn('钉钉 Webhook 消息解析失败');
+            }
+          });
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          self.webhookServer!.listen(self.webhookPort, () => {
+            self.logger.info(
+              `钉钉 Webhook 服务器已启动 (端口: ${self.webhookPort})`
+            );
+            self.setInboundListening(true);
+            resolve();
+          });
+          self.webhookServer!.on('error', (err: Error) => {
+            self.logger.error('钉钉 Webhook 服务器启动失败', {
+              error: String(err),
+            });
+            reject(err);
+          });
+        });
       },
 
       stop: async (): Promise<void> => {
+        if (self.webhookServer) {
+          await new Promise<void>((resolve) => {
+            self.webhookServer!.close(() => resolve());
+          });
+          self.webhookServer = null;
+        }
         self.setInboundListening(false);
+        self.logger.info('钉钉 Webhook 服务器已停止');
       },
 
       setMessageHandler: (
@@ -282,8 +454,9 @@ class DingtalkChannelPlugin extends BaseChannelPlugin {
   }
 }
 
-function createDingtalkChannel(): IChannelPlugin {
+export function createDingtalkChannel(): IChannelPlugin {
   return new DingtalkChannelPlugin();
 }
 
 export const dingtalkChannel = createDingtalkChannel();
+export const dingtalkChannelPlugin = createDingtalkChannel();

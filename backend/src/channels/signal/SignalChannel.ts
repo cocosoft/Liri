@@ -1,4 +1,6 @@
 import { EventEmitter } from 'node:events';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
@@ -6,6 +8,8 @@ import type {
   ChannelCapabilities,
   SendResult,
 } from '@modules/channels/types';
+
+const execFileAsync = promisify(execFile);
 
 export interface SignalConfig {
   enabled: boolean;
@@ -84,22 +88,59 @@ export class SignalChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    this.eventBus.emit('message:sent', { target, content });
-    return { success: true };
+    try {
+      await execFileAsync(this._signalCliPath, [
+        '-a',
+        this._account,
+        'send',
+        '-m',
+        content,
+        target,
+      ]);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: `Signal CLI 错误: ${e}` };
+    }
   }
 
   protected async sendImageMessage(
     target: string,
     imageUrl: string
   ): Promise<SendResult> {
-    return this.sendTextMessage(target, `[图片] ${imageUrl}`);
+    try {
+      await execFileAsync(this._signalCliPath, [
+        '-a',
+        this._account,
+        'send',
+        '-m',
+        `[图片] ${imageUrl}`,
+        target,
+      ]);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: `Signal CLI 错误: ${e}` };
+    }
   }
 
   protected async sendFileMessage(
-    _target: string,
-    _filePath: string
+    target: string,
+    filePath: string
   ): Promise<SendResult> {
-    return { success: false, error: 'Signal: sendFile 未实现' };
+    try {
+      await execFileAsync(this._signalCliPath, [
+        '-a',
+        this._account,
+        'send',
+        '-m',
+        '',
+        '-a',
+        filePath,
+        target,
+      ]);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: `Signal CLI 错误: ${e}` };
+    }
   }
 
   incomingCustomMessage(message: SignalMessage): void {

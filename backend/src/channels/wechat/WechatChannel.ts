@@ -4,6 +4,8 @@
  * 特色: 被动回复(5s内) + 客服消息主动推送(48h内有过交互)
  */
 
+import http from 'node:http';
+import { createHash } from 'node:crypto';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
@@ -11,11 +13,11 @@ import type {
   ChannelCapabilities,
   SendResult,
   InteractiveCard,
+  MessageContext,
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { createHash } from 'node:crypto';
 
 const WECHAT_META: ChannelMeta = {
   id: 'wechat',
@@ -165,6 +167,11 @@ class WechatChannelPlugin extends BaseChannelPlugin {
   private accessToken: string | null = null;
   private tokenExpiresAt = 0;
   private cryptoInstance: WechatCrypto | null = null;
+  private webhookServer: http.Server | null = null;
+  private webhookPort = 8085;
+
+  /** Token 后台刷新定时器（提前 5 分钟刷新，7200s 有效期） */
+  private tokenRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     super();
@@ -209,10 +216,29 @@ class WechatChannelPlugin extends BaseChannelPlugin {
   }
 
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
-    this.appId = (config['appId'] as string) || '';
-    this.appSecret = (config['appSecret'] as string) || '';
-    this.token = (config['token'] as string) || '';
-    this.encodingAESKey = (config['encodingAESKey'] as string) || '';
+    this.appId =
+      (config['appId'] as string) ||
+      (process.env['WECHAT_APP_ID'] as string) ||
+      '';
+    this.appSecret =
+      (config['appSecret'] as string) ||
+      (process.env['WECHAT_APP_SECRET'] as string) ||
+      '';
+    this.token =
+      (config['token'] as string) ||
+      (process.env['WECHAT_TOKEN'] as string) ||
+      '';
+    this.encodingAESKey =
+      (config['encodingAESKey'] as string) ||
+      (process.env['WECHAT_ENCODING_AES_KEY'] as string) ||
+      '';
+    this.webhookPort =
+      (config['webhookPort'] as number) ||
+      parseInt(process.env['WECHAT_WEBHOOK_PORT'] as string, 10) ||
+      8085;
+    if (this.encodingAESKey) {
+      this.cryptoInstance = new WechatCrypto(this.encodingAESKey);
+    }
 
     if (!this.appId || !this.appSecret)
       throw new AppError(
@@ -223,6 +249,21 @@ class WechatChannelPlugin extends BaseChannelPlugin {
         { channel: 'wechat', missing: ['appId', 'appSecret'] }
       );
 
+    await this.refreshAccessToken();
+    this.startTokenBackgroundRefresh();
+    this.logger.info('微信公众号通道已连接');
+  }
+
+  protected override async onDisconnect(): Promise<void> {
+    this.stopTokenBackgroundRefresh();
+    this.accessToken = null;
+    this.tokenExpiresAt = 0;
+  }
+
+  /**
+   * 从微信开放平台换取 Access Token
+   */
+  private async refreshAccessToken(): Promise<void> {
     const resp = await fetch(
       `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${this.appId}&secret=${this.appSecret}`
     );
@@ -241,28 +282,70 @@ class WechatChannelPlugin extends BaseChannelPlugin {
       );
     }
     this.accessToken = data['access_token'] as string;
-    this.tokenExpiresAt =
-      Date.now() + ((data['expires_in'] as number) || 7200) * 1000;
-    this.logger.info('微信公众号通道已连接');
+    // expires_in 默认 7200 秒，提前 300 秒刷新
+    const expiresIn = (data['expires_in'] as number) || 7200;
+    this.tokenExpiresAt = Date.now() + (expiresIn - 300) * 1000;
+    this.logger.info('微信公众号 Access Token 已获取', {
+      expiresAt: new Date(this.tokenExpiresAt).toISOString(),
+    });
   }
 
-  protected override async onDisconnect(): Promise<void> {
-    this.accessToken = null;
+  /**
+   * 获取有效的 Access Token（含缓存和自动刷新）
+   */
+  private async getAccessToken(): Promise<string> {
+    if (this.accessToken && Date.now() < this.tokenExpiresAt) {
+      return this.accessToken;
+    }
+
+    await this.refreshAccessToken();
+    return this.accessToken!;
+  }
+
+  /**
+   * 启动 Token 后台定时刷新
+   * 每 60 秒检查一次，若不足 5 分钟过期则提前刷新
+   */
+  private startTokenBackgroundRefresh(): void {
+    this.stopTokenBackgroundRefresh();
+
+    this.tokenRefreshTimer = setInterval(async () => {
+      if (!this.accessToken || Date.now() + 300_000 >= this.tokenExpiresAt) {
+        try {
+          await this.refreshAccessToken();
+          this.logger.info('微信公众号 Token 已后台刷新');
+        } catch (e) {
+          this.logger.error('微信公众号 Token 后台刷新失败', {
+            error: String(e),
+          });
+        }
+      }
+    }, 60000);
+  }
+
+  /**
+   * 停止 Token 后台刷新
+   */
+  private stopTokenBackgroundRefresh(): void {
+    if (this.tokenRefreshTimer) {
+      clearInterval(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = null;
+    }
   }
 
   protected override async checkHealth(): Promise<{
     healthy: boolean;
     latencyMs: number;
   }> {
-    if (!this.accessToken) return { healthy: false, latencyMs: 0 };
-    const start = Date.now();
     try {
+      const token = await this.getAccessToken();
+      const start = Date.now();
       const resp = await fetch(
-        `https://api.weixin.qq.com/cgi-bin/getcallbackip?access_token=${this.accessToken}`
+        `https://api.weixin.qq.com/cgi-bin/getcallbackip?access_token=${token}`
       );
       return { healthy: resp.ok, latencyMs: Date.now() - start };
     } catch {
-      return { healthy: false, latencyMs: Date.now() - start };
+      return { healthy: false, latencyMs: 0 };
     }
   }
 
@@ -270,15 +353,15 @@ class WechatChannelPlugin extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    if (!this.accessToken) return { success: false, error: '未连接' };
     try {
+      const token = await this.getAccessToken();
       const body = {
         touser: target,
         msgtype: 'text',
         text: { content: content.slice(0, 2048) },
       };
       const resp = await fetch(
-        `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${this.accessToken}`,
+        `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${token}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -307,15 +390,15 @@ class WechatChannelPlugin extends BaseChannelPlugin {
     target: string,
     imageUrl: string
   ): Promise<SendResult> {
-    if (!this.accessToken) return { success: false, error: '未连接' };
     try {
+      const token = await this.getAccessToken();
       const body = {
         touser: target,
         msgtype: 'image',
         image: { media_id: imageUrl },
       };
       const resp = await fetch(
-        `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${this.accessToken}`,
+        `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${token}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -332,19 +415,82 @@ class WechatChannelPlugin extends BaseChannelPlugin {
     }
   }
 
+  private async uploadWechatMedia(
+    filePathOrUrl: string,
+    mediaType: 'image' | 'voice' | 'video' | 'thumb'
+  ): Promise<{ mediaId?: string; error?: string }> {
+    try {
+      const token = await this.getAccessToken();
+      let blob: Blob;
+      if (
+        filePathOrUrl.startsWith('http://') ||
+        filePathOrUrl.startsWith('https://')
+      ) {
+        const resp = await fetch(filePathOrUrl);
+        if (!resp.ok) return { error: `下载文件失败: ${resp.status}` };
+        blob = await resp.blob();
+      } else {
+        const fs = await import('node:fs');
+        const buf = fs.readFileSync(filePathOrUrl);
+        blob = new Blob([buf]);
+      }
+      const formData = new FormData();
+      formData.append('media', blob, 'file');
+
+      const resp = await fetch(
+        `https://api.weixin.qq.com/cgi-bin/media/upload?access_token=${token}&type=${mediaType}`,
+        { method: 'POST', body: formData }
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      if ((data['errcode'] as number) !== 0) {
+        return { error: (data['errmsg'] as string) || '上传素材失败' };
+      }
+      return { mediaId: data['media_id'] as string };
+    } catch (e) {
+      return { error: String(e) };
+    }
+  }
+
   protected async sendFileMessage(
     target: string,
     filePath: string
   ): Promise<SendResult> {
-    return { success: false, error: '微信公众号文件发送暂未实现' };
+    // 微信客服消息不支持 file 类型，将文件作为 image 上传发送
+    const upload = await this.uploadWechatMedia(filePath, 'image');
+    if (!upload.mediaId) {
+      return { success: false, error: upload.error || '上传文件失败' };
+    }
+    try {
+      const token = await this.getAccessToken();
+      const body = {
+        touser: target,
+        msgtype: 'image',
+        image: { media_id: upload.mediaId },
+      };
+      const resp = await fetch(
+        `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${token}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      return {
+        success: (data['errcode'] as number) === 0,
+        error: data['errmsg'] as string,
+      };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   }
 
   protected override async sendInteractiveMessage(
     target: string,
     card: InteractiveCard
   ): Promise<SendResult> {
-    if (!this.accessToken) return { success: false, error: '未连接' };
     try {
+      const token = await this.getAccessToken();
       const articles = [
         {
           title: card.title,
@@ -359,7 +505,7 @@ class WechatChannelPlugin extends BaseChannelPlugin {
         news: { articles },
       };
       const resp = await fetch(
-        `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${this.accessToken}`,
+        `https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=${token}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -377,8 +523,8 @@ class WechatChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
-   * 创建入站适配器（Webhook 协议，尚未实现）
-   * TODO: 启动 HTTP Server 接收微信公众号回调消息（XML 格式）
+   * 创建入站适配器（Webhook 协议）
+   * 启动 HTTP Server 接收微信公众号回调消息（XML 格式）
    */
   protected override createInboundAdapter(): IChannelInboundAdapter {
     const self = this;
@@ -390,14 +536,144 @@ class WechatChannelPlugin extends BaseChannelPlugin {
       },
 
       start: async (_config: Record<string, unknown>): Promise<void> => {
-        self.logger.warn(
-          '微信入站消息接收未实现（需启动 HTTP Server 接收微信公众号回调消息）'
-        );
-        self.setInboundListening(false);
+        if (self.webhookServer) {
+          self.logger.warn('微信 Webhook 服务器已在运行');
+          return;
+        }
+
+        self.webhookServer = http.createServer((req, res) => {
+          const parsedUrl = new URL(
+            req.url || '/',
+            `http://${req.headers.host || 'localhost'}`
+          );
+          const querySignature = parsedUrl.searchParams.get('signature') || '';
+          const queryTimestamp = parsedUrl.searchParams.get('timestamp') || '';
+          const queryNonce = parsedUrl.searchParams.get('nonce') || '';
+
+          if (req.method === 'GET') {
+            /* 微信 URL 验证：返回 echostr */
+            const echostr = parsedUrl.searchParams.get('echostr') || '';
+            if (
+              echostr &&
+              self.cryptoInstance?.verifySignature(
+                self.token,
+                queryTimestamp,
+                queryNonce,
+                querySignature
+              )
+            ) {
+              res.writeHead(200, { 'Content-Type': 'text/plain' });
+              res.end(echostr);
+            } else {
+              res.writeHead(403);
+              res.end();
+            }
+            return;
+          }
+
+          if (req.method !== 'POST') {
+            res.writeHead(405);
+            res.end();
+            return;
+          }
+
+          let body = '';
+          req.on('data', (chunk: string) => {
+            body += chunk;
+          });
+
+          req.on('end', () => {
+            /* 验证签名 */
+            if (
+              !self.cryptoInstance?.verifySignature(
+                self.token,
+                queryTimestamp,
+                queryNonce,
+                querySignature
+              )
+            ) {
+              self.logger.warn('微信 Webhook 签名验证失败');
+              res.writeHead(403);
+              res.end();
+              return;
+            }
+
+            try {
+              /* 解析 XML，处理加密消息 */
+              let rawXml = body;
+              const parsedMsg = parseWechatXML(rawXml);
+              const encrypt = parsedMsg['Encrypt'];
+
+              if (encrypt && self.cryptoInstance) {
+                rawXml = self.cryptoInstance.decryptMsg(encrypt);
+              }
+
+              const msg = rawXml !== body ? parseWechatXML(rawXml) : parsedMsg;
+              const msgType = msg['MsgType'];
+
+              if (msgType !== 'text') {
+                res.writeHead(200);
+                res.end('');
+                return;
+              }
+
+              const ctx: MessageContext = {
+                channelId: 'wechat',
+                senderId: msg['FromUserName'] || '',
+                senderName: msg['FromUserName'] || '',
+                groupId: msg['FromUserName']?.startsWith('gh_')
+                  ? undefined
+                  : undefined,
+                conversationId: msg['FromUserName'] || '',
+                messageId: msg['MsgId'] || String(Date.now()),
+                messageType: 'text',
+                content: msg['Content'] || '',
+                timestamp: Number(msg['CreateTime']) * 1000 || Date.now(),
+                isDirectMessage: true,
+                rawPayload: msg,
+              };
+
+              /* 返回空 XML 表示成功接收 */
+              res.writeHead(200, { 'Content-Type': 'text/xml' });
+              res.end('');
+
+              self.handleIncomingMessage(ctx).catch((err) => {
+                self.logger.error('微信消息处理异常', { error: String(err) });
+              });
+            } catch {
+              self.logger.warn('微信 Webhook 消息解析失败');
+              res.writeHead(400);
+              res.end();
+            }
+          });
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          self.webhookServer!.listen(self.webhookPort, () => {
+            self.logger.info(
+              `微信 Webhook 服务器已启动 (端口: ${self.webhookPort})`
+            );
+            self.setInboundListening(true);
+            resolve();
+          });
+          self.webhookServer!.on('error', (err: Error) => {
+            self.logger.error('微信 Webhook 服务器启动失败', {
+              error: String(err),
+            });
+            reject(err);
+          });
+        });
       },
 
       stop: async (): Promise<void> => {
+        if (self.webhookServer) {
+          await new Promise<void>((resolve) => {
+            self.webhookServer!.close(() => resolve());
+          });
+          self.webhookServer = null;
+        }
         self.setInboundListening(false);
+        self.logger.info('微信 Webhook 服务器已停止');
       },
 
       setMessageHandler: (
@@ -411,9 +687,10 @@ class WechatChannelPlugin extends BaseChannelPlugin {
   }
 }
 
-function createWechatChannel(): IChannelPlugin {
+export function createWechatChannel(): IChannelPlugin {
   return new WechatChannelPlugin();
 }
 
 export const wechatChannel = createWechatChannel();
+export const wechatChannelPlugin = createWechatChannel();
 export { parseWechatXML, buildWechatReply, WechatCrypto };

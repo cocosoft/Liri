@@ -1,0 +1,9 @@
+/**
+ * Facebook Messenger 通道运行时入口
+ * 对标 IRC channel.runtime.ts 模式
+ *
+ * 在运行时边界聚合通道运行时功能，保持主入口加载轻量。
+ */
+export { FacebookMessengerMonitor } from './monitor.js';
+export { diagnoseFacebookMessenger } from './doctor.js';
+export { facebookMessengerProbe } from './probe.js';

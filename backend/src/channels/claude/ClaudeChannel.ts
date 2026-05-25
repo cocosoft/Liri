@@ -88,11 +88,36 @@ export class ClaudeChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    this.eventBus.emit('message:sent', {
-      conversationId: target,
-      text: content,
-    });
-    return { success: true };
+    try {
+      const baseUrl = this._apiUrl.replace(/\/$/, '');
+      const resp = await fetch(`${baseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this._apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: this._model,
+          max_tokens: 1024,
+          messages: [{ role: 'user', content }],
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        return { success: false, error: `Anthropic API 错误: ${err}` };
+      }
+      const data = (await resp.json()) as { content: Array<{ text: string }> };
+      const replyText = data.content?.map((c) => c.text).join('\n') || '';
+      this.eventBus.emit('message_received', {
+        conversationId: target,
+        content: replyText,
+        role: 'assistant',
+      });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }
 
   protected async sendImageMessage(
@@ -110,8 +135,33 @@ export class ClaudeChannel extends BaseChannelPlugin {
   }
 
   async sendSystemPrompt(content: string): Promise<boolean> {
-    this.eventBus.emit('system_prompt_sent', { text: content });
-    return true;
+    try {
+      const baseUrl = this._apiUrl.replace(/\/$/, '');
+      const resp = await fetch(`${baseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this._apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: this._model,
+          max_tokens: 1024,
+          system: content,
+          messages: [{ role: 'user', content: 'OK' }],
+        }),
+      });
+      if (!resp.ok) {
+        this.logger.warn(
+          `Anthropic system prompt API 错误: ${await resp.text()}`
+        );
+        return false;
+      }
+      return true;
+    } catch (e) {
+      this.logger.warn(`Anthropic system prompt 失败: ${e}`);
+      return false;
+    }
   }
 
   incomingCustomMessage(message: ClaudeMessage): void {

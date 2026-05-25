@@ -55,6 +55,7 @@ export class TwitterChannel extends BaseChannelPlugin {
   private eventBus = new EventEmitter();
   private _apiKey = '';
   private _apiSecretKey = '';
+  private _bearerToken = '';
 
   readonly id = 'twitter';
   readonly meta = TWITTER_META;
@@ -81,6 +82,7 @@ export class TwitterChannel extends BaseChannelPlugin {
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
     this._apiKey = (config['apiKey'] as string) || '';
     this._apiSecretKey = (config['apiSecretKey'] as string) || '';
+    this._bearerToken = (config['bearerToken'] as string) || '';
 
     this.eventBus.emit('connected', {});
   }
@@ -89,11 +91,26 @@ export class TwitterChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    this.eventBus.emit('message:sent', {
-      conversationId: target,
-      text: content,
-    });
-    return { success: true };
+    try {
+      const resp = await fetch(
+        `https://api.twitter.com/2/dm_conversations/with/${target}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this._bearerToken}`,
+          },
+          body: JSON.stringify({ text: content }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.text();
+        return { success: false, error: `Twitter API 错误: ${err}` };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }
 
   protected async sendImageMessage(
@@ -107,17 +124,55 @@ export class TwitterChannel extends BaseChannelPlugin {
     _target: string,
     _filePath: string
   ): Promise<SendResult> {
-    return { success: false, error: 'Twitter: sendFile 未实现' };
+    return {
+      success: false,
+      error: 'Twitter: sendFile 未实现（Twitter API 不支持 DM 文件发送）',
+    };
   }
 
   async sendTweet(content: string): Promise<boolean> {
-    this.eventBus.emit('tweet_sent', { text: content });
-    return true;
+    try {
+      const resp = await fetch('https://api.twitter.com/2/tweets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this._bearerToken}`,
+        },
+        body: JSON.stringify({ text: content }),
+      });
+      if (!resp.ok) {
+        this.logger.warn(`Twitter sendTweet API 错误: ${await resp.text()}`);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      this.logger.warn(`Twitter sendTweet 失败: ${e}`);
+      return false;
+    }
   }
 
   async replyToTweet(tweetId: string, content: string): Promise<boolean> {
-    this.eventBus.emit('reply_sent', { tweetId, text: content });
-    return true;
+    try {
+      const resp = await fetch('https://api.twitter.com/2/tweets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this._bearerToken}`,
+        },
+        body: JSON.stringify({
+          text: content,
+          reply: { in_reply_to_tweet_id: tweetId },
+        }),
+      });
+      if (!resp.ok) {
+        this.logger.warn(`Twitter reply API 错误: ${await resp.text()}`);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      this.logger.warn(`Twitter reply 失败: ${e}`);
+      return false;
+    }
   }
 
   incomingCustomMessage(message: TwitterMessage): void {

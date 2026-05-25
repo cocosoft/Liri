@@ -72,6 +72,13 @@ interface WcfSendFileRequest {
   receiver: string;
 }
 
+/** WCF 健康检查结果 */
+export interface WcfHealthStatus {
+  reachable: boolean;
+  loggedIn: boolean;
+  latencyMs: number;
+}
+
 const DEFAULT_CONFIG: WcfClientConfig = {
   httpUrl: 'http://localhost:7600',
   requestTimeoutMs: 10000,
@@ -83,9 +90,20 @@ const DEFAULT_CONFIG: WcfClientConfig = {
 export class WcfClient {
   private config: WcfClientConfig;
   private lastMsgId = '0';
+  /** 联系人缓存：wxid → WcfContact */
+  private contactCache = new Map<string, WcfContact>();
+  /** 联系人缓存最后更新时间 */
+  private contactCacheTime = 0;
+  /** 联系人缓存有效期（毫秒） */
+  private readonly contactCacheTtlMs = 300_000;
 
   constructor(config?: Partial<WcfClientConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /** 获取当前配置的 httpUrl */
+  get httpUrl(): string {
+    return this.config.httpUrl;
   }
 
   /**
@@ -96,11 +114,15 @@ export class WcfClient {
   }
 
   /**
-   * 发送文本消息
+   * 发送文本消息（支持群聊 @ 指定成员）
+   * @param receiver 接收者 wxid 或群聊 roomId
+   * @param msg 消息内容
+   * @param aters 群聊 @ 成员的 wxid 列表（逗号分隔）
    */
-  async sendText(receiver: string, msg: string): Promise<boolean> {
+  async sendText(receiver: string, msg: string, aters?: string): Promise<boolean> {
     try {
       const body: WcfSendTextRequest = { msg, receiver };
+      if (aters) body.aters = aters;
       const resp = await fetch(`${this.config.httpUrl}/v1/api/sendTxt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,7 +187,10 @@ export class WcfClient {
         signal: AbortSignal.timeout(this.config.requestTimeoutMs),
       });
 
-      if (!resp.ok) return [];
+      if (!resp.ok) {
+        logger.warn('WCF pollMessages 返回非 OK 状态', { status: resp.status });
+        return [];
+      }
 
       const result = (await resp.json()) as { data: WcfMessage[] };
       const messages = result.data || [];
@@ -178,6 +203,7 @@ export class WcfClient {
 
       return newMessages;
     } catch (error) {
+      logger.warn('WCF pollMessages 请求异常', { error: String(error) });
       return [];
     }
   }
@@ -187,6 +213,23 @@ export class WcfClient {
    */
   resetMessageCursor(): void {
     this.lastMsgId = '0';
+  }
+
+  /**
+   * 健康检查：验证 WCF HTTP 服务是否可达且已登录
+   */
+  async checkHealth(): Promise<WcfHealthStatus> {
+    const start = Date.now();
+    try {
+      const resp = await fetch(`${this.config.httpUrl}/v1/api/isLogin`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      });
+      const latencyMs = Date.now() - start;
+      return { reachable: true, loggedIn: resp.ok, latencyMs };
+    } catch {
+      return { reachable: false, loggedIn: false, latencyMs: Date.now() - start };
+    }
   }
 
   /**
@@ -205,9 +248,15 @@ export class WcfClient {
   }
 
   /**
-   * 获取联系人列表
+   * 获取联系人列表（带缓存）
+   * @param forceRefresh 是否强制刷新缓存
    */
-  async getContacts(): Promise<WcfContact[]> {
+  async getContacts(forceRefresh = false): Promise<WcfContact[]> {
+    const now = Date.now();
+    if (!forceRefresh && this.contactCache.size > 0 && (now - this.contactCacheTime) < this.contactCacheTtlMs) {
+      return Array.from(this.contactCache.values());
+    }
+
     try {
       const resp = await fetch(`${this.config.httpUrl}/v1/api/getContact`, {
         method: 'POST',
@@ -218,11 +267,35 @@ export class WcfClient {
       if (!resp.ok) return [];
 
       const result = (await resp.json()) as { data: WcfContact[] };
-      return result.data || [];
+      const contacts = result.data || [];
+
+      this.contactCache.clear();
+      for (const c of contacts) {
+        this.contactCache.set(c.wxid, c);
+      }
+      this.contactCacheTime = now;
+
+      return contacts;
     } catch (error) {
       logger.error('WCF getContacts 失败', { error: String(error) });
       return [];
     }
+  }
+
+  /**
+   * 根据 wxid 查询联系人显示名称（优先 remark → name → wxid）
+   */
+  async resolveContactName(wxid: string): Promise<string> {
+    if (!wxid) return 'unknown';
+
+    const cached = this.contactCache.get(wxid);
+    if (cached) return cached.remark || cached.name || wxid;
+
+    await this.getContacts();
+    const found = this.contactCache.get(wxid);
+    if (found) return found.remark || found.name || wxid;
+
+    return wxid;
   }
 
   /**
@@ -242,5 +315,12 @@ export class WcfClient {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * 获取当前轮询游标
+   */
+  get currentCursor(): string {
+    return this.lastMsgId;
   }
 }

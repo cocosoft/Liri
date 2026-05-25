@@ -96,22 +96,95 @@ export class WhatsAppChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    this.eventBus.emit('message:sent', { to: target, body: content });
-    return { success: true };
+    try {
+      const resp = await fetch(
+        `https://graph.facebook.com/v21.0/${this._phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this._accessToken}`,
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: target,
+            type: 'text',
+            text: { body: content },
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.text();
+        return { success: false, error: `WhatsApp API 错误: ${err}` };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }
 
   protected async sendImageMessage(
     target: string,
     imageUrl: string
   ): Promise<SendResult> {
-    return this.sendTextMessage(target, `[图片] ${imageUrl}`);
+    try {
+      const resp = await fetch(
+        `https://graph.facebook.com/v21.0/${this._phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this._accessToken}`,
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: target,
+            type: 'image',
+            image: { link: imageUrl },
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.text();
+        return { success: false, error: `WhatsApp API 错误: ${err}` };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }
 
   protected async sendFileMessage(
-    _target: string,
-    _filePath: string
+    target: string,
+    filePath: string
   ): Promise<SendResult> {
-    return { success: false, error: 'WhatsApp: sendFile 未实现' };
+    try {
+      const fileName = filePath.split('/').pop() || 'file';
+      const resp = await fetch(
+        `https://graph.facebook.com/v21.0/${this._phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this._accessToken}`,
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: target,
+            type: 'document',
+            document: { link: filePath, filename: fileName },
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.text();
+        return { success: false, error: `WhatsApp API 错误: ${err}` };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }
 
   async sendTemplateMessage(
@@ -119,12 +192,35 @@ export class WhatsAppChannel extends BaseChannelPlugin {
     templateName: string,
     languageCode: string = 'en'
   ): Promise<boolean> {
-    this.eventBus.emit('template_sent', {
-      to: target,
-      templateName,
-      languageCode,
-    });
-    return true;
+    try {
+      const resp = await fetch(
+        `https://graph.facebook.com/v21.0/${this._phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this._accessToken}`,
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: target,
+            type: 'template',
+            template: {
+              name: templateName,
+              language: { code: languageCode },
+            },
+          }),
+        }
+      );
+      if (!resp.ok) {
+        this.logger.warn(`WhatsApp template API 错误: ${await resp.text()}`);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      this.logger.warn(`WhatsApp template 失败: ${e}`);
+      return false;
+    }
   }
 
   incomingCustomMessage(message: WhatsAppMessage): void {

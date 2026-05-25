@@ -1,501 +1,225 @@
 /**
  * 通道自动注册集成函数
  * 将 channels/ 各平台实现自动注册到 ChannelRegistry
+ * 优化：先检查环境变量配置，仅导入已启用的通道模块
  */
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { channelBootstrapper } from './bootstrap/ChannelBootstrapper';
 import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
+import { channelRegistry } from './registry/ChannelRegistry';
+import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
+import type { IChannelPlugin, MessageContext } from './types/IChannel';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 根据配置自动注册 IChannelPlugin 通道
- * 读取 channels 配置中的 enabled 字段，自动注册并连接
+ * 读取环境变量确定哪些通道已启用，仅导入已启用的通道模块
  */
 export async function setupChannelsFromConfig(): Promise<{
   registered: number;
   errors: string[];
 }> {
-  // 动态导入各通道实例，避免循环依赖
-  let telegramPlugin:
-    | typeof import('../channels/telegram/TelegramChannel')
-    | undefined;
-  let discordPlugin:
-    | typeof import('../channels/discord/DiscordChannel')
-    | undefined;
-  let qqPlugin: typeof import('../channels/qq/QQChannel') | undefined;
-  let dingtalkPlugin:
-    | typeof import('../channels/dingtalk/DingTalkChannel')
-    | undefined;
-  let feishuPlugin:
-    | typeof import('../channels/feishu/FeishuChannel')
-    | undefined;
-  let wechatPlugin:
-    | typeof import('../channels/wechat/WechatChannel')
-    | undefined;
-  let slackPlugin: typeof import('../channels/slack/index') | undefined;
-  let linePlugin: typeof import('../channels/line/index') | undefined;
-  let ircPlugin: typeof import('../channels/irc/index') | undefined;
-  let nostrPlugin: typeof import('../channels/nostr/index') | undefined;
-  let emailPlugin: typeof import('../channels/email/EmailChannel') | undefined;
-  let smsPlugin: typeof import('../channels/sms/SmsChannel') | undefined;
-  let webhookPlugin:
-    | typeof import('../channels/webhook/WebhookChannel')
-    | undefined;
-  let wecomPlugin: typeof import('../channels/wecom/WeComChannel') | undefined;
-  let googleChatPlugin:
-    | typeof import('../channels/googlechat/index')
-    | undefined;
-  let msteamsPlugin: typeof import('../channels/msteams/index') | undefined;
-  let zaloPlugin: typeof import('../channels/zalo/index') | undefined;
-  let yuanbaoPlugin: typeof import('../channels/yuanbao/index') | undefined;
-  let whatsAppPlugin: typeof import('../channels/whatsapp/index') | undefined;
-  let signalPlugin: typeof import('../channels/signal/index') | undefined;
-  let matrixPlugin: typeof import('../channels/matrix/index') | undefined;
-  let facebookMessengerPlugin:
-    | typeof import('../channels/facebookmessenger/index')
-    | undefined;
-  let twitterPlugin: typeof import('../channels/twitter/index') | undefined;
-  let wechatBotPlugin:
-    | typeof import('../channels/wechat-bot/index')
-    | undefined;
-  let claudePlugin: typeof import('../channels/claude/index') | undefined;
+  const t0 = Date.now();
+  console.log(`[DIAG][${t0}] setupChannelsFromConfig: 函数入口, 开始检查通道配置...`);
 
-  try {
-    telegramPlugin = await import('../channels/telegram/TelegramChannel');
-  } catch {
-    // telegram 通道不可用
+  // 第一步：定义通道映射 + 筛选已启用的通道
+  // 注意：import() 路径定义在函数内部而非模块顶层，避免 Bun 预解析所有路径
+  const channelCandidates: Array<{
+    type: string;
+    enabled: boolean;
+    importPath: string;
+    exportKey: string;
+  }> = [
+    { type: 'telegram', enabled: !!process.env.TELEGRAM_BOT_TOKEN, importPath: '../channels/telegram/TelegramChannel', exportKey: 'telegramChannel' },
+    { type: 'discord', enabled: !!process.env.DISCORD_TOKEN, importPath: '../channels/discord/DiscordChannel', exportKey: 'discordChannel' },
+    { type: 'qq', enabled: !!process.env.QQ_APP_ID && !!process.env.QQ_APP_SECRET, importPath: '../channels/qq/QQChannel', exportKey: 'qqChannel' },
+    { type: 'dingtalk', enabled: !!process.env.DINGTALK_APP_KEY && !!process.env.DINGTALK_APP_SECRET, importPath: '../channels/dingtalk/DingTalkChannel', exportKey: 'dingtalkChannel' },
+    { type: 'feishu', enabled: !!process.env.FEISHU_APP_ID && !!process.env.FEISHU_APP_SECRET, importPath: '../channels/feishu/FeishuChannel', exportKey: 'feishuChannel' },
+    { type: 'wechat', enabled: !!process.env.WECHAT_APP_ID && !!process.env.WECHAT_APP_SECRET, importPath: '../channels/wechat/WechatChannel', exportKey: 'wechatChannel' },
+    { type: 'slack', enabled: !!process.env.SLACK_BOT_TOKEN && !!process.env.SLACK_SIGNING_SECRET, importPath: '../channels/slack/index', exportKey: 'slackChannelPlugin' },
+    { type: 'line', enabled: !!process.env.LINE_CHANNEL_ACCESS_TOKEN && !!process.env.LINE_CHANNEL_SECRET, importPath: '../channels/line/index', exportKey: 'lineChannelPlugin' },
+    { type: 'irc', enabled: !!process.env.IRC_SERVER && !!process.env.IRC_NICK, importPath: '../channels/irc/index', exportKey: 'ircChannelPlugin' },
+    { type: 'nostr', enabled: !!process.env.NOSTR_PRIVATE_KEY || !!process.env.NOSTR_RELAYS, importPath: '../channels/nostr/index', exportKey: 'nostrChannelPlugin' },
+    { type: 'email', enabled: !!process.env.EMAIL_HOST && !!process.env.EMAIL_USER, importPath: '../channels/email/EmailChannel', exportKey: 'emailChannelPlugin' },
+    { type: 'sms', enabled: !!process.env.SMS_FROM_NUMBER, importPath: '../channels/sms/SmsChannel', exportKey: 'smsChannelPlugin' },
+    { type: 'webhook', enabled: !!process.env.WEBHOOK_LISTEN_PORT, importPath: '../channels/webhook/WebhookChannel', exportKey: 'webhookChannelPlugin' },
+    { type: 'wecom', enabled: !!process.env.WECOM_CORP_ID && !!process.env.WECOM_CORP_SECRET && !!process.env.WECOM_AGENT_ID, importPath: '../channels/wecom/WeComChannel', exportKey: 'wecomChannel' },
+    { type: 'googlechat', enabled: !!process.env.GOOGLECHAT_SERVICE_ACCOUNT, importPath: '../channels/googlechat/index', exportKey: 'googleChatChannelPlugin' },
+    { type: 'msteams', enabled: !!process.env.MSTEAMS_BOT_ID && !!process.env.MSTEAMS_BOT_PASSWORD, importPath: '../channels/msteams/index', exportKey: 'msteamsChannelPlugin' },
+    { type: 'zalo', enabled: !!process.env.ZALO_APP_ID && !!process.env.ZALO_APP_SECRET, importPath: '../channels/zalo/index', exportKey: 'zaloChannelPlugin' },
+    { type: 'yuanbao', enabled: !!process.env.YUANBAO_APP_ID && !!process.env.YUANBAO_APP_KEY, importPath: '../channels/yuanbao/index', exportKey: 'yuanbaoChannelPlugin' },
+    { type: 'whatsapp', enabled: !!process.env.WHATSAPP_PHONE_NUMBER_ID && !!process.env.WHATSAPP_ACCESS_TOKEN, importPath: '../channels/whatsapp/index', exportKey: 'whatsAppChannelPlugin' },
+    { type: 'signal', enabled: !!process.env.SIGNAL_ACCOUNT, importPath: '../channels/signal/index', exportKey: 'signalChannelPlugin' },
+    { type: 'matrix', enabled: !!process.env.MATRIX_HOMESERVER_URL && !!process.env.MATRIX_ACCESS_TOKEN, importPath: '../channels/matrix/index', exportKey: 'matrixChannelPlugin' },
+    { type: 'facebook', enabled: !!process.env.FACEBOOK_PAGE_ACCESS_TOKEN, importPath: '../channels/facebookmessenger/index', exportKey: 'facebookMessengerChannelPlugin' },
+    { type: 'twitter', enabled: !!process.env.TWITTER_API_KEY && !!process.env.TWITTER_API_SECRET_KEY, importPath: '../channels/twitter/index', exportKey: 'twitterChannelPlugin' },
+    { type: 'claude', enabled: !!process.env.CLAUDE_CHANNEL_ENABLED && !!process.env.CLAUDE_API_KEY, importPath: '../channels/claude/index', exportKey: 'claudeChannelPlugin' },
+    { type: 'wechat-bot', enabled: !!process.env.WECHAT_ILINK_ENABLED, importPath: '../channels/wechat-bot/index', exportKey: 'wechatBotChannel' },
+  ];
+
+  const enabledDefs = channelCandidates.filter((c) => c.enabled);
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 筛选完成 — ${enabledDefs.length}个启用, ${channelCandidates.length - enabledDefs.length}个跳过（环境变量未配置）`);
+
+  if (enabledDefs.length === 0) {
+    console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 无启用的通道, 跳过`);
+    logger.info('通道自动注册: 无启用的通道, 跳过');
+    return { registered: 0, errors: [] };
   }
 
-  try {
-    discordPlugin = await import('../channels/discord/DiscordChannel');
-  } catch {
-    // discord 通道不可用
+  // 第二步：按 CHANNEL_PRIORITY 排序 + 硬编码上限 3（WebSocket 通道资源占用高）
+  // 未设置 CHANNEL_PRIORITY 时，按定义顺序取前 3 个
+  const MAX_CHANNELS = 3;
+  const priorityStr = process.env.CHANNEL_PRIORITY || '';
+
+  let selectedDefs: typeof enabledDefs;
+  if (priorityStr) {
+    const priorityOrder = priorityStr.split(',').map((s) => s.trim().toLowerCase());
+    const priorityMap = new Map(priorityOrder.map((t, i) => [t, i]));
+    selectedDefs = enabledDefs
+      .filter((d) => priorityMap.has(d.type))
+      .sort((a, b) => (priorityMap.get(a.type) ?? 999) - (priorityMap.get(b.type) ?? 999))
+      .slice(0, MAX_CHANNELS);
+    const skippedUnprioritized = enabledDefs.filter((d) => !priorityMap.has(d.type)).length;
+    if (skippedUnprioritized > 0) {
+      logger.info(`CHANNEL_PRIORITY 未包含的通道跳过: ${skippedUnprioritized} 个`);
+    }
+  } else {
+    selectedDefs = enabledDefs.slice(0, MAX_CHANNELS);
   }
 
-  try {
-    qqPlugin = await import('../channels/qq/QQChannel');
-  } catch {
-    // qq 通道不可用
+  const totalSkipped = enabledDefs.length - selectedDefs.length;
+  if (totalSkipped > 0) {
+    const skippedTypes = enabledDefs
+      .filter((d) => !selectedDefs.find((s) => s.type === d.type))
+      .map((d) => d.type);
+    logger.info(`通道上限 ${MAX_CHANNELS} 个, 跳过: ${skippedTypes.join(', ')}`);
   }
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 优先级排序完成 — 最终选取 ${selectedDefs.length} 个通道`);
 
-  try {
-    dingtalkPlugin = await import('../channels/dingtalk/DingTalkChannel');
-  } catch {
-    // dingtalk 通道不可用
-  }
+  // 第三步：仅导入选中的通道模块（并行导入）
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 开始并行导入 ${selectedDefs.length} 个通道模块...`);
+  const importResults = await Promise.allSettled(
+    selectedDefs.map(async (def) => {
+      const t1 = Date.now();
+      const mod = await import(def.importPath);
+      const factory = (mod as Record<string, unknown>)[def.exportKey];
+      logger.info(`通道模块导入: ${def.type} (${Date.now() - t1}ms)`);
+      return { type: def.type, factory, exportKey: def.exportKey };
+    })
+  );
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 并行导入完成`);
 
-  try {
-    feishuPlugin = await import('../channels/feishu/FeishuChannel');
-  } catch {
-    // feishu 通道不可用
-  }
+  // 第四步：注册通道工厂 + 构建配置
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 开始注册通道工厂...`);
+  const errors: string[] = [];
+  const configChannels: { type: string; enabled: boolean }[] = [];
 
-  try {
-    wechatPlugin = await import('../channels/wechat/WechatChannel');
-  } catch {
-    // wechat 通道不可用
+  for (const result of importResults) {
+    if (result.status === 'fulfilled') {
+      const { type, factory, exportKey } = result.value;
+      if (factory) {
+        channelBootstrapper.registerPluginChannel(type, () => factory as IChannelPlugin);
+        logger.info(`通道工厂已注册: ${type}`);
+      } else {
+        const msg = `通道 ${type} 模块已导入但未找到工厂属性 "${exportKey}"`;
+        logger.warning(msg);
+        errors.push(msg);
+      }
+      configChannels.push({ type, enabled: true });
+    } else {
+      const msg = `通道模块导入失败: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`;
+      logger.warning(msg);
+      errors.push(msg);
+    }
   }
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 工厂注册完成, 配置通道数=${configChannels.length}`);
 
-  try {
-    slackPlugin = await import('../channels/slack/index');
-  } catch {
-    // slack 通道不可用
-  }
-
-  try {
-    linePlugin = await import('../channels/line/index');
-  } catch {
-    // line 通道不可用
-  }
-
-  try {
-    ircPlugin = await import('../channels/irc/index');
-  } catch {
-    // irc 通道不可用
-  }
-
-  try {
-    nostrPlugin = await import('../channels/nostr/index');
-  } catch {
-    // nostr 通道不可用
-  }
-
-  try {
-    emailPlugin = await import('../channels/email/EmailChannel');
-  } catch {
-    // email 通道不可用
-  }
-
-  try {
-    smsPlugin = await import('../channels/sms/SmsChannel');
-  } catch {
-    // sms 通道不可用
-  }
-
-  try {
-    webhookPlugin = await import('../channels/webhook/WebhookChannel');
-  } catch {
-    // webhook 通道不可用
-  }
-
-  try {
-    wecomPlugin = await import('../channels/wecom/WeComChannel');
-  } catch {
-    // wecom 通道不可用
-  }
-
-  try {
-    googleChatPlugin = await import('../channels/googlechat/index');
-  } catch {
-    // googlechat 通道不可用
-  }
-
-  try {
-    msteamsPlugin = await import('../channels/msteams/index');
-  } catch {
-    // msteams 通道不可用
-  }
-
-  try {
-    zaloPlugin = await import('../channels/zalo/index');
-  } catch {
-    // zalo 通道不可用
-  }
-
-  try {
-    yuanbaoPlugin = await import('../channels/yuanbao/index');
-  } catch {
-    // yuanbao 通道不可用
-  }
-
-  try {
-    whatsAppPlugin = await import('../channels/whatsapp/index');
-  } catch {
-    // whatsapp 通道不可用
-  }
-
-  try {
-    signalPlugin = await import('../channels/signal/index');
-  } catch {
-    // signal 通道不可用
-  }
-
-  try {
-    matrixPlugin = await import('../channels/matrix/index');
-  } catch {
-    // matrix 通道不可用
-  }
-
-  try {
-    facebookMessengerPlugin =
-      await import('../channels/facebookmessenger/index');
-  } catch {
-    // facebookmessenger 通道不可用
-  }
-
-  try {
-    twitterPlugin = await import('../channels/twitter/index');
-  } catch {
-    // twitter 通道不可用
-  }
-
-  try {
-    wechatBotPlugin = await import('../channels/wechat-bot/index');
-  } catch {
-    // wechat-bot 通道不可用
-  }
-
-  try {
-    claudePlugin = await import('../channels/claude/index');
-  } catch {
-    // claude 通道不可用
-  }
-
-  // 注册 IChannelPlugin 通道工厂
-  if (telegramPlugin?.telegramChannel) {
-    channelBootstrapper.registerPluginChannel(
-      'telegram',
-      () => telegramPlugin!.telegramChannel
-    );
-  }
-  if (discordPlugin?.discordChannel) {
-    channelBootstrapper.registerPluginChannel(
-      'discord',
-      () => discordPlugin!.discordChannel
-    );
-  }
-  if (qqPlugin?.qqChannel) {
-    channelBootstrapper.registerPluginChannel('qq', () => qqPlugin!.qqChannel);
-  }
-  if (dingtalkPlugin?.dingtalkChannel) {
-    channelBootstrapper.registerPluginChannel(
-      'dingtalk',
-      () => dingtalkPlugin!.dingtalkChannel
-    );
-  }
-  if (feishuPlugin?.feishuChannel) {
-    channelBootstrapper.registerPluginChannel(
-      'feishu',
-      () => feishuPlugin!.feishuChannel
-    );
-  }
-  if (wechatPlugin?.wechatChannel) {
-    channelBootstrapper.registerPluginChannel(
-      'wechat',
-      () => wechatPlugin!.wechatChannel
-    );
-  }
-  if (slackPlugin?.slackChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'slack',
-      () => slackPlugin!.slackChannelPlugin
-    );
-  }
-  if (linePlugin?.lineChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'line',
-      () => linePlugin!.lineChannelPlugin
-    );
-  }
-  if (ircPlugin?.ircChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'irc',
-      () => ircPlugin!.ircChannelPlugin
-    );
-  }
-  if (nostrPlugin?.nostrChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'nostr',
-      () => nostrPlugin!.nostrChannelPlugin
-    );
-  }
-  if (emailPlugin?.emailChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'email',
-      () => emailPlugin!.emailChannelPlugin
-    );
-  }
-  if (smsPlugin?.smsChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'sms',
-      () => smsPlugin!.smsChannelPlugin
-    );
-  }
-  if (webhookPlugin?.webhookChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'webhook',
-      () => webhookPlugin!.webhookChannelPlugin
-    );
-  }
-  if (wecomPlugin?.wecomChannel) {
-    channelBootstrapper.registerPluginChannel(
-      'wecom',
-      () => wecomPlugin!.wecomChannel
-    );
-  }
-  if (googleChatPlugin?.googleChatChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'googlechat',
-      () => googleChatPlugin!.googleChatChannelPlugin
-    );
-  }
-  if (msteamsPlugin?.msteamsChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'msteams',
-      () => msteamsPlugin!.msteamsChannelPlugin
-    );
-  }
-  if (zaloPlugin?.zaloChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'zalo',
-      () => zaloPlugin!.zaloChannelPlugin
-    );
-  }
-  if (yuanbaoPlugin?.yuanbaoChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'yuanbao',
-      () => yuanbaoPlugin!.yuanbaoChannelPlugin
-    );
-  }
-
-  if (whatsAppPlugin?.whatsAppChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'whatsapp',
-      () => whatsAppPlugin!.whatsAppChannelPlugin
-    );
-  }
-
-  if (signalPlugin?.signalChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'signal',
-      () => signalPlugin!.signalChannelPlugin
-    );
-  }
-
-  if (matrixPlugin?.matrixChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'matrix',
-      () => matrixPlugin!.matrixChannelPlugin
-    );
-  }
-
-  if (facebookMessengerPlugin?.facebookMessengerChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'facebook',
-      () => facebookMessengerPlugin!.facebookMessengerChannelPlugin
-    );
-  }
-
-  if (twitterPlugin?.twitterChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'twitter',
-      () => twitterPlugin!.twitterChannelPlugin
-    );
-  }
-
-  if (claudePlugin?.claudeChannelPlugin) {
-    channelBootstrapper.registerPluginChannel(
-      'claude',
-      () => claudePlugin!.claudeChannelPlugin
-    );
-  }
-
-  if (wechatBotPlugin?.wechatBotChannel) {
-    channelBootstrapper.registerPluginChannel(
-      'wechat-bot',
-      () => wechatBotPlugin!.wechatBotChannel
-    );
-  }
-
-  // 构建配置（从环境变量或配置文件读取）
-  const config: ChannelBootstrapConfig = {
-    channels: [
-      {
-        type: 'telegram',
-        enabled: !!process.env.TELEGRAM_BOT_TOKEN,
-      },
-      {
-        type: 'discord',
-        enabled: !!process.env.DISCORD_TOKEN,
-      },
-      {
-        type: 'qq',
-        enabled: !!process.env.QQ_APP_ID && !!process.env.QQ_APP_SECRET,
-      },
-      {
-        type: 'dingtalk',
-        enabled:
-          !!process.env.DINGTALK_APP_KEY && !!process.env.DINGTALK_APP_SECRET,
-      },
-      {
-        type: 'feishu',
-        enabled: !!process.env.FEISHU_APP_ID && !!process.env.FEISHU_APP_SECRET,
-      },
-      {
-        type: 'wechat',
-        enabled: !!process.env.WECHAT_APP_ID && !!process.env.WECHAT_APP_SECRET,
-      },
-      {
-        type: 'slack',
-        enabled:
-          !!process.env.SLACK_BOT_TOKEN && !!process.env.SLACK_SIGNING_SECRET,
-      },
-      {
-        type: 'line',
-        enabled:
-          !!process.env.LINE_CHANNEL_ACCESS_TOKEN &&
-          !!process.env.LINE_CHANNEL_SECRET,
-      },
-      {
-        type: 'irc',
-        enabled: !!process.env.IRC_SERVER && !!process.env.IRC_NICK,
-      },
-      {
-        type: 'nostr',
-        enabled: !!process.env.NOSTR_PRIVATE_KEY || !!process.env.NOSTR_RELAYS,
-      },
-      {
-        type: 'email',
-        enabled: !!process.env.EMAIL_HOST && !!process.env.EMAIL_USER,
-      },
-      {
-        type: 'sms',
-        enabled: !!process.env.SMS_FROM_NUMBER,
-      },
-      {
-        type: 'webhook',
-        enabled: !!process.env.WEBHOOK_LISTEN_PORT,
-      },
-      {
-        type: 'wecom',
-        enabled:
-          !!process.env.WECOM_CORP_ID &&
-          !!process.env.WECOM_CORP_SECRET &&
-          !!process.env.WECOM_AGENT_ID,
-      },
-      {
-        type: 'googlechat',
-        enabled: !!process.env.GOOGLECHAT_SERVICE_ACCOUNT,
-      },
-      {
-        type: 'msteams',
-        enabled:
-          !!process.env.MSTEAMS_BOT_ID && !!process.env.MSTEAMS_BOT_PASSWORD,
-      },
-      {
-        type: 'zalo',
-        enabled: !!process.env.ZALO_APP_ID && !!process.env.ZALO_APP_SECRET,
-      },
-      {
-        type: 'yuanbao',
-        enabled: !!process.env.YUANBAO_APP_ID && !!process.env.YUANBAO_APP_KEY,
-      },
-      {
-        type: 'whatsapp',
-        enabled:
-          !!process.env.WHATSAPP_PHONE_NUMBER_ID &&
-          !!process.env.WHATSAPP_ACCESS_TOKEN,
-      },
-      {
-        type: 'signal',
-        enabled: !!process.env.SIGNAL_ACCOUNT,
-      },
-      {
-        type: 'matrix',
-        enabled:
-          !!process.env.MATRIX_HOMESERVER_URL &&
-          !!process.env.MATRIX_ACCESS_TOKEN,
-      },
-      {
-        type: 'facebook',
-        enabled: !!process.env.FACEBOOK_PAGE_ACCESS_TOKEN,
-      },
-      {
-        type: 'twitter',
-        enabled:
-          !!process.env.TWITTER_API_KEY && !!process.env.TWITTER_API_SECRET_KEY,
-      },
-      {
-        type: 'claude',
-        enabled: !!process.env.CLAUDE_API_KEY,
-      },
-      {
-        type: 'wechat-bot',
-        enabled: !!process.env.WECHAT_BOT_HTTP_URL,
-      },
-    ],
-  };
-
+  // 第五步：执行 bootstrap
+  const config: ChannelBootstrapConfig = { channels: configChannels };
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 开始 bootstrap...`);
   const result = await channelBootstrapper.bootstrap(config);
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: bootstrap 完成 (registered=${result.registered})`);
 
   if (result.registered > 0) {
     logger.info(`通道自动注册完成: ${result.registered} 通道已注册`);
   }
 
-  if (result.errors.length > 0) {
-    logger.warning('通道注册存在错误', { errors: result.errors });
+  // 第六步：返回（连接延迟到应用启动后由 lazyConnectChannels() 执行）
+  console.log(`[DIAG][${Date.now()}] setupChannelsFromConfig: 函数返回, 总耗时=${Date.now() - t0}ms`);
+  logger.info(`通道自动注册结束, 总耗时: ${Date.now() - t0}ms`);
+  return result;
+}
+
+/**
+ * 延迟连接所有已注册的通道
+ * 在应用完全启动后在后台执行，不阻塞主流程
+ * 每个通道带 5 秒超时保护
+ */
+export async function lazyConnectChannels(): Promise<void> {
+  const t0 = Date.now();
+  const channels = channelRegistry.getEnabled();
+  if (channels.length === 0) {
+    return;
   }
 
-  return result;
+  console.log(`[DIAG][${Date.now()}] lazyConnectChannels: 开始后台连接 ${channels.length} 个通道...`);
+  let connectedCount = 0;
+  const errors: string[] = [];
+
+  for (const channel of channels) {
+    try {
+      await Promise.race([
+        channel.connect(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`通道 ${channel.name} 连接超时 (5s)`)), 5000)
+        ),
+      ]);
+      connectedCount++;
+      logger.info(`通道已连接: ${channel.name}`);
+
+      // 查找对应的 IChannelPlugin 实例，设置入站消息处理器
+      const plugin = channelBootstrapper.getPluginInstance(channel.name);
+      if (plugin?.inbound) {
+        plugin.inbound.setMessageHandler(async (message: MessageContext) => {
+          try {
+            const coreAPI = getCoreAPI();
+            const response = await coreAPI.chat({
+              content: message.content,
+              sessionId: message.conversationId ?? message.senderId,
+              metadata: {
+                channel: message.channelId,
+                sender: message.senderId,
+                messageType: message.messageType,
+                isDirectMessage: message.isDirectMessage,
+                rawPayload: message.rawPayload,
+              },
+            });
+
+            if (response.content && plugin.outbound) {
+              await plugin.outbound.sendText(
+                message.conversationId ?? message.senderId,
+                response.content
+              );
+            }
+          } catch (error) {
+            logger.error(`通道 ${channel.name} 入站消息处理失败`, {
+              messageId: message.messageId,
+              error: String(error),
+            });
+          }
+        });
+        logger.info(`通道入站消息处理器已注册: ${channel.name}`);
+      }
+    } catch (error) {
+      const msg = `连接通道失败: ${channel.name} — ${error instanceof Error ? error.message : String(error)}`;
+      logger.warning(msg);
+      errors.push(msg);
+    }
+  }
+
+  console.log(`[DIAG][${Date.now()}] lazyConnectChannels: 连接完成 (connected=${connectedCount}, failed=${errors.length}), 耗时=${Date.now() - t0}ms`);
+  if (errors.length > 0) {
+    logger.warning('延迟通道连接存在错误', { errors });
+  }
 }

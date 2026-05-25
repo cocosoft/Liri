@@ -11,10 +11,19 @@ import type {
   ChannelCapabilities,
   SendResult,
   InteractiveCard,
+  MessageContext,
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+
+interface DirectoryEntry {
+  id: string;
+  name: string;
+  type: 'group' | 'channel' | 'user';
+  parentId?: string;
+  metadata?: Record<string, unknown>;
+}
 
 const DISCORD_META: ChannelMeta = {
   id: 'discord',
@@ -47,6 +56,72 @@ interface DiscordState {
   clientId: string;
   gatewayUrl: string;
   sequence: number | null;
+}
+
+/** 消息去重（基于 messageId，5 秒窗口） */
+class DiscordDedup {
+  private cache = new Map<string, number>();
+  private readonly ttlMs = 5000;
+
+  claim(key: string): boolean {
+    const now = Date.now();
+    this.evict(now);
+    if (this.cache.has(key)) return false;
+    this.cache.set(key, now + this.ttlMs);
+    return true;
+  }
+
+  private evict(now: number): void {
+    for (const [k, expires] of this.cache) {
+      if (expires < now) this.cache.delete(k);
+    }
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+/** 会话存储（基于 channelId 保存最近会话信息） */
+class DiscordConversationStore {
+  private store = new Map<string, { guildId: string | null; lastMessageId: string; timestamp: number }>();
+  private readonly maxEntries = 200;
+
+  save(channelId: string, guildId: string | null, lastMessageId: string): void {
+    this.store.set(channelId, { guildId, lastMessageId, timestamp: Date.now() });
+    if (this.store.size > this.maxEntries) {
+      const oldest = [...this.store.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+      if (oldest) this.store.delete(oldest[0]);
+    }
+  }
+
+  get(channelId: string): { guildId: string | null; lastMessageId: string } | undefined {
+    const entry = this.store.get(channelId);
+    return entry ? { guildId: entry.guildId, lastMessageId: entry.lastMessageId } : undefined;
+  }
+
+  getAll(): Array<{ channelId: string; guildId: string | null; lastMessageId: string }> {
+    return [...this.store.entries()].map(([channelId, v]) => ({
+      channelId,
+      guildId: v.guildId,
+      lastMessageId: v.lastMessageId,
+    }));
+  }
+}
+
+/** Discord Gateway OP Code */
+const enum DiscordOp {
+  DISPATCH = 0,
+  HEARTBEAT = 1,
+  IDENTIFY = 2,
+  PRESENCE_UPDATE = 3,
+  VOICE_STATE_UPDATE = 4,
+  RESUME = 6,
+  RECONNECT = 7,
+  REQUEST_GUILD_MEMBERS = 8,
+  INVALID_SESSION = 9,
+  HELLO = 10,
+  HEARTBEAT_ACK = 11,
 }
 
 /**
@@ -85,6 +160,13 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
     gatewayUrl: '',
     sequence: null,
   };
+
+  private ws: WebSocket | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private hbInterval = 0;
+  private seq: number | null = null;
+  private dedup = new DiscordDedup();
+  private convStore = new DiscordConversationStore();
 
   constructor() {
     super();
@@ -323,9 +405,254 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
     }
   }
 
+  private startGateway(): void {
+    if (!this.st.gatewayUrl) {
+      this.logger.error('Discord Gateway 无法启动: 未获取 gatewayUrl');
+      return;
+    }
+
+    const url =
+      this.st.gatewayUrl.replace('wss://', 'wss://') + '/?v=10&encoding=json';
+    this.ws = new WebSocket(url);
+
+    this.ws.onopen = () => {
+      this.logger.info('Discord Gateway WebSocket 已连接');
+    };
+
+    this.ws.onmessage = (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(event.data as string) as Record<
+          string,
+          unknown
+        >;
+        this.handleGatewayPayload(payload);
+      } catch (err) {
+        this.logger.error('Discord Gateway 消息解析失败', {
+          error: String(err),
+        });
+      }
+    };
+
+    this.ws.onclose = (event: CloseEvent) => {
+      this.logger.warn('Discord Gateway WebSocket 已关闭', {
+        code: event.code,
+        reason: event.reason,
+      });
+      this.clearHeartbeat();
+      this.ws = null;
+      if (this.inboundListening) {
+        this.logger.info('Discord Gateway 将在 5 秒后重连...');
+        setTimeout(() => this.startGateway(), 5000);
+      }
+    };
+
+    this.ws.onerror = (event: Event) => {
+      this.logger.error('Discord Gateway WebSocket 错误', {
+        error: String(event),
+      });
+    };
+  }
+
+  private clearHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private stopGateway(): void {
+    this.clearHeartbeat();
+    if (this.ws) {
+      this.ws.close(1000, 'Bot shutdown');
+      this.ws = null;
+    }
+  }
+
+  private handleGatewayPayload(payload: Record<string, unknown>): void {
+    const op = payload['op'] as number;
+    const d = payload['d'] as Record<string, unknown>;
+    const seq = payload['s'] as number | null;
+    const t = payload['t'] as string | undefined;
+
+    if (seq !== null && seq !== undefined) {
+      this.seq = seq;
+      this.st.sequence = seq;
+    }
+
+    switch (op) {
+      case DiscordOp.HELLO: {
+        const heartbeatInterval =
+          (d?.['heartbeat_interval'] as number) || 41250;
+        this.hbInterval = heartbeatInterval;
+        this.heartbeatTimer = setInterval(() => {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(
+              JSON.stringify({ op: DiscordOp.HEARTBEAT, d: this.seq })
+            );
+          }
+        }, heartbeatInterval);
+        this.identify();
+        break;
+      }
+
+      case DiscordOp.DISPATCH: {
+        if (t === 'READY') {
+          const user = d?.['user'] as Record<string, unknown> | undefined;
+          const userName = (user?.['username'] as string) || '?';
+          this.logger.info(`Discord Gateway 已就绪 (Bot: ${userName})`);
+        } else if (t === 'MESSAGE_CREATE') {
+          this.handleMessageCreate(d);
+        }
+        break;
+      }
+
+      case DiscordOp.HEARTBEAT_ACK: {
+        // 心跳回复确认，无需特殊处理
+        break;
+      }
+
+      case DiscordOp.RECONNECT: {
+        this.logger.warn('Discord Gateway 要求重连');
+        this.stopGateway();
+        setTimeout(() => this.startGateway(), 1000);
+        break;
+      }
+
+      case DiscordOp.INVALID_SESSION: {
+        this.logger.warn('Discord Gateway Session 无效，重新识别');
+        this.ws?.close(1000, 'Invalid session');
+        setTimeout(() => this.startGateway(), 2000);
+        break;
+      }
+    }
+  }
+
+  private identify(): void {
+    const intents = (1 << 9) | (1 << 12) | (1 << 15); // GUILD_MESSAGES | DIRECT_MESSAGES | MESSAGE_CONTENT
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          op: DiscordOp.IDENTIFY,
+          d: {
+            token: this.st.botToken,
+            intents,
+            properties: {
+              os: 'windows',
+              browser: 'pyapp',
+              device: 'pyapp',
+            },
+          },
+        })
+      );
+    }
+  }
+
+  private handleMessageCreate(d: Record<string, unknown>): void {
+    const author = d['author'] as Record<string, unknown> | undefined;
+    if (!author || author['bot'] === true) return;
+
+    const channelId = d['channel_id'] as string;
+    const guildId = d['guild_id'] as string | undefined;
+    const content = (d['content'] as string) || '';
+    const messageId = d['id'] as string;
+    const timestamp = d['timestamp'] as string;
+
+    // 去重
+    if (!this.dedup.claim(messageId)) return;
+
+    // 保存会话信息
+    this.convStore.save(channelId, guildId || null, messageId);
+
+    const message: MessageContext = {
+      channelId: 'discord',
+      senderId: String(author['id'] || ''),
+      senderName:
+        (author['username'] as string) ||
+        (author['global_name'] as string) ||
+        '',
+      groupId: guildId,
+      conversationId: channelId,
+      messageId: messageId,
+      messageType: 'text',
+      content: content,
+      timestamp: new Date(timestamp || Date.now()).getTime(),
+      isDirectMessage: !guildId,
+      rawPayload: d,
+    };
+
+    this.handleIncomingMessage(message).catch((err) => {
+      this.logger.error('Discord 消息处理异常', { error: String(err) });
+    });
+  }
+
   /**
-   * 创建入站适配器（WebSocket 协议，尚未实现）
-   * TODO: 连接 Discord Gateway WebSocket，监听 MESSAGE_CREATE 事件
+   * 列出 Bot 所在的服务器
+   */
+  async listGuilds(): Promise<DirectoryEntry[]> {
+    if (!this.st.botToken) return [];
+    try {
+      const resp = await fetch(`${DISCORD_API_BASE}/users/@me/guilds`, {
+        headers: { Authorization: `Bot ${this.st.botToken}` },
+      });
+      if (!resp.ok) return [];
+      const data = (await resp.json()) as Array<Record<string, unknown>>;
+      return data.map((g) => ({
+        id: g['id'] as string,
+        name: g['name'] as string,
+        type: 'group' as const,
+        metadata: { icon: g['icon'] as string | undefined },
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 列出服务器中的频道
+   */
+  async listChannels(guildId: string): Promise<DirectoryEntry[]> {
+    if (!this.st.botToken) return [];
+    try {
+      const resp = await fetch(`${DISCORD_API_BASE}/guilds/${guildId}/channels`, {
+        headers: { Authorization: `Bot ${this.st.botToken}` },
+      });
+      if (!resp.ok) return [];
+      const data = (await resp.json()) as Array<Record<string, unknown>>;
+      return data.map((ch) => ({
+        id: ch['id'] as string,
+        name: `#${ch['name'] as string}`,
+        type: ch['type'] === 4 ? 'group' as const : 'channel' as const,
+        parentId: ch['parent_id'] as string | undefined,
+        metadata: { type: ch['type'] as number },
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 解析用户信息
+   */
+  async resolveUser(userId: string): Promise<{ userId: string; displayName: string } | null> {
+    if (!this.st.botToken) return null;
+    try {
+      const resp = await fetch(`${DISCORD_API_BASE}/users/${userId}`, {
+        headers: { Authorization: `Bot ${this.st.botToken}` },
+      });
+      if (!resp.ok) return null;
+      const data = (await resp.json()) as Record<string, unknown>;
+      return {
+        userId: data['id'] as string,
+        displayName: (data['global_name'] as string) || (data['username'] as string) || 'Unknown',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 创建入站适配器（WebSocket Gateway 协议）
+   * 连接 Discord Gateway WebSocket，监听 MESSAGE_CREATE 事件
    */
   protected override createInboundAdapter(): IChannelInboundAdapter {
     const self = this;
@@ -337,14 +664,15 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
       },
 
       start: async (_config: Record<string, unknown>): Promise<void> => {
-        self.logger.warn(
-          'Discord 入站消息接收未实现（需连接 Discord Gateway WebSocket，监听 MESSAGE_CREATE 事件）'
-        );
-        self.setInboundListening(false);
+        self.logger.info('Discord Gateway 入站消息监听启动');
+        self.setInboundListening(true);
+        self.startGateway();
       },
 
       stop: async (): Promise<void> => {
+        self.stopGateway();
         self.setInboundListening(false);
+        self.logger.info('Discord Gateway 入站消息监听已停止');
       },
 
       setMessageHandler: (
@@ -358,9 +686,10 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   }
 }
 
-function createDiscordChannel(): IChannelPlugin {
+export function createDiscordChannel(): IChannelPlugin {
   return new DiscordChannelPlugin();
 }
 
 export const discordChannel = createDiscordChannel();
+export const discordChannelPlugin = createDiscordChannel();
 export { buildDiscordEmbed };

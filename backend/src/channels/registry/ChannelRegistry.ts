@@ -47,6 +47,10 @@ export function adaptPluginToInterface(
     get connected() {
       return plugin.lifecycle.getStatus().connected;
     },
+    get homeChannelId() {
+      return (plugin as unknown as Record<string, string | undefined>)
+        .homeChannelId;
+    },
     connect: async () => {
       await plugin.lifecycle.connect({});
       return plugin.lifecycle.getStatus().connected;

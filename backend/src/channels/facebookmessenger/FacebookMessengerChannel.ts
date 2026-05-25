@@ -94,22 +94,88 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    this.eventBus.emit('message:sent', { recipientId: target, body: content });
-    return { success: true };
+    try {
+      const url = new URL('https://graph.facebook.com/v21.0/me/messages');
+      url.searchParams.set('access_token', this._pageAccessToken);
+      const resp = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: target },
+          messaging_type: 'UPDATE',
+          message: { text: content },
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        return { success: false, error: `Facebook API 错误: ${err}` };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }
 
   protected async sendImageMessage(
     target: string,
     imageUrl: string
   ): Promise<SendResult> {
-    return this.sendTextMessage(target, `[图片] ${imageUrl}`);
+    try {
+      const url = new URL('https://graph.facebook.com/v21.0/me/messages');
+      url.searchParams.set('access_token', this._pageAccessToken);
+      const resp = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: target },
+          messaging_type: 'UPDATE',
+          message: {
+            attachment: {
+              type: 'image',
+              payload: { url: imageUrl, is_reusable: true },
+            },
+          },
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        return { success: false, error: `Facebook API 错误: ${err}` };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }
 
   protected async sendFileMessage(
-    _target: string,
-    _filePath: string
+    target: string,
+    filePath: string
   ): Promise<SendResult> {
-    return { success: false, error: 'FacebookMessenger: sendFile 未实现' };
+    try {
+      const url = new URL('https://graph.facebook.com/v21.0/me/messages');
+      url.searchParams.set('access_token', this._pageAccessToken);
+      const resp = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: target },
+          messaging_type: 'UPDATE',
+          message: {
+            attachment: {
+              type: 'file',
+              payload: { url: filePath, is_reusable: false },
+            },
+          },
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        return { success: false, error: `Facebook API 错误: ${err}` };
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   }
 
   async sendAttachment(
@@ -117,12 +183,34 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
     attachmentType: string,
     url: string
   ): Promise<boolean> {
-    this.eventBus.emit('attachment_sent', {
-      recipientId: target,
-      type: attachmentType,
-      url,
-    });
-    return true;
+    try {
+      const apiUrl = new URL('https://graph.facebook.com/v21.0/me/messages');
+      apiUrl.searchParams.set('access_token', this._pageAccessToken);
+      const resp = await fetch(apiUrl.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: { id: target },
+          messaging_type: 'UPDATE',
+          message: {
+            attachment: {
+              type: attachmentType,
+              payload: { url, is_reusable: true },
+            },
+          },
+        }),
+      });
+      if (!resp.ok) {
+        this.logger.warn(
+          `Facebook sendAttachment API 错误: ${await resp.text()}`
+        );
+        return false;
+      }
+      return true;
+    } catch (e) {
+      this.logger.warn(`Facebook sendAttachment 失败: ${e}`);
+      return false;
+    }
   }
 
   incomingCustomMessage(message: FacebookMessengerMessage): void {

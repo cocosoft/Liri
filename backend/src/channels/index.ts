@@ -1,6 +1,4 @@
 export {
-  IrcChannel,
-  ircChannel,
   createIrcChannel,
   ircChannelPlugin,
 } from './irc/index.js';
@@ -11,8 +9,6 @@ export {
   slackChannelPlugin,
 } from './slack/index.js';
 export {
-  LineChannel,
-  lineChannel,
   createLineChannel,
   lineChannelPlugin,
 } from './line/index.js';
@@ -54,17 +50,9 @@ export {
   yuanbaoChannelPlugin,
 } from './yuanbao/index.js';
 export {
-  GoogleChatChannel,
-  googleChatChannel,
   createGoogleChatChannel,
   googleChatChannelPlugin,
 } from './googlechat/index.js';
-export {
-  MSTeamsChannel,
-  msteamsChannel,
-  createMSTeamsChannel,
-  msteamsChannelPlugin,
-} from './msteams/index.js';
 export {
   WhatsAppChannel,
   whatsAppChannel,
@@ -78,8 +66,6 @@ export {
   signalChannelPlugin,
 } from './signal/index.js';
 export {
-  MatrixChannel,
-  matrixChannel,
   createMatrixChannel,
   matrixChannelPlugin,
 } from './matrix/index.js';
@@ -101,8 +87,46 @@ export {
   createClaudeChannel,
   claudeChannelPlugin,
 } from './claude/index.js';
-export { wecomChannel } from './wecom/index.js';
-export { qqChannel } from './qq/index.js';
+export {
+  wecomChannel,
+  createWecomChannel,
+  wecomChannelPlugin,
+} from './wecom/index.js';
+export {
+  qqChannel,
+  createQQChannel,
+  qqChannelPlugin,
+} from './qq/index.js';
+export {
+  telegramChannel,
+  createTelegramChannel,
+  telegramChannelPlugin,
+} from './telegram/index.js';
+export {
+  wechatChannel,
+  createWechatChannel,
+  wechatChannelPlugin,
+} from './wechat/index.js';
+export {
+  discordChannel,
+  createDiscordChannel,
+  discordChannelPlugin,
+} from './discord/index.js';
+export {
+  feishuChannel,
+  createFeishuChannel,
+  feishuChannelPlugin,
+} from './feishu/index.js';
+export {
+  dingtalkChannel,
+  createDingtalkChannel,
+  dingtalkChannelPlugin,
+} from './dingtalk/index.js';
+export {
+  wechatBotChannel,
+  createWechatBotChannel,
+  wechatBotChannelPlugin,
+} from './wechat-bot/index.js';
 
 // PlatformAdapter — 轻量平台适配器体系
 export {

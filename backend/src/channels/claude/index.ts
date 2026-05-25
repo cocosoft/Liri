@@ -1,3 +1,7 @@
+/**
+ * channels/claude/index.ts - Claude 通道导出
+ */
+
 export {
   ClaudeChannel,
   claudeChannel,
@@ -5,3 +9,37 @@ export {
   claudeChannelPlugin,
 } from './ClaudeChannel.js';
 export type { ClaudeConfig, ClaudeMessage } from './ClaudeChannel.js';
+
+export { getDefaultClaudeConfig, validateClaudeConfig } from './config-schema.js';
+export type { ClaudeConfig as ClaudeChannelConfig } from './config-schema.js';
+
+export {
+  registerClaudeAccount,
+  getClaudeAccount,
+  resolveClaudeAccount,
+  listClaudeAccountIds,
+  removeClaudeAccount,
+} from './accounts.js';
+export type { ClaudeAccount, ResolvedClaudeAccount } from './accounts.js';
+
+export { ClaudeMonitor } from './monitor.js';
+export type {
+  MonitorEvent as ClaudeMonitorEvent,
+  MonitorStats as ClaudeMonitorStats,
+} from './monitor.js';
+
+export { diagnoseClaude } from './doctor.js';
+export type {
+  DiagnosisResult as ClaudeDiagnosisResult,
+  ClaudeDiagnosisContext,
+} from './doctor.js';
+
+export { claudeProbe } from './probe.js';
+export type { ProbeResult as ClaudeProbeResult } from './probe.js';
+
+export {
+  setClaudeRuntime,
+  getClaudeRuntime,
+  clearClaudeRuntime,
+} from './runtime.js';
+export type { ClaudeRuntime, ClaudeRuntimeStatus } from './runtime.js';

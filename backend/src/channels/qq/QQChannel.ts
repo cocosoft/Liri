@@ -56,19 +56,60 @@ const enum QQOpCode {
   HEARTBEAT_ACK = 11,
 }
 
+/** QQ Bot WebSocket 关闭码 */
+const enum QQCloseCode {
+  NORMAL = 1000,
+  AUTH_FAILED = 4004,
+  INVALID_SESSION = 4006,
+  SEQ_OUT_OF_RANGE = 4007,
+  RATE_LIMITED = 4008,
+  SESSION_TIMEOUT = 4009,
+  SERVER_ERROR_START = 4900,
+  SERVER_ERROR_END = 4913,
+  INSUFFICIENT_INTENTS = 4914,
+  DISALLOWED_INTENTS = 4915,
+}
+
 /** QQ Bot WebSocket 事件类型 */
 const QQEventType = {
   READY: 'READY',
+  RESUMED: 'RESUMED',
   AT_MESSAGE_CREATE: 'AT_MESSAGE_CREATE',
+  C2C_MESSAGE_CREATE: 'C2C_MESSAGE_CREATE',
+  GROUP_AT_MESSAGE_CREATE: 'GROUP_AT_MESSAGE_CREATE',
+  DIRECT_MESSAGE_CREATE: 'DIRECT_MESSAGE_CREATE',
 } as const;
 
-/** QQ Bot 网关意图：GUILD_MESSAGES = 1 << 30，覆盖 AT_MESSAGE_CREATE */
-const QQ_INTENT_GUILD_MESSAGES = 1 << 30;
+/**
+ * QQ Bot 网关意图（OpenClaw FULL_INTENTS 标准）
+ * 1 << 30: PUBLIC_GUILD_MESSAGES（频道消息）
+ * 1 << 25: GROUP_AND_C2C（群聊和私信）
+ * 1 << 12: DIRECT_MESSAGE（频道私信）
+ */
+const QQ_INTENT_FULL = (1 << 30) | (1 << 25) | (1 << 12);
+
+/** 重连指数退避延迟（毫秒） */
+const RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000, 60000] as const;
+
+/** 最大重连尝试次数 */
+const MAX_RECONNECT_ATTEMPTS = 50;
+
+/** 限流等待延迟（毫秒） */
+const RATE_LIMIT_DELAY = 60000;
+
+/** 快速断开检测阈值（毫秒） */
+const QUICK_DISCONNECT_THRESHOLD = 5000;
+
+/** Token 后台刷新提前量（毫秒）：过期前 5 分钟刷新 */
+const TOKEN_REFRESH_AHEAD_MS = 5 * 60 * 1000;
 
 class QQChannelPlugin extends BaseChannelPlugin {
   readonly id = 'qq';
   readonly meta = QQ_META;
   readonly capabilities = QQ_CAPABILITIES;
+
+  /** 默认发送目标（QQ 号或群号），从 QQ_HOME_CHANNEL_ID 环境变量读取 */
+  override homeChannelId = '';
 
   private appId = '';
   private secret = '';
@@ -90,9 +131,29 @@ class QQChannelPlugin extends BaseChannelPlugin {
   private lastSeq: number | null = null;
   private heartbeatIntervalMs = 30000;
   private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 5;
-  private readonly reconnectBaseDelay = 2000;
   private shouldReconnect = true;
+  private lastCloseCode = 0;
+
+  /** 快速断开检测计数 */
+  private quickDisconnectCount = 0;
+
+  /** 上次连接时间戳 */
+  private lastConnectTime = 0;
+
+  /** Token 后台刷新定时器 */
+  private tokenRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** 是否需要在重连前刷新 Token */
+  private needsTokenRefresh = false;
+
+  /** 是否需要在重连前清理会话 */
+  private needsSessionClear = false;
+
+  /** 消息去重缓存：message_id → 时间戳 */
+  private readonly dedupCache = new Map<string, number>();
+
+  /** 消息去重窗口（毫秒） */
+  private readonly dedupWindowMs = 300_000;
 
   /** QQ 提及正则（@bot） */
   private readonly mentionPattern = /<@!\d+>/g;
@@ -137,14 +198,24 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   protected validateConfig(config: Record<string, unknown>): string[] {
     const errors: string[] = [];
-    if (!config['appId']) errors.push('缺少 appId (QQ Bot AppID)');
-    if (!config['secret']) errors.push('缺少 secret (QQ Bot AppSecret)');
+    const appId =
+      (config['appId'] as string) || (process.env['QQ_APP_ID'] as string) || '';
+    const secret =
+      (config['secret'] as string) ||
+      (process.env['QQ_APP_SECRET'] as string) ||
+      '';
+    if (!appId) errors.push('缺少 appId (QQ Bot AppID)');
+    if (!secret) errors.push('缺少 secret (QQ Bot AppSecret)');
     return errors;
   }
 
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
-    this.appId = (config['appId'] as string) || '';
-    this.secret = (config['secret'] as string) || '';
+    this.appId =
+      (config['appId'] as string) || (process.env['QQ_APP_ID'] as string) || '';
+    this.secret =
+      (config['secret'] as string) ||
+      (process.env['QQ_APP_SECRET'] as string) ||
+      '';
 
     if (!this.appId || !this.secret)
       throw new AppError(
@@ -160,7 +231,55 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     this.gatewayUrl = (config['wsHost'] as string) || 'api.sgroup.qq.com';
 
+    // 读取默认发送目标
+    this.homeChannelId =
+      (config['homeChannelId'] as string) ||
+      (process.env['QQ_HOME_CHANNEL_ID'] as string) ||
+      '';
+
+    // 在后台异步启动入站 WebSocket 长连接监听，不阻塞连接完成
+    // 出站消息发送依赖 HTTP API（只需 Access Token），无需等待 WebSocket 就绪
+    this.inbound.start({}).catch((error) => {
+      this.logger.error('QQ Bot WebSocket 后台连接失败', {
+        error: String(error),
+      });
+    });
+
+    // 启动 Token 后台刷新（对标 OpenClaw TokenManager.startBackgroundRefresh）
+    this.startTokenBackgroundRefresh();
+
     this.logger.info('QQ Bot 通道已连接');
+  }
+
+  /**
+   * 启动 Token 后台定时刷新
+   * 对标 OpenClaw TokenManager.startBackgroundRefresh
+   */
+  private startTokenBackgroundRefresh(): void {
+    this.stopTokenBackgroundRefresh();
+
+    this.tokenRefreshTimer = setInterval(async () => {
+      if (Date.now() + TOKEN_REFRESH_AHEAD_MS >= this.accessTokenExpiresAt) {
+        try {
+          await this.refreshAccessToken();
+          this.logger.info('QQ Bot Token 已后台刷新');
+        } catch (e) {
+          this.logger.error('QQ Bot Token 后台刷新失败', {
+            error: String(e),
+          });
+        }
+      }
+    }, 60000);
+  }
+
+  /**
+   * 停止 Token 后台刷新
+   */
+  private stopTokenBackgroundRefresh(): void {
+    if (this.tokenRefreshTimer) {
+      clearInterval(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = null;
+    }
   }
 
   /**
@@ -215,10 +334,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   protected override async onDisconnect(): Promise<void> {
     this.shouldReconnect = false;
+    this.stopTokenBackgroundRefresh();
     await this.stopInboundConnection();
     this.clearTimers();
     this.accessToken = '';
     this.accessTokenExpiresAt = 0;
+    this.sessionId = null;
+    this.lastSeq = null;
+    this.dedupCache.clear();
   }
 
   protected override async checkHealth(): Promise<{
@@ -237,6 +360,57 @@ class QQChannelPlugin extends BaseChannelPlugin {
     }
   }
 
+  /**
+   * 解析 target 格式，返回目标类型和真实 ID
+   * "c2c:{openid}" → { scope: "c2c", targetId: "{openid}" }
+   * "group:{group_openid}" → { scope: "group", targetId: "{group_openid}" }
+   * "{channel_id}" → { scope: "guild", targetId: "{channel_id}" }
+   * 对标 OpenClaw routes.ts messagePath
+   */
+  private parseTarget(target: string): { scope: 'c2c' | 'group' | 'guild'; targetId: string } {
+    if (target.startsWith('c2c:')) {
+      return { scope: 'c2c', targetId: target.slice(4) };
+    }
+    if (target.startsWith('group:')) {
+      return { scope: 'group', targetId: target.slice(6) };
+    }
+    return { scope: 'guild', targetId: target };
+  }
+
+  /**
+   * 构建消息发送 API URL（对标 OpenClaw routes.ts messagePath）
+   */
+  private getMessageApiUrl(target: string): string {
+    const parsed = this.parseTarget(target);
+    const base = 'https://api.sgroup.qq.com';
+
+    switch (parsed.scope) {
+      case 'c2c':
+        return `${base}/v2/users/${parsed.targetId}/messages`;
+      case 'group':
+        return `${base}/v2/groups/${parsed.targetId}/messages`;
+      case 'guild':
+        return `${base}/channels/${parsed.targetId}/messages`;
+    }
+  }
+
+  /**
+   * 构建媒体上传 API URL（对标 OpenClaw routes.ts mediaUploadPath）
+   */
+  private getMediaUploadApiUrl(target: string): string {
+    const parsed = this.parseTarget(target);
+    const base = 'https://api.sgroup.qq.com';
+
+    switch (parsed.scope) {
+      case 'c2c':
+        return `${base}/v2/users/${parsed.targetId}/files`;
+      case 'group':
+        return `${base}/v2/groups/${parsed.targetId}/files`;
+      case 'guild':
+        return `${base}/channels/${parsed.targetId}/files`;
+    }
+  }
+
   protected async sendTextMessage(
     target: string,
     content: string
@@ -247,11 +421,8 @@ class QQChannelPlugin extends BaseChannelPlugin {
       const body = {
         msg_type: 0,
         content: content.slice(0, QQ_META.maxMessageLength),
-        msg_id: `${Date.now()}`,
       };
-      const url = target.includes('channels/')
-        ? `https://api.sgroup.qq.com/channels/${target}/messages`
-        : `https://api.sgroup.qq.com/v2/users/${target}/messages`;
+      const url = this.getMessageApiUrl(target);
 
       const resp = await fetch(url, {
         method: 'POST',
@@ -285,17 +456,16 @@ class QQChannelPlugin extends BaseChannelPlugin {
         markdown: { content },
         msg_id: `${Date.now()}`,
       };
-      const resp = await fetch(
-        `https://api.sgroup.qq.com/v2/users/${target}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `QQBot ${token}`,
-          },
-          body: JSON.stringify(body),
-        }
-      );
+      const url = this.getMessageApiUrl(target);
+
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `QQBot ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
       const data = (await resp.json()) as Record<string, unknown>;
       return {
         success: resp.ok,
@@ -307,21 +477,150 @@ class QQChannelPlugin extends BaseChannelPlugin {
     }
   }
 
+  /**
+   * 上传文件到 QQ Bot 媒体库
+   * POST /v2/groups/{group_id}/files 或 /v2/users/{user_id}/files
+   */
+  private async uploadQQFile(
+    target: string,
+    fileUrlOrPath: string,
+    fileType: number
+  ): Promise<{ fileUuid?: string; error?: string }> {
+    try {
+      // 如果是本地路径，先读取文件内容后通过 data URI 上传
+      let uploadUrl = fileUrlOrPath;
+      if (
+        !fileUrlOrPath.startsWith('http://') &&
+        !fileUrlOrPath.startsWith('https://')
+      ) {
+        const fs = await import('node:fs');
+        const path = await import('node:path');
+        const buf = fs.readFileSync(fileUrlOrPath);
+        const ext = path.extname(fileUrlOrPath).slice(1) || 'bin';
+        const base64 = buf.toString('base64');
+        uploadUrl = `data:application/octet-stream;base64,${base64}`;
+      }
+
+      // 根据目标类型选择正确的上传 API
+      const uploadUrlApi = this.getMediaUploadApiUrl(target);
+      const token = await this.getAccessToken();
+      const resp = await fetch(uploadUrlApi, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `QQBot ${token}`,
+        },
+        body: JSON.stringify({
+          file_type: fileType,
+          url: uploadUrl,
+          srv_send_msg: false,
+        }),
+      });
+      const data = (await resp.json()) as Record<string, unknown>;
+      if (!resp.ok) {
+        return {
+          error: (data['message'] as string) || `上传失败: ${resp.status}`,
+        };
+      }
+      return { fileUuid: data['file_uuid'] as string };
+    } catch (e) {
+      return { error: String(e) };
+    }
+  }
+
+  /**
+   * 发送媒体消息到用户/群（对标 Hermes _send_c2c_text / _send_group_text 路由分离）
+   */
+  private async sendQQMediaMessage(
+    target: string,
+    fileUuid: string
+  ): Promise<SendResult> {
+    try {
+      const token = await this.getAccessToken();
+      const body = {
+        msg_type: 7,
+        media: { file_uuid: fileUuid },
+        msg_id: `${Date.now()}`,
+      };
+      const url = this.getMessageApiUrl(target);
+
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `QQBot ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = (await resp.json()) as Record<string, unknown>;
+      return {
+        success: resp.ok,
+        error: resp.ok ? undefined : (data['message'] as string),
+        messageId: data['id'] as string,
+      };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  }
+
   protected async sendImageMessage(
     target: string,
     imageUrl: string
   ): Promise<SendResult> {
-    return {
-      success: false,
-      error: 'QQ Bot 图片发送需先上传素材，暂未实现',
-    };
+    if (!this.appId) return { success: false, error: '未连接' };
+    const { scope } = this.parseTarget(target);
+    // 频道消息：使用 image 字段直接发送
+    if (scope === 'guild') {
+      try {
+        const token = await this.getAccessToken();
+        const url = this.getMessageApiUrl(target);
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `QQBot ${token}`,
+          },
+          body: JSON.stringify({
+            msg_type: 1,
+            content: '',
+            image: imageUrl,
+            msg_id: `${Date.now()}`,
+          }),
+        });
+        const data = (await resp.json()) as Record<string, unknown>;
+        return {
+          success: resp.ok,
+          error: resp.ok ? undefined : (data['message'] as string),
+          messageId: data['id'] as string,
+        };
+      } catch (err) {
+        return { success: false, error: (err as Error).message };
+      }
+    }
+    // C2C/群消息：先上传图片获取 file_uuid
+    const upload = await this.uploadQQFile(target, imageUrl, 1);
+    if (!upload.fileUuid) {
+      return { success: false, error: upload.error || '上传图片失败' };
+    }
+    return this.sendQQMediaMessage(target, upload.fileUuid);
   }
 
   protected async sendFileMessage(
     target: string,
     filePath: string
   ): Promise<SendResult> {
-    return { success: false, error: 'QQ Bot 文件发送暂未实现' };
+    if (!this.appId) return { success: false, error: '未连接' };
+    const { scope } = this.parseTarget(target);
+    // 频道消息不支持文件发送
+    if (scope === 'guild') {
+      return { success: false, error: 'QQ 频道消息不支持文件发送' };
+    }
+    // C2C/群消息：先上传文件获取 file_uuid
+    const upload = await this.uploadQQFile(target, filePath, 4);
+    if (!upload.fileUuid) {
+      return { success: false, error: upload.error || '上传文件失败' };
+    }
+    return this.sendQQMediaMessage(target, upload.fileUuid);
   }
 
   protected override async sendInteractiveMessage(
@@ -453,6 +752,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
         this.ws.onclose = (event: CloseEvent) => {
           clearTimeout(connectTimeout);
+          this.lastCloseCode = event.code;
           this.logger.warn('QQ Bot WebSocket 连接关闭', {
             code: event.code,
             reason: event.reason,
@@ -466,7 +766,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
-   * 处理网关消息
+   * 处理网关消息（对标 OpenClaw GatewayConnection onmessage 分发）
    */
   private async handleGatewayPayload(payload: QQGatewayPayload): Promise<void> {
     switch (payload.op) {
@@ -479,7 +779,6 @@ class QQChannelPlugin extends BaseChannelPlugin {
         break;
 
       case QQOpCode.HEARTBEAT_ACK:
-        // 心跳确认，无需额外处理
         break;
 
       case QQOpCode.RECONNECT:
@@ -488,8 +787,15 @@ class QQChannelPlugin extends BaseChannelPlugin {
         break;
 
       case QQOpCode.INVALID_SESSION:
-        this.logger.warn('QQ Bot 会话无效，重新鉴权');
+        this.logger.warn('QQ Bot 会话无效，清理后重新鉴权');
+        this.sessionId = null;
+        this.lastSeq = null;
         await this.identify();
+        break;
+
+      case QQOpCode.RESUME:
+        this.logger.info('QQ Bot 尝试恢复会话');
+        await this.resumeSession();
         break;
 
       default:
@@ -498,22 +804,28 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
-   * 处理 Hello 事件：启动心跳
+   * 处理 Hello 事件：启动心跳，尝试恢复会话或重新鉴权
+   * 对标 OpenClaw GatewayConnection onmessage HELLO 分支
    */
   private async handleHello(hello: {
     heartbeat_interval: number;
   }): Promise<void> {
     this.heartbeatIntervalMs = hello.heartbeat_interval;
-    this.sessionId = null;
-    this.lastSeq = null;
 
     this.logger.info('QQ Bot 收到 Hello，启动心跳', {
       interval: this.heartbeatIntervalMs,
+      hasSession: !!this.sessionId,
+      lastSeq: this.lastSeq,
     });
 
     this.startHeartbeat();
 
-    await this.identify();
+    // 有有效会话则尝试恢复，否则重新鉴权
+    if (this.sessionId) {
+      await this.resumeSession();
+    } else {
+      await this.identify();
+    }
   }
 
   /**
@@ -528,18 +840,18 @@ class QQChannelPlugin extends BaseChannelPlugin {
       op: QQOpCode.IDENTIFY,
       d: {
         token: `QQBot ${token}`,
-        intents: QQ_INTENT_GUILD_MESSAGES,
+        intents: QQ_INTENT_FULL,
         shard: [0, 1],
         properties: {},
       },
     };
 
     this.ws.send(JSON.stringify(identifyPayload));
-    this.logger.info('QQ Bot 鉴权请求已发送');
+    this.logger.info('QQ Bot 鉴权请求已发送 (intents: full)');
   }
 
   /**
-   * 处理分发事件
+   * 处理分发事件（含消息去重，对标 Hermes _is_duplicate）
    */
   private handleDispatch(payload: QQGatewayPayload): void {
     if (payload.s !== undefined) {
@@ -548,14 +860,38 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     switch (payload.t) {
       case QQEventType.READY:
-        this.handleReady(payload.d as { session_id: string; user: unknown });
+        this.handleReady(payload.d as QQReadyPayload);
+        break;
+
+      case QQEventType.RESUMED:
+        this.logger.info('QQ Bot 会话已恢复');
+        this.setInboundListening(true);
+        this.reconnectAttempts = 0;
+        this.quickDisconnectCount = 0;
         break;
 
       case QQEventType.AT_MESSAGE_CREATE:
         this.handleAtMessageCreate(payload.d as QQAtMessageCreatePayload);
         break;
 
+      case QQEventType.C2C_MESSAGE_CREATE:
+        this.handleC2cMessageCreate(payload.d as QQC2cMessageCreatePayload);
+        break;
+
+      case QQEventType.GROUP_AT_MESSAGE_CREATE:
+        this.handleGroupAtMessageCreate(
+          payload.d as QQGroupAtMessageCreatePayload
+        );
+        break;
+
+      case QQEventType.DIRECT_MESSAGE_CREATE:
+        this.handleDirectMessageCreate(
+          payload.d as QQDirectMessageCreatePayload
+        );
+        break;
+
       default:
+        this.logger.debug('QQ Bot 未处理的事件类型', { t: payload.t });
         break;
     }
   }
@@ -563,17 +899,43 @@ class QQChannelPlugin extends BaseChannelPlugin {
   /**
    * 处理 Ready 事件
    */
-  private handleReady(readyData: { session_id: string; user: unknown }): void {
+  private handleReady(readyData: QQReadyPayload): void {
     this.sessionId = readyData.session_id;
     this.setInboundListening(true);
     this.reconnectAttempts = 0;
+    this.quickDisconnectCount = 0;
+    this.lastConnectTime = Date.now();
     this.logger.info('QQ Bot 鉴权成功，开始监听消息');
   }
 
   /**
-   * 处理 AT_MESSAGE_CREATE 事件（用户 @机器人 的消息）
+   * 检查消息是否重复（参考 Hermes _is_duplicate）
+   */
+  private isDuplicate(messageId: string): boolean {
+    if (!messageId) return false;
+    const now = Date.now();
+    const lastTime = this.dedupCache.get(messageId);
+    if (lastTime && now - lastTime < this.dedupWindowMs) {
+      return true;
+    }
+    this.dedupCache.set(messageId, now);
+    // 定期清理过期条目
+    if (this.dedupCache.size > 1000) {
+      for (const [key, time] of this.dedupCache) {
+        if (now - time > this.dedupWindowMs) {
+          this.dedupCache.delete(key);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 处理 AT_MESSAGE_CREATE 事件（频道内 @机器人 的消息）
    */
   private handleAtMessageCreate(data: QQAtMessageCreatePayload): void {
+    if (this.isDuplicate(data.id)) return;
+
     const cleanContent = data.content.replace(this.mentionPattern, '').trim();
 
     const message: MessageContext = {
@@ -591,7 +953,125 @@ class QQChannelPlugin extends BaseChannelPlugin {
     };
 
     this.handleIncomingMessage(message).catch((error) => {
-      this.logger.error('QQ Bot 消息处理异常', { error: String(error) });
+      this.logger.error('QQ Bot AT_MESSAGE_CREATE 处理异常', {
+        error: String(error),
+      });
+    });
+  }
+
+  /**
+   * 处理 C2C_MESSAGE_CREATE 事件（用户私聊消息）
+   * conversationId 格式: "c2c:{openid}"，用于后续出站路由到 /v2/users/{openid}/messages
+   */
+  private handleC2cMessageCreate(data: QQC2cMessageCreatePayload): void {
+    if (this.isDuplicate(data.id)) return;
+
+    const message: MessageContext = {
+      channelId: 'qq',
+      senderId: data.author.id,
+      senderName: data.author.username,
+      conversationId: `c2c:${data.author.id}`,
+      messageId: data.id,
+      messageType: 'text',
+      content: data.content,
+      timestamp: Date.now(),
+      isDirectMessage: true,
+      rawPayload: data as unknown as Record<string, unknown>,
+    };
+
+    this.handleIncomingMessage(message).catch((error) => {
+      this.logger.error('QQ Bot C2C_MESSAGE_CREATE 处理异常', {
+        error: String(error),
+      });
+    });
+  }
+
+  /**
+   * 处理 GROUP_AT_MESSAGE_CREATE 事件（群聊 @机器人 的消息）
+   * conversationId 格式: "group:{group_openid}"，用于后续出站路由到 /v2/groups/{group_openid}/messages
+   */
+  private handleGroupAtMessageCreate(
+    data: QQGroupAtMessageCreatePayload
+  ): void {
+    if (this.isDuplicate(data.id)) return;
+
+    const cleanContent = data.content.replace(this.mentionPattern, '').trim();
+
+    const message: MessageContext = {
+      channelId: 'qq',
+      senderId: data.author.id,
+      senderName: data.author.username,
+      groupId: data.group_openid,
+      conversationId: `group:${data.group_openid}`,
+      messageId: data.id,
+      messageType: 'text',
+      content: cleanContent || data.content,
+      timestamp: Date.now(),
+      isDirectMessage: false,
+      rawPayload: data as unknown as Record<string, unknown>,
+    };
+
+    this.handleIncomingMessage(message).catch((error) => {
+      this.logger.error('QQ Bot GROUP_AT_MESSAGE_CREATE 处理异常', {
+        error: String(error),
+      });
+    });
+  }
+
+  /**
+   * 处理 DIRECT_MESSAGE_CREATE 事件（频道私信）
+   */
+  private handleDirectMessageCreate(
+    data: QQDirectMessageCreatePayload
+  ): void {
+    if (this.isDuplicate(data.id)) return;
+
+    const message: MessageContext = {
+      channelId: 'qq',
+      senderId: data.author.id,
+      senderName: data.author.username,
+      groupId: data.guild_id,
+      conversationId: `c2c:${data.author.id}`,
+      messageId: data.id,
+      messageType: 'text',
+      content: data.content,
+      timestamp: Date.now(),
+      isDirectMessage: true,
+      rawPayload: data as unknown as Record<string, unknown>,
+    };
+
+    this.handleIncomingMessage(message).catch((error) => {
+      this.logger.error('QQ Bot DIRECT_MESSAGE_CREATE 处理异常', {
+        error: String(error),
+      });
+    });
+  }
+
+  /**
+   * 尝试恢复会话（RESUME，对标 OpenClaw GatewayConnection resumeSession）
+   */
+  private async resumeSession(): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (!this.sessionId) {
+      await this.identify();
+      return;
+    }
+
+    const token = await this.getAccessToken();
+
+    const resumePayload = {
+      op: QQOpCode.RESUME,
+      d: {
+        token: `QQBot ${token}`,
+        session_id: this.sessionId,
+        seq: this.lastSeq,
+      },
+    };
+
+    this.ws.send(JSON.stringify(resumePayload));
+    this.logger.info('QQ Bot 会话恢复请求已发送', {
+      sessionId: this.sessionId,
+      seq: this.lastSeq,
     });
   }
 
@@ -631,41 +1111,129 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
-   * 处理断开连接
+   * 分析 WebSocket 关闭码并返回重连策略
+   * 对标 OpenClaw ReconnectState.handleClose
+   */
+  private analyzeCloseCode(code: number): {
+    shouldReconnect: boolean;
+    clearSession: boolean;
+    refreshToken: boolean;
+    delay?: number;
+    fatal: boolean;
+  } {
+    switch (code) {
+      case QQCloseCode.INSUFFICIENT_INTENTS:
+      case QQCloseCode.DISALLOWED_INTENTS:
+        this.logger.error(
+          `QQ Bot 被平台封禁/下线 (${code})，停止重连`
+        );
+        return { shouldReconnect: false, clearSession: false, refreshToken: false, fatal: true };
+
+      case QQCloseCode.AUTH_FAILED:
+        this.logger.info('QQ Bot Token 无效 (4004)，刷新 Token 后重连');
+        return { shouldReconnect: true, clearSession: false, refreshToken: true, fatal: false };
+
+      case QQCloseCode.RATE_LIMITED:
+        this.logger.info('QQ Bot 被限流 (4008)，等待 60s 后重连');
+        return { shouldReconnect: true, clearSession: false, refreshToken: false, delay: RATE_LIMIT_DELAY, fatal: false };
+
+      case QQCloseCode.INVALID_SESSION:
+      case QQCloseCode.SEQ_OUT_OF_RANGE:
+      case QQCloseCode.SESSION_TIMEOUT:
+        this.logger.info(`QQ Bot 会话异常 (${code})，清理后重连`);
+        return { shouldReconnect: true, clearSession: true, refreshToken: true, fatal: false };
+
+      default:
+        if (code >= QQCloseCode.SERVER_ERROR_START && code <= QQCloseCode.SERVER_ERROR_END) {
+          this.logger.info(`QQ Bot 服务端内部错误 (${code})，清理后重连`);
+          return { shouldReconnect: true, clearSession: true, refreshToken: true, fatal: false };
+        }
+        // 正常关闭或其他未知码
+        return { shouldReconnect: code !== QQCloseCode.NORMAL, clearSession: false, refreshToken: false, fatal: false };
+    }
+  }
+
+  /**
+   * 处理断开连接（集成结束码分析和快速断开检测）
+   * 对标 OpenClaw ReconnectState + Hermes onclose 逻辑
    */
   private handleDisconnect(): void {
     this.stopHeartbeat();
     this.setInboundListening(false);
 
-    if (this.shouldReconnect) {
-      this.scheduleReconnect();
+    // 分析关闭码
+    const action = this.analyzeCloseCode(this.lastCloseCode);
+
+    // 快速断开检测
+    const connectionDuration = Date.now() - this.lastConnectTime;
+    if (connectionDuration < QUICK_DISCONNECT_THRESHOLD && this.lastConnectTime > 0) {
+      this.quickDisconnectCount++;
+      this.logger.warn('QQ Bot 快速断开检测', {
+        durationMs: connectionDuration,
+        count: this.quickDisconnectCount,
+      });
+
+      if (this.quickDisconnectCount >= 3) {
+        this.logger.error(
+          'QQ Bot 连续多次快速断开，可能有权限问题，等待 60s 后重试'
+        );
+        this.quickDisconnectCount = 0;
+        this.needsTokenRefresh = true;
+        this.needsSessionClear = true;
+        this.scheduleReconnect(RATE_LIMIT_DELAY);
+        return;
+      }
+    } else {
+      this.quickDisconnectCount = 0;
     }
+
+    // 记录状态
+    this.needsTokenRefresh = action.refreshToken;
+    this.needsSessionClear = action.clearSession;
+
+    if (action.fatal || !action.shouldReconnect) {
+      this.shouldReconnect = false;
+      this.logger.info('QQ Bot 停止重连');
+      return;
+    }
+
+    this.scheduleReconnect(action.delay);
   }
 
   /**
-   * 安排重连
+   * 安排重连（指数退避，对标 OpenClaw ReconnectState.getNextDelay）
    */
   private scheduleReconnect(delayMs?: number): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       this.logger.error('QQ Bot 重连已达最大次数，停止重连');
       return;
     }
 
     const delay =
-      delayMs ??
-      Math.min(
-        this.reconnectBaseDelay * Math.pow(2, this.reconnectAttempts),
-        30000
-      );
+      delayMs ?? RECONNECT_DELAYS[Math.min(this.reconnectAttempts, RECONNECT_DELAYS.length - 1)];
 
     this.reconnectAttempts++;
     this.logger.info('QQ Bot 计划重连', {
       attempt: this.reconnectAttempts,
       delayMs: delay,
+      refreshToken: this.needsTokenRefresh,
+      clearSession: this.needsSessionClear,
     });
 
     this.reconnectTimer = setTimeout(async () => {
       try {
+        // 清理会话状态（如果需要）
+        if (this.needsSessionClear) {
+          this.sessionId = null;
+          this.lastSeq = null;
+        }
+
+        // 刷新 Token（如果需要）
+        if (this.needsTokenRefresh) {
+          await this.refreshAccessToken();
+          this.needsTokenRefresh = false;
+        }
+
         await this.resolveGatewayUrl();
         await this.connectWebSocket();
       } catch (error) {
@@ -673,6 +1241,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
           error: String(error),
           attempt: this.reconnectAttempts,
         });
+        // 继续递归重连
+        if (this.shouldReconnect) {
+          this.scheduleReconnect();
+        }
       }
     }, delay);
   }
@@ -724,7 +1296,19 @@ interface QQGatewayPayload {
   d: unknown;
 }
 
-/** QQ Bot AT_MESSAGE_CREATE 事件数据 */
+/** QQ Bot Ready 事件数据 */
+interface QQReadyPayload {
+  version: number;
+  session_id: string;
+  user: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+  shard: [number, number];
+}
+
+/** QQ Bot AT_MESSAGE_CREATE 事件数据（频道 @消息） */
 interface QQAtMessageCreatePayload {
   id: string;
   channel_id: string;
@@ -741,8 +1325,47 @@ interface QQAtMessageCreatePayload {
   };
 }
 
-function createQQChannel(): IChannelPlugin {
+/** QQ Bot C2C_MESSAGE_CREATE 事件数据（私聊） */
+interface QQC2cMessageCreatePayload {
+  id: string;
+  content: string;
+  author: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+  timestamp?: string;
+}
+
+/** QQ Bot GROUP_AT_MESSAGE_CREATE 事件数据（群聊 @消息） */
+interface QQGroupAtMessageCreatePayload {
+  id: string;
+  group_openid: string;
+  content: string;
+  author: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+  timestamp?: string;
+}
+
+/** QQ Bot DIRECT_MESSAGE_CREATE 事件数据（频道私信） */
+interface QQDirectMessageCreatePayload {
+  id: string;
+  guild_id: string;
+  content: string;
+  author: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+  timestamp?: string;
+}
+
+export function createQQChannel(): IChannelPlugin {
   return new QQChannelPlugin();
 }
 
 export const qqChannel = createQQChannel();
+export const qqChannelPlugin = createQQChannel();

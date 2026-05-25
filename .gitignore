@@ -32,6 +32,7 @@ Desktop.ini
 
 # Temporary / Scratch files
 backend/errors.txt
+backend/test_error.txt
 backend/typecheck-errors*.txt
 backend/fix_*.ps1
 backend/input.txt

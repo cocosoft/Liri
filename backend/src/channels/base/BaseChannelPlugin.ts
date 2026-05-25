@@ -54,6 +54,9 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
   // ─── Logger ──────────────────────────────────────────────
   protected readonly logger: Logger;
 
+  /** 默认消息发送目标（群 ID / 用户 ID），子类可在 onConnect 中设置 */
+  homeChannelId = '';
+
   // ─── 内部状态 ────────────────────────────────────────────
   private _state: ChannelPluginState = {
     connected: false,

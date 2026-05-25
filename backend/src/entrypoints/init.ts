@@ -75,6 +75,8 @@ export async function init(): Promise<void> {
   getStartupChainProfiler().markPhaseEnd('env_init');
 
   // 3. 并行初始化其他核心系统（优化：最大化并行度）
+  console.log(`[DIAG][${Date.now()}] init: 开始 Promise.all（并行初始化核心系统）`);
+  const startTimeAll = Date.now();
   const [toolsResult, pluginsResult, commandsResult, monitoringResult] =
     await Promise.all([
       // 初始化工具系�?
@@ -83,8 +85,11 @@ export async function init(): Promise<void> {
         getStartupChainProfiler().markPhaseStart('tool_init');
         const startTime = Date.now();
         try {
+          console.log(`[DIAG][${Date.now()}] init(tools): 动态导入 ToolManager...`);
           const { createToolManager } = await import('../tools/ToolManager.js');
+          console.log(`[DIAG][${Date.now()}] init(tools): ToolManager 导入完成`);
           createToolManager();
+          console.log(`[DIAG][${Date.now()}] init(tools): createToolManager() 完成`);
           const duration = Date.now() - startTime;
           if (duration > 1500) {
             logger.warning(`工具系统加载较慢: ${duration}ms`);
@@ -149,8 +154,10 @@ export async function init(): Promise<void> {
         getStartupChainProfiler().markPhaseStart('monitoring_init');
         const startTime = Date.now();
         try {
+          console.log(`[DIAG][${Date.now()}] init(monitoring): getMonitoringService + start...`);
           const monitoringService = getMonitoringService();
           monitoringService.start();
+          console.log(`[DIAG][${Date.now()}] init(monitoring): start() 完成`);
           const duration = Date.now() - startTime;
           if (duration > 50) {
             logger.warning(`监控服务加载较慢: ${duration}ms`);
@@ -171,9 +178,12 @@ export async function init(): Promise<void> {
         getStartupChainProfiler().markPhaseStart('provider_init');
         const startTime = Date.now();
         try {
+          console.log(`[DIAG][${Date.now()}] init(provider): 动态导入 registerProviders...`);
           const { registerDefaultProviders } =
             await import('../ai/providers/registerProviders.js');
+          console.log(`[DIAG][${Date.now()}] init(provider): registerProviders 导入完成`);
           registerDefaultProviders();
+          console.log(`[DIAG][${Date.now()}] init(provider): registerDefaultProviders() 完成`);
           const duration = Date.now() - startTime;
           if (duration > 50) {
             logger.warning(`AI Provider 注册较慢: ${duration}ms`);
@@ -190,6 +200,7 @@ export async function init(): Promise<void> {
 
       // 初始化 CoreAPI + Gateway 通道服务
       (async () => {
+        console.log(`[DIAG][${Date.now()}] init(gateway): 任务开始`);
         profileCheckpoint('load_gateway_start');
         getStartupChainProfiler().markPhaseStart('gateway_init');
         const startTime = Date.now();
@@ -235,9 +246,11 @@ export async function init(): Promise<void> {
 
           // 根据配置自动注册并启动 Gateway 通道
           try {
+            console.log(`[DIAG][${Date.now()}] init(gateway): 开始 setupGatewayFromConfig...`);
             const { setupGatewayFromConfig } =
               await import('../core/gateway/GatewaySetup.js');
             const result = await setupGatewayFromConfig();
+            console.log(`[DIAG][${Date.now()}] init(gateway): setupGatewayFromConfig 完成`);
             if (result.registeredChannels > 0) {
               logger.info(
                 `Gateway 通道自动启动: ${result.connectedChannels}/${result.registeredChannels} 已连接`
@@ -254,9 +267,19 @@ export async function init(): Promise<void> {
 
           // 同步通道到 ChannelRegistry，确保工具和 /channel 命令可访问
           try {
+            console.log(`[DIAG][${Date.now()}] init(gateway): 开始 setupChannelsFromConfig...`);
             const { setupChannelsFromConfig } =
               await import('../channels/setupChannels.js');
-            const channelResult = await setupChannelsFromConfig();
+            const channelResult = await Promise.race([
+              setupChannelsFromConfig(),
+              new Promise<never>((_, reject) =>
+                setTimeout(
+                  () => reject(new Error('setupChannelsFromConfig 超时 (15s)')),
+                  15000
+                )
+              ),
+            ]);
+            console.log(`[DIAG][${Date.now()}] init(gateway): setupChannelsFromConfig 完成`);
             if (channelResult.registered > 0) {
               logger.info(
                 `ChannelRegistry 通道同步完成: ${channelResult.registered} 通道已注册`
@@ -287,6 +310,7 @@ export async function init(): Promise<void> {
         }
       })(),
     ]);
+  console.log(`[DIAG][${Date.now()}] init: Promise.all 完成（${Date.now() - startTimeAll}ms）`);
 
   // 4. 启动延迟预加载（非阻塞）
   profileCheckpoint('start_deferred_prefetches_start');

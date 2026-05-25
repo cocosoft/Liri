@@ -220,11 +220,57 @@ class WecomChannelPlugin extends BaseChannelPlugin {
     });
   }
 
+  private async uploadWecomMedia(
+    filePathOrUrl: string,
+    mediaType: 'image' | 'file' | 'voice' | 'video'
+  ): Promise<{ mediaId?: string; error?: string }> {
+    const token = await this.getAccessToken();
+    if (!token) return { error: '未连接或 token 失效' };
+    try {
+      let blob: Blob;
+      if (
+        filePathOrUrl.startsWith('http://') ||
+        filePathOrUrl.startsWith('https://')
+      ) {
+        const resp = await fetch(filePathOrUrl);
+        if (!resp.ok) return { error: `下载失败: ${resp.status}` };
+        blob = await resp.blob();
+      } else {
+        const fs = await import('node:fs');
+        const buf = fs.readFileSync(filePathOrUrl);
+        blob = new Blob([buf]);
+      }
+      const formData = new FormData();
+      formData.append('media', blob, `upload.${mediaType}`);
+
+      const resp = await fetch(
+        `https://qyapi.weixin.qq.com/cgi-bin/media/upload?access_token=${token}&type=${mediaType}`,
+        { method: 'POST', body: formData }
+      );
+      const data = (await resp.json()) as Record<string, unknown>;
+      if ((data['errcode'] as number) !== 0) {
+        return { error: (data['errmsg'] as string) || '上传素材失败' };
+      }
+      return { mediaId: data['media_id'] as string };
+    } catch (e) {
+      return { error: String(e) };
+    }
+  }
+
   protected async sendFileMessage(
-    _target: string,
-    _filePath: string
+    target: string,
+    filePath: string
   ): Promise<SendResult> {
-    return { success: false, error: '企业微信文件发送暂未实现' };
+    const upload = await this.uploadWecomMedia(filePath, 'file');
+    if (!upload.mediaId) {
+      return { success: false, error: upload.error || '上传文件失败' };
+    }
+    return this.callSendApi({
+      touser: target || '@all',
+      msgtype: 'file',
+      agentid: parseInt(this.agentId, 10) || 1,
+      file: { media_id: upload.mediaId },
+    });
   }
 
   protected override async sendInteractiveMessage(
@@ -268,3 +314,4 @@ export function createWecomChannel(): IChannelPlugin {
 }
 
 export const wecomChannel = createWecomChannel();
+export const wecomChannelPlugin = createWecomChannel();

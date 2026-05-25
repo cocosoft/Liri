@@ -40,6 +40,7 @@ export interface ChannelBootstrapResult {
 export class ChannelBootstrapper {
   private pluginChannels: Map<string, () => IChannelPlugin | undefined> =
     new Map();
+  private pluginInstances: Map<string, IChannelPlugin> = new Map();
   private initialized = false;
 
   /**
@@ -59,6 +60,20 @@ export class ChannelBootstrapper {
     type: string
   ): (() => IChannelPlugin | undefined) | undefined {
     return this.pluginChannels.get(type);
+  }
+
+  /**
+   * 获取已注册的通道插件实例
+   */
+  getPluginInstance(type: string): IChannelPlugin | undefined {
+    return this.pluginInstances.get(type);
+  }
+
+  /**
+   * 获取所有已注册的通道插件实例
+   */
+  getAllPluginInstances(): IChannelPlugin[] {
+    return Array.from(this.pluginInstances.values());
   }
 
   /**
@@ -83,6 +98,7 @@ export class ChannelBootstrapper {
 
       try {
         channelRegistry.register(plugin);
+        this.pluginInstances.set(entry.type, plugin);
         result.registered++;
         logger.info(
           `ChannelBootstrapper: 通道已注册 — ${plugin.id} (${entry.type})`

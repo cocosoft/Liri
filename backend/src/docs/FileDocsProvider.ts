@@ -5,6 +5,7 @@
 
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, relative, basename, dirname } from 'node:path';
+import { homedir } from 'node:os';
 
 export interface FileDocEntry {
   relativePath: string;
@@ -381,5 +382,5 @@ export const fileDocsProvider = new FileDocsProvider(
 );
 
 export const knowledgeDocsProvider = new FileDocsProvider(
-  join(import.meta.dirname, '..', '..', 'docs', '知识库')
+  join(homedir(), '.pyapp', 'knowledge')
 );

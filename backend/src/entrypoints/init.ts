@@ -479,18 +479,18 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
-      // 注册知识库查询提供者（KnowledgeSummarizer → KnowledgeQueryProvider 适配）
+      // 注册知识库查询提供者（HybridKnowledgeRouter → KnowledgeSummarizer → KnowledgeQueryProvider 适配）
       (async () => {
         try {
           const { knowledgeDocsProvider, fileDocsProvider } =
             await import('../docs/FileDocsProvider.js');
-          const { KnowledgeRouter } =
-            await import('../docs/KnowledgeRouter.js');
+          const { HybridKnowledgeRouter } =
+            await import('@modules/knowledge/HybridKnowledgeRouter.js');
           const { KnowledgeSummarizer } =
             await import('../memory/services/KnowledgeSummarizer.js');
           const { setKnowledgeQueryProvider } =
             await import('../services/prompt/KnowledgePromptProvider.js');
-          const router = new KnowledgeRouter([
+          const router = new HybridKnowledgeRouter([
             fileDocsProvider,
             knowledgeDocsProvider,
           ]);
@@ -498,6 +498,33 @@ async function startDeferredPrefetches(): Promise<void> {
           setKnowledgeQueryProvider(summarizer);
         } catch (error) {
           logger.warning('知识库查询提供者注册失败', { error });
+        }
+      })(),
+
+      // 初始化用户知识库目录 + 旧路径数据迁移
+      (async () => {
+        try {
+          const { mkdir } = await import('fs/promises');
+          const { existsSync } = await import('fs');
+          const { homedir } = await import('os');
+          const { join } = await import('path');
+
+          const userKnowledgeDir = join(homedir(), '.pyapp', 'knowledge');
+          if (!existsSync(userKnowledgeDir)) {
+            await mkdir(userKnowledgeDir, { recursive: true });
+            logger.info('用户知识库目录已创建', { path: userKnowledgeDir });
+          }
+
+          const { migrateKnowledgeBase } =
+            await import('../knowledge/KnowledgeMigration.js');
+          const result = await migrateKnowledgeBase();
+          if (result.migrated > 0) {
+            logger.info(
+              `旧知识库文档已迁移: ${result.migrated} 个迁移, ${result.skipped} 个跳过`
+            );
+          }
+        } catch (error) {
+          logger.warning('用户知识库目录初始化失败', { error });
         }
       })(),
 

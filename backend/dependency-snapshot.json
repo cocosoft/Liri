@@ -97,6 +97,23 @@
         "monitoring"
       ]
     },
+    "knowledge": {
+      "id": "knowledge",
+      "name": "knowledge",
+      "category": "knowledge",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "error",
+        "docs",
+        "ai",
+        "memory"
+      ],
+      "optionalDependencies": [
+        "monitoring"
+      ]
+    },
     "ink": {
       "id": "ink",
       "name": "ink",

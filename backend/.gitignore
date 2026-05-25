@@ -30,3 +30,6 @@ Thumbs.db
 
 # Diagnostics
 tsc-errors.txt
+
+# Failure logs (runtime generated)
+failure-logs/

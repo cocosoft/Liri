@@ -18,6 +18,8 @@ import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { CronListTool } from './ChronosTool/CronListTool';
 import { knowledgeRouter } from '../docs/KnowledgeRouter';
 import { createKnowledgeSearchTool } from '../memory/tools/KnowledgeSearchTool';
+import { createKnowledgeWriteTool } from '../memory/tools/KnowledgeWriteTool';
+import { createKnowledgeDeleteTool } from '../memory/tools/KnowledgeDeleteTool';
 import { createUnifiedSearchTool } from '../memory/tools/UnifiedSearchTool';
 import { createMemoryTool } from '../memory/tools/MemoryTool';
 import { createMemoryGetTool } from '../memory/tools/MemoryGetTool';
@@ -965,6 +967,16 @@ export function getAllBaseTools(): Tool[] {
   const knowledgeSearchTool = createKnowledgeSearchTool(knowledgeRouter);
   if (knowledgeSearchTool) {
     tools.push(knowledgeSearchTool);
+  }
+
+  const knowledgeWriteTool = createKnowledgeWriteTool();
+  if (knowledgeWriteTool) {
+    tools.push(knowledgeWriteTool);
+  }
+
+  const knowledgeDeleteTool = createKnowledgeDeleteTool();
+  if (knowledgeDeleteTool) {
+    tools.push(knowledgeDeleteTool);
   }
 
   const memoryManager = new MemoryManagerImpl('./data/memory');

@@ -122,6 +122,10 @@ const knowledgeCommand = {
         return this.listTemplates(rest);
       }
 
+      if (command === 'lint') {
+        return this.lintDocs();
+      }
+
       return this.viewDoc(cleanArgs);
     } catch (error) {
       return {
@@ -151,6 +155,7 @@ const knowledgeCommand = {
       '  /knowledge versions <标题>    - 同上',
       '  /knowledge rollback <标题> <版本号>  - 回滚到指定版本',
       '  /knowledge templates          - 列出可用模板',
+      '  /knowledge lint               - 检查知识库健康状态（结构/断链/新鲜度等）',
       '  /knowledge help               - 显示此帮助信息',
       '',
       '别名：',
@@ -390,19 +395,23 @@ const knowledgeCommand = {
   },
 
   /**
-   * 搜索文档（增强版：模糊搜索 + 高亮 + 分页）
+   * 搜索文档（增强版：混合搜索 + 语义搜索 + 分页）
    */
   async searchDocs(
     query: string,
     options?: { page?: number; pageSize?: number }
   ): Promise<CommandResult> {
     const { page = 1, pageSize = 5 } = options || {};
-    const searchResult = await knowledgeDocsProvider.searchEnhanced(query, {
-      page,
-      pageSize,
+    const offset = (page - 1) * pageSize;
+
+    const { getHybridKnowledgeRouter } =
+      await import('@modules/knowledge/HybridKnowledgeRouter.js');
+    const router = await getHybridKnowledgeRouter();
+    const allResults = await router.search(query, {
+      maxResults: offset + pageSize,
     });
 
-    if (searchResult.total === 0) {
+    if (allResults.length === 0) {
       return {
         success: true,
         type: 'text',
@@ -410,22 +419,25 @@ const knowledgeCommand = {
       };
     }
 
+    const totalPages = Math.ceil(allResults.length / pageSize);
+    const pageResults = allResults.slice(offset, offset + pageSize);
+
     const lines = [
-      `🔍 找到 ${searchResult.total} 个与"${query}"相关的文档（第 ${searchResult.page}/${searchResult.totalPages} 页）`,
+      `🔍 找到 ${allResults.length} 个与"${query}"相关的文档（第 ${page}/${totalPages} 页）`,
       '',
-      ...searchResult.results.map((result, i) => {
-        const doc = result.doc;
-        const category = doc.category !== '根目录' ? `[${doc.category}] ` : '';
-        const highlight =
-          result.highlights[0] || doc.content.slice(0, 100) + '...';
-        return `${(page - 1) * pageSize + i + 1}. ${category}${doc.title} (${result.score.toFixed(0)}分)\n   ${highlight}`;
+      ...pageResults.map((result, i) => {
+        const category =
+          result.category !== '根目录' ? `[${result.category}] ` : '';
+        const scoreLabel =
+          result.score >= 0.7 ? '🔥' : result.score >= 0.4 ? '⭐' : '📄';
+        return `${(page - 1) * pageSize + i + 1}. ${category}${result.title} (${(result.score * 100).toFixed(0)}分 ${scoreLabel})\n   ${result.snippet.slice(0, 120)}...`;
       }),
     ];
 
-    if (searchResult.page < searchResult.totalPages) {
+    if (page < totalPages) {
       lines.push(
         '',
-        `📄 更多结果请使用：/knowledge search "${query}" --page ${searchResult.page + 1}`
+        `📄 更多结果请使用：/knowledge search "${query}" --page ${page + 1}`
       );
     }
 
@@ -535,6 +547,19 @@ const knowledgeCommand = {
     ];
 
     return { success: true, type: 'text', message: lines.join('\n') };
+  },
+
+  /**
+   * 知识库健康检查
+   */
+  async lintDocs(): Promise<CommandResult> {
+    const { runKnowledgeLint, formatLintResult } =
+      await import('@modules/knowledge/KnowledgeLinter.js');
+
+    const result = await runKnowledgeLint();
+    const report = formatLintResult(result);
+
+    return { success: true, type: 'text', message: report };
   },
 
   /**

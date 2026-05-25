@@ -134,13 +134,27 @@ export interface KnowledgeRoute {
   score: number;
   category: string;
   snippet: string;
-  matchType: 'knowledge' | 'username' | 'title' | 'keyword' | 'directory';
+  matchType:
+    | 'knowledge'
+    | 'username'
+    | 'title'
+    | 'keyword'
+    | 'directory'
+    | 'semantic';
   isKnowledgeDoc: boolean;
 }
 
 export interface KnowledgeRouterOptions {
   maxResults?: number;
   minScore?: number;
+}
+
+/** 知识搜索通用接口 — KnowledgeRouter 和 HybridKnowledgeRouter 均可实现 */
+export interface IKnowledgeSearch {
+  search(
+    query: string,
+    options?: KnowledgeRouterOptions
+  ): Promise<KnowledgeRoute[]>;
 }
 
 interface WeightedDoc {
@@ -152,7 +166,7 @@ interface WeightedDoc {
   source?: string;
 }
 
-export class KnowledgeRouter {
+export class KnowledgeRouter implements IKnowledgeSearch {
   private providers: FileDocsProvider[];
   private knownUsernames: string[];
   private docs: WeightedDoc[] = [];
@@ -175,11 +189,8 @@ export class KnowledgeRouter {
     for (const provider of this.providers) {
       const entries = await provider.buildIndex();
       for (const e of entries) {
-        // 判断是否是知识库文档：如果 source 包含 '知识库' 或者 category 是 '知识库'
-        const isKnowledgeDoc =
-          (e.source?.includes('知识库') ?? false) ||
-          e.category === '知识库' ||
-          e.relativePath.startsWith('知识库/');
+        // 判断是否是用户知识库文档：source 路径包含 .pyapp 即为用户知识
+        const isKnowledgeDoc = e.source?.includes('.pyapp') ?? false;
 
         this.docs.push({
           docPath: e.relativePath,

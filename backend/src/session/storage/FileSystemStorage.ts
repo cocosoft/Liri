@@ -246,14 +246,18 @@ export class FileSystemStorage implements SessionStorage {
       await this.ensureDir(this.rootDir);
       const entries = await fs.readdir(this.rootDir, { withFileTypes: true });
 
-      let sessionIds = entries
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name);
+      const sessionIds: string[] = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
 
-      // 应用过滤选项
-      if (options) {
-        // 这里可以根据需要实现更复杂的过滤逻辑
-        // 例如，读取每个会话的元数据进行过滤
+        // 验证目录中包含 session.json 文件，排除非会话目录（如 FileSystemUnifiedStorage 创建的 sessions/ 嵌套目录）
+        const jsonPath = join(this.rootDir, entry.name, 'session.json');
+        try {
+          await fs.access(jsonPath);
+          sessionIds.push(entry.name);
+        } catch {
+          continue;
+        }
       }
 
       return sessionIds;

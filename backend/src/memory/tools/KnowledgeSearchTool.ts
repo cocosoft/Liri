@@ -1,7 +1,17 @@
 import { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
-import { KnowledgeRouter, KnowledgeRoute } from '../../docs/KnowledgeRouter';
+import {
+  type IKnowledgeSearch,
+  KnowledgeRouter,
+  KnowledgeRoute,
+} from '../../docs/KnowledgeRouter';
+import type { AIService } from '@modules/ai/models/types';
+import { AIMessageRole } from '@modules/ai/models/types';
+import { KnowledgeBaseWriter } from '../services/KnowledgeBaseWriter';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export class KnowledgeSearchTool implements Tool {
   public name: string = 'knowledge_search';
@@ -29,6 +39,14 @@ export class KnowledgeSearchTool implements Tool {
       required: false,
       default: 0.1,
     },
+    {
+      name: 'autoWrite',
+      type: 'boolean',
+      description:
+        'Auto-write new knowledge when search results are insufficient',
+      required: false,
+      default: false,
+    },
   ];
   public aliases: string[] = ['knowledge', 'docs_search', 'find_doc'];
   public searchTips: string[] = [
@@ -45,10 +63,16 @@ export class KnowledgeSearchTool implements Tool {
   public isDestructive: () => boolean = () => false;
   public isConcurrencySafe: () => boolean = () => true;
 
-  private router: KnowledgeRouter;
+  private router: IKnowledgeSearch;
+  private aiService?: AIService;
+  private writer?: KnowledgeBaseWriter;
 
-  constructor(router: KnowledgeRouter) {
+  constructor(router: IKnowledgeSearch, aiService?: AIService) {
     this.router = router;
+    this.aiService = aiService;
+    if (aiService) {
+      this.writer = new KnowledgeBaseWriter();
+    }
   }
 
   async execute(
@@ -76,11 +100,36 @@ export class KnowledgeSearchTool implements Tool {
     try {
       const limit = (input.limit as number) ?? 5;
       const minScore = (input.minScore as number) ?? 0.1;
+      const autoWrite = (input.autoWrite as boolean) ?? false;
 
       const results = await this.router.search(query.trim(), {
         maxResults: limit,
         minScore,
       });
+
+      const metadata: Record<string, unknown> = {
+        count: results.length,
+        query: query.trim(),
+      };
+
+      // Auto-write: 搜索结果不足时自动生成新知识
+      if (autoWrite && results.length < 3 && this.aiService && this.writer) {
+        try {
+          const writeResult = await this.autoWriteKnowledge(query.trim());
+          metadata.autoWritten = writeResult.success;
+          metadata.autoWriteAction = writeResult.action;
+          metadata.autoWritePath = writeResult.filePath;
+        } catch (writeError) {
+          logger.warning('自动写入知识失败', {
+            query,
+            error:
+              writeError instanceof Error
+                ? writeError.message
+                : String(writeError),
+          });
+          metadata.autoWriteError = String(writeError);
+        }
+      }
 
       return {
         status: ToolExecutionStatus.SUCCESS,
@@ -89,10 +138,7 @@ export class KnowledgeSearchTool implements Tool {
         output: JSON.stringify(results),
         errorOutput: '',
         progress: [],
-        metadata: {
-          count: results.length,
-          query: query.trim(),
-        },
+        metadata,
         executionId: `knowledge_search_${Date.now()}`,
         toolName: this.name,
         timestamp: Date.now(),
@@ -113,6 +159,48 @@ export class KnowledgeSearchTool implements Tool {
     }
   }
 
+  /**
+   * 当搜索结果不足时，使用 LLM 生成新知识并写入知识库
+   */
+  private async autoWriteKnowledge(query: string) {
+    if (!this.aiService || !this.writer) {
+      return { success: false, action: 'skipped' as const, filePath: '' };
+    }
+
+    const response = await this.aiService.generate([
+      {
+        role: AIMessageRole.SYSTEM,
+        content:
+          '你是一个知识库自动编写助手。根据用户查询，生成一篇结构化的知识文档。' +
+          '请以 Markdown 格式输出，包含概述和详细内容。不要包含 frontmatter。',
+        timestamp: Date.now(),
+      },
+      {
+        role: AIMessageRole.USER,
+        content: `请为 "${query}" 撰写知识库文档`,
+        timestamp: Date.now(),
+      },
+    ]);
+
+    const content = response.content.trim();
+
+    const writeResult = await this.writer.writeEntry({
+      title: query,
+      content,
+      category: '知识库',
+      tags: [query],
+      source: 'auto-write',
+    });
+
+    logger.info('自动写入知识完成', {
+      query,
+      action: writeResult.action,
+      path: writeResult.filePath,
+    });
+
+    return writeResult;
+  }
+
   getInfo(): ToolInfo {
     return {
       name: this.name,
@@ -131,6 +219,6 @@ export class KnowledgeSearchTool implements Tool {
   }
 }
 
-export function createKnowledgeSearchTool(router: KnowledgeRouter): Tool {
+export function createKnowledgeSearchTool(router: IKnowledgeSearch): Tool {
   return new KnowledgeSearchTool(router);
 }

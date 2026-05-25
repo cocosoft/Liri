@@ -199,6 +199,22 @@ const CORE_TOOL_DEFINITIONS: CoreToolDefinition[] = [
     includeInOpenClawGroup: true,
   },
   {
+    id: 'knowledge_write',
+    label: 'knowledge_write',
+    description:
+      'Create or update knowledge base documents to persist important information and learnings',
+    sectionId: 'memory',
+    profiles: ['coding'],
+  },
+  {
+    id: 'knowledge_delete',
+    label: 'knowledge_delete',
+    description:
+      'Delete knowledge base documents by title (requires confirmation)',
+    sectionId: 'memory',
+    profiles: ['coding'],
+  },
+  {
     id: 'todo_write',
     label: 'todo_write',
     description: 'Write task tracking entries',

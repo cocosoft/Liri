@@ -1,5 +1,7 @@
-import { KnowledgeRouter } from '../../docs/KnowledgeRouter';
-import type { KnowledgeRoute } from '../../docs/KnowledgeRouter';
+import type {
+  KnowledgeRoute,
+  IKnowledgeSearch,
+} from '../../docs/KnowledgeRouter';
 import type { Memory } from '../types/Memory';
 
 export interface MemorySearchProvider {
@@ -19,11 +21,11 @@ export interface UnifiedSearchResult {
 }
 
 export class UnifiedSearchService {
-  private knowledgeRouter: KnowledgeRouter;
+  private knowledgeRouter: IKnowledgeSearch;
   private memoryProvider: MemorySearchProvider;
 
   constructor(
-    knowledgeRouter: KnowledgeRouter,
+    knowledgeRouter: IKnowledgeSearch,
     memoryProvider: MemorySearchProvider
   ) {
     this.knowledgeRouter = knowledgeRouter;
@@ -128,7 +130,7 @@ export class UnifiedSearchService {
 }
 
 export function createUnifiedSearchService(
-  knowledgeRouter: KnowledgeRouter,
+  knowledgeRouter: IKnowledgeSearch,
   memoryProvider: MemorySearchProvider
 ): UnifiedSearchService {
   return new UnifiedSearchService(knowledgeRouter, memoryProvider);

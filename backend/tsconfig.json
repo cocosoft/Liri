@@ -69,6 +69,8 @@
       "@modules/oauth/*": ["oauth/*"],
       "@modules/infrastructure": ["infrastructure"],
       "@modules/infrastructure/*": ["infrastructure/*"],
+      "@modules/knowledge": ["knowledge"],
+      "@modules/knowledge/*": ["knowledge/*"],
       "@modules/bridge": ["bridge"],
       "@modules/bridge/*": ["bridge/*"],
       "@modules/permission": ["permission"],

@@ -14,3 +14,11 @@ export {
   UnifiedSearchTool,
   createUnifiedSearchTool,
 } from './UnifiedSearchTool';
+export {
+  KnowledgeWriteTool,
+  createKnowledgeWriteTool,
+} from './KnowledgeWriteTool';
+export {
+  KnowledgeDeleteTool,
+  createKnowledgeDeleteTool,
+} from './KnowledgeDeleteTool';

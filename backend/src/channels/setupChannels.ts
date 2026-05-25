@@ -381,7 +381,7 @@ export async function setupChannelsFromConfig(): Promise<{
       },
       {
         type: 'qq',
-        enabled: !!process.env.QQ_APP_ID && !!process.env.QQ_TOKEN,
+        enabled: !!process.env.QQ_APP_ID && !!process.env.QQ_APP_SECRET,
       },
       {
         type: 'dingtalk',

@@ -13,5 +13,7 @@ export type {
   IChannelOutboundAdapter,
   IChannelSecurityAdapter,
   IChannelPairingAdapter,
+  IChannelInboundAdapter,
+  InboundProtocol,
   IChannelPlugin,
 } from './IChannel';

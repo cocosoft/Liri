@@ -10,6 +10,7 @@ import type {
   Transaction,
   UnifiedMessageQueryOptions,
 } from './UnifiedStorage.js';
+import { resolveSessionsDir } from '../../config/paths';
 import type {
   UnifiedSession,
   SessionFilter,
@@ -52,7 +53,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
 
   constructor(config: StorageConfig) {
     this.config = config;
-    this.basePath = config.basePath ?? './data/sessions';
+    this.basePath = config.basePath ?? resolveSessionsDir();
     this.writer = new AtomicWriter();
   }
 

@@ -11,6 +11,8 @@ import type {
   ChannelCapabilities,
   SendResult,
   InteractiveCard,
+  IChannelInboundAdapter,
+  InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { createHash } from 'node:crypto';
@@ -372,6 +374,40 @@ class WechatChannelPlugin extends BaseChannelPlugin {
     } catch (err) {
       return { success: false, error: (err as Error).message };
     }
+  }
+
+  /**
+   * 创建入站适配器（Webhook 协议，尚未实现）
+   * TODO: 启动 HTTP Server 接收微信公众号回调消息（XML 格式）
+   */
+  protected override createInboundAdapter(): IChannelInboundAdapter {
+    const self = this;
+    return {
+      protocol: 'webhook' as InboundProtocol,
+
+      get isListening(): boolean {
+        return self.inboundListening;
+      },
+
+      start: async (_config: Record<string, unknown>): Promise<void> => {
+        self.logger.warn(
+          '微信入站消息接收未实现（需启动 HTTP Server 接收微信公众号回调消息）'
+        );
+        self.setInboundListening(false);
+      },
+
+      stop: async (): Promise<void> => {
+        self.setInboundListening(false);
+      },
+
+      setMessageHandler: (
+        handler: (
+          message: import('@modules/channels/types').MessageContext
+        ) => Promise<void>
+      ): void => {
+        self.setMessageHandler(handler);
+      },
+    };
   }
 }
 

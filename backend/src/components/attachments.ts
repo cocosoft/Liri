@@ -1,6 +1,7 @@
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
+import { resolveAttachmentsDir } from '../config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -34,7 +35,7 @@ export class AttachmentManager {
    * 构造函数
    * @param attachmentsDir 附件存储目录
    */
-  constructor(attachmentsDir: string = './data/attachments') {
+  constructor(attachmentsDir: string = resolveAttachmentsDir()) {
     this.attachmentsDir = attachmentsDir;
 
     // 确保目录存在

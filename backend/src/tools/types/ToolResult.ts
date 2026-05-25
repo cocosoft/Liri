@@ -10,6 +10,19 @@ export enum ToolExecutionStatus {
   PARTIAL = 'partial',
 }
 
+/**
+ * 错误级别
+ * 对标 OpenClaw result.errorLevel：区分错误严重程度，简化后续输出
+ */
+export enum ErrorLevel {
+  /** 纠正型错误：用户可自行纠正，不需要重试 */
+  RECOVERABLE = 'recoverable',
+  /** 可重试错误：系统可自动重试 */
+  RETRYABLE = 'retryable',
+  /** 致命错误：需要终止执行 */
+  FATAL = 'fatal',
+}
+
 export interface ToolResult<T = unknown> {
   data?: T;
   newMessages?: Message[];
@@ -32,6 +45,8 @@ export interface ToolResult<T = unknown> {
   timestamp?: number;
   content?: string;
   truncated?: boolean;
+  /** 错误级别，用于区分错误严重程度 */
+  errorLevel?: ErrorLevel;
 }
 
 export function createToolResult<T = unknown>(

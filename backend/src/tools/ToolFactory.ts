@@ -17,6 +17,7 @@ import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { CronListTool } from './ChronosTool/CronListTool';
 import { knowledgeRouter } from '../docs/KnowledgeRouter';
+import { resolveMemoryDir } from '../config/paths';
 import { createKnowledgeSearchTool } from '../memory/tools/KnowledgeSearchTool';
 import { createKnowledgeWriteTool } from '../memory/tools/KnowledgeWriteTool';
 import { createKnowledgeDeleteTool } from '../memory/tools/KnowledgeDeleteTool';
@@ -979,7 +980,7 @@ export function getAllBaseTools(): Tool[] {
     tools.push(knowledgeDeleteTool);
   }
 
-  const memoryManager = new MemoryManagerImpl('./data/memory');
+  const memoryManager = new MemoryManagerImpl(resolveMemoryDir());
   const memorySearchTool = createMemoryTool(new SearchToolImpl(memoryManager));
   if (memorySearchTool) {
     tools.push(memorySearchTool);

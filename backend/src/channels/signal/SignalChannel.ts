@@ -102,7 +102,7 @@ export class SignalChannel extends BaseChannelPlugin {
     return { success: false, error: 'Signal: sendFile 未实现' };
   }
 
-  handleIncomingMessage(message: SignalMessage): void {
+  incomingCustomMessage(message: SignalMessage): void {
     this.eventBus.emit('message_received', {
       source: message.source,
       sourceNumber: message.sourceNumber,

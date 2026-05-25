@@ -17,6 +17,10 @@ interface WebSocketTransportOptions {
   connectTimeout?: number;
   requestTimeout?: number;
   tls?: Partial<McpTlsConfig>;
+  /** 心跳间隔（毫秒），默认 30000 */
+  heartbeatInterval?: number;
+  /** 心跳超时（毫秒），默认 10000 */
+  heartbeatTimeout?: number;
 }
 
 export class WebSocketTransport extends MCPTransport {
@@ -33,12 +37,25 @@ export class WebSocketTransport extends MCPTransport {
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 1000;
 
+  /** 心跳间隔（毫秒），默认 30s */
+  private readonly heartbeatInterval: number;
+  /** 心跳超时（毫秒），默认 10s */
+  private readonly heartbeatTimeout: number;
+  /** 心跳定时器 */
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  /** 心跳响应超时定时器 */
+  private heartbeatResponseTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 最后收到 PONG 的时间戳 */
+  private lastPongTime: number = 0;
+
   constructor(options: WebSocketTransportOptions) {
     super(options.tls);
     this.url = options.url;
     this.headers = options.headers || {};
     this.connectTimeout = options.connectTimeout || 30000;
     this.requestTimeout = options.requestTimeout || 60000;
+    this.heartbeatInterval = options.heartbeatInterval || 30000;
+    this.heartbeatTimeout = options.heartbeatTimeout || 10000;
   }
 
   override async connect(): Promise<void> {
@@ -61,12 +78,22 @@ export class WebSocketTransport extends MCPTransport {
           clearTimeout(timeout);
           this.connected = true;
           this.reconnectAttempts = 0;
+          this.startHeartbeat();
           resolve();
         };
 
         this.socket.onmessage = (event) => {
           try {
-            const response: MCPResponse = JSON.parse(event.data);
+            const data = JSON.parse(event.data);
+            if (data.type === 'pong') {
+              if (this.heartbeatResponseTimer !== null) {
+                clearTimeout(this.heartbeatResponseTimer);
+                this.heartbeatResponseTimer = null;
+              }
+              this.lastPongTime = Date.now();
+              return;
+            }
+            const response: MCPResponse = data;
             const requestId = response.id;
             const pendingRequest = this.pendingRequests.get(requestId);
 
@@ -84,6 +111,7 @@ export class WebSocketTransport extends MCPTransport {
         };
 
         this.socket.onclose = (event) => {
+          this.stopHeartbeat();
           this.connected = false;
           this.socket = null;
 
@@ -120,6 +148,53 @@ export class WebSocketTransport extends MCPTransport {
         logger.error('WebSocket reconnect failed:', { error });
       }
     }, delay);
+  }
+
+  /**
+   * 启动心跳检测
+   * 对标 OpenClaw startWebSocketHeartbeat：定期发送 ping 以保持连接活性
+   */
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.socket || !this.connected) {
+        this.stopHeartbeat();
+        return;
+      }
+
+      try {
+        this.socket.send(JSON.stringify({ type: 'ping' }));
+
+        this.heartbeatResponseTimer = setTimeout(() => {
+          logger.warn('WebSocket 心跳超时，触发重连');
+          this.stopHeartbeat();
+          this.socket?.close();
+          this.socket = null;
+          this.connected = false;
+
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.scheduleReconnect();
+          }
+        }, this.heartbeatTimeout);
+      } catch (error) {
+        logger.error('WebSocket 心跳发送失败', { error });
+      }
+    }, this.heartbeatInterval);
+  }
+
+  /**
+   * 停止心跳检测
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    if (this.heartbeatResponseTimer !== null) {
+      clearTimeout(this.heartbeatResponseTimer);
+      this.heartbeatResponseTimer = null;
+    }
   }
 
   /**
@@ -166,6 +241,7 @@ export class WebSocketTransport extends MCPTransport {
    * 断开连接
    */
   override disconnect(): void {
+    this.stopHeartbeat();
     if (this.socket) {
       this.socket.close();
       this.socket = null;

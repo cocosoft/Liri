@@ -11,6 +11,8 @@ import type {
   ChannelCapabilities,
   SendResult,
   InteractiveCard,
+  IChannelInboundAdapter,
+  InboundProtocol,
 } from '@modules/channels/types';
 
 const TELEGRAM_META: ChannelMeta = {
@@ -297,6 +299,40 @@ class TelegramChannel extends BaseChannelPlugin {
     return {
       success: data['ok'] === true,
       error: data['description'] as string,
+    };
+  }
+
+  /**
+   * 创建入站适配器（Webhook 协议，尚未实现）
+   * TODO: 启动 HTTP Server 接收 Telegram Bot API Webhook 回调
+   */
+  protected override createInboundAdapter(): IChannelInboundAdapter {
+    const self = this;
+    return {
+      protocol: 'webhook' as InboundProtocol,
+
+      get isListening(): boolean {
+        return self.inboundListening;
+      },
+
+      start: async (_config: Record<string, unknown>): Promise<void> => {
+        self.logger.warn(
+          'Telegram 入站消息接收未实现（需启动 Webhook HTTP 服务接收 Bot API 回调）'
+        );
+        self.setInboundListening(false);
+      },
+
+      stop: async (): Promise<void> => {
+        self.setInboundListening(false);
+      },
+
+      setMessageHandler: (
+        handler: (
+          message: import('@modules/channels/types').MessageContext
+        ) => Promise<void>
+      ): void => {
+        self.setMessageHandler(handler);
+      },
     };
   }
 }

@@ -14,6 +14,8 @@ import type {
   IChannelOutboundAdapter,
   IChannelSecurityAdapter,
   IChannelPairingAdapter,
+  IChannelInboundAdapter,
+  InboundProtocol,
 } from '@modules/channels/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
@@ -34,6 +36,7 @@ export interface ChannelPluginState {
  * - 标准 config.validate() 和 config.getDefaultConfig()
  * - 标准 lifecycle.connect/disconnect/healthCheck/getStatus()
  * - 标准 outbound.sendText/sendMarkdown/sendImage/sendFile/sendInteractive()
+ * - 标准 inbound 消息接收骨架（默认无接收能力，子类可覆写 createInboundAdapter 启用）
  * - 标准 security 默认实现
  *
  * 子类需实现：
@@ -227,6 +230,92 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
 
     authorizeMessage: async (_ctx: MessageContext) => ({ allowed: true }),
   };
+
+  // ─── 入站消息处理器 ─────────────────────────────────────
+  private _messageHandler: ((message: MessageContext) => Promise<void>) | null =
+    null;
+  private _inboundListening = false;
+
+  /** 子类访问入站监听状态 */
+  protected get inboundListening(): boolean {
+    return this._inboundListening;
+  }
+
+  /**
+   * 设置入站消息回调
+   * 子类在收到消息时调用此回调将消息传递给上层路由
+   */
+  protected setMessageHandler(
+    handler: (message: MessageContext) => Promise<void>
+  ): void {
+    this._messageHandler = handler;
+  }
+
+  /**
+   * 触发入站消息处理
+   * 子类接收通道收到消息时调用此方法
+   */
+  protected async handleIncomingMessage(
+    message: MessageContext
+  ): Promise<void> {
+    this._state = { ...this._state, lastMessageAt: Date.now() };
+    if (this._messageHandler) {
+      try {
+        await this._messageHandler(message);
+      } catch (error) {
+        this.logger.error(`${this.id} 入站消息处理失败`, {
+          messageId: message.messageId,
+          error: String(error),
+        });
+      }
+    }
+  }
+
+  /**
+   * 设置入站监听状态（子类在 start/stop 中使用）
+   */
+  protected setInboundListening(listening: boolean): void {
+    this._inboundListening = listening;
+  }
+
+  /**
+   * 创建默认入站适配器（子类可覆写此方法提供自定义实现）
+   */
+  protected createInboundAdapter(): IChannelInboundAdapter {
+    const self = this;
+    return {
+      protocol: 'none' as InboundProtocol,
+
+      get isListening(): boolean {
+        return self._inboundListening;
+      },
+
+      start: async (_config: Record<string, unknown>): Promise<void> => {
+        self.logger.warn(`${self.id} 通道未实现入站消息接收`);
+        self._inboundListening = false;
+      },
+
+      stop: async (): Promise<void> => {
+        self._inboundListening = false;
+      },
+
+      setMessageHandler: (
+        handler: (message: MessageContext) => Promise<void>
+      ): void => {
+        self.setMessageHandler(handler);
+      },
+    };
+  }
+
+  // ─── IChannelInboundAdapter ─────────────────────────────
+  private _inboundAdapter: IChannelInboundAdapter | null = null;
+
+  get inbound(): IChannelInboundAdapter {
+    if (!this._inboundAdapter) {
+      this._inboundAdapter = this.createInboundAdapter();
+    }
+    return this._inboundAdapter;
+  }
 
   // ─── IChannelPairingAdapter (可选) ──────────────────────
   pairing?: IChannelPairingAdapter;

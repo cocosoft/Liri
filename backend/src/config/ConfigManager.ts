@@ -16,6 +16,7 @@ import {
   unwatchFile,
 } from 'fs';
 import { join, dirname, basename } from 'path';
+import { createHash } from 'node:crypto';
 import { logger } from '../utils/log.js';
 import {
   GlobalConfig,
@@ -40,6 +41,51 @@ import {
   loadPolicySettings,
   isPolicySettingsAvailable,
 } from './settings/policySettings.js';
+import { resolveUserConfigPath, resolvePyappHome, ensureDir } from './paths.js';
+import {
+  setRuntimeConfigSnapshot,
+  clearRuntimeConfigSnapshot,
+  getRuntimeConfigSnapshotMetadata,
+  hashRuntimeConfigValue as hashRuntimeConfigSnapshotValue,
+  registerRuntimeConfigWriteListener,
+} from './RuntimeConfigSnapshot.js';
+
+/**
+ * 确定性 JSON 序列化，用于配置 Hash 计算
+ * 保证相同配置值总是产生相同字符串
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value) ?? 'null';
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+  }
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(',')}}`;
+}
+
+/**
+ * 配置原子修改冲突错误
+ * 在 mutateConfigFile() 检测到外部修改时抛出
+ */
+export class ConfigMutationConflictError extends Error {
+  readonly expectedHash: string | null;
+  readonly actualHash: string | null;
+
+  constructor(
+    message: string,
+    params: { expectedHash: string | null; actualHash: string | null }
+  ) {
+    super(message);
+    this.name = 'ConfigMutationConflictError';
+    this.expectedHash = params.expectedHash;
+    this.actualHash = params.actualHash;
+  }
+}
 
 /**
  * 配置管理器类
@@ -50,15 +96,21 @@ export class ConfigManager {
     config: null,
     mtime: 0,
   };
+  private configHash: string | null = null;
+  private lastHashCheckTime: number = 0;
+  private configHashRevision: number = 0;
   private stats: ConfigStats = {
     readCount: 0,
     writeCount: 0,
     cacheHits: 0,
     cacheMisses: 0,
+    hashChecks: 0,
+    hashMismatches: 0,
   };
   private freshnessWatcherStarted = false;
   private readonly CONFIG_FRESHNESS_POLL_MS = 1000;
   private readonly CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5分钟
+  private readonly HASH_CHECK_INTERVAL_MS = 30000; // 30秒
   private configReadingAllowed = false;
   private configSnapshot: ConfigSnapshot;
   private configRecovery: ConfigRecovery;
@@ -96,15 +148,15 @@ export class ConfigManager {
    * @returns 配置文件路径
    */
   private resolveConfigPath(): string {
-    const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-    const oldPath = join(homeDir, '.PY_APP', 'config.json');
-    const newPath = join(homeDir, '.pyapp', 'config.json');
+    const pyappHome = resolvePyappHome();
+    const oldPath = join(pyappHome, '..', '.PY_APP', 'config.json');
+    const newPath = resolveUserConfigPath();
 
     // 首次启动时自动迁移从 ~/.PY_APP/ 到 ~/.pyapp/
     if (existsSync(oldPath) && !existsSync(newPath)) {
       try {
         const data = readFileSync(oldPath, 'utf-8');
-        mkdirSync(dirname(newPath), { recursive: true });
+        ensureDir(dirname(newPath));
         writeFileSync(newPath, data, 'utf-8');
         renameSync(oldPath, oldPath + '.bak');
         logger.info('配置路径迁移完成', { from: oldPath, to: newPath });
@@ -122,8 +174,7 @@ export class ConfigManager {
    * @returns 默认配置文件路径
    */
   private getDefaultConfigPath(): string {
-    const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-    return join(homeDir, '.pyapp', 'config.json');
+    return resolveUserConfigPath();
   }
 
   /**
@@ -150,12 +201,17 @@ export class ConfigManager {
 
   /**
    * 获取全局配置
+   * 每次调用都会周期性校验运行时快照 Hash，检测外部修改
    * @returns 全局配置
    */
   getGlobalConfig(): GlobalConfig {
-    // 快速路径：内存读取
+    // 快速路径：内存读取 + 周期性 Hash 校验
     if (this.configCache.config) {
       this.stats.cacheHits++;
+      // 周期性校验快照 Hash，检测外部修改
+      if (this.shouldVerifyHash()) {
+        this.verifyConfigHash();
+      }
       return this.configCache.config;
     }
 
@@ -174,8 +230,14 @@ export class ConfigManager {
         config,
         mtime: stats?.mtimeMs ?? Date.now(),
       };
+      this.configHash = this.computeHash(config);
+      this.lastHashCheckTime = Date.now();
+      this.configHashRevision++;
       this.stats.readCount++;
       this.stats.lastReadTime = Date.now();
+
+      // 更新运行时配置快照
+      setRuntimeConfigSnapshot(config);
 
       // 启动文件监控
       this.startFreshnessWatcher();
@@ -197,6 +259,107 @@ export class ConfigManager {
     return redactConfig(
       this.getGlobalConfig() as unknown as Record<string, unknown>
     ) as unknown as GlobalConfig;
+  }
+
+  /**
+   * 判断是否需要进行 Hash 校验
+   * 基于距离上次校验的时间间隔
+   */
+  private shouldVerifyHash(): boolean {
+    return Date.now() - this.lastHashCheckTime >= this.HASH_CHECK_INTERVAL_MS;
+  }
+
+  /**
+   * 计算配置对象的确定性 Hash 值
+   * 使用 SHA-256 算法，保证相同配置产生相同 Hash
+   */
+  private computeHash(config: GlobalConfig): string {
+    return createHash('sha256').update(stableStringify(config)).digest('hex');
+  }
+
+  /**
+   * 无锁读取配置文件内容（用于 Hash 校验）
+   * 不获取文件锁，避免并发竞争
+   * @returns 文件内容字符串，读取失败返回 null
+   */
+  private readConfigFileSnapshot(): string | null {
+    try {
+      return readFileSync(this.globalConfigPath, 'utf-8');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 校验运行时配置快照 Hash
+   * 对比内存中配置的 Hash 与配置文件的 Hash
+   * 不匹配时自动重载配置并记录告警
+   */
+  private verifyConfigHash(): void {
+    if (!this.configHash || !this.configCache.config) {
+      return;
+    }
+
+    this.stats.hashChecks = (this.stats.hashChecks ?? 0) + 1;
+    this.lastHashCheckTime = Date.now();
+
+    try {
+      const fileContent = this.readConfigFileSnapshot();
+      if (fileContent === null) {
+        return;
+      }
+
+      const fileParsed = JSON.parse(fileContent);
+      const fileHash = createHash('sha256')
+        .update(stableStringify(fileParsed))
+        .digest('hex');
+
+      if (fileHash !== this.configHash) {
+        this.stats.hashMismatches = (this.stats.hashMismatches ?? 0) + 1;
+        logger.warn('配置文件外部修改检测，自动重载配置', {
+          expectedHash: this.configHash,
+          actualHash: fileHash,
+          configPath: this.globalConfigPath,
+        });
+        this.reloadConfig();
+      }
+    } catch (error) {
+      logger.warn('配置 Hash 校验失败，跳过本次校验', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * 获取运行时配置快照信息
+   * 委托给 RuntimeConfigSnapshot 模块，提供增强的快照元数据
+   * @returns 运行时快照信息，包含 Hash、修订号和更新时间
+   */
+  getRuntimeSnapshot(): {
+    hash: string;
+    revision: number;
+    updatedAt: number;
+    fingerprint?: string;
+    cacheKey?: string;
+  } | null {
+    const metadata = getRuntimeConfigSnapshotMetadata();
+    if (!metadata && !this.configHash) {
+      return null;
+    }
+    if (metadata) {
+      return {
+        hash: this.configHash ?? metadata.fingerprint,
+        revision: metadata.revision,
+        updatedAt: metadata.updatedAtMs,
+        fingerprint: metadata.fingerprint,
+        cacheKey: `runtime:${metadata.revision}:${metadata.fingerprint}`,
+      };
+    }
+    return {
+      hash: this.configHash!,
+      revision: this.configHashRevision,
+      updatedAt: this.lastHashCheckTime,
+    };
   }
 
   /**
@@ -295,10 +458,16 @@ export class ConfigManager {
       // 原子写入
       this.atomicWriteConfig(newConfig);
 
-      // 更新缓存
+      // 更新缓存和 Hash
       this.configCache = { config: newConfig, mtime: Date.now() };
+      this.configHash = this.computeHash(newConfig);
+      this.lastHashCheckTime = Date.now();
+      this.configHashRevision++;
       this.stats.writeCount++;
       this.stats.lastWriteTime = Date.now();
+
+      // 同步运行时快照
+      setRuntimeConfigSnapshot(newConfig);
     } catch (error) {
       logger.error('保存配置失败', error instanceof Error ? error : undefined);
       throw error;
@@ -306,7 +475,69 @@ export class ConfigManager {
   }
 
   /**
+   * 原子修改配置 — 读 → 改 → 写校验 模式
+   * 写入前对比文件 Hash，检测到外部修改时抛出 ConfigMutationConflictError
+   * @param mutator 配置变异函数，接收当前配置的深拷贝（draft），修改 draft 后返回
+   * @returns 修改后的配置
+   * @throws ConfigMutationConflictError 当检测到外部修改时
+   */
+  mutateConfigFile(mutator: (draft: GlobalConfig) => void): GlobalConfig {
+    const expectedHash = this.configHash;
+
+    // 克隆当前配置作为 draft
+    const draft: GlobalConfig = structuredClone(this.getGlobalConfig());
+
+    // 应用变异
+    mutator(draft);
+
+    // 写入前验证文件未被外部修改 —— 重新读取文件并计算 Hash
+    try {
+      const fileContent = this.readConfigFileSnapshot();
+      if (fileContent !== null) {
+        const fileParsed = JSON.parse(fileContent);
+        const fileHash = createHash('sha256')
+          .update(stableStringify(fileParsed))
+          .digest('hex');
+
+        if (expectedHash !== null && fileHash !== expectedHash) {
+          this.stats.hashMismatches = (this.stats.hashMismatches ?? 0) + 1;
+          throw new ConfigMutationConflictError(
+            '配置自上次加载后已被外部修改，写入冲突',
+            { expectedHash, actualHash: fileHash }
+          );
+        }
+      }
+    } catch (error) {
+      if (error instanceof ConfigMutationConflictError) {
+        throw error;
+      }
+      logger.warn('原子修改预检失败，继续执行写入', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // 执行原子写入
+    this.atomicWriteConfig(draft);
+
+    // 更新缓存和 Hash
+    this.configCache = { config: draft, mtime: Date.now() };
+    this.configHash = this.computeHash(draft);
+    this.lastHashCheckTime = Date.now();
+    this.configHashRevision++;
+    this.stats.writeCount++;
+    this.stats.lastWriteTime = Date.now();
+
+    // 同步运行时快照
+    setRuntimeConfigSnapshot(draft);
+
+    logger.debug('配置原子修改完成');
+    return draft;
+  }
+
+  /**
    * 原子写入配置
+   * 使用唯一临时文件名（pid + timestamp），避免多进程冲突
+   * 写入完成后通过 rename 实现原子替换
    * @param config 配置对象
    */
   private atomicWriteConfig(config: GlobalConfig): void {
@@ -314,6 +545,8 @@ export class ConfigManager {
 
     // 获取文件锁
     this.configIO.acquireLock(lockPath);
+
+    let tempPath = '';
 
     try {
       const configDir = dirname(this.globalConfigPath);
@@ -326,8 +559,8 @@ export class ConfigManager {
       // 创建备份
       this.createBackup();
 
-      // 写入临时文件
-      const tempPath = `${this.globalConfigPath}.tmp`;
+      // 写入临时文件（唯一名称，避免多进程冲突）
+      tempPath = `${this.globalConfigPath}.tmp.${process.pid}.${Date.now()}`;
       const filteredConfig = this.filterDefaults(config);
 
       writeFileSync(tempPath, JSON.stringify(filteredConfig, null, 2), {
@@ -339,13 +572,12 @@ export class ConfigManager {
       renameSync(tempPath, this.globalConfigPath);
     } catch (error) {
       // 清理临时文件
-      try {
-        const tempPath = `${this.globalConfigPath}.tmp`;
-        if (existsSync(tempPath)) {
+      if (tempPath && existsSync(tempPath)) {
+        try {
           unlinkSync(tempPath);
+        } catch {
+          // 忽略清理错误
         }
-      } catch {
-        // 忽略清理错误
       }
       throw error;
     } finally {
@@ -468,11 +700,20 @@ export class ConfigManager {
           const content = readFileSync(this.globalConfigPath, 'utf-8');
           const parsed = JSON.parse(content);
 
+          const mergedConfig: GlobalConfig = {
+            ...createDefaultGlobalConfig(),
+            ...parsed,
+          };
+
           this.configCache = {
-            config: { ...createDefaultGlobalConfig(), ...parsed },
+            config: mergedConfig,
             mtime: curr.mtimeMs,
           };
-          logger.debug('配置已更新');
+          this.configHash = this.computeHash(mergedConfig);
+          this.lastHashCheckTime = Date.now();
+          this.configHashRevision++;
+          setRuntimeConfigSnapshot(mergedConfig);
+          logger.debug('文件监控检测到配置变更，已更新缓存和快照');
         } catch {
           // 忽略读取错误
         }
@@ -564,14 +805,19 @@ export class ConfigManager {
       writeCount: 0,
       cacheHits: 0,
       cacheMisses: 0,
+      hashChecks: 0,
+      hashMismatches: 0,
     };
   }
 
   /**
-   * 清除配置缓存
+   * 清除配置缓存和运行时快照
    */
   clearCache(): void {
     this.configCache = { config: null, mtime: 0 };
+    this.configHash = null;
+    this.lastHashCheckTime = 0;
+    clearRuntimeConfigSnapshot();
     logger.debug('配置缓存已清除');
   }
 
@@ -591,6 +837,10 @@ export class ConfigManager {
     const defaultConfig = createDefaultGlobalConfig();
     this.atomicWriteConfig(defaultConfig);
     this.configCache = { config: defaultConfig, mtime: Date.now() };
+    this.configHash = this.computeHash(defaultConfig);
+    this.lastHashCheckTime = Date.now();
+    this.configHashRevision++;
+    setRuntimeConfigSnapshot(defaultConfig);
     logger.info('配置已重置为默认值');
   }
 

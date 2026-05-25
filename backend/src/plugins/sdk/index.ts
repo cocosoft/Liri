@@ -33,6 +33,7 @@ export type {
 } from './PluginManifest';
 
 export { PluginType } from './PluginManifest';
+export type { DependencySpec, FullPluginManifest } from './PluginManifest';
 
 // core 层 - SDK 类型
 export type {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SlackChannel Slack ??
  * ?? OpenClaw ? Slack ??
  */
@@ -10,6 +10,8 @@ import type {
   ChannelCapabilities,
   SendResult,
   InteractiveCard,
+  IChannelInboundAdapter,
+  InboundProtocol,
 } from '@modules/channels/types';
 
 /**
@@ -215,6 +217,40 @@ class SlackChannelPlugin extends BaseChannelPlugin {
     _card: InteractiveCard
   ): Promise<SendResult> {
     return { success: false, error: 'Slack: sendInteractive ???' };
+  }
+
+  /**
+   * 创建入站适配器（WebSocket 协议，尚未实现）
+   * TODO: 连接 Slack Socket Mode WebSocket，监听 events/message 事件
+   */
+  protected override createInboundAdapter(): IChannelInboundAdapter {
+    const self = this;
+    return {
+      protocol: 'websocket' as InboundProtocol,
+
+      get isListening(): boolean {
+        return self.inboundListening;
+      },
+
+      start: async (_config: Record<string, unknown>): Promise<void> => {
+        self.logger.warn(
+          'Slack 入站消息接收未实现（需连接 Slack Socket Mode WebSocket）'
+        );
+        self.setInboundListening(false);
+      },
+
+      stop: async (): Promise<void> => {
+        self.setInboundListening(false);
+      },
+
+      setMessageHandler: (
+        handler: (
+          message: import('@modules/channels/types').MessageContext
+        ) => Promise<void>
+      ): void => {
+        self.setMessageHandler(handler);
+      },
+    };
   }
 }
 

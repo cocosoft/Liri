@@ -14,6 +14,7 @@ import {
   validateArgs,
   normalizeArgs,
 } from '../utils/cliArgs.js';
+import { generateBanner, getVersionString } from '../cli/banner/index.js';
 
 /**
  * 启动前环境变量优化
@@ -74,6 +75,40 @@ async function runDoctor(): Promise<void> {
 }
 
 /**
+ * 检查是否为 MCP 快速路径
+ * 对标 OpenClaw isGatewayRunFastPathArgv()
+ */
+export function isFastPathArgv(argv: string[]): boolean {
+  const flags = new Set(argv.map((a) => a.toLowerCase()));
+  return (
+    (flags.has('--mcp') && argv.length <= 2) ||
+    flags.has('--version') ||
+    flags.has('-v') ||
+    flags.has('-V') ||
+    flags.has('--help') ||
+    flags.has('-h') ||
+    flags.has('--doctor') ||
+    flags.has('--dump-system-prompt') ||
+    flags.has('--list-modes') ||
+    flags.has('--daemon') ||
+    flags.has('--background') ||
+    flags.has('--bg')
+  );
+}
+
+/**
+ * 显示启动 Banner
+ * 对标 OpenClaw emitCliBanner()
+ */
+function emitBanner(): void {
+  console.log();
+  console.log(generateBanner({ description: 'AI Agent — TypeScript + Rust' }));
+  console.log(chalk.gray(getVersionString()));
+  console.log(chalk.gray('='.repeat(50)));
+  console.log();
+}
+
+/**
  * 主CLI入口函数
  * 实现快速路径分发和多种运行模式支持
  */
@@ -88,7 +123,7 @@ export async function main(): Promise<void> {
     (arg) => arg === '--version' || arg === '-v' || arg === '-V'
   );
   if (versionArgs.length === 1 && normalizedArgs.length <= 2) {
-    console.log('1.0.0 (PY_APP)');
+    console.log(getVersionString());
     return;
   }
 
@@ -158,6 +193,7 @@ export async function main(): Promise<void> {
 
   // 快速路径：守护进程模式
   if (normalizedArgs.includes('--daemon')) {
+    emitBanner();
     const { launch, LaunchMode } = await import('../main.js');
     await launch({ mode: LaunchMode.DAEMON });
     return;
@@ -168,6 +204,7 @@ export async function main(): Promise<void> {
     normalizedArgs.includes('--background') ||
     normalizedArgs.includes('--bg')
   ) {
+    emitBanner();
     const { launch, LaunchMode } = await import('../main.js');
     await launch({ mode: LaunchMode.DAEMON });
     return;
@@ -202,6 +239,7 @@ export async function main(): Promise<void> {
   }
 
   // 默认为完整应用模式
+  emitBanner();
   const { main } = await import('../main.js');
   await main();
 }

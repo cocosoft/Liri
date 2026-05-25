@@ -4,6 +4,10 @@
  * 实现 API Key 多凭证轮换和失败切换
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /**
  * 凭证条目
  */
@@ -28,6 +32,21 @@ export interface Credential {
   lastUsedAt: number | null;
   /** 创建时间 */
   createdAt: number;
+}
+
+/**
+ * CredentialSource — 凭证来源接口
+ * 对标 OpenClaw-CredentialSource：允许从环境变量、配置文件、密钥管理器等来源获取凭证
+ *
+ * 实现者应返回来源已知的所有凭证列表
+ */
+export interface CredentialSource {
+  /** 来源名称 */
+  name: string;
+  /** 获取该来源下所有凭证 */
+  fetch(): Promise<Credential[]>;
+  /** 来源优先级（小更优先），默认 10 */
+  priority?: number;
 }
 
 /**
@@ -260,5 +279,42 @@ export class CredentialPool {
       failures: credential.failures,
       disabled: credential.disabled,
     };
+  }
+
+  /**
+   * 对 API Key 执行脱敏显示
+   * 保留前6位和后4位，中间用星号代替
+   *
+   * @param apiKey 原始 API Key
+   * @returns 脱敏后的字符串
+   */
+  static maskedKey(apiKey: string): string {
+    if (!apiKey) return '';
+    if (apiKey.length <= 10) {
+      return apiKey.slice(0, 2) + '*'.repeat(apiKey.length - 2);
+    }
+    return (
+      apiKey.slice(0, 6) + '*'.repeat(apiKey.length - 10) + apiKey.slice(-4)
+    );
+  }
+
+  /**
+   * 注册凭证来源
+   * 来源会自动调用 fetch 并将凭证加入池中
+   *
+   * @param source 凭证来源
+   */
+  async registerSource(source: CredentialSource): Promise<void> {
+    try {
+      const credentials = await source.fetch();
+      for (const cred of credentials) {
+        this.addCredential(cred);
+      }
+      logger.info(
+        `凭证来源 "${source.name}" 已注册，导入 ${credentials.length} 条凭证`
+      );
+    } catch (error) {
+      logger.error(`凭证来源 "${source.name}" 注册失败`, error as Error);
+    }
   }
 }

@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import path from 'node:path';
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveSessionsDir } from '../config/paths';
 import {
   createTranscriptManager,
   TranscriptManager,
@@ -78,14 +79,26 @@ import type { PrunerOptions, PruneResult } from './SessionPruner.js';
 import { SessionLock } from './SessionLock.js';
 import type { LockOptions, LockAcquireResult } from './SessionLock.js';
 import { PriorityManager } from './qos/PriorityManager.js';
-import type { SessionPriorityLevel, SessionPriority, QoSLevel } from './qos/SessionPriority.js';
+import type {
+  SessionPriorityLevel,
+  SessionPriority,
+  QoSLevel,
+} from './qos/SessionPriority.js';
 import { QoSEnforcer } from './qos/QoSEnforcer.js';
 import { BudgetTracker } from './budget/BudgetTracker.js';
 import { BudgetEnforcer } from './budget/BudgetEnforcer.js';
-import type { SessionTokenBudgetConfig, BudgetDecision, BudgetPeriod } from './budget/BudgetTypes.js';
+import type {
+  SessionTokenBudgetConfig,
+  BudgetDecision,
+  BudgetPeriod,
+} from './budget/BudgetTypes.js';
 import { SessionArchiver } from './archive/SessionArchiver.js';
 import type { ArchivableSession } from './archive/SessionArchiver.js';
-import type { ArchiveResult, ArchiveTrigger, ArchiveMetadata } from './archive/ArchiveTypes.js';
+import type {
+  ArchiveResult,
+  ArchiveTrigger,
+  ArchiveMetadata,
+} from './archive/ArchiveTypes.js';
 import { UnifiedStorageAdapter } from './storage/UnifiedStorageAdapter.js';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -142,7 +155,7 @@ export class SessionGateway {
     this.storage = StorageFactory.createStorage(
       this.config.storageConfig ?? {
         type: StorageType.FILESYSTEM,
-        basePath: './data/sessions',
+        basePath: resolveSessionsDir(),
       }
     );
 
@@ -333,10 +346,12 @@ export class SessionGateway {
     this.wireWithRealServices();
 
     const adapter = new UnifiedStorageAdapter(this.storage);
-    this.setSessionStore(new SessionStore({
-      storage: adapter,
-      ...options?.storeOptions,
-    }));
+    this.setSessionStore(
+      new SessionStore({
+        storage: adapter,
+        ...options?.storeOptions,
+      })
+    );
 
     this.setSessionPruner(new SessionPruner(adapter, options?.prunerOptions));
     this.setSessionLock(new SessionLock());
@@ -377,7 +392,8 @@ export class SessionGateway {
 
     if (this.eventBus) {
       this.eventBus.on('message:created', (event) => {
-        const { messageId, type, role, content, sessionKey } = event.metadata ?? {};
+        const { messageId, type, role, content, sessionKey } =
+          event.metadata ?? {};
         if (messageId && typeof content === 'string') {
           getFTS5SearchEngine().index({
             id: `msg_${messageId}`,
@@ -620,7 +636,8 @@ export class SessionGateway {
    * 获取 FTS5 索引持久化路径
    */
   private getFTSIndexPath(): string {
-    const basePath = this.config.storageConfig?.basePath ?? './data/sessions';
+    const basePath =
+      this.config.storageConfig?.basePath ?? resolveSessionsDir();
     return path.join(basePath, '../fts-index.json');
   }
 
@@ -767,9 +784,7 @@ export class SessionGateway {
       query,
       'message',
       limit,
-      sessionId
-        ? (doc) => doc.metadata?.sessionId === sessionId
-        : undefined
+      sessionId ? (doc) => doc.metadata?.sessionId === sessionId : undefined
     );
   }
 
@@ -909,7 +924,11 @@ export class SessionGateway {
   /**
    * 获取缓存统计
    */
-  getCacheStats(): { sessions: number; metadata: number; messages: number } | null {
+  getCacheStats(): {
+    sessions: number;
+    metadata: number;
+    messages: number;
+  } | null {
     return this.sessionStore?.getCacheStats() ?? null;
   }
 
@@ -1050,10 +1069,7 @@ export class SessionGateway {
   /**
    * 设置会话预算
    */
-  setSessionBudget(
-    sessionId: string,
-    config: SessionTokenBudgetConfig
-  ): void {
+  setSessionBudget(sessionId: string, config: SessionTokenBudgetConfig): void {
     if (!this.budgetEnforcer) {
       const tracker = new BudgetTracker();
       this.budgetTracker = tracker;
@@ -1076,10 +1092,7 @@ export class SessionGateway {
   /**
    * 检查预算
    */
-  checkBudget(
-    sessionId: string,
-    estimatedTokens?: number
-  ): BudgetDecision {
+  checkBudget(sessionId: string, estimatedTokens?: number): BudgetDecision {
     if (!this.budgetEnforcer) {
       return {
         action: 'allow' as const,
@@ -1095,10 +1108,7 @@ export class SessionGateway {
   /**
    * 检查是否可在预算内继续
    */
-  canProceedWithBudget(
-    sessionId: string,
-    estimatedTokens?: number
-  ): boolean {
+  canProceedWithBudget(sessionId: string, estimatedTokens?: number): boolean {
     if (!this.budgetEnforcer) return true;
     return this.budgetEnforcer.canProceed(sessionId, estimatedTokens);
   }

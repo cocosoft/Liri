@@ -27,6 +27,8 @@ export type {
   RoutingConfig,
   TokenEstimatorConfig,
   LocalAgentConfig,
+  ChannelsConfig,
+  ChannelInboundConfig,
 } from './types.js';
 
 export {
@@ -147,6 +149,33 @@ export {
   TRUSTED_SETTING_SOURCES,
   type TrustedSettingSource,
 } from './managedEnv.js';
+
+export * from './paths.js';
+
+// 导出运行时配置快照
+export {
+  setRuntimeConfigSnapshot,
+  getRuntimeConfigSnapshot,
+  getRuntimeConfigSourceSnapshot,
+  getRuntimeConfigSnapshotMetadata,
+  clearRuntimeConfigSnapshot,
+  hashRuntimeConfigValue,
+  resolveRuntimeConfigCacheKey,
+  registerRuntimeConfigWriteListener,
+  notifyRuntimeConfigWriteListeners,
+  createRuntimeConfigWriteNotification,
+  setRuntimeConfigSnapshotRefreshHandler,
+  getRuntimeConfigSnapshotRefreshHandler,
+  loadPinnedRuntimeConfig,
+  selectApplicableRuntimeConfig,
+} from './RuntimeConfigSnapshot.js';
+
+export type {
+  RuntimeConfigSnapshotMetadata,
+  RuntimeConfigSnapshotRefreshHandler,
+  RuntimeConfigSnapshotRefreshParams,
+  RuntimeConfigWriteNotification,
+} from './RuntimeConfigSnapshot.js';
 
 // 导出便捷函数
 import { configManager } from './ConfigManager.js';

@@ -6,8 +6,15 @@
 
 import { SessionType, SessionStatus } from '../types/Session.js';
 import type { UnifiedSession } from '../types/Session.js';
-import type { UnifiedMessage, MessageType as UnifiedMsgType, MessageRole } from '../types/Message.js';
-import type { UnifiedSessionStorage, UnifiedMessageQueryOptions } from './UnifiedStorage.js';
+import type {
+  UnifiedMessage,
+  MessageType as UnifiedMsgType,
+  MessageRole,
+} from '../types/Message.js';
+import type {
+  UnifiedSessionStorage,
+  UnifiedMessageQueryOptions,
+} from './UnifiedStorage.js';
 
 import { Session } from '../models/Session.js';
 import { SessionMessage } from '../models/SessionMessage.js';
@@ -36,9 +43,12 @@ function toUnifiedSession(old: Session): UnifiedSession {
   return {
     id: old.id,
     type: SessionType.LOCAL,
-    createdAt: old.createdAt instanceof Date ? old.createdAt.getTime() : Date.now(),
-    updatedAt: old.updatedAt instanceof Date ? old.updatedAt.getTime() : Date.now(),
-    lastActivityAt: old.updatedAt instanceof Date ? old.updatedAt.getTime() : Date.now(),
+    createdAt:
+      old.createdAt instanceof Date ? old.createdAt.getTime() : Date.now(),
+    updatedAt:
+      old.updatedAt instanceof Date ? old.updatedAt.getTime() : Date.now(),
+    lastActivityAt:
+      old.updatedAt instanceof Date ? old.updatedAt.getTime() : Date.now(),
     status: statusMap[old.state?.currentState] ?? SessionStatus.ACTIVE,
     metadata: {
       title: old.metadata?.title ?? '',
@@ -55,14 +65,19 @@ function toOldSession(unified: UnifiedSession): Session {
   const metadata = new SessionMetadata(
     unified.metadata?.title ?? '',
     unified.metadata?.tags ?? [],
-    unified.metadata?.mode ?? 'default',
+    unified.metadata?.mode ?? 'default'
   );
 
   const state = new SessionState(
-    unified.status === SessionStatus.ACTIVE ? 'active' :
-    unified.status === SessionStatus.PAUSED ? 'paused' :
-    unified.status === SessionStatus.ENDED ? 'ended' :
-    unified.status === SessionStatus.ARCHIVED ? 'archived' : 'active',
+    unified.status === SessionStatus.ACTIVE
+      ? 'active'
+      : unified.status === SessionStatus.PAUSED
+        ? 'paused'
+        : unified.status === SessionStatus.ENDED
+          ? 'ended'
+          : unified.status === SessionStatus.ARCHIVED
+            ? 'archived'
+            : 'active'
   );
 
   return new Session(
@@ -71,14 +86,17 @@ function toOldSession(unified: UnifiedSession): Session {
     state,
     [],
     new Date(unified.createdAt),
-    new Date(unified.updatedAt),
+    new Date(unified.updatedAt)
   );
 }
 
 /**
  * 将旧 SessionMessage 转换为 UnifiedMessage
  */
-function toUnifiedMessage(sessionId: string, msg: SessionMessage): UnifiedMessage {
+function toUnifiedMessage(
+  sessionId: string,
+  msg: SessionMessage
+): UnifiedMessage {
   const typeMap: Record<string, UnifiedMsgType> = {
     user: 'user' as UnifiedMsgType,
     assistant: 'assistant' as UnifiedMsgType,
@@ -96,10 +114,11 @@ function toUnifiedMessage(sessionId: string, msg: SessionMessage): UnifiedMessag
   return {
     id: msg.id,
     sessionId,
-    type: typeMap[msg.type] ?? 'user' as UnifiedMsgType,
-    role: roleMap[msg.type] ?? 'user' as MessageRole,
+    type: typeMap[msg.type] ?? ('user' as UnifiedMsgType),
+    role: roleMap[msg.type] ?? ('user' as MessageRole),
     content: msg.content,
-    timestamp: msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
+    timestamp:
+      msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
     parentUuid: msg.parentId,
     metadata: msg.toolResult ? { toolCallId: msg.id, toolName: '' } : undefined,
   };
@@ -120,14 +139,15 @@ function toOldSessionMessage(msg: UnifiedMessage): SessionMessage {
     error: 'system',
   };
 
-  const contentStr = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+  const contentStr =
+    typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
 
   return new SessionMessage(
     msg.id,
     typeMap[msg.type] as any,
     contentStr,
     new Date(msg.timestamp),
-    msg.parentUuid,
+    msg.parentUuid
   );
 }
 
@@ -173,7 +193,10 @@ export class UnifiedStorageAdapter implements SessionStorage {
     if (options?.since) queryOptions.startDate = options.since.getTime();
     if (options?.until) queryOptions.endDate = options.until.getTime();
 
-    const unifiedMessages = await this.storage.getMessages(sessionId, queryOptions);
+    const unifiedMessages = await this.storage.getMessages(
+      sessionId,
+      queryOptions
+    );
     return unifiedMessages.map(toOldSessionMessage);
   }
 
@@ -197,7 +220,8 @@ export class UnifiedStorageAdapter implements SessionStorage {
     const session = await this.storage.getSession(sessionId);
     if (!session) return null;
 
-    const { SessionMetadata } = require('../models/SessionMetadata.js') as typeof import('../models/SessionMetadata.js');
+    const { SessionMetadata } =
+      require('../models/SessionMetadata.js') as typeof import('../models/SessionMetadata.js');
     return SessionMetadata.fromJSON({
       title: session.metadata?.title ?? '',
       tags: session.metadata?.tags ?? [],

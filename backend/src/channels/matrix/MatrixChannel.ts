@@ -114,7 +114,7 @@ export class MatrixChannel extends BaseChannelPlugin {
     return { success: false, error: 'Matrix: sendFile 未实现' };
   }
 
-  handleIncomingMessage(message: MatrixMessage): void {
+  incomingCustomMessage(message: MatrixMessage): void {
     this.eventBus.emit('message_received', {
       sender: message.sender,
       roomId: message.roomId,

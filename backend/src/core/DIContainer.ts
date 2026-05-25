@@ -147,8 +147,49 @@ export class ContainerScope {
   private disposeManager = new DisposeManager();
   private config: ContainerConfig;
 
+  /** 实例创建回调列表 */
+  private onInstanceCreatedCallbacks: Array<
+    (id: string, instance: unknown) => void
+  > = [];
+
   constructor(config: ContainerConfig = DEFAULT_CONTAINER_CONFIG) {
     this.config = config;
+  }
+
+  /**
+   * 注册实例创建回调
+   * 对标 OpenClaw container.onInstanceCreated：前端响应式订阅 DI 事件
+   *
+   * @param callback 回调函数，接收服务 ID 和实例
+   */
+  onInstanceCreated(callback: (id: string, instance: unknown) => void): void {
+    this.onInstanceCreatedCallbacks.push(callback);
+  }
+
+  /**
+   * 移除实例创建回调
+   * @param callback 要移除的回调函数
+   */
+  offInstanceCreated(callback: (id: string, instance: unknown) => void): void {
+    const idx = this.onInstanceCreatedCallbacks.indexOf(callback);
+    if (idx !== -1) {
+      this.onInstanceCreatedCallbacks.splice(idx, 1);
+    }
+  }
+
+  /**
+   * 触发实例创建事件
+   * @param id 服务 ID
+   * @param instance 已创建的实例
+   */
+  private emitInstanceCreated(id: string, instance: unknown): void {
+    for (const callback of this.onInstanceCreatedCallbacks) {
+      try {
+        callback(id, instance);
+      } catch (error) {
+        console.error(`onInstanceCreated 回调执行失败: ${id}`, error);
+      }
+    }
   }
 
   registerDescriptor<T>(descriptor: ServiceDescriptor<T>): void {
@@ -177,6 +218,7 @@ export class ContainerScope {
           if (desc) {
             this.disposeManager.register(id, desc, instance);
           }
+          this.emitInstanceCreated(id, instance);
         }
         return this.singletonInstances.get(id) as T;
       }
@@ -187,7 +229,9 @@ export class ContainerScope {
           return factory();
         }
         if (!this.requestInstances.has(id)) {
-          this.requestInstances.set(id, factory());
+          const instance = factory();
+          this.requestInstances.set(id, instance);
+          this.emitInstanceCreated(id, instance);
         }
         return this.requestInstances.get(id) as T;
       }

@@ -13,6 +13,7 @@ import {
   mkdirSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { resolveTranscriptsDir } from '../config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -31,7 +32,7 @@ export interface TranscriptConfig {
 }
 
 const DEFAULT_CONFIG: TranscriptConfig = {
-  sessionsDir: join(process.cwd(), 'data', 'transcripts'),
+  sessionsDir: resolveTranscriptsDir(),
   maxEntriesPerFile: 5000,
   format: 'jsonl',
 };
@@ -46,6 +47,39 @@ export class SessionTranscript {
     if (!existsSync(this.config.sessionsDir)) {
       mkdirSync(this.config.sessionsDir, { recursive: true });
     }
+  }
+
+  /**
+   * 获取脱敏后的转录内容
+   * 对标 OpenClaw stripToolDetails：移除工具调用细节，保留角色和时间线
+   *
+   * @param sessionId 会话ID
+   * @param options 脱敏选项
+   * @returns 脱敏后的文本内容
+   */
+  getTranscriptWithSanitization(
+    sessionId: string,
+    options?: { stripToolDetails?: boolean; maxContentLength?: number }
+  ): string {
+    const entries = this.getEntries(sessionId);
+    const stripTools = options?.stripToolDetails !== false;
+    const maxLen = options?.maxContentLength ?? 500;
+
+    const lines: string[] = [];
+    for (const entry of entries) {
+      const ts = new Date(entry.timestamp).toISOString();
+      if (entry.role === 'tool' && stripTools) {
+        const content = entry.content || '';
+        const truncated =
+          content.length > maxLen ? content.slice(0, maxLen) + '...' : content;
+        lines.push(
+          `[${ts}] TOOL${entry.toolName ? `(${entry.toolName})` : ''}: ${truncated}`
+        );
+      } else {
+        lines.push(`[${ts}] ${entry.role.toUpperCase()}: ${entry.content}`);
+      }
+    }
+    return lines.join('\n');
   }
 
   addEntry(sessionId: string, entry: TranscriptEntry): void {

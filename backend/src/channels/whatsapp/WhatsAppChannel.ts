@@ -127,7 +127,7 @@ export class WhatsAppChannel extends BaseChannelPlugin {
     return true;
   }
 
-  handleIncomingMessage(message: WhatsAppMessage): void {
+  incomingCustomMessage(message: WhatsAppMessage): void {
     this.eventBus.emit('message_received', {
       from: message.from,
       type: message.type,

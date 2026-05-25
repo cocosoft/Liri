@@ -7,6 +7,7 @@ import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { resolveMemoryDir } from '../../config/paths';
 
 const storeLogger = new Logger({ level: LogLevel.INFO });
 
@@ -97,6 +98,18 @@ export function validateMemoryPath(
 }
 
 /**
+ * 记忆存储后端接口
+ * 在默认文件存储之外，支持注册替代存储后端（如数据库、向量存储等）
+ */
+export interface MemoryStoreBackend {
+  name: string;
+  save(id: string, data: Memory): Promise<void>;
+  read(id: string): Promise<Memory | null>;
+  delete(id: string): Promise<void>;
+  list(): Promise<string[]>;
+}
+
+/**
  * 记忆存储接口
  */
 export interface MemoryStore {
@@ -129,6 +142,12 @@ export interface MemoryStore {
 
   // 获取记忆的Markdown预览
   getMemoryMarkdownPreview(id: string): Promise<string>;
+
+  // 注册替代存储后端
+  registerStoreBackend(name: string, backend: MemoryStoreBackend): void;
+
+  // 获取已注册的后端列表
+  getRegisteredBackends(): string[];
 }
 
 /**
@@ -141,6 +160,12 @@ export class MemoryStoreImpl implements MemoryStore {
   private memoryDir: string;
 
   /**
+   * 已注册的替代存储后端
+   * 对标 OpenClaw plugin-based store backend 架构
+   */
+  private backends: Map<string, MemoryStoreBackend> = new Map();
+
+  /**
    * 向量索引文件路径
    */
   private getVectorIndexPath(): string {
@@ -151,8 +176,25 @@ export class MemoryStoreImpl implements MemoryStore {
    * 构造函数
    * @param memoryDir 记忆目录路径
    */
-  constructor(memoryDir: string = './data/memory') {
+  constructor(memoryDir: string = resolveMemoryDir()) {
     this.memoryDir = memoryDir;
+  }
+
+  /**
+   * 注册替代存储后端
+   * @param name 后端名称
+   * @param backend 后端实现
+   */
+  registerStoreBackend(name: string, backend: MemoryStoreBackend): void {
+    this.backends.set(name, backend);
+  }
+
+  /**
+   * 获取已注册的后端列表
+   * @returns 后端名称列表
+   */
+  getRegisteredBackends(): string[] {
+    return Array.from(this.backends.keys());
   }
 
   /**

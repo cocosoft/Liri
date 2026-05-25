@@ -59,6 +59,57 @@ export interface PluginManifest {
   configSchema?: Record<string, unknown>;
 }
 
+/**
+ * 依赖版本规范
+ * 对标 OpenClaw FullPluginManifest 的版本范围和兼容性声明
+ */
+export interface DependencySpec {
+  /** 依赖插件 ID */
+  id: string;
+
+  /** 语义化版本范围（如 ">=1.0.0", "^2.0.0", "~1.2.0"） */
+  versionRange: string;
+
+  /** 依赖类型 */
+  type: 'required' | 'optional' | 'peer';
+
+  /** 兼容性说明 */
+  compatibility?: string;
+
+  /** 最低版本要求 */
+  minVersion?: string;
+
+  /** 最高版本限制 */
+  maxVersion?: string;
+}
+
+/**
+ * 增强插件清单（包含完整依赖版本信息）
+ * 对标 OpenClaw FullPluginManifest
+ *
+ * 在基础 PluginManifest 基础上，将 dependencies 从字符串数组
+ * 扩展为 DependencySpec 数组，支持版本范围声明和兼容性检查。
+ */
+export interface FullPluginManifest extends Omit<
+  PluginManifest,
+  'dependencies' | 'optionalDependencies'
+> {
+  /** 依赖版本规范列表 */
+  dependencies?: DependencySpec[];
+
+  /** 兼容性声明 */
+  compatibility?: {
+    /** 最低 PY_APP 版本 */
+    minAppVersion: string;
+    /** 推荐 PY_APP 版本 */
+    recommendedAppVersion?: string;
+    /** 已知不兼容版本 */
+    incompatibleVersions?: string[];
+    /** 平台支持 */
+    platforms?: string[];
+  };
+}
+
 /** 插件类型枚举 */
 export enum PluginType {
   TOOL = 'tool',

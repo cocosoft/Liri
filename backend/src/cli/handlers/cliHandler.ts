@@ -16,6 +16,7 @@ import { UtilHandler, createUtilHandler } from './utilHandler';
 import { ConfigHandler, createConfigHandler } from './configHandler';
 import { SessionHandler, createSessionHandler } from './sessionHandler';
 import { DiagnoseHandler, createDiagnoseHandler } from './diagnoseHandler';
+import { CommandAliasRegistry } from './CommandAliasRegistry';
 
 export interface CLIHandlerOptions {
   verbose?: boolean;
@@ -31,6 +32,7 @@ export interface CommandInfo {
 
 export class CLIHandler {
   private options: CLIHandlerOptions;
+  private aliasRegistry: CommandAliasRegistry;
   private authHandler: AuthHandler;
   private agentHandler: AgentHandler;
   private mcpHandler: MCPHandler;
@@ -106,6 +108,7 @@ export class CLIHandler {
 
   constructor(options?: CLIHandlerOptions) {
     this.options = { verbose: false, interactive: true, ...options };
+    this.aliasRegistry = new CommandAliasRegistry();
 
     this.authHandler = createAuthHandler({ verbose: this.options.verbose });
     this.agentHandler = createAgentHandler({ verbose: this.options.verbose });
@@ -130,7 +133,16 @@ export class CLIHandler {
    * @returns 是否成功执行
    */
   async execute(commandLine: string): Promise<boolean> {
-    const { command, args } = this.parseCommand(commandLine);
+    let resolvedLine = commandLine;
+    if (this.aliasRegistry.isAlias(commandLine)) {
+      const resolved = this.aliasRegistry.resolveAlias(commandLine);
+      if (resolved) {
+        console.log(chalk.gray('↳'), resolved.resolved);
+        resolvedLine = resolved.resolved;
+      }
+    }
+
+    const { command, args } = this.parseCommand(resolvedLine);
 
     if (!command) {
       return true;

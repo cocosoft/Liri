@@ -120,7 +120,7 @@ export class TwitterChannel extends BaseChannelPlugin {
     return true;
   }
 
-  handleIncomingMessage(message: TwitterMessage): void {
+  incomingCustomMessage(message: TwitterMessage): void {
     this.eventBus.emit('message_received', {
       id: message.id,
       text: message.text,

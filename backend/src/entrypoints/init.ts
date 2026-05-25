@@ -194,14 +194,34 @@ export async function init(): Promise<void> {
         getStartupChainProfiler().markPhaseStart('gateway_init');
         const startTime = Date.now();
         try {
-          // 禁用 Gateway 通道服务（避免 WebSocket 端口冲突）
-          try {
-            const { cliConfigManager } = await import('../cli/config.js');
-            const gatewayConfig = cliConfigManager.getGatewayConfig();
-            gatewayConfig.enabled = false;
-            gatewayConfig.websocket.enabled = false;
-          } catch {
-            // 忽略
+          // 根据 GlobalConfig.channels 决定 Gateway 通道服务启停
+          const { configManager } = await import('../config/ConfigManager.js');
+          const globalConfig = configManager.getGlobalConfig();
+          const channelsConfig = globalConfig.channels;
+
+          if (channelsConfig?.gateway?.enabled) {
+            // Gateway 已启用 — 同步各通道入站开关到 CLI config
+            try {
+              const { cliConfigManager } = await import('../cli/config.js');
+              const gatewayConfig = cliConfigManager.getGatewayConfig();
+              gatewayConfig.telegram.enabled =
+                channelsConfig.telegram?.enabled ?? false;
+              gatewayConfig.websocket.enabled =
+                (channelsConfig.qq?.enabled ?? false) ||
+                (channelsConfig.discord?.enabled ?? false);
+            } catch {
+              // 忽略
+            }
+          } else {
+            // Gateway 未启用 — 强制关闭
+            try {
+              const { cliConfigManager } = await import('../cli/config.js');
+              const gatewayConfig = cliConfigManager.getGatewayConfig();
+              gatewayConfig.enabled = false;
+              gatewayConfig.websocket.enabled = false;
+            } catch {
+              // 忽略
+            }
           }
 
           // 预创建 CoreAPI 单例（使用全局默认依赖）

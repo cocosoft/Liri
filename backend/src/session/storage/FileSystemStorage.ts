@@ -9,6 +9,7 @@ import type {
   MessageLoadOptions,
   SessionListOptions,
 } from '../SessionStorage';
+import { resolveSessionsDir } from '../../config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -26,7 +27,7 @@ export class FileSystemStorage implements SessionStorage {
    * 构造函数
    * @param rootDir 存储根目录
    */
-  constructor(rootDir: string = './data/sessions') {
+  constructor(rootDir: string = resolveSessionsDir()) {
     this.rootDir = rootDir;
   }
 

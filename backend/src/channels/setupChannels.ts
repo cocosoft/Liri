@@ -56,6 +56,9 @@ export async function setupChannelsFromConfig(): Promise<{
     | typeof import('../channels/facebookmessenger/index')
     | undefined;
   let twitterPlugin: typeof import('../channels/twitter/index') | undefined;
+  let wechatBotPlugin:
+    | typeof import('../channels/wechat-bot/index')
+    | undefined;
   let claudePlugin: typeof import('../channels/claude/index') | undefined;
 
   try {
@@ -195,6 +198,12 @@ export async function setupChannelsFromConfig(): Promise<{
     twitterPlugin = await import('../channels/twitter/index');
   } catch {
     // twitter 通道不可用
+  }
+
+  try {
+    wechatBotPlugin = await import('../channels/wechat-bot/index');
+  } catch {
+    // wechat-bot 通道不可用
   }
 
   try {
@@ -352,6 +361,13 @@ export async function setupChannelsFromConfig(): Promise<{
     );
   }
 
+  if (wechatBotPlugin?.wechatBotChannel) {
+    channelBootstrapper.registerPluginChannel(
+      'wechat-bot',
+      () => wechatBotPlugin!.wechatBotChannel
+    );
+  }
+
   // 构建配置（从环境变量或配置文件读取）
   const config: ChannelBootstrapConfig = {
     channels: [
@@ -463,6 +479,10 @@ export async function setupChannelsFromConfig(): Promise<{
       {
         type: 'claude',
         enabled: !!process.env.CLAUDE_API_KEY,
+      },
+      {
+        type: 'wechat-bot',
+        enabled: !!process.env.WECHAT_BOT_HTTP_URL,
       },
     ],
   };

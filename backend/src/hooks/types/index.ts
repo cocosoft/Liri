@@ -603,6 +603,14 @@ export interface IndividualHookConfig {
   config: Record<string, unknown>;
 
   /**
+   * 错误处理策略
+   * - 'abort': 钩子失败时抛出异常，终止整个执行链
+   * - 'skip': 钩子失败时跳过后续同类型钩子
+   * - 'continue': 钩子失败时继续执行（默认行为）
+   */
+  errorStrategy?: 'abort' | 'skip' | 'continue';
+
+  /**
    * 额外属性
    */
   [key: string]: unknown;

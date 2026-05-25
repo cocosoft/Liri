@@ -222,6 +222,36 @@ export interface AutoUpdateConfig {
 }
 
 /**
+ * 渠道入站监听配置
+ */
+export interface ChannelInboundConfig {
+  /** 是否启用入站消息监听 */
+  enabled: boolean;
+}
+
+/**
+ * 外部渠道配置（控制网关和渠道入站监听）
+ */
+export interface ChannelsConfig {
+  /** 网关整体开关 */
+  gateway: {
+    enabled: boolean;
+  };
+  /** QQ Bot 通道配置 */
+  qq: ChannelInboundConfig;
+  /** Discord 通道配置 */
+  discord: ChannelInboundConfig;
+  /** Telegram 通道配置 */
+  telegram: ChannelInboundConfig;
+  /** 钉钉通道配置 */
+  dingtalk: ChannelInboundConfig;
+  /** 飞书通道配置 */
+  feishu: ChannelInboundConfig;
+  /** 微信通道配置 */
+  wechat: ChannelInboundConfig;
+}
+
+/**
  * 内部运行状态（不直接暴露给用户）
  */
 export interface InternalState {
@@ -288,6 +318,8 @@ export interface GlobalConfig {
   features: FeatureFlags;
   /** 自动更新配置 */
   autoUpdate: AutoUpdateConfig;
+  /** 外部渠道配置 */
+  channels: ChannelsConfig;
   /** 内部运行状态 */
   internal: InternalState;
 
@@ -382,6 +414,15 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       checkOnStartup: true,
       verbose: false,
     },
+    channels: {
+      gateway: { enabled: false },
+      qq: { enabled: false },
+      discord: { enabled: false },
+      telegram: { enabled: false },
+      dingtalk: { enabled: false },
+      feishu: { enabled: false },
+      wechat: { enabled: false },
+    },
     internal: {
       numStartups: 0,
       tipsHistory: {},
@@ -452,6 +493,7 @@ export const GLOBAL_CONFIG_KEYS = [
   'env',
   'notifications',
   'features',
+  'channels',
   'internal',
 ] as const;
 
@@ -507,6 +549,8 @@ export interface ConfigStats {
   cacheMisses: number;
   lastReadTime?: number;
   lastWriteTime?: number;
+  hashChecks?: number;
+  hashMismatches?: number;
 }
 
 /**

@@ -86,7 +86,10 @@ export class SessionsHistoryTool extends BaseTool {
   description =
     'Query session message history with filtering and pagination. Supports time ranges, message types, and session scoping.';
 
-  private applyCommonFilters(entries: HistoryEntry[], filter: HistoryFilter): HistoryEntry[] {
+  private applyCommonFilters(
+    entries: HistoryEntry[],
+    filter: HistoryFilter
+  ): HistoryEntry[] {
     let result = [...entries];
 
     if (filter.type) {
@@ -172,9 +175,9 @@ export class SessionsHistoryTool extends BaseTool {
         );
 
         let entries: HistoryEntry[] = results.map((r) => ({
-          messageId: r.document.metadata?.messageId as string ?? '',
-          sessionId: r.document.metadata?.sessionId as string ?? '',
-          type: mapMessageType(r.document.metadata?.type as string ?? 'text'),
+          messageId: (r.document.metadata?.messageId as string) ?? '',
+          sessionId: (r.document.metadata?.sessionId as string) ?? '',
+          type: mapMessageType((r.document.metadata?.type as string) ?? 'text'),
           content: r.document.content,
           timestamp: r.document.timestamp,
           score: r.score,
@@ -269,6 +272,8 @@ export class SessionsHistoryTool extends BaseTool {
   }
 }
 
-export function createSessionsHistoryTool(gateway?: SessionGateway): SessionsHistoryTool {
+export function createSessionsHistoryTool(
+  gateway?: SessionGateway
+): SessionsHistoryTool {
   return new SessionsHistoryTool(gateway);
 }

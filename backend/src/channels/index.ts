@@ -102,6 +102,21 @@ export {
   claudeChannelPlugin,
 } from './claude/index.js';
 export { wecomChannel } from './wecom/index.js';
+export { qqChannel } from './qq/index.js';
+
+// PlatformAdapter — 轻量平台适配器体系
+export {
+  BasePlatformAdapter,
+  PlatformAdapterBridge,
+  SlackAdapter,
+} from './platform/index.js';
+export type {
+  PlatformAdapter,
+  PlatformMessageEvent,
+  PlatformProcessingOutcome,
+  PlatformMessageType,
+} from './platform/index.js';
+
 export {
   ChannelRegistry,
   channelRegistry,

@@ -125,7 +125,7 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
     return true;
   }
 
-  handleIncomingMessage(message: FacebookMessengerMessage): void {
+  incomingCustomMessage(message: FacebookMessengerMessage): void {
     this.eventBus.emit('message_received', {
       senderId: message.senderId,
       text: message.message?.text,

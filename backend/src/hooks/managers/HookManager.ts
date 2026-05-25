@@ -175,12 +175,33 @@ export class HookManager {
 
   /**
    * 检查是否需要停止执行
+   * 对标 Hermes agent_hooks.py stop_on_error：支持 errorStrategy 配置
+   *
    * @param result Hook执行结果
    * @param hook Hook配置
    * @returns 是否停止执行
    */
   private shouldStopExecution(result: HookResult, hook: unknown): boolean {
-    const h = hook as { config?: { type?: string } };
+    const h = hook as {
+      config?: { type?: string };
+      errorStrategy?: 'abort' | 'skip' | 'continue';
+      name?: string;
+    };
+
+    // 优先使用钩子定义的 errorStrategy
+    if (h.errorStrategy) {
+      if (h.errorStrategy === 'abort' && !result.success) {
+        throw new Error(
+          `Hook 执行失败且 errorStrategy 为 abort: ${h.name || 'unknown'}`
+        );
+      }
+      if (h.errorStrategy === 'skip' && !result.success) {
+        return true;
+      }
+      return false;
+    }
+
+    // 兼容旧逻辑：command 类型且 exitCode === 2 时停止
     if (h.config?.type === 'command' && result.exitCode === 2) {
       return true;
     }

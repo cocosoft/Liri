@@ -9,6 +9,7 @@ export type ChannelId =
   | 'feishu'
   | 'dingtalk'
   | 'wechat'
+  | 'wechat-bot'
   | 'qq'
   | 'telegram'
   | 'discord'
@@ -145,6 +146,44 @@ export interface IChannelPairingAdapter {
   removeApprovedUser(userId: string): Promise<void>;
 }
 
+/** 入站消息接收协议类型 */
+export type InboundProtocol = 'websocket' | 'webhook' | 'polling' | 'none';
+
+/**
+ * IChannelInboundAdapter — 入站消息接收适配器
+ *
+ * 定义通道接收外部消息的统一接口，各通道根据自身协议实现：
+ * - QQ/Discord → WebSocket 长连接（gateway + wss）
+ * - Telegram → Webhook HTTP 服务或 long-polling
+ * - 微信/钉钉/飞书 → HTTP Server 接收回调
+ * - Email → IMAP/ POP3 轮询
+ */
+export interface IChannelInboundAdapter {
+  /** 接收协议类型 */
+  readonly protocol: InboundProtocol;
+
+  /** 是否正在监听消息 */
+  readonly isListening: boolean;
+
+  /**
+   * 启动消息接收
+   * @param config 通道配置（含连接参数）
+   */
+  start(config: Record<string, unknown>): Promise<void>;
+
+  /**
+   * 停止消息接收
+   */
+  stop(): Promise<void>;
+
+  /**
+   * 设置消息回调
+   * 当通道收到外部消息时，通过此回调将消息传递给上层路由
+   * @param handler 消息处理函数，接收 MessageContext 并返回处理结果
+   */
+  setMessageHandler(handler: (message: MessageContext) => Promise<void>): void;
+}
+
 export interface IChannelPlugin {
   readonly id: ChannelId;
   readonly meta: ChannelMeta;
@@ -154,4 +193,7 @@ export interface IChannelPlugin {
   outbound: IChannelOutboundAdapter;
   security: IChannelSecurityAdapter;
   pairing?: IChannelPairingAdapter;
+
+  /** 入站消息接收适配器（可选，各通道按需实现） */
+  inbound?: IChannelInboundAdapter;
 }

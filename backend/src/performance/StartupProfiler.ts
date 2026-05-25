@@ -135,6 +135,50 @@ export function profilePhaseEnd(phase: string): number {
 }
 
 /**
+ * 测量异步函数执行时间
+ * 对标 OpenClaw run-main.ts startupTrace.measure()：自动标记开始/结束并计算耗时
+ *
+ * @param name 测量名称
+ * @param fn 要测量的异步函数
+ * @returns 函数执行结果
+ */
+export async function profileMeasure<T>(
+  name: string,
+  fn: () => Promise<T>
+): Promise<{ result: T; duration: number }> {
+  const perf = getPerformance();
+  const startMark = `measure_${name}_start`;
+  const endMark = `measure_${name}_end`;
+
+  perf.mark(startMark);
+  const startTime = performance.now();
+
+  try {
+    const result = await fn();
+
+    perf.mark(endMark);
+    perf.measure(name, startMark, endMark);
+
+    const duration = performance.now() - startTime;
+    phaseTimes[name] = duration;
+
+    if (DETAILED_PROFILING) {
+      memorySnapshots.push(process.memoryUsage());
+    }
+
+    return { result, duration };
+  } catch (error) {
+    perf.mark(endMark);
+    perf.measure(name, startMark, endMark);
+
+    const duration = performance.now() - startTime;
+    phaseTimes[name] = duration;
+
+    throw error;
+  }
+}
+
+/**
  * 生成启动性能报告
  * 仅在 DETAILED_PROFILING 启用时可用
  */

@@ -21,6 +21,20 @@ import { createFileStateCacheWithSizeLimit } from '../utils/fileStateCache';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
+
+/**
+ * 快速判断当前参数是否为 MCP 模式
+ * 对标 OpenClaw isMCPFastPathArgv：避免完整初始化即可判定
+ *
+ * @param argv 命令行参数
+ * @returns 是否为 MCP 模式
+ */
+export function isMCPFastPathArgv(argv: string[]): boolean {
+  return argv.some(
+    (arg) => arg === '--mcp' || arg === 'mcp' || arg.startsWith('--transport=')
+  );
+}
+
 import { createAssistantMessage } from '../utils/messages';
 import { getMainLoopModel } from '../utils/model/model';
 import { hasPermissionsToUseTool } from '../permission/permissions';

@@ -114,7 +114,7 @@ export class ClaudeChannel extends BaseChannelPlugin {
     return true;
   }
 
-  handleIncomingMessage(message: ClaudeMessage): void {
+  incomingCustomMessage(message: ClaudeMessage): void {
     this.eventBus.emit('message_received', {
       id: message.id,
       content: message.content,

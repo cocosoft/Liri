@@ -4,7 +4,13 @@
  */
 
 import { join } from 'path';
-import { existsSync, mkdirSync, appendFileSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  appendFileSync,
+  statSync,
+  renameSync,
+} from 'fs';
 
 /**
  * 日志级别
@@ -64,6 +70,127 @@ export interface LoggerConfig {
 }
 
 /**
+ * 文件日志处理器配置
+ * 对标 Hermes logging.py FileHandler：支持多文件输出、日志轮转
+ */
+export interface FileHandlerConfig {
+  /** 文件名模式，支持 {date} 占位符 */
+  filename: string;
+  /** 日志级别过滤，仅 >= 此级别的日志写入 */
+  level?: LogLevel;
+  /** 最大文件大小（字节），默认 10MB */
+  maxSize?: number;
+  /** 最大文件数量，默认 5 */
+  maxFiles?: number;
+}
+
+const DEFAULT_FILE_HANDLER_CONFIG: Required<
+  Omit<FileHandlerConfig, 'filename'>
+> = {
+  level: LogLevel.INFO,
+  maxSize: 10 * 1024 * 1024,
+  maxFiles: 5,
+};
+
+/**
+ * 文件日志处理器
+ * 对标 Hermes logging.py FileHandler 实现
+ * 支持日志级别过滤、自动轮转、多目标文件输出
+ */
+export class FileHandler {
+  private config: Required<FileHandlerConfig>;
+  private currentSize: number = 0;
+
+  constructor(config: FileHandlerConfig) {
+    this.config = {
+      ...DEFAULT_FILE_HANDLER_CONFIG,
+      ...config,
+      filename: config.filename,
+    };
+
+    const logDir = this.config.filename.substring(
+      0,
+      Math.max(
+        this.config.filename.lastIndexOf('/'),
+        this.config.filename.lastIndexOf('\\')
+      )
+    );
+    if (logDir && !existsSync(logDir)) {
+      mkdirSync(logDir, { recursive: true });
+    }
+
+    try {
+      if (existsSync(this.config.filename)) {
+        const stats = statSync(this.config.filename);
+        this.currentSize = stats.size;
+      }
+    } catch {
+      this.currentSize = 0;
+    }
+  }
+
+  /**
+   * 写日志到文件
+   * @param message 格式化后的日志消息
+   * @param level 日志级别
+   */
+  write(message: string, level: LogLevel): void {
+    if (!this.isLevelEnabled(level)) return;
+
+    try {
+      this.rotateIfNeeded();
+      appendFileSync(this.config.filename, message + '\n');
+      this.currentSize += Buffer.byteLength(message) + 1;
+    } catch (error) {
+      console.error(`FileHandler 写入失败: ${this.config.filename}`, error);
+    }
+  }
+
+  /**
+   * 检查级别是否启用
+   */
+  private isLevelEnabled(level: LogLevel): boolean {
+    const levels = [
+      LogLevel.DEBUG,
+      LogLevel.INFO,
+      LogLevel.WARNING,
+      LogLevel.ERROR,
+      LogLevel.FATAL,
+    ];
+    return levels.indexOf(level) >= levels.indexOf(this.config.level);
+  }
+
+  /**
+   * 检查并执行日志轮转
+   */
+  private rotateIfNeeded(): void {
+    if (this.currentSize < this.config.maxSize) return;
+
+    for (let i = this.config.maxFiles - 1; i > 0; i--) {
+      const oldPath = `${this.config.filename}.${i}`;
+      const newPath = `${this.config.filename}.${i + 1}`;
+      if (existsSync(oldPath)) {
+        try {
+          renameSync(oldPath, newPath);
+        } catch {
+          break;
+        }
+      }
+    }
+
+    if (existsSync(this.config.filename)) {
+      try {
+        renameSync(this.config.filename, `${this.config.filename}.1`);
+      } catch {
+        return;
+      }
+    }
+
+    this.currentSize = 0;
+  }
+}
+
+/**
  * 日志记录器类
  */
 export class Logger {
@@ -74,6 +201,11 @@ export class Logger {
     consoleLevel: LogLevel;
     fileLevel: LogLevel;
   };
+
+  /**
+   * 注册的自定义文件处理器
+   */
+  private fileHandlers: FileHandler[] = [];
 
   /**
    * 构造函数
@@ -156,6 +288,10 @@ export class Logger {
       this.isLevelEnabled(level, this.config.fileLevel)
     ) {
       this.fileLog(formattedMessage);
+    }
+
+    for (const handler of this.fileHandlers) {
+      handler.write(formattedMessage, level);
     }
   }
 
@@ -303,6 +439,27 @@ export class Logger {
     const logDir = logFile.substring(0, logFile.lastIndexOf('/'));
     if (!existsSync(logDir)) {
       mkdirSync(logDir, { recursive: true });
+    }
+  }
+
+  /**
+   * 注册自定义文件日志处理器
+   * 对标 Hermes logging.py addHandler：支持多目标文件输出
+   *
+   * @param handler 文件处理器实例
+   */
+  addFileHandler(handler: FileHandler): void {
+    this.fileHandlers.push(handler);
+  }
+
+  /**
+   * 移除指定的文件日志处理器
+   * @param handler 文件处理器实例
+   */
+  removeFileHandler(handler: FileHandler): void {
+    const idx = this.fileHandlers.indexOf(handler);
+    if (idx !== -1) {
+      this.fileHandlers.splice(idx, 1);
     }
   }
 }

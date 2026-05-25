@@ -555,7 +555,9 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 从本地缓存获取会话
    */
-  private _getLocalSession(sessionId: string | null | undefined): ChatSession | undefined {
+  private _getLocalSession(
+    sessionId: string | null | undefined
+  ): ChatSession | undefined {
     if (!sessionId) return undefined;
     return this._chatSessions.get(sessionId);
   }
@@ -563,15 +565,23 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 将 chat Message 持久化到 SessionGateway（FileSystemUnifiedStorage）
    */
-  private async persistMessage(sessionId: string, message: Message): Promise<void> {
+  private async persistMessage(
+    sessionId: string,
+    message: Message
+  ): Promise<void> {
     const unifiedMessage: UnifiedMessage = {
       id: message.id,
       sessionId,
       type: this.toSessionMsgType(message),
       role: message.role as unknown as SessionMessageRole,
-      content: typeof message.content === 'string' ? message.content : JSON.stringify(message.content),
+      content:
+        typeof message.content === 'string'
+          ? message.content
+          : JSON.stringify(message.content),
       timestamp: message.createdAt?.getTime() ?? Date.now(),
-      metadata: message.toolCallId ? ({ toolCallId: message.toolCallId } as any) : undefined,
+      metadata: message.toolCallId
+        ? ({ toolCallId: message.toolCallId } as any)
+        : undefined,
     };
     try {
       await this.sessionGateway.sendMessage(sessionId, unifiedMessage);
@@ -582,9 +592,12 @@ export class ChatManagerImpl implements ChatManager {
 
   private toSessionMsgType(message: Message): SessionMessageType {
     if (message.role === MessageRole.USER) return SessionMessageType.USER;
-    if (message.role === MessageRole.ASSISTANT && message.tool_calls?.length) return SessionMessageType.TOOL_USE;
-    if (message.role === MessageRole.ASSISTANT) return SessionMessageType.ASSISTANT;
-    if (message.role === MessageRole.TOOL) return SessionMessageType.TOOL_RESULT;
+    if (message.role === MessageRole.ASSISTANT && message.tool_calls?.length)
+      return SessionMessageType.TOOL_USE;
+    if (message.role === MessageRole.ASSISTANT)
+      return SessionMessageType.ASSISTANT;
+    if (message.role === MessageRole.TOOL)
+      return SessionMessageType.TOOL_RESULT;
     return SessionMessageType.SYSTEM;
   }
 
@@ -2042,7 +2055,10 @@ export class ChatManagerImpl implements ChatManager {
    */
   createSession(params: CreateSessionParams): ChatSession {
     const now = new Date();
-    const sessionId = 'session_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+    const sessionId =
+      'session_' +
+      Date.now().toString(36) +
+      Math.random().toString(36).substr(2);
     const session: ChatSession = {
       id: sessionId,
       title: params.title,
@@ -2226,31 +2242,45 @@ export class ChatManagerImpl implements ChatManager {
     return {
       getSession: (id: string) => this._getLocalSession(id),
       getCurrentSession: () => this._getLocalSession(this._currentSessionId),
-      setCurrentSession: (id: string) => { this._currentSessionId = id; },
+      setCurrentSession: (id: string) => {
+        this._currentSessionId = id;
+      },
       getSessions: () => Array.from(this._chatSessions.values()),
-      addMessage: (id: string, msg: Message) => this._addAndPersistMessage(id, msg),
-      deleteSession: (id: string) => { this._chatSessions.delete(id); },
-      saveSession: (s: ChatSession) => { this._chatSessions.set(s.id, s); },
+      addMessage: (id: string, msg: Message) =>
+        this._addAndPersistMessage(id, msg),
+      deleteSession: (id: string) => {
+        this._chatSessions.delete(id);
+      },
+      saveSession: (s: ChatSession) => {
+        this._chatSessions.set(s.id, s);
+      },
       loadSession: (id: string) => Promise.resolve(this._getLocalSession(id)),
-      loadSessions: () => Promise.resolve(Array.from(this._chatSessions.values())),
+      loadSessions: () =>
+        Promise.resolve(Array.from(this._chatSessions.values())),
       createCheckpoint: (sessionId: string, label?: string) =>
-        this._checkpointService.saveCheckpointWithData(
-          sessionId,
-          this._getLocalSession(sessionId)?.messages || [],
-          this._getLocalSession(sessionId)?.metadata || { title: '' },
-          this._getLocalSession(sessionId)?.state || SessionState.ACTIVE,
-          label
-        ).then(cp => cp.id),
-      listCheckpoints: (sessionId: string) => this._checkpointService.listCheckpoints(sessionId),
+        this._checkpointService
+          .saveCheckpointWithData(
+            sessionId,
+            this._getLocalSession(sessionId)?.messages || [],
+            this._getLocalSession(sessionId)?.metadata || { title: '' },
+            this._getLocalSession(sessionId)?.state || SessionState.ACTIVE,
+            label
+          )
+          .then((cp) => cp.id),
+      listCheckpoints: (sessionId: string) =>
+        this._checkpointService.listCheckpoints(sessionId),
       rollbackToCheckpoint: (checkpointId: string) =>
         this._checkpointService.rollbackToCheckpoint(checkpointId, {
           messages: [],
           metadata: { title: '' },
           state: SessionState.ACTIVE,
         }),
-      deleteCheckpoint: (checkpointId: string) => this._checkpointService.deleteCheckpoint(checkpointId),
-      deleteSessionCheckpoints: (sessionId: string) => this._checkpointService.deleteSessionCheckpoints(sessionId),
-      getLatestCheckpoint: (sessionId: string) => this._checkpointService.getLatestCheckpoint(sessionId),
+      deleteCheckpoint: (checkpointId: string) =>
+        this._checkpointService.deleteCheckpoint(checkpointId),
+      deleteSessionCheckpoints: (sessionId: string) =>
+        this._checkpointService.deleteSessionCheckpoints(sessionId),
+      getLatestCheckpoint: (sessionId: string) =>
+        this._checkpointService.getLatestCheckpoint(sessionId),
     };
   }
 
@@ -2715,7 +2745,8 @@ export class ChatManagerImpl implements ChatManager {
     session: ChatSession;
     diff: import('./types/checkpoint').CheckpointDiff;
   }> {
-    const checkpoint = await this._checkpointService.getCheckpoint(checkpointId);
+    const checkpoint =
+      await this._checkpointService.getCheckpoint(checkpointId);
     if (!checkpoint) {
       throw new AppError(
         'Checkpoint not found',
@@ -2732,7 +2763,9 @@ export class ChatManagerImpl implements ChatManager {
     });
 
     return {
-      session: this._getLocalSession(checkpoint.sessionId) || this.createSession({ title: 'Rollback Session' }),
+      session:
+        this._getLocalSession(checkpoint.sessionId) ||
+        this.createSession({ title: 'Rollback Session' }),
       diff: {
         addedMessages: 0,
         removedMessages: checkpoint.messages?.length || 0,

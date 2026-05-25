@@ -250,6 +250,36 @@ export class SkillInjectionService {
   }
 
   /**
+   * 构建技能上下文，注入到系统提示中
+   * 对标 Hermes SkillInjector.inject_skills()
+   *
+   * 生成可供 LLM 感知的可用技能描述，
+   * 追加到系统提示末尾，使 Agent 能够在推理中利用可用技能。
+   *
+   * @param systemPrompt 原始系统提示
+   * @returns 注入技能描述后的系统提示
+   */
+  buildSkillContext(systemPrompt: string): string {
+    const active = this.getActiveSkills();
+    if (active.length === 0) return systemPrompt;
+
+    const descriptions = active
+      .map((s) => `- ${s.name}: ${s.description || '(无描述)'}`)
+      .join('\n');
+
+    const injectionBlock = [
+      '',
+      '以下是当前可用的技能列表。当用户请求与技能描述匹配时，',
+      '可以调用对应技能来完成该任务：',
+      '',
+      descriptions,
+      '',
+    ].join('\n');
+
+    return `${systemPrompt}\n${injectionBlock}`;
+  }
+
+  /**
    * 检查缓存是否过期
    */
   isCacheStale(): boolean {

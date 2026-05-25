@@ -2,12 +2,14 @@
  * Telegram 通道插件
  * 厂商: Telegram, 协议: Bot API HTTP + Webhook
  * 特色: 原生 MarkdownV2 + Inline Keyboard + 文件发送
+ * CDN 绕过: 支持 DNS fallback + fallback IP，绕过 api.telegram.org 封锁
  */
 
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
   IChannelPlugin,
   ChannelMeta,
+  ChannelMessageToolHints,
   ChannelCapabilities,
   SendResult,
   InteractiveCard,
@@ -25,6 +27,24 @@ const TELEGRAM_META: ChannelMeta = {
   markdownCapable: true,
   maxMessageLength: 4096,
   supportedMessageTypes: ['text', 'image', 'file', 'markdown', 'card'],
+  messageToolHints: {
+    responsePreference: 'markdown',
+    formattingTips: [
+      '使用 MarkdownV2 格式：*bold* _italic_ `code`',
+      '链接格式: [text](url)',
+      '特殊字符需要转义：_ * [ ] ( ) ~ ` > # + - = | { } . !',
+    ],
+    recommendedMaxLength: 4000,
+    platformCapabilities: [
+      'markdown',
+      'inline_keyboard',
+      'file_upload',
+      'image',
+      'polling',
+      'webhook',
+    ],
+    constraints: ['MarkdownV2 格式要求严格转义'],
+  },
 };
 
 const TELEGRAM_CAPABILITIES: ChannelCapabilities = {
@@ -89,7 +109,226 @@ function buildInlineKeyboard(
   };
 }
 
+const TELEGRAM_API_HOST = 'api.telegram.org';
+const TELEGRAM_API_BASE = `https://${TELEGRAM_API_HOST}`;
+const TELEGRAM_BOT_API = `https://${TELEGRAM_API_HOST}/bot`;
+
+/** DoH 发现超时（毫秒） */
+const DOH_TIMEOUT_MS = 4000;
+
+/** DoH 提供商列表 */
+interface DoHProvider {
+  url: string;
+  params: Record<string, string>;
+  headers: Record<string, string>;
+}
+
+const DOH_PROVIDERS: DoHProvider[] = [
+  {
+    url: 'https://dns.google/resolve',
+    params: { name: TELEGRAM_API_HOST, type: 'A' },
+    headers: {},
+  },
+  {
+    url: 'https://cloudflare-dns.com/dns-query',
+    params: { name: TELEGRAM_API_HOST, type: 'A' },
+    headers: { Accept: 'application/dns-json' },
+  },
+];
+
+/** 种子 fallback IP（当 DoH 也被封锁时使用） */
+const SEED_FALLBACK_IPS: string[] = [
+  '149.154.167.220',
+  '149.154.167.99',
+  '149.154.171.5',
+];
+
+/**
+ * TelegramFallbackTransport — CDN 封锁绕过传输层
+ *
+ * 当默认 api.telegram.org 不可达时，通过 DNS-over-HTTPS 发现
+ * fallback IP，然后用 IP 直连并携带 Host 头的方式绕过封锁。
+ * 对齐 Hermes telegram_network.py 的设计模式。
+ */
+class TelegramFallbackTransport {
+  private currentBaseUrl = TELEGRAM_API_BASE;
+  private fallbackIps: string[] = [];
+  private stickyIp: string | null = null;
+  private lastFailoverTime = 0;
+  private readonly failoverCooldown = 300_000; // 5 分钟冷却
+  private discoveryDone = false;
+
+  /** 获取当前使用的 API base URL */
+  get baseUrl(): string {
+    return this.currentBaseUrl;
+  }
+
+  /** 获取当前 sticky IP（调试用） */
+  get currentIp(): string | null {
+    return this.stickyIp;
+  }
+
+  /**
+   * 发现 fallback IP（仅执行一次）
+   * 先通过 DoH 查询，失败后回退到种子 IP
+   */
+  async discoverFallbackIps(): Promise<string[]> {
+    if (this.discoveryDone && this.fallbackIps.length > 0) {
+      return this.fallbackIps;
+    }
+
+    // 第一步：通过 DoH 发现
+    const dohIps = await this.queryDohProviders();
+    if (dohIps.length > 0) {
+      this.fallbackIps = dohIps;
+      this.discoveryDone = true;
+      return this.fallbackIps;
+    }
+
+    // 第二步：回退到种子 IP
+    this.fallbackIps = [...SEED_FALLBACK_IPS];
+    this.discoveryDone = true;
+    return this.fallbackIps;
+  }
+
+  /**
+   * 查询所有 DoH 提供商，收集 Telegram API IP
+   */
+  private async queryDohProviders(): Promise<string[]> {
+    const seen = new Set<string>();
+    const ips: string[] = [];
+
+    for (const provider of DOH_PROVIDERS) {
+      try {
+        const url = new URL(provider.url);
+        for (const [key, value] of Object.entries(provider.params)) {
+          url.searchParams.set(key, value);
+        }
+        const resp = await fetch(url.toString(), {
+          headers: { ...provider.headers, Accept: 'application/dns-json' },
+          signal: AbortSignal.timeout(DOH_TIMEOUT_MS),
+        });
+        if (!resp.ok) continue;
+
+        const data = (await resp.json()) as {
+          Answer?: Array<{ type: number; data: string }>;
+        };
+        if (!data.Answer) continue;
+
+        for (const answer of data.Answer) {
+          if (answer.type !== 1) continue;
+          const ip = answer.data.trim();
+          if (ip && !seen.has(ip)) {
+            seen.add(ip);
+            ips.push(ip);
+          }
+        }
+      } catch {
+        // 单个 DoH 失败不影响其他
+      }
+    }
+
+    return ips;
+  }
+
+  /**
+   * 执行一次 API 调用，自动处理 fallback
+   */
+  async fetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
+    const url = `${this.currentBaseUrl}${endpoint}`;
+    try {
+      const resp = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(10000),
+      });
+      if (resp.ok) {
+        if (this.stickyIp && this.canRetryDefault()) {
+          this.tryRestoreDefault().catch(() => {});
+        }
+        return resp;
+      }
+      return resp;
+    } catch {
+      return this.fetchWithFallback(endpoint, options);
+    }
+  }
+
+  /**
+   * 使用 fallback IP 重试
+   */
+  private async fetchWithFallback(
+    endpoint: string,
+    options: RequestInit
+  ): Promise<Response> {
+    const now = Date.now();
+    if (now - this.lastFailoverTime < this.failoverCooldown && this.stickyIp) {
+      const ipUrl = `https://${this.stickyIp}${endpoint}`;
+      const resp = await fetch(ipUrl, {
+        ...options,
+        headers: {
+          ...((options.headers as Record<string, string>) || {}),
+          host: TELEGRAM_API_HOST,
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (resp.ok) return resp;
+    }
+
+    await this.discoverFallbackIps();
+
+    this.lastFailoverTime = now;
+    for (const ip of this.fallbackIps) {
+      try {
+        const ipUrl = `https://${ip}${endpoint}`;
+        const resp = await fetch(ipUrl, {
+          ...options,
+          headers: {
+            ...((options.headers as Record<string, string>) || {}),
+            host: TELEGRAM_API_HOST,
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (resp.ok) {
+          this.stickyIp = ip;
+          this.currentBaseUrl = `https://${ip}`;
+          return resp;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    throw new Error('Telegram API 所有 fallback IP 均不可达');
+  }
+
+  /**
+   * 检查是否能重试默认 endpoint
+   */
+  private canRetryDefault(): boolean {
+    return Date.now() - this.lastFailoverTime > this.failoverCooldown;
+  }
+
+  /**
+   * 尝试恢复默认 api.telegram.org
+   */
+  private async tryRestoreDefault(): Promise<void> {
+    try {
+      const resp = await fetch(`https://${TELEGRAM_API_HOST}/`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000),
+      });
+      if (resp.ok || resp.status < 500) {
+        this.stickyIp = null;
+        this.currentBaseUrl = TELEGRAM_API_BASE;
+      }
+    } catch {
+      // 恢复失败，保持现有 fallback
+    }
+  }
+}
+
 class TelegramChannel extends BaseChannelPlugin {
+  private readonly transport = new TelegramFallbackTransport();
   private botToken = '';
   private webhookUrl = '';
 
@@ -153,17 +392,15 @@ class TelegramChannel extends BaseChannelPlugin {
     this.botToken = (config['botToken'] as string) || '';
     this.webhookUrl = (config['webhookUrl'] as string) || '';
 
-    const resp = await fetch(
-      `https://api.telegram.org/bot${this.botToken}/getMe`
-    );
+    const resp = await this.transport.fetch(`/bot${this.botToken}/getMe`);
     const data = (await resp.json()) as Record<string, unknown>;
     if (!data['ok']) {
       throw new Error(`Telegram: ${data['description'] || 'getMe 失败'}`);
     }
 
     if (this.webhookUrl) {
-      await fetch(
-        `https://api.telegram.org/bot${this.botToken}/setWebhook?url=${encodeURIComponent(this.webhookUrl)}`
+      await this.transport.fetch(
+        `/bot${this.botToken}/setWebhook?url=${encodeURIComponent(this.webhookUrl)}`
       );
     }
 
@@ -179,9 +416,7 @@ class TelegramChannel extends BaseChannelPlugin {
     if (!this.botToken) return { healthy: false, latencyMs: 0 };
     const start = Date.now();
     try {
-      const resp = await fetch(
-        `https://api.telegram.org/bot${this.botToken}/getMe`
-      );
+      const resp = await this.transport.fetch(`/bot${this.botToken}/getMe`);
       return { healthy: resp.ok, latencyMs: Date.now() - start };
     } catch {
       return { healthy: false, latencyMs: Date.now() - start };
@@ -197,8 +432,8 @@ class TelegramChannel extends BaseChannelPlugin {
       text: content.slice(0, TELEGRAM_META.maxMessageLength),
       parse_mode: 'HTML',
     };
-    const resp = await fetch(
-      `https://api.telegram.org/bot${this.botToken}/sendMessage`,
+    const resp = await this.transport.fetch(
+      `/bot${this.botToken}/sendMessage`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,8 +461,8 @@ class TelegramChannel extends BaseChannelPlugin {
       text: escaped.slice(0, TELEGRAM_META.maxMessageLength),
       parse_mode: 'MarkdownV2',
     };
-    const resp = await fetch(
-      `https://api.telegram.org/bot${this.botToken}/sendMessage`,
+    const resp = await this.transport.fetch(
+      `/bot${this.botToken}/sendMessage`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -246,14 +481,11 @@ class TelegramChannel extends BaseChannelPlugin {
     imageUrl: string
   ): Promise<SendResult> {
     const body = { chat_id: target, photo: imageUrl };
-    const resp = await fetch(
-      `https://api.telegram.org/bot${this.botToken}/sendPhoto`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }
-    );
+    const resp = await this.transport.fetch(`/bot${this.botToken}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
     const data = (await resp.json()) as Record<string, unknown>;
     return {
       success: data['ok'] === true,
@@ -269,8 +501,8 @@ class TelegramChannel extends BaseChannelPlugin {
     const formData = new FormData();
     formData.append('chat_id', target);
     formData.append('document', file as unknown as Blob);
-    const resp = await fetch(
-      `https://api.telegram.org/bot${this.botToken}/sendDocument`,
+    const resp = await this.transport.fetch(
+      `/bot${this.botToken}/sendDocument`,
       { method: 'POST', body: formData }
     );
     const data = (await resp.json()) as Record<string, unknown>;
@@ -293,8 +525,8 @@ class TelegramChannel extends BaseChannelPlugin {
     if (keyboard) {
       body['reply_markup'] = JSON.stringify(keyboard);
     }
-    const resp = await fetch(
-      `https://api.telegram.org/bot${this.botToken}/sendMessage`,
+    const resp = await this.transport.fetch(
+      `/bot${this.botToken}/sendMessage`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -334,8 +566,9 @@ class TelegramChannel extends BaseChannelPlugin {
     if (!this.shouldPoll || !this.botToken) return;
 
     try {
-      const url = `https://api.telegram.org/bot${this.botToken}/getUpdates?offset=${this.lastUpdateId + 1}&timeout=30`;
-      const resp = await fetch(url);
+      const resp = await this.transport.fetch(
+        `/bot${this.botToken}/getUpdates?offset=${this.lastUpdateId + 1}&timeout=30`
+      );
       const data = (await resp.json()) as Record<string, unknown>;
 
       if (data['ok'] === true) {

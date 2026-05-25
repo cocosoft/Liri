@@ -25,9 +25,7 @@ export interface MSTeamsDiagnosisContext {
   botEndpoint: string;
 }
 
-export function diagnoseMSTeams(
-  ctx: MSTeamsDiagnosisContext
-): DiagnosisResult {
+export function diagnoseMSTeams(ctx: MSTeamsDiagnosisContext): DiagnosisResult {
   const checks: DiagnosisCheck[] = [];
 
   checks.push(diagnoseConfig(ctx));

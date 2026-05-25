@@ -126,6 +126,16 @@ export type {
 export { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
 export type { CronFileChangeCallback } from './watcher/CronFileWatcher';
 
+// 知识库维护
+export {
+  runKnowledgeMaintenance,
+  registerKnowledgeMaintenanceTask,
+  unregisterKnowledgeMaintenanceTask,
+  DEFAULT_MAINTENANCE_CRON,
+  KNOWLEDGE_MAINTENANCE_TASK_ID,
+} from './knowledge';
+export type { KnowledgeMaintenanceResult } from './knowledge';
+
 /**
  * 检查Chronos系统是否处于活跃状态
  */

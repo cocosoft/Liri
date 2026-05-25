@@ -10,7 +10,10 @@ export {
 } from './WhatsAppChannel.js';
 export type { WhatsAppConfig, WhatsAppMessage } from './WhatsAppChannel.js';
 
-export { getDefaultWhatsAppConfig, validateWhatsAppConfig } from './config-schema.js';
+export {
+  getDefaultWhatsAppConfig,
+  validateWhatsAppConfig,
+} from './config-schema.js';
 export type { WhatsAppConfig as WhatsAppChannelConfig } from './config-schema.js';
 
 export {

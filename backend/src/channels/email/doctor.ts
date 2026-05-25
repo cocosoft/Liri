@@ -80,9 +80,7 @@ function diagnoseFromAddress(ctx: EmailDiagnosisContext): DiagnosisCheck {
   return {
     name: '发件人地址',
     passed: valid,
-    message: valid
-      ? `发件人：${ctx.fromAddress}`
-      : '发件人地址无效或缺失',
+    message: valid ? `发件人：${ctx.fromAddress}` : '发件人地址无效或缺失',
     detail: { fromAddress: ctx.fromAddress },
   };
 }
@@ -91,9 +89,7 @@ function diagnoseConnection(ctx: EmailDiagnosisContext): DiagnosisCheck {
   return {
     name: '连接状态',
     passed: ctx.isConnected,
-    message: ctx.isConnected
-      ? `已连接至 ${ctx.host}`
-      : '未连接',
+    message: ctx.isConnected ? `已连接至 ${ctx.host}` : '未连接',
     detail: { connected: ctx.isConnected },
   };
 }

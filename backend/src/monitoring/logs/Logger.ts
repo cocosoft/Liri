@@ -233,7 +233,8 @@ export class Logger {
    */
   constructor(config: LoggerConfig = {}) {
     const defaultFileLevel = config.level || LogLevel.INFO;
-    const logFile = config.logFile || join(resolveProjectRoot(), 'logs', 'app.log');
+    const logFile =
+      config.logFile || join(resolveProjectRoot(), 'logs', 'app.log');
 
     this.config = {
       level: config.level || LogLevel.INFO,

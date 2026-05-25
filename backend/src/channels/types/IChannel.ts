@@ -9,7 +9,6 @@ export type ChannelId =
   | 'feishu'
   | 'dingtalk'
   | 'wechat'
-  | 'wechat-bot'
   | 'qq'
   | 'telegram'
   | 'discord'
@@ -29,9 +28,24 @@ export type ChannelId =
   | 'matrix'
   | 'facebook'
   | 'twitter'
-  | 'claude';
+  | 'claude'
+  | 'mattermost'
+  | 'bluebubbles';
 
 export type DmPolicy = 'pairing' | 'allowlist' | 'open';
+
+export interface ChannelMessageToolHints {
+  /** 回复风格偏好 */
+  responsePreference?: 'concise' | 'detailed' | 'markdown' | 'card';
+  /** 平台特有的格式化提示 */
+  formattingTips?: string[];
+  /** 推荐的消息最大长度 */
+  recommendedMaxLength?: number;
+  /** 平台支持的特殊能力列表 */
+  platformCapabilities?: string[];
+  /** 平台特有约束说明 */
+  constraints?: string[];
+}
 
 export interface ChannelMeta {
   id: ChannelId;
@@ -42,6 +56,8 @@ export interface ChannelMeta {
   markdownCapable: boolean;
   maxMessageLength: number;
   supportedMessageTypes: ('text' | 'image' | 'file' | 'markdown' | 'card')[];
+  /** 通道平台特有提示，指导 LLM 生成适配的消息 */
+  messageToolHints?: ChannelMessageToolHints;
 }
 
 export interface ChannelCapabilities {

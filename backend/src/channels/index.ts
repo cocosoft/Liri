@@ -1,17 +1,11 @@
-export {
-  createIrcChannel,
-  ircChannelPlugin,
-} from './irc/index.js';
+export { createIrcChannel, ircChannelPlugin } from './irc/index.js';
 export {
   SlackChannel,
   slackChannel,
   createSlackChannel,
   slackChannelPlugin,
 } from './slack/index.js';
-export {
-  createLineChannel,
-  lineChannelPlugin,
-} from './line/index.js';
+export { createLineChannel, lineChannelPlugin } from './line/index.js';
 export {
   NostrChannel,
   nostrChannel,
@@ -65,10 +59,7 @@ export {
   createSignalChannel,
   signalChannelPlugin,
 } from './signal/index.js';
-export {
-  createMatrixChannel,
-  matrixChannelPlugin,
-} from './matrix/index.js';
+export { createMatrixChannel, matrixChannelPlugin } from './matrix/index.js';
 export {
   FacebookMessengerChannel,
   facebookMessengerChannel,
@@ -92,11 +83,7 @@ export {
   createWecomChannel,
   wecomChannelPlugin,
 } from './wecom/index.js';
-export {
-  qqChannel,
-  createQQChannel,
-  qqChannelPlugin,
-} from './qq/index.js';
+export { qqChannel, createQQChannel, qqChannelPlugin } from './qq/index.js';
 export {
   telegramChannel,
   createTelegramChannel,
@@ -123,11 +110,15 @@ export {
   dingtalkChannelPlugin,
 } from './dingtalk/index.js';
 export {
-  wechatBotChannel,
-  createWechatBotChannel,
-  wechatBotChannelPlugin,
-} from './wechat-bot/index.js';
-
+  mattermostChannel,
+  createMattermostChannel,
+  mattermostChannelPlugin,
+} from './mattermost/index.js';
+export {
+  bluebubblesChannel,
+  createBlueBubblesChannel,
+  bluebubblesChannelPlugin,
+} from './bluebubbles/index.js';
 // PlatformAdapter — 轻量平台适配器体系
 export {
   BasePlatformAdapter,

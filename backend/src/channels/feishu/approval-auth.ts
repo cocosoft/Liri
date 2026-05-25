@@ -42,7 +42,9 @@ export function normalizeFeishuApproverId(value: string): string | undefined {
 /**
  * 从配置中解析审批人列表
  */
-export function resolveFeishuApprovers(config: FeishuApprovalAuthConfig): FeishuApproverInfo[] {
+export function resolveFeishuApprovers(
+  config: FeishuApprovalAuthConfig
+): FeishuApproverInfo[] {
   const allowFrom = config.allowFrom ?? [];
 
   return allowFrom
@@ -50,7 +52,9 @@ export function resolveFeishuApprovers(config: FeishuApprovalAuthConfig): Feishu
       const normalized = normalizeFeishuApproverId(id);
       return normalized ? { userId: normalized } : null;
     })
-    .filter((x: FeishuApproverInfo | null): x is FeishuApproverInfo => x !== null);
+    .filter(
+      (x: FeishuApproverInfo | null): x is FeishuApproverInfo => x !== null
+    );
 }
 
 /**

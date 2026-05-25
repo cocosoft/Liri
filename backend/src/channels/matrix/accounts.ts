@@ -16,7 +16,10 @@ export interface ResolvedMatrixAccount extends MatrixAccount {
 
 const accountStore = new Map<string, MatrixAccount>();
 
-export function registerMatrixAccount(id: string, account: MatrixAccount): void {
+export function registerMatrixAccount(
+  id: string,
+  account: MatrixAccount
+): void {
   accountStore.set(id, { ...account });
 }
 

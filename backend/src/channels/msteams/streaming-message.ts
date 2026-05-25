@@ -164,7 +164,10 @@ export class TeamsHttpStream {
         return;
       }
 
-      if (this.streamStartedAt && Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS) {
+      if (
+        this.streamStartedAt &&
+        Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS
+      ) {
         this.stopped = true;
         this.sendFinalMessage(this.accumulatedText).catch((err) => {
           if (this.onError) this.onError(err);
@@ -213,9 +216,11 @@ export class TeamsHttpStream {
 
   /** 发送最终消息 activity */
   private async sendFinalMessage(text: string): Promise<void> {
-    const truncatedText = text.length > TEAMS_MAX_CHARS
-      ? text.slice(0, TEAMS_MAX_CHARS - 100) + `\n\n...（消息已截断，共 ${text.length} 字符）`
-      : text;
+    const truncatedText =
+      text.length > TEAMS_MAX_CHARS
+        ? text.slice(0, TEAMS_MAX_CHARS - 100) +
+          `\n\n...（消息已截断，共 ${text.length} 字符）`
+        : text;
 
     const entities: Record<string, unknown>[] = [
       buildStreamInfoEntity(this.streamId, 'final'),

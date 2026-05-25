@@ -266,17 +266,11 @@ class SmtpClient {
     const { to, subject, body, htmlBody, attachments } = params;
 
     /* MAIL FROM */
-    await this.sendCommand(
-      `MAIL FROM:<${this._fromAddress}>`,
-      250
-    );
+    await this.sendCommand(`MAIL FROM:<${this._fromAddress}>`, 250);
 
     /* RCPT TO */
     for (const recipient of to) {
-      await this.sendCommand(
-        `RCPT TO:<${recipient.trim()}>`,
-        250
-      );
+      await this.sendCommand(`RCPT TO:<${recipient.trim()}>`, 250);
     }
 
     /* DATA */
@@ -334,7 +328,7 @@ class SmtpClient {
       lines.push(
         `Content-Type: multipart/mixed; boundary="${boundary}"`,
         '',
-        `--${boundary}`,
+        `--${boundary}`
       );
     }
 
@@ -355,7 +349,7 @@ class SmtpClient {
         '',
         htmlBody,
         '',
-        `--alt${boundary}--`,
+        `--alt${boundary}--`
       );
     } else if (htmlBody) {
       lines.push(
@@ -373,14 +367,14 @@ class SmtpClient {
         '',
         htmlBody,
         '',
-        `--alt${boundary}--`,
+        `--alt${boundary}--`
       );
     } else {
       lines.push(
         'Content-Type: text/plain; charset="utf-8"',
         'Content-Transfer-Encoding: 7bit',
         '',
-        body,
+        body
       );
     }
 
@@ -393,7 +387,7 @@ class SmtpClient {
           'Content-Transfer-Encoding: base64',
           `Content-Disposition: attachment; filename="${att.filename}"`,
           '',
-          base64Chunked(att.content),
+          base64Chunked(att.content)
         );
       }
       lines.push('', `--${boundary}--`);
@@ -431,13 +425,15 @@ class SmtpClient {
   /** 发送 SMTP 命令并等待预期响应码 */
   private async sendCommand(
     command: string,
-    expectedCode: number,
+    expectedCode: number
   ): Promise<string> {
     await this.writeRaw(command + '\r\n');
     const response = await this.readResponse();
     const code = parseInt(response.slice(0, 3), 10);
     if (code !== expectedCode) {
-      throw new Error(`SMTP 错误 [期望 ${expectedCode}, 收到 ${code}]: ${response}`);
+      throw new Error(
+        `SMTP 错误 [期望 ${expectedCode}, 收到 ${code}]: ${response}`
+      );
     }
     return response;
   }
@@ -777,7 +773,10 @@ class EmailChannelPlugin extends BaseChannelPlugin {
     }
 
     try {
-      const recipients = target.split(',').map((t) => t.trim()).filter(Boolean);
+      const recipients = target
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
       if (recipients.length === 0) {
         return { success: false, error: '收件人地址为空' };
       }
@@ -803,7 +802,10 @@ class EmailChannelPlugin extends BaseChannelPlugin {
     }
 
     try {
-      const recipients = target.split(',').map((t) => t.trim()).filter(Boolean);
+      const recipients = target
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
       if (recipients.length === 0) {
         return { success: false, error: '收件人地址为空' };
       }
@@ -833,7 +835,10 @@ class EmailChannelPlugin extends BaseChannelPlugin {
     }
 
     try {
-      const recipients = target.split(',').map((t) => t.trim()).filter(Boolean);
+      const recipients = target
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
       if (recipients.length === 0) {
         return { success: false, error: '收件人地址为空' };
       }
@@ -883,7 +888,10 @@ class EmailChannelPlugin extends BaseChannelPlugin {
     }
 
     try {
-      const recipients = target.split(',').map((t) => t.trim()).filter(Boolean);
+      const recipients = target
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
       if (recipients.length === 0) {
         return { success: false, error: '收件人地址为空' };
       }
@@ -931,7 +939,10 @@ class EmailChannelPlugin extends BaseChannelPlugin {
     }
 
     try {
-      const recipients = target.split(',').map((t) => t.trim()).filter(Boolean);
+      const recipients = target
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
       if (recipients.length === 0) {
         return { success: false, error: '收件人地址为空' };
       }
@@ -974,7 +985,10 @@ function mdToSimpleHtml(md: string): string {
   });
 
   /* 行内代码 */
-  html = html.replace(/`([^`]+)`/g, '<code style="background:#f5f5f5;padding:2px 4px;border-radius:3px">$1</code>');
+  html = html.replace(
+    /`([^`]+)`/g,
+    '<code style="background:#f5f5f5;padding:2px 4px;border-radius:3px">$1</code>'
+  );
 
   /* 加粗 */
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -983,10 +997,7 @@ function mdToSimpleHtml(md: string): string {
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
   /* 链接 */
-  html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2">$1</a>'
-  );
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
   /* 换行 */
   html = html.replace(/\n\n/g, '</p><p>');

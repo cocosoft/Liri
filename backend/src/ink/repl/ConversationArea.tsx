@@ -144,9 +144,7 @@ export const ConversationArea: React.FC<ConversationAreaProps> = ({
       {isStreaming && activeToolCalls.length > 0 && (
         <ToolCallPanel activeToolCalls={activeToolCalls} />
       )}
-      {isStreaming && streamingContent && (
-        <StreamingMessage content={streamingContent} />
-      )}
+      {isStreaming && <StreamingMessage content={streamingContent} />}
       {messages.length === 0 && !isStreaming && (
         <Box paddingX={2} paddingY={1}>
           <MessageBubble

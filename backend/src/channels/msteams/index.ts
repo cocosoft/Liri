@@ -1,4 +1,7 @@
-export { createMSTeamsChannel, msTeamsChannelPlugin } from './MSTeamsChannel.js';
+export {
+  createMSTeamsChannel,
+  msTeamsChannelPlugin,
+} from './MSTeamsChannel.js';
 export {
   getDefaultMSTeamsConfig,
   validateMSTeamsConfig,
@@ -39,8 +42,9 @@ export type {
   TeamsStreamState,
   TeamsStreamOptions,
 } from './streaming-message.js';
-export { setMSTeamsRuntime, getMSTeamsRuntime, clearMSTeamsRuntime } from './runtime.js';
-export type {
-  MSTeamsRuntime,
-  MSTeamsRuntimeStatus,
+export {
+  setMSTeamsRuntime,
+  getMSTeamsRuntime,
+  clearMSTeamsRuntime,
 } from './runtime.js';
+export type { MSTeamsRuntime, MSTeamsRuntimeStatus } from './runtime.js';

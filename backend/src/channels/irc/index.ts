@@ -1,8 +1,5 @@
 export { createIrcChannel, ircChannelPlugin } from './IrcChannel.js';
-export {
-  getDefaultIrcConfig,
-  validateIrcConfig,
-} from './config-schema.js';
+export { getDefaultIrcConfig, validateIrcConfig } from './config-schema.js';
 export type { IrcConfig } from './config-schema.js';
 export {
   registerIrcAccount,
@@ -25,7 +22,4 @@ export type {
 export { ircProbe } from './probe.js';
 export type { ProbeResult as IrcProbeResult } from './probe.js';
 export { setIrcRuntime, getIrcRuntime, clearIrcRuntime } from './runtime.js';
-export type {
-  IrcRuntime,
-  IrcRuntimeStatus,
-} from './runtime.js';
+export type { IrcRuntime, IrcRuntimeStatus } from './runtime.js';

@@ -39,8 +39,9 @@ export type {
   MatrixStreamState,
   MatrixStreamOptions,
 } from './streaming-message.js';
-export { setMatrixRuntime, getMatrixRuntime, clearMatrixRuntime } from './runtime.js';
-export type {
-  MatrixRuntime,
-  MatrixRuntimeStatus,
+export {
+  setMatrixRuntime,
+  getMatrixRuntime,
+  clearMatrixRuntime,
 } from './runtime.js';
+export type { MatrixRuntime, MatrixRuntimeStatus } from './runtime.js';

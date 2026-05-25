@@ -23,7 +23,9 @@ export function registerGoogleChatAccount(
   accountStore.set(id, { ...account });
 }
 
-export function getGoogleChatAccount(id: string): GoogleChatAccount | undefined {
+export function getGoogleChatAccount(
+  id: string
+): GoogleChatAccount | undefined {
   return accountStore.get(id);
 }
 

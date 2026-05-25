@@ -2,6 +2,7 @@ export type {
   ChannelId,
   DmPolicy,
   ChannelMeta,
+  ChannelMessageToolHints,
   ChannelCapabilities,
   MessageContext,
   SendResult,

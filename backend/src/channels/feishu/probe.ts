@@ -23,8 +23,7 @@ export function feishuProbe(
 
   return {
     healthy: connected && tokenOk,
-    status:
-      !connected ? 'disconnected' : tokenOk ? 'healthy' : 'token_expired',
+    status: !connected ? 'disconnected' : tokenOk ? 'healthy' : 'token_expired',
     timestamp: Date.now(),
     detail: { connected, hasToken, tokenExpiresAt },
   };

@@ -85,6 +85,8 @@ export class AttachmentManager {
       metadata,
     };
 
+    this.autoIngestAttachment(attachment);
+
     return attachment;
   }
 
@@ -179,6 +181,30 @@ export class AttachmentManager {
     });
 
     return deletedCount;
+  }
+
+  /**
+   * 附件保存后自动触发知识库摄取
+   * 异步执行，不阻塞附件保存
+   */
+  private autoIngestAttachment(attachment: Attachment): void {
+    Promise.resolve().then(async () => {
+      try {
+        const { getDefaultIngestionService } =
+          await import('../knowledge/ingestion/FileIngestionService');
+        const service = getDefaultIngestionService();
+        await service.ingestFile(attachment.path, 'attachment', {
+          description: `附件类型: ${attachment.type}, MIME: ${attachment.mimeType}`,
+        });
+        logger.info('附件已自动摄取到知识库', {
+          name: attachment.name,
+          path: attachment.path,
+          type: attachment.type,
+        });
+      } catch {
+        // 静默失败，不干扰主流程
+      }
+    });
   }
 }
 

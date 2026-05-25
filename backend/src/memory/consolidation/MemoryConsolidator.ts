@@ -41,7 +41,14 @@ export interface IConsolidator {
     memories: { id: string; content: string; createdAt: number }[]
   ): DedupResult;
   getStats(): ConsolidationStats;
+  setSimilarityFunction(fn: SimilarityFunction): void;
 }
+
+/**
+ * 相似度计算函数签名
+ * 接收两个字符串，返回 [0, 1] 区间的相似度分数
+ */
+export type SimilarityFunction = (a: string, b: string) => number;
 
 export interface ConsolidationStats {
   totalMerged: number;
@@ -88,9 +95,19 @@ export class MemoryConsolidator implements IConsolidator {
     totalSpaceSaved: 0,
     lastMergeTime: 0,
   };
+  private similarityFn: SimilarityFunction = jaccardSimilarity;
 
   constructor(config: Partial<ConsolidationConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * 替换相似度计算函数
+   * 默认为 Jaccard 相似度，可替换为 Levenshtein、余弦相似度等
+   * @param fn 相似度计算函数
+   */
+  setSimilarityFunction(fn: SimilarityFunction): void {
+    this.similarityFn = fn;
   }
 
   findMergeCandidates(
@@ -109,7 +126,7 @@ export class MemoryConsolidator implements IConsolidator {
       for (let j = i + 1; j < memories.length; j++) {
         if (processed.has(memories[j].id)) continue;
 
-        const similarity = jaccardSimilarity(
+        const similarity = this.similarityFn(
           memories[i].content,
           memories[j].content
         );
@@ -175,7 +192,7 @@ export class MemoryConsolidator implements IConsolidator {
       processed.add(memories[i].id);
       for (let j = i + 1; j < memories.length; j++) {
         if (processed.has(memories[j].id)) continue;
-        const sim = jaccardSimilarity(memories[i].content, memories[j].content);
+        const sim = this.similarityFn(memories[i].content, memories[j].content);
         if (sim >= this.config.similarityThreshold) {
           group.push(memories[j].id);
           processed.add(memories[j].id);

@@ -13,6 +13,10 @@ export interface PriorityConfig {
   lowThreshold: number;
   autoDowngradeEnabled: boolean;
   downgradeAfterDays: number;
+  /** 衰减因子 (0-1)，recalculateAll 时按指数衰减降低分数 */
+  decayFactor: number;
+  /** 半衰期（天），衰减因子在此时间后生效 */
+  halfLifeDays: number;
 }
 
 export interface MemoryPriority {
@@ -33,6 +37,7 @@ export interface PriorityFactor {
 export interface IPriorityManager {
   assignPriority(memoryId: string, factors: PriorityFactor[]): MemoryPriority;
   getPriority(memoryId: string): MemoryPriority | undefined;
+  getEffectiveScore(memoryId: string): number;
   updatePriority(memoryId: string, factors: PriorityFactor[]): MemoryPriority;
   batchAssignPriorities(
     assignments: { memoryId: string; factors: PriorityFactor[] }[]
@@ -50,6 +55,8 @@ const DEFAULT_CONFIG: PriorityConfig = {
   lowThreshold: 0.2,
   autoDowngradeEnabled: false,
   downgradeAfterDays: 30,
+  decayFactor: 0.5,
+  halfLifeDays: 30,
 };
 
 export function calculateScore(factors: PriorityFactor[]): number {
@@ -138,10 +145,53 @@ export class MemoryPriorityManager implements IPriorityManager {
     return dist as Record<PriorityTier, number>;
   }
 
+  /**
+   * 计算时间衰减后的有效分数
+   * 使用指数衰减模型：score * (decayFactor ^ (ageDays / halfLifeDays))
+   * @param score 原始分数
+   * @param ageMs 记忆存在时间（毫秒）
+   * @returns 衰减后的分数
+   */
+  private applyTimeDecay(score: number, ageMs: number): number {
+    if (!this.config.autoDowngradeEnabled) {
+      return score;
+    }
+    const ageDays = ageMs / (1000 * 60 * 60 * 24);
+    if (ageDays <= this.config.downgradeAfterDays) {
+      return score;
+    }
+    const effectiveDays = ageDays - this.config.downgradeAfterDays;
+    return (
+      score *
+      Math.pow(
+        this.config.decayFactor,
+        effectiveDays / this.config.halfLifeDays
+      )
+    );
+  }
+
+  /**
+   * 获取记忆的衰减后有效分数
+   * @param memoryId 记忆ID
+   * @returns 有效分数，如果不存在返回 0
+   */
+  getEffectiveScore(memoryId: string): number {
+    const priority = this.priorities.get(memoryId);
+    if (!priority) return 0;
+    const ageMs = Date.now() - priority.assignedAt;
+    return this.applyTimeDecay(priority.score, ageMs);
+  }
+
   recalculateAll(): number {
     let count = 0;
     for (const [id, priority] of this.priorities) {
-      const newScore = calculateScore(priority.factors);
+      let newScore = calculateScore(priority.factors);
+
+      if (this.config.autoDowngradeEnabled) {
+        const ageMs = Date.now() - priority.assignedAt;
+        newScore = this.applyTimeDecay(newScore, ageMs);
+      }
+
       const newTier = scoreToTier(newScore, this.config);
       if (newTier !== priority.tier) {
         priority.tier = newTier;

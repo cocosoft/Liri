@@ -11,8 +11,7 @@ export interface FacebookMessengerAccount {
   label?: string;
 }
 
-export interface ResolvedFacebookMessengerAccount
-  extends FacebookMessengerAccount {
+export interface ResolvedFacebookMessengerAccount extends FacebookMessengerAccount {
   resolved: boolean;
 }
 

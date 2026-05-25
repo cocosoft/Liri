@@ -147,16 +147,13 @@ export async function initializeChatManager(): Promise<ChatManager> {
 export async function launchRepl(
   config: REPLConfig = DEFAULT_CONFIG
 ): Promise<void> {
-  console.log(`[DIAG][${Date.now()}] launchRepl: 函数开始执行`);
   profileCheckpoint('repl_launch_start');
   getStartupChainProfiler().markPhaseStart('first_response');
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   const ui = getUIEnhancer();
 
   // 显示欢迎消息
-  console.log(`[DIAG][${Date.now()}] launchRepl: 准备显示标题`);
   ui.showTitle('PY_APP - AI Agent');
-  console.log(`[DIAG][${Date.now()}] launchRepl: 标题显示完成`);
 
   if (isOfflineMode) {
     ui.showInfo('我是您的 AI 个人助手。当前为离线模式，AI 对话暂不可用。');
@@ -475,12 +472,15 @@ export async function launchRepl(
 
         if (result.success) {
           if (result.message) {
-            console.log('\n' + result.message);
+            console.log('\n' + chalk.yellow('⚙️ System: ') + result.message);
           } else if (result.value) {
-            console.log('\n' + result.value);
+            console.log('\n' + chalk.yellow('⚙️ System: ') + result.value);
           } else if (result.data) {
-            // 处理带有数据的命令结果
-            console.log('\n' + JSON.stringify(result.data, null, 2));
+            console.log(
+              '\n' +
+                chalk.yellow('⚙️ System: ') +
+                JSON.stringify(result.data, null, 2)
+            );
           }
         } else {
           ui.showError(result.error || '命令执行失败');
@@ -491,24 +491,62 @@ export async function launchRepl(
         }
       } else {
         isProcessing = true;
-        const loading = ui.showLoading('思考中...');
 
         try {
           profileCheckpoint('repl_send_message_start');
+          // 显示 AI 思考过程状态
+          console.log(chalk.yellow('⚙️ System: 🤔 AI 正在思考...'));
+
           const currentSession = chatManager.getCurrentSession();
           const response = await chatManager.sendMessage(trimmedLine, {
             sessionId: currentSession?.id,
             stream: true,
+            /**
+             * 工具调用回调：在终端实时展示工具调用过程
+             */
+            onToolCall: (phase, toolName, _toolCallId, detail) => {
+              if (phase === 'start') {
+                // 提取关键参数摘要，避免输出过多
+                const paramSummary = detail ? detail.slice(0, 80) : '';
+                console.log(
+                  chalk.yellow('⚙️ System: 🛠 正在调用工具: ') +
+                    chalk.cyan(toolName) +
+                    (paramSummary ? chalk.gray(` ${paramSummary}`) : '')
+                );
+              } else {
+                const isSuccess = detail?.startsWith('成功');
+                console.log(
+                  chalk.yellow('⚙️ System: ') +
+                    (isSuccess ? chalk.green('✅') : chalk.red('❌')) +
+                    ` 工具 ${chalk.cyan(toolName)} 执行${isSuccess ? '完成' : '失败'}`
+                );
+              }
+            },
+            /**
+             * Token 用量回调：在每次 LLM 响应后展示词元用量和成本
+             */
+            onUsage: (usage) => {
+              const costStr =
+                usage.estimatedCostUsd !== undefined
+                  ? ` | 💰 $${usage.estimatedCostUsd.toFixed(6)}`
+                  : '';
+              console.log(
+                chalk.yellow('⚙️ System: 📊 Token 用量 — ') +
+                  chalk.gray(
+                    `输入 ${usage.inputTokens} / 输出 ${usage.outputTokens} / 总计 ${usage.totalTokens}`
+                  ) +
+                  costStr
+              );
+            },
           });
           profileCheckpoint('repl_send_message_end');
-          loading.stop();
+
           if (response.content) {
-            console.log('\n' + response.content);
+            console.log(chalk.green('🤖 AI: ') + response.content);
           } else {
             ui.showWarning('未收到响应，请尝试再次发送');
           }
         } catch (error) {
-          loading.stop();
           ui.showError(
             `处理失败: ${error instanceof Error ? error.message : String(error)}`
           );
@@ -574,7 +612,46 @@ export async function launchRepl(
   rl.on('close', async () => {
     ui.showSuccess('REPL 已退出');
 
-    // 停止 LocalHTTPService
+    // 第一步：断开所有已注册通道（长轮询、心跳、重连在此停止）
+    const registeredChannels = channelRegistry.getAll();
+    if (registeredChannels.length > 0) {
+      const disconnectResults = await Promise.allSettled(
+        registeredChannels.map((ch) => channelRegistry.disconnect(ch.name))
+      );
+      const failedCount = disconnectResults.filter(
+        (r) => r.status === 'rejected'
+      ).length;
+      if (failedCount > 0) {
+        ui.showWarning(`${failedCount} 个通道断开失败`);
+      } else {
+        ui.showInfo(`${registeredChannels.length} 个通道已断开`);
+      }
+    }
+
+    // 第二步：清理 ChatManager（停止任务编排器、工具注册表、流服务）
+    try {
+      chatManager.cleanup();
+    } catch (error) {
+      ui.showWarning(
+        `清理 ChatManager 失败: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    // 第三步：清理子Agent管理器
+    try {
+      const subAgentMgr = chatManager.getSubAgentManager() as {
+        cleanup?: () => Promise<void>;
+      } | null;
+      if (subAgentMgr?.cleanup) {
+        await subAgentMgr.cleanup();
+      }
+    } catch (error) {
+      ui.showWarning(
+        `清理子Agent失败: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    // 第四步：停止 LocalHTTPService
     if (localHTTPService && localHTTPService.isStarted()) {
       try {
         await localHTTPService.stop();

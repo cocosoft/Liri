@@ -37,9 +37,5 @@ export type {
 export { smsProbe } from './probe.js';
 export type { ProbeResult as SmsProbeResult } from './probe.js';
 
-export {
-  setSmsRuntime,
-  getSmsRuntime,
-  clearSmsRuntime,
-} from './runtime.js';
+export { setSmsRuntime, getSmsRuntime, clearSmsRuntime } from './runtime.js';
 export type { SmsRuntime, SmsRuntimeStatus } from './runtime.js';

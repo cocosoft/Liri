@@ -539,6 +539,29 @@ export interface NormalizedMessage extends Message {
 }
 
 /**
+ * Token 用量信息
+ */
+export interface UsageInfo {
+  /** 输入词元数 */
+  inputTokens: number;
+
+  /** 输出词元数 */
+  outputTokens: number;
+
+  /** 缓存读取词元数 */
+  cacheReadInputTokens?: number;
+
+  /** 缓存创建词元数 */
+  cacheCreationInputTokens?: number;
+
+  /** 总词元数 */
+  totalTokens: number;
+
+  /** 估算成本（美元） */
+  estimatedCostUsd?: number;
+}
+
+/**
  * 发送消息选项
  */
 export interface SendMessageOptions {
@@ -571,6 +594,28 @@ export interface SendMessageOptions {
    * 最大token数
    */
   maxTokens?: number;
+
+  /**
+   * 工具调用事件回调
+   * 在工具执行开始和结束时触发，用于在 UI 中展示工具调用过程
+   * @param phase 阶段：'start' 开始执行 | 'end' 执行完成
+   * @param toolName 工具名称
+   * @param toolCallId 工具调用 ID
+   * @param detail 详情信息（开始时为参数JSON，结束时为结果摘要或错误信息）
+   */
+  onToolCall?: (
+    phase: 'start' | 'end',
+    toolName: string,
+    toolCallId: string,
+    detail?: string
+  ) => void;
+
+  /**
+   * Token 用量回调
+   * 在每次 LLM 响应后触发，携带本次调用的词元用量信息
+   * @param usage 词元用量信息（包含输入、输出、缓存等）
+   */
+  onUsage?: (usage: UsageInfo) => void;
 }
 
 /**

@@ -10,7 +10,10 @@ export {
 } from './TwitterChannel.js';
 export type { TwitterConfig, TwitterMessage } from './TwitterChannel.js';
 
-export { getDefaultTwitterConfig, validateTwitterConfig } from './config-schema.js';
+export {
+  getDefaultTwitterConfig,
+  validateTwitterConfig,
+} from './config-schema.js';
 export type { TwitterConfig as TwitterChannelConfig } from './config-schema.js';
 
 export {

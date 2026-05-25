@@ -80,9 +80,7 @@ function diagnoseConnection(ctx: GoogleChatDiagnosisContext): DiagnosisCheck {
   return {
     name: '连接状态',
     passed: ctx.isConnected,
-    message: ctx.isConnected
-      ? 'Webhook 服务已启动'
-      : 'Webhook 服务未启动',
+    message: ctx.isConnected ? 'Webhook 服务已启动' : 'Webhook 服务未启动',
     detail: { isConnected: ctx.isConnected },
   };
 }

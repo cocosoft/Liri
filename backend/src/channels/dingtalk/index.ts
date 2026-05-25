@@ -8,7 +8,10 @@ export {
   dingtalkChannelPlugin,
 } from './DingTalkChannel.js';
 
-export { getDefaultDingTalkConfig, validateDingTalkConfig } from './config-schema.js';
+export {
+  getDefaultDingTalkConfig,
+  validateDingTalkConfig,
+} from './config-schema.js';
 export type { DingTalkConfig } from './config-schema.js';
 
 export {

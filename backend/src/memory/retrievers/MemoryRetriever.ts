@@ -74,7 +74,7 @@ export const MEMORY_SEARCH_DEFAULTS: MemorySearchConfig = {
     maxResults: 6,
     minScore: 0.35,
     hybrid: {
-      enabled: false,
+      enabled: true,
       vectorWeight: 0.5,
       textWeight: 0.5,
     },

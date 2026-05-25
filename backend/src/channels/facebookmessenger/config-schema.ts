@@ -27,7 +27,9 @@ export function validateFacebookMessengerConfig(
   const errors: string[] = [];
 
   if (!raw['pageAccessToken'] || typeof raw['pageAccessToken'] !== 'string') {
-    errors.push('pageAccessToken: 必须是非空字符串（Facebook Page Access Token）');
+    errors.push(
+      'pageAccessToken: 必须是非空字符串（Facebook Page Access Token）'
+    );
   }
   if (!raw['verifyToken'] || typeof raw['verifyToken'] !== 'string') {
     errors.push('verifyToken: 必须是非空字符串（Webhook Verify Token）');

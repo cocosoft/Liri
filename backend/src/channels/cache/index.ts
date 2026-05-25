@@ -4,3 +4,11 @@
 
 export { StickerCache } from './StickerCache.js';
 export type { StickerMeta } from './StickerCache.js';
+
+export { MediaCache, mediaCache } from './MediaCache.js';
+export type {
+  MediaType,
+  MediaMeta,
+  MediaCacheHit,
+  MediaCacheConfig,
+} from './MediaCache.js';

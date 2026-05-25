@@ -66,9 +66,7 @@ function diagnoseAuth(ctx: DingTalkDiagnosisContext): DiagnosisCheck {
   return {
     name: '认证凭据',
     passed: !!ctx.appKey && ctx.hasAppSecret,
-    message: ctx.hasAccessToken
-      ? 'AccessToken 已获取'
-      : '尚未获取 AccessToken',
+    message: ctx.hasAccessToken ? 'AccessToken 已获取' : '尚未获取 AccessToken',
     detail: { hasAccessToken: ctx.hasAccessToken },
   };
 }
@@ -77,9 +75,7 @@ function diagnoseWebhook(ctx: DingTalkDiagnosisContext): DiagnosisCheck {
   return {
     name: 'Webhook 配置',
     passed: ctx.hasWebhookUrl,
-    message: ctx.hasWebhookUrl
-      ? 'Webhook URL 已配置'
-      : '未配置 Webhook URL',
+    message: ctx.hasWebhookUrl ? 'Webhook URL 已配置' : '未配置 Webhook URL',
     detail: { webhookConfigured: ctx.hasWebhookUrl },
   };
 }

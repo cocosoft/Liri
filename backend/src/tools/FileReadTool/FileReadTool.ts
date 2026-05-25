@@ -213,6 +213,8 @@ export class FileReadTool extends BaseTool {
         limit: input.limit as number | undefined,
       });
 
+      this.autoIngestFile(result.filePath);
+
       if (onProgress) {
         onProgress({
           toolUseID: 'file-read-tool',
@@ -286,6 +288,8 @@ export class FileReadTool extends BaseTool {
           },
         });
       }
+
+      this.autoIngestFile(filePath);
 
       return createToolResult(result.markdown, {
         success: true,
@@ -361,5 +365,24 @@ export class FileReadTool extends BaseTool {
 
   override toAutoClassifierInput(input: Record<string, unknown>): unknown {
     return (input?.file_path as string) || '';
+  }
+
+  /**
+   * 文件读取后自动触发知识库摄取
+   * 异步执行，不阻塞工具调用
+   */
+  private autoIngestFile(filePath: string): void {
+    Promise.resolve().then(async () => {
+      try {
+        const { getDefaultIngestionService } =
+          await import('../../knowledge/ingestion/FileIngestionService');
+        const service = getDefaultIngestionService();
+        await service.ingestFile(filePath, 'file_read', {
+          skipClassification: true,
+        });
+      } catch {
+        // 静默失败，不干扰主流程
+      }
+    });
   }
 }

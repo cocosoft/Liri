@@ -23,8 +23,25 @@ export interface YuanbaoDiagnosisContext {
 
 export function diagnoseYuanbao(ctx: YuanbaoDiagnosisContext): DiagnosisResult {
   const checks: DiagnosisCheck[] = [];
-  checks.push({ name: '配置检查', passed: !!ctx.hasApiKey, message: ctx.hasApiKey ? 'API Key 已配置' : '缺少 API Key', detail: { hasApiKey: ctx.hasApiKey } });
-  checks.push({ name: '连接状态', passed: ctx.isConnected, message: ctx.isConnected ? '已连接至元宝 API' : '未连接', detail: { connected: ctx.isConnected } });
+  checks.push({
+    name: '配置检查',
+    passed: !!ctx.hasApiKey,
+    message: ctx.hasApiKey ? 'API Key 已配置' : '缺少 API Key',
+    detail: { hasApiKey: ctx.hasApiKey },
+  });
+  checks.push({
+    name: '连接状态',
+    passed: ctx.isConnected,
+    message: ctx.isConnected ? '已连接至元宝 API' : '未连接',
+    detail: { connected: ctx.isConnected },
+  });
   const failed = checks.filter((c) => !c.passed);
-  return { healthy: failed.length === 0, checks, summary: failed.length === 0 ? `元宝诊断通过（${checks.length}/${checks.length}）` : `元宝诊断失败：${failed.map((c) => c.name).join(', ')}` };
+  return {
+    healthy: failed.length === 0,
+    checks,
+    summary:
+      failed.length === 0
+        ? `元宝诊断通过（${checks.length}/${checks.length}）`
+        : `元宝诊断失败：${failed.map((c) => c.name).join(', ')}`,
+  };
 }

@@ -52,6 +52,7 @@ import { AskUserQuestionTool } from './AskUserQuestionTool/AskUserQuestionTool';
 import { ConfigTool } from './ConfigTool/ConfigTool';
 import { MCPResourceTool } from './MCPResourceTool/MCPResourceTool';
 import { BriefTool } from './BriefTool/BriefTool';
+import { SaveConversationTool } from './SaveConversationTool/SaveConversationTool';
 import { BrowserTool } from './BrowserTool/BrowserTool';
 import { PlanTool } from './PlanTool/PlanTool';
 import { ToolSearchTool } from './ToolSearchTool/ToolSearchTool';
@@ -472,6 +473,14 @@ export class ToolFactory {
    */
   createBriefTool(): Tool {
     return new BriefTool();
+  }
+
+  /**
+   * 创建对话记录保存工具
+   * @returns SaveConversationTool实例
+   */
+  createSaveConversationTool(): Tool {
+    return new SaveConversationTool();
   }
 
   /**
@@ -1084,6 +1093,7 @@ export function getAllBaseTools(): Tool[] {
   }
 
   tools.push(new BriefTool());
+  tools.push(new SaveConversationTool());
 
   const sendUserFileTool = createSendUserFileTool();
   if (sendUserFileTool) {

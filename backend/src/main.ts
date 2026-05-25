@@ -301,37 +301,29 @@ async function launchCLI(options: LaunchOptions): Promise<void> {
 }
 
 /**
-   * 启动 REPL 模式
-   */
-  async function launchREPL(options: LaunchOptions): Promise<void> {
-    const ts = () => Date.now();
-    console.log(`[DIAG][${ts()}] launchREPL: 开始 init()...`);
-    const { init } = await import('./entrypoints/init');
-    await init();
-    console.log(`[DIAG][${ts()}] launchREPL: init() 完成`);
+ * 启动 REPL 模式
+ */
+async function launchREPL(options: LaunchOptions): Promise<void> {
+  const { init } = await import('./entrypoints/init');
+  await init();
 
-    await checkFirstRunAndOnboard();
+  await checkFirstRunAndOnboard();
 
-    const httpPort = parseHttpPortFromArgs(options.args);
-    const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
+  const httpPort = parseHttpPortFromArgs(options.args);
+  const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
 
-    console.log(`[DIAG][${ts()}] launchREPL: 开始动态导入 entrypoints/repl...`);
-    const { launchRepl } = await import('./entrypoints/repl');
-    console.log(`[DIAG][${ts()}] launchREPL: entrypoints/repl 导入完成`);
+  const { launchRepl } = await import('./entrypoints/repl');
+  await launchRepl({ httpPort, useLegacyRepl });
 
-    console.log(`[DIAG][${ts()}] launchREPL: 开始 launchRepl()...`);
-    await launchRepl({ httpPort, useLegacyRepl });
-    console.log(`[DIAG][${ts()}] launchREPL: launchRepl() 返回`);
-
-    // REPL 完全启动后，后台延迟连接通道，不阻塞用户交互
-    import('./channels/setupChannels').then(({ lazyConnectChannels }) => {
-      lazyConnectChannels().catch((err) => {
-        logger.error('延迟通道连接异常', { error: String(err) });
-      });
+  // REPL 完全启动后，后台延迟连接通道，不阻塞用户交互
+  import('./channels/setupChannels').then(({ lazyConnectChannels }) => {
+    lazyConnectChannels().catch((err) => {
+      logger.error('延迟通道连接异常', { error: String(err) });
     });
-  }
+  });
+}
 
-  /**
+/**
  * 从命令行参数中解析 --http-port 值
  */
 function parseHttpPortFromArgs(args?: string[]): number | undefined {

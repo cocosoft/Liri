@@ -1,8 +1,5 @@
 export { createLineChannel, lineChannelPlugin } from './LineChannel.js';
-export {
-  getDefaultLineConfig,
-  validateLineConfig,
-} from './config-schema.js';
+export { getDefaultLineConfig, validateLineConfig } from './config-schema.js';
 export type { LineConfig } from './config-schema.js';
 export {
   registerLineAccount,
@@ -35,7 +32,4 @@ export type {
   LineApprovalAuthResult,
 } from './approval-auth.js';
 export { setLineRuntime, getLineRuntime, clearLineRuntime } from './runtime.js';
-export type {
-  LineRuntime,
-  LineRuntimeStatus,
-} from './runtime.js';
+export type { LineRuntime, LineRuntimeStatus } from './runtime.js';

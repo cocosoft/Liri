@@ -81,6 +81,7 @@ export const builtinToolLoaders: ToolLoader[] = [
   createToolLoader(ToolFactory.prototype.createAgentTool),
   createToolLoader(ToolFactory.prototype.createAskUserQuestionTool),
   createToolLoader(ToolFactory.prototype.createBriefTool),
+  createToolLoader(ToolFactory.prototype.createSaveConversationTool),
 
   // 会话管理工具
   createToolLoader(ToolFactory.prototype.createSessionsTool),

@@ -10,7 +10,10 @@ export {
 } from './YuanbaoChannel.js';
 export type { YuanbaoConfig, YuanbaoMessage } from './YuanbaoChannel.js';
 
-export { getDefaultYuanbaoConfig, validateYuanbaoConfig } from './config-schema.js';
+export {
+  getDefaultYuanbaoConfig,
+  validateYuanbaoConfig,
+} from './config-schema.js';
 export type { YuanbaoConfig as YuanbaoChannelConfig } from './config-schema.js';
 
 export {

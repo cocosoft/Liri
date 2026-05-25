@@ -52,7 +52,9 @@ export function resolveMatrixApprovers(
       const normalized = normalizeMatrixApproverId(id);
       return normalized ? { userId: normalized } : null;
     })
-    .filter((x: MatrixApproverInfo | null): x is MatrixApproverInfo => x !== null);
+    .filter(
+      (x: MatrixApproverInfo | null): x is MatrixApproverInfo => x !== null
+    );
 }
 
 /**

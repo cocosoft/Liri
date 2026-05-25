@@ -78,12 +78,16 @@ async function getMsTeamsAccessToken(
 /**
  * Bot Framework JWT 验证（通过公开 JWKS）
  */
-async function verifyBotFrameworkJwt(token: string): Promise<{ verified: boolean; issuer?: string; audience?: string }> {
+async function verifyBotFrameworkJwt(
+  token: string
+): Promise<{ verified: boolean; issuer?: string; audience?: string }> {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return { verified: false };
 
-    const header = JSON.parse(Buffer.from(parts[0]!, 'base64url').toString('utf8')) as Record<string, unknown>;
+    const header = JSON.parse(
+      Buffer.from(parts[0]!, 'base64url').toString('utf8')
+    ) as Record<string, unknown>;
     const kid = header['kid'] as string;
     if (!kid) return { verified: false };
 
@@ -111,7 +115,9 @@ async function verifyBotFrameworkJwt(token: string): Promise<{ verified: boolean
     verify.update(`${parts[0]}.${parts[1]}`);
     verify.end();
 
-    const payload = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString('utf8')) as Record<string, unknown>;
+    const payload = JSON.parse(
+      Buffer.from(parts[1]!, 'base64url').toString('utf8')
+    ) as Record<string, unknown>;
     return {
       verified: verify.verify(certPem, parts[2]!, 'base64url'),
       issuer: payload['iss'] as string,
@@ -162,7 +168,10 @@ class ConversationStore {
       const path = await import('node:path');
       const storePath = this.getStorePath();
       if (fs.existsSync(storePath)) {
-        const data = JSON.parse(fs.readFileSync(storePath, 'utf8')) as Record<string, unknown>;
+        const data = JSON.parse(fs.readFileSync(storePath, 'utf8')) as Record<
+          string,
+          unknown
+        >;
         for (const [key, val] of Object.entries(data)) {
           this.refs.set(key, val as Record<string, unknown>);
         }
@@ -174,9 +183,11 @@ class ConversationStore {
   }
 
   private getStorePath(): string {
-    const { app } = require('electron') as { app?: { getPath: (name: string) => string } }
-      || {};
-    const basePath = (app?.getPath('userData') || process.cwd());
+    const { app } =
+      (require('electron') as {
+        app?: { getPath: (name: string) => string };
+      }) || {};
+    const basePath = app?.getPath('userData') || process.cwd();
     const path = require('node:path') as typeof import('node:path');
     return path.join(basePath, 'data', 'msteams-conversations.json');
   }
@@ -188,7 +199,11 @@ class ConversationStore {
       const storePath = this.getStorePath();
       const dir = path.dirname(storePath);
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(storePath, JSON.stringify(Object.fromEntries(this.refs), null, 2), 'utf8');
+      fs.writeFileSync(
+        storePath,
+        JSON.stringify(Object.fromEntries(this.refs), null, 2),
+        'utf8'
+      );
     } catch {
       // 文件持久化失败不应阻塞
     }
@@ -230,7 +245,10 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
       dmPolicy: 'open' as const,
       maxPairingAttempts: 3,
       resolveSender: async (sender: Record<string, unknown>) => ({
-        userId: (sender['aadObjectId'] as string) || (sender['id'] as string) || 'unknown',
+        userId:
+          (sender['aadObjectId'] as string) ||
+          (sender['id'] as string) ||
+          'unknown',
         displayName: (sender['name'] as string) || 'Unknown',
         isApproved: true,
       }),
@@ -250,7 +268,8 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
     const errors: string[] = [];
     if (!config['tenantId']) errors.push('缺少 tenantId（Azure AD 租户 ID）');
     if (!config['appId']) errors.push('缺少 appId（Bot Framework App ID）');
-    if (!config['appPassword']) errors.push('缺少 appPassword（Bot Framework 客户端密码）');
+    if (!config['appPassword'])
+      errors.push('缺少 appPassword（Bot Framework 客户端密码）');
     return errors;
   }
 
@@ -264,7 +283,11 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
     await this.convStore.init();
 
     // 验证凭据
-    const token = await getMsTeamsAccessToken(this.tenantId, this.appId, this.appPassword);
+    const token = await getMsTeamsAccessToken(
+      this.tenantId,
+      this.appId,
+      this.appPassword
+    );
     if (!token) {
       throw new AppError(
         'MS Teams 认证失败',
@@ -293,7 +316,11 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
     activity: Record<string, unknown>
   ): Promise<{ ok: boolean; activityId?: string; error?: string }> {
     try {
-      const token = await getMsTeamsAccessToken(this.tenantId, this.appId, this.appPassword);
+      const token = await getMsTeamsAccessToken(
+        this.tenantId,
+        this.appId,
+        this.appPassword
+      );
       const url = `${this.serviceUrl}/v3/conversations/${encodeURIComponent(conversationId)}/activities`;
 
       const resp = await fetch(url, {
@@ -354,7 +381,8 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
   }
 
   protected async sendImageMessage(
-    target: string, imageUrl: string
+    target: string,
+    imageUrl: string
   ): Promise<SendResult> {
     this.serviceUrl = this.getServiceUrl(target);
 
@@ -380,7 +408,8 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
   }
 
   protected async sendFileMessage(
-    target: string, filePath: string
+    target: string,
+    filePath: string
   ): Promise<SendResult> {
     try {
       const fs = await import('node:fs');
@@ -508,7 +537,9 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
           req.on('end', async () => {
             try {
               const activity = JSON.parse(body) as Record<string, unknown>;
-              const authHeader = req.headers['authorization'] as string | undefined;
+              const authHeader = req.headers['authorization'] as
+                | string
+                | undefined;
 
               // 验证 Bot Framework JWT
               if (authHeader?.startsWith('Bearer ')) {
@@ -576,7 +607,9 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
    * 处理入站 Teams Activity
    */
   private handleTeamsActivity(activity: Record<string, unknown>): void {
-    const conversation = activity['conversation'] as Record<string, unknown> | undefined;
+    const conversation = activity['conversation'] as
+      | Record<string, unknown>
+      | undefined;
     const from = activity['from'] as Record<string, unknown> | undefined;
     const conversationId = (conversation?.['id'] as string) || '';
     const activityId = (activity['id'] as string) || '';
@@ -591,17 +624,22 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
       bot: { id: this.appId, name: 'PY_APP Bot' },
       conversation,
       channelId: 'msteams',
-      serviceUrl: activity['serviceUrl'] as string || this.serviceUrl,
+      serviceUrl: (activity['serviceUrl'] as string) || this.serviceUrl,
       channelData: activity['channelData'],
     };
     this.convStore.set(conversationId, ref);
     this.serviceUrl = (activity['serviceUrl'] as string) || this.serviceUrl;
 
-    const text = ((activity['text'] as string) || '').replace(/<[^>]+>/g, '').trim();
+    const text = ((activity['text'] as string) || '')
+      .replace(/<[^>]+>/g, '')
+      .trim();
     if (!text) return;
 
     const senderName = (from?.['name'] as string) || 'Unknown';
-    const senderId = (from?.['aadObjectId'] as string) || (from?.['id'] as string) || 'unknown';
+    const senderId =
+      (from?.['aadObjectId'] as string) ||
+      (from?.['id'] as string) ||
+      'unknown';
 
     const ctx: MessageContext = {
       channelId: 'msteams',
@@ -612,7 +650,9 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
       messageId: activityId || randomUUID(),
       messageType: 'text' as const,
       content: text,
-      timestamp: new Date(activity['timestamp'] as string || Date.now()).getTime(),
+      timestamp: new Date(
+        (activity['timestamp'] as string) || Date.now()
+      ).getTime(),
       isDirectMessage: conversation?.['conversationType'] === 'personal',
       rawPayload: activity,
     };

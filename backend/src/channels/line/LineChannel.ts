@@ -41,7 +41,11 @@ const LINE_CAPABILITIES: ChannelCapabilities = {
 /**
  * LINE Webhook 签名验证
  */
-function verifyLineSignature(channelSecret: string, body: string, signature: string): boolean {
+function verifyLineSignature(
+  channelSecret: string,
+  body: string,
+  signature: string
+): boolean {
   const hmac = crypto.createHmac('SHA256', channelSecret);
   hmac.update(body);
   const expected = hmac.digest('base64');
@@ -166,7 +170,8 @@ class LineChannelPlugin extends BaseChannelPlugin {
   protected validateConfig(config: Record<string, unknown>): string[] {
     const errors: string[] = [];
     if (!config['channelAccessToken']) errors.push('缺少 channelAccessToken');
-    if (!config['channelSecret']) errors.push('缺少 channelSecret（用于 Webhook 签名验证）');
+    if (!config['channelSecret'])
+      errors.push('缺少 channelSecret（用于 Webhook 签名验证）');
     return errors;
   }
 
@@ -180,8 +185,7 @@ class LineChannelPlugin extends BaseChannelPlugin {
     this.logger.info('LINE 通道已连接');
   }
 
-  protected override async onDisconnect(): Promise<void> {
-  }
+  protected override async onDisconnect(): Promise<void> {}
 
   /**
    * 向 LINE Messaging API 发送消息
@@ -199,8 +203,12 @@ class LineChannelPlugin extends BaseChannelPlugin {
         },
         body: JSON.stringify(body),
       });
-      const data = resp.ok ? ((await resp.json()) as Record<string, unknown>) : undefined;
-      const error = resp.ok ? undefined : `LINE API ${resp.status}: ${await resp.text()}`;
+      const data = resp.ok
+        ? ((await resp.json()) as Record<string, unknown>)
+        : undefined;
+      const error = resp.ok
+        ? undefined
+        : `LINE API ${resp.status}: ${await resp.text()}`;
       return { ok: resp.ok, data, error };
     } catch (e) {
       return { ok: false, error: String(e) };
@@ -345,7 +353,10 @@ class LineChannelPlugin extends BaseChannelPlugin {
           req.on('end', () => {
             // 验证 X-Line-Signature
             const signature = req.headers['x-line-signature'] as string;
-            if (!signature || !verifyLineSignature(self.channelSecret, body, signature)) {
+            if (
+              !signature ||
+              !verifyLineSignature(self.channelSecret, body, signature)
+            ) {
               self.logger.warn('LINE Webhook 签名验证失败');
               res.writeHead(401);
               res.end('Unauthorized');
@@ -357,7 +368,9 @@ class LineChannelPlugin extends BaseChannelPlugin {
 
             try {
               const parsed = JSON.parse(body) as Record<string, unknown>;
-              const events = parsed['events'] as Array<Record<string, unknown>> | undefined;
+              const events = parsed['events'] as
+                | Array<Record<string, unknown>>
+                | undefined;
               if (!events) return;
 
               for (const event of events) {
@@ -417,9 +430,7 @@ class LineChannelPlugin extends BaseChannelPlugin {
 
         await new Promise<void>((resolve, reject) => {
           self.webhookServer!.listen(self.webhookPort, () => {
-            self.logger.info(
-              `LINE Webhook 已启动 (端口: ${self.webhookPort})`
-            );
+            self.logger.info(`LINE Webhook 已启动 (端口: ${self.webhookPort})`);
             self.setInboundListening(true);
             resolve();
           });

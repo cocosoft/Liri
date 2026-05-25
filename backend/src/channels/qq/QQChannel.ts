@@ -103,6 +103,9 @@ const QUICK_DISCONNECT_THRESHOLD = 5000;
 /** Token 后台刷新提前量（毫秒）：过期前 5 分钟刷新 */
 const TOKEN_REFRESH_AHEAD_MS = 5 * 60 * 1000;
 
+/** 连续会话失败上限：超过此值说明配置有误，停止重连 */
+const MAX_CONSECUTIVE_SESSION_FAILURES = 5;
+
 class QQChannelPlugin extends BaseChannelPlugin {
   readonly id = 'qq';
   readonly meta = QQ_META;
@@ -137,6 +140,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
   /** 快速断开检测计数 */
   private quickDisconnectCount = 0;
 
+  /** 连续会话失败计数：INVALID_SESSION + 4903 等服务器端错误连续发生次数 */
+  private consecutiveSessionFailures = 0;
+
   /** 上次连接时间戳 */
   private lastConnectTime = 0;
 
@@ -157,6 +163,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   /** QQ 提及正则（@bot） */
   private readonly mentionPattern = /<@!\d+>/g;
+
+  /** 跨事件类型去重缓存:content_hash -> 时间戳 */
+  private readonly crossEventDedupCache = new Map<string, number>();
+
+  /** 跨事件去重窗口(毫秒) */
+  private readonly crossEventDedupWindowMs = 10_000;
 
   constructor() {
     super();
@@ -367,7 +379,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * "{channel_id}" → { scope: "guild", targetId: "{channel_id}" }
    * 对标 OpenClaw routes.ts messagePath
    */
-  private parseTarget(target: string): { scope: 'c2c' | 'group' | 'guild'; targetId: string } {
+  private parseTarget(target: string): {
+    scope: 'c2c' | 'group' | 'guild';
+    targetId: string;
+  } {
     if (target.startsWith('c2c:')) {
       return { scope: 'c2c', targetId: target.slice(4) };
     }
@@ -692,12 +707,26 @@ class QQChannelPlugin extends BaseChannelPlugin {
     });
 
     if (!resp.ok) {
+      let detail = '';
+      try {
+        const body = (await resp.json()) as { message?: string; code?: number };
+        detail = body.message || body.code?.toString() || '';
+      } catch {
+        detail = await resp.text().catch(() => '');
+      }
+
+      const statusPrefix = detail ? ` (${detail})` : '';
+      const hint400 =
+        resp.status === 400
+          ? '\n  可能原因：Access Token 无效或 Bot 未启用 WebSocket 协议，请在 QQ 开放平台确认配置'
+          : '';
+
       throw new AppError(
-        `获取 QQ Bot 网关地址失败: ${resp.status}`,
+        `获取 QQ Bot 网关地址失败: ${resp.status}${statusPrefix}${hint400}`,
         ErrorCategory.NETWORK,
         ErrorSeverity.HIGH,
         'GATEWAY_FETCH_FAILED',
-        { channel: 'qq', status: resp.status }
+        { channel: 'qq', status: resp.status, detail }
       );
     }
 
@@ -724,6 +753,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
         this.ws.onopen = () => {
           clearTimeout(connectTimeout);
+          this.reconnectAttempts = 0;
+          this.consecutiveSessionFailures = 0;
+          this.lastConnectTime = Date.now();
           this.logger.info('QQ Bot WebSocket 已连接');
         };
 
@@ -787,10 +819,21 @@ class QQChannelPlugin extends BaseChannelPlugin {
         break;
 
       case QQOpCode.INVALID_SESSION:
-        this.logger.warn('QQ Bot 会话无效，清理后重新鉴权');
         this.sessionId = null;
         this.lastSeq = null;
-        await this.identify();
+        this.consecutiveSessionFailures++;
+
+        // d=false: 会话不可恢复，须关闭连接后重新建立
+        // d=true:  可尝试在当前连接上重新鉴权
+        if (payload.d === false) {
+          this.logger.warn('QQ Bot 会话不可恢复，关闭连接重新建立', {
+            failures: this.consecutiveSessionFailures,
+          });
+          this.ws?.close(4903, 'create session error');
+        } else {
+          this.logger.warn('QQ Bot 会话无效，尝试重新鉴权');
+          await this.identify();
+        }
         break;
 
       case QQOpCode.RESUME:
@@ -931,12 +974,42 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
+   * 跨事件类型去重检查
+   * QQ 开放平台可能对同一条群聊 @消息同时发送 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE,
+   * 两者 messageId 不同但内容相同。基于 content + senderId 生成哈希做二次去重。
+   */
+  private isCrossEventDuplicate(content: string, senderId: string): boolean {
+    const hash = `${senderId}:${content}`;
+    const now = Date.now();
+    const lastTime = this.crossEventDedupCache.get(hash);
+    if (lastTime && now - lastTime < this.crossEventDedupWindowMs) {
+      this.logger.info('QQ Bot 跨事件去重命中', { hash });
+      return true;
+    }
+    this.crossEventDedupCache.set(hash, now);
+    if (this.crossEventDedupCache.size > 1000) {
+      for (const [key, time] of this.crossEventDedupCache) {
+        if (now - time > this.crossEventDedupWindowMs) {
+          this.crossEventDedupCache.delete(key);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * 处理 AT_MESSAGE_CREATE 事件（频道内 @机器人 的消息）
    */
   private handleAtMessageCreate(data: QQAtMessageCreatePayload): void {
     if (this.isDuplicate(data.id)) return;
 
     const cleanContent = data.content.replace(this.mentionPattern, '').trim();
+
+    // 跨事件去重:防止 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE 重复
+    if (
+      this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)
+    )
+      return;
 
     const message: MessageContext = {
       channelId: 'qq',
@@ -997,6 +1070,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     const cleanContent = data.content.replace(this.mentionPattern, '').trim();
 
+    // 跨事件去重:防止 AT_MESSAGE_CREATE 和 GROUP_AT_MESSAGE_CREATE 重复
+    if (
+      this.isCrossEventDuplicate(cleanContent || data.content, data.author.id)
+    )
+      return;
+
     const message: MessageContext = {
       channelId: 'qq',
       senderId: data.author.id,
@@ -1021,9 +1100,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
   /**
    * 处理 DIRECT_MESSAGE_CREATE 事件（频道私信）
    */
-  private handleDirectMessageCreate(
-    data: QQDirectMessageCreatePayload
-  ): void {
+  private handleDirectMessageCreate(data: QQDirectMessageCreatePayload): void {
     if (this.isDuplicate(data.id)) return;
 
     const message: MessageContext = {
@@ -1124,32 +1201,64 @@ class QQChannelPlugin extends BaseChannelPlugin {
     switch (code) {
       case QQCloseCode.INSUFFICIENT_INTENTS:
       case QQCloseCode.DISALLOWED_INTENTS:
-        this.logger.error(
-          `QQ Bot 被平台封禁/下线 (${code})，停止重连`
-        );
-        return { shouldReconnect: false, clearSession: false, refreshToken: false, fatal: true };
+        this.logger.error(`QQ Bot 被平台封禁/下线 (${code})，停止重连`);
+        return {
+          shouldReconnect: false,
+          clearSession: false,
+          refreshToken: false,
+          fatal: true,
+        };
 
       case QQCloseCode.AUTH_FAILED:
         this.logger.info('QQ Bot Token 无效 (4004)，刷新 Token 后重连');
-        return { shouldReconnect: true, clearSession: false, refreshToken: true, fatal: false };
+        return {
+          shouldReconnect: true,
+          clearSession: false,
+          refreshToken: true,
+          fatal: false,
+        };
 
       case QQCloseCode.RATE_LIMITED:
         this.logger.info('QQ Bot 被限流 (4008)，等待 60s 后重连');
-        return { shouldReconnect: true, clearSession: false, refreshToken: false, delay: RATE_LIMIT_DELAY, fatal: false };
+        return {
+          shouldReconnect: true,
+          clearSession: false,
+          refreshToken: false,
+          delay: RATE_LIMIT_DELAY,
+          fatal: false,
+        };
 
       case QQCloseCode.INVALID_SESSION:
       case QQCloseCode.SEQ_OUT_OF_RANGE:
       case QQCloseCode.SESSION_TIMEOUT:
         this.logger.info(`QQ Bot 会话异常 (${code})，清理后重连`);
-        return { shouldReconnect: true, clearSession: true, refreshToken: true, fatal: false };
+        return {
+          shouldReconnect: true,
+          clearSession: true,
+          refreshToken: true,
+          fatal: false,
+        };
 
       default:
-        if (code >= QQCloseCode.SERVER_ERROR_START && code <= QQCloseCode.SERVER_ERROR_END) {
+        if (
+          code >= QQCloseCode.SERVER_ERROR_START &&
+          code <= QQCloseCode.SERVER_ERROR_END
+        ) {
           this.logger.info(`QQ Bot 服务端内部错误 (${code})，清理后重连`);
-          return { shouldReconnect: true, clearSession: true, refreshToken: true, fatal: false };
+          return {
+            shouldReconnect: true,
+            clearSession: true,
+            refreshToken: true,
+            fatal: false,
+          };
         }
         // 正常关闭或其他未知码
-        return { shouldReconnect: code !== QQCloseCode.NORMAL, clearSession: false, refreshToken: false, fatal: false };
+        return {
+          shouldReconnect: code !== QQCloseCode.NORMAL,
+          clearSession: false,
+          refreshToken: false,
+          fatal: false,
+        };
     }
   }
 
@@ -1161,12 +1270,29 @@ class QQChannelPlugin extends BaseChannelPlugin {
     this.stopHeartbeat();
     this.setInboundListening(false);
 
+    // 连续会话失败检测：INVALID_SESSION + 服务端错误循环，说明配置有误
+    if (this.consecutiveSessionFailures >= MAX_CONSECUTIVE_SESSION_FAILURES) {
+      this.shouldReconnect = false;
+      this.logger.error(
+        `QQ Bot 连续 ${this.consecutiveSessionFailures} 次会话失败，` +
+          '已停止重连。请检查以下配置：\n' +
+          '  1. QQ Bot AppID 和 AppSecret 是否正确\n' +
+          '  2. 机器人在 QQ 开放平台是否已启用 WebSocket 协议（非 Webhook）\n' +
+          '  3. 机器人是否已添加了必要的权限（Intents）\n' +
+          '  4. 网络环境是否能正常访问 api.sgroup.qq.com 和 wss://api.sgroup.qq.com'
+      );
+      return;
+    }
+
     // 分析关闭码
     const action = this.analyzeCloseCode(this.lastCloseCode);
 
     // 快速断开检测
     const connectionDuration = Date.now() - this.lastConnectTime;
-    if (connectionDuration < QUICK_DISCONNECT_THRESHOLD && this.lastConnectTime > 0) {
+    if (
+      connectionDuration < QUICK_DISCONNECT_THRESHOLD &&
+      this.lastConnectTime > 0
+    ) {
       this.quickDisconnectCount++;
       this.logger.warn('QQ Bot 快速断开检测', {
         durationMs: connectionDuration,
@@ -1210,7 +1336,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
     }
 
     const delay =
-      delayMs ?? RECONNECT_DELAYS[Math.min(this.reconnectAttempts, RECONNECT_DELAYS.length - 1)];
+      delayMs ??
+      RECONNECT_DELAYS[
+        Math.min(this.reconnectAttempts, RECONNECT_DELAYS.length - 1)
+      ];
 
     this.reconnectAttempts++;
     this.logger.info('QQ Bot 计划重连', {

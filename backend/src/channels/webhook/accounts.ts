@@ -27,7 +27,9 @@ export function getWebhookAccount(id: string): WebhookAccount | undefined {
   return accountStore.get(id);
 }
 
-export function resolveWebhookAccount(id: string): ResolvedWebhookAccount | null {
+export function resolveWebhookAccount(
+  id: string
+): ResolvedWebhookAccount | null {
   const account = accountStore.get(id);
   if (!account) return null;
   return { ...account, resolved: true };

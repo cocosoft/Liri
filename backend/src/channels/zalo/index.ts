@@ -37,9 +37,5 @@ export type {
 export { zaloProbe } from './probe.js';
 export type { ProbeResult as ZaloProbeResult } from './probe.js';
 
-export {
-  setZaloRuntime,
-  getZaloRuntime,
-  clearZaloRuntime,
-} from './runtime.js';
+export { setZaloRuntime, getZaloRuntime, clearZaloRuntime } from './runtime.js';
 export type { ZaloRuntime, ZaloRuntimeStatus } from './runtime.js';

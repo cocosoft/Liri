@@ -10,7 +10,10 @@ export {
 } from './WebhookChannel.js';
 export type { WebhookConfig, WebhookMessage } from './WebhookChannel.js';
 
-export { getDefaultWebhookConfig, validateWebhookConfig } from './config-schema.js';
+export {
+  getDefaultWebhookConfig,
+  validateWebhookConfig,
+} from './config-schema.js';
 export type { WebhookConfig as WebhookChannelConfig } from './config-schema.js';
 
 export {

@@ -21,12 +21,11 @@ export function discordProbe(
 ): ProbeResult {
   return {
     healthy: connected && gatewayReady,
-    status:
-      !connected
-        ? 'disconnected'
-        : gatewayReady
-          ? 'healthy'
-          : 'connecting',
+    status: !connected
+      ? 'disconnected'
+      : gatewayReady
+        ? 'healthy'
+        : 'connecting',
     timestamp: Date.now(),
     detail: {
       connected,

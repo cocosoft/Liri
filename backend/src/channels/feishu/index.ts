@@ -3,10 +3,7 @@ export {
   createFeishuChannel,
   feishuChannelPlugin,
 } from './FeishuChannel';
-export {
-  getDefaultFeishuConfig,
-  validateFeishuConfig,
-} from './config-schema';
+export { getDefaultFeishuConfig, validateFeishuConfig } from './config-schema';
 export type { FeishuConfig } from './config-schema';
 export {
   registerFeishuAccount,
@@ -40,12 +37,10 @@ export type {
   FeishuApprovalAuthResult,
 } from './approval-auth';
 export { FeishuStreamingCard } from './streaming-card';
-export type {
-  FeishuStreamState,
-  FeishuStreamOptions,
-} from './streaming-card';
-export { setFeishuRuntime, getFeishuRuntime, clearFeishuRuntime } from './runtime';
-export type {
-  FeishuRuntime,
-  FeishuRuntimeStatus,
+export type { FeishuStreamState, FeishuStreamOptions } from './streaming-card';
+export {
+  setFeishuRuntime,
+  getFeishuRuntime,
+  clearFeishuRuntime,
 } from './runtime';
+export type { FeishuRuntime, FeishuRuntimeStatus } from './runtime';

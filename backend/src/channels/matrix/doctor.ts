@@ -63,9 +63,7 @@ function diagnoseCredentials(ctx: MatrixDiagnosisContext): DiagnosisCheck {
   return {
     name: '凭据检查',
     passed: ctx.hasAccessToken,
-    message: ctx.hasAccessToken
-      ? 'access_token 已设置'
-      : '缺少 accessToken',
+    message: ctx.hasAccessToken ? 'access_token 已设置' : '缺少 accessToken',
   };
 }
 

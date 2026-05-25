@@ -44,8 +44,9 @@ export type {
   DiscordStreamState,
   DiscordStreamOptions,
 } from './streaming-message';
-export { setDiscordRuntime, getDiscordRuntime, clearDiscordRuntime } from './runtime';
-export type {
-  DiscordRuntime,
-  DiscordRuntimeStatus,
+export {
+  setDiscordRuntime,
+  getDiscordRuntime,
+  clearDiscordRuntime,
 } from './runtime';
+export type { DiscordRuntime, DiscordRuntimeStatus } from './runtime';

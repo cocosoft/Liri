@@ -3760,5 +3760,23 @@
     "priority": 1,
     "createdAt": "2026-05-24T22:24:35.365Z",
     "updatedAt": "2026-05-24T22:24:35.365Z"
+  },
+  {
+    "id": "rule_1779750983003_zqfm8ojik",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-25T23:16:23.003Z",
+    "updatedAt": "2026-05-25T23:16:23.003Z"
+  },
+  {
+    "id": "rule_1779750994231_s1hyq0kna",
+    "behavior": "allow",
+    "toolName": "test_tool",
+    "source": "userSettings",
+    "priority": 1,
+    "createdAt": "2026-05-25T23:16:34.231Z",
+    "updatedAt": "2026-05-25T23:16:34.231Z"
   }
 ]

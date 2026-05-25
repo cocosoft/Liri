@@ -25,11 +25,12 @@ export interface GoogleChatApprovalAuthResult {
 
 /** Google Chat 用户 ID 格式 */
 
-
 /**
  * 规范化 Google Chat 审批人 ID
  */
-export function normalizeGoogleChatApproverId(value: string): string | undefined {
+export function normalizeGoogleChatApproverId(
+  value: string
+): string | undefined {
   const trimmed = value.trim().toLowerCase();
 
   if (trimmed.length === 0) {
@@ -52,7 +53,10 @@ export function resolveGoogleChatApprovers(
       const normalized = normalizeGoogleChatApproverId(id);
       return normalized ? { userId: normalized } : null;
     })
-    .filter((x: GoogleChatApproverInfo | null): x is GoogleChatApproverInfo => x !== null);
+    .filter(
+      (x: GoogleChatApproverInfo | null): x is GoogleChatApproverInfo =>
+        x !== null
+    );
 }
 
 /**

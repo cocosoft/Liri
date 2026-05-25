@@ -25,15 +25,25 @@ export type MatrixStreamState = 'idle' | 'streaming' | 'finalized' | 'failed';
 
 /** Matrix 流式消息选项 */
 export interface MatrixStreamOptions {
-  sendMessage: (roomId: string, content: Record<string, unknown>) => Promise<{ eventId?: string; error?: string }>;
-  editMessage: (roomId: string, originalEventId: string, content: Record<string, unknown>) => Promise<{ error?: string }>;
+  sendMessage: (
+    roomId: string,
+    content: Record<string, unknown>
+  ) => Promise<{ eventId?: string; error?: string }>;
+  editMessage: (
+    roomId: string,
+    originalEventId: string,
+    content: Record<string, unknown>
+  ) => Promise<{ error?: string }>;
   roomId: string;
   throttleMs?: number;
   onError?: (err: unknown) => void;
 }
 
 /** 构建 Matrix 消息内容 */
-function buildMessageContent(text: string, originalEventId?: string): Record<string, unknown> {
+function buildMessageContent(
+  text: string,
+  originalEventId?: string
+): Record<string, unknown> {
   const content: Record<string, unknown> = {
     body: text,
     msgtype: 'm.text',
@@ -59,8 +69,15 @@ function buildMessageContent(text: string, originalEventId?: string): Record<str
  * 使用 Matrix 消息编辑功能实现逐步内容展示。
  */
 export class MatrixStreamMessage {
-  private sendMessage: (roomId: string, content: Record<string, unknown>) => Promise<{ eventId?: string; error?: string }>;
-  private editMessage: (roomId: string, originalEventId: string, content: Record<string, unknown>) => Promise<{ error?: string }>;
+  private sendMessage: (
+    roomId: string,
+    content: Record<string, unknown>
+  ) => Promise<{ eventId?: string; error?: string }>;
+  private editMessage: (
+    roomId: string,
+    originalEventId: string,
+    content: Record<string, unknown>
+  ) => Promise<{ error?: string }>;
   private roomId: string;
   private onError?: (err: unknown) => void;
 
@@ -121,7 +138,10 @@ export class MatrixStreamMessage {
 
     this.accumulatedText += text;
 
-    if (this.accumulatedText.length < MIN_INITIAL_CHARS && !this.lastStreamedText) {
+    if (
+      this.accumulatedText.length < MIN_INITIAL_CHARS &&
+      !this.lastStreamedText
+    ) {
       return;
     }
 
@@ -154,7 +174,10 @@ export class MatrixStreamMessage {
     }
 
     try {
-      const content = buildMessageContent(this.truncateText(this.accumulatedText), this.messageEventId);
+      const content = buildMessageContent(
+        this.truncateText(this.accumulatedText),
+        this.messageEventId
+      );
       await this.editMessage(this.roomId, this.messageEventId, content);
       this.streamState = 'finalized' as MatrixStreamState;
     } catch (err) {
@@ -185,7 +208,10 @@ export class MatrixStreamMessage {
         return;
       }
 
-      if (this.streamStartedAt && Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS) {
+      if (
+        this.streamStartedAt &&
+        Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS
+      ) {
         this.finalize().catch((err) => {
           if (this.onError) this.onError(err);
         });
@@ -210,7 +236,10 @@ export class MatrixStreamMessage {
     }
 
     this.lastStreamedText = text;
-    const content = buildMessageContent(this.truncateText(text), this.messageEventId);
+    const content = buildMessageContent(
+      this.truncateText(text),
+      this.messageEventId
+    );
     await this.editMessage(this.roomId, this.messageEventId, content);
   }
 
@@ -219,6 +248,9 @@ export class MatrixStreamMessage {
     if (text.length <= MATRIX_MAX_CHARS) {
       return text;
     }
-    return text.slice(0, MATRIX_MAX_CHARS - 100) + `\n\n...（消息已截断，共 ${text.length} 字符）`;
+    return (
+      text.slice(0, MATRIX_MAX_CHARS - 100) +
+      `\n\n...（消息已截断，共 ${text.length} 字符）`
+    );
   }
 }

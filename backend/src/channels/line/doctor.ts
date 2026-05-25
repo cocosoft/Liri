@@ -63,9 +63,7 @@ function diagnoseCredentials(ctx: LineDiagnosisContext): DiagnosisCheck {
   return {
     name: '凭据检查',
     passed: bothSet,
-    message: bothSet
-      ? 'Channel Secret 和 Access Token 均已设置'
-      : '凭据不完整',
+    message: bothSet ? 'Channel Secret 和 Access Token 均已设置' : '凭据不完整',
     detail: {
       channelSecret: ctx.hasChannelSecret,
       channelAccessToken: ctx.hasAccessToken,

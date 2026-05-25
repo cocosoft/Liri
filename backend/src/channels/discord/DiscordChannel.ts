@@ -34,6 +34,24 @@ const DISCORD_META: ChannelMeta = {
   markdownCapable: false,
   maxMessageLength: 2000,
   supportedMessageTypes: ['text', 'image', 'file', 'card'],
+  messageToolHints: {
+    responsePreference: 'detailed',
+    formattingTips: [
+      '支持 Markdown: **bold** *italic* `code` ```code block```',
+      '使用 Embed 发送结构化消息',
+    ],
+    recommendedMaxLength: 2000,
+    platformCapabilities: [
+      'embed',
+      'button',
+      'thread',
+      'reaction',
+      'file_upload',
+      'image',
+      'webhook',
+    ],
+    constraints: ['消息长度限制 2000 字符', '@everyone 和 @here 自动禁用'],
+  },
 };
 
 const DISCORD_CAPABILITIES: ChannelCapabilities = {
@@ -84,23 +102,40 @@ class DiscordDedup {
 
 /** 会话存储（基于 channelId 保存最近会话信息） */
 class DiscordConversationStore {
-  private store = new Map<string, { guildId: string | null; lastMessageId: string; timestamp: number }>();
+  private store = new Map<
+    string,
+    { guildId: string | null; lastMessageId: string; timestamp: number }
+  >();
   private readonly maxEntries = 200;
 
   save(channelId: string, guildId: string | null, lastMessageId: string): void {
-    this.store.set(channelId, { guildId, lastMessageId, timestamp: Date.now() });
+    this.store.set(channelId, {
+      guildId,
+      lastMessageId,
+      timestamp: Date.now(),
+    });
     if (this.store.size > this.maxEntries) {
-      const oldest = [...this.store.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+      const oldest = [...this.store.entries()].sort(
+        (a, b) => a[1].timestamp - b[1].timestamp
+      )[0];
       if (oldest) this.store.delete(oldest[0]);
     }
   }
 
-  get(channelId: string): { guildId: string | null; lastMessageId: string } | undefined {
+  get(
+    channelId: string
+  ): { guildId: string | null; lastMessageId: string } | undefined {
     const entry = this.store.get(channelId);
-    return entry ? { guildId: entry.guildId, lastMessageId: entry.lastMessageId } : undefined;
+    return entry
+      ? { guildId: entry.guildId, lastMessageId: entry.lastMessageId }
+      : undefined;
   }
 
-  getAll(): Array<{ channelId: string; guildId: string | null; lastMessageId: string }> {
+  getAll(): Array<{
+    channelId: string;
+    guildId: string | null;
+    lastMessageId: string;
+  }> {
     return [...this.store.entries()].map(([channelId, v]) => ({
       channelId,
       guildId: v.guildId,
@@ -272,6 +307,10 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
     try {
       const body = {
         content: content.slice(0, DISCORD_META.maxMessageLength),
+        allowed_mentions: {
+          parse: ['users', 'roles'],
+          replied_user: false,
+        },
       };
       const resp = await fetch(
         `${DISCORD_API_BASE}/channels/${target}/messages`,
@@ -308,7 +347,13 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     if (!this.st.botToken) return { success: false, error: '未连接' };
     try {
-      const body = { embeds: [{ image: { url: imageUrl } }] };
+      const body = {
+        embeds: [{ image: { url: imageUrl } }],
+        allowed_mentions: {
+          parse: ['users', 'roles'],
+          replied_user: false,
+        },
+      };
       const resp = await fetch(
         `${DISCORD_API_BASE}/channels/${target}/messages`,
         {
@@ -613,15 +658,18 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   async listChannels(guildId: string): Promise<DirectoryEntry[]> {
     if (!this.st.botToken) return [];
     try {
-      const resp = await fetch(`${DISCORD_API_BASE}/guilds/${guildId}/channels`, {
-        headers: { Authorization: `Bot ${this.st.botToken}` },
-      });
+      const resp = await fetch(
+        `${DISCORD_API_BASE}/guilds/${guildId}/channels`,
+        {
+          headers: { Authorization: `Bot ${this.st.botToken}` },
+        }
+      );
       if (!resp.ok) return [];
       const data = (await resp.json()) as Array<Record<string, unknown>>;
       return data.map((ch) => ({
         id: ch['id'] as string,
         name: `#${ch['name'] as string}`,
-        type: ch['type'] === 4 ? 'group' as const : 'channel' as const,
+        type: ch['type'] === 4 ? ('group' as const) : ('channel' as const),
         parentId: ch['parent_id'] as string | undefined,
         metadata: { type: ch['type'] as number },
       }));
@@ -633,7 +681,9 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   /**
    * 解析用户信息
    */
-  async resolveUser(userId: string): Promise<{ userId: string; displayName: string } | null> {
+  async resolveUser(
+    userId: string
+  ): Promise<{ userId: string; displayName: string } | null> {
     if (!this.st.botToken) return null;
     try {
       const resp = await fetch(`${DISCORD_API_BASE}/users/${userId}`, {
@@ -643,7 +693,10 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
       const data = (await resp.json()) as Record<string, unknown>;
       return {
         userId: data['id'] as string,
-        displayName: (data['global_name'] as string) || (data['username'] as string) || 'Unknown',
+        displayName:
+          (data['global_name'] as string) ||
+          (data['username'] as string) ||
+          'Unknown',
       };
     } catch {
       return null;

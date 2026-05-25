@@ -10,7 +10,10 @@ export {
   buildInlineKeyboard,
 } from './TelegramChannel.js';
 
-export { getDefaultTelegramConfig, validateTelegramConfig } from './config-schema.js';
+export {
+  getDefaultTelegramConfig,
+  validateTelegramConfig,
+} from './config-schema.js';
 export type { TelegramConfig } from './config-schema.js';
 
 export {

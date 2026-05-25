@@ -11,7 +11,10 @@ export {
   WechatCrypto,
 } from './WechatChannel.js';
 
-export { getDefaultWechatConfig, validateWechatConfig } from './config-schema.js';
+export {
+  getDefaultWechatConfig,
+  validateWechatConfig,
+} from './config-schema.js';
 export type { WechatConfig } from './config-schema.js';
 
 export {

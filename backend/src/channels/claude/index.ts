@@ -10,7 +10,10 @@ export {
 } from './ClaudeChannel.js';
 export type { ClaudeConfig, ClaudeMessage } from './ClaudeChannel.js';
 
-export { getDefaultClaudeConfig, validateClaudeConfig } from './config-schema.js';
+export {
+  getDefaultClaudeConfig,
+  validateClaudeConfig,
+} from './config-schema.js';
 export type { ClaudeConfig as ClaudeChannelConfig } from './config-schema.js';
 
 export {

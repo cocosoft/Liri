@@ -316,6 +316,8 @@ export class MemoryManagerImpl {
 
   /**
    * 检索相关记忆
+   * 使用混合搜索（关键词+语义），优先利用 EmbeddingService 提升检索准确度，
+   * 同时利用关联图扩展关联记忆（联想记忆）
    * @param query 查询字符串
    * @param limit 返回数量限制
    * @returns 相关记忆列表
@@ -324,7 +326,39 @@ export class MemoryManagerImpl {
     query: string,
     limit: number = 5
   ): Promise<Memory[]> {
-    return this.retriever.retrieve(query, limit);
+    const results = await this.retriever.hybridSearch(query, limit);
+
+    // 通过关联图扩展关联记忆
+    const resultIds = new Set(results.map((m) => m.id));
+    const relatedIds = new Set<string>();
+
+    for (const memory of results) {
+      const relations = memoryRelationGraph.getDirectRelations(memory.id);
+      for (const relation of relations) {
+        if (
+          !resultIds.has(relation.targetId) &&
+          !relatedIds.has(relation.targetId)
+        ) {
+          relatedIds.add(relation.targetId);
+        }
+      }
+    }
+
+    if (relatedIds.size > 0) {
+      const relatedMemories: Memory[] = [];
+      for (const id of relatedIds) {
+        const memory = await this.store.readMemory(id);
+        if (memory) {
+          relatedMemories.push(memory);
+        }
+      }
+
+      // 将关联记忆附加到结果末尾
+      const combined = [...results, ...relatedMemories];
+      return combined.slice(0, limit);
+    }
+
+    return results;
   }
 
   /**
@@ -422,6 +456,67 @@ export class MemoryManagerImpl {
       this.provider.shutdown().catch(() => {});
       this.provider = null;
     }
+  }
+
+  /**
+   * 清理已过期的记忆
+   * 遍历所有记忆，删除 metadata.expiresAt 已到期的记忆
+   * @returns 被清理的记忆数量
+   */
+  async cleanupExpiredMemories(): Promise<number> {
+    const allMemories = await this.getAllMemories();
+    const now = new Date();
+    const expired: string[] = [];
+
+    for (const memory of allMemories) {
+      if (
+        memory.metadata.expiresAt &&
+        new Date(memory.metadata.expiresAt) <= now
+      ) {
+        expired.push(memory.id);
+      }
+    }
+
+    for (const id of expired) {
+      await this.store.deleteMemory(id);
+      this.retriever.removeFromIndex(id);
+    }
+
+    if (expired.length > 0) {
+      await this.retriever.saveIndex();
+      await this.saveRelationGraph();
+    }
+
+    return expired.length;
+  }
+
+  /**
+   * 设置记忆过期时间
+   * @param id 记忆ID
+   * @param expiresAt 过期时间
+   * @returns 更新后的记忆
+   */
+  async setMemoryExpiry(id: string, expiresAt: Date): Promise<Memory> {
+    validateMemoryId(id);
+    const memory = await this.store.readMemory(id);
+    if (!memory) {
+      throw new AppError(
+        `Memory with id ${id} not found`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+
+    memory.metadata.expiresAt = expiresAt;
+    memory.updatedAt = new Date();
+
+    await this.store.saveMemory(memory);
+    this.retriever.updateIndex(memory);
+    await this.retriever.saveIndex();
+    await this.saveRelationGraph();
+
+    return memory;
   }
 
   /**

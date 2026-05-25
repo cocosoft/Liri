@@ -13,7 +13,7 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
     <Box flexDirection="column" marginBottom={1} paddingX={2}>
       <Box flexDirection="row">
         <Text color="green" bold>
-          AI:{' '}
+          🤖 AI:{' '}
         </Text>
       </Box>
       <Box flexDirection="row" paddingLeft={2}>

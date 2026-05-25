@@ -166,6 +166,16 @@ export class MemoryStoreImpl implements MemoryStore {
   private backends: Map<string, MemoryStoreBackend> = new Map();
 
   /**
+   * LRU 记忆缓存，按访问顺序存储最近使用的记忆
+   */
+  private memoryCache: Map<string, Memory> = new Map();
+
+  /**
+   * 缓存最大条目数
+   */
+  private readonly MAX_CACHE_SIZE = 100;
+
+  /**
    * 向量索引文件路径
    */
   private getVectorIndexPath(): string {
@@ -178,6 +188,34 @@ export class MemoryStoreImpl implements MemoryStore {
    */
   constructor(memoryDir: string = resolveMemoryDir()) {
     this.memoryDir = memoryDir;
+  }
+
+  /**
+   * 更新 LRU 缓存访问顺序
+   * 将指定键移到 Map 末尾（最近使用位置）
+   * @param id 记忆ID
+   */
+  private touchCache(id: string): void {
+    const entry = this.memoryCache.get(id);
+    if (entry) {
+      this.memoryCache.delete(id);
+      this.memoryCache.set(id, entry);
+    }
+  }
+
+  /**
+   * 将记忆写入缓存，如果超出大小则淘汰最久未使用的条目
+   * @param id 记忆ID
+   * @param memory 记忆对象
+   */
+  private setCache(id: string, memory: Memory): void {
+    if (this.memoryCache.size >= this.MAX_CACHE_SIZE) {
+      const oldestKey = this.memoryCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.memoryCache.delete(oldestKey);
+      }
+    }
+    this.memoryCache.set(id, memory);
   }
 
   /**
@@ -293,6 +331,7 @@ export class MemoryStoreImpl implements MemoryStore {
 
   /**
    * 保存记忆
+   * 写入磁盘后同步更新 LRU 缓存
    * @param memory 记忆对象
    */
   async saveMemory(memory: Memory): Promise<void> {
@@ -359,6 +398,9 @@ export class MemoryStoreImpl implements MemoryStore {
     // 写入文件
     const filePath = this.getMemoryFilePath(memory.id);
     await fs.writeFile(filePath, content);
+
+    // 同步更新LRU缓存
+    this.setCache(memory.id, memory);
   }
 
   /**
@@ -378,10 +420,18 @@ export class MemoryStoreImpl implements MemoryStore {
 
   /**
    * 读取记忆
+   * 优先从 LRU 缓存获取，缓存未命中时从磁盘读取并写入缓存
    * @param id 记忆ID
    * @returns 记忆对象或null
    */
   async readMemory(id: string): Promise<Memory | null> {
+    // 优先从缓存读取
+    const cached = this.memoryCache.get(id);
+    if (cached) {
+      this.touchCache(id);
+      return cached;
+    }
+
     const filePath = this.getMemoryFilePath(id);
 
     try {
@@ -414,6 +464,9 @@ export class MemoryStoreImpl implements MemoryStore {
         updatedAt: new Date(data.updatedAt),
       };
 
+      // 写入缓存
+      this.setCache(id, memory);
+
       return memory;
     } catch (error) {
       return null;
@@ -422,6 +475,7 @@ export class MemoryStoreImpl implements MemoryStore {
 
   /**
    * 删除记忆
+   * 删除磁盘文件后同步清理 LRU 缓存
    * @param id 记忆ID
    */
   async deleteMemory(id: string): Promise<void> {
@@ -436,6 +490,9 @@ export class MemoryStoreImpl implements MemoryStore {
     } catch (error) {
       // 文件不存在，忽略错误
     }
+
+    // 从缓存中移除
+    this.memoryCache.delete(id);
 
     // 删除向量索引
     await this.deleteMemoryVector(id);

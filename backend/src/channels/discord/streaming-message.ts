@@ -26,7 +26,10 @@ export type DiscordStreamState = 'idle' | 'streaming' | 'finalized' | 'failed';
 /** Discord 流式消息选项 */
 export interface DiscordStreamOptions {
   sendMessage: (content: string) => Promise<{ id?: string; error?: string }>;
-  editMessage: (messageId: string, content: string) => Promise<{ error?: string }>;
+  editMessage: (
+    messageId: string,
+    content: string
+  ) => Promise<{ error?: string }>;
   throttleMs?: number;
   onError?: (err: unknown) => void;
 }
@@ -37,8 +40,13 @@ export interface DiscordStreamOptions {
  * 使用消息编辑实现逐步内容展示，适用于长文本生成场景。
  */
 export class DiscordStreamMessage {
-  private sendMessage: (content: string) => Promise<{ id?: string; error?: string }>;
-  private editMessage: (messageId: string, content: string) => Promise<{ error?: string }>;
+  private sendMessage: (
+    content: string
+  ) => Promise<{ id?: string; error?: string }>;
+  private editMessage: (
+    messageId: string,
+    content: string
+  ) => Promise<{ error?: string }>;
   private onError?: (err: unknown) => void;
 
   private messageId: string | undefined = undefined;
@@ -96,7 +104,10 @@ export class DiscordStreamMessage {
 
     this.accumulatedText += text;
 
-    if (this.accumulatedText.length < MIN_INITIAL_CHARS && !this.lastStreamedText) {
+    if (
+      this.accumulatedText.length < MIN_INITIAL_CHARS &&
+      !this.lastStreamedText
+    ) {
       return;
     }
 
@@ -129,7 +140,10 @@ export class DiscordStreamMessage {
     }
 
     try {
-      await this.editMessage(this.messageId, this.truncateText(this.accumulatedText));
+      await this.editMessage(
+        this.messageId,
+        this.truncateText(this.accumulatedText)
+      );
       this.streamState = 'finalized' as DiscordStreamState;
     } catch (err) {
       this.streamState = 'failed' as DiscordStreamState;
@@ -159,7 +173,10 @@ export class DiscordStreamMessage {
         return;
       }
 
-      if (this.streamStartedAt && Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS) {
+      if (
+        this.streamStartedAt &&
+        Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS
+      ) {
         this.finalize().catch((err) => {
           if (this.onError) this.onError(err);
         });
@@ -192,6 +209,9 @@ export class DiscordStreamMessage {
     if (text.length <= DISCORD_MAX_CHARS) {
       return text;
     }
-    return text.slice(0, DISCORD_MAX_CHARS - 100) + `\n\n...（消息已截断，共 ${text.length} 字符）`;
+    return (
+      text.slice(0, DISCORD_MAX_CHARS - 100) +
+      `\n\n...（消息已截断，共 ${text.length} 字符）`
+    );
   }
 }

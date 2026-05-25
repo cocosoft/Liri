@@ -26,7 +26,8 @@ export interface MSTeamsApprovalAuthResult {
 }
 
 /** Teams 用户 UUID 格式 */
-const MSTEAMS_USER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MSTEAMS_USER_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * 规范化 Teams 审批人 ID
@@ -64,7 +65,9 @@ export function resolveMSTeamsApprovers(
         const normalized = normalizeMSTeamsApproverId(id);
         return normalized ? { userId: normalized } : null;
       })
-      .filter((x: MSTeamsApproverInfo | null): x is MSTeamsApproverInfo => x !== null);
+      .filter(
+        (x: MSTeamsApproverInfo | null): x is MSTeamsApproverInfo => x !== null
+      );
   }
 
   return allowFrom
@@ -72,7 +75,9 @@ export function resolveMSTeamsApprovers(
       const normalized = normalizeMSTeamsApproverId(id);
       return normalized ? { userId: normalized } : null;
     })
-    .filter((x: MSTeamsApproverInfo | null): x is MSTeamsApproverInfo => x !== null);
+    .filter(
+      (x: MSTeamsApproverInfo | null): x is MSTeamsApproverInfo => x !== null
+    );
 }
 
 /**

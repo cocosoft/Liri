@@ -24,8 +24,28 @@ export interface NostrDiagnosisContext {
 
 export function diagnoseNostr(ctx: NostrDiagnosisContext): DiagnosisResult {
   const checks: DiagnosisCheck[] = [];
-  checks.push({ name: '配置检查', passed: !!ctx.hasPublicKey && ctx.hasRelays, message: ctx.hasPublicKey && ctx.hasRelays ? '公钥和 Relay 地址已配置' : '缺少公钥或 Relay 地址', detail: { hasPublicKey: ctx.hasPublicKey, hasRelays: ctx.hasRelays } });
-  checks.push({ name: '连接状态', passed: ctx.isConnected, message: ctx.isConnected ? '已连接至 Nostr Relay' : '未连接', detail: { connected: ctx.isConnected } });
+  checks.push({
+    name: '配置检查',
+    passed: !!ctx.hasPublicKey && ctx.hasRelays,
+    message:
+      ctx.hasPublicKey && ctx.hasRelays
+        ? '公钥和 Relay 地址已配置'
+        : '缺少公钥或 Relay 地址',
+    detail: { hasPublicKey: ctx.hasPublicKey, hasRelays: ctx.hasRelays },
+  });
+  checks.push({
+    name: '连接状态',
+    passed: ctx.isConnected,
+    message: ctx.isConnected ? '已连接至 Nostr Relay' : '未连接',
+    detail: { connected: ctx.isConnected },
+  });
   const failed = checks.filter((c) => !c.passed);
-  return { healthy: failed.length === 0, checks, summary: failed.length === 0 ? `Nostr 诊断通过（${checks.length}/${checks.length}）` : `Nostr 诊断失败：${failed.map((c) => c.name).join(', ')}` };
+  return {
+    healthy: failed.length === 0,
+    checks,
+    summary:
+      failed.length === 0
+        ? `Nostr 诊断通过（${checks.length}/${checks.length}）`
+        : `Nostr 诊断失败：${failed.map((c) => c.name).join(', ')}`,
+  };
 }

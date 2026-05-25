@@ -249,6 +249,14 @@ ${sessionIds.map((id) => `- ${id}`).join('\n')}`;
         // non-fatal: lock timestamp update failure
       }
 
+      try {
+        await runKnowledgeRain();
+      } catch (e) {
+        console.log(
+          `[autoDream] knowledgeRain failed: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+
       if (context?.toolUseContext?.appendSystemMessage) {
         context.toolUseContext.appendSystemMessage({
           type: 'text',
@@ -296,6 +304,44 @@ export function getAutoDreamStatus(): {
     completedTasks: tasks.filter((t) => t.status === 'completed').length,
     failedTasks: tasks.filter((t) => t.status === 'failed').length,
   };
+}
+
+/**
+ * 知识雨：做梦完成后自动编译 raw/ 目录的文件到知识库
+ * 确保用户发送或读取过的文件内容在梦境周期中被整理为结构化的 wiki 文档
+ */
+export async function runKnowledgeRain(): Promise<void> {
+  const { readdir } = await import('fs/promises');
+  const { join } = await import('path');
+  const { homedir } = await import('os');
+  const { existsSync } = await import('fs');
+
+  const rawDir = join(homedir(), '.pyapp', 'knowledge', 'raw');
+
+  if (!existsSync(rawDir)) return;
+
+  const rawFiles = await readdir(rawDir);
+  const compileCandidates = rawFiles.filter(
+    (f) => f.endsWith('.txt') || f.endsWith('.md') || f.endsWith('.json')
+  );
+
+  if (compileCandidates.length === 0) return;
+
+  console.log(
+    `[knowledgeRain] 发现 ${compileCandidates.length} 个待编译的原始文件`
+  );
+
+  const { aiService } = await import('@modules/ai/services/aiService');
+  const { runKnowledgeCompile } =
+    await import('../../knowledge/KnowledgeCompiler');
+
+  const result = await runKnowledgeCompile(aiService, { force: false });
+
+  if (result.compiled > 0) {
+    console.log(
+      `[knowledgeRain] 编译完成: ${result.compiled} 个编译, ${result.skipped} 个跳过`
+    );
+  }
 }
 
 export function getLastSessionScanAt(): number {

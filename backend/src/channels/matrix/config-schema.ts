@@ -28,10 +28,7 @@ export function getDefaultMatrixConfig(): MatrixConfig {
 
 export function validateMatrixConfig(raw: Record<string, unknown>): string[] {
   const errors: string[] = [];
-  if (
-    !raw['homeserverUrl'] ||
-    typeof raw['homeserverUrl'] !== 'string'
-  ) {
+  if (!raw['homeserverUrl'] || typeof raw['homeserverUrl'] !== 'string') {
     errors.push('homeserverUrl: 必须是一个非空 URL 字符串');
   }
   if (!raw['userId'] || typeof raw['userId'] !== 'string') {
@@ -40,7 +37,10 @@ export function validateMatrixConfig(raw: Record<string, unknown>): string[] {
   if (!raw['accessToken'] || typeof raw['accessToken'] !== 'string') {
     errors.push('accessToken: 必须是一个非空字符串');
   }
-  if (raw['autoJoinRooms'] !== undefined && !Array.isArray(raw['autoJoinRooms'])) {
+  if (
+    raw['autoJoinRooms'] !== undefined &&
+    !Array.isArray(raw['autoJoinRooms'])
+  ) {
     errors.push('autoJoinRooms: 必须是字符串数组');
   }
   if (raw['syncTimeoutMs'] !== undefined) {

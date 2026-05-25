@@ -60,7 +60,9 @@ export function resolveDiscordApprovers(
       const normalized = normalizeDiscordApproverId(id);
       return normalized ? { userId: normalized } : null;
     })
-    .filter((x: DiscordApproverInfo | null): x is DiscordApproverInfo => x !== null);
+    .filter(
+      (x: DiscordApproverInfo | null): x is DiscordApproverInfo => x !== null
+    );
 }
 
 /**

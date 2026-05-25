@@ -76,13 +76,19 @@ interface MatrixSyncEvent {
 interface MatrixSyncResponse {
   next_batch?: string;
   rooms?: {
-    join?: Record<string, {
-      timeline?: { events?: MatrixSyncEvent[] };
-      state?: { events?: MatrixSyncEvent[] };
-    }>;
-    invite?: Record<string, {
-      invite_state?: { events?: MatrixSyncEvent[] };
-    }>;
+    join?: Record<
+      string,
+      {
+        timeline?: { events?: MatrixSyncEvent[] };
+        state?: { events?: MatrixSyncEvent[] };
+      }
+    >;
+    invite?: Record<
+      string,
+      {
+        invite_state?: { events?: MatrixSyncEvent[] };
+      }
+    >;
   };
 }
 
@@ -132,7 +138,10 @@ class MatrixChannelPlugin extends BaseChannelPlugin {
   }
 
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
-    this.homeserverUrl = ((config['homeserverUrl'] as string) || '').replace(/\/$/, '');
+    this.homeserverUrl = ((config['homeserverUrl'] as string) || '').replace(
+      /\/$/,
+      ''
+    );
     this.accessToken = (config['accessToken'] as string) || '';
     this.userId = (config['userId'] as string) || '';
     this.autoJoinRooms = (config['autoJoinRooms'] as boolean) ?? false;
@@ -313,8 +322,12 @@ class MatrixChannelPlugin extends BaseChannelPlugin {
         },
         body: JSON.stringify(body),
       });
-      const data = resp.ok ? ((await resp.json()) as Record<string, unknown>) : undefined;
-      const error = resp.ok ? undefined : `Matrix API ${resp.status}: ${await resp.text()}`;
+      const data = resp.ok
+        ? ((await resp.json()) as Record<string, unknown>)
+        : undefined;
+      const error = resp.ok
+        ? undefined
+        : `Matrix API ${resp.status}: ${await resp.text()}`;
       return { ok: resp.ok, data, error };
     } catch (e) {
       return { ok: false, error: String(e) };
@@ -348,7 +361,11 @@ class MatrixChannelPlugin extends BaseChannelPlugin {
       `/_matrix/client/v3/rooms/${encodeURIComponent(target)}/send/m.room.message/${txnId}`,
       { msgtype: 'm.text', body: content }
     );
-    return { success: result.ok, error: result.error, messageId: result.data?.['event_id'] as string };
+    return {
+      success: result.ok,
+      error: result.error,
+      messageId: result.data?.['event_id'] as string,
+    };
   }
 
   protected async sendImageMessage(

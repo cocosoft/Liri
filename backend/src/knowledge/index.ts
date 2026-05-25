@@ -1,6 +1,6 @@
 /**
  * 知识库模块
- * 提供知识库的核心功能：混合搜索、编译、摘要、检查、迁移
+ * 提供知识库的核心功能：混合搜索、编译、摘要、检查、迁移、文件自动摄取
  */
 
 export {
@@ -31,3 +31,15 @@ export {
   getNewKnowledgePath,
 } from './KnowledgeMigration';
 export type { MigrationResult } from './KnowledgeMigration';
+
+export {
+  FileIngestionService,
+  getDefaultIngestionService,
+  resetDefaultIngestionService,
+} from './ingestion/FileIngestionService';
+export type {
+  IngestionSource,
+  FileCategory,
+  IngestionResult,
+  IngestionOptions,
+} from './ingestion/FileIngestionService';

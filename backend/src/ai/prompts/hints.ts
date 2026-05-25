@@ -1,8 +1,12 @@
 export {
   PLATFORM_HINTS,
+  PLATFORM_TOOL_HINTS,
   buildEnvironmentHints,
   getPlatformHint,
+  getMessageToolHints,
+  buildPlatformContext,
 } from './PlatformHints';
+export type { ChannelMessageToolHints } from '@modules/channels/types';
 export {
   TOOL_USE_ENFORCEMENT_GUIDANCE,
   DEEPSEEK_GUIDANCE,

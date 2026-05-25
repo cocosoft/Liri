@@ -25,14 +25,22 @@ export type FeishuStreamState = 'idle' | 'streaming' | 'finalized' | 'failed';
 
 /** 飞书流式消息选项 */
 export interface FeishuStreamOptions {
-  sendMessage: (payload: Record<string, unknown>) => Promise<{ messageId?: string; error?: string }>;
-  updateMessage: (messageId: string, payload: Record<string, unknown>) => Promise<{ error?: string }>;
+  sendMessage: (
+    payload: Record<string, unknown>
+  ) => Promise<{ messageId?: string; error?: string }>;
+  updateMessage: (
+    messageId: string,
+    payload: Record<string, unknown>
+  ) => Promise<{ error?: string }>;
   throttleMs?: number;
   onError?: (err: unknown) => void;
 }
 
 /** 构建飞书流式消息卡片内容 */
-function buildCardContent(text: string, isFinal: boolean): Record<string, unknown> {
+function buildCardContent(
+  text: string,
+  isFinal: boolean
+): Record<string, unknown> {
   return {
     config: {
       wide_screen_mode: true,
@@ -60,8 +68,13 @@ function buildCardContent(text: string, isFinal: boolean): Record<string, unknow
  * 创建可更新的交互式卡片，支持逐步显示 AI 生成内容。
  */
 export class FeishuStreamingCard {
-  private sendMessage: (payload: Record<string, unknown>) => Promise<{ messageId?: string; error?: string }>;
-  private updateMessage: (messageId: string, payload: Record<string, unknown>) => Promise<{ error?: string }>;
+  private sendMessage: (
+    payload: Record<string, unknown>
+  ) => Promise<{ messageId?: string; error?: string }>;
+  private updateMessage: (
+    messageId: string,
+    payload: Record<string, unknown>
+  ) => Promise<{ error?: string }>;
   private onError?: (err: unknown) => void;
 
   private messageId: string | undefined = undefined;
@@ -158,7 +171,10 @@ export class FeishuStreamingCard {
     }
 
     try {
-      const finalCard = buildCardContent(this.truncateText(this.accumulatedText), true);
+      const finalCard = buildCardContent(
+        this.truncateText(this.accumulatedText),
+        true
+      );
       await this.updateMessage(this.messageId, {
         msg_type: 'interactive',
         content: JSON.stringify(finalCard),
@@ -192,7 +208,10 @@ export class FeishuStreamingCard {
         return;
       }
 
-      if (this.streamStartedAt && Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS) {
+      if (
+        this.streamStartedAt &&
+        Date.now() - this.streamStartedAt > MAX_STREAM_AGE_MS
+      ) {
         this.finalize().catch((err) => {
           if (this.onError) this.onError(err);
         });

@@ -19,6 +19,14 @@ export type ChannelId =
   | 'discord'
   | string;
 
+export interface ChannelMessageToolHints {
+  responsePreference?: 'concise' | 'detailed' | 'markdown' | 'card';
+  formattingTips?: string[];
+  recommendedMaxLength?: number;
+  platformCapabilities?: string[];
+  constraints?: string[];
+}
+
 export interface ChannelMeta {
   id: ChannelId;
   displayName: string;
@@ -28,6 +36,7 @@ export interface ChannelMeta {
   markdownCapable: boolean;
   maxMessageLength: number;
   supportedMessageTypes: ('text' | 'image' | 'file' | 'markdown' | 'card')[];
+  messageToolHints?: ChannelMessageToolHints;
 }
 
 export interface ChannelCapabilities {

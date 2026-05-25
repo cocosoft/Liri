@@ -16,7 +16,10 @@ export interface ResolvedMSTeamsAccount extends MSTeamsAccount {
 
 const accountStore = new Map<string, MSTeamsAccount>();
 
-export function registerMSTeamsAccount(id: string, account: MSTeamsAccount): void {
+export function registerMSTeamsAccount(
+  id: string,
+  account: MSTeamsAccount
+): void {
   accountStore.set(id, { ...account });
 }
 
@@ -24,7 +27,9 @@ export function getMSTeamsAccount(id: string): MSTeamsAccount | undefined {
   return accountStore.get(id);
 }
 
-export function resolveMSTeamsAccount(id: string): ResolvedMSTeamsAccount | null {
+export function resolveMSTeamsAccount(
+  id: string
+): ResolvedMSTeamsAccount | null {
   const account = accountStore.get(id);
   if (!account) return null;
   return { ...account, resolved: true };

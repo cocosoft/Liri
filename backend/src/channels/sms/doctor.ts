@@ -24,8 +24,28 @@ export interface SmsDiagnosisContext {
 
 export function diagnoseSms(ctx: SmsDiagnosisContext): DiagnosisResult {
   const checks: DiagnosisCheck[] = [];
-  checks.push({ name: '配置检查', passed: !!ctx.hasApiKey && !!ctx.hasFromNumber, message: ctx.hasApiKey && ctx.hasFromNumber ? 'API Key 和发送号码已配置' : '缺少 API Key 或发送号码', detail: { hasApiKey: ctx.hasApiKey, hasFromNumber: ctx.hasFromNumber } });
-  checks.push({ name: '连接状态', passed: ctx.isConnected, message: ctx.isConnected ? '已连接至 SMS 服务商' : '未连接', detail: { connected: ctx.isConnected } });
+  checks.push({
+    name: '配置检查',
+    passed: !!ctx.hasApiKey && !!ctx.hasFromNumber,
+    message:
+      ctx.hasApiKey && ctx.hasFromNumber
+        ? 'API Key 和发送号码已配置'
+        : '缺少 API Key 或发送号码',
+    detail: { hasApiKey: ctx.hasApiKey, hasFromNumber: ctx.hasFromNumber },
+  });
+  checks.push({
+    name: '连接状态',
+    passed: ctx.isConnected,
+    message: ctx.isConnected ? '已连接至 SMS 服务商' : '未连接',
+    detail: { connected: ctx.isConnected },
+  });
   const failed = checks.filter((c) => !c.passed);
-  return { healthy: failed.length === 0, checks, summary: failed.length === 0 ? `SMS 诊断通过（${checks.length}/${checks.length}）` : `SMS 诊断失败：${failed.map((c) => c.name).join(', ')}` };
+  return {
+    healthy: failed.length === 0,
+    checks,
+    summary:
+      failed.length === 0
+        ? `SMS 诊断通过（${checks.length}/${checks.length}）`
+        : `SMS 诊断失败：${failed.map((c) => c.name).join(', ')}`,
+  };
 }

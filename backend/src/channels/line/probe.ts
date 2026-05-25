@@ -21,12 +21,11 @@ export function lineProbe(
 ): ProbeResult {
   return {
     healthy: connected && hasAccessToken,
-    status:
-      !connected
-        ? 'disconnected'
-        : hasAccessToken
-          ? 'healthy'
-          : 'no_token',
+    status: !connected
+      ? 'disconnected'
+      : hasAccessToken
+        ? 'healthy'
+        : 'no_token',
     timestamp: Date.now(),
     detail: { connected, hasAccessToken, webhookPort },
   };

@@ -2,6 +2,7 @@ import type {
   IChannelPlugin,
   ChannelId,
   ChannelMeta,
+  ChannelMessageToolHints,
   ChannelCapabilities,
   ChannelStatus,
   DmPolicy,
@@ -19,6 +20,8 @@ import type {
 } from '@modules/channels/types';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { MultiAccountManager } from '@modules/channels/accounts';
+import type { ResolvedAccount } from '@modules/channels/accounts';
 
 export interface ChannelPluginState {
   connected: boolean;
@@ -56,6 +59,20 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
 
   /** 默认消息发送目标（群 ID / 用户 ID），子类可在 onConnect 中设置 */
   homeChannelId = '';
+
+  /** 多账号管理器 — 子类可在构造函数中注册账号 */
+  protected readonly multiAccount = new MultiAccountManager();
+
+  /** 当前使用的账号 ID（onConnect 时设置） */
+  protected currentAccountId = '';
+
+  /**
+   * 解析账号：按指定 ID 查找，未命中时 fallback 到默认账号
+   * 子类可覆写此方法实现自定义账号解析逻辑
+   */
+  protected resolveAccount(accountId?: string | null): ResolvedAccount | null {
+    return this.multiAccount.resolve(accountId);
+  }
 
   // ─── 内部状态 ────────────────────────────────────────────
   private _state: ChannelPluginState = {
@@ -114,6 +131,14 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
     latencyMs: number;
   }> {
     return { healthy: this._state.connected, latencyMs: 0 };
+  }
+
+  /**
+   * 获取通道消息工具提示
+   * 子类可覆写此方法提供通道特有的 LLM 提示
+   */
+  getMessageToolHints(): ChannelMessageToolHints {
+    return {};
   }
 
   // ─── IChannelConfigAdapter ──────────────────────────────

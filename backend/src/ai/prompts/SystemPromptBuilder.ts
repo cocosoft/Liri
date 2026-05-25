@@ -1,5 +1,5 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { buildEnvironmentHints, getPlatformHint } from './PlatformHints';
+import { buildEnvironmentHints, buildPlatformContext } from './PlatformHints';
 import {
   getModelGuidance,
   DEFAULT_GUIDANCE_CONFIG,
@@ -50,9 +50,9 @@ export function buildSystemPrompt(
   }
 
   if (context.includePlatformHint !== false && context.platform) {
-    const platformHint = getPlatformHint(context.platform);
-    if (platformHint) {
-      parts.push(`\n[Platform Hint: ${context.platform}]\n${platformHint}`);
+    const platformContext = buildPlatformContext(context.platform);
+    if (platformContext) {
+      parts.push(`\n[Platform Context]\n${platformContext}`);
     }
   }
 
@@ -81,9 +81,9 @@ export function buildSystemPrompt(
 }
 
 export function injectPlatformHints(prompt: string, platform: string): string {
-  const hint = getPlatformHint(platform);
+  const context = buildPlatformContext(platform);
 
-  return hint ? `${prompt}\n\n${hint}` : prompt;
+  return context ? `${prompt}\n\n${context}` : prompt;
 }
 
 export function injectModelGuidance(

@@ -10,7 +10,10 @@ export {
 } from './SignalChannel.js';
 export type { SignalConfig, SignalMessage } from './SignalChannel.js';
 
-export { getDefaultSignalConfig, validateSignalConfig } from './config-schema.js';
+export {
+  getDefaultSignalConfig,
+  validateSignalConfig,
+} from './config-schema.js';
 export type { SignalConfig as SignalChannelConfig } from './config-schema.js';
 
 export {

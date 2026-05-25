@@ -95,7 +95,11 @@ async function getGoogleChatAccessToken(
   clientEmail: string,
   privateKey: string
 ): Promise<string> {
-  const jwt = createServiceAccountJwt(clientEmail, privateKey, GOOGLE_CHAT_SCOPE);
+  const jwt = createServiceAccountJwt(
+    clientEmail,
+    privateKey,
+    GOOGLE_CHAT_SCOPE
+  );
 
   const resp = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
     method: 'POST',
@@ -194,7 +198,10 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
     this.dedup.clear();
 
     // 验证凭据
-    const token = await getGoogleChatAccessToken(this.clientEmail, this.privateKey);
+    const token = await getGoogleChatAccessToken(
+      this.clientEmail,
+      this.privateKey
+    );
     if (!token) {
       throw new AppError(
         'Google Chat 认证失败',
@@ -219,7 +226,10 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
    * 获取 Google Chat API 的 headers（含 Bearer Token）
    */
   private async getAuthHeaders(): Promise<Record<string, string>> {
-    const token = await getGoogleChatAccessToken(this.clientEmail, this.privateKey);
+    const token = await getGoogleChatAccessToken(
+      this.clientEmail,
+      this.privateKey
+    );
     return {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
@@ -241,8 +251,12 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
         headers,
         body: JSON.stringify(body),
       });
-      const data = resp.ok ? ((await resp.json()) as Record<string, unknown>) : undefined;
-      const error = resp.ok ? undefined : `Google Chat API ${resp.status}: ${await resp.text()}`;
+      const data = resp.ok
+        ? ((await resp.json()) as Record<string, unknown>)
+        : undefined;
+      const error = resp.ok
+        ? undefined
+        : `Google Chat API ${resp.status}: ${await resp.text()}`;
       return { ok: resp.ok, data, error };
     } catch (e) {
       return { ok: false, error: String(e) };
@@ -284,7 +298,10 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
       const fileName = path.basename(filePath);
 
       const space = target.startsWith('spaces/') ? target : `spaces/${target}`;
-      const token = await getGoogleChatAccessToken(this.clientEmail, this.privateKey);
+      const token = await getGoogleChatAccessToken(
+        this.clientEmail,
+        this.privateKey
+      );
       const boundary = `pyapp-${randomUUID()}`;
 
       const metadata = JSON.stringify({ filename: fileName });
@@ -310,14 +327,16 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
       });
 
       if (!resp.ok) {
-        return { success: false, error: `Google Chat 上传失败: ${resp.status}` };
+        return {
+          success: false,
+          error: `Google Chat 上传失败: ${resp.status}`,
+        };
       }
 
       const uploadData = (await resp.json()) as Record<string, unknown>;
-      const attachmentToken =
-        (uploadData['attachmentDataRef'] as Record<string, unknown>)?.[
-          'attachmentUploadToken'
-        ] as string;
+      const attachmentToken = (
+        uploadData['attachmentDataRef'] as Record<string, unknown>
+      )?.['attachmentUploadToken'] as string;
 
       if (!attachmentToken) {
         return {
@@ -328,7 +347,9 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
 
       const msgResult = await this.apiPost(`${space}/messages`, {
         text: fileName,
-        attachment: [{ attachmentDataRef: { attachmentUploadToken: attachmentToken } }],
+        attachment: [
+          { attachmentDataRef: { attachmentUploadToken: attachmentToken } },
+        ],
       });
 
       return {
@@ -440,19 +461,23 @@ class GoogleChatChannelPlugin extends BaseChannelPlugin {
                 return;
               }
 
-              const space = parsed['space'] as Record<string, unknown> | undefined;
-              const message = parsed['message'] as Record<string, unknown> | undefined;
-              const sender = parsed['user'] as Record<string, unknown> | undefined;
+              const space = parsed['space'] as
+                | Record<string, unknown>
+                | undefined;
+              const message = parsed['message'] as
+                | Record<string, unknown>
+                | undefined;
+              const sender = parsed['user'] as
+                | Record<string, unknown>
+                | undefined;
               const eventTime = parsed['eventTime'] as string;
 
               if (!message || !sender) return;
 
               const spaceName = (space?.['name'] as string) || '';
               const text =
-                ((message['text'] as string) || '').replace(
-                  /<[^>]+>/g,
-                  ''
-                ) || '';
+                ((message['text'] as string) || '').replace(/<[^>]+>/g, '') ||
+                '';
               const senderName = (sender['displayName'] as string) || '';
               const senderId = (sender['name'] as string) || '';
               const messageId = randomUUID();

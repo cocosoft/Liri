@@ -13,7 +13,7 @@ export interface DiscordConfig {
 }
 
 const DEFAULTS: Partial<DiscordConfig> = {
-  intents: 513,  // GUILD_MESSAGES | DIRECT_MESSAGES
+  intents: 513, // GUILD_MESSAGES | DIRECT_MESSAGES
   gatewayUrl: 'wss://gateway.discord.gg/?v=10&encoding=json',
   restBaseUrl: 'https://discord.com/api/v10',
   reconnectDelayMs: 5000,

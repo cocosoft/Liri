@@ -16,7 +16,10 @@ export interface ResolvedFeishuAccount extends FeishuAccount {
 
 const accountStore = new Map<string, FeishuAccount>();
 
-export function registerFeishuAccount(id: string, account: FeishuAccount): void {
+export function registerFeishuAccount(
+  id: string,
+  account: FeishuAccount
+): void {
   accountStore.set(id, { ...account });
 }
 

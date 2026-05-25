@@ -17,7 +17,10 @@ export interface ResolvedDiscordAccount extends DiscordAccount {
 
 const accountStore = new Map<string, DiscordAccount>();
 
-export function registerDiscordAccount(id: string, account: DiscordAccount): void {
+export function registerDiscordAccount(
+  id: string,
+  account: DiscordAccount
+): void {
   accountStore.set(id, { ...account });
 }
 
@@ -25,7 +28,9 @@ export function getDiscordAccount(id: string): DiscordAccount | undefined {
   return accountStore.get(id);
 }
 
-export function resolveDiscordAccount(id: string): ResolvedDiscordAccount | null {
+export function resolveDiscordAccount(
+  id: string
+): ResolvedDiscordAccount | null {
   const account = accountStore.get(id);
   if (!account) return null;
   const botIdMatch = account.botToken.match(/^([^.]+)\./);

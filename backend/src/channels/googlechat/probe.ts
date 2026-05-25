@@ -19,8 +19,7 @@ export function googleChatProbe(
 ): ProbeResult {
   return {
     healthy: connected && hasToken,
-    status:
-      !connected ? 'disconnected' : hasToken ? 'healthy' : 'no_token',
+    status: !connected ? 'disconnected' : hasToken ? 'healthy' : 'no_token',
     timestamp: Date.now(),
     detail: { connected, hasToken },
   };

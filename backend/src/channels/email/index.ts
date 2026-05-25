@@ -20,15 +20,16 @@ export {
   listEmailAccountIds,
   removeEmailAccount,
 } from './accounts.js';
-export type {
-  EmailAccount,
-  ResolvedEmailAccount,
-} from './accounts.js';
+export type { EmailAccount, ResolvedEmailAccount } from './accounts.js';
 
 export { EmailMonitor } from './monitor.js';
 
 export { diagnoseEmail } from './doctor.js';
-export type { DiagnosisResult, DiagnosisCheck, EmailDiagnosisContext } from './doctor.js';
+export type {
+  DiagnosisResult,
+  DiagnosisCheck,
+  EmailDiagnosisContext,
+} from './doctor.js';
 
 export { emailProbe } from './probe.js';
 export type { ProbeResult } from './probe.js';

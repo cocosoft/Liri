@@ -1,4 +1,7 @@
-export { createGoogleChatChannel, googleChatChannelPlugin } from './GoogleChatChannel.js';
+export {
+  createGoogleChatChannel,
+  googleChatChannelPlugin,
+} from './GoogleChatChannel.js';
 export {
   getDefaultGoogleChatConfig,
   validateGoogleChatConfig,
@@ -11,7 +14,10 @@ export {
   listGoogleChatAccountIds,
   removeGoogleChatAccount,
 } from './accounts.js';
-export type { GoogleChatAccount, ResolvedGoogleChatAccount } from './accounts.js';
+export type {
+  GoogleChatAccount,
+  ResolvedGoogleChatAccount,
+} from './accounts.js';
 export { GoogleChatMonitor } from './monitor.js';
 export type {
   MonitorEvent as GoogleChatMonitorEvent,
@@ -34,8 +40,9 @@ export type {
   GoogleChatApprovalAuthConfig,
   GoogleChatApprovalAuthResult,
 } from './approval-auth.js';
-export { setGoogleChatRuntime, getGoogleChatRuntime, clearGoogleChatRuntime } from './runtime.js';
-export type {
-  GoogleChatRuntime,
-  GoogleChatRuntimeStatus,
+export {
+  setGoogleChatRuntime,
+  getGoogleChatRuntime,
+  clearGoogleChatRuntime,
 } from './runtime.js';
+export type { GoogleChatRuntime, GoogleChatRuntimeStatus } from './runtime.js';

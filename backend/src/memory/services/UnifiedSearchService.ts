@@ -23,6 +23,7 @@ export interface UnifiedSearchResult {
 export class UnifiedSearchService {
   private knowledgeRouter: IKnowledgeSearch;
   private memoryProvider: MemorySearchProvider;
+  private readonly RRF_K = 60;
 
   constructor(
     knowledgeRouter: IKnowledgeSearch,
@@ -59,7 +60,28 @@ export class UnifiedSearchService {
     }
 
     const results = await Promise.all(searches);
-    const merged = results.flat();
+
+    // 使用 RRF（Reciprocal Rank Fusion）对不同来源的结果集进行排序融合
+    // RRF 公式：score(d) = sum(1 / (k + rank_i(d))) 对每个结果集 i
+    const rrfScores = new Map<string, UnifiedSearchResult>();
+
+    for (const resultSet of results) {
+      for (let rank = 0; rank < resultSet.length; rank++) {
+        const item = resultSet[rank];
+        const key = `${item.type}:${item.source}`;
+        const existing = rrfScores.get(key);
+        if (existing) {
+          existing.score += 1 / (this.RRF_K + rank + 1);
+        } else {
+          rrfScores.set(key, {
+            ...item,
+            score: 1 / (this.RRF_K + rank + 1),
+          });
+        }
+      }
+    }
+
+    const merged = Array.from(rrfScores.values());
 
     merged.sort((a, b) => b.score - a.score);
 

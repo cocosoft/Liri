@@ -70,7 +70,9 @@ function parseIrcLine(line: string): ParsedIrcLine | null {
   if (!cursor) return null;
 
   const firstSpace = cursor.indexOf(' ');
-  const command = (firstSpace === -1 ? cursor : cursor.slice(0, firstSpace)).trim();
+  const command = (
+    firstSpace === -1 ? cursor : cursor.slice(0, firstSpace)
+  ).trim();
   if (!command) return null;
 
   cursor = firstSpace === -1 ? '' : cursor.slice(firstSpace + 1);
@@ -291,7 +293,10 @@ class IrcChannelPlugin extends BaseChannelPlugin {
       server: (raw['server'] as string) || '',
       port: (raw['port'] as number) || (raw['tls'] ? 6697 : 6667),
       nickname: (raw['nickname'] as string) || 'py_app_bot',
-      username: (raw['username'] as string) || (raw['nickname'] as string) || 'py_app_bot',
+      username:
+        (raw['username'] as string) ||
+        (raw['nickname'] as string) ||
+        'py_app_bot',
       realname: (raw['realname'] as string) || 'PY_APP Bot',
       password: (raw['password'] as string) || '',
       nickservPassword: (raw['nickservPassword'] as string) || '',
@@ -466,7 +471,9 @@ class IrcChannelPlugin extends BaseChannelPlugin {
 
     // NickServ 认证
     if (this.connectionConfig.nickservPassword) {
-      this.sendRaw(`PRIVMSG NickServ :IDENTIFY ${this.connectionConfig.nickservPassword}`);
+      this.sendRaw(
+        `PRIVMSG NickServ :IDENTIFY ${this.connectionConfig.nickservPassword}`
+      );
     }
 
     // 加入频道
@@ -491,8 +498,12 @@ class IrcChannelPlugin extends BaseChannelPlugin {
     if (!this.nickServRecovered && this.connectionConfig.nickservPassword) {
       this.nickServRecovered = true;
       try {
-        const ghostTarget = sanitizeIrcTarget(this.connectionConfig.nickservPassword);
-        this.sendRaw(`PRIVMSG NickServ :GHOST ${this.desiredNick} ${ghostTarget}`);
+        const ghostTarget = sanitizeIrcTarget(
+          this.connectionConfig.nickservPassword
+        );
+        this.sendRaw(
+          `PRIVMSG NickServ :GHOST ${this.desiredNick} ${ghostTarget}`
+        );
         this.sendRaw(`NICK ${this.desiredNick}`);
         this.logger.info('IRC 尝试 NickServ GHOST 恢复昵称');
         return;
@@ -684,7 +695,9 @@ class IrcChannelPlugin extends BaseChannelPlugin {
     try {
       const target = sanitizeIrcTarget(channel);
       this.sendRaw(`PART ${target}`);
-      this.connectionConfig.channels = this.connectionConfig.channels.filter((c) => c !== target);
+      this.connectionConfig.channels = this.connectionConfig.channels.filter(
+        (c) => c !== target
+      );
       return true;
     } catch {
       return false;

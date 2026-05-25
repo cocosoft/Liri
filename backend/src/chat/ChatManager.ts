@@ -683,6 +683,13 @@ export class ChatManagerImpl implements ChatManager {
 
     // 检查是否是命令
     if (content.startsWith('/')) {
+      // 先获取或创建会话，以便将历史消息传入命令上下文
+      const cmdSession = options?.sessionId
+        ? this._getLocalSession(options.sessionId) ||
+          this.createSession({ title: 'New Session' })
+        : this._getLocalSession(this._currentSessionId) ||
+          this.createSession({ title: 'New Session' });
+
       const parts = content.slice(1).split(' ');
       const [commandName, ...args] = parts;
 
@@ -693,6 +700,7 @@ export class ChatManagerImpl implements ChatManager {
         {
           sessionId: options?.sessionId || 'chat-session',
           cwd: process.cwd(),
+          messages: cmdSession?.messages || [],
         }
       );
       commandResult = result.message || result.value || '';
@@ -887,6 +895,22 @@ export class ChatManagerImpl implements ChatManager {
 
     this.recordChatResponseUsage(session.id, response.usage);
 
+    // 通知外部：本次 LLM 响应的词元用量
+    if (options?.onUsage && response.usage) {
+      const u = response.usage;
+      const inputTokens = u.prompt_tokens ?? 0;
+      const outputTokens = u.completion_tokens ?? 0;
+      options.onUsage({
+        inputTokens,
+        outputTokens,
+        cacheReadInputTokens: u.cache_read_input_tokens,
+        cacheCreationInputTokens: u.cache_creation_input_tokens,
+        totalTokens: inputTokens + outputTokens,
+        estimatedCostUsd:
+          (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
+      });
+    }
+
     const assistantMessageContent =
       typeof response.content === 'string'
         ? response.content
@@ -994,6 +1018,15 @@ export class ChatManagerImpl implements ChatManager {
             arguments: parsedArguments,
           });
 
+          // 通知外部：工具开始执行
+          const argsStr = JSON.stringify(parsedArguments).slice(0, 200);
+          options?.onToolCall?.(
+            'start',
+            normalizedToolCall.name,
+            normalizedToolCall.id,
+            argsStr
+          );
+
           const toolResult = await this.executeTool({
             id: normalizedToolCall.id,
             name: normalizedToolCall.name,
@@ -1001,6 +1034,17 @@ export class ChatManagerImpl implements ChatManager {
           });
 
           logger.debug('Tool execution result', { result: toolResult });
+
+          // 通知外部：工具执行完成
+          const resultDetail = toolResult.error
+            ? `失败: ${toolResult.error.slice(0, 200)}`
+            : `成功: ${(JSON.stringify(toolResult.result) ?? '').slice(0, 200)}`;
+          options?.onToolCall?.(
+            'end',
+            normalizedToolCall.name,
+            normalizedToolCall.id,
+            resultDetail
+          );
 
           // 触发 ChatPostToolCall Hook
           await this.hookChainManager.execute('chat', {
@@ -1077,6 +1121,22 @@ export class ChatManagerImpl implements ChatManager {
         );
 
         this.recordChatResponseUsage(session.id, toolResultResponse.usage);
+
+        // 通知外部：本次工具结果 LLM 响应的词元用量
+        if (options?.onUsage && toolResultResponse.usage) {
+          const u = toolResultResponse.usage;
+          const inputTokens = u.prompt_tokens ?? 0;
+          const outputTokens = u.completion_tokens ?? 0;
+          options.onUsage({
+            inputTokens,
+            outputTokens,
+            cacheReadInputTokens: u.cache_read_input_tokens,
+            cacheCreationInputTokens: u.cache_creation_input_tokens,
+            totalTokens: inputTokens + outputTokens,
+            estimatedCostUsd:
+              (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
+          });
+        }
 
         logger.debug('Tool result response', {
           response: toolResultResponse,
@@ -1375,6 +1435,22 @@ export class ChatManagerImpl implements ChatManager {
       );
 
       this.recordChatResponseUsage(session.id, toolResultResponse.usage);
+
+      // 通知外部：本次工具结果 LLM 响应的词元用量
+      if (options?.onUsage && toolResultResponse.usage) {
+        const u = toolResultResponse.usage;
+        const inputTokens = u.prompt_tokens ?? 0;
+        const outputTokens = u.completion_tokens ?? 0;
+        options.onUsage({
+          inputTokens,
+          outputTokens,
+          cacheReadInputTokens: u.cache_read_input_tokens,
+          cacheCreationInputTokens: u.cache_creation_input_tokens,
+          totalTokens: inputTokens + outputTokens,
+          estimatedCostUsd:
+            (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 15,
+        });
+      }
 
       const resultContent =
         typeof toolResultResponse.content === 'string'

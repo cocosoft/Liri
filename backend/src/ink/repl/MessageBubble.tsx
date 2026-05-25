@@ -16,7 +16,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     <Box flexDirection="column" marginBottom={1} paddingX={2}>
       <Box flexDirection="row">
         <Text color={isUser ? 'cyan' : isSystem ? 'yellow' : 'green'} bold>
-          {isUser ? 'You: ' : isSystem ? 'System: ' : 'AI: '}
+          {isUser ? '💬 You: ' : isSystem ? '⚙️ System: ' : '🤖 AI: '}
         </Text>
       </Box>
       <Box flexDirection="row" paddingLeft={2}>

@@ -151,19 +151,31 @@ export async function setupChannelsFromConfig(): Promise<{
   return result;
 }
 
+/** lazyConnectChannels 是否已执行过（防重复连接守卫） */
+let _channelsConnected = false;
+
+/** 当前正在处理的消息ID集合（防并发重复处理） */
+const _processingMessages = new Set<string>();
+
 /**
  * 延迟连接所有已注册的通道
  * 在应用完全启动后在后台执行，不阻塞主流程
  * 每个通道带 5 秒超时保护
+ * 内置防重复执行守卫（_channelsConnected），确保只连接一次
  */
 export async function lazyConnectChannels(): Promise<void> {
+  if (_channelsConnected) {
+    return;
+  }
+  _channelsConnected = true;
+
   const t0 = Date.now();
   const channels = channelRegistry.getEnabled();
   if (channels.length === 0) {
     return;
   }
 
-  console.log(`[DIAG][${Date.now()}] lazyConnectChannels: 开始后台连接 ${channels.length} 个通道...`);
+  logger.info(`lazyConnectChannels: 开始后台连接 ${channels.length} 个通道...`);
   let connectedCount = 0;
   const errors: string[] = [];
 
@@ -182,7 +194,19 @@ export async function lazyConnectChannels(): Promise<void> {
       const plugin = channelBootstrapper.getPluginInstance(channel.name);
       if (plugin?.inbound) {
         plugin.inbound.setMessageHandler(async (message: MessageContext) => {
+          // 防并发重复处理：同一消息ID同时只能处理一次
+          if (_processingMessages.has(message.messageId)) {
+            logger.warning(`跳过重复消息: ${message.messageId}`);
+            return;
+          }
+          _processingMessages.add(message.messageId);
+
           try {
+            // 终端回显：显示来源通道、发送者、消息内容
+            const senderDisplay = message.senderName || message.senderId || 'unknown';
+            console.log(`\n── [${channel.name.toUpperCase()}] ${senderDisplay} ──`);
+            console.log(message.content);
+
             const coreAPI = getCoreAPI();
             const response = await coreAPI.chat({
               content: message.content,
@@ -197,6 +221,11 @@ export async function lazyConnectChannels(): Promise<void> {
             });
 
             if (response.content && plugin.outbound) {
+              // 终端回显：显示AI回复
+              console.log(`\n── [${channel.name.toUpperCase()}] PY_APP ──`);
+              console.log(response.content);
+              console.log(''); // 空行分隔
+
               await plugin.outbound.sendText(
                 message.conversationId ?? message.senderId,
                 response.content
@@ -207,6 +236,11 @@ export async function lazyConnectChannels(): Promise<void> {
               messageId: message.messageId,
               error: String(error),
             });
+          } finally {
+            // 延迟清理消息ID，防止短时间内同ID重复
+            setTimeout(() => {
+              _processingMessages.delete(message.messageId);
+            }, 3000);
           }
         });
         logger.info(`通道入站消息处理器已注册: ${channel.name}`);
@@ -218,7 +252,7 @@ export async function lazyConnectChannels(): Promise<void> {
     }
   }
 
-  console.log(`[DIAG][${Date.now()}] lazyConnectChannels: 连接完成 (connected=${connectedCount}, failed=${errors.length}), 耗时=${Date.now() - t0}ms`);
+  logger.info(`lazyConnectChannels: 连接完成 (connected=${connectedCount}, failed=${errors.length}), 耗时=${Date.now() - t0}ms`);
   if (errors.length > 0) {
     logger.warning('延迟通道连接存在错误', { errors });
   }

@@ -3,7 +3,8 @@
  * 实现日志分级、文件和控制台输出
  */
 
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import {
   existsSync,
   mkdirSync,
@@ -191,6 +192,21 @@ export class FileHandler {
 }
 
 /**
+ * 从 Logger.ts 模块位置推导项目根目录
+ * 解决 process.cwd() 可能因启动方式不同而不一致的问题
+ */
+function resolveProjectRoot(): string {
+  try {
+    // import.meta.url 如: file:///E:/PY/CODES/PY_APP/backend/src/monitoring/logs/Logger.ts
+    const loggerDir = dirname(fileURLToPath(import.meta.url));
+    // Logger.ts 位于 backend/src/monitoring/logs/，向上 4 级到项目根
+    return join(loggerDir, '..', '..', '..', '..');
+  } catch {
+    return process.cwd();
+  }
+}
+
+/**
  * 日志记录器类
  */
 export class Logger {
@@ -213,9 +229,11 @@ export class Logger {
    */
   constructor(config: LoggerConfig = {}) {
     const defaultFileLevel = config.level || LogLevel.INFO;
+    const logFile = config.logFile || join(resolveProjectRoot(), 'logs', 'app.log');
+
     this.config = {
       level: config.level || LogLevel.INFO,
-      logFile: config.logFile || join(process.cwd(), 'logs', 'app.log'),
+      logFile,
       consoleOutput: config.consoleOutput ?? true,
       fileOutput: config.fileOutput ?? true,
       consoleLevel: config.consoleLevel ?? LogLevel.WARNING,
@@ -233,6 +251,16 @@ export class Logger {
       );
       if (logDir && !existsSync(logDir)) {
         mkdirSync(logDir, { recursive: true });
+      }
+    }
+
+    // 初始化验证：写入启动标记，确认文件写入正常
+    if (this.config.fileOutput) {
+      try {
+        const initMsg = `[Logger] 日志系统就绪 — ${logFile}`;
+        appendFileSync(logFile, initMsg + '\n');
+      } catch (error) {
+        console.error(`[Logger] 日志文件写入失败: ${logFile}`, error);
       }
     }
   }

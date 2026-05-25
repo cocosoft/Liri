@@ -60,7 +60,8 @@ export class Coordinator {
 
   private get agentTool(): any {
     if (!this._agentTool) {
-      const { AgentTool } = require('@modules/tools/AgentTool/AgentTool');
+      const modPath = '@modules/tools/AgentTool/AgentTool';
+      const { AgentTool } = require(modPath);
       this._agentTool = new AgentTool();
     }
     return this._agentTool;

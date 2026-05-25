@@ -194,13 +194,17 @@ export class FileHandler {
 /**
  * 从 Logger.ts 模块位置推导项目根目录
  * 解决 process.cwd() 可能因启动方式不同而不一致的问题
+ * 编译为独立二进制时，import.meta.url 指向虚拟 Bun 根目录（如 B:\），回退到 process.cwd()
  */
 function resolveProjectRoot(): string {
   try {
-    // import.meta.url 如: file:///E:/PY/CODES/PY_APP/backend/src/monitoring/logs/Logger.ts
     const loggerDir = dirname(fileURLToPath(import.meta.url));
-    // Logger.ts 位于 backend/src/monitoring/logs/，向上 4 级到项目根
-    return join(loggerDir, '..', '..', '..', '..');
+    const resolved = join(loggerDir, '..', '..', '..', '..');
+    // 编译后 import.meta.url 指向虚拟根目录（如 B:\ 或 /），回退到 process.cwd()
+    if (resolved.length <= 3 || !existsSync(resolved)) {
+      return process.cwd();
+    }
+    return resolved;
   } catch {
     return process.cwd();
   }

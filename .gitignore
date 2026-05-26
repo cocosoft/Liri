@@ -23,6 +23,10 @@ target/
 *.log
 backend/data/logs/
 
+# Temp files
+*_qq_temp*
+*test123*
+
 # OS
 .DS_Store
 Thumbs.db

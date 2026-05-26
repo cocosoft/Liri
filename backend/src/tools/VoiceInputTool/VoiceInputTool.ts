@@ -6,7 +6,7 @@ import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_INPUT_TOOL_NAME } from './constants';
-import { voiceService } from '@modules/services/VoiceService';
+import voiceService from '@modules/services/voice';
 
 const VOICE_INPUT_PARAMS = [
   {
@@ -202,7 +202,7 @@ export class VoiceInputTool implements Tool {
 
   private async handleCheck(): Promise<ToolResult> {
     const availability = await voiceService.checkRecordingAvailability();
-    const dependencies = await voiceService.checkDependencies();
+    const dependencies = await voiceService.checkVoiceDependencies();
 
     return {
       status: ToolExecutionStatus.SUCCESS,

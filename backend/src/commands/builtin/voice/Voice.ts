@@ -91,7 +91,7 @@ const voiceCommand = {
  * 处理 status 子命令
  */
 async function handleStatus(isEnabled: boolean) {
-  const deps = voiceService.checkVoiceDependencies();
+  const deps = await voiceService.checkVoiceDependencies();
   const statusLines = [
     '语音模式状态',
     '==============',
@@ -161,7 +161,7 @@ async function handleEnable(config: any) {
     };
   }
 
-  const deps = voiceService.checkVoiceDependencies();
+  const deps = await voiceService.checkVoiceDependencies();
   if (!deps.available) {
     return {
       success: false,

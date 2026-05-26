@@ -1,14 +1,18 @@
 /**
  * Glob 工具
+ *
+ * 使用纯 Node.js 实现的 glob 匹配，无外部依赖，
+ * 避免 bun build --compile 打包时 npm 包不可用的问题。
  */
 
 import { BaseTool } from '../BaseTool';
-import { ToolResult, createToolResult } from '../types/ToolResult';
+import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolTag } from '../types/Tool';
 import { PermissionResult, createAllowResult } from '../types/PermissionResult';
 import { ValidationResult } from '../types/Tool';
 import { createSuccessResult, createFailureResult } from '../utils/ToolUtils';
+import { glob } from '../GlobTool/GlobTool';
 
 export class GlobTool extends BaseTool {
   name = 'glob';
@@ -44,27 +48,14 @@ export class GlobTool extends BaseTool {
     const startTime = Date.now();
     try {
       const pattern = input.pattern as string;
-      const path = (input.path as string) || '.';
-      const cwd = context.options.cwd || process.cwd();
+      const searchPath =
+        (input.path as string) || context.options.cwd || process.cwd();
 
-      const files = await new Promise<string[]>((resolve, reject) => {
-        const glob = require('glob');
-        glob(
-          pattern,
-          { cwd, absolute: true },
-          (err: any, matches: string[]) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(matches);
-            }
-          }
-        );
-      });
+      const result = glob(pattern, searchPath);
 
-      return createSuccessResult(files, {
-        executionTime: Date.now() - startTime,
-        output: files.join('\n'),
+      return createSuccessResult(result.filenames, {
+        executionTime: result.durationMs,
+        output: result.filenames.join('\n') || '(空)',
       });
     } catch (error: any) {
       return createFailureResult(error.message, {

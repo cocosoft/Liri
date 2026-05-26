@@ -119,4 +119,20 @@ export const BUILTIN_SKILLS = {
     enabled: true,
     tags: ['testing', 'quality'],
   },
+  'file-explorer': {
+    name: 'file-explorer',
+    description: '探索文件系统并列出目录内容，使用 glob/bash/powershell 等工具',
+    type: 'prompt' as const,
+    source: 'builtin' as const,
+    enabled: true,
+    tags: ['files', 'explorer', 'directory', 'browse'],
+    allowedTools: [
+      'glob',
+      'bash',
+      'powershell',
+      'file_read',
+      'file_convert',
+      'grep',
+    ],
+  },
 };

@@ -3,13 +3,40 @@ import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError } from '@modules/error/types';
 import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
-let _depError: Error | null = null;
+const __filename = fileURLToPath(import.meta.url);
+
+let _loaded = false;
 let _sharp: any = null;
-try {
-  _sharp = require('sharp');
-} catch (e) {
-  _depError = e as Error;
+
+/**
+ * 延迟加载 sharp（原生插件，bun build --compile 无法内联）
+ *
+ * 三级加载策略：
+ *   1) 标准 require（bun run 开发模式、纯 JS 打包后正常）
+ *   2) createRequire + 回退路径（exe 外部 node_modules）
+ *   3) 最终回退
+ */
+function ensureSharpLoaded(): void {
+  if (_loaded) return;
+  _loaded = true;
+
+  try {
+    _sharp = require('sharp');
+    return;
+  } catch {
+    /* 继续尝试下一级 */
+  }
+
+  try {
+    const exeRequire = createRequire(__filename);
+    _sharp = exeRequire('sharp');
+  } catch {
+    /* sharp 不可用，_sharp 保持 null */
+  }
 }
 
 export class ImageConverter extends BaseConverter {
@@ -38,6 +65,8 @@ export class ImageConverter extends BaseConverter {
   override async convert(
     context: ConversionContext
   ): Promise<ConversionResult> {
+    ensureSharpLoaded();
+
     const buffer =
       typeof context.content === 'string'
         ? Buffer.from(context.content, 'utf-8')

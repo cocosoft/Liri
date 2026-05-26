@@ -61,7 +61,7 @@ const DISCORD_CAPABILITIES: ChannelCapabilities = {
   threading: true,
   reactions: true,
   interactive: true,
-  voiceCall: false,
+  voiceCall: true,
   fileUpload: true,
   imageMessage: true,
   webhook: true,
@@ -185,6 +185,28 @@ function buildDiscordEmbed(card: InteractiveCard): Record<string, unknown> {
   return embed;
 }
 
+/** Discord 语音服务器信息 */
+interface DiscordVoiceServer {
+  token: string;
+  guild_id: string;
+  endpoint: string | null;
+}
+
+/** Discord 语音状态信息 */
+interface DiscordVoiceState {
+  guildId: string;
+  channelId: string | null;
+  userId: string;
+  sessionId: string;
+  deaf: boolean;
+  mute: boolean;
+  selfDeaf: boolean;
+  selfMute: boolean;
+  selfStream: boolean;
+  selfVideo: boolean;
+  suppress: boolean;
+}
+
 class DiscordChannelPlugin extends BaseChannelPlugin {
   readonly id = 'discord';
   readonly meta = DISCORD_META;
@@ -202,6 +224,9 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   private seq: number | null = null;
   private dedup = new DiscordDedup();
   private convStore = new DiscordConversationStore();
+  private voiceServers = new Map<string, DiscordVoiceServer>();
+  private voiceStates = new Map<string, DiscordVoiceState[]>();
+  private joinedVoiceChannels = new Set<string>();
 
   constructor() {
     super();
@@ -547,6 +572,10 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
           this.logger.info(`Discord Gateway 已就绪 (Bot: ${userName})`);
         } else if (t === 'MESSAGE_CREATE') {
           this.handleMessageCreate(d);
+        } else if (t === 'VOICE_STATE_UPDATE') {
+          this.handleVoiceStateUpdate(d);
+        } else if (t === 'VOICE_SERVER_UPDATE') {
+          this.handleVoiceServerUpdate(d);
         }
         break;
       }
@@ -573,7 +602,8 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   }
 
   private identify(): void {
-    const intents = (1 << 9) | (1 << 12) | (1 << 15); // GUILD_MESSAGES | DIRECT_MESSAGES | MESSAGE_CONTENT
+    const intents =
+      (1 << 9) | (1 << 12) | (1 << 15) | (1 << 13); // GUILD_MESSAGES | DIRECT_MESSAGES | MESSAGE_CONTENT | GUILD_VOICE_STATES
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(
         JSON.stringify({
@@ -628,6 +658,157 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
     this.handleIncomingMessage(message).catch((err) => {
       this.logger.error('Discord 消息处理异常', { error: String(err) });
     });
+  }
+
+  /**
+   * 处理 VOICE_STATE_UPDATE 事件
+   * 追踪用户语音频道状态
+   */
+  private handleVoiceStateUpdate(d: Record<string, unknown>): void {
+    const guildId = d['guild_id'] as string;
+    const channelId = d['channel_id'] as string | null;
+    const userId = d['user_id'] as string;
+    const sessionId = d['session_id'] as string;
+    const voiceState: DiscordVoiceState = {
+      guildId,
+      channelId,
+      userId,
+      sessionId,
+      deaf: (d['deaf'] as boolean) || false,
+      mute: (d['mute'] as boolean) || false,
+      selfDeaf: (d['self_deaf'] as boolean) || false,
+      selfMute: (d['self_mute'] as boolean) || false,
+      selfStream: (d['self_stream'] as boolean) || false,
+      selfVideo: (d['self_video'] as boolean) || false,
+      suppress: (d['suppress'] as boolean) || false,
+    };
+
+    // 更新该 guild 的语音状态列表
+    let states = this.voiceStates.get(guildId);
+    if (!states) {
+      states = [];
+      this.voiceStates.set(guildId, states);
+    }
+    if (channelId === null) {
+      // 用户离开了语音频道
+      const idx = states.findIndex((s) => s.userId === userId);
+      if (idx >= 0) states.splice(idx, 1);
+    } else {
+      // 新增或更新语音状态
+      const idx = states.findIndex((s) => s.userId === userId);
+      if (idx >= 0) {
+        states[idx] = voiceState;
+      } else {
+        states.push(voiceState);
+      }
+    }
+
+    this.logger.debug('Discord 语音状态更新', {
+      guildId,
+      channelId,
+      userId,
+      sessionId,
+      channelJoined: channelId !== null,
+    });
+  }
+
+  /**
+   * 处理 VOICE_SERVER_UPDATE 事件
+   */
+  private handleVoiceServerUpdate(d: Record<string, unknown>): void {
+    const guildId = d['guild_id'] as string;
+    const endpoint = d['endpoint'] as string | null;
+    const token = d['token'] as string;
+
+    this.voiceServers.set(guildId, { token, guild_id: guildId, endpoint });
+
+    this.logger.info('Discord 语音服务器更新', {
+      guildId,
+      endpoint: endpoint || '无',
+    });
+  }
+
+  /**
+   * 加入语音频道（发送 op 4 VOICE_STATE_UPDATE）
+   * 实际音频流需要 Opus/RTP 拓展，当前仅为 Discord Gateway 级别的加入
+   */
+  async joinVoiceChannel(guildId: string, channelId: string): Promise<boolean> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.logger.error('Discord Gateway 未连接，无法加入语音频道');
+      return false;
+    }
+    const key = `${guildId}:${channelId}`;
+    if (this.joinedVoiceChannels.has(key)) {
+      this.logger.info(`已在语音频道中: ${key}`);
+      return true;
+    }
+
+    try {
+      const payload = {
+        op: DiscordOp.VOICE_STATE_UPDATE,
+        d: {
+          guild_id: guildId,
+          channel_id: channelId,
+          self_mute: false,
+          self_deaf: false,
+        },
+      };
+      this.ws.send(JSON.stringify(payload));
+      this.joinedVoiceChannels.add(key);
+      this.logger.info('Discord 已发送加入语音频道请求', {
+        guildId,
+        channelId,
+      });
+      return true;
+    } catch (error) {
+      this.logger.error('Discord 加入语音频道失败', {
+        guildId,
+        channelId,
+        error: String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 离开语音频道（发送 op 4，channel_id 设为 null）
+   */
+  async leaveVoiceChannel(guildId: string): Promise<boolean> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.logger.error('Discord Gateway 未连接，无法离开语音频道');
+      return false;
+    }
+
+    try {
+      const payload = {
+        op: DiscordOp.VOICE_STATE_UPDATE,
+        d: {
+          guild_id: guildId,
+          channel_id: null,
+          self_mute: false,
+          self_deaf: false,
+        },
+      };
+      this.ws.send(JSON.stringify(payload));
+
+      // 清理缓存
+      for (const [key] of this.joinedVoiceChannels) {
+        if (key.startsWith(`${guildId}:`)) {
+          this.joinedVoiceChannels.delete(key);
+        }
+      }
+      this.voiceServers.delete(guildId);
+      this.voiceStates.delete(guildId);
+
+      this.logger.info('Discord 已离开语音频道', { guildId });
+      return true;
+    } catch (error) {
+      this.logger.error('Discord 离开语音频道失败', {
+        guildId,
+        error: String(error),
+      });
+      return false;
+    }
   }
 
   /**

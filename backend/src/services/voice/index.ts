@@ -71,6 +71,27 @@ export type {
   TTSSpeakResult,
 } from './services/ttsProvider';
 
+// 导出 OpenAI TTS 提供者
+export { OpenAITTSProvider } from './services/openAITTSProvider';
+export type { OpenAITTSConfig } from './services/openAITTSProvider';
+
+// 导出命令 TTS 提供者
+export {
+  CommandTTSProvider,
+  resetCommandBackendCache,
+} from './services/commandTTSProvider';
+
+// 导出运行时环境检测器
+export {
+  detectRuntimeEnvironment,
+  resetRuntimeEnvironmentCache,
+  isVoiceAvailable,
+} from './services/environmentRuntimeDetector';
+export type {
+  RuntimeEnvironment,
+  RuntimeEnvironmentResult,
+} from './services/environmentRuntimeDetector';
+
 // 导出默认服务实例
 const voiceService = createVoiceService();
 export default voiceService;

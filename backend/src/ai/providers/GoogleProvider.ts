@@ -241,4 +241,81 @@ export class GoogleProvider implements AIProvider {
       warnings,
     };
   }
+
+  /**
+   * Gemini Vision 图片分析
+   * 走 generateContent API 的 inlineData
+   */
+  async analyzeImage(
+    params: import('./AIProvider').VisionAnalysisParams
+  ): Promise<import('./AIProvider').VisionAnalysisResult> {
+    const startTime = Date.now();
+    const base64 = params.imageBuffer.toString('base64');
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            { text: params.prompt || 'Describe this image in detail.' },
+            {
+              inline_data: {
+                mime_type: params.mimeType,
+                data: base64,
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const model = 'gemini-2.0-flash';
+    const url = `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(120000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        return {
+          success: false,
+          description: '',
+          error: `Gemini Vision error (${response.status}): ${errorBody}`,
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const data = (await response.json()) as Record<string, unknown>;
+      const candidate = (
+        data.candidates as Array<Record<string, unknown>>
+      )?.[0];
+      const content = candidate?.content as Record<string, unknown> | undefined;
+      const parts = content?.parts as
+        | Array<Record<string, unknown>>
+        | undefined;
+      const text =
+        parts
+          ?.map((p) => p.text as string)
+          .filter(Boolean)
+          .join('') || '';
+
+      return {
+        success: true,
+        description: text,
+        model,
+        durationMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        description: '',
+        error: `Gemini Vision failed: ${(error as Error).message}`,
+        durationMs: Date.now() - startTime,
+      };
+    }
+  }
 }

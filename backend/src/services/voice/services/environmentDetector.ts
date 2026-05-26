@@ -15,6 +15,11 @@
  */
 
 import type { VadOptions } from './vadDetector';
+import {
+  isSSHSession as isRuntimeSSH,
+  isDockerContainer as isRuntimeDocker,
+  isWSL as isRuntimeWSL,
+} from './environmentRuntimeDetector';
 
 /** 环境类型 */
 export type EnvironmentType =
@@ -36,6 +41,10 @@ export interface EnvironmentResult {
   energyStdDev: number;
   /** 为该环境推荐的 VAD 参数 */
   recommendedVadOptions: Partial<VadOptions>;
+  /** 是否在 SSH 会话中 */
+  isSSH?: boolean;
+  /** 是否在容器中 */
+  isContainer?: boolean;
 }
 
 /** 环境检测配置 */
@@ -252,5 +261,26 @@ export class EnvironmentDetector {
    */
   static getAllPresets(): Record<EnvironmentType, VadOptions> {
     return { ...ENVIRONMENT_VAD_PRESETS };
+  }
+
+  /**
+   * 检测是否在 SSH 会话中
+   */
+  static isSSH(): boolean {
+    return isRuntimeSSH();
+  }
+
+  /**
+   * 检测是否在 Docker/容器环境中
+   */
+  static isContainer(): boolean {
+    return isRuntimeDocker();
+  }
+
+  /**
+   * 检测是否在 WSL 中
+   */
+  static isWSL(): boolean {
+    return isRuntimeWSL();
   }
 }

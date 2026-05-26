@@ -455,6 +455,32 @@ export class TTSRegistry {
   }
 
   /**
+   * 注册默认 TTS 提供者
+   *
+   * 注册 EdgeTTS（始终注册为默认），并可选注册额外提供者。
+   * 额外提供者的自动检测由调用方（如 VoiceServiceBridge）负责，
+   * 保持注册表与具体提供者解耦。
+   *
+   * @param extraProviders 额外注册的提供者列表
+   * @returns 已注册的提供者名称列表
+   */
+  static registerDefaults(extraProviders?: TTSProvider[]): string[] {
+    if (TTSRegistry.providers.size === 0) {
+      TTSRegistry.register(new EdgeTTSProvider(), true);
+    }
+
+    if (extraProviders) {
+      for (const provider of extraProviders) {
+        if (!TTSRegistry.providers.has(provider.name)) {
+          TTSRegistry.register(provider);
+        }
+      }
+    }
+
+    return TTSRegistry.getProviderNames();
+  }
+
+  /**
    * 清除所有注册的提供者
    */
   static clear(): void {

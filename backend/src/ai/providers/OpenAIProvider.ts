@@ -226,4 +226,147 @@ export class OpenAIProvider implements AIProvider {
       warnings,
     };
   }
+
+  /**
+   * OpenAI DALL-E 3 图像生成
+   * 走 /v1/images/generations 端点
+   */
+  async generateImage(
+    params: import('./AIProvider').ImageGenerationParams
+  ): Promise<import('./AIProvider').ImageGenerationResult> {
+    const startTime = Date.now();
+
+    const body: Record<string, unknown> = {
+      model: 'dall-e-3',
+      prompt: params.prompt,
+      n: params.n ?? 1,
+      size: params.size ?? '1024x1024',
+      quality: params.quality ?? 'standard',
+      style: params.style ?? 'vivid',
+      response_format: 'b64_json',
+    };
+
+    if (body.quality === 'hd' && body.size === '1024x1024') {
+      body.size = '1792x1024';
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/images/generations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(120000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        return {
+          success: false,
+          data: [],
+          error: `DALL-E API error (${response.status}): ${errorBody}`,
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const data = (await response.json()) as Record<string, unknown>;
+      const images = (data.data as Array<Record<string, string>>) || [];
+
+      return {
+        success: true,
+        data: images.map((img: Record<string, string>) => ({
+          url: img.url || `data:image/png;base64,${img.b64_json}`,
+          b64_json: img.b64_json,
+          alt: params.prompt,
+        })),
+        model: 'dall-e-3',
+        durationMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: [],
+        error: `DALL-E generation failed: ${(error as Error).message}`,
+        durationMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  /**
+   * OpenAI Vision 图片分析
+   * 直接构造 chat/completions 多模态请求
+   */
+  async analyzeImage(
+    params: import('./AIProvider').VisionAnalysisParams
+  ): Promise<import('./AIProvider').VisionAnalysisResult> {
+    const startTime = Date.now();
+    const base64 = params.imageBuffer.toString('base64');
+    const dataUrl = `data:${params.mimeType};base64,${base64}`;
+
+    const requestBody = {
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: params.prompt || '请详细描述这张图片的内容。',
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: dataUrl,
+                detail: params.detail || 'auto',
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: params.maxTokens ?? 1024,
+    };
+
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(120000),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        return {
+          success: false,
+          description: '',
+          error: `OpenAI Vision error (${response.status}): ${errorBody}`,
+          durationMs: Date.now() - startTime,
+        };
+      }
+
+      const data = (await response.json()) as Record<string, unknown>;
+      const choice = (data.choices as Array<Record<string, unknown>>)?.[0];
+      const message = choice?.message as Record<string, unknown> | undefined;
+      const content = message?.content as string | undefined;
+
+      return {
+        success: true,
+        description: content || '',
+        model: 'gpt-4o',
+        durationMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        description: '',
+        error: `OpenAI Vision failed: ${(error as Error).message}`,
+        durationMs: Date.now() - startTime,
+      };
+    }
+  }
 }

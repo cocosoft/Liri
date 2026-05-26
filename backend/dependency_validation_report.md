@@ -12,6 +12,8 @@
 ```mermaid
 graph TD
   core --> infrastructure
+  core --> bootstrap
+  core --> modules
   core --> ai
   infrastructure --> ai
   error --> ai
@@ -95,6 +97,9 @@ graph TD
   featureflags --> sandbox
   core --> services
   infrastructure --> services
+  core --> voice
+  infrastructure --> voice
+  tools --> voice
   core --> streaming
   infrastructure --> streaming
   services --> streaming
@@ -102,16 +107,27 @@ graph TD
   infrastructure --> utils
   core --> keybindings
   infrastructure --> keybindings
+  core --> channels
+  core --> session
+  core --> skills
+  core --> runtime
+  core --> acp
+  core --> tasks
+  core --> vim
+  core --> media
+  core --> flows
+  core --> governance
+  core --> enterprise
 ```
 
 ## 拓扑排序（初始化顺序）
-agent → bridge → tools → commands → memory → cache → permission → performance → analytics → buddy → chat → chronos → context → cost → docs → daemon → hooks → lsp → mcp → plugin-sdk → plugins → query → remote → sandbox → streaming → utils → keybindings → cli → ui → ai → monitoring → oauth → security → featureflags → services → ink → config → error → infrastructure → core
+bootstrap → modules → agent → bridge → commands → memory → cache → permission → performance → analytics → buddy → chat → chronos → context → cost → docs → daemon → hooks → lsp → mcp → plugin-sdk → plugins → query → remote → sandbox → voice → streaming → utils → keybindings → channels → session → skills → runtime → acp → tasks → vim → media → flows → governance → enterprise → cli → ui → ai → monitoring → oauth → security → featureflags → tools → services → ink → config → error → infrastructure → core
 
 ## 模块统计
-- **总模块数**: 40
+- **总模块数**: 54
 - **模块分类**:
   - core: 1
-  - infrastructure: 3
+  - infrastructure: 5
   - ai: 1
   - agent: 1
   - bridge: 1
@@ -124,4 +140,4 @@ agent → bridge → tools → commands → memory → cache → permission → 
   - security: 4
   - performance: 1
   - monitoring: 1
-  - other: 20
+  - other: 32

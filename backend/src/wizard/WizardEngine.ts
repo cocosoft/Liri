@@ -312,15 +312,15 @@ export class WizardEngine extends EventEmitter {
         return;
       }
 
-      console.log(`\n=== ${step.title} ===`);
+      process.stdout.write(`\n=== ${step.title} ===\n`);
 
       if (step.description) {
-        console.log(step.description);
+        process.stdout.write(step.description + '\n');
       }
 
       switch (step.type) {
         case 'info':
-          console.log(step.prompt);
+          process.stdout.write(step.prompt + '\n');
           resolve(true);
 
           break;
@@ -347,10 +347,10 @@ export class WizardEngine extends EventEmitter {
 
         case 'select':
           if (step.options) {
-            console.log('可选选项:');
+            process.stdout.write('可选选项:\n');
 
             step.options.forEach((opt, idx) => {
-              console.log(`  ${idx + 1}. ${opt}`);
+              process.stdout.write(`  ${idx + 1}. ${opt}\n`);
             });
           }
 
@@ -373,10 +373,10 @@ export class WizardEngine extends EventEmitter {
 
         case 'multiselect':
           if (step.options) {
-            console.log('可选选项 (逗号分隔):');
+            process.stdout.write('可选选项 (逗号分隔):\n');
 
             step.options.forEach((opt, idx) => {
-              console.log(`  ${idx + 1}. ${opt}`);
+              process.stdout.write(`  ${idx + 1}. ${opt}\n`);
             });
           }
 
@@ -413,7 +413,7 @@ export class WizardEngine extends EventEmitter {
               const error = step.validator(trimmed);
 
               if (error) {
-                console.log(`验证失败: ${error}`);
+                process.stdout.write(`验证失败: ${error}\n`);
                 resolve(this.askStep(step, _answers));
               } else {
                 resolve(trimmed || step.default || '');
@@ -434,7 +434,7 @@ export class WizardEngine extends EventEmitter {
               const error = step.validator(trimmed);
 
               if (error) {
-                console.log(`验证失败: ${error}`);
+                process.stdout.write(`验证失败: ${error}\n`);
                 resolve(this.askStep(step, _answers));
               } else {
                 resolve(trimmed || step.default || '');
@@ -507,10 +507,12 @@ export class WizardEngine extends EventEmitter {
         },
       ],
       onComplete: async (answers: Record<string, unknown>) => {
-        console.log('\n配置完成！');
-        console.log(`  模型: ${answers.model}`);
-        console.log(`  守护进程: ${answers.daemon ? '启用' : '禁用'}`);
-        console.log(`  主题: ${answers.theme}`);
+        process.stdout.write('\n配置完成！\n');
+        process.stdout.write(`  模型: ${answers.model}\n`);
+        process.stdout.write(
+          `  守护进程: ${answers.daemon ? '启用' : '禁用'}\n`
+        );
+        process.stdout.write(`  主题: ${answers.theme}\n`);
       },
     });
   }

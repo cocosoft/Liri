@@ -5,7 +5,6 @@
  * 处理 Client→Server 事件路由、状态管理、会话摘要
  */
 
-import { randomUUID } from 'crypto';
 import { VoiceEventBus } from './VoiceEventBus';
 import { VoiceToolBridge } from './VoiceToolBridge';
 import type {
@@ -16,7 +15,6 @@ import type {
   VoiceSessionSummary,
   VoiceSessionState,
   VoiceProviderAdapter,
-  VoiceToolDeclaration,
 } from './types';
 import { GeminiLiveAdapter } from './GeminiLiveAdapter';
 import { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
@@ -113,7 +111,6 @@ export class VoiceSession {
 
   /** 设置内部状态并更新事件总线 */
   private setState(state: VoiceSessionState): void {
-    const previous = this._state;
     this._state = state;
     this.eventBus.setState(state);
   }

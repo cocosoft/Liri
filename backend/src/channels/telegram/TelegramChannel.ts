@@ -17,6 +17,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
+import { AttachmentManager } from '../../components/attachments.js';
 
 const TELEGRAM_META: ChannelMeta = {
   id: 'telegram',
@@ -562,6 +563,43 @@ class TelegramChannel extends BaseChannelPlugin {
     );
   }
 
+  /**
+   * 下载 Telegram 文件（语音/附件）
+   * @param fileId Telegram 文件 ID
+   * @returns 本地保存路径
+   */
+  private async downloadTelegramFile(fileId: string): Promise<string> {
+    const fileResp = await this.transport.fetch(
+      `/bot${this.botToken}/getFile?file_id=${fileId}`
+    );
+    const fileData = (await fileResp.json()) as Record<string, unknown>;
+    if (!fileData['ok']) {
+      throw new Error(`获取文件信息失败: ${fileData['description'] || 'unknown'}`);
+    }
+    const result = fileData['result'] as Record<string, unknown>;
+    const filePath = result['file_path'] as string;
+    if (!filePath) {
+      throw new Error('Telegram 未返回文件路径');
+    }
+    const fileUrl = `https://${TELEGRAM_API_HOST}/file/bot${this.botToken}/${filePath}`;
+    const fileResp2 = await fetch(fileUrl);
+    if (!fileResp2.ok) {
+      throw new Error(`下载文件失败: HTTP ${fileResp2.status}`);
+    }
+    const audioBuffer = Buffer.from(await fileResp2.arrayBuffer());
+    const fileName = filePath.split('/').pop() || `voice_${fileId}.ogg`;
+    const attachmentManager = new AttachmentManager();
+    const attachment = attachmentManager.saveAttachment(
+      fileName,
+      audioBuffer,
+      'file',
+      'audio/ogg',
+      { source: 'telegram', fileId }
+    );
+
+    return attachment.path;
+  }
+
   private async pollUpdates(): Promise<void> {
     if (!this.shouldPoll || !this.botToken) return;
 
@@ -578,11 +616,62 @@ class TelegramChannel extends BaseChannelPlugin {
           this.lastUpdateId = updateId;
 
           const msg = update['message'] as Record<string, unknown> | undefined;
-          if (!msg || !msg['text']) continue;
+          if (!msg) continue;
 
           const chat = msg['chat'] as Record<string, unknown>;
           const from = msg['from'] as Record<string, unknown>;
           const chatType = chat['type'] as string;
+
+          // 检测语音消息
+          const voice = msg['voice'] as Record<string, unknown> | undefined;
+          if (voice) {
+            const fileId = voice['file_id'] as string;
+            const duration = (voice['duration'] as number) || 0;
+            const mimeType = (voice['mime_type'] as string) || 'audio/ogg';
+
+            let filePath = '';
+            try {
+              filePath = await this.downloadTelegramFile(fileId);
+            } catch (error) {
+              this.logger.error('Telegram 语音文件下载失败', {
+                fileId,
+                error: String(error),
+              });
+            }
+
+            const voiceMessage: MessageContext = {
+              channelId: 'telegram',
+              senderId: String(from['id'] || ''),
+              senderName:
+                (from['first_name'] as string) ||
+                (from['username'] as string) ||
+                '',
+              groupId:
+                chatType === 'group' || chatType === 'supergroup'
+                  ? String(chat['id'])
+                  : undefined,
+              conversationId: String(chat['id']),
+              messageId: String(msg['message_id']),
+              messageType: 'voice',
+              content: filePath
+                ? `[语音消息] (时长: ${duration}s, 已保存: ${filePath})`
+                : `[语音消息] (时长: ${duration}s)`,
+              timestamp: (msg['date'] as number) * 1000,
+              isDirectMessage: chatType === 'private',
+              rawPayload: update as unknown as Record<string, unknown>,
+            };
+
+            this.handleIncomingMessage(voiceMessage).catch((error) => {
+              this.logger.error('Telegram 语音消息处理异常', {
+                error: String(error),
+              });
+            });
+            continue;
+          }
+
+          // 仅处理文本消息
+          if (!msg['text']) continue;
+
           const message: MessageContext = {
             channelId: 'telegram',
             senderId: String(from['id'] || ''),

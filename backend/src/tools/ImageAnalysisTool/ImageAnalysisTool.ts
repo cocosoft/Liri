@@ -1,7 +1,7 @@
 /**
  * ImageAnalysisTool
  * 图片分析工具
- * 支持基础视觉分析：元数据提取、色彩分析、内容检测、图片对比
+ * 支持基础视觉分析：元数据提取、色彩分析、内容检测、图片对比、AI视觉分析
  */
 
 import * as fs from 'node:fs';
@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { ImageProcessor } from '../../media/image/ImageProcessor';
+import { providerRegistry } from '../../ai/providers/ProviderRegistry';
 
 /**
  * 分析操作类型
@@ -19,7 +20,8 @@ export type AnalysisAction =
   | 'colors'
   | 'content'
   | 'compare'
-  | 'full';
+  | 'full'
+  | 'vision';
 
 /**
  * 图片分析输入
@@ -33,6 +35,8 @@ export interface ImageAnalysisInput {
   comparePath?: string;
   /** 色彩采样精度（1-10，越高越精确但越慢，默认 3） */
   samplePrecision?: number;
+  /** AI 视觉分析提示词（仅 vision / full 操作使用） */
+  prompt?: string;
 }
 
 /**
@@ -134,7 +138,7 @@ export class ImageAnalysisTool extends BaseTool {
     {
       name: 'action',
       type: 'string',
-      enum: ['metadata', 'colors', 'content', 'compare', 'full'],
+      enum: ['metadata', 'colors', 'content', 'compare', 'full', 'vision'],
       description: 'Analysis action to perform',
       required: true,
     },
@@ -158,6 +162,12 @@ export class ImageAnalysisTool extends BaseTool {
         'Color sampling precision (1-10, higher is more accurate but slower, default 3)',
       required: false,
       default: 3,
+    },
+    {
+      name: 'prompt',
+      type: 'string',
+      description: 'AI vision analysis prompt (used for vision / full action)',
+      required: false,
     },
   ];
 
@@ -192,10 +202,12 @@ export class ImageAnalysisTool extends BaseTool {
           return this.handleCompare(params);
         case 'full':
           return this.handleFull(params);
+        case 'vision':
+          return this.handleVision(params);
         default:
           return {
             success: false,
-            error: `Unknown action: ${params.action}. Supported: metadata, colors, content, compare, full`,
+            error: `Unknown action: ${params.action}. Supported: metadata, colors, content, compare, full, vision`,
           };
       }
     } catch (error) {
@@ -353,7 +365,7 @@ export class ImageAnalysisTool extends BaseTool {
   /**
    * 完整分析（metadata + colors + content）
    */
-  private handleFull(params: ImageAnalysisInput): ToolResult {
+  private async handleFull(params: ImageAnalysisInput): Promise<ToolResult> {
     const precision = Math.max(1, Math.min(10, params.samplePrecision ?? 3));
     const metadata = this.extractMetadata(params.inputPath);
     const colors = this.analyzeColors(params.inputPath, precision);
@@ -385,12 +397,84 @@ export class ImageAnalysisTool extends BaseTool {
       `Size Category: ${content.sizeCategory}`,
       `Content Density: ${content.contentDensity}`,
     ].filter(Boolean);
+    // 如果提供了 prompt，追加 AI 视觉分析
+    if (params.prompt) {
+      const visionResult = await this.doVisionAnalysis(
+        params.inputPath,
+        params.prompt
+      );
+      if (visionResult.success) {
+        lines.push('', '--- AI Vision Analysis ---', visionResult.description);
+      }
+    }
 
     return {
       success: true,
       data: { metadata, colors, content } satisfies FullAnalysis,
       output: lines.join('\n'),
     };
+  }
+
+  /**
+   * AI 视觉分析：调用 Provider 分析图片内容
+   */
+  private async handleVision(params: ImageAnalysisInput): Promise<ToolResult> {
+    const result = await this.doVisionAnalysis(
+      params.inputPath,
+      params.prompt || '请详细描述这张图片的内容。'
+    );
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    return {
+      success: true,
+      data: { description: result.description, durationMs: result.durationMs },
+      output: result.description,
+    };
+  }
+
+  /**
+   * 执行 AI Vision 分析
+   */
+  private async doVisionAnalysis(
+    filePath: string,
+    prompt: string
+  ): Promise<{
+    success: boolean;
+    description: string;
+    error?: string;
+    durationMs?: number;
+  }> {
+    let provider = providerRegistry.get('google');
+
+    if (!provider.analyzeImage) {
+      provider = providerRegistry.get('openai');
+    }
+
+    if (!provider.analyzeImage) {
+      return {
+        success: false,
+        description: '',
+        error:
+          'No provider with vision capability available (try google or openai)',
+      };
+    }
+
+    const imageBuffer = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).slice(1).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      webp: 'image/webp',
+      gif: 'image/gif',
+      bmp: 'image/bmp',
+    };
+    const mimeType = mimeMap[ext] || 'image/png';
+
+    return provider.analyzeImage({ imageBuffer, mimeType, prompt });
   }
 
   /**

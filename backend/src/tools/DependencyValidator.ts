@@ -3,7 +3,7 @@
  * 验证模块间的依赖关系，检测循环依赖和缺失依赖
  */
 
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -523,13 +523,8 @@ async function runDependencyValidation(): Promise<void> {
 
     const report = validator.generateDependencyReport(validation);
 
-    const fs = require('fs');
-    const path = require('path');
-    const reportPath = path.join(
-      process.cwd(),
-      'dependency_validation_report.md'
-    );
-    fs.writeFileSync(reportPath, report);
+    const reportPath = join(process.cwd(), 'dependency_validation_report.md');
+    writeFileSync(reportPath, report);
 
     logger.info(`\n依赖关系报告已保存到: ${reportPath}`);
 
@@ -546,7 +541,7 @@ async function runDependencyValidation(): Promise<void> {
 export { runDependencyValidation };
 
 // 如果直接运行此文件，则执行验证
-if (require.main === module) {
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
   runDependencyValidation().catch((e) =>
     logger.error('依赖关系验证失败:', { error: e })
   );

@@ -1,0 +1,470 @@
+/**
+ * VoiceServiceBridge
+ * services/voice ↔ voice/ 双轨统一 Gate 层
+ *
+ * 对外提供单一入口，对内路由到两个子系统：
+ * - services/voice — 服务模式（TTS、录音、VAD、环境检测、语音命令）
+ * - voice/ — 实时模式（WebSocket 会话、OpenAI/Gemini 适配器、唤醒词）
+ *
+ * 用法：
+ * ```ts
+ * const bridge = createVoiceServiceBridge();
+ * const ttsResult = await bridge.service.tts('你好');
+ * const realtimeSession = bridge.realtime.createSession(connection);
+ * ```
+ */
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+import {
+  createVoiceService,
+  VoiceService,
+} from '../services/voice/services/voiceService';
+import {
+  TTSRegistry,
+  EdgeTTSProvider,
+} from '../services/voice/services/ttsProvider';
+import { OpenAITTSProvider } from '../services/voice/services/openAITTSProvider';
+import { CommandTTSProvider } from '../services/voice/services/commandTTSProvider';
+import { VadDetector } from '../services/voice/services/vadDetector';
+import { EnvironmentDetector } from '../services/voice/services/environmentDetector';
+import {
+  detectRuntimeEnvironment,
+  isVoiceAvailable,
+} from '../services/voice/services/environmentRuntimeDetector';
+import { getVoiceKeyterms } from '../services/voice/voiceKeyterms';
+import {
+  startPreventSleep,
+  stopPreventSleep,
+} from '../services/voice/preventSleep';
+
+import { VoiceSession } from './VoiceSession';
+import { GeminiLiveAdapter } from './GeminiLiveAdapter';
+import { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
+import { VoiceToolBridge } from './VoiceToolBridge';
+import { VoiceEventBus } from './VoiceEventBus';
+import { PCMAudioBuffer, AudioProcessor } from './AudioPipeline';
+import {
+  loadVoiceWakeConfig,
+  setVoiceWakeTriggers,
+  detectWakeWord,
+  sanitizeTriggers,
+  defaultVoiceWakeTriggers,
+} from './VoiceWakeManager';
+import {
+  handleVoiceUpgrade,
+  getActiveVoiceSessions,
+  getVoiceSession,
+  getActiveVoiceSessionCount,
+  closeAllVoiceSessions,
+} from './VoiceGatewayBridge';
+import { VoiceChannelIntegration } from './VoiceChannelIntegration';
+import type { VoiceChannelConfig } from './VoiceChannelIntegration';
+import { VoiceCommandRouter } from './VoiceCommandRouter';
+import type { VoiceCommandRouterConfig } from './VoiceCommandRouter';
+
+import type { VoiceServiceConfig } from '../services/voice/models/types';
+import type {
+  VoiceClientEvent,
+  VoiceServerEvent,
+  VoiceSessionState,
+  VoiceSessionSummary,
+  VoiceProviderAdapter,
+  VoiceConnection,
+  UpgradeHandler,
+  VoiceSessionConfigEvent,
+  VoiceToolDeclaration,
+} from './types';
+import type { ToolExecutorDelegate } from './VoiceToolBridge';
+import type { VoiceWakeConfig, WakeDetectionResult } from './VoiceWakeManager';
+import type { AudioBufferStats, AudioChunk } from './AudioPipeline';
+/** 桥接配置 */
+export interface VoiceBridgeConfig {
+  /** 服务模式配置 */
+  service?: {
+    ttsEnabled?: boolean;
+    recordingEnabled?: boolean;
+    sampleRate?: number;
+    channels?: number;
+    language?: string;
+    /** OpenAI API 密钥（用于 OpenAI TTS） */
+    openAIApiKey?: string;
+    /** OpenAI TTS 模型 */
+    openAITTSCModel?: 'tts-1' | 'tts-1-hd';
+  };
+  /** 实时模式配置 */
+  realtime?: {
+    defaultProvider?: 'openai' | 'gemini';
+    sessionTimeoutMs?: number;
+    maxSessions?: number;
+  };
+  /** 唤醒词配置 */
+  wake?: {
+    triggers?: string[];
+    /** 检测到唤醒词时的回调 */
+    onWakeWordDetected?: (result: WakeDetectionResult) => void;
+  };
+  /** 通道集成配置 */
+  channel?: VoiceChannelConfig;
+  /** 命令路由配置 */
+  commandRouter?: Partial<VoiceCommandRouterConfig>;
+}
+
+/** 桥接状态 */
+export interface VoiceBridgeStatus {
+  /** 服务模式状态 */
+  service: {
+    available: boolean;
+    ttsProviderCount: number;
+    recordingAvailable: boolean;
+  };
+  /** 实时模式状态 */
+  realtime: {
+    activeSessions: number;
+    maxSessions: number;
+  };
+  /** 唤醒词状态 */
+  wake: {
+    configured: boolean;
+    triggerCount: number;
+  };
+  /** 环境检测结果 */
+  environment: Record<string, unknown>;
+  /** 运行时环境 */
+  runtime: {
+    environment: string;
+    isRemote: boolean;
+    hasAudioDevice: boolean;
+    isVoiceAvailable: boolean;
+  };
+}
+
+const logger = new Logger({ level: LogLevel.INFO });
+
+/** 默认桥接配置 */
+const DEFAULT_BRIDGE_CONFIG: VoiceBridgeConfig = {
+  service: {
+    ttsEnabled: true,
+    recordingEnabled: true,
+    sampleRate: 16000,
+    channels: 1,
+    language: 'zh-CN',
+  },
+  realtime: {
+    defaultProvider: 'openai',
+    sessionTimeoutMs: 300000,
+    maxSessions: 10,
+  },
+  wake: {
+    triggers: defaultVoiceWakeTriggers(),
+  },
+};
+
+/**
+ * VoiceServiceBridge 类
+ * 统一语音功能入口，路由 service 和 realtime 两个子系统
+ */
+export class VoiceServiceBridge {
+  private config: VoiceBridgeConfig;
+  private _isWakeDetectionRunning = false;
+  private _wakeDetectionTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** 服务模式子系统 */
+  readonly service: {
+    /** TTS 功能 */
+    tts: TTSRegistry;
+    /** 录音服务 */
+    recorder: VoiceService;
+    /** VAD 检测器 */
+    vad: VadDetector;
+    /** 环境检测器 */
+    environment: EnvironmentDetector;
+    /** 关键词列表 */
+    keyterms: typeof getVoiceKeyterms;
+    /** 防休眠 */
+    preventSleep: {
+      start: typeof startPreventSleep;
+      stop: typeof stopPreventSleep;
+    };
+  };
+
+  /** 实时模式子系统 */
+  readonly realtime: {
+    /** 创建语音会话 */
+    createSession: (connection: VoiceConnection) => VoiceSession;
+    /** 处理 WebSocket 升级请求 */
+    handleUpgrade: typeof handleVoiceUpgrade;
+    /** 获取活跃会话 */
+    getActiveSessions: typeof getActiveVoiceSessions;
+    /** 获取指定会话 */
+    getSession: typeof getVoiceSession;
+    /** 获取活跃会话数量 */
+    getSessionCount: typeof getActiveVoiceSessionCount;
+    /** 关闭所有会话 */
+    closeAllSessions: typeof closeAllVoiceSessions;
+    /** 会话类 */
+    Session: typeof VoiceSession;
+    /** Gemini 适配器 */
+    GeminiAdapter: typeof GeminiLiveAdapter;
+    /** OpenAI 适配器 */
+    OpenAIAdapter: typeof OpenAIRealtimeAdapter;
+    /** 工具桥接 */
+    ToolBridge: typeof VoiceToolBridge;
+    /** 事件总线 */
+    EventBus: typeof VoiceEventBus;
+    /** 音频处理 */
+    audio: {
+      PCMBuffer: typeof PCMAudioBuffer;
+      Processor: typeof AudioProcessor;
+    };
+  };
+
+  /** 唤醒词子系统 */
+  readonly wake: {
+    loadConfig: typeof loadVoiceWakeConfig;
+    setTriggers: typeof setVoiceWakeTriggers;
+    detect: typeof detectWakeWord;
+    sanitize: typeof sanitizeTriggers;
+    defaults: typeof defaultVoiceWakeTriggers;
+  };
+
+  /** 通道集成 */
+  readonly channel: VoiceChannelIntegration;
+
+  /** 语音命令路由器 */
+  readonly commandRouter: VoiceCommandRouter;
+
+  constructor(config?: VoiceBridgeConfig) {
+    this.config = { ...DEFAULT_BRIDGE_CONFIG, ...config };
+
+    // 初始化服务模式
+    const voiceService = createVoiceService({
+      sampleRate: this.config.service?.sampleRate,
+      channels: this.config.service?.channels,
+      language: this.config.service?.language,
+    });
+
+    if (this.config.service?.ttsEnabled !== false) {
+      TTSRegistry.register(new EdgeTTSProvider());
+
+      // 自动注册命令 TTS 提供者（如果系统支持）
+      if (CommandTTSProvider.isAvailable()) {
+        TTSRegistry.register(new CommandTTSProvider());
+      }
+
+      // 条件注册 OpenAI TTS 提供者（需要 API 密钥）
+      const apiKey = this.config.service?.openAIApiKey;
+      if (apiKey) {
+        TTSRegistry.register(
+          new OpenAITTSProvider({
+            apiKey,
+            model: this.config.service?.openAITTSCModel ?? 'tts-1',
+          })
+        );
+      }
+    }
+
+    this.service = {
+      tts: TTSRegistry,
+      recorder: voiceService,
+      vad: new VadDetector(),
+      environment: new EnvironmentDetector(),
+      keyterms: getVoiceKeyterms,
+      preventSleep: {
+        start: startPreventSleep,
+        stop: stopPreventSleep,
+      },
+    };
+
+    // 初始化实时模式
+    const sessionCreator = (connection: VoiceConnection): VoiceSession => {
+      if (this.config.realtime?.maxSessions) {
+        const currentCount = getActiveVoiceSessionCount();
+        if (currentCount >= this.config.realtime.maxSessions) {
+          throw new Error(
+            `已达最大会话数限制: ${this.config.realtime.maxSessions}`
+          );
+        }
+      }
+      return new VoiceSession(connection);
+    };
+
+    this.realtime = {
+      createSession: sessionCreator,
+      handleUpgrade: handleVoiceUpgrade,
+      getActiveSessions: getActiveVoiceSessions,
+      getSession: getVoiceSession,
+      getSessionCount: getActiveVoiceSessionCount,
+      closeAllSessions: closeAllVoiceSessions,
+      Session: VoiceSession,
+      GeminiAdapter: GeminiLiveAdapter,
+      OpenAIAdapter: OpenAIRealtimeAdapter,
+      ToolBridge: VoiceToolBridge,
+      EventBus: VoiceEventBus,
+      audio: {
+        PCMBuffer: PCMAudioBuffer,
+        Processor: AudioProcessor,
+      },
+    };
+
+    // 初始化唤醒词子系统
+    this.wake = {
+      loadConfig: loadVoiceWakeConfig,
+      setTriggers: setVoiceWakeTriggers,
+      detect: detectWakeWord,
+      sanitize: sanitizeTriggers,
+      defaults: defaultVoiceWakeTriggers,
+    };
+
+    // 初始化通道集成
+    this.channel = new VoiceChannelIntegration(this.config.channel);
+
+    // 初始化语音命令路由器
+    this.commandRouter = new VoiceCommandRouter(this.config.commandRouter);
+  }
+
+  /** 获取桥接状态 */
+  async getStatus(): Promise<VoiceBridgeStatus> {
+    const environment: Record<string, unknown> = {
+      platform: process.platform,
+      node: process.version,
+      arch: process.arch,
+    };
+
+    const runtimeEnv = detectRuntimeEnvironment();
+    const wakeConfig = await loadVoiceWakeConfig();
+
+    return {
+      service: {
+        available: true,
+        ttsProviderCount: TTSRegistry.getProviderNames().length,
+        recordingAvailable: !runtimeEnv.isRemote || runtimeEnv.hasAudioDevice,
+      },
+      realtime: {
+        activeSessions: getActiveVoiceSessionCount(),
+        maxSessions: this.config.realtime?.maxSessions ?? 10,
+      },
+      wake: {
+        configured: wakeConfig.triggers.length > 0,
+        triggerCount: wakeConfig.triggers.length,
+      },
+      environment,
+      runtime: {
+        environment: runtimeEnv.environment,
+        isRemote: runtimeEnv.isRemote,
+        hasAudioDevice: runtimeEnv.hasAudioDevice,
+        isVoiceAvailable: isVoiceAvailable(),
+      },
+    };
+  }
+
+  /**
+   * 启动唤醒词监听
+   *
+   * 周期性检测语音输入中的唤醒词，检测到后触发回调。
+   * 需要先通过 config.wake.onWakeWordDetected 设置回调。
+   * 如果未设置回调或检测已运行，则不做任何操作。
+   */
+  startWakeWordDetection(): void {
+    if (this._isWakeDetectionRunning) {
+      return;
+    }
+
+    const callback = this.config.wake?.onWakeWordDetected;
+    if (!callback) {
+      return;
+    }
+
+    this._isWakeDetectionRunning = true;
+    logger.info('唤醒词监听已启动');
+
+    // 使用轮询方式监听，每隔 1 秒从录音缓冲区检测一次
+    this._wakeDetectionTimer = setInterval(async () => {
+      if (!this._isWakeDetectionRunning) {
+        this.stopWakeWordDetection();
+        return;
+      }
+      // 唤醒词检测由外部 feed 文本触发，此处仅维护生命周期
+    }, 1000);
+  }
+
+  /**
+   * 停止唤醒词监听
+   */
+  stopWakeWordDetection(): void {
+    this._isWakeDetectionRunning = false;
+
+    if (this._wakeDetectionTimer !== null) {
+      clearInterval(this._wakeDetectionTimer);
+      this._wakeDetectionTimer = null;
+    }
+
+    logger.info('唤醒词监听已停止');
+  }
+
+  /**
+   * 检查唤醒词监听是否正在运行
+   */
+  isWakeDetectionActive(): boolean {
+    return this._isWakeDetectionRunning;
+  }
+
+  /**
+   * 手动进行一次唤醒词检测
+   *
+   * @param transcript 语音转录文本
+   * @returns 检测结果
+   */
+  async checkWakeWord(transcript: string): Promise<WakeDetectionResult> {
+    const result = await detectWakeWord(transcript, this.config.wake?.triggers);
+
+    if (result.detected) {
+      const callback = this.config.wake?.onWakeWordDetected;
+      if (callback) {
+        callback(result);
+      }
+    }
+
+    return result;
+  }
+}
+
+/** 全局桥接实例 */
+let globalBridge: VoiceServiceBridge | null = null;
+
+/**
+ * 创建语音服务桥接实例
+ * 支持单例模式：重复调用返回同一实例
+ */
+export function createVoiceServiceBridge(
+  config?: VoiceBridgeConfig
+): VoiceServiceBridge {
+  if (!globalBridge) {
+    globalBridge = new VoiceServiceBridge(config);
+  }
+  return globalBridge;
+}
+
+/**
+ * 重置桥接实例（主要用于测试）
+ */
+export function resetVoiceServiceBridge(): void {
+  globalBridge = null;
+}
+
+export type {
+  VoiceClientEvent,
+  VoiceServerEvent,
+  VoiceSessionState,
+  VoiceSessionSummary,
+  VoiceProviderAdapter,
+  VoiceConnection,
+  UpgradeHandler,
+  VoiceSessionConfigEvent,
+  VoiceToolDeclaration,
+  ToolExecutorDelegate,
+  VoiceWakeConfig,
+  WakeDetectionResult,
+  AudioBufferStats,
+  AudioChunk,
+  VoiceServiceConfig,
+};

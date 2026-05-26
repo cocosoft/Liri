@@ -44,7 +44,6 @@ export function handleVoiceUpgrade(
   req: IncomingMessage,
   res: ServerResponse
 ): boolean {
-  const wsAccept = req.headers['sec-websocket-version'];
   const upgrade = req.headers['upgrade']?.toLowerCase() ?? '';
 
   if (upgrade !== 'websocket') {

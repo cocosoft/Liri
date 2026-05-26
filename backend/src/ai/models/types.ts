@@ -242,9 +242,37 @@ export interface LLMConfig {
   temperature?: number;
 }
 
+/**
+ * 文本内容片段（多模态）
+ */
+export interface TextContentPart {
+  type: 'text';
+  text: string;
+}
+
+/**
+ * 图片内容片段（多模态）
+ * 支持 URL 引用或 Base64 内联
+ */
+export interface ImageContentPart {
+  type: 'image_url';
+  image_url: {
+    url: string;
+    detail?: 'auto' | 'low' | 'high';
+  };
+}
+
+/**
+ * 多模态内容片段联合类型
+ */
+export type ContentPart = TextContentPart | ImageContentPart;
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
+  /** 纯文本内容（向后兼容） */
   content: string;
+  /** 多模态内容（可选）：存在时优先于 content */
+  multimodal?: ContentPart[];
   tool_calls?: ToolCall[];
   tool_call_id?: string;
   tool_result?: {
@@ -289,5 +317,53 @@ export interface ChatResponse {
     cache_creation_input_tokens?: number;
     completion_tokens: number;
     total_tokens: number;
+  };
+}
+
+/**
+ * 将图片文件路径/Buffer 转为 ImageContentPart
+ * 支持 URL、文件路径、Buffer 三种输入
+ */
+export function imageToContentPart(
+  input: string | Buffer,
+  detail?: 'auto' | 'low' | 'high'
+): ImageContentPart {
+  if (typeof input === 'string') {
+    if (
+      input.startsWith('http://') ||
+      input.startsWith('https://') ||
+      input.startsWith('data:')
+    ) {
+      return { type: 'image_url', image_url: { url: input, detail } };
+    }
+
+    const fs = require('node:fs');
+    const buffer = fs.readFileSync(input);
+    const ext = input.split('.').pop()?.toLowerCase() || 'png';
+    const mimeMap: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      webp: 'image/webp',
+      gif: 'image/gif',
+      bmp: 'image/bmp',
+    };
+    const mime = mimeMap[ext] || 'image/png';
+
+    return {
+      type: 'image_url',
+      image_url: {
+        url: `data:${mime};base64,${buffer.toString('base64')}`,
+        detail,
+      },
+    };
+  }
+
+  return {
+    type: 'image_url',
+    image_url: {
+      url: `data:image/png;base64,${input.toString('base64')}`,
+      detail,
+    },
   };
 }

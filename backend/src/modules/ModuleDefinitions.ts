@@ -462,7 +462,7 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     description:
       '服务模块，提供各种系统服务功能，包括API客户端、分析服务、通知服务、语音服务、技能搜索和工具摘要',
     dependencies: ['core', 'infrastructure'],
-    optionalDependencies: ['monitoring'],
+    optionalDependencies: ['monitoring', 'voice'],
   },
 
   voice: {

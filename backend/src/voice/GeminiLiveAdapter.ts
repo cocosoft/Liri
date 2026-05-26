@@ -24,18 +24,6 @@ const RECONNECT_MAX_DELAY = 10000;
 /** 默认语音配置 */
 const DEFAULT_VOICE_NAME = 'Puck';
 
-/** WebSocket 事件类型 */
-const WS_EVENT = {
-  SETUP: 'setup',
-  CLIENT_CONTENT: 'client_content',
-  TOOL_RESPONSE: 'tool_response',
-  SERVER_CONTENT: 'server_content',
-  TOOL_CALL: 'tool_call',
-  SETUP_COMPLETE: 'setup_complete',
-  ERROR: 'error',
-  INTERRUPT: 'interrupt',
-} as const;
-
 /** Gemini Live 配置 */
 interface GeminiLiveConfig {
   apiKey: string;
@@ -50,6 +38,12 @@ interface ReconnectState {
   attempt: number;
   maxAttempts: number;
   timer: ReturnType<typeof setTimeout> | null;
+}
+
+/** ServerContent 消息中的 Part 结构 */
+interface ModelTurnPart {
+  inlineData?: { data: string; mimeType?: string };
+  text?: string;
 }
 
 export class GeminiLiveAdapter implements VoiceProviderAdapter {
@@ -228,19 +222,18 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
   /**
    * 处理 serverContent 消息
    */
-  private handleServerContent(content: any): void {
-    const modelTurn = content.modelTurn;
-    if (!modelTurn?.parts) return;
+  private handleServerContent(content: Record<string, unknown>): void {
+    const modelTurn = content.modelTurn as Record<string, unknown> | undefined;
+    const parts = modelTurn?.parts as ModelTurnPart[] | undefined;
+    if (!parts) return;
 
-    let audioBuffer = '';
     let transcriptText = '';
 
-    for (const part of modelTurn.parts) {
+    for (const part of parts) {
       if (part.inlineData) {
         // 音频数据
         const data = part.inlineData.data;
         if (data) {
-          audioBuffer += data;
           this.sendToClient?.({
             type: 'audio.delta',
             data,
@@ -272,7 +265,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
       this.sendToClient?.({
         type: 'turn.ended',
       });
-    } else if (modelTurn.parts?.length > 0) {
+    } else if (parts.length > 0) {
       this.sendToClient?.({
         type: 'turn.started',
       });
@@ -282,13 +275,14 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
   /**
    * 处理 toolCall 消息
    */
-  private handleToolCall(toolCall: any): void {
-    const calls = toolCall.functionCalls ?? [];
+  private handleToolCall(toolCall: Record<string, unknown>): void {
+    const calls =
+      (toolCall.functionCalls as Array<Record<string, unknown>>) ?? [];
     for (const call of calls) {
       this.sendToClient?.({
         type: 'tool.call',
-        id: call.id ?? randomUUID(),
-        name: call.name,
+        id: (call.id as string) ?? randomUUID(),
+        name: call.name as string,
         arguments: JSON.stringify(call.args ?? {}),
       });
     }
@@ -297,7 +291,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
   /**
    * 处理二进制音频数据（服务端→客户端）
    */
-  private handleBinaryData(data: any): void {
+  private handleBinaryData(data: unknown): void {
     // 将二进制数据转为 base64 后通过 audio.delta 发送
     let base64: string;
     if (data instanceof ArrayBuffer) {
@@ -434,14 +428,16 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
    * 开始异步工具调用
    * Gemini 协议中工具调用返回后自动等待结果，无需显式通知
    */
-  beginAsyncToolCall(callId: string): void {
+  beginAsyncToolCall(_callId: string): void {
+    void _callId;
     // Gemini Live API 不需要显式的 beginAsyncToolCall
   }
 
   /**
    * 完成异步工具调用
    */
-  finishAsyncToolCall(callId: string): void {
+  finishAsyncToolCall(_callId: string): void {
+    void _callId;
     // Gemini Live API 不需要显式的 finishAsyncToolCall
   }
 

@@ -2,10 +2,12 @@
  * ImageGenerateTool
  * 对标OpenClaw image-generate 工具
  * AI图片生成工具
+ * Phase 2: 从 Mock 改为调用 AIProvider.generateImage()
  */
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import { providerRegistry } from '../../ai/providers/ProviderRegistry';
 
 export interface ImageGenerateParams {
   prompt: string;
@@ -111,21 +113,48 @@ export class ImageGenerateTool extends BaseTool {
         return { success: false, error: 'n must be between 1 and 4' };
       }
 
-      const images: GeneratedImage[] = [];
-      for (let i = 0; i < count; i++) {
-        images.push({
-          url: '',
-          alt: params.prompt.slice(0, 100),
-          size: params.size ?? '1024x1024',
-          format: params.format ?? 'png',
-          provider: params.provider ?? 'openai',
-        });
+      const provider = providerRegistry.get(params.provider ?? 'openai');
+
+      if (!provider.generateImage) {
+        return {
+          success: false,
+          error:
+            `Provider '${provider.id}' does not support image generation. ` +
+            "Use 'openai' provider with DALL-E 3.",
+        };
       }
+
+      const result = await provider.generateImage({
+        prompt: params.prompt,
+        negativePrompt: params.negativePrompt,
+        size: params.size,
+        quality: params.quality,
+        style: params.style,
+        n: count,
+        format: params.format,
+      });
+
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
+      const images: GeneratedImage[] = result.data.map((img) => ({
+        url: img.url,
+        alt: params.prompt.slice(0, 100),
+        size: params.size ?? '1024x1024',
+        format: params.format ?? 'png',
+        provider: params.provider ?? 'openai',
+      }));
 
       return {
         success: true,
-        data: { images, params },
-        output: `Generated ${count} image(s) using ${params.provider ?? 'openai'}: "${params.prompt.slice(0, 80)}..."`,
+        data: {
+          images,
+          params,
+          model: result.model,
+          durationMs: result.durationMs,
+        },
+        output: `Generated ${count} image(s) using ${params.provider ?? 'openai'} (${result.model}): "${params.prompt.slice(0, 80)}..."`,
       };
     } catch (error) {
       return {

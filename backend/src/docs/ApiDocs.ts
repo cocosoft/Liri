@@ -226,17 +226,17 @@ guideSystem.displayTemplate('basic-plugin');`,
     examples: [
       {
         title: '使用语音服务',
-        code: `import { getVoiceService } from '../services/voice';
+        code: `import { createVoiceServiceBridge } from '../voice/VoiceServiceBridge';
 
-const voiceService = getVoiceService();
+const bridge = createVoiceServiceBridge();
 
 // 检查录音可用性
-const available = await voiceService.checkRecordingAvailability();
+const available = bridge.service.recorder.checkRecordingAvailability();
 if (available) {
   // 开始录音
-  await voiceService.startRecording(
-    (chunk) => console.log('Received chunk'),
-    () => console.log('Recording finished')
+  await bridge.service.recorder.startRecording(
+    (chunk) => process.stdout.write('Received chunk'),
+    () => process.stdout.write('Recording finished')
   );
 }`,
       },

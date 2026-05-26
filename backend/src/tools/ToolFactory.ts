@@ -90,6 +90,7 @@ import { SessionsYieldTool } from './SessionsYieldTool/SessionsYieldTool';
 import { SessionsHistoryTool } from './SessionsHistoryTool/SessionsHistoryTool';
 import { GatewayTool } from './GatewayTool/GatewayTool';
 import { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
+import { ImageSvgTool } from './ImageSvgTool/ImageSvgTool';
 import { MusicGenerateTool } from './MusicGenerateTool/MusicGenerateTool';
 import { VideoGenerateTool } from './VideoGenerateTool/VideoGenerateTool';
 import { McpAuthTool } from './McpAuthTool/McpAuthTool';
@@ -1245,6 +1246,11 @@ export function getAllBaseTools(): Tool[] {
   const imageGenerateTool = new ImageGenerateTool();
   if (imageGenerateTool) {
     tools.push(imageGenerateTool);
+  }
+
+  const imageSvgTool = new ImageSvgTool();
+  if (imageSvgTool) {
+    tools.push(imageSvgTool);
   }
 
   const musicGenerateTool = new MusicGenerateTool();

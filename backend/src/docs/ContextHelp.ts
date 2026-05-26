@@ -679,6 +679,9 @@ Vim 模式编辑操作:
   语音输入         - 按住快捷键开始录音，松开后自动识别
   语音输出         - 自动朗读回复内容
   语音命令         - 支持语音唤醒和语音指令
+  实时语音会话     - 通过 WebSocket (/voice) 端点建立实时语音双工通信
+  通道语音集成     - Telegram 语音消息自动下载识别，Discord 语音频道加入/离开
+  TTS 提供商       - 支持 EdgeTTS（免费）、OpenAI TTS、Command TTS
 
 系统要求:
   - Windows:  使用 PowerShell 录音（无需额外工具）

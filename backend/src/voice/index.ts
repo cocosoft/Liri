@@ -1,4 +1,13 @@
 export { upgradeToVoiceConnection, isWebSocketUpgrade } from './upgrade';
+export {
+  VoiceServiceBridge,
+  createVoiceServiceBridge,
+  resetVoiceServiceBridge,
+} from './VoiceServiceBridge';
+export type {
+  VoiceBridgeConfig,
+  VoiceBridgeStatus,
+} from './VoiceServiceBridge';
 export { VoiceEventBus } from './VoiceEventBus';
 export { VoiceToolBridge } from './VoiceToolBridge';
 export type { ToolExecutorDelegate } from './VoiceToolBridge';
@@ -67,3 +76,18 @@ export type {
 } from './types';
 
 export type { VoiceEventBus as VoiceEventBusInterface } from './types';
+
+export { VoiceChannelIntegration } from './VoiceChannelIntegration';
+export type {
+  VoiceChannelConfig,
+  VoiceChannelMessageOptions,
+  VoiceChannelStatus,
+} from './VoiceChannelIntegration';
+
+export { VoiceCommandRouter } from './VoiceCommandRouter';
+export type {
+  CommandActionType,
+  VoiceCommandRule,
+  VoiceCommandRouterConfig,
+  CommandRoutingResult,
+} from './VoiceCommandRouter';

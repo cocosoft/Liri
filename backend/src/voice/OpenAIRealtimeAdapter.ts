@@ -50,9 +50,15 @@ const OA_EVENT = {
   RATE_LIMITS_UPDATED: 'rate_limits.updated',
 } as const;
 
+/** 重连状态 */
 interface ReconnectState {
   attempt: number;
   timer: ReturnType<typeof setTimeout> | null;
+}
+
+/** 带自定义头的 WebSocket 选项 */
+interface WebSocketInitOptions {
+  headers?: Record<string, string>;
 }
 
 export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
@@ -109,7 +115,7 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
             Authorization: `Bearer ${this.apiKey}`,
             'OpenAI-Beta': 'realtime=v1',
           },
-        } as any) as WebSocket;
+        } as WebSocketInitOptions) as WebSocket;
 
         this.ws.onopen = () => {
           this.sessionActive = true;
@@ -329,6 +335,8 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
   }
 
   sendFrame(_data: string, _mimeType?: string): void {
+    void _data;
+    void _mimeType;
     // OpenAI Realtime API 不直接支持图像帧输入
   }
 
@@ -353,10 +361,12 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
   }
 
   beginAsyncToolCall(_callId: string): void {
+    void _callId;
     // OpenAI 流的工具调用是异步的，不需要特殊处理
   }
 
   finishAsyncToolCall(_callId: string): void {
+    void _callId;
     // OpenAI 流的工具调用是异步的，不需要特殊处理
   }
 

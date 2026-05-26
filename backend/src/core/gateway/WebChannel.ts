@@ -23,11 +23,15 @@ import type {
   ChannelCapabilities,
   PluginValidationResult,
 } from './ChannelPlugin';
+import { handleVoiceUpgrade } from '../../voice/VoiceGatewayBridge';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
 /** WebSocket 魔术 GUID (RFC 6455) */
 const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+
+/** 语音 WebSocket 端点路径 */
+const VOICE_WS_PATH = '/voice';
 
 /** WebSocket 通道配置 */
 export interface WebChannelConfig extends ChannelConfig {
@@ -119,6 +123,13 @@ export class WebChannel implements GatewayChannel, ChannelPlugin {
 
     try {
       this.server = http.createServer((req, res) => {
+        const url = req.url ?? '/';
+
+        if (url === VOICE_WS_PATH) {
+          handleVoiceUpgrade(req, res);
+          return;
+        }
+
         if (!this.isWebSocketUpgrade(req)) {
           res.writeHead(426, { 'Content-Type': 'text/plain' });
           res.end('Upgrade Required');

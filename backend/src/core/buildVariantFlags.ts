@@ -1,6 +1,6 @@
 // 自动生成的分版 Feature Flags
 // 变体: coding — 编码版 — Personal + LSP + Notebook + 代码分析
-// 生成时间: 2026-05-25T23:40:29.683Z
+// 生成时间: 2026-05-26T03:26:51.038Z
 
 export const BUILD_VARIANT_FLAGS = {
   AGENT_SWARMS: true,

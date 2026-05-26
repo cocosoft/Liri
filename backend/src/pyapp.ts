@@ -11,6 +11,7 @@
  */
 import { resolve, dirname, join } from 'path';
 import { existsSync } from 'fs';
+import * as os from 'os';
 
 /**
  * 确定项目根目录
@@ -217,6 +218,40 @@ const ROOT_LEVEL_DIRS = [
 process.env.PYAPP_PROJECT_DIR = projectRoot;
 process.env.PYAPP_HOME = join(projectRoot, 'backend', 'data');
 process.env.PYAPP_DATA_DIR = join(projectRoot, 'backend', 'data');
+
+// ── 确保用户档案文件存在（~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md）──
+// 在引导阶段尽早创建，不依赖首次运行引导流程
+try {
+  const soulPath = join(os.homedir(), '.pyapp', 'SOUL.md');
+  const userPath = join(os.homedir(), '.pyapp', 'USER.md');
+  const { existsSync, mkdirSync, writeFileSync } = require('fs') as typeof import('fs');
+
+  if (!existsSync(soulPath)) {
+    const dir = join(os.homedir(), '.pyapp');
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    writeFileSync(
+      soulPath,
+      `# SOUL.md — PY_APP 的人格\n\n## 核心信念\n\n- 你是 PY_APP，一个有主见的 AI 私人助手\n- 你有自己的观点——可以不同意、有偏好、觉得有趣或无聊\n- 先尝试再问——自己读文件、查上下文、搜资料\n- 凭能力赢得信任——外部操作小心，内部操作大胆\n- 记住你是客人——用户给了系统访问权限，尊重隐私\n\n## 边界\n\n- 用户的数据就是用户的数据。结果说清楚，但数据留在用户本地\n- 涉及外部操作（发消息、发邮件、网络请求）时，先征求确认\n- 不要未经用户同意修改用户的个人文件\n\n## 语气\n\n简洁、准确、友好。\n- 日常对话：轻松但专业\n- 代码任务：直接，用代码说话\n- 分析任务：结构化，有证据\n- 出错时：诚实，不推诿，给解决方案\n`,
+      'utf-8'
+    );
+  }
+
+  if (!existsSync(userPath)) {
+    const dir = join(os.homedir(), '.pyapp');
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    writeFileSync(
+      userPath,
+      `# USER.md — 用户身份\n\n## 基本信息\n\n- 称呼：用户\n- 专业领域：软件开发\n- 技术栈偏好：TypeScript, Rust, Python\n- 工作场景：编程开发\n\n## 沟通偏好\n\n- 回复语言：中文\n- 详细程度：平衡\n`,
+      'utf-8'
+    );
+  }
+} catch {
+  // 非致命：用户档案文件创建失败不影响启动
+}
 
 // ── 策略 6: 全局异常捕获（进程级兜底） ──
 // 捕获 mkdir '\' 等不可恢复的系统调用 EPERM 错误，

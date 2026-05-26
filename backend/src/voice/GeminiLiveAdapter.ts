@@ -4,6 +4,7 @@
  * 实现 VoiceProviderAdapter 接口，对接 Gemini BidiGenerateContent API
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { randomUUID } from 'crypto';
 import type {
   VoiceSessionConfigEvent,
@@ -47,6 +48,7 @@ interface ModelTurnPart {
 }
 
 export class GeminiLiveAdapter implements VoiceProviderAdapter {
+  private logger = new Logger({ level: LogLevel.INFO });
   private ws: WebSocket | null = null;
   private config: GeminiLiveConfig;
   private sendToClient: ((event: VoiceServerEvent) => void) | null = null;
@@ -104,6 +106,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
+          this.logger.info('Gemini Live WebSocket 连接已建立');
           this.sessionActive = true;
           this.sendSetupMessage();
           resolve();
@@ -114,6 +117,11 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
         };
 
         this.ws.onclose = (event: CloseEvent) => {
+          this.logger.warn('Gemini Live WebSocket 连接关闭', {
+            code: event.code,
+            reason: event.reason,
+            reconnectAttempt: this.reconnect.attempt,
+          });
           this.sessionActive = false;
           if (this.reconnect.attempt < this.reconnect.maxAttempts) {
             this.scheduleReconnect();
@@ -127,9 +135,13 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
         };
 
         this.ws.onerror = (err: Event) => {
+          this.logger.error('Gemini Live WebSocket 连接失败');
           reject(new Error(`WebSocket 连接失败: ${err}`));
         };
       } catch (err) {
+        this.logger.error('Gemini Live WebSocket 创建异常', {
+          error: String(err),
+        });
         reject(err);
       }
     });
@@ -181,7 +193,6 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
    */
   private handleMessage(event: MessageEvent): void {
     if (typeof event.data !== 'string') {
-      // 二进制数据（音频流）
       this.handleBinaryData(event.data);
       return;
     }
@@ -190,6 +201,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
       const msg = JSON.parse(event.data);
 
       if (msg.setupComplete) {
+        this.logger.info('Gemini Live 会话就绪');
         this.sendToClient?.({
           type: 'session.ready',
           sessionId: randomUUID(),
@@ -208,6 +220,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
       }
 
       if (msg.error) {
+        this.logger.error('Gemini API 错误', { message: msg.error.message });
         this.sendToClient?.({
           type: 'error',
           code: 'GEMINI_ERROR',
@@ -215,7 +228,9 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
         });
       }
     } catch {
-      // 忽略无法解析的消息
+      this.logger.warn('Gemini 消息解析失败', {
+        data: String(event.data).slice(0, 100),
+      });
     }
   }
 
@@ -504,6 +519,7 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
    * 断开连接
    */
   disconnect(): void {
+    this.logger.info('Gemini Live 断开连接');
     this.sessionActive = false;
 
     if (this.reconnect.timer) {

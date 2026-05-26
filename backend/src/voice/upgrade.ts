@@ -3,6 +3,7 @@
  * 使用 Node.js 内置 http + crypto + net 模块实现 RFC 6455
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 import { createHash, randomUUID } from 'crypto';
@@ -11,6 +12,8 @@ import type {
   VoiceConnection,
   VoiceServerEvent,
 } from './types';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /** WebSocket 魔术 GUID (RFC 6455) */
 const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -159,12 +162,13 @@ function handleDataFrame(conn: InternalConnection): void {
           const event = JSON.parse(text) as VoiceClientEvent;
           conn.messageHandler?.(event);
         } catch {
-          // 忽略无法解析的 JSON 消息
+          logger.warn('无法解析 WebSocket 消息', { text: text.slice(0, 100) });
         }
         break;
       }
 
       case OpCode.CLOSE: {
+        logger.info('WebSocket 收到关闭帧', { connId: conn.id });
         conn.state = ConnState.CLOSING;
         sendCloseFrame(conn);
         conn.socket.end();
@@ -236,6 +240,7 @@ export function upgradeToVoiceConnection(
 ): VoiceConnection | null {
   const key = req.headers['sec-websocket-key'] as string;
   if (!key) {
+    logger.warn('WebSocket 升级缺少 sec-websocket-key');
     res.writeHead(400);
     res.end();
     return null;
@@ -251,6 +256,7 @@ export function upgradeToVoiceConnection(
 
   const rawSocket = res.socket as Socket | undefined;
   if (!rawSocket) {
+    logger.warn('WebSocket 升级缺少底层 socket');
     res.end();
     return null;
   }
@@ -282,8 +288,11 @@ export function upgradeToVoiceConnection(
   });
 
   rawSocket.on('error', (err) => {
+    logger.error('WebSocket 连接错误', { connId: conn.id, error: err.message });
     conn.errorHandler?.(err);
   });
+
+  logger.info('WebSocket 升级成功', { connId: conn.id });
 
   const connection: VoiceConnection = {
     id: conn.id,

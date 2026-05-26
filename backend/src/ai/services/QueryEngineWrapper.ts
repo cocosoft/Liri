@@ -3,7 +3,9 @@
  * 集成 Mini Agent 到 QueryEngine
  * 实现意图预分类和智能路由
  *
- * TODO(阶段二-未来): 将 executeDirectQuery 替换为 query/QueryEngine 委托调用
+ * 注意: 废弃的 AIQueryEngine 已删除（v7.0+），统一走此包装器。
+ *
+ * TODO(未来): 将 executeDirectQuery 替换为 query/QueryEngine 委托调用
  *   1. 注入 ChatManagerImpl 依赖或通过工厂获取
  *   2. 使用 createQueryEngine(chatManager, config) 创建主引擎
  *   3. 将 messages 转换为 prompt string 后委托 QueryEngine.query()

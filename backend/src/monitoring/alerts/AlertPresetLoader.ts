@@ -75,8 +75,21 @@ export class AlertPresetLoader {
 
     const presetsDir = this.config.presetsDir;
     if (!presetsDir || !fs.existsSync(presetsDir)) {
-      logger.warn(`预置目录不存在: ${presetsDir}`);
-      return result;
+      const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+      const fallbackDir = path.join(projectRoot, 'backend', 'src', 'monitoring', 'alerts', 'presets');
+      if (fs.existsSync(fallbackDir)) {
+        this.config.presetsDir = fallbackDir;
+        logger.info(`预置目录已回退到: ${fallbackDir}`);
+      } else {
+        const altDir = path.join(projectRoot, 'alerts', 'presets');
+        if (fs.existsSync(altDir)) {
+          this.config.presetsDir = altDir;
+          logger.info(`预置目录已回退到: ${altDir}`);
+        } else {
+          logger.warn(`预置目录不存在: ${presetsDir}`);
+          return result;
+        }
+      }
     }
 
     const files = this.findPresetFiles(presetsDir);

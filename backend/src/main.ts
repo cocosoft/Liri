@@ -25,8 +25,6 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { ensureDefaultSoulMd } from './services/soul/SoulReader';
-import { ensureDefaultUserMd } from './services/soul/UserReader';
 import { resolveProjectRoot } from './config/paths';
 
 const logger = new Logger({ level: 'info' as any });
@@ -127,10 +125,6 @@ async function checkFirstRunAndOnboard(): Promise<void> {
   const envExample = getEnvExamplePath();
   const onboardRetryFlag = getOnboardRetryFlagPath();
   const dataDir = getDataDir();
-
-  // 确保 ~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md 存在
-  ensureDefaultSoulMd();
-  ensureDefaultUserMd();
 
   if (existsSync(onboardedFlag)) {
     // 已有标记文件，检查 AI 状态
@@ -312,6 +306,22 @@ async function initializeModuleSystem(): Promise<void> {
 }
 
 /**
+ * 启动后异步展示精简版健康报告
+ * 不阻塞 REPL 启动，仅作为信息提示
+ */
+async function displayStartupHealthReport(): Promise<void> {
+  try {
+    const { systemHealthChecker, formatHealthReport } = await import(
+      './diagnostics/SystemHealthChecker'
+    );
+    const report = await systemHealthChecker.performFullCheck();
+    console.log(formatHealthReport(report));
+  } catch {
+    // 健康报告展示失败不影响主流程
+  }
+}
+
+/**
  * 启动 CLI 模式
  */
 async function launchCLI(options: LaunchOptions): Promise<void> {
@@ -333,6 +343,9 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
 
   const httpPort = parseHttpPortFromArgs(options.args);
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
+
+  // 启动后异步展示健康报告（延迟执行，不阻塞 REPL 启动）
+  displayStartupHealthReport();
 
   const { launchRepl } = await import('./entrypoints/repl');
   await launchRepl({ httpPort, useLegacyRepl });

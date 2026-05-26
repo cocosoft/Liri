@@ -193,6 +193,23 @@ export async function init(): Promise<void> {
         profileCheckpoint('load_gateway_start');
         getStartupChainProfiler().markPhaseStart('gateway_init');
         const startTime = Date.now();
+
+        // 检查 Gateway 断路器状态
+        const { CircuitBreaker } = await import('../diagnostics/CircuitBreaker.js');
+        const gatewayBreaker = CircuitBreaker.getOrCreate('gateway-init', {
+          maxFailures: 2,
+          baseDelayMs: 10000,
+          maxDelayMs: 300000,
+        });
+        if (gatewayBreaker.isOpen()) {
+          logger.debug('Gateway 断路器已断开，跳过本次预加载', {
+            cooldown: gatewayBreaker.getRemainingCooldown(),
+          });
+          profileCheckpoint('load_gateway_end');
+          getStartupChainProfiler().markPhaseEnd('gateway_init');
+          return { success: false, error: new Error('断路器已断开') };
+        }
+
         try {
           // 根据 GlobalConfig.channels 决定 Gateway 通道服务启停
           const { configManager } = await import('../config/ConfigManager.js');
@@ -249,7 +266,7 @@ export async function init(): Promise<void> {
               });
             }
           } catch (setupError) {
-            logger.warning('Gateway 通道自动启动失败', { error: setupError });
+            logger.debug('Gateway 通道自动启动失败（非关键）', { error: setupError });
           }
 
           // 同步通道到 ChannelRegistry，确保工具和 /channel 命令可访问
@@ -271,7 +288,7 @@ export async function init(): Promise<void> {
               );
             }
           } catch (channelError) {
-            logger.warning('ChannelRegistry 同步失败', {
+            logger.debug('ChannelRegistry 同步失败（非关键）', {
               error: channelError,
             });
           }
@@ -285,9 +302,11 @@ export async function init(): Promise<void> {
           if (duration > 100) {
             logger.warning(`Gateway 服务加载较慢: ${duration}ms`);
           }
+          gatewayBreaker.recordSuccess();
           return { success: true, duration };
         } catch (error) {
-          logger.warning('预加载 Gateway 服务失败', { error });
+          gatewayBreaker.recordFailure();
+          logger.debug('预加载 Gateway 服务失败（非关键）', { error });
           return { success: false, error };
         } finally {
           profileCheckpoint('load_gateway_end');

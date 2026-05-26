@@ -4,6 +4,7 @@
  * 支持基础视觉分析：元数据提取、色彩分析、内容检测、图片对比、AI视觉分析
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -11,6 +12,8 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { ImageProcessor } from '../../media/image/ImageProcessor';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
+import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
+import { KnowledgeBaseWriter } from '../../memory/services/KnowledgeBaseWriter';
 
 /**
  * 分析操作类型
@@ -128,6 +131,8 @@ export interface FullAnalysis {
 
 const processor = new ImageProcessor();
 
+const logger = new Logger({ level: LogLevel.INFO });
+
 export class ImageAnalysisTool extends BaseTool {
   name = 'image_analysis';
 
@@ -176,10 +181,14 @@ export class ImageAnalysisTool extends BaseTool {
       const params = input as ImageAnalysisInput;
 
       if (!params.inputPath) {
+        logger.warn('ImageAnalysisTool · 缺少 inputPath');
         return { success: false, error: 'inputPath is required' };
       }
 
       if (!fs.existsSync(params.inputPath)) {
+        logger.warn('ImageAnalysisTool · 输入文件不存在', {
+          inputPath: params.inputPath,
+        });
         return {
           success: false,
           error: `Input file not found: ${params.inputPath}`,
@@ -188,34 +197,134 @@ export class ImageAnalysisTool extends BaseTool {
 
       const stat = fs.statSync(params.inputPath);
       if (!stat.isFile()) {
+        logger.warn('ImageAnalysisTool · 输入不是文件', {
+          inputPath: params.inputPath,
+        });
         return { success: false, error: `Not a file: ${params.inputPath}` };
       }
 
+      // 安全检查
+      const checkBuffer = fs.readFileSync(params.inputPath);
+      const ext = path.extname(params.inputPath).slice(1).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        webp: 'image/webp',
+        gif: 'image/gif',
+        bmp: 'image/bmp',
+      };
+      const checkMime = mimeMap[ext] || `image/${ext}`;
+      const sanitizeResult = imageSanitizationPolicy.sanitize(
+        checkBuffer,
+        checkMime
+      );
+
+      if (!sanitizeResult.sanitized) {
+        logger.warn('ImageAnalysisTool · 安全检查未通过', {
+          inputPath: params.inputPath,
+          warnings: sanitizeResult.warnings,
+        });
+        return {
+          success: false,
+          error: `Image failed security check: ${sanitizeResult.warnings.join(', ')}`,
+        };
+      }
+
+      if (sanitizeResult.warnings.length > 0) {
+        logger.warn('ImageAnalysisTool · 安全检查告警', {
+          warnings: sanitizeResult.warnings,
+        });
+      }
+
+      logger.info('ImageAnalysisTool · 执行', {
+        action: params.action,
+        inputPath: params.inputPath,
+      });
+
+      let result: ToolResult;
       switch (params.action) {
         case 'metadata':
-          return this.handleMetadata(params);
+          result = this.handleMetadata(params);
+          break;
         case 'colors':
-          return this.handleColors(params);
+          result = this.handleColors(params);
+          break;
         case 'content':
-          return this.handleContent(params);
+          result = this.handleContent(params);
+          break;
         case 'compare':
-          return this.handleCompare(params);
+          result = this.handleCompare(params);
+          break;
         case 'full':
-          return this.handleFull(params);
+          result = await this.handleFull(params);
+          break;
         case 'vision':
-          return this.handleVision(params);
+          result = await this.handleVision(params);
+          break;
         default:
+          logger.warn('ImageAnalysisTool · 未知操作', {
+            action: params.action,
+          });
           return {
             success: false,
             error: `Unknown action: ${params.action}. Supported: metadata, colors, content, compare, full, vision`,
           };
       }
+
+      // 分析成功后将结果写入知识库
+      if (result.success) {
+        this.recordAnalysisToKnowledgeBase(params, result).catch(
+          (err: unknown) => {
+            logger.warn('ImageAnalysisTool · 知识库写入失败', {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        );
+      }
+
+      return result;
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('ImageAnalysisTool · 执行失败', { error: errorMsg });
       return {
         success: false,
-        error: `Image analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Image analysis failed: ${errorMsg}`,
       };
     }
+  }
+
+  /**
+   * 将分析结果异步写入知识库（fire-and-forget）
+   */
+  private async recordAnalysisToKnowledgeBase(
+    params: ImageAnalysisInput,
+    result: ToolResult
+  ): Promise<void> {
+    const writer = new KnowledgeBaseWriter();
+    const output = result.output || '';
+    const action = params.action;
+
+    const title = `图片分析: ${path.basename(params.inputPath)} — ${action}`;
+    const content = [
+      `## 图片分析结果`,
+      ``,
+      `**文件**: ${params.inputPath}`,
+      `**分析类型**: ${action}`,
+      `**时间**: ${new Date().toISOString()}`,
+      ``,
+      `### 分析输出`,
+      ``,
+      output,
+    ].join('\n');
+
+    await writer.writeEntry({
+      title,
+      content,
+      category: 'image-analysis',
+      tags: ['image', 'analysis', action],
+      source: 'ImageAnalysisTool',
+    });
   }
 
   /**

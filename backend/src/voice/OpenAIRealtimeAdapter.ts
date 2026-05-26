@@ -4,6 +4,7 @@
  * 实现 VoiceProviderAdapter 接口，对接 OpenAI Realtime API
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type {
   VoiceSessionConfigEvent,
   VoiceServerEvent,
@@ -67,6 +68,7 @@ function createWsWithHeaders(url: string, options: WsOptions): WebSocket {
 }
 
 export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
+  private logger = new Logger({ level: LogLevel.INFO });
   private ws: WebSocket | null = null;
 
   private apiKey: string;
@@ -123,6 +125,7 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
         });
 
         this.ws.onopen = () => {
+          this.logger.info('OpenAI Realtime WebSocket 连接已建立');
           this.sessionActive = true;
           this.sendSessionUpdate();
           resolve();
@@ -133,6 +136,9 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
         };
 
         this.ws.onclose = () => {
+          this.logger.warn('OpenAI Realtime WebSocket 连接关闭', {
+            reconnectAttempt: this.reconnect.attempt,
+          });
           this.sessionActive = false;
           if (this.reconnect.attempt < 3) {
             this.scheduleReconnect();
@@ -146,9 +152,13 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
         };
 
         this.ws.onerror = () => {
+          this.logger.error('OpenAI Realtime WebSocket 连接失败');
           reject(new Error('WebSocket 连接失败'));
         };
       } catch (err) {
+        this.logger.error('OpenAI Realtime WebSocket 创建异常', {
+          error: String(err),
+        });
         reject(err);
       }
     });
@@ -203,6 +213,7 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
     try {
       parsed = JSON.parse(raw);
     } catch {
+      this.logger.warn('OpenAI 消息解析失败', { raw: raw.slice(0, 100) });
       return;
     }
 
@@ -305,6 +316,10 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
 
       case OA_EVENT.ERROR: {
         const errBody = (parsed.error as Record<string, unknown>) ?? {};
+        this.logger.error('OpenAI API 错误', {
+          message: errBody.message,
+          code: errBody.code,
+        });
         this.sendToClient?.({
           type: 'error',
           code: 'PROVIDER_ERROR',
@@ -426,6 +441,7 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
   }
 
   disconnect(): void {
+    this.logger.info('OpenAI Realtime 断开连接');
     this.sessionActive = false;
 
     if (this.reconnect.timer) {

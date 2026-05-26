@@ -15,7 +15,7 @@ import {
   ValidationResult,
   ToolTag,
 } from '../types/Tool';
-import { createSuccessResult, createFailureResult } from '../utils/ToolUtils';
+import { createSuccessResult, createFailureResult, checkPathAccessibility } from '../utils/ToolUtils';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
@@ -175,8 +175,16 @@ export class PowerShellTool extends BaseTool {
       const timeout = (input.timeout as number) || 60000;
       const skipSecurityCheck = (input.skipSecurityCheck as boolean) || false;
       const workingDirectory =
-        (input.workingDirectory as string) || context.options.cwd;
+        (input.workingDirectory as string) || context.options.cwd || process.cwd();
       const executionPolicy = (input.executionPolicy as string) || 'Bypass';
+
+      const workingDirCheck = checkPathAccessibility(workingDirectory, 'PowerShell 工作目录');
+      if (!workingDirCheck.accessible) {
+        return createFailureResult(
+          `${workingDirCheck.reason}${workingDirCheck.suggestions?.length ? `\n建议: ${workingDirCheck.suggestions.join('; ')}` : ''}`,
+          { executionTime: Date.now() - startTime },
+        );
+      }
 
       if (!command) {
         return createFailureResult('command is required', {

@@ -2,11 +2,14 @@
  * 语音输入工具
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_INPUT_TOOL_NAME } from './constants';
 import voiceService from '@modules/services/voice';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const VOICE_INPUT_PARAMS = [
   {
@@ -38,6 +41,7 @@ export class VoiceInputTool implements Tool {
   ): Promise<ToolResult> {
     const action = input.action as string;
 
+    logger.info('VoiceInputTool · 执行', { action, language: input.language });
     switch (action) {
       case 'start':
         return await this.handleStart(input);
@@ -46,6 +50,7 @@ export class VoiceInputTool implements Tool {
       case 'check':
         return await this.handleCheck();
       default:
+        logger.warn('VoiceInputTool · 未知操作', { action });
         return {
           status: ToolExecutionStatus.FAILURE,
           result: null,
@@ -69,6 +74,7 @@ export class VoiceInputTool implements Tool {
       const language = (input.language as string) || 'zh-CN';
 
       if (this.isActive) {
+        logger.warn('VoiceInputTool · 录音已在进行中');
         return {
           status: ToolExecutionStatus.FAILURE,
           result: null,
@@ -94,6 +100,7 @@ export class VoiceInputTool implements Tool {
       );
 
       if (!started) {
+        logger.error('VoiceInputTool · 启动录音失败');
         return {
           status: ToolExecutionStatus.FAILURE,
           result: null,
@@ -111,6 +118,7 @@ export class VoiceInputTool implements Tool {
 
       this.isActive = true;
       this.audioChunks = [];
+      logger.info('VoiceInputTool · 录音已启动', { language });
 
       return {
         status: ToolExecutionStatus.SUCCESS,
@@ -126,10 +134,12 @@ export class VoiceInputTool implements Tool {
         timestamp: Date.now(),
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('VoiceInputTool · 启动录音异常', { error: errorMsg });
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
         executionTime: 0,
         output: '',
         errorOutput: `启动语音输入失败: ${error}`,
@@ -147,6 +157,7 @@ export class VoiceInputTool implements Tool {
   ): Promise<ToolResult> {
     try {
       if (!this.isActive) {
+        logger.warn('VoiceInputTool · 没有正在进行的录音');
         return {
           status: ToolExecutionStatus.FAILURE,
           result: null,
@@ -169,6 +180,10 @@ export class VoiceInputTool implements Tool {
       const result = await voiceService.recognize(audioData);
 
       this.audioChunks = [];
+      logger.info('VoiceInputTool · 语音识别完成', {
+        text: result.text,
+        confidence: result.confidence,
+      });
 
       return {
         status: ToolExecutionStatus.SUCCESS,
@@ -184,10 +199,12 @@ export class VoiceInputTool implements Tool {
         timestamp: Date.now(),
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('VoiceInputTool · 停止录音异常', { error: errorMsg });
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
         executionTime: 0,
         output: '',
         errorOutput: `停止语音输入失败: ${error}`,

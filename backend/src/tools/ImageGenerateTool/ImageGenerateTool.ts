@@ -5,9 +5,13 @@
  * Phase 2: 从 Mock 改为调用 AIProvider.generateImage()
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
+import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface ImageGenerateParams {
   prompt: string;
@@ -102,6 +106,7 @@ export class ImageGenerateTool extends BaseTool {
       const params = input as ImageGenerateParams;
 
       if (!params.prompt || typeof params.prompt !== 'string') {
+        logger.warn('ImageGenerateTool · 缺少提示词');
         return {
           success: false,
           error: 'prompt is required and must be a string',
@@ -110,12 +115,16 @@ export class ImageGenerateTool extends BaseTool {
 
       const count = params.n ?? 1;
       if (count < 1 || count > 4) {
+        logger.warn('ImageGenerateTool · 数量超出范围', { n: count });
         return { success: false, error: 'n must be between 1 and 4' };
       }
 
       const provider = providerRegistry.get(params.provider ?? 'openai');
 
       if (!provider.generateImage) {
+        logger.warn('ImageGenerateTool · 提供商不支持图片生成', {
+          provider: provider.id,
+        });
         return {
           success: false,
           error:
@@ -124,6 +133,12 @@ export class ImageGenerateTool extends BaseTool {
         };
       }
 
+      logger.info('ImageGenerateTool · 开始生成', {
+        prompt: params.prompt.slice(0, 80),
+        provider: provider.id,
+        count,
+        size: params.size,
+      });
       const result = await provider.generateImage({
         prompt: params.prompt,
         negativePrompt: params.negativePrompt,
@@ -135,17 +150,46 @@ export class ImageGenerateTool extends BaseTool {
       });
 
       if (!result.success) {
+        logger.error('ImageGenerateTool · 生成失败', { error: result.error });
         return { success: false, error: result.error };
       }
 
-      const images: GeneratedImage[] = result.data.map((img) => ({
-        url: img.url,
-        alt: params.prompt.slice(0, 100),
-        size: params.size ?? '1024x1024',
-        format: params.format ?? 'png',
-        provider: params.provider ?? 'openai',
-      }));
+      const images: GeneratedImage[] = [];
+      for (const img of result.data) {
+        // 验证生成的图片 URL 格式有效
+        if (
+          !img.url ||
+          typeof img.url !== 'string' ||
+          img.url.trim().length === 0
+        ) {
+          logger.warn('ImageGenerateTool · 生成的图片 URL 无效', {
+            url: img.url,
+          });
+          continue;
+        }
 
+        images.push({
+          url: img.url,
+          alt: params.prompt.slice(0, 100),
+          size: params.size ?? '1024x1024',
+          format: params.format ?? 'png',
+          provider: params.provider ?? 'openai',
+        });
+      }
+
+      if (images.length === 0) {
+        logger.error('ImageGenerateTool · 所有生成的图片均未通过安全检查');
+        return {
+          success: false,
+          error: 'All generated images failed security checks',
+        };
+      }
+
+      logger.info('ImageGenerateTool · 生成完成', {
+        count: images.length,
+        model: result.model,
+        durationMs: result.durationMs,
+      });
       return {
         success: true,
         data: {
@@ -157,9 +201,11 @@ export class ImageGenerateTool extends BaseTool {
         output: `Generated ${count} image(s) using ${params.provider ?? 'openai'} (${result.model}): "${params.prompt.slice(0, 80)}..."`,
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('ImageGenerateTool · 执行异常', { error: errorMsg });
       return {
         success: false,
-        error: `Failed to generate image: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Failed to generate image: ${errorMsg}`,
       };
     }
   }

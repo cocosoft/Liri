@@ -5,10 +5,13 @@
  * 负责唤醒词配置持久化、唤醒词检测、触发路由
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { join } from 'path';
 import { homedir } from 'os';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /** 唤醒词配置 */
 export interface VoiceWakeConfig {
@@ -78,6 +81,7 @@ export async function loadVoiceWakeConfig(): Promise<VoiceWakeConfig> {
   try {
     const content = await readFile(configPath, 'utf-8');
     const parsed = JSON.parse(content) as VoiceWakeConfig;
+    logger.info('VoiceWakeManager · 配置已加载', { triggers: parsed.triggers });
     return {
       triggers: sanitizeTriggers(parsed.triggers),
       updatedAtMs:
@@ -86,6 +90,9 @@ export async function loadVoiceWakeConfig(): Promise<VoiceWakeConfig> {
           : 0,
     };
   } catch {
+    logger.warn('VoiceWakeManager · 配置文件不存在，使用默认值', {
+      defaultTriggers: defaultVoiceWakeTriggers(),
+    });
     return { triggers: defaultVoiceWakeTriggers(), updatedAtMs: 0 };
   }
 }
@@ -110,6 +117,7 @@ export async function setVoiceWakeTriggers(
   });
 
   await writeLock;
+  logger.info('VoiceWakeManager · 唤醒词已保存', { triggers: sanitized });
   return { triggers: sanitized, updatedAtMs: Date.now() };
 }
 
@@ -138,6 +146,10 @@ export async function detectWakeWord(
     if (idx !== -1) {
       // 提取唤醒词后的剩余文本
       const afterTrigger = transcript.slice(idx + trigger.length).trim();
+      logger.info('VoiceWakeManager · 检测到唤醒词', {
+        trigger,
+        remainingText: afterTrigger?.slice(0, 80),
+      });
       return {
         detected: true,
         matchedTrigger: trigger,

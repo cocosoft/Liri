@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { Tool } from '../types/Tool';
 import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { ToolUtils } from '../utils/ToolUtils';
+import { ToolUtils, checkPathAccessibility } from '../utils/ToolUtils';
 import { exec, execSync, ExecOptions } from 'child_process';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 
@@ -349,6 +349,17 @@ export class BashTool {
         const env = (inputRecord.env as Record<string, string>) || process.env;
 
         try {
+          const cwdCheck = checkPathAccessibility(cwd, 'Bash工作目录');
+          if (!cwdCheck.accessible) {
+            return ToolUtils.createFailureResult(
+              `${cwdCheck.reason}${cwdCheck.suggestions?.length ? `\n建议: ${cwdCheck.suggestions.join('; ')}` : ''}`,
+              {
+                executionTime: ToolUtils.calculateExecutionTime(startTime),
+                toolName: 'bash',
+              },
+            );
+          }
+
           // 执行命令
           const result = await BashTool.executeCommand(command, {
             cwd,

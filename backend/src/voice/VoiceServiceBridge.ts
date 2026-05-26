@@ -14,6 +14,15 @@
  * ```
  */
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getMetricsService } from '@modules/monitoring/metrics/MetricsService';
+import type { MetricsService } from '@modules/monitoring/metrics/MetricsService';
+// eslint-disable-next-line module-registry/no-direct-module-import
+import { SessionManager } from '@modules/session/SessionManager';
+import {
+  getAlertManager,
+  AlertLevel,
+} from '@modules/monitoring/alerts/AlertManager';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 
 import {
   createVoiceService,
@@ -56,11 +65,13 @@ import {
   getVoiceSession,
   getActiveVoiceSessionCount,
   closeAllVoiceSessions,
+  setVoiceIntegrationContext,
 } from './VoiceGatewayBridge';
 import { VoiceChannelIntegration } from './VoiceChannelIntegration';
 import type { VoiceChannelConfig } from './VoiceChannelIntegration';
 import { VoiceCommandRouter } from './VoiceCommandRouter';
 import type { VoiceCommandRouterConfig } from './VoiceCommandRouter';
+import { MemoryManagerImpl } from '../memory/MemoryManager';
 
 import type { VoiceServiceConfig } from '../services/voice/models/types';
 import type {
@@ -167,6 +178,7 @@ export class VoiceServiceBridge {
   private config: VoiceBridgeConfig;
   private _isWakeDetectionRunning = false;
   private _wakeDetectionTimer: ReturnType<typeof setInterval> | null = null;
+  private metrics: MetricsService;
 
   /** 服务模式子系统 */
   readonly service: {
@@ -235,6 +247,82 @@ export class VoiceServiceBridge {
 
   constructor(config?: VoiceBridgeConfig) {
     this.config = { ...DEFAULT_BRIDGE_CONFIG, ...config };
+    this.metrics = getMetricsService();
+
+    // 注册语音相关指标
+    this.metrics.createGauge({
+      name: 'voice.active_sessions',
+      description: '当前活跃的语音会话数',
+    });
+    this.metrics.createCounter({
+      name: 'voice.sessions_total',
+      description: '语音会话累计创建数',
+    });
+    this.metrics.createCounter({
+      name: 'voice.audio_processed_bytes',
+      description: '累计处理的音频字节数',
+    });
+    this.metrics.createCounter({
+      name: 'voice.tool_calls_total',
+      description: '语音工具调用累计次数',
+    });
+    this.metrics.createCounter({
+      name: 'voice.errors_total',
+      description: '语音模块错误累计次数',
+    });
+
+    // 注册语音模块告警规则
+    const alertManager = getAlertManager();
+    alertManager.registerRule({
+      id: 'voice-connection-failure',
+      name: '语音连接失败',
+      description: '语音会话连接失败时触发',
+      level: AlertLevel.ERROR,
+      condition: (metrics) => {
+        const values = metrics['voice.errors_total'];
+        if (!values || values.length < 2) return false;
+        return values[values.length - 1] > values[values.length - 2];
+      },
+      message: '语音连接失败，请检查网络和 API 密钥配置',
+      enabled: true,
+      cooldown: 60000,
+    });
+    alertManager.registerRule({
+      id: 'voice-session-error',
+      name: '语音会话错误率高',
+      description: '语音会话累计错误数超过阈值时触发',
+      level: AlertLevel.WARNING,
+      condition: (metrics) => {
+        const errors = metrics['voice.errors_total'];
+        const sessions = metrics['voice.sessions_total'];
+        if (!errors || errors.length === 0) return false;
+        const latestErrors = errors[errors.length - 1];
+        if (!sessions || sessions.length === 0) return latestErrors > 5;
+        const latestSessions = sessions[sessions.length - 1];
+        return latestSessions > 0 && latestErrors / latestSessions > 0.3;
+      },
+      message: '语音会话错误率过高（>30%）',
+      enabled: true,
+      cooldown: 120000,
+    });
+    alertManager.registerRule({
+      id: 'voice-session-timeout',
+      name: '语音会话频繁超时',
+      description: '语音会话超时次数超过阈值时触发',
+      level: AlertLevel.WARNING,
+      condition: (metrics) => {
+        const errors = metrics['voice.errors_total'];
+        if (!errors || errors.length < 3) return false;
+        const recent = errors.slice(-3);
+        return recent.filter((v) => v > 0).length >= 3;
+      },
+      message: '语音会话频繁超时，请检查 Provider 响应',
+      enabled: true,
+      cooldown: 300000,
+    });
+
+    // 初始化 OTel 追踪（确保全局追踪器就绪）
+    getOTelTracing();
 
     // 初始化服务模式
     const voiceService = createVoiceService({
@@ -285,7 +373,9 @@ export class VoiceServiceBridge {
           );
         }
       }
-      return new VoiceSession(connection);
+      return new VoiceSession(connection, {
+        memoryManager: new MemoryManagerImpl(),
+      });
     };
 
     this.realtime = {
@@ -320,6 +410,11 @@ export class VoiceServiceBridge {
 
     // 初始化语音命令路由器
     this.commandRouter = new VoiceCommandRouter(this.config.commandRouter);
+
+    // 设置语音集成上下文（注入 SessionManager 实例）
+    if (SessionManager.instance) {
+      setVoiceIntegrationContext(SessionManager.instance, undefined);
+    }
   }
 
   /** 获取桥接状态 */

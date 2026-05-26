@@ -60,11 +60,19 @@ export class PdfConverter extends BaseConverter {
     ensurePdfJsLoaded();
 
     if (_depError) {
+      const hint = [
+        'PDF 转换功能不可用',
+        '缺少可选依赖 pdfjs-dist',
+        '如需使用 PDF 转换功能，请在项目目录运行：',
+        '  bun add pdfjs-dist',
+        '若已安装，请确保 pdfjs-dist 在 node_modules 中且版本兼容',
+      ].join('\n');
       throw AppError.fromCode(ErrorCodes.MISSING_DEPENDENCY, {
         context: {
           dependency: 'pdfjs-dist',
           format: 'pdf',
-          note: '运行：npm install pdfjs-dist',
+          note: hint,
+          userHint: hint,
         },
         cause: _depError,
       });

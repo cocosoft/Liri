@@ -652,20 +652,113 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     dependencies: ['core'],
     optionalDependencies: ['error', 'monitoring', 'sandbox'],
   },
+
+  knowledge: {
+    id: 'knowledge',
+    name: 'knowledge',
+    displayName: '知识库模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description: '知识库核心模块，提供混合搜索路由、知识编译和知识摘要服务',
+    dependencies: ['core', 'ai'],
+    optionalDependencies: ['monitoring', 'memory', 'docs'],
+  },
+
+  credentials: {
+    id: 'credentials',
+    name: 'credentials',
+    displayName: '凭据管理模块',
+    version: '1.0.0',
+    category: ModuleCategory.SECURITY,
+    description: '凭据管理系统，提供安全凭据的加密存储、轮换和审计',
+    dependencies: ['core'],
+    optionalDependencies: ['monitoring'],
+  },
+
+  delivery: {
+    id: 'delivery',
+    name: 'delivery',
+    displayName: '投递模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description:
+      '投递系统，提供转录归档、磁盘监控和多适配器投递（控制台/文件/Webhook）',
+    dependencies: ['core'],
+    optionalDependencies: ['monitoring'],
+  },
+
+  'auto-reply': {
+    id: 'auto-reply',
+    name: 'auto-reply',
+    displayName: '自动回复模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description: '自动回复系统，提供基于规则的自动回复引擎',
+    dependencies: ['core'],
+    optionalDependencies: ['error'],
+  },
+
+  diagnostics: {
+    id: 'diagnostics',
+    name: 'diagnostics',
+    displayName: '诊断模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description: '诊断服务，提供系统健康检查、诊断报告和环境检测',
+    dependencies: ['core'],
+    optionalDependencies: ['monitoring'],
+  },
+
+  extensions: {
+    id: 'extensions',
+    name: 'extensions',
+    displayName: 'Provider 扩展模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description: 'Provider 扩展入口，提供第三方 AI 模型 Provider 的插件化注册',
+    dependencies: ['core', 'plugin-sdk'],
+    optionalDependencies: ['monitoring', 'error'],
+  },
+
+  insights: {
+    id: 'insights',
+    name: 'insights',
+    displayName: '洞察模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description: '对话洞察引擎，提供对话内容分析和洞察提取功能',
+    dependencies: ['core'],
+    optionalDependencies: ['monitoring'],
+  },
+
+  wizard: {
+    id: 'wizard',
+    name: 'wizard',
+    displayName: '设置向导模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description: '设置向导引擎，提供 CLI 交互式配置和引导流程',
+    dependencies: ['core'],
+    optionalDependencies: ['error'],
+  },
 };
 
 /**
  * 模块初始化顺序（拓扑排序）
  *
  * 阶段划分与 LazyModuleStrategy.ts 的 LAZY_MODULE_STRATEGY 对齐：
- *   - Phase 1-3: CRITICAL 优先级模块，启动时必需加载
- *   - Phase 4-8: DEFERRED 优先级模块，启动完成后延迟加载
+ *   - Phase 1-4: CRITICAL 优先级模块，启动时 T1 阶段急切加载
+ *   - Phase 5-8: DEFERRED 优先级模块，启动完成后延迟加载
+ *   - Phase 4 中的 monitoring/plugins/channels/tools/commands 在 init.ts
+ *     的 T1 并行加载阶段被急切初始化（含 try/catch 容错），
+ *     与 LazyModuleStrategy 声明一致（均为 CRITICAL）。
  *
  * 两套系统必须保持以下对齐规则：
- *   1. CRITICAL 模块必须集中在 Phase 1-3
- *   2. DEFERRED 模块必须在 Phase 4-8（含 ON_DEMAND 子模式）
+ *   1. CRITICAL 模块必须集中在 Phase 1-4
+ *   2. DEFERRED 模块必须在 Phase 5-8（含 ON_DEMAND 子模式）
  *   3. featureflags/memory 等 ON_DEMAND 模块放在 Phase 8
  *   4. 新增模块时同步更新 LAZY_MODULE_STRATEGY 的优先级
+ *   5. 若在 init.ts 中急切加载某模块，须将其提升为 CRITICAL
  */
 export const MODULE_INITIALIZATION_ORDER: string[] = [
   // ==================== CRITICAL 阶段 ====================
@@ -687,9 +780,15 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'modules',
   'cache',
 
-  // ==================== DEFERRED 阶段 ====================
-  // 第四阶段：功能模块
+  // 第四阶段（补充）：init.ts 急切加载的模块，实际在 T1 阶段初始化
+  'monitoring',
+  'plugins',
   'channels',
+  'tools',
+  'commands',
+
+  // ==================== DEFERRED 阶段 ====================
+  // 第五阶段：功能模块
   'session',
   'skills',
   'runtime',
@@ -704,25 +803,21 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'cost',
   'lsp',
   'mcp',
-  'plugins',
   'query',
+  'knowledge',
 
-  // 第五阶段：界面模块
+  // 第六阶段：界面模块
   'ink',
   'ui',
   'cli',
-
-  // 第六阶段：工具模块
-  'tools',
-  'commands',
 
   // 第七阶段：系统模块
   'security',
   'oauth',
   'permission',
   'sandbox',
-  'monitoring',
   'daemon',
+  'credentials',
 
   // 第八阶段：其他模块 + ON_DEMAND 模块
   'enterprise',
@@ -739,6 +834,12 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
   'utils',
   'keybindings',
   'voice',
+  'delivery',
+  'auto-reply',
+  'diagnostics',
+  'extensions',
+  'insights',
+  'wizard',
 ];
 
 /**

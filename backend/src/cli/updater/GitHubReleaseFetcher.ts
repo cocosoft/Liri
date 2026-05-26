@@ -57,6 +57,20 @@ export class GitHubReleaseFetcher {
    * @returns 更新信息
    */
   async fetchLatest(): Promise<UpdateInfo> {
+    // 检查 GitHub Release 断路器状态
+    const { CircuitBreaker } = await import('../../diagnostics/CircuitBreaker.js');
+    const releaseBreaker = CircuitBreaker.getOrCreate('github-release', {
+      maxFailures: 2,
+      baseDelayMs: 30000,
+      maxDelayMs: 600000,
+    });
+    if (releaseBreaker.isOpen()) {
+      logger.info('GitHub Release 断路器已断开，跳过本次检查', {
+        cooldown: releaseBreaker.getRemainingCooldown(),
+      });
+      return this.buildNoUpdateInfo();
+    }
+
     try {
       const url = getGitHubReleasesUrl(this.channel);
 
@@ -76,6 +90,9 @@ export class GitHubReleaseFetcher {
 
       clearTimeout(timeoutId);
 
+      // 能收到 HTTP 响应说明服务可达，重置断路器
+      releaseBreaker.recordSuccess();
+
       if (!response.ok) {
         if (response.status === 404) {
           logger.info(`GitHub Release 未找到（无可用版本）`);
@@ -88,7 +105,8 @@ export class GitHubReleaseFetcher {
       const data = await response.json();
       return this.parseResponse(data);
     } catch (error) {
-      logger.warning(`获取 GitHub Release 失败`, { error });
+      releaseBreaker.recordFailure();
+      logger.info(`获取 GitHub Release 失败（非关键）`, { error });
       return this.buildNoUpdateInfo();
     }
   }

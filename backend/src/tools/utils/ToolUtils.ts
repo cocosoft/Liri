@@ -6,6 +6,8 @@ import { Tool } from '../types/Tool';
 import { ToolParam } from '../types/Tool';
 import { ToolResult } from '../types/ToolResult';
 import { ToolProgressData } from '../types/ToolProgressData';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * 工具工具类
@@ -288,6 +290,74 @@ export const ToolTypes = {
   /** 其他工具 */
   OTHER: 'other',
 };
+
+/**
+ * 路径可访问性检查结果
+ */
+export interface PathAccessResult {
+  /** 是否可通过 */
+  accessible: boolean;
+  /** 规范化的绝对路径 */
+  resolvedPath: string;
+  /** 不可访问的原因 */
+  reason?: string;
+  /** 修复建议 */
+  suggestions?: string[];
+}
+
+/**
+ * 检查目标路径是否可访问
+ * 在执行文件操作前调用，可避免跨磁盘或路径缺失导致的静默失败
+ *
+ * @param targetPath 用户传入的原始路径
+ * @param label 路径用途描述（如"工作目录"、"搜索目录"），用于错误提示
+ * @returns 检查结果
+ */
+export function checkPathAccessibility(
+  targetPath: string,
+  label: string = '路径'
+): PathAccessResult {
+  const resolved = path.resolve(targetPath);
+
+  if (fs.existsSync(resolved)) {
+    return { accessible: true, resolvedPath: resolved };
+  }
+
+  const suggestions: string[] = [];
+
+  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const resolvedProject = path.resolve(projectDir);
+
+  if (
+    resolvedProject &&
+    path.dirname(resolvedProject)[0] !== path.dirname(resolved)[0]
+  ) {
+    if (
+      path.dirname(resolvedProject).toLowerCase().charAt(0) !==
+      path.dirname(resolved).toLowerCase().charAt(0)
+    ) {
+      suggestions.push(
+        `目标路径位于 ${path.dirname(resolved).charAt(0).toUpperCase()}: 盘，项目根目录位于 ${path.dirname(resolvedProject).charAt(0).toUpperCase()}: 盘`,
+      );
+      suggestions.push('可尝试通过 --project-dir 或 PYAPP_PROJECT_DIR 指定正确路径');
+    }
+  }
+
+  const parentDir = path.dirname(resolved);
+  if (!fs.existsSync(parentDir)) {
+    suggestions.push(`上级目录不存在: ${parentDir}`);
+    suggestions.push('请确认项目源码已同步到当前磁盘');
+  } else {
+    suggestions.push('请确认路径拼写正确');
+  }
+
+  return {
+    accessible: false,
+    resolvedPath: resolved,
+    reason: `${label}不存在: ${resolved}`,
+    suggestions,
+  };
+}
 
 /**
  * 工具类别

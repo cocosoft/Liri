@@ -121,6 +121,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
+import { checkPathAccessibility } from '../utils/ToolUtils';
 
 const BINARY_EXTENSIONS = new Set([
   '.docx',
@@ -189,6 +190,18 @@ export class FileReadTool extends BaseTool {
   ): Promise<ToolResult<unknown>> {
     try {
       const filePath = path.resolve(input.file_path as string);
+
+      const pathCheck = checkPathAccessibility(input.file_path as string, '文件');
+      if (!pathCheck.accessible) {
+        const msg = pathCheck.reason || '';
+        const hint = pathCheck.suggestions?.length
+          ? `\n建议: ${pathCheck.suggestions.join('; ')}`
+          : '';
+        return createToolResult(msg + hint, {
+          newMessages: [{ role: 'system', content: `路径不可访问: ${msg}` }],
+        });
+      }
+
       const ext = path.extname(filePath).toLowerCase();
 
       if (BINARY_EXTENSIONS.has(ext)) {

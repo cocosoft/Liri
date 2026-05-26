@@ -2091,18 +2091,22 @@ export class ChatManagerImpl implements ChatManager {
         );
 
         // 检查工具执行结果是否包含错误
-        let error = undefined;
+        let error: string | undefined;
         if (toolResult.error) {
-          error = toolResult.error;
+          error = typeof toolResult.error === 'string'
+            ? toolResult.error
+            : JSON.stringify(toolResult.error);
         } else if (toolResult.metadata?.error) {
-          error = toolResult.metadata.error;
+          error = typeof toolResult.metadata.error === 'string'
+            ? toolResult.metadata.error
+            : JSON.stringify(toolResult.metadata.error);
         }
 
         return {
           toolCallId: toolCall.id,
           toolName: normalizedToolCall.name,
           result: toolResult.data || toolResult.result,
-          error: error,
+          error,
         };
       } catch (error) {
         return {

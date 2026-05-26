@@ -2,8 +2,11 @@
  * TTSTool 语音合成工具（Text-to-Speech）
  * 让 Agent 将文本转换为语音输出
  */
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 interface TTSInput {
   action: 'speak' | 'list-voices' | 'save';
@@ -103,12 +106,14 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
 
       const validActions = ['speak', 'list-voices', 'save'];
       if (!action || !validActions.includes(action)) {
+        logger.warn('TTSTool · 无效操作', { action });
         return {
           success: false,
           error: `action must be one of: ${validActions.join(', ')}`,
         };
       }
 
+      logger.info('TTSTool · 执行', { action, voice, language, speed });
       switch (action) {
         case 'list-voices': {
           return {
@@ -123,6 +128,7 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
         case 'speak':
         case 'save': {
           if (!text || typeof text !== 'string') {
+            logger.warn('TTSTool · 缺少文本内容');
             return {
               success: false,
               error: 'text is required and must be a string',
@@ -132,6 +138,7 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
           const selectedVoice = voice || 'zh-CN-XiaoxiaoNeural';
           const validVoiceIds = AVAILABLE_VOICES.map((v) => v.id);
           if (!validVoiceIds.includes(selectedVoice)) {
+            logger.warn('TTSTool · 无效语音', { selectedVoice });
             return {
               success: false,
               error: `Invalid voice "${selectedVoice}". Use list-voices to see available voices.`,
@@ -142,6 +149,7 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
             language || selectedVoice.split('-').slice(0, 2).join('-');
           const spd = speed || 1.0;
           if (spd < 0.5 || spd > 2.0) {
+            logger.warn('TTSTool · 语速超出范围', { speed: spd });
             return {
               success: false,
               error: 'speed must be between 0.5 and 2.0',
@@ -153,11 +161,17 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
 
           if (action === 'save') {
             if (!filename) {
+              logger.warn('TTSTool · 缺少文件名');
               return {
                 success: false,
                 error: 'filename is required for save action',
               };
             }
+            logger.info('TTSTool · 语音保存', {
+              filename,
+              voice: selectedVoice,
+              durationSec: audioLengthSec,
+            });
             return {
               success: true,
               data: {
@@ -172,6 +186,11 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
             };
           }
 
+          logger.info('TTSTool · 语音生成', {
+            voice: selectedVoice,
+            durationSec: audioLengthSec,
+            speed: spd,
+          });
           return {
             success: true,
             data: {
@@ -189,9 +208,11 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
           return { success: false, error: `Unhandled action: ${action}` };
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('TTSTool · 执行失败', { error: errorMsg });
       return {
         success: false,
-        error: `TTS tool failed: ${error instanceof Error ? error.message : String(error)}`,
+        error: `TTS tool failed: ${errorMsg}`,
       };
     }
   }

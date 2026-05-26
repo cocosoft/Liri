@@ -5,6 +5,7 @@
  * 复用现有 media/image/ImageProcessor.ts 能力
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -16,6 +17,7 @@ import {
   ImageProcessor,
   type ImageFormat,
 } from '../../media/image/ImageProcessor';
+import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 
 /**
  * 图片编辑操作参数
@@ -46,6 +48,8 @@ export interface ImageEditOutput {
 }
 
 const processor = new ImageProcessor();
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export class ImageTool extends BaseTool {
   name = 'image';
@@ -105,6 +109,7 @@ export class ImageTool extends BaseTool {
       const params = input as ImageEditInput;
 
       if (!params.inputPath) {
+        logger.warn('ImageTool · 缺少 inputPath');
         return {
           success: false,
           error: 'inputPath is required',
@@ -112,12 +117,53 @@ export class ImageTool extends BaseTool {
       }
 
       if (!fs.existsSync(params.inputPath)) {
+        logger.warn('ImageTool · 输入文件不存在', {
+          inputPath: params.inputPath,
+        });
         return {
           success: false,
           error: `Input file not found: ${params.inputPath}`,
         };
       }
 
+      // 安全检查
+      const checkBuffer = fs.readFileSync(params.inputPath);
+      const ext = path.extname(params.inputPath).slice(1).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        webp: 'image/webp',
+        gif: 'image/gif',
+        bmp: 'image/bmp',
+      };
+      const checkMime = mimeMap[ext] || `image/${ext}`;
+      const sanitizeResult = imageSanitizationPolicy.sanitize(
+        checkBuffer,
+        checkMime
+      );
+
+      if (!sanitizeResult.sanitized) {
+        logger.warn('ImageTool · 安全检查未通过', {
+          inputPath: params.inputPath,
+          warnings: sanitizeResult.warnings,
+        });
+        return {
+          success: false,
+          error: `Image failed security check: ${sanitizeResult.warnings.join(', ')}`,
+        };
+      }
+
+      if (sanitizeResult.warnings.length > 0) {
+        logger.warn('ImageTool · 安全检查告警', {
+          warnings: sanitizeResult.warnings,
+        });
+      }
+
+      logger.info('ImageTool · 执行', {
+        action: params.action,
+        inputPath: params.inputPath,
+      });
       switch (params.action) {
         case 'resize':
           return this.handleResize(params);
@@ -134,9 +180,11 @@ export class ImageTool extends BaseTool {
           };
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('ImageTool · 执行失败', { error: errorMsg });
       return {
         success: false,
-        error: `Image operation failed: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Image operation failed: ${errorMsg}`,
       };
     }
   }

@@ -5,6 +5,7 @@
  * 比调用 DALL-E 等图片 API 更经济（仅消耗文本 token）
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import aiService from '../../ai/index';
@@ -12,6 +13,8 @@ import type { AIMessage } from '../../ai/models/types';
 import { AIMessageRole } from '../../ai/models/types';
 import fs from 'node:fs';
 import path from 'node:path';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface ImageSvgInput {
   /** SVG 内容描述 */
@@ -131,6 +134,11 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
     const startTime = Date.now();
 
     try {
+      logger.info('ImageSvgTool · 开始生成 SVG', {
+        prompt: input.prompt.slice(0, 80),
+        size,
+        style: input.style,
+      });
       const response = await aiService.generate(messages);
 
       const elapsed = Date.now() - startTime;
@@ -138,6 +146,9 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
       const svgCode = this.extractSvg(rawContent);
 
       if (!svgCode) {
+        logger.warn('ImageSvgTool · 未生成有效 SVG 代码', {
+          rawContent: rawContent.slice(0, 200),
+        });
         return {
           success: false,
           error: 'LLM 未能生成有效的 SVG 代码。请尝试更明确的描述。',
@@ -164,6 +175,11 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
         fs.writeFileSync(filePath, svgCode, 'utf-8');
       }
 
+      logger.info('ImageSvgTool · SVG 生成完成', {
+        elapsed,
+        hasFile: !!filePath,
+        size,
+      });
       return {
         success: true,
         data: {
@@ -177,9 +193,11 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
           : `\`\`\`svg\n${svgCode}\n\`\`\``,
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('ImageSvgTool · 生成失败', { error: errorMsg });
       return {
         success: false,
-        error: `SVG 生成失败：${error instanceof Error ? error.message : String(error)}`,
+        error: `SVG 生成失败：${errorMsg}`,
       };
     }
   }

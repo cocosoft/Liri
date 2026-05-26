@@ -123,8 +123,18 @@ export class MonitoringService {
    */
   private loadAlertPresets(): void {
     try {
-      const presetsDir = path.join(import.meta.dirname, 'alerts', 'presets');
-      this.presetLoader.setPresetsDir(presetsDir);
+      const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+      const presetsDir = path.join(projectRoot, 'backend', 'src', 'monitoring', 'alerts', 'presets');
+      if (!fs.existsSync(presetsDir)) {
+        const altDir = path.join(projectRoot, 'alerts', 'presets');
+        if (fs.existsSync(altDir)) {
+          this.presetLoader.setPresetsDir(altDir);
+        } else {
+          this.presetLoader.setPresetsDir(presetsDir);
+        }
+      } else {
+        this.presetLoader.setPresetsDir(presetsDir);
+      }
       const result = this.presetLoader.loadAllPresets();
 
       if (result.loadedRules > 0) {

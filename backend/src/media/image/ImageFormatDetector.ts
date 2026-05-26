@@ -1,4 +1,7 @@
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import fs from 'node:fs';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 已知图片格式的魔数签名
@@ -73,8 +76,10 @@ export class ImageFormatDetector {
 
       const magicResult = this.detectFormat(buffer);
       if (magicResult) return magicResult;
+
+      logger.warn('魔数检测失败，回退到扩展名检测', { filePath });
     } catch {
-      // 文件不可读时回退扩展名
+      logger.warn('图片文件不可读，回退到扩展名检测', { filePath });
     }
 
     const ext = filePath.split('.').pop()?.toLowerCase();
@@ -92,6 +97,11 @@ export class ImageFormatDetector {
     const format = extMap[ext];
     if (!format) return null;
 
+    logger.info('通过扩展名检测图片格式', {
+      filePath,
+      format,
+      confidence: 'low',
+    });
     return { format, mimeType: this.formatToMime(format), confidence: 'low' };
   }
 

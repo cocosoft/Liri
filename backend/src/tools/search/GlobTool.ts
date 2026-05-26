@@ -11,7 +11,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolTag } from '../types/Tool';
 import { PermissionResult, createAllowResult } from '../types/PermissionResult';
 import { ValidationResult } from '../types/Tool';
-import { createSuccessResult, createFailureResult } from '../utils/ToolUtils';
+import { createSuccessResult, createFailureResult, checkPathAccessibility } from '../utils/ToolUtils';
 import { glob } from '../GlobTool/GlobTool';
 
 export class GlobTool extends BaseTool {
@@ -50,6 +50,14 @@ export class GlobTool extends BaseTool {
       const pattern = input.pattern as string;
       const searchPath =
         (input.path as string) || context.options.cwd || process.cwd();
+
+      const pathCheck = checkPathAccessibility(searchPath, '搜索目录');
+      if (!pathCheck.accessible) {
+        return createFailureResult(
+          `${pathCheck.reason}${pathCheck.suggestions?.length ? `\n建议: ${pathCheck.suggestions.join('; ')}` : ''}`,
+          { executionTime: Date.now() - startTime },
+        );
+      }
 
       const result = glob(pattern, searchPath);
 

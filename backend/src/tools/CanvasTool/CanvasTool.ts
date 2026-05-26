@@ -3,8 +3,11 @@
  * 画布操作工具
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 export interface CanvasOperation {
   action: 'create' | 'resize' | 'draw' | 'text' | 'clear' | 'export' | 'import';
@@ -105,6 +108,12 @@ export class CanvasTool extends BaseTool {
     _context: ToolUseContext
   ): Promise<ToolResult> {
     try {
+      logger.info('CanvasTool · 执行', {
+        action: input.action,
+        width: input.width,
+        height: input.height,
+        elements: input.elements?.length,
+      });
       const result: CanvasResult = {
         canvasId: `canvas_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         width: input.width ?? 800,
@@ -119,9 +128,11 @@ export class CanvasTool extends BaseTool {
         output: `Canvas ${input.action} completed (${result.width}x${result.height}, ${result.elementCount} elements)`,
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('CanvasTool · 执行失败', { error: errorMsg });
       return {
         success: false,
-        error: `Canvas operation failed: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Canvas operation failed: ${errorMsg}`,
       };
     }
   }

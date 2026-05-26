@@ -602,8 +602,7 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   }
 
   private identify(): void {
-    const intents =
-      (1 << 9) | (1 << 12) | (1 << 15) | (1 << 13); // GUILD_MESSAGES | DIRECT_MESSAGES | MESSAGE_CONTENT | GUILD_VOICE_STATES
+    const intents = (1 << 9) | (1 << 12) | (1 << 15) | (1 << 13); // GUILD_MESSAGES | DIRECT_MESSAGES | MESSAGE_CONTENT | GUILD_VOICE_STATES
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(
         JSON.stringify({

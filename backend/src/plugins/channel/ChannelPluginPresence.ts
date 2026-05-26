@@ -5,6 +5,9 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 存在检测结果
@@ -174,6 +177,30 @@ export class ChannelPluginPresence {
     }
 
     return results;
+  }
+
+  /**
+   * 通道消息广播 — 可选 TTS 输出
+   * 当配置开启自动 TTS 时，将文本消息转为语音
+   */
+  async broadcastWithTTS(
+    channelName: string,
+    message: string,
+    options?: { tts?: boolean }
+  ): Promise<void> {
+    if (options?.tts) {
+      try {
+        const { VoiceChannelIntegration } =
+          await import('../../voice/VoiceChannelIntegration');
+        const channelIntegration = new VoiceChannelIntegration({});
+        await channelIntegration.sendVoiceMessage({ text: message });
+      } catch (error) {
+        logger.warn('TTS 语音消息发送失败', {
+          channel: channelName,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   /**

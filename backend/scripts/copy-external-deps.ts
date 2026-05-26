@@ -102,6 +102,16 @@ function main(): void {
   }
 
   console.log(`\n完成: 已复制 ${copiedCount}/${EXTERNAL_DEPS.length} 个外部依赖`);
+
+  // 复制编译运行时 README
+  const readmeSrc = path.resolve(__dirname, '..', 'docs', 'README-compiled.md');
+  const readmeDest = path.join(targetDir, 'README-compiled.md');
+  if (fs.existsSync(readmeSrc)) {
+    fs.copyFileSync(readmeSrc, readmeDest);
+    console.log(`[复制] README: ${readmeDest}`);
+  } else {
+    console.warn(`[跳过] README 文件不存在: ${readmeSrc}`);
+  }
 }
 
 main();

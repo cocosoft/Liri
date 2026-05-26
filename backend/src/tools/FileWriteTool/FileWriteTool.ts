@@ -62,6 +62,7 @@ import type {
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { checkPathAccessibility } from '../utils/ToolUtils';
 
 export class FileWriteTool extends BaseTool {
   name = 'file_write';
@@ -100,6 +101,20 @@ export class FileWriteTool extends BaseTool {
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
+      const filePathCheck = checkPathAccessibility(
+        path.dirname(input.file_path as string),
+        '写入目录',
+      );
+      if (!filePathCheck.accessible) {
+        const msg = filePathCheck.reason || '';
+        const hint = filePathCheck.suggestions?.length
+          ? `\n建议: ${filePathCheck.suggestions.join('; ')}`
+          : '';
+        return createToolResult(msg + hint, {
+          newMessages: [{ role: 'system', content: `路径不可访问: ${msg}` }],
+        });
+      }
+
       if (onProgress) {
         onProgress({
           toolUseID: 'file-write-tool',

@@ -1,8 +1,11 @@
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import fs from 'node:fs';
 import {
   imageFormatDetector,
   ImageFormatDetector,
 } from './ImageFormatDetector';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 /**
  * 安全检测配置
@@ -67,6 +70,11 @@ export class ImageSecurity {
 
     checks.push(this.checkFileExists(filePath));
     if (!checks[checks.length - 1].passed) {
+      const failedCheck = checks[checks.length - 1];
+      logger.warn('图片安全检查 · 文件不存在', {
+        filePath,
+        detail: failedCheck.detail,
+      });
       return { safe: false, checks };
     }
 
@@ -75,10 +83,17 @@ export class ImageSecurity {
     checks.push(this.checkDimensions(filePath));
     checks.push(this.checkMimeConsistency(filePath));
 
-    return {
-      safe: checks.every((c) => c.passed),
-      checks,
-    };
+    const safe = checks.every((c) => c.passed);
+    if (!safe) {
+      const failed = checks
+        .filter((c) => !c.passed)
+        .map((c) => `${c.name}: ${c.detail}`);
+      logger.warn('图片安全检查 · 未通过', {
+        filePath,
+        failed: failed.join('; '),
+      });
+    }
+    return { safe, checks };
   }
 
   /**
@@ -88,6 +103,7 @@ export class ImageSecurity {
     const checks: SecurityCheck[] = [];
 
     if (this.config.blockExternalUrls) {
+      logger.warn('图片安全检查 · 外部 URL 被拦截', { url });
       checks.push({
         name: 'external_url',
         passed: false,

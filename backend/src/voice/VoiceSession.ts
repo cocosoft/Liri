@@ -5,6 +5,8 @@
  * 处理 Client→Server 事件路由、状态管理、会话摘要
  */
 
+import { randomUUID } from 'node:crypto';
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { VoiceEventBus } from './VoiceEventBus';
 import { VoiceToolBridge } from './VoiceToolBridge';
 import type {
@@ -20,6 +22,13 @@ import { GeminiLiveAdapter } from './GeminiLiveAdapter';
 import { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
 import { globalToolManager } from '../tools/core/ToolManager';
 import type { ToolExecutorDelegate } from './VoiceToolBridge';
+import type { SessionManager } from '@modules/session/SessionManager';
+import type { TranscriptManager } from '@modules/session/TranscriptManager';
+import { MessageType, MessageRole } from '@modules/session/types/Message';
+import type { UnifiedMessage } from '@modules/session/types/Message';
+import { MemoryManagerImpl } from '../memory/MemoryManager';
+import { getAlertManager } from '@modules/monitoring/alerts/AlertManager';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 
 /** 提供商标识到构造函数的映射 */
 const PROVIDER_ADAPTERS: Record<
@@ -33,7 +42,16 @@ const PROVIDER_ADAPTERS: Record<
 /** 默认超时（毫秒） */
 const DEFAULT_SESSION_TIMEOUT = 10 * 60 * 1000;
 
+/** 会话集成选项 */
+export interface SessionIntegrationOptions {
+  sessionManager?: SessionManager;
+  transcriptManager?: TranscriptManager;
+  memoryManager?: MemoryManagerImpl;
+}
+
 export class VoiceSession {
+  private logger = new Logger({ level: LogLevel.INFO });
+
   /** 会话唯一标识 */
   readonly id: string;
 
@@ -85,11 +103,26 @@ export class VoiceSession {
   /** 活跃音频流计时器 */
   private audioTimerStart: number = 0;
 
-  constructor(connection: VoiceConnection) {
+  /** 会话管理器（集成注入） */
+  private sessionManager: SessionManager | null = null;
+
+  /** 转录管理器（集成注入） */
+  private transcriptManager: TranscriptManager | null = null;
+
+  /** 记忆管理器（集成注入） */
+  private memoryManager: MemoryManagerImpl | null = null;
+
+  constructor(
+    connection: VoiceConnection,
+    integrationOptions?: SessionIntegrationOptions
+  ) {
     this.id = connection.id;
     this.connection = connection;
     this.eventBus = new VoiceEventBus();
     this.toolBridge = new VoiceToolBridge();
+    this.sessionManager = integrationOptions?.sessionManager ?? null;
+    this.transcriptManager = integrationOptions?.transcriptManager ?? null;
+    this.memoryManager = integrationOptions?.memoryManager ?? null;
     this.setupConnectionHandlers();
     this.setupEventBusHandlers();
   }
@@ -192,6 +225,10 @@ export class VoiceSession {
   /** 处理 session.config 事件 */
   private async handleConfig(config: VoiceSessionConfigEvent): Promise<void> {
     if (this._state !== 'idle' && this._state !== 'disconnected') {
+      this.logger.warn('会话配置 · 无效状态', {
+        sessionId: this.id,
+        state: this._state,
+      });
       this.connection.send({
         type: 'error',
         code: 'INVALID_STATE',
@@ -200,6 +237,10 @@ export class VoiceSession {
       return;
     }
 
+    this.logger.info('会话配置 · 开始', {
+      sessionId: this.id,
+      provider: config.provider,
+    });
     this.setState('connecting');
     this._startedAt = Date.now();
 
@@ -264,16 +305,32 @@ export class VoiceSession {
         tools: toolDelegate.getToolDeclarations(),
       };
 
-      // 连接适配器
-      await this.adapter.connect(
-        config,
-        (event: VoiceServerEvent) => {
-          this.handleProviderEvent(event);
+      // Phase 2-3: OTel 追踪——Provider 连接
+      const otel = getOTelTracing();
+      await otel.wrap(
+        {
+          name: 'voice.session.connect',
+          attributes: {
+            'voice.session_id': this.id,
+            'voice.provider': config.provider,
+          },
         },
-        toolOptions
+        async () => {
+          await this.adapter!.connect(
+            config,
+            (event: VoiceServerEvent) => {
+              this.handleProviderEvent(event);
+            },
+            toolOptions
+          );
+        }
       );
 
       this.setState('connected');
+      this.logger.info('会话配置 · 成功', {
+        sessionId: this.id,
+        provider: config.provider,
+      });
       this.startTimeoutTimer();
 
       // 如果配置包含 brainAgent，则注入上下文
@@ -284,6 +341,11 @@ export class VoiceSession {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error('会话配置 · 失败', {
+        sessionId: this.id,
+        provider: config.provider,
+        error: msg,
+      });
       this.errors.push(msg);
       this.setState('error');
       this.connection.send({
@@ -297,6 +359,7 @@ export class VoiceSession {
   /** 处理 audio.append 事件 */
   private handleAudioAppend(event: { data: string }): void {
     if (!this.adapter) {
+      this.logger.warn('音频追加 · 适配器未配置', { sessionId: this.id });
       this.connection.send({
         type: 'error',
         code: 'NOT_CONFIGURED',
@@ -349,12 +412,63 @@ export class VoiceSession {
 
   /** 处理来自 Provider 的事件 */
   private handleProviderEvent(event: VoiceServerEvent): void {
+    if (event.type === 'error') {
+      this.logger.error('Provider 错误事件', {
+        sessionId: this.id,
+        code: (event as any).code,
+        message: (event as any).message,
+      });
+    }
+
+    // 转录完成——持久化到 TranscriptManager
+    if (event.type === 'transcript.done') {
+      this.logger.info('转录完成', {
+        sessionId: this.id,
+        textLength: event.text.length,
+      });
+
+      if (this.transcriptManager) {
+        const message: UnifiedMessage = {
+          id: randomUUID(),
+          sessionId: this.id,
+          type: MessageType.ASSISTANT,
+          role: MessageRole.ASSISTANT,
+          content: event.text,
+          timestamp: Date.now(),
+        };
+
+        this.transcriptManager.recordMessage(this.id, message).catch((err) => {
+          this.logger.error('转录持久化失败', {
+            sessionId: this.id,
+            error: String(err),
+          });
+        });
+      }
+    }
+
     // 收集指标
     if (event.type === 'tool.call') {
       this.toolCallCount++;
+      this.logger.info('工具调用事件', {
+        sessionId: this.id,
+        toolName: (event as any).name,
+        callId: (event as any).id,
+      });
 
-      // 将工具调用转给工具桥接处理
-      this.toolBridge.onToolCall(event);
+      // Phase 2-3: OTel 追踪——工具调用
+      getOTelTracing().wrap(
+        {
+          name: 'voice.tool.call',
+          attributes: {
+            'voice.session_id': this.id,
+            'voice.tool_name': (event as any).name ?? 'unknown',
+            'voice.tool_call_id': (event as any).id ?? 'unknown',
+          },
+        },
+        () => {
+          this.toolBridge.onToolCall(event);
+        }
+      );
       return;
     }
 
@@ -373,17 +487,60 @@ export class VoiceSession {
 
   /** 处理断开连接 */
   private handleDisconnect(reason: string): void {
-    this.setState('disconnected');
-    this._endedAt = Date.now();
+    // Phase 2-1: 同步 Token 用量到会话系统
+    if (this.sessionManager) {
+      const totalTokens = this.inputTokens + this.outputTokens;
+      if (totalTokens > 0) {
+        this.sessionManager.recordTokenConsumption(
+          this.id,
+          totalTokens,
+          'per_session'
+        );
+        this.logger.info('Token 用量已同步', {
+          sessionId: this.id,
+          inputTokens: this.inputTokens,
+          outputTokens: this.outputTokens,
+          totalTokens,
+        });
+      }
+    }
 
-    this.disconnectAdapter();
-    this.clearTimeoutTimer();
+    // Phase 2-2: 上报语音指标到告警系统
+    if (this.errors.length > 0) {
+      const alertManager = getAlertManager();
+      alertManager.evaluateRules({
+        'voice.errors_total': [this.errors.length],
+      });
+    }
 
-    this.connection.send({
-      type: 'session.ended',
-      summary: reason,
-      duration: this._endedAt - this._startedAt,
-    });
+    // Phase 2-3: OTel 追踪——会话断开清理
+    const otel = getOTelTracing();
+    otel.wrap(
+      {
+        name: 'voice.session.disconnect',
+        attributes: {
+          'voice.session_id': this.id,
+          'voice.reason': reason,
+          'voice.duration_ms': String(this._endedAt - this._startedAt),
+          'voice.error_count': String(this.errors.length),
+          'voice.token_total': String(this.inputTokens + this.outputTokens),
+        },
+      },
+      () => {
+        this.logger.info('会话断开', { sessionId: this.id, reason });
+        this.setState('disconnected');
+        this._endedAt = Date.now();
+
+        this.disconnectAdapter();
+        this.clearTimeoutTimer();
+
+        this.connection.send({
+          type: 'session.ended',
+          summary: reason,
+          duration: this._endedAt - this._startedAt,
+        });
+      }
+    );
   }
 
   /** 断开适配器连接 */
@@ -400,6 +557,8 @@ export class VoiceSession {
 
   /** 清理资源 */
   private cleanup(): void {
+    this.logger.info('会话清理', { sessionId: this.id });
+    this.saveSessionToMemory();
     this.disconnectAdapter();
     this.clearTimeoutTimer();
     this.eventBus.clear();
@@ -467,5 +626,53 @@ export class VoiceSession {
   /** 主动断开会话 */
   close(): void {
     this.handleDisconnect('用户主动结束');
+  }
+
+  /** 将会话摘要保存到记忆系统 */
+  private saveSessionToMemory(): void {
+    if (!this.memoryManager) {
+      return;
+    }
+
+    const summary = this.getSummary();
+    const durationSec = Math.round(summary.duration / 1000);
+    const content = [
+      `## 语音会话摘要`,
+      ``,
+      `**会话 ID**: ${summary.sessionId}`,
+      `**开始时间**: ${new Date(summary.startedAt).toISOString()}`,
+      summary.endedAt
+        ? `**结束时间**: ${new Date(summary.endedAt).toISOString()}`
+        : '',
+      `**持续时长**: ${durationSec} 秒`,
+      `**状态**: ${summary.state}`,
+      ``,
+      `**音频处理**: ${(summary.totalAudioMs / 1000).toFixed(1)} 秒`,
+      `**LLM 处理**: ${(summary.totalLlmMs / 1000).toFixed(1)} 秒`,
+      `**输入词元**: ${summary.inputTokens}`,
+      `**输出词元**: ${summary.outputTokens}`,
+      `**工具调用**: ${summary.toolCalls} 次`,
+      summary.errors.length > 0 ? `**错误数**: ${summary.errors.length}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    this.memoryManager
+      .createMemory({
+        content,
+        metadata: {
+          name: `语音会话 ${this.id.slice(0, 8)}`,
+          description: `语音会话摘要 (${durationSec} 秒)`,
+          type: 'CONVERSATION',
+          tags: ['voice', 'session'],
+          createdAt: new Date(summary.startedAt),
+          updatedAt: new Date(),
+        },
+      })
+      .catch((err: unknown) => {
+        this.logger.warn('记忆写入失败', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
   }
 }

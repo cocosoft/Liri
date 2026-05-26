@@ -9,7 +9,7 @@
  * - BATCH：后台批次加载（当前行为），在 T3 阶段按批次后台初始化
  * - ON_DEMAND：首次按需加载，仅在功能被首次请求时通过动态 import() 加载
  *
- * 重型模块（tools、featureflags、memory 等）使用 ON_DEMAND 模式，
+ * 重型模块（featureflags、memory 等）使用 ON_DEMAND 模式，
  * 避免其重型依赖（GrowthBook SDK、cheerio、jsonwebtoken 等）在启动时被解析。
  */
 
@@ -93,12 +93,16 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
 
   // ========== 第四阶段：功能模块 ==========
   channels: {
-    priority: ModuleLoadPriority.DEFERRED,
-    trigger: '渠道通信首次触发时加载',
+    priority: ModuleLoadPriority.CRITICAL,
+    trigger: '启动时自动注册通道',
   },
   session: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: '会话首次访问时加载',
+  },
+  acp: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: 'ACP 协议首次请求时加载',
   },
   skills: {
     priority: ModuleLoadPriority.DEFERRED,
@@ -149,12 +153,16 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
     loadMode: DynamicLoadMode.ON_DEMAND,
   },
   plugins: {
-    priority: ModuleLoadPriority.DEFERRED,
-    trigger: '插件首次加载时按需加载',
+    priority: ModuleLoadPriority.CRITICAL,
+    trigger: '可扩展性服务启动时初始化',
   },
   query: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: '查询操作触发时加载',
+  },
+  knowledge: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '知识库首次查询时加载',
   },
 
   // ========== 第五阶段：界面模块 ==========
@@ -175,13 +183,12 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
 
   // ========== 第六阶段：工具模块 ==========
   tools: {
-    priority: ModuleLoadPriority.DEFERRED,
-    trigger: '工具首次执行时加载',
-    loadMode: DynamicLoadMode.ON_DEMAND,
+    priority: ModuleLoadPriority.CRITICAL,
+    trigger: '工具管理器启动时预创建',
   },
   commands: {
-    priority: ModuleLoadPriority.DEFERRED,
-    trigger: '命令首次执行时加载',
+    priority: ModuleLoadPriority.CRITICAL,
+    trigger: '命令系统启动时初始化',
   },
 
   // ========== 第七阶段：系统模块 ==========
@@ -208,12 +215,16 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
     trigger: '性能追踪系统',
   },
   monitoring: {
-    priority: ModuleLoadPriority.DEFERRED,
-    trigger: '监控首次触发时加载',
+    priority: ModuleLoadPriority.CRITICAL,
+    trigger: '监控服务启动时启动',
   },
   daemon: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: '守护进程模式启用时加载',
+  },
+  credentials: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '凭据管理首次触发时加载',
   },
 
   // ========== 第八阶段：其他模块 ==========
@@ -271,6 +282,30 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
     trigger: '语音功能首次触发时加载',
     loadMode: DynamicLoadMode.ON_DEMAND,
   },
+  delivery: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '转录归档首次触发时加载',
+  },
+  'auto-reply': {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '自动回复首次触发时加载',
+  },
+  diagnostics: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '系统诊断首次触发时加载',
+  },
+  extensions: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: 'Provider 扩展首次请求时加载',
+  },
+  insights: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '对话洞察首次触发时加载',
+  },
+  wizard: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '设置向导首次触发时加载',
+  },
 };
 
 /**
@@ -279,7 +314,6 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
  * 仅在首次请求时才加载模块代码，启动阶段完全不解析其依赖。
  */
 const DYNAMIC_IMPORT_PATHS: Record<string, string> = {
-  tools: '../tools/index.js',
   featureflags: '../featureflags/index.js',
   memory: '../memory/index.js',
   chronos: '../chronos/index.js',

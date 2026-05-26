@@ -2,11 +2,14 @@
  * 语音输出工具
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_OUTPUT_TOOL_NAME } from './constants';
 import voiceService from '@modules/services/voice';
+
+const logger = new Logger({ level: LogLevel.INFO });
 
 const VOICE_OUTPUT_PARAMS = [
   {
@@ -49,6 +52,10 @@ export class VoiceOutputTool implements Tool {
   ): Promise<ToolResult> {
     const action = input.action as string;
 
+    logger.info('VoiceOutputTool · 执行', {
+      action,
+      textLength: (input.text as string)?.length,
+    });
     switch (action) {
       case 'speak':
         return await this.handleSpeak(input);
@@ -57,6 +64,7 @@ export class VoiceOutputTool implements Tool {
       case 'check':
         return await this.handleCheck();
       default:
+        logger.warn('VoiceOutputTool · 未知操作', { action });
         return {
           status: ToolExecutionStatus.FAILURE,
           result: null,
@@ -80,6 +88,7 @@ export class VoiceOutputTool implements Tool {
       const text = input.text as string;
 
       if (!text) {
+        logger.warn('VoiceOutputTool · 缺少朗读文本');
         return {
           status: ToolExecutionStatus.FAILURE,
           result: null,
@@ -96,6 +105,7 @@ export class VoiceOutputTool implements Tool {
       }
 
       if (this.isSpeaking) {
+        logger.warn('VoiceOutputTool · 正在朗读中');
         return {
           status: ToolExecutionStatus.FAILURE,
           result: null,
@@ -115,6 +125,11 @@ export class VoiceOutputTool implements Tool {
       const speed = input.speed as number | undefined;
 
       this.isSpeaking = true;
+      logger.info('VoiceOutputTool · 开始朗读', {
+        textLength: text.length,
+        voice,
+        speed,
+      });
 
       await voiceService.speak({
         text,
@@ -123,6 +138,7 @@ export class VoiceOutputTool implements Tool {
       });
 
       this.isSpeaking = false;
+      logger.info('VoiceOutputTool · 朗读完成', { textLength: text.length });
 
       return {
         status: ToolExecutionStatus.SUCCESS,
@@ -139,10 +155,12 @@ export class VoiceOutputTool implements Tool {
       };
     } catch (error) {
       this.isSpeaking = false;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('VoiceOutputTool · 朗读失败', { error: errorMsg });
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
         executionTime: 0,
         output: '',
         errorOutput: `朗读失败: ${error}`,
@@ -159,6 +177,7 @@ export class VoiceOutputTool implements Tool {
     try {
       voiceService.stopSpeaking();
       this.isSpeaking = false;
+      logger.info('VoiceOutputTool · 已停止朗读');
 
       return {
         status: ToolExecutionStatus.SUCCESS,
@@ -174,10 +193,12 @@ export class VoiceOutputTool implements Tool {
         timestamp: Date.now(),
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('VoiceOutputTool · 停止朗读失败', { error: errorMsg });
       return {
         status: ToolExecutionStatus.FAILURE,
         result: null,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
         executionTime: 0,
         output: '',
         errorOutput: `停止朗读失败: ${error}`,

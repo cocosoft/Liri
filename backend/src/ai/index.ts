@@ -137,9 +137,6 @@ export type {
   QueryOptions,
   QueryHooks,
 } from './interfaces/IQueryEngineCore';
-/** @deprecated 使用 QueryEngineWrapper 或 query/QueryEngine 替代 */
-export { AIQueryEngine } from './services/AIQueryEngine';
-export type { AIQueryEngineConfig } from './services/AIQueryEngine';
 export type {
   QueryParams,
   QueryResult,

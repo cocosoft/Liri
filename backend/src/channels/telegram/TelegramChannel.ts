@@ -574,7 +574,9 @@ class TelegramChannel extends BaseChannelPlugin {
     );
     const fileData = (await fileResp.json()) as Record<string, unknown>;
     if (!fileData['ok']) {
-      throw new Error(`获取文件信息失败: ${fileData['description'] || 'unknown'}`);
+      throw new Error(
+        `获取文件信息失败: ${fileData['description'] || 'unknown'}`
+      );
     }
     const result = fileData['result'] as Record<string, unknown>;
     const filePath = result['file_path'] as string;

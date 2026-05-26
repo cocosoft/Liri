@@ -41,3 +41,8 @@ export {
   WelcomePluginMetadata,
   createWelcomePlugin,
 } from './WelcomePlugin.js';
+export {
+  MediaPlugin,
+  MediaPluginMetadata,
+  createMediaPlugin,
+} from './MediaPlugin.js';

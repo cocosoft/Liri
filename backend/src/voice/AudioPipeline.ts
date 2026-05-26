@@ -4,6 +4,10 @@
  * 支持 PCM 16kHz mono 格式，与 Gemini Live API 默认输入格式一致
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+
+const logger = new Logger({ level: LogLevel.INFO });
+
 /** 音频格式常量 */
 export const AUDIO_FORMAT = {
   SAMPLE_RATE: 16000,
@@ -50,15 +54,6 @@ export class PCMAudioBuffer {
   private totalBytes: number = 0;
   private chunkIndex: number = 0;
 
-  /** 获取缓冲区统计 */
-  getStats(): AudioBufferStats {
-    return {
-      size: this.totalBytes,
-      chunks: this.chunks.length,
-      durationMs: this.bytesToMs(this.totalBytes),
-    };
-  }
-
   /** 将 PCM 字节数转换为时长（毫秒） */
   bytesToMs(bytes: number): number {
     const bytesPerSecond =
@@ -82,12 +77,31 @@ export class PCMAudioBuffer {
     const buf = Buffer.from(base64Data, 'base64');
     this.chunks.push(buf);
     this.totalBytes += buf.length;
+    logger.info('AudioPipeline · 追加 Base64 数据', {
+      bytes: buf.length,
+      total: this.totalBytes,
+    });
   }
 
   /** 追加原始 Buffer */
   appendBuffer(buffer: Buffer): void {
     this.chunks.push(buffer);
     this.totalBytes += buffer.length;
+    logger.info('AudioPipeline · 追加 Buffer', {
+      bytes: buffer.length,
+      total: this.totalBytes,
+    });
+  }
+
+  /** 获取缓冲区统计 */
+  getStats(): AudioBufferStats {
+    const stats = {
+      size: this.totalBytes,
+      chunks: this.chunks.length,
+      durationMs: this.bytesToMs(this.totalBytes),
+    };
+    logger.info('AudioPipeline · 缓冲区统计', stats);
+    return stats;
   }
 
   /** 清空缓冲区 */
@@ -95,6 +109,7 @@ export class PCMAudioBuffer {
     this.chunks = [];
     this.totalBytes = 0;
     this.chunkIndex = 0;
+    logger.info('AudioPipeline · 缓冲区已清空');
   }
 
   /** 获取当前所有数据合并后的 Buffer */
@@ -131,6 +146,10 @@ export class PCMAudioBuffer {
     }
 
     this.chunkIndex = index;
+    logger.info('AudioPipeline · 分片完成', {
+      count: chunks.length,
+      totalBytes: this.totalBytes,
+    });
     return chunks;
   }
 }

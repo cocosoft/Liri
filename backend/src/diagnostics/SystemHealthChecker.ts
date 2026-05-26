@@ -8,10 +8,12 @@
 import { EventEmitter } from 'events';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { freemem, totalmem, cpus, loadavg, platform, arch } from 'os';
+import { freemem, totalmem, cpus, loadavg, platform, arch, homedir } from 'os';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { createRequire } from 'module';
 
+const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);
 
 /**
@@ -99,6 +101,8 @@ export class SystemHealthChecker extends EventEmitter {
     checks.push(await this.checkSystemUptime());
     checks.push(await this.checkEnvironmentVariables());
     checks.push(await this.checkPermissions());
+    checks.push(await this.checkApplicationConfig());
+    checks.push(await this.checkOptionalDependencies());
 
     const overallStatus = this.determineOverallStatus(checks);
     const resourceUsage = await this.getResourceUsage();
@@ -313,6 +317,7 @@ export class SystemHealthChecker extends EventEmitter {
   private async checkEnvironmentVariables(): Promise<HealthCheckItem> {
     const requiredVars = ['PATH', 'HOME', 'NODE_ENV'];
     const missing: string[] = [];
+    const warnings: string[] = [];
     const suggestions: string[] = [];
 
     for (const varName of requiredVars) {
@@ -321,12 +326,26 @@ export class SystemHealthChecker extends EventEmitter {
       }
     }
 
+    if (!process.env.OAUTH_ENCRYPTION_KEY) {
+      warnings.push('OAUTH_ENCRYPTION_KEY');
+      suggestions.push('设置 OAUTH_ENCRYPTION_KEY 环境变量以确保 OAuth 令牌加密安全');
+    }
+
     if (missing.length > 0) {
       return {
         name: '环境变量',
         status: 'warning',
         message: `缺少环境变量: ${missing.join(', ')}`,
         suggestions: [`设置缺少的环境变量: ${missing.join(', ')}`],
+      };
+    }
+
+    if (warnings.length > 0) {
+      return {
+        name: '环境变量',
+        status: 'warning',
+        message: `缺少推荐环境变量: ${warnings.join(', ')}`,
+        suggestions,
       };
     }
 
@@ -360,6 +379,106 @@ export class SystemHealthChecker extends EventEmitter {
       name: '权限检查',
       status: 'healthy',
       message: '权限设置正常',
+    };
+  }
+
+  /**
+   * 检查应用配置完整性
+   * 验证项目根目录、预置目录、用户档案文件等应用级配置
+   */
+  private async checkApplicationConfig(): Promise<HealthCheckItem> {
+    const issues: string[] = [];
+    const suggestions: string[] = [];
+
+    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    const pyappDir = join(homedir(), '.pyapp');
+
+    if (!process.env.PYAPP_PROJECT_DIR) {
+      issues.push('PYAPP_PROJECT_DIR 未设置');
+      suggestions.push('设置 PYAPP_PROJECT_DIR 环境变量可优化路径解析');
+    }
+
+    if (!existsSync(join(projectRoot, 'backend', 'src', 'monitoring', 'alerts', 'presets'))) {
+      issues.push('告警预置目录不存在');
+      suggestions.push('确认 presets 目录存在于项目源码中');
+    }
+
+    if (!existsSync(join(pyappDir, 'SOUL.md'))) {
+      issues.push('~/.pyapp/SOUL.md 不存在');
+      suggestions.push('SOUL.md 会在首次启动时自动创建，手动创建可自定义 AI 人格');
+    }
+
+    if (!existsSync(join(pyappDir, 'USER.md'))) {
+      issues.push('~/.pyapp/USER.md 不存在');
+      suggestions.push('USER.md 会在首次启动时自动创建，手动创建可自定义用户身份');
+    }
+
+    if (issues.length > 0) {
+      return {
+        name: '应用配置',
+        status: 'warning',
+        message: issues.join('; '),
+        suggestions,
+      };
+    }
+
+    return {
+      name: '应用配置',
+      status: 'healthy',
+      message: '应用配置完整',
+    };
+  }
+
+  /**
+   * 检查可选依赖安装状态
+   * 包括外部命令和 npm 可选包两部分
+   */
+  private async checkOptionalDependencies(): Promise<HealthCheckItem> {
+    const { checkExternalCommands } = await import('./DependenciesChecker.js');
+    const extResult = await checkExternalCommands();
+
+    const npmMissing: string[] = [];
+    const npmSuggestions: string[] = [];
+
+    const deps: Record<string, string> = {
+      'pdfjs-dist': 'PDF 文档转换',
+    };
+
+    for (const [pkg, purpose] of Object.entries(deps)) {
+      try {
+        _require.resolve(pkg);
+      } catch {
+        npmMissing.push(`${pkg}（${purpose}）`);
+        npmSuggestions.push(`运行 bun add ${pkg} 安装可选依赖以启用 ${purpose} 功能`);
+      }
+    }
+
+    const missingCommands = extResult.items.filter((i) => !i.found);
+    const missingNpm = npmMissing.length > 0;
+
+    if (missingCommands.length === 0 && !missingNpm) {
+      return {
+        name: '可选依赖',
+        status: 'healthy',
+        message: '所有可选依赖已安装',
+      };
+    }
+
+    const parts: string[] = [];
+    const allSuggestions: string[] = [...extResult.suggestions, ...npmSuggestions];
+
+    if (missingCommands.length > 0) {
+      parts.push(`缺少外部命令: ${missingCommands.map((i) => i.command).join(', ')}`);
+    }
+    if (missingNpm) {
+      parts.push(`缺少 npm 包: ${npmMissing.join(', ')}`);
+    }
+
+    return {
+      name: '可选依赖',
+      status: 'warning',
+      message: parts.join('; '),
+      suggestions: allSuggestions,
     };
   }
 
@@ -432,6 +551,62 @@ export class SystemHealthChecker extends EventEmitter {
     this.lastReport = null;
     this.removeAllListeners();
   }
+}
+
+/**
+ * 生成精简版控制台健康报告文本
+ * 用于首次运行时向用户展示系统状态概览
+ */
+export function formatHealthReport(report: SystemHealthReport): string {
+  const statusIcon: Record<HealthStatus, string> = {
+    healthy: '✅',
+    warning: '⚠️',
+    critical: '❌',
+  };
+
+  const overallText: Record<HealthStatus, string> = {
+    healthy: '系统运行正常',
+    warning: '存在需要关注的问题',
+    critical: '系统运行异常',
+  };
+
+  const lines: string[] = [];
+
+  lines.push('');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('  📋 系统健康检查报告');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('');
+
+  const icon = statusIcon[report.overallStatus];
+  lines.push(`  ${icon} 总体状态: ${overallText[report.overallStatus]}`);
+  lines.push('');
+
+  for (const check of report.checks) {
+    const ci = statusIcon[check.status];
+    lines.push(`  ${ci} ${check.name}: ${check.message}`);
+  }
+
+  if (report.recommendations.length > 0) {
+    lines.push('');
+    lines.push('  💡 优化建议:');
+    for (const rec of report.recommendations) {
+      lines.push(`    · ${rec}`);
+    }
+  }
+
+  lines.push('');
+  lines.push('  📊 资源使用:');
+  const cpu = report.resourceUsage.cpu.usage.toFixed(1);
+  const mem = report.resourceUsage.memory.usagePercent.toFixed(1);
+  const disk = report.resourceUsage.disk.usagePercent.toFixed(1);
+  lines.push(`     CPU: ${cpu}%  |  内存: ${mem}%  |  磁盘: ${disk}%`);
+  lines.push('');
+  lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  lines.push('  输入 /health 查看详情  |  /doctor 深度诊断');
+  lines.push('');
+
+  return lines.join('\n');
 }
 
 /**

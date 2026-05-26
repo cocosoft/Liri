@@ -4,6 +4,7 @@
  * 采用异步模式：beginAsyncToolCall → Agent 执行 → finishAsyncToolCall + sendToolResult
  */
 
+import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import type { VoiceToolCallEvent, VoiceToolDeclaration } from './types';
 
 /** 活跃工具调用记录 */
@@ -26,6 +27,8 @@ export type ToolResultCallback = (callId: string, output: string) => void;
 export type ToolProgressCallback = (callId: string, summary: string) => void;
 
 export class VoiceToolBridge {
+  private logger = new Logger({ level: LogLevel.INFO });
+
   /** 工具声明缓存 */
   private declarations: VoiceToolDeclaration[] = [];
 
@@ -77,9 +80,18 @@ export class VoiceToolBridge {
   /** 处理工具调用事件 */
   async onToolCall(call: VoiceToolCallEvent): Promise<void> {
     if (!this.delegate) {
+      this.logger.warn('工具桥接 · 工具系统未就绪', {
+        callId: call.id,
+        toolName: call.name,
+      });
       this.onToolResult(call.id, JSON.stringify({ error: '工具系统未就绪' }));
       return;
     }
+
+    this.logger.info('工具桥接 · 开始执行工具', {
+      callId: call.id,
+      toolName: call.name,
+    });
 
     const record: ActiveToolCall = {
       name: call.name,
@@ -93,6 +105,10 @@ export class VoiceToolBridge {
     const timeoutId = setTimeout(() => {
       if (this.activeTools.has(call.id)) {
         this.activeTools.delete(call.id);
+        this.logger.warn('工具桥接 · 工具执行超时', {
+          callId: call.id,
+          toolName: call.name,
+        });
         this.onToolResult(
           call.id,
           JSON.stringify({ error: `工具 ${call.name} 执行超时` })
@@ -115,6 +131,12 @@ export class VoiceToolBridge {
       if (this.activeTools.has(call.id)) {
         clearTimeout(timeoutId);
         this.activeTools.delete(call.id);
+        const elapsed = Date.now() - record.startTime;
+        this.logger.info('工具桥接 · 工具执行完成', {
+          callId: call.id,
+          toolName: call.name,
+          elapsed,
+        });
         this.onToolProgress(call.id, `工具 ${call.name} 执行完成`);
         this.onToolResult(call.id, output);
       }
@@ -122,6 +144,11 @@ export class VoiceToolBridge {
       clearTimeout(timeoutId);
       this.activeTools.delete(call.id);
       const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error('工具桥接 · 工具执行失败', {
+        callId: call.id,
+        toolName: call.name,
+        error: msg,
+      });
       this.onToolResult(call.id, JSON.stringify({ error: msg }));
     }
   }

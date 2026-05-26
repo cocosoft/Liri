@@ -39,9 +39,7 @@ export interface MattermostRuntimeContext {
 /**
  * 构建 Mattermost LLM 平台上下文
  */
-export function buildMattermostContext(
-  ctx: MattermostRuntimeContext
-): string {
+export function buildMattermostContext(ctx: MattermostRuntimeContext): string {
   const parts: string[] = ['[Mattermost Platform Context]'];
   parts.push(`服务器: ${ctx.serverUrl}`);
   if (ctx.botUsername) parts.push(`Bot: @${ctx.botUsername}`);

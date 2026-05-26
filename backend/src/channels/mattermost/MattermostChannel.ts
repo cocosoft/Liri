@@ -18,7 +18,10 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { getDefaultMattermostConfig, validateMattermostConfig } from './config-schema';
+import {
+  getDefaultMattermostConfig,
+  validateMattermostConfig,
+} from './config-schema';
 import type { MattermostConfig } from './config-schema';
 import { MattermostMonitor } from './monitor';
 import type { MattermostProbe } from './probe';
@@ -52,7 +55,10 @@ const MATTERMOST_CAPABILITIES: ChannelCapabilities = {
 /** 请求超时时间 */
 const REQUEST_TIMEOUT_MS = 15000;
 
-export class MattermostChannel extends BaseChannelPlugin implements IChannelPlugin {
+export class MattermostChannel
+  extends BaseChannelPlugin
+  implements IChannelPlugin
+{
   override readonly id = 'mattermost' as const;
   override readonly meta = MATTERMOST_META;
   override readonly capabilities = MATTERMOST_CAPABILITIES;
@@ -63,14 +69,19 @@ export class MattermostChannel extends BaseChannelPlugin implements IChannelPlug
   private monitor: MattermostMonitor | null = null;
 
   protected override getDefaultConfig(): Record<string, unknown> {
-    return { ...getDefaultMattermostConfig() } as unknown as Record<string, unknown>;
+    return { ...getDefaultMattermostConfig() } as unknown as Record<
+      string,
+      unknown
+    >;
   }
 
   protected override validateConfig(config: Record<string, unknown>): string[] {
     return validateMattermostConfig(config);
   }
 
-  protected override async onConnect(config: Record<string, unknown>): Promise<void> {
+  protected override async onConnect(
+    config: Record<string, unknown>
+  ): Promise<void> {
     this.channelConfig = {
       ...getDefaultMattermostConfig(),
       ...config,
@@ -99,7 +110,10 @@ export class MattermostChannel extends BaseChannelPlugin implements IChannelPlug
         );
       }
 
-      const meData = (await meResponse.json()) as { id: string; username: string };
+      const meData = (await meResponse.json()) as {
+        id: string;
+        username: string;
+      };
       this.botUserId = meData.id;
       this.botUsername = meData.username || '';
 
@@ -179,14 +193,21 @@ export class MattermostChannel extends BaseChannelPlugin implements IChannelPlug
     return response.json() as Promise<T>;
   }
 
-  protected override async sendTextMessage(target: string, content: string): Promise<SendResult> {
+  protected override async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
     try {
       const body = {
         channel_id: target,
         message: content,
       };
 
-      const result = await this.apiRequest<{ id: string }>('POST', '/posts', body);
+      const result = await this.apiRequest<{ id: string }>(
+        'POST',
+        '/posts',
+        body
+      );
 
       return {
         success: true,
@@ -200,18 +221,28 @@ export class MattermostChannel extends BaseChannelPlugin implements IChannelPlug
     }
   }
 
-  protected override async sendMarkdownMessage(target: string, content: string): Promise<SendResult> {
+  protected override async sendMarkdownMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
     return this.sendTextMessage(target, content);
   }
 
-  protected override async sendImageMessage(target: string, imageUrl: string): Promise<SendResult> {
+  protected override async sendImageMessage(
+    target: string,
+    imageUrl: string
+  ): Promise<SendResult> {
     try {
       const body = {
         channel_id: target,
         message: `![image](${imageUrl})`,
       };
 
-      const result = await this.apiRequest<{ id: string }>('POST', '/posts', body);
+      const result = await this.apiRequest<{ id: string }>(
+        'POST',
+        '/posts',
+        body
+      );
 
       return {
         success: true,
@@ -225,7 +256,10 @@ export class MattermostChannel extends BaseChannelPlugin implements IChannelPlug
     }
   }
 
-  protected override async sendFileMessage(target: string, filePath: string): Promise<SendResult> {
+  protected override async sendFileMessage(
+    target: string,
+    filePath: string
+  ): Promise<SendResult> {
     try {
       const baseUrl = this.channelConfig.serverUrl.replace(/\/+$/, '');
       const url = `${baseUrl}/api/v4/files`;
@@ -268,7 +302,11 @@ export class MattermostChannel extends BaseChannelPlugin implements IChannelPlug
         file_ids: fileIds,
       };
 
-      const postResult = await this.apiRequest<{ id: string }>('POST', '/posts', postBody);
+      const postResult = await this.apiRequest<{ id: string }>(
+        'POST',
+        '/posts',
+        postBody
+      );
 
       return {
         success: true,
@@ -299,7 +337,10 @@ export class MattermostChannel extends BaseChannelPlugin implements IChannelPlug
     return result;
   }
 
-  protected override async checkHealth(): Promise<{ healthy: boolean; latencyMs: number }> {
+  protected override async checkHealth(): Promise<{
+    healthy: boolean;
+    latencyMs: number;
+  }> {
     const start = Date.now();
     try {
       await this.apiRequest<unknown>('GET', '/users/me');
@@ -330,7 +371,10 @@ export class MattermostChannel extends BaseChannelPlugin implements IChannelPlug
         }
 
         self.monitor = new MattermostMonitor();
-        self.monitor.start(self.channelConfig.serverUrl, self.channelConfig.botToken);
+        self.monitor.start(
+          self.channelConfig.serverUrl,
+          self.channelConfig.botToken
+        );
 
         self.monitor.on('message', (msg: MessageContext) => {
           self.handleIncomingMessage(msg).catch((err) => {

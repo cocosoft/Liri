@@ -21,7 +21,10 @@ export {
   listMattermostAccountIds,
   removeMattermostAccount,
 } from './accounts.js';
-export type { MattermostAccount, ResolvedMattermostAccount } from './accounts.js';
+export type {
+  MattermostAccount,
+  ResolvedMattermostAccount,
+} from './accounts.js';
 
 export { MattermostMonitor } from './monitor.js';
 export { MATTERMOST_TOOL_HINTS, buildMattermostContext } from './runtime.js';

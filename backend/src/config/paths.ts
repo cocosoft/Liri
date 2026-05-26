@@ -64,7 +64,11 @@ export function resolveProjectRoot(
     if (argv0.endsWith('.exe')) {
       const exeDir = resolve(argv0, '..');
       // exe 在 dist/ 下，项目根为 dist/ 的父目录
-      if (exeDir.endsWith('dist') || exeDir.endsWith('dist\\') || exeDir.endsWith('dist/')) {
+      if (
+        exeDir.endsWith('dist') ||
+        exeDir.endsWith('dist\\') ||
+        exeDir.endsWith('dist/')
+      ) {
         return resolve(exeDir, '..');
       }
       return exeDir;

@@ -21,7 +21,10 @@ export {
   listBlueBubblesAccountIds,
   removeBlueBubblesAccount,
 } from './accounts.js';
-export type { BlueBubblesAccount, ResolvedBlueBubblesAccount } from './accounts.js';
+export type {
+  BlueBubblesAccount,
+  ResolvedBlueBubblesAccount,
+} from './accounts.js';
 
 export { BlueBubblesMonitor } from './monitor.js';
 export { BLUEBUBBLES_TOOL_HINTS, buildBlueBubblesContext } from './runtime.js';

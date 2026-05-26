@@ -58,7 +58,10 @@ export class BlueBubblesMonitor extends EventEmitter {
 
       if (!response.ok) {
         if (response.status !== 404) {
-          this.emit('error', new Error(`BlueBubbles poll failed: ${response.status}`));
+          this.emit(
+            'error',
+            new Error(`BlueBubbles poll failed: ${response.status}`)
+          );
         }
         return;
       }

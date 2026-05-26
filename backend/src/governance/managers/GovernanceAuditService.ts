@@ -87,7 +87,13 @@ export class GovernanceAuditService extends EventEmitter {
    */
   private getAuditPath(): string {
     const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
-    const auditDir = join(projectRoot, 'backend', 'data', 'governance', 'audit');
+    const auditDir = join(
+      projectRoot,
+      'backend',
+      'data',
+      'governance',
+      'audit'
+    );
 
     if (!existsSync(auditDir)) {
       mkdirSync(auditDir, { recursive: true });

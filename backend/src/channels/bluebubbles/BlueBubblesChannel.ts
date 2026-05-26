@@ -18,7 +18,10 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { getDefaultBlueBubblesConfig, validateBlueBubblesConfig } from './config-schema';
+import {
+  getDefaultBlueBubblesConfig,
+  validateBlueBubblesConfig,
+} from './config-schema';
 import type { BlueBubblesConfig } from './config-schema';
 import { BlueBubblesMonitor } from './monitor';
 import type { BlueBubblesProbe } from './probe';
@@ -52,7 +55,10 @@ const BLUEBUBBLES_CAPABILITIES: ChannelCapabilities = {
 /** 请求超时时间 */
 const REQUEST_TIMEOUT_MS = 20000;
 
-export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlugin {
+export class BlueBubblesChannel
+  extends BaseChannelPlugin
+  implements IChannelPlugin
+{
   override readonly id = 'bluebubbles' as const;
   override readonly meta = BLUEBUBBLES_META;
   override readonly capabilities = BLUEBUBBLES_CAPABILITIES;
@@ -62,7 +68,10 @@ export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlu
   private monitor: BlueBubblesMonitor | null = null;
 
   protected override getDefaultConfig(): Record<string, unknown> {
-    return { ...getDefaultBlueBubblesConfig() } as unknown as Record<string, unknown>;
+    return { ...getDefaultBlueBubblesConfig() } as unknown as Record<
+      string,
+      unknown
+    >;
   }
 
   protected override validateConfig(config: Record<string, unknown>): string[] {
@@ -108,17 +117,19 @@ export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlu
     return response.json() as Promise<T>;
   }
 
-  protected override async onConnect(config: Record<string, unknown>): Promise<void> {
+  protected override async onConnect(
+    config: Record<string, unknown>
+  ): Promise<void> {
     this.channelConfig = {
       ...getDefaultBlueBubblesConfig(),
       ...config,
     } as BlueBubblesConfig;
 
     try {
-      const serverInfo = await this.apiRequest<{ deviceName?: string; version?: string }>(
-        'GET',
-        '/api/v1/server/info'
-      );
+      const serverInfo = await this.apiRequest<{
+        deviceName?: string;
+        version?: string;
+      }>('GET', '/api/v1/server/info');
 
       this.deviceName = serverInfo.deviceName || 'BlueBubbles';
 
@@ -159,7 +170,10 @@ export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlu
     this.logger.info('BlueBubbles 通道已断开');
   }
 
-  protected override async sendTextMessage(target: string, content: string): Promise<SendResult> {
+  protected override async sendTextMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
     try {
       const body = {
         guid: `pyapp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -168,11 +182,10 @@ export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlu
         method: 'private-api' as const,
       };
 
-      const result = await this.apiRequest<{ status?: number; message?: string }>(
-        'POST',
-        '/api/v1/chat/message',
-        body
-      );
+      const result = await this.apiRequest<{
+        status?: number;
+        message?: string;
+      }>('POST', '/api/v1/chat/message', body);
 
       return {
         success: result.status === 200 || !result.status,
@@ -186,11 +199,17 @@ export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlu
     }
   }
 
-  protected override async sendMarkdownMessage(target: string, content: string): Promise<SendResult> {
+  protected override async sendMarkdownMessage(
+    target: string,
+    content: string
+  ): Promise<SendResult> {
     return this.sendTextMessage(target, content);
   }
 
-  protected override async sendImageMessage(target: string, imageUrl: string): Promise<SendResult> {
+  protected override async sendImageMessage(
+    target: string,
+    imageUrl: string
+  ): Promise<SendResult> {
     try {
       const imageResp = await fetch(imageUrl, {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -232,7 +251,10 @@ export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlu
     }
   }
 
-  protected override async sendFileMessage(target: string, filePath: string): Promise<SendResult> {
+  protected override async sendFileMessage(
+    target: string,
+    filePath: string
+  ): Promise<SendResult> {
     try {
       const fs = await import('node:fs/promises');
       const fileBuffer = await fs.readFile(filePath);
@@ -276,7 +298,10 @@ export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlu
     return this.sendTextMessage(target, content);
   }
 
-  protected override async checkHealth(): Promise<{ healthy: boolean; latencyMs: number }> {
+  protected override async checkHealth(): Promise<{
+    healthy: boolean;
+    latencyMs: number;
+  }> {
     const start = Date.now();
     try {
       await this.apiRequest('GET', '/api/v1/server/info');
@@ -307,7 +332,10 @@ export class BlueBubblesChannel extends BaseChannelPlugin implements IChannelPlu
         }
 
         self.monitor = new BlueBubblesMonitor();
-        self.monitor.start(self.channelConfig.serverUrl, self.channelConfig.password);
+        self.monitor.start(
+          self.channelConfig.serverUrl,
+          self.channelConfig.password
+        );
 
         self.monitor.on('message', (msg: MessageContext) => {
           self.handleIncomingMessage(msg).catch((err) => {

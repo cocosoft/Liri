@@ -7,7 +7,14 @@ import { EventEmitter } from 'node:events';
 import type { MessageContext } from '@modules/channels/types';
 
 export interface MattermostMonitorEvent {
-  type: 'message' | 'post_edited' | 'post_deleted' | 'reaction_added' | 'user_connected' | 'user_disconnected' | 'error';
+  type:
+    | 'message'
+    | 'post_edited'
+    | 'post_deleted'
+    | 'reaction_added'
+    | 'user_connected'
+    | 'user_disconnected'
+    | 'error';
   data: Record<string, unknown>;
 }
 
@@ -94,19 +101,25 @@ export class MattermostMonitor extends EventEmitter {
         });
 
         if (!response.ok) {
-          this.emit('error', new Error(`Mattermost poll failed: ${response.status}`));
+          this.emit(
+            'error',
+            new Error(`Mattermost poll failed: ${response.status}`)
+          );
           return;
         }
 
         const data = (await response.json()) as {
-          posts?: Record<string, {
-            id: string;
-            user_id: string;
-            channel_id: string;
-            message: string;
-            create_at: number;
-            type?: string;
-          }>;
+          posts?: Record<
+            string,
+            {
+              id: string;
+              user_id: string;
+              channel_id: string;
+              message: string;
+              create_at: number;
+              type?: string;
+            }
+          >;
           order?: string[];
         };
 
@@ -137,13 +150,20 @@ export class MattermostMonitor extends EventEmitter {
             this.emit('message', msg);
             this.emit('event', {
               type: 'message',
-              data: { post_id: post.id, channel_id: post.channel_id, user_id: post.user_id },
+              data: {
+                post_id: post.id,
+                channel_id: post.channel_id,
+                user_id: post.user_id,
+              },
             });
           }
         }
       } catch (err) {
         if (this.running) {
-          this.emit('error', err instanceof Error ? err : new Error(String(err)));
+          this.emit(
+            'error',
+            err instanceof Error ? err : new Error(String(err))
+          );
         }
       }
     };

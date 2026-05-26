@@ -24,7 +24,9 @@ export function registerBlueBubblesAccount(
   accountStore.set(id, { ...account });
 }
 
-export function getBlueBubblesAccount(id: string): BlueBubblesAccount | undefined {
+export function getBlueBubblesAccount(
+  id: string
+): BlueBubblesAccount | undefined {
   return accountStore.get(id);
 }
 

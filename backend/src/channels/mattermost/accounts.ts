@@ -26,7 +26,9 @@ export function registerMattermostAccount(
   accountStore.set(id, { ...account });
 }
 
-export function getMattermostAccount(id: string): MattermostAccount | undefined {
+export function getMattermostAccount(
+  id: string
+): MattermostAccount | undefined {
   return accountStore.get(id);
 }
 

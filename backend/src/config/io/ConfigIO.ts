@@ -58,7 +58,9 @@ export class ConfigIO {
   private locks: Map<string, boolean> = new Map();
 
   constructor(configDir?: string, lockTimeout?: number) {
-    this.configDir = configDir || path.join(process.env.PYAPP_PROJECT_DIR || process.cwd(), '.pyapp');
+    this.configDir =
+      configDir ||
+      path.join(process.env.PYAPP_PROJECT_DIR || process.cwd(), '.pyapp');
     this.lockTimeout = lockTimeout ?? 10000;
     this.initSources();
   }
@@ -272,7 +274,10 @@ export class ConfigIO {
       },
       {
         scope: 'local',
-        path: path.join(process.env.PYAPP_PROJECT_DIR || process.cwd(), '.pyapp.local.json'),
+        path: path.join(
+          process.env.PYAPP_PROJECT_DIR || process.cwd(),
+          '.pyapp.local.json'
+        ),
         priority: 30,
         format: 'json',
         exists: false,

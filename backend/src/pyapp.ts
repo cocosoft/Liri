@@ -126,10 +126,15 @@ try {
   try {
     const fsModule: any = require('fs');
     const origMkdirSync: Function = fsModule.mkdirSync.bind(fsModule);
-    fsModule.mkdirSync = function patchedMkdirSync(path: any, options?: any): any {
+    fsModule.mkdirSync = function patchedMkdirSync(
+      path: any,
+      options?: any
+    ): any {
       if (isRootPath(path)) {
         if (process.env['PYAPP_DEBUG']) {
-          console.error(`[BOOT] BLOCKED mkdirSync("${path}") — using fallback dir`);
+          console.error(
+            `[BOOT] BLOCKED mkdirSync("${path}") — using fallback dir`
+          );
         }
         return origMkdirSync(join(projectRoot, 'backend', 'data'), options);
       }
@@ -137,7 +142,11 @@ try {
     };
 
     const origMkdir: Function = fsModule.mkdir.bind(fsModule);
-    fsModule.mkdir = function patchedMkdir(path: any, options: any, callback?: any): any {
+    fsModule.mkdir = function patchedMkdir(
+      path: any,
+      options: any,
+      callback?: any
+    ): any {
       if (isRootPath(path)) {
         if (process.env['PYAPP_DEBUG']) {
           console.error(`[BOOT] BLOCKED mkdir("${path}") — using fallback dir`);
@@ -145,7 +154,11 @@ try {
         if (typeof options === 'function') {
           return origMkdir(join(projectRoot, 'backend', 'data'), options);
         }
-        return origMkdir(join(projectRoot, 'backend', 'data'), options, callback);
+        return origMkdir(
+          join(projectRoot, 'backend', 'data'),
+          options,
+          callback
+        );
       }
       return origMkdir(path, options, callback);
     };
@@ -161,11 +174,11 @@ try {
 // 导致 mkdir(recursive) 在创建 \data 等目录时可能尝试创建 \ 根目录本身，
 // 从而触发 EPERM。预创建这些目录可使后续 mkdir 变为无操作。
 const ROOT_LEVEL_DIRS = [
-  '.pyapp',       // 配置目录（可能的 ConfigManager 默认路径）
+  '.pyapp', // 配置目录（可能的 ConfigManager 默认路径）
   '.pyapp/backups',
   '.pyapp/snapshots',
-  'data',         // 数据目录（OAuth token 等）
-  'data/oauth-tokens.json',  // OAuthStorageImpl 默认路径的父目录
+  'data', // 数据目录（OAuth token 等）
+  'data/oauth-tokens.json', // OAuthStorageImpl 默认路径的父目录
   'data/sessions',
   'data/cache',
   'data/attachments',
@@ -178,7 +191,7 @@ const ROOT_LEVEL_DIRS = [
   'backend/data/governance',
   'backend/data/governance/audit',
   'backend/data/governance/strategies',
-  'logs',         // 日志目录
+  'logs', // 日志目录
 ];
 
 {
@@ -223,10 +236,16 @@ process.env.PYAPP_DATA_DIR = join(projectRoot, 'backend', 'data');
 
   process.on('uncaughtException', (error) => {
     const msg = error?.message || String(error);
-    if (msg.includes('EPERM') && (msg.includes("mkdir '\\'") || msg.includes('mkdir'))) {
+    if (
+      msg.includes('EPERM') &&
+      (msg.includes("mkdir '\\'") || msg.includes('mkdir'))
+    ) {
       console.error('[BOOT] Caught EPERM mkdir error, attempting recovery...');
       if (error instanceof Error && error.stack) {
-        console.error('[BOOT] Stack:', error.stack.split('\n').slice(0, 5).join('\n'));
+        console.error(
+          '[BOOT] Stack:',
+          error.stack.split('\n').slice(0, 5).join('\n')
+        );
       }
       // 不要退出，也不处理（该错误已在 main.ts 中被 catch）
     }

@@ -31,7 +31,9 @@ export function diagnoseBlueBubbles(
   checks.push({
     name: '服务器地址',
     passed: !!ctx.hasServerUrl,
-    message: ctx.hasServerUrl ? 'BlueBubbles 服务器地址已配置' : '缺少服务器地址',
+    message: ctx.hasServerUrl
+      ? 'BlueBubbles 服务器地址已配置'
+      : '缺少服务器地址',
     detail: { hasServerUrl: ctx.hasServerUrl },
   });
 
@@ -53,7 +55,9 @@ export function diagnoseBlueBubbles(
     checks.push({
       name: '服务器可达',
       passed: ctx.serverReachable,
-      message: ctx.serverReachable ? 'BlueBubbles 服务器可达' : '无法连接 BlueBubbles 服务器',
+      message: ctx.serverReachable
+        ? 'BlueBubbles 服务器可达'
+        : '无法连接 BlueBubbles 服务器',
       detail: { serverReachable: ctx.serverReachable },
     });
   }

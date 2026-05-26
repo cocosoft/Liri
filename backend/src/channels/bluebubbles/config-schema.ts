@@ -20,7 +20,9 @@ export function getDefaultBlueBubblesConfig(): BlueBubblesConfig {
   };
 }
 
-export function validateBlueBubblesConfig(config: Record<string, unknown>): string[] {
+export function validateBlueBubblesConfig(
+  config: Record<string, unknown>
+): string[] {
   const errors: string[] = [];
 
   if (!config.serverUrl || typeof config.serverUrl !== 'string') {

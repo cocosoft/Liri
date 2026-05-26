@@ -160,10 +160,7 @@ async function checkFirstRunAndOnboard(): Promise<void> {
   let retryCount = 0;
   if (existsSync(onboardRetryFlag)) {
     try {
-      retryCount = parseInt(
-        readFileSync(onboardRetryFlag, 'utf-8').trim(),
-        10
-      );
+      retryCount = parseInt(readFileSync(onboardRetryFlag, 'utf-8').trim(), 10);
     } catch {
       retryCount = 0;
     }

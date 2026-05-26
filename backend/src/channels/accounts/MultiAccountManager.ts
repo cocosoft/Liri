@@ -1,4 +1,8 @@
-import type { NamedAccount, ResolvedAccount, AccountRegistrationOptions } from './types';
+import type {
+  NamedAccount,
+  ResolvedAccount,
+  AccountRegistrationOptions,
+} from './types';
 
 /**
  * MultiAccountManager — 多账号管理器
@@ -72,9 +76,10 @@ export class MultiAccountManager {
   remove(id: string): boolean {
     const removed = this.accounts.delete(id);
     if (removed && this.defaultAccountId === id) {
-      this.defaultAccountId = this.accounts.size > 0
-        ? this.accounts.keys().next().value as string
-        : null;
+      this.defaultAccountId =
+        this.accounts.size > 0
+          ? (this.accounts.keys().next().value as string)
+          : null;
     }
     return removed;
   }

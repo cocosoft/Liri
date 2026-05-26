@@ -26,7 +26,9 @@ export function getDefaultMattermostConfig(): MattermostConfig {
   };
 }
 
-export function validateMattermostConfig(config: Record<string, unknown>): string[] {
+export function validateMattermostConfig(
+  config: Record<string, unknown>
+): string[] {
   const errors: string[] = [];
 
   if (!config.serverUrl || typeof config.serverUrl !== 'string') {
@@ -35,7 +37,10 @@ export function validateMattermostConfig(config: Record<string, unknown>): strin
   if (!config.botToken || typeof config.botToken !== 'string') {
     errors.push('botToken 是必填项');
   }
-  if (config.replyMode && !['thread', 'off'].includes(config.replyMode as string)) {
+  if (
+    config.replyMode &&
+    !['thread', 'off'].includes(config.replyMode as string)
+  ) {
     errors.push('replyMode 只能是 thread 或 off');
   }
 

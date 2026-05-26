@@ -41,7 +41,8 @@ export class OAuthStorageImpl implements OAuthStorage {
   constructor(options?: { storagePath?: string; encryptionKey?: string }) {
     const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
     this.storagePath =
-      options?.storagePath || join(projectRoot, 'backend', 'data', 'oauth-tokens.json');
+      options?.storagePath ||
+      join(projectRoot, 'backend', 'data', 'oauth-tokens.json');
     this.encryptionKey =
       options?.encryptionKey || this.getDefaultEncryptionKey();
   }

@@ -35,7 +35,9 @@ export interface BlueBubblesRuntimeContext {
   accountId?: string;
 }
 
-export function buildBlueBubblesContext(ctx: BlueBubblesRuntimeContext): string {
+export function buildBlueBubblesContext(
+  ctx: BlueBubblesRuntimeContext
+): string {
   const parts: string[] = ['[BlueBubbles/iMessage Platform Context]'];
   parts.push(`服务器: ${ctx.serverUrl}`);
   if (ctx.homeHandle) parts.push(`默认号码: ${ctx.homeHandle}`);

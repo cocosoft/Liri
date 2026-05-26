@@ -13,11 +13,12 @@ import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 import { LazyCommand } from './LazyCommand.js';
+import { resolveProjectRoot } from '../../config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-// 获取项目根目录（使用当前工作目录）
-const projectRoot = process.cwd();
+// 获取项目根目录（通过统一路径解析）
+const projectRoot = resolveProjectRoot();
 
 interface BuiltinModuleEntry {
   path: string;

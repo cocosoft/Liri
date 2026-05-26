@@ -4,6 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveProjectRoot } from '../../config/paths';
 
 /**
  * 发现源类型
@@ -189,7 +190,7 @@ export class PluginDiscovery {
    * 初始化默认扫描路径
    */
   private initDefaultScanPaths(): void {
-    const cwd = process.cwd();
+    const cwd = resolveProjectRoot();
 
     this.scanPaths.set('builtin', [path.join(cwd, 'plugins', 'builtin')]);
     this.scanPaths.set('installed', [path.join(cwd, 'plugins', 'installed')]);

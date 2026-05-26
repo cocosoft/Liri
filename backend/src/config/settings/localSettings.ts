@@ -23,7 +23,7 @@ const PROJECT_SETTINGS_DIR = '.py_app';
  * 获取本地设置文件路径
  */
 export function getLocalSettingsPath(projectRoot?: string): string {
-  const root = projectRoot || process.cwd();
+  const root = projectRoot || process.env.PYAPP_PROJECT_DIR || process.cwd();
   return join(root, PROJECT_SETTINGS_DIR, LOCAL_SETTINGS_FILE);
 }
 

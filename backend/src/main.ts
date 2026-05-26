@@ -27,24 +27,12 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { ensureDefaultSoulMd } from './services/soul/SoulReader';
 import { ensureDefaultUserMd } from './services/soul/UserReader';
+import { resolveProjectRoot } from './config/paths';
 
 const logger = new Logger({ level: 'info' as any });
 
-/** 首次运行标记文件 */
-const ONBOARDED_FLAG = join(process.cwd(), 'backend', 'data', '.onboarded');
-const ENV_FILE = join(process.cwd(), '.env');
-const ENV_EXAMPLE = join(process.cwd(), '.env.example');
-
 /** 最大首次引导重试次数 */
 const MAX_ONBOARD_RETRIES = 3;
-
-/** 引导失败重试计数文件 */
-const ONBOARD_RETRY_FLAG = join(
-  process.cwd(),
-  'backend',
-  'data',
-  '.onboard_retry'
-);
 
 /** 离线模式（无 AI 密钥）标志，供 REPL 等模块使用 */
 export let isOfflineMode = true;
@@ -57,6 +45,41 @@ const PLACEHOLDER_API_KEYS = new Set([
   'your_api_key_here',
   '',
 ]);
+
+/**
+ * 获取首次运行标记文件路径
+ */
+function getOnboardedFlagPath(): string {
+  return join(resolveProjectRoot(), 'backend', 'data', '.onboarded');
+}
+
+/**
+ * 获取 .env 文件路径
+ */
+function getEnvFilePath(): string {
+  return join(resolveProjectRoot(), '.env');
+}
+
+/**
+ * 获取 .env.example 文件路径
+ */
+function getEnvExamplePath(): string {
+  return join(resolveProjectRoot(), '.env.example');
+}
+
+/**
+ * 获取引导重试计数文件路径
+ */
+function getOnboardRetryFlagPath(): string {
+  return join(resolveProjectRoot(), 'backend', 'data', '.onboard_retry');
+}
+
+/**
+ * 获取数据目录路径
+ */
+function getDataDir(): string {
+  return join(resolveProjectRoot(), 'backend', 'data');
+}
 
 /**
  * 校验 API 密钥是否有效（非占位符、非空）
@@ -99,11 +122,17 @@ async function isAIConfigured(): Promise<boolean> {
  * 若文件不存在，自动触发引导流程。
  */
 async function checkFirstRunAndOnboard(): Promise<void> {
+  const onboardedFlag = getOnboardedFlagPath();
+  const envFile = getEnvFilePath();
+  const envExample = getEnvExamplePath();
+  const onboardRetryFlag = getOnboardRetryFlagPath();
+  const dataDir = getDataDir();
+
   // 确保 ~/.pyapp/SOUL.md 和 ~/.pyapp/USER.md 存在
   ensureDefaultSoulMd();
   ensureDefaultUserMd();
 
-  if (existsSync(ONBOARDED_FLAG)) {
+  if (existsSync(onboardedFlag)) {
     // 已有标记文件，检查 AI 状态
     if (await isAIConfigured()) {
       isOfflineMode = false;
@@ -112,15 +141,15 @@ async function checkFirstRunAndOnboard(): Promise<void> {
   }
 
   // 首次运行：确保 .env 文件存在（从 .env.example 模板创建）
-  if (!existsSync(ENV_FILE) && existsSync(ENV_EXAMPLE)) {
+  if (!existsSync(envFile) && existsSync(envExample)) {
     try {
-      const exampleContent = readFileSync(ENV_EXAMPLE, 'utf-8');
+      const exampleContent = readFileSync(envExample, 'utf-8');
       // 替换占位密钥为空，引导用户填写真实密钥
       const envContent = exampleContent.replace(
         /DEEPSEEK_API_KEY=.*/,
         '# 请将下方密钥替换为你的真实 DeepSeek API 密钥\n# 获取地址: https://platform.deepseek.com/api_keys\nDEEPSEEK_API_KEY='
       );
-      writeFileSync(ENV_FILE, envContent, 'utf-8');
+      writeFileSync(envFile, envContent, 'utf-8');
       logger.info('.env 文件已自动创建（来自 .env.example）');
     } catch (e) {
       logger.warn('自动创建 .env 文件失败', { error: String(e) });
@@ -129,10 +158,10 @@ async function checkFirstRunAndOnboard(): Promise<void> {
 
   // 检查重试次数
   let retryCount = 0;
-  if (existsSync(ONBOARD_RETRY_FLAG)) {
+  if (existsSync(onboardRetryFlag)) {
     try {
       retryCount = parseInt(
-        readFileSync(ONBOARD_RETRY_FLAG, 'utf-8').trim(),
+        readFileSync(onboardRetryFlag, 'utf-8').trim(),
         10
       );
     } catch {
@@ -148,14 +177,13 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     console.log('  ⚠️ 引导已重试多次，跳过自动引导。');
     console.log('  您可以随时输入 /onboard 手动启动配置。');
     console.log('');
-    const dataDir = join(process.cwd(), 'backend', 'data');
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir, { recursive: true });
     }
-    writeFileSync(ONBOARDED_FLAG, Date.now().toString(), 'utf-8');
-    if (existsSync(ONBOARD_RETRY_FLAG)) {
+    writeFileSync(onboardedFlag, Date.now().toString(), 'utf-8');
+    if (existsSync(onboardRetryFlag)) {
       try {
-        rmSync(ONBOARD_RETRY_FLAG, { force: true });
+        rmSync(onboardRetryFlag, { force: true });
       } catch {}
     }
     return;
@@ -173,16 +201,15 @@ async function checkFirstRunAndOnboard(): Promise<void> {
       logger.info(result.join('\n'));
     }
 
-    const dataDir = join(process.cwd(), 'backend', 'data');
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir, { recursive: true });
     }
-    writeFileSync(ONBOARDED_FLAG, Date.now().toString(), 'utf-8');
+    writeFileSync(onboardedFlag, Date.now().toString(), 'utf-8');
 
     // 清除重试计数
-    if (existsSync(ONBOARD_RETRY_FLAG)) {
+    if (existsSync(onboardRetryFlag)) {
       try {
-        rmSync(ONBOARD_RETRY_FLAG, { force: true });
+        rmSync(onboardRetryFlag, { force: true });
       } catch {}
     }
 
@@ -199,11 +226,10 @@ async function checkFirstRunAndOnboard(): Promise<void> {
     // 增加重试计数
     retryCount++;
     try {
-      const dataDir = join(process.cwd(), 'backend', 'data');
       if (!existsSync(dataDir)) {
         mkdirSync(dataDir, { recursive: true });
       }
-      writeFileSync(ONBOARD_RETRY_FLAG, String(retryCount), 'utf-8');
+      writeFileSync(onboardRetryFlag, String(retryCount), 'utf-8');
     } catch {}
 
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -223,11 +249,10 @@ async function checkFirstRunAndOnboard(): Promise<void> {
 
     // 创建标记文件防止每次启动都失败
     if (retryCount >= MAX_ONBOARD_RETRIES) {
-      const dataDir = join(process.cwd(), 'backend', 'data');
       if (!existsSync(dataDir)) {
         mkdirSync(dataDir, { recursive: true });
       }
-      writeFileSync(ONBOARDED_FLAG, Date.now().toString(), 'utf-8');
+      writeFileSync(onboardedFlag, Date.now().toString(), 'utf-8');
     }
   }
 }
@@ -356,7 +381,7 @@ async function launchMCPServer(options: LaunchOptions): Promise<void> {
 
   const { startMCPServer } = await import('./entrypoints/mcp');
   await startMCPServer(
-    process.cwd(),
+    resolveProjectRoot(),
     options.debug ?? false,
     options.verbose ?? false
   );
@@ -504,8 +529,26 @@ export async function launch(options: LaunchOptions): Promise<void> {
  * 默认启动函数（兼容 cli.tsx 的 import { main } from '../main'）
  */
 export async function main(): Promise<void> {
-  const mode = (process.argv[2] as LaunchMode) || LaunchMode.REPL;
-  const args = [...process.argv.slice(3)];
+  // 先解析 --project-dir 参数，确保路径解析在所有模块加载前生效
+  const argv = [...process.argv];
+  let projectDir: string | undefined;
+  const filteredArgv: string[] = [];
+  for (let i = 2; i < argv.length; i++) {
+    if (argv[i] === '--project-dir' && i + 1 < argv.length) {
+      projectDir = argv[i + 1];
+      i++; // 跳过值
+    } else if (argv[i].startsWith('--project-dir=')) {
+      projectDir = argv[i].split('=')[1];
+    } else {
+      filteredArgv.push(argv[i]);
+    }
+  }
+  if (projectDir) {
+    process.env.PYAPP_PROJECT_DIR = projectDir;
+  }
+
+  const mode = (filteredArgv[0] as LaunchMode) || LaunchMode.REPL;
+  const args = filteredArgv.slice(1);
 
   // 默认使用legacy REPL，避免ink TUI的问题
   if (!args.includes('--legacy-repl') && !args.includes('--no-legacy-repl')) {

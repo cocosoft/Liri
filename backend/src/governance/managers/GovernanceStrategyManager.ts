@@ -6,8 +6,7 @@
 
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -92,13 +91,12 @@ export class GovernanceStrategyManager extends EventEmitter {
    * 获取策略文件路径
    */
   private getStrategiesPath(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
     const strategiesDir = join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      'config',
+      projectRoot,
+      'backend',
+      'data',
+      'governance',
       'strategies'
     );
 

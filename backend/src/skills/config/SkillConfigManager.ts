@@ -50,7 +50,8 @@ export class SkillConfigManager {
       enableTelemetry: false,
       allowedSources: ['user', 'project', 'plugin', 'mcp', 'bundled'],
     };
-    this.configPath = path.join(process.cwd(), '.pyapp', 'skill-config.json');
+    const effectiveCwd = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    this.configPath = path.join(effectiveCwd, '.pyapp', 'skill-config.json');
     this.loadDefaults();
   }
 
@@ -174,13 +175,13 @@ export class SkillConfigManager {
    * 加载默认配置
    */
   private loadDefaults(): void {
-    const cwd = process.cwd();
+    const effectiveCwd = process.env.PYAPP_PROJECT_DIR || process.cwd();
 
     this.registerSource({
       name: 'builtin',
       type: 'bundled',
       enabled: true,
-      path: path.join(cwd, 'skills', 'builtin'),
+      path: path.join(effectiveCwd, 'skills', 'builtin'),
       priority: 0,
       autoLoad: true,
     });
@@ -189,7 +190,7 @@ export class SkillConfigManager {
       name: 'bundled',
       type: 'bundled',
       enabled: true,
-      path: path.join(cwd, 'skills', 'bundled'),
+      path: path.join(effectiveCwd, 'skills', 'bundled'),
       priority: 10,
       autoLoad: true,
     });

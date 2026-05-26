@@ -1,0 +1,41 @@
+# ── Git ──
+.git
+.gitignore
+.gitattributes
+
+# ── 依赖缓存 ──
+node_modules/
+.bun-cache/
+
+# ── 构建产物 ──
+dist/
+native/target/
+
+# ── 运行时数据 ──
+data/
+logs/
+
+# ── 开发配置 ──
+.env
+.env.local
+tsconfig.json
+tsconfig.eslint.json
+.eslintrc.json
+eslint.config.js
+.prettierrc.json
+.prettierignore
+
+# ── 文档（开发文档不打包进镜像） ──
+dev_docs/
+
+# ── 测试 ──
+__tests__/
+*.test.ts
+*.spec.ts
+bun_test_results.json
+
+# ── 系统 ──
+.DS_Store
+Thumbs.db
+*.log
+*.pid

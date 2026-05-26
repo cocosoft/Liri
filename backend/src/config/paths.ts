@@ -38,15 +38,46 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
  * 获取项目根目录
  * 可通过 PYAPP_PROJECT_DIR 环境变量覆盖
  * 默认使用 process.cwd()
+ *
+ * Bun 编译的独立 exe 中，process.cwd() 可能返回根路径（如 '\' 或 'D:\'），
+ * 此时 fallback 链为：
+ *   1. PYAPP_PROJECT_DIR 环境变量（启动脚本设置）
+ *   2. process.argv[0] → 编译 exe 的实际磁盘路径，推断项目根
+ *   3. INIT_CWD 环境变量
+ *   4. process.cwd()（原样返回）
  */
 export function resolveProjectRoot(
   env: NodeJS.ProcessEnv = process.env
 ): string {
+  // 1. 环境变量优先（启动脚本设置）
   const override = env[ENV_PYAPP_PROJECT_DIR]?.trim();
   if (override) {
     return resolve(override);
   }
-  return resolve(process.cwd());
+
+  const cwd = process.cwd() || '';
+
+  const isWindowsRoot = /^[a-zA-Z]:\\$/.test(cwd) || cwd === '\\';
+  if (cwd === '' || cwd === '/' || isWindowsRoot) {
+    // 2. 从 argv[0] 推断 exe 实际路径（Bun 编译 exe 中指向用户硬盘上的 .exe 文件）
+    const argv0 = process.argv[0] || '';
+    if (argv0.endsWith('.exe')) {
+      const exeDir = resolve(argv0, '..');
+      // exe 在 dist/ 下，项目根为 dist/ 的父目录
+      if (exeDir.endsWith('dist') || exeDir.endsWith('dist\\') || exeDir.endsWith('dist/')) {
+        return resolve(exeDir, '..');
+      }
+      return exeDir;
+    }
+
+    // 3. INIT_CWD 环境变量兜底
+    const initCwd = env['INIT_CWD']?.trim();
+    if (initCwd) {
+      return resolve(initCwd);
+    }
+  }
+
+  return resolve(cwd);
 }
 
 /**

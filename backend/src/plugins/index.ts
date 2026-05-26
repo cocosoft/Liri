@@ -33,6 +33,7 @@ import {
   PluginEventType,
   PluginEvent,
 } from './types/PluginTypes';
+import { resolveProjectRoot } from '../config/paths';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
@@ -83,7 +84,7 @@ export class PluginSystem {
    */
   constructor(options: PluginLoaderOptions = {}) {
     this._options = {
-      pluginDirectories: [join(process.cwd(), 'plugins')],
+      pluginDirectories: [join(resolveProjectRoot(), 'plugins')],
       autoLoad: false,
       autoActivate: false,
       validationEnabled: true,

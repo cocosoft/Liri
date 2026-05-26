@@ -3,6 +3,7 @@
  * 提供Token的加密存储和读取功能
  */
 
+import { join } from 'path';
 import { logger } from '@modules/utils/log.js';
 import { CryptoUtils } from '@modules/security/services/CryptoUtils.js';
 
@@ -38,7 +39,9 @@ export class OAuthStorageImpl implements OAuthStorage {
   private encryptionKey: string;
 
   constructor(options?: { storagePath?: string; encryptionKey?: string }) {
-    this.storagePath = options?.storagePath || './data/oauth-tokens.json';
+    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    this.storagePath =
+      options?.storagePath || join(projectRoot, 'backend', 'data', 'oauth-tokens.json');
     this.encryptionKey =
       options?.encryptionKey || this.getDefaultEncryptionKey();
   }

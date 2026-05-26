@@ -310,7 +310,7 @@ export function parseYaml(content: string): Record<string, unknown> {
  * 搜索 startup.yaml 文件
  */
 function findStartupFile(): string | null {
-  const cwd = process.cwd();
+  const cwd = process.env.PYAPP_PROJECT_DIR || process.cwd();
 
   for (const dir of SEARCH_PATHS) {
     for (const name of FILE_NAMES) {

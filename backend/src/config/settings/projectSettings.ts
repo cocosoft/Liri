@@ -23,7 +23,7 @@ const PROJECT_SETTINGS_FILE = 'settings.json';
  * 获取项目设置文件路径
  */
 export function getProjectSettingsPath(projectRoot?: string): string {
-  const root = projectRoot || process.cwd();
+  const root = projectRoot || process.env.PYAPP_PROJECT_DIR || process.cwd();
   return join(root, PROJECT_SETTINGS_DIR, PROJECT_SETTINGS_FILE);
 }
 

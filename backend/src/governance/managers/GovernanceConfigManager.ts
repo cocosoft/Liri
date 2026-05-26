@@ -6,8 +6,7 @@
 
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import type { GovernanceConfig } from '../types/GovernanceTypes';
 import { createDefaultGovernanceConfig } from '../types/GovernanceTypes';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
@@ -64,25 +63,32 @@ export class GovernanceConfigManager extends EventEmitter {
   }
 
   /**
+   * 获取治理配置存储根目录（backend/data/governance/）
+   */
+  private getGovernanceDir(): string {
+    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    return join(projectRoot, 'backend', 'data', 'governance');
+  }
+
+  /**
    * 获取配置文件路径
    */
   private getConfigPath(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const configDir = join(__dirname, '..', '..', '..', 'config');
+    const governanceDir = this.getGovernanceDir();
 
-    if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true });
+    if (!existsSync(governanceDir)) {
+      mkdirSync(governanceDir, { recursive: true });
     }
 
-    return join(configDir, 'governance.json');
+    return join(governanceDir, 'governance.json');
   }
 
   /**
    * 获取版本文件路径
    */
   private getVersionsPath(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const versionsDir = join(__dirname, '..', '..', '..', 'config', 'versions');
+    const governanceDir = this.getGovernanceDir();
+    const versionsDir = join(governanceDir, 'versions');
 
     if (!existsSync(versionsDir)) {
       mkdirSync(versionsDir, { recursive: true });

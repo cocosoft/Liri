@@ -1,0 +1,173 @@
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  PY_APP — Docker 引导说明
+  版本：1.0.0 | 更新日期：2026-05-26
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+一、概述
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PY_APP 的 Docker 版采用与 Windows 版相同的打包策略：
+使用 bun build --compile 将应用编译为独立的 Linux 二进制文件，
+再放入最小化的 Alpine 镜像中运行。
+
+与 Windows 版的对应关系：
+
+  Windows 版                      Docker 版
+  ─────────────────────────────────────────────────
+  bun build --compile            Dockerfile 中的 bun build --compile
+  --target=bun-windows-x64       --target=bun-linux-x64-musl-modern
+  py_app_coding.exe              py_app_coding（Linux ELF 二进制）
+  dist/ 目录                     镜像中的 /app/py_app_coding
+  双击 exe 运行                   docker compose run --rm app
+  启动脚本设置环境变量              docker-compose.yml 中的 env_file
+
+最终镜像仅包含：
+  - 编译好的独立二进制（~50MB，含 Bun 运行时 + 全部 TS 代码）
+  - Rust 原生加速插件（按需加载，不存在时优雅降级）
+  - 帮助文档（/docs 命令使用）
+  - Alpine Linux 3.21 基础层（~5MB）
+  - ca-certificates + tzdata（SSL + 时区支持）
+
+镜像总大小约 60MB（不含基础层缓存）。
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+二、系统要求
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - 操作系统：Linux（推荐 Ubuntu 22.04+ / Debian 12+ / CentOS 9+）
+  - Docker Engine：24.0+
+  - Docker Compose：2.20+（或 docker compose 插件）
+  - 内存：最低 512MB，推荐 2GB+
+  - 磁盘空间：构建时需 2GB+（含 Rust 编译缓存），运行时约 200MB
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+三、快速开始
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1 配置 API Key
+────────────────────────────────────────────────
+
+  # 在 backend/ 目录下操作
+  cd backend
+  cp .env.example .env
+
+  编辑 .env，填入 DEEPSEEK_API_KEY
+  获取地址：https://platform.deepseek.com/api_keys
+
+3.2 构建镜像（在 backend/ 目录下）
+────────────────────────────────────────────────
+
+  docker compose -f docker/docker-compose.yml build
+
+  构建过程说明：
+    阶段 1：native-builder — 编译 Rust 原生插件（约 2-3 分钟）
+    阶段 2：app-builder   — bun install + bun build --compile（约 1 分钟）
+    阶段 3：runtime        — 组装最小运行镜像（约 10 秒）
+
+  首次构建较慢，后续构建利用 Docker 层缓存会快很多。
+
+3.3 交互模式（等同 Windows 版双击 exe）
+────────────────────────────────────────────────
+
+  docker compose -f docker/docker-compose.yml run --rm app
+
+  这会打开 REPL 交互界面，输入 exit 退出。
+  启动脚本会自动加载 .env 中的配置。
+
+  如需指定启动模式：
+    docker compose -f docker/docker-compose.yml run --rm app mcp      # MCP 服务
+    docker compose -f docker/docker-compose.yml run --rm app daemon   # 守护进程
+
+3.4 后台服务模式
+────────────────────────────────────────────────
+
+  docker compose -f docker/docker-compose.yml up -d
+  docker compose -f docker/docker-compose.yml logs -f
+  docker compose -f docker/docker-compose.yml down
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+四、数据持久化
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Docker 版使用命名卷持久化数据：
+
+  pyapp_data   → /app/backend/data   数据库、会话、记忆等
+  pyapp_logs   → /app/backend/logs  日志文件
+
+数据卷的生命周期独立于容器，docker compose down 不会删除数据。
+如需彻底清理：
+
+  docker compose -f docker/docker-compose.yml down -v   # 停止并删除数据卷
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+五、常用命令速查
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  操作                                   命令
+  ─────────────────────────────────────────────────────────
+  首次构建                               docker compose -f docker/docker-compose.yml build
+  重新构建（不使用缓存）                  docker compose -f docker/docker-compose.yml build --no-cache
+  交互模式                               docker compose -f docker/docker-compose.yml run --rm app
+  MCP 服务模式                           docker compose -f docker/docker-compose.yml run --rm app mcp
+  后台启动                               docker compose -f docker/docker-compose.yml up -d
+  查看日志                               docker compose -f docker/docker-compose.yml logs -f
+  停止服务                               docker compose -f docker/docker-compose.yml down
+  彻底清理（含数据卷）                    docker compose -f docker/docker-compose.yml down -v
+  进入容器 shell                         docker compose -f docker/docker-compose.yml run --rm app /bin/sh
+  导出镜像                               docker save py_app-app:latest -o py_app.tar
+
+  # 也可以 cd backend/docker 后直接运行（省略 -f 参数）
+  cd backend/docker
+  docker compose build                    # 等同完整命令
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+六、生产部署建议
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. JWT_SECRET 环境变量务必设置强密码
+  2. 启用健康检查（取消 docker-compose.yml 中 healthcheck 注释）
+  3. 使用反向代理（Nginx/Traefik）暴露端口 3000
+  4. 日志建议接入外部日志系统（如 Loki/ELK）
+  5. 定期备份数据卷：
+     docker run --rm -v pyapp_data:/data alpine tar czf /backup/data.tar.gz /app/backend/data
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+七、常见问题
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Q: 构建失败，提示 "bun: command not found"？
+A: Docker 镜像使用 oven/bun 作为构建基础镜像，
+   确保 Docker 可以正常拉取镜像（可能需要科学上网）。
+
+Q: 构建 Rust 原生插件失败？
+A: Rust 编译失败不影响应用核心功能，原生插件会优雅降级。
+   如需要可跳过：编辑 Dockerfile，注释掉 native-builder 阶段。
+   或设置 DOCKER_BUILDKIT=0 使用传统构建模式。
+
+Q: 运行提示 "EPERM" 或 "ENOENT" 错误？
+A: Dockerfile 已预创建所有数据目录，正常情况下不会出现此问题。
+   如遇到，检查数据卷权限：
+     docker compose -f docker/docker-compose.yml run --rm app chown -R 1000:1000 /app
+
+Q: 如何更新到新版本？
+A: docker compose -f docker/docker-compose.yml build --no-cache app
+   docker compose -f docker/docker-compose.yml up -d
+
+Q: 交互模式中文显示乱码？
+A: 在 docker-compose.yml 的 environment 中添加：
+     - LANG=C.UTF-8
+     - LC_ALL=C.UTF-8
+
+
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  项目代码：https://github.com/py-app/py-app
+  详细文档：backend/docs/ 目录下的 Markdown 文档
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■

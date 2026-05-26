@@ -314,7 +314,7 @@ export class MonitoringService {
    */
   private rotateLogs(): void {
     try {
-      const logDir = path.join(process.cwd(), 'data', 'logs');
+      const logDir = path.join(process.env.PYAPP_PROJECT_DIR || process.cwd(), 'data', 'logs');
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
       }

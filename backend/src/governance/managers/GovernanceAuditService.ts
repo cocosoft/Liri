@@ -7,8 +7,7 @@
 
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import type {
   GovernanceEvent,
   GovernanceExecutionResult,
@@ -87,8 +86,8 @@ export class GovernanceAuditService extends EventEmitter {
    * 获取审计文件路径
    */
   private getAuditPath(): string {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const auditDir = join(__dirname, '..', '..', '..', 'data', 'logs', 'audit');
+    const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    const auditDir = join(projectRoot, 'backend', 'data', 'governance', 'audit');
 
     if (!existsSync(auditDir)) {
       mkdirSync(auditDir, { recursive: true });

@@ -197,6 +197,10 @@ export class FileHandler {
  * 编译为独立二进制时，import.meta.url 指向虚拟 Bun 根目录（如 B:\），回退到 process.cwd()
  */
 function resolveProjectRoot(): string {
+  // 环境变量优先（由 pyapp.ts 启动引导设置）
+  const envDir = process.env.PYAPP_PROJECT_DIR?.trim();
+  if (envDir) return envDir;
+
   try {
     const loggerDir = dirname(fileURLToPath(import.meta.url));
     const resolved = join(loggerDir, '..', '..', '..', '..');

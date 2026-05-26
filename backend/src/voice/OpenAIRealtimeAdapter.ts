@@ -56,9 +56,14 @@ interface ReconnectState {
   timer: ReturnType<typeof setTimeout> | null;
 }
 
-/** 带自定义头的 WebSocket 选项 */
-interface WebSocketInitOptions {
-  headers?: Record<string, string>;
+/** Bun 环境下带自定义头的 WebSocket 工厂 */
+type WsOptions = { headers?: Record<string, string> };
+function createWsWithHeaders(url: string, options: WsOptions): WebSocket {
+  const Constructor = WebSocket as unknown as new (
+    url: string,
+    opts: WsOptions
+  ) => WebSocket;
+  return new Constructor(url, options);
 }
 
 export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
@@ -110,12 +115,12 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
       try {
         const wsUrl = `${OPENAI_WS_BASE}?model=${encodeURIComponent(this.model)}`;
 
-        this.ws = new WebSocket(wsUrl, {
+        this.ws = createWsWithHeaders(wsUrl, {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
             'OpenAI-Beta': 'realtime=v1',
           },
-        } as WebSocketInitOptions) as WebSocket;
+        });
 
         this.ws.onopen = () => {
           this.sessionActive = true;

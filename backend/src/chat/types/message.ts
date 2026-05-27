@@ -596,6 +596,12 @@ export interface SendMessageOptions {
   maxTokens?: number;
 
   /**
+   * 是否使用共享上下文
+   * 启用后，LLM 将看到 CombinedSessionGateway 中所有通道的历史消息
+   */
+  useSharedContext?: boolean;
+
+  /**
    * 工具调用事件回调
    * 在工具执行开始和结束时触发，用于在 UI 中展示工具调用过程
    * @param phase 阶段：'start' 开始执行 | 'end' 执行完成

@@ -269,29 +269,8 @@ export async function init(): Promise<void> {
             logger.debug('Gateway 通道自动启动失败（非关键）', { error: setupError });
           }
 
-          // 同步通道到 ChannelRegistry，确保工具和 /channel 命令可访问
-          try {
-            const { setupChannelsFromConfig } =
-              await import('../channels/setupChannels.js');
-            const channelResult = await Promise.race([
-              setupChannelsFromConfig(),
-              new Promise<never>((_, reject) =>
-                setTimeout(
-                  () => reject(new Error('setupChannelsFromConfig 超时 (15s)')),
-                  15000
-                )
-              ),
-            ]);
-            if (channelResult.registered > 0) {
-              logger.info(
-                `ChannelRegistry 通道同步完成: ${channelResult.registered} 通道已注册`
-              );
-            }
-          } catch (channelError) {
-            logger.debug('ChannelRegistry 同步失败（非关键）', {
-              error: channelError,
-            });
-          }
+          // 通道已由 Gateway 系统（ChannelPluginRegistry）统一管理
+          // ChannelRegistry（channels/registry/）作为其薄代理自动同步
 
           // 注册 Gateway 优雅关闭处理
           const { disconnectAllChannels } =
@@ -420,10 +399,10 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
-      // 预加载会话管理器
+      // 预加载会话网关（替代 SessionManager）
       (async () => {
         try {
-          await import('../session/SessionManager.js');
+          await import('../session/SessionGateway.js');
         } catch (error) {
           // 忽略预加载错�?
         }
@@ -449,13 +428,17 @@ async function startDeferredPrefetches(): Promise<void> {
       // 启动 SessionSupervisor 会话监管器（空闲检测 + 自动回收）
       (async () => {
         try {
-          const { SessionManager } =
-            await import('../session/SessionManager.js');
+          const { SessionGateway } =
+            await import('../session/SessionGateway.js');
+          const { SessionManagerAdapter } =
+            await import('../session/SessionManagerAdapter.js');
           const { SessionSupervisor } =
             await import('../core/session/SessionSupervisor.js');
           const { createSupervisorStore } =
             await import('../core/session/SessionStoreAdapter.js');
-          const store = createSupervisorStore(SessionManager.instance.store);
+          const gateway = new SessionGateway();
+          const adapter = new SessionManagerAdapter(gateway);
+          const store = createSupervisorStore(adapter.store);
           const supervisor = new SessionSupervisor(store, {
             resetPolicy: {
               mode: 'idle',

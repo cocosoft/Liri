@@ -4,6 +4,10 @@
  * Agent内部事件系统
  */
 
+export { AgentEventType } from './types';
+export { SSEEncoder } from './SSEEncoder';
+export type { SSEFrame } from './SSEEncoder';
+
 export type EventPriority = 'low' | 'normal' | 'high';
 
 export interface AgentEvent {

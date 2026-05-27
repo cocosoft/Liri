@@ -665,6 +665,34 @@ export class ChannelManager extends EventEmitter {
     }
 
     try {
+      // 将消息写入共享会话存储，使所有通道消息在统一上下文中可见
+      try {
+        const { getDIContainer } = await import('../../core/DIContainer.js');
+        const { MessageType, MessageRole } = await import(
+          '../../session/types/Message.js'
+        );
+        const container = getDIContainer();
+        if (container.has('combinedSessionGateway')) {
+          const combinedGateway = container.resolve<any>('combinedSessionGateway');
+          if (typeof combinedGateway.sendMessage === 'function') {
+            await combinedGateway.sendMessage('shared-context', {
+              id: message.id,
+              sessionId: 'shared-context',
+              type: MessageType.USER,
+              role: MessageRole.USER,
+              content: message.content,
+              timestamp: message.timestamp,
+              metadata: {
+                channel: channel.name,
+                sender: message.sender,
+              },
+            });
+          }
+        }
+      } catch {
+        // 共享写入失败不影响主路由流程
+      }
+
       const response = await this.coreAPI.chat({
         content: message.content,
         sessionId: message.sessionId,

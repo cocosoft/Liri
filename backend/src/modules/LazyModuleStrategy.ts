@@ -69,6 +69,10 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
     priority: ModuleLoadPriority.CRITICAL,
     trigger: '启动必需',
   },
+  gateway: {
+    priority: ModuleLoadPriority.CRITICAL,
+    trigger: 'Gateway 通道服务启动时初始化',
+  },
 
   // ========== 第二阶段：基础功能模块 ==========
   ai: { priority: ModuleLoadPriority.CRITICAL, trigger: '核心 AI 功能' },

@@ -47,6 +47,11 @@ export interface SessionManagerConfig {
   compactionMonitorIntervalMs?: number;
 }
 
+/**
+ * @deprecated 请使用 SessionGateway + SessionManagerAdapter 替代。
+ * SessionGateway 提供统一会话接口，支持 FTS5 搜索和跨 Agent 聚合。
+ * 迁移路径：new SessionManagerAdapter(new SessionGateway())
+ */
 export class SessionManager {
   static instance: SessionManager;
 

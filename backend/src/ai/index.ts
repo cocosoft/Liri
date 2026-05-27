@@ -215,5 +215,34 @@ export type { AIMiddleware, AIMiddlewareContext } from './middleware';
 export * from './credentials';
 export * from './cost';
 
+// embedding/ — 嵌入模型支持（可选依赖，零启动开销）
+export {
+  EmbeddingBase,
+  EmbeddingManager,
+  globalEmbeddingManager,
+  OpenAIEmbeddingProvider,
+} from './embedding';
+export type {
+  EmbeddingOptions,
+  EmbeddingResult,
+  EmbeddingConfig,
+  OpenAIEmbeddingConfig,
+} from './embedding';
+
+// formatters/ — 模型专用消息格式化器
+export {
+  ModelFormatter,
+  OpenAIFormatter,
+  AnthropicFormatter,
+  GeminiFormatter,
+  DeepSeekFormatter,
+  FormatterRegistry,
+  formatterRegistry,
+} from './formatters';
+export type {
+  FormatContext,
+  FormatResult,
+} from './formatters';
+
 const aiService = createAIService();
 export default aiService;

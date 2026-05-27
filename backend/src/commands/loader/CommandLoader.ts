@@ -210,6 +210,11 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/review/index.js', name: 'review' },
       { path: '../builtin/resume/index.js', name: 'resume' },
       {
+        path: '../builtin/modules/index.js',
+        name: 'modules',
+        aliases: ['mod', 'module'],
+      },
+      {
         path: '../builtin/checkpoint/index.js',
         name: 'checkpoint',
         aliases: ['cp'],

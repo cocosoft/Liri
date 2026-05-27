@@ -1,7 +1,19 @@
 /**
  * ChannelRegistry 通道注册中心
+ *
+ * 统一通道注册代理，以 ChannelPluginRegistry（core/gateway/）为唯一单源，
+ * ChannelRegistry 作为其薄代理对外提供 ChannelInterface 视图。
+ *
+ * 双轨兼容：
+ * - register() 保持原有的本地缓存逻辑（用于 IChannelPlugin / ChannelInterface 直接注册）
+ * - 读取方法优先返回已注册的 ChannelPlugin 适配结果，本地缓存作为补充
+ * - 未匹配到本地缓存时自动从 ChannelPluginRegistry 同步
  */
+
 import { EventEmitter } from 'node:events';
+import { ChannelPluginRegistry } from '../../core/gateway/ChannelPluginRegistry';
+import type { ChannelPlugin } from '../../core/gateway/ChannelPlugin';
+import { ChannelStatus } from '../../core/gateway/types';
 import type { IChannelPlugin } from '../types/IChannel';
 
 /**
@@ -92,8 +104,58 @@ export interface ChannelMessage {
   metadata?: Record<string, unknown>;
 }
 
+/** ChannelPlugin 状态 → ChannelInterface 状态判断 */
+function isPluginConnected(plugin: ChannelPlugin): boolean {
+  return (
+    plugin.status === ChannelStatus.CONNECTED ||
+    plugin.status === ChannelStatus.CONNECTING
+  );
+}
+
+/**
+ * 将 ChannelPlugin 适配为 ChannelInterface
+ * ChannelPlugin 不包含 sendMessage 等通道特有工具方法，
+ * 此处提供包装实现，实际发送能力由 ChannelManager 的同步注册补充。
+ */
+function adaptPluginToChannelInterface(
+  plugin: ChannelPlugin
+): ChannelInterface {
+  return {
+    name: plugin.id,
+    type: plugin.id,
+    enabled: true,
+    get connected() {
+      return isPluginConnected(plugin);
+    },
+    connect: async () => {
+      try {
+        await plugin.connect();
+        return isPluginConnected(plugin);
+      } catch {
+        return false;
+      }
+    },
+    disconnect: async () => {
+      try {
+        await plugin.disconnect();
+      } catch {
+        // 忽略断开失败
+      }
+    },
+    sendMessage: async () => {
+      return false;
+    },
+    getStatus: () => ({
+      status: plugin.status,
+      connected: isPluginConnected(plugin),
+      type: plugin.id,
+    }),
+  };
+}
+
 /**
  * 通道注册中心
+ * 薄代理模式：优先从 ChannelPluginRegistry 读取，本地缓存作为补充
  */
 export class ChannelRegistry extends EventEmitter {
   private channels: Map<string, ChannelInterface> = new Map();
@@ -101,6 +163,18 @@ export class ChannelRegistry extends EventEmitter {
 
   constructor() {
     super();
+    this.syncFromPluginRegistry();
+  }
+
+  /** 从 ChannelPluginRegistry 同步已有插件到本地缓存 */
+  private syncFromPluginRegistry(): void {
+    const registry = ChannelPluginRegistry.getInstance();
+    for (const plugin of registry.getAll()) {
+      const name = plugin.id;
+      if (!this.channels.has(name)) {
+        this.channels.set(name, adaptPluginToChannelInterface(plugin));
+      }
+    }
   }
 
   /**
@@ -146,15 +220,26 @@ export class ChannelRegistry extends EventEmitter {
 
   /**
    * 获取通道
+   * 查询顺序：本地缓存 → ChannelPluginRegistry
    */
   get(name: string): ChannelInterface | undefined {
-    return this.channels.get(name);
+    if (this.channels.has(name)) {
+      return this.channels.get(name);
+    }
+    const registry = ChannelPluginRegistry.getInstance();
+    const plugin = registry.lookup(name);
+    if (!plugin) return undefined;
+
+    const adapted = adaptPluginToChannelInterface(plugin);
+    this.channels.set(name, adapted);
+    return adapted;
   }
 
   /**
    * 获取所有通道
    */
   getAll(): ChannelInterface[] {
+    this.syncFromPluginRegistry();
     return Array.from(this.channels.values());
   }
 
@@ -162,7 +247,7 @@ export class ChannelRegistry extends EventEmitter {
    * 获取所有已启用通道
    */
   getEnabled(): ChannelInterface[] {
-    return Array.from(this.channels.values()).filter((c) => c.enabled);
+    return this.getAll().filter((c) => c.enabled);
   }
 
   /**

@@ -882,6 +882,45 @@ export class ChatManagerImpl implements ChatManager {
       apiMessages.unshift({ role: 'system', content: sysPrompt });
     }
 
+    // 共享上下文：从 CombinedSessionGateway 加载所有通道的历史消息
+    if (options?.useSharedContext) {
+      try {
+        const { getDIContainer } = await import('../core/DIContainer.js');
+        const container = getDIContainer();
+        if (container.has('combinedSessionGateway')) {
+          const combinedGateway = container.resolve<any>('combinedSessionGateway');
+          if (typeof combinedGateway.getMessages === 'function') {
+            const sharedMessages = await combinedGateway.getMessages(
+              'shared-context',
+              { limit: 100 }
+            );
+            if (sharedMessages && sharedMessages.length > 0) {
+              const sharedApiMessages = sharedMessages.map(
+                (msg: { role: string; content: string | unknown[] }) => ({
+                  role: msg.role === 'user' ? 'user' : 'assistant',
+                  content:
+                    typeof msg.content === 'string'
+                      ? msg.content
+                      : JSON.stringify(msg.content),
+                })
+              );
+              // 在系统消息之后、当前会话消息之前插入共享上下文
+              const sysMsgIndex = apiMessages.findIndex(
+                (m: Record<string, unknown>) => m.role === 'system'
+              );
+              if (sysMsgIndex >= 0) {
+                apiMessages.splice(sysMsgIndex + 1, 0, ...sharedApiMessages);
+              } else {
+                apiMessages.unshift(...sharedApiMessages);
+              }
+            }
+          }
+        }
+      } catch {
+        // 共享上下文加载失败不影响主流程
+      }
+    }
+
     const response = await this.llmClient.sendMessage(
       apiMessages as unknown as ChatMessage[],
       {

@@ -95,4 +95,14 @@ export type {
   SandboxMode,
   SandboxGlobalPolicy,
 } from './SandboxPolicy';
+
+// 导出阶段 A 新增组件
+export { WorkspaceBase } from './WorkspaceBase';
+export type { WorkspaceFileInfo, WorkspaceListResult } from './WorkspaceBase';
+export { WorkspaceManager, globalWorkspaceManager } from './WorkspaceManager';
+export type { WorkspaceCreateOptions } from './WorkspaceManager';
+export { LocalWorkspace } from './adapters/LocalWorkspace';
+export { DockerWorkspace } from './adapters/DockerWorkspace';
+export { SSHWorkspace } from './adapters/SSHWorkspace';
+
 export { SandboxConfigBuilder } from './SandboxConfigBuilder';

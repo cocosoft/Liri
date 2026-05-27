@@ -11,6 +11,12 @@ import {
   MODULE_INITIALIZATION_ORDER,
   validateModuleDependencies,
 } from '../modules/ModuleDefinitions';
+import {
+  getEssentialModuleIds,
+  getDeferredModuleIds,
+  getOnDemandModuleIds,
+  ModuleLoadPriority,
+} from '../modules/LazyModuleStrategy';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 
 const logger = new Logger({ level: LogLevel.INFO });
@@ -29,6 +35,9 @@ interface DependencyValidationResult {
   missingDependencies: string[];
   dependencyGraph: Record<string, string[]>;
   topologicalOrder: string[];
+  initializationOrderIssues: string[];
+  optionalDepIssues: string[];
+  versionIssues: string[];
 }
 
 /**
@@ -47,6 +56,9 @@ export class DependencyValidator {
       missingDependencies: [],
       dependencyGraph: {},
       topologicalOrder: [],
+      initializationOrderIssues: [],
+      optionalDepIssues: [],
+      versionIssues: [],
     };
 
     // 构建依赖图
@@ -57,6 +69,18 @@ export class DependencyValidator {
 
     // 检查循环依赖
     this.checkCircularDependencies(result);
+
+    // 检查初始化顺序完整性（所有已定义模块必须在初始化顺序中）
+    this.checkInitializationOrderCompleteness(result);
+
+    // 检查初始化顺序优先级对齐
+    this.checkInitializationOrderAlignment(result);
+
+    // 验证可选依赖引用
+    this.checkOptionalDependencies(result);
+
+    // 验证模块版本格式
+    this.checkModuleVersions(result);
 
     // 计算拓扑排序
     this.calculateTopologicalOrder(result);
@@ -144,6 +168,113 @@ export class DependencyValidator {
   private extractCyclePath(path: string[], cycleStart: string): string[] {
     const startIndex = path.indexOf(cycleStart);
     return path.slice(startIndex);
+  }
+
+  /**
+   * 检查初始化顺序完整性
+   * 确保所有 MODULE_DEFINITIONS 中定义的模块都出现在 MODULE_INITIALIZATION_ORDER 中
+   */
+  private checkInitializationOrderCompleteness(
+    result: DependencyValidationResult
+  ): void {
+    const orderedSet = new Set(MODULE_INITIALIZATION_ORDER);
+    const definedIds = Object.keys(MODULE_DEFINITIONS);
+
+    for (const moduleId of definedIds) {
+      if (!orderedSet.has(moduleId)) {
+        result.initializationOrderIssues.push(
+          `模块 "${moduleId}" 已定义但未出现在 MODULE_INITIALIZATION_ORDER 中`
+        );
+      }
+    }
+  }
+
+  /**
+   * 检查初始化顺序优先级对齐
+   * CRITICAL 模块应集中在 Phase 1-4，DEFERRED/ON_DEMAND 模块应在 Phase 5-8
+   */
+  private checkInitializationOrderAlignment(
+    result: DependencyValidationResult
+  ): void {
+    const essentialIds = new Set(
+      getEssentialModuleIds(MODULE_INITIALIZATION_ORDER)
+    );
+    const deferredIds = new Set(
+      getDeferredModuleIds(MODULE_INITIALIZATION_ORDER)
+    );
+    const onDemandIds = new Set(
+      getOnDemandModuleIds(MODULE_INITIALIZATION_ORDER)
+    );
+
+    // 寻找 Phase 4 和 Phase 5 的分界点（从 CRITICAL 过渡到 DEFERRED）
+    let phaseBoundary = 0;
+    for (let i = 0; i < MODULE_INITIALIZATION_ORDER.length; i++) {
+      const moduleId = MODULE_INITIALIZATION_ORDER[i];
+      if (deferredIds.has(moduleId) || onDemandIds.has(moduleId)) {
+        phaseBoundary = i;
+        break;
+      }
+    }
+
+    // 检查 Phase 1-4 的模块（分界点之前）是否都是 CRITICAL
+    for (let i = 0; i < phaseBoundary; i++) {
+      const moduleId = MODULE_INITIALIZATION_ORDER[i];
+      if (!essentialIds.has(moduleId)) {
+        result.initializationOrderIssues.push(
+          `模块 "${moduleId}" 在初始化顺序中位于 Phase 1-4（索引 ${i}），` +
+          `但未声明为 CRITICAL 优先级。若该模块由 init.ts 急切加载，` +
+          `请在 LazyModuleStrategy.ts 中将其设置为 CRITICAL`
+        );
+      }
+    }
+
+    // 检查 Phase 5-8 的模块（分界点之后）是否都是 DEFERRED 或 ON_DEMAND
+    for (let i = phaseBoundary; i < MODULE_INITIALIZATION_ORDER.length; i++) {
+      const moduleId = MODULE_INITIALIZATION_ORDER[i];
+      if (essentialIds.has(moduleId)) {
+        result.initializationOrderIssues.push(
+          `模块 "${moduleId}" 在初始化顺序中位于 Phase 5-8（索引 ${i}），` +
+          `但声明为 CRITICAL 优先级。延迟模块不应在启动时急切加载，` +
+          `请在 LazyModuleStrategy.ts 中将其调整为 DEFERRED 或 ON_DEMAND`
+        );
+      }
+    }
+  }
+
+  /**
+   * 验证可选依赖引用
+   * 检查 optionalDependencies 引用的模块是否在 MODULE_DEFINITIONS 中存在
+   */
+  private checkOptionalDependencies(
+    result: DependencyValidationResult
+  ): void {
+    for (const [moduleId, definition] of Object.entries(MODULE_DEFINITIONS)) {
+      for (const depId of definition.optionalDependencies) {
+        if (!MODULE_DEFINITIONS[depId]) {
+          result.optionalDepIssues.push(
+            `模块 "${moduleId}" 的可选依赖 "${depId}" 不存在于 MODULE_DEFINITIONS 中`
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * 验证模块版本格式
+   * 检查版本号是否遵循 semver 格式（x.y.z）
+   */
+  private checkModuleVersions(result: DependencyValidationResult): void {
+    const semverPattern = /^\d+\.\d+\.\d+$/;
+
+    for (const [moduleId, definition] of Object.entries(MODULE_DEFINITIONS)) {
+      if (!definition.version) {
+        result.versionIssues.push(`模块 "${moduleId}" 缺少版本号`);
+      } else if (!semverPattern.test(definition.version)) {
+        result.versionIssues.push(
+          `模块 "${moduleId}" 的版本号 "${definition.version}" 不符合 semver 格式（x.y.z）`
+        );
+      }
+    }
   }
 
   /**
@@ -287,6 +418,30 @@ export class DependencyValidator {
     report += `- **模块分类**:\n`;
     for (const [category, count] of Object.entries(categories)) {
       report += `  - ${category}: ${count}\n`;
+    }
+
+    // 初始化顺序问题
+    if (validation.initializationOrderIssues.length > 0) {
+      report += `\n## 初始化顺序问题\n`;
+      validation.initializationOrderIssues.forEach((issue: string) => {
+        report += `- ⚠️ ${issue}\n`;
+      });
+    }
+
+    // 可选依赖问题
+    if (validation.optionalDepIssues.length > 0) {
+      report += `\n## 可选依赖问题\n`;
+      validation.optionalDepIssues.forEach((issue: string) => {
+        report += `- ⚠️ ${issue}\n`;
+      });
+    }
+
+    // 版本号问题
+    if (validation.versionIssues.length > 0) {
+      report += `\n## 版本号问题\n`;
+      validation.versionIssues.forEach((issue: string) => {
+        report += `- ⚠️ ${issue}\n`;
+      });
     }
 
     return report;

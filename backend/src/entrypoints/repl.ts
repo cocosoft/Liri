@@ -497,10 +497,38 @@ export async function launchRepl(
           // 显示 AI 思考过程状态
           console.log(chalk.yellow('⚙️ System: 🤔 AI 正在思考...'));
 
+          // 将 REPL 输入写入共享会话存储，使所有通道消息在统一上下文中可见
+          try {
+            const { getDIContainer } = await import('../core/DIContainer.js');
+            const { randomUUID } = await import('crypto');
+            const { MessageType, MessageRole } = await import(
+              '../session/types/Message.js'
+            );
+            const container = getDIContainer();
+            if (container.has('combinedSessionGateway')) {
+              const combinedGateway =
+                container.resolve<any>('combinedSessionGateway');
+              if (typeof combinedGateway.sendMessage === 'function') {
+                await combinedGateway.sendMessage('shared-context', {
+                  id: randomUUID(),
+                  sessionId: 'shared-context',
+                  type: MessageType.USER,
+                  role: MessageRole.USER,
+                  content: trimmedLine,
+                  timestamp: Date.now(),
+                  metadata: { channel: 'repl', sender: 'user' },
+                });
+              }
+            }
+          } catch {
+            // 共享写入失败不影响主流程
+          }
+
           const currentSession = chatManager.getCurrentSession();
           const response = await chatManager.sendMessage(trimmedLine, {
             sessionId: currentSession?.id,
             stream: true,
+            useSharedContext: true,
             /**
              * 工具调用回调：在终端实时展示工具调用过程
              */

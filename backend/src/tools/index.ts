@@ -36,6 +36,12 @@ import { TOOL_SYSTEM_VERSION } from './types/ToolTypes';
 // 导出工具系统版本信息
 export { TOOL_SYSTEM_VERSION };
 
+// 导出阶段 A 新增组件
+export { FunctionTool } from './FunctionTool';
+export type { ToolFunction, FunctionToolConfig } from './FunctionTool';
+export { ToolGroup } from './ToolGroup';
+export { Toolkit } from './Toolkit';
+
 /**
  * 工具系统初始化函数
  */

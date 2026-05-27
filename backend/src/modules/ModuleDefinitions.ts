@@ -36,6 +36,17 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     optionalDependencies: ['monitoring'],
   },
 
+  gateway: {
+    id: 'gateway',
+    name: 'gateway',
+    displayName: '网关模块',
+    version: '1.0.0',
+    category: ModuleCategory.INFRASTRUCTURE,
+    description: '网关模块，提供通道管理和消息路由，支持多平台通信通道（Telegram、Discord、QQ等）的注册、连接和生命周期管理',
+    dependencies: ['core', 'infrastructure'],
+    optionalDependencies: ['monitoring', 'channels', 'session'],
+  },
+
   bootstrap: {
     id: 'bootstrap',
     name: 'bootstrap',
@@ -782,6 +793,7 @@ export const MODULE_INITIALIZATION_ORDER: string[] = [
 
   // 第四阶段（补充）：init.ts 急切加载的模块，实际在 T1 阶段初始化
   'monitoring',
+  'gateway',
   'plugins',
   'channels',
   'tools',

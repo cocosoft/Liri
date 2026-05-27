@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-26T11:38:36.452Z",
+  "generatedAt": "2026-05-27T02:37:22.001Z",
   "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {
@@ -21,6 +21,21 @@
       ],
       "optionalDependencies": [
         "monitoring"
+      ]
+    },
+    "gateway": {
+      "id": "gateway",
+      "name": "gateway",
+      "category": "infrastructure",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure"
+      ],
+      "optionalDependencies": [
+        "monitoring",
+        "channels",
+        "session"
       ]
     },
     "bootstrap": {
@@ -744,6 +759,107 @@
         "monitoring",
         "sandbox"
       ]
+    },
+    "knowledge": {
+      "id": "knowledge",
+      "name": "knowledge",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "ai"
+      ],
+      "optionalDependencies": [
+        "monitoring",
+        "memory",
+        "docs"
+      ]
+    },
+    "credentials": {
+      "id": "credentials",
+      "name": "credentials",
+      "category": "security",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "monitoring"
+      ]
+    },
+    "delivery": {
+      "id": "delivery",
+      "name": "delivery",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "monitoring"
+      ]
+    },
+    "auto-reply": {
+      "id": "auto-reply",
+      "name": "auto-reply",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "error"
+      ]
+    },
+    "diagnostics": {
+      "id": "diagnostics",
+      "name": "diagnostics",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "monitoring"
+      ]
+    },
+    "extensions": {
+      "id": "extensions",
+      "name": "extensions",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "plugin-sdk"
+      ],
+      "optionalDependencies": [
+        "monitoring",
+        "error"
+      ]
+    },
+    "insights": {
+      "id": "insights",
+      "name": "insights",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "monitoring"
+      ]
+    },
+    "wizard": {
+      "id": "wizard",
+      "name": "wizard",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": [
+        "error"
+      ]
     }
   },
   "initializationOrder": [
@@ -759,7 +875,12 @@
     "hooks",
     "modules",
     "cache",
+    "monitoring",
+    "gateway",
+    "plugins",
     "channels",
+    "tools",
+    "commands",
     "session",
     "skills",
     "runtime",
@@ -774,19 +895,17 @@
     "cost",
     "lsp",
     "mcp",
-    "plugins",
     "query",
+    "knowledge",
     "ink",
     "ui",
     "cli",
-    "tools",
-    "commands",
     "security",
     "oauth",
     "permission",
     "sandbox",
-    "monitoring",
     "daemon",
+    "credentials",
     "enterprise",
     "flows",
     "media",
@@ -800,7 +919,13 @@
     "streaming",
     "utils",
     "keybindings",
-    "voice"
+    "voice",
+    "delivery",
+    "auto-reply",
+    "diagnostics",
+    "extensions",
+    "insights",
+    "wizard"
   ],
-  "fingerprint": "74e21ed9c46cbb9e"
+  "fingerprint": "50d69c1c1da7e2b8"
 }

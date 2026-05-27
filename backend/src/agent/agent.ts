@@ -30,6 +30,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { CuratorScheduler } from '@modules/tools/AgentTool/CuratorScheduler';
 import { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
+import { InternalEventBus } from './events';
 
 /**
  * AI代理类
@@ -45,12 +46,14 @@ export class AIAgentImpl implements AIAgent {
   private updatedAt: number;
   private curator: CuratorScheduler | null = null;
   private skillLifecycle: SkillLifecycleManager | null = null;
+  private eventBus: InternalEventBus | null = null;
 
   /**
    * 构造函数
    * @param config 代理配置
+   * @param eventBus 可选事件总线
    */
-  constructor(config: AgentConfig) {
+  constructor(config: AgentConfig, eventBus?: InternalEventBus) {
     this.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
     this.name = `Agent ${this.id.substring(0, 6)}`;
     this.config = config;
@@ -59,6 +62,7 @@ export class AIAgentImpl implements AIAgent {
     this.memory = createAgentMemory(config.memoryPath);
     this.createdAt = Date.now();
     this.updatedAt = Date.now();
+    this.eventBus = eventBus ?? null;
     if (config.curatorConfig) {
       this.curator = new CuratorScheduler({
         enabled: config.curatorConfig.enabled,
@@ -106,11 +110,25 @@ export class AIAgentImpl implements AIAgent {
       // 记录任务开始
       logger.info(`Agent ${this.name} starting task: ${task.name}`);
 
+      await this.emitEvent('agent:execute:start', {
+        taskId: task.id,
+        taskName: task.name,
+        strategy: this.strategy.name,
+        toolCount: context.tools.length,
+      });
+
       // 执行任务
       const response = await this.strategy.execute(task, context);
 
       // 记录任务完成
       logger.info(`Agent ${this.name} completed task: ${task.name}`);
+
+      await this.emitEvent('agent:execute:end', {
+        taskId: task.id,
+        status: response.status,
+        duration: Date.now() - this.updatedAt,
+        responseId: response.id,
+      });
 
       this.state = response.status;
       this.updatedAt = Date.now();
@@ -140,6 +158,13 @@ export class AIAgentImpl implements AIAgent {
         `Agent ${this.name} failed to execute task ${task.name}:`,
         error instanceof Error ? error : new Error(String(error))
       );
+
+      await this.emitEvent('agent:execute:error', {
+        taskId: task.id,
+        taskName: task.name,
+        error: errorMessage,
+        strategy: this.strategy.name,
+      });
 
       const errorResponse: AgentResponse = {
         id: Date.now().toString(36),
@@ -218,6 +243,12 @@ export class AIAgentImpl implements AIAgent {
           timeout: context.timeout,
         };
 
+        await this.emitEvent('agent:reply:start', {
+          taskId: task.id,
+          messageCount: messages.length,
+          model: context.model,
+        });
+
         try {
           for await (const chunk of aiService.stream(
             messages,
@@ -240,16 +271,31 @@ export class AIAgentImpl implements AIAgent {
                 status: AgentState.BUSY,
                 timestamp: Date.now(),
               };
+
+              await this.emitEvent('agent:reply:delta', {
+                taskId: task.id,
+                chunkIndex: chunkIndex - 1,
+                content: chunk.content,
+                accumulatedLength: accumulatedContent.length,
+              });
             }
           }
         } catch (streamError) {
           // 流式错误处理
+          const errMsg = (streamError as Error).message;
+
+          await this.emitEvent('agent:reply:error', {
+            taskId: task.id,
+            error: errMsg,
+            accumulatedLength: accumulatedContent.length,
+          });
+
           const errorResponse: AgentResponse = {
             id: `${responseId}_error`,
             taskId: task.id,
-            content: `流式执行出错: ${(streamError as Error).message}`,
+            content: `流式执行出错: ${errMsg}`,
             status: AgentState.FAILED,
-            error: (streamError as Error).message,
+            error: errMsg,
             timestamp: Date.now(),
           };
 
@@ -268,6 +314,12 @@ export class AIAgentImpl implements AIAgent {
           status: AgentState.COMPLETED,
           timestamp: Date.now(),
         };
+
+        await this.emitEvent('agent:reply:end', {
+          taskId: task.id,
+          totalChunks: chunkIndex,
+          totalLength: accumulatedContent.length,
+        });
 
         // 保存任务结果到内存
         this.memory.add(`task_${task.id}`, {
@@ -384,6 +436,20 @@ export class AIAgentImpl implements AIAgent {
         durationMs: 0,
       };
     });
+  }
+
+  /**
+   * 安全发射事件
+   * @param type 事件类型
+   * @param data 事件数据
+   */
+  private async emitEvent(type: string, data?: unknown): Promise<void> {
+    if (!this.eventBus) return;
+    try {
+      await this.eventBus.emit(type, data, { source: `agent:${this.id}` });
+    } catch (e) {
+      logger.warn(`事件发射失败: ${type}`, { error: String(e) });
+    }
   }
 
   /**

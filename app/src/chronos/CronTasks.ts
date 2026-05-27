@@ -7,12 +7,12 @@ import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { parseCronExpression } from './cron';
+import { resolveChronosDir } from '@modules/config/paths';
 import type { ScheduledTask } from './types';
 import type { SqliteCronStore } from './service/SqliteCronStore';
 
 const logger = new Logger({ level: LogLevel.INFO });
 
-const CRON_FILE_DIR = '.pyapp';
 const CRON_FILE_NAME = 'scheduled_tasks.json';
 
 let _sqliteStore: SqliteCronStore | null = null;
@@ -28,17 +28,16 @@ export function setCronSqliteStore(store: SqliteCronStore): void {
  * 获取cron任务文件路径
  */
 export function getCronFilePath(dir?: string): string {
-  const baseDir = dir ?? process.cwd();
-  return join(baseDir, CRON_FILE_DIR, CRON_FILE_NAME);
+  const baseDir = dir ?? resolveChronosDir();
+  return join(baseDir, CRON_FILE_NAME);
 }
 
 /**
  * 确保目录存在
  */
 function ensureDir(dir: string): void {
-  const cronDir = join(dir, CRON_FILE_DIR);
-  if (!existsSync(cronDir)) {
-    mkdirSync(cronDir, { recursive: true });
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
   }
 }
 

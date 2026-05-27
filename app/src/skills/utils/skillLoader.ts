@@ -7,7 +7,7 @@ import { existsSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { SkillParser, SkillSource, type SkillDefinition } from './skillParser';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/config/paths';
+import { resolvePyappHome, resolveDataDir } from '@modules/config/paths';
 
 /**
  * 技能加载路径配置
@@ -134,7 +134,7 @@ export class SkillLoader {
       // 项目技能目录
       {
         source: SkillSource.PROJECT,
-        path: join(resolveProjectRoot(), '.pyapp', 'skills'),
+        path: join(resolveDataDir(), 'skills'),
         priority: 90,
         enabled: true,
         recursive: true,
